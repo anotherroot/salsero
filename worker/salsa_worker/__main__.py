@@ -25,8 +25,8 @@ def main() -> int:
     )
     try:
         n = jobs.run(api, tools)
-    except Exception:  # server unreachable, laptop offline: the next tick tries again
-        logging.exception("could not reach the server")
+    except Exception as e:  # server unreachable, laptop offline, token refused: the next tick tries again
+        logging.exception("worker run failed: %s", e)
         return 1
     if n:
         logging.info("processed %d job(s)", n)

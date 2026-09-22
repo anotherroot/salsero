@@ -81,3 +81,47 @@ def test_run_drains_the_queue_and_counts(tmp_path):
 def test_run_stops_at_max_jobs():
     api = FakeApi([{"id": i, "kind": "analyze", "url": None} for i in range(5)])
     assert jobs.run(api, tools(), max_jobs=3) == 3
+
+
+def test_process_says_whether_it_succeeded(tmp_path):
+    def analyze(wav):
+        raise RuntimeError("model crashed")
+
+    job = {"id": 1, "kind": "analyze", "url": None}
+    assert jobs.process(job, FakeApi([]), tools(), tmp_path) is True
+    assert jobs.process(job, FakeApi([]), tools(analyze=analyze), tmp_path) is False
+
+
+def test_run_stops_after_a_failed_job():
+    def analyze(wav):
+        raise RuntimeError("model crashed")
+
+    api = FakeApi([{"id": i, "kind": "analyze", "url": None} for i in range(3)])
+    assert jobs.run(api, tools(analyze=analyze)) == 1
+    assert [c for c in api.calls if c[0] == "fail"] == [("fail", 0, "RuntimeError: model crashed", False)]
+    assert len(api.queue) == 2  # left for the next tick
+
+
+def test_an_upload_longer_than_15_minutes_fails_for_good(tmp_path):
+    def analyze(wav):
+        raise AssertionError("must not analyse")
+
+    t = jobs.Tools(
+        fetch=None,
+        to_wav=lambda src, dest: dest.write_bytes(b"wav"),
+        duration_of=lambda path: media.MAX_DURATION_S + 1.0,
+        analyze=analyze,
+    )
+    api = FakeApi([])
+    assert jobs.process({"id": 4, "kind": "analyze", "url": None}, api, t, tmp_path) is False
+    assert api.calls == [("download_audio", 4), ("fail", 4, "Longer than 15 minutes.", True)]
+
+
+def test_a_refused_analysis_fails_for_good(tmp_path):
+    class Refusing(FakeApi):
+        def post_analysis(self, song_id, beats, downbeats, duration):
+            raise media.PermanentError("Server refused the analysis: no beats found")
+
+    api = Refusing([])
+    assert jobs.process({"id": 5, "kind": "analyze", "url": None}, api, tools(), tmp_path) is False
+    assert api.calls[-1] == ("fail", 5, "Server refused the analysis: no beats found", True)

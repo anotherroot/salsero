@@ -6,7 +6,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-# Matches the server's rule: longer songs are refused rather than stored.
+# The worker enforces this (yt-dlp's filter for downloads, a check after
+# decoding for uploads): longer songs fail for good rather than being analysed.
 MAX_DURATION_S = 900
 
 # yt-dlp messages that no retry will fix. Everything else (network, the bot
