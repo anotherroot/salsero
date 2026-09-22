@@ -22,3 +22,7 @@ vite.config.ts.timestamp-*
 # nix / direnv
 .direnv/
 result
+
+# agent worktrees and plan-execution scratch
+.claude/worktrees/
+.superpowers/
