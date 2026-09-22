@@ -29,7 +29,6 @@ git add secrets/salsa-prod.env.age   # flakes only see tracked files
 
 ```
 ORIGIN=https://salsa.anotherroot.eu
-SESSION_SECRET=<openssl rand -base64 32>
 ADMIN_EMAIL=...
 ADMIN_PASSWORD=<12+ chars, three of lower/upper/digit/symbol>
 ```

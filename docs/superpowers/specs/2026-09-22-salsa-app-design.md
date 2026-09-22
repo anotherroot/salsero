@@ -322,7 +322,7 @@ Mirrors muscle_model's `docs/007-deployment.md`, minus Postgres.
     keep 14.
   - `secrets/salsa-prod.env.age`: `DATABASE_PATH=/var/lib/salsa/salsa.db`,
     `DATA_DIR=/var/lib/salsa`, `ORIGIN=https://salsa.anotherroot.eu` (must be
-    the public URL — CSRF), `SESSION_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
+    the public URL — CSRF), `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
     `TZ_USER=Europe/Ljubljana`.
   - Phase 2 adds the `salsa-analyze` package to the unit's `path`.
 - **Build first, then switch** on the shared host.
