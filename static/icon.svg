@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#c2410c"/>
+  <g fill="#fff7ed">
+    <!-- the held clave, resting low -->
+    <rect x="96" y="318" width="320" height="52" rx="26" transform="rotate(-8 256 344)"/>
+    <!-- the striking clave, landing on it -->
+    <rect x="110" y="200" width="280" height="48" rx="24" transform="rotate(32 250 224)" opacity="0.92"/>
+  </g>
+  <!-- the click -->
+  <g fill="none" stroke="#fff7ed" stroke-width="14" stroke-linecap="round" opacity="0.75">
+    <path d="M394 236 q30 12 38 46"/>
+    <path d="M404 182 q58 22 72 90"/>
+  </g>
+</svg>

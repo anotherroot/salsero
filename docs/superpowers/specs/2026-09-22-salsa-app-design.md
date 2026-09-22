@@ -209,7 +209,7 @@ The home page. One page serves both "exercises" and "today".
   `<input type="file" accept="video/*,audio/*" capture>`, or any file from a
   desktop. Upload shows progress. Stored as-is under
   `/var/lib/salsa/recordings/<uuid>.<ext>`, served by an endpoint that supports
-  HTTP range requests (seeking on phones). Max 300 MB per file.
+  HTTP range requests (seeking on phones). Max 95 MiB per file — see below.
 
 ## Songs & player (phase 2)
 
@@ -333,11 +333,20 @@ Mirrors muscle_model's `docs/007-deployment.md`, minus Postgres.
 - DNS: nothing to do if the zone's wildcard reaches the box; otherwise a
   grey-clouded A record so ACME HTTP-01 works.
 
-## Open items (decide during planning, not blocking)
+## Decided after review
 
-- Whether recordings should also be synced off-box (e.g. Syncthing), since they
-  are the only irreplaceable data besides the database.
-- The user's timezone is assumed `Europe/Ljubljana`; confirm.
+- **Off-box backup:** the nightly backup job also copies recordings and the
+  newest DB snapshot into `/home/tilen/Backups/salsa` on the server, shared by
+  Syncthing as a send-only folder to `backtop` (receive-only). No `--delete`,
+  so a deleted recording survives in the backup.
+- **Timezone:** `Europe/Ljubljana` (stored on the user row, as muscle_model).
+
+- **Recording size cap is 95 MiB, not 300 MB.** The hostname is behind
+  Cloudflare's proxy, whose free plan rejects request bodies over 100 MB at the
+  edge. nginx and `BODY_SIZE_LIMIT` sit at 100m, just above the app's own check.
+
+## Open items
+
 - `better-sqlite3` is a native addon; its prebuilt binary may not load on
   NixOS. Verify on the server early in phase 1. Fallbacks: build it on the box
   with the toolchain in the unit's environment, or switch the Drizzle driver to

@@ -1,0 +1,78 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Warm neutrals with one accent (a clave-wood red-orange) and
+ * one "done" green. Done is the only state that needs to read at a glance from
+ * across the kitchen, so it gets the only saturated background in the list.
+ */
+@theme {
+	--color-surface: #fcfbf9;
+	--color-plane: #f5f3ef;
+	--color-raised: #ffffff;
+
+	--color-ink: #141210;
+	--color-ink-2: #55504a;
+	--color-muted: #8b857d;
+
+	--color-line: #e5e1da;
+	--color-rule: #cbc5bb;
+
+	--color-accent: #c2410c;
+	--color-accent-ink: #ffffff;
+	--color-danger: #c62828;
+
+	--color-done: #1e7a4f;
+	--color-done-bg: #e3f3ea;
+	--color-overdue: #b45309;
+}
+
+@layer theme {
+	:root {
+		color-scheme: light;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme='light']) {
+			color-scheme: dark;
+			--color-surface: #1b1a18;
+			--color-plane: #100f0e;
+			--color-raised: #242220;
+
+			--color-ink: #f7f5f2;
+			--color-ink-2: #c9c3b9;
+			--color-muted: #8b857d;
+
+			--color-line: #2e2b28;
+			--color-rule: #3d3935;
+
+			--color-accent: #f06a2e;
+			--color-danger: #ef5350;
+
+			--color-done: #5cc98f;
+			--color-done-bg: #173226;
+			--color-overdue: #f0a04b;
+		}
+	}
+}
+
+html,
+body {
+	background: var(--color-plane);
+}
+
+body {
+	color: var(--color-ink);
+	font-family:
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-webkit-tap-highlight-color: transparent;
+}
+
+/* Visible focus everywhere. No border-radius here: it would reshape the element, not the outline. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}

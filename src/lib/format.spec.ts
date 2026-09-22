@@ -1,0 +1,21 @@
+import { describe, expect, it } from 'vitest';
+import { dateLabel, dayLabel, lastDoneLabel, setSummary } from './format';
+
+describe('format', () => {
+	it('labels last-done in calendar words', () => {
+		expect(lastDoneLabel(null)).toBe('Never done');
+		expect(lastDoneLabel(0)).toBe('Today');
+		expect(lastDoneLabel(1)).toBe('Yesterday');
+		expect(lastDoneLabel(4)).toBe('4 days ago');
+	});
+
+	it('summarises only the fields that were filled', () => {
+		expect(setSummary({ durationS: null, reps: null, rating: null })).toBe('');
+		expect(setSummary({ durationS: 600, reps: 8, rating: 3 })).toBe('10 min · 8 reps · ★★★');
+	});
+
+	it('labels a day without shifting it through a zone', () => {
+		expect(dayLabel('2026-09-22')).toBe('Tue 22 Sep');
+		expect(dateLabel('2026-01-05')).toBe('5 Jan 2026');
+	});
+});
