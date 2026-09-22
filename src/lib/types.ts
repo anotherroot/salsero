@@ -1,5 +1,5 @@
 /** Row shapes that cross from server to page. Client-safe: no server imports. */
-import type { Partner, Source } from './labels';
+import type { Partner, SongStatus, Source, Style, TempoFactor } from './labels';
 
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {
@@ -24,4 +24,18 @@ export interface DaySet {
 	reps: number | null;
 	rating: number | null;
 	note: string | null;
+}
+
+export interface SongItem {
+	id: number;
+	title: string;
+	artist: string | null;
+	style: Style;
+	sourceUrl: string | null;
+	status: SongStatus;
+	error: string | null;
+	durationS: number | null;
+	bpm: number | null;
+	tempoFactor: TempoFactor;
+	createdAt: number;
 }

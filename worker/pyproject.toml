@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "salsa-worker"
+version = "0.1.0"
+description = "salsaapp home worker: fetch songs, find their beats"
+requires-python = ">=3.11"
+
+[project.scripts]
+salsa-worker = "salsa_worker.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["salsa_worker*"]

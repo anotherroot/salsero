@@ -38,3 +38,9 @@ export function dateLabel(day: string): string {
 	const d = new Date(`${day}T12:00:00Z`);
 	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
+
+/** A song position in seconds as `m:ss`. */
+export function clock(seconds: number): string {
+	const s = Math.max(0, Math.floor(seconds));
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}

@@ -1,18 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Readable, Transform } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
-import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { addRecording, getFigure } from '$lib/server/figures';
 import {
 	MAX_RECORDING_BYTES,
 	MAX_RECORDING_LABEL,
+	TooLargeError,
 	extensionFor,
-	recordingsDir
+	recordingsDir,
+	safeDecodeHeader,
+	saveStream
 } from '$lib/server/files';
 import type { RequestHandler } from './$types';
 
@@ -42,34 +41,18 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
 	if (!request.body) throw error(400, 'Empty upload.');
 
-	const originalName = decodeURIComponent(request.headers.get('x-filename') ?? '');
-	const note =
-		decodeURIComponent(request.headers.get('x-note') ?? '')
-			.trim()
-			.slice(0, 2000) || null;
+	const originalName = safeDecodeHeader(request.headers.get('x-filename'));
+	const note = safeDecodeHeader(request.headers.get('x-note')).trim().slice(0, 2000) || null;
 	const file = `${randomUUID()}.${extensionFor(mime, originalName)}`;
 	const path = join(recordingsDir(), file);
 
-	let bytes = 0;
-	const limit = new Transform({
-		transform(chunk: Buffer, _enc, done) {
-			bytes += chunk.length;
-			if (bytes > MAX_RECORDING_BYTES) done(new Error('too large'));
-			else done(null, chunk);
-		}
-	});
-
+	let bytes: number;
 	try {
-		await pipeline(
-			Readable.fromWeb(request.body as unknown as WebReadableStream),
-			limit,
-			createWriteStream(path, { flags: 'wx' })
-		);
+		bytes = await saveStream(request.body, path, MAX_RECORDING_BYTES);
 	} catch (err) {
-		// Never leave a half-written file behind for the backup to copy.
-		await unlink(path).catch(() => {});
-		if (bytes > MAX_RECORDING_BYTES)
+		if (err instanceof TooLargeError) {
 			throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
+		}
 		console.error('recording upload failed', err);
 		throw error(400, 'The upload was interrupted. Try again.');
 	}

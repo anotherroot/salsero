@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { PARTNER, PRACTICE_MODES, SOURCES, STYLES } from '../../labels';
+import { PARTNER, PRACTICE_MODES, SONG_STATUSES, SOURCES, STYLES } from '../../labels';
 
 /*
  * Every instant is an INTEGER of epoch milliseconds, never a Date or a string.
@@ -146,3 +146,48 @@ export type Figure = typeof figures.$inferSelect;
 export type Recording = typeof recordings.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type SetRow = typeof sets.$inferSelect;
+
+/* ── Songs ──────────────────────────────────────────────────────────────── */
+
+/**
+ * A song and its beat analysis. The heavy work (download, Beat This!) happens
+ * on the home worker; this row is also the job queue — `status` says what the
+ * worker should do next, `claimed_at` is its lease. See `src/lib/server/songs.ts`.
+ *
+ * `beats_json` is already cleaned (gaps filled). The user's count lives in
+ * `anchors_json` and `tempo_factor`, separate from the analysis, so re-analysing
+ * never throws away a correction.
+ */
+export const songs = sqliteTable(
+	'songs',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** Empty until the user or the worker (from YouTube) names it. */
+		title: text('title').notNull().default(''),
+		artist: text('artist'),
+		style: text('style', { enum: STYLES }).notNull().default('salsa'),
+		sourceUrl: text('source_url'),
+		status: text('status', { enum: SONG_STATUSES }).notNull(),
+		error: text('error'),
+		attempts: integer('attempts').notNull().default(0),
+		claimedAt: integer('claimed_at'),
+		/** File name under `$DATA_DIR/audio/`. */
+		audioFile: text('audio_file').unique(),
+		mime: text('mime'),
+		durationS: real('duration_s'),
+		bpm: real('bpm'),
+		beatsJson: text('beats_json'),
+		downbeatsJson: text('downbeats_json'),
+		anchorsJson: text('anchors_json').notNull().default('[]'),
+		tempoFactor: real('tempo_factor').notNull().default(1),
+		archivedAt: integer('archived_at'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check('songs_tempo_ck', sql`${t.tempoFactor} in (0.5, 1, 2)`),
+		check('songs_source_ck', sql`${t.sourceUrl} is not null or ${t.audioFile} is not null`),
+		index('songs_status_idx').on(t.status, t.createdAt)
+	]
+);
+
+export type Song = typeof songs.$inferSelect;

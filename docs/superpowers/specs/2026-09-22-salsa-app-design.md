@@ -144,14 +144,25 @@ recordings
   created_at      timestamp
 
 songs                                          -- phase 2
-  id, title, artist, source_url (nullable), style ('salsa'|'son'|'other')
-  status ('pending'|'ready'|'failed'), error (nullable)
-  duration_s, bpm
-  beats_json, downbeats_json                   -- analysis output, replaced wholesale
-  beats_json                                   -- cleaned beat times (gaps filled), seconds
-  anchors_json    text default '[]'            -- user: beat indices tapped as "1", sorted
-  tempo_factor    real default 1               -- user: 0.5 / 1 / 2 — count every other beat, as detected, or twice per beat
-  created_at
+  id              integer pk
+  title           text not null default ''     -- '' until the user or the worker (YouTube title) names it
+  artist          text, nullable
+  style           'salsa' | 'son' | 'other'   default 'salsa'
+  source_url      text, nullable               -- YouTube link; source_url or audio_file is always set
+  status          'waiting_download' | 'waiting_analysis' | 'ready' | 'failed'
+  error           text, nullable               -- last worker error; shown while waiting or failed
+  attempts        integer not null default 0   -- claims so far; failed after 5
+  claimed_at      timestamp, nullable          -- the worker's lease; null or 15+ min old = claimable
+  audio_file      text unique, nullable        -- name under audio/
+  mime            text, nullable
+  duration_s      real, nullable
+  bpm             real, nullable               -- from the cleaned beats
+  beats_json      text, nullable               -- cleaned beat times (gaps filled), seconds
+  downbeats_json  text, nullable               -- the model's downbeats, only for the suggested "1"
+  anchors_json    text not null default '[]'   -- user: beat indices tapped as "1", sorted
+  tempo_factor    real not null default 1      -- user: 0.5 / 1 / 2 — count every other beat, as detected, or twice per beat
+  archived_at     timestamp, nullable
+  created_at      timestamp
 
 choreographies                                 -- phase 3
   id, name, song_id (nullable), notes, archived_at, created_at
@@ -222,7 +233,10 @@ The home page. One page serves both "exercises" and "today".
 
 **Adding a song:** paste a YouTube URL (status `waiting_download`) or upload
 an audio file (`waiting_analysis`). The home worker claims waiting songs with a
-15-minute lease, so a job that dies mid-way is picked up again; after 5 failed
+15-minute lease, so a job that dies mid-way is picked up again. A transient
+failure keeps its lease, so the next try waits out the 15 minutes rather than
+following straight away, and the worker stops its run after any failed job.
+After 5 failed
 attempts, or a permanent error (video unavailable, longer than 15 minutes), the
 song is `failed` with the error shown, **Retry** and **Upload a file instead**.
 While laptop is off, songs simply wait; the library says so.
