@@ -2833,12 +2833,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 nixos-config consumes the worker as a flake input over SSH, like `tilenkoren`.
 
-- [ ] **Step 1: Ask the user** to create an empty **private** repository `anotherroot/salsaapp` on github.com (no README, no licence, no .gitignore), and wait for confirmation. There is no `gh` CLI on backtop.
+- [ ] **Step 1: Ask the user** to create an empty **private** repository `anotherroot/salsero` on github.com (no README, no licence, no .gitignore), and wait for confirmation. There is no `gh` CLI on backtop.
 
 - [ ] **Step 2: Push**
 
 ```bash
-git remote add origin git@github.com:anotherroot/salsaapp.git
+git remote add origin git@github.com:anotherroot/salsero.git
 git push -u origin master
 git ls-remote origin HEAD
 ```
@@ -2866,7 +2866,7 @@ Expected: the pushed commit hash printed by `ls-remote` equals `git rev-parse HE
     # salsaapp's home worker (salsa-worker package). Private repo, so git+ssh,
     # same reasoning as tilenkoren. Deliberately NOT following our nixpkgs: the
     # worker's torch/Beat This! set is tested against salsaapp's own pin.
-    salsaapp.url = "git+ssh://git@github.com/anotherroot/salsaapp";
+    salsaapp.url = "git+ssh://git@github.com/anotherroot/salsero";
 ```
 
 Run: `nix flake update salsaapp` (only that input — do NOT run a bare `nix flake update`, and leave the user's uncommitted `tilenkoren` lock bump alone: `git diff flake.lock` must show only the added `salsaapp` node plus that pre-existing hunk).
@@ -3003,7 +3003,7 @@ git add salsa-worker.env.age
 }
 ```
 
-- [ ] **Step 5: Enable on laptop** — in `modules/hosts/laptop.nix`, add `config.flake.modules.nixos.svc-salsa-worker` to the `modules` list after `config.flake.modules.nixos.workstation`.
+- [ ] **Step 5: Enable on backtop first, behind a switch** — the module defines `my.salsa.worker.enable` (default `false`), and the service + timer are `lib.mkIf cfg.enable`. Import `config.flake.modules.nixos.svc-salsa-worker` in `modules/hosts/backtop.nix` and set `my.salsa.worker.enable = true;` there. Moving it to laptop later is the same two lines in `modules/hosts/laptop.nix` plus setting backtop's flag to false. At runtime it can also be stopped without a rebuild: `sudo systemctl stop salsa-worker.timer` (a rebuild re-enables it).
 
 - [ ] **Step 6: Build and test**
 

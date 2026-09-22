@@ -61,7 +61,7 @@ salsa.anotherroot.eu → nginx (publicAcme, raised body size)
                          ├─ files    /var/lib/salsa/recordings/, audio/, clips/
                          └─ /api/worker/*  job queue for the home worker
                                   ▲ outbound HTTPS only, bearer token
-laptop (home, always on) — salsa-worker, systemd timer every minute
+home host (backtop; laptop later) — salsa-worker, timer every minute
     yt-dlp → ffmpeg → Beat This! → beats/downbeats → back to the server
     piper TTS → call clips (phase 2b)
 ```
@@ -72,7 +72,8 @@ laptop (home, always on) — salsa-worker, systemd timer every minute
   urgency computation per request, and a small job queue the home worker
   polls. The server runs no Python and no ML: it has 3.7 GB RAM shared with
   other services and an 80% full disk.
-- **Home worker (`salsa-worker`, Python)** — phase 2, on the `laptop` host.
+- **Home worker (`salsa-worker`, Python)** — phase 2, on a home host
+  (`my.salsa.worker.enable`: backtop first, laptop later).
   Claims jobs over HTTPS, downloads with yt-dlp (YouTube bot-blocks the
   Hetzner IP), transcodes with ffmpeg, runs Beat This! (`final0` checkpoint,
   ~15 s and ~660 MB per song on CPU, measured) and posts beats + downbeats
@@ -357,10 +358,11 @@ Mirrors muscle_model's `docs/007-deployment.md`, minus Postgres.
     `DATA_DIR=/var/lib/salsa`, `ORIGIN=https://salsa.anotherroot.eu` (must be
     the public URL — CSRF), `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
     `TZ_USER=Europe/Ljubljana`.
-  - Phase 2: `modules/services/salsa-worker.nix` on `laptop` (oneshot +
+  - Phase 2: `modules/services/salsa-worker.nix`, enabled per host with
+    `my.salsa.worker.enable` (backtop first) (oneshot +
     1-minute timer, DynamicUser, MemoryMax 2G), secret `salsa-worker.env.age`
     (`SALSA_WORKER_TOKEN`) readable by cloud and laptop, and salsaapp as a
-    private GitHub flake input (`git+ssh://git@github.com/anotherroot/salsaapp`).
+    private GitHub flake input (`git+ssh://git@github.com/anotherroot/salsero`).
 - **Build first, then switch** on the shared host.
 - **App repo:** `scripts/deploy.sh prod` — build locally, rsync `build/`,
   `package.json`, lockfile and `drizzle/`, `npm ci --omit=dev` on the box
@@ -386,8 +388,9 @@ Mirrors muscle_model's `docs/007-deployment.md`, minus Postgres.
   plain upload, fails with "Sign in to confirm you're not a bot"; from the home
   connection the same version downloads both a plain upload and an official
   label video. Design: pasting a URL creates a song with status
-  `waiting_download`. A fetcher on the always-on `laptop` host (a systemd
-  timer declared in nixos-config, running every minute or so) asks the server
+  `waiting_download`. A fetcher on a home host (a systemd timer declared in
+  nixos-config, running every minute or so; `my.salsa.worker.enable`, on
+  backtop first, laptop later) asks the server
   for waiting songs over HTTPS, downloads audio with yt-dlp, and uploads it back
   with a per-device token (agenix secret on both ends). The server then runs
   the beat analysis as for an uploaded file. Outbound-only from home: no
