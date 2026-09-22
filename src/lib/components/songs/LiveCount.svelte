@@ -2,12 +2,13 @@
 	import { beatIndexAt } from '$lib/beatgrid/beatgrid';
 
 	interface Props {
-		audio: HTMLAudioElement | undefined;
+		/** Polled every animation frame; null when there is no position yet. */
+		time: () => number | null;
 		beats: number[];
 		counts: number[];
 	}
 
-	let { audio, beats, counts }: Props = $props();
+	let { time, beats, counts }: Props = $props();
 	let index = $state(-1);
 
 	/*
@@ -15,11 +16,10 @@
 	 * a second, far too coarse to show a count that changes 3 times a second.
 	 */
 	$effect(() => {
-		const el = audio;
-		if (!el) return;
 		let frame = 0;
 		const tick = () => {
-			index = beatIndexAt(beats, el.currentTime);
+			const t = time();
+			index = t === null ? -1 : beatIndexAt(beats, t);
 			frame = requestAnimationFrame(tick);
 		};
 		frame = requestAnimationFrame(tick);

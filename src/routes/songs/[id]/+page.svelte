@@ -47,7 +47,7 @@
 		<audio bind:this={audio} src="/audio/{song.audioFile}" controls preload="auto" class="w-full"
 		></audio>
 
-		<LiveCount {audio} beats={grid.beats} counts={grid.counts} />
+		<LiveCount time={() => audio?.currentTime ?? null} beats={grid.beats} counts={grid.counts} />
 
 		<form
 			method="POST"
