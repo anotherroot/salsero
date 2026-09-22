@@ -8,6 +8,7 @@ import {
 	TooLargeError,
 	audioDir,
 	extensionFor,
+	safeDecodeHeader,
 	saveStream,
 	serveFile
 } from '$lib/server/files';
@@ -43,6 +44,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	const mime = (request.headers.get('content-type') ?? 'audio/mp4').split(';')[0].trim();
 	if (!mime.startsWith('audio/')) throw error(415, 'Audio only');
 
+	const title = safeDecodeHeader(request.headers.get('x-title')) || null;
 	const file = `${randomUUID()}.${extensionFor(mime, '')}`;
 	try {
 		await saveStream(request.body, join(audioDir(), file), MAX_RECORDING_BYTES);
@@ -54,7 +56,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	storeFetchedAudio(getDb(), s.id, {
 		file,
 		mime,
-		title: decodeURIComponent(request.headers.get('x-title') ?? '') || null,
+		title,
 		durationS: Number.isFinite(duration) && duration > 0 ? duration : null
 	});
 	return new Response(null, { status: 204 });

@@ -10,6 +10,7 @@ import {
 	TooLargeError,
 	extensionFor,
 	recordingsDir,
+	safeDecodeHeader,
 	saveStream
 } from '$lib/server/files';
 import type { RequestHandler } from './$types';
@@ -40,11 +41,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
 	if (!request.body) throw error(400, 'Empty upload.');
 
-	const originalName = decodeURIComponent(request.headers.get('x-filename') ?? '');
-	const note =
-		decodeURIComponent(request.headers.get('x-note') ?? '')
-			.trim()
-			.slice(0, 2000) || null;
+	const originalName = safeDecodeHeader(request.headers.get('x-filename'));
+	const note = safeDecodeHeader(request.headers.get('x-note')).trim().slice(0, 2000) || null;
 	const file = `${randomUUID()}.${extensionFor(mime, originalName)}`;
 	const path = join(recordingsDir(), file);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RECORDING_FILE_RE, extensionFor, parseRange } from './files';
+import { RECORDING_FILE_RE, extensionFor, parseRange, safeDecodeHeader } from './files';
 
 describe('recording files', () => {
 	it('picks an extension from the MIME type first, then the name', () => {
@@ -13,6 +13,17 @@ describe('recording files', () => {
 		expect(RECORDING_FILE_RE.test('0f8fad5b-d9cb-469f-a165-70867728950e.mp4')).toBe(true);
 		expect(RECORDING_FILE_RE.test('../salsa.db')).toBe(false);
 		expect(RECORDING_FILE_RE.test('0f8fad5b-d9cb-469f-a165-70867728950e.mp4/..')).toBe(false);
+	});
+});
+
+describe('safeDecodeHeader', () => {
+	it('decodes a well-formed percent-encoded header', () => {
+		expect(safeDecodeHeader('Vivir%20Mi%20Vida')).toBe('Vivir Mi Vida');
+	});
+	it('treats a missing or malformed header as absent', () => {
+		expect(safeDecodeHeader(null)).toBe('');
+		expect(safeDecodeHeader('%')).toBe('');
+		expect(safeDecodeHeader('%E0%A4%A')).toBe('');
 	});
 });
 

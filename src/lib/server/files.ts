@@ -109,6 +109,15 @@ export async function serveFile(path: string, mime: string, request: Request): P
 	});
 }
 
+/** A worker or browser can send a malformed `%` sequence; treat it as if the header were absent rather than 500ing. */
+export function safeDecodeHeader(value: string | null): string {
+	try {
+		return decodeURIComponent(value ?? '');
+	} catch {
+		return '';
+	}
+}
+
 export class TooLargeError extends Error {}
 
 /**
