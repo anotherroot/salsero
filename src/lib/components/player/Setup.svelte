@@ -30,11 +30,19 @@
 	const STORAGE_KEY = 'salsa.player';
 	const allIds = figures.map((f) => f.id);
 
-	/** Wrapped in try/catch: private-mode Safari throws on any localStorage access. */
-	function loadStored(): Partial<PlayerSettings> {
+	/**
+	 * Deliberately `unknown`, not `Partial<PlayerSettings>`: this is arbitrary
+	 * JSON from a previous version of the app or a hand-edited browser store, and
+	 * typing it as our own settings would let TypeScript wave it through. Every
+	 * field below has to prove itself.
+	 *
+	 * Wrapped in try/catch: private-mode Safari throws on any localStorage access.
+	 */
+	function loadStored(): Record<string, unknown> {
 		try {
 			const raw = localStorage.getItem(STORAGE_KEY);
-			return raw ? (JSON.parse(raw) as Partial<PlayerSettings>) : {};
+			const parsed: unknown = raw ? JSON.parse(raw) : null;
+			return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
 		} catch {
 			return {};
 		}
@@ -42,23 +50,25 @@
 
 	const stored = loadStored();
 
-	let source = $state<'song' | 'count'>(song ? (stored.source ?? 'song') : 'count');
-	let bpm = $state(
-		typeof stored.bpm === 'number' && stored.bpm >= 60 && stored.bpm <= 300
-			? stored.bpm
-			: defaultBpm
+	/** A stored value only survives if it is still one of the allowed ones. */
+	function pick<T>(value: unknown, allowed: readonly T[], fallback: T): T {
+		return (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback;
+	}
+	const num = (value: unknown, min: number, max: number, fallback: number) =>
+		typeof value === 'number' && value >= min && value <= max ? value : fallback;
+
+	let source = $state<'song' | 'count'>(
+		song ? pick(stored.source, ['song', 'count'] as const, 'song') : 'count'
 	);
-	let count = $state(stored.count ?? true);
-	let clave = $state<ClavePattern | null>(stored.clave ?? null);
-	let callEvery = $state<CallEvery | null>(stored.callEvery ?? 2);
-	let speed = $state<Speed>(
-		typeof stored.speed === 'number' && (SPEEDS as readonly number[]).includes(stored.speed)
-			? stored.speed
-			: 1
-	);
-	let voiceVolume = $state(
-		typeof stored.voiceVolume === 'number' ? Math.min(1, Math.max(0, stored.voiceVolume)) : 1
-	);
+	let bpm = $state(num(stored.bpm, 60, 300, defaultBpm));
+	let count = $state(typeof stored.count === 'boolean' ? stored.count : true);
+	// An unrecognised clave would reach CLAVE_POSITIONS[...] as undefined and
+	// throw inside the 25 ms scheduling tick — which never surfaces as an error
+	// the user sees, just a player that plays nothing at all.
+	let clave = $state<ClavePattern | null>(pick(stored.clave, [...CLAVE_PATTERNS, null], null));
+	let callEvery = $state<CallEvery | null>(pick(stored.callEvery, [...CALL_EVERY, null], 2));
+	let speed = $state<Speed>(pick(stored.speed, SPEEDS, 1));
+	let voiceVolume = $state(num(stored.voiceVolume, 0, 1, 1));
 	let figureIds = $state<number[]>(
 		Array.isArray(stored.figureIds) ? stored.figureIds.filter((id) => allIds.includes(id)) : allIds
 	);
