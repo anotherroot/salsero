@@ -110,6 +110,10 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		queued = [];
 		for (const t of speechTimers) clearTimeout(t);
 		speechTimers = [];
+		// Cancelling the timers only stops calls that have not started talking.
+		// Seek away mid-call and the name already in the speech queue would go
+		// on announcing a figure for a part of the song we have left.
+		globalThis.speechSynthesis?.cancel();
 	}
 
 	function say(text: string) {

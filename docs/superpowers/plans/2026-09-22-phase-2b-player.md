@@ -1147,17 +1147,33 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 npm run check
 ```
 
-`WakeLockSentinel` and `navigator.wakeLock` need
-`"dom"` lib types; if `svelte-check` does not know them, add a minimal
-declaration at the top of the file rather than `any`:
+**Do NOT add a `declare global` block for `navigator.wakeLock`.** Measured in
+this worktree: the TypeScript DOM lib here already declares it, so redeclaring
+collides —
+
+```
+All declarations of 'wakeLock' must have identical modifiers. [2687]
+Property 'wakeLock' must be of type 'WakeLock' [2717]
+```
+
+Use the built-in types directly: `navigator.wakeLock` is non-optional and
+`WakeLockSentinel` resolves on its own. Guard at runtime instead of in the type
+system, because Safari and Firefox genuinely lack it:
 
 ```ts
-declare global {
-	interface Navigator {
-		wakeLock?: { request(type: 'screen'): Promise<WakeLockSentinel> };
-	}
+let wakeLock: WakeLockSentinel | null = null;
+…
+try {
+	wakeLock = (await navigator.wakeLock?.request('screen')) ?? null;
+} catch {
+	// Denied, or no support — the screen dimming mid-practice is worse than
+	// this is broken.
 }
 ```
+
+`navigator.wakeLock?.` still compiles against a non-optional declaration and is
+what keeps a browser without the API from throwing. Do not reach for `any` and
+do not disable the lint rule.
 
 - [ ] **Step 3: Commit**
 
@@ -1212,15 +1228,16 @@ export const load: PageServerLoad = ({ url }) => {
 			: null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
 		figures: listCallableFigures(db),
-		exercise: exerciseId ? getExerciseBrief(db, exerciseId) : null,
-		exercises: listExerciseBriefs(db)
+		exercise: exerciseId ? getExercise(db, exerciseId) : null,
+		exercises: listExercises(db).map((e) => ({ id: e.id, name: e.name }))
 	};
 };
 ```
 
-Add `getExerciseBrief` / `listExerciseBriefs` to `src/lib/server/exercises.ts`
-returning `{ id, name }` for unarchived exercises — Task 6 needs them for the
-save sheet.
+Add NO new exercise helpers: `getExercise` (added in Task 1) and
+`listExercises` (which already excludes archived rows) cover both needs. Narrow
+`listExercises` to `{ id, name }` at the call site so the page payload stays
+small — Task 6's save sheet only needs those two fields.
 
 - [ ] **Step 2: Setup.svelte**
 
@@ -1242,9 +1259,28 @@ radio-style choices so the page matches the rest of the app.
 
 - [ ] **Step 3: Running.svelte**
 
-- `LiveCount` driven by a `$state` song time that the page updates every
-  animation frame from `player.songTime()` — reuse the component as-is by
-  passing the synthetic/real `beats` and `counts`.
+- `LiveCount` shows the number. **It needs a small refactor first**, and this is
+  a real seam, not a detail: today it takes `audio: HTMLAudioElement` and reads
+  `el.currentTime` in its own animation frame, but count-only practice has no
+  media element at all. Change its prop from `audio` to
+  `time: () => number | null` — a getter it polls each frame, returning null
+  when there is no position yet:
+
+  ```ts
+  interface Props {
+  	time: () => number | null;
+  	beats: number[];
+  	counts: number[];
+  }
+  ```
+
+  Inside, replace `beatIndexAt(beats, el.currentTime)` with a null check on
+  `time()`. Then update the ONE existing caller,
+  `src/routes/songs/[id]/+page.svelte`, to pass
+  `time={() => audio?.currentTime ?? null}` — verify that page still counts
+  correctly afterwards. The player passes `time={() => player.songTime()}`.
+  Doing it this way keeps one component counting for both screens instead of
+  forking a near-copy.
 - The figure just called, large; below it, small, the elapsed time via
   `clock()` from `$lib/format`.
 - **Pause** and **Stop**. Stop calls `player.stop()` and raises the save sheet.
