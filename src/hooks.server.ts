@@ -1,6 +1,8 @@
 import { redirect, type Handle } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { bootstrap } from '$lib/server/db/bootstrap';
+import { workerTokenOk } from '$lib/server/worker-auth';
 
 /**
  * Routes reachable without a session. Everything else redirects to /login.
@@ -18,6 +20,9 @@ const PUBLIC_PATHS = new Set([
 	'/icon-512.png'
 ]);
 
+/** The home worker's API: no session, a bearer token instead. */
+const WORKER_PREFIX = '/api/worker/';
+
 export const handle: Handle = async ({ event, resolve }) => {
 	await bootstrap();
 
@@ -27,9 +32,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 		: null;
 
 	const path = event.url.pathname;
-	// The home worker has no session: its routes check a bearer token themselves.
-	const isPublic =
-		PUBLIC_PATHS.has(path) || path.startsWith('/_app/') || path.startsWith('/api/worker/');
+	// The home worker has no session; its bearer token is checked here, the one
+	// gate for everything under the prefix (the routes do not check it again).
+	if (path.startsWith(WORKER_PREFIX)) {
+		if (!workerTokenOk(event.request.headers.get('authorization'), env.SALSA_WORKER_TOKEN)) {
+			return new Response('Bad worker token', { status: 401 });
+		}
+		return resolve(event);
+	}
+
+	const isPublic = PUBLIC_PATHS.has(path) || path.startsWith('/_app/');
 
 	if (!event.locals.user && !isPublic) {
 		// API calls get a status, not a redirect to an HTML page they cannot use.

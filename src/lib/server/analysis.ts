@@ -3,12 +3,17 @@
 /** ~55 minutes of beats at 360 BPM — far past any song we accept (15 min). */
 const MAX_TIMES = 20_000;
 
+/** Slack for a beat reported just past the end of the decoded audio. */
+const END_SLACK_S = 1;
+
 function times(v: unknown, name: string): number[] | string {
 	if (!Array.isArray(v) || !v.every((x) => typeof x === 'number' && Number.isFinite(x) && x >= 0)) {
 		return `${name} must be an array of non-negative numbers`;
 	}
 	if (v.length > MAX_TIMES) return `too many ${name}`;
-	for (let i = 1; i < v.length; i++) if (v[i] < v[i - 1]) return `${name} must be ascending`;
+	for (let i = 1; i < v.length; i++) {
+		if (v[i] <= v[i - 1]) return `${name} must be strictly ascending`;
+	}
 	return v as number[];
 }
 
@@ -25,6 +30,12 @@ export function parseAnalysis(
 	const durationS = b.durationS;
 	if (typeof durationS !== 'number' || !Number.isFinite(durationS) || durationS <= 0) {
 		return 'durationS must be a positive number';
+	}
+	// Both lists are ascending, so their last element is the latest time.
+	const end = durationS + END_SLACK_S;
+	if (beats[beats.length - 1] > end) return 'beats run past the end of the song';
+	if (downbeats.length > 0 && downbeats[downbeats.length - 1] > end) {
+		return 'downbeats run past the end of the song';
 	}
 	return { beats, downbeats, durationS };
 }

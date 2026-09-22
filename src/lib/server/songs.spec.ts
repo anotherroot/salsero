@@ -79,6 +79,31 @@ describe('songs', () => {
 		expect(claimJob(db, T)?.kind).toBe('analyze');
 	});
 
+	it('takes fetched audio only for a song waiting for its download', () => {
+		const audio = { file: 'new.m4a', mime: 'audio/mp4', title: 'T', durationS: 1 };
+		const up = createSongFromUpload(db, {
+			file: 'x.mp3',
+			mime: 'audio/mpeg',
+			title: 'x',
+			style: 'salsa'
+		});
+		expect(storeFetchedAudio(db, up.id, audio)).toBe(false);
+		setAnchors(db, up.id, [3]);
+		storeAnalysis(db, up.id, { beats: [0.5, 1], downbeats: [0.5], durationS: 5 });
+		expect(storeFetchedAudio(db, up.id, audio)).toBe(false);
+		expect(getSong(db, up.id)).toMatchObject({
+			audioFile: 'x.mp3',
+			status: 'ready',
+			anchorsJson: '[3]'
+		});
+
+		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		expect(storeFetchedAudio(db, s.id, audio)).toBe(true);
+		expect(storeFetchedAudio(db, s.id, { ...audio, file: 'again.m4a' })).toBe(false);
+		expect(getSong(db, s.id)?.audioFile).toBe('new.m4a');
+		expect(storeFetchedAudio(db, 999, audio)).toBe(false);
+	});
+
 	it('keeps a title the user typed', () => {
 		const s = createSongFromUrl(db, { url: URL, title: 'Mine', style: 'salsa' });
 		storeFetchedAudio(db, s.id, {
@@ -111,15 +136,76 @@ describe('songs', () => {
 		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
 		claimJob(db, T);
 		failJob(db, s.id, 'network down', false);
-		expect(getSong(db, s.id)).toMatchObject({ status: 'waiting_download', claimedAt: null });
-		claimJob(db, T);
+		// The lease stays: it is the backoff before the next try.
+		expect(getSong(db, s.id)).toMatchObject({
+			status: 'waiting_download',
+			claimedAt: T,
+			error: 'network down'
+		});
+		claimJob(db, T + LEASE_MS + 1);
 		failJob(db, s.id, 'Video unavailable', true);
-		expect(getSong(db, s.id)).toMatchObject({ status: 'failed', error: 'Video unavailable' });
+		expect(getSong(db, s.id)).toMatchObject({
+			status: 'failed',
+			error: 'Video unavailable',
+			claimedAt: null
+		});
 		expect(retrySong(db, s.id)).toMatchObject({
 			status: 'waiting_download',
 			attempts: 0,
 			error: null
 		});
+	});
+
+	it('does not hand a transiently failed song out again until its lease runs out', () => {
+		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		expect(claimJob(db, T)?.id).toBe(s.id);
+		failJob(db, s.id, 'network down', false);
+		expect(claimJob(db, T + 1)).toBeNull();
+		expect(claimJob(db, T + LEASE_MS - 1)).toBeNull();
+		expect(claimJob(db, T + LEASE_MS + 1)?.id).toBe(s.id);
+		expect(getSong(db, s.id)?.attempts).toBe(2);
+	});
+
+	it('fails the song on the last attempt even when the error is transient', () => {
+		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		let now = T;
+		for (let i = 0; i < MAX_ATTEMPTS; i++) {
+			expect(claimJob(db, now)?.id).toBe(s.id);
+			failJob(db, s.id, 'network down', false);
+			now += LEASE_MS + 1;
+		}
+		expect(getSong(db, s.id)).toMatchObject({ status: 'failed', claimedAt: null });
+	});
+
+	it('ignores a failure report for a song that is no longer waiting', () => {
+		const s = createSongFromUpload(db, {
+			file: 'x.mp3',
+			mime: 'audio/mpeg',
+			title: 'x',
+			style: 'salsa'
+		});
+		storeAnalysis(db, s.id, { beats: [0.5, 1], downbeats: [0.5], durationS: 5 });
+		failJob(db, s.id, 'stale worker', true);
+		expect(getSong(db, s.id)).toMatchObject({ status: 'ready', error: null });
+	});
+
+	it('retries only a failed, unarchived song', () => {
+		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		expect(retrySong(db, s.id)).toBeNull(); // waiting
+		const up = createSongFromUpload(db, {
+			file: 'x.mp3',
+			mime: 'audio/mpeg',
+			title: 'x',
+			style: 'salsa'
+		});
+		storeAnalysis(db, up.id, { beats: [0.5, 1], downbeats: [0.5], durationS: 5 });
+		expect(retrySong(db, up.id)).toBeNull(); // ready
+		expect(getSong(db, up.id)?.status).toBe('ready');
+		failJob(db, s.id, 'Video unavailable', true);
+		archiveSong(db, s.id, T);
+		expect(retrySong(db, s.id)).toBeNull(); // archived
+		expect(getSong(db, s.id)?.status).toBe('failed');
+		expect(retrySong(db, 999)).toBeNull();
 	});
 
 	it('retries an uploaded song by analysing it again', () => {

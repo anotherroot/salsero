@@ -91,10 +91,13 @@ export function archiveSong(db: Db, id: number, now: number): boolean {
 	);
 }
 
-/** Put a failed (or stuck) song back in the queue: re-download if there is no audio yet. */
+/**
+ * Put a failed song back in the queue: re-download if there is no audio yet.
+ * Anything else (waiting, ready, archived) is left alone and gives null.
+ */
 export function retrySong(db: Db, id: number): Song | null {
 	const song = getSong(db, id);
-	if (!song) return null;
+	if (!song || song.status !== 'failed' || song.archivedAt !== null) return null;
 	return (
 		db
 			.update(songs)
@@ -176,26 +179,31 @@ export function claimJob(db: Db, now: number): Job | null {
 /**
  * The worker downloaded the audio. Release the lease and move on to analysis;
  * the worker claims the analysis job next, normally straight away.
+ * Only a song still waiting for its download takes audio this way; anything
+ * else is left untouched and gives false.
  */
 export function storeFetchedAudio(
 	db: Db,
 	id: number,
 	input: { file: string; mime: string; title: string | null; durationS: number | null }
-): void {
+): boolean {
 	const song = getSong(db, id);
-	if (!song) return;
-	db.update(songs)
-		.set({
-			audioFile: input.file,
-			mime: input.mime,
-			durationS: input.durationS,
-			title: song.title === '' && input.title ? input.title.slice(0, 200) : song.title,
-			status: 'waiting_analysis',
-			claimedAt: null,
-			error: null
-		})
-		.where(eq(songs.id, id))
-		.run();
+	if (!song || song.status !== 'waiting_download') return false;
+	return (
+		db
+			.update(songs)
+			.set({
+				audioFile: input.file,
+				mime: input.mime,
+				durationS: input.durationS,
+				title: song.title === '' && input.title ? input.title.slice(0, 200) : song.title,
+				status: 'waiting_analysis',
+				claimedAt: null,
+				error: null
+			})
+			.where(and(eq(songs.id, id), eq(songs.status, 'waiting_download')))
+			.run().changes > 0
+	);
 }
 
 export function storeAnalysis(
@@ -218,17 +226,22 @@ export function storeAnalysis(
 		.run();
 }
 
-/** A transient failure goes back in the queue; a permanent one (or the last attempt) fails the song. */
+/**
+ * A transient failure stays in the queue but keeps its lease: the lease is the
+ * backoff, so the next try comes LEASE_MS after the claim rather than seconds
+ * later. A permanent one (or the last attempt) fails the song and clears it.
+ * A report about a song that is no longer waiting (a stale worker) is ignored.
+ */
 export function failJob(db: Db, id: number, error: string, permanent: boolean): void {
 	const song = getSong(db, id);
-	if (!song) return;
+	if (!song || !(WAITING as readonly string[]).includes(song.status)) return;
 	const giveUp = permanent || song.attempts >= MAX_ATTEMPTS;
 	db.update(songs)
-		.set({
-			error: error.slice(0, 500),
-			claimedAt: null,
-			status: giveUp ? 'failed' : song.status
-		})
+		.set(
+			giveUp
+				? { error: error.slice(0, 500), claimedAt: null, status: 'failed' }
+				: { error: error.slice(0, 500) }
+		)
 		.where(eq(songs.id, id))
 		.run();
 }

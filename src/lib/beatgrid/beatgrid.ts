@@ -139,6 +139,11 @@ export interface Grid {
 	suggested: boolean;
 }
 
+/**
+ * The count for a song at its tempo factor. Expects cleaned beats — callers
+ * read the stored beats_json, which storeAnalysis cleans (cleanBeats) on write,
+ * so this does not clean again.
+ */
 export function buildGrid(input: {
 	beats: number[];
 	downbeats: number[];

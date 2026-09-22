@@ -24,4 +24,25 @@ describe('parseAnalysis', () => {
 			})
 		).toMatch(/too many/);
 	});
+	it('requires strictly ascending times', () => {
+		expect(parseAnalysis({ beats: [0.5, 1, 1], downbeats: [], durationS: 3 })).toMatch(
+			/beats must be strictly ascending/
+		);
+		expect(parseAnalysis({ beats: [0.5, 1], downbeats: [0.5, 0.5], durationS: 3 })).toMatch(
+			/downbeats must be strictly ascending/
+		);
+	});
+	it('refuses beats and downbeats past the end of the song, with a second of slack', () => {
+		expect(parseAnalysis({ beats: [0.5, 4.01], downbeats: [0.5], durationS: 3 })).toMatch(
+			/^beats run past the end/
+		);
+		expect(parseAnalysis({ beats: [0.5, 1], downbeats: [0.5, 4.5], durationS: 3 })).toMatch(
+			/downbeats run past the end/
+		);
+		expect(parseAnalysis({ beats: [0.5, 4], downbeats: [0.5, 4], durationS: 3 })).toEqual({
+			beats: [0.5, 4],
+			downbeats: [0.5, 4],
+			durationS: 3
+		});
+	});
 });
