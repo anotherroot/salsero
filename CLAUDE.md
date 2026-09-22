@@ -15,6 +15,8 @@ Sister project with the same conventions: `~/Projects/muscle_model`.
 ```
 src/lib/day/         PURE calendar-day maths in the user's zone. `now` is an argument
 src/lib/urgency/     PURE "what next": (exercises, sets, now, tz) → doneToday/todo/inactive
+src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo factor
+worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
@@ -44,6 +46,17 @@ scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-ch
   `/api/figures/[id]/recordings`; served with HTTP Range (iOS requires it). The
   size cap is `src/lib/limits.ts` — Cloudflare's 100 MB body limit is why it is
   95 MiB; nginx and `BODY_SIZE_LIMIT` in the host config sit just above it.
+- **The server runs no Python and no ML.** Song downloads and beat analysis
+  happen on the home worker (`worker/`, a systemd timer on backtop), which
+  drains `/api/worker/*` over HTTPS with a bearer token. YouTube bot-blocks the
+  server's IP, and the box has 3.7 GB shared with four other services.
+- **The count is the user's, not the model's.** The grid is the detected beats
+  (cleaned once on write in `storeAnalysis`); 1–8 comes from anchors the user
+  tapped. Beat This!'s downbeats are only a first suggestion — measured
+  unreliable on salsa.
+- **Never judge the worker against `vite dev`.** The dev server skips
+  SvelteKit's cross-site POST check; a worker request that passes there can
+  still 403 in production. Test against `node build` or the real host.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with

@@ -56,13 +56,55 @@ Migrations run at boot.
 loads under nixpkgs node (verified locally). If it ever fails to load on the
 box, the fallback is building from source there (python3, gcc, gnumake).
 
+## Home worker
+
+Songs are downloaded and beat-analysed at home, never on the server: YouTube
+answers every yt-dlp request from the Hetzner IP with "Sign in to confirm
+you're not a bot", while the same version works from a home connection
+(measured 2026-09-22). The beat model also wants ~660 MB, which this 3.7 GB box
+shares with Firefly, Grafana, muscle and nikaudio.
+
+- **Where:** `modules/services/salsa-worker.nix` in the NixOS repo, enabled per
+  host with `my.salsa.worker.enable`. It runs on **backtop** today; laptop is a
+  two-line change (enable there, disable here) plus adding `hosts.laptop` to
+  `secrets/salsa-worker.env.age` in `secrets/secrets.nix` and running
+  `agenix --rekey`.
+- **When:** a oneshot unit on a timer, one minute after the previous run ends
+  (`OnUnitInactiveSec`), so runs never overlap. `MemoryMax=2G`, `Nice=10`.
+- **Pause it** without a rebuild: `sudo systemctl stop salsa-worker.timer`
+  (the next `nixos-rebuild switch` starts it again). Turn it off for good by
+  setting `my.salsa.worker.enable = false;` in the host file.
+- **Watch it:** `journalctl -u salsa-worker -f` on the worker host. A run with
+  nothing to do exits silently; a processed song logs `song <id>: <n> beats`.
+- **Auth:** `secrets/salsa-worker.env.age` holds `SALSA_WORKER_TOKEN`,
+  readable by cloud (which checks it, as a second `EnvironmentFile` on the
+  salsa unit) and by the worker host (which sends it as a bearer token). It is
+  the only credential; everything the worker does is outbound HTTPS. Rotate by
+  re-running the create command below and switching both hosts.
+
+  ```sh
+  cd ~/.config/nixos-config/secrets
+  nix shell nixpkgs#openssl -c bash -c 'printf "SALSA_WORKER_TOKEN=%s\n" "$(openssl rand -base64 48 | tr -d "/+=\n" | cut -c1-48)"' | agenix -e salsa-worker.env.age
+  ```
+
+  (agenix replaces `$EDITOR` with `cp /dev/stdin` when stdin is not a terminal,
+  which is why the token is piped in rather than written by an editor script.)
+- **Updating the worker:** push salsaapp to `git@github.com:anotherroot/salsero`,
+  then in the NixOS repo `nix flake update salsaapp` and switch the worker host.
+  When YouTube breaks yt-dlp, update salsaapp's own `nixpkgs-unstable` input and
+  do the same.
+- **Never test the worker against `vite dev`:** the dev server skips SvelteKit's
+  cross-site POST check, so a request that works there can still be refused with
+  403 in production. Test against `npm run build && node build`, or the real host.
+
 ## Backups
 
 `salsa-backup.service`, nightly at 03:30 (catches up after downtime):
 
 1. `sqlite3 .backup` → `/var/lib/salsa/backups/salsa-YYYY-MM-DD.db`, 14 kept.
-2. Recordings and the snapshots are copied to `/home/tilen/Backups/salsa` on
-   the server (recordings without `--delete`, so deleted clips survive).
+2. Recordings, song audio and the snapshots are copied to
+   `/home/tilen/Backups/salsa` on the server (recordings and audio without
+   `--delete`, so deleted clips and songs survive).
 3. Syncthing folder `salsa-backup` carries that to backtop (send-only →
    receive-only, staggered versioning on backtop).
 
