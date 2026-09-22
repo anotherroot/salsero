@@ -27,7 +27,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		: null;
 
 	const path = event.url.pathname;
-	const isPublic = PUBLIC_PATHS.has(path) || path.startsWith('/_app/');
+	// The home worker has no session: its routes check a bearer token themselves.
+	const isPublic =
+		PUBLIC_PATHS.has(path) || path.startsWith('/_app/') || path.startsWith('/api/worker/');
 
 	if (!event.locals.user && !isPublic) {
 		// API calls get a status, not a redirect to an HTML page they cannot use.
