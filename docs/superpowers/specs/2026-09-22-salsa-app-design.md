@@ -149,7 +149,6 @@ songs                                          -- phase 2
   duration_s, bpm
   beats_json, downbeats_json                   -- analysis output, replaced wholesale
   beats_json                                   -- cleaned beat times (gaps filled), seconds
-  suggested_one   integer, nullable            -- beat index the model's downbeats vote for as "1"
   anchors_json    text default '[]'            -- user: beat indices tapped as "1", sorted
   tempo_factor    real default 1               -- user: 0.5 / 1 / 2 — count every other beat, as detected, or twice per beat
   created_at
@@ -239,7 +238,7 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 - The count comes from **anchors**: beat indices the user tapped as "1".
   Counting runs 1–8 forward from each anchor until the next one; before the
   first anchor it runs backwards from it. With no anchors, the downbeat vote
-  (`suggested_one`) is used as a suggestion.
+  (computed on read from `downbeats_json`, never stored) is the suggestion.
 - A tap snaps to the nearest beat (minus ~80 ms for reaction time). Re-tapping
   later in the song re-anchors from there, which is how a count that slipped
   at a break is fixed. Anchors consistent with the previous one are dropped.
