@@ -15,3 +15,11 @@ export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
 export const STYLE_LABEL: Record<Style, string> = { salsa: 'Salsa', son: 'Son', other: 'Other' };
 export const PARTNER_LABEL: Record<Partner, string> = { partner: 'With partner', solo: 'Solo' };
+
+/** How the detected beats map to the dance count. See `src/lib/beatgrid/`. */
+export const TEMPO_FACTORS = [0.5, 1, 2] as const;
+export type TempoFactor = (typeof TEMPO_FACTORS)[number];
+export const TEMPO_LABEL: Record<TempoFactor, string> = { 0.5: '×½', 1: '×1', 2: '×2' };
+
+export const SONG_STATUSES = ['waiting_download', 'waiting_analysis', 'ready', 'failed'] as const;
+export type SongStatus = (typeof SONG_STATUSES)[number];
