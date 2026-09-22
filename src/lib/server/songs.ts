@@ -65,6 +65,16 @@ export function listSongs(db: Db): SongItem[] {
 		.all() as SongItem[];
 }
 
+/** Ready, unarchived songs, for the practice-mode song picker. */
+export function listReadySongs(db: Db): { id: number; title: string }[] {
+	return db
+		.select({ id: songs.id, title: songs.title })
+		.from(songs)
+		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready')))
+		.orderBy(songs.title)
+		.all();
+}
+
 export function getSong(db: Db, id: number): Song | null {
 	return db.select().from(songs).where(eq(songs.id, id)).get() ?? null;
 }

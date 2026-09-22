@@ -34,7 +34,21 @@ export const actions: Actions = {
 				message: 'Give the figure a name (up to 200 characters).'
 			});
 		}
-		if (!updateFigure(getDb(), figureId(params.id), { name, partner, style, notes })) {
+		// No callable/call-text UI yet (phase 2b player setup); carry the figure's
+		// current values through unchanged rather than resetting them here.
+		const db = getDb();
+		const current = getFigure(db, figureId(params.id));
+		if (!current) throw error(404, 'Figure not found');
+		if (
+			!updateFigure(db, figureId(params.id), {
+				name,
+				partner,
+				style,
+				notes,
+				callable: current.figure.callable,
+				callText: current.figure.callText
+			})
+		) {
 			throw error(404, 'Figure not found');
 		}
 		return { action: 'update', ok: true };
@@ -56,7 +70,8 @@ export const actions: Actions = {
 			durationS: null,
 			reps: null,
 			rating: null,
-			note: null
+			note: null,
+			playerJson: null
 		});
 		return { action: 'log', ok: true };
 	},

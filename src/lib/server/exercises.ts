@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, isNull, lt } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, figures, sets } from './db/schema';
+import type { PracticeMode } from '$lib/labels';
 import type { DaySet, ExerciseItem } from '$lib/types';
 
 /** Every exercise that has not been archived, with its figure's partner flag. */
@@ -12,6 +13,9 @@ export function listExercises(db: Db): ExerciseItem[] {
 			source: exercises.source,
 			figureId: exercises.figureId,
 			partner: figures.partner,
+			practiceMode: exercises.practiceMode,
+			songId: exercises.songId,
+			countBpm: exercises.countBpm,
 			everyDays: exercises.everyDays,
 			active: exercises.active,
 			notes: exercises.notes,
@@ -33,14 +37,24 @@ export function listSetTimes(db: Db): { exerciseId: number; doneAt: number }[] {
 	return db.select({ exerciseId: sets.exerciseId, doneAt: sets.doneAt }).from(sets).all();
 }
 
+export function getExercise(db: Db, id: number) {
+	return db.select().from(exercises).where(eq(exercises.id, id)).get() ?? null;
+}
+
 export interface ExerciseInput {
 	name: string;
+	practiceMode: PracticeMode;
+	songId: number | null;
+	countBpm: number | null;
 	everyDays: number;
 	active: boolean;
 	notes: string | null;
 }
 
-export function createCustomExercise(db: Db, input: Omit<ExerciseInput, 'active'>) {
+export function createCustomExercise(
+	db: Db,
+	input: Omit<ExerciseInput, 'active' | 'practiceMode' | 'songId' | 'countBpm'>
+) {
 	return db
 		.insert(exercises)
 		.values({ ...input, source: 'custom' })
@@ -51,14 +65,20 @@ export function createCustomExercise(db: Db, input: Omit<ExerciseInput, 'active'
 /**
  * Edit an exercise. A figure's exercise takes its NAME from the figure, so a
  * name passed for one is ignored rather than letting the two drift apart.
+ *
+ * SQLite can't enforce the song/count pairing with a CHECK on this table (see
+ * `schema.ts`), so it's enforced here: whichever column the mode doesn't use
+ * is cleared, whatever the form submitted for it.
  */
 export function updateExercise(db: Db, id: number, input: ExerciseInput) {
 	const current = db.select().from(exercises).where(eq(exercises.id, id)).get();
 	if (!current) return null;
 	const name = current.source === 'custom' && input.name ? input.name : current.name;
+	const songId = input.practiceMode === 'song' ? input.songId : null;
+	const countBpm = input.practiceMode === 'count' ? input.countBpm : null;
 	return db
 		.update(exercises)
-		.set({ ...input, name })
+		.set({ ...input, name, songId, countBpm })
 		.where(eq(exercises.id, id))
 		.returning()
 		.get();
@@ -85,6 +105,7 @@ export interface SetInput {
 	reps: number | null;
 	rating: number | null;
 	note: string | null;
+	playerJson: string | null;
 }
 
 export function logSet(db: Db, input: SetInput) {

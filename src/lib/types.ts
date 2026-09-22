@@ -1,5 +1,5 @@
 /** Row shapes that cross from server to page. Client-safe: no server imports. */
-import type { Partner, SongStatus, Source, Style, TempoFactor } from './labels';
+import type { Partner, PracticeMode, SongStatus, Source, Style, TempoFactor } from './labels';
 
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {
@@ -8,6 +8,9 @@ export interface ExerciseItem {
 	source: Source;
 	figureId: number | null;
 	partner: Partner | null;
+	practiceMode: PracticeMode;
+	songId: number | null;
+	countBpm: number | null;
 	everyDays: number;
 	active: boolean;
 	archived: boolean;
@@ -38,4 +41,14 @@ export interface SongItem {
 	bpm: number | null;
 	tempoFactor: TempoFactor;
 	createdAt: number;
+}
+
+/** A figure the player may call, as the setup screen lists it. */
+export interface CallableFigure {
+	id: number;
+	name: string;
+	/** What the voice should say — `callText` if set, else `name`. */
+	say: string;
+	partner: Partner;
+	style: Style;
 }

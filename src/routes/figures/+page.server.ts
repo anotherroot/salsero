@@ -35,7 +35,13 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		const { figure } = createFigure(getDb(), { name, partner, style, notes }, everyDays);
+		// No callable/call-text UI yet (phase 2b player setup); every new figure
+		// starts callable with the written name, matching the column defaults.
+		const { figure } = createFigure(
+			getDb(),
+			{ name, partner, style, notes, callable: true, callText: null },
+			everyDays
+		);
 		throw redirect(303, `/figures/${figure.id}`);
 	}
 };

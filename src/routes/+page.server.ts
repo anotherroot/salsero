@@ -4,6 +4,7 @@ import {
 	archiveExercise,
 	createCustomExercise,
 	deleteSet,
+	getExercise,
 	listExercises,
 	listSetTimes,
 	listSetsBetween,
@@ -91,7 +92,8 @@ export const actions: Actions = {
 				durationS: durationMin === null ? null : durationMin * 60,
 				reps,
 				rating,
-				note
+				note,
+				playerJson: null
 			});
 		} catch {
 			return fail(400, { action: 'log', message: 'That exercise no longer exists.' });
@@ -138,11 +140,19 @@ export const actions: Actions = {
 		) {
 			return fail(400, { action: 'updateExercise', message: 'Check the values and try again.' });
 		}
+		// The settings sheet has no practice-mode picker yet (phase 2b UI); carry
+		// the exercise's current mode/song/count through unchanged rather than
+		// clearing them just because this form doesn't know about them.
+		const current = getExercise(getDb(), id);
+		if (!current) return fail(404, { action: 'updateExercise', message: 'Exercise not found.' });
 		const updated = updateExercise(getDb(), id, {
 			name,
 			everyDays,
 			notes,
-			active: checkbox(form, 'active')
+			active: checkbox(form, 'active'),
+			practiceMode: current.practiceMode,
+			songId: current.songId,
+			countBpm: current.countBpm
 		});
 		if (!updated) return fail(404, { action: 'updateExercise', message: 'Exercise not found.' });
 		return { action: 'updateExercise', ok: true };

@@ -63,6 +63,11 @@ export const figures = sqliteTable(
 		style: text('style', { enum: STYLES }).notNull().default('salsa'),
 		/** Phase 2: whether the player may call this figure by voice. */
 		callable: integer('callable', { mode: 'boolean' }).notNull().default(true),
+		/**
+		 * How to SAY the name, when the browser's voice mangles the written name
+		 * ("dile que no" read as English). Null means speak `name`.
+		 */
+		callText: text('call_text'),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
@@ -89,63 +94,6 @@ export const recordings = sqliteTable(
 	},
 	(t) => [index('recordings_figure_idx').on(t.figureId)]
 );
-
-/* ── Exercises & sets ───────────────────────────────────────────────────── */
-
-/**
- * Anything practised and logged. `source` says where it came from; a figure's
- * exercise follows its figure's name and archive state.
- *
- * There is deliberately NO "last done" or "urgency" column. Both are pure
- * functions of the sets — see `src/lib/urgency/`.
- */
-export const exercises = sqliteTable(
-	'exercises',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		name: text('name').notNull(),
-		source: text('source', { enum: SOURCES }).notNull(),
-		figureId: integer('figure_id').references(() => figures.id),
-		practiceMode: text('practice_mode', { enum: PRACTICE_MODES }).notNull().default('none'),
-		everyDays: real('every_days').notNull().default(3),
-		active: integer('active', { mode: 'boolean' }).notNull().default(true),
-		archivedAt: integer('archived_at'),
-		notes: text('notes'),
-		createdAt: createdAt()
-	},
-	(t) => [
-		check('exercises_every_days_ck', sql`${t.everyDays} > 0`),
-		check('exercises_source_ck', sql`(${t.source} = 'figure') = (${t.figureId} is not null)`),
-		index('exercises_figure_idx').on(t.figureId)
-	]
-);
-
-/** One logged bout. Many per exercise per day. The only thing ever hard-deleted, besides recordings. */
-export const sets = sqliteTable(
-	'sets',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		exerciseId: integer('exercise_id')
-			.notNull()
-			.references(() => exercises.id),
-		doneAt: integer('done_at').notNull(),
-		durationS: integer('duration_s'),
-		reps: integer('reps'),
-		rating: integer('rating'),
-		note: text('note'),
-		createdAt: createdAt()
-	},
-	(t) => [
-		check('sets_rating_ck', sql`${t.rating} is null or ${t.rating} between 1 and 5`),
-		index('sets_exercise_time_idx').on(t.exerciseId, t.doneAt),
-		index('sets_time_idx').on(t.doneAt)
-	]
-);
-
-export type Figure = typeof figures.$inferSelect;
-export type Recording = typeof recordings.$inferSelect;
-export type Exercise = typeof exercises.$inferSelect;
-export type SetRow = typeof sets.$inferSelect;
 
 /* ── Songs ──────────────────────────────────────────────────────────────── */
 
@@ -191,3 +139,74 @@ export const songs = sqliteTable(
 );
 
 export type Song = typeof songs.$inferSelect;
+
+/* ── Exercises & sets ───────────────────────────────────────────────────── */
+
+/**
+ * Anything practised and logged. `source` says where it came from; a figure's
+ * exercise follows its figure's name and archive state.
+ *
+ * There is deliberately NO "last done" or "urgency" column. Both are pure
+ * functions of the sets — see `src/lib/urgency/`.
+ */
+export const exercises = sqliteTable(
+	'exercises',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		name: text('name').notNull(),
+		source: text('source', { enum: SOURCES }).notNull(),
+		figureId: integer('figure_id').references(() => figures.id),
+		practiceMode: text('practice_mode', { enum: PRACTICE_MODES }).notNull().default('none'),
+		/** Practice mode 'song': which song the player opens. */
+		songId: integer('song_id').references(() => songs.id),
+		/** Practice mode 'count': the BPM of the synthetic grid. */
+		countBpm: integer('count_bpm'),
+		everyDays: real('every_days').notNull().default(3),
+		active: integer('active', { mode: 'boolean' }).notNull().default(true),
+		archivedAt: integer('archived_at'),
+		notes: text('notes'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check('exercises_every_days_ck', sql`${t.everyDays} > 0`),
+		check('exercises_source_ck', sql`(${t.source} = 'figure') = (${t.figureId} is not null)`),
+		// No `exercises_practice_ck`: drizzle-kit's rebuild migration for a new
+		// CHECK on this table selects the new columns from the OLD table (which
+		// doesn't have them) and fails at migrate time — see task-1-report.md.
+		// `updateExercise` enforces the song/count pairing instead.
+		index('exercises_figure_idx').on(t.figureId)
+	]
+);
+
+/** One logged bout. Many per exercise per day. The only thing ever hard-deleted, besides recordings. */
+export const sets = sqliteTable(
+	'sets',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		exerciseId: integer('exercise_id')
+			.notNull()
+			.references(() => exercises.id),
+		doneAt: integer('done_at').notNull(),
+		durationS: integer('duration_s'),
+		reps: integer('reps'),
+		rating: integer('rating'),
+		note: text('note'),
+		/**
+		 * Phase 2b: what the player run looked like —
+		 * `{speed, count, clave, callEvery, called:[figureId…]}`. Free-form on
+		 * purpose; nothing queries inside it.
+		 */
+		playerJson: text('player_json'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check('sets_rating_ck', sql`${t.rating} is null or ${t.rating} between 1 and 5`),
+		index('sets_exercise_time_idx').on(t.exerciseId, t.doneAt),
+		index('sets_time_idx').on(t.doneAt)
+	]
+);
+
+export type Figure = typeof figures.$inferSelect;
+export type Recording = typeof recordings.$inferSelect;
+export type Exercise = typeof exercises.$inferSelect;
+export type SetRow = typeof sets.$inferSelect;
