@@ -22,9 +22,9 @@ Lives in `~/.config/nixos-config`, not here:
 ## Secret
 
 ```sh
-cd ~/.config/nixos-config
-agenix -e secrets/salsa-prod.env.age
-git add secrets/salsa-prod.env.age   # flakes only see tracked files
+cd ~/.config/nixos-config/secrets   # agenix reads ./secrets.nix from the cwd
+agenix -e salsa-prod.env.age
+git add salsa-prod.env.age          # flakes only see tracked files
 ```
 
 ```
