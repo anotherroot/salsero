@@ -1283,7 +1283,13 @@ radio-style choices so the page matches the rest of the app.
   forking a near-copy.
 - The figure just called, large; below it, small, the elapsed time via
   `clock()` from `$lib/format`.
-- **Pause** and **Stop**. Stop calls `player.stop()` and raises the save sheet.
+- **Pause** and **Stop**. Pause calls `player.pause()` / `player.resume()` —
+  added to `PlayerHandle` in Task 4, and the ONLY correct way to pause: pausing
+  the `<audio>` element alone leaves the ~100 ms already committed to the audio
+  clock still sounding, and count-only has no element to pause at all. Never
+  fake a pause with `stop()` then `start()`; that re-fetches the clips and
+  throws away the figures already planned. Stop calls `player.stop()` and raises
+  the save sheet.
 - For a song, the `<audio>` element stays in the DOM (`controls`, so seeking
   still works) with `preservesPitch = true` set in an `$effect` and
   `playbackRate` bound to the chosen speed.
