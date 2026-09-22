@@ -53,6 +53,9 @@ export interface PlayerOptions {
 
 export interface PlayerHandle {
 	start(): Promise<void>;
+	/** Hold the run in place, keeping the loaded clips and the decided plan. */
+	pause(): void;
+	resume(): Promise<void>;
 	stop(): void;
 	setToggles(t: Toggles): void;
 	setVoiceVolume(v: number): void;
@@ -83,11 +86,24 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	let speechTimers: ReturnType<typeof setTimeout>[] = [];
 	/** Context origin for count-only, where there is no media element. */
 	let origin = 0;
+	/** Latches `onEnd`: the loop keeps ticking past the last beat, the callback must not. */
+	let ended = false;
+	/** Song position held while paused — count-only has no element to remember it. */
+	let heldAt: number | null = null;
 
 	const rate = () => opts.audio?.playbackRate ?? 1;
 
 	const songNow = () =>
-		opts.audio ? opts.audio.currentTime : ctx ? (ctx.currentTime - origin) * rate() : 0;
+		heldAt !== null
+			? // Paused: the context clock runs on regardless, so the held position is
+				// the only honest answer — otherwise the on-screen count would keep
+				// climbing through a pause.
+				heldAt
+			: opts.audio
+				? opts.audio.currentTime
+				: ctx
+					? (ctx.currentTime - origin) * rate()
+					: 0;
 
 	/** Context time at which a given song time arrives, at the current rate. */
 	const ctxAt = (songTime: number) => {
@@ -170,7 +186,13 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		}
 
 		cursor = until;
-		if (!opts.audio && now > lastBeat()) opts.onEnd();
+		// Count-only runs out of grid rather than out of song. The tick keeps
+		// firing 40 times a second, so this has to latch or the page's "run
+		// finished" handler would fire in a tight loop.
+		if (!opts.audio && !ended && now > lastBeat()) {
+			ended = true;
+			opts.onEnd();
+		}
 	}
 
 	/** Which 8-count a song time falls in — for deciding how far ahead to plan. */
@@ -196,28 +218,68 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		async start() {
 			// Created inside the Play handler: iOS only unlocks audio from a gesture.
 			ctx = new AudioContext();
-			await ctx.resume();
-			gain = ctx.createGain();
-			gain.gain.value = volume;
-			gain.connect(ctx.destination);
-			clips = await loadClips(ctx);
+			try {
+				await ctx.resume();
+				gain = ctx.createGain();
+				gain.gain.value = volume;
+				gain.connect(ctx.destination);
+				clips = await loadClips(ctx);
 
-			// Prime the speech engine in the same gesture, or the first call is
-			// swallowed on iOS.
-			const u = new SpeechSynthesisUtterance(' ');
-			u.volume = 0;
-			globalThis.speechSynthesis?.speak(u);
+				// Prime the speech engine in the same gesture, or the first call is
+				// swallowed on iOS.
+				const u = new SpeechSynthesisUtterance(' ');
+				u.volume = 0;
+				globalThis.speechSynthesis?.speak(u);
 
-			origin = ctx.currentTime;
-			cursor = songNow();
-			await opts.audio?.play();
+				origin = ctx.currentTime;
+				cursor = songNow();
+				await opts.audio?.play();
+			} catch (e) {
+				// A clip that 404s, or a play() the browser refuses, must not leave
+				// an open context behind: the caller will show an error and the user
+				// will press Play again, and iOS caps how many contexts may exist.
+				void ctx.close();
+				ctx = null;
+				clips = null;
+				gain = null;
+				throw e;
+			}
 			await takeWakeLock();
 			document.addEventListener('visibilitychange', onVisible);
 			tick = setInterval(schedule, TICK_MS) as unknown as number;
 		},
 
+		/**
+		 * Hold the run where it is. The media element and the audio clock are
+		 * separate, so pausing the element alone would let the ~100 ms already
+		 * committed to the context keep sounding after the user thinks they have
+		 * stopped — and count-only has no element to pause at all.
+		 */
+		pause() {
+			if (heldAt !== null) return;
+			heldAt = songNow();
+			clearInterval(tick);
+			tick = 0;
+			clearQueued();
+			opts.audio?.pause();
+		},
+
+		async resume() {
+			if (heldAt === null || !ctx) return;
+			// Count-only measures the song from `origin`, and the context clock ran
+			// on through the pause; move the origin so the count picks up where it
+			// left off rather than jumping forward by however long the break was.
+			if (!opts.audio) origin = ctx.currentTime - heldAt / rate();
+			cursor = heldAt;
+			heldAt = null;
+			await opts.audio?.play();
+			tick = setInterval(schedule, TICK_MS) as unknown as number;
+		},
+
 		stop() {
 			clearInterval(tick);
+			tick = 0;
+			heldAt = null;
 			clearQueued();
 			globalThis.speechSynthesis?.cancel();
 			document.removeEventListener('visibilitychange', onVisible);
