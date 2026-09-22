@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
-	import RecordingUpload from '$lib/components/figures/RecordingUpload.svelte';
+	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import { PARTNER_LABEL, STYLE_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
 	import { dateLabel } from '$lib/format';
@@ -209,7 +209,11 @@
 			{/each}
 		</ul>
 		<div class="mt-3">
-			<RecordingUpload figureId={figure.id} />
+			<UploadButton
+				url="/api/figures/{figure.id}/recordings"
+				accept="video/*,audio/*"
+				label="+ Add video or audio"
+			/>
 		</div>
 	</section>
 </main>

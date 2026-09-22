@@ -2,34 +2,47 @@
 	import { invalidateAll } from '$app/navigation';
 	import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
 
-	let { figureId }: { figureId: number } = $props();
+	interface Props {
+		/** Endpoint taking the raw file as the POST body. */
+		url: string;
+		accept: 'audio/*' | 'video/*,audio/*';
+		label: string;
+		/** Extra request headers for this file (metadata rides in headers, not the body). */
+		headers?: (file: File) => Record<string, string>;
+	}
+
+	let { url, accept, label, headers }: Props = $props();
 
 	let progress = $state<number | null>(null);
 	let message = $state<string | null>(null);
 	let input: HTMLInputElement | undefined = $state();
 
 	const mb = (n: number) => `${Math.round(n / 1024 / 1024)} MB`;
+	const allowed = $derived(accept === 'audio/*' ? /^audio\// : /^(video|audio)\//);
 
 	/*
-	 * XHR rather than fetch, for one reason: upload progress. fetch still has no
-	 * portable way to report it, and a phone video over mobile data can take a
-	 * minute — a spinner with no number reads as hung.
+	 * XHR rather than fetch for upload progress: a phone upload over mobile data
+	 * can take a minute, and a spinner with no number reads as hung.
 	 */
 	function upload(file: File) {
 		message = null;
 		if (file.size > MAX_RECORDING_BYTES) {
-			message = `That file is ${mb(file.size)}; the limit is ${MAX_RECORDING_LABEL}. Trim it on the phone first.`;
+			message = `That file is ${mb(file.size)}; the limit is ${MAX_RECORDING_LABEL}.`;
 			return;
 		}
-		if (!/^(video|audio)\//.test(file.type)) {
-			message = 'Only video and audio files can be added.';
+		if (!allowed.test(file.type)) {
+			message =
+				accept === 'audio/*'
+					? 'Only audio files can be added.'
+					: 'Only video and audio files can be added.';
 			return;
 		}
 
 		const xhr = new XMLHttpRequest();
-		xhr.open('POST', `/api/figures/${figureId}/recordings`);
+		xhr.open('POST', url);
 		xhr.setRequestHeader('content-type', file.type);
 		xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
+		for (const [k, v] of Object.entries(headers?.(file) ?? {})) xhr.setRequestHeader(k, v);
 		xhr.upload.onprogress = (e) => {
 			if (e.lengthComputable) progress = e.loaded / e.total;
 		};
@@ -38,18 +51,18 @@
 			if (input) input.value = '';
 			if (xhr.status === 201) {
 				await invalidateAll();
-			} else {
-				let text = xhr.responseText;
-				try {
-					text = JSON.parse(text).message ?? text;
-				} catch {
-					/* plain-text error body */
-				}
-				message =
-					xhr.status === 413
-						? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
-						: text || 'Upload failed.';
+				return;
 			}
+			let text = xhr.responseText;
+			try {
+				text = JSON.parse(text).message ?? text;
+			} catch {
+				/* plain-text error body */
+			}
+			message =
+				xhr.status === 413
+					? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
+					: text || 'Upload failed.';
 		};
 		xhr.onerror = () => {
 			progress = null;
@@ -66,11 +79,11 @@
 		? 'pointer-events-none opacity-60'
 		: ''}"
 >
-	{progress === null ? '+ Add video or audio' : `Uploading… ${Math.round(progress * 100)}%`}
+	{progress === null ? label : `Uploading… ${Math.round(progress * 100)}%`}
 	<input
 		bind:this={input}
 		type="file"
-		accept="video/*,audio/*"
+		{accept}
 		class="sr-only"
 		disabled={progress !== null}
 		onchange={(e) => {

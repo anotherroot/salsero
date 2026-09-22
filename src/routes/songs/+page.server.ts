@@ -1,0 +1,40 @@
+import { fail } from '@sveltejs/kit';
+import { getDb } from '$lib/server/db';
+import { oneOf, optionalText } from '$lib/server/form';
+import { createSongFromUrl, listSongs, retrySong } from '$lib/server/songs';
+import { STYLES } from '$lib/labels';
+import type { Actions, PageServerLoad } from './$types';
+
+export const load: PageServerLoad = () => ({ songs: listSongs(getDb()) });
+
+function httpUrl(raw: string): string | null {
+	try {
+		const u = new URL(raw.trim());
+		return u.protocol === 'https:' || u.protocol === 'http:' ? u.toString() : null;
+	} catch {
+		return null;
+	}
+}
+
+export const actions: Actions = {
+	addUrl: async ({ request }) => {
+		const form = await request.formData();
+		const url = httpUrl(String(form.get('url') ?? ''));
+		const title = optionalText(form, 'title', 200);
+		const style = oneOf(form, 'style', STYLES) ?? 'salsa';
+		if (!url || title === undefined) {
+			return fail(400, {
+				message: 'Paste a full link, starting with https://',
+				url: String(form.get('url') ?? '')
+			});
+		}
+		createSongFromUrl(getDb(), { url, title: title ?? '', style });
+		return { ok: true };
+	},
+
+	retry: async ({ request }) => {
+		const id = Number((await request.formData()).get('id'));
+		if (!retrySong(getDb(), id)) return fail(404, { message: 'That song no longer exists.' });
+		return { ok: true };
+	}
+};

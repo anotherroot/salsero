@@ -4,7 +4,8 @@
 
 	const TABS = [
 		{ href: '/' as const, label: 'Today', match: (p: string) => p === '/' },
-		{ href: '/figures' as const, label: 'Figures', match: (p: string) => p.startsWith('/figures') }
+		{ href: '/figures' as const, label: 'Figures', match: (p: string) => p.startsWith('/figures') },
+		{ href: '/songs' as const, label: 'Songs', match: (p: string) => p.startsWith('/songs') }
 	];
 </script>
 
