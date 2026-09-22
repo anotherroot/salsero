@@ -213,8 +213,9 @@ The home page. One page serves both "exercises" and "today".
 
 ## Songs & player (phase 2)
 
-**Adding a song:** paste a YouTube URL or upload an audio file. The server
-creates a `pending` row, spawns `salsa-analyze song …` in the background, and
+**Adding a song:** paste a YouTube URL or upload an audio file. A URL waits
+for the home fetcher (see "Decided after review"); a file, or fetched audio,
+gets a `pending` row and `salsa-analyze song …` in the background, and
 the library shows "analyzing…". On exit the row becomes `ready` (beats stored)
 or `failed` (stderr summary stored). Timeout 10 minutes → `failed`. Failed rows
 offer **Retry** and **Upload file instead**. If YouTube blocks the Hetzner IP,
@@ -344,6 +345,20 @@ Mirrors muscle_model's `docs/007-deployment.md`, minus Postgres.
 - **Recording size cap is 95 MiB, not 300 MB.** The hostname is behind
   Cloudflare's proxy, whose free plan rejects request bodies over 100 MB at the
   edge. nginx and `BODY_SIZE_LIMIT` sit at 100m, just above the app's own check.
+
+- **YouTube downloads run at home, not on the server (phase 2).** Tested
+  2026-09-22 with yt-dlp 2026.08.19: from the Hetzner IP every video, even a
+  plain upload, fails with "Sign in to confirm you're not a bot"; from the home
+  connection the same version downloads both a plain upload and an official
+  label video. Design: pasting a URL creates a song with status
+  `waiting_download`. A fetcher on the always-on `laptop` host (a systemd
+  timer declared in nixos-config, running every minute or so) asks the server
+  for waiting songs over HTTPS, downloads audio with yt-dlp, and uploads it back
+  with a per-device token (agenix secret on both ends). The server then runs
+  the beat analysis as for an uploaded file. Outbound-only from home: no
+  tailnet membership, nothing exposed. Songs wait while laptop is off; the
+  library shows "waiting for the home fetcher". Uploading a file stays the
+  fallback. Cookies on the server were rejected (expiry, account-flag risk).
 
 ## Open items
 
