@@ -40,7 +40,22 @@ export const load: PageServerLoad = ({ params }) => {
 					tempoFactor: song.tempoFactor as TempoFactor
 				})
 			: null;
-	return { song, anchors, grid };
+	// Only what the page shows: the raw beat lists travel as `grid`, not twice.
+	return {
+		song: {
+			id: song.id,
+			title: song.title,
+			artist: song.artist,
+			style: song.style,
+			sourceUrl: song.sourceUrl,
+			status: song.status,
+			error: song.error,
+			audioFile: song.audioFile,
+			tempoFactor: song.tempoFactor
+		},
+		anchors,
+		grid
+	};
 };
 
 export const actions: Actions = {
@@ -92,7 +107,9 @@ export const actions: Actions = {
 	},
 
 	retry: ({ params }) => {
-		retrySong(getDb(), load_(params.id).id);
+		if (!retrySong(getDb(), load_(params.id).id)) {
+			return fail(409, { message: 'Only a failed song can be retried.' });
+		}
 		return { ok: true };
 	},
 

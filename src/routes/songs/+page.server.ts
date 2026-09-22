@@ -19,14 +19,13 @@ function httpUrl(raw: string): string | null {
 export const actions: Actions = {
 	addUrl: async ({ request }) => {
 		const form = await request.formData();
-		const url = httpUrl(String(form.get('url') ?? ''));
+		const raw = String(form.get('url') ?? '');
+		const url = httpUrl(raw);
 		const title = optionalText(form, 'title', 200);
 		const style = oneOf(form, 'style', STYLES) ?? 'salsa';
-		if (!url || title === undefined) {
-			return fail(400, {
-				message: 'Paste a full link, starting with https://',
-				url: String(form.get('url') ?? '')
-			});
+		if (!url) return fail(400, { message: 'Paste a full link, starting with https://', url: raw });
+		if (title === undefined) {
+			return fail(400, { message: 'Keep the title to 200 characters.', url: raw });
 		}
 		createSongFromUrl(getDb(), { url, title: title ?? '', style });
 		return { ok: true };
@@ -34,7 +33,8 @@ export const actions: Actions = {
 
 	retry: async ({ request }) => {
 		const id = Number((await request.formData()).get('id'));
-		if (!retrySong(getDb(), id)) return fail(404, { message: 'That song no longer exists.' });
+		if (!retrySong(getDb(), id))
+			return fail(409, { message: 'Only a failed song can be retried.' });
 		return { ok: true };
 	}
 };

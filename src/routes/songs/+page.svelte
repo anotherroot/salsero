@@ -4,11 +4,12 @@
 	import { resolve } from '$app/paths';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import { clock } from '$lib/format';
-	import { STYLES, STYLE_LABEL } from '$lib/labels';
+	import { STYLES, STYLE_LABEL, type Style } from '$lib/labels';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let busy = $state(false);
+	let uploadStyle = $state<Style>('salsa');
 
 	const STATUS: Record<string, string> = {
 		waiting_download: 'Waiting for the home fetcher',
@@ -91,7 +92,23 @@
 		>
 	</form>
 
-	<UploadButton url="/api/songs" accept="audio/*" label="+ Upload an audio file" />
+	<div class="flex items-start gap-2">
+		<div class="min-w-0 flex-1">
+			<UploadButton
+				url="/api/songs"
+				accept="audio/*"
+				label="+ Upload an audio file"
+				headers={() => ({ 'x-style': uploadStyle })}
+			/>
+		</div>
+		<select
+			bind:value={uploadStyle}
+			aria-label="Style of the uploaded song"
+			class="h-12 rounded-xl border border-rule bg-raised px-2 text-[15px]"
+		>
+			{#each STYLES as s (s)}<option value={s}>{STYLE_LABEL[s]}</option>{/each}
+		</select>
+	</div>
 
 	{#if data.songs.length === 0}
 		<p class="text-center text-[14px] text-muted">No songs yet.</p>
