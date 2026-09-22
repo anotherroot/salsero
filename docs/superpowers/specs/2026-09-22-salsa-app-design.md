@@ -59,20 +59,26 @@ salsa.anotherroot.eu → nginx (publicAcme, raised body size)
                      → node 127.0.0.1:3060 (SvelteKit, adapter-node)
                          ├─ SQLite   /var/lib/salsa/salsa.db (Drizzle)
                          ├─ files    /var/lib/salsa/recordings/, audio/, clips/
-                         └─ spawns   salsa-analyze (Python, phase 2)
-                                      yt-dlp → ffmpeg → Beat This! → beats.json
-                                      piper TTS → call clips
+                         └─ /api/worker/*  job queue for the home worker
+                                  ▲ outbound HTTPS only, bearer token
+laptop (home, always on) — salsa-worker, systemd timer every minute
+    yt-dlp → ffmpeg → Beat This! → beats/downbeats → back to the server
+    piper TTS → call clips (phase 2b)
 ```
 
 **Split of responsibility**
 
 - **Server (SvelteKit):** auth, CRUD, file upload and range-served download,
-  urgency computation per request, spawning background analysis jobs.
-- **Python helper (`salsa-analyze`)** — phase 2. A CLI, not a service:
-  `salsa-analyze song <url-or-file> <out-dir>` writes `audio.opus` and
-  `beats.json` (`{bpm, duration_s, beats[], downbeats[]}`);
-  `salsa-analyze clip <text> <out-file>` writes a TTS clip. Packaged by Nix
-  with its dependencies. No queue: one user, a handful of jobs.
+  urgency computation per request, and a small job queue the home worker
+  polls. The server runs no Python and no ML: it has 3.7 GB RAM shared with
+  other services and an 80% full disk.
+- **Home worker (`salsa-worker`, Python)** — phase 2, on the `laptop` host.
+  Claims jobs over HTTPS, downloads with yt-dlp (YouTube bot-blocks the
+  Hetzner IP), transcodes with ffmpeg, runs Beat This! (`final0` checkpoint,
+  ~15 s and ~660 MB per song on CPU, measured) and posts beats + downbeats
+  back. Phase 2b adds piper TTS call clips as another job kind. Packaged by
+  the salsaapp flake; yt-dlp comes from nixpkgs-unstable because YouTube
+  breaks old versions within weeks.
 - **Browser:** all timing-critical work. The player must be sample-accurate
   relative to the music, so the scheduler runs where the music plays.
 
@@ -142,8 +148,10 @@ songs                                          -- phase 2
   status ('pending'|'ready'|'failed'), error (nullable)
   duration_s, bpm
   beats_json, downbeats_json                   -- analysis output, replaced wholesale
-  one_offset      integer default 0            -- user: index of the downbeat that is the salsa "1"
-  time_nudge_ms   integer default 0            -- user: fine shift of the whole grid
+  beats_json                                   -- cleaned beat times (gaps filled), seconds
+  suggested_one   integer, nullable            -- beat index the model's downbeats vote for as "1"
+  anchors_json    text default '[]'            -- user: beat indices tapped as "1", sorted
+  tempo_factor    real default 1               -- user: 0.5 / 1 / 2 — count every other beat, as detected, or twice per beat
   created_at
 
 choreographies                                 -- phase 3
@@ -213,20 +221,31 @@ The home page. One page serves both "exercises" and "today".
 
 ## Songs & player (phase 2)
 
-**Adding a song:** paste a YouTube URL or upload an audio file. A URL waits
-for the home fetcher (see "Decided after review"); a file, or fetched audio,
-gets a `pending` row and `salsa-analyze song …` in the background, and
-the library shows "analyzing…". On exit the row becomes `ready` (beats stored)
-or `failed` (stderr summary stored). Timeout 10 minutes → `failed`. Failed rows
-offer **Retry** and **Upload file instead**. If YouTube blocks the Hetzner IP,
-downloads may be routed through the home machine over Tailscale; upload always
-works.
+**Adding a song:** paste a YouTube URL (status `waiting_download`) or upload
+an audio file (`waiting_analysis`). The home worker claims waiting songs with a
+15-minute lease, so a job that dies mid-way is picked up again; after 5 failed
+attempts, or a permanent error (video unavailable, longer than 15 minutes), the
+song is `failed` with the error shown, **Retry** and **Upload a file instead**.
+While laptop is off, songs simply wait; the library says so.
 
-**Beat grid:** Beat This! gives beat times and downbeat (bar-start) times. The
-salsa 8-count starts on every second downbeat; `one_offset` picks which
-downbeat is count 1 and `time_nudge_ms` shifts everything. The correction UI:
-play the song, tap on the "1" a few times → the nearest downbeat becomes the
-new offset; ± buttons nudge by 10 ms.
+**Beat grid** (measured 2026-09-22 on a salsa and a son track): Beat This!'s
+BEATS are good — 96–97% of inter-beat intervals within 8% of the median, tempo
+stable to ±0.3 BPM across a song — but its DOWNBEATS are not reliable on salsa
+(often a "bar" every 2 beats; phase votes 52/27/38/34), and a single
+constant-tempo fit drifts 100+ ms at breaks. So:
+
+- The grid IS the detected beats, with gaps (breaks, intros) filled at the
+  median interval and near-duplicates dropped.
+- The count comes from **anchors**: beat indices the user tapped as "1".
+  Counting runs 1–8 forward from each anchor until the next one; before the
+  first anchor it runs backwards from it. With no anchors, the downbeat vote
+  (`suggested_one`) is used as a suggestion.
+- A tap snaps to the nearest beat (minus ~80 ms for reaction time). Re-tapping
+  later in the song re-anchors from there, which is how a count that slipped
+  at a break is fixed. Anchors consistent with the previous one are dropped.
+- `tempo_factor` fixes a half- or double-time detection (salsa measured at
+  103 BPM is likely half the count rate): ×2 inserts midpoints, ×½ keeps every
+  other beat. Changing it clears the anchors, since beat indices change.
 
 **Player:**
 
@@ -254,7 +273,7 @@ new offset; ± buttons nudge by 10 ms.
 
 **Voice clips:** a fixed set ships with the app (uno, dos, tres, cinco, seis,
 siete, clave sounds). A figure's call clip is generated by
-`salsa-analyze clip "<name>"` with a Piper voice when the figure becomes
+the home worker with a Piper voice (a `clip` job) when the figure becomes
 callable, or recorded by the user from the figure page.
 
 ## Choreographies (phase 3)
@@ -325,7 +344,10 @@ Mirrors muscle_model's `docs/007-deployment.md`, minus Postgres.
     `DATA_DIR=/var/lib/salsa`, `ORIGIN=https://salsa.anotherroot.eu` (must be
     the public URL — CSRF), `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
     `TZ_USER=Europe/Ljubljana`.
-  - Phase 2 adds the `salsa-analyze` package to the unit's `path`.
+  - Phase 2: `modules/services/salsa-worker.nix` on `laptop` (oneshot +
+    1-minute timer, DynamicUser, MemoryMax 2G), secret `salsa-worker.env.age`
+    (`SALSA_WORKER_TOKEN`) readable by cloud and laptop, and salsaapp as a
+    private GitHub flake input (`git+ssh://git@github.com/anotherroot/salsaapp`).
 - **Build first, then switch** on the shared host.
 - **App repo:** `scripts/deploy.sh prod` — build locally, rsync `build/`,
   `package.json`, lockfile and `drizzle/`, `npm ci --omit=dev` on the box
