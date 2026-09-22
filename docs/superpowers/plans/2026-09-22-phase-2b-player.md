@@ -331,14 +331,25 @@ mkdir -p "$out"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# A medium-quality Spanish voice: clear at speed, and small enough to fetch
-# quickly. Piper downloads it into $work on first use.
-voice=es_ES-davefx-medium
+# nixpkgs' piper-tts does NOT fetch voices itself (no --download-dir, and -m
+# wants a real .onnx path), so the model is pulled straight from the Piper
+# voices repo. Cached in .data/ so a re-run is instant; .data/ is gitignored.
+voice_base=https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium
+cache=.data/piper
+mkdir -p "$cache"
+for ext in onnx onnx.json; do
+  [ -s "$cache/voice.$ext" ] || curl -fL --retry 3 -o "$cache/voice.$ext" "$voice_base.$ext"
+done
 
+# --length-scale 0.75: at the natural rate "cinco", "seis" and "siete" run
+# ~0.57 s, which smears across the next beat at 180 BPM (a beat is 0.333 s).
+# Measured: 0.75 brings every word to 0.40 s or under. --sentence-silence 0
+# drops the trailing pause Piper adds after a sentence.
 for word in uno dos tres cinco seis siete; do
   echo "$word" | nix run nixpkgs#piper-tts -- \
-    --model "$voice" --download-dir "$work" --data-dir "$work" \
-    --output_file "$work/$word.wav"
+    -m "$cache/voice.onnx" -c "$cache/voice.onnx.json" \
+    --length-scale 0.75 --sentence-silence 0 \
+    -f "$work/$word.wav"
 done
 
 # The clave: a woodblock is a short, hard, high click. A 2.5 kHz sine cut to
@@ -350,12 +361,13 @@ nix run nixpkgs#ffmpeg -- -y -f lavfi \
   "$work/clave.wav"
 
 # One shape for every clip: mono 48 kHz AAC, loudness-normalised so the count
-# carries over a song without a per-clip volume fudge. Silence is trimmed off
-# the front, or a clip's word would land late however well it was scheduled.
+# carries over a song without a per-clip volume fudge. Silence comes off BOTH
+# ends — leading silence would land the word late however well it was
+# scheduled, and a trailing tail eats into the next beat.
 for f in "$work"/*.wav; do
   name=$(basename "$f" .wav)
   nix run nixpkgs#ffmpeg -- -y -i "$f" \
-    -af "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0,loudnorm=I=-16:TP=-1.5:LRA=11" \
+    -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.02,loudnorm=I=-16:TP=-1.5:LRA=11" \
     -ac 1 -ar 48000 -c:a aac -b:a 64k "$out/$name.m4a"
 done
 
