@@ -51,6 +51,17 @@ export const CLAVE_POSITIONS: Record<ClavePattern, number[]> = {
 	'2-3': [2, 3, 5, 6.5, 8]
 };
 
+/**
+ * The counts a recorded half-bar covers. Derived from the pattern rather than
+ * listed again, so a pattern can never disagree with its own phrases: `a` is
+ * everything in the first half of the bar, `b` everything in the second.
+ *
+ * salsa → [1,2,3] and [5,6,7]; son → [2,3,4] and [6,7,8].
+ */
+export function phraseCounts(pattern: CountPattern, half: 'a' | 'b'): number[] {
+	return COUNT_POSITIONS[pattern].filter((c) => (half === 'a' ? c <= 4 : c > 4));
+}
+
 /** 8-counts of count-only before the first figure is called, so a run can settle. */
 export const LEAD_IN_8S = 2;
 

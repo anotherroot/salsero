@@ -1,6 +1,21 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { PARTNER, PRACTICE_MODES, SONG_STATUSES, SOURCES, STYLES } from '../../labels';
+import {
+	check,
+	index,
+	integer,
+	real,
+	sqliteTable,
+	text,
+	uniqueIndex
+} from 'drizzle-orm/sqlite-core';
+import {
+	COUNT_PATTERNS,
+	PARTNER,
+	PRACTICE_MODES,
+	SONG_STATUSES,
+	SOURCES,
+	STYLES
+} from '../../labels';
 
 /*
  * Every instant is an INTEGER of epoch milliseconds, never a Date or a string.
@@ -206,7 +221,50 @@ export const sets = sqliteTable(
 	]
 );
 
+/* ── The count voice ────────────────────────────────────────────────────── */
+
+/**
+ * One recorded half-bar of the user counting: phrase `a` is the first half of
+ * the pattern (salsa 1-2-3, son 2-3-4), `b` the second. See
+ * `docs/superpowers/specs/2026-09-23-count-voice-design.md`.
+ *
+ * A half bar, not a whole one and not a loop: the silent 4 and 8 give each
+ * phrase's tail a beat to ring out, so there is no seam, and dropping phrase
+ * `b` is how the player still gets out of the way for a figure call.
+ *
+ * `pre_roll_s` is audio kept BEFORE the phrase's first beat. A word's
+ * perceived beat is its vowel, and the /s/ of "cinco" starts ~80 ms earlier;
+ * playback starts the buffer at `beatTime − preRoll` so that consonant is not
+ * thrown away.
+ *
+ * No CHECK constraints, deliberately — drizzle-kit's rebuild migration for a
+ * new CHECK selects new columns from the old table and fails at migrate time.
+ * The upload route validates instead.
+ */
+export const countTakes = sqliteTable(
+	'count_takes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		pattern: text('pattern', { enum: COUNT_PATTERNS }).notNull(),
+		/** The click tempo it was counted against. */
+		bpm: integer('bpm').notNull(),
+		phrase: text('phrase', { enum: ['a', 'b'] }).notNull(),
+		/** File name under `$DATA_DIR/count/`. A random uuid plus `.wav`. */
+		file: text('file').notNull().unique(),
+		sampleRate: integer('sample_rate').notNull(),
+		preRollS: real('pre_roll_s').notNull(),
+		/** The phrase itself: its first beat to the end of its last. */
+		lengthS: real('length_s').notNull(),
+		/** The whole file, pre-roll and ring-out included. */
+		durationS: real('duration_s').notNull(),
+		sizeBytes: integer('size_bytes').notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [uniqueIndex('count_takes_slot_idx').on(t.pattern, t.bpm, t.phrase)]
+);
+
 export type Figure = typeof figures.$inferSelect;
+export type CountTake = typeof countTakes.$inferSelect;
 export type Recording = typeof recordings.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type SetRow = typeof sets.$inferSelect;

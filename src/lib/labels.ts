@@ -52,6 +52,15 @@ export type Clip = (typeof CLIPS)[number];
 export const COUNT_PATTERNS = ['salsa', 'son', 'all', 'odd', 'ones', 'one', 'off'] as const;
 export type CountPattern = (typeof COUNT_PATTERNS)[number];
 
+/**
+ * Patterns the user records half-bar phrases for. The sparse ones are left
+ * out on purpose: at 1-3-5-7 the words are half a second apart, so there is no
+ * flow between them for a phrase recording to preserve — they use single words
+ * and cost no takes.
+ */
+export const PHRASE_PATTERNS = ['salsa', 'son', 'all'] as const;
+export type PhrasePattern = (typeof PHRASE_PATTERNS)[number];
+
 export const COUNT_PATTERN_LABEL: Record<CountPattern, string> = {
 	salsa: '1 2 3 · 5 6 7',
 	son: '2 3 4 · 6 7 8',
@@ -75,6 +84,20 @@ export const PRACTICE_LABEL: Record<PracticeMode, string> = {
 	count: 'Count only',
 	none: 'Just log it'
 };
+
+/**
+ * Tempos the user records their own count at, roughly every 8 % so the nearest
+ * one is never more than ~4 % away — well under half a semitone once
+ * `playbackRate` stretches it, which is inaudible.
+ *
+ * It stops at 191 because that is where the words stop fitting: a count needs
+ * ~0.30 s to be said and a beat at 200 BPM is 0.30 s exactly. Past there the
+ * answer is a sparser pattern, not a faster take.
+ *
+ * It starts at 120 rather than lower because practice speed multiplies — a
+ * 180 BPM song at 0.7× behaves as 126 and is covered from inside the ladder.
+ */
+export const TEMPO_LADDER = [120, 130, 140, 152, 164, 177, 191] as const;
 
 /** Playback speeds the player offers. 1 first: the default is full speed. */
 export const SPEEDS = [1, 0.9, 0.8, 0.7] as const;

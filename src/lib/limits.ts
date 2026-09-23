@@ -14,3 +14,18 @@ export const MAX_RECORDING_BYTES = 95 * 1024 * 1024;
 
 /** `95 MB`, for messages. */
 export const MAX_RECORDING_LABEL = `${Math.round(MAX_RECORDING_BYTES / 1024 / 1024)} MB`;
+
+/**
+ * Largest count take accepted: 4 MiB.
+ *
+ * Its own ceiling, not `MAX_RECORDING_BYTES` — that one is sized for a minute
+ * of phone video and would wave through anything. A take is a half bar of
+ * 16-bit mono WAV: three beats at 120 BPM is 1.5 s, about 290 KB at 96 kHz,
+ * and every tempo above that is shorter. 4 MiB is more than an order of
+ * magnitude of headroom while still refusing an upload that is obviously not
+ * a take.
+ */
+export const MAX_TAKE_BYTES = 4 * 1024 * 1024;
+
+/** `4 MB`, for messages. */
+export const MAX_TAKE_LABEL = `${Math.round(MAX_TAKE_BYTES / 1024 / 1024)} MB`;

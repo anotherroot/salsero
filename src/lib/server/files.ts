@@ -56,6 +56,14 @@ export function audioDir(): string {
 /** Stored song audio names: the same uuid-plus-extension shape as recordings. */
 export const AUDIO_FILE_RE = RECORDING_FILE_RE;
 
+/** `$DATA_DIR/count`, created on first use. The user's recorded count takes. */
+export function countDir(): string {
+	if (!env.DATA_DIR) throw new Error('DATA_DIR is not set');
+	const dir = join(env.DATA_DIR, 'count');
+	mkdirSync(dir, { recursive: true });
+	return dir;
+}
+
 /**
  * Parse a `Range: bytes=…` header against a file size.
  * `bytes=-500` is the LAST 500 bytes; `bytes=500-` is from 500 to the end.
