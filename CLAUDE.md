@@ -4,9 +4,10 @@ A personal practice companion for salsa and son, used from a browser-only work
 PC and a phone.
 
 **Live:** phase 1 (Today/Exercises, figures with recordings, custom exercises),
-phase 2a (song library, the home worker, the beat grid) and phase 2b (the
+phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, random figure calls, count-only drills, and a
-finished run logged as a set). **Not built:** phase 3, choreographies.
+finished run logged as a set) and phase 4 (lessons: videos, notes, figure and
+exercise links, and a four-band Today). **Not built:** phase 3, choreographies.
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -14,7 +15,10 @@ read it before adding anything, and keep it current when the design changes.
 It carries a "Known gaps" list for the player; check it before hunting a bug
 that is already known. The count voice has its own spec,
 [`docs/superpowers/specs/2026-09-23-count-voice-design.md`](docs/superpowers/specs/2026-09-23-count-voice-design.md):
-count patterns, and the user's own voice recorded as half-bar phrases.
+count patterns, and the user's own voice recorded as half-bar phrases. Lessons
+have theirs,
+[`docs/superpowers/specs/2026-09-23-lessons-design.md`](docs/superpowers/specs/2026-09-23-lessons-design.md):
+the chunked upload protocol, the link rules, and the four Today bands.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -23,7 +27,8 @@ Sister project with the same conventions: `~/Projects/muscle_model`.
 
 ```
 src/lib/day/         PURE calendar-day maths in the user's zone. `now` is an argument
-src/lib/urgency/     PURE "what next": (exercises, sets, now, tz) → doneToday/todo/inactive
+src/lib/urgency/     PURE "what next": (exercises, sets, now, tz) →
+                     doneToday/due/upcoming/inactive
 src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo factor
 src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
@@ -37,7 +42,9 @@ src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row
 src/lib/components/  ui/ shell/ today/ figures/ songs/ player/
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
 src/routes/          pages + actions. api/figures/[id]/recordings and api/songs
-                     take raw-body uploads; api/worker/* is the home worker's queue
+                     take raw-body uploads; api/lessons/[id]/videos/[uploadId]
+                     takes ONE CHUNK per request; api/worker/* is the worker's queue
+src/lib/media.ts     shared: telling a missing media file from an undecodable one
 static/clips/        the seven committed count/clave clips — regenerate with
                      scripts/make-clips.sh, never at build time
 drizzle/             generated migrations — applied at boot, shipped by deploy.sh
@@ -66,6 +73,19 @@ scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is comm
   `/api/figures/[id]/recordings`; served with HTTP Range (iOS requires it). The
   size cap is `src/lib/limits.ts` — Cloudflare's 100 MB body limit is why it is
   95 MiB; nginx and `BODY_SIZE_LIMIT` in the host config sit just above it.
+- **Lesson videos are chunked, recordings are not.** A recording is one request,
+  so Cloudflare's 100 MB edge limit IS its cap. A lesson video is sliced into
+  8 MiB chunks (`PUT .../videos/[uploadId]` with `content-range`), so its cap is
+  the disk instead: 1 GiB, in `src/lib/limits.ts`. The partial file on disk is
+  the only state — its size is the resume offset, a chunk must start exactly
+  where the file ends, and anything else is a 409 carrying `x-received-bytes`.
+  `BODY_SIZE_LIMIT` must be set on the host; adapter-node's 512 KB default is
+  below one chunk and fails every upload.
+- **Never add a CHECK to an existing table.** drizzle-kit rebuilds the table and
+  the rebuild selects the new columns from the old one, failing at migrate time.
+  Additive `ALTER TABLE ... ADD COLUMN` only; put the invariant in the data
+  function, as `exercises.lesson_id` and the song/count pairing both do. Always
+  read the generated SQL before committing it.
 - **The server runs no Python and no ML.** Song downloads and beat analysis
   happen on the home worker (`worker/`, a systemd timer on backtop), which
   drains `/api/worker/*` over HTTPS with a bearer token. YouTube bot-blocks the

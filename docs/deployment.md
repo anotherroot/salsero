@@ -6,7 +6,7 @@ One environment: production at `salsa.anotherroot.eu`, on the Hetzner VM
 ```
 browser → Cloudflare (proxied wildcard) → nginx :443 (Let's Encrypt, publicAcme)
         → 127.0.0.1:3060 node (adapter-node, systemd unit `salsa`)
-        → /var/lib/salsa/{salsa.db, recordings/}
+        → /var/lib/salsa/{salsa.db, recordings/, audio/, lesson-videos/, uploads/}
 ```
 
 ## Host configuration
@@ -16,6 +16,14 @@ Lives in `~/.config/nixos-config`, not here:
 - `modules/services/salsa.nix` — user, directories, vhost (`client_max_body_size
   100m`, request buffering off), the `salsa` unit, the nightly `salsa-backup`
   timer, and a NixOS VM check (`nix build .#checks.x86_64-linux.svc-salsa`).
+  Two directories were added with lessons: `/var/lib/salsa/lesson-videos` and
+  `/var/lib/salsa/uploads`, both in the unit's `ReadWritePaths` and its tmpfiles.
+- **`BODY_SIZE_LIMIT` must be set.** adapter-node's default is **512 KB**, which
+  is below a single upload chunk, so with it unset every lesson-video upload
+  fails — measured, not guessed. The unit sets it to `100m`, which covers the
+  8 MiB chunks with room to spare. The endpoint answers such a rejection with a
+  413 that names this setting, because the symptom otherwise points nowhere near
+  the cause.
 - `modules/services/ports.nix` — `salsa = 3060`.
 - `secrets/salsa-prod.env.age` — the unit only exists once this file does.
 
@@ -125,6 +133,13 @@ shares with Firefly, Grafana, muscle and nikaudio.
 2. Recordings, song audio and the snapshots are copied to
    `/home/tilen/Backups/salsa` on the server (recordings and audio without
    `--delete`, so deleted clips and songs survive).
+   **Lesson videos are deliberately NOT in the backup set.** They are up to 1 GiB
+   each on a disk that is already ~80% full, and copying them nightly — without
+   `--delete`, so nothing ever leaves — would fill both the server and backtop
+   within a few classes. The database row survives, so a lost video shows as
+   "the file for this video is missing" rather than a broken page. If a lesson
+   ever deserves keeping, copy it off by hand. `/var/lib/salsa/uploads` is
+   excluded too: it only ever holds partial uploads, swept after 24 hours.
 3. Syncthing folder `salsa-backup` carries that to backtop (send-only →
    receive-only, staggered versioning on backtop).
 

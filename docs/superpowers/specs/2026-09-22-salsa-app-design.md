@@ -42,6 +42,11 @@ Each phase is independently deployable and useful. Phases 1 and 2 are **live**
    song page, player runs save a set.
 3. **Choreographies** — general and song-bound choreographies, auto-exercise,
    player follows a choreography, song page lists its choreographies.
+4. **Lessons** — a class as a record: day, title, notes, chunk-uploaded videos,
+   links to the figures it taught and to exercises, and its own auto-created
+   review exercise. Shipped 2026-09-23, ahead of phase 3. Today gained a fourth
+   band at the same time. See
+   [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md).
 
 Deferred beyond phase 3: stats/charts, ear-training quizzes (e.g. "2-3 or 3-2
 clave?"), offline mode.
@@ -52,6 +57,7 @@ clave?"), offline mode.
 browser (work PC / phone, installable PWA)
   ├─ Today / Exercises   list, log sets, ‹ › day navigation
   ├─ Figures             list, detail, recordings
+  ├─ Lessons             (phase 4) list, detail, videos, figure/exercise links
   ├─ Choreographies      (phase 3)
   ├─ Songs               (phase 2) library, add by URL/upload, song page
   └─ Player              (phase 2) <audio> + Web Audio scheduler
@@ -59,7 +65,8 @@ browser (work PC / phone, installable PWA)
 salsa.anotherroot.eu → nginx (publicAcme, raised body size)
                      → node 127.0.0.1:3060 (SvelteKit, adapter-node)
                          ├─ SQLite   /var/lib/salsa/salsa.db (Drizzle)
-                         ├─ files    /var/lib/salsa/recordings/, audio/
+                         ├─ files    /var/lib/salsa/recordings/, audio/,
+                         │            lesson-videos/, uploads/
                          └─ /api/worker/*  job queue for the home worker
                                   ▲ outbound HTTPS only, bearer token
 home host (backtop; laptop later) — salsa-worker, timer every minute
@@ -199,8 +206,12 @@ The home page. One page serves both "exercises" and "today".
 - **Viewing today:**
   1. **Done today** — exercises with ≥1 set today, at the top, in the "done"
      colour, showing the set count. Ordered by most recent set first.
-  2. **To do** — remaining active exercises, most urgent first.
-  3. **Inactive** — dimmed, collapsed by default, alphabetical.
+  2. **Due** — active exercises at urgency ≥ 1, never-done included, most urgent
+     first.
+  3. **Not yet due** — the rest of the active ones, dimmed but shown and still
+     loggable: seeing what is coming is how you pick a short session.
+  4. **Inactive** — dimmed, collapsed by default, alphabetical. Parking an
+     exercise beats its urgency, so an overdue inactive one stays here.
 - **Viewing a past day:** the exercises done that day with their sets (read-only
   list plus the ability to add a forgotten set to that day or delete a mistaken
   one). No urgency ordering — it answers "what did I do that day".
@@ -372,7 +383,7 @@ No DB, no DOM, no `Date.now()` inside — `now` is always an argument.
 | Module                   | Responsibility                                                                                                                                                                         |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/lib/day/`           | `localDay(instant, tz)`, `daysBetween(dayA, dayB)`. Anything a user reads as a day goes through here; elapsed milliseconds are only for urgency ratios. (Same rule as muscle_model.) |
-| `src/lib/urgency/`       | `(exercises, sets, now, tz) → { doneToday[], todo[], inactive[] }` with urgency and "last done" per row.                                                                               |
+| `src/lib/urgency/`       | `(exercises, sets, now, tz) → { doneToday[], due[], upcoming[], inactive[] }` with urgency and "last done" per row.                                                                               |
 | `src/lib/beatgrid/` (2)  | Beats + downbeats + corrections → count (1–8) and 8-count index at any song time; synthetic grid for count-only.                                                                       |
 | `src/lib/scheduler/` (2) | Plan + grid + toggles + time window → list of `{at, clip}` events. The only impure part is a thin `attach.ts` that owns the `AudioContext`.                                            |
 
