@@ -43,11 +43,17 @@
 
 <main class="space-y-6 px-4 pt-4 pb-4">
 	{#if grid && song.audioFile}
+		<a
+			href={resolve(`/player?song=${song.id}`)}
+			class="block h-12 w-full rounded-xl bg-accent text-center text-[15px] leading-[3rem] font-semibold text-accent-ink"
+			>Practice with this song</a
+		>
+
 		<!-- preload=auto: the count needs the playhead to be accurate from the first tap. -->
 		<audio bind:this={audio} src="/audio/{song.audioFile}" controls preload="auto" class="w-full"
 		></audio>
 
-		<LiveCount {audio} beats={grid.beats} counts={grid.counts} />
+		<LiveCount time={() => audio?.currentTime ?? null} beats={grid.beats} counts={grid.counts} />
 
 		<form
 			method="POST"

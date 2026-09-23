@@ -23,3 +23,25 @@ export const TEMPO_LABEL: Record<TempoFactor, string> = { 0.5: '×½', 1: '×1',
 
 export const SONG_STATUSES = ['waiting_download', 'waiting_analysis', 'ready', 'failed'] as const;
 export type SongStatus = (typeof SONG_STATUSES)[number];
+
+/** The clips shipped in `static/clips/`. See `scripts/make-clips.sh`. */
+export const CLIPS = ['uno', 'dos', 'tres', 'cinco', 'seis', 'siete', 'clave'] as const;
+export type Clip = (typeof CLIPS)[number];
+
+/** Which clave the player ticks. Positions live in `src/lib/scheduler/`. */
+export const CLAVE_PATTERNS = ['3-2', '2-3'] as const;
+export type ClavePattern = (typeof CLAVE_PATTERNS)[number];
+
+/** How many 8-counts between figure calls. */
+export const CALL_EVERY = [1, 2, 4] as const;
+export type CallEvery = (typeof CALL_EVERY)[number];
+
+export const PRACTICE_LABEL: Record<PracticeMode, string> = {
+	song: 'With a song',
+	count: 'Count only',
+	none: 'Just log it'
+};
+
+/** Playback speeds the player offers. 1 first: the default is full speed. */
+export const SPEEDS = [1, 0.9, 0.8, 0.7] as const;
+export type Speed = (typeof SPEEDS)[number];

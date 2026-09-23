@@ -107,6 +107,7 @@
 
             echo "salsaapp dev shell — node $(node --version), sqlite $(sqlite3 --version | awk '{print $1}')"
             echo "  npm run dev"
+            echo "  ./scripts/make-clips.sh   regenerate the player's voice clips"
           '';
         };
 

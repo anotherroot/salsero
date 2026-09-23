@@ -83,6 +83,8 @@
 				partner={figure.partner}
 				style={figure.style}
 				notes={figure.notes}
+				callable={figure.callable}
+				callText={figure.callText}
 			/>
 			{#if failure}
 				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">

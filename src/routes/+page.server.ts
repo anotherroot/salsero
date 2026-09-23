@@ -10,9 +10,11 @@ import {
 	logSet,
 	updateExercise
 } from '$lib/server/exercises';
-import { checkbox, int, optionalInt, optionalText, text } from '$lib/server/form';
+import { checkbox, int, oneOf, optionalInt, optionalText, text } from '$lib/server/form';
+import { listReadySongs } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
+import { PRACTICE_MODES } from '$lib/labels';
 import { plan } from '$lib/urgency/urgency';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -56,7 +58,9 @@ export const load: PageServerLoad = ({ url, locals }) => {
 		// For the past-day "add a forgotten set" picker.
 		exercises: exercises
 			.map((e) => ({ id: e.id, name: e.name }))
-			.sort((a, b) => a.name.localeCompare(b.name))
+			.sort((a, b) => a.name.localeCompare(b.name)),
+		// For the exercise sheet's practice-mode song picker.
+		songs: listReadySongs(db)
 	};
 };
 
@@ -91,7 +95,8 @@ export const actions: Actions = {
 				durationS: durationMin === null ? null : durationMin * 60,
 				reps,
 				rating,
-				note
+				note,
+				playerJson: null
 			});
 		} catch {
 			return fail(400, { action: 'log', message: 'That exercise no longer exists.' });
@@ -130,19 +135,70 @@ export const actions: Actions = {
 		const name = text(form, 'name') ?? '';
 		const everyDays = int(form, 'everyDays');
 		const notes = optionalText(form, 'notes');
+		const practiceMode = oneOf(form, 'practiceMode', PRACTICE_MODES);
+		const songId = optionalInt(form, 'songId', 1, Number.MAX_SAFE_INTEGER);
+		const countBpm = optionalInt(form, 'countBpm', 60, 300);
+		// Kept on every failure below so the sheet can re-show exactly what was typed.
+		const entered = {
+			id: String(form.get('id') ?? ''),
+			name,
+			everyDays: String(form.get('everyDays') ?? ''),
+			notes: String(form.get('notes') ?? ''),
+			active: checkbox(form, 'active'),
+			practiceMode: String(form.get('practiceMode') ?? ''),
+			songId: String(form.get('songId') ?? ''),
+			countBpm: String(form.get('countBpm') ?? '')
+		};
 		if (
 			id === undefined ||
 			everyDays === undefined ||
 			!isFrequency(everyDays) ||
-			notes === undefined
+			notes === undefined ||
+			practiceMode === undefined ||
+			songId === undefined ||
+			countBpm === undefined
 		) {
-			return fail(400, { action: 'updateExercise', message: 'Check the values and try again.' });
+			return fail(400, {
+				action: 'updateExercise',
+				message: 'Check the values and try again.',
+				...entered
+			});
+		}
+		if (practiceMode === 'song') {
+			if (songId === null) {
+				return fail(400, {
+					action: 'updateExercise',
+					message: 'Pick a song, or switch to a different practice mode.',
+					...entered
+				});
+			}
+			// The picker only offers analysed songs, but one can be archived or
+			// fail its analysis between the sheet opening and Save being tapped —
+			// the home worker runs on its own schedule. Saving a song the player
+			// cannot open would turn Practice into an error page.
+			if (!listReadySongs(getDb()).some((s) => s.id === songId)) {
+				return fail(400, {
+					action: 'updateExercise',
+					message: 'That song is not ready to practise with. Pick another.',
+					...entered
+				});
+			}
+		}
+		if (practiceMode === 'count' && countBpm === null) {
+			return fail(400, {
+				action: 'updateExercise',
+				message: 'Give a tempo in BPM, or switch to a different practice mode.',
+				...entered
+			});
 		}
 		const updated = updateExercise(getDb(), id, {
 			name,
 			everyDays,
 			notes,
-			active: checkbox(form, 'active')
+			active: checkbox(form, 'active'),
+			practiceMode,
+			songId,
+			countBpm
 		});
 		if (!updated) return fail(404, { action: 'updateExercise', message: 'Exercise not found.' });
 		return { action: 'updateExercise', ok: true };

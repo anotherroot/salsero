@@ -5,7 +5,7 @@ import { getDb } from '$lib/server/db';
 import { logSet } from '$lib/server/exercises';
 import { archiveFigure, deleteRecording, getFigure, updateFigure } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
-import { int, oneOf, optionalText, text } from '$lib/server/form';
+import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, STYLES } from '$lib/labels';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -28,13 +28,25 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', STYLES);
 		const notes = optionalText(form, 'notes');
-		if (!name || !partner || !style || notes === undefined) {
+		const callable = checkbox(form, 'callable');
+		const callText = optionalText(form, 'callText', 200);
+		if (!name || !partner || !style || notes === undefined || callText === undefined) {
 			return fail(400, {
 				action: 'update',
 				message: 'Give the figure a name (up to 200 characters).'
 			});
 		}
-		if (!updateFigure(getDb(), figureId(params.id), { name, partner, style, notes })) {
+		const db = getDb();
+		if (
+			!updateFigure(db, figureId(params.id), {
+				name,
+				partner,
+				style,
+				notes,
+				callable,
+				callText
+			})
+		) {
 			throw error(404, 'Figure not found');
 		}
 		return { action: 'update', ok: true };
@@ -56,7 +68,8 @@ export const actions: Actions = {
 			durationS: null,
 			reps: null,
 			rating: null,
-			note: null
+			note: null,
+			playerJson: null
 		});
 		return { action: 'log', ok: true };
 	},

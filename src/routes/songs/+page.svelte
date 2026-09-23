@@ -110,6 +110,12 @@
 		</select>
 	</div>
 
+	<a
+		href={resolve('/player?bpm=180')}
+		class="block h-11 w-full rounded-xl border border-rule text-center text-[14px] leading-[2.75rem] font-medium text-ink-2"
+		>Count-only drill</a
+	>
+
 	{#if data.songs.length === 0}
 		<p class="text-center text-[14px] text-muted">No songs yet.</p>
 	{/if}

@@ -16,6 +16,7 @@ Sister project with the same conventions: `~/Projects/muscle_model`.
 src/lib/day/         PURE calendar-day maths in the user's zone. `now` is an argument
 src/lib/urgency/     PURE "what next": (exercises, sets, now, tz) → doneToday/todo/inactive
 src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo factor
+src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/
@@ -61,6 +62,11 @@ scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-ch
   added to `PUBLIC_PATHS`.
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with
   `toLocaleDateString` — ICU versions disagree and SSR must match hydration.
+- **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are
+  decoded clips scheduled on an `AudioContext` with a 25 ms look-ahead;
+  `src/lib/scheduler/scheduler.ts` decides WHAT sounds and WHEN in song time and
+  never touches audio. Figure names go through `speechSynthesis`, which cannot be
+  scheduled and does not need to be.
 
 ## Commands
 

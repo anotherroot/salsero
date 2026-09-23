@@ -5,28 +5,65 @@
 	import { FREQUENCIES } from '$lib/frequency';
 	import { setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
+	import { PRACTICE_LABEL, PRACTICE_MODES, type PracticeMode } from '$lib/labels';
 	import type { DaySet, ExerciseItem } from '$lib/types';
 
 	interface Props {
 		exercise: ExerciseItem;
 		/** This exercise's sets on the day being viewed. */
 		sets: DaySet[];
+		/** Ready songs, for the practice-mode song picker. */
+		songs: { id: number; title: string }[];
 		/** A past day to back-fill onto, or null for "now". */
 		backfillDay: string | null;
 		timezone: string;
 		/** A failure message from the last action, if it was ours. */
 		message: string | null;
+		/** What was typed on the settings form, handed back by a failed action. */
+		values: {
+			practiceMode?: string;
+			songId?: string;
+			countBpm?: string;
+		} | null;
 		onclose: () => void;
 	}
 
-	let { exercise, sets, backfillDay, timezone, message, onclose }: Props = $props();
+	let { exercise, sets, songs, backfillDay, timezone, message, values, onclose }: Props = $props();
 
 	let rating = $state<number | null>(null);
 	let busy = $state(false);
 
+	const initialMode = (): PracticeMode =>
+		(values?.practiceMode as PracticeMode) ?? exercise.practiceMode;
+	let practiceMode = $state<PracticeMode>(initialMode());
+	let songId = $state(values?.songId ?? String(exercise.songId ?? ''));
+	let countBpm = $state(values?.countBpm ?? String(exercise.countBpm ?? ''));
+
+	/**
+	 * A song set here can stop being playable afterwards — archived, or the
+	 * analysis re-run and failed. `songs` is the list that IS ready, so checking
+	 * against it means a dead link becomes a sentence the user can act on instead
+	 * of an error page they cannot.
+	 */
+	const songGone = $derived(
+		exercise.practiceMode === 'song' && !songs.some((s) => s.id === exercise.songId)
+	);
+
+	const practiceHref = $derived(
+		exercise.practiceMode === 'song'
+			? songGone
+				? null
+				: resolve(`/player?song=${exercise.songId}&exercise=${exercise.id}`)
+			: exercise.practiceMode === 'count'
+				? resolve(`/player?bpm=${exercise.countBpm}&exercise=${exercise.id}`)
+				: null
+	);
+
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
+	const chip =
+		'flex h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border text-[14px] has-checked:border-accent has-checked:bg-accent has-checked:text-accent-ink border-rule bg-raised text-ink-2 has-focus-visible:outline-2 has-focus-visible:outline-accent';
 </script>
 
 <Sheet title={exercise.name} open={true} {onclose}>
@@ -91,10 +128,22 @@
 			</p>
 		{/if}
 
+		{#if practiceHref && !backfillDay}
+			<a
+				href={practiceHref}
+				class="mt-4 flex h-12 w-full items-center justify-center rounded-xl border border-accent text-[15px] font-semibold text-accent"
+				>Practice</a
+			>
+		{:else if songGone && !backfillDay}
+			<p class="mt-4 rounded-lg bg-raised px-3 py-2 text-[13px] text-muted">
+				Its song is not ready to play — pick another below.
+			</p>
+		{/if}
+
 		<button
 			type="submit"
 			disabled={busy}
-			class="mt-4 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
+			class="mt-3 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
 		>
 			{backfillDay ? 'Add set to this day' : 'Log set'}
 		</button>
@@ -147,6 +196,48 @@
 				<input type="checkbox" name="active" checked={exercise.active} class="size-5" />
 				Active — show it in the to-do list
 			</label>
+			<fieldset>
+				<legend class={label}>Practice</legend>
+				<div class="flex gap-2">
+					{#each PRACTICE_MODES as m (m)}
+						<label class={chip}>
+							<input
+								type="radio"
+								name="practiceMode"
+								value={m}
+								checked={practiceMode === m}
+								onchange={() => (practiceMode = m)}
+								class="sr-only"
+							/>
+							{PRACTICE_LABEL[m]}
+						</label>
+					{/each}
+				</div>
+			</fieldset>
+			{#if practiceMode === 'song'}
+				<label class="block">
+					<span class={label}>Song</span>
+					<select name="songId" bind:value={songId} class={field}>
+						<option value="">Pick a song…</option>
+						{#each songs as s (s.id)}
+							<option value={String(s.id)}>{s.title}</option>
+						{/each}
+					</select>
+				</label>
+			{:else if practiceMode === 'count'}
+				<label class="block">
+					<span class={label}>Tempo (BPM)</span>
+					<input
+						name="countBpm"
+						type="number"
+						inputmode="numeric"
+						min="60"
+						max="300"
+						bind:value={countBpm}
+						class={field}
+					/>
+				</label>
+			{/if}
 			<label class="block">
 				<span class={label}>Notes</span>
 				<textarea name="notes" rows="2" maxlength="2000" class={field}

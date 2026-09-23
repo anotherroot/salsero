@@ -331,14 +331,25 @@ mkdir -p "$out"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# A medium-quality Spanish voice: clear at speed, and small enough to fetch
-# quickly. Piper downloads it into $work on first use.
-voice=es_ES-davefx-medium
+# nixpkgs' piper-tts does NOT fetch voices itself (no --download-dir, and -m
+# wants a real .onnx path), so the model is pulled straight from the Piper
+# voices repo. Cached in .data/ so a re-run is instant; .data/ is gitignored.
+voice_base=https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium
+cache=.data/piper
+mkdir -p "$cache"
+for ext in onnx onnx.json; do
+  [ -s "$cache/voice.$ext" ] || curl -fL --retry 3 -o "$cache/voice.$ext" "$voice_base.$ext"
+done
 
+# --length-scale 0.75: at the natural rate "cinco", "seis" and "siete" run
+# ~0.57 s, which smears across the next beat at 180 BPM (a beat is 0.333 s).
+# Measured: 0.75 brings every word to 0.40 s or under. --sentence-silence 0
+# drops the trailing pause Piper adds after a sentence.
 for word in uno dos tres cinco seis siete; do
   echo "$word" | nix run nixpkgs#piper-tts -- \
-    --model "$voice" --download-dir "$work" --data-dir "$work" \
-    --output_file "$work/$word.wav"
+    -m "$cache/voice.onnx" -c "$cache/voice.onnx.json" \
+    --length-scale 0.75 --sentence-silence 0 \
+    -f "$work/$word.wav"
 done
 
 # The clave: a woodblock is a short, hard, high click. A 2.5 kHz sine cut to
@@ -350,12 +361,13 @@ nix run nixpkgs#ffmpeg -- -y -f lavfi \
   "$work/clave.wav"
 
 # One shape for every clip: mono 48 kHz AAC, loudness-normalised so the count
-# carries over a song without a per-clip volume fudge. Silence is trimmed off
-# the front, or a clip's word would land late however well it was scheduled.
+# carries over a song without a per-clip volume fudge. Silence comes off BOTH
+# ends — leading silence would land the word late however well it was
+# scheduled, and a trailing tail eats into the next beat.
 for f in "$work"/*.wav; do
   name=$(basename "$f" .wav)
   nix run nixpkgs#ffmpeg -- -y -i "$f" \
-    -af "silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0,loudnorm=I=-16:TP=-1.5:LRA=11" \
+    -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.02,loudnorm=I=-16:TP=-1.5:LRA=11" \
     -ac 1 -ar 48000 -c:a aac -b:a 64k "$out/$name.m4a"
 done
 
@@ -1135,17 +1147,33 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 npm run check
 ```
 
-`WakeLockSentinel` and `navigator.wakeLock` need
-`"dom"` lib types; if `svelte-check` does not know them, add a minimal
-declaration at the top of the file rather than `any`:
+**Do NOT add a `declare global` block for `navigator.wakeLock`.** Measured in
+this worktree: the TypeScript DOM lib here already declares it, so redeclaring
+collides —
+
+```
+All declarations of 'wakeLock' must have identical modifiers. [2687]
+Property 'wakeLock' must be of type 'WakeLock' [2717]
+```
+
+Use the built-in types directly: `navigator.wakeLock` is non-optional and
+`WakeLockSentinel` resolves on its own. Guard at runtime instead of in the type
+system, because Safari and Firefox genuinely lack it:
 
 ```ts
-declare global {
-	interface Navigator {
-		wakeLock?: { request(type: 'screen'): Promise<WakeLockSentinel> };
-	}
+let wakeLock: WakeLockSentinel | null = null;
+…
+try {
+	wakeLock = (await navigator.wakeLock?.request('screen')) ?? null;
+} catch {
+	// Denied, or no support — the screen dimming mid-practice is worse than
+	// this is broken.
 }
 ```
+
+`navigator.wakeLock?.` still compiles against a non-optional declaration and is
+what keeps a browser without the API from throwing. Do not reach for `any` and
+do not disable the lint rule.
 
 - [ ] **Step 3: Commit**
 
@@ -1200,15 +1228,16 @@ export const load: PageServerLoad = ({ url }) => {
 			: null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
 		figures: listCallableFigures(db),
-		exercise: exerciseId ? getExerciseBrief(db, exerciseId) : null,
-		exercises: listExerciseBriefs(db)
+		exercise: exerciseId ? getExercise(db, exerciseId) : null,
+		exercises: listExercises(db).map((e) => ({ id: e.id, name: e.name }))
 	};
 };
 ```
 
-Add `getExerciseBrief` / `listExerciseBriefs` to `src/lib/server/exercises.ts`
-returning `{ id, name }` for unarchived exercises — Task 6 needs them for the
-save sheet.
+Add NO new exercise helpers: `getExercise` (added in Task 1) and
+`listExercises` (which already excludes archived rows) cover both needs. Narrow
+`listExercises` to `{ id, name }` at the call site so the page payload stays
+small — Task 6's save sheet only needs those two fields.
 
 - [ ] **Step 2: Setup.svelte**
 
@@ -1230,12 +1259,37 @@ radio-style choices so the page matches the rest of the app.
 
 - [ ] **Step 3: Running.svelte**
 
-- `LiveCount` driven by a `$state` song time that the page updates every
-  animation frame from `player.songTime()` — reuse the component as-is by
-  passing the synthetic/real `beats` and `counts`.
+- `LiveCount` shows the number. **It needs a small refactor first**, and this is
+  a real seam, not a detail: today it takes `audio: HTMLAudioElement` and reads
+  `el.currentTime` in its own animation frame, but count-only practice has no
+  media element at all. Change its prop from `audio` to
+  `time: () => number | null` — a getter it polls each frame, returning null
+  when there is no position yet:
+
+  ```ts
+  interface Props {
+  	time: () => number | null;
+  	beats: number[];
+  	counts: number[];
+  }
+  ```
+
+  Inside, replace `beatIndexAt(beats, el.currentTime)` with a null check on
+  `time()`. Then update the ONE existing caller,
+  `src/routes/songs/[id]/+page.svelte`, to pass
+  `time={() => audio?.currentTime ?? null}` — verify that page still counts
+  correctly afterwards. The player passes `time={() => player.songTime()}`.
+  Doing it this way keeps one component counting for both screens instead of
+  forking a near-copy.
 - The figure just called, large; below it, small, the elapsed time via
   `clock()` from `$lib/format`.
-- **Pause** and **Stop**. Stop calls `player.stop()` and raises the save sheet.
+- **Pause** and **Stop**. Pause calls `player.pause()` / `player.resume()` —
+  added to `PlayerHandle` in Task 4, and the ONLY correct way to pause: pausing
+  the `<audio>` element alone leaves the ~100 ms already committed to the audio
+  clock still sounding, and count-only has no element to pause at all. Never
+  fake a pause with `stop()` then `start()`; that re-fetches the clips and
+  throws away the figures already planned. Stop calls `player.stop()` and raises
+  the save sheet.
 - For a song, the `<audio>` element stays in the DOM (`controls`, so seeking
   still works) with `preservesPitch = true` set in an `$effect` and
   `playbackRate` bound to the chosen speed.

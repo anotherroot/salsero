@@ -4,6 +4,7 @@ import {
 	archiveExercise,
 	createCustomExercise,
 	deleteSet,
+	getExercise,
 	listExercises,
 	listSetTimes,
 	listSetsBetween,
@@ -16,6 +17,7 @@ import {
 	createFigure,
 	deleteRecording,
 	getFigure,
+	listCallableFigures,
 	listFigures,
 	updateFigure
 } from './figures';
@@ -29,7 +31,9 @@ const figureInput = {
 	name: 'Dile que no',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
-	notes: null
+	notes: null,
+	callable: true,
+	callText: null
 };
 const bareSet = (exerciseId: number, doneAt: number) => ({
 	exerciseId,
@@ -37,8 +41,11 @@ const bareSet = (exerciseId: number, doneAt: number) => ({
 	durationS: null,
 	reps: null,
 	rating: null,
-	note: null
+	note: null,
+	playerJson: null
 });
+/** The practice-mode fields `updateExercise` needs, beyond the plain settings form. */
+const base = { practiceMode: 'none' as const, songId: null, countBpm: null };
 
 describe('figures', () => {
 	it('creates the figure and its exercise together', () => {
@@ -119,7 +126,13 @@ describe('exercises and sets', () => {
 
 	it('keeps a figure exercise named after its figure', () => {
 		const { exercise } = createFigure(db, figureInput);
-		updateExercise(db, exercise.id, { name: 'Other', everyDays: 1, active: false, notes: 'n' });
+		updateExercise(db, exercise.id, {
+			...base,
+			name: 'Other',
+			everyDays: 1,
+			active: false,
+			notes: 'n'
+		});
 		const [row] = listExercises(db);
 		expect(row.name).toBe('Dile que no');
 		expect(row.everyDays).toBe(1);
@@ -132,5 +145,57 @@ describe('exercises and sets', () => {
 		expect(archiveExercise(db, exercise.id, 1)).toBe(false);
 		expect(archiveExercise(db, custom.id, 1)).toBe(true);
 		expect(listExercises(db).map((e) => e.id)).toEqual([exercise.id]);
+	});
+
+	it('lists only callable, unarchived figures, and says callText when set', () => {
+		const a = createFigure(db, { ...figureInput, name: 'Enchufla' });
+		createFigure(db, { ...figureInput, name: 'Hidden', partner: 'solo', callable: false });
+		const c = createFigure(db, {
+			...figureInput,
+			name: 'Dile que no',
+			callText: 'dee-lay kay no'
+		});
+		archiveFigure(db, a.figure.id, Date.now());
+
+		const out = listCallableFigures(db);
+		expect(out.map((f) => f.name)).toEqual(['Dile que no']);
+		expect(out[0].say).toBe('dee-lay kay no');
+		expect(c.figure.id).toBe(out[0].id);
+	});
+
+	it('clears the unused practice column when the mode changes', () => {
+		const e = createCustomExercise(db, { name: 'Drill', everyDays: 1, notes: null });
+		updateExercise(db, e.id, {
+			...base,
+			name: 'Drill',
+			everyDays: 1,
+			active: true,
+			notes: null,
+			practiceMode: 'count',
+			songId: null,
+			countBpm: 180
+		});
+		expect(getExercise(db, e.id)?.countBpm).toBe(180);
+		updateExercise(db, e.id, {
+			...base,
+			name: 'Drill',
+			everyDays: 1,
+			active: true,
+			notes: null,
+			practiceMode: 'none',
+			songId: null,
+			countBpm: 180
+		});
+		expect(getExercise(db, e.id)?.countBpm).toBeNull();
+	});
+
+	it('keeps a player run on its set', () => {
+		const e = createCustomExercise(db, { name: 'Drill', everyDays: 1, notes: null });
+		const s = logSet(db, {
+			...bareSet(e.id, 1),
+			durationS: 300,
+			playerJson: '{"speed":0.8}'
+		});
+		expect(JSON.parse(s.playerJson!).speed).toBe(0.8);
 	});
 });

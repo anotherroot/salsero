@@ -2,12 +2,15 @@ import { and, asc, count, eq, isNull, like } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, figures, recordings } from './db/schema';
 import type { Partner, Style } from '$lib/labels';
+import type { CallableFigure } from '$lib/types';
 
 export interface FigureInput {
 	name: string;
 	partner: Partner;
 	style: Style;
 	notes: string | null;
+	callable: boolean;
+	callText: string | null;
 }
 
 /**
@@ -77,6 +80,23 @@ export function listFigures(db: Db, filter: FigureFilter = {}) {
 		.groupBy(figures.id)
 		.orderBy(asc(figures.name))
 		.all();
+}
+
+/** Figures the player may call, alphabetical. Archived and non-callable excluded. */
+export function listCallableFigures(db: Db): CallableFigure[] {
+	return db
+		.select({
+			id: figures.id,
+			name: figures.name,
+			callText: figures.callText,
+			partner: figures.partner,
+			style: figures.style
+		})
+		.from(figures)
+		.where(and(isNull(figures.archivedAt), eq(figures.callable, true)))
+		.orderBy(figures.name)
+		.all()
+		.map(({ callText, ...f }) => ({ ...f, say: callText ?? f.name }));
 }
 
 export function getFigure(db: Db, id: number) {
