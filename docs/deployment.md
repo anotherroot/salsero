@@ -52,6 +52,19 @@ Then from this repo: `./scripts/deploy.sh prod`. It builds locally, rsyncs
 on the box, restarts the unit and health-checks `/health` over loopback.
 Migrations run at boot.
 
+**Before a deploy that carries a migration**, take a snapshot first — it is one
+command and it is the difference between a bad migration costing a minute and
+costing the history:
+
+```sh
+ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'
+```
+
+The player's voice clips need no deploy step of their own: they live in
+`static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
+existing `build/` rsync carries them. `scripts/make-clips.sh` regenerates them
+locally and its output is committed — production never runs Piper.
+
 `better-sqlite3` is a native addon. `npm ci` fetches a prebuilt binary, which
 loads under nixpkgs node (verified locally). If it ever fails to load on the
 box, the fallback is building from source there (python3, gcc, gnumake).

@@ -29,7 +29,8 @@ phone. It answers three needs:
 
 ## Phases
 
-Each phase is independently deployable and useful.
+Each phase is independently deployable and useful. Phases 1 and 2 are **live**
+(2a on 2026-09-22, 2b on 2026-09-23); phase 3 is not built.
 
 1. **Exercises & figures** — Today page, exercises, sets, frequency/priority,
    active/inactive, past-day navigation, figures with recordings (auto-creating
@@ -262,11 +263,25 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 **Player:**
 
 - The song plays through an `<audio>` element (`playbackRate` 0.7–1.0 with
-  `preservesPitch`) routed into an `AudioContext`. Voice and clave clips are
-  decoded `AudioBuffer`s scheduled on the context clock with a look-ahead
-  scheduler (≈100 ms horizon, 25 ms tick) that maps song time → context time
-  from the element's current position and rate.
-- **Toggles:** voice count, figure calls, clave (2-3 / 3-2), speed.
+  `preservesPitch`). It is deliberately **NOT** routed into the `AudioContext`:
+  the music needs no processing, and piping it through Web Audio would cost an
+  extra conversion and break the element's own controls on iOS. Only the clips
+  go through the context. Voice and clave clips are decoded `AudioBuffer`s
+  scheduled on the context clock with a look-ahead scheduler (≈100 ms horizon,
+  25 ms tick) that maps song time → context time from the element's current
+  position and rate.
+- **Toggles:** voice count, figure calls, clave (2-3 / 3-2), speed, and voice
+  volume. Voice volume is adjustable **during** a run (it feeds both the clips'
+  gain node and each spoken name's `utterance.volume`), because whether the
+  voice sits right against the music is only knowable once the music plays.
+  The rest are fixed when the run starts.
+- **Pause** holds the run in place — it must never be faked with stop/start,
+  which would re-fetch the clips and discard the figures already planned.
+  Resuming a count-only run shifts its context origin, or the count would jump
+  forward by the length of the break.
+- **A run ends** when the song ends or a count-only grid runs out, and that is
+  latched: the 25 ms tick keeps firing, so an unlatched "finished" would fire
+  forty times a second.
 - **Calls:** every N 8-counts (1, 2 or 4; default 2) a callable figure is
   picked at random from the chosen pool (never the same twice in a row). The
   call plays over 5-6-7 so the figure starts on the next 1; the spoken count is
@@ -275,13 +290,21 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 - **Count-only mode:** no song; a synthetic grid at `count_bpm` with clave and
   voice.
 - **Random drill and choreography share one scheduler:** the scheduler plays a
-  _plan_ (list of `{start_8, figure_id}`); random drill generates the plan
-  lazily, a choreography supplies it.
-- **Ending a run** offers "Save as set" on the exercise it was opened from
-  (duration, speed, toggles and figures called go into `player_json`).
+  _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
+  8-count the figure STARTS on and the call sounds on count 5 of the one before.
+  Random drill grows the plan lazily through `extendPlan(plan, pool, every,
+  throughEight, rand)`; a choreography will supply one outright in phase 3.
+  `rand` is injected so the module stays pure.
+- **Ending a run** offers "Save as set" on the exercise it was opened from, or a
+  choice of exercise when opened from a song. `player_json` holds
+  `{ speed, count, clave, callEvery, calls, called }`, where `calls` is the true
+  number of figures called and `called` is capped at the last 250 ids — the list
+  grows by one every few seconds, and an oversized summary must never cost the
+  user the set it describes. Nothing queries inside `player_json`.
 - **Phone:** Screen Wake Lock while playing; audio starts on the Play tap
-  (iOS unlock); hint that the iPhone silent switch mutes the voice but not the
-  music.
+  (iOS unlock) and a silent utterance primes `speechSynthesis` in the same
+  gesture; Play is disabled while starting, so a second impatient tap cannot
+  build a second, unreachable player.
 
 **Voice:** the count plays from seven clips shipped with the app
 (`static/clips/`: uno, dos, tres, cinco, seis, siete, clave), generated once by
@@ -292,6 +315,29 @@ across a whole 3-beat window, so its timing jitter does not matter, and this
 needs no worker job and no per-figure storage. `figures.call_text` overrides
 what is said when the browser mispronounces a written name. Phase 3 may revisit
 Piper clips if a device's voice proves unusable.
+
+**Known gaps (phase 2b, deployed 2026-09-23).** Found by review, consciously not
+fixed before shipping. Check here before hunting one of these as a new bug:
+
+- **Count steadiness on iOS is unproven.** `ctxAt()` re-derives the song →
+  context offset from `audio.currentTime` on every tick rather than latching it,
+  so a browser that quantises `currentTime` (Safari) feeds that straight into
+  each count. Nothing compensates for output latency either, which would read as
+  a constant ahead/behind offset. **First suspect if the count feels off**; the
+  fix differs depending on whether it is unsteady or merely displaced, so it
+  needs a real ear on a real phone first.
+- **The iPhone silent switch mutes the voice but not the music.** True and
+  expected — but the hint this spec called for was never put on screen.
+- **A stray tap on the save sheet's backdrop discards a finished run** — its
+  duration, rating, note and called list — with no confirmation and no way back.
+- **Pause can let ~100 ms of already-scheduled clips through**, and the
+  `AbortError` from a `play()` interrupted by a pause is swallowed.
+- **Stop then Play resumes mid-song**, and the `<audio controls>` is hidden
+  outside a run, so there is no visible way to rewind at that moment.
+- **Logged `duration_s` is SONG seconds, not wall clock**, so a run at 0.7×
+  under-reports the time actually spent.
+- Nothing adjusts the figure pool, the toggles or the speed mid-run;
+  `setToggles`/`setPool` exist on the handle but are unused.
 
 ## Choreographies (phase 3)
 
