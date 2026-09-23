@@ -19,6 +19,8 @@
 	let calledIds = $state<number[]>([]);
 	let finalElapsed = $state(0);
 	let startError = $state<string | null>(null);
+	let starting = $state(false);
+	let voiceVolume = $state(1);
 	/** The grid the running player was actually built with — song or synthetic. */
 	let runningGrid = $state<{ beats: number[]; counts: number[] } | null>(null);
 	/** The toggles the run was actually started with, for `player_json` at the end. */
@@ -67,8 +69,25 @@
 	 * happen first, synchronously, in this same call.
 	 */
 	async function handlePlay(settings: PlayerSettings) {
+		// Starting takes a moment — resuming the context, then fetching and
+		// decoding seven clips. The Play button stays on screen for all of it, so
+		// without this a second impatient tap builds a SECOND player: the first is
+		// the only one `player` holds, and the orphan keeps its own context,
+		// interval and wake lock, counting out of phase with nothing able to stop
+		// it short of reloading the page.
+		if (starting) return;
+		starting = true;
+		try {
+			await start(settings);
+		} finally {
+			starting = false;
+		}
+	}
+
+	async function start(settings: PlayerSettings) {
 		startError = null;
 		speed = settings.speed;
+		voiceVolume = settings.voiceVolume;
 		runToggles = { count: settings.count, clave: settings.clave, callEvery: settings.callEvery };
 		const grid =
 			data.song && data.grid && settings.source === 'song'
@@ -157,6 +176,7 @@
 			defaultBpm={data.bpm ?? 180}
 			figures={data.figures}
 			onplay={handlePlay}
+			{starting}
 		/>
 	{:else if mode === 'running' && player && runningGrid}
 		<Running
@@ -168,6 +188,7 @@
 			song={data.song}
 			{audio}
 			{speed}
+			initialVoiceVolume={voiceVolume}
 			onstop={handleStop}
 		/>
 	{:else if mode === 'done'}

@@ -139,6 +139,10 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		speech.cancel();
 		const u = new SpeechSynthesisUtterance(text);
 		u.rate = 1.1;
+		// The voice slider has to reach the NAMES too. It only feeds the clips'
+		// gain node, so without this, turning the voice down to hear the music
+		// fades the count and the clave and leaves the figure calls at full blast.
+		u.volume = volume;
 		speech.speak(u);
 	}
 
@@ -186,10 +190,11 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		}
 
 		cursor = until;
-		// Count-only runs out of grid rather than out of song. The tick keeps
-		// firing 40 times a second, so this has to latch or the page's "run
-		// finished" handler would fire in a tight loop.
-		if (!opts.audio && !ended && now > lastBeat()) {
+		// A run ends either because the song ran out or because a count-only grid
+		// did. Both have to be noticed here, or the music stops and the screen
+		// just sits there until the user presses Stop. The tick keeps firing 40
+		// times a second, so this has to latch.
+		if (!ended && (opts.audio ? opts.audio.ended : now > lastBeat())) {
 			ended = true;
 			opts.onEnd();
 		}

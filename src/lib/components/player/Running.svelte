@@ -16,13 +16,26 @@
 		/** The song's `<audio>` element, rendered by the page so it exists before Play is pressed. */
 		audio: HTMLAudioElement | undefined;
 		speed: Speed;
+		/** Where the voice slider starts, carried over from the setup screen. */
+		initialVoiceVolume: number;
 		onstop: () => void;
 	}
 
-	let { player, beats, counts, figures, calledFigureId, song, audio, speed, onstop }: Props =
-		$props();
+	let {
+		player,
+		beats,
+		counts,
+		figures,
+		calledFigureId,
+		song,
+		audio,
+		speed,
+		initialVoiceVolume,
+		onstop
+	}: Props = $props();
 
 	let paused = $state(false);
+	let voiceVolume = $state(initialVoiceVolume);
 	/** Polled rather than read once: nothing else in this component re-renders on its own each tick. */
 	let elapsed = $state(0);
 
@@ -66,6 +79,27 @@
 		<p class="min-h-[1.4em] text-[22px] font-semibold text-ink">{calledName ?? ''}</p>
 		<p class="mt-1 text-[13px] text-muted tabular-nums">{clock(elapsed)}</p>
 	</div>
+
+	<!--
+		Adjustable DURING the run on purpose: whether the voice sits right against
+		the music is only knowable once the music is playing, and having to stop
+		the run to change it would end the run.
+	-->
+	<label class="block">
+		<span class="mb-1 block text-[12px] font-medium text-ink-2">Voice volume</span>
+		<input
+			type="range"
+			min="0"
+			max="1"
+			step="0.05"
+			value={voiceVolume}
+			oninput={(e) => {
+				voiceVolume = Number(e.currentTarget.value);
+				player.setVoiceVolume(voiceVolume);
+			}}
+			class="h-11 w-full"
+		/>
+	</label>
 
 	<div class="flex gap-3">
 		<button

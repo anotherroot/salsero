@@ -23,9 +23,11 @@
 		defaultBpm: number;
 		figures: CallableFigure[];
 		onplay: (settings: PlayerSettings) => void;
+		/** True while the player is starting, so Play cannot be tapped a second time. */
+		starting: boolean;
 	}
 
-	let { song, defaultBpm, figures, onplay }: Props = $props();
+	let { song, defaultBpm, figures, onplay, starting }: Props = $props();
 
 	const STORAGE_KEY = 'salsa.player';
 	const allIds = figures.map((f) => f.id);
@@ -271,9 +273,10 @@
 
 	<button
 		type="button"
-		class="h-14 w-full rounded-2xl bg-accent text-[18px] font-bold text-accent-ink"
+		disabled={starting}
+		class="h-14 w-full rounded-2xl bg-accent text-[18px] font-bold text-accent-ink disabled:opacity-60"
 		onclick={play}
 	>
-		Play
+		{starting ? 'Starting…' : 'Play'}
 	</button>
 </div>
