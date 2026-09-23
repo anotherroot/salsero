@@ -33,6 +33,14 @@
 		form && 'action' in form && form.action === action && 'message' in form
 			? (form.message ?? null)
 			: null;
+
+	// updateExercise's fail() carries back what was typed (see +page.server.ts);
+	// the ActionData union doesn't narrow that far on its own.
+	const updateExerciseValues = $derived(
+		form && 'action' in form && form.action === 'updateExercise' && 'practiceMode' in form
+			? (form as unknown as { practiceMode: string; songId: string; countBpm: string })
+			: null
+	);
 </script>
 
 <svelte:head><title>{data.isToday ? 'Today' : dayLabel(data.day)} · Salsa</title></svelte:head>
@@ -192,9 +200,11 @@
 	<LogSheet
 		exercise={open}
 		sets={openSets}
+		songs={data.songs}
 		backfillDay={data.isToday ? null : data.day}
 		{timezone}
 		message={failure('log') ?? failure('updateExercise') ?? failure('archiveExercise')}
+		values={updateExerciseValues}
 		onclose={() => (openId = null)}
 	/>
 {/if}

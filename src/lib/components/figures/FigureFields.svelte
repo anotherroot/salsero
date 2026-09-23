@@ -13,9 +13,18 @@
 		partner?: Partner;
 		style?: Style;
 		notes?: string | null;
+		callable?: boolean;
+		callText?: string | null;
 	}
 
-	let { name = '', partner = 'partner', style = 'salsa', notes = '' }: Props = $props();
+	let {
+		name = '',
+		partner = 'partner',
+		style = 'salsa',
+		notes = '',
+		callable = true,
+		callText = ''
+	}: Props = $props();
 
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
@@ -69,4 +78,20 @@
 		placeholder="Count, hand holds, what the teacher said…"
 		class={field}>{notes ?? ''}</textarea
 	>
+</label>
+
+<label class="flex items-center gap-3 text-[14px]">
+	<input type="checkbox" name="callable" checked={callable} class="size-5" />
+	The player may call this figure
+</label>
+
+<label class="block">
+	<span class={label}>Say it like</span>
+	<input
+		name="callText"
+		maxlength="200"
+		placeholder="only if the voice mispronounces the name"
+		value={callText ?? ''}
+		class={field}
+	/>
 </label>

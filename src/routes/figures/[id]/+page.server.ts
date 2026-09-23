@@ -5,7 +5,7 @@ import { getDb } from '$lib/server/db';
 import { logSet } from '$lib/server/exercises';
 import { archiveFigure, deleteRecording, getFigure, updateFigure } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
-import { int, oneOf, optionalText, text } from '$lib/server/form';
+import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, STYLES } from '$lib/labels';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -28,25 +28,23 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', STYLES);
 		const notes = optionalText(form, 'notes');
-		if (!name || !partner || !style || notes === undefined) {
+		const callable = checkbox(form, 'callable');
+		const callText = optionalText(form, 'callText', 200);
+		if (!name || !partner || !style || notes === undefined || callText === undefined) {
 			return fail(400, {
 				action: 'update',
 				message: 'Give the figure a name (up to 200 characters).'
 			});
 		}
-		// No callable/call-text UI yet (phase 2b player setup); carry the figure's
-		// current values through unchanged rather than resetting them here.
 		const db = getDb();
-		const current = getFigure(db, figureId(params.id));
-		if (!current) throw error(404, 'Figure not found');
 		if (
 			!updateFigure(db, figureId(params.id), {
 				name,
 				partner,
 				style,
 				notes,
-				callable: current.figure.callable,
-				callText: current.figure.callText
+				callable,
+				callText
 			})
 		) {
 			throw error(404, 'Figure not found');
