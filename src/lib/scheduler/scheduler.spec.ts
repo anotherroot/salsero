@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	CLAVE_POSITIONS,
+	COUNT_CLIP,
+	COUNT_POSITIONS,
 	LEAD_IN_8S,
 	cuesIn,
 	extendPlan,
@@ -14,7 +16,7 @@ import {
 const grid = (bars: number) => syntheticGrid(120, bars);
 const t = (bars: number) => timeline(grid(bars));
 
-const ALL = { count: true, clave: null, callEvery: null } as const;
+const ALL = { count: 'salsa', clave: null, callEvery: null } as const;
 const clips = (r: { cues: { at: number; clip: string }[] }) => r.cues.map((c) => c.clip);
 const times = (r: { cues: { at: number }[] }) => r.cues.map((c) => c.at);
 
@@ -68,19 +70,60 @@ describe('cuesIn — the count', () => {
 	});
 
 	it('says nothing when the count is switched off', () => {
-		expect(cuesIn(t(1), [], { ...ALL, count: false }, 0, 4).cues).toEqual([]);
+		expect(cuesIn(t(1), [], { ...ALL, count: 'off' }, 0, 4).cues).toEqual([]);
+	});
+
+	it('speaks son on 2 3 4 and 6 7 8, resting on 1 and 5', () => {
+		const r = cuesIn(t(1), [], { ...ALL, count: 'son' }, 0, 4);
+		expect(clips(r)).toEqual(['dos', 'tres', 'cuatro', 'seis', 'siete', 'ocho']);
+		expect(times(r)).toEqual([0.5, 1, 1.5, 2.5, 3, 3.5]);
+	});
+
+	it('is the salsa pattern one beat later', () => {
+		expect(COUNT_POSITIONS.son).toEqual(COUNT_POSITIONS.salsa.map((c) => c + 1));
+	});
+
+	it('speaks every count, 4 and 8 included', () => {
+		const r = cuesIn(t(1), [], { ...ALL, count: 'all' }, 0, 4);
+		expect(clips(r)).toEqual(['uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho']);
+	});
+
+	/**
+	 * The point of the sparse patterns: a word needs ~0.30 s and a beat at
+	 * 250 BPM is 0.24 s, so the count only fits if it thins out. At 120 BPM
+	 * these land every 1 s, 2 s and 4 s respectively.
+	 */
+	it('thins the count out for a fast song', () => {
+		expect(clips(cuesIn(t(1), [], { ...ALL, count: 'odd' }, 0, 4))).toEqual([
+			'uno',
+			'tres',
+			'cinco',
+			'siete'
+		]);
+		expect(times(cuesIn(t(1), [], { ...ALL, count: 'odd' }, 0, 4))).toEqual([0, 1, 2, 3]);
+		expect(clips(cuesIn(t(2), [], { ...ALL, count: 'ones' }, 0, 8))).toEqual([
+			'uno',
+			'cinco',
+			'uno',
+			'cinco'
+		]);
+		expect(clips(cuesIn(t(2), [], { ...ALL, count: 'one' }, 0, 8))).toEqual(['uno', 'uno']);
+	});
+
+	it('gives every count a clip, so only the pattern decides what is silent', () => {
+		for (let c = 1; c <= 8; c++) expect(COUNT_CLIP[c]).toBeTruthy();
 	});
 });
 
 describe('cuesIn — the clave', () => {
 	it('places 3-2 on 1, the and of 2, 4, 6 and 7', () => {
-		const r = cuesIn(t(1), [], { count: false, clave: '3-2', callEvery: null }, 0, 4);
+		const r = cuesIn(t(1), [], { count: 'off', clave: '3-2', callEvery: null }, 0, 4);
 		expect(times(r)).toEqual([0, 0.75, 1.5, 2.5, 3]);
 		expect(new Set(clips(r))).toEqual(new Set(['clave']));
 	});
 
 	it('places 2-3 on 2, 3, 5, the and of 6, and 8', () => {
-		const r = cuesIn(t(1), [], { count: false, clave: '2-3', callEvery: null }, 0, 4);
+		const r = cuesIn(t(1), [], { count: 'off', clave: '2-3', callEvery: null }, 0, 4);
 		expect(times(r)).toEqual([0.5, 1, 2, 2.75, 3.5]);
 	});
 

@@ -23,9 +23,13 @@
 	let voiceVolume = $state(1);
 	/** The grid the running player was actually built with — song or synthetic. */
 	let runningGrid = $state<{ beats: number[]; counts: number[] } | null>(null);
-	/** The toggles the run was actually started with, for `player_json` at the end. */
+	/**
+	 * The toggles the run is running with, for `player_json` at the end. The
+	 * count pattern can be changed mid-run, so this is the pattern in force when
+	 * the run ENDS — which is the one that describes most of it.
+	 */
 	let runToggles = $state<{
-		count: boolean;
+		count: PlayerSettings['count'];
 		clave: PlayerSettings['clave'];
 		callEvery: PlayerSettings['callEvery'];
 	} | null>(null);
@@ -41,7 +45,7 @@
 	const runJson = $derived(
 		JSON.stringify({
 			speed,
-			count: runToggles?.count ?? false,
+			count: runToggles?.count ?? 'off',
 			clave: runToggles?.clave ?? null,
 			callEvery: runToggles?.callEvery ?? null,
 			calls: calledIds.length,
@@ -189,6 +193,12 @@
 			{audio}
 			{speed}
 			initialVoiceVolume={voiceVolume}
+			count={runToggles?.count ?? 'salsa'}
+			oncount={(p) => {
+				if (!runToggles) return;
+				runToggles = { ...runToggles, count: p };
+				player?.setToggles(runToggles);
+			}}
 			onstop={handleStop}
 		/>
 	{:else if mode === 'done'}

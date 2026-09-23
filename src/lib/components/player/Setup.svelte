@@ -1,11 +1,11 @@
 <script lang="ts" module>
-	import type { CallEvery, ClavePattern, Speed } from '$lib/labels';
+	import type { CallEvery, ClavePattern, CountPattern, Speed } from '$lib/labels';
 
 	export interface PlayerSettings {
 		/** Ignored for count-only practice (no song to play). */
 		source: 'song' | 'count';
 		bpm: number;
-		count: boolean;
+		count: CountPattern;
 		clave: ClavePattern | null;
 		callEvery: CallEvery | null;
 		speed: Speed;
@@ -15,7 +15,13 @@
 </script>
 
 <script lang="ts">
-	import { CALL_EVERY, CLAVE_PATTERNS, SPEEDS } from '$lib/labels';
+	import {
+		CALL_EVERY,
+		CLAVE_PATTERNS,
+		COUNT_PATTERNS,
+		COUNT_PATTERN_LABEL,
+		SPEEDS
+	} from '$lib/labels';
 	import type { CallableFigure } from '$lib/types';
 
 	interface Props {
@@ -63,7 +69,17 @@
 		song ? pick(stored.source, ['song', 'count'] as const, 'song') : 'count'
 	);
 	let bpm = $state(num(stored.bpm, 60, 300, defaultBpm));
-	let count = $state(typeof stored.count === 'boolean' ? stored.count : true);
+	// Through `pick`, like the clave below and for the same reason: an
+	// unrecognised pattern reaches COUNT_POSITIONS[...] as undefined and
+	// `for…of undefined` throws inside the scheduling tick. `true` is what a
+	// store written before patterns existed holds, and it means salsa.
+	let count = $state<CountPattern>(
+		stored.count === true
+			? 'salsa'
+			: stored.count === false
+				? 'off'
+				: pick(stored.count, COUNT_PATTERNS, 'salsa')
+	);
 	// An unrecognised clave would reach CLAVE_POSITIONS[...] as undefined and
 	// throw inside the 25 ms scheduling tick — which never surfaces as an error
 	// the user sees, just a player that plays nothing at all.
@@ -140,17 +156,27 @@
 		</label>
 	{/if}
 
-	<label
-		class="flex h-11 items-center justify-between rounded-lg border border-rule bg-raised px-3"
-	>
-		<span class="text-[15px]">Voice count</span>
-		<input
-			type="checkbox"
-			checked={count}
-			onchange={(e) => (count = e.currentTarget.checked)}
-			class="size-5"
-		/>
-	</label>
+	<fieldset>
+		<legend class={label}>Voice count</legend>
+		<!--
+			Wraps rather than sharing one row: seven options do not fit at 375 px,
+			and a fast song needs the sparse ones to be as reachable as salsa.
+		-->
+		<div class="flex flex-wrap gap-2">
+			{#each COUNT_PATTERNS as p (p)}
+				<label class="{chip} min-w-[5.5rem] grow-0 basis-auto px-3">
+					<input
+						type="radio"
+						name="count"
+						checked={count === p}
+						onchange={() => (count = p)}
+						class="sr-only"
+					/>
+					{COUNT_PATTERN_LABEL[p]}
+				</label>
+			{/each}
+		</div>
+	</fieldset>
 
 	<fieldset>
 		<legend class={label}>Clave</legend>

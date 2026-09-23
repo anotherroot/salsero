@@ -11,18 +11,34 @@
  * All times here are SONG seconds: offsets into the music, never instants.
  */
 import { beatIndexAt } from '$lib/beatgrid/beatgrid';
-import type { CallEvery, ClavePattern, Clip } from '$lib/labels';
+import type { CallEvery, ClavePattern, Clip, CountPattern } from '$lib/labels';
 
-/** Which clip speaks each count. 4 and 8 are silent — the salsa pause. */
-export const COUNT_CLIP: Record<number, Clip | null> = {
+/** Which clip speaks each count. Every count has one; the PATTERN decides. */
+export const COUNT_CLIP: Record<number, Clip> = {
 	1: 'uno',
 	2: 'dos',
 	3: 'tres',
-	4: null,
+	4: 'cuatro',
 	5: 'cinco',
 	6: 'seis',
 	7: 'siete',
-	8: null
+	8: 'ocho'
+};
+
+/**
+ * Which counts each pattern speaks. `salsa` steps 1-2-3 and 5-6-7 with the
+ * pause on 4 and 8; `son` is the same shape one beat later, stepping 2-3-4 and
+ * 6-7-8 and resting on 1 and 5. The rest thin the count out, which is what
+ * makes a fast song sayable at all — see `COUNT_PATTERNS` in `$lib/labels`.
+ */
+export const COUNT_POSITIONS: Record<CountPattern, number[]> = {
+	salsa: [1, 2, 3, 5, 6, 7],
+	son: [2, 3, 4, 6, 7, 8],
+	all: [1, 2, 3, 4, 5, 6, 7, 8],
+	odd: [1, 3, 5, 7],
+	ones: [1, 5],
+	one: [1],
+	off: []
 };
 
 /**
@@ -100,7 +116,7 @@ export interface Call {
 }
 
 export interface Toggles {
-	count: boolean;
+	count: CountPattern;
 	clave: ClavePattern | null;
 	callEvery: CallEvery | null;
 }
@@ -146,15 +162,17 @@ export function cuesIn(
 	// inside it while the beat it hangs off sits just outside. Binary-searching
 	// the start also keeps a tick O(window) rather than O(song), which matters
 	// at 40 ticks a second against a grid of thousands of beats.
+	const spoken = new Set(COUNT_POSITIONS[toggles.count]);
 	const first = Math.max(0, beatIndexAt(t.beats, from));
 	const bars = new Set<number>();
 	for (let i = first; i < t.beats.length; i++) {
 		if (t.beats[i] >= to) break;
 		bars.add(t.eights[i]);
 		if (t.beats[i] < from) continue;
-		const clip = toggles.count ? COUNT_CLIP[t.counts[i]] : null;
 		const ducked = talking.has(t.eights[i]) && t.counts[i] >= CALL_POS && t.counts[i] <= 7;
-		if (clip && !ducked) cues.push({ at: t.beats[i], clip });
+		if (spoken.has(t.counts[i]) && !ducked) {
+			cues.push({ at: t.beats[i], clip: COUNT_CLIP[t.counts[i]] });
+		}
 	}
 
 	if (toggles.clave) {

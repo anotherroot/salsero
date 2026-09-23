@@ -1,7 +1,7 @@
 <script lang="ts">
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { clock } from '$lib/format';
-	import type { Speed } from '$lib/labels';
+	import { COUNT_PATTERNS, COUNT_PATTERN_LABEL, type CountPattern, type Speed } from '$lib/labels';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
 	import type { CallableFigure } from '$lib/types';
 
@@ -18,6 +18,9 @@
 		speed: Speed;
 		/** Where the voice slider starts, carried over from the setup screen. */
 		initialVoiceVolume: number;
+		/** The count pattern in force. Owned by the page, so the logged set matches. */
+		count: CountPattern;
+		oncount: (pattern: CountPattern) => void;
 		onstop: () => void;
 	}
 
@@ -31,8 +34,13 @@
 		audio,
 		speed,
 		initialVoiceVolume,
+		count,
+		oncount,
 		onstop
 	}: Props = $props();
+
+	const chip =
+		'flex h-11 min-w-[4.5rem] cursor-pointer items-center justify-center rounded-lg border px-2 text-[13px] has-checked:border-accent has-checked:bg-accent has-checked:text-accent-ink border-rule bg-raised text-ink-2 has-focus-visible:outline-2 has-focus-visible:outline-accent';
 
 	let paused = $state(false);
 	let voiceVolume = $state(initialVoiceVolume);
@@ -81,10 +89,29 @@
 	</div>
 
 	<!--
-		Adjustable DURING the run on purpose: whether the voice sits right against
-		the music is only knowable once the music is playing, and having to stop
-		the run to change it would end the run.
+		Both of these are adjustable DURING the run on purpose. Whether the voice
+		sits right against the music is only knowable once the music is playing,
+		and a song that turns out too fast to count every beat wants the pattern
+		thinned THEN — stopping to change it would end the run and lose the plan.
 	-->
+	<fieldset>
+		<legend class="mb-1 block text-[12px] font-medium text-ink-2">Voice count</legend>
+		<div class="flex flex-wrap gap-2">
+			{#each COUNT_PATTERNS as p (p)}
+				<label class={chip}>
+					<input
+						type="radio"
+						name="runCount"
+						checked={count === p}
+						onchange={() => oncount(p)}
+						class="sr-only"
+					/>
+					{COUNT_PATTERN_LABEL[p]}
+				</label>
+			{/each}
+		</div>
+	</fieldset>
+
 	<label class="block">
 		<span class="mb-1 block text-[12px] font-medium text-ink-2">Voice volume</span>
 		<input
