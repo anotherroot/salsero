@@ -58,8 +58,11 @@ export const actions: Actions = {
 		if (exerciseId === undefined || durationS === undefined || rating === undefined) {
 			return fail(400, { message: 'Could not save that run.', ...entered });
 		}
-		if (note === undefined || run === undefined) {
-			return fail(400, { message: 'That note is too long.', ...entered });
+		if (note === undefined) {
+			return fail(400, {
+				message: 'That note is too long — keep it under 2000 characters.',
+				...entered
+			});
 		}
 		try {
 			logSet(getDb(), {
@@ -69,7 +72,11 @@ export const actions: Actions = {
 				reps: null,
 				rating,
 				note,
-				playerJson: run
+				// The summary of what the run was is a nicety; the set is the point.
+				// An overlong one (a marathon drill with a great many calls) is
+				// dropped rather than costing the user the whole session — and it
+				// must never be reported as a problem with their note.
+				playerJson: run ?? null
 			});
 		} catch {
 			return fail(400, { message: 'That exercise no longer exists.', ...entered });

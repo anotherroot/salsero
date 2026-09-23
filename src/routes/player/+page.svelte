@@ -28,13 +28,22 @@
 		callEvery: PlayerSettings['callEvery'];
 	} | null>(null);
 
+	/**
+	 * How many called figures to spell out. A long drill calls one every few
+	 * seconds, so the raw list grows without bound; the summary is only ever read
+	 * back by a person looking at what a session was. `calls` keeps the true
+	 * total, so capping the list loses nothing that matters.
+	 */
+	const MAX_CALLED = 250;
+
 	const runJson = $derived(
 		JSON.stringify({
 			speed,
 			count: runToggles?.count ?? false,
 			clave: runToggles?.clave ?? null,
 			callEvery: runToggles?.callEvery ?? null,
-			called: calledIds
+			calls: calledIds.length,
+			called: calledIds.slice(-MAX_CALLED)
 		})
 	);
 
