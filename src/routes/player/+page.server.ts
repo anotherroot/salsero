@@ -1,11 +1,12 @@
-import { error } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { buildGrid } from '$lib/beatgrid/beatgrid';
 import type { TempoFactor } from '$lib/labels';
 import { getDb } from '$lib/server/db';
-import { getExercise, listExercises } from '$lib/server/exercises';
+import { getExercise, listExercises, logSet } from '$lib/server/exercises';
 import { listCallableFigures } from '$lib/server/figures';
+import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getSong } from '$lib/server/songs';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
@@ -35,4 +36,44 @@ export const load: PageServerLoad = ({ url }) => {
 		exercise: exerciseId ? getExercise(db, exerciseId) : null,
 		exercises: listExercises(db).map((e) => ({ id: e.id, name: e.name }))
 	};
+};
+
+export const actions: Actions = {
+	/** Log the finished run as a set on the exercise it was practised for. */
+	save: async ({ request }) => {
+		const form = await request.formData();
+		const exerciseId = int(form, 'exerciseId');
+		const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
+		const rating = optionalInt(form, 'rating', 1, 5);
+		const note = optionalText(form, 'note', 2000);
+		const run = optionalText(form, 'run', 4000);
+
+		// Echoed back on failure so the sheet can keep what was entered.
+		const entered = {
+			exerciseId: exerciseId ?? null,
+			rating: rating ?? null,
+			note: String(form.get('note') ?? '')
+		};
+
+		if (exerciseId === undefined || durationS === undefined || rating === undefined) {
+			return fail(400, { message: 'Could not save that run.', ...entered });
+		}
+		if (note === undefined || run === undefined) {
+			return fail(400, { message: 'That note is too long.', ...entered });
+		}
+		try {
+			logSet(getDb(), {
+				exerciseId,
+				doneAt: Date.now(),
+				durationS,
+				reps: null,
+				rating,
+				note,
+				playerJson: run
+			});
+		} catch {
+			return fail(400, { message: 'That exercise no longer exists.', ...entered });
+		}
+		throw redirect(303, '/');
+	}
 };

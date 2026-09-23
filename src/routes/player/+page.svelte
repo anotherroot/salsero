@@ -2,14 +2,14 @@
 	import { onDestroy } from 'svelte';
 	import { resolve } from '$app/paths';
 	import Running from '$lib/components/player/Running.svelte';
+	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
-	import { clock } from '$lib/format';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let mode = $state<'setup' | 'running' | 'done'>('setup');
 	let audio: HTMLAudioElement | undefined = $state();
@@ -21,6 +21,22 @@
 	let startError = $state<string | null>(null);
 	/** The grid the running player was actually built with — song or synthetic. */
 	let runningGrid = $state<{ beats: number[]; counts: number[] } | null>(null);
+	/** The toggles the run was actually started with, for `player_json` at the end. */
+	let runToggles = $state<{
+		count: boolean;
+		clave: PlayerSettings['clave'];
+		callEvery: PlayerSettings['callEvery'];
+	} | null>(null);
+
+	const runJson = $derived(
+		JSON.stringify({
+			speed,
+			count: runToggles?.count ?? false,
+			clave: runToggles?.clave ?? null,
+			callEvery: runToggles?.callEvery ?? null,
+			called: calledIds
+		})
+	);
 
 	function sayOf(id: number): string {
 		return data.figures.find((f) => f.id === id)?.say ?? '';
@@ -44,6 +60,7 @@
 	async function handlePlay(settings: PlayerSettings) {
 		startError = null;
 		speed = settings.speed;
+		runToggles = { count: settings.count, clave: settings.clave, callEvery: settings.callEvery };
 		const grid =
 			data.song && data.grid && settings.source === 'song'
 				? data.grid
@@ -145,19 +162,14 @@
 			onstop={handleStop}
 		/>
 	{:else if mode === 'done'}
-		<section class="space-y-4 px-2 pt-10 text-center">
-			<p class="text-[16px] font-medium">Nice work.</p>
-			<p class="text-[13px] text-muted">
-				{clock(finalElapsed)} · {calledIds.length} figure{calledIds.length === 1 ? '' : 's'} called
-			</p>
-			<button
-				type="button"
-				class="h-14 w-full rounded-2xl bg-accent text-[16px] font-semibold text-accent-ink"
-				onclick={() => (mode = 'setup')}
-			>
-				Practise again
-			</button>
-			<a href={resolve('/')} class="block text-[14px] text-muted underline">Back to Today</a>
-		</section>
+		<SaveSetSheet
+			exercise={data.exercise && { id: data.exercise.id, name: data.exercise.name }}
+			exercises={data.exercises}
+			durationS={finalElapsed}
+			calledCount={calledIds.length}
+			run={runJson}
+			fail={form && 'message' in form ? form : null}
+			onclose={() => (mode = 'setup')}
+		/>
 	{/if}
 </main>
