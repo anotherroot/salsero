@@ -237,26 +237,48 @@ rate   = length_s / (actual phrase duration from the grid)
 `rate` absorbs the song's drift bar by bar, and because every phrase is placed
 absolutely there is nothing to resynchronise.
 
-`cuesIn` stays pure and knows nothing about takes. `Cue` becomes a union:
+`cuesIn` stays pure and knows nothing about takes. Phrases come back in their
+own array rather than as a variant of `Cue`, the way `calls` already does —
+less churn, and `cues` keeps meaning "a clip at a time":
 
 ```ts
-type Cue =
-  | { kind: 'clip'; at: number; clip: Clip }
-  | { kind: 'phrase'; at: number; endsAt: number; half: 'a' | 'b' };
+cuesIn(...): { cues: Cue[]; phrases: Phrase[]; calls: Call[] }
+// Phrase = { at, endsAt, half: 'a' | 'b' }
 ```
 
-`attach.ts` resolves a `phrase` cue to a buffer and a rate; `endsAt` is what
-lets it compute that rate without knowing the tempo. Whether a run emits
-`phrase` or `clip` cues is decided once, at start, and passed in.
+`attach.ts` resolves a phrase to a buffer and a rate; `endsAt` is what lets it
+compute that rate without knowing the tempo. Whether a run emits phrases is
+decided once, at start, from `Toggles.phrases`.
+
+Two details the arithmetic has to get right:
+
+- The rate is against **wall-clock** time, not song time:
+  `lengthS / ((endsAt − at) / playbackRate)`. At 0.7× the song's own timeline
+  is unchanged but the ear hears the bar take longer.
+- The pre-roll is in the take's timebase, so it occupies less context time the
+  faster the take plays: the source starts at `ctxAt(at) − preRollS / rate`.
+
+The duck also gets coarser and simpler. A call owns 5-6-7, which is the whole
+of phrase B, so the phrase is dropped outright rather than individual counts
+being suppressed inside it.
 
 A bar cut short by a re-anchor has no complete phrase; `timeAt` already returns
 `null` there and the phrase is skipped.
 
 ## Out of scope
 
-- Changing the pattern **mid-run**. `setToggles` exists on the handle and is
-  unused; wiring it to a control beside the voice slider is a clean follow-up
-  that none of this blocks.
+**Changing the pattern mid-run is IN scope and built** — a chip row beside the
+voice slider, wiring up the `setToggles` that had sat unused since phase 2b. A
+song that turns out too fast to count every beat wants thinning then, and
+stopping would discard the figures already planned. The logged set records the
+pattern in force when the run ended.
+
+- **Input latency is not compensated.** The click's output time is known
+  exactly, but nothing reports how long the microphone path delays what it
+  captures, so a take can hold the voice a few tens of milliseconds later than
+  it was spoken — and playing it back on the beat would then sound late. The
+  cure, if an ear says it is needed, is a per-take nudge in the recorder rather
+  than anything clever; the pre-roll already provides the room for it.
 - Recorded **figure names**. They stay on `speechSynthesis` — a name sounds
   across three beats, so its jitter does not matter.
 - Pitch-preserving **time-stretch** (a WASM library). The ladder plus a ±12 %

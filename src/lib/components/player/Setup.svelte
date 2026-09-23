@@ -15,6 +15,7 @@
 </script>
 
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import {
 		CALL_EVERY,
 		CLAVE_PATTERNS,
@@ -176,6 +177,9 @@
 				</label>
 			{/each}
 		</div>
+		<a href={resolve('/voice')} class="mt-2 inline-block text-[13px] text-accent underline">
+			Use my own voice
+		</a>
 	</fieldset>
 
 	<fieldset>

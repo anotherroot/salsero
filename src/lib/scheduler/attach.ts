@@ -8,8 +8,9 @@
  * 100 ms directly on the audio clock, which is sample-accurate and immune to
  * main-thread jank. (The standard "A Tale of Two Clocks" pattern.)
  */
-import { beatIndexAt } from '$lib/beatgrid/beatgrid';
+import { beatIndexAt, median } from '$lib/beatgrid/beatgrid';
 import { CLIPS, type CallEvery, type Clip } from '$lib/labels';
+import type { CountTakeRow } from '$lib/types';
 import {
 	type PlanStep,
 	type Timeline,
@@ -21,6 +22,13 @@ import {
 
 const TICK_MS = 25;
 const HORIZON_S = 0.1;
+/**
+ * How far a recorded take's tempo may sit from the song's before the run uses
+ * the built-in clips instead. `playbackRate` shifts pitch, and 12 % is about
+ * two semitones — past that the user's own voice stops sounding like it, which
+ * is worse than a Piper count that at least sounds deliberate.
+ */
+const TAKE_TOLERANCE = 0.12;
 /** A jump larger than this means the user seeked; everything queued is stale. */
 const SEEK_EPSILON_S = 0.25;
 
@@ -36,6 +44,65 @@ export async function loadClips(ctx: AudioContext): Promise<Record<Clip, AudioBu
 	return Object.fromEntries(pairs) as Record<Clip, AudioBuffer>;
 }
 
+/** A recorded half-bar, decoded and ready to schedule. */
+interface LoadedPhrase {
+	buffer: AudioBuffer;
+	/** Seconds of audio before the phrase's first beat. */
+	preRollS: number;
+	/** The phrase's musical length, at the tempo it was recorded. */
+	lengthS: number;
+}
+
+/**
+ * The recorded set closest to the tempo this run will actually sound at, or
+ * null to use the built-in clips.
+ *
+ * Nearest in LOG space, because tempo is multiplicative — 140 is as far from
+ * 130 as 130 is from 121, not from 120.
+ */
+export function chooseTakes(
+	takes: CountTakeRow[],
+	effectiveBpm: number
+): { a?: CountTakeRow; b?: CountTakeRow } | null {
+	if (takes.length === 0 || !Number.isFinite(effectiveBpm) || effectiveBpm <= 0) return null;
+	let best: number | null = null;
+	let bestDistance = Infinity;
+	for (const t of takes) {
+		const d = Math.abs(Math.log(t.bpm / effectiveBpm));
+		if (d < bestDistance) {
+			bestDistance = d;
+			best = t.bpm;
+		}
+	}
+	if (best === null || bestDistance > Math.log(1 + TAKE_TOLERANCE)) return null;
+	const set: { a?: CountTakeRow; b?: CountTakeRow } = {};
+	for (const t of takes) {
+		if (t.bpm === best) set[t.phrase] = t;
+	}
+	return set.a || set.b ? set : null;
+}
+
+async function loadPhrases(
+	ctx: AudioContext,
+	set: { a?: CountTakeRow; b?: CountTakeRow }
+): Promise<Partial<Record<'a' | 'b', LoadedPhrase>>> {
+	const out: Partial<Record<'a' | 'b', LoadedPhrase>> = {};
+	await Promise.all(
+		(['a', 'b'] as const).map(async (half) => {
+			const take = set[half];
+			if (!take) return;
+			const res = await fetch(`/count/${take.file}`);
+			if (!res.ok) throw new Error(`take ${take.file}: ${res.status}`);
+			out[half] = {
+				buffer: await ctx.decodeAudioData(await res.arrayBuffer()),
+				preRollS: take.preRollS,
+				lengthS: take.lengthS
+			};
+		})
+	);
+	return out;
+}
+
 export interface PlayerOptions {
 	/** The song element, or null for count-only against the context clock. */
 	audio: HTMLAudioElement | null;
@@ -47,6 +114,12 @@ export interface PlayerOptions {
 	sayOf: (figureId: number) => string;
 	/** Count and clave loudness, 0–1, independent of the music. */
 	voiceVolume: number;
+	/**
+	 * The user's recorded half-bars for the chosen pattern, if any. An empty
+	 * list — or a tempo too far from every take — falls back to the shipped
+	 * clips, so a half-filled ladder is a working player rather than a broken one.
+	 */
+	takes?: CountTakeRow[];
 	onCall: (figureId: number) => void;
 	onEnd: () => void;
 }
@@ -78,6 +151,8 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	let pool = opts.pool;
 	let volume = opts.voiceVolume;
 	let plan: PlanStep[] = [];
+	/** Decoded recorded halves, empty when the run uses the built-in clips. */
+	let phrases: Partial<Record<'a' | 'b', LoadedPhrase>> = {};
 	const calledIds: number[] = [];
 
 	/** Song time already scheduled up to. Reset on a seek. */
@@ -114,6 +189,17 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 	};
 
 	const lastBeat = () => tl.beats[tl.beats.length - 1] ?? 0;
+
+	/**
+	 * The grid's own tempo, from the median gap between beats — the same measure
+	 * `bpmOf` uses, and robust to the odd mis-detected beat in a way a mean is not.
+	 */
+	const gridBpm = () => {
+		if (tl.beats.length < 2) return 0;
+		const gaps = tl.beats.slice(1).map((b, i) => b - tl.beats[i]);
+		const m = median(gaps);
+		return m > 0 ? 60 / m : 0;
+	};
 
 	function clearQueued() {
 		for (const src of queued) {
@@ -165,13 +251,34 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			plan = extendPlan(plan, pool, toggles.callEvery as CallEvery, through, Math.random);
 		}
 
-		const { cues, calls } = cuesIn(tl, plan, toggles, cursor, until);
+		const { cues, phrases: due, calls } = cuesIn(tl, plan, toggles, cursor, until);
 
 		for (const cue of cues) {
 			const src = ctx.createBufferSource();
 			src.buffer = clips[cue.clip];
 			src.connect(gain);
 			src.start(Math.max(ctx.currentTime, ctxAt(cue.at)));
+			src.onended = () => {
+				queued = queued.filter((q) => q !== src);
+			};
+			queued.push(src);
+		}
+
+		for (const phrase of due) {
+			const take = phrases[phrase.half];
+			if (!take) continue;
+			// The phrase's length in WALL-CLOCK seconds: song times shrink as the
+			// song plays faster, and the take has to be stretched to match what the
+			// ear will hear, not what the song's own timeline says.
+			const wall = (phrase.endsAt - phrase.at) / rate();
+			const speed = take.lengthS / wall;
+			const src = ctx.createBufferSource();
+			src.buffer = take.buffer;
+			src.playbackRate.value = speed;
+			src.connect(gain);
+			// The pre-roll is audio BEFORE the first beat, in the take's own
+			// timebase, so it occupies less context time the faster the take plays.
+			src.start(Math.max(ctx.currentTime, ctxAt(phrase.at) - take.preRollS / speed));
 			src.onended = () => {
 				queued = queued.filter((q) => q !== src);
 			};
@@ -230,6 +337,13 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 				gain.connect(ctx.destination);
 				clips = await loadClips(ctx);
 
+				// Decided once, here, rather than per tick: the song has one tempo,
+				// and a count that changed source halfway through a run would be far
+				// more disconcerting than one that is Piper's throughout.
+				const set = chooseTakes(opts.takes ?? [], gridBpm() * rate());
+				phrases = set ? await loadPhrases(ctx, set) : {};
+				toggles = { ...toggles, phrases: Boolean(phrases.a || phrases.b) };
+
 				// Prime the speech engine in the same gesture, or the first call is
 				// swallowed on iOS.
 				const u = new SpeechSynthesisUtterance(' ');
@@ -247,6 +361,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 				ctx = null;
 				clips = null;
 				gain = null;
+				phrases = {};
 				throw e;
 			}
 			await takeWakeLock();

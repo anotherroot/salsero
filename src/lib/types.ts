@@ -1,5 +1,13 @@
 /** Row shapes that cross from server to page. Client-safe: no server imports. */
-import type { Partner, PracticeMode, SongStatus, Source, Style, TempoFactor } from './labels';
+import type {
+	CountPattern,
+	Partner,
+	PracticeMode,
+	SongStatus,
+	Source,
+	Style,
+	TempoFactor
+} from './labels';
 
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {
@@ -41,6 +49,21 @@ export interface SongItem {
 	bpm: number | null;
 	tempoFactor: TempoFactor;
 	createdAt: number;
+}
+
+/**
+ * One recorded half-bar of the count, as the player needs it. Mirrors the
+ * `count_takes` row minus what only the server cares about — components never
+ * import from `$lib/server`.
+ */
+export interface CountTakeRow {
+	id: number;
+	pattern: CountPattern;
+	bpm: number;
+	phrase: 'a' | 'b';
+	file: string;
+	preRollS: number;
+	lengthS: number;
 }
 
 /** A figure the player may call, as the setup screen lists it. */

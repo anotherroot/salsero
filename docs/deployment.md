@@ -63,7 +63,14 @@ ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
 existing `build/` rsync carries them. `scripts/make-clips.sh` regenerates them
-locally and its output is committed — production never runs Piper.
+locally and its output is committed — production never runs Piper. The same is
+true of `static/worklets/recorder.js`, which has to be served rather than
+bundled because `addModule()` takes a URL.
+
+**`$DATA_DIR/count/` is new** and holds the count takes the user records in the
+app — their own voice, recorded once and not reproducible by rebuilding. The
+backup unit copies whole directories under `/var/lib/salsa`, so it is already
+covered; check that it is, because nothing else in the system can recreate it.
 
 `better-sqlite3` is a native addon. `npm ci` fetches a prebuilt binary, which
 loads under nixpkgs node (verified locally). If it ever fails to load on the

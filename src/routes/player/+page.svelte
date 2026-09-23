@@ -103,6 +103,9 @@
 			grid,
 			toggles: { count: settings.count, clave: settings.clave, callEvery: settings.callEvery },
 			pool: settings.figureIds,
+			// Only the chosen pattern's takes: a salsa recording must never stand in
+			// for a son run, whose words fall on different counts entirely.
+			takes: data.takes.filter((t) => t.pattern === settings.count),
 			sayOf,
 			voiceVolume: settings.voiceVolume,
 			onCall: (id) => (calledFigureId = id),

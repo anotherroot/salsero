@@ -12,9 +12,9 @@ The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
 read it before adding anything, and keep it current when the design changes.
 It carries a "Known gaps" list for the player; check it before hunting a bug
-that is already known. The count voice is being redesigned in
-[`docs/superpowers/specs/2026-09-23-count-voice-design.md`](docs/superpowers/specs/2026-09-23-count-voice-design.md) —
-count patterns first, the user's own recorded phrases second. Not built yet.
+that is already known. The count voice has its own spec,
+[`docs/superpowers/specs/2026-09-23-count-voice-design.md`](docs/superpowers/specs/2026-09-23-count-voice-design.md):
+count patterns, and the user's own voice recorded as half-bar phrases.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -27,8 +27,12 @@ src/lib/urgency/     PURE "what next": (exercises, sets, now, tz) → doneToday/
 src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo factor
 src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
-src/lib/scheduler/attach.ts  the ONLY impure part: AudioContext, clips, the
+src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
+src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
+                     half-bar starts); capture.ts owns the mic and the click
+static/worklets/     recorder.js — the AudioWorklet that captures the mic.
+                     Served, not bundled: addModule() takes a URL
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/ songs/ player/
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files

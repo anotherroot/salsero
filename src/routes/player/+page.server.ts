@@ -1,8 +1,9 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { buildGrid } from '$lib/beatgrid/beatgrid';
-import type { TempoFactor } from '$lib/labels';
+import { PHRASE_PATTERNS, type TempoFactor } from '$lib/labels';
 import { getDb } from '$lib/server/db';
 import { getExercise, listExercises, logSet } from '$lib/server/exercises';
+import { listCountTakesFor } from '$lib/server/countTakes';
 import { listCallableFigures } from '$lib/server/figures';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getSong } from '$lib/server/songs';
@@ -34,7 +35,10 @@ export const load: PageServerLoad = ({ url }) => {
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
 		figures: listCallableFigures(db),
 		exercise: exerciseId ? getExercise(db, exerciseId) : null,
-		exercises: listExercises(db).map((e) => ({ id: e.id, name: e.name }))
+		exercises: listExercises(db).map((e) => ({ id: e.id, name: e.name })),
+		// Every pattern's takes: which one the run uses is a client-side choice
+		// made at Play, and there are only ever a few dozen rows.
+		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
 	};
 };
 

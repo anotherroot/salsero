@@ -115,6 +115,55 @@ describe('cuesIn — the count', () => {
 	});
 });
 
+describe('cuesIn — recorded phrases', () => {
+	const rec = { ...ALL, phrases: true } as const;
+
+	it('replaces the per-beat count with two half-bars', () => {
+		const r = cuesIn(t(1), [], rec, 0, 4);
+		expect(r.cues).toEqual([]);
+		expect(r.phrases).toEqual([
+			{ at: 0, endsAt: 1.5, half: 'a' }, // counts 1-3, ending on the 4
+			{ at: 2, endsAt: 3.5, half: 'b' } // counts 5-7, ending on the 8
+		]);
+	});
+
+	/** 6-7-8 ends on the NEXT bar's 1, which this bar has no count for. */
+	it('ends son’s second half on the following bar’s "1"', () => {
+		const r = cuesIn(t(2), [], { ...rec, count: 'son' }, 0, 4);
+		expect(r.phrases).toEqual([
+			{ at: 0.5, endsAt: 2, half: 'a' },
+			{ at: 2.5, endsAt: 4, half: 'b' }
+		]);
+	});
+
+	it('spans four beats a half when every count is spoken', () => {
+		const r = cuesIn(t(2), [], { ...rec, count: 'all' }, 0, 4);
+		expect(r.phrases).toEqual([
+			{ at: 0, endsAt: 2, half: 'a' },
+			{ at: 2, endsAt: 4, half: 'b' }
+		]);
+	});
+
+	/** The duck gets coarser: a call owns 5-6-7, which is all of phrase b. */
+	it('drops the whole second half under a figure call', () => {
+		const plan = [{ eight: 1, figureId: 7 }];
+		const r = cuesIn(t(2), plan, { ...rec, callEvery: 2 }, 0, 4);
+		expect(r.phrases.map((p) => p.half)).toEqual(['a']);
+	});
+
+	it('still emits the clave, which recordings do not replace', () => {
+		const r = cuesIn(t(1), [], { ...rec, clave: '3-2' }, 0, 4);
+		expect(new Set(clips(r))).toEqual(new Set(['clave']));
+		expect(r.phrases).toHaveLength(2);
+	});
+
+	it('says nothing at all when the pattern is off', () => {
+		const r = cuesIn(t(1), [], { ...rec, count: 'off' }, 0, 4);
+		expect(r.phrases).toEqual([]);
+		expect(r.cues).toEqual([]);
+	});
+});
+
 describe('cuesIn — the clave', () => {
 	it('places 3-2 on 1, the and of 2, 4, 6 and 7', () => {
 		const r = cuesIn(t(1), [], { count: 'off', clave: '3-2', callEvery: null }, 0, 4);

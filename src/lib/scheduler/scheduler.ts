@@ -126,10 +126,27 @@ export interface Call {
 	figureId: number;
 }
 
+/**
+ * One recorded half-bar to play. `endsAt` is the song time the phrase's last
+ * beat ends, which is what lets `attach.ts` work out the playback rate without
+ * this module knowing anything about tempo, buffers or takes.
+ */
+export interface Phrase {
+	at: number;
+	endsAt: number;
+	half: 'a' | 'b';
+}
+
 export interface Toggles {
 	count: CountPattern;
 	clave: ClavePattern | null;
 	callEvery: CallEvery | null;
+	/**
+	 * True when the run has the user's recorded phrases for this pattern. The
+	 * count then comes back as `phrases` rather than per-beat `cues`; the clave
+	 * is unaffected either way.
+	 */
+	phrases?: boolean;
 }
 
 /** A figure placed on an 8-count. Random drill generates these; phase 3's choreographies supply them. */
@@ -155,8 +172,9 @@ export function cuesIn(
 	toggles: Toggles,
 	from: number,
 	to: number
-): { cues: Cue[]; calls: Call[] } {
+): { cues: Cue[]; phrases: Phrase[]; calls: Call[] } {
 	const cues: Cue[] = [];
+	const phrases: Phrase[] = [];
 	const calls: Call[] = [];
 	const talking = new Set<number>();
 
@@ -180,10 +198,34 @@ export function cuesIn(
 		if (t.beats[i] >= to) break;
 		bars.add(t.eights[i]);
 		if (t.beats[i] < from) continue;
+		if (toggles.phrases) continue;
 		const ducked = talking.has(t.eights[i]) && t.counts[i] >= CALL_POS && t.counts[i] <= 7;
 		if (spoken.has(t.counts[i]) && !ducked) {
 			cues.push({ at: t.beats[i], clip: COUNT_CLIP[t.counts[i]] });
 		}
+	}
+
+	// Recorded halves replace the per-beat count. The duck becomes coarser and
+	// simpler: a call takes 5-6-7, which is all of phrase B, so the whole phrase
+	// is dropped rather than individual counts being suppressed inside it.
+	if (toggles.phrases && spoken.size > 0) {
+		for (const e of bars) {
+			for (const half of ['a', 'b'] as const) {
+				const counts = phraseCounts(toggles.count, half);
+				if (counts.length === 0) continue;
+				if (half === 'b' && talking.has(e)) continue;
+				const at = timeAt(t, e, counts[0]);
+				// The beat after the phrase's last count. For son's 6-7-8 and for
+				// every-count's 5-6-7-8 that is 9, which is the NEXT bar's "1" — this
+				// bar has no such count and `timeAt` rightly refuses it.
+				const after = counts[counts.length - 1] + 1;
+				const endsAt = after <= 8 ? timeAt(t, e, after) : timeAt(t, e + 1, 1);
+				if (at !== null && endsAt !== null && at >= from && at < to) {
+					phrases.push({ at, endsAt, half });
+				}
+			}
+		}
+		phrases.sort((a, b) => a.at - b.at);
 	}
 
 	if (toggles.clave) {
@@ -197,7 +239,7 @@ export function cuesIn(
 
 	cues.sort((a, b) => a.at - b.at);
 	calls.sort((a, b) => a.at - b.at);
-	return { cues, calls };
+	return { cues, phrases, calls };
 }
 
 /**
