@@ -31,6 +31,47 @@ export const MAX_TAKE_BYTES = 4 * 1024 * 1024;
 export const MAX_TAKE_LABEL = `${Math.round(MAX_TAKE_BYTES / 1024 / 1024)} MB`;
 
 /**
+ * Largest lesson video accepted: 1 GiB.
+ *
+ * Far above `MAX_RECORDING_BYTES` because it is not bound by the same thing. A
+ * figure recording is one request, so Cloudflare's 100 MB edge limit IS its
+ * ceiling; a lesson video arrives in chunks, so no single request approaches
+ * that and the real constraint becomes the server's disk — shared with four
+ * other services and around 80% full. 1 GiB is roughly a quarter-hour of 1080p
+ * phone video, enough for a class, and low enough that a few lessons cannot
+ * quietly fill the box.
+ */
+export const MAX_LESSON_VIDEO_BYTES = 1024 * 1024 * 1024;
+
+/** `1 GB`, for messages. The MB formula above cannot say this. */
+export const MAX_LESSON_VIDEO_LABEL = '1 GB';
+
+/**
+ * What the browser slices a lesson video into: 8 MiB.
+ *
+ * Comfortably under the edge limit, small enough that a dropped mobile
+ * connection costs almost nothing to retry, and few enough requests that a
+ * full 1 GiB file is ~128 of them.
+ */
+export const UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Largest single chunk the server will accept: 16 MiB.
+ *
+ * Headroom above what the client sends, so a future change to the slice size
+ * does not need a matching deploy, while still refusing a request that tried to
+ * put a whole video in one body.
+ */
+export const MAX_UPLOAD_CHUNK_BYTES = 16 * 1024 * 1024;
+
+/**
+ * How long an abandoned partial upload survives before the boot sweep removes
+ * it: 24 hours. Long enough to outlive a bad connection, short enough that a
+ * failed 1 GiB upload does not squat on the disk.
+ */
+export const UPLOAD_PARTIAL_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
  * Most audio a take may keep before its first beat: 250 ms.
  *
  * This is a scheduling constraint, not a storage one. The player starts a take

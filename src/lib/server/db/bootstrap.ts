@@ -1,5 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { seedAdmin } from '../admin';
+import { sweepUploads } from '../files';
+import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
 import { getDb } from './index';
 
 let ready: Promise<void> | undefined;
@@ -9,9 +11,17 @@ let ready: Promise<void> | undefined;
  * Awaited by the first request so nothing can race an unmigrated schema.
  */
 export function bootstrap(): Promise<void> {
-	ready ??= seedAdmin(getDb(), env.ADMIN_EMAIL, env.ADMIN_PASSWORD).catch((err) => {
-		ready = undefined;
-		throw err;
-	});
+	ready ??= seedAdmin(getDb(), env.ADMIN_EMAIL, env.ADMIN_PASSWORD)
+		.then(() => {
+			// Abandoned chunked uploads, swept once per process rather than by a
+			// cron or a unit there would be nothing to remind anyone about. Not
+			// awaited: a slow disk must not hold up the first request, and a
+			// failure here is never worth a 500.
+			void sweepUploads(UPLOAD_PARTIAL_TTL_MS).catch(() => {});
+		})
+		.catch((err) => {
+			ready = undefined;
+			throw err;
+		});
 	return ready;
 }
