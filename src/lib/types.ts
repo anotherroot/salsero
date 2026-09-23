@@ -15,6 +15,8 @@ export interface ExerciseItem {
 	name: string;
 	source: Source;
 	figureId: number | null;
+	/** Set iff `source === 'lesson'`: which lesson this reviews. */
+	lessonId: number | null;
 	partner: Partner | null;
 	practiceMode: PracticeMode;
 	songId: number | null;
@@ -64,6 +66,42 @@ export interface CountTakeRow {
 	file: string;
 	preRollS: number;
 	lengthS: number;
+}
+
+/** A lesson as the library lists it, with what its videos cost on disk. */
+export interface LessonItem {
+	id: number;
+	/** The local day the class happened, `YYYY-MM-DD`. */
+	lessonDay: string;
+	title: string;
+	videos: number;
+	videoBytes: number;
+	createdAt: number;
+}
+
+/** One video from a lesson, as the page plays it. */
+export interface LessonVideoRow {
+	id: number;
+	file: string;
+	mime: string;
+	sizeBytes: number;
+	createdAt: number;
+}
+
+/** A figure taught in a lesson, with the exercise that came with it. */
+export interface LessonFigureRow {
+	id: number;
+	name: string;
+	partner: Partner;
+	style: Style;
+	exerciseId: number | null;
+}
+
+/** An exercise attached to a lesson by hand. Never a linked figure's own. */
+export interface LessonExerciseRow {
+	id: number;
+	name: string;
+	source: Source;
 }
 
 /** A figure the player may call, as the setup screen lists it. */
