@@ -3,7 +3,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, json } from '@sveltejs/kit';
 import { PHRASE_PATTERNS, TEMPO_LADDER, type PhrasePattern } from '$lib/labels';
-import { MAX_TAKE_BYTES, MAX_TAKE_LABEL } from '$lib/limits';
+import { MAX_PRE_ROLL_S, MAX_TAKE_BYTES, MAX_TAKE_LABEL } from '$lib/limits';
 import { putCountTake } from '$lib/server/countTakes';
 import { getDb } from '$lib/server/db';
 import { TooLargeError, countDir, saveStream } from '$lib/server/files';
@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const sampleRate = num(h.get('x-sample-rate'), 8000, 192000);
 	// The phrase itself is three or four beats; at the slowest rung that is 2 s.
 	const lengthS = num(h.get('x-length'), 0.2, 5);
-	const preRollS = num(h.get('x-pre-roll'), 0, 0.5);
+	const preRollS = num(h.get('x-pre-roll'), 0, MAX_PRE_ROLL_S);
 	const durationS = num(h.get('x-duration'), 0.2, 8);
 	if (sampleRate === null || lengthS === null || preRollS === null || durationS === null) {
 		throw error(400, 'Bad take metadata.');

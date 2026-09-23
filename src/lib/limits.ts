@@ -29,3 +29,15 @@ export const MAX_TAKE_BYTES = 4 * 1024 * 1024;
 
 /** `4 MB`, for messages. */
 export const MAX_TAKE_LABEL = `${Math.round(MAX_TAKE_BYTES / 1024 / 1024)} MB`;
+
+/**
+ * Most audio a take may keep before its first beat: 250 ms.
+ *
+ * This is a scheduling constraint, not a storage one. The player starts a take
+ * one pre-roll BEFORE its beat, so the pre-roll is a lead time the look-ahead
+ * horizon has to cover — `HORIZON_S` in `$lib/scheduler/attach.ts` sits above
+ * this. A take allowed a longer pre-roll than the horizon cannot be scheduled
+ * on time, and the player would quietly play it late instead. The recorder
+ * uses 100 ms; this is the ceiling, not the value.
+ */
+export const MAX_PRE_ROLL_S = 0.25;

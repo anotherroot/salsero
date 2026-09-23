@@ -5,8 +5,8 @@
  * Why a look-ahead loop and not `setTimeout` per beat: timers drift and get
  * throttled in a background tab, and a count that lands 40 ms late is audibly
  * wrong. Instead a 25 ms tick schedules everything falling inside the next
- * 100 ms directly on the audio clock, which is sample-accurate and immune to
- * main-thread jank. (The standard "A Tale of Two Clocks" pattern.)
+ * `HORIZON_S` directly on the audio clock, which is sample-accurate and immune
+ * to main-thread jank. (The standard "A Tale of Two Clocks" pattern.)
  */
 import { beatIndexAt, median } from '$lib/beatgrid/beatgrid';
 import { CLIPS, type CallEvery, type Clip } from '$lib/labels';
@@ -20,8 +20,18 @@ import {
 	timeline
 } from './scheduler';
 
-const TICK_MS = 25;
-const HORIZON_S = 0.1;
+export const TICK_MS = 25;
+/**
+ * How far ahead each tick schedules.
+ *
+ * This must exceed the largest LEAD any cue needs, not just cover the gap
+ * between ticks. A recorded phrase starts one pre-roll BEFORE its beat, so a
+ * horizon equal to the pre-roll means the start time is already in the past by
+ * the time the phrase is discovered — which is exactly what happened when both
+ * were 0.1 s, and the count landed up to 100 ms late. `MAX_PRE_ROLL_S` in
+ * `$lib/limits` is the ceiling the upload enforces; this stays above it.
+ */
+export const HORIZON_S = 0.3;
 /**
  * How far a recorded take's tempo may sit from the song's before the run uses
  * the built-in clips instead. `playbackRate` shifts pitch, and 12 % is about
@@ -29,8 +39,15 @@ const HORIZON_S = 0.1;
  * is worse than a Piper count that at least sounds deliberate.
  */
 const TAKE_TOLERANCE = 0.12;
-/** A jump larger than this means the user seeked; everything queued is stale. */
-const SEEK_EPSILON_S = 0.25;
+/**
+ * A jump larger than this means the user seeked; everything queued is stale.
+ *
+ * Derived from the horizon, never set independently: `cursor` legitimately
+ * sits up to one horizon ahead of the song position, so an epsilon below that
+ * reads every single tick as a seek, clears the queue, and the player falls
+ * silent while looking like it is working.
+ */
+export const SEEK_EPSILON_S = HORIZON_S + 0.2;
 
 export async function loadClips(ctx: AudioContext): Promise<Record<Clip, AudioBuffer>> {
 	const pairs = await Promise.all(
@@ -190,6 +207,28 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 
 	const lastBeat = () => tl.beats[tl.beats.length - 1] ?? 0;
 
+	/** Warned once per run; a late cue repeats forty times a second. */
+	let warnedLate = false;
+
+	/**
+	 * Clamp a start time to now, and SAY SO. A cue whose time has already passed
+	 * plays late, and clamping silently is how a 100 ms error hid in plain sight:
+	 * the horizon was equal to the pre-roll, so every recorded phrase was rescued
+	 * here instead of being scheduled properly. If this fires, the horizon is too
+	 * short for the lead some cue needs — it is not a rounding artefact.
+	 */
+	function startAt(when: number): number {
+		if (!ctx) return 0;
+		if (when < ctx.currentTime - 0.005 && !warnedLate) {
+			warnedLate = true;
+			console.warn(
+				`[player] a cue was scheduled ${Math.round((ctx.currentTime - when) * 1000)} ms in the past; ` +
+					`the look-ahead horizon (${HORIZON_S}s) is shorter than the lead it needs.`
+			);
+		}
+		return Math.max(ctx.currentTime, when);
+	}
+
 	/**
 	 * The grid's own tempo, from the median gap between beats — the same measure
 	 * `bpmOf` uses, and robust to the odd mis-detected beat in a way a mean is not.
@@ -278,7 +317,7 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 			src.connect(gain);
 			// The pre-roll is audio BEFORE the first beat, in the take's own
 			// timebase, so it occupies less context time the faster the take plays.
-			src.start(Math.max(ctx.currentTime, ctxAt(phrase.at) - take.preRollS / speed));
+			src.start(startAt(ctxAt(phrase.at) - take.preRollS / speed));
 			src.onended = () => {
 				queued = queued.filter((q) => q !== src);
 			};
