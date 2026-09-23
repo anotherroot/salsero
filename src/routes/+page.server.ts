@@ -164,12 +164,25 @@ export const actions: Actions = {
 				...entered
 			});
 		}
-		if (practiceMode === 'song' && songId === null) {
-			return fail(400, {
-				action: 'updateExercise',
-				message: 'Pick a song, or switch to a different practice mode.',
-				...entered
-			});
+		if (practiceMode === 'song') {
+			if (songId === null) {
+				return fail(400, {
+					action: 'updateExercise',
+					message: 'Pick a song, or switch to a different practice mode.',
+					...entered
+				});
+			}
+			// The picker only offers analysed songs, but one can be archived or
+			// fail its analysis between the sheet opening and Save being tapped —
+			// the home worker runs on its own schedule. Saving a song the player
+			// cannot open would turn Practice into an error page.
+			if (!listReadySongs(getDb()).some((s) => s.id === songId)) {
+				return fail(400, {
+					action: 'updateExercise',
+					message: 'That song is not ready to practise with. Pick another.',
+					...entered
+				});
+			}
 		}
 		if (practiceMode === 'count' && countBpm === null) {
 			return fail(400, {

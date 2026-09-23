@@ -39,9 +39,21 @@
 	let songId = $state(values?.songId ?? String(exercise.songId ?? ''));
 	let countBpm = $state(values?.countBpm ?? String(exercise.countBpm ?? ''));
 
+	/**
+	 * A song set here can stop being playable afterwards — archived, or the
+	 * analysis re-run and failed. `songs` is the list that IS ready, so checking
+	 * against it means a dead link becomes a sentence the user can act on instead
+	 * of an error page they cannot.
+	 */
+	const songGone = $derived(
+		exercise.practiceMode === 'song' && !songs.some((s) => s.id === exercise.songId)
+	);
+
 	const practiceHref = $derived(
 		exercise.practiceMode === 'song'
-			? resolve(`/player?song=${exercise.songId}&exercise=${exercise.id}`)
+			? songGone
+				? null
+				: resolve(`/player?song=${exercise.songId}&exercise=${exercise.id}`)
 			: exercise.practiceMode === 'count'
 				? resolve(`/player?bpm=${exercise.countBpm}&exercise=${exercise.id}`)
 				: null
@@ -122,6 +134,10 @@
 				class="mt-4 flex h-12 w-full items-center justify-center rounded-xl border border-accent text-[15px] font-semibold text-accent"
 				>Practice</a
 			>
+		{:else if songGone && !backfillDay}
+			<p class="mt-4 rounded-lg bg-raised px-3 py-2 text-[13px] text-muted">
+				Its song is not ready to play — pick another below.
+			</p>
 		{/if}
 
 		<button
