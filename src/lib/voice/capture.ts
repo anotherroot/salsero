@@ -112,15 +112,24 @@ export async function recordAgainstClick(opts: RecordOptions): Promise<Capture> 
 
 		// One extra beat so the last word has room to ring out before capture stops.
 		const endsAt = t0 + (totalBeats + 1) * beat;
-		await waitUntil(ctx, endsAt, opts.signal);
+		const how = await waitUntil(ctx, endsAt, opts.signal);
 
-		if (startFrame === null) throw new Error('The microphone produced no audio.');
+		// A run that went the distance and captured nothing is a broken
+		// microphone and deserves to say so. A run that was STOPPED may honestly
+		// have nothing yet — the user may have pressed it within the count-in —
+		// and an empty capture simply yields no candidates.
+		if (how === 'done' && startFrame === null) {
+			throw new Error('The microphone produced no audio.');
+		}
 
 		const frames = concat(blocks);
 		const beatSamples = beat * ctx.sampleRate;
 		// t0 is a context TIME; the capture is indexed from the frame the worklet
 		// first saw. Both are the same clock, so this subtraction is exact.
-		const firstBarStart = Math.round((t0 + COUNT_IN_BARS * 8 * beat) * ctx.sampleRate) - startFrame;
+		// `startFrame` is only null after a stop that caught no audio at all, and
+		// then `frames` is empty too, so every candidate is refused regardless.
+		const firstBarStart =
+			Math.round((t0 + COUNT_IN_BARS * 8 * beat) * ctx.sampleRate) - (startFrame ?? 0);
 
 		return { frames, sampleRate: ctx.sampleRate, firstBarStart, beatSamples };
 	} finally {
@@ -141,16 +150,26 @@ function concat(blocks: Float32Array[]): Float32Array {
 	return out;
 }
 
-/** Resolve once the context clock passes `time`, or reject if the user cancels. */
-function waitUntil(ctx: AudioContext, time: number, signal?: AbortSignal): Promise<void> {
-	return new Promise((resolve, reject) => {
+/**
+ * Resolve once the context clock passes `time`, or as soon as the user stops.
+ *
+ * Stopping RESOLVES rather than rejecting: pressing Stop is a way to finish
+ * early, not a failure. Whatever whole bars were counted are still worth
+ * offering, and the slicer refuses the incomplete one on its own.
+ */
+function waitUntil(
+	ctx: AudioContext,
+	time: number,
+	signal?: AbortSignal
+): Promise<'done' | 'stopped'> {
+	return new Promise((resolve) => {
 		const tick = setInterval(() => {
 			if (signal?.aborted) {
 				clearInterval(tick);
-				reject(new DOMException('Recording cancelled', 'AbortError'));
+				resolve('stopped');
 			} else if (ctx.currentTime >= time) {
 				clearInterval(tick);
-				resolve();
+				resolve('done');
 			}
 		}, 50);
 	});

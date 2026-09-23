@@ -5,7 +5,14 @@
 	const TABS = [
 		{ href: '/' as const, label: 'Today', match: (p: string) => p === '/' },
 		{ href: '/figures' as const, label: 'Figures', match: (p: string) => p.startsWith('/figures') },
-		{ href: '/songs' as const, label: 'Songs', match: (p: string) => p.startsWith('/songs') }
+		{ href: '/songs' as const, label: 'Songs', match: (p: string) => p.startsWith('/songs') },
+		{
+			href: '/settings' as const,
+			label: 'Settings',
+			// `/voice` is reached from here and has no tab of its own, so the tab
+			// stays lit while you are in there.
+			match: (p: string) => p.startsWith('/settings') || p.startsWith('/voice')
+		}
 	];
 </script>
 

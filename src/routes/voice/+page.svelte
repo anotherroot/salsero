@@ -69,35 +69,91 @@
 		};
 	}
 
+	/**
+	 * Which recording run owns the screen. Redo bumps it before aborting, so the
+	 * run it replaced finishes its cleanup and then bows out instead of
+	 * presenting a chooser over the top of the new one.
+	 */
+	let gen = 0;
+	let controller: AbortController | null = null;
+	let running: Promise<void> | null = null;
+	/** True once a run has been stopped, so an empty result is not called a failure. */
+	let stopped = false;
+
 	async function record() {
+		const mine = ++gen;
+		controller = new AbortController();
+		// Held locally: a later run reassigns `controller`, and this one must keep
+		// listening to the signal it was started with.
+		const signal = controller.signal;
+		stopped = false;
 		error = null;
 		stage = 'recording';
 		where = 'Get ready…';
-		try {
-			const c = await recordAgainstClick({
-				bpm,
-				bars: BARS,
-				onBeat: (bar, count) => {
-					where = bar < 0 ? `Count in… ${count}` : `Bar ${bar + 1} of ${BARS} · ${count}`;
+
+		running = (async () => {
+			try {
+				const c = await recordAgainstClick({
+					bpm,
+					bars: BARS,
+					signal,
+					onBeat: (bar, count) => {
+						if (mine !== gen) return;
+						where = bar < 0 ? `Count in… ${count}` : `Bar ${bar + 1} of ${BARS} · ${count}`;
+					}
+				});
+				// Superseded by a redo while this one was finishing: its microphone
+				// and context are already released, and the screen belongs to the
+				// newer run now.
+				if (mine !== gen) return;
+
+				capture = c;
+				slices = {
+					a: phraseCandidates(sliceSpec('a', c), c.firstBarStart, BARS),
+					b: phraseCandidates(sliceSpec('b', c), c.firstBarStart, BARS)
+				};
+				chosen = { a: slices.a.length ? 0 : null, b: slices.b.length ? 0 : null };
+				if (slices.a.length || slices.b.length) {
+					stage = 'choosing';
+				} else if (stopped) {
+					// Stopped before a whole bar existed. That is a decision, not a
+					// fault, so it gets no error message.
+					stage = 'arming';
+				} else {
+					stage = 'grid';
+					error = 'Nothing usable was captured. Check the microphone permission.';
 				}
-			});
-			capture = c;
-			slices = {
-				a: phraseCandidates(sliceSpec('a', c), c.firstBarStart, BARS),
-				b: phraseCandidates(sliceSpec('b', c), c.firstBarStart, BARS)
-			};
-			chosen = { a: slices.a.length ? 0 : null, b: slices.b.length ? 0 : null };
-			stage = slices.a.length || slices.b.length ? 'choosing' : 'grid';
-			if (stage === 'grid') error = 'Nothing usable was captured. Check the microphone permission.';
-		} catch (e) {
-			stage = 'grid';
-			error =
-				e instanceof Error && e.name === 'NotAllowedError'
-					? 'The microphone was refused. Allow it and try again.'
-					: e instanceof Error
-						? e.message
-						: 'Recording failed.';
-		}
+			} catch (e) {
+				if (mine !== gen) return;
+				stage = 'grid';
+				error =
+					e instanceof Error && e.name === 'NotAllowedError'
+						? 'The microphone was refused. Allow it and try again.'
+						: e instanceof Error
+							? e.message
+							: 'Recording failed.';
+			}
+		})();
+		await running;
+	}
+
+	/** End the click now and offer whatever whole bars were counted. */
+	function stopRecording() {
+		stopped = true;
+		controller?.abort();
+	}
+
+	/**
+	 * Start the same cell over. The in-flight run is invalidated FIRST and then
+	 * waited on, because `recordAgainstClick` releases the microphone and closes
+	 * its context on the way out — calling `getUserMedia` again before that has
+	 * finished is what wedges the mic on iOS.
+	 */
+	async function redo() {
+		gen++;
+		controller?.abort();
+		await running?.catch(() => {});
+		void record();
 	}
 
 	async function upload(half: 'a' | 'b', take: Take) {
@@ -143,19 +199,25 @@
 	const chip =
 		'flex h-11 min-w-[5rem] cursor-pointer items-center justify-center rounded-lg border px-3 text-[13px] has-checked:border-accent has-checked:bg-accent has-checked:text-accent-ink border-rule bg-raised text-ink-2';
 	const btn = 'h-14 w-full rounded-2xl text-[16px] font-semibold';
+	/** The same button sharing a row, rather than each claiming the full width. */
+	const btnHalf = 'h-14 flex-1 rounded-2xl text-[16px] font-semibold';
 </script>
 
 <svelte:head><title>My count · Salsa</title></svelte:head>
 
-<div class="space-y-6">
-	<header>
-		<h1 class="text-[20px] font-semibold text-ink">My count</h1>
-		<p class="mt-1 text-[13px] text-muted">
-			Record yourself counting, and the player uses your voice instead of the built-in one. A tempo
-			with nothing recorded falls back to the built-in count, so there is no wrong order to do this
-			in.
-		</p>
-	</header>
+<header
+	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
+	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
+>
+	<h1 class="text-[17px] font-semibold">My count</h1>
+</header>
+
+<main class="space-y-6 px-4 pt-4 pb-4">
+	<p class="text-[13px] text-muted">
+		Record yourself counting, and the player uses your voice instead of the built-in one. A tempo
+		with nothing recorded falls back to the built-in count, so there is no wrong order to do this
+		in.
+	</p>
 
 	{#if error}
 		<p class="rounded-lg border border-danger px-3 py-2 text-[13px] text-danger">{error}</p>
@@ -250,6 +312,22 @@
 			<p class="text-[32px] font-semibold text-ink tabular-nums">{where}</p>
 			<p class="text-[13px] text-muted">Counting {COUNT_PATTERN_LABEL[pattern]} at {bpm} BPM</p>
 		</section>
+		<!--
+			Both leave before the four bars are up. Stop keeps the whole bars you
+			did count; Redo throws the lot away and starts the count-in again.
+		-->
+		<div class="flex gap-3">
+			<button type="button" class="{btnHalf} border border-rule text-ink" onclick={redo}>
+				Redo
+			</button>
+			<button
+				type="button"
+				class="{btnHalf} border border-danger text-danger"
+				onclick={stopRecording}
+			>
+				Stop
+			</button>
+		</div>
 	{:else}
 		<section class="space-y-6">
 			<p class="text-[13px] text-muted">
@@ -310,4 +388,4 @@
 			>
 		</section>
 	{/if}
-</div>
+</main>
