@@ -6,7 +6,7 @@ export type Style = (typeof STYLES)[number];
 export const PARTNER = ['partner', 'solo'] as const;
 export type Partner = (typeof PARTNER)[number];
 
-export const SOURCES = ['figure', 'choreography', 'custom'] as const;
+export const SOURCES = ['figure', 'choreography', 'custom', 'lesson'] as const;
 export type Source = (typeof SOURCES)[number];
 
 /** Phase 1 treats every mode as "log a set"; the player arrives in phase 2. */

@@ -3,6 +3,7 @@ import {
 	check,
 	index,
 	integer,
+	primaryKey,
 	real,
 	sqliteTable,
 	text,
@@ -176,6 +177,14 @@ export const exercises = sqliteTable(
 		songId: integer('song_id').references(() => songs.id),
 		/** Practice mode 'count': the BPM of the synthetic grid. */
 		countBpm: integer('count_bpm'),
+		/**
+		 * Set iff `source = 'lesson'`. Deliberately WITHOUT a mirror of
+		 * `exercises_source_ck`: a new CHECK on this table makes drizzle-kit rebuild
+		 * it, and the rebuild fails at migrate time (see the note below).
+		 * `lessons.ts` is the only thing that writes this column, and is the
+		 * enforcement.
+		 */
+		lessonId: integer('lesson_id').references(() => lessons.id),
 		everyDays: real('every_days').notNull().default(3),
 		active: integer('active', { mode: 'boolean' }).notNull().default(true),
 		archivedAt: integer('archived_at'),
@@ -218,6 +227,96 @@ export const sets = sqliteTable(
 		check('sets_rating_ck', sql`${t.rating} is null or ${t.rating} between 1 and 5`),
 		index('sets_exercise_time_idx').on(t.exerciseId, t.doneAt),
 		index('sets_time_idx').on(t.doneAt)
+	]
+);
+
+/* ── Lessons ────────────────────────────────────────────────────────────── */
+
+/**
+ * A class you attended. Creating one creates its "review" exercise in the same
+ * transaction, the same rule figures follow — see `src/lib/server/lessons.ts`.
+ *
+ * `lesson_day` is a DAY, not an instant, so it is stored as the `YYYY-MM-DD`
+ * string `localDay` produces rather than epoch ms. A class belongs to the day
+ * it happened on in the user's zone; converting through an instant on every
+ * read is how that day would eventually shift by one.
+ */
+export const lessons = sqliteTable(
+	'lessons',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** The local day the class happened, `YYYY-MM-DD`. */
+		lessonDay: text('lesson_day').notNull(),
+		title: text('title').notNull(),
+		notes: text('notes'),
+		archivedAt: integer('archived_at'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check('lessons_day_ck', sql`${t.lessonDay} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`),
+		index('lessons_day_idx').on(t.lessonDay)
+	]
+);
+
+/**
+ * A video from a class. Unlike `recordings`, these arrive in chunks: phone
+ * footage of a whole class is far past the 95 MiB a single request can carry.
+ * See `src/routes/api/lessons/[id]/videos/[uploadId]/+server.ts`.
+ */
+export const lessonVideos = sqliteTable(
+	'lesson_videos',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		lessonId: integer('lesson_id')
+			.notNull()
+			.references(() => lessons.id),
+		/** File name under `$DATA_DIR/lesson-videos/`. A random uuid plus extension. */
+		file: text('file').notNull().unique(),
+		mime: text('mime').notNull(),
+		sizeBytes: integer('size_bytes').notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [index('lesson_videos_lesson_idx').on(t.lessonId)]
+);
+
+/** Figures taught in a lesson. Many-to-many; neither side owns the other. */
+export const lessonFigures = sqliteTable(
+	'lesson_figures',
+	{
+		lessonId: integer('lesson_id')
+			.notNull()
+			.references(() => lessons.id),
+		figureId: integer('figure_id')
+			.notNull()
+			.references(() => figures.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.lessonId, t.figureId] }),
+		index('lesson_figures_figure_idx').on(t.figureId)
+	]
+);
+
+/**
+ * Exercises attached to a lesson by hand. NOT the lesson's own review exercise
+ * (that one is `exercises.lesson_id`), and never a linked figure's exercise —
+ * those are shown under the figures instead. Enforced in `lessons.ts`, because
+ * neither rule is expressible as a CHECK.
+ */
+export const lessonExercises = sqliteTable(
+	'lesson_exercises',
+	{
+		lessonId: integer('lesson_id')
+			.notNull()
+			.references(() => lessons.id),
+		exerciseId: integer('exercise_id')
+			.notNull()
+			.references(() => exercises.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.lessonId, t.exerciseId] }),
+		index('lesson_exercises_exercise_idx').on(t.exerciseId)
 	]
 );
 
@@ -268,3 +367,5 @@ export type CountTake = typeof countTakes.$inferSelect;
 export type Recording = typeof recordings.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type SetRow = typeof sets.$inferSelect;
+export type Lesson = typeof lessons.$inferSelect;
+export type LessonVideo = typeof lessonVideos.$inferSelect;
