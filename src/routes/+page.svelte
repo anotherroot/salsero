@@ -14,7 +14,13 @@
 	let showInactive = $state(false);
 
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
-	const rows = $derived([...data.plan.doneToday, ...data.plan.todo, ...data.plan.inactive]);
+	// Every band, so opening a row by id works wherever it sits.
+	const rows = $derived([
+		...data.plan.doneToday,
+		...data.plan.due,
+		...data.plan.upcoming,
+		...data.plan.inactive
+	]);
 	const open = $derived(rows.find((r) => r.exercise.id === openId)?.exercise ?? null);
 	const openSets = $derived(data.daySets.filter((s) => s.exerciseId === openId));
 
@@ -102,14 +108,28 @@
 			</section>
 		{/if}
 
-		{#if data.plan.todo.length > 0}
-			<section aria-labelledby="todo-h" class="mt-6 first:mt-0">
-				<h2 id="todo-h" class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
-					To do
+		{#if data.plan.due.length > 0}
+			<section aria-labelledby="due-h" class="mt-6 first:mt-0">
+				<h2 id="due-h" class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
+					Due
 				</h2>
 				<ul class="space-y-2">
-					{#each data.plan.todo as row (row.exercise.id)}
-						<ExerciseRow {row} variant="todo" onopen={() => (openId = row.exercise.id)} />
+					{#each data.plan.due as row (row.exercise.id)}
+						<ExerciseRow {row} variant="due" onopen={() => (openId = row.exercise.id)} />
+					{/each}
+				</ul>
+			</section>
+		{/if}
+
+		<!-- Shown, not hidden: seeing what is coming is how you pick a short session. -->
+		{#if data.plan.upcoming.length > 0}
+			<section aria-labelledby="upcoming-h" class="mt-6 first:mt-0">
+				<h2 id="upcoming-h" class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
+					Not yet due
+				</h2>
+				<ul class="space-y-2">
+					{#each data.plan.upcoming as row (row.exercise.id)}
+						<ExerciseRow {row} variant="upcoming" onopen={() => (openId = row.exercise.id)} />
 					{/each}
 				</ul>
 			</section>

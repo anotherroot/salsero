@@ -7,7 +7,7 @@
 
 	interface Props {
 		row: PlanRow<ExerciseItem>;
-		variant: 'done' | 'todo' | 'inactive';
+		variant: 'done' | 'due' | 'upcoming' | 'inactive';
 		onopen: () => void;
 	}
 
@@ -29,7 +29,11 @@
 <li
 	class="flex items-stretch overflow-hidden rounded-xl border {variant === 'done'
 		? 'border-done/30 bg-done-bg'
-		: 'border-line bg-raised'} {variant === 'inactive' ? 'opacity-60' : ''}"
+		: 'border-line bg-raised'} {variant === 'inactive'
+		? 'opacity-60'
+		: variant === 'upcoming'
+			? 'opacity-75'
+			: ''}"
 >
 	<button type="button" class="min-w-0 flex-1 px-4 py-3 text-left" onclick={onopen}>
 		<span class="block truncate text-[15px] font-medium">{ex.name}</span>
@@ -41,7 +45,8 @@
 					>{row.setsToday} {row.setsToday === 1 ? 'set' : 'sets'} today</span
 				>
 			{:else}
-				<span class={variant === 'todo' && row.overdue ? 'font-medium text-overdue' : ''}
+				<!-- In the due band `overdue` is true by construction. -->
+				<span class={variant === 'due' ? 'font-medium text-overdue' : ''}
 					>{lastDoneLabel(row.lastDoneDaysAgo)}</span
 				>
 				<span aria-hidden="true">·</span>
