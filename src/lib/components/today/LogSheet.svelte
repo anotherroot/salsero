@@ -251,12 +251,23 @@
 			>
 		</form>
 		<div class="flex items-center justify-between gap-3 border-t border-line px-3 py-3">
-			{#if exercise.figureId !== null}
+			<!--
+				Branch on `source`, not on `figureId`: a lesson's review exercise also
+				has a null figure, and `archiveExercise` refuses anything but a custom
+				one — so keying off the figure offers it an Archive button that cannot
+				work.
+			-->
+			{#if exercise.source === 'figure' && exercise.figureId !== null}
 				<a
 					href={resolve('/figures/[id]', { id: String(exercise.figureId) })}
 					class="text-[14px] font-medium text-accent">Open figure →</a
 				>
-			{:else}
+			{:else if exercise.source === 'lesson' && exercise.lessonId !== null}
+				<a
+					href={resolve('/lessons/[id]', { id: String(exercise.lessonId) })}
+					class="text-[14px] font-medium text-accent">Open lesson →</a
+				>
+			{:else if exercise.source === 'custom'}
 				<form
 					method="POST"
 					action="?/archiveExercise"

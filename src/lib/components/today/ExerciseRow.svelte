@@ -15,14 +15,17 @@
 	let pending = $state(false);
 
 	const ex = $derived(row.exercise);
+	const BADGE: Record<Exclude<ExerciseItem['source'], 'figure'>, string> = {
+		choreography: 'Choreo',
+		lesson: 'Lesson',
+		custom: 'Custom'
+	};
 	const badge = $derived(
 		ex.source === 'figure'
 			? ex.partner === 'solo'
 				? 'Figure · solo'
 				: 'Figure · partner'
-			: ex.source === 'choreography'
-				? 'Choreo'
-				: 'Custom'
+			: BADGE[ex.source]
 	);
 </script>
 
