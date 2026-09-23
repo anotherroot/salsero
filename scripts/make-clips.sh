@@ -24,14 +24,16 @@ for ext in onnx onnx.json; do
   [ -s "$cache/voice.$ext" ] || curl -fL --retry 3 -o "$cache/voice.$ext" "$voice_base.$ext"
 done
 
-# --length-scale 0.75: at the natural rate "cinco", "seis" and "siete" run
-# ~0.57 s, which smears across the next beat at 180 BPM (a beat is 0.333 s).
-# Measured: 0.75 brings every word to 0.40 s or under. --sentence-silence 0
-# drops the trailing pause Piper adds after a sentence.
+# Piper's natural rate, on purpose. An earlier version sped the words up to
+# 0.75 so each one finished inside a beat, and the result sounded clipped: at a
+# fast count you heard the front of "cinco" and then "seis" on top of it. The
+# player schedules every count on its own source node, so words overlapping is
+# free and correct — a word half-spoken under the next one is how a person
+# counts. --sentence-silence 0 drops the pause Piper adds after a sentence.
 for word in uno dos tres cinco seis siete; do
   echo "$word" | nix run nixpkgs#piper-tts -- \
     -m "$cache/voice.onnx" -c "$cache/voice.onnx.json" \
-    --length-scale 0.75 --sentence-silence 0 \
+    --sentence-silence 0 \
     -f "$work/$word.wav"
 done
 
@@ -44,13 +46,18 @@ nix run nixpkgs#ffmpeg -- -y -f lavfi \
   "$work/clave.wav"
 
 # One shape for every clip: mono 48 kHz AAC, loudness-normalised so the count
-# carries over a song without a per-clip volume fudge. Silence comes off BOTH
-# ends — leading silence would land the word late however well it was
-# scheduled, and a trailing tail eats into the next beat.
+# carries over a song without a per-clip volume fudge.
+#
+# Leading silence comes off completely — a word that starts late lands late
+# however well it was scheduled. The END is only trimmed (stop_periods=1), and
+# 50 ms of decay is kept. The earlier stop_periods=-1 hunted silence through
+# the WHOLE file, which also ate the stop closures inside "cinco" and "siete" —
+# a /k/ or /t/ closure is 50-80 ms of near-silence, and squeezing it to 20 ms
+# clipped the words from the inside.
 for f in "$work"/*.wav; do
   name=$(basename "$f" .wav)
   nix run nixpkgs#ffmpeg -- -y -i "$f" \
-    -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.02,loudnorm=I=-16:TP=-1.5:LRA=11" \
+    -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:stop_periods=1:stop_threshold=-45dB:stop_silence=0.05,loudnorm=I=-16:TP=-1.5:LRA=11" \
     -ac 1 -ar 48000 -c:a aac -b:a 64k "$out/$name.m4a"
 done
 

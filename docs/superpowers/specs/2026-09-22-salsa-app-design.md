@@ -310,7 +310,19 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 (`static/clips/`: uno, dos, tres, cinco, seis, siete, clave), generated once by
 `scripts/make-clips.sh` with Piper and committed. They are decoded into
 `AudioBuffer`s and scheduled on the audio clock, so every number lands on its
-beat. Figure NAMES are spoken by the browser (`speechSynthesis`): a name sounds
+beat.
+
+The words are generated at Piper's **natural** rate and **may run past their
+beat** — each count gets its own source node, so a word still sounding when the
+next begins simply mixes with it, which is how a person counts out loud. An
+earlier version squeezed every word inside one beat (`--length-scale 0.75`, plus
+a `silenceremove` pass that also ate the stop closures inside "cinco" and
+"siete") and the count audibly clipped its own words at speed. Do not
+reintroduce that: shortening the words is not how the overlap is handled — the
+mixer handles it. Measured at the current length, two words summed peak at
+−1.2 dB, so the overlap does not clip and needs no limiter.
+
+Figure NAMES are spoken by the browser (`speechSynthesis`): a name sounds
 across a whole 3-beat window, so its timing jitter does not matter, and this
 needs no worker job and no per-figure storage. `figures.call_text` overrides
 what is said when the browser mispronounces a written name. Phase 3 may revisit
