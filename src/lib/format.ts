@@ -39,6 +39,17 @@ export function dateLabel(day: string): string {
 	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/**
+ * Bytes as a short human size: `0 MB`, `740 MB`, `1.2 GB`. Lesson videos run to
+ * a gigabyte, so rounding everything to whole megabytes (as the figure page
+ * once did inline) stops saying anything useful.
+ */
+export function byteSize(bytes: number): string {
+	const mb = bytes / 1024 / 1024;
+	if (mb < 1024) return `${bytes > 0 && mb < 1 ? '<1' : Math.round(mb)} MB`;
+	return `${(mb / 1024).toFixed(1)} GB`;
+}
+
 /** A song position in seconds as `m:ss`. */
 export function clock(seconds: number): string {
 	const s = Math.max(0, Math.floor(seconds));
