@@ -12,7 +12,9 @@ The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
 read it before adding anything, and keep it current when the design changes.
 It carries a "Known gaps" list for the player; check it before hunting a bug
-that is already known.
+that is already known. The count voice is being redesigned in
+[`docs/superpowers/specs/2026-09-23-count-voice-design.md`](docs/superpowers/specs/2026-09-23-count-voice-design.md) —
+count patterns first, the user's own recorded phrases second. Not built yet.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.

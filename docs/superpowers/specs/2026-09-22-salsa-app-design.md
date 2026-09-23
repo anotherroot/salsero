@@ -306,7 +306,12 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   gesture; Play is disabled while starting, so a second impatient tap cannot
   build a second, unreachable player.
 
-**Voice:** the count plays from seven clips shipped with the app
+**Voice:** superseded by
+[`2026-09-23-count-voice-design.md`](2026-09-23-count-voice-design.md), which
+adds count patterns (son, every count, 1-3-5-7, 1-and-5) and the user's own
+recorded half-bar phrases. What follows describes what is live today.
+
+The count plays from seven clips shipped with the app
 (`static/clips/`: uno, dos, tres, cinco, seis, siete, clave), generated once by
 `scripts/make-clips.sh` with Piper and committed. They are decoded into
 `AudioBuffer`s and scheduled on the audio clock, so every number lands on its
