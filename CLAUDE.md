@@ -39,12 +39,18 @@ src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
 static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
-src/lib/components/  ui/ shell/ today/ figures/ songs/ player/
+src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
 src/routes/          pages + actions. api/figures/[id]/recordings and api/songs
                      take raw-body uploads; api/lessons/[id]/videos/[uploadId]
                      takes ONE CHUNK per request; api/worker/* is the worker's queue
+                     recordings/[file], audio/[file], count/[file] and
+                     lesson-videos/[file] serve with HTTP Range
 src/lib/media.ts     shared: telling a missing media file from an undecodable one
+$DATA_DIR/           recordings/ audio/ count/ lesson-videos/ uploads/ — not in
+                     the repo. uploads/ holds partial chunked uploads only, swept
+                     at boot after 24 h. lesson-videos/ is NOT backed up: see
+                     docs/deployment.md for why
 static/clips/        the seven committed count/clave clips — regenerate with
                      scripts/make-clips.sh, never at build time
 drizzle/             generated migrations — applied at boot, shipped by deploy.sh

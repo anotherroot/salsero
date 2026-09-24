@@ -106,9 +106,10 @@ the `day` module in the user's timezone (see Pure modules).
 exercises
   id              integer pk
   name            text not null
-  source          'figure' | 'choreography' | 'custom'
+  source          'figure' | 'choreography' | 'custom' | 'lesson'
   figure_id       fk figures, nullable      -- set iff source = 'figure'
   choreography_id fk choreographies, null   -- set iff source = 'choreography'
+  lesson_id       fk lessons, nullable      -- set iff source = 'lesson'
   practice_mode   'song' | 'count' | 'none'  default 'none'
   song_id         fk songs, nullable        -- used when practice_mode = 'song'
   count_bpm       integer, nullable         -- used when practice_mode = 'count'
@@ -171,6 +172,26 @@ songs                                          -- phase 2
   archived_at     timestamp, nullable
   created_at      timestamp
 
+lessons                                        -- phase 4
+  id              integer pk
+  lesson_day      text not null                -- 'YYYY-MM-DD', the LOCAL day of
+                                               -- the class. A day, not an instant
+  title           text not null
+  notes           text, nullable
+  archived_at     timestamp, nullable
+  created_at      timestamp
+
+lesson_videos                                  -- phase 4
+  id              integer pk
+  lesson_id       fk lessons not null
+  file            text not null unique         -- name under lesson-videos/
+  mime            text not null
+  size_bytes      integer not null
+  created_at      timestamp
+
+lesson_figures     (lesson_id, figure_id) pk, created_at      -- phase 4
+lesson_exercises   (lesson_id, exercise_id) pk, created_at    -- phase 4
+
 choreographies                                 -- phase 3
   id, name, song_id (nullable), notes, archived_at, created_at
 
@@ -184,14 +205,24 @@ choreo_steps                                   -- phase 3
 
 - **Urgency is never stored.** It is a pure function of `(exercises, sets,
 now)`, computed per request. No cron, no cached "last done" column.
-- **Nothing is hard-deleted** except a set (a mistaken log) and a recording.
-  Figures, choreographies and exercises are archived; sets keep pointing at
-  them and history stays intact.
+- **Nothing is hard-deleted** except a set (a mistaken log), a recording and a
+  lesson video. Figures, lessons, choreographies and exercises are archived;
+  sets keep pointing at them and history stays intact.
 - **Creating a figure creates its exercise** in the same transaction
   (`source='figure'`, name = figure name, `practice_mode='none'`). Renaming the
   figure renames the exercise. Archiving the figure archives the exercise.
   Same for choreographies in phase 3; a song-bound choreography's exercise gets
   `practice_mode='song'` and that `song_id`.
+  **Same for a lesson** (`source='lesson'`, name = `Review: <title>`), which is
+  what puts a class on Today. `archiveExercise` and `updateExercise` are
+  restricted to `source='custom'`, so an owned exercise can only be renamed or
+  archived through the thing that owns it.
+- **`lesson_day` is a day, not an instant**, and is stored as the `YYYY-MM-DD`
+  string `localDay` produces. The "every instant is epoch ms" rule is about
+  instants; converting a day through one on every read is how it drifts by one.
+- **A figure's exercise is never in two places.** It shows under the figure, so
+  `lesson_exercises` is for hand-attached exercises only — enforced on both
+  writes and filtered again on read.
 - **Analysis output and user corrections are stored separately**, so
   re-analysing a song never loses a correction.
 - `active = false` means "not practicing this right now": shown below the

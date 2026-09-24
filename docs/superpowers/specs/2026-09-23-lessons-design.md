@@ -201,6 +201,37 @@ Pure and data modules, as ever; no route or component tests, matching the repo.
   so `figure_id not in (…)` silently drops every custom exercise. The explicit
   null arm is the fix and that test is what holds it.
 
+## Known gaps
+
+Found during the work, consciously not fixed before shipping. Check here before
+hunting one of these as a new bug.
+
+- **An upload does not survive a page reload.** The `uploadId` lives only in
+  memory, so a reload restarts from zero even though the partial is on disk for
+  another 24 hours. Persisting `{uploadId, name, size}` in `sessionStorage`
+  would buy it back in about fifteen lines. Reconnecting WITHIN the page is
+  already handled: a dropped chunk retries, and a 409 resyncs to the truth.
+- **Nothing refuses an upload because the disk is filling.** The cap is per
+  file, 1 GiB; the storage readout on the Lessons page is informational only.
+  The box is ~80% full and shared, so this is the number to watch — a total
+  budget is the obvious next guard if it ever bites.
+- **Lesson videos are not backed up**, deliberately (see `docs/deployment.md`).
+  A lost file reads as "the file for this video is missing", not a broken page,
+  but it is lost.
+- **Creating a figure or exercise from a lesson is two calls, not one
+  transaction.** `createFigure` opens its own, so a crash between them leaves an
+  unlinked figure — visible in Figures, fixable with one tap. Chosen over
+  relying on savepoint nesting for that failure mode.
+- **Concurrent writes to one upload are refused by an in-memory `Set`.** Correct
+  for one process on one port, which is what the unit runs; it would need
+  revisiting before the app was ever run as more than one instance.
+- **Unproven on a real phone.** Measured on a desktop against `node build`:
+  uploading from an iOS camera roll, and seeking a gigabyte file through
+  Cloudflare, are not yet tested.
+- **No route or component tests**, matching the rest of the repo. The upload
+  endpoint was verified by hand with curl instead — chunking, caps, 409 resync,
+  bad uuids, archived lessons, and a SHA-256 match on the reassembled file.
+
 ## Not built
 
 Choreographies are still phase 3. `lesson_figures` is shaped so a
