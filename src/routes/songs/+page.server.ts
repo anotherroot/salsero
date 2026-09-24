@@ -2,10 +2,12 @@ import { fail } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { oneOf, optionalText } from '$lib/server/form';
 import { createSongFromUrl, listSongs, retrySong } from '$lib/server/songs';
-import { STYLES } from '$lib/labels';
+// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+import { DANCES } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = () => ({ songs: listSongs(getDb()) });
+// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+export const load: PageServerLoad = () => ({ songs: listSongs(getDb(), 'salsa') });
 
 function httpUrl(raw: string): string | null {
 	try {
@@ -22,7 +24,8 @@ export const actions: Actions = {
 		const raw = String(form.get('url') ?? '');
 		const url = httpUrl(raw);
 		const title = optionalText(form, 'title', 200);
-		const style = oneOf(form, 'style', STYLES) ?? 'salsa';
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const style = oneOf(form, 'style', DANCES.salsa.styles) ?? 'salsa';
 		if (!url) return fail(400, { message: 'Paste a full link, starting with https://', url: raw });
 		if (title === undefined) {
 			return fail(400, { message: 'Keep the title to 200 characters.', url: raw });

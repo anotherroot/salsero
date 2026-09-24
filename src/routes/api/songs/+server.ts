@@ -13,7 +13,8 @@ import {
 	saveStream
 } from '$lib/server/files';
 import { createSongFromUpload } from '$lib/server/songs';
-import { STYLES, type Style } from '$lib/labels';
+// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+import { DANCES } from '$lib/dances/dances';
 import type { RequestHandler } from './$types';
 
 /** Upload a song file from the browser. Raw body, streamed — see the recordings endpoint. */
@@ -27,9 +28,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const name = safeDecodeHeader(request.headers.get('x-filename'));
 	const styleHeader = request.headers.get('x-style') ?? 'salsa';
-	const style: Style = (STYLES as readonly string[]).includes(styleHeader)
-		? (styleHeader as Style)
-		: 'salsa';
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	const style = DANCES.salsa.styles.includes(styleHeader) ? styleHeader : 'salsa';
 	const file = `${randomUUID()}.${extensionFor(mime, name)}`;
 	const path = join(audioDir(), file);
 

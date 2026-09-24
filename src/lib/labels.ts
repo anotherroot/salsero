@@ -18,8 +18,6 @@ export type Source = (typeof SOURCES)[number];
 export const PRACTICE_MODES = ['song', 'count', 'none'] as const;
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
-/** Legacy, for the vestigial `Style` domain above. Per-dance labels live in `DANCES[dance].styleLabel`. */
-export const STYLE_LABEL: Record<Style, string> = { salsa: 'Salsa', son: 'Son', other: 'Other' };
 export const PARTNER_LABEL: Record<Partner, string> = { partner: 'With partner', solo: 'Solo' };
 
 /** How the detected beats map to the dance count. See `src/lib/beatgrid/`. */

@@ -153,7 +153,7 @@ export const songs = sqliteTable(
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
 		artist: text('artist'),
-		style: text('style', { enum: STYLES }).notNull().default('salsa'),
+		style: text('style').notNull().default('salsa'),
 		sourceUrl: text('source_url'),
 		status: text('status', { enum: SONG_STATUSES }).notNull(),
 		error: text('error'),

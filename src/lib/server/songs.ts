@@ -15,7 +15,7 @@ const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 export function createSongFromUrl(
 	db: Db,
 	dance: DanceSlug,
-	input: { url: string; title: string; style: Style }
+	input: { url: string; title: string; style: string }
 ): Song {
 	return db
 		.insert(songs)
@@ -33,7 +33,7 @@ export function createSongFromUrl(
 export function createSongFromUpload(
 	db: Db,
 	dance: DanceSlug,
-	input: { file: string; mime: string; title: string; style: Style }
+	input: { file: string; mime: string; title: string; style: string }
 ): Song {
 	return db
 		.insert(songs)
@@ -49,7 +49,7 @@ export function createSongFromUpload(
 		.get();
 }
 
-export function listSongs(db: Db): SongItem[] {
+export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
 	return db
 		.select({
 			id: songs.id,
@@ -65,7 +65,7 @@ export function listSongs(db: Db): SongItem[] {
 			createdAt: songs.createdAt
 		})
 		.from(songs)
-		.where(isNull(songs.archivedAt))
+		.where(and(isNull(songs.archivedAt), eq(songs.dance, dance)))
 		.orderBy(desc(songs.createdAt), desc(songs.id))
 		.all() as SongItem[];
 }

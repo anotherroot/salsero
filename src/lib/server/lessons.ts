@@ -8,6 +8,7 @@ import {
 	lessonVideos,
 	lessons
 } from './db/schema';
+import type { DanceSlug } from '$lib/dances/dances';
 import type { LessonExerciseRow, LessonFigureRow, LessonItem, LessonVideoRow } from '$lib/types';
 
 export interface LessonInput {
@@ -37,15 +38,20 @@ export function reviewName(title: string): string {
  * `createFigure` follows. A lesson with nothing on Today is a lesson you never
  * go back to, which is the one thing this feature exists to prevent.
  */
-export function createLesson(db: Db, input: LessonInput, everyDays = 3) {
+export function createLesson(db: Db, dance: DanceSlug, input: LessonInput, everyDays = 3) {
 	return db.transaction((tx) => {
-		const lesson = tx.insert(lessons).values(input).returning().get();
+		const lesson = tx
+			.insert(lessons)
+			.values({ ...input, dance })
+			.returning()
+			.get();
 		const exercise = tx
 			.insert(exercises)
 			.values({
 				name: reviewName(lesson.title),
 				source: 'lesson',
 				lessonId: lesson.id,
+				dance,
 				everyDays
 			})
 			.returning()
@@ -82,7 +88,7 @@ export function archiveLesson(db: Db, id: number, now: number): boolean {
 }
 
 /** The library: newest class first, with what its videos cost on disk. */
-export function listLessons(db: Db): LessonItem[] {
+export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
 	return db
 		.select({
 			id: lessons.id,
@@ -95,7 +101,7 @@ export function listLessons(db: Db): LessonItem[] {
 		})
 		.from(lessons)
 		.leftJoin(lessonVideos, eq(lessonVideos.lessonId, lessons.id))
-		.where(isNull(lessons.archivedAt))
+		.where(and(isNull(lessons.archivedAt), eq(lessons.dance, dance)))
 		.groupBy(lessons.id)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all()
@@ -189,11 +195,20 @@ export function getLesson(db: Db, id: number) {
 export function linkFigure(db: Db, lessonId: number, figureId: number): boolean {
 	return db.transaction((tx) => {
 		const figure = tx
-			.select({ id: figures.id })
+			.select({ id: figures.id, dance: figures.dance })
 			.from(figures)
 			.where(and(eq(figures.id, figureId), isNull(figures.archivedAt)))
 			.get();
 		if (!figure) return false;
+
+		const lesson = tx
+			.select({ dance: lessons.dance })
+			.from(lessons)
+			.where(eq(lessons.id, lessonId))
+			.get();
+		// A lesson and a figure from different dances must never join: the wall
+		// is the point, and no CHECK can express it (see `schema.ts`).
+		if (!lesson || lesson.dance !== figure.dance) return false;
 
 		const res = tx.insert(lessonFigures).values({ lessonId, figureId }).onConflictDoNothing().run();
 		if (res.changes === 0) return false;
@@ -231,7 +246,12 @@ export function unlinkFigure(db: Db, lessonId: number, figureId: number): boolea
 export function linkExercise(db: Db, lessonId: number, exerciseId: number): boolean {
 	return db.transaction((tx) => {
 		const exercise = tx
-			.select({ id: exercises.id, figureId: exercises.figureId, lessonId: exercises.lessonId })
+			.select({
+				id: exercises.id,
+				dance: exercises.dance,
+				figureId: exercises.figureId,
+				lessonId: exercises.lessonId
+			})
 			.from(exercises)
 			.where(and(eq(exercises.id, exerciseId), isNull(exercises.archivedAt)))
 			.get();
@@ -239,6 +259,16 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 		// A review exercise belongs to the lesson that created it, this one
 		// included; it is never something a lesson "links".
 		if (exercise.lessonId !== null) return false;
+
+		const lesson = tx
+			.select({ dance: lessons.dance })
+			.from(lessons)
+			.where(eq(lessons.id, lessonId))
+			.get();
+		// A lesson and an exercise from different dances must never join: the wall
+		// is the point, and no CHECK can express it (see `schema.ts`).
+		if (!lesson || lesson.dance !== exercise.dance) return false;
+
 		if (exercise.figureId !== null) {
 			const linked = tx
 				.select({ figureId: lessonFigures.figureId })
@@ -269,8 +299,15 @@ export function unlinkExercise(db: Db, lessonId: number, exerciseId: number): bo
 
 /** Unarchived figures this lesson does not already link, alphabetical. */
 export function listLinkableFigures(db: Db, lessonId: number) {
+	const lesson = db
+		.select({ dance: lessons.dance })
+		.from(lessons)
+		.where(eq(lessons.id, lessonId))
+		.get();
+	if (!lesson) return [];
+
 	const linked = linkedFigureIds(db, lessonId);
-	const where = [isNull(figures.archivedAt)];
+	const where = [isNull(figures.archivedAt), eq(figures.dance, lesson.dance)];
 	if (linked.length > 0) where.push(notInArray(figures.id, linked));
 	return db
 		.select({ id: figures.id, name: figures.name })
@@ -287,6 +324,13 @@ export function listLinkableFigures(db: Db, lessonId: number) {
  * into a second lesson makes "whose is this?" unanswerable on screen.
  */
 export function listLinkableExercises(db: Db, lessonId: number) {
+	const lesson = db
+		.select({ dance: lessons.dance })
+		.from(lessons)
+		.where(eq(lessons.id, lessonId))
+		.get();
+	if (!lesson) return [];
+
 	const alreadyLinked = db
 		.select({ id: lessonExercises.exerciseId })
 		.from(lessonExercises)
@@ -296,7 +340,11 @@ export function listLinkableExercises(db: Db, lessonId: number) {
 
 	const linkedFigures = linkedFigureIds(db, lessonId);
 
-	const where = [isNull(exercises.archivedAt), ne(exercises.source, 'lesson')];
+	const where = [
+		isNull(exercises.archivedAt),
+		ne(exercises.source, 'lesson'),
+		eq(exercises.dance, lesson.dance)
+	];
 	if (alreadyLinked.length > 0) where.push(notInArray(exercises.id, alreadyLinked));
 	if (linkedFigures.length > 0) {
 		// `NOT IN` is null-propagating: a custom exercise has a null `figure_id`,

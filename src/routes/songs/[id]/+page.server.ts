@@ -17,7 +17,9 @@ import {
 	removeAnchor,
 	scaleBeats
 } from '$lib/beatgrid/beatgrid';
-import { STYLES, TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
+import { TEMPO_FACTORS, type TempoFactor, type Style } from '$lib/labels';
+// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+import { DANCES } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 function load_(id: string) {
@@ -98,11 +100,15 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const title = text(form, 'title');
 		const artist = optionalText(form, 'artist', 200);
-		const style = oneOf(form, 'style', STYLES);
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const style = oneOf(form, 'style', DANCES.salsa.styles);
 		if (!title || artist === undefined || !style) {
 			return fail(400, { message: 'Give the song a title (up to 200 characters).' });
 		}
-		updateSongMeta(getDb(), song.id, { title, artist, style });
+		// `updateSongMeta` keeps the vestigial `Style` domain (see `songs.ts`); this
+		// route validates against the dance's own styles, which happen to be the
+		// same three values for salsa today.
+		updateSongMeta(getDb(), song.id, { title, artist, style: style as Style });
 		return { ok: true };
 	},
 

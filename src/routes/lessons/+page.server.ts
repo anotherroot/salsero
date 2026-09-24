@@ -14,7 +14,8 @@ function zone(locals: App.Locals): string {
 export const load: PageServerLoad = ({ locals }) => {
 	const db = getDb();
 	return {
-		lessons: listLessons(db),
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		lessons: listLessons(db, 'salsa'),
 		storageBytes: lessonVideoBytes(db),
 		today: localDay(Date.now(), zone(locals))
 	};
@@ -54,7 +55,8 @@ export const actions: Actions = {
 			});
 		}
 
-		const { lesson } = createLesson(getDb(), { lessonDay, title, notes }, everyDays);
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const { lesson } = createLesson(getDb(), 'salsa', { lessonDay, title, notes }, everyDays);
 		throw redirect(303, `/lessons/${lesson.id}`);
 	}
 };

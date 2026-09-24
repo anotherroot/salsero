@@ -4,7 +4,9 @@
 	import { resolve } from '$app/paths';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { clock } from '$lib/format';
-	import { STYLES, STYLE_LABEL, TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
+	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	import { DANCES } from '$lib/dances/dances';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -186,7 +188,8 @@
 				class={field}
 			/>
 			<select name="style" value={song.style} aria-label="Style" class={field}>
-				{#each STYLES as s (s)}<option value={s}>{STYLE_LABEL[s]}</option>{/each}
+				{#each DANCES.salsa.styles as s (s)}<option value={s}>{DANCES.salsa.styleLabel[s]}</option
+					>{/each}
 			</select>
 			<button
 				type="submit"

@@ -129,7 +129,7 @@ describe('songs', () => {
 		expect(row?.status).toBe('ready');
 		expect(JSON.parse(row?.beatsJson ?? '[]')).toHaveLength(8);
 		expect(row?.bpm).toBeCloseTo(120);
-		expect(listSongs(db)[0]).toMatchObject({ id: s.id, status: 'ready', durationS: 5 });
+		expect(listSongs(db, 'salsa')[0]).toMatchObject({ id: s.id, status: 'ready', durationS: 5 });
 	});
 
 	it('retries a transient failure and fails a permanent one', () => {
@@ -235,7 +235,36 @@ describe('songs', () => {
 	it('archives out of the list and the queue', () => {
 		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		expect(archiveSong(db, s.id, T)).toBe(true);
-		expect(listSongs(db)).toHaveLength(0);
+		expect(listSongs(db, 'salsa')).toHaveLength(0);
 		expect(claimJob(db, T)).toBeNull();
+	});
+});
+
+describe('songs are walled off by dance', () => {
+	it('lists only its own dance', () => {
+		createSongFromUpload(db, 'salsa', {
+			file: 'a.m4a',
+			mime: 'audio/mp4',
+			title: 'El Cantante',
+			style: 'salsa'
+		});
+		createSongFromUpload(db, 'bachata', {
+			file: 'b.m4a',
+			mime: 'audio/mp4',
+			title: 'Obsesion',
+			style: 'sensual'
+		});
+
+		expect(listSongs(db, 'salsa').map((s) => s.title)).toEqual(['El Cantante']);
+		expect(listSongs(db, 'bachata').map((s) => s.title)).toEqual(['Obsesion']);
+	});
+
+	it('still lets the dance-blind worker claim either', () => {
+		createSongFromUrl(db, 'bachata', {
+			url: 'https://example.test/x',
+			title: '',
+			style: 'sensual'
+		});
+		expect(claimJob(db, 1_000)).not.toBeNull();
 	});
 });

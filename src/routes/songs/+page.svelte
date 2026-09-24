@@ -4,12 +4,13 @@
 	import { resolve } from '$app/paths';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import { clock } from '$lib/format';
-	import { STYLES, STYLE_LABEL, type Style } from '$lib/labels';
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	import { DANCES } from '$lib/dances/dances';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let busy = $state(false);
-	let uploadStyle = $state<Style>('salsa');
+	let uploadStyle = $state('salsa');
 
 	const STATUS: Record<string, string> = {
 		waiting_download: 'Waiting for the home fetcher',
@@ -28,6 +29,9 @@
 		const t = setInterval(() => invalidateAll(), 10_000);
 		return () => clearInterval(t);
 	});
+
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	const styleLabel = (s: string) => DANCES.salsa.styleLabel[s];
 </script>
 
 <svelte:head><title>Songs · Salsa</title></svelte:head>
@@ -76,7 +80,8 @@
 				aria-label="Style"
 				class="rounded-lg border border-rule bg-raised px-2 text-[15px]"
 			>
-				{#each STYLES as s (s)}<option value={s}>{STYLE_LABEL[s]}</option>{/each}
+				{#each DANCES.salsa.styles as s (s)}<option value={s}>{DANCES.salsa.styleLabel[s]}</option
+					>{/each}
 			</select>
 		</div>
 		{#if form?.message}
@@ -106,7 +111,8 @@
 			aria-label="Style of the uploaded song"
 			class="h-12 rounded-xl border border-rule bg-raised px-2 text-[15px]"
 		>
-			{#each STYLES as s (s)}<option value={s}>{STYLE_LABEL[s]}</option>{/each}
+			{#each DANCES.salsa.styles as s (s)}<option value={s}>{DANCES.salsa.styleLabel[s]}</option
+				>{/each}
 		</select>
 	</div>
 
@@ -125,7 +131,7 @@
 				<a href={resolve('/songs/[id]', { id: String(s.id) })} class="block px-4 py-3">
 					<span class="block truncate text-[15px] font-medium">{s.title || s.sourceUrl}</span>
 					<span class="text-[12px] {s.status === 'failed' ? 'text-danger' : 'text-muted'}">
-						{STYLE_LABEL[s.style]}
+						{styleLabel(s.style)}
 						{#if s.status === 'ready'}
 							· {s.bpm ? `${Math.round(s.bpm * s.tempoFactor)} BPM` : ''}
 							{s.durationS ? `· ${clock(s.durationS)}` : ''}

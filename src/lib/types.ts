@@ -5,7 +5,6 @@ import type {
 	PracticeMode,
 	SongStatus,
 	Source,
-	Style,
 	TempoFactor
 } from './labels';
 
@@ -43,7 +42,8 @@ export interface SongItem {
 	id: number;
 	title: string;
 	artist: string | null;
-	style: Style;
+	/** Widened to plain text: validated against `DANCES[dance].styles`, not the vestigial `Style` enum. */
+	style: string;
 	sourceUrl: string | null;
 	status: SongStatus;
 	error: string | null;
