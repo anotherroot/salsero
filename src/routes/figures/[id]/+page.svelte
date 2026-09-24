@@ -3,7 +3,9 @@
 	import { enhance } from '$app/forms';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
-	import { PARTNER_LABEL, STYLE_LABEL } from '$lib/labels';
+	import { PARTNER_LABEL } from '$lib/labels';
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	import { DANCES } from '$lib/dances/dances';
 	import { frequencyLabel } from '$lib/frequency';
 	import { dateLabel } from '$lib/format';
 	import { localDay } from '$lib/day/day';
@@ -45,6 +47,11 @@
 	const figure = $derived(data.figure);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const failure = $derived(form && 'message' in form ? form.message : null);
+	// The figure's real style tag, not the vestigial `figure.style` column.
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	const styleLabel = $derived(
+		figure.styleTag ? DANCES.salsa.styleLabel[figure.styleTag] : undefined
+	);
 </script>
 
 <svelte:head><title>{figure.name} · Salsa</title></svelte:head>
@@ -81,7 +88,7 @@
 			<FigureFields
 				name={figure.name}
 				partner={figure.partner}
-				style={figure.style}
+				style={figure.styleTag ?? undefined}
 				notes={figure.notes}
 				callable={figure.callable}
 				callText={figure.callText}
@@ -113,7 +120,8 @@
 	{:else}
 		<section>
 			<p class="text-[13px] text-muted">
-				{STYLE_LABEL[figure.style]} · {PARTNER_LABEL[figure.partner]}
+				{#if styleLabel}{styleLabel} ·
+				{/if}{PARTNER_LABEL[figure.partner]}
 			</p>
 			{#if figure.notes}
 				<p class="mt-2 text-[15px] whitespace-pre-line">{figure.notes}</p>

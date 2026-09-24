@@ -49,7 +49,7 @@ const base = { practiceMode: 'none' as const, songId: null, countBpm: null };
 
 describe('figures', () => {
 	it('creates the figure and its exercise together', () => {
-		const { figure, exercise } = createFigure(db, figureInput);
+		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
 		expect(exercise.figureId).toBe(figure.id);
 		expect(exercise.source).toBe('figure');
 		expect(exercise.name).toBe('Dile que no');
@@ -57,24 +57,24 @@ describe('figures', () => {
 	});
 
 	it('carries a rename over to the exercise', () => {
-		const { figure } = createFigure(db, figureInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		updateFigure(db, figure.id, { ...figureInput, name: 'Dile que no (con vuelta)' });
 		expect(listExercises(db)[0].name).toBe('Dile que no (con vuelta)');
 	});
 
 	it('archives the exercise with the figure, keeping the sets', () => {
-		const { figure, exercise } = createFigure(db, figureInput);
+		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
 		logSet(db, bareSet(exercise.id, 1000));
 		expect(archiveFigure(db, figure.id, 2000)).toBe(true);
 		expect(listExercises(db)).toHaveLength(0);
-		expect(listFigures(db)).toHaveLength(0);
+		expect(listFigures(db, 'salsa')).toHaveLength(0);
 		expect(listSetTimes(db)).toHaveLength(1);
 		expect(archiveFigure(db, figure.id, 3000)).toBe(false);
 	});
 
 	it('filters and counts recordings', () => {
-		const { figure } = createFigure(db, figureInput);
-		createFigure(db, { ...figureInput, name: 'Son basic', partner: 'solo', style: 'son' });
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		createFigure(db, 'salsa', { ...figureInput, name: 'Son basic', partner: 'solo', style: 'son' });
 		addRecording(db, {
 			figureId: figure.id,
 			file: 'a.mp4',
@@ -83,17 +83,19 @@ describe('figures', () => {
 			sizeBytes: 10,
 			note: null
 		});
-		expect(listFigures(db).map((f) => [f.name, f.recordings])).toEqual([
+		expect(listFigures(db, 'salsa').map((f) => [f.name, f.recordings])).toEqual([
 			['Dile que no', 1],
 			['Son basic', 0]
 		]);
-		expect(listFigures(db, { style: 'son' }).map((f) => f.name)).toEqual(['Son basic']);
-		expect(listFigures(db, { partner: 'partner' }).map((f) => f.name)).toEqual(['Dile que no']);
-		expect(listFigures(db, { q: 'dile' }).map((f) => f.name)).toEqual(['Dile que no']);
+		expect(listFigures(db, 'salsa', { style: 'son' }).map((f) => f.name)).toEqual(['Son basic']);
+		expect(listFigures(db, 'salsa', { partner: 'partner' }).map((f) => f.name)).toEqual([
+			'Dile que no'
+		]);
+		expect(listFigures(db, 'salsa', { q: 'dile' }).map((f) => f.name)).toEqual(['Dile que no']);
 	});
 
 	it('returns a deleted recording so its file can be removed', () => {
-		const { figure } = createFigure(db, figureInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		const rec = addRecording(db, {
 			figureId: figure.id,
 			file: 'b.webm',
@@ -125,7 +127,7 @@ describe('exercises and sets', () => {
 	});
 
 	it('keeps a figure exercise named after its figure', () => {
-		const { exercise } = createFigure(db, figureInput);
+		const { exercise } = createFigure(db, 'salsa', figureInput)!;
 		updateExercise(db, exercise.id, {
 			...base,
 			name: 'Other',
@@ -141,23 +143,23 @@ describe('exercises and sets', () => {
 
 	it('archives custom exercises only', () => {
 		const custom = createCustomExercise(db, { name: 'c', everyDays: 3, notes: null });
-		const { exercise } = createFigure(db, figureInput);
+		const { exercise } = createFigure(db, 'salsa', figureInput)!;
 		expect(archiveExercise(db, exercise.id, 1)).toBe(false);
 		expect(archiveExercise(db, custom.id, 1)).toBe(true);
 		expect(listExercises(db).map((e) => e.id)).toEqual([exercise.id]);
 	});
 
 	it('lists only callable, unarchived figures, and says callText when set', () => {
-		const a = createFigure(db, { ...figureInput, name: 'Enchufla' });
-		createFigure(db, { ...figureInput, name: 'Hidden', partner: 'solo', callable: false });
-		const c = createFigure(db, {
+		const a = createFigure(db, 'salsa', { ...figureInput, name: 'Enchufla' })!;
+		createFigure(db, 'salsa', { ...figureInput, name: 'Hidden', partner: 'solo', callable: false });
+		const c = createFigure(db, 'salsa', {
 			...figureInput,
 			name: 'Dile que no',
 			callText: 'dee-lay kay no'
-		});
+		})!;
 		archiveFigure(db, a.figure.id, Date.now());
 
-		const out = listCallableFigures(db);
+		const out = listCallableFigures(db, 'salsa');
 		expect(out.map((f) => f.name)).toEqual(['Dile que no']);
 		expect(out[0].say).toBe('dee-lay kay no');
 		expect(c.figure.id).toBe(out[0].id);
@@ -197,5 +199,42 @@ describe('exercises and sets', () => {
 			playerJson: '{"speed":0.8}'
 		});
 		expect(JSON.parse(s.playerJson!).speed).toBe(0.8);
+	});
+});
+
+describe('figures are walled off by dance', () => {
+	const bachataInput = { ...figureInput, name: 'Basico', style: 'sensual' };
+
+	it('lists only its own dance', () => {
+		createFigure(db, 'salsa', figureInput);
+		createFigure(db, 'bachata', bachataInput);
+
+		expect(listFigures(db, 'salsa').map((f) => f.name)).toEqual(['Dile que no']);
+		expect(listFigures(db, 'bachata').map((f) => f.name)).toEqual(['Basico']);
+	});
+
+	it('gives the figure exercise its figure dance', () => {
+		const made = createFigure(db, 'bachata', bachataInput);
+		expect(made).not.toBeNull();
+		expect(getExercise(db, made!.exercise.id)?.dance).toBe('bachata');
+	});
+
+	it('refuses a style that belongs to another dance', () => {
+		expect(createFigure(db, 'bachata', { ...bachataInput, style: 'son' })).toBeNull();
+		expect(createFigure(db, 'salsa', { ...figureInput, style: 'sensual' })).toBeNull();
+		expect(listFigures(db, 'salsa')).toEqual([]);
+		expect(listFigures(db, 'bachata')).toEqual([]);
+	});
+
+	it('refuses an edit that moves a figure outside its dance styles', () => {
+		const made = createFigure(db, 'salsa', figureInput)!;
+		expect(updateFigure(db, made.figure.id, { ...figureInput, style: 'sensual' })).toBeNull();
+		expect(listFigures(db, 'salsa')[0].style).toBe('salsa');
+	});
+
+	it('calls only its own dance figures', () => {
+		createFigure(db, 'salsa', figureInput);
+		createFigure(db, 'bachata', bachataInput);
+		expect(listCallableFigures(db, 'bachata').map((f) => f.name)).toEqual(['Basico']);
 	});
 });

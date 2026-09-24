@@ -149,7 +149,7 @@ export function getLesson(db: Db, id: number) {
 			id: figures.id,
 			name: figures.name,
 			partner: figures.partner,
-			style: figures.style,
+			style: figures.styleTag,
 			exerciseId: exercises.id
 		})
 		.from(lessonFigures)

@@ -125,7 +125,7 @@ describe('a lesson owns its review exercise', () => {
 describe('linking figures', () => {
 	it('links a figure and lists it with the exercise that came with it', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const { figure, exercise } = createFigure(db, figureInput);
+		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
 
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		const [linked] = getLesson(db, lesson.id)!.figures;
@@ -135,7 +135,7 @@ describe('linking figures', () => {
 
 	it('refuses a second link of the same figure', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const { figure } = createFigure(db, figureInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(false);
 		expect(getLesson(db, lesson.id)!.figures).toHaveLength(1);
@@ -143,14 +143,14 @@ describe('linking figures', () => {
 
 	it('refuses an archived figure', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const { figure } = createFigure(db, figureInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		db.run(`update figures set archived_at = 1 where id = ${figure.id}`);
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(false);
 	});
 
 	it('unlinks, and reports whether there was anything to unlink', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const { figure } = createFigure(db, figureInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		linkFigure(db, lesson.id, figure.id);
 		expect(unlinkFigure(db, lesson.id, figure.id)).toBe(true);
 		expect(unlinkFigure(db, lesson.id, figure.id)).toBe(false);
@@ -160,7 +160,7 @@ describe('linking figures', () => {
 describe('a figure exercise never shows up in both places', () => {
 	it('drops it from the linked list when its figure is linked afterwards', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const { figure, exercise } = createFigure(db, figureInput);
+		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
 
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(true);
 		expect(getLesson(db, lesson.id)!.exercises.map((e) => e.id)).toEqual([exercise.id]);
@@ -173,7 +173,7 @@ describe('a figure exercise never shows up in both places', () => {
 
 	it('refuses to link it once its figure is already linked', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const { figure, exercise } = createFigure(db, figureInput);
+		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
 		linkFigure(db, lesson.id, figure.id);
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(false);
 	});
@@ -208,8 +208,8 @@ describe('linking exercises', () => {
 describe('the link pickers', () => {
 	it('offers only figures that are not linked yet', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const a = createFigure(db, figureInput).figure;
-		const b = createFigure(db, { ...figureInput, name: 'Dile que no' }).figure;
+		const a = createFigure(db, 'salsa', figureInput)!.figure;
+		const b = createFigure(db, 'salsa', { ...figureInput, name: 'Dile que no' })!.figure;
 
 		linkFigure(db, lesson.id, a.id);
 		expect(listLinkableFigures(db, lesson.id).map((f) => f.id)).toEqual([b.id]);
@@ -218,7 +218,7 @@ describe('the link pickers', () => {
 	it('keeps custom exercises in the picker once a figure is linked', () => {
 		// The null-propagating `NOT IN` bug would empty this list entirely.
 		const { lesson } = createLesson(db, lessonInput);
-		const { figure } = createFigure(db, figureInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		const custom = createCustomExercise(db, { name: 'Son basic', everyDays: 3, notes: null });
 		linkFigure(db, lesson.id, figure.id);
 

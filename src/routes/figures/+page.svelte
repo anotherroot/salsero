@@ -5,7 +5,9 @@
 	import { page } from '$app/state';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
-	import { PARTNER, PARTNER_LABEL, STYLES, STYLE_LABEL } from '$lib/labels';
+	import { PARTNER, PARTNER_LABEL } from '$lib/labels';
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	import { DANCES } from '$lib/dances/dances';
 	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
 	import type { ActionData, PageData } from './$types';
 
@@ -30,6 +32,11 @@
 
 	const pill = (on: boolean) =>
 		`shrink-0 rounded-full border px-3 py-1.5 text-[13px] ${on ? 'border-accent bg-accent text-accent-ink' : 'border-rule bg-raised text-ink-2'}`;
+
+	// A figure's style_tag can be null (or, in principle, unknown to this
+	// dance); render nothing rather than "undefined".
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	const styleLabel = (s: string | null) => (s ? DANCES.salsa.styleLabel[s] : undefined);
 </script>
 
 <svelte:head><title>Figures · Salsa</title></svelte:head>
@@ -64,10 +71,11 @@
 		/>
 	</form>
 	<div class="mt-2 flex gap-2 overflow-x-auto pb-1">
-		{#each STYLES as s (s)}
+		{#each DANCES.salsa.styles as s (s)}
 			<a
 				class={pill(data.filter.style === s)}
-				href={filterUrl({ style: data.filter.style === s ? undefined : s })}>{STYLE_LABEL[s]}</a
+				href={filterUrl({ style: data.filter.style === s ? undefined : s })}
+				>{DANCES.salsa.styleLabel[s]}</a
 			>
 		{/each}
 		{#each PARTNER as p (p)}
@@ -98,7 +106,8 @@
 					<span class="min-w-0">
 						<span class="block truncate text-[15px] font-medium">{f.name}</span>
 						<span class="text-[12px] text-muted"
-							>{STYLE_LABEL[f.style]} · {PARTNER_LABEL[f.partner]}</span
+							>{#if styleLabel(f.style)}{styleLabel(f.style)} ·
+							{/if}{PARTNER_LABEL[f.partner]}</span
 						>
 					</span>
 					{#if f.recordings > 0}

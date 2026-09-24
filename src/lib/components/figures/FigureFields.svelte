@@ -1,17 +1,12 @@
 <script lang="ts">
-	import {
-		PARTNER,
-		PARTNER_LABEL,
-		STYLES,
-		STYLE_LABEL,
-		type Partner,
-		type Style
-	} from '$lib/labels';
+	import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	import { DANCES } from '$lib/dances/dances';
 
 	interface Props {
 		name?: string;
 		partner?: Partner;
-		style?: Style;
+		style?: string;
 		notes?: string | null;
 		callable?: boolean;
 		callText?: string | null;
@@ -60,10 +55,10 @@
 <fieldset>
 	<legend class={label}>Style</legend>
 	<div class="flex gap-2">
-		{#each STYLES as s (s)}
+		{#each DANCES.salsa.styles as s (s)}
 			<label class={chip}>
 				<input type="radio" name="style" value={s} checked={style === s} class="sr-only" />
-				{STYLE_LABEL[s]}
+				{DANCES.salsa.styleLabel[s]}
 			</label>
 		{/each}
 	</div>

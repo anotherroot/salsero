@@ -3,7 +3,8 @@ import { getDb } from '$lib/server/db';
 import { createFigure, listFigures } from '$lib/server/figures';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
-import { PARTNER, STYLES, type Partner, type Style } from '$lib/labels';
+import { PARTNER, type Partner } from '$lib/labels';
+import { DANCES } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url }) => {
@@ -12,12 +13,16 @@ export const load: PageServerLoad = ({ url }) => {
 	const partner = url.searchParams.get('partner');
 	const filter = {
 		q: q || undefined,
-		style: (STYLES as readonly string[]).includes(style ?? '') ? (style as Style) : undefined,
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		style: (DANCES.salsa.styles as readonly string[]).includes(style ?? '')
+			? (style as string)
+			: undefined,
 		partner: (PARTNER as readonly string[]).includes(partner ?? '')
 			? (partner as Partner)
 			: undefined
 	};
-	return { figures: listFigures(getDb(), filter), filter: { ...filter, q } };
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	return { figures: listFigures(getDb(), 'salsa', filter), filter: { ...filter, q } };
 };
 
 export const actions: Actions = {
@@ -25,7 +30,8 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', STYLES);
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const style = oneOf(form, 'style', DANCES.salsa.styles);
 		const notes = optionalText(form, 'notes');
 		const callable = checkbox(form, 'callable');
 		const callText = optionalText(form, 'callText', 200);
@@ -44,11 +50,20 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		const { figure } = createFigure(
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const made = createFigure(
 			getDb(),
+			'salsa',
 			{ name, partner, style, notes, callable, callText },
 			everyDays
 		);
-		throw redirect(303, `/figures/${figure.id}`);
+		if (!made) {
+			return fail(400, {
+				message: 'That style does not belong to this dance.',
+				name,
+				notes: notes ?? ''
+			});
+		}
+		throw redirect(303, `/figures/${made.figure.id}`);
 	}
 };

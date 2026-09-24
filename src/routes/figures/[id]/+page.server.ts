@@ -6,7 +6,8 @@ import { logSet } from '$lib/server/exercises';
 import { archiveFigure, deleteRecording, getFigure, updateFigure } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
-import { PARTNER, STYLES } from '$lib/labels';
+import { PARTNER } from '$lib/labels';
+import { DANCES } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 function figureId(raw: string): number {
@@ -26,7 +27,8 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', STYLES);
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const style = oneOf(form, 'style', DANCES.salsa.styles);
 		const notes = optionalText(form, 'notes');
 		const callable = checkbox(form, 'callable');
 		const callText = optionalText(form, 'callText', 200);

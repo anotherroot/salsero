@@ -1,5 +1,10 @@
 /** Enumerations shared by the server schema and the UI. Client-safe. */
 
+/**
+ * The legacy domain of the vestigial `figures.style` column, and nothing else.
+ * A figure's real style tag is `style_tag`, validated per dance against
+ * `DANCES[dance].styles` — see `src/lib/dances/dances.ts`.
+ */
 export const STYLES = ['salsa', 'son', 'other'] as const;
 export type Style = (typeof STYLES)[number];
 
@@ -13,6 +18,7 @@ export type Source = (typeof SOURCES)[number];
 export const PRACTICE_MODES = ['song', 'count', 'none'] as const;
 export type PracticeMode = (typeof PRACTICE_MODES)[number];
 
+/** Legacy, for the vestigial `Style` domain above. Per-dance labels live in `DANCES[dance].styleLabel`. */
 export const STYLE_LABEL: Record<Style, string> = { salsa: 'Salsa', son: 'Son', other: 'Other' };
 export const PARTNER_LABEL: Record<Partner, string> = { partner: 'With partner', solo: 'Solo' };
 

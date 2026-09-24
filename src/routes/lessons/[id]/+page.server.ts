@@ -20,7 +20,8 @@ import { lessonVideosDir } from '$lib/server/files';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
-import { PARTNER, STYLES } from '$lib/labels';
+import { PARTNER } from '$lib/labels';
+import { DANCES } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -109,7 +110,8 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', STYLES);
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const style = oneOf(form, 'style', DANCES.salsa.styles);
 		const notes = optionalText(form, 'notes');
 		const callText = optionalText(form, 'callText', 200);
 		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
@@ -131,12 +133,22 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const { figure } = createFigure(
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const made = createFigure(
 			db,
+			'salsa',
 			{ name, partner, style, notes, callable: checkbox(form, 'callable'), callText },
 			everyDays
 		);
-		linkFigure(db, id, figure.id);
+		if (!made) {
+			return fail(400, {
+				action: 'newFigure',
+				message: 'That style does not belong to this dance.',
+				name,
+				notes: notes ?? ''
+			});
+		}
+		linkFigure(db, id, made.figure.id);
 		return { action: 'newFigure', ok: true };
 	},
 

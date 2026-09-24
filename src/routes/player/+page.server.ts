@@ -33,7 +33,8 @@ export const load: PageServerLoad = ({ url }) => {
 				})
 			: null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
-		figures: listCallableFigures(db),
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		figures: listCallableFigures(db, 'salsa'),
 		exercise: exerciseId ? getExercise(db, exerciseId) : null,
 		exercises: listExercises(db).map((e) => ({ id: e.id, name: e.name })),
 		// Every pattern's takes: which one the run uses is a client-side choice

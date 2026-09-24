@@ -93,7 +93,7 @@ export interface LessonFigureRow {
 	id: number;
 	name: string;
 	partner: Partner;
-	style: Style;
+	style: string | null;
 	exerciseId: number | null;
 }
 
@@ -111,5 +111,5 @@ export interface CallableFigure {
 	/** What the voice should say — `callText` if set, else `name`. */
 	say: string;
 	partner: Partner;
-	style: Style;
+	style: string | null;
 }
