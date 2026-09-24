@@ -1062,6 +1062,29 @@ describe('graphFlow', () => {
 		expect(flow.eights(99)).toBe(1);
 	});
 
+	it('walks a neutral-only graph exactly as the uniform flow does', () => {
+		// THE property that lets this ship without a data backfill: until figures
+		// are tagged, the graph is one neutral hub and the walk must be
+		// indistinguishable from the drill the player has always run. It compares
+		// whole plans, so a divergence in WHICH figure or in what ORDER the
+		// candidates were offered both fail it.
+		//
+		// The pool is deliberately NOT in id order (`[3, 1, 2]`, not `[1, 2, 3]`):
+		// with an ascending pool, filtering by the graph's declared figure order
+		// and filtering by the pool's own order produce the same sequence by
+		// coincidence, and a pool-vs-graph reordering bug would slip through
+		// undetected. A shuffled pool is what actually exercises "the order is the
+		// pool's" — verified by temporarily reversing the filter in `flow.ts` and
+		// confirming this test fails.
+		const flat: Graph = {
+			neutral: OPEN,
+			figures: [1, 2, 3].map((id) => ({ id, starts: [], end: null, eights: 1 }))
+		};
+		const viaGraph = extendPlan([], [3, 1, 2], 2, 10, rand([0, 0.5, 0.9]), graphFlow(flat));
+		const viaUniform = extendPlan([], [3, 1, 2], 2, 10, rand([0, 0.5, 0.9]));
+		expect(viaGraph).toEqual(viaUniform);
+	});
+
 	it('produces a dancable plan through extendPlan', () => {
 		const steps = extendPlan([], [1, 2, 3, 4], 1, 8, rand([0]), graphFlow(graph));
 		const by = (id: number) => graph.figures.find((f) => f.id === id)!;
@@ -1759,34 +1782,11 @@ git commit -m "graph: tag a figure's handholds, and show what it follows and lea
 - Consumes: everything from Tasks 2–6.
 - Produces: the `/[dance]/positions` page; `PlayerOptions.flow?: Flow`; `getPosition(db, id)` in `positions.ts`; `requirePositionInDance(db, dance, id)` in `scope.ts`.
 
-- [ ] **Step 1: Write the failing test for the player passing a graph flow**
+- [ ] **Step 1: Add `flow` to the player**
 
-Add to `src/lib/graph/flow.spec.ts`:
-
-```ts
-describe('an untagged repertoire is indistinguishable from uniform', () => {
-	it('walks a neutral-only graph exactly as the uniform flow does', () => {
-		const flat: Graph = {
-			neutral: OPEN,
-			figures: [1, 2, 3].map((id) => ({ id, starts: [], end: null, eights: 1 }))
-		};
-		const viaGraph = extendPlan([], [1, 2, 3], 2, 10, rand([0, 0.5, 0.9]), graphFlow(flat));
-		const viaUniform = extendPlan([], [1, 2, 3], 2, 10, rand([0, 0.5, 0.9]));
-		expect(viaGraph).toEqual(viaUniform);
-	});
-});
-```
-
-This is the test that justifies Task 4's "filter the pool, not the graph" comment: `extendPlan`'s default is the uniform flow, so the two calls must agree step for step, including the order the choices were offered in.
-
-- [ ] **Step 2: Run it**
-
-Run: `npx vitest run src/lib/graph/flow.spec.ts`
-Expected: PASS.
-
-If it FAILS on the figure ids rather than the 8-counts, the cause is choice ordering: `graphFlow` must filter the **pool** by the graph (`pool.filter((id) => allowed.has(id))`), never the graph by the pool, or a neutral-only graph hands back figures in `buildGraph`'s name order instead of the pool's. Task 4's implementation already does this — check it was copied intact.
-
-- [ ] **Step 3: Add `flow` to the player**
+> The neutral-equivalence test that used to open this task now lives in Task 4,
+> beside `graphFlow` itself — leaving the module's single most important property
+> untested while two more tasks landed on top was the wrong call.
 
 In `src/lib/scheduler/attach.ts`, add to `PlayerOptions` after `pool`:
 
@@ -1815,7 +1815,7 @@ add `type Flow` to the existing import from `./scheduler`, and in `createPlayer`
 
 `extendPlan` already defaults the parameter, so passing `undefined` is the old behaviour exactly.
 
-- [ ] **Step 4: Pass the graph from the player page**
+- [ ] **Step 2: Pass the graph from the player page**
 
 In `src/routes/[dance]/player/+page.server.ts`, add to the imports:
 
@@ -1843,19 +1843,19 @@ and in `start()`, add to the `createPlayer({...})` call after `pool: settings.fi
 			flow: graphFlow(data.graph),
 ```
 
-- [ ] **Step 5: Verify the build**
+- [ ] **Step 3: Verify the build**
 
 Run: `npm run check`
 Expected: PASS.
 
-- [ ] **Step 6: Commit the player wiring**
+- [ ] **Step 4: Commit the player wiring**
 
 ```bash
 git add src/lib/scheduler/attach.ts "src/routes/[dance]/player/" src/lib/graph/flow.spec.ts
 git commit -m "graph: the player's drill walks the graph"
 ```
 
-- [ ] **Step 7: Add the position guard to `scope.ts`**
+- [ ] **Step 5: Add the position guard to `scope.ts`**
 
 In `src/lib/server/scope.ts`, add the import and the guard, following the shape of `requireSongInDance` at the bottom of the file:
 
@@ -1887,7 +1887,7 @@ export function getPosition(db: Db, id: number) {
 }
 ```
 
-- [ ] **Step 8: Build the gap report page**
+- [ ] **Step 6: Build the gap report page**
 
 Create `src/routes/[dance]/positions/+page.server.ts`:
 
@@ -2070,7 +2070,7 @@ Then create `src/routes/[dance]/positions/+page.svelte`:
 
 A `use:enhance` with no argument is the default progressive enhancement; the figures list uses the same form.
 
-- [ ] **Step 9: Add the tagged count to the figures list**
+- [ ] **Step 7: Add the tagged count to the figures list**
 
 In `src/routes/[dance]/figures/+page.server.ts`, add the import:
 
@@ -2108,7 +2108,7 @@ In `src/routes/[dance]/figures/+page.svelte`, add this beneath the page's headin
 
 `resolve` is already imported in that file.
 
-- [ ] **Step 10: Verify everything**
+- [ ] **Step 8: Verify everything**
 
 Run: `npm run check`
 Expected: PASS.
@@ -2123,7 +2123,7 @@ npm run dev
 - open `/salsa/positions` and confirm neither is a dead end, and that a third untouched position reads as unused
 - open `/salsa/player`, pick both figures, start a count-only run and confirm the calls alternate rather than repeating a figure that cannot be entered
 
-- [ ] **Step 11: Update the docs**
+- [ ] **Step 9: Update the docs**
 
 In `CLAUDE.md`, add to the Layout block after the `src/lib/dances/` entry:
 
@@ -2141,7 +2141,7 @@ In `docs/superpowers/specs/2026-09-22-salsa-app-design.md`:
 - in the data model, replace the `choreographies` / `choreo_steps` sketch with `positions` and `figure_start_positions` as built, and add `figures.end_position_id` and `figures.eights` to the `figures` block
 - add `src/lib/graph/` to the Pure modules table
 
-- [ ] **Step 12: Final check and commit**
+- [ ] **Step 10: Final check and commit**
 
 Run: `npm run check`
 Expected: PASS.
