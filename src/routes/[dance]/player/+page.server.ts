@@ -5,6 +5,7 @@ import { getDb } from '$lib/server/db';
 import { listExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listCallableFigures } from '$lib/server/figures';
+import { buildGraph } from '$lib/server/graph';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getSong } from '$lib/server/songs';
 import { danceOf, exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
@@ -41,6 +42,9 @@ export const load: PageServerLoad = ({ url, params }) => {
 			: null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
 		figures: listCallableFigures(db, dance),
+		// The position graph, so the drill calls a sequence that can be danced.
+		// Client-safe: `Graph` is plain data from a pure module.
+		graph: buildGraph(db, dance),
 		// Same id-scoping as the song: an exercise from the other dance is not
 		// this player's to practise, so it comes back as "no exercise" rather
 		// than a run that would log its set on the far side of the wall.

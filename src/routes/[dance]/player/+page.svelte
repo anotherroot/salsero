@@ -6,6 +6,7 @@
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
+	import { graphFlow } from '$lib/graph/flow';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import type { ActionData, PageData } from './$types';
 
@@ -103,6 +104,7 @@
 			grid,
 			toggles: { count: settings.count, clave: settings.clave, callEvery: settings.callEvery },
 			pool: settings.figureIds,
+			flow: graphFlow(data.graph),
 			// Only the chosen pattern's takes: a salsa recording must never stand in
 			// for a son run, whose words fall on different counts entirely.
 			takes: data.takes.filter((t) => t.pattern === settings.count),

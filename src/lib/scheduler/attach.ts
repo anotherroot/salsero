@@ -12,6 +12,7 @@ import { beatIndexAt, median } from '$lib/beatgrid/beatgrid';
 import { CLIPS, type CallEvery, type Clip } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
 import {
+	type Flow,
 	type PlanStep,
 	type Timeline,
 	type Toggles,
@@ -127,6 +128,13 @@ export interface PlayerOptions {
 	toggles: Toggles;
 	/** Figure ids the drill may call. */
 	pool: number[];
+	/**
+	 * How the drill chooses its next figure. Defaults to the uniform pick this
+	 * player shipped with; the page passes a graph walk when the figures carry
+	 * position tags. An untagged repertoire is one neutral hub, so the two are
+	 * indistinguishable until tagging begins.
+	 */
+	flow?: Flow;
 	/** What the voice says for a figure — `say`, not necessarily the name. */
 	sayOf: (figureId: number) => string;
 	/** Count and clave loudness, 0–1, independent of the music. */
@@ -287,7 +295,14 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		if (toggles.callEvery !== null && pool.length > 0) {
 			// Decide calls a bar or two ahead of where we are scheduling sound.
 			const through = eightAt(until) + 2;
-			plan = extendPlan(plan, pool, toggles.callEvery as CallEvery, through, Math.random);
+			plan = extendPlan(
+				plan,
+				pool,
+				toggles.callEvery as CallEvery,
+				through,
+				Math.random,
+				opts.flow
+			);
 		}
 
 		const { cues, phrases: due, calls } = cuesIn(tl, plan, toggles, cursor, until);
