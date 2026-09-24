@@ -64,7 +64,8 @@ export interface Dance {
 	countPatterns: readonly CountPattern[]; // which the player offers
 	defaultCountPattern: CountPattern;
 	clave: boolean; // salsa true, bachata false
-	themeColor: string; // shell accent and manifest
+	accent: string; // --color-accent, light mode; also the manifest theme_color
+	accentDark: string; // --color-accent under prefers-color-scheme: dark
 }
 ```
 
@@ -198,14 +199,14 @@ Each dance gets a manifest built from its registry entry:
 	"short_name": "Bachata",
 	"start_url": "/bachata/",
 	"scope": "/bachata/",
-	"theme_color": "<registry themeColor>"
+	"theme_color": "<registry accent>"
 }
 ```
 
 Different names come free. Different _looks_ need per-dance PNGs, since iOS
 will not take the SVG for a home-screen icon. `scripts/make-icons.sh` — a
 committed one-off in the mould of `scripts/make-clips.sh` — tints `icon.svg`
-with each dance's `themeColor` and rasterises 192 and 512. **Output is
+with each dance’s `accent` and rasterises 192 and 512. **Output is
 committed; it never runs at build time.**
 
 Per-dance PWA install behaviour is well-defined in Chrome/Android and looser on
