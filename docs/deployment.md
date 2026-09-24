@@ -94,6 +94,13 @@ The per-dance icons live in `static/icons/` and ship inside `build/`, like the
 count clips. `scripts/make-icons.sh` regenerates them locally, pulling librsvg
 from nixpkgs at run time so the flake needs nothing; production never runs it.
 
+**The multi-dance deploy broke the existing home-screen install, once.**
+`static/manifest.webmanifest` was deleted in favour of one manifest per dance,
+so the icon already on the phone pointed at a path that now redirects to
+`/login`. The fix is to add both to the home screen again — `/salsa/` and
+`/bachata/`, which install as two apps with their own names and colours. That
+is the feature, not a regression, but it is invisible until you re-add them.
+
 ## Home worker
 
 Songs are downloaded and beat-analysed at home, never on the server: YouTube

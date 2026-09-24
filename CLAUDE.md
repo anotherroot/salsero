@@ -1,13 +1,17 @@
 # salsaapp agent guide
 
-A personal practice companion for salsa and son, used from a browser-only work
-PC and a phone.
+A personal practice companion for salsa and bachata, used from a browser-only
+work PC and a phone. The two are separate **dances** — a hard wall through the
+content, one codebase behind it. Son is a style inside salsa, not a third
+dance: the same songs, the same beat grid, a different count pattern.
 
 **Live:** phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, random figure calls, count-only drills, and a
 finished run logged as a set) and phase 4 (lessons: videos, notes, figure and
-exercise links, and a four-band Today). **Not built:** phase 3, choreographies.
+exercise links, and a four-band Today) and multi-dance (bachata beside salsa:
+the registry, the `dance` column, `/[dance]/` routes, two home-screen apps).
+**Not built:** phase 3, choreographies.
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -59,9 +63,16 @@ $DATA_DIR/           recordings/ audio/ count/ lesson-videos/ uploads/ — not i
                      docs/deployment.md for why
 static/clips/        the seven committed count/clave clips — regenerate with
                      scripts/make-clips.sh, never at build time
+static/icons/        per-dance home-screen icons, committed. The manifests are
+                     served FLAT (/manifest-<dance>.webmanifest) so PUBLIC_PATHS
+                     stays an exact-match Set
 drizzle/             generated migrations — applied at boot, shipped by deploy.sh
 scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-check
 scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is committed
+scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
+                     the registry's accents. Output is committed. Both scripts
+                     pull their tooling from nixpkgs at run time, so the flake
+                     carries neither
 ```
 
 ## Hard rules
@@ -148,13 +159,15 @@ npm run check         # prettier + eslint + svelte-check + build + vitest — mu
 npm run db:generate   # after editing src/lib/server/db/schema.ts
 ./scripts/deploy.sh   # see docs/deployment.md
 ./scripts/make-clips.sh   # regenerate static/clips/ — only when the voice changes
+./scripts/make-icons.sh   # regenerate static/icons/ — only when a dance's accent changes
 ```
 
 The dev database has no songs and the home worker does not run against it, so
 the player's song mode has nothing to open. To exercise it locally, insert a
 song row by hand with `status='ready'`, an `audio_file` under `.data/audio/`,
 and a `beats_json` array — a click track from ffmpeg plus evenly spaced beats is
-enough to check the count, the clave and the calls.
+enough to check the count, the clave and the calls. Set `dance` too: it defaults
+to `'salsa'`, so a row inserted without it is invisible from `/bachata/player`.
 
 In dev, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first run; the admin is
 created at boot when no user exists.
