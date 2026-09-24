@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { createFigure, listFigures } from '$lib/server/figures';
+import { buildGraph } from '$lib/server/graph';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER, type Partner } from '$lib/labels';
@@ -22,7 +23,19 @@ export const load: PageServerLoad = ({ url, params }) => {
 			? (partner as Partner)
 			: undefined
 	};
-	return { figures: listFigures(getDb(), dance, filter), filter: { ...filter, q } };
+	const db = getDb();
+	const graph = buildGraph(db, dance);
+	return {
+		figures: listFigures(db, dance, filter),
+		filter: { ...filter, q },
+		// How much of the repertoire carries handhold tags. An untagged figure
+		// reads as neutral, which is right for most of casino but worth surfacing:
+		// the graph is only as good as this fraction.
+		tagged: {
+			done: graph.figures.filter((f) => f.starts.length > 0 || f.end !== null).length,
+			total: graph.figures.length
+		}
+	};
 };
 
 export const actions: Actions = {

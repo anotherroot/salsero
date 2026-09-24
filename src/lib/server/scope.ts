@@ -19,6 +19,7 @@
 import { error } from '@sveltejs/kit';
 import type { Db } from './db';
 import { getExercise, getSet } from './exercises';
+import { getPosition } from './positions';
 import { getSong } from './songs';
 import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 
@@ -79,4 +80,19 @@ export function requireSongInDance(db: Db, dance: DanceSlug, id: number) {
 	const song = getSong(db, id);
 	if (!song || song.dance !== dance) throw error(404, 'Song not found');
 	return song;
+}
+
+/**
+ * The position, or a 404.
+ *
+ * A position id in a form body is just a number, and the vocabulary page acts
+ * on one from three different actions — so the dance rule lives here and is
+ * called from each. An archived position is still a position: the page's own
+ * list is what stops it being offered, and refusing it here would make renaming
+ * one impossible.
+ */
+export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
+	const position = getPosition(db, id);
+	if (!position || position.dance !== dance) throw error(404, 'No such position');
+	return position;
 }

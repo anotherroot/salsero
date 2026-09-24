@@ -20,6 +20,11 @@ export function listPositions(db: Db, dance: DanceSlug) {
 		.all();
 }
 
+/** One position by id, whatever its dance — callers scope it. */
+export function getPosition(db: Db, id: number) {
+	return db.select().from(positions).where(eq(positions.id, id)).get() ?? null;
+}
+
 /**
  * The dance's neutral position — what an untagged figure is assumed to start
  * and end at. Null only before the seed has run, which no route can observe:

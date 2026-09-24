@@ -8,10 +8,11 @@ dance: the same songs, the same beat grid, a different count pattern.
 **Live:** phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, random figure calls, count-only drills, and a
-finished run logged as a set) and phase 4 (lessons: videos, notes, figure and
-exercise links, and a four-band Today) and multi-dance (bachata beside salsa:
-the registry, the `dance` column, `/[dance]/` routes, two home-screen apps).
-**Not built:** phase 3, choreographies.
+finished run logged as a set), phase 3a (positions, the figure graph, the
+walking drill), phase 4 (lessons: videos, notes, figure and exercise links,
+and a four-band Today) and multi-dance (bachata beside salsa: the registry,
+the `dance` column, `/[dance]/` routes, two home-screen apps).
+**Not built:** phase 3b, routines.
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -37,6 +38,8 @@ src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo
 src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
 src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
                      whether clave exists, accent colours). Client-safe
+src/lib/graph/       PURE figure graph: positions → what can follow what, the
+                     drill's walk, the gap report. Client-safe
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock

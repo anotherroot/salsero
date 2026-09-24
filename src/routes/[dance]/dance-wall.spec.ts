@@ -36,7 +36,7 @@ import {
 import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions } from '$lib/server/graph';
-import { listPositions, seedPositions } from '$lib/server/positions';
+import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
 import { exercises, lessons, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
@@ -45,6 +45,7 @@ import { actions as lessonListActions } from './lessons/+page.server';
 import * as figurePage from './figures/[id]/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
+import * as positionsPage from './positions/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -295,6 +296,41 @@ describe("the detail pages refuse the other dance's rows", () => {
 	it('still retries from its own dance', async () => {
 		await call(songListActions.retry, post('bachata', { id: String(bachataSongId) }));
 		expect(getSong(db, bachataSongId)?.status).toBe('waiting_download');
+	});
+});
+
+describe("the positions page refuses the other dance's rows", () => {
+	it('will not rename a bachata position from a salsa URL', async () => {
+		const shadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
+		await refuses(
+			positionsPage.actions.rename,
+			post('salsa', { id: String(shadow.id), name: 'Hijacked' })
+		);
+		expect(getPosition(db, shadow.id)?.name).toBe('Shadow');
+	});
+
+	it('will not archive a bachata position from a salsa URL', async () => {
+		const shadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
+		await refuses(positionsPage.actions.archive, post('salsa', { id: String(shadow.id) }));
+		expect(getPosition(db, shadow.id)?.archivedAt).toBeNull();
+	});
+
+	// Same-dance, unlike the two tests above: this guard is `archivePosition`'s
+	// own refusal of the neutral row (src/lib/server/positions.ts), not the
+	// dance wall — so it returns a `fail(400)` rather than throwing a 404, and
+	// is asserted by calling the action directly, the way the "guard leaves the
+	// friendly failures alone" block below does for `archiveExercise`.
+	it('refuses to archive the neutral position, with the message that explains why', async () => {
+		const neutral = listPositions(db, 'salsa').find((p) => p.neutral)!;
+		const res = (await call(
+			positionsPage.actions.archive,
+			post('salsa', { id: String(neutral.id) })
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toContain('The neutral position cannot be removed');
+		const row = getPosition(db, neutral.id);
+		expect(row?.archivedAt).toBeNull();
+		expect(row?.neutral).toBe(true);
 	});
 });
 

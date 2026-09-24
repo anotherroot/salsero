@@ -24,8 +24,8 @@ phone. It answers three needs:
 | Term             | Meaning                                                                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Figure**       | A specific dance move (_figura_): a right turn, _dile que no_, _enchufla_, a lateral. Partner or solo. Can be _callable_ — then the player can call it by voice.                    |
-| **Choreography** | An ordered sequence of figures. **General** (just a sequence) or **song-bound** (each figure placed at an 8-count of one song). A song can have many choreographies.                 |
-| **Exercise**     | Anything practiced and logged. Created automatically for every figure and every choreography, or created by hand (custom: "son basic 5 min", "clave clapping").                    |
+| **Routine**      | An ordered sequence of figures, built from the position graph. See the [routines design](2026-09-24-routines-design.md).                                                            |
+| **Exercise**     | Anything practiced and logged. Created automatically for every figure and every routine, or created by hand (custom: "son basic 5 min", "clave clapping").                          |
 | **Set**          | One logged bout of an exercise. Many per day allowed.                                                                                                                               |
 | **8-count**      | Two bars of 4/4. Salsa counts 1–8 (spoken 1-2-3, 5-6-7; 4 and 8 are pauses). The musical grid is bars; the dance grid is 8-counts, so the user's correction picks which bar is "1". |
 
@@ -139,6 +139,8 @@ figures
   style           'salsa' | 'son' | 'other'   default 'salsa'
   callable        boolean default true        -- used by the player, phase 2
   call_text       text, nullable              -- what the voice should SAY, phase 2; null means speak `name`
+  end_position_id fk positions, nullable       -- phase 3a; null means the dance's neutral position
+  eights          integer not null default 1  -- phase 3a; how many 8-counts the figure takes
   archived_at     timestamp, nullable
   created_at      timestamp
 
@@ -194,13 +196,22 @@ lesson_videos                                  -- phase 4
 lesson_figures     (lesson_id, figure_id) pk, created_at      -- phase 4
 lesson_exercises   (lesson_id, exercise_id) pk, created_at    -- phase 4
 
-choreographies                                 -- phase 3
-  id, name, song_id (nullable), notes, archived_at, created_at
+positions                                      -- phase 3a; the handhold vocabulary
+  id              integer pk
+  dance           text not null default 'salsa'
+  slug            text not null                -- stable seed identity; never shown
+  name            text not null                -- shown; renameable
+  neutral         boolean not null default false  -- exactly one per dance
+  sort_order      integer not null default 0
+  archived_at     timestamp, nullable
+  created_at      timestamp
+  unique (dance, slug)
 
-choreo_steps                                   -- phase 3
-  choreography_id, position, figure_id,
-  length_8s       integer default 1            -- how many 8-counts the figure takes
-  start_8         integer, nullable            -- song-bound only: 8-count index in the song
+figure_start_positions                         -- phase 3a; handholds a figure can START from
+  figure_id       fk figures
+  position_id     fk positions                 -- indexed
+  created_at      timestamp
+  primary key (figure_id, position_id)
 ```
 
 **Rules**
@@ -402,12 +413,13 @@ fixed before shipping. Check here before hunting one of these as a new bug:
 
 ## Choreographies (phase 3)
 
-- **General:** ordered steps, each a figure with a length in 8-counts.
-- **Song-bound:** steps also carry `start_8`; the editor shows the song's
-  8-count timeline and lets figures be placed on it while listening.
-- Creating one creates its exercise. The song page lists its choreographies and
-  every exercise with `song_id` = that song. The player, opened from a
-  choreography, calls its figures on 5-6-7 before each step's start.
+Superseded by
+[`2026-09-24-routines-design.md`](2026-09-24-routines-design.md), which
+replaces this section and the `choreographies` / `choreo_steps` sketch in the
+data model above with positions and the figure graph. Song-bound choreography
+is out of scope there. Of its two slices, 3a (positions, `src/lib/graph/`, the
+figure page's tagging, the gap report, and the drill's walk) is live; 3b
+(routines themselves) is not built.
 
 ## Pure modules
 
@@ -419,6 +431,7 @@ No DB, no DOM, no `Date.now()` inside — `now` is always an argument.
 | `src/lib/urgency/`       | `(exercises, sets, now, tz) → { doneToday[], due[], upcoming[], inactive[] }` with urgency and "last done" per row.                                                                               |
 | `src/lib/beatgrid/` (2)  | Beats + downbeats + corrections → count (1–8) and 8-count index at any song time; synthetic grid for count-only.                                                                       |
 | `src/lib/scheduler/` (2) | Plan + grid + toggles + time window → list of `{at, clip}` events. The only impure part is a thin `attach.ts` that owns the `AudioContext`.                                            |
+| `src/lib/graph/` (3a)    | Positions → which figures can follow which, the drill's walk (`graphFlow`), and the gap report (`positionCounts`). See the routines design.                                          |
 
 ## Errors
 
