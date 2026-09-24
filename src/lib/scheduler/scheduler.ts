@@ -253,24 +253,57 @@ export function pickFigure(pool: number[], last: number | null, r: number): numb
 }
 
 /**
+ * How the drill chooses its next figure and how long that figure takes.
+ *
+ * An interface rather than a flag because there are two real implementations:
+ * the uniform pick this player shipped with, and the position-graph walk in
+ * `src/lib/graph/flow.ts`. The scheduler DECLARES this and the graph implements
+ * it — `src/lib/scheduler/` must not import `src/lib/graph/`, so that the
+ * module deciding what sounds and when never learns what a handhold is.
+ */
+export interface Flow {
+	/** `last` is the figure just called, or null at the start of a run. */
+	pick(pool: number[], last: number | null, r: number): number | null;
+	eights(figureId: number): number;
+}
+
+/**
+ * The pre-graph behaviour: any figure but the last one, every figure one
+ * 8-count long. The default, so an untagged repertoire plays exactly as it did
+ * before positions existed.
+ */
+export const UNIFORM_FLOW: Flow = {
+	pick: pickFigure,
+	eights: () => 1
+};
+
+/**
  * Grow a plan so it reaches `throughEight`, deciding only the new steps —
  * a figure already announced never changes under the player's feet.
+ *
+ * Spacing is `max(every, eights)`: calling the next figure one 8-count after a
+ * figure that takes three would be undanceable, and with the uniform flow's
+ * length of 1 this is the interval exactly, as before.
  */
 export function extendPlan(
 	plan: PlanStep[],
 	pool: number[],
 	every: CallEvery,
 	throughEight: number,
-	rand: () => number
+	rand: () => number,
+	flow: Flow = UNIFORM_FLOW
 ): PlanStep[] {
 	const out = [...plan];
-	let eight = out.length === 0 ? LEAD_IN_8S : out[out.length - 1].eight + every;
+	let eight =
+		out.length === 0
+			? LEAD_IN_8S
+			: out[out.length - 1].eight + Math.max(every, flow.eights(out[out.length - 1].figureId));
 	while (eight <= throughEight) {
 		const last = out.length === 0 ? null : out[out.length - 1].figureId;
-		const figureId = pickFigure(pool, last, rand());
+		const figureId = flow.pick(pool, last, rand());
 		if (figureId === null) break;
 		out.push({ eight, figureId });
-		eight += every;
+		eight += Math.max(every, flow.eights(figureId));
 	}
 	return out;
 }

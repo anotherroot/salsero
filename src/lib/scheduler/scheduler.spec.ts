@@ -4,6 +4,7 @@ import {
 	COUNT_CLIP,
 	COUNT_POSITIONS,
 	LEAD_IN_8S,
+	UNIFORM_FLOW,
 	cuesIn,
 	extendPlan,
 	pickFigure,
@@ -270,5 +271,28 @@ describe('extendPlan', () => {
 
 	it('returns the plan unchanged for an empty pool', () => {
 		expect(extendPlan([], [], 2, 10, rand([0]))).toEqual([]);
+	});
+
+	it('spaces calls by the figure length when it exceeds the interval', () => {
+		// Figure 1 takes three 8-counts, figure 2 takes one.
+		const flow = {
+			pick: (pool: number[], last: number | null) => (last === 1 ? 2 : 1),
+			eights: (id: number) => (id === 1 ? 3 : 1)
+		};
+		const steps = extendPlan([], [1, 2], 1, 9, rand([0]), flow);
+		// 1 at eight 2 takes 3 → next at 5; 2 at 5 takes 1, but the interval is 1 → 6.
+		expect(steps.map((s) => [s.eight, s.figureId])).toEqual([
+			[2, 1],
+			[5, 2],
+			[6, 1],
+			[9, 2]
+		]);
+	});
+
+	it('defaults to the uniform flow, so today’s behaviour is unchanged', () => {
+		const withDefault = extendPlan([], [1, 2, 3], 2, 8, rand([0, 0.5, 0.9]));
+		const explicit = extendPlan([], [1, 2, 3], 2, 8, rand([0, 0.5, 0.9]), UNIFORM_FLOW);
+		expect(withDefault).toEqual(explicit);
+		expect(UNIFORM_FLOW.eights(1)).toBe(1);
 	});
 });
