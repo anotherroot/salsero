@@ -14,10 +14,15 @@ import { workerTokenOk } from '$lib/server/worker-auth';
 const PUBLIC_PATHS = new Set([
 	'/login',
 	'/health',
-	'/manifest.webmanifest',
+	'/manifest-salsa.webmanifest',
+	'/manifest-bachata.webmanifest',
 	'/icon.svg',
 	'/icon-192.png',
-	'/icon-512.png'
+	'/icon-512.png',
+	'/icons/salsa-192.png',
+	'/icons/salsa-512.png',
+	'/icons/bachata-192.png',
+	'/icons/bachata-512.png'
 ]);
 
 /** The home worker's API: no session, a bearer token instead. */

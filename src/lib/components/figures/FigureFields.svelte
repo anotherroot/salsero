@@ -1,30 +1,31 @@
 <script lang="ts">
-	import {
-		PARTNER,
-		PARTNER_LABEL,
-		STYLES,
-		STYLE_LABEL,
-		type Partner,
-		type Style
-	} from '$lib/labels';
+	import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
+	import type { Dance } from '$lib/dances/dances';
 
 	interface Props {
+		/** Whose styles the picker offers. The form is only ever inside one dance. */
+		dance: Dance;
 		name?: string;
 		partner?: Partner;
-		style?: Style;
+		style?: string;
 		notes?: string | null;
 		callable?: boolean;
 		callText?: string | null;
 	}
 
 	let {
+		dance,
 		name = '',
 		partner = 'partner',
-		style = 'salsa',
+		style,
 		notes = '',
 		callable = true,
 		callText = ''
 	}: Props = $props();
+
+	// A new figure starts on its dance's first style; 'salsa' is not a style
+	// bachata has, so the default cannot be a literal.
+	const checkedStyle = $derived(style ?? dance.styles[0]);
 
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
@@ -60,10 +61,10 @@
 <fieldset>
 	<legend class={label}>Style</legend>
 	<div class="flex gap-2">
-		{#each STYLES as s (s)}
+		{#each dance.styles as s (s)}
 			<label class={chip}>
-				<input type="radio" name="style" value={s} checked={style === s} class="sr-only" />
-				{STYLE_LABEL[s]}
+				<input type="radio" name="style" value={s} checked={checkedStyle === s} class="sr-only" />
+				{dance.styleLabel[s]}
 			</label>
 		{/each}
 	</div>

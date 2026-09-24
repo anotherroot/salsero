@@ -27,8 +27,8 @@ const T = 1_790_000_000_000;
 
 describe('songs', () => {
 	it('queues a URL for download and an upload for analysis, oldest first', () => {
-		const a = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
-		const b = createSongFromUpload(db, {
+		const a = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
+		const b = createSongFromUpload(db, 'salsa', {
 			file: 'b.mp3',
 			mime: 'audio/mpeg',
 			title: 'Chan Chan',
@@ -42,7 +42,7 @@ describe('songs', () => {
 	});
 
 	it('holds a lease, then lets a stale claim be taken again', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		expect(claimJob(db, T)?.id).toBe(s.id);
 		expect(claimJob(db, T + LEASE_MS - 1)).toBeNull();
 		expect(claimJob(db, T + LEASE_MS + 1)?.id).toBe(s.id);
@@ -50,7 +50,7 @@ describe('songs', () => {
 	});
 
 	it('gives up after MAX_ATTEMPTS stale claims', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		let now = T;
 		for (let i = 0; i < MAX_ATTEMPTS; i++) {
 			expect(claimJob(db, now)?.id).toBe(s.id);
@@ -63,7 +63,7 @@ describe('songs', () => {
 	});
 
 	it('moves a fetched song to analysis and names it from the source when unnamed', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		claimJob(db, T);
 		storeFetchedAudio(db, s.id, {
 			file: 'a.opus',
@@ -81,7 +81,7 @@ describe('songs', () => {
 
 	it('takes fetched audio only for a song waiting for its download', () => {
 		const audio = { file: 'new.m4a', mime: 'audio/mp4', title: 'T', durationS: 1 };
-		const up = createSongFromUpload(db, {
+		const up = createSongFromUpload(db, 'salsa', {
 			file: 'x.mp3',
 			mime: 'audio/mpeg',
 			title: 'x',
@@ -97,7 +97,7 @@ describe('songs', () => {
 			anchorsJson: '[3]'
 		});
 
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		expect(storeFetchedAudio(db, s.id, audio)).toBe(true);
 		expect(storeFetchedAudio(db, s.id, { ...audio, file: 'again.m4a' })).toBe(false);
 		expect(getSong(db, s.id)?.audioFile).toBe('new.m4a');
@@ -105,7 +105,7 @@ describe('songs', () => {
 	});
 
 	it('keeps a title the user typed', () => {
-		const s = createSongFromUrl(db, { url: URL, title: 'Mine', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: 'Mine', style: 'salsa' });
 		storeFetchedAudio(db, s.id, {
 			file: 'a.opus',
 			mime: 'audio/ogg',
@@ -116,7 +116,7 @@ describe('songs', () => {
 	});
 
 	it('stores a cleaned analysis and marks the song ready', () => {
-		const s = createSongFromUpload(db, {
+		const s = createSongFromUpload(db, 'salsa', {
 			file: 'x.mp3',
 			mime: 'audio/mpeg',
 			title: 'x',
@@ -129,11 +129,11 @@ describe('songs', () => {
 		expect(row?.status).toBe('ready');
 		expect(JSON.parse(row?.beatsJson ?? '[]')).toHaveLength(8);
 		expect(row?.bpm).toBeCloseTo(120);
-		expect(listSongs(db)[0]).toMatchObject({ id: s.id, status: 'ready', durationS: 5 });
+		expect(listSongs(db, 'salsa')[0]).toMatchObject({ id: s.id, status: 'ready', durationS: 5 });
 	});
 
 	it('retries a transient failure and fails a permanent one', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		claimJob(db, T);
 		failJob(db, s.id, 'network down', false);
 		// The lease stays: it is the backoff before the next try.
@@ -157,7 +157,7 @@ describe('songs', () => {
 	});
 
 	it('does not hand a transiently failed song out again until its lease runs out', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		expect(claimJob(db, T)?.id).toBe(s.id);
 		failJob(db, s.id, 'network down', false);
 		expect(claimJob(db, T + 1)).toBeNull();
@@ -167,7 +167,7 @@ describe('songs', () => {
 	});
 
 	it('fails the song on the last attempt even when the error is transient', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		let now = T;
 		for (let i = 0; i < MAX_ATTEMPTS; i++) {
 			expect(claimJob(db, now)?.id).toBe(s.id);
@@ -178,7 +178,7 @@ describe('songs', () => {
 	});
 
 	it('ignores a failure report for a song that is no longer waiting', () => {
-		const s = createSongFromUpload(db, {
+		const s = createSongFromUpload(db, 'salsa', {
 			file: 'x.mp3',
 			mime: 'audio/mpeg',
 			title: 'x',
@@ -190,9 +190,9 @@ describe('songs', () => {
 	});
 
 	it('retries only a failed, unarchived song', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		expect(retrySong(db, s.id)).toBeNull(); // waiting
-		const up = createSongFromUpload(db, {
+		const up = createSongFromUpload(db, 'salsa', {
 			file: 'x.mp3',
 			mime: 'audio/mpeg',
 			title: 'x',
@@ -209,7 +209,7 @@ describe('songs', () => {
 	});
 
 	it('retries an uploaded song by analysing it again', () => {
-		const s = createSongFromUpload(db, {
+		const s = createSongFromUpload(db, 'salsa', {
 			file: 'x.mp3',
 			mime: 'audio/mpeg',
 			title: 'x',
@@ -220,7 +220,7 @@ describe('songs', () => {
 	});
 
 	it('clears anchors when the tempo factor changes', () => {
-		const s = createSongFromUpload(db, {
+		const s = createSongFromUpload(db, 'salsa', {
 			file: 'x.mp3',
 			mime: 'audio/mpeg',
 			title: 'x',
@@ -233,9 +233,38 @@ describe('songs', () => {
 	});
 
 	it('archives out of the list and the queue', () => {
-		const s = createSongFromUrl(db, { url: URL, title: '', style: 'salsa' });
+		const s = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
 		expect(archiveSong(db, s.id, T)).toBe(true);
-		expect(listSongs(db)).toHaveLength(0);
+		expect(listSongs(db, 'salsa')).toHaveLength(0);
 		expect(claimJob(db, T)).toBeNull();
+	});
+});
+
+describe('songs are walled off by dance', () => {
+	it('lists only its own dance', () => {
+		createSongFromUpload(db, 'salsa', {
+			file: 'a.m4a',
+			mime: 'audio/mp4',
+			title: 'El Cantante',
+			style: 'salsa'
+		});
+		createSongFromUpload(db, 'bachata', {
+			file: 'b.m4a',
+			mime: 'audio/mp4',
+			title: 'Obsesion',
+			style: 'sensual'
+		});
+
+		expect(listSongs(db, 'salsa').map((s) => s.title)).toEqual(['El Cantante']);
+		expect(listSongs(db, 'bachata').map((s) => s.title)).toEqual(['Obsesion']);
+	});
+
+	it('still lets the dance-blind worker claim either', () => {
+		createSongFromUrl(db, 'bachata', {
+			url: 'https://example.test/x',
+			title: '',
+			style: 'sensual'
+		});
+		expect(claimJob(db, 1_000)).not.toBeNull();
 	});
 });

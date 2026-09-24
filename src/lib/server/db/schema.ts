@@ -76,6 +76,28 @@ export const figures = sqliteTable(
 		name: text('name').notNull(),
 		notes: text('notes'),
 		partner: text('partner', { enum: PARTNER }).notNull().default('partner'),
+		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
+		dance: text('dance').notNull().default('salsa'),
+		/**
+		 * The figure's style tag, validated against `DANCES[dance].styles` in
+		 * `figures.ts`. Plain text with no CHECK, on purpose.
+		 */
+		styleTag: text('style_tag'),
+		/**
+		 * VESTIGIAL — read by nothing, backfilled into `style_tag` by migration
+		 * 0005. It cannot be dropped and `figures_style_ck` cannot be widened,
+		 * because either means a table rebuild, and a rebuild is impossible here
+		 * for two independent reasons: drizzle-kit's generated rebuild selects
+		 * the new columns from the old table and fails at migrate time, AND
+		 * `recordings.figure_id` / `lesson_figures.figure_id` reference this
+		 * table, so the rebuild's `DROP TABLE` trips `foreign_keys = ON` — which
+		 * `openDb` sets and which cannot be turned off inside the migrator's
+		 * transaction.
+		 *
+		 * Leaving it alone is safe: its default is 'salsa', which always passes
+		 * its own CHECK, so it can never block a bachata row. Do not "clean this
+		 * up" — removing it is the trap.
+		 */
 		style: text('style', { enum: STYLES }).notNull().default('salsa'),
 		/** Phase 2: whether the player may call this figure by voice. */
 		callable: integer('callable', { mode: 'boolean' }).notNull().default(true),
@@ -128,8 +150,10 @@ export const songs = sqliteTable(
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		/** Empty until the user or the worker (from YouTube) names it. */
 		title: text('title').notNull().default(''),
+		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
+		dance: text('dance').notNull().default('salsa'),
 		artist: text('artist'),
-		style: text('style', { enum: STYLES }).notNull().default('salsa'),
+		style: text('style').notNull().default('salsa'),
 		sourceUrl: text('source_url'),
 		status: text('status', { enum: SONG_STATUSES }).notNull(),
 		error: text('error'),
@@ -170,6 +194,8 @@ export const exercises = sqliteTable(
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		name: text('name').notNull(),
+		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
+		dance: text('dance').notNull().default('salsa'),
 		source: text('source', { enum: SOURCES }).notNull(),
 		figureId: integer('figure_id').references(() => figures.id),
 		practiceMode: text('practice_mode', { enum: PRACTICE_MODES }).notNull().default('none'),
@@ -247,6 +273,8 @@ export const lessons = sqliteTable(
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		/** The local day the class happened, `YYYY-MM-DD`. */
 		lessonDay: text('lesson_day').notNull(),
+		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
+		dance: text('dance').notNull().default('salsa'),
 		title: text('title').notNull(),
 		notes: text('notes'),
 		archivedAt: integer('archived_at'),

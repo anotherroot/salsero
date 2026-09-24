@@ -2,7 +2,21 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// `files.ts` resolves `DATA_DIR` through `$env/dynamic/private`, and
+// SvelteKit bakes that module as a literal snapshot at Vite config time — a
+// runtime `process.env.DATA_DIR = dir` assignment is invisible to it, so a
+// spec that only sets `process.env` silently keeps writing to the real
+// `$DATA_DIR` (see `sweepUploads` below). Mocking the module, the way
+// `src/routes/[dance]/dance-wall.spec.ts` mocks `$lib/server/db`, is the only
+// way to be sure. `files.ts` reads no other key from `$env/dynamic/private`.
+// `vi.hoisted`, not a plain `const`: `vi.mock` factories are hoisted above
+// every import (see `dance-wall.spec.ts` for the same pattern), so a plain
+// module-scope binding would throw "Cannot access before initialization".
+const envMock = vi.hoisted(() => ({ DATA_DIR: '' }));
+vi.mock('$env/dynamic/private', () => ({ env: envMock }));
+
 import {
 	appendStream,
 	extensionFor,
@@ -144,7 +158,7 @@ describe('sweepUploads', () => {
 	let dir: string;
 	beforeEach(async () => {
 		dir = await mkdtemp(join(tmpdir(), 'salsa-sweep-'));
-		process.env.DATA_DIR = dir;
+		envMock.DATA_DIR = dir;
 	});
 	afterEach(async () => {
 		await rm(dir, { recursive: true, force: true });

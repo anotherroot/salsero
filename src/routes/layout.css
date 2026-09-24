@@ -17,6 +17,13 @@
 	--color-line: #e5e1da;
 	--color-rule: #cbc5bb;
 
+	/*
+	 * Salsa's accent, and the fallback for pages outside any dance (/login,
+	 * /settings before a dance has ever been chosen). Keep this hex IN SYNC
+	 * BY HAND with `DANCES.salsa.accent` in `src/lib/dances/dances.ts` — the
+	 * manifest route reads the registry, this stylesheet cannot, and nothing
+	 * but this comment ties the two together.
+	 */
 	--color-accent: #c2410c;
 	--color-accent-ink: #ffffff;
 	--color-danger: #c62828;
@@ -29,6 +36,20 @@
 @layer theme {
 	:root {
 		color-scheme: light;
+	}
+
+	/*
+	 * Bachata's accent, in light mode. Set with `data-dance` (from the root
+	 * layout, `src/routes/+layout.svelte`) rather than the brief's
+	 * `light-dark()` wrapper — that bets the theme on a CSS feature this app
+	 * does not otherwise require, where a plain attribute selector does not.
+	 * Salsa needs no rule here: it IS the `--color-accent` above.
+	 *
+	 * Keep this hex IN SYNC BY HAND with `DANCES.bachata.accent` in
+	 * `src/lib/dances/dances.ts` — see the comment on the light default above.
+	 */
+	[data-dance='bachata'] {
+		--color-accent: #0f766e;
 	}
 
 	@media (prefers-color-scheme: dark) {
@@ -51,6 +72,28 @@
 			--color-done: #5cc98f;
 			--color-done-bg: #173226;
 			--color-overdue: #f0a04b;
+		}
+
+		/*
+		 * Bachata's accent, in dark mode. A DESCENDANT combinator (the space),
+		 * not a compound selector: `data-dance` sits on a wrapper div inside the
+		 * tree (`src/routes/+layout.svelte`), never on `:root` itself, so a
+		 * selector requiring one element to be BOTH `:root` and `[data-dance=
+		 * 'bachata']` — as the salsa dark rule above reads at a glance — would
+		 * never match anything and this override would silently never apply,
+		 * leaving bachata stuck on its light accent after dark fell.
+		 * `:root:not([data-theme='light'])` here is an ANCESTOR condition:
+		 * "once dark mode is in effect", true for every element in the page.
+		 * Keep the hex IN SYNC BY HAND with `DANCES.bachata.accentDark`.
+		 *
+		 * `--color-accent-ink` is redefined here too: the pale teal fails against
+		 * the white ink the `@theme` block sets globally (1.86:1) — `bg-accent
+		 * text-accent-ink` is Play, Log set, Save, every selected chip. This dark
+		 * ink measures 9.04:1 against #2dd4bf, comfortably past WCAG AA's 4.5:1.
+		 */
+		:root:not([data-theme='light']) [data-dance='bachata'] {
+			--color-accent: #2dd4bf;
+			--color-accent-ink: #10201e;
 		}
 	}
 }

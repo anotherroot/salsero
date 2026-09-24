@@ -16,27 +16,37 @@
 
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import {
-		CALL_EVERY,
-		CLAVE_PATTERNS,
-		COUNT_PATTERNS,
-		COUNT_PATTERN_LABEL,
-		SPEEDS
-	} from '$lib/labels';
+	import { CALL_EVERY, CLAVE_PATTERNS, COUNT_PATTERN_LABEL, SPEEDS } from '$lib/labels';
+	import type { Dance } from '$lib/dances/dances';
 	import type { CallableFigure } from '$lib/types';
 
 	interface Props {
 		song: { id: number; title: string; audioFile: string | null } | null;
 		defaultBpm: number;
 		figures: CallableFigure[];
+		dance: Dance;
 		onplay: (settings: PlayerSettings) => void;
 		/** True while the player is starting, so Play cannot be tapped a second time. */
 		starting: boolean;
 	}
 
-	let { song, defaultBpm, figures, onplay, starting }: Props = $props();
+	let { song, defaultBpm, figures, dance, onplay, starting }: Props = $props();
 
-	const STORAGE_KEY = 'salsa.player';
+	// Keyed per dance so the two dances keep separate saved settings — without
+	// this, opening the other dance's player would silently overwrite (on the
+	// first render's persist effect) whatever the first dance had saved, before
+	// the user touched anything. Salsa's slug IS 'salsa', so this key is
+	// unchanged for salsa and every already-stored setting survives untouched;
+	// bachata simply gets its own key, `'bachata.player'`.
+	//
+	// `$derived`, not a plain `const`: `/[dance]/player` is ONE route, and
+	// SvelteKit reuses this component across a param change rather than
+	// remounting it (see the comment at `[dance]/songs/+page.svelte:11-16`) —
+	// a plain `const` would freeze at whichever dance first mounted the
+	// component. `loadStored()` and the persist `$effect` below both read
+	// through this same binding, so they never disagree about which key is
+	// current.
+	const STORAGE_KEY = $derived(`${dance.slug}.player`);
 	const allIds = figures.map((f) => f.id);
 
 	/**
@@ -70,21 +80,45 @@
 		song ? pick(stored.source, ['song', 'count'] as const, 'song') : 'count'
 	);
 	let bpm = $state(num(stored.bpm, 60, 300, defaultBpm));
-	// Through `pick`, like the clave below and for the same reason: an
+	// `count` and `clave` need to do two things at once: start from a value
+	// that depends on `dance` (through `pick`, below) AND stay editable by the
+	// pickers afterwards. A plain `$state` can only do the second — its
+	// initializer runs once, so a direct `dance` read inside it goes stale the
+	// same way `STORAGE_KEY` did. Splitting each into a `$derived` (tracks
+	// `dance`) plus an override `$state` (tracks the user's own tap) gets both:
+	// the override is `undefined` until the picker is touched, so the derived
+	// default keeps following `dance` right up until then.
+	//
+	// Through `pick`, for the same reason as the clave default below: an
 	// unrecognised pattern reaches COUNT_POSITIONS[...] as undefined and
 	// `for…of undefined` throws inside the scheduling tick. `true` is what a
 	// store written before patterns existed holds, and it means salsa.
-	let count = $state<CountPattern>(
-		stored.count === true
-			? 'salsa'
-			: stored.count === false
-				? 'off'
-				: pick(stored.count, COUNT_PATTERNS, 'salsa')
+	let countOverride = $state<CountPattern | undefined>(undefined);
+	const count = $derived(
+		countOverride ??
+			(stored.count === true
+				? 'salsa'
+				: stored.count === false
+					? 'off'
+					: pick(stored.count, dance.countPatterns, dance.defaultCountPattern))
 	);
+	// `null` is a legitimate choice ("clave off"), so the override needs a
+	// third state — `undefined` — to mean "not touched yet"; `clave ===
+	// undefined` would otherwise be indistinguishable from "off".
+	//
 	// An unrecognised clave would reach CLAVE_POSITIONS[...] as undefined and
 	// throw inside the 25 ms scheduling tick — which never surfaces as an error
-	// the user sees, just a player that plays nothing at all.
-	let clave = $state<ClavePattern | null>(pick(stored.clave, [...CLAVE_PATTERNS, null], null));
+	// the user sees, just a player that plays nothing at all. A dance without
+	// clave (bachata) must never restore one from a store written while in
+	// salsa — the store is per-browser, not per-dance.
+	let claveOverride = $state<ClavePattern | null | undefined>(undefined);
+	const clave = $derived(
+		claveOverride !== undefined
+			? claveOverride
+			: dance.clave
+				? pick(stored.clave, [...CLAVE_PATTERNS, null], null)
+				: null
+	);
 	let callEvery = $state<CallEvery | null>(pick(stored.callEvery, [...CALL_EVERY, null], 2));
 	let speed = $state<Speed>(pick(stored.speed, SPEEDS, 1));
 	let voiceVolume = $state(num(stored.voiceVolume, 0, 1, 1));
@@ -164,13 +198,13 @@
 			and a fast song needs the sparse ones to be as reachable as salsa.
 		-->
 		<div class="flex flex-wrap gap-2">
-			{#each COUNT_PATTERNS as p (p)}
+			{#each dance.countPatterns as p (p)}
 				<label class="{chip} min-w-[5.5rem] grow-0 basis-auto px-3">
 					<input
 						type="radio"
 						name="count"
 						checked={count === p}
-						onchange={() => (count = p)}
+						onchange={() => (countOverride = p)}
 						class="sr-only"
 					/>
 					{COUNT_PATTERN_LABEL[p]}
@@ -182,33 +216,35 @@
 		</a>
 	</fieldset>
 
-	<fieldset>
-		<legend class={label}>Clave</legend>
-		<div class="flex gap-2">
-			<label class={chip}>
-				<input
-					type="radio"
-					name="clave"
-					checked={clave === null}
-					onchange={() => (clave = null)}
-					class="sr-only"
-				/>
-				Off
-			</label>
-			{#each CLAVE_PATTERNS as c (c)}
+	{#if dance.clave}
+		<fieldset>
+			<legend class={label}>Clave</legend>
+			<div class="flex gap-2">
 				<label class={chip}>
 					<input
 						type="radio"
 						name="clave"
-						checked={clave === c}
-						onchange={() => (clave = c)}
+						checked={clave === null}
+						onchange={() => (claveOverride = null)}
 						class="sr-only"
 					/>
-					{c}
+					Off
 				</label>
-			{/each}
-		</div>
-	</fieldset>
+				{#each CLAVE_PATTERNS as c (c)}
+					<label class={chip}>
+						<input
+							type="radio"
+							name="clave"
+							checked={clave === c}
+							onchange={() => (claveOverride = c)}
+							class="sr-only"
+						/>
+						{c}
+					</label>
+				{/each}
+			</div>
+		</fieldset>
+	{/if}
 
 	<fieldset>
 		<legend class={label}>Calls</legend>

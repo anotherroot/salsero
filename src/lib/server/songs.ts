@@ -2,7 +2,8 @@ import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
 import { songs, type Song } from './db/schema';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
-import type { Style, TempoFactor } from '$lib/labels';
+import type { DanceSlug } from '$lib/dances/dances';
+import type { TempoFactor } from '$lib/labels';
 import type { SongItem } from '$lib/types';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
@@ -13,7 +14,8 @@ const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 
 export function createSongFromUrl(
 	db: Db,
-	input: { url: string; title: string; style: Style }
+	dance: DanceSlug,
+	input: { url: string; title: string; style: string }
 ): Song {
 	return db
 		.insert(songs)
@@ -21,7 +23,8 @@ export function createSongFromUrl(
 			sourceUrl: input.url,
 			title: input.title,
 			style: input.style,
-			status: 'waiting_download'
+			status: 'waiting_download',
+			dance
 		})
 		.returning()
 		.get();
@@ -29,7 +32,8 @@ export function createSongFromUrl(
 
 export function createSongFromUpload(
 	db: Db,
-	input: { file: string; mime: string; title: string; style: Style }
+	dance: DanceSlug,
+	input: { file: string; mime: string; title: string; style: string }
 ): Song {
 	return db
 		.insert(songs)
@@ -38,13 +42,14 @@ export function createSongFromUpload(
 			mime: input.mime,
 			title: input.title,
 			style: input.style,
-			status: 'waiting_analysis'
+			status: 'waiting_analysis',
+			dance
 		})
 		.returning()
 		.get();
 }
 
-export function listSongs(db: Db): SongItem[] {
+export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
 	return db
 		.select({
 			id: songs.id,
@@ -60,17 +65,17 @@ export function listSongs(db: Db): SongItem[] {
 			createdAt: songs.createdAt
 		})
 		.from(songs)
-		.where(isNull(songs.archivedAt))
+		.where(and(isNull(songs.archivedAt), eq(songs.dance, dance)))
 		.orderBy(desc(songs.createdAt), desc(songs.id))
 		.all() as SongItem[];
 }
 
-/** Ready, unarchived songs, for the practice-mode song picker. */
-export function listReadySongs(db: Db): { id: number; title: string }[] {
+/** Ready, unarchived songs of one dance, for the practice-mode song picker. */
+export function listReadySongs(db: Db, dance: DanceSlug): { id: number; title: string }[] {
 	return db
 		.select({ id: songs.id, title: songs.title })
 		.from(songs)
-		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready')))
+		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready'), eq(songs.dance, dance)))
 		.orderBy(songs.title)
 		.all();
 }
@@ -86,7 +91,7 @@ export function getSongByAudioFile(db: Db, file: string): Song | null {
 export function updateSongMeta(
 	db: Db,
 	id: number,
-	input: { title: string; artist: string | null; style: Style }
+	input: { title: string; artist: string | null; style: string }
 ): Song | null {
 	return db.update(songs).set(input).where(eq(songs.id, id)).returning().get() ?? null;
 }
