@@ -27,6 +27,16 @@ export interface Dance {
 	/** Whether the clave toggle exists. Salsa only. */
 	clave: boolean;
 	/**
+	 * The handhold vocabulary this dance starts with, seeded into `positions` at
+	 * boot when the dance has none. A starting point to edit, not a fixed list —
+	 * which is why the rows are the truth afterwards and this is only the seed.
+	 *
+	 * The FIRST entry is the neutral one: the position an untagged figure is
+	 * assumed to start and end at. It differs per dance on purpose — salsa
+	 * resolves to open, bachata to closed.
+	 */
+	seedPositions: readonly { slug: string; name: string }[];
+	/**
 	 * `--color-accent` in light mode, and the manifest's `theme_color`. Kept
 	 * IN SYNC BY HAND with the `[data-dance='…']` rules in
 	 * `src/routes/layout.css` — this registry is what the manifest route and
@@ -62,6 +72,17 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		countPatterns: ['salsa', 'son', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: true,
+		seedPositions: [
+			{ slug: 'open-two', name: 'Open, two hands' },
+			{ slug: 'open-one', name: 'Open, one hand' },
+			{ slug: 'closed', name: 'Closed' },
+			{ slug: 'cross-hand', name: 'Cross-hand' },
+			{ slug: 'hammerlock-r', name: "Hammerlock, follower's right" },
+			{ slug: 'hammerlock-l', name: "Hammerlock, follower's left" },
+			{ slug: 'shadow', name: 'Shadow' },
+			{ slug: 'cuddle', name: 'Cuddle' },
+			{ slug: 'back-to-back', name: 'Back to back' }
+		],
 		accent: '#c2410c',
 		accentDark: '#f06a2e'
 	},
@@ -81,6 +102,15 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		countPatterns: ['salsa', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: false,
+		seedPositions: [
+			{ slug: 'closed', name: 'Closed' },
+			{ slug: 'open-two', name: 'Open, two hands' },
+			{ slug: 'open-one', name: 'Open, one hand' },
+			{ slug: 'cross-hand', name: 'Cross-hand' },
+			{ slug: 'hammerlock', name: 'Hammerlock' },
+			{ slug: 'shadow', name: 'Shadow' },
+			{ slug: 'side-by-side', name: 'Side by side' }
+		],
 		accent: '#0f766e',
 		accentDark: '#2dd4bf'
 	}
