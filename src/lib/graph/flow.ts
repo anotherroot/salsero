@@ -45,6 +45,11 @@ export function graphFlow(g: Graph): Flow {
 			// unless it is the only way out, where repeating beats silence.
 			const usable =
 				last === null || choices.length === 1 ? choices : choices.filter((id) => id !== last);
+			// Not dead: `choices.length === 1` only short-circuits a POOL with one
+			// candidate. A pool with a duplicate — [4, 4] with `last === 4` — has
+			// `choices.length === 2`, so the filter runs anyway and empties the
+			// array; without this fallback `from` would be `[]` and the index below
+			// would return `undefined` as a figure id instead of repeating.
 			const from = usable.length > 0 ? usable : choices;
 			return from[Math.min(from.length - 1, Math.floor(r * from.length))];
 		},

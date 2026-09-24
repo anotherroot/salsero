@@ -74,6 +74,29 @@ describe('graphFlow', () => {
 		expect(flow.eights(99)).toBe(1);
 	});
 
+	it('walks a neutral-only graph exactly as the uniform flow does', () => {
+		// THE property that lets this ship without a data backfill: until figures
+		// are tagged, the graph is one neutral hub and the walk must be
+		// indistinguishable from the drill the player has always run. It compares
+		// whole plans, so a divergence in WHICH figure or in what ORDER the
+		// candidates were offered both fail it.
+		//
+		// The pool is deliberately NOT in id order (`[3, 1, 2]`, not `[1, 2, 3]`):
+		// with an ascending pool, filtering by the graph's declared figure order
+		// and filtering by the pool's own order produce the same sequence by
+		// coincidence, and a pool-vs-graph reordering bug would slip through
+		// undetected. A shuffled pool is what actually exercises "the order is the
+		// pool's" — verified by temporarily reversing the filter in `flow.ts` and
+		// confirming this test fails.
+		const flat: Graph = {
+			neutral: OPEN,
+			figures: [1, 2, 3].map((id) => ({ id, starts: [], end: null, eights: 1 }))
+		};
+		const viaGraph = extendPlan([], [3, 1, 2], 2, 10, rand([0, 0.5, 0.9]), graphFlow(flat));
+		const viaUniform = extendPlan([], [3, 1, 2], 2, 10, rand([0, 0.5, 0.9]));
+		expect(viaGraph).toEqual(viaUniform);
+	});
+
 	it('produces a dancable plan through extendPlan', () => {
 		const steps = extendPlan([], [1, 2, 3, 4], 1, 8, rand([0]), graphFlow(graph));
 		const by = (id: number) => graph.figures.find((f) => f.id === id)!;
