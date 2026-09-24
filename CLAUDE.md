@@ -135,11 +135,10 @@ scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is comm
   derive it through their parent, and `count_takes` is shared by both dances on
   purpose. Scoping happens in the data-access layer — `src/lib/urgency/` and
   `src/lib/day/` never learn that dances exist.
-- **`figures.style` is vestigial; `style_tag` is real.** Dropping it or widening
-  `figures_style_ck` means a table rebuild, which fails twice over: drizzle-kit's
-  generated rebuild selects the new columns from the old table, AND the rebuild's
-  `DROP TABLE` trips `foreign_keys = ON`, which `openDb` sets and which cannot be
-  turned off inside the migrator's transaction.
+- **`figures.style` is vestigial; `style_tag` is real.** Read by nothing,
+  backfilled into `style_tag` by migration 0005. Do not drop it or widen
+  `figures_style_ck` — see the CHECK rule above for why a rebuild here can't
+  be done safely.
 
 ## Commands
 

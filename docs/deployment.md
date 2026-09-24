@@ -84,11 +84,8 @@ covered; check that it is, because nothing else in the system can recreate it.
 loads under nixpkgs node (verified locally). If it ever fails to load on the
 box, the fallback is building from source there (python3, gcc, gnumake).
 
-This deploy carries a migration (`0005`, the dance columns). Snapshot first:
-
-```sh
-ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'
-```
+This deploy carries a migration (`0005`, the dance columns), so the snapshot
+above is not optional.
 
 The home worker needs no change and no redeploy — it claims songs by `status`,
 dance-blind.
