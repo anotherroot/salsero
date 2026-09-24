@@ -14,7 +14,7 @@ phone. It answers three needs:
 1. **What should I practice today?** — an exercise list ordered by how overdue
    each exercise is, with sets logged per day and history browsable by day.
 2. **Remember what I learned** — figures (dance moves) with recordings, and
-   choreographies built from them, including routines for specific songs.
+   routines built from the position graph.
 3. **Hear the music** — play saved songs (from YouTube or upload) with the
    count spoken aloud ("uno, dos, tres … cinco, seis, siete"), a clave click,
    slow-down, and figures called out in time ("right turn", "lateral").
@@ -32,7 +32,8 @@ phone. It answers three needs:
 ## Phases
 
 Each phase is independently deployable and useful. Phases 1 and 2 are **live**
-(2a on 2026-09-22, 2b on 2026-09-23); phase 3 is not built.
+(2a on 2026-09-22, 2b on 2026-09-23), as is phase 4; of phase 3, slice 3a is
+live (2026-09-24) and 3b is not built.
 
 1. **Exercises & figures** — Today page, exercises, sets, frequency/priority,
    active/inactive, past-day navigation, figures with recordings (auto-creating
@@ -42,8 +43,12 @@ Each phase is independently deployable and useful. Phases 1 and 2 are **live**
    and downbeat analysis, 1-correction, player with slow-down, voice count,
    clave click, random figure calls spoken by the browser, count-only mode,
    song page, player runs save a set.
-3. **Choreographies** — general and song-bound choreographies, auto-exercise,
-   player follows a choreography, song page lists its choreographies.
+3. **Routines & the figure graph** — positions (the handhold vocabulary), each
+   figure's start and end positions, the graph derived from them, the drill
+   walking it instead of picking at random, and the gap report; then routines
+   built on top, with variant slots. Reframed and split in two on 2026-09-24:
+   **3a is live**, 3b is not built. Song-bound choreography is out of scope. See
+   [`2026-09-24-routines-design.md`](2026-09-24-routines-design.md).
 4. **Lessons** — a class as a record: day, title, notes, chunk-uploaded videos,
    links to the figures it taught and to exercises, and its own auto-created
    review exercise. Shipped 2026-09-23, ahead of phase 3. Today gained a fourth
@@ -60,7 +65,7 @@ browser (work PC / phone, installable PWA)
   ├─ Today / Exercises   list, log sets, ‹ › day navigation
   ├─ Figures             list, detail, recordings
   ├─ Lessons             (phase 4) list, detail, videos, figure/exercise links
-  ├─ Choreographies      (phase 3)
+  ├─ Routines            (phase 3)
   ├─ Songs               (phase 2) library, add by URL/upload, song page
   └─ Player              (phase 2) <audio> + Web Audio scheduler
         │ HTTPS
@@ -110,7 +115,7 @@ exercises
   name            text not null
   source          'figure' | 'choreography' | 'custom' | 'lesson'
   figure_id       fk figures, nullable      -- set iff source = 'figure'
-  choreography_id fk choreographies, null   -- set iff source = 'choreography'
+  routine_id      fk routines, nullable     -- phase 3b, not built; set iff source = 'routine'
   lesson_id       fk lessons, nullable      -- set iff source = 'lesson'
   practice_mode   'song' | 'count' | 'none'  default 'none'
   song_id         fk songs, nullable        -- used when practice_mode = 'song'
@@ -147,7 +152,6 @@ figures
 recordings
   id              integer pk
   figure_id       fk figures, nullable
-  choreography_id fk choreographies, nullable -- phase 3; exactly one owner set
   file            text not null               -- name under recordings/
   mime            text not null
   kind            'video' | 'audio'
@@ -219,13 +223,13 @@ figure_start_positions                         -- phase 3a; handholds a figure c
 - **Urgency is never stored.** It is a pure function of `(exercises, sets,
 now)`, computed per request. No cron, no cached "last done" column.
 - **Nothing is hard-deleted** except a set (a mistaken log), a recording and a
-  lesson video. Figures, lessons, choreographies and exercises are archived;
-  sets keep pointing at them and history stays intact.
+  lesson video. Figures, lessons, positions and exercises are archived; sets
+  keep pointing at them and history stays intact.
 - **Creating a figure creates its exercise** in the same transaction
   (`source='figure'`, name = figure name, `practice_mode='none'`). Renaming the
   figure renames the exercise. Archiving the figure archives the exercise.
-  Same for choreographies in phase 3; a song-bound choreography's exercise gets
-  `practice_mode='song'` and that `song_id`.
+  Same for a routine in phase 3b (not built) — see the
+  [routines design](2026-09-24-routines-design.md).
   **Same for a lesson** (`source='lesson'`, name = `Review: <title>`), which is
   what puts a class on Today. `archiveExercise` and `updateExercise` are
   restricted to `source='custom'`, so an owned exercise can only be renamed or
@@ -276,8 +280,9 @@ The home page. One page serves both "exercises" and "today".
 
 - **List:** search box, filter by style and partner/solo. Archived hidden.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
-  players), link to its exercise, "Log set" shortcut. Phase 3: "used in
-  choreographies". Phase 2: callable toggle and call clip preview/record.
+  players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
+  position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"
+  (not built). Phase 2: callable toggle and call clip preview/record.
 - **Recordings:** upload from the phone camera or mic via
   `<input type="file" accept="video/*,audio/*" capture>`, or any file from a
   desktop. Upload shows progress. Stored as-is under
@@ -344,11 +349,11 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   only.
 - **Count-only mode:** no song; a synthetic grid at `count_bpm` with clave and
   voice.
-- **Random drill and choreography share one scheduler:** the scheduler plays a
+- **Random drill and routine share one scheduler:** the scheduler plays a
   _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
   8-count the figure STARTS on and the call sounds on count 5 of the one before.
   Random drill grows the plan lazily through `extendPlan(plan, pool, every,
-  throughEight, rand)`; a choreography will supply one outright in phase 3.
+  throughEight, rand)`; a routine will supply one outright in phase 3b.
   `rand` is injected so the module stays pure.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
