@@ -3,7 +3,7 @@ import type { Db } from './db';
 import { songs, type Song } from './db/schema';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
 import type { DanceSlug } from '$lib/dances/dances';
-import type { Style, TempoFactor } from '$lib/labels';
+import type { TempoFactor } from '$lib/labels';
 import type { SongItem } from '$lib/types';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
@@ -91,7 +91,7 @@ export function getSongByAudioFile(db: Db, file: string): Song | null {
 export function updateSongMeta(
 	db: Db,
 	id: number,
-	input: { title: string; artist: string | null; style: Style }
+	input: { title: string; artist: string | null; style: string }
 ): Song | null {
 	return db.update(songs).set(input).where(eq(songs.id, id)).returning().get() ?? null;
 }
