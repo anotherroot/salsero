@@ -1506,10 +1506,15 @@ Then add this test beside the other figure-page cases (near line 232):
 
 ```ts
 	it('refuses positions for a figure from the other dance, writing nothing', async () => {
-		const salsaOpen = listPositions(db, 'salsa').find((p) => p.slug === 'open-two')!;
+		// A BACHATA position on a BACHATA figure: `setFigurePositions`'s own
+		// per-position dance check would ACCEPT this payload, so the only thing
+		// that can refuse it is the route's `figureOf` guard. Posting a salsa
+		// position instead would 404 either way and prove nothing about the wall —
+		// the next test covers that layer deliberately.
+		const bachataClosed = listPositions(db, 'bachata').find((p) => p.slug === 'closed')!;
 		await refuses(
 			figurePage.actions.positions,
-			post('salsa', { startIds: String(salsaOpen.id), eights: '1' }, String(bachataFigureId))
+			post('salsa', { startIds: String(bachataClosed.id), eights: '1' }, String(bachataFigureId))
 		);
 		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
 	});
