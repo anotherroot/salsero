@@ -47,6 +47,12 @@
 	const failure = $derived(form && 'message' in form ? form.message : null);
 	// The figure's real style tag, not the vestigial `figure.style` column.
 	const styleLabel = $derived(figure.styleTag ? data.dance.styleLabel[figure.styleTag] : undefined);
+	const neutralName = $derived(data.positions.find((p) => p.neutral)?.name ?? 'the neutral hold');
+	const positionsFailure = $derived(
+		form && 'action' in form && form.action === 'positions' && 'message' in form
+			? form.message
+			: null
+	);
 </script>
 
 <svelte:head><title>{figure.name} · {data.dance.label}</title></svelte:head>
@@ -157,6 +163,100 @@
 			</section>
 		{/if}
 	{/if}
+
+	<section>
+		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Positions</h2>
+		<form method="POST" action="?/positions" class="space-y-3" use:enhance>
+			<fieldset class="rounded-xl border border-line bg-raised p-3">
+				<legend class="px-1 text-[13px] font-medium">Starts from</legend>
+				<p class="mb-2 text-[12px] text-muted">
+					Leave every box clear for {neutralName}.
+				</p>
+				<div class="space-y-1">
+					{#each data.positions as position (position.id)}
+						<label class="flex items-center gap-2 text-[15px]">
+							<input
+								type="checkbox"
+								name="startIds"
+								value={position.id}
+								checked={data.tags.startIds.includes(position.id)}
+								class="size-5 accent-accent"
+							/>
+							{position.name}
+						</label>
+					{/each}
+				</div>
+			</fieldset>
+
+			<label class="block">
+				<span class="text-[13px] font-medium">Ends at</span>
+				<select
+					name="endId"
+					class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+				>
+					<option value="" selected={data.tags.endId === null}>{neutralName}</option>
+					{#each data.positions as position (position.id)}
+						<option value={position.id} selected={data.tags.endId === position.id}>
+							{position.name}
+						</option>
+					{/each}
+				</select>
+			</label>
+
+			<label class="block">
+				<span class="text-[13px] font-medium">Eight-counts</span>
+				<input
+					type="number"
+					name="eights"
+					min="1"
+					max={data.maxEights}
+					value={figure.eights}
+					class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+				/>
+				<span class="text-[12px] text-muted"
+					>How long the figure takes. The drill spaces its calls by it.</span
+				>
+			</label>
+
+			{#if positionsFailure}
+				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
+					{positionsFailure}
+				</p>
+			{/if}
+			<button
+				type="submit"
+				class="h-11 w-full rounded-xl border border-line text-[14px] font-semibold"
+				>Save positions</button
+			>
+		</form>
+	</section>
+
+	<section class="grid grid-cols-2 gap-3">
+		{#each [{ title: 'Follows from', items: data.followsFrom }, { title: 'Leads to', items: data.leadsTo }] as list (list.title)}
+			<div>
+				<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
+					{list.title}
+				</h2>
+				{#if list.items.length === 0}
+					<p class="text-[13px] text-muted">Nothing yet.</p>
+				{:else}
+					<ul class="space-y-1">
+						{#each list.items as item (item.id)}
+							<li>
+								<a
+									class="text-[15px] text-accent"
+									href={resolve('/[dance]/figures/[id]', {
+										dance: data.dance.slug,
+										id: String(item.id)
+									})}>{item.name}</a
+								>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		{/each}
+	</section>
 
 	<section>
 		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Recordings</h2>

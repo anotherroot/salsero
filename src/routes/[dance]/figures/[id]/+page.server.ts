@@ -3,9 +3,18 @@ import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { logSet } from '$lib/server/exercises';
-import { archiveFigure, deleteRecording, getFigure, updateFigure } from '$lib/server/figures';
+import {
+	archiveFigure,
+	deleteRecording,
+	getFigure,
+	listFigures,
+	updateFigure
+} from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
-import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
+import { checkbox, int, ints, oneOf, optionalText, text } from '$lib/server/form';
+import { buildGraph, figurePositions, MAX_EIGHTS, setFigurePositions } from '$lib/server/graph';
+import { listPositions } from '$lib/server/positions';
+import { follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
@@ -34,7 +43,31 @@ function figureOf(params: { dance: string; id: string }) {
 	return found;
 }
 
-export const load: PageServerLoad = ({ params }) => figureOf(params);
+export const load: PageServerLoad = ({ params }) => {
+	const dance = danceOf(params);
+	const found = figureOf(params);
+	const db = getDb();
+	const graph = buildGraph(db, dance);
+	const names = new Map(listFigures(db, dance).map((f) => [f.id, f.name] as [number, string]));
+	const link = (ids: number[]) =>
+		ids
+			.filter((id) => id !== found.figure.id && names.has(id))
+			.map((id) => ({ id, name: names.get(id)! }));
+
+	return {
+		...found,
+		positions: listPositions(db, dance).map((p) => ({
+			id: p.id,
+			name: p.name,
+			neutral: p.neutral
+		})),
+		tags: figurePositions(db, found.figure.id),
+		maxEights: MAX_EIGHTS,
+		// Derived per request, never stored — the same rule urgency follows.
+		leadsTo: link(follows(graph, found.figure.id)),
+		followsFrom: link(precedes(graph, found.figure.id))
+	};
+};
 
 export const actions: Actions = {
 	update: async ({ params, request }) => {
@@ -66,6 +99,33 @@ export const actions: Actions = {
 			throw error(404, 'Figure not found');
 		}
 		return { action: 'update', ok: true };
+	},
+
+	/** The handholds this figure starts and ends at, plus how long it takes. */
+	positions: async ({ params, request }) => {
+		const figure = figureOf(params);
+		const form = await request.formData();
+		const startIds = ints(form, 'startIds');
+		const rawEnd = String(form.get('endId') ?? '');
+		const endId = rawEnd === '' ? null : Number(rawEnd);
+		const eights = int(form, 'eights');
+
+		if (endId !== null && !Number.isInteger(endId)) {
+			return fail(400, { action: 'positions', message: 'Pick an end position.' });
+		}
+		if (eights === undefined || eights < 1 || eights > MAX_EIGHTS) {
+			return fail(400, {
+				action: 'positions',
+				message: `A figure takes between 1 and ${MAX_EIGHTS} eight-counts.`
+			});
+		}
+		// A posted position id is just a number: `setFigurePositions` rejects one
+		// from the other dance, and that is a 404 rather than a message, the same
+		// answer every other cross-dance id gets here.
+		if (!setFigurePositions(getDb(), figure.figure.id, startIds, endId, eights)) {
+			throw error(404, 'Figure not found');
+		}
+		return { action: 'positions', ok: true };
 	},
 
 	archive: ({ params }) => {

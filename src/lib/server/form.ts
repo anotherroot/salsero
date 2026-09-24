@@ -42,3 +42,18 @@ export function oneOf<T extends string>(
 export function checkbox(form: FormData, key: string): boolean {
 	return form.get(key) === 'on' || form.get(key) === 'true';
 }
+
+/**
+ * Every value under one key, as integers, de-duplicated. Anything unparseable
+ * is dropped rather than failing the whole form: these come from a multi-select
+ * the user cannot type into, so a bad entry means a tampered body, and the
+ * scoping check downstream is what rejects it.
+ */
+export function ints(form: FormData, key: string): number[] {
+	const out = new Set<number>();
+	for (const raw of form.getAll(key)) {
+		const v = Number(raw);
+		if (Number.isInteger(v)) out.add(v);
+	}
+	return [...out];
+}

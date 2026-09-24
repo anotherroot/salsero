@@ -35,6 +35,8 @@ import {
 } from '$lib/server/exercises';
 import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
+import { figurePositions } from '$lib/server/graph';
+import { listPositions, seedPositions } from '$lib/server/positions';
 import { exercises, lessons, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
@@ -108,6 +110,7 @@ let bachataLessonId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
+	seedPositions(db);
 
 	salsaExerciseId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.exercise.id;
 	const bachata = createFigure(db, 'bachata', {
@@ -231,6 +234,24 @@ describe("the detail pages refuse the other dance's rows", () => {
 	it('will not archive a bachata figure from a salsa URL', async () => {
 		await refuses(figurePage.actions.archive, post('salsa', {}, String(bachataFigureId)));
 		expect(getFigure(db, bachataFigureId)?.figure.archivedAt).toBeNull();
+	});
+
+	it('refuses positions for a figure from the other dance, writing nothing', async () => {
+		const salsaOpen = listPositions(db, 'salsa').find((p) => p.slug === 'open-two')!;
+		await refuses(
+			figurePage.actions.positions,
+			post('salsa', { startIds: String(salsaOpen.id), eights: '1' }, String(bachataFigureId))
+		);
+		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
+	});
+
+	it('refuses a position from the other dance on a figure of this one', async () => {
+		const salsaFigureId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure.id;
+		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
+		await refuses(
+			figurePage.actions.positions,
+			post('salsa', { startIds: String(bachataShadow.id), eights: '1' }, String(salsaFigureId))
+		);
 	});
 
 	it('will not open a bachata song from a salsa URL', () => {
