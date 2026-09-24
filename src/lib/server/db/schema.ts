@@ -106,6 +106,14 @@ export const figures = sqliteTable(
 		 * ("dile que no" read as English). Null means speak `name`.
 		 */
 		callText: text('call_text'),
+		/**
+		 * Where the figure LEAVES the hands. Null means the dance's neutral
+		 * position — see `src/lib/graph/`. Null rather than a backfill so no
+		 * migration has to touch existing rows.
+		 */
+		endPositionId: integer('end_position_id').references(() => positions.id),
+		/** How many 8-counts the figure takes. The drill spaces calls by it. */
+		eights: integer('eights').notNull().default(1),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
@@ -132,6 +140,74 @@ export const recordings = sqliteTable(
 	},
 	(t) => [index('recordings_figure_idx').on(t.figureId)]
 );
+
+/* ── Positions ──────────────────────────────────────────────────────────── */
+
+/**
+ * The handhold vocabulary: where a figure's hands are before and after it.
+ *
+ * Rows rather than a registry entry, unlike `DANCES`. Count and clave positions
+ * are code-shaped, so a database row could not carry them; a handhold
+ * vocabulary is the opposite — it grows the week a new hold is learned and it
+ * differs between schools. Seeded at boot per dance, idempotently.
+ *
+ * `neutral` is the position an UNTAGGED figure is assumed to start and end at,
+ * which is why it is a column and not a constant: salsa's neutral is open with
+ * two hands, bachata's is closed. "Exactly one per dance" is cross-row and so
+ * cannot be a CHECK — `positions.ts` enforces it.
+ *
+ * No CHECK constraints at all here, deliberately: this table gains a foreign
+ * key from `figures.end_position_id`, so a future drizzle-kit rebuild would
+ * fail twice over. See the `figures.style` note above.
+ */
+export const positions = sqliteTable(
+	'positions',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
+		dance: text('dance').notNull().default('salsa'),
+		/** Stable identifier for the seed; never shown. */
+		slug: text('slug').notNull(),
+		/** What the user sees. Renameable without breaking the seed. */
+		name: text('name').notNull(),
+		/** The assumed position of an untagged figure. Exactly one per dance. */
+		neutral: integer('neutral', { mode: 'boolean' }).notNull().default(false),
+		sortOrder: integer('sort_order').notNull().default(0),
+		archivedAt: integer('archived_at'),
+		createdAt: createdAt()
+	},
+	(t) => [uniqueIndex('positions_dance_slug_idx').on(t.dance, t.slug)]
+);
+
+/**
+ * The handholds a figure can START from. Many, because entry is genuinely
+ * plural — enchufla works from open or from a cross-hand hold.
+ *
+ * The END is a single column on `figures` instead: the walk has to know where
+ * it landed, so if a figure ends differently depending on how it is finished,
+ * that is two figures.
+ *
+ * A join table rather than a JSON column because "which figures start here" is
+ * the graph's main query — unlike `anchors_json`, something reads inside it.
+ */
+export const figureStartPositions = sqliteTable(
+	'figure_start_positions',
+	{
+		figureId: integer('figure_id')
+			.notNull()
+			.references(() => figures.id),
+		positionId: integer('position_id')
+			.notNull()
+			.references(() => positions.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.figureId, t.positionId] }),
+		index('figure_start_positions_position_idx').on(t.positionId)
+	]
+);
+
+export type Position = typeof positions.$inferSelect;
 
 /* ── Songs ──────────────────────────────────────────────────────────────── */
 
