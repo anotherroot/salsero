@@ -6,9 +6,12 @@
 	import { setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
 	import { PRACTICE_LABEL, PRACTICE_MODES, type PracticeMode } from '$lib/labels';
+	import type { DanceSlug } from '$lib/dances/dances';
 	import type { DaySet, ExerciseItem } from '$lib/types';
 
 	interface Props {
+		/** The dance whose Today this is: every link out of the sheet stays in it. */
+		dance: DanceSlug;
 		exercise: ExerciseItem;
 		/** This exercise's sets on the day being viewed. */
 		sets: DaySet[];
@@ -28,7 +31,8 @@
 		onclose: () => void;
 	}
 
-	let { exercise, sets, songs, backfillDay, timezone, message, values, onclose }: Props = $props();
+	let { dance, exercise, sets, songs, backfillDay, timezone, message, values, onclose }: Props =
+		$props();
 
 	let rating = $state<number | null>(null);
 	let busy = $state(false);
@@ -53,9 +57,9 @@
 		exercise.practiceMode === 'song'
 			? songGone
 				? null
-				: resolve(`/player?song=${exercise.songId}&exercise=${exercise.id}`)
+				: resolve(`/${dance}/player?song=${exercise.songId}&exercise=${exercise.id}`)
 			: exercise.practiceMode === 'count'
-				? resolve(`/player?bpm=${exercise.countBpm}&exercise=${exercise.id}`)
+				? resolve(`/${dance}/player?bpm=${exercise.countBpm}&exercise=${exercise.id}`)
 				: null
 	);
 
@@ -259,12 +263,12 @@
 			-->
 			{#if exercise.source === 'figure' && exercise.figureId !== null}
 				<a
-					href={resolve('/figures/[id]', { id: String(exercise.figureId) })}
+					href={resolve('/[dance]/figures/[id]', { dance, id: String(exercise.figureId) })}
 					class="text-[14px] font-medium text-accent">Open figure →</a
 				>
 			{:else if exercise.source === 'lesson' && exercise.lessonId !== null}
 				<a
-					href={resolve('/lessons/[id]', { id: String(exercise.lessonId) })}
+					href={resolve('/[dance]/lessons/[id]', { dance, id: String(exercise.lessonId) })}
 					class="text-[14px] font-medium text-accent">Open lesson →</a
 				>
 			{:else if exercise.source === 'custom'}

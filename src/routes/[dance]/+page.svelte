@@ -49,28 +49,34 @@
 	);
 </script>
 
-<svelte:head><title>{data.isToday ? 'Today' : dayLabel(data.day)} · Salsa</title></svelte:head>
+<svelte:head
+	><title>{data.isToday ? 'Today' : dayLabel(data.day)} · {data.dance.label}</title></svelte:head
+>
 
 <header
 	class="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
 >
 	<a
-		href={resolve(`/?day=${data.prevDay}`)}
+		href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
 		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
 		aria-label="Previous day">‹</a
 	>
 	<div class="text-center">
 		<h1 class="text-[17px] font-semibold">{data.isToday ? 'Today' : dayLabel(data.day)}</h1>
 		{#if !data.isToday}
-			<a href={resolve('/')} class="text-[12px] text-accent">Back to today</a>
+			<a href={resolve('/[dance]', { dance: data.dance.slug })} class="text-[12px] text-accent"
+				>Back to today</a
+			>
 		{:else}
 			<p class="text-[12px] text-muted">{dayLabel(data.day)}</p>
 		{/if}
 	</div>
 	{#if data.nextDay}
 		<a
-			href={data.nextDay === data.today ? resolve('/') : resolve(`/?day=${data.nextDay}`)}
+			href={data.nextDay === data.today
+				? resolve('/[dance]', { dance: data.dance.slug })
+				: resolve(`/${data.dance.slug}?day=${data.nextDay}`)}
 			class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
 			aria-label="Next day">›</a
 		>
@@ -88,7 +94,7 @@
 					Add a figure you learned, or a custom exercise below.
 				</p>
 				<a
-					href={resolve('/figures?new=1')}
+					href={resolve(`/${data.dance.slug}/figures?new=1`)}
 					class="mt-4 inline-block rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-accent-ink"
 					>Add a figure</a
 				>
@@ -218,6 +224,7 @@
 
 {#if open}
 	<LogSheet
+		dance={data.dance.slug}
 		exercise={open}
 		sets={openSets}
 		songs={data.songs}

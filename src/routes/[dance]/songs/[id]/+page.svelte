@@ -5,8 +5,6 @@
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { clock } from '$lib/format';
 	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	import { DANCES } from '$lib/dances/dances';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -27,14 +25,14 @@
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 </script>
 
-<svelte:head><title>{song.title || 'Song'} · Salsa</title></svelte:head>
+<svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
 >
 	<a
-		href={resolve('/songs')}
+		href={resolve('/[dance]/songs', { dance: data.dance.slug })}
 		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
 		aria-label="Back to songs">‹</a
 	>
@@ -46,7 +44,7 @@
 <main class="space-y-6 px-4 pt-4 pb-4">
 	{#if grid && song.audioFile}
 		<a
-			href={resolve(`/player?song=${song.id}`)}
+			href={resolve(`/${data.dance.slug}/player?song=${song.id}`)}
 			class="block h-12 w-full rounded-xl bg-accent text-center text-[15px] leading-[3rem] font-semibold text-accent-ink"
 			>Practice with this song</a
 		>
@@ -147,7 +145,9 @@
 					>
 				</form>
 				<p class="mt-2 text-[12px] text-muted">
-					Or upload the audio file from the <a href={resolve('/songs')} class="text-accent">Songs</a
+					Or upload the audio file from the <a
+						href={resolve('/[dance]/songs', { dance: data.dance.slug })}
+						class="text-accent">Songs</a
 					> page.
 				</p>
 			{/if}
@@ -188,7 +188,7 @@
 				class={field}
 			/>
 			<select name="style" value={song.style} aria-label="Style" class={field}>
-				{#each DANCES.salsa.styles as s (s)}<option value={s}>{DANCES.salsa.styleLabel[s]}</option
+				{#each data.dance.styles as s (s)}<option value={s}>{data.dance.styleLabel[s]}</option
 					>{/each}
 			</select>
 			<button

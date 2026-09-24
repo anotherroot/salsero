@@ -4,34 +4,33 @@ import { createFigure, listFigures } from '$lib/server/figures';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER, type Partner } from '$lib/labels';
-import { DANCES } from '$lib/dances/dances';
+import { DANCES, type DanceSlug } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ url }) => {
+export const load: PageServerLoad = ({ url, params }) => {
+	const dance = params.dance as DanceSlug;
 	const q = url.searchParams.get('q')?.trim() ?? '';
 	const style = url.searchParams.get('style');
 	const partner = url.searchParams.get('partner');
 	const filter = {
 		q: q || undefined,
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		style: (DANCES.salsa.styles as readonly string[]).includes(style ?? '')
+		style: (DANCES[dance].styles as readonly string[]).includes(style ?? '')
 			? (style as string)
 			: undefined,
 		partner: (PARTNER as readonly string[]).includes(partner ?? '')
 			? (partner as Partner)
 			: undefined
 	};
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	return { figures: listFigures(getDb(), 'salsa', filter), filter: { ...filter, q } };
+	return { figures: listFigures(getDb(), dance, filter), filter: { ...filter, q } };
 };
 
 export const actions: Actions = {
-	create: async ({ request }) => {
+	create: async ({ params, request }) => {
+		const dance = params.dance as DanceSlug;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		const style = oneOf(form, 'style', DANCES.salsa.styles);
+		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
 		const callable = checkbox(form, 'callable');
 		const callText = optionalText(form, 'callText', 200);
@@ -50,10 +49,9 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
 		const made = createFigure(
 			getDb(),
-			'salsa',
+			dance,
 			{ name, partner, style, notes, callable, callText },
 			everyDays
 		);
@@ -64,6 +62,6 @@ export const actions: Actions = {
 				notes: notes ?? ''
 			});
 		}
-		throw redirect(303, `/figures/${made.figure.id}`);
+		throw redirect(303, `/${dance}/figures/${made.figure.id}`);
 	}
 };

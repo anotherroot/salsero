@@ -21,7 +21,7 @@
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 </script>
 
-<svelte:head><title>Lessons · Salsa</title></svelte:head>
+<svelte:head><title>Lessons · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
@@ -52,7 +52,13 @@
 		<ul class="space-y-2">
 			{#each data.lessons as lesson (lesson.id)}
 				<li class="overflow-hidden rounded-xl border border-line bg-raised">
-					<a href={resolve('/lessons/[id]', { id: String(lesson.id) })} class="block px-4 py-3">
+					<a
+						href={resolve('/[dance]/lessons/[id]', {
+							dance: data.dance.slug,
+							id: String(lesson.id)
+						})}
+						class="block px-4 py-3"
+					>
 						<span class="block truncate text-[15px] font-medium">{lesson.title}</span>
 						<span class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted">
 							<span>{dateLabel(lesson.lessonDay)}</span>

@@ -138,14 +138,14 @@
 	});
 </script>
 
-<svelte:head><title>Player · Salsa</title></svelte:head>
+<svelte:head><title>Player · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
 >
 	<a
-		href={resolve('/')}
+		href={resolve('/[dance]', { dance: data.dance.slug })}
 		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
 		aria-label="Back to Today">‹</a
 	>

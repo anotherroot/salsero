@@ -21,7 +21,7 @@ import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
-import { DANCES } from '$lib/dances/dances';
+import { DANCES, type DanceSlug } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -35,23 +35,37 @@ function lessonId(params: { id: string }): number {
 	return id;
 }
 
+/**
+ * The lesson this URL names, or a 404.
+ *
+ * `getLesson` is id-scoped, so the dance test is the only thing stopping
+ * `/salsa/lessons/7` from opening a bachata lesson while the URL claims
+ * otherwise. Archived is gone from every list, so it is gone from its own URL
+ * too — the same answer the figure page gives. Every action below reaches the
+ * row by id, so each one starts here.
+ */
+function lessonOf(params: { dance: string; id: string }) {
+	const found = getLesson(getDb(), lessonId(params));
+	if (!found || found.lesson.archivedAt !== null || found.lesson.dance !== params.dance) {
+		throw error(404, 'No such lesson');
+	}
+	return found;
+}
+
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
-	const id = lessonId(params);
-	const found = getLesson(db, id);
-	// Archived is gone from every list, so it is gone from its own URL too —
-	// the same answer the figure page gives.
-	if (!found || found.lesson.archivedAt !== null) throw error(404, 'No such lesson');
+	const found = lessonOf(params);
 	return {
 		...found,
-		linkableFigures: listLinkableFigures(db, id),
-		linkableExercises: listLinkableExercises(db, id),
+		linkableFigures: listLinkableFigures(db, found.lesson.id),
+		linkableExercises: listLinkableExercises(db, found.lesson.id),
 		today: localDay(Date.now(), zone(locals))
 	};
 };
 
 export const actions: Actions = {
 	update: async ({ params, request, locals }) => {
+		const id = lessonOf(params).lesson.id;
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
 		const title = text(form, 'title');
@@ -64,23 +78,27 @@ export const actions: Actions = {
 				message: 'Give it a title and a day that is not in the future.'
 			});
 		}
-		if (!updateLesson(getDb(), lessonId(params), { lessonDay, title, notes })) {
+		if (!updateLesson(getDb(), id, { lessonDay, title, notes })) {
 			return fail(404, { action: 'update', message: 'That lesson no longer exists.' });
 		}
 		return { action: 'update', ok: true };
 	},
 
 	archive: async ({ params }) => {
-		if (!archiveLesson(getDb(), lessonId(params), Date.now())) {
+		if (!archiveLesson(getDb(), lessonOf(params).lesson.id, Date.now())) {
 			return fail(400, { action: 'archive', message: 'That lesson is already archived.' });
 		}
-		throw redirect(303, '/lessons');
+		throw redirect(303, `/${params.dance}/lessons`);
 	},
 
 	/** Quick-log the review exercise, the same one-tap path the figure page has. */
-	log: async ({ request }) => {
+	log: async ({ params, request }) => {
+		const found = lessonOf(params);
 		const exerciseId = int(await request.formData(), 'exerciseId');
-		if (exerciseId === undefined) {
+		// Only this lesson's own review exercise — the one the button posts. Any
+		// other id would be a set logged on an exercise this page never showed,
+		// possibly in the other dance.
+		if (exerciseId === undefined || exerciseId !== found.exercise?.id) {
 			return fail(400, { action: 'log', message: 'Check the values and try again.' });
 		}
 		try {
@@ -106,12 +124,12 @@ export const actions: Actions = {
 	 * which is a better trade than depending on savepoint nesting.
 	 */
 	newFigure: async ({ params, request }) => {
-		const id = lessonId(params);
+		const dance = params.dance as DanceSlug;
+		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		const style = oneOf(form, 'style', DANCES.salsa.styles);
+		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
 		const callText = optionalText(form, 'callText', 200);
 		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
@@ -133,10 +151,9 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
 		const made = createFigure(
 			db,
-			'salsa',
+			dance,
 			{ name, partner, style, notes, callable: checkbox(form, 'callable'), callText },
 			everyDays
 		);
@@ -153,7 +170,7 @@ export const actions: Actions = {
 	},
 
 	newExercise: async ({ params, request }) => {
-		const id = lessonId(params);
+		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const everyDays = int(form, 'everyDays');
@@ -169,31 +186,37 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		const exercise = createCustomExercise(db, 'salsa', { name, everyDays, notes });
+		const exercise = createCustomExercise(db, params.dance as DanceSlug, {
+			name,
+			everyDays,
+			notes
+		});
 		linkExercise(db, id, exercise.id);
 		return { action: 'newExercise', ok: true };
 	},
 
 	linkFigure: async ({ params, request }) => {
+		const id = lessonOf(params).lesson.id;
 		const figureId = int(await request.formData(), 'figureId');
-		if (figureId === undefined || !linkFigure(getDb(), lessonId(params), figureId)) {
+		if (figureId === undefined || !linkFigure(getDb(), id, figureId)) {
 			return fail(400, { action: 'linkFigure', message: 'That figure could not be linked.' });
 		}
 		return { action: 'linkFigure', ok: true };
 	},
 
 	unlinkFigure: async ({ params, request }) => {
+		const id = lessonOf(params).lesson.id;
 		const figureId = int(await request.formData(), 'figureId');
-		if (figureId === undefined || !unlinkFigure(getDb(), lessonId(params), figureId)) {
+		if (figureId === undefined || !unlinkFigure(getDb(), id, figureId)) {
 			return fail(400, { action: 'unlinkFigure', message: 'That figure was already unlinked.' });
 		}
 		return { action: 'unlinkFigure', ok: true };
 	},
 
 	linkExercise: async ({ params, request }) => {
+		const id = lessonOf(params).lesson.id;
 		const exerciseId = int(await request.formData(), 'exerciseId');
-		if (exerciseId === undefined || !linkExercise(getDb(), lessonId(params), exerciseId)) {
+		if (exerciseId === undefined || !linkExercise(getDb(), id, exerciseId)) {
 			return fail(400, {
 				action: 'linkExercise',
 				message: 'That exercise could not be linked. A figure’s exercise lives under its figure.'
@@ -203,8 +226,9 @@ export const actions: Actions = {
 	},
 
 	unlinkExercise: async ({ params, request }) => {
+		const id = lessonOf(params).lesson.id;
 		const exerciseId = int(await request.formData(), 'exerciseId');
-		if (exerciseId === undefined || !unlinkExercise(getDb(), lessonId(params), exerciseId)) {
+		if (exerciseId === undefined || !unlinkExercise(getDb(), id, exerciseId)) {
 			return fail(400, {
 				action: 'unlinkExercise',
 				message: 'That exercise was already unlinked.'
@@ -214,10 +238,14 @@ export const actions: Actions = {
 	},
 
 	/** Row first, then file: an orphan file is harmless, a row pointing at nothing is not. */
-	deleteVideo: async ({ request }) => {
+	deleteVideo: async ({ params, request }) => {
+		const found = lessonOf(params);
 		const id = int(await request.formData(), 'videoId');
-		if (id === undefined) {
-			return fail(400, { action: 'deleteVideo', message: 'Check the values and try again.' });
+		// Checked against THIS lesson's videos before the delete: the data
+		// function deletes by id alone, so an id from another lesson — and so
+		// possibly from the other dance — would be gone before anyone noticed.
+		if (id === undefined || !found.videos.some((v) => v.id === id)) {
+			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
 		}
 		const row = deleteLessonVideo(getDb(), id);
 		if (!row) {

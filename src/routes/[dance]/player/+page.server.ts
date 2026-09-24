@@ -1,24 +1,37 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { buildGrid } from '$lib/beatgrid/beatgrid';
 import { PHRASE_PATTERNS, type TempoFactor } from '$lib/labels';
-import { getDb } from '$lib/server/db';
+import { getDb, type Db } from '$lib/server/db';
 import { getExercise, listExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listCallableFigures } from '$lib/server/figures';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getSong } from '$lib/server/songs';
+import type { DanceSlug } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
-export const load: PageServerLoad = ({ url }) => {
+/** The exercise, but only if it belongs to this dance. */
+function exerciseOf(db: Db, id: number, dance: DanceSlug) {
+	const found = getExercise(db, id);
+	return found && found.dance === dance ? found : null;
+}
+
+export const load: PageServerLoad = ({ url, params }) => {
+	const dance = params.dance as DanceSlug;
 	const db = getDb();
 	const songId = Number(url.searchParams.get('song')) || null;
 	const bpm = Number(url.searchParams.get('bpm')) || null;
 	const exerciseId = Number(url.searchParams.get('exercise')) || null;
 
 	const song = songId ? getSong(db, songId) : null;
-	if (songId && (!song || song.archivedAt !== null || song.status !== 'ready')) {
+	// `getSong` is id-scoped: a song from the other dance is no song at all here,
+	// or `/salsa/player?song=` would play a bachata track under a salsa count.
+	if (
+		songId &&
+		(!song || song.archivedAt !== null || song.status !== 'ready' || song.dance !== dance)
+	) {
 		throw error(404, 'No analysed song here');
 	}
 
@@ -33,11 +46,12 @@ export const load: PageServerLoad = ({ url }) => {
 				})
 			: null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		figures: listCallableFigures(db, 'salsa'),
-		exercise: exerciseId ? getExercise(db, exerciseId) : null,
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		exercises: listExercises(db, 'salsa').map((e) => ({ id: e.id, name: e.name })),
+		figures: listCallableFigures(db, dance),
+		// Same id-scoping as the song: an exercise from the other dance is not
+		// this player's to practise, so it comes back as "no exercise" rather
+		// than a run that would log its set on the far side of the wall.
+		exercise: exerciseId ? (exerciseOf(db, exerciseId, dance) ?? null) : null,
+		exercises: listExercises(db, dance).map((e) => ({ id: e.id, name: e.name })),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
@@ -46,7 +60,7 @@ export const load: PageServerLoad = ({ url }) => {
 
 export const actions: Actions = {
 	/** Log the finished run as a set on the exercise it was practised for. */
-	save: async ({ request }) => {
+	save: async ({ params, request }) => {
 		const form = await request.formData();
 		const exerciseId = int(form, 'exerciseId');
 		const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
@@ -70,6 +84,12 @@ export const actions: Actions = {
 				...entered
 			});
 		}
+		// The run is logged by id, so the id is checked against this dance: the
+		// sheet only ever offers this dance's exercises, and a posted id must not
+		// be able to reach past that.
+		if (!exerciseOf(getDb(), exerciseId, params.dance as DanceSlug)) {
+			return fail(400, { message: 'That exercise no longer exists.', ...entered });
+		}
 		try {
 			logSet(getDb(), {
 				exerciseId,
@@ -87,6 +107,6 @@ export const actions: Actions = {
 		} catch {
 			return fail(400, { message: 'That exercise no longer exists.', ...entered });
 		}
-		throw redirect(303, '/');
+		throw redirect(303, `/${params.dance}`);
 	}
 };

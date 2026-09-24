@@ -238,6 +238,11 @@ describe('figures are walled off by dance', () => {
 		expect(listFigures(db, 'salsa')[0].style).toBe('salsa');
 	});
 
+	it('a figure knows the dance it belongs to, so a loader can refuse it', () => {
+		const made = createFigure(db, 'bachata', bachataInput)!;
+		expect(getFigure(db, made.figure.id)?.figure.dance).toBe('bachata');
+	});
+
 	it('calls only its own dance figures', () => {
 		createFigure(db, 'salsa', figureInput);
 		createFigure(db, 'bachata', bachataInput);

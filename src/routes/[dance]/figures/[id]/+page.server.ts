@@ -7,7 +7,7 @@ import { archiveFigure, deleteRecording, getFigure, updateFigure } from '$lib/se
 import { recordingsDir } from '$lib/server/files';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER } from '$lib/labels';
-import { DANCES } from '$lib/dances/dances';
+import { DANCES, type DanceSlug } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 function figureId(raw: string): number {
@@ -16,19 +16,31 @@ function figureId(raw: string): number {
 	return id;
 }
 
-export const load: PageServerLoad = ({ params }) => {
+/**
+ * The figure this URL names, or a 404.
+ *
+ * `getFigure` is id-scoped, so nothing but this stops `/salsa/figures/7` from
+ * rendering a bachata figure — a hole straight through the dance wall, with the
+ * URL claiming otherwise. Every action below reaches a row by id too, and each
+ * one goes through here first.
+ */
+function figureOf(params: { dance: string; id: string }) {
 	const found = getFigure(getDb(), figureId(params.id));
-	if (!found || found.figure.archivedAt !== null) throw error(404, 'Figure not found');
+	if (!found || found.figure.archivedAt !== null || found.figure.dance !== params.dance) {
+		throw error(404, 'Figure not found');
+	}
 	return found;
-};
+}
+
+export const load: PageServerLoad = ({ params }) => figureOf(params);
 
 export const actions: Actions = {
 	update: async ({ params, request }) => {
+		const figure = figureOf(params);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		const style = oneOf(form, 'style', DANCES.salsa.styles);
+		const style = oneOf(form, 'style', DANCES[params.dance as DanceSlug].styles);
 		const notes = optionalText(form, 'notes');
 		const callable = checkbox(form, 'callable');
 		const callText = optionalText(form, 'callText', 200);
@@ -40,7 +52,7 @@ export const actions: Actions = {
 		}
 		const db = getDb();
 		if (
-			!updateFigure(db, figureId(params.id), {
+			!updateFigure(db, figure.figure.id, {
 				name,
 				partner,
 				style,
@@ -55,14 +67,14 @@ export const actions: Actions = {
 	},
 
 	archive: ({ params }) => {
-		archiveFigure(getDb(), figureId(params.id), Date.now());
-		throw redirect(303, '/figures');
+		archiveFigure(getDb(), figureOf(params).figure.id, Date.now());
+		throw redirect(303, `/${params.dance}/figures`);
 	},
 
 	/** Quick log from the figure page, so practising after watching a recording is one tap. */
 	log: ({ params }) => {
-		const found = getFigure(getDb(), figureId(params.id));
-		if (!found?.exercise)
+		const found = figureOf(params);
+		if (!found.exercise)
 			return fail(404, { action: 'log', message: 'No exercise for this figure.' });
 		logSet(getDb(), {
 			exerciseId: found.exercise.id,
@@ -77,10 +89,20 @@ export const actions: Actions = {
 	},
 
 	deleteRecording: async ({ params, request }) => {
+		const found = figureOf(params);
 		const id = int(await request.formData(), 'recordingId');
-		const db = getDb();
-		const rec = id === undefined ? null : deleteRecording(db, id);
-		if (!rec || rec.figureId !== figureId(params.id)) {
+		// Checked against THIS figure's recordings before the delete, not after:
+		// `deleteRecording` is a blind delete-and-return, so an id belonging to
+		// another figure — and so possibly to the other dance — would already be
+		// gone by the time the answer came back.
+		if (id === undefined || !found.recordings.some((r) => r.id === id)) {
+			return fail(404, {
+				action: 'deleteRecording',
+				message: 'That recording was already removed.'
+			});
+		}
+		const rec = deleteRecording(getDb(), id);
+		if (!rec) {
 			return fail(404, {
 				action: 'deleteRecording',
 				message: 'That recording was already removed.'

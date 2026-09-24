@@ -18,20 +18,29 @@ import {
 	scaleBeats
 } from '$lib/beatgrid/beatgrid';
 import { TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
-// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-import { DANCES } from '$lib/dances/dances';
+import { DANCES, type DanceSlug } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
-function load_(id: string) {
-	const song = getSong(getDb(), Number(id));
-	if (!song || song.archivedAt !== null) throw error(404, 'Song not found');
+/**
+ * The song this URL names, or a 404.
+ *
+ * `getSong` is id-scoped, so without the dance test `/salsa/songs/7` would
+ * happily render a bachata song and the URL would be lying about which dance
+ * you are in. Every action below reaches the row by id too, so each goes
+ * through here rather than trusting the id alone.
+ */
+function songOf(params: { dance: string; id: string }) {
+	const song = getSong(getDb(), Number(params.id));
+	if (!song || song.archivedAt !== null || song.dance !== params.dance) {
+		throw error(404, 'Song not found');
+	}
 	return song;
 }
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
 export const load: PageServerLoad = ({ params }) => {
-	const song = load_(params.id);
+	const song = songOf(params);
 	const anchors = parse(song.anchorsJson);
 	const grid =
 		song.status === 'ready'
@@ -63,7 +72,7 @@ export const load: PageServerLoad = ({ params }) => {
 export const actions: Actions = {
 	/** A tap on "the 1" at playhead time `t`, snapped to the nearest beat after reaction-time compensation. */
 	tap: async ({ params, request }) => {
-		const song = load_(params.id);
+		const song = songOf(params);
 		const t = Number((await request.formData()).get('t'));
 		if (!Number.isFinite(t) || song.status !== 'ready')
 			return fail(400, { message: 'Play the song first.' });
@@ -75,19 +84,19 @@ export const actions: Actions = {
 	},
 
 	removeAnchor: async ({ params, request }) => {
-		const song = load_(params.id);
+		const song = songOf(params);
 		const i = Number((await request.formData()).get('beat'));
 		setAnchors(getDb(), song.id, removeAnchor(parse(song.anchorsJson), i));
 		return { ok: true };
 	},
 
 	resetAnchors: ({ params }) => {
-		setAnchors(getDb(), load_(params.id).id, []);
+		setAnchors(getDb(), songOf(params).id, []);
 		return { ok: true };
 	},
 
 	tempo: async ({ params, request }) => {
-		const song = load_(params.id);
+		const song = songOf(params);
 		const f = Number((await request.formData()).get('factor'));
 		if (!(TEMPO_FACTORS as readonly number[]).includes(f))
 			return fail(400, { message: 'Bad tempo.' });
@@ -96,12 +105,11 @@ export const actions: Actions = {
 	},
 
 	update: async ({ params, request }) => {
-		const song = load_(params.id);
+		const song = songOf(params);
 		const form = await request.formData();
 		const title = text(form, 'title');
 		const artist = optionalText(form, 'artist', 200);
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		const style = oneOf(form, 'style', DANCES.salsa.styles);
+		const style = oneOf(form, 'style', DANCES[params.dance as DanceSlug].styles);
 		if (!title || artist === undefined || !style) {
 			return fail(400, { message: 'Give the song a title (up to 200 characters).' });
 		}
@@ -110,14 +118,14 @@ export const actions: Actions = {
 	},
 
 	retry: ({ params }) => {
-		if (!retrySong(getDb(), load_(params.id).id)) {
+		if (!retrySong(getDb(), songOf(params).id)) {
 			return fail(409, { message: 'Only a failed song can be retried.' });
 		}
 		return { ok: true };
 	},
 
 	archive: ({ params }) => {
-		archiveSong(getDb(), load_(params.id).id, Date.now());
-		throw redirect(303, '/songs');
+		archiveSong(getDb(), songOf(params).id, Date.now());
+		throw redirect(303, `/${params.dance}/songs`);
 	}
 };

@@ -35,14 +35,18 @@
 	const heading = 'mb-2 text-[12px] font-medium tracking-wide text-muted uppercase';
 </script>
 
-<svelte:head><title>{lesson.title} · Salsa</title></svelte:head>
+<svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
 >
 	<div class="flex items-center gap-2">
-		<a href={resolve('/lessons')} class="-ml-1 px-1 text-[20px] text-muted" aria-label="Back">‹</a>
+		<a
+			href={resolve('/[dance]/lessons', { dance: data.dance.slug })}
+			class="-ml-1 px-1 text-[20px] text-muted"
+			aria-label="Back">‹</a
+		>
 		<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{lesson.title}</h1>
 		<button
 			type="button"
@@ -185,7 +189,13 @@
 				<ul class="space-y-2">
 					{#each data.figures as figure (figure.id)}
 						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
-							<a href={resolve('/figures/[id]', { id: String(figure.id) })} class="min-w-0 flex-1">
+							<a
+								href={resolve('/[dance]/figures/[id]', {
+									dance: data.dance.slug,
+									id: String(figure.id)
+								})}
+								class="min-w-0 flex-1"
+							>
 								<span class="block truncate text-[15px] font-medium">{figure.name}</span>
 								<span class="text-[12px] text-muted">{PARTNER_LABEL[figure.partner]}</span>
 							</a>
@@ -265,7 +275,7 @@
 				{failure('newFigure')}
 			</p>
 		{/if}
-		<FigureFields />
+		<FigureFields dance={data.dance} />
 		<label class="block">
 			<span class={label}>How often</span>
 			<select name="everyDays" class={field} value={DEFAULT_EVERY_DAYS}>

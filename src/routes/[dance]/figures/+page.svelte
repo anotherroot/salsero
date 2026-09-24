@@ -6,8 +6,6 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import { PARTNER, PARTNER_LABEL } from '$lib/labels';
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	import { DANCES } from '$lib/dances/dances';
 	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
 	import type { ActionData, PageData } from './$types';
 
@@ -27,7 +25,9 @@
 			.filter(([, v]) => v)
 			.map(([k, v]) => `${k}=${encodeURIComponent(v as string)}`)
 			.join('&');
-		return qs ? resolve(`/figures?${qs}`) : resolve('/figures');
+		return qs
+			? resolve(`/${data.dance.slug}/figures?${qs}`)
+			: resolve('/[dance]/figures', { dance: data.dance.slug });
 	}
 
 	const pill = (on: boolean) =>
@@ -35,11 +35,10 @@
 
 	// A figure's style_tag can be null (or, in principle, unknown to this
 	// dance); render nothing rather than "undefined".
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	const styleLabel = (s: string | null) => (s ? DANCES.salsa.styleLabel[s] : undefined);
+	const styleLabel = (s: string | null) => (s ? data.dance.styleLabel[s] : undefined);
 </script>
 
-<svelte:head><title>Figures · Salsa</title></svelte:head>
+<svelte:head><title>Figures · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
@@ -71,11 +70,11 @@
 		/>
 	</form>
 	<div class="mt-2 flex gap-2 overflow-x-auto pb-1">
-		{#each DANCES.salsa.styles as s (s)}
+		{#each data.dance.styles as s (s)}
 			<a
 				class={pill(data.filter.style === s)}
 				href={filterUrl({ style: data.filter.style === s ? undefined : s })}
-				>{DANCES.salsa.styleLabel[s]}</a
+				>{data.dance.styleLabel[s]}</a
 			>
 		{/each}
 		{#each PARTNER as p (p)}
@@ -100,7 +99,7 @@
 		{#each data.figures as f (f.id)}
 			<li>
 				<a
-					href={resolve('/figures/[id]', { id: String(f.id) })}
+					href={resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
 					class="flex items-center justify-between gap-3 rounded-xl border border-line bg-raised px-4 py-3"
 				>
 					<span class="min-w-0">
@@ -135,7 +134,7 @@
 				};
 			}}
 		>
-			<FigureFields name={form?.name} notes={form?.notes} />
+			<FigureFields dance={data.dance} name={form?.name} notes={form?.notes} />
 			<label class="block">
 				<span class="mb-1 block text-[12px] font-medium text-ink-2">Practise it</span>
 				<select

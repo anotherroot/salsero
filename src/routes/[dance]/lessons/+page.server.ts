@@ -4,6 +4,7 @@ import { createLesson, lessonVideoBytes, listLessons } from '$lib/server/lessons
 import { int, optionalText, text } from '$lib/server/form';
 import { isValidDay, localDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
+import type { DanceSlug } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -11,18 +12,17 @@ function zone(locals: App.Locals): string {
 	return locals.user.timezone;
 }
 
-export const load: PageServerLoad = ({ locals }) => {
+export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	return {
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		lessons: listLessons(db, 'salsa'),
+		lessons: listLessons(db, params.dance as DanceSlug),
 		storageBytes: lessonVideoBytes(db),
 		today: localDay(Date.now(), zone(locals))
 	};
 };
 
 export const actions: Actions = {
-	create: async ({ request, locals }) => {
+	create: async ({ params, request, locals }) => {
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
 		const title = text(form, 'title');
@@ -55,8 +55,12 @@ export const actions: Actions = {
 			});
 		}
 
-		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-		const { lesson } = createLesson(getDb(), 'salsa', { lessonDay, title, notes }, everyDays);
-		throw redirect(303, `/lessons/${lesson.id}`);
+		const { lesson } = createLesson(
+			getDb(),
+			params.dance as DanceSlug,
+			{ lessonDay, title, notes },
+			everyDays
+		);
+		throw redirect(303, `/${params.dance}/lessons/${lesson.id}`);
 	}
 };

@@ -4,13 +4,20 @@
 	import { resolve } from '$app/paths';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import { clock } from '$lib/format';
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	import { DANCES } from '$lib/dances/dances';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let busy = $state(false);
-	let uploadStyle = $state('salsa');
+	/*
+	 * The style chosen for an upload, and null until the picker is touched.
+	 * Derived rather than seeded once, because switching dance keeps this
+	 * component mounted — only the param changes — and 'salsa' is not a style
+	 * bachata has: a stale pick has to fall back to the new dance's first.
+	 */
+	let picked = $state<string | null>(null);
+	const uploadStyle = $derived(
+		picked && data.dance.styles.includes(picked) ? picked : data.dance.styles[0]
+	);
 
 	const STATUS: Record<string, string> = {
 		waiting_download: 'Waiting for the home fetcher',
@@ -30,11 +37,10 @@
 		return () => clearInterval(t);
 	});
 
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	const styleLabel = (s: string) => DANCES.salsa.styleLabel[s];
+	const styleLabel = (s: string) => data.dance.styleLabel[s];
 </script>
 
-<svelte:head><title>Songs · Salsa</title></svelte:head>
+<svelte:head><title>Songs · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
@@ -80,7 +86,7 @@
 				aria-label="Style"
 				class="rounded-lg border border-rule bg-raised px-2 text-[15px]"
 			>
-				{#each DANCES.salsa.styles as s (s)}<option value={s}>{DANCES.salsa.styleLabel[s]}</option
+				{#each data.dance.styles as s (s)}<option value={s}>{data.dance.styleLabel[s]}</option
 					>{/each}
 			</select>
 		</div>
@@ -100,24 +106,24 @@
 	<div class="flex items-start gap-2">
 		<div class="min-w-0 flex-1">
 			<UploadButton
-				url="/api/songs"
+				url="/api/songs?dance={data.dance.slug}"
 				accept="audio/*"
 				label="+ Upload an audio file"
 				headers={() => ({ 'x-style': uploadStyle })}
 			/>
 		</div>
 		<select
-			bind:value={uploadStyle}
+			value={uploadStyle}
+			onchange={(e) => (picked = e.currentTarget.value)}
 			aria-label="Style of the uploaded song"
 			class="h-12 rounded-xl border border-rule bg-raised px-2 text-[15px]"
 		>
-			{#each DANCES.salsa.styles as s (s)}<option value={s}>{DANCES.salsa.styleLabel[s]}</option
-				>{/each}
+			{#each data.dance.styles as s (s)}<option value={s}>{data.dance.styleLabel[s]}</option>{/each}
 		</select>
 	</div>
 
 	<a
-		href={resolve('/player?bpm=180')}
+		href={resolve(`/${data.dance.slug}/player?bpm=180`)}
 		class="block h-11 w-full rounded-xl border border-rule text-center text-[14px] leading-[2.75rem] font-medium text-ink-2"
 		>Count-only drill</a
 	>
@@ -128,7 +134,10 @@
 	<ul class="space-y-2">
 		{#each data.songs as s (s.id)}
 			<li class="rounded-xl border border-line bg-raised">
-				<a href={resolve('/songs/[id]', { id: String(s.id) })} class="block px-4 py-3">
+				<a
+					href={resolve('/[dance]/songs/[id]', { dance: data.dance.slug, id: String(s.id) })}
+					class="block px-4 py-3"
+				>
 					<span class="block truncate text-[15px] font-medium">{s.title || s.sourceUrl}</span>
 					<span class="text-[12px] {s.status === 'failed' ? 'text-danger' : 'text-muted'}">
 						{styleLabel(s.style)}

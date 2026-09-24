@@ -4,8 +4,6 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import { PARTNER_LABEL } from '$lib/labels';
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	import { DANCES } from '$lib/dances/dances';
 	import { frequencyLabel } from '$lib/frequency';
 	import { dateLabel } from '$lib/format';
 	import { localDay } from '$lib/day/day';
@@ -48,20 +46,17 @@
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const failure = $derived(form && 'message' in form ? form.message : null);
 	// The figure's real style tag, not the vestigial `figure.style` column.
-	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
-	const styleLabel = $derived(
-		figure.styleTag ? DANCES.salsa.styleLabel[figure.styleTag] : undefined
-	);
+	const styleLabel = $derived(figure.styleTag ? data.dance.styleLabel[figure.styleTag] : undefined);
 </script>
 
-<svelte:head><title>{figure.name} · Salsa</title></svelte:head>
+<svelte:head><title>{figure.name} · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
 >
 	<a
-		href={resolve('/figures')}
+		href={resolve('/[dance]/figures', { dance: data.dance.slug })}
 		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
 		aria-label="Back to figures">‹</a
 	>
@@ -86,6 +81,7 @@
 				}}
 		>
 			<FigureFields
+				dance={data.dance}
 				name={figure.name}
 				partner={figure.partner}
 				style={figure.styleTag ?? undefined}
@@ -134,7 +130,9 @@
 					<p class="text-[14px] font-medium">Practice</p>
 					<p class="text-[12px] text-muted">
 						{frequencyLabel(data.exercise.everyDays)}{data.exercise.active ? '' : ' · inactive'} ·
-						<a href={resolve('/')} class="text-accent">settings on Today</a>
+						<a href={resolve('/[dance]', { dance: data.dance.slug })} class="text-accent"
+							>settings on Today</a
+						>
 					</p>
 				</div>
 				<form
