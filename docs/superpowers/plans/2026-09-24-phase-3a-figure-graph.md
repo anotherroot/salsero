@@ -1461,7 +1461,7 @@ export function setFigurePositions(
 - [ ] **Step 4: Run the tests**
 
 Run: `npx vitest run src/lib/server/graph.spec.ts`
-Expected: PASS, all eight tests.
+Expected: PASS, all seven tests.
 
 - [ ] **Step 5: Run the whole suite**
 
