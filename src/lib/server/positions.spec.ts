@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
 import { figures, positions } from './db/schema';
-import { createPosition, listPositions, neutralPosition, seedPositions } from './positions';
+import {
+	createPosition,
+	listPositions,
+	neutralPosition,
+	seedPositions,
+	updatePosition
+} from './positions';
 
 describe('positions schema', () => {
 	it('stores a position and a figure tagged with start and end', () => {
@@ -79,5 +85,40 @@ describe('createPosition', () => {
 		expect(createPosition(db, 'salsa', input)).not.toBeNull();
 		expect(createPosition(db, 'salsa', input)).toBeNull();
 		expect(createPosition(db, 'bachata', input)).not.toBeNull();
+	});
+});
+
+describe('updatePosition', () => {
+	it('renames without disturbing the neutral', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const open = neutralPosition(db, 'salsa')!;
+		const row = updatePosition(db, open.id, {
+			slug: open.slug,
+			name: 'Open, both hands',
+			neutral: true,
+			sortOrder: open.sortOrder
+		});
+		expect(row!.name).toBe('Open, both hands');
+		expect(neutralPosition(db, 'salsa')!.id).toBe(open.id);
+	});
+
+	it('moves the neutral, leaving exactly one', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
+		updatePosition(db, closed.id, { ...closed, neutral: true });
+		expect(neutralPosition(db, 'salsa')!.id).toBe(closed.id);
+		expect(listPositions(db, 'salsa').filter((p) => p.neutral)).toHaveLength(1);
+	});
+
+	it('refuses to demote the last neutral, leaving the dance with one', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const open = neutralPosition(db, 'salsa')!;
+		// Nothing else is neutral, so clearing this one would leave none — and an
+		// untagged figure would have no position to resolve to.
+		expect(updatePosition(db, open.id, { ...open, neutral: false })).toBeNull();
+		expect(neutralPosition(db, 'salsa')!.id).toBe(open.id);
 	});
 });

@@ -23,7 +23,9 @@ export function listPositions(db: Db, dance: DanceSlug) {
 /**
  * The dance's neutral position — what an untagged figure is assumed to start
  * and end at. Null only before the seed has run, which no route can observe:
- * `bootstrap` seeds before the first request resolves.
+ * `bootstrap` seeds before the first request resolves, and `createPosition`,
+ * `updatePosition` and `archivePosition` all refuse to leave a seeded dance
+ * without one.
  */
 export function neutralPosition(db: Db, dance: DanceSlug) {
 	return (
@@ -66,11 +68,21 @@ export function createPosition(db: Db, dance: DanceSlug, input: PositionInput) {
 	});
 }
 
-/** Edit a position. Returns null when it is gone or the new slug clashes. */
+/**
+ * Edit a position. Returns null when it is gone, when the new slug clashes, or
+ * when the edit would demote the dance's LAST neutral — which would leave the
+ * dance with none, and an untagged figure with nothing to resolve to. Promote
+ * another position first; that demotes this one as a side effect.
+ */
 export function updatePosition(db: Db, id: number, input: PositionInput) {
 	return db.transaction((tx) => {
 		const current = tx.select().from(positions).where(eq(positions.id, id)).get();
 		if (!current) return null;
+		// Demoting the neutral is only ever safe as a side effect of promoting a
+		// different one. Refusing here is what keeps "exactly one per dance" true
+		// in both directions — the demotion block below only ever enforces the
+		// "at most one" half.
+		if (current.neutral && !input.neutral) return null;
 		const clash = tx
 			.select({ id: positions.id })
 			.from(positions)
