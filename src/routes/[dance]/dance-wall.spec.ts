@@ -34,7 +34,7 @@ import {
 	logSet
 } from '$lib/server/exercises';
 import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
-import { listLessons } from '$lib/server/lessons';
+import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { exercises, lessons, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
@@ -42,6 +42,7 @@ import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
 import * as figurePage from './figures/[id]/+page.server';
 import * as songPage from './songs/[id]/+page.server';
+import * as lessonPage from './lessons/[id]/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -102,6 +103,7 @@ let bachataExerciseId: number;
 let bachataCustomId: number;
 let bachataSetId: number;
 let bachataSongId: number;
+let bachataLessonId: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
@@ -136,6 +138,11 @@ beforeEach(() => {
 	}).id;
 	// `retry` only bites on a failed song, so put it there the way the worker would.
 	failJob(db, bachataSongId, 'download failed', true);
+	bachataLessonId = createLesson(db, 'bachata', {
+		lessonDay: '2020-01-01',
+		title: 'Bachata class',
+		notes: null
+	}).lesson.id;
 });
 
 describe("Today refuses the other dance's rows", () => {
@@ -238,6 +245,18 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(getSong(db, bachataSongId)?.archivedAt).toBeNull();
 	});
 
+	it('will not open a bachata lesson from a salsa URL', () => {
+		expect(loadAt(lessonPage.load, 'bachata', String(bachataLessonId))).toMatchObject({
+			lesson: { title: 'Bachata class' }
+		});
+		expect(() => loadAt(lessonPage.load, 'salsa', String(bachataLessonId))).toThrow(threw404);
+	});
+
+	it('will not archive a bachata lesson from a salsa URL', async () => {
+		await refuses(lessonPage.actions.archive, post('salsa', {}, String(bachataLessonId)));
+		expect(getLesson(db, bachataLessonId)?.lesson.archivedAt).toBeNull();
+	});
+
 	it('will not retry a bachata song from the salsa list', async () => {
 		await refuses(songListActions.retry, post('salsa', { id: String(bachataSongId) }));
 		// Untouched: still failed, still carrying the reason it failed.
@@ -284,7 +303,13 @@ describe('an unknown dance in the URL cannot write a row', () => {
 				lessonDay: '2020-01-01'
 			})
 		);
-		expect(db.select().from(lessons).all()).toHaveLength(0);
+		expect(
+			db
+				.select()
+				.from(lessons)
+				.all()
+				.map((l) => l.dance)
+		).not.toContain('kizomba');
 		expect(listLessons(db, 'salsa')).toHaveLength(0);
 	});
 });
