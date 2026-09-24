@@ -32,7 +32,13 @@
 
 	let { song, defaultBpm, figures, dance, onplay, starting }: Props = $props();
 
-	const STORAGE_KEY = 'salsa.player';
+	// Keyed per dance so the two dances keep separate saved settings — without
+	// this, opening the other dance's player would silently overwrite (on the
+	// first render's persist effect) whatever the first dance had saved, before
+	// the user touched anything. Salsa's slug IS 'salsa', so this key is
+	// unchanged for salsa and every already-stored setting survives untouched;
+	// bachata simply gets its own key, `'bachata.player'`.
+	const STORAGE_KEY = `${dance.slug}.player`;
 	const allIds = figures.map((f) => f.id);
 
 	/**
