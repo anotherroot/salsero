@@ -11,6 +11,7 @@ import {
 	updateExercise
 } from '$lib/server/exercises';
 import { checkbox, int, oneOf, optionalInt, optionalText, text } from '$lib/server/form';
+import { requireExerciseInDance, requireSetInDance } from '$lib/server/scope';
 import { listReadySongs } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
@@ -70,7 +71,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 
 export const actions: Actions = {
 	/** Log a set: now, or at noon of a past day when back-filling. */
-	log: async ({ request, locals }) => {
+	log: async ({ params, request, locals }) => {
 		const tz = zone(locals);
 		const form = await request.formData();
 		const exerciseId = int(form, 'exerciseId');
@@ -90,6 +91,10 @@ export const actions: Actions = {
 			return fail(400, { action: 'log', message: 'Check the values and try again.' });
 		}
 
+		// The picker only ever offers this dance's exercises, but the id arrives in
+		// a form body, so it is checked rather than trusted.
+		requireExerciseInDance(getDb(), params.dance as DanceSlug, exerciseId);
+
 		const now = Date.now();
 		const backfill = isValidDay(day) && day < localDay(now, tz);
 		try {
@@ -108,8 +113,11 @@ export const actions: Actions = {
 		return { action: 'log', ok: true };
 	},
 
-	deleteSet: async ({ request }) => {
+	deleteSet: async ({ params, request }) => {
 		const id = int(await request.formData(), 'setId');
+		// Before the delete, not after: `deleteSet` takes an id alone, so a set
+		// from the other dance would already be gone by the time it answered.
+		if (id !== undefined) requireSetInDance(getDb(), params.dance as DanceSlug, id);
 		if (id === undefined || !deleteSet(getDb(), id)) {
 			return fail(404, { action: 'deleteSet', message: 'That set was already removed.' });
 		}
@@ -195,6 +203,7 @@ export const actions: Actions = {
 				...entered
 			});
 		}
+		requireExerciseInDance(getDb(), params.dance as DanceSlug, id);
 		const updated = updateExercise(getDb(), id, {
 			name,
 			everyDays,
@@ -208,8 +217,11 @@ export const actions: Actions = {
 		return { action: 'updateExercise', ok: true };
 	},
 
-	archiveExercise: async ({ request }) => {
+	archiveExercise: async ({ params, request }) => {
 		const id = int(await request.formData(), 'id');
+		// A missing id and a cross-dance id are different answers: the first gets
+		// the friendly 400 below, the second a 404 that never reaches the archive.
+		if (id !== undefined) requireExerciseInDance(getDb(), params.dance as DanceSlug, id);
 		if (id === undefined || !archiveExercise(getDb(), id, Date.now())) {
 			return fail(400, {
 				action: 'archiveExercise',

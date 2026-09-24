@@ -1,22 +1,17 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { buildGrid } from '$lib/beatgrid/beatgrid';
 import { PHRASE_PATTERNS, type TempoFactor } from '$lib/labels';
-import { getDb, type Db } from '$lib/server/db';
-import { getExercise, listExercises, logSet } from '$lib/server/exercises';
+import { getDb } from '$lib/server/db';
+import { listExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listCallableFigures } from '$lib/server/figures';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getSong } from '$lib/server/songs';
+import { exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
-
-/** The exercise, but only if it belongs to this dance. */
-function exerciseOf(db: Db, id: number, dance: DanceSlug) {
-	const found = getExercise(db, id);
-	return found && found.dance === dance ? found : null;
-}
 
 export const load: PageServerLoad = ({ url, params }) => {
 	const dance = params.dance as DanceSlug;
@@ -50,7 +45,7 @@ export const load: PageServerLoad = ({ url, params }) => {
 		// Same id-scoping as the song: an exercise from the other dance is not
 		// this player's to practise, so it comes back as "no exercise" rather
 		// than a run that would log its set on the far side of the wall.
-		exercise: exerciseId ? (exerciseOf(db, exerciseId, dance) ?? null) : null,
+		exercise: exerciseId ? exerciseInDance(db, dance, exerciseId) : null,
 		exercises: listExercises(db, dance).map((e) => ({ id: e.id, name: e.name })),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
@@ -87,9 +82,7 @@ export const actions: Actions = {
 		// The run is logged by id, so the id is checked against this dance: the
 		// sheet only ever offers this dance's exercises, and a posted id must not
 		// be able to reach past that.
-		if (!exerciseOf(getDb(), exerciseId, params.dance as DanceSlug)) {
-			return fail(400, { message: 'That exercise no longer exists.', ...entered });
-		}
+		requireExerciseInDance(getDb(), params.dance as DanceSlug, exerciseId);
 		try {
 			logSet(getDb(), {
 				exerciseId,

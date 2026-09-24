@@ -124,6 +124,15 @@ export function logSet(db: Db, input: SetInput) {
 	return db.insert(sets).values(input).returning().get();
 }
 
+/**
+ * One set by id. A set carries no dance of its own — it belongs to the dance of
+ * its exercise — so this is how a route resolves the one from the other before
+ * touching it (see `src/lib/server/scope.ts`).
+ */
+export function getSet(db: Db, id: number) {
+	return db.select().from(sets).where(eq(sets.id, id)).get() ?? null;
+}
+
 export function deleteSet(db: Db, id: number): boolean {
 	return db.delete(sets).where(eq(sets.id, id)).run().changes > 0;
 }
