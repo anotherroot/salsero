@@ -36,7 +36,8 @@ export const load: PageServerLoad = ({ url }) => {
 		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
 		figures: listCallableFigures(db, 'salsa'),
 		exercise: exerciseId ? getExercise(db, exerciseId) : null,
-		exercises: listExercises(db).map((e) => ({ id: e.id, name: e.name })),
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		exercises: listExercises(db, 'salsa').map((e) => ({ id: e.id, name: e.name })),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))

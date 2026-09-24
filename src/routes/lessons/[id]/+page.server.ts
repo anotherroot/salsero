@@ -169,7 +169,8 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const exercise = createCustomExercise(db, { name, everyDays, notes });
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		const exercise = createCustomExercise(db, 'salsa', { name, everyDays, notes });
 		linkExercise(db, id, exercise.id);
 		return { action: 'newExercise', ok: true };
 	},

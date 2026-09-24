@@ -27,7 +27,8 @@ export const actions: Actions = {
 		if (title === undefined) {
 			return fail(400, { message: 'Keep the title to 200 characters.', url: raw });
 		}
-		createSongFromUrl(getDb(), { url, title: title ?? '', style });
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		createSongFromUrl(getDb(), 'salsa', { url, title: title ?? '', style });
 		return { ok: true };
 	},
 

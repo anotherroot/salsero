@@ -38,12 +38,14 @@ export const load: PageServerLoad = ({ url, locals }) => {
 	const day = requested ?? today;
 
 	const db = getDb();
-	const exercises = listExercises(db);
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	const exercises = listExercises(db, 'salsa');
 
 	// Widen the window by a day each side, then let localDay decide membership:
 	// the day boundary is decided in ONE place, in the user's zone.
 	const noon = noonOf(day, tz);
-	const daySets = listSetsBetween(db, noon - DAY_MS, noon + DAY_MS).filter(
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	const daySets = listSetsBetween(db, noon - DAY_MS, noon + DAY_MS, 'salsa').filter(
 		(s) => localDay(s.doneAt, tz) === day
 	);
 
@@ -53,14 +55,16 @@ export const load: PageServerLoad = ({ url, locals }) => {
 		prevDay: shiftDay(day, -1),
 		nextDay: day === today ? null : shiftDay(day, 1),
 		isToday: day === today,
-		plan: plan(exercises, listSetTimes(db), now, tz),
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		plan: plan(exercises, listSetTimes(db, 'salsa'), now, tz),
 		daySets,
 		// For the past-day "add a forgotten set" picker.
 		exercises: exercises
 			.map((e) => ({ id: e.id, name: e.name }))
 			.sort((a, b) => a.name.localeCompare(b.name)),
 		// For the exercise sheet's practice-mode song picker.
-		songs: listReadySongs(db)
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		songs: listReadySongs(db, 'salsa')
 	};
 };
 
@@ -125,7 +129,8 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), { name, everyDays, notes });
+		// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+		createCustomExercise(getDb(), 'salsa', { name, everyDays, notes });
 		return { action: 'createExercise', ok: true };
 	},
 
@@ -176,7 +181,8 @@ export const actions: Actions = {
 			// fail its analysis between the sheet opening and Save being tapped —
 			// the home worker runs on its own schedule. Saving a song the player
 			// cannot open would turn Practice into an error page.
-			if (!listReadySongs(getDb()).some((s) => s.id === songId)) {
+			// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+			if (!listReadySongs(getDb(), 'salsa').some((s) => s.id === songId)) {
 				return fail(400, {
 					action: 'updateExercise',
 					message: 'That song is not ready to practise with. Pick another.',

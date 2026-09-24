@@ -47,6 +47,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	const title = name.replace(/\.[a-z0-9]{1,5}$/i, '').slice(0, 200);
-	const song = createSongFromUpload(getDb(), { file, mime, title, style });
+	// TEMPORARY(dance): replaced by params.dance when routes move under [dance].
+	const song = createSongFromUpload(getDb(), 'salsa', { file, mime, title, style });
 	return json({ id: song.id }, { status: 201 });
 };

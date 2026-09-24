@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
 import { songs, type Song } from './db/schema';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
+import type { DanceSlug } from '$lib/dances/dances';
 import type { Style, TempoFactor } from '$lib/labels';
 import type { SongItem } from '$lib/types';
 
@@ -13,6 +14,7 @@ const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 
 export function createSongFromUrl(
 	db: Db,
+	dance: DanceSlug,
 	input: { url: string; title: string; style: Style }
 ): Song {
 	return db
@@ -21,7 +23,8 @@ export function createSongFromUrl(
 			sourceUrl: input.url,
 			title: input.title,
 			style: input.style,
-			status: 'waiting_download'
+			status: 'waiting_download',
+			dance
 		})
 		.returning()
 		.get();
@@ -29,6 +32,7 @@ export function createSongFromUrl(
 
 export function createSongFromUpload(
 	db: Db,
+	dance: DanceSlug,
 	input: { file: string; mime: string; title: string; style: Style }
 ): Song {
 	return db
@@ -38,7 +42,8 @@ export function createSongFromUpload(
 			mime: input.mime,
 			title: input.title,
 			style: input.style,
-			status: 'waiting_analysis'
+			status: 'waiting_analysis',
+			dance
 		})
 		.returning()
 		.get();
@@ -65,12 +70,12 @@ export function listSongs(db: Db): SongItem[] {
 		.all() as SongItem[];
 }
 
-/** Ready, unarchived songs, for the practice-mode song picker. */
-export function listReadySongs(db: Db): { id: number; title: string }[] {
+/** Ready, unarchived songs of one dance, for the practice-mode song picker. */
+export function listReadySongs(db: Db, dance: DanceSlug): { id: number; title: string }[] {
 	return db
 		.select({ id: songs.id, title: songs.title })
 		.from(songs)
-		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready')))
+		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready'), eq(songs.dance, dance)))
 		.orderBy(songs.title)
 		.all();
 }

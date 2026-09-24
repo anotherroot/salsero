@@ -58,7 +58,7 @@ describe('createLesson', () => {
 
 	it('puts the review exercise on Today with its lesson id', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const row = listExercises(db).find((e) => e.lessonId === lesson.id);
+		const row = listExercises(db, 'salsa').find((e) => e.lessonId === lesson.id);
 		expect(row?.partner).toBeNull();
 		expect(row?.source).toBe('lesson');
 	});
@@ -89,7 +89,7 @@ describe('archiveLesson', () => {
 
 		expect(archiveLesson(db, lesson.id, 1000)).toBe(true);
 		expect(listLessons(db)).toHaveLength(0);
-		expect(listExercises(db).some((e) => e.id === exercise.id)).toBe(false);
+		expect(listExercises(db, 'salsa').some((e) => e.id === exercise.id)).toBe(false);
 		expect(getLesson(db, lesson.id)?.videos).toHaveLength(1);
 	});
 
@@ -182,7 +182,11 @@ describe('a figure exercise never shows up in both places', () => {
 describe('linking exercises', () => {
 	it('links a custom exercise and unlinks it again', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const custom = createCustomExercise(db, { name: 'Son basic', everyDays: 3, notes: null });
+		const custom = createCustomExercise(db, 'salsa', {
+			name: 'Son basic',
+			everyDays: 3,
+			notes: null
+		});
 
 		expect(linkExercise(db, lesson.id, custom.id)).toBe(true);
 		expect(getLesson(db, lesson.id)!.exercises.map((e) => e.name)).toEqual(['Son basic']);
@@ -199,7 +203,11 @@ describe('linking exercises', () => {
 
 	it('refuses an archived exercise', () => {
 		const { lesson } = createLesson(db, lessonInput);
-		const custom = createCustomExercise(db, { name: 'Son basic', everyDays: 3, notes: null });
+		const custom = createCustomExercise(db, 'salsa', {
+			name: 'Son basic',
+			everyDays: 3,
+			notes: null
+		});
 		archiveExercise(db, custom.id, 1000);
 		expect(linkExercise(db, lesson.id, custom.id)).toBe(false);
 	});
@@ -219,7 +227,11 @@ describe('the link pickers', () => {
 		// The null-propagating `NOT IN` bug would empty this list entirely.
 		const { lesson } = createLesson(db, lessonInput);
 		const { figure } = createFigure(db, 'salsa', figureInput)!;
-		const custom = createCustomExercise(db, { name: 'Son basic', everyDays: 3, notes: null });
+		const custom = createCustomExercise(db, 'salsa', {
+			name: 'Son basic',
+			everyDays: 3,
+			notes: null
+		});
 		linkFigure(db, lesson.id, figure.id);
 
 		expect(listLinkableExercises(db, lesson.id).map((e) => e.id)).toEqual([custom.id]);
@@ -228,9 +240,9 @@ describe('the link pickers', () => {
 	it('leaves out what is linked, archived, or any lesson review exercise', () => {
 		const { lesson } = createLesson(db, lessonInput);
 		createLesson(db, { ...lessonInput, title: 'Other' });
-		const linked = createCustomExercise(db, { name: 'Linked', everyDays: 3, notes: null });
-		const gone = createCustomExercise(db, { name: 'Archived', everyDays: 3, notes: null });
-		const free = createCustomExercise(db, { name: 'Free', everyDays: 3, notes: null });
+		const linked = createCustomExercise(db, 'salsa', { name: 'Linked', everyDays: 3, notes: null });
+		const gone = createCustomExercise(db, 'salsa', { name: 'Archived', everyDays: 3, notes: null });
+		const free = createCustomExercise(db, 'salsa', { name: 'Free', everyDays: 3, notes: null });
 
 		linkExercise(db, lesson.id, linked.id);
 		archiveExercise(db, gone.id, 1000);
