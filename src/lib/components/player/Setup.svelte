@@ -16,25 +16,21 @@
 
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import {
-		CALL_EVERY,
-		CLAVE_PATTERNS,
-		COUNT_PATTERNS,
-		COUNT_PATTERN_LABEL,
-		SPEEDS
-	} from '$lib/labels';
+	import { CALL_EVERY, CLAVE_PATTERNS, COUNT_PATTERN_LABEL, SPEEDS } from '$lib/labels';
+	import type { Dance } from '$lib/dances/dances';
 	import type { CallableFigure } from '$lib/types';
 
 	interface Props {
 		song: { id: number; title: string; audioFile: string | null } | null;
 		defaultBpm: number;
 		figures: CallableFigure[];
+		dance: Dance;
 		onplay: (settings: PlayerSettings) => void;
 		/** True while the player is starting, so Play cannot be tapped a second time. */
 		starting: boolean;
 	}
 
-	let { song, defaultBpm, figures, onplay, starting }: Props = $props();
+	let { song, defaultBpm, figures, dance, onplay, starting }: Props = $props();
 
 	const STORAGE_KEY = 'salsa.player';
 	const allIds = figures.map((f) => f.id);
@@ -79,12 +75,16 @@
 			? 'salsa'
 			: stored.count === false
 				? 'off'
-				: pick(stored.count, COUNT_PATTERNS, 'salsa')
+				: pick(stored.count, dance.countPatterns, dance.defaultCountPattern)
 	);
 	// An unrecognised clave would reach CLAVE_POSITIONS[...] as undefined and
 	// throw inside the 25 ms scheduling tick — which never surfaces as an error
-	// the user sees, just a player that plays nothing at all.
-	let clave = $state<ClavePattern | null>(pick(stored.clave, [...CLAVE_PATTERNS, null], null));
+	// the user sees, just a player that plays nothing at all. A dance without
+	// clave (bachata) must never restore one from a store written while in
+	// salsa — the store is per-browser, not per-dance.
+	let clave = $state<ClavePattern | null>(
+		dance.clave ? pick(stored.clave, [...CLAVE_PATTERNS, null], null) : null
+	);
 	let callEvery = $state<CallEvery | null>(pick(stored.callEvery, [...CALL_EVERY, null], 2));
 	let speed = $state<Speed>(pick(stored.speed, SPEEDS, 1));
 	let voiceVolume = $state(num(stored.voiceVolume, 0, 1, 1));
@@ -164,7 +164,7 @@
 			and a fast song needs the sparse ones to be as reachable as salsa.
 		-->
 		<div class="flex flex-wrap gap-2">
-			{#each COUNT_PATTERNS as p (p)}
+			{#each dance.countPatterns as p (p)}
 				<label class="{chip} min-w-[5.5rem] grow-0 basis-auto px-3">
 					<input
 						type="radio"
@@ -182,33 +182,35 @@
 		</a>
 	</fieldset>
 
-	<fieldset>
-		<legend class={label}>Clave</legend>
-		<div class="flex gap-2">
-			<label class={chip}>
-				<input
-					type="radio"
-					name="clave"
-					checked={clave === null}
-					onchange={() => (clave = null)}
-					class="sr-only"
-				/>
-				Off
-			</label>
-			{#each CLAVE_PATTERNS as c (c)}
+	{#if dance.clave}
+		<fieldset>
+			<legend class={label}>Clave</legend>
+			<div class="flex gap-2">
 				<label class={chip}>
 					<input
 						type="radio"
 						name="clave"
-						checked={clave === c}
-						onchange={() => (clave = c)}
+						checked={clave === null}
+						onchange={() => (clave = null)}
 						class="sr-only"
 					/>
-					{c}
+					Off
 				</label>
-			{/each}
-		</div>
-	</fieldset>
+				{#each CLAVE_PATTERNS as c (c)}
+					<label class={chip}>
+						<input
+							type="radio"
+							name="clave"
+							checked={clave === c}
+							onchange={() => (clave = c)}
+							class="sr-only"
+						/>
+						{c}
+					</label>
+				{/each}
+			</div>
+		</fieldset>
+	{/if}
 
 	<fieldset>
 		<legend class={label}>Calls</legend>

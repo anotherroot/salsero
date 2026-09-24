@@ -182,6 +182,7 @@
 			song={data.song}
 			defaultBpm={data.bpm ?? 180}
 			figures={data.figures}
+			dance={data.dance}
 			onplay={handlePlay}
 			{starting}
 		/>
