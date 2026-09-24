@@ -31,6 +31,8 @@ src/lib/urgency/     PURE "what next": (exercises, sets, now, tz) →
                      doneToday/due/upcoming/inactive
 src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo factor
 src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
+src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
+                     whether clave exists, accent colours). Client-safe
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
@@ -41,6 +43,10 @@ static/worklets/     recorder.js — the AudioWorklet that captures the mic.
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
+src/lib/server/scope.ts  the dance wall at the route level: guards on params
+                     and ids, so a request only ever reaches its own dance
+src/routes/[dance]/  every page lives under its dance. Flat routes — login,
+                     settings, voice, api, the media servers — are shared
 src/routes/          pages + actions. api/figures/[id]/recordings and api/songs
                      take raw-body uploads; api/lessons/[id]/videos/[uploadId]
                      takes ONE CHUNK per request; api/worker/* is the worker's queue
@@ -73,6 +79,13 @@ scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is comm
   and archived WITH its figure, in one transaction (`src/lib/server/figures.ts`).
 - **Data functions take `db` as their first argument** so tests run against
   `openDb(':memory:')`. Routes pass `getDb()`.
+- **A spec must never touch `$DATA_DIR`.** Setting `process.env.DATABASE_PATH`
+  does NOT work — the app reads it through `$env/dynamic/private`, which does
+  not see a runtime mutation, so the spec silently runs against the real
+  database. Tests that need the app's `getDb()` mock it:
+  `vi.mock('$lib/server/db')` plus `openDb(':memory:')` per test, as
+  `src/routes/[dance]/dance-wall.spec.ts` does. Data functions take `db` as
+  their first argument precisely so most tests need no mock at all.
 - **Nothing under `$lib/server` is imported by components.** Shared row shapes
   live in `src/lib/types.ts`.
 - **Recordings are streamed, never buffered.** Raw-body POST to
@@ -89,9 +102,14 @@ scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is comm
   below one chunk and fails every upload.
 - **Never add a CHECK to an existing table.** drizzle-kit rebuilds the table and
   the rebuild selects the new columns from the old one, failing at migrate time.
-  Additive `ALTER TABLE ... ADD COLUMN` only; put the invariant in the data
-  function, as `exercises.lesson_id` and the song/count pairing both do. Always
-  read the generated SQL before committing it.
+  A table with an incoming foreign key fails a second, independent way: the
+  rebuild's `DROP TABLE` is an implicit delete, and while `openDb` sets
+  `foreign_keys = ON`, drizzle's migrator runs the whole migration inside a
+  transaction, where `PRAGMA foreign_keys` is a documented no-op — there is no
+  point in the process where it can be turned off. Additive
+  `ALTER TABLE ... ADD COLUMN` only; put the invariant in the data function, as
+  `exercises.lesson_id` and the song/count pairing both do. Always read the
+  generated SQL before committing it.
 - **The server runs no Python and no ML.** Song downloads and beat analysis
   happen on the home worker (`worker/`, a systemd timer on backtop), which
   drains `/api/worker/*` over HTTPS with a bearer token. YouTube bot-blocks the
@@ -112,6 +130,16 @@ scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is comm
   `src/lib/scheduler/scheduler.ts` decides WHAT sounds and WHEN in song time and
   never touches audio. Figure names go through `speechSynthesis`, which cannot be
   scheduled and does not need to be.
+- **A dance is the wall through the content.** `figures`, `songs`, `exercises`
+  and `lessons` carry `dance`; `sets`, `recordings` and the lesson join tables
+  derive it through their parent, and `count_takes` is shared by both dances on
+  purpose. Scoping happens in the data-access layer — `src/lib/urgency/` and
+  `src/lib/day/` never learn that dances exist.
+- **`figures.style` is vestigial; `style_tag` is real.** Dropping it or widening
+  `figures_style_ck` means a table rebuild, which fails twice over: drizzle-kit's
+  generated rebuild selects the new columns from the old table, AND the rebuild's
+  `DROP TABLE` trips `foreign_keys = ON`, which `openDb` sets and which cannot be
+  turned off inside the migrator's transaction.
 
 ## Commands
 

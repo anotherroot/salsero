@@ -1,7 +1,9 @@
 # Salsa app — design
 
 > **Status:** approved in brainstorming, 2026-09-22. Hosted at
-> `salsa.anotherroot.eu`. Single user.
+> `salsa.anotherroot.eu`. Single user. Multi-dance since 2026-09-24 — see
+> [`2026-09-24-multi-dance-design.md`](2026-09-24-multi-dance-design.md) for
+> the dance dimension, the registry, and the URL scheme.
 
 ## Purpose
 

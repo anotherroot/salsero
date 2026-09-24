@@ -84,6 +84,19 @@ covered; check that it is, because nothing else in the system can recreate it.
 loads under nixpkgs node (verified locally). If it ever fails to load on the
 box, the fallback is building from source there (python3, gcc, gnumake).
 
+This deploy carries a migration (`0005`, the dance columns). Snapshot first:
+
+```sh
+ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'
+```
+
+The home worker needs no change and no redeploy — it claims songs by `status`,
+dance-blind.
+
+The per-dance icons live in `static/icons/` and ship inside `build/`, like the
+count clips. `scripts/make-icons.sh` regenerates them locally, pulling librsvg
+from nixpkgs at run time so the flake needs nothing; production never runs it.
+
 ## Home worker
 
 Songs are downloaded and beat-analysed at home, never on the server: YouTube
