@@ -277,6 +277,41 @@ describe('createPosition', () => {
 		expect(createPosition(db, 'bachata', input)).not.toBeNull();
 	});
 });
+
+describe('updatePosition', () => {
+	it('renames without disturbing the neutral', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const open = neutralPosition(db, 'salsa')!;
+		const row = updatePosition(db, open.id, {
+			slug: open.slug,
+			name: 'Open, both hands',
+			neutral: true,
+			sortOrder: open.sortOrder
+		});
+		expect(row!.name).toBe('Open, both hands');
+		expect(neutralPosition(db, 'salsa')!.id).toBe(open.id);
+	});
+
+	it('moves the neutral, leaving exactly one', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
+		updatePosition(db, closed.id, { ...closed, neutral: true });
+		expect(neutralPosition(db, 'salsa')!.id).toBe(closed.id);
+		expect(listPositions(db, 'salsa').filter((p) => p.neutral)).toHaveLength(1);
+	});
+
+	it('refuses to demote the last neutral, leaving the dance with one', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const open = neutralPosition(db, 'salsa')!;
+		// Nothing else is neutral, so clearing this one would leave none — and an
+		// untagged figure would have no position to resolve to.
+		expect(updatePosition(db, open.id, { ...open, neutral: false })).toBeNull();
+		expect(neutralPosition(db, 'salsa')!.id).toBe(open.id);
+	});
+});
 ```
 
 - [ ] **Step 2: Run to verify it fails**
@@ -404,11 +439,21 @@ export function createPosition(db: Db, dance: DanceSlug, input: PositionInput) {
 	});
 }
 
-/** Edit a position. Returns null when it is gone or the new slug clashes. */
+/**
+ * Edit a position. Returns null when it is gone, when the new slug clashes, or
+ * when the edit would demote the dance's LAST neutral — which would leave the
+ * dance with none, and an untagged figure with nothing to resolve to. Promote
+ * another position first; that demotes this one as a side effect.
+ */
 export function updatePosition(db: Db, id: number, input: PositionInput) {
 	return db.transaction((tx) => {
 		const current = tx.select().from(positions).where(eq(positions.id, id)).get();
 		if (!current) return null;
+		// Demoting the neutral is only ever safe as a side effect of promoting a
+		// different one. Refusing here is what keeps "exactly one per dance" true
+		// in both directions — the demotion block below only ever enforces the
+		// "at most one" half.
+		if (current.neutral && !input.neutral) return null;
 		const clash = tx
 			.select({ id: positions.id })
 			.from(positions)
