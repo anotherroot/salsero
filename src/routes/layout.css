@@ -85,9 +85,15 @@
 		 * `:root:not([data-theme='light'])` here is an ANCESTOR condition:
 		 * "once dark mode is in effect", true for every element in the page.
 		 * Keep the hex IN SYNC BY HAND with `DANCES.bachata.accentDark`.
+		 *
+		 * `--color-accent-ink` is redefined here too: the pale teal fails against
+		 * the white ink the `@theme` block sets globally (1.86:1) — `bg-accent
+		 * text-accent-ink` is Play, Log set, Save, every selected chip. This dark
+		 * ink measures 9.04:1 against #2dd4bf, comfortably past WCAG AA's 4.5:1.
 		 */
 		:root:not([data-theme='light']) [data-dance='bachata'] {
 			--color-accent: #2dd4bf;
+			--color-accent-ink: #10201e;
 		}
 	}
 }

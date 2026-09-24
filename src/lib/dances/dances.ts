@@ -35,7 +35,16 @@ export interface Dance {
 	 * (and this one) keeps them honest.
 	 */
 	accent: string;
-	/** `--color-accent` under `prefers-color-scheme: dark`. Same rule: keep in sync with layout.css by hand. */
+	/**
+	 * `--color-accent` under `prefers-color-scheme: dark`. Same rule: keep in
+	 * sync with layout.css by hand.
+	 *
+	 * `--color-accent-ink` (the text/icon colour drawn on top of the accent) has
+	 * no counterpart here — it lives in layout.css only, because it depends on
+	 * the accent AND the theme together (bachata's dark accent is pale enough
+	 * to need a dark ink; every other accent/theme pairing uses white). Nobody
+	 * should go looking for `accentInk` in this registry.
+	 */
 	accentDark: string;
 }
 
@@ -87,8 +96,16 @@ export function getDance(slug: string): Dance {
 	return DANCES[slug];
 }
 
-export function isStyleOf(slug: DanceSlug, style: string): boolean {
-	return DANCES[slug].styles.includes(style);
+/**
+ * `slug` is a plain `string`, not `DanceSlug`: callers often have it fresh out
+ * of a database row (`figures.dance` etc.), which TypeScript can only type as
+ * `string` since Drizzle's `text()` carries no enum. Guarding with
+ * `isDanceSlug` here — rather than pushing every caller to cast first — means
+ * a hand-edited or pre-migration row with a bogus `dance` value returns
+ * `false` instead of throwing `DANCES[undefined].styles`.
+ */
+export function isStyleOf(slug: string, style: string): boolean {
+	return isDanceSlug(slug) && DANCES[slug].styles.includes(style);
 }
 
 /**

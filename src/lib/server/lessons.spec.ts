@@ -335,6 +335,21 @@ describe('lessons are walled off by dance', () => {
 		expect(listLinkableFigures(db, lesson.lesson.id)).toEqual([]);
 	});
 
+	it('refuses to link an exercise from another dance', () => {
+		// The route action (`[id]/+page.server.ts`) checks the LESSON's dance via
+		// `lessonOf`, but passes `exerciseId` straight through from the form body
+		// — this clause in `linkExercise` is the only thing standing between a
+		// bachata lesson and a salsa exercise id posted at it by hand.
+		const lesson = createLesson(db, 'bachata', lessonInput);
+		const salsaExercise = createCustomExercise(db, 'salsa', {
+			name: 'Salsa footwork',
+			everyDays: 2,
+			notes: null
+		});
+
+		expect(linkExercise(db, lesson.lesson.id, salsaExercise.id)).toBe(false);
+	});
+
 	it('offers only its own dance exercises to link', () => {
 		const lesson = createLesson(db, 'bachata', lessonInput);
 		createCustomExercise(db, 'salsa', { name: 'Salsa footwork', everyDays: 2, notes: null });

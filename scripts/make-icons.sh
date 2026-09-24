@@ -14,6 +14,25 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p static/icons
 
+# The accent hexes are NOT hard-coded here — they are read straight out of the
+# registry (`src/lib/dances/dances.ts`) so there is one fewer place they can
+# drift out of sync. A dance's `light-mode` `accent` is a `#rrggbb` on its own
+# line inside that dance's object literal; `sed` cuts out the object by its
+# `slug: {` … `},` bounds and `grep`/`grep -o` pull the first `accent:` (never
+# `accentDark:`, which does not match the trailing colon) out of it.
+dances_ts=src/lib/dances/dances.ts
+
+hex_for() {  # slug -> its light-mode accent hex, from the registry
+	local hex
+	hex=$(sed -n "/^\t$1: {/,/^\t},\{0,1\}\$/p" "$dances_ts" |
+		grep -m1 'accent:' | grep -oE '#[0-9a-fA-F]{6}')
+	[ -n "$hex" ] || {
+		echo "make-icons.sh: could not find $1's accent in $dances_ts" >&2
+		exit 1
+	}
+	echo "$hex"
+}
+
 tint() {  # slug, hex
 	sed "s/#c2410c/$2/gI" static/icon.svg >"/tmp/icon-$1.svg"
 	for size in 192 512; do
@@ -23,6 +42,6 @@ tint() {  # slug, hex
 	rm "/tmp/icon-$1.svg"
 }
 
-tint salsa '#c2410c'
-tint bachata '#0f766e'
+tint salsa "$(hex_for salsa)"
+tint bachata "$(hex_for bachata)"
 echo "wrote static/icons/"

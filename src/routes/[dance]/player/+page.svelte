@@ -198,6 +198,7 @@
 			{speed}
 			initialVoiceVolume={voiceVolume}
 			count={runToggles?.count ?? 'salsa'}
+			dance={data.dance}
 			oncount={(p) => {
 				if (!runToggles) return;
 				runToggles = { ...runToggles, count: p };

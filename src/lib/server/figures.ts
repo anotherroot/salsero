@@ -60,7 +60,7 @@ export function updateFigure(db: Db, id: number, input: FigureInput) {
 	return db.transaction((tx) => {
 		const current = tx.select().from(figures).where(eq(figures.id, id)).get();
 		if (!current) return null;
-		if (!isStyleOf(current.dance as DanceSlug, input.style)) return null;
+		if (!isStyleOf(current.dance, input.style)) return null;
 		const figure = tx
 			.update(figures)
 			.set(values(input))

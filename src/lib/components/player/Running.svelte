@@ -1,7 +1,8 @@
 <script lang="ts">
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { clock } from '$lib/format';
-	import { COUNT_PATTERNS, COUNT_PATTERN_LABEL, type CountPattern, type Speed } from '$lib/labels';
+	import { COUNT_PATTERN_LABEL, type CountPattern, type Speed } from '$lib/labels';
+	import type { Dance } from '$lib/dances/dances';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
 	import type { CallableFigure } from '$lib/types';
 
@@ -20,6 +21,8 @@
 		initialVoiceVolume: number;
 		/** The count pattern in force. Owned by the page, so the logged set matches. */
 		count: CountPattern;
+		/** Which patterns this run's picker may offer — see the comment below. */
+		dance: Dance;
 		oncount: (pattern: CountPattern) => void;
 		onstop: () => void;
 	}
@@ -35,6 +38,7 @@
 		speed,
 		initialVoiceVolume,
 		count,
+		dance,
 		oncount,
 		onstop
 	}: Props = $props();
@@ -93,11 +97,17 @@
 		sits right against the music is only knowable once the music is playing,
 		and a song that turns out too fast to count every beat wants the pattern
 		thinned THEN — stopping to change it would end the run and lose the plan.
+
+		Iterates `dance.countPatterns`, not the global `COUNT_PATTERNS`, for the
+		same reason Setup.svelte's picker does: bachata has no 'son' count, and
+		this picker existing separately from Setup's (so the pattern can change
+		mid-run) means the registry has to be threaded through here too, not just
+		read once at setup time.
 	-->
 	<fieldset>
 		<legend class="mb-1 block text-[12px] font-medium text-ink-2">Voice count</legend>
 		<div class="flex flex-wrap gap-2">
-			{#each COUNT_PATTERNS as p (p)}
+			{#each dance.countPatterns as p (p)}
 				<label class={chip}>
 					<input
 						type="radio"
