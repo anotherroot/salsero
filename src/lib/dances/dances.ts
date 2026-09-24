@@ -26,9 +26,16 @@ export interface Dance {
 	defaultCountPattern: CountPattern;
 	/** Whether the clave toggle exists. Salsa only. */
 	clave: boolean;
-	/** `--color-accent` in light mode, and the manifest's `theme_color`. */
+	/**
+	 * `--color-accent` in light mode, and the manifest's `theme_color`. Kept
+	 * IN SYNC BY HAND with the `[data-dance='…']` rules in
+	 * `src/routes/layout.css` — this registry is what the manifest route and
+	 * `scripts/make-icons.sh` read, but the stylesheet cannot import TypeScript,
+	 * so the same hex is written twice and nothing but that file's comments
+	 * (and this one) keeps them honest.
+	 */
 	accent: string;
-	/** `--color-accent` under `prefers-color-scheme: dark`. */
+	/** `--color-accent` under `prefers-color-scheme: dark`. Same rule: keep in sync with layout.css by hand. */
 	accentDark: string;
 }
 

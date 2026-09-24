@@ -34,28 +34,37 @@
 </script>
 
 {#if nav}
-	<div class="mx-auto min-h-dvh max-w-[560px] pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-		{#if dance}
-			<!--
-				`aria-current="true"`, not "page": the bottom tabs already mark the
-				page, and on `/[dance]` the active pill and the Today tab are the
-				same destination — two "page" markers on one screen.
-			-->
-			<nav class="flex justify-center gap-1 px-4 pt-2" aria-label="Dance">
-				{#each DANCE_SLUGS as s (s)}
-					<a
-						href={resolve('/[dance]', { dance: s })}
-						aria-current={s === dance.slug ? 'true' : undefined}
-						class="rounded-full px-3 py-1 text-[13px] font-medium {s === dance.slug
-							? 'bg-accent text-accent-ink'
-							: 'text-muted'}">{DANCES[s].label}</a
-					>
-				{/each}
-			</nav>
-		{/if}
-		{@render children()}
+	<!--
+		`data-dance` carries the accent (see layout.css) down to everything a
+		dance touches: the switcher pills below, the page content, and
+		`BottomNav` — which renders as a SIBLING of the wrapper div, not a
+		child of it, so it needs its own place inside this attribute's reach.
+		`display: contents` keeps the wrapper out of layout entirely.
+	-->
+	<div data-dance={navDance.slug} style:display="contents">
+		<div class="mx-auto min-h-dvh max-w-[560px] pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+			{#if dance}
+				<!--
+					`aria-current="true"`, not "page": the bottom tabs already mark the
+					page, and on `/[dance]` the active pill and the Today tab are the
+					same destination — two "page" markers on one screen.
+				-->
+				<nav class="flex justify-center gap-1 px-4 pt-2" aria-label="Dance">
+					{#each DANCE_SLUGS as s (s)}
+						<a
+							href={resolve('/[dance]', { dance: s })}
+							aria-current={s === dance.slug ? 'true' : undefined}
+							class="rounded-full px-3 py-1 text-[13px] font-medium {s === dance.slug
+								? 'bg-accent text-accent-ink'
+								: 'text-muted'}">{DANCES[s].label}</a
+						>
+					{/each}
+				</nav>
+			{/if}
+			{@render children()}
+		</div>
+		<BottomNav dance={navDance.slug} />
 	</div>
-	<BottomNav dance={navDance.slug} />
 {:else}
 	{@render children()}
 {/if}
