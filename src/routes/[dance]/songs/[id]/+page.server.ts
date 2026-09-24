@@ -3,7 +3,6 @@ import { getDb } from '$lib/server/db';
 import { oneOf, optionalText, text } from '$lib/server/form';
 import {
 	archiveSong,
-	getSong,
 	retrySong,
 	setAnchors,
 	setTempoFactor,
@@ -18,7 +17,8 @@ import {
 	scaleBeats
 } from '$lib/beatgrid/beatgrid';
 import { TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
-import { DANCES, type DanceSlug } from '$lib/dances/dances';
+import { DANCES } from '$lib/dances/dances';
+import { danceOf, requireSongInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -30,10 +30,10 @@ import type { Actions, PageServerLoad } from './$types';
  * through here rather than trusting the id alone.
  */
 function songOf(params: { dance: string; id: string }) {
-	const song = getSong(getDb(), Number(params.id));
-	if (!song || song.archivedAt !== null || song.dance !== params.dance) {
-		throw error(404, 'Song not found');
-	}
+	const song = requireSongInDance(getDb(), danceOf(params), Number(params.id));
+	// Archived is gone from every list, so it is gone from its own URL too —
+	// the one rule this page adds on top of the shared dance guard.
+	if (song.archivedAt !== null) throw error(404, 'Song not found');
 	return song;
 }
 
@@ -109,7 +109,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const title = text(form, 'title');
 		const artist = optionalText(form, 'artist', 200);
-		const style = oneOf(form, 'style', DANCES[params.dance as DanceSlug].styles);
+		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
 		if (!title || artist === undefined || !style) {
 			return fail(400, { message: 'Give the song a title (up to 200 characters).' });
 		}

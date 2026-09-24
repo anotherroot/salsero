@@ -4,11 +4,12 @@ import { createFigure, listFigures } from '$lib/server/figures';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER, type Partner } from '$lib/labels';
-import { DANCES, type DanceSlug } from '$lib/dances/dances';
+import { DANCES } from '$lib/dances/dances';
+import { danceOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url, params }) => {
-	const dance = params.dance as DanceSlug;
+	const dance = danceOf(params);
 	const q = url.searchParams.get('q')?.trim() ?? '';
 	const style = url.searchParams.get('style');
 	const partner = url.searchParams.get('partner');
@@ -26,7 +27,7 @@ export const load: PageServerLoad = ({ url, params }) => {
 
 export const actions: Actions = {
 	create: async ({ params, request }) => {
-		const dance = params.dance as DanceSlug;
+		const dance = danceOf(params);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);

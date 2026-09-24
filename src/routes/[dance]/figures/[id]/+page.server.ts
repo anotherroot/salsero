@@ -7,7 +7,8 @@ import { archiveFigure, deleteRecording, getFigure, updateFigure } from '$lib/se
 import { recordingsDir } from '$lib/server/files';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER } from '$lib/labels';
-import { DANCES, type DanceSlug } from '$lib/dances/dances';
+import { DANCES } from '$lib/dances/dances';
+import { danceOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 function figureId(raw: string): number {
@@ -25,8 +26,9 @@ function figureId(raw: string): number {
  * one goes through here first.
  */
 function figureOf(params: { dance: string; id: string }) {
+	const dance = danceOf(params);
 	const found = getFigure(getDb(), figureId(params.id));
-	if (!found || found.figure.archivedAt !== null || found.figure.dance !== params.dance) {
+	if (!found || found.figure.archivedAt !== null || found.figure.dance !== dance) {
 		throw error(404, 'Figure not found');
 	}
 	return found;
@@ -40,7 +42,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', DANCES[params.dance as DanceSlug].styles);
+		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
 		const notes = optionalText(form, 'notes');
 		const callable = checkbox(form, 'callable');
 		const callText = optionalText(form, 'callText', 200);

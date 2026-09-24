@@ -2,44 +2,90 @@
  * The dance wall, tested where it is actually reachable: the actions.
  *
  * Every id in a form body is just a number, so a POST to `/salsa` can carry a
- * bachata exercise or set id. These tests call the real action functions with
- * the other dance's ids and assert a 404 AND that the row is untouched — the
- * second half is the point, because the failure mode being guarded against is
- * one that mutated and then reported a friendly message.
+ * bachata exercise, set, figure or song id — and the slug itself can be
+ * anything, because a form action runs before the `[dance]` layout's gate.
+ * These tests call the real load and action functions and assert a 404 AND
+ * that the row is untouched; the second half is the point, because the failure
+ * mode being guarded against is one that mutated and then reported a friendly
+ * message.
  *
- * The actions reach the database through `getDb()`, so `DATABASE_PATH` is
- * pointed at an in-memory database before the modules are imported; the import
- * is dynamic for that reason, and for that reason only.
+ * The actions reach the database through `getDb()`, which resolves its path
+ * from `$env/dynamic/private` — and that does NOT see a `process.env`
+ * assignment made from a test file. Mocking the module is therefore the only
+ * way to be sure no test ever opens the real database: each test gets its own
+ * `openDb(':memory:')`, the same way every other spec in this repo does.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-process.env.DATABASE_PATH = ':memory:';
+const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
-const { getDb } = await import('$lib/server/db');
-const { createFigure } = await import('$lib/server/figures');
-const { archiveExercise, createCustomExercise, getExercise, getSet, logSet } =
-	await import('$lib/server/exercises');
-const { exercises, sets } = await import('$lib/server/db/schema');
-const todayActions = (await import('./+page.server')).actions;
-const playerActions = (await import('./player/+page.server')).actions;
+vi.mock('$lib/server/db', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
+	return { ...actual, getDb: () => handle.db };
+});
 
-const db = getDb();
+import { openDb, type Db } from '$lib/server/db';
+import { createFigure, getFigure } from '$lib/server/figures';
+import {
+	createCustomExercise,
+	getExercise,
+	getSet,
+	listExercises,
+	logSet
+} from '$lib/server/exercises';
+import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
+import { listLessons } from '$lib/server/lessons';
+import { exercises, lessons, sets } from '$lib/server/db/schema';
+import { actions as todayActions } from './+page.server';
+import { actions as playerActions } from './player/+page.server';
+import { actions as songListActions } from './songs/+page.server';
+import { actions as lessonListActions } from './lessons/+page.server';
+import * as figurePage from './figures/[id]/+page.server';
+import * as songPage from './songs/[id]/+page.server';
+
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
-function post(dance: string, fields: Record<string, string>) {
+function post(dance: string, fields: Record<string, string>, id = '') {
 	return {
-		params: { dance },
+		params: { dance, id },
 		request: new Request('http://localhost/', {
 			method: 'POST',
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
-		locals: { user: { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' } }
+		locals: { user: USER }
 	};
 }
 
 type Invoke = (event: ReturnType<typeof post>) => Promise<unknown>;
 const call = (action: unknown, event: ReturnType<typeof post>) => (action as Invoke)(event);
+
+/** A page load only reads `params`, `url` and `locals` off its event. */
+type Load = (e: { params: { dance: string; id: string }; url: URL; locals: unknown }) => unknown;
+const loadAt = (load: unknown, dance: string, id: string) =>
+	(load as Load)({
+		params: { dance, id },
+		url: new URL('http://localhost/'),
+		locals: { user: USER }
+	});
+
+const threw404 = expect.objectContaining({ status: 404 });
+
+/**
+ * Call an action and assert it refused with a 404. Some actions are `async` and
+ * some are not, so the 404 arrives as a rejection or as a synchronous throw;
+ * this accepts either, and fails loudly when nothing was thrown at all.
+ */
+async function refuses(action: unknown, event: ReturnType<typeof post>) {
+	try {
+		await call(action, event);
+	} catch (thrown) {
+		expect(thrown).toMatchObject({ status: 404 });
+		return;
+	}
+	expect.unreachable('the cross-dance call should have been refused');
+}
 
 const figureInput = {
 	name: 'Dile que no',
@@ -49,23 +95,26 @@ const figureInput = {
 	callText: null
 };
 
+let db: Db;
 let salsaExerciseId: number;
+let bachataFigureId: number;
 let bachataExerciseId: number;
 let bachataCustomId: number;
 let bachataSetId: number;
+let bachataSongId: number;
 
 beforeEach(() => {
-	// One database for the whole file (the singleton is opened once), so each
-	// test starts from a clean pair of dances rather than the last one's rows.
-	db.delete(sets).run();
-	db.delete(exercises).run();
+	db = openDb(':memory:');
+	handle.db = db;
 
 	salsaExerciseId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.exercise.id;
-	bachataExerciseId = createFigure(db, 'bachata', {
+	const bachata = createFigure(db, 'bachata', {
 		...figureInput,
 		name: 'Basico',
 		style: 'sensual'
-	})!.exercise.id;
+	})!;
+	bachataFigureId = bachata.figure.id;
+	bachataExerciseId = bachata.exercise.id;
 	bachataCustomId = createCustomExercise(db, 'bachata', {
 		name: 'Hip drills',
 		everyDays: 3,
@@ -80,13 +129,18 @@ beforeEach(() => {
 		note: null,
 		playerJson: null
 	}).id;
+	bachataSongId = createSongFromUrl(db, 'bachata', {
+		url: 'https://example.com/b',
+		title: 'Bachata song',
+		style: 'sensual'
+	}).id;
+	// `retry` only bites on a failed song, so put it there the way the worker would.
+	failJob(db, bachataSongId, 'download failed', true);
 });
-
-const is404 = (thrown: unknown) => expect(thrown).toMatchObject({ status: 404 });
 
 describe("Today refuses the other dance's rows", () => {
 	it('will not log a set on an exercise from the other dance', async () => {
-		await call(
+		await refuses(
 			todayActions.log,
 			post('salsa', {
 				exerciseId: String(bachataExerciseId),
@@ -96,28 +150,22 @@ describe("Today refuses the other dance's rows", () => {
 				note: '',
 				day: ''
 			})
-		).then(() => expect.unreachable('the cross-dance log should have thrown'), is404);
+		);
 		expect(db.select().from(sets).all()).toHaveLength(1);
 	});
 
 	it('will not delete a set that belongs to the other dance', async () => {
-		await call(todayActions.deleteSet, post('salsa', { setId: String(bachataSetId) })).then(
-			() => expect.unreachable('the cross-dance delete should have thrown'),
-			is404
-		);
+		await refuses(todayActions.deleteSet, post('salsa', { setId: String(bachataSetId) }));
 		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
 	it('will not archive an exercise from the other dance', async () => {
-		await call(todayActions.archiveExercise, post('salsa', { id: String(bachataCustomId) })).then(
-			() => expect.unreachable('the cross-dance archive should have thrown'),
-			is404
-		);
+		await refuses(todayActions.archiveExercise, post('salsa', { id: String(bachataCustomId) }));
 		expect(getExercise(db, bachataCustomId)?.archivedAt).toBeNull();
 	});
 
 	it('will not edit an exercise from the other dance', async () => {
-		await call(
+		await refuses(
 			todayActions.updateExercise,
 			post('salsa', {
 				id: String(bachataCustomId),
@@ -129,7 +177,7 @@ describe("Today refuses the other dance's rows", () => {
 				countBpm: '',
 				active: 'on'
 			})
-		).then(() => expect.unreachable('the cross-dance edit should have thrown'), is404);
+		);
 		expect(getExercise(db, bachataCustomId)?.name).toBe('Hip drills');
 	});
 
@@ -150,7 +198,7 @@ describe("Today refuses the other dance's rows", () => {
 
 describe("the player refuses the other dance's exercise", () => {
 	it('will not save a run against an exercise from the other dance', async () => {
-		await call(
+		await refuses(
 			playerActions.save,
 			post('salsa', {
 				exerciseId: String(bachataExerciseId),
@@ -159,9 +207,85 @@ describe("the player refuses the other dance's exercise", () => {
 				note: '',
 				run: ''
 			})
-		).then(() => expect.unreachable('the cross-dance save should have thrown'), is404);
+		);
 		// Only the seeded set: the run was never logged.
 		expect(db.select().from(sets).all()).toHaveLength(1);
+	});
+});
+
+describe("the detail pages refuse the other dance's rows", () => {
+	it('will not open a bachata figure from a salsa URL', () => {
+		expect(loadAt(figurePage.load, 'bachata', String(bachataFigureId))).toMatchObject({
+			figure: { name: 'Basico' }
+		});
+		expect(() => loadAt(figurePage.load, 'salsa', String(bachataFigureId))).toThrow(threw404);
+	});
+
+	it('will not archive a bachata figure from a salsa URL', async () => {
+		await refuses(figurePage.actions.archive, post('salsa', {}, String(bachataFigureId)));
+		expect(getFigure(db, bachataFigureId)?.figure.archivedAt).toBeNull();
+	});
+
+	it('will not open a bachata song from a salsa URL', () => {
+		expect(loadAt(songPage.load, 'bachata', String(bachataSongId))).toMatchObject({
+			song: { title: 'Bachata song' }
+		});
+		expect(() => loadAt(songPage.load, 'salsa', String(bachataSongId))).toThrow(threw404);
+	});
+
+	it('will not archive a bachata song from a salsa URL', async () => {
+		await refuses(songPage.actions.archive, post('salsa', {}, String(bachataSongId)));
+		expect(getSong(db, bachataSongId)?.archivedAt).toBeNull();
+	});
+
+	it('will not retry a bachata song from the salsa list', async () => {
+		await refuses(songListActions.retry, post('salsa', { id: String(bachataSongId) }));
+		// Untouched: still failed, still carrying the reason it failed.
+		expect(getSong(db, bachataSongId)).toMatchObject({
+			status: 'failed',
+			error: 'download failed'
+		});
+	});
+
+	it('still retries from its own dance', async () => {
+		await call(songListActions.retry, post('bachata', { id: String(bachataSongId) }));
+		expect(getSong(db, bachataSongId)?.status).toBe('waiting_download');
+	});
+});
+
+describe('an unknown dance in the URL cannot write a row', () => {
+	/*
+	 * A form action runs BEFORE any load, so the `[dance]` layout's slug check
+	 * has not happened yet when an action writes. Both of these create rows, and
+	 * the `dance` column deliberately has no CHECK to fall back on.
+	 */
+	it('refuses to create a custom exercise under a dance that does not exist', async () => {
+		await refuses(
+			todayActions.createExercise,
+			post('kizomba', { name: 'Smuggled', everyDays: '3', notes: '' })
+		);
+		expect(listExercises(db, 'salsa').map((e) => e.name)).not.toContain('Smuggled');
+		expect(
+			db
+				.select()
+				.from(exercises)
+				.all()
+				.map((e) => e.dance)
+		).not.toContain('kizomba');
+	});
+
+	it('refuses to create a lesson under a dance that does not exist', async () => {
+		await refuses(
+			lessonListActions.create,
+			post('kizomba', {
+				title: 'Smuggled class',
+				notes: '',
+				everyDays: '7',
+				lessonDay: '2020-01-01'
+			})
+		);
+		expect(db.select().from(lessons).all()).toHaveLength(0);
+		expect(listLessons(db, 'salsa')).toHaveLength(0);
 	});
 });
 
@@ -172,6 +296,5 @@ describe('the guard leaves the friendly failures alone', () => {
 			post('bachata', { id: String(bachataExerciseId) })
 		)) as { status: number; data: { message: string } };
 		expect(res.data.message).toContain('Archive a figure from its page');
-		expect(archiveExercise(db, bachataCustomId, 1)).toBe(true);
 	});
 });

@@ -7,14 +7,13 @@ import { listCountTakesFor } from '$lib/server/countTakes';
 import { listCallableFigures } from '$lib/server/figures';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getSong } from '$lib/server/songs';
-import { exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
-import type { DanceSlug } from '$lib/dances/dances';
+import { danceOf, exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
 export const load: PageServerLoad = ({ url, params }) => {
-	const dance = params.dance as DanceSlug;
+	const dance = danceOf(params);
 	const db = getDb();
 	const songId = Number(url.searchParams.get('song')) || null;
 	const bpm = Number(url.searchParams.get('bpm')) || null;
@@ -82,7 +81,7 @@ export const actions: Actions = {
 		// The run is logged by id, so the id is checked against this dance: the
 		// sheet only ever offers this dance's exercises, and a posted id must not
 		// be able to reach past that.
-		requireExerciseInDance(getDb(), params.dance as DanceSlug, exerciseId);
+		requireExerciseInDance(getDb(), danceOf(params), exerciseId);
 		try {
 			logSet(getDb(), {
 				exerciseId,

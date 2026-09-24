@@ -4,7 +4,7 @@ import { createLesson, lessonVideoBytes, listLessons } from '$lib/server/lessons
 import { int, optionalText, text } from '$lib/server/form';
 import { isValidDay, localDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
-import type { DanceSlug } from '$lib/dances/dances';
+import { danceOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -15,7 +15,7 @@ function zone(locals: App.Locals): string {
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	return {
-		lessons: listLessons(db, params.dance as DanceSlug),
+		lessons: listLessons(db, danceOf(params)),
 		storageBytes: lessonVideoBytes(db),
 		today: localDay(Date.now(), zone(locals))
 	};
@@ -23,6 +23,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
 export const actions: Actions = {
 	create: async ({ params, request, locals }) => {
+		const dance = danceOf(params);
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
 		const title = text(form, 'title');
@@ -55,12 +56,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const { lesson } = createLesson(
-			getDb(),
-			params.dance as DanceSlug,
-			{ lessonDay, title, notes },
-			everyDays
-		);
-		throw redirect(303, `/${params.dance}/lessons/${lesson.id}`);
+		const { lesson } = createLesson(getDb(), dance, { lessonDay, title, notes }, everyDays);
+		throw redirect(303, `/${dance}/lessons/${lesson.id}`);
 	}
 };

@@ -21,7 +21,8 @@ import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
-import { DANCES, type DanceSlug } from '$lib/dances/dances';
+import { DANCES } from '$lib/dances/dances';
+import { danceOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -45,8 +46,9 @@ function lessonId(params: { id: string }): number {
  * row by id, so each one starts here.
  */
 function lessonOf(params: { dance: string; id: string }) {
+	const dance = danceOf(params);
 	const found = getLesson(getDb(), lessonId(params));
-	if (!found || found.lesson.archivedAt !== null || found.lesson.dance !== params.dance) {
+	if (!found || found.lesson.archivedAt !== null || found.lesson.dance !== dance) {
 		throw error(404, 'No such lesson');
 	}
 	return found;
@@ -124,7 +126,7 @@ export const actions: Actions = {
 	 * which is a better trade than depending on savepoint nesting.
 	 */
 	newFigure: async ({ params, request }) => {
-		const dance = params.dance as DanceSlug;
+		const dance = danceOf(params);
 		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
@@ -186,11 +188,7 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const exercise = createCustomExercise(db, params.dance as DanceSlug, {
-			name,
-			everyDays,
-			notes
-		});
+		const exercise = createCustomExercise(db, danceOf(params), { name, everyDays, notes });
 		linkExercise(db, id, exercise.id);
 		return { action: 'newExercise', ok: true };
 	},

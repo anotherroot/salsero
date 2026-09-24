@@ -16,9 +16,16 @@
 	 * Which tab is lit, decided on the path AFTER the dance segment — the tabs
 	 * never leave the dance you are in, so the slug itself says nothing about
 	 * which one you are on.
+	 *
+	 * The prefix test is not a formality: this nav also renders on the shared
+	 * pages, and slicing a same-length path off blind lights up Today on
+	 * `/voice` (six characters, exactly like `/salsa`).
 	 */
 	function current(seg: string): boolean {
-		const rest = page.url.pathname.slice(`/${dance}`.length).replace(/^\//, '');
+		const prefix = `/${dance}`;
+		const path = page.url.pathname;
+		if (path !== prefix && !path.startsWith(`${prefix}/`)) return false;
+		const rest = path.slice(prefix.length).replace(/^\//, '');
 		return seg === '' ? rest === '' : rest.startsWith(seg);
 	}
 
