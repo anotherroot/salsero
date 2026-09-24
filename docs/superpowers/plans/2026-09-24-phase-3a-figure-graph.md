@@ -771,13 +771,23 @@ export function figuresTo(g: Graph, positionId: number): number[] {
 	return g.figures.filter((f) => endOf(g, f) === positionId).map((f) => f.id);
 }
 
-/** What can come after this figure. The figure page's "Leads to". */
+/**
+ * What can come after this figure. The figure page's "Leads to".
+ *
+ * A figure appears in its OWN result whenever its end position is also one of
+ * its start positions — which every untagged figure is, both sides resolving to
+ * neutral. That is right here: this module answers reachability, and "can I
+ * dance that again right now" is genuinely yes. Suppressing an immediate repeat
+ * is the CALLER's decision, and both callers make it — the drill's walk drops
+ * the figure it just called, and the figure page drops itself from its own
+ * lists.
+ */
 export function follows(g: Graph, figureId: number): number[] {
 	const f = figureById(g, figureId);
 	return f ? figuresFrom(g, endOf(g, f)) : [];
 }
 
-/** What can come before it. The figure page's "Follows from". */
+/** What can come before it. The figure page's "Follows from". Self-inclusive, for the reason `follows` explains. */
 export function precedes(g: Graph, figureId: number): number[] {
 	const f = figureById(g, figureId);
 	if (!f) return [];
