@@ -69,11 +69,7 @@ describe('figuresFrom / figuresTo', () => {
 });
 
 describe('follows / precedes', () => {
-	const graph = g([
-		fig(1, [OPEN], CROSS),
-		fig(2, [CROSS], HAMMER),
-		fig(3, [HAMMER, CROSS], OPEN)
-	]);
+	const graph = g([fig(1, [OPEN], CROSS), fig(2, [CROSS], HAMMER), fig(3, [HAMMER, CROSS], OPEN)]);
 
 	it('follows is what starts where this figure ended', () => {
 		expect(follows(graph, 1)).toEqual([2, 3]);
