@@ -13,7 +13,7 @@ import {
 import { recordingsDir } from '$lib/server/files';
 import { checkbox, int, ints, oneOf, optionalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, MAX_EIGHTS, setFigurePositions } from '$lib/server/graph';
-import { listPositions } from '$lib/server/positions';
+import { getPosition, listPositions } from '$lib/server/positions';
 import { follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -54,14 +54,33 @@ export const load: PageServerLoad = ({ params }) => {
 			.filter((id) => id !== found.figure.id && names.has(id))
 			.map((id) => ({ id, name: names.get(id)! }));
 
+	const tags = figurePositions(db, found.figure.id);
+	const live = listPositions(db, dance);
+	const liveIds = new Set(live.map((p) => p.id));
+	// An archived position stays referenced by the figures tagged with it (the
+	// routines design doc's rule): if THIS figure points at one, splice it back
+	// into the list the pickers render — after the live rows, flagged — so a
+	// "Save positions" that touches nothing else does not silently drop it to
+	// neutral. `setFigurePositions` already accepts an archived id back; this is
+	// what lets the page actually resubmit it unchanged.
+	const taggedIds = [...tags.startIds, ...(tags.endId === null ? [] : [tags.endId])];
+	const archivedTagged = [...new Set(taggedIds)]
+		.filter((id) => !liveIds.has(id))
+		.map((id) => getPosition(db, id))
+		.filter((p): p is NonNullable<typeof p> => p !== null && p.dance === dance);
+
 	return {
 		...found,
-		positions: listPositions(db, dance).map((p) => ({
-			id: p.id,
-			name: p.name,
-			neutral: p.neutral
-		})),
-		tags: figurePositions(db, found.figure.id),
+		positions: [
+			...live.map((p) => ({ id: p.id, name: p.name, neutral: p.neutral, archived: false })),
+			...archivedTagged.map((p) => ({
+				id: p.id,
+				name: p.name,
+				neutral: p.neutral,
+				archived: true
+			}))
+		],
+		tags,
 		maxEights: MAX_EIGHTS,
 		// Derived per request, never stored — the same rule urgency follows.
 		leadsTo: link(follows(graph, found.figure.id)),

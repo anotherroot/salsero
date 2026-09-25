@@ -412,3 +412,9 @@ real database. `npm run check` must pass.
 - **Practising a transition as its own exercise.** An edge is nameable, but a
   two-figure routine already covers it.
 - **A flow on/off toggle**, for the reason given above.
+- **Moving a dance's neutral position.** Enforced in the data layer —
+  `updatePosition` accepts and guards the change, refusing to leave a dance
+  without one or to promote an archived row — but no route exposes it:
+  `rename` posts only `id` and `name`, and `create` always passes
+  `neutral: false`. The seeded neutral (salsa open-two-hands, bachata closed)
+  is expected to stand.

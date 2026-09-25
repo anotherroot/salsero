@@ -182,7 +182,7 @@
 								checked={data.tags.startIds.includes(position.id)}
 								class="size-5 accent-accent"
 							/>
-							{position.name}
+							{position.name}{position.archived ? ' (archived)' : ''}
 						</label>
 					{/each}
 				</div>
@@ -197,7 +197,7 @@
 					<option value="" selected={data.tags.endId === null}>{neutralName}</option>
 					{#each data.positions as position (position.id)}
 						<option value={position.id} selected={data.tags.endId === position.id}>
-							{position.name}
+							{position.name}{position.archived ? ' (archived)' : ''}
 						</option>
 					{/each}
 				</select>

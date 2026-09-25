@@ -38,7 +38,14 @@ export function graphFlow(g: Graph): Flow {
 			// the graph has no exit AND the case where the chosen pool has none;
 			// both would otherwise end the calls mid-song. `positionCounts` is what
 			// keeps the first from being invisible.
-			const choices = here.length > 0 ? here : startable(g.neutral);
+			const atNeutral = startable(g.neutral);
+			// Neither the current position nor neutral reaches anything in this
+			// pool — e.g. a pool tagged to start only in hammerlock, played from a
+			// standing start. The graph must never make the drill worse than it was
+			// before the graph existed, so it falls back to the pool itself rather
+			// than returning null: a genuinely empty pool is the only case that may
+			// still go silent.
+			const choices = here.length > 0 ? here : atNeutral.length > 0 ? atNeutral : pool;
 			if (choices.length === 0) return null;
 
 			// Hearing the same name twice running reads as a bug, so it is avoided —

@@ -74,10 +74,11 @@ export function createPosition(db: Db, dance: DanceSlug, input: PositionInput) {
 }
 
 /**
- * Edit a position. Returns null when it is gone, when the new slug clashes, or
+ * Edit a position. Returns null when it is gone, when the new slug clashes,
  * when the edit would demote the dance's LAST neutral — which would leave the
- * dance with none, and an untagged figure with nothing to resolve to. Promote
- * another position first; that demotes this one as a side effect.
+ * dance with none, and an untagged figure with nothing to resolve to — or when
+ * it would promote an ARCHIVED row to neutral. Promote another live position
+ * first; that demotes this one as a side effect.
  */
 export function updatePosition(db: Db, id: number, input: PositionInput) {
 	return db.transaction((tx) => {
@@ -88,6 +89,11 @@ export function updatePosition(db: Db, id: number, input: PositionInput) {
 		// in both directions — the demotion block below only ever enforces the
 		// "at most one" half.
 		if (current.neutral && !input.neutral) return null;
+		// No route can send `neutral: true` for an archived row today — but a
+		// crafted POST could, and an archived row is hidden from the pickers, the
+		// gap report and `buildGraph`'s own listing, so promoting one would make
+		// the dance's neutral point at a position nothing ever shows.
+		if (current.archivedAt !== null && input.neutral) return null;
 		const clash = tx
 			.select({ id: positions.id })
 			.from(positions)

@@ -353,8 +353,10 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
   8-count the figure STARTS on and the call sounds on count 5 of the one before.
   Random drill grows the plan lazily through `extendPlan(plan, pool, every,
-  throughEight, rand)`; a routine will supply one outright in phase 3b.
-  `rand` is injected so the module stays pure.
+  throughEight, rand, flow)`; a routine will supply one outright in phase 3b.
+  `rand` is injected so the module stays pure, and `flow` is how the figures
+  are chosen — uniform at random by default, or a walk over the tagged figure
+  graph (`src/lib/graph/flow.ts`) once positions are tagged.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
   `{ speed, count, clave, callEvery, calls, called }`, where `calls` is the true

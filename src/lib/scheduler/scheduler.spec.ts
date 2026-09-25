@@ -289,6 +289,27 @@ describe('extendPlan', () => {
 		]);
 	});
 
+	it('spaces the resume step by the figure length too, matching a plan built in one call', () => {
+		// Same flow as 'spaces calls by the figure length': figure 1 takes three
+		// 8-counts, figure 2 takes one, `every` is 1. The first call stops right
+		// after figure 1 is placed, so growing the second call has to re-derive
+		// figure 1's length for the RESUME step's spacing — the initial-`eight`
+		// expression, which no other test exercises with an `eights` above 1.
+		const flow = {
+			pick: (pool: number[], last: number | null) => (last === 1 ? 2 : 1),
+			eights: (id: number) => (id === 1 ? 3 : 1)
+		};
+		const first = extendPlan([], [1, 2], 1, 2, rand([0]), flow);
+		expect(first.map((s) => [s.eight, s.figureId])).toEqual([[2, 1]]);
+		const grown = extendPlan(first, [1, 2], 1, 9, rand([0]), flow);
+		expect(grown.map((s) => [s.eight, s.figureId])).toEqual([
+			[2, 1],
+			[5, 2],
+			[6, 1],
+			[9, 2]
+		]);
+	});
+
 	it('defaults to the uniform flow, so today’s behaviour is unchanged', () => {
 		const withDefault = extendPlan([], [1, 2, 3], 2, 8, rand([0, 0.5, 0.9]));
 		const explicit = extendPlan([], [1, 2, 3], 2, 8, rand([0, 0.5, 0.9]), UNIFORM_FLOW);

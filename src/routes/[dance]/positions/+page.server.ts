@@ -87,7 +87,7 @@ export const actions: Actions = {
 		if (!archivePosition(getDb(), found.id, Date.now())) {
 			return fail(400, {
 				action: 'archive',
-				message: 'The neutral position cannot be removed — make another one neutral first.'
+				message: 'The neutral position cannot be removed.'
 			});
 		}
 		return { action: 'archive', ok: true };

@@ -4,7 +4,7 @@ import { openDb, type Db } from './db';
 import { figureStartPositions } from './db/schema';
 import { archiveFigure, createFigure } from './figures';
 import { buildGraph, figurePositions, setFigurePositions } from './graph';
-import { listPositions, seedPositions } from './positions';
+import { archivePosition, listPositions, seedPositions } from './positions';
 
 const figureInput = (name: string) => ({
 	name,
@@ -131,5 +131,22 @@ describe('setFigurePositions', () => {
 		const open = pos('open-two');
 		expect(setFigurePositions(db, made.figure.id, [open, open], null, 1)).toBe(true);
 		expect(figurePositions(db, made.figure.id).startIds).toEqual([open]);
+	});
+
+	it('keeps a tag pointing at a position after it is archived', () => {
+		// The authority spec: "An archived position stays referenced by the
+		// figures tagged with it, so history and existing routines keep meaning."
+		// A page round-trip re-posts the SAME ids on every save, archived or not,
+		// so this is what that save must not lose.
+		const { db, pos } = setup();
+		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const crossHand = pos('cross-hand'); // not the neutral row, so it can be archived
+		expect(setFigurePositions(db, made.figure.id, [crossHand], crossHand, 1)).toBe(true);
+		expect(archivePosition(db, crossHand, Date.now())).toBe(true);
+		expect(setFigurePositions(db, made.figure.id, [crossHand], crossHand, 1)).toBe(true);
+		expect(figurePositions(db, made.figure.id)).toEqual({
+			startIds: [crossHand],
+			endId: crossHand
+		});
 	});
 });

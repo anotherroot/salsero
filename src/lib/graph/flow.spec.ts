@@ -45,12 +45,19 @@ describe('graphFlow', () => {
 		expect([1, 4]).toContain(flow.pick([1, 3, 4], 1, 0));
 	});
 
-	it('returns null for an empty pool, and when the pool reaches nothing', () => {
+	it('returns null for an empty pool', () => {
 		const flow = graphFlow(graph);
 		expect(flow.pick([], null, 0)).toBeNull();
-		// Figure 3 starts at hammerlock only, and the run begins at neutral. The
-		// reset lands on neutral too, where 3 still does not start.
-		expect(flow.pick([3], null, 0)).toBeNull();
+	});
+
+	it('falls back to the whole pool, rather than null, when neither here nor neutral reaches it', () => {
+		// Figure 3 starts at hammerlock only, and the run begins at neutral: both
+		// startable(here) and startable(neutral) come up empty. Before the graph
+		// existed, a plain random pick would still have called figure 3 — the
+		// graph must never make the drill worse than that, so it falls back to
+		// the pool itself instead of going silent for the rest of the run.
+		const flow = graphFlow(graph);
+		expect(flow.pick([3], null, 0)).toBe(3);
 	});
 
 	it('resets to neutral out of a dead end rather than going silent', () => {

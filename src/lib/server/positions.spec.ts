@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
 import { figures, positions } from './db/schema';
 import {
+	archivePosition,
 	createPosition,
 	listPositions,
 	neutralPosition,
@@ -120,5 +121,29 @@ describe('updatePosition', () => {
 		// untagged figure would have no position to resolve to.
 		expect(updatePosition(db, open.id, { ...open, neutral: false })).toBeNull();
 		expect(neutralPosition(db, 'salsa')!.id).toBe(open.id);
+	});
+
+	it('refuses to promote an archived position to neutral', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
+		expect(archivePosition(db, closed.id, Date.now())).toBe(true);
+		// No route sends `neutral: true` for an archived row today, but the data
+		// layer must refuse it anyway: an archived row is hidden from the
+		// pickers and the gap report, so promoting one would make the dance's
+		// neutral point at a position nothing ever shows.
+		expect(updatePosition(db, closed.id, { ...closed, neutral: true })).toBeNull();
+		expect(neutralPosition(db, 'salsa')!.slug).toBe('open-two');
+	});
+});
+
+describe('archivePosition', () => {
+	it('archives a non-neutral position, dropping it from the list; a second archive fails', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
+		expect(archivePosition(db, closed.id, Date.now())).toBe(true);
+		expect(listPositions(db, 'salsa').some((p) => p.id === closed.id)).toBe(false);
+		expect(archivePosition(db, closed.id, Date.now())).toBe(false);
 	});
 });
