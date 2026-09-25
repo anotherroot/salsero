@@ -170,7 +170,7 @@
 				<ChunkedUploadButton
 					uploadUrl="/api/lessons/{lesson.id}/videos"
 					accept="video/*"
-					label="+ Add a video"
+					label="+ Add videos"
 					maxBytes={MAX_LESSON_VIDEO_BYTES}
 				/>
 			</div>

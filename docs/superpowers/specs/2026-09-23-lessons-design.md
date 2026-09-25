@@ -151,6 +151,23 @@ data takes tens of seconds and a bar that only moves between chunks reads as
 hung. Resuming across a page reload is out of scope; the partial survives 24
 hours if it is ever wanted.
 
+**A batch is several uploads, not a new protocol.** The picker is `multiple`,
+and the files go up **one at a time** — the protocol's premise is that the
+partial's size IS the offset, so one stream per file per moment, and a phone's
+uplink wants that anyway. The server never learns a batch happened: each file is
+its own `uploadId`. Sequential order is also insertion order, which is the order
+the videos read back in; there is no position column.
+
+One file failing does not stop the ones behind it. `$lib/upload-queue.ts` is the
+pure half — `screenFiles` applies the size cap and the `video/` check before the
+first request, `summarise` writes the closing line ("2 videos added. Skipped
+notes.txt (not a video).") — and it is pure precisely so the batch's outcome is
+testable without a DOM, which this repo has no harness for. Success stays
+silent: the videos appearing in the list is the message. The bar spans the whole
+batch, since every size is known before the first chunk, and `invalidateAll()`
+runs once at the end — refreshing between files would tear down and re-mount the
+`<video>` elements already on the page, mid-upload.
+
 ## Today: four bands instead of three
 
 `plan()` returned `doneToday / todo / inactive`. `todo` splits, so the page

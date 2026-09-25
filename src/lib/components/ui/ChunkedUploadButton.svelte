@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { UPLOAD_CHUNK_BYTES } from '$lib/limits';
-	import { byteSize } from '$lib/format';
+	import { screenFiles, summarise, type Skipped } from '$lib/upload-queue';
 
 	/**
-	 * Upload a file in slices, so its size is bounded by the disk rather than by
+	 * Upload files in slices, so their size is bounded by the disk rather than by
 	 * what one request can carry — Cloudflare rejects a body over 100 MB, and a
 	 * class video is far bigger than that.
 	 *
@@ -13,6 +13,12 @@
 	 * retry, offset reconciliation and aggregate progress, and success only on
 	 * the last request. Folding both into one component would put all of that in
 	 * the path figure recordings take, which works today and has no tests.
+	 *
+	 * Several files may be picked at once, and they go up one at a time: the
+	 * chunk protocol's whole premise is that the partial file's size IS the
+	 * resume offset, and one stream at a time is also what a phone's uplink
+	 * actually wants. A file that fails does not stop the ones behind it — the
+	 * batch reports at the end which ones did not land.
 	 */
 	interface Props {
 		/** `PUT {uploadUrl}/{uploadId}` carries each chunk. */
@@ -25,8 +31,12 @@
 	let { uploadUrl, accept, label, maxBytes }: Props = $props();
 
 	let progress = $state<number | null>(null);
+	/** Which file of how many, while a batch of more than one is running. */
+	let position = $state<{ index: number; count: number } | null>(null);
 	let message = $state<string | null>(null);
 	let input: HTMLInputElement | undefined = $state();
+
+	const busy = $derived(progress !== null);
 
 	/** One chunk. Resolves to the server's byte count, or the finished row. */
 	function putChunk(
@@ -63,46 +73,38 @@
 		});
 	}
 
-	function errorFrom(status: number, body: string): string {
+	/** A server message, as a phrase that reads inside brackets after a filename. */
+	function reasonFrom(status: number, body: string): string {
+		let text = body;
 		try {
-			return JSON.parse(body).message ?? body;
+			text = JSON.parse(body).message ?? body;
 		} catch {
-			return body || `Upload failed (${status}).`;
+			/* plain-text error body */
 		}
+		return (text || `the server said ${status}`).replace(/\.$/, '');
 	}
 
-	async function upload(file: File) {
-		message = null;
-		if (file.size > maxBytes) {
-			message = `That file is ${byteSize(file.size)}; the limit is ${byteSize(maxBytes)}.`;
-			return;
-		}
-		if (!/^video\//.test(file.type)) {
-			message = 'Only video files can be added.';
-			return;
-		}
-
-		const id = crypto.randomUUID();
-		const url = `${uploadUrl}/${id}`;
+	/**
+	 * One file, chunk by chunk. `onBytes` reports bytes of THIS file that have
+	 * landed, so the caller can keep a bar that spans the whole batch.
+	 */
+	async function uploadOne(
+		file: File,
+		onBytes: (sent: number) => void
+	): Promise<string | null /* the reason it failed, or null */> {
+		const url = `${uploadUrl}/${crypto.randomUUID()}`;
 		let sent = 0;
 		let attempts = 0;
-		progress = 0;
 
 		while (sent < file.size) {
 			const blob = file.slice(sent, Math.min(sent + UPLOAD_CHUNK_BYTES, file.size));
 			let res;
 			try {
-				res = await putChunk(url, blob, sent, file.size, file, (loaded) => {
-					progress = (sent + loaded) / file.size;
-				});
+				res = await putChunk(url, blob, sent, file.size, file, (loaded) => onBytes(sent + loaded));
 			} catch {
 				// A dropped connection leaves the partial truncated to the last good
 				// offset, so retrying the same chunk is always safe.
-				if (++attempts > 3) {
-					progress = null;
-					message = 'The connection dropped. Try again.';
-					return;
-				}
+				if (++attempts > 3) return 'the connection dropped';
 				await new Promise((r) => setTimeout(r, 500 * attempts));
 				continue;
 			}
@@ -110,50 +112,75 @@
 			if (res.status === 409) {
 				// The server says the file is at a different offset. Believe it.
 				sent = res.received;
-				progress = sent / file.size;
-				if (++attempts > 3) {
-					progress = null;
-					message = 'That upload got out of step. Try again.';
-					return;
-				}
+				onBytes(sent);
+				if (++attempts > 3) return 'that upload got out of step';
 				continue;
 			}
-			if (res.status >= 400) {
-				progress = null;
-				message = errorFrom(res.status, res.body);
-				return;
-			}
+			if (res.status >= 400) return reasonFrom(res.status, res.body);
 
 			attempts = 0;
 			sent = res.received;
-			progress = sent / file.size;
+			onBytes(sent);
 
-			if (res.done) {
-				progress = null;
-				if (input) input.value = '';
-				await invalidateAll();
-				return;
-			}
+			if (res.done) return null;
+		}
+
+		return 'the upload finished but the video was not saved';
+	}
+
+	async function upload(picked: File[]) {
+		message = null;
+		const { accepted, rejected } = screenFiles(picked, maxBytes);
+		const failed: Skipped[] = [...rejected];
+		let added = 0;
+
+		// Every size is known before the first request, so the bar can span the
+		// batch instead of restarting at zero for each file.
+		const total = accepted.reduce((sum, f) => sum + f.size, 0);
+		let done = 0;
+		progress = accepted.length > 0 ? 0 : null;
+
+		for (const [i, file] of accepted.entries()) {
+			position = accepted.length > 1 ? { index: i + 1, count: accepted.length } : null;
+			const reason = await uploadOne(file, (sent) => {
+				progress = total === 0 ? 1 : (done + sent) / total;
+			});
+			if (reason === null) added += 1;
+			else failed.push({ name: file.name, reason });
+			done += file.size;
+			progress = total === 0 ? 1 : done / total;
 		}
 
 		progress = null;
-		message = 'The upload finished but the video was not saved. Try again.';
+		position = null;
+		if (input) input.value = '';
+		message = summarise(added, failed);
+		// Once, at the end: refreshing between files would tear down and re-mount
+		// the <video> elements already on the page, mid-upload.
+		if (added > 0) await invalidateAll();
 	}
 </script>
 
 <label
 	class="flex h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-rule text-[14px] font-medium text-accent"
 >
-	{progress === null ? label : `Uploading… ${Math.round(progress * 100)}%`}
+	{#if !busy}
+		{label}
+	{:else if position}
+		Uploading {position.index} of {position.count}… {Math.round((progress ?? 0) * 100)}%
+	{:else}
+		Uploading… {Math.round((progress ?? 0) * 100)}%
+	{/if}
 	<input
 		bind:this={input}
 		type="file"
 		{accept}
+		multiple
 		class="sr-only"
-		disabled={progress !== null}
+		disabled={busy}
 		onchange={(e) => {
-			const file = e.currentTarget.files?.[0];
-			if (file) upload(file);
+			const files = Array.from(e.currentTarget.files ?? []);
+			if (files.length > 0) upload(files);
 		}}
 	/>
 </label>
