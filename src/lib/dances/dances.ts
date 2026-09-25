@@ -72,16 +72,30 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		countPatterns: ['salsa', 'son', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: true,
+		// Casino (Cuban) terms: this is the dance being practised — the figures are
+		// dile que no, enchufla, setenta. The first seed used LA/linear names
+		// (hammerlock, cuddle, shadow) for the same physical holds, which is a
+		// different tradition's vocabulary.
+		//
+		// The SLUGS deliberately keep their original spelling. A slug is the seed's
+		// stable identity and is never shown, so a rename must not move it — that
+		// is the whole reason the name and the slug are separate columns.
+		//
+		// Positions are NOT split by style. Casino and linear share these physical
+		// holds under different names, so one node per shape is what lets a figure
+		// of one style follow a figure of another; two style-scoped lists would sever
+		// exactly that edge while the dancer's hands sat in the identical place.
 		seedPositions: [
-			{ slug: 'open-two', name: 'Open, two hands' },
-			{ slug: 'open-one', name: 'Open, one hand' },
-			{ slug: 'closed', name: 'Closed' },
-			{ slug: 'cross-hand', name: 'Cross-hand' },
-			{ slug: 'hammerlock-r', name: "Hammerlock, follower's right" },
-			{ slug: 'hammerlock-l', name: "Hammerlock, follower's left" },
-			{ slug: 'shadow', name: 'Shadow' },
-			{ slug: 'cuddle', name: 'Cuddle' },
-			{ slug: 'back-to-back', name: 'Back to back' }
+			{ slug: 'open-two', name: 'Abierta (dos manos)' },
+			{ slug: 'open-one', name: 'Abierta (una mano)' },
+			{ slug: 'closed', name: 'Cerrada' },
+			{ slug: 'cross-hand', name: 'Manos cruzadas' },
+			{ slug: 'caida', name: 'Caída' },
+			{ slug: 'hammerlock-r', name: 'Brazo atrás, derecha' },
+			{ slug: 'hammerlock-l', name: 'Brazo atrás, izquierda' },
+			{ slug: 'cuddle', name: 'Sombrero' },
+			{ slug: 'shadow', name: 'Sombra' },
+			{ slug: 'back-to-back', name: 'Espalda con espalda' }
 		],
 		accent: '#c2410c',
 		accentDark: '#f06a2e'
