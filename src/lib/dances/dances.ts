@@ -91,8 +91,8 @@ export const DANCES: Record<DanceSlug, Dance> = {
 			{ slug: 'closed', name: 'Cerrada' },
 			{ slug: 'cross-hand', name: 'Manos cruzadas' },
 			{ slug: 'caida', name: 'Caída' },
-			{ slug: 'hammerlock-r', name: 'Brazo atrás, derecha' },
-			{ slug: 'hammerlock-l', name: 'Brazo atrás, izquierda' },
+			{ slug: 'hammerlock-r', name: 'Setenta, derecha' },
+			{ slug: 'hammerlock-l', name: 'Setenta, izquierda' },
 			{ slug: 'cuddle', name: 'Sombrero' },
 			{ slug: 'shadow', name: 'Sombra' },
 			{ slug: 'back-to-back', name: 'Espalda con espalda' }
