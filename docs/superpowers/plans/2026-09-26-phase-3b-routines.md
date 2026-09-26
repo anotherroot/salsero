@@ -395,8 +395,13 @@ describe('sharedEnd', () => {
 		expect(sharedEnd(g, { kind: 'options', figureIds: [12, 14] })).toBe(1);
 	});
 
-	it('counts an untagged option as ending at neutral', () => {
+	it('counts an untagged option as ending at neutral, whichever order it comes in', () => {
+		// Both orders on purpose. With the untagged figure FIRST, `sharedEnd`'s
+		// `end === null` sentinel would absorb a raw unresolved `f.end` and the
+		// assertion would pass with the bug present; with it second, the same bug
+		// returns null. Only the pair has teeth.
 		expect(sharedEnd(g, { kind: 'options', figureIds: [10, 14] })).toBe(1);
+		expect(sharedEnd(g, { kind: 'options', figureIds: [14, 10] })).toBe(1);
 	});
 
 	it('is null when the options disagree', () => {
@@ -421,6 +426,18 @@ describe('flatten', () => {
 			slots: [
 				{ kind: 'options', figureIds: [11, 999] },
 				{ kind: 'options', figureIds: [998] }
+			]
+		};
+		expect(flatten(g, shape).map((s) => s.figureIds)).toEqual([[11]]);
+	});
+
+	it('contributes nothing for an embedded routine with no slots of its own', () => {
+		// Reachable, not hypothetical: `addChildSlot` embeds a routine that has no
+		// slots yet, so this shape really does arrive here.
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [11] },
+				{ kind: 'child', routineId: 7, slots: [] }
 			]
 		};
 		expect(flatten(g, shape).map((s) => s.figureIds)).toEqual([[11]]);
@@ -488,6 +505,10 @@ describe('breaks', () => {
 		};
 		expect(breaks(g, shape)).toEqual([]);
 	});
+
+	it('is empty for a routine with nothing danceable', () => {
+		expect(breaks(g, { slots: [] })).toEqual([]);
+	});
 });
 
 describe('loops', () => {
@@ -501,6 +522,10 @@ describe('loops', () => {
 
 	it('is true for one untagged figure, which really does run into itself', () => {
 		expect(loops(g, opts(10))).toBe(true);
+	});
+
+	it('is false for a routine with nothing danceable', () => {
+		expect(loops(g, { slots: [] })).toBe(false);
 	});
 });
 ```
@@ -666,7 +691,7 @@ export function loops(g: Graph, shape: RoutineShape): boolean {
 nix develop -c npx vitest run src/lib/routines/routines.spec.ts
 ```
 
-Expected: PASS, 18 tests.
+Expected: PASS, 21 tests.
 
 - [ ] **Step 5: Prove two of the tests can fail**
 
@@ -674,6 +699,7 @@ Mutation experiment, one at a time, restoring after each:
 
 1. In `sharedEnd`, change `else if (end !== e) return null;` to `else if (false) return null;`. Expected: "is null when the options disagree" FAILS, and so does "cannot report a break out of a slot whose end is unknown".
 2. In `flatten`, drop the `slot.kind === 'child' ? slot.slots : [slot]` splice — use `[slot]` unconditionally, casting as needed. Expected: "splices an embedded routine in place" FAILS.
+3. In `sharedEnd`, change `const e = endOf(g, f);` to `const e = f.end as number;`. Expected: "counts an untagged option as ending at neutral, whichever order it comes in" FAILS — **on its second assertion, not its first.** The first ordering passes with this bug present, which is exactly why both orderings are there.
 
 If either mutation leaves the suite green, the test is not testing what it
 claims. Fix the test, and say so in your report.
