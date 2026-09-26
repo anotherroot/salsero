@@ -16,7 +16,7 @@
 
 	const ex = $derived(row.exercise);
 	const BADGE: Record<Exclude<ExerciseItem['source'], 'figure'>, string> = {
-		choreography: 'Choreo',
+		routine: 'Routine',
 		lesson: 'Lesson',
 		custom: 'Custom'
 	};
