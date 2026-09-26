@@ -52,8 +52,13 @@ describe('sharedEnd', () => {
 		expect(sharedEnd(g, { kind: 'options', figureIds: [12, 14] })).toBe(1);
 	});
 
-	it('counts an untagged option as ending at neutral', () => {
+	it('counts an untagged option as ending at neutral, whichever order it comes in', () => {
+		// Both orders on purpose. With the untagged figure FIRST, `sharedEnd`'s
+		// `end === null` sentinel would absorb a raw unresolved `f.end` and the
+		// assertion would pass with the bug present; with it second, the same bug
+		// returns null. Only the pair has teeth.
 		expect(sharedEnd(g, { kind: 'options', figureIds: [10, 14] })).toBe(1);
+		expect(sharedEnd(g, { kind: 'options', figureIds: [14, 10] })).toBe(1);
 	});
 
 	it('is null when the options disagree', () => {
@@ -78,6 +83,16 @@ describe('flatten', () => {
 			slots: [
 				{ kind: 'options', figureIds: [11, 999] },
 				{ kind: 'options', figureIds: [998] }
+			]
+		};
+		expect(flatten(g, shape).map((s) => s.figureIds)).toEqual([[11]]);
+	});
+
+	it('contributes nothing for an embedded routine with no slots of its own', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [11] },
+				{ kind: 'child', routineId: 7, slots: [] }
 			]
 		};
 		expect(flatten(g, shape).map((s) => s.figureIds)).toEqual([[11]]);
@@ -145,6 +160,10 @@ describe('breaks', () => {
 		};
 		expect(breaks(g, shape)).toEqual([]);
 	});
+
+	it('is empty for a routine with nothing danceable', () => {
+		expect(breaks(g, { slots: [] })).toEqual([]);
+	});
 });
 
 describe('loops', () => {
@@ -158,5 +177,9 @@ describe('loops', () => {
 
 	it('is true for one untagged figure, which really does run into itself', () => {
 		expect(loops(g, opts(10))).toBe(true);
+	});
+
+	it('is false for a routine with nothing danceable', () => {
+		expect(loops(g, { slots: [] })).toBe(false);
 	});
 });
