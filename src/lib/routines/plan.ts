@@ -26,6 +26,10 @@ import { flatten, type OptionsSlot, type RoutineShape } from './routines';
  * danceable. The user's call rate is the better guess where the data is silent,
  * and a figure that carries a real `eights` still gets its own length whenever
  * that is the longer of the two.
+ *
+ * `plan` must consist entirely of steps this same routine produced. Mixing in
+ * a drill-built prefix, or another routine's walk, desyncs the cursor
+ * silently — there is no provenance on a `PlanStep` to catch it.
  */
 export function routinePlan(
 	plan: PlanStep[],

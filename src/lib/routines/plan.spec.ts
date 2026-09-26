@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Graph } from '$lib/graph/graph';
-import { LEAD_IN_8S } from '$lib/scheduler/scheduler';
+import { LEAD_IN_8S, type PlanStep } from '$lib/scheduler/scheduler';
 import { routinePlan } from './plan';
 import type { RoutineShape } from './routines';
 
@@ -62,6 +62,20 @@ describe('routinePlan', () => {
 		expect(second.map((s) => s.figureId)).toEqual([11, 12, 11, 12]);
 	});
 
+	it('extends the plan it was given rather than rebuilding one', () => {
+		// A prefix this routine could never have produced: 14 is in none of its
+		// slots, and 7 is not where a lead-in starts. A `routinePlan` that
+		// recomputed from scratch would overwrite both.
+		//
+		// The test above cannot tell the two apart, because the algorithm is
+		// deterministic and that test hands the second call a fresh rand stream —
+		// so a from-scratch rebuild reproduces a correct resume exactly.
+		const given: PlanStep[] = [{ eight: 7, figureId: 14 }];
+		const out = routinePlan(given, opts(11, 12), g, 1, 9, seeded([0]));
+		expect(out[0]).toEqual({ eight: 7, figureId: 14 });
+		expect(out.length).toBeGreaterThan(1);
+	});
+
 	it('picks the option that can be entered from where the hands are', () => {
 		// Slot 1 is 11 (open → closed). Slot 2 offers 14 (needs hammerlock) and
 		// 12 (needs closed). Only 12 fits, whatever rand says.
@@ -72,6 +86,8 @@ describe('routinePlan', () => {
 			]
 		};
 		for (const r of [0, 0.5, 0.99]) {
+			// r = 0 is the load-bearing case: with two options, 0.5 and 0.99 land on the
+			// right answer even if the position filter is skipped entirely. Do not trim it.
 			expect(routinePlan([], shape, g, 1, 3, seeded([r])).map((s) => s.figureId)).toEqual([11, 12]);
 		}
 	});
