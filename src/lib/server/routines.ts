@@ -18,6 +18,17 @@ import type { DanceSlug } from '$lib/dances/dances';
 import type { OptionsSlot, RoutineShape, Slot } from '$lib/routines/routines';
 import type { RoutineItem, SlotRow } from '$lib/types';
 
+/** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
+function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, number[]> {
+	const byStep = new Map<number, number[]>();
+	for (const row of rows) {
+		const list = byStep.get(row.stepId);
+		if (list) list.push(row.figureId);
+		else byStep.set(row.stepId, [row.figureId]);
+	}
+	return byStep;
+}
+
 export interface RoutineInput {
 	name: string;
 	notes: string | null;
@@ -101,7 +112,7 @@ export function listRoutines(db: Db, dance: DanceSlug): RoutineItem[] {
 		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
 		.where(and(eq(routines.dance, dance), isNull(routines.archivedAt)))
 		.groupBy(routines.id)
-		.orderBy(desc(routines.createdAt))
+		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
 }
 
@@ -117,6 +128,16 @@ export function listRoutines(db: Db, dance: DanceSlug): RoutineItem[] {
  * separately what it offers.
  */
 export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShape> {
+	// Three dance filters follow, and only one of them can change the result today.
+	//
+	// The one on the routines query below decides which ids become keys, so it is
+	// what keeps another dance's routines out of this map — and the dance-wall test
+	// covers it. The one here on the steps query is observable ONLY through a step
+	// whose `child_routine_id` names a routine of the other dance, which
+	// `addChildSlot` refuses; it is the backstop for a hand-edited row. The one on
+	// the options query cannot change anything at all: `byStep` is read by step id,
+	// and a leaked row sits under a key no same-dance step will ever match. Both are
+	// kept deliberately — they cost one clause each and they fail safe.
 	const steps = db
 		.select({
 			id: routineSteps.id,
@@ -138,12 +159,7 @@ export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShap
 		.orderBy(asc(routineStepOptions.figureId))
 		.all();
 
-	const byStep = new Map<number, number[]>();
-	for (const o of options) {
-		const list = byStep.get(o.stepId);
-		if (list) list.push(o.figureId);
-		else byStep.set(o.stepId, [o.figureId]);
-	}
+	const byStep = groupByStep(options);
 
 	// A routine's own option slots, in order. Embedding is one level, so a
 	// routine that IS embedded has none of its own children to worry about and
@@ -205,12 +221,7 @@ export function routineSlots(db: Db, routineId: number): SlotRow[] {
 					.orderBy(asc(routineStepOptions.figureId))
 					.all();
 
-	const byStep = new Map<number, number[]>();
-	for (const o of options) {
-		const list = byStep.get(o.stepId);
-		if (list) list.push(o.figureId);
-		else byStep.set(o.stepId, [o.figureId]);
-	}
+	const byStep = groupByStep(options);
 
 	return steps.map((s) => ({
 		...s,

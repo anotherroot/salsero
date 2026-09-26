@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
-import { createRoutine, getRoutine, listRoutines, routineShapes, updateRoutine } from './routines';
-import { archiveRoutine } from './routines';
+import {
+	archiveRoutine,
+	createRoutine,
+	getRoutine,
+	listRoutines,
+	routineShapes,
+	updateRoutine
+} from './routines';
 import { exercises } from './db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -48,15 +54,18 @@ describe('archiveRoutine', () => {
 });
 
 describe('listRoutines', () => {
-	it('shows only this dance, unarchived, with a slot count', () => {
+	it('shows only this dance, unarchived, newest first, with a slot count', () => {
 		const db = openDb(':memory:');
-		const a = createRoutine(db, 'salsa', { name: 'A', notes: null }).routine;
-		createRoutine(db, 'bachata', { name: 'B', notes: null });
-		createRoutine(db, 'salsa', { name: 'C', notes: null });
-		archiveRoutine(db, a.id, 1000);
-		expect(listRoutines(db, 'salsa').map((r) => r.name)).toEqual(['C']);
+		const gone = createRoutine(db, 'salsa', { name: 'Gone', notes: null }).routine;
+		createRoutine(db, 'salsa', { name: 'Older', notes: null });
+		createRoutine(db, 'salsa', { name: 'Newer', notes: null });
+		createRoutine(db, 'bachata', { name: 'Bachata', notes: null });
+		archiveRoutine(db, gone.id, 1000);
+		// Newest first, and `Newer`/`Older` share a millisecond in a test this fast —
+		// so this also pins the id tiebreaker, not just the timestamp sort.
+		expect(listRoutines(db, 'salsa').map((r) => r.name)).toEqual(['Newer', 'Older']);
 		expect(listRoutines(db, 'salsa')[0].slots).toBe(0);
-		expect(listRoutines(db, 'bachata').map((r) => r.name)).toEqual(['B']);
+		expect(listRoutines(db, 'bachata').map((r) => r.name)).toEqual(['Bachata']);
 	});
 });
 
@@ -71,5 +80,12 @@ describe('routineShapes', () => {
 		const db = openDb(':memory:');
 		const { routine } = createRoutine(db, 'bachata', { name: 'B', notes: null });
 		expect(routineShapes(db, 'salsa').has(routine.id)).toBe(false);
+	});
+
+	it('still has a shape for an archived routine, so a parent can keep dancing it', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		archiveRoutine(db, routine.id, 1000);
+		expect(routineShapes(db, 'salsa').has(routine.id)).toBe(true);
 	});
 });
