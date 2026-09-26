@@ -1155,15 +1155,20 @@ describe('archiveRoutine', () => {
 });
 
 describe('listRoutines', () => {
-	it('shows only this dance, unarchived, with a slot count', () => {
+	it('shows only this dance, unarchived, newest first, with a slot count', () => {
 		const db = openDb(':memory:');
-		const a = createRoutine(db, 'salsa', { name: 'A', notes: null }).routine;
-		createRoutine(db, 'bachata', { name: 'B', notes: null });
-		createRoutine(db, 'salsa', { name: 'C', notes: null });
-		archiveRoutine(db, a.id, 1000);
-		expect(listRoutines(db, 'salsa').map((r) => r.name)).toEqual(['C']);
+		const gone = createRoutine(db, 'salsa', { name: 'Gone', notes: null }).routine;
+		createRoutine(db, 'salsa', { name: 'Older', notes: null });
+		createRoutine(db, 'salsa', { name: 'Newer', notes: null });
+		createRoutine(db, 'bachata', { name: 'Bachata', notes: null });
+		archiveRoutine(db, gone.id, 1000);
+		// Two unarchived salsa routines, so the assertion can see ORDER and not just
+		// membership. They also share a millisecond in a test this fast, which is
+		// what makes the `desc(routines.id)` tiebreaker load-bearing rather than
+		// decorative.
+		expect(listRoutines(db, 'salsa').map((r) => r.name)).toEqual(['Newer', 'Older']);
 		expect(listRoutines(db, 'salsa')[0].slots).toBe(0);
-		expect(listRoutines(db, 'bachata').map((r) => r.name)).toEqual(['B']);
+		expect(listRoutines(db, 'bachata').map((r) => r.name)).toEqual(['Bachata']);
 	});
 });
 
@@ -1178,6 +1183,16 @@ describe('routineShapes', () => {
 		const db = openDb(':memory:');
 		const { routine } = createRoutine(db, 'bachata', { name: 'B', notes: null });
 		expect(routineShapes(db, 'salsa').has(routine.id)).toBe(false);
+	});
+
+	it('still has a shape for an archived routine, so a parent can keep dancing it', () => {
+		// A deliberate asymmetry with `listRoutines`, and one only a comment guarded
+		// until this test existed: a shape is a reading, and the list decides
+		// separately what it offers.
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		archiveRoutine(db, routine.id, 1000);
+		expect(routineShapes(db, 'salsa').has(routine.id)).toBe(true);
 	});
 });
 ```
@@ -1224,6 +1239,17 @@ import type { RoutineItem, SlotRow } from '$lib/types';
  * named without importing drizzle's internals.
  */
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
+function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, number[]> {
+	const byStep = new Map<number, number[]>();
+	for (const row of rows) {
+		const list = byStep.get(row.stepId);
+		if (list) list.push(row.figureId);
+		else byStep.set(row.stepId, [row.figureId]);
+	}
+	return byStep;
+}
 
 export interface RoutineInput {
 	name: string;
@@ -1311,7 +1337,10 @@ export function listRoutines(db: Db, dance: DanceSlug): RoutineItem[] {
 		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
 		.where(and(eq(routines.dance, dance), isNull(routines.archivedAt)))
 		.groupBy(routines.id)
-		.orderBy(desc(routines.createdAt))
+		// `desc(routines.id)` is not decoration: `created_at` is `Date.now()` at
+		// millisecond resolution, so two routines made in one tick tie, and without
+		// a second key their order is unspecified. `listLessons` does the same.
+		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
 }
 
@@ -1327,6 +1356,16 @@ export function listRoutines(db: Db, dance: DanceSlug): RoutineItem[] {
  * separately what it offers.
  */
 export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShape> {
+	// Three dance filters follow, and only one of them can change the result today.
+	//
+	// The one on the routines query below decides which ids become keys, so it is
+	// what keeps another dance's routines out of this map — and the dance-wall test
+	// covers it. The one here on the steps query is observable ONLY through a step
+	// whose `child_routine_id` names a routine of the other dance, which
+	// `addChildSlot` refuses; it is the backstop for a hand-edited row. The one on
+	// the options query cannot change anything at all: `byStep` is read by step id,
+	// and a leaked row sits under a key no same-dance step will ever match. Both are
+	// kept deliberately — they cost one clause each and they fail safe.
 	const steps = db
 		.select({
 			id: routineSteps.id,
@@ -1348,12 +1387,7 @@ export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShap
 		.orderBy(asc(routineStepOptions.figureId))
 		.all();
 
-	const byStep = new Map<number, number[]>();
-	for (const o of options) {
-		const list = byStep.get(o.stepId);
-		if (list) list.push(o.figureId);
-		else byStep.set(o.stepId, [o.figureId]);
-	}
+	const byStep = groupByStep(options);
 
 	// A routine's own option slots, in order. Embedding is one level, so a
 	// routine that IS embedded has none of its own children to worry about and
@@ -1415,12 +1449,7 @@ export function routineSlots(db: Db, routineId: number): SlotRow[] {
 					.orderBy(asc(routineStepOptions.figureId))
 					.all();
 
-	const byStep = new Map<number, number[]>();
-	for (const o of options) {
-		const list = byStep.get(o.stepId);
-		if (list) list.push(o.figureId);
-		else byStep.set(o.stepId, [o.figureId]);
-	}
+	const byStep = groupByStep(options);
 
 	return steps.map((s) => ({
 		...s,
@@ -1440,7 +1469,7 @@ comment.
 nix develop -c npx vitest run src/lib/server/routines.spec.ts
 ```
 
-Expected: PASS, 7 tests.
+Expected: PASS, 9 tests.
 
 - [ ] **Step 6: Prove two of the tests can fail**
 
@@ -1988,7 +2017,7 @@ Add `isNotNull` to the `drizzle-orm` import.
 nix develop -c npx vitest run src/lib/server/routines.spec.ts
 ```
 
-Expected: PASS, 7 + 19 = 26 tests.
+Expected: PASS, 9 + 19 = 28 tests.
 
 - [ ] **Step 5: Prove three of the tests can fail**
 
@@ -1997,7 +2026,15 @@ Expected: PASS, 7 + 19 = 26 tests.
    somewhere else" FAILS.
 2. In `canEmbed`, delete the `parentEmbedded` check (`return true` instead).
    Expected: "refuses to embed into a routine that is itself embedded" FAILS.
-3. In `routineShapes`, drop `eq(routines.dance, dance)` from the STEPS query's `where`. Expected: "does not carry the other dance's slots into this dance" FAILS.
+3. In `routineShapes`, drop `eq(routines.dance, dance)` from the ROUTINES query —
+   the one seeding the map's keys. Expected: "does not carry the other dance's
+   slots into this dance" FAILS on `salsa.has(theirs.id)`.
+   **Do not mutate the steps query instead.** Dropping that filter changes
+   nothing observable: a step whose routine is not a key is discarded by the
+   `out.get(s.routineId)?.slots.push(...)` optional chain, so the only way it
+   leaks is through a step whose `child_routine_id` names another dance's
+   routine — which `addChildSlot` refuses. It is a backstop for a hand-edited
+   row, not a live guard, and Task 4's fix round documents that in the file.
 4. In `order`, remove the first pass (the sentinel loop). Expected: at least one
    of the `moveSlot` / `deleteSlot` tests FAILS — a unique-constraint error is a
    pass for this experiment. If both stay green, the renumber is not being
