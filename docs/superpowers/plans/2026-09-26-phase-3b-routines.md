@@ -748,7 +748,7 @@ planners. Task 10 amends the spec to match.
 ```ts
 import { describe, expect, it } from 'vitest';
 import type { Graph } from '$lib/graph/graph';
-import { LEAD_IN_8S } from '$lib/scheduler/scheduler';
+import { LEAD_IN_8S, type PlanStep } from '$lib/scheduler/scheduler';
 import { routinePlan } from './plan';
 import type { RoutineShape } from './routines';
 
@@ -810,6 +810,23 @@ describe('routinePlan', () => {
 		expect(second.map((s) => s.figureId)).toEqual([11, 12, 11, 12]);
 	});
 
+	it('extends the plan it was given rather than rebuilding one', () => {
+		// A prefix this routine could never have produced: 14 is in none of its
+		// slots, and 7 is not where a lead-in starts. A `routinePlan` that
+		// recomputed from scratch would overwrite both.
+		//
+		// The test above cannot tell the two apart, because the algorithm is
+		// deterministic and that test hands the second call a fresh rand stream —
+		// so a from-scratch rebuild reproduces a correct resume exactly. Sharing
+		// one `seeded([0, 0, …])` between the two calls does NOT fix it either:
+		// every value in that stream is the same, so consuming two or four of them
+		// picks identically.
+		const given: PlanStep[] = [{ eight: 7, figureId: 14 }];
+		const out = routinePlan(given, opts(11, 12), g, 1, 9, seeded([0]));
+		expect(out[0]).toEqual({ eight: 7, figureId: 14 });
+		expect(out.length).toBeGreaterThan(1);
+	});
+
 	it('picks the option that can be entered from where the hands are', () => {
 		// Slot 1 is 11 (open → closed). Slot 2 offers 14 (needs hammerlock) and
 		// 12 (needs closed). Only 12 fits, whatever rand says.
@@ -819,6 +836,8 @@ describe('routinePlan', () => {
 				{ kind: 'options', figureIds: [14, 12] }
 			]
 		};
+		// r = 0 is the load-bearing case: with two options, 0.5 and 0.99 land on the
+		// right answer even if the position filter is skipped entirely. Do not trim it.
 		for (const r of [0, 0.5, 0.99]) {
 			expect(routinePlan([], shape, g, 1, 3, seeded([r])).map((s) => s.figureId)).toEqual([11, 12]);
 		}
@@ -906,6 +925,12 @@ Expected: FAIL — cannot resolve `./plan`.
  * change. The plan itself is the cursor. One step is pushed per resolved slot,
  * so `plan.length` says which slot comes next and where the hands are, and no
  * state has to survive between ticks.
+ *
+ * Which means `plan` must consist entirely of steps THIS routine produced.
+ * Mixing in a drill-built prefix, or another routine's walk, desyncs the cursor
+ * silently — a `PlanStep` carries no provenance, so nothing can catch it. The
+ * drill's `extendPlan` has no such precondition, because `flow.pick` only ever
+ * reads the last figure; this is the one planner where it matters.
  */
 import { endOf, figureById, startsOf, type Graph } from '$lib/graph/graph';
 import type { CallEvery } from '$lib/labels';
@@ -982,7 +1007,7 @@ function choose(g: Graph, slot: OptionsSlot, last: number | null, r: number): nu
 nix develop -c npx vitest run src/lib/routines/plan.spec.ts
 ```
 
-Expected: PASS, 12 tests.
+Expected: PASS, 13 tests.
 
 - [ ] **Step 5: Prove three of the tests can fail**
 
@@ -994,7 +1019,15 @@ One at a time, restoring after each:
    with `const choices = slot.figureIds;`. Expected: "picks the option that can
    be entered from where the hands are" FAILS.
 3. In `routinePlan`, change the slot cursor from `out.length % flat.length` to
-   `0`. Expected: "calls the slots in order" FAILS.
+   `0`. Expected: "calls the slots in order" FAILS — and so do seven others,
+   because every test whose subject needs more than one distinct slot rides on
+   this cursor. That cascade is expected; report it rather than chasing it.
+4. In `routinePlan`, change `const out = [...plan];` to
+   `const out: PlanStep[] = [];`. Expected: "extends the plan it was given
+   rather than rebuilding one" FAILS, reporting `{ eight: 2, figureId: 11 }`
+   against `{ eight: 7, figureId: 14 }`. **Nothing else fails**, which is the
+   whole point of that test: the deterministic algorithm makes a from-scratch
+   rebuild indistinguishable from a correct resume everywhere else.
 
 If a mutation leaves the suite green, fix the test and say so in your report.
 
