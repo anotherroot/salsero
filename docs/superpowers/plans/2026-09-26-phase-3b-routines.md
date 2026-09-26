@@ -1108,7 +1108,7 @@ import { eq } from 'drizzle-orm';
 const figure = (db: ReturnType<typeof openDb>, name: string, dance: 'salsa' | 'bachata' = 'salsa') =>
 	createFigure(db, dance, {
 		name,
-		partner: 'either',
+		partner: 'partner',
 		style: dance === 'salsa' ? 'salsa' : 'dominican',
 		notes: null,
 		callable: true,
@@ -1592,6 +1592,48 @@ describe('addOption and removeOption', () => {
 		const other = figure(db, 'B', 'bachata');
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, other.id)).toBe(false);
+		// Not just the return: a refusal must write nothing. "Never both" has no
+		// CHECK behind it, so a regression that returned false AFTER inserting would
+		// leave a slot violating the invariant and a return-only assertion would
+		// sail past it.
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('reports success without duplicating a figure already in the slot', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const a = figure(db, 'A');
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		// Idempotent on purpose: (step_id, figure_id) is a composite primary key, so
+		// falling through to the insert would THROW rather than refuse — and adding
+		// the same variant twice is the obvious accident in the editor.
+		expect(addOption(db, step, a.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('refuses an archived figure as an option', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const a = figure(db, 'A');
+		const gone = figure(db, 'Gone');
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		archiveFigure(db, gone.id, Date.now());
+		expect(addOption(db, step, gone.id)).toBe(false);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('refuses to add an option to a slot that holds a child', () => {
+		// Invariant 4's OTHER half: never both. Nothing in the schema forbids a step
+		// carrying a child and options at once, so this guard is the only thing
+		// standing between the two, and the post-refusal assertion is the half that
+		// would catch a regression writing before it returns false.
+		const db = openDb(':memory:');
+		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		addFigureSlot(db, child.id, figure(db, 'Inner').id);
+		const step = addChildSlot(db, parent.id, child.id)!;
+		expect(addOption(db, step, figure(db, 'Outer').id)).toBe(false);
+		expect(routineSlots(db, parent.id)[0].figureIds).toEqual([]);
 	});
 
 	it('will not empty a slot', () => {
@@ -1758,7 +1800,7 @@ const figure = (
 ) =>
 	createFigure(db, dance, {
 		name,
-		partner: 'either',
+		partner: 'partner',
 		style: dance === 'salsa' ? 'salsa' : 'dominican',
 		notes: null,
 		callable: true,
@@ -1766,12 +1808,15 @@ const figure = (
 	})!.figure;
 ```
 
-`createFigure` comes from `./figures`; check its `FigureInput` shape and the
-`PARTNER` values in `$lib/labels` before assuming `'either'` is valid, and use
-whatever the tree actually says.
+`createFigure` comes from `./figures`. `PARTNER` is `['partner', 'solo']` —
+`$lib/labels.ts:11`, and an earlier draft of this plan wrongly said `'either'`,
+which `createFigure` rejects by returning null. Check any value here against the
+tree rather than trusting this block.
 
 `listPositions` and `seedPositions` come from `./positions`,
-`setFigurePositions` from `./graph`; add them to the spec file's imports.
+`setFigurePositions` from `./graph`, and `archiveFigure` from `./figures` —
+check its real name and signature in the tree; add them all to the spec file's
+imports.
 `setFigurePositions(db, figureId, startIds, endId, eights)` is 3a's writer.
 
 **`openDb(':memory:')` does NOT seed positions** — `seedPositions` is called
@@ -1868,6 +1913,10 @@ export function addFigureSlot(db: Db, routineId: number, figureId: number): numb
  * construction, which is why there is no cycle check anywhere in this module.
  */
 export function canEmbed(db: Db, parentId: number, childId: number): boolean {
+	// Archival is deliberately not consulted. Archiving removes the OFFER —
+	// `embeddable()` filters it out — not the ability of a parent that already
+	// embeds a routine to keep dancing it. A route that takes a raw child id should
+	// offer only what `embeddable()` returned.
 	if (parentId === childId) return false;
 	const parent = getRoutine(db, parentId);
 	const child = getRoutine(db, childId);
@@ -2017,7 +2066,7 @@ Add `isNotNull` to the `drizzle-orm` import.
 nix develop -c npx vitest run src/lib/server/routines.spec.ts
 ```
 
-Expected: PASS, 8 + 19 = 27 tests.
+Expected: PASS, 8 + 23 = 31 tests.
 
 - [ ] **Step 5: Prove three of the tests can fail**
 
@@ -2039,6 +2088,14 @@ Expected: PASS, 8 + 19 = 27 tests.
    of the `moveSlot` / `deleteSlot` tests FAILS — a unique-constraint error is a
    pass for this experiment. If both stay green, the renumber is not being
    exercised: extend the test until it is.
+5. In `addOption`, remove `if (o.figureId === figureId) return true;`. Expected:
+   "reports success without duplicating a figure already in the slot" FAILS, and
+   with a SqliteError about a UNIQUE/PRIMARY KEY constraint — not a wrong-value
+   assertion. `(step_id, figure_id)` is a composite primary key, so without that
+   line a re-add falls through the loop (the figure's own end trivially agrees)
+   into the insert and throws, breaching the rule that a guarded path returns
+   falsy and writes nothing. This line had zero coverage in an earlier draft:
+   removing it left all 28 tests green.
 
 - [ ] **Step 6: Run the full check suite and commit**
 
