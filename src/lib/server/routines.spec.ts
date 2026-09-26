@@ -18,7 +18,7 @@ import {
 	setSlotNote,
 	updateRoutine
 } from './routines';
-import { createFigure } from './figures';
+import { archiveFigure, createFigure } from './figures';
 import { listPositions, seedPositions } from './positions';
 import { setFigurePositions } from './graph';
 import { exercises } from './db/schema';
@@ -162,6 +162,17 @@ describe('addOption and removeOption', () => {
 		expect(routineSlots(db, routine.id)[0].figureIds.sort()).toEqual([a.id, b.id].sort());
 	});
 
+	it('reports success without duplicating a figure already in the slot', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const a = figure(db, 'A');
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		// Idempotent on purpose: (step_id, figure_id) is a composite primary key, so
+		// falling through to the insert would throw rather than refuse.
+		expect(addOption(db, step, a.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
 	it('refuses a figure that ends somewhere else', () => {
 		const db = openDb(':memory:');
 		seedPositions(db);
@@ -194,6 +205,18 @@ describe('addOption and removeOption', () => {
 		const other = figure(db, 'B', 'bachata');
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, other.id)).toBe(false);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('refuses an archived figure as an option', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const a = figure(db, 'A');
+		const gone = figure(db, 'Gone');
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		archiveFigure(db, gone.id, Date.now());
+		expect(addOption(db, step, gone.id)).toBe(false);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
 	});
 
 	// Not in the brief: none of its tests call `addOption` against a slot that
@@ -207,6 +230,7 @@ describe('addOption and removeOption', () => {
 		const step = addChildSlot(db, parent.id, child.id)!;
 		const f = figure(db, 'A');
 		expect(addOption(db, step, f.id)).toBe(false);
+		expect(routineSlots(db, parent.id)[0].figureIds).toEqual([]);
 	});
 
 	it('will not empty a slot', () => {

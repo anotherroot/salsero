@@ -312,6 +312,11 @@ export function addFigureSlot(db: Db, routineId: number, figureId: number): numb
  * Both halves are needed for depth ≤ 2: the child must embed nothing, AND the
  * parent must be embedded nowhere. With both, a cycle is impossible by
  * construction, which is why there is no cycle check anywhere in this module.
+ *
+ * Archival is deliberately not consulted. Archiving removes the OFFER —
+ * `embeddable()` filters it out — not the ability of a parent that already
+ * embeds a routine to keep dancing it. A route that takes a raw child id
+ * should offer only what `embeddable()` returned.
  */
 export function canEmbed(db: Db, parentId: number, childId: number): boolean {
 	if (parentId === childId) return false;
