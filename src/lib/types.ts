@@ -113,3 +113,28 @@ export interface CallableFigure {
 	partner: Partner;
 	style: string | null;
 }
+
+/** A routine as the library list shows it. */
+export interface RoutineItem {
+	id: number;
+	name: string;
+	notes: string | null;
+	/** Slots, children counted as one. */
+	slots: number;
+	createdAt: number;
+}
+
+/**
+ * One slot as the editor renders it: the ids and names the pure `Slot`
+ * deliberately does without.
+ */
+export interface SlotRow {
+	id: number;
+	position: number;
+	note: string | null;
+	/** The embedded routine, or null when this slot holds figure options. */
+	childId: number | null;
+	childName: string | null;
+	/** Empty for a child slot. */
+	figureIds: number[];
+}
