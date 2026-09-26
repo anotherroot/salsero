@@ -2228,16 +2228,39 @@ Do not invent new components or colours. Reuse what the lessons list uses; if a
 badge style is needed, the positions page (`/[dance]/positions/+page.svelte`)
 already has one for dead-end / orphan.
 
-- [ ] **Step 4: Link it from the nav**
+- [ ] **Step 4: Link it from the Figures page, NOT the bottom nav**
 
-Add "Routines" beside Lessons in the shell nav, using `resolve()` for the href
-the way the existing links do.
+`src/lib/components/shell/BottomNav.svelte` already carries five tabs (Today,
+Figures, Lessons, Songs, Settings) as `flex-1` cells in a `max-w-[560px]` row.
+A sixth takes each cell from 75px to 62px at iPhone-SE width, and "Routines" is
+exactly as long as "Settings", which is comfortable at 75 and cramped at 62.
+**Do not touch `BottomNav.svelte`.**
+
+Instead follow the 3a precedent: `/[dance]/positions` is reached from a small
+muted link on the figures list (`src/routes/[dance]/figures/+page.svelte:55-59`).
+Put the routines link beside it, with the same treatment, so the page introduces
+no new navigation pattern:
+
+```svelte
+	<a
+		class="text-[12px] text-muted underline"
+		href={resolve('/[dance]/routines', { dance: data.dance.slug })}>Routines</a
+	>
+```
+
+Check the surrounding markup and match how the existing link is spaced — if the
+two need a flex row or a separator to sit together, add the minimum that looks
+deliberate rather than leaving them jammed.
+
+A routine's exercise also appears on Today automatically, because
+`createRoutine` makes one, so this link is for editing rather than for the daily
+path.
 
 - [ ] **Step 5: Run the check suite and commit**
 
 ```sh
 nix develop -c npm run check
-git add src/routes/\[dance\]/routines/ src/lib/server/scope.ts src/lib/components/shell/
+git add src/routes/\[dance\]/routines/ src/routes/\[dance\]/figures/+page.svelte src/lib/server/scope.ts src/lib/server/form.ts
 git commit -m "routines: the library list"
 ```
 
