@@ -1469,7 +1469,7 @@ comment.
 nix develop -c npx vitest run src/lib/server/routines.spec.ts
 ```
 
-Expected: PASS, 9 tests.
+Expected: PASS, 8 tests.
 
 - [ ] **Step 6: Prove two of the tests can fail**
 
@@ -2017,7 +2017,7 @@ Add `isNotNull` to the `drizzle-orm` import.
 nix develop -c npx vitest run src/lib/server/routines.spec.ts
 ```
 
-Expected: PASS, 9 + 19 = 28 tests.
+Expected: PASS, 8 + 19 = 27 tests.
 
 - [ ] **Step 5: Prove three of the tests can fail**
 
