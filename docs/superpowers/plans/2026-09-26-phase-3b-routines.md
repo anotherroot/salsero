@@ -1630,9 +1630,9 @@ describe('addOption and removeOption', () => {
 		const db = openDb(':memory:');
 		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
 		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
-		addFigureSlot(db, child.id, figure(db, 'Inner').id);
 		const step = addChildSlot(db, parent.id, child.id)!;
-		expect(addOption(db, step, figure(db, 'Outer').id)).toBe(false);
+		const f = figure(db, 'A');
+		expect(addOption(db, step, f.id)).toBe(false);
 		expect(routineSlots(db, parent.id)[0].figureIds).toEqual([]);
 	});
 
@@ -2066,7 +2066,7 @@ Add `isNotNull` to the `drizzle-orm` import.
 nix develop -c npx vitest run src/lib/server/routines.spec.ts
 ```
 
-Expected: PASS, 8 + 23 = 31 tests.
+Expected: PASS, 8 + 22 = 30 tests.
 
 - [ ] **Step 5: Prove three of the tests can fail**
 
