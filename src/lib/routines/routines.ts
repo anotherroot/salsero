@@ -1,0 +1,142 @@
+/**
+ * A routine's shape, and what the figure graph says about it.
+ *
+ * PURE and client-safe, the same rules `src/lib/graph/` follows: no database,
+ * no DOM, no `Date.now()`, and no idea that dances exist — the data-access
+ * layer scopes to one dance and hands over plain data.
+ *
+ * Nothing here is stored. Where a routine starts, where it ends, where it
+ * breaks and whether it loops are all recomputed per request, for the same
+ * reason urgency is: a cached answer is a second source of truth that goes
+ * stale the moment a tag is edited.
+ *
+ * Every position is read through `startsOf` and `endOf`, never off the figure
+ * row, because those two are what make an untagged figure resolve to the
+ * neutral position. A repertoire nobody has tagged is one big hub, and a
+ * routine over it is all seams and no breaks — which is honest.
+ */
+import { endOf, figureById, startsOf, type Graph } from '$lib/graph/graph';
+
+/** A slot filled by interchangeable figures — the variants. */
+export interface OptionsSlot {
+	kind: 'options';
+	figureIds: number[];
+}
+
+/**
+ * A slot filled by an embedded routine.
+ *
+ * Its own slots are always `OptionsSlot`: embedding is one level, enforced on
+ * write, so the type says so too and nothing downstream has to recurse.
+ */
+export interface ChildSlot {
+	kind: 'child';
+	routineId: number;
+	slots: OptionsSlot[];
+}
+
+export type Slot = OptionsSlot | ChildSlot;
+
+export interface RoutineShape {
+	slots: Slot[];
+}
+
+/**
+ * The routine as one flat run of option slots, children spliced in place.
+ *
+ * Everything else here works on this, which is why a break INSIDE an embedded
+ * routine and a break at its seam are both visible: the embedded slot borrows
+ * the child's shape rather than hiding it.
+ *
+ * An option no figure in the graph answers for is dropped, and a slot left with
+ * none disappears with it. Archiving a figure must not be able to stop a
+ * routine playing, and a slot that can call nothing is not a slot.
+ */
+export function flatten(g: Graph, shape: RoutineShape): OptionsSlot[] {
+	const out: OptionsSlot[] = [];
+	for (const slot of shape.slots) {
+		for (const s of slot.kind === 'child' ? slot.slots : [slot]) {
+			const figureIds = s.figureIds.filter((id) => figureById(g, id) !== null);
+			if (figureIds.length > 0) out.push({ kind: 'options', figureIds });
+		}
+	}
+	return out;
+}
+
+/**
+ * Every position this slot can be entered from: the union of its options'.
+ *
+ * Permissive on purpose. An option that does not work from where the hands are
+ * is simply not picked at run time, rather than blocked while authoring.
+ */
+export function slotStarts(g: Graph, slot: OptionsSlot): number[] {
+	const out = new Set<number>();
+	for (const id of slot.figureIds) {
+		const f = figureById(g, id);
+		if (!f) continue;
+		for (const p of startsOf(g, f)) out.add(p);
+	}
+	return [...out];
+}
+
+/**
+ * The position every option leaves the hands at, or null when they disagree.
+ *
+ * Disagreement is refused on write — that is what interchangeable means — but
+ * pure code must not assume the write path was the only way rows arrived. A
+ * hand-edited database should read as "end unknown" rather than pick a winner,
+ * and the callers here all decline to guess.
+ */
+export function sharedEnd(g: Graph, slot: OptionsSlot): number | null {
+	let end: number | null = null;
+	for (const id of slot.figureIds) {
+		const f = figureById(g, id);
+		if (!f) continue;
+		const e = endOf(g, f);
+		if (end === null) end = e;
+		else if (end !== e) return null;
+	}
+	return end;
+}
+
+/** Where the routine can be started. Empty when it has no danceable slot. */
+export function routineStarts(g: Graph, shape: RoutineShape): number[] {
+	const flat = flatten(g, shape);
+	return flat.length === 0 ? [] : slotStarts(g, flat[0]);
+}
+
+/** Where it leaves the hands, or null if the last slot's options disagree. */
+export function routineEnd(g: Graph, shape: RoutineShape): number | null {
+	const flat = flatten(g, shape);
+	return flat.length === 0 ? null : sharedEnd(g, flat[flat.length - 1]);
+}
+
+/**
+ * Flat slot indices `i` where the hands cannot get from slot `i` to `i + 1`.
+ *
+ * Reported, never refused. This is a personal app and the dancer may know
+ * something the graph does not — a tag that is simply missing, or a transition
+ * their body makes anyway. A slot whose own end is unknown yields no break:
+ * there is nothing to compare, and a warning nobody can act on is noise.
+ */
+export function breaks(g: Graph, shape: RoutineShape): number[] {
+	const flat = flatten(g, shape);
+	const out: number[] = [];
+	for (let i = 0; i + 1 < flat.length; i++) {
+		const end = sharedEnd(g, flat[i]);
+		if (end === null) continue;
+		if (!slotStarts(g, flat[i + 1]).includes(end)) out.push(i);
+	}
+	return out;
+}
+
+/**
+ * Whether the routine runs straight back into itself.
+ *
+ * A free diagnostic worth showing: the player loops a routine when the song
+ * outlasts it, so a routine that does not loop will cross one break per lap.
+ */
+export function loops(g: Graph, shape: RoutineShape): boolean {
+	const end = routineEnd(g, shape);
+	return end !== null && routineStarts(g, shape).includes(end);
+}
