@@ -2259,6 +2259,7 @@ git commit -m "routines: the slot editor"
 **Files:**
 
 - Modify: `src/lib/scheduler/attach.ts`
+- Modify: `src/lib/scheduler/scheduler.ts:152` — one stale comment
 - Modify: `src/lib/server/figures.ts`
 - Modify: `src/routes/[dance]/player/+page.server.ts`
 - Modify: `src/routes/[dance]/player/+page.svelte`
@@ -2306,6 +2307,18 @@ And the one branch, replacing the existing `extendPlan` call (around line 295):
 `pool.length > 0` stays as the gate, unchanged: the page passes the routine's
 own figure ids as the pool, so a routine with nothing callable falls silent for
 the same reason an empty pool does.
+
+- [ ] **Step 1b: Fix the one stale comment left over from the old vocabulary**
+
+`src/lib/scheduler/scheduler.ts:152` still says "phase 3's choreographies
+supply them". This is the task that makes the sentence true again, so:
+
+```ts
+/** A figure placed on an 8-count. The random drill generates these; a routine supplies them. */
+```
+
+It is the last `choreograph*` anywhere under `src/`; the remaining ones are in
+`docs/`, and Task 10 owns those.
 
 - [ ] **Step 2: Add `listFiguresForCall` to `src/lib/server/figures.ts`**
 
