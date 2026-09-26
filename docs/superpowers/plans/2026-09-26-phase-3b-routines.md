@@ -1680,6 +1680,28 @@ describe('embedding, one level', () => {
 		expect(canEmbed(db, a.id, b.id)).toBe(false);
 		expect(addChildSlot(db, a.id, b.id)).toBeNull();
 	});
+});
+
+describe('routineShapes across the dance wall', () => {
+	// Task 4 could only exercise ONE of `routineShapes`'s three dance filters,
+	// because the other two need slots to exist and Task 4 had no way to make any.
+	// This is that coverage, and it is the filter that actually matters: the one on
+	// the steps query. Drop it and a bachata routine's slots appear in salsa's map.
+	it("does not carry the other dance's slots into this dance", () => {
+		const db = openDb(':memory:');
+		const mine = createRoutine(db, 'salsa', { name: 'Mine', notes: null }).routine;
+		const theirs = createRoutine(db, 'bachata', { name: 'Theirs', notes: null }).routine;
+		addFigureSlot(db, mine.id, figure(db, 'Enchufla').id);
+		addFigureSlot(db, theirs.id, figure(db, 'Bachata basic', 'bachata').id);
+
+		const salsa = routineShapes(db, 'salsa');
+		expect(salsa.get(mine.id)?.slots).toHaveLength(1);
+		expect(salsa.has(theirs.id)).toBe(false);
+
+		const bachata = routineShapes(db, 'bachata');
+		expect(bachata.get(theirs.id)?.slots).toHaveLength(1);
+		expect(bachata.has(mine.id)).toBe(false);
+	});
 
 	it('offers only what may be embedded, archived routines excluded', () => {
 		const db = openDb(':memory:');
@@ -1693,6 +1715,31 @@ describe('embedding, one level', () => {
 	});
 });
 ```
+
+**The `figure()` helper does not exist yet — define it in this task.** Task 4's
+brief declared it but none of Task 4's own tests called it, so eslint's
+`no-unused-vars` (an error here, not a warning) forced its removal. Every test
+below needs it, so add it near the top of the spec file:
+
+```ts
+const figure = (
+	db: ReturnType<typeof openDb>,
+	name: string,
+	dance: 'salsa' | 'bachata' = 'salsa'
+) =>
+	createFigure(db, dance, {
+		name,
+		partner: 'either',
+		style: dance === 'salsa' ? 'salsa' : 'dominican',
+		notes: null,
+		callable: true,
+		callText: null
+	})!.figure;
+```
+
+`createFigure` comes from `./figures`; check its `FigureInput` shape and the
+`PARTNER` values in `$lib/labels` before assuming `'either'` is valid, and use
+whatever the tree actually says.
 
 `listPositions` and `seedPositions` come from `./positions`,
 `setFigurePositions` from `./graph`; add them to the spec file's imports.
@@ -1941,7 +1988,7 @@ Add `isNotNull` to the `drizzle-orm` import.
 nix develop -c npx vitest run src/lib/server/routines.spec.ts
 ```
 
-Expected: PASS, 7 + 18 = 25 tests.
+Expected: PASS, 7 + 19 = 26 tests.
 
 - [ ] **Step 5: Prove three of the tests can fail**
 
@@ -1950,7 +1997,8 @@ Expected: PASS, 7 + 18 = 25 tests.
    somewhere else" FAILS.
 2. In `canEmbed`, delete the `parentEmbedded` check (`return true` instead).
    Expected: "refuses to embed into a routine that is itself embedded" FAILS.
-3. In `order`, remove the first pass (the sentinel loop). Expected: at least one
+3. In `routineShapes`, drop `eq(routines.dance, dance)` from the STEPS query's `where`. Expected: "does not carry the other dance's slots into this dance" FAILS.
+4. In `order`, remove the first pass (the sentinel loop). Expected: at least one
    of the `moveSlot` / `deleteSlot` tests FAILS — a unique-constraint error is a
    pass for this experiment. If both stay green, the renumber is not being
    exercised: extend the test until it is.
