@@ -37,6 +37,7 @@ import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
+import { addFigureSlot, createRoutine, routineSlots } from '$lib/server/routines';
 import { exercises, lessons, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
@@ -46,6 +47,7 @@ import * as figurePage from './figures/[id]/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as positionsPage from './positions/+page.server';
+import * as routinePage from './routines/[id]/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -101,19 +103,29 @@ const figureInput = {
 
 let db: Db;
 let salsaExerciseId: number;
+let salsaFigureId: number;
+let salsaRoutineAId: number;
+let salsaRoutineBId: number;
 let bachataFigureId: number;
 let bachataExerciseId: number;
 let bachataCustomId: number;
 let bachataSetId: number;
 let bachataSongId: number;
 let bachataLessonId: number;
+let bachataRoutineId: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	seedPositions(db);
 
-	salsaExerciseId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.exercise.id;
+	const salsaFigure = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!;
+	salsaExerciseId = salsaFigure.exercise.id;
+	salsaFigureId = salsaFigure.figure.id;
+	salsaRoutineAId = createRoutine(db, 'salsa', { name: 'Routine A', notes: null }).routine.id;
+	salsaRoutineBId = createRoutine(db, 'salsa', { name: 'Routine B', notes: null }).routine.id;
+	bachataRoutineId = createRoutine(db, 'bachata', { name: 'Bachata routine', notes: null }).routine
+		.id;
 	const bachata = createFigure(db, 'bachata', {
 		...figureInput,
 		name: 'Basico',
@@ -331,6 +343,42 @@ describe("the positions page refuses the other dance's rows", () => {
 		const row = getPosition(db, neutral.id);
 		expect(row?.archivedAt).toBeNull();
 		expect(row?.neutral).toBe(true);
+	});
+});
+
+describe("the routine detail route refuses the other dance's rows", () => {
+	it('will not open a bachata routine from a salsa URL', () => {
+		expect(() => loadAt(routinePage.load, 'salsa', String(bachataRoutineId))).toThrow(threw404);
+	});
+
+	it('will not add a bachata figure to a salsa routine', async () => {
+		// A BACHATA FIGURE id on a SALSA routine: `requireRoutineInDance` already
+		// accepts this routine (it is salsa), so only `addFigureSlot`'s own dance
+		// check on the figure can refuse it. Posting a bachata ROUTINE id instead
+		// would be rejected by `requireRoutineInDance` — a different guard — and
+		// the test would still pass with `addFigureSlot`'s check deleted.
+		const res = (await call(
+			routinePage.actions.addFigure,
+			post('salsa', { figureId: String(bachataFigureId) }, String(salsaRoutineAId))
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('That figure is not part of this dance.');
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it('will not delete a slot belonging to a different salsa routine', async () => {
+		// The slot belongs to a DIFFERENT SALSA routine, not a bachata one: a
+		// bachata slot id would already be turned away by `deleteSlot`'s own
+		// `routine_id` match without proving anything about same-dance ownership,
+		// which is the case that actually matters here.
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		const res = (await call(
+			routinePage.actions.remove,
+			post('salsa', { stepId: String(stepId) }, String(salsaRoutineAId))
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('That slot is already gone.');
+		expect(routineSlots(db, salsaRoutineBId)).toHaveLength(1);
 	});
 });
 
