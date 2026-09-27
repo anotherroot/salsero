@@ -25,12 +25,18 @@
 		defaultBpm: number;
 		figures: CallableFigure[];
 		dance: Dance;
+		/**
+		 * Set when the run is a routine rather than the random drill: its name for
+		 * the one line that replaces the figure picker, and the figures it can
+		 * call, which become the pool. Null for an ordinary drill run.
+		 */
+		routine?: { name: string; figureIds: number[] } | null;
 		onplay: (settings: PlayerSettings) => void;
 		/** True while the player is starting, so Play cannot be tapped a second time. */
 		starting: boolean;
 	}
 
-	let { song, defaultBpm, figures, dance, onplay, starting }: Props = $props();
+	let { song, defaultBpm, figures, dance, routine = null, onplay, starting }: Props = $props();
 
 	// Keyed per dance so the two dances keep separate saved settings — without
 	// this, opening the other dance's player would silently overwrite (on the
@@ -144,8 +150,16 @@
 		}
 	});
 
+	/**
+	 * What the run actually calls from. A routine names its own figures, so the
+	 * picker is not consulted — and the persist effect above deliberately keeps
+	 * storing the picker's list instead of this one, so practising a routine does
+	 * not overwrite the pool chosen for the ordinary drill.
+	 */
+	const pool = $derived(routine ? routine.figureIds : figureIds);
+
 	function play() {
-		onplay({ source, bpm, count, clave, callEvery, speed, voiceVolume, figureIds });
+		onplay({ source, bpm, count, clave, callEvery, speed, voiceVolume, figureIds: pool });
 	}
 
 	const field =
@@ -299,43 +313,54 @@
 		<input type="range" min="0" max="1" step="0.05" bind:value={voiceVolume} class="w-full" />
 	</label>
 
-	<section>
-		<div class="mb-2 flex items-center justify-between">
-			<span class={label}>Figures ({figureIds.length}/{figures.length})</span>
-			<div class="flex gap-3">
-				<button type="button" class="text-[13px] text-accent" onclick={() => (figureIds = allIds)}
-					>All</button
-				>
-				<button type="button" class="text-[13px] text-accent" onclick={() => (figureIds = [])}
-					>None</button
-				>
+	<!--
+		A routine names its own figures, so there is nothing to pick: the line
+		below says what will be called instead of offering a choice.
+	-->
+	{#if routine}
+		<p class="rounded-lg border border-rule bg-raised px-3 py-2.5 text-[14px] text-ink-2">
+			Routine: <span class="font-medium text-ink">{routine.name}</span>, {routine.figureIds.length}
+			{routine.figureIds.length === 1 ? 'figure' : 'figures'}
+		</p>
+	{:else}
+		<section>
+			<div class="mb-2 flex items-center justify-between">
+				<span class={label}>Figures ({figureIds.length}/{figures.length})</span>
+				<div class="flex gap-3">
+					<button type="button" class="text-[13px] text-accent" onclick={() => (figureIds = allIds)}
+						>All</button
+					>
+					<button type="button" class="text-[13px] text-accent" onclick={() => (figureIds = [])}
+						>None</button
+					>
+				</div>
 			</div>
-		</div>
-		{#if figures.length === 0}
-			<p class="text-[13px] text-muted">No callable figures yet — mark one as callable first.</p>
-		{:else}
-			<ul class="space-y-1.5">
-				{#each figures as f (f.id)}
-					<li>
-						<label
-							class="flex h-11 items-center gap-2.5 rounded-lg border border-rule bg-raised px-3"
-						>
-							<input
-								type="checkbox"
-								checked={figureIds.includes(f.id)}
-								onchange={(e) =>
-									(figureIds = e.currentTarget.checked
-										? [...figureIds, f.id]
-										: figureIds.filter((id) => id !== f.id))}
-								class="size-5"
-							/>
-							<span class="truncate text-[14px]">{f.name}</span>
-						</label>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+			{#if figures.length === 0}
+				<p class="text-[13px] text-muted">No callable figures yet — mark one as callable first.</p>
+			{:else}
+				<ul class="space-y-1.5">
+					{#each figures as f (f.id)}
+						<li>
+							<label
+								class="flex h-11 items-center gap-2.5 rounded-lg border border-rule bg-raised px-3"
+							>
+								<input
+									type="checkbox"
+									checked={figureIds.includes(f.id)}
+									onchange={(e) =>
+										(figureIds = e.currentTarget.checked
+											? [...figureIds, f.id]
+											: figureIds.filter((id) => id !== f.id))}
+									class="size-5"
+								/>
+								<span class="truncate text-[14px]">{f.name}</span>
+							</label>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
+	{/if}
 
 	<button
 		type="button"

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull, like } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, like } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, figures, recordings } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
@@ -126,6 +126,32 @@ export function listCallableFigures(db: Db, dance: DanceSlug): CallableFigure[] 
 		})
 		.from(figures)
 		.where(and(isNull(figures.archivedAt), eq(figures.callable, true), eq(figures.dance, dance)))
+		.orderBy(figures.name)
+		.all()
+		.map(({ callText, ...f }) => ({ ...f, say: callText ?? f.name }));
+}
+
+/**
+ * Named figures in the same shape `listCallableFigures` returns, for figures
+ * called by id rather than drawn from the pool — a routine's options.
+ *
+ * `callable` is not consulted: that flag says "offer this in the drill's
+ * picker", and a routine names its figures explicitly. Archived ones are still
+ * excluded, because `buildGraph` excludes them too and the planner will never
+ * reach one.
+ */
+export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): CallableFigure[] {
+	if (ids.length === 0) return [];
+	return db
+		.select({
+			id: figures.id,
+			name: figures.name,
+			callText: figures.callText,
+			partner: figures.partner,
+			style: figures.styleTag
+		})
+		.from(figures)
+		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), inArray(figures.id, ids)))
 		.orderBy(figures.name)
 		.all()
 		.map(({ callText, ...f }) => ({ ...f, say: callText ?? f.name }));

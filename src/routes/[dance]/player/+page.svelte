@@ -7,6 +7,7 @@
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { graphFlow } from '$lib/graph/flow';
+	import { routinePlan } from '$lib/routines/plan';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import type { ActionData, PageData } from './$types';
 
@@ -105,6 +106,12 @@
 			toggles: { count: settings.count, clave: settings.clave, callEvery: settings.callEvery },
 			pool: settings.figureIds,
 			flow: graphFlow(data.graph),
+			// A routine decides the whole plan; the drill's flow picks one figure at
+			// a time. Never both.
+			planner: data.routine
+				? (plan, every, through, rand) =>
+						routinePlan(plan, data.routine!.shape, data.graph, every, through, rand)
+				: undefined,
 			// Only the chosen pattern's takes: a salsa recording must never stand in
 			// for a son run, whose words fall on different counts entirely.
 			takes: data.takes.filter((t) => t.pattern === settings.count),
@@ -185,6 +192,16 @@
 			defaultBpm={data.bpm ?? 180}
 			figures={data.figures}
 			dance={data.dance}
+			routine={data.routine && {
+				name: data.routine.name,
+				figureIds: [
+					...new Set(
+						data.routine.shape.slots.flatMap((s) =>
+							s.kind === 'child' ? s.slots.flatMap((c) => c.figureIds) : s.figureIds
+						)
+					)
+				]
+			}}
 			onplay={handlePlay}
 			{starting}
 		/>

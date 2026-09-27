@@ -135,6 +135,20 @@ export interface PlayerOptions {
 	 * indistinguishable until tagging begins.
 	 */
 	flow?: Flow;
+	/**
+	 * Decides the whole plan instead of picking figure by figure — which is how a
+	 * routine plays. Given the plan so far it returns the plan extended through
+	 * `throughEight`, and must never change a step it has already returned.
+	 *
+	 * A function the page supplies, exactly as `flow` is, so this module never
+	 * learns what a routine is.
+	 */
+	planner?: (
+		plan: PlanStep[],
+		every: CallEvery,
+		throughEight: number,
+		rand: () => number
+	) => PlanStep[];
 	/** What the voice says for a figure — `say`, not necessarily the name. */
 	sayOf: (figureId: number) => string;
 	/** Count and clave loudness, 0–1, independent of the music. */
@@ -295,14 +309,9 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		if (toggles.callEvery !== null && pool.length > 0) {
 			// Decide calls a bar or two ahead of where we are scheduling sound.
 			const through = eightAt(until) + 2;
-			plan = extendPlan(
-				plan,
-				pool,
-				toggles.callEvery as CallEvery,
-				through,
-				Math.random,
-				opts.flow
-			);
+			plan = opts.planner
+				? opts.planner(plan, toggles.callEvery as CallEvery, through, Math.random)
+				: extendPlan(plan, pool, toggles.callEvery as CallEvery, through, Math.random, opts.flow);
 		}
 
 		const { cues, phrases: due, calls } = cuesIn(tl, plan, toggles, cursor, until);
