@@ -8,6 +8,7 @@
 	const TABS = [
 		{ path: '/[dance]' as const, label: 'Today', seg: '' },
 		{ path: '/[dance]/figures' as const, label: 'Figures', seg: 'figures' },
+		{ path: '/[dance]/routines' as const, label: 'Routines', seg: 'routines' },
 		{ path: '/[dance]/lessons' as const, label: 'Lessons', seg: 'lessons' },
 		{ path: '/[dance]/songs' as const, label: 'Songs', seg: 'songs' }
 	];
@@ -48,7 +49,7 @@
 				<a
 					href={resolve(tab.path, { dance })}
 					aria-current={here ? 'page' : undefined}
-					class="flex h-14 items-center justify-center text-[14px] font-medium {here
+					class="flex h-14 items-center justify-center text-[13px] font-medium whitespace-nowrap sm:text-[14px] {here
 						? 'text-accent'
 						: 'text-muted'}">{tab.label}</a
 				>
@@ -58,7 +59,7 @@
 			<a
 				href={resolve('/settings')}
 				aria-current={settingsHere ? 'page' : undefined}
-				class="flex h-14 items-center justify-center text-[14px] font-medium {settingsHere
+				class="flex h-14 items-center justify-center text-[13px] font-medium whitespace-nowrap sm:text-[14px] {settingsHere
 					? 'text-accent'
 					: 'text-muted'}">Settings</a
 			>

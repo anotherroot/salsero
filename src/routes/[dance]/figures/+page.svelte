@@ -52,17 +52,11 @@
 			onclick={() => (creating = true)}>+ New</button
 		>
 	</div>
-	<div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-		<a
-			class="text-[12px] text-muted underline"
-			href={resolve('/[dance]/positions', { dance: data.dance.slug })}
-			>Tagged {data.tagged.done} / {data.tagged.total} positions</a
-		>
-		<a
-			class="text-[12px] text-muted underline"
-			href={resolve('/[dance]/routines', { dance: data.dance.slug })}>Routines</a
-		>
-	</div>
+	<a
+		class="text-[12px] text-muted underline"
+		href={resolve('/[dance]/positions', { dance: data.dance.slug })}
+		>Tagged {data.tagged.done} / {data.tagged.total} positions</a
+	>
 	<form
 		class="mt-3"
 		onsubmit={(e) => {
