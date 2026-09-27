@@ -138,8 +138,8 @@ describe('addFigureSlot', () => {
 		]);
 		expect(routineShapes(db, 'salsa').get(routine.id)).toEqual({
 			slots: [
-				{ kind: 'options', figureIds: [f1.id] },
-				{ kind: 'options', figureIds: [f2.id] }
+				{ kind: 'options', figureIds: [f1.id], note: null },
+				{ kind: 'options', figureIds: [f2.id], note: null }
 			]
 		});
 	});
@@ -313,7 +313,12 @@ describe('embedding, one level', () => {
 		expect(addChildSlot(db, parent.id, child.id)).not.toBeNull();
 		expect(routineShapes(db, 'salsa').get(parent.id)).toEqual({
 			slots: [
-				{ kind: 'child', routineId: child.id, slots: [{ kind: 'options', figureIds: [f.id] }] }
+				{
+					kind: 'child',
+					routineId: child.id,
+					note: null,
+					slots: [{ kind: 'options', figureIds: [f.id], note: null }]
+				}
 			]
 		});
 		expect(routineSlots(db, parent.id)[0].childName).toBe('C');
@@ -472,5 +477,16 @@ describe('duplicateRoutine', () => {
 	it('is null for a routine that does not exist', () => {
 		const db = openDb(':memory:');
 		expect(duplicateRoutine(db, 999)).toBeNull();
+	});
+});
+
+describe('routineShapes carries notes', () => {
+	it("so the practice list can show a slot's reminder", () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const step = addFigureSlot(db, routine.id, figure(db, 'Enchufla').id)!;
+		setSlotNote(db, step, 'hand change here');
+		const shape = routineShapes(db, 'salsa').get(routine.id)!;
+		expect(shape.slots[0].note).toBe('hand change here');
 	});
 });

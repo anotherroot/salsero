@@ -1,10 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { buildGraph } from '$lib/server/graph';
-import { archiveRoutine, createRoutine, listRoutines, routineShapes } from '$lib/server/routines';
+import { createRoutine, listRoutines, routineShapes } from '$lib/server/routines';
 import { breaks, loops } from '$lib/routines/routines';
-import { int, optionalText, text } from '$lib/server/form';
-import { danceOf, requireRoutineInDance } from '$lib/server/scope';
+import { optionalText, text } from '$lib/server/form';
+import { danceOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params }) => {
@@ -41,16 +41,9 @@ export const actions: Actions = {
 		}
 		const { routine } = createRoutine(getDb(), dance, { name, notes });
 		throw redirect(303, `/${dance}/routines/${routine.id}`);
-	},
-
-	archive: async ({ params, request }) => {
-		const dance = danceOf(params);
-		const form = await request.formData();
-		const id = int(form, 'id');
-		if (id === undefined) return fail(400, { message: 'Could not archive that routine.' });
-		const db = getDb();
-		requireRoutineInDance(db, dance, id);
-		archiveRoutine(db, id, Date.now());
-		return { ok: true };
 	}
+	// No `archive` here on purpose. Archiving a routine is a real loss of a thing
+	// you built, and a Remove button sitting on every row of the library is one
+	// mis-tap away from it. It lives on the routine's own page, behind a confirm,
+	// where you have already opened the thing you are about to discard.
 };

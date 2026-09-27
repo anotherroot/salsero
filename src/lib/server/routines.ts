@@ -143,7 +143,8 @@ export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShap
 		.select({
 			id: routineSteps.id,
 			routineId: routineSteps.routineId,
-			childRoutineId: routineSteps.childRoutineId
+			childRoutineId: routineSteps.childRoutineId,
+			note: routineSteps.note
 		})
 		.from(routineSteps)
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
@@ -169,7 +170,7 @@ export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShap
 	for (const s of steps) {
 		if (s.childRoutineId !== null) continue;
 		const list = own.get(s.routineId) ?? [];
-		list.push({ kind: 'options', figureIds: byStep.get(s.id) ?? [] });
+		list.push({ kind: 'options', figureIds: byStep.get(s.id) ?? [], note: s.note });
 		own.set(s.routineId, list);
 	}
 
@@ -184,8 +185,13 @@ export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShap
 	for (const s of steps) {
 		const slot: Slot =
 			s.childRoutineId === null
-				? { kind: 'options', figureIds: byStep.get(s.id) ?? [] }
-				: { kind: 'child', routineId: s.childRoutineId, slots: own.get(s.childRoutineId) ?? [] };
+				? { kind: 'options', figureIds: byStep.get(s.id) ?? [], note: s.note }
+				: {
+						kind: 'child',
+						routineId: s.childRoutineId,
+						slots: own.get(s.childRoutineId) ?? [],
+						note: s.note
+					};
 		out.get(s.routineId)?.slots.push(slot);
 	}
 	return out;

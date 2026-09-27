@@ -65,11 +65,6 @@
 								{/if}
 							</span>
 						</a>
-						<form method="POST" action="?/archive" use:enhance>
-							<input type="hidden" name="id" value={routine.id} />
-							<button type="submit" class="h-8 shrink-0 px-2 text-[13px] text-danger">Remove</button
-							>
-						</form>
 					</div>
 				</li>
 			{/each}

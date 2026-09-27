@@ -21,6 +21,8 @@ import { endOf, figureById, startsOf, type Graph } from '$lib/graph/graph';
 export interface OptionsSlot {
 	kind: 'options';
 	figureIds: number[];
+	/** The slot's reminder, shown beside it while practising. */
+	note?: string | null;
 }
 
 /**
@@ -33,6 +35,8 @@ export interface ChildSlot {
 	kind: 'child';
 	routineId: number;
 	slots: OptionsSlot[];
+	/** A note on the embedding slot, which applies to the child as a whole. */
+	note?: string | null;
 }
 
 export type Slot = OptionsSlot | ChildSlot;
@@ -57,10 +61,32 @@ export function flatten(g: Graph, shape: RoutineShape): OptionsSlot[] {
 	for (const slot of shape.slots) {
 		for (const s of slot.kind === 'child' ? slot.slots : [slot]) {
 			const figureIds = s.figureIds.filter((id) => figureById(g, id) !== null);
-			if (figureIds.length > 0) out.push({ kind: 'options', figureIds });
+			// A child's own slot note wins; the note on the slot that EMBEDS the
+			// child applies to the whole child, so it stands in where an inner slot
+			// has nothing of its own to say.
+			if (figureIds.length > 0) {
+				out.push({ kind: 'options', figureIds, note: s.note ?? slot.note ?? null });
+			}
 		}
 	}
 	return out;
+}
+
+/**
+ * Which flat slot a run is on, from the number of calls made so far.
+ *
+ * Before the first call it is the FIRST slot rather than nothing: the list has
+ * to say where the routine is about to start, or it reads as dead for the few
+ * seconds before the lead-in ends.
+ *
+ * The double modulo is not decoration. The index comes from a `findIndex`,
+ * which answers -1 when it misses, and `-1 % 5` is `-1` in JavaScript — that
+ * indexes off the front of the list and silently highlights no row at all.
+ */
+export function slotAt(calledIndex: number | null, slotCount: number): number | null {
+	if (slotCount <= 0) return null;
+	if (calledIndex === null) return 0;
+	return ((calledIndex % slotCount) + slotCount) % slotCount;
 }
 
 /**
