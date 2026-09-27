@@ -454,3 +454,106 @@ export function moveSlot(db: Db, routineId: number, stepId: number, delta: -1 | 
 		return true;
 	});
 }
+
+/**
+ * Insert a copy of a slot directly after it. The new slot's id, or null when the
+ * slot is not this routine's.
+ *
+ * Directly after, not appended: a duplicate is for a step that repeats, and a
+ * repeat belongs next to what it repeats. Everything about the slot comes with
+ * it — its options, its note, and an embedded child as a reference rather than a
+ * copy of that child.
+ */
+export function duplicateSlot(db: Db, routineId: number, stepId: number): number | null {
+	return db.transaction((tx) => {
+		const step = tx
+			.select({
+				id: routineSteps.id,
+				childRoutineId: routineSteps.childRoutineId,
+				note: routineSteps.note
+			})
+			.from(routineSteps)
+			.where(and(eq(routineSteps.id, stepId), eq(routineSteps.routineId, routineId)))
+			.get();
+		if (!step) return null;
+
+		// Appended first, then the whole routine is re-ordered with the copy spliced
+		// in after its original. Inserting at the target position directly would
+		// collide with `unique (routine_id, position)` before anything shifted out
+		// of the way — the same reason `order` exists at all.
+		const copy = tx
+			.insert(routineSteps)
+			.values({
+				routineId,
+				position: slotIds(tx, routineId).length,
+				childRoutineId: step.childRoutineId,
+				note: step.note
+			})
+			.returning({ id: routineSteps.id })
+			.get();
+
+		const options = tx
+			.select({ figureId: routineStepOptions.figureId })
+			.from(routineStepOptions)
+			.where(eq(routineStepOptions.stepId, stepId))
+			.all();
+		for (const o of options) {
+			tx.insert(routineStepOptions).values({ stepId: copy.id, figureId: o.figureId }).run();
+		}
+
+		const ids = slotIds(tx, routineId).filter((id) => id !== copy.id);
+		ids.splice(ids.indexOf(stepId) + 1, 0, copy.id);
+		order(tx, ids);
+		return copy.id;
+	});
+}
+
+/**
+ * Copy a whole routine, slots and all, as "<name> (copy)" with its own exercise.
+ *
+ * An embedded child is REFERENCED by the copy, not itself duplicated: a routine
+ * embedded in two places is one routine seen twice, and copying it would fork it
+ * silently so that editing the original stopped changing the copy. That also
+ * keeps the one-level embedding rule intact without a second check — the copy
+ * embeds exactly what the source embedded, and the source was already legal.
+ */
+export function duplicateRoutine(db: Db, id: number) {
+	const source = getRoutine(db, id);
+	if (!source) return null;
+	const dance = source.dance as DanceSlug;
+	const slots = routineSlots(db, id);
+
+	return db.transaction((tx) => {
+		const routine = tx
+			.insert(routines)
+			.values({ dance, name: `${source.name} (copy)`, notes: source.notes })
+			.returning()
+			.get();
+		tx.insert(exercises)
+			.values({
+				name: routine.name,
+				source: 'routine',
+				routineId: routine.id,
+				dance,
+				everyDays: 3
+			})
+			.run();
+
+		for (const slot of slots) {
+			const step = tx
+				.insert(routineSteps)
+				.values({
+					routineId: routine.id,
+					position: slot.position,
+					childRoutineId: slot.childId,
+					note: slot.note
+				})
+				.returning({ id: routineSteps.id })
+				.get();
+			for (const figureId of slot.figureIds) {
+				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+			}
+		}
+		return routine;
+	});
+}

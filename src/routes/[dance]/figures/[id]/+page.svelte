@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
+	import StartPositions from '$lib/components/figures/StartPositions.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
@@ -167,26 +168,15 @@
 	<section>
 		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Positions</h2>
 		<form method="POST" action="?/positions" class="space-y-3" use:enhance>
-			<fieldset class="rounded-xl border border-line bg-raised p-3">
-				<legend class="px-1 text-[13px] font-medium">Starts from</legend>
-				<p class="mb-2 text-[12px] text-muted">
-					Leave every box clear for {neutralName}.
-				</p>
-				<div class="space-y-1">
-					{#each data.positions as position (position.id)}
-						<label class="flex items-center gap-2 text-[15px]">
-							<input
-								type="checkbox"
-								name="startIds"
-								value={position.id}
-								checked={data.tags.startIds.includes(position.id)}
-								class="size-5 accent-accent"
-							/>
-							{position.name}{position.archived ? ' (archived)' : ''}
-						</label>
-					{/each}
-				</div>
-			</fieldset>
+			<!--
+				Keyed on the figure: the picker seeds its own state from `initial`
+				once, and SvelteKit reuses this component across a same-route
+				navigation, so without the key the next figure would open showing the
+				previous one's tags.
+			-->
+			{#key figure.id}
+				<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
+			{/key}
 
 			<label class="block">
 				<span class="text-[13px] font-medium">Ends at</span>

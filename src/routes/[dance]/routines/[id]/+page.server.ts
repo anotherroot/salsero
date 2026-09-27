@@ -11,6 +11,8 @@ import {
 	addOption,
 	archiveRoutine,
 	deleteSlot,
+	duplicateRoutine,
+	duplicateSlot,
 	embeddable,
 	moveSlot,
 	removeOption,
@@ -123,6 +125,25 @@ export const actions: Actions = {
 			return fail(400, { message: 'Give the routine a name (up to 200 characters).' });
 		}
 		updateRoutine(db, routine.id, { name, notes });
+		return { ok: true };
+	},
+
+	duplicate: async ({ params }) => {
+		const routine = routineOf(params);
+		const copy = duplicateRoutine(getDb(), routine.id);
+		if (!copy) return fail(400, { message: 'Could not copy that routine.' });
+		// Straight to the copy: you duplicated it in order to change it, and landing
+		// back on the original is how you end up editing the wrong one.
+		throw redirect(303, `/${params.dance}/routines/${copy.id}`);
+	},
+
+	duplicateSlot: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const form = await request.formData();
+		const stepId = int(form, 'stepId');
+		if (stepId === undefined || duplicateSlot(getDb(), routine.id, stepId) === null) {
+			return slotFail('That slot could not be copied.', stepId);
+		}
 		return { ok: true };
 	},
 

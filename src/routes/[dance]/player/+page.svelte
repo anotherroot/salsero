@@ -8,6 +8,7 @@
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { graphFlow } from '$lib/graph/flow';
 	import { routinePlan } from '$lib/routines/plan';
+	import { flatten } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import type { ActionData, PageData } from './$types';
 
@@ -18,7 +19,22 @@
 	let player = $state<PlayerHandle | null>(null);
 	let speed = $state<Speed>(1);
 	let calledFigureId = $state<number | null>(null);
+	/** Where the last call sat in the plan, so a routine run can say which slot it is on. */
+	let calledIndex = $state<number | null>(null);
 	let calledIds = $state<number[]>([]);
+
+	/**
+	 * The routine as it is actually danced: children spliced in, slots the graph
+	 * cannot answer for dropped. This is exactly what `routinePlan` walks, which
+	 * is why `calledIndex % length` is the slot the run is on — and why the list
+	 * shown while running is this rather than the routine's own slot rows.
+	 */
+	const dancedSlots = $derived(
+		data.routine ? flatten(data.graph, data.routine.shape).map((s) => s.figureIds) : []
+	);
+	const activeSlot = $derived(
+		calledIndex === null || dancedSlots.length === 0 ? null : calledIndex % dancedSlots.length
+	);
 	let finalElapsed = $state(0);
 	let startError = $state<string | null>(null);
 	let starting = $state(false);
@@ -127,7 +143,10 @@
 			takes: data.takes.filter((t) => t.pattern === settings.count),
 			sayOf,
 			voiceVolume: settings.voiceVolume,
-			onCall: (id) => (calledFigureId = id),
+			onCall: (id, index) => {
+				calledFigureId = id;
+				calledIndex = index;
+			},
 			onEnd: () => finish()
 		});
 
@@ -140,6 +159,7 @@
 		player = handle;
 		runningGrid = grid;
 		calledFigureId = null;
+		calledIndex = null;
 		mode = 'running';
 	}
 
@@ -222,6 +242,8 @@
 			counts={runningGrid.counts}
 			figures={data.callNames}
 			{calledFigureId}
+			slots={dancedSlots}
+			{activeSlot}
 			song={data.song}
 			{audio}
 			{speed}
