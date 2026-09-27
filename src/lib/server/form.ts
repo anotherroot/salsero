@@ -53,7 +53,13 @@ export function checkbox(form: FormData, key: string): boolean {
  */
 export function ints(form: FormData, key: string): number[] {
 	const out = new Set<number>();
-	for (const raw of form.getAll(key)) {
+	for (const entry of form.getAll(key)) {
+		// The empty entry has to be dropped explicitly, for the reason `int` above
+		// guards against it: `Number('')` is 0 and passes `Number.isInteger`, so
+		// without this an empty value would be kept as the id 0 — the opposite of
+		// what this function's own contract promises.
+		const raw = String(entry).trim();
+		if (raw === '') continue;
 		const v = Number(raw);
 		if (Number.isInteger(v)) out.add(v);
 	}
