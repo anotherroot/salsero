@@ -13,7 +13,9 @@ export function optionalText(form: FormData, key: string, max = 2000): string | 
 }
 
 export function int(form: FormData, key: string): number | undefined {
-	const v = Number(form.get(key));
+	const raw = String(form.get(key) ?? '').trim();
+	if (raw === '') return undefined;
+	const v = Number(raw);
 	return Number.isInteger(v) ? v : undefined;
 }
 
