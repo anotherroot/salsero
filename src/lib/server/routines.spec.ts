@@ -16,7 +16,9 @@ import {
 	routineShapes,
 	routineSlots,
 	setSlotNote,
-	updateRoutine
+	updateRoutine,
+	duplicateSlot,
+	duplicateRoutine
 } from './routines';
 import { archiveFigure, createFigure } from './figures';
 import { listPositions, seedPositions } from './positions';
@@ -382,5 +384,93 @@ describe('routineShapes across the dance wall', () => {
 		addChildSlot(db, nested.id, ok.id);
 		archiveRoutine(db, gone.id, 1000);
 		expect(embeddable(db, parent.id).map((r) => r.id)).toEqual([ok.id]);
+	});
+});
+
+describe('duplicateSlot', () => {
+	it('inserts a copy directly after the original, with its options and note', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		const first = addFigureSlot(db, routine.id, a.id)!;
+		addOption(db, first, b.id);
+		setSlotNote(db, first, 'hand change');
+		const last = addFigureSlot(db, routine.id, figure(db, 'C').id)!;
+
+		const copy = duplicateSlot(db, routine.id, first);
+		expect(copy).not.toBeNull();
+
+		const slots = routineSlots(db, routine.id);
+		// Directly after the original, not appended at the end — a duplicate is for
+		// a repeat, and a repeat belongs next to what it repeats.
+		expect(slots.map((s) => s.id)).toEqual([first, copy, last]);
+		expect(slots.map((s) => s.position)).toEqual([0, 1, 2]);
+		expect(slots[1].figureIds.sort()).toEqual([a.id, b.id].sort());
+		expect(slots[1].note).toBe('hand change');
+	});
+
+	it('copies an embedded routine slot as an embedded routine slot', () => {
+		const db = openDb(':memory:');
+		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		addFigureSlot(db, child.id, figure(db, 'Inner').id);
+		const step = addChildSlot(db, parent.id, child.id)!;
+
+		const copy = duplicateSlot(db, parent.id, step);
+		const slots = routineSlots(db, parent.id);
+		expect(slots).toHaveLength(2);
+		expect(slots[1].id).toBe(copy);
+		expect(slots[1].childId).toBe(child.id);
+		expect(slots[1].figureIds).toEqual([]);
+	});
+
+	it('refuses a slot belonging to another routine, writing nothing', () => {
+		const db = openDb(':memory:');
+		const mine = createRoutine(db, 'salsa', { name: 'Mine', notes: null }).routine;
+		const theirs = createRoutine(db, 'salsa', { name: 'Theirs', notes: null }).routine;
+		const step = addFigureSlot(db, theirs.id, figure(db, 'A').id)!;
+		expect(duplicateSlot(db, mine.id, step)).toBeNull();
+		expect(routineSlots(db, mine.id)).toEqual([]);
+		expect(routineSlots(db, theirs.id)).toHaveLength(1);
+	});
+});
+
+describe('duplicateRoutine', () => {
+	it('copies the slots, options, notes and child slots, and makes its own exercise', () => {
+		const db = openDb(':memory:');
+		const child = createRoutine(db, 'salsa', { name: 'Child', notes: null }).routine;
+		addFigureSlot(db, child.id, figure(db, 'Inner').id);
+		const src = createRoutine(db, 'salsa', { name: 'Combo', notes: 'from Tuesday' }).routine;
+		const a = figure(db, 'A');
+		const s1 = addFigureSlot(db, src.id, a.id)!;
+		addOption(db, s1, figure(db, 'B').id);
+		setSlotNote(db, s1, 'watch the turn');
+		addChildSlot(db, src.id, child.id);
+
+		const copy = duplicateRoutine(db, src.id)!;
+		expect(copy.name).toBe('Combo (copy)');
+		expect(copy.notes).toBe('from Tuesday');
+		expect(copy.id).not.toBe(src.id);
+
+		const slots = routineSlots(db, copy.id);
+		expect(slots).toHaveLength(2);
+		expect(slots[0].figureIds).toHaveLength(2);
+		expect(slots[0].note).toBe('watch the turn');
+		// The child is REFERENCED, not itself copied: a routine embedded twice is
+		// one routine in two places, and copying it would silently fork it.
+		expect(slots[1].childId).toBe(child.id);
+
+		const ex = db.select().from(exercises).where(eq(exercises.routineId, copy.id)).get();
+		expect(ex?.source).toBe('routine');
+		expect(ex?.name).toBe('Combo (copy)');
+
+		// The original is untouched.
+		expect(routineSlots(db, src.id)).toHaveLength(2);
+	});
+
+	it('is null for a routine that does not exist', () => {
+		const db = openDb(':memory:');
+		expect(duplicateRoutine(db, 999)).toBeNull();
 	});
 });
