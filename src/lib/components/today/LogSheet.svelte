@@ -53,15 +53,19 @@
 		exercise.practiceMode === 'song' && !songs.some((s) => s.id === exercise.songId)
 	);
 
-	const practiceHref = $derived(
-		exercise.practiceMode === 'song'
+	const practiceHref = $derived.by(() => {
+		// A routine's exercise MUST carry `routine=`, or the player runs the random
+		// drill and logs the set against the routine anyway — practice history that
+		// says something untrue.
+		const routine = exercise.routineId === null ? '' : `&routine=${exercise.routineId}`;
+		return exercise.practiceMode === 'song'
 			? songGone
 				? null
-				: resolve(`/${dance}/player?song=${exercise.songId}&exercise=${exercise.id}`)
+				: resolve(`/${dance}/player?song=${exercise.songId}&exercise=${exercise.id}${routine}`)
 			: exercise.practiceMode === 'count'
-				? resolve(`/${dance}/player?bpm=${exercise.countBpm}&exercise=${exercise.id}`)
-				: null
-	);
+				? resolve(`/${dance}/player?bpm=${exercise.countBpm}&exercise=${exercise.id}${routine}`)
+				: null;
+	});
 
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
@@ -270,6 +274,11 @@
 				<a
 					href={resolve('/[dance]/lessons/[id]', { dance, id: String(exercise.lessonId) })}
 					class="text-[14px] font-medium text-accent">Open lesson →</a
+				>
+			{:else if exercise.source === 'routine' && exercise.routineId !== null}
+				<a
+					href={resolve('/[dance]/routines/[id]', { dance, id: String(exercise.routineId) })}
+					class="text-[14px] font-medium text-accent">Open routine →</a
 				>
 			{:else if exercise.source === 'custom'}
 				<form

@@ -7,7 +7,8 @@ import {
 	real,
 	sqliteTable,
 	text,
-	uniqueIndex
+	uniqueIndex,
+	type AnySQLiteColumn
 } from 'drizzle-orm/sqlite-core';
 import {
 	COUNT_PATTERNS,
@@ -209,6 +210,91 @@ export const figureStartPositions = sqliteTable(
 
 export type Position = typeof positions.$inferSelect;
 
+/* ── Routines ───────────────────────────────────────────────────────────── */
+
+/**
+ * A named sequence of slots — a combo. Creating one creates its exercise in the
+ * same transaction, the rule figures and lessons already follow; see
+ * `src/lib/server/routines.ts`.
+ *
+ * There is no separate "block" or "subroutine" table. A block is just a short
+ * routine, so a combo built standalone can be embedded later with no
+ * conversion, and practising three figures is a good practice unit by itself.
+ */
+export const routines = sqliteTable(
+	'routines',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
+		dance: text('dance').notNull().default('salsa'),
+		name: text('name').notNull(),
+		notes: text('notes'),
+		archivedAt: integer('archived_at'),
+		createdAt: createdAt()
+	},
+	(t) => [index('routines_dance_idx').on(t.dance, t.archivedAt)]
+);
+
+/**
+ * One slot of a routine, in order. It holds EITHER interchangeable figure
+ * options (`routine_step_options`) OR one embedded routine — never both, and
+ * never neither. Both rules live in `routines.ts`: "exactly one of two tables"
+ * is not expressible as a CHECK at all, and a CHECK here would foreclose
+ * adding a column later.
+ *
+ * A slot needs no length of its own. The plan is built per run after options
+ * are resolved, so the chosen figure's `eights` is what counts.
+ *
+ * `position` is 0-based and contiguous. A slot is structure, not an entity: it
+ * is hard-deleted and renumbered freely, the way a song's anchors are.
+ */
+export const routineSteps = sqliteTable(
+	'routine_steps',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		routineId: integer('routine_id')
+			.notNull()
+			.references(() => routines.id),
+		position: integer('position').notNull(),
+		/** An embedded routine, or null when this slot holds figure options. */
+		childRoutineId: integer('child_routine_id').references((): AnySQLiteColumn => routines.id),
+		/** A reminder for this slot — "hand change here". */
+		note: text('note'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		uniqueIndex('routine_steps_slot_idx').on(t.routineId, t.position),
+		index('routine_steps_child_idx').on(t.childRoutineId)
+	]
+);
+
+/**
+ * The interchangeable figures filling one slot — the variants.
+ *
+ * All of them must share ONE end position, enforced on write: that is what
+ * interchangeable means. A slot's START positions are the UNION of its
+ * options', and a run filters them by where the hands actually are.
+ */
+export const routineStepOptions = sqliteTable(
+	'routine_step_options',
+	{
+		stepId: integer('step_id')
+			.notNull()
+			.references(() => routineSteps.id),
+		figureId: integer('figure_id')
+			.notNull()
+			.references(() => figures.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.stepId, t.figureId] }),
+		index('routine_step_options_figure_idx').on(t.figureId)
+	]
+);
+
+export type Routine = typeof routines.$inferSelect;
+export type RoutineStep = typeof routineSteps.$inferSelect;
+
 /* ── Songs ──────────────────────────────────────────────────────────────── */
 
 /**
@@ -287,6 +373,14 @@ export const exercises = sqliteTable(
 		 * enforcement.
 		 */
 		lessonId: integer('lesson_id').references(() => lessons.id),
+		/**
+		 * Set iff `source = 'routine'`. Deliberately WITHOUT a mirror of
+		 * `exercises_source_ck`, for the same reason `lessonId` has none: a new
+		 * CHECK on this table makes drizzle-kit rebuild it and the rebuild fails
+		 * at migrate time. `routines.ts` is the only thing that writes this
+		 * column, and is the enforcement.
+		 */
+		routineId: integer('routine_id').references(() => routines.id),
 		everyDays: real('every_days').notNull().default(3),
 		active: integer('active', { mode: 'boolean' }).notNull().default(true),
 		archivedAt: integer('archived_at'),

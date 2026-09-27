@@ -14,6 +14,7 @@ export function listExercises(db: Db, dance: DanceSlug): ExerciseItem[] {
 			source: exercises.source,
 			figureId: exercises.figureId,
 			lessonId: exercises.lessonId,
+			routineId: exercises.routineId,
 			partner: figures.partner,
 			practiceMode: exercises.practiceMode,
 			songId: exercises.songId,

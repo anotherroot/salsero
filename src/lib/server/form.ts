@@ -13,7 +13,9 @@ export function optionalText(form: FormData, key: string, max = 2000): string | 
 }
 
 export function int(form: FormData, key: string): number | undefined {
-	const v = Number(form.get(key));
+	const raw = String(form.get(key) ?? '').trim();
+	if (raw === '') return undefined;
+	const v = Number(raw);
 	return Number.isInteger(v) ? v : undefined;
 }
 
@@ -51,7 +53,13 @@ export function checkbox(form: FormData, key: string): boolean {
  */
 export function ints(form: FormData, key: string): number[] {
 	const out = new Set<number>();
-	for (const raw of form.getAll(key)) {
+	for (const entry of form.getAll(key)) {
+		// The empty entry has to be dropped explicitly, for the reason `int` above
+		// guards against it: `Number('')` is 0 and passes `Number.isInteger`, so
+		// without this an empty value would be kept as the id 0 — the opposite of
+		// what this function's own contract promises.
+		const raw = String(entry).trim();
+		if (raw === '') continue;
 		const v = Number(raw);
 		if (Number.isInteger(v)) out.add(v);
 	}

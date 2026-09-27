@@ -20,6 +20,7 @@ import { error } from '@sveltejs/kit';
 import type { Db } from './db';
 import { getExercise, getSet } from './exercises';
 import { getPosition } from './positions';
+import { getRoutine } from './routines';
 import { getSong } from './songs';
 import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 
@@ -95,4 +96,21 @@ export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
 	const position = getPosition(db, id);
 	if (!position || position.dance !== dance) throw error(404, 'No such position');
 	return position;
+}
+
+/**
+ * The routine, or a 404.
+ *
+ * Every action on the detail page acts on a routine by id, and a slot id in a
+ * form body is just a number — so the routine is resolved here first and the
+ * slot mutations all take the routine id alongside the slot's, which is what
+ * stops a salsa request editing a bachata routine's slots.
+ *
+ * An archived routine is still a routine: the page shows it and offers to look,
+ * the same way an archived position can still be renamed.
+ */
+export function requireRoutineInDance(db: Db, dance: DanceSlug, id: number) {
+	const routine = getRoutine(db, id);
+	if (!routine || routine.dance !== dance) throw error(404, 'No such routine');
+	return routine;
 }

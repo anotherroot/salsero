@@ -55,6 +55,7 @@ Each is independently deployable and useful, the same rule the phases follow.
   auto-created exercise, and playing a routine through the player.
 
 3b reads the graph and never reshapes it, so 3a does not have to anticipate it.
+Both slices are live: 3a since 2026-09-24, 3b since 2026-09-26.
 
 ## Data model
 
@@ -304,7 +305,8 @@ existing lever if Today gets noisy.
   graph does not.
 
 A slot needs no length of its own. The plan is built per run *after* options
-are resolved, so the chosen figure's `eights` is the one that counts.
+are resolved, so the chosen figure's `eights` is what feeds the spacing rule
+below — see [Playing a routine](#playing-a-routine).
 
 ### Embedding, one level
 
@@ -314,11 +316,19 @@ them cycles are impossible by construction rather than by a cycle check.
 
 ### Playing a routine
 
-`routinePlan(routine, graph, rand, throughEight)` → `PlanStep[]`: flatten
-children, resolve each slot's options against the incoming position, space by
-the chosen figure's `eights`, and loop back to the start when the song outlasts
-the routine. Same `PlanStep[]` the drill produces, so the scheduler and
-`attach.ts` need no routine-specific code at all.
+`routinePlan(plan, shape, graph, every, throughEight, rand)` → `PlanStep[]`:
+flatten children, resolve each slot's options against the incoming position,
+space by `max(every, eights)` — the drill's own rule — and loop back to the
+start when the song outlasts the routine. Same `PlanStep[]` the drill produces,
+so the scheduler and `attach.ts` need no routine-specific code at all: the page
+hands them a `planner` the way it already hands them a `flow`.
+
+Spacing is `max(every, eights)` rather than `eights` alone because
+`figures.eights` defaults to 1 for the whole existing repertoire, and a call
+every 8-count is 2.7 seconds at 180 BPM — not danceable. The user's call rate
+governs where the data is silent; a figure carrying a real `eights` still gets
+its own length whenever that is longer. One spacing rule, one expression, both
+planners.
 
 Looping gives a free diagnostic worth showing on the routine page: *"this
 routine does not loop"* when its end is not among its starts.

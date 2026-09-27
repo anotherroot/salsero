@@ -4,9 +4,10 @@ import { PHRASE_PATTERNS, type TempoFactor } from '$lib/labels';
 import { getDb } from '$lib/server/db';
 import { listExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
-import { listCallableFigures } from '$lib/server/figures';
+import { listCallableFigures, listFiguresForCall } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { int, optionalInt, optionalText } from '$lib/server/form';
+import { getRoutine, routineShapes } from '$lib/server/routines';
 import { getSong } from '$lib/server/songs';
 import { danceOf, exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -30,6 +31,26 @@ export const load: PageServerLoad = ({ url, params }) => {
 		throw error(404, 'No analysed song here');
 	}
 
+	const routineId = Number(url.searchParams.get('routine')) || null;
+	const routine = routineId ? getRoutine(db, routineId) : null;
+	// Same id-scoping as the song and the exercise: a routine from the other
+	// dance is not this player's to walk.
+	if (routineId && (!routine || routine.archivedAt !== null || routine.dance !== dance)) {
+		throw error(404, 'No such routine');
+	}
+	const shape = routine ? (routineShapes(db, dance).get(routine.id) ?? { slots: [] }) : null;
+	// Every figure the routine can call, so the voice has a name for one that is
+	// not in the drill's callable pool.
+	const routineFigureIds = shape
+		? [
+				...new Set(
+					shape.slots.flatMap((s) =>
+						s.kind === 'child' ? s.slots.flatMap((c) => c.figureIds) : s.figureIds
+					)
+				)
+			]
+		: [];
+
 	return {
 		song: song && { id: song.id, title: song.title, audioFile: song.audioFile },
 		grid: song
@@ -41,7 +62,17 @@ export const load: PageServerLoad = ({ url, params }) => {
 				})
 			: null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
+		routine: routine && shape ? { id: routine.id, name: routine.name, shape } : null,
+		// The drill's pool. Unchanged from before routines existed: `callable` is
+		// what this list means, and the picker's "select all" default derives from it.
 		figures: listCallableFigures(db, dance),
+		// Names only, for `sayOf` and the on-screen call. A routine names its
+		// figures explicitly, so this carries the uncallable ones too — which is
+		// exactly why it must not be what the picker defaults to.
+		callNames: [
+			...listCallableFigures(db, dance),
+			...listFiguresForCall(db, dance, routineFigureIds)
+		].filter((f, i, all) => all.findIndex((o) => o.id === f.id) === i),
 		// The position graph, so the drill calls a sequence that can be danced.
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph: buildGraph(db, dance),

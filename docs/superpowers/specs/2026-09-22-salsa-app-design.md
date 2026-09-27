@@ -32,8 +32,8 @@ phone. It answers three needs:
 ## Phases
 
 Each phase is independently deployable and useful. Phases 1 and 2 are **live**
-(2a on 2026-09-22, 2b on 2026-09-23), as is phase 4; of phase 3, slice 3a is
-live (2026-09-24) and 3b is not built.
+(2a on 2026-09-22, 2b on 2026-09-23), as is phase 4; phase 3 is live in both
+slices, 3a since 2026-09-24 and 3b since 2026-09-26.
 
 1. **Exercises & figures** — Today page, exercises, sets, frequency/priority,
    active/inactive, past-day navigation, figures with recordings (auto-creating
@@ -47,7 +47,7 @@ live (2026-09-24) and 3b is not built.
    figure's start and end positions, the graph derived from them, the drill
    walking it instead of picking at random, and the gap report; then routines
    built on top, with variant slots. Reframed and split in two on 2026-09-24:
-   **3a is live**, 3b is not built. Song-bound choreography is out of scope. See
+   **3a and 3b are both live.** Song-bound choreography is out of scope. See
    [`2026-09-24-routines-design.md`](2026-09-24-routines-design.md).
 4. **Lessons** — a class as a record: day, title, notes, chunk-uploaded videos,
    links to the figures it taught and to exercises, and its own auto-created
@@ -113,9 +113,9 @@ the `day` module in the user's timezone (see Pure modules).
 exercises
   id              integer pk
   name            text not null
-  source          'figure' | 'choreography' | 'custom' | 'lesson'
+  source          'figure' | 'routine' | 'custom' | 'lesson'
   figure_id       fk figures, nullable      -- set iff source = 'figure'
-  routine_id      fk routines, nullable     -- phase 3b, not built; set iff source = 'routine'
+  routine_id      fk routines, nullable     -- phase 3b; set iff source = 'routine'
   lesson_id       fk lessons, nullable      -- set iff source = 'lesson'
   practice_mode   'song' | 'count' | 'none'  default 'none'
   song_id         fk songs, nullable        -- used when practice_mode = 'song'
@@ -228,7 +228,7 @@ now)`, computed per request. No cron, no cached "last done" column.
 - **Creating a figure creates its exercise** in the same transaction
   (`source='figure'`, name = figure name, `practice_mode='none'`). Renaming the
   figure renames the exercise. Archiving the figure archives the exercise.
-  Same for a routine in phase 3b (not built) — see the
+  Same for a routine — see the
   [routines design](2026-09-24-routines-design.md).
   **Same for a lesson** (`source='lesson'`, name = `Review: <title>`), which is
   what puts a class on Today. `archiveExercise` and `updateExercise` are
@@ -353,10 +353,14 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
   8-count the figure STARTS on and the call sounds on count 5 of the one before.
   Random drill grows the plan lazily through `extendPlan(plan, pool, every,
-  throughEight, rand, flow)`; a routine will supply one outright in phase 3b.
-  `rand` is injected so the module stays pure, and `flow` is how the figures
-  are chosen — uniform at random by default, or a walk over the tagged figure
-  graph (`src/lib/graph/flow.ts`) once positions are tagged.
+  throughEight, rand, flow)`; a routine grows its plan the same way, tick by
+  tick, through `routinePlan` (`src/lib/routines/plan.ts`), which flattens the
+  routine's slots and extends the plan through `throughEight` exactly as
+  `extendPlan` does, rather than resolving the whole routine up front. `rand`
+  is injected so the module stays pure, and `flow` is how the figures are
+  chosen — uniform at
+  random by default, or a walk over the tagged figure graph
+  (`src/lib/graph/flow.ts`) once positions are tagged.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
   `{ speed, count, clave, callEvery, calls, called }`, where `calls` is the true
@@ -425,8 +429,9 @@ Superseded by
 replaces this section and the `choreographies` / `choreo_steps` sketch in the
 data model above with positions and the figure graph. Song-bound choreography
 is out of scope there. Of its two slices, 3a (positions, `src/lib/graph/`, the
-figure page's tagging, the gap report, and the drill's walk) is live; 3b
-(routines themselves) is not built.
+figure page's tagging, the gap report, and the drill's walk) and 3b (routines
+themselves: `src/lib/routines/`, slots, variants, one-level embedding, and the
+player walking one) are both live.
 
 ## Pure modules
 
@@ -439,6 +444,7 @@ No DB, no DOM, no `Date.now()` inside — `now` is always an argument.
 | `src/lib/beatgrid/` (2)  | Beats + downbeats + corrections → count (1–8) and 8-count index at any song time; synthetic grid for count-only.                                                                       |
 | `src/lib/scheduler/` (2) | Plan + grid + toggles + time window → list of `{at, clip}` events. The only impure part is a thin `attach.ts` that owns the `AudioContext`.                                            |
 | `src/lib/graph/` (3a)    | Positions → which figures can follow which, the drill's walk (`graphFlow`), and the gap report (`positionCounts`). See the routines design.                                          |
+| `src/lib/routines/` (3b) | Slot algebra (union starts, shared end, one-level embedding) and `routinePlan`: a routine → the same `PlanStep[]` the drill produces. See the routines design.                       |
 
 ## Errors
 

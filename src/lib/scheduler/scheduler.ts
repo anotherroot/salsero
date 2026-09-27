@@ -149,7 +149,7 @@ export interface Toggles {
 	phrases?: boolean;
 }
 
-/** A figure placed on an 8-count. Random drill generates these; phase 3's choreographies supply them. */
+/** A figure placed on an 8-count. The random drill generates these; a routine supplies them. */
 export interface PlanStep {
 	eight: number;
 	figureId: number;

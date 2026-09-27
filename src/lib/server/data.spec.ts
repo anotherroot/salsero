@@ -20,9 +20,11 @@ import {
 	getFigure,
 	listCallableFigures,
 	listFigures,
+	listFiguresForCall,
 	updateFigure
 } from './figures';
 import { createSongFromUpload, listReadySongs } from './songs';
+import { createRoutine } from './routines';
 
 let db: Db;
 beforeEach(() => {
@@ -155,6 +157,17 @@ describe('exercises and sets', () => {
 		expect(listExercises(db, 'salsa').map((e) => e.id)).toEqual([exercise.id]);
 	});
 
+	it("carries a routine's exercise routineId through listExercises, and leaves it null elsewhere", () => {
+		const { routine, exercise } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
+		const custom = createCustomExercise(db, 'salsa', { name: 'c', everyDays: 3, notes: null });
+		const rows = listExercises(db, 'salsa');
+		const routineRow = rows.find((r) => r.id === exercise.id)!;
+		expect(routineRow.source).toBe('routine');
+		expect(routineRow.routineId).toBe(routine.id);
+		const customRow = rows.find((r) => r.id === custom.id)!;
+		expect(customRow.routineId).toBeNull();
+	});
+
 	it('lists only callable, unarchived figures, and says callText when set', () => {
 		const a = createFigure(db, 'salsa', { ...figureInput, name: 'Enchufla' })!;
 		createFigure(db, 'salsa', { ...figureInput, name: 'Hidden', partner: 'solo', callable: false });
@@ -169,6 +182,38 @@ describe('exercises and sets', () => {
 		expect(out.map((f) => f.name)).toEqual(['Dile que no']);
 		expect(out[0].say).toBe('dee-lay kay no');
 		expect(c.figure.id).toBe(out[0].id);
+	});
+
+	it('names the figures a routine asks for by id, callable or not', () => {
+		const plain = createFigure(db, 'salsa', { ...figureInput, name: 'Enchufla' })!;
+		const hidden = createFigure(db, 'salsa', {
+			...figureInput,
+			name: 'Setenta',
+			callable: false,
+			callText: 'seh-ten-ta'
+		})!;
+		const gone = createFigure(db, 'salsa', { ...figureInput, name: 'Vacilala' })!;
+		createFigure(db, 'salsa', figureInput);
+		archiveFigure(db, gone.figure.id, Date.now());
+
+		const out = listFiguresForCall(db, 'salsa', [
+			plain.figure.id,
+			hidden.figure.id,
+			gone.figure.id
+		]);
+		// The uncallable one IS named — a routine names its figures explicitly —
+		// while the archived one, and the figure nobody asked for, are not.
+		expect(out.map((f) => f.name)).toEqual(['Enchufla', 'Setenta']);
+		expect(out.find((f) => f.id === hidden.figure.id)?.say).toBe('seh-ten-ta');
+	});
+
+	// A routine with no options at all asks for nothing, and must get nothing —
+	// never the whole repertoire. This pins the contract rather than the early
+	// return that implements it: drizzle renders `inArray(col, [])` as a false
+	// condition, so today the query would answer the same way on its own.
+	it('names nothing for an empty id list', () => {
+		createFigure(db, 'salsa', figureInput);
+		expect(listFiguresForCall(db, 'salsa', [])).toEqual([]);
 	});
 
 	it('clears the unused practice column when the mode changes', () => {
@@ -247,6 +292,16 @@ describe('figures are walled off by dance', () => {
 		createFigure(db, 'salsa', figureInput);
 		createFigure(db, 'bachata', bachataInput);
 		expect(listCallableFigures(db, 'bachata').map((f) => f.name)).toEqual(['Basico']);
+	});
+
+	it('names only its own dance figures when a routine asks by id', () => {
+		const salsa = createFigure(db, 'salsa', figureInput)!;
+		const bachata = createFigure(db, 'bachata', bachataInput)!;
+		// Both ids, both times: a routine's option list reaches the player as bare
+		// numbers, so the dance has to be what decides, not the caller's honesty.
+		const ids = [salsa.figure.id, bachata.figure.id];
+		expect(listFiguresForCall(db, 'salsa', ids).map((f) => f.name)).toEqual(['Dile que no']);
+		expect(listFiguresForCall(db, 'bachata', ids).map((f) => f.name)).toEqual(['Basico']);
 	});
 });
 
