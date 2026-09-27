@@ -353,10 +353,12 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
   8-count the figure STARTS on and the call sounds on count 5 of the one before.
   Random drill grows the plan lazily through `extendPlan(plan, pool, every,
-  throughEight, rand, flow)`; a routine supplies one outright through
-  `routinePlan` (`src/lib/routines/plan.ts`), which flattens, resolves and
-  spaces it up front instead of growing it lazily. `rand` is injected so the
-  module stays pure, and `flow` is how the figures are chosen — uniform at
+  throughEight, rand, flow)`; a routine grows its plan the same way, tick by
+  tick, through `routinePlan` (`src/lib/routines/plan.ts`), which flattens the
+  routine's slots and extends the plan through `throughEight` exactly as
+  `extendPlan` does, rather than resolving the whole routine up front. `rand`
+  is injected so the module stays pure, and `flow` is how the figures are
+  chosen — uniform at
   random by default, or a walk over the tagged figure graph
   (`src/lib/graph/flow.ts`) once positions are tagged.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a

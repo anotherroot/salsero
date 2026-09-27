@@ -44,9 +44,10 @@ export const load: PageServerLoad = ({ params }) => {
 	const positions = listPositions(db, dance);
 	const figures = listFigures(db, dance, {}).map((f) => ({ id: f.id, name: f.name }));
 
-	// Which figures could be added as an option to each slot: the ones that end
-	// where that slot already ends. Suggestion, not restriction — the write path
-	// is what refuses, and it refuses for the same reason.
+	// Flat indices where the routine's walk breaks — a slot's variants don't
+	// share a start with the slot before it. The picker offers every figure of
+	// the dance regardless; `addOption`'s shared-end check is what actually
+	// refuses a wrong-end pick.
 	const flatBreaks = new Set(breaks(graph, shape));
 
 	return {

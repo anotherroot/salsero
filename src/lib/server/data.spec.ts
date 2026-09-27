@@ -24,6 +24,7 @@ import {
 	updateFigure
 } from './figures';
 import { createSongFromUpload, listReadySongs } from './songs';
+import { createRoutine } from './routines';
 
 let db: Db;
 beforeEach(() => {
@@ -154,6 +155,17 @@ describe('exercises and sets', () => {
 		expect(archiveExercise(db, exercise.id, 1)).toBe(false);
 		expect(archiveExercise(db, custom.id, 1)).toBe(true);
 		expect(listExercises(db, 'salsa').map((e) => e.id)).toEqual([exercise.id]);
+	});
+
+	it("carries a routine's exercise routineId through listExercises, and leaves it null elsewhere", () => {
+		const { routine, exercise } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
+		const custom = createCustomExercise(db, 'salsa', { name: 'c', everyDays: 3, notes: null });
+		const rows = listExercises(db, 'salsa');
+		const routineRow = rows.find((r) => r.id === exercise.id)!;
+		expect(routineRow.source).toBe('routine');
+		expect(routineRow.routineId).toBe(routine.id);
+		const customRow = rows.find((r) => r.id === custom.id)!;
+		expect(customRow.routineId).toBeNull();
 	});
 
 	it('lists only callable, unarchived figures, and says callText when set', () => {

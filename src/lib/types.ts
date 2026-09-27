@@ -16,6 +16,8 @@ export interface ExerciseItem {
 	figureId: number | null;
 	/** Set iff `source === 'lesson'`: which lesson this reviews. */
 	lessonId: number | null;
+	/** Set iff `source === 'routine'`: which routine this practises. */
+	routineId: number | null;
 	partner: Partner | null;
 	practiceMode: PracticeMode;
 	songId: number | null;
