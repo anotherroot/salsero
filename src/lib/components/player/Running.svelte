@@ -18,7 +18,7 @@
 		 * ids that may be called there. Empty for the random drill, which has no
 		 * sequence to show.
 		 */
-		slots: number[][];
+		slots: { figureIds: number[]; note: string | null }[];
 		/** Which of `slots` the run is on, or null before the first call. */
 		activeSlot: number | null;
 		song: { id: number; title: string; audioFile: string | null } | null;
@@ -131,17 +131,24 @@
 			class="mt-3 max-h-56 overflow-y-auto rounded-xl border border-line bg-raised"
 			aria-label="Routine"
 		>
-			{#each slots as figureIds, i (i)}
+			{#each slots as slot, i (i)}
 				<li
 					bind:this={slotEls[i]}
 					aria-current={i === activeSlot ? 'step' : undefined}
 					class="flex items-baseline gap-2 border-b border-line px-3 py-2 text-[14px] last:border-b-0 {i ===
 					activeSlot
-						? 'bg-accent/10 font-medium text-accent'
+						? 'bg-accent/15 font-semibold text-accent'
 						: 'text-muted'}"
 				>
 					<span class="w-5 shrink-0 text-[12px] tabular-nums">{i + 1}</span>
-					<span class="min-w-0">{figureIds.map(nameOf).join('  /  ')}</span>
+					<span class="min-w-0">
+						{slot.figureIds.map(nameOf).join('  /  ')}
+						{#if slot.note}
+							<!-- The note is the reason the slot was written down — "hand change
+							     here" is no use on the routine page while you are dancing. -->
+							<span class="block text-[12px] font-normal opacity-80">{slot.note}</span>
+						{/if}
+					</span>
 				</li>
 			{/each}
 		</ol>

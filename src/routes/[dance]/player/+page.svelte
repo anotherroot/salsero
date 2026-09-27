@@ -8,7 +8,7 @@
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { graphFlow } from '$lib/graph/flow';
 	import { routinePlan } from '$lib/routines/plan';
-	import { flatten } from '$lib/routines/routines';
+	import { flatten, slotAt } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
 	import type { ActionData, PageData } from './$types';
 
@@ -30,11 +30,14 @@
 	 * shown while running is this rather than the routine's own slot rows.
 	 */
 	const dancedSlots = $derived(
-		data.routine ? flatten(data.graph, data.routine.shape).map((s) => s.figureIds) : []
+		data.routine
+			? flatten(data.graph, data.routine.shape).map((s) => ({
+					figureIds: s.figureIds,
+					note: s.note ?? null
+				}))
+			: []
 	);
-	const activeSlot = $derived(
-		calledIndex === null || dancedSlots.length === 0 ? null : calledIndex % dancedSlots.length
-	);
+	const activeSlot = $derived(slotAt(calledIndex, dancedSlots.length));
 	let finalElapsed = $state(0);
 	let startError = $state<string | null>(null);
 	let starting = $state(false);
@@ -176,6 +179,8 @@
 		return () => window.removeEventListener('beforeunload', onUnload);
 	});
 </script>
+
+const activeSlot = $derived(slotAt(calledIndex, dancedSlots.length));
 
 <svelte:head><title>Player · {data.dance.label}</title></svelte:head>
 
