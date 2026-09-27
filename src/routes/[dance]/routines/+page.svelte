@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import type { ActionData, PageData } from './$types';
 
@@ -44,7 +45,13 @@
 			{#each data.routines as routine (routine.id)}
 				<li class="overflow-hidden rounded-xl border border-line bg-raised px-4 py-3">
 					<div class="flex items-start justify-between gap-3">
-						<span class="min-w-0">
+						<a
+							class="min-w-0 flex-1"
+							href={resolve('/[dance]/routines/[id]', {
+								dance: data.dance.slug,
+								id: String(routine.id)
+							})}
+						>
 							<span class="block truncate text-[15px] font-medium">{routine.name}</span>
 							<span
 								class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted"
@@ -57,7 +64,7 @@
 									<span class={hint}>does not loop</span>
 								{/if}
 							</span>
-						</span>
+						</a>
 						<form method="POST" action="?/archive" use:enhance>
 							<input type="hidden" name="id" value={routine.id} />
 							<button type="submit" class="h-8 shrink-0 px-2 text-[13px] text-danger">Remove</button
