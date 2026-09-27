@@ -11,6 +11,7 @@
 	/** Which slot's sheet is open, by id — not by index, which moves when a slot does. */
 	let editingSlot = $state<number | null>(null);
 	let adding = $state(false);
+	let practising = $state(false);
 
 	const routine = $derived(data.routine);
 	const failure = $derived(form && 'message' in form ? form.message : null);
@@ -85,6 +86,18 @@
 			? resolve(`/${data.dance.slug}/player?routine=${routine.id}`)
 			: resolve(`/${data.dance.slug}/player?routine=${routine.id}&exercise=${data.exerciseId}`)
 	);
+
+	/**
+	 * The same run, over a song. The player already loads a song's beat grid from
+	 * `?song=`, so choosing one here is a link rather than anything the page has
+	 * to fetch — and `routine=` rides alongside exactly as it does for the count.
+	 */
+	const songHref = (songId: number) =>
+		data.exerciseId === null
+			? resolve(`/${data.dance.slug}/player?routine=${routine.id}&song=${songId}`)
+			: resolve(
+					`/${data.dance.slug}/player?routine=${routine.id}&song=${songId}&exercise=${data.exerciseId}`
+				);
 
 	function positionNames(ids: number[]): string {
 		return ids.map((id) => positionName.get(id) ?? 'an untagged position').join(', ');
@@ -215,11 +228,21 @@
 				<p class="text-[15px] whitespace-pre-line">{routine.notes}</p>
 			{/if}
 			{#if danceable}
-				<a
-					href={practiseHref}
-					class="grid h-12 w-full place-items-center rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-					>Practise</a
-				>
+				{#if data.songs.length === 0}
+					<!-- Nothing to choose between, so no sheet to choose in. -->
+					<a
+						href={practiseHref}
+						class="grid h-12 w-full place-items-center rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+						>Practise</a
+					>
+				{:else}
+					<button
+						type="button"
+						onclick={() => (practising = true)}
+						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+						>Practise</button
+					>
+				{/if}
 			{/if}
 		</section>
 	{/if}
@@ -452,4 +475,22 @@
 			{/if}
 		</div>
 	{/if}
+</Sheet>
+
+<Sheet title="Practise this routine" open={practising} onclose={() => (practising = false)}>
+	<div class="space-y-2">
+		<a
+			href={practiseHref}
+			class="grid h-12 w-full place-items-center rounded-xl border border-line text-[15px]"
+			>To a count</a
+		>
+		<p class="pt-2 text-[12px] font-medium tracking-wide text-muted uppercase">Over a song</p>
+		{#each data.songs as song (song.id)}
+			<a
+				href={songHref(song.id)}
+				class="grid h-12 w-full place-items-center rounded-xl border border-line px-3 text-[15px]"
+				>{song.title}</a
+			>
+		{/each}
+	</div>
 </Sheet>

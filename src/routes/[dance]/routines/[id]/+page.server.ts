@@ -5,6 +5,7 @@ import { exercises } from '$lib/server/db/schema';
 import { listFigures } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { listPositions } from '$lib/server/positions';
+import { listReadySongs } from '$lib/server/songs';
 import {
 	addChildSlot,
 	addFigureSlot,
@@ -62,6 +63,9 @@ export const load: PageServerLoad = ({ params }) => {
 				.from(exercises)
 				.where(eq(exercises.routineId, routine.id))
 				.get()?.id ?? null,
+		// Ready songs, so a routine can be practised over one. The player loads the
+		// grid from `?song=`, so this only has to name them.
+		songs: listReadySongs(db, dance),
 		slots,
 		figures,
 		positions: positions.map((p) => ({ id: p.id, name: p.name })),
