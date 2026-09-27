@@ -93,6 +93,24 @@ function ownsSlot(db: Db, routineId: number, stepId: number): boolean {
 	return routineSlots(db, routineId).some((s) => s.id === stepId);
 }
 
+/**
+ * A failure from an action that acts on one slot, carrying the slot it was aimed
+ * at so the page can print the message under that slot.
+ *
+ * The page has one `addOption` form PER SLOT and they all fail with the same
+ * sentence, so a bare message in the banner at the top says nothing about which
+ * submission was refused — and `use:enhance` does not scroll, so from slot nine
+ * of a long routine the refusal is invisible. A wrong-end variant pick is
+ * ordinary use here, not an edge case: the picker deliberately offers every
+ * figure, because the load carries no per-figure end to filter it by.
+ *
+ * `stepId` is omitted when the body's slot id could not be read at all. There is
+ * no slot to attribute that to, and the page's banner is its right home.
+ */
+function slotFail(message: string, stepId: number | undefined) {
+	return stepId === undefined ? fail(400, { message }) : fail(400, { message, stepId });
+}
+
 export const actions: Actions = {
 	rename: async ({ params, request }) => {
 		const routine = routineOf(params);
@@ -145,15 +163,16 @@ export const actions: Actions = {
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
 		if (stepId === undefined || figureId === undefined) {
-			return fail(400, { message: 'Could not read that slot or figure.' });
+			return slotFail('Could not read that slot or figure.', stepId);
 		}
 		if (!ownsSlot(db, routine.id, stepId)) {
-			return fail(400, { message: 'That slot does not belong to this routine.' });
+			return slotFail('That slot does not belong to this routine.', stepId);
 		}
 		if (!addOption(db, stepId, figureId)) {
-			return fail(400, {
-				message: 'Those figures do not end in the same place, so they are not variants.'
-			});
+			return slotFail(
+				'Those figures do not end in the same place, so they are not variants.',
+				stepId
+			);
 		}
 		return { ok: true };
 	},
@@ -165,13 +184,13 @@ export const actions: Actions = {
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
 		if (stepId === undefined || figureId === undefined) {
-			return fail(400, { message: 'Could not read that slot or figure.' });
+			return slotFail('Could not read that slot or figure.', stepId);
 		}
 		if (!ownsSlot(db, routine.id, stepId)) {
-			return fail(400, { message: 'That slot does not belong to this routine.' });
+			return slotFail('That slot does not belong to this routine.', stepId);
 		}
 		if (!removeOption(db, stepId, figureId)) {
-			return fail(400, { message: 'A slot has to hold something.' });
+			return slotFail('A slot has to hold something.', stepId);
 		}
 		return { ok: true };
 	},
@@ -182,11 +201,13 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		const note = optionalText(form, 'note', 200);
+		// Order kept as it was: an overlong note is reported as an overlong note even
+		// when the slot id is unreadable too. Only the attribution is new.
 		if (note === undefined) {
-			return fail(400, { message: 'Keep the note to 200 characters.' });
+			return slotFail('Keep the note to 200 characters.', stepId);
 		}
 		if (stepId === undefined || !ownsSlot(db, routine.id, stepId)) {
-			return fail(400, { message: 'That slot does not belong to this routine.' });
+			return slotFail('That slot does not belong to this routine.', stepId);
 		}
 		setSlotNote(db, stepId, note);
 		return { ok: true };
@@ -198,7 +219,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		if (stepId === undefined || !deleteSlot(db, routine.id, stepId)) {
-			return fail(400, { message: 'That slot is already gone.' });
+			return slotFail('That slot is already gone.', stepId);
 		}
 		return { ok: true };
 	},
@@ -214,7 +235,7 @@ export const actions: Actions = {
 			(delta !== -1 && delta !== 1) ||
 			!moveSlot(db, routine.id, stepId, delta)
 		) {
-			return fail(400, { message: 'That slot cannot move that way.' });
+			return slotFail('That slot cannot move that way.', stepId);
 		}
 		return { ok: true };
 	}

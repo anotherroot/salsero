@@ -11,6 +11,28 @@
 	const failure = $derived(form && 'message' in form ? form.message : null);
 
 	/**
+	 * The slot a failure was aimed at, when the action named one. Every slot has
+	 * its own set of forms and they share their messages, so a refusal is printed
+	 * under the slot it belongs to rather than only in the banner at the top —
+	 * which, on a long routine, is off-screen and never scrolled to.
+	 */
+	const failedSlot = $derived(
+		// `typeof` rather than a cast: `'stepId' in form` narrows the member that
+		// does not declare it to `unknown`, and this is the one check that turns that
+		// back into a number without asserting anything about the wire format.
+		form && 'stepId' in form && typeof form.stepId === 'number' ? form.stepId : null
+	);
+
+	/**
+	 * The banner keeps everything the slots do not: the four routine-level actions,
+	 * and a slot-scoped failure whose id names no slot on the page — a stale or
+	 * foreign id, which would otherwise be printed nowhere at all.
+	 */
+	const bannerFailure = $derived(
+		failure !== null && data.slots.some((s) => s.id === failedSlot) ? null : failure
+	);
+
+	/**
 	 * Ids to names. The shape layer speaks in position and figure ids, and every
 	 * diagnostic on this page has to be readable, so both are resolved here.
 	 */
@@ -73,6 +95,7 @@
 	}
 
 	const hint = 'rounded-full bg-danger/10 px-2 py-0.5 font-medium text-danger';
+	const errorBox = 'rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger';
 	const step = 'h-11 rounded-xl border border-line px-3 text-[14px] disabled:opacity-30';
 	const select = 'h-11 min-w-0 flex-1 rounded-xl border border-line bg-raised px-3 text-[15px]';
 </script>
@@ -97,10 +120,8 @@
 </header>
 
 <main class="space-y-6 px-4 pt-4 pb-4">
-	{#if failure}
-		<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-			{failure}
-		</p>
+	{#if bannerFailure}
+		<p class={errorBox} role="alert">{bannerFailure}</p>
 	{/if}
 
 	{#if editing}
@@ -272,6 +293,7 @@
 								value={slot.note ?? ''}
 								maxlength="200"
 								placeholder="Note for this slot"
+								aria-label="Note for slot {i + 1}"
 								class="min-w-0 flex-1 rounded-lg border border-line bg-plane px-2 py-1 text-[15px]"
 							/>
 							<button type="submit" class="h-9 px-2 text-[13px] font-medium text-accent"
@@ -313,6 +335,10 @@
 								<button type="submit" class="h-11 px-3 text-[14px] text-danger">Remove slot</button>
 							</form>
 						</div>
+
+						{#if failedSlot === slot.id && failure}
+							<p class="mt-2 {errorBox}" role="alert">{failure}</p>
+						{/if}
 					</li>
 				{/each}
 			</ul>
