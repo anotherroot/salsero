@@ -24,10 +24,20 @@ import { int, optionalText, text } from '$lib/server/form';
 import { danceOf, requireRoutineInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
+/**
+ * The routine this URL names, or a 404 — the same shape `figureOf`, `songOf`
+ * and `lessonOf` use on their own detail pages. A form action runs before the
+ * `[dance]` layout's gate, so the dance has to be resolved here on every
+ * path, and doing it once by name beats nine copies.
+ */
+function routineOf(params: { dance: string; id: string }) {
+	return requireRoutineInDance(getDb(), danceOf(params), Number(params.id));
+}
+
 export const load: PageServerLoad = ({ params }) => {
 	const dance = danceOf(params);
 	const db = getDb();
-	const routine = requireRoutineInDance(db, dance, Number(params.id));
+	const routine = routineOf(params);
 	const graph = buildGraph(db, dance);
 	const shape = routineShapes(db, dance).get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
@@ -85,9 +95,8 @@ function ownsSlot(db: Db, routineId: number, stepId: number): boolean {
 
 export const actions: Actions = {
 	rename: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
@@ -99,17 +108,17 @@ export const actions: Actions = {
 	},
 
 	archive: async ({ params }) => {
-		const dance = danceOf(params);
-		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
-		archiveRoutine(db, routine.id, Date.now());
-		throw redirect(303, `/${dance}/routines`);
+		const routine = routineOf(params);
+		// The boolean is deliberately ignored: archiving twice is idempotent — the
+		// row is archived either way and the list omits it — so a second attempt is
+		// a no-op worth redirecting, not an error worth reporting.
+		archiveRoutine(getDb(), routine.id, Date.now());
+		throw redirect(303, `/${params.dance}/routines`);
 	},
 
 	addFigure: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const figureId = int(form, 'figureId');
 		if (figureId === undefined || addFigureSlot(db, routine.id, figureId) === null) {
@@ -119,9 +128,8 @@ export const actions: Actions = {
 	},
 
 	addChild: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const childId = int(form, 'childId');
 		if (childId === undefined || addChildSlot(db, routine.id, childId) === null) {
@@ -131,13 +139,15 @@ export const actions: Actions = {
 	},
 
 	addOption: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined || !ownsSlot(db, routine.id, stepId)) {
+		if (stepId === undefined || figureId === undefined) {
+			return fail(400, { message: 'Could not read that slot or figure.' });
+		}
+		if (!ownsSlot(db, routine.id, stepId)) {
 			return fail(400, { message: 'That slot does not belong to this routine.' });
 		}
 		if (!addOption(db, stepId, figureId)) {
@@ -149,13 +159,15 @@ export const actions: Actions = {
 	},
 
 	removeOption: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
-		if (stepId === undefined || figureId === undefined || !ownsSlot(db, routine.id, stepId)) {
+		if (stepId === undefined || figureId === undefined) {
+			return fail(400, { message: 'Could not read that slot or figure.' });
+		}
+		if (!ownsSlot(db, routine.id, stepId)) {
 			return fail(400, { message: 'That slot does not belong to this routine.' });
 		}
 		if (!removeOption(db, stepId, figureId)) {
@@ -165,9 +177,8 @@ export const actions: Actions = {
 	},
 
 	note: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		const note = optionalText(form, 'note', 200);
@@ -182,9 +193,8 @@ export const actions: Actions = {
 	},
 
 	remove: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		if (stepId === undefined || !deleteSlot(db, routine.id, stepId)) {
@@ -194,9 +204,8 @@ export const actions: Actions = {
 	},
 
 	move: async ({ params, request }) => {
-		const dance = danceOf(params);
+		const routine = routineOf(params);
 		const db = getDb();
-		const routine = requireRoutineInDance(db, dance, Number(params.id));
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		const delta = int(form, 'delta');
