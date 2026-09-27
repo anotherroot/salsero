@@ -63,7 +63,13 @@ export const load: PageServerLoad = ({ url, params }) => {
 			: null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
 		routine: routine && shape ? { id: routine.id, name: routine.name, shape } : null,
-		figures: [
+		// The drill's pool. Unchanged from before routines existed: `callable` is
+		// what this list means, and the picker's "select all" default derives from it.
+		figures: listCallableFigures(db, dance),
+		// Names only, for `sayOf` and the on-screen call. A routine names its
+		// figures explicitly, so this carries the uncallable ones too — which is
+		// exactly why it must not be what the picker defaults to.
+		callNames: [
 			...listCallableFigures(db, dance),
 			...listFiguresForCall(db, dance, routineFigureIds)
 		].filter((f, i, all) => all.findIndex((o) => o.id === f.id) === i),

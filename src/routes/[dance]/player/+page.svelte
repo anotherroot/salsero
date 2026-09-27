@@ -56,7 +56,9 @@
 	);
 
 	function sayOf(id: number): string {
-		return data.figures.find((f) => f.id === id)?.say ?? '';
+		// `callNames`, not `figures`: a routine can call a figure that is not in the
+		// drill's callable pool, and the voice still has to have a word for it.
+		return data.callNames.find((f) => f.id === id)?.say ?? '';
 	}
 
 	function finish() {
@@ -100,17 +102,25 @@
 				? data.grid
 				: syntheticGrid(settings.bpm, 400);
 
+		// Read once, before the closure below is built, exactly as `flow` is: the
+		// planner runs inside the 25 ms tick for the whole run, and a reactive read
+		// in there would throw inside the audio loop if this route were ever reused
+		// for a URL without `?routine=` — a silent failure repeating forty times a
+		// second. No shape means no planner at all, never a closure that plans
+		// nothing.
+		const shape = data.routine?.shape ?? null;
+		const graph = data.graph;
+
 		const handle = createPlayer({
 			audio: data.song && settings.source === 'song' ? (audio ?? null) : null,
 			grid,
 			toggles: { count: settings.count, clave: settings.clave, callEvery: settings.callEvery },
 			pool: settings.figureIds,
-			flow: graphFlow(data.graph),
+			flow: graphFlow(graph),
 			// A routine decides the whole plan; the drill's flow picks one figure at
 			// a time. Never both.
-			planner: data.routine
-				? (plan, every, through, rand) =>
-						routinePlan(plan, data.routine!.shape, data.graph, every, through, rand)
+			planner: shape
+				? (plan, every, through, rand) => routinePlan(plan, shape, graph, every, through, rand)
 				: undefined,
 			// Only the chosen pattern's takes: a salsa recording must never stand in
 			// for a son run, whose words fall on different counts entirely.
@@ -210,7 +220,7 @@
 			{player}
 			beats={runningGrid.beats}
 			counts={runningGrid.counts}
-			figures={data.figures}
+			figures={data.callNames}
 			{calledFigureId}
 			song={data.song}
 			{audio}
