@@ -13,6 +13,14 @@
 		figures: CallableFigure[];
 		/** The figure most recently called, or null before the first call. */
 		calledFigureId: number | null;
+		/**
+		 * A routine's slots as they are actually danced, each a list of the figure
+		 * ids that may be called there. Empty for the random drill, which has no
+		 * sequence to show.
+		 */
+		slots: number[][];
+		/** Which of `slots` the run is on, or null before the first call. */
+		activeSlot: number | null;
 		song: { id: number; title: string; audioFile: string | null } | null;
 		/** The song's `<audio>` element, rendered by the page so it exists before Play is pressed. */
 		audio: HTMLAudioElement | undefined;
@@ -33,6 +41,8 @@
 		counts,
 		figures,
 		calledFigureId,
+		slots,
+		activeSlot,
 		song,
 		audio,
 		speed,
@@ -67,6 +77,24 @@
 		calledFigureId !== null ? (figures.find((f) => f.id === calledFigureId)?.name ?? null) : null
 	);
 
+	const nameOf = (id: number) => figures.find((f) => f.id === id)?.name ?? `#${id}`;
+
+	/** The slot rows, so the active one can be scrolled to as the run moves. */
+	let slotEls = $state<(HTMLLIElement | undefined)[]>([]);
+
+	/*
+	 * Put the active slot at the TOP of its scroller rather than the middle: what
+	 * you need mid-figure is the one being called and the ones coming after it,
+	 * and centring spends half the visible list on steps already danced.
+	 *
+	 * `block: 'nearest'` on the page would drag the whole window; this scrolls the
+	 * list's own overflow container, so the count and the controls stay put.
+	 */
+	$effect(() => {
+		if (activeSlot === null) return;
+		slotEls[activeSlot]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	});
+
 	function togglePause() {
 		if (paused) {
 			void player.resume();
@@ -91,6 +119,33 @@
 		<p class="min-h-[1.4em] text-[22px] font-semibold text-ink">{calledName ?? ''}</p>
 		<p class="mt-1 text-[13px] text-muted tabular-nums">{clock(elapsed)}</p>
 	</div>
+
+	{#if slots.length > 0}
+		<!--
+			A routine run shows the whole sequence, with the current slot at the top
+			of its own scroller: the figure being called is already above in large
+			type, so what this adds is what comes NEXT and how far through you are.
+			The drill has no sequence, so it gets nothing here.
+		-->
+		<ol
+			class="mt-3 max-h-56 overflow-y-auto rounded-xl border border-line bg-raised"
+			aria-label="Routine"
+		>
+			{#each slots as figureIds, i (i)}
+				<li
+					bind:this={slotEls[i]}
+					aria-current={i === activeSlot ? 'step' : undefined}
+					class="flex items-baseline gap-2 border-b border-line px-3 py-2 text-[14px] last:border-b-0 {i ===
+					activeSlot
+						? 'bg-accent/10 font-medium text-accent'
+						: 'text-muted'}"
+				>
+					<span class="w-5 shrink-0 text-[12px] tabular-nums">{i + 1}</span>
+					<span class="min-w-0">{figureIds.map(nameOf).join('  /  ')}</span>
+				</li>
+			{/each}
+		</ol>
+	{/if}
 
 	<!--
 		Both of these are adjustable DURING the run on purpose. Whether the voice

@@ -159,7 +159,12 @@ export interface PlayerOptions {
 	 * clips, so a half-filled ladder is a working player rather than a broken one.
 	 */
 	takes?: CountTakeRow[];
-	onCall: (figureId: number) => void;
+	/**
+	 * A figure has just been announced. `index` is its position in the plan, so a
+	 * caller that knows how the plan was built can say WHERE in a routine it is —
+	 * a figure id alone cannot, since the same figure appears in several slots.
+	 */
+	onCall: (figureId: number, index: number) => void;
 	onEnd: () => void;
 }
 
@@ -354,7 +359,13 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 				setTimeout(() => {
 					say(opts.sayOf(call.figureId));
 					calledIds.push(call.figureId);
-					opts.onCall(call.figureId);
+					// Found by its 8-count rather than counted: a step's `eight` is
+					// unique in the plan, so this survives a seek replaying calls the
+					// run has already made, where a running tally would drift.
+					opts.onCall(
+						call.figureId,
+						plan.findIndex((s) => s.eight === call.eight)
+					);
 				}, delay)
 			);
 		}
