@@ -37,7 +37,7 @@ import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
-import { addFigureSlot, createRoutine, routineSlots } from '$lib/server/routines';
+import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/server/routines';
 import { exercises, lessons, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
@@ -104,6 +104,7 @@ const figureInput = {
 let db: Db;
 let salsaExerciseId: number;
 let salsaFigureId: number;
+let salsaFigureId2: number;
 let salsaRoutineAId: number;
 let salsaRoutineBId: number;
 let bachataFigureId: number;
@@ -122,6 +123,11 @@ beforeEach(() => {
 	const salsaFigure = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!;
 	salsaExerciseId = salsaFigure.exercise.id;
 	salsaFigureId = salsaFigure.figure.id;
+	salsaFigureId2 = createFigure(db, 'salsa', {
+		...figureInput,
+		name: 'Second salsa figure',
+		style: 'salsa'
+	})!.figure.id;
 	salsaRoutineAId = createRoutine(db, 'salsa', { name: 'Routine A', notes: null }).routine.id;
 	salsaRoutineBId = createRoutine(db, 'salsa', { name: 'Routine B', notes: null }).routine.id;
 	bachataRoutineId = createRoutine(db, 'bachata', { name: 'Bachata routine', notes: null }).routine
@@ -379,6 +385,61 @@ describe("the routine detail route refuses the other dance's rows", () => {
 		expect(res.status).toBe(400);
 		expect(res.data.message).toBe('That slot is already gone.');
 		expect(routineSlots(db, salsaRoutineBId)).toHaveLength(1);
+	});
+
+	// `addOption`, `removeOption` and `note` all take a bare `stepId` with no
+	// routine id to check it against — unlike `remove` and `move`, whose data
+	// functions take `routine.id` natively and scope in SQL. For these three,
+	// `ownsSlot` in the route is the ONLY guard: a same-dance slot from a
+	// SECOND salsa routine passes `requireRoutineInDance` (routine A really is
+	// salsa) and would pass the data function's own dance check too, since
+	// both routines are salsa. A bachata slot would prove nothing here — it
+	// would already be caught by a dance check unrelated to `ownsSlot`.
+	it("will not add an option to another salsa routine's slot", async () => {
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		const res = (await call(
+			routinePage.actions.addOption,
+			post(
+				'salsa',
+				{ stepId: String(stepId), figureId: String(salsaFigureId2) },
+				String(salsaRoutineAId)
+			)
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('That slot does not belong to this routine.');
+		expect(routineSlots(db, salsaRoutineBId)[0].figureIds).toEqual([salsaFigureId]);
+	});
+
+	it("will not remove an option from another salsa routine's slot", async () => {
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		// Set up directly through the data function, not the action: the slot
+		// needs two options before a removal is even possible, and this call is
+		// not what is under test.
+		addOption(db, stepId, salsaFigureId2);
+		const res = (await call(
+			routinePage.actions.removeOption,
+			post(
+				'salsa',
+				{ stepId: String(stepId), figureId: String(salsaFigureId2) },
+				String(salsaRoutineAId)
+			)
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('That slot does not belong to this routine.');
+		expect(routineSlots(db, salsaRoutineBId)[0].figureIds.slice().sort()).toEqual(
+			[salsaFigureId, salsaFigureId2].sort()
+		);
+	});
+
+	it("will not set a note on another salsa routine's slot", async () => {
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		const res = (await call(
+			routinePage.actions.note,
+			post('salsa', { stepId: String(stepId), note: 'Hijacked' }, String(salsaRoutineAId))
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('That slot does not belong to this routine.');
+		expect(routineSlots(db, salsaRoutineBId)[0].note).toBeNull();
 	});
 });
 
