@@ -1,14 +1,42 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { resolve } from '$app/paths';
-	import type { ActionData, PageData } from './$types';
+	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
 
+	/** Which slot's sheet is open, by id — not by index, which moves when a slot does. */
+	let editingSlot = $state<number | null>(null);
+	let adding = $state(false);
+
 	const routine = $derived(data.routine);
 	const failure = $derived(form && 'message' in form ? form.message : null);
+
+	/**
+	 * The slot the sheet is showing, looked up fresh each time `data` changes so
+	 * an edit made inside the sheet is reflected in it. It goes null when the
+	 * slot stops existing, which is what closes the sheet after a remove.
+	 */
+	const edited = $derived(data.slots.find((s) => s.id === editingSlot) ?? null);
+	const editedIndex = $derived(data.slots.findIndex((s) => s.id === editingSlot));
+
+	/**
+	 * Close a sheet once its action succeeded, and leave it open when it did not —
+	 * a refusal has a message to show, and showing it behind a sheet that just
+	 * shut is the same as not showing it.
+	 */
+	const closeOn = (shut: () => void): SubmitFunction => {
+		return () =>
+			async ({ result, update }) => {
+				await update();
+				if (result.type === 'success' || result.type === 'redirect') shut();
+			};
+	};
+	const closeAdd = closeOn(() => (adding = false));
+	const closeEdit = closeOn(() => (editingSlot = null));
 
 	/**
 	 * The slot a failure was aimed at, when the action named one. Every slot has
@@ -161,6 +189,13 @@
 				>Save</button
 			>
 		</form>
+		<!-- Not behind `use:enhance`: the action redirects to the copy, and a full
+		     navigation is what makes it obvious you are now editing the copy. -->
+		<form method="POST" action="?/duplicate">
+			<button type="submit" class="h-11 w-full rounded-xl border border-line text-[14px]"
+				>Duplicate routine</button
+			>
+		</form>
 		<form
 			method="POST"
 			action="?/archive"
@@ -204,13 +239,16 @@
 	{/if}
 
 	<section>
-		<h2 class="text-[12px] font-medium tracking-wide text-muted uppercase">Slots</h2>
+		<div class="flex items-center justify-between gap-3">
+			<h2 class="text-[12px] font-medium tracking-wide text-muted uppercase">Slots</h2>
+			<button type="button" onclick={() => (adding = true)} class={step}>+ Add</button>
+		</div>
 		<p class="mt-1 mb-2 text-[12px] text-muted">
 			A slot's variants all have to end in the same place — any one of them can be danced there.
 		</p>
 		{#if data.slots.length === 0}
 			<p class="text-[13px] text-muted">
-				Nothing yet. Add a figure below — the first slot is where the routine starts.
+				Nothing yet. Add a figure — the first slot is where the routine starts.
 			</p>
 		{:else}
 			<ul class="space-y-2">
@@ -232,30 +270,19 @@
 											})}>{slot.childName ?? 'a routine'}</a
 										>
 									</p>
-									<p class="text-[12px] text-muted">Its own slots are edited on its page.</p>
 								{:else if slot.figureIds.length === 0}
-									<p class="text-[13px] text-muted">
-										Empty — nothing to call here. Add a variant or remove the slot.
-									</p>
+									<p class="text-[13px] text-muted">Empty — nothing to call here.</p>
 								{:else}
-									<ul class="space-y-1">
-										{#each slot.figureIds as figureId (figureId)}
-											<li class="flex items-center gap-2">
-												<span class="min-w-0 flex-1 text-[15px]">{optionName(figureId)}</span>
-												{#if slot.figureIds.length > 1}
-													<form method="POST" action="?/removeOption" use:enhance>
-														<input type="hidden" name="stepId" value={slot.id} />
-														<input type="hidden" name="figureId" value={figureId} />
-														<button type="submit" class="h-9 px-2 text-[13px] text-danger"
-															>Remove</button
-														>
-													</form>
-												{/if}
-											</li>
-										{/each}
-									</ul>
+									<!--
+										Variants read as one line rather than a stack of rows: any of them
+										can be danced at this point, so they belong together, and the row
+										has to stay short enough to scan a whole routine at a glance.
+									-->
+									<p class="text-[15px]">{slot.figureIds.map(optionName).join('  /  ')}</p>
 								{/if}
-
+								{#if slot.note}
+									<p class="text-[12px] text-muted">{slot.note}</p>
+								{/if}
 								{#if (data.slotStarts[i]?.length ?? 0) > 0}
 									<p class="text-[12px] text-muted">
 										Entered from {positionNames(data.slotStarts[i])}
@@ -267,73 +294,11 @@
 									</p>
 								{/if}
 							</div>
-						</div>
-
-						{#if slot.childId === null && addable(slot.figureIds).length > 0}
-							<form
-								method="POST"
-								action="?/addOption"
-								class="mt-2 flex items-center gap-2"
-								use:enhance
+							<button
+								type="button"
+								onclick={() => (editingSlot = slot.id)}
+								class="h-9 shrink-0 px-2 text-[13px] font-medium text-accent">Edit</button
 							>
-								<input type="hidden" name="stepId" value={slot.id} />
-								<select name="figureId" class={select} aria-label="Add a variant">
-									{#each addable(slot.figureIds) as figure (figure.id)}
-										<option value={figure.id}>{figure.name}</option>
-									{/each}
-								</select>
-								<button type="submit" class={step}>+ Variant</button>
-							</form>
-						{/if}
-
-						<form method="POST" action="?/note" class="mt-2 flex items-center gap-2" use:enhance>
-							<input type="hidden" name="stepId" value={slot.id} />
-							<input
-								name="note"
-								value={slot.note ?? ''}
-								maxlength="200"
-								placeholder="Note for this slot"
-								aria-label="Note for slot {i + 1}"
-								class="min-w-0 flex-1 rounded-lg border border-line bg-plane px-2 py-1 text-[15px]"
-							/>
-							<button type="submit" class="h-9 px-2 text-[13px] font-medium text-accent"
-								>Save</button
-							>
-						</form>
-
-						<div class="mt-2 flex items-center gap-2">
-							<form method="POST" action="?/move" use:enhance>
-								<input type="hidden" name="stepId" value={slot.id} />
-								<input type="hidden" name="delta" value="-1" />
-								<button
-									type="submit"
-									disabled={i === 0}
-									class="grid size-11 place-items-center rounded-xl border border-line text-[18px] disabled:opacity-30"
-									aria-label="Move up">↑</button
-								>
-							</form>
-							<form method="POST" action="?/move" use:enhance>
-								<input type="hidden" name="stepId" value={slot.id} />
-								<input type="hidden" name="delta" value="1" />
-								<button
-									type="submit"
-									disabled={i === data.slots.length - 1}
-									class="grid size-11 place-items-center rounded-xl border border-line text-[18px] disabled:opacity-30"
-									aria-label="Move down">↓</button
-								>
-							</form>
-							<form
-								method="POST"
-								action="?/remove"
-								class="ml-auto"
-								use:enhance
-								onsubmit={(e) => {
-									if (!confirm(`Remove slot ${i + 1}?`)) e.preventDefault();
-								}}
-							>
-								<input type="hidden" name="stepId" value={slot.id} />
-								<button type="submit" class="h-11 px-3 text-[14px] text-danger">Remove slot</button>
-							</form>
 						</div>
 
 						{#if failedSlot === slot.id && failure}
@@ -344,35 +309,147 @@
 			</ul>
 		{/if}
 	</section>
-
-	<section class="space-y-3">
-		<h2 class="text-[12px] font-medium tracking-wide text-muted uppercase">Add a slot</h2>
-		{#if data.figures.length === 0}
-			<p class="text-[13px] text-muted">
-				No figures in this dance yet.
-				<a class="text-accent" href={resolve('/[dance]/figures', { dance: data.dance.slug })}
-					>Add one first</a
-				>.
-			</p>
-		{:else}
-			<form method="POST" action="?/addFigure" class="flex items-center gap-2" use:enhance>
-				<select name="figureId" class={select} aria-label="Figure to add">
-					{#each data.figures as figure (figure.id)}
-						<option value={figure.id}>{figure.name}</option>
-					{/each}
-				</select>
-				<button type="submit" class={step}>+ Slot</button>
-			</form>
-		{/if}
-		{#if data.embeddable.length > 0}
-			<form method="POST" action="?/addChild" class="flex items-center gap-2" use:enhance>
-				<select name="childId" class={select} aria-label="Routine to embed">
-					{#each data.embeddable as child (child.id)}
-						<option value={child.id}>{child.name}</option>
-					{/each}
-				</select>
-				<button type="submit" class={step}>+ Routine</button>
-			</form>
-		{/if}
-	</section>
 </main>
+
+<!--
+	Adding and editing both live behind a button in a sheet. Inline selects made
+	every slot three controls tall, which on a phone meant a four-slot routine
+	could not be seen at once — and seeing the shape of the routine is the whole
+	point of this page.
+-->
+<Sheet title="Add to this routine" open={adding} onclose={() => (adding = false)}>
+	{#if data.figures.length === 0}
+		<p class="text-[13px] text-muted">
+			No figures in this dance yet.
+			<a class="text-accent" href={resolve('/[dance]/figures', { dance: data.dance.slug })}
+				>Add one first</a
+			>.
+		</p>
+	{:else}
+		<form method="POST" action="?/addFigure" class="space-y-2" use:enhance={closeAdd}>
+			<span class="text-[13px] font-medium">A figure</span>
+			<select name="figureId" class="{select} w-full" aria-label="Figure to add">
+				{#each data.figures as figure (figure.id)}
+					<option value={figure.id}>{figure.name}</option>
+				{/each}
+			</select>
+			<button type="submit" class="{step} w-full">Add slot</button>
+		</form>
+	{/if}
+
+	{#if data.embeddable.length > 0}
+		<form method="POST" action="?/addChild" class="mt-4 space-y-2" use:enhance={closeAdd}>
+			<span class="text-[13px] font-medium">Another routine</span>
+			<select name="childId" class="{select} w-full" aria-label="Routine to embed">
+				{#each data.embeddable as child (child.id)}
+					<option value={child.id}>{child.name}</option>
+				{/each}
+			</select>
+			<button type="submit" class="{step} w-full">Embed routine</button>
+		</form>
+	{/if}
+</Sheet>
+
+<Sheet
+	title={edited ? `Slot ${editedIndex + 1}` : 'Slot'}
+	open={edited !== null}
+	onclose={() => (editingSlot = null)}
+>
+	{#if edited}
+		{@const slot = edited}
+		{@const i = editedIndex}
+		<div class="space-y-4">
+			{#if slot.childId !== null}
+				<p class="text-[13px] text-muted">
+					This slot dances <span class="font-medium">{slot.childName ?? 'a routine'}</span>. Its own
+					slots are edited on its page.
+				</p>
+			{:else}
+				<div class="space-y-1">
+					<span class="text-[13px] font-medium">Variants</span>
+					{#each slot.figureIds as figureId (figureId)}
+						<div class="flex items-center gap-2">
+							<span class="min-w-0 flex-1 text-[15px]">{optionName(figureId)}</span>
+							{#if slot.figureIds.length > 1}
+								<form method="POST" action="?/removeOption" use:enhance>
+									<input type="hidden" name="stepId" value={slot.id} />
+									<input type="hidden" name="figureId" value={figureId} />
+									<button type="submit" class="h-9 px-2 text-[13px] text-danger">Remove</button>
+								</form>
+							{/if}
+						</div>
+					{/each}
+					{#if addable(slot.figureIds).length > 0}
+						<form method="POST" action="?/addOption" class="flex items-center gap-2" use:enhance>
+							<input type="hidden" name="stepId" value={slot.id} />
+							<select name="figureId" class={select} aria-label="Add a variant">
+								{#each addable(slot.figureIds) as figure (figure.id)}
+									<option value={figure.id}>{figure.name}</option>
+								{/each}
+							</select>
+							<button type="submit" class={step}>+ Variant</button>
+						</form>
+					{/if}
+				</div>
+			{/if}
+
+			<form method="POST" action="?/note" class="flex items-center gap-2" use:enhance>
+				<input type="hidden" name="stepId" value={slot.id} />
+				<input
+					name="note"
+					value={slot.note ?? ''}
+					maxlength="200"
+					placeholder="Note for this slot"
+					aria-label="Note for slot {i + 1}"
+					class="min-w-0 flex-1 rounded-lg border border-line bg-plane px-2 py-1 text-[15px]"
+				/>
+				<button type="submit" class="h-9 px-2 text-[13px] font-medium text-accent">Save</button>
+			</form>
+
+			<div class="flex items-center gap-2">
+				<form method="POST" action="?/move" use:enhance>
+					<input type="hidden" name="stepId" value={slot.id} />
+					<input type="hidden" name="delta" value="-1" />
+					<button
+						type="submit"
+						disabled={i === 0}
+						class="grid size-11 place-items-center rounded-xl border border-line text-[18px] disabled:opacity-30"
+						aria-label="Move up">↑</button
+					>
+				</form>
+				<form method="POST" action="?/move" use:enhance>
+					<input type="hidden" name="stepId" value={slot.id} />
+					<input type="hidden" name="delta" value="1" />
+					<button
+						type="submit"
+						disabled={i === data.slots.length - 1}
+						class="grid size-11 place-items-center rounded-xl border border-line text-[18px] disabled:opacity-30"
+						aria-label="Move down">↓</button
+					>
+				</form>
+				<form method="POST" action="?/duplicateSlot" class="ml-auto" use:enhance={closeEdit}>
+					<input type="hidden" name="stepId" value={slot.id} />
+					<button type="submit" class="h-11 px-3 text-[14px] font-medium text-accent"
+						>Duplicate</button
+					>
+				</form>
+			</div>
+
+			<form
+				method="POST"
+				action="?/remove"
+				use:enhance={closeEdit}
+				onsubmit={(e) => {
+					if (!confirm(`Remove slot ${i + 1}?`)) e.preventDefault();
+				}}
+			>
+				<input type="hidden" name="stepId" value={slot.id} />
+				<button type="submit" class="h-11 w-full text-[14px] text-danger">Remove slot</button>
+			</form>
+
+			{#if failedSlot === slot.id && failure}
+				<p class={errorBox} role="alert">{failure}</p>
+			{/if}
+		</div>
+	{/if}
+</Sheet>
