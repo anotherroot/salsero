@@ -33,7 +33,13 @@ import {
 	listExercises,
 	logSet
 } from '$lib/server/exercises';
-import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
+import {
+	createSongFromUpload,
+	createSongFromUrl,
+	failJob,
+	getSong,
+	storeAnalysis
+} from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
@@ -495,10 +501,32 @@ describe('the JSON endpoints refuse the other dance', () => {
 	});
 	type Handler = (e: ReturnType<typeof at>) => unknown;
 
-	it('will not serve a bachata song’s grid under salsa', async () => {
+	it('will not serve a bachata song’s grid under salsa, but does under bachata', async () => {
+		// `bachataSongId` (from `beforeEach`) is `status: 'failed'`, which the
+		// endpoint's OWN guard already 404s on — that would pass even with the
+		// dance wall deleted, and prove nothing about it. A READY song is the
+		// only way to isolate the wall: it must be the one thing standing
+		// between a salsa request and a 200.
+		const ready = createSongFromUpload(db, 'bachata', {
+			file: 'bachata-ready.mp3',
+			mime: 'audio/mpeg',
+			title: 'Bachata ready',
+			style: 'sensual'
+		});
+		storeAnalysis(db, ready.id, { beats: [0, 0.5], downbeats: [0], durationS: 1 });
+
 		await expect(
-			(async () => (gridEndpoint.GET as unknown as Handler)(at('salsa', String(bachataSongId))))()
+			(async () => (gridEndpoint.GET as unknown as Handler)(at('salsa', String(ready.id))))()
 		).rejects.toMatchObject({ status: 404 });
+
+		const res = (await (gridEndpoint.GET as unknown as Handler)(
+			at('bachata', String(ready.id))
+		)) as Response;
+		expect(await res.json()).toMatchObject({
+			audioFile: 'bachata-ready.mp3',
+			beats: [0, 0.5],
+			counts: expect.any(Array)
+		});
 	});
 
 	it('will not serve or change a bachata exercise under salsa', async () => {
