@@ -22,6 +22,8 @@ export interface ExerciseItem {
 	practiceMode: PracticeMode;
 	songId: number | null;
 	countBpm: number | null;
+	/** The panel's remembered count/clave/speed/cue. Read with `parsePracticeConfig`. */
+	practiceJson: string | null;
 	everyDays: number;
 	active: boolean;
 	archived: boolean;
@@ -38,6 +40,30 @@ export interface DaySet {
 	reps: number | null;
 	rating: number | null;
 	note: string | null;
+}
+
+/** One set as an exercise's own history lists it. */
+export interface HistorySet {
+	id: number;
+	doneAt: number;
+	durationS: number | null;
+	reps: number | null;
+	rating: number | null;
+	note: string | null;
+}
+
+/** The latest set, with how many calendar days ago it was in the user's zone. */
+export interface LastSet extends HistorySet {
+	daysAgo: number;
+}
+
+/** The line on top of an exercise's history. */
+export interface ExerciseSummary {
+	sets: number;
+	/** Every logged duration, summed. Sets with no duration add nothing. */
+	totalS: number;
+	/** Mean of the latest five rated sets, to one decimal; null when none is rated. */
+	recentRating: number | null;
 }
 
 export interface SongItem {

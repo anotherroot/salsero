@@ -5,7 +5,15 @@
 	import { FREQUENCIES } from '$lib/frequency';
 	import { setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
-	import { PRACTICE_LABEL, PRACTICE_MODES, type PracticeMode } from '$lib/labels';
+	import { PRACTICE_MODES, type PracticeMode } from '$lib/labels';
+
+	// Task 11 removes this whole radio block; PRACTICE_LABEL is gone from
+	// `$lib/labels`, so this stays inline until then.
+	const practiceLabel: Record<PracticeMode, string> = {
+		song: 'With a song',
+		count: 'Count only',
+		none: 'Just log it'
+	};
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { DaySet, ExerciseItem } from '$lib/types';
 
@@ -217,7 +225,7 @@
 								onchange={() => (practiceMode = m)}
 								class="sr-only"
 							/>
-							{PRACTICE_LABEL[m]}
+							{practiceLabel[m]}
 						</label>
 					{/each}
 				</div>

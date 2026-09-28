@@ -83,12 +83,6 @@ export type ClavePattern = (typeof CLAVE_PATTERNS)[number];
 export const CALL_EVERY = [1, 2, 4] as const;
 export type CallEvery = (typeof CALL_EVERY)[number];
 
-export const PRACTICE_LABEL: Record<PracticeMode, string> = {
-	song: 'With a song',
-	count: 'Count only',
-	none: 'Just log it'
-};
-
 /**
  * Tempos the user records their own count at, roughly every 8 % so the nearest
  * one is never more than ~4 % away — well under half a semitone once

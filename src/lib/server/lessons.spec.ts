@@ -116,9 +116,6 @@ describe('a lesson owns its review exercise', () => {
 		const { exercise } = createLesson(db, 'salsa', lessonInput);
 		const after = updateExercise(db, exercise.id, {
 			name: 'Something else',
-			practiceMode: 'none',
-			songId: null,
-			countBpm: null,
 			everyDays: 7,
 			active: true,
 			notes: null
