@@ -1,11 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import ExerciseRow from '$lib/components/today/ExerciseRow.svelte';
 	import { logFor } from '$lib/components/exercises/kinds';
+	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import { dayLabel, setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
 	import { typeOf } from '$lib/exercises/kinds';
+	import { nextInSession, sessionSummary } from '$lib/exercises/session';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -13,6 +18,48 @@
 	let openId = $state<number | null>(null);
 	let creating = $state(false);
 	let showInactive = $state(false);
+
+	// A session walks Today's due/upcoming bands one popup at a time. It lives
+	// entirely in the URL flag plus this page's own state — nothing is stored,
+	// so a reload recomputes "next" from the (now-refreshed) bands.
+	const sessionOn = $derived(page.url.searchParams.get('session') === '1');
+	let skipped = $state(new Set<number>());
+	let tally = $state({ count: 0, seconds: 0 });
+	const firstUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, null));
+	const nextUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, openId));
+
+	function startSession() {
+		skipped = new Set();
+		tally = { count: 0, seconds: 0 };
+		void goto(resolve(`/${data.dance.slug}?session=1`), { keepFocus: true, noScroll: true });
+		openId = firstUp?.exercise.id ?? null;
+	}
+
+	function endSession() {
+		openId = null;
+		void goto(resolve('/[dance]', { dance: data.dance.slug }), { keepFocus: true, noScroll: true });
+	}
+
+	// A reload keeps the flag; pick up at the current first row.
+	onMount(() => {
+		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
+	});
+
+	const session = $derived<SessionControls | null>(
+		sessionOn && data.isToday
+			? {
+					next: nextUp ? { name: nextUp.exercise.name } : null,
+					summary: sessionSummary(tally.count, tally.seconds),
+					onnext: () => (openId = nextUp?.exercise.id ?? null),
+					onskip: () => {
+						if (openId !== null) skipped = new Set([...skipped, openId]);
+						openId = nextUp?.exercise.id ?? null;
+						if (openId === null) endSession();
+					},
+					onfinish: endSession
+				}
+			: null
+	);
 
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	// Every band, so opening a row by id works wherever it sits.
@@ -112,6 +159,15 @@
 					{/each}
 				</ul>
 			</section>
+		{/if}
+
+		{#if firstUp}
+			<button
+				type="button"
+				class="mb-4 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+				onclick={() => (sessionOn ? (openId = firstUp?.exercise.id ?? null) : startSession())}
+				>{sessionOn ? 'Resume session' : 'Start session'}</button
+			>
 		{/if}
 
 		{#if data.plan.due.length > 0}
@@ -251,6 +307,10 @@
 			backfillDay={data.isToday ? null : data.day}
 			{timezone}
 			message={failure('log')}
+			{session}
+			onlogged={(d) => {
+				if (sessionOn) tally = { count: tally.count + 1, seconds: tally.seconds + (d ?? 0) };
+			}}
 			onclose={() => (openId = null)}
 		/>
 	{/key}
