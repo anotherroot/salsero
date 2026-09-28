@@ -1,24 +1,28 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import type { PlanRow } from '$lib/urgency/urgency';
 	import type { ExerciseItem } from '$lib/types';
+	import type { DanceSlug } from '$lib/dances/dances';
 	import { lastDoneLabel } from '$lib/format';
 	import { frequencyLabel } from '$lib/frequency';
 
 	interface Props {
 		row: PlanRow<ExerciseItem>;
 		variant: 'done' | 'due' | 'upcoming' | 'inactive';
-		onopen: () => void;
+		dance: DanceSlug;
+		/** The latest set's rating, or null when it was unrated or there is none. */
+		lastRating: number | null;
+		/** Open this exercise's log popup. */
+		onlog: () => void;
 	}
 
-	let { row, variant, onopen }: Props = $props();
-	let pending = $state(false);
+	let { row, variant, dance, lastRating, onlog }: Props = $props();
 
 	const ex = $derived(row.exercise);
 	const BADGE: Record<Exclude<ExerciseItem['source'], 'figure'>, string> = {
 		routine: 'Routine',
 		lesson: 'Lesson',
-		custom: 'Custom'
+		custom: 'Drill'
 	};
 	const badge = $derived(
 		ex.source === 'figure'
@@ -38,7 +42,11 @@
 			? 'opacity-75'
 			: ''}"
 >
-	<button type="button" class="min-w-0 flex-1 px-4 py-3 text-left" onclick={onopen}>
+	<!-- The row opens the exercise; the + logs. Logging is the thing done most, so it gets its own target. -->
+	<a
+		href={resolve('/[dance]/exercises/[id]', { dance, id: String(ex.id) })}
+		class="min-w-0 flex-1 px-4 py-3 text-left"
+	>
 		<span class="block truncate text-[15px] font-medium">{ex.name}</span>
 		<span class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted">
 			<span>{badge}</span>
@@ -55,30 +63,26 @@
 				<span aria-hidden="true">·</span>
 				<span>{frequencyLabel(ex.everyDays)}</span>
 			{/if}
+			{#if lastRating !== null}
+				<span
+					class="flex items-center gap-0.5"
+					role="img"
+					aria-label="Last rated {lastRating} of 5"
+				>
+					{#each [1, 2, 3, 4, 5] as n (n)}
+						<span class="size-1.5 rounded-full {n <= lastRating ? 'bg-accent' : 'bg-rule'}"></span>
+					{/each}
+				</span>
+			{/if}
 		</span>
-	</button>
+	</a>
 
-	<!-- One tap logs a bare set: the fast path while cooking. Details live in the sheet. -->
-	<form
-		method="POST"
-		action="?/log"
-		class="flex"
-		use:enhance={() => {
-			pending = true;
-			return async ({ update }) => {
-				await update({ reset: false });
-				pending = false;
-			};
-		}}
+	<button
+		type="button"
+		onclick={onlog}
+		aria-label="Log a set of {ex.name}"
+		class="grid w-14 place-items-center border-l text-[22px] font-light {variant === 'done'
+			? 'border-done/30 text-done'
+			: 'border-line text-accent'}">+</button
 	>
-		<input type="hidden" name="exerciseId" value={ex.id} />
-		<button
-			type="submit"
-			disabled={pending}
-			aria-label="Log a set of {ex.name}"
-			class="grid w-14 place-items-center border-l text-[22px] font-light {variant === 'done'
-				? 'border-done/30 text-done'
-				: 'border-line text-accent'} disabled:opacity-40">+</button
-		>
-	</form>
 </li>

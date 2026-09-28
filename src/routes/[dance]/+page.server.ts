@@ -2,16 +2,19 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import {
 	createCustomExercise,
+	lastSets,
 	listExercises,
 	listSetTimes,
 	listSetsBetween
 } from '$lib/server/exercises';
+import { listCountTakesFor } from '$lib/server/countTakes';
 import { int, optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom } from '$lib/server/log-form';
 import { danceOf } from '$lib/server/scope';
 import { listReadySongs } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
+import { PHRASE_PATTERNS } from '$lib/labels';
 import { plan } from '$lib/urgency/urgency';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -59,8 +62,14 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		exercises: exercises
 			.map((e) => ({ id: e.id, name: e.name }))
 			.sort((a, b) => a.name.localeCompare(b.name)),
-		// For the exercise sheet's practice-mode song picker.
-		songs: listReadySongs(db, dance)
+		// For the practice panel's song picker.
+		songs: listReadySongs(db, dance),
+		// The latest set's rating per exercise, for the dots on each row.
+		lastRatings: Object.fromEntries(
+			[...lastSets(db, dance)].map(([id, s]) => [id, s.rating] as [number, number | null])
+		),
+		// The practice panel's voice: the user's recorded count, a few dozen rows.
+		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
 	};
 };
 

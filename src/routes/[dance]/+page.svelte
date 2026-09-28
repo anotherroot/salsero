@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import ExerciseRow from '$lib/components/today/ExerciseRow.svelte';
-	import LogSheet from '$lib/components/today/LogSheet.svelte';
+	import { logFor } from '$lib/components/exercises/kinds';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import { dayLabel, setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
+	import { typeOf } from '$lib/exercises/kinds';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -23,6 +24,7 @@
 	]);
 	const open = $derived(rows.find((r) => r.exercise.id === openId)?.exercise ?? null);
 	const openSets = $derived(data.daySets.filter((s) => s.exerciseId === openId));
+	const Log = $derived(open ? logFor(typeOf(open.source)) : null);
 
 	/** A past day's sets, grouped by exercise in the order they were first done. */
 	const pastGroups = $derived.by(() => {
@@ -100,7 +102,13 @@
 				</h2>
 				<ul class="space-y-2">
 					{#each data.plan.doneToday as row (row.exercise.id)}
-						<ExerciseRow {row} variant="done" onopen={() => (openId = row.exercise.id)} />
+						<ExerciseRow
+							{row}
+							variant="done"
+							dance={data.dance.slug}
+							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							onlog={() => (openId = row.exercise.id)}
+						/>
 					{/each}
 				</ul>
 			</section>
@@ -113,7 +121,13 @@
 				</h2>
 				<ul class="space-y-2">
 					{#each data.plan.due as row (row.exercise.id)}
-						<ExerciseRow {row} variant="due" onopen={() => (openId = row.exercise.id)} />
+						<ExerciseRow
+							{row}
+							variant="due"
+							dance={data.dance.slug}
+							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							onlog={() => (openId = row.exercise.id)}
+						/>
 					{/each}
 				</ul>
 			</section>
@@ -127,7 +141,13 @@
 				</h2>
 				<ul class="space-y-2">
 					{#each data.plan.upcoming as row (row.exercise.id)}
-						<ExerciseRow {row} variant="upcoming" onopen={() => (openId = row.exercise.id)} />
+						<ExerciseRow
+							{row}
+							variant="upcoming"
+							dance={data.dance.slug}
+							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							onlog={() => (openId = row.exercise.id)}
+						/>
 					{/each}
 				</ul>
 			</section>
@@ -147,7 +167,13 @@
 				{#if showInactive}
 					<ul class="space-y-2">
 						{#each data.plan.inactive as row (row.exercise.id)}
-							<ExerciseRow {row} variant="inactive" onopen={() => (openId = row.exercise.id)} />
+							<ExerciseRow
+								{row}
+								variant="inactive"
+								dance={data.dance.slug}
+								lastRating={data.lastRatings[row.exercise.id] ?? null}
+								onlog={() => (openId = row.exercise.id)}
+							/>
 						{/each}
 					</ul>
 				{/if}
@@ -214,16 +240,20 @@
 	{/if}
 </main>
 
-{#if open}
-	<LogSheet
-		dance={data.dance.slug}
-		exercise={open}
-		sets={openSets}
-		backfillDay={data.isToday ? null : data.day}
-		{timezone}
-		message={failure('log')}
-		onclose={() => (openId = null)}
-	/>
+{#if open && Log}
+	{#key open.id}
+		<Log
+			dance={data.dance}
+			exercise={open}
+			sets={openSets}
+			songs={data.songs}
+			takes={data.takes}
+			backfillDay={data.isToday ? null : data.day}
+			{timezone}
+			message={failure('log')}
+			onclose={() => (openId = null)}
+		/>
+	{/key}
 {/if}
 
 {#if creating}
