@@ -262,6 +262,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(getFigure(db, bachataFigureId)?.figure.archivedAt).toBeNull();
 	});
 
+	it("will not delete a bachata figure's set from a salsa URL", async () => {
+		await refuses(figurePage.actions.deleteSet, post('salsa', { setId: String(bachataSetId) }));
+		expect(getSet(db, bachataSetId)).not.toBeNull();
+	});
+
 	it('refuses positions for a figure from the other dance, writing nothing', async () => {
 		// A BACHATA position on a BACHATA figure: `setFigurePositions`'s own
 		// per-position dance check would ACCEPT this payload, so the only thing

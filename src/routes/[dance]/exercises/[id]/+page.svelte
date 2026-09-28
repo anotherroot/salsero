@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import SetList from '$lib/components/exercises/SetList.svelte';
-	import { contentFor } from '$lib/components/exercises/kinds';
+	import { contentFor, logFor } from '$lib/components/exercises/kinds';
 	import { FIELD, LABEL } from '$lib/components/ui/styles';
 	import { FREQUENCIES } from '$lib/frequency';
 	import { dayLabel, dateLabel } from '$lib/format';
@@ -15,6 +16,9 @@
 	const exercise = $derived(data.exercise);
 	const type = $derived(typeOf(exercise.source));
 	const Content = $derived(contentFor(type));
+	const Log = $derived(logFor(type));
+	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
+	let logging = $state(page.url.searchParams.get('log') === '1');
 	/** A drill is the only type this page may rename or archive: the others belong to their owner. */
 	const ownsItself = $derived(type === 'drill');
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
@@ -84,6 +88,12 @@
 	{#if owner}
 		<a href={owner.href} class="block text-[14px] font-medium text-accent">{owner.label} →</a>
 	{/if}
+
+	<button
+		type="button"
+		class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+		onclick={() => (logging = true)}>Log a set</button
+	>
 
 	<Content
 		dance={data.dance}
@@ -174,3 +184,18 @@
 		{/if}
 	</section>
 </main>
+
+{#if logging}
+	<Log
+		dance={data.dance}
+		exercise={data.exercise}
+		sets={data.sets}
+		songs={data.songs}
+		takes={data.takes}
+		backfillDay={null}
+		{timezone}
+		message={failure('log')}
+		initial={data.practice}
+		onclose={() => (logging = false)}
+	/>
+{/if}

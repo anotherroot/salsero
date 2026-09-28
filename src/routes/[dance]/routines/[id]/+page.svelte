@@ -244,6 +244,15 @@
 					>
 				{/if}
 			{/if}
+			{#if data.exerciseId !== null}
+				<a
+					href={resolve('/[dance]/exercises/[id]', {
+						dance: data.dance.slug,
+						id: String(data.exerciseId)
+					})}
+					class="text-[14px] font-medium text-accent">Exercise →</a
+				>
+			{/if}
 		</section>
 	{/if}
 

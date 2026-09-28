@@ -20,7 +20,8 @@ import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
-import { logSetFrom } from '$lib/server/log-form';
+import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
+import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
@@ -60,12 +61,14 @@ function lessonOf(params: { dance: string; id: string }) {
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const found = lessonOf(params);
+	const tz = zone(locals);
 	return {
 		...found,
 		linkableFigures: listLinkableFigures(db, found.lesson.id),
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
 		links: listLinks(db, { lessonId: found.lesson.id }),
-		today: localDay(Date.now(), zone(locals))
+		today: localDay(Date.now(), tz),
+		popup: found.exercise ? popupData(db, danceOf(params), found.exercise.id, tz, Date.now()) : null
 	};
 };
 
@@ -99,6 +102,7 @@ export const actions: Actions = {
 
 	/** Quick-log the review exercise, the same one-tap path the figure page has. See `log-form.ts`. */
 	log: (event) => logSetFrom(event),
+	deleteSet: (event) => deleteSetFrom(event),
 
 	/*
 	 * `createFigure` opens its own transaction, so the figure and the link are two

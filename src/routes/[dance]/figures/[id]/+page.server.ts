@@ -12,11 +12,12 @@ import {
 import { recordingsDir } from '$lib/server/files';
 import { checkbox, int, ints, oneOf, optionalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, MAX_EIGHTS, setFigurePositions } from '$lib/server/graph';
-import { logSetFrom } from '$lib/server/log-form';
+import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
+import { popupData } from '$lib/server/popup';
 import { follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -27,6 +28,11 @@ function figureId(raw: string): number {
 	const id = Number(raw);
 	if (!Number.isInteger(id)) throw error(404, 'Figure not found');
 	return id;
+}
+
+function zoneOf(locals: App.Locals): string {
+	if (!locals.user) throw error(401);
+	return locals.user.timezone;
 }
 
 /**
@@ -46,7 +52,7 @@ function figureOf(params: { dance: string; id: string }) {
 	return found;
 }
 
-export const load: PageServerLoad = ({ params }) => {
+export const load: PageServerLoad = ({ params, locals }) => {
 	const dance = danceOf(params);
 	const found = figureOf(params);
 	const db = getDb();
@@ -89,7 +95,10 @@ export const load: PageServerLoad = ({ params }) => {
 		leadsTo: link(follows(graph, found.figure.id)),
 		followsFrom: link(precedes(graph, found.figure.id)),
 		links: listLinks(db, { figureId: found.figure.id }),
-		taughtIn: taughtIn(db, found.figure.id)
+		taughtIn: taughtIn(db, found.figure.id),
+		popup: found.exercise
+			? popupData(db, dance, found.exercise.id, zoneOf(locals), Date.now())
+			: null
 	};
 };
 
@@ -159,6 +168,7 @@ export const actions: Actions = {
 
 	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
 	log: (event) => logSetFrom(event),
+	deleteSet: (event) => deleteSetFrom(event),
 
 	deleteRecording: async ({ params, request }) => {
 		const found = figureOf(params);

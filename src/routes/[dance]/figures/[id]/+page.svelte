@@ -7,6 +7,7 @@
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
 	import { dateLabel } from '$lib/format';
@@ -17,7 +18,8 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
-	let logged = $state(false);
+	let logging = $state(false);
+	const FigureLog = logFor('figure');
 	/**
 	 * Recordings whose player failed, and why. "missing" means the server has no
 	 * file; "unplayable" means the file is there but this browser cannot decode
@@ -120,37 +122,25 @@
 			{/if}
 		</section>
 
-		{#if data.exercise}
+		{#if data.exercise && data.popup}
 			<section class="flex items-center gap-3 rounded-xl border border-line bg-raised p-3">
 				<div class="min-w-0 flex-1">
 					<p class="text-[14px] font-medium">Practice</p>
-					<p class="text-[12px] text-muted">
-						{frequencyLabel(data.exercise.everyDays)}{data.exercise.active ? '' : ' · inactive'} ·
-						<a href={resolve('/[dance]', { dance: data.dance.slug })} class="text-accent"
-							>settings on Today</a
-						>
-					</p>
-				</div>
-				<form
-					method="POST"
-					action="?/log"
-					use:enhance={() =>
-						async ({ update, result }) => {
-							await update();
-							if (result.type === 'success') {
-								logged = true;
-								setTimeout(() => (logged = false), 2000);
-							}
-						}}
-				>
-					<input type="hidden" name="exerciseId" value={data.exercise.id} />
-					<button
-						type="submit"
-						class="h-11 rounded-xl px-4 text-[14px] font-semibold {logged
-							? 'bg-done-bg text-done'
-							: 'bg-accent text-accent-ink'}">{logged ? 'Logged ✓' : 'Log set'}</button
+					<a
+						href={resolve('/[dance]/exercises/[id]', {
+							dance: data.dance.slug,
+							id: String(data.exercise.id)
+						})}
+						class="text-[12px] text-accent"
+						>{frequencyLabel(data.exercise.everyDays)}{data.exercise.active ? '' : ' · inactive'} · Exercise
+						→</a
 					>
-				</form>
+				</div>
+				<button
+					type="button"
+					class="h-11 rounded-xl bg-accent px-4 text-[14px] font-semibold text-accent-ink"
+					onclick={() => (logging = true)}>Log…</button
+				>
 			</section>
 		{/if}
 	{/if}
@@ -318,3 +308,19 @@
 		</section>
 	{/if}
 </main>
+
+{#if logging && data.popup}
+	<FigureLog
+		dance={data.dance}
+		exercise={data.popup.exercise}
+		sets={data.popup.sets}
+		songs={data.popup.songs}
+		takes={data.popup.takes}
+		backfillDay={null}
+		{timezone}
+		message={form && 'action' in form && form.action === 'log' && 'message' in form
+			? String(form.message)
+			: null}
+		onclose={() => (logging = false)}
+	/>
+{/if}
