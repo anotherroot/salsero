@@ -4,10 +4,14 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
+	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import LinkedText from '$lib/components/ui/LinkedText.svelte';
+	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
 	import { dateLabel } from '$lib/format';
 	import { localDay } from '$lib/day/day';
+	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -20,28 +24,7 @@
 	 * it — typically an iPhone HEVC .mov opened in desktop Chrome — so it is
 	 * offered as a download instead of being reported as lost.
 	 */
-	let broken = $state<Record<number, 'missing' | 'unplayable'>>({});
-
-	async function diagnose(id: number, file: string) {
-		const res = await fetch(`/recordings/${file}`, { headers: { range: 'bytes=0-0' } }).catch(
-			() => null
-		);
-		broken = { ...broken, [id]: res?.status === 404 ? 'missing' : 'unplayable' };
-	}
-
-	/*
-	 * An attachment rather than `onerror`: the player is server-rendered and
-	 * starts loading before hydration, so a fast failure can fire its error
-	 * event before any handler exists. Checking `el.error` on mount catches it.
-	 */
-	function watchMedia(id: number, file: string) {
-		return (el: HTMLMediaElement) => {
-			const fail = () => diagnose(id, file);
-			if (el.error) fail();
-			el.addEventListener('error', fail);
-			return () => el.removeEventListener('error', fail);
-		};
-	}
+	let broken = $state<Record<number, MediaProblem>>({});
 
 	const figure = $derived(data.figure);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
@@ -54,6 +37,12 @@
 			? form.message
 			: null
 	);
+	const linkFailure = $derived(
+		form && 'action' in form && form.action === 'addLink' && 'message' in form
+			? String(form.message)
+			: null
+	);
+	const linkEntered = $derived(form && 'urls' in form ? String(form.urls) : '');
 </script>
 
 <svelte:head><title>{figure.name} · {data.dance.label}</title></svelte:head>
@@ -127,7 +116,7 @@
 				{/if}{PARTNER_LABEL[figure.partner]}
 			</p>
 			{#if figure.notes}
-				<p class="mt-2 text-[15px] whitespace-pre-line">{figure.notes}</p>
+				<LinkedText text={figure.notes} class="mt-2 text-[15px] whitespace-pre-line" />
 			{/if}
 		</section>
 
@@ -266,24 +255,12 @@
 							>
 							or open it on your phone.
 						</p>
-					{:else if rec.kind === 'video'}
-						<!-- svelte-ignore a11y_media_has_caption -->
-						<video
-							src="/recordings/{rec.file}"
-							controls
-							playsinline
-							preload="metadata"
-							class="aspect-video w-full bg-black"
-							{@attach watchMedia(rec.id, rec.file)}
-						></video>
 					{:else}
-						<audio
+						<VideoFrame
 							src="/recordings/{rec.file}"
-							controls
-							preload="metadata"
-							class="w-full p-2"
-							{@attach watchMedia(rec.id, rec.file)}
-						></audio>
+							kind={rec.kind}
+							onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
+						/>
 					{/if}
 					<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
 						<span
@@ -315,4 +292,29 @@
 			/>
 		</div>
 	</section>
+
+	<section>
+		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Links</h2>
+		<LinksEditor links={data.links} message={linkFailure} entered={linkEntered} />
+	</section>
+
+	{#if data.taughtIn.length > 0}
+		<section>
+			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Taught in</h2>
+			<ul class="space-y-1">
+				{#each data.taughtIn as lesson (lesson.id)}
+					<li>
+						<a
+							class="text-[15px] text-accent"
+							href={resolve('/[dance]/lessons/[id]', {
+								dance: data.dance.slug,
+								id: String(lesson.id)
+							})}>{lesson.title}</a
+						>
+						<span class="text-[12px] text-muted">· {dateLabel(lesson.lessonDay)}</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 </main>

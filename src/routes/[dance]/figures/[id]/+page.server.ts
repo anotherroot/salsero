@@ -14,6 +14,9 @@ import { checkbox, int, ints, oneOf, optionalText, text } from '$lib/server/form
 import { buildGraph, figurePositions, MAX_EIGHTS, setFigurePositions } from '$lib/server/graph';
 import { logSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions } from '$lib/server/positions';
+import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
+import { listLinks } from '$lib/server/links';
+import { taughtIn } from '$lib/server/lessons';
 import { follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -84,7 +87,9 @@ export const load: PageServerLoad = ({ params }) => {
 		maxEights: MAX_EIGHTS,
 		// Derived per request, never stored — the same rule urgency follows.
 		leadsTo: link(follows(graph, found.figure.id)),
-		followsFrom: link(precedes(graph, found.figure.id))
+		followsFrom: link(precedes(graph, found.figure.id)),
+		links: listLinks(db, { figureId: found.figure.id }),
+		taughtIn: taughtIn(db, found.figure.id)
 	};
 };
 
@@ -179,5 +184,10 @@ export const actions: Actions = {
 		// which is harmless, rather than a row pointing at nothing.
 		await unlink(join(recordingsDir(), rec.file)).catch(() => {});
 		return { action: 'deleteRecording', ok: true };
-	}
+	},
+
+	addLink: async ({ params, request }) =>
+		addLinkFrom(request, getDb(), { figureId: figureOf(params).figure.id }),
+	deleteLink: async ({ params, request }) =>
+		deleteLinkFrom(request, getDb(), { figureId: figureOf(params).figure.id })
 };

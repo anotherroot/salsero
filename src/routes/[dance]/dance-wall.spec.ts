@@ -44,7 +44,7 @@ import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
 import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/server/routines';
-import { exercises, lessons, sets } from '$lib/server/db/schema';
+import { exercises, lessons, links, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
@@ -552,6 +552,20 @@ describe('the JSON endpoints refuse the other dance', () => {
 			at('bachata', String(bachataCustomId))
 		)) as Response;
 		expect(((await res.json()) as { content: { type: string } }).content.type).toBe('drill');
+	});
+});
+
+describe('links stay on their own side of the wall', () => {
+	it('will not add a link to a bachata figure or lesson under salsa', async () => {
+		await refuses(
+			figurePage.actions.addLink,
+			post('salsa', { urls: 'https://a.org' }, String(bachataFigureId))
+		);
+		await refuses(
+			lessonPage.actions.addLink,
+			post('salsa', { urls: 'https://a.org' }, String(bachataLessonId))
+		);
+		expect(db.select().from(links).all()).toHaveLength(0);
 	});
 });
 

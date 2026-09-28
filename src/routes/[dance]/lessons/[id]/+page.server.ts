@@ -16,6 +16,8 @@ import {
 } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
 import { createCustomExercise } from '$lib/server/exercises';
+import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
+import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
 import { logSetFrom } from '$lib/server/log-form';
@@ -62,6 +64,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		...found,
 		linkableFigures: listLinkableFigures(db, found.lesson.id),
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
+		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), zone(locals))
 	};
 };
@@ -229,5 +232,10 @@ export const actions: Actions = {
 		}
 		await unlink(join(lessonVideosDir(), row.file)).catch(() => {});
 		return { action: 'deleteVideo', ok: true };
-	}
+	},
+
+	addLink: async ({ params, request }) =>
+		addLinkFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id }),
+	deleteLink: async ({ params, request }) =>
+		deleteLinkFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id })
 };
