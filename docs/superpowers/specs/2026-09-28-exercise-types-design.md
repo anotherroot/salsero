@@ -67,7 +67,8 @@ never rewritten by a redesign.
 
 - **`src/lib/exercises/kinds.ts`** — PURE, client-safe. `typeOf(source)`, and
   per type: `label`, `fields` (`'minutes' | 'reps' | 'rating' | 'note'`), the
-  rating question, whether it has a practice panel.
+  rating question. Whether a popup has a practice panel is the popup's own
+  choice, not a registry flag — one source of truth, the component.
 - **`src/lib/components/exercises/kinds/<type>/Log.svelte`** — one popup per
   type: `lesson/`, `figure/`, `drill/`, `routine/`.
 - **`src/lib/components/exercises/kinds/index.ts`** — `logFor(type)` returns the
@@ -237,9 +238,10 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
 
 - Today's load keeps its ready-song list (`id`, `title`) and adds the count-take
   metadata (a few rows).
-- A song's grid comes from **`GET /api/songs/[id]/grid`** → `{ audioFile,
+- A song's grid comes from **`GET /[dance]/songs/[id]/grid`** → `{ audioFile,
   beats, counts }`, built by `buildGrid` as the player's load does, guarded by
-  the dance wall. It is fetched when a song is **selected**, or when the popup
+  the dance wall. Under `/[dance]/` rather than the flat `/api/` so the slug is
+  in the URL and `danceOf` + `requireSongInDance` apply unchanged. It is fetched when a song is **selected**, or when the popup
   opens with a remembered song — never on the Play tap, because iOS wants
   `start()` inside the gesture, and the `<audio>` element must already have its
   `src` when that happens.
@@ -255,9 +257,13 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
   `src/lib/exercises/practice.ts`, which is **total**: anything missing or
   invalid falls back to the dance's defaults, so a bad value can never break a
   popup.
-- Saved on **Play**, not on every tap, by a `?/practiceSettings` action posted
-  with `fetch` — no navigation, no reload, and failure is silent (the run still
-  plays; the settings are a convenience).
+- Saved on **Play**, not on every tap, by a JSON
+  `POST /[dance]/exercises/[id]/practice` — no navigation, no reload, and
+  failure is silent (the run still plays; the settings are a convenience). An
+  endpoint rather than a form action, so the four pages that open a popup do
+  not each have to register it. It validates against the registry (count
+  pattern in the dance's list, clave only where the dance has it, a song ready
+  and in the dance) through the pure `parsePracticeInput`.
 - The "Practice" mode radio, the song picker and the BPM field leave the
   exercise settings: the panel is where they are chosen now.
 
@@ -330,7 +336,7 @@ route: an exercise of the other dance is a 404.
   the Today load after `plan()` returns; `src/lib/urgency/` does not learn
   about ratings.
 - **The popup's content loads when it opens**, from
-  **`GET /api/exercises/[id]/practice`** → the type's content plus the "Last
+  **`GET /[dance]/exercises/[id]/practice`** → the type's content plus the "Last
   time" set. The form renders immediately and the content fills in, so Today's
   load stays as light as now.
 
@@ -352,9 +358,8 @@ are both empty):
 
 ## One logging path
 
-`src/lib/server/log-form.ts` holds the parsing and the three actions — `log`,
-`deleteSet`, `practiceSettings` — and every page that opens a popup registers
-them: Today, the exercise page, the figure page, the lesson page. This replaces
+`src/lib/server/log-form.ts` holds the parsing and the two actions — `log`
+and `deleteSet` — and every page that opens a popup registers them: Today, the exercise page, the figure page, the lesson page. This replaces
 the three bare-log actions the figure, lesson and Today pages each carry today.
 
 - `log` reads `exerciseId`, `durationMin` or `durationS`, `reps`, `rating`,
@@ -362,9 +367,6 @@ the three bare-log actions the figure, lesson and Today pages each carry today.
   `day` (back-fill), and only the fields the exercise's type has — a figure form
   posting `reps` is ignored, not stored. The exercise must be in the page's
   dance (`scope.ts`), or it is a 404.
-- `practiceSettings` validates against the registry (count pattern in the
-  dance's list, clave only where the dance has it, a song ready and in the
-  dance) and writes the columns above.
 
 ## The owner pages
 
