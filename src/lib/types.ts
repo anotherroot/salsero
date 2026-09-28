@@ -90,6 +90,15 @@ export interface LessonVideoRow {
 	createdAt: number;
 }
 
+/** A link on a lesson, a figure or a drill. See `src/lib/links.ts`. */
+export interface LinkRow {
+	id: number;
+	url: string;
+	/** The user's label, or null to show the host. */
+	title: string | null;
+	createdAt: number;
+}
+
 /** A figure taught in a lesson, with the exercise that came with it. */
 export interface LessonFigureRow {
 	id: number;
