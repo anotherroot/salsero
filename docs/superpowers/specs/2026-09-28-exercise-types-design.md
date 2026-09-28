@@ -1,6 +1,6 @@
 # Exercise types — design
 
-> **Status:** approved in brainstorming, 2026-09-28. Extends
+> **Status:** approved 2026-09-28; built 2026-09-28. Extends
 > [`2026-09-22-salsa-app-design.md`](2026-09-22-salsa-app-design.md) and
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md); this document
 > owns exercise types, the log popups, links, the in-popup practice player, and
@@ -421,7 +421,40 @@ Pure and data modules, as ever; no route or component tests, matching the repo.
 
 ## Known gaps
 
-To be filled in as the work finds them.
+Found by review, consciously not fixed before shipping. Check here before
+hunting one of these as a new bug:
+
+- **Chrome lets a second Escape close a guarded popup** — its anti-trap rule
+  for `<dialog>` overrides the first Escape's guard on the second press within
+  the browser's own short window. The run is stopped and its unsaved time is
+  lost. The backdrop tap and the ✕ are fully guarded; only this second-Escape
+  path is not.
+- **The popup's content is one request after opening.** The form and "Last
+  time" render from the page's own data; the type's content (`GET
+  /[dance]/exercises/[id]/practice`) fetches once the popup opens, so on a
+  slow connection the form is usable before the reference has loaded.
+- **Mirroring a YouTube embed mirrors its own controls too** — `VideoFrame`
+  flips the whole `<iframe>`, since a YouTube embed offers no way to mirror
+  only the picture. Accepted, as the spec already says.
+- **The full player still logs song seconds**, not wall clock — unchanged.
+  `SaveSetSheet` keeps `duration_s` from the song's own clock; only the
+  practice panel measures wall-clock time.
+- **"Log set" is disabled while the practice panel plays.** The popup's submit
+  button is `disabled={busy || playing}` — Stop first, then log. Matches "a
+  run cannot be lost by accident": the numbers a mid-run log would capture are
+  not final yet.
+- **The big 1–8 count is animation-frame driven**, so it freezes while the tab
+  is hidden or the phone is locked; the audio (and the count spoken aloud)
+  carries on regardless. Only the on-screen digit stalls.
+- **The one-time lesson-notes link import ran at the first boot after
+  deploy.** `importNoteLinks` is guarded by the `app_flags` marker and runs
+  once ever, so a lesson written or edited after that boot keeps its URLs
+  clickable in its notes (`textPieces` linkifies on every render) but does not
+  get them added to its links list unless the user adds them by hand.
+- **The log/Minutes/run state in the popup has no component tests** — the
+  repo has no DOM harness, so `LogShell`'s run tracking, the Minutes/durationS
+  handoff and the discard confirmation were verified by hand in a browser
+  against `node build`, not by an automated test.
 
 ## Not built
 

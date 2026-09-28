@@ -216,15 +216,40 @@ figure_start_positions                         -- phase 3a; handholds a figure c
   position_id     fk positions                 -- indexed
   created_at      timestamp
   primary key (figure_id, position_id)
+
+exercises
+  + practice_json text, nullable                -- exercise types; the panel's remembered
+                                                 -- count/clave/speed/callEvery
+
+links                                           -- exercise types
+  id           integer pk
+  lesson_id    fk lessons, nullable
+  figure_id    fk figures, nullable
+  exercise_id  fk exercises, nullable            -- source = 'custom' only
+  url          text not null                     -- http: or https: only
+  title        text, nullable
+  created_at   integer
+  CHECK ((lesson_id is not null) + (figure_id is not null) + (exercise_id is not null) = 1)
+
+app_flags                                       -- exercise types; one-off boot markers
+  key       text pk
+  done_at   integer
 ```
+
+**Exercise types** (2026-09-28) gives every exercise a type derived from
+`source`, and each type its own log popup, a practice panel (count/clave/song,
+remembered per exercise), and links (a URL attached to a lesson, figure or
+drill, YouTube ones rendered as embeds). See
+[`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)
+for the data model, the popups and the panel in full.
 
 **Rules**
 
 - **Urgency is never stored.** It is a pure function of `(exercises, sets,
 now)`, computed per request. No cron, no cached "last done" column.
-- **Nothing is hard-deleted** except a set (a mistaken log), a recording and a
-  lesson video. Figures, lessons, positions and exercises are archived; sets
-  keep pointing at them and history stays intact.
+- **Nothing is hard-deleted** except a set (a mistaken log), a recording, a
+  lesson video and a link. Figures, lessons, positions and exercises are
+  archived; sets keep pointing at them and history stays intact.
 - **Creating a figure creates its exercise** in the same transaction
   (`source='figure'`, name = figure name, `practice_mode='none'`). Renaming the
   figure renames the exercise. Archiving the figure archives the exercise.
@@ -263,9 +288,12 @@ The home page. One page serves both "exercises" and "today".
 - **Viewing a past day:** the exercises done that day with their sets (read-only
   list plus the ability to add a forgotten set to that day or delete a mistaken
   one). No urgency ordering — it answers "what did I do that day".
-- **Logging:** tap an exercise → sheet with "Log set" (one tap logs a bare set
-  now) plus optional duration / reps / rating / note. Multiple sets per day.
-  After logging, the exercise moves into "done today" without a page reload.
+- **Logging:** the row opens the exercise page; **+** opens the type's log
+  popup — its content, a practice panel where the type has one, and the form
+  (duration / reps / rating / note, whichever the type carries). Multiple sets
+  per day. After logging, the exercise moves into "done today" without a page
+  reload. See
+  [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md).
 - **Urgency:** `urgency = elapsed_days_since_last_set / every_days`.
   Never-done exercises sort first (by creation, oldest first). Ties break by
   name. `every_days` is set per exercise with presets (daily, every 2 days,
@@ -412,7 +440,11 @@ fixed before shipping. Check here before hunting one of these as a new bug:
 - **The iPhone silent switch mutes the voice but not the music.** True and
   expected — but the hint this spec called for was never put on screen.
 - **A stray tap on the save sheet's backdrop discards a finished run** — its
-  duration, rating, note and called list — with no confirmation and no way back.
+  duration, rating, note and called list — with no confirmation and no way
+  back. Still true for the full player's `SaveSetSheet`; fixed for the
+  exercise-types log popups, which guard the backdrop and the ✕ (see
+  [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)'s
+  Known gaps for the one path — a second Escape — that guard still misses).
 - **Pause can let ~100 ms of already-scheduled clips through**, and the
   `AbortError` from a `play()` interrupted by a pause is swallowed.
 - **Stop then Play resumes mid-song**, and the `<audio controls>` is hidden

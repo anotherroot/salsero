@@ -11,8 +11,10 @@ player: voice count, clave, random figure calls, count-only drills, and a
 finished run logged as a set), phase 3a (positions, the figure graph, the
 walking drill), phase 3b (routines: slots, variants, one-level embedding, and
 the player walking one), phase 4 (lessons: videos, notes, figure and exercise
-links, and a four-band Today) and multi-dance (bachata beside salsa: the
-registry, the `dance` column, `/[dance]/` routes, two home-screen apps).
+links, and a four-band Today), multi-dance (bachata beside salsa: the
+registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
+exercise types (a log popup per type, links with YouTube embeds, a practice
+panel in the popup, an exercise page).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -24,6 +26,9 @@ count patterns, and the user's own voice recorded as half-bar phrases. Lessons
 have theirs,
 [`docs/superpowers/specs/2026-09-23-lessons-design.md`](docs/superpowers/specs/2026-09-23-lessons-design.md):
 the chunked upload protocol, the link rules, and the four Today bands.
+Exercise types have theirs,
+[`docs/superpowers/specs/2026-09-28-exercise-types-design.md`](docs/superpowers/specs/2026-09-28-exercise-types-design.md):
+the per-type log popup, links, and the in-popup practice panel.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -42,6 +47,11 @@ src/lib/graph/       PURE figure graph: positions → what can follow what, the
                      drill's walk, the gap report. Client-safe
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, and the routine as the player's plan. Client-safe
+src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
+                     no {@html}. Client-safe
+src/lib/exercises/   PURE: the type registry (kinds.ts), practice config
+                     (practice.ts), a wall-clock stopwatch, the Today session.
+                     Client-safe
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
@@ -51,6 +61,7 @@ static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
+                     exercises/ links/
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
 src/lib/server/scope.ts  the dance wall at the route level: guards on params
                      and ids, so a request only ever reaches its own dance
@@ -90,9 +101,13 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for the
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
-- **Archive, don't delete.** Figures and exercises get `archived_at`; sets and
-  recordings are the only hard deletes. A figure's exercise is created, renamed
-  and archived WITH its figure, in one transaction (`src/lib/server/figures.ts`).
+- **Archive, don't delete.** Figures and exercises get `archived_at`; sets,
+  recordings and links are the only hard deletes. A figure's exercise is
+  created, renamed and archived WITH its figure, in one transaction
+  (`src/lib/server/figures.ts`).
+- **The type owns its popup.** An exercise's type is derived from `source`
+  (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
+  components and never branch on it.
 - **Data functions take `db` as their first argument** so tests run against
   `openDb(':memory:')`. Routes pass `getDb()`.
 - **A spec must never touch `$DATA_DIR`.** Setting `process.env.DATABASE_PATH`
