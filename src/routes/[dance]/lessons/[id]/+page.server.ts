@@ -15,9 +15,10 @@ import {
 	updateLesson
 } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
-import { createCustomExercise, logSet } from '$lib/server/exercises';
+import { createCustomExercise } from '$lib/server/exercises';
 import { lessonVideosDir } from '$lib/server/files';
 import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
+import { logSetFrom } from '$lib/server/log-form';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
@@ -93,31 +94,8 @@ export const actions: Actions = {
 		throw redirect(303, `/${params.dance}/lessons`);
 	},
 
-	/** Quick-log the review exercise, the same one-tap path the figure page has. */
-	log: async ({ params, request }) => {
-		const found = lessonOf(params);
-		const exerciseId = int(await request.formData(), 'exerciseId');
-		// Only this lesson's own review exercise — the one the button posts. Any
-		// other id would be a set logged on an exercise this page never showed,
-		// possibly in the other dance.
-		if (exerciseId === undefined || exerciseId !== found.exercise?.id) {
-			return fail(400, { action: 'log', message: 'Check the values and try again.' });
-		}
-		try {
-			logSet(getDb(), {
-				exerciseId,
-				doneAt: Date.now(),
-				durationS: null,
-				reps: null,
-				rating: null,
-				note: null,
-				playerJson: null
-			});
-		} catch {
-			return fail(400, { action: 'log', message: 'That exercise no longer exists.' });
-		}
-		return { action: 'log', ok: true };
-	},
+	/** Quick-log the review exercise, the same one-tap path the figure page has. See `log-form.ts`. */
+	log: (event) => logSetFrom(event),
 
 	/*
 	 * `createFigure` opens its own transaction, so the figure and the link are two

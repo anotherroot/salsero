@@ -154,6 +154,7 @@
 							}
 						}}
 				>
+					<input type="hidden" name="exerciseId" value={data.exercise.id} />
 					<button
 						type="submit"
 						class="h-11 rounded-xl px-4 text-[14px] font-semibold {logged

@@ -3,15 +3,14 @@ import { getDb } from '$lib/server/db';
 import {
 	archiveExercise,
 	createCustomExercise,
-	deleteSet,
 	listExercises,
 	listSetTimes,
 	listSetsBetween,
-	logSet,
 	updateExercise
 } from '$lib/server/exercises';
-import { checkbox, int, optionalInt, optionalText, text } from '$lib/server/form';
-import { danceOf, requireExerciseInDance, requireSetInDance } from '$lib/server/scope';
+import { checkbox, int, optionalText, text } from '$lib/server/form';
+import { logSetFrom, deleteSetFrom } from '$lib/server/log-form';
+import { danceOf, requireExerciseInDance } from '$lib/server/scope';
 import { listReadySongs } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
@@ -68,59 +67,9 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 };
 
 export const actions: Actions = {
-	/** Log a set: now, or at noon of a past day when back-filling. */
-	log: async ({ params, request, locals }) => {
-		const tz = zone(locals);
-		const form = await request.formData();
-		const exerciseId = int(form, 'exerciseId');
-		const durationMin = optionalInt(form, 'durationMin', 0, 600);
-		const reps = optionalInt(form, 'reps', 0, 10_000);
-		const rating = optionalInt(form, 'rating', 1, 5);
-		const note = optionalText(form, 'note');
-		const day = String(form.get('day') ?? '');
-
-		if (
-			exerciseId === undefined ||
-			durationMin === undefined ||
-			reps === undefined ||
-			rating === undefined ||
-			note === undefined
-		) {
-			return fail(400, { action: 'log', message: 'Check the values and try again.' });
-		}
-
-		// The picker only ever offers this dance's exercises, but the id arrives in
-		// a form body, so it is checked rather than trusted.
-		requireExerciseInDance(getDb(), danceOf(params), exerciseId);
-
-		const now = Date.now();
-		const backfill = isValidDay(day) && day < localDay(now, tz);
-		try {
-			logSet(getDb(), {
-				exerciseId,
-				doneAt: backfill ? noonOf(day, tz) : now,
-				durationS: durationMin === null ? null : durationMin * 60,
-				reps,
-				rating,
-				note,
-				playerJson: null
-			});
-		} catch {
-			return fail(400, { action: 'log', message: 'That exercise no longer exists.' });
-		}
-		return { action: 'log', ok: true };
-	},
-
-	deleteSet: async ({ params, request }) => {
-		const id = int(await request.formData(), 'setId');
-		// Before the delete, not after: `deleteSet` takes an id alone, so a set
-		// from the other dance would already be gone by the time it answered.
-		if (id !== undefined) requireSetInDance(getDb(), danceOf(params), id);
-		if (id === undefined || !deleteSet(getDb(), id)) {
-			return fail(404, { action: 'deleteSet', message: 'That set was already removed.' });
-		}
-		return { action: 'deleteSet', ok: true };
-	},
+	/** Log a set: now, or at noon of a past day when back-filling. See `log-form.ts`. */
+	log: (event) => logSetFrom(event),
+	deleteSet: (event) => deleteSetFrom(event),
 
 	createExercise: async ({ params, request }) => {
 		const dance = danceOf(params);

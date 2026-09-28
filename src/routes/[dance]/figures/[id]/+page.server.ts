@@ -2,7 +2,6 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { logSet } from '$lib/server/exercises';
 import {
 	archiveFigure,
 	deleteRecording,
@@ -13,6 +12,7 @@ import {
 import { recordingsDir } from '$lib/server/files';
 import { checkbox, int, ints, oneOf, optionalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, MAX_EIGHTS, setFigurePositions } from '$lib/server/graph';
+import { logSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions } from '$lib/server/positions';
 import { follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
@@ -152,22 +152,8 @@ export const actions: Actions = {
 		throw redirect(303, `/${params.dance}/figures`);
 	},
 
-	/** Quick log from the figure page, so practising after watching a recording is one tap. */
-	log: ({ params }) => {
-		const found = figureOf(params);
-		if (!found.exercise)
-			return fail(404, { action: 'log', message: 'No exercise for this figure.' });
-		logSet(getDb(), {
-			exerciseId: found.exercise.id,
-			doneAt: Date.now(),
-			durationS: null,
-			reps: null,
-			rating: null,
-			note: null,
-			playerJson: null
-		});
-		return { action: 'log', ok: true };
-	},
+	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
+	log: (event) => logSetFrom(event),
 
 	deleteRecording: async ({ params, request }) => {
 		const found = figureOf(params);
