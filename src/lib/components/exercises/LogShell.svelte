@@ -87,8 +87,6 @@
 	let minutes = $state('');
 	/** Exact seconds from the panel. Typing into Minutes clears it, so a hand-entered value wins. */
 	let exactS = $state<number | null>(null);
-	/** The panel's run belongs to the NEXT set until one is saved, then it is spent. */
-	let spent = $state<string | null>(null);
 
 	function load() {
 		fetchPractice(dance.slug, exercise.id)
@@ -99,7 +97,12 @@
 		if (!initial) load();
 	});
 
-	const liveRun = $derived(run && run.playerJson !== spent ? run : null);
+	// `run` is already spent once a set is logged: the drill/figure wrappers
+	// null it out in their own `onlogged` (see kinds/drill/Log.svelte and
+	// kinds/figure/Log.svelte), which is also what remounts the panel. A
+	// same-settings `playerJson` string comparison used to stand in for that
+	// and broke the very next identical run — see fix round 1, finding 1.
+	const liveRun = $derived(run);
 	$effect(() => {
 		if (!liveRun) return;
 		minutes = String(minutesFrom(liveRun.durationS));
@@ -163,7 +166,6 @@
 				rating = null;
 				minutes = '';
 				exactS = null;
-				spent = run?.playerJson ?? null;
 				justLogged = true;
 				// In a session "Logged ✓" stays until Next, Skip or Finish — the Next
 				// button hangs off it. Outside one it fades back to "Log set".
@@ -223,13 +225,16 @@
 
 		<button
 			type="submit"
-			disabled={busy}
+			disabled={busy || playing}
 			class="mt-4 h-12 w-full rounded-xl text-[15px] font-semibold disabled:opacity-60 {justLogged
 				? 'bg-done-bg text-done'
 				: 'bg-accent text-accent-ink'}"
 		>
 			{justLogged ? 'Logged ✓' : backfillDay ? 'Add set to this day' : 'Log set'}
 		</button>
+		{#if playing}
+			<p class="mt-2 text-center text-[12px] text-muted">Stop the count to log it.</p>
+		{/if}
 	</form>
 
 	{#if session && justLogged}
