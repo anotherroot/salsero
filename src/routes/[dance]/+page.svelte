@@ -25,12 +25,21 @@
 	const sessionOn = $derived(page.url.searchParams.get('session') === '1');
 	let skipped = $state(new Set<number>());
 	let tally = $state({ count: 0, seconds: 0 });
+	// Skip ran out the list, not a log: the popup shows the summary in place
+	// rather than closing itself (finding 3) — Finish is still what ends it.
+	let sessionEnded = $state(false);
+	// Skipping the last exercise while it has unsaved practice time must still
+	// discard that run — normally a `{#key open.id}` change does it by
+	// remounting, but here `openId` does not change, so this bumps the key by
+	// itself: same exercise, fresh popup, old panel torn down by its onDestroy.
+	let bumpKey = $state(0);
 	const firstUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, null));
 	const nextUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, openId));
 
 	function startSession() {
 		skipped = new Set();
 		tally = { count: 0, seconds: 0 };
+		sessionEnded = false;
 		void goto(resolve(`/${data.dance.slug}?session=1`), { keepFocus: true, noScroll: true });
 		openId = firstUp?.exercise.id ?? null;
 	}
@@ -42,6 +51,7 @@
 		// session" for a row that is still due.
 		skipped = new Set();
 		tally = { count: 0, seconds: 0 };
+		sessionEnded = false;
 		void goto(resolve('/[dance]', { dance: data.dance.slug }), { keepFocus: true, noScroll: true });
 	}
 
@@ -55,11 +65,17 @@
 			? {
 					next: nextUp ? { name: nextUp.exercise.name } : null,
 					summary: sessionSummary(tally.count, tally.seconds),
+					ended: sessionEnded,
 					onnext: () => (openId = nextUp?.exercise.id ?? null),
 					onskip: () => {
 						if (openId !== null) skipped = new Set([...skipped, openId]);
-						openId = nextUp?.exercise.id ?? null;
-						if (openId === null) endSession();
+						// Nothing left: stay on this popup and show the summary + Finish
+						// instead of closing behind the user's back (finding 3).
+						if (nextUp) openId = nextUp.exercise.id;
+						else {
+							sessionEnded = true;
+							bumpKey += 1;
+						}
 					},
 					onfinish: endSession
 				}
@@ -302,7 +318,7 @@
 </main>
 
 {#if open && Log}
-	{#key open.id}
+	{#key `${open.id}:${bumpKey}`}
 		<Log
 			dance={data.dance}
 			exercise={open}

@@ -6,6 +6,11 @@
 	export interface SessionControls {
 		next: { name: string } | null;
 		summary: string;
+		/**
+		 * Skip ran out the list rather than a log: nothing is left, so the popup
+		 * shows the same summary + Finish as after a final log, without one.
+		 */
+		ended: boolean;
 		onnext: () => void;
 		onskip: () => void;
 		onfinish: () => void;
@@ -82,7 +87,13 @@
 	let loadError = $state<string | null>(null);
 	let busy = $state(false);
 	let justLogged = $state(false);
-	let confirming = $state(false);
+	/**
+	 * Which close the inline banner is guarding: the ✕/backdrop/Escape path
+	 * (`onguarded`, below) always means 'close'; the Skip button sets 'skip'
+	 * when there is unsaved practice time to lose. Discard replays whichever
+	 * one is pending.
+	 */
+	let pending = $state<'close' | 'skip' | null>(null);
 	let rating = $state<number | null>(null);
 	let minutes = $state('');
 	/** Exact seconds from the panel. Typing into Minutes clears it, so a hand-entered value wins. */
@@ -111,6 +122,11 @@
 
 	/** Practice time that a close would throw away. */
 	const unsaved = $derived(playing || liveRun !== null);
+	// Once the run is gone (saved, or discarded) a stale pending intent must
+	// not linger for the next guard to accidentally replay — see finding 2.
+	$effect(() => {
+		if (!unsaved) pending = null;
+	});
 </script>
 
 <Sheet
@@ -118,9 +134,9 @@
 	open={true}
 	{onclose}
 	guard={unsaved}
-	onguarded={() => (confirming = true)}
+	onguarded={() => (pending = 'close')}
 >
-	{#if confirming}
+	{#if pending}
 		<div
 			class="mb-3 flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2 text-[13px]"
 			role="alert"
@@ -128,18 +144,29 @@
 			<span class="min-w-0 flex-1">
 				Discard {liveRun ? `${minutesFrom(liveRun.durationS)} min of ` : ''}practice?
 			</span>
-			<button type="button" class="h-9 px-2 font-medium" onclick={() => (confirming = false)}
+			<button type="button" class="h-9 px-2 font-medium" onclick={() => (pending = null)}
 				>Keep</button
 			>
-			<button type="button" class="h-9 px-2 font-medium text-danger" onclick={onclose}
-				>Discard</button
+			<button
+				type="button"
+				class="h-9 px-2 font-medium text-danger"
+				onclick={() => {
+					const intent = pending;
+					pending = null;
+					if (intent === 'skip') session?.onskip();
+					else onclose();
+				}}>Discard</button
 			>
 		</div>
 	{/if}
 
-	{#if session && !justLogged}
+	{#if session && !justLogged && !session.ended}
 		<div class="mb-2 flex justify-end">
-			<button type="button" class="text-[13px] text-accent" onclick={session.onskip}>Skip →</button>
+			<button
+				type="button"
+				class="text-[13px] text-accent"
+				onclick={() => (unsaved ? (pending = 'skip') : session.onskip())}>Skip →</button
+			>
 		</div>
 	{/if}
 
@@ -156,13 +183,22 @@
 		method="POST"
 		action="?/log"
 		class="mt-4"
-		use:enhance={() => {
+		use:enhance={({ formData }) => {
 			busy = true;
+			// Captured now, not after `update()`: a success resets the bound
+			// fields (Minutes goes back to ''), so reading `exactS`/`minutes`
+			// afterwards lost a hand-typed value — see finding 1. Same rule as
+			// the server's own (log-form.ts): durationS wins over
+			// durationMin*60, else there is nothing to report.
+			const asSeconds = (v: FormDataEntryValue | null) =>
+				v !== null && String(v) !== '' ? Number(v) : null;
+			const fromS = asSeconds(formData.get('durationS'));
+			const fromMin = asSeconds(formData.get('durationMin'));
+			const logged = fromS ?? (fromMin === null ? null : fromMin * 60);
 			return async ({ update, result }) => {
 				await update();
 				busy = false;
 				if (result.type !== 'success') return;
-				const logged = exactS ?? (minutes === '' ? null : Number(minutes) * 60);
 				rating = null;
 				minutes = '';
 				exactS = null;
@@ -237,7 +273,7 @@
 		{/if}
 	</form>
 
-	{#if session && justLogged}
+	{#if session && (justLogged || session.ended)}
 		{#if session.next}
 			<button
 				type="button"
