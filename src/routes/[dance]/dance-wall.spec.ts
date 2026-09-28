@@ -49,6 +49,7 @@ import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
+import * as exercisePage from './exercises/[id]/+page.server';
 import * as figurePage from './figures/[id]/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
@@ -197,26 +198,24 @@ describe("Today refuses the other dance's rows", () => {
 	});
 
 	it('will not archive an exercise from the other dance', async () => {
-		await refuses(todayActions.archiveExercise, post('salsa', { id: String(bachataCustomId) }));
+		await refuses(exercisePage.actions.archive, post('salsa', {}, String(bachataCustomId)));
 		expect(getExercise(db, bachataCustomId)?.archivedAt).toBeNull();
 	});
 
 	it('will not edit an exercise from the other dance', async () => {
 		await refuses(
-			todayActions.updateExercise,
-			post('salsa', {
-				id: String(bachataCustomId),
-				name: 'Renamed by the wrong dance',
-				everyDays: '7',
-				notes: '',
-				practiceMode: 'none',
-				songId: '',
-				countBpm: '',
-				active: 'on'
-			})
+			exercisePage.actions.update,
+			post(
+				'salsa',
+				{ name: 'Renamed by the wrong dance', everyDays: '7', notes: '', active: 'on' },
+				String(bachataCustomId)
+			)
 		);
 		expect(getExercise(db, bachataCustomId)?.name).toBe('Hip drills');
 	});
+
+	it('will not open a bachata exercise under salsa', () =>
+		expect(() => loadAt(exercisePage.load, 'salsa', String(bachataCustomId))).toThrow(threw404));
 
 	it('still acts on its own dance', async () => {
 		const salsaSet = logSet(db, {
@@ -572,8 +571,8 @@ describe('links stay on their own side of the wall', () => {
 describe('the guard leaves the friendly failures alone', () => {
 	it('still refuses to archive a figure exercise, with the message that explains why', async () => {
 		const res = (await call(
-			todayActions.archiveExercise,
-			post('bachata', { id: String(bachataExerciseId) })
+			exercisePage.actions.archive,
+			post('bachata', {}, String(bachataExerciseId))
 		)) as { status: number; data: { message: string } };
 		expect(res.data.message).toContain('Archive a figure from its page');
 	});

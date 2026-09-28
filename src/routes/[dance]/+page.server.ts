@@ -1,16 +1,14 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import {
-	archiveExercise,
 	createCustomExercise,
 	listExercises,
 	listSetTimes,
-	listSetsBetween,
-	updateExercise
+	listSetsBetween
 } from '$lib/server/exercises';
-import { checkbox, int, optionalText, text } from '$lib/server/form';
+import { int, optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom } from '$lib/server/log-form';
-import { danceOf, requireExerciseInDance } from '$lib/server/scope';
+import { danceOf } from '$lib/server/scope';
 import { listReadySongs } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
@@ -87,56 +85,5 @@ export const actions: Actions = {
 		}
 		createCustomExercise(getDb(), dance, { name, everyDays, notes });
 		return { action: 'createExercise', ok: true };
-	},
-
-	updateExercise: async ({ params, request }) => {
-		const form = await request.formData();
-		const id = int(form, 'id');
-		const name = text(form, 'name') ?? '';
-		const everyDays = int(form, 'everyDays');
-		const notes = optionalText(form, 'notes');
-		// Kept on every failure below so the sheet can re-show exactly what was typed.
-		const entered = {
-			id: String(form.get('id') ?? ''),
-			name,
-			everyDays: String(form.get('everyDays') ?? ''),
-			notes: String(form.get('notes') ?? ''),
-			active: checkbox(form, 'active')
-		};
-		if (
-			id === undefined ||
-			everyDays === undefined ||
-			!isFrequency(everyDays) ||
-			notes === undefined
-		) {
-			return fail(400, {
-				action: 'updateExercise',
-				message: 'Check the values and try again.',
-				...entered
-			});
-		}
-		requireExerciseInDance(getDb(), danceOf(params), id);
-		const updated = updateExercise(getDb(), id, {
-			name,
-			everyDays,
-			notes,
-			active: checkbox(form, 'active')
-		});
-		if (!updated) return fail(404, { action: 'updateExercise', message: 'Exercise not found.' });
-		return { action: 'updateExercise', ok: true };
-	},
-
-	archiveExercise: async ({ params, request }) => {
-		const id = int(await request.formData(), 'id');
-		// A missing id and a cross-dance id are different answers: the first gets
-		// the friendly 400 below, the second a 404 that never reaches the archive.
-		if (id !== undefined) requireExerciseInDance(getDb(), danceOf(params), id);
-		if (id === undefined || !archiveExercise(getDb(), id, Date.now())) {
-			return fail(400, {
-				action: 'archiveExercise',
-				message: 'Only custom exercises are archived here. Archive a figure from its page.'
-			});
-		}
-		return { action: 'archiveExercise', ok: true };
 	}
 };
