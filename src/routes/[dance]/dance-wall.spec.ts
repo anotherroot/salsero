@@ -33,21 +33,30 @@ import {
 	listExercises,
 	logSet
 } from '$lib/server/exercises';
-import { createSongFromUrl, failJob, getSong } from '$lib/server/songs';
+import {
+	createSongFromUpload,
+	createSongFromUrl,
+	failJob,
+	getSong,
+	storeAnalysis
+} from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
 import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/server/routines';
-import { exercises, lessons, sets } from '$lib/server/db/schema';
+import { exercises, lessons, links, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
+import * as exercisePage from './exercises/[id]/+page.server';
 import * as figurePage from './figures/[id]/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as positionsPage from './positions/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
+import * as gridEndpoint from './songs/[id]/grid/+server';
+import * as practiceEndpoint from './exercises/[id]/practice/+server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -189,26 +198,24 @@ describe("Today refuses the other dance's rows", () => {
 	});
 
 	it('will not archive an exercise from the other dance', async () => {
-		await refuses(todayActions.archiveExercise, post('salsa', { id: String(bachataCustomId) }));
+		await refuses(exercisePage.actions.archive, post('salsa', {}, String(bachataCustomId)));
 		expect(getExercise(db, bachataCustomId)?.archivedAt).toBeNull();
 	});
 
 	it('will not edit an exercise from the other dance', async () => {
 		await refuses(
-			todayActions.updateExercise,
-			post('salsa', {
-				id: String(bachataCustomId),
-				name: 'Renamed by the wrong dance',
-				everyDays: '7',
-				notes: '',
-				practiceMode: 'none',
-				songId: '',
-				countBpm: '',
-				active: 'on'
-			})
+			exercisePage.actions.update,
+			post(
+				'salsa',
+				{ name: 'Renamed by the wrong dance', everyDays: '7', notes: '', active: 'on' },
+				String(bachataCustomId)
+			)
 		);
 		expect(getExercise(db, bachataCustomId)?.name).toBe('Hip drills');
 	});
+
+	it('will not open a bachata exercise under salsa', () =>
+		expect(() => loadAt(exercisePage.load, 'salsa', String(bachataCustomId))).toThrow(threw404));
 
 	it('still acts on its own dance', async () => {
 		const salsaSet = logSet(db, {
@@ -253,6 +260,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 	it('will not archive a bachata figure from a salsa URL', async () => {
 		await refuses(figurePage.actions.archive, post('salsa', {}, String(bachataFigureId)));
 		expect(getFigure(db, bachataFigureId)?.figure.archivedAt).toBeNull();
+	});
+
+	it("will not delete a bachata figure's set from a salsa URL", async () => {
+		await refuses(figurePage.actions.deleteSet, post('salsa', { setId: String(bachataSetId) }));
+		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
 	it('refuses positions for a figure from the other dance, writing nothing', async () => {
@@ -485,11 +497,87 @@ describe('an unknown dance in the URL cannot write a row', () => {
 	});
 });
 
+describe('the JSON endpoints refuse the other dance', () => {
+	const at = (dance: string, id: string, init?: RequestInit) => ({
+		params: { dance, id },
+		request: new Request('http://localhost/', init),
+		locals: { user: USER }
+	});
+	type Handler = (e: ReturnType<typeof at>) => unknown;
+
+	it('will not serve a bachata song’s grid under salsa, but does under bachata', async () => {
+		// `bachataSongId` (from `beforeEach`) is `status: 'failed'`, which the
+		// endpoint's OWN guard already 404s on — that would pass even with the
+		// dance wall deleted, and prove nothing about it. A READY song is the
+		// only way to isolate the wall: it must be the one thing standing
+		// between a salsa request and a 200.
+		const ready = createSongFromUpload(db, 'bachata', {
+			file: 'bachata-ready.mp3',
+			mime: 'audio/mpeg',
+			title: 'Bachata ready',
+			style: 'sensual'
+		});
+		storeAnalysis(db, ready.id, { beats: [0, 0.5], downbeats: [0], durationS: 1 });
+
+		await expect(
+			(async () => (gridEndpoint.GET as unknown as Handler)(at('salsa', String(ready.id))))()
+		).rejects.toMatchObject({ status: 404 });
+
+		const res = (await (gridEndpoint.GET as unknown as Handler)(
+			at('bachata', String(ready.id))
+		)) as Response;
+		expect(await res.json()).toMatchObject({
+			audioFile: 'bachata-ready.mp3',
+			beats: [0, 0.5],
+			counts: expect.any(Array)
+		});
+	});
+
+	it('will not serve or change a bachata exercise under salsa', async () => {
+		await expect(
+			(async () =>
+				(practiceEndpoint.GET as unknown as Handler)(at('salsa', String(bachataCustomId))))()
+		).rejects.toMatchObject({ status: 404 });
+		await expect(
+			(async () =>
+				(practiceEndpoint.POST as unknown as Handler)(
+					at('salsa', String(bachataCustomId), {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ mode: 'count', countBpm: 150, songId: null, config: {} })
+					})
+				))()
+		).rejects.toMatchObject({ status: 404 });
+		expect(getExercise(db, bachataCustomId)?.practiceMode).toBe('none');
+	});
+
+	it('serves its own dance', async () => {
+		const res = (await (practiceEndpoint.GET as unknown as Handler)(
+			at('bachata', String(bachataCustomId))
+		)) as Response;
+		expect(((await res.json()) as { content: { type: string } }).content.type).toBe('drill');
+	});
+});
+
+describe('links stay on their own side of the wall', () => {
+	it('will not add a link to a bachata figure or lesson under salsa', async () => {
+		await refuses(
+			figurePage.actions.addLink,
+			post('salsa', { urls: 'https://a.org' }, String(bachataFigureId))
+		);
+		await refuses(
+			lessonPage.actions.addLink,
+			post('salsa', { urls: 'https://a.org' }, String(bachataLessonId))
+		);
+		expect(db.select().from(links).all()).toHaveLength(0);
+	});
+});
+
 describe('the guard leaves the friendly failures alone', () => {
 	it('still refuses to archive a figure exercise, with the message that explains why', async () => {
 		const res = (await call(
-			todayActions.archiveExercise,
-			post('bachata', { id: String(bachataExerciseId) })
+			exercisePage.actions.archive,
+			post('bachata', {}, String(bachataExerciseId))
 		)) as { status: number; data: { message: string } };
 		expect(res.data.message).toContain('Archive a figure from its page');
 	});

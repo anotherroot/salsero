@@ -180,8 +180,6 @@
 	});
 </script>
 
-const activeSlot = $derived(slotAt(calledIndex, dancedSlots.length));
-
 <svelte:head><title>Player · {data.dance.label}</title></svelte:head>
 
 <header

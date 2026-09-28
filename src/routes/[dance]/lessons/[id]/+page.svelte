@@ -6,11 +6,15 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import LinkPicker from '$lib/components/lessons/LinkPicker.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
+	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import LinkedText from '$lib/components/ui/LinkedText.svelte';
+	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import { logFor } from '$lib/components/exercises/kinds';
 	import { DEFAULT_EVERY_DAYS, FREQUENCIES, frequencyLabel } from '$lib/frequency';
 	import { byteSize, dateLabel } from '$lib/format';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
-	import { watchMedia, type MediaProblem } from '$lib/media';
+	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -18,9 +22,12 @@
 	let editing = $state(false);
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
+	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
 
 	const lesson = $derived(data.lesson);
+	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
+	const LessonLog = logFor('lesson');
 	const failure = (action: string) => (form?.action === action ? form.message : null);
 
 	$effect(() => {
@@ -91,32 +98,42 @@
 		<section>
 			<p class="text-[13px] text-muted">{dateLabel(lesson.lessonDay)}</p>
 			{#if lesson.notes}
-				<p class="mt-2 text-[15px] whitespace-pre-line">{lesson.notes}</p>
+				<LinkedText text={lesson.notes} class="mt-2 text-[15px] whitespace-pre-line" />
 			{/if}
 		</section>
 
-		{#if data.exercise}
+		{#if data.exercise && data.popup}
 			<section class="rounded-xl border border-line bg-raised px-4 py-3">
 				<div class="flex items-center justify-between gap-3">
 					<div class="min-w-0">
 						<span class="block truncate text-[15px] font-medium">Go over this lesson</span>
-						<span class="text-[12px] text-muted"
-							>{frequencyLabel(data.exercise.everyDays)}{data.exercise.active
-								? ''
-								: ' · inactive'}</span
+						<a
+							href={resolve('/[dance]/exercises/[id]', {
+								dance: data.dance.slug,
+								id: String(data.exercise.id)
+							})}
+							class="text-[12px] text-accent"
+							>{frequencyLabel(data.exercise.everyDays)}{data.exercise.active ? '' : ' · inactive'} ·
+							Exercise →</a
 						>
 					</div>
-					<form method="POST" action="?/log" use:enhance>
-						<input type="hidden" name="exerciseId" value={data.exercise.id} />
-						<button
-							type="submit"
-							class="h-10 rounded-xl border border-rule px-4 text-[14px] font-medium"
-							>Log set</button
-						>
-					</form>
+					<button
+						type="button"
+						class="h-10 rounded-xl border border-rule px-4 text-[14px] font-medium"
+						onclick={() => (logging = true)}>Log…</button
+					>
 				</div>
 			</section>
 		{/if}
+
+		<section>
+			<h2 class={heading}>Links</h2>
+			<LinksEditor
+				links={data.links}
+				message={failure('addLink') ?? null}
+				entered={form && 'urls' in form ? String(form.urls) : ''}
+			/>
+		</section>
 
 		<section>
 			<h2 class={heading}>Videos</h2>
@@ -136,18 +153,10 @@
 								or open it on your phone.
 							</p>
 						{:else}
-							<!-- svelte-ignore a11y_media_has_caption -->
-							<video
+							<VideoFrame
 								src="/lesson-videos/{video.file}"
-								controls
-								playsinline
-								preload="metadata"
-								class="aspect-video w-full bg-black"
-								{@attach watchMedia(
-									`/lesson-videos/${video.file}`,
-									(p) => (broken = { ...broken, [video.id]: p })
-								)}
-							></video>
+								onproblem={(p) => (broken = { ...broken, [video.id]: p })}
+							/>
 						{/if}
 						<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
 							<span>{byteSize(video.sizeBytes)}</span>
@@ -232,7 +241,18 @@
 				<ul class="space-y-2">
 					{#each data.exercises as exercise (exercise.id)}
 						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
-							<span class="min-w-0 flex-1 truncate text-[15px]">{exercise.name}</span>
+							<a
+								href={resolve('/[dance]/exercises/[id]', {
+									dance: data.dance.slug,
+									id: String(exercise.id)
+								})}
+								class="min-w-0 flex-1 truncate text-[15px]">{exercise.name}</a
+							>
+							<a
+								href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
+								class="grid size-9 place-items-center text-[20px] text-accent"
+								aria-label="Log a set of {exercise.name}">+</a
+							>
 							<form method="POST" action="?/unlinkExercise" use:enhance>
 								<input type="hidden" name="exerciseId" value={exercise.id} />
 								<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
@@ -254,6 +274,22 @@
 		</section>
 	{/if}
 </div>
+
+{#if logging && data.popup}
+	<LessonLog
+		dance={data.dance}
+		exercise={data.popup.exercise}
+		sets={data.popup.sets}
+		songs={data.popup.songs}
+		takes={data.popup.takes}
+		backfillDay={null}
+		{timezone}
+		message={form && 'action' in form && form.action === 'log' && 'message' in form
+			? String(form.message)
+			: null}
+		onclose={() => (logging = false)}
+	/>
+{/if}
 
 <Sheet
 	title="New figure from this lesson"

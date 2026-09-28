@@ -366,6 +366,14 @@ export const exercises = sqliteTable(
 		/** Practice mode 'count': the BPM of the synthetic grid. */
 		countBpm: integer('count_bpm'),
 		/**
+		 * What the practice panel last played for this exercise, beyond the mode,
+		 * song and tempo above: `{ count, clave, speed, callEvery }`. Read through
+		 * `parsePracticeConfig` in `$lib/exercises/practice`, which is total — so
+		 * no value here, however odd, can stop a popup from opening. Nullable and
+		 * added by plain ADD COLUMN: no CHECK on this table, ever (see below).
+		 */
+		practiceJson: text('practice_json'),
+		/**
 		 * Set iff `source = 'lesson'`. Deliberately WITHOUT a mirror of
 		 * `exercises_source_ck`: a new CHECK on this table makes drizzle-kit rebuild
 		 * it, and the rebuild fails at migrate time (see the note below).
@@ -393,7 +401,9 @@ export const exercises = sqliteTable(
 		// No `exercises_practice_ck`: drizzle-kit's rebuild migration for a new
 		// CHECK on this table selects the new columns from the OLD table (which
 		// doesn't have them) and fails at migrate time — see task-1-report.md.
-		// `updateExercise` enforces the song/count pairing instead.
+		// `parsePracticeInput` (src/lib/exercises/practice.ts) and
+		// `setPracticeSettings` (src/lib/server/exercises.ts) enforce the
+		// song/count pairing instead.
 		index('exercises_figure_idx').on(t.figureId)
 	]
 );
@@ -517,6 +527,57 @@ export const lessonExercises = sqliteTable(
 		index('lesson_exercises_exercise_idx').on(t.exerciseId)
 	]
 );
+
+/* ── Links ──────────────────────────────────────────────────────────────── */
+
+/**
+ * A URL attached to a lesson, a figure or a drill (a custom exercise). A
+ * YouTube URL renders as an embed; anything else as a plain link. See
+ * `src/lib/links.ts` for what is accepted — only http and https.
+ *
+ * Exactly one owner. The CHECK is safe here because this table is NEW: the
+ * "never add a CHECK" rule is about drizzle-kit rebuilding an EXISTING table.
+ * "Drills only" for `exercise_id` is not expressible as a CHECK and lives in
+ * `src/lib/server/links.ts`.
+ *
+ * No `dance` column: a link is the dance of its owner, resolved through the
+ * owner the same way sets and recordings are. Hard-deleted, like a recording.
+ */
+export const links = sqliteTable(
+	'links',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		lessonId: integer('lesson_id').references(() => lessons.id),
+		figureId: integer('figure_id').references(() => figures.id),
+		exerciseId: integer('exercise_id').references(() => exercises.id),
+		url: text('url').notNull(),
+		/** The user's label; null shows the host. */
+		title: text('title'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check(
+			'links_owner_ck',
+			sql`(${t.lessonId} is not null) + (${t.figureId} is not null) + (${t.exerciseId} is not null) = 1`
+		),
+		index('links_lesson_idx').on(t.lessonId),
+		index('links_figure_idx').on(t.figureId),
+		index('links_exercise_idx').on(t.exerciseId)
+	]
+);
+
+/* ── One-off steps ──────────────────────────────────────────────────────── */
+
+/**
+ * Markers for boot steps that must run once EVER, not once per boot — the
+ * first is copying the URLs out of lesson notes into `links`
+ * (`importNoteLinks`). A migration cannot do that job (SQLite has no regex),
+ * and "run when the target is empty" would re-import a link the user deleted.
+ */
+export const appFlags = sqliteTable('app_flags', {
+	key: text('key').primaryKey(),
+	doneAt: integer('done_at').notNull()
+});
 
 /* ── The count voice ────────────────────────────────────────────────────── */
 

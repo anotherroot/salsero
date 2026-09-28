@@ -1,10 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import ExerciseRow from '$lib/components/today/ExerciseRow.svelte';
-	import LogSheet from '$lib/components/today/LogSheet.svelte';
+	import { logFor } from '$lib/components/exercises/kinds';
+	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import { dayLabel, setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
+	import { typeOf } from '$lib/exercises/kinds';
+	import { nextInSession, sessionSummary } from '$lib/exercises/session';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -12,6 +18,69 @@
 	let openId = $state<number | null>(null);
 	let creating = $state(false);
 	let showInactive = $state(false);
+
+	// A session walks Today's due/upcoming bands one popup at a time. It lives
+	// entirely in the URL flag plus this page's own state — nothing is stored,
+	// so a reload recomputes "next" from the (now-refreshed) bands.
+	const sessionOn = $derived(page.url.searchParams.get('session') === '1');
+	let skipped = $state(new Set<number>());
+	let tally = $state({ count: 0, seconds: 0 });
+	// Skip ran out the list, not a log: the popup shows the summary in place
+	// rather than closing itself (finding 3) — Finish is still what ends it.
+	let sessionEnded = $state(false);
+	// Skipping the last exercise while it has unsaved practice time must still
+	// discard that run — normally a `{#key open.id}` change does it by
+	// remounting, but here `openId` does not change, so this bumps the key by
+	// itself: same exercise, fresh popup, old panel torn down by its onDestroy.
+	let bumpKey = $state(0);
+	const firstUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, null));
+	const nextUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, openId));
+
+	function startSession() {
+		skipped = new Set();
+		tally = { count: 0, seconds: 0 };
+		sessionEnded = false;
+		void goto(resolve(`/${data.dance.slug}?session=1`), { keepFocus: true, noScroll: true });
+		openId = firstUp?.exercise.id ?? null;
+	}
+
+	function endSession() {
+		openId = null;
+		// Clear skipped/tally here too, not just on start: otherwise a stale
+		// `skipped` starves `firstUp` after the session ends, hiding "Start
+		// session" for a row that is still due.
+		skipped = new Set();
+		tally = { count: 0, seconds: 0 };
+		sessionEnded = false;
+		void goto(resolve('/[dance]', { dance: data.dance.slug }), { keepFocus: true, noScroll: true });
+	}
+
+	// A reload keeps the flag; pick up at the current first row.
+	onMount(() => {
+		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
+	});
+
+	const session = $derived<SessionControls | null>(
+		sessionOn && data.isToday
+			? {
+					next: nextUp ? { name: nextUp.exercise.name } : null,
+					summary: sessionSummary(tally.count, tally.seconds),
+					ended: sessionEnded,
+					onnext: () => (openId = nextUp?.exercise.id ?? null),
+					onskip: () => {
+						if (openId !== null) skipped = new Set([...skipped, openId]);
+						// Nothing left: stay on this popup and show the summary + Finish
+						// instead of closing behind the user's back (finding 3).
+						if (nextUp) openId = nextUp.exercise.id;
+						else {
+							sessionEnded = true;
+							bumpKey += 1;
+						}
+					},
+					onfinish: endSession
+				}
+			: null
+	);
 
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	// Every band, so opening a row by id works wherever it sits.
@@ -23,6 +92,7 @@
 	]);
 	const open = $derived(rows.find((r) => r.exercise.id === openId)?.exercise ?? null);
 	const openSets = $derived(data.daySets.filter((s) => s.exerciseId === openId));
+	const Log = $derived(open ? logFor(typeOf(open.source)) : null);
 
 	/** A past day's sets, grouped by exercise in the order they were first done. */
 	const pastGroups = $derived.by(() => {
@@ -39,14 +109,6 @@
 		form && 'action' in form && form.action === action && 'message' in form
 			? (form.message ?? null)
 			: null;
-
-	// updateExercise's fail() carries back what was typed (see +page.server.ts);
-	// the ActionData union doesn't narrow that far on its own.
-	const updateExerciseValues = $derived(
-		form && 'action' in form && form.action === 'updateExercise' && 'practiceMode' in form
-			? (form as unknown as { practiceMode: string; songId: string; countBpm: string })
-			: null
-	);
 </script>
 
 <svelte:head
@@ -108,10 +170,25 @@
 				</h2>
 				<ul class="space-y-2">
 					{#each data.plan.doneToday as row (row.exercise.id)}
-						<ExerciseRow {row} variant="done" onopen={() => (openId = row.exercise.id)} />
+						<ExerciseRow
+							{row}
+							variant="done"
+							dance={data.dance.slug}
+							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							onlog={() => (openId = row.exercise.id)}
+						/>
 					{/each}
 				</ul>
 			</section>
+		{/if}
+
+		{#if firstUp}
+			<button
+				type="button"
+				class="mb-4 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+				onclick={() => (sessionOn ? (openId = firstUp?.exercise.id ?? null) : startSession())}
+				>{sessionOn ? 'Resume session' : 'Start session'}</button
+			>
 		{/if}
 
 		{#if data.plan.due.length > 0}
@@ -121,7 +198,13 @@
 				</h2>
 				<ul class="space-y-2">
 					{#each data.plan.due as row (row.exercise.id)}
-						<ExerciseRow {row} variant="due" onopen={() => (openId = row.exercise.id)} />
+						<ExerciseRow
+							{row}
+							variant="due"
+							dance={data.dance.slug}
+							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							onlog={() => (openId = row.exercise.id)}
+						/>
 					{/each}
 				</ul>
 			</section>
@@ -135,7 +218,13 @@
 				</h2>
 				<ul class="space-y-2">
 					{#each data.plan.upcoming as row (row.exercise.id)}
-						<ExerciseRow {row} variant="upcoming" onopen={() => (openId = row.exercise.id)} />
+						<ExerciseRow
+							{row}
+							variant="upcoming"
+							dance={data.dance.slug}
+							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							onlog={() => (openId = row.exercise.id)}
+						/>
 					{/each}
 				</ul>
 			</section>
@@ -155,7 +244,13 @@
 				{#if showInactive}
 					<ul class="space-y-2">
 						{#each data.plan.inactive as row (row.exercise.id)}
-							<ExerciseRow {row} variant="inactive" onopen={() => (openId = row.exercise.id)} />
+							<ExerciseRow
+								{row}
+								variant="inactive"
+								dance={data.dance.slug}
+								lastRating={data.lastRatings[row.exercise.id] ?? null}
+								onlog={() => (openId = row.exercise.id)}
+							/>
 						{/each}
 					</ul>
 				{/if}
@@ -222,18 +317,24 @@
 	{/if}
 </main>
 
-{#if open}
-	<LogSheet
-		dance={data.dance.slug}
-		exercise={open}
-		sets={openSets}
-		songs={data.songs}
-		backfillDay={data.isToday ? null : data.day}
-		{timezone}
-		message={failure('log') ?? failure('updateExercise') ?? failure('archiveExercise')}
-		values={updateExerciseValues}
-		onclose={() => (openId = null)}
-	/>
+{#if open && Log}
+	{#key `${open.id}:${bumpKey}`}
+		<Log
+			dance={data.dance}
+			exercise={open}
+			sets={openSets}
+			songs={data.songs}
+			takes={data.takes}
+			backfillDay={data.isToday ? null : data.day}
+			{timezone}
+			message={failure('log')}
+			{session}
+			onlogged={(d) => {
+				if (sessionOn) tally = { count: tally.count + 1, seconds: tally.seconds + (d ?? 0) };
+			}}
+			onclose={() => (openId = null)}
+		/>
+	{/key}
 {/if}
 
 {#if creating}

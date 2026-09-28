@@ -13,7 +13,12 @@ export function setSummary(s: {
 	rating: number | null;
 }): string {
 	const parts: string[] = [];
-	if (s.durationS !== null) parts.push(`${Math.round(s.durationS / 60)} min`);
+	// A logged set that ran under 30 s must not round down to "0 min" — match
+	// `minutesFrom`'s floor of 1 for anything above zero.
+	if (s.durationS !== null) {
+		const min = s.durationS > 0 ? Math.max(1, Math.round(s.durationS / 60)) : 0;
+		parts.push(`${min} min`);
+	}
 	if (s.reps !== null) parts.push(`${s.reps} reps`);
 	if (s.rating !== null) parts.push(`${'★'.repeat(s.rating)}`);
 	return parts.join(' · ');

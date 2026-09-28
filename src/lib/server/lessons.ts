@@ -373,3 +373,18 @@ export function deleteLessonVideo(db: Db, id: number) {
 export function getLessonVideoByFile(db: Db, file: string) {
 	return db.select().from(lessonVideos).where(eq(lessonVideos.file, file)).get() ?? null;
 }
+
+/**
+ * The lessons that taught a figure — the lesson→figure link read from the
+ * figure's side, which until now only the lesson page could show. Archived
+ * lessons are gone from every list, so they are gone from this one.
+ */
+export function taughtIn(db: Db, figureId: number) {
+	return db
+		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })
+		.from(lessonFigures)
+		.innerJoin(lessons, eq(lessons.id, lessonFigures.lessonId))
+		.where(and(eq(lessonFigures.figureId, figureId), isNull(lessons.archivedAt)))
+		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
+		.all();
+}

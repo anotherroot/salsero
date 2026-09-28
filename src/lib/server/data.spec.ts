@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { songs } from './db/schema';
@@ -5,11 +6,16 @@ import {
 	archiveExercise,
 	createCustomExercise,
 	deleteSet,
+	exerciseHistory,
+	exerciseSummary,
 	getExercise,
+	lastSet,
+	lastSets,
 	listExercises,
 	listSetTimes,
 	listSetsBetween,
 	logSet,
+	setPracticeSettings,
 	updateExercise
 } from './exercises';
 import {
@@ -23,6 +29,7 @@ import {
 	listFiguresForCall,
 	updateFigure
 } from './figures';
+import { archiveLesson, createLesson, linkFigure, taughtIn } from './lessons';
 import { createSongFromUpload, listReadySongs } from './songs';
 import { createRoutine } from './routines';
 
@@ -42,15 +49,12 @@ const figureInput = {
 const bareSet = (exerciseId: number, doneAt: number) => ({
 	exerciseId,
 	doneAt,
-	durationS: null,
-	reps: null,
-	rating: null,
-	note: null,
-	playerJson: null
+	durationS: null as number | null,
+	reps: null as number | null,
+	rating: null as number | null,
+	note: null as string | null,
+	playerJson: null as string | null
 });
-/** The practice-mode fields `updateExercise` needs, beyond the plain settings form. */
-const base = { practiceMode: 'none' as const, songId: null, countBpm: null };
-
 describe('figures', () => {
 	it('creates the figure and its exercise together', () => {
 		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
@@ -137,7 +141,6 @@ describe('exercises and sets', () => {
 	it('keeps a figure exercise named after its figure', () => {
 		const { exercise } = createFigure(db, 'salsa', figureInput)!;
 		updateExercise(db, exercise.id, {
-			...base,
 			name: 'Other',
 			everyDays: 1,
 			active: false,
@@ -214,32 +217,6 @@ describe('exercises and sets', () => {
 	it('names nothing for an empty id list', () => {
 		createFigure(db, 'salsa', figureInput);
 		expect(listFiguresForCall(db, 'salsa', [])).toEqual([]);
-	});
-
-	it('clears the unused practice column when the mode changes', () => {
-		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
-		updateExercise(db, e.id, {
-			...base,
-			name: 'Drill',
-			everyDays: 1,
-			active: true,
-			notes: null,
-			practiceMode: 'count',
-			songId: null,
-			countBpm: 180
-		});
-		expect(getExercise(db, e.id)?.countBpm).toBe(180);
-		updateExercise(db, e.id, {
-			...base,
-			name: 'Drill',
-			everyDays: 1,
-			active: true,
-			notes: null,
-			practiceMode: 'none',
-			songId: null,
-			countBpm: 180
-		});
-		expect(getExercise(db, e.id)?.countBpm).toBeNull();
 	});
 
 	it('keeps a player run on its set', () => {
@@ -340,27 +317,6 @@ describe('Today is walled off by dance', () => {
 		expect(listExercises(db, 'bachata').map((e) => e.name)).toEqual(['Footwork']);
 	});
 
-	it('refuses to point an exercise at a song from another dance', () => {
-		const song = createSongFromUpload(db, 'salsa', {
-			file: 'a.m4a',
-			mime: 'audio/mp4',
-			title: 'El Cantante',
-			style: 'salsa'
-		});
-		const ex = createCustomExercise(db, 'bachata', { name: 'Footwork', everyDays: 2, notes: null });
-
-		const updated = updateExercise(db, ex.id, {
-			name: 'Footwork',
-			practiceMode: 'song',
-			songId: song.id,
-			countBpm: null,
-			everyDays: 2,
-			active: true,
-			notes: null
-		});
-		expect(updated?.songId).toBeNull();
-	});
-
 	it('offers only its own dance ready songs to the picker', () => {
 		createSongFromUpload(db, 'salsa', {
 			file: 'a.m4a',
@@ -378,5 +334,127 @@ describe('Today is walled off by dance', () => {
 		db.update(songs).set({ status: 'ready' }).run();
 
 		expect(listReadySongs(db, 'bachata').map((s) => s.title)).toEqual(['Obsesion']);
+	});
+});
+
+describe('practice settings', () => {
+	const config = {
+		count: 'son' as const,
+		clave: '2-3' as const,
+		speed: 1 as const,
+		callEvery: null
+	};
+	const readySong = (dance: 'salsa' | 'bachata') => {
+		const s = createSongFromUpload(db, dance, {
+			file: `${dance}.m4a`,
+			mime: 'audio/mp4',
+			title: 'Song',
+			style: 'salsa'
+		});
+		db.update(songs).set({ status: 'ready' }).where(eq(songs.id, s.id)).run();
+		return s;
+	};
+
+	it('stores count mode with its tempo and config, clearing the song', () => {
+		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		expect(
+			setPracticeSettings(db, e.id, { mode: 'count', songId: null, countBpm: 150, config })
+		).toBe(true);
+		const row = getExercise(db, e.id)!;
+		expect([row.practiceMode, row.countBpm, row.songId]).toEqual(['count', 150, null]);
+		expect(JSON.parse(row.practiceJson!)).toEqual(config);
+	});
+
+	it('stores a ready song of the same dance, clearing the tempo', () => {
+		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const song = readySong('salsa');
+		expect(
+			setPracticeSettings(db, e.id, { mode: 'song', songId: song.id, countBpm: null, config })
+		).toBe(true);
+		expect(getExercise(db, e.id)?.songId).toBe(song.id);
+	});
+
+	it('refuses a song from the other dance, or one that is not ready', () => {
+		const e = createCustomExercise(db, 'bachata', { name: 'Footwork', everyDays: 2, notes: null });
+		const salsaSong = readySong('salsa');
+		expect(
+			setPracticeSettings(db, e.id, { mode: 'song', songId: salsaSong.id, countBpm: null, config })
+		).toBe(false);
+		const waiting = createSongFromUpload(db, 'bachata', {
+			file: 'w.m4a',
+			mime: 'audio/mp4',
+			title: 'W',
+			style: 'sensual'
+		});
+		expect(
+			setPracticeSettings(db, e.id, { mode: 'song', songId: waiting.id, countBpm: null, config })
+		).toBe(false);
+		expect(getExercise(db, e.id)?.practiceMode).toBe('none');
+	});
+});
+
+describe('history', () => {
+	const set = (
+		exerciseId: number,
+		doneAt: number,
+		extra: Partial<ReturnType<typeof bareSet>> = {}
+	) => logSet(db, { ...bareSet(exerciseId, doneAt), ...extra });
+
+	it('lists an exercise’s sets newest first, capped', () => {
+		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		for (let i = 1; i <= 5; i++) set(e.id, i * 1000);
+		expect(exerciseHistory(db, e.id, 3).map((s) => s.doneAt)).toEqual([5000, 4000, 3000]);
+	});
+
+	it('summarises every set, and averages the latest five rated ones', () => {
+		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		set(e.id, 1, { rating: 1, durationS: 60 });
+		for (let i = 2; i <= 6; i++) set(e.id, i, { rating: 4, durationS: 120 });
+		set(e.id, 7); // unrated, no duration
+		expect(exerciseSummary(db, e.id)).toEqual({ sets: 7, totalS: 660, recentRating: 4 });
+	});
+
+	it('summarises an exercise with no sets', () => {
+		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		expect(exerciseSummary(db, e.id)).toEqual({ sets: 0, totalS: 0, recentRating: null });
+	});
+
+	it('finds the latest set per exercise, within one dance', () => {
+		const a = createCustomExercise(db, 'salsa', { name: 'A', everyDays: 1, notes: null });
+		const b = createCustomExercise(db, 'bachata', { name: 'B', everyDays: 1, notes: null });
+		set(a.id, 1000, { rating: 2 });
+		set(a.id, 3000, { rating: 5, note: 'clean' });
+		set(b.id, 2000, { rating: 1 });
+		const last = lastSets(db, 'salsa');
+		expect([...last.keys()]).toEqual([a.id]);
+		expect(last.get(a.id)).toMatchObject({ doneAt: 3000, rating: 5, note: 'clean' });
+		expect(lastSet(db, a.id)?.doneAt).toBe(3000);
+		expect(
+			lastSet(db, createCustomExercise(db, 'salsa', { name: 'C', everyDays: 1, notes: null }).id)
+		).toBeNull();
+	});
+});
+
+describe('taught in', () => {
+	it('lists the live lessons that linked a figure, newest first', () => {
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const older = createLesson(db, 'salsa', {
+			lessonDay: '2026-09-01',
+			title: 'Older',
+			notes: null
+		}).lesson;
+		const newer = createLesson(db, 'salsa', {
+			lessonDay: '2026-09-20',
+			title: 'Newer',
+			notes: null
+		}).lesson;
+		const gone = createLesson(db, 'salsa', {
+			lessonDay: '2026-09-10',
+			title: 'Gone',
+			notes: null
+		}).lesson;
+		for (const l of [older, newer, gone]) linkFigure(db, l.id, figure.id);
+		archiveLesson(db, gone.id, 1);
+		expect(taughtIn(db, figure.id).map((l) => l.title)).toEqual(['Newer', 'Older']);
 	});
 });
