@@ -72,6 +72,8 @@
 	let watch = $state(STOPPED);
 	let now = $state(Date.now());
 	let calls = 0;
+	/** Set by `onDestroy`, read after `await handle.start()` resolves — see `play()`. */
+	let destroyed = false;
 
 	const songTitle = $derived(songs.find((s) => s.id === songId)?.title ?? null);
 	const summary = $derived(
@@ -116,7 +118,10 @@
 		return () => clearInterval(t);
 	});
 
-	$effect(() => onactive(player !== null));
+	// Also true while starting: `start()` awaits clip decoding and can take a
+	// moment, and the Sheet must stay guarded for that whole stretch, not just
+	// once a player exists.
+	$effect(() => onactive(starting || player !== null));
 
 	/** Remember these choices for next time. A convenience: a failure changes nothing. */
 	function remember() {
@@ -189,6 +194,15 @@
 			starting = false;
 			return;
 		}
+		// The popup can close mid-`start()` — decoding clips takes a moment, and
+		// while starting `player` is still null, so nothing else stops this
+		// handle. Left unchecked, its AudioContext, wake lock and 25 ms interval
+		// would keep running with no reference anywhere to stop them.
+		if (destroyed) {
+			handle.stop();
+			starting = false;
+			return;
+		}
 		player = handle;
 		runGrid = g;
 		paused = false;
@@ -232,8 +246,12 @@
 	}
 
 	// Closing the popup, or leaving the page, must never leave an AudioContext
-	// or a screen wake lock running.
-	onDestroy(() => player?.stop());
+	// or a screen wake lock running. `destroyed` also catches a start() still
+	// in flight when that happens — `player` alone is not enough, see `play()`.
+	onDestroy(() => {
+		destroyed = true;
+		player?.stop();
+	});
 	$effect(() => {
 		const onUnload = () => player?.stop();
 		window.addEventListener('beforeunload', onUnload);
