@@ -401,7 +401,9 @@ export const exercises = sqliteTable(
 		// No `exercises_practice_ck`: drizzle-kit's rebuild migration for a new
 		// CHECK on this table selects the new columns from the OLD table (which
 		// doesn't have them) and fails at migrate time — see task-1-report.md.
-		// `updateExercise` enforces the song/count pairing instead.
+		// `parsePracticeInput` (src/lib/exercises/practice.ts) and
+		// `setPracticeSettings` (src/lib/server/exercises.ts) enforce the
+		// song/count pairing instead.
 		index('exercises_figure_idx').on(t.figureId)
 	]
 );
