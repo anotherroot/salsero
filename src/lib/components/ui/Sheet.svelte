@@ -5,10 +5,18 @@
 		title: string;
 		open: boolean;
 		onclose: () => void;
+		/**
+		 * While true, nothing closes the sheet by accident: the backdrop tap,
+		 * Escape and ✕ call `onguarded` instead, and the caller decides (the log
+		 * popup asks "Discard 4 min of practice?"). A stray tap must never throw
+		 * away a run — the player's own save sheet has exactly that known gap.
+		 */
+		guard?: boolean;
+		onguarded?: () => void;
 		children: Snippet;
 	}
 
-	let { title, open, onclose, children }: Props = $props();
+	let { title, open, onclose, guard = false, onguarded, children }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 
 	/*
@@ -27,9 +35,20 @@
 	bind:this={dialog}
 	aria-label={title}
 	{onclose}
+	oncancel={(e) => {
+		// Escape. Cancelling it keeps the dialog open; Chrome lets a SECOND
+		// Escape through regardless (its anti-trap rule), which then closes
+		// normally — see Known gaps.
+		if (guard) {
+			e.preventDefault();
+			onguarded?.();
+		}
+	}}
 	onclick={(e) => {
 		// A click on the backdrop lands on the dialog element itself.
-		if (e.target === dialog) onclose();
+		if (e.target !== dialog) return;
+		if (guard) onguarded?.();
+		else onclose();
 	}}
 >
 	<div class="inner">
@@ -39,7 +58,7 @@
 				type="button"
 				class="-mr-2 grid size-10 place-items-center rounded-full text-[20px] text-muted"
 				aria-label="Close"
-				onclick={onclose}>×</button
+				onclick={() => (guard ? onguarded?.() : onclose())}>×</button
 			>
 		</header>
 		{#if open}{@render children()}{/if}
