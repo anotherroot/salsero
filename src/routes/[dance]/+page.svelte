@@ -37,6 +37,11 @@
 
 	function endSession() {
 		openId = null;
+		// Clear skipped/tally here too, not just on start: otherwise a stale
+		// `skipped` starves `firstUp` after the session ends, hiding "Start
+		// session" for a row that is still due.
+		skipped = new Set();
+		tally = { count: 0, seconds: 0 };
 		void goto(resolve('/[dance]', { dance: data.dance.slug }), { keepFocus: true, noScroll: true });
 	}
 
