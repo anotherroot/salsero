@@ -16,9 +16,11 @@
 
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { CALL_EVERY, CLAVE_PATTERNS, COUNT_PATTERN_LABEL, SPEEDS } from '$lib/labels';
+	import { CALL_EVERY, CLAVE_PATTERNS, SPEEDS } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import type { CallableFigure } from '$lib/types';
+	import CountChips from './CountChips.svelte';
+	import ClaveChips from './ClaveChips.svelte';
 
 	interface Props {
 		song: { id: number; title: string; audioFile: string | null } | null;
@@ -207,24 +209,11 @@
 
 	<fieldset>
 		<legend class={label}>Voice count</legend>
-		<!--
-			Wraps rather than sharing one row: seven options do not fit at 375 px,
-			and a fast song needs the sparse ones to be as reachable as salsa.
-		-->
-		<div class="flex flex-wrap gap-2">
-			{#each dance.countPatterns as p (p)}
-				<label class="{chip} min-w-[5.5rem] grow-0 basis-auto px-3">
-					<input
-						type="radio"
-						name="count"
-						checked={count === p}
-						onchange={() => (countOverride = p)}
-						class="sr-only"
-					/>
-					{COUNT_PATTERN_LABEL[p]}
-				</label>
-			{/each}
-		</div>
+		<CountChips
+			patterns={dance.countPatterns}
+			value={count}
+			onchange={(p) => (countOverride = p)}
+		/>
 		<a href={resolve('/voice')} class="mt-2 inline-block text-[13px] text-accent underline">
 			Use my own voice
 		</a>
@@ -233,30 +222,7 @@
 	{#if dance.clave}
 		<fieldset>
 			<legend class={label}>Clave</legend>
-			<div class="flex gap-2">
-				<label class={chip}>
-					<input
-						type="radio"
-						name="clave"
-						checked={clave === null}
-						onchange={() => (claveOverride = null)}
-						class="sr-only"
-					/>
-					Off
-				</label>
-				{#each CLAVE_PATTERNS as c (c)}
-					<label class={chip}>
-						<input
-							type="radio"
-							name="clave"
-							checked={clave === c}
-							onchange={() => (claveOverride = c)}
-							class="sr-only"
-						/>
-						{c}
-					</label>
-				{/each}
-			</div>
+			<ClaveChips value={clave} onchange={(c) => (claveOverride = c)} />
 		</fieldset>
 	{/if}
 
