@@ -48,6 +48,8 @@ import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as positionsPage from './positions/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
+import * as gridEndpoint from './songs/[id]/grid/+server';
+import * as practiceEndpoint from './exercises/[id]/practice/+server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -482,6 +484,46 @@ describe('an unknown dance in the URL cannot write a row', () => {
 				.map((l) => l.dance)
 		).not.toContain('kizomba');
 		expect(listLessons(db, 'salsa')).toHaveLength(0);
+	});
+});
+
+describe('the JSON endpoints refuse the other dance', () => {
+	const at = (dance: string, id: string, init?: RequestInit) => ({
+		params: { dance, id },
+		request: new Request('http://localhost/', init),
+		locals: { user: USER }
+	});
+	type Handler = (e: ReturnType<typeof at>) => unknown;
+
+	it('will not serve a bachata song’s grid under salsa', async () => {
+		await expect(
+			(async () => (gridEndpoint.GET as unknown as Handler)(at('salsa', String(bachataSongId))))()
+		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('will not serve or change a bachata exercise under salsa', async () => {
+		await expect(
+			(async () =>
+				(practiceEndpoint.GET as unknown as Handler)(at('salsa', String(bachataCustomId))))()
+		).rejects.toMatchObject({ status: 404 });
+		await expect(
+			(async () =>
+				(practiceEndpoint.POST as unknown as Handler)(
+					at('salsa', String(bachataCustomId), {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ mode: 'count', countBpm: 150, songId: null, config: {} })
+					})
+				))()
+		).rejects.toMatchObject({ status: 404 });
+		expect(getExercise(db, bachataCustomId)?.practiceMode).toBe('none');
+	});
+
+	it('serves its own dance', async () => {
+		const res = (await (practiceEndpoint.GET as unknown as Handler)(
+			at('bachata', String(bachataCustomId))
+		)) as Response;
+		expect(((await res.json()) as { content: { type: string } }).content.type).toBe('drill');
 	});
 });
 

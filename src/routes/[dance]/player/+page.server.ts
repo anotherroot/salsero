@@ -1,18 +1,16 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { buildGrid } from '$lib/beatgrid/beatgrid';
-import { PHRASE_PATTERNS, type TempoFactor } from '$lib/labels';
+import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
 import { listExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listCallableFigures, listFiguresForCall } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { int, optionalInt, optionalText } from '$lib/server/form';
+import { songGrid } from '$lib/server/grid';
 import { getRoutine, routineShapes } from '$lib/server/routines';
 import { getSong } from '$lib/server/songs';
 import { danceOf, exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
-
-const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
 export const load: PageServerLoad = ({ url, params }) => {
 	const dance = danceOf(params);
@@ -53,14 +51,7 @@ export const load: PageServerLoad = ({ url, params }) => {
 
 	return {
 		song: song && { id: song.id, title: song.title, audioFile: song.audioFile },
-		grid: song
-			? buildGrid({
-					beats: parse(song.beatsJson),
-					downbeats: parse(song.downbeatsJson),
-					anchors: parse(song.anchorsJson),
-					tempoFactor: song.tempoFactor as TempoFactor
-				})
-			: null,
+		grid: song ? songGrid(song) : null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
 		routine: routine && shape ? { id: routine.id, name: routine.name, shape } : null,
 		// The drill's pool. Unchanged from before routines existed: `callable` is

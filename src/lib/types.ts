@@ -125,6 +125,53 @@ export interface LinkRow {
 	createdAt: number;
 }
 
+/** One recording on a figure, as the log popup lists it. */
+export interface RecordingRow {
+	id: number;
+	file: string;
+	kind: 'video' | 'audio';
+	sizeBytes: number;
+	createdAt: number;
+}
+
+/** A song's beats and its 1–8, for the practice panel. See `src/lib/server/grid.ts`. */
+export interface SongGrid {
+	audioFile: string;
+	beats: number[];
+	counts: number[];
+}
+
+/**
+ * What the log popup shows above its form, branched by the exercise's type.
+ * See `src/lib/server/practice-content.ts`, the one place that branches on it.
+ */
+export type PracticeContent =
+	| {
+			type: 'lesson';
+			lesson: { id: number; title: string; lessonDay: string; notes: string | null };
+			links: LinkRow[];
+			videos: LessonVideoRow[];
+			figures: { id: number; name: string }[];
+	  }
+	| {
+			type: 'figure';
+			figure: { id: number; name: string; notes: string | null; say: string; eights: number };
+			links: LinkRow[];
+			recordings: RecordingRow[];
+	  }
+	| { type: 'drill'; notes: string | null; links: LinkRow[] }
+	| {
+			type: 'routine';
+			routine: { id: number; name: string; notes: string | null };
+			slots: { note: string | null; names: string[] }[];
+	  };
+
+/** The popup's whole payload: its content, and the exercise's last set. */
+export interface PracticePayload {
+	content: PracticeContent;
+	last: LastSet | null;
+}
+
 /** A figure taught in a lesson, with the exercise that came with it. */
 export interface LessonFigureRow {
 	id: number;
