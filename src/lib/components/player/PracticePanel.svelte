@@ -152,7 +152,9 @@
 		// a `const` local does.
 		const g0 = grid;
 		const el = audio;
-		const useSong = source === 'song' && g0 !== null && el !== undefined;
+		// Svelte 5 clears `bind:this` to `null` (not `undefined`) on unmount, so
+		// the two must be checked the same way.
+		const useSong = source === 'song' && g0 != null && el != null;
 		const g =
 			useSong && g0 ? { beats: g0.beats, counts: g0.counts } : syntheticGrid(bpm, hourOfBars(bpm));
 		if (useSong && el) {
