@@ -14,6 +14,10 @@ describe('format', () => {
 		expect(setSummary({ durationS: 600, reps: 8, rating: 3 })).toBe('10 min · 8 reps · ★★★');
 	});
 
+	it('rounds a short duration up to 1 min rather than down to 0, like minutesFrom', () => {
+		expect(setSummary({ durationS: 15, reps: null, rating: null })).toBe('1 min');
+	});
+
 	it('labels a day without shifting it through a zone', () => {
 		expect(dayLabel('2026-09-22')).toBe('Tue 22 Sep');
 		expect(dateLabel('2026-01-05')).toBe('5 Jan 2026');
