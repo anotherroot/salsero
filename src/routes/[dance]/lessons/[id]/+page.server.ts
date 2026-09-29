@@ -8,14 +8,18 @@ import {
 	getLesson,
 	linkExercise,
 	linkFigure,
+	linkRoutine,
 	listLinkableExercises,
 	listLinkableFigures,
+	listLinkableRoutines,
 	unlinkExercise,
 	unlinkFigure,
+	unlinkRoutine,
 	updateLesson
 } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
 import { createCustomExercise } from '$lib/server/exercises';
+import { createRoutine } from '$lib/server/routines';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
@@ -65,6 +69,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	return {
 		...found,
 		linkableFigures: listLinkableFigures(db, found.lesson.id),
+		linkableRoutines: listLinkableRoutines(db, found.lesson.id),
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), tz),
@@ -196,13 +201,60 @@ export const actions: Actions = {
 		return { action: 'unlinkFigure', ok: true };
 	},
 
+	/*
+	 * Two calls, not one transaction, for the reason `newFigure` gives. Then
+	 * straight to the routine's page: a routine is only a name until its slots
+	 * are built, and that page is where they are built.
+	 */
+	newRoutine: async ({ params, request }) => {
+		const dance = danceOf(params);
+		const id = lessonOf(params).lesson.id;
+		const form = await request.formData();
+		const name = text(form, 'name');
+		const notes = optionalText(form, 'notes');
+		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
+
+		if (!name || notes === undefined || !isFrequency(everyDays)) {
+			return fail(400, {
+				action: 'newRoutine',
+				message: 'Give the routine a name (up to 200 characters).',
+				name: String(form.get('name') ?? ''),
+				notes: String(form.get('notes') ?? '')
+			});
+		}
+
+		const db = getDb();
+		const { routine } = createRoutine(db, dance, { name, notes }, everyDays);
+		linkRoutine(db, id, routine.id);
+		throw redirect(303, `/${dance}/routines/${routine.id}`);
+	},
+
+	linkRoutine: async ({ params, request }) => {
+		const id = lessonOf(params).lesson.id;
+		const routineId = int(await request.formData(), 'routineId');
+		if (routineId === undefined || !linkRoutine(getDb(), id, routineId)) {
+			return fail(400, { action: 'linkRoutine', message: 'That routine could not be linked.' });
+		}
+		return { action: 'linkRoutine', ok: true };
+	},
+
+	unlinkRoutine: async ({ params, request }) => {
+		const id = lessonOf(params).lesson.id;
+		const routineId = int(await request.formData(), 'routineId');
+		if (routineId === undefined || !unlinkRoutine(getDb(), id, routineId)) {
+			return fail(400, { action: 'unlinkRoutine', message: 'That routine was already unlinked.' });
+		}
+		return { action: 'unlinkRoutine', ok: true };
+	},
+
 	linkExercise: async ({ params, request }) => {
 		const id = lessonOf(params).lesson.id;
 		const exerciseId = int(await request.formData(), 'exerciseId');
 		if (exerciseId === undefined || !linkExercise(getDb(), id, exerciseId)) {
 			return fail(400, {
 				action: 'linkExercise',
-				message: 'That exercise could not be linked. A figure’s exercise lives under its figure.'
+				message:
+					'That exercise could not be linked. A figure’s or routine’s exercise lives under it.'
 			});
 		}
 		return { action: 'linkExercise', ok: true };

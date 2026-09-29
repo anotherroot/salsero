@@ -22,6 +22,7 @@
 	let editing = $state(false);
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
+	let addingRoutine = $state(false);
 	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
 
@@ -33,6 +34,7 @@
 	$effect(() => {
 		if (failure('newFigure')) addingFigure = true;
 		if (failure('newExercise')) addingExercise = true;
+		if (failure('newRoutine')) addingRoutine = true;
 		if (failure('update')) editing = true;
 	});
 
@@ -187,6 +189,91 @@
 
 		<section>
 			<div class="flex items-center justify-between">
+				<h2 class={heading}>Exercises</h2>
+				<button
+					type="button"
+					class="mb-2 text-[13px] font-medium text-accent"
+					onclick={() => (addingExercise = true)}>+ New exercise</button
+				>
+			</div>
+			{#if data.exercises.length > 0}
+				<ul class="space-y-2">
+					{#each data.exercises as exercise (exercise.id)}
+						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+							<a
+								href={resolve('/[dance]/exercises/[id]', {
+									dance: data.dance.slug,
+									id: String(exercise.id)
+								})}
+								class="min-w-0 flex-1 truncate text-[15px]">{exercise.name}</a
+							>
+							<a
+								href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
+								class="grid size-9 place-items-center text-[20px] text-accent"
+								aria-label="Log a set of {exercise.name}">+</a
+							>
+							<form method="POST" action="?/unlinkExercise" use:enhance>
+								<input type="hidden" name="exerciseId" value={exercise.id} />
+								<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<LinkPicker
+				action="?/linkExercise"
+				name="exerciseId"
+				items={data.linkableExercises}
+				label="Link an existing exercise"
+				empty="Nothing left to link. A figure’s or routine’s exercise lives under it."
+			/>
+			{#if failure('linkExercise')}
+				<p class="mt-2 text-[13px] text-danger">{failure('linkExercise')}</p>
+			{/if}
+		</section>
+
+		<section>
+			<div class="flex items-center justify-between">
+				<h2 class={heading}>Routines</h2>
+				<button
+					type="button"
+					class="mb-2 text-[13px] font-medium text-accent"
+					onclick={() => (addingRoutine = true)}>+ New routine</button
+				>
+			</div>
+			{#if data.routines.length > 0}
+				<ul class="space-y-2">
+					{#each data.routines as routine (routine.id)}
+						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+							<a
+								href={resolve('/[dance]/routines/[id]', {
+									dance: data.dance.slug,
+									id: String(routine.id)
+								})}
+								class="min-w-0 flex-1 truncate text-[15px] font-medium">{routine.name}</a
+							>
+							<form method="POST" action="?/unlinkRoutine" use:enhance>
+								<input type="hidden" name="routineId" value={routine.id} />
+								<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<LinkPicker
+				action="?/linkRoutine"
+				name="routineId"
+				items={data.linkableRoutines}
+				label="Link an existing routine"
+				empty="Every routine is already linked."
+			/>
+			{#if failure('linkRoutine')}
+				<p class="mt-2 text-[13px] text-danger">{failure('linkRoutine')}</p>
+			{/if}
+		</section>
+
+		<section>
+			<div class="flex items-center justify-between">
 				<h2 class={heading}>Figures</h2>
 				<button
 					type="button"
@@ -225,51 +312,6 @@
 			/>
 			{#if failure('linkFigure')}
 				<p class="mt-2 text-[13px] text-danger">{failure('linkFigure')}</p>
-			{/if}
-		</section>
-
-		<section>
-			<div class="flex items-center justify-between">
-				<h2 class={heading}>Exercises</h2>
-				<button
-					type="button"
-					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={() => (addingExercise = true)}>+ New exercise</button
-				>
-			</div>
-			{#if data.exercises.length > 0}
-				<ul class="space-y-2">
-					{#each data.exercises as exercise (exercise.id)}
-						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
-							<a
-								href={resolve('/[dance]/exercises/[id]', {
-									dance: data.dance.slug,
-									id: String(exercise.id)
-								})}
-								class="min-w-0 flex-1 truncate text-[15px]">{exercise.name}</a
-							>
-							<a
-								href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-								class="grid size-9 place-items-center text-[20px] text-accent"
-								aria-label="Log a set of {exercise.name}">+</a
-							>
-							<form method="POST" action="?/unlinkExercise" use:enhance>
-								<input type="hidden" name="exerciseId" value={exercise.id} />
-								<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-							</form>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			<LinkPicker
-				action="?/linkExercise"
-				name="exerciseId"
-				items={data.linkableExercises}
-				label="Link an existing exercise"
-				empty="Nothing left to link. A figure’s exercise lives under its figure."
-			/>
-			{#if failure('linkExercise')}
-				<p class="mt-2 text-[13px] text-danger">{failure('linkExercise')}</p>
 			{/if}
 		</section>
 	{/if}
@@ -324,6 +366,52 @@
 			type="submit"
 			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
 			>Add figure</button
+		>
+	</form>
+</Sheet>
+
+<Sheet
+	title="New routine from this lesson"
+	open={addingRoutine}
+	onclose={() => (addingRoutine = false)}
+>
+	<!-- A success redirects to the routine's page, where its slots are built. -->
+	<form method="POST" action="?/newRoutine" class="space-y-3" use:enhance>
+		{#if failure('newRoutine')}
+			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
+				{failure('newRoutine')}
+			</p>
+		{/if}
+		<label class="block">
+			<span class={label}>Name</span>
+			<input
+				name="name"
+				required
+				maxlength="200"
+				class={field}
+				value={form && 'name' in form && form.action === 'newRoutine' ? String(form.name) : ''}
+			/>
+		</label>
+		<label class="block">
+			<span class={label}>How often</span>
+			<select name="everyDays" class={field} value={DEFAULT_EVERY_DAYS}>
+				{#each FREQUENCIES as f (f.days)}
+					<option value={f.days}>{f.label}</option>
+				{/each}
+			</select>
+		</label>
+		<label class="block">
+			<span class={label}>Notes</span>
+			<textarea name="notes" rows="2" maxlength="2000" class={field}
+				>{form && 'notes' in form && form.action === 'newRoutine'
+					? String(form.notes)
+					: ''}</textarea
+			>
+		</label>
+		<button
+			type="submit"
+			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+			>Add routine and build it →</button
 		>
 	</form>
 </Sheet>

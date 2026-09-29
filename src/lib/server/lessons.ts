@@ -5,11 +5,19 @@ import {
 	figures,
 	lessonExercises,
 	lessonFigures,
+	lessonRoutines,
 	lessonVideos,
-	lessons
+	lessons,
+	routines
 } from './db/schema';
 import type { DanceSlug } from '$lib/dances/dances';
-import type { LessonExerciseRow, LessonFigureRow, LessonItem, LessonVideoRow } from '$lib/types';
+import type {
+	LessonExerciseRow,
+	LessonFigureRow,
+	LessonItem,
+	LessonRoutineRow,
+	LessonVideoRow
+} from '$lib/types';
 
 export interface LessonInput {
 	/** The local day the class happened, `YYYY-MM-DD`. */
@@ -131,6 +139,16 @@ function linkedFigureIds(db: Db, lessonId: number): number[] {
 		.map((r) => r.id);
 }
 
+/** The routine ids linked to a lesson. */
+function linkedRoutineIds(db: Db, lessonId: number): number[] {
+	return db
+		.select({ id: lessonRoutines.routineId })
+		.from(lessonRoutines)
+		.where(eq(lessonRoutines.lessonId, lessonId))
+		.all()
+		.map((r) => r.id);
+}
+
 export function getLesson(db: Db, id: number) {
 	const lesson = db.select().from(lessons).where(eq(lessons.id, id)).get();
 	if (!lesson) return null;
@@ -165,6 +183,15 @@ export function getLesson(db: Db, id: number) {
 		.orderBy(asc(figures.name))
 		.all();
 
+	const linkedRoutines: LessonRoutineRow[] = db
+		.select({ id: routines.id, name: routines.name, exerciseId: exercises.id })
+		.from(lessonRoutines)
+		.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
+		.leftJoin(exercises, eq(exercises.routineId, routines.id))
+		.where(eq(lessonRoutines.lessonId, id))
+		.orderBy(asc(routines.name))
+		.all();
+
 	const linkedExercises: LessonExerciseRow[] = db
 		.select({ id: exercises.id, name: exercises.name, source: exercises.source })
 		.from(lessonExercises)
@@ -173,17 +200,22 @@ export function getLesson(db: Db, id: number) {
 		.orderBy(asc(exercises.name))
 		.all();
 
-	// A linked figure's exercise belongs under the figure, never in this list.
-	// `linkFigure` already sweeps it out on write; filtering here too means a row
-	// that slipped in before the link cannot show up twice.
-	const ownedByLinkedFigure = new Set(linkedFigures.map((f) => f.exerciseId));
+	// A linked figure's or routine's exercise belongs under it, never in this
+	// list. `linkFigure` and `linkRoutine` already sweep it out on write;
+	// filtering here too means a row that slipped in before the link cannot show
+	// up twice.
+	const ownedByLinked = new Set([
+		...linkedFigures.map((f) => f.exerciseId),
+		...linkedRoutines.map((r) => r.exerciseId)
+	]);
 
 	return {
 		lesson,
 		exercise,
 		videos,
 		figures: linkedFigures,
-		exercises: linkedExercises.filter((e) => !ownedByLinkedFigure.has(e.id))
+		routines: linkedRoutines,
+		exercises: linkedExercises.filter((e) => !ownedByLinked.has(e.id))
 	};
 }
 
@@ -240,8 +272,64 @@ export function unlinkFigure(db: Db, lessonId: number, figureId: number): boolea
 }
 
 /**
- * Attach an existing exercise by hand. Refuses one owned by a figure this
- * lesson already links — the other half of the "never in both places" rule.
+ * Link a routine — `linkFigure`'s twin. A routine owns its exercise the way a
+ * figure does, so linking one sweeps that exercise out of the hand-linked list
+ * in the same transaction.
+ */
+export function linkRoutine(db: Db, lessonId: number, routineId: number): boolean {
+	return db.transaction((tx) => {
+		const routine = tx
+			.select({ id: routines.id, dance: routines.dance })
+			.from(routines)
+			.where(and(eq(routines.id, routineId), isNull(routines.archivedAt)))
+			.get();
+		if (!routine) return false;
+
+		const lesson = tx
+			.select({ dance: lessons.dance })
+			.from(lessons)
+			.where(eq(lessons.id, lessonId))
+			.get();
+		// The dance wall, as in `linkFigure`: the route checks the lesson's dance,
+		// and this is the only check on the routine id posted with it.
+		if (!lesson || lesson.dance !== routine.dance) return false;
+
+		const res = tx
+			.insert(lessonRoutines)
+			.values({ lessonId, routineId })
+			.onConflictDoNothing()
+			.run();
+		if (res.changes === 0) return false;
+
+		const owned = tx
+			.select({ id: exercises.id })
+			.from(exercises)
+			.where(eq(exercises.routineId, routineId))
+			.all()
+			.map((r) => r.id);
+		if (owned.length > 0) {
+			tx.delete(lessonExercises)
+				.where(
+					and(eq(lessonExercises.lessonId, lessonId), inArray(lessonExercises.exerciseId, owned))
+				)
+				.run();
+		}
+		return true;
+	});
+}
+
+export function unlinkRoutine(db: Db, lessonId: number, routineId: number): boolean {
+	return (
+		db
+			.delete(lessonRoutines)
+			.where(and(eq(lessonRoutines.lessonId, lessonId), eq(lessonRoutines.routineId, routineId)))
+			.run().changes > 0
+	);
+}
+
+/**
+ * Attach an existing exercise by hand. Refuses one owned by a figure or routine
+ * this lesson already links — the other half of the "never in both places" rule.
  */
 export function linkExercise(db: Db, lessonId: number, exerciseId: number): boolean {
 	return db.transaction((tx) => {
@@ -250,6 +338,7 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 				id: exercises.id,
 				dance: exercises.dance,
 				figureId: exercises.figureId,
+				routineId: exercises.routineId,
 				lessonId: exercises.lessonId
 			})
 			.from(exercises)
@@ -275,6 +364,19 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 				.from(lessonFigures)
 				.where(
 					and(eq(lessonFigures.lessonId, lessonId), eq(lessonFigures.figureId, exercise.figureId))
+				)
+				.get();
+			if (linked) return false;
+		}
+		if (exercise.routineId !== null) {
+			const linked = tx
+				.select({ routineId: lessonRoutines.routineId })
+				.from(lessonRoutines)
+				.where(
+					and(
+						eq(lessonRoutines.lessonId, lessonId),
+						eq(lessonRoutines.routineId, exercise.routineId)
+					)
 				)
 				.get();
 			if (linked) return false;
@@ -317,9 +419,29 @@ export function listLinkableFigures(db: Db, lessonId: number) {
 		.all();
 }
 
+/** Unarchived routines this lesson does not already link, alphabetical. */
+export function listLinkableRoutines(db: Db, lessonId: number) {
+	const lesson = db
+		.select({ dance: lessons.dance })
+		.from(lessons)
+		.where(eq(lessons.id, lessonId))
+		.get();
+	if (!lesson) return [];
+
+	const linked = linkedRoutineIds(db, lessonId);
+	const where = [isNull(routines.archivedAt), eq(routines.dance, lesson.dance)];
+	if (linked.length > 0) where.push(notInArray(routines.id, linked));
+	return db
+		.select({ id: routines.id, name: routines.name })
+		.from(routines)
+		.where(and(...where))
+		.orderBy(asc(routines.name))
+		.all();
+}
+
 /**
  * Exercises this lesson could still link: not archived, not already linked,
- * not owned by one of its figures, and not any lesson's review exercise — a
+ * not owned by one of its figures or routines, and not any lesson's review exercise — a
  * review exercise belongs to the lesson that created it, and borrowing one
  * into a second lesson makes "whose is this?" unanswerable on screen.
  */
@@ -351,6 +473,11 @@ export function listLinkableExercises(db: Db, lessonId: number) {
 		// so `figure_id not in (…)` is NULL, not true, and would drop every custom
 		// exercise from the picker. The explicit null arm is the whole point.
 		where.push(or(isNull(exercises.figureId), notInArray(exercises.figureId, linkedFigures))!);
+	}
+	const linkedRoutines = linkedRoutineIds(db, lessonId);
+	if (linkedRoutines.length > 0) {
+		// The same null arm, for the same reason.
+		where.push(or(isNull(exercises.routineId), notInArray(exercises.routineId, linkedRoutines))!);
 	}
 
 	return db
@@ -385,6 +512,17 @@ export function taughtIn(db: Db, figureId: number) {
 		.from(lessonFigures)
 		.innerJoin(lessons, eq(lessons.id, lessonFigures.lessonId))
 		.where(and(eq(lessonFigures.figureId, figureId), isNull(lessons.archivedAt)))
+		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
+		.all();
+}
+
+/** `taughtIn`, for a routine: the lessons that link it, newest class first. */
+export function routineTaughtIn(db: Db, routineId: number) {
+	return db
+		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })
+		.from(lessonRoutines)
+		.innerJoin(lessons, eq(lessons.id, lessonRoutines.lessonId))
+		.where(and(eq(lessonRoutines.routineId, routineId), isNull(lessons.archivedAt)))
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all();
 }

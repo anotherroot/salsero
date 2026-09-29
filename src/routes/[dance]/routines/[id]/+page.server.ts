@@ -4,6 +4,7 @@ import { getDb, type Db } from '$lib/server/db';
 import { exercises } from '$lib/server/db/schema';
 import { listFigures } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
+import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
 import { listReadySongs } from '$lib/server/songs';
 import {
@@ -78,6 +79,7 @@ export const load: PageServerLoad = ({ params }) => {
 		breaks: [...flatBreaks],
 		hasChild: slots.some((s) => s.childId !== null),
 		embeddable: embeddable(db, routine.id),
+		taughtIn: routineTaughtIn(db, routine.id),
 		// Per slot: where it can be entered from, so the editor can say so.
 		slotStarts: shape.slots.map((s) =>
 			s.kind === 'child'

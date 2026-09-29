@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { resolve } from '$app/paths';
+	import { dateLabel } from '$lib/format';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -341,6 +342,26 @@
 			</ul>
 		{/if}
 	</section>
+
+	{#if data.taughtIn.length > 0}
+		<section>
+			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Taught in</h2>
+			<ul class="space-y-1">
+				{#each data.taughtIn as lesson (lesson.id)}
+					<li>
+						<a
+							class="text-[15px] text-accent"
+							href={resolve('/[dance]/lessons/[id]', {
+								dance: data.dance.slug,
+								id: String(lesson.id)
+							})}>{lesson.title}</a
+						>
+						<span class="text-[12px] text-muted">· {dateLabel(lesson.lessonDay)}</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 </main>
 
 <!--

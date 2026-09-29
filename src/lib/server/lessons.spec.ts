@@ -10,12 +10,16 @@ import {
 	lessonVideoBytes,
 	linkExercise,
 	linkFigure,
+	linkRoutine,
 	listLessons,
 	listLinkableExercises,
 	listLinkableFigures,
+	listLinkableRoutines,
 	reviewName,
+	routineTaughtIn,
 	unlinkExercise,
 	unlinkFigure,
+	unlinkRoutine,
 	updateLesson
 } from './lessons';
 import {
@@ -26,6 +30,7 @@ import {
 	updateExercise
 } from './exercises';
 import { createFigure } from './figures';
+import { archiveRoutine, createRoutine } from './routines';
 
 let db: Db;
 beforeEach(() => {
@@ -357,5 +362,123 @@ describe('lessons are walled off by dance', () => {
 		});
 
 		expect(listLinkableExercises(db, lesson.lesson.id).map((e) => e.id)).toEqual([own.id]);
+	});
+});
+
+describe('linking routines', () => {
+	const routineInput = { name: 'Rueda combo', notes: null };
+
+	it('links a routine and lists it with the exercise that came with it', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+
+		expect(linkRoutine(db, lesson.id, routine.id)).toBe(true);
+		expect(getLesson(db, lesson.id)!.routines).toEqual([
+			{ id: routine.id, name: 'Rueda combo', exerciseId: exercise.id }
+		]);
+	});
+
+	it('refuses a second link of the same routine', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine } = createRoutine(db, 'salsa', routineInput);
+		expect(linkRoutine(db, lesson.id, routine.id)).toBe(true);
+		expect(linkRoutine(db, lesson.id, routine.id)).toBe(false);
+		expect(getLesson(db, lesson.id)!.routines).toHaveLength(1);
+	});
+
+	it('refuses an archived routine, and one that does not exist', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine } = createRoutine(db, 'salsa', routineInput);
+		archiveRoutine(db, routine.id, 1000);
+		expect(linkRoutine(db, lesson.id, routine.id)).toBe(false);
+		expect(linkRoutine(db, lesson.id, 999)).toBe(false);
+	});
+
+	it('refuses a routine from another dance', () => {
+		const { lesson } = createLesson(db, 'bachata', lessonInput);
+		const { routine } = createRoutine(db, 'salsa', routineInput);
+		expect(linkRoutine(db, lesson.id, routine.id)).toBe(false);
+		expect(listLinkableRoutines(db, lesson.id)).toEqual([]);
+	});
+
+	it('unlinks, and reports whether there was anything to unlink', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine } = createRoutine(db, 'salsa', routineInput);
+		linkRoutine(db, lesson.id, routine.id);
+		expect(unlinkRoutine(db, lesson.id, routine.id)).toBe(true);
+		expect(unlinkRoutine(db, lesson.id, routine.id)).toBe(false);
+		expect(getLesson(db, lesson.id)!.routines).toHaveLength(0);
+	});
+
+	it('offers only unarchived routines that are not linked yet', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const a = createRoutine(db, 'salsa', routineInput).routine;
+		const b = createRoutine(db, 'salsa', { name: 'Shines', notes: null }).routine;
+		const gone = createRoutine(db, 'salsa', { name: 'Old combo', notes: null }).routine;
+		archiveRoutine(db, gone.id, 1000);
+
+		linkRoutine(db, lesson.id, a.id);
+		expect(listLinkableRoutines(db, lesson.id).map((r) => r.id)).toEqual([b.id]);
+	});
+});
+
+describe('a routine exercise never shows up in both places', () => {
+	const routineInput = { name: 'Rueda combo', notes: null };
+
+	it('drops it from the linked list when its routine is linked afterwards', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+
+		expect(linkExercise(db, lesson.id, exercise.id)).toBe(true);
+		linkRoutine(db, lesson.id, routine.id);
+
+		const after = getLesson(db, lesson.id)!;
+		expect(after.exercises).toHaveLength(0);
+		expect(after.routines[0].exerciseId).toBe(exercise.id);
+	});
+
+	it('refuses to link it once its routine is already linked', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		linkRoutine(db, lesson.id, routine.id);
+		expect(linkExercise(db, lesson.id, exercise.id)).toBe(false);
+	});
+
+	it('hides it on read even if a row predates the link', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		linkRoutine(db, lesson.id, routine.id);
+		db.run(
+			`insert into lesson_exercises (lesson_id, exercise_id, created_at) values (${lesson.id}, ${exercise.id}, 0)`
+		);
+		expect(getLesson(db, lesson.id)!.exercises).toHaveLength(0);
+	});
+
+	it('leaves it out of the exercise picker once its routine is linked', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		const custom = createCustomExercise(db, 'salsa', {
+			name: 'Son basic',
+			everyDays: 3,
+			notes: null
+		});
+
+		expect(listLinkableExercises(db, lesson.id).map((e) => e.id)).toContain(exercise.id);
+		linkRoutine(db, lesson.id, routine.id);
+		// The null arm again: a custom exercise has a null `routine_id`.
+		expect(listLinkableExercises(db, lesson.id).map((e) => e.id)).toEqual([custom.id]);
+	});
+});
+
+describe('routineTaughtIn', () => {
+	it('lists the lessons that link a routine, newest first, without archived ones', () => {
+		const { routine } = createRoutine(db, 'salsa', { name: 'Rueda combo', notes: null });
+		const older = createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-09-01' }).lesson;
+		const newer = createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-09-15' }).lesson;
+		const gone = createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-09-20' }).lesson;
+		for (const l of [older, newer, gone]) linkRoutine(db, l.id, routine.id);
+		archiveLesson(db, gone.id, 1000);
+
+		expect(routineTaughtIn(db, routine.id).map((l) => l.id)).toEqual([newer.id, older.id]);
 	});
 });
