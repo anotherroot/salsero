@@ -10,8 +10,8 @@ phase 2a (song library, the home worker, the beat grid), phase 2b (the
 player: voice count, clave, random figure calls, count-only drills, and a
 finished run logged as a set), phase 3a (positions, the figure graph, the
 walking drill), phase 3b (routines: slots, variants, one-level embedding, and
-the player walking one), phase 4 (lessons: videos, notes, figure and exercise
-links, and a four-band Today), multi-dance (bachata beside salsa: the
+the player walking one), phase 4 (lessons: videos, notes, figure, routine and
+exercise links, and a four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
 panel in the popup, an exercise page).
