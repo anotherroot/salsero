@@ -181,7 +181,14 @@ export interface LessonFigureRow {
 	exerciseId: number | null;
 }
 
-/** An exercise attached to a lesson by hand. Never a linked figure's own. */
+/** A routine linked to a lesson, with the exercise that came with it. */
+export interface LessonRoutineRow {
+	id: number;
+	name: string;
+	exerciseId: number | null;
+}
+
+/** An exercise attached to a lesson by hand. Never a linked figure's or routine's own. */
 export interface LessonExerciseRow {
 	id: number;
 	name: string;

@@ -12,8 +12,8 @@ existed, but a lesson is the thing that _produced_ them. It is where the videos
 belong, where the notes belong, and what you want to go back over a week later
 when half of it has faded.
 
-A **lesson** holds a day, a title, notes, its videos, the figures it taught, and
-exercises attached by hand. Creating one creates its own review exercise, so the
+A **lesson** holds a day, a title, notes, its videos, the figures and routines it
+taught, and exercises attached by hand. Creating one creates its own review exercise, so the
 lesson appears on Today by itself; its frequency is lowered, or it is
 deactivated, as the memory settles.
 
@@ -40,6 +40,7 @@ lesson_videos
   created_at      timestamp
 
 lesson_figures     (lesson_id, figure_id) pk, created_at
+lesson_routines    (lesson_id, routine_id) pk, created_at
 lesson_exercises   (lesson_id, exercise_id) pk, created_at
 
 exercises
@@ -78,6 +79,17 @@ survive verbatim, and a bad figure row is still refused.
   Enforced on both writes — `linkFigure` sweeps that exercise out of
   `lesson_exercises`, `linkExercise` refuses one whose figure is already linked
   — and filtered again on read, so a row that predates a link cannot surface.
+- **A routine is linked the way a figure is.** Added 2026-09-29, because
+  routines are learned in class too. A routine owns its exercise exactly as a
+  figure does (`source = 'routine'`), so the rule above applies to it
+  unchanged: `linkRoutine` sweeps the exercise out of `lesson_exercises`,
+  `linkExercise` refuses it while its routine is linked, and `getLesson` filters
+  it on read. Links respect the dance wall and refuse an archived routine.
+  **+ New routine** on the lesson page creates the routine (name, frequency,
+  notes), links it, and redirects to the routine's page — a routine is only a
+  name until its slots are built, and that page is where they are built. Like
+  a new figure, create-then-link is two calls, not one transaction. The routine
+  page shows the lessons that link it under "Taught in".
 - **A review exercise is never "linked"**, not even to its own lesson: it
   belongs to the lesson that created it, and borrowing one into a second lesson
   makes "whose is this?" unanswerable on screen.
@@ -210,7 +222,8 @@ Pure and data modules, as ever; no route or component tests, matching the repo.
   inactive, and both active bands sorting by urgency then name.
 - `lessons.spec.ts` — the paired exercise created, renamed and archived with its
   lesson; `archiveExercise` and `updateExercise` refusing it; both halves of the
-  "never in both places" rule; the pickers' exclusions; byte totals.
+  "never in both places" rule, for figures and for routines; the pickers'
+  exclusions; byte totals; `routineTaughtIn`.
 - `files.spec.ts` — `parseContentRange`, and `appendStream` appending in order,
   reporting the true offset on a mismatch, and **truncating back to `start`**
   when the cap is breached mid-chunk; `sweepUploads` keeping fresh partials.
@@ -235,9 +248,10 @@ hunting one of these as a new bug.
 - **Lesson videos are not backed up**, deliberately (see `docs/deployment.md`).
   A lost file reads as "the file for this video is missing", not a broken page,
   but it is lost.
-- **Creating a figure or exercise from a lesson is two calls, not one
-  transaction.** `createFigure` opens its own, so a crash between them leaves an
-  unlinked figure — visible in Figures, fixable with one tap. Chosen over
+- **Creating a figure, routine or exercise from a lesson is two calls, not one
+  transaction.** `createFigure` and `createRoutine` open their own, so a crash
+  between them leaves an unlinked figure or routine — visible in its library,
+  fixable with one tap. Chosen over
   relying on savepoint nesting for that failure mode.
 - **Concurrent writes to one upload are refused by an in-memory `Set`.** Correct
   for one process on one port, which is what the unit runs; it would need
@@ -251,6 +265,5 @@ hunting one of these as a new bug.
 
 ## Not built
 
-Choreographies are still phase 3. `lesson_figures` is shaped so a
-`lesson_choreographies` table can be added the same way; nothing
-choreography-shaped exists yet.
+Nothing lesson-shaped is pending. Routines (phase 3b) became linkable on
+2026-09-29 through `lesson_routines`, the `lesson_figures` shape as foreseen here.

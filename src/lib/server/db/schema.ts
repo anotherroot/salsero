@@ -506,10 +506,32 @@ export const lessonFigures = sqliteTable(
 );
 
 /**
+ * Routines taught in a lesson. The `lesson_figures` shape, for the same reason:
+ * a routine owns its exercise the way a figure does, so linking one carries its
+ * exercise along and the "never in both places" rule applies to it too.
+ */
+export const lessonRoutines = sqliteTable(
+	'lesson_routines',
+	{
+		lessonId: integer('lesson_id')
+			.notNull()
+			.references(() => lessons.id),
+		routineId: integer('routine_id')
+			.notNull()
+			.references(() => routines.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.lessonId, t.routineId] }),
+		index('lesson_routines_routine_idx').on(t.routineId)
+	]
+);
+
+/**
  * Exercises attached to a lesson by hand. NOT the lesson's own review exercise
- * (that one is `exercises.lesson_id`), and never a linked figure's exercise —
- * those are shown under the figures instead. Enforced in `lessons.ts`, because
- * neither rule is expressible as a CHECK.
+ * (that one is `exercises.lesson_id`), and never a linked figure's or routine's
+ * exercise — those are shown under the figure or routine instead. Enforced in
+ * `lessons.ts`, because neither rule is expressible as a CHECK.
  */
 export const lessonExercises = sqliteTable(
 	'lesson_exercises',

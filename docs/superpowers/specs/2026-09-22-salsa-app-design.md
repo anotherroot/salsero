@@ -50,8 +50,9 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    **3a and 3b are both live.** Song-bound choreography is out of scope. See
    [`2026-09-24-routines-design.md`](2026-09-24-routines-design.md).
 4. **Lessons** — a class as a record: day, title, notes, chunk-uploaded videos,
-   links to the figures it taught and to exercises, and its own auto-created
-   review exercise. Shipped 2026-09-23, ahead of phase 3. Today gained a fourth
+   links to the figures and routines it taught and to exercises, and its own
+   auto-created review exercise. Shipped 2026-09-23, ahead of phase 3; routine
+   links followed on 2026-09-29. Today gained a fourth
    band at the same time. See
    [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md).
 
@@ -64,7 +65,7 @@ clave?"), offline mode.
 browser (work PC / phone, installable PWA)
   ├─ Today / Exercises   list, log sets, ‹ › day navigation
   ├─ Figures             list, detail, recordings
-  ├─ Lessons             (phase 4) list, detail, videos, figure/exercise links
+  ├─ Lessons             (phase 4) list, detail, videos, figure/routine/exercise links
   ├─ Routines            (phase 3)
   ├─ Songs               (phase 2) library, add by URL/upload, song page
   └─ Player              (phase 2) <audio> + Web Audio scheduler
@@ -198,6 +199,7 @@ lesson_videos                                  -- phase 4
   created_at      timestamp
 
 lesson_figures     (lesson_id, figure_id) pk, created_at      -- phase 4
+lesson_routines    (lesson_id, routine_id) pk, created_at     -- phase 4
 lesson_exercises   (lesson_id, exercise_id) pk, created_at    -- phase 4
 
 positions                                      -- phase 3a; the handhold vocabulary
@@ -262,9 +264,9 @@ now)`, computed per request. No cron, no cached "last done" column.
 - **`lesson_day` is a day, not an instant**, and is stored as the `YYYY-MM-DD`
   string `localDay` produces. The "every instant is epoch ms" rule is about
   instants; converting a day through one on every read is how it drifts by one.
-- **A figure's exercise is never in two places.** It shows under the figure, so
-  `lesson_exercises` is for hand-attached exercises only — enforced on both
-  writes and filtered again on read.
+- **A figure's or routine's exercise is never in two places.** It shows under
+  its figure or routine, so `lesson_exercises` is for hand-attached exercises
+  only — enforced on both writes and filtered again on read.
 - **Analysis output and user corrections are stored separately**, so
   re-analysing a song never loses a correction.
 - `active = false` means "not practicing this right now": shown below the
