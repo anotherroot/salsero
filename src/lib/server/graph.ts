@@ -96,15 +96,16 @@ export function figurePositions(db: Db, figureId: number) {
 export interface FigureShape {
 	startIds: number[];
 	endId: number | null;
-	/** 1..8. */
-	startCount: number;
-	/** 1..MAX_LENGTH_COUNTS counts. */
-	lengthCounts: number;
+	/** 1..8, or null on a variation for "the figure's". */
+	startCount: number | null;
+	/** 1..MAX_LENGTH_COUNTS counts, or null on a variation for "the figure's". */
+	lengthCounts: number | null;
 }
 
 /**
  * Replace a figure's start positions, end position, start count and length, in
- * one transaction.
+ * one transaction. On a variation, null timing and no start rows mean the
+ * figure's.
  *
  * Returns false — writing nothing — when the figure is gone, when a timing
  * value is out of range, or when any position belongs to another dance. That
@@ -117,15 +118,21 @@ export interface FigureShape {
  */
 export function setFigureShape(db: Db, figureId: number, shape: FigureShape): boolean {
 	const { startIds, endId, startCount, lengthCounts } = shape;
-	if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) return false;
+	if (startCount !== null && !isStartCount(startCount)) return false;
+	if (lengthCounts !== null && !isLengthCounts(lengthCounts)) return false;
 
 	return db.transaction((tx) => {
 		const figure = tx
-			.select({ dance: figures.dance })
+			.select({ dance: figures.dance, parentId: figures.parentId })
 			.from(figures)
 			.where(eq(figures.id, figureId))
 			.get();
 		if (!figure) return false;
+		// Null means "the figure's", which only a variation has a figure to take
+		// from. A base figure always states its own timing.
+		if (figure.parentId === null && (startCount === null || lengthCounts === null)) {
+			return false;
+		}
 
 		const wanted = [...new Set(endId === null ? startIds : [...startIds, endId])];
 		if (wanted.length > 0) {

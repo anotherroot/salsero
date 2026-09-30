@@ -1,6 +1,6 @@
 import { and, asc, count, eq, inArray, isNull, like } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, figures, recordings } from './db/schema';
+import { exercises, figures, recordings, type Figure } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import type { Partner } from '$lib/labels';
 import type { CallableFigure } from '$lib/types';
@@ -61,6 +61,9 @@ export function updateFigure(db: Db, id: number, input: FigureInput) {
 	return db.transaction((tx) => {
 		const current = tx.select().from(figures).where(eq(figures.id, id)).get();
 		if (!current) return null;
+		// A variation's partner, style and call text are its figure's; its own
+		// name and directions go through `updateVariation`.
+		if (current.parentId !== null) return null;
 		if (!isStyleOf(current.dance, input.style)) return null;
 		const figure = tx
 			.update(figures)
@@ -82,6 +85,12 @@ export function archiveFigure(db: Db, id: number, now: number): boolean {
 			.where(and(eq(figures.id, id), isNull(figures.archivedAt)))
 			.run();
 		if (res.changes === 0) return false;
+		// A figure's variations go with it. Archiving a variation matches nothing
+		// here, so the same function archives one alone.
+		tx.update(figures)
+			.set({ archivedAt: now })
+			.where(and(eq(figures.parentId, id), isNull(figures.archivedAt)))
+			.run();
 		tx.update(exercises).set({ archivedAt: now }).where(eq(exercises.figureId, id)).run();
 		return true;
 	});
@@ -191,4 +200,86 @@ export function deleteRecording(db: Db, id: number) {
 
 export function getRecordingByFile(db: Db, file: string) {
 	return db.select().from(recordings).where(eq(recordings.file, file)).get() ?? null;
+}
+
+/* ── Variations ─────────────────────────────────────────────────────────── */
+
+export interface VariationInput {
+	name: string;
+	/** The variation's own directions. */
+	notes: string | null;
+}
+
+/** A figure's unarchived variations, oldest first — the order of its version tabs. */
+export function listVariations(db: Db, parentId: number): Figure[] {
+	return db
+		.select()
+		.from(figures)
+		.where(and(eq(figures.parentId, parentId), isNull(figures.archivedAt)))
+		.orderBy(asc(figures.id))
+		.all();
+}
+
+/**
+ * Whether another unarchived variation of this figure already has the name,
+ * ignoring case and surrounding space. Exported so the page can refuse a taken
+ * name BEFORE it writes the variation's shape, not after.
+ */
+export function variationNameTaken(
+	db: Db,
+	parentId: number,
+	name: string,
+	exceptId: number | null
+): boolean {
+	const wanted = name.trim().toLowerCase();
+	return listVariations(db, parentId).some(
+		(v) => v.id !== exceptId && v.name.trim().toLowerCase() === wanted
+	);
+}
+
+/**
+ * A variation of a figure: a `figures` row with `parent_id` set, and deliberately
+ * NO exercise — a variation is practised through its figure.
+ *
+ * Its dance, partner and style are copied from the figure, never taken from a
+ * form. Everything that can differ starts unset, which reads as "the figure's".
+ * Null when the figure is gone, archived, or itself a variation (one level
+ * only), or when one of its variations already has the name.
+ */
+export function createVariation(db: Db, parentId: number, input: VariationInput): Figure | null {
+	const parent = db.select().from(figures).where(eq(figures.id, parentId)).get();
+	if (!parent || parent.archivedAt !== null || parent.parentId !== null) return null;
+	if (variationNameTaken(db, parentId, input.name, null)) return null;
+	return db
+		.insert(figures)
+		.values({
+			name: input.name,
+			notes: input.notes,
+			parentId,
+			dance: parent.dance,
+			partner: parent.partner,
+			styleTag: parent.styleTag,
+			// Never read — the drill's pool excludes variations — but false says so.
+			callable: false
+		})
+		.returning()
+		.get();
+}
+
+/**
+ * Rename a variation or change its directions. Null for a base figure, a gone
+ * or archived variation, or a name a sibling already uses.
+ */
+export function updateVariation(db: Db, id: number, input: VariationInput): Figure | null {
+	const current = db.select().from(figures).where(eq(figures.id, id)).get();
+	if (!current || current.parentId === null || current.archivedAt !== null) return null;
+	if (variationNameTaken(db, current.parentId, input.name, id)) return null;
+	return (
+		db
+			.update(figures)
+			.set({ name: input.name, notes: input.notes })
+			.where(eq(figures.id, id))
+			.returning()
+			.get() ?? null
+	);
 }
