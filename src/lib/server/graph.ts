@@ -65,7 +65,8 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 			id: r.id,
 			starts: byFigure.get(r.id) ?? [],
 			end: r.end,
-			eights: r.eights
+			start: 1,
+			length: r.eights * 8
 		}))
 	};
 }

@@ -22,11 +22,11 @@ import {
 const g: Graph = {
 	neutral: 1,
 	figures: [
-		{ id: 10, starts: [], end: null, eights: 1 },
-		{ id: 11, starts: [1], end: 2, eights: 1 },
-		{ id: 12, starts: [2], end: 1, eights: 1 },
-		{ id: 13, starts: [1, 2], end: 3, eights: 2 },
-		{ id: 14, starts: [3], end: 1, eights: 1 }
+		{ id: 10, starts: [], end: null, start: 1, length: 8 },
+		{ id: 11, starts: [1], end: 2, start: 1, length: 8 },
+		{ id: 12, starts: [2], end: 1, start: 1, length: 8 },
+		{ id: 13, starts: [1, 2], end: 3, start: 1, length: 16 },
+		{ id: 14, starts: [3], end: 1, start: 1, length: 8 }
 	]
 };
 

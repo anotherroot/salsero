@@ -15,10 +15,10 @@ const rand = (seq: number[]) => {
 const graph: Graph = {
 	neutral: OPEN,
 	figures: [
-		{ id: 1, starts: [OPEN], end: CROSS, eights: 1 }, // open  → cross
-		{ id: 2, starts: [CROSS], end: HAMMER, eights: 2 }, // cross → hammerlock, 2×8
-		{ id: 3, starts: [HAMMER], end: OPEN, eights: 1 }, // hammer → open
-		{ id: 4, starts: [OPEN], end: OPEN, eights: 1 } // open  → open
+		{ id: 1, starts: [OPEN], end: CROSS, start: 1, length: 8 }, // open  → cross
+		{ id: 2, starts: [CROSS], end: HAMMER, start: 1, length: 16 }, // cross → hammerlock, 2×8
+		{ id: 3, starts: [HAMMER], end: OPEN, start: 1, length: 8 }, // hammer → open
+		{ id: 4, starts: [OPEN], end: OPEN, start: 1, length: 8 } // open  → open
 	]
 };
 
@@ -97,7 +97,7 @@ describe('graphFlow', () => {
 		// confirming this test fails.
 		const flat: Graph = {
 			neutral: OPEN,
-			figures: [1, 2, 3].map((id) => ({ id, starts: [], end: null, eights: 1 }))
+			figures: [1, 2, 3].map((id) => ({ id, starts: [], end: null, start: 1, length: 8 }))
 		};
 		const viaGraph = extendPlan([], [3, 1, 2], 2, 10, rand([0, 0.5, 0.9]), graphFlow(flat));
 		const viaUniform = extendPlan([], [3, 1, 2], 2, 10, rand([0, 0.5, 0.9]));

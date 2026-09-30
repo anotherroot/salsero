@@ -83,7 +83,7 @@ describe('setFigurePositions', () => {
 			endId: pos('hammerlock-r')
 		});
 		const g = buildGraph(db, 'salsa');
-		expect(g.figures[0].eights).toBe(2);
+		expect(g.figures[0].length).toBe(16);
 		expect(g.figures[0].end).toBe(pos('hammerlock-r'));
 	});
 

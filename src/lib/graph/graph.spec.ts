@@ -5,6 +5,7 @@ import {
 	figuresFrom,
 	figuresTo,
 	follows,
+	nextCountOf,
 	orphans,
 	positionCounts,
 	precedes,
@@ -24,8 +25,8 @@ const fig = (
 	id: number,
 	starts: number[] = [],
 	end: number | null = null,
-	eights = 1
-): Graph['figures'][number] => ({ id, starts, end, eights });
+	length = 8
+): Graph['figures'][number] => ({ id, starts, end, start: 1, length });
 
 describe('untagged figures read as neutral', () => {
 	it('treats no start rows as the neutral position', () => {
@@ -107,5 +108,12 @@ describe('positionCounts', () => {
 		const ids = [OPEN, HAMMER, SHADOW, CROSS];
 		expect(deadEnds(graph, ids)).toEqual([HAMMER]);
 		expect(orphans(graph, ids)).toEqual([SHADOW]);
+	});
+});
+
+describe('nextCountOf', () => {
+	it('reads the figure’s own start and length', () => {
+		expect(nextCountOf({ id: 1, starts: [], end: null, start: 5, length: 4 })).toBe(1);
+		expect(nextCountOf({ id: 2, starts: [], end: null, start: 1, length: 4 })).toBe(5);
 	});
 });
