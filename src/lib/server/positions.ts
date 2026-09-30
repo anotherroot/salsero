@@ -43,23 +43,35 @@ export function neutralPosition(db: Db, dance: DanceSlug) {
 }
 
 /**
- * Add a position. Returns null when the slug is already taken within the dance
- * — the unique index is per `(dance, slug)`, so the same slug in the other
+ * Add a position. Returns null when a LIVE position of the dance already has the
+ * slug — the unique index is per `(dance, slug)`, so the same slug in the other
  * dance is a different position and is allowed.
+ *
+ * An ARCHIVED position with the slug is brought back instead: removing a
+ * position archives it and the row keeps its slug, so without this a removed
+ * position could never be added again. Reviving the same row, under the name
+ * just typed, also keeps any figure still tagged with it pointing at it.
  */
 export function createPosition(db: Db, dance: DanceSlug, input: PositionInput) {
 	return db.transaction((tx) => {
 		const clash = tx
-			.select({ id: positions.id })
+			.select({ id: positions.id, archivedAt: positions.archivedAt })
 			.from(positions)
 			.where(and(eq(positions.dance, dance), eq(positions.slug, input.slug)))
 			.get();
-		if (clash) return null;
-		const row = tx
-			.insert(positions)
-			.values({ ...input, dance })
-			.returning()
-			.get();
+		if (clash && clash.archivedAt === null) return null;
+		const row = clash
+			? tx
+					.update(positions)
+					.set({ ...input, archivedAt: null })
+					.where(eq(positions.id, clash.id))
+					.returning()
+					.get()
+			: tx
+					.insert(positions)
+					.values({ ...input, dance })
+					.returning()
+					.get();
 		// Exactly one neutral per dance. Written inline rather than through a
 		// helper: drizzle's transaction handle is not a `Db`, and nothing else in
 		// this repo passes a `tx` to a function.

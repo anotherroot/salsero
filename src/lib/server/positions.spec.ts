@@ -87,6 +87,35 @@ describe('createPosition', () => {
 		expect(createPosition(db, 'salsa', input)).toBeNull();
 		expect(createPosition(db, 'bachata', input)).not.toBeNull();
 	});
+
+	it('brings an archived position back when its name is added again', () => {
+		// Removing a position archives it, and the archived row keeps its slug —
+		// so adding "Cradle" again used to hit the clash and be refused for good.
+		const db = openDb(':memory:');
+		const first = createPosition(db, 'bachata', {
+			slug: 'cradle',
+			name: 'Cradle',
+			neutral: false,
+			sortOrder: 3
+		})!;
+		expect(archivePosition(db, first.id, 1000)).toBe(true);
+
+		const again = createPosition(db, 'bachata', {
+			slug: 'cradle',
+			name: 'Cradle (wrap)',
+			neutral: false,
+			sortOrder: 7
+		});
+		// The same row, live again, under the name just typed — so a figure still
+		// tagged with it keeps pointing at the position it always meant.
+		expect(again).toMatchObject({
+			id: first.id,
+			archivedAt: null,
+			name: 'Cradle (wrap)',
+			sortOrder: 7
+		});
+		expect(listPositions(db, 'bachata').map((p) => p.id)).toContain(first.id);
+	});
 });
 
 describe('updatePosition', () => {
