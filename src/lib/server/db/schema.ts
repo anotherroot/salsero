@@ -132,12 +132,22 @@ export const figures = sqliteTable(
 		 * migration 0010; `createFigure` writes 8.
 		 */
 		lengthCounts: integer('length_counts'),
+		/**
+		 * Set on a VARIATION: a version of the figure this points at, with its own
+		 * directions (`notes`), positions, timing and recordings. Anything unset —
+		 * no start rows, a null end, null timing — is the parent's; `buildGraph`
+		 * fills it in. One level only, same dance as the parent, never an exercise:
+		 * all enforced in `figures.ts`, because this table can never gain a CHECK.
+		 * See docs/superpowers/specs/2026-09-29-figure-variations-design.md.
+		 */
+		parentId: integer('parent_id').references((): AnySQLiteColumn => figures.id),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
 	(t) => [
 		check('figures_partner_ck', sql`${t.partner} in ('partner', 'solo')`),
-		check('figures_style_ck', sql`${t.style} in ('salsa', 'son', 'other')`)
+		check('figures_style_ck', sql`${t.style} in ('salsa', 'son', 'other')`),
+		index('figures_parent_idx').on(t.parentId)
 	]
 );
 

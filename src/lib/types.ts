@@ -195,6 +195,17 @@ export interface LessonExerciseRow {
 	source: Source;
 }
 
+/** A figure or one of its variations, as a picker offers it. */
+export interface FigureVersion {
+	id: number;
+	/** The figure this is a variation of; null for the figure itself. */
+	parentId: number | null;
+	/** The row's own name — "Doble". */
+	name: string;
+	/** How to show it anywhere else — "Enchufla · Doble". A figure's label is its name. */
+	label: string;
+}
+
 /** A figure the player may call, as the setup screen lists it. */
 export interface CallableFigure {
 	id: number;

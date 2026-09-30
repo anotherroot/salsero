@@ -8,17 +8,17 @@
  * content lives in different tables. The components never branch — they ask
  * the registry for the type's popup.
  */
-import { eq } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, figures } from './db/schema';
+import { exercises } from './db/schema';
 import { lastSet } from './exercises';
-import { getFigure } from './figures';
+import { figureLabels, getFigure } from './figures';
 import { getLesson } from './lessons';
 import { listLinks } from './links';
 import { getRoutine, routineSlots } from './routines';
 import { daysBetween, localDay } from '$lib/day/day';
 import { typeOf } from '$lib/exercises/kinds';
 import { DEFAULT_LENGTH_COUNTS, eightsSpan } from '$lib/graph/timing';
+import type { DanceSlug } from '$lib/dances/dances';
 import type { PracticeContent, PracticePayload } from '$lib/types';
 
 type Exercise = typeof exercises.$inferSelect;
@@ -89,15 +89,9 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 			if (exercise.routineId === null) return bare(exercise);
 			const routine = getRoutine(db, exercise.routineId);
 			if (!routine) return bare(exercise);
-			// Every figure of the dance, archived included: a slot can still name one.
-			const names = new Map(
-				db
-					.select({ id: figures.id, name: figures.name })
-					.from(figures)
-					.where(eq(figures.dance, exercise.dance))
-					.all()
-					.map((f) => [f.id, f.name] as [number, string])
-			);
+			// Every figure of the dance, archived included: a slot can still name
+			// one. A variation reads "Enchufla · Doble".
+			const names = figureLabels(db, exercise.dance as DanceSlug);
 			return {
 				type: 'routine',
 				routine: { id: routine.id, name: routine.name, notes: routine.notes },

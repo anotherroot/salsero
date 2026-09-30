@@ -4,6 +4,7 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
+	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
@@ -14,12 +15,13 @@
 	import { dateLabel } from '$lib/format';
 	import { localDay } from '$lib/day/day';
 	import type { MediaProblem } from '$lib/media';
-	import type { ActionData, PageData } from './$types';
+	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
 	let logging = $state(false);
+	let addingVariation = $state(false);
 	const FigureLog = logFor('figure');
 	/**
 	 * Recordings whose player failed, and why. "missing" means the server has no
@@ -30,25 +32,77 @@
 	let broken = $state<Record<number, MediaProblem>>({});
 
 	const figure = $derived(data.figure);
+	const version = $derived(data.version);
+	const slug = $derived(data.dance.slug);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
-	const failure = $derived(form && 'message' in form ? form.message : null);
+	const failed = (action: string) =>
+		form && 'action' in form && form.action === action && 'message' in form
+			? String(form.message)
+			: null;
 	// The figure's real style tag, not the vestigial `figure.style` column.
 	const styleLabel = $derived(figure.styleTag ? data.dance.styleLabel[figure.styleTag] : undefined);
 	const neutralName = $derived(data.positions.find((p) => p.neutral)?.name ?? 'the neutral hold');
 	const positionName = (id: number) =>
 		data.positions.find((p) => p.id === id)?.name ?? 'an untagged position';
-	/** "Open two hands / Cross-hand → Hammerlock" — untagged sides read as neutral. */
+
+	/** On a variation, what it leaves to Basic — marked "(as Basic)" in view mode. */
+	const asBasic = $derived({
+		starts: version.isVariation && data.tags.startIds.length === 0,
+		end: version.isVariation && data.tags.endId === null,
+		startCount: version.isVariation && data.own.startCount === null,
+		lengthCounts: version.isVariation && data.own.lengthCounts === null
+	});
+	const mark = (inherited: boolean) => (inherited ? ' (as Basic)' : '');
+
+	/** "Open two hands / Cross-hand → Hammerlock", neutral already resolved by the graph. */
 	const handholds = $derived(
-		`${data.tags.startIds.length > 0 ? data.tags.startIds.map(positionName).join(' / ') : neutralName} → ${
-			data.tags.endId === null ? neutralName : positionName(data.tags.endId)
-		}`
+		`${data.effective.starts.map(positionName).join(' / ') || neutralName}${mark(asBasic.starts)} → ${
+			data.effective.end === null ? neutralName : positionName(data.effective.end)
+		}${mark(asBasic.end)}`
 	);
-	const linkFailure = $derived(
-		form && 'action' in form && form.action === 'addLink' && 'message' in form
-			? String(form.message)
-			: null
-	);
+	const notes = $derived(version.isVariation ? version.notes : figure.notes);
+
+	const tabHref = (id: number) =>
+		id === figure.id
+			? resolve('/[dance]/figures/[id]', { dance: slug, id: String(figure.id) })
+			: resolve(`/${slug}/figures/${figure.id}?v=${id}`);
+	const itemHref = (item: { id: number; parentId: number | null }) =>
+		item.parentId === null
+			? resolve('/[dance]/figures/[id]', { dance: slug, id: String(item.id) })
+			: resolve(`/${slug}/figures/${item.parentId}?v=${item.id}`);
+
+	const linkFailure = $derived(failed('addLink'));
 	const linkEntered = $derived(form && 'urls' in form ? String(form.urls) : '');
+
+	$effect(() => {
+		if (failed('createVariation')) addingVariation = true;
+	});
+
+	const field =
+		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
+	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
+	const errorBox = 'rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger';
+	const closeOnSuccess: SubmitFunction =
+		() =>
+		async ({ update, result }) => {
+			await update({ reset: false });
+			if (result.type === 'success') editing = false;
+		};
+	/**
+	 * The new-variation sheet. Success is a redirect to the SAME route with a new
+	 * `?v=`, so SvelteKit keeps this component: without closing it here the sheet
+	 * would stay open over the new tab with the name still typed, and a second tap
+	 * would be refused as a duplicate.
+	 */
+	const closeSheet: SubmitFunction =
+		({ formElement }) =>
+		async ({ update, result }) => {
+			await update();
+			if (result.type === 'redirect') {
+				addingVariation = false;
+				formElement.reset();
+			}
+		};
 </script>
 
 <svelte:head><title>{figure.name} · {data.dance.label}</title></svelte:head>
@@ -58,7 +112,7 @@
 	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
 >
 	<a
-		href={resolve('/[dance]/figures', { dance: data.dance.slug })}
+		href={resolve('/[dance]/figures', { dance: slug })}
 		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
 		aria-label="Back to figures">‹</a
 	>
@@ -70,82 +124,176 @@
 	>
 </header>
 
+<!--
+	Version tabs: Basic is the figure itself, then each variation, then + to add
+	one. A tab is a link (?v=), so a reload or a shared link lands on it.
+-->
+<nav
+	class="flex gap-1.5 overflow-x-auto border-b border-line px-4 py-2"
+	aria-label="Versions of {figure.name}"
+>
+	{#each data.versions as v (v.id)}
+		<a
+			href={tabHref(v.id)}
+			aria-current={v.id === version.id ? 'page' : undefined}
+			class="h-9 shrink-0 rounded-full px-3.5 text-[14px] leading-9 font-medium {v.id === version.id
+				? 'bg-accent text-accent-ink'
+				: 'border border-line text-ink-2'}">{v.name}</a
+		>
+	{/each}
+	<button
+		type="button"
+		onclick={() => (addingVariation = true)}
+		class="grid size-9 shrink-0 place-items-center rounded-full border border-line text-[18px] text-accent"
+		aria-label="New variation">+</button
+	>
+</nav>
+
 <main class="space-y-6 px-4 pt-4 pb-4">
 	{#if editing}
-		<form
-			method="POST"
-			action="?/update"
-			class="space-y-3"
-			use:enhance={() =>
-				async ({ update, result }) => {
-					await update({ reset: false });
-					if (result.type === 'success') editing = false;
-				}}
-		>
-			<FigureFields
-				dance={data.dance}
-				name={figure.name}
-				partner={figure.partner}
-				style={figure.styleTag ?? undefined}
-				notes={figure.notes}
-				callable={figure.callable}
-				callText={figure.callText}
-			/>
-
-			<!--
-				Positions and timing live in the same form as the name now: one Save
-				for the whole figure. Keyed on the figure: both components seed their
-				own state once, and SvelteKit reuses them across a same-route
-				navigation, so without the key the next figure would open showing the
-				previous one's tags.
-			-->
-			{#key figure.id}
-				<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
-			{/key}
-
-			<label class="block">
-				<span class="text-[13px] font-medium">Ends at</span>
-				<select
-					name="endId"
-					class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+		<!--
+			Keyed on the version: `editing` survives a tab change, and without the key
+			one variation's form would be reused for the next — its unsaved directions
+			and end position carried over and saved onto the wrong variation.
+		-->
+		{#key version.id}
+			{#if version.isVariation}
+				<form
+					method="POST"
+					action="?/updateVariation"
+					class="space-y-3"
+					use:enhance={closeOnSuccess}
 				>
-					<option value="" selected={data.tags.endId === null}>{neutralName}</option>
-					{#each data.positions as position (position.id)}
-						<option value={position.id} selected={data.tags.endId === position.id}>
-							{position.name}{position.archived ? ' (archived)' : ''}
-						</option>
-					{/each}
-				</select>
-			</label>
-
-			{#key figure.id}
-				<FigureTiming startCount={data.timing.startCount} lengthCounts={data.timing.lengthCounts} />
-			{/key}
-
-			{#if failure}
-				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-					{failure}
-				</p>
+					<input type="hidden" name="versionId" value={version.id} />
+					<label class="block">
+						<span class={label}>Name</span>
+						<input name="name" required maxlength="200" value={version.name} class={field} />
+					</label>
+					<label class="block">
+						<span class={label}>Directions</span>
+						<textarea name="notes" rows="4" maxlength="2000" class={field}
+							>{version.notes ?? ''}</textarea
+						>
+					</label>
+					{#key version.id}
+						<StartPositions
+							positions={data.positions}
+							initial={data.tags.startIds}
+							neutralName="Same as Basic"
+						/>
+					{/key}
+					<label class="block">
+						<span class="text-[13px] font-medium">Ends at</span>
+						<select
+							name="endId"
+							class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+						>
+							<option value="" selected={data.tags.endId === null}>Same as Basic</option>
+							{#each data.positions as position (position.id)}
+								<option value={position.id} selected={data.tags.endId === position.id}>
+									{position.name}{position.archived ? ' (archived)' : ''}
+								</option>
+							{/each}
+						</select>
+					</label>
+					{#key version.id}
+						<FigureTiming
+							startCount={data.own.startCount}
+							lengthCounts={data.own.lengthCounts}
+							inherited={data.basic}
+						/>
+					{/key}
+					{#if failed('updateVariation')}
+						<p class={errorBox} role="alert">{failed('updateVariation')}</p>
+					{/if}
+					<button
+						type="submit"
+						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+						>Save</button
+					>
+				</form>
+				<form
+					method="POST"
+					action="?/archiveVariation"
+					onsubmit={(e) => {
+						if (!confirm(`Archive the variation “${version.name}”? Its recordings are kept.`)) {
+							e.preventDefault();
+						}
+					}}
+				>
+					<input type="hidden" name="versionId" value={version.id} />
+					<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
+						>Archive variation</button
+					>
+				</form>
+			{:else}
+				<form method="POST" action="?/update" class="space-y-3" use:enhance={closeOnSuccess}>
+					<FigureFields
+						dance={data.dance}
+						name={figure.name}
+						partner={figure.partner}
+						style={figure.styleTag ?? undefined}
+						notes={figure.notes}
+						callable={figure.callable}
+						callText={figure.callText}
+					/>
+					<!--
+					Keyed on the version: both pickers seed their own state once, and
+					SvelteKit reuses them across a same-route navigation — a tab change
+					included — so without the key the next version would open showing the
+					previous one's values.
+				-->
+					{#key version.id}
+						<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
+					{/key}
+					<label class="block">
+						<span class="text-[13px] font-medium">Ends at</span>
+						<select
+							name="endId"
+							class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+						>
+							<option value="" selected={data.tags.endId === null}>{neutralName}</option>
+							{#each data.positions as position (position.id)}
+								<option value={position.id} selected={data.tags.endId === position.id}>
+									{position.name}{position.archived ? ' (archived)' : ''}
+								</option>
+							{/each}
+						</select>
+					</label>
+					{#key version.id}
+						<FigureTiming
+							startCount={data.basic.startCount}
+							lengthCounts={data.basic.lengthCounts}
+						/>
+					{/key}
+					{#if failed('update')}
+						<p class={errorBox} role="alert">{failed('update')}</p>
+					{/if}
+					<button
+						type="submit"
+						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+						>Save</button
+					>
+				</form>
+				<form
+					method="POST"
+					action="?/archive"
+					onsubmit={(e) => {
+						if (
+							!confirm(
+								`Archive “${figure.name}” and its variations? Practice history and recordings are kept.`
+							)
+						) {
+							e.preventDefault();
+						}
+					}}
+				>
+					<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
+						>Archive figure</button
+					>
+				</form>
 			{/if}
-			<button
-				type="submit"
-				class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-				>Save</button
-			>
-		</form>
-		<form
-			method="POST"
-			action="?/archive"
-			onsubmit={(e) => {
-				if (!confirm(`Archive “${figure.name}”? Its practice history and recordings are kept.`)) {
-					e.preventDefault();
-				}
-			}}
-		>
-			<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
-				>Archive figure</button
-			>
-		</form>
+		{/key}
 	{:else}
 		<section>
 			<p class="text-[13px] text-muted">
@@ -153,11 +301,12 @@
 				{/if}{PARTNER_LABEL[figure.partner]}
 			</p>
 			<p class="text-[13px] text-muted">
-				Starts on {data.timing.startCount} · {data.timing.lengthCounts} counts
+				Starts on {data.effective.startCount}{mark(asBasic.startCount)} · {data.effective
+					.lengthCounts} counts{mark(asBasic.lengthCounts)}
 			</p>
 			<p class="text-[13px] text-muted">{handholds}</p>
-			{#if figure.notes}
-				<LinkedText text={figure.notes} class="mt-2 text-[15px] whitespace-pre-line" />
+			{#if notes}
+				<LinkedText text={notes} class="mt-2 text-[15px] whitespace-pre-line" />
 			{/if}
 		</section>
 
@@ -167,7 +316,7 @@
 					<p class="text-[14px] font-medium">Practice</p>
 					<a
 						href={resolve('/[dance]/exercises/[id]', {
-							dance: data.dance.slug,
+							dance: slug,
 							id: String(data.exercise.id)
 						})}
 						class="text-[12px] text-accent"
@@ -195,15 +344,7 @@
 				{:else}
 					<ul class="space-y-1">
 						{#each list.items as item (item.id)}
-							<li>
-								<a
-									class="text-[15px] text-accent"
-									href={resolve('/[dance]/figures/[id]', {
-										dance: data.dance.slug,
-										id: String(item.id)
-									})}>{item.name}</a
-								>
-							</li>
+							<li><a class="text-[15px] text-accent" href={itemHref(item)}>{item.name}</a></li>
 						{/each}
 					</ul>
 				{/if}
@@ -214,7 +355,7 @@
 	<section>
 		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Recordings</h2>
 		<ul class="space-y-3">
-			{#each data.recordings as rec (rec.id)}
+			{#each version.recordings as rec (rec.id)}
 				<li class="overflow-hidden rounded-xl border border-line bg-raised">
 					{#if broken[rec.id] === 'missing'}
 						<p class="p-4 text-[13px] text-muted">The file for this recording is missing.</p>
@@ -252,6 +393,7 @@
 									if (!confirm('Delete this recording?')) e.preventDefault();
 								}}
 							>
+								<input type="hidden" name="versionId" value={version.id} />
 								<input type="hidden" name="recordingId" value={rec.id} />
 								<button type="submit" class="h-9 px-2 text-danger">Delete</button>
 							</form>
@@ -261,11 +403,14 @@
 			{/each}
 		</ul>
 		<div class="mt-3">
-			<UploadButton
-				url="/api/figures/{figure.id}/recordings"
-				accept="video/*,audio/*"
-				label="+ Add video or audio"
-			/>
+			<!-- Keyed: the button holds upload state, and a tab change must not carry it over. -->
+			{#key version.id}
+				<UploadButton
+					url="/api/figures/{version.id}/recordings"
+					accept="video/*,audio/*"
+					label="+ Add video or audio"
+				/>
+			{/key}
 		</div>
 	</section>
 
@@ -282,10 +427,8 @@
 					<li>
 						<a
 							class="text-[15px] text-accent"
-							href={resolve('/[dance]/lessons/[id]', {
-								dance: data.dance.slug,
-								id: String(lesson.id)
-							})}>{lesson.title}</a
+							href={resolve('/[dance]/lessons/[id]', { dance: slug, id: String(lesson.id) })}
+							>{lesson.title}</a
 						>
 						<span class="text-[12px] text-muted">· {dateLabel(lesson.lessonDay)}</span>
 					</li>
@@ -294,6 +437,39 @@
 		</section>
 	{/if}
 </main>
+
+<Sheet
+	title="New variation of {figure.name}"
+	open={addingVariation}
+	onclose={() => (addingVariation = false)}
+>
+	<!-- A success redirects to the new variation's tab. Its positions and timing
+	     start as Basic's; Edit there to change them. -->
+	<form method="POST" action="?/createVariation" class="space-y-3" use:enhance={closeSheet}>
+		{#if failed('createVariation')}
+			<p class={errorBox} role="alert">{failed('createVariation')}</p>
+		{/if}
+		<label class="block">
+			<span class={label}>Name</span>
+			<input
+				name="name"
+				required
+				maxlength="200"
+				placeholder="e.g. Doble, From cross"
+				class={field}
+			/>
+		</label>
+		<label class="block">
+			<span class={label}>Directions</span>
+			<textarea name="notes" rows="3" maxlength="2000" class={field}></textarea>
+		</label>
+		<button
+			type="submit"
+			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+			>Add variation</button
+		>
+	</form>
+</Sheet>
 
 {#if logging && data.popup}
 	<FigureLog
@@ -304,9 +480,7 @@
 		takes={data.popup.takes}
 		backfillDay={null}
 		{timezone}
-		message={form && 'action' in form && form.action === 'log' && 'message' in form
-			? String(form.message)
-			: null}
+		message={failed('log')}
 		onclose={() => (logging = false)}
 	/>
 {/if}

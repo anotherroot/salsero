@@ -8,8 +8,8 @@
 > "variants" are renamed **alternatives**, `figures.eights` gives way to
 > `length_counts`, and a routine run no longer calls figure names.
 >
-> **Slice 1 (timing and one edit mode) is live.** Slices 2 and 3 are not built
-> yet.
+> **Slices 1 (timing and one edit mode) and 2 (variations) are live.** Slice 3
+> is not built yet.
 
 ## Purpose
 
@@ -137,13 +137,16 @@ exist.
   figure does today.
 - **Variations are not figures, for every list.** `listFigures` excludes
   `parent_id is not null` by default. So do `listCallableFigures` (the drill
-  pool), the lesson figure picker, the "tagged 6/41" count, and the positions
-  page's per-figure counts. Each gets a test, because a missed filter leaks
+  pool), the lesson figure picker and the "tagged 6/41" count. Each gets a test, because a missed filter leaks
   variations somewhere silently. The write side matches: the lessons
   `linkFigure` refuses a variation id posted by hand — a lesson teaches the
   figure, and the variation is reached through it.
 - **The graph includes variations.** A variation is a real way to move between
-  positions, so the gap report and the routine algebra count it. The drill
+  positions, so the gap report and the routine algebra count it. The positions
+  page IS the gap report, so its in/out counts include variations — a
+  variation that leaves hammerlock is a real way out. (An earlier draft of the
+  rule above listed "the positions page's counts" among the exclusions; that
+  contradicted this rule and was corrected when slice 2 shipped.) The drill
   cannot be affected: `graphFlow.pick` filters the **pool** by the graph, not
   the other way round, and the pool excludes variations.
 - **Nothing derived is stored**, as before: a version's effective values, its
@@ -308,8 +311,8 @@ component tests.
   the parent; archiving a figure archives its variations; no exercise for a
   variation.
 - **List exclusions:** the library, the drill pool, the lesson picker, the
-  tagged count and the positions counts each exclude variations — one test
-  apiece.
+  tagged count each exclude variations — one test apiece; the gap report
+  counts them.
 - **Alternatives:** `addOption` refuses a mismatched end position or
   `nextCount`.
 - **`routineTimeline`:** first figure on its start count after the lead-in;

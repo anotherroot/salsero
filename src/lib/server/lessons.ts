@@ -227,11 +227,12 @@ export function getLesson(db: Db, id: number) {
 export function linkFigure(db: Db, lessonId: number, figureId: number): boolean {
 	return db.transaction((tx) => {
 		const figure = tx
-			.select({ id: figures.id, dance: figures.dance })
+			.select({ id: figures.id, dance: figures.dance, parentId: figures.parentId })
 			.from(figures)
 			.where(and(eq(figures.id, figureId), isNull(figures.archivedAt)))
 			.get();
-		if (!figure) return false;
+		// A lesson teaches the figure; its variations are reached through it.
+		if (!figure || figure.parentId !== null) return false;
 
 		const lesson = tx
 			.select({ dance: lessons.dance })
@@ -409,7 +410,11 @@ export function listLinkableFigures(db: Db, lessonId: number) {
 	if (!lesson) return [];
 
 	const linked = linkedFigureIds(db, lessonId);
-	const where = [isNull(figures.archivedAt), eq(figures.dance, lesson.dance)];
+	const where = [
+		isNull(figures.archivedAt),
+		isNull(figures.parentId),
+		eq(figures.dance, lesson.dance)
+	];
 	if (linked.length > 0) where.push(notInArray(figures.id, linked));
 	return db
 		.select({ id: figures.id, name: figures.name })

@@ -12,7 +12,9 @@
 > slot "variants" are now **alternatives**, and must share their next count as
 > well as their end position; `figures.eights` is vestigial, replaced by
 > `start_count` and `length_counts`; timing breaks are reported beside position
-> breaks.
+> breaks. A slot's alternative can be a figure's **variation** (a `figures`
+> row with `parent_id`); the options table is unchanged because a variation is a
+> figure id.
 
 ## Purpose
 

@@ -25,7 +25,7 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { createFigure, getFigure } from '$lib/server/figures';
+import { addRecording, createFigure, createVariation, getFigure } from '$lib/server/figures';
 import {
 	createCustomExercise,
 	getExercise,
@@ -323,6 +323,120 @@ describe("the detail pages refuse the other dance's rows", () => {
 		const after = getFigure(db, salsaFigureId)!.figure;
 		expect(after.name).toBe(before.name);
 		expect(after.lengthCounts).toBe(before.lengthCounts);
+	});
+
+	describe('variations', () => {
+		const loadWith = (dance: string, id: string, search = '') =>
+			(figurePage.load as unknown as (e: unknown) => unknown)({
+				params: { dance, id },
+				url: new URL(`http://localhost/${search}`),
+				locals: { user: USER }
+			});
+
+		it('opens a variation’s own URL on its figure, with its tab chosen', () => {
+			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
+			const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+			expect(() => loadWith('salsa', String(v.id))).toThrow(
+				expect.objectContaining({ status: 303, location: `/salsa/figures/${parent.id}?v=${v.id}` })
+			);
+		});
+
+		it('will not redirect across the wall: a bachata variation under /salsa/ is a 404', () => {
+			const v = createVariation(db, bachataFigureId, { name: 'Doble', notes: null })!;
+			expect(() => loadWith('salsa', String(v.id))).toThrow(threw404);
+		});
+
+		it('shows the chosen tab, and falls back to Basic for a foreign ?v=', () => {
+			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
+			const v = createVariation(db, parent.id, { name: 'Doble', notes: 'Spot' })!;
+			const other = createVariation(db, bachataFigureId, { name: 'Otra', notes: null })!;
+			expect(loadWith('salsa', String(parent.id), `?v=${v.id}`)).toMatchObject({
+				version: { id: v.id, name: 'Doble', notes: 'Spot', isVariation: true },
+				versions: [
+					{ id: parent.id, name: 'Basic' },
+					{ id: v.id, name: 'Doble' }
+				]
+			});
+			expect(loadWith('salsa', String(parent.id), `?v=${other.id}`)).toMatchObject({
+				version: { id: parent.id, isVariation: false }
+			});
+		});
+
+		/** A complete variation edit — each test overrides only what it is about. */
+		const editV = (versionId: number, fields: Record<string, string> = {}) => ({
+			versionId: String(versionId),
+			name: 'Renamed',
+			notes: '',
+			startCount: '',
+			lengthCounts: '',
+			...fields
+		});
+
+		it('refuses to edit a variation of another figure, writing nothing', async () => {
+			const a = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
+			const b = createFigure(db, 'salsa', { ...figureInput, name: 'B', style: 'salsa' })!.figure;
+			const vb = createVariation(db, b.id, { name: 'Doble', notes: null })!;
+			await refuses(
+				figurePage.actions.updateVariation,
+				post('salsa', editV(vb.id, { lengthCounts: '4' }), String(a.id))
+			);
+			const row = getFigure(db, vb.id)!.figure;
+			expect([row.name, row.lengthCounts]).toEqual(['Doble', null]);
+		});
+
+		it('refuses a sibling’s name before writing anything', async () => {
+			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
+			const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+			createVariation(db, parent.id, { name: 'Con giro', notes: null });
+			const result = await call(
+				figurePage.actions.updateVariation,
+				post('salsa', editV(v.id, { name: 'con giro', lengthCounts: '4' }), String(parent.id))
+			);
+			expect(result).toMatchObject({ status: 400 });
+			const row = getFigure(db, v.id)!.figure;
+			expect([row.name, row.lengthCounts]).toEqual(['Doble', null]);
+		});
+
+		it('saves "same as Basic" as null and a stated value as itself', async () => {
+			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
+			const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+			await call(
+				figurePage.actions.updateVariation,
+				post('salsa', editV(v.id, { name: 'Doble', startCount: '5' }), String(parent.id))
+			);
+			const row = getFigure(db, v.id)!.figure;
+			expect([row.startCount, row.lengthCounts]).toEqual([5, null]);
+		});
+
+		it('refuses to archive a variation of another figure', async () => {
+			const a = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
+			const b = createFigure(db, 'salsa', { ...figureInput, name: 'B', style: 'salsa' })!.figure;
+			const vb = createVariation(db, b.id, { name: 'Doble', notes: null })!;
+			await refuses(
+				figurePage.actions.archiveVariation,
+				post('salsa', { versionId: String(vb.id) }, String(a.id))
+			);
+			expect(getFigure(db, vb.id)!.figure.archivedAt).toBeNull();
+		});
+
+		it('refuses to delete a recording of another figure’s variation', async () => {
+			const a = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
+			const b = createFigure(db, 'salsa', { ...figureInput, name: 'B', style: 'salsa' })!.figure;
+			const vb = createVariation(db, b.id, { name: 'Doble', notes: null })!;
+			const rec = addRecording(db, {
+				figureId: vb.id,
+				file: 'x.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 1,
+				note: null
+			});
+			await refuses(
+				figurePage.actions.deleteRecording,
+				post('salsa', { versionId: String(vb.id), recordingId: String(rec.id) }, String(a.id))
+			);
+			expect(getFigure(db, vb.id)!.recordings.map((r) => r.id)).toEqual([rec.id]);
+		});
 	});
 
 	it('will not open a bachata song from a salsa URL', () => {

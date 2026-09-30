@@ -13,9 +13,9 @@
  */
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, figures, routineStepOptions, routineSteps, routines } from './db/schema';
-import { neutralPosition } from './positions';
-import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT, nextCount } from '$lib/graph/timing';
+import { exercises, routineStepOptions, routineSteps, routines } from './db/schema';
+import { buildGraph } from './graph';
+import { endOf, figureById, nextCountOf, type Graph } from '$lib/graph/graph';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { OptionsSlot, RoutineShape, Slot } from '$lib/routines/routines';
 import type { RoutineItem, SlotRow } from '$lib/types';
@@ -279,33 +279,16 @@ function slotIds(tx: Tx, routineId: number): number[] {
 }
 
 /**
- * Where a figure leaves the hands and on which count it leaves the next one —
- * the two things alternatives must agree on. Untagged resolves to neutral, and
- * unset timing to start 1 / 8 counts, the same defaults `buildGraph` applies.
- * Null when the figure is not this dance's, or is archived, or gone.
+ * Where a figure — or a variation — leaves the hands and on which count it
+ * leaves the next one: the two things alternatives must agree on. Read off the
+ * graph, which is what fills a variation's unset fields from its figure and
+ * resolves untagged to neutral; reading the row directly would see a
+ * variation's nulls. Null when the figure is not in this dance's graph —
+ * another dance, archived, or gone.
  */
-function landingOf(
-	db: Db,
-	dance: DanceSlug,
-	figureId: number
-): { end: number; next: number } | null {
-	const row = db
-		.select({
-			end: figures.endPositionId,
-			startCount: figures.startCount,
-			lengthCounts: figures.lengthCounts
-		})
-		.from(figures)
-		.where(and(eq(figures.id, figureId), eq(figures.dance, dance), isNull(figures.archivedAt)))
-		.get();
-	if (!row) return null;
-	return {
-		end: row.end ?? neutralPosition(db, dance)?.id ?? 0,
-		next: nextCount(
-			row.startCount ?? DEFAULT_START_COUNT,
-			row.lengthCounts ?? DEFAULT_LENGTH_COUNTS
-		)
-	};
+function landingIn(g: Graph, figureId: number): { end: number; next: number } | null {
+	const f = figureById(g, figureId);
+	return f ? { end: endOf(g, f), next: nextCountOf(f) } : null;
 }
 
 /**
@@ -319,7 +302,7 @@ export function addFigureSlot(db: Db, routineId: number, figureId: number): numb
 	const routine = getRoutine(db, routineId);
 	if (!routine) return null;
 	const dance = routine.dance as DanceSlug;
-	if (landingOf(db, dance, figureId) === null) return null;
+	if (landingIn(buildGraph(db, dance), figureId) === null) return null;
 	return db.transaction((tx) => {
 		const at = slotIds(tx, routineId).length;
 		const step = tx
@@ -407,7 +390,8 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	const routine = getRoutine(db, step.routineId);
 	if (!routine) return false;
 	const dance = routine.dance as DanceSlug;
-	const landing = landingOf(db, dance, figureId);
+	const g = buildGraph(db, dance);
+	const landing = landingIn(g, figureId);
 	if (landing === null) return false;
 	const existing = db
 		.select({ figureId: routineStepOptions.figureId })
@@ -416,7 +400,7 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 		.all();
 	for (const o of existing) {
 		if (o.figureId === figureId) return true;
-		const other = landingOf(db, dance, o.figureId);
+		const other = landingIn(g, o.figureId);
 		if (other === null || other.end !== landing.end || other.next !== landing.next) return false;
 	}
 	db.insert(routineStepOptions).values({ stepId, figureId }).run();
