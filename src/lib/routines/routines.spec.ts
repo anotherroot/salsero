@@ -8,8 +8,13 @@ import {
 	routineEnd,
 	routineStarts,
 	sharedEnd,
+	sharedNextCount,
+	slotStartCounts,
 	slotStarts,
-	type RoutineShape
+	slotTiming,
+	timingBreaks,
+	type RoutineShape,
+	type Slot
 } from './routines';
 
 /**
@@ -240,5 +245,114 @@ describe('slotAt', () => {
 		// `findIndex` answers -1 when it misses, and -1 % 5 is -1 in JS, which
 		// indexes past the start of the list and silently highlights no row.
 		expect(slotAt(-1, 5)).toBe(4);
+	});
+});
+
+/**
+ * Timing fixtures. Every figure is untagged (all positions neutral) so only the
+ * count can break a seam.
+ *   20: 1 → 1 (8 counts)    21: 1 → 5 (4 counts)    22: 5 → 1 (4 counts)
+ *   23: 5 → 5 (8 counts)    24: 1 → 1 (16 counts)
+ */
+const t: Graph = {
+	neutral: 1,
+	figures: [
+		{ id: 20, starts: [], end: null, start: 1, length: 8 },
+		{ id: 21, starts: [], end: null, start: 1, length: 4 },
+		{ id: 22, starts: [], end: null, start: 5, length: 4 },
+		{ id: 23, starts: [], end: null, start: 5, length: 8 },
+		{ id: 24, starts: [], end: null, start: 1, length: 16 }
+	]
+};
+
+describe('slotStartCounts', () => {
+	it('is the union of its options’ start counts, ascending', () => {
+		expect(slotStartCounts(t, { kind: 'options', figureIds: [23, 20] })).toEqual([1, 5]);
+	});
+
+	it('ignores an option the graph does not know', () => {
+		expect(slotStartCounts(t, { kind: 'options', figureIds: [22, 999] })).toEqual([5]);
+	});
+});
+
+describe('sharedNextCount', () => {
+	it('is the count every option leaves the next on', () => {
+		expect(sharedNextCount(t, { kind: 'options', figureIds: [20, 24] })).toBe(1);
+	});
+
+	it('is null when the options disagree — a hand-edited slot, never a guess', () => {
+		expect(sharedNextCount(t, { kind: 'options', figureIds: [20, 21] })).toBeNull();
+		expect(sharedNextCount(t, { kind: 'options', figureIds: [21, 20] })).toBeNull();
+	});
+});
+
+describe('timingBreaks', () => {
+	it('is empty when each figure leaves the next on its start count', () => {
+		expect(timingBreaks(t, opts(21, 22, 20))).toEqual([]);
+	});
+
+	it('reports the seam where the count does not line up, and does not refuse it', () => {
+		// 20 leaves the next on 1; 22 starts on 5.
+		expect(timingBreaks(t, opts(20, 22))).toEqual([0]);
+	});
+
+	it('finds nothing in a repertoire of whole 8-counts from 1 — every existing routine', () => {
+		expect(timingBreaks(t, opts(20, 24, 20, 24))).toEqual([]);
+	});
+
+	it('reports no timing break out of a slot whose next count is unknown', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [20, 21] },
+				{ kind: 'options', figureIds: [22] }
+			]
+		};
+		expect(timingBreaks(t, shape)).toEqual([]);
+	});
+
+	it('sees a timing break at an embedded routine’s seam', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [20] },
+				{ kind: 'child', routineId: 9, slots: [{ kind: 'options', figureIds: [22] }] }
+			]
+		};
+		expect(timingBreaks(t, shape)).toEqual([0]);
+	});
+});
+
+describe('slotTiming', () => {
+	it('gives an option slot its start counts and next count', () => {
+		expect(slotTiming(t, { kind: 'options', figureIds: [22] })).toEqual({ starts: [5], next: 1 });
+	});
+
+	it('lets an embedded routine borrow its first slot’s starts and its last slot’s next', () => {
+		const child: Slot = {
+			kind: 'child',
+			routineId: 9,
+			slots: [
+				{ kind: 'options', figureIds: [21] },
+				{ kind: 'options', figureIds: [23] }
+			]
+		};
+		expect(slotTiming(t, child)).toEqual({ starts: [1], next: 5 });
+	});
+
+	it('is empty for an embedded routine with nothing danceable, rather than throwing', () => {
+		expect(slotTiming(t, { kind: 'child', routineId: 9, slots: [] })).toEqual({
+			starts: [],
+			next: null
+		});
+	});
+});
+
+describe('loops, with timing', () => {
+	it('is true when the count comes back round to the start', () => {
+		expect(loops(t, opts(21, 22))).toBe(true);
+	});
+
+	it('is false when the positions loop but the count does not', () => {
+		// Starts on 1, leaves the next on 5.
+		expect(loops(t, opts(21))).toBe(false);
 	});
 });
