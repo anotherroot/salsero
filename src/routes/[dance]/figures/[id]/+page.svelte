@@ -88,6 +88,21 @@
 			await update({ reset: false });
 			if (result.type === 'success') editing = false;
 		};
+	/**
+	 * The new-variation sheet. Success is a redirect to the SAME route with a new
+	 * `?v=`, so SvelteKit keeps this component: without closing it here the sheet
+	 * would stay open over the new tab with the name still typed, and a second tap
+	 * would be refused as a duplicate.
+	 */
+	const closeSheet: SubmitFunction =
+		({ formElement }) =>
+		async ({ update, result }) => {
+			await update();
+			if (result.type === 'redirect') {
+				addingVariation = false;
+				formElement.reset();
+			}
+		};
 </script>
 
 <svelte:head><title>{figure.name} · {data.dance.label}</title></svelte:head>
@@ -136,134 +151,149 @@
 
 <main class="space-y-6 px-4 pt-4 pb-4">
 	{#if editing}
-		{#if version.isVariation}
-			<form method="POST" action="?/updateVariation" class="space-y-3" use:enhance={closeOnSuccess}>
-				<input type="hidden" name="versionId" value={version.id} />
-				<label class="block">
-					<span class={label}>Name</span>
-					<input name="name" required maxlength="200" value={version.name} class={field} />
-				</label>
-				<label class="block">
-					<span class={label}>Directions</span>
-					<textarea name="notes" rows="4" maxlength="2000" class={field}
-						>{version.notes ?? ''}</textarea
-					>
-				</label>
-				{#key version.id}
-					<StartPositions
-						positions={data.positions}
-						initial={data.tags.startIds}
-						neutralName="Same as Basic"
-					/>
-				{/key}
-				<label class="block">
-					<span class="text-[13px] font-medium">Ends at</span>
-					<select
-						name="endId"
-						class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
-					>
-						<option value="" selected={data.tags.endId === null}>Same as Basic</option>
-						{#each data.positions as position (position.id)}
-							<option value={position.id} selected={data.tags.endId === position.id}>
-								{position.name}{position.archived ? ' (archived)' : ''}
-							</option>
-						{/each}
-					</select>
-				</label>
-				{#key version.id}
-					<FigureTiming
-						startCount={data.own.startCount}
-						lengthCounts={data.own.lengthCounts}
-						inherited={data.basic}
-					/>
-				{/key}
-				{#if failed('updateVariation')}
-					<p class={errorBox} role="alert">{failed('updateVariation')}</p>
-				{/if}
-				<button
-					type="submit"
-					class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-					>Save</button
+		<!--
+			Keyed on the version: `editing` survives a tab change, and without the key
+			one variation's form would be reused for the next — its unsaved directions
+			and end position carried over and saved onto the wrong variation.
+		-->
+		{#key version.id}
+			{#if version.isVariation}
+				<form
+					method="POST"
+					action="?/updateVariation"
+					class="space-y-3"
+					use:enhance={closeOnSuccess}
 				>
-			</form>
-			<form
-				method="POST"
-				action="?/archiveVariation"
-				onsubmit={(e) => {
-					if (!confirm(`Archive the variation “${version.name}”? Its recordings are kept.`)) {
-						e.preventDefault();
-					}
-				}}
-			>
-				<input type="hidden" name="versionId" value={version.id} />
-				<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
-					>Archive variation</button
+					<input type="hidden" name="versionId" value={version.id} />
+					<label class="block">
+						<span class={label}>Name</span>
+						<input name="name" required maxlength="200" value={version.name} class={field} />
+					</label>
+					<label class="block">
+						<span class={label}>Directions</span>
+						<textarea name="notes" rows="4" maxlength="2000" class={field}
+							>{version.notes ?? ''}</textarea
+						>
+					</label>
+					{#key version.id}
+						<StartPositions
+							positions={data.positions}
+							initial={data.tags.startIds}
+							neutralName="Same as Basic"
+						/>
+					{/key}
+					<label class="block">
+						<span class="text-[13px] font-medium">Ends at</span>
+						<select
+							name="endId"
+							class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+						>
+							<option value="" selected={data.tags.endId === null}>Same as Basic</option>
+							{#each data.positions as position (position.id)}
+								<option value={position.id} selected={data.tags.endId === position.id}>
+									{position.name}{position.archived ? ' (archived)' : ''}
+								</option>
+							{/each}
+						</select>
+					</label>
+					{#key version.id}
+						<FigureTiming
+							startCount={data.own.startCount}
+							lengthCounts={data.own.lengthCounts}
+							inherited={data.basic}
+						/>
+					{/key}
+					{#if failed('updateVariation')}
+						<p class={errorBox} role="alert">{failed('updateVariation')}</p>
+					{/if}
+					<button
+						type="submit"
+						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+						>Save</button
+					>
+				</form>
+				<form
+					method="POST"
+					action="?/archiveVariation"
+					onsubmit={(e) => {
+						if (!confirm(`Archive the variation “${version.name}”? Its recordings are kept.`)) {
+							e.preventDefault();
+						}
+					}}
 				>
-			</form>
-		{:else}
-			<form method="POST" action="?/update" class="space-y-3" use:enhance={closeOnSuccess}>
-				<FigureFields
-					dance={data.dance}
-					name={figure.name}
-					partner={figure.partner}
-					style={figure.styleTag ?? undefined}
-					notes={figure.notes}
-					callable={figure.callable}
-					callText={figure.callText}
-				/>
-				<!--
+					<input type="hidden" name="versionId" value={version.id} />
+					<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
+						>Archive variation</button
+					>
+				</form>
+			{:else}
+				<form method="POST" action="?/update" class="space-y-3" use:enhance={closeOnSuccess}>
+					<FigureFields
+						dance={data.dance}
+						name={figure.name}
+						partner={figure.partner}
+						style={figure.styleTag ?? undefined}
+						notes={figure.notes}
+						callable={figure.callable}
+						callText={figure.callText}
+					/>
+					<!--
 					Keyed on the version: both pickers seed their own state once, and
 					SvelteKit reuses them across a same-route navigation — a tab change
 					included — so without the key the next version would open showing the
 					previous one's values.
 				-->
-				{#key version.id}
-					<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
-				{/key}
-				<label class="block">
-					<span class="text-[13px] font-medium">Ends at</span>
-					<select
-						name="endId"
-						class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+					{#key version.id}
+						<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
+					{/key}
+					<label class="block">
+						<span class="text-[13px] font-medium">Ends at</span>
+						<select
+							name="endId"
+							class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+						>
+							<option value="" selected={data.tags.endId === null}>{neutralName}</option>
+							{#each data.positions as position (position.id)}
+								<option value={position.id} selected={data.tags.endId === position.id}>
+									{position.name}{position.archived ? ' (archived)' : ''}
+								</option>
+							{/each}
+						</select>
+					</label>
+					{#key version.id}
+						<FigureTiming
+							startCount={data.basic.startCount}
+							lengthCounts={data.basic.lengthCounts}
+						/>
+					{/key}
+					{#if failed('update')}
+						<p class={errorBox} role="alert">{failed('update')}</p>
+					{/if}
+					<button
+						type="submit"
+						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+						>Save</button
 					>
-						<option value="" selected={data.tags.endId === null}>{neutralName}</option>
-						{#each data.positions as position (position.id)}
-							<option value={position.id} selected={data.tags.endId === position.id}>
-								{position.name}{position.archived ? ' (archived)' : ''}
-							</option>
-						{/each}
-					</select>
-				</label>
-				{#key version.id}
-					<FigureTiming startCount={data.basic.startCount} lengthCounts={data.basic.lengthCounts} />
-				{/key}
-				{#if failed('update')}
-					<p class={errorBox} role="alert">{failed('update')}</p>
-				{/if}
-				<button
-					type="submit"
-					class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-					>Save</button
+				</form>
+				<form
+					method="POST"
+					action="?/archive"
+					onsubmit={(e) => {
+						if (
+							!confirm(
+								`Archive “${figure.name}” and its variations? Practice history and recordings are kept.`
+							)
+						) {
+							e.preventDefault();
+						}
+					}}
 				>
-			</form>
-			<form
-				method="POST"
-				action="?/archive"
-				onsubmit={(e) => {
-					if (
-						!confirm(
-							`Archive “${figure.name}” and its variations? Practice history and recordings are kept.`
-						)
-					) {
-						e.preventDefault();
-					}
-				}}
-			>
-				<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
-					>Archive figure</button
-				>
-			</form>
-		{/if}
+					<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
+						>Archive figure</button
+					>
+				</form>
+			{/if}
+		{/key}
 	{:else}
 		<section>
 			<p class="text-[13px] text-muted">
@@ -415,7 +445,7 @@
 >
 	<!-- A success redirects to the new variation's tab. Its positions and timing
 	     start as Basic's; Edit there to change them. -->
-	<form method="POST" action="?/createVariation" class="space-y-3" use:enhance>
+	<form method="POST" action="?/createVariation" class="space-y-3" use:enhance={closeSheet}>
 		{#if failed('createVariation')}
 			<p class={errorBox} role="alert">{failed('createVariation')}</p>
 		{/if}
