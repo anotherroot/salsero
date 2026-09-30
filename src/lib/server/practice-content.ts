@@ -72,7 +72,6 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 					id: figure.id,
 					name: figure.name,
 					notes: figure.notes,
-					say: figure.callText ?? figure.name,
 					eights: eightsSpan(figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS)
 				},
 				links: listLinks(db, { figureId: figure.id }),

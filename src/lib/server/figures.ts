@@ -3,7 +3,7 @@ import type { Db } from './db';
 import { exercises, figures, recordings, type Figure } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import type { Partner } from '$lib/labels';
-import type { CallableFigure, FigureVersion } from '$lib/types';
+import type { CalledFigure, FigureVersion } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
 
 export interface FigureInput {
@@ -12,8 +12,6 @@ export interface FigureInput {
 	/** Validated against `DANCES[dance].styles`; stored in `style_tag`. */
 	style: string;
 	notes: string | null;
-	callable: boolean;
-	callText: string | null;
 }
 
 /** The columns a `FigureInput` writes. `style` is vestigial and never set. */
@@ -126,53 +124,18 @@ export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {})
 		.all();
 }
 
-/** Figures the player may call, alphabetical. Archived and non-callable excluded. */
-export function listCallableFigures(db: Db, dance: DanceSlug): CallableFigure[] {
-	return db
-		.select({
-			id: figures.id,
-			name: figures.name,
-			callText: figures.callText,
-			partner: figures.partner,
-			style: figures.styleTag
-		})
-		.from(figures)
-		.where(
-			and(
-				isNull(figures.archivedAt),
-				isNull(figures.parentId),
-				eq(figures.callable, true),
-				eq(figures.dance, dance)
-			)
-		)
-		.orderBy(figures.name)
-		.all()
-		.map(({ callText, ...f }) => ({ ...f, say: callText ?? f.name }));
-}
-
 /**
- * Named figures in the same shape `listCallableFigures` returns, for figures
- * called by id rather than drawn from the pool — a routine's options.
+ * The figures a routine can call, by id, with what the player shows and says
+ * for each. Archived ones are excluded, because `buildGraph` excludes them too
+ * and the planner will never reach one.
  *
- * `callable` is not consulted: that flag says "offer this in the drill's
- * picker", and a routine names its figures explicitly. Archived ones are still
- * excluded, because `buildGraph` excludes them too and the planner will never
- * reach one.
- *
- * A variation is shown as "Enchufla · Doble" and SAID as its figure — the drill
- * never calls a variation, and a spoken call has three counts to fit in.
+ * A variation is shown as "Enchufla · Doble" and SAID as its figure — a spoken
+ * call has three counts to fit in.
  */
-export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): CallableFigure[] {
+export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): CalledFigure[] {
 	if (ids.length === 0) return [];
 	const rows = db
-		.select({
-			id: figures.id,
-			name: figures.name,
-			callText: figures.callText,
-			partner: figures.partner,
-			style: figures.styleTag,
-			parentId: figures.parentId
-		})
+		.select({ id: figures.id, name: figures.name, parentId: figures.parentId })
 		.from(figures)
 		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), inArray(figures.id, ids)))
 		.orderBy(figures.name)
@@ -182,17 +145,17 @@ export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): Cal
 		(parentIds.length === 0
 			? []
 			: db
-					.select({ id: figures.id, name: figures.name, callText: figures.callText })
+					.select({ id: figures.id, name: figures.name })
 					.from(figures)
 					.where(inArray(figures.id, parentIds))
 					.all()
-		).map((p) => [p.id, p])
+		).map((p) => [p.id, p.name])
 	);
-	return rows.map(({ callText, parentId, ...f }) => {
+	return rows.map(({ id, name, parentId }) => {
 		const parent = parentId === null ? undefined : parents.get(parentId);
-		return parent
-			? { ...f, name: `${parent.name} · ${f.name}`, say: parent.callText ?? parent.name }
-			: { ...f, say: callText ?? f.name };
+		return parent === undefined
+			? { id, name, say: name }
+			: { id, name: `${parent} · ${name}`, say: parent };
 	});
 }
 
@@ -287,9 +250,7 @@ export function createVariation(db: Db, parentId: number, input: VariationInput)
 			parentId,
 			dance: parent.dance,
 			partner: parent.partner,
-			styleTag: parent.styleTag,
-			// Never read — the drill's pool excludes variations — but false says so.
-			callable: false
+			styleTag: parent.styleTag
 		})
 		.returning()
 		.get();

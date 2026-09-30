@@ -7,7 +7,6 @@ import {
 	createFigure,
 	createVariation,
 	figureLabels,
-	listCallableFigures,
 	listFigures,
 	listFiguresForCall,
 	listVariations,
@@ -33,9 +32,7 @@ const base = (name = 'Enchufla', dance: 'salsa' | 'bachata' = 'salsa') =>
 		name,
 		partner: 'partner',
 		style: dance === 'salsa' ? 'salsa' : 'dominican',
-		notes: null,
-		callable: true,
-		callText: null
+		notes: null
 	})!.figure;
 
 describe('figures.parent_id', () => {
@@ -125,9 +122,7 @@ describe('updateFigure', () => {
 				name: 'X',
 				partner: 'partner',
 				style: 'salsa',
-				notes: null,
-				callable: true,
-				callText: null
+				notes: null
 			})
 		).toBeNull();
 	});
@@ -183,11 +178,6 @@ describe('variations are not figures, for every list', () => {
 	it('leaves them out of the library', () => {
 		const { parent } = setup();
 		expect(listFigures(db, 'salsa').map((f) => f.id)).toEqual([parent.id]);
-	});
-
-	it('leaves them out of the drill’s pool', () => {
-		const { parent } = setup();
-		expect(listCallableFigures(db, 'salsa').map((f) => f.id)).toEqual([parent.id]);
 	});
 
 	it('leaves them out of the lesson picker, and refuses one posted by hand', () => {
@@ -304,13 +294,11 @@ describe('labels and versions', () => {
 			name: 'Enchufla',
 			partner: 'partner',
 			style: 'salsa',
-			notes: null,
-			callable: true,
-			callText: 'en-CHU-fla'
+			notes: null
 		})!.figure;
 		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
 		expect(listFiguresForCall(db, 'salsa', [v.id])).toMatchObject([
-			{ id: v.id, name: 'Enchufla · Doble', say: 'en-CHU-fla' }
+			{ id: v.id, name: 'Enchufla · Doble', say: 'Enchufla' }
 		]);
 	});
 

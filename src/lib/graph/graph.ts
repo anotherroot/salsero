@@ -13,7 +13,7 @@
  * An UNTAGGED figure reads as neutral on both sides. That is what lets the
  * feature ship without a backfill: a repertoire nobody has tagged is one big
  * hub, which is honest for casino — most figures really do run open → open —
- * and it means the drill behaves exactly as it did before any tagging began.
+ * and it means a routine plays exactly as it did before any tagging began.
  */
 import { nextCount } from './timing';
 
@@ -72,9 +72,8 @@ export function figuresTo(g: Graph, positionId: number): number[] {
  * its start positions — which every untagged figure is, both sides resolving to
  * neutral. That is right here: this module answers reachability, and "can I
  * dance that again right now" is genuinely yes. Suppressing an immediate repeat
- * is the CALLER's decision, and both callers make it — the drill's walk drops
- * the figure it just called, and the figure page drops itself from its own
- * lists.
+ * is the CALLER's decision, and the figure page makes it: it drops itself from
+ * its own lists.
  */
 export function follows(g: Graph, figureId: number): number[] {
 	const f = figureById(g, figureId);

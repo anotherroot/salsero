@@ -24,7 +24,6 @@ import {
 	createFigure,
 	deleteRecording,
 	getFigure,
-	listCallableFigures,
 	listFigures,
 	listFiguresForCall,
 	updateFigure
@@ -42,9 +41,7 @@ const figureInput = {
 	name: 'Dile que no',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
-	notes: null,
-	callable: true,
-	callText: null
+	notes: null
 };
 const bareSet = (exerciseId: number, doneAt: number) => ({
 	exerciseId,
@@ -171,43 +168,17 @@ describe('exercises and sets', () => {
 		expect(customRow.routineId).toBeNull();
 	});
 
-	it('lists only callable, unarchived figures, and says callText when set', () => {
-		const a = createFigure(db, 'salsa', { ...figureInput, name: 'Enchufla' })!;
-		createFigure(db, 'salsa', { ...figureInput, name: 'Hidden', partner: 'solo', callable: false });
-		const c = createFigure(db, 'salsa', {
-			...figureInput,
-			name: 'Dile que no',
-			callText: 'dee-lay kay no'
-		})!;
-		archiveFigure(db, a.figure.id, Date.now());
-
-		const out = listCallableFigures(db, 'salsa');
-		expect(out.map((f) => f.name)).toEqual(['Dile que no']);
-		expect(out[0].say).toBe('dee-lay kay no');
-		expect(c.figure.id).toBe(out[0].id);
-	});
-
-	it('names the figures a routine asks for by id, callable or not', () => {
+	it('names and says the figures a routine asks for by id', () => {
 		const plain = createFigure(db, 'salsa', { ...figureInput, name: 'Enchufla' })!;
-		const hidden = createFigure(db, 'salsa', {
-			...figureInput,
-			name: 'Setenta',
-			callable: false,
-			callText: 'seh-ten-ta'
-		})!;
+		const other = createFigure(db, 'salsa', { ...figureInput, name: 'Setenta' })!;
 		const gone = createFigure(db, 'salsa', { ...figureInput, name: 'Vacilala' })!;
 		createFigure(db, 'salsa', figureInput);
 		archiveFigure(db, gone.figure.id, Date.now());
 
-		const out = listFiguresForCall(db, 'salsa', [
-			plain.figure.id,
-			hidden.figure.id,
-			gone.figure.id
-		]);
-		// The uncallable one IS named — a routine names its figures explicitly —
-		// while the archived one, and the figure nobody asked for, are not.
+		const out = listFiguresForCall(db, 'salsa', [plain.figure.id, other.figure.id, gone.figure.id]);
+		// The archived one, and the figure nobody asked for, are not named.
 		expect(out.map((f) => f.name)).toEqual(['Enchufla', 'Setenta']);
-		expect(out.find((f) => f.id === hidden.figure.id)?.say).toBe('seh-ten-ta');
+		expect(out.find((f) => f.id === other.figure.id)?.say).toBe('Setenta');
 	});
 
 	// A routine with no options at all asks for nothing, and must get nothing —
@@ -263,12 +234,6 @@ describe('figures are walled off by dance', () => {
 	it('a figure knows the dance it belongs to, so a loader can refuse it', () => {
 		const made = createFigure(db, 'bachata', bachataInput)!;
 		expect(getFigure(db, made.figure.id)?.figure.dance).toBe('bachata');
-	});
-
-	it('calls only its own dance figures', () => {
-		createFigure(db, 'salsa', figureInput);
-		createFigure(db, 'bachata', bachataInput);
-		expect(listCallableFigures(db, 'bachata').map((f) => f.name)).toEqual(['Basico']);
 	});
 
 	it('names only its own dance figures when a routine asks by id', () => {

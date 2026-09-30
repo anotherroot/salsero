@@ -20,9 +20,7 @@ const figureInput = {
 	name: 'Enchufla',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
-	notes: 'Lead on 1',
-	callable: true,
-	callText: 'en-CHU-fla'
+	notes: 'Lead on 1'
 };
 const set = (exerciseId: number, doneAt: number, rating: number | null = null) =>
 	logSet(db, {
@@ -62,7 +60,7 @@ describe('practicePayload', () => {
 		addLinks(db, { figureId: figure.id }, ['https://a.org'], 'Demo');
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({
 			type: 'figure',
-			figure: { id: figure.id, name: 'Enchufla', notes: 'Lead on 1', say: 'en-CHU-fla', eights: 1 },
+			figure: { id: figure.id, name: 'Enchufla', notes: 'Lead on 1', eights: 1 },
 			links: [{ url: 'https://a.org', title: 'Demo' }],
 			recordings: []
 		});

@@ -15,9 +15,7 @@ const figureInput = {
 	name: 'Enchufla',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
-	notes: null,
-	callable: true,
-	callText: null
+	notes: null
 };
 const lessonOn = (notes: string | null) =>
 	createLesson(db, 'salsa', { lessonDay: '2026-09-20', title: 'Class', notes }).lesson;

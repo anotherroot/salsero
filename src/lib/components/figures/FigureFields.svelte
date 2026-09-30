@@ -9,19 +9,9 @@
 		partner?: Partner;
 		style?: string;
 		notes?: string | null;
-		callable?: boolean;
-		callText?: string | null;
 	}
 
-	let {
-		dance,
-		name = '',
-		partner = 'partner',
-		style,
-		notes = '',
-		callable = true,
-		callText = ''
-	}: Props = $props();
+	let { dance, name = '', partner = 'partner', style, notes = '' }: Props = $props();
 
 	// A new figure starts on its dance's first style; 'salsa' is not a style
 	// bachata has, so the default cannot be a literal.
@@ -79,20 +69,4 @@
 		placeholder="Count, hand holds, what the teacher said…"
 		class={field}>{notes ?? ''}</textarea
 	>
-</label>
-
-<label class="flex items-center gap-3 text-[14px]">
-	<input type="checkbox" name="callable" checked={callable} class="size-5" />
-	The player may call this figure
-</label>
-
-<label class="block">
-	<span class={label}>Say it like</span>
-	<input
-		name="callText"
-		maxlength="200"
-		placeholder="only if the voice mispronounces the name"
-		value={callText ?? ''}
-		class={field}
-	/>
 </label>

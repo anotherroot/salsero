@@ -155,7 +155,7 @@ export type PracticeContent =
 	  }
 	| {
 			type: 'figure';
-			figure: { id: number; name: string; notes: string | null; say: string; eights: number };
+			figure: { id: number; name: string; notes: string | null; eights: number };
 			links: LinkRow[];
 			recordings: RecordingRow[];
 	  }
@@ -206,14 +206,13 @@ export interface FigureVersion {
 	label: string;
 }
 
-/** A figure the player may call, as the setup screen lists it. */
-export interface CallableFigure {
+/** A figure a routine can call: how the player shows it, and what the voice says. */
+export interface CalledFigure {
 	id: number;
+	/** The label — "Enchufla · Doble" for a variation. */
 	name: string;
-	/** What the voice should say — `callText` if set, else `name`. */
+	/** The name, or for a variation its figure's name. */
 	say: string;
-	partner: Partner;
-	style: string | null;
 }
 
 /** A routine as the library list shows it. */

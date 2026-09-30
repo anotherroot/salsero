@@ -15,7 +15,7 @@ import {
 	variationNameTaken
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
-import { checkbox, int, ints, oneOf, optionalInt, optionalText, text } from '$lib/server/form';
+import { int, ints, oneOf, optionalInt, optionalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, setFigureShape } from '$lib/server/graph';
 import {
 	DEFAULT_LENGTH_COUNTS,
@@ -210,15 +210,13 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
 		const notes = optionalText(form, 'notes');
-		const callable = checkbox(form, 'callable');
-		const callText = optionalText(form, 'callText', 200);
 		const startIds = ints(form, 'startIds');
 		const rawEnd = String(form.get('endId') ?? '');
 		const endId = rawEnd === '' ? null : Number(rawEnd);
 		const startCount = int(form, 'startCount');
 		const lengthCounts = int(form, 'lengthCounts');
 
-		if (!name || !partner || !style || notes === undefined || callText === undefined) {
+		if (!name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
 				message: 'Give the figure a name (up to 200 characters).'
@@ -241,7 +239,7 @@ export const actions: Actions = {
 		if (!setFigureShape(db, found.figure.id, { startIds, endId, startCount, lengthCounts })) {
 			throw error(404, 'Figure not found');
 		}
-		if (!updateFigure(db, found.figure.id, { name, partner, style, notes, callable, callText })) {
+		if (!updateFigure(db, found.figure.id, { name, partner, style, notes })) {
 			throw error(404, 'Figure not found');
 		}
 		return { action: 'update', ok: true };

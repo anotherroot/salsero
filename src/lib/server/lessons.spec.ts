@@ -46,9 +46,7 @@ const figureInput = {
 	name: 'Enchufla',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
-	notes: null,
-	callable: true,
-	callText: null
+	notes: null
 };
 const video = (lessonId: number, file: string, sizeBytes: number) => ({
 	lessonId,
@@ -328,9 +326,7 @@ describe('lessons are walled off by dance', () => {
 			name: 'Dile que no',
 			partner: 'partner',
 			style: 'salsa',
-			notes: null,
-			callable: true,
-			callText: null
+			notes: null
 		})!;
 
 		expect(linkFigure(db, lesson.lesson.id, salsaFigure.figure.id)).toBe(false);

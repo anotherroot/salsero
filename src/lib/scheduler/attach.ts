@@ -126,13 +126,11 @@ export interface PlayerOptions {
 	audio: HTMLAudioElement | null;
 	grid: { beats: number[]; counts: number[] };
 	toggles: Toggles;
-	/** Figure ids the drill may call. */
+	/** Figure ids that may be called. Empty means no calls at all. */
 	pool: number[];
 	/**
-	 * How the drill chooses its next figure. Defaults to the uniform pick this
-	 * player shipped with; the page passes a graph walk when the figures carry
-	 * position tags. An untagged repertoire is one neutral hub, so the two are
-	 * indistinguishable until tagging begins.
+	 * How the next figure is picked when there is no `planner`. Defaults to the
+	 * uniform pick; the figure popup's cue passes its figure's real length.
 	 */
 	flow?: Flow;
 	/**
@@ -140,8 +138,7 @@ export interface PlayerOptions {
 	 * routine plays. Given the plan so far it returns the plan extended through
 	 * `throughEight`, and must never change a step it has already returned.
 	 *
-	 * A function the page supplies, exactly as `flow` is, so this module never
-	 * learns what a routine is.
+	 * A function the page supplies, so this module never learns what a routine is.
 	 */
 	planner?: (
 		plan: PlanStep[],

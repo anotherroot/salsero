@@ -105,9 +105,7 @@ async function refuses(action: unknown, event: ReturnType<typeof post>) {
 const figureInput = {
 	name: 'Dile que no',
 	partner: 'partner' as const,
-	notes: null,
-	callable: true,
-	callText: null
+	notes: null
 };
 
 let db: Db;

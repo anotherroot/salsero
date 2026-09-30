@@ -44,7 +44,7 @@
 						cue={payload.content.type === 'figure'
 							? {
 									figureId: payload.content.figure.id,
-									say: payload.content.figure.say,
+									say: payload.content.figure.name,
 									eights: payload.content.figure.eights
 								}
 							: null}
