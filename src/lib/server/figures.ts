@@ -4,6 +4,7 @@ import { exercises, figures, recordings } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import type { Partner } from '$lib/labels';
 import type { CallableFigure } from '$lib/types';
+import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
 
 export interface FigureInput {
 	name: string;
@@ -39,7 +40,7 @@ export function createFigure(
 	return db.transaction((tx) => {
 		const figure = tx
 			.insert(figures)
-			.values({ ...values(input), dance })
+			.values({ ...values(input), dance, lengthCounts: DEFAULT_LENGTH_COUNTS })
 			.returning()
 			.get();
 		const exercise = tx

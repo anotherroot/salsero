@@ -18,6 +18,7 @@ import { listLinks } from './links';
 import { getRoutine, routineSlots } from './routines';
 import { daysBetween, localDay } from '$lib/day/day';
 import { typeOf } from '$lib/exercises/kinds';
+import { DEFAULT_LENGTH_COUNTS, eightsSpan } from '$lib/graph/timing';
 import type { PracticeContent, PracticePayload } from '$lib/types';
 
 type Exercise = typeof exercises.$inferSelect;
@@ -72,7 +73,7 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 					name: figure.name,
 					notes: figure.notes,
 					say: figure.callText ?? figure.name,
-					eights: figure.eights
+					eights: eightsSpan(figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS)
 				},
 				links: listLinks(db, { figureId: figure.id }),
 				recordings: found.recordings.map((r) => ({

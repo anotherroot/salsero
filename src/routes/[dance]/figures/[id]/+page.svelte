@@ -174,13 +174,13 @@
 			</label>
 
 			<label class="block">
-				<span class="text-[13px] font-medium">Eight-counts</span>
+				<span class="text-[13px] font-medium">Counts</span>
 				<input
 					type="number"
-					name="eights"
+					name="lengthCounts"
 					min="1"
-					max={data.maxEights}
-					value={figure.eights}
+					max="64"
+					value={data.timing.lengthCounts}
 					class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
 				/>
 				<span class="text-[12px] text-muted"

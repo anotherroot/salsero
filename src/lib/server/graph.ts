@@ -10,10 +10,13 @@ import type { Db } from './db';
 import { figures, figureStartPositions, positions } from './db/schema';
 import { neutralPosition } from './positions';
 import type { Graph } from '$lib/graph/graph';
+import {
+	DEFAULT_LENGTH_COUNTS,
+	DEFAULT_START_COUNT,
+	isLengthCounts,
+	isStartCount
+} from '$lib/graph/timing';
 import type { DanceSlug } from '$lib/dances/dances';
-
-/** How many 8-counts a figure may be tagged as taking. */
-export const MAX_EIGHTS = 8;
 
 /**
  * The unarchived figures of one dance as a graph.
@@ -32,7 +35,8 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 		.select({
 			id: figures.id,
 			end: figures.endPositionId,
-			eights: figures.eights
+			startCount: figures.startCount,
+			lengthCounts: figures.lengthCounts
 		})
 		.from(figures)
 		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt)))
@@ -65,8 +69,8 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 			id: r.id,
 			starts: byFigure.get(r.id) ?? [],
 			end: r.end,
-			start: 1,
-			length: r.eights * 8
+			start: r.startCount ?? DEFAULT_START_COUNT,
+			length: r.lengthCounts ?? DEFAULT_LENGTH_COUNTS
 		}))
 	};
 }
@@ -88,23 +92,32 @@ export function figurePositions(db: Db, figureId: number) {
 	return { startIds, endId: figure?.end ?? null };
 }
 
+/** Everything the figure page's one form writes about how a figure is danced. */
+export interface FigureShape {
+	startIds: number[];
+	endId: number | null;
+	/** 1..8. */
+	startCount: number;
+	/** 1..MAX_LENGTH_COUNTS counts. */
+	lengthCounts: number;
+}
+
 /**
- * Replace a figure's start positions, its end position and its length.
+ * Replace a figure's start positions, end position, start count and length, in
+ * one transaction.
  *
- * Returns false — writing nothing — when the figure is gone, when the length is
- * out of range, or when any position belongs to another dance. That last one is
- * the wall: `positions.dance` has no CHECK pairing it to `figures.dance` (a new
- * CHECK on `figures` would force a rebuild and fail at migrate time), so it is
- * enforced here, the same way the figure's style already is.
+ * Returns false — writing nothing — when the figure is gone, when a timing
+ * value is out of range, or when any position belongs to another dance. That
+ * last one is the wall: `positions.dance` has no CHECK pairing it to
+ * `figures.dance` (a new CHECK on `figures` would force a rebuild and fail at
+ * migrate time), so it is enforced here, the same way the figure's style is.
+ *
+ * The figure page calls this BEFORE `updateFigure`, because this is the half
+ * that can refuse: a refusal must leave the name untouched too.
  */
-export function setFigurePositions(
-	db: Db,
-	figureId: number,
-	startIds: number[],
-	endId: number | null,
-	eights: number
-): boolean {
-	if (!Number.isInteger(eights) || eights < 1 || eights > MAX_EIGHTS) return false;
+export function setFigureShape(db: Db, figureId: number, shape: FigureShape): boolean {
+	const { startIds, endId, startCount, lengthCounts } = shape;
+	if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) return false;
 
 	return db.transaction((tx) => {
 		const figure = tx
@@ -132,7 +145,10 @@ export function setFigurePositions(
 				.values([...new Set(startIds)].map((positionId) => ({ figureId, positionId })))
 				.run();
 		}
-		tx.update(figures).set({ endPositionId: endId, eights }).where(eq(figures.id, figureId)).run();
+		tx.update(figures)
+			.set({ endPositionId: endId, startCount, lengthCounts })
+			.where(eq(figures.id, figureId))
+			.run();
 		return true;
 	});
 }

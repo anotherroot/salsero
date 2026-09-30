@@ -276,7 +276,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 		const bachataClosed = listPositions(db, 'bachata').find((p) => p.slug === 'closed')!;
 		await refuses(
 			figurePage.actions.positions,
-			post('salsa', { startIds: String(bachataClosed.id), eights: '1' }, String(bachataFigureId))
+			post(
+				'salsa',
+				{ startIds: String(bachataClosed.id), lengthCounts: '8' },
+				String(bachataFigureId)
+			)
 		);
 		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
 	});
@@ -286,7 +290,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
 		await refuses(
 			figurePage.actions.positions,
-			post('salsa', { startIds: String(bachataShadow.id), eights: '1' }, String(salsaFigureId))
+			post(
+				'salsa',
+				{ startIds: String(bachataShadow.id), lengthCounts: '8' },
+				String(salsaFigureId)
+			)
 		);
 	});
 

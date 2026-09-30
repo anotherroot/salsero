@@ -11,7 +11,13 @@ import {
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
 import { checkbox, int, ints, oneOf, optionalText, text } from '$lib/server/form';
-import { buildGraph, figurePositions, MAX_EIGHTS, setFigurePositions } from '$lib/server/graph';
+import { buildGraph, figurePositions, setFigureShape } from '$lib/server/graph';
+import {
+	DEFAULT_LENGTH_COUNTS,
+	DEFAULT_START_COUNT,
+	isLengthCounts,
+	MAX_LENGTH_COUNTS
+} from '$lib/graph/timing';
 import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
@@ -90,7 +96,12 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			}))
 		],
 		tags,
-		maxEights: MAX_EIGHTS,
+		// Resolved here so the page never sees a null — the same defaults
+		// `buildGraph` applies.
+		timing: {
+			startCount: found.figure.startCount ?? DEFAULT_START_COUNT,
+			lengthCounts: found.figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+		},
 		// Derived per request, never stored — the same rule urgency follows.
 		leadsTo: link(follows(graph, found.figure.id)),
 		followsFrom: link(precedes(graph, found.figure.id)),
@@ -134,28 +145,28 @@ export const actions: Actions = {
 		return { action: 'update', ok: true };
 	},
 
-	/** The handholds this figure starts and ends at, plus how long it takes. */
+	/** The handholds this figure starts and ends at, plus how many counts it takes. */
 	positions: async ({ params, request }) => {
-		const figure = figureOf(params);
+		const found = figureOf(params);
 		const form = await request.formData();
 		const startIds = ints(form, 'startIds');
 		const rawEnd = String(form.get('endId') ?? '');
 		const endId = rawEnd === '' ? null : Number(rawEnd);
-		const eights = int(form, 'eights');
+		const lengthCounts = int(form, 'lengthCounts');
 
 		if (endId !== null && !Number.isInteger(endId)) {
 			return fail(400, { action: 'positions', message: 'Pick an end position.' });
 		}
-		if (eights === undefined || eights < 1 || eights > MAX_EIGHTS) {
+		if (!isLengthCounts(lengthCounts)) {
 			return fail(400, {
 				action: 'positions',
-				message: `A figure takes between 1 and ${MAX_EIGHTS} eight-counts.`
+				message: `A figure takes between 1 and ${MAX_LENGTH_COUNTS} counts.`
 			});
 		}
-		// A posted position id is just a number: `setFigurePositions` rejects one
-		// from the other dance, and that is a 404 rather than a message, the same
-		// answer every other cross-dance id gets here.
-		if (!setFigurePositions(getDb(), figure.figure.id, startIds, endId, eights)) {
+		const startCount = found.figure.startCount ?? DEFAULT_START_COUNT;
+		// A posted position id is just a number: `setFigureShape` rejects one from
+		// the other dance, and that is a 404 rather than a message.
+		if (!setFigureShape(getDb(), found.figure.id, { startIds, endId, startCount, lengthCounts })) {
 			throw error(404, 'Figure not found');
 		}
 		return { action: 'positions', ok: true };

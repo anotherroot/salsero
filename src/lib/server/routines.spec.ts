@@ -22,7 +22,7 @@ import {
 } from './routines';
 import { archiveFigure, createFigure } from './figures';
 import { listPositions, seedPositions } from './positions';
-import { setFigurePositions } from './graph';
+import { setFigureShape } from './graph';
 import { exercises } from './db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -182,7 +182,7 @@ describe('addOption and removeOption', () => {
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
 		const pos = listPositions(db, 'salsa').find((p) => !p.neutral)!;
-		setFigurePositions(db, b.id, [], pos.id, 1);
+		setFigureShape(db, b.id, { startIds: [], endId: pos.id, startCount: 1, lengthCounts: 8 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(false);
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
@@ -195,7 +195,7 @@ describe('addOption and removeOption', () => {
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
 		const neutral = listPositions(db, 'salsa').find((p) => p.neutral)!;
-		setFigurePositions(db, b.id, [], neutral.id, 1);
+		setFigureShape(db, b.id, { startIds: [], endId: neutral.id, startCount: 1, lengthCounts: 8 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(true);
 	});
