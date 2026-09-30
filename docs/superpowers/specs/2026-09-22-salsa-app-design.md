@@ -49,6 +49,9 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    built on top, with variant slots. Reframed and split in two on 2026-09-24:
    **3a and 3b are both live.** Song-bound choreography is out of scope. See
    [`2026-09-24-routines-design.md`](2026-09-24-routines-design.md).
+   Figure timing (start count, length in counts), figure variations and the
+   visual routine player: see
+   [`2026-09-29-figure-variations-design.md`](2026-09-29-figure-variations-design.md).
 4. **Lessons** — a class as a record: day, title, notes, chunk-uploaded videos,
    links to the figures and routines it taught and to exercises, and its own
    auto-created review exercise. Shipped 2026-09-23, ahead of phase 3; routine

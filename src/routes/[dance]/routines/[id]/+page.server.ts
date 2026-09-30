@@ -23,7 +23,17 @@ import {
 	setSlotNote,
 	updateRoutine
 } from '$lib/server/routines';
-import { breaks, loops, routineEnd, routineStarts, slotStarts } from '$lib/routines/routines';
+import {
+	breaks,
+	loops,
+	routineEnd,
+	routineStarts,
+	slotStarts,
+	slotTiming,
+	timingBreaks,
+	timingSeams
+} from '$lib/routines/routines';
+import { endOf, figureById, nextCountOf } from '$lib/graph/graph';
 import { int, optionalText, text } from '$lib/server/form';
 import { danceOf, requireRoutineInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -46,9 +56,20 @@ export const load: PageServerLoad = ({ params }) => {
 	const shape = routineShapes(db, dance).get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, dance);
-	const figures = listFigures(db, dance, {}).map((f) => ({ id: f.id, name: f.name }));
+	// Each figure's landing — where it leaves the hands and on which count — so
+	// the alternative picker can offer only the ones that fit a slot. The
+	// server's `addOption` still decides; this only stops offering the refusals.
+	const figures = listFigures(db, dance, {}).map((f) => {
+		const node = figureById(graph, f.id);
+		return {
+			id: f.id,
+			name: f.name,
+			end: node ? endOf(graph, node) : null,
+			next: node ? nextCountOf(node) : null
+		};
+	});
 
-	// Flat indices where the routine's walk breaks — a slot's variants don't
+	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. The picker offers every figure of
 	// the dance regardless; `addOption`'s shared-end check is what actually
 	// refuses a wrong-end pick.
@@ -77,6 +98,15 @@ export const load: PageServerLoad = ({ params }) => {
 		// child. The page shows the count when they diverge rather than pointing
 		// at the wrong slot.
 		breaks: [...flatBreaks],
+		// Same indexing as `breaks`: flat, so only trustworthy per row while no
+		// slot holds a child.
+		timingBreaks: timingBreaks(graph, shape),
+		// Per slot, parallel to `slots`: which counts it begins on and which it
+		// leaves the next on — the "5→1" on each row.
+		slotTiming: shape.slots.map((s) => slotTiming(graph, s)),
+		// The per-row markers, indexed by `slots` rather than the flat run, so an
+		// archived-only slot or an embedded routine cannot shift them.
+		timingSeams: timingSeams(graph, shape),
 		hasChild: slots.some((s) => s.childId !== null),
 		embeddable: embeddable(db, routine.id),
 		taughtIn: routineTaughtIn(db, routine.id),
@@ -109,7 +139,7 @@ function ownsSlot(db: Db, routineId: number, stepId: number): boolean {
  * The page has one `addOption` form PER SLOT and they all fail with the same
  * sentence, so a bare message in the banner at the top says nothing about which
  * submission was refused — and `use:enhance` does not scroll, so from slot nine
- * of a long routine the refusal is invisible. A wrong-end variant pick is
+ * of a long routine the refusal is invisible. A wrong-landing alternative pick is
  * ordinary use here, not an edge case: the picker deliberately offers every
  * figure, because the load carries no per-figure end to filter it by.
  *
@@ -198,7 +228,7 @@ export const actions: Actions = {
 		}
 		if (!addOption(db, stepId, figureId)) {
 			return slotFail(
-				'Those figures do not end in the same place, so they are not variants.',
+				'Those figures do not land in the same place or on the same count, so they are not alternatives.',
 				stepId
 			);
 		}

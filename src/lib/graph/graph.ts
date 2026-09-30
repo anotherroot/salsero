@@ -15,6 +15,7 @@
  * hub, which is honest for casino — most figures really do run open → open —
  * and it means the drill behaves exactly as it did before any tagging began.
  */
+import { nextCount } from './timing';
 
 export interface GraphFigure {
 	id: number;
@@ -22,8 +23,13 @@ export interface GraphFigure {
 	starts: number[];
 	/** Where it leaves the hands. Null means the neutral one. */
 	end: number | null;
-	/** How many 8-counts it takes. */
-	eights: number;
+	/**
+	 * The count it begins on, 1..8. Always resolved — the data layer turns a
+	 * null column into 1 before building the graph, so nothing here guesses.
+	 */
+	start: number;
+	/** How many counts it takes. Resolved the same way; null reads as 8. */
+	length: number;
 }
 
 export interface Graph {
@@ -42,6 +48,11 @@ export function endOf(g: Graph, f: GraphFigure): number {
 
 export function figureById(g: Graph, id: number): GraphFigure | null {
 	return g.figures.find((f) => f.id === id) ?? null;
+}
+
+/** The count the figure leaves the next one to begin on. */
+export function nextCountOf(f: GraphFigure): number {
+	return nextCount(f.start, f.length);
 }
 
 /** Figures that can be danced from this position, in `g.figures` order. */

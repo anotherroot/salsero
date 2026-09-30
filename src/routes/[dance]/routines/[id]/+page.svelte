@@ -75,6 +75,19 @@
 	 * but the indices point at the wrong rows, so nothing is marked per slot.
 	 */
 	const breakAfter = $derived(data.hasChild ? new Set<number>() : new Set(data.breaks));
+	/**
+	 * Row → the next row it fails to reach on the count. Keyed by `slots` index
+	 * on the server (`timingSeams`), unlike `breakAfter`, so it stays on the right
+	 * row past an archived-only slot or an embedded routine.
+	 */
+	const seamAfter = $derived(new Map(data.timingSeams.map((s) => [s.after, s.next])));
+
+	/** "5→1", or "1/5→?" when the alternatives disagree on where they leave the count. */
+	function timingLabel(i: number): string {
+		const t = data.slotTiming[i];
+		if (!t || t.starts.length === 0) return '';
+		return `${t.starts.join('/')}→${t.next ?? '?'}`;
+	}
 
 	/**
 	 * The player link. Two whole literals rather than one built by concatenation:
@@ -131,9 +144,17 @@
 		return figureName.get(id) ?? 'archived figure';
 	}
 
-	/** Figures not already in this slot — adding one twice is a no-op, so don't offer it. */
+	/**
+	 * Figures that could stand in for this slot's: not already in it, and landing
+	 * where its first figure lands — same hold, same next count. When the slot's
+	 * figures are all archived there is nothing to compare against, so everything
+	 * is offered and `addOption` decides.
+	 */
 	function addable(figureIds: number[]) {
-		return data.figures.filter((f) => !figureIds.includes(f.id));
+		const first = data.figures.find((f) => figureIds.includes(f.id));
+		return data.figures.filter(
+			(f) => !figureIds.includes(f.id) && (!first || (f.end === first.end && f.next === first.next))
+		);
 	}
 
 	const hint = 'rounded-full bg-danger/10 px-2 py-0.5 font-medium text-danger';
@@ -257,13 +278,18 @@
 		</section>
 	{/if}
 
-	{#if facts.length > 0 || data.breaks.length > 0 || (!data.loops && data.slots.length > 0)}
+	{#if facts.length > 0 || data.breaks.length > 0 || data.timingBreaks.length > 0 || (!data.loops && data.slots.length > 0)}
 		<p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
 			{#if facts.length > 0}
 				<span>{facts.join(' · ')}</span>
 			{/if}
 			{#if data.breaks.length > 0}
 				<span class={hint}>{data.breaks.length} break{data.breaks.length === 1 ? '' : 's'}</span>
+			{/if}
+			{#if data.timingBreaks.length > 0}
+				<span class={hint}
+					>{data.timingBreaks.length} timing break{data.timingBreaks.length === 1 ? '' : 's'}</span
+				>
 			{/if}
 			{#if !data.loops && data.slots.length > 0}
 				<span class={hint}>does not loop</span>
@@ -277,7 +303,8 @@
 			<button type="button" onclick={() => (adding = true)} class={step}>+ Add</button>
 		</div>
 		<p class="mt-1 mb-2 text-[12px] text-muted">
-			A slot's variants all have to end in the same place — any one of them can be danced there.
+			A slot's alternatives all have to land in the same hold and on the same count — any one of
+			them can be danced there.
 		</p>
 		{#if data.slots.length === 0}
 			<p class="text-[13px] text-muted">
@@ -303,15 +330,23 @@
 											})}>{slot.childName ?? 'a routine'}</a
 										>
 									</p>
+									{#if timingLabel(i)}
+										<p class="text-[12px] text-muted">{timingLabel(i)}</p>
+									{/if}
 								{:else if slot.figureIds.length === 0}
 									<p class="text-[13px] text-muted">Empty — nothing to call here.</p>
 								{:else}
 									<!--
-										Variants read as one line rather than a stack of rows: any of them
-										can be danced at this point, so they belong together, and the row
-										has to stay short enough to scan a whole routine at a glance.
+										Alternatives read as one line rather than a stack of rows: any of
+										them can be danced at this point, so they belong together, and the
+										row has to stay short enough to scan a whole routine at a glance.
 									-->
-									<p class="text-[15px]">{slot.figureIds.map(optionName).join('  /  ')}</p>
+									<p class="text-[15px]">
+										{slot.figureIds.map(optionName).join('  /  ')}
+										{#if timingLabel(i)}
+											<span class="text-[12px] text-muted">· {timingLabel(i)}</span>
+										{/if}
+									</p>
 								{/if}
 								{#if slot.note}
 									<p class="text-[12px] text-muted">{slot.note}</p>
@@ -324,6 +359,15 @@
 								{#if breakAfter.has(i)}
 									<p class="text-[12px]">
 										<span class={hint}>break — the hands don't reach the next slot</span>
+									</p>
+								{/if}
+								{#if seamAfter.has(i)}
+									<p class="text-[12px]">
+										<span class={hint}
+											>timing — ends ready for {data.slotTiming[i]?.next}, next slot starts on {data.slotTiming[
+												seamAfter.get(i) ?? i + 1
+											]?.starts.join(' or ')}</span
+										>
 									</p>
 								{/if}
 							</div>
@@ -419,7 +463,7 @@
 				</p>
 			{:else}
 				<div class="space-y-1">
-					<span class="text-[13px] font-medium">Variants</span>
+					<span class="text-[13px] font-medium">Alternatives</span>
 					{#each slot.figureIds as figureId (figureId)}
 						<div class="flex items-center gap-2">
 							<span class="min-w-0 flex-1 text-[15px]">{optionName(figureId)}</span>
@@ -435,13 +479,17 @@
 					{#if addable(slot.figureIds).length > 0}
 						<form method="POST" action="?/addOption" class="flex items-center gap-2" use:enhance>
 							<input type="hidden" name="stepId" value={slot.id} />
-							<select name="figureId" class={select} aria-label="Add a variant">
+							<select name="figureId" class={select} aria-label="Add an alternative">
 								{#each addable(slot.figureIds) as figure (figure.id)}
 									<option value={figure.id}>{figure.name}</option>
 								{/each}
 							</select>
-							<button type="submit" class={step}>+ Variant</button>
+							<button type="submit" class={step}>+ Alternative</button>
 						</form>
+					{:else}
+						<p class="text-[12px] text-muted">
+							No other figure lands in the same hold on the same count.
+						</p>
 					{/if}
 				</div>
 			{/if}

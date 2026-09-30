@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
+import { figures } from './db/schema';
 import { createCustomExercise, getExercise, logSet } from './exercises';
 import { createFigure } from './figures';
 import { createLesson, linkFigure } from './lessons';
@@ -64,6 +66,14 @@ describe('practicePayload', () => {
 			links: [{ url: 'https://a.org', title: 'Demo' }],
 			recordings: []
 		});
+	});
+
+	it('derives the cue’s 8-counts from the figure’s length in counts', () => {
+		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
+		db.update(figures).set({ lengthCounts: 12 }).where(eq(figures.id, figure.id)).run();
+		const content = practicePayload(db, exercise, TZ, Date.now()).content;
+		// 12 counts round up to two 8-counts, so the cue is never called over itself.
+		expect(content.type === 'figure' && content.figure.eights).toBe(2);
 	});
 
 	it('gives a drill its own notes and links', () => {

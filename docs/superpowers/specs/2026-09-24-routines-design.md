@@ -6,6 +6,13 @@
 > routines, and what they do to the player's figure calls. It **replaces** that
 > document's "Choreographies (phase 3)" section and the `choreographies` /
 > `choreo_steps` sketch in its data model.
+>
+> **Updated 2026-09-29** by
+> [`2026-09-29-figure-variations-design.md`](2026-09-29-figure-variations-design.md):
+> slot "variants" are now **alternatives**, and must share their next count as
+> well as their end position; `figures.eights` is vestigial, replaced by
+> `start_count` and `length_counts`; timing breaks are reported beside position
+> breaks.
 
 ## Purpose
 
@@ -81,7 +88,9 @@ figure_start_positions          -- many starts per figure
 
 figures.end_position_id   ADD COLUMN integer REFERENCES positions(id)
 figures.eights            ADD COLUMN integer not null default 1
-                          -- how many 8-counts the figure takes to dance
+                          -- VESTIGIAL since 2026-09-29 — see length_counts
+figures.start_count       ADD COLUMN integer, nullable (1..8; null reads as 1)
+figures.length_counts     ADD COLUMN integer, nullable (counts; null reads as 8)
 ```
 
 ### 3b

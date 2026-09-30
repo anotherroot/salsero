@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { follows, startsOf } from '$lib/graph/graph';
 import { openDb, type Db } from './db';
-import { figureStartPositions } from './db/schema';
+import { eq } from 'drizzle-orm';
+import { figures, figureStartPositions } from './db/schema';
 import { archiveFigure, createFigure } from './figures';
-import { buildGraph, figurePositions, setFigurePositions } from './graph';
+import { buildGraph, figurePositions, setFigureShape } from './graph';
 import { archivePosition, listPositions, seedPositions } from './positions';
 
 const figureInput = (name: string) => ({
@@ -64,17 +65,25 @@ describe('buildGraph', () => {
 	});
 });
 
-describe('setFigurePositions', () => {
-	it('stores many starts, one end and a length, and reads them back', () => {
+/** A shape with neutral timing, so each test only states what it is about. */
+const shape = (
+	startIds: number[],
+	endId: number | null,
+	timing: { startCount?: number; lengthCounts?: number } = {}
+) => ({ startIds, endId, startCount: 1, lengthCounts: 8, ...timing });
+
+describe('setFigureShape', () => {
+	it('stores starts, end and timing, and the graph reads them back', () => {
 		const { db, pos } = setup();
 		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
 		expect(
-			setFigurePositions(
+			setFigureShape(
 				db,
 				made.figure.id,
-				[pos('open-two'), pos('cross-hand')],
-				pos('hammerlock-r'),
-				2
+				shape([pos('open-two'), pos('cross-hand')], pos('hammerlock-r'), {
+					startCount: 5,
+					lengthCounts: 12
+				})
 			)
 		).toBe(true);
 
@@ -83,15 +92,14 @@ describe('setFigurePositions', () => {
 			endId: pos('hammerlock-r')
 		});
 		const g = buildGraph(db, 'salsa');
-		expect(g.figures[0].eights).toBe(2);
-		expect(g.figures[0].end).toBe(pos('hammerlock-r'));
+		expect(g.figures[0]).toMatchObject({ start: 5, length: 12, end: pos('hammerlock-r') });
 	});
 
 	it('replaces the starts rather than adding to them', () => {
 		const { db, pos } = setup();
 		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
-		setFigurePositions(db, made.figure.id, [pos('open-two'), pos('cross-hand')], null, 1);
-		setFigurePositions(db, made.figure.id, [pos('closed')], null, 1);
+		setFigureShape(db, made.figure.id, shape([pos('open-two'), pos('cross-hand')], null));
+		setFigureShape(db, made.figure.id, shape([pos('closed')], null));
 		expect(figurePositions(db, made.figure.id).startIds).toEqual([pos('closed')]);
 	});
 
@@ -100,19 +108,31 @@ describe('setFigurePositions', () => {
 		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
 		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
 
-		expect(setFigurePositions(db, made.figure.id, [bachataShadow.id], null, 1)).toBe(false);
-		expect(setFigurePositions(db, made.figure.id, [pos('open-two')], bachataShadow.id, 1)).toBe(
-			false
-		);
+		expect(setFigureShape(db, made.figure.id, shape([bachataShadow.id], null))).toBe(false);
+		expect(
+			setFigureShape(
+				db,
+				made.figure.id,
+				shape([pos('open-two')], bachataShadow.id, { startCount: 5 })
+			)
+		).toBe(false);
 		expect(figurePositions(db, made.figure.id)).toEqual({ startIds: [], endId: null });
+		// The timing half of the refused write did not land either.
+		expect(buildGraph(db, 'salsa').figures[0]).toMatchObject({ start: 1, length: 8 });
 	});
 
-	it('refuses a length outside 1-8 and a missing figure', () => {
+	it('refuses timing out of range and a missing figure, writing nothing', () => {
 		const { db, pos } = setup();
 		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
-		expect(setFigurePositions(db, made.figure.id, [pos('open-two')], null, 0)).toBe(false);
-		expect(setFigurePositions(db, made.figure.id, [pos('open-two')], null, 9)).toBe(false);
-		expect(setFigurePositions(db, 9999, [pos('open-two')], null, 1)).toBe(false);
+		const id = made.figure.id;
+		const open = [pos('open-two')];
+		expect(setFigureShape(db, id, shape(open, null, { startCount: 0 }))).toBe(false);
+		expect(setFigureShape(db, id, shape(open, null, { startCount: 9 }))).toBe(false);
+		expect(setFigureShape(db, id, shape(open, null, { startCount: 1.5 }))).toBe(false);
+		expect(setFigureShape(db, id, shape(open, null, { lengthCounts: 0 }))).toBe(false);
+		expect(setFigureShape(db, id, shape(open, null, { lengthCounts: 65 }))).toBe(false);
+		expect(setFigureShape(db, 9999, shape(open, null))).toBe(false);
+		expect(figurePositions(db, id).startIds).toEqual([]);
 	});
 
 	it('rejects a duplicate (figure, position) row at the database level', () => {
@@ -121,7 +141,7 @@ describe('setFigurePositions', () => {
 		const row = { figureId: made.figure.id, positionId: pos('open-two') };
 		db.insert(figureStartPositions).values(row).run();
 		// The composite primary key is the backstop for the de-duplication
-		// `setFigurePositions` does in code. Nothing else in the suite reaches it.
+		// `setFigureShape` does in code. Nothing else in the suite reaches it.
 		expect(() => db.insert(figureStartPositions).values(row).run()).toThrow();
 	});
 
@@ -129,7 +149,7 @@ describe('setFigurePositions', () => {
 		const { db, pos } = setup();
 		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
 		const open = pos('open-two');
-		expect(setFigurePositions(db, made.figure.id, [open, open], null, 1)).toBe(true);
+		expect(setFigureShape(db, made.figure.id, shape([open, open], null))).toBe(true);
 		expect(figurePositions(db, made.figure.id).startIds).toEqual([open]);
 	});
 
@@ -141,12 +161,29 @@ describe('setFigurePositions', () => {
 		const { db, pos } = setup();
 		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
 		const crossHand = pos('cross-hand'); // not the neutral row, so it can be archived
-		expect(setFigurePositions(db, made.figure.id, [crossHand], crossHand, 1)).toBe(true);
+		expect(setFigureShape(db, made.figure.id, shape([crossHand], crossHand))).toBe(true);
 		expect(archivePosition(db, crossHand, Date.now())).toBe(true);
-		expect(setFigurePositions(db, made.figure.id, [crossHand], crossHand, 1)).toBe(true);
+		expect(setFigureShape(db, made.figure.id, shape([crossHand], crossHand))).toBe(true);
 		expect(figurePositions(db, made.figure.id)).toEqual({
 			startIds: [crossHand],
 			endId: crossHand
 		});
+	});
+});
+
+describe('timing defaults', () => {
+	it('stores a new figure as 8 counts, and reads a null start as 1', () => {
+		const { db } = setup();
+		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		expect(made.figure.lengthCounts).toBe(8);
+		expect(made.figure.startCount).toBeNull();
+		expect(buildGraph(db, 'salsa').figures[0]).toMatchObject({ start: 1, length: 8 });
+	});
+
+	it('reads a null length as 8 — a row the backfill or createFigure never touched', () => {
+		const { db } = setup();
+		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		db.update(figures).set({ lengthCounts: null }).where(eq(figures.id, made.figure.id)).run();
+		expect(buildGraph(db, 'salsa').figures[0].length).toBe(8);
 	});
 });

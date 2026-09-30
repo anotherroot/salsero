@@ -3,9 +3,9 @@
  * layer reads.
  *
  * A routine is an ordered list of slots. Each slot holds either interchangeable
- * figures — the variants — or one embedded routine. The rules that a database
+ * figures — the alternatives — or one embedded routine. The rules that a database
  * cannot express live here: exactly one of those two per slot, one shared end
- * across a slot's options, one level of embedding, and the three cross-dance
+ * and next count across a slot's options, one level of embedding, and the three cross-dance
  * invariants (a slot's figures, a child routine, and a routine's own dance).
  *
  * `src/lib/routines/` does the thinking about shapes; this module only feeds it
@@ -15,6 +15,7 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull } from 'drizzle-o
 import type { Db } from './db';
 import { exercises, figures, routineStepOptions, routineSteps, routines } from './db/schema';
 import { neutralPosition } from './positions';
+import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT, nextCount } from '$lib/graph/timing';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { OptionsSlot, RoutineShape, Slot } from '$lib/routines/routines';
 import type { RoutineItem, SlotRow } from '$lib/types';
@@ -277,15 +278,34 @@ function slotIds(tx: Tx, routineId: number): number[] {
 		.map((s) => s.id);
 }
 
-/** Where a figure leaves the hands, with an untagged one resolved to neutral. */
-function endOfFigure(db: Db, dance: DanceSlug, figureId: number): number | null {
+/**
+ * Where a figure leaves the hands and on which count it leaves the next one —
+ * the two things alternatives must agree on. Untagged resolves to neutral, and
+ * unset timing to start 1 / 8 counts, the same defaults `buildGraph` applies.
+ * Null when the figure is not this dance's, or is archived, or gone.
+ */
+function landingOf(
+	db: Db,
+	dance: DanceSlug,
+	figureId: number
+): { end: number; next: number } | null {
 	const row = db
-		.select({ end: figures.endPositionId })
+		.select({
+			end: figures.endPositionId,
+			startCount: figures.startCount,
+			lengthCounts: figures.lengthCounts
+		})
 		.from(figures)
 		.where(and(eq(figures.id, figureId), eq(figures.dance, dance), isNull(figures.archivedAt)))
 		.get();
 	if (!row) return null;
-	return row.end ?? neutralPosition(db, dance)?.id ?? 0;
+	return {
+		end: row.end ?? neutralPosition(db, dance)?.id ?? 0,
+		next: nextCount(
+			row.startCount ?? DEFAULT_START_COUNT,
+			row.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+		)
+	};
 }
 
 /**
@@ -299,7 +319,7 @@ export function addFigureSlot(db: Db, routineId: number, figureId: number): numb
 	const routine = getRoutine(db, routineId);
 	if (!routine) return null;
 	const dance = routine.dance as DanceSlug;
-	if (endOfFigure(db, dance, figureId) === null) return null;
+	if (landingOf(db, dance, figureId) === null) return null;
 	return db.transaction((tx) => {
 		const at = slotIds(tx, routineId).length;
 		const step = tx
@@ -374,8 +394,8 @@ export function embeddable(db: Db, routineId: number): { id: number; name: strin
  *
  * False when the figure is the wrong dance, when the slot holds an embedded
  * routine instead, or when it would land somewhere the slot's other options do
- * not: options that end differently are not variants of each other, they are
- * different steps.
+ * not: options that land differently — in the hands or on the count — are not
+ * alternatives to each other, they are different steps.
  */
 export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	const step = db
@@ -387,8 +407,8 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	const routine = getRoutine(db, step.routineId);
 	if (!routine) return false;
 	const dance = routine.dance as DanceSlug;
-	const end = endOfFigure(db, dance, figureId);
-	if (end === null) return false;
+	const landing = landingOf(db, dance, figureId);
+	if (landing === null) return false;
 	const existing = db
 		.select({ figureId: routineStepOptions.figureId })
 		.from(routineStepOptions)
@@ -396,7 +416,8 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 		.all();
 	for (const o of existing) {
 		if (o.figureId === figureId) return true;
-		if (endOfFigure(db, dance, o.figureId) !== end) return false;
+		const other = landingOf(db, dance, o.figureId);
+		if (other === null || other.end !== landing.end || other.next !== landing.next) return false;
 	}
 	db.insert(routineStepOptions).values({ stepId, figureId }).run();
 	return true;

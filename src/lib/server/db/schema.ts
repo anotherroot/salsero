@@ -113,8 +113,25 @@ export const figures = sqliteTable(
 		 * migration has to touch existing rows.
 		 */
 		endPositionId: integer('end_position_id').references(() => positions.id),
-		/** How many 8-counts the figure takes. The drill spaces calls by it. */
+		/**
+		 * VESTIGIAL since migration 0010, which copied it into `length_counts`
+		 * (`eights * 8`). Read by nothing. It cannot be dropped for the same reason
+		 * `style` cannot — dropping a column is a table rebuild, and this table can
+		 * never be rebuilt. Do not "clean this up".
+		 */
 		eights: integer('eights').notNull().default(1),
+		/**
+		 * The count the figure begins on, 1..8. Null reads as 1 — see
+		 * `src/lib/graph/timing.ts`. No CHECK, for the reason above;
+		 * `setFigureShape` in `src/lib/server/graph.ts` is the enforcement.
+		 */
+		startCount: integer('start_count'),
+		/**
+		 * How many COUNTS the figure takes — counts, not steps, so the unit is the
+		 * same in every dance. Null reads as 8. Backfilled from `eights` by
+		 * migration 0010; `createFigure` writes 8.
+		 */
+		lengthCounts: integer('length_counts'),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
@@ -269,11 +286,12 @@ export const routineSteps = sqliteTable(
 );
 
 /**
- * The interchangeable figures filling one slot — the variants.
+ * The interchangeable figures filling one slot — the alternatives.
  *
- * All of them must share ONE end position, enforced on write: that is what
- * interchangeable means. A slot's START positions are the UNION of its
- * options', and a run filters them by where the hands actually are.
+ * All of them must share ONE end position and ONE next count, enforced on
+ * write: that is what interchangeable means. A slot's START positions are the
+ * UNION of its options', and a run filters them by where the hands actually
+ * are.
  */
 export const routineStepOptions = sqliteTable(
 	'routine_step_options',

@@ -14,7 +14,8 @@ the player walking one), phase 4 (lessons: videos, notes, figure, routine and
 exercise links, and a four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
-panel in the popup, an exercise page).
+panel in the popup, an exercise page) and figure timing (a start count and a
+length in counts; routines report timing breaks).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -170,6 +171,10 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   backfilled into `style_tag` by migration 0005. Do not drop it or widen
   `figures_style_ck` — see the CHECK rule above for why a rebuild here can't
   be done safely.
+- **`figures.eights` is vestigial; `length_counts` is real.** Copied into
+  `length_counts` (`eights * 8`) by migration 0010 and read by nothing since.
+  Same reason as `style`: dropping it is a rebuild, and `figures` can never be
+  rebuilt. Timing arithmetic lives in `src/lib/graph/timing.ts`.
 
 ## Commands
 

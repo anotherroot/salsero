@@ -15,9 +15,9 @@
  * neutral position. A repertoire nobody has tagged is one big hub, and a
  * routine over it is all seams and no breaks — which is honest.
  */
-import { endOf, figureById, startsOf, type Graph } from '$lib/graph/graph';
+import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 
-/** A slot filled by interchangeable figures — the variants. */
+/** A slot filled by interchangeable figures — the alternatives. */
 export interface OptionsSlot {
 	kind: 'options';
 	figureIds: number[];
@@ -125,6 +125,56 @@ export function sharedEnd(g: Graph, slot: OptionsSlot): number | null {
 	return end;
 }
 
+/**
+ * Every count this slot can begin on: the union of its options'. Permissive in
+ * the same way `slotStarts` is.
+ */
+export function slotStartCounts(g: Graph, slot: OptionsSlot): number[] {
+	const out = new Set<number>();
+	for (const id of slot.figureIds) {
+		const f = figureById(g, id);
+		if (f) out.add(f.start);
+	}
+	return [...out].sort((a, b) => a - b);
+}
+
+/**
+ * The count every option leaves the next figure to begin on, or null when they
+ * disagree. Disagreement is refused on write (`addOption`); pure code reads a
+ * row that got past it as "unknown", exactly as `sharedEnd` does.
+ */
+export function sharedNextCount(g: Graph, slot: OptionsSlot): number | null {
+	let next: number | null = null;
+	for (const id of slot.figureIds) {
+		const f = figureById(g, id);
+		if (!f) continue;
+		const n = nextCountOf(f);
+		if (next === null) next = n;
+		else if (next !== n) return null;
+	}
+	return next;
+}
+
+export interface SlotTiming {
+	/** Counts the slot can begin on. Empty when nothing in it is danceable. */
+	starts: number[];
+	/** The count it leaves the next slot on, or null when unknown. */
+	next: number | null;
+}
+
+/**
+ * One editor row's timing. An embedded routine borrows its first slot's start
+ * counts and its last slot's next count, the way it borrows positions.
+ */
+export function slotTiming(g: Graph, slot: Slot): SlotTiming {
+	const flat = flatten(g, { slots: [slot] });
+	if (flat.length === 0) return { starts: [], next: null };
+	return {
+		starts: slotStartCounts(g, flat[0]),
+		next: sharedNextCount(g, flat[flat.length - 1])
+	};
+}
+
 /** Where the routine can be started. Empty when it has no danceable slot. */
 export function routineStarts(g: Graph, shape: RoutineShape): number[] {
 	const flat = flatten(g, shape);
@@ -157,12 +207,68 @@ export function breaks(g: Graph, shape: RoutineShape): number[] {
 }
 
 /**
- * Whether the routine runs straight back into itself.
+ * Flat slot indices `i` where slot `i` leaves the next figure on a count slot
+ * `i + 1` cannot begin on. The timing twin of `breaks`: reported, never
+ * refused, and silent out of a slot whose next count is unknown.
+ */
+export function timingBreaks(g: Graph, shape: RoutineShape): number[] {
+	const flat = flatten(g, shape);
+	const out: number[] = [];
+	for (let i = 0; i + 1 < flat.length; i++) {
+		const next = sharedNextCount(g, flat[i]);
+		if (next === null) continue;
+		if (!slotStartCounts(g, flat[i + 1]).includes(next)) out.push(i);
+	}
+	return out;
+}
+
+/** A timing break between two of the editor's own rows (indices into `shape.slots`). */
+export interface TimingSeam {
+	after: number;
+	next: number;
+}
+
+/**
+ * `timingBreaks`, indexed by the editor's rows instead of the flat run.
+ *
+ * Flat indices drift from the rows as soon as a slot is dropped from the run —
+ * one whose figures are all archived — or a child routine expands into
+ * several, which put a marker on the wrong row with text read from the wrong
+ * slot. Here each row is compared with the next row that has anything
+ * danceable, and a child routine is one row with its borrowed timing. A break
+ * INSIDE a child is not a seam between two rows; `timingBreaks` still counts it.
+ */
+export function timingSeams(g: Graph, shape: RoutineShape): TimingSeam[] {
+	const rows = shape.slots.map((s) => slotTiming(g, s));
+	const out: TimingSeam[] = [];
+	for (let i = 0; i < rows.length; i++) {
+		const next = rows[i].next;
+		if (next === null) continue;
+		const j = rows.findIndex((r, k) => k > i && r.starts.length > 0);
+		if (j === -1) continue;
+		if (!rows[j].starts.includes(next)) out.push({ after: i, next: j });
+	}
+	return out;
+}
+
+/**
+ * Whether the routine runs straight back into itself — in the hands AND on the
+ * count.
  *
  * A free diagnostic worth showing: the player loops a routine when the song
  * outlasts it, so a routine that does not loop will cross one break per lap.
  */
 export function loops(g: Graph, shape: RoutineShape): boolean {
-	const end = routineEnd(g, shape);
-	return end !== null && routineStarts(g, shape).includes(end);
+	const flat = flatten(g, shape);
+	if (flat.length === 0) return false;
+	const first = flat[0];
+	const last = flat[flat.length - 1];
+	const end = sharedEnd(g, last);
+	const next = sharedNextCount(g, last);
+	return (
+		end !== null &&
+		next !== null &&
+		slotStarts(g, first).includes(end) &&
+		slotStartCounts(g, first).includes(next)
+	);
 }

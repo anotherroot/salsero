@@ -15,6 +15,7 @@
  */
 import type { Flow } from '$lib/scheduler/scheduler';
 import { endOf, figureById, figuresFrom, type Graph } from './graph';
+import { eightsSpan } from './timing';
 
 export function graphFlow(g: Graph): Flow {
 	return {
@@ -61,7 +62,8 @@ export function graphFlow(g: Graph): Flow {
 			return from[Math.min(from.length - 1, Math.floor(r * from.length))];
 		},
 		eights(figureId) {
-			return figureById(g, figureId)?.eights ?? 1;
+			const f = figureById(g, figureId);
+			return f ? eightsSpan(f.length) : 1;
 		}
 	};
 }

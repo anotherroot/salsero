@@ -12,6 +12,7 @@
  * state has to survive between ticks.
  */
 import { endOf, figureById, startsOf, type Graph } from '$lib/graph/graph';
+import { eightsSpan } from '$lib/graph/timing';
 import type { CallEvery } from '$lib/labels';
 import { LEAD_IN_8S, type PlanStep } from '$lib/scheduler/scheduler';
 import { flatten, type OptionsSlot, type RoutineShape } from './routines';
@@ -41,7 +42,10 @@ export function routinePlan(
 ): PlanStep[] {
 	const flat = flatten(g, shape);
 	if (flat.length === 0) return plan;
-	const eightsOf = (id: number) => figureById(g, id)?.eights ?? 1;
+	const eightsOf = (id: number) => {
+		const f = figureById(g, id);
+		return f ? eightsSpan(f.length) : 1;
+	};
 	const out = [...plan];
 	let eight =
 		out.length === 0
