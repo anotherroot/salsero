@@ -15,7 +15,8 @@ exercise links, and a four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
 panel in the popup, an exercise page) and figure timing (a start count and a
-length in counts; routines report timing breaks).
+length in counts; routines report timing breaks) and figure variations (versions
+of a figure with their own positions, timing and videos; chosen per routine slot).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -175,6 +176,11 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   `length_counts` (`eights * 8`) by migration 0010 and read by nothing since.
   Same reason as `style`: dropping it is a rebuild, and `figures` can never be
   rebuilt. Timing arithmetic lives in `src/lib/graph/timing.ts`.
+- **A variation is a `figures` row with `parent_id`.** One level, same dance as
+  its figure, never an exercise. Every list of figures excludes it
+  (`listFigures`, the drill pool, lesson pickers, the tagged count); the graph
+  includes it, filled from its figure by `buildGraph`. Show one with
+  `figureLabels` ("Enchufla · Doble"), never its bare name.
 
 ## Commands
 
