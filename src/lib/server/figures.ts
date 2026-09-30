@@ -103,7 +103,9 @@ export interface FigureFilter {
 }
 
 export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {}) {
-	const where = [isNull(figures.archivedAt), eq(figures.dance, dance)];
+	// Variations are versions OF a figure, reached through it — never figures in
+	// their own right in any list.
+	const where = [isNull(figures.archivedAt), eq(figures.dance, dance), isNull(figures.parentId)];
 	if (filter.q) where.push(like(figures.name, `%${filter.q.replace(/[%_]/g, '')}%`));
 	if (filter.style) where.push(eq(figures.styleTag, filter.style));
 	if (filter.partner) where.push(eq(figures.partner, filter.partner));
@@ -135,7 +137,14 @@ export function listCallableFigures(db: Db, dance: DanceSlug): CallableFigure[] 
 			style: figures.styleTag
 		})
 		.from(figures)
-		.where(and(isNull(figures.archivedAt), eq(figures.callable, true), eq(figures.dance, dance)))
+		.where(
+			and(
+				isNull(figures.archivedAt),
+				isNull(figures.parentId),
+				eq(figures.callable, true),
+				eq(figures.dance, dance)
+			)
+		)
 		.orderBy(figures.name)
 		.all()
 		.map(({ callText, ...f }) => ({ ...f, say: callText ?? f.name }));

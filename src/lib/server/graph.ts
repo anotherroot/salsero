@@ -159,3 +159,31 @@ export function setFigureShape(db: Db, figureId: number, shape: FigureShape): bo
 		return true;
 	});
 }
+
+/**
+ * How much of the repertoire carries handhold tags — figures only. A variation
+ * inherits its figure's tags, so counting it would make an untagged figure with
+ * three variations look four times as untagged.
+ */
+export function taggedFigures(db: Db, dance: DanceSlug): { done: number; total: number } {
+	const rows = db
+		.select({ id: figures.id, end: figures.endPositionId })
+		.from(figures)
+		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figures.parentId)))
+		.all();
+	const ids = rows.map((r) => r.id);
+	const withStarts = new Set(
+		ids.length === 0
+			? []
+			: db
+					.select({ id: figureStartPositions.figureId })
+					.from(figureStartPositions)
+					.where(inArray(figureStartPositions.figureId, ids))
+					.all()
+					.map((r) => r.id)
+	);
+	return {
+		done: rows.filter((r) => r.end !== null || withStarts.has(r.id)).length,
+		total: rows.length
+	};
+}

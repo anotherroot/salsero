@@ -6,11 +6,15 @@ import {
 	archiveFigure,
 	createFigure,
 	createVariation,
+	listCallableFigures,
+	listFigures,
 	listVariations,
 	updateFigure,
 	updateVariation
 } from './figures';
-import { setFigureShape } from './graph';
+import { setFigureShape, taggedFigures } from './graph';
+import { createLesson, linkFigure, listLinkableFigures } from './lessons';
+import { listPositions, seedPositions } from './positions';
 
 let db: Db;
 beforeEach(() => {
@@ -160,5 +164,47 @@ describe('setFigureShape and "same as Basic"', () => {
 		const parent = base();
 		expect(setFigureShape(db, parent.id, shape(null, 8))).toBe(false);
 		expect(setFigureShape(db, parent.id, shape(1, null))).toBe(false);
+	});
+});
+
+describe('variations are not figures, for every list', () => {
+	const setup = () => {
+		const parent = base('Enchufla');
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		return { parent, v };
+	};
+
+	it('leaves them out of the library', () => {
+		const { parent } = setup();
+		expect(listFigures(db, 'salsa').map((f) => f.id)).toEqual([parent.id]);
+	});
+
+	it('leaves them out of the drill’s pool', () => {
+		const { parent } = setup();
+		expect(listCallableFigures(db, 'salsa').map((f) => f.id)).toEqual([parent.id]);
+	});
+
+	it('leaves them out of the lesson picker, and refuses one posted by hand', () => {
+		const { parent, v } = setup();
+		const { lesson } = createLesson(db, 'salsa', {
+			lessonDay: '2026-09-22',
+			title: 'Class',
+			notes: null
+		});
+		expect(listLinkableFigures(db, lesson.id).map((f) => f.id)).toEqual([parent.id]);
+		expect(linkFigure(db, lesson.id, v.id)).toBe(false);
+	});
+
+	it('leaves them out of the tagged count', () => {
+		seedPositions(db);
+		const { v } = setup();
+		const hammer = listPositions(db, 'salsa').find((p) => p.slug === 'hammerlock-r')!;
+		setFigureShape(db, v.id, {
+			startIds: [],
+			endId: hammer.id,
+			startCount: null,
+			lengthCounts: null
+		});
+		expect(taggedFigures(db, 'salsa')).toEqual({ done: 0, total: 1 });
 	});
 });
