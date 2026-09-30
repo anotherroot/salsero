@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
+	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
@@ -34,10 +35,13 @@
 	// The figure's real style tag, not the vestigial `figure.style` column.
 	const styleLabel = $derived(figure.styleTag ? data.dance.styleLabel[figure.styleTag] : undefined);
 	const neutralName = $derived(data.positions.find((p) => p.neutral)?.name ?? 'the neutral hold');
-	const positionsFailure = $derived(
-		form && 'action' in form && form.action === 'positions' && 'message' in form
-			? form.message
-			: null
+	const positionName = (id: number) =>
+		data.positions.find((p) => p.id === id)?.name ?? 'an untagged position';
+	/** "Open two hands / Cross-hand → Hammerlock" — untagged sides read as neutral. */
+	const handholds = $derived(
+		`${data.tags.startIds.length > 0 ? data.tags.startIds.map(positionName).join(' / ') : neutralName} → ${
+			data.tags.endId === null ? neutralName : positionName(data.tags.endId)
+		}`
 	);
 	const linkFailure = $derived(
 		form && 'action' in form && form.action === 'addLink' && 'message' in form
@@ -87,6 +91,37 @@
 				callable={figure.callable}
 				callText={figure.callText}
 			/>
+
+			<!--
+				Positions and timing live in the same form as the name now: one Save
+				for the whole figure. Keyed on the figure: both components seed their
+				own state once, and SvelteKit reuses them across a same-route
+				navigation, so without the key the next figure would open showing the
+				previous one's tags.
+			-->
+			{#key figure.id}
+				<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
+			{/key}
+
+			<label class="block">
+				<span class="text-[13px] font-medium">Ends at</span>
+				<select
+					name="endId"
+					class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
+				>
+					<option value="" selected={data.tags.endId === null}>{neutralName}</option>
+					{#each data.positions as position (position.id)}
+						<option value={position.id} selected={data.tags.endId === position.id}>
+							{position.name}{position.archived ? ' (archived)' : ''}
+						</option>
+					{/each}
+				</select>
+			</label>
+
+			{#key figure.id}
+				<FigureTiming startCount={data.timing.startCount} lengthCounts={data.timing.lengthCounts} />
+			{/key}
+
 			{#if failure}
 				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
 					{failure}
@@ -117,6 +152,10 @@
 				{#if styleLabel}{styleLabel} ·
 				{/if}{PARTNER_LABEL[figure.partner]}
 			</p>
+			<p class="text-[13px] text-muted">
+				Starts on {data.timing.startCount} · {data.timing.lengthCounts} counts
+			</p>
+			<p class="text-[13px] text-muted">{handholds}</p>
 			{#if figure.notes}
 				<LinkedText text={figure.notes} class="mt-2 text-[15px] whitespace-pre-line" />
 			{/if}
@@ -144,62 +183,6 @@
 			</section>
 		{/if}
 	{/if}
-
-	<section>
-		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Positions</h2>
-		<form method="POST" action="?/positions" class="space-y-3" use:enhance>
-			<!--
-				Keyed on the figure: the picker seeds its own state from `initial`
-				once, and SvelteKit reuses this component across a same-route
-				navigation, so without the key the next figure would open showing the
-				previous one's tags.
-			-->
-			{#key figure.id}
-				<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
-			{/key}
-
-			<label class="block">
-				<span class="text-[13px] font-medium">Ends at</span>
-				<select
-					name="endId"
-					class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
-				>
-					<option value="" selected={data.tags.endId === null}>{neutralName}</option>
-					{#each data.positions as position (position.id)}
-						<option value={position.id} selected={data.tags.endId === position.id}>
-							{position.name}{position.archived ? ' (archived)' : ''}
-						</option>
-					{/each}
-				</select>
-			</label>
-
-			<label class="block">
-				<span class="text-[13px] font-medium">Counts</span>
-				<input
-					type="number"
-					name="lengthCounts"
-					min="1"
-					max="64"
-					value={data.timing.lengthCounts}
-					class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
-				/>
-				<span class="text-[12px] text-muted"
-					>How long the figure takes. The drill spaces its calls by it.</span
-				>
-			</label>
-
-			{#if positionsFailure}
-				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-					{positionsFailure}
-				</p>
-			{/if}
-			<button
-				type="submit"
-				class="h-11 w-full rounded-xl border border-line text-[14px] font-semibold"
-				>Save positions</button
-			>
-		</form>
-	</section>
 
 	<section class="grid grid-cols-2 gap-3">
 		{#each [{ title: 'Follows from', items: data.followsFrom }, { title: 'Leads to', items: data.leadsTo }] as list (list.title)}
@@ -259,17 +242,20 @@
 								Math.round(rec.sizeBytes / 1024 / 1024)
 							)} MB</span
 						>
-						<form
-							method="POST"
-							action="?/deleteRecording"
-							use:enhance
-							onsubmit={(e) => {
-								if (!confirm('Delete this recording?')) e.preventDefault();
-							}}
-						>
-							<input type="hidden" name="recordingId" value={rec.id} />
-							<button type="submit" class="h-9 px-2 text-danger">Delete</button>
-						</form>
+						<!-- Deleting is an edit; adding a recording stays one tap away in view mode. -->
+						{#if editing}
+							<form
+								method="POST"
+								action="?/deleteRecording"
+								use:enhance
+								onsubmit={(e) => {
+									if (!confirm('Delete this recording?')) e.preventDefault();
+								}}
+							>
+								<input type="hidden" name="recordingId" value={rec.id} />
+								<button type="submit" class="h-9 px-2 text-danger">Delete</button>
+							</form>
+						{/if}
 					</div>
 				</li>
 			{/each}

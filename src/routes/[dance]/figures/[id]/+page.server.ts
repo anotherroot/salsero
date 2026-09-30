@@ -16,6 +16,7 @@ import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
 	isLengthCounts,
+	isStartCount,
 	MAX_LENGTH_COUNTS
 } from '$lib/graph/timing';
 import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
@@ -114,8 +115,16 @@ export const load: PageServerLoad = ({ params, locals }) => {
 };
 
 export const actions: Actions = {
+	/**
+	 * The figure page's one Save: details, positions and timing together.
+	 *
+	 * `setFigureShape` runs FIRST because it is the half that can refuse — a
+	 * position of another dance. Running `updateFigure` first would rename the
+	 * figure and then report the refusal, which is the half-written save this
+	 * single form exists to rule out.
+	 */
 	update: async ({ params, request }) => {
-		const figure = figureOf(params);
+		const found = figureOf(params);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
@@ -123,53 +132,39 @@ export const actions: Actions = {
 		const notes = optionalText(form, 'notes');
 		const callable = checkbox(form, 'callable');
 		const callText = optionalText(form, 'callText', 200);
+		const startIds = ints(form, 'startIds');
+		const rawEnd = String(form.get('endId') ?? '');
+		const endId = rawEnd === '' ? null : Number(rawEnd);
+		const startCount = int(form, 'startCount');
+		const lengthCounts = int(form, 'lengthCounts');
+
 		if (!name || !partner || !style || notes === undefined || callText === undefined) {
 			return fail(400, {
 				action: 'update',
 				message: 'Give the figure a name (up to 200 characters).'
 			});
 		}
+		if (endId !== null && !Number.isInteger(endId)) {
+			return fail(400, { action: 'update', message: 'Pick an end position.' });
+		}
+		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
+			return fail(400, {
+				action: 'update',
+				message: `A figure starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
+			});
+		}
+
 		const db = getDb();
-		if (
-			!updateFigure(db, figure.figure.id, {
-				name,
-				partner,
-				style,
-				notes,
-				callable,
-				callText
-			})
-		) {
+		// A posted position id is just a number: `setFigureShape` rejects one from
+		// the other dance, and that is a 404 rather than a message, the same answer
+		// every other cross-dance id gets here.
+		if (!setFigureShape(db, found.figure.id, { startIds, endId, startCount, lengthCounts })) {
+			throw error(404, 'Figure not found');
+		}
+		if (!updateFigure(db, found.figure.id, { name, partner, style, notes, callable, callText })) {
 			throw error(404, 'Figure not found');
 		}
 		return { action: 'update', ok: true };
-	},
-
-	/** The handholds this figure starts and ends at, plus how many counts it takes. */
-	positions: async ({ params, request }) => {
-		const found = figureOf(params);
-		const form = await request.formData();
-		const startIds = ints(form, 'startIds');
-		const rawEnd = String(form.get('endId') ?? '');
-		const endId = rawEnd === '' ? null : Number(rawEnd);
-		const lengthCounts = int(form, 'lengthCounts');
-
-		if (endId !== null && !Number.isInteger(endId)) {
-			return fail(400, { action: 'positions', message: 'Pick an end position.' });
-		}
-		if (!isLengthCounts(lengthCounts)) {
-			return fail(400, {
-				action: 'positions',
-				message: `A figure takes between 1 and ${MAX_LENGTH_COUNTS} counts.`
-			});
-		}
-		const startCount = found.figure.startCount ?? DEFAULT_START_COUNT;
-		// A posted position id is just a number: `setFigureShape` rejects one from
-		// the other dance, and that is a 404 rather than a message.
-		if (!setFigureShape(getDb(), found.figure.id, { startIds, endId, startCount, lengthCounts })) {
-			throw error(404, 'Figure not found');
-		}
-		return { action: 'positions', ok: true };
 	},
 
 	archive: ({ params }) => {

@@ -267,35 +267,62 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
-	it('refuses positions for a figure from the other dance, writing nothing', async () => {
-		// A BACHATA position on a BACHATA figure: `setFigurePositions`'s own
-		// per-position dance check would ACCEPT this payload, so the only thing
-		// that can refuse it is the route's `figureOf` guard. Posting a salsa
-		// position instead would 404 either way and prove nothing about the wall —
-		// the next test covers that layer deliberately.
-		const bachataClosed = listPositions(db, 'bachata').find((p) => p.slug === 'closed')!;
-		await refuses(
-			figurePage.actions.positions,
-			post(
-				'salsa',
-				{ startIds: String(bachataClosed.id), lengthCounts: '8' },
-				String(bachataFigureId)
-			)
-		);
-		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
+	/** A complete, valid figure edit — each test overrides only what it is about. */
+	const edit = (fields: Record<string, string>) => ({
+		name: 'Renamed',
+		partner: 'partner',
+		style: 'salsa',
+		startCount: '1',
+		lengthCounts: '8',
+		...fields
 	});
 
-	it('refuses a position from the other dance on a figure of this one', async () => {
+	it('refuses an edit of a figure from the other dance, writing nothing', async () => {
+		// A BACHATA position on a BACHATA figure: `setFigureShape`'s own
+		// per-position dance check would ACCEPT this payload, so the only thing
+		// that can refuse it is the route's `figureOf` guard.
+		const bachataClosed = listPositions(db, 'bachata').find((p) => p.slug === 'closed')!;
+		const before = getFigure(db, bachataFigureId)!.figure.name;
+		await refuses(
+			figurePage.actions.update,
+			post('salsa', edit({ startIds: String(bachataClosed.id) }), String(bachataFigureId))
+		);
+		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
+		expect(getFigure(db, bachataFigureId)!.figure.name).toBe(before);
+	});
+
+	it('refuses a position from the other dance on a figure of this one — name included', async () => {
 		const salsaFigureId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure.id;
+		const before = getFigure(db, salsaFigureId)!.figure.name;
 		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
 		await refuses(
-			figurePage.actions.positions,
-			post(
-				'salsa',
-				{ startIds: String(bachataShadow.id), lengthCounts: '8' },
-				String(salsaFigureId)
-			)
+			figurePage.actions.update,
+			post('salsa', edit({ startIds: String(bachataShadow.id) }), String(salsaFigureId))
 		);
+		// The shape half refused, so the details half must not have run either.
+		expect(getFigure(db, salsaFigureId)!.figure.name).toBe(before);
+	});
+
+	it('refuses out-of-range timing with a message, writing nothing', async () => {
+		const salsaFigureId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure.id;
+		const before = getFigure(db, salsaFigureId)!.figure;
+		const bads: Record<string, string>[] = [
+			{ startCount: '0' },
+			{ startCount: '9' },
+			{ startCount: 'abc' },
+			{ lengthCounts: '0' },
+			{ lengthCounts: '65' }
+		];
+		for (const bad of bads) {
+			const result = await call(
+				figurePage.actions.update,
+				post('salsa', edit(bad), String(salsaFigureId))
+			);
+			expect(result).toMatchObject({ status: 400 });
+		}
+		const after = getFigure(db, salsaFigureId)!.figure;
+		expect(after.name).toBe(before.name);
+		expect(after.lengthCounts).toBe(before.lengthCounts);
 	});
 
 	it('will not open a bachata song from a salsa URL', () => {
