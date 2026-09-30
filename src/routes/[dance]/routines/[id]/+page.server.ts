@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '$lib/server/db';
 import { exercises } from '$lib/server/db/schema';
-import { listFigures } from '$lib/server/figures';
+import { figureLabels, listVersions } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
@@ -56,14 +56,13 @@ export const load: PageServerLoad = ({ params }) => {
 	const shape = routineShapes(db, dance).get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, dance);
-	// Each figure's landing — where it leaves the hands and on which count — so
-	// the alternative picker can offer only the ones that fit a slot. The
+	// Every figure AND variation, each with its landing — where it leaves the
+	// hands and on which count — so the pickers can offer the ones that fit. The
 	// server's `addOption` still decides; this only stops offering the refusals.
-	const figures = listFigures(db, dance, {}).map((f) => {
-		const node = figureById(graph, f.id);
+	const figures = listVersions(db, dance).map((v) => {
+		const node = figureById(graph, v.id);
 		return {
-			id: f.id,
-			name: f.name,
+			...v,
 			end: node ? endOf(graph, node) : null,
 			next: node ? nextCountOf(node) : null
 		};
@@ -90,6 +89,9 @@ export const load: PageServerLoad = ({ params }) => {
 		songs: listReadySongs(db, dance),
 		slots,
 		figures,
+		// Names for every figure a slot can hold, archived ones included, so a slot
+		// whose variation was archived still says what it was.
+		labels: Object.fromEntries(figureLabels(db, dance)),
 		positions: positions.map((p) => ({ id: p.id, name: p.name })),
 		starts: routineStarts(graph, shape),
 		end: routineEnd(graph, shape),

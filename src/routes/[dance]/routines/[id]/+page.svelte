@@ -67,7 +67,8 @@
 	 * diagnostic on this page has to be readable, so both are resolved here.
 	 */
 	const positionName = $derived(new Map(data.positions.map((p) => [p.id, p.name])));
-	const figureName = $derived(new Map(data.figures.map((f) => [f.id, f.name])));
+	/** Live figures and variations by id, for the pickers. */
+	const live = $derived(new Set(data.figures.map((f) => f.id)));
 
 	/**
 	 * `data.breaks` holds FLAT slot indices, which line up with `data.slots` only
@@ -141,11 +142,12 @@
 	 * way to clear it out.
 	 */
 	function optionName(id: number): string {
-		return figureName.get(id) ?? 'archived figure';
+		const name = data.labels[id] ?? 'a figure';
+		return live.has(id) ? name : `${name} (archived)`;
 	}
 
 	/**
-	 * Figures that could stand in for this slot's: not already in it, and landing
+	 * Figures and variations that could stand in for this slot's: not already in it, and landing
 	 * where its first figure lands — same hold, same next count. When the slot's
 	 * figures are all archived there is nothing to compare against, so everything
 	 * is offered and `addOption` decides.
@@ -156,6 +158,17 @@
 			(f) => !figureIds.includes(f.id) && (!first || (f.end === first.end && f.next === first.next))
 		);
 	}
+
+	/**
+	 * The add-slot picker in two steps: a figure, then — only when it has
+	 * variations — which version. `pickedFigure` starts undefined so the select
+	 * binds to its first option.
+	 */
+	let pickedFigure = $state<number | undefined>(undefined);
+	const baseFigures = $derived(data.figures.filter((f) => f.parentId === null));
+	const pickedVersions = $derived(
+		data.figures.filter((f) => f.id === pickedFigure || f.parentId === pickedFigure)
+	);
 
 	const hint = 'rounded-full bg-danger/10 px-2 py-0.5 font-medium text-danger';
 	const errorBox = 'rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger';
@@ -425,11 +438,20 @@
 	{:else}
 		<form method="POST" action="?/addFigure" class="space-y-2" use:enhance={closeAdd}>
 			<span class="text-[13px] font-medium">A figure</span>
-			<select name="figureId" class="{select} w-full" aria-label="Figure to add">
-				{#each data.figures as figure (figure.id)}
+			<select bind:value={pickedFigure} class="{select} w-full" aria-label="Figure to add">
+				{#each baseFigures as figure (figure.id)}
 					<option value={figure.id}>{figure.name}</option>
 				{/each}
 			</select>
+			{#if pickedVersions.length > 1}
+				<select name="figureId" class="{select} w-full" aria-label="Which version">
+					{#each pickedVersions as v (v.id)}
+						<option value={v.id}>{v.parentId === null ? 'Basic' : v.name}</option>
+					{/each}
+				</select>
+			{:else}
+				<input type="hidden" name="figureId" value={pickedFigure ?? ''} />
+			{/if}
 			<button type="submit" class="{step} w-full">Add slot</button>
 		</form>
 	{/if}
@@ -481,7 +503,7 @@
 							<input type="hidden" name="stepId" value={slot.id} />
 							<select name="figureId" class={select} aria-label="Add an alternative">
 								{#each addable(slot.figureIds) as figure (figure.id)}
-									<option value={figure.id}>{figure.name}</option>
+									<option value={figure.id}>{figure.label}</option>
 								{/each}
 							</select>
 							<button type="submit" class={step}>+ Alternative</button>
