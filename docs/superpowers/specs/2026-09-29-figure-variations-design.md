@@ -7,6 +7,9 @@
 > shows in the player. It **changes** three things that document says: slot
 > "variants" are renamed **alternatives**, `figures.eights` gives way to
 > `length_counts`, and a routine run no longer calls figure names.
+>
+> **Slice 1 (timing and one edit mode) is live.** Slices 2 and 3 are not built
+> yet.
 
 ## Purpose
 
