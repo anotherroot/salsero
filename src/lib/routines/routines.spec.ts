@@ -13,6 +13,7 @@ import {
 	slotStarts,
 	slotTiming,
 	timingBreaks,
+	timingSeams,
 	type RoutineShape,
 	type Slot
 } from './routines';
@@ -354,5 +355,45 @@ describe('loops, with timing', () => {
 	it('is false when the positions loop but the count does not', () => {
 		// Starts on 1, leaves the next on 5.
 		expect(loops(t, opts(21))).toBe(false);
+	});
+});
+
+describe('timingSeams', () => {
+	it('names the editor rows on both sides of a timing break', () => {
+		// 21 leaves the next on 5; 22 starts on 5; 20 starts on 1.
+		expect(timingSeams(t, opts(21, 22, 23))).toEqual([{ after: 1, next: 2 }]);
+	});
+
+	it('skips a slot with nothing danceable, pointing at the next real one', () => {
+		// Slot 1 holds only a figure the graph does not know — an archived one.
+		expect(timingSeams(t, opts(21, 999, 20))).toEqual([{ after: 0, next: 2 }]);
+	});
+
+	it('reports a seam at an embedded routine by its own row, not a flat index', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{
+					kind: 'child',
+					routineId: 9,
+					slots: [
+						{ kind: 'options', figureIds: [21] },
+						{ kind: 'options', figureIds: [22] }
+					]
+				},
+				{ kind: 'options', figureIds: [23] }
+			]
+		};
+		// The child is one row: it starts on 1 and leaves the next on 1; 23 starts on 5.
+		expect(timingSeams(t, shape)).toEqual([{ after: 0, next: 1 }]);
+	});
+
+	it('is silent out of a row whose next count is unknown', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [20, 21] },
+				{ kind: 'options', figureIds: [22] }
+			]
+		};
+		expect(timingSeams(t, shape)).toEqual([]);
 	});
 });

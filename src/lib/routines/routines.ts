@@ -222,6 +222,35 @@ export function timingBreaks(g: Graph, shape: RoutineShape): number[] {
 	return out;
 }
 
+/** A timing break between two of the editor's own rows (indices into `shape.slots`). */
+export interface TimingSeam {
+	after: number;
+	next: number;
+}
+
+/**
+ * `timingBreaks`, indexed by the editor's rows instead of the flat run.
+ *
+ * Flat indices drift from the rows as soon as a slot is dropped from the run —
+ * one whose figures are all archived — or a child routine expands into
+ * several, which put a marker on the wrong row with text read from the wrong
+ * slot. Here each row is compared with the next row that has anything
+ * danceable, and a child routine is one row with its borrowed timing. A break
+ * INSIDE a child is not a seam between two rows; `timingBreaks` still counts it.
+ */
+export function timingSeams(g: Graph, shape: RoutineShape): TimingSeam[] {
+	const rows = shape.slots.map((s) => slotTiming(g, s));
+	const out: TimingSeam[] = [];
+	for (let i = 0; i < rows.length; i++) {
+		const next = rows[i].next;
+		if (next === null) continue;
+		const j = rows.findIndex((r, k) => k > i && r.starts.length > 0);
+		if (j === -1) continue;
+		if (!rows[j].starts.includes(next)) out.push({ after: i, next: j });
+	}
+	return out;
+}
+
 /**
  * Whether the routine runs straight back into itself — in the hands AND on the
  * count.

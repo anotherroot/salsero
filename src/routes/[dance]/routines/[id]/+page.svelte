@@ -75,7 +75,12 @@
 	 * but the indices point at the wrong rows, so nothing is marked per slot.
 	 */
 	const breakAfter = $derived(data.hasChild ? new Set<number>() : new Set(data.breaks));
-	const timingBreakAfter = $derived(data.hasChild ? new Set<number>() : new Set(data.timingBreaks));
+	/**
+	 * Row → the next row it fails to reach on the count. Keyed by `slots` index
+	 * on the server (`timingSeams`), unlike `breakAfter`, so it stays on the right
+	 * row past an archived-only slot or an embedded routine.
+	 */
+	const seamAfter = $derived(new Map(data.timingSeams.map((s) => [s.after, s.next])));
 
 	/** "5→1", or "1/5→?" when the alternatives disagree on where they leave the count. */
 	function timingLabel(i: number): string {
@@ -356,11 +361,11 @@
 										<span class={hint}>break — the hands don't reach the next slot</span>
 									</p>
 								{/if}
-								{#if timingBreakAfter.has(i)}
+								{#if seamAfter.has(i)}
 									<p class="text-[12px]">
 										<span class={hint}
 											>timing — ends ready for {data.slotTiming[i]?.next}, next slot starts on {data.slotTiming[
-												i + 1
+												seamAfter.get(i) ?? i + 1
 											]?.starts.join(' or ')}</span
 										>
 									</p>

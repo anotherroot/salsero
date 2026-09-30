@@ -30,7 +30,8 @@ import {
 	routineStarts,
 	slotStarts,
 	slotTiming,
-	timingBreaks
+	timingBreaks,
+	timingSeams
 } from '$lib/routines/routines';
 import { endOf, figureById, nextCountOf } from '$lib/graph/graph';
 import { int, optionalText, text } from '$lib/server/form';
@@ -103,6 +104,9 @@ export const load: PageServerLoad = ({ params }) => {
 		// Per slot, parallel to `slots`: which counts it begins on and which it
 		// leaves the next on — the "5→1" on each row.
 		slotTiming: shape.slots.map((s) => slotTiming(graph, s)),
+		// The per-row markers, indexed by `slots` rather than the flat run, so an
+		// archived-only slot or an embedded routine cannot shift them.
+		timingSeams: timingSeams(graph, shape),
 		hasChild: slots.some((s) => s.childId !== null),
 		embeddable: embeddable(db, routine.id),
 		taughtIn: routineTaughtIn(db, routine.id),
