@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { buildGraph } from '$lib/server/graph';
 import { createRoutine, listRoutines, routineShapes } from '$lib/server/routines';
-import { breaks, loops } from '$lib/routines/routines';
+import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { optionalText, text } from '$lib/server/form';
 import { danceOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -20,7 +20,8 @@ export const load: PageServerLoad = ({ params }) => {
 			return {
 				...r,
 				loops: loops(graph, shape),
-				breaks: breaks(graph, shape).length
+				// A seam that breaks in the hands AND on the count is one problem, not two.
+				breaks: new Set([...breaks(graph, shape), ...timingBreaks(graph, shape)]).size
 			};
 		})
 	};

@@ -23,7 +23,16 @@ import {
 	setSlotNote,
 	updateRoutine
 } from '$lib/server/routines';
-import { breaks, loops, routineEnd, routineStarts, slotStarts } from '$lib/routines/routines';
+import {
+	breaks,
+	loops,
+	routineEnd,
+	routineStarts,
+	slotStarts,
+	slotTiming,
+	timingBreaks
+} from '$lib/routines/routines';
+import { endOf, figureById, nextCountOf } from '$lib/graph/graph';
 import { int, optionalText, text } from '$lib/server/form';
 import { danceOf, requireRoutineInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -46,7 +55,18 @@ export const load: PageServerLoad = ({ params }) => {
 	const shape = routineShapes(db, dance).get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, dance);
-	const figures = listFigures(db, dance, {}).map((f) => ({ id: f.id, name: f.name }));
+	// Each figure's landing — where it leaves the hands and on which count — so
+	// the alternative picker can offer only the ones that fit a slot. The
+	// server's `addOption` still decides; this only stops offering the refusals.
+	const figures = listFigures(db, dance, {}).map((f) => {
+		const node = figureById(graph, f.id);
+		return {
+			id: f.id,
+			name: f.name,
+			end: node ? endOf(graph, node) : null,
+			next: node ? nextCountOf(node) : null
+		};
+	});
 
 	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. The picker offers every figure of
@@ -77,6 +97,12 @@ export const load: PageServerLoad = ({ params }) => {
 		// child. The page shows the count when they diverge rather than pointing
 		// at the wrong slot.
 		breaks: [...flatBreaks],
+		// Same indexing as `breaks`: flat, so only trustworthy per row while no
+		// slot holds a child.
+		timingBreaks: timingBreaks(graph, shape),
+		// Per slot, parallel to `slots`: which counts it begins on and which it
+		// leaves the next on — the "5→1" on each row.
+		slotTiming: shape.slots.map((s) => slotTiming(graph, s)),
 		hasChild: slots.some((s) => s.childId !== null),
 		embeddable: embeddable(db, routine.id),
 		taughtIn: routineTaughtIn(db, routine.id),
