@@ -188,6 +188,29 @@ describe('addOption and removeOption', () => {
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
 	});
 
+	it('refuses an alternative that leaves the next figure on a different count', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const a = figure(db, 'A'); // 1 → 1
+		const b = figure(db, 'B');
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 1, lengthCounts: 4 }); // 1 → 5
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(false);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('accepts one of a different length that lands on the same count', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const a = figure(db, 'A'); // 1 → 1, 8 counts
+		const b = figure(db, 'B');
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 12 }); // 5 → 1
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(true);
+	});
+
 	it('counts an untagged figure as ending at the neutral position', () => {
 		const db = openDb(':memory:');
 		seedPositions(db);

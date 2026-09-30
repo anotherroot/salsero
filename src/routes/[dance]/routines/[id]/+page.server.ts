@@ -48,7 +48,7 @@ export const load: PageServerLoad = ({ params }) => {
 	const positions = listPositions(db, dance);
 	const figures = listFigures(db, dance, {}).map((f) => ({ id: f.id, name: f.name }));
 
-	// Flat indices where the routine's walk breaks — a slot's variants don't
+	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. The picker offers every figure of
 	// the dance regardless; `addOption`'s shared-end check is what actually
 	// refuses a wrong-end pick.
@@ -109,7 +109,7 @@ function ownsSlot(db: Db, routineId: number, stepId: number): boolean {
  * The page has one `addOption` form PER SLOT and they all fail with the same
  * sentence, so a bare message in the banner at the top says nothing about which
  * submission was refused — and `use:enhance` does not scroll, so from slot nine
- * of a long routine the refusal is invisible. A wrong-end variant pick is
+ * of a long routine the refusal is invisible. A wrong-landing alternative pick is
  * ordinary use here, not an edge case: the picker deliberately offers every
  * figure, because the load carries no per-figure end to filter it by.
  *
@@ -198,7 +198,7 @@ export const actions: Actions = {
 		}
 		if (!addOption(db, stepId, figureId)) {
 			return slotFail(
-				'Those figures do not end in the same place, so they are not variants.',
+				'Those figures do not land in the same place or on the same count, so they are not alternatives.',
 				stepId
 			);
 		}

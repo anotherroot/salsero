@@ -286,11 +286,12 @@ export const routineSteps = sqliteTable(
 );
 
 /**
- * The interchangeable figures filling one slot — the variants.
+ * The interchangeable figures filling one slot — the alternatives.
  *
- * All of them must share ONE end position, enforced on write: that is what
- * interchangeable means. A slot's START positions are the UNION of its
- * options', and a run filters them by where the hands actually are.
+ * All of them must share ONE end position and ONE next count, enforced on
+ * write: that is what interchangeable means. A slot's START positions are the
+ * UNION of its options', and a run filters them by where the hands actually
+ * are.
  */
 export const routineStepOptions = sqliteTable(
 	'routine_step_options',
