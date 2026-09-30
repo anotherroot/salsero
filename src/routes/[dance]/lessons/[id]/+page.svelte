@@ -57,17 +57,38 @@
 			aria-label="Back">‹</a
 		>
 		<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{lesson.title}</h1>
-		<button
-			type="button"
-			class="h-10 px-2 text-[14px] font-medium text-accent"
-			onclick={() => (editing = !editing)}>{editing ? 'Done' : 'Edit'}</button
-		>
+		<!--
+			Done SAVES: it submits the edit form (by `form=`, since the header is
+			outside it). A refused save keeps you editing with the message showing,
+			so nothing typed is lost; a successful one closes edit mode.
+		-->
+		{#if editing}
+			<button type="submit" form="edit-form" class="h-10 px-2 text-[14px] font-medium text-accent"
+				>Done</button
+			>
+		{:else}
+			<button
+				type="button"
+				class="h-10 px-2 text-[14px] font-medium text-accent"
+				onclick={() => (editing = true)}>Edit</button
+			>
+		{/if}
 	</div>
 </header>
 
 <div class="space-y-6 px-4 py-4">
 	{#if editing}
-		<form method="POST" action="?/update" class="space-y-3" use:enhance>
+		<form
+			id="edit-form"
+			method="POST"
+			action="?/update"
+			class="space-y-3"
+			use:enhance={() =>
+				async ({ update, result }) => {
+					await update({ reset: false });
+					if (result.type === 'success') editing = false;
+				}}
+		>
 			{#if failure('update')}
 				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
 					{failure('update')}

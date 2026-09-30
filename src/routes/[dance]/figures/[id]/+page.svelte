@@ -117,11 +117,24 @@
 		aria-label="Back to figures">‹</a
 	>
 	<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{figure.name}</h1>
-	<button
-		type="button"
-		class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent"
-		onclick={() => (editing = !editing)}>{editing ? 'Done' : 'Edit'}</button
-	>
+	<!--
+		Done SAVES: it submits the edit form (by `form=`, since the header is
+		outside it). A refused save keeps you editing with the message showing, so
+		nothing typed is lost; a successful one closes edit mode.
+	-->
+	{#if editing}
+		<button
+			type="submit"
+			form="edit-form"
+			class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent">Done</button
+		>
+	{:else}
+		<button
+			type="button"
+			class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent"
+			onclick={() => (editing = true)}>Edit</button
+		>
+	{/if}
 </header>
 
 <!--
@@ -159,6 +172,7 @@
 		{#key version.id}
 			{#if version.isVariation}
 				<form
+					id="edit-form"
 					method="POST"
 					action="?/updateVariation"
 					class="space-y-3"
@@ -227,7 +241,13 @@
 					>
 				</form>
 			{:else}
-				<form method="POST" action="?/update" class="space-y-3" use:enhance={closeOnSuccess}>
+				<form
+					id="edit-form"
+					method="POST"
+					action="?/update"
+					class="space-y-3"
+					use:enhance={closeOnSuccess}
+				>
 					<FigureFields
 						dance={data.dance}
 						name={figure.name}

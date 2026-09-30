@@ -188,11 +188,24 @@
 		aria-label="Back to routines">‹</a
 	>
 	<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{routine.name}</h1>
-	<button
-		type="button"
-		class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent"
-		onclick={() => (editing = !editing)}>{editing ? 'Done' : 'Edit'}</button
-	>
+	<!--
+		Done SAVES: it submits the edit form (by `form=`, since the header is
+		outside it). A refused save keeps you editing with the message showing, so
+		nothing typed is lost; a successful one closes edit mode.
+	-->
+	{#if editing}
+		<button
+			type="submit"
+			form="edit-form"
+			class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent">Done</button
+		>
+	{:else}
+		<button
+			type="button"
+			class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent"
+			onclick={() => (editing = true)}>Edit</button
+		>
+	{/if}
 </header>
 
 <main class="space-y-6 px-4 pt-4 pb-4">
@@ -202,6 +215,7 @@
 
 	{#if editing}
 		<form
+			id="edit-form"
 			method="POST"
 			action="?/rename"
 			class="space-y-3"
