@@ -1,9 +1,9 @@
-import { and, asc, count, eq, inArray, isNull, like } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, isNull, like } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, figures, recordings, type Figure } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import type { Partner } from '$lib/labels';
-import type { CallableFigure } from '$lib/types';
+import type { CallableFigure, FigureVersion } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
 
 export interface FigureInput {
@@ -158,22 +158,42 @@ export function listCallableFigures(db: Db, dance: DanceSlug): CallableFigure[] 
  * picker", and a routine names its figures explicitly. Archived ones are still
  * excluded, because `buildGraph` excludes them too and the planner will never
  * reach one.
+ *
+ * A variation is shown as "Enchufla · Doble" and SAID as its figure — the drill
+ * never calls a variation, and a spoken call has three counts to fit in.
  */
 export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): CallableFigure[] {
 	if (ids.length === 0) return [];
-	return db
+	const rows = db
 		.select({
 			id: figures.id,
 			name: figures.name,
 			callText: figures.callText,
 			partner: figures.partner,
-			style: figures.styleTag
+			style: figures.styleTag,
+			parentId: figures.parentId
 		})
 		.from(figures)
 		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), inArray(figures.id, ids)))
 		.orderBy(figures.name)
-		.all()
-		.map(({ callText, ...f }) => ({ ...f, say: callText ?? f.name }));
+		.all();
+	const parentIds = [...new Set(rows.flatMap((r) => (r.parentId === null ? [] : [r.parentId])))];
+	const parents = new Map(
+		(parentIds.length === 0
+			? []
+			: db
+					.select({ id: figures.id, name: figures.name, callText: figures.callText })
+					.from(figures)
+					.where(inArray(figures.id, parentIds))
+					.all()
+		).map((p) => [p.id, p])
+	);
+	return rows.map(({ callText, parentId, ...f }) => {
+		const parent = parentId === null ? undefined : parents.get(parentId);
+		return parent
+			? { ...f, name: `${parent.name} · ${f.name}`, say: parent.callText ?? parent.name }
+			: { ...f, say: callText ?? f.name };
+	});
 }
 
 export function getFigure(db: Db, id: number) {
@@ -291,4 +311,44 @@ export function updateVariation(db: Db, id: number, input: VariationInput): Figu
 			.returning()
 			.get() ?? null
 	);
+}
+
+/**
+ * Every figure of a dance by id, and how to show it: a variation reads
+ * "Enchufla · Doble". Archived rows included — a routine slot can still name
+ * one, and a name beats "archived figure".
+ */
+export function figureLabels(db: Db, dance: DanceSlug): Map<number, string> {
+	const rows = db
+		.select({ id: figures.id, name: figures.name, parentId: figures.parentId })
+		.from(figures)
+		.where(eq(figures.dance, dance))
+		.all();
+	const names = new Map(rows.map((r) => [r.id, r.name]));
+	return new Map(
+		rows.map((r) => [
+			r.id,
+			r.parentId === null ? r.name : `${names.get(r.parentId) ?? '?'} · ${r.name}`
+		])
+	);
+}
+
+/**
+ * The unarchived figures of a dance, alphabetically, each followed by its
+ * unarchived variations oldest first — what a picker that chooses a VERSION
+ * offers.
+ */
+export function listVersions(db: Db, dance: DanceSlug): FigureVersion[] {
+	const variations = db
+		.select({ id: figures.id, parentId: figures.parentId, name: figures.name })
+		.from(figures)
+		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), isNotNull(figures.parentId)))
+		.orderBy(asc(figures.id))
+		.all();
+	return listFigures(db, dance).flatMap((f) => [
+		{ id: f.id, parentId: null, name: f.name, label: f.name },
+		...variations
+			.filter((v) => v.parentId === f.id)
+			.map((v) => ({ id: v.id, parentId: f.id, name: v.name, label: `${f.name} · ${v.name}` }))
+	]);
 }

@@ -34,6 +34,7 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 	const rows = db
 		.select({
 			id: figures.id,
+			parentId: figures.parentId,
 			end: figures.endPositionId,
 			startCount: figures.startCount,
 			lengthCounts: figures.lengthCounts
@@ -63,15 +64,29 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 		else byFigure.set(row.figureId, [row.positionId]);
 	}
 
+	// A variation takes whatever it leaves unset from its figure. Resolved HERE,
+	// so `src/lib/graph/` never learns that variations exist — the same way it
+	// never learns that dances do.
+	const byId = new Map(rows.map((r) => [r.id, r]));
+	const nodes: Graph['figures'] = [];
+	for (const r of rows) {
+		const parent = r.parentId === null ? null : (byId.get(r.parentId) ?? null);
+		// A variation whose figure is not in the graph — archived by hand, or gone
+		// — has nothing to fill from. `archiveFigure` archives both together.
+		if (r.parentId !== null && parent === null) continue;
+		const own = byFigure.get(r.id) ?? [];
+		nodes.push({
+			id: r.id,
+			starts: own.length > 0 || parent === null ? own : (byFigure.get(parent.id) ?? []),
+			end: r.end ?? parent?.end ?? null,
+			start: r.startCount ?? parent?.startCount ?? DEFAULT_START_COUNT,
+			length: r.lengthCounts ?? parent?.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+		});
+	}
+
 	return {
 		neutral: neutralPosition(db, dance)?.id ?? 0,
-		figures: rows.map((r) => ({
-			id: r.id,
-			starts: byFigure.get(r.id) ?? [],
-			end: r.end,
-			start: r.startCount ?? DEFAULT_START_COUNT,
-			length: r.lengthCounts ?? DEFAULT_LENGTH_COUNTS
-		}))
+		figures: nodes
 	};
 }
 

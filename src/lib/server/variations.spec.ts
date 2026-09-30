@@ -6,15 +6,21 @@ import {
 	archiveFigure,
 	createFigure,
 	createVariation,
+	figureLabels,
 	listCallableFigures,
 	listFigures,
+	listFiguresForCall,
 	listVariations,
+	listVersions,
 	updateFigure,
 	updateVariation
 } from './figures';
-import { setFigureShape, taggedFigures } from './graph';
+import { buildGraph, setFigureShape, taggedFigures } from './graph';
 import { createLesson, linkFigure, listLinkableFigures } from './lessons';
 import { listPositions, seedPositions } from './positions';
+import { addFigureSlot, addOption, createRoutine, routineSlots } from './routines';
+import { practicePayload } from './practice-content';
+import { positionCounts } from '$lib/graph/graph';
 
 let db: Db;
 beforeEach(() => {
@@ -206,5 +212,148 @@ describe('variations are not figures, for every list', () => {
 			lengthCounts: null
 		});
 		expect(taggedFigures(db, 'salsa')).toEqual({ done: 0, total: 1 });
+	});
+});
+
+describe('buildGraph fills a variation from its figure', () => {
+	it('reads an untouched variation exactly as its figure', () => {
+		seedPositions(db);
+		const [open, cross, hammer] = ['open-two', 'cross-hand', 'hammerlock-r'].map(
+			(slug) => listPositions(db, 'salsa').find((p) => p.slug === slug)!.id
+		);
+		const parent = base();
+		setFigureShape(db, parent.id, {
+			startIds: [open, cross],
+			endId: hammer,
+			startCount: 5,
+			lengthCounts: 12
+		});
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		const node = buildGraph(db, 'salsa').figures.find((f) => f.id === v.id)!;
+		expect({ ...node, starts: [...node.starts].sort((a, b) => a - b) }).toEqual({
+			id: v.id,
+			starts: [open, cross].sort((a, b) => a - b),
+			end: hammer,
+			start: 5,
+			length: 12
+		});
+	});
+
+	it('lets a variation override each field on its own', () => {
+		seedPositions(db);
+		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!.id;
+		const parent = base();
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		setFigureShape(db, v.id, {
+			startIds: [closed],
+			endId: null,
+			startCount: null,
+			lengthCounts: 16
+		});
+		const node = buildGraph(db, 'salsa').figures.find((f) => f.id === v.id)!;
+		expect(node).toMatchObject({ starts: [closed], end: null, start: 1, length: 16 });
+	});
+
+	it('leaves out a variation whose figure is archived', () => {
+		const parent = base();
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		// Only the parent, as a hand-edited row would be — archiveFigure takes both.
+		db.update(figures).set({ archivedAt: 1 }).where(eq(figures.id, parent.id)).run();
+		expect(buildGraph(db, 'salsa').figures.map((f) => f.id)).not.toContain(v.id);
+	});
+
+	it('counts a variation in the gap report — it is a real way out of a hold', () => {
+		seedPositions(db);
+		const hammer = listPositions(db, 'salsa').find((p) => p.slug === 'hammerlock-r')!.id;
+		const v = createVariation(db, base().id, { name: 'Doble', notes: null })!;
+		setFigureShape(db, v.id, {
+			startIds: [],
+			endId: hammer,
+			startCount: null,
+			lengthCounts: null
+		});
+		const [counts] = positionCounts(buildGraph(db, 'salsa'), [hammer]);
+		expect(counts.inCount).toBe(1);
+	});
+});
+
+describe('labels and versions', () => {
+	it('shows a variation as "figure · variation", archived ones included', () => {
+		const parent = base('Enchufla');
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		archiveFigure(db, v.id, 1000);
+		expect(figureLabels(db, 'salsa').get(v.id)).toBe('Enchufla · Doble');
+		expect(figureLabels(db, 'salsa').get(parent.id)).toBe('Enchufla');
+	});
+
+	it('lists each figure followed by its live variations', () => {
+		const a = base('Setenta');
+		const b = base('Enchufla');
+		const d = createVariation(db, b.id, { name: 'Doble', notes: null })!;
+		const gone = createVariation(db, b.id, { name: 'Old', notes: null })!;
+		archiveFigure(db, gone.id, 1000);
+		expect(listVersions(db, 'salsa')).toEqual([
+			{ id: b.id, parentId: null, name: 'Enchufla', label: 'Enchufla' },
+			{ id: d.id, parentId: b.id, name: 'Doble', label: 'Enchufla · Doble' },
+			{ id: a.id, parentId: null, name: 'Setenta', label: 'Setenta' }
+		]);
+	});
+
+	it('names a routine’s variation on screen and says its figure’s name', () => {
+		const parent = createFigure(db, 'salsa', {
+			name: 'Enchufla',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null,
+			callable: true,
+			callText: 'en-CHU-fla'
+		})!.figure;
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		expect(listFiguresForCall(db, 'salsa', [v.id])).toMatchObject([
+			{ id: v.id, name: 'Enchufla · Doble', say: 'en-CHU-fla' }
+		]);
+	});
+
+	it('names a variation in a routine’s practice panel', () => {
+		const parent = base('Enchufla');
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		const { routine, exercise } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
+		addFigureSlot(db, routine.id, v.id);
+		const content = practicePayload(db, exercise, 'Europe/Ljubljana', Date.now()).content;
+		expect(content.type === 'routine' && content.slots[0].names).toEqual(['Enchufla · Doble']);
+	});
+});
+
+describe('routines see a variation’s inherited landing', () => {
+	it('accepts a variation that lands where its figure does as an alternative to it', () => {
+		const parent = base();
+		const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
+		const { routine } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
+		const step = addFigureSlot(db, routine.id, parent.id)!;
+		expect(addOption(db, step, v.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds.sort()).toEqual([parent.id, v.id].sort());
+	});
+
+	it('refuses one whose own length leaves the next figure on another count', () => {
+		const parent = base();
+		const v = createVariation(db, parent.id, { name: 'Corta', notes: null })!;
+		setFigureShape(db, v.id, { startIds: [], endId: null, startCount: null, lengthCounts: 4 });
+		const { routine } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
+		const step = addFigureSlot(db, routine.id, parent.id)!;
+		expect(addOption(db, step, v.id)).toBe(false);
+	});
+
+	it('refuses a variation whose inherited end differs from the slot’s', () => {
+		// The row itself has a null end, so reading the ROW would call it neutral
+		// and accept it; only the graph knows it ends where its figure does.
+		seedPositions(db);
+		const hammer = listPositions(db, 'salsa').find((p) => p.slug === 'hammerlock-r')!.id;
+		const tagged = base('Sombrero');
+		setFigureShape(db, tagged.id, { startIds: [], endId: hammer, startCount: 1, lengthCounts: 8 });
+		const v = createVariation(db, tagged.id, { name: 'Doble', notes: null })!;
+		const plain = base('Enchufla');
+		const { routine } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
+		const step = addFigureSlot(db, routine.id, plain.id)!;
+		expect(addOption(db, step, v.id)).toBe(false);
 	});
 });
