@@ -35,7 +35,7 @@
 		ondelete: (id: number) => void;
 		onremoveAlt: (id: number, figureId: number, label: string) => void;
 		onaddAlt: (id: number) => void;
-		onnote: (id: number, note: string | null) => void;
+		onnote: (id: number, note: string | null) => unknown;
 		onadd: (at: number, from: PickFrom | null) => void;
 	}
 

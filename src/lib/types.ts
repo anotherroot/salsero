@@ -239,3 +239,17 @@ export interface SlotRow {
 	/** Empty for a child slot. */
 	figureIds: number[];
 }
+
+/**
+ * A saved moment of a video: a point when `endMs` is null, else a section the
+ * full-screen player loops. Milliseconds into the file, not instants.
+ */
+export interface Spot {
+	id: number;
+	startMs: number;
+	endMs: number | null;
+	label: string | null;
+}
+
+/** The one video a spot belongs to — a figure recording or a lesson video. */
+export type SpotOwner = { recordingId: number } | { lessonVideoId: number };

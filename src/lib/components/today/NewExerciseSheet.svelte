@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
 
@@ -23,13 +23,16 @@
 		method="POST"
 		action="?/createExercise"
 		class="space-y-3"
-		use:enhance={() => {
-			busy = true;
-			return async ({ update, result }) => {
-				await update();
-				busy = false;
-				if (result.type === 'success') onclose();
-			};
+		use:guarded={{
+			label: 'New exercise',
+			submit: () => {
+				busy = true;
+				return async ({ update, result }) => {
+					await update();
+					busy = false;
+					if (result.type === 'success') onclose();
+				};
+			}
 		}}
 	>
 		<label class="block">

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { track } from '$lib/unsaved/guard.svelte';
 	import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
 
 	interface Props {
@@ -16,6 +17,16 @@
 	let progress = $state<number | null>(null);
 	let message = $state<string | null>(null);
 	let input: HTMLInputElement | undefined = $state();
+
+	// The request outlives an in-app navigation (the component goes, the XHR
+	// does not), so only a reload or a closed tab would cut it off.
+	$effect(() =>
+		track({
+			label: 'An upload',
+			dirty: () => progress !== null,
+			unloadOnly: true
+		})
+	);
 
 	const mb = (n: number) => `${Math.round(n / 1024 / 1024)} MB`;
 	const allowed = $derived(accept === 'audio/*' ? /^audio\// : /^(video|audio)\//);

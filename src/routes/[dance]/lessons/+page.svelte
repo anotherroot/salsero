@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
-	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
 	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
@@ -82,12 +82,15 @@
 		method="POST"
 		action="?/create"
 		class="space-y-3"
-		use:enhance={() => {
-			busy = true;
-			return async ({ update }) => {
-				await update();
-				busy = false;
-			};
+		use:guarded={{
+			label: 'New lesson',
+			submit: () => {
+				busy = true;
+				return async ({ update }) => {
+					await update();
+					busy = false;
+				};
+			}
 		}}
 	>
 		{#if form?.message}

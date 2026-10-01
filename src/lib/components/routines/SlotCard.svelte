@@ -9,6 +9,7 @@
 	import type { Side } from '$lib/gestures/swipe';
 	import Swipeable from './Swipeable.svelte';
 	import { resettingFocus } from './act';
+	import { track } from '$lib/unsaved/guard.svelte';
 	import type { RowView, Swiped } from './types';
 
 	interface Props {
@@ -28,7 +29,8 @@
 		ondelete: () => void;
 		onremoveAlt: (figureId: number, label: string) => void;
 		onaddAlt: () => void;
-		onnote: (note: string | null) => void;
+		/** May return a promise (the save), which the unsaved-changes guard awaits. */
+		onnote: (note: string | null) => unknown;
 	}
 
 	let {
@@ -53,6 +55,34 @@
 
 	const sideOf = (key: string): Side => (swiped?.key === key ? swiped.side : null);
 	const slotKey = $derived(`slot:${row.id}`);
+
+	/**
+	 * The open note field, registered with the unsaved-changes guard while it
+	 * exists: it saves on blur, but leaving by a back gesture or a sheet can
+	 * skip the blur, and a half-typed note must then get the same Save / Stay /
+	 * Leave question every other form gets.
+	 */
+	let noteInput: HTMLInputElement | undefined = $state();
+	$effect(() => {
+		const input = noteInput;
+		if (!input) return;
+		const typed = () => input.value.trim();
+		return track({
+			label: 'Slot note',
+			node: input,
+			dirty: () => typed() !== (row.note ?? ''),
+			save: async () => {
+				const v = typed();
+				const result = await onnote(v === '' ? null : v);
+				const failed =
+					typeof result === 'object' &&
+					result !== null &&
+					'type' in result &&
+					result.type !== 'success';
+				return failed ? { ok: false, message: 'The note did not save.' } : { ok: true };
+			}
+		});
+	});
 </script>
 
 <Swipeable
@@ -165,6 +195,7 @@
 				onpointerdown={(e) => e.stopPropagation()}
 			>
 				<input
+					bind:this={noteInput}
 					value={row.note ?? ''}
 					maxlength="200"
 					placeholder="✎ Add a note…"

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
+	import { track } from '$lib/unsaved/guard.svelte';
 	import {
 		COUNT_PATTERN_LABEL,
 		PHRASE_PATTERNS,
@@ -174,8 +176,9 @@
 		if (!res.ok) throw new Error(await res.text());
 	}
 
-	async function keep() {
-		if (!capture) return;
+	/** Upload the chosen bars. True when they all landed. */
+	async function keep(): Promise<boolean> {
+		if (!capture) return false;
 		saving = true;
 		error = null;
 		try {
@@ -187,13 +190,27 @@
 			capture = null;
 			stage = 'grid';
 			// The grid is server state; re-fetch rather than guessing what landed.
-			location.reload();
+			await invalidateAll();
+			return true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not save the takes.';
+			return false;
 		} finally {
 			saving = false;
 		}
 	}
+
+	// A take being chosen lives only in memory: leaving loses it, so ask.
+	// "Back" is the one way out that does not, because it says so.
+	$effect(() =>
+		track({
+			label: 'Your recorded count',
+			dirty: () => stage === 'choosing' && capture !== null,
+			blocked: () => (chosen.a === null && chosen.b === null ? 'Pick a bar to keep first.' : null),
+			save: async () =>
+				(await keep()) ? { ok: true } : { ok: false, message: error ?? 'Could not save the takes.' }
+		})
+	);
 
 	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
 	const chip =

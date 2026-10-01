@@ -519,6 +519,47 @@ export const lessonVideos = sqliteTable(
 	(t) => [index('lesson_videos_lesson_idx').on(t.lessonId)]
 );
 
+/**
+ * A saved moment of a video — a point, or a section the full-screen player
+ * loops. See `docs/superpowers/specs/2026-10-01-video-player-design.md`.
+ *
+ * Exactly one owner, a recording or a lesson video. The CHECKs are safe
+ * because this table is NEW: the "never add a CHECK" rule is about drizzle-kit
+ * rebuilding an EXISTING table.
+ *
+ * `start_ms` and `end_ms` are positions inside the media file, not instants,
+ * so they are not epoch ms — but integers for the same reason. No `dance`
+ * column: a spot is the dance of its video, resolved through the owner like a
+ * link. Hard-deleted, and deleted with its video (`deleteRecording`,
+ * `deleteLessonVideo`).
+ */
+export const videoSpots = sqliteTable(
+	'video_spots',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		recordingId: integer('recording_id').references(() => recordings.id),
+		lessonVideoId: integer('lesson_video_id').references(() => lessonVideos.id),
+		startMs: integer('start_ms').notNull(),
+		/** Null for a point; else after `start_ms`. */
+		endMs: integer('end_ms'),
+		/** The user's name for it; null shows the time. */
+		label: text('label'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check(
+			'video_spots_owner_ck',
+			sql`(${t.recordingId} is not null) + (${t.lessonVideoId} is not null) = 1`
+		),
+		check(
+			'video_spots_span_ck',
+			sql`${t.startMs} >= 0 and (${t.endMs} is null or ${t.endMs} > ${t.startMs})`
+		),
+		index('video_spots_recording_idx').on(t.recordingId),
+		index('video_spots_lesson_video_idx').on(t.lessonVideoId)
+	]
+);
+
 /** Figures taught in a lesson. Many-to-many; neither side owns the other. */
 export const lessonFigures = sqliteTable(
 	'lesson_figures',
@@ -682,3 +723,4 @@ export type Exercise = typeof exercises.$inferSelect;
 export type SetRow = typeof sets.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type LessonVideo = typeof lessonVideos.$inferSelect;
+export type VideoSpot = typeof videoSpots.$inferSelect;

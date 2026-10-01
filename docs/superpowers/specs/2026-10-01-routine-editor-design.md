@@ -76,6 +76,10 @@ again — or another card — collapses it. An open card shows, top to bottom:
 1. **The note field**, inside the card under the name, styled as a quiet
    underline (✎ Add a note…). It saves on blur and on Enter, with no Save
    button; Escape restores what was there. Limit 200 characters, as today.
+   While open it is registered with the unsaved-changes guard
+   (`src/lib/unsaved/`), so leaving with a half-typed note gets the same
+   Save / Stay / Leave question as any form; the routine's name and notes and
+   the Make routine name go through `use:guarded`.
 2. **An "Open →" link** in the card's header row, to the figure or the embedded
    routine.
 3. **The alternatives**, under the card on an indented rail: smaller cards in

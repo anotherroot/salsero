@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { FIELD } from '$lib/components/ui/styles';
@@ -23,7 +23,7 @@
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
 	import { dateLabel } from '$lib/format';
-	import type { ActionData, PageData } from './$types';
+	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -356,16 +356,24 @@
 		openPicker(side === 'after' ? i + 1 : i, { row: i, side });
 	}
 
-	async function extract(e: SubmitEvent) {
-		e.preventDefault();
-		const name = String(new FormData(e.currentTarget as HTMLFormElement).get('name') ?? '');
-		const result = await send('extract', { stepIds: inOrder(rows, selected), name });
-		if (result.type === 'success') {
+	/**
+	 * The Make routine form's enhance callback. The form goes through
+	 * `use:guarded`, so a typed name is unsaved work the sheet asks about before
+	 * closing; on success the new embedded slot opens expanded like any new slot.
+	 */
+	const extracted: SubmitFunction =
+		() =>
+		async ({ result, update }) => {
+			await update();
+			if (result.type !== 'success') return;
 			naming = false;
 			stopSelecting();
-			if (typeof result.data?.stepId === 'number') flash = result.data.stepId;
-		}
-	}
+			const id = result.data && 'stepId' in result.data ? result.data.stepId : undefined;
+			if (typeof id === 'number') {
+				flash = id;
+				expanded = id;
+			}
+		};
 
 	const hint = 'rounded-full bg-danger/10 px-2 py-0.5 font-medium text-danger';
 	const errorBox = 'rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger';
@@ -431,11 +439,15 @@
 			method="POST"
 			action="?/rename"
 			class="space-y-3"
-			use:enhance={() =>
-				async ({ update, result }) => {
-					await update({ reset: false });
-					if (result.type === 'success') editing = false;
-				}}
+			use:guarded={{
+				label: 'Routine edits',
+				submit:
+					() =>
+					async ({ update, result }) => {
+						await update({ reset: false });
+						if (result.type === 'success') editing = false;
+					}
+			}}
 		>
 			<label class="block">
 				<span class="mb-1 block text-[13px] text-muted">Name</span>
@@ -605,7 +617,15 @@
 />
 
 <Sheet title="Make a routine" open={naming} onclose={() => (naming = false)}>
-	<form class="space-y-3" onsubmit={extract}>
+	<form
+		method="POST"
+		action="?/extract"
+		class="space-y-3"
+		use:guarded={{ label: 'New routine name', submit: extracted }}
+	>
+		{#each inOrder(rows, selected) as id (id)}
+			<input type="hidden" name="stepIds" value={id} />
+		{/each}
 		{#if bannerFailure}
 			<p class={errorBox} role="alert">{bannerFailure}</p>
 		{/if}

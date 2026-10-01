@@ -8,7 +8,8 @@ import {
 	lessonRoutines,
 	lessonVideos,
 	lessons,
-	routines
+	routines,
+	videoSpots
 } from './db/schema';
 import type { DanceSlug } from '$lib/dances/dances';
 import type {
@@ -497,9 +498,16 @@ export function addLessonVideo(db: Db, input: LessonVideoInput) {
 	return db.insert(lessonVideos).values(input).returning().get();
 }
 
-/** Delete a video row and return it, so the caller can remove the file. */
+/**
+ * Delete a video row and return it, so the caller can remove the file. Its
+ * spots go first, in the same transaction — the foreign key would refuse the
+ * video otherwise.
+ */
 export function deleteLessonVideo(db: Db, id: number) {
-	return db.delete(lessonVideos).where(eq(lessonVideos.id, id)).returning().get() ?? null;
+	return db.transaction((tx) => {
+		tx.delete(videoSpots).where(eq(videoSpots.lessonVideoId, id)).run();
+		return tx.delete(lessonVideos).where(eq(lessonVideos.id, id)).returning().get() ?? null;
+	});
 }
 
 export function getLessonVideoByFile(db: Db, file: string) {

@@ -58,6 +58,9 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    links followed on 2026-09-29. Today gained a fourth
    band at the same time. See
    [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md).
+   A full-screen video player with saved spots and looped sections, for
+   figure recordings and lesson videos: live since 2026-10-01, see
+   [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md).
 
 Deferred beyond phase 3: stats/charts, ear-training quizzes (e.g. "2-3 or 3-2
 clave?"), offline mode.
@@ -449,12 +452,10 @@ fixed before shipping. Check here before hunting one of these as a new bug:
   needs a real ear on a real phone first.
 - **The iPhone silent switch mutes the voice but not the music.** True and
   expected — but the hint this spec called for was never put on screen.
-- **A stray tap on the save sheet's backdrop discards a finished run** — its
-  duration, rating, note and called list — with no confirmation and no way
-  back. Still true for the full player's `SaveSetSheet`; fixed for the
-  exercise-types log popups, which guard the backdrop and the ✕ (see
-  [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)'s
-  Known gaps for the one path — a second Escape — that guard still misses).
+- ~~A stray tap on the save sheet's backdrop discards a finished run.~~ Fixed
+  2026-10-01: `SaveSetSheet` counts the run as unsaved, so the backdrop, ✕,
+  Escape and a navigation all get the unsaved-changes question (see "Unsaved
+  changes" below). "Don't save" still discards at once, because it says so.
 - **Pause can let ~100 ms of already-scheduled clips through**, and the
   `AbortError` from a `play()` interrupted by a pause is swallowed.
 - **Stop then Play resumes mid-song**, and the `<audio controls>` is hidden
@@ -487,6 +488,43 @@ No DB, no DOM, no `Date.now()` inside — `now` is always an argument.
 | `src/lib/scheduler/` (2) | Plan + grid + toggles + time window → list of `{at, clip}` events. The only impure part is a thin `attach.ts` that owns the `AudioContext`.                                            |
 | `src/lib/graph/` (3a)    | Positions → which figures can follow which, and the gap report (`positionCounts`). See the routines design.                                                                      |
 | `src/lib/routines/` (3b) | Slot algebra (union starts, shared end, one-level embedding) and `routinePlan`: a routine → the same `PlanStep[]` `extendPlan` produces. See the routines design.                    |
+
+## Unsaved changes
+
+Nothing typed is lost by leaving without a question. One dialog
+(`src/lib/components/ui/UnsavedDialog.svelte`, mounted once in the root
+layout) asks it everywhere, and `src/lib/unsaved/` is the list of what can be
+unsaved.
+
+- **What counts.** A form that someone fills in uses `use:guarded={{ label,
+  submit }}` in place of `use:enhance` (`submit` is the same callback). It is
+  unsaved while its `FormData` differs from what it showed at first paint or
+  last saved — compared as data, so values set by code (start-position chips,
+  timing shortcuts, rating buttons) count like typed ones. One-tap forms (a
+  delete, a move, a picker's Add) stay on `use:enhance`: there is nothing to
+  lose. A form can widen the test (`dirty`): the player's finished run and the
+  log popup's practice time are unsaved with nothing typed. Non-form things
+  register with `track()`: the voice page's unkept take, and an upload in
+  flight.
+- **When it asks.** Any in-app navigation (links, the bottom nav, back and
+  forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop or
+  Escape (only about what is inside that sheet; the way out is "Close"); the
+  log popup's Skip, Next and Finish ("Skip without saving"…).
+- **What it offers.** Save · Stay · *Leave* without saving. Save submits the
+  real form(s) and waits for the server's answer: Saved ✓ then offers Leave or
+  Stay; a failure shows the server's message with "Stay and fix it". A form
+  that fails its own checks (an empty required name) is never sent — the
+  dialog closes and the browser points at the field. Save is disabled, with
+  the reason, while the count is playing.
+- **What it cannot do.** A reload or a closed tab gets only the browser's own
+  "Leave site?" — no page may show its own UI there. An upload only asks then:
+  its XHR outlives an in-app navigation, so leaving the page does not stop it.
+  A plain (unenhanced) form post — Archive, Duplicate, Log out — is let
+  through: it was pressed on purpose, and it reaches the guard as an unload
+  right after a submit that nothing prevented.
+- **Not covered.** The coverage page's long-press selection is page state, not
+  an edit, and is not guarded. Edit mode still has no Cancel; leaving is the
+  way to discard.
 
 ## Errors
 

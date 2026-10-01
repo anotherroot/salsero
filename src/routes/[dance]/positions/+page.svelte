@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionData, PageData } from './$types';
 
@@ -25,7 +26,12 @@
 	<ul class="space-y-2">
 		{#each data.positions as position (position.id)}
 			<li class="rounded-xl border border-line bg-raised p-3 {position.unused ? 'opacity-60' : ''}">
-				<form method="POST" action="?/rename" class="flex items-center gap-2" use:enhance>
+				<form
+					method="POST"
+					action="?/rename"
+					class="flex items-center gap-2"
+					use:guarded={{ label: 'Position name' }}
+				>
 					<input type="hidden" name="id" value={position.id} />
 					<input
 						name="name"
@@ -64,7 +70,12 @@
 		{/each}
 	</ul>
 
-	<form method="POST" action="?/create" class="flex items-center gap-2" use:enhance>
+	<form
+		method="POST"
+		action="?/create"
+		class="flex items-center gap-2"
+		use:guarded={{ label: 'New position' }}
+	>
 		<input
 			name="name"
 			placeholder="Add a position"
