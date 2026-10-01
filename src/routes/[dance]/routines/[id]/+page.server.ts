@@ -13,11 +13,19 @@ import {
 	addOption,
 	archiveRoutine,
 	deleteSlot,
+	deleteSlots,
 	duplicateRoutine,
 	duplicateSlot,
+	duplicateSlots,
 	embeddable,
+	embeddedIn,
+	extractRoutine,
+	insertSlot,
 	moveSlot,
+	moveSlotTo,
 	removeOption,
+	restoreOption,
+	restoreSlots,
 	routineShapes,
 	routineSlots,
 	setSlotNote,
@@ -26,15 +34,20 @@ import {
 import {
 	breaks,
 	loops,
+	positionSeams,
 	routineEnd,
 	routineStarts,
+	rowEdges,
 	slotStarts,
 	slotTiming,
 	timingBreaks,
-	timingSeams
+	timingSeams,
+	type OptionsSlot
 } from '$lib/routines/routines';
-import { endOf, figureById, nextCountOf } from '$lib/graph/graph';
-import { int, optionalText, text } from '$lib/server/form';
+import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
+import { int, ints, optionalText, text } from '$lib/server/form';
+import { parseSnapshots } from '$lib/routines/snapshot';
+import type { Candidate } from '$lib/routines/fit';
 import { danceOf, requireRoutineInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -53,7 +66,8 @@ export const load: PageServerLoad = ({ params }) => {
 	const db = getDb();
 	const routine = routineOf(params);
 	const graph = buildGraph(db, dance);
-	const shape = routineShapes(db, dance).get(routine.id) ?? { slots: [] };
+	const shapes = routineShapes(db, dance);
+	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, dance);
 	// Every figure AND variation, each with its landing — where it leaves the
@@ -73,6 +87,42 @@ export const load: PageServerLoad = ({ params }) => {
 	// the dance regardless; `addOption`'s shared-end check is what actually
 	// refuses a wrong-end pick.
 	const flatBreaks = new Set(breaks(graph, shape));
+
+	// What the picker can offer, each with where it begins and lands — resolved
+	// here, through the graph, so an untagged figure is neutral on the client
+	// exactly as it is on the server. Archived figures are not candidates; a slot
+	// still holding one names it through `labels`.
+	const candidates: Candidate[] = [
+		...listVersions(db, dance).flatMap((v): Candidate[] => {
+			const node = figureById(graph, v.id);
+			if (!node) return [];
+			return [
+				{
+					kind: 'figure',
+					id: v.id,
+					parentId: v.parentId,
+					label: v.label,
+					starts: startsOf(graph, node),
+					startCounts: [node.start],
+					end: endOf(graph, node),
+					next: nextCountOf(node)
+				}
+			];
+		}),
+		...embeddable(db, routine.id).map((r): Candidate => {
+			// An embeddable routine embeds nothing, so its own slots are all options.
+			const own = (shapes.get(r.id)?.slots ?? []).filter(
+				(s): s is OptionsSlot => s.kind === 'options'
+			);
+			return {
+				kind: 'routine',
+				id: r.id,
+				parentId: null,
+				label: r.name,
+				...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
+			};
+		})
+	];
 
 	return {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
@@ -112,6 +162,13 @@ export const load: PageServerLoad = ({ params }) => {
 		hasChild: slots.some((s) => s.childId !== null),
 		embeddable: embeddable(db, routine.id),
 		taughtIn: routineTaughtIn(db, routine.id),
+		candidates,
+		// Per row, parallel to `slots`: where it begins and lands — the picker's
+		// anchors and the seams' labels.
+		edges: shape.slots.map((s) => rowEdges(graph, s)),
+		positionSeams: positionSeams(graph, shape),
+		// Why "Make routine" is greyed, named.
+		embeddedIn: embeddedIn(db, routine.id).map((r) => r.name),
 		// Per slot: where it can be entered from, so the editor can say so.
 		slotStarts: shape.slots.map((s) =>
 			s.kind === 'child'
@@ -298,5 +355,106 @@ export const actions: Actions = {
 			return slotFail('That slot cannot move that way.', stepId);
 		}
 		return { ok: true };
+	},
+
+	insert: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const db = getDb();
+		const form = await request.formData();
+		const at = int(form, 'at');
+		const figureId = int(form, 'figureId');
+		const childId = int(form, 'childId');
+		if (at === undefined || (figureId === undefined) === (childId === undefined)) {
+			return fail(400, { message: 'Could not read what to add, or where.' });
+		}
+		if (childId !== undefined) {
+			// Only what the picker offered: `canEmbed` alone would accept an archived routine.
+			const offered = embeddable(db, routine.id).some((r) => r.id === childId);
+			const stepId = offered ? insertSlot(db, routine.id, at, { childId }) : null;
+			if (stepId === null) return fail(400, { message: 'That routine cannot be embedded here.' });
+			return { ok: true, stepId };
+		}
+		const stepId = insertSlot(db, routine.id, at, { figureId: figureId as number });
+		if (stepId === null) return fail(400, { message: 'That figure is not part of this dance.' });
+		return { ok: true, stepId };
+	},
+
+	reorder: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const form = await request.formData();
+		const stepId = int(form, 'stepId');
+		const index = int(form, 'index');
+		if (
+			stepId === undefined ||
+			index === undefined ||
+			!moveSlotTo(getDb(), routine.id, stepId, index)
+		) {
+			return slotFail('That slot cannot move there.', stepId);
+		}
+		return { ok: true };
+	},
+
+	deleteMany: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const form = await request.formData();
+		const stepIds = ints(form, 'stepIds');
+		const snapshot = stepIds.length === 0 ? null : deleteSlots(getDb(), routine.id, stepIds);
+		if (!snapshot) return fail(400, { message: 'Those slots are already gone.' });
+		// Handed back so the page can offer Undo, which posts it to `restore`.
+		return { ok: true, snapshot };
+	},
+
+	restore: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const form = await request.formData();
+		const snapshot = parseSnapshots(String(form.get('snapshot') ?? ''));
+		if (!snapshot || !restoreSlots(getDb(), routine.id, snapshot)) {
+			return fail(400, { message: 'Those slots could not be put back.' });
+		}
+		return { ok: true };
+	},
+
+	restoreOption: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const db = getDb();
+		const form = await request.formData();
+		const stepId = int(form, 'stepId');
+		const figureId = int(form, 'figureId');
+		if (stepId === undefined || figureId === undefined) {
+			return slotFail('Could not read that slot or figure.', stepId);
+		}
+		if (!ownsSlot(db, routine.id, stepId)) {
+			return slotFail('That slot does not belong to this routine.', stepId);
+		}
+		if (!restoreOption(db, stepId, figureId)) {
+			return slotFail('That alternative could not be put back.', stepId);
+		}
+		return { ok: true };
+	},
+
+	duplicateMany: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const form = await request.formData();
+		const stepIds = ints(form, 'stepIds');
+		if (stepIds.length === 0 || duplicateSlots(getDb(), routine.id, stepIds) === null) {
+			return fail(400, { message: 'Those slots could not be copied.' });
+		}
+		return { ok: true };
+	},
+
+	extract: async ({ params, request }) => {
+		const routine = routineOf(params);
+		const form = await request.formData();
+		const stepIds = ints(form, 'stepIds');
+		const name = text(form, 'name');
+		if (!name) return fail(400, { message: 'Give the new routine a name (up to 200 characters).' });
+		const made = stepIds.length === 0 ? null : extractRoutine(getDb(), routine.id, stepIds, name);
+		if (!made) {
+			return fail(400, {
+				message:
+					'Those slots cannot become a routine: they have to sit next to each other and hold no routine, and this routine cannot itself be embedded anywhere.'
+			});
+		}
+		return { ok: true, stepId: made.stepId };
 	}
 };

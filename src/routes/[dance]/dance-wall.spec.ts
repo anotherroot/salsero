@@ -619,6 +619,60 @@ describe("the routine detail route refuses the other dance's rows", () => {
 		expect(res.data.message).toBe('That slot does not belong to this routine.');
 		expect(routineSlots(db, salsaRoutineBId)[0].note).toBeNull();
 	});
+
+	it('will not insert a bachata figure into a salsa routine', async () => {
+		const res = (await call(
+			routinePage.actions.insert,
+			post('salsa', { at: '0', figureId: String(bachataFigureId) }, String(salsaRoutineAId))
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it.each([
+		['reorder', { index: '0' }],
+		['deleteMany', {}],
+		['duplicateMany', {}],
+		['extract', { name: 'Stolen' }]
+	])("will not %s another salsa routine's slot", async (action, extra) => {
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		const ids: Record<string, string> =
+			action === 'reorder' ? { stepId: String(stepId) } : { stepIds: String(stepId) };
+		const res = (await call(
+			routinePage.actions[action as keyof typeof routinePage.actions],
+			post('salsa', { ...ids, ...extra }, String(salsaRoutineAId))
+		)) as { status: number };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineBId).map((s) => s.id)).toEqual([stepId]);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it('will not restore a bachata figure into a salsa routine', async () => {
+		const snapshot = JSON.stringify([
+			{ position: 0, childId: null, note: null, figureIds: [bachataFigureId] }
+		]);
+		const res = (await call(
+			routinePage.actions.restore,
+			post('salsa', { snapshot }, String(salsaRoutineAId))
+		)) as { status: number };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it("will not put an alternative back on another salsa routine's slot", async () => {
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		const res = (await call(
+			routinePage.actions.restoreOption,
+			post(
+				'salsa',
+				{ stepId: String(stepId), figureId: String(salsaFigureId2) },
+				String(salsaRoutineAId)
+			)
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('That slot does not belong to this routine.');
+		expect(routineSlots(db, salsaRoutineBId)[0].figureIds).toEqual([salsaFigureId]);
+	});
 });
 
 describe('an unknown dance in the URL cannot write a row', () => {

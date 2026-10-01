@@ -851,7 +851,13 @@ describe('duplicateSlots', () => {
 		const copies = duplicateSlots(db, routine.id, [s1, s0])!;
 		const rows = routineSlots(db, routine.id);
 		expect(rows.map((s) => s.id)).toEqual([s0, s1, ...copies, s2]);
-		expect(rows.map((s) => s.figureIds)).toEqual([[a.id], [c.id, b.id], [a.id], [c.id, b.id], [d.id]]);
+		expect(rows.map((s) => s.figureIds)).toEqual([
+			[a.id],
+			[c.id, b.id],
+			[a.id],
+			[c.id, b.id],
+			[d.id]
+		]);
 	});
 
 	it('copies nothing when any id is not this routine’s', () => {
