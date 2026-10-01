@@ -172,7 +172,10 @@ selecting:
 
 A disabled action says why on tap ("Select slots next to each other", "Slot 3
 is a routine — embedding is one level", "This routine is embedded in Social
-mix"). After any action the selection ends.
+mix"). After Duplicate, Make routine or Delete the selection ends. Add above
+and Add below keep it while the picker is open — closing the picker without
+picking leaves the slot selected — and a pick moves the selection to the new
+slot, so Add below chains.
 
 **Make routine** is the natural way a combo is born. The new routine is created
 with its exercise (`createRoutine` already does both), its slots are the
@@ -206,7 +209,9 @@ There is no undo for a reorder or an insert: drag it back, or swipe it away.
 
 ### After an insert
 
-The new slot is scrolled into view and flashes once. If it closed a gap, the
+The new slot is scrolled into view and flashes once, and becomes the slot you
+are on, as if you had tapped it: selected, in selection mode; otherwise
+expanded, with its note field and + Alternative ready. If it closed a gap, the
 seam it closed is gone — that is the reward for building.
 
 ### Errors

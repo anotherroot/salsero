@@ -283,7 +283,13 @@
 			c.kind === 'figure' ? { figureId: c.id } : { childId: c.id };
 		const result = await send('insert', { at: p.insertAt ?? rows.length, ...content });
 		if (result.type === 'success' && typeof result.data?.stepId === 'number') {
-			flash = result.data.stepId;
+			const id = result.data.stepId;
+			flash = id;
+			// The new slot is where you are now, as if you had tapped it: the
+			// selection moves to it — so Add below chains — or, outside selection
+			// mode, it opens expanded.
+			if (selecting) selected = [id];
+			else expanded = id;
 		}
 	}
 
@@ -344,9 +350,13 @@
 
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
 
+	/**
+	 * Add above / below the one selected slot. The selection is KEPT while the
+	 * picker is open: closing it without picking leaves you where you were, and
+	 * picking moves the selection to the new slot (see `pick`).
+	 */
 	function addAround(side: 'after' | 'before') {
 		const i = rows.findIndex((r) => r.id === selected[0]);
-		stopSelecting();
 		if (i < 0) return;
 		openPicker(side === 'after' ? i + 1 : i, { row: i, side });
 	}
@@ -370,7 +380,8 @@
 
 <svelte:window
 	onkeydown={(e) => {
-		if (e.key === 'Escape' && selecting && !naming) stopSelecting();
+		// Not while a sheet is open: that Escape closes the sheet, not the selection.
+		if (e.key === 'Escape' && selecting && !naming && picker === null) stopSelecting();
 	}}
 />
 
