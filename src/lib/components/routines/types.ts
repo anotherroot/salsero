@@ -34,8 +34,20 @@ export interface RowView {
 	/** A refusal aimed at this slot. */
 	failure: string | null;
 	/** What does not connect between this row and the next danceable one; null when it does. */
-	seam: { label: string; next: number } | null;
+	/**
+	 * What does not connect between this row and the next danceable one; null
+	 * when it does. `bridge`: something closes the gap in one step, so the seam
+	 * offers to pick it.
+	 */
+	seam: { label: string; next: number; bridge: boolean } | null;
 }
+
+/**
+ * Where a picker was opened from: building down from row `row`, up into it,
+ * or closing the seam between it and row `next` in one step.
+ */
+export type PickFrom =
+	{ row: number; side: 'after' | 'before' } | { row: number; side: 'between'; next: number };
 
 /** The one card swiped open on the page, by key: `slot:<id>` or `alt:<stepId>:<figureId>`. */
 export type Swiped = { key: string; side: Side } | null;

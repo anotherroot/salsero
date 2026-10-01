@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	anchorAfter,
 	anchorAlternative,
+	anchorBetween,
+	canBridge,
 	anchorBefore,
 	anchorText,
 	fold,
@@ -152,6 +154,45 @@ describe('anchors', () => {
 			next: 1,
 			exclude: [1]
 		});
+	});
+});
+
+describe('between two slots', () => {
+	const above = { starts: [1], startCounts: [1], end: 1, next: 1 }; // lands in open, ready for 1
+	const intoClosed = { starts: [2], startCounts: [1], end: 1, next: 1 }; // starts from closed on 1
+	const intoHammerlock = { starts: [3], startCounts: [1], end: 1, next: 1 };
+
+	it('offers only what fits both the slot above and the slot below', () => {
+		const anchor = anchorBetween(above, intoClosed)!;
+		// Cross body lead and Dile que no start from open and land in closed; the
+		// routine starts right but lands in open, so it does not close the seam.
+		expect(ids(pickList(candidates, anchor, all))).toEqual({
+			figures: [
+				[1, true, []],
+				[2, true, []]
+			],
+			routines: []
+		});
+	});
+
+	it('says whether anything closes the seam at all', () => {
+		expect(canBridge(candidates, anchorBetween(above, intoClosed))).toBe(true);
+		// Nothing in the fixture lands in hammerlock.
+		expect(canBridge(candidates, anchorBetween(above, intoHammerlock))).toBe(false);
+	});
+
+	it('has no anchor when either side has nothing danceable', () => {
+		const empty = { starts: [], startCounts: [], end: null, next: null };
+		expect(anchorBetween(empty, intoClosed)).toBeNull();
+		expect(anchorBetween(above, empty)).toBeNull();
+		expect(canBridge(candidates, null)).toBe(false);
+	});
+
+	it('reads both halves in its context line', () => {
+		const name = (id: number) => ['', 'Open', 'Closed', 'Hammerlock'][id];
+		expect(anchorText(anchorBetween(above, intoClosed)!, name)).toBe(
+			'Starts on 1 from Open · ends on 8 at Closed'
+		);
 	});
 });
 

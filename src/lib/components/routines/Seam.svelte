@@ -4,6 +4,10 @@
 	 * red line with the two ways to build: ↓+ down from the slot above, ↑+ up
 	 * into the slot below. A seam that connects draws nothing at all, so an
 	 * unfinished routine shows exactly where the work is.
+	 *
+	 * A third +, near the right end of the line, closes the gap in one step:
+	 * figures that fit BOTH slots. Only drawn when there is such a figure —
+	 * a button that opens an empty list is a promise the page cannot keep.
 	 */
 	interface Props {
 		label: string;
@@ -12,9 +16,11 @@
 		below: number;
 		onafter: () => void;
 		onbefore: () => void;
+		/** Present only when something fits both sides. */
+		onbetween?: () => void;
 	}
 
-	let { label, above, below, onafter, onbefore }: Props = $props();
+	let { label, above, below, onafter, onbefore, onbetween }: Props = $props();
 
 	const button =
 		'relative h-8 rounded-full border-[1.5px] border-danger bg-plane px-3 text-[12px] font-semibold text-danger';
@@ -29,6 +35,15 @@
 		<button type="button" class={button} onclick={onbefore} aria-label="Add before slot {below}"
 			>↑+</button
 		>
+		{#if onbetween}
+			<!-- Right, but short of the end: the line still runs past it. -->
+			<button
+				type="button"
+				class="absolute top-1/2 right-6 grid size-8 -translate-y-1/2 place-items-center rounded-full border-[1.5px] border-danger bg-plane text-[16px] font-semibold text-danger"
+				onclick={onbetween}
+				aria-label="Add between slot {above} and slot {below}">+</button
+			>
+		{/if}
 	</div>
 	<p class="mt-1 text-center text-[11px] text-danger">{label}</p>
 </div>

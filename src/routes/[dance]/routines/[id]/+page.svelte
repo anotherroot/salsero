@@ -8,11 +8,13 @@
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
 	import UndoToast from '$lib/components/routines/UndoToast.svelte';
 	import { act, type Field } from '$lib/components/routines/act';
-	import type { RowView, Swiped } from '$lib/components/routines/types';
+	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
 		anchorAfter,
 		anchorAlternative,
 		anchorBefore,
+		anchorBetween,
+		canBridge,
 		type Anchor,
 		type Candidate
 	} from '$lib/routines/fit';
@@ -121,7 +123,11 @@
 			);
 		}
 		if (t) parts.push(`ready for ${a.next}, next starts on ${b.startCounts.join(' or ')}`);
-		return { label: parts.join(' · '), next };
+		return {
+			label: parts.join(' · '),
+			next,
+			bridge: canBridge(data.candidates, anchorBetween(a, b))
+		};
 	}
 
 	/** The slots as shown: the server's, with any in-flight reorder or delete applied. */
@@ -235,20 +241,24 @@
 		}
 	}
 
-	function openPicker(at: number, from: { row: number; side: 'after' | 'before' } | null) {
+	function openPicker(at: number, from: PickFrom | null) {
 		const edges = from === null ? null : shown[from.row]?.edges;
 		const anchor: Anchor =
 			edges == null
 				? { kind: 'none' }
-				: from?.side === 'after'
-					? anchorAfter(edges)
-					: anchorBefore(edges);
+				: from?.side === 'between'
+					? (anchorBetween(edges, shown[from.next]?.edges ?? edges) ?? { kind: 'none' })
+					: from?.side === 'after'
+						? anchorAfter(edges)
+						: anchorBefore(edges);
 		const title =
 			from === null
 				? 'Add a figure'
-				: from.side === 'after'
-					? `Add after slot ${from.row + 1}`
-					: `Add before slot ${from.row + 1}`;
+				: from.side === 'between'
+					? `Add between slots ${from.row + 1} and ${from.next + 1}`
+					: from.side === 'after'
+						? `Add after slot ${from.row + 1}`
+						: `Add before slot ${from.row + 1}`;
 		picker = { title, anchor, insertAt: at, stepId: null };
 	}
 

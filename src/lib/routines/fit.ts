@@ -28,12 +28,21 @@ export interface Candidate {
 	next: number | null;
 }
 
+type After = { kind: 'after'; end: number | null; next: number | null };
+type Before = { kind: 'before'; starts: number[]; startCounts: number[] };
+
 export type Anchor =
 	| { kind: 'none' }
 	/** Building down from a slot: where it lands, and the count it leaves the next on. */
-	| { kind: 'after'; end: number | null; next: number | null }
+	| After
 	/** Building up into a slot: where it can be entered, and on which counts. */
-	| { kind: 'before'; starts: number[]; startCounts: number[] }
+	| Before
+	/**
+	 * Closing a seam in one step: fits the slot above AND the slot below. Each
+	 * filter applies to both sides at once — Count means it starts on the count
+	 * the slot above leaves AND leaves the slot below on its count.
+	 */
+	| { kind: 'between'; after: After; before: Before }
 	/** Standing in for a slot's main figure. `exclude` is what the slot already holds. */
 	| {
 			kind: 'alternative';
@@ -74,10 +83,16 @@ export function fold(s: string): string {
 function toggles(a: Anchor): { count: boolean; hold: boolean } {
 	if (a.kind === 'after') return { count: a.next !== null, hold: a.end !== null };
 	if (a.kind === 'before') return { count: a.startCounts.length > 0, hold: a.starts.length > 0 };
+	if (a.kind === 'between') {
+		const x = toggles(a.after);
+		const y = toggles(a.before);
+		return { count: x.count || y.count, hold: x.hold || y.hold };
+	}
 	return { count: false, hold: false };
 }
 
 function fitsCount(c: Candidate, a: Anchor): boolean {
+	if (a.kind === 'between') return fitsCount(c, a.after) && fitsCount(c, a.before);
 	if (a.kind === 'after') return a.next === null || c.startCounts.includes(a.next);
 	if (a.kind === 'before') {
 		return a.startCounts.length === 0 || (c.next !== null && a.startCounts.includes(c.next));
@@ -86,6 +101,7 @@ function fitsCount(c: Candidate, a: Anchor): boolean {
 }
 
 function fitsHold(c: Candidate, a: Anchor): boolean {
+	if (a.kind === 'between') return fitsHold(c, a.after) && fitsHold(c, a.before);
 	if (a.kind === 'after') return a.end === null || c.starts.includes(a.end);
 	if (a.kind === 'before') {
 		return a.starts.length === 0 || (c.end !== null && a.starts.includes(c.end));
@@ -173,6 +189,27 @@ export function anchorBefore(e: RowEdges): Anchor {
 		: { kind: 'before', starts: e.starts, startCounts: e.startCounts };
 }
 
+/**
+ * Closing the seam between two rows in one step. Null unless BOTH rows have
+ * something danceable — with one side unknown, it is just a one-sided build.
+ */
+export function anchorBetween(above: RowEdges, below: RowEdges): Anchor | null {
+	const after = anchorAfter(above);
+	const before = anchorBefore(below);
+	if (after.kind !== 'after' || before.kind !== 'before') return null;
+	return { kind: 'between', after, before };
+}
+
+/**
+ * Whether anything closes this seam in one step, with both filters on: the
+ * editor offers the between-button only when there is something to pick.
+ */
+export function canBridge(candidates: Candidate[], anchor: Anchor | null): boolean {
+	if (anchor === null) return false;
+	const l = pickList(candidates, anchor, { count: true, hold: true, query: '' });
+	return l.figures.some((g) => g.headFits || g.variations.length > 0) || l.routines.length > 0;
+}
+
 /** Standing in for a main figure. Null when it is archived or gone: nothing to match. */
 export function anchorAlternative(main: Candidate | undefined, exclude: number[]): Anchor | null {
 	if (!main || main.end === null || main.next === null || main.startCounts.length === 0)
@@ -205,6 +242,12 @@ export function anchorText(a: Anchor, name: (id: number) => string): string | nu
 		if (counts) return `Ends on ${counts}`;
 		if (a.starts.length > 0) return `Ends at ${names(a.starts)}`;
 		return null;
+	}
+	if (a.kind === 'between') {
+		const from = anchorText(a.after, name);
+		const to = anchorText(a.before, name);
+		if (from && to) return `${from} · ${to[0].toLowerCase()}${to.slice(1)}`;
+		return from ?? to;
 	}
 	if (a.kind === 'alternative') {
 		return `${names(a.starts)} → ${name(a.end)}, ${a.startCount}→${a.next}`;

@@ -15,7 +15,7 @@
 	import { autoScroll, dropIndex, shiftFor } from '$lib/gestures/drag';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
-	import type { RowView, Swiped } from './types';
+	import type { PickFrom, RowView, Swiped } from './types';
 
 	interface Props {
 		rows: RowView[];
@@ -36,7 +36,7 @@
 		onremoveAlt: (id: number, figureId: number, label: string) => void;
 		onaddAlt: (id: number) => void;
 		onnote: (id: number, note: string | null) => void;
-		onadd: (at: number, from: { row: number; side: 'after' | 'before' } | null) => void;
+		onadd: (at: number, from: PickFrom | null) => void;
 	}
 
 	let {
@@ -249,6 +249,9 @@
 						below={next + 1}
 						onafter={() => onadd(i + 1, { row: i, side: 'after' })}
 						onbefore={() => onadd(next, { row: next, side: 'before' })}
+						onbetween={row.seam.bridge
+							? () => onadd(i + 1, { row: i, side: 'between', next })
+							: undefined}
 					/>
 				{/if}
 			</li>

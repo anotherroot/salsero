@@ -99,6 +99,13 @@ line with two buttons and a short label naming what is missing:
   that slot ends.
 - **↑+** builds **up into the slot below**: the picker is anchored on where
   that slot starts.
+- **+**, near the right end of the line (the line still runs past it),
+  closes the gap **in one step**: the picker is anchored on both slots, so
+  Count means it starts on the count the slot above leaves and leaves the slot
+  below on its count, and Hold means it starts where the slot above lands and
+  ends where the slot below starts. The button is drawn only when at least one
+  figure, variation or routine fits both sides with both filters on (`canBridge`
+  in `fit.ts`), so it never opens an empty list.
 
 A seam that connects draws nothing, so a clean routine stays quiet and an
 unfinished one shows exactly where the work is. Inserting is one-sided by
