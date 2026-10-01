@@ -7,7 +7,6 @@
 	 */
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
-	import type { ResolvedPathname } from '$app/types';
 	import Swipeable from './Swipeable.svelte';
 	import { resettingFocus } from './act';
 	import type { RowView, Swiped } from './types';
@@ -27,7 +26,6 @@
 		ongrab: (e: PointerEvent) => void;
 		onkeymove: (delta: -1 | 1) => void;
 		ondelete: () => void;
-		onopen: (href: ResolvedPathname) => void;
 		onremoveAlt: (figureId: number, label: string) => void;
 		onaddAlt: () => void;
 		onnote: (note: string | null) => void;
@@ -48,7 +46,6 @@
 		ongrab,
 		onkeymove,
 		ondelete,
-		onopen,
 		onremoveAlt,
 		onaddAlt,
 		onnote
@@ -64,7 +61,6 @@
 	onchange={(side) => onswipe(slotKey, side)}
 	disabled={selecting}
 	end={{ label: 'Delete', onclick: ondelete }}
-	start={row.href ? { label: 'Open', onclick: () => onopen(row.href!) } : undefined}
 >
 	<div
 		class="rounded-xl border bg-raised transition-[box-shadow,scale] duration-150 motion-reduce:transition-none {selected ||
@@ -203,14 +199,16 @@
 				open={sideOf(key)}
 				onchange={(side) => onswipe(key, side)}
 				end={{ label: 'Remove', onclick: () => onremoveAlt(alt.id, alt.label) }}
-				start={{ label: 'Open', onclick: () => onopen(alt.href) }}
 			>
-				<div
-					class="flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-[14px]"
+				<!-- A click opens the figure; a swipe left removes it. Opaque tint, so
+				     the red under a swiped card does not show through. -->
+				<a
+					href={alt.href}
+					class="flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-raised))] px-3 py-2 text-[14px]"
 				>
 					<span class="min-w-0 truncate">{alt.label}</span>
 					<span class="shrink-0 text-[11.5px] text-muted">{alt.timing}</span>
-				</div>
+				</a>
 			</Swipeable>
 		{/each}
 		{#if row.canAddAlternative}

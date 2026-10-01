@@ -77,9 +77,10 @@ again — or another card — collapses it. An open card shows, top to bottom:
    underline (✎ Add a note…). It saves on blur and on Enter, with no Save
    button; Escape restores what was there. Limit 200 characters, as today.
 2. **An "Open →" link** in the card's header row, to the figure or the embedded
-   routine — the mouse user's equivalent of swiping right.
+   routine.
 3. **The alternatives**, under the card on an indented rail: smaller cards in
-   the accent's tint, each with its own label and timing, each swipeable.
+   the accent's tint, each with its own label and timing. A click opens that
+   figure or variation; a swipe left removes it.
 4. **+ Alternative**, a dashed button below them, which opens the picker in
    its alternative mode.
 
@@ -127,12 +128,12 @@ This replaces today's ↑/↓ buttons.
 
 ### Swipe
 
-On a card's body — never its handle — a horizontal swipe reveals a button
-under the card:
-
-- **left** reveals **Delete** (red), on the right;
-- **right** reveals **Open** (accent), on the left — the figure, or the
-  embedded routine.
+On a card's body — never its handle — a swipe **left** reveals **Delete**
+under the card, on the right. The red fills the whole area under the card, so
+it shows behind the card's rounded corners rather than stopping at the
+button's edge. There is no right swipe: opening is a click ("Open →" on an
+expanded card, the card itself for an alternative), which a swipe in the
+other direction only duplicated while making a mis-swipe more likely.
 
 The direction locks after ~10 px of movement: mostly vertical is a page scroll
 and the swipe never starts (`touch-action: pan-y` on the card). Released past
@@ -140,8 +141,7 @@ and the swipe never starts (`touch-action: pan-y` on the card). Released past
 open at a time; a tap anywhere else closes it. A mouse drag swipes the same as
 a finger.
 
-Alternative cards swipe the same way: left removes that alternative, right
-opens that figure or variation. Swiping the **main** card left deletes the
+Alternative cards swipe the same way: left removes that alternative. Swiping the **main** card left deletes the
 **whole slot**, alternatives included.
 
 ### Long-press: select
@@ -397,7 +397,7 @@ position seams with the position names for each label.
   another dance, following `src/routes/[dance]/dance-wall.spec.ts` — never
   `process.env.DATABASE_PATH`.
 - **By hand:** a dev slot (`scripts/slot.sh`) at phone width with touch
-  emulation, and on a real phone — drag, swipe both ways, long-press, undo.
+  emulation, and on a real phone — drag, swipe, long-press, undo.
 - `npm run check` passes.
 
 ## Documentation this changes

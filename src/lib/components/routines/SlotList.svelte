@@ -16,7 +16,6 @@
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
 	import type { RowView, Swiped } from './types';
-	import type { ResolvedPathname } from '$app/types';
 
 	interface Props {
 		rows: RowView[];
@@ -34,7 +33,6 @@
 		ondragend: () => void;
 		onreorder: (id: number, to: number) => Promise<void>;
 		ondelete: (id: number) => void;
-		onopen: (href: ResolvedPathname) => void;
 		onremoveAlt: (id: number, figureId: number, label: string) => void;
 		onaddAlt: (id: number) => void;
 		onnote: (id: number, note: string | null) => void;
@@ -56,7 +54,6 @@
 		ondragend,
 		onreorder,
 		ondelete,
-		onopen,
 		onremoveAlt,
 		onaddAlt,
 		onnote,
@@ -240,7 +237,6 @@
 					ongrab={(e) => grab(e, i)}
 					onkeymove={(delta) => keymove(row.id, i + delta)}
 					ondelete={() => ondelete(row.id)}
-					{onopen}
 					onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
 					onaddAlt={() => onaddAlt(row.id)}
 					onnote={(note) => onnote(row.id, note)}

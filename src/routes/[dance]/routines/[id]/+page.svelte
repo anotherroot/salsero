@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { FIELD } from '$lib/components/ui/styles';
@@ -531,7 +530,6 @@
 			ondragend={() => (dragging = false)}
 			onreorder={reorder}
 			ondelete={(id) => remove([id])}
-			onopen={(href) => goto(href)}
 			onremoveAlt={removeAlternative}
 			onaddAlt={openAlternative}
 			onnote={(id, note) => send('note', { stepId: id, note })}

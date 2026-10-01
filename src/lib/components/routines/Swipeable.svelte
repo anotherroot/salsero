@@ -1,9 +1,9 @@
 <script lang="ts">
 	/**
-	 * A card that swipes sideways to reveal a button underneath: `end` (Delete)
-	 * on the right, revealed by swiping left; `start` (Open) on the left,
-	 * revealed by swiping right. The gesture arithmetic is `$lib/gestures/swipe`;
-	 * this only wires pointer events to it and draws the offset.
+	 * A card that swipes left to reveal a button underneath it: `end` (Delete).
+	 * Left only — a right swipe did nothing worth the accidental triggers. The
+	 * gesture arithmetic is `$lib/gestures/swipe`; this only wires pointer
+	 * events to it and draws the offset.
 	 *
 	 * `touch-pan-y` hands vertical movement to the browser, so the page still
 	 * scrolls from a card; only a horizontal move becomes a swipe.
@@ -22,7 +22,6 @@
 		open: Side;
 		onchange: (open: Side) => void;
 		end?: Action;
-		start?: Action;
 		disabled?: boolean;
 		rounded?: string;
 		children: Snippet;
@@ -33,7 +32,6 @@
 		open,
 		onchange,
 		end,
-		start,
 		disabled = false,
 		rounded = 'rounded-xl',
 		children
@@ -44,36 +42,32 @@
 		reveal: REVEAL,
 		lockPx: 10,
 		snap: 0.4,
-		sides: () => ({ left: end !== undefined, right: start !== undefined })
+		sides: () => ({ left: end !== undefined, right: false })
 	});
 
 	/** The live offset while a finger is on it; null at rest. */
 	let tracking = $state<number | null>(null);
-	const rest = $derived(open === 'left' ? -REVEAL : open === 'right' ? REVEAL : 0);
+	const rest = $derived(open === 'left' ? -REVEAL : 0);
 	const x = $derived(tracking ?? rest);
 </script>
 
 <div class="relative overflow-hidden {rounded}" data-swipe={key}>
 	{#if end && x < 0}
+		<!--
+			Red under the WHOLE card, not just the button's strip: the card's
+			rounded right corners would otherwise show the page through them, and
+			the red would look cut off behind the curve. The container's own
+			rounding clips it to the card's shape.
+		-->
+		<div class="absolute inset-0 bg-danger" aria-hidden="true"></div>
 		<button
 			type="button"
-			class="absolute inset-y-0 right-0 bg-danger text-[13px] font-semibold text-white"
+			class="absolute inset-y-0 right-0 text-[13px] font-semibold text-white"
 			style="width: {REVEAL}px"
 			onclick={() => {
 				onchange(null);
 				end.onclick();
 			}}>{end.label}</button
-		>
-	{/if}
-	{#if start && x > 0}
-		<button
-			type="button"
-			class="absolute inset-y-0 left-0 bg-accent text-[13px] font-semibold text-accent-ink"
-			style="width: {REVEAL}px"
-			onclick={() => {
-				onchange(null);
-				start.onclick();
-			}}>{start.label}</button
 		>
 	{/if}
 	<div
