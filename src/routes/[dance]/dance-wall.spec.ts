@@ -50,7 +50,8 @@ import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
 import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/server/routines';
-import { exercises, lessons, links, sets } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import { exercises, figures, lessons, links, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
@@ -535,39 +536,10 @@ describe("the routine detail route refuses the other dance's rows", () => {
 		expect(() => loadAt(routinePage.load, 'salsa', String(bachataRoutineId))).toThrow(threw404);
 	});
 
-	it('will not add a bachata figure to a salsa routine', async () => {
-		// A BACHATA FIGURE id on a SALSA routine: `requireRoutineInDance` already
-		// accepts this routine (it is salsa), so only `addFigureSlot`'s own dance
-		// check on the figure can refuse it. Posting a bachata ROUTINE id instead
-		// would be rejected by `requireRoutineInDance` — a different guard — and
-		// the test would still pass with `addFigureSlot`'s check deleted.
-		const res = (await call(
-			routinePage.actions.addFigure,
-			post('salsa', { figureId: String(bachataFigureId) }, String(salsaRoutineAId))
-		)) as { status: number; data: { message: string } };
-		expect(res.status).toBe(400);
-		expect(res.data.message).toBe('That figure is not part of this dance.');
-		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
-	});
-
-	it('will not delete a slot belonging to a different salsa routine', async () => {
-		// The slot belongs to a DIFFERENT SALSA routine, not a bachata one: a
-		// bachata slot id would already be turned away by `deleteSlot`'s own
-		// `routine_id` match without proving anything about same-dance ownership,
-		// which is the case that actually matters here.
-		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
-		const res = (await call(
-			routinePage.actions.remove,
-			post('salsa', { stepId: String(stepId) }, String(salsaRoutineAId))
-		)) as { status: number; data: { message: string } };
-		expect(res.status).toBe(400);
-		expect(res.data.message).toBe('That slot is already gone.');
-		expect(routineSlots(db, salsaRoutineBId)).toHaveLength(1);
-	});
-
 	// `addOption`, `removeOption` and `note` all take a bare `stepId` with no
-	// routine id to check it against — unlike `remove` and `move`, whose data
-	// functions take `routine.id` natively and scope in SQL. For these three,
+	// routine id to check it against — unlike `reorder`, `deleteMany`,
+	// `duplicateMany` and `extract`, whose data functions take `routine.id`
+	// natively and scope in SQL. For these three,
 	// `ownsSlot` in the route is the ONLY guard: a same-dance slot from a
 	// SECOND salsa routine passes `requireRoutineInDance` (routine A really is
 	// salsa) and would pass the data function's own dance check too, since
@@ -618,6 +590,103 @@ describe("the routine detail route refuses the other dance's rows", () => {
 		expect(res.status).toBe(400);
 		expect(res.data.message).toBe('That slot does not belong to this routine.');
 		expect(routineSlots(db, salsaRoutineBId)[0].note).toBeNull();
+	});
+
+	it('will not insert a bachata figure into a salsa routine', async () => {
+		const res = (await call(
+			routinePage.actions.insert,
+			post('salsa', { at: '0', figureId: String(bachataFigureId) }, String(salsaRoutineAId))
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it.each([
+		['reorder', { index: '0' }],
+		['deleteMany', {}],
+		['duplicateMany', {}],
+		['extract', { name: 'Stolen' }]
+	])("will not %s another salsa routine's slot", async (action, extra) => {
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		const ids: Record<string, string> =
+			action === 'reorder' ? { stepId: String(stepId) } : { stepIds: String(stepId) };
+		const res = (await call(
+			routinePage.actions[action as keyof typeof routinePage.actions],
+			post('salsa', { ...ids, ...extra }, String(salsaRoutineAId))
+		)) as { status: number };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineBId).map((s) => s.id)).toEqual([stepId]);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it('will not restore a bachata figure into a salsa routine', async () => {
+		const snapshot = JSON.stringify([
+			{ position: 0, childId: null, note: null, figureIds: [bachataFigureId] }
+		]);
+		const res = (await call(
+			routinePage.actions.restore,
+			post('salsa', { snapshot }, String(salsaRoutineAId))
+		)) as { status: number };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it('will not embed a bachata routine in a salsa routine', async () => {
+		const res = (await call(
+			routinePage.actions.insert,
+			post('salsa', { at: '0', childId: String(bachataRoutineId) }, String(salsaRoutineAId))
+		)) as { status: number };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	it('will not restore a bachata routine into a salsa routine', async () => {
+		const snapshot = JSON.stringify([
+			{ position: 0, childId: bachataRoutineId, note: null, figureIds: [] }
+		]);
+		const res = (await call(
+			routinePage.actions.restore,
+			post('salsa', { snapshot }, String(salsaRoutineAId))
+		)) as { status: number };
+		expect(res.status).toBe(400);
+		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
+	});
+
+	// Not a wall test, but the one place the routine page's actions are called:
+	// the refusal names both rules `addOption` applies — the landing AND the start.
+	it('refuses an alternative that does not land like the main figure, saying why', async () => {
+		const stepId = addFigureSlot(db, salsaRoutineAId, salsaFigureId)!;
+		db.update(figures).set({ lengthCounts: 12 }).where(eq(figures.id, salsaFigureId2)).run();
+		const res = (await call(
+			routinePage.actions.addOption,
+			post(
+				'salsa',
+				{ stepId: String(stepId), figureId: String(salsaFigureId2) },
+				String(salsaRoutineAId)
+			)
+		)) as { status: number; data: { message: string; stepId: number } };
+		expect(res.status).toBe(400);
+		expect(res.data).toEqual({
+			message:
+				'That figure does not start and land like this slot’s figure, so it is not an alternative.',
+			stepId
+		});
+		expect(routineSlots(db, salsaRoutineAId)[0].figureIds).toEqual([salsaFigureId]);
+	});
+
+	it("will not put an alternative back on another salsa routine's slot", async () => {
+		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
+		const res = (await call(
+			routinePage.actions.restoreOption,
+			post(
+				'salsa',
+				{ stepId: String(stepId), figureId: String(salsaFigureId2) },
+				String(salsaRoutineAId)
+			)
+		)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('That slot does not belong to this routine.');
+		expect(routineSlots(db, salsaRoutineBId)[0].figureIds).toEqual([salsaFigureId]);
 	});
 });
 

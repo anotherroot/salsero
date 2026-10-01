@@ -4,6 +4,8 @@ import {
 	breaks,
 	flatten,
 	loops,
+	positionSeams,
+	rowEdges,
 	slotAt,
 	routineEnd,
 	routineStarts,
@@ -395,5 +397,80 @@ describe('timingSeams', () => {
 			]
 		};
 		expect(timingSeams(t, shape)).toEqual([]);
+	});
+});
+
+describe('rowEdges', () => {
+	it('is where an options row begins and lands', () => {
+		expect(rowEdges(g, { kind: 'options', figureIds: [11] })).toEqual({
+			starts: [1],
+			startCounts: [1],
+			end: 2,
+			next: 1
+		});
+	});
+
+	it("borrows a child routine's first starts and last end", () => {
+		const child: Slot = {
+			kind: 'child',
+			routineId: 9,
+			slots: [
+				{ kind: 'options', figureIds: [11] },
+				{ kind: 'options', figureIds: [13] }
+			]
+		};
+		expect(rowEdges(g, child)).toMatchObject({ starts: [1], end: 3 });
+	});
+
+	it('is empty for a row with nothing danceable', () => {
+		expect(rowEdges(g, { kind: 'options', figureIds: [999] })).toEqual({
+			starts: [],
+			startCounts: [],
+			end: null,
+			next: null
+		});
+	});
+});
+
+describe('positionSeams', () => {
+	it('names the rows on both sides of a hold that does not connect', () => {
+		// 11 lands in closed; 14 starts from hammerlock.
+		expect(positionSeams(g, opts(11, 14))).toEqual([{ after: 0, next: 1 }]);
+	});
+
+	it('is silent where the hold connects', () => {
+		expect(positionSeams(g, opts(11, 12, 11))).toEqual([]);
+	});
+
+	it('skips a slot with nothing danceable, pointing at the next real one', () => {
+		expect(positionSeams(g, opts(11, 999, 12))).toEqual([]);
+		expect(positionSeams(g, opts(11, 999, 14))).toEqual([{ after: 0, next: 2 }]);
+	});
+
+	it('reports a seam at an embedded routine by its own row', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{
+					kind: 'child',
+					routineId: 9,
+					slots: [
+						{ kind: 'options', figureIds: [11] },
+						{ kind: 'options', figureIds: [12] }
+					]
+				},
+				{ kind: 'options', figureIds: [14] }
+			]
+		};
+		expect(positionSeams(g, shape)).toEqual([{ after: 0, next: 1 }]);
+	});
+
+	it('is silent out of a row whose end is unknown', () => {
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [11, 12] },
+				{ kind: 'options', figureIds: [14] }
+			]
+		};
+		expect(positionSeams(g, shape)).toEqual([]);
 	});
 });

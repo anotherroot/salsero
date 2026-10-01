@@ -11,13 +11,14 @@
  * `src/lib/routines/` does the thinking about shapes; this module only feeds it
  * and writes the answers back.
  */
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, routineStepOptions, routineSteps, routines } from './db/schema';
+import { exercises, figures, routineStepOptions, routineSteps, routines } from './db/schema';
 import { buildGraph } from './graph';
-import { endOf, figureById, nextCountOf, type Graph } from '$lib/graph/graph';
+import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { OptionsSlot, RoutineShape, Slot } from '$lib/routines/routines';
+import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { RoutineItem, SlotRow } from '$lib/types';
 
 /** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
@@ -30,6 +31,17 @@ function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, 
 	}
 	return byStep;
 }
+
+/**
+ * A slot's options, main figure first: the order they were added in.
+ *
+ * The first option added is the slot's MAIN figure — the one the editor shows
+ * on the card, with the others hung under it as alternatives. `created_at` is
+ * epoch ms, so two options added in one transaction (every copy path) tie;
+ * `rowid` breaks the tie in insertion order, which is why every path that
+ * copies options inserts them in THIS order.
+ */
+const MAIN_FIRST = [asc(routineStepOptions.createdAt), sql`routine_step_options.rowid`];
 
 export interface RoutineInput {
 	name: string;
@@ -163,7 +175,7 @@ export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShap
 		.innerJoin(routineSteps, eq(routineSteps.id, routineStepOptions.stepId))
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
 		.where(eq(routines.dance, dance))
-		.orderBy(asc(routineStepOptions.figureId))
+		.orderBy(...MAIN_FIRST)
 		.all();
 
 	const byStep = groupByStep(options);
@@ -230,7 +242,7 @@ export function routineSlots(db: Db, routineId: number): SlotRow[] {
 					.select({ stepId: routineStepOptions.stepId, figureId: routineStepOptions.figureId })
 					.from(routineStepOptions)
 					.where(inArray(routineStepOptions.stepId, ids))
-					.orderBy(asc(routineStepOptions.figureId))
+					.orderBy(...MAIN_FIRST)
 					.all();
 
 	const byStep = groupByStep(options);
@@ -282,41 +294,95 @@ function slotIds(tx: Tx, routineId: number): number[] {
 		.map((s) => s.id);
 }
 
-/**
- * Where a figure — or a variation — leaves the hands and on which count it
- * leaves the next one: the two things alternatives must agree on. Read off the
- * graph, which is what fills a variation's unset fields from its figure and
- * resolves untagged to neutral; reading the row directly would see a
- * variation's nulls. Null when the figure is not in this dance's graph —
- * another dance, archived, or gone.
- */
-function landingIn(g: Graph, figureId: number): { end: number; next: number } | null {
-	const f = figureById(g, figureId);
-	return f ? { end: endOf(g, f), next: nextCountOf(f) } : null;
+/** These steps' options, main figure first, grouped by step. */
+function optionsIn(tx: Tx, stepIds: number[]): Map<number, number[]> {
+	if (stepIds.length === 0) return new Map();
+	return groupByStep(
+		tx
+			.select({ stepId: routineStepOptions.stepId, figureId: routineStepOptions.figureId })
+			.from(routineStepOptions)
+			.where(inArray(routineStepOptions.stepId, stepIds))
+			.orderBy(...MAIN_FIRST)
+			.all()
+	);
 }
 
 /**
- * Append a slot holding one figure. The new slot's id, or null when the figure
- * is not this routine's dance — or is archived, or gone.
- *
- * There is no way to create an EMPTY slot: a slot must hold something, and the
- * cheapest way to guarantee that is never to make one that does not.
+ * Where a figure — or a variation — begins and lands: its start positions and
+ * start count, the position it leaves the hands at and the count it leaves the
+ * next figure on. Read off the graph, which fills a variation's unset fields
+ * from its figure and resolves untagged to neutral; reading the row directly
+ * would see a variation's nulls. Null when the figure is not in this dance's
+ * graph — another dance, archived, or gone.
  */
-export function addFigureSlot(db: Db, routineId: number, figureId: number): number | null {
+function landingIn(
+	g: Graph,
+	figureId: number
+): { starts: number[]; start: number; end: number; next: number } | null {
+	const f = figureById(g, figureId);
+	return f
+		? { starts: startsOf(g, f), start: f.start, end: endOf(g, f), next: nextCountOf(f) }
+		: null;
+}
+
+/** What a new slot holds: one figure (its main figure), or one embedded routine. */
+export type SlotContent = { figureId: number } | { childId: number };
+
+/**
+ * Insert a slot at index `at`. The new slot's id, or null when the figure is not
+ * this routine's dance (or is archived, or gone), or the routine cannot be
+ * embedded here.
+ *
+ * `at` is CLAMPED to `0..length` rather than refused: the picker that sent it
+ * may have been opened before another tab removed slots, and appending is what
+ * the person meant. There is no way to create an EMPTY slot: a slot must hold
+ * something, and the cheapest way to guarantee that is never to make one that
+ * does not.
+ */
+export function insertSlot(
+	db: Db,
+	routineId: number,
+	at: number,
+	content: SlotContent
+): number | null {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return null;
-	const dance = routine.dance as DanceSlug;
-	if (landingIn(buildGraph(db, dance), figureId) === null) return null;
+	if ('childId' in content) {
+		if (!canEmbed(db, routineId, content.childId)) return null;
+	} else if (landingIn(buildGraph(db, routine.dance as DanceSlug), content.figureId) === null) {
+		return null;
+	}
 	return db.transaction((tx) => {
-		const at = slotIds(tx, routineId).length;
+		const ids = slotIds(tx, routineId);
+		// Appended first, then the whole routine re-ordered with it spliced in:
+		// inserting at `at` directly would collide with `unique (routine_id,
+		// position)` before anything shifted out of the way.
 		const step = tx
 			.insert(routineSteps)
-			.values({ routineId, position: at })
+			.values({
+				routineId,
+				position: ids.length,
+				childRoutineId: 'childId' in content ? content.childId : null
+			})
 			.returning({ id: routineSteps.id })
 			.get();
-		tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+		if ('figureId' in content) {
+			tx.insert(routineStepOptions).values({ stepId: step.id, figureId: content.figureId }).run();
+		}
+		ids.splice(Math.min(Math.max(at, 0), ids.length), 0, step.id);
+		order(tx, ids);
 		return step.id;
 	});
+}
+
+/** Append a slot holding one figure. See `insertSlot`. */
+export function addFigureSlot(db: Db, routineId: number, figureId: number): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { figureId });
+}
+
+/** Append a slot holding an embedded routine. Null when `canEmbed` says no. */
+export function addChildSlot(db: Db, routineId: number, childId: number): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { childId });
 }
 
 /**
@@ -382,19 +448,6 @@ export function canEmbed(db: Db, parentId: number, childId: number): boolean {
 	return !parentEmbedded;
 }
 
-/** Append a slot holding an embedded routine. Null when `canEmbed` says no. */
-export function addChildSlot(db: Db, routineId: number, childId: number): number | null {
-	if (!canEmbed(db, routineId, childId)) return null;
-	return db.transaction((tx) => {
-		const at = slotIds(tx, routineId).length;
-		return tx
-			.insert(routineSteps)
-			.values({ routineId, position: at, childRoutineId: childId })
-			.returning({ id: routineSteps.id })
-			.get().id;
-	});
-}
-
 /** The routines this one may embed: same dance, unarchived, and `canEmbed`. */
 export function embeddable(db: Db, routineId: number): { id: number; name: string }[] {
 	const routine = getRoutine(db, routineId);
@@ -414,7 +467,9 @@ export function embeddable(db: Db, routineId: number): { id: number; name: strin
  * False when the figure is the wrong dance, when the slot holds an embedded
  * routine instead, or when it would land somewhere the slot's other options do
  * not: options that land differently — in the hands or on the count — are not
- * alternatives to each other, they are different steps.
+ * alternatives to each other, they are different steps. …and, against the
+ * slot's main figure, when it begins on another count or from no hold the
+ * main figure begins from.
  */
 export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	const step = db
@@ -433,11 +488,25 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 		.select({ figureId: routineStepOptions.figureId })
 		.from(routineStepOptions)
 		.where(eq(routineStepOptions.stepId, stepId))
+		.orderBy(...MAIN_FIRST)
 		.all();
+	// Idempotent on purpose: (step_id, figure_id) is a composite primary key, so
+	// falling through to the insert would throw rather than refuse.
+	if (existing.some((o) => o.figureId === figureId)) return true;
 	for (const o of existing) {
-		if (o.figureId === figureId) return true;
 		const other = landingIn(g, o.figureId);
 		if (other === null || other.end !== landing.end || other.next !== landing.next) return false;
+	}
+	// The start rule, judged against the MAIN figure only: an alternative that
+	// begins on another count, or from no hold the main figure begins from, can
+	// never be danced where the main one is. Older slots that predate this rule
+	// are left as they are — it governs adding, it is not a migration.
+	const main = existing.length > 0 ? landingIn(g, existing[0].figureId) : null;
+	if (
+		main &&
+		(main.start !== landing.start || !main.starts.some((p) => landing.starts.includes(p)))
+	) {
+		return false;
 	}
 	db.insert(routineStepOptions).values({ stepId, figureId }).run();
 	return true;
@@ -459,99 +528,240 @@ export function removeOption(db: Db, stepId: number, figureId: number): boolean 
 	});
 }
 
+/**
+ * Undo for a removed alternative: put it straight back.
+ *
+ * Checks the dance only, not the alternative rules. It was in the slot a
+ * moment ago, and `addOption` would refuse an older alternative that predates
+ * the start rule — an undo that cannot undo. It comes back as the newest
+ * option, which cannot change the main figure: the main figure is never
+ * removed on its own (removing it removes the slot).
+ */
+export function restoreOption(db: Db, stepId: number, figureId: number): boolean {
+	const step = db
+		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
+		.from(routineSteps)
+		.where(eq(routineSteps.id, stepId))
+		.get();
+	if (!step || step.childId !== null) return false;
+	const routine = getRoutine(db, step.routineId);
+	const figure = db
+		.select({ dance: figures.dance })
+		.from(figures)
+		.where(eq(figures.id, figureId))
+		.get();
+	if (!routine || !figure || figure.dance !== routine.dance) return false;
+	db.insert(routineStepOptions).values({ stepId, figureId }).onConflictDoNothing().run();
+	return true;
+}
+
 export function setSlotNote(db: Db, stepId: number, note: string | null): boolean {
 	return db.update(routineSteps).set({ note }).where(eq(routineSteps.id, stepId)).run().changes > 0;
 }
 
 /**
- * Hard-delete a slot and its options, then renumber.
- *
- * A slot is structure, not an entity — nothing points at it, no set refers to
- * it, and there is no history in it to keep. `routineId` is passed so a slot
- * can only be deleted through the routine it belongs to.
+ * Hard-delete several slots and renumber, returning what was removed so the
+ * editor can offer Undo. All or nothing: null, with nothing deleted, when any
+ * id is not this routine's — a stale tab or a double tap must not delete half
+ * of what it asked for.
  */
-export function deleteSlot(db: Db, routineId: number, stepId: number): boolean {
+export function deleteSlots(db: Db, routineId: number, stepIds: number[]): SlotSnapshot[] | null {
+	const wanted = [...new Set(stepIds)];
+	if (wanted.length === 0) return null;
 	return db.transaction((tx) => {
-		// Confirm the slot is this routine's BEFORE deleting anything, then take the
-		// options first: `routine_step_options.step_id` references `routine_steps.id`
-		// and `openDb` sets `foreign_keys = ON`, so deleting the step first would
-		// abort on its own children.
-		const step = tx
-			.select({ id: routineSteps.id })
+		const steps = tx
+			.select({
+				id: routineSteps.id,
+				position: routineSteps.position,
+				childId: routineSteps.childRoutineId,
+				note: routineSteps.note
+			})
 			.from(routineSteps)
-			.where(and(eq(routineSteps.id, stepId), eq(routineSteps.routineId, routineId)))
-			.get();
-		if (!step) return false;
-		tx.delete(routineStepOptions).where(eq(routineStepOptions.stepId, stepId)).run();
-		tx.delete(routineSteps).where(eq(routineSteps.id, stepId)).run();
+			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
+			.orderBy(asc(routineSteps.position))
+			.all();
+		if (steps.length !== wanted.length) return null;
+		const options = optionsIn(tx, wanted);
+		const snapshot = steps.map((s) => ({
+			position: s.position,
+			childId: s.childId,
+			note: s.note,
+			figureIds: options.get(s.id) ?? []
+		}));
+		// Options first: `routine_step_options.step_id` references the step and
+		// `foreign_keys = ON`, so the step cannot go while its options remain.
+		tx.delete(routineStepOptions).where(inArray(routineStepOptions.stepId, wanted)).run();
+		tx.delete(routineSteps).where(inArray(routineSteps.id, wanted)).run();
 		order(tx, slotIds(tx, routineId));
+		return snapshot;
+	});
+}
+
+/**
+ * Undo for `deleteSlots`: re-insert each slot at the position it was deleted
+ * from, lowest first — which is what makes a multi-slot undo land exactly where
+ * the slots were. A position past the end (the routine shrank since) appends.
+ *
+ * A figure only has to still be this dance's, archived or not: the slot held it
+ * a moment ago, and an undo that refused an archived figure would lose the
+ * slot. A child must still be embeddable, because the one-level rule is a
+ * structural guarantee, not a preference. All or nothing.
+ */
+export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]): boolean {
+	const routine = getRoutine(db, routineId);
+	if (!routine || snapshot.length === 0) return false;
+	const figureIds = [...new Set(snapshot.flatMap((s) => s.figureIds))];
+	if (figureIds.length > 0) {
+		const ours = db
+			.select({ id: figures.id })
+			.from(figures)
+			.where(and(inArray(figures.id, figureIds), eq(figures.dance, routine.dance)))
+			.all();
+		if (ours.length !== figureIds.length) return false;
+	}
+	if (snapshot.some((s) => s.childId !== null && !canEmbed(db, routineId, s.childId))) {
+		return false;
+	}
+	return db.transaction((tx) => {
+		for (const s of [...snapshot].sort((a, b) => a.position - b.position)) {
+			const ids = slotIds(tx, routineId);
+			const step = tx
+				.insert(routineSteps)
+				.values({ routineId, position: ids.length, childRoutineId: s.childId, note: s.note })
+				.returning({ id: routineSteps.id })
+				.get();
+			for (const figureId of s.figureIds) {
+				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+			}
+			ids.splice(Math.min(s.position, ids.length), 0, step.id);
+			order(tx, ids);
+		}
 		return true;
 	});
 }
 
-/** Swap a slot with its neighbour. `delta` is -1 or 1. */
-export function moveSlot(db: Db, routineId: number, stepId: number, delta: -1 | 1): boolean {
+/**
+ * Move a slot to `index` — where a drag dropped it. False when the slot is not
+ * this routine's or the index is off either end; a drop is always inside the
+ * list, so an index outside it is a stale or tampered request.
+ */
+export function moveSlotTo(db: Db, routineId: number, stepId: number, index: number): boolean {
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
-		const i = ids.indexOf(stepId);
-		const j = i + delta;
-		if (i < 0 || j < 0 || j >= ids.length) return false;
-		[ids[i], ids[j]] = [ids[j], ids[i]];
+		const from = ids.indexOf(stepId);
+		if (from < 0 || !Number.isInteger(index) || index < 0 || index >= ids.length) return false;
+		ids.splice(from, 1);
+		ids.splice(index, 0, stepId);
 		order(tx, ids);
 		return true;
 	});
 }
 
 /**
- * Insert a copy of a slot directly after it. The new slot's id, or null when the
- * slot is not this routine's.
- *
- * Directly after, not appended: a duplicate is for a step that repeats, and a
- * repeat belongs next to what it repeats. Everything about the slot comes with
- * it — its options, its note, and an embedded child as a reference rather than a
- * copy of that child.
+ * Copy several slots — options in order, notes, an embedded child by
+ * reference — and place the copies, in routine order, directly after the LAST
+ * selected slot: "repeat this bit" belongs right after the bit. The copies'
+ * ids, or null (nothing written) when any id is not this routine's.
  */
-export function duplicateSlot(db: Db, routineId: number, stepId: number): number | null {
+export function duplicateSlots(db: Db, routineId: number, stepIds: number[]): number[] | null {
+	const wanted = [...new Set(stepIds)];
+	if (wanted.length === 0) return null;
 	return db.transaction((tx) => {
-		const step = tx
+		const steps = tx
 			.select({
 				id: routineSteps.id,
-				childRoutineId: routineSteps.childRoutineId,
+				childId: routineSteps.childRoutineId,
 				note: routineSteps.note
 			})
 			.from(routineSteps)
-			.where(and(eq(routineSteps.id, stepId), eq(routineSteps.routineId, routineId)))
-			.get();
-		if (!step) return null;
+			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
+			.orderBy(asc(routineSteps.position))
+			.all();
+		if (steps.length !== wanted.length) return null;
+		const options = optionsIn(tx, wanted);
+		const ids = slotIds(tx, routineId);
+		const copies = steps.map((s, k) => {
+			const copy = tx
+				.insert(routineSteps)
+				.values({ routineId, position: ids.length + k, childRoutineId: s.childId, note: s.note })
+				.returning({ id: routineSteps.id })
+				.get();
+			for (const figureId of options.get(s.id) ?? []) {
+				tx.insert(routineStepOptions).values({ stepId: copy.id, figureId }).run();
+			}
+			return copy.id;
+		});
+		const last = Math.max(...steps.map((s) => ids.indexOf(s.id)));
+		ids.splice(last + 1, 0, ...copies);
+		order(tx, ids);
+		return copies;
+	});
+}
 
-		// Appended first, then the whole routine is re-ordered with the copy spliced
-		// in after its original. Inserting at the target position directly would
-		// collide with `unique (routine_id, position)` before anything shifted out
-		// of the way — the same reason `order` exists at all.
-		const copy = tx
+/** The routines that embed this one — why it cannot embed anything itself. */
+export function embeddedIn(db: Db, routineId: number): { id: number; name: string }[] {
+	return db
+		.selectDistinct({ id: routines.id, name: routines.name })
+		.from(routineSteps)
+		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
+		.where(eq(routineSteps.childRoutineId, routineId))
+		.orderBy(asc(routines.name))
+		.all();
+}
+
+/**
+ * "Make routine": pull a contiguous run of slots out into a new routine — with
+ * its exercise, as every routine has — and put one slot embedding it where the
+ * run was. The slots MOVE (their rows change routine), so options, the main
+ * figure and notes come along untouched.
+ *
+ * Null, with nothing written, when the run has a gap (pulling slots 2 and 5 out
+ * would silently reorder the routine), holds an embedded routine, or this
+ * routine is itself embedded somewhere — the one-level rule seen from the new
+ * routine's side, so no new rule is introduced.
+ */
+export function extractRoutine(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	name: string
+): { routineId: number; stepId: number } | null {
+	const routine = getRoutine(db, routineId);
+	const wanted = [...new Set(stepIds)];
+	if (!routine || wanted.length === 0 || embeddedIn(db, routineId).length > 0) return null;
+	const dance = routine.dance as DanceSlug;
+	return db.transaction((tx) => {
+		const ids = slotIds(tx, routineId);
+		const run = tx
+			.select({ id: routineSteps.id, childId: routineSteps.childRoutineId })
+			.from(routineSteps)
+			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
+			.orderBy(asc(routineSteps.position))
+			.all();
+		if (run.length !== wanted.length || run.some((s) => s.childId !== null)) return null;
+		const at = ids.indexOf(run[0].id);
+		if (ids.indexOf(run[run.length - 1].id) - at !== run.length - 1) return null;
+
+		const made = insertRoutine(tx, dance, { name, notes: null }, 3);
+		run.forEach((s, k) =>
+			tx
+				.update(routineSteps)
+				.set({ routineId: made.routine.id, position: k })
+				.where(eq(routineSteps.id, s.id))
+				.run()
+		);
+		// Compact what is left before appending, or the append's position could
+		// collide with a row past the gap the run left behind.
+		const rest = ids.filter((id) => !wanted.includes(id));
+		order(tx, rest);
+		const step = tx
 			.insert(routineSteps)
-			.values({
-				routineId,
-				position: slotIds(tx, routineId).length,
-				childRoutineId: step.childRoutineId,
-				note: step.note
-			})
+			.values({ routineId, position: rest.length, childRoutineId: made.routine.id })
 			.returning({ id: routineSteps.id })
 			.get();
-
-		const options = tx
-			.select({ figureId: routineStepOptions.figureId })
-			.from(routineStepOptions)
-			.where(eq(routineStepOptions.stepId, stepId))
-			.all();
-		for (const o of options) {
-			tx.insert(routineStepOptions).values({ stepId: copy.id, figureId: o.figureId }).run();
-		}
-
-		const ids = slotIds(tx, routineId).filter((id) => id !== copy.id);
-		ids.splice(ids.indexOf(stepId) + 1, 0, copy.id);
-		order(tx, ids);
-		return copy.id;
+		rest.splice(at, 0, step.id);
+		order(tx, rest);
+		return { routineId: made.routine.id, stepId: step.id };
 	});
 }
 

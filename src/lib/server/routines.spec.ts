@@ -8,24 +8,30 @@ import {
 	canEmbed,
 	createRoutine,
 	createRoutineFromFigures,
-	deleteSlot,
+	deleteSlots,
 	embeddable,
 	getRoutine,
+	insertSlot,
 	listRoutines,
-	moveSlot,
+	moveSlotTo,
 	removeOption,
+	restoreOption,
+	restoreSlots,
 	routineShapes,
 	routineSlots,
 	setSlotNote,
 	updateRoutine,
-	duplicateSlot,
-	duplicateRoutine
+	duplicateRoutine,
+	duplicateSlots,
+	embeddedIn,
+	extractRoutine
 } from './routines';
 import { archiveFigure, createFigure, createVariation } from './figures';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
-import { exercises } from './db/schema';
+import { exercises, routineStepOptions } from './db/schema';
 import { eq } from 'drizzle-orm';
+import type { SlotSnapshot } from '$lib/routines/snapshot';
 
 /**
  * A minimal figure of one dance, with its exercise. `dance` defaults to salsa;
@@ -205,7 +211,7 @@ describe('addOption and removeOption', () => {
 		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
 		const a = figure(db, 'A'); // 1 → 1, 8 counts
 		const b = figure(db, 'B');
-		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 12 }); // 5 → 1
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 1, lengthCounts: 16 }); // 1 → 1, 16 counts
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(true);
 	});
@@ -270,45 +276,69 @@ describe('addOption and removeOption', () => {
 	});
 });
 
-describe('deleteSlot', () => {
-	it('drops the slot, its options, and renumbers what is left', () => {
+describe('insertSlot', () => {
+	it('inserts at the start, the middle and the end', () => {
 		const db = openDb(':memory:');
-		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
-		const ids = ['A', 'B', 'C'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
-		expect(deleteSlot(db, routine.id, ids[0])).toBe(true);
-		expect(routineSlots(db, routine.id).map((s) => [s.id, s.position])).toEqual([
-			[ids[1], 0],
-			[ids[2], 1]
-		]);
-		expect(deleteSlot(db, routine.id, ids[0])).toBe(false);
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const ids = ['A', 'B'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
+		const first = insertSlot(db, routine.id, 0, { figureId: figure(db, 'C').id })!;
+		const mid = insertSlot(db, routine.id, 2, { figureId: figure(db, 'D').id })!;
+		const last = insertSlot(db, routine.id, 4, { figureId: figure(db, 'E').id })!;
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([first, ids[0], mid, ids[1], last]);
+		expect(rows.map((s) => s.position)).toEqual([0, 1, 2, 3, 4]);
 	});
 
-	it('refuses a slot belonging to another routine', () => {
+	it('clamps an index past the end', () => {
 		const db = openDb(':memory:');
-		const mine = createRoutine(db, 'salsa', { name: 'A', notes: null }).routine;
-		const theirs = createRoutine(db, 'salsa', { name: 'B', notes: null }).routine;
-		const step = addFigureSlot(db, theirs.id, figure(db, 'A').id)!;
-		expect(deleteSlot(db, mine.id, step)).toBe(false);
-		expect(routineSlots(db, theirs.id)).toHaveLength(1);
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const a = addFigureSlot(db, routine.id, figure(db, 'A').id)!;
+		const b = insertSlot(db, routine.id, 9, { figureId: figure(db, 'B').id })!;
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual([a, b]);
+	});
+
+	it('refuses a figure of another dance and writes nothing', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		expect(insertSlot(db, routine.id, 0, { figureId: figure(db, 'B', 'bachata').id })).toBeNull();
+		expect(routineSlots(db, routine.id)).toHaveLength(0);
+	});
+
+	it('embeds a routine only where canEmbed allows', () => {
+		const db = openDb(':memory:');
+		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		const grand = createRoutine(db, 'salsa', { name: 'G', notes: null }).routine;
+		addFigureSlot(db, parent.id, figure(db, 'A').id);
+		const step = insertSlot(db, parent.id, 0, { childId: child.id })!;
+		expect(routineSlots(db, parent.id)[0]).toMatchObject({ id: step, childId: child.id });
+		// `parent` now embeds, so it cannot itself be embedded.
+		expect(insertSlot(db, grand.id, 0, { childId: parent.id })).toBeNull();
 	});
 });
 
-describe('moveSlot', () => {
-	it('swaps with a neighbour and keeps positions contiguous', () => {
+describe('moveSlotTo', () => {
+	it('moves a slot to any index and keeps positions contiguous', () => {
 		const db = openDb(':memory:');
-		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
-		const ids = ['A', 'B', 'C'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
-		expect(moveSlot(db, routine.id, ids[2], -1)).toBe(true);
-		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual([ids[0], ids[2], ids[1]]);
-		expect(routineSlots(db, routine.id).map((s) => s.position)).toEqual([0, 1, 2]);
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const ids = ['A', 'B', 'C', 'D'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
+		expect(moveSlotTo(db, routine.id, ids[0], 2)).toBe(true);
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual([ids[1], ids[2], ids[0], ids[3]]);
+		expect(moveSlotTo(db, routine.id, ids[3], 0)).toBe(true);
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([ids[3], ids[1], ids[2], ids[0]]);
+		expect(rows.map((s) => s.position)).toEqual([0, 1, 2, 3]);
 	});
 
-	it('refuses to move off either end', () => {
+	it('refuses an index off the end or a slot of another routine', () => {
 		const db = openDb(':memory:');
-		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const other = createRoutine(db, 'salsa', { name: 'O', notes: null }).routine;
 		const ids = ['A', 'B'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
-		expect(moveSlot(db, routine.id, ids[0], -1)).toBe(false);
-		expect(moveSlot(db, routine.id, ids[1], 1)).toBe(false);
+		const foreign = addFigureSlot(db, other.id, figure(db, 'C').id)!;
+		expect(moveSlotTo(db, routine.id, ids[0], 2)).toBe(false);
+		expect(moveSlotTo(db, routine.id, ids[0], -1)).toBe(false);
+		expect(moveSlotTo(db, routine.id, foreign, 0)).toBe(false);
 		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual(ids);
 	});
 });
@@ -414,55 +444,6 @@ describe('routineShapes across the dance wall', () => {
 	});
 });
 
-describe('duplicateSlot', () => {
-	it('inserts a copy directly after the original, with its options and note', () => {
-		const db = openDb(':memory:');
-		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
-		const a = figure(db, 'A');
-		const b = figure(db, 'B');
-		const first = addFigureSlot(db, routine.id, a.id)!;
-		addOption(db, first, b.id);
-		setSlotNote(db, first, 'hand change');
-		const last = addFigureSlot(db, routine.id, figure(db, 'C').id)!;
-
-		const copy = duplicateSlot(db, routine.id, first);
-		expect(copy).not.toBeNull();
-
-		const slots = routineSlots(db, routine.id);
-		// Directly after the original, not appended at the end — a duplicate is for
-		// a repeat, and a repeat belongs next to what it repeats.
-		expect(slots.map((s) => s.id)).toEqual([first, copy, last]);
-		expect(slots.map((s) => s.position)).toEqual([0, 1, 2]);
-		expect(slots[1].figureIds.sort()).toEqual([a.id, b.id].sort());
-		expect(slots[1].note).toBe('hand change');
-	});
-
-	it('copies an embedded routine slot as an embedded routine slot', () => {
-		const db = openDb(':memory:');
-		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
-		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
-		addFigureSlot(db, child.id, figure(db, 'Inner').id);
-		const step = addChildSlot(db, parent.id, child.id)!;
-
-		const copy = duplicateSlot(db, parent.id, step);
-		const slots = routineSlots(db, parent.id);
-		expect(slots).toHaveLength(2);
-		expect(slots[1].id).toBe(copy);
-		expect(slots[1].childId).toBe(child.id);
-		expect(slots[1].figureIds).toEqual([]);
-	});
-
-	it('refuses a slot belonging to another routine, writing nothing', () => {
-		const db = openDb(':memory:');
-		const mine = createRoutine(db, 'salsa', { name: 'Mine', notes: null }).routine;
-		const theirs = createRoutine(db, 'salsa', { name: 'Theirs', notes: null }).routine;
-		const step = addFigureSlot(db, theirs.id, figure(db, 'A').id)!;
-		expect(duplicateSlot(db, mine.id, step)).toBeNull();
-		expect(routineSlots(db, mine.id)).toEqual([]);
-		expect(routineSlots(db, theirs.id)).toHaveLength(1);
-	});
-});
-
 describe('duplicateRoutine', () => {
 	it('copies the slots, options, notes and child slots, and makes its own exercise', () => {
 		const db = openDb(':memory:');
@@ -550,5 +531,306 @@ describe('createRoutineFromFigures', () => {
 		expect(createRoutineFromFigures(db, 'salsa', { name: 'X', notes: null }, [])).toBeNull();
 		expect(listRoutines(db, 'salsa')).toEqual([]);
 		expect(db.select().from(exercises).all()).toEqual([]);
+	});
+});
+
+describe('the main figure', () => {
+	it('is the first option added, not the lowest id', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const low = figure(db, 'Low');
+		const high = figure(db, 'High');
+		const step = addFigureSlot(db, routine.id, high.id)!;
+		addOption(db, step, low.id);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([high.id, low.id]);
+		expect(routineShapes(db, 'salsa').get(routine.id)!.slots[0]).toMatchObject({
+			figureIds: [high.id, low.id]
+		});
+	});
+
+	it('survives duplicateSlots and duplicateRoutine', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const low = figure(db, 'Low');
+		const high = figure(db, 'High');
+		const step = addFigureSlot(db, routine.id, high.id)!;
+		addOption(db, step, low.id);
+		duplicateSlots(db, routine.id, [step]);
+		expect(routineSlots(db, routine.id)[1].figureIds).toEqual([high.id, low.id]);
+		const copy = duplicateRoutine(db, routine.id)!;
+		expect(routineSlots(db, copy.id).map((s) => s.figureIds)).toEqual([
+			[high.id, low.id],
+			[high.id, low.id]
+		]);
+	});
+});
+
+describe('addOption: the start rule', () => {
+	const setup = () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const [p1, p2] = listPositions(db, 'salsa').filter((p) => !p.neutral);
+		return { db, routine, p1, p2 };
+	};
+
+	it('refuses an alternative that starts on another count', () => {
+		const { db, routine } = setup();
+		const a = figure(db, 'A'); // 1 → 1
+		const b = figure(db, 'B');
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 }); // 5 → 1
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(false);
+	});
+
+	it('refuses one that shares no start position with the main figure', () => {
+		const { db, routine, p1, p2 } = setup();
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		setFigureShape(db, a.id, { startIds: [p1.id], endId: null, startCount: 1, lengthCounts: 8 });
+		setFigureShape(db, b.id, { startIds: [p2.id], endId: null, startCount: 1, lengthCounts: 8 });
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(false);
+	});
+
+	it('accepts one whose starts overlap the main figure’s', () => {
+		const { db, routine, p1, p2 } = setup();
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		setFigureShape(db, a.id, { startIds: [p1.id], endId: null, startCount: 1, lengthCounts: 8 });
+		setFigureShape(db, b.id, {
+			startIds: [p1.id, p2.id],
+			endId: null,
+			startCount: 1,
+			lengthCounts: 8
+		});
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(true);
+	});
+
+	it('leaves a slot that already breaks the rule alone', () => {
+		const { db, routine } = setup();
+		const a = figure(db, 'A');
+		const legacy = figure(db, 'Legacy');
+		setFigureShape(db, legacy.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 });
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		// Written past `addOption`, the way a slot made before this rule looks.
+		db.insert(routineStepOptions).values({ stepId: step, figureId: legacy.id }).run();
+		const c = figure(db, 'C');
+		expect(addOption(db, step, c.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id, legacy.id, c.id]);
+	});
+});
+
+describe('restoreOption', () => {
+	it('puts back an alternative the start rule would now refuse', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 });
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(restoreOption(db, step, b.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id, b.id]);
+	});
+
+	it('is idempotent', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const a = figure(db, 'A');
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(restoreOption(db, step, a.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('refuses a figure of another dance', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const step = addFigureSlot(db, routine.id, figure(db, 'A').id)!;
+		expect(restoreOption(db, step, figure(db, 'B', 'bachata').id)).toBe(false);
+	});
+
+	it('refuses a slot that holds a routine', () => {
+		const db = openDb(':memory:');
+		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		const step = addChildSlot(db, parent.id, child.id)!;
+		expect(restoreOption(db, step, figure(db, 'A').id)).toBe(false);
+	});
+});
+
+describe('deleteSlots and restoreSlots', () => {
+	const shape = (db: ReturnType<typeof openDb>, id: number) =>
+		routineSlots(db, id).map(({ position, note, childId, figureIds }) => ({
+			position,
+			note,
+			childId,
+			figureIds
+		}));
+
+	it('round-trips to an identical routine, main figure and note included', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const [a, b, c, d] = ['A', 'B', 'C', 'D'].map((n) => figure(db, n));
+		const s0 = addFigureSlot(db, routine.id, a.id)!;
+		const s1 = addFigureSlot(db, routine.id, c.id)!;
+		addOption(db, s1, b.id);
+		setSlotNote(db, s1, 'hand change');
+		const s2 = addFigureSlot(db, routine.id, d.id)!;
+		const before = shape(db, routine.id);
+
+		const snapshot = deleteSlots(db, routine.id, [s2, s1])!;
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual([s0]);
+		expect(restoreSlots(db, routine.id, snapshot)).toBe(true);
+		expect(shape(db, routine.id)).toEqual(before);
+	});
+
+	it('deletes nothing when any id is not this routine’s', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const other = createRoutine(db, 'salsa', { name: 'O', notes: null }).routine;
+		const mine = addFigureSlot(db, routine.id, figure(db, 'A').id)!;
+		const foreign = addFigureSlot(db, other.id, figure(db, 'B').id)!;
+		expect(deleteSlots(db, routine.id, [mine, foreign])).toBeNull();
+		expect(deleteSlots(db, routine.id, [mine, 9999])).toBeNull();
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual([mine]);
+		expect(routineSlots(db, other.id).map((s) => s.id)).toEqual([foreign]);
+	});
+
+	it('restores past the end when the routine has since shrunk', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const [a, b, c] = ['A', 'B', 'C'].map((n) => figure(db, n));
+		const s0 = addFigureSlot(db, routine.id, a.id)!;
+		const s1 = addFigureSlot(db, routine.id, b.id)!;
+		const s2 = addFigureSlot(db, routine.id, c.id)!;
+		const snapshot = deleteSlots(db, routine.id, [s2])!; // was at position 2
+		deleteSlots(db, routine.id, [s0]);
+		expect(restoreSlots(db, routine.id, snapshot)).toBe(true);
+		const rows = routineSlots(db, routine.id);
+		expect(rows[0].id).toBe(s1);
+		expect(rows.map((s) => s.figureIds)).toEqual([[b.id], [c.id]]);
+	});
+
+	it('restores a figure archived since it was deleted', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const a = figure(db, 'A');
+		const snapshot = deleteSlots(db, routine.id, [addFigureSlot(db, routine.id, a.id)!])!;
+		archiveFigure(db, a.id, 1_000);
+		expect(restoreSlots(db, routine.id, snapshot)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('refuses a figure of another dance and writes nothing', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const snapshot: SlotSnapshot[] = [
+			{ position: 0, childId: null, note: null, figureIds: [figure(db, 'B', 'bachata').id] }
+		];
+		expect(restoreSlots(db, routine.id, snapshot)).toBe(false);
+		expect(routineSlots(db, routine.id)).toHaveLength(0);
+	});
+
+	it('refuses a child that can no longer be embedded', () => {
+		const db = openDb(':memory:');
+		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		const inner = createRoutine(db, 'salsa', { name: 'I', notes: null }).routine;
+		const snapshot = deleteSlots(db, parent.id, [addChildSlot(db, parent.id, child.id)!])!;
+		addChildSlot(db, child.id, inner.id); // the child now embeds: one level only
+		expect(restoreSlots(db, parent.id, snapshot)).toBe(false);
+		expect(routineSlots(db, parent.id)).toHaveLength(0);
+	});
+});
+
+describe('duplicateSlots', () => {
+	it('copies the selection, in order, after the last selected slot', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const [a, b, c, d] = ['A', 'B', 'C', 'D'].map((n) => figure(db, n));
+		const s0 = addFigureSlot(db, routine.id, a.id)!;
+		const s1 = addFigureSlot(db, routine.id, c.id)!;
+		addOption(db, s1, b.id);
+		const s2 = addFigureSlot(db, routine.id, d.id)!;
+		const copies = duplicateSlots(db, routine.id, [s1, s0])!;
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([s0, s1, ...copies, s2]);
+		expect(rows.map((s) => s.figureIds)).toEqual([
+			[a.id],
+			[c.id, b.id],
+			[a.id],
+			[c.id, b.id],
+			[d.id]
+		]);
+	});
+
+	it('copies nothing when any id is not this routine’s', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const s0 = addFigureSlot(db, routine.id, figure(db, 'A').id)!;
+		expect(duplicateSlots(db, routine.id, [s0, 9999])).toBeNull();
+		expect(routineSlots(db, routine.id)).toHaveLength(1);
+	});
+});
+
+describe('extractRoutine', () => {
+	const fourSlots = () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const ids = ['A', 'B', 'C', 'D'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
+		return { db, routine, ids };
+	};
+	const routineCount = (db: ReturnType<typeof openDb>) => listRoutines(db, 'salsa').length;
+
+	it('moves a contiguous run into a new routine and embeds it in its place', () => {
+		const { db, routine, ids } = fourSlots();
+		setSlotNote(db, ids[2], 'spin here');
+		const made = extractRoutine(db, routine.id, [ids[2], ids[1]], 'Combo')!;
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([ids[0], made.stepId, ids[3]]);
+		expect(rows[1].childId).toBe(made.routineId);
+		// Moved, not copied: the same step rows, options and notes intact.
+		const inner = routineSlots(db, made.routineId);
+		expect(inner.map((s) => s.id)).toEqual([ids[1], ids[2]]);
+		expect(inner[1].note).toBe('spin here');
+		expect(getRoutine(db, made.routineId)!.name).toBe('Combo');
+		const exercise = db
+			.select()
+			.from(exercises)
+			.where(eq(exercises.routineId, made.routineId))
+			.get();
+		expect(exercise).toMatchObject({ source: 'routine', name: 'Combo' });
+	});
+
+	it('refuses a run with a gap and writes nothing', () => {
+		const { db, routine, ids } = fourSlots();
+		const before = routineCount(db);
+		expect(extractRoutine(db, routine.id, [ids[0], ids[2]], 'Combo')).toBeNull();
+		expect(routineCount(db)).toBe(before);
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual(ids);
+	});
+
+	it('refuses a run holding an embedded routine', () => {
+		const { db, routine, ids } = fourSlots();
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		const embedded = insertSlot(db, routine.id, 1, { childId: child.id })!;
+		expect(extractRoutine(db, routine.id, [ids[0], embedded], 'Combo')).toBeNull();
+	});
+
+	it('refuses when the routine is itself embedded somewhere', () => {
+		const { db, routine, ids } = fourSlots();
+		const parent = createRoutine(db, 'salsa', { name: 'Social mix', notes: null }).routine;
+		addChildSlot(db, parent.id, routine.id);
+		expect(embeddedIn(db, routine.id).map((r) => r.name)).toEqual(['Social mix']);
+		expect(extractRoutine(db, routine.id, [ids[0]], 'Combo')).toBeNull();
+	});
+
+	it('refuses a slot of another routine', () => {
+		const { db, routine } = fourSlots();
+		const other = createRoutine(db, 'salsa', { name: 'O', notes: null }).routine;
+		const foreign = addFigureSlot(db, other.id, figure(db, 'E').id)!;
+		expect(extractRoutine(db, routine.id, [foreign], 'Combo')).toBeNull();
+		expect(routineSlots(db, other.id).map((s) => s.id)).toEqual([foreign]);
 	});
 });
