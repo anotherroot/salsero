@@ -68,7 +68,8 @@
 			? 'border-accent'
 			: 'border-line'} {lifted ? 'scale-[1.02] shadow-xl' : ''}"
 	>
-		<div class="flex items-start gap-1 py-2 pr-2">
+		<!-- Handle and number centred against the whole card, however many lines it has. -->
+		<div class="flex items-center gap-1 py-2 pr-2">
 			{#if selecting}
 				<span class="grid size-11 shrink-0 place-items-center" aria-hidden="true">
 					<span
@@ -102,6 +103,11 @@
 				>
 			{/if}
 
+			<span
+				class="mr-1 grid size-6 shrink-0 place-items-center rounded-full bg-accent/15 text-[11px] font-semibold text-accent"
+				>{index + 1}</span
+			>
+
 			<div
 				role="button"
 				tabindex="0"
@@ -124,24 +130,18 @@
 					}
 				}}
 			>
-				<div class="flex items-center gap-2">
-					<span
-						class="grid size-6 shrink-0 place-items-center rounded-full bg-accent/15 text-[11px] font-semibold text-accent"
-						>{index + 1}</span
-					>
-					<span class="min-w-0 flex-1 truncate text-[15px] font-medium"
-						>{#if row.isRoutine}<span class="text-muted">↻ </span>{/if}{row.title}</span
-					>
-				</div>
+				<p class="truncate text-[15px] font-medium">
+					{#if row.isRoutine}<span class="text-muted">↻ </span>{/if}{row.title}
+				</p>
 				{#if row.meta}
-					<p class="mt-0.5 truncate pl-8 text-[12px] text-muted">{row.meta}</p>
+					<p class="mt-0.5 truncate text-[12px] text-muted">{row.meta}</p>
 				{/if}
 				{#if !expanded}
 					{#if row.note}
-						<p class="mt-0.5 truncate pl-8 text-[12.5px] text-ink-2 italic">{row.note}</p>
+						<p class="mt-0.5 truncate text-[12.5px] text-ink-2 italic">{row.note}</p>
 					{/if}
 					{#if row.alternatives.length > 0}
-						<p class="truncate pl-8 text-[12px] text-muted">
+						<p class="truncate text-[12px] text-muted">
 							/ {row.alternatives.map((a) => a.label).join(' / ')}
 						</p>
 					{/if}
@@ -161,7 +161,7 @@
 			     here so selecting text never starts a swipe. -->
 			<div
 				role="presentation"
-				class="pr-3 pb-3 pl-[3.25rem]"
+				class="pr-3 pb-3 pl-[5rem]"
 				onpointerdown={(e) => e.stopPropagation()}
 			>
 				<input
