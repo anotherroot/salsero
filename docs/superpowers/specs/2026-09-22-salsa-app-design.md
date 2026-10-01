@@ -58,6 +58,9 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    links followed on 2026-09-29. Today gained a fourth
    band at the same time. See
    [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md).
+   A full-screen video player with saved spots and looped sections, for
+   figure recordings and lesson videos: designed 2026-10-01, see
+   [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md).
 
 Deferred beyond phase 3: stats/charts, ear-training quizzes (e.g. "2-3 or 3-2
 clave?"), offline mode.
