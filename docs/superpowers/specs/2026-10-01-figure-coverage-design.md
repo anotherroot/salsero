@@ -107,8 +107,8 @@ never touches the database; the page's load assembles its inputs from
 - Every id must be an unarchived figure or variation of this dance. Any other
   id — the other dance, archived, missing — fails the whole request (the
   function returns null; the action answers 404, as every cross-dance id does)
-  and nothing is written. An empty list or a duplicate id is a 400: duplicates
-  cannot come from the UI.
+  and nothing is written. An empty list is a 400. A duplicate id cannot come
+  from the UI; the form's `ints` helper collapses it to its first position.
 - On success, redirect to the new routine's page, where the user puts the
   slots in order. Timing breaks show there as they always do.
 
