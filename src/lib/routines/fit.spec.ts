@@ -90,6 +90,17 @@ describe('pickList', () => {
 		expect(ids(l).figures).toEqual([[3, false, [4]]]);
 	});
 
+	it('matches every word of the query, in any order', () => {
+		// The label is "Enchufla · Doble": the words are separated by more than a space.
+		for (const query of ['enchufla doble', 'doble  enchufla ']) {
+			const l = pickList(candidates, { kind: 'none' }, { ...all, query });
+			expect(ids(l).figures).toEqual([[3, false, [4]]]);
+		}
+		expect(
+			pickList(candidates, { kind: 'none' }, { ...all, query: 'enchufla dile' }).figures
+		).toEqual([]);
+	});
+
 	it('says which filter emptied the list', () => {
 		const shadow: Anchor = { kind: 'after', end: 9, next: 1 };
 		const l = pickList(candidates, shadow, all);

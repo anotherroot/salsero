@@ -65,9 +65,9 @@ export const load: PageServerLoad = ({ params }) => {
 	const positions = listPositions(db, dance);
 
 	// Flat indices where the routine's walk breaks — a slot's alternatives don't
-	// share a start with the slot before it. The picker offers every figure of
-	// the dance regardless; `addOption`'s shared-end check is what actually
-	// refuses a wrong-end pick.
+	// share a start with the slot before it. Only the break count above the
+	// slots reads these; the seams between cards come from `positionSeams` and
+	// `timingSeams`, which are indexed by row.
 	const flatBreaks = new Set(breaks(graph, shape));
 
 	// What the picker can offer, each with where it begins and lands — resolved
@@ -166,12 +166,12 @@ function ownsSlot(db: Db, routineId: number, stepId: number): boolean {
  * A failure from an action that acts on one slot, carrying the slot it was aimed
  * at so the page can print the message under that slot.
  *
- * The page has one `addOption` form PER SLOT and they all fail with the same
- * sentence, so a bare message in the banner at the top says nothing about which
- * submission was refused — and `use:enhance` does not scroll, so from slot nine
- * of a long routine the refusal is invisible. A wrong-landing alternative pick is
- * ordinary use here, not an edge case: the picker deliberately offers every
- * figure, because the load carries no per-figure end to filter it by.
+ * The page posts these from a swipe, a drag, the note field or the picker,
+ * anywhere down a long routine, and nothing scrolls to the banner — from slot
+ * nine a refusal up there is invisible. The picker offers only alternatives
+ * that fit, but what it offered can be stale by the time it is posted (a
+ * figure's tags changed, the slot was deleted in another tab), so a refusal is
+ * still ordinary use, and its home is under the slot it was aimed at.
  *
  * `stepId` is omitted when the body's slot id could not be read at all. There is
  * no slot to attribute that to, and the page's banner is its right home.
@@ -226,7 +226,7 @@ export const actions: Actions = {
 		}
 		if (!addOption(db, stepId, figureId)) {
 			return slotFail(
-				'Those figures do not land in the same place or on the same count, so they are not alternatives.',
+				'That figure does not start and land like this slot’s figure, so it is not an alternative.',
 				stepId
 			);
 		}

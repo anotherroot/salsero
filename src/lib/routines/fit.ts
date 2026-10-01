@@ -111,8 +111,13 @@ function standsIn(c: Candidate, a: Extract<Anchor, { kind: 'alternative' }>): bo
 
 export function pickList(candidates: Candidate[], anchor: Anchor, filters: Filters): PickList {
 	const t = toggles(anchor);
-	const q = fold(filters.query.trim());
-	const matches = (c: Candidate) => q === '' || fold(c.label).includes(q);
+	// Word by word, in any order: a variation's label is "Enchufla · Doble", so
+	// "enchufla doble" as one substring would never match it.
+	const words = fold(filters.query).split(/\s+/).filter(Boolean);
+	const matches = (c: Candidate) => {
+		const label = fold(c.label);
+		return words.every((w) => label.includes(w));
+	};
 
 	const build = (on: { count: boolean; hold: boolean }) => {
 		const ok = (c: Candidate) =>
