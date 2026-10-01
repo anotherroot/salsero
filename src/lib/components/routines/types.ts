@@ -4,6 +4,7 @@
  * graph ids, seams indexed by server rows, or optimistic overlays.
  */
 import type { Side } from '$lib/gestures/swipe';
+import type { ResolvedPathname } from '$app/types';
 
 export interface AltView {
 	id: number;
@@ -21,8 +22,10 @@ export interface RowView {
 	/** "1→1 · Closed → Open". Empty when nothing in the slot is danceable. */
 	meta: string;
 	note: string | null;
-	/** Where swiping right or "Open →" goes; null when there is nothing to open. */
-	href: string | null;
+	/** Where swiping right or "Open →" goes; null when there is nothing to open.
+	 *  A `resolve()` result, not a bare string — `<a href>` needs that to pass
+	 *  `svelte/no-navigation-without-resolve` without re-resolving here. */
+	href: ResolvedPathname | null;
 	isRoutine: boolean;
 	/** Every option but the main figure, in the order they were added. */
 	alternatives: AltView[];
