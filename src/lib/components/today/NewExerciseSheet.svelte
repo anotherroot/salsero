@@ -69,6 +69,6 @@
 		>
 	</form>
 	<p class="mt-3 text-[12px] text-muted">
-		Figures get an exercise automatically — add those from the Figures tab.
+		To practise a figure on its own, open it and tap Practise on its own.
 	</p>
 </Sheet>

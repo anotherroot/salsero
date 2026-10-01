@@ -348,6 +348,26 @@
 					onclick={() => (logging = true)}>Log…</button
 				>
 			</section>
+		{:else if !data.exercise}
+			<form
+				method="POST"
+				action="?/practise"
+				use:enhance
+				class="flex items-center gap-3 rounded-xl border border-line bg-raised p-3"
+			>
+				<div class="min-w-0 flex-1">
+					<p class="text-[14px] font-medium">Practice</p>
+					<p class="text-[12px] text-muted">Practised through its routines.</p>
+					{#if failed('practise')}
+						<p class="text-[12px] text-danger" role="alert">{failed('practise')}</p>
+					{/if}
+				</div>
+				<button
+					type="submit"
+					class="h-11 rounded-xl border border-rule px-4 text-[14px] font-semibold text-ink-2"
+					>Practise on its own</button
+				>
+			</form>
 		{/if}
 	{/if}
 

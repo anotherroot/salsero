@@ -16,7 +16,7 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { sets } from '$lib/server/db/schema';
 import { createCustomExercise, getSet, logSet } from '$lib/server/exercises';
-import { createFigure } from '$lib/server/figures';
+import { addFigureExercise, createFigure } from '$lib/server/figures';
 import { noonOf } from '$lib/day/day';
 import { deleteSetFrom, logSetFrom } from './log-form';
 
@@ -43,12 +43,15 @@ let bachataDrillId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
-	figureExerciseId = createFigure(db, 'salsa', {
-		name: 'Enchufla',
-		partner: 'partner',
-		style: 'salsa',
-		notes: null
-	})!.exercise.id;
+	figureExerciseId = addFigureExercise(
+		db,
+		createFigure(db, 'salsa', {
+			name: 'Enchufla',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id
+	)!.id;
 	drillId = createCustomExercise(db, 'salsa', { name: 'Son switch', everyDays: 2, notes: null }).id;
 	bachataDrillId = createCustomExercise(db, 'bachata', {
 		name: 'Hips',

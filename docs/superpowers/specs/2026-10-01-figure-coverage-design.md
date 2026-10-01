@@ -1,6 +1,7 @@
 # Figure coverage — design
 
-> **Status:** approved in brainstorming, 2026-10-01. Changes one hard rule of
+> **Status:** live (2026-10-01), except §4, which is run by hand on the
+> server. Changes one hard rule of
 > [`2026-09-22-salsa-app-design.md`](2026-09-22-salsa-app-design.md): a figure
 > no longer gets an exercise when it is created. Builds on the routines design
 > ([`2026-09-24-routines-design.md`](2026-09-24-routines-design.md)) and figure

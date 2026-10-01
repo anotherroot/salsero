@@ -6,7 +6,6 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import { PARTNER, PARTNER_LABEL } from '$lib/labels';
-	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -52,11 +51,20 @@
 			onclick={() => (creating = true)}>+ New</button
 		>
 	</div>
-	<a
-		class="text-[12px] text-muted underline"
-		href={resolve('/[dance]/positions', { dance: data.dance.slug })}
-		>Tagged {data.tagged.done} / {data.tagged.total} positions</a
-	>
+	<div class="flex flex-wrap gap-x-4">
+		<a
+			class="text-[12px] text-muted underline"
+			href={resolve('/[dance]/positions', { dance: data.dance.slug })}
+			>Tagged {data.tagged.done} / {data.tagged.total} positions</a
+		>
+		<a
+			class="text-[12px] text-muted underline"
+			href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
+			>{data.unrouted === 0
+				? 'Routine coverage →'
+				: `${data.unrouted} ${data.unrouted === 1 ? 'version' : 'versions'} in no routine →`}</a
+		>
+	</div>
 	<form
 		class="mt-3"
 		onsubmit={(e) => {
@@ -140,18 +148,6 @@
 			}}
 		>
 			<FigureFields dance={data.dance} name={form?.name} notes={form?.notes} />
-			<label class="block">
-				<span class="mb-1 block text-[12px] font-medium text-ink-2">Practise it</span>
-				<select
-					name="everyDays"
-					value={DEFAULT_EVERY_DAYS}
-					class="w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px]"
-				>
-					{#each FREQUENCIES as f (f.days)}
-						<option value={f.days}>{f.label}</option>
-					{/each}
-				</select>
-			</label>
 			{#if form?.message}
 				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
 					{form.message}

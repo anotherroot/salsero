@@ -35,35 +35,39 @@ export interface RoutineInput {
 	name: string;
 	notes: string | null;
 }
-
 /**
- * Create a routine and its exercise together — the rule figures and lessons
- * already follow, so a routine appears in Today without a second step.
+ * The routine row and its exercise, inside a caller's transaction.
  *
  * `source: 'routine'` and `routineId` are set as a pair. There is no CHECK
  * pairing them (see `schema.ts`); this function is the enforcement, and it is
  * the only thing that ever writes `exercises.routine_id`.
  */
+function insertRoutine(tx: Tx, dance: DanceSlug, input: RoutineInput, everyDays: number) {
+	const routine = tx
+		.insert(routines)
+		.values({ ...input, dance })
+		.returning()
+		.get();
+	const exercise = tx
+		.insert(exercises)
+		.values({
+			name: routine.name,
+			source: 'routine',
+			routineId: routine.id,
+			dance,
+			everyDays
+		})
+		.returning()
+		.get();
+	return { routine, exercise };
+}
+
+/**
+ * Create a routine and its exercise together — the rule lessons follow too —
+ * so a routine appears in Today without a second step.
+ */
 export function createRoutine(db: Db, dance: DanceSlug, input: RoutineInput, everyDays = 3) {
-	return db.transaction((tx) => {
-		const routine = tx
-			.insert(routines)
-			.values({ ...input, dance })
-			.returning()
-			.get();
-		const exercise = tx
-			.insert(exercises)
-			.values({
-				name: routine.name,
-				source: 'routine',
-				routineId: routine.id,
-				dance,
-				everyDays
-			})
-			.returning()
-			.get();
-		return { routine, exercise };
-	});
+	return db.transaction((tx) => insertRoutine(tx, dance, input, everyDays));
 }
 
 /** Edit a routine. A rename carries over to its exercise so the two never drift. */
@@ -312,6 +316,38 @@ export function addFigureSlot(db: Db, routineId: number, figureId: number): numb
 			.get();
 		tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
 		return step.id;
+	});
+}
+
+/**
+ * A new routine with one slot per figure or variation, in the given order —
+ * the coverage page's "Create routine". The user puts the slots in order on
+ * the routine page afterwards.
+ *
+ * All or nothing: null, with nothing written, for an empty list or any id
+ * that is not an unarchived figure or variation of this dance.
+ */
+export function createRoutineFromFigures(
+	db: Db,
+	dance: DanceSlug,
+	input: RoutineInput,
+	figureIds: number[],
+	everyDays = 3
+) {
+	if (figureIds.length === 0) return null;
+	const graph = buildGraph(db, dance);
+	if (figureIds.some((id) => landingIn(graph, id) === null)) return null;
+	return db.transaction((tx) => {
+		const made = insertRoutine(tx, dance, input, everyDays);
+		figureIds.forEach((figureId, position) => {
+			const step = tx
+				.insert(routineSteps)
+				.values({ routineId: made.routine.id, position })
+				.returning({ id: routineSteps.id })
+				.get();
+			tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+		});
+		return made;
 	});
 }
 

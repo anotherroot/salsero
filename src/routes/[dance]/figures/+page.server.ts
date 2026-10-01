@@ -1,9 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { createFigure, listFigures } from '$lib/server/figures';
+import { createFigure, listFigures, listVersions } from '$lib/server/figures';
+import { listRoutines, routineShapes } from '$lib/server/routines';
+import { coverage } from '$lib/routines/coverage';
 import { taggedFigures } from '$lib/server/graph';
-import { int, oneOf, optionalText, text } from '$lib/server/form';
-import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
+import { oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, type Partner } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
@@ -30,7 +31,13 @@ export const load: PageServerLoad = ({ url, params }) => {
 		// How much of the repertoire carries handhold tags. An untagged figure
 		// reads as neutral, which is right for most of casino but worth surfacing:
 		// the graph is only as good as this fraction.
-		tagged: taggedFigures(db, dance)
+		tagged: taggedFigures(db, dance),
+		// Versions no routine can call: the Figures header's way into coverage.
+		unrouted: coverage(
+			listVersions(db, dance),
+			routineShapes(db, dance),
+			listRoutines(db, dance)
+		).filter((r) => r.routines.length === 0).length
 	};
 };
 
@@ -42,15 +49,14 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
-		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
-		if (!name || !partner || !style || notes === undefined || !isFrequency(everyDays)) {
+		if (!name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				message: 'Give the figure a name (up to 200 characters).',
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		const made = createFigure(getDb(), dance, { name, partner, style, notes }, everyDays);
+		const made = createFigure(getDb(), dance, { name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				message: 'That style does not belong to this dance.',

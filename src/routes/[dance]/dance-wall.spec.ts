@@ -25,7 +25,13 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { addRecording, createFigure, createVariation, getFigure } from '$lib/server/figures';
+import {
+	addFigureExercise,
+	addRecording,
+	createFigure,
+	createVariation,
+	getFigure
+} from '$lib/server/figures';
 import {
 	createCustomExercise,
 	getExercise,
@@ -55,6 +61,7 @@ import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as positionsPage from './positions/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
+import * as coveragePage from './coverage/+page.server';
 import * as gridEndpoint from './songs/[id]/grid/+server';
 import * as practiceEndpoint from './exercises/[id]/practice/+server';
 
@@ -128,7 +135,7 @@ beforeEach(() => {
 	seedPositions(db);
 
 	const salsaFigure = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!;
-	salsaExerciseId = salsaFigure.exercise.id;
+	salsaExerciseId = addFigureExercise(db, salsaFigure.figure.id)!.id;
 	salsaFigureId = salsaFigure.figure.id;
 	salsaFigureId2 = createFigure(db, 'salsa', {
 		...figureInput,
@@ -145,7 +152,7 @@ beforeEach(() => {
 		style: 'sensual'
 	})!;
 	bachataFigureId = bachata.figure.id;
-	bachataExerciseId = bachata.exercise.id;
+	bachataExerciseId = addFigureExercise(db, bachata.figure.id)!.id;
 	bachataCustomId = createCustomExercise(db, 'bachata', {
 		name: 'Hip drills',
 		everyDays: 3,
@@ -248,6 +255,18 @@ describe("the player refuses the other dance's exercise", () => {
 });
 
 describe("the detail pages refuse the other dance's rows", () => {
+	it('will not give a bachata figure an exercise from a salsa URL', async () => {
+		const bare = createFigure(db, 'bachata', { ...figureInput, name: 'Bare', style: 'sensual' })!;
+		await refuses(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
+		expect(getFigure(db, bare.figure.id)?.exercise).toBeNull();
+	});
+
+	it('gives a figure its exercise from its own dance', async () => {
+		const bare = createFigure(db, 'salsa', { ...figureInput, name: 'Bare', style: 'salsa' })!;
+		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
+		expect(getFigure(db, bare.figure.id)?.exercise?.source).toBe('figure');
+	});
+
 	it('will not open a bachata figure from a salsa URL', () => {
 		expect(loadAt(figurePage.load, 'bachata', String(bachataFigureId))).toMatchObject({
 			figure: { name: 'Basico' }
@@ -727,5 +746,57 @@ describe('the guard leaves the friendly failures alone', () => {
 			post('bachata', {}, String(bachataExerciseId))
 		)) as { status: number; data: { message: string } };
 		expect(res.data.message).toContain('Archive a figure from its page');
+	});
+});
+
+describe('the coverage page stays inside its dance', () => {
+	it('lists only its own dance versions', () => {
+		const data = loadAt(coveragePage.load, 'salsa', '') as {
+			groups: { rows: { id: number }[] }[];
+		};
+		const ids = data.groups.flatMap((g) => g.rows.map((r) => r.id));
+		expect(ids).toContain(salsaFigureId);
+		expect(ids).not.toContain(bachataFigureId);
+	});
+
+	it('will not build a salsa routine from a bachata figure', async () => {
+		const event = post('salsa', { name: 'Mixed' });
+		const body = new URLSearchParams({ name: 'Mixed' });
+		body.append('figureIds', String(salsaFigureId));
+		body.append('figureIds', String(bachataFigureId));
+		await refuses(coveragePage.actions.create, {
+			...event,
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body
+			})
+		});
+		expect(
+			db
+				.select()
+				.from(exercises)
+				.all()
+				.filter((e) => e.source === 'routine')
+		).toHaveLength(3);
+	});
+
+	it('builds the routine in tap order and redirects to it', async () => {
+		const body = new URLSearchParams({ name: 'Picked' });
+		body.append('figureIds', String(salsaFigureId2));
+		body.append('figureIds', String(salsaFigureId));
+		try {
+			await call(coveragePage.actions.create, {
+				...post('salsa', {}),
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					headers: { 'content-type': 'application/x-www-form-urlencoded' },
+					body
+				})
+			});
+			expect.unreachable('a created routine redirects');
+		} catch (thrown) {
+			expect(thrown).toMatchObject({ status: 303 });
+		}
 	});
 });

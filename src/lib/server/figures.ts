@@ -21,9 +21,8 @@ function values(input: FigureInput) {
 }
 
 /**
- * Create a figure AND its exercise, in one transaction. A figure without an
- * exercise would never show up on the Today page, which is the whole point of
- * adding it. The exercise carries the figure's dance, so Today stays walled.
+ * Create a figure. It gets no exercise: the user practises routines, and a
+ * figure is practised on its own only when asked for — `addFigureExercise`.
  *
  * Returns null when the style is not one of the dance's — the pairing has no
  * CHECK to enforce it (see `schema.ts`), so it is enforced here.
@@ -31,28 +30,44 @@ function values(input: FigureInput) {
 export function createFigure(
 	db: Db,
 	dance: DanceSlug,
-	input: FigureInput,
-	everyDays = 3
-): { figure: typeof figures.$inferSelect; exercise: typeof exercises.$inferSelect } | null {
+	input: FigureInput
+): { figure: typeof figures.$inferSelect } | null {
 	if (!isStyleOf(dance, input.style)) return null;
+	const figure = db
+		.insert(figures)
+		.values({ ...values(input), dance, lengthCounts: DEFAULT_LENGTH_COUNTS })
+		.returning()
+		.get();
+	return { figure };
+}
+
+/**
+ * Give a figure its own exercise, so it shows on Today. Null for a missing,
+ * archived or variation figure — a variation is practised through its figure —
+ * and for a figure that already has one, archived or not: a figure never has
+ * two. The only writer of `source: 'figure'` and `figure_id`.
+ */
+export function addFigureExercise(db: Db, figureId: number, everyDays = 3) {
 	return db.transaction((tx) => {
-		const figure = tx
-			.insert(figures)
-			.values({ ...values(input), dance, lengthCounts: DEFAULT_LENGTH_COUNTS })
-			.returning()
+		const figure = tx.select().from(figures).where(eq(figures.id, figureId)).get();
+		if (!figure || figure.archivedAt !== null || figure.parentId !== null) return null;
+		const existing = tx
+			.select({ id: exercises.id })
+			.from(exercises)
+			.where(eq(exercises.figureId, figureId))
 			.get();
-		const exercise = tx
+		if (existing) return null;
+		return tx
 			.insert(exercises)
-			.values({ name: figure.name, source: 'figure', figureId: figure.id, dance, everyDays })
+			.values({ name: figure.name, source: 'figure', figureId, dance: figure.dance, everyDays })
 			.returning()
 			.get();
-		return { figure, exercise };
 	});
 }
 
 /**
- * Edit a figure. A rename carries over to its exercise so the two never drift.
- * Returns null when the figure is gone, or when the style does not belong to
+ * Edit a figure. A rename carries over to its exercise, when it has one, so
+ * the two never drift. Returns null when the figure is gone, or when the style does not belong to
  * the figure's own dance — a figure never changes dance.
  */
 export function updateFigure(db: Db, id: number, input: FigureInput) {
@@ -74,7 +89,10 @@ export function updateFigure(db: Db, id: number, input: FigureInput) {
 	});
 }
 
-/** Archive a figure and its exercise together. Sets and recordings are kept. */
+/**
+ * Archive a figure, its variations, and its exercise if it has one. Sets and
+ * recordings are kept.
+ */
 export function archiveFigure(db: Db, id: number, now: number): boolean {
 	return db.transaction((tx) => {
 		const res = tx

@@ -375,14 +375,6 @@
 			</p>
 		{/if}
 		<FigureFields dance={data.dance} />
-		<label class="block">
-			<span class={label}>How often</span>
-			<select name="everyDays" class={field} value={DEFAULT_EVERY_DAYS}>
-				{#each FREQUENCIES as f (f.days)}
-					<option value={f.days}>{f.label}</option>
-				{/each}
-			</select>
-		</label>
 		<button
 			type="submit"
 			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"

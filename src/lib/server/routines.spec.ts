@@ -7,6 +7,7 @@ import {
 	archiveRoutine,
 	canEmbed,
 	createRoutine,
+	createRoutineFromFigures,
 	deleteSlot,
 	embeddable,
 	getRoutine,
@@ -20,7 +21,7 @@ import {
 	duplicateSlot,
 	duplicateRoutine
 } from './routines';
-import { archiveFigure, createFigure } from './figures';
+import { archiveFigure, createFigure, createVariation } from './figures';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
 import { exercises } from './db/schema';
@@ -509,5 +510,45 @@ describe('routineShapes carries notes', () => {
 		setSlotNote(db, step, 'hand change here');
 		const shape = routineShapes(db, 'salsa').get(routine.id)!;
 		expect(shape.slots[0].note).toBe('hand change here');
+	});
+});
+
+describe('createRoutineFromFigures', () => {
+	it('makes the routine, its exercise, and one slot per id in the given order', () => {
+		const db = openDb(':memory:');
+		const a = figure(db, 'Enchufla');
+		const v = createVariation(db, a.id, { name: 'Doble', notes: null })!;
+		const b = figure(db, 'Setenta');
+		const made = createRoutineFromFigures(db, 'salsa', { name: 'New', notes: null }, [
+			b.id,
+			v.id,
+			a.id
+		])!;
+		expect(made.exercise).toMatchObject({
+			source: 'routine',
+			routineId: made.routine.id,
+			dance: 'salsa'
+		});
+		expect(routineSlots(db, made.routine.id).map((s) => s.figureIds)).toEqual([
+			[b.id],
+			[v.id],
+			[a.id]
+		]);
+	});
+
+	it('writes nothing when any id is of the other dance, archived, or missing', () => {
+		const db = openDb(':memory:');
+		const a = figure(db, 'Enchufla');
+		const other = figure(db, 'Basico', 'bachata');
+		const gone = figure(db, 'Gone');
+		archiveFigure(db, gone.id, 1);
+		for (const bad of [other.id, gone.id, 9999]) {
+			expect(
+				createRoutineFromFigures(db, 'salsa', { name: 'X', notes: null }, [a.id, bad])
+			).toBeNull();
+		}
+		expect(createRoutineFromFigures(db, 'salsa', { name: 'X', notes: null }, [])).toBeNull();
+		expect(listRoutines(db, 'salsa')).toEqual([]);
+		expect(db.select().from(exercises).all()).toEqual([]);
 	});
 });

@@ -133,8 +133,9 @@ widens.
 
 Following the `exercises.lesson_id` precedent, not a CHECK:
 
-- A figure's exercise is created, renamed and archived with its figure, and
-  carries **its figure's dance**, in the same transaction (`figures.ts`).
+- A figure's exercise carries **its figure's dance** (`figures.ts`). Since
+  2026-10-01 it is opt-in rather than created with the figure — see
+  [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).
 - A lesson's review exercise carries **its lesson's dance** (`lessons.ts`).
 - An exercise in practice mode `song` must point at a song of **its own dance**
   (`exercises.ts`).

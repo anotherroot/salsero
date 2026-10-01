@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { appFlags, links } from './db/schema';
 import { createCustomExercise } from './exercises';
-import { createFigure } from './figures';
+import { addFigureExercise, createFigure } from './figures';
 import { createLesson, updateLesson } from './lessons';
 import { addLinks, deleteLink, importNoteLinks, listLinks, NOTE_LINKS_FLAG } from './links';
 
@@ -65,7 +65,7 @@ describe('links', () => {
 	});
 
 	it('refuses links on an exercise a figure, lesson or routine owns', () => {
-		const { exercise } = createFigure(db, 'salsa', figureInput)!;
+		const exercise = addFigureExercise(db, createFigure(db, 'salsa', figureInput)!.figure.id)!;
 		expect(addLinks(db, { exerciseId: exercise.id }, ['https://a.org'], null)).toBeNull();
 		expect(db.select().from(links).all()).toHaveLength(0);
 	});
