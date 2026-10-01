@@ -1,6 +1,6 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull, like } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, figures, recordings, type Figure } from './db/schema';
+import { exercises, figures, recordings, videoSpots, type Figure } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import type { Partner } from '$lib/labels';
 import type { CalledFigure, FigureVersion } from '$lib/types';
@@ -203,9 +203,16 @@ export function addRecording(db: Db, input: RecordingInput) {
 	return db.insert(recordings).values(input).returning().get();
 }
 
-/** Delete a recording row and return it, so the caller can remove the file. */
+/**
+ * Delete a recording row and return it, so the caller can remove the file.
+ * Its spots go first, in the same transaction — the foreign key would refuse
+ * the recording otherwise.
+ */
 export function deleteRecording(db: Db, id: number) {
-	return db.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
+	return db.transaction((tx) => {
+		tx.delete(videoSpots).where(eq(videoSpots.recordingId, id)).run();
+		return tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
+	});
 }
 
 export function getRecordingByFile(db: Db, file: string) {
