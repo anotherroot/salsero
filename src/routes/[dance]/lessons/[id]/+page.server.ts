@@ -23,7 +23,7 @@ import { createRoutine } from '$lib/server/routines';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
-import { checkbox, int, oneOf, optionalText, text } from '$lib/server/form';
+import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
@@ -123,7 +123,6 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
-		const callText = optionalText(form, 'callText', 200);
 		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
 
 		if (
@@ -131,7 +130,6 @@ export const actions: Actions = {
 			partner === undefined ||
 			style === undefined ||
 			notes === undefined ||
-			callText === undefined ||
 			!isFrequency(everyDays)
 		) {
 			return fail(400, {
@@ -143,12 +141,7 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const made = createFigure(
-			db,
-			dance,
-			{ name, partner, style, notes, callable: checkbox(form, 'callable'), callText },
-			everyDays
-		);
+		const made = createFigure(db, dance, { name, partner, style, notes }, everyDays);
 		if (!made) {
 			return fail(400, {
 				action: 'newFigure',

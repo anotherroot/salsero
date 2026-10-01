@@ -3,7 +3,7 @@ import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
 import { listExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
-import { listCallableFigures, listFiguresForCall } from '$lib/server/figures';
+import { listFiguresForCall } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { songGrid } from '$lib/server/grid';
@@ -37,9 +37,9 @@ export const load: PageServerLoad = ({ url, params }) => {
 		throw error(404, 'No such routine');
 	}
 	const shape = routine ? (routineShapes(db, dance).get(routine.id) ?? { slots: [] }) : null;
-	// Every figure the routine can call, so the voice has a name for one that is
-	// not in the drill's callable pool.
-	const routineFigureIds = shape
+	// Every figure the routine can call: the run's pool, and what the voice has
+	// a name for.
+	const figureIds = shape
 		? [
 				...new Set(
 					shape.slots.flatMap((s) =>
@@ -53,18 +53,11 @@ export const load: PageServerLoad = ({ url, params }) => {
 		song: song && { id: song.id, title: song.title, audioFile: song.audioFile },
 		grid: song ? songGrid(song) : null,
 		bpm: bpm && bpm >= 60 && bpm <= 300 ? bpm : song ? null : 180,
-		routine: routine && shape ? { id: routine.id, name: routine.name, shape } : null,
-		// The drill's pool. Unchanged from before routines existed: `callable` is
-		// what this list means, and the picker's "select all" default derives from it.
-		figures: listCallableFigures(db, dance),
-		// Names only, for `sayOf` and the on-screen call. A routine names its
-		// figures explicitly, so this carries the uncallable ones too — which is
-		// exactly why it must not be what the picker defaults to.
-		callNames: [
-			...listCallableFigures(db, dance),
-			...listFiguresForCall(db, dance, routineFigureIds)
-		].filter((f, i, all) => all.findIndex((o) => o.id === f.id) === i),
-		// The position graph, so the drill calls a sequence that can be danced.
+		routine: routine && shape ? { id: routine.id, name: routine.name, shape, figureIds } : null,
+		// Names only, for `sayOf` and the on-screen call. Empty without a routine:
+		// nothing else calls figures.
+		callNames: listFiguresForCall(db, dance, figureIds),
+		// The position graph, which a routine is flattened and walked on.
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph: buildGraph(db, dance),
 		// Same id-scoping as the song: an exercise from the other dance is not
@@ -117,7 +110,7 @@ export const actions: Actions = {
 				rating,
 				note,
 				// The summary of what the run was is a nicety; the set is the point.
-				// An overlong one (a marathon drill with a great many calls) is
+				// An overlong one (a marathon routine with a great many calls) is
 				// dropped rather than costing the user the whole session — and it
 				// must never be reported as a problem with their note.
 				playerJson: run ?? null

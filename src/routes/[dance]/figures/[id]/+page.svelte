@@ -254,8 +254,6 @@
 						partner={figure.partner}
 						style={figure.styleTag ?? undefined}
 						notes={figure.notes}
-						callable={figure.callable}
-						callText={figure.callText}
 					/>
 					<!--
 					Keyed on the version: both pickers seed their own state once, and

@@ -1,7 +1,7 @@
 /**
  * A routine as the player's plan: which figure is called on which 8-count.
  *
- * PURE. It produces the same `PlanStep[]` the drill's `extendPlan` produces, so
+ * PURE. It produces the same `PlanStep[]` `extendPlan` produces, so
  * nothing downstream — `cuesIn`, `attach.ts`, the count, the clave — has any
  * idea a routine exists.
  *
@@ -21,7 +21,7 @@ import { flatten, type OptionsSlot, type RoutineShape } from './routines';
  * Extend `plan` through `throughEight`, looping the routine when the song
  * outlasts it.
  *
- * Spacing is `max(every, eights)`, the same expression the drill uses.
+ * Spacing is `max(every, eights)`, the same expression `extendPlan` uses.
  * `figures.eights` defaults to 1, so spacing by the figure alone would call a
  * new one every 8-count — under three seconds at 180 BPM, which is not
  * danceable. The user's call rate is the better guess where the data is silent,
@@ -29,7 +29,7 @@ import { flatten, type OptionsSlot, type RoutineShape } from './routines';
  * that is the longer of the two.
  *
  * `plan` must consist entirely of steps this same routine produced. Mixing in
- * a drill-built prefix, or another routine's walk, desyncs the cursor
+ * an `extendPlan`-built prefix, or another routine's walk, desyncs the cursor
  * silently — there is no provenance on a `PlanStep` to catch it.
  */
 export function routinePlan(

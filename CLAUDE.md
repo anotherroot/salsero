@@ -7,11 +7,11 @@ dance: the same songs, the same beat grid, a different count pattern.
 
 **Live:** phase 1 (Today/Exercises, figures with recordings, custom exercises),
 phase 2a (song library, the home worker, the beat grid), phase 2b (the
-player: voice count, clave, random figure calls, count-only drills, and a
-finished run logged as a set), phase 3a (positions, the figure graph, the
-walking drill), phase 3b (routines: slots, variants, one-level embedding, and
-the player walking one), phase 4 (lessons: videos, notes, figure, routine and
-exercise links, and a four-band Today), multi-dance (bachata beside salsa: the
+player: voice count, clave, count-only runs, and a finished run logged as a
+set), phase 3a (positions, the figure graph, the gap report), phase 3b
+(routines: slots, variants, one-level embedding, and the player walking one),
+phase 4 (lessons: videos, notes, figure, routine and exercise links, and a
+four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
 panel in the popup, an exercise page) and figure timing (a start count and a
@@ -178,9 +178,13 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   rebuilt. Timing arithmetic lives in `src/lib/graph/timing.ts`.
 - **A variation is a `figures` row with `parent_id`.** One level, same dance as
   its figure, never an exercise. Every list of figures excludes it
-  (`listFigures`, the drill pool, lesson pickers, the tagged count); the graph
-  includes it, filled from its figure by `buildGraph`. Show one with
-  `figureLabels` ("Enchufla · Doble"), never its bare name.
+  (`listFigures`, lesson pickers, the tagged count); the graph includes it,
+  filled from its figure by `buildGraph`. Show one with `figureLabels`
+  ("Enchufla · Doble"), never its bare name.
+- **`figures.callable` and `figures.call_text` are vestigial.** They were the
+  random drill's pool and a spoken override for the name; the drill was
+  removed and both are read by nothing. Only a routine calls figures, and the
+  voice says the name. Not dropped, for the same reason as `style`.
 
 ## Commands
 

@@ -25,10 +25,6 @@ import type { DanceSlug } from '$lib/dances/dances';
  * observe — `bootstrap` seeds before the first request resolves. A 0 there
  * would make every untagged figure share one position anyway, which is the
  * same answer, so it degrades rather than throwing.
- *
- * Not filtered on `callable`: the graph holds every unarchived figure so the
- * player's pool (`listCallableFigures`) is always a subset of it. Filtering
- * here would let a callable figure vanish from the graph it is walked on.
  */
 export function buildGraph(db: Db, dance: DanceSlug): Graph {
 	const rows = db

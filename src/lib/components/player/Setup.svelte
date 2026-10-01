@@ -10,7 +10,6 @@
 		callEvery: CallEvery | null;
 		speed: Speed;
 		voiceVolume: number;
-		figureIds: number[];
 	}
 </script>
 
@@ -18,19 +17,17 @@
 	import { resolve } from '$app/paths';
 	import { CALL_EVERY, CLAVE_PATTERNS, SPEEDS } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
-	import type { CallableFigure } from '$lib/types';
 	import CountChips from './CountChips.svelte';
 	import ClaveChips from './ClaveChips.svelte';
 
 	interface Props {
 		song: { id: number; title: string; audioFile: string | null } | null;
 		defaultBpm: number;
-		figures: CallableFigure[];
 		dance: Dance;
 		/**
-		 * Set when the run is a routine rather than the random drill: its name for
-		 * the one line that replaces the figure picker, and the figures it can
-		 * call, which become the pool. Null for an ordinary drill run.
+		 * Set when the run is a routine: its name and how many figures it can
+		 * call, for one line of summary. Null for a count-and-clave run, which
+		 * calls nothing and so offers no Calls setting.
 		 */
 		routine?: { name: string; figureIds: number[] } | null;
 		onplay: (settings: PlayerSettings) => void;
@@ -38,7 +35,7 @@
 		starting: boolean;
 	}
 
-	let { song, defaultBpm, figures, dance, routine = null, onplay, starting }: Props = $props();
+	let { song, defaultBpm, dance, routine = null, onplay, starting }: Props = $props();
 
 	// Keyed per dance so the two dances keep separate saved settings — without
 	// this, opening the other dance's player would silently overwrite (on the
@@ -55,7 +52,6 @@
 	// through this same binding, so they never disagree about which key is
 	// current.
 	const STORAGE_KEY = $derived(`${dance.slug}.player`);
-	const allIds = figures.map((f) => f.id);
 
 	/**
 	 * Deliberately `unknown`, not `Partial<PlayerSettings>`: this is arbitrary
@@ -130,9 +126,6 @@
 	let callEvery = $state<CallEvery | null>(pick(stored.callEvery, [...CALL_EVERY, null], 2));
 	let speed = $state<Speed>(pick(stored.speed, SPEEDS, 1));
 	let voiceVolume = $state(num(stored.voiceVolume, 0, 1, 1));
-	let figureIds = $state<number[]>(
-		Array.isArray(stored.figureIds) ? stored.figureIds.filter((id) => allIds.includes(id)) : allIds
-	);
 
 	$effect(() => {
 		const settings: PlayerSettings = {
@@ -142,8 +135,7 @@
 			clave,
 			callEvery,
 			speed,
-			voiceVolume,
-			figureIds
+			voiceVolume
 		};
 		try {
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
@@ -152,16 +144,18 @@
 		}
 	});
 
-	/**
-	 * What the run actually calls from. A routine names its own figures, so the
-	 * picker is not consulted — and the persist effect above deliberately keeps
-	 * storing the picker's list instead of this one, so practising a routine does
-	 * not overwrite the pool chosen for the ordinary drill.
-	 */
-	const pool = $derived(routine ? routine.figureIds : figureIds);
-
 	function play() {
-		onplay({ source, bpm, count, clave, callEvery, speed, voiceVolume, figureIds: pool });
+		// The stored choice survives a run without a routine: it is what the next
+		// routine run starts from.
+		onplay({
+			source,
+			bpm,
+			count,
+			clave,
+			callEvery: routine ? callEvery : null,
+			speed,
+			voiceVolume
+		});
 	}
 
 	const field =
@@ -226,33 +220,36 @@
 		</fieldset>
 	{/if}
 
-	<fieldset>
-		<legend class={label}>Calls</legend>
-		<div class="flex gap-2">
-			<label class={chip}>
-				<input
-					type="radio"
-					name="callEvery"
-					checked={callEvery === null}
-					onchange={() => (callEvery = null)}
-					class="sr-only"
-				/>
-				Off
-			</label>
-			{#each CALL_EVERY as n (n)}
+	<!-- Only a routine calls figures; without one the run is count and clave. -->
+	{#if routine}
+		<fieldset>
+			<legend class={label}>Calls</legend>
+			<div class="flex gap-2">
 				<label class={chip}>
 					<input
 						type="radio"
 						name="callEvery"
-						checked={callEvery === n}
-						onchange={() => (callEvery = n)}
+						checked={callEvery === null}
+						onchange={() => (callEvery = null)}
 						class="sr-only"
 					/>
-					Every {n}
+					Off
 				</label>
-			{/each}
-		</div>
-	</fieldset>
+				{#each CALL_EVERY as n (n)}
+					<label class={chip}>
+						<input
+							type="radio"
+							name="callEvery"
+							checked={callEvery === n}
+							onchange={() => (callEvery = n)}
+							class="sr-only"
+						/>
+						Every {n}
+					</label>
+				{/each}
+			</div>
+		</fieldset>
+	{/if}
 
 	{#if song}
 		<fieldset>
@@ -279,53 +276,11 @@
 		<input type="range" min="0" max="1" step="0.05" bind:value={voiceVolume} class="w-full" />
 	</label>
 
-	<!--
-		A routine names its own figures, so there is nothing to pick: the line
-		below says what will be called instead of offering a choice.
-	-->
 	{#if routine}
 		<p class="rounded-lg border border-rule bg-raised px-3 py-2.5 text-[14px] text-ink-2">
 			Routine: <span class="font-medium text-ink">{routine.name}</span>, {routine.figureIds.length}
 			{routine.figureIds.length === 1 ? 'figure' : 'figures'}
 		</p>
-	{:else}
-		<section>
-			<div class="mb-2 flex items-center justify-between">
-				<span class={label}>Figures ({figureIds.length}/{figures.length})</span>
-				<div class="flex gap-3">
-					<button type="button" class="text-[13px] text-accent" onclick={() => (figureIds = allIds)}
-						>All</button
-					>
-					<button type="button" class="text-[13px] text-accent" onclick={() => (figureIds = [])}
-						>None</button
-					>
-				</div>
-			</div>
-			{#if figures.length === 0}
-				<p class="text-[13px] text-muted">No callable figures yet — mark one as callable first.</p>
-			{:else}
-				<ul class="space-y-1.5">
-					{#each figures as f (f.id)}
-						<li>
-							<label
-								class="flex h-11 items-center gap-2.5 rounded-lg border border-rule bg-raised px-3"
-							>
-								<input
-									type="checkbox"
-									checked={figureIds.includes(f.id)}
-									onchange={(e) =>
-										(figureIds = e.currentTarget.checked
-											? [...figureIds, f.id]
-											: figureIds.filter((id) => id !== f.id))}
-									class="size-5"
-								/>
-								<span class="truncate text-[14px]">{f.name}</span>
-							</label>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
 	{/if}
 
 	<button

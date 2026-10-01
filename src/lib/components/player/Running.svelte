@@ -4,19 +4,19 @@
 	import { COUNT_PATTERN_LABEL, type CountPattern, type Speed } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
-	import type { CallableFigure } from '$lib/types';
+	import type { CalledFigure } from '$lib/types';
 
 	interface Props {
 		player: PlayerHandle;
 		beats: number[];
 		counts: number[];
-		figures: CallableFigure[];
+		figures: CalledFigure[];
 		/** The figure most recently called, or null before the first call. */
 		calledFigureId: number | null;
 		/**
 		 * A routine's slots as they are actually danced, each a list of the figure
-		 * ids that may be called there. Empty for the random drill, which has no
-		 * sequence to show.
+		 * ids that may be called there. Empty without a routine, when nothing is
+		 * called.
 		 */
 		slots: { figureIds: number[]; note: string | null }[];
 		/** Which of `slots` the run is on, or null before the first call. */
@@ -125,7 +125,6 @@
 			A routine run shows the whole sequence, with the current slot at the top
 			of its own scroller: the figure being called is already above in large
 			type, so what this adds is what comes NEXT and how far through you are.
-			The drill has no sequence, so it gets nothing here.
 		-->
 		<ol
 			class="mt-3 max-h-56 overflow-y-auto rounded-xl border border-line bg-raised"

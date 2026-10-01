@@ -47,9 +47,7 @@ beforeEach(() => {
 		name: 'Enchufla',
 		partner: 'partner',
 		style: 'salsa',
-		notes: null,
-		callable: true,
-		callText: null
+		notes: null
 	})!.exercise.id;
 	drillId = createCustomExercise(db, 'salsa', { name: 'Son switch', everyDays: 2, notes: null }).id;
 	bachataDrillId = createCustomExercise(db, 'bachata', {

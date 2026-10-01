@@ -14,9 +14,7 @@ beforeEach(() => {
 		name: 'Enchufla',
 		partner: 'partner',
 		style: 'salsa',
-		notes: null,
-		callable: true,
-		callText: null
+		notes: null
 	})!;
 	figureId = made.figure.id;
 	figureExerciseId = made.exercise.id;

@@ -149,7 +149,7 @@ export interface Toggles {
 	phrases?: boolean;
 }
 
-/** A figure placed on an 8-count. The random drill generates these; a routine supplies them. */
+/** A figure placed on an 8-count. `extendPlan` generates these; a routine supplies them. */
 export interface PlanStep {
 	eight: number;
 	figureId: number;
@@ -253,13 +253,10 @@ export function pickFigure(pool: number[], last: number | null, r: number): numb
 }
 
 /**
- * How the drill chooses its next figure and how long that figure takes.
+ * How `extendPlan` chooses its next figure and how long that figure takes.
  *
- * An interface rather than a flag because there are two real implementations:
- * the uniform pick this player shipped with, and the position-graph walk in
- * `src/lib/graph/flow.ts`. The scheduler DECLARES this and the graph implements
- * it — `src/lib/scheduler/` must not import `src/lib/graph/`, so that the
- * module deciding what sounds and when never learns what a handhold is.
+ * The figure popup's cue passes its one figure's real length here, so a
+ * two-eight figure is never called over itself.
  */
 export interface Flow {
 	/** `last` is the figure just called, or null at the start of a run. */
@@ -268,9 +265,7 @@ export interface Flow {
 }
 
 /**
- * The pre-graph behaviour: any figure but the last one, every figure one
- * 8-count long. The default, so an untagged repertoire plays exactly as it did
- * before positions existed.
+ * The default: any figure but the last one, every figure one 8-count long.
  */
 export const UNIFORM_FLOW: Flow = {
 	pick: pickFigure,

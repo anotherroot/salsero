@@ -40,9 +40,7 @@ const figure = (
 		name,
 		partner: 'partner',
 		style: dance === 'salsa' ? 'salsa' : 'dominican',
-		notes: null,
-		callable: true,
-		callText: null
+		notes: null
 	})!.figure;
 
 describe('createRoutine', () => {

@@ -100,11 +100,15 @@ export const figures = sqliteTable(
 		 * up" — removing it is the trap.
 		 */
 		style: text('style', { enum: STYLES }).notNull().default('salsa'),
-		/** Phase 2: whether the player may call this figure by voice. */
+		/**
+		 * VESTIGIAL since the random drill was removed — it was the drill's pool.
+		 * Read by nothing, and not dropped for the same reason `style` is not.
+		 */
 		callable: integer('callable', { mode: 'boolean' }).notNull().default(true),
 		/**
-		 * How to SAY the name, when the browser's voice mangles the written name
-		 * ("dile que no" read as English). Null means speak `name`.
+		 * VESTIGIAL since the random drill was removed — it was a spoken
+		 * override for the name. Read by nothing; the voice says `name`. Not
+		 * dropped for the same reason `style` is not.
 		 */
 		callText: text('call_text'),
 		/**

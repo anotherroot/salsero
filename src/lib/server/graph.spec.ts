@@ -11,9 +11,7 @@ const figureInput = (name: string) => ({
 	name,
 	partner: 'partner' as const,
 	style: 'salsa',
-	notes: null,
-	callable: true,
-	callText: null
+	notes: null
 });
 
 function setup(): { db: Db; pos: (slug: string) => number } {
@@ -56,12 +54,6 @@ describe('buildGraph', () => {
 		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
 		archiveFigure(db, made.figure.id, Date.now());
 		expect(buildGraph(db, 'salsa').figures).toEqual([]);
-	});
-
-	it('includes a non-callable figure, so the player pool is always a subset', () => {
-		const { db } = setup();
-		const made = createFigure(db, 'salsa', { ...figureInput('solo drill'), callable: false })!;
-		expect(buildGraph(db, 'salsa').figures.map((f) => f.id)).toContain(made.figure.id);
 	});
 });
 

@@ -39,7 +39,7 @@ export function nextCount(start: number, length: number): number {
 
 /**
  * How many whole 8-counts a figure occupies, for the planners that still work
- * in 8-counts (the drill, and the routine player until slice 3). Never below
+ * in 8-counts (the routine player, and the figure popup's cue). Never below
  * one: a four-count figure still owns the 8-count it is called in.
  */
 export function eightsSpan(length: number): number {

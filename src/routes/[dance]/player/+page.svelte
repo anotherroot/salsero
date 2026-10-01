@@ -6,7 +6,6 @@
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
-	import { graphFlow } from '$lib/graph/flow';
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten, slotAt } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
@@ -56,7 +55,7 @@
 	} | null>(null);
 
 	/**
-	 * How many called figures to spell out. A long drill calls one every few
+	 * How many called figures to spell out. A long routine run calls one every few
 	 * seconds, so the raw list grows without bound; the summary is only ever read
 	 * back by a person looking at what a session was. `calls` keeps the true
 	 * total, so capping the list loses nothing that matters.
@@ -75,8 +74,7 @@
 	);
 
 	function sayOf(id: number): string {
-		// `callNames`, not `figures`: a routine can call a figure that is not in the
-		// drill's callable pool, and the voice still has to have a word for it.
+		// The routine's figures, by id: a variation is said as its figure.
 		return data.callNames.find((f) => f.id === id)?.say ?? '';
 	}
 
@@ -121,23 +119,20 @@
 				? data.grid
 				: syntheticGrid(settings.bpm, 400);
 
-		// Read once, before the closure below is built, exactly as `flow` is: the
-		// planner runs inside the 25 ms tick for the whole run, and a reactive read
-		// in there would throw inside the audio loop if this route were ever reused
-		// for a URL without `?routine=` — a silent failure repeating forty times a
-		// second. No shape means no planner at all, never a closure that plans
-		// nothing.
+		// Read once, before the closure below is built: the planner runs inside
+		// the 25 ms tick for the whole run, and a reactive read in there would
+		// throw inside the audio loop if this route were ever reused for a URL
+		// without `?routine=` — a silent failure repeating forty times a second.
+		// No shape means no planner and no pool: the run is count and clave only.
 		const shape = data.routine?.shape ?? null;
+		const pool = data.routine?.figureIds ?? [];
 		const graph = data.graph;
 
 		const handle = createPlayer({
 			audio: data.song && settings.source === 'song' ? (audio ?? null) : null,
 			grid,
 			toggles: { count: settings.count, clave: settings.clave, callEvery: settings.callEvery },
-			pool: settings.figureIds,
-			flow: graphFlow(graph),
-			// A routine decides the whole plan; the drill's flow picks one figure at
-			// a time. Never both.
+			pool,
 			planner: shape
 				? (plan, every, through, rand) => routinePlan(plan, shape, graph, every, through, rand)
 				: undefined,
@@ -223,18 +218,8 @@
 		<Setup
 			song={data.song}
 			defaultBpm={data.bpm ?? 180}
-			figures={data.figures}
 			dance={data.dance}
-			routine={data.routine && {
-				name: data.routine.name,
-				figureIds: [
-					...new Set(
-						data.routine.shape.slots.flatMap((s) =>
-							s.kind === 'child' ? s.slots.flatMap((c) => c.figureIds) : s.figureIds
-						)
-					)
-				]
-			}}
+			routine={data.routine}
 			onplay={handlePlay}
 			{starting}
 		/>

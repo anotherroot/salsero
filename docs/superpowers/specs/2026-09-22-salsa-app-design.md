@@ -23,7 +23,7 @@ phone. It answers three needs:
 
 | Term             | Meaning                                                                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Figure**       | A specific dance move (_figura_): a right turn, _dile que no_, _enchufla_, a lateral. Partner or solo. Can be _callable_ — then the player can call it by voice.                    |
+| **Figure**       | A specific dance move (_figura_): a right turn, _dile que no_, _enchufla_, a lateral. Partner or solo. A routine's run calls it by voice.                                                                  |
 | **Routine**      | An ordered sequence of figures, built from the position graph. See the [routines design](2026-09-24-routines-design.md).                                                            |
 | **Exercise**     | Anything practiced and logged. Created automatically for every figure and every routine, or created by hand (custom: "son basic 5 min", "clave clapping").                          |
 | **Set**          | One logged bout of an exercise. Many per day allowed.                                                                                                                               |
@@ -41,7 +41,7 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    the schema but every mode behaves as "log a set" until phase 2.
 2. **Songs & player** — song library (YouTube URL via yt-dlp, or upload), beat
    and downbeat analysis, 1-correction, player with slow-down, voice count,
-   clave click, random figure calls spoken by the browser, count-only mode,
+   clave click, figure calls spoken by the browser, count-only mode,
    song page, player runs save a set.
 3. **Routines & the figure graph** — positions (the handhold vocabulary), each
    figure's start and end positions, the graph derived from them, the drill
@@ -146,8 +146,8 @@ figures
   notes           text, nullable
   partner         'partner' | 'solo'
   style           'salsa' | 'son' | 'other'   default 'salsa'
-  callable        boolean default true        -- used by the player, phase 2
-  call_text       text, nullable              -- what the voice should SAY, phase 2; null means speak `name`
+  callable        boolean default true        -- VESTIGIAL: the random drill's pool, removed 2026-09-30
+  call_text       text, nullable              -- VESTIGIAL: a spoken override, removed with the drill
   end_position_id fk positions, nullable       -- phase 3a; null means the dance's neutral position
   eights          integer not null default 1  -- phase 3a; how many 8-counts the figure takes
   archived_at     timestamp, nullable
@@ -315,7 +315,7 @@ The home page. One page serves both "exercises" and "today".
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
   position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"
-  (not built). Phase 2: callable toggle and call clip preview/record.
+  (not built).
 - **Recordings:** upload from the phone camera or mic via
   `<input type="file" accept="video/*,audio/*" capture>`, or any file from a
   desktop. Upload shows progress. Stored as-is under
@@ -363,7 +363,7 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   scheduled on the context clock with a look-ahead scheduler (≈100 ms horizon,
   25 ms tick) that maps song time → context time from the element's current
   position and rate.
-- **Toggles:** voice count, figure calls, clave (2-3 / 3-2), speed, and voice
+- **Toggles:** voice count, figure calls (routine runs only), clave (2-3 / 3-2), speed, and voice
   volume. Voice volume is adjustable **during** a run (it feeds both the clips'
   gain node and each spoken name's `utterance.volume`), because whether the
   voice sits right against the music is only knowable once the music plays.
@@ -375,25 +375,26 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 - **A run ends** when the song ends or a count-only grid runs out, and that is
   latched: the 25 ms tick keeps firing, so an unlatched "finished" would fire
   forty times a second.
-- **Calls:** every N 8-counts (1, 2 or 4; default 2) a callable figure is
-  picked at random from the chosen pool (never the same twice in a row). The
+- **Calls:** only a routine run calls figures — every N 8-counts (1, 2 or 4;
+  default 2), or the figure's own length when that is longer. The
   call plays over 5-6-7 so the figure starts on the next 1; the spoken count is
   suppressed on 5-6-7 when a call is playing. The first two 8-counts are count
   only.
 - **Count-only mode:** no song; a synthetic grid at `count_bpm` with clave and
   voice.
-- **Random drill and routine share one scheduler:** the scheduler plays a
+- **The scheduler plays a plan:** the scheduler plays a
   _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
   8-count the figure STARTS on and the call sounds on count 5 of the one before.
-  Random drill grows the plan lazily through `extendPlan(plan, pool, every,
-  throughEight, rand, flow)`; a routine grows its plan the same way, tick by
-  tick, through `routinePlan` (`src/lib/routines/plan.ts`), which flattens the
-  routine's slots and extends the plan through `throughEight` exactly as
-  `extendPlan` does, rather than resolving the whole routine up front. `rand`
-  is injected so the module stays pure, and `flow` is how the figures are
-  chosen — uniform at
-  random by default, or a walk over the tagged figure graph
-  (`src/lib/graph/flow.ts`) once positions are tagged.
+  A routine grows its plan lazily, tick by tick, through `routinePlan` (`src/lib/routines/plan.ts`), which flattens the
+  routine's slots and extends the plan through `throughEight`, rather than
+  resolving the whole routine up front. `rand` is injected so the module
+  stays pure. `extendPlan` does the same for a pool with a `flow`; only the
+  figure popup's one-figure cue uses it now.
+- **The random drill was removed on 2026-09-30.** It called figures at random
+  from a picked pool, walking the position graph (`graphFlow`); it went unused.
+  With it went the figure's "callable" checkbox and "Say it like" input — the
+  voice now always says the figure's name (a variation is said as its
+  figure). Without a routine the player is count and clave only.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
   `{ speed, count, clave, callEvery, calls, called }`, where `calls` is the true
@@ -428,8 +429,7 @@ mixer handles it. Measured at the current length, two words summed peak at
 
 Figure NAMES are spoken by the browser (`speechSynthesis`): a name sounds
 across a whole 3-beat window, so its timing jitter does not matter, and this
-needs no worker job and no per-figure storage. `figures.call_text` overrides
-what is said when the browser mispronounces a written name. Phase 3 may revisit
+needs no worker job and no per-figure storage. Phase 3 may revisit
 Piper clips if a device's voice proves unusable.
 
 **Known gaps (phase 2b, deployed 2026-09-23).** Found by review, consciously not
@@ -456,8 +456,8 @@ fixed before shipping. Check here before hunting one of these as a new bug:
   outside a run, so there is no visible way to rewind at that moment.
 - **Logged `duration_s` is SONG seconds, not wall clock**, so a run at 0.7×
   under-reports the time actually spent.
-- Nothing adjusts the figure pool, the toggles or the speed mid-run;
-  `setToggles`/`setPool` exist on the handle but are unused.
+- Nothing adjusts the pool or the speed mid-run; `setPool` exists on the
+  handle but is unused.
 
 ## Choreographies (phase 3)
 
@@ -466,7 +466,7 @@ Superseded by
 replaces this section and the `choreographies` / `choreo_steps` sketch in the
 data model above with positions and the figure graph. Song-bound choreography
 is out of scope there. Of its two slices, 3a (positions, `src/lib/graph/`, the
-figure page's tagging, the gap report, and the drill's walk) and 3b (routines
+figure page's tagging, the gap report, and the drill's walk — since removed) and 3b (routines
 themselves: `src/lib/routines/`, slots, variants, one-level embedding, and the
 player walking one) are both live.
 
@@ -480,8 +480,8 @@ No DB, no DOM, no `Date.now()` inside — `now` is always an argument.
 | `src/lib/urgency/`       | `(exercises, sets, now, tz) → { doneToday[], due[], upcoming[], inactive[] }` with urgency and "last done" per row.                                                                               |
 | `src/lib/beatgrid/` (2)  | Beats + downbeats + corrections → count (1–8) and 8-count index at any song time; synthetic grid for count-only.                                                                       |
 | `src/lib/scheduler/` (2) | Plan + grid + toggles + time window → list of `{at, clip}` events. The only impure part is a thin `attach.ts` that owns the `AudioContext`.                                            |
-| `src/lib/graph/` (3a)    | Positions → which figures can follow which, the drill's walk (`graphFlow`), and the gap report (`positionCounts`). See the routines design.                                          |
-| `src/lib/routines/` (3b) | Slot algebra (union starts, shared end, one-level embedding) and `routinePlan`: a routine → the same `PlanStep[]` the drill produces. See the routines design.                       |
+| `src/lib/graph/` (3a)    | Positions → which figures can follow which, and the gap report (`positionCounts`). See the routines design.                                                                      |
+| `src/lib/routines/` (3b) | Slot algebra (union starts, shared end, one-level embedding) and `routinePlan`: a routine → the same `PlanStep[]` `extendPlan` produces. See the routines design.                    |
 
 ## Errors
 
