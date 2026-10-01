@@ -1,6 +1,6 @@
 # Full-screen video player and spots — design
 
-> **Status:** approved in brainstorming, 2026-10-01. Extends
+> **Status:** approved in brainstorming, 2026-10-01; live since 2026-10-01. Extends
 > [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)'s
 > "Videos: mirror and slow motion", which stays the inline player; this
 > document owns the full-screen player and saved spots.

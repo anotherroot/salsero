@@ -18,7 +18,7 @@ panel in the popup, an exercise page) and figure timing (a start count and a
 length in counts; routines report timing breaks) and figure variations (versions
 of a figure with their own positions, timing and videos; chosen per routine slot)
 and figure coverage (figures have no exercise by default; a page of figure
-versions by how many routines use them, and a routine made from a selection).
+versions by how many routines use them, and a routine made from a selection) and a full-screen video player (±1 s, 0.25–1×, mirror, and saved spots: points to jump to, sections that loop).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -33,6 +33,9 @@ the chunked upload protocol, the link rules, and the four Today bands.
 Exercise types have theirs,
 [`docs/superpowers/specs/2026-09-28-exercise-types-design.md`](docs/superpowers/specs/2026-09-28-exercise-types-design.md):
 the per-type log popup, links, and the in-popup practice panel.
+The full-screen video player has its own,
+[`docs/superpowers/specs/2026-10-01-video-player-design.md`](docs/superpowers/specs/2026-10-01-video-player-design.md):
+spots, the loop, and why it is not the browser's fullscreen.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -57,6 +60,9 @@ src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config
                      (practice.ts), a wall-clock stopwatch, the Today session.
                      Client-safe
+src/lib/video/       PURE spots.ts: spot times, labels, ±1 s clamping, the loop
+                     rule. spots-api.ts is the player's fetch side of
+                     /api/video-spots. Client-safe
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
