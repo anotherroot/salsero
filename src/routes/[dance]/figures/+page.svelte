@@ -51,11 +51,20 @@
 			onclick={() => (creating = true)}>+ New</button
 		>
 	</div>
-	<a
-		class="text-[12px] text-muted underline"
-		href={resolve('/[dance]/positions', { dance: data.dance.slug })}
-		>Tagged {data.tagged.done} / {data.tagged.total} positions</a
-	>
+	<div class="flex flex-wrap gap-x-4">
+		<a
+			class="text-[12px] text-muted underline"
+			href={resolve('/[dance]/positions', { dance: data.dance.slug })}
+			>Tagged {data.tagged.done} / {data.tagged.total} positions</a
+		>
+		<a
+			class="text-[12px] text-muted underline"
+			href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
+			>{data.unrouted === 0
+				? 'Routine coverage →'
+				: `${data.unrouted} ${data.unrouted === 1 ? 'version' : 'versions'} in no routine →`}</a
+		>
+	</div>
 	<form
 		class="mt-3"
 		onsubmit={(e) => {

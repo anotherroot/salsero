@@ -61,6 +61,7 @@ import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as positionsPage from './positions/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
+import * as coveragePage from './coverage/+page.server';
 import * as gridEndpoint from './songs/[id]/grid/+server';
 import * as practiceEndpoint from './exercises/[id]/practice/+server';
 
@@ -745,5 +746,57 @@ describe('the guard leaves the friendly failures alone', () => {
 			post('bachata', {}, String(bachataExerciseId))
 		)) as { status: number; data: { message: string } };
 		expect(res.data.message).toContain('Archive a figure from its page');
+	});
+});
+
+describe('the coverage page stays inside its dance', () => {
+	it('lists only its own dance versions', () => {
+		const data = loadAt(coveragePage.load, 'salsa', '') as {
+			groups: { rows: { id: number }[] }[];
+		};
+		const ids = data.groups.flatMap((g) => g.rows.map((r) => r.id));
+		expect(ids).toContain(salsaFigureId);
+		expect(ids).not.toContain(bachataFigureId);
+	});
+
+	it('will not build a salsa routine from a bachata figure', async () => {
+		const event = post('salsa', { name: 'Mixed' });
+		const body = new URLSearchParams({ name: 'Mixed' });
+		body.append('figureIds', String(salsaFigureId));
+		body.append('figureIds', String(bachataFigureId));
+		await refuses(coveragePage.actions.create, {
+			...event,
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body
+			})
+		});
+		expect(
+			db
+				.select()
+				.from(exercises)
+				.all()
+				.filter((e) => e.source === 'routine')
+		).toHaveLength(3);
+	});
+
+	it('builds the routine in tap order and redirects to it', async () => {
+		const body = new URLSearchParams({ name: 'Picked' });
+		body.append('figureIds', String(salsaFigureId2));
+		body.append('figureIds', String(salsaFigureId));
+		try {
+			await call(coveragePage.actions.create, {
+				...post('salsa', {}),
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					headers: { 'content-type': 'application/x-www-form-urlencoded' },
+					body
+				})
+			});
+			expect.unreachable('a created routine redirects');
+		} catch (thrown) {
+			expect(thrown).toMatchObject({ status: 303 });
+		}
 	});
 });
