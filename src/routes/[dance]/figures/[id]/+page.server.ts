@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import {
+	addFigureExercise,
 	archiveFigure,
 	createVariation,
 	deleteRecording,
@@ -320,6 +321,18 @@ export const actions: Actions = {
 		const v = variationOf(found, int(await request.formData(), 'versionId'));
 		archiveFigure(getDb(), v.figure.id, Date.now());
 		throw redirect(303, `/${params.dance}/figures/${found.figure.id}`);
+	},
+
+	/** Give the figure its own exercise, so it shows on Today. */
+	practise: ({ params }) => {
+		const found = figureOf(params);
+		if (!addFigureExercise(getDb(), found.figure.id)) {
+			return fail(400, {
+				action: 'practise',
+				message: 'This figure is already practised on its own.'
+			});
+		}
+		return { action: 'practise', ok: true };
 	},
 
 	archive: ({ params }) => {

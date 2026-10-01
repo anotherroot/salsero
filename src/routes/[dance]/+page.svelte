@@ -153,12 +153,12 @@
 			<div class="mt-10 text-center">
 				<p class="text-[15px] font-medium">Nothing to practise yet.</p>
 				<p class="mt-1 text-[13px] text-muted">
-					Add a figure you learned, or a custom exercise below.
+					Build a routine from your figures, or add a custom exercise below.
 				</p>
 				<a
-					href={resolve(`/${data.dance.slug}/figures?new=1`)}
+					href={resolve('/[dance]/routines', { dance: data.dance.slug })}
 					class="mt-4 inline-block rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-accent-ink"
-					>Add a figure</a
+					>Build a routine</a
 				>
 			</div>
 		{/if}

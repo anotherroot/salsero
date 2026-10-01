@@ -6,7 +6,6 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import { PARTNER, PARTNER_LABEL } from '$lib/labels';
-	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -140,18 +139,6 @@
 			}}
 		>
 			<FigureFields dance={data.dance} name={form?.name} notes={form?.notes} />
-			<label class="block">
-				<span class="mb-1 block text-[12px] font-medium text-ink-2">Practise it</span>
-				<select
-					name="everyDays"
-					value={DEFAULT_EVERY_DAYS}
-					class="w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px]"
-				>
-					{#each FREQUENCIES as f (f.days)}
-						<option value={f.days}>{f.label}</option>
-					{/each}
-				</select>
-			</label>
 			{#if form?.message}
 				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
 					{form.message}

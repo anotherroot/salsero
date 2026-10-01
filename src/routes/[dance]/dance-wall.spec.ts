@@ -254,6 +254,18 @@ describe("the player refuses the other dance's exercise", () => {
 });
 
 describe("the detail pages refuse the other dance's rows", () => {
+	it('will not give a bachata figure an exercise from a salsa URL', async () => {
+		const bare = createFigure(db, 'bachata', { ...figureInput, name: 'Bare', style: 'sensual' })!;
+		await refuses(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
+		expect(getFigure(db, bare.figure.id)?.exercise).toBeNull();
+	});
+
+	it('gives a figure its exercise from its own dance', async () => {
+		const bare = createFigure(db, 'salsa', { ...figureInput, name: 'Bare', style: 'salsa' })!;
+		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
+		expect(getFigure(db, bare.figure.id)?.exercise?.source).toBe('figure');
+	});
+
 	it('will not open a bachata figure from a salsa URL', () => {
 		expect(loadAt(figurePage.load, 'bachata', String(bachataFigureId))).toMatchObject({
 			figure: { name: 'Basico' }
