@@ -14,6 +14,7 @@ import {
 	listRoutines,
 	moveSlot,
 	removeOption,
+	restoreOption,
 	routineShapes,
 	routineSlots,
 	setSlotNote,
@@ -24,7 +25,7 @@ import {
 import { archiveFigure, createFigure, createVariation } from './figures';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
-import { exercises } from './db/schema';
+import { exercises, routineStepOptions } from './db/schema';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -205,7 +206,7 @@ describe('addOption and removeOption', () => {
 		const { routine } = createRoutine(db, 'salsa', { name: 'A', notes: null });
 		const a = figure(db, 'A'); // 1 → 1, 8 counts
 		const b = figure(db, 'B');
-		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 12 }); // 5 → 1
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 1, lengthCounts: 16 }); // 1 → 1, 16 counts
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(true);
 	});
@@ -581,5 +582,99 @@ describe('the main figure', () => {
 			[high.id, low.id],
 			[high.id, low.id]
 		]);
+	});
+});
+
+describe('addOption: the start rule', () => {
+	const setup = () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const [p1, p2] = listPositions(db, 'salsa').filter((p) => !p.neutral);
+		return { db, routine, p1, p2 };
+	};
+
+	it('refuses an alternative that starts on another count', () => {
+		const { db, routine } = setup();
+		const a = figure(db, 'A'); // 1 → 1
+		const b = figure(db, 'B');
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 }); // 5 → 1
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(false);
+	});
+
+	it('refuses one that shares no start position with the main figure', () => {
+		const { db, routine, p1, p2 } = setup();
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		setFigureShape(db, a.id, { startIds: [p1.id], endId: null, startCount: 1, lengthCounts: 8 });
+		setFigureShape(db, b.id, { startIds: [p2.id], endId: null, startCount: 1, lengthCounts: 8 });
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(false);
+	});
+
+	it('accepts one whose starts overlap the main figure’s', () => {
+		const { db, routine, p1, p2 } = setup();
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		setFigureShape(db, a.id, { startIds: [p1.id], endId: null, startCount: 1, lengthCounts: 8 });
+		setFigureShape(db, b.id, {
+			startIds: [p1.id, p2.id],
+			endId: null,
+			startCount: 1,
+			lengthCounts: 8
+		});
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(true);
+	});
+
+	it('leaves a slot that already breaks the rule alone', () => {
+		const { db, routine } = setup();
+		const a = figure(db, 'A');
+		const legacy = figure(db, 'Legacy');
+		setFigureShape(db, legacy.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 });
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		// Written past `addOption`, the way a slot made before this rule looks.
+		db.insert(routineStepOptions).values({ stepId: step, figureId: legacy.id }).run();
+		const c = figure(db, 'C');
+		expect(addOption(db, step, c.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id, legacy.id, c.id]);
+	});
+});
+
+describe('restoreOption', () => {
+	it('puts back an alternative the start rule would now refuse', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 });
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(restoreOption(db, step, b.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id, b.id]);
+	});
+
+	it('is idempotent', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const a = figure(db, 'A');
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(restoreOption(db, step, a.id)).toBe(true);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
+	});
+
+	it('refuses a figure of another dance', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const step = addFigureSlot(db, routine.id, figure(db, 'A').id)!;
+		expect(restoreOption(db, step, figure(db, 'B', 'bachata').id)).toBe(false);
+	});
+
+	it('refuses a slot that holds a routine', () => {
+		const db = openDb(':memory:');
+		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		const step = addChildSlot(db, parent.id, child.id)!;
+		expect(restoreOption(db, step, figure(db, 'A').id)).toBe(false);
 	});
 });

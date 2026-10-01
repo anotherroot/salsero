@@ -13,9 +13,9 @@
  */
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, routineStepOptions, routineSteps, routines } from './db/schema';
+import { exercises, figures, routineStepOptions, routineSteps, routines } from './db/schema';
 import { buildGraph } from './graph';
-import { endOf, figureById, nextCountOf, type Graph } from '$lib/graph/graph';
+import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { OptionsSlot, RoutineShape, Slot } from '$lib/routines/routines';
 import type { RoutineItem, SlotRow } from '$lib/types';
@@ -294,16 +294,21 @@ function slotIds(tx: Tx, routineId: number): number[] {
 }
 
 /**
- * Where a figure — or a variation — leaves the hands and on which count it
- * leaves the next one: the two things alternatives must agree on. Read off the
- * graph, which is what fills a variation's unset fields from its figure and
- * resolves untagged to neutral; reading the row directly would see a
- * variation's nulls. Null when the figure is not in this dance's graph —
- * another dance, archived, or gone.
+ * Where a figure — or a variation — begins and lands: its start positions and
+ * start count, the position it leaves the hands at and the count it leaves the
+ * next figure on. Read off the graph, which fills a variation's unset fields
+ * from its figure and resolves untagged to neutral; reading the row directly
+ * would see a variation's nulls. Null when the figure is not in this dance's
+ * graph — another dance, archived, or gone.
  */
-function landingIn(g: Graph, figureId: number): { end: number; next: number } | null {
+function landingIn(
+	g: Graph,
+	figureId: number
+): { starts: number[]; start: number; end: number; next: number } | null {
 	const f = figureById(g, figureId);
-	return f ? { end: endOf(g, f), next: nextCountOf(f) } : null;
+	return f
+		? { starts: startsOf(g, f), start: f.start, end: endOf(g, f), next: nextCountOf(f) }
+		: null;
 }
 
 /**
@@ -425,7 +430,9 @@ export function embeddable(db: Db, routineId: number): { id: number; name: strin
  * False when the figure is the wrong dance, when the slot holds an embedded
  * routine instead, or when it would land somewhere the slot's other options do
  * not: options that land differently — in the hands or on the count — are not
- * alternatives to each other, they are different steps.
+ * alternatives to each other, they are different steps. …and, against the
+ * slot's main figure, when it begins on another count or from no hold the
+ * main figure begins from.
  */
 export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	const step = db
@@ -444,11 +451,25 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 		.select({ figureId: routineStepOptions.figureId })
 		.from(routineStepOptions)
 		.where(eq(routineStepOptions.stepId, stepId))
+		.orderBy(...MAIN_FIRST)
 		.all();
+	// Idempotent on purpose: (step_id, figure_id) is a composite primary key, so
+	// falling through to the insert would throw rather than refuse.
+	if (existing.some((o) => o.figureId === figureId)) return true;
 	for (const o of existing) {
-		if (o.figureId === figureId) return true;
 		const other = landingIn(g, o.figureId);
 		if (other === null || other.end !== landing.end || other.next !== landing.next) return false;
+	}
+	// The start rule, judged against the MAIN figure only: an alternative that
+	// begins on another count, or from no hold the main figure begins from, can
+	// never be danced where the main one is. Older slots that predate this rule
+	// are left as they are — it governs adding, it is not a migration.
+	const main = existing.length > 0 ? landingIn(g, existing[0].figureId) : null;
+	if (
+		main &&
+		(main.start !== landing.start || !main.starts.some((p) => landing.starts.includes(p)))
+	) {
+		return false;
 	}
 	db.insert(routineStepOptions).values({ stepId, figureId }).run();
 	return true;
@@ -468,6 +489,33 @@ export function removeOption(db: Db, stepId: number, figureId: number): boolean 
 			.run();
 		return true;
 	});
+}
+
+/**
+ * Undo for a removed alternative: put it straight back.
+ *
+ * Checks the dance only, not the alternative rules. It was in the slot a
+ * moment ago, and `addOption` would refuse an older alternative that predates
+ * the start rule — an undo that cannot undo. It comes back as the newest
+ * option, which cannot change the main figure: the main figure is never
+ * removed on its own (removing it removes the slot).
+ */
+export function restoreOption(db: Db, stepId: number, figureId: number): boolean {
+	const step = db
+		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
+		.from(routineSteps)
+		.where(eq(routineSteps.id, stepId))
+		.get();
+	if (!step || step.childId !== null) return false;
+	const routine = getRoutine(db, step.routineId);
+	const figure = db
+		.select({ dance: figures.dance })
+		.from(figures)
+		.where(eq(figures.id, figureId))
+		.get();
+	if (!routine || !figure || figure.dance !== routine.dance) return false;
+	db.insert(routineStepOptions).values({ stepId, figureId }).onConflictDoNothing().run();
+	return true;
 }
 
 export function setSlotNote(db: Db, stepId: number, note: string | null): boolean {
