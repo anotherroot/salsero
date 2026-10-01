@@ -255,11 +255,13 @@ now)`, computed per request. No cron, no cached "last done" column.
 - **Nothing is hard-deleted** except a set (a mistaken log), a recording, a
   lesson video and a link. Figures, lessons, positions and exercises are
   archived; sets keep pointing at them and history stays intact.
-- **Creating a figure creates its exercise** in the same transaction
-  (`source='figure'`, name = figure name, `practice_mode='none'`). Renaming the
-  figure renames the exercise. Archiving the figure archives the exercise.
-  Same for a routine — see the
-  [routines design](2026-09-24-routines-design.md).
+- **A figure's exercise is opt-in** (since 2026-10-01; see the
+  [figure coverage design](2026-10-01-figure-coverage-design.md)): creating a
+  figure creates none, and "Practise on its own" calls `addFigureExercise`
+  (`source='figure'`, name = figure name). When one exists, renaming the
+  figure renames it and archiving the figure archives it, in one transaction.
+- **Creating a routine creates its exercise** in the same transaction — see
+  the [routines design](2026-09-24-routines-design.md).
   **Same for a lesson** (`source='lesson'`, name = `Review: <title>`), which is
   what puts a class on Today. `archiveExercise` and `updateExercise` are
   restricted to `source='custom'`, so an owned exercise can only be renamed or

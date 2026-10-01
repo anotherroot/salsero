@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import { longPress } from '$lib/longpress';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -16,43 +17,23 @@
 		if (form?.message) naming = true;
 	});
 
-	const LONG_PRESS_MS = 500;
-	const MOVE_TOLERANCE_PX = 10;
-	let timer: ReturnType<typeof setTimeout> | null = null;
-	let origin: { x: number; y: number } | null = null;
-	/** Set when a long press fired, so the click that follows the release is swallowed. */
-	let swallowClick = false;
+	const press = longPress({
+		ms: 500,
+		tolerancePx: 10,
+		enabled: () => !selecting,
+		onLongPress: (id) => {
+			selecting = true;
+			picked = [id];
+		}
+	});
 
 	function toggle(id: number) {
 		picked = picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id];
 		if (picked.length === 0) selecting = false;
 	}
 
-	function cancelPress() {
-		if (timer) clearTimeout(timer);
-		timer = null;
-		origin = null;
-	}
-
-	function pressStart(e: PointerEvent, id: number) {
-		if (selecting) return;
-		origin = { x: e.clientX, y: e.clientY };
-		timer = setTimeout(() => {
-			timer = null;
-			swallowClick = true;
-			selecting = true;
-			picked = [id];
-		}, LONG_PRESS_MS);
-	}
-
-	function pressMove(e: PointerEvent) {
-		if (!origin) return;
-		if (Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > MOVE_TOLERANCE_PX) cancelPress();
-	}
-
 	function rowClick(e: MouseEvent, id: number) {
-		if (swallowClick) {
-			swallowClick = false;
+		if (press.swallow()) {
 			e.preventDefault();
 			return;
 		}
@@ -116,10 +97,10 @@
 							class="flex items-center gap-3 rounded-xl border bg-raised px-4 py-3 select-none [-webkit-touch-callout:none] {on
 								? 'border-accent'
 								: 'border-line'}"
-							onpointerdown={(e) => pressStart(e, row.id)}
-							onpointermove={pressMove}
-							onpointerup={cancelPress}
-							onpointercancel={cancelPress}
+							onpointerdown={(e) => press.down(row.id, e.clientX, e.clientY)}
+							onpointermove={(e) => press.move(e.clientX, e.clientY)}
+							onpointerup={() => press.up()}
+							onpointercancel={() => press.up()}
 							oncontextmenu={(e) => e.preventDefault()}
 							onclick={(e) => rowClick(e, row.id)}
 						>
