@@ -82,13 +82,13 @@
 				? 'border-accent text-accent'
 				: 'border-rule text-ink-2'}">Mirror</button
 		>
-	{/if}
-	{#if owner}
-		<button
-			type="button"
-			onclick={openFull}
-			class="h-8 rounded-lg border border-rule px-2.5 text-ink-2">Full screen</button
-		>
+		{#if owner}
+			<button
+				type="button"
+				onclick={openFull}
+				class="h-8 rounded-lg border border-rule px-2.5 text-ink-2">Full screen</button
+			>
+		{/if}
 	{/if}
 	<span class="ml-auto flex gap-1" role="group" aria-label="Speed">
 		{#each VIDEO_RATES as r (r)}
@@ -104,7 +104,7 @@
 	</span>
 </div>
 
-{#if owner && fullAt !== null}
+{#if kind === 'video' && owner && fullAt !== null}
 	<VideoPlayer
 		{src}
 		{owner}
