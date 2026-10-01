@@ -137,6 +137,7 @@
 	}
 
 	async function rename(spot: Spot, label: string) {
+		if (renaming !== spot.id) return;
 		renaming = null;
 		const clean = label.trim() || null;
 		if (clean === spot.label) return;
