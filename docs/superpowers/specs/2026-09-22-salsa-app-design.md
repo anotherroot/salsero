@@ -25,7 +25,7 @@ phone. It answers three needs:
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Figure**       | A specific dance move (_figura_): a right turn, _dile que no_, _enchufla_, a lateral. Partner or solo. A routine's run calls it by voice.                                                                  |
 | **Routine**      | An ordered sequence of figures, built from the position graph. See the [routines design](2026-09-24-routines-design.md).                                                            |
-| **Exercise**     | Anything practiced and logged. Created automatically for every figure and every routine, or created by hand (custom: "son basic 5 min", "clave clapping").                          |
+| **Exercise**     | Anything practiced and logged. Created automatically for every routine; for a figure only on request ("Practise on its own"); or by hand (custom: "son basic 5 min"). |
 | **Set**          | One logged bout of an exercise. Many per day allowed.                                                                                                                               |
 | **8-count**      | Two bars of 4/4. Salsa counts 1–8 (spoken 1-2-3, 5-6-7; 4 and 8 are pauses). The musical grid is bars; the dance grid is 8-counts, so the user's correction picks which bar is "1". |
 
@@ -316,6 +316,9 @@ The home page. One page serves both "exercises" and "today".
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
   position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"
   (not built).
+- **Coverage:** `/[dance]/coverage` lists every figure version by how many
+  routines can call it, and makes a routine from a selection. See
+  [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).
 - **Recordings:** upload from the phone camera or mic via
   `<input type="file" accept="video/*,audio/*" capture>`, or any file from a
   desktop. Upload shows progress. Stored as-is under

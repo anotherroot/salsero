@@ -16,7 +16,9 @@ registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
 panel in the popup, an exercise page) and figure timing (a start count and a
 length in counts; routines report timing breaks) and figure variations (versions
-of a figure with their own positions, timing and videos; chosen per routine slot).
+of a figure with their own positions, timing and videos; chosen per routine slot)
+and figure coverage (figures have no exercise by default; a page of figure
+versions by how many routines use them, and a routine made from a selection).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -46,9 +48,10 @@ src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds w
 src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
                      whether clave exists, accent colours). Client-safe
 src/lib/graph/       PURE figure graph: positions → what can follow what, the
-                     drill's walk, the gap report. Client-safe
+                     gap report. Client-safe
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
-                     loops, and the routine as the player's plan. Client-safe
+                     loops, the routine as the player's plan, and coverage
+                     (which routines can call each version). Client-safe
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config
@@ -105,8 +108,8 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; sets,
   recordings and links are the only hard deletes. A figure's exercise is
-  created, renamed and archived WITH its figure, in one transaction
-  (`src/lib/server/figures.ts`).
+  opt-in (`addFigureExercise`); when one exists it is renamed and archived
+  WITH its figure, in one transaction (`src/lib/server/figures.ts`).
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
   components and never branch on it.
