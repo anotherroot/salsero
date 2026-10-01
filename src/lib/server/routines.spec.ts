@@ -24,7 +24,10 @@ import {
 	setSlotNote,
 	updateRoutine,
 	duplicateSlot,
-	duplicateRoutine
+	duplicateRoutine,
+	duplicateSlots,
+	embeddedIn,
+	extractRoutine
 } from './routines';
 import { archiveFigure, createFigure, createVariation } from './figures';
 import { listPositions, seedPositions } from './positions';
@@ -833,5 +836,90 @@ describe('deleteSlots and restoreSlots', () => {
 		addChildSlot(db, child.id, inner.id); // the child now embeds: one level only
 		expect(restoreSlots(db, parent.id, snapshot)).toBe(false);
 		expect(routineSlots(db, parent.id)).toHaveLength(0);
+	});
+});
+
+describe('duplicateSlots', () => {
+	it('copies the selection, in order, after the last selected slot', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const [a, b, c, d] = ['A', 'B', 'C', 'D'].map((n) => figure(db, n));
+		const s0 = addFigureSlot(db, routine.id, a.id)!;
+		const s1 = addFigureSlot(db, routine.id, c.id)!;
+		addOption(db, s1, b.id);
+		const s2 = addFigureSlot(db, routine.id, d.id)!;
+		const copies = duplicateSlots(db, routine.id, [s1, s0])!;
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([s0, s1, ...copies, s2]);
+		expect(rows.map((s) => s.figureIds)).toEqual([[a.id], [c.id, b.id], [a.id], [c.id, b.id], [d.id]]);
+	});
+
+	it('copies nothing when any id is not this routine’s', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const s0 = addFigureSlot(db, routine.id, figure(db, 'A').id)!;
+		expect(duplicateSlots(db, routine.id, [s0, 9999])).toBeNull();
+		expect(routineSlots(db, routine.id)).toHaveLength(1);
+	});
+});
+
+describe('extractRoutine', () => {
+	const fourSlots = () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const ids = ['A', 'B', 'C', 'D'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
+		return { db, routine, ids };
+	};
+	const routineCount = (db: ReturnType<typeof openDb>) => listRoutines(db, 'salsa').length;
+
+	it('moves a contiguous run into a new routine and embeds it in its place', () => {
+		const { db, routine, ids } = fourSlots();
+		setSlotNote(db, ids[2], 'spin here');
+		const made = extractRoutine(db, routine.id, [ids[2], ids[1]], 'Combo')!;
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([ids[0], made.stepId, ids[3]]);
+		expect(rows[1].childId).toBe(made.routineId);
+		// Moved, not copied: the same step rows, options and notes intact.
+		const inner = routineSlots(db, made.routineId);
+		expect(inner.map((s) => s.id)).toEqual([ids[1], ids[2]]);
+		expect(inner[1].note).toBe('spin here');
+		expect(getRoutine(db, made.routineId)!.name).toBe('Combo');
+		const exercise = db
+			.select()
+			.from(exercises)
+			.where(eq(exercises.routineId, made.routineId))
+			.get();
+		expect(exercise).toMatchObject({ source: 'routine', name: 'Combo' });
+	});
+
+	it('refuses a run with a gap and writes nothing', () => {
+		const { db, routine, ids } = fourSlots();
+		const before = routineCount(db);
+		expect(extractRoutine(db, routine.id, [ids[0], ids[2]], 'Combo')).toBeNull();
+		expect(routineCount(db)).toBe(before);
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual(ids);
+	});
+
+	it('refuses a run holding an embedded routine', () => {
+		const { db, routine, ids } = fourSlots();
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		const embedded = insertSlot(db, routine.id, 1, { childId: child.id })!;
+		expect(extractRoutine(db, routine.id, [ids[0], embedded], 'Combo')).toBeNull();
+	});
+
+	it('refuses when the routine is itself embedded somewhere', () => {
+		const { db, routine, ids } = fourSlots();
+		const parent = createRoutine(db, 'salsa', { name: 'Social mix', notes: null }).routine;
+		addChildSlot(db, parent.id, routine.id);
+		expect(embeddedIn(db, routine.id).map((r) => r.name)).toEqual(['Social mix']);
+		expect(extractRoutine(db, routine.id, [ids[0]], 'Combo')).toBeNull();
+	});
+
+	it('refuses a slot of another routine', () => {
+		const { db, routine } = fourSlots();
+		const other = createRoutine(db, 'salsa', { name: 'O', notes: null }).routine;
+		const foreign = addFigureSlot(db, other.id, figure(db, 'E').id)!;
+		expect(extractRoutine(db, routine.id, [foreign], 'Combo')).toBeNull();
+		expect(routineSlots(db, other.id).map((s) => s.id)).toEqual([foreign]);
 	});
 });

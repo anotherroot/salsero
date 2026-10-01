@@ -751,6 +751,114 @@ export function duplicateSlot(db: Db, routineId: number, stepId: number): number
 }
 
 /**
+ * Copy several slots — options in order, notes, an embedded child by
+ * reference — and place the copies, in routine order, directly after the LAST
+ * selected slot: "repeat this bit" belongs right after the bit. The copies'
+ * ids, or null (nothing written) when any id is not this routine's.
+ */
+export function duplicateSlots(db: Db, routineId: number, stepIds: number[]): number[] | null {
+	const wanted = [...new Set(stepIds)];
+	if (wanted.length === 0) return null;
+	return db.transaction((tx) => {
+		const steps = tx
+			.select({
+				id: routineSteps.id,
+				childId: routineSteps.childRoutineId,
+				note: routineSteps.note
+			})
+			.from(routineSteps)
+			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
+			.orderBy(asc(routineSteps.position))
+			.all();
+		if (steps.length !== wanted.length) return null;
+		const options = optionsIn(tx, wanted);
+		const ids = slotIds(tx, routineId);
+		const copies = steps.map((s, k) => {
+			const copy = tx
+				.insert(routineSteps)
+				.values({ routineId, position: ids.length + k, childRoutineId: s.childId, note: s.note })
+				.returning({ id: routineSteps.id })
+				.get();
+			for (const figureId of options.get(s.id) ?? []) {
+				tx.insert(routineStepOptions).values({ stepId: copy.id, figureId }).run();
+			}
+			return copy.id;
+		});
+		const last = Math.max(...steps.map((s) => ids.indexOf(s.id)));
+		ids.splice(last + 1, 0, ...copies);
+		order(tx, ids);
+		return copies;
+	});
+}
+
+/** The routines that embed this one — why it cannot embed anything itself. */
+export function embeddedIn(db: Db, routineId: number): { id: number; name: string }[] {
+	return db
+		.selectDistinct({ id: routines.id, name: routines.name })
+		.from(routineSteps)
+		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
+		.where(eq(routineSteps.childRoutineId, routineId))
+		.orderBy(asc(routines.name))
+		.all();
+}
+
+/**
+ * "Make routine": pull a contiguous run of slots out into a new routine — with
+ * its exercise, as every routine has — and put one slot embedding it where the
+ * run was. The slots MOVE (their rows change routine), so options, the main
+ * figure and notes come along untouched.
+ *
+ * Null, with nothing written, when the run has a gap (pulling slots 2 and 5 out
+ * would silently reorder the routine), holds an embedded routine, or this
+ * routine is itself embedded somewhere — the one-level rule seen from the new
+ * routine's side, so no new rule is introduced.
+ */
+export function extractRoutine(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	name: string
+): { routineId: number; stepId: number } | null {
+	const routine = getRoutine(db, routineId);
+	const wanted = [...new Set(stepIds)];
+	if (!routine || wanted.length === 0 || embeddedIn(db, routineId).length > 0) return null;
+	const dance = routine.dance as DanceSlug;
+	return db.transaction((tx) => {
+		const ids = slotIds(tx, routineId);
+		const run = tx
+			.select({ id: routineSteps.id, childId: routineSteps.childRoutineId })
+			.from(routineSteps)
+			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
+			.orderBy(asc(routineSteps.position))
+			.all();
+		if (run.length !== wanted.length || run.some((s) => s.childId !== null)) return null;
+		const at = ids.indexOf(run[0].id);
+		if (ids.indexOf(run[run.length - 1].id) - at !== run.length - 1) return null;
+
+		const made = insertRoutine(tx, dance, { name, notes: null }, 3);
+		run.forEach((s, k) =>
+			tx
+				.update(routineSteps)
+				.set({ routineId: made.routine.id, position: k })
+				.where(eq(routineSteps.id, s.id))
+				.run()
+		);
+		// Compact what is left before appending, or the append's position could
+		// collide with a row past the gap the run left behind.
+		const rest = ids.filter((id) => !wanted.includes(id));
+		order(tx, rest);
+		const step = tx
+			.insert(routineSteps)
+			.values({ routineId, position: rest.length, childRoutineId: made.routine.id })
+			.returning({ id: routineSteps.id })
+			.get();
+		rest.splice(at, 0, step.id);
+		order(tx, rest);
+		return { routineId: made.routine.id, stepId: step.id };
+	});
+}
+
+/**
  * Copy a whole routine, slots and all, as "<name> (copy)" with its own exercise.
  *
  * An embedded child is REFERENCED by the copy, not itself duplicated: a routine
