@@ -311,28 +311,64 @@ function landingIn(
 		: null;
 }
 
+/** What a new slot holds: one figure (its main figure), or one embedded routine. */
+export type SlotContent = { figureId: number } | { childId: number };
+
 /**
- * Append a slot holding one figure. The new slot's id, or null when the figure
- * is not this routine's dance — or is archived, or gone.
+ * Insert a slot at index `at`. The new slot's id, or null when the figure is not
+ * this routine's dance (or is archived, or gone), or the routine cannot be
+ * embedded here.
  *
- * There is no way to create an EMPTY slot: a slot must hold something, and the
- * cheapest way to guarantee that is never to make one that does not.
+ * `at` is CLAMPED to `0..length` rather than refused: the picker that sent it
+ * may have been opened before another tab removed slots, and appending is what
+ * the person meant. There is no way to create an EMPTY slot: a slot must hold
+ * something, and the cheapest way to guarantee that is never to make one that
+ * does not.
  */
-export function addFigureSlot(db: Db, routineId: number, figureId: number): number | null {
+export function insertSlot(
+	db: Db,
+	routineId: number,
+	at: number,
+	content: SlotContent
+): number | null {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return null;
-	const dance = routine.dance as DanceSlug;
-	if (landingIn(buildGraph(db, dance), figureId) === null) return null;
+	if ('childId' in content) {
+		if (!canEmbed(db, routineId, content.childId)) return null;
+	} else if (landingIn(buildGraph(db, routine.dance as DanceSlug), content.figureId) === null) {
+		return null;
+	}
 	return db.transaction((tx) => {
-		const at = slotIds(tx, routineId).length;
+		const ids = slotIds(tx, routineId);
+		// Appended first, then the whole routine re-ordered with it spliced in:
+		// inserting at `at` directly would collide with `unique (routine_id,
+		// position)` before anything shifted out of the way.
 		const step = tx
 			.insert(routineSteps)
-			.values({ routineId, position: at })
+			.values({
+				routineId,
+				position: ids.length,
+				childRoutineId: 'childId' in content ? content.childId : null
+			})
 			.returning({ id: routineSteps.id })
 			.get();
-		tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+		if ('figureId' in content) {
+			tx.insert(routineStepOptions).values({ stepId: step.id, figureId: content.figureId }).run();
+		}
+		ids.splice(Math.min(Math.max(at, 0), ids.length), 0, step.id);
+		order(tx, ids);
 		return step.id;
 	});
+}
+
+/** Append a slot holding one figure. See `insertSlot`. */
+export function addFigureSlot(db: Db, routineId: number, figureId: number): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { figureId });
+}
+
+/** Append a slot holding an embedded routine. Null when `canEmbed` says no. */
+export function addChildSlot(db: Db, routineId: number, childId: number): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { childId });
 }
 
 /**
@@ -396,19 +432,6 @@ export function canEmbed(db: Db, parentId: number, childId: number): boolean {
 		.where(eq(routineSteps.childRoutineId, parentId))
 		.get();
 	return !parentEmbedded;
-}
-
-/** Append a slot holding an embedded routine. Null when `canEmbed` says no. */
-export function addChildSlot(db: Db, routineId: number, childId: number): number | null {
-	if (!canEmbed(db, routineId, childId)) return null;
-	return db.transaction((tx) => {
-		const at = slotIds(tx, routineId).length;
-		return tx
-			.insert(routineSteps)
-			.values({ routineId, position: at, childRoutineId: childId })
-			.returning({ id: routineSteps.id })
-			.get().id;
-	});
 }
 
 /** The routines this one may embed: same dance, unarchived, and `canEmbed`. */
@@ -556,6 +579,23 @@ export function moveSlot(db: Db, routineId: number, stepId: number, delta: -1 | 
 		const j = i + delta;
 		if (i < 0 || j < 0 || j >= ids.length) return false;
 		[ids[i], ids[j]] = [ids[j], ids[i]];
+		order(tx, ids);
+		return true;
+	});
+}
+
+/**
+ * Move a slot to `index` — where a drag dropped it. False when the slot is not
+ * this routine's or the index is off either end; a drop is always inside the
+ * list, so an index outside it is a stale or tampered request.
+ */
+export function moveSlotTo(db: Db, routineId: number, stepId: number, index: number): boolean {
+	return db.transaction((tx) => {
+		const ids = slotIds(tx, routineId);
+		const from = ids.indexOf(stepId);
+		if (from < 0 || !Number.isInteger(index) || index < 0 || index >= ids.length) return false;
+		ids.splice(from, 1);
+		ids.splice(index, 0, stepId);
 		order(tx, ids);
 		return true;
 	});

@@ -11,8 +11,10 @@ import {
 	deleteSlot,
 	embeddable,
 	getRoutine,
+	insertSlot,
 	listRoutines,
 	moveSlot,
+	moveSlotTo,
 	removeOption,
 	restoreOption,
 	routineShapes,
@@ -310,6 +312,73 @@ describe('moveSlot', () => {
 		const ids = ['A', 'B'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
 		expect(moveSlot(db, routine.id, ids[0], -1)).toBe(false);
 		expect(moveSlot(db, routine.id, ids[1], 1)).toBe(false);
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual(ids);
+	});
+});
+
+describe('insertSlot', () => {
+	it('inserts at the start, the middle and the end', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const ids = ['A', 'B'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
+		const first = insertSlot(db, routine.id, 0, { figureId: figure(db, 'C').id })!;
+		const mid = insertSlot(db, routine.id, 2, { figureId: figure(db, 'D').id })!;
+		const last = insertSlot(db, routine.id, 4, { figureId: figure(db, 'E').id })!;
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([first, ids[0], mid, ids[1], last]);
+		expect(rows.map((s) => s.position)).toEqual([0, 1, 2, 3, 4]);
+	});
+
+	it('clamps an index past the end', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const a = addFigureSlot(db, routine.id, figure(db, 'A').id)!;
+		const b = insertSlot(db, routine.id, 9, { figureId: figure(db, 'B').id })!;
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual([a, b]);
+	});
+
+	it('refuses a figure of another dance and writes nothing', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		expect(insertSlot(db, routine.id, 0, { figureId: figure(db, 'B', 'bachata').id })).toBeNull();
+		expect(routineSlots(db, routine.id)).toHaveLength(0);
+	});
+
+	it('embeds a routine only where canEmbed allows', () => {
+		const db = openDb(':memory:');
+		const parent = createRoutine(db, 'salsa', { name: 'P', notes: null }).routine;
+		const child = createRoutine(db, 'salsa', { name: 'C', notes: null }).routine;
+		const grand = createRoutine(db, 'salsa', { name: 'G', notes: null }).routine;
+		addFigureSlot(db, parent.id, figure(db, 'A').id);
+		const step = insertSlot(db, parent.id, 0, { childId: child.id })!;
+		expect(routineSlots(db, parent.id)[0]).toMatchObject({ id: step, childId: child.id });
+		// `parent` now embeds, so it cannot itself be embedded.
+		expect(insertSlot(db, grand.id, 0, { childId: parent.id })).toBeNull();
+	});
+});
+
+describe('moveSlotTo', () => {
+	it('moves a slot to any index and keeps positions contiguous', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const ids = ['A', 'B', 'C', 'D'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
+		expect(moveSlotTo(db, routine.id, ids[0], 2)).toBe(true);
+		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual([ids[1], ids[2], ids[0], ids[3]]);
+		expect(moveSlotTo(db, routine.id, ids[3], 0)).toBe(true);
+		const rows = routineSlots(db, routine.id);
+		expect(rows.map((s) => s.id)).toEqual([ids[3], ids[1], ids[2], ids[0]]);
+		expect(rows.map((s) => s.position)).toEqual([0, 1, 2, 3]);
+	});
+
+	it('refuses an index off the end or a slot of another routine', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const other = createRoutine(db, 'salsa', { name: 'O', notes: null }).routine;
+		const ids = ['A', 'B'].map((n) => addFigureSlot(db, routine.id, figure(db, n).id)!);
+		const foreign = addFigureSlot(db, other.id, figure(db, 'C').id)!;
+		expect(moveSlotTo(db, routine.id, ids[0], 2)).toBe(false);
+		expect(moveSlotTo(db, routine.id, ids[0], -1)).toBe(false);
+		expect(moveSlotTo(db, routine.id, foreign, 0)).toBe(false);
 		expect(routineSlots(db, routine.id).map((s) => s.id)).toEqual(ids);
 	});
 });
