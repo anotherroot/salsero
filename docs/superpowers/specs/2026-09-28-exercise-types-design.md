@@ -300,7 +300,7 @@ Every video the popups and pages show — recordings, lesson videos, YouTube
 embeds — gets a **Mirror** toggle, so a teacher facing the camera can be
 followed as in a mirror. `transform: scaleX(-1)` on the `<video>` or the
 `<iframe>`; the embed's own controls mirror with it, which is the accepted
-cost. Uploaded videos also get **0.5× / 0.75× / 1×** (`playbackRate`,
+cost. Uploaded videos also get **0.25× / 0.5× / 0.75× / 1×** (`playbackRate`,
 `preservesPitch`); YouTube embeds keep YouTube's own speed menu, since changing
 it from outside needs the IFrame API and a script from youtube.com.
 

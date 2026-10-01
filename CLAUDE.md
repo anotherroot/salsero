@@ -18,7 +18,9 @@ panel in the popup, an exercise page) and figure timing (a start count and a
 length in counts; routines report timing breaks) and figure variations (versions
 of a figure with their own positions, timing and videos; chosen per routine slot)
 and figure coverage (figures have no exercise by default; a page of figure
-versions by how many routines use them, and a routine made from a selection).
+versions by how many routines use them, and a routine made from a selection)
+and a full-screen video player (±1 s, 0.25–1×, mirror, and saved spots:
+points to jump to, sections that loop).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -33,6 +35,9 @@ the chunked upload protocol, the link rules, and the four Today bands.
 Exercise types have theirs,
 [`docs/superpowers/specs/2026-09-28-exercise-types-design.md`](docs/superpowers/specs/2026-09-28-exercise-types-design.md):
 the per-type log popup, links, and the in-popup practice panel.
+The full-screen video player has its own,
+[`docs/superpowers/specs/2026-10-01-video-player-design.md`](docs/superpowers/specs/2026-10-01-video-player-design.md):
+spots, the loop, and why it is not the browser's fullscreen.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -60,6 +65,9 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
                      navigation guard. ui/UnsavedDialog.svelte asks the question
+src/lib/video/       PURE spots.ts: spot times, labels, ±1 s clamping, the loop
+                     rule. spots-api.ts is the player's fetch side of
+                     /api/video-spots. Client-safe
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
@@ -112,7 +120,8 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; sets,
-  recordings and links are the only hard deletes. A figure's exercise is
+  recordings, links and spots (`video_spots`, deleted with their video) are
+  the only hard deletes. A figure's exercise is
   opt-in (`addFigureExercise`); when one exists it is renamed and archived
   WITH its figure, in one transaction (`src/lib/server/figures.ts`).
 - **The type owns its popup.** An exercise's type is derived from `source`
@@ -178,10 +187,12 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   never touches audio. Figure names go through `speechSynthesis`, which cannot be
   scheduled and does not need to be.
 - **A dance is the wall through the content.** `figures`, `songs`, `exercises`
-  and `lessons` carry `dance`; `sets`, `recordings` and the lesson join tables
-  derive it through their parent, and `count_takes` is shared by both dances on
-  purpose. Scoping happens in the data-access layer — `src/lib/urgency/` and
-  `src/lib/day/` never learn that dances exist.
+  and `lessons` carry `dance`; `sets`, `recordings`, the lesson join tables
+  and `video_spots` derive it through their parent (a recording or a lesson
+  video), and `count_takes` is shared by both dances on purpose. Scoping
+  happens in the data-access layer — `src/lib/urgency/` and `src/lib/day/`
+  never learn that dances exist. `video_spots`' own API is flat
+  (`/api/video-spots`), like the media servers.
 - **`figures.style` is vestigial; `style_tag` is real.** Read by nothing,
   backfilled into `style_tag` by migration 0005. Do not drop it or widen
   `figures_style_ck` — see the CHECK rule above for why a rebuild here can't

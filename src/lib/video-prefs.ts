@@ -4,7 +4,7 @@
  * wrapped, because private-mode Safari throws on any touch of it. Nothing here
  * ever reaches the database.
  */
-export const VIDEO_RATES = [0.5, 0.75, 1] as const;
+export const VIDEO_RATES = [0.25, 0.5, 0.75, 1] as const;
 export type VideoRate = (typeof VIDEO_RATES)[number];
 
 export interface VideoPrefs {
