@@ -50,18 +50,27 @@
 		return 'No figures in this dance yet.';
 	});
 
+	/**
+	 * "1→1 · Closed → Open": the counts it starts and ends on, then where the
+	 * hands start and where they end. Both ends, because a figure is chosen as
+	 * much for where it begins as for where it lands — and the count filter can
+	 * be off.
+	 */
 	function meta(c: Candidate): string {
 		const timing = `${c.startCounts.join('/') || '?'}→${c.next ?? '?'}`;
-		return c.end === null ? timing : `${timing} · → ${positionName(c.end)}`;
+		const from = c.starts.length > 0 ? c.starts.map(positionName).join(' / ') : '?';
+		const to = c.end === null ? '?' : positionName(c.end);
+		return `${timing} · ${from} → ${to}`;
 	}
 
 	const chip = (on: boolean) =>
 		`h-8 rounded-full border px-3 text-[13px] ${
 			on ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line bg-raised text-muted'
 		}`;
-	const row =
-		'flex w-full items-center justify-between gap-3 border-b border-line py-2.5 text-left text-[15px]';
-	const metaClass = 'shrink-0 text-[11.5px] text-muted';
+	// Two lines per row: the name, then its timing and holds. Start and end
+	// hold names together are too long to share a line with the name.
+	const row = 'block w-full border-b border-line py-2 text-left text-[15px]';
+	const metaClass = 'block truncate text-[12px] text-muted';
 	const heading = 'mt-3 mb-1 text-[11px] font-medium tracking-wide text-muted uppercase';
 </script>
 
@@ -118,19 +127,19 @@
 					<li>
 						{#if group.headFits}
 							<button type="button" class={row} onclick={() => onpick(group.head)}>
-								<span class="min-w-0 truncate">{group.head.label}</span>
+								<span class="block truncate">{group.head.label}</span>
 								<span class={metaClass}>{meta(group.head)}</span>
 							</button>
 						{:else}
 							<!-- Greyed: a header so its variations still read as a group. -->
 							<div class="{row} text-muted">
-								<span class="min-w-0 truncate">{group.head.label}</span>
+								<span class="block truncate">{group.head.label}</span>
 								<span class={metaClass}>{meta(group.head)}</span>
 							</div>
 						{/if}
 						{#each group.variations as v (v.id)}
 							<button type="button" class="{row} pl-5 text-[14px]" onclick={() => onpick(v)}>
-								<span class="min-w-0 truncate"><span class="text-muted">└ </span>{v.label}</span>
+								<span class="block truncate"><span class="text-muted">└ </span>{v.label}</span>
 								<span class={metaClass}>{meta(v)}</span>
 							</button>
 						{/each}
@@ -145,7 +154,7 @@
 				{#each list.routines as r (r.id)}
 					<li>
 						<button type="button" class={row} onclick={() => onpick(r)}>
-							<span class="min-w-0 truncate">{r.label}</span>
+							<span class="block truncate">{r.label}</span>
 							<span class={metaClass}>{meta(r)}</span>
 						</button>
 					</li>

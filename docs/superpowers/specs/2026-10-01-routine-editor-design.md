@@ -227,15 +227,22 @@ One bottom sheet (`Sheet.svelte`), used for every way of adding something:
  ⌕ Search figures and routines
  [✓ Count] [✓ Hold]
  FIGURES
- Cross body lead            1→1 · → closed
- Dile que no                1→1 · → closed
- Enchufla                   from closed       ← greyed: a group header only
-   └ Enchufla · Doble       1→1 · → open
- Setenta                    1→1 · → hammerlock
-   └ Setenta · Complicado   1→1 · → open
+ Cross body lead
+ 1→1 · open → closed
+ Enchufla                                     ← greyed: a group header only
+ 1→1 · closed → open
+   └ Enchufla · Doble
+     1→1 · open → open
+ Setenta
+ 1→1 · open → hammerlock
  ROUTINES
- Shine combo                1→1 · → open
+ Shine combo
+ 1→1 · open → open
 ```
+
+Each row is two lines: the name, then the counts it starts and ends on and the
+hold it starts from and the hold it ends in — both ends, because a figure is
+chosen as much for where it begins as for where it lands.
 
 **One tap inserts and closes.** There is no confirm step.
 
