@@ -18,7 +18,9 @@ panel in the popup, an exercise page) and figure timing (a start count and a
 length in counts; routines report timing breaks) and figure variations (versions
 of a figure with their own positions, timing and videos; chosen per routine slot)
 and figure coverage (figures have no exercise by default; a page of figure
-versions by how many routines use them, and a routine made from a selection) and a full-screen video player (±1 s, 0.25–1×, mirror, and saved spots: points to jump to, sections that loop).
+versions by how many routines use them, and a routine made from a selection)
+and a full-screen video player (±1 s, 0.25–1×, mirror, and saved spots:
+points to jump to, sections that loop).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
