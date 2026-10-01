@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { enhance } from '$app/forms';
 	import SetList from '$lib/components/exercises/SetList.svelte';
 	import { contentFor, logFor } from '$lib/components/exercises/kinds';
 	import { FIELD, LABEL } from '$lib/components/ui/styles';
@@ -136,9 +136,13 @@
 		<form
 			method="POST"
 			action="?/update"
-			use:enhance={() =>
-				async ({ update }) =>
-					update({ reset: false })}
+			use:guarded={{
+				label: 'Exercise settings',
+				submit:
+					() =>
+					async ({ update }) =>
+						update({ reset: false })
+			}}
 			class="space-y-3"
 		>
 			{#if ownsItself}

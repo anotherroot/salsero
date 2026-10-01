@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { track } from '$lib/unsaved/guard.svelte';
 	import { UPLOAD_CHUNK_BYTES } from '$lib/limits';
 	import { screenFiles, summarise, type Skipped } from '$lib/upload-queue';
 
@@ -35,6 +36,16 @@
 	let position = $state<{ index: number; count: number } | null>(null);
 	let message = $state<string | null>(null);
 	let input: HTMLInputElement | undefined = $state();
+
+	// The request outlives an in-app navigation (the component goes, the XHR
+	// does not), so only a reload or a closed tab would cut it off.
+	$effect(() =>
+		track({
+			label: 'An upload',
+			dirty: () => progress !== null,
+			unloadOnly: true
+		})
+	);
 
 	const busy = $derived(progress !== null);
 

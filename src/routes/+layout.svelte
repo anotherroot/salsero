@@ -4,8 +4,11 @@
 	import { resolve } from '$app/paths';
 	import { DANCE_SLUGS, DANCES, isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
+	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
+	import { guardNavigation } from '$lib/unsaved/guard.svelte';
 
 	let { data, children } = $props();
+	guardNavigation();
 	/*
 	 * This layout sits ABOVE `[dance]`, so no load of its own hands it the
 	 * dance — `/settings`, `/voice` and `/login` live out here too. The URL is
@@ -68,3 +71,5 @@
 {:else}
 	{@render children()}
 {/if}
+
+<UnsavedDialog />

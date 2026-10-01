@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -165,9 +166,13 @@
 		<form
 			method="POST"
 			action="?/update"
-			use:enhance={() =>
-				async ({ update }) =>
-					update({ reset: false })}
+			use:guarded={{
+				label: 'Song details',
+				submit:
+					() =>
+					async ({ update }) =>
+						update({ reset: false })
+			}}
 			class="space-y-3 px-3 pb-3"
 		>
 			<input

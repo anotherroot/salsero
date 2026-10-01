@@ -41,7 +41,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { enhance } from '$app/forms';
+	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import SetList from './SetList.svelte';
 	import LastTime from './LastTime.svelte';
@@ -87,13 +87,6 @@
 	let loadError = $state<string | null>(null);
 	let busy = $state(false);
 	let justLogged = $state(false);
-	/**
-	 * Which close the inline banner is guarding: the ✕/backdrop/Escape path
-	 * (`onguarded`, below) always means 'close'; the Skip button sets 'skip'
-	 * when there is unsaved practice time to lose. Discard replays whichever
-	 * one is pending.
-	 */
-	let pending = $state<'close' | 'skip' | null>(null);
 	let rating = $state<number | null>(null);
 	let minutes = $state('');
 	/** Exact seconds from the panel. Typing into Minutes clears it, so a hand-entered value wins. */
@@ -120,52 +113,29 @@
 		exactS = liveRun.durationS;
 	});
 
-	/** Practice time that a close would throw away. */
+	/**
+	 * Practice time that a close would throw away, even with nothing typed. The
+	 * log form counts it as unsaved, so ✕, the backdrop, Escape, Skip and a
+	 * navigation all ask first — the app's one unsaved-changes dialog
+	 * (`$lib/unsaved`), which also covers typed reps, a note or a rating.
+	 */
 	const unsaved = $derived(playing || liveRun !== null);
-	// Once the run is gone (saved, or discarded) a stale pending intent must
-	// not linger for the next guard to accidentally replay — see finding 2.
-	$effect(() => {
-		if (!unsaved) pending = null;
-	});
+	let logForm: HTMLFormElement | undefined = $state();
+
+	/** Move on from this popup, asking first if the log holds anything unsaved. */
+	function away(then: () => void, verb: string) {
+		if (logForm) leaveOrAsk(logForm, then, verb);
+		else then();
+	}
 </script>
 
-<Sheet
-	title={exercise.name}
-	open={true}
-	{onclose}
-	guard={unsaved}
-	onguarded={() => (pending = 'close')}
->
-	{#if pending}
-		<div
-			class="mb-3 flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2 text-[13px]"
-			role="alert"
-		>
-			<span class="min-w-0 flex-1">
-				Discard {liveRun ? `${minutesFrom(liveRun.durationS)} min of ` : ''}practice?
-			</span>
-			<button type="button" class="h-9 px-2 font-medium" onclick={() => (pending = null)}
-				>Keep</button
-			>
-			<button
-				type="button"
-				class="h-9 px-2 font-medium text-danger"
-				onclick={() => {
-					const intent = pending;
-					pending = null;
-					if (intent === 'skip') session?.onskip();
-					else onclose();
-				}}>Discard</button
-			>
-		</div>
-	{/if}
-
+<Sheet title={exercise.name} open={true} {onclose}>
 	{#if session && !justLogged && !session.ended}
 		<div class="mb-2 flex justify-end">
 			<button
 				type="button"
 				class="text-[13px] text-accent"
-				onclick={() => (unsaved ? (pending = 'skip') : session.onskip())}>Skip →</button
+				onclick={() => away(session.onskip, 'Skip')}>Skip →</button
 			>
 		</div>
 	{/if}
@@ -183,32 +153,38 @@
 		method="POST"
 		action="?/log"
 		class="mt-4"
-		use:enhance={({ formData }) => {
-			busy = true;
-			// Captured now, not after `update()`: a success resets the bound
-			// fields (Minutes goes back to ''), so reading `exactS`/`minutes`
-			// afterwards lost a hand-typed value — see finding 1. Same rule as
-			// the server's own (log-form.ts): durationS wins over
-			// durationMin*60, else there is nothing to report.
-			const asSeconds = (v: FormDataEntryValue | null) =>
-				v !== null && String(v) !== '' ? Number(v) : null;
-			const fromS = asSeconds(formData.get('durationS'));
-			const fromMin = asSeconds(formData.get('durationMin'));
-			const logged = fromS ?? (fromMin === null ? null : fromMin * 60);
-			return async ({ update, result }) => {
-				await update();
-				busy = false;
-				if (result.type !== 'success') return;
-				rating = null;
-				minutes = '';
-				exactS = null;
-				justLogged = true;
-				// In a session "Logged ✓" stays until Next, Skip or Finish — the Next
-				// button hangs off it. Outside one it fades back to "Log set".
-				if (!session) setTimeout(() => (justLogged = false), 2500);
-				onlogged?.(logged);
-				load();
-			};
+		bind:this={logForm}
+		use:guarded={{
+			label: 'Practice log',
+			dirty: (changed) => unsaved || changed,
+			blocked: () => (playing ? 'Stop the count to log it.' : null),
+			submit: ({ formData }) => {
+				busy = true;
+				// Captured now, not after `update()`: a success resets the bound
+				// fields (Minutes goes back to ''), so reading `exactS`/`minutes`
+				// afterwards lost a hand-typed value — see finding 1. Same rule as
+				// the server's own (log-form.ts): durationS wins over
+				// durationMin*60, else there is nothing to report.
+				const asSeconds = (v: FormDataEntryValue | null) =>
+					v !== null && String(v) !== '' ? Number(v) : null;
+				const fromS = asSeconds(formData.get('durationS'));
+				const fromMin = asSeconds(formData.get('durationMin'));
+				const logged = fromS ?? (fromMin === null ? null : fromMin * 60);
+				return async ({ update, result }) => {
+					await update();
+					busy = false;
+					if (result.type !== 'success') return;
+					rating = null;
+					minutes = '';
+					exactS = null;
+					justLogged = true;
+					// In a session "Logged ✓" stays until Next, Skip or Finish — the Next
+					// button hangs off it. Outside one it fades back to "Log set".
+					if (!session) setTimeout(() => (justLogged = false), 2500);
+					onlogged?.(logged);
+					load();
+				};
+			}
 		}}
 	>
 		<input type="hidden" name="exerciseId" value={exercise.id} />
