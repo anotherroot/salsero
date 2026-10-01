@@ -270,6 +270,9 @@
 	}}
 	{onkeydown}
 >
+	<!-- A tap or a mouse move anywhere only brings the controls back; the keys
+	     have their own handler on the dialog, so the stage needs none. -->
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
 		bind:this={stage}
 		class="relative h-full w-full bg-black text-white"
