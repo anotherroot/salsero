@@ -3,14 +3,18 @@
 	import { onMount } from 'svelte';
 	import { watchMedia, type MediaProblem } from '$lib/media';
 	import { VIDEO_RATES, loadVideoPrefs, saveVideoPrefs, type VideoRate } from '$lib/video-prefs';
+	import VideoPlayer from './VideoPlayer.svelte';
+	import type { SpotOwner } from '$lib/types';
 
 	interface Props {
 		src: string;
 		kind?: 'video' | 'audio';
+		/** The recording or lesson video this is, for full screen and its spots. */
+		owner?: SpotOwner;
 		onproblem: (problem: MediaProblem) => void;
 	}
 
-	let { src, kind = 'video', onproblem }: Props = $props();
+	let { src, kind = 'video', owner, onproblem }: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
 	// choice on mount: reading localStorage during SSR is impossible, and
@@ -32,11 +36,21 @@
 	const keepPitch = (el: HTMLMediaElement) => {
 		el.preservesPitch = true;
 	};
+
+	let inline: HTMLVideoElement | undefined = $state();
+	let fullAt = $state<number | null>(null);
+
+	function openFull() {
+		if (!inline) return;
+		inline.pause();
+		fullAt = inline.currentTime;
+	}
 </script>
 
 {#if kind === 'video'}
 	<!-- svelte-ignore a11y_media_has_caption -->
 	<video
+		bind:this={inline}
 		{src}
 		controls
 		playsinline
@@ -69,6 +83,13 @@
 				: 'border-rule text-ink-2'}">Mirror</button
 		>
 	{/if}
+	{#if owner}
+		<button
+			type="button"
+			onclick={openFull}
+			class="h-8 rounded-lg border border-rule px-2.5 text-ink-2">Full screen</button
+		>
+	{/if}
 	<span class="ml-auto flex gap-1" role="group" aria-label="Speed">
 		{#each VIDEO_RATES as r (r)}
 			<button
@@ -82,6 +103,21 @@
 		{/each}
 	</span>
 </div>
+
+{#if owner && fullAt !== null}
+	<VideoPlayer
+		{src}
+		{owner}
+		startAt={fullAt}
+		{mirror}
+		{rate}
+		onchoose={choose}
+		onclose={(at) => {
+			if (inline) inline.currentTime = at;
+			fullAt = null;
+		}}
+	/>
+{/if}
 
 <style>
 	/* Learn it facing the teacher, as in a studio mirror. */

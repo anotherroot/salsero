@@ -411,6 +411,7 @@
 						<VideoFrame
 							src="/recordings/{rec.file}"
 							kind={rec.kind}
+							owner={{ recordingId: rec.id }}
 							onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
 						/>
 					{/if}

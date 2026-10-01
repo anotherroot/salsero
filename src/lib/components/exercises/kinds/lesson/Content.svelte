@@ -39,6 +39,7 @@
 				{:else}
 					<VideoFrame
 						src="/lesson-videos/{video.file}"
+						owner={{ lessonVideoId: video.id }}
 						onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 					/>
 				{/if}
