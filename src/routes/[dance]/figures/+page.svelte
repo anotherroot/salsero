@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
-	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -139,12 +139,15 @@
 			method="POST"
 			action="?/create"
 			class="space-y-3"
-			use:enhance={() => {
-				busy = true;
-				return async ({ update }) => {
-					await update();
-					busy = false;
-				};
+			use:guarded={{
+				label: 'New figure',
+				submit: () => {
+					busy = true;
+					return async ({ update }) => {
+						await update();
+						busy = false;
+					};
+				}
 			}}
 		>
 			<FigureFields dance={data.dance} name={form?.name} notes={form?.notes} />

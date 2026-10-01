@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
@@ -176,7 +177,7 @@
 					method="POST"
 					action="?/updateVariation"
 					class="space-y-3"
-					use:enhance={closeOnSuccess}
+					use:guarded={{ label: 'Variation edits', submit: closeOnSuccess }}
 				>
 					<input type="hidden" name="versionId" value={version.id} />
 					<label class="block">
@@ -246,7 +247,7 @@
 					method="POST"
 					action="?/update"
 					class="space-y-3"
-					use:enhance={closeOnSuccess}
+					use:guarded={{ label: 'Figure edits', submit: closeOnSuccess }}
 				>
 					<FigureFields
 						dance={data.dance}
@@ -483,7 +484,12 @@
 >
 	<!-- A success redirects to the new variation's tab. Its positions and timing
 	     start as Basic's; Edit there to change them. -->
-	<form method="POST" action="?/createVariation" class="space-y-3" use:enhance={closeSheet}>
+	<form
+		method="POST"
+		action="?/createVariation"
+		class="space-y-3"
+		use:guarded={{ label: 'New variation', submit: closeSheet }}
+	>
 		{#if failed('createVariation')}
 			<p class={errorBox} role="alert">{failed('createVariation')}</p>
 		{/if}

@@ -57,6 +57,9 @@ src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config
                      (practice.ts), a wall-clock stopwatch, the Today session.
                      Client-safe
+src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
+                     guard.svelte.ts is the live list, `use:guarded`, and the
+                     navigation guard. ui/UnsavedDialog.svelte asks the question
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
@@ -159,6 +162,12 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
 - **Never judge the worker against `vite dev`.** The dev server skips
   SvelteKit's cross-site POST check; a worker request that passes there can
   still 403 in production. Test against `node build` or the real host.
+- **A form someone fills in uses `use:guarded`, not `use:enhance`.** Same
+  callback, passed as `submit`, plus a `label`. That is what makes leaving,
+  or closing its sheet, ask "Unsaved changes" and lets the dialog's Save send
+  it. One-tap forms (delete, move, a picker's Add) stay on `use:enhance`.
+  Never a browser `confirm()` for unsaved work. See "Unsaved changes" in the
+  design spec.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with

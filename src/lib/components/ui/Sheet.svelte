@@ -1,22 +1,15 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { leaveOrAsk, unsaved } from '$lib/unsaved/guard.svelte';
 
 	interface Props {
 		title: string;
 		open: boolean;
 		onclose: () => void;
-		/**
-		 * While true, nothing closes the sheet by accident: the backdrop tap,
-		 * Escape and ✕ call `onguarded` instead, and the caller decides (the log
-		 * popup asks "Discard 4 min of practice?"). A stray tap must never throw
-		 * away a run — the player's own save sheet has exactly that known gap.
-		 */
-		guard?: boolean;
-		onguarded?: () => void;
 		children: Snippet;
 	}
 
-	let { title, open, onclose, guard = false, onguarded, children }: Props = $props();
+	let { title, open, onclose, children }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 
 	/*
@@ -29,6 +22,15 @@
 		if (open && !dialog.open) dialog.showModal();
 		if (!open && dialog.open) dialog.close();
 	});
+
+	/**
+	 * ✕, the backdrop and Escape all come here. Anything unsaved inside the sheet
+	 * (a typed form, a finished run) gets the unsaved-changes question first, so
+	 * a stray tap never throws it away.
+	 */
+	function tryClose() {
+		if (dialog) leaveOrAsk(dialog, onclose, 'Close');
+	}
 </script>
 
 <dialog
@@ -36,19 +38,15 @@
 	aria-label={title}
 	{onclose}
 	oncancel={(e) => {
-		// Escape. Cancelling it keeps the dialog open; Chrome lets a SECOND
-		// Escape through regardless (its anti-trap rule), which then closes
-		// normally — see Known gaps.
-		if (guard) {
+		// Escape. Cancelling it keeps the sheet open while the question is up.
+		if (dialog && unsaved(dialog).length > 0) {
 			e.preventDefault();
-			onguarded?.();
+			tryClose();
 		}
 	}}
 	onclick={(e) => {
 		// A click on the backdrop lands on the dialog element itself.
-		if (e.target !== dialog) return;
-		if (guard) onguarded?.();
-		else onclose();
+		if (e.target === dialog) tryClose();
 	}}
 >
 	<div class="inner">
@@ -58,7 +56,7 @@
 				type="button"
 				class="-mr-2 grid size-10 place-items-center rounded-full text-[20px] text-muted"
 				aria-label="Close"
-				onclick={() => (guard ? onguarded?.() : onclose())}>×</button
+				onclick={tryClose}>×</button
 			>
 		</header>
 		{#if open}{@render children()}{/if}

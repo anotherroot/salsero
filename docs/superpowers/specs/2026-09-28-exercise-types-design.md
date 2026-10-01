@@ -281,12 +281,15 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
 
 ### A run cannot be lost by accident
 
-- While running, or with unsaved panel time, the backdrop tap and Escape do
-  **not** close the popup (`Sheet` gains a `guard` prop). This closes the
-  player's known gap "a stray tap on the save sheet's backdrop discards a
-  finished run" for the popup.
-- The ✕ becomes an inline confirmation — "Discard 4 min of practice?" with
-  Discard / Keep — never a browser `confirm()`.
+- While running, with unsaved panel time, or with anything typed in the log
+  form (minutes, reps, rating, note), the backdrop tap, Escape, the ✕, Skip,
+  Next, Finish and a navigation do **not** leave the popup straight away: they
+  get the app's one unsaved-changes dialog (Save · Stay · Close / Skip without
+  saving — see the main design's "Unsaved changes"). Never a browser
+  `confirm()`. Save is disabled while the count plays ("Stop the count to log
+  it."). This replaced, on 2026-10-01, the inline "Discard 4 min of
+  practice?" banner and `Sheet`'s `guard` prop, which covered practice time
+  only.
 - Closing the popup, navigating away or unloading stops the player (`onDestroy`
   plus `beforeunload`, as the player page does). The wake lock comes with
   `createPlayer`.
@@ -426,9 +429,10 @@ hunting one of these as a new bug:
 
 - **Chrome lets a second Escape close a guarded popup** — its anti-trap rule
   for `<dialog>` overrides the first Escape's guard on the second press within
-  the browser's own short window. The run is stopped and its unsaved time is
-  lost. The backdrop tap and the ✕ are fully guarded; only this second-Escape
-  path is not.
+  the browser's own short window. Since 2026-10-01 the first Escape opens the
+  unsaved-changes dialog as a modal on top, so the second should land on that
+  (meaning Stay) rather than on the popup. Not yet checked with a real
+  keyboard; synthetic events do not reproduce the anti-trap rule.
 - **The popup's content is one request after opening.** The form and "Last
   time" render from the page's own data; the type's content (`GET
   /[dance]/exercises/[id]/practice`) fetches once the popup opens, so on a

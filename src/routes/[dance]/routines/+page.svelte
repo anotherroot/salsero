@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import type { ActionData, PageData } from './$types';
@@ -77,12 +77,15 @@
 		method="POST"
 		action="?/create"
 		class="space-y-3"
-		use:enhance={() => {
-			busy = true;
-			return async ({ update }) => {
-				await update();
-				busy = false;
-			};
+		use:guarded={{
+			label: 'New routine',
+			submit: () => {
+				busy = true;
+				return async ({ update }) => {
+					await update();
+					busy = false;
+				};
+			}
 		}}
 	>
 		{#if form?.message}

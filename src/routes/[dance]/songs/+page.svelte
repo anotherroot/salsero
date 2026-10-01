@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -54,12 +55,15 @@
 		method="POST"
 		action="?/addUrl"
 		class="space-y-2 rounded-xl border border-line bg-raised p-3"
-		use:enhance={() => {
-			busy = true;
-			return async ({ update }) => {
-				await update();
-				busy = false;
-			};
+		use:guarded={{
+			label: 'Song from YouTube',
+			submit: () => {
+				busy = true;
+				return async ({ update }) => {
+					await update();
+					busy = false;
+				};
+			}
 		}}
 	>
 		<label for="url" class="block text-[12px] font-medium text-ink-2">Add from YouTube</label>

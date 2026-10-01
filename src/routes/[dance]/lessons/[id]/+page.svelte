@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -83,11 +84,15 @@
 			method="POST"
 			action="?/update"
 			class="space-y-3"
-			use:enhance={() =>
-				async ({ update, result }) => {
-					await update({ reset: false });
-					if (result.type === 'success') editing = false;
-				}}
+			use:guarded={{
+				label: 'Lesson edits',
+				submit:
+					() =>
+					async ({ update, result }) => {
+						await update({ reset: false });
+						if (result.type === 'success') editing = false;
+					}
+			}}
 		>
 			{#if failure('update')}
 				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
@@ -363,11 +368,15 @@
 		method="POST"
 		action="?/newFigure"
 		class="space-y-3"
-		use:enhance={() =>
-			async ({ update, result }) => {
-				await update();
-				if (result.type === 'success') addingFigure = false;
-			}}
+		use:guarded={{
+			label: 'New figure',
+			submit:
+				() =>
+				async ({ update, result }) => {
+					await update();
+					if (result.type === 'success') addingFigure = false;
+				}
+		}}
 	>
 		{#if failure('newFigure')}
 			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
@@ -389,7 +398,12 @@
 	onclose={() => (addingRoutine = false)}
 >
 	<!-- A success redirects to the routine's page, where its slots are built. -->
-	<form method="POST" action="?/newRoutine" class="space-y-3" use:enhance>
+	<form
+		method="POST"
+		action="?/newRoutine"
+		class="space-y-3"
+		use:guarded={{ label: 'New routine' }}
+	>
 		{#if failure('newRoutine')}
 			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
 				{failure('newRoutine')}
@@ -438,11 +452,15 @@
 		method="POST"
 		action="?/newExercise"
 		class="space-y-3"
-		use:enhance={() =>
-			async ({ update, result }) => {
-				await update();
-				if (result.type === 'success') addingExercise = false;
-			}}
+		use:guarded={{
+			label: 'New exercise',
+			submit:
+				() =>
+				async ({ update, result }) => {
+					await update();
+					if (result.type === 'success') addingExercise = false;
+				}
+		}}
 	>
 		{#if failure('newExercise')}
 			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">

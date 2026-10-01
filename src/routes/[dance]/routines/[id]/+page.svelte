@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { resolve } from '$app/paths';
 	import { dateLabel } from '$lib/format';
@@ -219,11 +220,15 @@
 			method="POST"
 			action="?/rename"
 			class="space-y-3"
-			use:enhance={() =>
-				async ({ update, result }) => {
-					await update({ reset: false });
-					if (result.type === 'success') editing = false;
-				}}
+			use:guarded={{
+				label: 'Routine edits',
+				submit:
+					() =>
+					async ({ update, result }) => {
+						await update({ reset: false });
+						if (result.type === 'success') editing = false;
+					}
+			}}
 		>
 			<label class="block">
 				<span class="mb-1 block text-[13px] text-muted">Name</span>
@@ -530,7 +535,12 @@
 				</div>
 			{/if}
 
-			<form method="POST" action="?/note" class="flex items-center gap-2" use:enhance>
+			<form
+				method="POST"
+				action="?/note"
+				class="flex items-center gap-2"
+				use:guarded={{ label: 'Slot note' }}
+			>
 				<input type="hidden" name="stepId" value={slot.id} />
 				<input
 					name="note"

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { clock } from '$lib/format';
 
@@ -40,12 +40,19 @@
 	<form
 		method="POST"
 		action="?/save"
-		use:enhance={() => {
-			busy = true;
-			return async ({ update }) => {
-				await update();
-				busy = false;
-			};
+		use:guarded={{
+			label: 'This run',
+			// The run itself is what is unsaved, typed or not: ✕, the backdrop,
+			// Escape and a navigation all ask. "Don't save" is the one way out
+			// that does not, because it says so.
+			dirty: () => true,
+			submit: () => {
+				busy = true;
+				return async ({ update }) => {
+					await update();
+					busy = false;
+				};
+			}
 		}}
 	>
 		<input type="hidden" name="durationS" value={Math.round(durationS)} />

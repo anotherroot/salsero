@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
-	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { longPress } from '$lib/longpress';
 	import type { ActionData, PageData } from './$types';
@@ -152,13 +152,16 @@
 		method="POST"
 		action="?/create"
 		class="space-y-3"
-		use:enhance={() => {
-			busy = true;
-			// `update` follows the redirect to the new routine page.
-			return async ({ update }) => {
-				await update();
-				busy = false;
-			};
+		use:guarded={{
+			label: 'New routine',
+			submit: () => {
+				busy = true;
+				// `update` follows the redirect to the new routine page.
+				return async ({ update }) => {
+					await update();
+					busy = false;
+				};
+			}
 		}}
 	>
 		{#if form?.message}

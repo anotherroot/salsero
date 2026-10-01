@@ -1,6 +1,7 @@
 <!-- src/lib/components/links/LinksEditor.svelte -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import LinkList from './LinkList.svelte';
 	import { FIELD } from '$lib/components/ui/styles';
 	import type { LinkRow } from '$lib/types';
@@ -29,11 +30,15 @@
 	method="POST"
 	action="?/addLink"
 	class="mt-3 space-y-2"
-	use:enhance={() =>
-		async ({ update, result }) => {
-			// Keep the typed text on a failure so the bad line can be fixed in place.
-			await update({ reset: result.type === 'success' });
-		}}
+	use:guarded={{
+		label: 'A link',
+		submit:
+			() =>
+			async ({ update, result }) => {
+				// Keep the typed text on a failure so the bad line can be fixed in place.
+				await update({ reset: result.type === 'success' });
+			}
+	}}
 >
 	<textarea
 		name="urls"
