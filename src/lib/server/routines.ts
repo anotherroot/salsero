@@ -560,32 +560,6 @@ export function setSlotNote(db: Db, stepId: number, note: string | null): boolea
 }
 
 /**
- * Hard-delete a slot and its options, then renumber.
- *
- * A slot is structure, not an entity — nothing points at it, no set refers to
- * it, and there is no history in it to keep. `routineId` is passed so a slot
- * can only be deleted through the routine it belongs to.
- */
-export function deleteSlot(db: Db, routineId: number, stepId: number): boolean {
-	return db.transaction((tx) => {
-		// Confirm the slot is this routine's BEFORE deleting anything, then take the
-		// options first: `routine_step_options.step_id` references `routine_steps.id`
-		// and `openDb` sets `foreign_keys = ON`, so deleting the step first would
-		// abort on its own children.
-		const step = tx
-			.select({ id: routineSteps.id })
-			.from(routineSteps)
-			.where(and(eq(routineSteps.id, stepId), eq(routineSteps.routineId, routineId)))
-			.get();
-		if (!step) return false;
-		tx.delete(routineStepOptions).where(eq(routineStepOptions.stepId, stepId)).run();
-		tx.delete(routineSteps).where(eq(routineSteps.id, stepId)).run();
-		order(tx, slotIds(tx, routineId));
-		return true;
-	});
-}
-
-/**
  * Hard-delete several slots and renumber, returning what was removed so the
  * editor can offer Undo. All or nothing: null, with nothing deleted, when any
  * id is not this routine's — a stale tab or a double tap must not delete half
@@ -666,19 +640,6 @@ export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]
 	});
 }
 
-/** Swap a slot with its neighbour. `delta` is -1 or 1. */
-export function moveSlot(db: Db, routineId: number, stepId: number, delta: -1 | 1): boolean {
-	return db.transaction((tx) => {
-		const ids = slotIds(tx, routineId);
-		const i = ids.indexOf(stepId);
-		const j = i + delta;
-		if (i < 0 || j < 0 || j >= ids.length) return false;
-		[ids[i], ids[j]] = [ids[j], ids[i]];
-		order(tx, ids);
-		return true;
-	});
-}
-
 /**
  * Move a slot to `index` — where a drag dropped it. False when the slot is not
  * this routine's or the index is off either end; a drop is always inside the
@@ -693,60 +654,6 @@ export function moveSlotTo(db: Db, routineId: number, stepId: number, index: num
 		ids.splice(index, 0, stepId);
 		order(tx, ids);
 		return true;
-	});
-}
-
-/**
- * Insert a copy of a slot directly after it. The new slot's id, or null when the
- * slot is not this routine's.
- *
- * Directly after, not appended: a duplicate is for a step that repeats, and a
- * repeat belongs next to what it repeats. Everything about the slot comes with
- * it — its options, its note, and an embedded child as a reference rather than a
- * copy of that child.
- */
-export function duplicateSlot(db: Db, routineId: number, stepId: number): number | null {
-	return db.transaction((tx) => {
-		const step = tx
-			.select({
-				id: routineSteps.id,
-				childRoutineId: routineSteps.childRoutineId,
-				note: routineSteps.note
-			})
-			.from(routineSteps)
-			.where(and(eq(routineSteps.id, stepId), eq(routineSteps.routineId, routineId)))
-			.get();
-		if (!step) return null;
-
-		// Appended first, then the whole routine is re-ordered with the copy spliced
-		// in after its original. Inserting at the target position directly would
-		// collide with `unique (routine_id, position)` before anything shifted out
-		// of the way — the same reason `order` exists at all.
-		const copy = tx
-			.insert(routineSteps)
-			.values({
-				routineId,
-				position: slotIds(tx, routineId).length,
-				childRoutineId: step.childRoutineId,
-				note: step.note
-			})
-			.returning({ id: routineSteps.id })
-			.get();
-
-		const options = tx
-			.select({ figureId: routineStepOptions.figureId })
-			.from(routineStepOptions)
-			.where(eq(routineStepOptions.stepId, stepId))
-			.orderBy(...MAIN_FIRST)
-			.all();
-		for (const o of options) {
-			tx.insert(routineStepOptions).values({ stepId: copy.id, figureId: o.figureId }).run();
-		}
-
-		const ids = slotIds(tx, routineId).filter((id) => id !== copy.id);
-		ids.splice(ids.indexOf(stepId) + 1, 0, copy.id);
-		order(tx, ids);
-		return copy.id;
 	});
 }
 

@@ -11,7 +11,8 @@ export interface AltView {
 	label: string;
 	/** "1→1". Empty for an archived figure. */
 	timing: string;
-	href: string;
+	/** A `resolve()` result, not a bare string — see `RowView.href`. */
+	href: ResolvedPathname;
 }
 
 export interface RowView {

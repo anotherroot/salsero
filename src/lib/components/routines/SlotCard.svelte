@@ -7,6 +7,7 @@
 	 */
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
+	import type { ResolvedPathname } from '$app/types';
 	import Swipeable from './Swipeable.svelte';
 	import type { RowView, Swiped } from './types';
 
@@ -25,7 +26,7 @@
 		ongrab: (e: PointerEvent) => void;
 		onkeymove: (delta: -1 | 1) => void;
 		ondelete: () => void;
-		onopen: (href: string) => void;
+		onopen: (href: ResolvedPathname) => void;
 		onremoveAlt: (figureId: number, label: string) => void;
 		onaddAlt: () => void;
 		onnote: (note: string | null) => void;
@@ -61,7 +62,7 @@
 	onchange={(side) => onswipe(slotKey, side)}
 	disabled={selecting}
 	end={{ label: 'Delete', onclick: ondelete }}
-	start={row.href ? { label: 'Open', onclick: () => onopen(row.href as string) } : undefined}
+	start={row.href ? { label: 'Open', onclick: () => onopen(row.href!) } : undefined}
 >
 	<div
 		class="rounded-xl border bg-raised transition-[box-shadow,scale] duration-150 motion-reduce:transition-none {selected ||

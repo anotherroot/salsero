@@ -535,39 +535,10 @@ describe("the routine detail route refuses the other dance's rows", () => {
 		expect(() => loadAt(routinePage.load, 'salsa', String(bachataRoutineId))).toThrow(threw404);
 	});
 
-	it('will not add a bachata figure to a salsa routine', async () => {
-		// A BACHATA FIGURE id on a SALSA routine: `requireRoutineInDance` already
-		// accepts this routine (it is salsa), so only `addFigureSlot`'s own dance
-		// check on the figure can refuse it. Posting a bachata ROUTINE id instead
-		// would be rejected by `requireRoutineInDance` — a different guard — and
-		// the test would still pass with `addFigureSlot`'s check deleted.
-		const res = (await call(
-			routinePage.actions.addFigure,
-			post('salsa', { figureId: String(bachataFigureId) }, String(salsaRoutineAId))
-		)) as { status: number; data: { message: string } };
-		expect(res.status).toBe(400);
-		expect(res.data.message).toBe('That figure is not part of this dance.');
-		expect(routineSlots(db, salsaRoutineAId)).toHaveLength(0);
-	});
-
-	it('will not delete a slot belonging to a different salsa routine', async () => {
-		// The slot belongs to a DIFFERENT SALSA routine, not a bachata one: a
-		// bachata slot id would already be turned away by `deleteSlot`'s own
-		// `routine_id` match without proving anything about same-dance ownership,
-		// which is the case that actually matters here.
-		const stepId = addFigureSlot(db, salsaRoutineBId, salsaFigureId)!;
-		const res = (await call(
-			routinePage.actions.remove,
-			post('salsa', { stepId: String(stepId) }, String(salsaRoutineAId))
-		)) as { status: number; data: { message: string } };
-		expect(res.status).toBe(400);
-		expect(res.data.message).toBe('That slot is already gone.');
-		expect(routineSlots(db, salsaRoutineBId)).toHaveLength(1);
-	});
-
 	// `addOption`, `removeOption` and `note` all take a bare `stepId` with no
-	// routine id to check it against — unlike `remove` and `move`, whose data
-	// functions take `routine.id` natively and scope in SQL. For these three,
+	// routine id to check it against — unlike `reorder`, `deleteMany`,
+	// `duplicateMany` and `extract`, whose data functions take `routine.id`
+	// natively and scope in SQL. For these three,
 	// `ownsSlot` in the route is the ONLY guard: a same-dance slot from a
 	// SECOND salsa routine passes `requireRoutineInDance` (routine A really is
 	// salsa) and would pass the data function's own dance check too, since

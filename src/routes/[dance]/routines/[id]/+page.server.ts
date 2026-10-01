@@ -8,20 +8,15 @@ import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
 import { listReadySongs } from '$lib/server/songs';
 import {
-	addChildSlot,
-	addFigureSlot,
 	addOption,
 	archiveRoutine,
-	deleteSlot,
 	deleteSlots,
 	duplicateRoutine,
-	duplicateSlot,
 	duplicateSlots,
 	embeddable,
 	embeddedIn,
 	extractRoutine,
 	insertSlot,
-	moveSlot,
 	moveSlotTo,
 	removeOption,
 	restoreOption,
@@ -38,8 +33,6 @@ import {
 	routineEnd,
 	routineStarts,
 	rowEdges,
-	slotStarts,
-	slotTiming,
 	timingBreaks,
 	timingSeams,
 	type OptionsSlot
@@ -70,17 +63,6 @@ export const load: PageServerLoad = ({ params }) => {
 	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, dance);
-	// Every figure AND variation, each with its landing — where it leaves the
-	// hands and on which count — so the pickers can offer the ones that fit. The
-	// server's `addOption` still decides; this only stops offering the refusals.
-	const figures = listVersions(db, dance).map((v) => {
-		const node = figureById(graph, v.id);
-		return {
-			...v,
-			end: node ? endOf(graph, node) : null,
-			next: node ? nextCountOf(node) : null
-		};
-	});
 
 	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. The picker offers every figure of
@@ -138,7 +120,6 @@ export const load: PageServerLoad = ({ params }) => {
 		// grid from `?song=`, so this only has to name them.
 		songs: listReadySongs(db, dance),
 		slots,
-		figures,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(figureLabels(db, dance)),
@@ -153,14 +134,9 @@ export const load: PageServerLoad = ({ params }) => {
 		// Same indexing as `breaks`: flat, so only trustworthy per row while no
 		// slot holds a child.
 		timingBreaks: timingBreaks(graph, shape),
-		// Per slot, parallel to `slots`: which counts it begins on and which it
-		// leaves the next on — the "5→1" on each row.
-		slotTiming: shape.slots.map((s) => slotTiming(graph, s)),
 		// The per-row markers, indexed by `slots` rather than the flat run, so an
 		// archived-only slot or an embedded routine cannot shift them.
 		timingSeams: timingSeams(graph, shape),
-		hasChild: slots.some((s) => s.childId !== null),
-		embeddable: embeddable(db, routine.id),
 		taughtIn: routineTaughtIn(db, routine.id),
 		candidates,
 		// Per row, parallel to `slots`: where it begins and lands — the picker's
@@ -168,13 +144,7 @@ export const load: PageServerLoad = ({ params }) => {
 		edges: shape.slots.map((s) => rowEdges(graph, s)),
 		positionSeams: positionSeams(graph, shape),
 		// Why "Make routine" is greyed, named.
-		embeddedIn: embeddedIn(db, routine.id).map((r) => r.name),
-		// Per slot: where it can be entered from, so the editor can say so.
-		slotStarts: shape.slots.map((s) =>
-			s.kind === 'child'
-				? slotStarts(graph, s.slots[0] ?? { kind: 'options', figureIds: [] })
-				: slotStarts(graph, s)
-		)
+		embeddedIn: embeddedIn(db, routine.id).map((r) => r.name)
 	};
 };
 
@@ -182,8 +152,9 @@ export const load: PageServerLoad = ({ params }) => {
  * Whether `stepId` names one of this routine's own slots.
  *
  * `addOption`, `removeOption` and `setSlotNote` take a bare slot id with no
- * routine id to check it against — unlike `deleteSlot` and `moveSlot`, which
- * take `routine.id` and enforce this themselves. Without this lookup here, a
+ * routine id to check it against — unlike `reorder`, `deleteMany`,
+ * `duplicateMany` and `extract`, which take `routine.id` and enforce this
+ * themselves. Without this lookup here, a
  * salsa request could edit a slot belonging to a different salsa routine, or
  * to another dance's, since the id in a form body is just a number.
  */
@@ -232,16 +203,6 @@ export const actions: Actions = {
 		throw redirect(303, `/${params.dance}/routines/${copy.id}`);
 	},
 
-	duplicateSlot: async ({ params, request }) => {
-		const routine = routineOf(params);
-		const form = await request.formData();
-		const stepId = int(form, 'stepId');
-		if (stepId === undefined || duplicateSlot(getDb(), routine.id, stepId) === null) {
-			return slotFail('That slot could not be copied.', stepId);
-		}
-		return { ok: true };
-	},
-
 	archive: async ({ params }) => {
 		const routine = routineOf(params);
 		// The boolean is deliberately ignored: archiving twice is idempotent — the
@@ -249,28 +210,6 @@ export const actions: Actions = {
 		// a no-op worth redirecting, not an error worth reporting.
 		archiveRoutine(getDb(), routine.id, Date.now());
 		throw redirect(303, `/${params.dance}/routines`);
-	},
-
-	addFigure: async ({ params, request }) => {
-		const routine = routineOf(params);
-		const db = getDb();
-		const form = await request.formData();
-		const figureId = int(form, 'figureId');
-		if (figureId === undefined || addFigureSlot(db, routine.id, figureId) === null) {
-			return fail(400, { message: 'That figure is not part of this dance.' });
-		}
-		return { ok: true };
-	},
-
-	addChild: async ({ params, request }) => {
-		const routine = routineOf(params);
-		const db = getDb();
-		const form = await request.formData();
-		const childId = int(form, 'childId');
-		if (childId === undefined || addChildSlot(db, routine.id, childId) === null) {
-			return fail(400, { message: 'That routine cannot be embedded here.' });
-		}
-		return { ok: true };
 	},
 
 	addOption: async ({ params, request }) => {
@@ -327,33 +266,6 @@ export const actions: Actions = {
 			return slotFail('That slot does not belong to this routine.', stepId);
 		}
 		setSlotNote(db, stepId, note);
-		return { ok: true };
-	},
-
-	remove: async ({ params, request }) => {
-		const routine = routineOf(params);
-		const db = getDb();
-		const form = await request.formData();
-		const stepId = int(form, 'stepId');
-		if (stepId === undefined || !deleteSlot(db, routine.id, stepId)) {
-			return slotFail('That slot is already gone.', stepId);
-		}
-		return { ok: true };
-	},
-
-	move: async ({ params, request }) => {
-		const routine = routineOf(params);
-		const db = getDb();
-		const form = await request.formData();
-		const stepId = int(form, 'stepId');
-		const delta = int(form, 'delta');
-		if (
-			stepId === undefined ||
-			(delta !== -1 && delta !== 1) ||
-			!moveSlot(db, routine.id, stepId, delta)
-		) {
-			return slotFail('That slot cannot move that way.', stepId);
-		}
 		return { ok: true };
 	},
 
