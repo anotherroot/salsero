@@ -82,3 +82,6 @@ export const UPLOAD_PARTIAL_TTL_MS = 24 * 60 * 60 * 1000;
  * uses 100 ms; this is the ceiling, not the value.
  */
 export const MAX_PRE_ROLL_S = 0.25;
+
+/** Longest spot label, in characters — a name like "Cross-body, the hand change", not a note. */
+export const MAX_SPOT_LABEL = 80;
