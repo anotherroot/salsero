@@ -552,3 +552,34 @@ describe('createRoutineFromFigures', () => {
 		expect(db.select().from(exercises).all()).toEqual([]);
 	});
 });
+
+describe('the main figure', () => {
+	it('is the first option added, not the lowest id', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const low = figure(db, 'Low');
+		const high = figure(db, 'High');
+		const step = addFigureSlot(db, routine.id, high.id)!;
+		addOption(db, step, low.id);
+		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([high.id, low.id]);
+		expect(routineShapes(db, 'salsa').get(routine.id)!.slots[0]).toMatchObject({
+			figureIds: [high.id, low.id]
+		});
+	});
+
+	it('survives duplicateSlot and duplicateRoutine', () => {
+		const db = openDb(':memory:');
+		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
+		const low = figure(db, 'Low');
+		const high = figure(db, 'High');
+		const step = addFigureSlot(db, routine.id, high.id)!;
+		addOption(db, step, low.id);
+		duplicateSlot(db, routine.id, step);
+		expect(routineSlots(db, routine.id)[1].figureIds).toEqual([high.id, low.id]);
+		const copy = duplicateRoutine(db, routine.id)!;
+		expect(routineSlots(db, copy.id).map((s) => s.figureIds)).toEqual([
+			[high.id, low.id],
+			[high.id, low.id]
+		]);
+	});
+});

@@ -11,7 +11,7 @@
  * `src/lib/routines/` does the thinking about shapes; this module only feeds it
  * and writes the answers back.
  */
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, routineStepOptions, routineSteps, routines } from './db/schema';
 import { buildGraph } from './graph';
@@ -30,6 +30,17 @@ function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, 
 	}
 	return byStep;
 }
+
+/**
+ * A slot's options, main figure first: the order they were added in.
+ *
+ * The first option added is the slot's MAIN figure — the one the editor shows
+ * on the card, with the others hung under it as alternatives. `created_at` is
+ * epoch ms, so two options added in one transaction (every copy path) tie;
+ * `rowid` breaks the tie in insertion order, which is why every path that
+ * copies options inserts them in THIS order.
+ */
+const MAIN_FIRST = [asc(routineStepOptions.createdAt), sql`routine_step_options.rowid`];
 
 export interface RoutineInput {
 	name: string;
@@ -163,7 +174,7 @@ export function routineShapes(db: Db, dance: DanceSlug): Map<number, RoutineShap
 		.innerJoin(routineSteps, eq(routineSteps.id, routineStepOptions.stepId))
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
 		.where(eq(routines.dance, dance))
-		.orderBy(asc(routineStepOptions.figureId))
+		.orderBy(...MAIN_FIRST)
 		.all();
 
 	const byStep = groupByStep(options);
@@ -230,7 +241,7 @@ export function routineSlots(db: Db, routineId: number): SlotRow[] {
 					.select({ stepId: routineStepOptions.stepId, figureId: routineStepOptions.figureId })
 					.from(routineStepOptions)
 					.where(inArray(routineStepOptions.stepId, ids))
-					.orderBy(asc(routineStepOptions.figureId))
+					.orderBy(...MAIN_FIRST)
 					.all();
 
 	const byStep = groupByStep(options);
@@ -543,6 +554,7 @@ export function duplicateSlot(db: Db, routineId: number, stepId: number): number
 			.select({ figureId: routineStepOptions.figureId })
 			.from(routineStepOptions)
 			.where(eq(routineStepOptions.stepId, stepId))
+			.orderBy(...MAIN_FIRST)
 			.all();
 		for (const o of options) {
 			tx.insert(routineStepOptions).values({ stepId: copy.id, figureId: o.figureId }).run();
