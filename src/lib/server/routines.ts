@@ -18,6 +18,7 @@ import { buildGraph } from './graph';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { OptionsSlot, RoutineShape, Slot } from '$lib/routines/routines';
+import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { RoutineItem, SlotRow } from '$lib/types';
 
 /** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
@@ -291,6 +292,19 @@ function slotIds(tx: Tx, routineId: number): number[] {
 		.orderBy(asc(routineSteps.position))
 		.all()
 		.map((s) => s.id);
+}
+
+/** These steps' options, main figure first, grouped by step. */
+function optionsIn(tx: Tx, stepIds: number[]): Map<number, number[]> {
+	if (stepIds.length === 0) return new Map();
+	return groupByStep(
+		tx
+			.select({ stepId: routineStepOptions.stepId, figureId: routineStepOptions.figureId })
+			.from(routineStepOptions)
+			.where(inArray(routineStepOptions.stepId, stepIds))
+			.orderBy(...MAIN_FIRST)
+			.all()
+	);
 }
 
 /**
@@ -567,6 +581,87 @@ export function deleteSlot(db: Db, routineId: number, stepId: number): boolean {
 		tx.delete(routineStepOptions).where(eq(routineStepOptions.stepId, stepId)).run();
 		tx.delete(routineSteps).where(eq(routineSteps.id, stepId)).run();
 		order(tx, slotIds(tx, routineId));
+		return true;
+	});
+}
+
+/**
+ * Hard-delete several slots and renumber, returning what was removed so the
+ * editor can offer Undo. All or nothing: null, with nothing deleted, when any
+ * id is not this routine's — a stale tab or a double tap must not delete half
+ * of what it asked for.
+ */
+export function deleteSlots(db: Db, routineId: number, stepIds: number[]): SlotSnapshot[] | null {
+	const wanted = [...new Set(stepIds)];
+	if (wanted.length === 0) return null;
+	return db.transaction((tx) => {
+		const steps = tx
+			.select({
+				id: routineSteps.id,
+				position: routineSteps.position,
+				childId: routineSteps.childRoutineId,
+				note: routineSteps.note
+			})
+			.from(routineSteps)
+			.where(and(eq(routineSteps.routineId, routineId), inArray(routineSteps.id, wanted)))
+			.orderBy(asc(routineSteps.position))
+			.all();
+		if (steps.length !== wanted.length) return null;
+		const options = optionsIn(tx, wanted);
+		const snapshot = steps.map((s) => ({
+			position: s.position,
+			childId: s.childId,
+			note: s.note,
+			figureIds: options.get(s.id) ?? []
+		}));
+		// Options first: `routine_step_options.step_id` references the step and
+		// `foreign_keys = ON`, so the step cannot go while its options remain.
+		tx.delete(routineStepOptions).where(inArray(routineStepOptions.stepId, wanted)).run();
+		tx.delete(routineSteps).where(inArray(routineSteps.id, wanted)).run();
+		order(tx, slotIds(tx, routineId));
+		return snapshot;
+	});
+}
+
+/**
+ * Undo for `deleteSlots`: re-insert each slot at the position it was deleted
+ * from, lowest first — which is what makes a multi-slot undo land exactly where
+ * the slots were. A position past the end (the routine shrank since) appends.
+ *
+ * A figure only has to still be this dance's, archived or not: the slot held it
+ * a moment ago, and an undo that refused an archived figure would lose the
+ * slot. A child must still be embeddable, because the one-level rule is a
+ * structural guarantee, not a preference. All or nothing.
+ */
+export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]): boolean {
+	const routine = getRoutine(db, routineId);
+	if (!routine || snapshot.length === 0) return false;
+	const figureIds = [...new Set(snapshot.flatMap((s) => s.figureIds))];
+	if (figureIds.length > 0) {
+		const ours = db
+			.select({ id: figures.id })
+			.from(figures)
+			.where(and(inArray(figures.id, figureIds), eq(figures.dance, routine.dance)))
+			.all();
+		if (ours.length !== figureIds.length) return false;
+	}
+	if (snapshot.some((s) => s.childId !== null && !canEmbed(db, routineId, s.childId))) {
+		return false;
+	}
+	return db.transaction((tx) => {
+		for (const s of [...snapshot].sort((a, b) => a.position - b.position)) {
+			const ids = slotIds(tx, routineId);
+			const step = tx
+				.insert(routineSteps)
+				.values({ routineId, position: ids.length, childRoutineId: s.childId, note: s.note })
+				.returning({ id: routineSteps.id })
+				.get();
+			for (const figureId of s.figureIds) {
+				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+			}
+			ids.splice(Math.min(s.position, ids.length), 0, step.id);
+			order(tx, ids);
+		}
 		return true;
 	});
 }
