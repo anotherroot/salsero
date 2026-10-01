@@ -18,7 +18,10 @@ panel in the popup, an exercise page) and figure timing (a start count and a
 length in counts; routines report timing breaks) and figure variations (versions
 of a figure with their own positions, timing and videos; chosen per routine slot)
 and figure coverage (figures have no exercise by default; a page of figure
-versions by how many routines use them, and a routine made from a selection).
+versions by how many routines use them, and a routine made from a selection) and
+the routine editor (drag to reorder, swipe to delete or open, seams that build
+where a routine does not connect, a picker that offers what fits, a long-press
+selection with Make routine).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -33,6 +36,10 @@ the chunked upload protocol, the link rules, and the four Today bands.
 Exercise types have theirs,
 [`docs/superpowers/specs/2026-09-28-exercise-types-design.md`](docs/superpowers/specs/2026-09-28-exercise-types-design.md):
 the per-type log popup, links, and the in-popup practice panel.
+The routine editor has its own,
+[`docs/superpowers/specs/2026-10-01-routine-editor-design.md`](docs/superpowers/specs/2026-10-01-routine-editor-design.md):
+the main figure, the start rule for alternatives, the picker's anchors, and the
+gestures.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -50,12 +57,16 @@ src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
 src/lib/graph/       PURE figure graph: positions → what can follow what, the
                      gap report. Client-safe
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
-                     loops, the routine as the player's plan, and coverage
-                     (which routines can call each version). Client-safe
+                     loops, the routine as the player's plan, coverage
+                     (which routines can call each version), the picker's fitting
+                     (fit.ts), the selection's rules, and the delete snapshot.
+                     Client-safe
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config
                      (practice.ts), a wall-clock stopwatch, the Today session.
+                     Client-safe
+src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
                      Client-safe
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
@@ -66,7 +77,7 @@ static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
-                     exercises/ links/
+                     exercises/ links/ routines/
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
 src/lib/server/scope.ts  the dance wall at the route level: guards on params
                      and ids, so a request only ever reaches its own dance

@@ -15,6 +15,11 @@
 > breaks. A slot's alternative can be a figure's **variation** (a `figures`
 > row with `parent_id`); the options table is unchanged because a variation is a
 > figure id.
+>
+> **Updated 2026-10-01** by
+> [`2026-10-01-routine-editor-design.md`](2026-10-01-routine-editor-design.md):
+> the editor (drag, swipe, seams, the fitting picker, selection, Make routine),
+> the main figure, and the start rule for adding an alternative.
 
 ## Purpose
 
@@ -298,6 +303,12 @@ existing lever if Today gets noisy.
 - All options in a slot **must share one end position**, enforced on write.
   That is what interchangeable means: if picking option B changes where you
   land, B is not a variant, it is a different step.
+- **Adding** an alternative also requires, against the slot's **main figure**
+  (its first option added — `created_at`, then `rowid`), the same start count
+  and at least one shared start position. An alternative that shares no start
+  with the main figure can never be danced where it is. Enforced by
+  `addOption` on write; slots that predate the rule are left as they are. See
+  the [routine editor design](2026-10-01-routine-editor-design.md).
 - A slot's start positions are the **union** of its options', and a run filters
   them by the incoming position. Permissive on purpose — an option that does
   not work from where you are is simply not picked, rather than blocked at
