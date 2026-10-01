@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { links } from './db/schema';
-import { createFigure } from './figures';
+import { addFigureExercise, createFigure } from './figures';
 import { addLinkFrom, deleteLinkFrom } from './link-form';
 import { listLinks } from './links';
 
@@ -17,7 +17,7 @@ beforeEach(() => {
 		notes: null
 	})!;
 	figureId = made.figure.id;
-	figureExerciseId = made.exercise.id;
+	figureExerciseId = addFigureExercise(db, made.figure.id)!.id;
 });
 
 const form = (fields: Record<string, string>) =>

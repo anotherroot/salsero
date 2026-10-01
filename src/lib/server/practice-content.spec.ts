@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { figures } from './db/schema';
 import { createCustomExercise, getExercise, logSet } from './exercises';
-import { createFigure } from './figures';
+import { addFigureExercise, createFigure } from './figures';
 import { createLesson, linkFigure } from './lessons';
 import { addLinks } from './links';
 import { addFigureSlot, createRoutine } from './routines';
@@ -56,7 +56,8 @@ describe('practicePayload', () => {
 	});
 
 	it('gives a figure its notes, spoken name, length and links', () => {
-		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const exercise = addFigureExercise(db, figure.id)!;
 		addLinks(db, { figureId: figure.id }, ['https://a.org'], 'Demo');
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({
 			type: 'figure',
@@ -67,7 +68,8 @@ describe('practicePayload', () => {
 	});
 
 	it('derives the cue’s 8-counts from the figure’s length in counts', () => {
-		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const exercise = addFigureExercise(db, figure.id)!;
 		db.update(figures).set({ lengthCounts: 12 }).where(eq(figures.id, figure.id)).run();
 		const content = practicePayload(db, exercise, TZ, Date.now()).content;
 		// 12 counts round up to two 8-counts, so the cue is never called over itself.

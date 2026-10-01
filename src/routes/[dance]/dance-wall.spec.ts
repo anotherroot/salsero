@@ -25,7 +25,13 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { addRecording, createFigure, createVariation, getFigure } from '$lib/server/figures';
+import {
+	addFigureExercise,
+	addRecording,
+	createFigure,
+	createVariation,
+	getFigure
+} from '$lib/server/figures';
 import {
 	createCustomExercise,
 	getExercise,
@@ -128,7 +134,7 @@ beforeEach(() => {
 	seedPositions(db);
 
 	const salsaFigure = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!;
-	salsaExerciseId = salsaFigure.exercise.id;
+	salsaExerciseId = addFigureExercise(db, salsaFigure.figure.id)!.id;
 	salsaFigureId = salsaFigure.figure.id;
 	salsaFigureId2 = createFigure(db, 'salsa', {
 		...figureInput,
@@ -145,7 +151,7 @@ beforeEach(() => {
 		style: 'sensual'
 	})!;
 	bachataFigureId = bachata.figure.id;
-	bachataExerciseId = bachata.exercise.id;
+	bachataExerciseId = addFigureExercise(db, bachata.figure.id)!.id;
 	bachataCustomId = createCustomExercise(db, 'bachata', {
 		name: 'Hip drills',
 		everyDays: 3,

@@ -123,15 +123,8 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
-		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
 
-		if (
-			!name ||
-			partner === undefined ||
-			style === undefined ||
-			notes === undefined ||
-			!isFrequency(everyDays)
-		) {
+		if (!name || partner === undefined || style === undefined || notes === undefined) {
 			return fail(400, {
 				action: 'newFigure',
 				message: 'Give the figure a name (up to 200 characters).',
@@ -141,7 +134,7 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const made = createFigure(db, dance, { name, partner, style, notes }, everyDays);
+		const made = createFigure(db, dance, { name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				action: 'newFigure',

@@ -29,7 +29,7 @@ import {
 	listExercises,
 	updateExercise
 } from './exercises';
-import { createFigure } from './figures';
+import { addFigureExercise, createFigure } from './figures';
 import { archiveRoutine, createRoutine } from './routines';
 
 let db: Db;
@@ -131,12 +131,20 @@ describe('a lesson owns its review exercise', () => {
 describe('linking figures', () => {
 	it('links a figure and lists it with the exercise that came with it', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const exercise = addFigureExercise(db, figure.id)!;
 
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		const [linked] = getLesson(db, lesson.id)!.figures;
 		expect(linked.name).toBe('Enchufla');
 		expect(linked.exerciseId).toBe(exercise.id);
+	});
+
+	it('lists a linked figure that has no exercise, with a null exerciseId', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
+		expect(getLesson(db, lesson.id)!.figures).toMatchObject([{ id: figure.id, exerciseId: null }]);
 	});
 
 	it('refuses a second link of the same figure', () => {
@@ -166,7 +174,8 @@ describe('linking figures', () => {
 describe('a figure exercise never shows up in both places', () => {
 	it('drops it from the linked list when its figure is linked afterwards', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const exercise = addFigureExercise(db, figure.id)!;
 
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(true);
 		expect(getLesson(db, lesson.id)!.exercises.map((e) => e.id)).toEqual([exercise.id]);
@@ -179,7 +188,8 @@ describe('a figure exercise never shows up in both places', () => {
 
 	it('refuses to link it once its figure is already linked', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure, exercise } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const exercise = addFigureExercise(db, figure.id)!;
 		linkFigure(db, lesson.id, figure.id);
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(false);
 	});
