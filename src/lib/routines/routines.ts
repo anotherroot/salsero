@@ -175,6 +175,33 @@ export function slotTiming(g: Graph, slot: Slot): SlotTiming {
 	};
 }
 
+/**
+ * Where one editor row begins and lands, in the hands and on the count: what
+ * the picker filters against when building next to it, and what a seam
+ * compares. An embedded routine borrows its first slot's starts and its last
+ * slot's end, the way it does everywhere else. All empty / null when nothing in
+ * the row is danceable — an archived-only slot has no edges to build from.
+ */
+export interface RowEdges {
+	starts: number[];
+	startCounts: number[];
+	end: number | null;
+	next: number | null;
+}
+
+export function rowEdges(g: Graph, slot: Slot): RowEdges {
+	const flat = flatten(g, { slots: [slot] });
+	if (flat.length === 0) return { starts: [], startCounts: [], end: null, next: null };
+	const first = flat[0];
+	const last = flat[flat.length - 1];
+	return {
+		starts: slotStarts(g, first),
+		startCounts: slotStartCounts(g, first),
+		end: sharedEnd(g, last),
+		next: sharedNextCount(g, last)
+	};
+}
+
 /** Where the routine can be started. Empty when it has no danceable slot. */
 export function routineStarts(g: Graph, shape: RoutineShape): number[] {
 	const flat = flatten(g, shape);
@@ -247,6 +274,29 @@ export function timingSeams(g: Graph, shape: RoutineShape): TimingSeam[] {
 		const j = rows.findIndex((r, k) => k > i && r.starts.length > 0);
 		if (j === -1) continue;
 		if (!rows[j].starts.includes(next)) out.push({ after: i, next: j });
+	}
+	return out;
+}
+
+/** A position break between two of the editor's own rows. Same shape as a timing seam. */
+export type PositionSeam = TimingSeam;
+
+/**
+ * `breaks`, indexed by the editor's rows instead of the flat run — the twin of
+ * `timingSeams`, for the same reason: flat indices drift from the rows as soon
+ * as a slot embeds a routine or holds only archived figures, and the editor
+ * draws a seam BETWEEN two rows. A break inside a child is not a seam between
+ * rows; `breaks` still counts it.
+ */
+export function positionSeams(g: Graph, shape: RoutineShape): PositionSeam[] {
+	const rows = shape.slots.map((s) => rowEdges(g, s));
+	const out: PositionSeam[] = [];
+	for (let i = 0; i < rows.length; i++) {
+		const end = rows[i].end;
+		if (end === null) continue;
+		const j = rows.findIndex((r, k) => k > i && r.starts.length > 0);
+		if (j === -1) continue;
+		if (!rows[j].starts.includes(end)) out.push({ after: i, next: j });
 	}
 	return out;
 }
