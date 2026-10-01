@@ -67,9 +67,10 @@
 			{@render children()}
 		</div>
 		<BottomNav dance={navDance.slug} />
+		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
+		<UnsavedDialog />
 	</div>
 {:else}
 	{@render children()}
+	<UnsavedDialog />
 {/if}
-
-<UnsavedDialog />
