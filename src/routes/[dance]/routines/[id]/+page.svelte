@@ -285,11 +285,11 @@
 		if (result.type === 'success' && typeof result.data?.stepId === 'number') {
 			const id = result.data.stepId;
 			flash = id;
-			// The new slot is where you are now, as if you had tapped it: the
-			// selection moves to it — so Add below chains — or, outside selection
-			// mode, it opens expanded.
-			if (selecting) selected = [id];
-			else expanded = id;
+			// The new slot opens expanded, as if tapped — its note field and
+			// + Alternative ready. Expansion is off while selecting, so a pick made
+			// from Add above / below ends selection mode first.
+			if (selecting) stopSelecting();
+			expanded = id;
 		}
 	}
 
@@ -352,8 +352,8 @@
 
 	/**
 	 * Add above / below the one selected slot. The selection is KEPT while the
-	 * picker is open: closing it without picking leaves you where you were, and
-	 * picking moves the selection to the new slot (see `pick`).
+	 * picker is open: closing it without picking leaves you where you were.
+	 * Picking ends selection and opens the new slot expanded (see `pick`).
 	 */
 	function addAround(side: 'after' | 'before') {
 		const i = rows.findIndex((r) => r.id === selected[0]);
