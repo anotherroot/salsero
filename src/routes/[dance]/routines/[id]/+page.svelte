@@ -96,11 +96,6 @@
 		return figuresById.has(id) ? name : `${name} (archived)`;
 	}
 
-	function timingOf(id: number): string {
-		const c = figuresById.get(id);
-		return c ? `${c.startCounts.join('/')}→${c.next ?? '?'}` : '';
-	}
-
 	function metaOf(e: RowEdges): string {
 		if (e.starts.length === 0) return '';
 		const timing = `${e.startCounts.join('/')}→${e.next ?? '?'}`;
@@ -162,7 +157,7 @@
 				alternatives: slot.figureIds
 					.slice(1)
 					.filter((f) => !goneOptions.includes(`${slot.id}:${f}`))
-					.map((f) => ({ id: f, label: optionName(f), timing: timingOf(f), href: figureHref(f) })),
+					.map((f) => ({ id: f, label: optionName(f), href: figureHref(f) })),
 				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
 				failure: failedSlot === slot.id ? failure : null,
 				seam: stale ? null : seamOf(i)

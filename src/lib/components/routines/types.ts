@@ -9,8 +9,6 @@ import type { ResolvedPathname } from '$app/types';
 export interface AltView {
 	id: number;
 	label: string;
-	/** "1→1". Empty for an archived figure. */
-	timing: string;
 	/** A `resolve()` result, not a bare string — see `RowView.href`. */
 	href: ResolvedPathname;
 }

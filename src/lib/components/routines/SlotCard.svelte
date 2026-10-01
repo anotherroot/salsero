@@ -193,23 +193,71 @@
 	<div class="mt-1.5 ml-7 space-y-1.5 border-l-2 border-accent/25 pl-3">
 		{#each row.alternatives as alt (alt.id)}
 			{@const key = `alt:${row.id}:${alt.id}`}
-			<Swipeable
-				{key}
-				rounded="rounded-lg"
-				open={sideOf(key)}
-				onchange={(side) => onswipe(key, side)}
-				end={{ label: 'Remove', onclick: () => onremoveAlt(alt.id, alt.label) }}
-			>
-				<!-- A click opens the figure; a swipe left removes it. Opaque tint, so
-				     the red under a swiped card does not show through. -->
+			<!--
+				The name, then Open and Delete as square icon buttons the card's height
+				and rounding. No timing: an alternative starts and lands exactly like
+				the slot's main figure, so it would only repeat the line above. A swipe
+				left still removes it too. Opaque tint, so the red under a swiped card
+				does not show through.
+			-->
+			<div class="flex items-stretch gap-1.5">
+				<div class="min-w-0 flex-1">
+					<Swipeable
+						{key}
+						rounded="rounded-lg"
+						open={sideOf(key)}
+						onchange={(side) => onswipe(key, side)}
+						end={{ label: 'Remove', onclick: () => onremoveAlt(alt.id, alt.label) }}
+					>
+						<p
+							class="h-10 truncate rounded-lg border border-accent/20 bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-raised))] px-3 text-[14px] leading-[38px]"
+						>
+							{alt.label}
+						</p>
+					</Swipeable>
+				</div>
 				<a
 					href={alt.href}
-					class="flex items-center justify-between gap-3 rounded-lg border border-accent/20 bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-raised))] px-3 py-2 text-[14px]"
+					class="grid size-10 shrink-0 place-items-center rounded-lg border border-accent/20 bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-raised))] text-accent"
+					aria-label="Open {alt.label}"
+					title="Open"
 				>
-					<span class="min-w-0 truncate">{alt.label}</span>
-					<span class="shrink-0 text-[11.5px] text-muted">{alt.timing}</span>
+					<svg
+						viewBox="0 0 24 24"
+						class="size-[18px]"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M7 17 17 7M9 7h8v8" />
+					</svg>
 				</a>
-			</Swipeable>
+				<button
+					type="button"
+					class="grid size-10 shrink-0 place-items-center rounded-lg border border-danger/25 bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-raised))] text-danger"
+					aria-label="Remove {alt.label}"
+					title="Remove"
+					onclick={() => onremoveAlt(alt.id, alt.label)}
+				>
+					<svg
+						viewBox="0 0 24 24"
+						class="size-[18px]"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path
+							d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"
+						/>
+					</svg>
+				</button>
+			</div>
 		{/each}
 		{#if row.canAddAlternative}
 			<button

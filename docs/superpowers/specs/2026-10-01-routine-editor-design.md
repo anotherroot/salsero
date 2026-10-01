@@ -79,8 +79,10 @@ again — or another card — collapses it. An open card shows, top to bottom:
 2. **An "Open →" link** in the card's header row, to the figure or the embedded
    routine.
 3. **The alternatives**, under the card on an indented rail: smaller cards in
-   the accent's tint, each with its own label and timing. A click opens that
-   figure or variation; a swipe left removes it.
+   the accent's tint, each showing its name only — no timing, since an
+   alternative starts and lands exactly like the main figure. Beside each, two
+   square icon buttons the card's height and rounding: **open** (↗) and
+   **remove** (trash). A swipe left removes it too.
 4. **+ Alternative**, a dashed button below them, which opens the picker in
    its alternative mode.
 
