@@ -1,6 +1,7 @@
 <!-- src/lib/components/ui/VideoPlayer.svelte -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
 	import { MAX_SPOT_LABEL } from '$lib/limits';
 	import { loopTarget, msOf, sortSpots, spotLabel, spotTime, step } from '$lib/video/spots';
@@ -47,7 +48,15 @@
 			}
 		);
 		const left = () => {
-			if (wentFullscreen && !document.fullscreenElement) close();
+			if (!wentFullscreen || document.fullscreenElement) return;
+			// Chrome takes Esc to leave fullscreen before a rename field sees it,
+			// so this fires mid-rename. Cancel the rename and stay open full
+			// viewport (the dialog) rather than closing the player under it.
+			if (renaming !== null) {
+				renaming = null;
+				return;
+			}
+			close();
 		};
 		document.addEventListener('fullscreenchange', left);
 		return () => document.removeEventListener('fullscreenchange', left);
@@ -84,6 +93,7 @@
 	let panel = $state(false);
 	let renaming = $state<number | null>(null);
 	let note = $state<string | null>(null);
+	let loadFailed = $state(false);
 
 	let noteTimer: ReturnType<typeof setTimeout> | undefined;
 	function flash(text: string) {
@@ -91,11 +101,15 @@
 		clearTimeout(noteTimer);
 		noteTimer = setTimeout(() => (note = null), 2500);
 	}
+	onMount(() => () => clearTimeout(noteTimer));
 
 	onMount(() => {
 		fetchSpots(owner).then(
 			(s) => (spots = sortSpots(s)),
-			() => flash("Couldn't load spots")
+			() => {
+				loadFailed = true;
+				flash("Couldn't load spots");
+			}
 		);
 	});
 
@@ -115,8 +129,12 @@
 		void save({ startMs: msOf(video.currentTime), endMs: null, label: null });
 	}
 
+	/** Set while a section save is in flight, so a double tap on "End section" cannot post it twice. */
+	let saving = false;
+
 	/** First tap remembers the start; the second saves the section. */
 	async function section() {
+		if (saving) return;
 		const now = msOf(video.currentTime);
 		if (pendingStart === null) {
 			pendingStart = now;
@@ -127,12 +145,26 @@
 			flash('Play past the start, then end the section');
 			return;
 		}
-		if (await save({ startMs: pendingStart, endMs: now, label: null })) pendingStart = null;
+		saving = true;
+		try {
+			if (await save({ startMs: pendingStart, endMs: now, label: null })) pendingStart = null;
+		} finally {
+			saving = false;
+		}
 	}
 
 	function go(spot: Spot) {
 		video.currentTime = spot.startMs / 1000;
-		if (spot.endMs !== null) loop = spot;
+		if (spot.endMs !== null) {
+			// A section replaces whatever was looping.
+			loop = spot;
+		} else {
+			const inside =
+				loop && loop.endMs !== null && spot.startMs >= loop.startMs && spot.startMs < loop.endMs;
+			// A point keeps the current loop only when it lies inside it;
+			// otherwise the frame check would yank playback straight back.
+			if (!inside) loop = null;
+		}
 		panel = false;
 	}
 
@@ -150,13 +182,20 @@
 		}
 	}
 
+	/** Ids with a delete request in flight, so a double tap cannot send it twice. */
+	let deleting = new SvelteSet<number>();
+
 	async function remove(spot: Spot) {
+		if (deleting.has(spot.id)) return;
+		deleting.add(spot.id);
 		try {
 			await removeSpot(spot.id);
 			spots = spots.filter((s) => s.id !== spot.id);
 			if (loop?.id === spot.id) loop = null;
 		} catch {
 			flash("Couldn't save");
+		} finally {
+			deleting.delete(spot.id);
 		}
 	}
 
@@ -199,6 +238,8 @@
 
 	function onkeydown(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement && e.target.type === 'text') return;
+		// Let Ctrl/Cmd+L, Ctrl+S and the like reach the browser instead of our shortcuts.
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
 		const handled: Record<string, () => void> = {
 			' ': toggle,
 			ArrowLeft: () => nudge(-1),
@@ -229,7 +270,12 @@
 	}}
 	{onkeydown}
 >
-	<div bind:this={stage} class="relative h-full w-full bg-black text-white">
+	<div
+		bind:this={stage}
+		class="relative h-full w-full bg-black text-white"
+		onpointermove={wake}
+		onclick={wake}
+	>
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
 			bind:this={video}
@@ -245,8 +291,6 @@
 				video.preservesPitch = true;
 				video.currentTime = startAt;
 			}}
-			onclick={wake}
-			onpointermove={wake}
 			{onended}
 		></video>
 
@@ -346,7 +390,9 @@
 						>✕</button
 					>
 				</div>
-				{#if spots.length === 0}
+				{#if loadFailed}
+					<p class="text-[13px] opacity-70">Couldn't load spots</p>
+				{:else if spots.length === 0}
 					<p class="text-[13px] opacity-70">
 						Nothing marked yet. Mark saves this moment; Section saves a stretch to loop.
 					</p>
@@ -476,12 +522,13 @@
 		background: white;
 	}
 	.band {
-		height: 10px;
+		height: 12px;
 		border-radius: 3px;
-		background: rgb(255 255 255 / 0.3);
+		/* Amber, not white: a white band is invisible over the white range track. */
+		background: rgb(251 191 36 / 0.55);
 	}
 	.band.active {
-		background: rgb(255 255 255 / 0.6);
+		background: rgb(251 191 36 / 0.9);
 	}
 	.chip {
 		display: inline-flex;
@@ -514,7 +561,7 @@
 	}
 	@media (min-width: 640px) {
 		.panel {
-			inset: 0 0 0 auto;
+			inset: 4rem 0 0 auto;
 			width: 20rem;
 			max-height: none;
 		}

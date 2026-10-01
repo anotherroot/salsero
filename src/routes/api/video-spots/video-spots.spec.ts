@@ -139,4 +139,12 @@ describe('PATCH and DELETE /api/video-spots/[id]', () => {
 		const req = send('PATCH', { label: 'x'.repeat(81) }, id);
 		expect(await status(() => run(one.PATCH, { params: { id }, request: req }))).toBe(400);
 	});
+
+	it('is a 400 for a body with no label key, and leaves the label alone', async () => {
+		const spot = addSpot(db, { recordingId }, { startMs: 0, endMs: null, label: 'Dip' })!;
+		const id = String(spot.id);
+		const req = send('PATCH', {}, id);
+		expect(await status(() => run(one.PATCH, { params: { id }, request: req }))).toBe(400);
+		expect(listSpots(db, { recordingId })[0]).toMatchObject({ label: 'Dip' });
+	});
 });

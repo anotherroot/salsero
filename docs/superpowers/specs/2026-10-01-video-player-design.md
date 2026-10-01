@@ -32,16 +32,18 @@ full-screen player through `src/lib/video-prefs.ts`, as today.
 
 ## The full-screen player
 
-`ui/VideoPlayer.svelte` (new). A fixed, black, full-viewport layer
-(`position: fixed; inset: 0`) holding a `<video>` without `controls` and our
-controls on top.
+`ui/VideoPlayer.svelte` (new). A `<dialog>` opened with `showModal()`, filling
+the viewport, holding a `<video>` without `controls` and our controls on top.
+`showModal()` puts it in the top layer, above the Today popup — itself a
+modal dialog — so it opens from there too. Browser fullscreen is requested on
+an inner stage `<div>` inside the dialog, not on the dialog itself.
 
 **Fullscreen.** Where `Element.requestFullscreen` exists (Android, desktop),
-the layer requests it on open and exits on close; leaving browser fullscreen
+the stage requests it on open and exits on close; leaving browser fullscreen
 (Esc, the back gesture) closes the player. Where it does not (iPhone), the
-fixed layer is the fullscreen: from the home-screen app there is no browser
-chrome, so it fills the screen. The layout works in both orientations; the
-phone is rotated by hand.
+dialog filling the viewport IS the fullscreen: from the home-screen app there
+is no browser chrome, so it fills the screen. The layout works in both
+orientations; the phone is rotated by hand.
 
 **Controls.**
 
@@ -57,6 +59,8 @@ phone is rotated by hand.
 - **Spots (n):** opens a panel listing the spots by start time. A point jumps
   there. A section jumps to its start and becomes the active loop. Each row can
   be renamed (no label shows its time, `2:14.5` or `2:14.5–2:22.0`) or deleted.
+  Tapping a point while a section loops keeps the loop only if the point lies
+  inside the section; otherwise the loop ends.
 - **Looping chip:** while a loop is active, `Looping 2:14–2:22 ×` sits above
   the main row; × ends the loop. Deleting the looped spot ends it too.
 - **Hiding:** while playing, controls fade after 3 s; a tap on the video brings
@@ -69,8 +73,9 @@ start/end, L end loop, Esc close. Ignored while typing in a rename field.
 `timeupdate` (~4 Hz, which would overshoot a quarter-second at 1×): once
 `currentTime` reaches the section's end, seek to its start. Seeking past the
 end — scrubbing, +1 s — therefore lands back at the start; seeking before the
-start plays on into the section. Only ending the loop (×, L, deleting the spot)
-lets playback leave it.
+start plays on into the section. Only ending the loop (×, L, deleting the
+spot), tapping another section, or tapping a point outside it lets playback
+leave it.
 
 ## Data model
 
@@ -177,3 +182,6 @@ as it was — never an optimistic row that might not exist.
   fullscreen on Android and not at all on iOS, so the phone is rotated by hand.
 - **YouTube embeds** get no full-screen player or spots: controlling one from
   outside needs the IFrame API and a script from youtube.com.
+- **Escape in a rename field while in browser fullscreen** leaves fullscreen —
+  the browser takes Esc first, before the field sees it. The rename is
+  cancelled and the player stays open, filling the viewport.

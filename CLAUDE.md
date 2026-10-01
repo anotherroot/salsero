@@ -117,7 +117,8 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; sets,
-  recordings and links are the only hard deletes. A figure's exercise is
+  recordings, links and spots (`video_spots`, deleted with their video) are
+  the only hard deletes. A figure's exercise is
   opt-in (`addFigureExercise`); when one exists it is renamed and archived
   WITH its figure, in one transaction (`src/lib/server/figures.ts`).
 - **The type owns its popup.** An exercise's type is derived from `source`
@@ -177,10 +178,12 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   never touches audio. Figure names go through `speechSynthesis`, which cannot be
   scheduled and does not need to be.
 - **A dance is the wall through the content.** `figures`, `songs`, `exercises`
-  and `lessons` carry `dance`; `sets`, `recordings` and the lesson join tables
-  derive it through their parent, and `count_takes` is shared by both dances on
-  purpose. Scoping happens in the data-access layer — `src/lib/urgency/` and
-  `src/lib/day/` never learn that dances exist.
+  and `lessons` carry `dance`; `sets`, `recordings`, the lesson join tables
+  and `video_spots` derive it through their parent (a recording or a lesson
+  video), and `count_takes` is shared by both dances on purpose. Scoping
+  happens in the data-access layer — `src/lib/urgency/` and `src/lib/day/`
+  never learn that dances exist. `video_spots`' own API is flat
+  (`/api/video-spots`), like the media servers.
 - **`figures.style` is vestigial; `style_tag` is real.** Read by nothing,
   backfilled into `style_tag` by migration 0005. Do not drop it or widen
   `figures_style_ck` — see the CHECK rule above for why a rebuild here can't
