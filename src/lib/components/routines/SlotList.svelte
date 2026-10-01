@@ -72,16 +72,29 @@
 		const before = items[index].getBoundingClientRect().top;
 		ondragstart();
 		await tick();
-		const box = items[index].getBoundingClientRect();
-		const startY = e.clientY + (box.top - before);
-		const startScroll = window.scrollY;
-		const centers = items.map((el) => {
-			const b = el.getBoundingClientRect();
-			return b.top + b.height / 2 + window.scrollY;
-		});
-		// Start offset by however far the layout change moved the card, so it is
-		// drawn exactly where the finger picked it up.
-		drag = { id, from: index, to: index, dy: before - box.top, step: box.height + GAP };
+
+		let startY: number;
+		let startScroll: number;
+		let centers: number[];
+		try {
+			const box = items[index].getBoundingClientRect();
+			startY = e.clientY + (box.top - before);
+			startScroll = window.scrollY;
+			// Only the LIVE rows: `items` is bound by index and never truncated, so
+			// after a delete a trailing entry still points past `rows.length` — at a
+			// stale element, or `null` — and would throw here, leaving `dragging`
+			// stuck true because `ondragend` is below, unreached.
+			centers = items.slice(0, rows.length).map((el) => {
+				const b = el.getBoundingClientRect();
+				return b.top + b.height / 2 + window.scrollY;
+			});
+			// Start offset by however far the layout change moved the card, so it is
+			// drawn exactly where the finger picked it up.
+			drag = { id, from: index, to: index, dy: before - box.top, step: box.height + GAP };
+		} catch (err) {
+			ondragend();
+			throw err;
+		}
 
 		let y = e.clientY;
 		let frame = 0;
@@ -216,13 +229,19 @@
 {/if}
 
 <style>
+	/*
+	 * A ring, not a background: the card face (`bg-raised`) is opaque and sits
+	 * on top of the `<li>`, so a background flash here is invisible. A
+	 * box-shadow draws OUTSIDE the box instead, around the card, where nothing
+	 * covers it.
+	 */
 	.flash {
 		animation: flash 1.2s ease-out;
 	}
 
 	@keyframes flash {
 		from {
-			background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+			box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 55%, transparent);
 		}
 	}
 
