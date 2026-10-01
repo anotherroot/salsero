@@ -17,6 +17,8 @@
 	}
 
 	interface Props {
+		/** This card's `Swiped` key, on the DOM as `data-swipe` so a tap elsewhere can tell it apart. */
+		key: string;
 		open: Side;
 		onchange: (open: Side) => void;
 		end?: Action;
@@ -27,6 +29,7 @@
 	}
 
 	let {
+		key,
 		open,
 		onchange,
 		end,
@@ -50,7 +53,7 @@
 	const x = $derived(tracking ?? rest);
 </script>
 
-<div class="relative overflow-hidden {rounded}">
+<div class="relative overflow-hidden {rounded}" data-swipe={key}>
 	{#if end && x < 0}
 		<button
 			type="button"

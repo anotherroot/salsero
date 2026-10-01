@@ -9,6 +9,7 @@
 	import type { Side } from '$lib/gestures/swipe';
 	import type { ResolvedPathname } from '$app/types';
 	import Swipeable from './Swipeable.svelte';
+	import { resettingFocus } from './act';
 	import type { RowView, Swiped } from './types';
 
 	interface Props {
@@ -58,6 +59,7 @@
 </script>
 
 <Swipeable
+	key={slotKey}
 	open={sideOf(slotKey)}
 	onchange={(side) => onswipe(slotKey, side)}
 	disabled={selecting}
@@ -82,6 +84,7 @@
 			{:else}
 				<button
 					type="button"
+					data-handle
 					class="grid size-11 shrink-0 cursor-grab touch-none place-items-center text-[18px] tracking-[-3px] text-rule"
 					aria-label="Move slot {index + 1}. Arrow keys move it."
 					onpointerdown={(e) => {
@@ -179,6 +182,8 @@
 						}
 					}}
 					onblur={(e) => {
+						// SvelteKit borrowing the focus after another action; `act` hands it back.
+						if (resettingFocus()) return;
 						const v = e.currentTarget.value.trim();
 						if (v !== (row.note ?? '')) onnote(v === '' ? null : v);
 					}}
@@ -193,6 +198,7 @@
 		{#each row.alternatives as alt (alt.id)}
 			{@const key = `alt:${row.id}:${alt.id}`}
 			<Swipeable
+				{key}
 				rounded="rounded-lg"
 				open={sideOf(key)}
 				onchange={(side) => onswipe(key, side)}

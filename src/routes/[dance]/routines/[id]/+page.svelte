@@ -36,6 +36,8 @@
 	let swiped = $state<Swiped>(null);
 	let dragging = $state(false);
 	let flash = $state<number | null>(null);
+	/** The sticky header's height: the top of the viewport a drag cannot see past. */
+	let headerHeight = $state(0);
 	let naming = $state(false);
 	let picker = $state<{
 		title: string;
@@ -309,6 +311,23 @@
 		expanded = expanded === id ? null : id;
 	}
 
+	/*
+	 * A press anywhere outside the open card closes it. Capture phase, so it is
+	 * seen before anything under the finger handles it; a press on the open
+	 * card itself — its revealed Delete or Open included — is left to the card.
+	 */
+	$effect(() => {
+		if (!swiped) return;
+		const key = swiped.key;
+		const close = (e: PointerEvent) => {
+			const card = document.querySelector(`[data-swipe="${key}"]`);
+			if (card && e.target instanceof Node && card.contains(e.target)) return;
+			swiped = null;
+		};
+		window.addEventListener('pointerdown', close, true);
+		return () => window.removeEventListener('pointerdown', close, true);
+	});
+
 	function stopSelecting() {
 		selecting = false;
 		selected = [];
@@ -347,6 +366,7 @@
 />
 
 <header
+	bind:offsetHeight={headerHeight}
 	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
 >
@@ -499,6 +519,7 @@
 			{selected}
 			{swiped}
 			{flash}
+			insetTop={headerHeight}
 			{press}
 			onswipe={(key, side) => (swiped = side === null ? null : { key, side })}
 			ontap={tap}

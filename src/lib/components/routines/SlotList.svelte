@@ -9,7 +9,7 @@
 	 * each move asks `$lib/gestures/drag` where the card would land and how far
 	 * each other card slides to make room.
 	 */
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
 	import { autoScroll, dropIndex, shiftFor } from '$lib/gestures/drag';
@@ -25,12 +25,14 @@
 		selected: number[];
 		swiped: Swiped;
 		flash: number | null;
+		/** How much of the viewport's top the page's sticky header covers, in px. */
+		insetTop: number;
 		press: LongPress;
 		onswipe: (key: string, side: Side) => void;
 		ontap: (id: number) => void;
 		ondragstart: () => void;
 		ondragend: () => void;
-		onreorder: (id: number, to: number) => void;
+		onreorder: (id: number, to: number) => Promise<void>;
 		ondelete: (id: number) => void;
 		onopen: (href: ResolvedPathname) => void;
 		onremoveAlt: (id: number, figureId: number, label: string) => void;
@@ -46,6 +48,7 @@
 		selected,
 		swiped,
 		flash,
+		insetTop,
 		press,
 		onswipe,
 		ontap,
@@ -68,6 +71,8 @@
 	);
 
 	async function grab(e: PointerEvent, index: number) {
+		// A right or middle press on the handle is not a drag.
+		if (e.button !== 0) return;
 		const id = rows[index].id;
 		const before = items[index].getBoundingClientRect().top;
 		ondragstart();
@@ -96,6 +101,11 @@
 			throw err;
 		}
 
+		// The sticky header and the bottom nav cover the viewport's edges, so the
+		// auto-scroll zones start where the list is actually visible — a finger
+		// held over the nav would otherwise never reach the bottom zone.
+		const nav = document.querySelector('nav[aria-label="Main"]');
+		const bottom = nav ? nav.getBoundingClientRect().top : window.innerHeight;
 		let y = e.clientY;
 		let frame = 0;
 		const update = () => {
@@ -105,7 +115,7 @@
 			drag.to = dropIndex(centers, centers[index] + dy, index);
 		};
 		const scroll = () => {
-			const v = autoScroll(y, 0, window.innerHeight);
+			const v = autoScroll(y, insetTop, bottom);
 			if (v !== 0) {
 				window.scrollBy(0, v);
 				update();
@@ -144,12 +154,43 @@
 		return drag.id === id ? drag.dy : shiftFor(i, drag.from, drag.to, drag.step);
 	}
 
-	// A just-inserted slot is scrolled to; the flash itself is CSS.
+	let list = $state<HTMLElement>();
+
+	/**
+	 * ↑/↓ on a handle. The keyed `{#each}` may move the focused handle's node
+	 * when the optimistic order is drawn, which drops its focus — so it is put
+	 * back on the MOVED slot's handle, once for the guess and once for the
+	 * server's answer, and the next arrow key still has somewhere to go. The
+	 * second time only when the focus was dropped: by then the user may have
+	 * tabbed on, and that is theirs to keep.
+	 */
+	async function keymove(id: number, to: number) {
+		const done = onreorder(id, to);
+		await tick();
+		focusHandle(id);
+		await done;
+		await tick();
+		if (document.activeElement === null || document.activeElement === document.body) {
+			focusHandle(id);
+		}
+	}
+
+	function focusHandle(id: number) {
+		const handle = list?.querySelector<HTMLElement>(`[data-slot="${id}"] [data-handle]`);
+		if (handle && document.activeElement !== handle) handle.focus();
+	}
+
+	// A just-inserted slot is scrolled to; the flash itself is CSS. Only `flash`
+	// starts it: `rows` is read untracked, or every reload inside the flash's
+	// 1.2 s would scroll back to it.
 	$effect(() => {
 		if (flash === null) return;
-		const i = rows.findIndex((r) => r.id === flash);
-		const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-		items[i]?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+		const id = flash;
+		untrack(() => {
+			const i = rows.findIndex((r) => r.id === id);
+			const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+			items[i]?.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+		});
 	});
 
 	const plus =
@@ -173,7 +214,7 @@
 			onclick={() => onadd(0, { row: 0, side: 'before' })}>+</button
 		>
 	</div>
-	<ul class="space-y-2">
+	<ul class="space-y-2" bind:this={list}>
 		{#each rows as row, i (row.id)}
 			{@const lifted = drag?.id === row.id}
 			<li
@@ -197,7 +238,7 @@
 					{onswipe}
 					ontap={() => ontap(row.id)}
 					ongrab={(e) => grab(e, i)}
-					onkeymove={(delta) => onreorder(row.id, i + delta)}
+					onkeymove={(delta) => keymove(row.id, i + delta)}
 					ondelete={() => ondelete(row.id)}
 					{onopen}
 					onremoveAlt={(figureId, label) => onremoveAlt(row.id, figureId, label)}
