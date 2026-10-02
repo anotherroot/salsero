@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Re-clone main's database into this slot and restart its dev server.
+set -euo pipefail
+[[ $SLOT != 0 ]] || { echo "This is the root: its database is the one slots copy."; exit 1; }
+[[ -f $MAIN_DIR/.data/salsa.db ]] || { echo "main has no .data/salsa.db"; exit 1; }
+tmux_project stop dev
+rm -f .data/salsa.db .data/salsa.db-wal .data/salsa.db-shm
+sqlite3 "$MAIN_DIR/.data/salsa.db" ".backup '.data/salsa.db'"
+echo "cloned main's database"
+tmux_project start dev

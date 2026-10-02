@@ -110,8 +110,9 @@ static/icons/        per-dance home-screen icons, committed. The manifests are
                      stays an exact-match Set
 drizzle/             generated migrations — applied at boot, shipped by deploy.sh
 scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-check
-scripts/slot.sh      per-worktree dev slots: ../salsaapp-wt/<slug> on a branch off master,
-                     vite on 5180+N, .data cloned from main's, tmux "salsa app - wt-N"
+.tmux-project/       tmux_project (nixos-config): C-1…C-9 in tmux make a slot — a worktree
+                     ../salsaapp-wt/<name> on its own branch, vite on a devports port at
+                     wt-N-<name>.salsa.localhost, .data cloned from main's by hooks/up
 scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is committed
 scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
                      the registry's accents. Output is committed. Both scripts
@@ -228,7 +229,7 @@ npm run dev           # DATA_DIR/DATABASE_PATH come from the flake (.data/)
 npm run check         # prettier + eslint + svelte-check + build + vitest — must pass
 npm run db:generate   # after editing src/lib/server/db/schema.ts
 ./scripts/deploy.sh   # see docs/deployment.md
-./scripts/slot.sh new <slug>   # worktree + branch + tmux "salsa app - wt-N"; `status`, `down N`
+# slots: C-1…C-9 in tmux; prefix C-a for reset-db and close slot (tmux_project)
 ./scripts/make-clips.sh   # regenerate static/clips/ — only when the voice changes
 ./scripts/make-icons.sh   # regenerate static/icons/ — only when a dance's accent changes
 ```

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Every bring-up of the root or a slot, inside the flake's dev shell, in its dir.
+# A slot's .data starts as a copy of main's: the database through sqlite3's
+# .backup (consistent while main's dev server runs), the media as hard links
+# (the app only creates or unlinks media files, so a link never leaks a write
+# back to main). uploads/ is not copied — partial chunks are appended in place.
+set -euo pipefail
+[[ -d node_modules ]] || npm ci
+[[ $SLOT == 0 || -f .data/salsa.db ]] && exit 0
+mkdir -p .data
+if [[ -f $MAIN_DIR/.data/salsa.db ]]; then
+  sqlite3 "$MAIN_DIR/.data/salsa.db" ".backup '.data/salsa.db'"
+  echo "cloned main's database"
+else
+  echo "main has no .data/salsa.db — the slot starts empty (set ADMIN_EMAIL/ADMIN_PASSWORD)"
+fi
+for entry in "$MAIN_DIR"/.data/*; do
+  [[ -e $entry ]] || continue
+  case $(basename "$entry") in salsa.db | salsa.db-* | uploads) continue ;; esac
+  cp -al --update=none "$entry" .data/
+done
+echo "linked main's media"

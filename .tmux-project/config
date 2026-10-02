@@ -1,0 +1,3 @@
+# tmux_project (nixos-config). Domain: salsa.localhost, wt-N-<branch>.salsa.localhost
+DOMAIN=salsa
+SERVICES=(app)

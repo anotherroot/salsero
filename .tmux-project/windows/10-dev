@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Vite on the port devports keeps for this root or slot; reached at $URL_APP.
+exec npm run dev -- --port "$PORT_APP" --strictPort
