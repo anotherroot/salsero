@@ -5,6 +5,8 @@
 # (the app only creates or unlinks media files, so a link never leaks a write
 # back to main). uploads/ is not copied — partial chunks are appended in place.
 set -euo pipefail
+# A new worktree's .envrc (use flake) is blocked until allowed; slot.sh did this too.
+command -v direnv >/dev/null && direnv allow . || true
 [[ -d node_modules ]] || npm ci
 [[ $SLOT == 0 || -f .data/salsa.db ]] && exit 0
 mkdir -p .data
