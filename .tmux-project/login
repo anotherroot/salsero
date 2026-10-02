@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# tmux_project test windows: log the first user in — a session row in this
+# root's or slot's database, handed over as the salsa_session cookie. 1 day.
+set -euo pipefail
+db=.data/salsa.db
+user=$(sqlite3 "$db" "select id from users order by rowid limit 1")
+[[ -n $user ]] || { echo "no user in $db" >&2; exit 1; }
+id=$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')
+now=$(($(date +%s) * 1000))
+sqlite3 "$db" "insert into sessions (id, user_id, expires_at, created_at) values ('$id', '$user', $((now + 86400000)), $now)"
+jq -n --arg v "$id" --arg u "$TEST_URL" \
+  '{cookies: [{name: "salsa_session", value: $v, url: $u, httpOnly: true, sameSite: "Lax"}]}'
