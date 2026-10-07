@@ -174,6 +174,11 @@ export interface PlayerHandle {
 	setToggles(t: Toggles): void;
 	setVoiceVolume(v: number): void;
 	setPool(pool: number[]): void;
+	/**
+	 * Move the run to a song time, playing or paused. Everything queued is for
+	 * the place being left, so it goes, and the cursor restarts at the target.
+	 */
+	seek(songTime: number): void;
 	/** Current position in song seconds — read every frame for the on-screen count. */
 	songTime(): number;
 	/** The plan as decided so far, for "save as set". */
@@ -496,6 +501,18 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 
 		setPool(next) {
 			pool = next;
+		},
+
+		seek(to) {
+			const t = Math.max(0, to);
+			clearQueued();
+			if (opts.audio) opts.audio.currentTime = t;
+			else if (ctx) origin = ctx.currentTime - t / rate();
+			// Paused, the held position IS the run's position: without this the
+			// count on screen would stay where it was, and resume would schedule
+			// from there while the music plays from the new spot.
+			if (heldAt !== null) heldAt = t;
+			cursor = t;
 		},
 
 		songTime: songNow,

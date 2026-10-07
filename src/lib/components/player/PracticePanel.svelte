@@ -3,6 +3,7 @@
 	import { onDestroy } from 'svelte';
 	import CountChips from './CountChips.svelte';
 	import ClaveChips from './ClaveChips.svelte';
+	import SongProgress from './SongProgress.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { CHIP, FIELD, LABEL } from '$lib/components/ui/styles';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
@@ -213,6 +214,15 @@
 		remember();
 	}
 
+	/**
+	 * Running, the player moves the music and drops what it queued for the old
+	 * spot. Stopped, the element alone moves, and the next ▶ starts from there.
+	 */
+	function seek(t: number) {
+		if (player) player.seek(t);
+		else if (audio) audio.currentTime = t;
+	}
+
 	function pause() {
 		player?.pause();
 		paused = true;
@@ -271,6 +281,9 @@
 		<p class="mt-1 text-center text-[13px] text-muted tabular-nums">
 			{clock(elapsedMs(watch, now) / 1000)} · {summary}
 		</p>
+		{#if source === 'song' && audio}
+			<div class="mt-1"><SongProgress {audio} onseek={seek} /></div>
+		{/if}
 		<div class="mt-3 flex gap-2">
 			<button
 				type="button"
@@ -314,6 +327,10 @@
 				onclick={play}>{starting ? '…' : '▶'}</button
 			>
 		</div>
+		{#if source === 'song' && grid && audio}
+			<!-- Before ▶ too: skip an intro, or rewind after a Stop left it mid-song. -->
+			<div class="mt-1"><SongProgress {audio} onseek={seek} /></div>
+		{/if}
 		{#if watch.bankedMs > 0}
 			<p class="mt-2 text-[12px] text-muted">
 				{clock(elapsedMs(watch, Date.now()) / 1000)} practised — ▶ carries on.
