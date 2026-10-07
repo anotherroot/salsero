@@ -215,10 +215,20 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
 - **Call on cue** (figure popup only): off / every 2 / every 4 eights.
 - **While running:** pause/resume, stop, the big count (`LiveCount`), elapsed
   wall-clock time, and the voice-volume slider (live, as in the full player).
+- **The song's progress bar** (`player/SongProgress.svelte`), with a song
+  only: elapsed and total song time, and a tap or drag on the bar moves the
+  song there, seeking once on release. Shown before ▶ as well as during a run,
+  so an intro can be skipped and a Stop that left the song mid-way can be
+  rewound — the full player's "Stop then Play resumes mid-song" gap does not
+  apply here. Running, it goes through the handle's `seek()`, which drops the
+  queued count and, when paused, moves the held position too; stopped, it just
+  sets the element's `currentTime`, which `start()` reads as its cursor. A
+  custom bar rather than `<input type="range">`: iOS Safari's range ignores a
+  tap on the track and only moves by dragging the thumb.
 
 ### Engine
 
-`createPlayer` from `src/lib/scheduler/attach.ts`, unchanged:
+`createPlayer` from `src/lib/scheduler/attach.ts`, unchanged but for `seek()`:
 
 - `pool: []` and `callEvery: null` — nothing is called. With **call on cue**,
   `pool: [figureId]` and `callEvery: 2 | 4`; `pickFigure` already returns the
