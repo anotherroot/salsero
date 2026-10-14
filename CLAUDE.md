@@ -67,9 +67,10 @@ src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      Client-safe
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
-src/lib/exercises/   PURE: the type registry (kinds.ts), practice config
-                     (practice.ts), a wall-clock stopwatch, the Today session.
-                     Client-safe
+src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
+                     where a practice opens (practice.ts), a wall-clock
+                     stopwatch, the Today session. practice-api.ts is the fetch
+                     side of remembering a practice. Client-safe
 src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
                      Client-safe
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;

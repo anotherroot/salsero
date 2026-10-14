@@ -28,7 +28,6 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
-	let practising = $state(false);
 	/** The slot tapped open, by id. One at a time. */
 	let expanded = $state<number | null>(null);
 	let selecting = $state(false);
@@ -178,12 +177,6 @@
 			? resolve(`/${data.dance.slug}/player?routine=${routine.id}`)
 			: resolve(`/${data.dance.slug}/player?routine=${routine.id}&exercise=${data.exerciseId}`)
 	);
-	const songHref = (songId: number) =>
-		data.exerciseId === null
-			? resolve(`/${data.dance.slug}/player?routine=${routine.id}&song=${songId}`)
-			: resolve(
-					`/${data.dance.slug}/player?routine=${routine.id}&song=${songId}&exercise=${data.exerciseId}`
-				);
 
 	/* ── Talking to the server ─────────────────────────────────────────── */
 
@@ -491,20 +484,12 @@
 				<p class="text-[15px] whitespace-pre-line">{routine.notes}</p>
 			{/if}
 			{#if danceable}
-				{#if data.songs.length === 0}
-					<a
-						href={practiseHref}
-						class="grid h-12 w-full place-items-center rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-						>Practise</a
-					>
-				{:else}
-					<button
-						type="button"
-						onclick={() => (practising = true)}
-						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-						>Practise</button
-					>
-				{/if}
+				<!-- The player picks the song: count only, or any of this dance's ready ones. -->
+				<a
+					href={practiseHref}
+					class="grid h-12 w-full place-items-center rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+					>Practise</a
+				>
 			{/if}
 			{#if data.exerciseId !== null}
 				<a
@@ -643,24 +628,6 @@
 			>Make routine</button
 		>
 	</form>
-</Sheet>
-
-<Sheet title="Practise this routine" open={practising} onclose={() => (practising = false)}>
-	<div class="space-y-2">
-		<a
-			href={practiseHref}
-			class="grid h-12 w-full place-items-center rounded-xl border border-line text-[15px]"
-			>To a count</a
-		>
-		<p class="pt-2 text-[12px] font-medium tracking-wide text-muted uppercase">Over a song</p>
-		{#each data.songs as song (song.id)}
-			<a
-				href={songHref(song.id)}
-				class="grid h-12 w-full place-items-center rounded-xl border border-line px-3 text-[15px]"
-				>{song.title}</a
-			>
-		{/each}
-	</div>
 </Sheet>
 
 <UndoToast

@@ -390,6 +390,21 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   only.
 - **Count-only mode:** no song; a synthetic grid at `count_bpm` with clave and
   voice.
+- **The song is picked in the player** (since 2026-10-14), with the same
+  `player/SourcePicker.svelte` as the popup's practice panel: count only at a
+  tempo, or any of this dance's ready songs at a speed. Changing song is not a
+  navigation: the page fetches the grid from `GET /[dance]/songs/[id]/grid`
+  when the song is picked (`player/songGrid.svelte.ts`, shared with the
+  panel), so the `<audio>` has its `src` before the Play tap. It opens on
+  `?song=` (the song page's Play), else the exercise's remembered practice
+  (`practiceStart` in `src/lib/exercises/practice.ts`, shared with the
+  panel), else the count. A run for an exercise remembers its source, song,
+  tempo, count, clave and speed on Play through the panel's own
+  `POST /[dance]/exercises/[id]/practice`, keeping the panel's call interval
+  as it was — the two offer different ones. The routine page's Practise goes
+  straight here; its sheet of songs is gone. The song's progress bar
+  (`player/SongProgress.svelte`) shows before Play, so an intro can be
+  skipped.
 - **The scheduler plays a plan:** the scheduler plays a
   _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
   8-count the figure STARTS on and the call sounds on count 5 of the one before.
@@ -405,7 +420,7 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   figure). Without a routine the player is count and clave only.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
-  `{ speed, count, clave, callEvery, calls, called }`, where `calls` is the true
+  `{ source, songId, bpm, speed, count, clave, callEvery, calls, called }`, where `calls` is the true
   number of figures called and `called` is capped at the last 250 ids — the list
   grows by one every few seconds, and an oversized summary must never cost the
   user the set it describes. Nothing queries inside `player_json`.
@@ -458,8 +473,10 @@ fixed before shipping. Check here before hunting one of these as a new bug:
   changes" below). "Don't save" still discards at once, because it says so.
 - **Pause can let ~100 ms of already-scheduled clips through**, and the
   `AbortError` from a `play()` interrupted by a pause is swallowed.
-- **Stop then Play resumes mid-song**, and the `<audio controls>` is hidden
-  outside a run, so there is no visible way to rewind at that moment.
+- ~~**Stop then Play resumes mid-song**, and the `<audio controls>` is hidden
+  outside a run, so there is no visible way to rewind at that moment.~~ Fixed
+  2026-10-14: the song's progress bar shows on the setup screen too. Stop then
+  Play still resumes where it stopped, which is now a choice.
 - **Logged `duration_s` is SONG seconds, not wall clock**, so a run at 0.7×
   under-reports the time actually spent.
 - Nothing adjusts the pool or the speed mid-run; `setPool` exists on the

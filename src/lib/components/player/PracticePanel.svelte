@@ -4,23 +4,27 @@
 	import CountChips from './CountChips.svelte';
 	import ClaveChips from './ClaveChips.svelte';
 	import SongProgress from './SongProgress.svelte';
+	import SourcePicker from './SourcePicker.svelte';
+	import { loadSongGrid } from './songGrid.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
-	import { CHIP, FIELD, LABEL } from '$lib/components/ui/styles';
+	import { CHIP, LABEL } from '$lib/components/ui/styles';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { syntheticGrid, UNIFORM_FLOW, type Flow } from '$lib/scheduler/scheduler';
-	import { SPEEDS, type ClavePattern, type CountPattern, type Speed } from '$lib/labels';
+	import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
 	import {
 		CUE_EVERY,
 		DEFAULT_PRACTICE_BPM,
 		hourOfBars,
 		parsePracticeConfig,
+		practiceStart,
 		practiceSummary,
 		type CueEvery
 	} from '$lib/exercises/practice';
+	import { rememberPractice } from '$lib/exercises/practice-api';
 	import { STOPPED, elapsedMs, pauseWatch, startWatch } from '$lib/exercises/stopwatch';
 	import { clock } from '$lib/format';
 	import type { Dance } from '$lib/dances/dances';
-	import type { CountTakeRow, ExerciseItem, SongGrid } from '$lib/types';
+	import type { CountTakeRow, ExerciseItem } from '$lib/types';
 
 	interface Props {
 		dance: Dance;
@@ -41,18 +45,14 @@
 	// Seeded once from what the exercise remembers. The popup remounts this
 	// component after every logged set, so "once" is per set, which is right.
 	const remembered = parsePracticeConfig(exercise.practiceJson, dance);
-	const songReady = songs.some((s) => s.id === exercise.songId);
-	/**
-	 * A remembered song can stop being playable — archived, or re-analysed and
-	 * failed — between one practice and the next. Then the panel opens on count
-	 * and says so, rather than failing at Play.
-	 */
-	const songGone = exercise.practiceMode === 'song' && !songReady;
-
-	let source = $state<'count' | 'song'>(
-		exercise.practiceMode === 'song' && songReady ? 'song' : 'count'
+	const start = practiceStart(
+		exercise,
+		songs.map((s) => s.id)
 	);
-	let songId = $state<number | null>(songReady ? exercise.songId : (songs[0]?.id ?? null));
+	const songGone = start.songGone;
+
+	let source = $state<'count' | 'song'>(start.source);
+	let songId = $state<number | null>(start.songId);
 	let bpm = $state(exercise.countBpm ?? DEFAULT_PRACTICE_BPM);
 	let count = $state<CountPattern>(remembered.count);
 	let clave = $state<ClavePattern | null>(remembered.clave);
@@ -61,8 +61,11 @@
 	let voiceVolume = $state(1);
 	let expanded = $state(songGone);
 
-	let grid = $state<SongGrid | null>(null);
-	let gridError = $state<string | null>(null);
+	const song = loadSongGrid(
+		() => dance.slug,
+		() => (source === 'song' ? songId : null)
+	);
+	const grid = $derived(song.grid);
 	let audio: HTMLAudioElement | undefined = $state();
 
 	let player = $state<PlayerHandle | null>(null);
@@ -85,33 +88,6 @@
 	);
 	const canPlay = $derived(source === 'count' ? bpm >= 60 && bpm <= 300 : grid !== null);
 
-	// The grid is fetched when a song is chosen — never on the Play tap, which
-	// must reach `start()` without awaiting anything or iOS keeps the audio locked.
-	$effect(() => {
-		if (source !== 'song' || songId === null) {
-			grid = null;
-			return;
-		}
-		const id = songId;
-		let cancelled = false;
-		gridError = null;
-		grid = null;
-		fetch(`/${dance.slug}/songs/${id}/grid`)
-			.then((r) =>
-				r.ok ? (r.json() as Promise<SongGrid>) : Promise.reject(new Error(String(r.status)))
-			)
-			.then((g) => {
-				if (!cancelled) grid = g;
-			})
-			.catch(() => {
-				if (!cancelled)
-					gridError = 'That song could not be loaded. Pick another, or use the count.';
-			});
-		return () => {
-			cancelled = true;
-		};
-	});
-
 	// The elapsed clock on screen; the stopwatch itself needs no timer.
 	$effect(() => {
 		if (!player || paused) return;
@@ -123,20 +99,6 @@
 	// moment, and the Sheet must stay guarded for that whole stretch, not just
 	// once a player exists.
 	$effect(() => onactive(starting || player !== null));
-
-	/** Remember these choices for next time. A convenience: a failure changes nothing. */
-	function remember() {
-		void fetch(`/${dance.slug}/exercises/${exercise.id}/practice`, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({
-				mode: source,
-				songId: source === 'song' ? songId : null,
-				countBpm: source === 'count' ? bpm : null,
-				config: { count, clave, speed, callEvery }
-			})
-		}).catch(() => {});
-	}
 
 	/**
 	 * Runs inside the Play tap. Everything up to `handle.start()` is synchronous
@@ -211,7 +173,12 @@
 		paused = false;
 		watch = startWatch(watch, Date.now());
 		starting = false;
-		remember();
+		rememberPractice(dance.slug, exercise.id, {
+			source,
+			songId,
+			bpm,
+			config: { count, clave, speed, callEvery }
+		});
 	}
 
 	/**
@@ -347,74 +314,15 @@
 
 		{#if expanded}
 			<div class="mt-3 space-y-4">
-				{#if songs.length > 0}
-					<fieldset>
-						<legend class={LABEL}>Source</legend>
-						<div class="flex gap-2">
-							<label class={CHIP}>
-								<input
-									type="radio"
-									name="panel-source"
-									checked={source === 'count'}
-									onchange={() => (source = 'count')}
-									class="sr-only"
-								/>
-								Count only
-							</label>
-							<label class={CHIP}>
-								<input
-									type="radio"
-									name="panel-source"
-									checked={source === 'song'}
-									onchange={() => (source = 'song')}
-									class="sr-only"
-								/>
-								A song
-							</label>
-						</div>
-					</fieldset>
-				{/if}
-
-				{#if source === 'song'}
-					<label class="block">
-						<span class={LABEL}>Song</span>
-						<select bind:value={songId} class={FIELD}>
-							{#each songs as s (s.id)}
-								<option value={s.id}>{s.title}</option>
-							{/each}
-						</select>
-					</label>
-					{#if gridError}<p class="text-[13px] text-danger">{gridError}</p>{/if}
-					<fieldset>
-						<legend class={LABEL}>Speed</legend>
-						<div class="flex gap-2">
-							{#each SPEEDS as s (s)}
-								<label class={CHIP}>
-									<input
-										type="radio"
-										name="panel-speed"
-										checked={speed === s}
-										onchange={() => (speed = s)}
-										class="sr-only"
-									/>
-									{s}×
-								</label>
-							{/each}
-						</div>
-					</fieldset>
-				{:else}
-					<label class="block">
-						<span class={LABEL}>Tempo (BPM)</span>
-						<input
-							type="number"
-							inputmode="numeric"
-							min="60"
-							max="300"
-							bind:value={bpm}
-							class={FIELD}
-						/>
-					</label>
-				{/if}
+				<SourcePicker
+					name="panel"
+					{songs}
+					bind:source
+					bind:songId
+					bind:speed
+					bind:bpm
+					error={song.error}
+				/>
 
 				<fieldset>
 					<legend class={LABEL}>Voice count</legend>

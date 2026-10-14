@@ -219,8 +219,7 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
   only: elapsed and total song time, and a tap or drag on the bar moves the
   song there, seeking once on release. Shown before ▶ as well as during a run,
   so an intro can be skipped and a Stop that left the song mid-way can be
-  rewound — the full player's "Stop then Play resumes mid-song" gap does not
-  apply here. Running, it goes through the handle's `seek()`, which drops the
+  rewound. The full player shows it on its setup screen too, since 2026-10-14. Running, it goes through the handle's `seek()`, which drops the
   queued count and, when paused, moves the held position too; stopped, it just
   sets the element's `currentTime`, which `start()` reads as its cursor. A
   custom bar rather than `<input type="range">`: iOS Safari's range ignores a
@@ -242,7 +241,12 @@ clave 2-3  ▶` — so a single tap plays what was used last time. **Expanded**:
   shipped clips, as the player does.
 - The count and clave chips move out of `player/Setup.svelte` into
   `player/CountChips.svelte` and `player/ClaveChips.svelte`, used by both the
-  full player and the panel — extracted, not copied.
+  full player and the panel — extracted, not copied. Since 2026-10-14 the
+  source, song, speed and tempo are shared the same way
+  (`player/SourcePicker.svelte`), with the grid fetch
+  (`player/songGrid.svelte.ts`), the remembered start (`practiceStart`) and
+  the remember call (`src/lib/exercises/practice-api.ts`): the full player
+  picks a song like the panel, and remembers it on the exercise.
 
 ### Loading without slowing down Today
 

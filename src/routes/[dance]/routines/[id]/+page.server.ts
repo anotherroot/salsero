@@ -6,7 +6,6 @@ import { figureLabels, listVersions } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
-import { listReadySongs } from '$lib/server/songs';
 import {
 	addOption,
 	archiveRoutine,
@@ -116,9 +115,6 @@ export const load: PageServerLoad = ({ params }) => {
 				.from(exercises)
 				.where(eq(exercises.routineId, routine.id))
 				.get()?.id ?? null,
-		// Ready songs, so a routine can be practised over one. The player loads the
-		// grid from `?song=`, so this only has to name them.
-		songs: listReadySongs(db, dance),
 		slots,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
