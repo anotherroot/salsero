@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { deviceTokens, users } from './db/schema';
+import { archiveExercise, createCustomExercise, logSet, updateExercise } from './exercises';
 import {
 	bearerToken,
 	createDeviceToken,
 	deviceSettings,
+	dueByDance,
 	listDevices,
 	removeDevice,
 	setReminderMinute,
@@ -109,5 +111,46 @@ describe('bearerToken', () => {
 		expect(bearerToken('Basic abc')).toBeNull();
 		expect(bearerToken('Bearer ')).toBeNull();
 		expect(bearerToken(null)).toBeNull();
+	});
+});
+
+describe('dueByDance', () => {
+	const DAY = 86_400_000;
+	const ex = (dance: 'salsa' | 'bachata', name: string, everyDays = 1) =>
+		createCustomExercise(db, dance, { name, everyDays, notes: null });
+	const done = (exerciseId: number, doneAt: number) =>
+		logSet(db, {
+			exerciseId,
+			doneAt,
+			durationS: null,
+			reps: null,
+			rating: null,
+			note: null,
+			playerJson: null
+		});
+
+	it("gives each dance its own due list, most urgent first", () => {
+		// Created least urgent first, so insertion order is NOT the expected order.
+		const mild = ex('salsa', 'Mild');
+		const urgent = ex('salsa', 'Urgent');
+		done(mild.id, T0 - 3 * DAY);
+		done(urgent.id, T0 - 10 * DAY);
+		ex('bachata', 'Basics');
+		expect(dueByDance(db, T0, 'Europe/Ljubljana')).toEqual({
+			salsa: { due: ['Urgent', 'Mild'] },
+			bachata: { due: ['Basics'] }
+		});
+	});
+
+	it('leaves out what was done today, parked, archived or not yet due', () => {
+		const today = ex('salsa', 'Today');
+		done(today.id, T0 - 60_000);
+		const parked = ex('salsa', 'Parked');
+		updateExercise(db, parked.id, { name: 'Parked', everyDays: 1, active: false, notes: null });
+		const gone = ex('salsa', 'Gone');
+		archiveExercise(db, gone.id, T0);
+		const weekly = ex('salsa', 'Weekly', 7);
+		done(weekly.id, T0 - 2 * DAY);
+		expect(dueByDance(db, T0, 'Europe/Ljubljana').salsa.due).toEqual([]);
 	});
 });
