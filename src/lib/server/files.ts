@@ -187,7 +187,8 @@ export async function sweepUploads(maxAgeMs: number): Promise<number> {
 	const names = await readdir(dir).catch(() => [] as string[]);
 	let gone = 0;
 	for (const name of names) {
-		if (!name.endsWith('.part')) continue;
+		// Partials, and the markers of finished uploads (see the chunk endpoint).
+		if (!name.endsWith('.part') && !name.endsWith('.done')) continue;
 		const path = join(dir, name);
 		const mtime = await stat(path).then(
 			(s) => s.mtimeMs,

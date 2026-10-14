@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { rename, stat, unlink } from 'node:fs/promises';
+import { readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
@@ -49,6 +49,15 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	const db = getDb();
 	const found = getLesson(db, lessonId);
 	if (!found || found.lesson.archivedAt !== null) return fail(404, 'No such lesson.');
+
+	// Already finished: the client lost our 201 and is asking again. Answer the
+	// same row, or it would upload the whole video a second time as a new one.
+	const done = join(uploadsDir(), `${params.uploadId}.done`);
+	const finished = await readFile(done, 'utf8').then(
+		(text) => JSON.parse(text) as unknown,
+		() => null
+	);
+	if (finished) return json(finished, { status: 201 });
 
 	const range = parseContentRange(request.headers.get('content-range'));
 	if (!range)
@@ -115,6 +124,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 	try {
 		const row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size });
+		// Remembered for a day (swept with the partials), for a client whose 201 got lost.
+		await writeFile(done, JSON.stringify(row)).catch(() => {});
 		return json(row, { status: 201 });
 	} catch {
 		await unlink(target).catch(() => {});
