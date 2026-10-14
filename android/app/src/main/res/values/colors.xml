@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The dances' accents, from src/lib/dances/dances.ts. -->
+    <color name="salsa">#c2410c</color>
+    <color name="bachata">#0f766e</color>
+</resources>
