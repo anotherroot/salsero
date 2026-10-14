@@ -25,7 +25,9 @@ const PUBLIC_PATHS = new Set([
 	'/icons/salsa-192.png',
 	'/icons/salsa-512.png',
 	'/icons/bachata-192.png',
-	'/icons/bachata-512.png'
+	'/icons/bachata-512.png',
+	// Chrome fetches it unauthenticated to verify the Android app (a TWA).
+	'/.well-known/assetlinks.json'
 ]);
 
 /** The home worker's API: no session, a bearer token instead. */

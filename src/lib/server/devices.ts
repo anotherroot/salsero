@@ -51,10 +51,7 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 		.get();
 	if (!row) return null;
 	if (row.lastUsedAt === null || now - row.lastUsedAt >= TOUCH_EVERY_MS) {
-		db.update(deviceTokens)
-			.set({ lastUsedAt: now })
-			.where(eq(deviceTokens.id, row.deviceId))
-			.run();
+		db.update(deviceTokens).set({ lastUsedAt: now }).where(eq(deviceTokens.id, row.deviceId)).run();
 	}
 	return { id: row.id, email: row.email, timezone: row.timezone };
 }

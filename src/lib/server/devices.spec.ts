@@ -55,7 +55,7 @@ describe('device tokens', () => {
 		expect(userForDeviceToken(db, token, T0)).toBeNull();
 	});
 
-	it("cannot be removed by another user", () => {
+	it('cannot be removed by another user', () => {
 		const { id, token } = createDeviceToken(db, 'u1', 'Phone', T0);
 		expect(removeDevice(db, 'u2', id)).toBe(false);
 		expect(userForDeviceToken(db, token, T0)).not.toBeNull();
@@ -129,7 +129,7 @@ describe('dueByDance', () => {
 			playerJson: null
 		});
 
-	it("gives each dance its own due list, most urgent first", () => {
+	it('gives each dance its own due list, most urgent first', () => {
 		// Created least urgent first, so insertion order is NOT the expected order.
 		const mild = ex('salsa', 'Mild');
 		const urgent = ex('salsa', 'Urgent');
