@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CountTakeRow } from '$lib/types';
-import { chooseTakes } from './attach';
+import { chooseTakes, createPlayer, TICK_MS } from './attach';
 
 /**
  * `attach.ts` is the impure half and is otherwise judged by ear, but this one
@@ -60,5 +60,118 @@ describe('chooseTakes', () => {
 	it('falls back on a nonsense tempo rather than dividing by it', () => {
 		expect(chooseTakes(ladder, 0)).toBeNull();
 		expect(chooseTakes(ladder, NaN)).toBeNull();
+	});
+});
+
+/**
+ * Just enough of the browser for `start()` and the tick to run under vitest:
+ * a context whose clock the test moves, clips that decode to nothing, and no
+ * wake lock. Nothing here is listened to — these tests are about when the run
+ * says it has ended, not about what it sounds like.
+ */
+function fakeBrowser() {
+	const ctx = {
+		currentTime: 0,
+		destination: {},
+		resume: async () => {},
+		close: async () => {},
+		createGain: () => ({ gain: { value: 1 }, connect: () => {} }),
+		decodeAudioData: async () => ({ duration: 0.2 }),
+		createBufferSource: () => ({
+			buffer: null,
+			playbackRate: { value: 1 },
+			connect: () => {},
+			start: () => {},
+			stop: () => {},
+			onended: null
+		})
+	};
+	vi.stubGlobal(
+		'AudioContext',
+		class {
+			constructor() {
+				return ctx;
+			}
+		}
+	);
+	vi.stubGlobal('fetch', async () => new Response(new ArrayBuffer(8)));
+	vi.stubGlobal('SpeechSynthesisUtterance', class {});
+	vi.stubGlobal('document', {
+		visibilityState: 'visible',
+		addEventListener: () => {},
+		removeEventListener: () => {}
+	});
+	return ctx;
+}
+
+describe('the end of a song', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+	});
+
+	const beats = Array.from({ length: 16 }, (_, i) => i * 0.5);
+	const counts = beats.map((_, i) => (i % 8) + 1);
+
+	it('ends the run even when a tick reached the last second before the element said so', async () => {
+		fakeBrowser();
+		// `currentTime` reaches the duration a moment before `ended` turns true;
+		// a tick that lands in that moment has already scheduled up to there.
+		const audio = {
+			currentTime: 0,
+			playbackRate: 1,
+			ended: false,
+			play: async () => {},
+			pause() {}
+		};
+		const onEnd = vi.fn();
+		const player = createPlayer({
+			audio: audio as unknown as HTMLAudioElement,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null, callEvery: null },
+			pool: [],
+			sayOf: () => '',
+			voiceVolume: 1,
+			onCall: () => {},
+			onEnd
+		});
+		await player.start();
+
+		audio.currentTime = 7.9;
+		await vi.advanceTimersByTimeAsync(TICK_MS);
+		audio.currentTime = 8;
+		await vi.advanceTimersByTimeAsync(TICK_MS);
+		audio.ended = true;
+		await vi.advanceTimersByTimeAsync(TICK_MS * 4);
+
+		expect(onEnd).toHaveBeenCalledTimes(1);
+		player.stop();
+	});
+
+	it('ends a count-only run once, after its last beat', async () => {
+		const ctx = fakeBrowser();
+		const onEnd = vi.fn();
+		const player = createPlayer({
+			audio: null,
+			grid: { beats, counts },
+			toggles: { count: 'off', clave: null, callEvery: null },
+			pool: [],
+			sayOf: () => '',
+			voiceVolume: 1,
+			onCall: () => {},
+			onEnd
+		});
+		await player.start();
+
+		ctx.currentTime = 7;
+		await vi.advanceTimersByTimeAsync(TICK_MS);
+		expect(onEnd).not.toHaveBeenCalled();
+		ctx.currentTime = 8;
+		await vi.advanceTimersByTimeAsync(TICK_MS * 4);
+		expect(onEnd).toHaveBeenCalledTimes(1);
+		player.stop();
 	});
 });
