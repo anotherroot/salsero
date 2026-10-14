@@ -7,6 +7,8 @@
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
+	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
+	import { uploadLink } from '$lib/app-mode';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
@@ -445,11 +447,23 @@
 		<div class="mt-3">
 			<!-- Keyed: the button holds upload state, and a tab change must not carry it over. -->
 			{#key version.id}
-				<UploadButton
-					url="/api/figures/{version.id}/recordings"
-					accept="video/*,audio/*"
-					label="+ Add video or audio"
-				/>
+				{#if data.app}
+					<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
+					<AppUploadLink href={uploadLink({ figure: version.id })} label="+ Add video" />
+					<div class="mt-2">
+						<UploadButton
+							url="/api/figures/{version.id}/recordings"
+							accept="audio/*"
+							label="+ Add audio"
+						/>
+					</div>
+				{:else}
+					<UploadButton
+						url="/api/figures/{version.id}/recordings"
+						accept="video/*,audio/*"
+						label="+ Add video or audio"
+					/>
+				{/if}
 			{/key}
 		</div>
 	</section>
