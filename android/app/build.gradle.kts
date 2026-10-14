@@ -20,10 +20,10 @@ android {
         // Each launcher opens its dance marked as the app, so pages offer native links.
         resValue("string", "salsa_url", "$site/salsa?app=android")
         resValue("string", "bachata_url", "$site/bachata?app=android")
-        resValue(
-            "string", "asset_statements",
-            """[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"$site"}}]""",
-        )
+        // aapt2 strips bare quotes from a string resource, which would leave this
+        // not-JSON and the TWA unverified: escape them for the XML.
+        val statements = """[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"$site"}}]"""
+        resValue("string", "asset_statements", statements.replace("\"", "\\\""))
     }
 
     buildFeatures {
