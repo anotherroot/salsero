@@ -9,6 +9,7 @@
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import { uploadLink } from '$lib/app-mode';
+	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
@@ -449,7 +450,16 @@
 			{#key version.id}
 				{#if data.app}
 					<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
-					<AppUploadLink href={uploadLink({ figure: version.id })} label="+ Add video" />
+					<AppUploadLink
+						href={uploadLink(
+							{ figure: version.id },
+							{
+								back: page.url.pathname + page.url.search,
+								name: version.id === figure.id ? figure.name : `${figure.name} · ${version.name}`
+							}
+						)}
+						label="+ Add video"
+					/>
 					<div class="mt-2">
 						<UploadButton
 							url="/api/figures/{version.id}/recordings"

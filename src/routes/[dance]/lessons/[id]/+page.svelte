@@ -9,6 +9,7 @@
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
 	import { uploadLink } from '$lib/app-mode';
+	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
@@ -208,7 +209,13 @@
 			</ul>
 			<div class="mt-3">
 				{#if data.app}
-					<AppUploadLink href={uploadLink({ lesson: lesson.id })} label="+ Add videos" />
+					<AppUploadLink
+						href={uploadLink(
+							{ lesson: lesson.id },
+							{ back: page.url.pathname, name: lesson.title }
+						)}
+						label="+ Add videos"
+					/>
 				{:else}
 					<ChunkedUploadButton
 						uploadUrl="/api/lessons/{lesson.id}/videos"

@@ -14,15 +14,22 @@ export const APP_SCHEME = 'salsa';
 /** The key the app files a shared video under: a uuid it generated. */
 export const SHARE_KEY_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-/** Hands a lesson or a figure to the app's uploader; `share` picks a shared file instead of the picker. */
+/**
+ * Hands a lesson or a figure to the app's uploader. `back` (the page to open
+ * when the upload is done — the id alone does not say which dance) and `name`
+ * (for its notification) are display only; `share` picks a shared file
+ * instead of the picker.
+ */
 export function uploadLink(
 	target: { lesson: number } | { figure: number },
-	share?: string
+	opts: { back: string; name: string; share?: string }
 ): string {
 	const params = new URLSearchParams(
 		'lesson' in target ? { lesson: String(target.lesson) } : { figure: String(target.figure) }
 	);
-	if (share) params.set('share', share);
+	params.set('back', opts.back);
+	params.set('name', opts.name);
+	if (opts.share) params.set('share', opts.share);
 	return `${APP_SCHEME}://upload?${params}`;
 }
 

@@ -26,13 +26,24 @@
 				<ul class="space-y-2">
 					{#each dance.lessons as lesson (lesson.id)}
 						<li class="overflow-hidden rounded-xl border border-line bg-raised">
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an app link, not a route -->
-							<a href={uploadLink({ lesson: lesson.id }, data.key)} class="block px-4 py-3">
+							<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
+							<a
+								href={uploadLink(
+									{ lesson: lesson.id },
+									{
+										back: `/${dance.slug}/lessons/${lesson.id}`,
+										name: lesson.title,
+										share: data.key
+									}
+								)}
+								class="block px-4 py-3"
+							>
 								<span class="block truncate text-[15px] font-medium">{lesson.title}</span>
 								<span class="mt-0.5 block text-[12px] text-muted"
 									>{dateLabel(lesson.lessonDay)}</span
 								>
 							</a>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
 						</li>
 					{/each}
 				</ul>

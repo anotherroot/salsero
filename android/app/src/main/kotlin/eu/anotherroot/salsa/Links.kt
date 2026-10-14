@@ -16,8 +16,11 @@ sealed interface Target {
 }
 
 sealed interface Link {
-    /** Pick (or take the shared files under [share]) and upload them to [target]. */
-    data class Upload(val target: Target, val share: String?) : Link
+    /**
+     * Pick (or take the shared files under [share]) and upload them to [target].
+     * [back] is the site path to open when done, [name] what the notification calls it.
+     */
+    data class Upload(val target: Target, val share: String?, val back: String, val name: String) : Link
 
     /** `/device/pair` minted a token for this app. */
     data class Paired(val token: String) : Link
@@ -51,11 +54,15 @@ fun parseLink(uri: String): Link? {
             }
             // A share only ever goes to a lesson (see the spec), and its key names a directory.
             if (share != null && (target !is Target.Lesson || !SHARE_KEY.matches(share))) return null
-            Link.Upload(target, share)
+            Link.Upload(target, share, sitePath(query["back"]), query["name"]?.takeIf { it.isNotBlank() } ?: "the lesson")
         }
         "paired" -> query["token"]?.takeIf { it.isNotEmpty() }?.let(Link::Paired)
         else -> null
     }
 }
+
+/** A path on this site only: anything else (another host, `//host`) becomes the start page. */
+private fun sitePath(s: String?): String =
+    if (s != null && s.startsWith("/") && !s.startsWith("//")) s else "/"
 
 private fun positiveId(s: String): Long? = s.toLongOrNull()?.takeIf { it > 0 }

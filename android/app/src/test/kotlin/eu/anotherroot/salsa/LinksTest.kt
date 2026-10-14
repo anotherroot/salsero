@@ -7,14 +7,30 @@ import org.junit.Test
 class LinksTest {
     private val key = "0f8e2a3c-1b2d-4e5f-8a9b-0c1d2e3f4a5b"
 
-    @Test fun `a lesson upload`() =
-        assertEquals(Link.Upload(Target.Lesson(12), null), parseLink("salsa://upload?lesson=12"))
+    @Test fun `a lesson upload, with where to go back to`() = assertEquals(
+        Link.Upload(Target.Lesson(12), null, "/salsa/lessons/12", "Wednesday class"),
+        parseLink("salsa://upload?lesson=12&back=%2Fsalsa%2Flessons%2F12&name=Wednesday+class"),
+    )
 
-    @Test fun `a figure upload`() =
-        assertEquals(Link.Upload(Target.Figure(7), null), parseLink("salsa://upload?figure=7"))
+    @Test fun `a figure upload`() = assertEquals(
+        Link.Upload(Target.Figure(7), null, "/bachata/figures/7?v=9", "Enchufla · Doble"),
+        parseLink("salsa://upload?figure=7&back=%2Fbachata%2Ffigures%2F7%3Fv%3D9&name=Enchufla+%C2%B7+Doble"),
+    )
 
-    @Test fun `a shared file for a lesson`() =
-        assertEquals(Link.Upload(Target.Lesson(3), key), parseLink("salsa://upload?lesson=3&share=$key"))
+    @Test fun `a shared file for a lesson`() = assertEquals(
+        Link.Upload(Target.Lesson(3), key, "/salsa/lessons/3", "Class"),
+        parseLink("salsa://upload?lesson=3&back=%2Fsalsa%2Flessons%2F3&name=Class&share=$key"),
+    )
+
+    @Test fun `no back or name falls back to the start page and a plain word`() = assertEquals(
+        Link.Upload(Target.Lesson(3), null, "/", "the lesson"),
+        parseLink("salsa://upload?lesson=3"),
+    )
+
+    @Test fun `a back that leaves the site is ignored`() {
+        assertEquals("/", (parseLink("salsa://upload?lesson=3&back=https%3A%2F%2Fevil.example") as Link.Upload).back)
+        assertEquals("/", (parseLink("salsa://upload?lesson=3&back=%2F%2Fevil.example") as Link.Upload).back)
+    }
 
     @Test fun `a token, decoded`() =
         assertEquals(Link.Paired("a+b/c="), parseLink("salsa://paired?token=a%2Bb%2Fc%3D"))
