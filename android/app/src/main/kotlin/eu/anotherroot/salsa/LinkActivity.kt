@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -53,7 +54,12 @@ class LinkActivity : ComponentActivity() {
         val pending = Prefs.pendingLink(this)
         Prefs.setPendingLink(this, null)
         val resume = pending?.let(::parseLink) as? Link.Upload
-        if (resume != null) upload(resume, pending) else finish()
+        when {
+            pending != null && resume != null -> upload(resume, pending)
+            // Ask for notifications now too: the reminder needs them even if nothing is ever uploaded.
+            mustAsk() -> askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            else -> finish()
+        }
     }
 
     private fun upload(upload: Link.Upload, raw: String) {
@@ -63,10 +69,12 @@ class LinkActivity : ComponentActivity() {
             return
         }
         link = upload
-        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
-        if (granted) proceed() else askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (mustAsk()) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) else proceed()
     }
+
+    /** Android 13+ asks once; below it, notifications need no permission. */
+    private fun mustAsk() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
 
     private fun proceed() {
         val upload = link ?: return finish()

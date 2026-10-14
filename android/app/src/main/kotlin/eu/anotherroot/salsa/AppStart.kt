@@ -15,9 +15,7 @@ object AppStart {
     }
 
     /** Re-reads `/api/device/config` and reschedules the reminder. */
-    @Suppress("UNUSED_PARAMETER")
-    fun refreshConfig(context: Context) {
-    }
+    fun refreshConfig(context: Context) = ConfigWorker.enqueue(context.applicationContext)
 
     /**
      * Deletes compressed files, offsets and shared copies that no queued upload

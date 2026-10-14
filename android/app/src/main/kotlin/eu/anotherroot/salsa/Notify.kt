@@ -1,14 +1,12 @@
 package eu.anotherroot.salsa
 
-import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
-import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.work.ForegroundInfo
 
 /** The app's notifications: the running upload, each upload's outcome, and the daily reminder. */
@@ -55,7 +53,8 @@ object Notify {
         post(context, REMINDER_ID, REMINDERS, title, text, path)
 
     private fun post(context: Context, id: Int, channel: String, title: String, text: String?, path: String) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        // Also false when the user has turned this app's notifications off; true below Android 13 otherwise.
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         channels(context)
         val tap = PendingIntent.getActivity(
             context, id, webIntent(context, path), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

@@ -15,4 +15,9 @@ object Prefs {
     fun pendingLink(context: Context): String? = prefs(context).getString("pendingLink", null)
 
     fun setPendingLink(context: Context, link: String?) = prefs(context).edit { putString("pendingLink", link) }
+
+    /** The reminder time last read from the server, for rescheduling after a reboot. -1 = off. */
+    fun reminderMinute(context: Context): Int? = prefs(context).getInt("reminderMinute", -1).takeIf { it >= 0 }
+
+    fun setReminderMinute(context: Context, minute: Int?) = prefs(context).edit { putInt("reminderMinute", minute ?: -1) }
 }
