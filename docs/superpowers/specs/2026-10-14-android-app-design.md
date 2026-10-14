@@ -1,6 +1,7 @@
 # Android app — design
 
-> **Status:** approved in brainstorming, 2026-10-14; not built. Adds an Android
+> **Status:** approved in brainstorming, 2026-10-14; built 2026-10-14 (plan:
+> `docs/superpowers/plans/2026-10-14-android-app.md`), not yet deployed or tried on a phone. Adds an Android
 > APK beside the web app. Lessons' upload protocol is
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md)'s and is not
 > changed; this document adds a second client for it.
