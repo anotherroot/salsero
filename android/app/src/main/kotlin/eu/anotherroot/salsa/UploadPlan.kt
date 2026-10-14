@@ -26,14 +26,21 @@ const val MAX_RECORDING_BYTES = 95L * 1024 * 1024
 /** The status [nextStep] is given when the request never got an answer. */
 const val NETWORK_ERROR = -1
 
-/** Retries of one video before it is given up as failed. */
-const val MAX_ATTEMPTS = 12
+/**
+ * Runs in a row that may end without progress before a video is given up.
+ * Counted per video and cleared by any progress (`JobStore`), so a long upload
+ * over a patchy connection is not failed for drops it recovered from.
+ */
+const val MAX_STALLS = 12
+
+fun givesUp(stalls: Int) = stalls >= MAX_STALLS
 
 sealed interface Step {
     /** PUT bytes [start]..[end] inclusive. */
     data class Send(val start: Long, val end: Long) : Step
     data object Done : Step
-    data class Retry(val afterMs: Long) : Step
+    /** Not now: wait (WorkManager's backoff) and try again. */
+    data object Retry : Step
     data class Fail(val reason: String) : Step
     data object Unpaired : Step
 }
@@ -44,14 +51,14 @@ private fun chunkFrom(start: Long, total: Long) = Step.Send(start, min(start + C
 
 /**
  * What to do after [status] for the chunk [sent]. [received] is the server's
- * `x-received-bytes`, [attempt] how many retries this video has had, and
- * [message] the server's own words, kept for a failure notification.
+ * `x-received-bytes`, and [message] the server's own words, kept for a
+ * failure notification.
  */
-fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, attempt: Int, message: String): Step =
+fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, message: String): Step =
     when {
         status == 201 -> Step.Done
         status == 204 -> chunkFrom(received ?: (sent.end + 1), total).let {
-            if (it.start >= total) retryOrFail(attempt, message) else it
+            if (it.start >= total) Step.Retry else it
         }
         // With a count: the client was wrong about the offset. Without: another
         // request for this upload is still being written, so wait for it.
@@ -60,12 +67,8 @@ fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, attempt
             else chunkFrom(received, total)
         status == 401 -> Step.Unpaired
         status in listOf(404, 413, 415) -> Step.Fail(message.ifBlank { "The server refused it ($status)." })
-        else -> retryOrFail(attempt, message.ifBlank { "Upload failed ($status)." })
+        else -> Step.Retry
     }
-
-private fun retryOrFail(attempt: Int, message: String): Step =
-    if (attempt >= MAX_ATTEMPTS) Step.Fail(message)
-    else Step.Retry(min(5_000L shl min(attempt, 10), 5 * 60_000L))
 
 fun fitsRecording(bytes: Long) = bytes <= MAX_RECORDING_BYTES
 

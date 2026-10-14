@@ -9,62 +9,59 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.workDataOf
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
- * Uploads run one at a time, in the order they were queued: one unique chain.
- * The lesson protocol's premise is one stream per file at a time, and a phone's
- * uplink wants that anyway. A worker never fails — it posts its outcome and
- * succeeds — because a failed link in an APPEND chain would cancel the rest.
+ * The upload queue: jobs on disk (`JobStore`), drained in order by one runner
+ * (`UploadWorker`). One runner rather than a job per video because Android 12+
+ * lets an app start a foreground service only while it is in front: a runner
+ * kicked from LinkActivity, or from a launch, covers the whole batch.
  */
 object UploadQueue {
-    const val NAME = "uploads"
-    const val KEY_SOURCE = "source"
-    const val KEY_SHARED = "shared"
-    const val KEY_TARGET = "target"
-    const val KEY_ID = "id"
-    const val KEY_UPLOAD_ID = "uploadId"
-    const val KEY_BACK = "back"
-    const val KEY_NAME = "name"
-    const val TAG_UPLOAD = "upload:"
-    const val TAG_SHARE = "share:"
+    private const val NAME = "uploads"
+
+    fun store(context: Context) = JobStore(File(context.noBackupFilesDir, "jobs"))
 
     /** [source] is a picked content URI, or a shared copy's file (then [shareKey] names its folder). */
-    fun enqueue(context: Context, source: Uri, link: Link.Upload, shareKey: String? = null) {
-        val uploadId = UUID.randomUUID().toString()
-        val request = OneTimeWorkRequestBuilder<UploadWorker>()
-            .setInputData(
-                workDataOf(
-                    KEY_SOURCE to source.toString(),
-                    KEY_SHARED to (shareKey != null),
-                    KEY_TARGET to if (link.target is Target.Lesson) "lesson" else "figure",
-                    KEY_ID to link.target.id,
-                    KEY_UPLOAD_ID to uploadId,
-                    KEY_BACK to link.back,
-                    KEY_NAME to link.name,
-                ),
-            )
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .addTag(TAG_UPLOAD + uploadId)
-            .apply { if (shareKey != null) addTag(TAG_SHARE + shareKey) }
-            .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+    fun add(context: Context, source: Uri, link: Link.Upload, shareKey: String? = null) {
+        store(context).add(
+            Job(
+                id = UUID.randomUUID().toString(),
+                source = source.toString(),
+                shareKey = shareKey,
+                target = link.target,
+                back = link.back,
+                name = link.name,
+                queuedAt = System.currentTimeMillis(),
+            ),
+        )
     }
 
-    /** Tags of uploads not yet finished. Blocking. */
-    fun pendingTags(context: Context): List<String> =
-        WorkManager.getInstance(context).getWorkInfosForUniqueWork(NAME).get()
-            .filter { !it.state.isFinished }
-            .flatMap { it.tags }
+    /**
+     * Makes sure a runner will drain the queue. Call it from the foreground when
+     * possible. A runner already running gets one queued behind it, in case it
+     * is just finishing; one waiting out a backoff is replaced, so it runs now.
+     */
+    fun kick(context: Context) {
+        val app = context.applicationContext
+        Thread { enqueueRunner(app) }.start() // WorkManager's query blocks
+    }
 
-    /** How many uploads wait behind the running one. Blocking. */
-    fun waiting(context: Context): Int =
-        WorkManager.getInstance(context).getWorkInfosForUniqueWork(NAME).get()
-            .count { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.BLOCKED }
+    private fun enqueueRunner(context: Context) {
+        val wm = WorkManager.getInstance(context)
+        val running = try {
+            wm.getWorkInfosForUniqueWork(NAME).get().any { it.state == WorkInfo.State.RUNNING }
+        } catch (e: Exception) {
+            false
+        }
+        val request = OneTimeWorkRequestBuilder<UploadWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 2, TimeUnit.MINUTES)
+            .build()
+        wm.enqueueUniqueWork(NAME, if (running) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE, request)
+    }
 }
 
 /** Where shared videos wait for the user to pick a lesson: one folder per share. */

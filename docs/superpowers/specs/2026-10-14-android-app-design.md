@@ -124,15 +124,29 @@ existing table.
 
 ## The upload job
 
-**One WorkManager job per video, chained in order**, so one upload streams
-at a time — the protocol's premise, and what a phone's uplink wants anyway.
-The job runs as a foreground service (`dataSync`; `mediaProcessing` where
-Android 15+ offers it) so it survives the app leaving the screen.
+**The queue is on disk, drained by one runner.** Each video is a folder in
+the app's no-backup storage (`JobStore`): the job, its compressed file, the
+server's upload id, the offset reached, and a stall count. One WorkManager
+worker drains it oldest first, so one upload streams at a time — the
+protocol's premise, and what a phone's uplink wants anyway.
+
+One runner rather than a job per video because **Android 12+ starts a
+foreground service only for an app in front**. The runner is kicked from the
+link that queued the video and from every launch, so the whole batch runs as a
+foreground service (`dataSync`). A retry WorkManager starts later, from the
+background, may be refused one; it carries on as a plain job, keeps what it
+gets done, and the next launch runs the rest in front.
+
+Not the cache: Android evicts it under storage pressure, and a video
+compressed a second time is not byte for byte the first — resumed onto the
+server's partial it would splice two encodes into one broken file. **A fresh
+compression always gets a fresh server upload id.** A stopped run checks
+`isStopped` between buffers, so it never keeps writing beside its replacement.
 
 A job's input is the video — a picked URI (persistable permission taken when
-queued) or a shared file's copy in app storage —
-the target (`lesson:<id>` or `figure:<id>`), and an `uploadId` uuid fixed at
-queue time.
+queued) or a shared file's copy in app storage — the target
+(`lesson:<id>` or `figure:<id>`), and, from the link, the page to open when
+done and a name for the notification.
 
 1. **Compress** with the copied Media3 Transformer code to
    `video_short_side`, read from `/api/device/config` when queued. A video
@@ -151,11 +165,22 @@ queue time.
 
 | What happened              | What the job does                                                 |
 | -------------------------- | ----------------------------------------------------------------- |
-| network error, 5xx         | retry with backoff, constrained to "network connected"            |
+| network error, 5xx         | stop the run, retry (WorkManager, linear backoff, network needed) |
 | 409 + `x-received-bytes`   | not an error: continue from that offset                           |
 | 401                        | stop; notification *Pair again* → opens `/device/pair`            |
 | 404 (target gone), 413     | fail this video for good, say why, delete the cache file          |
 | compression fails          | fail with *Couldn't compress <name>* — never uploaded uncompressed |
+
+Retries are budgeted per video as **runs in a row without progress** (12);
+any progress clears the count, so a long upload over a patchy connection is
+not failed for drops it recovered from. A 401 keeps the whole queue: the token
+is cleared, "Pair again" is posted, and pairing resumes it.
+
+**A lost 201 on the last chunk.** The server finalises, the answer never
+arrives, the retry probes an upload whose partial is gone. So the endpoint
+keeps a `uploads/<uploadId>.done` marker holding the row for a day (swept with
+the partials) and answers any later chunk for that id with the same 201 —
+without it, the client would upload the whole video again as a second one.
 
 Offline for more than a day: the server's boot sweep has removed the partial,
 the next chunk gets a 409 at offset 0, and the upload starts over. Correct,
@@ -168,8 +193,9 @@ for the first time something is queued.
 
 ## Reminders
 
-At `reminder_minute`, phone-local, an inexact alarm (a ±10 minute window, so no
-exact-alarm permission) starts a short job that calls `/api/device/today`. It
+At `reminder_minute`, phone-local, an inexact alarm allowed while idle
+(`setAndAllowWhileIdle`: no exact-alarm permission, and Doze does not hold it
+back) starts an expedited job that calls `/api/device/today`. It
 posts one notification only if something is due:
 
 > **3 exercises due** · Salsa: Shines, Cross-body lead · Bachata: Basics

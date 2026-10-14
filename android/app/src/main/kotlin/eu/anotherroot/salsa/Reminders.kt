@@ -8,19 +8,22 @@ import android.content.Intent
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.time.ZonedDateTime
 
 /**
- * The daily reminder's alarm. Inexact — a ten-minute window — so it needs no
- * exact-alarm permission and lets the phone batch the wake-up.
+ * The daily reminder's alarm. Inexact, so it needs no exact-alarm permission,
+ * but allowed while idle: a phone lying on a table in the evening is in Doze,
+ * where a plain alarm — and the job after it — would wait for the next
+ * maintenance window. The alarm's brief idle exemption is spent on an
+ * expedited job that asks the server right away.
  */
 object Reminders {
-    private const val WINDOW_MS = 10 * 60_000L
-
     /** Sets the next alarm for [minute] of the day, or cancels it when null. */
     fun schedule(context: Context, minute: Int?) {
         val am = context.getSystemService(AlarmManager::class.java)
@@ -30,7 +33,7 @@ object Reminders {
         )
         if (minute == null) return am.cancel(pi)
         val at = nextFire(ZonedDateTime.now(), minute).toInstant().toEpochMilli()
-        am.setWindow(AlarmManager.RTC_WAKEUP, at, WINDOW_MS, pi)
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
     }
 }
 
@@ -40,7 +43,10 @@ class ReminderReceiver : BroadcastReceiver() {
         Reminders.schedule(context, Prefs.reminderMinute(context))
         // No network constraint: offline means silent, not a late nudge at 3 am.
         WorkManager.getInstance(context).enqueueUniqueWork(
-            "reminder", ExistingWorkPolicy.REPLACE, OneTimeWorkRequestBuilder<ReminderWorker>().build(),
+            "reminder", ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<ReminderWorker>()
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .build(),
         )
     }
 }
@@ -53,6 +59,10 @@ class BootReceiver : BroadcastReceiver() {
 }
 
 class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    /** Below Android 12 an expedited job runs as a short foreground service, which needs this. */
+    override suspend fun getForegroundInfo(): ForegroundInfo =
+        Notify.progress(applicationContext, "Practice reminder", "Checking what is due", null)
+
     override suspend fun doWork(): Result {
         val ctx = applicationContext
         try {

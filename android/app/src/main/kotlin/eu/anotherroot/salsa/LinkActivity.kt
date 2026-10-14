@@ -50,6 +50,8 @@ class LinkActivity : ComponentActivity() {
     private fun paired(paired: Link.Paired) {
         Prefs.setToken(this, paired.token)
         AppStart.refreshConfig(this)
+        // Uploads parked by a 401 carry on now.
+        if (!UploadQueue.store(this).isEmpty()) UploadQueue.kick(this)
         Toast.makeText(this, "Phone paired", Toast.LENGTH_SHORT).show()
         val pending = Prefs.pendingLink(this)
         Prefs.setPendingLink(this, null)
@@ -82,8 +84,11 @@ class LinkActivity : ComponentActivity() {
         if (key != null) {
             val files = Shared.files(this, key)
             if (files.isEmpty()) toast("That shared video is no longer here. Share it again.")
-            files.forEach { UploadQueue.enqueue(this, Uri.fromFile(it), upload, key) }
-            if (files.isNotEmpty()) toast(queuedText(files.size, upload.name))
+            files.forEach { UploadQueue.add(this, Uri.fromFile(it), upload, key) }
+            if (files.isNotEmpty()) {
+                UploadQueue.kick(this)
+                toast(queuedText(files.size, upload.name))
+            }
             finish()
             return
         }
@@ -100,9 +105,12 @@ class LinkActivity : ComponentActivity() {
             } catch (e: SecurityException) {
                 // Not persistable: the job reads it while this process's grant lasts.
             }
-            UploadQueue.enqueue(this, uri, upload)
+            UploadQueue.add(this, uri, upload)
         }
-        if (uris.isNotEmpty()) toast(queuedText(uris.size, upload.name))
+        if (uris.isNotEmpty()) {
+            UploadQueue.kick(this)
+            toast(queuedText(uris.size, upload.name))
+        }
         finish()
     }
 

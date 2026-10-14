@@ -45,9 +45,7 @@ function put(start: number, bytes: Uint8Array, total: number) {
 			'content-range': `bytes ${start}-${start + bytes.length - 1}/${total}`,
 			'x-filename': 'class.mp4'
 		},
-		body: bytes,
-		// @ts-expect-error -- Node's fetch needs this for a streamed body
-		duplex: 'half'
+		body: new Blob([bytes as Uint8Array<ArrayBuffer>])
 	});
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- only the fields PUT reads
 	return PUT({ params: { id: String(lessonId), uploadId: UPLOAD }, request } as any);
