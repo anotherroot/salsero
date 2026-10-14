@@ -253,3 +253,11 @@ export interface Spot {
 
 /** The one video a spot belongs to — a figure recording or a lesson video. */
 export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
+
+/** A paired Android app, as Settings lists it. Never carries the token. */
+export interface DeviceRow {
+	id: number;
+	label: string;
+	createdAt: number;
+	lastUsedAt: number | null;
+}
