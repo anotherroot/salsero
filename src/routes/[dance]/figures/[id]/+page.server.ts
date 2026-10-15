@@ -27,7 +27,7 @@ import {
 } from '$lib/graph/timing';
 import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions } from '$lib/server/positions';
-import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
+import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
 import { popupData } from '$lib/server/popup';
@@ -376,5 +376,9 @@ export const actions: Actions = {
 	addLink: async ({ params, request }) =>
 		addLinkFrom(request, getDb(), { figureId: figureOf(params).figure.id }),
 	deleteLink: async ({ params, request }) =>
-		deleteLinkFrom(request, getDb(), { figureId: figureOf(params).figure.id })
+		deleteLinkFrom(request, getDb(), { figureId: figureOf(params).figure.id }),
+	saveVideo: async ({ params, request }) =>
+		saveVideoFrom(request, getDb(), { figureId: figureOf(params).figure.id }),
+	retryVideo: async ({ params, request }) =>
+		retryVideoFrom(request, getDb(), { figureId: figureOf(params).figure.id })
 };
