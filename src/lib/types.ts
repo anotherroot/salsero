@@ -298,6 +298,19 @@ export interface LinkedSection {
 	video: SectionVideo;
 }
 
+/** A figure version or drill in the lesson page's Link… picker; `value` is `figure:<id>` or `exercise:<id>`. */
+export interface SectionOption {
+	value: string;
+	label: string;
+}
+
+/** The lesson page's Link… picker, in its three groups. */
+export interface SectionTargets {
+	thisLesson: SectionOption[];
+	figures: SectionOption[];
+	drills: SectionOption[];
+}
+
 /** One video's group in the "+ Link a section" sheet. */
 export interface SectionGroup {
 	video: SectionVideo;

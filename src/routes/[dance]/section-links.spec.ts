@@ -1,0 +1,180 @@
+/**
+ * Section links, through the page actions that make and break them. Every id
+ * in a form body is just a number, so each action is checked to refuse one
+ * from another lesson, figure or dance — and to leave the links untouched.
+ *
+ * `getDb()` is mocked for the reason `dance-wall.spec.ts` gives: a spec must
+ * never reach `$DATA_DIR`.
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const handle = vi.hoisted(() => ({ db: undefined as unknown }));
+
+vi.mock('$lib/server/db', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
+	return { ...actual, getDb: () => handle.db };
+});
+
+import { openDb, type Db } from '$lib/server/db';
+import { spotLinks } from '$lib/server/db/schema';
+import { createFigure, createVariation } from '$lib/server/figures';
+import { createCustomExercise } from '$lib/server/exercises';
+import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
+import { addSpot } from '$lib/server/spots';
+import { linkSpot } from '$lib/server/spot-links';
+import * as lessonPage from './lessons/[id]/+page.server';
+
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+
+function post(dance: string, id: number, fields: Record<string, string>) {
+	return {
+		params: { dance, id: String(id) },
+		request: new Request('http://localhost/', {
+			method: 'POST',
+			headers: { 'content-type': 'application/x-www-form-urlencoded' },
+			body: new URLSearchParams(fields)
+		}),
+		locals: { user: USER }
+	};
+}
+
+type Invoke = (event: ReturnType<typeof post>) => Promise<unknown>;
+const call = (action: unknown, event: ReturnType<typeof post>) => (action as Invoke)(event);
+
+type Load = (e: { params: { dance: string; id: string }; url: URL; locals: unknown }) => unknown;
+const loadAt = (load: unknown, dance: string, id: number) =>
+	(load as Load)({
+		params: { dance, id: String(id) },
+		url: new URL('http://localhost/'),
+		locals: { user: USER }
+	}) as Record<string, unknown>;
+
+let db: Db;
+let lessonId: number;
+let otherLessonId: number;
+let figureId: number;
+let doble: number;
+let drill: number;
+let videoId: number;
+let section: number;
+let otherSection: number;
+
+const salsaFigure = (name: string) =>
+	createFigure(db, 'salsa', { name, partner: 'partner', style: 'salsa', notes: null })!.figure.id;
+
+const links = () => db.select().from(spotLinks).all();
+
+beforeEach(() => {
+	db = openDb(':memory:');
+	handle.db = db;
+	figureId = salsaFigure('Enchufla');
+	doble = createVariation(db, figureId, { name: 'Doble', notes: null })!.id;
+	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
+	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
+		.lesson.id;
+	otherLessonId = createLesson(db, 'salsa', {
+		lessonDay: '2026-10-13',
+		title: 'Other',
+		notes: null
+	}).lesson.id;
+	videoId = addLessonVideo(db, { lessonId, file: 'l.mp4', mime: 'video/mp4', sizeBytes: 1 }).id;
+	const otherVideo = addLessonVideo(db, {
+		lessonId: otherLessonId,
+		file: 'o.mp4',
+		mime: 'video/mp4',
+		sizeBytes: 1
+	}).id;
+	section = addSpot(db, { lessonVideoId: videoId }, { startMs: 0, endMs: 900, label: null })!.id;
+	otherSection = addSpot(
+		db,
+		{ lessonVideoId: otherVideo },
+		{ startMs: 0, endMs: 900, label: null }
+	)!.id;
+});
+
+describe('the lesson page', () => {
+	it('links a section of its own video to a variation and a drill', async () => {
+		await call(
+			lessonPage.actions.linkSection,
+			post('salsa', lessonId, { spotId: String(section), target: `figure:${doble}` })
+		);
+		await call(
+			lessonPage.actions.linkSection,
+			post('salsa', lessonId, { spotId: String(section), target: `exercise:${drill}` })
+		);
+		expect(links().map((l) => [l.spotId, l.figureId, l.exerciseId])).toEqual([
+			[section, doble, null],
+			[section, null, drill]
+		]);
+	});
+
+	it('refuses a section of another lesson’s video', async () => {
+		const res = await call(
+			lessonPage.actions.linkSection,
+			post('salsa', lessonId, { spotId: String(otherSection), target: `figure:${figureId}` })
+		);
+		expect(res).toMatchObject({ status: 404 });
+		expect(links()).toEqual([]);
+	});
+
+	it('refuses a figure of the other dance, with the reason', async () => {
+		const paseo = createFigure(db, 'bachata', {
+			name: 'Paseo',
+			partner: 'partner',
+			style: 'sensual',
+			notes: null
+		})!.figure.id;
+		const res = await call(
+			lessonPage.actions.linkSection,
+			post('salsa', lessonId, { spotId: String(section), target: `figure:${paseo}` })
+		);
+		expect(res).toMatchObject({ status: 400, data: { message: /other dance/ } });
+		expect(links()).toEqual([]);
+	});
+
+	it('refuses a missing target value', async () => {
+		const res = await call(
+			lessonPage.actions.linkSection,
+			post('salsa', lessonId, { spotId: String(section), target: 'routine:1' })
+		);
+		expect(res).toMatchObject({ status: 400 });
+	});
+
+	it('unlinks only a link on its own videos', async () => {
+		const mine = linkSpot(db, section, { figureId });
+		const theirs = linkSpot(db, otherSection, { figureId });
+		const res = await call(
+			lessonPage.actions.unlinkSection,
+			post('salsa', lessonId, { linkId: String(theirs) })
+		);
+		expect(res).toMatchObject({ status: 404 });
+		await call(lessonPage.actions.unlinkSection, post('salsa', lessonId, { linkId: String(mine) }));
+		expect(links().map((l) => l.id)).toEqual([theirs]);
+	});
+
+	it('loads each video’s sections and the targets, this lesson’s first', () => {
+		linkFigure(db, lessonId, figureId);
+		salsaFigure('Setenta');
+		linkSpot(db, section, { figureId: doble });
+		const data = loadAt(lessonPage.load, 'salsa', lessonId);
+		expect(data.sections).toEqual({
+			[videoId]: [
+				{
+					id: section,
+					startMs: 0,
+					endMs: 900,
+					label: null,
+					links: [{ id: expect.any(Number), label: 'Enchufla · Doble', archived: false }]
+				}
+			]
+		});
+		expect(data.sectionTargets).toEqual({
+			thisLesson: [
+				{ value: `figure:${figureId}`, label: 'Enchufla' },
+				{ value: `figure:${doble}`, label: 'Enchufla · Doble' }
+			],
+			figures: [{ value: expect.stringMatching(/^figure:/), label: 'Setenta' }],
+			drills: [{ value: `exercise:${drill}`, label: 'Clave' }]
+		});
+	});
+});
