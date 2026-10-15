@@ -1,5 +1,6 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull, like } from 'drizzle-orm';
 import type { Db } from './db';
+import { assertUnlinked } from './spot-links';
 import { exercises, figures, recordings, videoSpots, type Figure } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import type { Partner } from '$lib/labels';
@@ -206,10 +207,12 @@ export function addRecording(db: Db, input: RecordingInput) {
 /**
  * Delete a recording row and return it, so the caller can remove the file.
  * Its spots go first, in the same transaction — the foreign key would refuse
- * the recording otherwise.
+ * the recording otherwise. Throws `SpotLinkedError`, deleting nothing, while
+ * one of its sections is linked to a figure or drill.
  */
 export function deleteRecording(db: Db, id: number) {
 	return db.transaction((tx) => {
+		assertUnlinked(tx, { recordingId: id });
 		tx.delete(videoSpots).where(eq(videoSpots.recordingId, id)).run();
 		return tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
 	});

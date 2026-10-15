@@ -1,11 +1,11 @@
 <!-- src/lib/components/ui/VideoPlayer.svelte -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
 	import { MAX_SPOT_LABEL } from '$lib/limits';
 	import { loopTarget, msOf, sortSpots, spotLabel, spotTime, step } from '$lib/video/spots';
-	import { fetchSpots, patchSpot, postSpot, removeSpot } from '$lib/video/spots-api';
+	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
 	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -18,9 +18,11 @@
 		onchoose: (next: { mirror?: boolean; rate?: VideoRate }) => void;
 		/** Seconds: where to leave the inline player. */
 		onclose: (at: number) => void;
+		/** A section to open on: it starts there, looping and playing. */
+		loopSpot?: Spot;
 	}
 
-	let { src, owner, startAt, mirror, rate, onchoose, onclose }: Props = $props();
+	let { src, owner, startAt, mirror, rate, onchoose, onclose, loopSpot }: Props = $props();
 
 	let dialog: HTMLDialogElement = $state()!;
 	let stage: HTMLDivElement = $state()!;
@@ -87,7 +89,8 @@
 	}
 
 	let spots = $state<Spot[]>([]);
-	let loop = $state<Spot | null>(null);
+	// Only where the player opens: the loop is ours after that.
+	let loop = $state<Spot | null>(untrack(() => loopSpot ?? null));
 	/** Milliseconds: the start of a section whose end has not been tapped yet. */
 	let pendingStart = $state<number | null>(null);
 	let panel = $state(false);
@@ -192,8 +195,9 @@
 			await removeSpot(spot.id);
 			spots = spots.filter((s) => s.id !== spot.id);
 			if (loop?.id === spot.id) loop = null;
-		} catch {
-			flash("Couldn't save");
+		} catch (e) {
+			// A linked section: the server says what to unlink first.
+			flash(e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save");
 		} finally {
 			deleting.delete(spot.id);
 		}
@@ -292,7 +296,9 @@
 			bind:paused
 			onloadedmetadata={() => {
 				video.preservesPitch = true;
-				video.currentTime = startAt;
+				video.currentTime = loopSpot ? loopSpot.startMs / 1000 : startAt;
+				// Opened from a tap on a section card, so play() is allowed.
+				if (loopSpot) void video.play().catch(() => {});
 			}}
 			{onended}
 		></video>
@@ -433,6 +439,9 @@
 									{spotLabel(s)}
 									{#if s.label}<span class="ml-1 text-[12px] opacity-60"
 											>{spotLabel({ ...s, label: null })}</span
+										>{/if}
+									{#if s.linkedTo.length > 0}<span class="block text-[12px] opacity-60"
+											>→ {s.linkedTo.join(', ')}</span
 										>{/if}
 								</button>
 								<button type="button" class="btn" onclick={() => (renaming = s.id)}>Rename</button>

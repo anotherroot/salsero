@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, inArray, isNull, ne, notInArray, or, sum } from 'drizzle-orm';
 import type { Db } from './db';
+import { assertUnlinked } from './spot-links';
 import {
 	exercises,
 	figures,
@@ -502,10 +503,12 @@ export function addLessonVideo(db: Db, input: LessonVideoInput) {
 /**
  * Delete a video row and return it, so the caller can remove the file. Its
  * spots go first, in the same transaction — the foreign key would refuse the
- * video otherwise.
+ * video otherwise. Throws `SpotLinkedError`, deleting nothing, while one of its
+ * sections is linked to a figure or drill.
  */
 export function deleteLessonVideo(db: Db, id: number) {
 	return db.transaction((tx) => {
+		assertUnlinked(tx, { lessonVideoId: id });
 		tx.delete(videoSpots).where(eq(videoSpots.lessonVideoId, id)).run();
 		return tx.delete(lessonVideos).where(eq(lessonVideos.id, id)).returning().get() ?? null;
 	});

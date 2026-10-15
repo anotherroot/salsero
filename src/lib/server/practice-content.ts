@@ -14,6 +14,7 @@ import { lastSet } from './exercises';
 import { figureLabels, getFigure } from './figures';
 import { getLesson } from './lessons';
 import { listLinks } from './links';
+import { sectionsFor } from './spot-links';
 import { getRoutine, routineSlots } from './routines';
 import { daysBetween, localDay } from '$lib/day/day';
 import { typeOf } from '$lib/exercises/kinds';
@@ -40,7 +41,8 @@ export function practicePayload(
 const bare = (exercise: Exercise): PracticeContent => ({
 	type: 'drill',
 	notes: exercise.notes,
-	links: []
+	links: [],
+	sections: []
 });
 
 function contentOf(db: Db, exercise: Exercise): PracticeContent {
@@ -82,7 +84,8 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 					sizeBytes: r.sizeBytes,
 					sourceUrl: r.sourceUrl,
 					createdAt: r.createdAt
-				}))
+				})),
+				sections: sectionsFor(db, { figureId: figure.id })
 			};
 		}
 		case 'routine': {
@@ -108,7 +111,8 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 			return {
 				type: 'drill',
 				notes: exercise.notes,
-				links: listLinks(db, { exerciseId: exercise.id })
+				links: listLinks(db, { exerciseId: exercise.id }),
+				sections: sectionsFor(db, { exerciseId: exercise.id })
 			};
 	}
 }

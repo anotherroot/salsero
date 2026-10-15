@@ -5,9 +5,24 @@
  */
 import type { Spot, SpotOwner } from '$lib/types';
 
+/** A non-2xx answer, carrying the server's message — the player shows a 409's. */
+export class SpotsApiError extends Error {
+	constructor(
+		readonly status: number,
+		message: string
+	) {
+		super(message);
+	}
+}
+
 async function ok(res: Response): Promise<Response> {
-	if (!res.ok) throw new Error(`video-spots: ${res.status}`);
-	return res;
+	if (res.ok) return res;
+	const body: unknown = await res.json().catch(() => null);
+	const message =
+		body && typeof body === 'object' && 'message' in body && typeof body.message === 'string'
+			? body.message
+			: `video-spots: ${res.status}`;
+	throw new SpotsApiError(res.status, message);
 }
 
 const JSON_HEADERS = { 'content-type': 'application/json' };

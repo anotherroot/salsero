@@ -2,10 +2,12 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import LinkPicker from '$lib/components/lessons/LinkPicker.svelte';
+	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
 	import { uploadLink } from '$lib/app-mode';
@@ -169,6 +171,9 @@
 
 		<section>
 			<h2 class={heading}>Videos</h2>
+			{#if failure('unlinkSection')}
+				<p class="mb-2 text-[13px] text-danger" role="alert">{failure('unlinkSection')}</p>
+			{/if}
 			<ul class="space-y-3">
 				{#each data.videos as video (video.id)}
 					<li class="overflow-hidden rounded-xl border border-line bg-raised">
@@ -190,6 +195,7 @@
 								sourceUrl={video.sourceUrl}
 								owner={{ lessonVideoId: video.id }}
 								onproblem={(p) => (broken = { ...broken, [video.id]: p })}
+								onclosed={() => void invalidateAll()}
 							/>
 						{/if}
 						<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
@@ -206,6 +212,18 @@
 								<button type="submit" class="h-9 px-2 text-danger">Delete</button>
 							</form>
 						</div>
+						{#if form?.action === 'deleteVideo' && 'videoId' in form && form.videoId === video.id}
+							<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+						{/if}
+						<VideoSections
+							sections={data.sections[video.id] ?? []}
+							src="/lesson-videos/{video.file}"
+							owner={{ lessonVideoId: video.id }}
+							targets={data.sectionTargets}
+							failure={form?.action === 'linkSection' && 'spotId' in form
+								? { spotId: Number(form.spotId), message: String(form.message) }
+								: null}
+						/>
 					</li>
 				{/each}
 			</ul>

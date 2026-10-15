@@ -14,9 +14,11 @@
 		onproblem: (problem: MediaProblem) => void;
 		/** Where a saved YouTube video came from, shown as a link under the controls. */
 		sourceUrl?: string | null;
+		/** After the full-screen player closes — a page whose lists show its spots refreshes. */
+		onclosed?: () => void;
 	}
 
-	let { src, kind = 'video', owner, onproblem, sourceUrl = null }: Props = $props();
+	let { src, kind = 'video', owner, onproblem, sourceUrl = null, onclosed }: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
 	// choice on mount: reading localStorage during SSR is impossible, and
@@ -125,6 +127,7 @@
 		onclose={(at) => {
 			if (inline) inline.currentTime = at;
 			fullAt = null;
+			onclosed?.();
 		}}
 	/>
 {/if}

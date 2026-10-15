@@ -17,8 +17,8 @@ import {
 	unlinkRoutine,
 	updateLesson
 } from '$lib/server/lessons';
-import { createFigure } from '$lib/server/figures';
-import { createCustomExercise } from '$lib/server/exercises';
+import { createFigure, listVersions } from '$lib/server/figures';
+import { createCustomExercise, listExercises } from '$lib/server/exercises';
 import { createRoutine } from '$lib/server/routines';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
@@ -31,6 +31,17 @@ import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
+import {
+	getSpotLink,
+	linkSpot,
+	SpotLinkedError,
+	SpotLinkError,
+	targetFrom,
+	unlinkSpot,
+	videoOfSpot,
+	videoSections
+} from '$lib/server/spot-links';
+import type { SectionTargets } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -62,12 +73,54 @@ function lessonOf(params: { dance: string; id: string }) {
 	return found;
 }
 
+/**
+ * The spot, if it is on one of THIS lesson's videos; else null. A posted id is
+ * just a number, and `linkSpot` / `unlinkSpot` reach the row by id alone.
+ */
+function spotOfLesson(found: ReturnType<typeof lessonOf>, spotId: number | undefined) {
+	if (spotId === undefined) return null;
+	const video = videoOfSpot(getDb(), spotId);
+	if (!video || !('lessonVideoId' in video.owner)) return null;
+	const { lessonVideoId } = video.owner;
+	return found.videos.some((v) => v.id === lessonVideoId) ? spotId : null;
+}
+
+/** What a section can be linked to: this lesson's figures and drills first, then the dance's. */
+function sectionTargets(found: ReturnType<typeof lessonOf>): SectionTargets {
+	const db = getDb();
+	const dance = danceOf({ dance: found.lesson.dance });
+	const taught = new Set(found.figures.map((f) => f.id));
+	const versions = listVersions(db, dance);
+	const drills = listExercises(db, dance)
+		.filter((e) => e.source === 'custom')
+		.sort((a, b) => a.name.localeCompare(b.name));
+	const ownDrills = new Set(found.exercises.map((e) => e.id));
+	const figure = (v: { id: number; label: string }) => ({
+		value: `figure:${v.id}`,
+		label: v.label
+	});
+	const drill = (d: { id: number; name: string }) => ({ value: `exercise:${d.id}`, label: d.name });
+	const isTaught = (v: { id: number; parentId: number | null }) => taught.has(v.parentId ?? v.id);
+	return {
+		thisLesson: [
+			...versions.filter(isTaught).map(figure),
+			...drills.filter((d) => ownDrills.has(d.id)).map(drill)
+		],
+		figures: versions.filter((v) => !isTaught(v)).map(figure),
+		drills: drills.filter((d) => !ownDrills.has(d.id)).map(drill)
+	};
+}
+
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const found = lessonOf(params);
 	const tz = zone(locals);
 	return {
 		...found,
+		sections: Object.fromEntries(
+			found.videos.map((v) => [v.id, videoSections(db, { lessonVideoId: v.id })])
+		),
+		sectionTargets: sectionTargets(found),
 		linkableFigures: listLinkableFigures(db, found.lesson.id),
 		linkableRoutines: listLinkableRoutines(db, found.lesson.id),
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
@@ -268,12 +321,54 @@ export const actions: Actions = {
 		if (id === undefined || !found.videos.some((v) => v.id === id)) {
 			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
 		}
-		const row = deleteLessonVideo(getDb(), id);
+		let row;
+		try {
+			row = deleteLessonVideo(getDb(), id);
+		} catch (e) {
+			if (e instanceof SpotLinkedError) {
+				return fail(409, { action: 'deleteVideo', videoId: id, message: e.message });
+			}
+			throw e;
+		}
 		if (!row) {
 			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
 		}
 		await unlink(join(lessonVideosDir(), row.file)).catch(() => {});
 		return { action: 'deleteVideo', ok: true };
+	},
+
+	linkSection: async ({ params, request }) => {
+		const found = lessonOf(params);
+		const form = await request.formData();
+		const spotId = spotOfLesson(found, int(form, 'spotId'));
+		if (spotId === null) {
+			return fail(404, { action: 'linkSection', message: 'That section is gone.' });
+		}
+		const target = targetFrom(text(form, 'target'));
+		if (!target) {
+			return fail(400, { action: 'linkSection', spotId, message: 'Pick a figure or a drill.' });
+		}
+		try {
+			linkSpot(getDb(), spotId, target);
+		} catch (e) {
+			if (e instanceof SpotLinkError) {
+				return fail(e.status, { action: 'linkSection', spotId, message: e.message });
+			}
+			throw e;
+		}
+		return { action: 'linkSection', ok: true };
+	},
+
+	/** Any link of a section on this lesson's videos — archived targets included, which only this page can reach. */
+	unlinkSection: async ({ params, request }) => {
+		const found = lessonOf(params);
+		const id = int(await request.formData(), 'linkId');
+		const link = id === undefined ? null : getSpotLink(getDb(), id);
+		if (!link || spotOfLesson(found, link.spotId) === null) {
+			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+		}
+		unlinkSpot(getDb(), link.id, link.target);
+		return { action: 'unlinkSection', ok: true };
 	},
 
 	addLink: async ({ params, request }) =>

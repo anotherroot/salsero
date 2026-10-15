@@ -10,6 +10,7 @@ import type { Db } from './db';
 import { lessonVideos, recordings, videoSpots } from './db/schema';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
+import { assertUnlinked, linkChips } from './spot-links';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
 export class SpotError extends Error {}
@@ -84,13 +85,23 @@ function cleanTimes(startMs: unknown, endMs: unknown): { startMs: number; endMs:
 	return { startMs, endMs };
 }
 
+/** Rows straight from the table, plus what each is linked to. */
+function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[]): Spot[] {
+	const chips = linkChips(
+		db,
+		rows.map((r) => r.id)
+	);
+	return rows.map((r) => ({ ...r, linkedTo: (chips.get(r.id) ?? []).map((c) => c.label) }));
+}
+
 export function listSpots(db: Db, owner: SpotOwner): Spot[] {
-	return db
+	const rows = db
 		.select(COLUMNS)
 		.from(videoSpots)
 		.where(ownerColumn(owner))
 		.orderBy(asc(videoSpots.startMs), asc(videoSpots.id))
 		.all();
+	return withLinks(db, rows);
 }
 
 /** The new spot, or null when its video does not exist. Throws `SpotError` on a bad value. */
@@ -102,26 +113,30 @@ export function addSpot(
 	const times = cleanTimes(input.startMs, input.endMs);
 	const label = cleanLabel(input.label);
 	if (!ownerExists(db, owner)) return null;
-	return db
+	const row = db
 		.insert(videoSpots)
 		.values({ ...owner, ...times, label })
 		.returning(COLUMNS)
 		.get();
+	return { ...row, linkedTo: [] };
 }
 
 /** The renamed spot, or null when there is none. Throws `SpotError` on a bad label. */
 export function renameSpot(db: Db, id: number, label: unknown): Spot | null {
 	const clean = cleanLabel(label);
-	return (
-		db
-			.update(videoSpots)
-			.set({ label: clean })
-			.where(eq(videoSpots.id, id))
-			.returning(COLUMNS)
-			.get() ?? null
-	);
+	const row = db
+		.update(videoSpots)
+		.set({ label: clean })
+		.where(eq(videoSpots.id, id))
+		.returning(COLUMNS)
+		.get();
+	return row ? withLinks(db, [row])[0] : null;
 }
 
+/** Whether a row went. Throws `SpotLinkedError`, deleting nothing, while the section is linked. */
 export function deleteSpot(db: Db, id: number): boolean {
-	return db.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get() !== undefined;
+	return db.transaction((tx) => {
+		assertUnlinked(tx, { spotId: id });
+		return tx.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get() !== undefined;
+	});
 }

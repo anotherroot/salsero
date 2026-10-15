@@ -11,6 +11,9 @@
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import SectionCard from '$lib/components/ui/SectionCard.svelte';
+	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
+	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import { logFor } from '$lib/components/exercises/kinds';
@@ -26,6 +29,10 @@
 	let editing = $state(false);
 	let logging = $state(false);
 	let addingVariation = $state(false);
+	let linkingSection = $state(false);
+	$effect(() => {
+		if (failed('linkSection')) linkingSection = true;
+	});
 	const FigureLog = logFor('figure');
 	/**
 	 * Recordings whose player failed, and why. "missing" means the server has no
@@ -443,6 +450,19 @@
 							</form>
 						{/if}
 					</div>
+					{#if form?.action === 'deleteRecording' && 'recordingId' in form && form.recordingId === rec.id}
+						<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+					{/if}
+					<!-- Linking is done from the figure or drill a section shows; here a link
+					     can be undone, archived target or not, so the recording can go. -->
+					{#if (version.recordingSections[rec.id] ?? []).length > 0}
+						<VideoSections
+							sections={version.recordingSections[rec.id]}
+							src="/recordings/{rec.file}"
+							owner={{ recordingId: rec.id }}
+							hidden={{ versionId: version.id }}
+						/>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -477,6 +497,42 @@
 				{/if}
 			{/key}
 		</div>
+	</section>
+
+	<section>
+		<div class="flex items-center justify-between">
+			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Sections</h2>
+			<button
+				type="button"
+				class="mb-2 text-[13px] font-medium text-accent"
+				onclick={() => (linkingSection = true)}>+ Link a section</button
+			>
+		</div>
+		{#if version.sections.length === 0}
+			<p class="text-[13px] text-muted">Point at the part of a lesson video that shows this.</p>
+		{:else}
+			<ul class="space-y-2">
+				{#each version.sections as s (s.linkId)}
+					<li>
+						<SectionCard section={s}>
+							{#snippet unlink()}
+								<!-- Unlinking is an edit, like deleting a recording. -->
+								{#if editing}
+									<form method="POST" action="?/unlinkSection" use:enhance>
+										<input type="hidden" name="versionId" value={version.id} />
+										<input type="hidden" name="linkId" value={s.linkId} />
+										<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+									</form>
+								{/if}
+							{/snippet}
+						</SectionCard>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if failed('unlinkSection')}
+			<p class="mt-2 text-[13px] text-danger" role="alert">{failed('unlinkSection')}</p>
+		{/if}
 	</section>
 
 	<section>
@@ -540,6 +596,14 @@
 		>
 	</form>
 </Sheet>
+
+<LinkSectionSheet
+	open={linkingSection}
+	onclose={() => (linkingSection = false)}
+	groups={data.linkable}
+	hidden={{ versionId: version.id }}
+	message={failed('linkSection')}
+/>
 
 {#if logging && data.popup}
 	<FigureLog

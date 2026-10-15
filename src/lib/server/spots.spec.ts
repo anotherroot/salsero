@@ -12,6 +12,7 @@ import {
 	renameSpot,
 	SpotError
 } from './spots';
+import { linkSpot, SpotLinkedError } from './spot-links';
 
 let db: Db;
 let recordingId: number;
@@ -76,7 +77,13 @@ describe('spots', () => {
 		for (const owner of [{ recordingId }, { lessonVideoId }]) {
 			const late = addSpot(db, owner, point(9000))!;
 			const early = addSpot(db, owner, { startMs: 1000, endMs: 2500, label: '  Turn  ' })!;
-			expect(early).toEqual({ id: early.id, startMs: 1000, endMs: 2500, label: 'Turn' });
+			expect(early).toEqual({
+				id: early.id,
+				startMs: 1000,
+				endMs: 2500,
+				label: 'Turn',
+				linkedTo: []
+			});
 			expect(listSpots(db, owner).map((s) => s.id)).toEqual([early.id, late.id]);
 
 			expect(renameSpot(db, late.id, 'Dip')?.label).toBe('Dip');
@@ -131,5 +138,30 @@ describe('spots', () => {
 		expect(deleteRecording(db, recordingId)?.file).toBe('r.mp4');
 		expect(deleteLessonVideo(db, lessonVideoId)?.file).toBe('l.mp4');
 		expect(db.select().from(videoSpots).all()).toEqual([]);
+	});
+});
+
+describe('linked sections', () => {
+	const figure = (name: string) =>
+		createFigure(db, 'salsa', { name, partner: 'partner', style: 'salsa', notes: null })!.figure.id;
+
+	it('refuse to delete, as do their videos, and nothing goes', () => {
+		const figureId = figure('Dile que no');
+		for (const owner of [{ recordingId }, { lessonVideoId }]) {
+			const s = addSpot(db, owner, { startMs: 0, endMs: 1000, label: null })!;
+			linkSpot(db, s.id, { figureId });
+			expect(() => deleteSpot(db, s.id)).toThrow(SpotLinkedError);
+			expect(listSpots(db, owner)[0].linkedTo).toEqual(['Dile que no']);
+		}
+		expect(() => deleteRecording(db, recordingId)).toThrow(SpotLinkedError);
+		expect(() => deleteLessonVideo(db, lessonVideoId)).toThrow(SpotLinkedError);
+		expect(listSpots(db, { recordingId })).toHaveLength(1);
+		expect(listSpots(db, { lessonVideoId })).toHaveLength(1);
+	});
+
+	it('keeps linkedTo through a rename', () => {
+		const s = addSpot(db, { lessonVideoId }, { startMs: 0, endMs: 1000, label: null })!;
+		linkSpot(db, s.id, { figureId: figure('Setenta') });
+		expect(renameSpot(db, s.id, 'x')!.linkedTo).toEqual(['Setenta']);
 	});
 });
