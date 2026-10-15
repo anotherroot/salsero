@@ -61,6 +61,19 @@
             </intent-filter>
         </activity>
 
+        <!--
+            androidbrowserhelper's "Manage site data" screen (a shortcut and the
+            app info page's Manage space). LauncherActivity enables it on every
+            launch, so leaving it out crashes the app on open.
+        -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:exported="false">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="@string/salsa_url" />
+        </activity>
+
         <!-- salsa://upload and salsa://paired, from the site. Invisible. -->
         <activity
             android:name=".LinkActivity"
