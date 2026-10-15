@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loopTarget, msOf, sortSpots, spotLabel, spotTime, step } from './spots';
+import { loopTarget, moveEdge, msOf, sortSpots, spotLabel, spotTime, step } from './spots';
 
 describe('spotTime', () => {
 	it.each([
@@ -70,5 +70,35 @@ describe('loopTarget', () => {
 	it('does nothing without a loop, or for a point', () => {
 		expect(loopTarget(30, null)).toBeNull();
 		expect(loopTarget(30, { startMs: 2000, endMs: null })).toBeNull();
+	});
+});
+
+describe('moveEdge', () => {
+	const section = { startMs: 10_000, endMs: 20_000 };
+	it('moves either edge of a section', () => {
+		expect(moveEdge(section, 'start', 9_000, 60)).toEqual({ startMs: 9_000, endMs: 20_000 });
+		expect(moveEdge(section, 'end', 21_000, 60)).toEqual({ startMs: 10_000, endMs: 21_000 });
+	});
+	it('keeps a section at least a second long', () => {
+		expect(moveEdge(section, 'start', 25_000, 60)).toEqual({ startMs: 19_000, endMs: 20_000 });
+		expect(moveEdge(section, 'end', 5_000, 60)).toEqual({ startMs: 10_000, endMs: 11_000 });
+	});
+	it('keeps both edges inside the video', () => {
+		expect(moveEdge(section, 'start', -500, 60)).toEqual({ startMs: 0, endMs: 20_000 });
+		expect(moveEdge(section, 'end', 61_000, 60)).toEqual({ startMs: 10_000, endMs: 60_000 });
+	});
+	it('only bounds the end by the start while the duration is unknown', () => {
+		expect(moveEdge(section, 'end', 99_000, NaN)).toEqual({ startMs: 10_000, endMs: 99_000 });
+	});
+	it('moves a point, which has only a start', () => {
+		const point = { startMs: 5_000, endMs: null };
+		expect(moveEdge(point, 'start', 4_000, 60)).toEqual({ startMs: 4_000, endMs: null });
+		expect(moveEdge(point, 'start', 70_000, 60)).toEqual({ startMs: 60_000, endMs: null });
+		expect(moveEdge(point, 'end', 9_000, 60)).toBeNull();
+	});
+	it('is null when nothing would change, so the button can be disabled', () => {
+		expect(moveEdge({ startMs: 0, endMs: 5_000 }, 'start', -1_000, 60)).toBeNull();
+		expect(moveEdge({ startMs: 10_000, endMs: 11_000 }, 'end', 10_000, 60)).toBeNull();
+		expect(moveEdge({ startMs: 50_000, endMs: 60_000 }, 'end', 61_000, 60)).toBeNull();
 	});
 });

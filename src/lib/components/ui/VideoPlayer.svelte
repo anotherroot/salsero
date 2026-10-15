@@ -4,7 +4,15 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
 	import { MAX_SPOT_LABEL } from '$lib/limits';
-	import { loopTarget, msOf, sortSpots, spotLabel, spotTime, step } from '$lib/video/spots';
+	import {
+		loopTarget,
+		moveEdge,
+		msOf,
+		sortSpots,
+		spotLabel,
+		spotTime,
+		step
+	} from '$lib/video/spots';
 	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
 	import type { Spot, SpotOwner } from '$lib/types';
 
@@ -51,11 +59,11 @@
 		);
 		const left = () => {
 			if (!wentFullscreen || document.fullscreenElement) return;
-			// Chrome takes Esc to leave fullscreen before a rename field sees it,
-			// so this fires mid-rename. Cancel the rename and stay open full
-			// viewport (the dialog) rather than closing the player under it.
-			if (renaming !== null) {
-				renaming = null;
+			// Chrome takes Esc to leave fullscreen before an edit row's label
+			// field sees it, so this fires mid-edit. Close the row and stay open
+			// full viewport (the dialog) rather than closing the player under it.
+			if (editing !== null) {
+				endEdit();
 				return;
 			}
 			close();
@@ -94,7 +102,8 @@
 	/** Milliseconds: the start of a section whose end has not been tapped yet. */
 	let pendingStart = $state<number | null>(null);
 	let panel = $state(false);
-	let renaming = $state<number | null>(null);
+	/** The spot whose row is open for editing — one at a time. */
+	let editing = $state<number | null>(null);
 	let note = $state<string | null>(null);
 	let loadFailed = $state(false);
 
@@ -157,6 +166,11 @@
 	}
 
 	function go(spot: Spot) {
+		seekTo(spot);
+		closePanel();
+	}
+
+	function seekTo(spot: Spot) {
 		video.currentTime = spot.startMs / 1000;
 		if (spot.endMs !== null) {
 			// A section replaces whatever was looping.
@@ -168,21 +182,87 @@
 			// otherwise the frame check would yank playback straight back.
 			if (!inside) loop = null;
 		}
+	}
+
+	function closePanel() {
+		endEdit();
 		panel = false;
 	}
 
-	async function rename(spot: Spot, label: string) {
-		if (renaming !== spot.id) return;
-		renaming = null;
+	/** Opening a section's row loops it, so every nudge is heard. */
+	function startEdit(spot: Spot) {
+		endEdit();
+		editing = spot.id;
+		seekTo(spot);
+	}
+
+	/** Re-sorted only now: a row that jumped while its start moved would lose the thumb under it. */
+	function endEdit() {
+		if (editing === null) return;
+		editing = null;
+		spots = sortSpots(spots);
+	}
+
+	/*
+	 * Edits show at once and are sent one after another, so a run of quick
+	 * taps arrives in order. Each sends absolute values, so the last one to
+	 * land is the truth. A failure reloads the list rather than guessing which
+	 * of the queued edits the server kept.
+	 */
+	let sending: Promise<void> = Promise.resolve();
+	function change(
+		spot: Spot,
+		changes: { label?: string | null; startMs?: number; endMs?: number | null }
+	) {
+		const next = { ...spot, ...changes };
+		spots = spots.map((s) => (s.id === next.id ? next : s));
+		if (loop?.id === next.id) loop = next;
+		sending = sending.then(async () => {
+			try {
+				await patchSpot(spot.id, changes);
+			} catch {
+				flash("Couldn't save");
+				await fetchSpots(owner).then(
+					(s) => {
+						spots = editing === null ? sortSpots(s) : s;
+						if (loop) loop = s.find((x) => x.id === loop!.id) ?? null;
+					},
+					() => {}
+				);
+			}
+		});
+		return next;
+	}
+
+	function relabel(spot: Spot, label: string) {
 		const clean = label.trim() || null;
-		if (clean === spot.label) return;
-		try {
-			const next = await patchSpot(spot.id, clean);
-			spots = spots.map((s) => (s.id === next.id ? next : s));
-			if (loop?.id === next.id) loop = next;
-		} catch {
-			flash("Couldn't save");
-		}
+		if (clean !== spot.label) change(spot, { label: clean });
+	}
+
+	/**
+	 * Moves one edge and lets you hear it: a start plays from the new start; an
+	 * end plays the last two seconds up to it, so the cut is what you hear.
+	 */
+	function moveTo(spot: Spot, edge: 'start' | 'end', toMs: number) {
+		const times = moveEdge(spot, edge, toMs, video.duration);
+		if (!times) return;
+		const next = change(
+			spot,
+			edge === 'start' ? { startMs: times.startMs } : { endMs: times.endMs }
+		);
+		if (edge === 'start') seekTo(next);
+		else video.currentTime = Math.max(next.startMs, next.endMs! - 2000) / 1000;
+	}
+
+	/** A point has only a start to move. */
+	function edgesOf(spot: Spot): ('start' | 'end')[] {
+		return spot.endMs === null ? ['start'] : ['start', 'end'];
+	}
+
+	/** Whether a ±1 s on this edge would move it — false disables the button. */
+	function canNudge(spot: Spot, edge: 'start' | 'end', deltaMs: number): boolean {
+		const from = edge === 'start' ? spot.startMs : (spot.endMs ?? 0);
+		return moveEdge(spot, edge, from + deltaMs, duration) !== null;
 	}
 
 	/** Ids with a delete request in flight, so a double tap cannot send it twice. */
@@ -380,8 +460,11 @@
 					<button type="button" class="btn" class:on={pendingStart !== null} onclick={section}
 						>{pendingStart === null ? 'Section' : 'End section'}</button
 					>
-					<button type="button" class="btn" aria-expanded={panel} onclick={() => (panel = !panel)}
-						>Spots ({spots.length})</button
+					<button
+						type="button"
+						class="btn"
+						aria-expanded={panel}
+						onclick={() => (panel ? closePanel() : (panel = true))}>Spots ({spots.length})</button
 					>
 				</div>
 			</div>
@@ -395,9 +478,7 @@
 			<div class="panel" aria-label="Spots">
 				<div class="mb-2 flex items-center justify-between">
 					<h2 class="text-[15px] font-semibold">Spots</h2>
-					<button type="button" class="btn" aria-label="Close spots" onclick={() => (panel = false)}
-						>✕</button
-					>
+					<button type="button" class="btn" aria-label="Close spots" onclick={closePanel}>✕</button>
 				</div>
 				{#if loadFailed}
 					<p class="text-[13px] opacity-70">Couldn't load spots</p>
@@ -408,27 +489,61 @@
 				{/if}
 				<ul class="flex flex-col gap-1">
 					{#each spots as s (s.id)}
-						<li class="flex items-center gap-2">
-							{#if renaming === s.id}
+						{#if editing === s.id}
+							<li class="flex flex-col gap-2 rounded-md bg-white/5 p-2">
 								<!-- svelte-ignore a11y_autofocus -->
 								<input
 									type="text"
-									class="flex-1 rounded-md bg-white/10 px-2 py-1.5 text-[14px]"
+									class="rounded-md bg-white/10 px-2 py-1.5 text-[14px]"
+									aria-label="Label"
 									maxlength={MAX_SPOT_LABEL}
 									value={s.label ?? ''}
 									placeholder={spotLabel({ ...s, label: null })}
 									autofocus
 									onkeydown={(e) => {
-										if (e.key === 'Enter') void rename(s, e.currentTarget.value);
+										if (e.key === 'Enter') e.currentTarget.blur();
 										if (e.key === 'Escape') {
 											e.preventDefault();
 											e.stopPropagation();
-											renaming = null;
+											// Back to the saved label, so the blur below saves nothing.
+											e.currentTarget.value = s.label ?? '';
+											endEdit();
 										}
 									}}
-									onblur={(e) => void rename(s, e.currentTarget.value)}
+									onblur={(e) => relabel(s, e.currentTarget.value)}
 								/>
-							{:else}
+								{#each edgesOf(s) as edge (edge)}
+									{@const at = edge === 'start' ? s.startMs : (s.endMs ?? 0)}
+									<div
+										class="flex items-center gap-2 text-[14px]"
+										role="group"
+										aria-label={edge === 'start' ? 'Start' : 'End'}
+									>
+										<span class="w-10 opacity-70">{edge === 'start' ? 'Start' : 'End'}</span>
+										<span class="flex-1 tabular-nums">{spotTime(at)}</span>
+										<button
+											type="button"
+											class="btn"
+											disabled={!canNudge(s, edge, -1000)}
+											onclick={() => moveTo(s, edge, at - 1000)}>−1s</button
+										>
+										<button
+											type="button"
+											class="btn"
+											disabled={!canNudge(s, edge, 1000)}
+											onclick={() => moveTo(s, edge, at + 1000)}>+1s</button
+										>
+										<button
+											type="button"
+											class="btn"
+											onclick={() => moveTo(s, edge, msOf(video.currentTime))}>Now</button
+										>
+									</div>
+								{/each}
+								<button type="button" class="btn self-end" onclick={endEdit}>Done</button>
+							</li>
+						{:else}
+							<li class="flex items-center gap-2">
 								<button
 									type="button"
 									class="flex-1 rounded-md px-2 py-2 text-left text-[14px] hover:bg-white/10"
@@ -444,15 +559,15 @@
 											>→ {s.linkedTo.join(', ')}</span
 										>{/if}
 								</button>
-								<button type="button" class="btn" onclick={() => (renaming = s.id)}>Rename</button>
+								<button type="button" class="btn" onclick={() => startEdit(s)}>Edit</button>
 								<button
 									type="button"
 									class="btn"
 									aria-label="Delete {spotLabel(s)}"
 									onclick={() => remove(s)}>✕</button
 								>
-							{/if}
-						</li>
+							</li>
+						{/if}
 					{/each}
 				</ul>
 			</div>
@@ -511,6 +626,9 @@
 		border-radius: 0.5rem;
 		border: 1px solid rgb(255 255 255 / 0.35);
 		font-size: 13px;
+	}
+	.btn:disabled {
+		opacity: 0.35;
 	}
 	.btn.on {
 		background: white;

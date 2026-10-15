@@ -20,8 +20,8 @@ of a figure with their own positions, timing and videos; chosen per routine slot
 and figure coverage (figures have no exercise by default; a page of figure
 versions by how many routines use them, and a routine made from a selection),
 a full-screen video player (±1 s, 0.25–1×, mirror, and saved spots: points to
-jump to, sections that loop) and the routine editor (drag to reorder, swipe to
-delete, seams that build where a routine does not connect, a picker that offers
+jump to, sections that loop, each edge nudged ±1 s) and the routine editor
+(drag to reorder, swipe to delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
 (Save video on a figure's or lesson's YouTube link: the home worker downloads
 it at 480p and the link becomes a recording or lesson video, spots and all)

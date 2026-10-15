@@ -121,16 +121,39 @@ export function addSpot(
 	return { ...row, linkedTo: [] };
 }
 
-/** The renamed spot, or null when there is none. Throws `SpotError` on a bad label. */
-export function renameSpot(db: Db, id: number, label: unknown): Spot | null {
-	const clean = cleanLabel(label);
-	const row = db
-		.update(videoSpots)
-		.set({ label: clean })
-		.where(eq(videoSpots.id, id))
-		.returning(COLUMNS)
-		.get();
-	return row ? withLinks(db, [row])[0] : null;
+/**
+ * The spot with whichever of label, start and end were sent changed, or null
+ * when there is none. The times are checked merged with the stored ones, as
+ * `addSpot` checks them — and a point stays a point, a section a section: the
+ * player only nudges edges, so a change of kind is a bad client. Throws
+ * `SpotError`, changing nothing, on a bad value.
+ */
+export function updateSpot(
+	db: Db,
+	id: number,
+	changes: { label?: unknown; startMs?: unknown; endMs?: unknown }
+): Spot | null {
+	return db.transaction((tx) => {
+		const current = tx.select(COLUMNS).from(videoSpots).where(eq(videoSpots.id, id)).get();
+		if (!current) return null;
+		const times = cleanTimes(
+			'startMs' in changes ? changes.startMs : current.startMs,
+			'endMs' in changes ? changes.endMs : current.endMs
+		);
+		if ((times.endMs === null) !== (current.endMs === null)) {
+			throw new SpotError(
+				current.endMs === null ? 'A point has no end.' : 'A section needs an end.'
+			);
+		}
+		const label = 'label' in changes ? cleanLabel(changes.label) : current.label;
+		const row = tx
+			.update(videoSpots)
+			.set({ ...times, label })
+			.where(eq(videoSpots.id, id))
+			.returning(COLUMNS)
+			.get()!;
+		return withLinks(tx, [row])[0];
+	});
 }
 
 /** Whether a row went. Throws `SpotLinkedError`, deleting nothing, while the section is linked. */

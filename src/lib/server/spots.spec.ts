@@ -9,7 +9,7 @@ import {
 	listSpots,
 	ownerExists,
 	ownerFrom,
-	renameSpot,
+	updateSpot,
 	SpotError
 } from './spots';
 import { linkSpot, SpotLinkedError } from './spot-links';
@@ -86,8 +86,8 @@ describe('spots', () => {
 			});
 			expect(listSpots(db, owner).map((s) => s.id)).toEqual([early.id, late.id]);
 
-			expect(renameSpot(db, late.id, 'Dip')?.label).toBe('Dip');
-			expect(renameSpot(db, late.id, '   ')?.label).toBeNull();
+			expect(updateSpot(db, late.id, { label: 'Dip' })?.label).toBe('Dip');
+			expect(updateSpot(db, late.id, { label: '   ' })?.label).toBeNull();
 
 			expect(deleteSpot(db, early.id)).toBe(true);
 			expect(deleteSpot(db, early.id)).toBe(false);
@@ -104,7 +104,7 @@ describe('spots', () => {
 		expect(ownerExists(db, { recordingId: 999 })).toBe(false);
 		expect(ownerExists(db, { recordingId })).toBe(true);
 		expect(addSpot(db, { lessonVideoId: 999 }, point(0))).toBeNull();
-		expect(renameSpot(db, 999, 'x')).toBeNull();
+		expect(updateSpot(db, 999, { label: 'x' })).toBeNull();
 	});
 
 	it.each([
@@ -122,7 +122,40 @@ describe('spots', () => {
 	it('accepts an 80-character label and refuses a longer rename', () => {
 		const spot = addSpot(db, { recordingId }, point(0, 'x'.repeat(80)))!;
 		expect(spot.label).toHaveLength(80);
-		expect(() => renameSpot(db, spot.id, 'y'.repeat(81))).toThrow(SpotError);
+		expect(() => updateSpot(db, spot.id, { label: 'y'.repeat(81) })).toThrow(SpotError);
+	});
+
+	it('moves a section, keeping what it was not sent', () => {
+		const s = addSpot(db, { recordingId }, { startMs: 1000, endMs: 5000, label: 'Turn' })!;
+		expect(updateSpot(db, s.id, { startMs: 2000 })).toMatchObject({
+			startMs: 2000,
+			endMs: 5000,
+			label: 'Turn'
+		});
+		expect(updateSpot(db, s.id, { endMs: 6000 })).toMatchObject({ startMs: 2000, endMs: 6000 });
+		expect(updateSpot(db, s.id, { startMs: 0, endMs: 3000, label: null })).toMatchObject({
+			startMs: 0,
+			endMs: 3000,
+			label: null
+		});
+	});
+
+	it('moves a point, which stays a point', () => {
+		const p = addSpot(db, { recordingId }, point(4000))!;
+		expect(updateSpot(db, p.id, { startMs: 3000 })).toMatchObject({ startMs: 3000, endMs: null });
+		expect(() => updateSpot(db, p.id, { endMs: 9000 })).toThrow(SpotError);
+	});
+
+	it.each([
+		['a start past the end', { startMs: 5000 }],
+		['an end before the start', { endMs: 500 }],
+		['a negative start', { startMs: -1 }],
+		['a string end', { endMs: '6000' }],
+		['an end of null, which would make it a point', { endMs: null }]
+	])('refuses to give a section %s, changing nothing', (_, changes) => {
+		const s = addSpot(db, { recordingId }, { startMs: 1000, endMs: 5000, label: null })!;
+		expect(() => updateSpot(db, s.id, changes)).toThrow(SpotError);
+		expect(listSpots(db, { recordingId })[0]).toMatchObject({ startMs: 1000, endMs: 5000 });
 	});
 
 	it('has a CHECK for exactly one owner', () => {
@@ -159,9 +192,10 @@ describe('linked sections', () => {
 		expect(listSpots(db, { lessonVideoId })).toHaveLength(1);
 	});
 
-	it('keeps linkedTo through a rename', () => {
+	it('keeps linkedTo through a rename and a move', () => {
 		const s = addSpot(db, { lessonVideoId }, { startMs: 0, endMs: 1000, label: null })!;
 		linkSpot(db, s.id, { figureId: figure('Setenta') });
-		expect(renameSpot(db, s.id, 'x')!.linkedTo).toEqual(['Setenta']);
+		expect(updateSpot(db, s.id, { label: 'x' })!.linkedTo).toEqual(['Setenta']);
+		expect(updateSpot(db, s.id, { endMs: 2000 })!.linkedTo).toEqual(['Setenta']);
 	});
 });

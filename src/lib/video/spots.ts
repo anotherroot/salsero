@@ -58,3 +58,31 @@ export function loopTarget(
 	if (!loop || loop.endMs === null) return null;
 	return msOf(currentS) >= loop.endMs ? loop.startMs / 1000 : null;
 }
+
+/** The shortest a section can be edited down to: below a second there is no loop to hear. */
+export const MIN_SECTION_MS = 1000;
+
+/**
+ * A spot's times with one edge moved to `toMs`, clamped inside the video and
+ * leaving a section at least `MIN_SECTION_MS` long — or null when that changes
+ * nothing (an edge already against its bound, or a point's missing end), which
+ * is what disables a ±1 s button. The duration is in seconds, as the media
+ * element gives it; while it is unknown only the start of the video bounds.
+ */
+export function moveEdge(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	edge: 'start' | 'end',
+	toMs: number,
+	durationS: number
+): { startMs: number; endMs: number | null } | null {
+	const lastMs = Number.isFinite(durationS) ? msOf(durationS) : Infinity;
+	const { startMs, endMs } = spot;
+	if (edge === 'end') {
+		if (endMs === null) return null;
+		const next = Math.max(startMs + MIN_SECTION_MS, Math.min(lastMs, toMs));
+		return next === endMs ? null : { startMs, endMs: next };
+	}
+	const latest = endMs === null ? lastMs : endMs - MIN_SECTION_MS;
+	const next = Math.max(0, Math.min(latest, toMs));
+	return next === startMs ? null : { startMs: next, endMs };
+}
