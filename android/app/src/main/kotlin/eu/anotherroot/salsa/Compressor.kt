@@ -10,7 +10,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Presentation
-import androidx.media3.transformer.AudioEncoderSettings
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.DefaultEncoderFactory
 import androidx.media3.transformer.EditedMediaItem
@@ -35,9 +34,16 @@ import kotlin.coroutines.resume
  */
 @OptIn(UnstableApi::class)
 object Compressor {
+    /*
+     * Audio is left alone: no audio encoder settings are requested, so Media3
+     * copies the camera's AAC track as it is (DefaultEncoderFactory re-encodes
+     * audio only when settings other than DEFAULT are asked for). Only audio
+     * that is not AAC gets converted, to fit the MP4. The music is what a
+     * dancer counts to, so it keeps its quality; the picture is where the size is.
+     */
+
     /** Seconds between keyframes: short, so the full-screen player's ±1 s and loops seek cleanly. */
     private const val KEYFRAME_SECONDS = 2f
-    private const val AUDIO_BITRATE = 128_000
 
     /** Null on success, else why it failed. [onProgress] gets 0..100 about four times a second. */
     suspend fun compress(
@@ -58,9 +64,6 @@ object Compressor {
                 .setEncoderFactory(
                     DefaultEncoderFactory.Builder(context)
                         .setRequestedVideoEncoderSettings(videoSettings(videoBitrate(shortSide)))
-                        .setRequestedAudioEncoderSettings(
-                            AudioEncoderSettings.Builder().setBitrate(AUDIO_BITRATE).build(),
-                        )
                         .build(),
                 )
                 .addListener(object : Transformer.Listener {

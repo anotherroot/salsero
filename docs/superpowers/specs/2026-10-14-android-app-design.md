@@ -150,8 +150,11 @@ done and a name for the notification.
 
 1. **Compress** with the copied Media3 Transformer code to
    `video_short_side`, read from `/api/device/config` when queued. A video
-   whose short side is already at or below it is not re-encoded. The output
-   goes to the app's cache and stays there until the upload succeeds, so a
+   whose short side is already at or below it is not re-encoded. **Only the
+   picture is compressed:** the camera's AAC audio is copied as it is, since
+   the music is what a dancer counts to (about 15–20% larger at 480p than
+   re-encoding it at 128 kbps, which the first build did). The output
+   goes to the job's folder and stays there until the upload succeeds, so a
    retry never compresses twice.
 2. **Upload.** A lesson video speaks the existing chunked protocol:
    `PUT /api/lessons/<id>/videos/<uploadId>`, 8 MiB per request with
