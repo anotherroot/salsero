@@ -12,9 +12,11 @@
 		/** The recording or lesson video this is, for full screen and its spots. */
 		owner?: SpotOwner;
 		onproblem: (problem: MediaProblem) => void;
+		/** Where a saved YouTube video came from, shown as a link under the controls. */
+		sourceUrl?: string | null;
 	}
 
-	let { src, kind = 'video', owner, onproblem }: Props = $props();
+	let { src, kind = 'video', owner, onproblem, sourceUrl = null }: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
 	// choice on mount: reading localStorage during SSR is impossible, and
@@ -103,6 +105,14 @@
 		{/each}
 	</span>
 </div>
+{#if sourceUrl}
+	<a
+		href={sourceUrl}
+		target="_blank"
+		rel="external noopener noreferrer"
+		class="block px-3 pt-1 text-[12px] text-muted">from YouTube ↗</a
+	>
+{/if}
 
 {#if kind === 'video' && owner && fullAt !== null}
 	<VideoPlayer

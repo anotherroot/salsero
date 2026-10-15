@@ -75,7 +75,7 @@
 			? resolve('/[dance]/figures/[id]', { dance: slug, id: String(item.id) })
 			: resolve(`/${slug}/figures/${item.parentId}?v=${item.id}`);
 
-	const linkFailure = $derived(failed('addLink'));
+	const linkFailure = $derived(failed('addLink') ?? failed('saveVideo') ?? failed('retryVideo'));
 	const linkEntered = $derived(form && 'urls' in form ? String(form.urls) : '');
 
 	$effect(() => {
@@ -414,6 +414,7 @@
 					{:else}
 						<VideoFrame
 							src="/recordings/{rec.file}"
+							sourceUrl={rec.sourceUrl}
 							kind={rec.kind}
 							owner={{ recordingId: rec.id }}
 							onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
@@ -480,7 +481,7 @@
 
 	<section>
 		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Links</h2>
-		<LinksEditor links={data.links} message={linkFailure} entered={linkEntered} />
+		<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
 	</section>
 
 	{#if data.taughtIn.length > 0}

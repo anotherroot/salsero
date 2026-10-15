@@ -39,6 +39,7 @@
 				{:else}
 					<VideoFrame
 						src="/lesson-videos/{video.file}"
+						sourceUrl={video.sourceUrl}
 						owner={{ lessonVideoId: video.id }}
 						onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 					/>

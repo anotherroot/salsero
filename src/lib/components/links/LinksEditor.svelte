@@ -4,6 +4,7 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import LinkList from './LinkList.svelte';
 	import { FIELD } from '$lib/components/ui/styles';
+	import { parseLink } from '$lib/links';
 	import type { LinkRow } from '$lib/types';
 
 	interface Props {
@@ -12,13 +13,38 @@
 		message: string | null;
 		/** What was typed, handed back by a failed addLink. */
 		entered: string;
+		/**
+		 * Offer Save video on YouTube links — the figure and lesson pages. A drill
+		 * has no stored videos, so its links stay links.
+		 */
+		canSave?: boolean;
 	}
 
-	let { links, message, entered }: Props = $props();
+	let { links, message, entered, canSave = false }: Props = $props();
 </script>
 
 <LinkList {links}>
 	{#snippet actions(link)}
+		{#if canSave && parseLink(link.url)?.kind === 'youtube'}
+			{#if link.saving?.status === 'queued'}
+				<span class="mr-auto self-center px-2 text-[13px] text-muted"
+					>Saving — the home worker picks it up within a few minutes</span
+				>
+			{:else if link.saving?.status === 'failed'}
+				<span class="mr-auto min-w-0 self-center px-2 py-1 text-[13px] break-words text-danger"
+					>Couldn't save: {link.saving.error ?? 'unknown error'}</span
+				>
+				<form method="POST" action="?/retryVideo" use:enhance>
+					<input type="hidden" name="linkId" value={link.id} />
+					<button type="submit" class="h-9 px-2 text-[13px]">Retry</button>
+				</form>
+			{:else}
+				<form method="POST" action="?/saveVideo" use:enhance class="mr-auto">
+					<input type="hidden" name="linkId" value={link.id} />
+					<button type="submit" class="h-9 px-2 text-[13px]">Save video</button>
+				</form>
+			{/if}
+		{/if}
 		<form method="POST" action="?/deleteLink" use:enhance>
 			<input type="hidden" name="linkId" value={link.id} />
 			<button type="submit" class="h-9 px-2 text-[13px] text-danger">Remove</button>
