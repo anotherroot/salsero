@@ -57,17 +57,27 @@ orientations; the phone is rotated by hand.
     second tap at or before the start is ignored with a short note. Closing the
     player drops a pending start.
 - **Spots (n):** opens a panel listing the spots by start time. A point jumps
-  there. A section jumps to its start and becomes the active loop. Each row can
-  be renamed (no label shows its time, `2:14.5` or `2:14.5–2:22.0`) or deleted.
+  there. A section jumps to its start and becomes the active loop. Each row has
+  **Edit** and delete (no label shows its time, `2:14.5` or `2:14.5–2:22.0`).
   Tapping a point while a section loops keeps the loop only if the point lies
   inside the section; otherwise the loop ends.
+- **Edit** opens that one row in place, closing any other: the label, then a
+  Start line — and an End line for a section — with the time, **−1s**, **+1s**
+  and **Now** (the current playback time). Opening it seeks there, and a
+  section becomes the loop, so each change is heard: a moved start plays from
+  the new start, a moved end plays the two seconds up to it. An edge never
+  leaves the video and a section never gets shorter than 1 s
+  (`MIN_SECTION_MS`); a ±1 s that would change nothing is disabled. **Done**,
+  Esc, or closing the panel closes the row, and only then is the list
+  re-sorted, so the row does not jump while its start moves. A linked section
+  can be edited: the link points at the spot, so its card follows.
 - **Looping chip:** while a loop is active, `Looping 2:14–2:22 ×` sits above
   the main row; × ends the loop. Deleting the looped spot ends it too.
 - **Hiding:** while playing, controls fade after 3 s; a tap on the video brings
   them back. Paused, they stay.
 
 **Keyboard** (the work PC): Space play/pause, ← / → ∓1 s, M mark, S section
-start/end, L end loop, Esc close. Ignored while typing in a rename field.
+start/end, L end loop, Esc close. Ignored while typing in a label field.
 
 **The loop.** Checked on every animation frame while playing, not on
 `timeupdate` (~4 Hz, which would overshoot a quarter-second at 1×): once
@@ -120,7 +130,9 @@ whose message the player shows): see
   ordered by `start_ms`, then `id`.
 - `addSpot(db, owner, { startMs, endMs, label })` — returns the row, or null
   when the owner does not exist.
-- `renameSpot(db, id, label)` — returns the row or null.
+- `updateSpot(db, id, { label?, startMs?, endMs? })` — changes only the keys
+  sent and returns the row, or null. The times are validated merged with the
+  stored ones; a point cannot gain an end nor a section lose one.
 - `deleteSpot(db, id)` — returns whether a row went.
 
 Validation lives here, not in the route: `startMs` a non-negative integer,
@@ -137,7 +149,7 @@ Flat, like the other `/api/*` routes, and private by the deny-by-default hook
 | -------------------------------------------------------------- | ------------------------- |
 | `GET /api/video-spots?recording=12` or `?lessonVideo=7`        | `Spot[]` by start time    |
 | `POST /api/video-spots` `{recordingId \| lessonVideoId, startMs, endMs, label}` | the new `Spot` |
-| `PATCH /api/video-spots/[id]` `{label}`                        | the updated `Spot`        |
+| `PATCH /api/video-spots/[id]` any of `{label, startMs, endMs}`  | the updated `Spot`        |
 | `DELETE /api/video-spots/[id]`                                 | 204                       |
 
 A missing video or spot is a 404; a malformed body, both or neither owner, or
@@ -155,11 +167,16 @@ flat spots API crosses no wall the media does not.
 - `step(current, delta, duration)` → the new time, clamped to `[0, duration]`.
 - `sortSpots(spots)` — by start, then id.
 - `loopTarget(current, loop)` → the time to seek to, or null to keep playing.
+- `moveEdge(spot, edge, toMs, duration)` → the spot's times with one edge moved
+  and clamped, or null when that changes nothing.
 
 `ui/VideoPlayer.svelte` fetches the spots when it opens, and writes each change
 straight through the API, updating its list from the response. A failed fetch
 or write shows "Couldn't save" (or "Couldn't load spots") and leaves the list
-as it was — never an optimistic row that might not exist.
+as it was — never an optimistic row that might not exist. The one exception
+is an edit to an existing row: a nudge has to be heard at once, so it shows
+immediately and the PATCHes go one after another; a failed one reloads the
+list.
 
 ## Testing
 

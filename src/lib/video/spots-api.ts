@@ -47,11 +47,15 @@ export async function postSpot(
 	return (await ok(res)).json();
 }
 
-export async function patchSpot(id: number, label: string | null): Promise<Spot> {
+/** Only the fields given change. */
+export async function patchSpot(
+	id: number,
+	changes: { label?: string | null; startMs?: number; endMs?: number | null }
+): Promise<Spot> {
 	const res = await fetch(`/api/video-spots/${id}`, {
 		method: 'PATCH',
 		headers: JSON_HEADERS,
-		body: JSON.stringify({ label })
+		body: JSON.stringify(changes)
 	});
 	return (await ok(res)).json();
 }

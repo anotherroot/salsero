@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { deleteSpot, renameSpot, SpotError } from '$lib/server/spots';
+import { deleteSpot, SpotError, updateSpot } from '$lib/server/spots';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import type { RequestHandler } from './$types';
 
@@ -15,11 +15,15 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	const id = spotId(params.id);
 	const body: unknown = await request.json().catch(() => null);
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw error(400, 'Bad JSON.');
-	// `label` is required: a missing key is a bad request, not "clear it" —
-	// `null` is how a caller clears it.
-	if (!('label' in body)) throw error(400, 'A label is required.');
+	// Only the keys sent change: a missing `label` keeps it, and `null` is how
+	// a caller clears it. A body with none of the three is a bad request.
+	const changes: { label?: unknown; startMs?: unknown; endMs?: unknown } = {};
+	for (const key of ['label', 'startMs', 'endMs'] as const) {
+		if (key in body) changes[key] = (body as Record<string, unknown>)[key];
+	}
+	if (Object.keys(changes).length === 0) throw error(400, 'Nothing to change.');
 	try {
-		const spot = renameSpot(getDb(), id, (body as Record<string, unknown>).label);
+		const spot = updateSpot(getDb(), id, changes);
 		if (!spot) throw error(404, 'No such spot');
 		return json(spot);
 	} catch (e) {

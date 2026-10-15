@@ -141,12 +141,29 @@ describe('PATCH and DELETE /api/video-spots/[id]', () => {
 		expect(await status(() => run(one.PATCH, { params: { id }, request: req }))).toBe(400);
 	});
 
-	it('is a 400 for a body with no label key, and leaves the label alone', async () => {
+	it('is a 400 for a body with nothing to change, and leaves the spot alone', async () => {
 		const spot = addSpot(db, { recordingId }, { startMs: 0, endMs: null, label: 'Dip' })!;
 		const id = String(spot.id);
-		const req = send('PATCH', {}, id);
+		const req = send('PATCH', { other: 1 }, id);
 		expect(await status(() => run(one.PATCH, { params: { id }, request: req }))).toBe(400);
 		expect(listSpots(db, { recordingId })[0]).toMatchObject({ label: 'Dip' });
+	});
+
+	it('moves an edge, keeping the label', async () => {
+		const spot = addSpot(db, { recordingId }, { startMs: 1000, endMs: 5000, label: 'Dip' })!;
+		const id = String(spot.id);
+		const moved = await run(one.PATCH, {
+			params: { id },
+			request: send('PATCH', { startMs: 2000 }, id)
+		});
+		expect(await moved.json()).toMatchObject({ startMs: 2000, endMs: 5000, label: 'Dip' });
+	});
+
+	it('is a 400 for times that cross', async () => {
+		const spot = addSpot(db, { recordingId }, { startMs: 1000, endMs: 5000, label: null })!;
+		const id = String(spot.id);
+		const req = send('PATCH', { endMs: 1000 }, id);
+		expect(await status(() => run(one.PATCH, { params: { id }, request: req }))).toBe(400);
 	});
 });
 
