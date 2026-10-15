@@ -128,7 +128,8 @@ On the figure and lesson pages, beside `addLink`/`deleteLink`:
   downloaded with exit 0 means the duration filter skipped it: permanent.
 - `media.to_mp4(src, dest)` — always re-encode, so every saved video plays
   everywhere, iPhones included: `-c:v libx264 -preset veryfast -crf 28
-  -vf "scale=-2:'min(480,ih)'" -pix_fmt yuv420p -c:a aac -b:a 96k -ac 2
+  -vf "scale='if(gt(iw,ih),-2,min(480,iw))':'if(gt(iw,ih),min(480,ih),-2)'"
+  -pix_fmt yuv420p -c:a aac -b:a 96k -ac 2
   -movflags +faststart`. Roughly 4–6 MB a minute.
 - `api.claim_video()`, `api.upload_video(id, path)` (8 MiB chunks; on a 409
   resume from `x-received-bytes`; a 410 raises `JobGone`),
