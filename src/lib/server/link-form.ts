@@ -8,6 +8,7 @@ import { fail } from '@sveltejs/kit';
 import type { Db } from './db';
 import { int, optionalText } from './form';
 import { addLinks, deleteLink, type LinkOwner } from './links';
+import { requestVideoDownload, retryVideoDownload } from './video-downloads';
 import { splitLinkLines } from '$lib/links';
 
 /** A URL longer than this is not a link someone pasted on purpose. */
@@ -39,4 +40,28 @@ export async function deleteLinkFrom(request: Request, db: Db, owner: LinkOwner)
 		return fail(404, { action: 'deleteLink' as const, message: 'That link was already removed.' });
 	}
 	return { action: 'deleteLink' as const, ok: true };
+}
+
+/** Save a YouTube link as a video — on the figure and lesson pages only. See `video-downloads.ts`. */
+export async function saveVideoFrom(request: Request, db: Db, owner: LinkOwner) {
+	const id = int(await request.formData(), 'linkId');
+	const result = id === undefined ? 'not-found' : requestVideoDownload(db, owner, id);
+	if (result === 'not-found') {
+		return fail(404, { action: 'saveVideo' as const, message: 'That link was already removed.' });
+	}
+	if (result === 'not-youtube') {
+		return fail(400, {
+			action: 'saveVideo' as const,
+			message: 'Only a YouTube link can be saved as a video.'
+		});
+	}
+	return { action: 'saveVideo' as const, ok: true };
+}
+
+export async function retryVideoFrom(request: Request, db: Db, owner: LinkOwner) {
+	const id = int(await request.formData(), 'linkId');
+	if (id === undefined || !retryVideoDownload(db, owner, id)) {
+		return fail(404, { action: 'retryVideo' as const, message: 'That link was already removed.' });
+	}
+	return { action: 'retryVideo' as const, ok: true };
 }

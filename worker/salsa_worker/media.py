@@ -22,6 +22,9 @@ PERMANENT_MARKERS = (
     "Sign in to confirm your age",
 )
 
+# A saved video: an hour is a whole class, and anything longer is almost always a stream.
+MAX_VIDEO_S = 3600
+
 
 class PermanentError(Exception):
     """A failure that retrying will not fix; the song is marked failed."""
@@ -77,6 +80,64 @@ def fetch(url: str, workdir: Path, run=subprocess.run) -> Fetched:
     except ValueError:
         seconds = None
     return Fetched(path, title or None, seconds)
+
+
+def fetch_video(url: str, workdir: Path, run=subprocess.run) -> Path:
+    """At most 480p, picture and sound merged into workdir/video.mkv. to_mp4 re-encodes it next.
+
+    480p by the SHORTER side (yt-dlp's `res`), so a vertical Short comes at 480x854
+    rather than the 240x426 a `height<=480` filter would leave it.
+    """
+    cmd = [
+        "yt-dlp",
+        "--no-playlist",
+        "--no-warnings",
+        "--no-progress",
+        "-f", "bv*+ba/b",
+        "-S", "res:480",
+        "--merge-output-format", "mkv",
+        "--match-filter", f"duration <= {MAX_VIDEO_S}",
+        "-o", str(workdir / "video.%(ext)s"),
+        url,
+    ]
+    p = run(cmd, capture_output=True, text=True, timeout=1800)
+    if p.returncode != 0:
+        msg = _last_line(p.stderr)
+        if any(m in p.stderr for m in PERMANENT_MARKERS):
+            raise PermanentError(msg)
+        raise RuntimeError(msg)
+    made = sorted(workdir.glob("video.*"))
+    if not made:
+        # The duration filter skips silently, with exit code 0 and no output.
+        raise PermanentError("Longer than 60 minutes, or nothing to download.")
+    return made[0]
+
+
+# The shorter side at most 480, the other in proportion: landscape and vertical alike.
+SHORT_SIDE_480 = "scale='if(gt(iw,ih),-2,min(480,iw))':'if(gt(iw,ih),min(480,ih),-2)'"
+
+
+def to_mp4(src: Path, dest: Path, run=subprocess.run) -> None:
+    """H.264 and AAC with the index up front, so it plays on every phone and streams from the first byte.
+
+    Always re-encoded, never remuxed: YouTube's 480p is often VP9 or AV1, which
+    older iPhones cannot play. CRF 28 at 480p is roughly 5 MB a minute.
+    """
+    p = run(
+        [
+            "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src),
+            "-vf", SHORT_SIDE_480,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "96k", "-ac", "2",
+            "-movflags", "+faststart",
+            str(dest),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=3600,
+    )
+    if p.returncode != 0:
+        raise PermanentError(f"Could not encode the video: {_last_line(p.stderr)}")
 
 
 def to_wav(src: Path, dest: Path, run=subprocess.run) -> None:

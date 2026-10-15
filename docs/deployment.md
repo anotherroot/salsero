@@ -120,7 +120,16 @@ shares with Firefly, Grafana, muscle and nikaudio.
   (the next `nixos-rebuild switch` starts it again). Turn it off for good by
   setting `my.salsa.worker.enable = false;` in the host file.
 - **Watch it:** `journalctl -u salsa-worker -f` on the worker host. A run with
-  nothing to do exits silently; a processed song logs `song <id>: <n> beats`.
+  nothing to do exits silently; a processed song logs `song <id>: <n> beats`,
+  a saved YouTube video `video <id>: saved`.
+- **Saved videos** (Save video on a figure's or lesson's YouTube link) come
+  from a second queue, `/api/worker/videos/*`, drained after the songs: yt-dlp
+  at most 480p and 60 minutes, ffmpeg to H.264 (`veryfast`, CRF 28), then an
+  8 MiB chunked upload — so the server's `BODY_SIZE_LIMIT` must stay above one
+  chunk, as lesson videos already need. An hour of video is minutes of encoding
+  on the worker's two cores; a song queued meanwhile waits for the next run.
+  A worker older than this never asks for video jobs, so deploying the server
+  first is safe; the links just stay "Saving" until the worker is updated.
 - **Auth:** `secrets/salsa-worker.env.age` holds `SALSA_WORKER_TOKEN`,
   readable by cloud (which checks it, as a second `EnvironmentFile` on the
   salsa unit) and by the worker host (which sends it as a bearer token). It is

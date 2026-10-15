@@ -27,7 +27,8 @@ import {
 	safeDecodeHeader,
 	sweepUploads,
 	TooLargeError,
-	uploadsDir
+	uploadsDir,
+	writeChunk
 } from './files';
 
 describe('recording files', () => {
@@ -183,5 +184,67 @@ describe('sweepUploads', () => {
 		expect(existsSync(oldDone)).toBe(false);
 		expect(existsSync(fresh)).toBe(true);
 		expect(existsSync(other)).toBe(true);
+	});
+});
+
+describe('writeChunk', () => {
+	const MESSAGES = { notVideo: 'Videos only.', tooLarge: 'Too big for 20 bytes.' };
+	let dir: string;
+	let partial: string;
+	beforeEach(async () => {
+		dir = await mkdtemp(join(tmpdir(), 'salsa-chunk-'));
+		partial = join(dir, 'x.part');
+	});
+	afterEach(async () => {
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	const chunk = (start: number, n: number, total: number, type = 'video/mp4', range?: string) =>
+		new Request('http://localhost/', {
+			method: 'PUT',
+			headers: {
+				'content-type': type,
+				'content-range': range ?? `bytes ${start}-${start + n - 1}/${total}`
+			},
+			body: new Uint8Array(n).fill(7)
+		});
+	const write = (request: Request) => writeChunk(request, partial, 20, MESSAGES);
+	const refusal = async (got: unknown) => {
+		expect(got).toBeInstanceOf(Response);
+		const res = got as Response;
+		return {
+			status: res.status,
+			...(await res.json()),
+			received: res.headers.get('x-received-bytes')
+		};
+	};
+
+	it('appends chunk by chunk and says when the file is whole', async () => {
+		expect(await write(chunk(0, 4, 10))).toEqual({ done: false, received: 4 });
+		expect(await write(chunk(4, 6, 10))).toEqual({ done: true, total: 10 });
+		expect((await readFile(partial)).length).toBe(10);
+	});
+
+	it('refuses a chunk that does not start where the file ends, saying where it does', async () => {
+		await write(chunk(0, 4, 10));
+		expect(await refusal(await write(chunk(6, 4, 10)))).toMatchObject({
+			status: 409,
+			received: '4'
+		});
+	});
+
+	it('refuses a missing range, a total over the cap, and a type that is not video', async () => {
+		expect(await refusal(await write(chunk(0, 4, 10, 'video/mp4', 'nonsense')))).toMatchObject({
+			status: 400
+		});
+		expect(await refusal(await write(chunk(0, 4, 30)))).toMatchObject({
+			status: 413,
+			message: 'Too big for 20 bytes.'
+		});
+		expect(await refusal(await write(chunk(0, 4, 10, 'text/plain')))).toMatchObject({
+			status: 415,
+			message: 'Videos only.'
+		});
+		expect(existsSync(partial)).toBe(false);
 	});
 });

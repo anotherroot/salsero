@@ -20,7 +20,7 @@ import {
 import { createFigure } from '$lib/server/figures';
 import { createCustomExercise } from '$lib/server/exercises';
 import { createRoutine } from '$lib/server/routines';
-import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
+import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
@@ -279,5 +279,9 @@ export const actions: Actions = {
 	addLink: async ({ params, request }) =>
 		addLinkFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id }),
 	deleteLink: async ({ params, request }) =>
-		deleteLinkFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id })
+		deleteLinkFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id }),
+	saveVideo: async ({ params, request }) =>
+		saveVideoFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id }),
+	retryVideo: async ({ params, request }) =>
+		retryVideoFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id })
 };

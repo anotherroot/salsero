@@ -161,7 +161,8 @@
 			<h2 class={heading}>Links</h2>
 			<LinksEditor
 				links={data.links}
-				message={failure('addLink') ?? null}
+				canSave
+				message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
 				entered={form && 'urls' in form ? String(form.urls) : ''}
 			/>
 		</section>
@@ -186,6 +187,7 @@
 						{:else}
 							<VideoFrame
 								src="/lesson-videos/{video.file}"
+								sourceUrl={video.sourceUrl}
 								owner={{ lessonVideoId: video.id }}
 								onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 							/>

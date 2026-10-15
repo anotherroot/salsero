@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { links } from './db/schema';
 import { addFigureExercise, createFigure } from './figures';
-import { addLinkFrom, deleteLinkFrom } from './link-form';
-import { listLinks } from './links';
+import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from './link-form';
+import { addLinks, listLinks } from './links';
+import { claimVideoJob, failVideoJob } from './video-downloads';
 
 let db: Db;
 let figureId: number;
@@ -79,5 +80,41 @@ describe('deleteLinkFrom', () => {
 				ok: true
 			}
 		);
+	});
+});
+
+describe('saveVideoFrom and retryVideoFrom', () => {
+	const linkOf = (url: string) => addLinks(db, { figureId }, [url], null)![0].id;
+
+	it('queues a YouTube link, and retries it once it failed', async () => {
+		const id = linkOf('https://youtu.be/dQw4w9WgXcQ');
+		expect(await saveVideoFrom(form({ linkId: String(id) }), db, { figureId })).toMatchObject({
+			action: 'saveVideo',
+			ok: true
+		});
+		expect(listLinks(db, { figureId })[0].saving?.status).toBe('queued');
+
+		failVideoJob(db, claimVideoJob(db, Date.now())!.id, 'Private video', true);
+		expect(await retryVideoFrom(form({ linkId: String(id) }), db, { figureId })).toMatchObject({
+			action: 'retryVideo',
+			ok: true
+		});
+		expect(listLinks(db, { figureId })[0].saving).toEqual({ status: 'queued', error: null });
+	});
+
+	it('refuses a web link and a link that is gone', async () => {
+		const web = linkOf('https://a.org/x');
+		expect(await saveVideoFrom(form({ linkId: String(web) }), db, { figureId })).toMatchObject({
+			status: 400,
+			data: { action: 'saveVideo', message: 'Only a YouTube link can be saved as a video.' }
+		});
+		expect(await saveVideoFrom(form({ linkId: '999' }), db, { figureId })).toMatchObject({
+			status: 404,
+			data: { action: 'saveVideo', message: 'That link was already removed.' }
+		});
+		expect(await retryVideoFrom(form({ linkId: '999' }), db, { figureId })).toMatchObject({
+			status: 404,
+			data: { action: 'retryVideo' }
+		});
 	});
 });
