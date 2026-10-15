@@ -46,7 +46,8 @@
 	-->
 	<div data-dance={navDance.slug} style:display="contents">
 		<div class="mx-auto min-h-dvh max-w-[560px] pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-			{#if dance}
+			<!-- Not in the Android app: each dance has its own icon there, and its own task. -->
+			{#if dance && !data.app}
 				<!--
 					`aria-current="true"`, not "page": the bottom tabs already mark the
 					page, and on `/[dance]` the active pill and the Today tab are the
