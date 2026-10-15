@@ -129,7 +129,8 @@ can show it. `DELETE /api/video-spots/[id]` answers a refused delete with
 
 Two actions, `linkSection` and `unlinkSection`, on each of:
 
-- the lesson page — link posts `spotId` plus `figureId` or `exerciseId`;
+- the lesson page — link posts `spotId` plus `target`, `figure:<id>` or
+  `exercise:<id>` (one `<select>` carries both kinds, read by `targetFrom`);
   unlink posts `linkId`. The spot (for an unlink, the link's spot) must belong
   to one of THIS lesson's videos, checked before the data function, as
   `deleteVideo` checks its video. The unlink then calls `unlinkSpot` with the
@@ -186,7 +187,9 @@ class video where the teacher does it.
 - ✕ on a linked section gets the 409, shows its message as a note, and keeps
   the row.
 
-A card opens the player directly; it does not put an inline `<video>` on the
+`ui/SectionPlayer.svelte` is the player opened on a section, with the stored
+mirror and speed: the card, the lesson page's ▶ and the sheet's preview all use
+it. A card opens the player directly; it does not put an inline `<video>` on the
 page per section.
 
 ## Testing
@@ -212,3 +215,9 @@ page per section.
   as a video; only then can it have sections to link.
 - **No "mark and link" from the figure.** A section that does not exist yet is
   marked in the player on its video first, then linked.
+- **A figure's Today popup shows Basic's sections only.** The exercise belongs
+  to the figure, so its content is Basic's, as its recordings are; a
+  variation's sections are on the variation's tab.
+- **A link whose video's lesson or figure is archived** drops out of the cards
+  with it, and comes back when it is unarchived. It still blocks a delete
+  meanwhile, and the refusal names it.

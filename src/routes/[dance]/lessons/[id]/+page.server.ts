@@ -95,7 +95,10 @@ function sectionTargets(found: ReturnType<typeof lessonOf>): SectionTargets {
 		.filter((e) => e.source === 'custom')
 		.sort((a, b) => a.name.localeCompare(b.name));
 	const ownDrills = new Set(found.exercises.map((e) => e.id));
-	const figure = (v: { id: number; label: string }) => ({ value: `figure:${v.id}`, label: v.label });
+	const figure = (v: { id: number; label: string }) => ({
+		value: `figure:${v.id}`,
+		label: v.label
+	});
 	const drill = (d: { id: number; name: string }) => ({ value: `exercise:${d.id}`, label: d.name });
 	const isTaught = (v: { id: number; parentId: number | null }) => taught.has(v.parentId ?? v.id);
 	return {

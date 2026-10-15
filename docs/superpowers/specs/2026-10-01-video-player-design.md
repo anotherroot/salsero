@@ -107,7 +107,10 @@ are. Hard-deleted, like a recording or a link.
 
 **Deleting a video deletes its spots.** `deleteRecording` and
 `deleteLessonVideo` delete the video's spots and then the row in one
-transaction. Without it the foreign key refuses the delete.
+transaction. Without it the foreign key refuses the delete. A section linked to
+a figure or drill blocks both deletes, and the spot's own (a 409 from the API,
+whose message the player shows): see
+[`2026-10-15-video-section-links-design.md`](2026-10-15-video-section-links-design.md).
 
 ## Server
 

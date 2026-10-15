@@ -1,17 +1,11 @@
 <!-- src/lib/components/ui/VideoPlayer.svelte -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
 	import { MAX_SPOT_LABEL } from '$lib/limits';
 	import { loopTarget, msOf, sortSpots, spotLabel, spotTime, step } from '$lib/video/spots';
-	import {
-		fetchSpots,
-		patchSpot,
-		postSpot,
-		removeSpot,
-		SpotsApiError
-	} from '$lib/video/spots-api';
+	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
 	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -95,8 +89,8 @@
 	}
 
 	let spots = $state<Spot[]>([]);
-	// svelte-ignore state_referenced_locally -- only where the player opens; the loop is ours after that.
-	let loop = $state<Spot | null>(loopSpot ?? null);
+	// Only where the player opens: the loop is ours after that.
+	let loop = $state<Spot | null>(untrack(() => loopSpot ?? null));
 	/** Milliseconds: the start of a section whose end has not been tapped yet. */
 	let pendingStart = $state<number | null>(null);
 	let panel = $state(false);

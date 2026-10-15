@@ -143,8 +143,7 @@ describe('spots', () => {
 
 describe('linked sections', () => {
 	const figure = (name: string) =>
-		createFigure(db, 'salsa', { name, partner: 'partner', style: 'salsa', notes: null })!.figure
-			.id;
+		createFigure(db, 'salsa', { name, partner: 'partner', style: 'salsa', notes: null })!.figure.id;
 
 	it('refuse to delete, as do their videos, and nothing goes', () => {
 		const figureId = figure('Dile que no');

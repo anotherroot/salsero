@@ -35,7 +35,9 @@
 			<span class="block truncate text-[12px] text-muted">{from}</span>
 			<span class="block truncate text-[15px]">{spotLabel(section.spot)}</span>
 			{#if section.spot.label}
-				<span class="block text-[12px] text-muted">{spotLabel({ ...section.spot, label: null })}</span>
+				<span class="block text-[12px] text-muted"
+					>{spotLabel({ ...section.spot, label: null })}</span
+				>
 			{/if}
 		</span>
 	</button>

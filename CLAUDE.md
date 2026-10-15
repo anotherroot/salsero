@@ -24,7 +24,10 @@ jump to, sections that loop) and the routine editor (drag to reorder, swipe to
 delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
 (Save video on a figure's or lesson's YouTube link: the home worker downloads
-it at 480p and the link becomes a recording or lesson video, spots and all).
+it at 480p and the link becomes a recording or lesson video, spots and all)
+and section links (a section of a lesson video or recording linked to a figure
+version or a drill, shown as a card that loops it; a linked section and its
+video refuse to delete).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -54,6 +57,10 @@ Saved YouTube videos have theirs,
 [`docs/superpowers/specs/2026-10-15-youtube-video-save-design.md`](docs/superpowers/specs/2026-10-15-youtube-video-save-design.md):
 the second worker queue, why it is not a kind of song job, and the chunked
 upload the worker shares with lesson videos (`writeChunk` in `files.ts`).
+Section links have theirs,
+[`docs/superpowers/specs/2026-10-15-video-section-links-design.md`](docs/superpowers/specs/2026-10-15-video-section-links-design.md):
+why a link points at a saved spot, per version, and why a linked section blocks
+its video's delete.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -149,11 +156,14 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; sets,
-  recordings, links, spots (`video_spots`, deleted with their video) and
+  recordings, links, spots (`video_spots`, deleted with their video), section
+  links (`spot_links`, deleted on unlink) and
   saves in flight (`video_downloads`, deleted with their link, or when the
   link becomes a video) are the only hard deletes. A figure's exercise is
   opt-in (`addFigureExercise`); when one exists it is renamed and archived
-  WITH its figure, in one transaction (`src/lib/server/figures.ts`).
+  WITH its figure, in one transaction (`src/lib/server/figures.ts`). A linked
+  spot, and the video it is on, cannot be deleted until it is unlinked —
+  archived targets included (`assertUnlinked` in `src/lib/server/spot-links.ts`).
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
   components and never branch on it.

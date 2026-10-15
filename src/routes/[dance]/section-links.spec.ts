@@ -237,7 +237,7 @@ describe('the figure page', () => {
 	it('loads the version’s cards and what it could link', () => {
 		linkSpot(db, section, { figureId: doble });
 		const url = new URL(`http://localhost/?v=${doble}`);
-		const data = (figureLoad(figurePage.load, url)) as {
+		const data = figureLoad(figurePage.load, url) as {
 			version: { sections: { linkId: number }[] };
 			linkable: { video: { src: string } }[];
 		};
@@ -266,7 +266,10 @@ describe('the drill’s exercise page', () => {
 			post('salsa', other.id, { linkId: String(link.id) })
 		);
 		expect(res).toMatchObject({ status: 404 });
-		await call(exercisePage.actions.unlinkSection, post('salsa', drill, { linkId: String(link.id) }));
+		await call(
+			exercisePage.actions.unlinkSection,
+			post('salsa', drill, { linkId: String(link.id) })
+		);
 		expect(links()).toEqual([]);
 	});
 

@@ -65,7 +65,8 @@
 								<div class="min-w-0 flex-1">
 									<span class="block truncate text-[15px]">{spotLabel(spot)}</span>
 									{#if spot.label}
-										<span class="text-[12px] text-muted">{spotLabel({ ...spot, label: null })}</span>
+										<span class="text-[12px] text-muted">{spotLabel({ ...spot, label: null })}</span
+										>
 									{/if}
 									{#if spot.linkedTo.length > 0}
 										<span class="block truncate text-[12px] text-muted"
