@@ -11,6 +11,8 @@
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import SectionCard from '$lib/components/ui/SectionCard.svelte';
+	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import { logFor } from '$lib/components/exercises/kinds';
@@ -26,6 +28,10 @@
 	let editing = $state(false);
 	let logging = $state(false);
 	let addingVariation = $state(false);
+	let linkingSection = $state(false);
+	$effect(() => {
+		if (failed('linkSection')) linkingSection = true;
+	});
 	const FigureLog = logFor('figure');
 	/**
 	 * Recordings whose player failed, and why. "missing" means the server has no
@@ -483,6 +489,42 @@
 	</section>
 
 	<section>
+		<div class="flex items-center justify-between">
+			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Sections</h2>
+			<button
+				type="button"
+				class="mb-2 text-[13px] font-medium text-accent"
+				onclick={() => (linkingSection = true)}>+ Link a section</button
+			>
+		</div>
+		{#if version.sections.length === 0}
+			<p class="text-[13px] text-muted">Point at the part of a lesson video that shows this.</p>
+		{:else}
+			<ul class="space-y-2">
+				{#each version.sections as s (s.linkId)}
+					<li>
+						<SectionCard section={s}>
+							{#snippet unlink()}
+								<!-- Unlinking is an edit, like deleting a recording. -->
+								{#if editing}
+									<form method="POST" action="?/unlinkSection" use:enhance>
+										<input type="hidden" name="versionId" value={version.id} />
+										<input type="hidden" name="linkId" value={s.linkId} />
+										<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+									</form>
+								{/if}
+							{/snippet}
+						</SectionCard>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if failed('unlinkSection')}
+			<p class="mt-2 text-[13px] text-danger" role="alert">{failed('unlinkSection')}</p>
+		{/if}
+	</section>
+
+	<section>
 		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Links</h2>
 		<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
 	</section>
@@ -543,6 +585,14 @@
 		>
 	</form>
 </Sheet>
+
+<LinkSectionSheet
+	open={linkingSection}
+	onclose={() => (linkingSection = false)}
+	groups={data.linkable}
+	hidden={{ versionId: version.id }}
+	message={failed('linkSection')}
+/>
 
 {#if logging && data.popup}
 	<FigureLog

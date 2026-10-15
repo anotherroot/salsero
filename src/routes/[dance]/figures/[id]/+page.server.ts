@@ -35,7 +35,14 @@ import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
-import { SpotLinkedError } from '$lib/server/spot-links';
+import {
+	linkableSections,
+	linkSpot,
+	sectionsFor,
+	SpotLinkedError,
+	SpotLinkError,
+	unlinkSpot
+} from '$lib/server/spot-links';
 import type { Actions, PageServerLoad } from './$types';
 
 function figureId(raw: string): number {
@@ -160,7 +167,8 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			name: version.figure.name,
 			notes: version.figure.notes,
 			isVariation: chosen !== null,
-			recordings: version.recordings
+			recordings: version.recordings,
+			sections: sectionsFor(db, { figureId: versionId })
 		},
 		positions: [
 			...live.map((p) => ({ id: p.id, name: p.name, neutral: p.neutral, archived: false })),
@@ -178,6 +186,7 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			? { startCount: version.figure.startCount, lengthCounts: version.figure.lengthCounts }
 			: basic,
 		basic,
+		linkable: linkableSections(db, { figureId: versionId }),
 		// What is actually danced, filled from Basic and with neutral resolved.
 		effective: {
 			starts: node ? startsOf(graph, node) : [],
@@ -380,6 +389,35 @@ export const actions: Actions = {
 		// which is harmless, rather than a row pointing at nothing.
 		await unlink(join(recordingsDir(), rec.file)).catch(() => {});
 		return { action: 'deleteRecording', ok: true };
+	},
+
+	/** A section for the version posted. `linkSpot` refuses one from the other dance. */
+	linkSection: async ({ params, request }) => {
+		const form = await request.formData();
+		const found = versionOf(figureOf(params), int(form, 'versionId'));
+		const spotId = int(form, 'spotId');
+		if (spotId === undefined) {
+			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
+		}
+		try {
+			linkSpot(getDb(), spotId, { figureId: found.figure.id });
+		} catch (e) {
+			if (e instanceof SpotLinkError) {
+				return fail(e.status, { action: 'linkSection', message: e.message });
+			}
+			throw e;
+		}
+		return { action: 'linkSection', ok: true };
+	},
+
+	unlinkSection: async ({ params, request }) => {
+		const form = await request.formData();
+		const found = versionOf(figureOf(params), int(form, 'versionId'));
+		const id = int(form, 'linkId');
+		if (id === undefined || !unlinkSpot(getDb(), id, { figureId: found.figure.id })) {
+			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+		}
+		return { action: 'unlinkSection', ok: true };
 	},
 
 	addLink: async ({ params, request }) =>

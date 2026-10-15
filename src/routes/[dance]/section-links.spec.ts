@@ -23,6 +23,7 @@ import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
 import { addSpot } from '$lib/server/spots';
 import { linkSpot } from '$lib/server/spot-links';
 import * as lessonPage from './lessons/[id]/+page.server';
+import * as figurePage from './figures/[id]/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -178,3 +179,77 @@ describe('the lesson page', () => {
 		});
 	});
 });
+
+describe('the figure page', () => {
+	it('links a section to the version posted, and unlinks it', async () => {
+		await call(
+			figurePage.actions.linkSection,
+			post('salsa', figureId, { versionId: String(doble), spotId: String(section) })
+		);
+		const [link] = links();
+		expect([link.spotId, link.figureId]).toEqual([section, doble]);
+		// The same link id under Basic is not Basic's to remove.
+		const res = await call(
+			figurePage.actions.unlinkSection,
+			post('salsa', figureId, { versionId: String(figureId), linkId: String(link.id) })
+		);
+		expect(res).toMatchObject({ status: 404 });
+		await call(
+			figurePage.actions.unlinkSection,
+			post('salsa', figureId, { versionId: String(doble), linkId: String(link.id) })
+		);
+		expect(links()).toEqual([]);
+	});
+
+	it('refuses a variation of another figure', async () => {
+		const other = salsaFigure('Setenta');
+		await expect(
+			call(
+				figurePage.actions.linkSection,
+				post('salsa', other, { versionId: String(doble), spotId: String(section) })
+			)
+		).rejects.toMatchObject({ status: 404 });
+		expect(links()).toEqual([]);
+	});
+
+	it('refuses a section of the other dance', async () => {
+		const bachataLesson = createLesson(db, 'bachata', {
+			lessonDay: '2026-10-12',
+			title: 'B',
+			notes: null
+		}).lesson.id;
+		const v = addLessonVideo(db, {
+			lessonId: bachataLesson,
+			file: 'b.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		const s = addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: 900, label: null })!.id;
+		const res = await call(
+			figurePage.actions.linkSection,
+			post('salsa', figureId, { spotId: String(s) })
+		);
+		expect(res).toMatchObject({ status: 400 });
+		expect(links()).toEqual([]);
+	});
+
+	it('loads the version’s cards and what it could link', () => {
+		linkSpot(db, section, { figureId: doble });
+		const url = new URL(`http://localhost/?v=${doble}`);
+		const data = (figureLoad(figurePage.load, url)) as {
+			version: { sections: { linkId: number }[] };
+			linkable: { video: { src: string } }[];
+		};
+		expect(data.version.sections).toHaveLength(1);
+		expect(data.linkable.map((g) => g.video.src)).toEqual(['/lesson-videos/o.mp4']);
+	});
+});
+
+/** The figure page's load, at a URL that picks a version tab. */
+function figureLoad(load: unknown, url: URL) {
+	return (load as Load)({
+		params: { dance: 'salsa', id: String(figureId) },
+		url,
+		locals: { user: USER }
+	});
+}
