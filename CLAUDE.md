@@ -22,7 +22,9 @@ versions by how many routines use them, and a routine made from a selection),
 a full-screen video player (±1 s, 0.25–1×, mirror, and saved spots: points to
 jump to, sections that loop) and the routine editor (drag to reorder, swipe to
 delete, seams that build where a routine does not connect, a picker that offers
-what fits, a long-press selection with Make routine).
+what fits, a long-press selection with Make routine) and saved YouTube videos
+(Save video on a figure's or lesson's YouTube link: the home worker downloads
+it at 480p and the link becomes a recording or lesson video, spots and all).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -48,6 +50,10 @@ The Android app has its own,
 [`docs/superpowers/specs/2026-10-14-android-app-design.md`](docs/superpowers/specs/2026-10-14-android-app-design.md):
 a TWA around the site, background compress-and-upload, the daily reminder,
 and device tokens. Built, not yet deployed or tried on the phone.
+Saved YouTube videos have theirs,
+[`docs/superpowers/specs/2026-10-15-youtube-video-save-design.md`](docs/superpowers/specs/2026-10-15-youtube-video-save-design.md):
+the second worker queue, why it is not a kind of song job, and the chunked
+upload the worker shares with lesson videos (`writeChunk` in `files.ts`).
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -106,7 +112,8 @@ src/routes/[dance]/  every page lives under its dance. Flat routes — login,
                      settings, voice, api, the media servers — are shared
 src/routes/          pages + actions. api/figures/[id]/recordings and api/songs
                      take raw-body uploads; api/lessons/[id]/videos/[uploadId]
-                     takes ONE CHUNK per request; api/worker/* is the worker's queue
+                     takes ONE CHUNK per request, as does api/worker/videos/[id]/file;
+                     api/worker/* is the worker's queue (songs, then videos)
                      recordings/[file], audio/[file], count/[file] and
                      lesson-videos/[file] serve with HTTP Range
 src/lib/media.ts     shared: telling a missing media file from an undecodable one
@@ -142,8 +149,9 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; sets,
-  recordings, links and spots (`video_spots`, deleted with their video) are
-  the only hard deletes. A figure's exercise is
+  recordings, links, spots (`video_spots`, deleted with their video) and
+  saves in flight (`video_downloads`, deleted with their link, or when the
+  link becomes a video) are the only hard deletes. A figure's exercise is
   opt-in (`addFigureExercise`); when one exists it is renamed and archived
   WITH its figure, in one transaction (`src/lib/server/figures.ts`).
 - **The type owns its popup.** An exercise's type is derived from `source`

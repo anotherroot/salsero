@@ -181,7 +181,10 @@ as it was — never an optimistic row that might not exist.
 - **No orientation lock.** `screen.orientation.lock` works only inside browser
   fullscreen on Android and not at all on iOS, so the phone is rotated by hand.
 - **YouTube embeds** get no full-screen player or spots: controlling one from
-  outside needs the IFrame API and a script from youtube.com.
+  outside needs the IFrame API and a script from youtube.com. **Save video**
+  on a figure's or lesson's YouTube link is the way around it: the home
+  worker turns the link into a recording or lesson video, which gets both
+  ([`2026-10-15-youtube-video-save-design.md`](2026-10-15-youtube-video-save-design.md)).
 - **Escape in a rename field while in browser fullscreen** leaves fullscreen —
   the browser takes Esc first, before the field sees it. The rename is
   cancelled and the player stays open, filling the viewport.

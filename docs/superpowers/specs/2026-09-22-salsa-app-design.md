@@ -85,6 +85,7 @@ salsa.anotherroot.eu → nginx (publicAcme, raised body size)
                                   ▲ outbound HTTPS only, bearer token
 home host (backtop; laptop later) — salsa-worker, timer every minute
     yt-dlp → ffmpeg → Beat This! → beats/downbeats → back to the server
+    yt-dlp → ffmpeg (≤480p H.264) → a saved video, in chunks → back to the server
 ```
 
 **Split of responsibility**
@@ -100,6 +101,9 @@ home host (backtop; laptop later) — salsa-worker, timer every minute
   ~15 s and ~660 MB per song on CPU, measured) and posts beats + downbeats
   back. Packaged by the salsaapp flake; yt-dlp comes from nixpkgs-unstable
   because YouTube breaks old versions within weeks.
+  It also saves YouTube links as videos, from a second queue drained after
+  the songs — see
+  [`2026-10-15-youtube-video-save-design.md`](2026-10-15-youtube-video-save-design.md).
 - **Browser:** all timing-critical work. The player must be sample-accurate
   relative to the music, so the scheduler runs where the music plays.
 
