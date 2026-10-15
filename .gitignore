@@ -29,3 +29,4 @@ result
 
 # python bytecode from running the worker tests
 __pycache__/
+.pytest_cache/
