@@ -6,6 +6,7 @@ import {
 	minutesFrom,
 	parsePracticeConfig,
 	parsePracticeInput,
+	practiceStart,
 	practiceSummary
 } from './practice';
 
@@ -127,5 +128,56 @@ describe('sizes', () => {
 		expect(minutesFrom(29)).toBe(1);
 		expect(minutesFrom(90)).toBe(2);
 		expect(minutesFrom(600)).toBe(10);
+	});
+});
+
+describe('practiceStart', () => {
+	const ready = [3, 5, 9];
+
+	it('opens on the remembered song while it is ready', () => {
+		expect(practiceStart({ practiceMode: 'song', songId: 5 }, ready)).toEqual({
+			source: 'song',
+			songId: 5,
+			songGone: false
+		});
+	});
+
+	it('opens on the count when the remembered song is no longer ready, and says so', () => {
+		expect(practiceStart({ practiceMode: 'song', songId: 4 }, ready)).toEqual({
+			source: 'count',
+			songId: 3,
+			songGone: true
+		});
+	});
+
+	it('opens on the count after a count practice, a song still to hand for the picker', () => {
+		expect(practiceStart({ practiceMode: 'count', songId: null }, ready)).toEqual({
+			source: 'count',
+			songId: 3,
+			songGone: false
+		});
+	});
+
+	it('opens on the count for a never-practised exercise, or none at all', () => {
+		const counted = { source: 'count', songId: 3, songGone: false };
+		expect(practiceStart({ practiceMode: 'none', songId: null }, ready)).toEqual(counted);
+		expect(practiceStart(null, ready)).toEqual(counted);
+	});
+
+	it('lets a requested song win over what was remembered', () => {
+		expect(practiceStart({ practiceMode: 'song', songId: 5 }, ready, 9)).toEqual({
+			source: 'song',
+			songId: 9,
+			songGone: false
+		});
+		expect(practiceStart({ practiceMode: 'count', songId: null }, ready, 9).source).toBe('song');
+	});
+
+	it('has no song to offer when the dance has none ready', () => {
+		expect(practiceStart({ practiceMode: 'song', songId: 5 }, [])).toEqual({
+			source: 'count',
+			songId: null,
+			songGone: true
+		});
 	});
 });

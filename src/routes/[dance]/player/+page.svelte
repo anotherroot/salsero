@@ -4,6 +4,9 @@
 	import Running from '$lib/components/player/Running.svelte';
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
+	import { loadSongGrid } from '$lib/components/player/songGrid.svelte';
+	import { parsePracticeConfig } from '$lib/exercises/practice';
+	import { rememberPractice } from '$lib/exercises/practice-api';
 	import type { Speed } from '$lib/labels';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { routinePlan } from '$lib/routines/plan';
@@ -14,6 +17,25 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let mode = $state<'setup' | 'running' | 'done'>('setup');
+
+	// Where the load says to start, overridden by the picker. Writable
+	// `$derived` rather than `$state`: this route is reused across a param
+	// change (another dance, another `?song=`), and then the start must follow.
+	let source = $derived(data.start.source);
+	let songId = $derived(data.start.songId);
+	const song = loadSongGrid(
+		() => data.dance.slug,
+		() => (source === 'song' ? songId : null)
+	);
+	const picked = $derived(
+		source === 'song' && songId !== null && song.grid
+			? {
+					id: songId,
+					title: data.songs.find((s) => s.id === songId)?.title ?? '',
+					audioFile: song.grid.audioFile
+				}
+			: null
+	);
 	let audio: HTMLAudioElement | undefined = $state();
 	let player = $state<PlayerHandle | null>(null);
 	let speed = $state<Speed>(1);
@@ -43,6 +65,10 @@
 	let voiceVolume = $state(1);
 	/** The grid the running player was actually built with — song or synthetic. */
 	let runningGrid = $state<{ beats: number[]; counts: number[] } | null>(null);
+	/** The song the running player was built with, or null for count only. */
+	let runningSong = $state<{ id: number; title: string; audioFile: string } | null>(null);
+	/** The count-only tempo of the run, for `player_json`. */
+	let runningBpm = $state<number | null>(null);
 	/**
 	 * The toggles the run is running with, for `player_json` at the end. The
 	 * count pattern can be changed mid-run, so this is the pattern in force when
@@ -64,6 +90,10 @@
 
 	const runJson = $derived(
 		JSON.stringify({
+			// The popup's panel logs the same three, so a set says what it was danced to.
+			source: runningSong ? 'song' : 'count',
+			songId: runningSong?.id ?? null,
+			bpm: runningBpm,
 			speed,
 			count: runToggles?.count ?? 'off',
 			clave: runToggles?.clave ?? null,
@@ -114,10 +144,13 @@
 		speed = settings.speed;
 		voiceVolume = settings.voiceVolume;
 		runToggles = { count: settings.count, clave: settings.clave, callEvery: settings.callEvery };
+		// Read once, like the shape below: `picked` and `song` are reactive.
+		const g0 = settings.source === 'song' ? song.grid : null;
+		const el = audio;
+		const useSong = g0 != null && el != null;
 		const grid =
-			data.song && data.grid && settings.source === 'song'
-				? data.grid
-				: syntheticGrid(settings.bpm, 400);
+			useSong && g0 ? { beats: g0.beats, counts: g0.counts } : syntheticGrid(settings.bpm, 400);
+		const runSong = useSong ? picked : null;
 
 		// Read once, before the closure below is built: the planner runs inside
 		// the 25 ms tick for the whole run, and a reactive read in there would
@@ -129,7 +162,7 @@
 		const graph = data.graph;
 
 		const handle = createPlayer({
-			audio: data.song && settings.source === 'song' ? (audio ?? null) : null,
+			audio: useSong && el ? el : null,
 			grid,
 			toggles: { count: settings.count, clave: settings.clave, callEvery: settings.callEvery },
 			pool,
@@ -156,6 +189,20 @@
 		}
 		player = handle;
 		runningGrid = grid;
+		runningSong = runSong;
+		runningBpm = runSong ? null : settings.bpm;
+		// Remember the choices on the exercise, as the popup's panel does, so the
+		// next run for it opens on the same song. Its call interval is the
+		// panel's and is kept as it was: the two players offer different ones.
+		if (data.exercise) {
+			const kept = parsePracticeConfig(data.exercise.practiceJson, data.dance);
+			rememberPractice(data.dance.slug, data.exercise.id, {
+				source: useSong ? 'song' : 'count',
+				songId,
+				bpm: settings.bpm,
+				config: { ...kept, count: settings.count, clave: settings.clave, speed: settings.speed }
+			});
+		}
 		calledFigureId = null;
 		calledIndex = null;
 		mode = 'running';
@@ -187,7 +234,7 @@
 		aria-label="Back to Today">‹</a
 	>
 	<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">
-		{data.song?.title ?? 'Practice'}
+		{(mode === 'setup' ? picked : runningSong)?.title || 'Practice'}
 	</h1>
 </header>
 
@@ -204,10 +251,10 @@
 		needs it at that moment, not after the screen switches to "running".
 		Hidden until then; `controls` stays on so seeking works while running.
 	-->
-	{#if data.song}
+	{#if picked}
 		<audio
 			bind:this={audio}
-			src="/audio/{data.song.audioFile}"
+			src="/audio/{picked.audioFile}"
 			controls
 			preload="auto"
 			class="w-full {mode === 'running' ? '' : 'hidden'}"
@@ -216,8 +263,15 @@
 
 	{#if mode === 'setup'}
 		<Setup
-			song={data.song}
-			defaultBpm={data.bpm ?? 180}
+			songs={data.songs}
+			bind:source
+			bind:songId
+			songReady={picked !== null}
+			songError={song.error}
+			{audio}
+			rememberedBpm={data.start.bpm}
+			songGone={data.start.songGone}
+			defaultBpm={data.bpm}
 			dance={data.dance}
 			routine={data.routine}
 			onplay={handlePlay}
@@ -232,7 +286,7 @@
 			{calledFigureId}
 			slots={dancedSlots}
 			{activeSlot}
-			song={data.song}
+			song={runningSong}
 			{audio}
 			{speed}
 			initialVoiceVolume={voiceVolume}

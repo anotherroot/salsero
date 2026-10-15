@@ -37,7 +37,8 @@ import {
 	getExercise,
 	getSet,
 	listExercises,
-	logSet
+	logSet,
+	setPracticeSettings
 } from '$lib/server/exercises';
 import {
 	createSongFromUpload,
@@ -53,7 +54,7 @@ import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/serv
 import { eq } from 'drizzle-orm';
 import { exercises, figures, lessons, links, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
-import { actions as playerActions } from './player/+page.server';
+import { actions as playerActions, load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
 import * as exercisePage from './exercises/[id]/+page.server';
@@ -235,6 +236,60 @@ describe("Today refuses the other dance's rows", () => {
 		});
 		await call(todayActions.deleteSet, post('salsa', { setId: String(salsaSet.id) }));
 		expect(getSet(db, salsaSet.id)).toBeNull();
+	});
+});
+
+describe("the player's song picker stays on its own side", () => {
+	const ready = (dance: 'salsa' | 'bachata', title: string) => {
+		const song = createSongFromUpload(db, dance, {
+			file: `${title}.mp3`,
+			mime: 'audio/mpeg',
+			title,
+			style: dance === 'salsa' ? 'salsa' : 'sensual'
+		});
+		storeAnalysis(db, song.id, { beats: [0, 0.5], downbeats: [0], durationS: 1 });
+		return song.id;
+	};
+	type PlayerLoad = (e: { params: { dance: string }; url: URL; locals: unknown }) => {
+		songs: { id: number; title: string }[];
+		start: { source: string; songId: number | null; songGone: boolean };
+	};
+	const openPlayer = (dance: string, query: string) =>
+		(playerLoad as unknown as PlayerLoad)({
+			params: { dance },
+			url: new URL(`http://localhost/${dance}/player?${query}`),
+			locals: { user: USER }
+		});
+
+	it("offers only this dance's ready songs, and refuses the other dance's by id", () => {
+		const salsaSong = ready('salsa', 'Salsa ready');
+		const bachataSong = ready('bachata', 'Bachata ready');
+		// The failed `bachataSongId` from `beforeEach` is not ready, so it is not offered either.
+		expect(openPlayer('salsa', '').songs).toEqual([{ id: salsaSong, title: 'Salsa ready' }]);
+		expect(openPlayer('bachata', '').songs).toEqual([{ id: bachataSong, title: 'Bachata ready' }]);
+		expect(() => openPlayer('salsa', `song=${bachataSong}`)).toThrow(threw404);
+		expect(openPlayer('salsa', `song=${salsaSong}`).start).toMatchObject({
+			source: 'song',
+			songId: salsaSong
+		});
+	});
+
+	it("opens on the song the exercise was last practised with, never the other dance's", () => {
+		const salsaSong = ready('salsa', 'Salsa ready');
+		setPracticeSettings(db, salsaExerciseId, {
+			mode: 'song',
+			songId: salsaSong,
+			countBpm: null,
+			config: { count: 'salsa', clave: null, speed: 1, callEvery: null }
+		});
+		expect(openPlayer('salsa', `exercise=${salsaExerciseId}`).start).toEqual({
+			source: 'song',
+			songId: salsaSong,
+			songGone: false,
+			bpm: null
+		});
+		// The same exercise id under bachata is no exercise at all, so nothing is remembered.
+		expect(openPlayer('bachata', `exercise=${salsaExerciseId}`).start.source).toBe('count');
 	});
 });
 

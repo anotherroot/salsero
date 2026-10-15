@@ -2,7 +2,6 @@
 	import type { CallEvery, ClavePattern, CountPattern, Speed } from '$lib/labels';
 
 	export interface PlayerSettings {
-		/** Ignored for count-only practice (no song to play). */
 		source: 'song' | 'count';
 		bpm: number;
 		count: CountPattern;
@@ -19,9 +18,24 @@
 	import type { Dance } from '$lib/dances/dances';
 	import CountChips from './CountChips.svelte';
 	import ClaveChips from './ClaveChips.svelte';
+	import SongProgress from './SongProgress.svelte';
+	import SourcePicker from './SourcePicker.svelte';
 
 	interface Props {
-		song: { id: number; title: string; audioFile: string | null } | null;
+		/** This dance's ready songs, for the picker. */
+		songs: { id: number; title: string }[];
+		/** Owned by the page, which loads the picked song and mounts its `<audio>`. */
+		source: 'song' | 'count';
+		songId: number | null;
+		/** The picked song's grid has loaded, so Play can start it without waiting. */
+		songReady: boolean;
+		songError: string | null;
+		/** The picked song's element, for the progress bar before Play. */
+		audio: HTMLAudioElement | undefined;
+		/** The exercise's remembered count-only tempo, which beats this browser's. */
+		rememberedBpm: number | null;
+		/** Shown when the exercise's remembered song can no longer be played. */
+		songGone: boolean;
 		defaultBpm: number;
 		dance: Dance;
 		/**
@@ -35,7 +49,21 @@
 		starting: boolean;
 	}
 
-	let { song, defaultBpm, dance, routine = null, onplay, starting }: Props = $props();
+	let {
+		songs,
+		source = $bindable(),
+		songId = $bindable(),
+		songReady,
+		songError,
+		audio,
+		rememberedBpm,
+		songGone,
+		defaultBpm,
+		dance,
+		routine = null,
+		onplay,
+		starting
+	}: Props = $props();
 
 	// Keyed per dance so the two dances keep separate saved settings — without
 	// this, opening the other dance's player would silently overwrite (on the
@@ -80,10 +108,9 @@
 	const num = (value: unknown, min: number, max: number, fallback: number) =>
 		typeof value === 'number' && value >= min && value <= max ? value : fallback;
 
-	let source = $state<'song' | 'count'>(
-		song ? pick(stored.source, ['song', 'count'] as const, 'song') : 'count'
-	);
-	let bpm = $state(num(stored.bpm, 60, 300, defaultBpm));
+	// The stored `source` is no longer read back: the page decides it, from
+	// `?song=` or the exercise's own memory.
+	let bpm = $state(rememberedBpm ?? num(stored.bpm, 60, 300, defaultBpm));
 	// `count` and `clave` need to do two things at once: start from a value
 	// that depends on `dance` (through `pick`, below) AND stay editable by the
 	// pickers afterwards. A plain `$state` can only do the second — its
@@ -158,47 +185,34 @@
 		});
 	}
 
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
 	const chip =
 		'flex h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border text-[14px] has-checked:border-accent has-checked:bg-accent has-checked:text-accent-ink border-rule bg-raised text-ink-2 has-focus-visible:outline-2 has-focus-visible:outline-accent';
 </script>
 
 <div class="space-y-5">
-	{#if song}
-		<fieldset>
-			<legend class={label}>Source</legend>
-			<div class="flex gap-2">
-				<label class={chip}>
-					<input
-						type="radio"
-						name="source"
-						checked={source === 'song'}
-						onchange={() => (source = 'song')}
-						class="sr-only"
-					/>
-					This song
-				</label>
-				<label class={chip}>
-					<input
-						type="radio"
-						name="source"
-						checked={source === 'count'}
-						onchange={() => (source = 'count')}
-						class="sr-only"
-					/>
-					Count only
-				</label>
-			</div>
-		</fieldset>
+	<SourcePicker
+		name="player"
+		{songs}
+		bind:source
+		bind:songId
+		bind:speed
+		bind:bpm
+		error={songError}
+	/>
+	{#if source === 'song' && songReady && audio}
+		<!-- Before Play too: skip an intro, or rewind after a Stop left it mid-song. -->
+		<SongProgress
+			{audio}
+			onseek={(t) => {
+				if (audio) audio.currentTime = t;
+			}}
+		/>
 	{/if}
-
-	{#if source === 'count'}
-		<label class="block">
-			<span class={label}>BPM</span>
-			<input type="number" min="60" max="300" bind:value={bpm} class={field} />
-		</label>
+	{#if songGone}
+		<p class="rounded-lg bg-raised px-3 py-2 text-[13px] text-muted">
+			Its song is not ready — pick another, or use the count.
+		</p>
 	{/if}
 
 	<fieldset>
@@ -251,26 +265,6 @@
 		</fieldset>
 	{/if}
 
-	{#if song}
-		<fieldset>
-			<legend class={label}>Speed</legend>
-			<div class="flex gap-2">
-				{#each SPEEDS as s (s)}
-					<label class={chip}>
-						<input
-							type="radio"
-							name="speed"
-							checked={speed === s}
-							onchange={() => (speed = s)}
-							class="sr-only"
-						/>
-						{s}×
-					</label>
-				{/each}
-			</div>
-		</fieldset>
-	{/if}
-
 	<label class="block">
 		<span class={label}>Voice volume</span>
 		<input type="range" min="0" max="1" step="0.05" bind:value={voiceVolume} class="w-full" />
@@ -285,7 +279,7 @@
 
 	<button
 		type="button"
-		disabled={starting}
+		disabled={starting || (source === 'song' && !songReady)}
 		class="h-14 w-full rounded-2xl bg-accent text-[18px] font-bold text-accent-ink disabled:opacity-60"
 		onclick={play}
 	>

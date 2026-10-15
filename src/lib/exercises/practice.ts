@@ -91,6 +91,43 @@ export function parsePracticeInput(body: unknown, dance: Dance): PracticeInput |
 	return null;
 }
 
+export interface PracticeStart {
+	source: 'count' | 'song';
+	/** The picker's song: the one to play, or the first ready one for when "A song" is tapped. */
+	songId: number | null;
+	/** The remembered song can no longer be played, so this opens on the count instead. */
+	songGone: boolean;
+}
+
+/**
+ * Where a practice opens, for the panel and the full player alike: a song
+ * someone asked for (the player's `?song=`), else the exercise's remembered
+ * song while it is still ready, else the count. A remembered song can stop
+ * being playable — archived, or re-analysed and failed — between one practice
+ * and the next; then this opens on the count and says so, rather than failing
+ * at Play.
+ */
+export function practiceStart(
+	remembered: { practiceMode: string; songId: number | null } | null,
+	readyIds: readonly number[],
+	requested: number | null = null
+): PracticeStart {
+	const songGone =
+		remembered?.practiceMode === 'song' &&
+		(remembered.songId === null || !readyIds.includes(remembered.songId));
+	const wanted =
+		requested !== null && readyIds.includes(requested)
+			? requested
+			: remembered?.practiceMode === 'song' && !songGone
+				? remembered.songId
+				: null;
+	return {
+		source: wanted === null ? 'count' : 'song',
+		songId: wanted ?? readyIds[0] ?? null,
+		songGone: wanted === null && songGone
+	};
+}
+
 /** The panel's one collapsed line: "Count 180 · 2 3 4 · 6 7 8 · clave 2-3". */
 export function practiceSummary(
 	p: { mode: 'count' | 'song'; bpm: number; songTitle: string | null; config: PracticeConfig },

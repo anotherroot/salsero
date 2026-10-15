@@ -304,6 +304,20 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		if (!ctx || !clips || !gain) return;
 		const now = songNow();
 
+		// A run ends either because the song ran out or because a count-only grid
+		// did. Both have to be noticed here, or the music stops and the screen
+		// just sits there until the user presses Stop. Checked FIRST: once the
+		// song has stopped moving, `until` stops growing and the early return
+		// below fires on every tick — and `currentTime` reaches the duration a
+		// moment before `ended` turns true, so a tick can land in between. The
+		// tick keeps firing 40 times a second, so this has to latch.
+		if (ended) return;
+		if (opts.audio ? opts.audio.ended : now > lastBeat()) {
+			ended = true;
+			opts.onEnd();
+			return;
+		}
+
 		// A seek (or a loop back to the start) invalidates everything queued.
 		if (now < cursor - SEEK_EPSILON_S || now > cursor + SEEK_EPSILON_S) {
 			clearQueued();
@@ -373,14 +387,6 @@ export function createPlayer(opts: PlayerOptions): PlayerHandle {
 		}
 
 		cursor = until;
-		// A run ends either because the song ran out or because a count-only grid
-		// did. Both have to be noticed here, or the music stops and the screen
-		// just sits there until the user presses Stop. The tick keeps firing 40
-		// times a second, so this has to latch.
-		if (!ended && (opts.audio ? opts.audio.ended : now > lastBeat())) {
-			ended = true;
-			opts.onEnd();
-		}
 	}
 
 	/** Which 8-count a song time falls in — for deciding how far ahead to plan. */
