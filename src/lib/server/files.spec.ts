@@ -168,15 +168,19 @@ describe('sweepUploads', () => {
 		const uploads = uploadsDir();
 		const old = join(uploads, 'old.part');
 		const fresh = join(uploads, 'fresh.part');
+		const oldDone = join(uploads, 'old.done');
 		const other = join(uploads, 'notes.txt');
 		await writeFile(old, 'x');
+		await writeFile(oldDone, '{}');
 		await writeFile(fresh, 'x');
 		await writeFile(other, 'x');
 		const longAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+		await utimes(oldDone, longAgo, longAgo);
 		await utimes(old, longAgo, longAgo);
 
-		expect(await sweepUploads(24 * 60 * 60 * 1000)).toBe(1);
+		expect(await sweepUploads(24 * 60 * 60 * 1000)).toBe(2);
 		expect(existsSync(old)).toBe(false);
+		expect(existsSync(oldDone)).toBe(false);
 		expect(existsSync(fresh)).toBe(true);
 		expect(existsSync(other)).toBe(true);
 	});

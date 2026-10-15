@@ -36,7 +36,31 @@ export const users = sqliteTable('users', {
 	passwordHash: text('password_hash').notNull(),
 	/** IANA zone that decides when "today" rolls over. See `src/lib/day/day.ts`. */
 	timezone: text('timezone').notNull().default('Europe/Ljubljana'),
-	createdAt: createdAt()
+	createdAt: createdAt(),
+	/**
+	 * The Android app's daily reminder, as a minute of the day in the phone's
+	 * local time; null = off. Range-checked in `setReminderMinute`, not by a
+	 * CHECK (see CLAUDE.md on CHECKs and existing tables).
+	 */
+	reminderMinute: integer('reminder_minute'),
+	/** What the Android app compresses a video to. One of `VIDEO_SHORT_SIDES`. */
+	videoShortSide: integer('video_short_side').notNull().default(480)
+});
+
+/**
+ * A paired Android app. The token itself is shown once, to the app, and never
+ * stored: only its SHA-256, so a copy of the database authenticates nothing.
+ * A device token is accepted on `/api/` only — see `request-user.ts`.
+ */
+export const deviceTokens = sqliteTable('device_tokens', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: text('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	tokenHash: text('token_hash').notNull().unique(),
+	label: text('label').notNull(),
+	createdAt: createdAt(),
+	lastUsedAt: integer('last_used_at')
 });
 
 export const sessions = sqliteTable('sessions', {

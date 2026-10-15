@@ -1,7 +1,10 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
+import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
+import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 
 /**
@@ -22,7 +25,9 @@ const PUBLIC_PATHS = new Set([
 	'/icons/salsa-192.png',
 	'/icons/salsa-512.png',
 	'/icons/bachata-192.png',
-	'/icons/bachata-512.png'
+	'/icons/bachata-512.png',
+	// Chrome fetches it unauthenticated to verify the Android app (a TWA).
+	'/.well-known/assetlinks.json'
 ]);
 
 /** The home worker's API: no session, a bearer token instead. */
@@ -32,11 +37,24 @@ export const handle: Handle = async ({ event, resolve }) => {
 	await bootstrap();
 
 	const session = validateSession(event.cookies.get(SESSION_COOKIE));
+	const path = event.url.pathname;
+	// No session: a paired Android app may still sign in with its device
+	// token — on the API only, never a page and never the worker's prefix.
 	event.locals.user = session
 		? { id: session.userId, email: session.email, timezone: session.timezone }
-		: null;
+		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 
-	const path = event.url.pathname;
+	// The Android app's launchers open with ?app=android. Remember it per
+	// browser, so every page after the first knows to offer native links.
+	if (event.url.searchParams.get(APP_PARAM) === APP_VALUE) {
+		event.cookies.set(APP_COOKIE, APP_VALUE, {
+			path: '/',
+			maxAge: 365 * 24 * 3600,
+			sameSite: 'lax',
+			httpOnly: true
+		});
+	}
+
 	// The home worker has no session; its bearer token is checked here, the one
 	// gate for everything under the prefix (the routes do not check it again).
 	if (path.startsWith(WORKER_PREFIX)) {

@@ -142,6 +142,36 @@ shares with Firefly, Grafana, muscle and nikaudio.
   cross-site POST check, so a request that works there can still be refused with
   403 in production. Test against `npm run build && node build`, or the real host.
 
+## Android app
+
+`android/` builds the APK: a TWA around the site plus background uploads and
+the daily reminder (design: `docs/superpowers/specs/2026-10-14-android-app-design.md`).
+Sideloaded, like Shrink — no Play Store.
+
+```sh
+nix develop .#android -c ./android/gradlew -p android test assembleDebug
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Add `-Psite=https://…` to point a build at another host (the TWA needs https).
+
+- **The site half ships with the server.** Migration 0013 (`device_tokens`, two
+  `users` columns) applies at boot like any other; take the backup first.
+- **`SALSA_ANDROID_CERT_SHA256`** (optional, in `salsa-prod.env`): the APK
+  signing key's SHA-256 fingerprint, served at `/.well-known/assetlinks.json`.
+  Until it matches, the app still works but Chrome shows its URL bar. The debug
+  key's fingerprint:
+
+  ```sh
+  nix develop .#android -c keytool -list -v -keystore ~/.android/debug.keystore \
+    -alias androiddebugkey -storepass android | grep SHA256
+  ```
+
+- **Pairing:** the first upload (or reminder) sends the app to `/device/pair`;
+  one tap there hands it a token. Settings lists paired devices and removes them.
+- **Test uploads against `node build` or the host**, never `vite dev`: the same
+  CSRF caveat as the worker.
+
 ## Backups
 
 `salsa-backup.service`, nightly at 03:30 (catches up after downtime):

@@ -6,7 +6,10 @@
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import LinkPicker from '$lib/components/lessons/LinkPicker.svelte';
+	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
+	import { uploadLink } from '$lib/app-mode';
+	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
@@ -205,12 +208,22 @@
 				{/each}
 			</ul>
 			<div class="mt-3">
-				<ChunkedUploadButton
-					uploadUrl="/api/lessons/{lesson.id}/videos"
-					accept="video/*"
-					label="+ Add videos"
-					maxBytes={MAX_LESSON_VIDEO_BYTES}
-				/>
+				{#if data.app}
+					<AppUploadLink
+						href={uploadLink(
+							{ lesson: lesson.id },
+							{ back: page.url.pathname, name: lesson.title }
+						)}
+						label="+ Add videos"
+					/>
+				{:else}
+					<ChunkedUploadButton
+						uploadUrl="/api/lessons/{lesson.id}/videos"
+						accept="video/*"
+						label="+ Add videos"
+						maxBytes={MAX_LESSON_VIDEO_BYTES}
+					/>
+				{/if}
 			</div>
 		</section>
 
