@@ -3,8 +3,10 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { figures } from './db/schema';
 import { createCustomExercise, getExercise, logSet } from './exercises';
-import { addFigureExercise, createFigure } from './figures';
-import { createLesson, linkFigure } from './lessons';
+import { addFigureExercise, createFigure, createVariation } from './figures';
+import { addLessonVideo, createLesson, linkFigure } from './lessons';
+import { addSpot } from './spots';
+import { linkSpot } from './spot-links';
 import { addLinks } from './links';
 import { addFigureSlot, createRoutine } from './routines';
 import { practicePayload } from './practice-content';
@@ -115,5 +117,43 @@ describe('practicePayload', () => {
 	it('has no last set for a fresh exercise', () => {
 		const drill = createCustomExercise(db, 'salsa', { name: 'D', everyDays: 1, notes: null });
 		expect(practicePayload(db, getExercise(db, drill.id)!, TZ, Date.now()).last).toBeNull();
+	});
+});
+
+describe('practicePayload sections', () => {
+	let n = 0;
+	const section = () => {
+		const { lesson } = createLesson(db, 'salsa', {
+			lessonDay: '2026-10-12',
+			title: 'Cubana',
+			notes: null
+		});
+		const v = addLessonVideo(db, {
+			lessonId: lesson.id,
+			file: `l${++n}.mp4`,
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		return addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: 900, label: 'Turn' })!.id;
+	};
+	const sectionsOf = (content: { type: string }) =>
+		'sections' in content ? (content.sections as { spot: { label: string } }[]) : null;
+
+	it('gives a figure its own sections, not its variations’', () => {
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const exercise = addFigureExercise(db, figure.id)!;
+		const doble = createVariation(db, figure.id, { name: 'Doble', notes: null })!;
+		linkSpot(db, section(), { figureId: doble.id });
+		expect(sectionsOf(practicePayload(db, exercise, TZ, Date.now()).content)).toEqual([]);
+		linkSpot(db, section(), { figureId: figure.id });
+		expect(
+			sectionsOf(practicePayload(db, exercise, TZ, Date.now()).content)!.map((s) => s.spot.label)
+		).toEqual(['Turn']);
+	});
+
+	it('gives a drill its sections', () => {
+		const drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null });
+		linkSpot(db, section(), { exerciseId: drill.id });
+		expect(sectionsOf(practicePayload(db, drill, TZ, Date.now()).content)).toHaveLength(1);
 	});
 });

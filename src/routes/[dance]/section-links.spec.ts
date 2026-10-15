@@ -17,13 +17,14 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { spotLinks } from '$lib/server/db/schema';
-import { createFigure, createVariation } from '$lib/server/figures';
+import { addFigureExercise, createFigure, createVariation } from '$lib/server/figures';
 import { createCustomExercise } from '$lib/server/exercises';
 import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
 import { addSpot } from '$lib/server/spots';
 import { linkSpot } from '$lib/server/spot-links';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as figurePage from './figures/[id]/+page.server';
+import * as exercisePage from './exercises/[id]/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -253,3 +254,34 @@ function figureLoad(load: unknown, url: URL) {
 		locals: { user: USER }
 	});
 }
+
+describe('the drill’s exercise page', () => {
+	it('links and unlinks its own sections only', async () => {
+		await call(exercisePage.actions.linkSection, post('salsa', drill, { spotId: String(section) }));
+		const [link] = links();
+		expect(link.exerciseId).toBe(drill);
+		const other = createCustomExercise(db, 'salsa', { name: 'Shines', everyDays: 3, notes: null });
+		const res = await call(
+			exercisePage.actions.unlinkSection,
+			post('salsa', other.id, { linkId: String(link.id) })
+		);
+		expect(res).toMatchObject({ status: 404 });
+		await call(exercisePage.actions.unlinkSection, post('salsa', drill, { linkId: String(link.id) }));
+		expect(links()).toEqual([]);
+	});
+
+	it('refuses on a figure’s exercise, which is not a drill', async () => {
+		const ex = addFigureExercise(db, figureId)!;
+		const res = await call(
+			exercisePage.actions.linkSection,
+			post('salsa', ex.id, { spotId: String(section) })
+		);
+		expect(res).toMatchObject({ status: 400 });
+		expect(links()).toEqual([]);
+	});
+
+	it('loads what a drill could link', () => {
+		const data = loadAt(exercisePage.load, 'salsa', drill) as { linkable: unknown[] };
+		expect(data.linkable).toHaveLength(2);
+	});
+});

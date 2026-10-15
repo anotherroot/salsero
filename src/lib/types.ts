@@ -164,8 +164,9 @@ export type PracticeContent =
 			figure: { id: number; name: string; notes: string | null; eights: number };
 			links: LinkRow[];
 			recordings: RecordingRow[];
+			sections: LinkedSection[];
 	  }
-	| { type: 'drill'; notes: string | null; links: LinkRow[] }
+	| { type: 'drill'; notes: string | null; links: LinkRow[]; sections: LinkedSection[] }
 	| {
 			type: 'routine';
 			routine: { id: number; name: string; notes: string | null };

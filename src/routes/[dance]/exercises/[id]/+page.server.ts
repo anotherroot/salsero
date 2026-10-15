@@ -12,6 +12,7 @@ import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { practicePayload } from '$lib/server/practice-content';
 import { danceOf, requireExerciseInDance } from '$lib/server/scope';
+import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { isFrequency } from '$lib/frequency';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -38,7 +39,9 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		...popup,
 		practice: practicePayload(db, row, locals.user.timezone, now),
 		history: exerciseHistory(db, row.id),
-		summary: exerciseSummary(db, row.id)
+		summary: exerciseSummary(db, row.id),
+		// Only a drill's sections are its own; the others show their owner's.
+		linkable: row.source === 'custom' ? linkableSections(db, { exerciseId: row.id }) : []
 	};
 };
 
@@ -71,6 +74,33 @@ export const actions: Actions = {
 			});
 		}
 		throw redirect(303, `/${params.dance}`);
+	},
+
+	/** A drill's own section. `linkSpot` refuses any other type, and a section of the other dance. */
+	linkSection: async ({ params, request }) => {
+		const exerciseId = exerciseOf(params).id;
+		const spotId = int(await request.formData(), 'spotId');
+		if (spotId === undefined) {
+			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
+		}
+		try {
+			linkSpot(getDb(), spotId, { exerciseId });
+		} catch (e) {
+			if (e instanceof SpotLinkError) {
+				return fail(e.status, { action: 'linkSection', message: e.message });
+			}
+			throw e;
+		}
+		return { action: 'linkSection', ok: true };
+	},
+
+	unlinkSection: async ({ params, request }) => {
+		const exerciseId = exerciseOf(params).id;
+		const id = int(await request.formData(), 'linkId');
+		if (id === undefined || !unlinkSpot(getDb(), id, { exerciseId })) {
+			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
+		}
+		return { action: 'unlinkSection', ok: true };
 	},
 
 	addLink: async ({ params, request }) =>

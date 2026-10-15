@@ -6,7 +6,7 @@
 import type { Component } from 'svelte';
 import type { Dance } from '$lib/dances/dances';
 import type { ExerciseType } from '$lib/exercises/kinds';
-import type { PracticeContent } from '$lib/types';
+import type { PracticeContent, SectionGroup } from '$lib/types';
 import LessonContent from './lesson/Content.svelte';
 import FigureContent from './figure/Content.svelte';
 import DrillContent from './drill/Content.svelte';
@@ -21,7 +21,13 @@ export interface ContentProps {
 	dance: Dance;
 	content: PracticeContent;
 	/** Offer the links editor — only the drill's content, whose links are its own, honours it. */
-	editLinks?: { message: string | null; entered: string };
+	editLinks?: {
+		message: string | null;
+		entered: string;
+		/** What "+ Link a section" offers; and a refused link or unlink, to show. */
+		linkable?: SectionGroup[];
+		sectionMessage?: string | null;
+	};
 }
 
 const CONTENT: Record<ExerciseType, Component<ContentProps>> = {

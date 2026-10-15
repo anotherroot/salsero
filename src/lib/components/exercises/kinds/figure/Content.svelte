@@ -3,6 +3,7 @@
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import SectionCard from '$lib/components/ui/SectionCard.svelte';
 	import type { MediaProblem } from '$lib/media';
 	import type { ContentProps } from '../index';
 
@@ -34,10 +35,13 @@
 				{/if}
 			</div>
 		{/each}
+		{#each content.sections as s (s.linkId)}
+			<SectionCard section={s} />
+		{/each}
 		<LinkList links={content.links} />
-		{#if !content.figure.notes && content.recordings.length === 0 && content.links.length === 0}
+		{#if !content.figure.notes && content.recordings.length === 0 && content.sections.length === 0 && content.links.length === 0}
 			<p class="text-[13px] text-muted">
-				No notes, recordings or links yet — add them on the figure page.
+				No notes, recordings, sections or links yet — add them on the figure page.
 			</p>
 		{/if}
 	</div>
