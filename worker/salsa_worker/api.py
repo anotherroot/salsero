@@ -120,8 +120,9 @@ class Api:
         total = path.stat().st_size
         url = f"/api/worker/videos/{job_id}/file"
         offset = 0
+        finished = False
         with open(path, "rb") as f:
-            while offset < total:
+            while not finished and offset < total:
                 f.seek(offset)
                 data = f.read(chunk)
                 headers = {
@@ -130,7 +131,8 @@ class Api:
                 }
                 try:
                     with self._request("PUT", url, data=data, headers=headers, timeout=300) as r:
-                        offset = _received(r.headers) if r.status == 204 else total
+                        finished = r.status == 201
+                        offset = total if finished else _received(r.headers)
                         if offset is None:
                             raise RuntimeError("The server did not say how much it has.")
                 except ApiError as e:
@@ -142,6 +144,10 @@ class Api:
                     if e.status == 413:
                         raise PermanentError(e.message) from e
                     raise
+        if not finished:
+            # Only a 201 means the video is saved. Anything else (a 409 saying
+            # the server already has more than this file) is not a success.
+            raise RuntimeError(f"The upload did not finish: the server has {offset} of {total} bytes.")
 
     def fail_video(self, job_id: int, error: str, permanent: bool) -> None:
         self._json(f"/api/worker/videos/{job_id}/fail", {"error": error[:500], "permanent": permanent})

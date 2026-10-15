@@ -179,3 +179,21 @@ def test_upload_video_gone_and_too_large(tmp_path):
     big = scripted_urlopen(http_error(413, b'{"message":"bigger than the 1 GB limit"}'))
     with pytest.raises(PermanentError, match="1 GB"):
         Api("http://s", "t", urlopen=big).upload_video(7, video)
+
+
+def test_upload_video_is_only_done_when_the_server_says_so(tmp_path):
+    # A 409 that claims the server already has everything (a stale partial from
+    # another encode) must not end the upload as if it had succeeded.
+    video = tmp_path / "out.mp4"
+    video.write_bytes(b"0123456789")
+    urlopen = scripted_urlopen(http_error(409, b'{"message":"wrong place"}', {"x-received-bytes": "12"}))
+    with pytest.raises(RuntimeError, match="did not finish"):
+        Api("http://s", "t", urlopen=urlopen).upload_video(7, video, chunk=4)
+
+
+def test_upload_video_needs_to_know_how_far_the_server_is(tmp_path):
+    video = tmp_path / "out.mp4"
+    video.write_bytes(b"0123456789")
+    urlopen = scripted_urlopen(Response(204))
+    with pytest.raises(RuntimeError, match="how much it has"):
+        Api("http://s", "t", urlopen=urlopen).upload_video(7, video, chunk=4)
