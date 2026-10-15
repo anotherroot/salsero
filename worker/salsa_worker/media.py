@@ -83,13 +83,18 @@ def fetch(url: str, workdir: Path, run=subprocess.run) -> Fetched:
 
 
 def fetch_video(url: str, workdir: Path, run=subprocess.run) -> Path:
-    """At most 480p, picture and sound merged into workdir/video.mkv. to_mp4 re-encodes it next."""
+    """At most 480p, picture and sound merged into workdir/video.mkv. to_mp4 re-encodes it next.
+
+    480p by the SHORTER side (yt-dlp's `res`), so a vertical Short comes at 480x854
+    rather than the 240x426 a `height<=480` filter would leave it.
+    """
     cmd = [
         "yt-dlp",
         "--no-playlist",
         "--no-warnings",
         "--no-progress",
-        "-f", "bv*[height<=480]+ba/b[height<=480]/b",
+        "-f", "bv*+ba/b",
+        "-S", "res:480",
         "--merge-output-format", "mkv",
         "--match-filter", f"duration <= {MAX_VIDEO_S}",
         "-o", str(workdir / "video.%(ext)s"),
@@ -108,6 +113,10 @@ def fetch_video(url: str, workdir: Path, run=subprocess.run) -> Path:
     return made[0]
 
 
+# The shorter side at most 480, the other in proportion: landscape and vertical alike.
+SHORT_SIDE_480 = "scale='if(gt(iw,ih),-2,min(480,iw))':'if(gt(iw,ih),min(480,ih),-2)'"
+
+
 def to_mp4(src: Path, dest: Path, run=subprocess.run) -> None:
     """H.264 and AAC with the index up front, so it plays on every phone and streams from the first byte.
 
@@ -117,7 +126,7 @@ def to_mp4(src: Path, dest: Path, run=subprocess.run) -> None:
     p = run(
         [
             "ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src),
-            "-vf", "scale=-2:'min(480,ih)'",
+            "-vf", SHORT_SIDE_480,
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-b:a", "96k", "-ac", "2",
             "-movflags", "+faststart",

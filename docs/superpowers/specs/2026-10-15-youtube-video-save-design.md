@@ -24,7 +24,8 @@ Asked and decided:
 - **The video replaces the link.** On success the link row is deleted and the
   video carries the URL in a new `source_url` column, shown as
   "from YouTube ↗" beside the player. Nothing appears twice.
-- **At most 480p, at most 60 minutes.** A longer video fails for good, as a
+- **At most 480p, at most 60 minutes.** 480p by the shorter side, so a
+  vertical Short is 480×854, not 240×426. A longer video fails for good, as a
   song over 15 minutes does.
 - A link with a start time (`t=90`) gets a **point spot** at that time, so the
   moment that was linked is one tap away.
@@ -121,8 +122,8 @@ On the figure and lesson pages, beside `addLink`/`deleteLink`:
 
 ## Worker
 
-- `media.fetch_video(url, workdir)` — yt-dlp with
-  `-f "bv*[height<=480]+ba/b[height<=480]/b"`, `--merge-output-format mkv`,
+- `media.fetch_video(url, workdir)` — yt-dlp with `-f "bv*+ba/b" -S res:480`
+  (`res` is the shorter side), `--merge-output-format mkv`,
   `--match-filter "duration <= 3600"`, the same `PERMANENT_MARKERS`. Nothing
   downloaded with exit 0 means the duration filter skipped it: permanent.
 - `media.to_mp4(src, dest)` — always re-encode, so every saved video plays

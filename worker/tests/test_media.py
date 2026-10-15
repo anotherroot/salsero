@@ -5,6 +5,8 @@ import pytest
 
 from salsa_worker import media
 
+SHORT_SIDE_480 = "scale='if(gt(iw,ih),-2,min(480,iw))':'if(gt(iw,ih),min(480,ih),-2)'"
+
 
 def fake_run(returncode=0, stdout="", stderr="", make=None):
     calls = []
@@ -60,7 +62,9 @@ def test_fetch_video_asks_for_at_most_480p_and_an_hour(tmp_path: Path):
     run = fake_run(make=tmp_path / "video.mkv")
     assert media.fetch_video("https://youtu.be/x", tmp_path, run=run) == tmp_path / "video.mkv"
     cmd = run.calls[0]
-    assert cmd[cmd.index("-f") + 1] == "bv*[height<=480]+ba/b[height<=480]/b"
+    assert cmd[cmd.index("-f") + 1] == "bv*+ba/b"
+    # res is the SHORTER side: a vertical Short at 480x854 is 480p, not 854p.
+    assert cmd[cmd.index("-S") + 1] == "res:480"
     assert "duration <= 3600" in cmd
     assert "--no-playlist" in cmd
 
@@ -83,7 +87,8 @@ def test_to_mp4_is_small_h264_that_streams(tmp_path: Path):
     assert cmd[cmd.index("-c:v") + 1] == "libx264"
     assert cmd[cmd.index("-crf") + 1] == "28"
     assert cmd[cmd.index("-movflags") + 1] == "+faststart"
-    assert cmd[cmd.index("-vf") + 1] == "scale=-2:'min(480,ih)'"
+    # The shorter side becomes at most 480, whichever way up the video is.
+    assert cmd[cmd.index("-vf") + 1] == SHORT_SIDE_480
     assert cmd[-1] == str(tmp_path / "out.mp4")
     with pytest.raises(media.PermanentError):
         media.to_mp4(tmp_path / "a", tmp_path / "b", run=fake_run(1, stderr="Invalid data"))
