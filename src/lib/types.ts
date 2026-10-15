@@ -255,10 +255,56 @@ export interface Spot {
 	startMs: number;
 	endMs: number | null;
 	label: string | null;
+	/** What this section is linked to, "Enchufla · Doble". Empty for a point. */
+	linkedTo: string[];
 }
 
 /** The one video a spot belongs to — a figure recording or a lesson video. */
 export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
+
+/** What a section can be linked to: a figure version or a drill. */
+export type SectionTarget = { figureId: number } | { exerciseId: number };
+
+/** One link of a section, as a chip under it on the lesson page. */
+export interface SectionLinkChip {
+	id: number;
+	label: string;
+	archived: boolean;
+}
+
+/** A section of one video with its links — the lesson page's list. */
+export interface VideoSection {
+	id: number;
+	startMs: number;
+	endMs: number;
+	label: string | null;
+	links: SectionLinkChip[];
+}
+
+/** The video a section lives in: enough to open the player and say where it is from. */
+export interface SectionVideo {
+	owner: SpotOwner;
+	/** `/lesson-videos/<file>` or `/recordings/<file>`. */
+	src: string;
+	from:
+		| { kind: 'lesson'; lessonId: number; title: string; lessonDay: string }
+		| { kind: 'recording'; figure: string };
+}
+
+/** A section linked to a figure version or a drill — one card. */
+export interface LinkedSection {
+	linkId: number;
+	spot: Spot;
+	video: SectionVideo;
+}
+
+/** One video's group in the "+ Link a section" sheet. */
+export interface SectionGroup {
+	video: SectionVideo;
+	/** A lesson the target is taught in. */
+	taughtHere: boolean;
+	sections: Spot[];
+}
 
 /** A paired Android app, as Settings lists it. Never carries the token. */
 export interface DeviceRow {

@@ -588,6 +588,40 @@ export const videoSpots = sqliteTable(
 	]
 );
 
+/**
+ * A section of a video linked to a figure version or a drill. See
+ * `docs/superpowers/specs/2026-10-15-video-section-links-design.md`.
+ *
+ * Exactly one target. The CHECK is safe because this table is NEW. "A
+ * section, not a point", "same dance" and "drills only" are cross-row and live
+ * in `src/lib/server/spot-links.ts`. The foreign key on `spot_id` is what makes
+ * the database itself refuse to delete a linked spot. Hard-deleted on unlink.
+ */
+export const spotLinks = sqliteTable(
+	'spot_links',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		spotId: integer('spot_id')
+			.notNull()
+			.references(() => videoSpots.id),
+		/** A figure or one of its variations. */
+		figureId: integer('figure_id').references(() => figures.id),
+		/** A drill (`source = 'custom'`). */
+		exerciseId: integer('exercise_id').references(() => exercises.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check(
+			'spot_links_target_ck',
+			sql`(${t.figureId} is not null) + (${t.exerciseId} is not null) = 1`
+		),
+		uniqueIndex('spot_links_spot_figure_idx').on(t.spotId, t.figureId),
+		uniqueIndex('spot_links_spot_exercise_idx').on(t.spotId, t.exerciseId),
+		index('spot_links_figure_idx').on(t.figureId),
+		index('spot_links_exercise_idx').on(t.exerciseId)
+	]
+);
+
 /** Figures taught in a lesson. Many-to-many; neither side owns the other. */
 export const lessonFigures = sqliteTable(
 	'lesson_figures',
