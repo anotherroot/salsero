@@ -3,19 +3,22 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises } from './db/schema';
 import { addRecording, archiveFigure, createFigure, createVariation } from './figures';
-import { addLessonVideo, createLesson } from './lessons';
+import { addLessonVideo, createLesson, linkExercise, linkFigure } from './lessons';
 import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import {
 	assertUnlinked,
 	getSpotLink,
+	linkableSections,
 	linkChips,
 	linksBlocking,
 	linkSpot,
 	SpotLinkedError,
 	SpotLinkError,
+	sectionsFor,
 	targetFrom,
-	unlinkSpot
+	unlinkSpot,
+	videoSections
 } from './spot-links';
 
 let db: Db;
@@ -145,5 +148,105 @@ describe('linksBlocking', () => {
 		const s = addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 900, label: null })!.id;
 		linkSpot(db, s, { exerciseId: drill });
 		expect(linksBlocking(db, { recordingId: rec })).toEqual(['Clave']);
+	});
+});
+
+describe('reads', () => {
+	const video = (title: string, lessonDay: string, file: string) => {
+		const id = createLesson(db, 'salsa', { lessonDay, title, notes: null }).lesson.id;
+		return addLessonVideo(db, { lessonId: id, file, mime: 'video/mp4', sizeBytes: 1 }).id;
+	};
+
+	it('sectionsFor is per version, with its video', () => {
+		linkSpot(db, section, { figureId: doble });
+		expect(sectionsFor(db, { figureId })).toEqual([]);
+		const cards = sectionsFor(db, { figureId: doble });
+		expect(cards).toEqual([
+			{
+				linkId: expect.any(Number),
+				spot: {
+					id: section,
+					startMs: 1000,
+					endMs: 4000,
+					label: 'Enchufla',
+					linkedTo: ['Enchufla · Doble']
+				},
+				video: {
+					owner: { lessonVideoId },
+					src: '/lesson-videos/l.mp4',
+					from: { kind: 'lesson', lessonId, title: 'Cubana', lessonDay: '2026-10-12' }
+				}
+			}
+		]);
+	});
+
+	it('sectionsFor reaches a recording, labelled by its figure', () => {
+		const rec = addRecording(db, {
+			figureId: doble,
+			file: 'r.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 1,
+			note: null
+		}).id;
+		const s = addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 900, label: null })!.id;
+		linkSpot(db, s, { exerciseId: drill });
+		expect(sectionsFor(db, { exerciseId: drill }).map((c) => c.video)).toEqual([
+			{
+				owner: { recordingId: rec },
+				src: '/recordings/r.mp4',
+				from: { kind: 'recording', figure: 'Enchufla · Doble' }
+			}
+		]);
+	});
+
+	it('linkableSections puts taught-here first, leaves out points and what is linked', () => {
+		const later = video('Later', '2026-10-14', 'm.mp4');
+		const s2 = addSpot(db, { lessonVideoId: later }, { startMs: 0, endMs: 500, label: null })!.id;
+		// Cubana teaches Enchufla: its variation counts it as taught there too.
+		linkFigure(db, lessonId, figureId);
+		const groups = linkableSections(db, { figureId: doble });
+		expect(groups.map((g) => [g.video.src, g.taughtHere])).toEqual([
+			['/lesson-videos/l.mp4', true],
+			['/lesson-videos/m.mp4', false]
+		]);
+		expect(groups[0].sections.map((s) => s.id)).toEqual([section]);
+		linkSpot(db, s2, { figureId: doble });
+		expect(linkableSections(db, { figureId: doble }).map((g) => g.video.src)).toEqual([
+			'/lesson-videos/l.mp4'
+		]);
+	});
+
+	it('linkableSections counts a drill as taught where a lesson links it', () => {
+		const later = video('Later', '2026-10-14', 'm.mp4');
+		addSpot(db, { lessonVideoId: later }, { startMs: 0, endMs: 500, label: null });
+		linkExercise(db, lessonId, drill);
+		expect(linkableSections(db, { exerciseId: drill }).map((g) => g.taughtHere)).toEqual([
+			true,
+			false
+		]);
+	});
+
+	it('linkableSections stays in the dance', () => {
+		const bachata = fig('bachata', 'Paseo');
+		expect(linkableSections(db, { figureId: bachata })).toEqual([]);
+	});
+
+	it('videoSections lists sections with chips, archived flagged', () => {
+		linkSpot(db, section, { exerciseId: drill });
+		linkSpot(db, section, { figureId: doble });
+		archiveFigure(db, figureId, Date.now());
+		expect(videoSections(db, { lessonVideoId })).toEqual([
+			{
+				id: section,
+				startMs: 1000,
+				endMs: 4000,
+				label: 'Enchufla',
+				links: [
+					{ id: expect.any(Number), label: 'Clave', archived: false },
+					{ id: expect.any(Number), label: 'Enchufla · Doble', archived: true }
+				]
+			}
+		]);
 	});
 });
