@@ -111,6 +111,33 @@
           '';
         };
 
+        # The Android app (android/): `nix develop .#android`. Its own shell so
+        # the web's stays small — the SDK is a few gigabytes. Unstable, for a
+        # current SDK; unfree and the licence, because that is the SDK's terms.
+        devShells.android =
+          let
+            apkgs = import nixpkgs-unstable {
+              inherit system;
+              config = { allowUnfree = true; android_sdk.accept_license = true; };
+            };
+            android = apkgs.androidenv.composeAndroidPackages {
+              platformVersions = [ "36" ];
+              buildToolsVersions = [ "36.0.0" ];
+            };
+            sdk = "${android.androidsdk}/libexec/android-sdk";
+          in
+          apkgs.mkShell {
+            packages = [ apkgs.jdk21 android.androidsdk ];
+            ANDROID_HOME = sdk;
+            ANDROID_SDK_ROOT = sdk;
+            # Gradle's own aapt2 is a dynamically linked download that NixOS
+            # cannot run; the SDK's is patched.
+            GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${sdk}/build-tools/36.0.0/aapt2";
+            shellHook = ''
+              echo "salsaapp android shell — cd android && ./gradlew test assembleDebug"
+            '';
+          };
+
         packages = {
           inherit beat-this beat-this-checkpoint salsa-worker;
           default = salsa-worker;

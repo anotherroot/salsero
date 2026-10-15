@@ -130,7 +130,13 @@ make an upload resumable: it opens for append rather than exclusive create, and
 on any failure it truncates back to `start` instead of unlinking. Losing one
 chunk costs one chunk; unlinking would cost the whole gigabyte.
 
-**Abandoned partials** are swept at boot (`bootstrap`), deleting `*.part` older
+**A finished upload is remembered for a day.** The last chunk writes
+`uploads/<uploadId>.done` holding the row, and any later chunk for that id gets
+the same 201. A client whose final answer was lost then retries into the same
+video rather than uploading a second one (added for the Android app, whose
+background retries make that loss likely; see its spec).
+
+**Abandoned partials** are swept at boot (`bootstrap`), deleting `*.part` (and `*.done`) older
 than 24 hours. No cron, no unit, no table: nothing in the database points at
 these files, so age is the only signal there is — and the only one needed, since
 a live upload touches its partial every few seconds.

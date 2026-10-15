@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Salsa practice</string>
+    <string name="salsa">Salsa</string>
+    <string name="bachata">Bachata</string>
+    <string name="share_label">Add to a lesson</string>
+</resources>

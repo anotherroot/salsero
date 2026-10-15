@@ -44,6 +44,10 @@ gestures.
 The full-screen video player has its own,
 [`docs/superpowers/specs/2026-10-01-video-player-design.md`](docs/superpowers/specs/2026-10-01-video-player-design.md):
 spots, the loop, and why it is not the browser's fullscreen.
+The Android app has its own,
+[`docs/superpowers/specs/2026-10-14-android-app-design.md`](docs/superpowers/specs/2026-10-14-android-app-design.md):
+a TWA around the site, background compress-and-upload, the daily reminder,
+and device tokens. Built, not yet deployed or tried on the phone.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -80,6 +84,12 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s clamping, the loop
                      rule. spots-api.ts is the player's fetch side of
                      /api/video-spots. Client-safe
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
+android/             the Android app (Kotlin): TWA launchers, salsa:// links, the upload
+                     and reminder workers. No screens of its own. Pure parts (Links,
+                     UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
+src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
+src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByDance
+src/lib/server/request-user.ts  where a device token may sign in: /api/ only
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
 src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
@@ -191,6 +201,10 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   design spec.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
+- **A device token signs in on `/api/` only** — never a page, never
+  `/api/worker/` (`request-user.ts`). Only its SHA-256 is stored. Anything the
+  Android app needs is an `/api/` endpoint; anything it shows is a page the
+  TWA opens with the cookie session.
 - **Dates on screen are built by hand** (`src/lib/format.ts`), not with
   `toLocaleDateString` — ICU versions disagree and SSR must match hydration.
 - **The player's timing is the audio clock's, not `setTimeout`'s.** Counts are
@@ -233,6 +247,7 @@ npm run db:generate   # after editing src/lib/server/db/schema.ts
 # slots: C-1…C-9 in tmux; prefix C-a for reset-db and close slot (tmux_project)
 ./scripts/make-clips.sh   # regenerate static/clips/ — only when the voice changes
 ./scripts/make-icons.sh   # regenerate static/icons/ — only when a dance's accent changes
+nix develop .#android -c ./android/gradlew -p android test assembleDebug   # the APK; see docs/deployment.md
 ```
 
 The dev database has no songs and the home worker does not run against it, so
