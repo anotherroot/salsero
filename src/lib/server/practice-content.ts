@@ -80,6 +80,7 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 					file: r.file,
 					kind: r.kind,
 					sizeBytes: r.sizeBytes,
+					sourceUrl: r.sourceUrl,
 					createdAt: r.createdAt
 				}))
 			};

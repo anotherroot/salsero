@@ -192,6 +192,8 @@ export const recordings = sqliteTable(
 		kind: text('kind', { enum: ['video', 'audio'] }).notNull(),
 		sizeBytes: integer('size_bytes').notNull(),
 		note: text('note'),
+		/** The YouTube URL this was saved from; null for an upload. */
+		sourceUrl: text('source_url'),
 		createdAt: createdAt()
 	},
 	(t) => [index('recordings_figure_idx').on(t.figureId)]
@@ -538,6 +540,8 @@ export const lessonVideos = sqliteTable(
 		file: text('file').notNull().unique(),
 		mime: text('mime').notNull(),
 		sizeBytes: integer('size_bytes').notNull(),
+		/** The YouTube URL this was saved from; null for an upload. */
+		sourceUrl: text('source_url'),
 		createdAt: createdAt()
 	},
 	(t) => [index('lesson_videos_lesson_idx').on(t.lessonId)]
@@ -682,6 +686,44 @@ export const links = sqliteTable(
 		index('links_lesson_idx').on(t.lessonId),
 		index('links_figure_idx').on(t.figureId),
 		index('links_exercise_idx').on(t.exerciseId)
+	]
+);
+
+/**
+ * A YouTube link being saved as a video by the home worker. See
+ * `docs/superpowers/specs/2026-10-15-youtube-video-save-design.md`.
+ *
+ * No `done` status: success deletes the row, with its link, in the transaction
+ * that inserts the recording or lesson video. The owner is copied from the
+ * link so completing does not read a row it is about to delete. The CHECKs
+ * are safe because the table is new.
+ */
+export const videoDownloads = sqliteTable(
+	'video_downloads',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		linkId: integer('link_id')
+			.notNull()
+			.unique()
+			.references(() => links.id),
+		figureId: integer('figure_id').references(() => figures.id),
+		lessonId: integer('lesson_id').references(() => lessons.id),
+		/** Copied from the link. */
+		url: text('url').notNull(),
+		status: text('status', { enum: ['queued', 'failed'] }).notNull(),
+		error: text('error'),
+		attempts: integer('attempts').notNull().default(0),
+		/** The worker's lease, epoch ms. */
+		claimedAt: integer('claimed_at'),
+		createdAt: createdAt()
+	},
+	(t) => [
+		check(
+			'video_downloads_owner_ck',
+			sql`(${t.figureId} is not null) + (${t.lessonId} is not null) = 1`
+		),
+		check('video_downloads_status_ck', sql`${t.status} in ('queued', 'failed')`),
+		index('video_downloads_status_idx').on(t.status, t.createdAt)
 	]
 );
 

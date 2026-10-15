@@ -113,6 +113,8 @@ export interface LessonVideoRow {
 	file: string;
 	mime: string;
 	sizeBytes: number;
+	/** The YouTube URL it was saved from; null for an upload. */
+	sourceUrl: string | null;
 	createdAt: number;
 }
 
@@ -123,6 +125,8 @@ export interface LinkRow {
 	/** The user's label, or null to show the host. */
 	title: string | null;
 	createdAt: number;
+	/** A YouTube link being saved as a video, if it is. See `src/lib/server/video-downloads.ts`. */
+	saving: { status: 'queued' | 'failed'; error: string | null } | null;
 }
 
 /** One recording on a figure, as the log popup lists it. */
@@ -131,6 +135,8 @@ export interface RecordingRow {
 	file: string;
 	kind: 'video' | 'audio';
 	sizeBytes: number;
+	/** The YouTube URL it was saved from; null for an upload. */
+	sourceUrl: string | null;
 	createdAt: number;
 }
 

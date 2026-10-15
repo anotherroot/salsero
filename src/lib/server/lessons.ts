@@ -162,6 +162,7 @@ export function getLesson(db: Db, id: number) {
 			file: lessonVideos.file,
 			mime: lessonVideos.mime,
 			sizeBytes: lessonVideos.sizeBytes,
+			sourceUrl: lessonVideos.sourceUrl,
 			createdAt: lessonVideos.createdAt
 		})
 		.from(lessonVideos)

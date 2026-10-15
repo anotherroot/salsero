@@ -1,6 +1,6 @@
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 import type { Db } from './db';
-import { appFlags, exercises, lessons, links } from './db/schema';
+import { appFlags, exercises, lessons, links, videoDownloads } from './db/schema';
 import { extractUrls, parseLink } from '$lib/links';
 import type { LinkRow } from '$lib/types';
 
@@ -24,11 +24,16 @@ function ownedBy(owner: LinkOwner): SQL {
 
 export function listLinks(db: Db, owner: LinkOwner): LinkRow[] {
 	return db
-		.select(row)
+		.select({ ...row, status: videoDownloads.status, error: videoDownloads.error })
 		.from(links)
+		.leftJoin(videoDownloads, eq(videoDownloads.linkId, links.id))
 		.where(ownedBy(owner))
 		.orderBy(asc(links.createdAt), asc(links.id))
-		.all();
+		.all()
+		.map(({ status, error, ...link }) => ({
+			...link,
+			saving: status === null ? null : { status, error }
+		}));
 }
 
 function insertLinks(tx: Tx, owner: LinkOwner, urls: string[], title: string | null): LinkRow[] {
@@ -43,13 +48,14 @@ function insertLinks(tx: Tx, owner: LinkOwner, urls: string[], title: string | n
 	const fresh = urls
 		.map((u) => u.trim())
 		.filter((u, i, all) => parseLink(u) !== null && !have.has(u) && all.indexOf(u) === i);
-	return fresh.map((url) =>
-		tx
+	return fresh.map((url) => ({
+		...tx
 			.insert(links)
 			.values({ ...owner, url, title: fresh.length === 1 ? title : null })
 			.returning(row)
-			.get()
-	);
+			.get(),
+		saving: null
+	}));
 }
 
 /**
@@ -76,14 +82,22 @@ export function addLinks(
 	return db.transaction((tx) => insertLinks(tx, owner, urls, title));
 }
 
-/** Delete one link, only if it belongs to `owner` — so a posted id cannot reach another page's link. */
+/**
+ * Delete one link, only if it belongs to `owner` — so a posted id cannot reach
+ * another page's link. A save in flight goes with it: the job is deleted first,
+ * or its foreign key would refuse the link.
+ */
 export function deleteLink(db: Db, owner: LinkOwner, id: number): boolean {
-	return (
-		db
-			.delete(links)
+	return db.transaction((tx) => {
+		const mine = tx
+			.select({ id: links.id })
+			.from(links)
 			.where(and(eq(links.id, id), ownedBy(owner)))
-			.run().changes > 0
-	);
+			.get();
+		if (!mine) return false;
+		tx.delete(videoDownloads).where(eq(videoDownloads.linkId, id)).run();
+		return tx.delete(links).where(eq(links.id, id)).run().changes > 0;
+	});
 }
 
 export const NOTE_LINKS_FLAG = 'lesson-note-links';
