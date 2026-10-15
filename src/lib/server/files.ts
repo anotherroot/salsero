@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web';
+import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
-import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
+import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL, MAX_UPLOAD_CHUNK_BYTES } from '$lib/limits';
 
 export { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL };
 
@@ -171,6 +172,70 @@ export async function appendStream(
 		throw start + bytes > maxTotal ? new TooLargeError('too large') : err;
 	}
 	return start + bytes;
+}
+
+/** A JSON `{ message }` refusal, the shape the upload clients read. */
+export const failJson = (status: number, message: string, headers?: Record<string, string>) =>
+	json({ message }, { status, headers });
+
+/** Partials being written right now. One process, one port: a Set is honest here. */
+const writing = new Set<string>();
+
+/**
+ * One chunk of a chunked video upload, appended to `partial`: the protocol a
+ * lesson video and a saved YouTube video share. Every refusal is a `Response`
+ * to return as it is; otherwise how far the file has got, or that it is whole.
+ *
+ * The partial file IS the state and its size IS the resume offset, so a chunk
+ * must start exactly where the file ends — anything else is a 409 carrying
+ * `x-received-bytes`, the truth the client resumes from.
+ */
+export async function writeChunk(
+	request: Request,
+	partial: string,
+	maxTotal: number,
+	messages: { notVideo: string; tooLarge: string }
+): Promise<Response | { done: false; received: number } | { done: true; total: number }> {
+	const range = parseContentRange(request.headers.get('content-range'));
+	if (!range)
+		return failJson(400, 'A content-range header of bytes <start>-<end>/<total> is required.');
+	if (range.total > maxTotal) return failJson(413, messages.tooLarge);
+	if (range.end - range.start + 1 > MAX_UPLOAD_CHUNK_BYTES)
+		return failJson(413, 'That chunk is too big.');
+
+	const mime = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+	if (!mime.startsWith('video/')) return failJson(415, messages.notVideo);
+	if (!request.body) return failJson(400, 'Empty chunk.');
+
+	// A second writer for the same file would interleave appends and corrupt
+	// it. Refusing is right: a client uploads its chunks in sequence.
+	if (writing.has(partial)) return failJson(409, 'That upload is already being written.');
+	writing.add(partial);
+	let received: number;
+	try {
+		received = await appendStream(request.body, partial, range.start, range.total);
+	} catch (err) {
+		if (err instanceof OffsetError) {
+			return failJson(409, 'That chunk starts in the wrong place.', {
+				'x-received-bytes': String(err.received)
+			});
+		}
+		if (err instanceof TooLargeError) return failJson(413, messages.tooLarge);
+		// adapter-node enforces BODY_SIZE_LIMIT by destroying the body stream with
+		// a 413. Its default is 512 KB — far below one chunk — so a host that has
+		// not raised it fails every upload, and a generic 400 here would send
+		// whoever debugs that looking in entirely the wrong place.
+		if (typeof err === 'object' && err !== null && 'status' in err && err.status === 413) {
+			return failJson(
+				413,
+				'The server refused a chunk that size. Check BODY_SIZE_LIMIT on the host.'
+			);
+		}
+		return failJson(400, 'That chunk could not be saved.');
+	} finally {
+		writing.delete(partial);
+	}
+	return received < range.total ? { done: false, received } : { done: true, total: range.total };
 }
 
 /**

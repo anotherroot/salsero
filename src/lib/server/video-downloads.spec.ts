@@ -126,7 +126,10 @@ describe('completeVideoJob', () => {
 		requestVideoDownload(db, { lessonId }, id);
 		const job = claimVideoJob(db, T)!;
 		const done = completeVideoJob(db, job.id, FILE) as { lessonVideoId: number };
-		expect(getLesson(db, lessonId)!.videos[0]).toMatchObject({ id: done.lessonVideoId, sourceUrl: YT });
+		expect(getLesson(db, lessonId)!.videos[0]).toMatchObject({
+			id: done.lessonVideoId,
+			sourceUrl: YT
+		});
 		expect(listSpots(db, { lessonVideoId: done.lessonVideoId })).toEqual([]);
 	});
 
@@ -136,9 +139,7 @@ describe('completeVideoJob', () => {
 		const job = claimVideoJob(db, T)!;
 		expect(deleteLink(db, { lessonId }, id)).toBe(false);
 		expect(deleteLink(db, { figureId }, id)).toBe(true);
-		expect(db.select().from(videoDownloads).where(eq(videoDownloads.id, job.id)).all()).toEqual(
-			[]
-		);
+		expect(db.select().from(videoDownloads).where(eq(videoDownloads.id, job.id)).all()).toEqual([]);
 		expect(completeVideoJob(db, job.id, FILE)).toBeNull();
 		expect(getFigure(db, figureId)!.recordings).toEqual([]);
 	});
