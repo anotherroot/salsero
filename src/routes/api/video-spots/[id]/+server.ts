@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { deleteSpot, renameSpot, SpotError } from '$lib/server/spots';
+import { SpotLinkedError } from '$lib/server/spot-links';
 import type { RequestHandler } from './$types';
 
 /** The spot id from the path, or a 404 — a bad id and a missing spot get the same answer. */
@@ -27,7 +28,16 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	}
 };
 
+/** A linked section is a 409 whose message names what to unlink — the player shows it. */
 export const DELETE: RequestHandler = ({ params }) => {
-	if (!deleteSpot(getDb(), spotId(params.id))) throw error(404, 'No such spot');
+	const id = spotId(params.id);
+	let gone: boolean;
+	try {
+		gone = deleteSpot(getDb(), id);
+	} catch (e) {
+		if (e instanceof SpotLinkedError) throw error(409, e.message);
+		throw e;
+	}
+	if (!gone) throw error(404, 'No such spot');
 	return new Response(null, { status: 204 });
 };

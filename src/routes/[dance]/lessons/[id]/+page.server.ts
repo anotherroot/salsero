@@ -31,6 +31,7 @@ import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
+import { SpotLinkedError } from '$lib/server/spot-links';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -268,7 +269,15 @@ export const actions: Actions = {
 		if (id === undefined || !found.videos.some((v) => v.id === id)) {
 			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
 		}
-		const row = deleteLessonVideo(getDb(), id);
+		let row;
+		try {
+			row = deleteLessonVideo(getDb(), id);
+		} catch (e) {
+			if (e instanceof SpotLinkedError) {
+				return fail(409, { action: 'deleteVideo', videoId: id, message: e.message });
+			}
+			throw e;
+		}
 		if (!row) {
 			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
 		}

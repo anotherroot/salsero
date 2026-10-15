@@ -443,6 +443,9 @@
 							</form>
 						{/if}
 					</div>
+					{#if form?.action === 'deleteRecording' && 'recordingId' in form && form.recordingId === rec.id}
+						<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+					{/if}
 				</li>
 			{/each}
 		</ul>

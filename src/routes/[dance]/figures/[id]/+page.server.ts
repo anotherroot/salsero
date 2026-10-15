@@ -35,6 +35,7 @@ import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
+import { SpotLinkedError } from '$lib/server/spot-links';
 import type { Actions, PageServerLoad } from './$types';
 
 function figureId(raw: string): number {
@@ -360,7 +361,15 @@ export const actions: Actions = {
 				message: 'That recording was already removed.'
 			});
 		}
-		const rec = deleteRecording(getDb(), id);
+		let rec;
+		try {
+			rec = deleteRecording(getDb(), id);
+		} catch (e) {
+			if (e instanceof SpotLinkedError) {
+				return fail(409, { action: 'deleteRecording', recordingId: id, message: e.message });
+			}
+			throw e;
+		}
 		if (!rec) {
 			return fail(404, {
 				action: 'deleteRecording',

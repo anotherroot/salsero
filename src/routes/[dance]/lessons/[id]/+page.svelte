@@ -206,6 +206,9 @@
 								<button type="submit" class="h-9 px-2 text-danger">Delete</button>
 							</form>
 						</div>
+						{#if form?.action === 'deleteVideo' && 'videoId' in form && form.videoId === video.id}
+							<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+						{/if}
 					</li>
 				{/each}
 			</ul>

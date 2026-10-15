@@ -14,6 +14,7 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { addRecording, createFigure } from '$lib/server/figures';
 import { addSpot, listSpots } from '$lib/server/spots';
+import { linkSpot } from '$lib/server/spot-links';
 import * as list from './+server';
 import * as one from './[id]/+server';
 
@@ -146,5 +147,31 @@ describe('PATCH and DELETE /api/video-spots/[id]', () => {
 		const req = send('PATCH', {}, id);
 		expect(await status(() => run(one.PATCH, { params: { id }, request: req }))).toBe(400);
 		expect(listSpots(db, { recordingId })[0]).toMatchObject({ label: 'Dip' });
+	});
+});
+
+describe('a linked section', () => {
+	it('is a 409 to delete, naming its link, and GET carries linkedTo', async () => {
+		const spot = addSpot(db, { recordingId }, { startMs: 0, endMs: 1000, label: null })!;
+		const other = createFigure(db, 'salsa', {
+			name: 'Setenta',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		linkSpot(db, spot.id, { figureId: other });
+
+		const listed = await (await get(`recording=${recordingId}`)).json();
+		expect(listed[0].linkedTo).toEqual(['Setenta']);
+
+		try {
+			await run(one.DELETE, { params: { id: String(spot.id) } });
+			expect.unreachable();
+		} catch (thrown) {
+			const e = thrown as { status: number; body: { message: string } };
+			expect(e.status).toBe(409);
+			expect(e.body.message).toBe('Linked to Setenta — unlink it first.');
+		}
+		expect(listSpots(db, { recordingId })).toHaveLength(1);
 	});
 });
