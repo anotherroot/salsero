@@ -14,11 +14,29 @@ from .media import PermanentError
 USER_AGENT = "salsa-worker/0.1"
 
 
+# What a saved video is uploaded in: the size the browser slices lesson videos
+# into, far under Cloudflare's 100 MB request limit.
+CHUNK_BYTES = 8 * 1024 * 1024
+
+
 class ApiError(Exception):
-    def __init__(self, method: str, path: str, status: int, message: str):
+    def __init__(self, method: str, path: str, status: int, message: str, received: int | None = None):
         super().__init__(f"{method} {path}: HTTP {status}: {message}")
         self.status = status
         self.message = message
+        # A chunked upload's 409 says how far the server's file really is.
+        self.received = received
+
+
+class JobGone(Exception):
+    """The server no longer wants this video: its link was removed, or it is already saved."""
+
+
+def _received(headers) -> int | None:
+    try:
+        return int(headers.get("x-received-bytes"))
+    except (TypeError, ValueError, AttributeError):
+        return None
 
 
 def _server_message(e: urllib.error.HTTPError) -> str:
@@ -53,7 +71,7 @@ class Api:
         try:
             return self._urlopen(req, timeout=timeout)
         except urllib.error.HTTPError as e:
-            raise ApiError(method, path, e.code, _server_message(e)) from e
+            raise ApiError(method, path, e.code, _server_message(e), _received(e.headers)) from e
 
     def claim(self) -> dict | None:
         with self._request("POST", "/api/worker/claim", data=b"{}") as r:
@@ -89,3 +107,41 @@ class Api:
 
     def fail(self, song_id: int, error: str, permanent: bool) -> None:
         self._json(f"/api/worker/songs/{song_id}/fail", {"error": error[:500], "permanent": permanent})
+
+    # ── Saved videos: their own queue, see src/lib/server/video-downloads.ts ──
+
+    def claim_video(self) -> dict | None:
+        with self._request("POST", "/api/worker/videos/claim", data=b"{}") as r:
+            return None if r.status == 204 else json.load(r)
+
+    def upload_video(self, job_id: int, path: Path, chunk: int = CHUNK_BYTES) -> None:
+        """In chunks, each saying where it starts. A 409 carries where the server's file
+        really ends, and the upload carries on from there rather than from the top."""
+        total = path.stat().st_size
+        url = f"/api/worker/videos/{job_id}/file"
+        offset = 0
+        with open(path, "rb") as f:
+            while offset < total:
+                f.seek(offset)
+                data = f.read(chunk)
+                headers = {
+                    "Content-Type": "video/mp4",
+                    "Content-Range": f"bytes {offset}-{offset + len(data) - 1}/{total}",
+                }
+                try:
+                    with self._request("PUT", url, data=data, headers=headers, timeout=300) as r:
+                        offset = _received(r.headers) if r.status == 204 else total
+                        if offset is None:
+                            raise RuntimeError("The server did not say how much it has.")
+                except ApiError as e:
+                    if e.status == 410:
+                        raise JobGone(e.message) from e
+                    if e.status == 409 and e.received is not None:
+                        offset = e.received
+                        continue
+                    if e.status == 413:
+                        raise PermanentError(e.message) from e
+                    raise
+
+    def fail_video(self, job_id: int, error: str, permanent: bool) -> None:
+        self._json(f"/api/worker/videos/{job_id}/fail", {"error": error[:500], "permanent": permanent})

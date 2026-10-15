@@ -26,3 +26,6 @@ result
 # agent worktrees and plan-execution scratch
 .claude/worktrees/
 .superpowers/
+
+# python bytecode from running the worker tests
+__pycache__/

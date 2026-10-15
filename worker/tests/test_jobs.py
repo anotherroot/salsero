@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from salsa_worker import jobs, media
+from salsa_worker.api import JobGone
 
 
 class FakeApi:
@@ -125,3 +126,67 @@ def test_a_refused_analysis_fails_for_good(tmp_path):
     api = Refusing([])
     assert jobs.process({"id": 5, "kind": "analyze", "url": None}, api, tools(), tmp_path) is False
     assert api.calls[-1] == ("fail", 5, "Server refused the analysis: no beats found", True)
+
+
+class VideoApi(FakeApi):
+    def __init__(self, queue, videos, upload=None):
+        super().__init__(queue)
+        self.videos = list(videos)
+        self._upload = upload
+
+    def claim_video(self):
+        return self.videos.pop(0) if self.videos else None
+
+    def upload_video(self, job_id, path):
+        self.calls.append(("upload_video", job_id, path.name))
+        if self._upload:
+            self._upload()
+
+    def fail_video(self, job_id, error, permanent):
+        self.calls.append(("fail_video", job_id, error, permanent))
+
+
+def video_tools(fetch_video=None):
+    def default_fetch(url, workdir):
+        p = workdir / "video.mkv"
+        p.write_bytes(b"mkv")
+        return p
+
+    return jobs.VideoTools(
+        fetch_video=fetch_video or default_fetch,
+        to_mp4=lambda src, dest: dest.write_bytes(b"mp4"),
+    )
+
+
+def test_run_does_songs_before_videos():
+    api = VideoApi([{"id": 1, "kind": "analyze", "url": None}], [{"id": 9, "url": "https://y"}])
+    assert jobs.run(api, tools(), video_tools()) == 2
+    assert [c[0] for c in api.calls] == ["download_audio", "post_analysis", "upload_video"]
+    assert api.calls[-1] == ("upload_video", 9, "out.mp4")
+
+
+def test_a_failed_song_leaves_the_videos_for_the_next_tick():
+    def analyze(wav):
+        raise RuntimeError("model crashed")
+
+    api = VideoApi([{"id": 1, "kind": "analyze", "url": None}], [{"id": 9, "url": "https://y"}])
+    assert jobs.run(api, tools(analyze=analyze), video_tools()) == 1
+    assert len(api.videos) == 1
+
+
+def test_a_video_whose_link_went_is_not_a_failure(tmp_path):
+    def gone():
+        raise JobGone("no longer wanted")
+
+    api = VideoApi([], [], upload=gone)
+    assert jobs.process_video({"id": 9, "url": "u"}, api, video_tools(), tmp_path) is True
+    assert [c[0] for c in api.calls] == ["upload_video"]
+
+
+def test_a_private_video_fails_for_good(tmp_path):
+    def fetch_video(url, workdir):
+        raise media.PermanentError("ERROR: Private video")
+
+    api = VideoApi([], [])
+    assert jobs.process_video({"id": 9, "url": "u"}, api, video_tools(fetch_video), tmp_path) is False
+    assert api.calls == [("fail_video", 9, "ERROR: Private video", True)]

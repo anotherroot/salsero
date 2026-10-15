@@ -54,3 +54,36 @@ def test_fetch_classifies_errors(tmp_path: Path, stderr, permanent):
 
 def test_duration_of_parses_ffprobe(tmp_path: Path):
     assert media.duration_of(tmp_path / "a.wav", run=fake_run(stdout="12.5\n")) == 12.5
+
+
+def test_fetch_video_asks_for_at_most_480p_and_an_hour(tmp_path: Path):
+    run = fake_run(make=tmp_path / "video.mkv")
+    assert media.fetch_video("https://youtu.be/x", tmp_path, run=run) == tmp_path / "video.mkv"
+    cmd = run.calls[0]
+    assert cmd[cmd.index("-f") + 1] == "bv*[height<=480]+ba/b[height<=480]/b"
+    assert "duration <= 3600" in cmd
+    assert "--no-playlist" in cmd
+
+
+def test_fetch_video_errors(tmp_path: Path):
+    with pytest.raises(media.PermanentError):
+        media.fetch_video("u", tmp_path, run=fake_run(1, stderr="ERROR: Private video"))
+    with pytest.raises(RuntimeError) as e:
+        media.fetch_video("u", tmp_path, run=fake_run(1, stderr="ERROR: HTTP Error 503"))
+    assert not isinstance(e.value, media.PermanentError)
+    # The duration filter skips silently: exit 0, nothing written.
+    with pytest.raises(media.PermanentError, match="60 minutes"):
+        media.fetch_video("u", tmp_path, run=fake_run(0))
+
+
+def test_to_mp4_is_small_h264_that_streams(tmp_path: Path):
+    run = fake_run()
+    media.to_mp4(tmp_path / "video.mkv", tmp_path / "out.mp4", run=run)
+    cmd = run.calls[0]
+    assert cmd[cmd.index("-c:v") + 1] == "libx264"
+    assert cmd[cmd.index("-crf") + 1] == "28"
+    assert cmd[cmd.index("-movflags") + 1] == "+faststart"
+    assert cmd[cmd.index("-vf") + 1] == "scale=-2:'min(480,ih)'"
+    assert cmd[-1] == str(tmp_path / "out.mp4")
+    with pytest.raises(media.PermanentError):
+        media.to_mp4(tmp_path / "a", tmp_path / "b", run=fake_run(1, stderr="Invalid data"))

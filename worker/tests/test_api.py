@@ -7,16 +7,17 @@ import pytest
 
 from salsa_worker import __main__ as entry
 from salsa_worker import jobs
-from salsa_worker.api import Api, ApiError
+from salsa_worker.api import Api, ApiError, JobGone
 from salsa_worker.media import PermanentError
 
 FORM_TYPES = ("application/x-www-form-urlencoded", "multipart/form-data", "text/plain")
 
 
 class Response(io.BytesIO):
-    def __init__(self, status=200, body=b""):
+    def __init__(self, status=200, body=b"", headers=None):
         super().__init__(body)
         self.status = status
+        self.headers = headers or {}
 
 
 def fake_urlopen(status=204, body=b"", error: urllib.error.HTTPError | None = None):
@@ -32,8 +33,8 @@ def fake_urlopen(status=204, body=b"", error: urllib.error.HTTPError | None = No
     return urlopen
 
 
-def http_error(code, body: bytes):
-    return urllib.error.HTTPError("http://s/x", code, "err", {}, io.BytesIO(body))
+def http_error(code, body: bytes, headers=None):
+    return urllib.error.HTTPError("http://s/x", code, "err", headers or {}, io.BytesIO(body))
 
 
 def content_type(req):
@@ -96,10 +97,85 @@ def test_main_logs_the_real_error(monkeypatch, caplog):
     monkeypatch.setenv("SALSA_WORKER_TOKEN", "t")
     monkeypatch.setenv("BEAT_THIS_CHECKPOINT", "/nowhere.ckpt")
 
-    def run(api, tools):
+    def run(api, tools, **kwargs):
         raise ApiError("POST", "/api/worker/claim", 403, "Cross-site POST form submissions are forbidden")
 
     monkeypatch.setattr(jobs, "run", run)
     with caplog.at_level(logging.ERROR):
         assert entry.main() == 1
     assert "HTTP 403: Cross-site POST form submissions are forbidden" in caplog.text
+
+
+def scripted_urlopen(*answers):
+    """One answer per request, in order: a Response, or an HTTPError to raise."""
+    requests = []
+    queue = list(answers)
+
+    def urlopen(req, timeout=None):
+        requests.append(req)
+        answer = queue.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    urlopen.requests = requests
+    return urlopen
+
+
+def test_claim_video_and_fail_video(tmp_path):
+    urlopen = fake_urlopen(200, b'{"id": 4, "url": "https://youtu.be/x"}')
+    api = Api("http://s", "t", urlopen=urlopen)
+    assert api.claim_video() == {"id": 4, "url": "https://youtu.be/x"}
+    api.fail_video(4, "boom", True)
+    assert [r.full_url for r in urlopen.requests] == [
+        "http://s/api/worker/videos/claim",
+        "http://s/api/worker/videos/4/fail",
+    ]
+    assert json.loads(urlopen.requests[1].data) == {"error": "boom", "permanent": True}
+    assert Api("http://s", "t", urlopen=fake_urlopen(204)).claim_video() is None
+
+
+def test_upload_video_sends_chunks_with_ranges(tmp_path):
+    video = tmp_path / "out.mp4"
+    video.write_bytes(b"0123456789")
+    urlopen = scripted_urlopen(
+        Response(204, headers={"x-received-bytes": "4"}),
+        Response(204, headers={"x-received-bytes": "8"}),
+        Response(201, b"{}"),
+    )
+    Api("http://s", "t", urlopen=urlopen).upload_video(7, video, chunk=4)
+    assert [r.full_url for r in urlopen.requests] == ["http://s/api/worker/videos/7/file"] * 3
+    assert [r.get_header("Content-range") for r in urlopen.requests] == [
+        "bytes 0-3/10",
+        "bytes 4-7/10",
+        "bytes 8-9/10",
+    ]
+    assert [r.data for r in urlopen.requests] == [b"0123", b"4567", b"89"]
+    assert all(r.get_method() == "PUT" and content_type(r) == "video/mp4" for r in urlopen.requests)
+
+
+def test_upload_video_resumes_where_the_server_is(tmp_path):
+    video = tmp_path / "out.mp4"
+    video.write_bytes(b"0123456789")
+    urlopen = scripted_urlopen(
+        Response(204, headers={"x-received-bytes": "4"}),
+        http_error(409, b'{"message":"wrong place"}', {"x-received-bytes": "6"}),
+        Response(201, b"{}"),
+    )
+    Api("http://s", "t", urlopen=urlopen).upload_video(7, video, chunk=4)
+    assert [r.get_header("Content-range") for r in urlopen.requests] == [
+        "bytes 0-3/10",
+        "bytes 4-7/10",
+        "bytes 6-9/10",
+    ]
+
+
+def test_upload_video_gone_and_too_large(tmp_path):
+    video = tmp_path / "out.mp4"
+    video.write_bytes(b"0123")
+    gone = scripted_urlopen(http_error(410, b'{"message":"no longer wanted"}'))
+    with pytest.raises(JobGone):
+        Api("http://s", "t", urlopen=gone).upload_video(7, video)
+    big = scripted_urlopen(http_error(413, b'{"message":"bigger than the 1 GB limit"}'))
+    with pytest.raises(PermanentError, match="1 GB"):
+        Api("http://s", "t", urlopen=big).upload_video(7, video)
