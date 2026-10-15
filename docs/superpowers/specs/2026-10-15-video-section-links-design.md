@@ -89,9 +89,14 @@ to Enchufla · Doble, Clave drill (archived)". The foreign key from
 check. Today all three delete a video's spots first in one transaction; that
 stays, after the check.
 
-Archived targets are listed in the refusal and in the lesson page's chips,
-marked "(archived)", because an archived figure's or drill's page is a 404 and
-the lesson page is the only place left to unlink them.
+Archived targets are listed in the refusal and in the chips, marked
+"(archived)", because an archived figure's or drill's page is a 404. The
+chips are where they get unlinked: under each lesson video on the lesson page,
+and under each recording (that has sections) on its figure's page, whose
+`unlinkSection` takes the version's own links or any link of a section on one
+of the version's recordings. Without the second, a recording's section linked
+to a since-archived target could never be unlinked, and the recording never
+deleted.
 
 Targets are always named through `figureLabels` ("Enchufla · Doble"), never a
 variation's bare name.

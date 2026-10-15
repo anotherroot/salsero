@@ -36,12 +36,15 @@ import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
 import {
+	getSpotLink,
 	linkableSections,
 	linkSpot,
 	sectionsFor,
 	SpotLinkedError,
 	SpotLinkError,
-	unlinkSpot
+	unlinkSpot,
+	videoOfSpot,
+	videoSections
 } from '$lib/server/spot-links';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -168,7 +171,12 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			notes: version.figure.notes,
 			isVariation: chosen !== null,
 			recordings: version.recordings,
-			sections: sectionsFor(db, { figureId: versionId })
+			sections: sectionsFor(db, { figureId: versionId }),
+			// Each recording's own sections and what they link to, so a link can be
+			// undone even when its target is archived and has no page.
+			recordingSections: Object.fromEntries(
+				version.recordings.map((r) => [r.id, videoSections(db, { recordingId: r.id })])
+			)
 		},
 		positions: [
 			...live.map((p) => ({ id: p.id, name: p.name, neutral: p.neutral, archived: false })),
@@ -414,7 +422,19 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const found = versionOf(figureOf(params), int(form, 'versionId'));
 		const id = int(form, 'linkId');
-		if (id === undefined || !unlinkSpot(getDb(), id, { figureId: found.figure.id })) {
+		const link = id === undefined ? null : getSpotLink(getDb(), id);
+		// This version's own link, or any link of a section on one of its
+		// recordings — the only place left to unlink one whose target is archived.
+		const video = link ? videoOfSpot(getDb(), link.spotId) : null;
+		const ownTarget =
+			link !== null && 'figureId' in link.target && link.target.figureId === found.figure.id;
+		const onOwnRecording =
+			video !== null &&
+			'recordingId' in video.owner &&
+			found.recordings.some(
+				(r) => 'recordingId' in video.owner && r.id === video.owner.recordingId
+			);
+		if (!link || !(ownTarget || onOwnRecording) || !unlinkSpot(getDb(), link.id, link.target)) {
 			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
 		}
 		return { action: 'unlinkSection', ok: true };

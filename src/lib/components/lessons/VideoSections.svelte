@@ -15,12 +15,15 @@
 		sections: VideoSection[];
 		src: string;
 		owner: SpotOwner;
-		targets: SectionTargets;
+		/** The Link… picker's choices; without them the list only shows and unlinks. */
+		targets?: SectionTargets;
+		/** Posted with every form, e.g. the figure page's `versionId`. */
+		hidden?: Record<string, string | number>;
 		/** A refused link, shown under its section. */
-		failure: { spotId: number; message: string } | null;
+		failure?: { spotId: number; message: string } | null;
 	}
 
-	let { sections, src, owner, targets, failure }: Props = $props();
+	let { sections, src, owner, targets, hidden = {}, failure = null }: Props = $props();
 
 	let playing = $state<Spot | null>(null);
 	let picking = $state<number | null>(null);
@@ -37,11 +40,15 @@
 		linkedTo: s.links.map((l) => l.label)
 	});
 
-	const groups = $derived([
-		{ label: 'This lesson', options: targets.thisLesson },
-		{ label: 'Other figures', options: targets.figures },
-		{ label: 'Drills', options: targets.drills }
-	]);
+	const groups = $derived(
+		targets
+			? [
+					{ label: 'This lesson', options: targets.thisLesson },
+					{ label: 'Other figures', options: targets.figures },
+					{ label: 'Drills', options: targets.drills }
+				]
+			: []
+	);
 
 	const field =
 		'w-full rounded-lg border border-rule bg-plane px-3 py-2.5 text-[15px] outline-none focus:border-accent';
@@ -70,12 +77,14 @@
 								<span class="text-[12px] text-muted">{spotLabel({ ...s, label: null })}</span>
 							{/if}
 						</div>
-						<button
-							type="button"
-							class="h-9 shrink-0 px-2 text-[13px] font-medium text-accent"
-							aria-expanded={picking === s.id}
-							onclick={() => (picking = picking === s.id ? null : s.id)}>Link…</button
-						>
+						{#if targets}
+							<button
+								type="button"
+								class="h-9 shrink-0 px-2 text-[13px] font-medium text-accent"
+								aria-expanded={picking === s.id}
+								onclick={() => (picking = picking === s.id ? null : s.id)}>Link…</button
+							>
+						{/if}
 					</div>
 					{#if s.links.length > 0}
 						<ul class="mt-1 flex flex-wrap gap-1.5 pl-11">
@@ -87,6 +96,9 @@
 								>
 									→ {link.label}{link.archived ? ' (archived)' : ''}
 									<form method="POST" action="?/unlinkSection" use:enhance>
+										{#each Object.entries(hidden) as [name, value] (name)}
+											<input type="hidden" {name} {value} />
+										{/each}
 										<input type="hidden" name="linkId" value={link.id} />
 										<button
 											type="submit"

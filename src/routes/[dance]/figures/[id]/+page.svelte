@@ -12,6 +12,7 @@
 	import { page } from '$app/state';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
+	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
@@ -451,6 +452,16 @@
 					</div>
 					{#if form?.action === 'deleteRecording' && 'recordingId' in form && form.recordingId === rec.id}
 						<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+					{/if}
+					<!-- Linking is done from the figure or drill a section shows; here a link
+					     can be undone, archived target or not, so the recording can go. -->
+					{#if (version.recordingSections[rec.id] ?? []).length > 0}
+						<VideoSections
+							sections={version.recordingSections[rec.id]}
+							src="/recordings/{rec.file}"
+							owner={{ recordingId: rec.id }}
+							hidden={{ versionId: version.id }}
+						/>
 					{/if}
 				</li>
 			{/each}

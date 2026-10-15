@@ -17,8 +17,13 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { spotLinks } from '$lib/server/db/schema';
-import { addFigureExercise, createFigure, createVariation } from '$lib/server/figures';
-import { createCustomExercise } from '$lib/server/exercises';
+import {
+	addFigureExercise,
+	addRecording,
+	createFigure,
+	createVariation
+} from '$lib/server/figures';
+import { archiveExercise, createCustomExercise } from '$lib/server/exercises';
 import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
 import { addSpot } from '$lib/server/spots';
 import { linkSpot } from '$lib/server/spot-links';
@@ -286,5 +291,50 @@ describe('the drill’s exercise page', () => {
 	it('loads what a drill could link', () => {
 		const data = loadAt(exercisePage.load, 'salsa', drill) as { linkable: unknown[] };
 		expect(data.linkable).toHaveLength(2);
+	});
+});
+
+describe('the figure page, for its recordings’ sections', () => {
+	const recordingSection = () => {
+		const rec = addRecording(db, {
+			figureId,
+			file: 'r.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 1,
+			note: null
+		}).id;
+		return addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 900, label: null })!.id;
+	};
+
+	it('unlinks a link of its recording’s section to an archived drill — nowhere else can', async () => {
+		const link = linkSpot(db, recordingSection(), { exerciseId: drill });
+		archiveExercise(db, drill, Date.now());
+		await call(
+			figurePage.actions.unlinkSection,
+			post('salsa', figureId, { versionId: String(figureId), linkId: String(link) })
+		);
+		expect(links()).toEqual([]);
+	});
+
+	it('refuses a link that is neither its own nor on its recordings', async () => {
+		const link = linkSpot(db, section, { exerciseId: drill });
+		const res = await call(
+			figurePage.actions.unlinkSection,
+			post('salsa', figureId, { versionId: String(figureId), linkId: String(link) })
+		);
+		expect(res).toMatchObject({ status: 404 });
+		expect(links()).toHaveLength(1);
+	});
+
+	it('loads its recordings’ sections with their links', () => {
+		const s = recordingSection();
+		linkSpot(db, s, { exerciseId: drill });
+		const data = loadAt(figurePage.load, 'salsa', figureId) as {
+			version: { recordingSections: Record<number, { id: number; links: unknown[] }[]> };
+		};
+		expect(Object.values(data.version.recordingSections).flat()).toEqual([
+			expect.objectContaining({ id: s, links: [expect.objectContaining({ label: 'Clave' })] })
+		]);
 	});
 });
