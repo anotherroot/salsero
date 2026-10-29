@@ -4,6 +4,10 @@
 > [`2026-09-28-exercise-types-design.md`](2026-09-28-exercise-types-design.md)'s
 > "Videos: mirror and slow motion", which stays the inline player; this
 > document owns the full-screen player and saved spots.
+>
+> A redesign of its screens (three levels, a section editor, frame steps)
+> was approved on 2026-10-29 and is not built yet:
+> [`2026-10-29-video-player-redesign-design.md`](2026-10-29-video-player-redesign-design.md).
 
 ## Purpose
 
