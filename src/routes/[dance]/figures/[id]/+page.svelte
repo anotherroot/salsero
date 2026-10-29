@@ -140,7 +140,7 @@
 </header>
 
 <!-- The bottom padding clears the variation bar pinned over the end of the page. -->
-<main class="space-y-6 px-4 pt-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+<main class="space-y-6 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
 	{#if editing}
 		<!--
 			Keyed on the variation: `editing` survives a step to another one, and
