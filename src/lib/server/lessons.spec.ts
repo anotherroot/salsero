@@ -30,12 +30,7 @@ import {
 	listExercises,
 	updateExercise
 } from './exercises';
-import {
-	addFigureExercise,
-	archiveVariation,
-	createFigure,
-	createVariationFrom
-} from './figures';
+import { addFigureExercise, archiveVariation, createFigure, createVariationFrom } from './figures';
 import { addSpot } from './spots';
 import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
 import { spotLinks } from './db/schema';

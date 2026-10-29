@@ -1,36 +1,32 @@
 <!-- src/lib/components/lessons/VideoSections.svelte -->
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import SectionPlayer from '$lib/components/ui/SectionPlayer.svelte';
-	import { spotLabel } from '$lib/video/spots';
-	import type { SectionTargets, Spot, SpotOwner, VideoSection } from '$lib/types';
+	import LinkPopup, { type LinkStep } from '$lib/components/links/LinkPopup.svelte';
+	import Icon from '$lib/components/video/Icon.svelte';
+	import { icons } from '$lib/components/video/icons';
+	import { spotLabel, spotTime } from '$lib/video/spots';
+	import type { Spot, SpotOwner, VideoSection } from '$lib/types';
 
 	/**
-	 * A lesson video's sections, each with what it is linked to and a picker to
-	 * link it to a figure version or a drill. Sections are marked in the
-	 * full-screen player; this is where they get pointed at what they show.
+	 * A video's sections, each with one small line saying what it is linked to.
+	 * Sections are marked in the full-screen player; the link button opens the
+	 * Link popup, where they get pointed at what they show — or what they show
+	 * gets made.
 	 */
 	interface Props {
 		sections: VideoSection[];
 		src: string;
 		owner: SpotOwner;
-		/** The Link… picker's choices; without them the list only shows and unlinks. */
-		targets?: SectionTargets;
-		/** Posted with every form, e.g. the figure page's `versionId`. */
-		hidden?: Record<string, string | number>;
-		/** A refused link, shown under its section. */
-		failure?: { spotId: number; message: string } | null;
+		/** The link button and the player's linking; without it the list only shows. */
+		linking?: boolean;
 	}
 
-	let { sections, src, owner, targets, hidden = {}, failure = null }: Props = $props();
+	let { sections, src, owner, linking = false }: Props = $props();
 
 	let playing = $state<Spot | null>(null);
-	let picking = $state<number | null>(null);
-
-	$effect(() => {
-		if (failure) picking = failure.spotId;
-	});
+	let linkingSpot = $state<number | null>(null);
+	let step = $state<LinkStep>('list');
 
 	const asSpot = (s: VideoSection): Spot => ({
 		id: s.id,
@@ -40,18 +36,8 @@
 		linkedTo: s.links.map((l) => l.label)
 	});
 
-	const groups = $derived(
-		targets
-			? [
-					{ label: 'This lesson', options: targets.thisLesson },
-					{ label: 'Other figures', options: targets.figures },
-					{ label: 'Drills', options: targets.drills }
-				]
-			: []
-	);
-
-	const field =
-		'w-full rounded-lg border border-rule bg-plane px-3 py-2.5 text-[15px] outline-none focus:border-accent';
+	const linkLine = (s: VideoSection) =>
+		s.links.map((l) => (l.archived ? `${l.label} (archived)` : l.label)).join(', ');
 </script>
 
 <div class="border-t border-line px-3 py-2">
@@ -63,86 +49,36 @@
 	{:else}
 		<ul class="divide-y divide-line">
 			{#each sections as s (s.id)}
-				<li class="py-2">
-					<div class="flex items-center gap-2">
+				<li class="flex items-center gap-2 py-2">
+					<button
+						type="button"
+						class="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-[13px] text-accent-ink"
+						aria-label="Play {spotLabel(s)}"
+						onclick={() => (playing = asSpot(s))}>▶</button
+					>
+					<div class="min-w-0 flex-1">
+						<span class="block truncate text-[15px]">{spotLabel(s)}</span>
+						<span class="block truncate text-[12px] text-muted">
+							{s.label
+								? `${spotTime(s.startMs)}–${spotTime(s.endMs)}`
+								: ''}{#if s.links.length > 0}{s.label ? ' · ' : ''}<span class="text-ink-2"
+									><Icon d={icons.link} size={11} class="inline align-[-1px]" />
+									{linkLine(s)}</span
+								>{/if}
+						</span>
+					</div>
+					{#if linking}
 						<button
 							type="button"
-							class="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-[13px] text-accent-ink"
-							aria-label="Play {spotLabel(s)}"
-							onclick={() => (playing = asSpot(s))}>▶</button
+							class="grid size-11 shrink-0 place-items-center rounded-lg {s.links.length === 0
+								? 'text-accent'
+								: 'text-ink-2'}"
+							aria-label="Link {spotLabel(s)}"
+							onclick={() => {
+								step = 'list';
+								linkingSpot = s.id;
+							}}><Icon d={icons.link} size={20} /></button
 						>
-						<div class="min-w-0 flex-1">
-							<span class="block truncate text-[15px]">{spotLabel(s)}</span>
-							{#if s.label}
-								<span class="text-[12px] text-muted">{spotLabel({ ...s, label: null })}</span>
-							{/if}
-						</div>
-						{#if targets}
-							<button
-								type="button"
-								class="h-9 shrink-0 px-2 text-[13px] font-medium text-accent"
-								aria-expanded={picking === s.id}
-								onclick={() => (picking = picking === s.id ? null : s.id)}>Link…</button
-							>
-						{/if}
-					</div>
-					{#if s.links.length > 0}
-						<ul class="mt-1 flex flex-wrap gap-1.5 pl-11">
-							{#each s.links as link (link.id)}
-								<li
-									class="flex items-center rounded-full border border-rule pl-2.5 text-[13px] {link.archived
-										? 'text-muted'
-										: 'text-ink-2'}"
-								>
-									→ {link.label}{link.archived ? ' (archived)' : ''}
-									<form method="POST" action="?/unlinkSection" use:enhance>
-										{#each Object.entries(hidden) as [name, value] (name)}
-											<input type="hidden" {name} {value} />
-										{/each}
-										<input type="hidden" name="linkId" value={link.id} />
-										<button
-											type="submit"
-											class="grid size-8 place-items-center text-muted"
-											aria-label="Unlink {link.label}">×</button
-										>
-									</form>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-					{#if picking === s.id}
-						<form
-							method="POST"
-							action="?/linkSection"
-							class="mt-2 flex gap-2 pl-11"
-							use:enhance={() =>
-								async ({ update, result }) => {
-									await update();
-									if (result.type === 'success') picking = null;
-								}}
-						>
-							<input type="hidden" name="spotId" value={s.id} />
-							<select name="target" required aria-label="Link to" class="{field} flex-1">
-								<option value="" selected disabled>Link to…</option>
-								{#each groups as group (group.label)}
-									{#if group.options.length > 0}
-										<optgroup label={group.label}>
-											{#each group.options as option (option.value)}
-												<option value={option.value}>{option.label}</option>
-											{/each}
-										</optgroup>
-									{/if}
-								{/each}
-							</select>
-							<button
-								type="submit"
-								class="h-11 shrink-0 rounded-xl border border-rule px-4 text-[14px] font-medium"
-								>Link</button
-							>
-						</form>
-					{/if}
-					{#if failure?.spotId === s.id}
-						<p class="mt-1 pl-11 text-[13px] text-danger" role="alert">{failure.message}</p>
 					{/if}
 				</li>
 			{/each}
@@ -150,14 +86,28 @@
 	{/if}
 </div>
 
+{#if linkingSpot !== null}
+	<LinkPopup
+		spotId={linkingSpot}
+		theme="light"
+		{step}
+		onstep={(s) => (step = s)}
+		onclose={() => {
+			linkingSpot = null;
+			void invalidateAll();
+		}}
+	/>
+{/if}
+
 {#if playing}
 	<SectionPlayer
 		{src}
 		{owner}
 		spot={playing}
+		{linking}
 		onclose={() => {
 			playing = null;
-			// The player can rename or delete sections; the list shows them.
+			// The player can rename or delete sections, and link them; the list shows them.
 			void invalidateAll();
 		}}
 	/>

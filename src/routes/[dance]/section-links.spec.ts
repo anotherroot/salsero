@@ -25,7 +25,7 @@ import {
 	createVariationFrom
 } from '$lib/server/figures';
 import { archiveExercise, createCustomExercise } from '$lib/server/exercises';
-import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
+import { addLessonVideo, createLesson, getLesson, linkFigure } from '$lib/server/lessons';
 import { addSpot } from '$lib/server/spots';
 import { linkSpot } from '$lib/server/spot-links';
 import * as lessonPage from './lessons/[id]/+page.server';
@@ -108,69 +108,7 @@ beforeEach(() => {
 });
 
 describe('the lesson page', () => {
-	it('links a section of its own video to a variation and a drill', async () => {
-		await call(
-			lessonPage.actions.linkSection,
-			post('salsa', lessonId, { spotId: String(section), target: `figure:${doble}` })
-		);
-		await call(
-			lessonPage.actions.linkSection,
-			post('salsa', lessonId, { spotId: String(section), target: `exercise:${drill}` })
-		);
-		expect(links().map((l) => [l.spotId, l.figureId, l.exerciseId])).toEqual([
-			[section, doble, null],
-			[section, null, drill]
-		]);
-	});
-
-	it('refuses a section of another lesson’s video', async () => {
-		const res = await call(
-			lessonPage.actions.linkSection,
-			post('salsa', lessonId, { spotId: String(otherSection), target: `figure:${figureId}` })
-		);
-		expect(res).toMatchObject({ status: 404 });
-		expect(links()).toEqual([]);
-	});
-
-	it('refuses a figure of the other dance, with the reason', async () => {
-		const paseo = createFigure(db, 'bachata', {
-			figureName: 'Paseo',
-			name: 'Paseo',
-			partner: 'partner',
-			style: 'sensual',
-			notes: null
-		})!.figure.id;
-		const res = await call(
-			lessonPage.actions.linkSection,
-			post('salsa', lessonId, { spotId: String(section), target: `figure:${paseo}` })
-		);
-		expect(res).toMatchObject({ status: 400, data: { message: /other dance/ } });
-		expect(links()).toEqual([]);
-	});
-
-	it('refuses a missing target value', async () => {
-		const res = await call(
-			lessonPage.actions.linkSection,
-			post('salsa', lessonId, { spotId: String(section), target: 'routine:1' })
-		);
-		expect(res).toMatchObject({ status: 400 });
-	});
-
-	it('unlinks only a link on its own videos', async () => {
-		const mine = linkSpot(db, section, { figureId });
-		const theirs = linkSpot(db, otherSection, { figureId });
-		const res = await call(
-			lessonPage.actions.unlinkSection,
-			post('salsa', lessonId, { linkId: String(theirs) })
-		);
-		expect(res).toMatchObject({ status: 404 });
-		await call(lessonPage.actions.unlinkSection, post('salsa', lessonId, { linkId: String(mine) }));
-		expect(links().map((l) => l.id)).toEqual([theirs]);
-	});
-
-	it('loads each video’s sections and the targets, this lesson’s first', () => {
-		linkFigure(db, lessonId, figureId);
-		salsaFigure('Setenta');
+	it('loads each video’s sections with their links', () => {
 		linkSpot(db, section, { figureId: doble });
 		const data = loadAt(lessonPage.load, 'salsa', lessonId);
 		expect(data.sections).toEqual({
@@ -184,16 +122,41 @@ describe('the lesson page', () => {
 				}
 			]
 		});
-		// Basic is linked by hand and Doble through the section, so both are this
-		// lesson's; Setenta sits with the other figures.
-		expect(data.sectionTargets).toEqual({
-			thisLesson: [
-				{ value: `figure:${figureId}`, label: 'Enchufla · Basic' },
-				{ value: `figure:${doble}`, label: 'Enchufla · Doble' }
-			],
-			figures: [{ value: expect.stringMatching(/^figure:/), label: 'Setenta · Basic' }],
-			drills: [{ value: `exercise:${drill}`, label: 'Clave' }]
-		});
+		// Linking is the popup's, through /api/: the page has no picker of its own.
+		expect(data).not.toHaveProperty('sectionTargets');
+		expect(lessonPage.actions).not.toHaveProperty('linkSection');
+		expect(lessonPage.actions).not.toHaveProperty('unlinkSection');
+	});
+
+	it('takes a variation off with its section links when asked', async () => {
+		linkFigure(db, lessonId, doble);
+		linkSpot(db, section, { figureId: doble });
+		await call(
+			lessonPage.actions.unlinkFigure,
+			post('salsa', lessonId, { figureId: String(doble), alsoSections: '1' })
+		);
+		expect(links()).toEqual([]);
+		expect(getLesson(db, lessonId)!.figures).toEqual([]);
+	});
+
+	it('keeps the section links when not asked', async () => {
+		linkFigure(db, lessonId, doble);
+		linkSpot(db, section, { figureId: doble });
+		await call(
+			lessonPage.actions.unlinkFigure,
+			post('salsa', lessonId, { figureId: String(doble) })
+		);
+		expect(links()).toHaveLength(1);
+	});
+
+	it("takes a drill off with its section links, and leaves another lesson's alone", async () => {
+		linkSpot(db, section, { exerciseId: drill });
+		linkSpot(db, otherSection, { exerciseId: drill });
+		await call(
+			lessonPage.actions.unlinkExercise,
+			post('salsa', lessonId, { exerciseId: String(drill), alsoSections: '1' })
+		);
+		expect(links().map((l) => l.spotId)).toEqual([otherSection]);
 	});
 });
 

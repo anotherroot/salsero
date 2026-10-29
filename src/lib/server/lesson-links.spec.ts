@@ -45,14 +45,20 @@ beforeEach(() => {
 		sizeBytes: 1
 	}).id;
 	b = addSpot(db, { lessonVideoId: second }, { startMs: 500, endMs: 3000, label: null })!.id;
-	a = addSpot(db, { lessonVideoId: lesson.videoId }, { startMs: 9000, endMs: 12000, label: 'A' })!
-		.id;
+	a = addSpot(
+		db,
+		{ lessonVideoId: lesson.videoId },
+		{ startMs: 9000, endMs: 12000, label: 'A' }
+	)!.id;
 	addSpot(db, { lessonVideoId: lesson.videoId }, { startMs: 100, endMs: null, label: null });
 
 	const other = lessonWithVideo('Other', 'o.mp4');
 	otherLessonId = other.id;
-	elsewhere = addSpot(db, { lessonVideoId: other.videoId }, { startMs: 0, endMs: 2000, label: null })!
-		.id;
+	elsewhere = addSpot(
+		db,
+		{ lessonVideoId: other.videoId },
+		{ startMs: 0, endMs: 2000, label: null }
+	)!.id;
 
 	const recordingId = addRecording(db, {
 		figureId: basic,
@@ -90,9 +96,11 @@ describe('viaSections', () => {
 	it("leaves out another lesson's sections", () => {
 		linkSpot(db, elsewhere, { figureId: doble });
 		expect(viaSections(db, lessonId).figures.size).toBe(0);
-		expect(viaSections(db, otherLessonId).figures.get(doble)!.map((s) => s.spotId)).toEqual([
-			elsewhere
-		]);
+		expect(
+			viaSections(db, otherLessonId)
+				.figures.get(doble)!
+				.map((s) => s.spotId)
+		).toEqual([elsewhere]);
 	});
 });
 

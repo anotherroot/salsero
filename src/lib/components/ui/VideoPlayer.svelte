@@ -68,6 +68,13 @@
 		/** What the top bar names: the lesson or figure, and what kind of video. */
 		title?: string;
 		subtitle?: string;
+		/**
+		 * Linking sections from inside the player: the toast's Link, the section
+		 * view's link badge and the editor's line. Only where the page manages the
+		 * video's sections (a lesson's videos, a figure's recordings); elsewhere
+		 * what a section links to is shown, never changed.
+		 */
+		linking?: boolean;
 	}
 
 	let {
