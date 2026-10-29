@@ -20,9 +20,11 @@ of a figure with their own positions, timing and videos; chosen per routine slot
 and figure coverage (figures have no exercise by default; a page of figure
 versions by how many routines use them, and a routine made from a selection),
 a full-screen video player (three levels — full video, a section's own
-looping view, an editor — with frame steps, a drag-and-nudge trim strip,
-delete that asks and undoes, Back up one level, and portrait, landscape and
-desktop layouts; 0.25–1×, mirror, saved points and sections) and the routine editor
+looping view, an editor — with 0.1 s steps, a drag-and-nudge trim strip,
+delete that asks and undoes, Back up one level, pinch zoom, double-tap jumps,
+the screen kept on, and portrait (built for upright videos: Hide, a row of
+sections), landscape and desktop layouts; 0.25–1×, mirror, saved points and
+sections) and the routine editor
 (drag to reorder, swipe to delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
 (Save video on a figure's or lesson's YouTube link: the home worker downloads
@@ -96,12 +98,13 @@ src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
                      navigation guard. ui/UnsavedDialog.svelte asks the question
-src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and frame steps,
+src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      whole-section moves, the loop rule. trim.ts (the trim
                      strip), screens.ts (the player's stack of levels and the
                      loop it implies), keys.ts, layout.ts, player-history.ts
-                     (one history entry per screen, behind a port) and
-                     frame-rate.ts are PURE too. spots-api.ts is the player's
+                     (one history entry per screen, behind a port), zoom.ts
+                     (pinch maths), taps.ts (double-tap) and screen-on.ts
+                     (the wake lock, injected) are PURE too. spots-api.ts is the player's
                      fetch side of /api/video-spots. Client-safe. The player's
                      screens are src/lib/components/video/
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server

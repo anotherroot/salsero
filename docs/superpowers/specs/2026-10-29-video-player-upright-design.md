@@ -1,6 +1,7 @@
 # Full-screen player, round 2: upright videos on a phone
 
-Status: design, 2026-10-29. Builds on
+Status: built 2026-10-29, folded into
+[`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md). Builds on
 [`2026-10-29-video-player-redesign-design.md`](2026-10-29-video-player-redesign-design.md)
 (three levels, Back up one level, the editor, the trim strip), which shipped
 the same day. Mock-ups: the "Round 2" and "Round 3" rows of the design canvas

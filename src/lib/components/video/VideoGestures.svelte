@@ -75,6 +75,8 @@
 		return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 };
 	}
 
+	// Fingers on the picture: bookkeeping for the handlers, never shown, so not reactive.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const pts = new Map<number, Pt>();
 	let press: { at: Pt; t: number; last: Pt; moved: boolean } | null = null;
 	let pinch: { start: View; from: [Pt, Pt] } | null = null;
