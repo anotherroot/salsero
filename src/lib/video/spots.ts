@@ -87,57 +87,17 @@ export function moveEdge(
 	return next === startMs ? null : { startMs: next, endMs };
 }
 
-/**
- * Seconds per frame until the video's own is measured (`frame-rate.ts`).
- * Browsers do not expose a frame rate; saved YouTube videos are 25 or 30 fps.
- */
-export const DEFAULT_FRAME_S = 1 / 30;
+/** The fine step, for the transport, the editor and the , / . keys. A frame (17 ms at 60 fps) showed nothing. */
+export const TENTH_MS = 100;
 
-/** The frame a time falls in. The epsilon makes an exact boundary that frame, not the one before. */
-export function frameNumber(currentS: number, frameS: number): number {
-	return Math.floor(currentS / frameS + 1e-6);
-}
+/** How far inside its end the editor parks the video, so the paused picture is still in the section. */
+export const END_PARK_MS = 10;
 
-/**
- * Where a frame step seeks: the middle of the frame `frames` away, so a seek
- * never lands on a boundary the browser might round to the neighbour.
- */
-export function frameSeek(
-	currentS: number,
-	frames: number,
-	frameS: number,
-	durationS: number
-): number {
-	const to = Math.max(0, (frameNumber(currentS, frameS) + frames + 0.5) * frameS);
-	return Number.isFinite(durationS) ? Math.min(durationS, to) : to;
-}
-
-/**
- * An edge moved by whole frames, from the frame boundary nearest to it — or
- * null when that changes nothing, as `moveEdge` decides.
- */
-export function edgeByFrames(
-	spot: Pick<Spot, 'startMs' | 'endMs'>,
-	edge: 'start' | 'end',
-	frames: number,
-	frameS: number,
-	durationS: number
-): { startMs: number; endMs: number | null } | null {
-	const atMs = edge === 'start' ? spot.startMs : spot.endMs;
-	if (atMs === null) return null;
-	const snappedS = Math.round(atMs / 1000 / frameS) * frameS;
-	return moveEdge(spot, edge, msOf(snappedS + frames * frameS), durationS);
-}
-
-/** The time that shows an edge's frame: the first frame inside a start, the last inside an end. */
-export function edgeFrameTime(
-	spot: Pick<Spot, 'startMs' | 'endMs'>,
-	edge: 'start' | 'end',
-	frameS: number
-): number {
+/** Where to pause to show an edge (seconds): a start itself, an end just inside it. */
+export function edgeViewTime(spot: Pick<Spot, 'startMs' | 'endMs'>, edge: 'start' | 'end'): number {
 	return edge === 'start' || spot.endMs === null
-		? spot.startMs / 1000 + frameS / 2
-		: spot.endMs / 1000 - frameS / 2;
+		? spot.startMs / 1000
+		: (spot.endMs - END_PARK_MS) / 1000;
 }
 
 /** Earlier / Later: how far one tap moves a whole section. */

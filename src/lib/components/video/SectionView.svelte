@@ -19,7 +19,6 @@
 	interface Props {
 		spot: Spot;
 		currentMs: number;
-		frameNo: number;
 		paused: boolean;
 		rate: VideoRate;
 		variant: 'panel' | 'overlay' | 'bar';
@@ -28,14 +27,13 @@
 		onseek: (ms: number) => void;
 		ontoggle: () => void;
 		onstep: (s: -1 | 1) => void;
-		onframe: (f: -1 | 1) => void;
+		ontenth: (d: -1 | 1) => void;
 		onrate: (r: VideoRate) => void;
 	}
 
 	let {
 		spot,
 		currentMs,
-		frameNo,
 		paused,
 		rate,
 		variant,
@@ -44,7 +42,7 @@
 		onseek,
 		ontoggle,
 		onstep,
-		onframe,
+		ontenth,
 		onrate
 	}: Props = $props();
 
@@ -92,9 +90,9 @@
 		<div>{@render track(false)}</div>
 		<div class="flex flex-1 flex-col items-center justify-center gap-5">
 			<span class="text-[12px] text-(--pl-muted) tabular-nums"
-				>{preciseTime(currentMs)} in the video · frame {frameNo}</span
+				>{preciseTime(currentMs)} in the video</span
 			>
-			<Transport {paused} size="large" {ontoggle} {onstep} {onframe} />
+			<Transport {paused} size="large" {ontoggle} {onstep} {ontenth} />
 			<div role="group" aria-label="Speed" class="flex gap-1 rounded-2xl bg-(--pl-surface) p-1">
 				{#each VIDEO_RATES as r (r)}
 					<button
@@ -113,16 +111,15 @@
 {:else if variant === 'overlay'}
 	<div class="flex flex-col gap-1 px-6 pb-3">
 		{@render track(true)}
-		<div class="mt-1"><Transport {paused} overlay {ontoggle} {onstep} {onframe} /></div>
+		<div class="mt-1"><Transport {paused} overlay {ontoggle} {onstep} {ontenth} /></div>
 	</div>
 {:else}
 	<div class="flex flex-col gap-1 px-4 pt-3">
 		{@render track(false)}
 		<div class="flex items-center gap-2 py-2">
 			<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
-			<span class="text-[12px] text-(--pl-muted) tabular-nums">frame {frameNo}</span>
 			<span class="flex-1"></span>
-			<Transport {paused} {ontoggle} {onstep} {onframe} />
+			<Transport {paused} {ontoggle} {onstep} {ontenth} />
 			<span class="flex-1"></span>
 			<button type="button" class={BTN_GHOST} onclick={onfull}>
 				<Icon d={icons.chevronLeft} />Full video

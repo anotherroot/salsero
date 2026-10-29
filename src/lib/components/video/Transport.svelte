@@ -14,7 +14,8 @@
 		overlay?: boolean;
 		ontoggle: () => void;
 		onstep: (s: -1 | 1) => void;
-		onframe: (f: -1 | 1) => void;
+		/** −0.1 s / +0.1 s: pauses, then steps. */
+		ontenth: (d: -1 | 1) => void;
 	}
 
 	let {
@@ -24,11 +25,11 @@
 		overlay = false,
 		ontoggle,
 		onstep,
-		onframe
+		ontenth
 	}: Props = $props();
 
 	const side = $derived(overlay ? BTN_ON_VIDEO : BTN_GHOST);
-	const frame = $derived(
+	const fine = $derived(
 		overlay
 			? BTN_ON_VIDEO
 			: size === 'compact'
@@ -52,9 +53,12 @@
 			onclick={() => onstep(-1)}>−1 s</button
 		>
 	{/if}
-	<button type="button" class={frame} aria-label="Previous frame" onclick={() => onframe(-1)}>
-		<Icon d={icons.framePrev} />
-	</button>
+	<button
+		type="button"
+		class="{fine} min-w-13 px-2"
+		aria-label="Back 0.1 s"
+		onclick={() => ontenth(-1)}>−0.1 s</button
+	>
 	<button type="button" class={play} aria-label={paused ? 'Play' : 'Pause'} onclick={ontoggle}>
 		{#if paused}
 			<Icon d={icons.play} filled size={glyph} />
@@ -62,9 +66,12 @@
 			<Icon d={icons.pause} weight={3.5} size={glyph} />
 		{/if}
 	</button>
-	<button type="button" class={frame} aria-label="Next frame" onclick={() => onframe(1)}>
-		<Icon d={icons.frameNext} />
-	</button>
+	<button
+		type="button"
+		class="{fine} min-w-13 px-2"
+		aria-label="Forward 0.1 s"
+		onclick={() => ontenth(1)}>+0.1 s</button
+	>
 	{#if seconds}
 		<button
 			type="button"

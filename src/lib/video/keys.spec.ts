@@ -17,8 +17,8 @@ describe('keyAction', () => {
 		[' ', 'toggle'],
 		['ArrowLeft', 'back1'],
 		['ArrowRight', 'fwd1'],
-		[',', 'framePrev'],
-		['.', 'frameNext'],
+		[',', 'tenthBack'],
+		['.', 'tenthFwd'],
 		['?', 'keys']
 	] as const)('%j is %s at every level', (key, action) => {
 		for (const level of ['full', 'section', 'edit'] as const) {

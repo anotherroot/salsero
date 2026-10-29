@@ -6,10 +6,7 @@
 	import { getDance } from '$lib/dances/dances';
 	import type { VideoRate } from '$lib/video-prefs';
 	import {
-		DEFAULT_FRAME_S,
-		edgeFrameTime,
-		frameNumber,
-		frameSeek,
+		edgeViewTime,
 		lengthText,
 		loopTarget,
 		MIN_SECTION_MS,
@@ -19,7 +16,8 @@
 		sortSpots,
 		spotLabel,
 		spotTime,
-		step
+		step,
+		TENTH_MS
 	} from '$lib/video/spots';
 	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
 	import {
@@ -36,7 +34,6 @@
 	import { PlayerHistory } from '$lib/video/player-history';
 	import { keyAction, type KeyAction } from '$lib/video/keys';
 	import { layoutFor } from '$lib/video/layout';
-	import { watchFrameDuration } from '$lib/video/frame-rate';
 	import Icon from '$lib/components/video/Icon.svelte';
 	import { icons } from '$lib/components/video/icons';
 	import { BTN, BTN_ACCENT, BTN_GHOST, BTN_ON_VIDEO } from '$lib/components/video/styles';
@@ -109,7 +106,6 @@
 	let selected = $state<'start' | 'end'>('start');
 	/** Milliseconds: the start of a section whose end has not been tapped yet. */
 	let pendingStart = $state<number | null>(null);
-	let frameS = $state(DEFAULT_FRAME_S);
 	let sheetMessage = $state<string | null>(null);
 	let toast = $state<{ text: string; action?: { label: string; run: () => void } } | null>(null);
 
@@ -122,7 +118,6 @@
 	);
 	const loop = $derived(loopOf(stack, spots, loopPaused));
 	const currentMs = $derived(current * 1000);
-	const frameNo = $derived(frameNumber(current, frameS));
 	const durationMs = $derived(Number.isFinite(duration) ? duration * 1000 : 0);
 
 	/*
@@ -232,7 +227,6 @@
 			loadFailed = true;
 			say("Couldn't load spots");
 		});
-		return watchFrameDuration(video, (s) => (frameS = s));
 	});
 
 	async function save(input: { startMs: number; endMs: number | null; label: string | null }) {
@@ -334,10 +328,10 @@
 		if (how === 'now') {
 			const at = edge === 'start' ? next.startMs : (next.endMs ?? next.startMs);
 			say(`${edge === 'start' ? 'Start' : 'End'} set to ${preciseTime(at)}`);
-		} else if (how === 'frame' || how === 'drag') {
-			// A frame is for looking: pause on the edge's own frame.
+		} else if (how === 'tenth' || how === 'drag') {
+			// A fine move is for looking: pause where the edge shows.
 			video.pause();
-			video.currentTime = edgeFrameTime(next, edge, frameS);
+			video.currentTime = edgeViewTime(next, edge);
 		} else {
 			hear(next, edge);
 		}
@@ -442,9 +436,9 @@
 		video.currentTime = step(video.currentTime, deltaS, video.duration);
 	}
 
-	function frameStep(f: -1 | 1) {
+	function tenth(d: -1 | 1) {
 		video.pause();
-		video.currentTime = frameSeek(video.currentTime, f, frameS, video.duration);
+		video.currentTime = step(video.currentTime, (d * TENTH_MS) / 1000, video.duration);
 	}
 
 	function seek(ms: number) {
@@ -490,10 +484,10 @@
 				return nudge(-1);
 			case 'fwd1':
 				return nudge(1);
-			case 'framePrev':
-				return frameStep(-1);
-			case 'frameNext':
-				return frameStep(1);
+			case 'tenthBack':
+				return tenth(-1);
+			case 'tenthFwd':
+				return tenth(1);
 			case 'mark':
 				return void mark();
 			case 'section':
@@ -568,7 +562,7 @@
 	const LEGEND: [string, string][] = [
 		['Space', 'play'],
 		['← →', '1 s'],
-		[', .', 'one frame'],
+		[', .', '0.1 s'],
 		['I O', 'start / end here'],
 		['[ ]', 'jump to start / end'],
 		['M', 'mark'],
@@ -628,8 +622,6 @@
 		{selected}
 		{currentMs}
 		durationS={duration}
-		{frameS}
-		{frameNo}
 		{paused}
 		looping={!loopPaused}
 		{transport}
@@ -647,7 +639,7 @@
 		ondelete={() => openSheet('delete')}
 		ondone={done}
 		ontoggle={toggle}
-		onframe={frameStep}
+		ontenth={tenth}
 	/>
 {/snippet}
 
@@ -659,9 +651,6 @@
 
 {#snippet clock(overlay: boolean)}
 	<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
-	<span class="text-[12px] tabular-nums {overlay ? 'text-white/75' : 'text-(--pl-muted)'}"
-		>frame {frameNo}</span
-	>
 {/snippet}
 
 {#snippet fullTimeline(overlay: boolean)}
@@ -827,7 +816,6 @@
 				<SectionView
 					spot={openSpot}
 					{currentMs}
-					{frameNo}
 					{paused}
 					{rate}
 					variant="panel"
@@ -836,7 +824,7 @@
 					onseek={seek}
 					ontoggle={toggle}
 					onstep={nudge}
-					onframe={frameStep}
+					ontenth={tenth}
 					onrate={(r) => onchoose({ rate: r })}
 				/>
 			{:else if level.kind === 'edit' && openSpot}
@@ -853,7 +841,7 @@
 						{@render fullTimeline(false)}
 					</div>
 					<div class="px-4 pt-1">
-						<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+						<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 					</div>
 					<div class="flex gap-2 px-4 pt-3 pb-1">
 						<button type="button" class="{BTN} flex-1" onclick={mark}>
@@ -883,7 +871,6 @@
 					<SectionView
 						spot={openSpot}
 						{currentMs}
-						{frameNo}
 						{paused}
 						{rate}
 						variant="overlay"
@@ -892,7 +879,7 @@
 						onseek={seek}
 						ontoggle={toggle}
 						onstep={nudge}
-						onframe={frameStep}
+						ontenth={tenth}
 						onrate={(r) => onchoose({ rate: r })}
 					/>
 				{:else}
@@ -901,7 +888,7 @@
 						<div class="flex items-center gap-2">
 							<span class="flex w-40 items-baseline gap-2">{@render clock(true)}</span>
 							<span class="flex-1"></span>
-							<Transport {paused} overlay ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+							<Transport {paused} overlay ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 							<span class="flex-1"></span>
 							<span class="flex w-40 justify-end gap-2">{@render markButtons(true)}</span>
 						</div>
@@ -912,7 +899,7 @@
 			<div class="area-below flex items-center gap-2 px-3 py-1.5">
 				{@render clock(false)}
 				<span class="flex-1"></span>
-				<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+				<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 			</div>
 		{:else}
 			<div class="area-below flex flex-col">
@@ -920,7 +907,6 @@
 					<SectionView
 						spot={openSpot}
 						{currentMs}
-						{frameNo}
 						{paused}
 						{rate}
 						variant="bar"
@@ -929,7 +915,7 @@
 						onseek={seek}
 						ontoggle={toggle}
 						onstep={nudge}
-						onframe={frameStep}
+						ontenth={tenth}
 						onrate={(r) => onchoose({ rate: r })}
 					/>
 				{:else}
@@ -940,7 +926,7 @@
 							>/ {durationMs ? preciseTime(durationMs) : '–'}</span
 						>
 						<span class="flex-1"></span>
-						<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+						<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 						<span class="flex-1"></span>
 						{@render markButtons(false)}
 					</div>

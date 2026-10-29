@@ -1,13 +1,12 @@
 <!-- src/lib/components/video/SpotEditor.svelte -->
 <script lang="ts" module>
 	/** How an edit was made: it decides what the player plays or shows afterwards. */
-	export type MoveHow = 'second' | 'frame' | 'now' | 'whole' | 'drag';
+	export type MoveHow = 'second' | 'tenth' | 'now' | 'whole' | 'drag';
 	export type Times = { startMs: number; endMs: number | null };
 </script>
 
 <script lang="ts">
 	import {
-		edgeByFrames,
 		lengthText,
 		moveEdge,
 		preciseTime,
@@ -15,6 +14,7 @@
 		shiftSpot,
 		spotLabel,
 		spotTime,
+		TENTH_MS,
 		WHOLE_RESIZE_MS,
 		WHOLE_SHIFT_MS
 	} from '$lib/video/spots';
@@ -37,8 +37,6 @@
 		selected: 'start' | 'end';
 		currentMs: number;
 		durationS: number;
-		frameS: number;
-		frameNo: number;
 		paused: boolean;
 		/** The section's loop is running (the Loop toggle pauses it). */
 		looping: boolean;
@@ -56,7 +54,7 @@
 		ondelete: () => void;
 		ondone: () => void;
 		ontoggle: () => void;
-		onframe: (f: -1 | 1) => void;
+		ontenth: (d: -1 | 1) => void;
 	}
 
 	let {
@@ -64,8 +62,6 @@
 		selected,
 		currentMs,
 		durationS,
-		frameS,
-		frameNo,
 		paused,
 		looping,
 		transport = false,
@@ -80,7 +76,7 @@
 		ondelete,
 		ondone,
 		ontoggle,
-		onframe
+		ontenth
 	}: Props = $props();
 
 	const isSection = $derived(spot.endMs !== null);
@@ -89,8 +85,8 @@
 
 	const steps = $derived([
 		{ label: '−1 s', how: 'second', times: moveEdge(spot, edge, atMs - 1000, durationS) },
-		{ label: '−1 f', how: 'frame', times: edgeByFrames(spot, edge, -1, frameS, durationS) },
-		{ label: '+1 f', how: 'frame', times: edgeByFrames(spot, edge, 1, frameS, durationS) },
+		{ label: '−0.1 s', how: 'tenth', times: moveEdge(spot, edge, atMs - TENTH_MS, durationS) },
+		{ label: '+0.1 s', how: 'tenth', times: moveEdge(spot, edge, atMs + TENTH_MS, durationS) },
 		{ label: '+1 s', how: 'second', times: moveEdge(spot, edge, atMs + 1000, durationS) }
 	] as const);
 	const now = $derived(moveEdge(spot, edge, Math.round(currentMs), durationS));
@@ -111,7 +107,8 @@
 	);
 
 	function onDrag(e: 'start' | 'end', ms: number) {
-		const snapped = Math.round(Math.round(ms / (frameS * 1000)) * frameS * 1000);
+		// Hundredths: the precision the times are shown in.
+		const snapped = Math.round(ms / 10) * 10;
 		const times = moveEdge(spot, e, snapped, durationS);
 		if (times) onmove(times, 'drag', e);
 	}
@@ -121,9 +118,8 @@
 	{#if transport}
 		<div class="flex h-13 shrink-0 items-center gap-1 border-b border-(--pl-raised) pr-2 pl-4">
 			<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
-			<span class="ml-1.5 text-[12px] text-(--pl-muted) tabular-nums">f {frameNo}</span>
 			<span class="flex-1"></span>
-			<Transport {paused} size="compact" seconds={false} {ontoggle} onstep={() => {}} {onframe} />
+			<Transport {paused} size="compact" seconds={false} {ontoggle} onstep={() => {}} {ontenth} />
 		</div>
 	{/if}
 
@@ -199,8 +195,11 @@
 
 		<div class="flex flex-col gap-1.5">
 			<span class="text-[12px] text-(--pl-muted)"
-				>{isSection ? (edge === 'start' ? 'Move the start' : 'Move the end') : 'Move the point'}
-				· 1 f = one frame</span
+				>{isSection
+					? edge === 'start'
+						? 'Move the start'
+						: 'Move the end'
+					: 'Move the point'}</span
 			>
 			<div class="flex gap-1.5">
 				{#each steps.slice(0, 2) as s (s.label)}
