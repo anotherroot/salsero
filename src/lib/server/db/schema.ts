@@ -108,8 +108,8 @@ export const figureGroups = sqliteTable(
  * `figure_groups` row (`group_id`). See
  * docs/superpowers/specs/2026-10-29-figures-are-variations-design.md.
  *
- * A specific dance move (figura). Creating one creates its exercise in the
- * same transaction — see `src/lib/server/figures.ts`.
+ * A specific dance move (figura). Its exercise is opt-in (`addFigureExercise`),
+ * not created with it — see `src/lib/server/figures.ts`.
  */
 export const figures = sqliteTable(
 	'figures',

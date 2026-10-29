@@ -30,9 +30,12 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
+	// A derived compares by value: the effect below re-runs only when the id changes,
+	// not on every refresh of `data` (an action, an upload, a closed player).
+	const variationId = $derived(data.variation.id);
 	// Stepping to another variation keeps this page: leave edit mode for it.
 	$effect(() => {
-		void data.variation.id;
+		void variationId;
 		editing = false;
 	});
 	let logging = $state(false);

@@ -225,6 +225,30 @@ describe('reads', () => {
 		]);
 	});
 
+	it('linkableSections lists recordings in figure-name order, not variation-name order', () => {
+		const rec = (id: number, file: string) => {
+			const r = addRecording(db, {
+				figureId: id,
+				file,
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 1,
+				note: null
+			});
+			addSpot(db, { recordingId: r.id }, { startMs: 0, endMs: 500, label: null });
+		};
+		const zebra = fig('salsa', 'Zebra');
+		const aardvark = fig('salsa', 'Aardvark');
+		// Both variations are "Basic": only the figure's name can order them.
+		rec(zebra, 'z.mp4');
+		rec(aardvark, 'a.mp4');
+		expect(linkableSections(db, { exerciseId: drill }).map((g) => g.video.src)).toEqual([
+			'/lesson-videos/l.mp4',
+			'/recordings/a.mp4',
+			'/recordings/z.mp4'
+		]);
+	});
+
 	it('a variation\u2019s lessons are its own', () => {
 		// Cubana teaches only the sibling: its section is not this variation\u2019s "here".
 		linkFigure(db, lessonId, figureId);

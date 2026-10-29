@@ -247,7 +247,7 @@ function videosOf(db: Db, dance: string): SectionVideo[] {
 		.innerJoin(figures, eq(figures.id, recordings.figureId))
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), eq(recordings.kind, 'video')))
-		.orderBy(asc(figures.name), asc(recordings.id))
+		.orderBy(asc(figureGroups.name), asc(figures.name), asc(recordings.id))
 		.all();
 	return [
 		...lessonRows.map((r) => ({

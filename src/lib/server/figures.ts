@@ -83,7 +83,7 @@ export function figureNameTaken(
 		.some((g) => g.id !== exceptGroupId && norm(g.name) === wanted);
 }
 
-/** A figure's live variations, oldest first — the order of its version tabs. */
+/** A figure's live variations, oldest first — the order of the variation bar and sheet. */
 export function listGroupVariations(db: Db, groupId: number): Figure[] {
 	return db
 		.select()

@@ -33,7 +33,7 @@
 		const dance = data.dance.slug;
 		if (c.type === 'figure')
 			return {
-				label: `Figure · ${c.figure.name}`,
+				label: c.figure.name,
 				href: resolve('/[dance]/figures/[id]', { dance, id: String(c.figure.id) })
 			};
 		if (c.type === 'lesson')

@@ -24,6 +24,8 @@
 
 	let listing = $state(false);
 	let adding = $state(false);
+	// By value, so a refresh of the page data does not re-run the effect below.
+	const stepId = $derived(currentId);
 
 	/*
 	 * Stepping to another variation is a same-route navigation, so SvelteKit
@@ -31,7 +33,7 @@
 	 * row picked in the list, and the redirect a new variation lands on.
 	 */
 	$effect(() => {
-		void currentId;
+		void stepId;
 		listing = false;
 		adding = false;
 	});

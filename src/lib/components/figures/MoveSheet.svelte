@@ -40,7 +40,9 @@
 			untrack(() => {
 				target = 'new';
 				query = '';
-				newName = `${figure} ${variation}`;
+				newName = figure.trim().toLowerCase().endsWith(variation.trim().toLowerCase())
+					? figure
+					: `${figure} ${variation}`;
 			});
 		}
 	});
