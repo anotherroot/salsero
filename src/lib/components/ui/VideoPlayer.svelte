@@ -35,6 +35,8 @@
 	import { keyAction, type KeyAction } from '$lib/video/keys';
 	import { layoutFor } from '$lib/video/layout';
 	import { holdScreenOn } from '$lib/video/screen-on';
+	import { NO_ZOOM, zoomTransform, type View } from '$lib/video/zoom';
+	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
 	import Icon from '$lib/components/video/Icon.svelte';
 	import { icons } from '$lib/components/video/icons';
 	import { BTN, BTN_ACCENT, BTN_GHOST, BTN_ON_VIDEO } from '$lib/components/video/styles';
@@ -89,6 +91,8 @@
 	let paused = $state(true);
 	let naturalW = $state(16);
 	let naturalH = $state(9);
+	/** Pinch zoom: kept across levels, gone when the player closes. */
+	let view = $state<View>(NO_ZOOM);
 	let vw = $state(390);
 	let vh = $state(844);
 	const layout = $derived(layoutFor(vw, vh));
@@ -749,7 +753,7 @@
 
 		<!-- 2. the video: one element in every layout, so rotating never reloads it -->
 		<div
-			class="area-video bg-black {mode === 'portrait'
+			class="area-video overflow-hidden bg-black {mode === 'portrait'
 				? 'relative w-full shrink-0'
 				: mode === 'overlay'
 					? 'absolute inset-0'
@@ -757,41 +761,62 @@
 			style:aspect-ratio={mode === 'portrait' ? `${naturalW} / ${naturalH}` : undefined}
 			style:max-height={mode === 'portrait' ? '55dvh' : undefined}
 		>
-			<!-- svelte-ignore a11y_media_has_caption -->
-			<video
-				bind:this={video}
-				{src}
-				playsinline
-				preload="auto"
-				class="absolute inset-0 h-full w-full object-contain"
-				class:mirror
-				bind:currentTime={current}
-				bind:duration
-				bind:paused
-				onloadedmetadata={() => {
-					video.preservesPitch = true;
-					if (video.videoWidth && video.videoHeight) {
-						naturalW = video.videoWidth;
-						naturalH = video.videoHeight;
-					}
-					video.currentTime = loopSpot ? loopSpot.startMs / 1000 : startAt;
-					// Opened from a tap on a section card, so play() is allowed.
-					if (loopSpot) void video.play().catch(() => {});
-				}}
-				{onended}
-			></video>
-			<button
-				type="button"
-				class="absolute inset-0 grid cursor-pointer place-items-center"
-				aria-label={faded ? 'Show controls' : paused ? 'Play' : 'Pause'}
-				onclick={tapVideo}
+			<!-- Zoom on a wrapper, mirror on the video: the two transforms compose. -->
+			<div class="absolute inset-0 origin-center" style:transform={zoomTransform(view)}>
+				<!-- svelte-ignore a11y_media_has_caption -->
+				<video
+					bind:this={video}
+					{src}
+					playsinline
+					preload="auto"
+					class="absolute inset-0 h-full w-full object-contain"
+					class:mirror
+					bind:currentTime={current}
+					bind:duration
+					bind:paused
+					onloadedmetadata={() => {
+						video.preservesPitch = true;
+						if (video.videoWidth && video.videoHeight) {
+							naturalW = video.videoWidth;
+							naturalH = video.videoHeight;
+						}
+						video.currentTime = loopSpot ? loopSpot.startMs / 1000 : startAt;
+						// Opened from a tap on a section card, so play() is allowed.
+						if (loopSpot) void video.play().catch(() => {});
+					}}
+					{onended}
+				></video>
+			</div>
+			<VideoGestures
+				bind:view
+				natural={{ w: naturalW, h: naturalH }}
+				label={faded ? 'Show controls' : paused ? 'Play' : 'Pause'}
+				onsingle={tapVideo}
+				onjump={(side) => nudge(side === 'left' ? -1 : 1)}
 			>
 				{#if paused && !faded}
 					<span class="grid size-14 place-items-center rounded-full bg-black/55 text-white">
 						<Icon d={icons.play} filled size={26} />
 					</span>
 				{/if}
-			</button>
+			</VideoGestures>
+			{#if view.scale > 1}
+				<span
+					class="absolute right-2 z-10 flex items-center gap-1 rounded-lg bg-black/60 py-0.5 pr-0.5 pl-2 text-[12px] text-zinc-200 {mode ===
+					'overlay'
+						? 'top-16'
+						: badge
+							? 'top-9'
+							: 'top-2'}"
+				>
+					Zoom {Math.round(view.scale * 10) / 10}×
+					<button
+						type="button"
+						class="cursor-pointer rounded-md px-2 py-0.5 font-semibold hover:bg-white/10"
+						onclick={() => (view = NO_ZOOM)}>Reset</button
+					>
+				</span>
+			{/if}
 			{#if badge && mode !== 'overlay'}
 				<span
 					class="pointer-events-none absolute top-2 right-2 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
