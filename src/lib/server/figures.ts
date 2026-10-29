@@ -142,6 +142,33 @@ export function createFigure(
 }
 
 /**
+ * A blank variation in an existing figure — the shape `createFigure` gives a
+ * first one (starts on 1, 8 counts, neutral start and end), nothing copied
+ * from a sibling, and no exercise. Null when the figure is gone or archived,
+ * the style is not of its dance, or the name is empty or taken.
+ */
+export function createVariationIn(db: Db, groupId: number, input: FigureInput): Figure | null {
+	if (!input.name.trim()) return null;
+	return db.transaction((tx) => {
+		const group = getGroup(tx, groupId);
+		if (!group || group.archivedAt !== null) return null;
+		if (!isStyleOf(group.dance as DanceSlug, input.style)) return null;
+		if (variationNameTaken(tx, group.id, input.name, null)) return null;
+		return tx
+			.insert(figures)
+			.values({
+				...values(input),
+				dance: group.dance,
+				groupId: group.id,
+				startCount: 1,
+				lengthCounts: DEFAULT_LENGTH_COUNTS
+			})
+			.returning()
+			.get();
+	});
+}
+
+/**
  * Copy a variation within its figure: partner, style, notes, start positions,
  * end position, start count and length. Nothing that belongs to the source
  * itself — recordings, links, lesson links, its exercise. Null when the source
@@ -285,7 +312,11 @@ export function isLastVariation(db: Db, id: number): boolean {
 	return listGroupVariations(db, row.groupId).every((v) => v.id === id);
 }
 
-export type MoveTo = { groupId: number } | { newFigure: string };
+/**
+ * Where a variation moves: an existing figure — under `name` when given, so a
+ * clash there can be resolved on the way in — or a new figure of its own.
+ */
+export type MoveTo = { groupId: number; name?: string } | { newFigure: string };
 export type MoveResult =
 	| { ok: true; groupId: number; figureRemoved: boolean }
 	| { ok: false; reason: 'gone' | 'same-figure' | 'name-taken' | 'figure-name-taken' };
@@ -295,6 +326,8 @@ export type MoveResult =
  * keeps its id, so recordings, links, section links, lesson links, routine
  * options and its exercise all go with it; the exercise is renamed to the new
  * label. The figure it leaves is archived when no live variation is left.
+ * Joining a figure with a non-blank `name` renames the variation in the same
+ * transaction; the target's names are checked against that name.
  */
 export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
 	return db.transaction((tx): MoveResult => {
@@ -304,13 +337,15 @@ export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
 		}
 		const from = row.groupId;
 		let target: number;
+		let name = row.name;
 		if ('groupId' in to) {
 			const g = getGroup(tx, to.groupId);
 			if (!g || g.archivedAt !== null || g.dance !== row.dance) {
 				return { ok: false, reason: 'gone' };
 			}
 			if (g.id === from) return { ok: false, reason: 'same-figure' };
-			if (variationNameTaken(tx, g.id, row.name, id)) return { ok: false, reason: 'name-taken' };
+			if (to.name?.trim()) name = to.name.trim();
+			if (variationNameTaken(tx, g.id, name, id)) return { ok: false, reason: 'name-taken' };
 			target = g.id;
 		} else {
 			const name = to.newFigure.trim();
@@ -319,7 +354,7 @@ export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
 			}
 			target = tx.insert(figureGroups).values({ dance: row.dance, name }).returning().get().id;
 		}
-		tx.update(figures).set({ groupId: target }).where(eq(figures.id, id)).run();
+		tx.update(figures).set({ groupId: target, name }).where(eq(figures.id, id)).run();
 		syncExerciseNames(tx, eq(figures.id, id));
 		return { ok: true, groupId: target, figureRemoved: archiveGroupIfEmpty(tx, from, Date.now()) };
 	});
@@ -397,8 +432,16 @@ export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): Cal
 		.map((r) => ({ id: r.id, name: labelFor(r.figure, r.name), say: r.figure }));
 }
 
-/** Live figures of the dance except one, by name — where a variation can move to. */
-export function listMoveTargets(db: Db, dance: DanceSlug, exceptGroupId: number): MoveTarget[] {
+/**
+ * Live figures of the dance with their variations' names, by name — where a
+ * variation can move to (every figure but its own), or where a lesson can add
+ * one (`exceptGroupId` null: every figure).
+ */
+export function listMoveTargets(
+	db: Db,
+	dance: DanceSlug,
+	exceptGroupId: number | null
+): MoveTarget[] {
 	return listFigures(db, dance)
 		.filter((g) => g.id !== exceptGroupId)
 		.map((g) => ({

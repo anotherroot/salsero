@@ -22,6 +22,7 @@ import {
 	archiveVariation,
 	createFigure,
 	createVariationFrom,
+	createVariationIn,
 	figureLabels,
 	isLastVariation,
 	listFigures,
@@ -140,6 +141,53 @@ describe('createVariationFrom', () => {
 	it('refuses a taken name', () => {
 		const { figure } = fig();
 		expect(createVariationFrom(db, figure.id, 'basic')).toBeNull();
+	});
+});
+
+describe('createVariationIn', () => {
+	it('makes a blank variation in an existing figure', () => {
+		seedPositions(db);
+		const pos = listPositions(db, 'salsa');
+		const { figure: sibling, group } = fig();
+		setFigureShape(db, sibling.id, {
+			startIds: [pos[0].id],
+			endId: pos[1].id,
+			startCount: 3,
+			lengthCounts: 4
+		});
+		const made = createVariationIn(db, group.id, {
+			...input('Doble', { partner: 'solo' }),
+			notes: 'Two turns'
+		})!;
+		expect(made.id).not.toBe(sibling.id);
+		expect(made).toMatchObject({
+			groupId: group.id,
+			dance: 'salsa',
+			name: 'Doble',
+			partner: 'solo',
+			styleTag: 'salsa',
+			notes: 'Two turns',
+			endPositionId: null,
+			startCount: 1,
+			lengthCounts: 8,
+			parentId: null
+		});
+		expect(
+			db.select().from(figureStartPositions).where(eq(figureStartPositions.figureId, made.id)).all()
+		).toEqual([]);
+		expect(db.select().from(exercises).where(eq(exercises.figureId, made.id)).all()).toEqual([]);
+		expect(figureLabels(db, 'salsa').get(made.id)).toBe('Enchufla · Doble');
+	});
+
+	it('refuses a taken name, an archived group, and another dance’s style', () => {
+		const { figure, group } = fig();
+		expect(createVariationIn(db, group.id, input(' basic '))).toBeNull();
+		expect(createVariationIn(db, group.id, input('  '))).toBeNull();
+		expect(createVariationIn(db, group.id, input('Doble', { style: 'dominican' }))).toBeNull();
+		expect(createVariationIn(db, 9999, input('Doble'))).toBeNull();
+		archiveVariation(db, figure.id, 1);
+		expect(createVariationIn(db, group.id, input('Doble'))).toBeNull();
+		expect(db.select().from(figures).all()).toHaveLength(1);
 	});
 });
 
@@ -364,6 +412,39 @@ describe('moveVariation', () => {
 		expect(db.select().from(figures).where(eq(figures.id, a.figure.id)).get()!.groupId).toBe(
 			a.group.id
 		);
+	});
+
+	it('renames on the way in', () => {
+		const a = fig('Enchufla', 'Doble');
+		createVariationFrom(db, a.figure.id, 'Simple');
+		const b = fig('Setenta', 'doble');
+		const ex = addFigureExercise(db, a.figure.id)!;
+		expect(moveVariation(db, a.figure.id, { groupId: b.group.id })).toEqual({
+			ok: false,
+			reason: 'name-taken'
+		});
+		expect(moveVariation(db, a.figure.id, { groupId: b.group.id, name: ' Doble 2 ' })).toEqual({
+			ok: true,
+			groupId: b.group.id,
+			figureRemoved: false
+		});
+		const row = db.select().from(figures).where(eq(figures.id, a.figure.id)).get()!;
+		expect([row.groupId, row.name]).toEqual([b.group.id, 'Doble 2']);
+		expect(db.select().from(exercises).where(eq(exercises.id, ex.id)).get()!.name).toBe(
+			'Setenta · Doble 2'
+		);
+	});
+
+	it('refuses a new name that is taken in the target', () => {
+		const a = fig('Enchufla', 'Doble');
+		const b = fig('Setenta', 'Basic');
+		createVariationFrom(db, b.figure.id, 'Simple');
+		expect(moveVariation(db, a.figure.id, { groupId: b.group.id, name: ' simple ' })).toEqual({
+			ok: false,
+			reason: 'name-taken'
+		});
+		const row = db.select().from(figures).where(eq(figures.id, a.figure.id)).get()!;
+		expect([row.groupId, row.name]).toEqual([a.group.id, 'Doble']);
 	});
 
 	it('refuses a taken or empty figure name', () => {

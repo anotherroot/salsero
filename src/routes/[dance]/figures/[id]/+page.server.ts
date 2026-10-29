@@ -298,8 +298,9 @@ export const actions: Actions = {
 
 	/**
 	 * "Move <variation> to…": into another figure of the dance (`target` is its
-	 * id), or into a new one of its own (`target=new`, named by `figureName`).
-	 * The URL stays the same — the variation keeps its id.
+	 * id, `name` what to call it there), or into a new one of its own
+	 * (`target=new`, named by `figureName`). The URL stays the same — the
+	 * variation keeps its id.
 	 */
 	move: async ({ params, request }) => {
 		const { figure, group } = variationOf(params);
@@ -310,6 +311,8 @@ export const actions: Actions = {
 		let result: MoveResult;
 		let figureName: string | undefined;
 		let groupId: number | undefined;
+		// Blank means "keep its name", the same as not posting one.
+		const name = text(form, 'name');
 		if (rawTarget === 'new') {
 			figureName = text(form, 'figureName');
 			if (!figureName) {
@@ -324,7 +327,7 @@ export const actions: Actions = {
 			if (groupId === undefined) {
 				return fail(400, { action: 'move', message: 'Pick where to move it.' });
 			}
-			result = moveVariation(db, figure.id, { groupId });
+			result = moveVariation(db, figure.id, { groupId, name });
 		}
 
 		if (!result.ok) {
@@ -342,7 +345,8 @@ export const actions: Actions = {
 					const target = groupId === undefined ? null : getGroup(db, groupId);
 					return fail(400, {
 						action: 'move',
-						message: taken(target?.name ?? 'That figure', figure.name)
+						message: taken(target?.name ?? 'That figure', name ?? figure.name),
+						name: String(form.get('name') ?? '')
 					});
 				}
 				case 'figure-name-taken':

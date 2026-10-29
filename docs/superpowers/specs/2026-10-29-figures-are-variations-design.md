@@ -191,6 +191,13 @@ that no live routine gains a timing or position break (compare
   plus partner, style and directions, as today. Everything else is blank:
   neutral start and end, starts on 1, 8 counts. From a lesson, the new
   variation is linked to the lesson, as the figure is today.
+- **A lesson's "Variation of a figure"**: the lesson's new-figure sheet has a
+  switch at the top, "New figure" | "Variation of a figure". The second mode
+  picks one of the dance's live figures (a search and the list, as in Move
+  to…) and asks for the variation's name, partner, style and directions. It
+  makes a **blank** variation in that figure (`createVariationIn`: neutral
+  start and end, starts on 1, 8 counts — not a copy of a sibling) and links
+  it to the lesson straight away. The name must be free in that figure.
 - **"+ New variation"** on the figure page copies the variation being viewed:
   partner, style, start positions, end position, start count, length and
   directions. It copies **no** recordings, sections, links, lesson links or
@@ -214,6 +221,10 @@ that no live routine gains a timing or position break (compare
 - To an existing figure: refused when the target has a live variation of the
   same name ("Enchufla already has a Doble. Rename one first."), or when the
   target is the variation's own figure.
+- **Joining a figure can rename the variation on the way in**: the target may
+  carry a `name`, and the variation is renamed in the same transaction. The
+  target's names are checked against the new name, and the exercise takes the
+  new label.
 - To a new figure: creates the group with the given name and moves the
   variation into it; the variation keeps its own name.
 - Everything the variation owns goes with it, because it all points at the
@@ -307,7 +318,12 @@ name sheet. No move or archive actions here.
 A sheet. First choice "A new figure of its own", which shows a figure-name
 field prefilled "<figure> <variation>" (e.g. "Enchufla Doble"). Below, "Or
 join a figure": a search and the dance's live figures with their variation
-names. The button reads "Make it its own figure" or "Move to <figure>".
+names. Picking one shows a "Name in <figure>" field under the list,
+prefilled with the variation's name. It is checked live against that
+figure's variation names (trimmed, case-insensitive): a clash shows
+"<figure> already has a <name>. Pick another name." and the button stays
+disabled until the name is free and not empty. The button reads "Make it its
+own figure" or "Move to <figure>".
 
 ### The last-variation warning (J)
 

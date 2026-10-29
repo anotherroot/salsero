@@ -7,6 +7,11 @@
 		dance: Dance;
 		/** The figure — "Enchufla". A figure is the variations it holds. */
 		figureName?: string;
+		/**
+		 * Whether to ask for the figure's name. Off where the figure is picked
+		 * instead: a lesson's "Variation of a figure".
+		 */
+		asksFigureName?: boolean;
 		/** The variation this form describes — "Doble". */
 		name?: string;
 		partner?: Partner;
@@ -17,6 +22,7 @@
 	let {
 		dance,
 		figureName = '',
+		asksFigureName = true,
 		name = '',
 		partner = 'partner',
 		style,
@@ -34,17 +40,19 @@
 		'flex h-11 flex-1 cursor-pointer items-center justify-center rounded-lg border text-[14px] has-checked:border-accent has-checked:bg-accent has-checked:text-accent-ink border-rule bg-raised text-ink-2 has-focus-visible:outline-2 has-focus-visible:outline-accent';
 </script>
 
-<label class="block">
-	<span class={label}>Figure name</span>
-	<input
-		name="figureName"
-		required
-		maxlength="200"
-		placeholder="e.g. Dile que no, Enchufla"
-		value={figureName}
-		class={field}
-	/>
-</label>
+{#if asksFigureName}
+	<label class="block">
+		<span class={label}>Figure name</span>
+		<input
+			name="figureName"
+			required
+			maxlength="200"
+			placeholder="e.g. Dile que no, Enchufla"
+			value={figureName}
+			class={field}
+		/>
+	</label>
+{/if}
 
 <label class="block">
 	<span class={label}>Variation name</span>

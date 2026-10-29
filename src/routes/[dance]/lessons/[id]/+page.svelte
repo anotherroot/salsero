@@ -6,6 +6,8 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
+	import FigureList from '$lib/components/figures/FigureList.svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import LinkPicker from '$lib/components/lessons/LinkPicker.svelte';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -37,8 +39,40 @@
 	const LessonLog = logFor('lesson');
 	const failure = (action: string) => (form?.action === action ? form.message : null);
 
+	/** The "+ New figure" sheet's switch: a figure of its own, or a variation of one. */
+	const FIGURE_MODES = [
+		['figure', 'New figure'],
+		['variation', 'Variation of a figure']
+	] as const;
+	let figureMode = $state<'figure' | 'variation'>('figure');
+	/** The figure "Variation of a figure" adds to: its id as the radio posts it. */
+	let variationOf = $state('');
+	// What a refused `newVariation` posted, so the sheet reopens holding it.
+	const variationTyped = $derived(form && 'groupId' in form ? form : null);
+
+	function openFigureSheet() {
+		figureMode = 'figure';
+		variationOf = '';
+		addingFigure = true;
+	}
+
+	const closeFigureSheet: SubmitFunction =
+		() =>
+		async ({ update, result }) => {
+			await update();
+			if (result.type === 'success') addingFigure = false;
+		};
+
 	$effect(() => {
-		if (failure('newFigure')) addingFigure = true;
+		if (failure('newFigure')) {
+			figureMode = 'figure';
+			addingFigure = true;
+		}
+		if (variationTyped) {
+			figureMode = 'variation';
+			variationOf = String(variationTyped.groupId);
+			addingFigure = true;
+		}
 		if (failure('newExercise')) addingExercise = true;
 		if (failure('newRoutine')) addingRoutine = true;
 		if (failure('update')) editing = true;
@@ -338,7 +372,7 @@
 				<button
 					type="button"
 					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={() => (addingFigure = true)}>+ New figure</button
+					onclick={openFigureSheet}>+ New figure</button
 				>
 			</div>
 			{#if data.figures.length > 0}
@@ -394,36 +428,81 @@
 {/if}
 
 <Sheet
-	title="New figure from this lesson"
+	title={figureMode === 'figure' ? 'New figure' : 'New variation'}
 	open={addingFigure}
 	onclose={() => (addingFigure = false)}
 >
-	<form
-		method="POST"
-		action="?/newFigure"
-		class="space-y-3"
-		use:guarded={{
-			label: 'New figure',
-			submit:
-				() =>
-				async ({ update, result }) => {
-					await update();
-					if (result.type === 'success') addingFigure = false;
-				}
-		}}
-	>
-		{#if failure('newFigure')}
-			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
-				{failure('newFigure')}
-			</p>
-		{/if}
-		<FigureFields dance={data.dance} />
-		<button
-			type="submit"
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-			>Add figure</button
+	<div class="mb-3 flex gap-2">
+		{#each FIGURE_MODES as [mode, title] (mode)}
+			<button
+				type="button"
+				aria-pressed={figureMode === mode}
+				onclick={() => (figureMode = mode)}
+				class="h-11 flex-1 rounded-lg border text-[14px] {figureMode === mode
+					? 'border-accent bg-accent text-accent-ink'
+					: 'border-rule bg-raised text-ink-2'}">{title}</button
+			>
+		{/each}
+	</div>
+	<!-- One form per mode: each is guarded against its own first paint, so the switch alone is never "unsaved". -->
+	{#if figureMode === 'figure'}
+		<form
+			method="POST"
+			action="?/newFigure"
+			class="space-y-3"
+			use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
 		>
-	</form>
+			{#if failure('newFigure')}
+				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
+					{failure('newFigure')}
+				</p>
+			{/if}
+			<FigureFields dance={data.dance} />
+			<button
+				type="submit"
+				class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+				>Add figure</button
+			>
+		</form>
+	{:else}
+		<form
+			method="POST"
+			action="?/newVariation"
+			class="space-y-3"
+			use:guarded={{ label: 'New variation', submit: closeFigureSheet }}
+		>
+			{#if failure('newVariation')}
+				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
+					{failure('newVariation')}
+				</p>
+			{/if}
+			<div class="space-y-1.5">
+				<h3 class="text-[12px] font-medium text-ink-2">Figure</h3>
+				{#if data.figureGroups.length === 0}
+					<p class="text-[13px] text-muted">There are no figures yet.</p>
+				{:else}
+					<FigureList
+						figures={data.figureGroups}
+						name="groupId"
+						bind:selected={variationOf}
+						required
+					/>
+				{/if}
+			</div>
+			<FigureFields
+				dance={data.dance}
+				asksFigureName={false}
+				name={variationTyped?.name ?? ''}
+				notes={variationTyped?.notes ?? ''}
+			/>
+			<button
+				type="submit"
+				disabled={data.figureGroups.length === 0}
+				class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-50"
+				>Add variation</button
+			>
+		</form>
+	{/if}
 </Sheet>
 
 <Sheet

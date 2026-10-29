@@ -481,6 +481,9 @@
 	targets={data.moveTargets}
 	{last}
 	failed={failed('move')}
+	typedName={form && 'action' in form && form.action === 'move' && 'name' in form
+		? String(form.name)
+		: null}
 	open={moving}
 	onclose={() => (moving = false)}
 />

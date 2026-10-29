@@ -3,14 +3,16 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import FigureList from './FigureList.svelte';
 	import RemoveWarning from './RemoveWarning.svelte';
 	import type { MoveTarget } from '$lib/types';
 
 	/**
 	 * "Move <variation> to…": a new figure of its own, or another figure of the
 	 * dance. Posts `?/move` with `target` (`new` or the figure's id) and, for a
-	 * new one, `figureName`. The variation keeps its id, so a move lands back on
-	 * this same page.
+	 * new one, `figureName`; for an existing one, `name` — what the variation is
+	 * called there, so a clash can be renamed away on the way in. The variation
+	 * keeps its id, so a move lands back on this same page.
 	 */
 	interface Props {
 		variation: string;
@@ -21,17 +23,19 @@
 		last: boolean;
 		/** `move`'s refusal, if the last post was one. */
 		failed: string | null;
+		/** The "Name in <figure>" the refused move posted, so it survives the message. */
+		typedName: string | null;
 		open: boolean;
 		onclose: () => void;
 	}
 
-	let { variation, figure, targets, last, failed, open, onclose }: Props = $props();
+	let { variation, figure, targets, last, failed, typedName, open, onclose }: Props = $props();
 
 	/** `'new'`, or a target figure's id as the radio posts it. */
 	let target = $state('new');
-	let query = $state('');
-	// Kept in state so it survives picking another figure and coming back to "new".
+	// Kept in state so they survive picking another destination and coming back.
 	let newName = $state('');
+	let joinName = $state('');
 
 	// Each opening starts fresh. A refused move keeps the sheet open, so what was
 	// picked survives the message.
@@ -39,10 +43,10 @@
 		if (open) {
 			untrack(() => {
 				target = 'new';
-				query = '';
 				newName = figure.trim().toLowerCase().endsWith(variation.trim().toLowerCase())
 					? figure
 					: `${figure} ${variation}`;
+				joinName = variation;
 			});
 		}
 	});
@@ -58,18 +62,12 @@
 	});
 
 	const chosen = $derived(targets.find((t) => String(t.id) === target) ?? null);
-	const q = $derived(query.trim().toLowerCase());
-	// A figure matches by its own name or any of its variations'. The picked one
-	// stays listed whatever the search says, so its radio is always there to post.
-	const listed = $derived(
-		targets.filter(
-			(t) =>
-				t === chosen ||
-				!q ||
-				t.name.toLowerCase().includes(q) ||
-				t.variations.some((v) => v.toLowerCase().includes(q))
-		)
+	// Compared the way the server compares: trimmed, case-insensitive.
+	const wanted = $derived(joinName.trim().toLowerCase());
+	const clash = $derived(
+		chosen !== null && chosen.variations.some((v) => v.trim().toLowerCase() === wanted)
 	);
+	const blocked = $derived(chosen !== null && (wanted === '' || clash));
 	const cta = $derived(
 		last ? 'Move and remove figure' : chosen ? `Move to ${chosen.name}` : 'Make it its own figure'
 	);
@@ -80,8 +78,12 @@
 		async ({ update, result }) => {
 			await update();
 			if (result.type === 'redirect') onclose();
-			// The same message twice in a row changes nothing the effect can see.
-			else if (result.type === 'failure') shown = failed;
+			else if (result.type === 'failure') {
+				// The same message twice in a row changes nothing the effect can see.
+				shown = failed;
+				// What was posted under "Name in <figure>", kept for another try.
+				if (typedName) joinName = typedName;
+			}
 		};
 
 	const row = (on: boolean) =>
@@ -123,52 +125,25 @@
 			{#if targets.length === 0}
 				<p class="text-[13px] text-muted">There are no other figures yet.</p>
 			{:else}
-				<label
-					class="flex h-11 items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 focus-within:border-accent"
-				>
-					<svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.2"
-						stroke-linecap="round"
-						class="shrink-0 text-muted"
-						aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg
-					>
-					<span class="sr-only">Search figures</span>
-					<!-- No name: it filters, it is not posted. Enter must not submit the move. -->
+				<FigureList figures={targets} name="target" bind:selected={target} />
+			{/if}
+			{#if chosen}
+				<label class="block px-0.5 pt-1.5">
+					<span class="mb-1 block text-[12px] font-medium text-ink-2">Name in {chosen.name}</span>
 					<input
-						type="search"
-						bind:value={query}
-						placeholder="Search figures"
-						onkeydown={(e) => {
-							if (e.key === 'Enter') e.preventDefault();
-						}}
-						class="min-w-0 flex-1 bg-transparent text-[15px] outline-none"
+						name="name"
+						required
+						maxlength="200"
+						bind:value={joinName}
+						aria-invalid={clash}
+						class={field}
 					/>
 				</label>
-				<div class="max-h-[40dvh] space-y-1.5 overflow-y-auto">
-					{#each listed as t (t.id)}
-						<label class={row(target === String(t.id))}>
-							<input
-								type="radio"
-								name="target"
-								value={String(t.id)}
-								bind:group={target}
-								class="sr-only"
-							/>
-							<span class="flex min-w-0 flex-1 flex-col gap-px">
-								<span class="text-[15px] font-semibold text-ink">{t.name}</span>
-								<span class="text-[12px] text-muted">{t.variations.join(' · ')}</span>
-							</span>
-							<span class={dot(target === String(t.id))} aria-hidden="true"></span>
-						</label>
-					{:else}
-						<p class="py-2 text-[13px] text-muted">No figures match.</p>
-					{/each}
-				</div>
+				{#if clash}
+					<p class="text-[13px] text-danger" role="alert">
+						{chosen.name} already has a {joinName.trim()}. Pick another name.
+					</p>
+				{/if}
 			{/if}
 		</div>
 
@@ -182,7 +157,8 @@
 		{/if}
 		<button
 			type="submit"
-			class="h-12 w-full rounded-xl text-[15px] font-semibold {last
+			disabled={blocked}
+			class="h-12 w-full rounded-xl text-[15px] font-semibold disabled:opacity-50 {last
 				? 'bg-danger text-white'
 				: 'bg-accent text-accent-ink'}">{cta}</button
 		>
