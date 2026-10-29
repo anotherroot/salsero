@@ -197,6 +197,26 @@ describe('a variation stands on its own', () => {
 		setFigureShape(db, made.figure.id, shape([pos('closed')], null));
 		expect(taggedFigures(db, 'salsa')).toEqual({ done: 1, total: 2 });
 	});
+
+	it('taggedFigures leaves out a live variation whose group is archived', () => {
+		const { db } = setup();
+		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		createFigure(db, 'salsa', figureInput('sombrero'));
+		db.update(figureGroups).set({ archivedAt: 1 }).where(eq(figureGroups.id, made.group.id)).run();
+		expect(taggedFigures(db, 'salsa')).toEqual({ done: 0, total: 1 });
+	});
+
+	it('orders nodes by figure name, then variation name', () => {
+		const { db } = setup();
+		const zeta = createFigure(db, 'salsa', figureInput('Zeta'))!;
+		const alpha = createFigure(db, 'salsa', figureInput('Alpha'))!;
+		const alpha2 = createVariationFrom(db, alpha.figure.id, 'Aaa')!;
+		expect(buildGraph(db, 'salsa').figures.map((f) => f.id)).toEqual([
+			alpha2.id,
+			alpha.figure.id,
+			zeta.figure.id
+		]);
+	});
 });
 
 describe('timing defaults', () => {

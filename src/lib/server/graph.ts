@@ -37,13 +37,9 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.where(
-			and(
-				eq(figures.dance, dance),
-				isNull(figures.archivedAt),
-				isNull(figureGroups.archivedAt)
-			)
+			and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
 		)
-		.orderBy(figures.id)
+		.orderBy(figureGroups.name, figures.name, figures.id)
 		.all();
 
 	const ids = rows.map((r) => r.id);
@@ -160,13 +156,16 @@ export function setFigureShape(db: Db, figureId: number, shape: FigureShape): bo
 }
 
 /**
- * How much of the repertoire carries handhold tags, counted per live variation.
+ * How much of the repertoire carries handhold tags, counted per live variation of a live figure.
  */
 export function taggedFigures(db: Db, dance: DanceSlug): { done: number; total: number } {
 	const rows = db
 		.select({ id: figures.id, end: figures.endPositionId })
 		.from(figures)
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt)))
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(
+			and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
+		)
 		.all();
 	const ids = rows.map((r) => r.id);
 	const withStarts = new Set(
