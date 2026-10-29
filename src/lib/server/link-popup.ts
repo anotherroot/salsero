@@ -30,6 +30,8 @@ import {
 import { createCustomExercise } from './exercises';
 import { linkSpot, SpotLinkError, videoOfSpot } from './spot-links';
 import { viaSections } from './lesson-links';
+import { defaultStyle } from './default-styles';
+import { PARTNER, type Partner } from '$lib/labels';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { isFrequency } from '$lib/frequency';
 import type {
@@ -266,4 +268,54 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 		}
 		return linkSpot(tx, spotId, target);
 	});
+}
+
+/** `linkOptions` with this user's default style for the section's dance. */
+export function linkOptionsFor(db: Db, spotId: number, userId: string): LinkOptions | null {
+	const video = videoOfSpot(db, spotId);
+	if (!video) return null;
+	return linkOptions(db, spotId, defaultStyle(db, userId, video.dance as DanceSlug));
+}
+
+const isId = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v > 0;
+const isText = (v: unknown): v is string => typeof v === 'string' && v.length <= 200;
+
+/** A POST body: `{ target }` or `{ create }`, checked field by field. Null for anything else. */
+export function parseLinkBody(
+	body: unknown
+): { target: SectionTarget } | { create: LinkCreate } | null {
+	if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+	const b = body as Record<string, unknown>;
+	if (b.target && typeof b.target === 'object') {
+		const t = b.target as Record<string, unknown>;
+		if (isId(t.figureId)) return { target: { figureId: t.figureId } };
+		if (isId(t.exerciseId)) return { target: { exerciseId: t.exerciseId } };
+		return null;
+	}
+	if (!b.create || typeof b.create !== 'object') return null;
+	const c = b.create as Record<string, unknown>;
+	if (!isText(c.name)) return null;
+	if (c.kind === 'variation' && isId(c.groupId)) {
+		return { create: { kind: 'variation', groupId: c.groupId, name: c.name } };
+	}
+	if (
+		c.kind === 'figure' &&
+		isText(c.figureName) &&
+		typeof c.style === 'string' &&
+		(PARTNER as readonly unknown[]).includes(c.partner)
+	) {
+		return {
+			create: {
+				kind: 'figure',
+				figureName: c.figureName,
+				name: c.name,
+				partner: c.partner as Partner,
+				style: c.style
+			}
+		};
+	}
+	if (c.kind === 'drill' && typeof c.everyDays === 'number') {
+		return { create: { kind: 'drill', name: c.name, everyDays: c.everyDays } };
+	}
+	return null;
 }
