@@ -99,13 +99,14 @@
 {/snippet}
 
 <!--
-	1rem above the bottom tabs, as the selection bars are (4.5rem plus the safe
-	area). The page pads its own bottom so the end of it clears this.
+	Flush on the bottom tabs (their 3.5rem, their 1px border and the safe area):
+	the bar is always there, so a gap above the tabs would read as a hole. The
+	page pads its own bottom so the end of it clears this.
 -->
 <nav
 	aria-label="Variations of {figureName}"
 	class="fixed inset-x-0 z-30 mx-auto flex max-w-[560px] items-center gap-2 border-t border-line bg-surface px-3 py-2.5 shadow-[0_-4px_16px_rgb(0_0_0/0.06)]"
-	style="bottom: calc(4.5rem + env(safe-area-inset-bottom))"
+	style="bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom))"
 >
 	{@render step(prev, 'Previous variation', 'M15 6l-6 6 6 6')}
 	<button
