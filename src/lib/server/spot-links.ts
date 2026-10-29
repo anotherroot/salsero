@@ -30,6 +30,7 @@ import type {
 	SpotOwner,
 	VideoSection
 } from '$lib/types';
+import { lessonsReaching } from './lesson-links';
 
 /** A link that cannot be made. `status` is what the route answers with. */
 export class SpotLinkError extends Error {
@@ -288,7 +289,10 @@ function targetContext(db: Db, target: SectionTarget) {
 			.from(lessonFigures)
 			.where(eq(lessonFigures.figureId, target.figureId))
 			.all();
-		return { dance: f.dance, taught: new Set(rows.map((r) => r.id)) };
+		return {
+			dance: f.dance,
+			taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
+		};
 	}
 	const e = db
 		.select({ dance: exercises.dance })
@@ -301,7 +305,10 @@ function targetContext(db: Db, target: SectionTarget) {
 		.from(lessonExercises)
 		.where(eq(lessonExercises.exerciseId, target.exerciseId))
 		.all();
-	return { dance: e.dance, taught: new Set(rows.map((r) => r.id)) };
+	return {
+		dance: e.dance,
+		taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
+	};
 }
 
 const ownerKey = (o: SpotOwner) =>

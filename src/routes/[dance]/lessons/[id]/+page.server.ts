@@ -301,8 +301,11 @@ export const actions: Actions = {
 
 	unlinkFigure: async ({ params, request }) => {
 		const id = lessonOf(params).lesson.id;
-		const figureId = int(await request.formData(), 'figureId');
-		if (figureId === undefined || !unlinkFigure(getDb(), id, figureId)) {
+		const form = await request.formData();
+		const figureId = int(form, 'figureId');
+		// A row there through a section: its Unlink takes the section links with it.
+		const alsoSections = form.get('alsoSections') === '1';
+		if (figureId === undefined || !unlinkFigure(getDb(), id, figureId, alsoSections)) {
 			return fail(400, { action: 'unlinkFigure', message: 'That figure was already unlinked.' });
 		}
 		return { action: 'unlinkFigure', ok: true };
@@ -369,8 +372,10 @@ export const actions: Actions = {
 
 	unlinkExercise: async ({ params, request }) => {
 		const id = lessonOf(params).lesson.id;
-		const exerciseId = int(await request.formData(), 'exerciseId');
-		if (exerciseId === undefined || !unlinkExercise(getDb(), id, exerciseId)) {
+		const form = await request.formData();
+		const exerciseId = int(form, 'exerciseId');
+		const alsoSections = form.get('alsoSections') === '1';
+		if (exerciseId === undefined || !unlinkExercise(getDb(), id, exerciseId, alsoSections)) {
 			return fail(400, {
 				action: 'unlinkExercise',
 				message: 'That exercise was already unlinked.'

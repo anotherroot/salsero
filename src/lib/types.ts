@@ -179,13 +179,18 @@ export interface PracticePayload {
 	last: LastSet | null;
 }
 
-/** A figure taught in a lesson, with the exercise that came with it. */
+/**
+ * A variation taught in a lesson, with the exercise that came with it: linked
+ * by hand, through sections of the lesson's videos, or both.
+ */
 export interface LessonFigureRow {
 	id: number;
 	name: string;
 	partner: Partner;
 	style: string | null;
 	exerciseId: number | null;
+	byHand: boolean;
+	viaSections: ViaSection[];
 }
 
 /** A routine linked to a lesson, with the exercise that came with it. */
@@ -195,11 +200,16 @@ export interface LessonRoutineRow {
 	exerciseId: number | null;
 }
 
-/** An exercise attached to a lesson by hand. Never a linked figure's or routine's own. */
+/**
+ * An exercise on a lesson: attached by hand, or a drill linked through a section
+ * of the lesson's videos. Never a linked figure's or routine's own.
+ */
 export interface LessonExerciseRow {
 	id: number;
 	name: string;
 	source: Source;
+	byHand: boolean;
+	viaSections: ViaSection[];
 }
 
 /** One variation of a figure, as a picker offers it. */
