@@ -14,11 +14,21 @@
 		onproblem: (problem: MediaProblem) => void;
 		/** Where a saved YouTube video came from, shown as a link under the controls. */
 		sourceUrl?: string | null;
+		/** What the full-screen player's top bar names: the figure or lesson. */
+		title?: string;
 		/** After the full-screen player closes — a page whose lists show its spots refreshes. */
 		onclosed?: () => void;
 	}
 
-	let { src, kind = 'video', owner, onproblem, sourceUrl = null, onclosed }: Props = $props();
+	let {
+		src,
+		kind = 'video',
+		owner,
+		onproblem,
+		sourceUrl = null,
+		title = 'Video',
+		onclosed
+	}: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
 	// choice on mount: reading localStorage during SSR is impossible, and
@@ -121,6 +131,8 @@
 		{src}
 		{owner}
 		startAt={fullAt}
+		{title}
+		subtitle={'recordingId' in owner ? 'Recording' : 'Lesson video'}
 		{mirror}
 		{rate}
 		onchoose={choose}
