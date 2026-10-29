@@ -90,6 +90,13 @@ survive verbatim, and a bad figure row is still refused.
   name until its slots are built, and that page is where they are built. Like
   a new figure, create-then-link is two calls, not one transaction. The routine
   page shows the lessons that link it under "Taught in".
+- **A lesson includes what its videos' sections link to** (2026-10-29,
+  [`2026-10-29-section-link-popup-design.md`](2026-10-29-section-link-popup-design.md)).
+  A variation or drill linked to a section of one of the lesson's videos is on
+  the lesson, with nothing written to `lesson_figures` / `lesson_exercises`:
+  `lesson-links.ts` derives it, and `getLesson`, the pickers, `taughtIn` and
+  the "never twice" rule all read the union. Its row says "via section", and its
+  Unlink takes the section links with it (`alsoSections`), after asking.
 - **A review exercise is never "linked"**, not even to its own lesson: it
   belongs to the lesson that created it, and borrowing one into a second lesson
   makes "whose is this?" unanswerable on screen.
