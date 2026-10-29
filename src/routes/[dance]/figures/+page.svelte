@@ -162,9 +162,7 @@
 				class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
 				>Add figure</button
 			>
-			<p class="text-[12px] text-muted">
-				An exercise to practise it is added to Today automatically. You can add recordings next.
-			</p>
+			<p class="text-[12px] text-muted">You can add recordings next.</p>
 		</form>
 	</Sheet>
 {/if}

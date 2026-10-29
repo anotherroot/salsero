@@ -12,8 +12,11 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { openDb } from './index';
+import { openDb, type Db } from './index';
 import { exercises, figureGroups, figures, lessons, songs } from './schema';
+
+/** The connection behind a drizzle handle, for plain SQL. */
+const raw = (d: Db) => (d as unknown as { $client: Database.Database }).$client;
 
 /** The last migration before the dance column. */
 const LAST_OLD = '0004_absent_captain_midlands';
@@ -148,7 +151,7 @@ it('turns base figures into groups and materialises what variations inherited', 
 	const f = (id: number) => db.select().from(figures).where(eq(figures.id, id)).get()!;
 	const starts = (id: number) =>
 		(
-			db.$client
+			raw(db)
 				.prepare(`select position_id from figure_start_positions where figure_id = ? order by 1`)
 				.all(id) as { position_id: number }[]
 		).map((r) => r.position_id);
@@ -199,7 +202,7 @@ it('keeps live figure names unique per dance and base variation names unique per
 
 	const db = openDb(file);
 	const names = (
-		db.$client
+		raw(db)
 			.prepare(`select name from figure_groups where archived_at is null order by id`)
 			.all() as {
 			name: string;
@@ -209,7 +212,7 @@ it('keeps live figure names unique per dance and base variation names unique per
 	expect(new Set(keys).size).toBe(keys.length);
 	expect(names[0]).toBe('Vacilala');
 	const inGroup = (
-		db.$client.prepare(`select name from figures where group_id = 5 order by id`).all() as {
+		raw(db).prepare(`select name from figures where group_id = 5 order by id`).all() as {
 			name: string;
 		}[]
 	).map((r) => r.name);

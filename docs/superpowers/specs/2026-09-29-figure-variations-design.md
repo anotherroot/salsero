@@ -10,6 +10,11 @@
 >
 > **Slices 1 (timing and one edit mode) and 2 (variations) are live.** Slice 3
 > is not built yet.
+>
+> **Superseded in part (2026-10-29):** the data model, the variation fields,
+> the rules and the figure page are replaced by
+> [`2026-10-29-figures-are-variations-design.md`](2026-10-29-figures-are-variations-design.md).
+> Timing and the routine player below still stand.
 
 ## Purpose
 

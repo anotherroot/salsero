@@ -12,7 +12,8 @@ beforeEach(() => {
 });
 
 const figureInput = {
-	name: 'Enchufla',
+	figureName: 'Enchufla',
+	name: 'Basic',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
 	notes: null

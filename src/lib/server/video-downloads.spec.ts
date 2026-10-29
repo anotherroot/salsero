@@ -26,7 +26,8 @@ let lessonId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	figureId = createFigure(db, 'salsa', {
-		name: 'Enchufla',
+		figureName: 'Enchufla',
+		name: 'Basic',
 		partner: 'partner',
 		style: 'salsa',
 		notes: null

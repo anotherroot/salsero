@@ -35,6 +35,14 @@
 		listing = false;
 		adding = false;
 	});
+	// A refusal shows only while the sheet has stayed open since it arrived.
+	let shown = $derived(failed);
+	let wasAdding = false;
+	$effect(() => {
+		const now = adding;
+		if (wasAdding && !now) shown = null;
+		wasAdding = now;
+	});
 	// A refused name re-renders with the message; keep its sheet open to show it.
 	$effect(() => {
 		if (failed) adding = true;
@@ -89,13 +97,13 @@
 {/snippet}
 
 <!--
-	Flush on top of the bottom tabs: their links are h-14, plus a 1px rule and
-	the safe area. The page pads its own bottom so the end of it clears this.
+	1rem above the bottom tabs, as the selection bars are (4.5rem plus the safe
+	area). The page pads its own bottom so the end of it clears this.
 -->
 <nav
 	aria-label="Variations of {figureName}"
 	class="fixed inset-x-0 z-30 mx-auto flex max-w-[560px] items-center gap-2 border-t border-line bg-surface px-3 py-2.5 shadow-[0_-4px_16px_rgb(0_0_0/0.06)]"
-	style="bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom))"
+	style="bottom: calc(4.5rem + env(safe-area-inset-bottom))"
 >
 	{@render step(prev, 'Previous variation', 'M15 6l-6 6 6 6')}
 	<button
@@ -180,9 +188,9 @@
 		class="space-y-3"
 		use:guarded={{ label: 'New variation' }}
 	>
-		{#if failed}
+		{#if shown}
 			<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-				{failed}
+				{shown}
 			</p>
 		{/if}
 		<label class="block">

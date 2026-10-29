@@ -12,7 +12,8 @@ let figureExerciseId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	const made = createFigure(db, 'salsa', {
-		name: 'Enchufla',
+		figureName: 'Enchufla',
+		name: 'Basic',
 		partner: 'partner',
 		style: 'salsa',
 		notes: null

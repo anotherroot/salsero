@@ -46,7 +46,8 @@ beforeEach(() => {
 	figureExerciseId = addFigureExercise(
 		db,
 		createFigure(db, 'salsa', {
-			name: 'Enchufla',
+			figureName: 'Enchufla',
+			name: 'Basic',
 			partner: 'partner',
 			style: 'salsa',
 			notes: null

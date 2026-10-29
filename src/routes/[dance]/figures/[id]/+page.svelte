@@ -30,6 +30,11 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
+	// Stepping to another variation keeps this page: leave edit mode for it.
+	$effect(() => {
+		void data.variation.id;
+		editing = false;
+	});
 	let logging = $state(false);
 	let linkingSection = $state(false);
 	let moving = $state(false);
@@ -132,7 +137,7 @@
 </header>
 
 <!-- The bottom padding clears the variation bar pinned over the end of the page. -->
-<main class="space-y-6 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+<main class="space-y-6 px-4 pt-4 pb-[calc(7rem+env(safe-area-inset-bottom))]">
 	{#if editing}
 		<!--
 			Keyed on the variation: `editing` survives a step to another one, and

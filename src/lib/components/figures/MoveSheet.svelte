@@ -30,6 +30,8 @@
 	/** `'new'`, or a target figure's id as the radio posts it. */
 	let target = $state('new');
 	let query = $state('');
+	// Kept in state so it survives picking another figure and coming back to "new".
+	let newName = $state('');
 
 	// Each opening starts fresh. A refused move keeps the sheet open, so what was
 	// picked survives the message.
@@ -38,15 +40,26 @@
 			untrack(() => {
 				target = 'new';
 				query = '';
+				newName = `${figure} ${variation}`;
 			});
 		}
+	});
+
+	// A refusal shows only while the sheet has stayed open since it arrived: a
+	// reopened sheet starts clean even though the page still holds the old one.
+	let shown = $derived(failed);
+	let wasOpen = false;
+	$effect(() => {
+		const now = open;
+		if (wasOpen && !now) shown = null;
+		wasOpen = now;
 	});
 
 	const chosen = $derived(targets.find((t) => String(t.id) === target) ?? null);
 	const q = $derived(query.trim().toLowerCase());
 	// A figure matches by its own name or any of its variations'. The picked one
 	// stays listed whatever the search says, so its radio is always there to post.
-	const shown = $derived(
+	const listed = $derived(
 		targets.filter(
 			(t) =>
 				t === chosen ||
@@ -65,6 +78,8 @@
 		async ({ update, result }) => {
 			await update();
 			if (result.type === 'redirect') onclose();
+			// The same message twice in a row changes nothing the effect can see.
+			else if (result.type === 'failure') shown = failed;
 		};
 
 	const row = (on: boolean) =>
@@ -96,13 +111,7 @@
 			{#if target === 'new'}
 				<label class="block px-0.5 pb-1.5">
 					<span class="mb-1 block text-[12px] font-medium text-ink-2">New figure's name</span>
-					<input
-						name="figureName"
-						required
-						maxlength="200"
-						value="{figure} {variation}"
-						class={field}
-					/>
+					<input name="figureName" required maxlength="200" bind:value={newName} class={field} />
 				</label>
 			{/if}
 		</div>
@@ -139,7 +148,7 @@
 					/>
 				</label>
 				<div class="max-h-[40dvh] space-y-1.5 overflow-y-auto">
-					{#each shown as t (t.id)}
+					{#each listed as t (t.id)}
 						<label class={row(target === String(t.id))}>
 							<input
 								type="radio"
@@ -161,9 +170,9 @@
 			{/if}
 		</div>
 
-		{#if failed}
+		{#if shown}
 			<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-				{failed}
+				{shown}
 			</p>
 		{/if}
 		{#if last}

@@ -52,6 +52,9 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    Figure timing (start count, length in counts), figure variations and the
    visual routine player: see
    [`2026-09-29-figure-variations-design.md`](2026-09-29-figure-variations-design.md).
+   Its variations model (a base figure with inheriting children) was replaced on
+   2026-10-29: see
+   [`2026-10-29-figures-are-variations-design.md`](2026-10-29-figures-are-variations-design.md).
 4. **Lessons** — a class as a record: day, title, notes, chunk-uploaded videos,
    links to the figures and routines it taught and to exercises, and its own
    auto-created review exercise. Shipped 2026-09-23, ahead of phase 3; routine
