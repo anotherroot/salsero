@@ -70,3 +70,11 @@ describe('prune', () => {
 		expect(prune(s, [{ id: 4 }])).toBe(s);
 	});
 });
+
+describe('the list panel', () => {
+	it('is a sheet over the full video', () => {
+		const s: Stack = [full, { kind: 'sheet', sheet: 'list' }];
+		expect(sheetOf(s)).toBe('list');
+		expect(levelOf(s)).toEqual(full);
+	});
+});

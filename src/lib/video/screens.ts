@@ -5,7 +5,8 @@
  */
 import type { Spot } from '$lib/types';
 
-export type PlayerSheet = 'rename' | 'delete' | 'keys';
+/** `list`: the spot list as a panel beside the video (landscape), closed by Back like any sheet. */
+export type PlayerSheet = 'rename' | 'delete' | 'keys' | 'list';
 
 export type Screen =
 	| { kind: 'full' }

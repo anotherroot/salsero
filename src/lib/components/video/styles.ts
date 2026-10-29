@@ -4,7 +4,7 @@
  * `ui/VideoPlayer.svelte`), so the dance's accent reaches every button.
  */
 const BASE =
-	'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-[14px] font-medium tabular-nums select-none transition-colors disabled:cursor-default disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-(--pl-accent)';
+	'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl text-[14px] font-medium whitespace-nowrap tabular-nums select-none transition-colors disabled:cursor-default disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-(--pl-accent)';
 const SIZE = 'h-11 min-w-11 px-3';
 
 export const BTN = `${BASE} ${SIZE} bg-(--pl-raised) text-(--pl-ink) enabled:hover:bg-(--pl-hover)`;

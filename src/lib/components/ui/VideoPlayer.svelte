@@ -39,7 +39,7 @@
 	import { watchFrameDuration } from '$lib/video/frame-rate';
 	import Icon from '$lib/components/video/Icon.svelte';
 	import { icons } from '$lib/components/video/icons';
-	import { BTN, BTN_ACCENT } from '$lib/components/video/styles';
+	import { BTN, BTN_ACCENT, BTN_GHOST, BTN_ON_VIDEO } from '$lib/components/video/styles';
 	import TopBar from '$lib/components/video/TopBar.svelte';
 	import Transport from '$lib/components/video/Transport.svelte';
 	import Timeline from '$lib/components/video/Timeline.svelte';
@@ -399,6 +399,13 @@
 	}
 
 	function fromList(spot: Spot) {
+		// The landscape list is a sheet: its card turns into the level it opens.
+		if (sheetOf(nav.stack) === 'list') {
+			nav.replaceTop({ kind: spot.endMs === null ? 'edit' : 'section', spotId: spot.id });
+			video.currentTime = spot.startMs / 1000;
+			if (spot.endMs !== null) void video.play().catch(() => {});
+			return;
+		}
 		if (spot.endMs === null) toEdit(spot);
 		else toSection(spot);
 	}
@@ -515,6 +522,60 @@
 		// Also stops a focused button's own Space activation, which would toggle twice.
 		e.preventDefault();
 		act(a);
+		wake();
+	}
+
+	/* ---------- layout ---------- */
+
+	/**
+	 * portrait: everything below the video. overlay: a landscape phone, the
+	 * video fills the screen and the controls float over it. panel: a landscape
+	 * phone with the editor or the list beside the video. desktop: video,
+	 * sidebar, keys.
+	 */
+	const mode = $derived(
+		layout === 'portrait'
+			? 'portrait'
+			: layout === 'desktop'
+				? 'desktop'
+				: level.kind === 'edit' || sheet === 'list'
+					? 'panel'
+					: 'overlay'
+	);
+
+	/* Floating controls fade after 3 s of playing; a tap brings them back. */
+	let shown = $state(true);
+	let hideTimer: ReturnType<typeof setTimeout> | undefined;
+	function wake() {
+		shown = true;
+		clearTimeout(hideTimer);
+		if (mode === 'overlay' && !paused) hideTimer = setTimeout(() => (shown = false), 3000);
+	}
+	$effect(() => {
+		void paused;
+		void mode;
+		untrack(wake);
+		return () => clearTimeout(hideTimer);
+	});
+	const faded = $derived(mode === 'overlay' && !shown);
+
+	/** The desktop's key legend; `?` opens the full list. */
+	const LEGEND: [string, string][] = [
+		['Space', 'play'],
+		['← →', '1 s'],
+		[', .', 'one frame'],
+		['I O', 'start / end here'],
+		['[ ]', 'jump to start / end'],
+		['M', 'mark'],
+		['S', 'section'],
+		['L', 'loop'],
+		['?', 'all keys']
+	];
+
+	/** A tap on the picture: brings faded controls back, else plays or pauses. */
+	function tapVideo() {
+		if (faded) wake();
+		else toggle();
 	}
 
 	const tokens = $derived(
@@ -554,6 +615,85 @@
 
 <svelte:window bind:innerWidth={vw} bind:innerHeight={vh} />
 
+{#snippet editor(spot: Spot, keys: boolean, transport: boolean)}
+	<SpotEditor
+		{spot}
+		{selected}
+		{currentMs}
+		durationS={duration}
+		{frameS}
+		{frameNo}
+		{paused}
+		looping={!loopPaused}
+		{transport}
+		{keys}
+		onselect={selectEdge}
+		onmove={(times, how, edge) => moved(spot, times, how, edge)}
+		ondragstart={(edge) => {
+			selected = edge;
+			video.pause();
+		}}
+		ondragend={dragged}
+		onseek={seek}
+		onloop={() => (loopPaused = !loopPaused)}
+		onrename={() => openSheet('rename')}
+		ondelete={() => openSheet('delete')}
+		ondone={done}
+		ontoggle={toggle}
+		onframe={frameStep}
+	/>
+{/snippet}
+
+{#snippet editorCard(spot: Spot)}
+	<div class="flex flex-col rounded-2xl border border-(--pl-hover) bg-(--pl-surface)">
+		{@render editor(spot, true, false)}
+	</div>
+{/snippet}
+
+{#snippet clock(overlay: boolean)}
+	<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
+	<span class="text-[12px] tabular-nums {overlay ? 'text-white/75' : 'text-(--pl-muted)'}"
+		>frame {frameNo}</span
+	>
+{/snippet}
+
+{#snippet fullTimeline(overlay: boolean)}
+	<Timeline
+		fromMs={0}
+		toMs={durationMs || 1}
+		{currentMs}
+		bands={listSpots.map((s) => ({ ...s, active: false }))}
+		pending={pendingStart === null ? null : { startMs: pendingStart }}
+		{overlay}
+		onseek={seek}
+	/>
+{/snippet}
+
+{#snippet markButtons(overlay: boolean)}
+	<button type="button" class={overlay ? BTN_ON_VIDEO : BTN} onclick={mark}>
+		<Icon d={icons.flag} />Mark
+	</button>
+	<button
+		type="button"
+		class={pendingStart !== null ? BTN_ACCENT : overlay ? BTN_ON_VIDEO : BTN}
+		onclick={section}
+	>
+		<Icon d={icons.bracket} />{pendingStart === null
+			? 'Section'
+			: `End · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+	</button>
+{/snippet}
+
+{#snippet keyLegend()}
+	<div
+		class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-1 pb-3 text-[12px] text-(--pl-muted)"
+	>
+		{#each LEGEND as [k, what] (k)}
+			<span><kbd class="kbd">{k}</kbd> {what}</span>
+		{/each}
+	</div>
+{/snippet}
+
 <dialog
 	bind:this={dialog}
 	aria-label="Video"
@@ -574,16 +714,50 @@
 	}}
 	{onkeydown}
 >
+	<!-- A mouse move only brings faded controls back; the keys have their own handler. -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={stage}
-		class="relative flex h-full w-full flex-col overflow-hidden bg-(--pl-bg) text-(--pl-ink)"
+		class="stage relative h-full w-full overflow-hidden bg-(--pl-bg) text-(--pl-ink) {mode}"
+		onpointermove={(e) => {
+			if (mode === 'overlay' && e.pointerType === 'mouse') wake();
+		}}
 	>
-		<TopBar {title} {subtitle} {mirror} {rate} onclose={() => nav.close()} {onchoose} />
-
+		<!-- 1. the top bar -->
 		<div
-			class="relative w-full shrink-0 bg-black"
-			style:aspect-ratio="{naturalW} / {naturalH}"
-			style:max-height="55dvh"
+			class="area-top fade {mode === 'overlay'
+				? 'absolute inset-x-0 top-0 z-20 bg-linear-to-b from-black/65 to-transparent pb-4 text-white'
+				: ''}"
+			class:faded
+		>
+			<TopBar
+				title={mode === 'overlay' && level.kind === 'section' && openSpot
+					? spotLabel(openSpot)
+					: title}
+				subtitle={mode === 'overlay' && level.kind === 'section' ? 'Looping' : subtitle}
+				{mirror}
+				{rate}
+				overlay={mode === 'overlay'}
+				spotsCount={spots.length}
+				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
+				onback={mode === 'overlay' && level.kind === 'section' ? () => nav.up() : undefined}
+				onedit={mode === 'overlay' && level.kind === 'section'
+					? () => openSpot && toEdit(openSpot)
+					: undefined}
+				onclose={() => nav.close()}
+				{onchoose}
+			/>
+		</div>
+
+		<!-- 2. the video: one element in every layout, so rotating never reloads it -->
+		<div
+			class="area-video bg-black {mode === 'portrait'
+				? 'relative w-full shrink-0'
+				: mode === 'overlay'
+					? 'absolute inset-0'
+					: 'relative min-h-0 min-w-0'}"
+			style:aspect-ratio={mode === 'portrait' ? `${naturalW} / ${naturalH}` : undefined}
+			style:max-height={mode === 'portrait' ? '55dvh' : undefined}
 		>
 			<!-- svelte-ignore a11y_media_has_caption -->
 			<video
@@ -611,27 +785,29 @@
 			<button
 				type="button"
 				class="absolute inset-0 grid cursor-pointer place-items-center"
-				aria-label={paused ? 'Play' : 'Pause'}
-				onclick={toggle}
+				aria-label={faded ? 'Show controls' : paused ? 'Play' : 'Pause'}
+				onclick={tapVideo}
 			>
-				{#if paused}
+				{#if paused && !faded}
 					<span class="grid size-14 place-items-center rounded-full bg-black/55 text-white">
 						<Icon d={icons.play} filled size={26} />
 					</span>
 				{/if}
 			</button>
-			{#if badge}
+			{#if badge && mode !== 'overlay'}
 				<span
 					class="pointer-events-none absolute top-2 right-2 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
 					>{badge}</span
 				>
 			{/if}
-			{#if loop}
+			{#if loop && mode !== 'overlay'}
 				<span
 					class="pointer-events-none absolute top-2 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
 				>
 					<Icon d={icons.loop} size={13} class="text-(--pl-accent)" />{spotLabel(loop)}
 				</span>
+			{/if}
+			{#if loop}
 				<span
 					class="pointer-events-none absolute bottom-0 left-0 h-[3px] bg-(--pl-accent)"
 					style:width="{loopProgress}%"
@@ -639,98 +815,179 @@
 			{/if}
 		</div>
 
-		{#if level.kind === 'section' && openSpot}
-			<SectionView
-				spot={openSpot}
-				{currentMs}
-				{frameNo}
-				{paused}
-				{rate}
-				variant="panel"
-				onfull={() => nav.up()}
-				onedit={() => openSpot && toEdit(openSpot)}
-				onseek={seek}
-				ontoggle={toggle}
-				onstep={nudge}
-				onframe={frameStep}
-				onrate={(r) => onchoose({ rate: r })}
-			/>
-		{:else if level.kind === 'edit' && openSpot}
-			{@const spot = openSpot}
-			<SpotEditor
-				{spot}
-				{selected}
-				{currentMs}
-				durationS={duration}
-				{frameS}
-				{frameNo}
-				{paused}
-				looping={!loopPaused}
-				transport
-				onselect={selectEdge}
-				onmove={(times, how, edge) => moved(spot, times, how, edge)}
-				ondragstart={(edge) => {
-					selected = edge;
-					video.pause();
-				}}
-				ondragend={dragged}
-				onseek={seek}
-				onloop={() => (loopPaused = !loopPaused)}
-				onrename={() => openSheet('rename')}
-				ondelete={() => openSheet('delete')}
-				ondone={done}
-				ontoggle={toggle}
-				onframe={frameStep}
-			/>
-		{:else}
-			<div class="flex min-h-0 flex-1 flex-col">
-				<div class="px-4 pt-2.5">
-					<div class="flex items-baseline gap-2 text-[13px] tabular-nums">
-						<span class="text-[15px] font-semibold">{preciseTime(currentMs)}</span>
-						<span class="text-(--pl-muted)">frame {frameNo}</span>
-						<span class="ml-auto text-(--pl-muted)"
-							>{durationMs ? preciseTime(durationMs) : '–'}</span
-						>
+		<!-- 3. under the video (or over it, in overlay) -->
+		{#if mode === 'portrait'}
+			{#if level.kind === 'section' && openSpot}
+				<SectionView
+					spot={openSpot}
+					{currentMs}
+					{frameNo}
+					{paused}
+					{rate}
+					variant="panel"
+					onfull={() => nav.up()}
+					onedit={() => openSpot && toEdit(openSpot)}
+					onseek={seek}
+					ontoggle={toggle}
+					onstep={nudge}
+					onframe={frameStep}
+					onrate={(r) => onchoose({ rate: r })}
+				/>
+			{:else if level.kind === 'edit' && openSpot}
+				{@render editor(openSpot, false, true)}
+			{:else}
+				<div class="flex min-h-0 flex-1 flex-col">
+					<div class="px-4 pt-2.5">
+						<div class="flex items-baseline gap-2">
+							{@render clock(false)}
+							<span class="ml-auto text-[13px] text-(--pl-muted) tabular-nums"
+								>{durationMs ? preciseTime(durationMs) : '–'}</span
+							>
+						</div>
+						{@render fullTimeline(false)}
 					</div>
-					<Timeline
-						fromMs={0}
-						toMs={durationMs || 1}
+					<div class="px-4 pt-1">
+						<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+					</div>
+					<div class="flex gap-2 px-4 pt-3 pb-1">
+						<button type="button" class="{BTN} flex-1" onclick={mark}>
+							<Icon d={icons.flag} />Mark point
+						</button>
+						<button
+							type="button"
+							class="{pendingStart === null ? BTN : BTN_ACCENT} flex-[1.4]"
+							onclick={section}
+						>
+							<Icon d={icons.bracket} />{pendingStart === null
+								? 'Start section'
+								: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+						</button>
+					</div>
+					<div class="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-(--pl-raised)">
+						<SpotList spots={listSpots} activeId={null} {loadFailed} onopen={fromList} />
+					</div>
+				</div>
+			{/if}
+		{:else if mode === 'overlay'}
+			<div
+				class="area-below fade absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/75 to-transparent pt-10 text-white"
+				class:faded
+			>
+				{#if level.kind === 'section' && openSpot}
+					<SectionView
+						spot={openSpot}
 						{currentMs}
-						bands={listSpots.map((s) => ({ ...s, active: false }))}
-						pending={pendingStart === null ? null : { startMs: pendingStart }}
+						{frameNo}
+						{paused}
+						{rate}
+						variant="overlay"
+						onfull={() => nav.up()}
+						onedit={() => openSpot && toEdit(openSpot)}
 						onseek={seek}
+						ontoggle={toggle}
+						onstep={nudge}
+						onframe={frameStep}
+						onrate={(r) => onchoose({ rate: r })}
 					/>
-				</div>
-				<div class="px-4 pt-1">
-					<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
-				</div>
-				<div class="flex gap-2 px-4 pt-3 pb-1">
-					<button type="button" class="{BTN} flex-1" onclick={mark}>
-						<Icon d={icons.flag} />Mark point
-					</button>
-					<button
-						type="button"
-						class="{pendingStart === null ? BTN : BTN_ACCENT} flex-[1.4]"
-						onclick={section}
-					>
-						<Icon d={icons.bracket} />{pendingStart === null
-							? 'Start section'
-							: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
-					</button>
-				</div>
-				<div class="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-(--pl-raised)">
-					<SpotList spots={listSpots} activeId={null} {loadFailed} onopen={fromList} />
-				</div>
+				{:else}
+					<div class="flex flex-col gap-1 px-6 pb-3">
+						{@render fullTimeline(true)}
+						<div class="flex items-center gap-2">
+							<span class="flex w-40 items-baseline gap-2">{@render clock(true)}</span>
+							<span class="flex-1"></span>
+							<Transport {paused} overlay ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+							<span class="flex-1"></span>
+							<span class="flex w-40 justify-end gap-2">{@render markButtons(true)}</span>
+						</div>
+					</div>
+				{/if}
+			</div>
+		{:else if mode === 'panel'}
+			<div class="area-below flex items-center gap-2 px-3 py-1.5">
+				{@render clock(false)}
+				<span class="flex-1"></span>
+				<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+			</div>
+		{:else}
+			<div class="area-below flex flex-col">
+				{#if (level.kind === 'section' || level.kind === 'edit') && openSpot}
+					<SectionView
+						spot={openSpot}
+						{currentMs}
+						{frameNo}
+						{paused}
+						{rate}
+						variant="bar"
+						onfull={() => nav.jump([FULL])}
+						onedit={() => openSpot && toEdit(openSpot)}
+						onseek={seek}
+						ontoggle={toggle}
+						onstep={nudge}
+						onframe={frameStep}
+						onrate={(r) => onchoose({ rate: r })}
+					/>
+				{:else}
+					<div class="px-4 pt-3">{@render fullTimeline(false)}</div>
+					<div class="flex items-center gap-2 px-4 py-2">
+						{@render clock(false)}
+						<span class="text-[12px] text-(--pl-muted) tabular-nums"
+							>/ {durationMs ? preciseTime(durationMs) : '–'}</span
+						>
+						<span class="flex-1"></span>
+						<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+						<span class="flex-1"></span>
+						{@render markButtons(false)}
+					</div>
+				{/if}
+				{@render keyLegend()}
+			</div>
+		{/if}
+
+		<!-- 4. beside the video -->
+		{#if mode === 'panel'}
+			<div class="area-side flex min-h-0 flex-col border-l border-(--pl-raised) bg-(--pl-bg)">
+				{#if sheet === 'list'}
+					<div class="flex items-center justify-end px-2 pt-1">
+						<button
+							type="button"
+							class={BTN_GHOST}
+							aria-label="Close list"
+							onclick={() => nav.up()}
+						>
+							<Icon d={icons.close} />
+						</button>
+					</div>
+					<div class="-mt-10 min-h-0 flex-1 overflow-y-auto">
+						<SpotList spots={listSpots} activeId={null} {loadFailed} onopen={fromList} />
+					</div>
+				{:else if level.kind === 'edit' && openSpot}
+					{@render editor(openSpot, false, false)}
+				{/if}
+			</div>
+		{:else if mode === 'desktop'}
+			<div class="area-side min-h-0 overflow-y-auto border-l border-(--pl-raised)">
+				<SpotList
+					spots={listSpots}
+					activeId={openSpot?.id ?? null}
+					{loadFailed}
+					compact
+					onopen={fromList}
+					onedit={toEdit}
+					expanded={level.kind === 'edit' ? editorCard : undefined}
+				/>
 			</div>
 		{/if}
 
 		{#if toast}
-			<div class="absolute inset-x-4 z-30" style:bottom={level.kind === 'edit' ? '84px' : '20px'}>
+			<div
+				class="absolute inset-x-4 z-30 mx-auto max-w-md"
+				style:bottom={mode === 'portrait' && level.kind === 'edit' ? '84px' : '20px'}
+			>
 				<Toast text={toast.text} action={toast.action} />
 			</div>
 		{/if}
 
-		{#if sheet}
+		{#if sheet && sheet !== 'list'}
 			<PlayerSheet
 				kind={sheet}
 				spot={openSpot}
@@ -762,5 +1019,70 @@
 	/* Learn it facing the teacher, as in a studio mirror. */
 	.mirror {
 		transform: scaleX(-1);
+	}
+
+	/*
+	 * The four areas — top bar, video, below, side — keep one order in the DOM
+	 * in every layout, so a rotation re-arranges them instead of remounting the
+	 * video.
+	 */
+	.stage.portrait {
+		display: flex;
+		flex-direction: column;
+	}
+	.stage.panel,
+	.stage.desktop {
+		display: grid;
+		grid-template-rows: auto minmax(0, 1fr) auto;
+	}
+	.stage.panel {
+		grid-template-columns: minmax(0, 1fr) minmax(280px, 40%);
+	}
+	.stage.desktop {
+		grid-template-columns: minmax(0, 1fr) 400px;
+	}
+	.stage.panel > .area-top,
+	.stage.panel > .area-video,
+	.stage.panel > .area-below,
+	.stage.desktop > .area-video,
+	.stage.desktop > .area-below {
+		grid-column: 1;
+	}
+	.stage.panel > .area-side {
+		grid-column: 2;
+		grid-row: 1 / span 3;
+	}
+	.stage.desktop > .area-top {
+		grid-column: 1 / span 2;
+	}
+	.stage.desktop > .area-side {
+		grid-column: 2;
+		grid-row: 2 / span 2;
+	}
+
+	.fade {
+		transition: opacity 200ms;
+	}
+	.faded {
+		opacity: 0;
+	}
+	.faded,
+	.faded :global(*) {
+		pointer-events: none;
+	}
+
+	.kbd {
+		display: inline-flex;
+		min-width: 1.4rem;
+		height: 1.4rem;
+		align-items: center;
+		justify-content: center;
+		padding: 0 0.35rem;
+		border: 1px solid var(--pl-tick);
+		border-radius: 0.35rem;
+		background: var(--pl-raised);
+		color: var(--pl-ink);
+		font: inherit;
+		font-size: 11px;
 	}
 </style>
