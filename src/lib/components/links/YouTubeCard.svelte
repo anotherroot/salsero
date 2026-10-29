@@ -25,7 +25,7 @@
 
 	function toggleMirror() {
 		mirror = !mirror;
-		saveVideoPrefs({ ...loadVideoPrefs(), mirror });
+		saveVideoPrefs({ mirror });
 	}
 </script>
 

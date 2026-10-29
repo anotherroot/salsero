@@ -2,6 +2,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { defaultStyle } from '$lib/server/default-styles';
 import {
 	archiveLesson,
 	deleteLessonVideo,
@@ -135,6 +136,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), tz),
+		// What "Add figure" pre-selects. Settings picks it.
+		defaultStyle: locals.user
+			? defaultStyle(db, locals.user.id, danceOf(params))
+			: DANCES[danceOf(params)].defaultStyle,
 		popup: found.exercise ? popupData(db, danceOf(params), found.exercise.id, tz, Date.now()) : null
 	};
 };

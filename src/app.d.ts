@@ -14,6 +14,10 @@ declare global {
 		interface PageData {
 			user?: SessionUser | null;
 		}
+		/** Shallow-routing state. `videoPlayer`: how many screens the full-screen player has open (`src/lib/video/player-history.ts`). */
+		interface PageState {
+			videoPlayer?: number;
+		}
 	}
 }
 

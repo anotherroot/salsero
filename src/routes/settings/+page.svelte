@@ -2,12 +2,14 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { clockLabel } from '$lib/clock';
+	import { DANCE_SLUGS, DANCES } from '$lib/dances/dances';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let busy = $state(false);
+	let stylesBusy = $state(false);
 
 	const label = 'mb-1 block text-[13px] text-muted';
 	const field =
@@ -37,6 +39,51 @@
 			</span>
 			<span class="text-[20px] text-muted" aria-hidden="true">›</span>
 		</a>
+	</section>
+
+	<section class="space-y-3">
+		<div>
+			<h2 class="text-[15px] font-medium text-ink">New figures</h2>
+			<p class="text-[13px] text-muted">The style a new figure starts on.</p>
+		</div>
+		<form
+			method="POST"
+			action="?/styles"
+			class="space-y-3"
+			use:guarded={{
+				label: 'Default styles',
+				submit: () => {
+					stylesBusy = true;
+					return async ({ update }) => {
+						await update({ reset: false });
+						stylesBusy = false;
+					};
+				}
+			}}
+		>
+			{#if form && 'styleMessage' in form && form.styleMessage}
+				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
+					{form.styleMessage}
+				</p>
+			{/if}
+			{#each DANCE_SLUGS as slug (slug)}
+				{@const dance = DANCES[slug]}
+				<label class="block">
+					<span class={label}>{dance.label}</span>
+					<select name="style-{slug}" class={field} value={data.defaultStyles[slug]}>
+						{#each dance.styles as s (s)}
+							<option value={s}>{dance.styleLabel[s]}</option>
+						{/each}
+					</select>
+				</label>
+			{/each}
+			<button
+				disabled={stylesBusy}
+				class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white disabled:opacity-60"
+			>
+				Save
+			</button>
+		</form>
 	</section>
 
 	<section class="space-y-3">

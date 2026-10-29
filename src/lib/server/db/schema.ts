@@ -48,6 +48,24 @@ export const users = sqliteTable('users', {
 });
 
 /**
+ * The style a new figure starts on, per user and dance, as picked in Settings.
+ * No row = the registry's `defaultStyle`. Validated against the dance's styles
+ * in `setDefaultStyle` and re-checked on read, so a style later removed from
+ * the registry falls back instead of pre-selecting nothing.
+ */
+export const defaultStyles = sqliteTable(
+	'default_styles',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		dance: text('dance').notNull(),
+		style: text('style').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.dance] })]
+);
+
+/**
  * A paired Android app. The token itself is shown once, to the app, and never
  * stored: only its SHA-256, so a copy of the database authenticates nothing.
  * A device token is accepted on `/api/` only — see `request-user.ts`.
@@ -178,7 +196,7 @@ export const figures = sqliteTable(
 		 */
 		lengthCounts: integer('length_counts'),
 		/**
-		 * VESTIGIAL since migration 0016 (figures became groups): read by nothing.
+		 * VESTIGIAL since migration 0017 (figures became groups): read by nothing.
 		 * Not dropped for the same reason `style` is not.
 		 */
 		parentId: integer('parent_id').references((): AnySQLiteColumn => figures.id),

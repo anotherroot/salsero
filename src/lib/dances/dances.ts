@@ -21,6 +21,11 @@ export interface Dance {
 	/** Style tags a figure of this dance may carry. Validated in `figures.ts`. */
 	styles: readonly string[];
 	styleLabel: Record<string, string>;
+	/**
+	 * The style a new figure starts on when the user has not picked their own
+	 * in Settings (`default_styles`). One of `styles`.
+	 */
+	defaultStyle: string;
 	/** Which count patterns the player's picker offers. */
 	countPatterns: readonly CountPattern[];
 	defaultCountPattern: CountPattern;
@@ -69,6 +74,7 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		label: 'Salsa',
 		styles: ['salsa', 'son', 'other'],
 		styleLabel: { salsa: 'Salsa', son: 'Son', other: 'Other' },
+		defaultStyle: 'salsa',
 		countPatterns: ['salsa', 'son', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: true,
@@ -109,6 +115,8 @@ export const DANCES: Record<DanceSlug, Dance> = {
 			sensual: 'Sensual',
 			traditional: 'Traditional'
 		},
+		// Sensual is what gets danced; the list order stays as it was.
+		defaultStyle: 'sensual',
 		// No 'son': that pattern is a salsa-family count. Bachata's own
 		// 1-2-3-tap / 5-6-7-tap is COUNT_POSITIONS.salsa exactly, so it reuses
 		// the 'salsa' key — the user only ever sees COUNT_PATTERN_LABEL, which

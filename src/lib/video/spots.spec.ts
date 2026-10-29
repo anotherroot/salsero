@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { loopTarget, moveEdge, msOf, sortSpots, spotLabel, spotTime, step } from './spots';
+import {
+	edgeViewTime,
+	END_PARK_MS,
+	TENTH_MS,
+	lengthText,
+	preciseTime,
+	loopTarget,
+	moveEdge,
+	msOf,
+	resizeSpot,
+	shiftSpot,
+	sectionProgress,
+	sortSpots,
+	spotLabel,
+	spotTime,
+	step
+} from './spots';
 
 describe('spotTime', () => {
 	it.each([
@@ -100,5 +116,101 @@ describe('moveEdge', () => {
 		expect(moveEdge({ startMs: 0, endMs: 5_000 }, 'start', -1_000, 60)).toBeNull();
 		expect(moveEdge({ startMs: 10_000, endMs: 11_000 }, 'end', 10_000, 60)).toBeNull();
 		expect(moveEdge({ startMs: 50_000, endMs: 60_000 }, 'end', 61_000, 60)).toBeNull();
+	});
+});
+
+describe('edgeViewTime', () => {
+	it('shows a start at the start and an end just inside the section', () => {
+		expect(edgeViewTime({ startMs: 4000, endMs: 11_200 }, 'start')).toBe(4);
+		expect(edgeViewTime({ startMs: 4000, endMs: 11_200 }, 'end')).toBeCloseTo(11.19, 6);
+		expect(END_PARK_MS).toBe(10);
+	});
+	it('is the start for a point', () => {
+		expect(edgeViewTime({ startMs: 4000, endMs: null }, 'end')).toBe(4);
+	});
+});
+
+describe('TENTH_MS', () => {
+	it('is the editor fine step, through moveEdge', () => {
+		expect(TENTH_MS).toBe(100);
+		const s = { startMs: 4000, endMs: 11_200 };
+		expect(moveEdge(s, 'start', s.startMs + TENTH_MS, 60)).toEqual({
+			startMs: 4100,
+			endMs: 11_200
+		});
+	});
+});
+
+describe('shiftSpot', () => {
+	it('moves both edges and keeps the length', () => {
+		expect(shiftSpot({ startMs: 1000, endMs: 3000 }, 500, 10)).toEqual({
+			startMs: 1500,
+			endMs: 3500
+		});
+	});
+	it('stops at the start and end of the video', () => {
+		expect(shiftSpot({ startMs: 200, endMs: 3000 }, -500, 10)).toEqual({
+			startMs: 0,
+			endMs: 2800
+		});
+		expect(shiftSpot({ startMs: 0, endMs: 3000 }, -500, 10)).toBeNull();
+		expect(shiftSpot({ startMs: 8000, endMs: 10_000 }, 500, 10)).toBeNull();
+	});
+	it('is null for a point', () => {
+		expect(shiftSpot({ startMs: 1000, endMs: null }, 500, 10)).toBeNull();
+	});
+});
+
+describe('resizeSpot', () => {
+	it('grows and shrinks each side', () => {
+		expect(resizeSpot({ startMs: 1000, endMs: 3000 }, 250, 10)).toEqual({
+			startMs: 750,
+			endMs: 3250
+		});
+		expect(resizeSpot({ startMs: 1000, endMs: 3000 }, -250, 10)).toEqual({
+			startMs: 1250,
+			endMs: 2750
+		});
+	});
+	it('clamps a grow at the video edges', () => {
+		expect(resizeSpot({ startMs: 0, endMs: 1000 }, 250, 10)).toEqual({ startMs: 0, endMs: 1250 });
+		expect(resizeSpot({ startMs: 0, endMs: 10_000 }, 250, 10)).toBeNull();
+	});
+	it('shrinks no further than MIN_SECTION_MS, centred', () => {
+		expect(resizeSpot({ startMs: 1000, endMs: 2200 }, -250, 10)).toEqual({
+			startMs: 1100,
+			endMs: 2100
+		});
+		expect(resizeSpot({ startMs: 1000, endMs: 2000 }, -250, 10)).toBeNull();
+	});
+});
+
+describe('preciseTime', () => {
+	it.each([
+		[0, '0:00.00'],
+		[64_230, '1:04.23'],
+		[59_999, '0:59.99'],
+		[3_725_305, '62:05.30']
+	])('%i ms is %s', (ms, text) => {
+		expect(preciseTime(ms)).toBe(text);
+	});
+});
+
+describe('lengthText', () => {
+	it('is seconds to a tenth', () => {
+		expect(lengthText(7200)).toBe('7.2 s');
+		expect(lengthText(1000)).toBe('1.0 s');
+		expect(lengthText(64_960)).toBe('65.0 s');
+	});
+});
+
+describe('sectionProgress', () => {
+	const s = { startMs: 64_000, endMs: 71_200 };
+	it('is how far into the section, over its length', () => {
+		expect(sectionProgress(s, 66_700)).toBe('2.7 / 7.2 s');
+	});
+	it('stays inside the section', () => {
+		expect(sectionProgress(s, 60_000)).toBe('0.0 / 7.2 s');
+		expect(sectionProgress(s, 80_000)).toBe('7.2 / 7.2 s');
 	});
 });

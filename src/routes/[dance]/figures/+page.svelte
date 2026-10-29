@@ -149,6 +149,7 @@
 				dance={data.dance}
 				figureName={form?.figureName}
 				name={form?.name}
+				style={data.defaultStyle}
 				notes={form?.notes}
 			/>
 			{#if form?.message}

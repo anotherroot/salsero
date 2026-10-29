@@ -228,6 +228,7 @@
 								src="/lesson-videos/{video.file}"
 								sourceUrl={video.sourceUrl}
 								owner={{ lessonVideoId: video.id }}
+								title={lesson.title}
 								onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 								onclosed={() => void invalidateAll()}
 							/>
@@ -457,7 +458,7 @@
 					{failure('newFigure')}
 				</p>
 			{/if}
-			<FigureFields dance={data.dance} />
+			<FigureFields dance={data.dance} style={data.defaultStyle} />
 			<button
 				type="submit"
 				class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
@@ -493,6 +494,7 @@
 				dance={data.dance}
 				asksFigureName={false}
 				name={variationTyped?.name ?? ''}
+				style={data.defaultStyle}
 				notes={variationTyped?.notes ?? ''}
 			/>
 			<button

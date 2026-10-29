@@ -29,9 +29,10 @@
 		notes = ''
 	}: Props = $props();
 
-	// A new figure starts on its dance's first style; 'salsa' is not a style
-	// bachata has, so the default cannot be a literal.
-	const checkedStyle = $derived(style ?? dance.styles[0]);
+	// A new figure's page passes the user's default (Settings); without one it
+	// starts on the dance's. 'salsa' is not a style bachata has, so the
+	// fallback cannot be a literal.
+	const checkedStyle = $derived(style ?? dance.defaultStyle);
 
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';

@@ -49,6 +49,7 @@
 		src={section.video.src}
 		owner={section.video.owner}
 		spot={section.spot}
+		from={section.video.from}
 		onclose={() => (open = false)}
 	/>
 {/if}

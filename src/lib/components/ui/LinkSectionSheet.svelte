@@ -107,6 +107,7 @@
 		src={preview.video.src}
 		owner={preview.video.owner}
 		spot={preview.spot}
+		from={preview.video.from}
 		onclose={() => (preview = null)}
 	/>
 {/if}

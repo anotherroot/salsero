@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "97c67745-a1a4-4eee-8b73-5e09ea2cbedf",
+  "id": "d8bcaa71-a210-4d5f-a586-2c04cb3f80fb",
   "prevId": "fd01e730-1c13-414a-8700-d3052997d1e4",
   "tables": {
     "app_flags": {
@@ -129,6 +129,59 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "default_styles": {
+      "name": "default_styles",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dance": {
+          "name": "dance",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "style": {
+          "name": "style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "default_styles_user_id_users_id_fk": {
+          "name": "default_styles_user_id_users_id_fk",
+          "tableFrom": "default_styles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "default_styles_user_id_dance_pk": {
+          "columns": [
+            "user_id",
+            "dance"
+          ],
+          "name": "default_styles_user_id_dance_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -402,59 +455,6 @@
         }
       }
     },
-    "figure_groups": {
-      "name": "figure_groups",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "dance": {
-          "name": "dance",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "figure_groups_dance_idx": {
-          "name": "figure_groups_dance_idx",
-          "columns": [
-            "dance"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "figure_start_positions": {
       "name": "figure_start_positions",
       "columns": {
@@ -635,13 +635,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "group_id": {
-          "name": "group_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "archived_at": {
           "name": "archived_at",
           "type": "integer",
@@ -662,13 +655,6 @@
           "name": "figures_parent_idx",
           "columns": [
             "parent_id"
-          ],
-          "isUnique": false
-        },
-        "figures_group_idx": {
-          "name": "figures_group_idx",
-          "columns": [
-            "group_id"
           ],
           "isUnique": false
         }
@@ -693,19 +679,6 @@
           "tableTo": "figures",
           "columnsFrom": [
             "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "figures_group_id_figure_groups_id_fk": {
-          "name": "figures_group_id_figure_groups_id_fk",
-          "tableFrom": "figures",
-          "tableTo": "figure_groups",
-          "columnsFrom": [
-            "group_id"
           ],
           "columnsTo": [
             "id"

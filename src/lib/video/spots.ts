@@ -86,3 +86,80 @@ export function moveEdge(
 	const next = Math.max(0, Math.min(latest, toMs));
 	return next === startMs ? null : { startMs: next, endMs };
 }
+
+/** The fine step, for the transport, the editor and the , / . keys. A frame (17 ms at 60 fps) showed nothing. */
+export const TENTH_MS = 100;
+
+/** How far inside its end the editor parks the video, so the paused picture is still in the section. */
+export const END_PARK_MS = 10;
+
+/** Where to pause to show an edge (seconds): a start itself, an end just inside it. */
+export function edgeViewTime(spot: Pick<Spot, 'startMs' | 'endMs'>, edge: 'start' | 'end'): number {
+	return edge === 'start' || spot.endMs === null
+		? spot.startMs / 1000
+		: (spot.endMs - END_PARK_MS) / 1000;
+}
+
+/** Earlier / Later: how far one tap moves a whole section. */
+export const WHOLE_SHIFT_MS = 500;
+/** Shorter / Longer: how far one tap moves each edge. */
+export const WHOLE_RESIZE_MS = 250;
+
+/**
+ * A section moved by `deltaMs`, its length kept, stopped at either end of the
+ * video — or null for a point, or when it is already against that end.
+ */
+export function shiftSpot(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	deltaMs: number,
+	durationS: number
+): { startMs: number; endMs: number } | null {
+	if (spot.endMs === null) return null;
+	const lastMs = Number.isFinite(durationS) ? msOf(durationS) : Infinity;
+	const d = Math.max(-spot.startMs, Math.min(lastMs - spot.endMs, deltaMs));
+	return d === 0 ? null : { startMs: spot.startMs + d, endMs: spot.endMs + d };
+}
+
+/**
+ * A section grown (positive) or shrunk by `perSideMs` at each edge, kept
+ * inside the video and no shorter than `MIN_SECTION_MS` — a shrink past that
+ * stops at exactly the minimum around the old middle. Null when nothing
+ * changes or for a point.
+ */
+export function resizeSpot(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	perSideMs: number,
+	durationS: number
+): { startMs: number; endMs: number } | null {
+	if (spot.endMs === null) return null;
+	const lastMs = Number.isFinite(durationS) ? msOf(durationS) : Infinity;
+	let startMs = Math.max(0, spot.startMs - perSideMs);
+	let endMs = Math.min(lastMs, spot.endMs + perSideMs);
+	if (endMs - startMs < MIN_SECTION_MS) {
+		if (spot.endMs - spot.startMs <= MIN_SECTION_MS) return null;
+		const mid = (spot.startMs + spot.endMs) / 2;
+		startMs = Math.round(mid - MIN_SECTION_MS / 2);
+		endMs = startMs + MIN_SECTION_MS;
+	}
+	return startMs === spot.startMs && endMs === spot.endMs ? null : { startMs, endMs };
+}
+
+/** `1:04.23` — minutes, seconds, hundredths, floored like `spotTime`. For the player's clock and edges. */
+export function preciseTime(ms: number): string {
+	const cs = Math.floor(Math.max(0, ms) / 10);
+	const minutes = Math.floor(cs / 6000);
+	const rest = cs % 6000;
+	return `${minutes}:${String(Math.floor(rest / 100)).padStart(2, '0')}.${String(rest % 100).padStart(2, '0')}`;
+}
+
+/** `7.2 s` — a section's length. */
+export function lengthText(ms: number): string {
+	return `${(ms / 1000).toFixed(1)} s`;
+}
+
+/** A section's own clock: `2.7 / 7.2 s`, held inside the section. */
+export function sectionProgress(spot: Pick<Spot, 'startMs' | 'endMs'>, currentMs: number): string {
+	const length = (spot.endMs ?? spot.startMs) - spot.startMs;
+	const into = Math.max(0, Math.min(length, currentMs - spot.startMs));
+	return `${(into / 1000).toFixed(1)} / ${lengthText(length)}`;
+}

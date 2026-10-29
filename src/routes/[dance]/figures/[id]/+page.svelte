@@ -290,6 +290,7 @@
 							sourceUrl={rec.sourceUrl}
 							kind={rec.kind}
 							owner={{ recordingId: rec.id }}
+							title="{figure.name} · {variation.name}"
 							onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
 						/>
 					{/if}

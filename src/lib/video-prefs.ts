@@ -1,5 +1,5 @@
 /**
- * Mirror and speed for videos, remembered per browser. A per-viewer
+ * Mirror, speed and Hide (the portrait player's folded controls) for videos, remembered per browser. A per-viewer
  * convenience, so `localStorage` is the right place — and every access is
  * wrapped, because private-mode Safari throws on any touch of it. Nothing here
  * ever reaches the database.
@@ -10,10 +10,12 @@ export type VideoRate = (typeof VIDEO_RATES)[number];
 export interface VideoPrefs {
 	mirror: boolean;
 	rate: VideoRate;
+	/** Portrait: the controls folded to a slim bar. */
+	hidden: boolean;
 }
 
 const KEY = 'video.prefs';
-const DEFAULTS: VideoPrefs = { mirror: false, rate: 1 };
+const DEFAULTS: VideoPrefs = { mirror: false, rate: 1, hidden: false };
 
 export function parseVideoPrefs(raw: string | null): VideoPrefs {
 	try {
@@ -22,7 +24,8 @@ export function parseVideoPrefs(raw: string | null): VideoPrefs {
 		const o = v as Record<string, unknown>;
 		return {
 			mirror: o.mirror === true,
-			rate: (VIDEO_RATES as readonly unknown[]).includes(o.rate) ? (o.rate as VideoRate) : 1
+			rate: (VIDEO_RATES as readonly unknown[]).includes(o.rate) ? (o.rate as VideoRate) : 1,
+			hidden: o.hidden === true
 		};
 	} catch {
 		return DEFAULTS;
@@ -37,9 +40,10 @@ export function loadVideoPrefs(): VideoPrefs {
 	}
 }
 
-export function saveVideoPrefs(p: VideoPrefs): void {
+/** Merges over what is stored: each caller saves only what it changed. */
+export function saveVideoPrefs(p: Partial<VideoPrefs>): void {
 	try {
-		localStorage.setItem(KEY, JSON.stringify(p));
+		localStorage.setItem(KEY, JSON.stringify({ ...loadVideoPrefs(), ...p }));
 	} catch {
 		// Private mode or storage full: the choice just is not remembered.
 	}
