@@ -166,7 +166,7 @@
   - `listFigures(db, dance, filter: FigureFilter): FigureListItem[]` — one row per live group; `q` matches figure or any live variation name; `style`/`partner` match if any live variation matches; ordered by name.
   - `listFiguresForCall(db, dance, ids): CalledFigure[]` — `name` the label, `say` the figure name.
   - `listMoveTargets(db, dance, exceptGroupId): MoveTarget[]` — live groups of the dance but one, by name.
-  - In `src/lib/types.ts`: `FigureVersion = { id: number; groupId: number; name: string; label: string }` (replaces `parentId`); `FigureListItem = { id: number /* group */; name: string; variations: number; recordings: number; firstVariationId: number }`; `MoveTarget = { id: number; name: string; variations: string[] }`.
+  - In `src/lib/types.ts`: `FigureVersion = { id: number; groupId: number; figure: string; name: string; label: string }` (replaces `parentId`; `figure` is the figure's name, `name` the variation's); `FigureListItem = { id: number /* group */; name: string; variations: number; recordings: number; firstVariationId: number }`; `MoveTarget = { id: number; name: string; variations: string[] }`.
   - Remove: `updateFigure`, `listVariations`, `createVariation` (old), the old `updateVariation`.
 
 - [ ] **Step 1: Write the failing tests** in `variations.spec.ts`. Helper: `const fig = (figureName = 'Enchufla', name = 'Basic', dance = 'salsa') => createFigure(db, dance, { figureName, name, partner: 'partner', style: dance === 'salsa' ? 'salsa' : 'dominican', notes: null })!`. Tests (name → assertion):
@@ -271,7 +271,7 @@
 
 - [ ] **Step 1: Failing tests** — `groups variations under their figure` (two variations of Enchufla → one group, `single: false`, both rows); `a one-variation figure is a single row`; `leaves out a figure none of whose variations fit`; search `'enchufla doble'` still matches. Replace every `headFits` assertion.
 - [ ] **Step 2: Run** `npx vitest run src/lib/routines/fit.spec.ts` → FAIL.
-- [ ] **Step 3: Implement**, including `isNonEmpty` (~line 210) and the routine loader's candidates (`groupId: v.groupId`, `figure:` the figure name; routines `groupId: null, figure: null`).
+- [ ] **Step 3: Implement**, including `isNonEmpty` (~line 210) and the routine loader's candidates (`groupId: v.groupId`, `figure: v.figure`; routines `groupId: null, figure: null`).
 - [ ] **Step 4: Run** → PASS.
 - [ ] **Step 5: Commit** — `git commit -am "Routine picker: variations under a figure heading, a lone variation as one row"`
 
