@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
@@ -292,6 +293,8 @@
 							owner={{ recordingId: rec.id }}
 							title="{figure.name} · {variation.name}"
 							onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
+							onclosed={() => void invalidateAll()}
+							linking
 						/>
 					{/if}
 					<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
@@ -326,6 +329,7 @@
 							sections={variation.recordingSections[rec.id]}
 							src="/recordings/{rec.file}"
 							owner={{ recordingId: rec.id }}
+							linking
 						/>
 					{/if}
 				</li>

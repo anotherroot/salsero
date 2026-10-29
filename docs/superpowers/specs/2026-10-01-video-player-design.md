@@ -12,6 +12,17 @@
 > the sections below describe the result. Why, and what was decided:
 > [`2026-10-29-video-player-redesign-design.md`](2026-10-29-video-player-redesign-design.md) and
 > [`2026-10-29-video-player-upright-design.md`](2026-10-29-video-player-upright-design.md).
+>
+> **Linking from the player** (2026-10-29,
+> [`2026-10-29-section-link-popup-design.md`](2026-10-29-section-link-popup-design.md)):
+> where the page manages the video's sections (a lesson's videos, a figure's
+> recordings; the `linking` prop), the "Section saved" toast offers **Link**
+> beside Edit and stays 6 s; the section view shows a small link badge under
+> the section's name on the video ("+ Link" when nothing is linked); and the
+> editor's "Linked to …" line opens the Link popup. The popup is two player
+> sheets, `link` (its list) and `link-new` (a create step), so Back steps from
+> a create step to the list, then closes it. Everywhere else the player opens,
+> the badge and the line only show.
 
 ## Purpose
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	linkSummary,
 	edgeViewTime,
 	END_PARK_MS,
 	TENTH_MS,
@@ -213,4 +214,11 @@ describe('sectionProgress', () => {
 		expect(sectionProgress(s, 60_000)).toBe('0.0 / 7.2 s');
 		expect(sectionProgress(s, 80_000)).toBe('7.2 / 7.2 s');
 	});
+});
+
+describe('linkSummary', () => {
+	it('is empty for no links', () => expect(linkSummary([])).toBe(''));
+	it('is the label for one', () =>
+		expect(linkSummary(['Enchufla · Doble'])).toBe('Enchufla · Doble'));
+	it('counts the rest', () => expect(linkSummary(['A', 'B', 'C'])).toBe('A +2'));
 });

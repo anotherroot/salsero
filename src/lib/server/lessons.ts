@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, inArray, isNull, ne, notInArray, or, sum } from 'drizzle-orm';
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
+import { lessonsReaching, viaSections } from './lesson-links';
 import {
 	exercises,
 	figureGroups,
@@ -11,6 +12,7 @@ import {
 	lessonVideos,
 	lessons,
 	routines,
+	spotLinks,
 	videoSpots
 } from './db/schema';
 import type { DanceSlug } from '$lib/dances/dances';
@@ -132,14 +134,15 @@ export function lessonVideoBytes(db: Db): number {
 	return Number(row?.total ?? 0);
 }
 
-/** The figure ids linked to a lesson. */
+/** The variation ids on a lesson: linked by hand or through its sections. */
 function linkedFigureIds(db: Db, lessonId: number): number[] {
-	return db
+	const hand = db
 		.select({ id: lessonFigures.figureId })
 		.from(lessonFigures)
 		.where(eq(lessonFigures.lessonId, lessonId))
 		.all()
 		.map((r) => r.id);
+	return [...new Set([...hand, ...viaSections(db, lessonId).figures.keys()])];
 }
 
 /** The routine ids linked to a lesson. */
@@ -172,22 +175,43 @@ export function getLesson(db: Db, id: number) {
 		.orderBy(asc(lessonVideos.createdAt))
 		.all();
 
-	const linkedFigures: LessonFigureRow[] = db
-		.select({
-			id: figures.id,
-			figure: figureGroups.name,
-			variation: figures.name,
-			partner: figures.partner,
-			style: figures.styleTag,
-			exerciseId: exercises.id
-		})
+	// Hand links and section links, merged: a variation linked both ways is one row.
+	const via = viaSections(db, id);
+	const figureColumns = {
+		id: figures.id,
+		figure: figureGroups.name,
+		variation: figures.name,
+		partner: figures.partner,
+		style: figures.styleTag,
+		exerciseId: exercises.id
+	};
+	const handFigures = db
+		.select(figureColumns)
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.leftJoin(exercises, eq(exercises.figureId, figures.id))
 		.where(eq(lessonFigures.lessonId, id))
-		.all()
-		.map(({ figure, variation, ...r }) => ({ ...r, name: `${figure} · ${variation}` }))
+		.all();
+	const handFigureIds = new Set(handFigures.map((r) => r.id));
+	const sectionFigureIds = [...via.figures.keys()].filter((f) => !handFigureIds.has(f));
+	const sectionFigures =
+		sectionFigureIds.length === 0
+			? []
+			: db
+					.select(figureColumns)
+					.from(figures)
+					.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+					.leftJoin(exercises, eq(exercises.figureId, figures.id))
+					.where(inArray(figures.id, sectionFigureIds))
+					.all();
+	const linkedFigures: LessonFigureRow[] = [...handFigures, ...sectionFigures]
+		.map(({ figure, variation, ...r }) => ({
+			...r,
+			name: `${figure} · ${variation}`,
+			byHand: handFigureIds.has(r.id),
+			viaSections: via.figures.get(r.id) ?? []
+		}))
 		.sort((a, b) => a.name.localeCompare(b.name));
 
 	const linkedRoutines: LessonRoutineRow[] = db
@@ -199,13 +223,30 @@ export function getLesson(db: Db, id: number) {
 		.orderBy(asc(routines.name))
 		.all();
 
-	const linkedExercises: LessonExerciseRow[] = db
-		.select({ id: exercises.id, name: exercises.name, source: exercises.source })
+	const exerciseColumns = { id: exercises.id, name: exercises.name, source: exercises.source };
+	const handExercises = db
+		.select(exerciseColumns)
 		.from(lessonExercises)
 		.innerJoin(exercises, eq(exercises.id, lessonExercises.exerciseId))
 		.where(and(eq(lessonExercises.lessonId, id), isNull(exercises.archivedAt)))
-		.orderBy(asc(exercises.name))
 		.all();
+	const handExerciseIds = new Set(handExercises.map((r) => r.id));
+	const sectionExerciseIds = [...via.exercises.keys()].filter((e) => !handExerciseIds.has(e));
+	const sectionExercises =
+		sectionExerciseIds.length === 0
+			? []
+			: db
+					.select(exerciseColumns)
+					.from(exercises)
+					.where(and(inArray(exercises.id, sectionExerciseIds), isNull(exercises.archivedAt)))
+					.all();
+	const linkedExercises: LessonExerciseRow[] = [...handExercises, ...sectionExercises]
+		.map((r) => ({
+			...r,
+			byHand: handExerciseIds.has(r.id),
+			viaSections: via.exercises.get(r.id) ?? []
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	// A linked figure's or routine's exercise belongs under it, never in this
 	// list. `linkFigure` and `linkRoutine` already sweep it out on write;
@@ -269,13 +310,33 @@ export function linkFigure(db: Db, lessonId: number, figureId: number): boolean 
 	});
 }
 
-export function unlinkFigure(db: Db, lessonId: number, figureId: number): boolean {
-	return (
-		db
+/**
+ * Take a variation off a lesson. With `alsoSections`, the links from this
+ * lesson's videos' sections to it go too, in the same transaction — otherwise
+ * a variation there through a section would stay on the lesson.
+ */
+export function unlinkFigure(
+	db: Db,
+	lessonId: number,
+	figureId: number,
+	alsoSections = false
+): boolean {
+	return db.transaction((tx) => {
+		let changes = tx
 			.delete(lessonFigures)
 			.where(and(eq(lessonFigures.lessonId, lessonId), eq(lessonFigures.figureId, figureId)))
-			.run().changes > 0
-	);
+			.run().changes;
+		if (alsoSections) {
+			const spots = (viaSections(tx, lessonId).figures.get(figureId) ?? []).map((s) => s.spotId);
+			if (spots.length > 0) {
+				changes += tx
+					.delete(spotLinks)
+					.where(and(eq(spotLinks.figureId, figureId), inArray(spotLinks.spotId, spots)))
+					.run().changes;
+			}
+		}
+		return changes > 0;
+	});
 }
 
 /**
@@ -374,6 +435,8 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 				)
 				.get();
 			if (linked) return false;
+			// On the lesson through a section counts too: never in both places.
+			if (viaSections(tx, lessonId).figures.has(exercise.figureId)) return false;
 		}
 		if (exercise.routineId !== null) {
 			const linked = tx
@@ -395,15 +458,33 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 	});
 }
 
-export function unlinkExercise(db: Db, lessonId: number, exerciseId: number): boolean {
-	return (
-		db
+/** `unlinkFigure`, for a drill or any hand-linked exercise. */
+export function unlinkExercise(
+	db: Db,
+	lessonId: number,
+	exerciseId: number,
+	alsoSections = false
+): boolean {
+	return db.transaction((tx) => {
+		let changes = tx
 			.delete(lessonExercises)
 			.where(
 				and(eq(lessonExercises.lessonId, lessonId), eq(lessonExercises.exerciseId, exerciseId))
 			)
-			.run().changes > 0
-	);
+			.run().changes;
+		if (alsoSections) {
+			const spots = (viaSections(tx, lessonId).exercises.get(exerciseId) ?? []).map(
+				(s) => s.spotId
+			);
+			if (spots.length > 0) {
+				changes += tx
+					.delete(spotLinks)
+					.where(and(eq(spotLinks.exerciseId, exerciseId), inArray(spotLinks.spotId, spots)))
+					.run().changes;
+			}
+		}
+		return changes > 0;
+	});
 }
 
 /** Live variations this lesson does not already link, by label. */
@@ -466,12 +547,15 @@ export function listLinkableExercises(db: Db, lessonId: number) {
 		.get();
 	if (!lesson) return [];
 
-	const alreadyLinked = db
-		.select({ id: lessonExercises.exerciseId })
-		.from(lessonExercises)
-		.where(eq(lessonExercises.lessonId, lessonId))
-		.all()
-		.map((r) => r.id);
+	const alreadyLinked = [
+		...db
+			.select({ id: lessonExercises.exerciseId })
+			.from(lessonExercises)
+			.where(eq(lessonExercises.lessonId, lessonId))
+			.all()
+			.map((r) => r.id),
+		...viaSections(db, lessonId).exercises.keys()
+	];
 
 	const linkedFigures = linkedFigureIds(db, lessonId);
 
@@ -529,11 +613,21 @@ export function getLessonVideoByFile(db: Db, file: string) {
  * lessons are gone from every list, so they are gone from this one.
  */
 export function taughtIn(db: Db, figureId: number) {
+	const ids = [
+		...db
+			.select({ id: lessonFigures.lessonId })
+			.from(lessonFigures)
+			.where(eq(lessonFigures.figureId, figureId))
+			.all()
+			.map((r) => r.id),
+		// A section of one of the lesson's videos linked to it counts too.
+		...lessonsReaching(db, { figureId })
+	];
+	if (ids.length === 0) return [];
 	return db
 		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })
-		.from(lessonFigures)
-		.innerJoin(lessons, eq(lessons.id, lessonFigures.lessonId))
-		.where(and(eq(lessonFigures.figureId, figureId), isNull(lessons.archivedAt)))
+		.from(lessons)
+		.where(and(inArray(lessons.id, ids), isNull(lessons.archivedAt)))
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all();
 }

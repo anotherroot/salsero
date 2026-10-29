@@ -5,8 +5,12 @@
  */
 import type { Spot } from '$lib/types';
 
-/** `list`: the spot list as a panel beside the video (landscape), closed by Back like any sheet. */
-export type PlayerSheet = 'rename' | 'delete' | 'keys' | 'list';
+/**
+ * `list`: the spot list as a panel beside the video (landscape), closed by Back like any sheet.
+ * `link`: the Link popup's list; `link-new`: one of its create steps, above it, so Back
+ * returns to the list before it closes the popup.
+ */
+export type PlayerSheet = 'rename' | 'delete' | 'keys' | 'list' | 'link' | 'link-new';
 
 export type Screen =
 	| { kind: 'full' }

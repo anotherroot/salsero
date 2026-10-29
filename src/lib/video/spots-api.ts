@@ -15,7 +15,7 @@ export class SpotsApiError extends Error {
 	}
 }
 
-async function ok(res: Response): Promise<Response> {
+export async function ok(res: Response): Promise<Response> {
 	if (res.ok) return res;
 	const body: unknown = await res.json().catch(() => null);
 	const message =

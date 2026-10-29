@@ -4,6 +4,18 @@
 > [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md)'s
 > spots and [`2026-10-15-youtube-video-save-design.md`](2026-10-15-youtube-video-save-design.md)'s
 > saved videos.
+>
+> **Changed 2026-10-29** by
+> [`2026-10-29-section-link-popup-design.md`](2026-10-29-section-link-popup-design.md):
+> linking from a video's side is one Link popup, on the lesson page (for a
+> lesson's videos and a figure's recordings) and in the full-screen player
+> (the toast after End section, the section view's link badge, the editor's
+> line). The popup also creates a variation, a figure or a drill and links it.
+> The lesson page's Link… picker, its chips with × and its `linkSection` /
+> `unlinkSection` actions are gone. And a variation or drill linked through a
+> section of a lesson's video is on that lesson. "Linking happens in lists on
+> the pages" below now holds only for the figure and drill pages' "+ Link a
+> section".
 
 ## Purpose
 

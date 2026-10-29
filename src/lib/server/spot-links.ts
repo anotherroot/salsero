@@ -30,6 +30,7 @@ import type {
 	SpotOwner,
 	VideoSection
 } from '$lib/types';
+import { lessonsReaching } from './lesson-links';
 
 /** A link that cannot be made. `status` is what the route answers with. */
 export class SpotLinkError extends Error {
@@ -137,6 +138,52 @@ export function unlinkSpot(db: Db, id: number, target: SectionTarget): boolean {
 			.where(and(eq(spotLinks.id, id), targetColumn(target)))
 			.run().changes > 0
 	);
+}
+
+/**
+ * Unlink from the section's side — the Link popup's ×. Only a link of this
+ * spot. With `alsoLesson`, a lesson video's hand link from its lesson to the
+ * same target goes too, in the same transaction.
+ */
+export function unlinkFromSection(
+	db: Db,
+	spotId: number,
+	linkId: number,
+	alsoLesson: boolean
+): boolean {
+	return db.transaction((tx) => {
+		const link = getSpotLink(tx, linkId);
+		if (!link || link.spotId !== spotId) return false;
+		tx.delete(spotLinks).where(eq(spotLinks.id, linkId)).run();
+		if (alsoLesson) {
+			const lesson = tx
+				.select({ id: lessonVideos.lessonId })
+				.from(videoSpots)
+				.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+				.where(eq(videoSpots.id, spotId))
+				.get();
+			if (lesson && 'figureId' in link.target) {
+				tx.delete(lessonFigures)
+					.where(
+						and(
+							eq(lessonFigures.lessonId, lesson.id),
+							eq(lessonFigures.figureId, link.target.figureId)
+						)
+					)
+					.run();
+			} else if (lesson && 'exerciseId' in link.target) {
+				tx.delete(lessonExercises)
+					.where(
+						and(
+							eq(lessonExercises.lessonId, lesson.id),
+							eq(lessonExercises.exerciseId, link.target.exerciseId)
+						)
+					)
+					.run();
+			}
+		}
+		return true;
+	});
 }
 
 export function getSpotLink(db: Db, id: number) {
@@ -288,7 +335,10 @@ function targetContext(db: Db, target: SectionTarget) {
 			.from(lessonFigures)
 			.where(eq(lessonFigures.figureId, target.figureId))
 			.all();
-		return { dance: f.dance, taught: new Set(rows.map((r) => r.id)) };
+		return {
+			dance: f.dance,
+			taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
+		};
 	}
 	const e = db
 		.select({ dance: exercises.dance })
@@ -301,7 +351,10 @@ function targetContext(db: Db, target: SectionTarget) {
 		.from(lessonExercises)
 		.where(eq(lessonExercises.exerciseId, target.exerciseId))
 		.all();
-	return { dance: e.dance, taught: new Set(rows.map((r) => r.id)) };
+	return {
+		dance: e.dance,
+		taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
+	};
 }
 
 const ownerKey = (o: SpotOwner) =>

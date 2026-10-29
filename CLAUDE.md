@@ -32,7 +32,9 @@ what fits, a long-press selection with Make routine) and saved YouTube videos
 it at 480p and the link becomes a recording or lesson video, spots and all)
 and section links (a section of a lesson video or recording linked to a figure
 version or a drill, shown as a card that loops it; a linked section and its
-video refuse to delete).
+video refuse to delete) and the Link popup (link a section, or create the
+variation, figure or drill it shows, from the lesson page or the player; a
+lesson includes what its videos' sections link to).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -67,6 +69,10 @@ Section links have theirs,
 [`docs/superpowers/specs/2026-10-15-video-section-links-design.md`](docs/superpowers/specs/2026-10-15-video-section-links-design.md):
 why a link points at a saved spot, per version, and why a linked section blocks
 its video's delete.
+The Link popup has its own,
+[`docs/superpowers/specs/2026-10-29-section-link-popup-design.md`](docs/superpowers/specs/2026-10-29-section-link-popup-design.md):
+why a lesson's figures are derived from its sections rather than copied, and
+create-and-link in one transaction.
 Figures as variations have theirs,
 [`docs/superpowers/specs/2026-10-29-figures-are-variations-design.md`](docs/superpowers/specs/2026-10-29-figures-are-variations-design.md):
 the `figure_groups` table, self-contained variations, Move to…, and the figure
@@ -117,6 +123,10 @@ android/             the Android app (Kotlin): two WebView launchers, salsa:// l
                      and reminder workers. No screens of its own. Pure parts (Links,
                      UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
+src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sections —
+                     derived, never stored; lessons.ts and spot-links.ts read it
+src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
+                     transaction); served by /api/video-spots/[id]/links
 src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByDance
 src/lib/server/request-user.ts  where a device token may sign in: /api/ only
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the

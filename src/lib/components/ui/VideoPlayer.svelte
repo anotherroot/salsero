@@ -9,6 +9,7 @@
 		edgeViewTime,
 		sectionProgress,
 		lengthText,
+		linkSummary,
 		loopTarget,
 		MIN_SECTION_MS,
 		moveEdge,
@@ -51,6 +52,7 @@
 	import SectionRow from '$lib/components/video/SectionRow.svelte';
 	import SpotEditor, { type MoveHow, type Times } from '$lib/components/video/SpotEditor.svelte';
 	import PlayerSheet from '$lib/components/video/PlayerSheet.svelte';
+	import LinkPopup, { type LinkStep } from '$lib/components/links/LinkPopup.svelte';
 	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -68,6 +70,13 @@
 		/** What the top bar names: the lesson or figure, and what kind of video. */
 		title?: string;
 		subtitle?: string;
+		/**
+		 * Linking sections from inside the player: the toast's Link, the section
+		 * view's link badge and the editor's line. Only where the page manages the
+		 * video's sections (a lesson's videos, a figure's recordings); elsewhere
+		 * what a section links to is shown, never changed.
+		 */
+		linking?: boolean;
 	}
 
 	let {
@@ -80,7 +89,8 @@
 		onclose,
 		loopSpot,
 		title = 'Video',
-		subtitle = ''
+		subtitle = '',
+		linking = false
 	}: Props = $props();
 
 	const FULL: Screen = { kind: 'full' };
@@ -126,7 +136,11 @@
 	/** Milliseconds: the start of a section whose end has not been tapped yet. */
 	let pendingStart = $state<number | null>(null);
 	let sheetMessage = $state<string | null>(null);
-	let toast = $state<{ text: string; action?: { label: string; run: () => void } } | null>(null);
+	type ToastAction = { label: string; run: () => void };
+	let toast = $state<{ text: string; actions: ToastAction[] } | null>(null);
+	/** The section the Link popup is on, and its create step while one is open. */
+	let linkSpotId = $state<number | null>(null);
+	let linkStep = $state<LinkStep>('list');
 
 	const level = $derived(levelOf(stack));
 	const sheet = $derived(sheetOf(stack));
@@ -231,10 +245,12 @@
 	/* ---------- spots ---------- */
 
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
-	function say(text: string, action?: { label: string; run: () => void }) {
-		toast = { text, action };
+	/** A toast; one offering Link stays a little longer, since linking is the next step. */
+	function say(text: string, ...actions: ToastAction[]) {
+		toast = { text, actions };
 		clearTimeout(toastTimer);
-		toastTimer = setTimeout(() => (toast = null), 4000);
+		const long = actions.some((a) => a.label === 'Link');
+		toastTimer = setTimeout(() => (toast = null), long ? 6000 : 4000);
 	}
 	onMount(() => () => clearTimeout(toastTimer));
 
@@ -288,10 +304,11 @@
 			const spot = await save({ startMs: pendingStart, endMs: now, label: null });
 			if (spot) {
 				pendingStart = null;
-				say(`Section saved · ${lengthText(now - spot.startMs)}`, {
-					label: 'Edit',
-					run: () => toEdit(spot)
-				});
+				say(
+					`Section saved · ${lengthText(now - spot.startMs)}`,
+					{ label: 'Edit', run: () => toEdit(spot) },
+					...(linking ? [{ label: 'Link', run: () => openLink(spot.id) }] : [])
+				);
 			}
 		} finally {
 			saving = false;
@@ -441,6 +458,38 @@
 	function openSheet(kind: SheetKind) {
 		sheetMessage = null;
 		nav.push({ kind: 'sheet', sheet: kind });
+	}
+
+	/* ---------- linking ---------- */
+
+	function openLink(spotId: number) {
+		toast = null;
+		linkSpotId = spotId;
+		linkStep = 'list';
+		openSheet('link');
+	}
+
+	/** The popup's list ↔ create steps are two sheets, so Back walks them like any level. */
+	function linkStepTo(next: LinkStep) {
+		if (next === 'list') {
+			if (sheet === 'link-new') nav.up();
+			return;
+		}
+		linkStep = next;
+		if (sheet === 'link') nav.push({ kind: 'sheet', sheet: 'link-new' });
+	}
+
+	function closeLink() {
+		nav.jump(
+			nav.stack.filter(
+				(s) => !(s.kind === 'sheet' && (s.sheet === 'link' || s.sheet === 'link-new'))
+			)
+		);
+	}
+
+	/** The popup changed a section's links: its small lines follow. */
+	function linkedChanged(labels: string[]) {
+		spots = spots.map((s) => (s.id === linkSpotId ? { ...s, linkedTo: labels } : s));
 	}
 
 	/* ---------- playback ---------- */
@@ -661,10 +710,34 @@
 		onloop={() => (loopPaused = !loopPaused)}
 		onrename={() => openSheet('rename')}
 		ondelete={() => openSheet('delete')}
+		onlink={linking && spot.endMs !== null ? () => openLink(spot.id) : undefined}
 		ondone={done}
 		ontoggle={toggle}
 		ontenth={tenth}
 	/>
+{/snippet}
+
+<!-- What a section links to, small, on the video: "+ Link" when nothing is and the page may link. -->
+{#snippet linkBadge(spot: Spot)}
+	{@const summary = linkSummary(spot.linkedTo)}
+	{#if linking}
+		<button
+			type="button"
+			class="flex cursor-pointer items-center gap-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[11.5px] {summary
+				? 'text-zinc-200'
+				: 'font-semibold text-(--pl-accent)'}"
+			aria-label={summary ? `Links: ${spot.linkedTo.join(', ')}` : 'Link this section'}
+			onclick={() => openLink(spot.id)}
+		>
+			<Icon d={icons.link} size={11} />{summary || '+ Link'}
+		</button>
+	{:else if summary}
+		<span
+			class="pointer-events-none flex items-center gap-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[11.5px] text-zinc-200"
+		>
+			<Icon d={icons.link} size={11} />{summary}
+		</span>
+	{/if}
 {/snippet}
 
 {#snippet editorCard(spot: Spot)}
@@ -885,11 +958,14 @@
 				>
 			{/if}
 			{#if loop && mode !== 'overlay'}
-				<span
-					class="pointer-events-none absolute top-2 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
-				>
-					<Icon d={icons.loop} size={13} class="text-(--pl-accent)" />{spotLabel(loop)}
-				</span>
+				<div class="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
+					<span
+						class="pointer-events-none flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
+					>
+						<Icon d={icons.loop} size={13} class="text-(--pl-accent)" />{spotLabel(loop)}
+					</span>
+					{#if level.kind === 'section' && openSpot}{@render linkBadge(openSpot)}{/if}
+				</div>
 			{/if}
 			{#if loop}
 				<span
@@ -992,6 +1068,7 @@
 				class:faded
 			>
 				{#if level.kind === 'section' && openSpot}
+					<div class="px-6">{@render linkBadge(openSpot)}</div>
 					<SectionView
 						spot={openSpot}
 						{currentMs}
@@ -1100,11 +1177,20 @@
 				class="absolute inset-x-4 z-30 mx-auto max-w-md"
 				style:bottom={mode === 'portrait' && level.kind === 'edit' ? '84px' : '20px'}
 			>
-				<Toast text={toast.text} action={toast.action} />
+				<Toast text={toast.text} actions={toast.actions} />
 			</div>
 		{/if}
 
-		{#if sheet && sheet !== 'list'}
+		{#if (sheet === 'link' || sheet === 'link-new') && linkSpotId !== null}
+			<LinkPopup
+				spotId={linkSpotId}
+				theme="dark"
+				step={sheet === 'link' ? 'list' : linkStep}
+				onstep={linkStepTo}
+				onchange={linkedChanged}
+				onclose={closeLink}
+			/>
+		{:else if sheet && sheet !== 'list'}
 			<PlayerSheet
 				kind={sheet}
 				spot={openSpot}

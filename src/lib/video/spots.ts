@@ -163,3 +163,9 @@ export function sectionProgress(spot: Pick<Spot, 'startMs' | 'endMs'>, currentMs
 	const into = Math.max(0, Math.min(length, currentMs - spot.startMs));
 	return `${(into / 1000).toFixed(1)} / ${lengthText(length)}`;
 }
+
+/** What a section links to, in one short line: the first label, and "+n" for the rest. */
+export function linkSummary(labels: string[]): string {
+	if (labels.length === 0) return '';
+	return labels.length === 1 ? labels[0] : `${labels[0]} +${labels.length - 1}`;
+}

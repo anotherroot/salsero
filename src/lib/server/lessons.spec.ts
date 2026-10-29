@@ -30,7 +30,10 @@ import {
 	listExercises,
 	updateExercise
 } from './exercises';
-import { addFigureExercise, createFigure, createVariationFrom } from './figures';
+import { addFigureExercise, archiveVariation, createFigure, createVariationFrom } from './figures';
+import { addSpot } from './spots';
+import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
+import { spotLinks } from './db/schema';
 import { archiveRoutine, createRoutine } from './routines';
 
 let db: Db;
@@ -515,5 +518,142 @@ describe('routineTaughtIn', () => {
 		archiveLesson(db, gone.id, 1000);
 
 		expect(routineTaughtIn(db, routine.id).map((l) => l.id)).toEqual([newer.id, older.id]);
+	});
+});
+
+describe('through sections', () => {
+	let lessonId: number;
+	let basic: number;
+	let doble: number;
+	let drill: number;
+	let a: number;
+	let b: number;
+
+	beforeEach(() => {
+		lessonId = createLesson(db, 'salsa', lessonInput).lesson.id;
+		basic = createFigure(db, 'salsa', figureInput)!.figure.id;
+		doble = createVariationFrom(db, basic, 'Doble')!.id;
+		drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
+		const videoId = addLessonVideo(db, video(lessonId, 'l.mp4', 1)).id;
+		a = addSpot(db, { lessonVideoId: videoId }, { startMs: 1000, endMs: 4000, label: null })!.id;
+		b = addSpot(db, { lessonVideoId: videoId }, { startMs: 6000, endMs: 9000, label: 'B' })!.id;
+	});
+
+	const figuresOf = () => getLesson(db, lessonId)!.figures;
+	const exercisesOf = () => getLesson(db, lessonId)!.exercises;
+	const spotLinkCount = () => db.select().from(spotLinks).all().length;
+
+	it('lists a variation linked only through a section, and drops it with the link', () => {
+		const link = linkSpot(db, a, { figureId: doble });
+		expect(figuresOf()).toEqual([
+			expect.objectContaining({
+				id: doble,
+				name: 'Enchufla · Doble',
+				byHand: false,
+				viaSections: [{ spotId: a, startMs: 1000, endMs: 4000, label: null }]
+			})
+		]);
+		unlinkSpot(db, link, { figureId: doble });
+		expect(figuresOf()).toEqual([]);
+	});
+
+	it('shows a hand-linked variation that is also linked through a section once', () => {
+		linkFigure(db, lessonId, doble);
+		linkSpot(db, a, { figureId: doble });
+		const rows = figuresOf();
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({ id: doble, byHand: true });
+		expect(rows[0].viaSections).toHaveLength(1);
+	});
+
+	it('marks a hand-only row', () => {
+		linkFigure(db, lessonId, basic);
+		expect(figuresOf()[0]).toMatchObject({ byHand: true, viaSections: [] });
+	});
+
+	it('keeps an archived variation, as a hand-linked one is kept', () => {
+		linkSpot(db, a, { figureId: doble });
+		archiveVariation(db, doble, 1);
+		expect(figuresOf().map((f) => f.id)).toEqual([doble]);
+	});
+
+	it('lists a drill linked through a section, and not once it is archived', () => {
+		linkSpot(db, a, { exerciseId: drill });
+		expect(exercisesOf()).toEqual([
+			expect.objectContaining({ id: drill, byHand: false, viaSections: [expect.anything()] })
+		]);
+		archiveExercise(db, drill, 1);
+		expect(exercisesOf()).toEqual([]);
+	});
+
+	it("never shows a variation's own exercise beside it when the variation came through a section", () => {
+		const own = addFigureExercise(db, doble)!.id;
+		expect(linkExercise(db, lessonId, own)).toBe(true);
+		linkSpot(db, a, { figureId: doble });
+		expect(exercisesOf().map((e) => e.id)).not.toContain(own);
+	});
+
+	it("refuses to hand-link a variation's exercise while the variation is there through a section", () => {
+		const own = addFigureExercise(db, doble)!.id;
+		linkSpot(db, a, { figureId: doble });
+		expect(linkExercise(db, lessonId, own)).toBe(false);
+		expect(listLinkableExercises(db, lessonId).map((e) => e.id)).not.toContain(own);
+	});
+
+	it('leaves what is there through a section out of the pickers', () => {
+		linkSpot(db, a, { figureId: doble });
+		linkSpot(db, a, { exerciseId: drill });
+		expect(listLinkableFigures(db, lessonId).map((f) => f.id)).not.toContain(doble);
+		expect(listLinkableExercises(db, lessonId).map((e) => e.id)).not.toContain(drill);
+	});
+
+	it("counts the lesson in the variation's Taught in, unless the lesson is archived", () => {
+		linkSpot(db, a, { figureId: doble });
+		expect(taughtIn(db, doble).map((l) => l.id)).toEqual([lessonId]);
+		archiveLesson(db, lessonId, 1);
+		expect(taughtIn(db, doble)).toEqual([]);
+	});
+
+	it('puts the lesson first in the link sheet when a section of it links the variation', () => {
+		const other = createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-10-01' }).lesson.id;
+		const otherVideo = addLessonVideo(db, video(other, 'o.mp4', 1)).id;
+		addSpot(db, { lessonVideoId: otherVideo }, { startMs: 0, endMs: 2000, label: null });
+		linkSpot(db, a, { figureId: doble });
+		const groups = linkableSections(db, { figureId: doble });
+		expect(groups[0]).toMatchObject({ taughtHere: true });
+		expect(groups[0].video.from).toMatchObject({ kind: 'lesson', lessonId });
+	});
+
+	it('unlinks the hand link and every section link with alsoSections', () => {
+		linkFigure(db, lessonId, doble);
+		linkSpot(db, a, { figureId: doble });
+		linkSpot(db, b, { figureId: doble });
+		expect(unlinkFigure(db, lessonId, doble, true)).toBe(true);
+		expect(figuresOf()).toEqual([]);
+		expect(spotLinkCount()).toBe(0);
+	});
+
+	it('unlinks only the hand link without alsoSections', () => {
+		linkFigure(db, lessonId, doble);
+		linkSpot(db, a, { figureId: doble });
+		expect(unlinkFigure(db, lessonId, doble)).toBe(true);
+		expect(figuresOf()).toEqual([expect.objectContaining({ id: doble, byHand: false })]);
+		expect(spotLinkCount()).toBe(1);
+	});
+
+	it('removes a section-only variation with alsoSections', () => {
+		linkSpot(db, a, { figureId: doble });
+		expect(unlinkFigure(db, lessonId, doble, true)).toBe(true);
+		expect(figuresOf()).toEqual([]);
+	});
+
+	it('does the same for a drill', () => {
+		linkExercise(db, lessonId, drill);
+		linkSpot(db, a, { exerciseId: drill });
+		expect(unlinkExercise(db, lessonId, drill)).toBe(true);
+		expect(exercisesOf()).toEqual([expect.objectContaining({ id: drill, byHand: false })]);
+		expect(unlinkExercise(db, lessonId, drill, true)).toBe(true);
+		expect(exercisesOf()).toEqual([]);
+		expect(spotLinkCount()).toBe(0);
 	});
 });

@@ -18,6 +18,8 @@
 		title?: string;
 		/** After the full-screen player closes — a page whose lists show its spots refreshes. */
 		onclosed?: () => void;
+		/** The full-screen player may link sections: only where the page manages them. */
+		linking?: boolean;
 	}
 
 	let {
@@ -27,7 +29,8 @@
 		onproblem,
 		sourceUrl = null,
 		title = 'Video',
-		onclosed
+		onclosed,
+		linking = false
 	}: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
@@ -132,6 +135,7 @@
 		{owner}
 		startAt={fullAt}
 		{title}
+		{linking}
 		subtitle={'recordingId' in owner ? 'Recording' : 'Lesson video'}
 		{mirror}
 		{rate}

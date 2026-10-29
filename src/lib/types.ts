@@ -7,6 +7,7 @@ import type {
 	Source,
 	TempoFactor
 } from './labels';
+import type { DanceSlug } from './dances/dances';
 
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {
@@ -179,13 +180,18 @@ export interface PracticePayload {
 	last: LastSet | null;
 }
 
-/** A figure taught in a lesson, with the exercise that came with it. */
+/**
+ * A variation taught in a lesson, with the exercise that came with it: linked
+ * by hand, through sections of the lesson's videos, or both.
+ */
 export interface LessonFigureRow {
 	id: number;
 	name: string;
 	partner: Partner;
 	style: string | null;
 	exerciseId: number | null;
+	byHand: boolean;
+	viaSections: ViaSection[];
 }
 
 /** A routine linked to a lesson, with the exercise that came with it. */
@@ -195,11 +201,16 @@ export interface LessonRoutineRow {
 	exerciseId: number | null;
 }
 
-/** An exercise attached to a lesson by hand. Never a linked figure's or routine's own. */
+/**
+ * An exercise on a lesson: attached by hand, or a drill linked through a section
+ * of the lesson's videos. Never a linked figure's or routine's own.
+ */
 export interface LessonExerciseRow {
 	id: number;
 	name: string;
 	source: Source;
+	byHand: boolean;
+	viaSections: ViaSection[];
 }
 
 /** One variation of a figure, as a picker offers it. */
@@ -300,6 +311,64 @@ export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
 
 /** What a section can be linked to: a figure version or a drill. */
 export type SectionTarget = { figureId: number } | { exerciseId: number };
+
+/** Something a section can be linked to, as the Link popup lists it. */
+export interface LinkOption {
+	target: SectionTarget;
+	/** "Enchufla · Doble", or a drill's name. */
+	label: string;
+	drill: boolean;
+}
+
+/** One of a section's links, in the Link popup. */
+export interface LinkedTarget extends LinkOption {
+	linkId: number;
+	archived: boolean;
+	/** Also linked to the section's lesson by hand: unlinking asks whether to take that too. */
+	alsoByHand: boolean;
+}
+
+/** A figure "New variation" can add to, with its variations' names. */
+export interface LinkFigureChoice {
+	groupId: number;
+	name: string;
+	variations: string[];
+	/** This lesson's, or the recording's own: offered first. */
+	near: boolean;
+}
+
+export type LinkContext =
+	| { kind: 'lesson'; lessonId: number; title: string }
+	| { kind: 'recording'; groupId: number; figure: string };
+
+/** Everything the Link popup shows for one section. */
+export interface LinkOptions {
+	dance: DanceSlug;
+	spot: { id: number; startMs: number; endMs: number; label: string | null };
+	context: LinkContext;
+	linked: LinkedTarget[];
+	/** "This lesson" or "This figure", without what is linked. */
+	near: LinkOption[];
+	/** Every other live variation and drill of the dance. */
+	other: LinkOption[];
+	figures: LinkFigureChoice[];
+	/** What "New figure" starts on. */
+	defaults: { partner: Partner; style: string };
+}
+
+/** What the Link popup's create steps send. */
+export type LinkCreate =
+	| { kind: 'variation'; groupId: number; name: string }
+	| { kind: 'figure'; figureName: string; name: string; partner: Partner; style: string }
+	| { kind: 'drill'; name: string; everyDays: number };
+
+/** A section of a lesson's video through which a variation or drill is on that lesson. */
+export interface ViaSection {
+	spotId: number;
+	startMs: number;
+	endMs: number;
+	label: string | null;
+}
 
 /** One link of a section, as a chip under it on the lesson page. */
 export interface SectionLinkChip {

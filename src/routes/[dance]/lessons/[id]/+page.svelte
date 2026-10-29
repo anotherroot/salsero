@@ -10,6 +10,7 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import LinkPicker from '$lib/components/lessons/LinkPicker.svelte';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
+	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import ChunkedUploadButton from '$lib/components/ui/ChunkedUploadButton.svelte';
 	import { uploadLink } from '$lib/app-mode';
@@ -22,7 +23,9 @@
 	import { byteSize, dateLabel } from '$lib/format';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
+	import { spotTime } from '$lib/video/spots';
 	import type { MediaProblem } from '$lib/media';
+	import type { ViaSection } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -33,6 +36,18 @@
 	let addingRoutine = $state(false);
 	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
+	/** A row there through a section, whose Unlink is asking first. */
+	let unlinkingVia = $state<{
+		action: string;
+		name: string;
+		id: number;
+		label: string;
+		via: ViaSection[];
+	} | null>(null);
+	const viaTag = (via: ViaSection[]) =>
+		via.length === 1 ? 'via section' : `via ${via.length} sections`;
+	const viaRanges = (via: ViaSection[]) =>
+		via.map((v) => `${spotTime(v.startMs)}–${spotTime(v.endMs)}`).join(', ');
 
 	const lesson = $derived(data.lesson);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
@@ -82,6 +97,8 @@
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 	const heading = 'mb-2 text-[12px] font-medium tracking-wide text-muted uppercase';
+	const tag =
+		'ml-1.5 inline-block rounded-full border border-rule px-1.5 align-[1px] text-[11px] font-normal text-ink-2';
 </script>
 
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
@@ -205,9 +222,6 @@
 
 		<section>
 			<h2 class={heading}>Videos</h2>
-			{#if failure('unlinkSection')}
-				<p class="mb-2 text-[13px] text-danger" role="alert">{failure('unlinkSection')}</p>
-			{/if}
 			<ul class="space-y-3">
 				{#each data.videos as video (video.id)}
 					<li class="overflow-hidden rounded-xl border border-line bg-raised">
@@ -231,6 +245,7 @@
 								title={lesson.title}
 								onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 								onclosed={() => void invalidateAll()}
+								linking
 							/>
 						{/if}
 						<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
@@ -254,10 +269,7 @@
 							sections={data.sections[video.id] ?? []}
 							src="/lesson-videos/{video.file}"
 							owner={{ lessonVideoId: video.id }}
-							targets={data.sectionTargets}
-							failure={form?.action === 'linkSection' && 'spotId' in form
-								? { spotId: Number(form.spotId), message: String(form.message) }
-								: null}
+							linking
 						/>
 					</li>
 				{/each}
@@ -300,17 +312,39 @@
 									dance: data.dance.slug,
 									id: String(exercise.id)
 								})}
-								class="min-w-0 flex-1 truncate text-[15px]">{exercise.name}</a
+								class="min-w-0 flex-1"
+								><span class="block truncate text-[15px]"
+									>{exercise.name}{#if exercise.viaSections.length > 0}<span class={tag}
+											>{viaTag(exercise.viaSections)}</span
+										>{/if}</span
+								>{#if exercise.viaSections.length > 0}<span class="block text-[12px] text-muted"
+										>{viaRanges(exercise.viaSections)}</span
+									>{/if}</a
 							>
 							<a
 								href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
 								class="grid size-9 place-items-center text-[20px] text-accent"
 								aria-label="Log a set of {exercise.name}">+</a
 							>
-							<form method="POST" action="?/unlinkExercise" use:enhance>
-								<input type="hidden" name="exerciseId" value={exercise.id} />
-								<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-							</form>
+							{#if exercise.viaSections.length > 0}
+								<button
+									type="button"
+									class="h-9 px-2 text-[13px] text-muted"
+									onclick={() =>
+										(unlinkingVia = {
+											action: '?/unlinkExercise',
+											name: 'exerciseId',
+											id: exercise.id,
+											label: exercise.name,
+											via: exercise.viaSections
+										})}>Unlink</button
+								>
+							{:else}
+								<form method="POST" action="?/unlinkExercise" use:enhance>
+									<input type="hidden" name="exerciseId" value={exercise.id} />
+									<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+								</form>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -387,13 +421,36 @@
 								})}
 								class="min-w-0 flex-1"
 							>
-								<span class="block truncate text-[15px] font-medium">{figure.name}</span>
-								<span class="text-[12px] text-muted">{PARTNER_LABEL[figure.partner]}</span>
+								<span class="block truncate text-[15px] font-medium"
+									>{figure.name}{#if figure.viaSections.length > 0}<span class={tag}
+											>{viaTag(figure.viaSections)}</span
+										>{/if}</span
+								>
+								<span class="block truncate text-[12px] text-muted"
+									>{figure.viaSections.length > 0
+										? viaRanges(figure.viaSections)
+										: PARTNER_LABEL[figure.partner]}</span
+								>
 							</a>
-							<form method="POST" action="?/unlinkFigure" use:enhance>
-								<input type="hidden" name="figureId" value={figure.id} />
-								<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-							</form>
+							{#if figure.viaSections.length > 0}
+								<button
+									type="button"
+									class="h-9 px-2 text-[13px] text-muted"
+									onclick={() =>
+										(unlinkingVia = {
+											action: '?/unlinkFigure',
+											name: 'figureId',
+											id: figure.id,
+											label: figure.name,
+											via: figure.viaSections
+										})}>Unlink</button
+								>
+							{:else}
+								<form method="POST" action="?/unlinkFigure" use:enhance>
+									<input type="hidden" name="figureId" value={figure.id} />
+									<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+								</form>
+							{/if}
 						</li>
 					{/each}
 				</ul>
@@ -605,3 +662,7 @@
 		>
 	</form>
 </Sheet>
+
+{#if unlinkingVia}
+	<UnlinkVia {...unlinkingVia} onclose={() => (unlinkingVia = null)} />
+{/if}

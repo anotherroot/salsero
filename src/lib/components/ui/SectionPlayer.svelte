@@ -15,6 +15,7 @@
 		owner,
 		spot,
 		from,
+		linking = false,
 		onclose
 	}: {
 		src: string;
@@ -22,6 +23,8 @@
 		spot: Spot;
 		/** Where the video is from, for the top bar. */
 		from?: SectionVideo['from'];
+		/** The player may link sections: only where the page manages them. */
+		linking?: boolean;
 		onclose: () => void;
 	} = $props();
 
@@ -33,6 +36,7 @@
 	{owner}
 	startAt={spot.startMs / 1000}
 	loopSpot={spot}
+	{linking}
 	mirror={prefs.mirror}
 	rate={prefs.rate}
 	title={from ? (from.kind === 'lesson' ? from.title : from.figure) : 'Video'}
