@@ -1,10 +1,9 @@
 # Full-screen player redesign — design
 
-> **Status:** approved in brainstorming, 2026-10-29; not built. Reshapes the
-> screens of [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md);
-> its data model, API, server functions and loop rule stay exactly as they
-> are. When this is built, fold the result back into that document and leave
-> this one as the record of why.
+> **Status:** approved in brainstorming, 2026-10-29; built 2026-10-29 and
+> folded into [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md),
+> which describes the player as it is. This document stays as the record of
+> why. Data model, API, server functions and loop rule did not change.
 >
 > Mockups (a clickable phone prototype, landscape and desktop layouts):
 > https://claude.ai/artifact/Frkabcp1eJGFVjvG8kU5qe — private to the owner.

@@ -5,9 +5,10 @@
 > "Videos: mirror and slow motion", which stays the inline player; this
 > document owns the full-screen player and saved spots.
 >
-> A redesign of its screens (three levels, a section editor, frame steps)
-> was approved on 2026-10-29 and is not built yet:
-> [`2026-10-29-video-player-redesign-design.md`](2026-10-29-video-player-redesign-design.md).
+>
+> Its screens were redesigned on 2026-10-29 (three levels, a section editor,
+> frame steps, back up one level); the sections below describe the result.
+> Why, and what was decided: [`2026-10-29-video-player-redesign-design.md`](2026-10-29-video-player-redesign-design.md).
 
 ## Purpose
 
@@ -36,60 +37,103 @@ full-screen player through `src/lib/video-prefs.ts`, as today.
 
 ## The full-screen player
 
-`ui/VideoPlayer.svelte` (new). A `<dialog>` opened with `showModal()`, filling
-the viewport, holding a `<video>` without `controls` and our controls on top.
-`showModal()` puts it in the top layer, above the Today popup — itself a
-modal dialog — so it opens from there too. Browser fullscreen is requested on
-an inner stage `<div>` inside the dialog, not on the dialog itself.
+`ui/VideoPlayer.svelte`. A `<dialog>` opened with `showModal()`, filling the
+viewport, holding a `<video>` without `controls` and our controls. `showModal()`
+puts it in the top layer, above the Today popup — itself a modal dialog — so
+it opens from there too. Browser fullscreen is requested on an inner stage
+`<div>` inside the dialog, not on the dialog itself. Its screens are small
+components in `src/lib/components/video/`; everything that can be decided
+without a DOM is a pure module in `src/lib/video/`. Redesigned 2026-10-29: the
+why, and the decisions taken in brainstorming, are in
+[`2026-10-29-video-player-redesign-design.md`](2026-10-29-video-player-redesign-design.md).
 
-**Fullscreen.** Where `Element.requestFullscreen` exists (Android, desktop),
-the stage requests it on open and exits on close; leaving browser fullscreen
-(Esc, the back gesture) closes the player. Where it does not (iPhone), the
-dialog filling the viewport IS the fullscreen: from the home-screen app there
-is no browser chrome, so it fills the screen. The layout works in both
-orientations; the phone is rotated by hand.
+**Three levels**, a stack (`src/lib/video/screens.ts`): the **full video**;
+a **section view** (one section, looping, with a timeline of just that
+section); the **editor** (one spot). Sheets — rename, delete, the key list,
+and the landscape list panel — sit on top as screens of their own. Tapping a
+section card opens its view; tapping a point opens its editor (a point has
+nothing to loop). Edit section opens the editor; Done returns a section to
+its view and a point to the full video. `‹ Full video` leaves a section. ✕
+closes from anywhere. `SectionPlayer` (a linked section card) opens straight
+into the section's view.
 
-**Controls.**
+**The loop is the section view.** A loop runs only while a section's view or
+editor is open (`loopOf`); leaving the view ends it, so the full video never
+loops. The editor's Loop toggle rests it for that editor visit only.
 
-- **Top bar:** close (×), Mirror, speed 0.25 / 0.5 / 0.75 / 1.
-- **Progress bar:** a scrubbable range input with spots drawn on it — a tick
-  per point, a shaded band per section — and the current time and duration.
-- **Main row:** −1 s, Play/Pause, +1 s, **Mark**, **Section**.
-  - **Mark** saves the current time as a point.
-  - **Section** is two taps: the first remembers the current time as a start
-    and relabels the button **End section**; the second saves the section. A
-    second tap at or before the start is ignored with a short note. Closing the
-    player drops a pending start.
-- **Spots (n):** opens a panel listing the spots by start time. A point jumps
-  there. A section jumps to its start and becomes the active loop. Each row has
-  **Edit** and delete (no label shows its time, `2:14.5` or `2:14.5–2:22.0`).
-  Tapping a point while a section loops keeps the loop only if the point lies
-  inside the section; otherwise the loop ends.
-- **Edit** opens that one row in place, closing any other: the label, then a
-  Start line — and an End line for a section — with the time, **−1s**, **+1s**
-  and **Now** (the current playback time). Opening it seeks there, and a
-  section becomes the loop, so each change is heard: a moved start plays from
-  the new start, a moved end plays the two seconds up to it. An edge never
-  leaves the video and a section never gets shorter than 1 s
-  (`MIN_SECTION_MS`); a ±1 s that would change nothing is disabled. **Done**,
-  Esc, or closing the panel closes the row, and only then is the list
-  re-sorted, so the row does not jump while its start moves. A linked section
-  can be edited: the link points at the spot, so its card follows.
-- **Looping chip:** while a loop is active, `Looping 2:14–2:22 ×` sits above
-  the main row; × ends the loop. Deleting the looped spot ends it too.
-- **Hiding:** while playing, controls fade after 3 s; a tap on the video brings
-  them back. Paused, they stay.
+**Back goes up one level.** Each screen is a history entry made with
+SvelteKit's shallow routing (`pushState('', { videoPlayer: depth })`, typed in
+`App.PageState`); `src/lib/video/player-history.ts` keeps the stack in step
+behind an injected port. Back — Android's gesture, the browser's button, Esc
+(the dialog's `cancel`, prevented) — only moves history, and the stack
+follows when `page.state.videoPlayer` changes. ✕ goes back over every entry.
+SvelteKit treats a popstate between entries of one navigation as shallow: it
+updates `page.state` and runs no `beforeNavigate`, so the unsaved-changes
+guard never sees these moves. Leaving browser fullscreen (Esc, or Android's
+back in the app, which `WebShell.back()` spends on fullscreen first) counts
+as one back too: the player stays open filling the viewport and never asks
+for fullscreen again. If Chrome closes the dialog under us (a repeated back
+on a modal dialog), it is reopened and treated as the back it was.
 
-**Keyboard** (the work PC): Space play/pause, ← / → ∓1 s, M mark, S section
-start/end, L end loop, Esc close. Ignored while typing in a label field.
+**Layouts** (`layoutFor`): **portrait** (taller than wide) — the video at full
+width in its own aspect ratio, at most 55 % of the height, and every control
+below it, so nothing covers the picture; **landscape** (a phone on its side,
+under 520 px high) — the video fills the screen and the controls float over
+it, fading after 3 s of playing (a tap brings them back), while the editor
+and the `Sections (n)` list open as a panel beside the video; **desktop** — the
+video with its timeline and transport below and a key legend, a sidebar list
+whose open card expands into the editor. The four areas keep one DOM order
+re-arranged by a CSS grid, so rotating the phone never remounts the video.
 
-**The loop.** Checked on every animation frame while playing, not on
+**Full video:** the time to hundredths and `frame N`, a scrubbable timeline
+with sections as bands and points as ticks (and the band of a section being
+marked), −1 s / previous frame / Play / next frame / +1 s, **Mark point** and
+**Start section** (which becomes `End section · 3.2 s`; an end less than
+`MIN_SECTION_MS` past the start saves nothing and says so), and the list of
+cards. A save shows a toast with **Edit**.
+
+**Section view:** `‹ Full video`, the name, a timeline from the section's
+start to its end (`2.7 / 7.2 s`), a large transport, the four speeds, and
+**Edit section**. A thin bar along the video's bottom edge shows the loop's
+progress.
+
+**Editor:** the name (a button: it opens the rename sheet, never a focused
+field, so the phone's keyboard opens only when the field is tapped), the
+Loop toggle, a **trim strip** (`TrimStrip.svelte`, `trim.ts`: the spot ± 3 s,
+a handle per edge with a 28 px grab, drag to move an edge, tap elsewhere to
+seek; the window holds still during a drag and widens on release when an
+edge comes within 0.5 s of its side), **Start | End** selectors that choose
+the edge and jump to it, the move row (−1 s, −1 f, Now, +1 f, +1 s on the
+chosen edge), and for a section **Earlier / Shorter / Longer / Later**
+(`shiftSpot` 0.5 s, `resizeSpot` 0.25 s each side). Every button computes the
+new times with the pure functions in `spots.ts` and is disabled when they
+say nothing changes. ±1 s and the whole-section moves play the change (from
+the start, or the 2 s up to the end); ±1 f and a drag pause on the edge's own
+frame; Now sets the edge without seeking. A drag writes once, on release.
+The list is not re-sorted while an editor is open.
+
+**Delete** asks first, in a sheet: `Keep it` / `Delete`. A linked section
+says what it is linked to and its Delete is disabled; a 409 that slips
+through is shown in the sheet. After a delete a toast offers **Undo**, which
+posts the same times and label again (a new id — harmless, a deleted spot
+was never linked).
+
+**Frames.** Browsers do not expose a frame rate: `frame-rate.ts` measures it
+with `requestVideoFrameCallback` (the median gap between consecutive
+presented frames) and steps by 1/30 s until it knows. A frame step pauses
+and seeks to the middle of the next frame.
+
+**Keyboard** (`keys.ts`): Space, ← / → ∓1 s, `,` / `.` one frame, `?` the key
+list — everywhere; M and S at the full video; I / O (start / end to now) in
+the editor; [ / ] (jump to start / the last 2 s) in a section's view and
+editor; L (rest the loop) in the editor; Esc up one level. Ignored while
+typing and with Ctrl/Cmd/Alt held.
+
+**The loop** is checked on every animation frame while playing, not on
 `timeupdate` (~4 Hz, which would overshoot a quarter-second at 1×): once
 `currentTime` reaches the section's end, seek to its start. Seeking past the
 end — scrubbing, +1 s — therefore lands back at the start; seeking before the
-start plays on into the section. Only ending the loop (×, L, deleting the
-spot), tapping another section, or tapping a point outside it lets playback
-leave it.
+start plays on into the section.
 
 ## Data model
 
@@ -173,6 +217,14 @@ flat spots API crosses no wall the media does not.
 - `loopTarget(current, loop)` → the time to seek to, or null to keep playing.
 - `moveEdge(spot, edge, toMs, duration)` → the spot's times with one edge moved
   and clamped, or null when that changes nothing.
+- `frameNumber`, `frameSeek`, `edgeByFrames`, `edgeFrameTime` — frame steps;
+  `shiftSpot`, `resizeSpot` — the whole-section moves; `preciseTime` (`1:04.23`)
+  and `lengthText` (`7.2 s`).
+
+Beside it, all PURE and specced: `trim.ts` (the trim strip's window,
+positions and handles), `screens.ts` (the stack, `loopOf`, `doneTarget`,
+`prune`), `keys.ts`, `layout.ts`, `player-history.ts` (behind a port) and
+`frame-rate.ts` (`frameDurationOf`; `watchFrameDuration` is the DOM side).
 
 `ui/VideoPlayer.svelte` fetches the spots when it opens, and writes each change
 straight through the API, updating its list from the response. A failed fetch
@@ -185,16 +237,23 @@ list.
 ## Testing
 
 - `src/lib/video/spots.spec.ts` — formatting, clamping at 0 and the duration,
-  ordering, `loopTarget` before, at and past the end and with no loop.
+  ordering, `loopTarget` before, at and past the end and with no loop; frame
+  steps, whole-section moves at both ends of the video and at the minimum.
+- `trim.spec.ts`, `screens.spec.ts`, `keys.spec.ts`, `layout.spec.ts`,
+  `player-history.spec.ts` (a fake port: two quick backs, a forward move, a
+  jump), `frame-rate.spec.ts`.
 - `src/lib/server/spots.spec.ts` on `openDb(':memory:')` — add, list, rename,
   delete; each validation; the one-owner CHECK; deleting a recording and a
   lesson video takes their spots.
 - `src/routes/api/video-spots/video-spots.spec.ts` with
   `vi.mock('$lib/server/db')`, as `dance-wall.spec.ts` does — 404 for a
   missing owner or spot, 400 for bad bodies.
-- In the browser against `npm run dev`: open a lesson video full screen, 0.25×,
-  ±1 s, a point and a section, the loop holding, the keyboard, a phone-width
-  viewport.
+- In the browser against `npm run dev`, at 390×844, 844×390 and 1280×800:
+  every level and the way back from each, the loop holding, a handle dragged,
+  frame steps, rename never focusing by itself, delete asking / refusing a
+  linked section / Undo, rotating with the video playing, the keys.
+- In the Android app: Back from the editor, the section view and the full
+  video, in fullscreen and after leaving it.
 - `npm run check` passes.
 
 ## Known gaps
@@ -209,6 +268,11 @@ list.
   on a figure's or lesson's YouTube link is the way around it: the home
   worker turns the link into a recording or lesson video, which gets both
   ([`2026-10-15-youtube-video-save-design.md`](2026-10-15-youtube-video-save-design.md)).
-- **Escape in a rename field while in browser fullscreen** leaves fullscreen —
-  the browser takes Esc first, before the field sees it. The rename is
-  cancelled and the player stays open, filling the viewport.
+- **Esc in browser fullscreen** is the browser's: it leaves fullscreen before
+  the page sees the key. That counts as one back (a sheet closes, or the level
+  goes up) and the player stays open filling the viewport, without fullscreen.
+- **The frame rate is measured, not known.** Until `requestVideoFrameCallback`
+  has seen a few frames play (and where it does not exist), a frame step is
+  1/30 s — exact for 30 fps, a little off for 25 fps.
+- **A hot reload in `vite dev`** while the player is open resets its stack
+  but not the history entries; ✕ may then need a second press. Dev only.
