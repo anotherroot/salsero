@@ -140,6 +140,52 @@ export function unlinkSpot(db: Db, id: number, target: SectionTarget): boolean {
 	);
 }
 
+/**
+ * Unlink from the section's side — the Link popup's ×. Only a link of this
+ * spot. With `alsoLesson`, a lesson video's hand link from its lesson to the
+ * same target goes too, in the same transaction.
+ */
+export function unlinkFromSection(
+	db: Db,
+	spotId: number,
+	linkId: number,
+	alsoLesson: boolean
+): boolean {
+	return db.transaction((tx) => {
+		const link = getSpotLink(tx, linkId);
+		if (!link || link.spotId !== spotId) return false;
+		tx.delete(spotLinks).where(eq(spotLinks.id, linkId)).run();
+		if (alsoLesson) {
+			const lesson = tx
+				.select({ id: lessonVideos.lessonId })
+				.from(videoSpots)
+				.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+				.where(eq(videoSpots.id, spotId))
+				.get();
+			if (lesson && 'figureId' in link.target) {
+				tx.delete(lessonFigures)
+					.where(
+						and(
+							eq(lessonFigures.lessonId, lesson.id),
+							eq(lessonFigures.figureId, link.target.figureId)
+						)
+					)
+					.run();
+			} else if (lesson && 'exerciseId' in link.target) {
+				tx.delete(lessonExercises)
+					.where(
+						and(
+							eq(lessonExercises.lessonId, lesson.id),
+							eq(lessonExercises.exerciseId, link.target.exerciseId)
+						)
+					)
+					.run();
+			}
+		}
+		return true;
+	});
+}
+
 export function getSpotLink(db: Db, id: number) {
 	const row = db.select().from(spotLinks).where(eq(spotLinks.id, id)).get();
 	if (!row) return null;

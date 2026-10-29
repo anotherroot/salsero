@@ -7,6 +7,7 @@ import type {
 	Source,
 	TempoFactor
 } from './labels';
+import type { DanceSlug } from './dances/dances';
 
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {
@@ -310,6 +311,56 @@ export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
 
 /** What a section can be linked to: a figure version or a drill. */
 export type SectionTarget = { figureId: number } | { exerciseId: number };
+
+/** Something a section can be linked to, as the Link popup lists it. */
+export interface LinkOption {
+	target: SectionTarget;
+	/** "Enchufla · Doble", or a drill's name. */
+	label: string;
+	drill: boolean;
+}
+
+/** One of a section's links, in the Link popup. */
+export interface LinkedTarget extends LinkOption {
+	linkId: number;
+	archived: boolean;
+	/** Also linked to the section's lesson by hand: unlinking asks whether to take that too. */
+	alsoByHand: boolean;
+}
+
+/** A figure "New variation" can add to, with its variations' names. */
+export interface LinkFigureChoice {
+	groupId: number;
+	name: string;
+	variations: string[];
+	/** This lesson's, or the recording's own: offered first. */
+	near: boolean;
+}
+
+export type LinkContext =
+	| { kind: 'lesson'; lessonId: number; title: string }
+	| { kind: 'recording'; groupId: number; figure: string };
+
+/** Everything the Link popup shows for one section. */
+export interface LinkOptions {
+	dance: DanceSlug;
+	spot: { id: number; startMs: number; endMs: number; label: string | null };
+	context: LinkContext;
+	linked: LinkedTarget[];
+	/** "This lesson" or "This figure", without what is linked. */
+	near: LinkOption[];
+	/** Every other live variation and drill of the dance. */
+	other: LinkOption[];
+	figures: LinkFigureChoice[];
+	/** What "New figure" starts on. */
+	defaults: { partner: Partner; style: string };
+}
+
+/** What the Link popup's create steps send. */
+export type LinkCreate =
+	| { kind: 'variation'; groupId: number; name: string }
+	| { kind: 'figure'; figureName: string; name: string; partner: Partner; style: string }
+	| { kind: 'drill'; name: string; everyDays: number };
 
 /** A section of a lesson's video through which a variation or drill is on that lesson. */
 export interface ViaSection {
