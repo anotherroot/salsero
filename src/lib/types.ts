@@ -161,7 +161,7 @@ export type PracticeContent =
 	  }
 	| {
 			type: 'figure';
-			figure: { id: number; name: string; notes: string | null; eights: number };
+			figure: { id: number; name: string; say: string; notes: string | null; eights: number };
 			links: LinkRow[];
 			recordings: RecordingRow[];
 			sections: LinkedSection[];

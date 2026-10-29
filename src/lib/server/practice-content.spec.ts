@@ -70,6 +70,17 @@ describe('practicePayload', () => {
 		});
 	});
 
+	it('shows a variation by its label but says the figure’s name', () => {
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const doble = createVariationFrom(db, figure.id, 'Doble')!;
+		const exercise = addFigureExercise(db, doble.id)!;
+		const { content } = practicePayload(db, exercise, TZ, Date.now());
+		expect(content.type === 'figure' && content.figure).toMatchObject({
+			name: 'Enchufla · Doble',
+			say: 'Enchufla'
+		});
+	});
+
 	it('derives the cue’s 8-counts from the figure’s length in counts', () => {
 		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
