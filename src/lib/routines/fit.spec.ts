@@ -8,6 +8,7 @@ import {
 	anchorText,
 	fold,
 	pickList,
+	variationName,
 	type Anchor,
 	type Candidate
 } from './fit';
@@ -17,11 +18,12 @@ const fig = (
 	id: number,
 	label: string,
 	o: Partial<Candidate> = {},
-	parentId: number | null = null
+	groupId: number | null = id
 ): Candidate => ({
 	kind: 'figure',
 	id,
-	parentId,
+	groupId,
+	figure: label.split(' · ')[0],
 	label,
 	starts: [1],
 	startCounts: [1],
@@ -33,17 +35,17 @@ const fig = (
 const candidates: Candidate[] = [
 	fig(1, 'Cross body lead', { end: 2 }),
 	fig(2, 'Dile que no', { end: 2 }),
-	fig(3, 'Enchufla', { starts: [2] }),
+	fig(3, 'Enchufla · Basic', { starts: [2] }, 3),
 	fig(4, 'Enchufla · Doble', {}, 3),
 	fig(5, 'Sombrero', { starts: [3] }),
 	fig(6, 'Son basic', { startCounts: [5], next: 5 }),
-	{ ...fig(7, 'Shine combo'), kind: 'routine' }
+	{ ...fig(7, 'Shine combo', {}, null), kind: 'routine', figure: null }
 ];
 
 const all = { count: true, hold: true, query: '' };
 const after: Anchor = { kind: 'after', end: 1, next: 1 }; // starts on 1 from open
 const ids = (l: ReturnType<typeof pickList>) => ({
-	figures: l.figures.map((g) => [g.head.id, g.headFits, g.variations.map((v) => v.id)]),
+	figures: l.figures.map((g) => [g.groupId, g.single, g.variations.map((v) => v.id)]),
 	routines: l.routines.map((r) => r.id)
 });
 
@@ -58,9 +60,9 @@ describe('pickList', () => {
 	it('after a slot: starts on its next count, from where it lands', () => {
 		expect(ids(pickList(candidates, after, all))).toEqual({
 			figures: [
-				[1, true, []],
-				[2, true, []],
-				[3, false, [4]] // Enchufla starts from closed; its Doble from open
+				[1, true, [1]],
+				[2, true, [2]],
+				[3, false, [4]] // Basic starts from closed; Doble from open
 			],
 			routines: [7]
 		});
@@ -69,8 +71,8 @@ describe('pickList', () => {
 	it('before a slot: lands where it starts, ready for its count', () => {
 		const before: Anchor = { kind: 'before', starts: [2], startCounts: [1] };
 		expect(ids(pickList(candidates, before, all)).figures).toEqual([
-			[1, true, []],
-			[2, true, []]
+			[1, true, [1]],
+			[2, true, [2]]
 		]);
 	});
 
@@ -84,10 +86,36 @@ describe('pickList', () => {
 
 	it('ignores case and accents', () => {
 		const l = pickList(candidates, { kind: 'none' }, { ...all, query: 'DILE quÉ' });
-		expect(ids(l).figures).toEqual([[2, true, []]]);
+		expect(ids(l).figures).toEqual([[2, true, [2]]]);
 	});
 
-	it('finds a variation by its own name, under a greyed figure', () => {
+	it('groups variations under their figure', () => {
+		const l = pickList(candidates, { kind: 'none' }, { ...all, query: 'enchufla' });
+		expect(l.figures).toHaveLength(1);
+		expect(l.figures[0]).toMatchObject({ groupId: 3, name: 'Enchufla', single: false });
+		expect(l.figures[0].variations.map((v) => v.id)).toEqual([3, 4]);
+		expect(variationName(l.figures[0].variations[1])).toBe('Doble');
+	});
+
+	it('a one-variation figure is a single row', () => {
+		const l = pickList(candidates, { kind: 'none' }, { ...all, query: 'sombrero' });
+		expect(l.figures).toHaveLength(1);
+		expect(l.figures[0]).toMatchObject({ groupId: 5, single: true });
+		expect(l.figures[0].variations.map((v) => v.id)).toEqual([5]);
+	});
+
+	it('stays a group when only one of its variations fits', () => {
+		const g = pickList(candidates, after, all).figures.find((x) => x.groupId === 3)!;
+		expect(g.single).toBe(false);
+		expect(g.variations.map((v) => v.id)).toEqual([4]);
+	});
+
+	it('leaves out a figure none of whose variations fit', () => {
+		const before: Anchor = { kind: 'before', starts: [2], startCounts: [1] };
+		expect(pickList(candidates, before, all).figures.map((g) => g.groupId)).not.toContain(3);
+	});
+
+	it('finds a variation by its own name', () => {
 		const l = pickList(candidates, { kind: 'none' }, { ...all, query: 'doble' });
 		expect(ids(l).figures).toEqual([[3, false, [4]]]);
 	});
@@ -127,7 +155,7 @@ describe('pickList', () => {
 			exclude: [1]
 		};
 		const l = pickList(candidates, alt, { count: false, hold: false, query: '' });
-		expect(ids(l)).toEqual({ figures: [[2, true, []]], routines: [] });
+		expect(ids(l)).toEqual({ figures: [[2, true, [2]]], routines: [] });
 	});
 });
 
@@ -168,8 +196,8 @@ describe('between two slots', () => {
 		// routine starts right but lands in open, so it does not close the seam.
 		expect(ids(pickList(candidates, anchor, all))).toEqual({
 			figures: [
-				[1, true, []],
-				[2, true, []]
+				[1, true, [1]],
+				[2, true, [2]]
 			],
 			routines: []
 		});

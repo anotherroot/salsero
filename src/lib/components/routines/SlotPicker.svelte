@@ -6,7 +6,13 @@
 	 */
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import { FIELD } from '$lib/components/ui/styles';
-	import { anchorText, pickList, type Anchor, type Candidate } from '$lib/routines/fit';
+	import {
+		anchorText,
+		pickList,
+		variationName,
+		type Anchor,
+		type Candidate
+	} from '$lib/routines/fit';
 
 	interface Props {
 		open: boolean;
@@ -123,26 +129,26 @@
 		{#if list.figures.length > 0}
 			<p class={heading}>Figures</p>
 			<ul>
-				{#each list.figures as group (group.head.id)}
+				{#each list.figures as group (group.groupId)}
 					<li>
-						{#if group.headFits}
-							<button type="button" class={row} onclick={() => onpick(group.head)}>
-								<span class="block truncate">{group.head.label}</span>
-								<span class={metaClass}>{meta(group.head)}</span>
-							</button>
-						{:else}
-							<!-- Greyed: a header so its variations still read as a group. -->
-							<div class="{row} text-muted">
-								<span class="block truncate">{group.head.label}</span>
-								<span class={metaClass}>{meta(group.head)}</span>
-							</div>
-						{/if}
-						{#each group.variations as v (v.id)}
-							<button type="button" class="{row} pl-5 text-[14px]" onclick={() => onpick(v)}>
-								<span class="block truncate"><span class="text-muted">└ </span>{v.label}</span>
+						{#if group.single}
+							{@const v = group.variations[0]}
+							<button type="button" class={row} onclick={() => onpick(v)}>
+								<span class="block truncate">{v.label}</span>
 								<span class={metaClass}>{meta(v)}</span>
 							</button>
-						{/each}
+						{:else}
+							<!-- A heading, not a choice: only its variations can be picked. -->
+							<p class="pt-2 pb-0.5 text-[13px] font-medium text-muted">{group.name}</p>
+							{#each group.variations as v (v.id)}
+								<button type="button" class="{row} pl-5 text-[14px]" onclick={() => onpick(v)}>
+									<span class="block truncate"
+										><span class="text-muted">└ </span>{variationName(v)}</span
+									>
+									<span class={metaClass}>{meta(v)}</span>
+								</button>
+							{/each}
+						{/if}
 					</li>
 				{/each}
 			</ul>

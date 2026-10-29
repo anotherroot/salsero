@@ -17,9 +17,11 @@ import type { RowEdges } from './routines';
 export interface Candidate {
 	kind: 'figure' | 'routine';
 	id: number;
-	/** A variation's figure; null for a figure or a routine. */
-	parentId: number | null;
-	/** "Enchufla · Doble" for a variation — never its bare name. */
+	/** The figure a variation belongs to; null for a routine. */
+	groupId: number | null;
+	/** The figure's name, for the group heading; null for a routine. */
+	figure: string | null;
+	/** "Enchufla · Doble" — a variation, never its bare name. */
 	label: string;
 	/** Resolved positions. Empty when nothing in it is danceable. */
 	starts: number[];
@@ -60,10 +62,19 @@ export interface Filters {
 }
 
 export interface PickGroup {
-	head: Candidate;
-	/** False: the figure itself does not fit; it is shown greyed so its variations still read as a group. */
-	headFits: boolean;
+	groupId: number;
+	/** The figure's name: a non-pickable heading in the sheet. */
+	name: string;
+	/** The figure has exactly one variation (fitting or not): one pickable row, no heading. */
+	single: boolean;
+	/** Only the fitting ones; a group with none is left out. */
 	variations: Candidate[];
+}
+
+/** The variation's own name: the part of "Enchufla · Doble" after the figure. */
+export function variationName(c: Candidate): string {
+	const prefix = `${c.figure} · `;
+	return c.figure !== null && c.label.startsWith(prefix) ? c.label.slice(prefix.length) : c.label;
 }
 
 export interface PickList {
@@ -141,14 +152,19 @@ export function pickList(candidates: Candidate[], anchor: Anchor, filters: Filte
 			(anchor.kind === 'alternative'
 				? standsIn(c, anchor)
 				: (!on.count || fitsCount(c, anchor)) && (!on.hold || fitsHold(c, anchor)));
+		const groups = new Map<number, { name: string; total: number; fitting: Candidate[] }>();
+		for (const c of candidates) {
+			if (c.kind !== 'figure' || c.groupId === null) continue;
+			let g = groups.get(c.groupId);
+			if (!g) groups.set(c.groupId, (g = { name: c.figure ?? c.label, total: 0, fitting: [] }));
+			g.total++;
+			if (ok(c)) g.fitting.push(c);
+		}
 		const figures: PickGroup[] = [];
-		for (const head of candidates) {
-			if (head.kind !== 'figure' || head.parentId !== null) continue;
-			const variations = candidates.filter(
-				(c) => c.kind === 'figure' && c.parentId === head.id && ok(c)
-			);
-			const headFits = ok(head);
-			if (headFits || variations.length > 0) figures.push({ head, headFits, variations });
+		for (const [groupId, g] of groups) {
+			if (g.fitting.length > 0) {
+				figures.push({ groupId, name: g.name, single: g.total === 1, variations: g.fitting });
+			}
 		}
 		const routines =
 			anchor.kind === 'alternative' ? [] : candidates.filter((c) => c.kind === 'routine' && ok(c));
@@ -207,7 +223,7 @@ export function anchorBetween(above: RowEdges, below: RowEdges): Anchor | null {
 export function canBridge(candidates: Candidate[], anchor: Anchor | null): boolean {
 	if (anchor === null) return false;
 	const l = pickList(candidates, anchor, { count: true, hold: true, query: '' });
-	return l.figures.some((g) => g.headFits || g.variations.length > 0) || l.routines.length > 0;
+	return l.figures.length > 0 || l.routines.length > 0;
 }
 
 /** Standing in for a main figure. Null when it is archived or gone: nothing to match. */
