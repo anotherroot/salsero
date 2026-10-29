@@ -15,6 +15,9 @@
 		/** Landscape only: opens the list beside the video. */
 		onspots?: () => void;
 		spotsCount?: number;
+		/** Landscape section view: `‹ Full video` after ✕, and `Edit` before Mirror. */
+		onback?: () => void;
+		onedit?: () => void;
 		onclose: () => void;
 		onchoose: (next: { mirror?: boolean; rate?: VideoRate }) => void;
 	}
@@ -27,6 +30,8 @@
 		overlay = false,
 		onspots,
 		spotsCount = 0,
+		onback,
+		onedit,
 		onclose,
 		onchoose
 	}: Props = $props();
@@ -39,10 +44,20 @@
 	<button type="button" class={plain} aria-label="Close player" onclick={onclose}>
 		<Icon d={icons.close} />
 	</button>
+	{#if onback}
+		<button type="button" class="{plain} pr-3 pl-1.5" onclick={onback}>
+			<Icon d={icons.chevronLeft} />Full video
+		</button>
+	{/if}
 	<div class="min-w-0 flex-1 pl-1 leading-tight" class:drop-shadow={overlay}>
 		<span class="block truncate text-[15px] font-semibold">{title}</span>
 		{#if subtitle}<span class="block truncate text-[12px] text-(--pl-muted)">{subtitle}</span>{/if}
 	</div>
+	{#if onedit}
+		<button type="button" class={plain} onclick={onedit}>
+			<Icon d={icons.pencil} />Edit
+		</button>
+	{/if}
 	{#if onspots}
 		<button type="button" class={plain} onclick={onspots}>
 			<Icon d={icons.list} />Sections ({spotsCount})
