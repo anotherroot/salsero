@@ -32,9 +32,7 @@
 	const pill = (on: boolean) =>
 		`shrink-0 rounded-full border px-3 py-1.5 text-[13px] ${on ? 'border-accent bg-accent text-accent-ink' : 'border-rule bg-raised text-ink-2'}`;
 
-	// A figure's style_tag can be null (or, in principle, unknown to this
-	// dance); render nothing rather than "undefined".
-	const styleLabel = (s: string | null) => (s ? data.dance.styleLabel[s] : undefined);
+	const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 </script>
 
 <svelte:head><title>Figures · {data.dance.label}</title></svelte:head>
@@ -111,22 +109,19 @@
 	<ul class="space-y-2">
 		{#each data.figures as f (f.id)}
 			<li>
+				<!-- A figure is its variations: the row opens the first one. -->
 				<a
-					href={resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
-					class="flex items-center justify-between gap-3 rounded-xl border border-line bg-raised px-4 py-3"
+					href={resolve('/[dance]/figures/[id]', {
+						dance: data.dance.slug,
+						id: String(f.firstVariationId)
+					})}
+					class="block rounded-xl border border-line bg-raised px-4 py-3"
 				>
-					<span class="min-w-0">
-						<span class="block truncate text-[15px] font-medium">{f.name}</span>
-						<span class="text-[12px] text-muted"
-							>{#if styleLabel(f.style)}{styleLabel(f.style)} ·
-							{/if}{PARTNER_LABEL[f.partner]}</span
-						>
-					</span>
-					{#if f.recordings > 0}
-						<span class="shrink-0 text-[12px] text-muted"
-							>{f.recordings} {f.recordings === 1 ? 'recording' : 'recordings'}</span
-						>
-					{/if}
+					<span class="block truncate text-[15px] font-medium">{f.name}</span>
+					<span class="text-[12px] text-muted"
+						>{plural(f.variations, 'variation', 'variations')}{#if f.recordings > 0}
+							· {plural(f.recordings, 'recording', 'recordings')}{/if}</span
+					>
 				</a>
 			</li>
 		{/each}
@@ -150,7 +145,12 @@
 				}
 			}}
 		>
-			<FigureFields dance={data.dance} name={form?.name} notes={form?.notes} />
+			<FigureFields
+				dance={data.dance}
+				figureName={form?.figureName}
+				name={form?.name}
+				notes={form?.notes}
+			/>
 			{#if form?.message}
 				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
 					{form.message}

@@ -5,6 +5,9 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
+	import VariationBar from '$lib/components/figures/VariationBar.svelte';
+	import MoveSheet from '$lib/components/figures/MoveSheet.svelte';
+	import RemoveWarning from '$lib/components/figures/RemoveWarning.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -28,10 +31,14 @@
 
 	let editing = $state(false);
 	let logging = $state(false);
-	let addingVariation = $state(false);
 	let linkingSection = $state(false);
+	let moving = $state(false);
+	let archiving = $state(false);
 	$effect(() => {
 		if (failed('linkSection')) linkingSection = true;
+	});
+	$effect(() => {
+		if (failed('move')) moving = true;
 	});
 	const FigureLog = logFor('figure');
 	/**
@@ -43,55 +50,36 @@
 	let broken = $state<Record<number, MediaProblem>>({});
 
 	const figure = $derived(data.figure);
-	const version = $derived(data.version);
+	const variation = $derived(data.variation);
 	const slug = $derived(data.dance.slug);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
+	/** Its figure's only variation: taking it away removes the figure. */
+	const last = $derived(data.siblings.length === 1);
 	const failed = (action: string) =>
 		form && 'action' in form && form.action === action && 'message' in form
 			? String(form.message)
 			: null;
-	// The figure's real style tag, not the vestigial `figure.style` column.
-	const styleLabel = $derived(figure.styleTag ? data.dance.styleLabel[figure.styleTag] : undefined);
+	// The variation's real style tag, not the vestigial `figures.style` column.
+	const styleLabel = $derived(
+		variation.styleTag ? data.dance.styleLabel[variation.styleTag] : undefined
+	);
 	const neutralName = $derived(data.positions.find((p) => p.neutral)?.name ?? 'the neutral hold');
 	const positionName = (id: number) =>
 		data.positions.find((p) => p.id === id)?.name ?? 'an untagged position';
 
-	/** On a variation, what it leaves to Basic — marked "(as Basic)" in view mode. */
-	const asBasic = $derived({
-		starts: version.isVariation && data.tags.startIds.length === 0,
-		end: version.isVariation && data.tags.endId === null,
-		startCount: version.isVariation && data.own.startCount === null,
-		lengthCounts: version.isVariation && data.own.lengthCounts === null
-	});
-	const mark = (inherited: boolean) => (inherited ? ' (as Basic)' : '');
-
 	/** "Open two hands / Cross-hand → Hammerlock", neutral already resolved by the graph. */
 	const handholds = $derived(
-		`${data.effective.starts.map(positionName).join(' / ') || neutralName}${mark(asBasic.starts)} → ${
+		`${data.effective.starts.map(positionName).join(' / ') || neutralName} → ${
 			data.effective.end === null ? neutralName : positionName(data.effective.end)
-		}${mark(asBasic.end)}`
+		}`
 	);
-	const notes = $derived(version.isVariation ? version.notes : figure.notes);
 
-	const tabHref = (id: number) =>
-		id === figure.id
-			? resolve('/[dance]/figures/[id]', { dance: slug, id: String(figure.id) })
-			: resolve(`/${slug}/figures/${figure.id}?v=${id}`);
-	const itemHref = (item: { id: number; parentId: number | null }) =>
-		item.parentId === null
-			? resolve('/[dance]/figures/[id]', { dance: slug, id: String(item.id) })
-			: resolve(`/${slug}/figures/${item.parentId}?v=${item.id}`);
+	const figureHref = (id: number) =>
+		resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
 
 	const linkFailure = $derived(failed('addLink') ?? failed('saveVideo') ?? failed('retryVideo'));
 	const linkEntered = $derived(form && 'urls' in form ? String(form.urls) : '');
 
-	$effect(() => {
-		if (failed('createVariation')) addingVariation = true;
-	});
-
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
-	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
 	const errorBox = 'rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger';
 	const closeOnSuccess: SubmitFunction =
 		() =>
@@ -99,24 +87,16 @@
 			await update({ reset: false });
 			if (result.type === 'success') editing = false;
 		};
-	/**
-	 * The new-variation sheet. Success is a redirect to the SAME route with a new
-	 * `?v=`, so SvelteKit keeps this component: without closing it here the sheet
-	 * would stay open over the new tab with the name still typed, and a second tap
-	 * would be refused as a duplicate.
-	 */
-	const closeSheet: SubmitFunction =
-		({ formElement }) =>
+	/** Archive lands on a sibling (the same route, so the sheet would stay) or the figures list. */
+	const closeOnArchive: SubmitFunction =
+		() =>
 		async ({ update, result }) => {
 			await update();
-			if (result.type === 'redirect') {
-				addingVariation = false;
-				formElement.reset();
-			}
+			if (result.type === 'redirect') archiving = false;
 		};
 </script>
 
-<svelte:head><title>{figure.name} · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{figure.name} · {variation.name} · {data.dance.label}</title></svelte:head>
 
 <header
 	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
@@ -124,10 +104,13 @@
 >
 	<a
 		href={resolve('/[dance]/figures', { dance: slug })}
-		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
+		class="grid size-11 shrink-0 place-items-center rounded-full text-[22px] text-ink-2"
 		aria-label="Back to figures">‹</a
 	>
-	<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{figure.name}</h1>
+	<h1 class="flex min-w-0 flex-1 flex-col">
+		<span class="truncate text-[17px] font-semibold">{figure.name}</span>
+		<span class="truncate text-[13px] font-medium text-muted">{variation.name}</span>
+	</h1>
 	<!--
 		Done SAVES: it submits the edit form (by `form=`, since the header is
 		outside it). A refused save keeps you editing with the message showing, so
@@ -148,194 +131,69 @@
 	{/if}
 </header>
 
-<!--
-	Version tabs: Basic is the figure itself, then each variation, then + to add
-	one. A tab is a link (?v=), so a reload or a shared link lands on it.
--->
-<nav
-	class="flex gap-1.5 overflow-x-auto border-b border-line px-4 py-2"
-	aria-label="Versions of {figure.name}"
->
-	{#each data.versions as v (v.id)}
-		<a
-			href={tabHref(v.id)}
-			aria-current={v.id === version.id ? 'page' : undefined}
-			class="h-9 shrink-0 rounded-full px-3.5 text-[14px] leading-9 font-medium {v.id === version.id
-				? 'bg-accent text-accent-ink'
-				: 'border border-line text-ink-2'}">{v.name}</a
-		>
-	{/each}
-	<button
-		type="button"
-		onclick={() => (addingVariation = true)}
-		class="grid size-9 shrink-0 place-items-center rounded-full border border-line text-[18px] text-accent"
-		aria-label="New variation">+</button
-	>
-</nav>
-
-<main class="space-y-6 px-4 pt-4 pb-4">
+<!-- The bottom padding clears the variation bar pinned over the end of the page. -->
+<main class="space-y-6 px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))]">
 	{#if editing}
 		<!--
-			Keyed on the version: `editing` survives a tab change, and without the key
-			one variation's form would be reused for the next — its unsaved directions
-			and end position carried over and saved onto the wrong variation.
+			Keyed on the variation: `editing` survives a step to another one, and
+			StartPositions and FigureTiming seed their own state once — without the
+			key, one variation's unsaved positions and timing would be carried over
+			and saved onto the next.
 		-->
-		{#key version.id}
-			{#if version.isVariation}
-				<form
-					id="edit-form"
-					method="POST"
-					action="?/updateVariation"
-					class="space-y-3"
-					use:guarded={{ label: 'Variation edits', submit: closeOnSuccess }}
-				>
-					<input type="hidden" name="versionId" value={version.id} />
-					<label class="block">
-						<span class={label}>Name</span>
-						<input name="name" required maxlength="200" value={version.name} class={field} />
-					</label>
-					<label class="block">
-						<span class={label}>Directions</span>
-						<textarea name="notes" rows="4" maxlength="2000" class={field}
-							>{version.notes ?? ''}</textarea
-						>
-					</label>
-					{#key version.id}
-						<StartPositions
-							positions={data.positions}
-							initial={data.tags.startIds}
-							neutralName="Same as Basic"
-						/>
-					{/key}
-					<label class="block">
-						<span class="text-[13px] font-medium">Ends at</span>
-						<select
-							name="endId"
-							class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
-						>
-							<option value="" selected={data.tags.endId === null}>Same as Basic</option>
-							{#each data.positions as position (position.id)}
-								<option value={position.id} selected={data.tags.endId === position.id}>
-									{position.name}{position.archived ? ' (archived)' : ''}
-								</option>
-							{/each}
-						</select>
-					</label>
-					{#key version.id}
-						<FigureTiming
-							startCount={data.own.startCount}
-							lengthCounts={data.own.lengthCounts}
-							inherited={data.basic}
-						/>
-					{/key}
-					{#if failed('updateVariation')}
-						<p class={errorBox} role="alert">{failed('updateVariation')}</p>
-					{/if}
-					<button
-						type="submit"
-						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-						>Save</button
+		{#key variation.id}
+			<form
+				id="edit-form"
+				method="POST"
+				action="?/update"
+				class="space-y-3"
+				use:guarded={{ label: `${variation.name} edits`, submit: closeOnSuccess }}
+			>
+				<FigureFields
+					dance={data.dance}
+					figureName={figure.name}
+					name={variation.name}
+					partner={variation.partner}
+					style={variation.styleTag ?? undefined}
+					notes={variation.notes}
+				/>
+				<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
+				<label class="block">
+					<span class="text-[13px] font-medium">Ends at</span>
+					<select
+						name="endId"
+						class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
 					>
-				</form>
-				<form
-					method="POST"
-					action="?/archiveVariation"
-					onsubmit={(e) => {
-						if (!confirm(`Archive the variation “${version.name}”? Its recordings are kept.`)) {
-							e.preventDefault();
-						}
-					}}
+						<option value="" selected={data.tags.endId === null}>{neutralName}</option>
+						{#each data.positions as position (position.id)}
+							<option value={position.id} selected={data.tags.endId === position.id}>
+								{position.name}{position.archived ? ' (archived)' : ''}
+							</option>
+						{/each}
+					</select>
+				</label>
+				<FigureTiming startCount={data.shape.startCount} lengthCounts={data.shape.lengthCounts} />
+				{#if failed('update')}
+					<p class={errorBox} role="alert">{failed('update')}</p>
+				{/if}
+				<button
+					type="submit"
+					class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+					>Save</button
 				>
-					<input type="hidden" name="versionId" value={version.id} />
-					<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
-						>Archive variation</button
-					>
-				</form>
-			{:else}
-				<form
-					id="edit-form"
-					method="POST"
-					action="?/update"
-					class="space-y-3"
-					use:guarded={{ label: 'Figure edits', submit: closeOnSuccess }}
-				>
-					<FigureFields
-						dance={data.dance}
-						name={figure.name}
-						partner={figure.partner}
-						style={figure.styleTag ?? undefined}
-						notes={figure.notes}
-					/>
-					<!--
-					Keyed on the version: both pickers seed their own state once, and
-					SvelteKit reuses them across a same-route navigation — a tab change
-					included — so without the key the next version would open showing the
-					previous one's values.
-				-->
-					{#key version.id}
-						<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
-					{/key}
-					<label class="block">
-						<span class="text-[13px] font-medium">Ends at</span>
-						<select
-							name="endId"
-							class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
-						>
-							<option value="" selected={data.tags.endId === null}>{neutralName}</option>
-							{#each data.positions as position (position.id)}
-								<option value={position.id} selected={data.tags.endId === position.id}>
-									{position.name}{position.archived ? ' (archived)' : ''}
-								</option>
-							{/each}
-						</select>
-					</label>
-					{#key version.id}
-						<FigureTiming
-							startCount={data.basic.startCount}
-							lengthCounts={data.basic.lengthCounts}
-						/>
-					{/key}
-					{#if failed('update')}
-						<p class={errorBox} role="alert">{failed('update')}</p>
-					{/if}
-					<button
-						type="submit"
-						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-						>Save</button
-					>
-				</form>
-				<form
-					method="POST"
-					action="?/archive"
-					onsubmit={(e) => {
-						if (
-							!confirm(
-								`Archive “${figure.name}” and its variations? Practice history and recordings are kept.`
-							)
-						) {
-							e.preventDefault();
-						}
-					}}
-				>
-					<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
-						>Archive figure</button
-					>
-				</form>
-			{/if}
+			</form>
 		{/key}
 	{:else}
 		<section>
 			<p class="text-[13px] text-muted">
 				{#if styleLabel}{styleLabel} ·
-				{/if}{PARTNER_LABEL[figure.partner]}
+				{/if}{PARTNER_LABEL[variation.partner]}
 			</p>
 			<p class="text-[13px] text-muted">
-				Starts on {data.effective.startCount}{mark(asBasic.startCount)} · {data.effective
-					.lengthCounts} counts{mark(asBasic.lengthCounts)}
+				Starts on {data.effective.startCount} · {data.effective.lengthCounts} counts
 			</p>
 			<p class="text-[13px] text-muted">{handholds}</p>
-			{#if notes}
-				<LinkedText text={notes} class="mt-2 text-[15px] whitespace-pre-line" />
+			{#if variation.notes}
+				<LinkedText text={variation.notes} class="mt-2 text-[15px] whitespace-pre-line" />
 			{/if}
 		</section>
 
@@ -393,7 +251,7 @@
 				{:else}
 					<ul class="space-y-1">
 						{#each list.items as item (item.id)}
-							<li><a class="text-[15px] text-accent" href={itemHref(item)}>{item.name}</a></li>
+							<li><a class="text-[15px] text-accent" href={figureHref(item.id)}>{item.name}</a></li>
 						{/each}
 					</ul>
 				{/if}
@@ -404,7 +262,7 @@
 	<section>
 		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Recordings</h2>
 		<ul class="space-y-3">
-			{#each version.recordings as rec (rec.id)}
+			{#each variation.recordings as rec (rec.id)}
 				<li class="overflow-hidden rounded-xl border border-line bg-raised">
 					{#if broken[rec.id] === 'missing'}
 						<p class="p-4 text-[13px] text-muted">The file for this recording is missing.</p>
@@ -444,7 +302,6 @@
 									if (!confirm('Delete this recording?')) e.preventDefault();
 								}}
 							>
-								<input type="hidden" name="versionId" value={version.id} />
 								<input type="hidden" name="recordingId" value={rec.id} />
 								<button type="submit" class="h-9 px-2 text-danger">Delete</button>
 							</form>
@@ -455,42 +312,41 @@
 					{/if}
 					<!-- Linking is done from the figure or drill a section shows; here a link
 					     can be undone, archived target or not, so the recording can go. -->
-					{#if (version.recordingSections[rec.id] ?? []).length > 0}
+					{#if (variation.recordingSections[rec.id] ?? []).length > 0}
 						<VideoSections
-							sections={version.recordingSections[rec.id]}
+							sections={variation.recordingSections[rec.id]}
 							src="/recordings/{rec.file}"
 							owner={{ recordingId: rec.id }}
-							hidden={{ versionId: version.id }}
 						/>
 					{/if}
 				</li>
 			{/each}
 		</ul>
 		<div class="mt-3">
-			<!-- Keyed: the button holds upload state, and a tab change must not carry it over. -->
-			{#key version.id}
+			<!-- Keyed: the button holds upload state, and a step to another variation must not carry it over. -->
+			{#key variation.id}
 				{#if data.app}
 					<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
 					<AppUploadLink
 						href={uploadLink(
-							{ figure: version.id },
+							{ figure: variation.id },
 							{
 								back: page.url.pathname + page.url.search,
-								name: version.id === figure.id ? figure.name : `${figure.name} · ${version.name}`
+								name: `${figure.name} · ${variation.name}`
 							}
 						)}
 						label="+ Add video"
 					/>
 					<div class="mt-2">
 						<UploadButton
-							url="/api/figures/{version.id}/recordings"
+							url="/api/figures/{variation.id}/recordings"
 							accept="audio/*"
 							label="+ Add audio"
 						/>
 					</div>
 				{:else}
 					<UploadButton
-						url="/api/figures/{version.id}/recordings"
+						url="/api/figures/{variation.id}/recordings"
 						accept="video/*,audio/*"
 						label="+ Add video or audio"
 					/>
@@ -508,18 +364,17 @@
 				onclick={() => (linkingSection = true)}>+ Link a section</button
 			>
 		</div>
-		{#if version.sections.length === 0}
+		{#if variation.sections.length === 0}
 			<p class="text-[13px] text-muted">Point at the part of a lesson video that shows this.</p>
 		{:else}
 			<ul class="space-y-2">
-				{#each version.sections as s (s.linkId)}
+				{#each variation.sections as s (s.linkId)}
 					<li>
 						<SectionCard section={s}>
 							{#snippet unlink()}
 								<!-- Unlinking is an edit, like deleting a recording. -->
 								{#if editing}
 									<form method="POST" action="?/unlinkSection" use:enhance>
-										<input type="hidden" name="versionId" value={version.id} />
 										<input type="hidden" name="linkId" value={s.linkId} />
 										<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
 									</form>
@@ -557,43 +412,93 @@
 			</ul>
 		</section>
 	{/if}
+
+	<!-- What changes where the variation lives, kept at the end, out of the way. -->
+	<section class="space-y-2 border-t border-line pt-5">
+		<button
+			type="button"
+			aria-haspopup="dialog"
+			onclick={() => (moving = true)}
+			class="flex min-h-15 w-full items-center gap-3 rounded-xl border border-rule bg-raised px-3.5 py-2.5 text-left"
+		>
+			<svg
+				width="22"
+				height="22"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="shrink-0 text-ink-2"
+				aria-hidden="true"><path d="M4 12h12M12 6l6 6-6 6" /><path d="M20 5v14" /></svg
+			>
+			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span class="text-[15px] font-semibold text-ink">Move {variation.name} to…</span>
+				<span class="text-[12px] text-muted">A new figure of its own, or another figure</span>
+			</span>
+			<svg
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2.4"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="shrink-0 text-muted"
+				aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg
+			>
+		</button>
+		<button
+			type="button"
+			aria-haspopup="dialog"
+			onclick={() => (archiving = true)}
+			class="h-11 w-full rounded-xl text-[14px] text-danger">Archive {variation.name}</button
+		>
+	</section>
 </main>
 
-<Sheet
-	title="New variation of {figure.name}"
-	open={addingVariation}
-	onclose={() => (addingVariation = false)}
->
-	<!-- A success redirects to the new variation's tab. Its positions and timing
-	     start as Basic's; Edit there to change them. -->
-	<form
-		method="POST"
-		action="?/createVariation"
-		class="space-y-3"
-		use:guarded={{ label: 'New variation', submit: closeSheet }}
-	>
-		{#if failed('createVariation')}
-			<p class={errorBox} role="alert">{failed('createVariation')}</p>
+<VariationBar
+	figureName={figure.name}
+	siblings={data.siblings}
+	currentId={variation.id}
+	{slug}
+	failed={failed('createVariation')}
+/>
+
+<MoveSheet
+	variation={variation.name}
+	figure={figure.name}
+	targets={data.moveTargets}
+	{last}
+	failed={failed('move')}
+	open={moving}
+	onclose={() => (moving = false)}
+/>
+
+<Sheet title="Archive {variation.name}?" open={archiving} onclose={() => (archiving = false)}>
+	<form method="POST" action="?/archive" class="space-y-3" use:enhance={closeOnArchive}>
+		{#if last}
+			<RemoveWarning figure={figure.name} variation={variation.name} />
+		{:else}
+			<p class="text-[14px] text-ink-2">
+				{variation.name} leaves {figure.name}. Its recordings and practice history are kept.
+			</p>
 		{/if}
-		<label class="block">
-			<span class={label}>Name</span>
-			<input
-				name="name"
-				required
-				maxlength="200"
-				placeholder="e.g. Doble, From cross"
-				class={field}
-			/>
-		</label>
-		<label class="block">
-			<span class={label}>Directions</span>
-			<textarea name="notes" rows="3" maxlength="2000" class={field}></textarea>
-		</label>
-		<button
-			type="submit"
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-			>Add variation</button
-		>
+		<div class="flex gap-2">
+			<button
+				type="button"
+				onclick={() => (archiving = false)}
+				class="h-12 flex-1 rounded-xl border border-rule text-[15px] font-semibold text-ink-2"
+				>Cancel</button
+			>
+			<button
+				type="submit"
+				class="h-12 flex-[2] rounded-xl bg-danger text-[15px] font-semibold text-white"
+				>{last ? 'Archive and remove figure' : `Archive ${variation.name}`}</button
+			>
+		</div>
 	</form>
 </Sheet>
 
@@ -601,7 +506,7 @@
 	open={linkingSection}
 	onclose={() => (linkingSection = false)}
 	groups={data.linkable}
-	hidden={{ versionId: version.id }}
+	hidden={{}}
 	message={failed('linkSection')}
 />
 

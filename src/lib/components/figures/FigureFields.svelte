@@ -5,13 +5,23 @@
 	interface Props {
 		/** Whose styles the picker offers. The form is only ever inside one dance. */
 		dance: Dance;
+		/** The figure — "Enchufla". A figure is the variations it holds. */
+		figureName?: string;
+		/** The variation this form describes — "Doble". */
 		name?: string;
 		partner?: Partner;
 		style?: string;
 		notes?: string | null;
 	}
 
-	let { dance, name = '', partner = 'partner', style, notes = '' }: Props = $props();
+	let {
+		dance,
+		figureName = '',
+		name = '',
+		partner = 'partner',
+		style,
+		notes = ''
+	}: Props = $props();
 
 	// A new figure starts on its dance's first style; 'salsa' is not a style
 	// bachata has, so the default cannot be a literal.
@@ -25,12 +35,24 @@
 </script>
 
 <label class="block">
-	<span class={label}>Name</span>
+	<span class={label}>Figure name</span>
+	<input
+		name="figureName"
+		required
+		maxlength="200"
+		placeholder="e.g. Dile que no, Enchufla"
+		value={figureName}
+		class={field}
+	/>
+</label>
+
+<label class="block">
+	<span class={label}>Variation name</span>
 	<input
 		name="name"
 		required
 		maxlength="200"
-		placeholder="e.g. Dile que no, Enchufla"
+		placeholder="e.g. Basic, Doble, From cross"
 		value={name}
 		class={field}
 	/>
