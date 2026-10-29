@@ -86,3 +86,100 @@ export function moveEdge(
 	const next = Math.max(0, Math.min(latest, toMs));
 	return next === startMs ? null : { startMs: next, endMs };
 }
+
+/**
+ * Seconds per frame until the video's own is measured (`frame-rate.ts`).
+ * Browsers do not expose a frame rate; saved YouTube videos are 25 or 30 fps.
+ */
+export const DEFAULT_FRAME_S = 1 / 30;
+
+/** The frame a time falls in. The epsilon makes an exact boundary that frame, not the one before. */
+export function frameNumber(currentS: number, frameS: number): number {
+	return Math.floor(currentS / frameS + 1e-6);
+}
+
+/**
+ * Where a frame step seeks: the middle of the frame `frames` away, so a seek
+ * never lands on a boundary the browser might round to the neighbour.
+ */
+export function frameSeek(
+	currentS: number,
+	frames: number,
+	frameS: number,
+	durationS: number
+): number {
+	const to = Math.max(0, (frameNumber(currentS, frameS) + frames + 0.5) * frameS);
+	return Number.isFinite(durationS) ? Math.min(durationS, to) : to;
+}
+
+/**
+ * An edge moved by whole frames, from the frame boundary nearest to it — or
+ * null when that changes nothing, as `moveEdge` decides.
+ */
+export function edgeByFrames(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	edge: 'start' | 'end',
+	frames: number,
+	frameS: number,
+	durationS: number
+): { startMs: number; endMs: number | null } | null {
+	const atMs = edge === 'start' ? spot.startMs : spot.endMs;
+	if (atMs === null) return null;
+	const snappedS = Math.round(atMs / 1000 / frameS) * frameS;
+	return moveEdge(spot, edge, msOf(snappedS + frames * frameS), durationS);
+}
+
+/** The time that shows an edge's frame: the first frame inside a start, the last inside an end. */
+export function edgeFrameTime(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	edge: 'start' | 'end',
+	frameS: number
+): number {
+	return edge === 'start' || spot.endMs === null
+		? spot.startMs / 1000 + frameS / 2
+		: spot.endMs / 1000 - frameS / 2;
+}
+
+/** Earlier / Later: how far one tap moves a whole section. */
+export const WHOLE_SHIFT_MS = 500;
+/** Shorter / Longer: how far one tap moves each edge. */
+export const WHOLE_RESIZE_MS = 250;
+
+/**
+ * A section moved by `deltaMs`, its length kept, stopped at either end of the
+ * video — or null for a point, or when it is already against that end.
+ */
+export function shiftSpot(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	deltaMs: number,
+	durationS: number
+): { startMs: number; endMs: number } | null {
+	if (spot.endMs === null) return null;
+	const lastMs = Number.isFinite(durationS) ? msOf(durationS) : Infinity;
+	const d = Math.max(-spot.startMs, Math.min(lastMs - spot.endMs, deltaMs));
+	return d === 0 ? null : { startMs: spot.startMs + d, endMs: spot.endMs + d };
+}
+
+/**
+ * A section grown (positive) or shrunk by `perSideMs` at each edge, kept
+ * inside the video and no shorter than `MIN_SECTION_MS` — a shrink past that
+ * stops at exactly the minimum around the old middle. Null when nothing
+ * changes or for a point.
+ */
+export function resizeSpot(
+	spot: Pick<Spot, 'startMs' | 'endMs'>,
+	perSideMs: number,
+	durationS: number
+): { startMs: number; endMs: number } | null {
+	if (spot.endMs === null) return null;
+	const lastMs = Number.isFinite(durationS) ? msOf(durationS) : Infinity;
+	let startMs = Math.max(0, spot.startMs - perSideMs);
+	let endMs = Math.min(lastMs, spot.endMs + perSideMs);
+	if (endMs - startMs < MIN_SECTION_MS) {
+		if (spot.endMs - spot.startMs <= MIN_SECTION_MS) return null;
+		const mid = (spot.startMs + spot.endMs) / 2;
+		startMs = Math.round(mid - MIN_SECTION_MS / 2);
+		endMs = startMs + MIN_SECTION_MS;
+	}
+	return startMs === spot.startMs && endMs === spot.endMs ? null : { startMs, endMs };
+}
