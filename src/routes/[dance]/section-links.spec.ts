@@ -184,14 +184,14 @@ describe('the lesson page', () => {
 				}
 			]
 		});
-		// The lesson links one variation, so only that one is "this lesson's":
-		// its sibling Doble is taught nowhere and sits with the other figures.
+		// Basic is linked by hand and Doble through the section, so both are this
+		// lesson's; Setenta sits with the other figures.
 		expect(data.sectionTargets).toEqual({
-			thisLesson: [{ value: `figure:${figureId}`, label: 'Enchufla · Basic' }],
-			figures: [
-				{ value: `figure:${doble}`, label: 'Enchufla · Doble' },
-				{ value: expect.stringMatching(/^figure:/), label: 'Setenta · Basic' }
+			thisLesson: [
+				{ value: `figure:${figureId}`, label: 'Enchufla · Basic' },
+				{ value: `figure:${doble}`, label: 'Enchufla · Doble' }
 			],
+			figures: [{ value: expect.stringMatching(/^figure:/), label: 'Setenta · Basic' }],
 			drills: [{ value: `exercise:${drill}`, label: 'Clave' }]
 		});
 	});
