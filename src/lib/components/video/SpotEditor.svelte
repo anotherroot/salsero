@@ -52,6 +52,8 @@
 		onloop: () => void;
 		onrename: () => void;
 		ondelete: () => void;
+		/** Opens the Link popup; only a section on a page that may link gets one. */
+		onlink?: () => void;
 		ondone: () => void;
 		ontoggle: () => void;
 		ontenth: (d: -1 | 1) => void;
@@ -74,6 +76,7 @@
 		onloop,
 		onrename,
 		ondelete,
+		onlink,
 		ondone,
 		ontoggle,
 		ontenth
@@ -148,7 +151,20 @@
 				</button>
 			{/if}
 		</div>
-		{#if spot.linkedTo.length > 0}
+		{#if onlink}
+			<button
+				type="button"
+				class="-mt-1.5 flex cursor-pointer items-center gap-1.5 self-start text-left text-[13px] {spot
+					.linkedTo.length > 0
+					? 'text-(--pl-ink-2)'
+					: 'font-semibold text-(--pl-accent)'}"
+				onclick={onlink}
+			>
+				<Icon d={icons.link} size={14} />{spot.linkedTo.length > 0
+					? `Linked to ${spot.linkedTo.join(', ')} ›`
+					: '+ Link'}
+			</button>
+		{:else if spot.linkedTo.length > 0}
 			<span class="-mt-1.5 flex items-center gap-1.5 text-[13px] text-(--pl-ink-2)">
 				<Icon d={icons.link} size={14} />Linked to {spot.linkedTo.join(', ')}
 			</span>
