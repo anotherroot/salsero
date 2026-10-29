@@ -4,6 +4,8 @@ import {
 	edgeFrameTime,
 	frameNumber,
 	frameSeek,
+	lengthText,
+	preciseTime,
 	loopTarget,
 	moveEdge,
 	msOf,
@@ -201,5 +203,24 @@ describe('resizeSpot', () => {
 			endMs: 2100
 		});
 		expect(resizeSpot({ startMs: 1000, endMs: 2000 }, -250, 10)).toBeNull();
+	});
+});
+
+describe('preciseTime', () => {
+	it.each([
+		[0, '0:00.00'],
+		[64_230, '1:04.23'],
+		[59_999, '0:59.99'],
+		[3_725_305, '62:05.30']
+	])('%i ms is %s', (ms, text) => {
+		expect(preciseTime(ms)).toBe(text);
+	});
+});
+
+describe('lengthText', () => {
+	it('is seconds to a tenth', () => {
+		expect(lengthText(7200)).toBe('7.2 s');
+		expect(lengthText(1000)).toBe('1.0 s');
+		expect(lengthText(64_960)).toBe('65.0 s');
 	});
 });

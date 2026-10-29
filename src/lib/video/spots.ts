@@ -183,3 +183,16 @@ export function resizeSpot(
 	}
 	return startMs === spot.startMs && endMs === spot.endMs ? null : { startMs, endMs };
 }
+
+/** `1:04.23` — minutes, seconds, hundredths, floored like `spotTime`. For the player's clock and edges. */
+export function preciseTime(ms: number): string {
+	const cs = Math.floor(Math.max(0, ms) / 10);
+	const minutes = Math.floor(cs / 6000);
+	const rest = cs % 6000;
+	return `${minutes}:${String(Math.floor(rest / 100)).padStart(2, '0')}.${String(rest % 100).padStart(2, '0')}`;
+}
+
+/** `7.2 s` — a section's length. */
+export function lengthText(ms: number): string {
+	return `${(ms / 1000).toFixed(1)} s`;
+}
