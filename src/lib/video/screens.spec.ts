@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { doneTarget, levelOf, loopOf, openingStack, prune, sheetOf, type Stack } from './screens';
+import {
+	doneTarget,
+	editStack,
+	levelOf,
+	loopOf,
+	openingStack,
+	prune,
+	sheetOf,
+	type Stack
+} from './screens';
 
 const full = { kind: 'full' } as const;
 const section = (spotId: number) => ({ kind: 'section', spotId }) as const;
@@ -76,5 +85,41 @@ describe('the list panel', () => {
 		const s: Stack = [full, { kind: 'sheet', sheet: 'list' }];
 		expect(sheetOf(s)).toBe('list');
 		expect(levelOf(s)).toEqual(full);
+	});
+});
+
+describe('editStack', () => {
+	const F = { kind: 'full' } as const;
+	const sec = (id: number) => ({ kind: 'section', spotId: id }) as const;
+	const ed = (id: number) => ({ kind: 'edit', spotId: id }) as const;
+	const list = { kind: 'sheet', sheet: 'list' } as const;
+
+	it('opens over the full video', () => {
+		expect(editStack([F], 7)).toEqual([F, ed(7)]);
+		expect(editStack([F, list], 7)).toEqual([F, ed(7)]);
+	});
+	it('opens over its own section view, so Done pops back to it', () => {
+		expect(editStack([F, sec(7)], 7)).toEqual([F, sec(7), ed(7)]);
+	});
+	it('drops a sheet open over its own section view', () => {
+		expect(editStack([F, sec(7), list], 7)).toEqual([F, sec(7), ed(7)]);
+	});
+	it('drops another section view', () => {
+		expect(editStack([F, sec(3), list], 7)).toEqual([F, ed(7)]);
+		expect(editStack([F, sec(3)], 7)).toEqual([F, ed(7)]);
+	});
+});
+
+describe('loopOf while arriving', () => {
+	const a = { id: 1, endMs: 5000 };
+	const b = { id: 2, endMs: 9000 };
+	const p = { id: 3, endMs: null };
+	const stack = [{ kind: 'full' }, { kind: 'section', spotId: 1 }] as const;
+	it('loops the screen on its way, not the one still on the stack', () => {
+		expect(loopOf(stack, [a, b, p], false, { kind: 'section', spotId: 2 })).toBe(b);
+		expect(loopOf(stack, [a, b, p], false, { kind: 'edit', spotId: 3 })).toBeNull();
+	});
+	it('is the stack when nothing is on its way', () => {
+		expect(loopOf(stack, [a, b, p], false, null)).toBe(a);
 	});
 });

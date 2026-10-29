@@ -23,6 +23,7 @@
 	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
 	import {
 		doneTarget,
+		editStack,
 		levelOf,
 		loopOf,
 		openingStack,
@@ -116,6 +117,8 @@
 	 * chosen edge and Loop toggle under it.
 	 */
 	let stack = $state.raw<Stack>([]);
+	/** A level a jump is on its way to (see `go`). */
+	let arriving = $state.raw<Screen | null>(null);
 	let opened = $state(false);
 	/** The editor's Loop toggle: the loop rests while it is off, for that editor visit only. */
 	let loopPaused = $state(false);
@@ -132,7 +135,7 @@
 			? (spots.find((s) => s.id === level.spotId) ?? null)
 			: null
 	);
-	const loop = $derived(loopOf(stack, spots, loopPaused));
+	const loop = $derived(loopOf(stack, spots, loopPaused, arriving));
 	const currentMs = $derived(current * 1000);
 	const durationMs = $derived(Number.isFinite(duration) ? duration * 1000 : 0);
 
@@ -180,7 +183,10 @@
 			replace: (d) => replaceState('', { videoPlayer: d }),
 			go: (d) => history.go(d)
 		},
-		(s) => (stack = s),
+		(s) => {
+			stack = s;
+			arriving = null;
+		},
 		finish
 	);
 
@@ -396,21 +402,25 @@
 
 	/* ---------- levels ---------- */
 
+	/**
+	 * A jump that goes back through history lands a moment later: until then
+	 * the target is `arriving`, so the old section's loop cannot pull the video
+	 * back. Any stack change clears it (a push lands at once).
+	 */
+	function go(target: Stack) {
+		arriving = target[target.length - 1];
+		nav.jump(target);
+	}
+
 	function toSection(spot: Spot) {
-		const target: Screen = { kind: 'section', spotId: spot.id };
-		if (nav.stack.length === 1) nav.push(target);
-		else nav.jump([FULL, target]);
+		go([FULL, { kind: 'section', spotId: spot.id }]);
 		video.currentTime = spot.startMs / 1000;
 		void video.play().catch(() => {});
 	}
 
 	function toEdit(spot: Spot) {
 		toast = null;
-		const target: Screen = { kind: 'edit', spotId: spot.id };
-		const lvl = levelOf(nav.stack);
-		if (lvl.kind === 'section' && lvl.spotId === spot.id) nav.push(target);
-		else if (nav.stack.length === 1) nav.push(target);
-		else nav.jump([FULL, target]);
+		go(editStack(nav.stack, spot.id));
 		video.currentTime = spot.startMs / 1000;
 		if (spot.endMs !== null) void video.play().catch(() => {});
 	}
