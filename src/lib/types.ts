@@ -301,6 +301,14 @@ export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
 /** What a section can be linked to: a figure version or a drill. */
 export type SectionTarget = { figureId: number } | { exerciseId: number };
 
+/** A section of a lesson's video through which a variation or drill is on that lesson. */
+export interface ViaSection {
+	spotId: number;
+	startMs: number;
+	endMs: number;
+	label: string | null;
+}
+
 /** One link of a section, as a chip under it on the lesson page. */
 export interface SectionLinkChip {
 	id: number;
