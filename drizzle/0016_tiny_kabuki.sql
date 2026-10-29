@@ -33,15 +33,31 @@ UPDATE figures SET
   style_tag       = (SELECT p.style_tag FROM figures p WHERE p.id = figures.parent_id)
 WHERE parent_id IS NOT NULL;
 --> statement-breakpoint
-UPDATE figure_groups SET name = trim(name) || ' ' || (
-    SELECT r.n FROM (SELECT id, row_number() OVER (PARTITION BY dance, lower(trim(name)) ORDER BY id) AS n
-                     FROM figure_groups WHERE archived_at IS NULL) r WHERE r.id = figure_groups.id)
-  WHERE id IN (SELECT id FROM (SELECT id, row_number() OVER (PARTITION BY dance, lower(trim(name)) ORDER BY id) AS n
-                               FROM figure_groups WHERE archived_at IS NULL) WHERE n > 1);
+CREATE TEMP TABLE fg_num AS
+  SELECT id, row_number() OVER (PARTITION BY dance, lower(trim(name)) ORDER BY id) AS n
+  FROM figure_groups WHERE archived_at IS NULL;
+--> statement-breakpoint
+UPDATE figure_groups SET name = trim(name) || ' ' || (SELECT n FROM fg_num WHERE fg_num.id = figure_groups.id)
+  WHERE id IN (SELECT id FROM fg_num WHERE n > 1);
+--> statement-breakpoint
+DROP TABLE fg_num;
+--> statement-breakpoint
+CREATE TEMP TABLE fg_dup AS
+  SELECT g.id FROM figure_groups g
+  WHERE g.archived_at IS NULL AND EXISTS (
+    SELECT 1 FROM figure_groups o WHERE o.archived_at IS NULL AND o.dance = g.dance
+      AND lower(trim(o.name)) = lower(trim(g.name)) AND o.id < g.id);
+--> statement-breakpoint
+UPDATE figure_groups SET name = trim(name) || ' (' || id || ')' WHERE id IN (SELECT id FROM fg_dup);
+--> statement-breakpoint
+DROP TABLE fg_dup;
 --> statement-breakpoint
 UPDATE figures SET name = CASE
-    WHEN EXISTS (SELECT 1 FROM figures v WHERE v.parent_id = figures.id AND v.archived_at IS NULL
-                 AND lower(trim(v.name)) = 'basic') THEN 'Original' ELSE 'Basic' END
+    WHEN NOT EXISTS (SELECT 1 FROM figures v WHERE v.parent_id = figures.id AND v.archived_at IS NULL
+                     AND lower(trim(v.name)) = 'basic') THEN 'Basic'
+    WHEN NOT EXISTS (SELECT 1 FROM figures v WHERE v.parent_id = figures.id AND v.archived_at IS NULL
+                     AND lower(trim(v.name)) = 'original') THEN 'Original'
+    ELSE 'Basic (' || id || ')' END
   WHERE parent_id IS NULL;
 --> statement-breakpoint
 UPDATE exercises SET name = (SELECT g.name || ' · ' || f.name FROM figures f

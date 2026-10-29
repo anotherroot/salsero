@@ -179,3 +179,39 @@ it('turns base figures into groups and materialises what variations inherited', 
 	expect(exerciseOf(A).name).toBe('Enchufla · Original');
 	expect(exerciseOf(V1).name).toBe('Enchufla · Doble');
 });
+
+it('keeps live figure names unique per dance and base variation names unique per figure', () => {
+	const file = join(temp('salsa-db-'), 'old.db');
+	const old = new Database(file);
+	old.pragma('foreign_keys = ON');
+	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0015_smiling_baron_strucker') });
+	const fig = old.prepare(
+		`insert into figures (id, name, dance, parent_id, created_at) values (?, ?, 'salsa', ?, 1)`
+	);
+	fig.run(1, 'Vacilala', null);
+	fig.run(2, 'vacilala', null);
+	fig.run(3, 'VACILALA', null);
+	fig.run(4, 'Vacilala 2', null);
+	fig.run(5, 'Cruzada', null);
+	fig.run(6, 'Basic', 5);
+	fig.run(7, 'original ', 5);
+	old.close();
+
+	const db = openDb(file);
+	const names = (
+		db.$client
+			.prepare(`select name from figure_groups where archived_at is null order by id`)
+			.all() as {
+			name: string;
+		}[]
+	).map((r) => r.name);
+	const keys = names.map((n) => n.trim().toLowerCase());
+	expect(new Set(keys).size).toBe(keys.length);
+	expect(names[0]).toBe('Vacilala');
+	const inGroup = (
+		db.$client.prepare(`select name from figures where group_id = 5 order by id`).all() as {
+			name: string;
+		}[]
+	).map((r) => r.name);
+	expect(inGroup).toEqual(['Basic (5)', 'Basic', 'original ']);
+});
