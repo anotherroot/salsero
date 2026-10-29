@@ -32,6 +32,13 @@ export class PlayerHistory {
 	/** Screens to push once history is back down to `#pendingAt`. */
 	#pending: Screen[] = [];
 	#pendingAt = -1;
+	/**
+	 * The depth history will hold once the moves already sent have landed. It
+	 * differs from the stack's length while a move is on its way, and then a
+	 * second up or ✕ (a double tap, Esc twice) must not move history again: it
+	 * would overshoot the player's entries and take the page itself back.
+	 */
+	#target = 0;
 
 	constructor(
 		private readonly port: HistoryPort,
@@ -45,12 +52,14 @@ export class PlayerHistory {
 
 	open(initial: Stack): void {
 		this.#stack = initial;
+		this.#target = initial.length;
 		initial.forEach((_, i) => this.port.push(i + 1));
 		this.onchange(initial);
 	}
 
 	push(screen: Screen): void {
 		this.#stack = [...this.#stack, screen];
+		this.#target = this.#stack.length;
 		this.onchange(this.#stack);
 		this.port.push(this.#stack.length);
 	}
@@ -61,12 +70,18 @@ export class PlayerHistory {
 		this.port.replace(this.#stack.length);
 	}
 
+	/** Up one level — unless a move is still on its way, which this one would add to. */
 	up(): void {
+		if (this.#target !== this.#stack.length || this.#target <= 0) return;
+		this.#target -= 1;
 		this.port.go(-1);
 	}
 
+	/** Back over every entry the player still has, counting moves already sent. */
 	close(): void {
-		this.port.go(-this.#stack.length);
+		if (this.#target <= 0) return;
+		this.port.go(-this.#target);
+		this.#target = 0;
 	}
 
 	/** Go to `target`: back to the part it shares with the stack, then push the rest. */
@@ -86,6 +101,7 @@ export class PlayerHistory {
 		}
 		this.#pending = rest;
 		this.#pendingAt = common;
+		this.#target = common;
 		this.port.go(common - this.#stack.length);
 	}
 
@@ -107,6 +123,8 @@ export class PlayerHistory {
 			this.#stack = this.#stack.slice(0, depth);
 			this.onchange(this.#stack);
 		}
+		// A back made outside the player (the browser's button) lowers the target too.
+		this.#target = Math.min(this.#target, depth);
 		if (depth === this.#pendingAt) {
 			const rest = this.#pending;
 			this.#pending = [];

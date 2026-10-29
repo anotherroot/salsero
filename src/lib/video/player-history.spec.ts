@@ -112,4 +112,51 @@ describe('PlayerHistory', () => {
 		expect(calls.at(-1)).toBe('push(2)');
 		expect(reports.at(-1)).toEqual([full, section(7)]);
 	});
+
+	it('moves history once for two ups before it answers', () => {
+		const { h, calls } = setup();
+		h.open(openingStack());
+		h.push(edit(5));
+		const before = calls.length;
+		h.up();
+		h.up();
+		expect(calls.slice(before)).toEqual(['go(-1)']);
+	});
+
+	it('closes once for two quick ✕', () => {
+		const { h, calls } = setup();
+		h.open(openingStack(4));
+		const before = calls.length;
+		h.close();
+		h.close();
+		expect(calls.slice(before)).toEqual(['go(-2)']);
+	});
+
+	it('closes over what is left when an up is already on its way', () => {
+		const { h, calls } = setup();
+		h.open(openingStack(4));
+		h.push(edit(4));
+		const before = calls.length;
+		h.up();
+		h.close();
+		expect(calls.slice(before)).toEqual(['go(-1)', 'go(-2)']);
+	});
+
+	it('goes up again once history has answered', () => {
+		const { h, calls } = setup();
+		h.open(openingStack(4));
+		h.up();
+		h.sync(1);
+		h.up();
+		expect(calls.slice(-2)).toEqual(['go(-1)', 'go(-1)']);
+	});
+
+	it('follows a back made outside the player (the browser button)', () => {
+		const { h, calls } = setup();
+		h.open(openingStack(4));
+		h.push(edit(4));
+		h.sync(2);
+		h.up();
+		expect(calls.at(-1)).toBe('go(-1)');
+	});
 });

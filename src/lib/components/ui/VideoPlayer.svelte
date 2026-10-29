@@ -97,7 +97,12 @@
 
 	let spots = $state<Spot[]>(untrack(() => (loopSpot ? [loopSpot] : [])));
 	let loadFailed = $state(false);
-	let stack = $state<Stack>([]);
+	/*
+	 * Raw, not deep: a deep proxy re-wraps every screen on each change, so the
+	 * level would look new when only a sheet opened — resetting the editor's
+	 * chosen edge and Loop toggle under it.
+	 */
+	let stack = $state.raw<Stack>([]);
 	let opened = $state(false);
 	/** The editor's Loop toggle: the loop rests while it is off, for that editor visit only. */
 	let loopPaused = $state(false);
@@ -515,7 +520,7 @@
 	}
 
 	function onkeydown(e: KeyboardEvent) {
-		if (e.target instanceof HTMLInputElement) return;
+		if (closed || e.target instanceof HTMLInputElement) return;
 		if (sheet) return;
 		const a = keyAction(e, level.kind);
 		if (!a) return;
@@ -613,7 +618,9 @@
 	);
 </script>
 
-<svelte:window bind:innerWidth={vw} bind:innerHeight={vh} />
+<!-- Keys on the window, not the dialog: a level change removes the focused
+     button and focus falls to the body, outside the dialog. -->
+<svelte:window bind:innerWidth={vw} bind:innerHeight={vh} {onkeydown} />
 
 {#snippet editor(spot: Spot, keys: boolean, transport: boolean)}
 	<SpotEditor
@@ -712,7 +719,6 @@
 		dialog.showModal();
 		nav.up();
 	}}
-	{onkeydown}
 >
 	<!-- A mouse move only brings faded controls back; the keys have their own handler. -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
