@@ -202,15 +202,37 @@ export interface LessonExerciseRow {
 	source: Source;
 }
 
-/** A figure or one of its variations, as a picker offers it. */
+/** One variation of a figure, as a picker offers it. */
 export interface FigureVersion {
 	id: number;
-	/** The figure this is a variation of; null for the figure itself. */
-	parentId: number | null;
-	/** The row's own name — "Doble". */
+	/** The figure (`figure_groups` row) this is a variation of. */
+	groupId: number;
+	/** The figure's name — "Enchufla". */
+	figure: string;
+	/** The variation's own name — "Doble". */
 	name: string;
-	/** How to show it anywhere else — "Enchufla · Doble". A figure's label is its name. */
+	/** How to show it anywhere else — "Enchufla · Doble". */
 	label: string;
+}
+
+/** A figure as the library list shows it: one row per figure, not per variation. */
+export interface FigureListItem {
+	/** The group's id. */
+	id: number;
+	name: string;
+	/** Live variations. */
+	variations: number;
+	/** Recordings across the live variations. */
+	recordings: number;
+	/** The lowest-id live variation: where a tap on the row lands. */
+	firstVariationId: number;
+}
+
+/** A figure a variation can be moved to, with its variations' names. */
+export interface MoveTarget {
+	id: number;
+	name: string;
+	variations: string[];
 }
 
 /** A figure a routine can call: how the player shows it, and what the voice says. */
