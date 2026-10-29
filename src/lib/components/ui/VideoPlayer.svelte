@@ -4,9 +4,10 @@
 	import { pushState, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getDance } from '$lib/dances/dances';
-	import type { VideoRate } from '$lib/video-prefs';
+	import { loadVideoPrefs, saveVideoPrefs, type VideoRate } from '$lib/video-prefs';
 	import {
 		edgeViewTime,
+		sectionProgress,
 		lengthText,
 		loopTarget,
 		MIN_SECTION_MS,
@@ -46,6 +47,7 @@
 	import Toast from '$lib/components/video/Toast.svelte';
 	import SpotList from '$lib/components/video/SpotList.svelte';
 	import SectionView from '$lib/components/video/SectionView.svelte';
+	import SectionRow from '$lib/components/video/SectionRow.svelte';
 	import SpotEditor, { type MoveHow, type Times } from '$lib/components/video/SpotEditor.svelte';
 	import PlayerSheet from '$lib/components/video/PlayerSheet.svelte';
 	import type { Spot, SpotOwner } from '$lib/types';
@@ -93,6 +95,15 @@
 	let naturalH = $state(9);
 	/** Pinch zoom: kept across levels, gone when the player closes. */
 	let view = $state<View>(NO_ZOOM);
+	/** Portrait: the controls folded to a slim bar, remembered beside mirror and speed. */
+	let hidden = $state(false);
+	onMount(() => {
+		hidden = loadVideoPrefs().hidden;
+	});
+	function setHidden(h: boolean) {
+		hidden = h;
+		saveVideoPrefs({ hidden: h });
+	}
 	let vw = $state(390);
 	let vh = $state(844);
 	const layout = $derived(layoutFor(vw, vh));
@@ -404,14 +415,8 @@
 		if (spot.endMs !== null) void video.play().catch(() => {});
 	}
 
+	/** A card or a chip: a section's view or a point's editor, always right above the full video, so Back returns there. */
 	function fromList(spot: Spot) {
-		// The landscape list is a sheet: its card turns into the level it opens.
-		if (sheetOf(nav.stack) === 'list') {
-			nav.replaceTop({ kind: spot.endMs === null ? 'edit' : 'section', spotId: spot.id });
-			video.currentTime = spot.startMs / 1000;
-			if (spot.endMs !== null) void video.play().catch(() => {});
-			return;
-		}
 		if (spot.endMs === null) toEdit(spot);
 		else toSection(spot);
 	}
@@ -548,6 +553,8 @@
 					? 'panel'
 					: 'overlay'
 	);
+	/** A phone, either way up: a section view carries ‹ Full video and Edit in its top bar. */
+	const phone = $derived(mode === 'portrait' || mode === 'overlay');
 
 	/* Floating controls fade after 3 s of playing; a tap brings them back. */
 	let shown = $state(true);
@@ -656,7 +663,7 @@
 	</div>
 {/snippet}
 
-{#snippet clock(overlay: boolean)}
+{#snippet clock()}
 	<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
 {/snippet}
 
@@ -685,6 +692,54 @@
 			? 'Section'
 			: `End · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
 	</button>
+{/snippet}
+
+{#snippet sectionRow(activeId: number | null)}
+	<SectionRow
+		spots={listSpots}
+		{activeId}
+		{loadFailed}
+		onopen={fromList}
+		onall={() => openSheet('list')}
+	/>
+{/snippet}
+
+{#snippet slimBar(spot: Spot | null)}
+	<div class="flex flex-col gap-0.5 px-4 pt-1.5 pb-3">
+		{#if spot}
+			<Timeline
+				fromMs={spot.startMs}
+				toMs={spot.endMs ?? spot.startMs}
+				{currentMs}
+				accentFill
+				onseek={seek}
+			/>
+		{:else}
+			{@render fullTimeline(false)}
+		{/if}
+		<div class="-mx-2 flex items-center gap-1">
+			<button
+				type="button"
+				class="{BTN_GHOST} h-10 pr-3 pl-2 text-(--pl-ink-2)"
+				onclick={() => setHidden(false)}
+			>
+				<Icon d={icons.chevronUp} size={18} />Show
+			</button>
+			<span class="flex-1"></span>
+			<Transport
+				{paused}
+				size="compact"
+				seconds={false}
+				ontoggle={toggle}
+				onstep={nudge}
+				ontenth={tenth}
+			/>
+			<span class="flex-1"></span>
+			<span class="w-24 pr-2 text-right text-[15px] font-semibold tabular-nums"
+				>{spot ? sectionProgress(spot, currentMs) : preciseTime(currentMs)}</span
+			>
+		</div>
+	</div>
 {/snippet}
 
 {#snippet keyLegend()}
@@ -742,10 +797,8 @@
 				overlay={mode === 'overlay'}
 				spotsCount={spots.length}
 				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
-				onback={mode === 'overlay' && level.kind === 'section' ? () => nav.up() : undefined}
-				onedit={mode === 'overlay' && level.kind === 'section'
-					? () => openSpot && toEdit(openSpot)
-					: undefined}
+				onback={phone && level.kind === 'section' ? () => nav.up() : undefined}
+				onedit={phone && level.kind === 'section' ? () => openSpot && toEdit(openSpot) : undefined}
 				onclose={() => nav.close()}
 				{onchoose}
 			/>
@@ -754,12 +807,10 @@
 		<!-- 2. the video: one element in every layout, so rotating never reloads it -->
 		<div
 			class="area-video overflow-hidden bg-black {mode === 'portrait'
-				? 'relative w-full shrink-0'
+				? 'relative min-h-[120px] w-full flex-1'
 				: mode === 'overlay'
 					? 'absolute inset-0'
 					: 'relative min-h-0 min-w-0'}"
-			style:aspect-ratio={mode === 'portrait' ? `${naturalW} / ${naturalH}` : undefined}
-			style:max-height={mode === 'portrait' ? '55dvh' : undefined}
 		>
 			<!-- Zoom on a wrapper, mirror on the video: the two transforms compose. -->
 			<div class="absolute inset-0 origin-center" style:transform={zoomTransform(view)}>
@@ -840,56 +891,91 @@
 
 		<!-- 3. under the video (or over it, in overlay) -->
 		{#if mode === 'portrait'}
-			{#if level.kind === 'section' && openSpot}
-				<SectionView
-					spot={openSpot}
-					{currentMs}
-					{paused}
-					{rate}
-					variant="panel"
-					onfull={() => nav.up()}
-					onedit={() => openSpot && toEdit(openSpot)}
-					onseek={seek}
-					ontoggle={toggle}
-					onstep={nudge}
-					ontenth={tenth}
-					onrate={(r) => onchoose({ rate: r })}
-				/>
-			{:else if level.kind === 'edit' && openSpot}
-				{@render editor(openSpot, false, true)}
-			{:else}
-				<div class="flex min-h-0 flex-1 flex-col">
-					<div class="px-4 pt-2.5">
-						<div class="flex items-baseline gap-2">
-							{@render clock(false)}
-							<span class="ml-auto text-[13px] text-(--pl-muted) tabular-nums"
-								>{durationMs ? preciseTime(durationMs) : '–'}</span
-							>
-						</div>
-						{@render fullTimeline(false)}
-					</div>
-					<div class="px-4 pt-1">
-						<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
-					</div>
-					<div class="flex gap-2 px-4 pt-3 pb-1">
-						<button type="button" class="{BTN} flex-1" onclick={mark}>
-							<Icon d={icons.flag} />Mark point
-						</button>
+			<!-- Sized first: the video takes what is left, never under 120 px. -->
+			<div
+				class="area-below flex shrink-0 flex-col overflow-y-auto"
+				style:max-height="calc(100dvh - 176px)"
+			>
+				{#if sheet === 'list'}
+					<div class="relative flex max-h-[50dvh] min-h-0 flex-col border-t border-(--pl-raised)">
 						<button
 							type="button"
-							class="{pendingStart === null ? BTN : BTN_ACCENT} flex-[1.4]"
-							onclick={section}
+							class="{BTN_GHOST} absolute top-1 right-2 z-10"
+							aria-label="Close list"
+							onclick={() => nav.up()}
 						>
-							<Icon d={icons.bracket} />{pendingStart === null
-								? 'Start section'
-								: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+							<Icon d={icons.close} />
 						</button>
+						<div class="min-h-0 flex-1 overflow-y-auto">
+							<SpotList
+								spots={listSpots}
+								activeId={null}
+								{loadFailed}
+								editAll
+								onopen={fromList}
+								onedit={toEdit}
+							/>
+						</div>
 					</div>
-					<div class="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-(--pl-raised)">
-						<SpotList spots={listSpots} activeId={null} {loadFailed} onopen={fromList} />
+				{:else if level.kind === 'edit' && openSpot}
+					{@render editor(openSpot, false, true)}
+				{:else if hidden}
+					{@render slimBar(level.kind === 'section' ? openSpot : null)}
+				{:else if level.kind === 'section' && openSpot}
+					<SectionView
+						spot={openSpot}
+						{currentMs}
+						{paused}
+						variant="panel"
+						onfull={() => nav.up()}
+						onseek={seek}
+						ontoggle={toggle}
+						onstep={nudge}
+						ontenth={tenth}
+						onhide={() => setHidden(true)}
+					>
+						{#snippet row()}
+							{@render sectionRow(openSpot?.id ?? null)}
+						{/snippet}
+					</SectionView>
+				{:else}
+					<div class="flex flex-col gap-1.5 pt-1 pb-3">
+						<div class="flex items-center gap-2 pr-2 pl-4">
+							<span class="text-[20px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
+							<span class="text-[13px] text-(--pl-muted) tabular-nums"
+								>/ {durationMs ? preciseTime(durationMs) : '–'}</span
+							>
+							<span class="flex-1"></span>
+							<button
+								type="button"
+								class="{BTN_GHOST} h-9 pr-2 pl-3 text-(--pl-ink-2)"
+								onclick={() => setHidden(true)}
+							>
+								Hide<Icon d={icons.chevronDown} size={18} />
+							</button>
+						</div>
+						<div class="px-4">{@render fullTimeline(false)}</div>
+						<div class="px-4">
+							<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
+						</div>
+						<div class="flex gap-2 px-4 pt-1 pb-1">
+							<button type="button" class="{BTN} flex-1" onclick={mark}>
+								<Icon d={icons.flag} />Mark point
+							</button>
+							<button
+								type="button"
+								class="{pendingStart === null ? BTN : BTN_ACCENT} flex-[1.4]"
+								onclick={section}
+							>
+								<Icon d={icons.bracket} />{pendingStart === null
+									? 'Start section'
+									: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+							</button>
+						</div>
+						{@render sectionRow(null)}
 					</div>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		{:else if mode === 'overlay'}
 			<div
 				class="area-below fade absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/75 to-transparent pt-10 text-white"
@@ -900,21 +986,18 @@
 						spot={openSpot}
 						{currentMs}
 						{paused}
-						{rate}
 						variant="overlay"
 						onfull={() => nav.up()}
-						onedit={() => openSpot && toEdit(openSpot)}
 						onseek={seek}
 						ontoggle={toggle}
 						onstep={nudge}
 						ontenth={tenth}
-						onrate={(r) => onchoose({ rate: r })}
 					/>
 				{:else}
 					<div class="flex flex-col gap-1 px-6 pb-3">
 						{@render fullTimeline(true)}
 						<div class="flex items-center gap-2">
-							<span class="flex w-40 items-baseline gap-2">{@render clock(true)}</span>
+							<span class="flex w-40 items-baseline gap-2">{@render clock()}</span>
 							<span class="flex-1"></span>
 							<Transport {paused} overlay ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 							<span class="flex-1"></span>
@@ -925,7 +1008,7 @@
 			</div>
 		{:else if mode === 'panel'}
 			<div class="area-below flex items-center gap-2 px-3 py-1.5">
-				{@render clock(false)}
+				{@render clock()}
 				<span class="flex-1"></span>
 				<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 			</div>
@@ -936,20 +1019,17 @@
 						spot={openSpot}
 						{currentMs}
 						{paused}
-						{rate}
 						variant="bar"
 						onfull={() => nav.jump([FULL])}
-						onedit={() => openSpot && toEdit(openSpot)}
 						onseek={seek}
 						ontoggle={toggle}
 						onstep={nudge}
 						ontenth={tenth}
-						onrate={(r) => onchoose({ rate: r })}
 					/>
 				{:else}
 					<div class="px-4 pt-3">{@render fullTimeline(false)}</div>
 					<div class="flex items-center gap-2 px-4 py-2">
-						{@render clock(false)}
+						{@render clock()}
 						<span class="text-[12px] text-(--pl-muted) tabular-nums"
 							>/ {durationMs ? preciseTime(durationMs) : '–'}</span
 						>
@@ -978,7 +1058,14 @@
 						</button>
 					</div>
 					<div class="-mt-10 min-h-0 flex-1 overflow-y-auto">
-						<SpotList spots={listSpots} activeId={null} {loadFailed} onopen={fromList} />
+						<SpotList
+							spots={listSpots}
+							activeId={null}
+							{loadFailed}
+							editAll
+							onopen={fromList}
+							onedit={toEdit}
+						/>
 					</div>
 				{:else if level.kind === 'edit' && openSpot}
 					{@render editor(openSpot, false, false)}

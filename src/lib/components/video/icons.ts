@@ -16,6 +16,8 @@ export const icons = {
 	check: 'M5 12l5 5 9-11',
 	chevronLeft: 'M15 6l-6 6 6 6',
 	chevronRight: 'M9 6l6 6-6 6',
+	chevronUp: 'M6 15l6-6 6 6',
+	chevronDown: 'M6 9l6 6 6-6',
 	list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
 	startEdge: 'M6 5v14M18 6l-9 6 9 6z',
 	endEdge: 'M18 5v14M6 6l9 6-9 6z'

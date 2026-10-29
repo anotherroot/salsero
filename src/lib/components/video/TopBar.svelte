@@ -15,7 +15,11 @@
 		/** Landscape only: opens the list beside the video. */
 		onspots?: () => void;
 		spotsCount?: number;
-		/** Landscape section view: `‹ Full video` after ✕, and `Edit` before Mirror. */
+		/**
+		 * A section view: `‹ Full video` after ✕, and `Edit` before Mirror. On a
+		 * portrait phone the title makes way for them (the name is on the video)
+		 * and Edit is coloured, so it reads as the way into the editor.
+		 */
 		onback?: () => void;
 		onedit?: () => void;
 		onclose: () => void;
@@ -49,12 +53,17 @@
 			<Icon d={icons.chevronLeft} />Full video
 		</button>
 	{/if}
-	<div class="min-w-0 flex-1 pl-1 leading-tight" class:drop-shadow={overlay}>
-		<span class="block truncate text-[15px] font-semibold">{title}</span>
-		{#if subtitle}<span class="block truncate text-[12px] text-(--pl-muted)">{subtitle}</span>{/if}
-	</div>
+	{#if onback && !overlay}
+		<span class="flex-1"></span>
+	{:else}
+		<div class="min-w-0 flex-1 pl-1 leading-tight" class:drop-shadow={overlay}>
+			<span class="block truncate text-[15px] font-semibold">{title}</span>
+			{#if subtitle}<span class="block truncate text-[12px] text-(--pl-muted)">{subtitle}</span
+				>{/if}
+		</div>
+	{/if}
 	{#if onedit}
-		<button type="button" class={plain} onclick={onedit}>
+		<button type="button" class={overlay ? plain : `${BTN_ACCENT} pr-3.5 pl-3`} onclick={onedit}>
 			<Icon d={icons.pencil} />Edit
 		</button>
 	{/if}

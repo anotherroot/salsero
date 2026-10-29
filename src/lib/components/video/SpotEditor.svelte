@@ -205,14 +205,14 @@
 				{#each steps.slice(0, 2) as s (s.label)}
 					<button
 						type="button"
-						class="{BTN} flex-1 px-1"
+						class="{BTN} h-13 flex-1 px-1"
 						disabled={!s.times}
 						onclick={() => s.times && onmove(s.times, s.how, edge)}>{s.label}</button
 					>
 				{/each}
 				<button
 					type="button"
-					class="{BTN} flex-[1.3] flex-col gap-0 px-1 leading-tight"
+					class="{BTN} h-13 flex-[1.3] flex-col gap-0 px-1 leading-tight"
 					disabled={!now}
 					onclick={() => now && onmove(now, 'now', edge)}
 				>
@@ -222,7 +222,7 @@
 				{#each steps.slice(2) as s (s.label)}
 					<button
 						type="button"
-						class="{BTN} flex-1 px-1"
+						class="{BTN} h-13 flex-1 px-1"
 						disabled={!s.times}
 						onclick={() => s.times && onmove(s.times, s.how, edge)}>{s.label}</button
 					>
@@ -257,7 +257,11 @@
 		{#if keys}
 			<button type="button" class={BTN_GHOST} onclick={onrename}>Rename</button>
 		{/if}
-		<button type="button" class="{BTN_ACCENT} min-w-30" onclick={ondone}>
+		<button
+			type="button"
+			class="{BTN_ACCENT} h-13 min-w-38 rounded-2xl text-[16px]"
+			onclick={ondone}
+		>
 			<Icon d={icons.check} />Done
 		</button>
 	</div>

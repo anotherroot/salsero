@@ -10,6 +10,7 @@ import {
 	msOf,
 	resizeSpot,
 	shiftSpot,
+	sectionProgress,
 	sortSpots,
 	spotLabel,
 	spotTime,
@@ -133,7 +134,10 @@ describe('TENTH_MS', () => {
 	it('is the editor fine step, through moveEdge', () => {
 		expect(TENTH_MS).toBe(100);
 		const s = { startMs: 4000, endMs: 11_200 };
-		expect(moveEdge(s, 'start', s.startMs + TENTH_MS, 60)).toEqual({ startMs: 4100, endMs: 11_200 });
+		expect(moveEdge(s, 'start', s.startMs + TENTH_MS, 60)).toEqual({
+			startMs: 4100,
+			endMs: 11_200
+		});
 	});
 });
 
@@ -197,5 +201,16 @@ describe('lengthText', () => {
 		expect(lengthText(7200)).toBe('7.2 s');
 		expect(lengthText(1000)).toBe('1.0 s');
 		expect(lengthText(64_960)).toBe('65.0 s');
+	});
+});
+
+describe('sectionProgress', () => {
+	const s = { startMs: 64_000, endMs: 71_200 };
+	it('is how far into the section, over its length', () => {
+		expect(sectionProgress(s, 66_700)).toBe('2.7 / 7.2 s');
+	});
+	it('stays inside the section', () => {
+		expect(sectionProgress(s, 60_000)).toBe('0.0 / 7.2 s');
+		expect(sectionProgress(s, 80_000)).toBe('7.2 / 7.2 s');
 	});
 });

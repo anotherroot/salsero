@@ -156,3 +156,10 @@ export function preciseTime(ms: number): string {
 export function lengthText(ms: number): string {
 	return `${(ms / 1000).toFixed(1)} s`;
 }
+
+/** A section's own clock: `2.7 / 7.2 s`, held inside the section. */
+export function sectionProgress(spot: Pick<Spot, 'startMs' | 'endMs'>, currentMs: number): string {
+	const length = (spot.endMs ?? spot.startMs) - spot.startMs;
+	const into = Math.max(0, Math.min(length, currentMs - spot.startMs));
+	return `${(into / 1000).toFixed(1)} / ${lengthText(length)}`;
+}
