@@ -12,6 +12,7 @@
 	import { addLink, createLink, fetchLinkOptions, removeLink } from '$lib/video/links-api';
 	import { SpotsApiError } from '$lib/video/spots-api';
 	import { lengthText, spotTime } from '$lib/video/spots';
+	import { linkOptionKey } from '$lib/link-options';
 	import type { LinkCreate, LinkedTarget, LinkOption, LinkOptions } from '$lib/types';
 
 	/**
@@ -323,13 +324,13 @@
 		{#if near.length > 0}
 			<p class={group}>{options.context.kind === 'lesson' ? 'This lesson' : 'This figure'}</p>
 			<ul>
-				{#each near as o (`${o.drill}-${o.label}`)}{@render row(o)}{/each}
+				{#each near as o (linkOptionKey(o))}{@render row(o)}{/each}
 			</ul>
 		{/if}
 		{#if other.length > 0}
 			<p class={group}>Other</p>
 			<ul>
-				{#each other as o (`${o.drill}-${o.label}`)}{@render row(o)}{/each}
+				{#each other as o (linkOptionKey(o))}{@render row(o)}{/each}
 			</ul>
 		{/if}
 		{#if near.length === 0 && other.length === 0}
