@@ -321,23 +321,26 @@
 			aria-label="Search figures and drills"
 			class="mt-3 {c.field}"
 		/>
-		{#if near.length > 0}
-			<p class={group}>{options.context.kind === 'lesson' ? 'This lesson' : 'This figure'}</p>
-			<ul>
-				{#each near as o (linkOptionKey(o))}{@render row(o)}{/each}
-			</ul>
-		{/if}
-		{#if other.length > 0}
-			<p class={group}>Other</p>
-			<ul>
-				{#each other as o (linkOptionKey(o))}{@render row(o)}{/each}
-			</ul>
-		{/if}
-		{#if near.length === 0 && other.length === 0}
-			<p class="mt-3 text-[13px] {c.muted}">
-				{query.trim() ? 'Nothing matches. Create it below.' : 'Nothing else to link.'}
-			</p>
-		{/if}
+		<!-- Only the list scrolls: the header, the search and the create buttons stay put. -->
+		<div class="mt-1 max-h-[min(40dvh,320px)] overflow-y-auto overscroll-contain">
+			{#if near.length > 0}
+				<p class={group}>{options.context.kind === 'lesson' ? 'This lesson' : 'This figure'}</p>
+				<ul>
+					{#each near as o (linkOptionKey(o))}{@render row(o)}{/each}
+				</ul>
+			{/if}
+			{#if other.length > 0}
+				<p class={group}>Other</p>
+				<ul>
+					{#each other as o (linkOptionKey(o))}{@render row(o)}{/each}
+				</ul>
+			{/if}
+			{#if near.length === 0 && other.length === 0}
+				<p class="mt-3 text-[13px] {c.muted}">
+					{query.trim() ? 'Nothing matches. Create it below.' : 'Nothing else to link.'}
+				</p>
+			{/if}
+		</div>
 		{#if message}<p class="mt-2 text-[13px] {c.error}" role="alert">{message}</p>{/if}
 		<div class="mt-3 flex gap-1.5">
 			{#each [['variation', '+ Variation'], ['figure', '+ Figure'], ['drill', '+ Drill']] as const as [kind, text] (kind)}
