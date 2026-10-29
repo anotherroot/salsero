@@ -68,7 +68,7 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 	for (const r of rows) {
 		const parent = r.parentId === null ? null : (byId.get(r.parentId) ?? null);
 		// A variation whose figure is not in the graph — archived by hand, or gone
-		// — has nothing to fill from. `archiveFigure` archives both together.
+		// — has nothing to fill from. `archiveVariation` archives both together.
 		if (r.parentId !== null && parent === null) continue;
 		const own = byFigure.get(r.id) ?? [];
 		nodes.push({

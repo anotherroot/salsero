@@ -1,23 +1,33 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import {
 	exercises,
+	figureGroups,
 	figures,
 	figureStartPositions,
 	lessonFigures,
 	links,
-	recordings
+	recordings,
+	routines,
+	routineSteps,
+	routineStepOptions,
+	sets,
+	spotLinks,
+	videoSpots
 } from './db/schema';
 import {
 	addFigureExercise,
 	addRecording,
+	archiveVariation,
 	createFigure,
 	createVariationFrom,
 	figureLabels,
+	isLastVariation,
 	listFigures,
 	listFiguresForCall,
 	listVersions,
+	moveVariation,
 	renameFigure,
 	updateVariation
 } from './figures';
@@ -253,3 +263,186 @@ describe('addFigureExercise', () => {
 		expect(addFigureExercise(db, v2.id)!.name).toBe('Enchufla · Doble');
 	});
 });
+
+describe('moveVariation', () => {
+	it('moves into another figure and takes everything with it', () => {
+		const a = fig('Enchufla', 'Doble');
+		const b = fig('Setenta', 'Basic');
+		createVariationFrom(db, a.figure.id, 'Simple'); // keeps Enchufla alive
+		const id = a.figure.id;
+		const rec = addRecording(db, {
+			figureId: id,
+			file: 'r.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 1,
+			note: null
+		});
+		const lesson = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'L', notes: null })
+			.lesson.id;
+		const spot = db
+			.insert(videoSpots)
+			.values({ recordingId: rec.id, startMs: 0, endMs: 1000 })
+			.returning()
+			.get();
+		const sl = db.insert(spotLinks).values({ spotId: spot.id, figureId: id }).returning().get();
+		const link = db
+			.insert(links)
+			.values({ figureId: id, url: 'https://example.com' })
+			.returning()
+			.get();
+		db.insert(lessonFigures).values({ lessonId: lesson, figureId: id }).run();
+		const ex = addFigureExercise(db, id)!;
+		db.insert(sets).values({ exerciseId: ex.id, doneAt: 1 }).run();
+		const r = db.insert(routines).values({ name: 'R' }).returning().get();
+		const step = db.insert(routineSteps).values({ routineId: r.id, position: 0 }).returning().get();
+		db.insert(routineStepOptions).values({ stepId: step.id, figureId: id }).run();
+
+		expect(moveVariation(db, id, { groupId: b.group.id })).toEqual({
+			ok: true,
+			groupId: b.group.id,
+			figureRemoved: false
+		});
+
+		expect(db.select().from(figures).where(eq(figures.id, id)).get()!.groupId).toBe(b.group.id);
+		expect(db.select().from(recordings).get()!.figureId).toBe(id);
+		expect(db.select().from(spotLinks).where(eq(spotLinks.id, sl.id)).get()!.figureId).toBe(id);
+		expect(db.select().from(links).where(eq(links.id, link.id)).get()!.figureId).toBe(id);
+		expect(db.select().from(lessonFigures).get()!.figureId).toBe(id);
+		expect(db.select().from(routineStepOptions).get()!.figureId).toBe(id);
+		const exNow = db.select().from(exercises).where(eq(exercises.id, ex.id)).get()!;
+		expect(exNow.figureId).toBe(id);
+		expect(exNow.name).toBe('Setenta · Doble');
+		expect(db.select().from(sets).get()!.exerciseId).toBe(ex.id);
+	});
+
+	it('makes a new figure', () => {
+		const a = fig('Enchufla', 'Doble');
+		createVariationFrom(db, a.figure.id, 'Simple');
+		const res = moveVariation(db, a.figure.id, { newFigure: ' Enchufla Doble ' });
+		expect(res.ok).toBe(true);
+		if (!res.ok) return;
+		const group = db.select().from(figureGroups).where(eq(figureGroups.id, res.groupId)).get()!;
+		expect(group.dance).toBe('salsa');
+		expect(group.name).toBe('Enchufla Doble');
+		const moved = db.select().from(figures).where(eq(figures.id, a.figure.id)).get()!;
+		expect(moved.groupId).toBe(group.id);
+		expect(moved.name).toBe('Doble');
+	});
+
+	it('removes the figure it leaves when it was the last', () => {
+		const a = fig('Enchufla', 'Doble');
+		const res = moveVariation(db, a.figure.id, { newFigure: 'Other' });
+		expect(res).toMatchObject({ ok: true, figureRemoved: true });
+		expect(getGroupRow(a.group.id).archivedAt).not.toBeNull();
+
+		const b = fig('Setenta', 'Basic');
+		createVariationFrom(db, b.figure.id, 'Simple');
+		expect(moveVariation(db, b.figure.id, { newFigure: 'Setenta 2' })).toMatchObject({
+			ok: true,
+			figureRemoved: false
+		});
+		expect(getGroupRow(b.group.id).archivedAt).toBeNull();
+	});
+
+	it('refuses its own figure', () => {
+		const a = fig();
+		expect(moveVariation(db, a.figure.id, { groupId: a.group.id })).toEqual({
+			ok: false,
+			reason: 'same-figure'
+		});
+		expect(getGroupRow(a.group.id).archivedAt).toBeNull();
+	});
+
+	it('refuses a taken variation name', () => {
+		const a = fig('Enchufla', 'Doble');
+		const b = fig('Setenta', 'doble');
+		expect(moveVariation(db, a.figure.id, { groupId: b.group.id })).toEqual({
+			ok: false,
+			reason: 'name-taken'
+		});
+		expect(db.select().from(figures).where(eq(figures.id, a.figure.id)).get()!.groupId).toBe(
+			a.group.id
+		);
+	});
+
+	it('refuses a taken or empty figure name', () => {
+		const a = fig('Enchufla', 'Doble');
+		fig('Setenta', 'Basic');
+		const taken = { ok: false, reason: 'figure-name-taken' };
+		expect(moveVariation(db, a.figure.id, { newFigure: ' setenta ' })).toEqual(taken);
+		expect(moveVariation(db, a.figure.id, { newFigure: '  ' })).toEqual(taken);
+		expect(db.select().from(figureGroups).all()).toHaveLength(2);
+		expect(getGroupRow(a.group.id).archivedAt).toBeNull();
+	});
+
+	it('refuses a group of another dance, an archived one, and a gone variation', () => {
+		const a = fig('Enchufla', 'Doble');
+		const bach = fig('Enchufla', 'Doble', 'bachata');
+		expect(moveVariation(db, a.figure.id, { groupId: bach.group.id })).toEqual({
+			ok: false,
+			reason: 'gone'
+		});
+		const dead = fig('Dead', 'Basic');
+		archiveVariation(db, dead.figure.id, 1);
+		expect(moveVariation(db, a.figure.id, { groupId: dead.group.id })).toMatchObject({
+			ok: false,
+			reason: 'gone'
+		});
+		expect(moveVariation(db, dead.figure.id, { newFigure: 'X' })).toMatchObject({
+			ok: false,
+			reason: 'gone'
+		});
+		expect(moveVariation(db, a.figure.id, { groupId: 9999 })).toMatchObject({ reason: 'gone' });
+		expect(db.select().from(figures).where(eq(figures.id, a.figure.id)).get()!.groupId).toBe(
+			a.group.id
+		);
+	});
+});
+
+describe('archiveVariation', () => {
+	it('archives its exercise and, when last, its figure', () => {
+		const a = fig();
+		const ex = addFigureExercise(db, a.figure.id)!;
+		expect(isLastVariation(db, a.figure.id)).toBe(true);
+		expect(archiveVariation(db, a.figure.id, 5)).toEqual({ figureRemoved: true });
+		expect(db.select().from(exercises).where(eq(exercises.id, ex.id)).get()!.archivedAt).toBe(5);
+		expect(getGroupRow(a.group.id).archivedAt).toBe(5);
+		expect(archiveVariation(db, a.figure.id, 6)).toBeNull();
+		expect(archiveVariation(db, 9999, 6)).toBeNull();
+	});
+
+	it('keeps the figure while a sibling is left', () => {
+		const a = fig();
+		const v2 = createVariationFrom(db, a.figure.id, 'Doble')!;
+		expect(isLastVariation(db, a.figure.id)).toBe(false);
+		expect(archiveVariation(db, v2.id, 5)).toEqual({ figureRemoved: false });
+		expect(getGroupRow(a.group.id).archivedAt).toBeNull();
+		expect(isLastVariation(db, a.figure.id)).toBe(true);
+	});
+});
+
+describe('figure groups stay consistent', () => {
+	it('never leaves a live variation in an archived figure', () => {
+		const a = fig('A', 'One');
+		const a2 = createVariationFrom(db, a.figure.id, 'Two')!;
+		const b = fig('B', 'One');
+		const c = fig('C', 'Three');
+		moveVariation(db, a2.id, { groupId: b.group.id });
+		moveVariation(db, a.figure.id, { groupId: c.group.id }); // A now empty
+		archiveVariation(db, b.figure.id, 10);
+		moveVariation(db, c.figure.id, { newFigure: 'D' });
+		archiveVariation(db, a2.id, 11);
+		const bad = db
+			.select({ id: figures.id })
+			.from(figures)
+			.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+			.where(and(isNull(figures.archivedAt), isNotNull(figureGroups.archivedAt)))
+			.all();
+		expect(bad).toEqual([]);
+	});
+});
+
+function getGroupRow(id: number) {
+	return db.select().from(figureGroups).where(eq(figureGroups.id, id)).get()!;
+}

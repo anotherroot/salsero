@@ -244,31 +244,84 @@ export function addFigureExercise(db: Db, figureId: number, everyDays = 3) {
 	});
 }
 
+/** Archive the group when it has no live variation left; whether it did. */
+function archiveGroupIfEmpty(tx: Db, groupId: number, now: number): boolean {
+	const live = tx
+		.select({ id: figures.id })
+		.from(figures)
+		.where(and(eq(figures.groupId, groupId), isNull(figures.archivedAt)))
+		.get();
+	if (live) return false;
+	tx.update(figureGroups)
+		.set({ archivedAt: now })
+		.where(and(eq(figureGroups.id, groupId), isNull(figureGroups.archivedAt)))
+		.run();
+	return true;
+}
+
 /**
- * Archive the figure a row belongs to: its group, every variation, and their
- * exercises. Sets and recordings are kept. (Task 3 replaces this with
- * `archiveVariation` beside a group archive.)
+ * Archive one variation and its exercise; its figure goes too when it was the
+ * last live variation. Sets and recordings are kept. Null when the variation
+ * is already archived or gone.
  */
-export function archiveFigure(db: Db, id: number, now: number): boolean {
+export function archiveVariation(
+	db: Db,
+	id: number,
+	now: number
+): { figureRemoved: boolean } | null {
 	return db.transaction((tx) => {
 		const row = tx.select().from(figures).where(eq(figures.id, id)).get();
-		if (!row || row.archivedAt !== null || row.groupId === null) return false;
-		tx.update(figureGroups)
-			.set({ archivedAt: now })
-			.where(and(eq(figureGroups.id, row.groupId), isNull(figureGroups.archivedAt)))
-			.run();
-		const ids = tx
-			.select({ id: figures.id })
-			.from(figures)
-			.where(eq(figures.groupId, row.groupId))
-			.all()
-			.map((r) => r.id);
-		tx.update(figures)
-			.set({ archivedAt: now })
-			.where(and(inArray(figures.id, ids), isNull(figures.archivedAt)))
-			.run();
-		tx.update(exercises).set({ archivedAt: now }).where(inArray(exercises.figureId, ids)).run();
-		return true;
+		if (!row || row.archivedAt !== null || row.groupId === null) return null;
+		tx.update(figures).set({ archivedAt: now }).where(eq(figures.id, id)).run();
+		tx.update(exercises).set({ archivedAt: now }).where(eq(exercises.figureId, id)).run();
+		return { figureRemoved: archiveGroupIfEmpty(tx, row.groupId, now) };
+	});
+}
+
+/** Whether archiving or moving this variation would leave its figure empty. */
+export function isLastVariation(db: Db, id: number): boolean {
+	const row = db.select().from(figures).where(eq(figures.id, id)).get();
+	if (!row || row.archivedAt !== null || row.groupId === null) return false;
+	return listGroupVariations(db, row.groupId).every((v) => v.id === id);
+}
+
+export type MoveTo = { groupId: number } | { newFigure: string };
+export type MoveResult =
+	| { ok: true; groupId: number; figureRemoved: boolean }
+	| { ok: false; reason: 'gone' | 'same-figure' | 'name-taken' | 'figure-name-taken' };
+
+/**
+ * Move a variation into another figure, or into a new one of its own. The row
+ * keeps its id, so recordings, links, section links, lesson links, routine
+ * options and its exercise all go with it; the exercise is renamed to the new
+ * label. The figure it leaves is archived when no live variation is left.
+ */
+export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
+	return db.transaction((tx): MoveResult => {
+		const row = tx.select().from(figures).where(eq(figures.id, id)).get();
+		if (!row || row.archivedAt !== null || row.groupId === null) {
+			return { ok: false, reason: 'gone' };
+		}
+		const from = row.groupId;
+		let target: number;
+		if ('groupId' in to) {
+			const g = getGroup(tx, to.groupId);
+			if (!g || g.archivedAt !== null || g.dance !== row.dance) {
+				return { ok: false, reason: 'gone' };
+			}
+			if (g.id === from) return { ok: false, reason: 'same-figure' };
+			if (variationNameTaken(tx, g.id, row.name, id)) return { ok: false, reason: 'name-taken' };
+			target = g.id;
+		} else {
+			const name = to.newFigure.trim();
+			if (!name || figureNameTaken(tx, row.dance as DanceSlug, name, null)) {
+				return { ok: false, reason: 'figure-name-taken' };
+			}
+			target = tx.insert(figureGroups).values({ dance: row.dance, name }).returning().get().id;
+		}
+		tx.update(figures).set({ groupId: target }).where(eq(figures.id, id)).run();
+		syncExerciseNames(tx, eq(figures.id, id));
+		return { ok: true, groupId: target, figureRemoved: archiveGroupIfEmpty(tx, from, Date.now()) };
 	});
 }
 
