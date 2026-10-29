@@ -1,6 +1,6 @@
 <!-- src/lib/components/video/SpotList.svelte -->
 <script lang="ts">
-	import { lengthText, spotLabel, spotTime } from '$lib/video/spots';
+	import { lengthText, spotLabel } from '$lib/video/spots';
 	import type { Spot } from '$lib/types';
 	import Icon from './Icon.svelte';
 	import { icons } from './icons';
@@ -19,10 +19,10 @@
 
 	let { spots, activeId, loadFailed, compact = false, onopen, onedit }: Props = $props();
 
+	/** The second line: the time again only when the first line is a name. */
 	function sub(s: Spot): string {
-		return s.endMs === null
-			? `${spotTime(s.startMs)} · point`
-			: `${spotLabel({ ...s, label: null })} · ${lengthText(s.endMs - s.startMs)}`;
+		const kind = s.endMs === null ? 'point' : lengthText(s.endMs - s.startMs);
+		return s.label ? `${spotLabel({ ...s, label: null })} · ${kind}` : kind;
 	}
 </script>
 

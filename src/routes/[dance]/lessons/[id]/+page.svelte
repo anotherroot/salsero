@@ -194,6 +194,7 @@
 								src="/lesson-videos/{video.file}"
 								sourceUrl={video.sourceUrl}
 								owner={{ lessonVideoId: video.id }}
+								title={lesson.title}
 								onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 								onclosed={() => void invalidateAll()}
 							/>

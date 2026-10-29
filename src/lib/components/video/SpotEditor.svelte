@@ -101,10 +101,13 @@
 		{ label: 'Later ›', times: shiftSpot(spot, WHOLE_SHIFT_MS, durationS) }
 	]);
 
+	/** Under the name: the times when the name is a label, else just the length (the name is the times). */
 	const sub = $derived(
 		spot.endMs === null
 			? `Point at ${preciseTime(spot.startMs)}`
-			: `${spotLabel({ ...spot, label: null })} · ${lengthText(spot.endMs - spot.startMs)}`
+			: spot.label
+				? `${spotLabel({ ...spot, label: null })} · ${lengthText(spot.endMs - spot.startMs)}`
+				: lengthText(spot.endMs - spot.startMs)
 	);
 
 	function onDrag(e: 'start' | 'end', ms: number) {
@@ -237,7 +240,7 @@
 					{#each whole as w (w.label)}
 						<button
 							type="button"
-							class="{BTN_OUTLINE} flex-1 px-1 text-[13px]"
+							class="{BTN_OUTLINE} flex-1 px-1 text-[13px] whitespace-nowrap"
 							disabled={!w.times}
 							onclick={() => w.times && onmove(w.times, 'whole', 'start')}>{w.label}</button
 						>

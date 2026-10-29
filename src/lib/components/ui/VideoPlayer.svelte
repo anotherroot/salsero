@@ -1,19 +1,53 @@
 <!-- src/lib/components/ui/VideoPlayer.svelte -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
-	import { MAX_SPOT_LABEL } from '$lib/limits';
+	import { pushState, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
+	import { getDance } from '$lib/dances/dances';
+	import type { VideoRate } from '$lib/video-prefs';
 	import {
+		DEFAULT_FRAME_S,
+		edgeFrameTime,
+		frameNumber,
+		frameSeek,
+		lengthText,
 		loopTarget,
+		MIN_SECTION_MS,
 		moveEdge,
 		msOf,
+		preciseTime,
 		sortSpots,
 		spotLabel,
 		spotTime,
 		step
 	} from '$lib/video/spots';
 	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
+	import {
+		doneTarget,
+		levelOf,
+		loopOf,
+		openingStack,
+		prune,
+		sheetOf,
+		type PlayerSheet as SheetKind,
+		type Screen,
+		type Stack
+	} from '$lib/video/screens';
+	import { PlayerHistory } from '$lib/video/player-history';
+	import { keyAction, type KeyAction } from '$lib/video/keys';
+	import { layoutFor } from '$lib/video/layout';
+	import { watchFrameDuration } from '$lib/video/frame-rate';
+	import Icon from '$lib/components/video/Icon.svelte';
+	import { icons } from '$lib/components/video/icons';
+	import { BTN, BTN_ACCENT } from '$lib/components/video/styles';
+	import TopBar from '$lib/components/video/TopBar.svelte';
+	import Transport from '$lib/components/video/Transport.svelte';
+	import Timeline from '$lib/components/video/Timeline.svelte';
+	import Toast from '$lib/components/video/Toast.svelte';
+	import SpotList from '$lib/components/video/SpotList.svelte';
+	import SectionView from '$lib/components/video/SectionView.svelte';
+	import SpotEditor, { type MoveHow, type Times } from '$lib/components/video/SpotEditor.svelte';
+	import PlayerSheet from '$lib/components/video/PlayerSheet.svelte';
 	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -26,11 +60,27 @@
 		onchoose: (next: { mirror?: boolean; rate?: VideoRate }) => void;
 		/** Seconds: where to leave the inline player. */
 		onclose: (at: number) => void;
-		/** A section to open on: it starts there, looping and playing. */
+		/** A section to open on: its own view, looping and playing. */
 		loopSpot?: Spot;
+		/** What the top bar names: the lesson or figure, and what kind of video. */
+		title?: string;
+		subtitle?: string;
 	}
 
-	let { src, owner, startAt, mirror, rate, onchoose, onclose, loopSpot }: Props = $props();
+	let {
+		src,
+		owner,
+		startAt,
+		mirror,
+		rate,
+		onchoose,
+		onclose,
+		loopSpot,
+		title = 'Video',
+		subtitle = ''
+	}: Props = $props();
+
+	const FULL: Screen = { kind: 'full' };
 
 	let dialog: HTMLDialogElement = $state()!;
 	let stage: HTMLDivElement = $state()!;
@@ -39,56 +89,340 @@
 	let current = $state(0);
 	let duration = $state(NaN);
 	let paused = $state(true);
-	let shown = $state(true);
+	let naturalW = $state(16);
+	let naturalH = $state(9);
+	let vw = $state(390);
+	let vh = $state(844);
+	const layout = $derived(layoutFor(vw, vh));
+
+	let spots = $state<Spot[]>(untrack(() => (loopSpot ? [loopSpot] : [])));
+	let loadFailed = $state(false);
+	let stack = $state<Stack>([]);
+	let opened = $state(false);
+	/** The editor's Loop toggle: the loop rests while it is off, for that editor visit only. */
+	let loopPaused = $state(false);
+	let selected = $state<'start' | 'end'>('start');
+	/** Milliseconds: the start of a section whose end has not been tapped yet. */
+	let pendingStart = $state<number | null>(null);
+	let frameS = $state(DEFAULT_FRAME_S);
+	let sheetMessage = $state<string | null>(null);
+	let toast = $state<{ text: string; action?: { label: string; run: () => void } } | null>(null);
+
+	const level = $derived(levelOf(stack));
+	const sheet = $derived(sheetOf(stack));
+	const openSpot = $derived(
+		level.kind === 'section' || level.kind === 'edit'
+			? (spots.find((s) => s.id === level.spotId) ?? null)
+			: null
+	);
+	const loop = $derived(loopOf(stack, spots, loopPaused));
+	const currentMs = $derived(current * 1000);
+	const frameNo = $derived(frameNumber(current, frameS));
+	const durationMs = $derived(Number.isFinite(duration) ? duration * 1000 : 0);
 
 	/*
-	 * Our own fullscreen. The browser's — and on an iPhone, iOS's player — would
-	 * hide every control below. Where `requestFullscreen` exists (Android,
-	 * desktop) the stage asks for it; where it does not, the dialog filling the
-	 * viewport IS the fullscreen, and from the home-screen app there is no
-	 * browser chrome around it.
+	 * The list keeps its order while an editor is open: a row that jumped as its
+	 * start moved would lose the thumb under it (desktop shows both at once).
 	 */
+	let frozenOrder: number[] | null = null;
+	const listSpots = $derived.by(() => {
+		const sorted = sortSpots(spots);
+		if (level.kind !== 'edit') {
+			frozenOrder = null;
+			return sorted;
+		}
+		frozenOrder ??= sorted.map((s) => s.id);
+		const order = frozenOrder;
+		const at = (s: Spot) => {
+			const i = order.indexOf(s.id);
+			return i === -1 ? Infinity : i;
+		};
+		return [...spots].sort((a, b) => at(a) - at(b));
+	});
+
+	const accent = $derived(getDance(page.params.dance ?? 'salsa').accentDark);
+
+	/* ---------- history: one entry per screen ---------- */
+
+	let closed = false;
 	let wentFullscreen = false;
+
+	function finish() {
+		if (closed) return;
+		closed = true;
+		wentFullscreen = false;
+		const at = video.currentTime;
+		video.pause();
+		if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+		if (dialog.open) dialog.close();
+		onclose(at);
+	}
+
+	const nav = new PlayerHistory(
+		{
+			push: (d) => pushState('', { videoPlayer: d }),
+			replace: (d) => replaceState('', { videoPlayer: d }),
+			go: (d) => history.go(d)
+		},
+		(s) => (stack = s),
+		finish
+	);
+
 	onMount(() => {
 		dialog.showModal();
+		nav.open(openingStack(loopSpot?.id));
+		opened = true;
 		stage.requestFullscreen?.().then(
 			() => (wentFullscreen = true),
 			() => {
 				// Refused (no user activation left, or an iframe): the dialog still fills the screen.
 			}
 		);
+		/*
+		 * Leaving browser fullscreen (Esc, Android's back in the app) goes up one
+		 * level like any back, and the player stays open filling the viewport —
+		 * it never asks for fullscreen again. At the full video that closes it.
+		 */
 		const left = () => {
 			if (!wentFullscreen || document.fullscreenElement) return;
-			// Chrome takes Esc to leave fullscreen before an edit row's label
-			// field sees it, so this fires mid-edit. Close the row and stay open
-			// full viewport (the dialog) rather than closing the player under it.
-			if (editing !== null) {
-				endEdit();
-				return;
-			}
-			close();
+			wentFullscreen = false;
+			nav.up();
 		};
 		document.addEventListener('fullscreenchange', left);
 		return () => document.removeEventListener('fullscreenchange', left);
 	});
 
-	let closed = false;
-	function close() {
-		if (closed) return;
-		closed = true;
-		const at = video.currentTime;
-		video.pause();
-		if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-		dialog.close();
-		onclose(at);
+	$effect(() => {
+		const depth = page.state.videoPlayer;
+		if (opened) untrack(() => nav.sync(depth));
+	});
+
+	/* A new level starts with its loop running and the start selected. */
+	$effect(() => {
+		void level;
+		untrack(() => {
+			loopPaused = false;
+			selected = 'start';
+		});
+	});
+
+	/* ---------- spots ---------- */
+
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	function say(text: string, action?: { label: string; run: () => void }) {
+		toast = { text, action };
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(() => (toast = null), 4000);
 	}
+	onMount(() => () => clearTimeout(toastTimer));
+
+	function loaded(list: Spot[]) {
+		spots = list;
+		const pruned = prune(nav.stack, list);
+		if (pruned !== nav.stack) nav.jump(pruned);
+	}
+
+	onMount(() => {
+		fetchSpots(owner).then(loaded, () => {
+			loadFailed = true;
+			say("Couldn't load spots");
+		});
+		return watchFrameDuration(video, (s) => (frameS = s));
+	});
+
+	async function save(input: { startMs: number; endMs: number | null; label: string | null }) {
+		try {
+			const spot = await postSpot(owner, input);
+			spots = [...spots, spot];
+			return spot;
+		} catch {
+			say("Couldn't save");
+			return null;
+		}
+	}
+
+	async function mark() {
+		const spot = await save({ startMs: msOf(video.currentTime), endMs: null, label: null });
+		if (spot)
+			say(`Point saved at ${spotTime(spot.startMs)}`, { label: 'Edit', run: () => toEdit(spot) });
+	}
+
+	/** Set while a section save is in flight, so a double tap cannot post it twice. */
+	let saving = false;
+	async function section() {
+		if (saving) return;
+		const now = msOf(video.currentTime);
+		if (pendingStart === null) {
+			pendingStart = now;
+			return;
+		}
+		if (now - pendingStart < MIN_SECTION_MS) {
+			say('Play on a little, then end the section');
+			return;
+		}
+		saving = true;
+		try {
+			const spot = await save({ startMs: pendingStart, endMs: now, label: null });
+			if (spot) {
+				pendingStart = null;
+				say(`Section saved · ${lengthText(now - spot.startMs)}`, {
+					label: 'Edit',
+					run: () => toEdit(spot)
+				});
+			}
+		} finally {
+			saving = false;
+		}
+	}
+
+	/*
+	 * Edits show at once and are sent one after another, so a run of quick
+	 * taps arrives in order. Each sends absolute values, so the last to land is
+	 * the truth. A failure reloads the list rather than guessing which of the
+	 * queued edits the server kept.
+	 */
+	let sending: Promise<void> = Promise.resolve();
+	function send(
+		id: number,
+		changes: { label?: string | null; startMs?: number; endMs?: number | null }
+	) {
+		sending = sending.then(async () => {
+			try {
+				await patchSpot(id, changes);
+			} catch {
+				say("Couldn't save");
+				await fetchSpots(owner).then(loaded, () => {});
+			}
+		});
+	}
+
+	function change(
+		spot: Spot,
+		changes: Partial<Pick<Spot, 'label' | 'startMs' | 'endMs'>>,
+		write = true
+	) {
+		const next = { ...spot, ...changes };
+		spots = spots.map((s) => (s.id === next.id ? next : s));
+		if (write) send(spot.id, changes);
+		return next;
+	}
+
+	/** Only the keys that differ: a point never sends an end, nor a start-only edit its end. */
+	function diff(spot: Spot, times: Times) {
+		const out: { startMs?: number; endMs?: number | null } = {};
+		if (times.startMs !== spot.startMs) out.startMs = times.startMs;
+		if (times.endMs !== spot.endMs) out.endMs = times.endMs;
+		return out;
+	}
+
+	/** Play from the start, or the last two seconds up to the end, so the cut is heard. */
+	function hear(spot: Spot, edge: 'start' | 'end') {
+		video.currentTime =
+			edge === 'end' && spot.endMs !== null
+				? Math.max(spot.startMs, spot.endMs - 2000) / 1000
+				: spot.startMs / 1000;
+		void video.play().catch(() => {});
+	}
+
+	function moved(spot: Spot, times: Times, how: MoveHow, edge: 'start' | 'end') {
+		const next = change(spot, diff(spot, times), how !== 'drag');
+		if (how === 'now') {
+			const at = edge === 'start' ? next.startMs : (next.endMs ?? next.startMs);
+			say(`${edge === 'start' ? 'Start' : 'End'} set to ${preciseTime(at)}`);
+		} else if (how === 'frame' || how === 'drag') {
+			// A frame is for looking: pause on the edge's own frame.
+			video.pause();
+			video.currentTime = edgeFrameTime(next, edge, frameS);
+		} else {
+			hear(next, edge);
+		}
+	}
+
+	/** A drag sends one write, on release, with where the edge ended up. */
+	function dragged(edge: 'start' | 'end') {
+		if (!openSpot) return;
+		send(openSpot.id, { startMs: openSpot.startMs, endMs: openSpot.endMs });
+		hear(openSpot, edge);
+	}
+
+	function relabel(label: string) {
+		const spot = openSpot;
+		const clean = label.trim() || null;
+		if (spot && clean !== spot.label) change(spot, { label: clean });
+		nav.up();
+	}
+
+	/** Ids with a delete in flight, so a double tap cannot send it twice. */
+	let deleting = false;
+	async function remove() {
+		const spot = openSpot;
+		if (!spot || deleting) return;
+		deleting = true;
+		try {
+			await removeSpot(spot.id);
+			spots = spots.filter((s) => s.id !== spot.id);
+			nav.jump([FULL]);
+			say(`Deleted ${spotLabel(spot)}`, { label: 'Undo', run: () => undo(spot) });
+		} catch (e) {
+			// A linked section: the server says what to unlink first.
+			sheetMessage = e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save";
+		} finally {
+			deleting = false;
+		}
+	}
+
+	/** A deleted spot comes back as a new one: same times and name, a new id. It was never linked. */
+	async function undo(spot: Spot) {
+		toast = null;
+		await save({ startMs: spot.startMs, endMs: spot.endMs, label: spot.label });
+	}
+
+	/* ---------- levels ---------- */
+
+	function toSection(spot: Spot) {
+		const target: Screen = { kind: 'section', spotId: spot.id };
+		if (nav.stack.length === 1) nav.push(target);
+		else nav.jump([FULL, target]);
+		video.currentTime = spot.startMs / 1000;
+		void video.play().catch(() => {});
+	}
+
+	function toEdit(spot: Spot) {
+		toast = null;
+		const target: Screen = { kind: 'edit', spotId: spot.id };
+		const lvl = levelOf(nav.stack);
+		if (lvl.kind === 'section' && lvl.spotId === spot.id) nav.push(target);
+		else if (nav.stack.length === 1) nav.push(target);
+		else nav.jump([FULL, target]);
+		video.currentTime = spot.startMs / 1000;
+		if (spot.endMs !== null) void video.play().catch(() => {});
+	}
+
+	function fromList(spot: Spot) {
+		if (spot.endMs === null) toEdit(spot);
+		else toSection(spot);
+	}
+
+	function done() {
+		if (!openSpot) return;
+		const t = doneTarget(nav.stack, openSpot);
+		if (t === 'pop') nav.up();
+		else nav.replaceTop(t);
+	}
+
+	function openSheet(kind: SheetKind) {
+		sheetMessage = null;
+		nav.push({ kind: 'sheet', sheet: kind });
+	}
+
+	/* ---------- playback ---------- */
 
 	$effect(() => {
 		video.playbackRate = rate;
 	});
 
 	function toggle() {
-		if (video.paused) void video.play();
+		if (video.paused) void video.play().catch(() => {});
 		else video.pause();
 	}
 
@@ -96,197 +430,24 @@
 		video.currentTime = step(video.currentTime, deltaS, video.duration);
 	}
 
-	let spots = $state<Spot[]>([]);
-	// Only where the player opens: the loop is ours after that.
-	let loop = $state<Spot | null>(untrack(() => loopSpot ?? null));
-	/** Milliseconds: the start of a section whose end has not been tapped yet. */
-	let pendingStart = $state<number | null>(null);
-	let panel = $state(false);
-	/** The spot whose row is open for editing — one at a time. */
-	let editing = $state<number | null>(null);
-	let note = $state<string | null>(null);
-	let loadFailed = $state(false);
-
-	let noteTimer: ReturnType<typeof setTimeout> | undefined;
-	function flash(text: string) {
-		note = text;
-		clearTimeout(noteTimer);
-		noteTimer = setTimeout(() => (note = null), 2500);
-	}
-	onMount(() => () => clearTimeout(noteTimer));
-
-	onMount(() => {
-		fetchSpots(owner).then(
-			(s) => (spots = sortSpots(s)),
-			() => {
-				loadFailed = true;
-				flash("Couldn't load spots");
-			}
-		);
-	});
-
-	async function save(input: { startMs: number; endMs: number | null; label: string | null }) {
-		try {
-			const spot = await postSpot(owner, input);
-			spots = sortSpots([...spots, spot]);
-			flash(`Saved ${spotLabel(spot)}`);
-			return true;
-		} catch {
-			flash("Couldn't save");
-			return false;
-		}
+	function frameStep(f: -1 | 1) {
+		video.pause();
+		video.currentTime = frameSeek(video.currentTime, f, frameS, video.duration);
 	}
 
-	function mark() {
-		void save({ startMs: msOf(video.currentTime), endMs: null, label: null });
+	function seek(ms: number) {
+		video.currentTime = ms / 1000;
 	}
 
-	/** Set while a section save is in flight, so a double tap on "End section" cannot post it twice. */
-	let saving = false;
-
-	/** First tap remembers the start; the second saves the section. */
-	async function section() {
-		if (saving) return;
-		const now = msOf(video.currentTime);
-		if (pendingStart === null) {
-			pendingStart = now;
-			flash(`Section from ${spotTime(now)}…`);
-			return;
-		}
-		if (now <= pendingStart) {
-			flash('Play past the start, then end the section');
-			return;
-		}
-		saving = true;
-		try {
-			if (await save({ startMs: pendingStart, endMs: now, label: null })) pendingStart = null;
-		} finally {
-			saving = false;
-		}
-	}
-
-	function go(spot: Spot) {
-		seekTo(spot);
-		closePanel();
-	}
-
-	function seekTo(spot: Spot) {
-		video.currentTime = spot.startMs / 1000;
-		if (spot.endMs !== null) {
-			// A section replaces whatever was looping.
-			loop = spot;
-		} else {
-			const inside =
-				loop && loop.endMs !== null && spot.startMs >= loop.startMs && spot.startMs < loop.endMs;
-			// A point keeps the current loop only when it lies inside it;
-			// otherwise the frame check would yank playback straight back.
-			if (!inside) loop = null;
-		}
-	}
-
-	function closePanel() {
-		endEdit();
-		panel = false;
-	}
-
-	/** Opening a section's row loops it, so every nudge is heard. */
-	function startEdit(spot: Spot) {
-		endEdit();
-		editing = spot.id;
-		seekTo(spot);
-	}
-
-	/** Re-sorted only now: a row that jumped while its start moved would lose the thumb under it. */
-	function endEdit() {
-		if (editing === null) return;
-		editing = null;
-		spots = sortSpots(spots);
-	}
-
-	/*
-	 * Edits show at once and are sent one after another, so a run of quick
-	 * taps arrives in order. Each sends absolute values, so the last one to
-	 * land is the truth. A failure reloads the list rather than guessing which
-	 * of the queued edits the server kept.
-	 */
-	let sending: Promise<void> = Promise.resolve();
-	function change(
-		spot: Spot,
-		changes: { label?: string | null; startMs?: number; endMs?: number | null }
-	) {
-		const next = { ...spot, ...changes };
-		spots = spots.map((s) => (s.id === next.id ? next : s));
-		if (loop?.id === next.id) loop = next;
-		sending = sending.then(async () => {
-			try {
-				await patchSpot(spot.id, changes);
-			} catch {
-				flash("Couldn't save");
-				await fetchSpots(owner).then(
-					(s) => {
-						spots = editing === null ? sortSpots(s) : s;
-						if (loop) loop = s.find((x) => x.id === loop!.id) ?? null;
-					},
-					() => {}
-				);
-			}
-		});
-		return next;
-	}
-
-	function relabel(spot: Spot, label: string) {
-		const clean = label.trim() || null;
-		if (clean !== spot.label) change(spot, { label: clean });
-	}
-
-	/**
-	 * Moves one edge and lets you hear it: a start plays from the new start; an
-	 * end plays the last two seconds up to it, so the cut is what you hear.
-	 */
-	function moveTo(spot: Spot, edge: 'start' | 'end', toMs: number) {
-		const times = moveEdge(spot, edge, toMs, video.duration);
-		if (!times) return;
-		const next = change(
-			spot,
-			edge === 'start' ? { startMs: times.startMs } : { endMs: times.endMs }
-		);
-		if (edge === 'start') seekTo(next);
-		else video.currentTime = Math.max(next.startMs, next.endMs! - 2000) / 1000;
-	}
-
-	/** A point has only a start to move. */
-	function edgesOf(spot: Spot): ('start' | 'end')[] {
-		return spot.endMs === null ? ['start'] : ['start', 'end'];
-	}
-
-	/** Whether a ±1 s on this edge would move it — false disables the button. */
-	function canNudge(spot: Spot, edge: 'start' | 'end', deltaMs: number): boolean {
-		const from = edge === 'start' ? spot.startMs : (spot.endMs ?? 0);
-		return moveEdge(spot, edge, from + deltaMs, duration) !== null;
-	}
-
-	/** Ids with a delete request in flight, so a double tap cannot send it twice. */
-	let deleting = new SvelteSet<number>();
-
-	async function remove(spot: Spot) {
-		if (deleting.has(spot.id)) return;
-		deleting.add(spot.id);
-		try {
-			await removeSpot(spot.id);
-			spots = spots.filter((s) => s.id !== spot.id);
-			if (loop?.id === spot.id) loop = null;
-		} catch (e) {
-			// A linked section: the server says what to unlink first.
-			flash(e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save");
-		} finally {
-			deleting.delete(spot.id);
-		}
+	function selectEdge(edge: 'start' | 'end') {
+		selected = edge;
+		if (openSpot) hear(openSpot, edge);
 	}
 
 	/*
 	 * The loop is checked every animation frame, not on `timeupdate`: that fires
 	 * about four times a second, which overshoots a section's end by up to a
-	 * quarter-second at 1×. A frame is the finest a seek can be noticed at.
+	 * quarter-second at 1×.
 	 */
 	$effect(() => {
 		if (paused || !loop) return;
@@ -306,271 +467,278 @@
 		void video.play();
 	}
 
-	/* Controls fade while playing and come back on a tap or a mouse move. */
-	let hideTimer: ReturnType<typeof setTimeout> | undefined;
-	function wake() {
-		shown = true;
-		clearTimeout(hideTimer);
-		if (!paused && !panel) hideTimer = setTimeout(() => (shown = false), 3000);
+	/* ---------- keys ---------- */
+
+	function act(a: KeyAction) {
+		const spot = openSpot;
+		switch (a) {
+			case 'toggle':
+				return toggle();
+			case 'back1':
+				return nudge(-1);
+			case 'fwd1':
+				return nudge(1);
+			case 'framePrev':
+				return frameStep(-1);
+			case 'frameNext':
+				return frameStep(1);
+			case 'mark':
+				return void mark();
+			case 'section':
+				return void section();
+			case 'setStart':
+			case 'setEnd': {
+				if (!spot) return;
+				const edge = a === 'setStart' ? 'start' : 'end';
+				const times = moveEdge(spot, edge, msOf(video.currentTime), video.duration);
+				selected = edge;
+				if (times) moved(spot, times, 'now', edge);
+				return;
+			}
+			case 'jumpStart':
+				return spot && hear(spot, 'start');
+			case 'jumpEnd':
+				return spot && hear(spot, 'end');
+			case 'loop':
+				loopPaused = !loopPaused;
+				return;
+			case 'keys':
+				return openSheet('keys');
+		}
 	}
-	$effect(() => {
-		void paused;
-		void panel;
-		wake();
-		return () => clearTimeout(hideTimer);
-	});
 
 	function onkeydown(e: KeyboardEvent) {
-		if (e.target instanceof HTMLInputElement && e.target.type === 'text') return;
-		// Let Ctrl/Cmd+L, Ctrl+S and the like reach the browser instead of our shortcuts.
-		if (e.ctrlKey || e.metaKey || e.altKey) return;
-		const handled: Record<string, () => void> = {
-			' ': toggle,
-			ArrowLeft: () => nudge(-1),
-			ArrowRight: () => nudge(1),
-			m: mark,
-			M: mark,
-			s: () => void section(),
-			S: () => void section(),
-			l: () => (loop = null),
-			L: () => (loop = null)
-		};
-		const act = handled[e.key];
-		if (!act) return;
+		if (e.target instanceof HTMLInputElement) return;
+		if (sheet) return;
+		const a = keyAction(e, level.kind);
+		if (!a) return;
 		// Also stops a focused button's own Space activation, which would toggle twice.
 		e.preventDefault();
-		act();
-		wake();
+		act(a);
 	}
+
+	const tokens = $derived(
+		[
+			['bg', '#0a0a0b'],
+			['surface', '#141417'],
+			['sheet', '#17171b'],
+			['raised', '#1e1e23'],
+			['hover', '#27272e'],
+			['line', '#2a2a31'],
+			['tick', '#3f3f46'],
+			['fill', '#52525b'],
+			['faint', '#71717a'],
+			['band', '#8b8b95'],
+			['muted', '#a1a1aa'],
+			['handle', '#d4d4d8'],
+			['ink-2', '#d4d4d8'],
+			['ink', '#f4f4f5'],
+			['accent', accent],
+			['accent-ink', '#140803'],
+			['danger', '#fca5a5'],
+			['danger-fill', '#dc2626']
+		]
+			.map(([k, v]) => `--pl-${k}: ${v}`)
+			.join('; ')
+	);
+
+	const badge = $derived(
+		[rate !== 1 ? `${rate}×` : null, mirror ? 'Mirrored' : null].filter(Boolean).join(' · ')
+	);
+	const loopProgress = $derived(
+		loop && loop.endMs !== null
+			? Math.max(0, Math.min(100, ((currentMs - loop.startMs) / (loop.endMs - loop.startMs)) * 100))
+			: 0
+	);
 </script>
+
+<svelte:window bind:innerWidth={vw} bind:innerHeight={vh} />
 
 <dialog
 	bind:this={dialog}
 	aria-label="Video"
 	class="player"
+	data-layout={layout}
+	style={tokens}
 	oncancel={(e) => {
+		// Esc, and Android Chrome's back on a modal dialog: up one level.
 		e.preventDefault();
-		close();
+		nav.up();
+	}}
+	onclose={() => {
+		// Closed under us (Chrome may close a modal dialog on a repeated back
+		// without a cancel): reopen it and treat it as the back it was.
+		if (closed) return;
+		dialog.showModal();
+		nav.up();
 	}}
 	{onkeydown}
 >
-	<!-- A tap or a mouse move anywhere only brings the controls back; the keys
-	     have their own handler on the dialog, so the stage needs none. -->
-	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
 		bind:this={stage}
-		class="relative h-full w-full bg-black text-white"
-		onpointermove={wake}
-		onclick={wake}
+		class="relative flex h-full w-full flex-col overflow-hidden bg-(--pl-bg) text-(--pl-ink)"
 	>
-		<!-- svelte-ignore a11y_media_has_caption -->
-		<video
-			bind:this={video}
-			{src}
-			playsinline
-			preload="auto"
-			class="absolute inset-0 h-full w-full object-contain"
-			class:mirror
-			bind:currentTime={current}
-			bind:duration
-			bind:paused
-			onloadedmetadata={() => {
-				video.preservesPitch = true;
-				video.currentTime = loopSpot ? loopSpot.startMs / 1000 : startAt;
-				// Opened from a tap on a section card, so play() is allowed.
-				if (loopSpot) void video.play().catch(() => {});
-			}}
-			{onended}
-		></video>
+		<TopBar {title} {subtitle} {mirror} {rate} onclose={() => nav.close()} {onchoose} />
 
-		<div class="controls" class:hidden-controls={!shown}>
-			<div class="top flex items-center gap-2 p-3">
-				<button type="button" class="btn" aria-label="Close" onclick={close}>✕</button>
-				<button
-					type="button"
-					class="btn ml-auto"
-					aria-pressed={mirror}
-					class:on={mirror}
-					onclick={() => onchoose({ mirror: !mirror })}>Mirror</button
-				>
-				<span class="flex gap-1" role="group" aria-label="Speed">
-					{#each VIDEO_RATES as r (r)}
-						<button
-							type="button"
-							class="btn"
-							aria-pressed={rate === r}
-							class:on={rate === r}
-							onclick={() => onchoose({ rate: r })}>{r}×</button
-						>
-					{/each}
-				</span>
-			</div>
-
-			<div class="bottom p-3">
-				{#if loop}
-					<div class="mb-2 flex justify-center">
-						<span class="chip">
-							Looping {spotLabel(loop)}
-							<button type="button" aria-label="Stop looping" onclick={() => (loop = null)}
-								>✕</button
-							>
-						</span>
-					</div>
+		<div
+			class="relative w-full shrink-0 bg-black"
+			style:aspect-ratio="{naturalW} / {naturalH}"
+			style:max-height="55dvh"
+		>
+			<!-- svelte-ignore a11y_media_has_caption -->
+			<video
+				bind:this={video}
+				{src}
+				playsinline
+				preload="auto"
+				class="absolute inset-0 h-full w-full object-contain"
+				class:mirror
+				bind:currentTime={current}
+				bind:duration
+				bind:paused
+				onloadedmetadata={() => {
+					video.preservesPitch = true;
+					if (video.videoWidth && video.videoHeight) {
+						naturalW = video.videoWidth;
+						naturalH = video.videoHeight;
+					}
+					video.currentTime = loopSpot ? loopSpot.startMs / 1000 : startAt;
+					// Opened from a tap on a section card, so play() is allowed.
+					if (loopSpot) void video.play().catch(() => {});
+				}}
+				{onended}
+			></video>
+			<button
+				type="button"
+				class="absolute inset-0 grid cursor-pointer place-items-center"
+				aria-label={paused ? 'Play' : 'Pause'}
+				onclick={toggle}
+			>
+				{#if paused}
+					<span class="grid size-14 place-items-center rounded-full bg-black/55 text-white">
+						<Icon d={icons.play} filled size={26} />
+					</span>
 				{/if}
-				<div class="flex items-center gap-2 text-[12px] tabular-nums">
-					<span>{spotTime(current * 1000)}</span>
-					<div class="relative flex-1">
-						{#if Number.isFinite(duration) && duration > 0}
-							{#each spots as s (s.id)}
-								{@const left = (s.startMs / 1000 / duration) * 100}
-								{#if s.endMs === null}
-									<span class="tick" style:left="{left}%"></span>
-								{:else}
-									<span
-										class="band"
-										class:active={loop?.id === s.id}
-										style:left="{left}%"
-										style:width="{Math.min(
-											100 - left,
-											((s.endMs - s.startMs) / 1000 / duration) * 100
-										)}%"
-									></span>
-								{/if}
-							{/each}
-						{/if}
-						<input
-							type="range"
-							class="w-full"
-							aria-label="Position"
-							min="0"
-							max={Number.isFinite(duration) ? duration : 0}
-							step="0.01"
-							value={current}
-							oninput={(e) => (video.currentTime = Number(e.currentTarget.value))}
-						/>
-					</div>
-					<span>{Number.isFinite(duration) ? spotTime(duration * 1000) : '–'}</span>
-				</div>
-				<div class="mt-2 flex flex-wrap items-center justify-center gap-2">
-					<button type="button" class="btn" onclick={() => nudge(-1)}>−1s</button>
-					<button type="button" class="btn big" onclick={toggle}>{paused ? 'Play' : 'Pause'}</button
-					>
-					<button type="button" class="btn" onclick={() => nudge(1)}>+1s</button>
-					<button type="button" class="btn" onclick={mark}>Mark</button>
-					<button type="button" class="btn" class:on={pendingStart !== null} onclick={section}
-						>{pendingStart === null ? 'Section' : 'End section'}</button
-					>
-					<button
-						type="button"
-						class="btn"
-						aria-expanded={panel}
-						onclick={() => (panel ? closePanel() : (panel = true))}>Spots ({spots.length})</button
-					>
-				</div>
-			</div>
+			</button>
+			{#if badge}
+				<span
+					class="pointer-events-none absolute top-2 right-2 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
+					>{badge}</span
+				>
+			{/if}
+			{#if loop}
+				<span
+					class="pointer-events-none absolute top-2 left-2 flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
+				>
+					<Icon d={icons.loop} size={13} class="text-(--pl-accent)" />{spotLabel(loop)}
+				</span>
+				<span
+					class="pointer-events-none absolute bottom-0 left-0 h-[3px] bg-(--pl-accent)"
+					style:width="{loopProgress}%"
+				></span>
+			{/if}
 		</div>
 
-		{#if note}
-			<p class="note" role="status">{note}</p>
+		{#if level.kind === 'section' && openSpot}
+			<SectionView
+				spot={openSpot}
+				{currentMs}
+				{frameNo}
+				{paused}
+				{rate}
+				variant="panel"
+				onfull={() => nav.up()}
+				onedit={() => openSpot && toEdit(openSpot)}
+				onseek={seek}
+				ontoggle={toggle}
+				onstep={nudge}
+				onframe={frameStep}
+				onrate={(r) => onchoose({ rate: r })}
+			/>
+		{:else if level.kind === 'edit' && openSpot}
+			{@const spot = openSpot}
+			<SpotEditor
+				{spot}
+				{selected}
+				{currentMs}
+				durationS={duration}
+				{frameS}
+				{frameNo}
+				{paused}
+				looping={!loopPaused}
+				transport
+				onselect={selectEdge}
+				onmove={(times, how, edge) => moved(spot, times, how, edge)}
+				ondragstart={(edge) => {
+					selected = edge;
+					video.pause();
+				}}
+				ondragend={dragged}
+				onseek={seek}
+				onloop={() => (loopPaused = !loopPaused)}
+				onrename={() => openSheet('rename')}
+				ondelete={() => openSheet('delete')}
+				ondone={done}
+				ontoggle={toggle}
+				onframe={frameStep}
+			/>
+		{:else}
+			<div class="flex min-h-0 flex-1 flex-col">
+				<div class="px-4 pt-2.5">
+					<div class="flex items-baseline gap-2 text-[13px] tabular-nums">
+						<span class="text-[15px] font-semibold">{preciseTime(currentMs)}</span>
+						<span class="text-(--pl-muted)">frame {frameNo}</span>
+						<span class="ml-auto text-(--pl-muted)"
+							>{durationMs ? preciseTime(durationMs) : '–'}</span
+						>
+					</div>
+					<Timeline
+						fromMs={0}
+						toMs={durationMs || 1}
+						{currentMs}
+						bands={listSpots.map((s) => ({ ...s, active: false }))}
+						pending={pendingStart === null ? null : { startMs: pendingStart }}
+						onseek={seek}
+					/>
+				</div>
+				<div class="px-4 pt-1">
+					<Transport {paused} ontoggle={toggle} onstep={nudge} onframe={frameStep} />
+				</div>
+				<div class="flex gap-2 px-4 pt-3 pb-1">
+					<button type="button" class="{BTN} flex-1" onclick={mark}>
+						<Icon d={icons.flag} />Mark point
+					</button>
+					<button
+						type="button"
+						class="{pendingStart === null ? BTN : BTN_ACCENT} flex-[1.4]"
+						onclick={section}
+					>
+						<Icon d={icons.bracket} />{pendingStart === null
+							? 'Start section'
+							: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+					</button>
+				</div>
+				<div class="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-(--pl-raised)">
+					<SpotList spots={listSpots} activeId={null} {loadFailed} onopen={fromList} />
+				</div>
+			</div>
 		{/if}
 
-		{#if panel}
-			<div class="panel" aria-label="Spots">
-				<div class="mb-2 flex items-center justify-between">
-					<h2 class="text-[15px] font-semibold">Spots</h2>
-					<button type="button" class="btn" aria-label="Close spots" onclick={closePanel}>✕</button>
-				</div>
-				{#if loadFailed}
-					<p class="text-[13px] opacity-70">Couldn't load spots</p>
-				{:else if spots.length === 0}
-					<p class="text-[13px] opacity-70">
-						Nothing marked yet. Mark saves this moment; Section saves a stretch to loop.
-					</p>
-				{/if}
-				<ul class="flex flex-col gap-1">
-					{#each spots as s (s.id)}
-						{#if editing === s.id}
-							<li class="flex flex-col gap-2 rounded-md bg-white/5 p-2">
-								<!-- svelte-ignore a11y_autofocus -->
-								<input
-									type="text"
-									class="rounded-md bg-white/10 px-2 py-1.5 text-[14px]"
-									aria-label="Label"
-									maxlength={MAX_SPOT_LABEL}
-									value={s.label ?? ''}
-									placeholder={spotLabel({ ...s, label: null })}
-									autofocus
-									onkeydown={(e) => {
-										if (e.key === 'Enter') e.currentTarget.blur();
-										if (e.key === 'Escape') {
-											e.preventDefault();
-											e.stopPropagation();
-											// Back to the saved label, so the blur below saves nothing.
-											e.currentTarget.value = s.label ?? '';
-											endEdit();
-										}
-									}}
-									onblur={(e) => relabel(s, e.currentTarget.value)}
-								/>
-								{#each edgesOf(s) as edge (edge)}
-									{@const at = edge === 'start' ? s.startMs : (s.endMs ?? 0)}
-									<div
-										class="flex items-center gap-2 text-[14px]"
-										role="group"
-										aria-label={edge === 'start' ? 'Start' : 'End'}
-									>
-										<span class="w-10 opacity-70">{edge === 'start' ? 'Start' : 'End'}</span>
-										<span class="flex-1 tabular-nums">{spotTime(at)}</span>
-										<button
-											type="button"
-											class="btn"
-											disabled={!canNudge(s, edge, -1000)}
-											onclick={() => moveTo(s, edge, at - 1000)}>−1s</button
-										>
-										<button
-											type="button"
-											class="btn"
-											disabled={!canNudge(s, edge, 1000)}
-											onclick={() => moveTo(s, edge, at + 1000)}>+1s</button
-										>
-										<button
-											type="button"
-											class="btn"
-											onclick={() => moveTo(s, edge, msOf(video.currentTime))}>Now</button
-										>
-									</div>
-								{/each}
-								<button type="button" class="btn self-end" onclick={endEdit}>Done</button>
-							</li>
-						{:else}
-							<li class="flex items-center gap-2">
-								<button
-									type="button"
-									class="flex-1 rounded-md px-2 py-2 text-left text-[14px] hover:bg-white/10"
-									class:font-semibold={loop?.id === s.id}
-									onclick={() => go(s)}
-								>
-									{s.endMs === null ? '•' : '⟲'}
-									{spotLabel(s)}
-									{#if s.label}<span class="ml-1 text-[12px] opacity-60"
-											>{spotLabel({ ...s, label: null })}</span
-										>{/if}
-									{#if s.linkedTo.length > 0}<span class="block text-[12px] opacity-60"
-											>→ {s.linkedTo.join(', ')}</span
-										>{/if}
-								</button>
-								<button type="button" class="btn" onclick={() => startEdit(s)}>Edit</button>
-								<button
-									type="button"
-									class="btn"
-									aria-label="Delete {spotLabel(s)}"
-									onclick={() => remove(s)}>✕</button
-								>
-							</li>
-						{/if}
-					{/each}
-				</ul>
+		{#if toast}
+			<div class="absolute inset-x-4 z-30" style:bottom={level.kind === 'edit' ? '84px' : '20px'}>
+				<Toast text={toast.text} action={toast.action} />
 			</div>
+		{/if}
+
+		{#if sheet}
+			<PlayerSheet
+				kind={sheet}
+				spot={openSpot}
+				message={sheetMessage}
+				oncancel={() => nav.up()}
+				onrename={relabel}
+				ondelete={remove}
+			/>
 		{/if}
 	</div>
 </dialog>
@@ -578,13 +746,15 @@
 <style>
 	.player {
 		margin: 0;
-		width: 100vw;
+		/* 100%, not 100vw: vw counts a desktop page's scrollbar and pushes the right edge off screen. */
+		width: 100%;
 		height: 100dvh;
 		max-width: none;
 		max-height: none;
 		padding: 0;
 		border: 0;
-		background: black;
+		background: #0a0a0b;
+		color-scheme: dark;
 	}
 	.player::backdrop {
 		background: black;
@@ -592,108 +762,5 @@
 	/* Learn it facing the teacher, as in a studio mirror. */
 	.mirror {
 		transform: scaleX(-1);
-	}
-	.controls {
-		position: absolute;
-		inset: 0;
-		display: flex;
-		flex-direction: column;
-		justify-content: space-between;
-		pointer-events: none;
-		transition: opacity 200ms;
-	}
-	.controls > * {
-		pointer-events: auto;
-	}
-	.hidden-controls {
-		opacity: 0;
-	}
-	.hidden-controls > * {
-		pointer-events: none;
-	}
-	.top {
-		padding-top: max(env(safe-area-inset-top), 12px);
-		background: linear-gradient(rgb(0 0 0 / 0.6), transparent);
-	}
-	.bottom {
-		padding-bottom: max(env(safe-area-inset-bottom), 12px);
-		background: linear-gradient(transparent, rgb(0 0 0 / 0.7));
-	}
-	.btn {
-		height: 2.5rem;
-		min-width: 2.75rem;
-		padding: 0 0.6rem;
-		border-radius: 0.5rem;
-		border: 1px solid rgb(255 255 255 / 0.35);
-		font-size: 13px;
-	}
-	.btn:disabled {
-		opacity: 0.35;
-	}
-	.btn.on {
-		background: white;
-		color: black;
-	}
-	.btn.big {
-		min-width: 5rem;
-		font-weight: 600;
-	}
-	.tick,
-	.band {
-		position: absolute;
-		top: 50%;
-		pointer-events: none;
-		transform: translateY(-50%);
-	}
-	.tick {
-		width: 2px;
-		height: 14px;
-		margin-left: -1px;
-		background: white;
-	}
-	.band {
-		height: 12px;
-		border-radius: 3px;
-		/* Amber, not white: a white band is invisible over the white range track. */
-		background: rgb(251 191 36 / 0.55);
-	}
-	.band.active {
-		background: rgb(251 191 36 / 0.9);
-	}
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.25rem 0.5rem 0.25rem 0.75rem;
-		border-radius: 999px;
-		background: rgb(255 255 255 / 0.9);
-		color: black;
-		font-size: 13px;
-	}
-	.note {
-		position: absolute;
-		top: 4.5rem;
-		left: 50%;
-		transform: translateX(-50%);
-		padding: 0.4rem 0.8rem;
-		border-radius: 0.5rem;
-		background: rgb(0 0 0 / 0.8);
-		font-size: 13px;
-	}
-	.panel {
-		position: absolute;
-		inset: auto 0 0 0;
-		max-height: 60%;
-		overflow-y: auto;
-		padding: 1rem;
-		padding-bottom: max(env(safe-area-inset-bottom), 1rem);
-		background: rgb(0 0 0 / 0.92);
-	}
-	@media (min-width: 640px) {
-		.panel {
-			inset: 4rem 0 0 auto;
-			width: 20rem;
-			max-height: none;
-		}
 	}
 </style>
