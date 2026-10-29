@@ -38,8 +38,8 @@
 	title={from ? (from.kind === 'lesson' ? from.title : from.figure) : 'Video'}
 	subtitle={from ? (from.kind === 'lesson' ? 'Lesson video' : 'Recording') : ''}
 	onchoose={(next) => {
-		prefs = { mirror: next.mirror ?? prefs.mirror, rate: next.rate ?? prefs.rate };
-		saveVideoPrefs(prefs);
+		prefs = { ...prefs, mirror: next.mirror ?? prefs.mirror, rate: next.rate ?? prefs.rate };
+		saveVideoPrefs({ mirror: prefs.mirror, rate: prefs.rate });
 	}}
 	{onclose}
 />
