@@ -417,7 +417,7 @@
 				{failure('newFigure')}
 			</p>
 		{/if}
-		<FigureFields dance={data.dance} />
+		<FigureFields dance={data.dance} style={data.defaultStyle} />
 		<button
 			type="submit"
 			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"

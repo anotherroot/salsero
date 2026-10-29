@@ -10,7 +10,9 @@ import {
 	setReminderMinute,
 	setVideoShortSide
 } from '$lib/server/devices';
-import { int } from '$lib/server/form';
+import { defaultStylesFor, setDefaultStyle } from '$lib/server/default-styles';
+import { int, oneOf } from '$lib/server/form';
+import { DANCE_SLUGS, DANCES, type DanceSlug } from '$lib/dances/dances';
 import { isVideoShortSide } from '$lib/video-sizes';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -20,6 +22,7 @@ export const load: PageServerLoad = ({ locals }) => {
 	const tz = locals.user.timezone;
 	const day = (ms: number) => dateLabel(localDay(ms, tz));
 	return {
+		defaultStyles: defaultStylesFor(db, locals.user.id),
 		device: deviceSettings(db, locals.user.id),
 		devices: listDevices(db, locals.user.id).map((d) => ({
 			id: d.id,
@@ -31,6 +34,21 @@ export const load: PageServerLoad = ({ locals }) => {
 };
 
 export const actions: Actions = {
+	/** The style a new figure starts on, one per dance. */
+	styles: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		const form = await request.formData();
+		const picked: [DanceSlug, string][] = [];
+		for (const dance of DANCE_SLUGS) {
+			const style = oneOf(form, `style-${dance}`, DANCES[dance].styles);
+			if (!style) return fail(400, { styleMessage: 'Pick a style for each dance.' });
+			picked.push([dance, style]);
+		}
+		const db = getDb();
+		for (const [dance, style] of picked) setDefaultStyle(db, locals.user.id, dance, style);
+		return { ok: true };
+	},
+
 	/** The Android app's reminder time and video size. */
 	app: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);

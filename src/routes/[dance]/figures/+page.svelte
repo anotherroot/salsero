@@ -150,7 +150,12 @@
 				}
 			}}
 		>
-			<FigureFields dance={data.dance} name={form?.name} notes={form?.notes} />
+			<FigureFields
+				dance={data.dance}
+				name={form?.name}
+				style={data.defaultStyle}
+				notes={form?.notes}
+			/>
 			{#if form?.message}
 				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
 					{form.message}
