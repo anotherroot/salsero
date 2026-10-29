@@ -9,8 +9,8 @@ export type KeyAction =
 	| 'toggle'
 	| 'back1'
 	| 'fwd1'
-	| 'framePrev'
-	| 'frameNext'
+	| 'tenthBack'
+	| 'tenthFwd'
 	| 'mark'
 	| 'section'
 	| 'setStart'
@@ -26,8 +26,8 @@ const EVERYWHERE: Record<string, KeyAction> = {
 	' ': 'toggle',
 	ArrowLeft: 'back1',
 	ArrowRight: 'fwd1',
-	',': 'framePrev',
-	'.': 'frameNext',
+	',': 'tenthBack',
+	'.': 'tenthFwd',
 	'?': 'keys'
 };
 

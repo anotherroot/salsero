@@ -31,7 +31,7 @@
 	const KEYS: [string, string][] = [
 		['Space', 'play / pause'],
 		['← →', '1 s back / on'],
-		[', .', 'one frame back / on'],
+		[', .', '0.1 s back / on'],
 		['M', 'mark a point (full video)'],
 		['S', 'start / end a section (full video)'],
 		['I O', 'set the start / end to now (editor)'],

@@ -52,13 +52,18 @@ export function doneTarget(stack: Stack, spot: Pick<Spot, 'id' | 'endMs'>): 'pop
  * The section that loops: the one whose view or editor is open. A loop exists
  * nowhere else — not at the full video, not for a point — and the editor's
  * Loop toggle pauses it for that editor only.
+ *
+ * `arriving` is a level on its way (a jump goes back through history first,
+ * then pushes): it loops already, so the screen still on the stack cannot
+ * pull the video back into its own section meanwhile.
  */
 export function loopOf<T extends Pick<Spot, 'id' | 'endMs'>>(
 	stack: Stack,
 	spots: readonly T[],
-	paused: boolean
+	paused: boolean,
+	arriving: Screen | null = null
 ): T | null {
-	const level = levelOf(stack);
+	const level = arriving ?? levelOf(stack);
 	if (level.kind !== 'section' && level.kind !== 'edit') return null;
 	if (level.kind === 'edit' && paused) return null;
 	const spot = spots.find((s) => s.id === level.spotId);
@@ -75,4 +80,15 @@ export function prune(stack: Stack, spots: readonly Pick<Spot, 'id'>[]): Stack {
 		(s) => (s.kind === 'section' || s.kind === 'edit') && !spots.some((x) => x.id === s.spotId)
 	);
 	return cut === -1 ? stack : stack.slice(0, cut);
+}
+
+/**
+ * Where an editor opens: right above its own section's view when that view is
+ * the level on screen (so Done pops back to it), else right above the full
+ * video. Any sheet on top, and any other section, is left behind.
+ */
+export function editStack(stack: Stack, spotId: number): Stack {
+	const level = levelOf(stack);
+	const edit: Screen = { kind: 'edit', spotId };
+	return level.kind === 'section' && level.spotId === spotId ? [FULL, level, edit] : [FULL, edit];
 }

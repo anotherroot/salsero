@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-	edgeByFrames,
-	edgeFrameTime,
-	frameNumber,
-	frameSeek,
+	edgeViewTime,
+	END_PARK_MS,
+	TENTH_MS,
 	lengthText,
 	preciseTime,
 	loopTarget,
@@ -11,6 +10,7 @@ import {
 	msOf,
 	resizeSpot,
 	shiftSpot,
+	sectionProgress,
 	sortSpots,
 	spotLabel,
 	spotTime,
@@ -119,46 +119,25 @@ describe('moveEdge', () => {
 	});
 });
 
-const F = 1 / 30;
-
-describe('frameNumber', () => {
-	it('floors, and an exact boundary is that frame', () => {
-		expect(frameNumber(0, F)).toBe(0);
-		expect(frameNumber(1, F)).toBe(30);
-		expect(frameNumber(1.0499, F)).toBe(31);
+describe('edgeViewTime', () => {
+	it('shows a start at the start and an end just inside the section', () => {
+		expect(edgeViewTime({ startMs: 4000, endMs: 11_200 }, 'start')).toBe(4);
+		expect(edgeViewTime({ startMs: 4000, endMs: 11_200 }, 'end')).toBeCloseTo(11.19, 6);
+		expect(END_PARK_MS).toBe(10);
+	});
+	it('is the start for a point', () => {
+		expect(edgeViewTime({ startMs: 4000, endMs: null }, 'end')).toBe(4);
 	});
 });
 
-describe('frameSeek', () => {
-	it('lands in the middle of the next or previous frame', () => {
-		expect(frameSeek(1, 1, F, 10)).toBeCloseTo(31.5 / 30, 6);
-		expect(frameSeek(1, -1, F, 10)).toBeCloseTo(29.5 / 30, 6);
-	});
-	it('clamps inside the video, and to 0 only while the duration is unknown', () => {
-		expect(frameSeek(0, -1, F, 10)).toBe(0);
-		expect(frameSeek(9.99, 1, F, 10)).toBe(10);
-		expect(frameSeek(0, -1, F, NaN)).toBe(0);
-		expect(frameSeek(100, 1, F, NaN)).toBeCloseTo(3001.5 / 30, 6);
-	});
-});
-
-describe('edgeByFrames', () => {
-	const s = { startMs: 1000, endMs: 3000 };
-	it('moves an edge one frame from its nearest frame boundary', () => {
-		expect(edgeByFrames(s, 'start', 1, F, 10)).toEqual({ startMs: 1033, endMs: 3000 });
-		expect(edgeByFrames(s, 'end', -1, F, 10)).toEqual({ startMs: 1000, endMs: 2967 });
-	});
-	it('is null at a bound', () => {
-		expect(edgeByFrames({ startMs: 0, endMs: 3000 }, 'start', -1, F, 10)).toBeNull();
-		expect(edgeByFrames({ startMs: 1000, endMs: 2000 }, 'end', -1, F, 10)).toBeNull();
-		expect(edgeByFrames({ startMs: 1000, endMs: null }, 'end', 1, F, 10)).toBeNull();
-	});
-});
-
-describe('edgeFrameTime', () => {
-	it('is the first frame inside for a start and the last inside for an end', () => {
-		expect(edgeFrameTime({ startMs: 1000, endMs: 3000 }, 'start', F)).toBeCloseTo(1 + F / 2, 6);
-		expect(edgeFrameTime({ startMs: 1000, endMs: 3000 }, 'end', F)).toBeCloseTo(3 - F / 2, 6);
+describe('TENTH_MS', () => {
+	it('is the editor fine step, through moveEdge', () => {
+		expect(TENTH_MS).toBe(100);
+		const s = { startMs: 4000, endMs: 11_200 };
+		expect(moveEdge(s, 'start', s.startMs + TENTH_MS, 60)).toEqual({
+			startMs: 4100,
+			endMs: 11_200
+		});
 	});
 });
 
@@ -222,5 +201,16 @@ describe('lengthText', () => {
 		expect(lengthText(7200)).toBe('7.2 s');
 		expect(lengthText(1000)).toBe('1.0 s');
 		expect(lengthText(64_960)).toBe('65.0 s');
+	});
+});
+
+describe('sectionProgress', () => {
+	const s = { startMs: 64_000, endMs: 71_200 };
+	it('is how far into the section, over its length', () => {
+		expect(sectionProgress(s, 66_700)).toBe('2.7 / 7.2 s');
+	});
+	it('stays inside the section', () => {
+		expect(sectionProgress(s, 60_000)).toBe('0.0 / 7.2 s');
+		expect(sectionProgress(s, 80_000)).toBe('7.2 / 7.2 s');
 	});
 });

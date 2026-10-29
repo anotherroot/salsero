@@ -5,7 +5,7 @@
 	import type { Spot } from '$lib/types';
 	import Icon from './Icon.svelte';
 	import { icons } from './icons';
-	import { BTN_ACCENT } from './styles';
+	import { BTN, BTN_ACCENT } from './styles';
 
 	interface Props {
 		spots: Spot[];
@@ -14,13 +14,24 @@
 		loadFailed: boolean;
 		/** The desktop sidebar: tighter rows, and Edit on the open section's card. */
 		compact?: boolean;
+		/** The phone lists (portrait's All sheet, landscape's panel): Edit on every card. */
+		editAll?: boolean;
 		onopen: (spot: Spot) => void;
 		onedit?: (spot: Spot) => void;
 		/** The desktop sidebar: the open spot's card expanded in place into its editor. */
 		expanded?: Snippet<[Spot]>;
 	}
 
-	let { spots, activeId, loadFailed, compact = false, onopen, onedit, expanded }: Props = $props();
+	let {
+		spots,
+		activeId,
+		loadFailed,
+		compact = false,
+		editAll = false,
+		onopen,
+		onedit,
+		expanded
+	}: Props = $props();
 
 	/** The second line: the time again only when the first line is a name. */
 	function sub(s: Spot): string {
@@ -76,11 +87,15 @@
 							</span>
 						{/if}
 					</span>
-					{#if !compact}
+					{#if !compact && !editAll}
 						<Icon d={icons.chevronRight} class="text-(--pl-faint)" />
 					{/if}
 				</button>
-				{#if compact && active && onedit}
+				{#if editAll && !compact && onedit}
+					<button type="button" class="{BTN} h-10 pr-3 pl-2.5" onclick={() => onedit?.(s)}>
+						<Icon d={icons.pencil} size={16} />Edit
+					</button>
+				{:else if compact && active && onedit}
 					<button type="button" class="{BTN_ACCENT} h-9" onclick={() => onedit?.(s)}>
 						<Icon d={icons.pencil} size={16} />Edit
 					</button>

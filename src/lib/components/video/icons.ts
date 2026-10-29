@@ -7,8 +7,6 @@ export const icons = {
 	mirror: 'M12 3v18M8 7l-5 5 5 5zM16 7l5 5-5 5z',
 	play: 'M8 5l11 7-11 7z',
 	pause: 'M8 5v14M16 5v14',
-	framePrev: 'M7 5v14M18 6l-8 6 8 6z',
-	frameNext: 'M17 5v14M6 6l8 6-8 6z',
 	flag: 'M6 21V4h11l-2 4 2 4H6',
 	bracket: 'M9 4H5v16h4M15 4h4v16h-4',
 	loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 01-4 4H4',
@@ -18,6 +16,8 @@ export const icons = {
 	check: 'M5 12l5 5 9-11',
 	chevronLeft: 'M15 6l-6 6 6 6',
 	chevronRight: 'M9 6l6 6-6 6',
+	chevronUp: 'M6 15l6-6 6 6',
+	chevronDown: 'M6 9l6 6 6-6',
 	list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
 	startEdge: 'M6 5v14M18 6l-9 6 9 6z',
 	endEdge: 'M18 5v14M6 6l9 6-9 6z'
