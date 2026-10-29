@@ -321,6 +321,11 @@ The home page. One page serves both "exercises" and "today".
 ## Figures
 
 - **List:** search box, filter by style and partner/solo. Archived hidden.
+- **New figure's style:** pre-selected from the user's pick in Settings
+  ("New figures", one per dance, stored in `default_styles`), else the
+  registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored
+  style the dance no longer has falls back to the registry's. Songs still
+  start on the dance's first style.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
   position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"

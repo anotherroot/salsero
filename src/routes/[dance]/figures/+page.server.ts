@@ -1,5 +1,6 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { defaultStyle } from '$lib/server/default-styles';
 import { createFigure, listFigures, listVersions } from '$lib/server/figures';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { coverage } from '$lib/routines/coverage';
@@ -10,7 +11,8 @@ import { DANCES } from '$lib/dances/dances';
 import { danceOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ url, params }) => {
+export const load: PageServerLoad = ({ url, params, locals }) => {
+	if (!locals.user) throw error(401);
 	const dance = danceOf(params);
 	const q = url.searchParams.get('q')?.trim() ?? '';
 	const style = url.searchParams.get('style');
@@ -37,7 +39,9 @@ export const load: PageServerLoad = ({ url, params }) => {
 			listVersions(db, dance),
 			routineShapes(db, dance),
 			listRoutines(db, dance)
-		).filter((r) => r.routines.length === 0).length
+		).filter((r) => r.routines.length === 0).length,
+		// What the new-figure form pre-selects. Settings picks it.
+		defaultStyle: defaultStyle(db, locals.user.id, dance)
 	};
 };
 
