@@ -20,6 +20,7 @@ import {
 	unlinkExercise,
 	unlinkFigure,
 	unlinkRoutine,
+	taughtIn,
 	updateLesson
 } from './lessons';
 import {
@@ -29,7 +30,7 @@ import {
 	listExercises,
 	updateExercise
 } from './exercises';
-import { addFigureExercise, createFigure } from './figures';
+import { addFigureExercise, createFigure, createVariationFrom } from './figures';
 import { archiveRoutine, createRoutine } from './routines';
 
 let db: Db;
@@ -43,7 +44,8 @@ const lessonInput = {
 	notes: null
 };
 const figureInput = {
-	name: 'Enchufla',
+	figureName: 'Enchufla',
+	name: 'Basic',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
 	notes: null
@@ -136,7 +138,7 @@ describe('linking figures', () => {
 
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		const [linked] = getLesson(db, lesson.id)!.figures;
-		expect(linked.name).toBe('Enchufla');
+		expect(linked.name).toBe('Enchufla · Basic');
 		expect(linked.exerciseId).toBe(exercise.id);
 	});
 
@@ -153,6 +155,22 @@ describe('linking figures', () => {
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(false);
 		expect(getLesson(db, lesson.id)!.figures).toHaveLength(1);
+	});
+
+	it('links a variation', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const doble = createVariationFrom(db, figure.id, 'Doble')!;
+		expect(linkFigure(db, lesson.id, doble.id)).toBe(true);
+		expect(taughtIn(db, doble.id).map((l) => l.id)).toEqual([lesson.id]);
+	});
+
+	it('does not teach its sibling', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const doble = createVariationFrom(db, figure.id, 'Doble')!;
+		linkFigure(db, lesson.id, doble.id);
+		expect(taughtIn(db, figure.id)).toEqual([]);
 	});
 
 	it('refuses an archived figure', () => {
@@ -233,10 +251,20 @@ describe('the link pickers', () => {
 	it('offers only figures that are not linked yet', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const a = createFigure(db, 'salsa', figureInput)!.figure;
-		const b = createFigure(db, 'salsa', { ...figureInput, name: 'Dile que no' })!.figure;
+		const b = createFigure(db, 'salsa', { ...figureInput, figureName: 'Dile que no' })!.figure;
 
 		linkFigure(db, lesson.id, a.id);
 		expect(listLinkableFigures(db, lesson.id).map((f) => f.id)).toEqual([b.id]);
+	});
+
+	it('lists variations to link by label', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		createVariationFrom(db, figure.id, 'Doble');
+		expect(listLinkableFigures(db, lesson.id).map((f) => f.name)).toEqual([
+			'Enchufla · Basic',
+			'Enchufla · Doble'
+		]);
 	});
 
 	it('keeps custom exercises in the picker once a figure is linked', () => {
@@ -333,7 +361,8 @@ describe('lessons are walled off by dance', () => {
 	it('refuses to link a figure from another dance', () => {
 		const lesson = createLesson(db, 'bachata', lessonInput);
 		const salsaFigure = createFigure(db, 'salsa', {
-			name: 'Dile que no',
+			figureName: 'Dile que no',
+			name: 'Basic',
 			partner: 'partner',
 			style: 'salsa',
 			notes: null

@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { figures } from './db/schema';
 import { createCustomExercise, getExercise, logSet } from './exercises';
-import { addFigureExercise, createFigure, createVariation } from './figures';
+import { addFigureExercise, createFigure, createVariationFrom } from './figures';
 import { addLessonVideo, createLesson, linkFigure } from './lessons';
 import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
@@ -19,7 +19,8 @@ beforeEach(() => {
 });
 
 const figureInput = {
-	name: 'Enchufla',
+	figureName: 'Enchufla',
+	name: 'Basic',
 	partner: 'partner' as const,
 	style: 'salsa' as const,
 	notes: 'Lead on 1'
@@ -49,7 +50,7 @@ describe('practicePayload', () => {
 		expect(p.content).toMatchObject({
 			type: 'lesson',
 			lesson: { title: 'Rueda', notes: 'Watch the video', lessonDay: '2026-09-20' },
-			figures: [{ id: figure.id, name: 'Enchufla' }],
+			figures: [{ id: figure.id, name: 'Enchufla · Basic' }],
 			videos: []
 		});
 		expect(p.content.type === 'lesson' && p.content.links.map((l) => l.url)).toEqual([
@@ -63,7 +64,7 @@ describe('practicePayload', () => {
 		addLinks(db, { figureId: figure.id }, ['https://a.org'], 'Demo');
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({
 			type: 'figure',
-			figure: { id: figure.id, name: 'Enchufla', notes: 'Lead on 1', eights: 1 },
+			figure: { id: figure.id, name: 'Enchufla · Basic', notes: 'Lead on 1', eights: 1 },
 			links: [{ url: 'https://a.org', title: 'Demo' }],
 			recordings: []
 		});
@@ -99,7 +100,7 @@ describe('practicePayload', () => {
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({
 			type: 'routine',
 			routine: { id: routine.id, name: 'Friday' },
-			slots: [{ note: null, names: ['Enchufla'] }]
+			slots: [{ note: null, names: ['Enchufla · Basic'] }]
 		});
 	});
 
@@ -142,13 +143,21 @@ describe('practicePayload sections', () => {
 	it('gives a figure its own sections, not its variations’', () => {
 		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
-		const doble = createVariation(db, figure.id, { name: 'Doble', notes: null })!;
+		const doble = createVariationFrom(db, figure.id, 'Doble')!;
 		linkSpot(db, section(), { figureId: doble.id });
 		expect(sectionsOf(practicePayload(db, exercise, TZ, Date.now()).content)).toEqual([]);
 		linkSpot(db, section(), { figureId: figure.id });
 		expect(
 			sectionsOf(practicePayload(db, exercise, TZ, Date.now()).content)!.map((s) => s.spot.label)
 		).toEqual(['Turn']);
+	});
+
+	it('a figure exercise is named by its label', () => {
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const doble = createVariationFrom(db, figure.id, 'Doble')!;
+		const exercise = addFigureExercise(db, doble.id)!;
+		const content = practicePayload(db, exercise, TZ, Date.now()).content;
+		expect(content.type === 'figure' && content.figure.name).toBe('Enchufla · Doble');
 	});
 
 	it('gives a drill its sections', () => {

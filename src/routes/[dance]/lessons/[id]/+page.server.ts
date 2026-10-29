@@ -100,7 +100,7 @@ function sectionTargets(found: ReturnType<typeof lessonOf>): SectionTargets {
 		label: v.label
 	});
 	const drill = (d: { id: number; name: string }) => ({ value: `exercise:${d.id}`, label: d.name });
-	const isTaught = (v: { id: number; parentId: number | null }) => taught.has(v.parentId ?? v.id);
+	const isTaught = (v: { id: number }) => taught.has(v.id);
 	return {
 		thisLesson: [
 			...versions.filter(isTaught).map(figure),

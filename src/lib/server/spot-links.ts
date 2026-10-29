@@ -7,10 +7,10 @@
  * their deletes ask `assertUnlinked` first — so it imports none of them.
  */
 import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import {
 	exercises,
+	figureGroups,
 	figures,
 	lessonExercises,
 	lessonFigures,
@@ -154,30 +154,28 @@ export function getSpotLink(db: Db, id: number) {
 export function linkChips(db: Db, spotIds: number[]): Map<number, SectionLinkChip[]> {
 	const out = new Map<number, SectionLinkChip[]>();
 	if (spotIds.length === 0) return out;
-	const parent = alias(figures, 'parent');
 	const rows = db
 		.select({
 			id: spotLinks.id,
 			spotId: spotLinks.spotId,
-			figure: figures.name,
+			figure: figureGroups.name,
+			variation: figures.name,
 			figureArchived: figures.archivedAt,
-			parent: parent.name,
-			parentArchived: parent.archivedAt,
+			groupArchived: figureGroups.archivedAt,
 			drill: exercises.name,
 			drillArchived: exercises.archivedAt
 		})
 		.from(spotLinks)
 		.leftJoin(figures, eq(figures.id, spotLinks.figureId))
-		.leftJoin(parent, eq(parent.id, figures.parentId))
+		.leftJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.leftJoin(exercises, eq(exercises.id, spotLinks.exerciseId))
 		.where(inArray(spotLinks.spotId, spotIds))
 		.all();
 	for (const r of rows) {
-		const label =
-			r.figure !== null ? (r.parent !== null ? `${r.parent} · ${r.figure}` : r.figure) : r.drill!;
+		const label = r.figure !== null ? `${r.figure} · ${r.variation}` : r.drill!;
 		const archived =
 			r.figure !== null
-				? r.figureArchived !== null || r.parentArchived !== null
+				? r.figureArchived !== null || r.groupArchived !== null
 				: r.drillArchived !== null;
 		const list = out.get(r.spotId) ?? [];
 		list.push({ id: r.id, label, archived });
@@ -238,12 +236,16 @@ function videosOf(db: Db, dance: string): SectionVideo[] {
 		.where(and(eq(lessons.dance, dance), isNull(lessons.archivedAt)))
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id), asc(lessonVideos.id))
 		.all();
-	const parent = alias(figures, 'parent');
 	const recRows = db
-		.select({ id: recordings.id, file: recordings.file, name: figures.name, parent: parent.name })
+		.select({
+			id: recordings.id,
+			file: recordings.file,
+			figure: figureGroups.name,
+			name: figures.name
+		})
 		.from(recordings)
 		.innerJoin(figures, eq(figures.id, recordings.figureId))
-		.leftJoin(parent, eq(parent.id, figures.parentId))
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), eq(recordings.kind, 'video')))
 		.orderBy(asc(figures.name), asc(recordings.id))
 		.all();
@@ -263,30 +265,28 @@ function videosOf(db: Db, dance: string): SectionVideo[] {
 			src: `/recordings/${r.file}`,
 			from: {
 				kind: 'recording' as const,
-				figure: r.parent !== null ? `${r.parent} · ${r.name}` : r.name
+				figure: `${r.figure} · ${r.name}`
 			}
 		}))
 	];
 }
 
 /**
- * A target's dance and the lessons it is taught in. A variation counts its
- * figure's lessons: a class that taught Enchufla is where its Doble is too.
+ * A target's dance and the lessons it is taught in (a variation's own links only).
  * Null for a target that does not exist.
  */
 function targetContext(db: Db, target: SectionTarget) {
 	if ('figureId' in target) {
 		const f = db
-			.select({ dance: figures.dance, parentId: figures.parentId })
+			.select({ dance: figures.dance })
 			.from(figures)
 			.where(eq(figures.id, target.figureId))
 			.get();
 		if (!f) return null;
-		const ids = f.parentId === null ? [target.figureId] : [target.figureId, f.parentId];
 		const rows = db
 			.select({ id: lessonFigures.lessonId })
 			.from(lessonFigures)
-			.where(inArray(lessonFigures.figureId, ids))
+			.where(eq(lessonFigures.figureId, target.figureId))
 			.all();
 		return { dance: f.dance, taught: new Set(rows.map((r) => r.id)) };
 	}

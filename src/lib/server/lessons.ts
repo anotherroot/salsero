@@ -3,6 +3,7 @@ import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import {
 	exercises,
+	figureGroups,
 	figures,
 	lessonExercises,
 	lessonFigures,
@@ -174,17 +175,20 @@ export function getLesson(db: Db, id: number) {
 	const linkedFigures: LessonFigureRow[] = db
 		.select({
 			id: figures.id,
-			name: figures.name,
+			figure: figureGroups.name,
+			variation: figures.name,
 			partner: figures.partner,
 			style: figures.styleTag,
 			exerciseId: exercises.id
 		})
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.leftJoin(exercises, eq(exercises.figureId, figures.id))
 		.where(eq(lessonFigures.lessonId, id))
-		.orderBy(asc(figures.name))
-		.all();
+		.all()
+		.map(({ figure, variation, ...r }) => ({ ...r, name: `${figure} · ${variation}` }))
+		.sort((a, b) => a.name.localeCompare(b.name));
 
 	const linkedRoutines: LessonRoutineRow[] = db
 		.select({ id: routines.id, name: routines.name, exerciseId: exercises.id })
@@ -230,12 +234,11 @@ export function getLesson(db: Db, id: number) {
 export function linkFigure(db: Db, lessonId: number, figureId: number): boolean {
 	return db.transaction((tx) => {
 		const figure = tx
-			.select({ id: figures.id, dance: figures.dance, parentId: figures.parentId })
+			.select({ id: figures.id, dance: figures.dance })
 			.from(figures)
 			.where(and(eq(figures.id, figureId), isNull(figures.archivedAt)))
 			.get();
-		// A lesson teaches the figure; its variations are reached through it.
-		if (!figure || figure.parentId !== null) return false;
+		if (!figure) return false;
 
 		const lesson = tx
 			.select({ dance: lessons.dance })
@@ -403,7 +406,7 @@ export function unlinkExercise(db: Db, lessonId: number, exerciseId: number): bo
 	);
 }
 
-/** Unarchived figures this lesson does not already link, alphabetical. */
+/** Live variations this lesson does not already link, by label. */
 export function listLinkableFigures(db: Db, lessonId: number) {
 	const lesson = db
 		.select({ dance: lessons.dance })
@@ -415,16 +418,18 @@ export function listLinkableFigures(db: Db, lessonId: number) {
 	const linked = linkedFigureIds(db, lessonId);
 	const where = [
 		isNull(figures.archivedAt),
-		isNull(figures.parentId),
+		isNull(figureGroups.archivedAt),
 		eq(figures.dance, lesson.dance)
 	];
 	if (linked.length > 0) where.push(notInArray(figures.id, linked));
 	return db
-		.select({ id: figures.id, name: figures.name })
+		.select({ id: figures.id, figure: figureGroups.name, variation: figures.name })
 		.from(figures)
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.where(and(...where))
-		.orderBy(asc(figures.name))
-		.all();
+		.all()
+		.map((r) => ({ id: r.id, name: `${r.figure} · ${r.variation}` }))
+		.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Unarchived routines this lesson does not already link, alphabetical. */

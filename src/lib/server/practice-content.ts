@@ -72,7 +72,7 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 				type: 'figure',
 				figure: {
 					id: figure.id,
-					name: figure.name,
+					name: figureLabels(db, exercise.dance as DanceSlug).get(figure.id) ?? figure.name,
 					notes: figure.notes,
 					eights: eightsSpan(figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS)
 				},
