@@ -34,6 +34,7 @@
 	import { PlayerHistory } from '$lib/video/player-history';
 	import { keyAction, type KeyAction } from '$lib/video/keys';
 	import { layoutFor } from '$lib/video/layout';
+	import { holdScreenOn } from '$lib/video/screen-on';
 	import Icon from '$lib/components/video/Icon.svelte';
 	import { icons } from '$lib/components/video/icons';
 	import { BTN, BTN_ACCENT, BTN_GHOST, BTN_ON_VIDEO } from '$lib/components/video/styles';
@@ -228,6 +229,8 @@
 			say("Couldn't load spots");
 		});
 	});
+
+	onMount(() => holdScreenOn({ wakeLock: navigator.wakeLock, doc: document }));
 
 	async function save(input: { startMs: number; endMs: number | null; label: string | null }) {
 		try {
