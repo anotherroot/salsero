@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    // Must match PACKAGE in src/routes/.well-known/assetlinks.json/+server.ts.
+    // PACKAGE in src/routes/.well-known/assetlinks.json/+server.ts names it (unused since the WebView).
     namespace = "eu.anotherroot.salsa"
     compileSdk = 36
 
@@ -13,22 +13,15 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
-        // The site the app wraps and talks to. Override for a dev server with
-        // -Psite=http://10.0.2.2:5173 (the TWA needs https; the API does not).
+        // The site the app shows and talks to: scheme and host, no path or
+        // trailing slash. Override with -Psite=https://… (plain http is
+        // refused: the app allows no cleartext traffic).
         val site = (project.findProperty("site") ?: "https://salsa.anotherroot.eu").toString()
         buildConfigField("String", "SITE", "\"$site\"")
-        // Each launcher opens its dance marked as the app, so pages offer native links.
-        resValue("string", "salsa_url", "$site/salsa?app=android")
-        resValue("string", "bachata_url", "$site/bachata?app=android")
-        // aapt2 strips bare quotes from a string resource, which would leave this
-        // not-JSON and the TWA unverified: escape them for the XML.
-        val statements = """[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"web","site":"$site"}}]"""
-        resValue("string", "asset_statements", statements.replace("\"", "\\\""))
     }
 
     buildFeatures {
         buildConfig = true
-        resValues = true
     }
 
     compileOptions {
@@ -42,7 +35,8 @@ android {
 }
 
 dependencies {
-    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.7.4")
+    // The page's wake lock and speech bridges (WebShell): document-start scripts and message listeners.
+    implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.activity:activity-ktx:1.13.0")
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.work:work-runtime-ktx:2.11.2")

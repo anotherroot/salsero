@@ -1,5 +1,5 @@
 /**
- * The Android app (a TWA) and the pages it opens. Client-safe.
+ * The Android app (the site in a WebView) and the pages it opens. Client-safe.
  *
  * Each launcher opens its dance with `?app=android`; the server keeps that as
  * a cookie, so server-rendered pages know they are inside the app and can hand

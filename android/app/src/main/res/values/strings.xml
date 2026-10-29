@@ -4,4 +4,6 @@
     <string name="salsa">Salsa</string>
     <string name="bachata">Bachata</string>
     <string name="share_label">Add to a lesson</string>
+    <string name="no_app_for_link">No app on this phone can open that link</string>
+    <string name="downloading">Downloading %1$s</string>
 </resources>
