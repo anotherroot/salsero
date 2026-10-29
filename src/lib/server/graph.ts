@@ -7,7 +7,7 @@
  */
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db } from './db';
-import { figures, figureStartPositions, positions } from './db/schema';
+import { figureGroups, figures, figureStartPositions, positions } from './db/schema';
 import { neutralPosition } from './positions';
 import type { Graph } from '$lib/graph/graph';
 import {
@@ -19,7 +19,7 @@ import {
 import type { DanceSlug } from '$lib/dances/dances';
 
 /**
- * The unarchived figures of one dance as a graph.
+ * The live variations (of live figures) of one dance as a graph.
  *
  * `neutral` falls back to 0 only before the seed has run, which no route can
  * observe — `bootstrap` seeds before the first request resolves. A 0 there
@@ -30,14 +30,16 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 	const rows = db
 		.select({
 			id: figures.id,
-			parentId: figures.parentId,
 			end: figures.endPositionId,
 			startCount: figures.startCount,
 			lengthCounts: figures.lengthCounts
 		})
 		.from(figures)
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt)))
-		.orderBy(figures.name)
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(
+			and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
+		)
+		.orderBy(figureGroups.name, figures.name, figures.id)
 		.all();
 
 	const ids = rows.map((r) => r.id);
@@ -60,25 +62,13 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 		else byFigure.set(row.figureId, [row.positionId]);
 	}
 
-	// A variation takes whatever it leaves unset from its figure. Resolved HERE,
-	// so `src/lib/graph/` never learns that variations exist — the same way it
-	// never learns that dances do.
-	const byId = new Map(rows.map((r) => [r.id, r]));
-	const nodes: Graph['figures'] = [];
-	for (const r of rows) {
-		const parent = r.parentId === null ? null : (byId.get(r.parentId) ?? null);
-		// A variation whose figure is not in the graph — archived by hand, or gone
-		// — has nothing to fill from. `archiveFigure` archives both together.
-		if (r.parentId !== null && parent === null) continue;
-		const own = byFigure.get(r.id) ?? [];
-		nodes.push({
-			id: r.id,
-			starts: own.length > 0 || parent === null ? own : (byFigure.get(parent.id) ?? []),
-			end: r.end ?? parent?.end ?? null,
-			start: r.startCount ?? parent?.startCount ?? DEFAULT_START_COUNT,
-			length: r.lengthCounts ?? parent?.lengthCounts ?? DEFAULT_LENGTH_COUNTS
-		});
-	}
+	const nodes: Graph['figures'] = rows.map((r) => ({
+		id: r.id,
+		starts: byFigure.get(r.id) ?? [],
+		end: r.end,
+		start: r.startCount ?? DEFAULT_START_COUNT,
+		length: r.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+	}));
 
 	return {
 		neutral: neutralPosition(db, dance)?.id ?? 0,
@@ -107,16 +97,15 @@ export function figurePositions(db: Db, figureId: number) {
 export interface FigureShape {
 	startIds: number[];
 	endId: number | null;
-	/** 1..8, or null on a variation for "the figure's". */
-	startCount: number | null;
-	/** 1..MAX_LENGTH_COUNTS counts, or null on a variation for "the figure's". */
-	lengthCounts: number | null;
+	/** 1..8. */
+	startCount: number;
+	/** 1..MAX_LENGTH_COUNTS counts. */
+	lengthCounts: number;
 }
 
 /**
- * Replace a figure's start positions, end position, start count and length, in
- * one transaction. On a variation, null timing and no start rows mean the
- * figure's.
+ * Replace a variation's start positions, end position, start count and length,
+ * in one transaction.
  *
  * Returns false — writing nothing — when the figure is gone, when a timing
  * value is out of range, or when any position belongs to another dance. That
@@ -129,21 +118,16 @@ export interface FigureShape {
  */
 export function setFigureShape(db: Db, figureId: number, shape: FigureShape): boolean {
 	const { startIds, endId, startCount, lengthCounts } = shape;
-	if (startCount !== null && !isStartCount(startCount)) return false;
-	if (lengthCounts !== null && !isLengthCounts(lengthCounts)) return false;
+	if (!isStartCount(startCount)) return false;
+	if (!isLengthCounts(lengthCounts)) return false;
 
 	return db.transaction((tx) => {
 		const figure = tx
-			.select({ dance: figures.dance, parentId: figures.parentId })
+			.select({ dance: figures.dance })
 			.from(figures)
 			.where(eq(figures.id, figureId))
 			.get();
 		if (!figure) return false;
-		// Null means "the figure's", which only a variation has a figure to take
-		// from. A base figure always states its own timing.
-		if (figure.parentId === null && (startCount === null || lengthCounts === null)) {
-			return false;
-		}
 
 		const wanted = [...new Set(endId === null ? startIds : [...startIds, endId])];
 		if (wanted.length > 0) {
@@ -172,15 +156,16 @@ export function setFigureShape(db: Db, figureId: number, shape: FigureShape): bo
 }
 
 /**
- * How much of the repertoire carries handhold tags — figures only. A variation
- * inherits its figure's tags, so counting it would make an untagged figure with
- * three variations look four times as untagged.
+ * How much of the repertoire carries handhold tags, counted per live variation of a live figure.
  */
 export function taggedFigures(db: Db, dance: DanceSlug): { done: number; total: number } {
 	const rows = db
 		.select({ id: figures.id, end: figures.endPositionId })
 		.from(figures)
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figures.parentId)))
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(
+			and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
+		)
 		.all();
 	const ids = rows.map((r) => r.id);
 	const withStarts = new Set(

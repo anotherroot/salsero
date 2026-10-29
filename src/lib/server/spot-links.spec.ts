@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises } from './db/schema';
-import { addRecording, archiveFigure, createFigure, createVariation } from './figures';
+import { addRecording, archiveVariation, createFigure, createVariationFrom } from './figures';
 import { addLessonVideo, createLesson, linkExercise, linkFigure } from './lessons';
 import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
@@ -30,9 +30,10 @@ let lessonVideoId: number;
 let section: number;
 let point: number;
 
-const fig = (dance: 'salsa' | 'bachata', name: string) =>
+const fig = (dance: 'salsa' | 'bachata', figureName: string) =>
 	createFigure(db, dance, {
-		name,
+		figureName,
+		name: 'Basic',
 		partner: 'partner',
 		style: dance === 'salsa' ? 'salsa' : 'sensual',
 		notes: null
@@ -41,7 +42,7 @@ const fig = (dance: 'salsa' | 'bachata', name: string) =>
 beforeEach(() => {
 	db = openDb(':memory:');
 	figureId = fig('salsa', 'Enchufla');
-	doble = createVariation(db, figureId, { name: 'Doble', notes: null })!.id;
+	doble = createVariationFrom(db, figureId, 'Doble')!.id;
 	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
 	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
@@ -75,7 +76,15 @@ describe('linkSpot', () => {
 			linkChips(db, [section])
 				.get(section)!
 				.map((c) => c.label)
-		).toEqual(['Clave', 'Enchufla', 'Enchufla · Doble']);
+		).toEqual(['Clave', 'Enchufla · Basic', 'Enchufla · Doble']);
+	});
+	it('a chip reads the label', () => {
+		linkSpot(db, section, { figureId: doble });
+		expect(
+			linkChips(db, [section])
+				.get(section)!
+				.map((c) => c.label)
+		).toEqual(['Enchufla · Doble']);
 	});
 	it('refuses a point', () => {
 		expect(() => linkSpot(db, point, { figureId })).toThrow(SpotLinkError);
@@ -124,7 +133,7 @@ describe('unlinkSpot', () => {
 describe('linksBlocking', () => {
 	it('names the targets of a spot and of a whole video, archived marked', () => {
 		linkSpot(db, section, { figureId: doble });
-		archiveFigure(db, figureId, Date.now());
+		archiveVariation(db, doble, Date.now());
 		expect(linksBlocking(db, { spotId: section })).toEqual(['Enchufla · Doble (archived)']);
 		expect(linksBlocking(db, { lessonVideoId })).toEqual(['Enchufla · Doble (archived)']);
 		expect(() => assertUnlinked(db, { lessonVideoId })).toThrow(SpotLinkedError);
@@ -203,8 +212,7 @@ describe('reads', () => {
 	it('linkableSections puts taught-here first, leaves out points and what is linked', () => {
 		const later = video('Later', '2026-10-14', 'm.mp4');
 		const s2 = addSpot(db, { lessonVideoId: later }, { startMs: 0, endMs: 500, label: null })!.id;
-		// Cubana teaches Enchufla: its variation counts it as taught there too.
-		linkFigure(db, lessonId, figureId);
+		linkFigure(db, lessonId, doble);
 		const groups = linkableSections(db, { figureId: doble });
 		expect(groups.map((g) => [g.video.src, g.taughtHere])).toEqual([
 			['/lesson-videos/l.mp4', true],
@@ -215,6 +223,37 @@ describe('reads', () => {
 		expect(linkableSections(db, { figureId: doble }).map((g) => g.video.src)).toEqual([
 			'/lesson-videos/l.mp4'
 		]);
+	});
+
+	it('linkableSections lists recordings in figure-name order, not variation-name order', () => {
+		const rec = (id: number, file: string) => {
+			const r = addRecording(db, {
+				figureId: id,
+				file,
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 1,
+				note: null
+			});
+			addSpot(db, { recordingId: r.id }, { startMs: 0, endMs: 500, label: null });
+		};
+		const zebra = fig('salsa', 'Zebra');
+		const aardvark = fig('salsa', 'Aardvark');
+		// Both variations are "Basic": only the figure's name can order them.
+		rec(zebra, 'z.mp4');
+		rec(aardvark, 'a.mp4');
+		expect(linkableSections(db, { exerciseId: drill }).map((g) => g.video.src)).toEqual([
+			'/lesson-videos/l.mp4',
+			'/recordings/a.mp4',
+			'/recordings/z.mp4'
+		]);
+	});
+
+	it('a variation\u2019s lessons are its own', () => {
+		// Cubana teaches only the sibling: its section is not this variation\u2019s "here".
+		linkFigure(db, lessonId, figureId);
+		const groups = linkableSections(db, { figureId: doble });
+		expect(groups.map((g) => g.taughtHere)).toEqual([false]);
 	});
 
 	it('linkableSections counts a drill as taught where a lesson links it', () => {
@@ -235,7 +274,7 @@ describe('reads', () => {
 	it('videoSections lists sections with chips, archived flagged', () => {
 		linkSpot(db, section, { exerciseId: drill });
 		linkSpot(db, section, { figureId: doble });
-		archiveFigure(db, figureId, Date.now());
+		archiveVariation(db, doble, Date.now());
 		expect(videoSections(db, { lessonVideoId })).toEqual([
 			{
 				id: section,

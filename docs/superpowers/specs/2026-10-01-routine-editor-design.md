@@ -246,9 +246,10 @@ One bottom sheet (`Sheet.svelte`), used for every way of adding something:
  FIGURES
  Cross body lead
  1→1 · open → closed
- Enchufla                                     ← greyed: a group header only
- 1→1 · closed → open
-   └ Enchufla · Doble
+ Enchufla                                     ← heading: never pickable
+   Enchufla · Basic
+     1→1 · closed → open
+   Enchufla · Doble
      1→1 · open → open
  Setenta
  1→1 · open → hammerlock
@@ -297,11 +298,12 @@ routines are offered.
 
 ### Grouping and search
 
-Figures are listed alphabetically (`listVersions`' order), **each followed by
-its variations as nested rows** — every variation a full-width row with its own
-timing, because variations are where landings differ. When a variation fits
-but its figure does not, the figure stays as a greyed, non-tappable header so
-the group still reads as one. Embeddable routines (`embeddable()`) follow under
+Figures are listed alphabetically. A figure with **one** variation is a single
+row, named by its label ("Enchufla · Basic") with that variation's timing. A
+figure with **several** variations is a heading that is never pickable, with
+every variation under it as a full-width row with its own timing, because
+variations are where landings differ. Embeddable routines (`embeddable()`)
+follow under
 their own heading, filtered the same way.
 
 Search matches a figure's name or a variation's — "doble" finds
@@ -339,7 +341,7 @@ the rule governs adding, it is not a migration.
   (each figure, variation and embeddable routine with `starts`, `startCount`,
   `end`, `next`, a label and its parent), an anchor (`after` / `before` /
   `alternative` / none), the two toggles, and the search text. Output: the
-  groups to render, greyed parents included, and whether a toggle is what
+  groups to render, headings included, and whether a toggle is what
   emptied the list. Knows nothing of dances, like the rest of
   `src/lib/routines/`.
 - **`positionSeams(g, shape)`** in `src/lib/routines/routines.ts`, the twin of
@@ -402,7 +404,7 @@ position seams with the position names for each label.
 ## Testing
 
 - **`fit.ts`:** each anchor; each toggle alone and both; search on a figure's
-  name, on a variation's, ignoring case and accents; greyed parents; untagged
+  name, on a variation's, ignoring case and accents; headings; untagged
   as neutral; routines filtered like figures; the alternative mode ignoring
   the toggles and offering no routines; the "a toggle emptied it" signal.
 - **`positionSeams`:** past an embedded routine and past an archived-only slot,

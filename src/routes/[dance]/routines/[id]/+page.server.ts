@@ -81,7 +81,8 @@ export const load: PageServerLoad = ({ params }) => {
 				{
 					kind: 'figure',
 					id: v.id,
-					parentId: v.parentId,
+					groupId: v.groupId,
+					figure: v.figure,
 					label: v.label,
 					starts: startsOf(graph, node),
 					startCounts: [node.start],
@@ -98,7 +99,8 @@ export const load: PageServerLoad = ({ params }) => {
 			return {
 				kind: 'routine',
 				id: r.id,
-				parentId: null,
+				groupId: null,
+				figure: null,
 				label: r.name,
 				...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
 			};

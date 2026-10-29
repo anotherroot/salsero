@@ -117,8 +117,8 @@ variation's bare name.
   then start.
 - `linkableSections(db, target)` — the "+ Link a section" sheet: every section
   in the dance not yet linked to the target, grouped by video. Groups in this
-  order: videos of lessons the target is taught in (for a version, lessons
-  linked to it or to its figure via `lesson_figures`; for a drill,
+  order: videos of lessons the target is taught in (for a variation, only the lessons
+  linked to it via `lesson_figures` — no figure fallback; for a drill,
   `lesson_exercises`), marked *taught here*; other lesson videos, newest
   lesson first; other figures' recordings. Each section carries what it is
   already linked to.
@@ -220,9 +220,9 @@ page per section.
   as a video; only then can it have sections to link.
 - **No "mark and link" from the figure.** A section that does not exist yet is
   marked in the player on its video first, then linked.
-- **A figure's Today popup shows Basic's sections only.** The exercise belongs
-  to the figure, so its content is Basic's, as its recordings are; a
-  variation's sections are on the variation's tab.
+- **A variation's Today popup shows its own sections.** Each variation has its own page,
+  recordings and sections; the popup of an exercise opted into on a variation
+  shows that variation's sections.
 - **A link whose video's lesson or figure is archived** drops out of the cards
   with it, and comes back when it is unarchived. It still blocks a delete
   meanwhile, and the refusal names it.

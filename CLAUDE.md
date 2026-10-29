@@ -15,8 +15,9 @@ four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
 panel in the popup, an exercise page) and figure timing (a start count and a
-length in counts; routines report timing breaks) and figure variations (versions
-of a figure with their own positions, timing and videos; chosen per routine slot)
+length in counts; routines report timing breaks) and figures as variations (a
+figure is a name holding self-contained variations; Move to… another figure or a
+new one; switcher at the bottom)
 and figure coverage (figures have no exercise by default; a page of figure
 versions by how many routines use them, and a routine made from a selection),
 a full-screen video player (three levels — full video, a section's own
@@ -66,6 +67,10 @@ Section links have theirs,
 [`docs/superpowers/specs/2026-10-15-video-section-links-design.md`](docs/superpowers/specs/2026-10-15-video-section-links-design.md):
 why a link points at a saved spot, per version, and why a linked section blocks
 its video's delete.
+Figures as variations have theirs,
+[`docs/superpowers/specs/2026-10-29-figures-are-variations-design.md`](docs/superpowers/specs/2026-10-29-figures-are-variations-design.md):
+the `figure_groups` table, self-contained variations, Move to…, and the figure
+page's one-variation-per-URL layout.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -170,9 +175,9 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   recordings, links, spots (`video_spots`, deleted with their video), section
   links (`spot_links`, deleted on unlink) and
   saves in flight (`video_downloads`, deleted with their link, or when the
-  link becomes a video) are the only hard deletes. A figure's exercise is
+  link becomes a video) are the only hard deletes. A variation's exercise is
   opt-in (`addFigureExercise`); when one exists it is renamed and archived
-  WITH its figure, in one transaction (`src/lib/server/figures.ts`). A linked
+  WITH its variation, in one transaction (`src/lib/server/figures.ts`). A linked
   spot, and the video it is on, cannot be deleted until it is unlinked —
   archived targets included (`assertUnlinked` in `src/lib/server/spot-links.ts`).
 - **The type owns its popup.** An exercise's type is derived from `source`
@@ -256,11 +261,12 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   `length_counts` (`eights * 8`) by migration 0010 and read by nothing since.
   Same reason as `style`: dropping it is a rebuild, and `figures` can never be
   rebuilt. Timing arithmetic lives in `src/lib/graph/timing.ts`.
-- **A variation is a `figures` row with `parent_id`.** One level, same dance as
-  its figure, never an exercise. Every list of figures excludes it
-  (`listFigures`, lesson pickers, the tagged count); the graph includes it,
-  filled from its figure by `buildGraph`. Show one with `figureLabels`
-  ("Enchufla · Doble"), never its bare name.
+- **A `figures` row is a variation; a `figure_groups` row is a figure.** Every
+  live variation has a live group of its dance and a name unique within it;
+  figure names are unique per dance; the last variation leaving archives its
+  figure (`figures.ts`). Show a variation with `figureLabels`
+  ("Enchufla · Doble"), always. `figures.parent_id` is vestigial, read by
+  nothing, not dropped.
 - **`figures.callable` and `figures.call_text` are vestigial.** They were the
   random drill's pool and a spoken override for the name; the drill was
   removed and both are read by nothing. Only a routine calls figures, and the

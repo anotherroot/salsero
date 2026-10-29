@@ -26,7 +26,7 @@ import {
 	embeddedIn,
 	extractRoutine
 } from './routines';
-import { archiveFigure, createFigure, createVariation } from './figures';
+import { archiveVariation, createFigure, createVariationFrom } from './figures';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
 import { exercises, routineStepOptions } from './db/schema';
@@ -44,7 +44,8 @@ const figure = (
 	dance: 'salsa' | 'bachata' = 'salsa'
 ) =>
 	createFigure(db, dance, {
-		name,
+		figureName: name,
+		name: 'Basic',
 		partner: 'partner',
 		style: dance === 'salsa' ? 'salsa' : 'dominican',
 		notes: null
@@ -244,7 +245,7 @@ describe('addOption and removeOption', () => {
 		const a = figure(db, 'A');
 		const gone = figure(db, 'Gone');
 		const step = addFigureSlot(db, routine.id, a.id)!;
-		archiveFigure(db, gone.id, Date.now());
+		archiveVariation(db, gone.id, Date.now());
 		expect(addOption(db, step, gone.id)).toBe(false);
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
 	});
@@ -498,7 +499,7 @@ describe('createRoutineFromFigures', () => {
 	it('makes the routine, its exercise, and one slot per id in the given order', () => {
 		const db = openDb(':memory:');
 		const a = figure(db, 'Enchufla');
-		const v = createVariation(db, a.id, { name: 'Doble', notes: null })!;
+		const v = createVariationFrom(db, a.id, 'Doble')!;
 		const b = figure(db, 'Setenta');
 		const made = createRoutineFromFigures(db, 'salsa', { name: 'New', notes: null }, [
 			b.id,
@@ -522,7 +523,7 @@ describe('createRoutineFromFigures', () => {
 		const a = figure(db, 'Enchufla');
 		const other = figure(db, 'Basico', 'bachata');
 		const gone = figure(db, 'Gone');
-		archiveFigure(db, gone.id, 1);
+		archiveVariation(db, gone.id, 1);
 		for (const bad of [other.id, gone.id, 9999]) {
 			expect(
 				createRoutineFromFigures(db, 'salsa', { name: 'X', notes: null }, [a.id, bad])
@@ -717,7 +718,7 @@ describe('deleteSlots and restoreSlots', () => {
 		const { routine } = createRoutine(db, 'salsa', { name: 'R', notes: null });
 		const a = figure(db, 'A');
 		const snapshot = deleteSlots(db, routine.id, [addFigureSlot(db, routine.id, a.id)!])!;
-		archiveFigure(db, a.id, 1_000);
+		archiveVariation(db, a.id, 1_000);
 		expect(restoreSlots(db, routine.id, snapshot)).toBe(true);
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
 	});

@@ -108,9 +108,26 @@ export const loginAttempts = sqliteTable(
 
 /* ── Figures ────────────────────────────────────────────────────────────── */
 
+/** A figure: a name and a dance. What it IS lives in its variations (`figures` rows). */
+export const figureGroups = sqliteTable(
+	'figure_groups',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		dance: text('dance').notNull(),
+		name: text('name').notNull(),
+		archivedAt: integer('archived_at'),
+		createdAt: createdAt()
+	},
+	(t) => [index('figure_groups_dance_idx').on(t.dance)]
+);
+
 /**
- * A specific dance move (figura). Creating one creates its exercise in the
- * same transaction — see `src/lib/server/figures.ts`.
+ * A `figures` row is a VARIATION of a figure; its figure is its
+ * `figure_groups` row (`group_id`). See
+ * docs/superpowers/specs/2026-10-29-figures-are-variations-design.md.
+ *
+ * A specific dance move (figura). Its exercise is opt-in (`addFigureExercise`),
+ * not created with it — see `src/lib/server/figures.ts`.
  */
 export const figures = sqliteTable(
 	'figures',
@@ -179,21 +196,20 @@ export const figures = sqliteTable(
 		 */
 		lengthCounts: integer('length_counts'),
 		/**
-		 * Set on a VARIATION: a version of the figure this points at, with its own
-		 * directions (`notes`), positions, timing and recordings. Anything unset —
-		 * no start rows, a null end, null timing — is the parent's; `buildGraph`
-		 * fills it in. One level only, same dance as the parent, never an exercise:
-		 * all enforced in `figures.ts`, because this table can never gain a CHECK.
-		 * See docs/superpowers/specs/2026-09-29-figure-variations-design.md.
+		 * VESTIGIAL since migration 0017 (figures became groups): read by nothing.
+		 * Not dropped for the same reason `style` is not.
 		 */
 		parentId: integer('parent_id').references((): AnySQLiteColumn => figures.id),
+		/** The figure this is a variation of. */
+		groupId: integer('group_id').references(() => figureGroups.id),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
 	(t) => [
 		check('figures_partner_ck', sql`${t.partner} in ('partner', 'solo')`),
 		check('figures_style_ck', sql`${t.style} in ('salsa', 'son', 'other')`),
-		index('figures_parent_idx').on(t.parentId)
+		index('figures_parent_idx').on(t.parentId),
+		index('figures_group_idx').on(t.groupId)
 	]
 );
 
@@ -835,6 +851,7 @@ export const countTakes = sqliteTable(
 );
 
 export type Figure = typeof figures.$inferSelect;
+export type FigureGroup = typeof figureGroups.$inferSelect;
 export type CountTake = typeof countTakes.$inferSelect;
 export type Recording = typeof recordings.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;

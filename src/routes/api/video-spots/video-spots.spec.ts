@@ -25,7 +25,8 @@ beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	const { figure } = createFigure(db, 'salsa', {
-		name: 'Enchufla',
+		figureName: 'Enchufla',
+		name: 'Basic',
 		partner: 'partner',
 		style: 'salsa',
 		notes: null
@@ -171,7 +172,8 @@ describe('a linked section', () => {
 	it('is a 409 to delete, naming its link, and GET carries linkedTo', async () => {
 		const spot = addSpot(db, { recordingId }, { startMs: 0, endMs: 1000, label: null })!;
 		const other = createFigure(db, 'salsa', {
-			name: 'Setenta',
+			figureName: 'Setenta',
+			name: 'Basic',
 			partner: 'partner',
 			style: 'salsa',
 			notes: null
@@ -179,7 +181,7 @@ describe('a linked section', () => {
 		linkSpot(db, spot.id, { figureId: other });
 
 		const listed = await (await get(`recording=${recordingId}`)).json();
-		expect(listed[0].linkedTo).toEqual(['Setenta']);
+		expect(listed[0].linkedTo).toEqual(['Setenta · Basic']);
 
 		try {
 			await run(one.DELETE, { params: { id: String(spot.id) } });
@@ -187,7 +189,7 @@ describe('a linked section', () => {
 		} catch (thrown) {
 			const e = thrown as { status: number; body: { message: string } };
 			expect(e.status).toBe(409);
-			expect(e.body.message).toBe('Linked to Setenta — unlink it first.');
+			expect(e.body.message).toBe('Linked to Setenta · Basic — unlink it first.');
 		}
 		expect(listSpots(db, { recordingId })).toHaveLength(1);
 	});

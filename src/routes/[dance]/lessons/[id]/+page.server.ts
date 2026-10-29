@@ -18,7 +18,14 @@ import {
 	unlinkRoutine,
 	updateLesson
 } from '$lib/server/lessons';
-import { createFigure, listVersions } from '$lib/server/figures';
+import {
+	createFigure,
+	createVariationIn,
+	getGroup,
+	listMoveTargets,
+	listVersions,
+	variationNameTaken
+} from '$lib/server/figures';
 import { createCustomExercise, listExercises } from '$lib/server/exercises';
 import { createRoutine } from '$lib/server/routines';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
@@ -101,7 +108,7 @@ function sectionTargets(found: ReturnType<typeof lessonOf>): SectionTargets {
 		label: v.label
 	});
 	const drill = (d: { id: number; name: string }) => ({ value: `exercise:${d.id}`, label: d.name });
-	const isTaught = (v: { id: number; parentId: number | null }) => taught.has(v.parentId ?? v.id);
+	const isTaught = (v: { id: number }) => taught.has(v.id);
 	return {
 		thisLesson: [
 			...versions.filter(isTaught).map(figure),
@@ -123,6 +130,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		),
 		sectionTargets: sectionTargets(found),
 		linkableFigures: listLinkableFigures(db, found.lesson.id),
+		// The figures "Variation of a figure" can add to, with their variations' names.
+		figureGroups: listMoveTargets(db, danceOf(params), null),
 		linkableRoutines: listLinkableRoutines(db, found.lesson.id),
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
 		links: listLinks(db, { lessonId: found.lesson.id }),
@@ -177,32 +186,86 @@ export const actions: Actions = {
 		const dance = danceOf(params);
 		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
+		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
 
-		if (!name || partner === undefined || style === undefined || notes === undefined) {
+		if (
+			!figureName ||
+			!name ||
+			partner === undefined ||
+			style === undefined ||
+			notes === undefined
+		) {
 			return fail(400, {
 				action: 'newFigure',
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the figure and the variation a name (up to 200 characters).',
+				figureName: String(form.get('figureName') ?? ''),
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
 		}
 
 		const db = getDb();
-		const made = createFigure(db, dance, { name, partner, style, notes });
+		// With every field valid, a taken figure name is the one thing
+		// `createFigure` still refuses.
+		const made = createFigure(db, dance, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				action: 'newFigure',
-				message: 'That style does not belong to this dance.',
+				message: `There's already a figure called ${figureName}.`,
+				figureName,
 				name,
 				notes: notes ?? ''
 			});
 		}
 		linkFigure(db, id, made.figure.id);
 		return { action: 'newFigure', ok: true };
+	},
+
+	/*
+	 * "Variation of a figure": a blank variation in an existing figure of this
+	 * dance, linked straight away. Two calls, for the reason `newFigure` gives.
+	 * A posted group id is just a number: one that is missing, archived or of
+	 * the other dance is the dance wall's 404, and nothing is written.
+	 */
+	newVariation: async ({ params, request }) => {
+		const dance = danceOf(params);
+		const id = lessonOf(params).lesson.id;
+		const form = await request.formData();
+		const groupId = int(form, 'groupId');
+		const name = text(form, 'name');
+		const partner = oneOf(form, 'partner', PARTNER);
+		const style = oneOf(form, 'style', DANCES[dance].styles);
+		const notes = optionalText(form, 'notes');
+		const typed = {
+			groupId: String(form.get('groupId') ?? ''),
+			name: String(form.get('name') ?? ''),
+			notes: String(form.get('notes') ?? '')
+		};
+		const refuse = (message: string) =>
+			fail(400, { action: 'newVariation' as const, message, ...typed });
+
+		if (groupId === undefined) return refuse('Pick a figure.');
+		if (!name || partner === undefined || style === undefined || notes === undefined) {
+			return refuse('Give the variation a name (up to 200 characters).');
+		}
+
+		const db = getDb();
+		const group = getGroup(db, groupId);
+		if (!group || group.archivedAt !== null || group.dance !== dance) {
+			throw error(404, 'Figure not found');
+		}
+		if (variationNameTaken(db, group.id, name, null)) {
+			return refuse(`${group.name} already has a variation called ${name}. Rename one first.`);
+		}
+		const made = createVariationIn(db, group.id, { name, partner, style, notes });
+		// Checked above; only a race with another tab gets here.
+		if (!made) throw error(404, 'Figure not found');
+		linkFigure(db, id, made.id);
+		return { action: 'newVariation', ok: true };
 	},
 
 	newExercise: async ({ params, request }) => {

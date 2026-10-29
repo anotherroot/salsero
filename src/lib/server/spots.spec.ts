@@ -21,7 +21,8 @@ let lessonVideoId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	const { figure } = createFigure(db, 'salsa', {
-		name: 'Enchufla',
+		figureName: 'Enchufla',
+		name: 'Basic',
 		partner: 'partner',
 		style: 'salsa',
 		notes: null
@@ -176,7 +177,13 @@ describe('spots', () => {
 
 describe('linked sections', () => {
 	const figure = (name: string) =>
-		createFigure(db, 'salsa', { name, partner: 'partner', style: 'salsa', notes: null })!.figure.id;
+		createFigure(db, 'salsa', {
+			figureName: name,
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
 
 	it('refuse to delete, as do their videos, and nothing goes', () => {
 		const figureId = figure('Dile que no');
@@ -184,7 +191,7 @@ describe('linked sections', () => {
 			const s = addSpot(db, owner, { startMs: 0, endMs: 1000, label: null })!;
 			linkSpot(db, s.id, { figureId });
 			expect(() => deleteSpot(db, s.id)).toThrow(SpotLinkedError);
-			expect(listSpots(db, owner)[0].linkedTo).toEqual(['Dile que no']);
+			expect(listSpots(db, owner)[0].linkedTo).toEqual(['Dile que no · Basic']);
 		}
 		expect(() => deleteRecording(db, recordingId)).toThrow(SpotLinkedError);
 		expect(() => deleteLessonVideo(db, lessonVideoId)).toThrow(SpotLinkedError);
@@ -195,7 +202,7 @@ describe('linked sections', () => {
 	it('keeps linkedTo through a rename and a move', () => {
 		const s = addSpot(db, { lessonVideoId }, { startMs: 0, endMs: 1000, label: null })!;
 		linkSpot(db, s.id, { figureId: figure('Setenta') });
-		expect(updateSpot(db, s.id, { label: 'x' })!.linkedTo).toEqual(['Setenta']);
-		expect(updateSpot(db, s.id, { endMs: 2000 })!.linkedTo).toEqual(['Setenta']);
+		expect(updateSpot(db, s.id, { label: 'x' })!.linkedTo).toEqual(['Setenta · Basic']);
+		expect(updateSpot(db, s.id, { endMs: 2000 })!.linkedTo).toEqual(['Setenta · Basic']);
 	});
 });

@@ -4,19 +4,23 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import {
 	addFigureExercise,
-	archiveFigure,
-	createVariation,
+	archiveVariation,
+	createVariationFrom,
 	deleteRecording,
 	figureLabels,
+	figureNameTaken,
 	getFigure,
-	listVariations,
-	listVersions,
-	updateFigure,
+	getGroup,
+	listGroupVariations,
+	listMoveTargets,
+	moveVariation,
+	type MoveResult,
+	renameFigure,
 	updateVariation,
 	variationNameTaken
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
-import { int, ints, oneOf, optionalInt, optionalText, text } from '$lib/server/form';
+import { int, ints, oneOf, optionalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, setFigureShape } from '$lib/server/graph';
 import {
 	DEFAULT_LENGTH_COUNTS,
@@ -26,7 +30,7 @@ import {
 	MAX_LENGTH_COUNTS
 } from '$lib/graph/timing';
 import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
-import { getPosition, listPositions } from '$lib/server/positions';
+import { getPosition, listPositions, neutralPosition } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
@@ -46,9 +50,10 @@ import {
 	videoOfSpot,
 	videoSections
 } from '$lib/server/spot-links';
+import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
-function figureId(raw: string): number {
+function variationId(raw: string): number {
 	const id = Number(raw);
 	if (!Number.isInteger(id)) throw error(404, 'Figure not found');
 	return id;
@@ -60,124 +65,125 @@ function zoneOf(locals: App.Locals): string {
 }
 
 /**
- * The FIGURE this URL names, or a 404.
+ * The VARIATION this URL names, with its figure, or a 404.
  *
  * `getFigure` is id-scoped, so nothing but this stops `/salsa/figures/7` from
- * rendering a bachata figure — a hole straight through the dance wall. A
- * variation's own id is not a figure page: `load` redirects it to its figure
- * first, and every action posts to the figure's URL, so here it is a 404.
+ * rendering a bachata variation — a hole straight through the dance wall. An
+ * archived variation, or one whose figure is gone, has no page either: every
+ * action goes through here, so none of them can write to one.
  */
-function figureOf(params: { dance: string; id: string }) {
+function variationOf(params: { dance: string; id: string }) {
 	const dance = danceOf(params);
-	const found = getFigure(getDb(), figureId(params.id));
+	const db = getDb();
+	const found = getFigure(db, variationId(params.id));
 	if (
 		!found ||
 		found.figure.archivedAt !== null ||
 		found.figure.dance !== dance ||
-		found.figure.parentId !== null
+		found.figure.groupId === null
 	) {
 		throw error(404, 'Figure not found');
 	}
-	return found;
-}
-
-type Found = NonNullable<ReturnType<typeof getFigure>>;
-
-/**
- * One of THIS figure's versions, by the id posted with a form: the figure
- * itself, or one of its unarchived variations. Anything else — a variation of
- * another figure, of another dance, archived — is a 404, because the id in a
- * form body is just a number.
- */
-function versionOf(found: Found, raw: number | undefined): Found {
-	if (raw === undefined || raw === found.figure.id) return found;
-	const v = getFigure(getDb(), raw);
-	if (!v || v.figure.parentId !== found.figure.id || v.figure.archivedAt !== null) {
+	const group = getGroup(db, found.figure.groupId);
+	if (!group || group.archivedAt !== null || group.dance !== dance) {
 		throw error(404, 'Figure not found');
 	}
-	return v;
+	return { ...found, group };
 }
 
-/** `versionOf`, for actions that only make sense on a variation. */
-function variationOf(found: Found, raw: number | undefined): Found {
-	const v = versionOf(found, raw);
-	if (v.figure.parentId === null) throw error(404, 'Figure not found');
-	return v;
-}
+const taken = (figure: string, name: string) =>
+	`${figure} already has a variation called ${name}. Rename one first.`;
+const figureTaken = (name: string) => `There's already a figure called ${name}.`;
 
 export const load: PageServerLoad = ({ params, url, locals }) => {
 	const dance = danceOf(params);
-	const db = getDb();
 
-	// A variation's own URL — from a routine, a "Leads to" list, an old link —
-	// lands on its figure with its tab chosen. Only within the dance: a bachata
-	// variation under /salsa/ falls through to `figureOf`'s 404.
-	const direct = getFigure(db, figureId(params.id));
-	if (
-		direct &&
-		direct.figure.parentId !== null &&
-		direct.figure.dance === dance &&
-		direct.figure.archivedAt === null
-	) {
-		throw redirect(303, `/${dance}/figures/${direct.figure.parentId}?v=${direct.figure.id}`);
+	// An old link — `/figures/<base>?v=<variation>`, from before a variation had
+	// a page of its own — lands on the variation. If that id is bad, its page
+	// is the 404, which is also where an other-dance or archived one ends up.
+	const v = url.searchParams.get('v');
+	if (v !== null) {
+		const id = variationId(v);
+		throw redirect(303, `/${dance}/figures/${id}`);
 	}
 
-	const found = figureOf(params);
-	const variations = listVariations(db, found.figure.id);
-	// A ?v= that is not one of THIS figure's live variations shows Basic.
-	const chosen = variations.find((v) => v.id === Number(url.searchParams.get('v'))) ?? null;
-	const version = chosen ? getFigure(db, chosen.id)! : found;
-	const versionId = version.figure.id;
+	const db = getDb();
+	const found = variationOf(params);
+	const { figure, group } = found;
+	const id = figure.id;
 
 	const graph = buildGraph(db, dance);
-	const node = figureById(graph, versionId);
+	const node = figureById(graph, id);
 	const labels = figureLabels(db, dance);
-	const parentOf = new Map(listVersions(db, dance).map((v) => [v.id, v.parentId]));
-	// Live figures and variations only, never the version itself.
+	// The graph holds live variations of live figures only, never this one's self.
 	const link = (ids: number[]) =>
-		ids
-			.filter((id) => id !== versionId && parentOf.has(id))
-			.map((id) => ({ id, parentId: parentOf.get(id) ?? null, name: labels.get(id)! }));
+		ids.filter((other) => other !== id).map((other) => ({ id: other, name: labels.get(other)! }));
 
-	const tags = figurePositions(db, versionId);
+	const tags = figurePositions(db, id);
 	const live = listPositions(db, dance);
 	const liveIds = new Set(live.map((p) => p.id));
-	// An archived position stays referenced by the figures tagged with it (the
-	// routines design doc's rule): if THIS version points at one, splice it back
-	// into the list the pickers render — after the live rows, flagged — so a Save
-	// that touches nothing else does not silently drop it. `setFigureShape`
-	// accepts an archived id back; this is what lets the page resubmit it.
+	// An archived position stays referenced by the variations tagged with it
+	// (the routines design doc's rule): if THIS one points at one, splice it back
+	// into the list the pickers render — after the live rows, flagged — so a
+	// Save that touches nothing else does not silently drop it.
+	// `setFigureShape` accepts an archived id back; this is what lets the page
+	// resubmit it.
 	const taggedIds = [...tags.startIds, ...(tags.endId === null ? [] : [tags.endId])];
 	const archivedTagged = [...new Set(taggedIds)]
-		.filter((id) => !liveIds.has(id))
-		.map((id) => getPosition(db, id))
+		.filter((p) => !liveIds.has(p))
+		.map((p) => getPosition(db, p))
 		.filter((p): p is NonNullable<typeof p> => p !== null && p.dance === dance);
 
-	const basic = {
-		startCount: found.figure.startCount ?? DEFAULT_START_COUNT,
-		lengthCounts: found.figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+	const shape = {
+		startCount: figure.startCount ?? DEFAULT_START_COUNT,
+		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
 	};
 
+	// Every live variation of the figure, this one included, as its sheet lists
+	// them: what each starts and ends on, neutral named, and its timing.
+	const positionName = new Map(
+		[...live, ...archivedTagged].map((p) => [p.id, p.name] as [number, string])
+	);
+	const neutralName = neutralPosition(db, dance)?.name ?? 'the neutral hold';
+	const nameOf = (p: number) => {
+		if (p === graph.neutral) return neutralName;
+		if (!positionName.has(p)) positionName.set(p, getPosition(db, p)?.name ?? 'a removed hold');
+		return positionName.get(p)!;
+	};
+	const siblings: SiblingSummary[] = listGroupVariations(db, group.id).map((s) => {
+		const n = figureById(graph, s.id);
+		const starts = n ? [...startsOf(graph, n)].sort((a, b) => a - b) : [graph.neutral];
+		const end = n ? endOf(graph, n) : graph.neutral;
+		return {
+			id: s.id,
+			name: s.name,
+			holds: `${starts.map(nameOf).join(' / ')} → ${nameOf(end)}`,
+			timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
+			videos: s.id === id ? found.recordings.length : (getFigure(db, s.id)?.recordings.length ?? 0)
+		};
+	});
+
 	return {
-		figure: found.figure,
-		exercise: found.exercise,
-		versions: [
-			{ id: found.figure.id, name: 'Basic' },
-			...variations.map((v) => ({ id: v.id, name: v.name }))
-		],
-		version: {
-			id: versionId,
-			name: version.figure.name,
-			notes: version.figure.notes,
-			isVariation: chosen !== null,
-			recordings: version.recordings,
-			sections: sectionsFor(db, { figureId: versionId }),
+		figure: { id: group.id, name: group.name },
+		variation: {
+			id,
+			name: figure.name,
+			partner: figure.partner,
+			styleTag: figure.styleTag,
+			notes: figure.notes,
+			recordings: found.recordings,
+			sections: sectionsFor(db, { figureId: id }),
 			// Each recording's own sections and what they link to, so a link can be
 			// undone even when its target is archived and has no page.
 			recordingSections: Object.fromEntries(
-				version.recordings.map((r) => [r.id, videoSections(db, { recordingId: r.id })])
+				found.recordings.map((r) => [r.id, videoSections(db, { recordingId: r.id })])
 			)
 		},
+		siblings,
+		exercise: found.exercise,
+		popup: found.exercise
+			? popupData(db, dance, found.exercise.id, zoneOf(locals), Date.now())
+			: null,
 		positions: [
 			...live.map((p) => ({ id: p.id, name: p.name, neutral: p.neutral, archived: false })),
 			...archivedTagged.map((p) => ({
@@ -188,43 +194,39 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			}))
 		],
 		tags,
-		// What the edit form shows: the version's OWN columns. On a variation a
-		// null means "same as Basic"; on Basic the resolved values stand in.
-		own: chosen
-			? { startCount: version.figure.startCount, lengthCounts: version.figure.lengthCounts }
-			: basic,
-		basic,
-		linkable: linkableSections(db, { figureId: versionId }),
-		// What is actually danced, filled from Basic and with neutral resolved.
+		// What the edit form shows.
+		shape,
+		// What is actually danced, with neutral resolved.
 		effective: {
 			starts: node ? startsOf(graph, node) : [],
 			end: node ? endOf(graph, node) : null,
-			startCount: node?.start ?? basic.startCount,
-			lengthCounts: node?.length ?? basic.lengthCounts
+			startCount: node?.start ?? shape.startCount,
+			lengthCounts: node?.length ?? shape.lengthCounts
 		},
 		// Derived per request, never stored — the same rule urgency follows.
-		leadsTo: link(follows(graph, versionId)),
-		followsFrom: link(precedes(graph, versionId)),
-		links: listLinks(db, { figureId: found.figure.id }),
-		taughtIn: taughtIn(db, found.figure.id),
-		popup: found.exercise
-			? popupData(db, dance, found.exercise.id, zoneOf(locals), Date.now())
-			: null
+		leadsTo: link(follows(graph, id)),
+		followsFrom: link(precedes(graph, id)),
+		links: listLinks(db, { figureId: id }),
+		taughtIn: taughtIn(db, id),
+		linkable: linkableSections(db, { figureId: id }),
+		moveTargets: listMoveTargets(db, dance, group.id)
 	};
 };
 
 export const actions: Actions = {
 	/**
-	 * The figure page's one Save: details, positions and timing together.
+	 * The page's one Save: the figure's name, the variation's details, its
+	 * positions and its timing together.
 	 *
-	 * `setFigureShape` runs FIRST because it is the half that can refuse — a
-	 * position of another dance. Running `updateFigure` first would rename the
-	 * figure and then report the refusal, which is the half-written save this
-	 * single form exists to rule out.
+	 * Every refusal comes before any write. The names are checked first; then
+	 * `setFigureShape` runs, because it is the half that can still refuse — a
+	 * position of another dance — and only then the details and the figure's
+	 * name. A refused save leaves nothing half-done.
 	 */
 	update: async ({ params, request }) => {
-		const found = figureOf(params);
+		const found = variationOf(params);
 		const form = await request.formData();
+		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
@@ -235,10 +237,10 @@ export const actions: Actions = {
 		const startCount = int(form, 'startCount');
 		const lengthCounts = int(form, 'lengthCounts');
 
-		if (!name || !partner || !style || notes === undefined) {
+		if (!figureName || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
-				message: 'Give the figure a name (up to 200 characters).'
+				message: 'Give the figure and the variation a name (up to 200 characters).'
 			});
 		}
 		if (endId !== null && !Number.isInteger(endId)) {
@@ -247,115 +249,140 @@ export const actions: Actions = {
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
 			return fail(400, {
 				action: 'update',
-				message: `A figure starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
+				message: `A variation starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
 			});
 		}
 
 		const db = getDb();
+		const { figure, group } = found;
+		const dance = danceOf(params);
+		if (figureNameTaken(db, dance, figureName, group.id)) {
+			return fail(400, { action: 'update', message: figureTaken(figureName) });
+		}
+		if (variationNameTaken(db, group.id, name, figure.id)) {
+			return fail(400, { action: 'update', message: taken(group.name, name) });
+		}
 		// A posted position id is just a number: `setFigureShape` rejects one from
 		// the other dance, and that is a 404 rather than a message, the same answer
 		// every other cross-dance id gets here.
-		if (!setFigureShape(db, found.figure.id, { startIds, endId, startCount, lengthCounts })) {
+		if (!setFigureShape(db, figure.id, { startIds, endId, startCount, lengthCounts })) {
 			throw error(404, 'Figure not found');
 		}
-		if (!updateFigure(db, found.figure.id, { name, partner, style, notes })) {
+		if (!updateVariation(db, figure.id, { name, partner, style, notes })) {
 			throw error(404, 'Figure not found');
+		}
+		// A case-only change ("enchufla") is a change: the figure keeps its place,
+		// `figureNameTaken` skipped it above, and the new spelling is saved.
+		if (figureName !== group.name.trim() && !renameFigure(db, group.id, figureName)) {
+			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		return { action: 'update', ok: true };
 	},
 
+	/** "+ New variation": a copy of this one under a new name, opened. */
 	createVariation: async ({ params, request }) => {
-		const found = figureOf(params);
-		const form = await request.formData();
-		const name = text(form, 'name');
-		const notes = optionalText(form, 'notes');
-		if (!name || notes === undefined) {
+		const { figure, group } = variationOf(params);
+		const name = text(await request.formData(), 'name');
+		if (!name) {
 			return fail(400, {
 				action: 'createVariation',
 				message: 'Give the variation a name (up to 200 characters).'
 			});
 		}
-		const made = createVariation(getDb(), found.figure.id, { name, notes });
+		const made = createVariationFrom(getDb(), figure.id, name);
 		if (!made) {
-			return fail(400, {
-				action: 'createVariation',
-				message: 'This figure already has a variation with that name.'
-			});
+			return fail(400, { action: 'createVariation', message: taken(group.name, name) });
 		}
-		throw redirect(303, `/${params.dance}/figures/${found.figure.id}?v=${made.id}`);
+		throw redirect(303, `/${params.dance}/figures/${made.id}`);
 	},
 
 	/**
-	 * A variation's one Save: name, directions, positions and timing. An empty
-	 * start count, length or end is "same as Basic" and saves as null.
-	 *
-	 * The name is checked against its siblings FIRST, then the shape is written,
-	 * then the name: every refusal comes before any write, so a refused save
-	 * leaves nothing half-done.
+	 * "Move <variation> to…": into another figure of the dance (`target` is its
+	 * id, `name` what to call it there), or into a new one of its own
+	 * (`target=new`, named by `figureName`). The URL stays the same — the
+	 * variation keeps its id.
 	 */
-	updateVariation: async ({ params, request }) => {
-		const found = figureOf(params);
+	move: async ({ params, request }) => {
+		const { figure, group } = variationOf(params);
 		const form = await request.formData();
-		const v = variationOf(found, int(form, 'versionId'));
-		const name = text(form, 'name');
-		const notes = optionalText(form, 'notes');
-		const startIds = ints(form, 'startIds');
-		const rawEnd = String(form.get('endId') ?? '');
-		const endId = rawEnd === '' ? null : Number(rawEnd);
-		const startCount = optionalInt(form, 'startCount', 1, 8);
-		const lengthCounts = optionalInt(form, 'lengthCounts', 1, MAX_LENGTH_COUNTS);
-
-		if (!name || notes === undefined) {
-			return fail(400, {
-				action: 'updateVariation',
-				message: 'Give the variation a name (up to 200 characters).'
-			});
-		}
-		if (endId !== null && !Number.isInteger(endId)) {
-			return fail(400, { action: 'updateVariation', message: 'Pick an end position.' });
-		}
-		if (startCount === undefined || lengthCounts === undefined) {
-			return fail(400, {
-				action: 'updateVariation',
-				message: `A variation starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts — or leaves either as Basic.`
-			});
-		}
+		const rawTarget = String(form.get('target') ?? '');
 		const db = getDb();
-		if (variationNameTaken(db, found.figure.id, name, v.figure.id)) {
-			return fail(400, {
-				action: 'updateVariation',
-				message: 'This figure already has a variation with that name.'
-			});
+
+		let result: MoveResult;
+		let figureName: string | undefined;
+		let groupId: number | undefined;
+		// Blank means "keep its name", the same as not posting one.
+		const name = text(form, 'name');
+		if (rawTarget === 'new') {
+			figureName = text(form, 'figureName');
+			if (!figureName) {
+				return fail(400, {
+					action: 'move',
+					message: 'Give the new figure a name (up to 200 characters).'
+				});
+			}
+			result = moveVariation(db, figure.id, { newFigure: figureName });
+		} else {
+			groupId = int(form, 'target');
+			if (groupId === undefined) {
+				return fail(400, { action: 'move', message: 'Pick where to move it.' });
+			}
+			result = moveVariation(db, figure.id, { groupId, name });
 		}
-		if (!setFigureShape(db, v.figure.id, { startIds, endId, startCount, lengthCounts })) {
-			throw error(404, 'Figure not found');
+
+		if (!result.ok) {
+			switch (result.reason) {
+				// The variation went in the meantime, or the target is not a live
+				// figure of this dance — a posted id is just a number.
+				case 'gone':
+					throw error(404, 'Figure not found');
+				case 'same-figure':
+					return fail(400, {
+						action: 'move',
+						message: `${figure.name} is already a variation of ${group.name}.`
+					});
+				case 'name-taken': {
+					const target = groupId === undefined ? null : getGroup(db, groupId);
+					return fail(400, {
+						action: 'move',
+						message: taken(target?.name ?? 'That figure', name ?? figure.name),
+						name: String(form.get('name') ?? '')
+					});
+				}
+				case 'figure-name-taken':
+					return fail(400, { action: 'move', message: figureTaken(figureName ?? '') });
+			}
 		}
-		updateVariation(db, v.figure.id, { name, notes });
-		return { action: 'updateVariation', ok: true };
+		throw redirect(303, `/${params.dance}/figures/${figure.id}`);
 	},
 
-	archiveVariation: async ({ params, request }) => {
-		const found = figureOf(params);
-		const v = variationOf(found, int(await request.formData(), 'versionId'));
-		archiveFigure(getDb(), v.figure.id, Date.now());
-		throw redirect(303, `/${params.dance}/figures/${found.figure.id}`);
+	/**
+	 * Archive this variation. The page lands on the figure's first variation
+	 * left, or on the figures list when this was the last and the figure went
+	 * with it.
+	 */
+	archive: ({ params }) => {
+		const { figure, group } = variationOf(params);
+		const db = getDb();
+		const done = archiveVariation(db, figure.id, Date.now());
+		if (!done) throw error(404, 'Figure not found');
+		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
+		throw redirect(
+			303,
+			first ? `/${params.dance}/figures/${first.id}` : `/${params.dance}/figures`
+		);
 	},
 
-	/** Give the figure its own exercise, so it shows on Today. */
+	/** Give this variation its own exercise, so it shows on Today. */
 	practise: ({ params }) => {
-		const found = figureOf(params);
-		if (!addFigureExercise(getDb(), found.figure.id)) {
+		const { figure } = variationOf(params);
+		if (!addFigureExercise(getDb(), figure.id)) {
 			return fail(400, {
 				action: 'practise',
-				message: 'This figure is already practised on its own.'
+				message: 'This variation is already practised on its own.'
 			});
 		}
 		return { action: 'practise', ok: true };
-	},
-
-	archive: ({ params }) => {
-		archiveFigure(getDb(), figureOf(params).figure.id, Date.now());
-		throw redirect(303, `/${params.dance}/figures`);
 	},
 
 	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
@@ -363,15 +390,12 @@ export const actions: Actions = {
 	deleteSet: (event) => deleteSetFrom(event),
 
 	deleteRecording: async ({ params, request }) => {
-		const form = await request.formData();
-		// The recording must belong to the version posted, and that version to
-		// this figure — `versionOf` 404s a variation of any other figure.
-		const found = versionOf(figureOf(params), int(form, 'versionId'));
-		const id = int(form, 'recordingId');
-		// Checked against THIS figure's recordings before the delete, not after:
-		// `deleteRecording` is a blind delete-and-return, so an id belonging to
-		// another figure — and so possibly to the other dance — would already be
-		// gone by the time the answer came back.
+		const found = variationOf(params);
+		const id = int(await request.formData(), 'recordingId');
+		// Checked against THIS variation's recordings before the delete, not
+		// after: `deleteRecording` is a blind delete-and-return, so an id
+		// belonging to another variation — and so possibly to the other dance —
+		// would already be gone by the time the answer came back.
 		if (id === undefined || !found.recordings.some((r) => r.id === id)) {
 			return fail(404, {
 				action: 'deleteRecording',
@@ -399,16 +423,15 @@ export const actions: Actions = {
 		return { action: 'deleteRecording', ok: true };
 	},
 
-	/** A section for the version posted. `linkSpot` refuses one from the other dance. */
+	/** A section for this variation. `linkSpot` refuses one from the other dance. */
 	linkSection: async ({ params, request }) => {
-		const form = await request.formData();
-		const found = versionOf(figureOf(params), int(form, 'versionId'));
-		const spotId = int(form, 'spotId');
+		const { figure } = variationOf(params);
+		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
 			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
 		}
 		try {
-			linkSpot(getDb(), spotId, { figureId: found.figure.id });
+			linkSpot(getDb(), spotId, { figureId: figure.id });
 		} catch (e) {
 			if (e instanceof SpotLinkError) {
 				return fail(e.status, { action: 'linkSection', message: e.message });
@@ -419,11 +442,10 @@ export const actions: Actions = {
 	},
 
 	unlinkSection: async ({ params, request }) => {
-		const form = await request.formData();
-		const found = versionOf(figureOf(params), int(form, 'versionId'));
-		const id = int(form, 'linkId');
+		const found = variationOf(params);
+		const id = int(await request.formData(), 'linkId');
 		const link = id === undefined ? null : getSpotLink(getDb(), id);
-		// This version's own link, or any link of a section on one of its
+		// This variation's own link, or any link of a section on one of its
 		// recordings — the only place left to unlink one whose target is archived.
 		const video = link ? videoOfSpot(getDb(), link.spotId) : null;
 		const ownTarget =
@@ -441,11 +463,11 @@ export const actions: Actions = {
 	},
 
 	addLink: async ({ params, request }) =>
-		addLinkFrom(request, getDb(), { figureId: figureOf(params).figure.id }),
+		addLinkFrom(request, getDb(), { figureId: variationOf(params).figure.id }),
 	deleteLink: async ({ params, request }) =>
-		deleteLinkFrom(request, getDb(), { figureId: figureOf(params).figure.id }),
+		deleteLinkFrom(request, getDb(), { figureId: variationOf(params).figure.id }),
 	saveVideo: async ({ params, request }) =>
-		saveVideoFrom(request, getDb(), { figureId: figureOf(params).figure.id }),
+		saveVideoFrom(request, getDb(), { figureId: variationOf(params).figure.id }),
 	retryVideo: async ({ params, request }) =>
-		retryVideoFrom(request, getDb(), { figureId: figureOf(params).figure.id })
+		retryVideoFrom(request, getDb(), { figureId: variationOf(params).figure.id })
 };

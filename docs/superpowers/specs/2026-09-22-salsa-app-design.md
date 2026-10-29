@@ -52,6 +52,9 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    Figure timing (start count, length in counts), figure variations and the
    visual routine player: see
    [`2026-09-29-figure-variations-design.md`](2026-09-29-figure-variations-design.md).
+   Its variations model (a base figure with inheriting children) was replaced on
+   2026-10-29: see
+   [`2026-10-29-figures-are-variations-design.md`](2026-10-29-figures-are-variations-design.md).
 4. **Lessons** — a class as a record: day, title, notes, chunk-uploaded videos,
    links to the figures and routines it taught and to exercises, and its own
    auto-created review exercise. Shipped 2026-09-23, ahead of phase 3; routine
@@ -324,8 +327,9 @@ The home page. One page serves both "exercises" and "today".
 - **New figure's style:** pre-selected from the user's pick in Settings
   ("New figures", one per dance, stored in `default_styles`), else the
   registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored
-  style the dance no longer has falls back to the registry's. Songs still
-  start on the dance's first style.
+  style the dance no longer has falls back to the registry's. A lesson's
+  "Variation of a figure" pre-selects it too; a copy keeps its source's.
+  Songs still start on the dance's first style.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
   position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"

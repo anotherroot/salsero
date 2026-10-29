@@ -32,9 +32,7 @@
 	const pill = (on: boolean) =>
 		`shrink-0 rounded-full border px-3 py-1.5 text-[13px] ${on ? 'border-accent bg-accent text-accent-ink' : 'border-rule bg-raised text-ink-2'}`;
 
-	// A figure's style_tag can be null (or, in principle, unknown to this
-	// dance); render nothing rather than "undefined".
-	const styleLabel = (s: string | null) => (s ? data.dance.styleLabel[s] : undefined);
+	const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 </script>
 
 <svelte:head><title>Figures · {data.dance.label}</title></svelte:head>
@@ -111,22 +109,19 @@
 	<ul class="space-y-2">
 		{#each data.figures as f (f.id)}
 			<li>
+				<!-- A figure is its variations: the row opens the first one. -->
 				<a
-					href={resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
-					class="flex items-center justify-between gap-3 rounded-xl border border-line bg-raised px-4 py-3"
+					href={resolve('/[dance]/figures/[id]', {
+						dance: data.dance.slug,
+						id: String(f.firstVariationId)
+					})}
+					class="block rounded-xl border border-line bg-raised px-4 py-3"
 				>
-					<span class="min-w-0">
-						<span class="block truncate text-[15px] font-medium">{f.name}</span>
-						<span class="text-[12px] text-muted"
-							>{#if styleLabel(f.style)}{styleLabel(f.style)} ·
-							{/if}{PARTNER_LABEL[f.partner]}</span
-						>
-					</span>
-					{#if f.recordings > 0}
-						<span class="shrink-0 text-[12px] text-muted"
-							>{f.recordings} {f.recordings === 1 ? 'recording' : 'recordings'}</span
-						>
-					{/if}
+					<span class="block truncate text-[15px] font-medium">{f.name}</span>
+					<span class="text-[12px] text-muted"
+						>{plural(f.variations, 'variation', 'variations')}{#if f.recordings > 0}
+							· {plural(f.recordings, 'recording', 'recordings')}{/if}</span
+					>
 				</a>
 			</li>
 		{/each}
@@ -152,6 +147,7 @@
 		>
 			<FigureFields
 				dance={data.dance}
+				figureName={form?.figureName}
 				name={form?.name}
 				style={data.defaultStyle}
 				notes={form?.notes}
@@ -167,9 +163,7 @@
 				class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
 				>Add figure</button
 			>
-			<p class="text-[12px] text-muted">
-				An exercise to practise it is added to Today automatically. You can add recordings next.
-			</p>
+			<p class="text-[12px] text-muted">You can add recordings next.</p>
 		</form>
 	</Sheet>
 {/if}

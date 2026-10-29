@@ -125,7 +125,7 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 
 /**
  * Archive a custom exercise. Figure exercises are archived through their
- * figure (`archiveFigure`), which keeps the pair in step; refusing here is
+ * variation (`archiveVariation`), which keeps the pair in step; refusing here is
  * what stops a live figure from losing its exercise.
  */
 export function archiveExercise(db: Db, id: number, now: number): boolean {

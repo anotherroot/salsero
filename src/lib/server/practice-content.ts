@@ -11,7 +11,7 @@
 import type { Db } from './db';
 import { exercises } from './db/schema';
 import { lastSet } from './exercises';
-import { figureLabels, getFigure } from './figures';
+import { figureLabels, getFigure, getGroup } from './figures';
 import { getLesson } from './lessons';
 import { listLinks } from './links';
 import { sectionsFor } from './spot-links';
@@ -68,11 +68,15 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 			const found = exercise.figureId === null ? null : getFigure(db, exercise.figureId);
 			if (!found) return bare(exercise);
 			const { figure } = found;
+			const label = figureLabels(db, exercise.dance as DanceSlug).get(figure.id) ?? figure.name;
+			// The voice says the figure's name; the label is for showing.
+			const say = (figure.groupId !== null && getGroup(db, figure.groupId)?.name) || figure.name;
 			return {
 				type: 'figure',
 				figure: {
 					id: figure.id,
-					name: figure.name,
+					name: label,
+					say,
 					notes: figure.notes,
 					eights: eightsSpan(figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS)
 				},

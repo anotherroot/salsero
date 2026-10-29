@@ -28,9 +28,12 @@ import { openDb, type Db } from '$lib/server/db';
 import {
 	addFigureExercise,
 	addRecording,
+	archiveVariation,
 	createFigure,
-	createVariation,
-	getFigure
+	createVariationFrom,
+	getFigure,
+	getGroup,
+	listGroupVariations
 } from '$lib/server/figures';
 import {
 	createCustomExercise,
@@ -48,7 +51,7 @@ import {
 	storeAnalysis
 } from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
-import { figurePositions } from '$lib/server/graph';
+import { figurePositions, setFigureShape } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
 import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
@@ -59,6 +62,7 @@ import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
 import * as exercisePage from './exercises/[id]/+page.server';
 import * as figurePage from './figures/[id]/+page.server';
+import { actions as figureListActions } from './figures/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as positionsPage from './positions/+page.server';
@@ -112,7 +116,8 @@ async function refuses(action: unknown, event: ReturnType<typeof post>) {
 }
 
 const figureInput = {
-	name: 'Dile que no',
+	figureName: 'Dile que no',
+	name: 'Basic',
 	partner: 'partner' as const,
 	notes: null
 };
@@ -141,7 +146,7 @@ beforeEach(() => {
 	salsaFigureId = salsaFigure.figure.id;
 	salsaFigureId2 = createFigure(db, 'salsa', {
 		...figureInput,
-		name: 'Second salsa figure',
+		figureName: 'Second salsa figure',
 		style: 'salsa'
 	})!.figure.id;
 	salsaRoutineAId = createRoutine(db, 'salsa', { name: 'Routine A', notes: null }).routine.id;
@@ -150,7 +155,7 @@ beforeEach(() => {
 		.id;
 	const bachata = createFigure(db, 'bachata', {
 		...figureInput,
-		name: 'Basico',
+		figureName: 'Basico',
 		style: 'sensual'
 	})!;
 	bachataFigureId = bachata.figure.id;
@@ -312,13 +317,17 @@ describe("the player refuses the other dance's exercise", () => {
 
 describe("the detail pages refuse the other dance's rows", () => {
 	it('will not give a bachata figure an exercise from a salsa URL', async () => {
-		const bare = createFigure(db, 'bachata', { ...figureInput, name: 'Bare', style: 'sensual' })!;
+		const bare = createFigure(db, 'bachata', {
+			...figureInput,
+			figureName: 'Bare',
+			style: 'sensual'
+		})!;
 		await refuses(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
 		expect(getFigure(db, bare.figure.id)?.exercise).toBeNull();
 	});
 
 	it('gives a figure its exercise from its own dance', async () => {
-		const bare = createFigure(db, 'salsa', { ...figureInput, name: 'Bare', style: 'salsa' })!;
+		const bare = createFigure(db, 'salsa', { ...figureInput, figureName: 'Bare', style: 'salsa' })!;
 		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
 		expect(getFigure(db, bare.figure.id)?.exercise?.source).toBe('figure');
 	});
@@ -340,8 +349,9 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
-	/** A complete, valid figure edit — each test overrides only what it is about. */
+	/** A complete, valid edit of a variation — each test overrides only what it is about. */
 	const edit = (fields: Record<string, string>) => ({
+		figureName: 'Dile que no',
 		name: 'Renamed',
 		partner: 'partner',
 		style: 'salsa',
@@ -350,41 +360,50 @@ describe("the detail pages refuse the other dance's rows", () => {
 		...fields
 	});
 
-	it('refuses an edit of a figure from the other dance, writing nothing', async () => {
-		// A BACHATA position on a BACHATA figure: `setFigureShape`'s own
+	const groupOf = (id: number) => getFigure(db, id)!.figure.groupId!;
+
+	it('refuses an edit of a variation from the other dance, writing nothing', async () => {
+		// A BACHATA position on a BACHATA variation: `setFigureShape`'s own
 		// per-position dance check would ACCEPT this payload, so the only thing
-		// that can refuse it is the route's `figureOf` guard.
+		// that can refuse it is the route's `variationOf` guard.
 		const bachataClosed = listPositions(db, 'bachata').find((p) => p.slug === 'closed')!;
-		const before = getFigure(db, bachataFigureId)!.figure.name;
 		await refuses(
 			figurePage.actions.update,
-			post('salsa', edit({ startIds: String(bachataClosed.id) }), String(bachataFigureId))
+			post(
+				'salsa',
+				edit({ figureName: 'Basico', startIds: String(bachataClosed.id) }),
+				String(bachataFigureId)
+			)
 		);
 		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
-		expect(getFigure(db, bachataFigureId)!.figure.name).toBe(before);
+		expect(getFigure(db, bachataFigureId)!.figure.name).toBe('Basic');
 	});
 
-	it('refuses a position from the other dance on a figure of this one — name included', async () => {
-		const salsaFigureId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure.id;
-		const before = getFigure(db, salsaFigureId)!.figure.name;
+	it('refuses a position from the other dance on a variation of this one — names included', async () => {
 		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
 		await refuses(
 			figurePage.actions.update,
-			post('salsa', edit({ startIds: String(bachataShadow.id) }), String(salsaFigureId))
+			post(
+				'salsa',
+				edit({ figureName: 'Renamed figure', startIds: String(bachataShadow.id) }),
+				String(salsaFigureId)
+			)
 		);
-		// The shape half refused, so the details half must not have run either.
-		expect(getFigure(db, salsaFigureId)!.figure.name).toBe(before);
+		// The shape half refused, so neither name may have been written either.
+		expect(getFigure(db, salsaFigureId)!.figure.name).toBe('Basic');
+		expect(getGroup(db, groupOf(salsaFigureId))!.name).toBe('Dile que no');
 	});
 
 	it('refuses out-of-range timing with a message, writing nothing', async () => {
-		const salsaFigureId = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure.id;
 		const before = getFigure(db, salsaFigureId)!.figure;
 		const bads: Record<string, string>[] = [
 			{ startCount: '0' },
 			{ startCount: '9' },
 			{ startCount: 'abc' },
+			{ startCount: '' },
 			{ lengthCounts: '0' },
-			{ lengthCounts: '65' }
+			{ lengthCounts: '65' },
+			{ lengthCounts: '' }
 		];
 		for (const bad of bads) {
 			const result = await call(
@@ -398,7 +417,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(after.lengthCounts).toBe(before.lengthCounts);
 	});
 
-	describe('variations', () => {
+	describe('one variation per URL', () => {
 		const loadWith = (dance: string, id: string, search = '') =>
 			(figurePage.load as unknown as (e: unknown) => unknown)({
 				params: { dance, id },
@@ -406,109 +425,483 @@ describe("the detail pages refuse the other dance's rows", () => {
 				locals: { user: USER }
 			});
 
-		it('opens a variation’s own URL on its figure, with its tab chosen', () => {
-			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
-			const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
-			expect(() => loadWith('salsa', String(v.id))).toThrow(
-				expect.objectContaining({ status: 303, location: `/salsa/figures/${parent.id}?v=${v.id}` })
-			);
+		/** What a load or an action threw — a redirect, here — failing loudly when nothing was. */
+		async function thrownBy(run: () => unknown) {
+			try {
+				await run();
+			} catch (thrown) {
+				return thrown;
+			}
+			expect.unreachable('it should have redirected');
+		}
+
+		const doble = () => createVariationFrom(db, salsaFigureId, 'Doble')!;
+		const salsaPosition = (slug: string) =>
+			listPositions(db, 'salsa').find((p) => p.slug === slug)!;
+
+		it('loads the variation, its figure, its siblings and where it can move', () => {
+			const v = doble();
+			setFigureShape(db, v.id, {
+				startIds: [salsaPosition('cross-hand').id, salsaPosition('closed').id],
+				endId: salsaPosition('caida').id,
+				startCount: 5,
+				lengthCounts: 4
+			});
+			addRecording(db, {
+				figureId: v.id,
+				file: 'd.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 1,
+				note: null
+			});
+			const neutral = 'Abierta (dos manos)';
+			expect(loadWith('salsa', String(v.id))).toMatchObject({
+				figure: { id: groupOf(salsaFigureId), name: 'Dile que no' },
+				variation: { id: v.id, name: 'Doble', partner: 'partner', styleTag: 'salsa' },
+				shape: { startCount: 5, lengthCounts: 4 },
+				siblings: [
+					{
+						id: salsaFigureId,
+						name: 'Basic',
+						holds: `${neutral} → ${neutral}`,
+						timing: 'Starts on 1 · 8 counts',
+						videos: 0
+					},
+					{
+						id: v.id,
+						name: 'Doble',
+						holds: 'Cerrada / Manos cruzadas → Caída',
+						timing: 'Starts on 5 · 4 counts',
+						videos: 1
+					}
+				],
+				moveTargets: [
+					{ id: groupOf(salsaFigureId2), name: 'Second salsa figure', variations: ['Basic'] }
+				]
+			});
 		});
 
-		it('will not redirect across the wall: a bachata variation under /salsa/ is a 404', () => {
-			const v = createVariation(db, bachataFigureId, { name: 'Doble', notes: null })!;
+		it('a ?v= link redirects to the variation', async () => {
+			const v = doble();
+			expect(
+				await thrownBy(() => loadWith('salsa', String(salsaFigureId), `?v=${v.id}`))
+			).toMatchObject({ status: 303, location: `/salsa/figures/${v.id}` });
+		});
+
+		it('a bachata variation under /salsa/ is a 404', () => {
+			const v = createVariationFrom(db, bachataFigureId, 'Doble')!;
+			expect(loadWith('bachata', String(v.id))).toMatchObject({ variation: { id: v.id } });
 			expect(() => loadWith('salsa', String(v.id))).toThrow(threw404);
 		});
 
-		it('shows the chosen tab, and falls back to Basic for a foreign ?v=', () => {
-			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
-			const v = createVariation(db, parent.id, { name: 'Doble', notes: 'Spot' })!;
-			const other = createVariation(db, bachataFigureId, { name: 'Otra', notes: null })!;
-			expect(loadWith('salsa', String(parent.id), `?v=${v.id}`)).toMatchObject({
-				version: { id: v.id, name: 'Doble', notes: 'Spot', isVariation: true },
-				versions: [
-					{ id: parent.id, name: 'Basic' },
-					{ id: v.id, name: 'Doble' }
-				]
-			});
-			expect(loadWith('salsa', String(parent.id), `?v=${other.id}`)).toMatchObject({
-				version: { id: parent.id, isVariation: false }
-			});
+		it('an archived variation is a 404, page and actions alike', async () => {
+			const v = doble();
+			archiveVariation(db, v.id, 1_000);
+			expect(() => loadWith('salsa', String(v.id))).toThrow(threw404);
+			await refuses(figurePage.actions.update, post('salsa', edit({}), String(v.id)));
+			expect(getFigure(db, v.id)!.figure.name).toBe('Doble');
 		});
 
-		/** A complete variation edit — each test overrides only what it is about. */
-		const editV = (versionId: number, fields: Record<string, string> = {}) => ({
-			versionId: String(versionId),
-			name: 'Renamed',
-			notes: '',
-			startCount: '',
-			lengthCounts: '',
-			...fields
-		});
-
-		it('refuses to edit a variation of another figure, writing nothing', async () => {
-			const a = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
-			const b = createFigure(db, 'salsa', { ...figureInput, name: 'B', style: 'salsa' })!.figure;
-			const vb = createVariation(db, b.id, { name: 'Doble', notes: null })!;
-			await refuses(
-				figurePage.actions.updateVariation,
-				post('salsa', editV(vb.id, { lengthCounts: '4' }), String(a.id))
-			);
-			const row = getFigure(db, vb.id)!.figure;
-			expect([row.name, row.lengthCounts]).toEqual(['Doble', null]);
-		});
-
-		it('refuses a sibling’s name before writing anything', async () => {
-			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
-			const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
-			createVariation(db, parent.id, { name: 'Con giro', notes: null });
+		it('update saves both names and the timing — a case-only figure rename included', async () => {
 			const result = await call(
-				figurePage.actions.updateVariation,
-				post('salsa', editV(v.id, { name: 'con giro', lengthCounts: '4' }), String(parent.id))
+				figurePage.actions.update,
+				post(
+					'salsa',
+					edit({ figureName: 'DILE QUE NO', startCount: '5', lengthCounts: '4' }),
+					String(salsaFigureId)
+				)
 			);
-			expect(result).toMatchObject({ status: 400 });
-			const row = getFigure(db, v.id)!.figure;
-			expect([row.name, row.lengthCounts]).toEqual(['Doble', null]);
+			expect(result).toEqual({ action: 'update', ok: true });
+			const row = getFigure(db, salsaFigureId)!.figure;
+			expect([row.name, row.startCount, row.lengthCounts]).toEqual(['Renamed', 5, 4]);
+			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
 		});
 
-		it('saves "same as Basic" as null and a stated value as itself', async () => {
-			const parent = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
-			const v = createVariation(db, parent.id, { name: 'Doble', notes: null })!;
-			await call(
-				figurePage.actions.updateVariation,
-				post('salsa', editV(v.id, { name: 'Doble', startCount: '5' }), String(parent.id))
+		it('update refuses a taken figure name', async () => {
+			const result = await call(
+				figurePage.actions.update,
+				post(
+					'salsa',
+					edit({ figureName: 'second salsa figure', lengthCounts: '4' }),
+					String(salsaFigureId)
+				)
 			);
-			const row = getFigure(db, v.id)!.figure;
-			expect([row.startCount, row.lengthCounts]).toEqual([5, null]);
+			expect(result).toMatchObject({
+				status: 400,
+				data: { action: 'update', message: "There's already a figure called second salsa figure." }
+			});
+			const row = getFigure(db, salsaFigureId)!.figure;
+			expect([row.name, row.lengthCounts]).toEqual(['Basic', 8]);
+			expect(getGroup(db, row.groupId!)!.name).toBe('Dile que no');
 		});
 
-		it('refuses to archive a variation of another figure', async () => {
-			const a = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
-			const b = createFigure(db, 'salsa', { ...figureInput, name: 'B', style: 'salsa' })!.figure;
-			const vb = createVariation(db, b.id, { name: 'Doble', notes: null })!;
+		it('update refuses a sibling’s variation name before writing anything', async () => {
+			const v = doble();
+			const result = await call(
+				figurePage.actions.update,
+				post('salsa', edit({ name: 'basic', lengthCounts: '4' }), String(v.id))
+			);
+			expect(result).toMatchObject({
+				status: 400,
+				data: {
+					action: 'update',
+					message: 'Dile que no already has a variation called basic. Rename one first.'
+				}
+			});
+			const row = getFigure(db, v.id)!.figure;
+			expect([row.name, row.lengthCounts]).toEqual(['Doble', 8]);
+		});
+
+		it('createVariation copies the current variation and opens it', async () => {
+			const cross = salsaPosition('cross-hand').id;
+			const caida = salsaPosition('caida').id;
+			setFigureShape(db, salsaFigureId, {
+				startIds: [cross],
+				endId: caida,
+				startCount: 5,
+				lengthCounts: 4
+			});
+			const thrown = await thrownBy(() =>
+				call(
+					figurePage.actions.createVariation,
+					post('salsa', { name: 'Doble' }, String(salsaFigureId))
+				)
+			);
+			const [, made] = listGroupVariations(db, groupOf(salsaFigureId));
+			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${made.id}` });
+			expect([made.name, made.startCount, made.lengthCounts, made.endPositionId]).toEqual([
+				'Doble',
+				5,
+				4,
+				caida
+			]);
+			expect(figurePositions(db, made.id).startIds).toEqual([cross]);
+		});
+
+		it('createVariation refuses a taken name', async () => {
+			const result = await call(
+				figurePage.actions.createVariation,
+				post('salsa', { name: ' basic ' }, String(salsaFigureId))
+			);
+			expect(result).toMatchObject({
+				status: 400,
+				data: {
+					action: 'createVariation',
+					message: 'Dile que no already has a variation called basic. Rename one first.'
+				}
+			});
+			expect(listGroupVariations(db, groupOf(salsaFigureId))).toHaveLength(1);
+		});
+
+		it('move refuses a figure of the other dance', async () => {
+			const before = groupOf(salsaFigureId);
 			await refuses(
-				figurePage.actions.archiveVariation,
-				post('salsa', { versionId: String(vb.id) }, String(a.id))
+				figurePage.actions.move,
+				post('salsa', { target: String(groupOf(bachataFigureId)) }, String(salsaFigureId))
 			);
-			expect(getFigure(db, vb.id)!.figure.archivedAt).toBeNull();
+			expect(groupOf(salsaFigureId)).toBe(before);
+			expect(getGroup(db, before)!.archivedAt).toBeNull();
 		});
 
-		it('refuses to delete a recording of another figure’s variation', async () => {
-			const a = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!.figure;
-			const b = createFigure(db, 'salsa', { ...figureInput, name: 'B', style: 'salsa' })!.figure;
-			const vb = createVariation(db, b.id, { name: 'Doble', notes: null })!;
+		it('move into another figure stays on the same URL', async () => {
+			const v = doble();
+			const thrown = await thrownBy(() =>
+				call(
+					figurePage.actions.move,
+					post('salsa', { target: String(groupOf(salsaFigureId2)) }, String(v.id))
+				)
+			);
+			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${v.id}` });
+			expect(groupOf(v.id)).toBe(groupOf(salsaFigureId2));
+		});
+
+		it('move to a new figure of its own', async () => {
+			const v = doble();
+			const thrown = await thrownBy(() =>
+				call(
+					figurePage.actions.move,
+					post('salsa', { target: 'new', figureName: 'Dile que no Doble' }, String(v.id))
+				)
+			);
+			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${v.id}` });
+			expect(getGroup(db, groupOf(v.id))!.name).toBe('Dile que no Doble');
+			expect(groupOf(v.id)).not.toBe(groupOf(salsaFigureId));
+		});
+
+		it('move refuses a taken variation name, naming the target figure', async () => {
+			const result = await call(
+				figurePage.actions.move,
+				post('salsa', { target: String(groupOf(salsaFigureId2)) }, String(salsaFigureId))
+			);
+			expect(result).toMatchObject({
+				status: 400,
+				data: {
+					action: 'move',
+					message: 'Second salsa figure already has a variation called Basic. Rename one first.'
+				}
+			});
+		});
+
+		it('move refuses a taken name for the new figure, and its own figure as a target', async () => {
+			const before = groupOf(salsaFigureId);
+			expect(
+				await call(
+					figurePage.actions.move,
+					post('salsa', { target: 'new', figureName: 'second salsa figure' }, String(salsaFigureId))
+				)
+			).toMatchObject({
+				status: 400,
+				data: { action: 'move', message: "There's already a figure called second salsa figure." }
+			});
+			expect(
+				await call(
+					figurePage.actions.move,
+					post('salsa', { target: String(before) }, String(salsaFigureId))
+				)
+			).toMatchObject({ status: 400, data: { action: 'move' } });
+			expect(
+				await call(
+					figurePage.actions.move,
+					post('salsa', { target: 'new', figureName: '' }, String(salsaFigureId))
+				)
+			).toMatchObject({ status: 400, data: { action: 'move' } });
+			expect(groupOf(salsaFigureId)).toBe(before);
+		});
+
+		it('archive redirects to a sibling', async () => {
+			const v = doble();
+			// The lowest id is the one archived, so "the first one left" is the other.
+			const thrown = await thrownBy(() =>
+				call(figurePage.actions.archive, post('salsa', {}, String(salsaFigureId)))
+			);
+			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${v.id}` });
+			expect(getFigure(db, salsaFigureId)!.figure.archivedAt).not.toBeNull();
+			expect(getGroup(db, groupOf(v.id))!.archivedAt).toBeNull();
+		});
+
+		it('archive of the last variation goes to the figures list', async () => {
+			const thrown = await thrownBy(() =>
+				call(figurePage.actions.archive, post('salsa', {}, String(salsaFigureId)))
+			);
+			expect(thrown).toMatchObject({ status: 303, location: '/salsa/figures' });
+			expect(getGroup(db, groupOf(salsaFigureId))!.archivedAt).not.toBeNull();
+		});
+
+		it('refuses to delete a recording of a sibling variation', async () => {
+			const v = doble();
 			const rec = addRecording(db, {
-				figureId: vb.id,
+				figureId: v.id,
 				file: 'x.mp4',
 				mime: 'video/mp4',
 				kind: 'video',
 				sizeBytes: 1,
 				note: null
 			});
-			await refuses(
+			const result = await call(
 				figurePage.actions.deleteRecording,
-				post('salsa', { versionId: String(vb.id), recordingId: String(rec.id) }, String(a.id))
+				post('salsa', { recordingId: String(rec.id) }, String(salsaFigureId))
 			);
-			expect(getFigure(db, vb.id)!.recordings.map((r) => r.id)).toEqual([rec.id]);
+			expect(result).toMatchObject({ status: 404 });
+			expect(getFigure(db, v.id)!.recordings.map((r) => r.id)).toEqual([rec.id]);
+		});
+	});
+
+	describe('creating a figure asks for both names', () => {
+		const fields = {
+			figureName: 'dile que no',
+			name: 'Doble',
+			partner: 'partner',
+			style: 'salsa',
+			notes: 'Spin'
+		};
+
+		it('the figures list refuses a taken figure name, keeping what was typed', async () => {
+			expect(await call(figureListActions.create, post('salsa', fields))).toMatchObject({
+				status: 400,
+				data: {
+					message: "There's already a figure called dile que no.",
+					figureName: 'dile que no',
+					name: 'Doble',
+					notes: 'Spin'
+				}
+			});
+		});
+
+		it('the figures list refuses a missing variation name', async () => {
+			expect(
+				await call(figureListActions.create, post('salsa', { ...fields, name: '' }))
+			).toMatchObject({
+				status: 400,
+				data: { message: expect.stringMatching(/figure and the variation/) }
+			});
+		});
+
+		it('the figures list opens the new variation', async () => {
+			const thrown = await (async () => {
+				try {
+					await call(
+						figureListActions.create,
+						post('salsa', { ...fields, figureName: 'Enchufla' })
+					);
+				} catch (e) {
+					return e as { status: number; location: string };
+				}
+				expect.unreachable('a created figure redirects');
+			})();
+			const id = Number(thrown!.location.split('/').pop());
+			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${id}` });
+			const row = getFigure(db, id)!.figure;
+			expect([row.name, getGroup(db, row.groupId!)!.name]).toEqual(['Doble', 'Enchufla']);
+		});
+
+		it('a lesson’s new figure refuses a taken figure name, and links one it makes', async () => {
+			const lesson = { ...fields, style: 'sensual' };
+			expect(
+				await call(
+					lessonPage.actions.newFigure,
+					post('bachata', { ...lesson, figureName: 'basico' }, String(bachataLessonId))
+				)
+			).toMatchObject({
+				status: 400,
+				data: { action: 'newFigure', message: "There's already a figure called basico." }
+			});
+			expect(
+				await call(
+					lessonPage.actions.newFigure,
+					post('bachata', { ...lesson, figureName: 'Paseo' }, String(bachataLessonId))
+				)
+			).toEqual({ action: 'newFigure', ok: true });
+			expect(getLesson(db, bachataLessonId)!.figures.map((f) => f.name)).toEqual(['Paseo · Doble']);
+		});
+
+		const variationFields = (groupId: number, name = 'Doble') => ({
+			groupId: String(groupId),
+			name,
+			partner: 'solo',
+			style: 'sensual',
+			notes: 'Spin'
+		});
+
+		it('newVariation links a blank variation to the lesson', async () => {
+			const basico = groupOf(bachataFigureId);
+			setFigureShape(db, bachataFigureId, {
+				startIds: [listPositions(db, 'bachata')[0].id],
+				endId: listPositions(db, 'bachata')[1].id,
+				startCount: 5,
+				lengthCounts: 4
+			});
+			expect(
+				await call(
+					lessonPage.actions.newVariation,
+					post('bachata', variationFields(basico), String(bachataLessonId))
+				)
+			).toEqual({ action: 'newVariation', ok: true });
+			const [, made] = listGroupVariations(db, basico);
+			expect(made).toMatchObject({
+				name: 'Doble',
+				partner: 'solo',
+				styleTag: 'sensual',
+				notes: 'Spin',
+				startCount: 1,
+				lengthCounts: 8,
+				endPositionId: null
+			});
+			expect(figurePositions(db, made.id).startIds).toEqual([]);
+			expect(getLesson(db, bachataLessonId)!.figures.map((f) => [f.id, f.name])).toEqual([
+				[made.id, 'Basico · Doble']
+			]);
+		});
+
+		it('newVariation refuses a figure of the other dance', async () => {
+			const salsa = groupOf(salsaFigureId);
+			await refuses(
+				lessonPage.actions.newVariation,
+				post('bachata', variationFields(salsa), String(bachataLessonId))
+			);
+			expect(listGroupVariations(db, salsa)).toHaveLength(1);
+			expect(getLesson(db, bachataLessonId)!.figures).toEqual([]);
+		});
+
+		it('newVariation refuses a taken name', async () => {
+			const basico = groupOf(bachataFigureId);
+			expect(
+				await call(
+					lessonPage.actions.newVariation,
+					post('bachata', variationFields(basico, 'basic'), String(bachataLessonId))
+				)
+			).toMatchObject({
+				status: 400,
+				data: {
+					action: 'newVariation',
+					message: 'Basico already has a variation called basic. Rename one first.',
+					groupId: String(basico),
+					name: 'basic',
+					notes: 'Spin'
+				}
+			});
+			expect(
+				await call(
+					lessonPage.actions.newVariation,
+					post('bachata', { ...variationFields(basico), groupId: '' }, String(bachataLessonId))
+				)
+			).toMatchObject({ status: 400, data: { action: 'newVariation', message: 'Pick a figure.' } });
+			expect(
+				await call(
+					lessonPage.actions.newVariation,
+					post('bachata', variationFields(basico, ''), String(bachataLessonId))
+				)
+			).toMatchObject({
+				status: 400,
+				data: {
+					action: 'newVariation',
+					message: 'Give the variation a name (up to 200 characters).'
+				}
+			});
+			expect(listGroupVariations(db, basico)).toHaveLength(1);
+			expect(getLesson(db, bachataLessonId)!.figures).toEqual([]);
+		});
+
+		it('figure page: move with a name renames into the target', async () => {
+			const target = groupOf(salsaFigureId2);
+			const ex = getExercise(db, salsaExerciseId)!;
+			let thrown: unknown;
+			try {
+				await call(
+					figurePage.actions.move,
+					post('salsa', { target: String(target), name: 'Basic 2' }, String(salsaFigureId))
+				);
+			} catch (e) {
+				thrown = e;
+			}
+			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${salsaFigureId}` });
+			const row = getFigure(db, salsaFigureId)!.figure;
+			expect([row.groupId, row.name]).toEqual([target, 'Basic 2']);
+			expect(getExercise(db, ex.id)!.name).toBe('Second salsa figure · Basic 2');
+
+			// A name taken in the target is refused, keeping what was typed.
+			const back = groupOf(salsaFigureId2);
+			createVariationFrom(db, salsaFigureId2, 'Doble');
+			const other = createFigure(db, 'salsa', {
+				...figureInput,
+				figureName: 'Third',
+				name: 'Solo',
+				style: 'salsa'
+			})!;
+			expect(
+				await call(
+					figurePage.actions.move,
+					post('salsa', { target: String(back), name: 'doble' }, String(other.figure.id))
+				)
+			).toMatchObject({
+				status: 400,
+				data: {
+					action: 'move',
+					message: 'Second salsa figure already has a variation called doble. Rename one first.',
+					name: 'doble'
+				}
+			});
+			expect(getFigure(db, other.figure.id)!.figure.name).toBe('Solo');
 		});
 	});
 
