@@ -6,6 +6,35 @@
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md)'s and is not
 > changed; this document adds a second client for it.
 
+## A WebView, not a TWA (2026-10-29)
+
+Overrides the TWA bullet under *Asked and decided* and the shell below.
+Friendly Blocker (`~/Projects/friendly-blocker`) blocked the app even with it
+on its exceptions list: a TWA shows the page in the browser's own activity, so
+Android's usage events (what blockers and Digital Wellbeing read) report
+Brave in front, never `eu.anotherroot.salsa`. So both launchers are now a
+WebView screen (`WebShell.kt`, the same file as guitar's and Muca's) inside
+the app's own package, and androidbrowserhelper is gone.
+
+The TWA bullet's reasons, answered:
+
+- **`speechSynthesis`**: WebView has none, so the shell gives the page one,
+  spoken by Android's TextToSpeech, the engine Chrome on Android speaks
+  with: rate, pitch, volume, start and end events. Checked on the phone.
+- **The mic, the wake lock, fullscreen**: the shell passes the mic
+  permission on to our own origin, backs `navigator.wakeLock` with the
+  window's keep-screen-on flag, and shows fullscreen elements over the page.
+- **The player's timing** runs on WebView's Chromium, the same engine and
+  audio clock as Chrome; still to be tried with a song on the phone.
+
+Also: the WebView has its own cookie jar, so the app logs in once by itself.
+The launcher sets `salsa_app=android` itself, so a first open from a
+notification or a share is in app mode too. Only pages on the site load
+inside (`Pages.kt`, tested); other sites go to the browser and `salsa://` to
+`LinkActivity`. `/.well-known/assetlinks.json` and
+`SALSA_ANDROID_CERT_SHA256` no longer matter to the app; they stay until
+removed on purpose.
+
 ## Purpose
 
 A lesson video goes up today in two steps: Shrink (`~/Projects/shrink`)

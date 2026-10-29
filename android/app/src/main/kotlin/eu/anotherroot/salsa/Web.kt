@@ -2,13 +2,13 @@ package eu.anotherroot.salsa
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 
-/** Opens [path] on the site in the app's TWA. A path under /bachata opens in that dance's task. */
+/** Opens [path] on the site in the app. A path under /bachata opens in that dance's task. */
 fun webIntent(context: Context, path: String): Intent {
     val launcher = if (path.startsWith("/bachata")) BachataLauncher::class.java else SalsaLauncher::class.java
     return Intent(context, launcher)
-        .setData(Uri.parse(BuildConfig.SITE + path))
+        .setData((BuildConfig.SITE + path).toUri())
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }
 

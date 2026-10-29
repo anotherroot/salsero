@@ -153,7 +153,7 @@ shares with Firefly, Grafana, muscle and nikaudio.
 
 ## Android app
 
-`android/` builds the APK: a TWA around the site plus background uploads and
+`android/` builds the APK: the site in a WebView plus background uploads and
 the daily reminder (design: `docs/superpowers/specs/2026-10-14-android-app-design.md`).
 Sideloaded, like Shrink — no Play Store.
 
@@ -162,13 +162,14 @@ nix develop .#android -c ./android/gradlew -p android test assembleDebug
 adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Add `-Psite=https://…` to point a build at another host (the TWA needs https).
+Add `-Psite=https://…` to point a build at another host (https only: the app
+allows no cleartext).
 
 - **The site half ships with the server.** Migration 0013 (`device_tokens`, two
   `users` columns) applies at boot like any other; take the backup first.
 - **`SALSA_ANDROID_CERT_SHA256`** (optional, in `salsa-prod.env`): the APK
   signing key's SHA-256 fingerprint, served at `/.well-known/assetlinks.json`.
-  Until it matches, the app still works but Chrome shows its URL bar. The debug
+  Since the WebView (2026-10-29) the app does not read it. The debug
   key's fingerprint:
 
   ```sh

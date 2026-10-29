@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- The voice page records the user's own count (mic). Asked when first used. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <application
         android:allowBackup="false"
@@ -14,29 +17,24 @@
         android:label="@string/app_name"
         android:supportsRtl="true">
 
-        <!-- Ties the app to the site for the TWA; the site's half is /.well-known/assetlinks.json. -->
-        <meta-data
-            android:name="asset_statements"
-            android:resource="@string/asset_statements" />
-
         <!--
-            One launcher per dance, each its own task so both can sit in Recents.
-            androidbrowserhelper's LauncherActivity opens DEFAULT_URL (or the
-            intent's data, when the app itself opens a page) in a Trusted Web
-            Activity: Chrome, full screen.
+            One launcher per dance, each its own task so both can sit in
+            Recents, and each the site in a WebView (WebShell), so Android sees
+            this app in front, not the browser. It opens the dance's Today, or
+            the intent's data when the app itself opens a page. singleTask: a
+            notification reuses the open screen. The config changes are
+            handled so turning the phone keeps the page.
         -->
         <activity
             android:name=".SalsaLauncher"
             android:exported="true"
             android:icon="@mipmap/ic_salsa"
             android:label="@string/salsa"
-            android:taskAffinity="eu.anotherroot.salsa.dance.salsa">
-            <meta-data
-                android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="@string/salsa_url" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:resource="@color/salsa" />
+            android:taskAffinity="eu.anotherroot.salsa.dance.salsa"
+            android:launchMode="singleTask"
+            android:theme="@style/Shell"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -48,30 +46,15 @@
             android:exported="true"
             android:icon="@mipmap/ic_bachata"
             android:label="@string/bachata"
-            android:taskAffinity="eu.anotherroot.salsa.dance.bachata">
-            <meta-data
-                android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="@string/bachata_url" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:resource="@color/bachata" />
+            android:taskAffinity="eu.anotherroot.salsa.dance.bachata"
+            android:launchMode="singleTask"
+            android:theme="@style/Shell"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <!--
-            androidbrowserhelper's "Manage site data" screen (a shortcut and the
-            app info page's Manage space). LauncherActivity enables it on every
-            launch, so leaving it out crashes the app on open.
-        -->
-        <activity
-            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
-            android:exported="false">
-            <meta-data
-                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
-                android:value="@string/salsa_url" />
         </activity>
 
         <!-- salsa://upload and salsa://paired, from the site. Invisible. -->

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The dances' accents, from src/lib/dances/dances.ts. -->
-    <color name="salsa">#c2410c</color>
-    <color name="bachata">#0f766e</color>
+    <!-- color-plane in src/routes/layout.css: the page under the bars. -->
+    <color name="plane">#f5f3ef</color>
 </resources>
