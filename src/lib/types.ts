@@ -235,6 +235,19 @@ export interface MoveTarget {
 	variations: string[];
 }
 
+/** One live variation of the figure being viewed, as its variations sheet lists it. */
+export interface SiblingSummary {
+	id: number;
+	/** The variation's own name — "Doble". */
+	name: string;
+	/** "Cross-hand → Open two hands": starts joined with " / ", neutral named. */
+	holds: string;
+	/** "Starts on 5 · 4 counts". */
+	timing: string;
+	/** Its recordings, video and audio alike. */
+	videos: number;
+}
+
 /** A figure a routine can call: how the player shows it, and what the voice says. */
 export interface CalledFigure {
 	id: number;

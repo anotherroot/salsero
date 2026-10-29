@@ -45,21 +45,26 @@ export const actions: Actions = {
 	create: async ({ params, request }) => {
 		const dance = danceOf(params);
 		const form = await request.formData();
+		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
-		if (!name || !partner || !style || notes === undefined) {
+		if (!figureName || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the figure and the variation a name (up to 200 characters).',
+				figureName: String(form.get('figureName') ?? ''),
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		const made = createFigure(getDb(), dance, { name, partner, style, notes });
+		// With every field valid, a taken figure name is the one thing
+		// `createFigure` still refuses.
+		const made = createFigure(getDb(), dance, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
-				message: 'That style does not belong to this dance.',
+				message: `There's already a figure called ${figureName}.`,
+				figureName,
 				name,
 				notes: notes ?? ''
 			});

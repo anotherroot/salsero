@@ -20,8 +20,9 @@ import { spotLinks } from '$lib/server/db/schema';
 import {
 	addFigureExercise,
 	addRecording,
+	archiveVariation,
 	createFigure,
-	createVariation
+	createVariationFrom
 } from '$lib/server/figures';
 import { archiveExercise, createCustomExercise } from '$lib/server/exercises';
 import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
@@ -66,8 +67,15 @@ let videoId: number;
 let section: number;
 let otherSection: number;
 
-const salsaFigure = (name: string) =>
-	createFigure(db, 'salsa', { name, partner: 'partner', style: 'salsa', notes: null })!.figure.id;
+/** A new figure's one variation, "Basic". */
+const salsaFigure = (figureName: string) =>
+	createFigure(db, 'salsa', {
+		figureName,
+		name: 'Basic',
+		partner: 'partner',
+		style: 'salsa',
+		notes: null
+	})!.figure.id;
 
 const links = () => db.select().from(spotLinks).all();
 
@@ -75,7 +83,7 @@ beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	figureId = salsaFigure('Enchufla');
-	doble = createVariation(db, figureId, { name: 'Doble', notes: null })!.id;
+	doble = createVariationFrom(db, figureId, 'Doble')!.id;
 	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
 	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
@@ -126,6 +134,7 @@ describe('the lesson page', () => {
 
 	it('refuses a figure of the other dance, with the reason', async () => {
 		const paseo = createFigure(db, 'bachata', {
+			figureName: 'Paseo',
 			name: 'Paseo',
 			partner: 'partner',
 			style: 'sensual',
@@ -175,45 +184,38 @@ describe('the lesson page', () => {
 				}
 			]
 		});
+		// The lesson links one variation, so only that one is "this lesson's":
+		// its sibling Doble is taught nowhere and sits with the other figures.
 		expect(data.sectionTargets).toEqual({
-			thisLesson: [
-				{ value: `figure:${figureId}`, label: 'Enchufla' },
-				{ value: `figure:${doble}`, label: 'Enchufla · Doble' }
+			thisLesson: [{ value: `figure:${figureId}`, label: 'Enchufla · Basic' }],
+			figures: [
+				{ value: `figure:${doble}`, label: 'Enchufla · Doble' },
+				{ value: expect.stringMatching(/^figure:/), label: 'Setenta · Basic' }
 			],
-			figures: [{ value: expect.stringMatching(/^figure:/), label: 'Setenta' }],
 			drills: [{ value: `exercise:${drill}`, label: 'Clave' }]
 		});
 	});
 });
 
 describe('the figure page', () => {
-	it('links a section to the version posted, and unlinks it', async () => {
-		await call(
-			figurePage.actions.linkSection,
-			post('salsa', figureId, { versionId: String(doble), spotId: String(section) })
-		);
+	it('links a section to the variation whose page it is, and unlinks it', async () => {
+		await call(figurePage.actions.linkSection, post('salsa', doble, { spotId: String(section) }));
 		const [link] = links();
 		expect([link.spotId, link.figureId]).toEqual([section, doble]);
-		// The same link id under Basic is not Basic's to remove.
+		// The same link id on a sibling's page is not the sibling's to remove.
 		const res = await call(
 			figurePage.actions.unlinkSection,
-			post('salsa', figureId, { versionId: String(figureId), linkId: String(link.id) })
+			post('salsa', figureId, { linkId: String(link.id) })
 		);
 		expect(res).toMatchObject({ status: 404 });
-		await call(
-			figurePage.actions.unlinkSection,
-			post('salsa', figureId, { versionId: String(doble), linkId: String(link.id) })
-		);
+		await call(figurePage.actions.unlinkSection, post('salsa', doble, { linkId: String(link.id) }));
 		expect(links()).toEqual([]);
 	});
 
-	it('refuses a variation of another figure', async () => {
-		const other = salsaFigure('Setenta');
+	it('refuses an archived variation', async () => {
+		archiveVariation(db, doble, Date.now());
 		await expect(
-			call(
-				figurePage.actions.linkSection,
-				post('salsa', other, { versionId: String(doble), spotId: String(section) })
-			)
+			call(figurePage.actions.linkSection, post('salsa', doble, { spotId: String(section) }))
 		).rejects.toMatchObject({ status: 404 });
 		expect(links()).toEqual([]);
 	});
@@ -239,26 +241,19 @@ describe('the figure page', () => {
 		expect(links()).toEqual([]);
 	});
 
-	it('loads the version’s cards and what it could link', () => {
+	it('loads the variation’s cards and what it could link', () => {
 		linkSpot(db, section, { figureId: doble });
-		const url = new URL(`http://localhost/?v=${doble}`);
-		const data = figureLoad(figurePage.load, url) as {
-			version: { sections: { linkId: number }[] };
+		const data = loadAt(figurePage.load, 'salsa', doble) as {
+			variation: { sections: { linkId: number }[] };
 			linkable: { video: { src: string } }[];
 		};
-		expect(data.version.sections).toHaveLength(1);
+		expect(data.variation.sections).toHaveLength(1);
 		expect(data.linkable.map((g) => g.video.src)).toEqual(['/lesson-videos/o.mp4']);
+		// Its sibling has none of them: a variation shows its own sections only.
+		const sibling = loadAt(figurePage.load, 'salsa', figureId) as typeof data;
+		expect(sibling.variation.sections).toEqual([]);
 	});
 });
-
-/** The figure page's load, at a URL that picks a version tab. */
-function figureLoad(load: unknown, url: URL) {
-	return (load as Load)({
-		params: { dance: 'salsa', id: String(figureId) },
-		url,
-		locals: { user: USER }
-	});
-}
 
 describe('the drill’s exercise page', () => {
 	it('links and unlinks its own sections only', async () => {
@@ -310,10 +305,7 @@ describe('the figure page, for its recordings’ sections', () => {
 	it('unlinks a link of its recording’s section to an archived drill — nowhere else can', async () => {
 		const link = linkSpot(db, recordingSection(), { exerciseId: drill });
 		archiveExercise(db, drill, Date.now());
-		await call(
-			figurePage.actions.unlinkSection,
-			post('salsa', figureId, { versionId: String(figureId), linkId: String(link) })
-		);
+		await call(figurePage.actions.unlinkSection, post('salsa', figureId, { linkId: String(link) }));
 		expect(links()).toEqual([]);
 	});
 
@@ -321,7 +313,7 @@ describe('the figure page, for its recordings’ sections', () => {
 		const link = linkSpot(db, section, { exerciseId: drill });
 		const res = await call(
 			figurePage.actions.unlinkSection,
-			post('salsa', figureId, { versionId: String(figureId), linkId: String(link) })
+			post('salsa', figureId, { linkId: String(link) })
 		);
 		expect(res).toMatchObject({ status: 404 });
 		expect(links()).toHaveLength(1);
@@ -331,9 +323,9 @@ describe('the figure page, for its recordings’ sections', () => {
 		const s = recordingSection();
 		linkSpot(db, s, { exerciseId: drill });
 		const data = loadAt(figurePage.load, 'salsa', figureId) as {
-			version: { recordingSections: Record<number, { id: number; links: unknown[] }[]> };
+			variation: { recordingSections: Record<number, { id: number; links: unknown[] }[]> };
 		};
-		expect(Object.values(data.version.recordingSections).flat()).toEqual([
+		expect(Object.values(data.variation.recordingSections).flat()).toEqual([
 			expect.objectContaining({ id: s, links: [expect.objectContaining({ label: 'Clave' })] })
 		]);
 	});

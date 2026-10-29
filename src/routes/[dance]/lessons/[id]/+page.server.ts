@@ -172,26 +172,37 @@ export const actions: Actions = {
 		const dance = danceOf(params);
 		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
+		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
 
-		if (!name || partner === undefined || style === undefined || notes === undefined) {
+		if (
+			!figureName ||
+			!name ||
+			partner === undefined ||
+			style === undefined ||
+			notes === undefined
+		) {
 			return fail(400, {
 				action: 'newFigure',
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the figure and the variation a name (up to 200 characters).',
+				figureName: String(form.get('figureName') ?? ''),
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
 		}
 
 		const db = getDb();
-		const made = createFigure(db, dance, { name, partner, style, notes });
+		// With every field valid, a taken figure name is the one thing
+		// `createFigure` still refuses.
+		const made = createFigure(db, dance, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				action: 'newFigure',
-				message: 'That style does not belong to this dance.',
+				message: `There's already a figure called ${figureName}.`,
+				figureName,
 				name,
 				notes: notes ?? ''
 			});
