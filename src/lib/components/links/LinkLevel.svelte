@@ -27,6 +27,7 @@
 	let { theme, label, z = 'z-40', intercept, onback, children }: Props = $props();
 
 	let dialog: HTMLDialogElement | undefined = $state();
+	let panel: HTMLDivElement | undefined = $state();
 	/** Set while the level goes away, so its own close is not taken for an Escape. */
 	let leaving = false;
 
@@ -38,9 +39,17 @@
 	onMount(() => {
 		const d = dialog;
 		if (theme === 'light') d?.showModal();
+		// Dark: an overlay is not a top-layer dialog, so focus is moved in by hand,
+		// or Escape stays with the level below it. It goes back on the way out.
+		const p = panel;
+		const before = document.activeElement;
+		p?.focus({ preventScroll: true });
 		return () => {
 			leaving = true;
 			if (d?.open) d.close();
+			if (p && before instanceof HTMLElement && before.isConnected) {
+				before.focus({ preventScroll: true });
+			}
 		};
 	});
 </script>
@@ -61,10 +70,12 @@
 		}}
 	>
 		<div
+			bind:this={panel}
+			tabindex="-1"
 			role="dialog"
 			aria-modal="true"
 			aria-label={label}
-			class="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-(--pl-hover) bg-(--pl-surface) p-4 text-(--pl-ink) shadow-[0_16px_40px_rgb(0_0_0/0.6)]"
+			class="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-(--pl-hover) bg-(--pl-surface) p-4 text-(--pl-ink) shadow-[0_16px_40px_rgb(0_0_0/0.6)] outline-none"
 		>
 			{@render children()}
 		</div>

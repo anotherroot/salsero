@@ -522,8 +522,10 @@
 	oncreate={startCreate}
 	ondone={onclose}
 	onclose={() => {
-		// Also reached when the Sheet closes because the level already went.
-		if (top === 'pick') onback();
+		// Dark: the overlay's ×, backdrop or Escape, which may come while a create
+		// step sits on it (focus still in the picker): one level back either way.
+		// Light: also reached when the Sheet closes because the level already went.
+		if (theme === 'dark' || top === 'pick') onback();
 	}}
 />
 
