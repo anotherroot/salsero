@@ -143,3 +143,12 @@ select {
 	background-size: 0.75rem 0.5rem;
 	padding-right: 2rem;
 }
+
+/*
+ * A link dims under the finger, so a tap shows before anything loads — the
+ * first of the three signs in "Pending navigation" (design spec). Links only:
+ * buttons already answer on the spot.
+ */
+a[href]:active {
+	opacity: 0.6;
+}
