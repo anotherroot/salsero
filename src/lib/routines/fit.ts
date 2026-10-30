@@ -12,6 +12,7 @@
  * than one figure to close, so filtering by both neighbours at once would hide
  * exactly the figure that starts the bridge.
  */
+import { fold } from '$lib/picker/model';
 import type { RowEdges } from './routines';
 
 export interface Candidate {
@@ -84,11 +85,6 @@ export interface PickList {
 	toggles: { count: boolean; hold: boolean };
 	/** Chips that, turned off, would show something. Empty unless the list is. */
 	emptiedBy: ('count' | 'hold')[];
-}
-
-/** Lowercase, accents stripped: "Dile Qué Nó" and "dile que no" are one search. */
-export function fold(s: string): string {
-	return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
 function toggles(a: Anchor): { count: boolean; hold: boolean } {
