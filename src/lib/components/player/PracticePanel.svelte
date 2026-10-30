@@ -6,6 +6,7 @@
 	import SongProgress from './SongProgress.svelte';
 	import SourcePicker from './SourcePicker.svelte';
 	import { loadSongGrid } from './songGrid.svelte';
+	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { CHIP, LABEL } from '$lib/components/ui/styles';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
@@ -24,13 +25,13 @@
 	import { STOPPED, elapsedMs, pauseWatch, startWatch } from '$lib/exercises/stopwatch';
 	import { clock } from '$lib/format';
 	import type { Dance } from '$lib/dances/dances';
-	import type { CountTakeRow, ExerciseItem } from '$lib/types';
+	import type { CountTakeRow, ExerciseItem, PickerSong } from '$lib/types';
 
 	interface Props {
 		dance: Dance;
 		exercise: ExerciseItem;
 		/** This dance's ready songs. */
-		songs: { id: number; title: string }[];
+		songs: PickerSong[];
 		takes: CountTakeRow[];
 		/** The figure to call on cue — the figure popup only. */
 		cue: { figureId: number; say: string; eights: number } | null;
@@ -107,6 +108,8 @@
 	 * building a second, unreachable player (the player page's own lesson).
 	 */
 	async function play() {
+		// A sample must never play under a run.
+		stopSample();
 		if (starting || player || !canPlay) return;
 		starting = true;
 		startError = null;
@@ -197,6 +200,7 @@
 	}
 
 	async function resume() {
+		stopSample();
 		await player?.resume();
 		paused = false;
 		watch = startWatch(watch, Date.now());

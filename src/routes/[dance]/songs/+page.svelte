@@ -4,6 +4,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
+	import SampleButton from '$lib/components/songs/SampleButton.svelte';
+	import { sampling } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
 	import type { ActionData, PageData } from './$types';
 
@@ -137,22 +139,33 @@
 	{/if}
 	<ul class="space-y-2">
 		{#each data.songs as s (s.id)}
-			<li class="rounded-xl border border-line bg-raised">
-				<a
-					href={resolve('/[dance]/songs/[id]', { dance: data.dance.slug, id: String(s.id) })}
-					class="block px-4 py-3"
-				>
-					<span class="block truncate text-[15px] font-medium">{s.title || s.sourceUrl}</span>
-					<span class="text-[12px] {s.status === 'failed' ? 'text-danger' : 'text-muted'}">
-						{styleLabel(s.style)}
-						{#if s.status === 'ready'}
-							· {s.bpm ? `${Math.round(s.bpm * s.tempoFactor)} BPM` : ''}
-							{s.durationS ? `· ${clock(s.durationS)}` : ''}
+			{@const sample = s.sample}
+			<li class="overflow-hidden rounded-xl border border-line bg-raised">
+				<!-- The card opens the song; the ▶ on its right edge plays a sample. -->
+				<div class="flex items-stretch">
+					<a
+						href={resolve('/[dance]/songs/[id]', { dance: data.dance.slug, id: String(s.id) })}
+						class="block min-w-0 flex-1 px-4 py-3"
+					>
+						<span class="block truncate text-[15px] font-medium">{s.title || s.sourceUrl}</span>
+						{#if sample && sampling.id === sample.id}
+							<span class="text-[12px] text-accent">Sample from {clock(sample.startS)}</span>
 						{:else}
-							· {STATUS[s.status]}{s.error ? `: ${s.error}` : ''}
+							<span class="text-[12px] {s.status === 'failed' ? 'text-danger' : 'text-muted'}">
+								{styleLabel(s.style)}
+								{#if s.status === 'ready'}
+									· {s.bpm ? `${Math.round(s.bpm * s.tempoFactor)} BPM` : ''}
+									{s.durationS ? `· ${clock(s.durationS)}` : ''}
+								{:else}
+									· {STATUS[s.status]}{s.error ? `: ${s.error}` : ''}
+								{/if}
+							</span>
 						{/if}
-					</span>
-				</a>
+					</a>
+					{#if sample}
+						<SampleButton song={sample} />
+					{/if}
+				</div>
 				{#if s.status === 'failed'}
 					<form method="POST" action="?/retry" use:enhance class="border-t border-line px-4 py-2">
 						<input type="hidden" name="id" value={s.id} />

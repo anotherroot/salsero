@@ -9,9 +9,16 @@
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
 	import { guardNavigation } from '$lib/unsaved/guard.svelte';
+	import { syncSheets } from '$lib/sheets/history.svelte';
+	import { stopSample } from '$lib/songs/sample-player.svelte';
+	import { beforeNavigate } from '$app/navigation';
 
 	let { data, children } = $props();
 	guardNavigation();
+	// Back closes the top sheet, not the page (`$lib/sheets/stack.ts`).
+	syncSheets();
+	// A sample belongs to the page it was started on.
+	beforeNavigate(() => stopSample());
 	/*
 	 * This layout sits ABOVE `[dance]`, so no load of its own hands it the
 	 * dance — `/settings`, `/voice` and `/login` live out here too. The URL is

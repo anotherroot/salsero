@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { songs } from './db/schema';
 import { openDb, type Db } from './db';
+import { createCustomExercise, logSet } from './exercises';
 import {
 	LEASE_MS,
 	MAX_ATTEMPTS,
@@ -10,7 +13,10 @@ import {
 	failJob,
 	getSong,
 	listSongs,
+	recentSongIds,
 	retrySong,
+	setSampleStart,
+	songChoices,
 	setAnchors,
 	setTempoFactor,
 	storeAnalysis,
@@ -266,5 +272,172 @@ describe('songs are walled off by dance', () => {
 			style: 'sensual'
 		});
 		expect(claimJob(db, 1_000)).not.toBeNull();
+	});
+});
+
+describe('song samples and the picker', () => {
+	// 120 BPM: a beat every 0.5 s from 0, 90 s long. With no anchors the count
+	// starts at beat 0, so a 1 falls every 4 s; a third of 90 s is 30, which
+	// snaps back to 28.
+	const beats = Array.from({ length: 180 }, (_, i) => i * 0.5);
+	let n = 0;
+	beforeEach(() => {
+		n = 0;
+	});
+	const readySong = (title: string, dance: 'salsa' | 'bachata' = 'salsa') => {
+		const s = createSongFromUpload(db, dance, {
+			file: `s${n++}.mp3`,
+			mime: 'audio/mpeg',
+			title,
+			style: 'salsa'
+		});
+		storeAnalysis(db, s.id, { beats, downbeats: [], durationS: 90 });
+		return s;
+	};
+	const ex = (dance: 'salsa' | 'bachata' = 'salsa') =>
+		createCustomExercise(db, dance, { name: `E${n++}`, everyDays: 1, notes: null });
+	const play = (exerciseId: number, doneAt: number, songId: number | null | 'count') =>
+		logSet(db, {
+			exerciseId,
+			doneAt,
+			durationS: null,
+			reps: null,
+			rating: null,
+			note: null,
+			playerJson: songId === 'count' ? '{"count":true}' : JSON.stringify({ songId })
+		});
+
+	it('lists ready songs of the dance by title, with sample start and bpm', () => {
+		readySong('Zeta');
+		const a = readySong('Alpha');
+		readySong('Other dance', 'bachata');
+		createSongFromUrl(db, 'salsa', { url: URL, title: 'Waiting', style: 'salsa' });
+		setTempoFactor(db, a.id, 2);
+		const rows = songChoices(db, 'salsa');
+		expect(rows.map((r) => r.title)).toEqual(['Alpha', 'Zeta']);
+		expect(rows[0].bpm).toBe(240);
+		expect(rows[1].bpm).toBe(120);
+		expect(rows[1].sample).toEqual({ id: rows[1].id, audioFile: 's0.mp3', startS: 28 });
+		expect(rows.every((r) => r.recentRank === null)).toBe(true);
+	});
+
+	it('keeps a song with a malformed beats_json, with an unsnapped start', () => {
+		const a = readySong('Broken');
+		db.update(songs).set({ beatsJson: '{not json' }).where(eq(songs.id, a.id)).run();
+		const rows = songChoices(db, 'salsa');
+		expect(rows.map((r) => r.title)).toEqual(['Broken']);
+		expect(rows[0].sample.startS).toBe(30);
+	});
+
+	it('sets, snaps, rejects and clears the sample start', () => {
+		const s = readySong('A');
+		const start = () => songChoices(db, 'salsa')[0].sample.startS;
+		expect(setSampleStart(db, s.id, 43.9)).toBe(true);
+		expect(start()).toBe(40);
+		expect(setSampleStart(db, s.id, 95)).toBe(false);
+		expect(setSampleStart(db, s.id, -1)).toBe(false);
+		expect(getSong(db, s.id)?.sampleStartS).toBe(43.9);
+		expect(setSampleStart(db, s.id, null)).toBe(true);
+		expect(start()).toBe(28);
+	});
+
+	it('finds the songs practised most recently, newest first and distinct', () => {
+		const a = readySong('A');
+		const b = readySong('B');
+		const c = readySong('C', 'bachata');
+		const e = ex();
+		const other = ex('bachata');
+		play(e.id, 100, a.id);
+		play(e.id, 200, b.id);
+		play(e.id, 300, a.id);
+		play(e.id, 400, null);
+		play(e.id, 500, 'count');
+		play(other.id, 600, c.id);
+		expect(recentSongIds(db, 'salsa')).toEqual([a.id, b.id]);
+		expect(recentSongIds(db, 'salsa', 1)).toEqual([a.id]);
+		expect(recentSongIds(db, 'bachata')).toEqual([c.id]);
+	});
+
+	it('ranks the recent songs in the picker and leaves archived ones out', () => {
+		const a = readySong('A');
+		const b = readySong('B');
+		readySong('C');
+		const d = readySong('D');
+		const e = ex();
+		play(e.id, 100, d.id);
+		play(e.id, 200, b.id);
+		play(e.id, 300, a.id);
+		archiveSong(db, d.id, T);
+		const rows = songChoices(db, 'salsa');
+		expect(rows.map((r) => [r.title, r.recentRank])).toEqual([
+			['A', 0],
+			['B', 1],
+			['C', null]
+		]);
+	});
+
+	it('gives a ready song its sample and a waiting one none', () => {
+		const r = readySong('Ready');
+		createSongFromUpload(db, 'salsa', {
+			file: 'w.mp3',
+			mime: 'audio/mpeg',
+			title: 'Waiting',
+			style: 'salsa'
+		});
+		const rows = listSongs(db, 'salsa');
+		expect(rows.find((s) => s.id === r.id)?.sample).toEqual({
+			id: r.id,
+			audioFile: 's0.mp3',
+			startS: 28
+		});
+		expect(rows.find((s) => s.title === 'Waiting')?.sample).toBeNull();
+	});
+});
+
+describe('recent songs skip what the picker will not show', () => {
+	it('fills ranks from 0 when the newest recent song is archived or the log has bad JSON', () => {
+		const mk = (title: string, file: string) => {
+			const s = createSongFromUpload(db, 'salsa', {
+				file,
+				mime: 'audio/mpeg',
+				title,
+				style: 'salsa'
+			});
+			storeAnalysis(db, s.id, { beats: [0.5, 1], downbeats: [], durationS: 90 });
+			return s;
+		};
+		const a = mk('A', 'a.mp3');
+		const b = mk('B', 'b.mp3');
+		const waiting = createSongFromUpload(db, 'salsa', {
+			file: 'w.mp3',
+			mime: 'audio/mpeg',
+			title: 'W',
+			style: 'salsa'
+		});
+		const e = createCustomExercise(db, 'salsa', { name: 'E', everyDays: 1, notes: null });
+		const log = (doneAt: number, playerJson: string) =>
+			logSet(db, {
+				exerciseId: e.id,
+				doneAt,
+				durationS: null,
+				reps: null,
+				rating: null,
+				note: null,
+				playerJson
+			});
+		log(100, JSON.stringify({ songId: b.id }));
+		log(200, JSON.stringify({ songId: a.id }));
+		log(300, JSON.stringify({ songId: waiting.id }));
+		log(400, '{not json');
+		log(450, JSON.stringify({ songId: 'x' }));
+		log(500, JSON.stringify({ songId: 1.5 }));
+		const gone = mk('Gone', 'g.mp3');
+		log(600, JSON.stringify({ songId: gone.id }));
+		archiveSong(db, gone.id, T);
+		expect(recentSongIds(db, 'salsa')).toEqual([a.id, b.id]);
+		expect(songChoices(db, 'salsa').map((r) => [r.title, r.recentRank])).toEqual([
+			['A', 0],
+			['B', 1]
+		]);
 	});
 });

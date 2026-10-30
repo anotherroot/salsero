@@ -13,6 +13,7 @@
 </script>
 
 <script lang="ts">
+	import type { PickerSong } from '$lib/types';
 	import { resolve } from '$app/paths';
 	import { CALL_EVERY, CLAVE_PATTERNS, SPEEDS } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
@@ -20,10 +21,11 @@
 	import ClaveChips from './ClaveChips.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import SourcePicker from './SourcePicker.svelte';
+	import { stopSample } from '$lib/songs/sample-player.svelte';
 
 	interface Props {
 		/** This dance's ready songs, for the picker. */
-		songs: { id: number; title: string }[];
+		songs: PickerSong[];
 		/** Owned by the page, which loads the picked song and mounts its `<audio>`. */
 		source: 'song' | 'count';
 		songId: number | null;
@@ -172,6 +174,8 @@
 	});
 
 	function play() {
+		// A sample must never play under a run.
+		stopSample();
 		// The stored choice survives a run without a routine: it is what the next
 		// routine run starts from.
 		onplay({

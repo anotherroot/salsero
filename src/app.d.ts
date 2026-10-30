@@ -14,9 +14,16 @@ declare global {
 		interface PageData {
 			user?: SessionUser | null;
 		}
-		/** Shallow-routing state. `videoPlayer`: how many screens the full-screen player has open (`src/lib/video/player-history.ts`). */
+		/**
+		 * Shallow-routing state. `videoPlayer`: how many screens the full-screen
+		 * player has open (`src/lib/video/player-history.ts`). `sheets`: how many
+		 * sheets are open (`src/lib/sheets/stack.ts`). Each pushes with the
+		 * entry's other values spread in, so neither reads the other's entries
+		 * as a Back.
+		 */
 		interface PageState {
 			videoPlayer?: number;
+			sheets?: number;
 		}
 	}
 }

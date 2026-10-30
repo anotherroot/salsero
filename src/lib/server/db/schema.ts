@@ -422,6 +422,11 @@ export const songs = sqliteTable(
 		downbeatsJson: text('downbeats_json'),
 		anchorsJson: text('anchors_json').notNull().default('[]'),
 		tempoFactor: real('tempo_factor').notNull().default(1),
+		/**
+		 * Raw seconds the user chose for the sample to start at; null = automatic.
+		 * Snapped on read by `sampleStart` (`$lib/songs/sample`), never on write.
+		 */
+		sampleStartS: real('sample_start_s'),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},

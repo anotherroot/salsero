@@ -35,6 +35,7 @@
 		type Stack
 	} from '$lib/video/screens';
 	import { PlayerHistory } from '$lib/video/player-history';
+	import { entryState } from '$lib/sheets/history.svelte';
 	import { keyAction, type KeyAction } from '$lib/video/keys';
 	import { layoutFor } from '$lib/video/layout';
 	import { holdScreenOn } from '$lib/video/screen-on';
@@ -193,8 +194,9 @@
 
 	const nav = new PlayerHistory(
 		{
-			push: (d) => pushState('', { videoPlayer: d }),
-			replace: (d) => replaceState('', { videoPlayer: d }),
+			// The entry's own state spread in: a sheet under the player keeps its depth.
+			push: (d) => pushState('', { ...entryState(), videoPlayer: d }),
+			replace: (d) => replaceState('', { ...entryState(), videoPlayer: d }),
 			go: (d) => history.go(d)
 		},
 		(s) => {

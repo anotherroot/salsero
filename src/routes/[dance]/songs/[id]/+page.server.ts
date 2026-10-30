@@ -5,6 +5,8 @@ import {
 	archiveSong,
 	retrySong,
 	setAnchors,
+	setSampleStart,
+	songSample,
 	setTempoFactor,
 	updateSongMeta
 } from '$lib/server/songs';
@@ -65,7 +67,11 @@ export const load: PageServerLoad = ({ params }) => {
 			tempoFactor: song.tempoFactor
 		},
 		anchors,
-		grid
+		grid,
+		sample: (() => {
+			const sample = songSample(song);
+			return sample ? { song: sample, custom: song.sampleStartS !== null } : null;
+		})()
 	};
 };
 
@@ -101,6 +107,20 @@ export const actions: Actions = {
 		if (!(TEMPO_FACTORS as readonly number[]).includes(f))
 			return fail(400, { message: 'Bad tempo.' });
 		setTempoFactor(getDb(), song.id, f as TempoFactor);
+		return { ok: true };
+	},
+
+	/** The sample starts where the playhead `t` is; the song snaps it to a 1 when it plays. */
+	sample: async ({ params, request }) => {
+		const song = songOf(params);
+		const t = Number((await request.formData()).get('t'));
+		if (!Number.isFinite(t) || !setSampleStart(getDb(), song.id, t))
+			return fail(400, { message: 'Play the song first.' });
+		return { ok: true };
+	},
+
+	sampleAuto: ({ params }) => {
+		setSampleStart(getDb(), songOf(params).id, null);
 		return { ok: true };
 	},
 

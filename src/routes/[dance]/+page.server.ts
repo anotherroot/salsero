@@ -12,7 +12,7 @@ import { int, optionalText, text } from '$lib/server/form';
 import { lessonDays } from '$lib/server/lessons';
 import { logSetFrom, deleteSetFrom } from '$lib/server/log-form';
 import { danceOf } from '$lib/server/scope';
-import { listReadySongs } from '$lib/server/songs';
+import { songChoices } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
 import { PHRASE_PATTERNS } from '$lib/labels';
@@ -64,7 +64,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			.map((e) => ({ id: e.id, name: e.name }))
 			.sort((a, b) => a.name.localeCompare(b.name)),
 		// For the practice panel's song picker.
-		songs: listReadySongs(db, dance),
+		songs: songChoices(db, dance),
 		// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.
 		lessonDays: lessonDays(db, dance),
 		// The latest set's rating per exercise, for the dots on each row.

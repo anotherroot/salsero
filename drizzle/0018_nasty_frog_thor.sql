@@ -1,0 +1,1 @@
+ALTER TABLE `songs` ADD `sample_start_s` real;

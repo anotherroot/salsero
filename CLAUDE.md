@@ -77,6 +77,11 @@ Figures as variations have theirs,
 [`docs/superpowers/specs/2026-10-29-figures-are-variations-design.md`](docs/superpowers/specs/2026-10-29-figures-are-variations-design.md):
 the `figure_groups` table, self-contained variations, Move to…, and the figure
 page's one-variation-per-URL layout.
+Song samples and the song popup have theirs,
+[`docs/superpowers/specs/2026-10-30-song-samples-design.md`](docs/superpowers/specs/2026-10-30-song-samples-design.md):
+where a 15 s sample starts (stored raw, snapped to a 1 on read), one sample at
+a time, the searchable popup in place of the song `<select>`, and Back closing
+the top sheet.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -109,6 +114,19 @@ src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
                      navigation guard. ui/UnsavedDialog.svelte asks the question
+src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back to a 1)
+                     and its fade. search.ts is PURE: the song popup's folded
+                     search, Recent then A-Z, the highlight. sample-player.svelte.ts
+                     is the one impure part: the single sample `<audio>`, one
+                     sample at a time. Client-safe
+src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
+                     port, so Back closes only the top one, with holds while a
+                     navigation or a link click is in flight. history.svelte.ts
+                     wires it to SvelteKit shallow routing; it reads the depth from
+                     `history.state['sveltekit:states']`, not `page.state`,
+                     because `invalidateAll` resets `page.state`
+src/lib/fold.ts      accent and case folding, shared by the routine picker and the
+                     song search
 src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      whole-section moves, the loop rule. trim.ts (the trim
                      strip), screens.ts (the player's stack of levels and the

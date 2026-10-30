@@ -191,6 +191,7 @@ songs                                          -- phase 2
   downbeats_json  text, nullable               -- the model's downbeats, only for the suggested "1"
   anchors_json    text not null default '[]'   -- user: beat indices tapped as "1", sorted
   tempo_factor    real not null default 1      -- user: 0.5 / 1 / 2 — count every other beat, as detected, or twice per beat
+  sample_start_s  real, nullable               -- user: where the 15 s sample starts, raw; null = automatic (a third in). Snapped to a 1 on read
   archived_at     timestamp, nullable
   created_at      timestamp
 
@@ -418,6 +419,16 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   straight here; its sheet of songs is gone. The song's progress bar
   (`player/SongProgress.svelte`) shows before Play, so an intro can be
   skipped.
+- **Song samples and the song popup** (since 2026-10-30) have their own
+  spec, [`2026-10-30-song-samples-design.md`](2026-10-30-song-samples-design.md).
+  `SourcePicker`'s song `<select>` is now `player/SongPicker.svelte`: a field
+  with the pick and a ▶, opening "Pick a song" — a search, then Recent and
+  A to Z, a 15 s sample on every row. Samples play from their own
+  module-level `<audio>` (`src/lib/songs/sample-player.svelte.ts`), never the
+  player's, one at a time; Play (and the panel's ▶) stops one first. Where a
+  sample starts is `sampleStart` (`src/lib/songs/sample.ts`): a third of the
+  way in, or `sample_start_s` from the song's page, snapped to a 1 on read.
+  Recent is derived from the latest sets' `player_json.songId`, never stored.
 - **The scheduler plays a plan:** the scheduler plays a
   _plan_ — as built, a list of `{ eight, figureId }`, where `eight` is the
   8-count the figure STARTS on and the call sounds on count 5 of the one before.
@@ -537,9 +548,24 @@ unsaved.
   register with `track()`: the voice page's unkept take, and an upload in
   flight.
 - **When it asks.** Any in-app navigation (links, the bottom nav, back and
-  forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop or
-  Escape (only about what is inside that sheet; the way out is "Close"); the
-  log popup's Skip, Next and Finish ("Skip without saving"…).
+  forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop,
+  Escape or Back (only about what is inside that sheet; the way out is
+  "Close"); the log popup's Skip, Next and Finish ("Skip without saving"…).
+- **Back on a sheet.** Each open sheet holds one shallow history entry
+  (`page.state.sheets`, `src/lib/sheets/`), so Back — Android's button and
+  gesture, the browser's — closes only the topmost sheet. A popstate between
+  shallow entries runs no `beforeNavigate`, so the sheet asks its own question
+  exactly as its ✕ does; if the user stays, the entry Back took is pushed
+  again. ✕, the backdrop and Escape go back over the entry too, so history
+  never keeps one for a closed sheet. A sheet closed by its page (a save, a
+  link inside it) leaves an entry only when the page moved on, and Back onto
+  it bounces straight past. The depth is read from the history entry, not
+  from `page.state`, which `invalidateAll()` resets to {}. Known gaps:
+  `startSession` leaves a stale `/[dance]` entry carrying `sheets: 1`, which
+  Back bounces over in one press; a multi-step desktop Back (long-press
+  history) over a sheet with unsaved work can ask twice; and the lesson
+  page's light `LinkPopup` is its own `<dialog>`, not a Sheet, so Back there
+  still leaves the page.
 - **What it offers.** Save · Stay · *Leave* without saving. Save submits the
   real form(s) and waits for the server's answer: Saved ✓ then offers Leave or
   Stay; a failure shows the server's message with "Stay and fix it". A form
