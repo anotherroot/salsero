@@ -70,6 +70,7 @@ import * as routinePage from './routines/[id]/+page.server';
 import * as coveragePage from './coverage/+page.server';
 import * as gridEndpoint from './songs/[id]/grid/+server';
 import * as practiceEndpoint from './exercises/[id]/practice/+server';
+import type { PickerSong } from '$lib/types';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -256,7 +257,7 @@ describe("the player's song picker stays on its own side", () => {
 		return song.id;
 	};
 	type PlayerLoad = (e: { params: { dance: string }; url: URL; locals: unknown }) => {
-		songs: { id: number; title: string }[];
+		songs: PickerSong[];
 		start: { source: string; songId: number | null; songGone: boolean };
 	};
 	const openPlayer = (dance: string, query: string) =>
@@ -270,8 +271,12 @@ describe("the player's song picker stays on its own side", () => {
 		const salsaSong = ready('salsa', 'Salsa ready');
 		const bachataSong = ready('bachata', 'Bachata ready');
 		// The failed `bachataSongId` from `beforeEach` is not ready, so it is not offered either.
-		expect(openPlayer('salsa', '').songs).toEqual([{ id: salsaSong, title: 'Salsa ready' }]);
-		expect(openPlayer('bachata', '').songs).toEqual([{ id: bachataSong, title: 'Bachata ready' }]);
+		expect(openPlayer('salsa', '').songs.map((s) => [s.id, s.title])).toEqual([
+			[salsaSong, 'Salsa ready']
+		]);
+		expect(openPlayer('bachata', '').songs.map((s) => [s.id, s.title])).toEqual([
+			[bachataSong, 'Bachata ready']
+		]);
 		expect(() => openPlayer('salsa', `song=${bachataSong}`)).toThrow(threw404);
 		expect(openPlayer('salsa', `song=${salsaSong}`).start).toMatchObject({
 			source: 'song',

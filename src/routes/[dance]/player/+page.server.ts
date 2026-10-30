@@ -7,7 +7,7 @@ import { listFiguresForCall } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getRoutine, routineShapes } from '$lib/server/routines';
-import { listReadySongs } from '$lib/server/songs';
+import { songChoices } from '$lib/server/songs';
 import { practiceStart } from '$lib/exercises/practice';
 import { danceOf, exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -22,7 +22,7 @@ export const load: PageServerLoad = ({ url, params }) => {
 	// This dance's ready songs only: a song from the other dance is no song at
 	// all here, or `/salsa/player?song=` would play a bachata track under a
 	// salsa count.
-	const songs = listReadySongs(db, dance);
+	const songs = songChoices(db, dance);
 	if (songId && !songs.some((s) => s.id === songId)) {
 		throw error(404, 'No analysed song here');
 	}

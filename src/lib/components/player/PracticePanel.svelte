@@ -24,13 +24,13 @@
 	import { STOPPED, elapsedMs, pauseWatch, startWatch } from '$lib/exercises/stopwatch';
 	import { clock } from '$lib/format';
 	import type { Dance } from '$lib/dances/dances';
-	import type { CountTakeRow, ExerciseItem } from '$lib/types';
+	import type { CountTakeRow, ExerciseItem, PickerSong } from '$lib/types';
 
 	interface Props {
 		dance: Dance;
 		exercise: ExerciseItem;
 		/** This dance's ready songs. */
-		songs: { id: number; title: string }[];
+		songs: PickerSong[];
 		takes: CountTakeRow[];
 		/** The figure to call on cue — the figure popup only. */
 		cue: { figureId: number; say: string; eights: number } | null;

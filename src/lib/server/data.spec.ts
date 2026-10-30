@@ -32,7 +32,7 @@ import {
 	updateVariation
 } from './figures';
 import { archiveLesson, createLesson, linkFigure, taughtIn } from './lessons';
-import { createSongFromUpload, listReadySongs } from './songs';
+import { createSongFromUpload, songChoices } from './songs';
 import { createRoutine } from './routines';
 
 let db: Db;
@@ -358,7 +358,7 @@ describe('Today is walled off by dance', () => {
 		// createSongFromUpload leaves status 'waiting_analysis'; mark both ready.
 		db.update(songs).set({ status: 'ready' }).run();
 
-		expect(listReadySongs(db, 'bachata').map((s) => s.title)).toEqual(['Obsesion']);
+		expect(songChoices(db, 'bachata').map((s) => s.title)).toEqual(['Obsesion']);
 	});
 });
 

@@ -80,6 +80,29 @@ export interface SongItem {
 	bpm: number | null;
 	tempoFactor: TempoFactor;
 	createdAt: number;
+	/** Null unless the song is ready with an audio file. */
+	sample: SampleSong | null;
+}
+
+/** What a play button needs to play a song's sample. */
+export interface SampleSong {
+	id: number;
+	audioFile: string;
+	startS: number;
+}
+
+/** A ready song as the song popup lists it. */
+export interface PickerSong {
+	id: number;
+	title: string;
+	artist: string | null;
+	style: string;
+	/** As the Songs list shows it: bpm × tempoFactor, rounded; null when unknown. */
+	bpm: number | null;
+	durationS: number | null;
+	sample: SampleSong;
+	/** 0 = the song practised with most recently; null = not among the last five. */
+	recentRank: number | null;
 }
 
 /**

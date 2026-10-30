@@ -13,6 +13,7 @@
 </script>
 
 <script lang="ts">
+	import type { PickerSong } from '$lib/types';
 	import { resolve } from '$app/paths';
 	import { CALL_EVERY, CLAVE_PATTERNS, SPEEDS } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
@@ -23,7 +24,7 @@
 
 	interface Props {
 		/** This dance's ready songs, for the picker. */
-		songs: { id: number; title: string }[];
+		songs: PickerSong[];
 		/** Owned by the page, which loads the picked song and mounts its `<audio>`. */
 		source: 'song' | 'count';
 		songId: number | null;

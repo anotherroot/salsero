@@ -10,7 +10,7 @@ import type { DanceSlug } from '$lib/dances/dances';
 import type { Db } from './db';
 import { listCountTakesFor } from './countTakes';
 import { exerciseHistory, listExercises } from './exercises';
-import { listReadySongs } from './songs';
+import { songChoices } from './songs';
 
 export function popupData(db: Db, dance: DanceSlug, exerciseId: number, tz: string, now: number) {
 	const exercise = listExercises(db, dance).find((e) => e.id === exerciseId);
@@ -20,7 +20,7 @@ export function popupData(db: Db, dance: DanceSlug, exerciseId: number, tz: stri
 		exercise,
 		// Fifty is far more sets than one day holds; the filter decides "today".
 		sets: exerciseHistory(db, exerciseId, 50).filter((s) => localDay(s.doneAt, tz) === today),
-		songs: listReadySongs(db, dance),
+		songs: songChoices(db, dance),
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
 	};
 }

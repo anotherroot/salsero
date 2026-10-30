@@ -1,10 +1,12 @@
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { songs, type Song } from './db/schema';
+import { exercises, sets, songs, type Song } from './db/schema';
+import { songGrid } from './grid';
+import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { TempoFactor } from '$lib/labels';
-import type { SongItem } from '$lib/types';
+import type { PickerSong, SampleSong, SongItem } from '$lib/types';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
 export const LEASE_MS = 15 * 60_000;
@@ -49,35 +51,101 @@ export function createSongFromUpload(
 		.get();
 }
 
+export function songSample(song: Song): SampleSong | null {
+	if (!song.audioFile) return null;
+	const { beats, counts } = songGrid(song);
+	return {
+		id: song.id,
+		audioFile: song.audioFile,
+		startS: sampleStart({ durationS: song.durationS, beats, counts, customS: song.sampleStartS })
+	};
+}
+
 export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
 	return db
-		.select({
-			id: songs.id,
-			title: songs.title,
-			artist: songs.artist,
-			style: songs.style,
-			sourceUrl: songs.sourceUrl,
-			status: songs.status,
-			error: songs.error,
-			durationS: songs.durationS,
-			bpm: songs.bpm,
-			tempoFactor: songs.tempoFactor,
-			createdAt: songs.createdAt
-		})
+		.select()
 		.from(songs)
 		.where(and(isNull(songs.archivedAt), eq(songs.dance, dance)))
 		.orderBy(desc(songs.createdAt), desc(songs.id))
-		.all() as SongItem[];
+		.all()
+		.map((s) => ({
+			id: s.id,
+			title: s.title,
+			artist: s.artist,
+			style: s.style,
+			sourceUrl: s.sourceUrl,
+			status: s.status,
+			error: s.error,
+			durationS: s.durationS,
+			bpm: s.bpm,
+			tempoFactor: s.tempoFactor as TempoFactor,
+			createdAt: s.createdAt,
+			sample: s.status === 'ready' ? songSample(s) : null
+		}));
 }
 
-/** Ready, unarchived songs of one dance, for the practice-mode song picker. */
-export function listReadySongs(db: Db, dance: DanceSlug): { id: number; title: string }[] {
-	return db
-		.select({ id: songs.id, title: songs.title })
+/**
+ * The songs most recently practised in this dance's player, newest first and
+ * distinct. Reads the latest 200 sets that name a song, which is far more than
+ * five distinct songs need.
+ */
+export function recentSongIds(db: Db, dance: DanceSlug, limit = 5): number[] {
+	const songId = sql<number | null>`json_extract(${sets.playerJson}, '$.songId')`;
+	const rows = db
+		.select({ songId })
+		.from(sets)
+		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
+		.where(and(eq(exercises.dance, dance), sql`${songId} is not null`))
+		.orderBy(desc(sets.doneAt), desc(sets.id))
+		.limit(200)
+		.all();
+	const ids: number[] = [];
+	for (const r of rows) {
+		if (r.songId === null || ids.includes(r.songId)) continue;
+		ids.push(r.songId);
+		if (ids.length >= limit) break;
+	}
+	return ids;
+}
+
+/** Ready, unarchived songs of one dance, for the song popup: by title, with their sample and recency. */
+export function songChoices(db: Db, dance: DanceSlug): PickerSong[] {
+	const recent = recentSongIds(db, dance);
+	const rows = db
+		.select()
 		.from(songs)
 		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready'), eq(songs.dance, dance)))
 		.orderBy(songs.title)
 		.all();
+	const out: PickerSong[] = [];
+	for (const s of rows) {
+		const sample = songSample(s);
+		if (!sample) continue;
+		const rank = recent.indexOf(s.id);
+		out.push({
+			id: s.id,
+			title: s.title,
+			artist: s.artist,
+			style: s.style,
+			bpm: s.bpm ? Math.round(s.bpm * s.tempoFactor) : null,
+			durationS: s.durationS,
+			sample,
+			recentRank: rank < 0 ? null : rank
+		});
+	}
+	return out;
+}
+
+/** Where the user wants the sample to start, or null for automatic. False, and nothing written, when out of range. */
+export function setSampleStart(db: Db, id: number, startS: number | null): boolean {
+	const song = getSong(db, id);
+	if (!song) return false;
+	if (startS !== null) {
+		if (!Number.isFinite(startS) || startS < 0) return false;
+		if (song.durationS !== null && startS >= song.durationS) return false;
+	}
+	db.update(songs).set({ sampleStartS: startS }).where(eq(songs.id, id)).run();
+	return true;
 }
 
 export function getSong(db: Db, id: number): Song | null {

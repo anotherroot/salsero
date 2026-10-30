@@ -1,6 +1,12 @@
 <script lang="ts" module>
 	import type { Dance } from '$lib/dances/dances';
-	import type { CountTakeRow, ExerciseItem, HistorySet, PracticePayload } from '$lib/types';
+	import type {
+		CountTakeRow,
+		ExerciseItem,
+		HistorySet,
+		PickerSong,
+		PracticePayload
+	} from '$lib/types';
 
 	/** A session walking Today's list, as the popup sees it. See `$lib/exercises/session`. */
 	export interface SessionControls {
@@ -22,7 +28,7 @@
 		exercise: ExerciseItem;
 		/** This exercise's sets on the day being viewed. */
 		sets: HistorySet[];
-		songs: { id: number; title: string }[];
+		songs: PickerSong[];
 		takes: CountTakeRow[];
 		/** A past day to back-fill onto, or null for "now". */
 		backfillDay: string | null;

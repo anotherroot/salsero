@@ -6,6 +6,7 @@
 	(`loadSongGrid`), since the owner also mounts the `<audio>`.
 -->
 <script lang="ts">
+	import type { PickerSong } from '$lib/types';
 	import { CHIP, FIELD, LABEL } from '$lib/components/ui/styles';
 	import { SPEEDS, type Speed } from '$lib/labels';
 
@@ -13,7 +14,7 @@
 		/** Prefix for the radio groups' names, so two pickers never share a group. */
 		name: string;
 		/** This dance's ready songs. Without any, only the tempo is offered. */
-		songs: { id: number; title: string }[];
+		songs: PickerSong[];
 		source: 'count' | 'song';
 		songId: number | null;
 		speed: Speed;
