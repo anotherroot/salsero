@@ -2,9 +2,10 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import SectionPlayer from '$lib/components/ui/SectionPlayer.svelte';
-	import LinkPopup, { type LinkStep } from '$lib/components/links/LinkPopup.svelte';
+	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
 	import Icon from '$lib/components/video/Icon.svelte';
 	import { icons } from '$lib/components/video/icons';
+	import { openingSteps, type LinkStep } from '$lib/video/link-steps';
 	import { spotLabel, spotTime } from '$lib/video/spots';
 	import type { Spot, SpotOwner, VideoSection } from '$lib/types';
 
@@ -26,7 +27,14 @@
 
 	let playing = $state<Spot | null>(null);
 	let linkingSpot = $state<number | null>(null);
-	let step = $state<LinkStep>('list');
+	/** The Link popup's levels, bottom first; empty when it is closed. */
+	let steps = $state<LinkStep[]>([]);
+
+	function closeLink() {
+		linkingSpot = null;
+		steps = [];
+		void invalidateAll();
+	}
 
 	const asSpot = (s: VideoSection): Spot => ({
 		id: s.id,
@@ -75,7 +83,7 @@
 								: 'text-ink-2'}"
 							aria-label="Link {spotLabel(s)}"
 							onclick={() => {
-								step = 'list';
+								steps = openingSteps(s.links.length);
 								linkingSpot = s.id;
 							}}><Icon d={icons.link} size={20} /></button
 						>
@@ -90,12 +98,13 @@
 	<LinkPopup
 		spotId={linkingSpot}
 		theme="light"
-		{step}
-		onstep={(s) => (step = s)}
-		onclose={() => {
-			linkingSpot = null;
-			void invalidateAll();
+		{steps}
+		onpush={(s) => (steps = [...steps, s])}
+		onback={() => {
+			steps = steps.slice(0, -1);
+			if (steps.length === 0) closeLink();
 		}}
+		onclose={closeLink}
 	/>
 {/if}
 

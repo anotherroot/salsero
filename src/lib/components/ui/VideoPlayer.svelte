@@ -52,7 +52,8 @@
 	import SectionRow from '$lib/components/video/SectionRow.svelte';
 	import SpotEditor, { type MoveHow, type Times } from '$lib/components/video/SpotEditor.svelte';
 	import PlayerSheet from '$lib/components/video/PlayerSheet.svelte';
-	import LinkPopup, { type LinkStep } from '$lib/components/links/LinkPopup.svelte';
+	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
+	import type { LinkStep } from '$lib/video/link-steps';
 	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -138,9 +139,9 @@
 	let sheetMessage = $state<string | null>(null);
 	type ToastAction = { label: string; run: () => void };
 	let toast = $state<{ text: string; actions: ToastAction[] } | null>(null);
-	/** The section the Link popup is on, and its create step while one is open. */
+	/** The section the Link popup is on, and its levels above the list. */
 	let linkSpotId = $state<number | null>(null);
-	let linkStep = $state<LinkStep>('list');
+	let linkSteps = $state<LinkStep[]>(['links']);
 
 	const level = $derived(levelOf(stack));
 	const sheet = $derived(sheetOf(stack));
@@ -465,18 +466,28 @@
 	function openLink(spotId: number) {
 		toast = null;
 		linkSpotId = spotId;
-		linkStep = 'list';
+		linkSteps = ['links'];
 		openSheet('link');
 	}
 
-	/** The popup's list ↔ create steps are two sheets, so Back walks them like any level. */
-	function linkStepTo(next: LinkStep) {
-		if (next === 'list') {
-			if (sheet === 'link-new') nav.up();
+	// A bridge until Task 10 ties every level to history: the levels above the list share one 'link-new' sheet.
+	function linkPush(next: LinkStep) {
+		if (sheet === 'link') {
+			linkSteps = ['links', next];
+			nav.push({ kind: 'sheet', sheet: 'link-new' });
+		} else linkSteps = [...linkSteps, next];
+	}
+
+	function linkBack() {
+		if (sheet === 'link') {
+			closeLink();
 			return;
 		}
-		linkStep = next;
-		if (sheet === 'link') nav.push({ kind: 'sheet', sheet: 'link-new' });
+		linkSteps = linkSteps.slice(0, -1);
+		if (linkSteps.length <= 1) {
+			linkSteps = ['links'];
+			nav.up();
+		}
 	}
 
 	function closeLink() {
@@ -1185,8 +1196,9 @@
 			<LinkPopup
 				spotId={linkSpotId}
 				theme="dark"
-				step={sheet === 'link' ? 'list' : linkStep}
-				onstep={linkStepTo}
+				steps={sheet === 'link' ? ['links'] : linkSteps}
+				onpush={linkPush}
+				onback={linkBack}
 				onchange={linkedChanged}
 				onclose={closeLink}
 			/>
