@@ -3,6 +3,8 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import SampleButton from '$lib/components/songs/SampleButton.svelte';
+	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { clock } from '$lib/format';
 	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
@@ -12,6 +14,12 @@
 
 	let audio: HTMLAudioElement | undefined = $state();
 	let tapped = $state(false);
+	let now = $state(0);
+
+	// One sound at a time: the sample pauses this page's own copy of the song.
+	$effect(() => {
+		if (sampling.id === data.song.id) audio?.pause();
+	});
 
 	const song = $derived(data.song);
 	const grid = $derived(data.grid);
@@ -51,7 +59,15 @@
 		>
 
 		<!-- preload=auto: the count needs the playhead to be accurate from the first tap. -->
-		<audio bind:this={audio} src="/audio/{song.audioFile}" controls preload="auto" class="w-full"
+		<audio
+			bind:this={audio}
+			src="/audio/{song.audioFile}"
+			controls
+			preload="auto"
+			class="w-full"
+			onplay={stopSample}
+			ontimeupdate={() => (now = audio?.currentTime ?? 0)}
+			onseeked={() => (now = audio?.currentTime ?? 0)}
 		></audio>
 
 		<LiveCount time={() => audio?.currentTime ?? null} beats={grid.beats} counts={grid.counts} />
@@ -86,6 +102,49 @@
 			{/if}
 			{#if grid.bpm}· {Math.round(grid.bpm)} BPM{/if}
 		</p>
+
+		{#if data.sample}
+			<section>
+				<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Sample</h2>
+				<div class="flex items-stretch rounded-xl border border-line bg-raised">
+					<div class="min-w-0 flex-1 px-3 py-2.5">
+						<div class="flex items-center gap-2 text-[15px]">
+							<span class="tabular-nums">From {clock(data.sample.song.startS)}</span>
+							<span
+								class="rounded-full px-2 py-0.5 text-[11px] font-medium {data.sample.custom
+									? 'bg-accent/15 text-accent'
+									: 'bg-plane text-muted'}">{data.sample.custom ? 'Yours' : 'Automatic'}</span
+							>
+						</div>
+						<p class="mt-0.5 text-[12px] text-muted">
+							{data.sample.custom ? 'Set by you' : 'A third of the way in, on a 1'}
+						</p>
+					</div>
+					<SampleButton song={data.sample.song} />
+				</div>
+				<form
+					method="POST"
+					action="?/sample"
+					use:enhance={({ formData }) => {
+						formData.set('t', String(audio?.currentTime ?? 0));
+						return async ({ update }) => update({ reset: false });
+					}}
+					class="mt-2"
+				>
+					<button
+						type="submit"
+						class="h-11 w-full rounded-xl border border-accent text-[14px] font-medium text-accent"
+						>Start the sample at {clock(now)}</button
+					>
+				</form>
+				{#if data.sample.custom}
+					<form method="POST" action="?/sampleAuto" use:enhance class="mt-2">
+						<button type="submit" class="text-[13px] text-muted underline">Back to automatic</button
+						>
+					</form>
+				{/if}
+			</section>
+		{/if}
 
 		<section>
 			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Count speed</h2>
