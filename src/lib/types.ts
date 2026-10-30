@@ -213,6 +213,28 @@ export interface LessonExerciseRow {
 	viaSections: ViaSection[];
 }
 
+/** An exercise as a picker offers it. */
+export interface PickExercise {
+	id: number;
+	name: string;
+	source: Source;
+	everyDays: number;
+	/** A figure exercise's figure and variation names; null otherwise. */
+	figure: string | null;
+	variation: string | null;
+	linked: boolean;
+}
+
+/** A routine as a picker offers it. */
+export interface PickRoutine {
+	id: number;
+	name: string;
+	/** Slots, children counted as one. */
+	slots: number;
+	loops: boolean;
+	linked: boolean;
+}
+
 /** One variation of a figure, as a picker offers it. */
 export interface FigureVersion {
 	id: number;

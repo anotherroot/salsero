@@ -17,9 +17,9 @@ import { exercises, figures, routineStepOptions, routineSteps, routines } from '
 import { buildGraph } from './graph';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import type { DanceSlug } from '$lib/dances/dances';
-import type { OptionsSlot, RoutineShape, Slot } from '$lib/routines/routines';
+import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
-import type { RoutineItem, SlotRow } from '$lib/types';
+import type { PickRoutine, RoutineItem, SlotRow } from '$lib/types';
 
 /** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
 function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, number[]> {
@@ -132,6 +132,23 @@ export function listRoutines(db: Db, dance: DanceSlug): RoutineItem[] {
 		.groupBy(routines.id)
 		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
+}
+
+/** Every live routine of the dance as a picker offers it, by name. */
+export function listPickRoutines(db: Db, dance: DanceSlug): Omit<PickRoutine, 'linked'>[] {
+	const shapes = routineShapes(db, dance);
+	const graph = buildGraph(db, dance);
+	return listRoutines(db, dance)
+		.map((r) => {
+			const shape = shapes.get(r.id);
+			return {
+				id: r.id,
+				name: r.name,
+				slots: r.slots,
+				loops: shape ? loops(graph, shape) : false
+			};
+		})
+		.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 }
 
 /**

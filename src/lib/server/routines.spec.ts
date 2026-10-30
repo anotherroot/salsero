@@ -12,6 +12,7 @@ import {
 	embeddable,
 	getRoutine,
 	insertSlot,
+	listPickRoutines,
 	listRoutines,
 	moveSlotTo,
 	removeOption,
@@ -833,5 +834,33 @@ describe('extractRoutine', () => {
 		const foreign = addFigureSlot(db, other.id, figure(db, 'E').id)!;
 		expect(extractRoutine(db, routine.id, [foreign], 'Combo')).toBeNull();
 		expect(routineSlots(db, other.id).map((s) => s.id)).toEqual([foreign]);
+	});
+});
+
+describe('listPickRoutines', () => {
+	it('slots counts children as one; loops follows loops()', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const empty = createRoutine(db, 'salsa', { name: 'Empty', notes: null }).routine;
+		const loopy = createRoutine(db, 'salsa', { name: 'Around', notes: null }).routine;
+		const open = createRoutine(db, 'salsa', { name: 'Open', notes: null }).routine;
+		const parent = createRoutine(db, 'salsa', { name: 'Parent', notes: null }).routine;
+		createRoutine(db, 'bachata', { name: 'Elsewhere', notes: null });
+		const gone = createRoutine(db, 'salsa', { name: 'Gone', notes: null }).routine;
+		archiveRoutine(db, gone.id, 1000);
+
+		addFigureSlot(db, loopy.id, figure(db, 'A').id); // 1 → 1: runs back into itself
+		const b = figure(db, 'B');
+		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 1, lengthCounts: 4 }); // 1 → 5
+		addFigureSlot(db, open.id, b.id);
+		addFigureSlot(db, parent.id, figure(db, 'C').id);
+		addChildSlot(db, parent.id, loopy.id); // a child with one slot is still one slot
+
+		expect(listPickRoutines(db, 'salsa')).toEqual([
+			{ id: loopy.id, name: 'Around', slots: 1, loops: true },
+			{ id: empty.id, name: 'Empty', slots: 0, loops: false },
+			{ id: open.id, name: 'Open', slots: 1, loops: false },
+			{ id: parent.id, name: 'Parent', slots: 2, loops: expect.any(Boolean) }
+		]);
 	});
 });

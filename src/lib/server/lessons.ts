@@ -2,6 +2,8 @@ import { and, asc, count, desc, eq, inArray, isNull, ne, notInArray, or, sum } f
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
+import { listVersions } from './figures';
+import { listPickRoutines } from './routines';
 import {
 	exercises,
 	figureGroups,
@@ -21,7 +23,10 @@ import type {
 	LessonFigureRow,
 	LessonItem,
 	LessonRoutineRow,
-	LessonVideoRow
+	LessonVideoRow,
+	FigureVersion,
+	PickExercise,
+	PickRoutine
 } from '$lib/types';
 
 export interface LessonInput {
@@ -487,8 +492,11 @@ export function unlinkExercise(
 	});
 }
 
-/** Live variations this lesson does not already link, by label. */
-export function listLinkableFigures(db: Db, lessonId: number) {
+/** Live variations of the lesson's dance, by label; `linked` marks those already on the lesson. */
+export function listLinkableFigures(
+	db: Db,
+	lessonId: number
+): (FigureVersion & { linked: boolean })[] {
 	const lesson = db
 		.select({ dance: lessons.dance })
 		.from(lessons)
@@ -496,25 +504,15 @@ export function listLinkableFigures(db: Db, lessonId: number) {
 		.get();
 	if (!lesson) return [];
 
-	const linked = linkedFigureIds(db, lessonId);
-	const where = [
-		isNull(figures.archivedAt),
-		isNull(figureGroups.archivedAt),
-		eq(figures.dance, lesson.dance)
-	];
-	if (linked.length > 0) where.push(notInArray(figures.id, linked));
-	return db
-		.select({ id: figures.id, figure: figureGroups.name, variation: figures.name })
-		.from(figures)
-		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(and(...where))
-		.all()
-		.map((r) => ({ id: r.id, name: `${r.figure} · ${r.variation}` }))
-		.sort((a, b) => a.name.localeCompare(b.name));
+	const linked = new Set(linkedFigureIds(db, lessonId));
+	return listVersions(db, lesson.dance as DanceSlug).map((v) => ({
+		...v,
+		linked: linked.has(v.id)
+	}));
 }
 
-/** Unarchived routines this lesson does not already link, alphabetical. */
-export function listLinkableRoutines(db: Db, lessonId: number) {
+/** Unarchived routines of the lesson's dance, alphabetical; `linked` marks those already on it. */
+export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
 	const lesson = db
 		.select({ dance: lessons.dance })
 		.from(lessons)
@@ -522,24 +520,20 @@ export function listLinkableRoutines(db: Db, lessonId: number) {
 		.get();
 	if (!lesson) return [];
 
-	const linked = linkedRoutineIds(db, lessonId);
-	const where = [isNull(routines.archivedAt), eq(routines.dance, lesson.dance)];
-	if (linked.length > 0) where.push(notInArray(routines.id, linked));
-	return db
-		.select({ id: routines.id, name: routines.name })
-		.from(routines)
-		.where(and(...where))
-		.orderBy(asc(routines.name))
-		.all();
+	const linked = new Set(linkedRoutineIds(db, lessonId));
+	return listPickRoutines(db, lesson.dance as DanceSlug).map((r) => ({
+		...r,
+		linked: linked.has(r.id)
+	}));
 }
 
 /**
- * Exercises this lesson could still link: not archived, not already linked,
- * not owned by one of its figures or routines, and not any lesson's review exercise — a
+ * Exercises this lesson could link: not archived, `linked` marking those already
+ * on it, not owned by one of its figures or routines, and not any lesson's review exercise — a
  * review exercise belongs to the lesson that created it, and borrowing one
  * into a second lesson makes "whose is this?" unanswerable on screen.
  */
-export function listLinkableExercises(db: Db, lessonId: number) {
+export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] {
 	const lesson = db
 		.select({ dance: lessons.dance })
 		.from(lessons)
@@ -547,7 +541,7 @@ export function listLinkableExercises(db: Db, lessonId: number) {
 		.get();
 	if (!lesson) return [];
 
-	const alreadyLinked = [
+	const alreadyLinked = new Set([
 		...db
 			.select({ id: lessonExercises.exerciseId })
 			.from(lessonExercises)
@@ -555,7 +549,7 @@ export function listLinkableExercises(db: Db, lessonId: number) {
 			.all()
 			.map((r) => r.id),
 		...viaSections(db, lessonId).exercises.keys()
-	];
+	]);
 
 	const linkedFigures = linkedFigureIds(db, lessonId);
 
@@ -564,7 +558,6 @@ export function listLinkableExercises(db: Db, lessonId: number) {
 		ne(exercises.source, 'lesson'),
 		eq(exercises.dance, lesson.dance)
 	];
-	if (alreadyLinked.length > 0) where.push(notInArray(exercises.id, alreadyLinked));
 	if (linkedFigures.length > 0) {
 		// `NOT IN` is null-propagating: a custom exercise has a null `figure_id`,
 		// so `figure_id not in (…)` is NULL, not true, and would drop every custom
@@ -578,11 +571,21 @@ export function listLinkableExercises(db: Db, lessonId: number) {
 	}
 
 	return db
-		.select({ id: exercises.id, name: exercises.name, source: exercises.source })
+		.select({
+			id: exercises.id,
+			name: exercises.name,
+			source: exercises.source,
+			everyDays: exercises.everyDays,
+			figure: figureGroups.name,
+			variation: figures.name
+		})
 		.from(exercises)
+		.leftJoin(figures, eq(figures.id, exercises.figureId))
+		.leftJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.where(and(...where))
-		.orderBy(asc(exercises.name))
-		.all();
+		.orderBy(asc(exercises.name), asc(exercises.id))
+		.all()
+		.map((r) => ({ ...r, linked: alreadyLinked.has(r.id) }));
 }
 
 export function addLessonVideo(db: Db, input: LessonVideoInput) {

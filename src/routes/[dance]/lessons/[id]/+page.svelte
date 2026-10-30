@@ -352,7 +352,7 @@
 			<LinkPicker
 				action="?/linkExercise"
 				name="exerciseId"
-				items={data.linkableExercises}
+				items={data.linkableExercises.filter((e) => !e.linked)}
 				label="Link an existing exercise"
 				empty="Nothing left to link. A figure’s or routine’s exercise lives under it."
 			/>
@@ -392,7 +392,7 @@
 			<LinkPicker
 				action="?/linkRoutine"
 				name="routineId"
-				items={data.linkableRoutines}
+				items={data.linkableRoutines.filter((r) => !r.linked)}
 				label="Link an existing routine"
 				empty="Every routine is already linked."
 			/>
@@ -458,7 +458,9 @@
 			<LinkPicker
 				action="?/linkFigure"
 				name="figureId"
-				items={data.linkableFigures}
+				items={data.linkableFigures
+					.filter((f) => !f.linked)
+					.map((f) => ({ id: f.id, name: f.label }))}
 				label="Link an existing figure"
 				empty="Every figure is already linked."
 			/>
