@@ -17,6 +17,12 @@
  * variation) hands its entry over instead of going back and pushing: a
  * `pushState` made while a `history.go` is on its way is gone over by it.
  *
+ * They are also held while a navigation of the page's own is on its way
+ * (`hold`): a sheet its owner closes just before a `goto` (the session's
+ * Finish) must not send a Back that lands during the load — SvelteKit aborts
+ * a navigation when a popstate arrives, or the Back goes over its new entry.
+ * Once the navigation lands, the old page's entries are behind it anyway.
+ *
  * Plain TypeScript behind an injected port, so it runs under the node test
  * project; `history.svelte.ts` wires the port to SvelteKit's shallow routing.
  */
@@ -25,7 +31,10 @@ export interface SheetPort {
 	/** Push an entry holding `depth` sheets. */
 	push(depth: number): void;
 	go(delta: number): void;
-	/** Run `fn` once the current task's own work is done (a microtask). */
+	/**
+	 * Run `fn` in a later task — after the microtasks that start a `goto`
+	 * called in the same handler, so its `hold` is already in place.
+	 */
 	later(fn: () => void): void;
 }
 
@@ -58,6 +67,8 @@ export class SheetStack {
 	#started = false;
 	#scheduled = false;
 	#next = 1;
+	/** Navigations on their way: Back moves wait for them. */
+	#holds = new Set<object>();
 
 	constructor(private readonly port: SheetPort) {}
 
@@ -83,12 +94,25 @@ export class SheetStack {
 
 	/** Send the Back moves owed: over every entry above the topmost open sheet. */
 	#flush(): void {
-		if (!this.#started) return;
+		if (!this.#started || this.#holds.size > 0) return;
 		const wanted = this.#wanted();
 		if (wanted < this.#history) {
 			this.port.go(wanted - this.#history);
 			this.#history = wanted;
 		}
+	}
+
+	/**
+	 * A navigation of the page's own (a link, a `goto`, a form) is on its way:
+	 * hold Back moves until the returned release runs — when it lands, is
+	 * cancelled or is aborted. Releasing twice is harmless.
+	 */
+	hold(): () => void {
+		const token = {};
+		this.#holds.add(token);
+		return () => {
+			if (this.#holds.delete(token)) this.#schedule();
+		};
 	}
 
 	/** Push an entry for every open sheet history does not hold yet. */
@@ -173,6 +197,9 @@ export class SheetStack {
 		this.#slots = left.filter((s) => s.status === 'open');
 		for (const s of left) if (s.status === 'going') s.entry.close();
 		this.#history = depth;
+		// It landed: whatever it held is moot now.
+		this.#holds.clear();
+		this.#schedule();
 	}
 
 	/** History now holds `depth` sheet entries: a popstate landed. */

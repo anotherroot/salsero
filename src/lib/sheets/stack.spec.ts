@@ -257,6 +257,57 @@ describe('SheetStack', () => {
 		expect(log).toEqual(['close b']);
 	});
 
+	it('closed by owner, then navigated() before the tick → no go', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		const a = s.open(sheet('a', log).entry);
+		s.closedByOwner(a);
+		s.navigated(0);
+		tick();
+		expect(calls).toEqual(['push(1)']);
+	});
+
+	it('closed by its owner as a navigation starts: no go while it is on its way', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		const a = s.open(sheet('a', log).entry);
+		// Finish: the popup closes, then goto() starts.
+		s.closedByOwner(a);
+		const release = s.hold();
+		tick();
+		expect(calls).toEqual(['push(1)']);
+		s.navigated(0);
+		release();
+		tick();
+		s.anchor();
+		expect(calls).toEqual(['push(1)']);
+	});
+
+	it('a cancelled navigation releases the hold, and the owed Back goes out', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		const a = s.open(sheet('a', log).entry);
+		const release = s.hold();
+		s.requestClose(a);
+		tick();
+		expect(calls).toEqual(['push(1)']);
+		release();
+		release();
+		tick();
+		expect(calls).toEqual(['push(1)', 'go(-1)']);
+	});
+
+	it('a navigation that lands clears every hold', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		s.hold();
+		s.navigated(0);
+		const b = s.open(sheet('b', log).entry);
+		s.requestClose(b);
+		tick();
+		expect(calls).toEqual(['push(1)', 'go(-1)']);
+	});
+
 	it('a sheet that stays open across a navigation gets an entry on the new page', () => {
 		const { s, calls } = setup();
 		const log: string[] = [];

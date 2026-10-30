@@ -1,4 +1,4 @@
-import { afterNavigate, onNavigate, pushState } from '$app/navigation';
+import { afterNavigate, beforeNavigate, onNavigate, pushState } from '$app/navigation';
 import { SheetStack } from './stack';
 
 /*
@@ -27,7 +27,9 @@ export const sheetStack = new SheetStack({
 	// Spread the entry's state so the video player's depth survives a sheet's push.
 	push: (d) => pushState('', { ...entryState(), sheets: d }),
 	go: (d) => history.go(d),
-	later: (fn) => queueMicrotask(fn)
+	// A task, not a microtask: `beforeNavigate` runs a few microtasks into a
+	// `goto`, and a sheet closed just before one must see its hold.
+	later: (fn) => setTimeout(fn, 0)
 });
 
 /** Keep the stack in step with history. Call once, from the root layout. */
@@ -36,6 +38,15 @@ export function syncSheets(): void {
 		const onpop = () => sheetStack.sync(entryDepth());
 		window.addEventListener('popstate', onpop);
 		return () => window.removeEventListener('popstate', onpop);
+	});
+	// While a navigation of the page's own loads, a Back from the stack would
+	// abort it (SvelteKit drops a navigation a popstate overtakes) or go over
+	// its new entry: hold them until it lands, is cancelled (the unsaved guard)
+	// or is aborted — `complete` settles on each.
+	beforeNavigate((nav) => {
+		if (nav.type === 'popstate' || nav.type === 'leave' || nav.willUnload) return;
+		const release = sheetStack.hold();
+		nav.complete.then(release, release);
 	});
 	// A real navigation pushed (or replaced) an entry of its own, before the
 	// old page unmounts: its sheets' entries are behind it now.

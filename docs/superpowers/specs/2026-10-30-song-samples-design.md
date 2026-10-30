@@ -177,7 +177,10 @@ than `page.state`, because every `use:enhance` submit's `invalidateAll()`
 resets `page.state` to {} while the sheet is still open. Back moves are sent
 at the end of the task, so a sheet closing as another opens in the same tick
 (Variations → New variation, the session's next exercise) hands its entry on:
-a `pushState` made while a `history.go` is pending is gone over by it. The
+a `pushState` made while a `history.go` is pending is gone over by it. They
+are held while a navigation of the page's own is loading (from
+`beforeNavigate` until its `complete` settles), so a sheet closed just before
+a `goto` — the session's Finish — never sends a Back that aborts it. The
 Link popup inside the full-screen player is one of the player's own levels,
 not a `Sheet`, and already walked back with it. The lesson page's Link popup
 (`LinkPopup` with `theme="light"`) is its own `<dialog>`, not a `Sheet`: Back
