@@ -297,6 +297,36 @@ describe('SheetStack', () => {
 		expect(calls).toEqual(['push(1)', 'go(-1)']);
 	});
 
+	it('a hold taken before the close, then the close, then navigated() → no go', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		const a = s.open(sheet('a', log).entry);
+		// A link inside the sheet: the click takes the hold, its onclick closes the sheet.
+		const release = s.hold();
+		s.closedByOwner(a);
+		tick();
+		tick();
+		expect(calls).toEqual(['push(1)']);
+		s.navigated(0);
+		release();
+		tick();
+		s.anchor();
+		expect(calls).toEqual(['push(1)']);
+	});
+
+	it('a click hold no navigation follows (its fallback releases it) lets the owed Back out', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		const a = s.open(sheet('a', log).entry);
+		const release = s.hold();
+		s.closedByOwner(a);
+		tick();
+		expect(calls).toEqual(['push(1)']);
+		release();
+		tick();
+		expect(calls).toEqual(['push(1)', 'go(-1)']);
+	});
+
 	it('a navigation that lands clears every hold', () => {
 		const { s, calls, tick } = setup();
 		const log: string[] = [];

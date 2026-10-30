@@ -39,14 +39,52 @@ export function syncSheets(): void {
 		window.addEventListener('popstate', onpop);
 		return () => window.removeEventListener('popstate', onpop);
 	});
+	/*
+	 * A link click reaches `beforeNavigate` only a frame and a task later
+	 * (SvelteKit lets the browser repaint first, with its own 100 ms fallback),
+	 * and a link inside a sheet often closes the sheet in its onclick: the Back
+	 * that close owes would go out first and abort the link's navigation. So
+	 * the click itself takes a hold — in the capture phase, before any onclick —
+	 * until that navigation's own hold takes over, or a fallback lets go when
+	 * none follows (a prevented click, a hash link). Holding for a click that
+	 * goes nowhere only delays a Back by the fallback.
+	 */
+	let clickRelease: (() => void) | null = null;
+	let clickTimer: ReturnType<typeof setTimeout> | undefined;
+	const releaseClick = () => {
+		clearTimeout(clickTimer);
+		clickRelease?.();
+		clickRelease = null;
+	};
+	$effect(() => {
+		const onclick = (e: MouseEvent) => {
+			if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+			const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
+			if (!a || a.hasAttribute('download')) return;
+			const target = a.getAttribute('target');
+			if (target && target !== '_self') return;
+			if (a instanceof HTMLAnchorElement && a.origin !== location.origin) return;
+			releaseClick();
+			clickRelease = sheetStack.hold();
+			clickTimer = setTimeout(releaseClick, 1000);
+		};
+		window.addEventListener('click', onclick, true);
+		return () => {
+			window.removeEventListener('click', onclick, true);
+			releaseClick();
+		};
+	});
 	// While a navigation of the page's own loads, a Back from the stack would
 	// abort it (SvelteKit drops a navigation a popstate overtakes) or go over
 	// its new entry: hold them until it lands, is cancelled (the unsaved guard)
 	// or is aborted — `complete` settles on each.
 	beforeNavigate((nav) => {
-		if (nav.type === 'popstate' || nav.type === 'leave' || nav.willUnload) return;
-		const release = sheetStack.hold();
-		nav.complete.then(release, release);
+		if (nav.type !== 'popstate' && nav.type !== 'leave' && !nav.willUnload) {
+			const release = sheetStack.hold();
+			nav.complete.then(release, release);
+		}
+		// The click's hold, if any, has been taken over (or was for nothing).
+		releaseClick();
 	});
 	// A real navigation pushed (or replaced) an entry of its own, before the
 	// old page unmounts: its sheets' entries are behind it now.
