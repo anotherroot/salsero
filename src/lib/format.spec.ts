@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { byteSize, clock, dateLabel, dayLabel, lastDoneLabel, setSummary } from './format';
+import {
+	byteSize,
+	classDayLabel,
+	clock,
+	dateLabel,
+	dayLabel,
+	lastDoneLabel,
+	setSummary
+} from './format';
 
 describe('format', () => {
 	it('labels last-done in calendar words', () => {
@@ -21,6 +29,11 @@ describe('format', () => {
 	it('labels a day without shifting it through a zone', () => {
 		expect(dayLabel('2026-09-22')).toBe('Tue 22 Sep');
 		expect(dateLabel('2026-01-05')).toBe('5 Jan 2026');
+	});
+
+	it('labels a class day with its weekday, and the year only when it is not this year', () => {
+		expect(classDayLabel('2026-10-28', '2026-10-30')).toBe('Wed 28 Oct');
+		expect(classDayLabel('2025-12-30', '2026-01-02')).toBe('Tue 30 Dec 2025');
 	});
 
 	it('prints a song position as m:ss', () => {

@@ -14,9 +14,11 @@
 		lastRating: number | null;
 		/** Open this exercise's log popup. */
 		onlog: () => void;
+		/** A lesson's class day as shown ("Wed 28 Oct"); null for every other type. */
+		lessonDay?: string | null;
 	}
 
-	let { row, variant, dance, lastRating, onlog }: Props = $props();
+	let { row, variant, dance, lastRating, onlog, lessonDay = null }: Props = $props();
 
 	const ex = $derived(row.exercise);
 	const BADGE: Record<Exclude<ExerciseItem['source'], 'figure'>, string> = {
@@ -29,7 +31,9 @@
 			? ex.partner === 'solo'
 				? 'Figure · solo'
 				: 'Figure · partner'
-			: BADGE[ex.source]
+			: ex.source === 'lesson' && lessonDay
+				? `Lesson · ${lessonDay}`
+				: BADGE[ex.source]
 	);
 </script>
 

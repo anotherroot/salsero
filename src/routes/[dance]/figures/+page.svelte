@@ -33,6 +33,12 @@
 		`shrink-0 rounded-full border px-3 py-1.5 text-[13px] ${on ? 'border-accent bg-accent text-accent-ink' : 'border-rule bg-raised text-ink-2'}`;
 
 	const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+	/** What a figure still lacks, in amber words; empty when it has both. */
+	const missing = (f: { hasSection: boolean; hasLesson: boolean }) => [
+		...(f.hasSection ? [] : ['No section']),
+		...(f.hasLesson ? [] : ['No lesson'])
+	];
 </script>
 
 <svelte:head><title>Figures · {data.dance.label}</title></svelte:head>
@@ -62,6 +68,11 @@
 				? 'Routine coverage →'
 				: `${data.unrouted} ${data.unrouted === 1 ? 'version' : 'versions'} in no routine →`}</a
 		>
+		{#if data.unlinked > 0}
+			<a class="text-[12px] text-overdue underline" href={filterUrl({ unlinked: '1' })}
+				>{data.unlinked} not linked →</a
+			>
+		{/if}
 	</div>
 	<form
 		class="mt-3"
@@ -81,6 +92,12 @@
 		/>
 	</form>
 	<div class="mt-2 flex gap-2 overflow-x-auto pb-1">
+		<a
+			class={data.filter.unlinked
+				? pill(true)
+				: 'shrink-0 rounded-full border border-overdue/45 bg-raised px-3 py-1.5 text-[13px] text-overdue'}
+			href={filterUrl({ unlinked: data.filter.unlinked ? undefined : '1' })}>Not linked</a
+		>
 		{#each data.dance.styles as s (s)}
 			<a
 				class={pill(data.filter.style === s)}
@@ -101,9 +118,11 @@
 <main class="px-4 pt-4 pb-4">
 	{#if data.figures.length === 0}
 		<p class="mt-10 text-center text-[14px] text-muted">
-			{data.filter.q || data.filter.style || data.filter.partner
-				? 'No figures match.'
-				: 'No figures yet. Add the first one you learned.'}
+			{data.filter.unlinked && !data.filter.q && !data.filter.style && !data.filter.partner
+				? 'Every figure has a section and a lesson.'
+				: data.filter.q || data.filter.style || data.filter.partner || data.filter.unlinked
+					? 'No figures match.'
+					: 'No figures yet. Add the first one you learned.'}
 		</p>
 	{/if}
 	<ul class="space-y-2">
@@ -118,10 +137,18 @@
 					class="block rounded-xl border border-line bg-raised px-4 py-3"
 				>
 					<span class="block truncate text-[15px] font-medium">{f.name}</span>
-					<span class="text-[12px] text-muted"
-						>{plural(f.variations, 'variation', 'variations')}{#if f.recordings > 0}
-							· {plural(f.recordings, 'recording', 'recordings')}{/if}</span
-					>
+					<!-- The separators are spans, as on Today's rows: whitespace around an {#if} gets eaten. -->
+					<span class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted">
+						<span>{plural(f.variations, 'variation', 'variations')}</span>
+						{#if f.recordings > 0}
+							<span aria-hidden="true">·</span>
+							<span>{plural(f.recordings, 'recording', 'recordings')}</span>
+						{/if}
+						{#each missing(f) as gap (gap)}
+							<span aria-hidden="true">·</span>
+							<span class="font-medium text-overdue">{gap}</span>
+						{/each}
+					</span>
 				</a>
 			</li>
 		{/each}

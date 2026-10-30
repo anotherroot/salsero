@@ -9,6 +9,7 @@ import {
 } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { int, optionalText, text } from '$lib/server/form';
+import { lessonDays } from '$lib/server/lessons';
 import { logSetFrom, deleteSetFrom } from '$lib/server/log-form';
 import { danceOf } from '$lib/server/scope';
 import { listReadySongs } from '$lib/server/songs';
@@ -64,6 +65,8 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			.sort((a, b) => a.name.localeCompare(b.name)),
 		// For the practice panel's song picker.
 		songs: listReadySongs(db, dance),
+		// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.
+		lessonDays: lessonDays(db, dance),
 		// The latest set's rating per exercise, for the dots on each row.
 		lastRatings: Object.fromEntries(
 			[...lastSets(db, dance)].map(([id, s]) => [id, s.rating] as [number, number | null])

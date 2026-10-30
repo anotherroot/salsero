@@ -347,6 +347,57 @@ describe('listLessons', () => {
 		createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-09-10', title: 'Middle' });
 		expect(listLessons(db, 'salsa').map((l) => l.title)).toEqual(['Latest', 'Middle', 'First']);
 	});
+
+	it('reports zero sections, routines and figures for a bare lesson', () => {
+		createLesson(db, 'salsa', lessonInput);
+		expect(listLessons(db, 'salsa')[0]).toMatchObject({ sections: 0, routines: 0, figures: 0 });
+	});
+
+	it('counts sections on its videos, not points and not other lessons’ sections', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const other = createLesson(db, 'salsa', { ...lessonInput, title: 'Other' }).lesson;
+		const v1 = addLessonVideo(db, video(lesson.id, 'a.mp4', 1)).id;
+		const v2 = addLessonVideo(db, video(lesson.id, 'b.mp4', 1)).id;
+		const v3 = addLessonVideo(db, video(other.id, 'c.mp4', 1)).id;
+		addSpot(db, { lessonVideoId: v1 }, { startMs: 0, endMs: 1000, label: null });
+		addSpot(db, { lessonVideoId: v2 }, { startMs: 0, endMs: 1000, label: null });
+		addSpot(db, { lessonVideoId: v2 }, { startMs: 5000, endMs: null, label: null });
+		addSpot(db, { lessonVideoId: v3 }, { startMs: 0, endMs: 1000, label: null });
+
+		const rows = listLessons(db, 'salsa');
+		expect(rows.find((r) => r.id === lesson.id)?.sections).toBe(2);
+		expect(rows.find((r) => r.id === other.id)?.sections).toBe(1);
+	});
+
+	it('counts live linked routines', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const kept = createRoutine(db, 'salsa', { name: 'Kept', notes: null }).routine;
+		const gone = createRoutine(db, 'salsa', { name: 'Gone', notes: null }).routine;
+		linkRoutine(db, lesson.id, kept.id);
+		linkRoutine(db, lesson.id, gone.id);
+		archiveRoutine(db, gone.id, 1000);
+		expect(listLessons(db, 'salsa')[0].routines).toBe(1);
+	});
+
+	it('counts figures once, whether linked by hand or through a section, leaving archived variations out', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const basic = createFigure(db, 'salsa', figureInput)!.figure.id;
+		const doble = createVariationFrom(db, basic, 'Doble')!.id;
+		const setenta = createFigure(db, 'salsa', { ...figureInput, figureName: 'Setenta' })!.figure.id;
+		const vacilala = createFigure(db, 'salsa', { ...figureInput, figureName: 'Vacilala' })!.figure
+			.id;
+		const videoId = addLessonVideo(db, video(lesson.id, 'a.mp4', 1)).id;
+		const spot = addSpot(db, { lessonVideoId: videoId }, { startMs: 0, endMs: 1000, label: null })!;
+
+		// Enchufla twice — Basic by hand, Doble through a section — counts once.
+		linkFigure(db, lesson.id, basic);
+		linkSpot(db, spot.id, { figureId: doble });
+		linkSpot(db, spot.id, { figureId: setenta });
+		linkFigure(db, lesson.id, vacilala);
+		archiveVariation(db, vacilala, 1000);
+
+		expect(listLessons(db, 'salsa')[0].figures).toBe(2);
+	});
 });
 
 describe('lessons are walled off by dance', () => {

@@ -288,6 +288,15 @@ Filters (my call): the search matches the figure's name or any of its
 variations' names; style and partner match a figure if any live variation
 matches. Tapping a figure opens its first live variation (lowest id).
 
+**What is not linked yet** (added 2026-10-30): a row adds amber "No section"
+and/or "No lesson" — the amber of "Never done" on Today — and says nothing when
+the figure has both. A figure has a section when any live variation is linked
+to one, on a lesson video or a recording; it has a lesson when a live lesson
+reaches any live variation, by hand or through a section of one of its videos
+(the rule `lesson-links.ts` reads per lesson, read in bulk by
+`listFigures`). A "Not linked" pill filters to figures missing either, and the
+header's amber "n not linked →" opens it, hidden when n is 0.
+
 ### The figure page (G, K)
 
 - **URL**: `/[dance]/figures/[variationId]`. A variation id is the only id in

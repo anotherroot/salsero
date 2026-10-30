@@ -6,7 +6,11 @@ import {
 	figureGroups,
 	figureStartPositions,
 	figures,
+	lessonFigures,
+	lessonVideos,
+	lessons,
 	recordings,
+	spotLinks,
 	videoSpots,
 	type Figure,
 	type FigureGroup
@@ -364,11 +368,49 @@ export interface FigureFilter {
 	q?: string;
 	style?: string;
 	partner?: Partner;
+	/** Only figures with no section, or no lesson, among their variations. */
+	unlinked?: boolean;
+}
+
+/**
+ * The variation ids of `dance` linked to a section anywhere, and those a live
+ * lesson reaches — by hand or through a section of one of its videos (the rule
+ * `lesson-links.ts` reads per lesson, here in bulk for the whole list).
+ */
+function linkedVariations(db: Db, dance: DanceSlug): { section: Set<number>; lesson: Set<number> } {
+	const ids = (rows: { id: number | null }[]) =>
+		new Set(rows.flatMap((r) => (r.id === null ? [] : [r.id])));
+	const ofDance = and(eq(figures.dance, dance), isNotNull(spotLinks.figureId));
+	const section = ids(
+		db
+			.selectDistinct({ id: spotLinks.figureId })
+			.from(spotLinks)
+			.innerJoin(figures, eq(figures.id, spotLinks.figureId))
+			.where(ofDance)
+			.all()
+	);
+	const byHand = db
+		.selectDistinct({ id: lessonFigures.figureId })
+		.from(lessonFigures)
+		.innerJoin(lessons, eq(lessons.id, lessonFigures.lessonId))
+		.where(and(eq(lessons.dance, dance), isNull(lessons.archivedAt)))
+		.all();
+	const viaSections = db
+		.selectDistinct({ id: spotLinks.figureId })
+		.from(spotLinks)
+		.innerJoin(figures, eq(figures.id, spotLinks.figureId))
+		.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
+		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+		.where(and(ofDance, isNull(lessons.archivedAt)))
+		.all();
+	return { section, lesson: ids([...byHand, ...viaSections]) };
 }
 
 /**
  * One row per live figure. A filter matches when any live variation does; `q`
- * also matches the figure's own name.
+ * also matches the figure's own name. `hasSection`/`hasLesson` look at every
+ * live variation, whatever the filter matched.
  */
 export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {}): FigureListItem[] {
 	const groups = db
@@ -392,6 +434,7 @@ export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {})
 		.groupBy(figures.id)
 		.orderBy(asc(figures.id))
 		.all();
+	const linked = linkedVariations(db, dance);
 	const q = filter.q ? filter.q.trim().toLowerCase() : '';
 	const items: FigureListItem[] = [];
 	for (const g of groups) {
@@ -404,12 +447,17 @@ export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {})
 				(!filter.partner || v.partner === filter.partner)
 		);
 		if (matching.length === 0) continue;
+		const hasSection = vs.some((v) => linked.section.has(v.id));
+		const hasLesson = vs.some((v) => linked.lesson.has(v.id));
+		if (filter.unlinked && hasSection && hasLesson) continue;
 		items.push({
 			id: g.id,
 			name: g.name,
 			variations: vs.length,
 			recordings: vs.reduce((n, v) => n + v.recordings, 0),
-			firstVariationId: vs[0].id
+			firstVariationId: vs[0].id,
+			hasSection,
+			hasLesson
 		});
 	}
 	return items;

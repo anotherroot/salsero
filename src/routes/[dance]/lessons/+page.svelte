@@ -16,6 +16,8 @@
 	});
 	let busy = $state(false);
 
+	const plural = (n: number, one: string, many: string) => ({ n, word: n === 1 ? one : many });
+
 	const label = 'mb-1 block text-[13px] text-muted';
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
@@ -69,6 +71,20 @@
 									{lesson.videos === 1 ? 'video' : 'videos'} · {byteSize(lesson.videoBytes)}</span
 								>
 							{/if}
+						</span>
+						<!-- Always all three, in the same place: a zero fades rather than vanishing, so a lesson still missing something shows it. -->
+						<span class="mt-2 flex flex-wrap gap-1.5">
+							{#each [plural(lesson.sections, 'section', 'sections'), plural(lesson.routines, 'routine', 'routines'), plural(lesson.figures, 'figure', 'figures')] as chip (chip.word)}
+								<span
+									class="rounded-full bg-plane px-2.5 py-0.5 text-[12px] {chip.n === 0
+										? 'text-muted opacity-60'
+										: 'text-ink-2'}"
+									><span class="font-semibold tabular-nums {chip.n === 0 ? '' : 'text-ink'}"
+										>{chip.n}</span
+									>
+									{chip.word}</span
+								>
+							{/each}
 						</span>
 					</a>
 				</li>
