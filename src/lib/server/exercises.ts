@@ -1,9 +1,9 @@
-import { and, count, desc, eq, gte, isNotNull, isNull, lt, sql, sum } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, sql, sum } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, figures, sets, songs } from './db/schema';
+import { exercises, figureGroups, figures, sets, songs } from './db/schema';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { PracticeInput } from '$lib/exercises/practice';
-import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet } from '$lib/types';
+import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
 /** Every exercise that has not been archived, with its figure's partner flag. */
 export function listExercises(db: Db, dance: DanceSlug): ExerciseItem[] {
@@ -30,6 +30,26 @@ export function listExercises(db: Db, dance: DanceSlug): ExerciseItem[] {
 		.where(and(isNull(exercises.archivedAt), eq(exercises.dance, dance)))
 		.all()
 		.map((r) => ({ ...r, archived: false }));
+}
+
+/** Every live exercise of the dance as a picker offers it, by name. Nothing is linked. */
+export function listPickExercises(db: Db, dance: DanceSlug): PickExercise[] {
+	return db
+		.select({
+			id: exercises.id,
+			name: exercises.name,
+			source: exercises.source,
+			everyDays: exercises.everyDays,
+			figure: figureGroups.name,
+			variation: figures.name
+		})
+		.from(exercises)
+		.leftJoin(figures, eq(figures.id, exercises.figureId))
+		.leftJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(and(isNull(exercises.archivedAt), eq(exercises.dance, dance)))
+		.orderBy(asc(exercises.name), asc(exercises.id))
+		.all()
+		.map((r) => ({ ...r, linked: false }));
 }
 
 /**

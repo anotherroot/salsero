@@ -3,7 +3,8 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
-	import FigureList from './FigureList.svelte';
+	import PickerField from '$lib/components/picker/PickerField.svelte';
+	import { figureRows } from '$lib/picker/build';
 	import RemoveWarning from './RemoveWarning.svelte';
 	import type { MoveTarget } from '$lib/types';
 
@@ -31,8 +32,10 @@
 
 	let { variation, figure, targets, last, failed, typedName, open, onclose }: Props = $props();
 
-	/** `'new'`, or a target figure's id as the radio posts it. */
-	let target = $state('new');
+	/** The figure chosen in the picker; null means "a new figure of its own". */
+	let picked = $state<number | null>(null);
+	/** `'new'`, or a target figure's id: what `?/move` receives as `target`. */
+	const target = $derived(picked === null ? 'new' : String(picked));
 	// Kept in state so they survive picking another destination and coming back.
 	let newName = $state('');
 	let joinName = $state('');
@@ -42,7 +45,7 @@
 	$effect(() => {
 		if (open) {
 			untrack(() => {
-				target = 'new';
+				picked = null;
 				newName = figure.trim().toLowerCase().endsWith(variation.trim().toLowerCase())
 					? figure
 					: `${figure} ${variation}`;
@@ -105,7 +108,14 @@
 	>
 		<div class="space-y-1.5">
 			<label class={row(target === 'new')}>
-				<input type="radio" name="target" value="new" bind:group={target} class="sr-only" />
+				<input
+					type="radio"
+					name="choice"
+					checked={picked === null}
+					onchange={() => (picked = null)}
+					class="sr-only"
+				/>
+				<input type="hidden" name="target" value={target} />
 				<span class="flex min-w-0 flex-1 flex-col gap-px">
 					<span class="text-[15px] font-semibold text-ink">A new figure of its own</span>
 					<span class="text-[12px] text-muted">{variation} becomes its first variation</span>
@@ -125,7 +135,16 @@
 			{#if targets.length === 0}
 				<p class="text-[13px] text-muted">There are no other figures yet.</p>
 			{:else}
-				<FigureList figures={targets} name="target" bind:selected={target} />
+				<PickerField
+					name="targetPick"
+					label="Figure"
+					placeholder="Choose a figure…"
+					title="Join a figure"
+					search="Search figures"
+					groups={[{ title: 'Figures', entries: figureRows(targets) }]}
+					nothingLeft="There are no other figures yet."
+					bind:value={picked}
+				/>
 			{/if}
 			{#if chosen}
 				<label class="block px-0.5 pt-1.5">

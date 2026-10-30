@@ -61,6 +61,9 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    links followed on 2026-09-29. Today gained a fourth
    band at the same time. See
    [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md).
+   Since 2026-10-30 the lesson page links figures, routines and exercises
+   through the one shared picker, which also shows what is already linked
+   (greyed, "Linked"): see [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md).
    A full-screen video player with saved spots and looped sections, for
    figure recordings and lesson videos: live since 2026-10-01, see
    [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md).
@@ -542,7 +545,8 @@ unsaved.
   unsaved while its `FormData` differs from what it showed at first paint or
   last saved — compared as data, so values set by code (start-position chips,
   timing shortcuts, rating buttons) count like typed ones. One-tap forms (a
-  delete, a move, a picker's Add) stay on `use:enhance`: there is nothing to
+  delete, a move, a shared picker's tap and +, see
+  [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md)) stay on `use:enhance`: there is nothing to
   lose. A form can widen the test (`dirty`): the player's finished run and the
   log popup's practice time are unsaved with nothing typed. Non-form things
   register with `track()`: the voice page's unkept take, and an upload in

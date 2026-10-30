@@ -6,12 +6,12 @@ import {
 	canBridge,
 	anchorBefore,
 	anchorText,
-	fold,
 	pickList,
 	variationName,
 	type Anchor,
 	type Candidate
 } from './fit';
+import { fold } from '$lib/fold';
 
 /** Positions: 1 open (neutral), 2 closed, 3 hammerlock. */
 const fig = (

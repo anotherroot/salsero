@@ -13,9 +13,6 @@
 	let { content, editLinks }: ContentProps = $props();
 
 	let linking = $state(false);
-	$effect(() => {
-		if (editLinks?.sectionMessage) linking = true;
-	});
 </script>
 
 {#if content.type === 'drill'}
@@ -39,11 +36,26 @@
 				{/snippet}
 			</SectionCard>
 		{/each}
+		{#if editLinks?.unlinkMessage}
+			<p class="text-[13px] text-danger" role="alert">{editLinks.unlinkMessage}</p>
+		{/if}
 		{#if editLinks}
 			<button
 				type="button"
-				class="text-[13px] font-medium text-accent"
-				onclick={() => (linking = true)}>+ Link a section</button
+				class="flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[14.5px] font-medium text-accent"
+				aria-haspopup="dialog"
+				onclick={() => (linking = true)}
+				><svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					class="shrink-0 text-muted"
+					aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg
+				>Link a section…</button
 			>
 			<LinksEditor links={content.links} message={editLinks.message} entered={editLinks.entered} />
 			<LinkSectionSheet
@@ -51,7 +63,6 @@
 				onclose={() => (linking = false)}
 				groups={editLinks.linkable ?? []}
 				hidden={{}}
-				message={editLinks.sectionMessage ?? null}
 			/>
 		{:else}
 			<LinkList links={content.links} />

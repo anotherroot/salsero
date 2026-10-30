@@ -19,9 +19,12 @@
 > recordings; the `linking` prop), the "Section saved" toast offers **Link**
 > beside Edit and stays 6 s; the section view shows a small link badge under
 > the section's name on the video ("+ Link" when nothing is linked); and the
-> editor's "Linked to …" line opens the Link popup. The popup is two player
-> sheets, `link` (its list) and `link-new` (a create step), so Back steps from
-> a create step to the list, then closes it. Everywhere else the player opens,
+> editor's "Linked to …" line opens the Link popup. The popup is four player
+> sheets, one history level each: `link` (the links), `link-pick` (the shared
+> picker), `link-new` (a create step) and `link-figure` (the variation step's
+> Figure picker), so Back steps one level at a time (`linkStepsOf` in
+> `screens.ts`). With nothing linked it opens straight into the picker. See
+> [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md). Everywhere else the player opens,
 > the badge and the line only show.
 
 ## Purpose
@@ -87,7 +90,10 @@ guard never sees these moves. Leaving browser fullscreen (Esc, or Android's
 back in the app, which `WebShell.back()` spends on fullscreen first) counts
 as one back too: the player stays open filling the viewport and never asks
 for fullscreen again. If Chrome closes the dialog under us (a repeated back
-on a modal dialog), it is reopened and treated as the back it was.
+on a modal dialog), it is reopened and treated as the back it was. Chrome
+also sends a `cancel` that cannot be cancelled after repeated Escapes or
+Backs without a tap in between; the dialog's `oncancel` ignores it and lets
+the `close` that follows take the one step.
 
 **Layouts** (`layoutFor`): **portrait** (taller than wide), laid out for an
 upright video — every control below the video, so nothing covers the picture

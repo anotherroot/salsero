@@ -26,6 +26,7 @@
 		doneTarget,
 		editStack,
 		levelOf,
+		linkStepsOf,
 		loopOf,
 		openingStack,
 		prune,
@@ -53,7 +54,8 @@
 	import SectionRow from '$lib/components/video/SectionRow.svelte';
 	import SpotEditor, { type MoveHow, type Times } from '$lib/components/video/SpotEditor.svelte';
 	import PlayerSheet from '$lib/components/video/PlayerSheet.svelte';
-	import LinkPopup, { type LinkStep } from '$lib/components/links/LinkPopup.svelte';
+	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
+	import { openingSteps, type LinkStep } from '$lib/video/link-steps';
 	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -139,12 +141,26 @@
 	let sheetMessage = $state<string | null>(null);
 	type ToastAction = { label: string; run: () => void };
 	let toast = $state<{ text: string; actions: ToastAction[] } | null>(null);
-	/** The section the Link popup is on, and its create step while one is open. */
+	type LinkCreateStep = 'variation' | 'figure' | 'drill';
+	/** The player's sheet for each of the Link popup's levels; every create step is 'link-new'. */
+	const LINK_SHEET: Record<LinkStep, SheetKind> = {
+		links: 'link',
+		pick: 'link-pick',
+		variation: 'link-new',
+		figure: 'link-new',
+		drill: 'link-new',
+		'variation-figure': 'link-figure'
+	};
+	const LINK_SHEETS: readonly SheetKind[] = Object.values(LINK_SHEET);
+	/** The section the Link popup is on, and the create step its 'link-new' sheet stands for. */
 	let linkSpotId = $state<number | null>(null);
-	let linkStep = $state<LinkStep>('list');
+	let linkCreate = $state<LinkCreateStep>('variation');
 
 	const level = $derived(levelOf(stack));
 	const sheet = $derived(sheetOf(stack));
+	/** The Link popup's levels, one history entry each; empty while it is closed. */
+	const linkSteps = $derived(linkStepsOf(stack, linkCreate));
+	const linkOpen = $derived(sheet !== null && LINK_SHEETS.includes(sheet));
 	const openSpot = $derived(
 		level.kind === 'section' || level.kind === 'edit'
 			? (spots.find((s) => s.id === level.spotId) ?? null)
@@ -464,29 +480,27 @@
 
 	/* ---------- linking ---------- */
 
+	/*
+	 * Every level of the Link popup is a sheet of its own, so the phone's Back
+	 * and Esc (the dialog's cancel, or the popup's own overlay) step down it one
+	 * level at a time; a create step's × or Back lands on the picker, its search
+	 * text kept. A section with no links opens straight into the picker.
+	 */
 	function openLink(spotId: number) {
 		toast = null;
 		linkSpotId = spotId;
-		linkStep = 'list';
-		openSheet('link');
+		const linked = spots.find((s) => s.id === spotId)?.linkedTo.length ?? 0;
+		for (const step of openingSteps(linked)) linkPush(step);
 	}
 
-	/** The popup's list ↔ create steps are two sheets, so Back walks them like any level. */
-	function linkStepTo(next: LinkStep) {
-		if (next === 'list') {
-			if (sheet === 'link-new') nav.up();
-			return;
-		}
-		linkStep = next;
-		if (sheet === 'link') nav.push({ kind: 'sheet', sheet: 'link-new' });
+	function linkPush(step: LinkStep) {
+		if (step === 'variation' || step === 'figure' || step === 'drill') linkCreate = step;
+		nav.push({ kind: 'sheet', sheet: LINK_SHEET[step] });
 	}
 
+	/** Finished (a tap, Done, Create and link) or closed: every link level goes at once. */
 	function closeLink() {
-		nav.jump(
-			nav.stack.filter(
-				(s) => !(s.kind === 'sheet' && (s.sheet === 'link' || s.sheet === 'link-new'))
-			)
-		);
+		nav.jump(nav.stack.filter((s) => !(s.kind === 'sheet' && LINK_SHEETS.includes(s.sheet))));
 	}
 
 	/** The popup changed a section's links: its small lines follow. */
@@ -844,7 +858,11 @@
 	data-layout={layout}
 	style={tokens}
 	oncancel={(e) => {
-		// Esc, and Android Chrome's back on a modal dialog: up one level.
+		// Esc, and Android Chrome's back on a modal dialog: up one level. Chrome
+		// makes a cancel uncancellable after a run of Escapes with no tap between
+		// (the Link popup's levels take some of them); the close that follows it
+		// takes the step below, so taking it here too would go up two levels.
+		if (!e.cancelable) return;
 		e.preventDefault();
 		nav.up();
 	}}
@@ -1183,12 +1201,13 @@
 			</div>
 		{/if}
 
-		{#if (sheet === 'link' || sheet === 'link-new') && linkSpotId !== null}
+		{#if linkOpen && linkSpotId !== null}
 			<LinkPopup
 				spotId={linkSpotId}
 				theme="dark"
-				step={sheet === 'link' ? 'list' : linkStep}
-				onstep={linkStepTo}
+				steps={linkSteps}
+				onpush={linkPush}
+				onback={() => nav.up()}
 				onchange={linkedChanged}
 				onclose={closeLink}
 			/>

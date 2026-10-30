@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
-import { listExercises, logSet } from '$lib/server/exercises';
+import { listPickExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listFiguresForCall } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
@@ -74,7 +74,7 @@ export const load: PageServerLoad = ({ url, params }) => {
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph: buildGraph(db, dance),
 		exercise,
-		exercises: listExercises(db, dance).map((e) => ({ id: e.id, name: e.name })),
+		exercises: listPickExercises(db, dance),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))

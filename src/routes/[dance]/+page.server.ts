@@ -4,6 +4,7 @@ import {
 	createCustomExercise,
 	lastSets,
 	listExercises,
+	listPickExercises,
 	listSetTimes,
 	listSetsBetween
 } from '$lib/server/exercises';
@@ -60,9 +61,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		plan: plan(exercises, listSetTimes(db, dance), now, tz),
 		daySets,
 		// For the past-day "add a forgotten set" picker.
-		exercises: exercises
-			.map((e) => ({ id: e.id, name: e.name }))
-			.sort((a, b) => a.name.localeCompare(b.name)),
+		exercises: listPickExercises(db, dance),
 		// For the practice panel's song picker.
 		songs: songChoices(db, dance),
 		// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.

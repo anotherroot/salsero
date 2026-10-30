@@ -251,20 +251,33 @@ describe('linking exercises', () => {
 });
 
 describe('the link pickers', () => {
-	it('offers only figures that are not linked yet', () => {
+	it('listLinkableFigures: a hand-linked variation is present with linked true', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const a = createFigure(db, 'salsa', figureInput)!.figure;
+		linkFigure(db, lesson.id, a.id);
+		expect(listLinkableFigures(db, lesson.id)).toEqual([
+			expect.objectContaining({ id: a.id, label: 'Enchufla · Basic', linked: true })
+		]);
+	});
+
+	it('listLinkableFigures: other live variations of the dance are linked false; archived ones absent', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const a = createFigure(db, 'salsa', figureInput)!.figure;
 		const b = createFigure(db, 'salsa', { ...figureInput, figureName: 'Dile que no' })!.figure;
-
+		const c = createFigure(db, 'salsa', { ...figureInput, figureName: 'Old' })!.figure;
+		archiveVariation(db, c.id, 1000);
 		linkFigure(db, lesson.id, a.id);
-		expect(listLinkableFigures(db, lesson.id).map((f) => f.id)).toEqual([b.id]);
+		expect(listLinkableFigures(db, lesson.id).map((f) => [f.id, f.linked])).toEqual([
+			[b.id, false],
+			[a.id, true]
+		]);
 	});
 
 	it('lists variations to link by label', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const { figure } = createFigure(db, 'salsa', figureInput)!;
 		createVariationFrom(db, figure.id, 'Doble');
-		expect(listLinkableFigures(db, lesson.id).map((f) => f.name)).toEqual([
+		expect(listLinkableFigures(db, lesson.id).map((f) => f.label)).toEqual([
 			'Enchufla · Basic',
 			'Enchufla · Doble'
 		]);
@@ -284,7 +297,45 @@ describe('the link pickers', () => {
 		expect(listLinkableExercises(db, lesson.id).map((e) => e.id)).toEqual([custom.id]);
 	});
 
-	it('leaves out what is linked, archived, or any lesson review exercise', () => {
+	it('listLinkableExercises: a linked drill is present with linked true', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const linked = createCustomExercise(db, 'salsa', { name: 'Linked', everyDays: 3, notes: null });
+		const free = createCustomExercise(db, 'salsa', { name: 'Free', everyDays: 3, notes: null });
+		linkExercise(db, lesson.id, linked.id);
+		expect(listLinkableExercises(db, lesson.id)).toEqual([
+			expect.objectContaining({ id: free.id, linked: false, everyDays: 3, source: 'custom' }),
+			expect.objectContaining({ id: linked.id, linked: true })
+		]);
+	});
+
+	it('listLinkableExercises: a figure exercise carries figure and variation names', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const own = addFigureExercise(db, figure.id)!;
+		expect(listLinkableExercises(db, lesson.id)).toEqual([
+			expect.objectContaining({
+				id: own.id,
+				source: 'figure',
+				figure: 'Enchufla',
+				variation: 'Basic',
+				linked: false
+			})
+		]);
+	});
+
+	it("listLinkableExercises: another lesson's review exercise and the exercise of a linked figure stay absent", () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		createLesson(db, 'salsa', { ...lessonInput, title: 'Other' });
+		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		addFigureExercise(db, figure.id);
+		linkFigure(db, lesson.id, figure.id);
+		const gone = createCustomExercise(db, 'salsa', { name: 'Archived', everyDays: 3, notes: null });
+		const free = createCustomExercise(db, 'salsa', { name: 'Free', everyDays: 3, notes: null });
+		archiveExercise(db, gone.id, 1000);
+		expect(listLinkableExercises(db, lesson.id).map((e) => e.id)).toEqual([free.id]);
+	});
+
+	it('leaves out archived and any lesson review exercise', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		createLesson(db, 'salsa', { ...lessonInput, title: 'Other' });
 		const linked = createCustomExercise(db, 'salsa', { name: 'Linked', everyDays: 3, notes: null });
@@ -294,7 +345,11 @@ describe('the link pickers', () => {
 		linkExercise(db, lesson.id, linked.id);
 		archiveExercise(db, gone.id, 1000);
 
-		expect(listLinkableExercises(db, lesson.id).map((e) => e.id)).toEqual([free.id]);
+		expect(
+			listLinkableExercises(db, lesson.id)
+				.filter((e) => !e.linked)
+				.map((e) => e.id)
+		).toEqual([free.id]);
 	});
 });
 
@@ -499,7 +554,16 @@ describe('linking routines', () => {
 		expect(getLesson(db, lesson.id)!.routines).toHaveLength(0);
 	});
 
-	it('offers only unarchived routines that are not linked yet', () => {
+	it('listLinkableRoutines: a linked routine is present with linked true and carries slots and loops', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const a = createRoutine(db, 'salsa', routineInput).routine;
+		linkRoutine(db, lesson.id, a.id);
+		expect(listLinkableRoutines(db, lesson.id)).toEqual([
+			{ id: a.id, name: 'Rueda combo', slots: 0, loops: false, linked: true }
+		]);
+	});
+
+	it('offers only unarchived routines', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const a = createRoutine(db, 'salsa', routineInput).routine;
 		const b = createRoutine(db, 'salsa', { name: 'Shines', notes: null }).routine;
@@ -507,7 +571,10 @@ describe('linking routines', () => {
 		archiveRoutine(db, gone.id, 1000);
 
 		linkRoutine(db, lesson.id, a.id);
-		expect(listLinkableRoutines(db, lesson.id).map((r) => r.id)).toEqual([b.id]);
+		expect(listLinkableRoutines(db, lesson.id).map((r) => [r.id, r.linked])).toEqual([
+			[a.id, true],
+			[b.id, false]
+		]);
 	});
 });
 
@@ -543,7 +610,7 @@ describe('a routine exercise never shows up in both places', () => {
 		expect(getLesson(db, lesson.id)!.exercises).toHaveLength(0);
 	});
 
-	it('leaves it out of the exercise picker once its routine is linked', () => {
+	it('leaves its exercise out of the picker once its routine is linked', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
 		const custom = createCustomExercise(db, 'salsa', {
@@ -651,11 +718,12 @@ describe('through sections', () => {
 		expect(listLinkableExercises(db, lessonId).map((e) => e.id)).not.toContain(own);
 	});
 
-	it('leaves what is there through a section out of the pickers', () => {
+	it('listLinkableFigures: a variation linked through a section is present with linked true', () => {
 		linkSpot(db, a, { figureId: doble });
 		linkSpot(db, a, { exerciseId: drill });
-		expect(listLinkableFigures(db, lessonId).map((f) => f.id)).not.toContain(doble);
-		expect(listLinkableExercises(db, lessonId).map((e) => e.id)).not.toContain(drill);
+		expect(listLinkableFigures(db, lessonId).find((f) => f.id === doble)?.linked).toBe(true);
+		expect(listLinkableFigures(db, lessonId).find((f) => f.id === basic)?.linked).toBe(false);
+		expect(listLinkableExercises(db, lessonId).find((e) => e.id === drill)?.linked).toBe(true);
 	});
 
 	it("counts the lesson in the variation's Taught in, unless the lesson is archived", () => {

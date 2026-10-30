@@ -209,7 +209,7 @@ describe('reads', () => {
 		]);
 	});
 
-	it('linkableSections puts taught-here first, leaves out points and what is linked', () => {
+	it('linkableSections puts taught-here first, leaves out points', () => {
 		const later = video('Later', '2026-10-14', 'm.mp4');
 		const s2 = addSpot(db, { lessonVideoId: later }, { startMs: 0, endMs: 500, label: null })!.id;
 		linkFigure(db, lessonId, doble);
@@ -220,9 +220,27 @@ describe('reads', () => {
 		]);
 		expect(groups[0].sections.map((s) => s.id)).toEqual([section]);
 		linkSpot(db, s2, { figureId: doble });
-		expect(linkableSections(db, { figureId: doble }).map((g) => g.video.src)).toEqual([
-			'/lesson-videos/l.mp4'
+		const after = linkableSections(db, { figureId: doble });
+		// Linking its section makes the lesson of m.mp4 teach the figure too.
+		expect(after.map((g) => g.video.src).sort()).toEqual([
+			'/lesson-videos/l.mp4',
+			'/lesson-videos/m.mp4'
 		]);
+		const m = after.find((g) => g.video.src === '/lesson-videos/m.mp4')!;
+		expect(m.sections.map((x) => [x.id, x.linked])).toEqual([[s2, true]]);
+	});
+
+	it('linkableSections includes a section already linked to the target, flagged linked', () => {
+		linkSpot(db, section, { figureId: doble });
+		const sections = linkableSections(db, { figureId: doble }).flatMap((g) => g.sections);
+		expect(sections.find((s) => s.id === section)?.linked).toBe(true);
+		expect(sections.filter((s) => s.id !== section).every((s) => s.linked === false)).toBe(true);
+	});
+
+	it('linkableSections for a drill: videos of lessons that link the drill are taughtHere', () => {
+		linkExercise(db, lessonId, drill);
+		const groups = linkableSections(db, { exerciseId: drill });
+		expect(groups.find((g) => g.video.src === '/lesson-videos/l.mp4')?.taughtHere).toBe(true);
 	});
 
 	it('linkableSections lists recordings in figure-name order, not variation-name order', () => {

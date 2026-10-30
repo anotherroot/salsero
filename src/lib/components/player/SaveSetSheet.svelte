@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import PickerField from '$lib/components/picker/PickerField.svelte';
+	import { exerciseGroups } from '$lib/picker/build';
 	import { clock } from '$lib/format';
+	import type { PickExercise } from '$lib/types';
 
 	interface Props {
 		/** The exercise the run was opened from, or null when opened from a song with none. */
 		exercise: { id: number; name: string } | null;
-		exercises: { id: number; name: string }[];
+		exercises: PickExercise[];
 		durationS: number;
 		calledCount: number;
 		/** `JSON.stringify({ speed, count, clave, callEvery, called })`. */
@@ -26,6 +29,7 @@
 
 	let rating = $state<number | null>(fail?.rating ?? null);
 	let busy = $state(false);
+	let exerciseId = $state<number | null>(fail?.exerciseId ?? null);
 
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
@@ -62,15 +66,17 @@
 			<input type="hidden" name="exerciseId" value={exercise.id} />
 			<p class="text-[15px] font-medium">{exercise.name}</p>
 		{:else}
-			<label class="block">
-				<span class={label}>Exercise</span>
-				<select name="exerciseId" required class={field} value={fail?.exerciseId ?? ''}>
-					<option value="" disabled>Choose an exercise</option>
-					{#each exercises as e (e.id)}
-						<option value={e.id}>{e.name}</option>
-					{/each}
-				</select>
-			</label>
+			<PickerField
+				name="exerciseId"
+				label="Exercise"
+				placeholder="Choose an exercise…"
+				title="Choose an exercise"
+				search="Search exercises"
+				groups={exerciseGroups(exercises)}
+				nothingLeft="No exercises yet."
+				bind:value={exerciseId}
+				required
+			/>
 		{/if}
 
 		<fieldset class="mt-3">
@@ -111,7 +117,7 @@
 			</button>
 			<button
 				type="submit"
-				disabled={busy}
+				disabled={busy || (!exercise && exerciseId === null)}
 				class="h-12 flex-[2] rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
 			>
 				Save

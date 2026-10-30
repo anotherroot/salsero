@@ -392,8 +392,8 @@ function labelled(db: Db, spots: BareSpot[]): Spot[] {
 }
 
 /**
- * The "+ Link a section" sheet: every section of the target's dance not yet
- * linked to it, grouped by video. Lessons it is taught in come first.
+ * The "Link a section" picker: every section of the target's dance, grouped by
+ * video, the ones already linked to it flagged. Lessons it is taught in come first.
  */
 export function linkableSections(db: Db, target: SectionTarget): SectionGroup[] {
 	const context = targetContext(db, target);
@@ -411,10 +411,10 @@ export function linkableSections(db: Db, target: SectionTarget): SectionGroup[] 
 		.map((video) => ({
 			video,
 			taughtHere: video.from.kind === 'lesson' && context.taught.has(video.from.lessonId),
-			sections: labelled(
-				db,
-				(byVideo.get(ownerKey(video.owner)) ?? []).filter((s) => !linked.has(s.id))
-			)
+			sections: labelled(db, byVideo.get(ownerKey(video.owner)) ?? []).map((s) => ({
+				...s,
+				linked: linked.has(s.id)
+			}))
 		}))
 		.filter((g) => g.sections.length > 0);
 	return [...groups.filter((g) => g.taughtHere), ...groups.filter((g) => !g.taughtHere)];

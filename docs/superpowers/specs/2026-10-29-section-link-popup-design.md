@@ -6,6 +6,17 @@
 > (a figure is a group of variations) and the full-screen player as it stands
 > after [`2026-10-29-video-player-upright-design.md`](2026-10-29-video-player-upright-design.md).
 >
+> **Updated 2026-10-30**
+> ([`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md)):
+> the list, its search, Add buttons and "Other…" moved into the shared picker.
+> The popup now shows only the links and one button, "Link a figure or
+> drill…", and opens straight into the picker when the section has no links.
+> A tap in the picker links and closes everything; + links and stays; Done
+> closes. The create steps open from the picker's create row, and the variation
+> step's figure chips are a Figure field (a picker). In the full-screen player
+> the levels are four history levels: `link`, `link-pick`, `link-new`,
+> `link-figure`. Where the text below describes the list, the picker replaces it.
+>
 > Mockup: `.superpowers/brainstorm/3008515-1793306080/content/section-create-v3.html`
 > (local, not committed; open it in a browser). Rows A and B are the design.
 
@@ -105,10 +116,13 @@ Mine, shown in the mockup and approved with it:
 One component, two skins: light on site pages, and the player's dark palette
 (`--pl-*`) inside the player. Centred, with a scrim, at every size, including
 landscape and desktop in the player. ✕ closes it. Back and Esc go from a
-create step to the list, then close the popup, then follow the player's usual
+create step back to the picker, then close the popup, then follow the player's usual
 levels (a sheet or popup closes first, as in the player today).
 
 ### The list (mockup A2, B3)
+
+*Superseded 2026-10-30: the candidates, search and Add moved into the shared
+picker; already-linked items are shown greyed, not left out.*
 
 - **Header:** "Link 0:42–0:55" (the range), and under it the section's name
   (if it has one) and its length.
@@ -128,7 +142,8 @@ levels (a sheet or popup closes first, as in the player today).
   step, carrying the search text into the name field it asks for first (the
   variation name, the figure name, the drill name).
 
-An Add or a create puts the new link under **Linked** and stays on the list.
+An Add or a create puts the new link under **Linked**. A tap on a row, or Create and link, closes
+everything; + on a row keeps picking.
 The section's small line updates behind the popup.
 
 ### Create steps (mockup A3, A4, B4)
@@ -137,10 +152,9 @@ Each replaces the popup's content, with **‹ Link** at the top to go back. The
 subtitle says where it goes: "Linked to 0:42–0:55 and to Cubana class", or
 "Linked to 0:42–0:55" from a recording.
 
-- **New variation:** *Figure*, as chips. From a lesson video, the figures
-  that this lesson's variations belong to come first. From a recording, the
-  recording's own figure comes first. Then **Other…**, which shows a search
-  over the dance's live figures and their variation names, as Move to… does.
+- **New variation:** *Figure*, a field that opens the shared picker (the same one Move to… uses).
+  From a lesson video, the figures that this lesson's variations belong to
+  come first. From a recording, the recording's own figure comes first.
   Then *Variation name*. **Create and link.** It is refused, with the message
   in the popup, when the name is taken in that figure ("Enchufla already has
   a Doble.").
@@ -257,7 +271,7 @@ the same way.
   and figure pages gets no history entry, like every other sheet on the
   site's pages. Android Back there behaves as it does with those sheets
   open today. Inside the player, the popup is one of the player's sheets and
-  follows its history rules, so Back steps from a create step to the list,
+  follows its history rules, so Back steps from a create step to the picker,
   then closes the popup. The Android check is for the player.
 - `Spot.linkedTo` (labels) stays as the player's source for the small
   lines. The popup loads its own data when it opens.

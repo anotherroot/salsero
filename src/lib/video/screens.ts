@@ -4,13 +4,16 @@
  * entry per screen (`player-history.ts`). PURE and client-safe.
  */
 import type { Spot } from '$lib/types';
+import type { LinkStep } from './link-steps';
 
 /**
  * `list`: the spot list as a panel beside the video (landscape), closed by Back like any sheet.
- * `link`: the Link popup's list; `link-new`: one of its create steps, above it, so Back
- * returns to the list before it closes the popup.
+ * The Link popup takes one sheet per level, so Back steps down it one level at a
+ * time: `link` its links list, `link-pick` the picker, `link-new` a create step
+ * (which one, the player remembers), `link-figure` the variation step's Figure picker.
  */
-export type PlayerSheet = 'rename' | 'delete' | 'keys' | 'list' | 'link' | 'link-new';
+export type PlayerSheet =
+	'rename' | 'delete' | 'keys' | 'list' | 'link' | 'link-pick' | 'link-new' | 'link-figure';
 
 export type Screen =
 	| { kind: 'full' }
@@ -95,4 +98,21 @@ export function editStack(stack: Stack, spotId: number): Stack {
 	const level = levelOf(stack);
 	const edit: Screen = { kind: 'edit', spotId };
 	return level.kind === 'section' && level.spotId === spotId ? [FULL, level, edit] : [FULL, edit];
+}
+
+const LINK_STEP: Partial<Record<PlayerSheet, LinkStep>> = {
+	link: 'links',
+	'link-pick': 'pick',
+	'link-figure': 'variation-figure'
+};
+
+/** The stack's link sheets as popup steps, bottom first. `create` names the step 'link-new' stands for. */
+export function linkStepsOf(stack: Stack, create: 'variation' | 'figure' | 'drill'): LinkStep[] {
+	const steps: LinkStep[] = [];
+	for (const s of stack) {
+		if (s.kind !== 'sheet') continue;
+		const step = s.sheet === 'link-new' ? create : LINK_STEP[s.sheet];
+		if (step) steps.push(step);
+	}
+	return steps;
 }

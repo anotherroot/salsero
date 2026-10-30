@@ -236,7 +236,14 @@ Duplicate routine, Archive — is unchanged.
 
 ## The picker
 
-One bottom sheet (`Sheet.svelte`), used for every way of adding something:
+Since 2026-10-30 this is the shared picker (`Picker.svelte`) fed by `fit.ts`,
+not a list of its own: `fit.ts` still decides what is offered, and the picker
+draws the sheet, the search, the rows and the headings. The Count and Hold
+filters, the context line, the "Turn off Hold" rescue and the timing second
+line stay the routine editor's. See
+[`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md).
+
+One picker (the shared `Picker`, a bottom sheet on a phone), used for every way of adding something:
 
 ```
  Add after slot 3                       ×
@@ -343,7 +350,7 @@ the rule governs adding, it is not a migration.
   `alternative` / none), the two toggles, and the search text. Output: the
   groups to render, headings included, and whether a toggle is what
   emptied the list. Knows nothing of dances, like the rest of
-  `src/lib/routines/`.
+  `src/lib/routines/`. Its `fold` now lives in `src/lib/fold.ts`.
 - **`positionSeams(g, shape)`** in `src/lib/routines/routines.ts`, the twin of
   `timingSeams`: per row of `slots` — not per flat index — which next row this
   one fails to reach in the hands. Today's `breakAfter` stops being trustworthy
@@ -358,7 +365,8 @@ the rule governs adding, it is not a migration.
 ### Components — `src/lib/components/routines/`
 
 `SlotCard.svelte` (handle, swipe layers, expand/collapse, note field,
-alternative cards), `Seam.svelte`, `SlotPicker.svelte`, `SelectionBar.svelte`,
+alternative cards), `Seam.svelte`, `SlotPicker.svelte` (a wrapper that feeds
+`fit.ts`'s output to the shared picker), `SelectionBar.svelte`,
 `UndoToast.svelte`. The page becomes the wiring between them and the actions.
 
 ### Server

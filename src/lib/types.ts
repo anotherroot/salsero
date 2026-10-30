@@ -242,6 +242,28 @@ export interface LessonExerciseRow {
 	viaSections: ViaSection[];
 }
 
+/** An exercise as a picker offers it. */
+export interface PickExercise {
+	id: number;
+	name: string;
+	source: Source;
+	everyDays: number;
+	/** A figure exercise's figure and variation names; null otherwise. */
+	figure: string | null;
+	variation: string | null;
+	linked: boolean;
+}
+
+/** A routine as a picker offers it. */
+export interface PickRoutine {
+	id: number;
+	name: string;
+	/** Slots, children counted as one. */
+	slots: number;
+	loops: boolean;
+	linked: boolean;
+}
+
 /** One variation of a figure, as a picker offers it. */
 export interface FigureVersion {
 	id: number;
@@ -351,6 +373,13 @@ export interface LinkOption {
 	/** "Enchufla · Doble", or a drill's name. */
 	label: string;
 	drill: boolean;
+	/** A variation's figure and own name, for headings; null for a drill. */
+	figure: string | null;
+	name: string;
+	/** A drill's; null for a variation. */
+	everyDays: number | null;
+	/** Already linked to this section. */
+	linked: boolean;
 }
 
 /** One of a section's links, in the Link popup. */
@@ -380,11 +409,15 @@ export interface LinkOptions {
 	spot: { id: number; startMs: number; endMs: number; label: string | null };
 	context: LinkContext;
 	linked: LinkedTarget[];
-	/** "This lesson" or "This figure", without what is linked. */
+	/** 'In this lesson' or 'This figure'. */
+	nearTitle: string;
+	/** Variations then drills of this lesson, or the recording's own figure. */
 	near: LinkOption[];
-	/** Every other live variation and drill of the dance. */
-	other: LinkOption[];
-	figures: LinkFigureChoice[];
+	/** Every other live variation. */
+	figures: LinkOption[];
+	/** Every other live drill. */
+	drills: LinkOption[];
+	figureChoices: LinkFigureChoice[];
 	/** What "New figure" starts on. */
 	defaults: { partner: Partner; style: string };
 }
@@ -454,7 +487,8 @@ export interface SectionGroup {
 	video: SectionVideo;
 	/** A lesson the target is taught in. */
 	taughtHere: boolean;
-	sections: Spot[];
+	/** Every section of the video; `linked` when it is already linked to the target. */
+	sections: (Spot & { linked: boolean })[];
 }
 
 /** A paired Android app, as Settings lists it. Never carries the token. */

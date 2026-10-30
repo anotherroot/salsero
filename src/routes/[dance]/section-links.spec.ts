@@ -208,10 +208,17 @@ describe('the figure page', () => {
 		linkSpot(db, section, { figureId: doble });
 		const data = loadAt(figurePage.load, 'salsa', doble) as {
 			variation: { sections: { linkId: number }[] };
-			linkable: { video: { src: string } }[];
+			linkable: { video: { src: string }; sections: { id: number; linked: boolean }[] }[];
 		};
 		expect(data.variation.sections).toHaveLength(1);
-		expect(data.linkable.map((g) => g.video.src)).toEqual(['/lesson-videos/o.mp4']);
+		expect(data.linkable.map((g) => g.video.src)).toEqual([
+			'/lesson-videos/l.mp4',
+			'/lesson-videos/o.mp4'
+		]);
+		// What it already links is listed too, flagged.
+		expect(data.linkable.flatMap((g) => g.sections).find((x) => x.id === section)?.linked).toBe(
+			true
+		);
 		// Its sibling has none of them: a variation shows its own sections only.
 		const sibling = loadAt(figurePage.load, 'salsa', figureId) as typeof data;
 		expect(sibling.variation.sections).toEqual([]);

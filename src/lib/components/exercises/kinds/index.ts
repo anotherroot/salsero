@@ -26,7 +26,7 @@ export interface ContentProps {
 		entered: string;
 		/** What "+ Link a section" offers; and a refused link or unlink, to show. */
 		linkable?: SectionGroup[];
-		sectionMessage?: string | null;
+		unlinkMessage?: string | null;
 	};
 }
 

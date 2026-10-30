@@ -5,7 +5,7 @@ import { listLessons } from '$lib/server/lessons';
 import { danceOf } from '$lib/server/scope';
 import type { PageServerLoad } from './$types';
 
-/** How many recent lessons it offers; older ones are a search away on the lessons page. */
+/** How many recent lessons it offers; older ones are on the lessons page. */
 const RECENT = 30;
 
 /**

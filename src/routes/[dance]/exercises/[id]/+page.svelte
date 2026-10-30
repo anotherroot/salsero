@@ -102,7 +102,7 @@
 			message: failure('addLink'),
 			entered: form && 'urls' in form ? String(form.urls) : '',
 			linkable: data.linkable,
-			sectionMessage: failure('linkSection') ?? failure('unlinkSection')
+			unlinkMessage: failure('unlinkSection')
 		}}
 	/>
 
