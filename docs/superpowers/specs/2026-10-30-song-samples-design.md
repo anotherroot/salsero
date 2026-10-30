@@ -181,6 +181,7 @@ the log popup, open the song popup, press Back three times.
 - 15 s, 1×, no count or clave, one sample at a time.
 - Automatic start a third of the way in, snapped to a 1; overridable per song
   on the song's page; stored raw, snapped on read.
+- Back closes the top popup first, in every sheet, as part of this change.
 
 ## Non-goals
 
