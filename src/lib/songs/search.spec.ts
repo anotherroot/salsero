@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PickerSong } from '$lib/types';
-import { groupSongs, highlight, searchSongs } from './search';
+import { groupSongs, searchSongs } from './search';
 
 function song(id: number, title: string, over: Partial<PickerSong> = {}): PickerSong {
 	return {
@@ -54,26 +54,5 @@ describe('groupSongs', () => {
 		]);
 		expect(g.recent.map((s) => s.id)).toEqual([3, 1]);
 		expect(g.rest.map((s) => s.id)).toEqual([4, 2]);
-	});
-});
-
-describe('highlight', () => {
-	it('cuts from the original title', () => {
-		expect(highlight('Valió la pena', 'valio')).toEqual({
-			before: '',
-			match: 'Valió',
-			after: ' la pena'
-		});
-	});
-	it('finds a match in the middle', () => {
-		expect(highlight('Valió la pena', ' LA ')).toEqual({
-			before: 'Valió ',
-			match: 'la',
-			after: ' pena'
-		});
-	});
-	it('is null with no match or an empty query', () => {
-		expect(highlight('Idilio', 'x')).toBeNull();
-		expect(highlight('Idilio', '  ')).toBeNull();
 	});
 });

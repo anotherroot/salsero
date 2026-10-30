@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fold, shown, type PickGroup } from './model';
+import { fold, segments, shown, type PickGroup } from './model';
 
 const groups: PickGroup[] = [
 	{
@@ -131,5 +131,36 @@ describe('shown', () => {
 describe('fold', () => {
 	it('lowercases and strips accents', () => {
 		expect(fold('Dile Qué Nó')).toBe('dile que no');
+	});
+});
+
+describe('segments', () => {
+	const hits = (text: string, query: string) =>
+		segments(text, query)
+			.filter((s) => s.hit)
+			.map((s) => s.text);
+
+	it('cuts the match from the original text, accents kept', () => {
+		expect(segments('Valió la pena', 'valio')).toEqual([
+			{ text: 'Valió', hit: true },
+			{ text: ' la pena', hit: false }
+		]);
+	});
+	it('finds a match in the middle, query trimmed and any case', () => {
+		expect(segments('Valió la pena', ' LA ')).toEqual([
+			{ text: 'Valió ', hit: false },
+			{ text: 'la', hit: true },
+			{ text: ' pena', hit: false }
+		]);
+	});
+	it('marks the first match of every word', () => {
+		expect(hits('Enchufla · Doble', 'dob ench')).toEqual(['Ench', 'Dob']);
+	});
+	it('joins overlapping words into one mark', () => {
+		expect(hits('Enchufla', 'ench chuf')).toEqual(['Enchuf']);
+	});
+	it('is the whole text unmarked with no match or an empty query', () => {
+		expect(segments('Idilio', 'x')).toEqual([{ text: 'Idilio', hit: false }]);
+		expect(segments('Idilio', '  ')).toEqual([{ text: 'Idilio', hit: false }]);
 	});
 });

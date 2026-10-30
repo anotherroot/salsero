@@ -13,7 +13,7 @@
 	 */
 	import type { Snippet } from 'svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
-	import { shown, type PickGroup, type PickRow } from '$lib/picker/model';
+	import { segments, shown, type PickGroup, type PickRow } from '$lib/picker/model';
 
 	interface Props {
 		open: boolean;
@@ -42,6 +42,8 @@
 		top?: Snippet;
 		/** Replaces the empty box (the routine editor's "Turn off Hold"). */
 		empty?: Snippet;
+		/** A row's own control at its right edge (a song's ▶ sample). */
+		rowEnd?: Snippet<[PickRow]>;
 		onpick: (row: PickRow) => void;
 		onadd?: (row: PickRow) => void;
 		onpreview?: (row: PickRow) => void;
@@ -67,6 +69,7 @@
 		query = $bindable(''),
 		top,
 		empty,
+		rowEnd,
 		onpick,
 		onadd,
 		onpreview,
@@ -144,6 +147,13 @@
 	</header>
 {/snippet}
 
+{#snippet marked(text: string)}
+	<!-- What the search matched, in the accent: the same in every picker. -->
+	{#if typed}{#each segments(text, typed) as s, i (i)}{#if s.hit}<mark
+					class="bg-transparent font-bold {c.accent}">{s.text}</mark
+				>{:else}{s.text}{/if}{/each}{:else}{text}{/if}
+{/snippet}
+
 {#snippet row(r: PickRow, text: string, indent: boolean)}
 	{@const linked = kind === 'link' && r.linked === true}
 	{@const isChosen = kind === 'field' && chosen != null && r.key === chosen}
@@ -166,9 +176,11 @@
 			onclick={() => onpick(r)}
 		>
 			<span class="block truncate"
-				>{#if indent}<span class={c.muted}>└&nbsp;</span>{/if}{text}</span
+				>{#if indent}<span class={c.muted}>└&nbsp;</span>{/if}{@render marked(text)}</span
 			>
-			{#if r.meta}<span class="block truncate text-[12px] {c.muted}">{r.meta}</span>{/if}
+			{#if r.meta}<span class="block truncate text-[12px] {r.metaAccent ? c.accent : c.muted}"
+					>{r.meta}</span
+				>{/if}
 		</button>
 		{#if linked}
 			<span class="shrink-0 pr-1 text-[12.5px] {c.muted}">✓ Linked</span>
@@ -182,6 +194,7 @@
 				onclick={() => onadd?.(r)}>+</button
 			>
 		{/if}
+		{@render rowEnd?.(r)}
 	</div>
 {/snippet}
 
@@ -232,12 +245,17 @@
 		{/if}
 		{#each lines as line, i (i)}
 			{#if line.kind === 'group'}
-				<p class="mt-3 mb-1 text-[11px] font-medium tracking-wide uppercase {c.muted}">
-					{line.title}
-				</p>
+				<!-- An untitled group (a flat list of search hits) has no heading. -->
+				{#if line.title}<p
+						class="mt-3 mb-1 text-[11px] font-medium tracking-wide uppercase {c.muted}"
+					>
+						{line.title}
+					</p>{/if}
 			{:else if line.kind === 'heading'}
 				<!-- A heading, not a choice: only the rows under it can be picked. -->
-				<p class="truncate pt-2 pb-0.5 text-[13px] font-medium {c.muted}">{line.text}</p>
+				<p class="truncate pt-2 pb-0.5 text-[13px] font-medium {c.muted}">
+					{@render marked(line.text)}
+				</p>
 			{:else}
 				{@render row(line.row, line.text, line.indent)}
 			{/if}

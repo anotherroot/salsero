@@ -1,21 +1,22 @@
 <!--
 	The Song field and its popup, in place of a `<select>`: a native dropdown
 	cannot hold a play button. The field shows the pick with a ▶ that samples
-	it; the rest of the field opens "Pick a song" — a search, then Recent and
-	A to Z, every row with its own ▶. Sampling never changes the pick; tapping
-	a row picks it and closes. Every way of closing stops the sample.
+	it; the rest of the field opens "Pick a song" — the shared picker: a search,
+	then Recent and A to Z (one flat A to Z while searching), every row with its
+	own ▶. Sampling never changes the pick; tapping a row picks it and closes.
+	Every way of closing stops the sample.
 -->
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Picker from '$lib/components/picker/Picker.svelte';
 	import SampleButton from '$lib/components/songs/SampleButton.svelte';
-	import { FIELD } from '$lib/components/ui/styles';
 	import { getDance, isDanceSlug } from '$lib/dances/dances';
-	import { groupSongs, highlight, searchSongs } from '$lib/songs/search';
+	import { groupSongs, searchSongs } from '$lib/songs/search';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
+	import type { PickGroup, PickRow } from '$lib/picker/model';
 	import type { PickerSong } from '$lib/types';
 
 	interface Props {
@@ -32,7 +33,6 @@
 
 	let open = $state(false);
 	let query = $state('');
-	let search: HTMLInputElement | undefined = $state();
 
 	const slug = $derived(page.params.dance ?? 'salsa');
 	const styleLabels = $derived(isDanceSlug(slug) ? getDance(slug).styleLabel : {});
@@ -40,7 +40,7 @@
 
 	const searching = $derived(query.trim() !== '');
 	const hits = $derived(searchSongs(songs, query));
-	const groups = $derived(groupSongs(songs));
+	const grouped = $derived(groupSongs(songs));
 	const countText = $derived(
 		searching
 			? hits.length === 1
@@ -50,12 +50,6 @@
 				? '1 song'
 				: `${songs.length} songs`
 	);
-
-	// Focus the search only with a mouse: on a phone the keyboard would cover
-	// the list, which is what the popup was opened to see and sample.
-	$effect(() => {
-		if (search && matchMedia('(pointer: fine)').matches) search.focus();
-	});
 
 	// A sample keeps playing while typing only while its row is still listed:
 	// a sample with no ■ in sight could not be stopped.
@@ -75,15 +69,40 @@
 			.join(' · ');
 	}
 
+	/** A song as a picker row; its second line follows its sample. */
+	function toRow(s: PickerSong): PickRow {
+		const on = sampling.id === s.id;
+		return {
+			key: `song:${s.id}`,
+			value: s.id,
+			label: s.title,
+			meta: on ? `Sample from ${clock(s.sample.startS)}` : meta(s),
+			metaAccent: on
+		};
+	}
+
+	/** Searching: one flat A to Z of hits. Otherwise Recent, then the rest A to Z. */
+	const groups = $derived<PickGroup[]>(
+		searching
+			? [{ title: '', entries: hits.map(toRow) }]
+			: grouped.recent.length > 0
+				? [
+						{ title: 'Recent', entries: grouped.recent.map(toRow) },
+						{ title: 'All songs A–Z', entries: grouped.rest.map(toRow) }
+					]
+				: [{ title: '', entries: grouped.rest.map(toRow) }]
+	);
+
+	const byId = $derived(new Map(songs.map((s) => [s.id, s])));
+
 	/** ✕, the backdrop, Escape (and Back) all land here: the pick stays. */
 	function close() {
 		open = false;
-		query = '';
 		stopSample();
 	}
 
-	function pick(s: PickerSong) {
-		songId = s.id;
+	function pick(row: PickRow) {
+		songId = row.value;
 		close();
 	}
 
@@ -92,9 +111,6 @@
 	onDestroy(() => {
 		if (songs.some((s) => s.id === sampling.id)) stopSample();
 	});
-
-	const heading =
-		'border-t border-line bg-surface px-3 pt-2.5 pb-1.5 text-[11px] font-medium tracking-wide text-muted uppercase first:border-t-0';
 </script>
 
 {#snippet line(s: PickerSong)}
@@ -103,36 +119,6 @@
 	{:else}
 		<span class="block truncate text-[12px] text-muted tabular-nums">{meta(s)}</span>
 	{/if}
-{/snippet}
-
-{#snippet row(s: PickerSong)}
-	{@const on = s.id === songId}
-	{@const h = searching ? highlight(s.title, query) : null}
-	<li class="flex items-stretch border-t border-line first:border-t-0 {on ? 'bg-accent/8' : ''}">
-		<button
-			type="button"
-			aria-current={on ? 'true' : undefined}
-			onclick={() => pick(s)}
-			class="inset-focus flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
-		>
-			<span
-				class="grid size-4 flex-none place-items-center rounded-full border-[1.5px] {on
-					? 'border-accent'
-					: 'border-rule'}"
-				aria-hidden="true"
-			>
-				{#if on}<span class="size-2 rounded-full bg-accent"></span>{/if}
-			</span>
-			<span class="min-w-0">
-				<span class="block truncate text-[15px] font-medium">
-					{#if h}{h.before}<mark class="bg-transparent font-bold text-accent">{h.match}</mark
-						>{h.after}{:else}{s.title}{/if}
-				</span>
-				{@render line(s)}
-			</span>
-		</button>
-		<SampleButton song={s.sample} />
-	</li>
 {/snippet}
 
 <div class="flex items-stretch rounded-lg border border-rule bg-raised">
@@ -159,66 +145,42 @@
 	{/if}
 </div>
 
-<Sheet title="Pick a song" {open} onclose={close}>
-	<div class="relative">
-		<svg
-			width="16"
-			height="16"
-			viewBox="0 0 16 16"
-			fill="none"
-			stroke-width="1.8"
-			class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 stroke-muted"
-			aria-hidden="true"
-		>
-			<circle cx="7" cy="7" r="5" />
-			<path d="M11 11l3.5 3.5" stroke-linecap="round" />
-		</svg>
-		<input
-			bind:this={search}
-			bind:value={query}
-			type="search"
-			placeholder="Search songs"
-			aria-label="Search songs"
-			autocomplete="off"
-			class="{FIELD} pl-9 placeholder:text-muted"
-		/>
-	</div>
-	<p class="mt-2 mb-2 flex justify-between gap-3 text-[12px] text-muted">
-		<span>{countText}</span>
-		<span class="text-right">▶ hear 15 s · tap a song to pick it</span>
-	</p>
-
-	<!-- 88dvh is the sheet's cap; the rest is its header, the search and the count line. -->
-	<div class="max-h-[calc(88dvh-11.5rem)] overflow-y-auto rounded-lg border border-line bg-raised">
+<Picker
+	{open}
+	title="Pick a song"
+	placeholder="Search songs"
+	kind="field"
+	chosen={songId === null ? null : `song:${songId}`}
+	{groups}
+	prefiltered
+	bind:query
+	nothingLeft="No songs yet."
+	onpick={pick}
+	onclose={close}
+>
+	{#snippet top()}
+		<p class="mt-2 flex justify-between gap-3 text-[12px] text-muted">
+			<span>{countText}</span>
+			<span class="text-right">▶ hear 15 s · tap a song to pick it</span>
+		</p>
+	{/snippet}
+	{#snippet empty()}
 		{#if searching}
-			{#if hits.length > 0}
-				<ul>
-					{#each hits as s (s.id)}{@render row(s)}{/each}
-				</ul>
-			{:else}
-				<p class="px-4 py-7 text-center text-[14px] leading-relaxed text-muted">
-					No song matches “{query.trim()}”.<br />
-					<a
-						href={resolve('/[dance]/songs', { dance: slug })}
-						onclick={close}
-						class="font-medium text-accent">Add it on the Songs page.</a
-					>
-				</p>
-			{/if}
+			No song matches “{query.trim()}”.
+			<a
+				href={resolve('/[dance]/songs', { dance: slug })}
+				onclick={close}
+				class="font-medium text-accent">Add it on the Songs page.</a
+			>
 		{:else}
-			{#if groups.recent.length > 0}
-				<p class={heading}>Recent</p>
-				<ul>
-					{#each groups.recent as s (s.id)}{@render row(s)}{/each}
-				</ul>
-				<p class={heading}>All songs A–Z</p>
-			{/if}
-			<ul>
-				{#each groups.rest as s (s.id)}{@render row(s)}{/each}
-			</ul>
+			No songs yet.
 		{/if}
-	</div>
-</Sheet>
+	{/snippet}
+	{#snippet rowEnd(row: PickRow)}
+		{@const s = byId.get(row.value)}
+		{#if s}<SampleButton song={s.sample} />{/if}
+	{/snippet}
+</Picker>
 
 <style>
 	/*
