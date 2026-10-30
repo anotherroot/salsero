@@ -22,9 +22,13 @@
 		/** This dance's ready songs. */
 		songs: PickerSong[];
 		songId: number | null;
+		/** The id of the visible "Song" text, which names the field's button. */
+		labelId?: string;
 	}
 
-	let { songs, songId = $bindable() }: Props = $props();
+	let { songs, songId = $bindable(), labelId }: Props = $props();
+
+	const buttonId = $props.id();
 
 	let open = $state(false);
 	let query = $state('');
@@ -134,6 +138,8 @@
 <div class="flex items-stretch rounded-lg border border-rule bg-raised">
 	<button
 		type="button"
+		id="{buttonId}-field"
+		aria-labelledby={labelId ? `${labelId} ${buttonId}-field` : undefined}
 		aria-haspopup="dialog"
 		onclick={() => (open = true)}
 		class="inset-focus flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left"

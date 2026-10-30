@@ -560,7 +560,12 @@ unsaved.
   never keeps one for a closed sheet. A sheet closed by its page (a save, a
   link inside it) leaves an entry only when the page moved on, and Back onto
   it bounces straight past. The depth is read from the history entry, not
-  from `page.state`, which `invalidateAll()` resets to {}.
+  from `page.state`, which `invalidateAll()` resets to {}. Known gaps:
+  `startSession` leaves a stale `/[dance]` entry carrying `sheets: 1`, which
+  Back bounces over in one press; a multi-step desktop Back (long-press
+  history) over a sheet with unsaved work can ask twice; and the lesson
+  page's light `LinkPopup` is its own `<dialog>`, not a Sheet, so Back there
+  still leaves the page.
 - **What it offers.** Save · Stay · *Leave* without saving. Save submits the
   real form(s) and waits for the server's answer: Saved ✓ then offers Leave or
   Stay; a failure shows the server's message with "Stay and fix it". A form

@@ -25,6 +25,21 @@ function element(): HTMLAudioElement {
 		audio.preload = 'auto';
 		audio.addEventListener('ended', stopSample);
 		/*
+		 * The OS can pause the element (a media notification, a call taking
+		 * audio focus, the WebView backgrounded) and a load can fail after
+		 * play() resolved: either leaves the button on a stop square. Our own
+		 * stop, and the pause a newer playSample causes, are not that: the
+		 * event is queued, so by the time it runs sampling.id is null (own
+		 * stop) or the element is playing again (a newer play), and both are
+		 * ignored.
+		 */
+		audio.addEventListener('pause', () => {
+			if (sampling.id !== null && audio?.paused) stopSample();
+		});
+		audio.addEventListener('error', () => {
+			if (sampling.id !== null && audio?.getAttribute('src')) stopSample();
+		});
+		/*
 		 * rAF stops in a background tab; `timeupdate` does not, so a sample
 		 * still ends on time when the page is not visible.
 		 */

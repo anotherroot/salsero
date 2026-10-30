@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { songs } from './db/schema';
 import { openDb, type Db } from './db';
 import { createCustomExercise, logSet } from './exercises';
 import {
@@ -317,6 +319,14 @@ describe('song samples and the picker', () => {
 		expect(rows[1].bpm).toBe(120);
 		expect(rows[1].sample).toEqual({ id: rows[1].id, audioFile: 's0.mp3', startS: 28 });
 		expect(rows.every((r) => r.recentRank === null)).toBe(true);
+	});
+
+	it('keeps a song with a malformed beats_json, with an unsnapped start', () => {
+		const a = readySong('Broken');
+		db.update(songs).set({ beatsJson: '{not json' }).where(eq(songs.id, a.id)).run();
+		const rows = songChoices(db, 'salsa');
+		expect(rows.map((r) => r.title)).toEqual(['Broken']);
+		expect(rows[0].sample.startS).toBe(30);
 	});
 
 	it('sets, snaps, rejects and clears the sample start', () => {

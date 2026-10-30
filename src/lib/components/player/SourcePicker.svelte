@@ -33,6 +33,8 @@
 		bpm = $bindable(),
 		error = null
 	}: Props = $props();
+
+	const uid = $props.id();
 </script>
 
 {#if songs.length > 0}
@@ -65,8 +67,8 @@
 
 {#if source === 'song'}
 	<div>
-		<span class={LABEL}>Song</span>
-		<SongPicker bind:songId {songs} />
+		<span class={LABEL} id="{uid}-song">Song</span>
+		<SongPicker bind:songId {songs} labelId="{uid}-song" />
 	</div>
 	{#if error}<p class="text-[13px] text-danger">{error}</p>{/if}
 	<fieldset>

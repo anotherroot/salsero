@@ -53,7 +53,14 @@ export function createSongFromUpload(
 
 export function songSample(song: Song): SampleSong | null {
 	if (!song.audioFile) return null;
-	const { beats, counts } = songGrid(song);
+	// A malformed `beats_json` must not take every page that lists songs down.
+	let beats: number[] = [];
+	let counts: ReturnType<typeof songGrid>['counts'] = [];
+	try {
+		({ beats, counts } = songGrid(song));
+	} catch {
+		/* unsnapped start */
+	}
 	return {
 		id: song.id,
 		audioFile: song.audioFile,
