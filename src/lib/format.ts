@@ -38,6 +38,17 @@ export function dayLabel(day: string): string {
 	return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
+/**
+ * The day of a class, as Today shows it beside "Lesson": `Tue 28 Oct`, with the
+ * year added only when it is not `today`'s — classes are weekly, so the weekday
+ * is what tells two apart.
+ */
+export function classDayLabel(day: string, today: string): string {
+	return day.slice(0, 4) === today.slice(0, 4)
+		? dayLabel(day)
+		: `${dayLabel(day)} ${day.slice(0, 4)}`;
+}
+
 /** `2026-09-22` → `22 Sep 2026`. Same reasoning as `dayLabel`. */
 export function dateLabel(day: string): string {
 	const d = new Date(`${day}T12:00:00Z`);

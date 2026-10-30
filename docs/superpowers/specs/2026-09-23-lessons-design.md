@@ -219,7 +219,18 @@ stays collapsed.
   review exercise has — and `archiveExercise` then refused it. It now offers
   "Open figure →", "Open lesson →", or Archive for a custom exercise only.
 - `ExerciseRow`'s badge gained a `lesson` arm. Without it a lesson exercise
-  rendered as "Custom", and nothing in the types would have caught that.
+  rendered as "Custom", and nothing in the types would have caught that. The
+  arm carries the class day — "Lesson · Wed 28 Oct", the year added only when
+  it is not this year (`format.classDayLabel`). Classes are weekly, so the
+  weekday is what tells two apart. Today reads the days from `lessonDays`.
+- **The library row says how much is in a lesson**: three chips under the date,
+  "6 sections · 1 routine · 3 figures", always all three — a zero fades rather
+  than vanishing, so a lesson still missing something shows it. Sections are
+  spots with an end on its videos (points do not count); routines are live
+  linked ones; figures are figure groups, not variations, reached by hand or
+  through a section, live variations only — so an archived variation the
+  lesson page still lists is not counted. `listLessons` computes them with one
+  grouped query each, keyed by lesson.
 - `$lib/media.ts` holds the broken-media diagnosis (a 404 on a one-byte range
   means the file is gone; anything else means the codec is) that was inline on
   the figure page. The lesson page is its second caller.

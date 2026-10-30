@@ -7,7 +7,7 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
-	import { dayLabel, setSummary } from '$lib/format';
+	import { classDayLabel, dayLabel, setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
@@ -83,6 +83,11 @@
 	);
 
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
+	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
+	const lessonDayOf = (e: { lessonId: number | null }) => {
+		const day = e.lessonId === null ? undefined : data.lessonDays[e.lessonId];
+		return day ? classDayLabel(day, data.today) : null;
+	};
 	// Every band, so opening a row by id works wherever it sits.
 	const rows = $derived([
 		...data.plan.doneToday,
@@ -175,6 +180,7 @@
 							variant="done"
 							dance={data.dance.slug}
 							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							lessonDay={lessonDayOf(row.exercise)}
 							onlog={() => (openId = row.exercise.id)}
 						/>
 					{/each}
@@ -203,6 +209,7 @@
 							variant="due"
 							dance={data.dance.slug}
 							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							lessonDay={lessonDayOf(row.exercise)}
 							onlog={() => (openId = row.exercise.id)}
 						/>
 					{/each}
@@ -223,6 +230,7 @@
 							variant="upcoming"
 							dance={data.dance.slug}
 							lastRating={data.lastRatings[row.exercise.id] ?? null}
+							lessonDay={lessonDayOf(row.exercise)}
 							onlog={() => (openId = row.exercise.id)}
 						/>
 					{/each}
@@ -249,6 +257,7 @@
 								variant="inactive"
 								dance={data.dance.slug}
 								lastRating={data.lastRatings[row.exercise.id] ?? null}
+								lessonDay={lessonDayOf(row.exercise)}
 								onlog={() => (openId = row.exercise.id)}
 							/>
 						{/each}

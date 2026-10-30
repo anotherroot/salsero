@@ -32,7 +32,9 @@ import {
 	renameFigure,
 	updateVariation
 } from './figures';
-import { createLesson, linkFigure } from './lessons';
+import { addLessonVideo, archiveLesson, createLesson, linkFigure } from './lessons';
+import { addSpot } from './spots';
+import { linkSpot } from './spot-links';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
 
@@ -260,9 +262,80 @@ describe('labels and lists', () => {
 				name: 'Enchufla',
 				variations: 2,
 				recordings: 1,
-				firstVariationId: figure.id
+				firstVariationId: figure.id,
+				hasSection: false,
+				hasLesson: false
 			}
 		]);
+	});
+
+	describe('section and lesson links', () => {
+		const flags = () =>
+			Object.fromEntries(
+				listFigures(db, 'salsa', {}).map((f) => [f.name, [f.hasSection, f.hasLesson]])
+			);
+		const lessonVideo = (lessonId: number) =>
+			addLessonVideo(db, { lessonId, file: `${lessonId}.mp4`, mime: 'video/mp4', sizeBytes: 1 }).id;
+		const section = (owner: { lessonVideoId: number } | { recordingId: number }) =>
+			addSpot(db, owner, { startMs: 0, endMs: 1000, label: null })!.id;
+
+		it('says a figure has a section when any variation is linked to one, on a recording too', () => {
+			const { figure } = fig();
+			const doble = createVariationFrom(db, figure.id, 'Doble')!;
+			fig('Setenta');
+			const rec = addRecording(db, {
+				figureId: figure.id,
+				file: 'r.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 1,
+				note: null
+			});
+			linkSpot(db, section({ recordingId: rec.id }), { figureId: doble.id });
+
+			expect(flags()).toEqual({ Enchufla: [true, false], Setenta: [false, false] });
+		});
+
+		it('says a figure has a lesson when a live lesson reaches it, by hand or through a section', () => {
+			const { figure: enchufla } = fig();
+			const { figure: setenta } = fig('Setenta');
+			const { figure: vacilala } = fig('Vacilala');
+			const lesson = createLesson(db, 'salsa', {
+				lessonDay: '2026-10-28',
+				title: 'Class',
+				notes: null
+			}).lesson;
+			const gone = createLesson(db, 'salsa', {
+				lessonDay: '2026-10-21',
+				title: 'Old class',
+				notes: null
+			}).lesson;
+			linkFigure(db, lesson.id, enchufla.id);
+			linkSpot(db, section({ lessonVideoId: lessonVideo(lesson.id) }), { figureId: setenta.id });
+			linkFigure(db, gone.id, vacilala.id);
+			archiveLesson(db, gone.id, 1000);
+
+			expect(flags()).toEqual({
+				Enchufla: [false, true],
+				Setenta: [true, true],
+				Vacilala: [false, false]
+			});
+		});
+
+		it('filters to the figures missing either link', () => {
+			const { figure: enchufla } = fig();
+			fig('Setenta');
+			const lesson = createLesson(db, 'salsa', {
+				lessonDay: '2026-10-28',
+				title: 'Class',
+				notes: null
+			}).lesson;
+			linkSpot(db, section({ lessonVideoId: lessonVideo(lesson.id) }), {
+				figureId: enchufla.id
+			});
+
+			expect(listFigures(db, 'salsa', { unlinked: true }).map((f) => f.name)).toEqual(['Setenta']);
+		});
 	});
 
 	it('listFigures filters by any variation', () => {

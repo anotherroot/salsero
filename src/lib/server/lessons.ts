@@ -1,4 +1,17 @@
-import { and, asc, count, desc, eq, inArray, isNull, ne, notInArray, or, sum } from 'drizzle-orm';
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	inArray,
+	isNotNull,
+	isNull,
+	ne,
+	notInArray,
+	or,
+	sum
+} from 'drizzle-orm';
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
@@ -100,8 +113,54 @@ export function archiveLesson(db: Db, id: number, now: number): boolean {
 	});
 }
 
-/** The library: newest class first, with what its videos cost on disk. */
+/**
+ * The library: newest class first, with what its videos cost on disk and how
+ * much is in it — sections, routines, figures. Each count is one grouped query
+ * over the whole dance, keyed by lesson, so the list stays a fixed number of
+ * queries however many lessons there are.
+ */
 export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
+	const sections = new Map(
+		db
+			.select({ id: lessonVideos.lessonId, n: count(videoSpots.id) })
+			.from(videoSpots)
+			.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+			.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+			.where(and(eq(lessons.dance, dance), isNotNull(videoSpots.endMs)))
+			.groupBy(lessonVideos.lessonId)
+			.all()
+			.map((r) => [r.id, r.n])
+	);
+	const routineCounts = new Map(
+		db
+			.select({ id: lessonRoutines.lessonId, n: count(routines.id) })
+			.from(lessonRoutines)
+			.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
+			.where(and(eq(routines.dance, dance), isNull(routines.archivedAt)))
+			.groupBy(lessonRoutines.lessonId)
+			.all()
+			.map((r) => [r.id, r.n])
+	);
+	// A figure is its group: two variations of one figure on a lesson count once.
+	const hand = db
+		.select({ id: lessonFigures.lessonId, group: figures.groupId })
+		.from(lessonFigures)
+		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
+		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt)))
+		.all();
+	const viaSection = db
+		.select({ id: lessonVideos.lessonId, group: figures.groupId })
+		.from(spotLinks)
+		.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
+		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+		.innerJoin(figures, eq(figures.id, spotLinks.figureId))
+		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt)))
+		.all();
+	const figureGroupsOf = new Map<number, Set<number | null>>();
+	for (const { id, group } of [...hand, ...viaSection]) {
+		figureGroupsOf.set(id, (figureGroupsOf.get(id) ?? new Set()).add(group));
+	}
+
 	return db
 		.select({
 			id: lessons.id,
@@ -118,7 +177,25 @@ export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
 		.groupBy(lessons.id)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all()
-		.map((r) => ({ ...r, videoBytes: Number(r.videoBytes ?? 0) }));
+		.map((r) => ({
+			...r,
+			videoBytes: Number(r.videoBytes ?? 0),
+			sections: sections.get(r.id) ?? 0,
+			routines: routineCounts.get(r.id) ?? 0,
+			figures: figureGroupsOf.get(r.id)?.size ?? 0
+		}));
+}
+
+/** Each lesson's day, by id, for Today's lesson rows. */
+export function lessonDays(db: Db, dance: DanceSlug): Record<number, string> {
+	return Object.fromEntries(
+		db
+			.select({ id: lessons.id, day: lessons.lessonDay })
+			.from(lessons)
+			.where(eq(lessons.dance, dance))
+			.all()
+			.map((r) => [r.id, r.day])
+	);
 }
 
 /**

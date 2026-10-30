@@ -26,10 +26,15 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			? (partner as Partner)
 			: undefined
 	};
+	const unlinked = url.searchParams.get('unlinked') === '1';
 	const db = getDb();
 	return {
-		figures: listFigures(db, dance, filter),
-		filter: { ...filter, q },
+		figures: listFigures(db, dance, { ...filter, unlinked }),
+		// The page rebuilds its URL from these strings; `unlinked` rides as '1'.
+		filter: { ...filter, q, unlinked: unlinked ? '1' : undefined },
+		// Figures with no section or no lesson, whatever the filter: the header's
+		// way into the "Not linked" filter, as `unrouted` is into coverage.
+		unlinked: listFigures(db, dance, { unlinked: true }).length,
 		// How much of the repertoire carries handhold tags. An untagged figure
 		// reads as neutral, which is right for most of casino but worth surfacing:
 		// the graph is only as good as this fraction.

@@ -105,6 +105,12 @@ export interface LessonItem {
 	title: string;
 	videos: number;
 	videoBytes: number;
+	/** Sections (spots with an end) on its videos. Points do not count. */
+	sections: number;
+	/** Live routines linked to it. */
+	routines: number;
+	/** Figures (not variations) it reaches by hand or through a section, live variations only. */
+	figures: number;
 	createdAt: number;
 }
 
@@ -237,6 +243,10 @@ export interface FigureListItem {
 	recordings: number;
 	/** The lowest-id live variation: where a tap on the row lands. */
 	firstVariationId: number;
+	/** Some live variation is linked to a section, on a lesson video or a recording. */
+	hasSection: boolean;
+	/** Some live lesson reaches a live variation, by hand or through a section. */
+	hasLesson: boolean;
 }
 
 /** A figure a variation can be moved to, with its variations' names. */
