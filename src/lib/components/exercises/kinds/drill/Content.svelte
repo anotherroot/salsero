@@ -13,9 +13,6 @@
 	let { content, editLinks }: ContentProps = $props();
 
 	let linking = $state(false);
-	$effect(() => {
-		if (editLinks?.sectionMessage) linking = true;
-	});
 </script>
 
 {#if content.type === 'drill'}
@@ -39,6 +36,9 @@
 				{/snippet}
 			</SectionCard>
 		{/each}
+		{#if editLinks?.unlinkMessage}
+			<p class="text-[13px] text-danger" role="alert">{editLinks.unlinkMessage}</p>
+		{/if}
 		{#if editLinks}
 			<button
 				type="button"
