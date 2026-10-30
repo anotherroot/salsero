@@ -16,6 +16,8 @@ export interface PickRow {
 	/** Shown under a heading instead of `label`: "Doble". Defaults to `label`. */
 	short?: string;
 	meta?: string;
+	/** Show `meta` in the accent: it is live (a song's sample playing). */
+	metaAccent?: boolean;
 	/** Extra text the search matches (a section's time range). Never `meta`. */
 	keywords?: string;
 	linked?: boolean;
@@ -81,4 +83,41 @@ export function shown(groups: PickGroup[], query: string): PickLine[] {
 		if (out.length > 0) lines.push({ kind: 'group', title: g.title }, ...out);
 	}
 	return lines;
+}
+
+/** A piece of shown text, and whether the search matched it. */
+export interface Segment {
+	text: string;
+	hit: boolean;
+}
+
+/**
+ * The text cut so the first match of every query word is marked, from the
+ * ORIGINAL text so its accents stay. Folds per character: NFD can change a
+ * string's length, so indexes into the folded whole would not line up.
+ * Overlapping matches join into one mark.
+ */
+export function segments(text: string, query: string): Segment[] {
+	const words = fold(query).split(/\s+/).filter(Boolean);
+	const chars = Array.from(text);
+	let folded = '';
+	const owner: number[] = []; // folded UTF-16 index -> original char index
+	chars.forEach((c, i) => {
+		const f = fold(c);
+		for (let k = 0; k < f.length; k++) owner.push(i);
+		folded += f;
+	});
+	const marked = chars.map(() => false);
+	for (const w of words) {
+		const at = folded.indexOf(w);
+		if (at < 0) continue;
+		for (let i = owner[at]; i <= owner[at + w.length - 1]; i++) marked[i] = true;
+	}
+	const out: Segment[] = [];
+	chars.forEach((c, i) => {
+		const last = out.at(-1);
+		if (last && last.hit === marked[i]) last.text += c;
+		else out.push({ text: c, hit: marked[i] });
+	});
+	return out.length > 0 ? out : [{ text, hit: false }];
 }

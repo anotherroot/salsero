@@ -71,7 +71,9 @@ These are the user's decisions unless marked *(builder's call)*.
 1. **Search on top.** Case- and accent-insensitive ("exhibela" finds
    Exhíbela), the way `fit.ts`'s `fold` already works. Focused on open only
    under `(pointer: fine)`, as `SlotPicker` does today; never on a phone.
-   Typing filters the list in place; the server is not asked.
+   Typing filters the list in place; the server is not asked. The letters
+   each word matched are marked in the accent, in rows and headings alike
+   (taken from the song popup, 2026-10-30).
 2. **Headings, in one order.** A figure with one row in this picker is one
    row, "Dile que no · Basic". A figure with several is a heading that can't
    be tapped, with its variations indented under it ("└ Doble"). "Rows in
@@ -130,7 +132,9 @@ These are the user's decisions unless marked *(builder's call)*.
     figure being picked as a figure shows its variations joined with ", ".
     A section shows its time range, and "→ …" for what it is linked to.
     Timing ("1→1 · Abierta → Abierta") only in the routine editor.
-11. **No hint line.** The picker does not explain + in words.
+11. **No hint line.** The picker does not explain + in words. The one
+    exception is the song popup (#12): its "▶ hear 15 s · tap a song to pick
+    it" line and the song count stay, because the sample ▶ is its alone.
 
 ## Two kinds of opener
 
@@ -174,11 +178,20 @@ lesson teaches.
 | 9 | Figure page / drill page → + Link a section | "Link a section…" | linking | near, then one heading per video | `?/linkSection`, close | yes | none |
 | 10 | Today, a past day → Forgot to log | "Pick an exercise…" (replaces the `<select>`; nothing preselected) | acting | Figures, Routines, Drills, Lessons | opens that exercise's log popup for that day, as Add set does now | no | none |
 | 11 | Player → Save this run, from a song | Exercise field, starts empty; Save stays disabled until set | field | Figures, Routines, Drills, Lessons | fills the field | no | none |
+| 12 | Player setup / a log popup → Song (added after the first build) | the Song field, with its own ▶ sample | field | Recent, All songs A–Z; one flat A to Z while searching | fills the field, stops a sample | no | none |
 
 In #6 the routine editor keeps everything of its own: `fit.ts` decides what
 is offered, the anchor's context line, the Count and Hold filters and their
 "Turn off Hold" rescue in the empty box, and the timing second line. It uses
 the shared picker for the sheet, the search, the rows and the headings.
+
+In #12 the song popup keeps everything of its own (see
+`2026-10-30-song-samples-design.md`): `songs/search.ts` decides what is
+listed (title or artist, Recent, A to Z), each row ends in its ▶ sample, the
+second line turns into "Sample from 0:45" in the accent while it plays, a
+sample stops when its row is filtered out and when the popup closes, and the
+empty box points to the Songs page. It uses the shared picker for the sheet,
+the search, the rows, the ✓ and the highlight.
 
 In #9 there are two groups, the near group and **Other videos**, and inside
 each a heading per video ("Tuesday class — Enchufla · 27 Oct", "Recording ·
