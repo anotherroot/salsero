@@ -8,7 +8,6 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "eu.anotherroot.salsa"
         minSdk = 29
         targetSdk = 36
         versionCode = 1
@@ -20,8 +19,38 @@ android {
         buildConfigField("String", "SITE", "\"$site\"")
     }
 
+    /*
+     * One app per dance, from one codebase: each its own package, name, icon,
+     * launcher and share-sheet entry, and so its own login, pairing, upload
+     * queue and notifications. Salsa keeps the original id, so the app
+     * already installed becomes it. Two APKs: app-salsa-debug.apk and
+     * app-bachata-debug.apk.
+     */
+    flavorDimensions += "dance"
+    productFlavors {
+        create("salsa") {
+            dimension = "dance"
+            applicationId = "eu.anotherroot.salsa"
+            buildConfigField("String", "DANCE", "\"salsa\"")
+            resValue("string", "app_name", "Salsa")
+            resValue("string", "share_label", "Salsa lesson")
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_salsa"
+            manifestPlaceholders["launcher"] = ".SalsaLauncher"
+        }
+        create("bachata") {
+            dimension = "dance"
+            applicationId = "eu.anotherroot.bachata"
+            buildConfigField("String", "DANCE", "\"bachata\"")
+            resValue("string", "app_name", "Bachata")
+            resValue("string", "share_label", "Bachata lesson")
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_bachata"
+            manifestPlaceholders["launcher"] = ".BachataLauncher"
+        }
+    }
+
     buildFeatures {
         buildConfig = true
+        resValues = true
     }
 
     compileOptions {

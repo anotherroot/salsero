@@ -13,24 +13,22 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@mipmap/ic_salsa"
+        android:icon="${appIcon}"
         android:label="@string/app_name"
         android:supportsRtl="true">
 
         <!--
-            One launcher per dance, each its own task so both can sit in
-            Recents, and each the site in a WebView (WebShell), so Android sees
-            this app in front, not the browser. It opens the dance's Today, or
-            the intent's data when the app itself opens a page. singleTask: a
-            notification reuses the open screen. The config changes are
-            handled so turning the phone keeps the page.
+            The one screen: this dance's site in a WebView (WebShell), so
+            Android sees this app in front, not the browser. Each dance is its
+            own app (the flavors in app/build.gradle.kts); the launcher keeps
+            its TWA-era class name, so an icon pinned to it stays. It opens the
+            dance's Today, or the intent's data when the app itself opens a
+            page. singleTask: a notification reuses the open screen. The config
+            changes are handled so turning the phone keeps the page.
         -->
         <activity
-            android:name=".SalsaLauncher"
+            android:name="${launcher}"
             android:exported="true"
-            android:icon="@mipmap/ic_salsa"
-            android:label="@string/salsa"
-            android:taskAffinity="eu.anotherroot.salsa.dance.salsa"
             android:launchMode="singleTask"
             android:theme="@style/Shell"
             android:windowSoftInputMode="adjustResize"
@@ -41,37 +39,25 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".BachataLauncher"
-            android:exported="true"
-            android:icon="@mipmap/ic_bachata"
-            android:label="@string/bachata"
-            android:taskAffinity="eu.anotherroot.salsa.dance.bachata"
-            android:launchMode="singleTask"
-            android:theme="@style/Shell"
-            android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <!-- salsa://upload and salsa://paired, from the site. Invisible. -->
+        <!--
+            salsa://upload and salsa://paired, from the site. Invisible. Not
+            exported: the links only ever come from this app's own WebView,
+            which hands them to its own package (WebShell), so the salsa and
+            bachata apps never compete for the scheme.
+        -->
         <activity
             android:name=".LinkActivity"
-            android:exported="true"
+            android:exported="false"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="salsa" />
             </intent-filter>
         </activity>
 
-        <!-- "Share" a video from the gallery to a lesson. -->
+        <!-- "Share" a video from the gallery to one of this dance's lessons. -->
         <activity
             android:name=".ShareActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"

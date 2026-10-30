@@ -4,10 +4,11 @@ import android.os.Bundle
 import android.webkit.CookieManager
 
 /**
- * The two home-screen icons, each the app's screen for one dance: the site in
- * a WebView ([WebShell]), in its own task (the manifest's taskAffinity) so both
- * sit in Recents. A launch with a page of ours in its intent (a notification,
- * the share or link activity) opens that page; any other opens the dance's Today.
+ * The home-screen icon: the app's screen for its dance, the site in a WebView
+ * ([WebShell]). Each dance is its own app (a flavor), and each flavor's
+ * manifest names one of the classes below. A launch with a page of ours in its
+ * intent (a notification, the share or link activity) opens that page; any
+ * other opens the dance's Today.
  *
  * The classes keep their TWA-era names so home-screen icons pinned to them stay.
  */
@@ -44,3 +45,7 @@ abstract class DanceLauncher(private val dance: String) : WebShell() {
 class SalsaLauncher : DanceLauncher("salsa")
 
 class BachataLauncher : DanceLauncher("bachata")
+
+/** This app's launcher: the one its flavor's manifest declares. */
+val launcherClass: Class<out DanceLauncher>
+    get() = if (BuildConfig.DANCE == "bachata") BachataLauncher::class.java else SalsaLauncher::class.java

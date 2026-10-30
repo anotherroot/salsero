@@ -34,30 +34,17 @@ class ReminderTest {
         assertEquals(at(2027, 3, 28, 3, 30), fire)
     }
 
-    @Test fun `nothing due, no notification`() {
-        assertNull(reminderText(mapOf("salsa" to emptyList(), "bachata" to emptyList())))
-        assertNull(reminderText(emptyMap()))
-    }
+    @Test fun `nothing due, no notification`() = assertNull(reminderText(emptyList()))
 
-    @Test fun `counts across dances and names them per dance`() = assertEquals(
-        "3 exercises due" to "Salsa: Shines, Cross-body lead · Bachata: Basics",
-        reminderText(mapOf("salsa" to listOf("Shines", "Cross-body lead"), "bachata" to listOf("Basics"))),
+    @Test fun `names what is due`() = assertEquals(
+        "2 exercises due" to "Shines, Cross-body lead",
+        reminderText(listOf("Shines", "Cross-body lead")),
     )
 
-    @Test fun `one is singular, and an empty dance is left out`() = assertEquals(
-        "1 exercise due" to "Bachata: Basics",
-        reminderText(mapOf("salsa" to emptyList(), "bachata" to listOf("Basics"))),
-    )
+    @Test fun `one is singular`() = assertEquals("1 exercise due" to "Basics", reminderText(listOf("Basics")))
 
-    @Test fun `a long list is cut after three`() = assertEquals(
-        "5 exercises due" to "Salsa: A, B, C +2",
-        reminderText(mapOf("salsa" to listOf("A", "B", "C", "D", "E"))),
+    @Test fun `a long list is cut after four`() = assertEquals(
+        "6 exercises due" to "A, B, C, D +2",
+        reminderText(listOf("A", "B", "C", "D", "E", "F")),
     )
-
-    @Test fun `opens the dance with more due, salsa on a tie, nothing when none`() {
-        assertEquals("bachata", danceToOpen(mapOf("salsa" to listOf("A"), "bachata" to listOf("B", "C"))))
-        assertEquals("salsa", danceToOpen(mapOf("salsa" to listOf("A"), "bachata" to listOf("B"))))
-        assertEquals("bachata", danceToOpen(mapOf("salsa" to emptyList(), "bachata" to listOf("B"))))
-        assertNull(danceToOpen(mapOf("salsa" to emptyList())))
-    }
 }
