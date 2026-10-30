@@ -351,7 +351,7 @@ describe('song samples and the picker', () => {
 	it('ranks the recent songs in the picker and leaves archived ones out', () => {
 		const a = readySong('A');
 		const b = readySong('B');
-		const c = readySong('C');
+		readySong('C');
 		const d = readySong('D');
 		const e = ex();
 		play(e.id, 100, d.id);
@@ -364,7 +364,6 @@ describe('song samples and the picker', () => {
 			['B', 1],
 			['C', null]
 		]);
-		expect(c.id).toBeGreaterThan(0);
 	});
 
 	it('gives a ready song its sample and a waiting one none', () => {
@@ -382,5 +381,53 @@ describe('song samples and the picker', () => {
 			startS: 28
 		});
 		expect(rows.find((s) => s.title === 'Waiting')?.sample).toBeNull();
+	});
+});
+
+describe('recent songs skip what the picker will not show', () => {
+	it('fills ranks from 0 when the newest recent song is archived or the log has bad JSON', () => {
+		const mk = (title: string, file: string) => {
+			const s = createSongFromUpload(db, 'salsa', {
+				file,
+				mime: 'audio/mpeg',
+				title,
+				style: 'salsa'
+			});
+			storeAnalysis(db, s.id, { beats: [0.5, 1], downbeats: [], durationS: 90 });
+			return s;
+		};
+		const a = mk('A', 'a.mp3');
+		const b = mk('B', 'b.mp3');
+		const waiting = createSongFromUpload(db, 'salsa', {
+			file: 'w.mp3',
+			mime: 'audio/mpeg',
+			title: 'W',
+			style: 'salsa'
+		});
+		const e = createCustomExercise(db, 'salsa', { name: 'E', everyDays: 1, notes: null });
+		const log = (doneAt: number, playerJson: string) =>
+			logSet(db, {
+				exerciseId: e.id,
+				doneAt,
+				durationS: null,
+				reps: null,
+				rating: null,
+				note: null,
+				playerJson
+			});
+		log(100, JSON.stringify({ songId: b.id }));
+		log(200, JSON.stringify({ songId: a.id }));
+		log(300, JSON.stringify({ songId: waiting.id }));
+		log(400, '{not json');
+		log(450, JSON.stringify({ songId: 'x' }));
+		log(500, JSON.stringify({ songId: 1.5 }));
+		const gone = mk('Gone', 'g.mp3');
+		log(600, JSON.stringify({ songId: gone.id }));
+		archiveSong(db, gone.id, T);
+		expect(recentSongIds(db, 'salsa')).toEqual([a.id, b.id]);
+		expect(songChoices(db, 'salsa').map((r) => [r.title, r.recentRank])).toEqual([
+			['A', 0],
+			['B', 1]
+		]);
 	});
 });

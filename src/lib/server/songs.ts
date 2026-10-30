@@ -86,26 +86,52 @@ export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
 
 /**
  * The songs most recently practised in this dance's player, newest first and
- * distinct. Reads the latest 200 sets that name a song, which is far more than
- * five distinct songs need.
+ * distinct, ready and unarchived only (so a song the picker will not show
+ * cannot eat a slot). The window is the latest 200 sets of the dance, bounded
+ * first; song ids are read from their JSON in code, so a malformed row is
+ * skipped rather than throwing.
  */
 export function recentSongIds(db: Db, dance: DanceSlug, limit = 5): number[] {
-	const songId = sql<number | null>`json_extract(${sets.playerJson}, '$.songId')`;
 	const rows = db
-		.select({ songId })
+		.select({ playerJson: sets.playerJson })
 		.from(sets)
 		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
-		.where(and(eq(exercises.dance, dance), sql`${songId} is not null`))
+		.where(eq(exercises.dance, dance))
 		.orderBy(desc(sets.doneAt), desc(sets.id))
 		.limit(200)
 		.all();
-	const ids: number[] = [];
+	const seen: number[] = [];
 	for (const r of rows) {
-		if (r.songId === null || ids.includes(r.songId)) continue;
-		ids.push(r.songId);
-		if (ids.length >= limit) break;
+		const id = songIdOf(r.playerJson);
+		if (id !== null && !seen.includes(id)) seen.push(id);
 	}
-	return ids;
+	if (seen.length === 0) return [];
+	const visible = new Set(
+		db
+			.select({ id: songs.id })
+			.from(songs)
+			.where(
+				and(
+					inArray(songs.id, seen),
+					isNull(songs.archivedAt),
+					eq(songs.status, 'ready'),
+					eq(songs.dance, dance)
+				)
+			)
+			.all()
+			.map((x) => x.id)
+	);
+	return seen.filter((id) => visible.has(id)).slice(0, limit);
+}
+
+function songIdOf(json: string | null): number | null {
+	if (!json) return null;
+	try {
+		const v = (JSON.parse(json) as { songId?: unknown } | null)?.songId;
+		return typeof v === 'number' && Number.isInteger(v) ? v : null;
+	} catch {
+		return null;
+	}
 }
 
 /** Ready, unarchived songs of one dance, for the song popup: by title, with their sample and recency. */
