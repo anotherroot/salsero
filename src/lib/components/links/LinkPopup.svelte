@@ -67,7 +67,7 @@
 				options = o;
 				partner = o.defaults.partner;
 				style = o.defaults.style;
-				groupId = o.figures.find((f) => f.near)?.groupId ?? null;
+				groupId = o.figureChoices.find((f) => f.near)?.groupId ?? null;
 			},
 			() => (loadFailed = true)
 		);
@@ -83,13 +83,15 @@
 	);
 	const matches = (o: LinkOption) =>
 		!query.trim() || o.label.toLowerCase().includes(query.trim().toLowerCase());
-	const near = $derived(options ? options.near.filter(matches) : []);
-	const other = $derived(options ? options.other.filter(matches) : []);
-	const nearFigures = $derived(options ? options.figures.filter((f) => f.near) : []);
-	const pickedFigure = $derived(options?.figures.find((f) => f.groupId === groupId) ?? null);
+	const near = $derived(options ? options.near.filter((o) => !o.linked).filter(matches) : []);
+	const other = $derived(
+		options ? [...options.figures, ...options.drills].filter((o) => !o.linked).filter(matches) : []
+	);
+	const nearFigures = $derived(options ? options.figureChoices.filter((f) => f.near) : []);
+	const pickedFigure = $derived(options?.figureChoices.find((f) => f.groupId === groupId) ?? null);
 	const restFigures = $derived(
 		options
-			? options.figures.filter(
+			? options.figureChoices.filter(
 					(f) =>
 						!f.near &&
 						(!figureQuery.trim() ||

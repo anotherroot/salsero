@@ -8,7 +8,14 @@
 import { frequencyLabel } from '$lib/frequency';
 import { dateLabel } from '$lib/format';
 import { spotLabel } from '$lib/video/spots';
-import type { FigureVersion, PickExercise, PickRoutine, SectionGroup } from '$lib/types';
+import type {
+	FigureVersion,
+	LinkOption,
+	LinkOptions,
+	PickExercise,
+	PickRoutine,
+	SectionGroup
+} from '$lib/types';
 import { isHeading, type PickEntry, type PickGroup, type PickHeading, type PickRow } from './model';
 
 /** Only a row that says so carries `linked`: field and act pickers have no such idea. */
@@ -147,6 +154,50 @@ export function sectionGroups(gs: SectionGroup[], nearTitle: string): PickGroup[
 	const groups: PickGroup[] = [
 		{ title: nearTitle, entries: gs.filter((g) => g.taughtHere).map(heading) },
 		{ title: 'Other videos', entries: gs.filter((g) => !g.taughtHere).map(heading) }
+	];
+	return groups.filter((g) => g.entries.length > 0);
+}
+
+/**
+ * The Link popup: the near group (variations as headings, then drills),
+ * Figures, Drills. Rows key `figure:{id}` / `exercise:{id}`; a drill's meta is
+ * how often. Linked targets stay, flagged.
+ */
+export function linkOptionGroups(o: LinkOptions): PickGroup[] {
+	// Figure names are unique per dance, so a name stands in for the figure.
+	const variations = (os: LinkOption[]) => {
+		const ids = new Map<string, number>();
+		return variationEntries(
+			os
+				.filter((x) => 'figureId' in x.target)
+				.map((x) => {
+					const figure = x.figure ?? '';
+					if (!ids.has(figure)) ids.set(figure, ids.size);
+					return {
+						id: (x.target as { figureId: number }).figureId,
+						groupId: ids.get(figure)!,
+						figure,
+						name: x.name,
+						label: x.label,
+						linked: x.linked
+					};
+				})
+		);
+	};
+	const drills = (os: LinkOption[]): PickRow[] =>
+		os
+			.filter((x) => 'exerciseId' in x.target)
+			.map((x) => ({
+				key: `exercise:${(x.target as { exerciseId: number }).exerciseId}`,
+				value: (x.target as { exerciseId: number }).exerciseId,
+				label: x.label,
+				meta: frequencyLabel(x.everyDays ?? 0),
+				linked: x.linked
+			}));
+	const groups: PickGroup[] = [
+		{ title: o.nearTitle, entries: [...variations(o.near), ...drills(o.near)] },
+		{ title: 'Figures', entries: variations(o.figures) },
+		{ title: 'Drills', entries: drills(o.drills) }
 	];
 	return groups.filter((g) => g.entries.length > 0);
 }

@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { exerciseGroups, figureRows, routineRows, sectionGroups, variationEntries } from './build';
+import {
+	exerciseGroups,
+	figureRows,
+	linkOptionGroups,
+	routineRows,
+	sectionGroups,
+	variationEntries
+} from './build';
+import { frequencyLabel } from '$lib/frequency';
 import { isHeading, shown, type PickGroup, type PickHeading, type PickRow } from './model';
-import type { FigureVersion, PickExercise, SectionGroup } from '$lib/types';
+import type {
+	FigureVersion,
+	LinkOption,
+	LinkOptions,
+	PickExercise,
+	SectionGroup
+} from '$lib/types';
 
 const version = (id: number, groupId: number, figure: string, name: string): FigureVersion => ({
 	id,
@@ -198,5 +212,52 @@ describe('sectionGroups', () => {
 		expect(rowsOf(out[0])[1].meta).toBeUndefined();
 		expect(rowsOf(out[1])[0].meta).toBe('\u2192 Enchufla \u00b7 Doble');
 		expect(rowsOf(out[1])[0].linked).toBe(true);
+	});
+});
+
+const lopt = (o: Partial<LinkOption> & { label: string }): LinkOption => ({
+	target: { figureId: 1 },
+	drill: false,
+	figure: null,
+	name: o.label,
+	everyDays: null,
+	linked: false,
+	...o
+});
+const variation = (id: number, figure: string, name: string, linked = false): LinkOption =>
+	lopt({ target: { figureId: id }, label: `${figure} · ${name}`, figure, name, linked });
+const drillOpt = (id: number, name: string, everyDays = 3): LinkOption =>
+	lopt({ target: { exerciseId: id }, label: name, drill: true, name, everyDays });
+const linkOpts = (over: Partial<LinkOptions>): LinkOptions =>
+	({ nearTitle: 'In this lesson', near: [], figures: [], drills: [], ...over }) as LinkOptions;
+
+describe('linkOptionGroups', () => {
+	it('linkOptionGroups: near, Figures, Drills in that order, near titled from nearTitle', () => {
+		const groups = linkOptionGroups(
+			linkOpts({
+				nearTitle: 'This figure',
+				near: [variation(4, 'Enchufla', 'Basic', true), drillOpt(9, 'Clave')],
+				figures: [variation(3, 'Setenta', 'Basic')],
+				drills: [drillOpt(8, 'Pasos')]
+			})
+		);
+		expect(groups.map((g) => g.title)).toEqual(['This figure', 'Figures', 'Drills']);
+		const near = groups[0].entries;
+		expect(isHeading(near[0]) && near[0].heading).toBe('Enchufla');
+		expect((near[0] as PickHeading).rows[0]).toMatchObject({ key: 'figure:4', linked: true });
+		expect((near[1] as PickRow).key).toBe('exercise:9');
+		expect((groups[1].entries[0] as PickHeading).rows[0].key).toBe('figure:3');
+	});
+
+	it('linkOptionGroups: a drill row carries how often', () => {
+		const groups = linkOptionGroups(linkOpts({ drills: [drillOpt(8, 'Pasos', 7)] }));
+		expect(groups).toHaveLength(1);
+		expect(groups[0].entries[0]).toMatchObject({
+			key: 'exercise:8',
+			value: 8,
+			label: 'Pasos',
+			meta: frequencyLabel(7),
+			linked: false
+		});
 	});
 });

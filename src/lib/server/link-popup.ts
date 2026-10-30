@@ -58,6 +58,7 @@ function linksOf(db: Db, spotId: number) {
 			figureArchived: figures.archivedAt,
 			groupArchived: figureGroups.archivedAt,
 			drill: exercises.name,
+			everyDays: exercises.everyDays,
 			drillArchived: exercises.archivedAt
 		})
 		.from(spotLinks)
@@ -73,6 +74,10 @@ function linksOf(db: Db, spotId: number) {
 						target: { figureId: r.figureId },
 						label: `${r.figure} · ${r.variation}`,
 						drill: false,
+						figure: r.figure,
+						name: r.variation!,
+						everyDays: null,
+						linked: true,
 						archived: r.figureArchived !== null || r.groupArchived !== null
 					}
 				: {
@@ -80,6 +85,10 @@ function linksOf(db: Db, spotId: number) {
 						target: { exerciseId: r.exerciseId! },
 						label: r.drill!,
 						drill: true,
+						figure: null,
+						name: r.drill!,
+						everyDays: r.everyDays,
+						linked: true,
 						archived: r.drillArchived !== null
 					}
 		);
@@ -133,6 +142,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		.get()!;
 
 	let context: LinkContext;
+	let nearTitle: string;
 	let byHand = new Set<string>();
 	let isNear: (o: LinkOption, groupId: number | null) => boolean;
 	if ('lessonVideoId' in video.owner) {
@@ -143,9 +153,17 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			.where(eq(lessonVideos.id, video.owner.lessonVideoId))
 			.get()!;
 		context = { kind: 'lesson', lessonId: lesson.id, title: lesson.title };
+		nearTitle = 'In this lesson';
 		const side = lessonSide(db, lesson.id);
 		byHand = side.byHand;
-		isNear = (o) => side.on.has(key(o.target));
+		// Every variation of a figure the lesson teaches is near, not just the taught one.
+		const taughtGroups = new Set(
+			listVersions(db, dance)
+				.filter((v) => side.on.has(key({ figureId: v.id })))
+				.map((v) => v.groupId)
+		);
+		isNear = (o, groupId) =>
+			groupId !== null ? taughtGroups.has(groupId) : side.on.has(key(o.target));
 	} else {
 		const own = db
 			.select({ groupId: figureGroups.id, figure: figureGroups.name })
@@ -155,6 +173,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			.where(eq(recordings.id, video.owner.recordingId))
 			.get()!;
 		context = { kind: 'recording', groupId: own.groupId, figure: own.figure };
+		nearTitle = 'This figure';
 		isNear = (_o, groupId) => groupId === own.groupId;
 	}
 
@@ -164,11 +183,19 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const taken = new Set(linked.map((l) => key(l.target)));
 
 	const variations = listVersions(db, dance).map((v) => ({
-		option: { target: { figureId: v.id }, label: v.label, drill: false } as LinkOption,
-		groupId: v.groupId
+		option: {
+			target: { figureId: v.id },
+			label: v.label,
+			drill: false,
+			figure: v.figure,
+			name: v.name,
+			everyDays: null,
+			linked: taken.has(key({ figureId: v.id }))
+		} as LinkOption,
+		groupId: v.groupId as number | null
 	}));
 	const drills = db
-		.select({ id: exercises.id, name: exercises.name })
+		.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
 		.from(exercises)
 		.where(
 			and(eq(exercises.dance, dance), eq(exercises.source, 'custom'), isNull(exercises.archivedAt))
@@ -176,12 +203,24 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		.orderBy(asc(exercises.name))
 		.all()
 		.map((d) => ({
-			option: { target: { exerciseId: d.id }, label: d.name, drill: true } as LinkOption,
-			groupId: null
+			option: {
+				target: { exerciseId: d.id },
+				label: d.name,
+				drill: true,
+				figure: null,
+				name: d.name,
+				everyDays: d.everyDays,
+				linked: taken.has(key({ exerciseId: d.id }))
+			} as LinkOption,
+			groupId: null as number | null
 		}));
-	const candidates = [...variations, ...drills].filter((c) => !taken.has(key(c.option.target)));
-	const near = candidates.filter((c) => isNear(c.option, c.groupId));
-	const other = candidates.filter((c) => !isNear(c.option, c.groupId));
+	const nearOf = (cs: typeof variations) =>
+		cs.filter((c) => isNear(c.option, c.groupId)).map((c) => c.option);
+	const restOf = (cs: typeof variations) =>
+		cs
+			.filter((c) => !isNear(c.option, c.groupId))
+			.map((c) => c.option)
+			.sort(byLabel);
 
 	// The figures New variation offers first: those of the lesson's variations
 	// (linked or not), or the recording's own.
@@ -200,9 +239,14 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		spot: { ...spot, endMs: spot.endMs! },
 		context,
 		linked,
-		near: near.map((c) => c.option).sort(byLabel),
-		other: other.map((c) => c.option).sort(byLabel),
-		figures: [...figureChoices.filter((f) => f.near), ...figureChoices.filter((f) => !f.near)],
+		nearTitle,
+		near: [...nearOf(variations).sort(byLabel), ...nearOf(drills).sort(byLabel)],
+		figures: restOf(variations),
+		drills: restOf(drills),
+		figureChoices: [
+			...figureChoices.filter((f) => f.near),
+			...figureChoices.filter((f) => !f.near)
+		],
 		defaults: { partner: 'partner', style: defaultStyle }
 	};
 }

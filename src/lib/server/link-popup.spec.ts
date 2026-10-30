@@ -82,20 +82,27 @@ describe('linkOptions', () => {
 		expect(o.spot).toEqual({ id: section, startMs: 42000, endMs: 55000, label: 'X' });
 		expect(o.context).toEqual({ kind: 'lesson', lessonId, title: 'Cubana' });
 		expect(o.linked).toEqual([]);
-		expect(labels(o.near)).toEqual(['Enchufla · Basic']);
-		expect(labels(o.other)).toEqual(['Clave', 'Enchufla · Doble', 'Setenta · Basic']);
-		expect(o.other.find((x) => x.label === 'Clave')).toEqual({
-			target: { exerciseId: drill },
-			label: 'Clave',
-			drill: true
-		});
-		expect(o.figures[0]).toEqual({
+		expect(o.nearTitle).toBe('In this lesson');
+		expect(labels(o.near)).toEqual(['Enchufla · Basic', 'Enchufla · Doble']);
+		expect(labels(o.figures)).toEqual(['Setenta · Basic']);
+		expect(o.drills).toEqual([
+			{
+				target: { exerciseId: drill },
+				label: 'Clave',
+				drill: true,
+				figure: null,
+				name: 'Clave',
+				everyDays: 3,
+				linked: false
+			}
+		]);
+		expect(o.figureChoices[0]).toEqual({
 			groupId: enchufla,
 			name: 'Enchufla',
 			variations: ['Basic', 'Doble'],
 			near: true
 		});
-		expect(o.figures.map((f) => f.name)).toEqual(['Enchufla', 'Setenta']);
+		expect(o.figureChoices.map((f) => f.name)).toEqual(['Enchufla', 'Setenta']);
 		expect(o.defaults).toEqual({ partner: 'partner', style: 'salsa' });
 	});
 
@@ -108,11 +115,14 @@ describe('linkOptions', () => {
 				target: { figureId: doble },
 				label: 'Enchufla · Doble',
 				drill: false,
+				figure: 'Enchufla',
+				name: 'Doble',
+				everyDays: null,
+				linked: true,
 				archived: false,
 				alsoByHand: false
 			}
 		]);
-		expect(labels([...o.near, ...o.other])).not.toContain('Enchufla · Doble');
 		linkFigure(db, lessonId, doble);
 		o = linkOptions(db, section, 'salsa')!;
 		expect(o.linked[0].alsoByHand).toBe(true);
@@ -121,13 +131,62 @@ describe('linkOptions', () => {
 	it("puts what another section of the lesson links among the lesson's own", () => {
 		linkSpot(db, other, { exerciseId: drill });
 		expect(labels(linkOptions(db, section, 'salsa')!.near)).toEqual(['Clave']);
+		expect(linkOptions(db, section, 'salsa')!.near[0].linked).toBe(false);
 	});
 
 	it("gives a recording's section its figure's variations first", () => {
 		const o = linkOptions(db, recSection, 'salsa')!;
 		expect(o.context).toEqual({ kind: 'recording', groupId: enchufla, figure: 'Enchufla' });
+		expect(o.nearTitle).toBe('This figure');
 		expect(labels(o.near)).toEqual(['Enchufla · Basic', 'Enchufla · Doble']);
-		expect(o.figures[0]).toMatchObject({ groupId: enchufla, near: true });
+		expect(o.figureChoices[0]).toMatchObject({ groupId: enchufla, near: true });
+	});
+
+	it('lesson: near holds every live variation of each figure the lesson teaches, by hand or through sections, and the lesson drills', () => {
+		linkFigure(db, lessonId, basic);
+		linkExercise(db, lessonId, drill);
+		const o = linkOptions(db, section, 'salsa')!;
+		expect(labels(o.near)).toEqual(['Enchufla · Basic', 'Enchufla · Doble', 'Clave']);
+		// Through a section of the lesson's other clip.
+		const via = linkOptions(db, other, 'salsa')!;
+		expect(labels(via.near)).toEqual(labels(o.near));
+	});
+
+	it('a target already linked to the section is listed with linked true, not left out', () => {
+		linkFigure(db, lessonId, basic);
+		linkSpot(db, section, { figureId: doble });
+		linkSpot(db, section, { exerciseId: drill });
+		const o = linkOptions(db, section, 'salsa')!;
+		expect(o.near.map((x) => [x.label, x.linked])).toEqual([
+			['Enchufla · Basic', false],
+			['Enchufla · Doble', true],
+			['Clave', true]
+		]);
+	});
+
+	it('figures and drills hold the rest; nothing appears twice', () => {
+		linkFigure(db, lessonId, basic);
+		const o = linkOptions(db, section, 'salsa')!;
+		expect(labels(o.figures)).toEqual(['Setenta · Basic']);
+		expect(labels(o.drills)).toEqual(['Clave']);
+		const all = [...o.near, ...o.figures, ...o.drills].map((x) => JSON.stringify(x.target));
+		expect(new Set(all).size).toBe(all.length);
+	});
+
+	it('figureChoices lists near figures first', () => {
+		const setenta = linkOptions(db, section, 'salsa')!.figureChoices.find(
+			(f) => f.name === 'Setenta'
+		)!;
+		linkFigure(
+			db,
+			lessonId,
+			db.select().from(figures).where(eq(figures.groupId, setenta.groupId)).get()!.id
+		);
+		const o = linkOptions(db, section, 'salsa')!;
+		expect(o.figureChoices.map((f) => [f.name, f.near])).toEqual([
+			['Setenta', true],
+			['Enchufla', false]
+		]);
 	});
 
 	it('is null for a point or a missing spot', () => {

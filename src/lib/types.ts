@@ -340,6 +340,13 @@ export interface LinkOption {
 	/** "Enchufla · Doble", or a drill's name. */
 	label: string;
 	drill: boolean;
+	/** A variation's figure and own name, for headings; null for a drill. */
+	figure: string | null;
+	name: string;
+	/** A drill's; null for a variation. */
+	everyDays: number | null;
+	/** Already linked to this section. */
+	linked: boolean;
 }
 
 /** One of a section's links, in the Link popup. */
@@ -369,11 +376,15 @@ export interface LinkOptions {
 	spot: { id: number; startMs: number; endMs: number; label: string | null };
 	context: LinkContext;
 	linked: LinkedTarget[];
-	/** "This lesson" or "This figure", without what is linked. */
+	/** 'In this lesson' or 'This figure'. */
+	nearTitle: string;
+	/** Variations then drills of this lesson, or the recording's own figure. */
 	near: LinkOption[];
-	/** Every other live variation and drill of the dance. */
-	other: LinkOption[];
-	figures: LinkFigureChoice[];
+	/** Every other live variation. */
+	figures: LinkOption[];
+	/** Every other live drill. */
+	drills: LinkOption[];
+	figureChoices: LinkFigureChoice[];
 	/** What "New figure" starts on. */
 	defaults: { partner: Partner; style: string };
 }
