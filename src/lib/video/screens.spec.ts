@@ -3,6 +3,7 @@ import {
 	doneTarget,
 	editStack,
 	levelOf,
+	linkStepsOf,
 	loopOf,
 	openingStack,
 	prune,
@@ -121,5 +122,29 @@ describe('loopOf while arriving', () => {
 	});
 	it('is the stack when nothing is on its way', () => {
 		expect(loopOf(stack, [a, b, p], false, null)).toBe(a);
+	});
+});
+
+describe('linkStepsOf', () => {
+	const sh = (sheet: 'link' | 'link-pick' | 'link-new' | 'link-figure' | 'list') =>
+		({ kind: 'sheet', sheet }) as const;
+	it('is the links list with the picker over it', () => {
+		expect(linkStepsOf([full, sh('link'), sh('link-pick')], 'drill')).toEqual(['links', 'pick']);
+	});
+	it('is the picker alone when the popup opened straight into it', () => {
+		expect(linkStepsOf([full, sh('link-pick')], 'drill')).toEqual(['pick']);
+	});
+	it('names the create step and its Figure picker', () => {
+		expect(
+			linkStepsOf([full, sh('link-pick'), sh('link-new'), sh('link-figure')], 'variation')
+		).toEqual(['pick', 'variation', 'variation-figure']);
+		expect(linkStepsOf([full, section(4), sh('link-pick'), sh('link-new')], 'figure')).toEqual([
+			'pick',
+			'figure'
+		]);
+	});
+	it('is empty with no link sheets', () => {
+		expect(linkStepsOf([full, section(4), sh('list')], 'variation')).toEqual([]);
+		expect(linkStepsOf([full], 'variation')).toEqual([]);
 	});
 });
