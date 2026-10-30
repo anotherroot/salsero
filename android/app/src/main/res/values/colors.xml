@@ -2,4 +2,6 @@
 <resources>
     <!-- color-plane in src/routes/layout.css: the page under the bars. -->
     <color name="plane">#f5f3ef</color>
+    <!-- color-surface in src/routes/layout.css: the bottom tabs, carried on under the navigation bar. -->
+    <color name="surface">#fcfbf9</color>
 </resources>

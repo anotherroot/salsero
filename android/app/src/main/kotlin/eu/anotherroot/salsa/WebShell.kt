@@ -8,11 +8,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.LayerDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
@@ -69,8 +72,15 @@ abstract class WebShell : ComponentActivity() {
     /** The page a launch opens; [data] is the intent's address, or null. */
     protected abstract fun startUrl(data: String?): String
 
-    /** A colour resource: the page's background, shown under the status and navigation bars. */
+    /** A colour resource: the page's background, shown under the status bar. */
     protected abstract val barColor: Int
+
+    /**
+     * A colour resource for the strip under the navigation bar. The page is
+     * padded clear of it, so without this the strip shows [barColor] below a
+     * page whose bottom tabs are another colour.
+     */
+    protected open val navBarColor: Int get() = barColor
 
     /**
      * After Android killed the app in the background, reopen the page that was
@@ -120,7 +130,15 @@ abstract class WebShell : ComponentActivity() {
         }
         enableEdgeToEdge(bars, bars)
 
-        root = FrameLayout(this).apply { setBackgroundColor(color) }
+        // Two layers: the page colour everywhere, and a band at the bottom, as
+        // tall as the navigation bar, in the colour of the tabs that sit on it.
+        val background = LayerDrawable(
+            arrayOf(ColorDrawable(color), ColorDrawable(ContextCompat.getColor(this, navBarColor))),
+        ).apply {
+            setLayerGravity(1, Gravity.BOTTOM or Gravity.FILL_HORIZONTAL)
+            setLayerHeight(1, 0)
+        }
+        root = FrameLayout(this).apply { this.background = background }
         web = WebView(this).apply { setBackgroundColor(color) }
         root.addView(web, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setContentView(root)
@@ -134,6 +152,8 @@ abstract class WebShell : ComponentActivity() {
                         WindowInsetsCompat.Type.ime(),
                 )
             }
+            val navBar = if (fullscreen != null) 0 else insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            background.setLayerHeight(1, navBar)
             view.setPadding(pad.left, pad.top, pad.right, pad.bottom)
             WindowInsetsCompat.CONSUMED
         }
