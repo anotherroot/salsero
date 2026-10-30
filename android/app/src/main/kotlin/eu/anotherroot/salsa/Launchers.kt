@@ -13,6 +13,7 @@ import android.webkit.CookieManager
  */
 abstract class DanceLauncher(private val dance: String) : WebShell() {
     override val barColor: Int get() = R.color.plane
+    override val navBarColor: Int get() = R.color.surface
 
     override fun onCreate(savedInstanceState: Bundle?) {
         markAsApp()

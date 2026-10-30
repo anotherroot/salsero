@@ -185,7 +185,7 @@
 		{#if firstUp}
 			<button
 				type="button"
-				class="mb-4 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
+				class="mt-6 mb-4 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink first:mt-0"
 				onclick={() => (sessionOn ? (openId = firstUp?.exercise.id ?? null) : startSession())}
 				>{sessionOn ? 'Resume session' : 'Start session'}</button
 			>
