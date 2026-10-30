@@ -373,8 +373,20 @@
 			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Sections</h2>
 			<button
 				type="button"
-				class="mb-2 text-[13px] font-medium text-accent"
-				onclick={() => (linkingSection = true)}>+ Link a section</button
+				class="mb-2 flex h-11 w-auto cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[14.5px] font-medium text-accent"
+				aria-haspopup="dialog"
+				onclick={() => (linkingSection = true)}
+				><svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2.2"
+					stroke-linecap="round"
+					class="shrink-0 text-muted"
+					aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg
+				>Link a section…</button
 			>
 		</div>
 		{#if variation.sections.length === 0}
@@ -523,7 +535,6 @@
 	onclose={() => (linkingSection = false)}
 	groups={data.linkable}
 	hidden={{}}
-	message={failed('linkSection')}
 />
 
 {#if logging && data.popup}

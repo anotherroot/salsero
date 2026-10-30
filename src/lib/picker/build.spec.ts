@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { exerciseGroups, figureRows, routineRows, variationEntries } from './build';
-import { isHeading, shown, type PickRow } from './model';
-import type { FigureVersion, PickExercise } from '$lib/types';
+import { exerciseGroups, figureRows, routineRows, sectionGroups, variationEntries } from './build';
+import { isHeading, shown, type PickGroup, type PickHeading, type PickRow } from './model';
+import type { FigureVersion, PickExercise, SectionGroup } from '$lib/types';
 
 const version = (id: number, groupId: number, figure: string, name: string): FigureVersion => ({
 	id,
@@ -135,5 +135,68 @@ describe('exerciseGroups', () => {
 		expect(isHeading(row)).toBe(false);
 		expect((row as PickRow).meta).toBe('Every 3 days');
 		expect((row as PickRow).linked).toBe(true);
+	});
+});
+
+describe('sectionGroups', () => {
+	const sec = (
+		id: number,
+		startMs: number,
+		endMs: number | null,
+		label: string | null,
+		linkedTo: string[] = [],
+		linked = false
+	) => ({ id, startMs, endMs, label, linkedTo, linked });
+	const lessonVideo = (
+		id: number,
+		title: string,
+		taughtHere: boolean,
+		sections: SectionGroup['sections']
+	): SectionGroup => ({
+		video: {
+			owner: { lessonVideoId: id },
+			src: `/lesson-videos/${id}.mp4`,
+			from: { kind: 'lesson', lessonId: id, title, lessonDay: '2026-10-12' }
+		},
+		taughtHere,
+		sections
+	});
+	const gs: SectionGroup[] = [
+		lessonVideo(1, 'Cubana', true, [
+			sec(2, 61000, 80000, null),
+			sec(1, 12000, 34000, 'Enchufla doble')
+		]),
+		lessonVideo(2, 'Later', false, [sec(3, 0, 500, null, ['Enchufla · Doble'], true)])
+	];
+	const rowsOf = (g: PickGroup) => (g.entries[0] as PickHeading).rows;
+
+	it('taught videos under the near title, the rest under Other videos, in input order', () => {
+		const out = sectionGroups(gs, 'In this lesson');
+		expect(out.map((g) => g.title)).toEqual(['In this lesson', 'Other videos']);
+		expect(out[0].entries.map((e) => (isHeading(e) ? e.heading : e.label))).toEqual([
+			'Cubana · 12 Oct 2026'
+		]);
+		expect(rowsOf(out[0]).map((r) => r.key)).toEqual(['spot:1', 'spot:2']);
+		expect(rowsOf(out[0])[0]).toMatchObject({ value: 1, preview: true });
+	});
+
+	it('a video with one section keeps its heading', () => {
+		const out = sectionGroups([gs[1]], 'In this lesson');
+		expect(out.map((g) => g.title)).toEqual(['Other videos']);
+		expect(out[0].entries[0]).toMatchObject({ heading: 'Later · 12 Oct 2026', collapse: false });
+	});
+
+	it('an unnamed section is found by its time', () => {
+		const lines = shown(sectionGroups(gs, 'In this lesson'), '1:01');
+		expect(JSON.stringify(lines)).toContain('spot:2');
+		expect(JSON.stringify(lines)).not.toContain('spot:1');
+	});
+
+	it('meta shows \u2192 what it is linked to, and the time range when named', () => {
+		const out = sectionGroups(gs, 'In this lesson');
+		expect(rowsOf(out[0])[0].meta).toBe('0:12.0\u20130:34.0');
+		expect(rowsOf(out[0])[1].meta).toBeUndefined();
+		expect(rowsOf(out[1])[0].meta).toBe('\u2192 Enchufla \u00b7 Doble');
+		expect(rowsOf(out[1])[0].linked).toBe(true);
 	});
 });

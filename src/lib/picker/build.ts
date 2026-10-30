@@ -6,7 +6,9 @@
  * pickers spec).
  */
 import { frequencyLabel } from '$lib/frequency';
-import type { FigureVersion, PickExercise, PickRoutine } from '$lib/types';
+import { dateLabel } from '$lib/format';
+import { spotLabel } from '$lib/video/spots';
+import type { FigureVersion, PickExercise, PickRoutine, SectionGroup } from '$lib/types';
 import { isHeading, type PickEntry, type PickGroup, type PickHeading, type PickRow } from './model';
 
 /** Only a row that says so carries `linked`: field and act pickers have no such idea. */
@@ -103,6 +105,48 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 		{ title: 'Routines', entries: flat('routine') },
 		{ title: 'Drills', entries: flat('custom') },
 		{ title: 'Lessons', entries: flat('lesson') }
+	];
+	return groups.filter((g) => g.entries.length > 0);
+}
+
+/**
+ * Sections, a heading per video: the videos of lessons the target is taught in
+ * under `nearTitle`, the rest under "Other videos", in input order. A row is
+ * previewable; an unnamed section is found by its time.
+ */
+export function sectionGroups(gs: SectionGroup[], nearTitle: string): PickGroup[] {
+	const heading = (g: SectionGroup): PickHeading => {
+		const title =
+			g.video.from.kind === 'lesson'
+				? `${g.video.from.title} · ${dateLabel(g.video.from.lessonDay)}`
+				: `Recording · ${g.video.from.figure}`;
+		return {
+			heading: title,
+			collapse: false,
+			rows: [...g.sections]
+				.sort((a, b) => a.startMs - b.startMs)
+				.map((s) => {
+					const meta = [
+						s.label ? spotLabel({ ...s, label: null }) : '',
+						s.linkedTo.length > 0 ? `→ ${s.linkedTo.join(', ')}` : ''
+					]
+						.filter(Boolean)
+						.join(' · ');
+					return {
+						key: `spot:${s.id}`,
+						value: s.id,
+						label: spotLabel(s),
+						...(meta ? { meta } : {}),
+						keywords: `${spotLabel({ ...s, label: null })} ${title}`,
+						linked: s.linked,
+						preview: true
+					};
+				})
+		};
+	};
+	const groups: PickGroup[] = [
+		{ title: nearTitle, entries: gs.filter((g) => g.taughtHere).map(heading) },
+		{ title: 'Other videos', entries: gs.filter((g) => !g.taughtHere).map(heading) }
 	];
 	return groups.filter((g) => g.entries.length > 0);
 }

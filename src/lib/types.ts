@@ -443,7 +443,8 @@ export interface SectionGroup {
 	video: SectionVideo;
 	/** A lesson the target is taught in. */
 	taughtHere: boolean;
-	sections: Spot[];
+	/** Every section of the video; `linked` when it is already linked to the target. */
+	sections: (Spot & { linked: boolean })[];
 }
 
 /** A paired Android app, as Settings lists it. Never carries the token. */
