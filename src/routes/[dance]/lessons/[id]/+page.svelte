@@ -6,9 +6,11 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
-	import FigureList from '$lib/components/figures/FigureList.svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import LinkPicker from '$lib/components/lessons/LinkPicker.svelte';
+	import Picker from '$lib/components/picker/Picker.svelte';
+	import PickerField from '$lib/components/picker/PickerField.svelte';
+	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
+	import type { PickRow } from '$lib/picker/model';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -60,14 +62,36 @@
 		['variation', 'Variation of a figure']
 	] as const;
 	let figureMode = $state<'figure' | 'variation'>('figure');
-	/** The figure "Variation of a figure" adds to: its id as the radio posts it. */
-	let variationOf = $state('');
+	/** The figure "Variation of a figure" adds to: a `figure_groups` id, as its field posts it. */
+	let variationOf = $state<number | null>(null);
 	// What a refused `newVariation` posted, so the sheet reopens holding it.
 	const variationTyped = $derived(form && 'groupId' in form ? form : null);
+	/** What a create sheet's name field starts with: the picker's search, or a refused post. */
+	let typed = $state({ figureName: '', name: '', notes: '' });
 
-	function openFigureSheet() {
-		figureMode = 'figure';
-		variationOf = '';
+	/** The figures this lesson teaches, by hand or through a section: "Variation of a figure" offers them first. */
+	const taughtGroups = $derived.by(() => {
+		const linked = new Set(data.figures.map((f) => f.id));
+		return new Set(data.linkableFigures.filter((f) => linked.has(f.id)).map((f) => f.groupId));
+	});
+	const variationGroups = $derived([
+		{
+			title: 'In this lesson',
+			entries: figureRows(data.figureGroups.filter((g) => taughtGroups.has(g.id)))
+		},
+		{
+			title: 'Figures',
+			entries: figureRows(data.figureGroups.filter((g) => !taughtGroups.has(g.id)))
+		}
+	]);
+
+	function openFigureSheet(mode: 'figure' | 'variation' = 'figure', query = '') {
+		figureMode = mode;
+		variationOf = data.figureGroups.find((g) => taughtGroups.has(g.id))?.id ?? null;
+		typed =
+			mode === 'figure'
+				? { figureName: query, name: '', notes: '' }
+				: { figureName: '', name: query, notes: '' };
 		addingFigure = true;
 	}
 
@@ -75,7 +99,10 @@
 		() =>
 		async ({ update, result }) => {
 			await update();
-			if (result.type === 'success') addingFigure = false;
+			if (result.type === 'success') {
+				addingFigure = false;
+				closePicker();
+			}
 		};
 
 	$effect(() => {
@@ -85,13 +112,110 @@
 		}
 		if (variationTyped) {
 			figureMode = 'variation';
-			variationOf = String(variationTyped.groupId);
+			variationOf = Number(variationTyped.groupId) || null;
+			typed = {
+				figureName: '',
+				name: variationTyped.name ?? '',
+				notes: variationTyped.notes ?? ''
+			};
 			addingFigure = true;
 		}
 		if (failure('newExercise')) addingExercise = true;
 		if (failure('newRoutine')) addingRoutine = true;
 		if (failure('update')) editing = true;
 	});
+
+	/*
+	 * The three "Link an existing …" pickers. A tap and a + post the section's
+	 * one-tap link action through a hidden form (`use:enhance`, nothing typed to
+	 * lose). A tap closes the picker once the link is made; a + keeps it open and
+	 * its row turns "✓ Linked" from the reloaded data. A refused link keeps the
+	 * picker open with the server's message, and the row stays as it was.
+	 */
+	type LinkKind = 'figure' | 'routine' | 'exercise';
+	const LINK = {
+		figure: { action: '?/linkFigure', field: 'figureId' },
+		routine: { action: '?/linkRoutine', field: 'routineId' },
+		exercise: { action: '?/linkExercise', field: 'exerciseId' }
+	} as const;
+	const LINK_KINDS = ['figure', 'routine', 'exercise'] as const;
+
+	/** The open link picker; one at a time. */
+	let picking = $state<LinkKind | null>(null);
+	/** How many + this opening has linked. */
+	let added = $state(0);
+	let pickMessage = $state<string | null>(null);
+	/** Counts openings, so an answer that lands after a close is not counted in the next one. */
+	let opening = 0;
+	const linkForms: Partial<Record<LinkKind, HTMLFormElement>> = $state({});
+	/** Rows whose link is on its way: a second + on one would only be refused. Nothing renders it. */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const inFlight = new Set<string>();
+	/** What the hidden form is about to send; read by its submit, synchronously. */
+	let sending: { key: string; keep: boolean } | null = null;
+
+	function openPicker(kind: LinkKind) {
+		opening += 1;
+		added = 0;
+		pickMessage = null;
+		picking = kind;
+	}
+
+	function closePicker() {
+		opening += 1;
+		picking = null;
+		added = 0;
+		pickMessage = null;
+	}
+
+	function link(kind: LinkKind, row: PickRow, keep: boolean) {
+		const f = linkForms[kind];
+		if (!f || inFlight.has(row.key)) return;
+		const input = f.elements.namedItem(LINK[kind].field);
+		if (!(input instanceof HTMLInputElement)) return;
+		input.value = String(row.value);
+		sending = { key: row.key, keep };
+		f.requestSubmit();
+	}
+
+	const linkSubmit: SubmitFunction = () => {
+		const sent = sending;
+		sending = null;
+		const at = opening;
+		if (sent) inFlight.add(sent.key);
+		pickMessage = null;
+		return async ({ result, update }) => {
+			if (sent) inFlight.delete(sent.key);
+			const here = at === opening;
+			if (result.type === 'failure') {
+				const m = (result.data as { message?: unknown } | undefined)?.message;
+				if (here) pickMessage = typeof m === 'string' ? m : 'That could not be linked.';
+				return;
+			}
+			if (result.type === 'error') {
+				const m = (result.error as { message?: unknown } | undefined)?.message;
+				if (here) pickMessage = typeof m === 'string' ? m : 'That could not be linked.';
+				return;
+			}
+			await update();
+			if (result.type !== 'success' || !here || !sent) return;
+			if (sent.keep) added += 1;
+			else closePicker();
+		};
+	};
+
+	/** A create row's button: the page's own sheet, on top of the still-open picker. */
+	function createFrom(kind: LinkKind, key: string, query: string) {
+		if (kind === 'figure') openFigureSheet(key === 'variation' ? 'variation' : 'figure', query);
+		if (kind === 'routine') {
+			typed = { figureName: '', name: query, notes: '' };
+			addingRoutine = true;
+		}
+		if (kind === 'exercise') {
+			typed = { figureName: '', name: query, notes: '' };
+			addingExercise = true;
+		}
+	}
 
 	const label = 'mb-1 block text-[13px] text-muted';
 	const field =
@@ -300,7 +424,7 @@
 				<button
 					type="button"
 					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={() => (addingExercise = true)}>+ New exercise</button
+					onclick={() => createFrom('exercise', '', '')}>+ New exercise</button
 				>
 			</div>
 			{#if data.exercises.length > 0}
@@ -349,16 +473,7 @@
 					{/each}
 				</ul>
 			{/if}
-			<LinkPicker
-				action="?/linkExercise"
-				name="exerciseId"
-				items={data.linkableExercises.filter((e) => !e.linked)}
-				label="Link an existing exercise"
-				empty="Nothing left to link. A figure’s or routine’s exercise lives under it."
-			/>
-			{#if failure('linkExercise')}
-				<p class="mt-2 text-[13px] text-danger">{failure('linkExercise')}</p>
-			{/if}
+			{@render linkButton('exercise', 'Link an existing exercise…')}
 		</section>
 
 		<section>
@@ -367,7 +482,7 @@
 				<button
 					type="button"
 					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={() => (addingRoutine = true)}>+ New routine</button
+					onclick={() => createFrom('routine', '', '')}>+ New routine</button
 				>
 			</div>
 			{#if data.routines.length > 0}
@@ -389,16 +504,7 @@
 					{/each}
 				</ul>
 			{/if}
-			<LinkPicker
-				action="?/linkRoutine"
-				name="routineId"
-				items={data.linkableRoutines.filter((r) => !r.linked)}
-				label="Link an existing routine"
-				empty="Every routine is already linked."
-			/>
-			{#if failure('linkRoutine')}
-				<p class="mt-2 text-[13px] text-danger">{failure('linkRoutine')}</p>
-			{/if}
+			{@render linkButton('routine', 'Link an existing routine…')}
 		</section>
 
 		<section>
@@ -407,7 +513,7 @@
 				<button
 					type="button"
 					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={openFigureSheet}>+ New figure</button
+					onclick={() => openFigureSheet()}>+ New figure</button
 				>
 			</div>
 			{#if data.figures.length > 0}
@@ -455,21 +561,99 @@
 					{/each}
 				</ul>
 			{/if}
-			<LinkPicker
-				action="?/linkFigure"
-				name="figureId"
-				items={data.linkableFigures
-					.filter((f) => !f.linked)
-					.map((f) => ({ id: f.id, name: f.label }))}
-				label="Link an existing figure"
-				empty="Every figure is already linked."
-			/>
-			{#if failure('linkFigure')}
-				<p class="mt-2 text-[13px] text-danger">{failure('linkFigure')}</p>
-			{/if}
+			{@render linkButton('figure', 'Link an existing figure…')}
 		</section>
 	{/if}
 </div>
+
+{#snippet linkButton(kind: LinkKind, text: string)}
+	<button
+		type="button"
+		class="mt-3 flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[14.5px] font-medium text-accent"
+		aria-haspopup="dialog"
+		onclick={() => openPicker(kind)}
+	>
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2.2"
+			stroke-linecap="round"
+			class="shrink-0 text-muted"
+			aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg
+		>
+		{text}
+	</button>
+{/snippet}
+
+<!-- What a picker's tap and + post: one-tap link actions, filled in by `link()`. -->
+{#each LINK_KINDS as kind (kind)}
+	<form
+		bind:this={linkForms[kind]}
+		method="POST"
+		action={LINK[kind].action}
+		hidden
+		use:enhance={linkSubmit}
+	>
+		<input type="hidden" name={LINK[kind].field} />
+	</form>
+{/each}
+
+<Picker
+	open={picking === 'figure'}
+	title="Link a figure"
+	placeholder="Search figures"
+	kind="link"
+	groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
+	nothingLeft="There are no figures yet."
+	create={[
+		{ key: 'figure', label: '+ Figure' },
+		{ key: 'variation', label: '+ Variation' }
+	]}
+	{added}
+	message={picking === 'figure' ? pickMessage : null}
+	onpick={(row) => link('figure', row, false)}
+	onadd={(row) => link('figure', row, true)}
+	oncreate={(key, query) => createFrom('figure', key, query)}
+	ondone={closePicker}
+	onclose={closePicker}
+/>
+
+<Picker
+	open={picking === 'routine'}
+	title="Link a routine"
+	placeholder="Search routines"
+	kind="link"
+	groups={[{ title: 'Routines', entries: routineRows(data.linkableRoutines) }]}
+	nothingLeft="There are no routines yet."
+	create={[{ key: 'routine', label: '+ Routine' }]}
+	{added}
+	message={picking === 'routine' ? pickMessage : null}
+	onpick={(row) => link('routine', row, false)}
+	onadd={(row) => link('routine', row, true)}
+	oncreate={(key, query) => createFrom('routine', key, query)}
+	ondone={closePicker}
+	onclose={closePicker}
+/>
+
+<Picker
+	open={picking === 'exercise'}
+	title="Link an exercise"
+	placeholder="Search exercises"
+	kind="link"
+	groups={exerciseGroups(data.linkableExercises)}
+	nothingLeft="Nothing left to link. A figure’s or routine’s exercise lives under it."
+	create={[{ key: 'exercise', label: '+ Exercise' }]}
+	{added}
+	message={picking === 'exercise' ? pickMessage : null}
+	onpick={(row) => link('exercise', row, false)}
+	onadd={(row) => link('exercise', row, true)}
+	oncreate={(key, query) => createFrom('exercise', key, query)}
+	ondone={closePicker}
+	onclose={closePicker}
+/>
 
 {#if logging && data.popup}
 	<LessonLog
@@ -517,7 +701,7 @@
 					{failure('newFigure')}
 				</p>
 			{/if}
-			<FigureFields dance={data.dance} style={data.defaultStyle} />
+			<FigureFields dance={data.dance} figureName={typed.figureName} style={data.defaultStyle} />
 			<button
 				type="submit"
 				class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
@@ -536,25 +720,27 @@
 					{failure('newVariation')}
 				</p>
 			{/if}
-			<div class="space-y-1.5">
-				<h3 class="text-[12px] font-medium text-ink-2">Figure</h3>
-				{#if data.figureGroups.length === 0}
-					<p class="text-[13px] text-muted">There are no figures yet.</p>
-				{:else}
-					<FigureList
-						figures={data.figureGroups}
-						name="groupId"
-						bind:selected={variationOf}
-						required
-					/>
-				{/if}
-			</div>
+			{#if data.figureGroups.length === 0}
+				<p class="text-[13px] text-muted">There are no figures yet.</p>
+			{:else}
+				<PickerField
+					name="groupId"
+					label="Figure"
+					placeholder="Choose a figure…"
+					title="Choose a figure"
+					search="Search figures"
+					groups={variationGroups}
+					nothingLeft="There are no figures yet."
+					bind:value={variationOf}
+					required
+				/>
+			{/if}
 			<FigureFields
 				dance={data.dance}
 				asksFigureName={false}
-				name={variationTyped?.name ?? ''}
+				name={typed.name}
 				style={data.defaultStyle}
-				notes={variationTyped?.notes ?? ''}
+				notes={typed.notes}
 			/>
 			<button
 				type="submit"
@@ -590,7 +776,9 @@
 				required
 				maxlength="200"
 				class={field}
-				value={form && 'name' in form && form.action === 'newRoutine' ? String(form.name) : ''}
+				value={form && 'name' in form && form.action === 'newRoutine'
+					? String(form.name)
+					: typed.name}
 			/>
 		</label>
 		<label class="block">
@@ -632,7 +820,10 @@
 				() =>
 				async ({ update, result }) => {
 					await update();
-					if (result.type === 'success') addingExercise = false;
+					if (result.type === 'success') {
+						addingExercise = false;
+						closePicker();
+					}
 				}
 		}}
 	>
@@ -643,7 +834,7 @@
 		{/if}
 		<label class="block">
 			<span class={label}>Name</span>
-			<input name="name" required maxlength="200" class={field} />
+			<input name="name" required maxlength="200" class={field} value={typed.name} />
 		</label>
 		<label class="block">
 			<span class={label}>How often</span>

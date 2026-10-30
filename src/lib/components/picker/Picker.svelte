@@ -166,7 +166,7 @@
 			onclick={() => onpick(r)}
 		>
 			<span class="block truncate"
-				>{#if indent}<span class={c.muted}>└ </span>{/if}{text}</span
+				>{#if indent}<span class={c.muted}>└&nbsp;</span>{/if}{text}</span
 			>
 			{#if r.meta}<span class="block truncate text-[12px] {c.muted}">{r.meta}</span>{/if}
 		</button>
