@@ -2,10 +2,11 @@
 	/**
 	 * The one picker behind every way of adding: a seam's ↓+ / ↑+, the + at
 	 * either end, Add above / below, and + Alternative. One tap inserts and
-	 * closes — there is no confirm step.
+	 * closes — there is no confirm step. The sheet is the shared Picker; what
+	 * fits (and the Count / Hold chips) stays here, in fit.ts.
 	 */
-	import Sheet from '$lib/components/ui/Sheet.svelte';
-	import { FIELD } from '$lib/components/ui/styles';
+	import Picker from '$lib/components/picker/Picker.svelte';
+	import type { PickGroup as Group, PickHeading, PickRow } from '$lib/picker/model';
 	import {
 		anchorText,
 		pickList,
@@ -29,25 +30,16 @@
 	let query = $state('');
 	let count = $state(true);
 	let hold = $state(true);
-	let search: HTMLInputElement | undefined = $state();
 
-	// Every opening starts clean: both filters on, no search left over.
+	// Every opening starts clean: both filters on (Picker clears the search).
 	$effect(() => {
 		if (!open) return;
-		query = '';
 		count = true;
 		hold = true;
 	});
 
-	// Focus the search only with a mouse: on a phone the keyboard would cover
-	// the list, which is what the sheet was opened to see.
-	$effect(() => {
-		if (search && matchMedia('(pointer: fine)').matches) search.focus();
-	});
-
 	const list = $derived(pickList(candidates, anchor, { count, hold, query }));
 	const context = $derived(anchorText(anchor, positionName));
-	const nothing = $derived(list.figures.length === 0 && list.routines.length === 0);
 
 	const emptyText = $derived.by(() => {
 		if (anchor.kind === 'alternative') return 'No other figure starts and lands like this one.';
@@ -69,103 +61,91 @@
 		return `${timing} · ${from} → ${to}`;
 	}
 
+	const row = (c: Candidate, short?: string): PickRow => ({
+		key: `${c.kind}:${c.id}`,
+		value: c.id,
+		label: c.label,
+		short,
+		meta: meta(c)
+	});
+
+	// fit.ts has already filtered by query and chips: these are the groups as shown.
+	const groups = $derived.by(() => {
+		const out: Group[] = [];
+		if (list.figures.length > 0) {
+			out.push({
+				title: 'Figures',
+				entries: list.figures.map((g): PickHeading => ({
+					heading: g.name,
+					collapse: g.single,
+					rows: g.variations.map((v) => row(v, variationName(v)))
+				}))
+			});
+		}
+		if (list.routines.length > 0) {
+			out.push({ title: 'Routines', entries: list.routines.map((r) => row(r)) });
+		}
+		return out;
+	});
+
+	function pick(r: PickRow) {
+		const c = candidates.find((x) => `${x.kind}:${x.id}` === r.key);
+		if (c) onpick(c);
+	}
+
 	const chip = (on: boolean) =>
 		`h-8 rounded-full border px-3 text-[13px] ${
 			on ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line bg-raised text-muted'
 		}`;
-	// Two lines per row: the name, then its timing and holds. Start and end
-	// hold names together are too long to share a line with the name.
-	const row = 'block w-full border-b border-line py-2 text-left text-[15px]';
-	const metaClass = 'block truncate text-[12px] text-muted';
-	const heading = 'mt-3 mb-1 text-[11px] font-medium tracking-wide text-muted uppercase';
 </script>
 
-<Sheet {title} {open} {onclose}>
-	{#if context}
-		<p class="-mt-2 mb-3 text-[13px] text-ink-2">{context}</p>
-	{/if}
-	<input
-		bind:this={search}
-		bind:value={query}
-		type="search"
-		placeholder="Search figures and routines"
-		aria-label="Search figures and routines"
-		class={FIELD}
-	/>
-	{#if list.toggles.count || list.toggles.hold}
-		<div class="mt-2 flex gap-2">
-			{#if list.toggles.count}
-				<button
-					type="button"
-					class={chip(count)}
-					aria-pressed={count}
-					onclick={() => (count = !count)}>{count ? '✓ ' : ''}Count</button
-				>
-			{/if}
-			{#if list.toggles.hold}
-				<button type="button" class={chip(hold)} aria-pressed={hold} onclick={() => (hold = !hold)}
-					>{hold ? '✓ ' : ''}Hold</button
-				>
-			{/if}
-		</div>
-	{/if}
-
-	<div class="mt-1 max-h-[55dvh] overflow-y-auto">
-		{#if nothing}
-			<p class="mt-3 rounded-lg bg-plane p-3 text-[13px] text-ink-2">
-				{emptyText}
-				{#if list.emptiedBy.includes('hold')}
-					<button type="button" class="font-semibold text-accent" onclick={() => (hold = false)}
-						>Turn off Hold</button
-					> to see the rest.
-				{:else if list.emptiedBy.includes('count')}
-					<button type="button" class="font-semibold text-accent" onclick={() => (count = false)}
-						>Turn off Count</button
-					> to see the rest.
+<Picker
+	{open}
+	{title}
+	placeholder="Search figures and routines"
+	{groups}
+	kind="act"
+	prefiltered
+	bind:query
+	nothingLeft={emptyText}
+	onpick={pick}
+	{onclose}
+>
+	{#snippet top()}
+		{#if context}
+			<p class="mt-2 text-[13px] text-ink-2">{context}</p>
+		{/if}
+		{#if list.toggles.count || list.toggles.hold}
+			<div class="mt-2 flex gap-2">
+				{#if list.toggles.count}
+					<button
+						type="button"
+						class={chip(count)}
+						aria-pressed={count}
+						onclick={() => (count = !count)}>{count ? '✓ ' : ''}Count</button
+					>
 				{/if}
-			</p>
+				{#if list.toggles.hold}
+					<button
+						type="button"
+						class={chip(hold)}
+						aria-pressed={hold}
+						onclick={() => (hold = !hold)}>{hold ? '✓ ' : ''}Hold</button
+					>
+				{/if}
+			</div>
 		{/if}
-
-		{#if list.figures.length > 0}
-			<p class={heading}>Figures</p>
-			<ul>
-				{#each list.figures as group (group.groupId)}
-					<li>
-						{#if group.single}
-							{@const v = group.variations[0]}
-							<button type="button" class={row} onclick={() => onpick(v)}>
-								<span class="block truncate">{v.label}</span>
-								<span class={metaClass}>{meta(v)}</span>
-							</button>
-						{:else}
-							<!-- A heading, not a choice: only its variations can be picked. -->
-							<p class="pt-2 pb-0.5 text-[13px] font-medium text-muted">{group.name}</p>
-							{#each group.variations as v (v.id)}
-								<button type="button" class="{row} pl-5 text-[14px]" onclick={() => onpick(v)}>
-									<span class="block truncate"
-										><span class="text-muted">└ </span>{variationName(v)}</span
-									>
-									<span class={metaClass}>{meta(v)}</span>
-								</button>
-							{/each}
-						{/if}
-					</li>
-				{/each}
-			</ul>
+	{/snippet}
+	{#snippet empty()}
+		{emptyText}
+		{#if list.emptiedBy.includes('hold')}
+			<button type="button" class="font-semibold text-accent" onclick={() => (hold = false)}
+				>Turn off Hold</button
+			> to see the rest.
+		{:else if list.emptiedBy.includes('count')}
+			<button type="button" class="font-semibold text-accent" onclick={() => (count = false)}
+				>Turn off Count</button
+			> to see the rest.
 		{/if}
-
-		{#if list.routines.length > 0}
-			<p class={heading}>Routines</p>
-			<ul>
-				{#each list.routines as r (r.id)}
-					<li>
-						<button type="button" class={row} onclick={() => onpick(r)}>
-							<span class="block truncate">{r.label}</span>
-							<span class={metaClass}>{meta(r)}</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</div>
-</Sheet>
+	{/snippet}
+</Picker>
