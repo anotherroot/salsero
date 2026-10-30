@@ -548,9 +548,19 @@ unsaved.
   register with `track()`: the voice page's unkept take, and an upload in
   flight.
 - **When it asks.** Any in-app navigation (links, the bottom nav, back and
-  forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop or
-  Escape (only about what is inside that sheet; the way out is "Close"); the
-  log popup's Skip, Next and Finish ("Skip without saving"…).
+  forward — replayed with `history.go`, not pushed); a sheet's ✕, backdrop,
+  Escape or Back (only about what is inside that sheet; the way out is
+  "Close"); the log popup's Skip, Next and Finish ("Skip without saving"…).
+- **Back on a sheet.** Each open sheet holds one shallow history entry
+  (`page.state.sheets`, `src/lib/sheets/`), so Back — Android's button and
+  gesture, the browser's — closes only the topmost sheet. A popstate between
+  shallow entries runs no `beforeNavigate`, so the sheet asks its own question
+  exactly as its ✕ does; if the user stays, the entry Back took is pushed
+  again. ✕, the backdrop and Escape go back over the entry too, so history
+  never keeps one for a closed sheet. A sheet closed by its page (a save, a
+  link inside it) leaves an entry only when the page moved on, and Back onto
+  it bounces straight past. The depth is read from the history entry, not
+  from `page.state`, which `invalidateAll()` resets to {}.
 - **What it offers.** Save · Stay · *Leave* without saving. Save submits the
   real form(s) and waits for the server's answer: Saved ✓ then offers Leave or
   Stay; a failure shows the server's message with "Stay and fix it". A form

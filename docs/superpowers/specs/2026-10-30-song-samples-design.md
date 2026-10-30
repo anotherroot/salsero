@@ -172,6 +172,17 @@ breaking its levels.
 Verify on the phone (the Android app), not only in a desktop browser: open
 the log popup, open the song popup, press Back three times.
 
+As built (`src/lib/sheets/`): the depth is read from the history entry rather
+than `page.state`, because every `use:enhance` submit's `invalidateAll()`
+resets `page.state` to {} while the sheet is still open. Back moves are sent
+at the end of the task, so a sheet closing as another opens in the same tick
+(Variations → New variation, the session's next exercise) hands its entry on:
+a `pushState` made while a `history.go` is pending is gone over by it. The
+Link popup inside the full-screen player is one of the player's own levels,
+not a `Sheet`, and already walked back with it. The lesson page's Link popup
+(`LinkPopup` with `theme="light"`) is its own `<dialog>`, not a `Sheet`: Back
+there still leaves the page — a gap left for later.
+
 ## Decided
 
 - The popup replaces the `<select>`; it does not sit beside it. A native

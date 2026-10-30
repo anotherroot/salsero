@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { leaveOrAsk, unsaved } from '$lib/unsaved/guard.svelte';
+	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
+	import { sheetStack } from '$lib/sheets/history.svelte';
 
 	interface Props {
 		title: string;
@@ -11,38 +12,66 @@
 
 	let { title, open, onclose, children }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
+	/** This sheet's place in the stack while it is open. Not state: nothing renders from it. */
+	let key: number | null = null;
 
 	/*
 	 * A native <dialog> opened with showModal(): focus is trapped, Escape closes,
 	 * the page behind is inert, and the backdrop is the browser's own. All of
 	 * that is what a bottom sheet has to get right and none of it is hand-rolled.
+	 *
+	 * Each open sheet holds one history entry (`$lib/sheets/stack.ts`), so Back
+	 * closes the topmost sheet, not the page.
 	 */
 	$effect(() => {
 		if (!dialog) return;
-		if (open && !dialog.open) dialog.showModal();
-		if (!open && dialog.open) dialog.close();
+		if (open && !dialog.open) {
+			dialog.showModal();
+			const d = dialog;
+			key = sheetStack.open({
+				tryLeave: (leave) => leaveOrAsk(d, leave, 'Close'),
+				close: () => onclose()
+			});
+		}
+		if (!open && dialog.open) {
+			dialog.close();
+			release();
+		}
 	});
 
+	/** Closed by its owner, or unmounted while open: its entry goes too. */
+	function release() {
+		if (key === null) return;
+		const k = key;
+		key = null;
+		sheetStack.closedByOwner(k);
+	}
+	$effect(() => release);
+
 	/**
-	 * ✕, the backdrop and Escape all come here. Anything unsaved inside the sheet
-	 * (a typed form, a finished run) gets the unsaved-changes question first, so
-	 * a stray tap never throws it away.
+	 * ✕, the backdrop and Escape all come here, and go back one entry exactly
+	 * like Back. Anything unsaved inside the sheet (a typed form, a finished
+	 * run) gets the unsaved-changes question first, so a stray tap never
+	 * throws it away.
 	 */
 	function tryClose() {
-		if (dialog) leaveOrAsk(dialog, onclose, 'Close');
+		if (key !== null) sheetStack.requestClose(key);
+		else if (dialog) leaveOrAsk(dialog, onclose, 'Close');
 	}
 </script>
 
 <dialog
 	bind:this={dialog}
 	aria-label={title}
-	{onclose}
+	onclose={() => {
+		// Closed by the browser itself (a close request it would not let us cancel).
+		release();
+		onclose();
+	}}
 	oncancel={(e) => {
-		// Escape. Cancelling it keeps the sheet open while the question is up.
-		if (dialog && unsaved(dialog).length > 0) {
-			e.preventDefault();
-			tryClose();
-		}
+		// Escape, on the topmost dialog only. Always ours: it goes through history.
+		e.preventDefault();
+		tryClose();
 	}}
 	onclick={(e) => {
 		// A click on the backdrop lands on the dialog element itself.
