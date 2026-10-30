@@ -21,6 +21,7 @@
 	import ClaveChips from './ClaveChips.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import SourcePicker from './SourcePicker.svelte';
+	import { stopSample } from '$lib/songs/sample-player.svelte';
 
 	interface Props {
 		/** This dance's ready songs, for the picker. */
@@ -173,6 +174,8 @@
 	});
 
 	function play() {
+		// A sample must never play under a run.
+		stopSample();
 		// The stored choice survives a run without a routine: it is what the next
 		// routine run starts from.
 		onplay({

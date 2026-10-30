@@ -9,6 +9,7 @@
 	import type { PickerSong } from '$lib/types';
 	import { CHIP, FIELD, LABEL } from '$lib/components/ui/styles';
 	import { SPEEDS, type Speed } from '$lib/labels';
+	import SongPicker from './SongPicker.svelte';
 
 	interface Props {
 		/** Prefix for the radio groups' names, so two pickers never share a group. */
@@ -63,14 +64,10 @@
 {/if}
 
 {#if source === 'song'}
-	<label class="block">
+	<div>
 		<span class={LABEL}>Song</span>
-		<select bind:value={songId} class={FIELD}>
-			{#each songs as s (s.id)}
-				<option value={s.id}>{s.title}</option>
-			{/each}
-		</select>
-	</label>
+		<SongPicker bind:songId {songs} />
+	</div>
 	{#if error}<p class="text-[13px] text-danger">{error}</p>{/if}
 	<fieldset>
 		<legend class={LABEL}>Speed</legend>

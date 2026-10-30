@@ -6,6 +6,7 @@
 	import SongProgress from './SongProgress.svelte';
 	import SourcePicker from './SourcePicker.svelte';
 	import { loadSongGrid } from './songGrid.svelte';
+	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import { CHIP, LABEL } from '$lib/components/ui/styles';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
@@ -107,6 +108,8 @@
 	 * building a second, unreachable player (the player page's own lesson).
 	 */
 	async function play() {
+		// A sample must never play under a run.
+		stopSample();
 		if (starting || player || !canPlay) return;
 		starting = true;
 		startError = null;
@@ -197,6 +200,7 @@
 	}
 
 	async function resume() {
+		stopSample();
 		await player?.resume();
 		paused = false;
 		watch = startWatch(watch, Date.now());

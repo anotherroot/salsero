@@ -77,6 +77,11 @@ Figures as variations have theirs,
 [`docs/superpowers/specs/2026-10-29-figures-are-variations-design.md`](docs/superpowers/specs/2026-10-29-figures-are-variations-design.md):
 the `figure_groups` table, self-contained variations, Move to…, and the figure
 page's one-variation-per-URL layout.
+Song samples and the song popup have theirs,
+[`docs/superpowers/specs/2026-10-30-song-samples-design.md`](docs/superpowers/specs/2026-10-30-song-samples-design.md):
+where a 15 s sample starts (stored raw, snapped to a 1 on read), one sample at
+a time, the searchable popup in place of the song `<select>`, and Back closing
+the top sheet.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
