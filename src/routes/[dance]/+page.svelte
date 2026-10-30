@@ -6,6 +6,8 @@
 	import ExerciseRow from '$lib/components/today/ExerciseRow.svelte';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
+	import Picker from '$lib/components/picker/Picker.svelte';
+	import { exerciseGroups } from '$lib/picker/build';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import { dayLabel, setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
@@ -17,6 +19,7 @@
 
 	let openId = $state<number | null>(null);
 	let creating = $state(false);
+	let picking = $state(false);
 	let showInactive = $state(false);
 
 	// A session walks Today's due/upcoming bands one popup at a time. It lives
@@ -286,34 +289,33 @@
 			{/each}
 		</ul>
 
-		<form
-			class="mt-6 mb-4 rounded-xl border border-line bg-raised p-3"
-			onsubmit={(e) => {
-				e.preventDefault();
-				const id = Number(new FormData(e.currentTarget).get('exerciseId'));
-				if (id) openId = id;
-			}}
-		>
-			<label for="forgot" class="mb-1 block text-[12px] font-medium text-ink-2"
-				>Forgot to log something that day?</label
+		<div class="mt-6 mb-4 rounded-xl border border-line bg-raised p-3">
+			<span class="mb-1 block text-[12px] font-medium text-ink-2"
+				>Forgot to log something that day?</span
 			>
-			<div class="flex gap-2">
-				<select
-					id="forgot"
-					name="exerciseId"
-					class="min-w-0 flex-1 rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px]"
-				>
-					{#each data.exercises as e (e.id)}
-						<option value={e.id}>{e.name}</option>
-					{/each}
-				</select>
-				<button
-					type="submit"
-					class="rounded-lg bg-accent px-4 text-[14px] font-semibold text-accent-ink"
-					>Add set</button
-				>
-			</div>
-		</form>
+			<button
+				type="button"
+				class="flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[15px]"
+				aria-haspopup="dialog"
+				onclick={() => (picking = true)}
+			>
+				<span class="min-w-0 flex-1 truncate text-muted">Pick an exercise…</span>
+				<span class="text-[20px] leading-none text-muted" aria-hidden="true">›</span>
+			</button>
+		</div>
+		<Picker
+			open={picking}
+			title="Log a set on {dayLabel(data.day)}"
+			placeholder="Search exercises"
+			groups={exerciseGroups(data.exercises)}
+			kind="act"
+			nothingLeft="No exercises yet."
+			onpick={(row) => {
+				openId = row.value;
+				picking = false;
+			}}
+			onclose={() => (picking = false)}
+		/>
 	{/if}
 </main>
 
