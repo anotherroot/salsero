@@ -43,7 +43,8 @@
 
 	const emptyText = $derived.by(() => {
 		if (anchor.kind === 'alternative') return 'No other figure starts and lands like this one.';
-		if (query.trim() !== '' && list.emptiedBy.length === 0) return 'Nothing by that name.';
+		if (query.trim() !== '' && list.emptiedBy.length === 0)
+			return `Nothing matches “${query.trim()}”.`;
 		if (context) return `Nothing you know ${context[0].toLowerCase()}${context.slice(1)}.`;
 		return 'No figures in this dance yet.';
 	});

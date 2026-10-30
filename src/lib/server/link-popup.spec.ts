@@ -152,6 +152,14 @@ describe('linkOptions', () => {
 		expect(labels(via.near)).toEqual(labels(o.near));
 	});
 
+	it('lesson: a figure taught only through another section still widens near to all its variations', () => {
+		// No linkFigure: the lesson reaches Basic only through a section's link.
+		linkSpot(db, other, { figureId: basic });
+		const o = linkOptions(db, section, 'salsa')!;
+		expect(labels(o.near)).toEqual(['Enchufla · Basic', 'Enchufla · Doble']);
+		expect(labels(o.figures)).toEqual(['Setenta · Basic']);
+	});
+
 	it('a target already linked to the section is listed with linked true, not left out', () => {
 		linkFigure(db, lessonId, basic);
 		linkSpot(db, section, { figureId: doble });

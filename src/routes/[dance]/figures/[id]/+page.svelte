@@ -44,9 +44,6 @@
 	let moving = $state(false);
 	let archiving = $state(false);
 	$effect(() => {
-		if (failed('linkSection')) linkingSection = true;
-	});
-	$effect(() => {
 		if (failed('move')) moving = true;
 	});
 	const FigureLog = logFor('figure');

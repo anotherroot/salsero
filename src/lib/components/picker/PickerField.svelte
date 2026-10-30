@@ -93,6 +93,7 @@
 		{required}
 		tabindex="-1"
 		aria-hidden="true"
+		inputmode="none"
 		autocomplete="off"
 		oninput={(e) => (e.currentTarget.value = value == null ? '' : String(value))}
 		class="pointer-events-none absolute bottom-0 left-3 size-px opacity-0"

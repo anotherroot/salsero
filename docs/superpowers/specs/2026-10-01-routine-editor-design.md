@@ -243,7 +243,7 @@ filters, the context line, the "Turn off Hold" rescue and the timing second
 line stay the routine editor's. See
 [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md).
 
-One bottom sheet (`Sheet.svelte`), used for every way of adding something:
+One picker (the shared `Picker`, a bottom sheet on a phone), used for every way of adding something:
 
 ```
  Add after slot 3                       ×

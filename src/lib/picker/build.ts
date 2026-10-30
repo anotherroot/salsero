@@ -24,7 +24,7 @@ const withLinked = (row: PickRow, linked: boolean | undefined): PickRow =>
 
 const byName = (a: string, b: string) => a.localeCompare(b);
 
-/** One heading per figure (collapse), rows key `figure:{id}`, label v.label, short v.name, linked when given. */
+/** One heading per figure (collapse; headings alphabetical, rows in id order), rows key `figure:{id}`, label v.label, short v.name, linked when given. */
 export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): PickHeading[] {
 	const byGroup = new Map<number, PickHeading>();
 	for (const v of vs) {
@@ -37,7 +37,8 @@ export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): 
 			withLinked({ key: `figure:${v.id}`, value: v.id, label: v.label, short: v.name }, v.linked)
 		);
 	}
-	return [...byGroup.values()];
+	for (const h of byGroup.values()) h.rows.sort((a, b) => a.value - b.value);
+	return [...byGroup.values()].sort((a, b) => byName(a.heading, b.heading));
 }
 
 /** A figure picked as a figure: key `group:{id}`, meta variations joined ', '. Takes `MoveTarget`s as they are; a `LinkFigureChoice` maps `groupId` to `id`. */

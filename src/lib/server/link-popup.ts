@@ -240,7 +240,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		context,
 		linked,
 		nearTitle,
-		near: [...nearOf(variations).sort(byLabel), ...nearOf(drills).sort(byLabel)],
+		near: [...nearOf(variations), ...nearOf(drills)],
 		figures: restOf(variations),
 		drills: restOf(drills),
 		figureChoices: [

@@ -204,7 +204,7 @@
 			changed(await addLink(spotId, rowTarget(row)));
 			if (at !== opening) return;
 			if (keep) added += 1;
-			else onclose();
+			else if (top === 'pick') onclose();
 		} catch (e) {
 			if (at === opening) {
 				pickMessage = e instanceof SpotsApiError ? e.message : 'That could not be linked.';

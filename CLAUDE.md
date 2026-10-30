@@ -119,8 +119,10 @@ src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
                      navigation guard. ui/UnsavedDialog.svelte asks the question
-src/lib/video/       PURE link-steps.ts (the Link popup's levels), spots.ts: spot times, labels, ±1 s and 0.1 s steps,
-                     whole-section moves, the loop rule. trim.ts (the trim
+src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
+                     whole-section moves, the loop rule. link-steps.ts (the Link
+                     popup's levels; its screens are components/links/LinkLevel.svelte,
+                     one stacked level each), trim.ts (the trim
                      strip), screens.ts (the player's stack of levels and the
                      loop it implies), keys.ts, layout.ts, player-history.ts
                      (one history entry per screen, behind a port), zoom.ts

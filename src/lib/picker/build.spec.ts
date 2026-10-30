@@ -35,19 +35,20 @@ const exercise = (over: Partial<PickExercise> & { id: number; name: string }): P
 });
 
 describe('variationEntries', () => {
-	it('variationEntries: groups variations under their figure in input order, keys figure:{id}', () => {
+	it('variationEntries: groups variations under their figure, headings alphabetical, rows in id order, keys figure:{id}', () => {
 		const entries = variationEntries([
-			version(4, 2, 'Enchufla', 'Basic'),
 			version(7, 2, 'Enchufla', 'Doble'),
-			version(3, 1, 'Dile que no', 'Basic')
+			version(4, 2, 'Enchufla', 'Basic'),
+			version(3, 1, 'Étoile', 'Basic'),
+			version(5, 3, 'dile que no', 'Basic')
 		]);
-		expect(entries.map((e) => e.heading)).toEqual(['Enchufla', 'Dile que no']);
+		expect(entries.map((e) => e.heading)).toEqual(['dile que no', 'Enchufla', 'Étoile']);
 		expect(entries.every((e) => e.collapse)).toBe(true);
-		expect(entries[0].rows).toEqual([
+		expect(entries[1].rows).toEqual([
 			{ key: 'figure:4', value: 4, label: 'Enchufla · Basic', short: 'Basic' },
 			{ key: 'figure:7', value: 7, label: 'Enchufla · Doble', short: 'Doble' }
 		]);
-		expect(entries[1].rows.map((r) => r.key)).toEqual(['figure:3']);
+		expect(entries[2].rows.map((r) => r.key)).toEqual(['figure:3']);
 	});
 
 	it('variationEntries: carries linked', () => {
