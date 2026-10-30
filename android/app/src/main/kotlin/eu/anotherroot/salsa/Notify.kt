@@ -46,7 +46,7 @@ object Notify {
 
     fun unpaired(context: Context) = post(
         context, UNPAIRED_ID, RESULTS, "Pair the app again",
-        "The server no longer knows this phone. Tap to pair it.", "/device/pair",
+        "The server no longer knows this phone. Tap to pair it.", PAIR_PATH,
     )
 
     fun reminder(context: Context, title: String, text: String, path: String) =

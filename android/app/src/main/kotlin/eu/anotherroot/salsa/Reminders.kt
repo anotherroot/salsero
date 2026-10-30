@@ -68,7 +68,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
         try {
             val due = Api.today(ctx)
             val (title, body) = reminderText(due) ?: return Result.success()
-            Notify.reminder(ctx, title, body, "/${danceToOpen(due) ?: "salsa"}")
+            Notify.reminder(ctx, title, body, "/${BuildConfig.DANCE}")
         } catch (e: Unpaired) {
             Notify.unpaired(ctx)
         } catch (e: Exception) {

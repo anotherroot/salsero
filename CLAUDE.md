@@ -58,7 +58,7 @@ The full-screen video player has its own,
 spots, the loop, and why it is not the browser's fullscreen.
 The Android app has its own,
 [`docs/superpowers/specs/2026-10-14-android-app-design.md`](docs/superpowers/specs/2026-10-14-android-app-design.md):
-the site in a WebView (not a TWA since 2026-10-29), background
+one app per dance (flavors, since 2026-10-30), the site in a WebView (not a TWA since 2026-10-29), background
 compress-and-upload, the daily reminder,
 and device tokens. Built, not yet deployed or tried on the phone.
 Saved YouTube videos have theirs,
@@ -137,7 +137,7 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      fetch side of /api/video-spots. Client-safe. The player's
                      screens are src/lib/components/video/
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
-android/             the Android app (Kotlin): two WebView launchers, salsa:// links, the upload
+android/             the Android apps (Kotlin): one per dance as Gradle flavors, each a WebView launcher, salsa:// links, the upload
                      and reminder workers. No screens of its own. Pure parts (Links,
                      UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders

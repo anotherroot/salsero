@@ -153,14 +153,20 @@ shares with Firefly, Grafana, muscle and nikaudio.
 
 ## Android app
 
-`android/` builds the APK: the site in a WebView plus background uploads and
-the daily reminder (design: `docs/superpowers/specs/2026-10-14-android-app-design.md`).
-Sideloaded, like Shrink — no Play Store.
+`android/` builds two APKs, one per dance (Salsa and Bachata): the site in a
+WebView plus background uploads and the daily reminder (design:
+`docs/superpowers/specs/2026-10-14-android-app-design.md`). Sideloaded, like
+Shrink — no Play Store.
 
 ```sh
 nix develop .#android -c ./android/gradlew -p android test assembleDebug
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/salsa/debug/app-salsa-debug.apk
+adb install -r android/app/build/outputs/apk/bachata/debug/app-bachata-debug.apk
 ```
+
+Salsa keeps the original package (`eu.anotherroot.salsa`), so it installs over
+the old two-icon app and keeps its login, pairing and queue. Bachata
+(`eu.anotherroot.bachata`) is a new app: it logs in and pairs once by itself.
 
 Add `-Psite=https://…` to point a build at another host (https only: the app
 allows no cleartext).
@@ -178,7 +184,8 @@ allows no cleartext).
   ```
 
 - **Pairing:** the first upload (or reminder) sends the app to `/device/pair`;
-  one tap there hands it a token. Settings lists paired devices and removes them.
+  one tap there hands it a token. Each dance's app pairs separately. Settings
+  lists paired devices ("Salsa app", "Bachata app") and removes them.
 - **Test uploads against `node build` or the host**, never `vite dev`: the same
   CSRF caveat as the worker.
 

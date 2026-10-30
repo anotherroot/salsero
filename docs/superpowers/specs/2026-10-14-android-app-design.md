@@ -6,6 +6,38 @@
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md)'s and is not
 > changed; this document adds a second client for it.
 
+## Two apps, one per dance (2026-10-30)
+
+Overrides "one APK, two launcher icons" below. The two launchers shared one
+package, so Android saw one app: one entry in Settings and Recents' identity,
+one "Add to a lesson" in the share sheet, one notification source. Each dance
+is now its own app, built from the same code as two Gradle product flavors
+(`android/app/build.gradle.kts`):
+
+| Flavor  | Package                  | Name    | Launcher          | Share sheet    |
+| ------- | ------------------------ | ------- | ----------------- | -------------- |
+| salsa   | `eu.anotherroot.salsa`   | Salsa   | `SalsaLauncher`   | Salsa lesson   |
+| bachata | `eu.anotherroot.bachata` | Bachata | `BachataLauncher` | Bachata lesson |
+
+`BuildConfig.DANCE` is the flavor's slug; everything that used to choose a
+dance now reads it.
+
+- **Salsa keeps the original package**, so the installed app upgrades into
+  it with its cookie, token and queue. Bachata is a new install.
+- **Each app has its own WebView data, token and queue.** So each logs in
+  once and pairs once; `/device/pair?dance=<slug>` labels the token
+  "Salsa app" or "Bachata app" in Settings. The server is unchanged
+  otherwise: both apps use the same `/api/` endpoints and the same account.
+- **Sharing** opens `/<dance>/share?key=` (moved under `[dance]`), which lists
+  only that dance's lessons. The share-sheet entry is the dance's.
+- **The reminder** is per app: each reads its own dance from
+  `/api/device/today` and posts its own notification at the shared
+  `reminder_minute`, opening its own Today. Two dances with something due are
+  two notifications.
+- **`salsa://` stays the scheme for both.** `LinkActivity` is not exported:
+  the links only come from the app's own WebView, which hands them to its own
+  package (`WebShell`), so the two apps never compete for it.
+
 ## A WebView, not a TWA (2026-10-29)
 
 Overrides the TWA bullet under *Asked and decided* and the shell below.

@@ -19,7 +19,8 @@ import java.util.UUID
  * activity does, so it stays open — a small "Getting it ready" dialog — until
  * every file is copied into app storage under a fresh key. Then, still in
  * front (Android lets only a visible app open another screen), it opens the
- * site's `/share?key=` page, whose rows come back as `salsa://upload?…&share=`.
+ * dance's `/<dance>/share?key=` page, whose rows come back as
+ * `salsa://upload?…&share=`.
  */
 class ShareActivity : ComponentActivity() {
     @Volatile private var gone = false
@@ -66,7 +67,7 @@ class ShareActivity : ComponentActivity() {
             runOnUiThread {
                 when {
                     gone -> dir.deleteRecursively()
-                    copied > 0 -> startActivity(webIntent(this, "/share?key=$key"))
+                    copied > 0 -> startActivity(webIntent(this, "/${BuildConfig.DANCE}/share?key=$key"))
                     else -> {
                         dir.deleteRecursively()
                         Toast.makeText(applicationContext, "Couldn't read that video.", Toast.LENGTH_LONG).show()

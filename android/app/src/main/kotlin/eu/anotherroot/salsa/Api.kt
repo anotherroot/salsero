@@ -48,7 +48,9 @@ object Api {
 
     fun config(context: Context): Config = parseConfig(get(context, "/api/device/config"))
 
-    fun today(context: Context): Map<String, List<String>> = parseToday(get(context, "/api/device/today"))
+    /** What is due in this app's dance. */
+    fun today(context: Context): List<String> =
+        parseToday(get(context, "/api/device/today"))[BuildConfig.DANCE].orEmpty()
 
     private fun get(context: Context, path: String): String {
         val conn = open(context, path)
