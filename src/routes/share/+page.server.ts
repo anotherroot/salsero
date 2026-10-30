@@ -5,7 +5,7 @@ import { getDb } from '$lib/server/db';
 import { listLessons } from '$lib/server/lessons';
 import type { PageServerLoad } from './$types';
 
-/** How many recent lessons each dance offers; older ones are a search away on the lessons page. */
+/** How many recent lessons each dance offers; older ones are on the lessons page. */
 const PER_DANCE = 30;
 
 /**

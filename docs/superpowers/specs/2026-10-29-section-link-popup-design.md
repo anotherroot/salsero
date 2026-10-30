@@ -6,6 +6,17 @@
 > (a figure is a group of variations) and the full-screen player as it stands
 > after [`2026-10-29-video-player-upright-design.md`](2026-10-29-video-player-upright-design.md).
 >
+> **Updated 2026-10-30**
+> ([`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md)):
+> the list, its search, Add buttons and "Other…" moved into the shared picker.
+> The popup now shows only the links and one button, "Link a figure or
+> drill…", and opens straight into the picker when the section has no links.
+> A tap in the picker links and closes everything; + links and stays; Done
+> closes. The create steps open from the picker's create row, and the variation
+> step's figure chips are a Figure field (a picker). In the full-screen player
+> the levels are four history levels: `link`, `link-pick`, `link-new`,
+> `link-figure`. Where the text below describes the list, the picker replaces it.
+>
 > Mockup: `.superpowers/brainstorm/3008515-1793306080/content/section-create-v3.html`
 > (local, not committed; open it in a browser). Rows A and B are the design.
 
@@ -109,6 +120,9 @@ create step to the list, then close the popup, then follow the player's usual
 levels (a sheet or popup closes first, as in the player today).
 
 ### The list (mockup A2, B3)
+
+*Superseded 2026-10-30: the candidates, search and Add moved into the shared
+picker; already-linked items are shown greyed, not left out.*
 
 - **Header:** "Link 0:42–0:55" (the range), and under it the section's name
   (if it has one) and its length.

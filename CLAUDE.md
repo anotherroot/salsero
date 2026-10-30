@@ -32,7 +32,8 @@ what fits, a long-press selection with Make routine) and saved YouTube videos
 it at 480p and the link becomes a recording or lesson video, spots and all)
 and section links (a section of a lesson video or recording linked to a figure
 version or a drill, shown as a card that loops it; a linked section and its
-video refuse to delete) and the Link popup (link a section, or create the
+video refuse to delete) and one picker for every list (search, figure headings, tap to pick, + to
+keep going) and the Link popup (link a section, or create the
 variation, figure or drill it shows, from the lesson page or the player; a
 lesson includes what its videos' sections link to).
 
@@ -69,6 +70,10 @@ Section links have theirs,
 [`docs/superpowers/specs/2026-10-15-video-section-links-design.md`](docs/superpowers/specs/2026-10-15-video-section-links-design.md):
 why a link points at a saved spot, per version, and why a linked section blocks
 its video's delete.
+One picker for every list has its own,
+[`docs/superpowers/specs/2026-10-30-unified-pickers-design.md`](docs/superpowers/specs/2026-10-30-unified-pickers-design.md):
+the rules every picker follows, linking pickers and field pickers, the near
+group, and the Link popup as levels.
 The Link popup has its own,
 [`docs/superpowers/specs/2026-10-29-section-link-popup-design.md`](docs/superpowers/specs/2026-10-29-section-link-popup-design.md):
 why a lesson's figures are derived from its sections rather than copied, and
@@ -104,12 +109,17 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
                      stopwatch, the Today session. practice-api.ts is the fetch
                      side of remembering a practice. Client-safe
+src/lib/picker/      PURE picker model and builders: fold, word search, figure
+                     headings, group order (model.ts), and the rows each list
+                     gives the picker (build.ts). Client-safe
+src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
+                     PickerField.svelte (a form field that opens it)
 src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
                      Client-safe
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
                      navigation guard. ui/UnsavedDialog.svelte asks the question
-src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
+src/lib/video/       PURE link-steps.ts (the Link popup's levels), spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      whole-section moves, the loop rule. trim.ts (the trim
                      strip), screens.ts (the player's stack of levels and the
                      loop it implies), keys.ts, layout.ts, player-history.ts
