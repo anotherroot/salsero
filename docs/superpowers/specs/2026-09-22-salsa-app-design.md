@@ -556,6 +556,38 @@ unsaved.
   an edit, and is not guarded. Edit mode still has no Cancel; leaving is the
   way to discard.
 
+## Pending navigation
+
+Every page has a server `load`, and SvelteKit keeps the old page on screen
+until it answers, so a tap used to change nothing for a whole round trip. It
+read as a missed tap. Now a tap answers at once, in three steps, all in the
+root layout (`src/routes/+layout.svelte`, driven by `navigating` from
+`$app/state`; the pure part is `src/lib/nav/pending.ts`):
+
+- **Under the finger.** A link dims while pressed (`a[href]:active` in
+  `layout.css`).
+- **At once.** The destination's bottom tab and dance pill light, the accent
+  follows a dance switch, and a thin bar runs along the top (`NavProgress`).
+  The bar runs on every navigation, a search or a day step included.
+- **After 100 ms** (`SKELETON_DELAY_MS`) still waiting, a skeleton shaped like
+  the destination covers the page (`PageSkeleton`): Today, a list (titled with
+  the page's real name), or a detail page. Pages outside the shell (login,
+  pairing, share) get the bar alone. Only a new PATH gets a skeleton: a
+  search on Figures or a step to another day stays in view under the bar, so
+  the field you typed in does not vanish.
+
+The skeleton **covers** the old page and never replaces it. SvelteKit saves the
+old page's scroll position only once the new data has arrived, so hiding it
+would save a scroll of zero and break Back. A refused or failed navigation also
+finds the old page exactly as it was. The cover stops at the top of the bottom
+nav and sits above the bars pinned over a page's end (z-30).
+
+Links already preload on touchstart (`data-sveltekit-preload-data="hover"` in
+`app.html`), so the 100 ms is usually enough for a page to land without a grey
+flash. If a page still feels slow behind its skeleton, the next step is to
+stream its slow queries (return them un-awaited from `load`) rather than to
+cache data on the client.
+
 ## Errors
 
 - Form actions return validation failures that keep entered values; nothing

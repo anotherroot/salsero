@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 
-	let { dance }: { dance: DanceSlug } = $props();
+	/**
+	 * `path` is where the app is GOING while a navigation is in flight, so the
+	 * tapped tab lights at once instead of after the data arrives (the root
+	 * layout passes `navigating.to`'s path, else the page's).
+	 */
+	let { dance, path }: { dance: DanceSlug; path: string } = $props();
 
 	const TABS = [
 		{ path: '/[dance]' as const, label: 'Today', seg: '' },
@@ -24,7 +28,6 @@
 	 */
 	function current(seg: string): boolean {
 		const prefix = `/${dance}`;
-		const path = page.url.pathname;
 		if (path !== prefix && !path.startsWith(`${prefix}/`)) return false;
 		const rest = path.slice(prefix.length).replace(/^\//, '');
 		return seg === '' ? rest === '' : rest.startsWith(seg);
@@ -32,9 +35,7 @@
 
 	// Settings and `/voice` are shared by both dances, so this tab sits outside
 	// the dance and stays lit across the pair.
-	const settingsHere = $derived(
-		page.url.pathname.startsWith('/settings') || page.url.pathname.startsWith('/voice')
-	);
+	const settingsHere = $derived(path.startsWith('/settings') || path.startsWith('/voice'));
 </script>
 
 <nav
