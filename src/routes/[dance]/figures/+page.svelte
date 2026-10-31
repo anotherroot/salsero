@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import MovesScreen from '$lib/components/moves/MovesScreen.svelte';
@@ -51,6 +52,22 @@
 	const tiles = $derived(tileMetas(data.tagged, data.unrouted));
 	// What is typed; follows the URL when it changes under it.
 	let q = $derived(data.filter.q);
+
+	let chipRow = $state<HTMLElement>();
+
+	// Chips that are on but off to the right (Solo, a late style) scroll into
+	// view on arrival: the last one on is brought in. Instant, so there is no
+	// motion to reduce.
+	onMount(() => {
+		const row = chipRow;
+		const on = [...(row?.querySelectorAll<HTMLElement>('label:has(input:checked)') ?? [])];
+		if (!row || on.length === 0) return;
+		// Bringing the last one's right edge in by exactly what it overhangs keeps
+		// the first one in whenever the two fit side by side.
+		const right = row.getBoundingClientRect().right - 16;
+		const last = on[on.length - 1].getBoundingClientRect().right;
+		if (last > right) row.scrollLeft += last - right;
+	});
 
 	/** Swap the filter in place: no history entry, and the search keeps its focus. */
 	function refilter(change: Partial<FigureFilter>, noScroll = false) {
@@ -121,17 +138,18 @@
 		<div
 			role="group"
 			aria-label="Filter figures"
+			bind:this={chipRow}
 			class="-mr-4 -ml-1 flex flex-none [scrollbar-width:none] gap-2 overflow-x-auto pr-4 pl-1 [&::-webkit-scrollbar]:hidden"
 		>
 			{#each chips as chip (chip.key)}
-				<label class="{CHIP} gap-1.5">
+				<label class="{CHIP} group gap-1.5">
 					<input
 						type="checkbox"
 						class="sr-only"
 						checked={chip.on}
 						onchange={(e) => toggle(e, chip)}
-					/>{chip.label}{#if chip.count !== undefined}<span class="font-bold opacity-75"
-							>{chip.count}</span
+					/>{chip.label}{#if chip.count !== undefined}<!-- 75 % only on the plain chip: on accent it would fall below 4.5:1. -->
+						<span class="font-bold opacity-75 group-has-checked:opacity-100">{chip.count}</span
 						>{/if}
 				</label>
 			{/each}
@@ -159,13 +177,16 @@
 					>
 						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 							<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
-							<!-- The separators are spans: whitespace around an {#if} gets eaten. -->
+							<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
 							<span
 								class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted"
 							>
 								{#each figureMeta(f) as part, i (part.text)}
-									{#if i > 0}<span aria-hidden="true">·</span>{/if}
-									<span class={part.status ? 'font-bold text-status' : undefined}>{part.text}</span>
+									<span class="whitespace-nowrap"
+										>{#if i > 0}<span aria-hidden="true" class="mr-1.5">·</span>{/if}<span
+											class={part.status ? 'font-bold text-status' : undefined}>{part.text}</span
+										></span
+									>
 								{/each}
 							</span>
 						</span>
