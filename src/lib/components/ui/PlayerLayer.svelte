@@ -100,9 +100,8 @@
 		if (!panel) return;
 		e.stopPropagation();
 		const all = [...panel.querySelectorAll<HTMLElement>(TABBABLE)];
-		const stops = all.filter(
-			(el) => el.tabIndex >= 0 && el.getClientRects().length > 0 && radioStop(el, all)
-		);
+		const cand = all.filter((el) => el.tabIndex >= 0 && el.getClientRects().length > 0);
+		const stops = cand.filter((el) => radioStop(el, cand));
 		const first = stops[0];
 		const last = stops.at(-1);
 		const at = document.activeElement;

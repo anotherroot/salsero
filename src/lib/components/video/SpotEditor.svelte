@@ -19,9 +19,9 @@
 		WHOLE_SHIFT_MS
 	} from '$lib/video/spots';
 	import type { Spot } from '$lib/types';
-	import Icon from './Icon.svelte';
-	import { icons } from './icons';
-	import { BTN, BTN_ACCENT, BTN_DANGER, BTN_GHOST, BTN_OUTLINE } from './styles';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { editorSub, linkEntry } from '$lib/video/chrome';
+	import { KBD, playerButton } from './styles';
 	import Transport from './Transport.svelte';
 	import TrimStrip from './TrimStrip.svelte';
 
@@ -100,14 +100,20 @@
 		{ label: 'Later ›', times: shiftSpot(spot, WHOLE_SHIFT_MS, durationS) }
 	]);
 
-	/** Under the name: the times when the name is a label, else just the length (the name is the times). */
-	const sub = $derived(
-		spot.endMs === null
-			? `Point at ${preciseTime(spot.startMs)}`
-			: spot.label
-				? `${spotLabel({ ...spot, label: null })} · ${lengthText(spot.endMs - spot.startMs)}`
-				: lengthText(spot.endMs - spot.startMs)
-	);
+	const sub = $derived(editorSub(spot));
+	const entry = $derived(linkEntry(spot.linkedTo, !!onlink, 'editor'));
+
+	// The 36 px Loop pill sits in a 44 px button. The builders' own sizes, with
+	// the flex and gap they set swapped out by .replace, never a class appended.
+	const LOOP = $derived(playerButton(looping ? 'accent' : 'neutral', 'sm'));
+	const STEP = playerButton('neutral', 'xl', 'tile').replace('flex-none', 'flex-1');
+	const NOW = STEP.replace('flex-1', 'flex-[1.3] flex-col').replace('gap-2', 'gap-0');
+	const WHOLE = playerButton('outline', 'md')
+		.replace('flex-none', 'flex-1')
+		.replace('px-3', 'px-1');
+	const DELETE = playerButton('danger-text').replace('px-4', 'px-3');
+	const RENAME = playerButton('ghost', 'md');
+	const DONE = playerButton('accent', 'cta');
 
 	function onDrag(e: 'start' | 'end', ms: number) {
 		// Hundredths: the precision the times are shown in.
@@ -119,14 +125,14 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
 	{#if transport}
-		<div class="flex h-13 shrink-0 items-center gap-1 border-b border-(--pl-raised) pr-2 pl-4">
-			<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
+		<div class="flex h-[52px] flex-none items-center border-b border-surface bg-ground pr-2 pl-5">
+			<span class="text-[16px] font-extrabold tabular-nums">{preciseTime(currentMs)}</span>
 			<span class="flex-1"></span>
-			<Transport {paused} size="compact" seconds={false} {ontoggle} onstep={() => {}} {ontenth} />
+			<Transport {paused} size="compact" {ontoggle} onstep={() => {}} {ontenth} />
 		</div>
 	{/if}
 
-	<div class="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-4 pt-3.5 pb-1">
+	<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-ground px-4 pt-3.5 pb-2">
 		<div class="flex items-start gap-2">
 			<button
 				type="button"
@@ -134,39 +140,44 @@
 				aria-label="Rename {spotLabel(spot)}"
 				onclick={onrename}
 			>
-				<span class="flex items-center gap-2 text-[19px] font-semibold">
-					<span class="truncate">{spotLabel(spot)}</span>
-					<Icon d={icons.pencil} size={16} class="text-(--pl-muted)" />
+				<span class="flex items-center gap-2">
+					<span class="truncate font-display text-[22px] leading-[1.15] font-extrabold"
+						>{spotLabel(spot)}</span
+					>
+					<span class="flex text-muted"><Icon name="edit" size={16} /></span>
 				</span>
-				<span class="text-[13px] text-(--pl-muted) tabular-nums">{sub}</span>
+				<span class="text-[13px] text-muted tabular-nums">{sub}</span>
 			</button>
 			{#if isSection}
 				<button
 					type="button"
-					class="{looping ? BTN_ACCENT : BTN} h-9 rounded-full text-[13px]"
+					class="flex h-11 flex-none cursor-pointer items-center"
 					aria-pressed={looping}
 					onclick={onloop}
 				>
-					<Icon d={icons.loop} size={16} />{looping ? 'Looping' : 'Loop'}
+					<span class={LOOP}>
+						<Icon name="repeat" size={16} />{looping ? 'Looping' : 'Loop'}
+					</span>
 				</button>
 			{/if}
 		</div>
-		{#if onlink}
+		{#if entry.kind === 'open'}
 			<button
 				type="button"
-				class="-mt-1.5 flex cursor-pointer items-center gap-1.5 self-start text-left text-[13px] {spot
-					.linkedTo.length > 0
-					? 'text-(--pl-ink-2)'
-					: 'font-semibold text-(--pl-accent)'}"
+				class="-my-3 flex h-11 cursor-pointer items-center gap-1.5 self-start text-left text-[13px] {entry.invite
+					? 'font-extrabold text-accent-text'
+					: 'font-semibold text-ink-2'}"
 				onclick={onlink}
 			>
-				<Icon d={icons.link} size={14} />{spot.linkedTo.length > 0
-					? `Linked to ${spot.linkedTo.join(', ')} ›`
-					: '+ Link'}
+				<Icon name="link" size={15} />{entry.text}{#if !entry.invite}<span class="flex text-muted"
+						><Icon name="chevron-right" size={16} /></span
+					>{/if}
 			</button>
-		{:else if spot.linkedTo.length > 0}
-			<span class="-mt-1.5 flex items-center gap-1.5 text-[13px] text-(--pl-ink-2)">
-				<Icon d={icons.link} size={14} />Linked to {spot.linkedTo.join(', ')}
+		{:else if entry.kind === 'show'}
+			<span
+				class="-my-1.5 flex h-8 items-center gap-1.5 self-start text-[13px] font-semibold text-ink-2"
+			>
+				<Icon name="link" size={15} />{entry.text}
 			</span>
 		{/if}
 
@@ -182,26 +193,26 @@
 		/>
 
 		{#if isSection}
-			<div class="flex gap-2">
+			<div class="flex flex-none gap-2">
 				{#each ['start', 'end'] as const as e (e)}
 					{@const on = edge === e}
 					<button
 						type="button"
-						class="flex h-14 flex-1 cursor-pointer flex-col items-start justify-center rounded-xl border-2 px-3.5 tabular-nums {on
-							? 'border-(--pl-accent) bg-(--pl-raised)'
-							: 'border-(--pl-surface) bg-(--pl-surface)'}"
+						class="flex h-14 flex-1 cursor-pointer flex-col items-start justify-center gap-px rounded-[14px] px-3.5 {on
+							? 'bg-raised shadow-[inset_0_0_0_2px_var(--color-accent)]'
+							: 'bg-surface'}"
 						aria-pressed={on}
 						onclick={() => onselect(e)}
 					>
-						<span class="flex items-center gap-1 text-[12px] text-(--pl-muted)">
-							{#if e === 'start'}
-								<Icon d={icons.startEdge} size={13} />Start
-							{:else}
-								End<Icon d={icons.endEdge} size={13} />
-							{/if}
-							{#if keys}<kbd class="kbd">{e === 'start' ? 'I' : 'O'}</kbd>{/if}
+						<span
+							class="flex items-center gap-1 text-[12px] font-bold {on
+								? 'text-accent-text'
+								: 'text-muted'}"
+						>
+							{e === 'start' ? 'Start' : 'End'}
+							{#if keys}<kbd class={KBD}>{e === 'start' ? 'I' : 'O'}</kbd>{/if}
 						</span>
-						<span class="text-[17px] font-semibold"
+						<span class="text-[18px] font-extrabold tabular-nums"
 							>{preciseTime(e === 'start' ? spot.startMs : (spot.endMs ?? 0))}</span
 						>
 					</button>
@@ -209,8 +220,8 @@
 			</div>
 		{/if}
 
-		<div class="flex flex-col gap-1.5">
-			<span class="text-[12px] text-(--pl-muted)"
+		<div class="flex flex-none flex-col gap-1.5">
+			<span class="text-[12px] font-bold text-muted"
 				>{isSection
 					? edge === 'start'
 						? 'Move the start'
@@ -221,24 +232,26 @@
 				{#each steps.slice(0, 2) as s (s.label)}
 					<button
 						type="button"
-						class="{BTN} h-13 flex-1 px-1"
+						class={STEP}
 						disabled={!s.times}
 						onclick={() => s.times && onmove(s.times, s.how, edge)}>{s.label}</button
 					>
 				{/each}
 				<button
 					type="button"
-					class="{BTN} h-13 flex-[1.3] flex-col gap-0 px-1 leading-tight"
+					class="{NOW} leading-tight"
 					disabled={!now}
 					onclick={() => now && onmove(now, 'now', edge)}
 				>
 					<span>Now</span>
-					<span class="text-[11px] text-(--pl-muted)">{spotTime(currentMs)}</span>
+					<span class="text-[12px] font-semibold {now ? 'text-muted' : 'text-disabled-ink'}"
+						>{spotTime(currentMs)}</span
+					>
 				</button>
 				{#each steps.slice(2) as s (s.label)}
 					<button
 						type="button"
-						class="{BTN} h-13 flex-1 px-1"
+						class={STEP}
 						disabled={!s.times}
 						onclick={() => s.times && onmove(s.times, s.how, edge)}>{s.label}</button
 					>
@@ -247,15 +260,15 @@
 		</div>
 
 		{#if isSection && spot.endMs !== null}
-			<div class="flex flex-col gap-1.5">
-				<span class="text-[12px] text-(--pl-muted)"
+			<div class="flex flex-none flex-col gap-1.5">
+				<span class="text-[12px] font-bold text-muted"
 					>Whole section · {lengthText(spot.endMs - spot.startMs)}</span
 				>
 				<div class="flex gap-1.5">
 					{#each whole as w (w.label)}
 						<button
 							type="button"
-							class="{BTN_OUTLINE} flex-1 px-1 text-[13px] whitespace-nowrap"
+							class={WHOLE}
 							disabled={!w.times}
 							onclick={() => w.times && onmove(w.times, 'whole', 'start')}>{w.label}</button
 						>
@@ -263,33 +276,26 @@
 				</div>
 			</div>
 		{/if}
+		{#if !keys}
+			<div
+				class="pointer-events-none sticky bottom-0 -mt-9 h-9 flex-none bg-linear-to-b from-transparent to-ground"
+				aria-hidden="true"
+			></div>
+		{/if}
 	</div>
 
-	<div class="flex shrink-0 items-center gap-2 border-t border-(--pl-raised) px-4 pt-2.5 pb-5">
-		<button type="button" class={BTN_DANGER} onclick={ondelete}>
-			<Icon d={icons.trash} />Delete
+	<div
+		class="flex flex-none items-center gap-2 border-t border-surface bg-ground px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),22px)]"
+	>
+		<button type="button" class={DELETE} onclick={ondelete}>
+			<Icon name="trash" size={20} />Delete
 		</button>
 		<span class="flex-1"></span>
 		{#if keys}
-			<button type="button" class={BTN_GHOST} onclick={onrename}>Rename</button>
+			<button type="button" class={RENAME} onclick={onrename}>Rename</button>
 		{/if}
-		<button
-			type="button"
-			class="{BTN_ACCENT} h-13 min-w-38 rounded-2xl text-[16px]"
-			onclick={ondone}
-		>
-			<Icon d={icons.check} />Done
+		<button type="button" class={DONE} onclick={ondone}>
+			<Icon name="check" size={20} />Done
 		</button>
 	</div>
 </div>
-
-<style>
-	.kbd {
-		margin-left: 0.25rem;
-		padding: 0 0.3rem;
-		border: 1px solid var(--pl-tick);
-		border-radius: 0.3rem;
-		font: inherit;
-		font-size: 10px;
-	}
-</style>

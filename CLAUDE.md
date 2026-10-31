@@ -192,10 +192,16 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      loop it implies), keys.ts, layout.ts, player-history.ts
                      (one history entry per screen, behind a port), zoom.ts
                      (pinch maths), taps.ts (double-tap) and screen-on.ts
-                     (the wake lock, injected) and caption.ts (a recording's
-                     or lesson video's caption) are PURE too. spots-api.ts is the player's
+                     (the wake lock, injected), caption.ts (a recording's
+                     or lesson video's caption) and chrome.ts (which parts the top
+                     bar shows per layout and level, the link entry's words, the
+                     delete sheet's copy, the toast's icon and place, the buffering
+                     spinner) are PURE too. spots-api.ts is the player's
                      fetch side of /api/video-spots. Client-safe. The player's
-                     screens are src/lib/components/video/
+                     screens are src/lib/components/video/ and draw from
+                     `.theme-media` (the media palette), the shared ui/Icon and
+                     the builders in video/styles.ts; no palette or icons of
+                     their own
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 android/             the Android apps (Kotlin): one per dance as Gradle flavors, each a WebView launcher, salsa:// links, the upload
                      and reminder workers. No screens of its own. Pure parts (Links,

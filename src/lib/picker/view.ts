@@ -73,5 +73,5 @@ export function lineGroups(lines: PickLine[]): LineGroup[] {
  */
 export function linkRefusal(message: unknown, sent: { label: string } | null): string {
 	if (typeof message === 'string' && message) return message;
-	return sent ? `${sent.label} was not linked. Try it again.` : 'That could not be linked.';
+	return sent ? `${sent.label} was not linked. Try it again.` : 'Try it again.';
 }

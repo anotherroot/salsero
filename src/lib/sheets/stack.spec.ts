@@ -427,6 +427,36 @@ describe('SheetStack.settled', () => {
 		tick();
 		expect(ran).toEqual(['x', 'y']);
 	});
+
+	it('waits for the stale entry a reload left to be gone over', () => {
+		const { s, calls, tick } = setup();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		s.start(2);
+		expect(calls).toEqual(['go(-2)']);
+		tick();
+		expect(ran).toEqual([]);
+		s.sync(0);
+		tick();
+		expect(ran).toEqual(['x']);
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('runs after the entry a stayed Back took is pushed again', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		s.open(sheet('a', log, true).entry);
+		tick();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		s.sync(0);
+		expect(calls.at(-1)).toBe('push(1)');
+		expect(ran).toEqual([]);
+		tick();
+		expect(ran).toEqual(['x']);
+		expect(log).toEqual([]);
+	});
 });
 
 describe('SvelteKit history state', () => {

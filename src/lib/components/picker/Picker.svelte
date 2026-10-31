@@ -15,7 +15,7 @@
 	 * Light: the site's `Sheet`. Dark: a `PlayerLayer` inside the full-screen
 	 * player's <dialog>, which carries the media palette. Token classes only.
 	 */
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import PlayerLayer from '$lib/components/ui/PlayerLayer.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -126,14 +126,20 @@
 	// Focus the search only with a mouse: on a phone the keyboard would cover
 	// the list, which is what the picker was opened to see.
 	$effect(() => {
-		if (search && matchMedia('(pointer: fine)').matches) search.focus();
+		if (search && !loading && !failed && matchMedia('(pointer: fine)').matches) search.focus();
 	});
 
 	const lines = $derived(shown(groups, prefiltered ? '' : query));
 	const typed = $derived(query.trim());
 	const failed = $derived(failure != null);
 	const shows = $derived(pickerBody({ loading, failed, lines: lines.length }));
-	const tall = $derived(pickerTall({ loading, failed, groups }));
+	// Decided once per opening: a prefiltered list shrinking as you type must not resize the sheet.
+	let tallOpen = $state(false);
+	$effect(() => {
+		if (!open) tallOpen = false;
+		else if (!loading) tallOpen = untrack(() => pickerTall({ loading, failed, groups }));
+	});
+	const tall = $derived(loading ? true : tallOpen);
 	const hasCreate = $derived(!!create && create.length > 0);
 	const hasDone = $derived(kind === 'link' && added > 0);
 
@@ -168,7 +174,7 @@
 			<button
 				type="button"
 				data-pick
-				class="inset-focus flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 py-[9px] text-left disabled:cursor-default {trail ===
+				class="inset-focus flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 rounded-xl py-[9px] text-left disabled:cursor-default {trail ===
 				'none'
 					? 'pr-3.5'
 					: ''}"

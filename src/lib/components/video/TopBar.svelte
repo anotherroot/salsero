@@ -1,26 +1,25 @@
 <!-- src/lib/components/video/TopBar.svelte -->
 <script lang="ts">
 	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
-	import Icon from './Icon.svelte';
-	import { icons } from './icons';
-	import { BTN, BTN_ACCENT, BTN_GHOST, BTN_ON_VIDEO } from './styles';
+	import type { TopBarParts } from '$lib/video/chrome';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { playerButton } from './styles';
 
 	interface Props {
 		title: string;
 		subtitle: string;
 		mirror: boolean;
 		rate: VideoRate;
-		/** Floating over the picture (landscape): the buttons get their own backing. */
-		overlay?: boolean;
-		/** Landscape only: opens the list beside the video. */
-		onspots?: () => void;
+		/** What shows, from `topBar(mode, level.kind)`. */
+		parts: TopBarParts;
 		spotsCount?: number;
-		/**
-		 * A section view: `‹ Full video` after ✕, and `Edit` before Mirror. On a
-		 * portrait phone the title makes way for them (the name is on the video)
-		 * and Edit is coloured, so it reads as the way into the editor.
-		 */
+		/** Where the bar sits: over the picture in landscape (its wrapper pads), or the landscape panel's top. */
+		place?: 'overlay' | 'panel';
+		/** The Sections pill: opens the list beside the video (landscape). */
+		onspots?: () => void;
+		/** ‹ Full video, from a section's view. */
 		onback?: () => void;
+		/** Edit, from a section's view. */
 		onedit?: () => void;
 		onclose: () => void;
 		onchoose: (next: { mirror?: boolean; rate?: VideoRate }) => void;
@@ -31,9 +30,10 @@
 		subtitle,
 		mirror,
 		rate,
-		overlay = false,
-		onspots,
+		parts,
+		place,
 		spotsCount = 0,
+		onspots,
 		onback,
 		onedit,
 		onclose,
@@ -41,63 +41,122 @@
 	}: Props = $props();
 
 	let speedOpen = $state(false);
-	const plain = $derived(overlay ? BTN_ON_VIDEO : BTN_GHOST);
+
+	const DISC = 'grid size-10 place-items-center rounded-full';
+	const GLASS_DISC = `${DISC} bg-surface/72 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]`;
+	// The 40 px pills sit in a 44 px button: the outer button is the hit area,
+	// the inner span carries the look.
+	const HIT = 'grid h-11 flex-none cursor-pointer place-items-center';
+	const pill = $derived(
+		playerButton(parts.glass ? 'glass' : 'ghost', 'md')
+			.replace('h-11', 'h-10')
+			.replace('px-3', 'pr-3 pl-1')
+	);
+	const glassPill = playerButton('glass', 'md').replace('h-11', 'h-10');
+	const editClass = $derived(
+		parts.edit === 'accent'
+			? playerButton('accent', 'md').replace('h-11', 'h-10').replace('px-3', 'pr-3.5 pl-3')
+			: glassPill.replace('px-3', 'pr-3.5 pl-3')
+	);
 </script>
 
-<div class="relative flex h-14 items-center gap-1 px-2">
-	<button type="button" class={plain} aria-label="Close player" onclick={onclose}>
-		<Icon d={icons.close} />
+<div
+	class="relative flex flex-none items-center gap-1 {place === 'overlay'
+		? 'h-14'
+		: place === 'panel'
+			? 'h-[52px] pr-2 pl-10'
+			: 'h-14 px-2'} {parts.glass ? '' : 'bg-ground'}"
+>
+	<button
+		type="button"
+		class="grid size-11 flex-none cursor-pointer place-items-center text-white"
+		aria-label="Close player"
+		onclick={onclose}
+	>
+		{#if parts.glass}
+			<span class={GLASS_DISC}><Icon name="close" size={22} /></span>
+		{:else}
+			<Icon name="close" size={24} />
+		{/if}
 	</button>
-	{#if onback}
-		<button type="button" class="{plain} pr-3 pl-1.5" onclick={onback}>
-			<Icon d={icons.chevronLeft} />Full video
+	{#if parts.back && onback}
+		<button type="button" class={HIT} onclick={onback}>
+			<span class={pill}><Icon name="chevron-left" size={20} />Full video</span>
 		</button>
 	{/if}
-	{#if onback && !overlay}
-		<span class="flex-1"></span>
-	{:else}
-		<div class="min-w-0 flex-1 pl-1 leading-tight" class:drop-shadow={overlay}>
-			<span class="block truncate text-[15px] font-semibold">{title}</span>
-			{#if subtitle}<span class="block truncate text-[12px] text-(--pl-muted)">{subtitle}</span
-				>{/if}
+	{#if parts.title}
+		<div
+			class="flex min-w-0 flex-1 flex-col gap-px pl-0.5 {parts.glass
+				? 'drop-shadow-[0_1px_3px_rgb(0_0_0/0.65)]'
+				: ''}"
+		>
+			<span class="truncate text-[16px] leading-[1.25] font-extrabold">{title}</span>
+			{#if parts.sub === 'looping' || subtitle}
+				<span
+					class="truncate text-[12.5px] font-semibold {parts.glass
+						? 'text-white/80'
+						: 'text-muted'}">{parts.sub === 'looping' ? 'Looping' : subtitle}</span
+				>
+			{/if}
 		</div>
+	{:else}
+		<span class="flex-1"></span>
 	{/if}
-	{#if onedit}
-		<button type="button" class={overlay ? plain : `${BTN_ACCENT} pr-3.5 pl-3`} onclick={onedit}>
-			<Icon d={icons.pencil} />Edit
+	{#if parts.edit && onedit}
+		<button type="button" class={HIT} onclick={onedit}>
+			<span class={editClass}><Icon name="edit" size={18} />Edit</span>
 		</button>
 	{/if}
-	{#if onspots}
-		<button type="button" class={plain} onclick={onspots}>
-			<Icon d={icons.list} />Sections ({spotsCount})
+	{#if parts.sections && onspots}
+		<button type="button" class={HIT} onclick={onspots}>
+			<span class={glassPill}><Icon name="list" size={20} />Sections ({spotsCount})</span>
 		</button>
 	{/if}
 	<button
 		type="button"
-		class={mirror ? BTN_ACCENT : plain}
+		class="grid size-11 flex-none cursor-pointer place-items-center text-white"
 		aria-label="Mirror"
 		aria-pressed={mirror}
 		onclick={() => onchoose({ mirror: !mirror })}
 	>
-		<Icon d={icons.mirror} />
+		{#if mirror}
+			<span class="{DISC} bg-accent text-on-accent"><Icon name="mirror" size={22} /></span>
+		{:else if parts.glass}
+			<span class={GLASS_DISC}><Icon name="mirror" size={22} /></span>
+		{:else}
+			<Icon name="mirror" size={24} />
+		{/if}
 	</button>
 	<button
 		type="button"
-		class="{overlay ? BTN_ON_VIDEO : BTN} min-w-15"
+		class={HIT}
 		aria-label="Speed {rate}×"
 		aria-expanded={speedOpen}
-		onclick={() => (speedOpen = !speedOpen)}>{rate}×</button
+		onclick={() => (speedOpen = !speedOpen)}
 	>
+		<span
+			class="grid h-9 min-w-[52px] place-items-center rounded-full px-2.5 text-[15px] font-extrabold text-white tabular-nums {parts.glass
+				? 'bg-surface/72'
+				: 'bg-step'} {speedOpen
+				? 'shadow-[0_0_0_2px_var(--color-accent)]'
+				: parts.glass
+					? 'shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]'
+					: ''}">{rate}×</span
+		>
+	</button>
 	{#if speedOpen}
 		<div
 			role="group"
 			aria-label="Speed"
-			class="absolute top-14 right-2 z-30 flex gap-1 rounded-2xl bg-(--pl-raised) p-1.5 shadow-[0_8px_24px_rgb(0_0_0/0.5)]"
+			class="absolute top-[58px] right-2 z-30 flex gap-0.5 rounded-[27px] bg-surface p-[5px] shadow-[0_12px_30px_rgb(0_0_0/0.6),inset_0_0_0_1px_rgb(255_255_255/0.12)]"
 		>
 			{#each VIDEO_RATES as r (r)}
 				<button
 					type="button"
-					class="{rate === r ? BTN_ACCENT : BTN_GHOST} min-w-14"
+					class="h-11 min-w-[62px] cursor-pointer rounded-full text-[15px] font-extrabold tabular-nums {rate ===
+					r
+						? 'bg-accent text-on-accent'
+						: 'text-white'}"
 					aria-pressed={rate === r}
 					onclick={() => {
 						onchoose({ rate: r });

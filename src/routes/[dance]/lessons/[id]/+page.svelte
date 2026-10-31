@@ -14,7 +14,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
-	import { linkRefusal } from '$lib/picker/view';
+	import { linkSubmit as makeLinkSubmit } from '$lib/picker/link-submit';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -302,7 +302,7 @@
 	});
 
 	/*
-	 * The three "Link a …" pickers. A tap and a + post the section's
+	 * The three "Link an existing …" pickers. A tap and a + post the section's
 	 * one-tap link action through a hidden form (`use:enhance`, nothing typed to
 	 * lose). A tap closes the picker once the link is made; a + keeps it open and
 	 * its row turns "✓ Linked" from the reloaded data. A refused link keeps the
@@ -353,27 +353,18 @@
 		f.requestSubmit();
 	}
 
-	const linkSubmit: SubmitFunction = () => {
-		const sent = sending;
-		sending = null;
-		const at = opening;
-		if (sent) inFlight.add(sent.key);
-		pickMessage = null;
-		return async ({ result, update }) => {
-			if (sent) inFlight.delete(sent.key);
-			const here = at === opening;
-			if (result.type === 'failure' || result.type === 'error') {
-				const said = result.type === 'failure' ? result.data : result.error;
-				if (here)
-					pickMessage = linkRefusal((said as { message?: unknown } | undefined)?.message, sent);
-				return;
-			}
-			await update();
-			if (result.type !== 'success' || !here || !sent) return;
-			if (sent.keep) added += 1;
-			else closePicker();
-		};
-	};
+	const linkSubmit = makeLinkSubmit({
+		take: () => {
+			const s = sending;
+			sending = null;
+			return s;
+		},
+		opening: () => opening,
+		inFlight,
+		setMessage: (m) => (pickMessage = m),
+		added: () => (added += 1),
+		close: closePicker
+	});
 
 	/** A create row's button: the page's own sheet, on top of the still-open picker. */
 	function createFrom(kind: LinkKind, key: string, query: string) {

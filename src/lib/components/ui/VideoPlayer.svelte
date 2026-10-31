@@ -3,13 +3,11 @@
 	import { onMount, untrack } from 'svelte';
 	import { pushState, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getDance } from '$lib/dances/dances';
 	import { loadVideoPrefs, saveVideoPrefs, type VideoRate } from '$lib/video-prefs';
 	import {
 		edgeViewTime,
 		sectionProgress,
 		lengthText,
-		linkSummary,
 		loopTarget,
 		MIN_SECTION_MS,
 		moveEdge,
@@ -39,12 +37,21 @@
 	import { entryState } from '$lib/sheets/history.svelte';
 	import { keyAction, type KeyAction } from '$lib/video/keys';
 	import { layoutFor } from '$lib/video/layout';
+	import {
+		buffering,
+		cornerBadge,
+		linkEntry,
+		playerMode,
+		toastPlace,
+		topBar,
+		type ToastTone
+	} from '$lib/video/chrome';
 	import { holdScreenOn } from '$lib/video/screen-on';
 	import { NO_ZOOM, zoomTransform, type View } from '$lib/video/zoom';
 	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
-	import Icon from '$lib/components/video/Icon.svelte';
-	import { icons } from '$lib/components/video/icons';
-	import { BTN, BTN_ACCENT, BTN_GHOST, BTN_ON_VIDEO } from '$lib/components/video/styles';
+	import UiIcon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { KBD, ON_VIDEO, playerButton } from '$lib/components/video/styles';
 	import TopBar from '$lib/components/video/TopBar.svelte';
 	import Transport from '$lib/components/video/Transport.svelte';
 	import Timeline from '$lib/components/video/Timeline.svelte';
@@ -140,7 +147,7 @@
 	let pendingStart = $state<number | null>(null);
 	let sheetMessage = $state<string | null>(null);
 	type ToastAction = { label: string; run: () => void };
-	let toast = $state<{ text: string; actions: ToastAction[] } | null>(null);
+	let toast = $state<{ text: string; tone: ToastTone; actions: ToastAction[] } | null>(null);
 	type LinkCreateStep = 'variation' | 'figure' | 'drill';
 	/** The player's sheet for each of the Link popup's levels; every create step is 'link-new'. */
 	const LINK_SHEET: Record<LinkStep, SheetKind> = {
@@ -189,8 +196,6 @@
 		};
 		return [...spots].sort((a, b) => at(a) - at(b));
 	});
-
-	const accent = $derived(getDance(page.params.dance ?? 'salsa').accentDark);
 
 	/* ---------- history: one entry per screen ---------- */
 
@@ -264,8 +269,8 @@
 
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 	/** A toast; one offering Link stays a little longer, since linking is the next step. */
-	function say(text: string, ...actions: ToastAction[]) {
-		toast = { text, actions };
+	function say(text: string, tone: ToastTone, ...actions: ToastAction[]) {
+		toast = { text, tone, actions };
 		clearTimeout(toastTimer);
 		const long = actions.some((a) => a.label === 'Link');
 		toastTimer = setTimeout(() => (toast = null), long ? 6000 : 4000);
@@ -281,7 +286,7 @@
 	onMount(() => {
 		fetchSpots(owner).then(loaded, () => {
 			loadFailed = true;
-			say("Couldn't load spots");
+			say("Couldn't load spots", 'failed');
 		});
 	});
 
@@ -293,7 +298,7 @@
 			spots = [...spots, spot];
 			return spot;
 		} catch {
-			say("Couldn't save");
+			say("Couldn't save", 'failed');
 			return null;
 		}
 	}
@@ -301,7 +306,10 @@
 	async function mark() {
 		const spot = await save({ startMs: msOf(video.currentTime), endMs: null, label: null });
 		if (spot)
-			say(`Point saved at ${spotTime(spot.startMs)}`, { label: 'Edit', run: () => toEdit(spot) });
+			say(`Point saved at ${spotTime(spot.startMs)}`, 'saved', {
+				label: 'Edit',
+				run: () => toEdit(spot)
+			});
 	}
 
 	/** Set while a section save is in flight, so a double tap cannot post it twice. */
@@ -314,7 +322,7 @@
 			return;
 		}
 		if (now - pendingStart < MIN_SECTION_MS) {
-			say('Play on a little, then end the section');
+			say('Play on a little, then end the section', 'note');
 			return;
 		}
 		saving = true;
@@ -324,6 +332,7 @@
 				pendingStart = null;
 				say(
 					`Section saved · ${lengthText(now - spot.startMs)}`,
+					'saved',
 					{ label: 'Edit', run: () => toEdit(spot) },
 					...(linking ? [{ label: 'Link', run: () => openLink(spot.id) }] : [])
 				);
@@ -348,7 +357,7 @@
 			try {
 				await patchSpot(id, changes);
 			} catch {
-				say("Couldn't save");
+				say("Couldn't save", 'failed');
 				await fetchSpots(owner).then(loaded, () => {});
 			}
 		});
@@ -386,7 +395,7 @@
 		const next = change(spot, diff(spot, times), how !== 'drag');
 		if (how === 'now') {
 			const at = edge === 'start' ? next.startMs : (next.endMs ?? next.startMs);
-			say(`${edge === 'start' ? 'Start' : 'End'} set to ${preciseTime(at)}`);
+			say(`${edge === 'start' ? 'Start' : 'End'} set to ${preciseTime(at)}`, 'note');
 		} else if (how === 'tenth' || how === 'drag') {
 			// A fine move is for looking: pause where the edge shows.
 			video.pause();
@@ -420,7 +429,7 @@
 			await removeSpot(spot.id);
 			spots = spots.filter((s) => s.id !== spot.id);
 			nav.jump([FULL]);
-			say(`Deleted ${spotLabel(spot)}`, { label: 'Undo', run: () => undo(spot) });
+			say(`Deleted ${spotLabel(spot)}`, 'deleted', { label: 'Undo', run: () => undo(spot) });
 		} catch (e) {
 			// A linked section: the server says what to unlink first.
 			sheetMessage = e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save";
@@ -619,15 +628,9 @@
 	 * phone with the editor or the list beside the video. desktop: video,
 	 * sidebar, keys.
 	 */
-	const mode = $derived(
-		layout === 'portrait'
-			? 'portrait'
-			: layout === 'desktop'
-				? 'desktop'
-				: level.kind === 'edit' || sheet === 'list'
-					? 'panel'
-					: 'overlay'
-	);
+	/** `levelOf` skips sheets, so this is never 'sheet'; it only narrows the type for chrome.ts. */
+	const chromeLevel = $derived(level.kind === 'sheet' ? 'full' : level.kind);
+	const mode = $derived(playerMode(layout, chromeLevel, sheet === 'list'));
 	/** A phone, either way up: a section view carries ‹ Full video and Edit in its top bar. */
 	const phone = $derived(mode === 'portrait' || mode === 'overlay');
 
@@ -666,34 +669,17 @@
 		else toggle();
 	}
 
-	const tokens = $derived(
-		[
-			['bg', '#0a0a0b'],
-			['surface', '#141417'],
-			['sheet', '#17171b'],
-			['raised', '#1e1e23'],
-			['hover', '#27272e'],
-			['line', '#2a2a31'],
-			['tick', '#3f3f46'],
-			['fill', '#52525b'],
-			['faint', '#71717a'],
-			['band', '#8b8b95'],
-			['muted', '#a1a1aa'],
-			['handle', '#d4d4d8'],
-			['ink-2', '#d4d4d8'],
-			['ink', '#f4f4f5'],
-			['accent', accent],
-			['accent-ink', '#140803'],
-			['danger', '#fca5a5'],
-			['danger-fill', '#dc2626']
-		]
-			.map(([k, v]) => `--pl-${k}: ${v}`)
-			.join('; ')
-	);
-
-	const badge = $derived(
-		[rate !== 1 ? `${rate}×` : null, mirror ? 'Mirrored' : null].filter(Boolean).join(' · ')
-	);
+	const badge = $derived(cornerBadge(rate, mirror));
+	let waiting = $state(false);
+	const HIDE = playerButton('ghost', 'md')
+		.replace('text-ink', 'text-ink-2')
+		.replace('px-3', 'pr-2 pl-3');
+	const SHOW = HIDE;
+	const MARK = playerButton('neutral', 'lg');
+	const MARK_DESK = playerButton('neutral', 'md');
+	const MARK_GLASS = playerButton('glass', 'md');
+	const SECTION_ON = playerButton('accent', 'lg');
+	const SECTION_ON_DESK = playerButton('accent', 'md');
 	const loopProgress = $derived(
 		loop && loop.endMs !== null
 			? Math.max(0, Math.min(100, ((currentMs - loop.startMs) / (loop.endMs - loop.startMs)) * 100))
@@ -733,61 +719,72 @@
 	/>
 {/snippet}
 
-<!-- What a section links to, small, on the video: "+ Link" when nothing is and the page may link. -->
-{#snippet linkBadge(spot: Spot)}
-	{@const summary = linkSummary(spot.linkedTo)}
-	{#if linking}
-		<button
-			type="button"
-			class="flex cursor-pointer items-center gap-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[11.5px] {summary
-				? 'text-zinc-200'
-				: 'font-semibold text-(--pl-accent)'}"
-			aria-label={summary ? `Links: ${spot.linkedTo.join(', ')}` : 'Link this section'}
-			onclick={() => openLink(spot.id)}
-		>
-			<Icon d={icons.link} size={11} />{summary || '+ Link'}
-		</button>
-	{:else if summary}
-		<span
-			class="pointer-events-none flex items-center gap-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[11.5px] text-zinc-200"
-		>
-			<Icon d={icons.link} size={11} />{summary}
+<!-- The loop's name, and what it links to: a column on the picture, a row above the landscape timeline. -->
+{#snippet loopBadges(spot: Spot, row: boolean, link: boolean)}
+	{@const entry = linkEntry(spot.linkedTo, linking, 'badge')}
+	<div class={row ? 'mb-1 flex gap-1.5' : 'flex flex-col items-start gap-1.5'}>
+		<span class="{ON_VIDEO} pointer-events-none font-bold text-white/92">
+			<span class="flex text-accent"><UiIcon name="repeat" size={15} /></span>
+			<span class="max-w-[60vw] truncate">{spotLabel(spot)}</span>
 		</span>
-	{/if}
+		{#if link && entry.kind === 'open'}
+			<!-- The 30 px pill sits in a 44 px button; the negative margin keeps the row's height. -->
+			<button
+				type="button"
+				class="-my-[7px] grid h-11 cursor-pointer place-items-center"
+				aria-label={entry.label}
+				onclick={() => openLink(spot.id)}
+			>
+				<span
+					class="{ON_VIDEO} {entry.invite
+						? 'font-extrabold text-accent-text'
+						: 'font-bold text-white/92'}"
+				>
+					<span class="flex {entry.invite ? '' : 'text-white/80'}"
+						><UiIcon name="link" size={14} /></span
+					>{entry.text}
+				</span>
+			</button>
+		{:else if link && entry.kind === 'show'}
+			<span class="{ON_VIDEO} pointer-events-none font-bold text-white/92">
+				<span class="flex text-white/80"><UiIcon name="link" size={14} /></span>{entry.text}
+			</span>
+		{/if}
+	</div>
 {/snippet}
 
 {#snippet editorCard(spot: Spot)}
-	<div class="flex flex-col rounded-2xl border border-(--pl-hover) bg-(--pl-surface)">
+	<div class="flex flex-col rounded-2xl border border-hairline bg-surface">
 		{@render editor(spot, true, false)}
 	</div>
 {/snippet}
 
 {#snippet clock()}
-	<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
+	<span class="text-[15px] font-extrabold tabular-nums">{preciseTime(currentMs)}</span>
 {/snippet}
 
-{#snippet fullTimeline(overlay: boolean)}
+{#snippet fullTimeline(glass: boolean)}
 	<Timeline
 		fromMs={0}
 		toMs={durationMs || 1}
 		{currentMs}
 		bands={listSpots.map((s) => ({ ...s, active: false }))}
 		pending={pendingStart === null ? null : { startMs: pendingStart }}
-		{overlay}
+		{glass}
 		onseek={seek}
 	/>
 {/snippet}
 
 {#snippet markButtons(overlay: boolean)}
-	<button type="button" class={overlay ? BTN_ON_VIDEO : BTN} onclick={mark}>
-		<Icon d={icons.flag} />Mark
+	<button type="button" class={overlay ? MARK_GLASS : MARK_DESK} onclick={mark}>
+		<UiIcon name="flag" size={18} />Mark
 	</button>
 	<button
 		type="button"
-		class={pendingStart !== null ? BTN_ACCENT : overlay ? BTN_ON_VIDEO : BTN}
+		class={pendingStart !== null ? SECTION_ON_DESK : overlay ? MARK_GLASS : MARK_DESK}
 		onclick={section}
 	>
-		<Icon d={icons.bracket} />{pendingStart === null
+		<UiIcon name="scissors" size={18} />{pendingStart === null
 			? 'Section'
 			: `End · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
 	</button>
@@ -804,37 +801,28 @@
 {/snippet}
 
 {#snippet slimBar(spot: Spot | null)}
-	<div class="flex flex-col gap-0.5 px-4 pt-1.5 pb-3">
-		{#if spot}
-			<Timeline
-				fromMs={spot.startMs}
-				toMs={spot.endMs ?? spot.startMs}
-				{currentMs}
-				accentFill
-				onseek={seek}
-			/>
-		{:else}
-			{@render fullTimeline(false)}
-		{/if}
-		<div class="-mx-2 flex items-center gap-1">
-			<button
-				type="button"
-				class="{BTN_GHOST} h-10 pr-3 pl-2 text-(--pl-ink-2)"
-				onclick={() => setHidden(false)}
-			>
-				<Icon d={icons.chevronUp} size={18} />Show
+	<div class="flex flex-col bg-ground px-4 pt-1 pb-[max(env(safe-area-inset-bottom),22px)]">
+		<div class="px-1">
+			{#if spot}
+				<Timeline
+					fromMs={spot.startMs}
+					toMs={spot.endMs ?? spot.startMs}
+					{currentMs}
+					accentFill
+					onseek={seek}
+				/>
+			{:else}
+				{@render fullTimeline(false)}
+			{/if}
+		</div>
+		<div class="-mx-1 flex items-center">
+			<button type="button" class={SHOW} onclick={() => setHidden(false)}>
+				<UiIcon name="chevron-up" size={18} />Show
 			</button>
 			<span class="flex-1"></span>
-			<Transport
-				{paused}
-				size="compact"
-				seconds={false}
-				ontoggle={toggle}
-				onstep={nudge}
-				ontenth={tenth}
-			/>
+			<Transport {paused} size="compact" ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 			<span class="flex-1"></span>
-			<span class="w-24 pr-2 text-right text-[15px] font-semibold tabular-nums"
+			<span class="w-[92px] text-right text-[15px] font-extrabold tabular-nums"
 				>{spot ? sectionProgress(spot, currentMs) : preciseTime(currentMs)}</span
 			>
 		</div>
@@ -842,11 +830,9 @@
 {/snippet}
 
 {#snippet keyLegend()}
-	<div
-		class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-1 pb-3 text-[12px] text-(--pl-muted)"
-	>
+	<div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-1 pb-3 text-[12px] text-muted">
 		{#each LEGEND as [k, what] (k)}
-			<span><kbd class="kbd">{k}</kbd> {what}</span>
+			<span><kbd class={KBD}>{k}</kbd> {what}</span>
 		{/each}
 	</div>
 {/snippet}
@@ -854,9 +840,8 @@
 <dialog
 	bind:this={dialog}
 	aria-label="Video"
-	class="player"
+	class="player theme-media"
 	data-layout={layout}
-	style={tokens}
 	oncancel={(e) => {
 		// Esc, and Android Chrome's back on a modal dialog: up one level. Chrome
 		// makes a cancel uncancellable after a run of Escapes with no tap between
@@ -878,7 +863,7 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={stage}
-		class="stage relative h-full w-full overflow-hidden bg-(--pl-bg) text-(--pl-ink) {mode}"
+		class="stage relative h-full w-full overflow-hidden bg-ground text-ink {mode}"
 		onpointermove={(e) => {
 			if (mode === 'overlay' && e.pointerType === 'mouse') wake();
 		}}
@@ -886,18 +871,17 @@
 		<!-- 1. the top bar -->
 		<div
 			class="area-top fade {mode === 'overlay'
-				? 'absolute inset-x-0 top-0 z-20 bg-linear-to-b from-black/65 to-transparent pb-4 text-white'
+				? 'absolute inset-x-0 top-0 z-20 bg-linear-to-b from-black/60 to-transparent px-11 pt-2.5 pb-[30px] text-white'
 				: ''}"
 			class:faded
 		>
 			<TopBar
-				title={mode === 'overlay' && level.kind === 'section' && openSpot
-					? spotLabel(openSpot)
-					: title}
-				subtitle={mode === 'overlay' && level.kind === 'section' ? 'Looping' : subtitle}
+				{title}
+				{subtitle}
 				{mirror}
 				{rate}
-				overlay={mode === 'overlay'}
+				parts={topBar(mode, chromeLevel)}
+				place={mode === 'overlay' ? 'overlay' : mode === 'panel' ? 'panel' : undefined}
 				spotsCount={spots.length}
 				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
 				onback={phone && level.kind === 'section' ? () => nav.up() : undefined}
@@ -939,6 +923,13 @@
 						if (loopSpot) void video.play().catch(() => {});
 					}}
 					{onended}
+					onwaiting={() => (waiting = buffering(waiting, 'waiting'))}
+					onplaying={() => (waiting = buffering(waiting, 'playing'))}
+					oncanplay={() => (waiting = buffering(waiting, 'canplay'))}
+					onseeked={() => (waiting = buffering(waiting, 'seeked'))}
+					onpause={() => (waiting = buffering(waiting, 'pause'))}
+					onerror={() => (waiting = buffering(waiting, 'error'))}
+					onemptied={() => (waiting = buffering(waiting, 'emptied'))}
 				></video>
 			</div>
 			<VideoGestures
@@ -948,50 +939,58 @@
 				onsingle={tapVideo}
 				onjump={(side) => nudge(side === 'left' ? -1 : 1)}
 			>
-				{#if paused && !faded}
-					<span class="grid size-14 place-items-center rounded-full bg-black/55 text-white">
-						<Icon d={icons.play} filled size={26} />
+				{#if waiting && !faded}
+					<span
+						class="grid size-16 place-items-center rounded-full bg-black/55 text-white shadow-[inset_0_0_0_1.5px_rgb(255_255_255/0.35)]"
+						><span class="text-white"><Spinner size={30} label="Loading video" /></span></span
+					>
+				{:else if paused && !faded}
+					<span
+						class="grid size-16 place-items-center rounded-full bg-black/55 text-white shadow-[inset_0_0_0_1.5px_rgb(255_255_255/0.35)]"
+					>
+						<span class="ml-[3px] flex"><UiIcon name="play" filled size={30} /></span>
 					</span>
 				{/if}
 			</VideoGestures>
 			{#if view.scale > 1}
 				<span
-					class="absolute right-2 z-10 flex items-center gap-1 rounded-lg bg-black/60 py-0.5 pr-0.5 pl-2 text-[12px] text-zinc-200 {mode ===
+					class="absolute right-2.5 z-10 flex h-9 items-center gap-0.5 rounded-full bg-black/60 pl-3 text-[13px] font-bold text-white/92 {mode ===
 					'overlay'
 						? 'top-16'
 						: badge
-							? 'top-9'
-							: 'top-2'}"
+							? 'top-[46px]'
+							: 'top-2.5'}"
 				>
-					Zoom {Math.round(view.scale * 10) / 10}×
+					<span class="text-white/80"><UiIcon name="search" size={15} /></span>
+					<span class="ml-1">Zoom {Math.round(view.scale * 10) / 10}×</span>
 					<button
 						type="button"
-						class="cursor-pointer rounded-md px-2 py-0.5 font-semibold hover:bg-white/10"
+						class="-my-1 h-11 cursor-pointer pr-3.5 pl-2.5 text-[13px] font-extrabold text-accent-text"
 						onclick={() => (view = NO_ZOOM)}>Reset</button
 					>
 				</span>
 			{/if}
 			{#if badge && mode !== 'overlay'}
 				<span
-					class="pointer-events-none absolute top-2 right-2 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
+					class="{ON_VIDEO} pointer-events-none absolute top-2.5 right-2.5 font-bold text-white/92"
 					>{badge}</span
 				>
 			{/if}
 			{#if loop && mode !== 'overlay'}
-				<div class="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
-					<span
-						class="pointer-events-none flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
-					>
-						<Icon d={icons.loop} size={13} class="text-(--pl-accent)" />{spotLabel(loop)}
-					</span>
-					{#if level.kind === 'section' && openSpot}{@render linkBadge(openSpot)}{/if}
+				<div class="absolute top-2.5 left-2.5 z-10">
+					{@render loopBadges(loop, false, level.kind === 'section')}
 				</div>
 			{/if}
 			{#if loop}
 				<span
-					class="pointer-events-none absolute bottom-0 left-0 h-[3px] bg-(--pl-accent)"
+					class="pointer-events-none absolute bottom-0 left-0 h-[3px] bg-accent"
 					style:width="{loopProgress}%"
 				></span>
+			{/if}
+			{#if toast && toastPlace(mode, chromeLevel, toast.tone) === 'video'}
+				<div class="absolute inset-x-4 bottom-3 z-30 mx-auto max-w-md">
+					<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
+				</div>
 			{/if}
 		</div>
 
@@ -1003,26 +1002,22 @@
 				style:max-height="calc(100dvh - 176px)"
 			>
 				{#if sheet === 'list'}
-					<div class="relative flex max-h-[50dvh] min-h-0 flex-col border-t border-(--pl-raised)">
-						<button
-							type="button"
-							class="{BTN_GHOST} absolute top-1 right-2 z-10"
-							aria-label="Close list"
-							onclick={() => nav.up()}
-						>
-							<Icon d={icons.close} />
-						</button>
+					<section
+						aria-label="Sections and points"
+						class="flex max-h-[50dvh] min-h-0 flex-col gap-2 rounded-t-[28px] bg-sheet px-4 pt-2 pb-[max(env(safe-area-inset-bottom),22px)]"
+					>
 						<div class="min-h-0 flex-1 overflow-y-auto">
 							<SpotList
+								variant="sheet"
 								spots={listSpots}
 								activeId={null}
 								{loadFailed}
-								editAll
 								onopen={fromList}
 								onedit={toEdit}
+								onclose={() => nav.up()}
 							/>
 						</div>
-					</div>
+					</section>
 				{:else if level.kind === 'edit' && openSpot}
 					{@render editor(openSpot, false, true)}
 				{:else if hidden}
@@ -1045,35 +1040,38 @@
 						{/snippet}
 					</SectionView>
 				{:else}
-					<div class="flex flex-col gap-1.5 pt-1 pb-3">
-						<div class="flex items-center gap-2 pr-2 pl-4">
-							<span class="text-[20px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
-							<span class="text-[13px] text-(--pl-muted) tabular-nums"
-								>/ {durationMs ? preciseTime(durationMs) : '–'}</span
-							>
+					<div
+						class="flex flex-col gap-1.5 bg-ground pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)]"
+					>
+						<div class="flex items-center pr-2 pl-5">
+							<span class="flex items-baseline gap-2">
+								<span
+									class="font-display text-[26px] font-extrabold tracking-[-0.01em] tabular-nums"
+									>{preciseTime(currentMs)}</span
+								>
+								<span class="text-[14px] font-semibold text-muted tabular-nums"
+									>/ {durationMs ? preciseTime(durationMs) : '–'}</span
+								>
+							</span>
 							<span class="flex-1"></span>
-							<button
-								type="button"
-								class="{BTN_GHOST} h-9 pr-2 pl-3 text-(--pl-ink-2)"
-								onclick={() => setHidden(true)}
-							>
-								Hide<Icon d={icons.chevronDown} size={18} />
+							<button type="button" class={HIDE} onclick={() => setHidden(true)}>
+								Hide<UiIcon name="chevron-down" size={18} />
 							</button>
 						</div>
-						<div class="px-4">{@render fullTimeline(false)}</div>
-						<div class="px-4">
+						<div class="px-5">{@render fullTimeline(false)}</div>
+						<div class="px-4 pt-0.5 pb-1">
 							<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 						</div>
-						<div class="flex gap-2 px-4 pt-1 pb-1">
-							<button type="button" class="{BTN} flex-1" onclick={mark}>
-								<Icon d={icons.flag} />Mark point
+						<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
+							<button type="button" class="{MARK} flex-1" onclick={mark}>
+								<UiIcon name="flag" size={20} />Mark point
 							</button>
 							<button
 								type="button"
-								class="{pendingStart === null ? BTN : BTN_ACCENT} flex-[1.4]"
+								class="{pendingStart === null ? MARK : SECTION_ON} flex-[1.4]"
 								onclick={section}
 							>
-								<Icon d={icons.bracket} />{pendingStart === null
+								<UiIcon name="scissors" size={20} />{pendingStart === null
 									? 'Start section'
 									: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
 							</button>
@@ -1084,11 +1082,10 @@
 			</div>
 		{:else if mode === 'overlay'}
 			<div
-				class="area-below fade absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/75 to-transparent pt-10 text-white"
+				class="area-below fade absolute inset-x-0 bottom-0 z-20 bg-linear-to-b from-transparent to-black/72 px-12 pt-10 pb-3.5 text-white"
 				class:faded
 			>
 				{#if level.kind === 'section' && openSpot}
-					<div class="px-6">{@render linkBadge(openSpot)}</div>
 					<SectionView
 						spot={openSpot}
 						{currentMs}
@@ -1099,25 +1096,49 @@
 						ontoggle={toggle}
 						onstep={nudge}
 						ontenth={tenth}
-					/>
+					>
+						{#snippet badges()}
+							{@render loopBadges(openSpot!, true, true)}
+						{/snippet}
+					</SectionView>
 				{:else}
-					<div class="flex flex-col gap-1 px-6 pb-3">
+					<div class="flex flex-col">
 						{@render fullTimeline(true)}
-						<div class="flex items-center gap-2">
-							<span class="flex w-40 items-baseline gap-2">{@render clock()}</span>
+						<div class="mt-0.5 flex items-center gap-2">
+							<span class="flex w-[170px] items-baseline gap-2">
+								<span class="font-display text-[20px] font-extrabold tabular-nums"
+									>{preciseTime(currentMs)}</span
+								>
+								<span class="text-[14px] font-semibold text-white/85 tabular-nums"
+									>/ {durationMs ? preciseTime(durationMs) : '–'}</span
+								>
+							</span>
 							<span class="flex-1"></span>
-							<Transport {paused} overlay ontoggle={toggle} onstep={nudge} ontenth={tenth} />
+							<Transport
+								{paused}
+								size="float"
+								glass
+								ontoggle={toggle}
+								onstep={nudge}
+								ontenth={tenth}
+							/>
 							<span class="flex-1"></span>
-							<span class="flex w-40 justify-end gap-2">{@render markButtons(true)}</span>
+							<span class="flex w-[170px] justify-end gap-1.5">{@render markButtons(true)}</span>
 						</div>
 					</div>
 				{/if}
 			</div>
 		{:else if mode === 'panel'}
-			<div class="area-below flex items-center gap-2 px-3 py-1.5">
+			<div class="area-below flex h-[60px] items-center gap-2 pr-3 pl-11">
 				{@render clock()}
 				<span class="flex-1"></span>
-				<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
+				<Transport
+					{paused}
+					size={level.kind === 'edit' ? 'compact' : 'float'}
+					ontoggle={toggle}
+					onstep={nudge}
+					ontenth={tenth}
+				/>
 			</div>
 		{:else}
 			<div class="area-below flex flex-col">
@@ -1137,7 +1158,7 @@
 					<div class="px-4 pt-3">{@render fullTimeline(false)}</div>
 					<div class="flex items-center gap-2 px-4 py-2">
 						{@render clock()}
-						<span class="text-[12px] text-(--pl-muted) tabular-nums"
+						<span class="text-[12px] text-muted tabular-nums"
 							>/ {durationMs ? preciseTime(durationMs) : '–'}</span
 						>
 						<span class="flex-1"></span>
@@ -1152,26 +1173,19 @@
 
 		<!-- 4. beside the video -->
 		{#if mode === 'panel'}
-			<div class="area-side flex min-h-0 flex-col border-l border-(--pl-raised) bg-(--pl-bg)">
+			<div
+				class="area-side flex min-h-0 flex-col border-l border-surface bg-ground pr-[env(safe-area-inset-right)]"
+			>
 				{#if sheet === 'list'}
-					<div class="flex items-center justify-end px-2 pt-1">
-						<button
-							type="button"
-							class={BTN_GHOST}
-							aria-label="Close list"
-							onclick={() => nav.up()}
-						>
-							<Icon d={icons.close} />
-						</button>
-					</div>
-					<div class="-mt-10 min-h-0 flex-1 overflow-y-auto">
+					<div class="min-h-0 flex-1 overflow-y-auto pb-3">
 						<SpotList
+							variant="panel"
 							spots={listSpots}
 							activeId={null}
 							{loadFailed}
-							editAll
 							onopen={fromList}
 							onedit={toEdit}
+							onclose={() => nav.up()}
 						/>
 					</div>
 				{:else if level.kind === 'edit' && openSpot}
@@ -1179,12 +1193,12 @@
 				{/if}
 			</div>
 		{:else if mode === 'desktop'}
-			<div class="area-side min-h-0 overflow-y-auto border-l border-(--pl-raised)">
+			<div class="area-side min-h-0 overflow-y-auto border-l border-surface">
 				<SpotList
 					spots={listSpots}
 					activeId={openSpot?.id ?? null}
 					{loadFailed}
-					compact
+					variant="sidebar"
 					onopen={fromList}
 					onedit={toEdit}
 					expanded={level.kind === 'edit' ? editorCard : undefined}
@@ -1192,12 +1206,9 @@
 			</div>
 		{/if}
 
-		{#if toast}
-			<div
-				class="absolute inset-x-4 z-30 mx-auto max-w-md"
-				style:bottom={mode === 'portrait' && level.kind === 'edit' ? '84px' : '20px'}
-			>
-				<Toast text={toast.text} actions={toast.actions} />
+		{#if toast && toastPlace(mode, chromeLevel, toast.tone) === 'bottom'}
+			<div class="absolute inset-x-4 z-30 mx-auto max-w-md" style:bottom="20px">
+				<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
 			</div>
 		{/if}
 
@@ -1234,8 +1245,7 @@
 		max-height: none;
 		padding: 0;
 		border: 0;
-		background: #0a0a0b;
-		color-scheme: dark;
+		background: var(--color-ground);
 	}
 	.player::backdrop {
 		background: black;
@@ -1260,7 +1270,7 @@
 		grid-template-rows: auto minmax(0, 1fr) auto;
 	}
 	.stage.panel {
-		grid-template-columns: minmax(0, 1fr) minmax(280px, 40%);
+		grid-template-columns: minmax(0, 1fr) minmax(300px, 44%);
 	}
 	.stage.desktop {
 		grid-template-columns: minmax(0, 1fr) 400px;
@@ -1293,20 +1303,5 @@
 	.faded,
 	.faded :global(*) {
 		pointer-events: none;
-	}
-
-	.kbd {
-		display: inline-flex;
-		min-width: 1.4rem;
-		height: 1.4rem;
-		align-items: center;
-		justify-content: center;
-		padding: 0 0.35rem;
-		border: 1px solid var(--pl-tick);
-		border-radius: 0.35rem;
-		background: var(--pl-raised);
-		color: var(--pl-ink);
-		font: inherit;
-		font-size: 11px;
 	}
 </style>

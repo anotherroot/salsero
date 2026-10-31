@@ -5,7 +5,11 @@
 	import { spotLabel } from '$lib/video/spots';
 	import type { PlayerSheet } from '$lib/video/screens';
 	import type { Spot } from '$lib/types';
-	import { BTN, BTN_ACCENT, BTN_DANGER_FILL } from './styles';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import PlayerLayer from '$lib/components/ui/PlayerLayer.svelte';
+	import { button, FIELD, LABEL } from '$lib/components/ui/styles';
+	import { deleteCopy, spotLine } from '$lib/video/chrome';
 
 	/**
 	 * A bottom sheet inside the player's stage — not a second `<dialog>`: one
@@ -25,8 +29,11 @@
 
 	let { kind, spot, message, oncancel, onrename, ondelete }: Props = $props();
 
+	// flex-1 in place of the builder's flex-none: two buttons share the row.
+	const FLEX_SECONDARY = button('secondary').replace('flex-none', 'flex-1');
+	const FLEX_PRIMARY = button('primary').replace('flex-none', 'flex-1');
+	const FLEX_DANGER = button('danger').replace('flex-none', 'flex-1');
 	let label = $state(untrack(() => spot?.label ?? ''));
-	const linked = $derived((spot?.linkedTo.length ?? 0) > 0);
 
 	const KEYS: [string, string][] = [
 		['Space', 'play / pause'],
@@ -42,76 +49,72 @@
 	];
 </script>
 
-<div class="absolute inset-0 z-40">
-	<button
-		type="button"
-		aria-label="Cancel"
-		class="absolute inset-0 cursor-default bg-black/60"
-		onclick={oncancel}
-	></button>
-	<div
-		role="dialog"
-		aria-label={kind === 'rename' ? 'Rename' : kind === 'delete' ? 'Delete' : 'Keys'}
-		class="absolute inset-x-0 bottom-0 mx-auto flex max-w-lg flex-col gap-3 rounded-t-[22px] bg-(--pl-sheet) px-5 pt-3 pb-[max(env(safe-area-inset-bottom),28px)]"
-	>
-		<span class="mb-1 h-1 w-10 self-center rounded-full bg-(--pl-tick)"></span>
-
-		{#if kind === 'rename' && spot}
-			<form
-				class="flex flex-col gap-3"
-				onsubmit={(e) => {
-					e.preventDefault();
-					onrename(label);
-				}}
-			>
-				<label for="spot-name" class="text-[18px] font-semibold">Name</label>
-				<input
-					id="spot-name"
-					type="text"
-					maxlength={MAX_SPOT_LABEL}
-					placeholder={spotLabel({ ...spot, label: null })}
-					bind:value={label}
-					class="h-12 w-full rounded-xl border border-(--pl-tick) bg-(--pl-bg) px-3.5 text-[16px] text-(--pl-ink) outline-none focus:border-(--pl-accent)"
-				/>
-				<div class="mt-1.5 flex gap-2">
-					<button type="button" class="{BTN} h-12 flex-1" onclick={oncancel}>Cancel</button>
-					<button type="submit" class="{BTN_ACCENT} h-12 flex-1">Save</button>
-				</div>
-			</form>
-		{:else if kind === 'delete' && spot}
-			<span class="text-[18px] font-semibold">Delete “{spotLabel(spot)}”?</span>
-			<span class="text-[14px] text-(--pl-muted) tabular-nums"
-				>{spotLabel({ ...spot, label: null })}</span
-			>
-			{#if linked}
-				<p class="rounded-xl bg-(--pl-hover) p-3 text-[14px] leading-snug">
-					Linked to <b>{spot.linkedTo.join(', ')}</b>. Unlink it there first; until then this
-					section stays.
-				</p>
+{#if kind === 'rename' && spot}
+	<PlayerLayer shape="sheet" title="Rename" sub={spotLine(spot)} z="z-40" onclose={oncancel}>
+		<form
+			id="spot-rename"
+			onsubmit={(e) => {
+				e.preventDefault();
+				onrename(label);
+			}}
+		>
+			<label for="spot-name" class={LABEL}>Name</label>
+			<input
+				id="spot-name"
+				type="text"
+				maxlength={MAX_SPOT_LABEL}
+				placeholder={spotLabel({ ...spot, label: null })}
+				aria-describedby="spot-name-help"
+				bind:value={label}
+				class={FIELD}
+			/>
+			<p id="spot-name-help" class="mt-1.5 pl-1 text-[13px] text-muted">
+				Leave it empty to show the times.
+			</p>
+		</form>
+		{#snippet footer()}
+			<div class="flex gap-2">
+				<button type="button" class={FLEX_SECONDARY} onclick={oncancel}>Cancel</button>
+				<button type="submit" form="spot-rename" class={FLEX_PRIMARY}>Save</button>
+			</div>
+		{/snippet}
+	</PlayerLayer>
+{:else if kind === 'delete' && spot}
+	{@const copy = deleteCopy(spot)}
+	<PlayerLayer shape="sheet" title={copy.title} sub={copy.sub} z="z-40" onclose={oncancel}>
+		<div class="flex flex-col gap-3">
+			{#if message}<Banner kind="error" title={message} />{/if}
+			{#if copy.blocked}
+				<Banner kind="warning" title={copy.blocked.title}>{copy.blocked.body}</Banner>
+			{:else}
+				<p class="text-[15px] leading-[1.45] text-ink-2">{copy.body}</p>
 			{/if}
-			{#if message}
-				<p role="alert" class="rounded-xl bg-(--pl-hover) p-3 text-[14px] leading-snug">
-					{message}
-				</p>
-			{/if}
-			<div class="mt-1.5 flex gap-2">
-				<button type="button" class="{BTN} h-12 flex-1" onclick={oncancel}>Keep it</button>
-				<button
-					type="button"
-					class="{BTN_DANGER_FILL} h-12 flex-1"
-					disabled={linked}
-					onclick={ondelete}>Delete</button
+		</div>
+		{#snippet footer()}
+			<div class="flex gap-2">
+				<button type="button" class={FLEX_SECONDARY} onclick={oncancel}>Keep it</button>
+				<button type="button" class={FLEX_DANGER} disabled={!!copy.blocked} onclick={ondelete}
+					><Icon name="trash" size={20} />Delete</button
 				>
 			</div>
-		{:else if kind === 'keys'}
-			<span class="text-[18px] font-semibold">Keys</span>
-			<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[14px]">
-				{#each KEYS as [k, what] (k)}
-					<dt class="font-semibold tabular-nums">{k}</dt>
-					<dd class="text-(--pl-muted)">{what}</dd>
-				{/each}
-			</dl>
-			<button type="button" class="{BTN} mt-1.5 h-12" onclick={oncancel}>Close</button>
-		{/if}
-	</div>
-</div>
+		{/snippet}
+	</PlayerLayer>
+{:else if kind === 'keys'}
+	<PlayerLayer shape="sheet" title="Keys" z="z-40" onclose={oncancel}>
+		<dl class="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
+			{#each KEYS as [k, what] (k)}
+				<dt>
+					<kbd
+						class="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-step px-1.5 text-[12px] font-bold text-ink tabular-nums"
+						>{k}</kbd
+					>
+				</dt>
+				<dd class="text-[14px] text-ink-2">{what}</dd>
+			{/each}
+		</dl>
+		{#snippet footer()}
+			<button type="button" class={button('secondary', 'md', true)} onclick={oncancel}>Close</button
+			>
+		{/snippet}
+	</PlayerLayer>
+{/if}

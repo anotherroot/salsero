@@ -1,12 +1,11 @@
 <!-- src/lib/components/ui/LinkSectionSheet.svelte -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { SubmitFunction } from '@sveltejs/kit';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { sectionGroups } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
-	import { linkRefusal } from '$lib/picker/view';
+	import { linkSubmit } from '$lib/picker/link-submit';
 	import SectionPlayer from './SectionPlayer.svelte';
 	import type { SectionGroup, SectionVideo, Spot } from '$lib/types';
 
@@ -64,26 +63,18 @@
 		linkForm.requestSubmit();
 	}
 
-	const submit: SubmitFunction = () => {
-		const sent = sending;
-		sending = null;
-		const at = opening;
-		if (sent) inFlight.add(sent.key);
-		message = null;
-		return async ({ result, update }) => {
-			if (sent) inFlight.delete(sent.key);
-			const here = at === opening;
-			if (result.type === 'failure' || result.type === 'error') {
-				const said = result.type === 'failure' ? result.data : result.error;
-				if (here) message = linkRefusal((said as { message?: unknown } | undefined)?.message, sent);
-				return;
-			}
-			await update();
-			if (result.type !== 'success' || !here || !sent) return;
-			if (sent.keep) added += 1;
-			else close();
-		};
-	};
+	const submit = linkSubmit({
+		take: () => {
+			const s = sending;
+			sending = null;
+			return s;
+		},
+		opening: () => opening,
+		inFlight,
+		setMessage: (m) => (message = m),
+		added: () => (added += 1),
+		close
+	});
 
 	function previewRow(row: PickRow) {
 		for (const g of groups) {

@@ -155,6 +155,14 @@
 		else if (!untrack(() => pickBase) && options) pickBase = options;
 	});
 
+	// Picking a figure answers "Pick a figure."
+	$effect(() => {
+		void groupId;
+		untrack(() => {
+			if (refusal?.at === 'groupId') refusal = null;
+		});
+	});
+
 	// A create step's refusal goes when the step changes; the typed fields stay.
 	let refusedStep: CreateStep | null = null;
 	$effect(() => {
@@ -240,7 +248,10 @@
 			else if (top === 'pick') onclose();
 		} catch (e) {
 			if (at === opening) {
-				pickMessage = linkRefusal(e instanceof SpotsApiError ? e.message : undefined, row);
+				pickMessage = linkRefusal(
+					e instanceof SpotsApiError && e.status < 500 ? e.message : undefined,
+					row
+				);
 			}
 		} finally {
 			inFlight.delete(row.key);
