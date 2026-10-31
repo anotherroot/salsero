@@ -11,6 +11,7 @@
 	import RemoveWarning from '$lib/components/figures/RemoveWarning.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
+	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
@@ -30,8 +31,8 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
-	import { dateLabel, longDayLabel } from '$lib/format';
-	import { archiveCopy, routineUseMeta, timingLine } from '$lib/figures/page';
+	import { byteSize, longDayLabel } from '$lib/format';
+	import { archiveCopy, recordingDay, routineUseMeta, timingLine } from '$lib/figures/page';
 	import { localDay } from '$lib/day/day';
 	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
@@ -98,6 +99,9 @@
 	const timing = $derived(timingLine(data.effective.startCount, data.effective.lengthCounts));
 	const archive = $derived(archiveCopy(figure.name, variation.name, last));
 	let practising = $state(false);
+	let uploading = $state(false);
+	const empty = $derived(variation.recordings.length === 0);
+	const today = $derived(localDay(Date.now(), timezone));
 
 	const figureHref = (id: number) =>
 		resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
@@ -389,76 +393,103 @@
 			{/each}
 		{/if}
 
-		<section class="pt-4">
-			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Recordings</h2>
-			<ul class="space-y-3">
-				{#each variation.recordings as rec (rec.id)}
-					<li class="overflow-hidden rounded-xl border border-line bg-raised">
-						{#if broken[rec.id] === 'missing'}
-							<p class="p-4 text-[13px] text-muted">The file for this recording is missing.</p>
-						{:else if broken[rec.id] === 'unplayable'}
-							<p class="p-4 text-[13px] text-muted">
-								This browser can't play this file.
-								<a
-									href={resolve('/recordings/[file]', { file: rec.file })}
-									download
-									class="font-medium text-accent">Download it</a
+		<section class="flex flex-col gap-3 pt-3.5">
+			<h2 class="{SECTION_LABEL} -mb-1.5">
+				{!empty ? `Recordings · ${variation.recordings.length}` : 'Recordings'}
+			</h2>
+			{#if variation.recordings.length > 0}
+				<ul class="flex flex-col gap-3">
+					{#each variation.recordings as rec (rec.id)}
+						{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
+						<li class="overflow-hidden rounded-2xl bg-surface">
+							{#if broken[rec.id] === 'missing'}
+								<VideoProblem
+									title="This file is missing"
+									body="The server has no file for this recording."
+									meta="{day} · {byteSize(rec.sizeBytes)}"
+								/>
+							{:else if broken[rec.id] === 'unplayable'}
+								<VideoProblem
+									title="Can’t play here"
+									body="This browser can’t play this file. Download it or open it on your phone."
+									meta="{day} · {byteSize(rec.sizeBytes)}"
 								>
-								or open it on your phone.
-							</p>
-						{:else}
-							<VideoFrame
-								src="/recordings/{rec.file}"
-								sourceUrl={rec.sourceUrl}
-								kind={rec.kind}
-								owner={{ recordingId: rec.id }}
-								title="{figure.name} · {variation.name}"
-								onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
-								onclosed={() => void invalidateAll()}
-								linking
-							/>
-						{/if}
-						<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
-							<span
-								>{dateLabel(localDay(rec.createdAt, timezone))} · {Math.max(
-									1,
-									Math.round(rec.sizeBytes / 1024 / 1024)
-								)} MB</span
-							>
-							<!-- Deleting is an edit; adding a recording stays one tap away in view mode. -->
-							{#if editing}
-								<form
-									method="POST"
-									action="?/deleteRecording"
-									use:enhance
-									onsubmit={(e) => {
-										if (!confirm('Delete this recording?')) e.preventDefault();
-									}}
+									{#snippet action()}
+										<a
+											href={resolve('/recordings/[file]', { file: rec.file })}
+											download
+											class={button('tertiary', 'sm')}><Icon name="download" size={18} />Download</a
+										>
+									{/snippet}
+								</VideoProblem>
+							{:else}
+								<VideoFrame
+									src="/recordings/{rec.file}"
+									sourceUrl={rec.sourceUrl}
+									kind={rec.kind}
+									owner={{ recordingId: rec.id }}
+									title="{figure.name} · {variation.name}"
+									caption={{ title: day, meta: byteSize(rec.sizeBytes) }}
+									onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
+									onclosed={() => void invalidateAll()}
+									linking
 								>
-									<input type="hidden" name="recordingId" value={rec.id} />
-									<button type="submit" class="h-9 px-2 text-danger">Delete</button>
-								</form>
+									{#snippet action()}
+										<!-- Deleting is an edit; adding a recording stays one tap away in view mode. -->
+										{#if editing}
+											<form
+												method="POST"
+												action="?/deleteRecording"
+												use:enhance
+												onsubmit={(e) => {
+													if (!confirm('Delete this recording?')) e.preventDefault();
+												}}
+											>
+												<input type="hidden" name="recordingId" value={rec.id} />
+												<button
+													type="submit"
+													aria-label="Delete this recording"
+													class="{iconButton('bare')} text-danger"
+													><Icon name="trash" size={22} /></button
+												>
+											</form>
+										{/if}
+									{/snippet}
+								</VideoFrame>
 							{/if}
-						</div>
-						{#if form?.action === 'deleteRecording' && 'recordingId' in form && form.recordingId === rec.id}
-							<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
-						{/if}
-						<!-- Linking is done from the figure or drill a section shows; here a link
+							{#if form?.action === 'deleteRecording' && 'recordingId' in form && form.recordingId === rec.id}
+								<p class="px-4 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+							{/if}
+							<!-- Linking is done from the figure or drill a section shows; here a link
 					     can be undone, archived target or not, so the recording can go. -->
-						{#if (variation.recordingSections[rec.id] ?? []).length > 0}
-							<VideoSections
-								sections={variation.recordingSections[rec.id]}
-								src="/recordings/{rec.file}"
-								owner={{ recordingId: rec.id }}
-								linking
-							/>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-			<div class="mt-3">
-				<!-- Keyed: the button holds upload state, and a step to another variation must not carry it over. -->
-				{#key variation.id}
+							{#if (variation.recordingSections[rec.id] ?? []).length > 0}
+								<VideoSections
+									sections={variation.recordingSections[rec.id]}
+									src="/recordings/{rec.file}"
+									owner={{ recordingId: rec.id }}
+									linking
+								/>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<!-- Keyed: the buttons hold upload state, and a step to another variation must not carry it over.
+			     One tree whether or not it sits in the empty card, so a started upload is not remounted. -->
+			{#key variation.id}
+				<div class={empty ? 'flex flex-col gap-3 rounded-2xl bg-surface p-4' : 'flex flex-col'}>
+					{#if empty && !uploading}
+						<div class="flex items-center gap-3">
+							<span
+								class="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
+								><Icon name="video" size={22} /></span
+							>
+							<span class="flex flex-col gap-0.5">
+								<span class="text-[16px] font-bold">No recordings yet</span>
+								<span class="text-[13px] text-muted">Film it after class, or add a voice note</span>
+							</span>
+						</div>
+					{/if}
 					{#if data.app}
 						<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
 						<AppUploadLink
@@ -469,24 +500,30 @@
 									name: `${figure.name} · ${variation.name}`
 								}
 							)}
-							label="+ Add video"
+							label="Add video"
+							kind={empty ? 'primary' : 'secondary'}
 						/>
-						<div class="mt-2">
+						<div class="mt-3">
 							<UploadButton
 								url="/api/figures/{variation.id}/recordings"
 								accept="audio/*"
-								label="+ Add audio"
+								icon="mic"
+								label="Add audio"
+								bind:busy={uploading}
 							/>
 						</div>
 					{:else}
 						<UploadButton
 							url="/api/figures/{variation.id}/recordings"
 							accept="video/*,audio/*"
-							label="+ Add video or audio"
+							label="Add video or audio"
+							kind={empty ? 'primary' : 'secondary'}
+							size={empty ? 'sm' : 'md'}
+							bind:busy={uploading}
 						/>
 					{/if}
-				{/key}
-			</div>
+				</div>
+			{/key}
 		</section>
 
 		<section class="pt-4">

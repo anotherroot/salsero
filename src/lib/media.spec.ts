@@ -1,0 +1,27 @@
+import { describe, expect, it } from 'vitest';
+import { uploadProblem } from './media';
+
+const MiB = 1024 * 1024;
+
+describe('uploadProblem', () => {
+	it('names the size first', () =>
+		expect(uploadProblem({ size: 120 * MiB, type: 'video/mp4' }, 'video/*,audio/*')).toEqual({
+			title: 'That file is 120 MB; the limit is 95 MB.'
+		}));
+	it('sends a non-audio file for audio-only to Add video', () => {
+		const want = {
+			title: 'Only audio files can be added.',
+			body: 'Pick a video with Add video instead.'
+		};
+		expect(uploadProblem({ size: MiB, type: 'image/png' }, 'audio/*')).toEqual(want);
+		expect(uploadProblem({ size: MiB, type: 'video/mp4' }, 'audio/*')).toEqual(want);
+	});
+	it('refuses a file that is neither video nor audio', () =>
+		expect(uploadProblem({ size: MiB, type: 'image/png' }, 'video/*,audio/*')).toEqual({
+			title: 'Only video and audio files can be added.'
+		}));
+	it('accepts audio for either', () => {
+		expect(uploadProblem({ size: 3 * MiB, type: 'audio/mpeg' }, 'audio/*')).toBeNull();
+		expect(uploadProblem({ size: 3 * MiB, type: 'audio/mpeg' }, 'video/*,audio/*')).toBeNull();
+	});
+});
