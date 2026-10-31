@@ -427,6 +427,9 @@ export interface LinkOptions {
 	defaults: { partner: Partner; style: string };
 }
 
+/** A create step's field a refusal of `createAndLink` names, so the popup shows it there. */
+export type LinkCreateField = 'name' | 'figureName' | 'groupId' | 'style' | 'everyDays';
+
 /** What the Link popup's create steps send. */
 export type LinkCreate =
 	| { kind: 'variation'; groupId: number; name: string }

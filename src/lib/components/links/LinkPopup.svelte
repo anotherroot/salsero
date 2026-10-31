@@ -17,6 +17,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PlayerLayer from '$lib/components/ui/PlayerLayer.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { button, FIELD, iconButton, LABEL, SECTION_LABEL } from '$lib/components/ui/styles';
 	import LinkLevel from './LinkLevel.svelte';
 	import { DANCES } from '$lib/dances/dances';
@@ -24,8 +26,16 @@
 	import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
 	import { figureRows, linkOptionGroups } from '$lib/picker/build';
 	import { isHeading, type PickGroup, type PickRow } from '$lib/picker/model';
+	import { linkRefusal } from '$lib/picker/view';
 	import { addLink, createLink, fetchLinkOptions, removeLink } from '$lib/video/links-api';
-	import { destination, linkHeading, stacked } from '$lib/video/link-steps';
+	import {
+		destination,
+		linkHeading,
+		refusalAt,
+		stacked,
+		type CreateSpot,
+		type CreateStep
+	} from '$lib/video/link-steps';
 	import { SpotsApiError } from '$lib/video/spots-api';
 	import type {
 		LinkCreate,
@@ -68,7 +78,6 @@
 
 	let { spotId, theme, steps, onpush, onback, onclose, onchange }: Props = $props();
 
-	type CreateStep = 'variation' | 'figure' | 'drill';
 	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill'];
 	const CREATE_ROW = [
 		{ key: 'variation', label: 'Variation' },
@@ -88,8 +97,8 @@
 	let options = $state<LinkOptions | null>(null);
 	let loadFailed = $state(false);
 	let busy = $state(false);
-	/** The create steps' refusal. */
-	let message = $state<string | null>(null);
+	/** The create step's refusal, and where it shows: under its field, or a banner. */
+	let refusal = $state<{ message: string; at: CreateSpot } | null>(null);
 	/** The links level's refusal (an unlink). */
 	let unlinkMessage = $state<string | null>(null);
 	/** A linked target whose × asked: also on the lesson by hand. */
@@ -146,9 +155,14 @@
 		else if (!untrack(() => pickBase) && options) pickBase = options;
 	});
 
-	// A create step's refusal goes with it.
+	// A create step's refusal goes when the step changes; the typed fields stay.
+	let refusedStep: CreateStep | null = null;
 	$effect(() => {
-		if (!createStep) message = null;
+		const now = createStep;
+		if (now !== refusedStep) {
+			refusedStep = now;
+			refusal = null;
+		}
 	});
 
 	const targetKey = (t: SectionTarget) =>
@@ -195,7 +209,7 @@
 	/** One change at a time; a refusal goes to `refuse`. */
 	async function run(
 		call: () => Promise<LinkOptions>,
-		refuse: (m: string) => void,
+		refuse: (m: string, field?: string) => void,
 		after?: () => void
 	) {
 		if (busy) return;
@@ -204,7 +218,9 @@
 			changed(await call());
 			after?.();
 		} catch (e) {
-			refuse(e instanceof SpotsApiError ? e.message : 'Couldn’t save. Try it again.');
+			// A refusal (4xx) says why; a server failure has nothing to say to the user.
+			if (e instanceof SpotsApiError && e.status < 500) refuse(e.message, e.field);
+			else refuse('Couldn’t save. Try it again.');
 		} finally {
 			busy = false;
 		}
@@ -224,10 +240,7 @@
 			else if (top === 'pick') onclose();
 		} catch (e) {
 			if (at === opening) {
-				pickMessage =
-					e instanceof SpotsApiError && e.message
-						? e.message
-						: `${row.label} was not linked. Try it again.`;
+				pickMessage = linkRefusal(e instanceof SpotsApiError ? e.message : undefined, row);
 			}
 		} finally {
 			inFlight.delete(row.key);
@@ -237,7 +250,7 @@
 	/** The picker's create row: the step opens on top of it, the search text in its name. */
 	function startCreate(key: string, typed: string) {
 		if (!CREATE_STEPS.includes(key as LinkStep)) return;
-		message = null;
+		refusal = null;
 		if (typed) {
 			if (key === 'variation') variationName = typed;
 			if (key === 'figure') figureName = typed;
@@ -275,25 +288,30 @@
 
 	function create(e: SubmitEvent) {
 		e.preventDefault();
+		const step = createStep;
+		if (busy || !step) return;
 		let body: LinkCreate;
-		if (createStep === 'variation') {
+		if (step === 'variation') {
 			if (groupId === null) {
-				message = 'Pick a figure.';
+				refusal = { message: 'Pick a figure.', at: 'groupId' };
 				return;
 			}
 			body = { kind: 'variation', groupId, name: variationName };
-		} else if (createStep === 'figure') {
+		} else if (step === 'figure') {
 			body = { kind: 'figure', figureName, name: firstName, partner, style };
 		} else {
 			body = { kind: 'drill', name: drillName, everyDays };
 		}
-		message = null;
+		refusal = null;
 		void run(
 			() => createLink(spotId, body),
-			(m) => (message = m),
+			(m, field) => (refusal = { message: m, at: refusalAt(step, field) }),
 			onclose
 		);
 	}
+
+	/** The refusal, if it belongs under this field. */
+	const errorAt = (at: CreateSpot) => (refusal?.at === at ? refusal.message : null);
 
 	/** The Figure field's picker is a level of its own, so Back closes it first. */
 	function setFigurePicking(v: boolean) {
@@ -363,9 +381,15 @@
 	</div>
 {/snippet}
 
+{#snippet fieldError(at: CreateSpot)}
+	{@const m = errorAt(at)}
+	{#if m}<FieldError id="{uid}-{at}-error" message={m} />{/if}
+{/snippet}
+
 {#snippet createForm(step: CreateStep, o: LinkOptions)}
+	<!-- A fetch form, not use:guarded: the popup keeps what was typed until it closes. -->
 	<form id={formId} novalidate onsubmit={create} class="flex flex-col gap-3.5">
-		{#if message}<Banner kind="error" title={message} />{/if}
+		{#if refusal?.at === 'banner'}<Banner kind="error" title={refusal.message} />{/if}
 		{#if step === 'variation'}
 			<PickerField
 				name="groupId"
@@ -378,21 +402,49 @@
 				bind:value={groupId}
 				bind:open={() => top === 'variation-figure', setFigurePicking}
 				required
+				error={errorAt('groupId')}
 				{theme}
 			/>
-			<label class="block">
-				<span class={LABEL}>Variation name</span>
-				<input bind:value={variationName} required maxlength="200" class={FIELD} />
-			</label>
+			<div>
+				<label for="{uid}-name" class={LABEL}>Variation name</label>
+				<input
+					id="{uid}-name"
+					bind:value={variationName}
+					required
+					maxlength="200"
+					class={FIELD}
+					aria-invalid={errorAt('name') ? 'true' : undefined}
+					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
+				/>
+				{@render fieldError('name')}
+			</div>
 		{:else if step === 'figure'}
-			<label class="block">
-				<span class={LABEL}>Figure name</span>
-				<input bind:value={figureName} required maxlength="200" class={FIELD} />
-			</label>
-			<label class="block">
-				<span class={LABEL}>Variation name</span>
-				<input bind:value={firstName} required maxlength="200" class={FIELD} />
-			</label>
+			<div>
+				<label for="{uid}-figureName" class={LABEL}>Figure name</label>
+				<input
+					id="{uid}-figureName"
+					bind:value={figureName}
+					required
+					maxlength="200"
+					class={FIELD}
+					aria-invalid={errorAt('figureName') ? 'true' : undefined}
+					aria-describedby={errorAt('figureName') ? `${uid}-figureName-error` : undefined}
+				/>
+				{@render fieldError('figureName')}
+			</div>
+			<div>
+				<label for="{uid}-name" class={LABEL}>Variation name</label>
+				<input
+					id="{uid}-name"
+					bind:value={firstName}
+					required
+					maxlength="200"
+					class={FIELD}
+					aria-invalid={errorAt('name') ? 'true' : undefined}
+					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
+				/>
+				{@render fieldError('name')}
+			</div>
 			<div>
 				<span class={LABEL}>Danced</span>
 				<Segmented
@@ -414,16 +466,32 @@
 					}))}
 					bind:value={style}
 				/>
+				{@render fieldError('style')}
 			</div>
 		{:else}
-			<label class="block">
-				<span class={LABEL}>Name</span>
-				<input bind:value={drillName} required maxlength="200" class={FIELD} />
-			</label>
-			<label class="block">
-				<span class={LABEL}>How often</span>
+			<div>
+				<label for="{uid}-name" class={LABEL}>Name</label>
+				<input
+					id="{uid}-name"
+					bind:value={drillName}
+					required
+					maxlength="200"
+					class={FIELD}
+					aria-invalid={errorAt('name') ? 'true' : undefined}
+					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
+				/>
+				{@render fieldError('name')}
+			</div>
+			<div>
+				<label for="{uid}-everyDays" class={LABEL}>How often</label>
 				<span class="relative block">
-					<select bind:value={everyDays} class="{FIELD} appearance-none pr-10">
+					<select
+						id="{uid}-everyDays"
+						bind:value={everyDays}
+						class="own-arrow {FIELD} cursor-pointer appearance-none pr-10"
+						aria-invalid={errorAt('everyDays') ? 'true' : undefined}
+						aria-describedby={errorAt('everyDays') ? `${uid}-everyDays-error` : undefined}
+					>
 						{#each FREQUENCIES as f (f.days)}
 							<option value={f.days}>{f.label}</option>
 						{/each}
@@ -433,14 +501,20 @@
 						aria-hidden="true"><Icon name="chevron-down" size={20} /></span
 					>
 				</span>
-			</label>
+				{@render fieldError('everyDays')}
+			</div>
 		{/if}
 	</form>
 {/snippet}
 
 {#snippet createFooter()}
-	<button type="submit" form={formId} class={button('primary', 'md', true)} disabled={busy}
-		>Create and link</button
+	<!-- In flight it keeps the accent, as the kit's loading button: aria-busy, and `create` ignores a second press. -->
+	<button
+		type="submit"
+		form={formId}
+		class={button('primary', 'md', true)}
+		aria-busy={busy ? 'true' : undefined}
+		>{#if busy}<Spinner size={20} />{/if}Create and link</button
 	>
 {/snippet}
 

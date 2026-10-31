@@ -14,6 +14,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
+	import { linkRefusal } from '$lib/picker/view';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -361,26 +362,10 @@
 		return async ({ result, update }) => {
 			if (sent) inFlight.delete(sent.key);
 			const here = at === opening;
-			if (result.type === 'failure') {
-				const m = (result.data as { message?: unknown } | undefined)?.message;
+			if (result.type === 'failure' || result.type === 'error') {
+				const said = result.type === 'failure' ? result.data : result.error;
 				if (here)
-					pickMessage =
-						typeof m === 'string'
-							? m
-							: sent
-								? `${sent.label} was not linked. Try it again.`
-								: 'That could not be linked.';
-				return;
-			}
-			if (result.type === 'error') {
-				const m = (result.error as { message?: unknown } | undefined)?.message;
-				if (here)
-					pickMessage =
-						typeof m === 'string'
-							? m
-							: sent
-								? `${sent.label} was not linked. Try it again.`
-								: 'That could not be linked.';
+					pickMessage = linkRefusal((said as { message?: unknown } | undefined)?.message, sent);
 				return;
 			}
 			await update();

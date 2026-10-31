@@ -70,16 +70,15 @@
 	<span id="{id}-label" class={LABEL}>{label}</span>
 	<div class="relative">
 		<!--
-			The button stands in for a field: aria-invalid is what SELECT's red
-			border keys on, and what tells a screen reader the refusal is about it.
+			The button stands in for a field. A button cannot carry aria-invalid,
+			so the red border comes from `error` itself; aria-describedby still
+			points a screen reader at the refusal.
 		-->
-		<!-- svelte-ignore a11y_role_supports_aria_props_implicit -->
 		<button
 			type="button"
-			class={SELECT}
+			class={error ? SELECT.replace('border border-field-line', 'border-2 border-danger') : SELECT}
 			aria-labelledby="{id}-label {id}-value"
 			aria-haspopup="dialog"
-			aria-invalid={error ? 'true' : undefined}
 			aria-describedby={error ? `${id}-error` : undefined}
 			onclick={() => (open = true)}
 		>

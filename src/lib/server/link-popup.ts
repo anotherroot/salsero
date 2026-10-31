@@ -255,7 +255,8 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
  * Make a variation, a figure or a drill and link the section to it — both or
  * neither. The creators run inside this transaction (drizzle nests them as
  * savepoints), so a link that fails takes the new row with it. Returns the
- * link's id; throws `SpotLinkError` with what to tell the user.
+ * link's id; throws `SpotLinkError` with what to tell the user and, when a
+ * field is the reason, which one (the popup shows it under that field).
  */
 export function createAndLink(db: Db, spotId: number, create: LinkCreate): number {
 	return db.transaction((tx) => {
@@ -263,16 +264,16 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 		if (!video) throw new SpotLinkError('No such section.');
 		const dance = video.dance as DanceSlug;
 		const name = create.name.trim();
-		if (!name) throw new SpotLinkError('Give it a name.');
+		if (!name) throw new SpotLinkError('Give it a name.', 400, 'name');
 
 		let target: SectionTarget;
 		if (create.kind === 'variation') {
 			const group = getGroup(tx, create.groupId);
 			if (!group || group.archivedAt !== null || group.dance !== dance) {
-				throw new SpotLinkError('No such figure.');
+				throw new SpotLinkError('No such figure.', 400, 'groupId');
 			}
 			if (variationNameTaken(tx, group.id, name, null)) {
-				throw new SpotLinkError(`${group.name} already has a ${name}.`);
+				throw new SpotLinkError(`${group.name} already has a ${name}.`, 400, 'name');
 			}
 			const first = listGroupVariations(tx, group.id)[0];
 			const made = createVariationIn(tx, group.id, {
@@ -285,12 +286,16 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 			target = { figureId: made.id };
 		} else if (create.kind === 'figure') {
 			const figureName = create.figureName.trim();
-			if (!figureName) throw new SpotLinkError('Give it a name.');
+			if (!figureName) throw new SpotLinkError('Give it a name.', 400, 'figureName');
 			if (!isStyleOf(dance, create.style)) {
-				throw new SpotLinkError('That style does not belong to this dance.');
+				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
 			}
 			if (figureNameTaken(tx, dance, figureName, null)) {
-				throw new SpotLinkError(`There's already a figure called ${figureName}.`);
+				throw new SpotLinkError(
+					`There's already a figure called ${figureName}.`,
+					400,
+					'figureName'
+				);
 			}
 			const made = createFigure(tx, dance, {
 				figureName,
@@ -302,7 +307,8 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 			if (!made) throw new SpotLinkError('That figure could not be made.');
 			target = { figureId: made.figure.id };
 		} else {
-			if (!isFrequency(create.everyDays)) throw new SpotLinkError('Pick how often.');
+			if (!isFrequency(create.everyDays))
+				throw new SpotLinkError('Pick how often.', 400, 'everyDays');
 			const made = createCustomExercise(tx, dance, {
 				name,
 				everyDays: create.everyDays,

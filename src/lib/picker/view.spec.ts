@@ -5,6 +5,7 @@ import {
 	doneLabel,
 	emptyText,
 	lineGroups,
+	linkRefusal,
 	pickerBody,
 	pickerTall,
 	rowTrail
@@ -75,5 +76,23 @@ describe('picker view rules', () => {
 			'Doble'
 		]);
 		expect(out[0].lines.map((l) => l.last)).toEqual([false, false, false, true]);
+	});
+});
+
+describe('linkRefusal', () => {
+	it('is the server’s message when there is one', () => {
+		expect(linkRefusal('Already linked.', { label: 'Enchufla · Doble' })).toBe('Already linked.');
+	});
+	it('names the row when the server said nothing', () => {
+		expect(linkRefusal(undefined, { label: 'Enchufla · Doble' })).toBe(
+			'Enchufla · Doble was not linked. Try it again.'
+		);
+		expect(linkRefusal('', { label: 'Enchufla · Doble' })).toBe(
+			'Enchufla · Doble was not linked. Try it again.'
+		);
+		expect(linkRefusal(404, { label: 'Clave' })).toBe('Clave was not linked. Try it again.');
+	});
+	it('says it plainly when it knows neither', () => {
+		expect(linkRefusal(null, null)).toBe('That could not be linked.');
 	});
 });

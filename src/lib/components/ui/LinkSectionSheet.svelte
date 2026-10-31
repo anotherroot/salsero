@@ -6,6 +6,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { sectionGroups } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
+	import { linkRefusal } from '$lib/picker/view';
 	import SectionPlayer from './SectionPlayer.svelte';
 	import type { SectionGroup, SectionVideo, Spot } from '$lib/types';
 
@@ -73,17 +74,8 @@
 			if (sent) inFlight.delete(sent.key);
 			const here = at === opening;
 			if (result.type === 'failure' || result.type === 'error') {
-				const m =
-					result.type === 'failure'
-						? (result.data as { message?: unknown } | undefined)?.message
-						: (result.error as { message?: unknown } | undefined)?.message;
-				if (here)
-					message =
-						typeof m === 'string'
-							? m
-							: sent
-								? `${sent.label} was not linked. Try it again.`
-								: 'That could not be linked.';
+				const said = result.type === 'failure' ? result.data : result.error;
+				if (here) message = linkRefusal((said as { message?: unknown } | undefined)?.message, sent);
 				return;
 			}
 			await update();

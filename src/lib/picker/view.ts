@@ -65,3 +65,13 @@ export function lineGroups(lines: PickLine[]): LineGroup[] {
 	for (const g of out) if (g.lines.length) g.lines[g.lines.length - 1].last = true;
 	return out;
 }
+
+/**
+ * A refused or failed link's reason, for the picker's "That could not be
+ * linked." banner: the server's message when it gave one, else the row it was
+ * for, else a plain sentence.
+ */
+export function linkRefusal(message: unknown, sent: { label: string } | null): string {
+	if (typeof message === 'string' && message) return message;
+	return sent ? `${sent.label} was not linked. Try it again.` : 'That could not be linked.';
+}
