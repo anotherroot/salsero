@@ -6,8 +6,10 @@ import {
 	archivePosition,
 	createPosition,
 	listPositions,
+	restorePosition,
 	updatePosition
 } from '$lib/server/positions';
+import { taggedFigures } from '$lib/server/graph';
 import { positionCounts } from '$lib/graph/graph';
 import { danceOf, requirePositionInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -39,7 +41,9 @@ export const load: PageServerLoad = ({ params }) => {
 			// would just be overwritten by the spread, which `tsc` refuses to do
 			// silently.
 			...byId.get(p.id)!
-		}))
+		})),
+		// How much of the repertoire carries tags: the intro's first sentence.
+		tagged: taggedFigures(db, dance)
 	};
 };
 
@@ -55,14 +59,21 @@ export const actions: Actions = {
 		const dance = danceOf(params);
 		const form = await request.formData();
 		const name = text(form, 'name', 80);
-		if (!name) return fail(400, { action: 'create', message: 'Give the position a name.' });
+		if (!name)
+			return fail(400, { action: 'create', field: 'name', message: 'Give the position a name.' });
 		const made = createPosition(getDb(), dance, {
 			slug: slugify(name),
 			name,
 			neutral: false,
 			sortOrder: listPositions(getDb(), dance).length
 		});
-		if (!made) return fail(400, { action: 'create', message: 'That position already exists.' });
+		if (!made)
+			return fail(400, {
+				action: 'create',
+				field: 'name',
+				message: 'That position already exists.',
+				name
+			});
 		return { action: 'create', ok: true };
 	},
 
@@ -70,7 +81,14 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const found = positionOf(params, int(form, 'id'));
 		const name = text(form, 'name', 80);
-		if (!name) return fail(400, { action: 'rename', message: 'Give the position a name.' });
+		if (!name)
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'Give the position a name.',
+				id: found.id,
+				name
+			});
 		// The slug is left alone: it is the seed's identity, not the label.
 		const row = updatePosition(getDb(), found.id, {
 			slug: found.slug,
@@ -78,7 +96,14 @@ export const actions: Actions = {
 			neutral: checkbox(form, 'neutral') || found.neutral,
 			sortOrder: found.sortOrder
 		});
-		if (!row) return fail(400, { action: 'rename', message: 'That name is taken.' });
+		if (!row)
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'That name is taken.',
+				id: found.id,
+				name
+			});
 		return { action: 'rename', ok: true };
 	},
 
@@ -91,5 +116,14 @@ export const actions: Actions = {
 			});
 		}
 		return { action: 'archive', ok: true };
+	},
+
+	// Undo for a removal, inside the wall like every action here. A position that
+	// is already live (or was revived by adding its name again) is left alone,
+	// and that is still a success.
+	restore: async ({ params, request }) => {
+		const found = positionOf(params, int(await request.formData(), 'id'));
+		restorePosition(getDb(), found.id);
+		return { action: 'restore', ok: true };
 	}
 };

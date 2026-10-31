@@ -20,6 +20,8 @@ import { listRoutines } from '$lib/server/routines';
 import { createFigure } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
 import { actions as figureListActions } from './figures/+page.server';
+import { actions as positionActions } from './positions/+page.server';
+import { archivePosition, getPosition, listPositions, seedPositions } from '$lib/server/positions';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -154,5 +156,54 @@ describe('New figure', () => {
 		expect(result.status).toBe(400);
 		expect(result.data.message).toBe('Pick how it is danced and its style.');
 		expect(result.data).not.toHaveProperty('field');
+	});
+});
+
+describe('Positions', () => {
+	beforeEach(() => seedPositions(db));
+
+	it('restores a removed position', async () => {
+		const row = listPositions(db, 'salsa').find((p) => !p.neutral)!;
+		archivePosition(db, row.id, 1);
+		expect(await call(positionActions.restore, post('salsa', { id: String(row.id) }))).toEqual({
+			action: 'restore',
+			ok: true
+		});
+		expect(getPosition(db, row.id)!.archivedAt).toBeNull();
+	});
+
+	it('answers ok when there was nothing to restore', async () => {
+		const row = listPositions(db, 'salsa')[0];
+		expect(await call(positionActions.restore, post('salsa', { id: String(row.id) }))).toEqual({
+			action: 'restore',
+			ok: true
+		});
+	});
+
+	it("refuses to restore the other dance's position", async () => {
+		const row = listPositions(db, 'bachata').find((p) => !p.neutral)!;
+		archivePosition(db, row.id, 1);
+		await expect(
+			call(positionActions.restore, post('salsa', { id: String(row.id) }))
+		).rejects.toMatchObject({ status: 404 });
+		expect(getPosition(db, row.id)!.archivedAt).toBe(1);
+	});
+
+	it('puts a taken position name under Name', async () => {
+		expect(await call(positionActions.create, post('bachata', { name: 'Shadow' }))).toMatchObject({
+			status: 400,
+			data: { field: 'name', message: 'That position already exists.' }
+		});
+	});
+
+	it('puts a missing name under Name on create and on rename', async () => {
+		expect(await call(positionActions.create, post('salsa', { name: ' ' }))).toMatchObject({
+			status: 400,
+			data: { field: 'name', message: 'Give the position a name.' }
+		});
+		const row = listPositions(db, 'salsa')[0];
+		expect(
+			await call(positionActions.rename, post('salsa', { id: String(row.id), name: '' }))
+		).toMatchObject({ status: 400, data: { field: 'name', message: 'Give the position a name.' } });
 	});
 });

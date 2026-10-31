@@ -166,3 +166,15 @@ export function seedPositions(db: Db) {
 			.run();
 	}
 }
+
+/**
+ * Bring a removed position back (Undo). False when the row is missing or
+ * already live — including when adding the same name again has already revived
+ * it (`createPosition` reuses the archived row), so a late Undo does nothing.
+ */
+export function restorePosition(db: Db, id: number): boolean {
+	const row = db.select().from(positions).where(eq(positions.id, id)).get();
+	if (!row || row.archivedAt === null) return false;
+	db.update(positions).set({ archivedAt: null }).where(eq(positions.id, id)).run();
+	return true;
+}
