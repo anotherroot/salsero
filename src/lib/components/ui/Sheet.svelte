@@ -152,7 +152,10 @@
 			{/if}
 		</header>
 		<div class="body px-4 pt-3 pb-2">
-			{#if open}{@render children()}{/if}
+			<!-- Grows to fill a tall body, so the fade lands at the body's bottom, not on the last line. -->
+			<div class="flex-[1_0_auto]">
+				{#if open}{@render children()}{/if}
+			</div>
 			{#if tall}<div class="fade" aria-hidden="true"></div>{/if}
 		</div>
 		{#if footer}
@@ -241,6 +244,8 @@
 		min-height: 0;
 		flex: 1;
 		overflow-y: auto;
+		display: flex;
+		flex-direction: column;
 	}
 
 	@keyframes rise {

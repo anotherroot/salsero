@@ -11,6 +11,7 @@
 import { applyAction, deserialize } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import type { ActionResult } from '@sveltejs/kit';
+import { markSent } from '$lib/sheets/history.svelte';
 
 export type Field = string | number | null | (string | number)[];
 
@@ -30,6 +31,7 @@ export async function act(name: string, fields: Record<string, Field>): Promise<
 		if (Array.isArray(value)) for (const v of value) body.append(key, String(v));
 		else body.append(key, value === null ? '' : String(value));
 	}
+	markSent();
 	let result: ActionResult;
 	try {
 		const res = await fetch(`?/${name}`, {

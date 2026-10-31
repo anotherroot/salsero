@@ -57,8 +57,12 @@
 							class="flex-none"
 						>
 							<input type="hidden" name="linkId" value={s.linkId} />
-							<button type="submit" class={iconButton('bare')} aria-label="Unlink this section">
-								<span class="text-muted"><Icon name="close" size={20} /></span>
+							<button
+								type="submit"
+								class={iconButton('bare', 'muted')}
+								aria-label="Unlink this section"
+							>
+								<Icon name="close" size={20} />
 							</button>
 						</form>
 					{/snippet}

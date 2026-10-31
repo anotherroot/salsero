@@ -52,7 +52,9 @@ function svelteFiles(dir: string): string[] {
 describe('clipping cards', () => {
 	it('every overflow-hidden is a focus-inset card or allowed with a reason', () => {
 		const bad: string[] = [];
-		for (const file of svelteFiles('src')) {
+		const all = svelteFiles('src');
+		expect(all.length).toBeGreaterThan(100);
+		for (const file of all) {
 			readFileSync(file, 'utf8')
 				.split('\n')
 				.forEach((text, i) => {

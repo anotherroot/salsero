@@ -70,6 +70,11 @@ export function refreshIfSent(): void {
 	if (at === location.href) void refreshWhenSettled();
 }
 
+/** An `act()` save posts without a <form>, so it marks itself as sent the same way. */
+export function markSent(): void {
+	if (sheetStack.openCount > 0) sentAt = location.href;
+}
+
 /** Keep the stack in step with history. Call once, from the root layout. */
 export function syncSheets(): void {
 	$effect(() => {

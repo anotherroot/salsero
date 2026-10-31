@@ -18,6 +18,9 @@ function walk(dir: string): string[] {
 
 const files = walk('src').map((f) => ({ f, lines: readFileSync(f, 'utf8').split('\n') }));
 
+// A walk that finds nothing would pass every scan below.
+if (files.length < 200) throw new Error(`class-rules scan found only ${files.length} files`);
+
 function hits(test: (line: string) => boolean): string[] {
 	return files.flatMap(({ f, lines }) =>
 		lines.flatMap((l, i) => (test(l) ? [`${f}:${i + 1}: ${l.trim()}`] : []))

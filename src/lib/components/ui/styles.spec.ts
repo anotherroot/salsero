@@ -99,6 +99,11 @@ describe('swap', () => {
 	it('replaces the first occurrence', () => {
 		expect(swap('a b c', 'b', 'x y')).toBe('a x y c');
 	});
+	it('matches whole class tokens, not substrings', () => {
+		expect(() => swap('px-3.5 py-1', 'px-3', 'px-4')).toThrow(/px-3/);
+		expect(swap('px-3.5 px-3', 'px-3', 'px-4')).toBe('px-3.5 px-4');
+		expect(swap('w-[1.5] h-1', 'w-[1.5]', 'w-2')).toBe('w-2 h-1');
+	});
 	it('throws in dev and tests when the token is missing', () => {
 		expect(() => swap(button('primary'), 'text-nope', 'text-ink')).toThrow(/text-nope/);
 	});

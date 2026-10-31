@@ -7,12 +7,13 @@ export function nextFocusKey(keys: readonly string[], gone: string, fallback: st
 	return keys[i + 1] ?? keys[i - 1] ?? fallback;
 }
 
-/** Focuses the first `[data-focus="<key>"]` outside `[inert]` and `[hidden]`; true if one was found. */
+/** Focuses the first `[data-focus="<key>"]` that takes focus (not inert, hidden or behind a modal); false if none did. */
 export function focusKeyed(key: string): boolean {
 	for (const el of document.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)) {
 		if (el.closest('[inert], [hidden]')) continue;
 		el.focus();
-		return true;
+		// A copy under a modal is inert without [inert] (showModal): focus() does nothing there.
+		if (document.activeElement === el) return true;
 	}
 	return false;
 }

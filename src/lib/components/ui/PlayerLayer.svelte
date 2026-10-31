@@ -175,8 +175,10 @@
 					</button>
 				{/if}
 			</header>
-			<div class="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-2">
-				{#if children}{@render children()}{/if}
+			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-2">
+				<div class="flex-[1_0_auto]">
+					{#if children}{@render children()}{/if}
+				</div>
 				{#if tall}
 					<div
 						class="pointer-events-none sticky -bottom-2 -mx-4 -mt-7 h-7 bg-linear-to-b from-transparent to-sheet"

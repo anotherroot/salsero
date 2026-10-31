@@ -186,7 +186,7 @@ src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      navigation or a link click is in flight. history.svelte.ts
                      wires it to SvelteKit shallow routing; `refreshWhenSettled()` is the one way to
                      refresh after a close; `refreshIfSent` is Sheet and Dialog's own, so a form
-                     sent inside one still shows once it closes. it reads the depth from
+                     sent inside one still shows once it closes. It reads the depth from
                      `history.state['sveltekit:states']`, not `page.state`,
                      because `invalidateAll` resets `page.state`. `settled(fn)` runs fn once,
                      after history has caught up with the sheets' own Back moves
@@ -242,7 +242,7 @@ src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      ui/styles.ts holds the class builders: `button(kind, size, full)`,
                      `iconButton(variant, tone)`, `FIELD`/`TEXTAREA`/`SELECT` and their
                      `_INVALID` twins, `CHIP`, `GROUP` and `CLIP` (`focus-inset`: a card that
-                     clips), and `swap()`, which throws when the token it replaces is missing
+                     clips), and `swap()`, which throws in dev and tests when the class token it replaces is missing
                      ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
                      line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files

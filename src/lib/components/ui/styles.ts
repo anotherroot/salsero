@@ -12,11 +12,14 @@
  * (a wrong look is better than a blank page).
  */
 export function swap(cls: string, from: string, to: string): string {
-	if (!cls.includes(from)) {
+	// Whole class tokens only: `px-3` must not match inside `px-3.5`.
+	const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const at = new RegExp(`(?<!\\S)${escaped}(?!\\S)`);
+	if (!at.test(cls)) {
 		if (import.meta.env.DEV) throw new Error(`swap: "${from}" is not in "${cls}"`);
 		return cls;
 	}
-	return cls.replace(from, to);
+	return cls.replace(at, () => to);
 }
 
 export type ButtonKind = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'danger-text';

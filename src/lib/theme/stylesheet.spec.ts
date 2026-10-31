@@ -61,6 +61,7 @@ describe('layout.css', () => {
 			/(?<![\w-])(bg|text|border|divide|ring|outline|fill|stroke|from|via|to|decoration|caret|placeholder|shadow)-(plane|line|rule|done-bg|accent-ink|overdue)(?![\w-])/;
 		const VAR = /var\(--color-(plane|line|rule|done-bg|accent-ink|overdue)\)/;
 		const hits: string[] = [];
+		expect(sources('src').length).toBeGreaterThan(100);
 		for (const file of sources('src'))
 			readFileSync(file, 'utf8')
 				.split('\n')

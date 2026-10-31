@@ -72,7 +72,7 @@
 		<div class="absolute inset-0 bg-danger" aria-hidden="true"></div>
 		<button
 			type="button"
-			class="absolute inset-y-0 right-0 flex cursor-pointer flex-col items-center justify-center gap-1 text-[14px] font-extrabold text-on-danger"
+			class="absolute inset-y-0 right-0 flex cursor-pointer flex-col items-center justify-center gap-1 text-[14px] font-extrabold text-on-danger [--focus-ring:var(--color-on-danger)]"
 			style="width: {reveal}px"
 			onclick={() => {
 				onchange(null);

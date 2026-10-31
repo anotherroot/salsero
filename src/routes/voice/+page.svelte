@@ -267,7 +267,7 @@
 			() => (toast = null),
 			async () => refused(await act('restore', { id }))
 		);
-		await focusAfterRemoval(keys, `take-${id}`, 'takes-heading');
+		await focusAfterRemoval(keys, `take-${id}`, 'tempos-heading');
 	}
 
 	/** Back from a stage that is not the list. Nothing chosen yet is lost on purpose. */
@@ -342,7 +342,9 @@
 			</p>
 		{/if}
 
-		<span class="{SECTION_LABEL} mt-1.5">{recordedLabel(data.takes, pattern)}</span>
+		<span class="{SECTION_LABEL} mt-1.5" tabindex="-1" data-focus="tempos-heading"
+			>{recordedLabel(data.takes, pattern)}</span
+		>
 		<ul class={GROUP} aria-label="Tempos">
 			{#each TEMPO_LADDER as t (t)}
 				{@const state = tempoState(data.takes, pattern, t)}

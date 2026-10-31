@@ -141,7 +141,8 @@ Every component exists in the states on the design system board (sections
   filled control the ring sits after a 2 px gap. Visible on keyboard focus and
   on a focused text field.
   Inside a card that clips (a group of rows), the ring and halo draw inside the
-  control; a filled control there keeps the outside ring.
+  control; a filled control there keeps the outside ring, and the swipe-to-delete
+  button (on red) draws its ring in `on-danger`.
 - **After a removal:** focus goes to the next row, else the previous, else the
   list's add control or heading; a dismissed banner hands focus to what follows it.
 - **Pressed:** a pressed overlay (ink at 6 % light / white at 7 % dark), or the
