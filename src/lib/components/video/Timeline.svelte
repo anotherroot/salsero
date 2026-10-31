@@ -20,8 +20,8 @@
 		pending?: { startMs: number } | null;
 		/** The fill up to the playhead in the accent (a section's track). */
 		accentFill?: boolean;
-		/** Floating over the picture (landscape). */
-		overlay?: boolean;
+		/** On the picture (landscape): a lighter track. */
+		glass?: boolean;
 		onseek: (ms: number) => void;
 	}
 
@@ -32,7 +32,7 @@
 		bands = [],
 		pending = null,
 		accentFill = false,
-		overlay = false,
+		glass = false,
 		onseek
 	}: Props = $props();
 
@@ -69,27 +69,23 @@
 	onpointercancel={() => (dragging = false)}
 >
 	<span
-		class="absolute inset-x-0 top-[18px] h-2 rounded-full {overlay
-			? 'bg-white/25'
-			: 'bg-(--pl-line)'}"
+		class="absolute inset-x-0 top-[19px] h-1.5 rounded-full {glass ? 'bg-white/30' : 'bg-white/24'}"
 	></span>
 	<span
-		class="absolute top-[18px] left-0 h-2 rounded-full {accentFill
-			? 'bg-(--pl-accent)'
-			: 'bg-(--pl-fill)'}"
+		class="absolute top-[19px] left-0 h-1.5 rounded-full {accentFill ? 'bg-accent' : 'bg-white/62'}"
 		style:width="{pct(currentMs)}%"
 	></span>
 	{#each bands as b (b.id)}
 		{#if b.endMs === null}
 			<span
-				class="absolute top-2.5 h-6 w-[3px] -translate-x-1/2 rounded-full bg-(--pl-ink)"
+				class="absolute top-2.5 h-6 w-[3px] -translate-x-1/2 rounded-sm bg-white/90"
 				style:left="{pct(b.startMs)}%"
 			></span>
 		{:else}
 			<span
-				class="absolute top-3.5 h-4 min-w-1 rounded {b.active
-					? 'bg-(--pl-accent)'
-					: 'bg-(--pl-band)'}"
+				class="absolute top-[15px] h-3.5 min-w-[5px] rounded {b.active
+					? 'bg-accent'
+					: 'bg-white/34'}"
 				style:left="{pct(b.startMs)}%"
 				style:width="{pct(b.endMs) - pct(b.startMs)}%"
 			></span>
@@ -98,13 +94,13 @@
 	{#if pending}
 		{@const a = Math.min(pending.startMs, currentMs)}
 		<span
-			class="absolute top-3.5 h-4 rounded bg-(--pl-accent) opacity-50"
+			class="absolute top-[15px] h-3.5 rounded bg-accent opacity-60"
 			style:left="{pct(a)}%"
 			style:width="{pct(Math.max(pending.startMs, currentMs)) - pct(a)}%"
 		></span>
 	{/if}
 	<span
-		class="absolute top-1.5 h-8 w-1 -translate-x-1/2 rounded-full bg-white shadow-[0_0_0_2px_var(--pl-bg)]"
+		class="absolute top-[7px] h-[30px] w-1 -translate-x-1/2 rounded-sm bg-white shadow-[0_0_0_2px_black]"
 		style:left="{pct(currentMs)}%"
 	></span>
 </div>

@@ -153,6 +153,12 @@ describe('chrome', () => {
 			['desktop', 'edit']
 		] as const)
 			expect(toastPlace(m, l)).toBe('bottom');
+		expect(toastPlace('portrait', 'edit', 'saved')).toBe('video');
+		expect(toastPlace('portrait', 'full', 'failed')).toBe('video');
+		expect(toastPlace('portrait', 'section', 'failed')).toBe('video');
+		expect(toastPlace('portrait', 'full', 'saved')).toBe('bottom');
+		expect(toastPlace('overlay', 'full', 'failed')).toBe('bottom');
+		expect(toastPlace('desktop', 'edit', 'failed')).toBe('bottom');
 	});
 	it('shows the buffering spinner only while the video waits', () => {
 		expect(buffering(false, 'waiting')).toBe(true);

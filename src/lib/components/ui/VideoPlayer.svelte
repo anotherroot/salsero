@@ -39,13 +39,22 @@
 	import { entryState } from '$lib/sheets/history.svelte';
 	import { keyAction, type KeyAction } from '$lib/video/keys';
 	import { layoutFor } from '$lib/video/layout';
-	import { playerMode, toastPlace, type ToastTone } from '$lib/video/chrome';
+	import {
+		buffering,
+		cornerBadge,
+		playerMode,
+		toastPlace,
+		topBar,
+		type ToastTone
+	} from '$lib/video/chrome';
 	import { holdScreenOn } from '$lib/video/screen-on';
 	import { NO_ZOOM, zoomTransform, type View } from '$lib/video/zoom';
 	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
 	import Icon from '$lib/components/video/Icon.svelte';
 	import { icons } from '$lib/components/video/icons';
-	import { BTN, BTN_ACCENT, BTN_GHOST, BTN_ON_VIDEO } from '$lib/components/video/styles';
+	import UiIcon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { BTN_GHOST, ON_VIDEO, playerButton } from '$lib/components/video/styles';
 	import TopBar from '$lib/components/video/TopBar.svelte';
 	import Transport from '$lib/components/video/Transport.svelte';
 	import Timeline from '$lib/components/video/Timeline.svelte';
@@ -690,9 +699,17 @@
 			.join('; ')
 	);
 
-	const badge = $derived(
-		[rate !== 1 ? `${rate}×` : null, mirror ? 'Mirrored' : null].filter(Boolean).join(' · ')
-	);
+	const badge = $derived(cornerBadge(rate, mirror));
+	let waiting = $state(false);
+	const HIDE = playerButton('ghost', 'md')
+		.replace('text-ink', 'text-ink-2')
+		.replace('px-3', 'pr-2 pl-3');
+	const SHOW = HIDE;
+	const MARK = playerButton('neutral', 'lg');
+	const MARK_DESK = playerButton('neutral', 'md');
+	const MARK_GLASS = playerButton('glass', 'md');
+	const SECTION_ON = playerButton('accent', 'lg');
+	const SECTION_ON_DESK = playerButton('accent', 'md');
 	const loopProgress = $derived(
 		loop && loop.endMs !== null
 			? Math.max(0, Math.min(100, ((currentMs - loop.startMs) / (loop.endMs - loop.startMs)) * 100))
@@ -765,28 +782,28 @@
 	<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
 {/snippet}
 
-{#snippet fullTimeline(overlay: boolean)}
+{#snippet fullTimeline(glass: boolean)}
 	<Timeline
 		fromMs={0}
 		toMs={durationMs || 1}
 		{currentMs}
 		bands={listSpots.map((s) => ({ ...s, active: false }))}
 		pending={pendingStart === null ? null : { startMs: pendingStart }}
-		{overlay}
+		{glass}
 		onseek={seek}
 	/>
 {/snippet}
 
 {#snippet markButtons(overlay: boolean)}
-	<button type="button" class={overlay ? BTN_ON_VIDEO : BTN} onclick={mark}>
-		<Icon d={icons.flag} />Mark
+	<button type="button" class={overlay ? MARK_GLASS : MARK_DESK} onclick={mark}>
+		<UiIcon name="flag" size={18} />Mark
 	</button>
 	<button
 		type="button"
-		class={pendingStart !== null ? BTN_ACCENT : overlay ? BTN_ON_VIDEO : BTN}
+		class={pendingStart !== null ? SECTION_ON_DESK : overlay ? MARK_GLASS : MARK_DESK}
 		onclick={section}
 	>
-		<Icon d={icons.bracket} />{pendingStart === null
+		<UiIcon name="scissors" size={18} />{pendingStart === null
 			? 'Section'
 			: `End · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
 	</button>
@@ -803,37 +820,28 @@
 {/snippet}
 
 {#snippet slimBar(spot: Spot | null)}
-	<div class="flex flex-col gap-0.5 px-4 pt-1.5 pb-3">
-		{#if spot}
-			<Timeline
-				fromMs={spot.startMs}
-				toMs={spot.endMs ?? spot.startMs}
-				{currentMs}
-				accentFill
-				onseek={seek}
-			/>
-		{:else}
-			{@render fullTimeline(false)}
-		{/if}
-		<div class="-mx-2 flex items-center gap-1">
-			<button
-				type="button"
-				class="{BTN_GHOST} h-10 pr-3 pl-2 text-(--pl-ink-2)"
-				onclick={() => setHidden(false)}
-			>
-				<Icon d={icons.chevronUp} size={18} />Show
+	<div class="flex flex-col bg-ground px-4 pt-1 pb-[max(env(safe-area-inset-bottom),22px)]">
+		<div class="px-1">
+			{#if spot}
+				<Timeline
+					fromMs={spot.startMs}
+					toMs={spot.endMs ?? spot.startMs}
+					{currentMs}
+					accentFill
+					onseek={seek}
+				/>
+			{:else}
+				{@render fullTimeline(false)}
+			{/if}
+		</div>
+		<div class="-mx-1 flex items-center">
+			<button type="button" class={SHOW} onclick={() => setHidden(false)}>
+				<UiIcon name="chevron-up" size={18} />Show
 			</button>
 			<span class="flex-1"></span>
-			<Transport
-				{paused}
-				size="compact"
-				seconds={false}
-				ontoggle={toggle}
-				onstep={nudge}
-				ontenth={tenth}
-			/>
+			<Transport {paused} size="compact" ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 			<span class="flex-1"></span>
-			<span class="w-24 pr-2 text-right text-[15px] font-semibold tabular-nums"
+			<span class="w-[92px] text-right text-[15px] font-extrabold tabular-nums"
 				>{spot ? sectionProgress(spot, currentMs) : preciseTime(currentMs)}</span
 			>
 		</div>
@@ -893,10 +901,10 @@
 				title={mode === 'overlay' && level.kind === 'section' && openSpot
 					? spotLabel(openSpot)
 					: title}
-				subtitle={mode === 'overlay' && level.kind === 'section' ? 'Looping' : subtitle}
+				{subtitle}
 				{mirror}
 				{rate}
-				overlay={mode === 'overlay'}
+				parts={topBar(mode, chromeLevel)}
 				spotsCount={spots.length}
 				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
 				onback={phone && level.kind === 'section' ? () => nav.up() : undefined}
@@ -938,6 +946,13 @@
 						if (loopSpot) void video.play().catch(() => {});
 					}}
 					{onended}
+					onwaiting={() => (waiting = buffering(waiting, 'waiting'))}
+					onplaying={() => (waiting = buffering(waiting, 'playing'))}
+					oncanplay={() => (waiting = buffering(waiting, 'canplay'))}
+					onseeked={() => (waiting = buffering(waiting, 'seeked'))}
+					onpause={() => (waiting = buffering(waiting, 'pause'))}
+					onerror={() => (waiting = buffering(waiting, 'error'))}
+					onemptied={() => (waiting = buffering(waiting, 'emptied'))}
 				></video>
 			</div>
 			<VideoGestures
@@ -947,32 +962,40 @@
 				onsingle={tapVideo}
 				onjump={(side) => nudge(side === 'left' ? -1 : 1)}
 			>
-				{#if paused && !faded}
-					<span class="grid size-14 place-items-center rounded-full bg-black/55 text-white">
-						<Icon d={icons.play} filled size={26} />
+				{#if waiting && !faded}
+					<span
+						class="grid size-16 place-items-center rounded-full bg-black/55 text-white shadow-[inset_0_0_0_1.5px_rgb(255_255_255/0.35)]"
+						><span class="text-white"><Spinner size={30} label="Loading video" /></span></span
+					>
+				{:else if paused && !faded}
+					<span
+						class="grid size-16 place-items-center rounded-full bg-black/55 text-white shadow-[inset_0_0_0_1.5px_rgb(255_255_255/0.35)]"
+					>
+						<span class="ml-[3px] flex"><UiIcon name="play" filled size={30} /></span>
 					</span>
 				{/if}
 			</VideoGestures>
 			{#if view.scale > 1}
 				<span
-					class="absolute right-2 z-10 flex items-center gap-1 rounded-lg bg-black/60 py-0.5 pr-0.5 pl-2 text-[12px] text-zinc-200 {mode ===
+					class="absolute right-2.5 z-10 flex h-9 items-center gap-0.5 rounded-full bg-black/60 pl-3 text-[13px] font-bold text-white/92 {mode ===
 					'overlay'
 						? 'top-16'
 						: badge
-							? 'top-9'
-							: 'top-2'}"
+							? 'top-[46px]'
+							: 'top-2.5'}"
 				>
-					Zoom {Math.round(view.scale * 10) / 10}×
+					<span class="text-white/80"><UiIcon name="search" size={15} /></span>
+					<span class="ml-1">Zoom {Math.round(view.scale * 10) / 10}×</span>
 					<button
 						type="button"
-						class="cursor-pointer rounded-md px-2 py-0.5 font-semibold hover:bg-white/10"
+						class="-my-1 h-11 cursor-pointer pr-3.5 pl-2.5 text-[13px] font-extrabold text-accent-text"
 						onclick={() => (view = NO_ZOOM)}>Reset</button
 					>
 				</span>
 			{/if}
 			{#if badge && mode !== 'overlay'}
 				<span
-					class="pointer-events-none absolute top-2 right-2 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
+					class="{ON_VIDEO} pointer-events-none absolute top-2.5 right-2.5 font-bold text-white/92"
 					>{badge}</span
 				>
 			{/if}
@@ -992,7 +1015,7 @@
 					style:width="{loopProgress}%"
 				></span>
 			{/if}
-			{#if toast && toastPlace(mode, chromeLevel) === 'video'}
+			{#if toast && toastPlace(mode, chromeLevel, toast.tone) === 'video'}
 				<div class="absolute inset-x-4 bottom-3 z-30 mx-auto max-w-md">
 					<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
 				</div>
@@ -1049,35 +1072,38 @@
 						{/snippet}
 					</SectionView>
 				{:else}
-					<div class="flex flex-col gap-1.5 pt-1 pb-3">
-						<div class="flex items-center gap-2 pr-2 pl-4">
-							<span class="text-[20px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
-							<span class="text-[13px] text-(--pl-muted) tabular-nums"
-								>/ {durationMs ? preciseTime(durationMs) : '–'}</span
-							>
+					<div
+						class="flex flex-col gap-1.5 bg-ground pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)]"
+					>
+						<div class="flex items-center pr-2 pl-5">
+							<span class="flex items-baseline gap-2">
+								<span
+									class="font-display text-[26px] font-extrabold tracking-[-0.01em] tabular-nums"
+									>{preciseTime(currentMs)}</span
+								>
+								<span class="text-[14px] font-semibold text-muted tabular-nums"
+									>/ {durationMs ? preciseTime(durationMs) : '–'}</span
+								>
+							</span>
 							<span class="flex-1"></span>
-							<button
-								type="button"
-								class="{BTN_GHOST} h-9 pr-2 pl-3 text-(--pl-ink-2)"
-								onclick={() => setHidden(true)}
-							>
-								Hide<Icon d={icons.chevronDown} size={18} />
+							<button type="button" class={HIDE} onclick={() => setHidden(true)}>
+								Hide<UiIcon name="chevron-down" size={18} />
 							</button>
 						</div>
-						<div class="px-4">{@render fullTimeline(false)}</div>
-						<div class="px-4">
+						<div class="px-5">{@render fullTimeline(false)}</div>
+						<div class="px-4 pt-0.5 pb-1">
 							<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 						</div>
-						<div class="flex gap-2 px-4 pt-1 pb-1">
-							<button type="button" class="{BTN} flex-1" onclick={mark}>
-								<Icon d={icons.flag} />Mark point
+						<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
+							<button type="button" class="{MARK} flex-1" onclick={mark}>
+								<UiIcon name="flag" size={20} />Mark point
 							</button>
 							<button
 								type="button"
-								class="{pendingStart === null ? BTN : BTN_ACCENT} flex-[1.4]"
+								class="{pendingStart === null ? MARK : SECTION_ON} flex-[1.4]"
 								onclick={section}
 							>
-								<Icon d={icons.bracket} />{pendingStart === null
+								<UiIcon name="scissors" size={20} />{pendingStart === null
 									? 'Start section'
 									: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
 							</button>
@@ -1110,7 +1136,14 @@
 						<div class="flex items-center gap-2">
 							<span class="flex w-40 items-baseline gap-2">{@render clock()}</span>
 							<span class="flex-1"></span>
-							<Transport {paused} overlay ontoggle={toggle} onstep={nudge} ontenth={tenth} />
+							<Transport
+								{paused}
+								size="float"
+								glass
+								ontoggle={toggle}
+								onstep={nudge}
+								ontenth={tenth}
+							/>
 							<span class="flex-1"></span>
 							<span class="flex w-40 justify-end gap-2">{@render markButtons(true)}</span>
 						</div>
@@ -1196,7 +1229,7 @@
 			</div>
 		{/if}
 
-		{#if toast && toastPlace(mode, chromeLevel) === 'bottom'}
+		{#if toast && toastPlace(mode, chromeLevel, toast.tone) === 'bottom'}
 			<div class="absolute inset-x-4 z-30 mx-auto max-w-md" style:bottom="20px">
 				<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
 			</div>

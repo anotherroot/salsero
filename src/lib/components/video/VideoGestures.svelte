@@ -1,5 +1,6 @@
 <!-- src/lib/components/video/VideoGestures.svelte -->
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import {
 		clampView,
@@ -202,12 +203,28 @@
 	{@render children?.()}
 	{#if mark}
 		<span
-			class="pointer-events-none absolute inset-y-[18%] grid w-[34%] place-items-center bg-white/12 text-[15px] font-semibold text-white {mark.side ===
+			class="pointer-events-none absolute inset-y-[12%] w-[200px] rounded-[50%] bg-white/14 {mark.side ===
 			'left'
-				? 'left-0 rounded-r-[50%]'
-				: 'right-0 rounded-l-[50%]'}"
+				? '-left-[60px]'
+				: '-right-[60px]'}"
+			aria-hidden="true"
+		></span>
+		<span
+			role="status"
+			class="pointer-events-none absolute top-1/2 flex -translate-y-1/2 flex-col items-center gap-1 text-white {mark.side ===
+			'left'
+				? 'left-[74px]'
+				: 'right-[74px]'}"
 		>
-			{mark.side === 'left' ? `« ${mark.total} s` : `${mark.total} s »`}
+			<span class="flex">
+				<Icon name={mark.side === 'left' ? 'chevron-left' : 'chevron-right'} size={22} />
+				<span class="-ml-3.5 flex"
+					><Icon name={mark.side === 'left' ? 'chevron-left' : 'chevron-right'} size={22} /></span
+				>
+			</span>
+			<span class="font-display text-[20px] font-extrabold"
+				>{mark.side === 'left' ? `« ${mark.total} s` : `${mark.total} s »`}</span
+			>
 		</span>
 	{/if}
 </button>

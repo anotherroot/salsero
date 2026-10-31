@@ -151,9 +151,17 @@ export const TOAST_ICON: Record<ToastTone, IconName | null> = {
 	note: null
 };
 
-/** Over the video only where the editor's panel would cover a bottom toast: the portrait editor. */
-export function toastPlace(mode: PlayerMode, level: LevelKind): 'video' | 'bottom' {
-	return mode === 'portrait' && level === 'edit' ? 'video' : 'bottom';
+/**
+ * Over the video where a bottom toast would be covered (the portrait editor's panel) and
+ * where a refusal belongs to the picture (a portrait 'failed' toast, at any level).
+ */
+export function toastPlace(
+	mode: PlayerMode,
+	level: LevelKind,
+	tone?: ToastTone
+): 'video' | 'bottom' {
+	if (mode !== 'portrait') return 'bottom';
+	return level === 'edit' || tone === 'failed' ? 'video' : 'bottom';
 }
 
 export type MediaEvent =

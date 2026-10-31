@@ -122,7 +122,7 @@
 		<div class="flex h-13 shrink-0 items-center gap-1 border-b border-(--pl-raised) pr-2 pl-4">
 			<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
 			<span class="flex-1"></span>
-			<Transport {paused} size="compact" seconds={false} {ontoggle} onstep={() => {}} {ontenth} />
+			<Transport {paused} size="compact" {ontoggle} onstep={() => {}} {ontenth} />
 		</div>
 	{/if}
 

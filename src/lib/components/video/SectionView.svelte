@@ -51,7 +51,7 @@
 </script>
 
 {#snippet track(overlay: boolean, middle: boolean)}
-	<Timeline fromMs={spot.startMs} toMs={endMs} {currentMs} accentFill {overlay} {onseek} />
+	<Timeline fromMs={spot.startMs} toMs={endMs} {currentMs} accentFill glass={overlay} {onseek} />
 	<div
 		class="flex justify-between text-[12px] tabular-nums {overlay
 			? 'text-white/85'
@@ -83,7 +83,7 @@
 {:else if variant === 'overlay'}
 	<div class="flex flex-col gap-1 px-6 pb-3">
 		{@render track(true, true)}
-		<div class="mt-1"><Transport {paused} overlay {ontoggle} {onstep} {ontenth} /></div>
+		<div class="mt-1"><Transport {paused} size="float" glass {ontoggle} {onstep} {ontenth} /></div>
 	</div>
 {:else}
 	<div class="flex flex-col gap-1 px-4 pt-3">
