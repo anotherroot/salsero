@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
-	import { sheetStack } from '$lib/sheets/history.svelte';
+	import { refreshIfSent, sheetStack } from '$lib/sheets/history.svelte';
 	import Icon from './Icon.svelte';
 	import { iconButton } from './styles';
 
@@ -56,12 +56,16 @@
 			}
 			key = sheetStack.open({
 				tryLeave: (leave) => leaveOrAsk(d, leave, 'Close'),
-				close: () => onclose()
+				close: () => {
+					onclose();
+					refreshIfSent();
+				}
 			});
 		}
 		if (!open && dialog.open) {
 			dialog.close();
 			release();
+			refreshIfSent();
 		}
 	});
 
@@ -94,6 +98,7 @@
 		// Closed by the browser itself (a close request it would not let us cancel).
 		release();
 		onclose();
+		refreshIfSent();
 	}}
 	oncancel={(e) => {
 		// Escape, on the topmost dialog only. Always ours: it goes through history.

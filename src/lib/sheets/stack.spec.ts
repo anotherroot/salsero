@@ -36,6 +36,22 @@ function sheet(name: string, log: string[], unsaved = false) {
 }
 
 describe('SheetStack', () => {
+	it('counts the sheets that are open (openCount)', () => {
+		const { s, tick } = setup();
+		const log: string[] = [];
+		expect(s.openCount).toBe(0);
+		const a = s.open(sheet('a', log).entry);
+		const b = s.open(sheet('b', log).entry);
+		expect(s.openCount).toBe(2);
+		s.requestClose(b);
+		expect(s.openCount).toBe(1);
+		tick();
+		s.sync(1);
+		expect(s.openCount).toBe(1);
+		s.closedByOwner(a);
+		expect(s.openCount).toBe(0);
+	});
+
 	it('pushes one entry per sheet it opens', () => {
 		const { s, calls } = setup();
 		const log: string[] = [];

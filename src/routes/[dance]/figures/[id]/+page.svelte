@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
@@ -578,7 +579,7 @@
 									title="{figure.name} · {variation.name}"
 									caption={{ title: day, meta: byteSize(rec.sizeBytes) }}
 									onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
-									onclosed={() => void invalidateAll()}
+									onclosed={() => void refreshWhenSettled()}
 									linking
 									action={editing ? recTrash : undefined}
 								/>

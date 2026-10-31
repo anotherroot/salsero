@@ -76,6 +76,11 @@ export class SheetStack {
 
 	constructor(private readonly port: SheetPort) {}
 
+	/** How many sheets are open: those not yet decided to close or closed. */
+	get openCount(): number {
+		return this.#slots.filter((s) => s.status === 'open').length;
+	}
+
 	/** The depth history should end at: up to the topmost sheet still open. */
 	#wanted(): number {
 		let n = this.#slots.length;

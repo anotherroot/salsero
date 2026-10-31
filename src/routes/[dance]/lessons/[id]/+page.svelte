@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
@@ -575,7 +576,7 @@
 										title={lesson.title}
 										caption={lessonVideoCaption(i, video)}
 										onproblem={(p) => (broken = { ...broken, [video.id]: p })}
-										onclosed={() => void invalidateAll()}
+										onclosed={() => void refreshWhenSettled()}
 										linking
 										action={videoTrash}
 									/>

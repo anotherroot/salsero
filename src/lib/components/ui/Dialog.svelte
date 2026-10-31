@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { sheetStack } from '$lib/sheets/history.svelte';
+	import { refreshIfSent, sheetStack } from '$lib/sheets/history.svelte';
 	import Icon from './Icon.svelte';
 	import type { IconName } from '$lib/icons/icons';
 
@@ -32,12 +32,19 @@
 		if (!dialog) return;
 		if (open && !dialog.open) {
 			dialog.showModal();
-			key = sheetStack.open({ tryLeave: (leave) => leave(), close: () => onclose() });
+			key = sheetStack.open({
+				tryLeave: (leave) => leave(),
+				close: () => {
+					onclose();
+					refreshIfSent();
+				}
+			});
 		}
 		if (!open && dialog.open) {
 			closedByOwner = true;
 			dialog.close();
 			release();
+			refreshIfSent();
 		}
 	});
 
@@ -68,6 +75,7 @@
 		}
 		release();
 		onclose();
+		refreshIfSent();
 	}}
 	oncancel={(e) => {
 		e.preventDefault();
