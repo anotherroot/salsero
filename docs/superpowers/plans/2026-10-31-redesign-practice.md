@@ -422,7 +422,7 @@ it('goes back where Practice was opened from', () => {
   no slim band: it does not scroll, only its sheet does.
 - **A `StageCount` beside `LiveCount`**, not a variant of it: the band's disc, cream
   tones and dim state share nothing with the card count but the rAF loop. "–" before
-  the first beat is cream at 60 % (LiveCount's muted would vanish on the band).
+  the first beat is cream at 75 % (LiveCount's muted would vanish on the band).
 - **Voice: "Yours" means a recorded set fits this run's tempo** (`chooseTakes`, the
   player's own rule, ±12 %), for the chosen pattern; a song's tempo is its grid's × speed,
   Built-in while the grid loads. "Yours" for any recording at all would promise a voice

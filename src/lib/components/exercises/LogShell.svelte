@@ -43,6 +43,8 @@
 		/** A set was saved. `durationS` is what it logged, for the session's tally. */
 		onlogged?: (durationS: number | null) => void;
 		onclose: () => void;
+		/** Where this popup was opened, so a Practice opened from it can go back there. */
+		from?: 'today' | 'exercise';
 	}
 </script>
 

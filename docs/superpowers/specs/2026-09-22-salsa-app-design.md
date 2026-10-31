@@ -442,6 +442,20 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   straight here; its sheet of songs is gone. The song's progress bar
   (`player/SongProgress.svelte`) shows before Play, so an intro can be
   skipped.
+- **Practice in the new look** (since 2026-10-31; the look is in the redesign
+  spec). The `<audio>` has no browser controls: the app's seek bar
+  (`SongProgress`) seeks before Play and while running, once on release. Back
+  goes to where Practice was opened from (`practiceBack` in
+  `src/lib/player/view.ts`: a routine's page, `?song=` the song, an exercise
+  alone Today, else Music; the routine log popup's link adds `&from=today`, or `&from=exercise` on the exercise page).
+  Back mid-run stops the run and offers Save this run first; Don't save then
+  leaves. The Voice row says Built-in or Yours (Yours: a recorded set fits the
+  run's tempo) and opens My count through `myCountHref` (`from` and the pattern; My
+  count returns here once it reads them, plan 12; as `&from=…` after the other
+  parameters). The running screen is the stage on the band (count disc, dots,
+  the figure called, the time), a sheet under it and Stop and Pause pinned; it
+  does not scroll the page. A landscape phone puts the stage left and the sheet
+  right; a desktop keeps the 560 px column.
 - **Song samples and the song popup** (since 2026-10-30) have their own
   spec, [`2026-10-30-song-samples-design.md`](2026-10-30-song-samples-design.md).
   `SourcePicker`'s song `<select>` is now `player/SongPicker.svelte`: a field

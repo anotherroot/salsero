@@ -411,6 +411,7 @@
 		{timezone}
 		message={failure('log')}
 		initial={data.practice}
+		from="exercise"
 		onclose={() => (logging = false)}
 	/>
 {/if}
