@@ -27,7 +27,6 @@
 		type Candidate
 	} from '$lib/routines/fit';
 	import { extractBlock, inOrder } from '$lib/routines/selection';
-	import type { RowEdges } from '$lib/routines/routines';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
 	import {
@@ -35,7 +34,9 @@
 		factBadges,
 		factsOf,
 		failurePlace,
-		selectionTitle
+		seamLabel,
+		selectionTitle,
+		slotMeta
 	} from '$lib/routines/page';
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
@@ -116,13 +117,6 @@
 		return figuresById.has(id) ? name : `${name} (archived)`;
 	}
 
-	function metaOf(e: RowEdges): string {
-		if (e.starts.length === 0) return '';
-		const timing = `${e.startCounts.join('/')}→${e.next ?? '?'}`;
-		const hands = `${e.starts.map(posName).join(' / ')} → ${e.end === null ? '?' : posName(e.end)}`;
-		return `${timing} · ${hands}`;
-	}
-
 	/** What does not connect below server row `i`, worded; null when it connects. */
 	function seamOf(i: number): RowView['seam'] {
 		const p = data.positionSeams.find((s) => s.after === i);
@@ -131,15 +125,11 @@
 		if (next === undefined) return null;
 		const a = data.edges[i];
 		const b = data.edges[next];
-		const parts: string[] = [];
-		if (p && a.end !== null) {
-			parts.push(
-				`ends in ${posName(a.end)}, next starts from ${b.starts.map(posName).join(' or ')}`
-			);
-		}
-		if (t) parts.push(`ready for ${a.next}, next starts on ${b.startCounts.join(' or ')}`);
 		return {
-			label: parts.join(' · '),
+			label: seamLabel(
+				p && a.end !== null ? { end: posName(a.end), next: b.starts.map(posName) } : null,
+				t ? { ready: a.next, next: b.startCounts } : null
+			),
 			next,
 			bridge: canBridge(data.candidates, anchorBetween(a, b))
 		};
@@ -166,7 +156,12 @@
 					: main === undefined
 						? 'Empty — nothing to call here'
 						: optionName(main),
-				meta: metaOf(edges),
+				meta: slotMeta(
+					edges,
+					posName,
+					isRoutine ? (data.childSlots[slot.childId as number] ?? 0) : null
+				),
+				empty: !isRoutine && main === undefined,
 				note: slot.note,
 				href: isRoutine
 					? routineHref(slot.childId as number)
@@ -362,9 +357,6 @@
 		selected = [];
 	}
 
-	/** The slim band's height: the top of the viewport a drag cannot see past. */
-	const SLIM_BAND = 64;
-
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
 
 	/**
@@ -554,7 +546,7 @@
 				</EmptyState>
 			{:else}
 				<section>
-					<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Slots</h2>
+					<h2 class="{SECTION_LABEL} mb-2 pt-1.5">Slots · {rows.length}</h2>
 					<SlotList
 						{rows}
 						{expanded}
@@ -562,7 +554,6 @@
 						{selected}
 						{swiped}
 						{flash}
-						insetTop={SLIM_BAND}
 						{press}
 						onswipe={(key, side) => (swiped = side === null ? null : { key, side })}
 						ontap={tap}

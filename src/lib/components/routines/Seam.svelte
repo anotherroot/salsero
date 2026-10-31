@@ -1,14 +1,18 @@
 <script lang="ts">
 	/**
 	 * Between two rows that do not connect — in the hands or on the count — a
-	 * red line with the two ways to build: ↓+ down from the slot above, ↑+ up
-	 * into the slot below. A seam that connects draws nothing at all, so an
-	 * unfinished routine shows exactly where the work is.
+	 * warn box saying what is missing, with the two ways to build: After {above}
+	 * builds down from the slot above, Before {below} up into the slot below. A
+	 * seam that connects draws nothing at all, so an unfinished routine shows
+	 * exactly where the work is.
 	 *
-	 * A third +, near the right end of the line, closes the gap in one step:
-	 * figures that fit BOTH slots. Only drawn when there is such a figure —
-	 * a button that opens an empty list is a promise the page cannot keep.
+	 * Bridge closes the gap in one step: figures that fit BOTH slots. Only drawn
+	 * when there is such a figure — a button that opens an empty list is a
+	 * promise the page cannot keep.
 	 */
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import type { IconName } from '$lib/icons/icons';
+
 	interface Props {
 		label: string;
 		/** 1-based numbers of the slots either side, for the buttons' names. */
@@ -21,29 +25,49 @@
 	}
 
 	let { label, above, below, onafter, onbefore, onbetween }: Props = $props();
-
-	const button =
-		'relative h-8 rounded-full border-[1.5px] border-danger bg-plane px-3 text-[12px] font-semibold text-danger';
 </script>
 
-<div class="pt-1.5">
-	<div class="relative flex items-center justify-center gap-3">
-		<span class="absolute inset-x-2 top-1/2 border-t-2 border-danger/50" aria-hidden="true"></span>
-		<button type="button" class={button} onclick={onafter} aria-label="Add after slot {above}"
-			>↓+</button
+{#snippet pill(
+	text: string,
+	icon: IconName,
+	name: string,
+	onclick: () => void,
+	primary: boolean = false
+)}
+	<!-- 44 px to tap, a 36 px pill to see. -->
+	<button
+		type="button"
+		class="flex h-11 flex-none cursor-pointer items-center"
+		aria-label={name}
+		{onclick}
+	>
+		<span
+			class="flex h-9 items-center gap-1.5 rounded-[18px] pr-3.5 pl-2.5 text-[14px] font-extrabold whitespace-nowrap {primary
+				? 'bg-accent text-on-accent'
+				: 'bg-surface text-accent-text'}"><Icon name={icon} size={18} />{text}</span
 		>
-		<button type="button" class={button} onclick={onbefore} aria-label="Add before slot {below}"
-			>↑+</button
-		>
+	</button>
+{/snippet}
+
+<div
+	role="group"
+	aria-label="Slots {above} and {below} do not connect"
+	class="flex flex-col gap-0.5 rounded-[14px] border-l-[3px] border-warn bg-warn-soft pt-2.5 pr-2.5 pb-1 pl-3"
+>
+	<p class="flex items-start gap-[7px] text-[13px] leading-[1.35] font-bold text-warn">
+		<span class="mt-px flex-none"><Icon name="warning" size={16} /></span>{label}
+	</p>
+	<div class="flex flex-wrap gap-1.5">
+		{@render pill(`After ${above}`, 'arrow-down', `Add after slot ${above}`, onafter)}
+		{@render pill(`Before ${below}`, 'arrow-up', `Add before slot ${below}`, onbefore)}
 		{#if onbetween}
-			<!-- Right, but short of the end: the line still runs past it. -->
-			<button
-				type="button"
-				class="absolute top-1/2 right-6 grid size-8 -translate-y-1/2 place-items-center rounded-full border-[1.5px] border-danger bg-plane text-[16px] font-semibold text-danger"
-				onclick={onbetween}
-				aria-label="Add between slot {above} and slot {below}">+</button
-			>
+			{@render pill(
+				'Bridge',
+				'plus',
+				`Add between slot ${above} and slot ${below}`,
+				onbetween,
+				true
+			)}
 		{/if}
 	</div>
-	<p class="mt-1 text-center text-[11px] text-danger">{label}</p>
 </div>

@@ -118,6 +118,13 @@ export const load: PageServerLoad = ({ params }) => {
 				.where(eq(exercises.routineId, routine.id))
 				.get()?.id ?? null,
 		slots,
+		// How many slots each embedded routine has, by its id — the card's
+		// "Routine · 3 slots" — counted from the shapes already built.
+		childSlots: Object.fromEntries(
+			slots.flatMap((s) =>
+				s.childId === null ? [] : [[s.childId, shapes.get(s.childId)?.slots.length ?? 0]]
+			)
+		) as Record<number, number>,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(figureLabels(db, dance)),
