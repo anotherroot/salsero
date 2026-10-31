@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
+	import { tick } from 'svelte';
+	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
@@ -48,6 +52,12 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
+	/** The Save in the pinned bar is posting. */
+	let saving = $state(false);
+	/** The Archive question is open. */
+	let archiving = $state(false);
+	/** Archive is posting. */
+	let archivingNow = $state(false);
 	/** The slot tapped open, by id. One at a time. */
 	let expanded = $state<number | null>(null);
 	let selecting = $state(false);
@@ -104,6 +114,41 @@
 	const bannerMessage = $derived(
 		place?.where === 'banner' && dismissed !== form ? place.message : null
 	);
+
+	/** The Edit form's refusals, each under its own field. */
+	const nameFieldError = $derived(
+		place?.where === 'edit' && place.field === 'name' ? place.message : null
+	);
+	const notesFieldError = $derived(
+		place?.where === 'edit' && place.field === 'notes' ? place.message : null
+	);
+	/** What was typed into the Edit form before a refused Save, so it is not lost. */
+	function typed(key: 'name' | 'notes'): string | undefined {
+		return place?.where === 'edit' && form && key in form && typeof form[key] === 'string'
+			? form[key]
+			: undefined;
+	}
+
+	/**
+	 * Focus a band button by its label. `BandButton` has no focus key on this
+	 * branch, so find it by `aria-label` in whichever band is not inert.
+	 */
+	async function focusBand(label: string) {
+		await tick();
+		const el = [...document.querySelectorAll<HTMLElement>(`[aria-label="${label}"]`)].find(
+			(e) => !e.closest('[inert]')
+		);
+		el?.focus();
+	}
+	function startEditing() {
+		editing = true;
+		window.scrollTo({ top: 0 });
+		focusBand('Stop editing');
+	}
+	function stopEditing() {
+		editing = false;
+		focusBand('Edit routine');
+	}
 
 	/** The Make routine sheet's refusal about its Name field. */
 	const nameError = $derived(
@@ -416,7 +461,7 @@
 		<BandButton
 			icon="close"
 			label="Stop editing"
-			onclick={() => leaveOrAsk(editForm ?? null, () => (editing = false), 'Stop editing')}
+			onclick={() => leaveOrAsk(editForm ?? null, stopEditing, 'Stop editing')}
 		/>
 	{:else}
 		<BandButton
@@ -428,14 +473,7 @@
 {/snippet}
 
 {#snippet actions()}
-	<BandButton
-		icon="pencil"
-		label="Edit routine"
-		onclick={() => {
-			editing = true;
-			window.scrollTo({ top: 0 });
-		}}
-	/>
+	<BandButton icon="pencil" label="Edit routine" onclick={startEditing} />
 	{#if data.slots.length > 0}
 		<BandButton icon="more" label="More actions" onclick={() => (menuOpen = true)} />
 	{/if}
@@ -453,9 +491,13 @@
 	right={selecting || editing ? undefined : actions}
 	hero={selecting || editing || !danceable ? undefined : practise}
 >
-	<div class="flex flex-col gap-2 {selecting ? 'pb-36' : 'pb-4'}">
+	<div
+		class={editing
+			? 'flex flex-col gap-3.5 pt-1 pb-28'
+			: `flex flex-col gap-2 ${selecting ? 'pb-36' : 'pb-4'}`}
+	>
 		{#if editing}
-			{#if place && (place.where === 'edit' || place.where === 'banner')}
+			{#if place?.where === 'banner'}
 				<Banner kind="error" title={place.message} />
 			{/if}
 			<form
@@ -463,53 +505,94 @@
 				bind:this={editForm}
 				method="POST"
 				action="?/rename"
-				class="space-y-3"
+				class="flex flex-col gap-3.5"
 				use:guarded={{
 					label: 'Routine edits',
-					submit:
-						() =>
-						async ({ update, result }) => {
-							await update({ reset: false });
-							if (result.type === 'success') editing = false;
-						}
-				}}
-			>
-				<label class="block">
-					<span class="mb-1 block text-[13px] text-muted">Name</span>
-					<input name="name" required maxlength="200" value={routine.name} class={FIELD} />
-				</label>
-				<label class="block">
-					<span class="mb-1 block text-[13px] text-muted">Notes</span>
-					<textarea name="notes" rows="5" maxlength="2000" class={TEXTAREA}
-						>{routine.notes ?? ''}</textarea
-					>
-				</label>
-				<button
-					type="submit"
-					class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-					>Save</button
-				>
-			</form>
-			<!-- Not behind `use:enhance`: the action redirects to the copy, and a full
-			     navigation is what makes it obvious you are now editing the copy. -->
-			<form method="POST" action="?/duplicate">
-				<button type="submit" class="h-11 w-full rounded-xl border border-line text-[14px]"
-					>Duplicate routine</button
-				>
-			</form>
-			<form
-				method="POST"
-				action="?/archive"
-				onsubmit={(e) => {
-					if (!confirm(`Archive “${routine.name}”? Its slots and practice history are kept.`)) {
-						e.preventDefault();
+					submit: () => {
+						saving = true;
+						return async ({ update, result }) => {
+							try {
+								await update({ reset: false });
+							} finally {
+								saving = false;
+							}
+							if (result.type === 'success') stopEditing();
+						};
 					}
 				}}
 			>
-				<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
-					>Archive routine</button
-				>
+				<div>
+					<label class={LABEL} for="edit-name">Name</label>
+					<input
+						id="edit-name"
+						name="name"
+						required
+						maxlength="200"
+						value={typed('name') ?? routine.name}
+						class={FIELD}
+						aria-invalid={nameFieldError ? 'true' : undefined}
+						aria-describedby={nameFieldError ? 'edit-name-error' : 'edit-name-help'}
+					/>
+					{#if nameFieldError}
+						<FieldError id="edit-name-error" message={nameFieldError} />
+					{:else}
+						<p id="edit-name-help" class="mt-1.5 pl-1 text-[13px] text-muted">
+							Up to 200 characters
+						</p>
+					{/if}
+				</div>
+				<div>
+					<label class={LABEL} for="edit-notes"
+						>Notes <span class="font-medium text-muted">(optional)</span></label
+					>
+					<textarea
+						id="edit-notes"
+						name="notes"
+						rows="4"
+						maxlength="2000"
+						class={TEXTAREA}
+						aria-invalid={notesFieldError ? 'true' : undefined}
+						aria-describedby={notesFieldError ? 'edit-notes-error' : undefined}
+						>{typed('notes') ?? routine.notes ?? ''}</textarea
+					>
+					{#if notesFieldError}<FieldError id="edit-notes-error" message={notesFieldError} />{/if}
+				</div>
 			</form>
+
+			<h2 class="{SECTION_LABEL} pt-1">More</h2>
+			<ul class={GROUP}>
+				<li>
+					<!-- Not behind `use:enhance`: the action redirects to the copy, and a full
+					     navigation is what makes it obvious you are now editing the copy. -->
+					<form method="POST" action="?/duplicate">
+						<button
+							type="submit"
+							class="flex min-h-16 w-full items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+						>
+							<span class="flex-none text-accent-text"><Icon name="copy" size={22} /></span>
+							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+								<span class="text-[16px] leading-tight font-bold text-ink">Duplicate routine</span>
+								<span class="text-[13px] text-muted">Makes a copy and opens it</span>
+							</span>
+							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+						</button>
+					</form>
+				</li>
+				<li>
+					<button
+						type="button"
+						aria-haspopup="dialog"
+						class="flex min-h-16 w-full items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+						onclick={() => (archiving = true)}
+					>
+						<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
+						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+							<span class="text-[16px] leading-tight font-bold text-danger">Archive routine</span>
+							<span class="text-[13px] text-muted">Its slots and practice history are kept</span>
+						</span>
+					</button>
+				</li>
+			</ul>
 		{:else}
 			<!-- Selecting shows only the slots. -->
 			{#if !selecting}
@@ -640,6 +723,55 @@
 	}}
 	onclose={() => (menuOpen = false)}
 />
+
+{#if editing}
+	<BottomBar>
+		<button
+			type="submit"
+			form="edit-form"
+			class={button('primary', 'md', true)}
+			aria-busy={saving}
+			disabled={saving}
+		>
+			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+		</button>
+	</BottomBar>
+{/if}
+
+<Dialog
+	open={archiving}
+	icon="trash"
+	tone="danger"
+	title="Archive “{routine.name}”?"
+	body="It leaves the Routines list. Its slots and practice history are kept."
+	onclose={() => (archiving = false)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
+			>Cancel</button
+		>
+		<form
+			method="POST"
+			action="?/archive"
+			use:enhance={() => {
+				archivingNow = true;
+				return async ({ update }) => {
+					await update();
+					archivingNow = false;
+				};
+			}}
+		>
+			<button
+				type="submit"
+				class={button('danger', 'sm')}
+				aria-busy={archivingNow}
+				disabled={archivingNow}
+			>
+				{#if archivingNow}<Spinner /><span class="sr-only">Archiving…</span>{:else}Archive{/if}
+			</button>
+		</form>
+	{/snippet}
+</Dialog>
 
 {#if selecting}
 	<SelectionBar

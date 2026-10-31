@@ -192,8 +192,23 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
-		if (!name || notes === undefined) {
-			return fail(400, { message: 'Give the routine a name (up to 200 characters).' });
+		// What was typed comes back, so a refused Save does not empty the form.
+		const typed = { name: String(form.get('name') ?? ''), notes: String(form.get('notes') ?? '') };
+		if (!name) {
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'Give the routine a name (up to 200 characters).',
+				...typed
+			});
+		}
+		if (notes === undefined) {
+			return fail(400, {
+				action: 'rename',
+				field: 'notes',
+				message: 'Notes are up to 2000 characters.',
+				...typed
+			});
 		}
 		updateRoutine(db, routine.id, { name, notes });
 		return { ok: true };

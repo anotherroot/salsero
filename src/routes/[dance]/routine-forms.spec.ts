@@ -14,7 +14,13 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { createFigure } from '$lib/server/figures';
-import { addChildSlot, addFigureSlot, createRoutine, routineSlots } from '$lib/server/routines';
+import {
+	addChildSlot,
+	addFigureSlot,
+	createRoutine,
+	getRoutine,
+	routineSlots
+} from '$lib/server/routines';
 import * as routinePage from './routines/[id]/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
@@ -81,5 +87,47 @@ describe('Make routine', () => {
 		)) as { status: number; data: Record<string, unknown> };
 		expect(result).toMatchObject({ status: 400, data: { action: 'extract' } });
 		expect(result.data).not.toHaveProperty('field');
+	});
+});
+
+describe('Edit routine', () => {
+	it('puts a nameless rename under Name and keeps the notes typed', async () => {
+		expect(
+			await call(
+				routinePage.actions.rename,
+				post('salsa', { name: ' ', notes: 'Fridays' }, String(r))
+			)
+		).toMatchObject({
+			status: 400,
+			data: {
+				action: 'rename',
+				field: 'name',
+				message: 'Give the routine a name (up to 200 characters).',
+				notes: 'Fridays'
+			}
+		});
+		expect(getRoutine(db, r)?.name).toBe('Friday');
+	});
+
+	it('puts overlong notes under Notes', async () => {
+		expect(
+			await call(
+				routinePage.actions.rename,
+				post('salsa', { name: 'Friday', notes: 'x'.repeat(2001) }, String(r))
+			)
+		).toMatchObject({
+			status: 400,
+			data: { action: 'rename', field: 'notes', message: 'Notes are up to 2000 characters.' }
+		});
+	});
+
+	it('saves a good rename', async () => {
+		expect(
+			await call(
+				routinePage.actions.rename,
+				post('salsa', { name: 'Saturday', notes: 'Fridays' }, String(r))
+			)
+		).toEqual({ ok: true });
+		expect(getRoutine(db, r)?.name).toBe('Saturday');
 	});
 });
