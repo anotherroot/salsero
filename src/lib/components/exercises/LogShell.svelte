@@ -456,9 +456,9 @@
 					data-focus="sets-add"
 					type="submit"
 					form={formId}
-					class="inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done [&>svg]:[stroke-width:2.5]"
+					class="inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done"
 				>
-					<Icon name="check" size={22} />{view.main.label}
+					<Icon name="check" size={22} stroke={2.5} />{view.main.label}
 				</button>
 			{:else}
 				<button

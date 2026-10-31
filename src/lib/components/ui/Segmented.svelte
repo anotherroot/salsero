@@ -1,4 +1,4 @@
-<script lang="ts">
+<script lang="ts" generics="T extends string">
 	let {
 		items,
 		value = $bindable(),
@@ -7,14 +7,14 @@
 		label,
 		onchange
 	}: {
-		items: readonly { value: string; label: string }[];
-		value: string;
+		items: readonly { value: T; label: string }[];
+		value: T;
 		onBand?: boolean;
 		name: string;
 		/** Names the group for a screen reader. */
 		label: string;
 		/** Called with the picked value, after the bound value has changed. */
-		onchange?: (value: string) => void;
+		onchange?: (value: T) => void;
 	} = $props();
 
 	const track = $derived(onBand ? 'bg-band-track' : 'bg-chip');

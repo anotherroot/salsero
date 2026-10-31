@@ -114,8 +114,9 @@
 		<div class="grabber" aria-hidden="true"></div>
 		<header
 			bind:this={header}
-			class="flex min-h-11 gap-1 px-4 pb-1 {subtitle ? 'items-start' : 'items-center'}"
-			class:pl-2={back}
+			class="flex min-h-11 gap-1 pr-4 pb-1 {back ? 'pl-2' : 'pl-4'} {subtitle
+				? 'items-start'
+				: 'items-center'}"
 		>
 			{#if back}
 				<button
@@ -152,8 +153,8 @@
 		</header>
 		<div class="body px-4 pt-3 pb-2">
 			{#if open}{@render children()}{/if}
+			{#if tall}<div class="fade" aria-hidden="true"></div>{/if}
 		</div>
-		{#if tall}<div class="fade" aria-hidden="true"></div>{/if}
 		{#if footer}
 			<div
 				class="flex flex-col gap-2 border-t border-hairline px-4 pt-3"
@@ -195,10 +196,11 @@
 	}
 
 	.fade {
-		position: relative;
+		/* Last in the scrolling body, so it covers the content but never the scrollbar. */
+		position: sticky;
+		bottom: -8px; /* the body's own pb-2 */
 		height: 28px;
-		flex: none;
-		margin-top: -28px;
+		margin: -28px -16px 0;
 		pointer-events: none;
 		background: linear-gradient(to bottom, transparent, var(--color-sheet));
 	}

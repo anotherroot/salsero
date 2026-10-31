@@ -166,6 +166,10 @@
 	};
 </script>
 
+<svelte:head>
+	<link rel="icon" href="/icon-{navDance.slug}.svg" type="image/svg+xml" />
+</svelte:head>
+
 {#if nav}
 	<!--
 		`data-dance` carries the accent (see layout.css) down to everything a

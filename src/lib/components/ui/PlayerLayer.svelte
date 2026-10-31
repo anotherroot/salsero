@@ -154,7 +154,7 @@
 				class="mx-auto mb-0.5 h-[5px] w-10 flex-none rounded-[3px] bg-field-line"
 				aria-hidden="true"
 			></div>
-			<header class="flex min-h-11 items-center gap-1 px-4 pb-1" class:pl-2={back}>
+			<header class="flex min-h-11 items-center gap-1 pr-4 pb-1 {back ? 'pl-2' : 'pl-4'}">
 				{#if back}
 					<button type="button" class={iconButton('bare')} aria-label="Back" onclick={onclose}>
 						<Icon name="back" />
@@ -177,13 +177,13 @@
 			</header>
 			<div class="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-2">
 				{#if children}{@render children()}{/if}
+				{#if tall}
+					<div
+						class="pointer-events-none sticky -bottom-2 -mx-4 -mt-7 h-7 bg-linear-to-b from-transparent to-sheet"
+						aria-hidden="true"
+					></div>
+				{/if}
 			</div>
-			{#if tall}
-				<div
-					class="pointer-events-none relative -mt-7 h-7 flex-none bg-linear-to-b from-transparent to-sheet"
-					aria-hidden="true"
-				></div>
-			{/if}
 			{#if footer}
 				<div class="flex flex-col gap-2 border-t border-hairline px-4 pt-3">
 					{@render footer()}
@@ -201,7 +201,7 @@
 			tabindex="-1"
 			class="panel dialog-panel w-full max-w-[330px] rounded-[22px] bg-raised text-ink"
 		>
-			<div class="flex flex-col gap-3 px-6 pt-6 pb-4">
+			<div class="flex flex-col gap-3 pt-6 pr-5 pb-4 pl-6">
 				{#if icon}
 					<span
 						class="grid size-12 place-items-center rounded-full {tone === 'danger'
@@ -219,7 +219,7 @@
 				{/if}
 				{#if children}{@render children()}{/if}
 				{#if footer}
-					<div class="mt-2 -mr-2 flex flex-wrap justify-end gap-2">{@render footer()}</div>
+					<div class="mt-2 flex flex-wrap justify-end gap-2">{@render footer()}</div>
 				{/if}
 			</div>
 		</div>

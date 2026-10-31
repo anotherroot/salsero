@@ -51,7 +51,8 @@
 				onclick={() => pick(f.days)}
 			>
 				<span class="flex-1">{f.label}</span>
-				{#if chosen}<span class="text-accent"><Icon name="check" size={22} /></span>{/if}
+				{#if chosen}<span class="text-accent"><Icon name="check" size={22} stroke={2.6} /></span
+					>{/if}
 			</button>
 		{/each}
 	</div>

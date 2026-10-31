@@ -86,7 +86,7 @@
 	}}
 >
 	{#if open}
-		<div class="flex flex-col gap-3 px-6 pt-6 pb-4">
+		<div class="flex flex-col gap-3 pt-6 pr-5 pb-4 pl-6">
 			{#if icon}
 				<span
 					class="grid size-12 place-items-center rounded-full {tone === 'danger'
@@ -102,7 +102,7 @@
 			{#if body}
 				<p id="{uid}-body" class="text-[15px] leading-[1.45] text-ink-2">{body}</p>
 			{/if}
-			<div class="mt-2 -mr-2 flex flex-wrap justify-end gap-2">{@render actions()}</div>
+			<div class="mt-2 flex flex-wrap justify-end gap-2">{@render actions()}</div>
 		</div>
 	{/if}
 	{#if toast}{@render toast()}{/if}

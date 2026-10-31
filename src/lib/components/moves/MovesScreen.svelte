@@ -21,9 +21,9 @@
 	}: { segment: MovesSegment; dance: DanceSlug; onnew: () => void; children: Snippet } = $props();
 
 	// Follows the route; a tap moves it at once, before the next page lands.
-	let value = $derived<string>(segment);
+	let value = $derived<MovesSegment>(segment);
 
-	function open(to: string) {
+	function open(to: MovesSegment) {
 		const href =
 			to === 'figures'
 				? resolve('/[dance]/figures', { dance })

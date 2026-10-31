@@ -5,8 +5,15 @@
 		name,
 		size = 24,
 		filled = false,
+		stroke = 2,
 		label
-	}: { name: IconName; size?: number; filled?: boolean; label?: string } = $props();
+	}: {
+		name: IconName;
+		size?: number;
+		filled?: boolean;
+		stroke?: number;
+		label?: string;
+	} = $props();
 
 	const inner = $derived((filled ? FILLED[name] : undefined) ?? ICONS[name]);
 	const isFilled = $derived(filled && FILLED[name] !== undefined);
@@ -19,7 +26,7 @@
 	viewBox="0 0 24 24"
 	fill={isFilled ? undefined : 'none'}
 	stroke={isFilled ? undefined : 'currentColor'}
-	stroke-width="2"
+	stroke-width={isFilled ? undefined : stroke}
 	stroke-linecap="round"
 	stroke-linejoin="round"
 	style="flex: none"

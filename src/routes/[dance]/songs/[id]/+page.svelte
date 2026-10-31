@@ -233,7 +233,7 @@
 					type="submit"
 					class="flex h-16 w-full flex-none items-center justify-center gap-2.5 rounded-full bg-done-soft font-display text-[22px] font-extrabold text-done"
 				>
-					<Icon name="check" size={24} />Got it
+					<Icon name="check" size={24} stroke={2.6} />Got it
 				</button>
 			{:else}
 				<button type="submit" class={button('primary', 'lg', true)}>Tap on the 1</button>

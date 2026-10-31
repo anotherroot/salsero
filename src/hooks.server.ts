@@ -21,13 +21,12 @@ const PUBLIC_PATHS = new Set([
 	'/manifest-bachata.webmanifest',
 	'/icon-salsa.svg',
 	'/icon-bachata.svg',
-	'/icon-192.png',
-	'/icon-512.png',
 	'/icons/salsa-192.png',
 	'/icons/salsa-512.png',
 	'/icons/bachata-192.png',
 	'/icons/bachata-512.png',
-	// Chrome fetches it unauthenticated to verify the Android app (a TWA).
+	// The APK's signing-key fingerprint (docs/deployment.md). The WebView app (since
+	// 2026-10-29) does not read it; Chrome still may.
 	'/.well-known/assetlinks.json'
 ]);
 
