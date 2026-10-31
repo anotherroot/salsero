@@ -211,7 +211,7 @@
 		></span>
 		<span
 			role="status"
-			class="pointer-events-none absolute top-1/2 flex -translate-y-1/2 flex-col items-center gap-1 text-white {mark.side ===
+			class="pointer-events-none absolute top-1/2 flex -translate-y-1/2 flex-col items-center gap-1 text-white drop-shadow-[0_1px_3px_rgb(0_0_0/0.6)] {mark.side ===
 			'left'
 				? 'left-[74px]'
 				: 'right-[74px]'}"

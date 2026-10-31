@@ -9,7 +9,6 @@
 		edgeViewTime,
 		sectionProgress,
 		lengthText,
-		linkSummary,
 		loopTarget,
 		MIN_SECTION_MS,
 		moveEdge,
@@ -42,6 +41,7 @@
 	import {
 		buffering,
 		cornerBadge,
+		linkEntry,
 		playerMode,
 		toastPlace,
 		topBar,
@@ -749,27 +749,33 @@
 	/>
 {/snippet}
 
-<!-- What a section links to, small, on the video: "+ Link" when nothing is and the page may link. -->
-{#snippet linkBadge(spot: Spot)}
-	{@const summary = linkSummary(spot.linkedTo)}
-	{#if linking}
-		<button
-			type="button"
-			class="flex cursor-pointer items-center gap-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[11.5px] {summary
-				? 'text-zinc-200'
-				: 'font-semibold text-(--pl-accent)'}"
-			aria-label={summary ? `Links: ${spot.linkedTo.join(', ')}` : 'Link this section'}
-			onclick={() => openLink(spot.id)}
-		>
-			<Icon d={icons.link} size={11} />{summary || '+ Link'}
-		</button>
-	{:else if summary}
-		<span
-			class="pointer-events-none flex items-center gap-1 rounded-md bg-black/50 px-1.5 py-0.5 text-[11.5px] text-zinc-200"
-		>
-			<Icon d={icons.link} size={11} />{summary}
+<!-- The loop's name, and what it links to: a column on the picture, a row above the landscape timeline. -->
+{#snippet loopBadges(spot: Spot, row: boolean)}
+	{@const entry = linkEntry(spot.linkedTo, linking, 'badge')}
+	<div class={row ? 'mb-1 flex gap-1.5' : 'flex flex-col items-start gap-1.5'}>
+		<span class="{ON_VIDEO} pointer-events-none font-bold text-white/92">
+			<span class="flex text-accent"><UiIcon name="repeat" size={15} /></span>
+			<span class="max-w-[60vw] truncate">{spotLabel(spot)}</span>
 		</span>
-	{/if}
+		{#if entry.kind === 'open'}
+			<button
+				type="button"
+				class="{ON_VIDEO} cursor-pointer {entry.invite
+					? 'font-extrabold text-accent-text'
+					: 'font-bold text-white/92'}"
+				aria-label={entry.label}
+				onclick={() => openLink(spot.id)}
+			>
+				<span class="flex {entry.invite ? '' : 'text-white/80'}"
+					><UiIcon name="link" size={14} /></span
+				>{entry.text}
+			</button>
+		{:else if entry.kind === 'show'}
+			<span class="{ON_VIDEO} pointer-events-none font-bold text-white/92">
+				<span class="flex text-white/80"><UiIcon name="link" size={14} /></span>{entry.text}
+			</span>
+		{/if}
+	</div>
 {/snippet}
 
 {#snippet editorCard(spot: Spot)}
@@ -898,9 +904,7 @@
 			class:faded
 		>
 			<TopBar
-				title={mode === 'overlay' && level.kind === 'section' && openSpot
-					? spotLabel(openSpot)
-					: title}
+				{title}
 				{subtitle}
 				{mirror}
 				{rate}
@@ -1000,18 +1004,13 @@
 				>
 			{/if}
 			{#if loop && mode !== 'overlay'}
-				<div class="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
-					<span
-						class="pointer-events-none flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-0.5 text-[12px] text-zinc-200"
-					>
-						<Icon d={icons.loop} size={13} class="text-(--pl-accent)" />{spotLabel(loop)}
-					</span>
-					{#if level.kind === 'section' && openSpot}{@render linkBadge(openSpot)}{/if}
+				<div class="absolute top-2.5 left-2.5 z-10">
+					{@render loopBadges(loop, false)}
 				</div>
 			{/if}
 			{#if loop}
 				<span
-					class="pointer-events-none absolute bottom-0 left-0 h-[3px] bg-(--pl-accent)"
+					class="pointer-events-none absolute bottom-0 left-0 h-[3px] bg-accent"
 					style:width="{loopProgress}%"
 				></span>
 			{/if}
@@ -1118,7 +1117,6 @@
 				class:faded
 			>
 				{#if level.kind === 'section' && openSpot}
-					<div class="px-6">{@render linkBadge(openSpot)}</div>
 					<SectionView
 						spot={openSpot}
 						{currentMs}
@@ -1129,7 +1127,11 @@
 						ontoggle={toggle}
 						onstep={nudge}
 						ontenth={tenth}
-					/>
+					>
+						{#snippet badges()}
+							{@render loopBadges(openSpot!, true)}
+						{/snippet}
+					</SectionView>
 				{:else}
 					<div class="flex flex-col gap-1 px-6 pb-3">
 						{@render fullTimeline(true)}

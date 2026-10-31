@@ -41,8 +41,13 @@
 
 	const DISC = 'grid size-10 place-items-center rounded-full';
 	const GLASS_DISC = `${DISC} bg-surface/72 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.12)]`;
+	// The 40 px pills sit in a 44 px button: the outer button is the hit area,
+	// the inner span carries the look.
+	const HIT = 'grid h-11 flex-none cursor-pointer place-items-center';
 	const pill = $derived(
-		playerButton(parts.glass ? 'glass' : 'ghost', 'md').replace('px-3', 'pr-3 pl-1')
+		playerButton(parts.glass ? 'glass' : 'ghost', 'md')
+			.replace('h-11', 'h-10')
+			.replace('px-3', 'pr-3 pl-1')
 	);
 	const glassPill = playerButton('glass', 'md').replace('h-11', 'h-10');
 	const editClass = $derived(
@@ -66,12 +71,8 @@
 		{/if}
 	</button>
 	{#if parts.back && onback}
-		<button
-			type="button"
-			class={parts.glass ? glassPill.replace('px-3', 'pr-3 pl-1') : pill}
-			onclick={onback}
-		>
-			<Icon name="chevron-left" size={20} />Full video
+		<button type="button" class={HIT} onclick={onback}>
+			<span class={pill}><Icon name="chevron-left" size={20} />Full video</span>
 		</button>
 	{/if}
 	{#if parts.title}
@@ -87,13 +88,13 @@
 		<span class="flex-1"></span>
 	{/if}
 	{#if parts.edit && onedit}
-		<button type="button" class={editClass} onclick={onedit}>
-			<Icon name="edit" size={18} />Edit
+		<button type="button" class={HIT} onclick={onedit}>
+			<span class={editClass}><Icon name="edit" size={18} />Edit</span>
 		</button>
 	{/if}
 	{#if parts.sections && onspots}
-		<button type="button" class={glassPill} onclick={onspots}>
-			<Icon name="list" size={20} />Sections ({spotsCount})
+		<button type="button" class={HIT} onclick={onspots}>
+			<span class={glassPill}><Icon name="list" size={20} />Sections ({spotsCount})</span>
 		</button>
 	{/if}
 	<button
@@ -113,7 +114,7 @@
 	</button>
 	<button
 		type="button"
-		class="grid h-11 flex-none cursor-pointer place-items-center"
+		class={HIT}
 		aria-label="Speed {rate}×"
 		aria-expanded={speedOpen}
 		onclick={() => (speedOpen = !speedOpen)}

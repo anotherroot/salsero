@@ -3,9 +3,8 @@
 	import type { Snippet } from 'svelte';
 	import { preciseTime, sectionProgress, spotTime } from '$lib/video/spots';
 	import type { Spot } from '$lib/types';
-	import Icon from './Icon.svelte';
-	import { icons } from './icons';
-	import { BTN_GHOST } from './styles';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { playerButton } from './styles';
 	import Timeline from './Timeline.svelte';
 	import Transport from './Transport.svelte';
 
@@ -30,6 +29,8 @@
 		onhide?: () => void;
 		/** Portrait: the row of sections. */
 		row?: Snippet;
+		/** Landscape: the name and link pills, above the timeline. */
+		badges?: Snippet;
 	}
 
 	let {
@@ -43,58 +44,72 @@
 		onstep,
 		ontenth,
 		onhide,
-		row
+		row,
+		badges
 	}: Props = $props();
 
 	const endMs = $derived(spot.endMs ?? spot.startMs);
 	const progress = $derived(sectionProgress(spot, currentMs));
+	const HIDE = playerButton('ghost', 'md')
+		.replace('text-ink', 'text-ink-2')
+		.replace('px-3', 'pr-2 pl-3');
+	const BACK = playerButton('ghost', 'md');
 </script>
 
 {#snippet track(overlay: boolean, middle: boolean)}
 	<Timeline fromMs={spot.startMs} toMs={endMs} {currentMs} accentFill glass={overlay} {onseek} />
 	<div
-		class="flex justify-between text-[12px] tabular-nums {overlay
-			? 'text-white/85'
-			: 'text-(--pl-muted)'}"
+		class="flex justify-between text-[12px] font-bold tabular-nums {overlay
+			? '-mt-1.5 text-white/85'
+			: variant === 'panel'
+				? '-mt-1.5 text-muted'
+				: 'text-muted'}"
 	>
 		<span>{spotTime(spot.startMs)}</span>
 		{#if middle}
-			<span class="font-semibold {overlay ? 'text-white' : 'text-(--pl-ink)'}">{progress}</span>
+			<span class="font-extrabold {overlay ? 'text-white' : 'text-ink'}">{progress}</span>
 		{/if}
 		<span>{spotTime(endMs)}</span>
 	</div>
 {/snippet}
 
 {#if variant === 'panel'}
-	<div class="flex flex-col gap-2 pt-1.5 pb-3">
-		<div class="flex items-center gap-2 pr-2 pl-4">
-			<span class="text-[20px] font-semibold tabular-nums">{progress}</span>
+	<div class="flex flex-col gap-1.5 bg-ground pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)]">
+		<div class="flex items-center pr-2 pl-5">
+			<span class="font-display text-[26px] font-extrabold tracking-[-0.01em] tabular-nums"
+				>{progress}</span
+			>
 			<span class="flex-1"></span>
 			{#if onhide}
-				<button type="button" class="{BTN_GHOST} h-9 pr-2 pl-3 text-(--pl-ink-2)" onclick={onhide}>
-					Hide<Icon d={icons.chevronDown} size={18} />
+				<button type="button" class={HIDE} onclick={onhide}>
+					Hide<Icon name="chevron-down" size={18} />
 				</button>
 			{/if}
 		</div>
-		<div class="px-4">{@render track(false, false)}</div>
-		<div class="pt-1"><Transport {paused} size="large" {ontoggle} {onstep} {ontenth} /></div>
+		<div class="px-5">{@render track(false, false)}</div>
+		<div class="px-4 py-2.5">
+			<Transport {paused} size="large" {ontoggle} {onstep} {ontenth} />
+		</div>
 		{@render row?.()}
 	</div>
 {:else if variant === 'overlay'}
-	<div class="flex flex-col gap-1 px-6 pb-3">
+	<div class="flex flex-col px-12 pb-3">
+		{@render badges?.()}
 		{@render track(true, true)}
-		<div class="mt-1"><Transport {paused} size="float" glass {ontoggle} {onstep} {ontenth} /></div>
+		<div class="mt-1.5">
+			<Transport {paused} size="float" glass {ontoggle} {onstep} {ontenth} />
+		</div>
 	</div>
 {:else}
 	<div class="flex flex-col gap-1 px-4 pt-3">
 		{@render track(false, true)}
 		<div class="flex items-center gap-2 py-2">
-			<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
+			<span class="text-[15px] font-extrabold tabular-nums">{preciseTime(currentMs)}</span>
 			<span class="flex-1"></span>
 			<Transport {paused} {ontoggle} {onstep} {ontenth} />
 			<span class="flex-1"></span>
-			<button type="button" class={BTN_GHOST} onclick={onfull}>
-				<Icon d={icons.chevronLeft} />Full video
+			<button type="button" class={BACK} onclick={onfull}>
+				<Icon name="chevron-left" size={20} />Full video
 			</button>
 		</div>
 	</div>
