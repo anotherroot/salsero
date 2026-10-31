@@ -182,6 +182,7 @@
 			progress = total === 0 ? 1 : done / total;
 		}
 
+		const hadFocus = !!card?.contains(document.activeElement);
 		progress = null;
 		position = null;
 		retrying = false;
@@ -189,6 +190,9 @@
 		const body = summarise(added, failed);
 		const title = summaryTitle(added, failed.length);
 		message = body && title ? { title, body } : null;
+		// The card unmounts with `progress`; hand focus on so it is not dropped to <body>.
+		await tick();
+		if (hadFocus) input?.focus();
 		// Once, at the end: refreshing between files would tear down and re-mount
 		// the <video> elements already on the page, mid-upload.
 		if (added > 0) await invalidateAll();
@@ -204,11 +208,15 @@
 {/if}
 
 {#if progress !== null}
+	{@const c = uploadCard({ progress, position, retrying })}
 	<!-- The label below is hidden while busy; focus moves here so it is not dropped. -->
 	<div bind:this={card} tabindex="-1" class="outline-none">
 		<UploadCard
-			{...uploadCard({ progress, position, retrying })}
-			pct={progress * 100}
+			title={c.title}
+			helper={c.helper}
+			tone={c.tone}
+			icon={c.icon}
+			pct={c.percent}
 			label="videos"
 		/>
 	</div>

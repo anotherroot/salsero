@@ -233,7 +233,7 @@ stays collapsed.
   arm carries the class day — "Lesson · Wed 28 Oct", the year added only when
   it is not this year (`format.classDayLabel`). Classes are weekly, so the
   weekday is what tells two apart. Today reads the days from `lessonDays`.
-- **The library row says how much is in a lesson**: three chips under the date,
+- **The library row says how much is in a lesson**: three counts under the title beside a date tile,
   "6 sections · 1 routine · 3 figures", always all three — a zero is muted rather
   than vanishing, so a lesson still missing something shows it. Sections are
   spots with an end on its videos (points do not count); routines are live

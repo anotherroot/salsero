@@ -299,7 +299,7 @@
 	});
 
 	/*
-	 * The three "Link an existing …" pickers. A tap and a + post the section's
+	 * The three "Link a …" pickers. A tap and a + post the section's
 	 * one-tap link action through a hidden form (`use:enhance`, nothing typed to
 	 * lose). A tap closes the picker once the link is made; a + keeps it open and
 	 * its row turns "✓ Linked" from the reloaded data. A refused link keeps the
@@ -383,11 +383,13 @@
 		if (kind === 'routine') {
 			seen = form;
 			typed = { figureName: '', name: query, notes: '' };
+			routineEvery = DEFAULT_EVERY_DAYS;
 			addingRoutine = true;
 		}
 		if (kind === 'exercise') {
 			seen = form;
 			typed = { figureName: '', name: query, notes: '' };
+			exerciseEvery = DEFAULT_EVERY_DAYS;
 			addingExercise = true;
 		}
 	}
@@ -510,76 +512,78 @@
 
 			<section class="flex flex-col gap-2 pt-2.5">
 				<h2 class={SECTION_LABEL}>{sectionHeading('Videos', data.videos.length)}</h2>
-				<ul class="flex flex-col gap-3">
-					{#each data.videos as video, i (video.id)}
-						{@const videoSections = data.sections[video.id] ?? []}
-						{#snippet videoTrash()}
-							<button
-								type="button"
-								aria-label="Delete video {i + 1}"
-								aria-haspopup="dialog"
-								class={iconButton('bare').replace('text-ink', 'text-danger')}
-								onclick={() => askDeleteVideo(video.id, videoSections)}
-								><Icon name="trash" size={22} /></button
-							>
-						{/snippet}
-						<li class="overflow-hidden rounded-[22px] bg-surface">
-							{#if broken[video.id] === 'missing'}
-								<VideoProblem
-									title="This file is missing"
-									body="The server has no file for this video."
-									meta={byteSize(video.sizeBytes)}
+				{#if data.videos.length}
+					<ul class="flex flex-col gap-3">
+						{#each data.videos as video, i (video.id)}
+							{@const videoSections = data.sections[video.id] ?? []}
+							{#snippet videoTrash()}
+								<button
+									type="button"
+									aria-label="Delete video {i + 1}"
+									aria-haspopup="dialog"
+									class={iconButton('bare').replace('text-ink', 'text-danger')}
+									onclick={() => askDeleteVideo(video.id, videoSections)}
+									><Icon name="trash" size={22} /></button
 								>
-									{#snippet action()}{@render videoTrash()}{/snippet}
-								</VideoProblem>
-							{:else if broken[video.id] === 'unplayable'}
-								<VideoProblem
-									title="Can’t play here"
-									body="This browser can’t play this file. Download it or open it on your phone."
-									meta={byteSize(video.sizeBytes)}
-								>
-									{#snippet action()}
-										<span class="flex items-center gap-1">
-											<a
-												href={resolve('/lesson-videos/[file]', { file: video.file })}
-												download
-												class={button('tertiary', 'sm')}
-												><Icon name="download" size={18} />Download</a
-											>
-											{@render videoTrash()}
-										</span>
-									{/snippet}
-								</VideoProblem>
-							{:else}
-								<VideoFrame
-									src="/lesson-videos/{video.file}"
-									sourceUrl={video.sourceUrl}
-									owner={{ lessonVideoId: video.id }}
-									title={lesson.title}
-									caption={lessonVideoCaption(i, video)}
-									onproblem={(p) => (broken = { ...broken, [video.id]: p })}
-									onclosed={() => void invalidateAll()}
-									linking
-									action={videoTrash}
-								/>
-							{/if}
-							{#if videoRefused[video.id]}
-								<div class="px-3 pb-2.5">
-									<Banner kind="error" title="Can’t delete this video"
-										>{videoRefused[video.id]}</Banner
+							{/snippet}
+							<li class="overflow-hidden rounded-[22px] bg-surface">
+								{#if broken[video.id] === 'missing'}
+									<VideoProblem
+										title="This file is missing"
+										body="The server has no file for this video."
+										meta={byteSize(video.sizeBytes)}
 									>
-								</div>
-							{/if}
-							<VideoSections
-								sections={videoSections}
-								src="/lesson-videos/{video.file}"
-								owner={{ lessonVideoId: video.id }}
-								linking
-							/>
-						</li>
-					{/each}
-				</ul>
-				<div class="mt-3">
+										{#snippet action()}{@render videoTrash()}{/snippet}
+									</VideoProblem>
+								{:else if broken[video.id] === 'unplayable'}
+									<VideoProblem
+										title="Can’t play here"
+										body="This browser can’t play this file. Download it or open it on your phone."
+										meta={byteSize(video.sizeBytes)}
+									>
+										{#snippet action()}
+											<span class="flex items-center gap-1">
+												<a
+													href={resolve('/lesson-videos/[file]', { file: video.file })}
+													download
+													class={button('tertiary', 'sm')}
+													><Icon name="download" size={18} />Download</a
+												>
+												{@render videoTrash()}
+											</span>
+										{/snippet}
+									</VideoProblem>
+								{:else}
+									<VideoFrame
+										src="/lesson-videos/{video.file}"
+										sourceUrl={video.sourceUrl}
+										owner={{ lessonVideoId: video.id }}
+										title={lesson.title}
+										caption={lessonVideoCaption(i, video)}
+										onproblem={(p) => (broken = { ...broken, [video.id]: p })}
+										onclosed={() => void invalidateAll()}
+										linking
+										action={videoTrash}
+									/>
+								{/if}
+								{#if videoRefused[video.id]}
+									<div class="px-3 pb-2.5">
+										<Banner kind="error" title="Can’t delete this video"
+											>{videoRefused[video.id]}</Banner
+										>
+									</div>
+								{/if}
+								<VideoSections
+									sections={videoSections}
+									src="/lesson-videos/{video.file}"
+									owner={{ lessonVideoId: video.id }}
+									linking
+								/>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				<div class={data.videos.length ? 'mt-3' : ''}>
 					{#if data.app}
 						<AppUploadLink
 							kind="dashed"
@@ -732,6 +736,7 @@
 								...videoRefused,
 								[id]: messageOf(result.data, 'That video could not be deleted.')
 							};
+							await invalidateAll();
 						} else {
 							await update();
 						}

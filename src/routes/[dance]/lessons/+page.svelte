@@ -96,7 +96,7 @@
 											><span class="sr-only">{tile.label}, </span>{lesson.title}</span
 										>
 										{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
-										<!-- Always all three, in the same place: a zero fades rather than vanishing, so a lesson still missing something shows it. -->
+										<!-- Always all three, in the same place: a zero is muted rather than vanishing, so a lesson still missing something shows it. -->
 										<span class="mt-[5px] flex flex-wrap gap-x-3 text-[13px]">
 											{#each lessonCounts(lesson) as c (c.word)}
 												<span class={c.n === 0 ? 'text-muted' : 'text-ink-2'}
@@ -135,8 +135,11 @@
 				if (busy) return cancel();
 				busy = true;
 				return async ({ update }) => {
-					await update();
-					busy = false;
+					try {
+						await update();
+					} finally {
+						busy = false;
+					}
 				};
 			}
 		}}
