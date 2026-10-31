@@ -1,6 +1,7 @@
 <!-- src/lib/components/exercises/kinds/figure/Content.svelte -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { CLIP } from '$lib/components/ui/styles';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
@@ -22,7 +23,7 @@
 			<LinkedText text={content.figure.notes} class={PROSE} />
 		{/if}
 		{#each content.recordings as rec (rec.id)}
-			<div class="overflow-hidden rounded-2xl bg-surface">
+			<div class="{CLIP} rounded-2xl bg-surface">
 				{#if broken[rec.id]}
 					<p class="p-4 text-[13px] text-muted">
 						{broken[rec.id] === 'missing'

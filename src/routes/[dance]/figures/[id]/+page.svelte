@@ -35,6 +35,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		button,
+		CLIP,
 		FIELD,
 		GROUP,
 		iconButton,
@@ -524,7 +525,7 @@
 						{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
 						{@const refused = deleteRefusal(rec.id)}
 						{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
-						<li class="overflow-hidden rounded-2xl bg-surface">
+						<li class="{CLIP} rounded-2xl bg-surface">
 							{#if broken[rec.id] === 'missing'}
 								<VideoProblem
 									title="This file is missing"

@@ -36,6 +36,7 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import {
+		CLIP,
 		FIELD,
 		GROUP,
 		LABEL,
@@ -515,7 +516,7 @@
 									><Icon name="trash" size={22} /></button
 								>
 							{/snippet}
-							<li class="overflow-hidden rounded-[22px] bg-surface">
+							<li class="{CLIP} rounded-[22px] bg-surface">
 								{#if broken[video.id] === 'missing'}
 									<VideoProblem
 										title="This file is missing"

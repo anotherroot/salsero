@@ -11,7 +11,7 @@
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
-	import { SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { CLIP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import CountChips from './CountChips.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import StageCount from './StageCount.svelte';
@@ -274,7 +274,7 @@
 		-->
 		<section class="flex flex-none flex-col gap-2" aria-labelledby="run-voice">
 			<h2 id="run-voice" class={SECTION_LABEL}>Voice</h2>
-			<div class="overflow-hidden rounded-2xl bg-surface">
+			<div class="{CLIP} rounded-2xl bg-surface">
 				<div class="py-1.5 pl-3">
 					<CountChips
 						patterns={dance.countPatterns}

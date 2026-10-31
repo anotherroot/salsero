@@ -29,6 +29,7 @@
 		FIELD_ERROR,
 		LABEL,
 		CHIP,
+		CLIP,
 		GROUP,
 		ROW,
 		SECTION_LABEL,
@@ -331,7 +332,7 @@
 
 			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Video frame, sections, links</h2>
-				<div class="overflow-hidden rounded-2xl bg-surface">
+				<div class="{CLIP} rounded-2xl bg-surface">
 					<VideoFrame
 						src="/recordings/none.mp4"
 						owner={{ recordingId: 1 }}
@@ -339,7 +340,7 @@
 						onproblem={() => {}}
 					/>
 				</div>
-				<div class="overflow-hidden rounded-2xl bg-surface">
+				<div class="{CLIP} rounded-2xl bg-surface">
 					<VideoFrame
 						src="/recordings/none.mp4"
 						owner={{ recordingId: 1 }}

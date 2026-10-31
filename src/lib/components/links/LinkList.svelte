@@ -3,7 +3,7 @@
 	import type { Snippet } from 'svelte';
 	import YouTubeCard from './YouTubeCard.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { GROUP } from '$lib/components/ui/styles';
+	import { CLIP, GROUP } from '$lib/components/ui/styles';
 	import { parseLink } from '$lib/links';
 	import type { LinkRow } from '$lib/types';
 
@@ -26,7 +26,7 @@
 	<ul class="flex flex-col gap-3">
 		{#each youtube as { link, parsed } (link.id)}
 			{#if parsed?.kind === 'youtube'}
-				<li class="overflow-hidden rounded-2xl bg-surface">
+				<li class="{CLIP} rounded-2xl bg-surface">
 					<YouTubeCard id={parsed.id} start={parsed.start} title={link.title} {compact} />
 					{#if actions}
 						<div class="flex min-h-[52px] items-center gap-1 border-t border-hairline pr-1.5 pl-1">

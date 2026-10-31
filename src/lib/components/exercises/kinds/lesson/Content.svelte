@@ -1,6 +1,7 @@
 <!-- src/lib/components/exercises/kinds/lesson/Content.svelte -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { CLIP } from '$lib/components/ui/styles';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
@@ -60,7 +61,7 @@
 		{/if}
 		<LinkList links={content.links} />
 		{#each content.videos as video, i (video.id)}
-			<div class="overflow-hidden rounded-2xl bg-surface">
+			<div class="{CLIP} rounded-2xl bg-surface">
 				{#if broken[video.id]}
 					<p class="p-4 text-[13px] text-muted">
 						{broken[video.id] === 'missing'

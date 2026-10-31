@@ -290,6 +290,19 @@ body {
 	box-shadow: 0 0 0 6px color-mix(in srgb, var(--focus-ring, var(--color-accent)) 20%, transparent);
 }
 
+/*
+ * Inside a card that clips (GROUP, CLIP), the ring and halo go inside the
+ * control: outside, the card's edge would cut them off, and between rows
+ * they would cross the hairline. A filled control there keeps the outside
+ * ring with `focus-out` (an inset accent ring vanishes on an accent fill).
+ */
+:where(.focus-inset)
+	:where(a, button, input, select, textarea, summary, [tabindex]):not(.focus-out):focus-visible {
+	outline-offset: -2px;
+	box-shadow: inset 0 0 0 6px
+		color-mix(in srgb, var(--focus-ring, var(--color-accent)) 20%, transparent);
+}
+
 :root {
 	/* The tab bar's own height: 10 px above, the 44 px link, 8 px below, a 1 px line. Users add the safe area. */
 	--tab-bar-h: 63px;

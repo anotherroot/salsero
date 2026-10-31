@@ -258,7 +258,7 @@
 </script>
 
 {#snippet voiceRow()}
-	<a class="{ROW.replace('min-h-14', 'min-h-[58px]')} inset-focus" href={voiceHref}>
+	<a class={ROW.replace('min-h-14', 'min-h-[58px]')} href={voiceHref}>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="text-[16px] font-bold text-ink">Voice</span>
 			<span class="text-[13px] text-muted">Record your own count</span>
@@ -399,14 +399,3 @@
 		{/if}
 	</button>
 </BottomBar>
-
-<style>
-	/*
-	 * The Voice row fills its group edge to edge, and the group clips: the app's
-	 * focus ring would be cut off outside it, so it goes inside here. A scoped
-	 * rule, because utilities lose to the global one.
-	 */
-	.inset-focus:focus-visible {
-		outline-offset: -2px;
-	}
-</style>

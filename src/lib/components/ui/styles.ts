@@ -60,8 +60,10 @@ export const CHIP =
 /** CHIP for a toggle button: lit by `aria-pressed` instead of a checked radio. Written out, since Tailwind only generates classes it can see literally. */
 export const SHORTCUT =
 	'relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip aria-pressed:font-extrabold aria-pressed:text-on-accent aria-pressed:before:bg-accent focus-visible:before:outline-2 focus-visible:before:outline-offset-2 focus-visible:before:outline-accent disabled:text-disabled-ink disabled:before:bg-disabled-bg';
-/** A grouped card of rows; hairlines between rows. */
-export const GROUP = 'divide-y divide-hairline overflow-hidden rounded-2xl bg-surface';
+/** A card that clips its content to its rounded edge; the focus rings inside it draw inside the controls (layout.css). */
+export const CLIP = 'focus-inset overflow-hidden';
+/** A grouped card of rows; hairlines between rows. Rows draw their focus inside. */
+export const GROUP = `${CLIP} divide-y divide-hairline rounded-2xl bg-surface`;
 export const ROW = 'flex min-h-14 items-center gap-3 px-4 py-2';
 export const SECTION_LABEL = 'px-4 text-[13px] font-bold text-muted';
 /** A field-shaped button that opens a sheet; add a `chevron-down` 20 px `text-muted` and a muted placeholder span. */

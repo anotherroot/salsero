@@ -22,7 +22,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { button, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
+	import { button, CLIP, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { IconName } from '$lib/icons/icons';
 	import { shown, type PickGroup, type PickRow } from '$lib/picker/model';
 	import {
@@ -165,7 +165,7 @@
 		{#if r.preview}
 			<button
 				type="button"
-				class="{iconButton('tonal')} inset-focus mr-2.5"
+				class="{iconButton('tonal')} mr-2.5"
 				aria-label="Play {r.label}"
 				onclick={() => onpreview?.(r)}><Icon name="play" size={18} filled /></button
 			>
@@ -174,7 +174,7 @@
 			<button
 				type="button"
 				data-pick
-				class="inset-focus flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 rounded-xl py-[9px] text-left disabled:cursor-default {trail ===
+				class="flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 rounded-xl py-[9px] text-left disabled:cursor-default {trail ===
 				'none'
 					? 'pr-3.5'
 					: ''}"
@@ -198,7 +198,7 @@
 			{#if trail === 'add'}
 				<button
 					type="button"
-					class="{iconButton('bare').replace('text-ink', 'text-accent')} inset-focus mr-1.5"
+					class="{iconButton('bare').replace('text-ink', 'text-accent')} mr-1.5"
 					aria-label="Link {r.label} and keep picking"
 					onclick={() => onadd?.(r)}><Icon name="plus" size={24} /></button
 				>
@@ -255,7 +255,7 @@
 	{:else}
 		{#each lineGroups(lines) as g, gi (gi)}
 			<h3 class="{SECTION_LABEL} {gi > 0 ? 'mt-2.5' : ''}">{g.title}</h3>
-			<div class="overflow-hidden rounded-2xl bg-surface">
+			<div class="{CLIP} rounded-2xl bg-surface">
 				{#each g.lines as { line, last }, i (i)}
 					{#if line.kind === 'heading'}
 						<!-- A heading, not a choice: only the rows under it can be picked. -->
@@ -349,15 +349,3 @@
 		{@render body()}
 	</Sheet>
 {/if}
-
-<style>
-	/*
-	 * The app's focus ring sits 2px outside with a halo; on a row inside the
-	 * card (overflow hidden) it would be clipped or cross the next row, so it
-	 * goes inside here. A scoped rule, because utilities lose to the global one.
-	 */
-	.inset-focus:focus-visible {
-		outline-offset: -2px;
-		box-shadow: none;
-	}
-</style>

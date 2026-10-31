@@ -10,6 +10,7 @@
 	 */
 	import type { Snippet } from 'svelte';
 	import { swipe, type Side } from '$lib/gestures/swipe';
+	import { CLIP } from '$lib/components/ui/styles';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { IconName } from '$lib/icons/icons';
 
@@ -60,7 +61,7 @@
 	const x = $derived(tracking ?? rest);
 </script>
 
-<div class="relative overflow-hidden {rounded}" data-swipe={key}>
+<div class="relative {CLIP} {rounded}" data-swipe={key}>
 	{#if end && x < 0}
 		<!--
 			Red under the WHOLE card, not just the button's strip: the card's

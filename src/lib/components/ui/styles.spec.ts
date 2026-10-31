@@ -6,6 +6,7 @@ import {
 	FIELD,
 	FIELD_ERROR,
 	TEXTAREA,
+	CLIP,
 	GROUP,
 	iconButton,
 	LABEL,
@@ -47,6 +48,8 @@ describe('constants', () => {
 		for (const s of [FIELD, FIELD_ERROR, LABEL, GROUP, ROW, SECTION_LABEL])
 			expect(s.length).toBeGreaterThan(0);
 		expect(GROUP).toContain('divide-hairline');
+		expect(GROUP.split(' ')).toEqual(expect.arrayContaining(['focus-inset', 'overflow-hidden']));
+		expect(CLIP).toBe('focus-inset overflow-hidden');
 	});
 });
 

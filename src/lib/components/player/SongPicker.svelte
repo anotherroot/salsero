@@ -14,7 +14,7 @@
 	import SampleButton from '$lib/components/songs/SampleButton.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
-	import { SECTION_LABEL } from '$lib/components/ui/styles';
+	import { CLIP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import { getDance, isDanceSlug } from '$lib/dances/dances';
 	import { groupSongs, highlight, pickerCount, searchSongs } from '$lib/songs/search';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
@@ -115,7 +115,7 @@
 				type="button"
 				aria-current={on ? 'true' : undefined}
 				onclick={() => pick(s)}
-				class="inset-focus flex min-w-0 flex-1 items-center gap-3 py-[9px] text-left"
+				class="flex min-w-0 flex-1 items-center gap-3 py-[9px] text-left"
 			>
 				<span
 					class="grid size-[22px] flex-none place-items-center rounded-full border-2 {on
@@ -150,15 +150,13 @@
 {/snippet}
 
 {#snippet card(list: PickerSong[])}
-	<ul class="overflow-hidden rounded-2xl bg-surface">
+	<ul class="{CLIP} rounded-2xl bg-surface">
 		{#each list as s, i (s.id)}{@render row(s, i === list.length - 1)}{/each}
 	</ul>
 {/snippet}
 
 {#if variant === 'card'}
-	<div
-		class="overflow-hidden rounded-2xl bg-surface {invalid ? 'ring-2 ring-danger ring-inset' : ''}"
-	>
+	<div class="{CLIP} rounded-2xl bg-surface {invalid ? 'ring-2 ring-danger ring-inset' : ''}">
 		<div class="flex items-center gap-3 py-2.5 pr-2.5 pl-3">
 			{#if picked}
 				<SampleButton song={picked.sample} name={picked.title} />
@@ -207,7 +205,7 @@
 			aria-labelledby={labelId ? `${labelId} ${buttonId}-field` : undefined}
 			aria-haspopup="dialog"
 			onclick={() => (open = true)}
-			class="inset-focus flex min-h-[60px] min-w-0 flex-1 items-center gap-2 py-2 pr-1 pl-3.5 text-left"
+			class="flex min-h-[60px] min-w-0 flex-1 items-center gap-2 py-2 pr-1 pl-3.5 text-left"
 		>
 			<span class="min-w-0 flex-1">
 				{#if picked}
@@ -280,15 +278,3 @@
 		</div>
 	</div>
 </Sheet>
-
-<style>
-	/*
-	 * The app's focus ring sits 2px outside; on a row inside the scroll box or
-	 * the field's border it would be clipped or cross the next row, so it goes
-	 * inside here. A scoped rule, because utilities lose to the global one.
-	 */
-	.inset-focus:focus-visible {
-		outline-offset: -2px;
-		box-shadow: none;
-	}
-</style>
