@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -6,6 +7,17 @@
 	import SampleButton from '$lib/components/songs/SampleButton.svelte';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
+	import SeekBar from '$lib/components/ui/SeekBar.svelte';
+	import { GROUP, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
+	import { act } from '$lib/components/routines/act';
+	import { songName } from '$lib/songs/library';
+	import { sampleLabels, songSubtitle, tapProblem } from '$lib/songs/song-page';
 	import { clock } from '$lib/format';
 	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
 	import type { ActionData, PageData } from './$types';
@@ -13,8 +25,14 @@
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let audio: HTMLAudioElement | undefined = $state();
+	let paused = $state(true);
+	let audioDuration = $state(NaN);
 	let tapped = $state(false);
+	/** "Play the song first." from the browser's own check, before anything is sent. */
+	let tapError: string | null = $state(null);
 	let now = $state(0);
+	let detailsOpen = $state(false);
+	let details: HTMLDetailsElement | undefined = $state();
 
 	// One sound at a time: the sample pauses this page's own copy of the song.
 	$effect(() => {
@@ -23,6 +41,27 @@
 
 	const song = $derived(data.song);
 	const grid = $derived(data.grid);
+	const name = $derived(songName(song));
+	const subtitle = $derived(
+		songSubtitle({
+			artist: song.artist,
+			style: data.dance.styleLabel[song.style] ?? song.style,
+			bpm: grid?.bpm ?? null
+		})
+	);
+	const duration = $derived(
+		Number.isFinite(audioDuration) && audioDuration > 0 ? audioDuration : (song.durationS ?? 0)
+	);
+	const ticks = $derived(
+		grid ? data.anchors.map((i) => grid.beats[i]).filter((t): t is number => t !== undefined) : []
+	);
+	const sample = $derived(data.sample ? sampleLabels(data.sample.custom) : null);
+	// A refusal names the control it is about; one that names none shows at the foot.
+	const tapRefusal = $derived(form?.action === 'tap' ? form.message : null);
+	const tapShown = $derived(tapError ?? tapRefusal);
+	const sampleRefusal = $derived(form?.action === 'sample' ? form.message : null);
+	const otherRefusal = $derived(form?.message && !form.action ? form.message : null);
+	const tempoItems = TEMPO_FACTORS.map((f) => ({ value: String(f), label: TEMPO_LABEL[f] }));
 
 	$effect(() => {
 		if (!song.status.startsWith('waiting')) return;
@@ -30,52 +69,113 @@
 		return () => clearInterval(t);
 	});
 
+	// `timeupdate` fires about 4 times a second; while playing, follow every
+	// frame so the thumb and the time glide instead of jumping.
+	$effect(() => {
+		if (paused || !audio) return;
+		const el = audio;
+		let frame = 0;
+		const follow = () => {
+			now = el.currentTime;
+			frame = requestAnimationFrame(follow);
+		};
+		frame = requestAnimationFrame(follow);
+		return () => cancelAnimationFrame(frame);
+	});
+
+	function toggle() {
+		if (!audio) return;
+		if (audio.paused) void audio.play().catch(() => {});
+		else audio.pause();
+	}
+
+	function seek(s: number) {
+		if (!audio) return;
+		audio.currentTime = s;
+		now = s;
+	}
+
+	async function openDetails() {
+		detailsOpen = true;
+		await tick();
+		details?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 </script>
 
 <svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
->
-	<a
-		href={resolve('/[dance]/songs', { dance: data.dance.slug })}
-		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-		aria-label="Back to songs">‹</a
-	>
-	<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">
-		{song.title || song.sourceUrl}
-	</h1>
-</header>
+<Screen compact title={name} {subtitle}>
+	{#snippet left()}
+		<BandButton
+			icon="back"
+			label="Back to Music"
+			href={resolve('/[dance]/songs', { dance: data.dance.slug })}
+		/>
+	{/snippet}
+	{#snippet right()}
+		<BandButton icon="edit" label="Song details" onclick={openDetails} />
+	{/snippet}
 
-<main class="space-y-6 px-4 pt-4 pb-4">
 	{#if grid && song.audioFile}
 		<a
 			href={resolve(`/${data.dance.slug}/player?song=${song.id}`)}
-			class="block h-12 w-full rounded-xl bg-accent text-center text-[15px] leading-[3rem] font-semibold text-accent-ink"
-			>Practice with this song</a
+			class={button('secondary', 'md', true)}
 		>
+			<Icon name="play" size={18} filled />Practice with this song
+		</a>
 
 		<!-- preload=auto: the count needs the playhead to be accurate from the first tap. -->
 		<audio
 			bind:this={audio}
+			bind:paused
+			bind:duration={audioDuration}
 			src="/audio/{song.audioFile}"
-			controls
 			preload="auto"
-			class="w-full"
-			onplay={stopSample}
+			class="hidden"
+			onplay={() => {
+				stopSample();
+				tapError = null;
+			}}
 			ontimeupdate={() => (now = audio?.currentTime ?? 0)}
 			onseeked={() => (now = audio?.currentTime ?? 0)}
 		></audio>
 
-		<LiveCount time={() => audio?.currentTime ?? null} beats={grid.beats} counts={grid.counts} />
+		<section class="flex flex-none flex-col gap-3 rounded-[22px] bg-surface px-4 pt-3.5 pb-4">
+			<!-- "–" until the song has played: a count at 0:00 would be a guess, as a tap there would be. -->
+			<LiveCount
+				time={() => (audio && !tapProblem(audio) ? audio.currentTime : null)}
+				beats={grid.beats}
+				counts={grid.counts}
+			/>
+			<div class="flex items-center gap-3.5">
+				<button
+					type="button"
+					class={iconButton('filled').replace('h-11 w-11', 'size-[52px]')}
+					aria-label={paused ? 'Play the song' : 'Pause the song'}
+					onclick={toggle}
+				>
+					<Icon name={paused ? 'play' : 'pause'} filled />
+				</button>
+				<div class="min-w-0 flex-1 pt-3.5">
+					<SeekBar label="Position in the song" value={now} {duration} {ticks} onseek={seek} />
+				</div>
+			</div>
+		</section>
 
 		<form
 			method="POST"
 			action="?/tap"
-			use:enhance={({ formData }) => {
+			class="flex flex-col gap-2"
+			use:enhance={({ formData, cancel }) => {
+				const problem = tapProblem(audio ?? null);
+				tapError = problem;
+				if (problem) {
+					cancel();
+					return;
+				}
 				formData.set('t', String(audio?.currentTime ?? 0));
 				return async ({ update, result }) => {
 					await update({ reset: false });
@@ -86,105 +186,108 @@
 				};
 			}}
 		>
-			<button
-				type="submit"
-				class="h-20 w-full rounded-2xl text-[20px] font-bold {tapped
-					? 'bg-done-bg text-done'
-					: 'bg-accent text-accent-ink'}">{tapped ? 'Got it' : 'Tap on the 1'}</button
-			>
+			{#if tapped}
+				<button
+					type="submit"
+					aria-live="polite"
+					class="flex h-16 w-full flex-none items-center justify-center gap-2.5 rounded-full bg-done-soft font-display text-[22px] font-extrabold text-done"
+				>
+					<Icon name="check" size={24} />Got it
+				</button>
+			{:else}
+				<button type="submit" class={button('primary', 'lg', true)}>Tap on the 1</button>
+			{/if}
+			{#if tapShown === 'Play the song first.'}
+				<Banner kind="error" title="Play the song first."
+					>A tap marks the beat that is playing.</Banner
+				>
+			{:else if tapShown}
+				<Banner kind="error" title={tapShown} />
+			{/if}
 		</form>
 
-		<p class="text-center text-[13px] text-muted">
-			{#if grid.suggested}
-				The count is a guess. Play the song and tap on every "1" you hear until it lines up.
-			{:else}
-				If the count slips after a break, tap the 1 again there.
-			{/if}
-			{#if grid.bpm}· {Math.round(grid.bpm)} BPM{/if}
+		<p class="px-3 pt-1 text-center text-[13px] leading-[1.45] text-muted">
+			{grid.suggested
+				? 'The count is a guess. Play the song and tap on every “1” you hear until it lines up.'
+				: 'If the count slips after a break, tap the 1 again there.'}{grid.bpm
+				? ` · ${Math.round(grid.bpm)} BPM`
+				: ''}
 		</p>
 
-		{#if data.sample}
-			<section>
-				<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Sample</h2>
-				<div class="flex items-stretch rounded-xl border border-line bg-raised">
-					<div class="min-w-0 flex-1 px-3 py-2.5">
-						<div class="flex items-center gap-2 text-[15px]">
-							<span class="tabular-nums">From {clock(data.sample.song.startS)}</span>
-							<span
-								class="rounded-full px-2 py-0.5 text-[11px] font-medium {data.sample.custom
-									? 'bg-accent/15 text-accent'
-									: 'bg-plane text-muted'}">{data.sample.custom ? 'Yours' : 'Automatic'}</span
+		{#if data.sample && sample}
+			<h2 class="{SECTION_LABEL} pt-3.5">Sample</h2>
+			<div class={GROUP}>
+				<div class="flex min-h-16 items-center gap-1 pr-1 pl-4">
+					<div class="flex min-w-0 flex-1 flex-col gap-0.5 py-2">
+						<span class="flex items-center gap-1.5">
+							<span class="text-[16px] leading-[1.3] font-bold text-ink tabular-nums"
+								>From {clock(data.sample.song.startS)}</span
 							>
-						</div>
-						<p class="mt-0.5 text-[12px] text-muted">
-							{data.sample.custom ? 'Set by you' : 'A third of the way in, on a 1'}
-						</p>
+							<Badge tone={sample.tone}>{sample.badge}</Badge>
+						</span>
+						<span class="text-[13px] leading-[1.35] text-muted">{sample.meta}</span>
 					</div>
-					<SampleButton song={data.sample.song} />
+					<SampleButton song={data.sample.song} {name} />
 				</div>
-				<form
-					method="POST"
-					action="?/sample"
-					use:enhance={({ formData }) => {
-						formData.set('t', String(audio?.currentTime ?? 0));
-						return async ({ update }) => update({ reset: false });
-					}}
-					class="mt-2"
+			</div>
+			<form
+				method="POST"
+				action="?/sample"
+				class="flex"
+				use:enhance={({ formData }) => {
+					formData.set('t', String(audio?.currentTime ?? 0));
+					return async ({ update }) => update({ reset: false });
+				}}
+			>
+				<button type="submit" class={button('secondary', 'md', true)}
+					>Start the sample at {clock(now)}</button
 				>
-					<button
-						type="submit"
-						class="h-11 w-full rounded-xl border border-accent text-[14px] font-medium text-accent"
-						>Start the sample at {clock(now)}</button
-					>
+			</form>
+			{#if data.sample.custom}
+				<form method="POST" action="?/sampleAuto" use:enhance class="-mt-1 flex justify-center">
+					<button type="submit" class={button('tertiary', 'sm')}>Back to automatic</button>
 				</form>
-				{#if data.sample.custom}
-					<form method="POST" action="?/sampleAuto" use:enhance class="mt-2">
-						<button type="submit" class="text-[13px] text-muted underline">Back to automatic</button
-						>
-					</form>
-				{/if}
-			</section>
+			{/if}
+			{#if sampleRefusal}
+				<Banner kind="error" title={sampleRefusal} />
+			{/if}
 		{/if}
 
-		<section>
-			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Count speed</h2>
-			<div class="flex gap-2">
-				{#each TEMPO_FACTORS as f (f)}
-					<form method="POST" action="?/tempo" use:enhance class="flex-1">
-						<input type="hidden" name="factor" value={f} />
-						<button
-							type="submit"
-							aria-pressed={song.tempoFactor === f}
-							class="h-11 w-full rounded-lg border text-[15px] {song.tempoFactor === f
-								? 'border-accent bg-accent text-accent-ink'
-								: 'border-rule bg-raised text-ink-2'}">{TEMPO_LABEL[f]}</button
-						>
-					</form>
-				{/each}
-			</div>
-			<p class="mt-1 text-[12px] text-muted">
-				If the count runs at half or double your steps, switch it. This clears your taps.
-			</p>
-		</section>
+		<h2 class="{SECTION_LABEL} pt-2">Count speed</h2>
+		<Segmented
+			name="factor"
+			label="Count speed"
+			items={tempoItems}
+			value={String(song.tempoFactor)}
+			onchange={(v) => act('tempo', { factor: v })}
+		/>
+		<p class="px-3 pt-1 text-[13px] leading-[1.45] text-muted">
+			If the count runs at half or double your steps, switch it. This clears your taps.
+		</p>
 
 		{#if data.anchors.length > 0}
-			<section>
-				<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Your 1s</h2>
-				<ul class="divide-y divide-line rounded-xl border border-line bg-raised">
-					{#each data.anchors as beat (beat)}
-						<li class="flex items-center justify-between px-3 py-2 text-[14px]">
-							<span class="tabular-nums">{clock(grid.beats[beat] ?? 0)}</span>
-							<form method="POST" action="?/removeAnchor" use:enhance>
-								<input type="hidden" name="beat" value={beat} />
-								<button type="submit" class="h-9 px-2 text-[13px] text-danger">Remove</button>
-							</form>
-						</li>
-					{/each}
-				</ul>
-				<form method="POST" action="?/resetAnchors" use:enhance class="mt-2">
-					<button type="submit" class="text-[13px] text-muted underline">Clear all</button>
+			<div class="flex min-h-5 items-center justify-between pt-3 pr-1 pl-4">
+				<h2 class="text-[13px] font-bold text-muted">Your 1s · {data.anchors.length}</h2>
+				<form method="POST" action="?/resetAnchors" use:enhance class="-my-3">
+					<button type="submit" class={button('tertiary', 'sm')}>Clear all</button>
 				</form>
-			</section>
+			</div>
+			<ul class={GROUP} aria-label="Your 1s">
+				{#each data.anchors as beat (beat)}
+					{@const time = clock(grid.beats[beat] ?? 0)}
+					<li class="flex min-h-14 items-center justify-between gap-3 pr-1 pl-4">
+						<span class="text-[16px] font-bold text-ink tabular-nums">{time}</span>
+						<form method="POST" action="?/removeAnchor" use:enhance>
+							<input type="hidden" name="beat" value={beat} />
+							<button
+								type="submit"
+								class={button('danger-text', 'sm')}
+								aria-label="Remove the 1 at {time}">Remove</button
+							>
+						</form>
+					</li>
+				{/each}
+			</ul>
 		{/if}
 	{:else}
 		<section class="rounded-xl border border-line bg-raised p-4 text-[14px]">
@@ -207,20 +310,19 @@
 				<p class="mt-2 text-[12px] text-muted">
 					Or upload the audio file from the <a
 						href={resolve('/[dance]/songs', { dance: data.dance.slug })}
-						class="text-accent">Songs</a
+						class="text-accent">Music</a
 					> page.
 				</p>
 			{/if}
 		</section>
 	{/if}
 
-	{#if form?.message}
-		<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-			{form.message}
-		</p>
+	{#if otherRefusal}
+		<Banner kind="error" title={otherRefusal} />
 	{/if}
 
-	<details class="rounded-xl border border-line">
+	<!-- Until Song details becomes a sheet (the next task), the pencil opens this. -->
+	<details bind:this={details} bind:open={detailsOpen} class="mt-4 rounded-xl border border-line">
 		<summary class="cursor-pointer px-3 py-3 text-[14px] font-medium">Song details</summary>
 		<form
 			method="POST"
@@ -274,4 +376,4 @@
 			<button type="submit" class="text-[14px] text-danger">Archive song</button>
 		</form>
 	</details>
-</main>
+</Screen>

@@ -64,7 +64,8 @@ export const load: PageServerLoad = ({ params }) => {
 			status: song.status,
 			error: song.error,
 			audioFile: song.audioFile,
-			tempoFactor: song.tempoFactor
+			tempoFactor: song.tempoFactor,
+			durationS: song.durationS
 		},
 		anchors,
 		grid,
@@ -81,10 +82,10 @@ export const actions: Actions = {
 		const song = songOf(params);
 		const t = Number((await request.formData()).get('t'));
 		if (!Number.isFinite(t) || song.status !== 'ready')
-			return fail(400, { message: 'Play the song first.' });
+			return fail(400, { action: 'tap' as const, message: 'Play the song first.' });
 		const beats = scaleBeats(parse(song.beatsJson), song.tempoFactor as TempoFactor);
 		const i = nearestBeat(beats, t - TAP_LATENCY_S);
-		if (i < 0) return fail(400, { message: 'No beats to snap to.' });
+		if (i < 0) return fail(400, { action: 'tap' as const, message: 'No beats to snap to.' });
 		setAnchors(getDb(), song.id, addAnchor(parse(song.anchorsJson), i));
 		return { ok: true };
 	},
@@ -115,7 +116,7 @@ export const actions: Actions = {
 		const song = songOf(params);
 		const t = Number((await request.formData()).get('t'));
 		if (!Number.isFinite(t) || !setSampleStart(getDb(), song.id, t))
-			return fail(400, { message: 'Play the song first.' });
+			return fail(400, { action: 'sample' as const, message: 'Play the song first.' });
 		return { ok: true };
 	},
 

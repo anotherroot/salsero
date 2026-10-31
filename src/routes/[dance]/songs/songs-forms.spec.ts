@@ -4,6 +4,9 @@
  * typed — the picked style included, so a refused bachata link never comes
  * back as salsa's first style.
  *
+ * A song page's tap and sample refusals name their action, so each shows
+ * under its own control.
+ *
  * Like `dance-wall.spec.ts`, the action reaches the database through
  * `getDb()`, which is mocked: each test gets its own `openDb(':memory:')` and
  * nothing ever opens the real database.
@@ -18,8 +21,15 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { listSongs } from '$lib/server/songs';
+import {
+	createSongFromUrl,
+	getSong,
+	listSongs,
+	storeAnalysis,
+	storeFetchedAudio
+} from '$lib/server/songs';
 import * as songList from './+page.server';
+import * as songPage from './[id]/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -130,5 +140,63 @@ describe('Add a song', () => {
 			)
 		).toEqual({ ok: true });
 		expect(listSongs(db, 'bachata')[0].style).toBe('dominican');
+	});
+});
+
+/** A song ready to count: audio, and a beat every 0.3 s for a minute. */
+function readySong(dance: 'salsa' | 'bachata' = 'salsa') {
+	const song = createSongFromUrl(db, dance, {
+		url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
+		title: 'Quimbara',
+		style: dance === 'salsa' ? 'salsa' : 'sensual'
+	});
+	storeFetchedAudio(db, song.id, { file: 'a.m4a', mime: 'audio/mp4', title: null, durationS: 60 });
+	const beats = Array.from({ length: 200 }, (_, i) => i * 0.3);
+	storeAnalysis(db, song.id, { beats, downbeats: [], durationS: 60 });
+	return song.id;
+}
+
+describe('A song', () => {
+	it('names the tap in a refused tap on a waiting song', async () => {
+		const { id } = createSongFromUrl(db, 'salsa', {
+			url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
+			title: '',
+			style: 'salsa'
+		});
+		expect(await call(songPage.actions.tap, post('salsa', { t: '12' }, String(id)))).toMatchObject({
+			status: 400,
+			data: { action: 'tap', message: 'Play the song first.' }
+		});
+	});
+
+	it('names the sample in a refused sample start', async () => {
+		const id = readySong();
+		expect(
+			await call(songPage.actions.sample, post('salsa', { t: 'abc' }, String(id)))
+		).toMatchObject({ status: 400, data: { action: 'sample', message: 'Play the song first.' } });
+	});
+
+	it('files a tap on a ready song', async () => {
+		const id = readySong();
+		expect(await call(songPage.actions.tap, post('salsa', { t: '12' }, String(id)))).toEqual({
+			ok: true
+		});
+		expect(JSON.parse(getSong(db, id)!.anchorsJson)).toHaveLength(1);
+	});
+
+	it('will not take a tap on a salsa song from a bachata URL', async () => {
+		const id = readySong('salsa');
+		expect(
+			await call(songPage.actions.tap, post('bachata', { t: '12' }, String(id)))
+		).toMatchObject({ status: 404 });
+		expect(getSong(db, id)!.anchorsJson).toBe('[]');
+	});
+
+	it('loads the length of the song', () => {
+		const id = readySong();
+		const data = songPage.load(post('salsa', {}, String(id)) as never) as {
+			song: { durationS: number | null };
+		};
+		expect(data.song.durationS).toBe(60);
 	});
 });
