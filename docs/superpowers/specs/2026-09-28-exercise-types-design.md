@@ -87,6 +87,16 @@ never rewritten by a redesign.
 - **The form** posts `?/log`; the day's sets for this exercise below it, with
   delete, as now.
 - **"Details →"** to the exercise page, where settings now live.
+- **The footer** is pinned under the form: **Log set**, **Saving…** while it
+  posts, **Logged** after (tapping it logs another), **Next: <name>** in a
+  session, and **Session done** with the tally and **Finish** when nothing is
+  left. While the panel plays, Log set is disabled with "Stop the count to log
+  it."
+- **A deleted set comes back with Undo.** The row goes at the tap and the toast
+  reads "Set deleted · Undo"; `deleteSet` returns a snapshot of the row, and
+  Undo posts it to `restoreSet`, which re-inserts it with the same instant (so
+  on its own day, with its rating, note and run) and a new id. Nothing refers
+  to a set id.
 - **Back-filling a past day** opens the same popup without the practice panel.
 - **Session "Next →"** after a successful log, when a session is running (see
   Session below).

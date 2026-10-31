@@ -269,6 +269,8 @@ rules the boards follow that are not obvious from looking at them.
   recent rating); sets grouped by day; settings (How often, Active, notes);
   a drill's links and sections; Log a set pinned at the bottom; "Archive
   exercise" as danger text.
+- Settings are read on the page and edited behind the band's pencil (× Stop
+  editing, Save pinned), as every other edit screen.
 - Video under a log or a lesson: Mirror, a 4-way speed switch and Full screen
   in a control row beneath it.
 

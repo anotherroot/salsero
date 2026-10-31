@@ -8,9 +8,12 @@
 		name: string;
 		value: number;
 		label?: string;
+		/** `field` on a surface card (the exercise page's settings), so the box reads as a field. */
+		tone?: 'surface' | 'field';
 	}
 
-	let { name, value = $bindable(), label = 'How often' }: Props = $props();
+	let { name, value = $bindable(), label = 'How often', tone = 'surface' }: Props = $props();
+	const box = $derived(tone === 'field' ? SELECT.replace('bg-surface', 'bg-field') : SELECT);
 	let open = $state(false);
 
 	function pick(days: number) {
@@ -23,7 +26,7 @@
 	<span class={LABEL} id="{name}-label">{label}</span>
 	<button
 		type="button"
-		class={SELECT}
+		class={box}
 		aria-haspopup="dialog"
 		aria-labelledby="{name}-label {name}-value"
 		onclick={() => (open = true)}
