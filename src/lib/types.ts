@@ -82,6 +82,8 @@ export interface SongItem {
 	createdAt: number;
 	/** Null unless the song is ready with an audio file. */
 	sample: SampleSong | null;
+	/** 0 = practised most recently; null otherwise. Ready songs only. */
+	recentRank: number | null;
 }
 
 /** What a play button needs to play a song's sample. */

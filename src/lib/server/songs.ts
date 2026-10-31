@@ -69,6 +69,7 @@ export function songSample(song: Song): SampleSong | null {
 }
 
 export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
+	const recent = recentSongIds(db, dance);
 	return db
 		.select()
 		.from(songs)
@@ -87,7 +88,8 @@ export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
 			bpm: s.bpm,
 			tempoFactor: s.tempoFactor as TempoFactor,
 			createdAt: s.createdAt,
-			sample: s.status === 'ready' ? songSample(s) : null
+			sample: s.status === 'ready' ? songSample(s) : null,
+			recentRank: s.status === 'ready' && recent.includes(s.id) ? recent.indexOf(s.id) : null
 		}));
 }
 

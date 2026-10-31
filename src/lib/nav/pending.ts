@@ -28,7 +28,7 @@ export const SKELETON_DELAY_MS = 100;
 
 const LISTS: Record<string, string> = {
 	'/[dance]/lessons': 'Lessons',
-	'/[dance]/songs': 'Songs',
+	'/[dance]/songs': 'Music',
 	'/[dance]/coverage': 'Coverage',
 	'/[dance]/positions': 'Positions',
 	'/settings': 'Settings',
