@@ -38,7 +38,7 @@ export const load: PageServerLoad = ({ params }) => {
 			name: p.name,
 			neutral: p.neutral,
 			// `byId.get(p.id)` always carries this same row's `id` alongside its
-			// counts â `counts` was built from these rows' own ids above â so the
+			// counts — `counts` was built from these rows' own ids above — so the
 			// spread is the only place `id` appears; listing it explicitly too
 			// would just be overwritten by the spread, which `tsc` refuses to do
 			// silently.
@@ -49,7 +49,7 @@ export const load: PageServerLoad = ({ params }) => {
 	};
 };
 
-/** A position id from this dance, or a 404 â the wall, for every action below. */
+/** A position id from this dance, or a 404 — the wall, for every action below. */
 function positionOf(params: { dance: string }, id: number | undefined) {
 	const dance = danceOf(params);
 	if (id === undefined) throw error(404, 'No such position');
