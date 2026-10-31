@@ -42,9 +42,6 @@ const post = (fields: Record<string, string>) => ({
 const call = (action: unknown, fields: Record<string, string>) =>
 	(action as (e: ReturnType<typeof post>) => Promise<unknown>)(post(fields));
 
-/** Let the fire-and-forget unlink settle. */
-const settle = () => new Promise<void>((r) => setImmediate(r));
-
 let db: Db;
 
 /** A take in slot 120/a with its file on disk; returns its id. */
@@ -86,8 +83,11 @@ describe('delete and restore', () => {
 		expect(existsSync(join(handle.dir, 'a.wav'))).toBe(true);
 		vi.advanceTimersByTime(1);
 		vi.useRealTimers();
-		await settle();
-		expect(existsSync(join(handle.dir, 'a.wav'))).toBe(false);
+		// The unlink is fire-and-forget on the thread pool: one tick is not enough
+		// under a loaded full run, so wait for it (bounded).
+		await vi.waitFor(() => expect(existsSync(join(handle.dir, 'a.wav'))).toBe(false), {
+			timeout: 2000
+		});
 
 		const res = (await call(actions.restore, { id: String(id) })) as {
 			status: number;
