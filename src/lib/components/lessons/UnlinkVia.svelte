@@ -1,8 +1,10 @@
 <!-- src/lib/components/lessons/UnlinkVia.svelte -->
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { spotTime } from '$lib/video/spots';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { button } from '$lib/components/ui/styles';
+	import { unlinkViaBody } from '$lib/lessons/page';
 	import type { ViaSection } from '$lib/types';
 
 	/**
@@ -22,60 +24,45 @@
 	}
 
 	let { action, name, id, label, via, onclose }: Props = $props();
-	let dialog: HTMLDialogElement | undefined = $state();
-	onMount(() => dialog?.showModal());
-
-	const ranges = $derived(via.map((s) => `${spotTime(s.startMs)}–${spotTime(s.endMs)}`).join(', '));
+	let busy = $state(false);
 </script>
 
-<dialog
-	bind:this={dialog}
-	aria-label="Unlink {label}"
+<Dialog
+	open
+	title="Unlink {label}?"
+	body={unlinkViaBody(label, via)}
+	icon="unlink"
+	tone="danger"
 	{onclose}
-	onclick={(e) => {
-		if (e.target === dialog) onclose();
-	}}
 >
-	<div class="p-4">
-		<p class="text-[15px]">
-			<b>{label}</b> is linked through {via.length === 1 ? 'section' : 'sections'}
-			{ranges}. Unlink it from the lesson and the {via.length === 1 ? 'section' : 'sections'}?
-		</p>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={onclose}>Cancel</button>
 		<form
 			method="POST"
 			{action}
-			class="mt-4 flex flex-col gap-2"
-			use:enhance={() =>
-				async ({ update }) => {
-					await update();
+			use:enhance={({ cancel }) => {
+				if (busy) return cancel();
+				busy = true;
+				return async ({ update }) => {
+					try {
+						await update();
+					} finally {
+						busy = false;
+					}
 					onclose();
-				}}
+				};
+			}}
 		>
 			<input type="hidden" {name} value={id} />
 			<input type="hidden" name="alsoSections" value="1" />
-			<button type="submit" class="h-11 rounded-xl bg-danger text-[15px] font-semibold text-white"
-				>Unlink</button
+			<button
+				type="submit"
+				class={button('danger', 'sm')}
+				aria-busy={busy}
+				aria-label={busy ? 'Unlinking' : undefined}
 			>
-			<button type="button" class="h-11 text-[14px] font-medium text-muted" onclick={onclose}
-				>Cancel</button
-			>
+				{#if busy}<Spinner />{:else}Unlink{/if}
+			</button>
 		</form>
-	</div>
-</dialog>
-
-<style>
-	dialog {
-		margin: auto;
-		width: calc(100% - 32px);
-		max-width: 420px;
-		padding: 0;
-		border: none;
-		border-radius: 18px;
-		background: var(--color-surface);
-		color: var(--color-ink);
-		box-shadow: 0 16px 40px rgb(0 0 0 / 0.25);
-	}
-	dialog::backdrop {
-		background: rgb(20 18 16 / 0.45);
-	}
-</style>
+	{/snippet}
+</Dialog>

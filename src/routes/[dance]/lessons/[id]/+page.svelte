@@ -28,16 +28,35 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { GROUP, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
+	import {
+		FIELD,
+		GROUP,
+		LABEL,
+		SECTION_LABEL,
+		TEXTAREA,
+		button,
+		iconButton
+	} from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
-	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
+	import { DEFAULT_EVERY_DAYS } from '$lib/frequency';
 	import { byteSize, fullDateLabel } from '$lib/format';
-	import { deleteBlock, deleteVideoBody, reviewMeta, sectionHeading } from '$lib/lessons/page';
+	import {
+		deleteBlock,
+		deleteVideoBody,
+		exerciseMeta,
+		figureMeta,
+		reviewMeta,
+		routineMeta,
+		sectionHeading,
+		viaBadge
+	} from '$lib/lessons/page';
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
-	import { PARTNER_LABEL } from '$lib/labels';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
-	import { spotTime } from '$lib/video/spots';
 	import type { MediaProblem } from '$lib/media';
 	import type { ViaSection } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
@@ -130,10 +149,6 @@
 		label: string;
 		via: ViaSection[];
 	} | null>(null);
-	const viaTag = (via: ViaSection[]) =>
-		via.length === 1 ? 'via section' : `via ${via.length} sections`;
-	const viaRanges = (via: ViaSection[]) =>
-		via.map((v) => `${spotTime(v.startMs)}–${spotTime(v.endMs)}`).join(', ');
 
 	const lesson = $derived(data.lesson);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
@@ -142,10 +157,54 @@
 
 	/** The "+ New figure" sheet's switch: a figure of its own, or a variation of one. */
 	const FIGURE_MODES = [
-		['figure', 'New figure'],
-		['variation', 'Variation of a figure']
-	] as const;
-	let figureMode = $state<'figure' | 'variation'>('figure');
+		{ value: 'figure', label: 'New figure' },
+		{ value: 'variation', label: 'Variation of a figure' }
+	];
+	let figureMode = $state<string>('figure');
+	/** Which of the three create sheets is posting: its footer button spins. */
+	let creatingBusy = $state<'figure' | 'routine' | 'exercise' | null>(null);
+
+	type CreateAction = 'newFigure' | 'newVariation' | 'newExercise' | 'newRoutine';
+	/**
+	 * The `form` there when a create sheet last opened: a refusal from before
+	 * is not this sheet's, so it is not shown again on the next open.
+	 */
+	let seen: unknown = $state(null);
+	/** A create sheet's refusal: a field's message goes under it, any other in a banner at the top. */
+	function refusalOf(action: CreateAction): { field: string | null; message: string } | null {
+		const f = form as { action?: unknown; field?: unknown; message?: unknown } | null;
+		if (!f || f === seen || f.action !== action || typeof f.message !== 'string') return null;
+		return { field: typeof f.field === 'string' ? f.field : null, message: f.message };
+	}
+	const errorsOf = (action: CreateAction): Record<string, string> => {
+		const r = refusalOf(action);
+		return r?.field ? { [r.field]: r.message } : {};
+	};
+	const bannerOf = (action: CreateAction) => {
+		const r = refusalOf(action);
+		return r && !r.field ? r.message : null;
+	};
+	let routineEvery = $state(DEFAULT_EVERY_DAYS);
+	let exerciseEvery = $state(DEFAULT_EVERY_DAYS);
+
+	/** A create sheet's submit: one post per tap, its footer spinning while it is out. */
+	function createSubmit(
+		which: 'figure' | 'routine' | 'exercise',
+		done?: () => void
+	): SubmitFunction {
+		return ({ cancel }) => {
+			if (creatingBusy) return cancel();
+			creatingBusy = which;
+			return async ({ update, result }) => {
+				try {
+					await update();
+				} finally {
+					creatingBusy = null;
+				}
+				if (result.type === 'success') done?.();
+			};
+		};
+	}
 	/** The figure "Variation of a figure" adds to: a `figure_groups` id, as its field posts it. */
 	let variationOf = $state<number | null>(null);
 	// What a refused `newVariation` posted, so the sheet reopens holding it.
@@ -170,6 +229,7 @@
 	]);
 
 	function openFigureSheet(mode: 'figure' | 'variation' = 'figure', query = '') {
+		seen = form;
 		figureMode = mode;
 		variationOf = data.figureGroups.find((g) => taughtGroups.has(g.id))?.id ?? null;
 		typed =
@@ -179,19 +239,27 @@
 		addingFigure = true;
 	}
 
-	const closeFigureSheet: SubmitFunction =
-		() =>
-		async ({ update, result }) => {
-			await update();
-			if (result.type === 'success') {
-				addingFigure = false;
-				closePicker();
-			}
-		};
+	const closeFigureSheet = createSubmit('figure', () => {
+		addingFigure = false;
+		closePicker();
+	});
+	const closeExerciseSheet = createSubmit('exercise', () => {
+		addingExercise = false;
+		closePicker();
+	});
+	// A success redirects to the routine's page, where its slots are built.
+	const routineSubmit = createSubmit('routine');
 
+	// A refused create (and, without JavaScript, the page it re-renders) reopens its sheet holding what was typed.
 	$effect(() => {
-		if (failure('newFigure')) {
+		const typedBack = (f: object) => ({
+			figureName: 'figureName' in f ? String(f.figureName ?? '') : '',
+			name: 'name' in f ? String(f.name ?? '') : '',
+			notes: 'notes' in f ? String(f.notes ?? '') : ''
+		});
+		if (form && failure('newFigure')) {
 			figureMode = 'figure';
+			typed = typedBack(form);
 			addingFigure = true;
 		}
 		if (variationTyped) {
@@ -204,8 +272,11 @@
 			};
 			addingFigure = true;
 		}
-		if (failure('newExercise')) addingExercise = true;
-		if (failure('newRoutine')) addingRoutine = true;
+		if (form && (failure('newExercise') || failure('newRoutine'))) {
+			typed = typedBack(form);
+			if (failure('newExercise')) addingExercise = true;
+			else addingRoutine = true;
+		}
 	});
 
 	// A refused edit (and, without JavaScript, the page it re-renders) stays in edit mode, holding what was typed.
@@ -213,7 +284,7 @@
 		if (form?.action !== 'update' || !('message' in form) || typeof form.message !== 'string')
 			return;
 		refusal = {
-			field: 'field' in form && form.field ? (form.field as LessonField) : null,
+			field: (form as { field?: LessonField }).field ?? null,
 			message: form.message,
 			entered:
 				'title' in form && 'lessonDay' in form
@@ -236,9 +307,9 @@
 	 */
 	type LinkKind = 'figure' | 'routine' | 'exercise';
 	const LINK = {
-		figure: { action: '?/linkFigure', field: 'figureId' },
-		routine: { action: '?/linkRoutine', field: 'routineId' },
-		exercise: { action: '?/linkExercise', field: 'exerciseId' }
+		figure: { action: '?/linkFigure', unlink: '?/unlinkFigure', field: 'figureId' },
+		routine: { action: '?/linkRoutine', unlink: '?/unlinkRoutine', field: 'routineId' },
+		exercise: { action: '?/linkExercise', unlink: '?/unlinkExercise', field: 'exerciseId' }
 	} as const;
 	const LINK_KINDS = ['figure', 'routine', 'exercise'] as const;
 
@@ -310,20 +381,16 @@
 	function createFrom(kind: LinkKind, key: string, query: string) {
 		if (kind === 'figure') openFigureSheet(key === 'variation' ? 'variation' : 'figure', query);
 		if (kind === 'routine') {
+			seen = form;
 			typed = { figureName: '', name: query, notes: '' };
 			addingRoutine = true;
 		}
 		if (kind === 'exercise') {
+			seen = form;
 			typed = { figureName: '', name: query, notes: '' };
 			addingExercise = true;
 		}
 	}
-
-	const label = 'mb-1 block text-[13px] text-muted';
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
-	const tag =
-		'ml-1.5 inline-block rounded-full border border-rule px-1.5 align-[1px] text-[11px] font-normal text-ink-2';
 </script>
 
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
@@ -542,149 +609,86 @@
 					entered={form && 'urls' in form ? String(form.urls) : ''}
 				/>
 			</section>
-			<section class="flex flex-col gap-2 pt-2.5">
-				<div class="flex items-center justify-between">
-					<h2 class={SECTION_LABEL}>{sectionHeading('Figures', data.figures.length)}</h2>
-					<button
-						type="button"
-						class="text-[13px] font-medium text-accent-text"
-						onclick={() => openFigureSheet()}>+ New figure</button
-					>
-				</div>
-				{#if data.figures.length > 0}
-					<ul class="space-y-2">
+			<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
+			<div class="flex flex-col gap-2.5 pt-2.5">
+				<section class="flex flex-col gap-2">
+					{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure', () =>
+						openFigureSheet()
+					)}
+					<ul class={GROUP}>
 						{#each data.figures as figure (figure.id)}
-							<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+							<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 								<a
 									href={resolve('/[dance]/figures/[id]', {
 										dance: data.dance.slug,
 										id: String(figure.id)
 									})}
-									class="min-w-0 flex-1"
+									class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 								>
-									<span class="block truncate text-[15px] font-medium"
-										>{figure.name}{#if figure.viaSections.length > 0}<span class={tag}
-												>{viaTag(figure.viaSections)}</span
-											>{/if}</span
-									>
-									<span class="block truncate text-[12px] text-muted"
-										>{figure.viaSections.length > 0
-											? viaRanges(figure.viaSections)
-											: PARTNER_LABEL[figure.partner]}</span
-									>
+									{@render itemText(figure.name, viaBadge(figure.viaSections), figureMeta(figure))}
 								</a>
-								{#if figure.viaSections.length > 0}
-									<button
-										type="button"
-										class="h-9 px-2 text-[13px] text-muted"
-										onclick={() =>
-											(unlinkingVia = {
-												action: '?/unlinkFigure',
-												name: 'figureId',
-												id: figure.id,
-												label: figure.name,
-												via: figure.viaSections
-											})}>Unlink</button
-									>
-								{:else}
-									<form method="POST" action="?/unlinkFigure" use:enhance>
-										<input type="hidden" name="figureId" value={figure.id} />
-										<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-									</form>
-								{/if}
+								{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
 							</li>
 						{/each}
+						<li>{@render linkRow('figure', 'Link a figure…')}</li>
 					</ul>
-				{/if}
-				{@render linkButton('figure', 'Link an existing figure…')}
-			</section>
-			<section class="flex flex-col gap-2 pt-2.5">
-				<div class="flex items-center justify-between">
-					<h2 class={SECTION_LABEL}>{sectionHeading('Routines', data.routines.length)}</h2>
-					<button
-						type="button"
-						class="text-[13px] font-medium text-accent-text"
-						onclick={() => createFrom('routine', '', '')}>+ New routine</button
-					>
-				</div>
-				{#if data.routines.length > 0}
-					<ul class="space-y-2">
+				</section>
+				<section class="flex flex-col gap-2">
+					{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine', () =>
+						createFrom('routine', '', '')
+					)}
+					<ul class={GROUP}>
 						{#each data.routines as routine (routine.id)}
-							<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+							<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 								<a
 									href={resolve('/[dance]/routines/[id]', {
 										dance: data.dance.slug,
 										id: String(routine.id)
 									})}
-									class="min-w-0 flex-1 truncate text-[15px] font-medium">{routine.name}</a
+									class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 								>
-								<form method="POST" action="?/unlinkRoutine" use:enhance>
-									<input type="hidden" name="routineId" value={routine.id} />
-									<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-								</form>
+									{@render itemText(routine.name, null, routineMeta(routine))}
+								</a>
+								<!-- A routine never reaches a lesson through a section. -->
+								{@render unlinkButton('routine', routine.id, routine.name, [])}
 							</li>
 						{/each}
+						<li>{@render linkRow('routine', 'Link a routine…')}</li>
 					</ul>
-				{/if}
-				{@render linkButton('routine', 'Link an existing routine…')}
-			</section>
-			<section class="flex flex-col gap-2 pt-2.5">
-				<div class="flex items-center justify-between">
-					<h2 class={SECTION_LABEL}>{sectionHeading('Exercises', data.exercises.length)}</h2>
-					<button
-						type="button"
-						class="text-[13px] font-medium text-accent-text"
-						onclick={() => createFrom('exercise', '', '')}>+ New exercise</button
-					>
-				</div>
-				{#if data.exercises.length > 0}
-					<ul class="space-y-2">
+				</section>
+				<section class="flex flex-col gap-2">
+					{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise', () =>
+						createFrom('exercise', '', '')
+					)}
+					<ul class={GROUP}>
 						{#each data.exercises as exercise (exercise.id)}
-							<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+							<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 								<a
 									href={resolve('/[dance]/exercises/[id]', {
 										dance: data.dance.slug,
 										id: String(exercise.id)
 									})}
-									class="min-w-0 flex-1"
-									><span class="block truncate text-[15px]"
-										>{exercise.name}{#if exercise.viaSections.length > 0}<span class={tag}
-												>{viaTag(exercise.viaSections)}</span
-											>{/if}</span
-									>{#if exercise.viaSections.length > 0}<span class="block text-[12px] text-muted"
-											>{viaRanges(exercise.viaSections)}</span
-										>{/if}</a
+									class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 								>
+									{@render itemText(
+										exercise.name,
+										viaBadge(exercise.viaSections),
+										exerciseMeta(exercise)
+									)}
+								</a>
+								<!-- The "+" is an icon, so bare accent is allowed. -->
 								<a
 									href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-									class="grid size-9 place-items-center text-[20px] text-accent"
-									aria-label="Log a set of {exercise.name}">+</a
+									class={iconButton('bare').replace('text-ink', 'text-accent')}
+									aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
 								>
-								{#if exercise.viaSections.length > 0}
-									<button
-										type="button"
-										class="h-9 px-2 text-[13px] text-muted"
-										onclick={() =>
-											(unlinkingVia = {
-												action: '?/unlinkExercise',
-												name: 'exerciseId',
-												id: exercise.id,
-												label: exercise.name,
-												via: exercise.viaSections
-											})}>Unlink</button
-									>
-								{:else}
-									<form method="POST" action="?/unlinkExercise" use:enhance>
-										<input type="hidden" name="exerciseId" value={exercise.id} />
-										<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-									</form>
-								{/if}
+								{@render unlinkButton('exercise', exercise.id, exercise.name, exercise.viaSections)}
 							</li>
 						{/each}
+						<li>{@render linkRow('exercise', 'Link an exercise…')}</li>
 					</ul>
-				{/if}
-				{@render linkButton('exercise', 'Link an existing exercise…')}
-			</section>
+				</section>
+			</div>
 		{/if}
 	</div>
 </Screen>
@@ -803,25 +807,64 @@
 	{/snippet}
 </Dialog>
 
-{#snippet linkButton(kind: LinkKind, text: string)}
+{#snippet labelRow(heading: string, what: LinkKind, onclick: () => void)}
+	<div class="flex items-center justify-between pr-1">
+		<h2 class={SECTION_LABEL}>{heading}</h2>
+		<button type="button" class={button('tertiary', 'sm')} aria-label="New {what}" {onclick}
+			><Icon name="plus" size={18} />New</button
+		>
+	</div>
+{/snippet}
+
+{#snippet itemText(title: string, badge: string | null, meta: string | null)}
+	<span
+		class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[16px] leading-[1.3] font-bold text-ink"
+	>
+		<span class="min-w-0 break-words">{title}</span>
+		{#if badge}<Badge tone="neutral"><Icon name="link" size={12} />{badge}</Badge>{/if}
+	</span>
+	{#if meta}<span class="text-[13px] leading-[1.35] text-muted">{meta}</span>{/if}
+{/snippet}
+
+<!-- A row there by hand unlinks at once; one there through a section asks first, and takes the section links too. -->
+{#snippet unlinkButton(kind: LinkKind, id: number, name: string, via: ViaSection[])}
+	{#if via.length > 0}
+		<button
+			type="button"
+			aria-haspopup="dialog"
+			aria-label="Unlink {name}"
+			class={iconButton('bare').replace('text-ink', 'text-muted')}
+			onclick={() =>
+				(unlinkingVia = {
+					action: LINK[kind].unlink,
+					name: LINK[kind].field,
+					id,
+					label: name,
+					via
+				})}><Icon name="unlink" size={22} /></button
+		>
+	{:else}
+		<form method="POST" action={LINK[kind].unlink} class="flex" use:enhance>
+			<input type="hidden" name={LINK[kind].field} value={id} />
+			<button
+				type="submit"
+				aria-label="Unlink {name}"
+				class={iconButton('bare').replace('text-ink', 'text-muted')}
+				><Icon name="unlink" size={22} /></button
+			>
+		</form>
+	{/if}
+{/snippet}
+
+<!-- A linked group's last row: opens the shared picker. -->
+{#snippet linkRow(kind: LinkKind, text: string)}
 	<button
 		type="button"
-		class="mt-3 flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[14.5px] font-medium text-accent"
 		aria-haspopup="dialog"
+		class="flex min-h-[54px] w-full cursor-pointer items-center gap-3 px-4 text-left text-[16px] font-bold text-accent-text"
 		onclick={() => openPicker(kind)}
 	>
-		<svg
-			width="16"
-			height="16"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2.2"
-			stroke-linecap="round"
-			class="shrink-0 text-muted"
-			aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg
-		>
-		{text}
+		<Icon name="search" size={20} />{text}
 	</button>
 {/snippet}
 
@@ -913,133 +956,108 @@
 	open={addingFigure}
 	onclose={() => (addingFigure = false)}
 >
-	<div class="mb-3 flex gap-2">
-		{#each FIGURE_MODES as [mode, title] (mode)}
-			<button
-				type="button"
-				aria-pressed={figureMode === mode}
-				onclick={() => (figureMode = mode)}
-				class="h-11 flex-1 rounded-lg border text-[14px] {figureMode === mode
-					? 'border-accent bg-accent text-accent-ink'
-					: 'border-rule bg-raised text-ink-2'}">{title}</button
+	<div class="flex flex-col gap-3">
+		<Segmented name="make" label="Make" items={FIGURE_MODES} bind:value={figureMode} />
+		<!-- One form per mode: each is guarded against its own first paint, so the switch alone is never "unsaved".
+		     `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
+		{#if figureMode === 'figure'}
+			<form
+				id="lesson-new-figure"
+				method="POST"
+				action="?/newFigure"
+				novalidate
+				class="flex flex-col gap-3"
+				use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
 			>
-		{/each}
-	</div>
-	<!-- One form per mode: each is guarded against its own first paint, so the switch alone is never "unsaved". -->
-	{#if figureMode === 'figure'}
-		<form
-			method="POST"
-			action="?/newFigure"
-			class="space-y-3"
-			use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
-		>
-			{#if failure('newFigure')}
-				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
-					{failure('newFigure')}
-				</p>
-			{/if}
-			<FigureFields dance={data.dance} figureName={typed.figureName} style={data.defaultStyle} />
-			<button
-				type="submit"
-				class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-				>Add figure</button
-			>
-		</form>
-	{:else}
-		<form
-			method="POST"
-			action="?/newVariation"
-			class="space-y-3"
-			use:guarded={{ label: 'New variation', submit: closeFigureSheet }}
-		>
-			{#if failure('newVariation')}
-				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
-					{failure('newVariation')}
-				</p>
-			{/if}
-			{#if data.figureGroups.length === 0}
-				<p class="text-[13px] text-muted">There are no figures yet.</p>
-			{:else}
-				<PickerField
-					name="groupId"
-					label="Figure"
-					placeholder="Choose a figure…"
-					title="Choose a figure"
-					search="Search figures"
-					groups={variationGroups}
-					nothingLeft="There are no figures yet."
-					bind:value={variationOf}
-					required
+				{#if bannerOf('newFigure')}<Banner kind="error">{bannerOf('newFigure')}</Banner>{/if}
+				<FigureFields
+					dance={data.dance}
+					figureName={typed.figureName}
+					name={typed.name}
+					notes={typed.notes}
+					style={data.defaultStyle}
+					errors={errorsOf('newFigure')}
 				/>
-			{/if}
-			<FigureFields
-				dance={data.dance}
-				asksFigureName={false}
-				name={typed.name}
-				style={data.defaultStyle}
-				notes={typed.notes}
-			/>
-			<button
-				type="submit"
-				disabled={data.figureGroups.length === 0}
-				class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-50"
-				>Add variation</button
+			</form>
+		{:else}
+			{@const groupError = errorsOf('newVariation').groupId}
+			<form
+				id="lesson-new-variation"
+				method="POST"
+				action="?/newVariation"
+				novalidate
+				class="flex flex-col gap-3"
+				use:guarded={{ label: 'New variation', submit: closeFigureSheet }}
 			>
-		</form>
-	{/if}
+				{#if bannerOf('newVariation')}<Banner kind="error">{bannerOf('newVariation')}</Banner>{/if}
+				{#if data.figureGroups.length === 0}
+					<p class="text-[13px] text-muted">There are no figures yet.</p>
+				{:else}
+					<div>
+						<PickerField
+							name="groupId"
+							label="Figure"
+							placeholder="Choose a figure…"
+							title="Choose a figure"
+							search="Search figures"
+							groups={variationGroups}
+							nothingLeft="There are no figures yet."
+							bind:value={variationOf}
+							required
+						/>
+						<p class="mt-1.5 pl-1 text-[13px] text-muted">Figures in this lesson come first</p>
+						{#if groupError}<FieldError
+								id="lesson-variation-group-error"
+								message={groupError}
+							/>{/if}
+					</div>
+				{/if}
+				<FigureFields
+					dance={data.dance}
+					asksFigureName={false}
+					name={typed.name}
+					style={data.defaultStyle}
+					notes={typed.notes}
+					errors={errorsOf('newVariation')}
+				/>
+			</form>
+		{/if}
+	</div>
+
+	{#snippet footer()}
+		{@const busy = creatingBusy === 'figure'}
+		<button
+			type="submit"
+			form={figureMode === 'figure' ? 'lesson-new-figure' : 'lesson-new-variation'}
+			class={button('primary', 'md', true)}
+			disabled={figureMode === 'variation' && data.figureGroups.length === 0}
+			aria-busy={busy}
+			aria-label={busy ? 'Adding' : undefined}
+		>
+			{#if busy}<Spinner />{:else}{figureMode === 'figure' ? 'Add figure' : 'Add variation'}{/if}
+		</button>
+	{/snippet}
 </Sheet>
 
 <Sheet
 	title="New routine from this lesson"
+	sub="Linked here, then opened to build its slots"
 	open={addingRoutine}
 	onclose={() => (addingRoutine = false)}
 >
-	<!-- A success redirects to the routine's page, where its slots are built. -->
-	<form
-		method="POST"
-		action="?/newRoutine"
-		class="space-y-3"
-		use:guarded={{ label: 'New routine' }}
-	>
-		{#if failure('newRoutine')}
-			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
-				{failure('newRoutine')}
-			</p>
-		{/if}
-		<label class="block">
-			<span class={label}>Name</span>
-			<input
-				name="name"
-				required
-				maxlength="200"
-				class={field}
-				value={form && 'name' in form && form.action === 'newRoutine'
-					? String(form.name)
-					: typed.name}
-			/>
-		</label>
-		<label class="block">
-			<span class={label}>How often</span>
-			<select name="everyDays" class={field} value={DEFAULT_EVERY_DAYS}>
-				{#each FREQUENCIES as f (f.days)}
-					<option value={f.days}>{f.label}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="block">
-			<span class={label}>Notes</span>
-			<textarea name="notes" rows="2" maxlength="2000" class={field}
-				>{form && 'notes' in form && form.action === 'newRoutine'
-					? String(form.notes)
-					: ''}</textarea
-			>
-		</label>
+	{@render createFields('lesson-new-routine', '?/newRoutine', 'New routine', 'newRoutine')}
+	{#snippet footer()}
+		{@const busy = creatingBusy === 'routine'}
 		<button
 			type="submit"
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-			>Add routine and build it →</button
+			form="lesson-new-routine"
+			class={button('primary', 'md', true)}
+			aria-busy={busy}
+			aria-label={busy ? 'Adding routine' : undefined}
 		>
-	</form>
+			{#if busy}<Spinner />{:else}Add routine and build it{/if}
+		</button>
+	{/snippet}
 </Sheet>
 
 <Sheet
@@ -1047,51 +1065,75 @@
 	open={addingExercise}
 	onclose={() => (addingExercise = false)}
 >
-	<form
-		method="POST"
-		action="?/newExercise"
-		class="space-y-3"
-		use:guarded={{
-			label: 'New exercise',
-			submit:
-				() =>
-				async ({ update, result }) => {
-					await update();
-					if (result.type === 'success') {
-						addingExercise = false;
-						closePicker();
-					}
-				}
-		}}
-	>
-		{#if failure('newExercise')}
-			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
-				{failure('newExercise')}
-			</p>
-		{/if}
-		<label class="block">
-			<span class={label}>Name</span>
-			<input name="name" required maxlength="200" class={field} value={typed.name} />
-		</label>
-		<label class="block">
-			<span class={label}>How often</span>
-			<select name="everyDays" class={field} value={DEFAULT_EVERY_DAYS}>
-				{#each FREQUENCIES as f (f.days)}
-					<option value={f.days}>{f.label}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="block">
-			<span class={label}>Notes</span>
-			<textarea name="notes" rows="2" maxlength="2000" class={field}></textarea>
-		</label>
+	{@render createFields('lesson-new-exercise', '?/newExercise', 'New exercise', 'newExercise')}
+	{#snippet footer()}
+		{@const busy = creatingBusy === 'exercise'}
 		<button
 			type="submit"
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-			>Add exercise</button
+			form="lesson-new-exercise"
+			class={button('primary', 'md', true)}
+			aria-busy={busy}
+			aria-label={busy ? 'Adding exercise' : undefined}
 		>
-	</form>
+			{#if busy}<Spinner />{:else}Add exercise{/if}
+		</button>
+	{/snippet}
 </Sheet>
+
+<!-- The routine and exercise sheets' form: Name, How often, Notes. A success of
+     the routine's redirects to its page, where its slots are built. -->
+{#snippet createFields(
+	id: string,
+	action: string,
+	label: string,
+	kind: 'newRoutine' | 'newExercise'
+)}
+	{@const errors = errorsOf(kind)}
+	<form
+		{id}
+		method="POST"
+		{action}
+		novalidate
+		class="flex flex-col gap-3.5"
+		use:guarded={{ label, submit: kind === 'newRoutine' ? routineSubmit : closeExerciseSheet }}
+	>
+		{#if bannerOf(kind)}<Banner kind="error">{bannerOf(kind)}</Banner>{/if}
+		<div>
+			<label class={LABEL} for="{id}-name">Name</label>
+			<input
+				id="{id}-name"
+				name="name"
+				required
+				maxlength="200"
+				class={FIELD}
+				value={typed.name}
+				aria-invalid={errors.name ? 'true' : undefined}
+				aria-describedby={errors.name ? `${id}-name-error` : undefined}
+			/>
+			{#if errors.name}<FieldError id="{id}-name-error" message={errors.name} />{/if}
+		</div>
+		{#if kind === 'newRoutine'}
+			<FrequencyField name="everyDays" label="How often" bind:value={routineEvery} />
+		{:else}
+			<FrequencyField name="everyDays" label="How often" bind:value={exerciseEvery} />
+		{/if}
+		<div>
+			<label class={LABEL} for="{id}-notes"
+				>Notes<span class="font-medium text-muted">&nbsp;(optional)</span></label
+			>
+			<textarea
+				id="{id}-notes"
+				name="notes"
+				rows="2"
+				maxlength="2000"
+				class={TEXTAREA}
+				aria-invalid={errors.notes ? 'true' : undefined}
+				aria-describedby={errors.notes ? `${id}-notes-error` : undefined}>{typed.notes}</textarea
+			>
+			{#if errors.notes}<FieldError id="{id}-notes-error" message={errors.notes} />{/if}
+		</div>
+	</form>
+{/snippet}
 
 {#if unlinkingVia}
 	<UnlinkVia {...unlinkingVia} onclose={() => (unlinkingVia = null)} />
