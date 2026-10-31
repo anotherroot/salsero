@@ -2,7 +2,7 @@
 	import Icon from './Icon.svelte';
 	import { iconButton } from './styles';
 
-	/** [label] (number pill) [unit] (−) (+): the tempo control. A typed value is clamped into range and to `step`. */
+	/** [label] (number pill) [unit] (−) (+): the tempo control. A typed value is kept as typed (rounded, clamped into range); `step` is only what − and + move by. */
 	interface Props {
 		value: number;
 		min: number;
@@ -30,7 +30,7 @@
 	function commit(e: Event & { currentTarget: HTMLInputElement }) {
 		const n = Number(e.currentTarget.value);
 		if (Number.isFinite(n) && e.currentTarget.value.trim() !== '') {
-			value = clamp(min + Math.round((n - min) / step) * step);
+			value = clamp(Math.round(n));
 		}
 		// Show the settled value even when it did not change (a rejected entry snaps back).
 		e.currentTarget.value = String(value);
