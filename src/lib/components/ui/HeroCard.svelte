@@ -23,7 +23,9 @@
 
 {#snippet body()}
 	<span class="flex min-w-0 flex-1 flex-col gap-[3px]">
-		<span class="font-display text-[25px] leading-[1.1] font-extrabold">{title}</span>
+		<span class="font-display text-[25px] leading-[1.1] font-extrabold tracking-[-0.01em]"
+			>{title}</span
+		>
 		{#if meta}<span class="text-[13px] font-semibold text-muted">{meta}</span>{/if}
 	</span>
 	<!-- Filled icons cut their details out in the button's own colour. -->

@@ -586,9 +586,9 @@ unsaved.
   an edit, and is not guarded. Edit mode still has no Cancel; leaving is the
   way to discard.
 
-## Pending navigation
-
 The look (colours, type, icons, shared components) and the four tabs (Today, Moves, Lessons, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
+
+## Pending navigation
 
 Every page has a server `load`, and SvelteKit keeps the old page on screen
 until it answers, so a tap used to change nothing for a whole round trip. It
@@ -598,8 +598,8 @@ root layout (`src/routes/+layout.svelte`, driven by `navigating` from
 
 - **Under the finger.** A link dims while pressed (`a[href]:active` in
   `layout.css`).
-- **At once.** The destination's bottom tab and dance pill light, the accent
-  follows a dance switch, and a thin bar runs along the top (`NavProgress`).
+- **At once.** The destination's bottom tab lights, the accent
+  follows the destination's dance, and a thin bar runs along the top (`NavProgress`).
   The bar runs on every navigation, a search or a day step included.
 - **After 100 ms** (`SKELETON_DELAY_MS`) still waiting, a skeleton shaped like
   the destination covers the page (`PageSkeleton`): Today, a list (titled with
@@ -612,7 +612,7 @@ The skeleton **covers** the old page and never replaces it. SvelteKit saves the
 old page's scroll position only once the new data has arrived, so hiding it
 would save a scroll of zero and break Back. A refused or failed navigation also
 finds the old page exactly as it was. The cover stops at the top of the bottom
-nav and sits above the bars pinned over a page's end (z-30).
+nav when the destination shows one, and sits above the bars pinned over a page's end (z-30).
 
 Links already preload on touchstart (`data-sveltekit-preload-data="hover"` in
 `app.html`), so the 100 ms is usually enough for a page to land without a grey

@@ -46,7 +46,7 @@
 
 <div
 	class="fixed inset-x-0 top-0 z-[35] overflow-hidden bg-ground"
-	style="bottom: {tabs ? 'calc(3.5rem + 1px + env(safe-area-inset-bottom))' : '0'}"
+	style="bottom: {tabs ? 'calc(var(--tab-bar-h) + env(safe-area-inset-bottom))' : '0'}"
 	aria-busy="true"
 >
 	<div class="mx-auto max-w-[560px]">
@@ -54,7 +54,7 @@
 
 		<header
 			class="flex flex-col bg-band px-5 pb-8"
-			style="padding-top: calc(30px + env(safe-area-inset-top))"
+			style="padding-top: calc(30px + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink)"
 		>
 			{#if skeleton.kind === 'list'}
 				<h1 class="font-display text-[34px] leading-tight font-extrabold text-band-ink">

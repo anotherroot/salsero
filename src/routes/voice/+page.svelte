@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import {
@@ -226,6 +228,12 @@
 	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
 >
+	<a
+		href={resolve('/settings')}
+		aria-label="Back to Settings"
+		class="-mt-1 mb-1 -ml-3 flex h-11 w-11 items-center justify-center rounded-full text-ink"
+		><Icon name="back" /></a
+	>
 	<h1 class="text-[17px] font-semibold">My count</h1>
 </header>
 

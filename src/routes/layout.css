@@ -1,5 +1,5 @@
 @import '@fontsource-variable/manrope/wght.css';
-@import '@fontsource-variable/bricolage-grotesque/wght.css';
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
 @import 'tailwindcss';
 
 /*
@@ -199,11 +199,20 @@ body {
 	-webkit-tap-highlight-color: transparent;
 }
 
-/* Visible focus everywhere. No border-radius here: it would reshape the element, not the outline. */
+/*
+ * Visible focus everywhere. No border-radius here: it would reshape the element, not the outline.
+ * `--focus-ring` is set on the band (Screen, PageSkeleton) to the band cream:
+ * the accent is the band's own colour there and would not show.
+ */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-	outline: 2px solid var(--color-accent);
+	outline: 2px solid var(--focus-ring, var(--color-accent));
 	outline-offset: 2px;
-	box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-accent) 20%, transparent);
+	box-shadow: 0 0 0 6px color-mix(in srgb, var(--focus-ring, var(--color-accent)) 20%, transparent);
+}
+
+:root {
+	/* The tab bar's own height: 10 px above, the 44 px link, 8 px below, a 1 px line. Users add the safe area. */
+	--tab-bar-h: 63px;
 }
 
 /*

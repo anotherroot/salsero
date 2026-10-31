@@ -16,12 +16,17 @@
 		icon?: IconName;
 		tone?: 'default' | 'danger';
 		actions: Snippet;
+		/** Drawn inside the dialog: a modal dialog makes the page inert and covers a page-level toast. */
+		toast?: Snippet;
 		onclose: () => void;
 	}
 
-	let { open, title, body, icon, tone = 'default', actions, onclose }: Props = $props();
+	let { open, title, body, icon, tone = 'default', actions, toast, onclose }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	let key: number | null = null;
+	/** Set when the owner closes it (open went false): the browser's `close` event that follows is not a second report. */
+	let closedByOwner = false;
+	const uid = $props.id();
 
 	$effect(() => {
 		if (!dialog) return;
@@ -30,6 +35,7 @@
 			key = sheetStack.open({ tryLeave: (leave) => leave(), close: () => onclose() });
 		}
 		if (!open && dialog.open) {
+			closedByOwner = true;
 			dialog.close();
 			release();
 		}
@@ -51,10 +57,15 @@
 
 <dialog
 	bind:this={dialog}
-	aria-labelledby="dlg-title"
-	aria-describedby={body ? 'dlg-body' : undefined}
+	aria-labelledby="{uid}-title"
+	aria-describedby={body ? `${uid}-body` : undefined}
 	role="alertdialog"
 	onclose={() => {
+		// Once per close: the owner already knows about a close it asked for.
+		if (closedByOwner) {
+			closedByOwner = false;
+			return;
+		}
 		release();
 		onclose();
 	}}
@@ -77,15 +88,16 @@
 					<Icon name={icon} />
 				</span>
 			{/if}
-			<h2 id="dlg-title" class="font-display text-[22px] leading-tight font-extrabold text-ink">
+			<h2 id="{uid}-title" class="font-display text-[22px] leading-tight font-extrabold text-ink">
 				{title}
 			</h2>
 			{#if body}
-				<p id="dlg-body" class="text-[15px] leading-[1.45] text-ink-2">{body}</p>
+				<p id="{uid}-body" class="text-[15px] leading-[1.45] text-ink-2">{body}</p>
 			{/if}
 			<div class="mt-2 -mr-2 flex flex-wrap justify-end gap-2">{@render actions()}</div>
 		</div>
 	{/if}
+	{#if toast}{@render toast()}{/if}
 </dialog>
 
 <style>

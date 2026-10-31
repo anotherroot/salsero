@@ -40,6 +40,7 @@
 	let dangerOpen = $state(false);
 	let toast = $state<{ id: number; message: string; action?: string } | null>(null);
 	let toastId = 0;
+	let sheetToastMsg = $state<{ id: number; message: string; action?: string } | null>(null);
 
 	const kinds: ButtonKind[] = ['primary', 'secondary', 'tertiary', 'danger', 'danger-text'];
 	const sizes: ButtonSize[] = ['sm', 'md', 'lg'];
@@ -56,12 +57,13 @@
 <svelte:head><title>Kit gallery</title></svelte:head>
 
 <div data-dance={dance} style:display="contents">
-	<Screen title="Dile que no con vuelta · Doble con mano" subtitle="Montaña · Caída">
+	<Screen title="Cañón con vuelta · Doble" subtitle="Montaña · Caída">
 		{#snippet left()}<BandButton icon="back" label="Back" />{/snippet}
 		{#snippet right()}<BandButton icon="plus" label="Add" />{/snippet}
 		{#snippet extra()}
 			<Segmented
 				onBand
+				label="Dance"
 				name="kit-dance"
 				bind:value={dance}
 				items={[
@@ -71,7 +73,7 @@
 			/>
 		{/snippet}
 		{#snippet hero()}
-			<HeroCard title="Enchufla · Doble" meta="3 due · 12 min" />
+			<HeroCard title="Caída · Montaña" meta="3 due" />
 		{/snippet}
 
 		<div class="flex flex-col gap-8 px-4 pb-24">
@@ -81,13 +83,6 @@
 					<HeroCard title="Nothing due" meta="All done today" icon="check-circle" />
 				</div>
 				<HeroCard title="As a link" href="/dev/kit" />
-			</section>
-
-			<section class="flex flex-col gap-3">
-				<h2 class={SECTION_LABEL}>Band buttons (on the band above)</h2>
-				<p class="text-[13px] text-muted">
-					Dance toggle is in the band; light and dark follow the system.
-				</p>
 			</section>
 
 			<section class="flex flex-col gap-3">
@@ -163,6 +158,7 @@
 			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Segmented</h2>
 				<Segmented
+					label="Range"
 					name="kit-seg"
 					bind:value={seg}
 					items={[
@@ -174,6 +170,7 @@
 				<div class="rounded-2xl bg-band p-3">
 					<Segmented
 						onBand
+						label="Count"
 						name="kit-seg-band"
 						bind:value={segBand}
 						items={[
@@ -295,17 +292,34 @@
 		</div>
 	</Screen>
 
+	{#snippet sheetToast()}
+		<Toast
+			contained
+			toast={sheetToastMsg}
+			onaction={() => (sheetToastMsg = null)}
+			ondismiss={() => (sheetToastMsg = null)}
+		/>
+	{/snippet}
+
 	<Sheet
 		title="A sheet"
 		sub="With a muted line under the title"
 		open={sheetOpen}
-		onclose={() => ((sheetOpen = false), (sheetBack = false))}
-		back={sheetBack ? () => (sheetBack = false) : undefined}
+		onclose={() => ((sheetOpen = false), (sheetBack = false), (sheetToastMsg = null))}
+		back={sheetBack}
+		toast={sheetToast}
 	>
 		<div class="flex flex-col gap-3 p-4">
 			<label class={LABEL} for="ks">Inside</label>
 			<input id="ks" class={FIELD} placeholder="A field in a sheet" />
 			<p class="text-ink-2">Some body text in the sheet.</p>
+			<button
+				type="button"
+				class={button('secondary', 'sm')}
+				onclick={() =>
+					(sheetToastMsg = { id: ++toastId, message: 'Slot 4 deleted', action: 'Undo' })}
+				>Delete (toast with Undo)</button
+			>
 		</div>
 		{#snippet footer()}
 			<button

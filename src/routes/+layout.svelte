@@ -80,15 +80,15 @@
 {#if nav}
 	<!--
 		`data-dance` carries the accent (see layout.css) down to everything a
-		dance touches: the page content, and
-		`BottomNav` — which renders as a SIBLING of the wrapper div, not a
-		child of it, so it needs its own place inside this attribute's reach.
+		dance touches: the page content, the tab bar (`BottomNav`, a sibling of
+		the content div, inside this wrapper), the loading skeleton and the
+		unsaved-changes dialog.
 		`display: contents` keeps the wrapper out of layout entirely.
 	-->
 	<div data-dance={navDance.slug} style:display="contents">
 		<div
 			class="mx-auto min-h-dvh max-w-[560px] {tabs
-				? 'pb-[calc(4.5rem+env(safe-area-inset-bottom))]'
+				? 'pb-[calc(var(--tab-bar-h)+12px+env(safe-area-inset-bottom))]'
 				: ''}"
 		>
 			{@render children()}

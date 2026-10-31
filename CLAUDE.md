@@ -139,7 +139,8 @@ src/lib/theme/       tokens.ts is the colour source (four themes); layout.css co
 src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled tab
                      variants), drawn by components/ui/Icon.svelte
 src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the bar
-                     shows. band.ts: the big or slim band by scroll. PURE
+                     shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
+                     while data is on the way (skeleton, leaving). PURE
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
@@ -211,9 +212,8 @@ scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-ch
 scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is committed
 scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
                      static/icon-bachata.svg → static/icons/. Output is committed.
-                     Both scripts
-                     pull their tooling from nixpkgs at run time, so the flake
-                     carries neither
+                     Both scripts pull their tooling from nixpkgs at run time, so the
+                     flake carries neither
 ```
 
 ## Hard rules

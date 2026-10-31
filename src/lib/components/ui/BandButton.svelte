@@ -11,7 +11,7 @@
 
 	// A bare cream icon on the band; the 44 px square is the hit area.
 	const cls =
-		'flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15 focus-visible:outline-band-ink';
+		'flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15';
 </script>
 
 {#if href}

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -9,6 +11,12 @@
 </script>
 
 <header class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 py-3 backdrop-blur">
+	<a
+		href={resolve('/[dance]/figures', { dance: data.dance.slug })}
+		aria-label="Back to Moves"
+		class="-mt-1 mb-1 -ml-3 flex h-11 w-11 items-center justify-center rounded-full text-ink"
+		><Icon name="back" /></a
+	>
 	<h1 class="text-[17px] font-semibold">Positions</h1>
 	<p class="text-[12px] text-muted">
 		Where a figure's hands are before and after it. A figure with none tagged is assumed to start

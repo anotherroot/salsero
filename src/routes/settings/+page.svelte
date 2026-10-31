@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { clockLabel } from '$lib/clock';
 	import { DANCE_SLUGS, DANCES } from '$lib/dances/dances';
 	import { guarded } from '$lib/unsaved/guard.svelte';
@@ -22,6 +23,12 @@
 	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
 	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
 >
+	<a
+		href={resolve('/[dance]', { dance: data.lastDance })}
+		aria-label="Back to Today"
+		class="-mt-1 mb-1 -ml-3 flex h-11 w-11 items-center justify-center rounded-full text-ink"
+		><Icon name="back" /></a
+	>
 	<h1 class="text-[17px] font-semibold">Settings</h1>
 </header>
 

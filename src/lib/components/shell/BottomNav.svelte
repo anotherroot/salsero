@@ -17,11 +17,11 @@
 <!-- `--icon-knockout`: filled icons cut their details out in the bar's colour. -->
 <nav
 	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg"
-	style="padding-bottom: env(safe-area-inset-bottom); --icon-knockout: var(--color-tab-bg)"
+	style="height: calc(var(--tab-bar-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); --icon-knockout: var(--color-tab-bg)"
 	aria-label="Main"
 >
 	<ul
-		class="mx-auto grid max-w-[560px] items-center gap-1 px-2 py-2"
+		class="mx-auto grid max-w-[560px] items-center gap-1 px-2 pt-[10px] pb-2"
 		style="grid-template-columns: {TABS.map((t) => (t.id === lit ? '1.6fr' : '1fr')).join(' ')}"
 	>
 		{#each TABS as tab (tab.id)}

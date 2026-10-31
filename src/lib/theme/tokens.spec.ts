@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DANCE_SLUGS } from '$lib/dances/dances';
 import { contrast, mix } from './contrast';
-import { THEMES, TOKEN_NAMES, type Scheme, type TokenName } from './tokens';
+import { BAND_TRACK, THEMES, TOKEN_NAMES, type Scheme, type TokenName } from './tokens';
 
 const SCHEMES: Scheme[] = ['light', 'dark'];
 
@@ -69,5 +69,19 @@ describe('theme tokens', () => {
 	it('keeps the band colours of the app icons', () => {
 		expect(THEMES.salsa.light.band).toBe('#D2401E');
 		expect(THEMES.bachata.light.band).toBe('#6B1D4F');
+	});
+});
+
+describe('on-band switch track', () => {
+	it('keeps the unselected label readable on the track in every theme', () => {
+		for (const d of DANCE_SLUGS)
+			for (const s of SCHEMES) {
+				const t = THEMES[d][s];
+				// contrast() composites an #rrggbbaa background over white, so build the
+				// opaque track by hand: black at the track's alpha over the band.
+				const alpha = parseInt(BAND_TRACK.slice(7, 9), 16) / 255;
+				const track = mix('#000000', t.band, alpha);
+				expect(contrast(t['band-small'], track), `${d} ${s}`).toBeGreaterThanOrEqual(4.5);
+			}
 	});
 });

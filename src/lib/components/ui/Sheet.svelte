@@ -10,15 +10,17 @@
 		open: boolean;
 		onclose: () => void;
 		children: Snippet;
-		/** A Back arrow on the left in place of ×: for a level stacked in a sheet. */
-		back?: () => void;
+		/** Swaps the × for a Back arrow (a level stacked over another sheet); it closes this sheet exactly as × does, through history and the unsaved-changes question. */
+		back?: boolean;
 		/** Pinned under the content, a hairline above it. */
 		footer?: Snippet;
 		/** A muted line under the title. */
 		sub?: string;
+		/** Drawn inside the dialog: a modal dialog makes the page inert and covers a page-level toast. */
+		toast?: Snippet;
 	}
 
-	let { title, open, onclose, children, back, footer, sub }: Props = $props();
+	let { title, open, onclose, children, back, footer, sub, toast }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	/** This sheet's place in the stack while it is open. Not state: nothing renders from it. */
 	let key: number | null = null;
@@ -90,7 +92,7 @@
 		<div class="grabber" aria-hidden="true"></div>
 		<header class="flex min-h-11 items-center gap-1 px-4 pb-1" class:pl-2={back}>
 			{#if back}
-				<button type="button" class={iconButton('bare')} aria-label="Back" onclick={back}>
+				<button type="button" class={iconButton('bare')} aria-label="Back" onclick={tryClose}>
 					<Icon name="back" />
 				</button>
 			{/if}
@@ -118,6 +120,7 @@
 			</div>
 		{/if}
 	</div>
+	{#if toast}{@render toast()}{/if}
 </dialog>
 
 <style>

@@ -86,7 +86,8 @@ bottom bar has four tabs with icons; nothing the app does today is lost.
   for the current tab and a few states (play, pause, star…). The set is on the
   design system board (section 04).
 - **Fonts:** Bricolage Grotesque (titles, hero, big numbers) and Manrope
-  (everything else). Self-hosted woff2 in `static/fonts/` (my call: the app runs
+  (everything else). Self-hosted, bundled from the `@fontsource-variable/*` packages
+  (Bricolage with its optical-size axis, `opsz.css`) and imported in `layout.css` (my call: the app runs
   in a WebView behind auth and offline-ish conditions; no Google Fonts
   request).
 
@@ -114,6 +115,8 @@ Shared neutrals, light / dark: ground `#f2f2f5` / `#0b0b0d`; surface `#ffffff`
 read as the salsa accent); warn `#a34a06` / `#f0a04b`. Derived: accent_soft =
 accent mixed 12 % (light) / 18 % (dark) into surface; tab tint = accent at 12 %.
 Band title and icons are cream `#FFF3E4`.
+
+The segmented switch on the band has a black 15 % track (`BAND_TRACK` in `tokens.ts`) and `band-small` labels, so unselected labels keep 4.5:1 in every theme; the selected pill is cream with `on-cream` text.
 
 - **Type scale:** display 46/800 Bricolage; display_s 30/800; hero 25/800;
   headline 22/800 (sheet and dialog titles); number_l 40/800; title 16/700
@@ -489,7 +492,7 @@ in the routine picker, search on Routines.
   dance's band colour (light and dark), the navigation bar in the tab bar's
   colour — so the band runs to the top of the screen. The full-screen player
   keeps its own handling.
-- **Fonts self-hosted** (woff2 in `static/fonts/`), no Google Fonts request.
+- **Fonts self-hosted** (bundled via `@fontsource-variable/*`, imported in `layout.css`), no Google Fonts request.
 - **Lesson page order** is Videos before Links, and Figures before Exercises.
 - **"Try again"** on page-level load errors reloads the data; it is new but
   cheap and only appears on failure.
