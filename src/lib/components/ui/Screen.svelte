@@ -76,8 +76,8 @@
 </header>
 
 <div
-	class="relative -mt-7 flex min-h-[60vh] flex-col gap-2 rounded-t-[28px] bg-ground pt-5 pb-6"
-	class:pt-0={!!hero}
+	class="relative -mt-7 flex min-h-[60vh] flex-col gap-2 rounded-t-[28px] bg-ground pb-6"
+	class:pt-5={!hero}
 	style="padding-inline: 16px"
 >
 	{#if hero}{@render hero()}{/if}
