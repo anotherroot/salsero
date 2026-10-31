@@ -13,7 +13,7 @@
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten, slotAt } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
-	import { runSubtitle } from '$lib/player/view';
+	import { exerciseLine, runSubtitle, runSummary } from '$lib/player/view';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -333,10 +333,17 @@
 	</main>
 {:else if mode === 'done'}
 	<SaveSetSheet
-		exercise={data.exercise && { id: data.exercise.id, name: data.exercise.name }}
+		exercise={data.exercise && {
+			id: data.exercise.id,
+			name: data.exercise.name,
+			line: exerciseLine(data.exercise)
+		}}
 		exercises={data.exercises}
+		summary={runSummary(
+			finalElapsed,
+			data.routine !== null && runToggles?.callEvery != null ? calledIds.length : null
+		)}
 		durationS={finalElapsed}
-		calledCount={calledIds.length}
 		run={runJson}
 		fail={form && 'message' in form ? form : null}
 		onclose={closeSave}
