@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -10,19 +12,30 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SongRow from '$lib/components/songs/SongRow.svelte';
+	import UploadRow from '$lib/components/songs/UploadRow.svelte';
+	import AddSongSheet from '$lib/components/songs/AddSongSheet.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { countOnlyMeta, libraryView, readyMeta, songName, songState } from '$lib/songs/library';
+	import { upload } from '$lib/songs/upload.svelte';
 	import type { SongItem } from '$lib/types';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	// The Add a song sheet opens on this.
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the sheet that reads it comes next (plan 8, Task 3)
+	// The Add a song sheet opens on this; `?add=1` opens it on arrival.
 	let adding = $state(false);
+	onMount(() => {
+		if (page.url.searchParams.get('add') === '1') adding = true;
+	});
+	// Only Add a song's own refusals reach the sheet: they always hand the link back.
+	const addForm = $derived(form && 'url' in form ? form : null);
+	// A refusal re-renders with the message; keep the sheet open to show it.
+	$effect(() => {
+		if (addForm?.message) adding = true;
+	});
 	// Client-side and not in the URL: the whole library is already here.
 	let query = $state('');
-	const view = $derived(libraryView(data.songs, query, false));
+	const view = $derived(libraryView(data.songs, query, upload.current !== null));
 
 	/*
 	 * The worker runs at home once a minute, so a waiting song changes state on
@@ -105,9 +118,10 @@
 	{/if}
 
 	{#if view.kind === 'list'}
-		{#if view.adding.length}
+		{#if view.adding.length || upload.current}
 			<h2 class="{SECTION_LABEL} pt-2.5">{view.addingHeading}</h2>
 			<ul class={GROUP}>
+				<UploadRow />
 				{#each view.adding as s (s.id)}
 					{@render addingRow(s, '')}
 					{#if s.status === 'failed'}
@@ -184,3 +198,5 @@
 		</EmptyState>
 	{/if}
 </Screen>
+
+<AddSongSheet open={adding} onclose={() => (adding = false)} dance={data.dance} form={addForm} />
