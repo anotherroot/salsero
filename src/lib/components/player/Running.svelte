@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { clock } from '$lib/format';
 	import type { CountPattern, Speed } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
@@ -118,6 +119,13 @@
 		slotList.scrollTo({ top: row.offsetTop, behavior: still ? 'auto' : 'smooth' });
 	});
 
+	/*
+	 * Play's button is gone once this mounts, so focus would fall to <body>.
+	 * Pause is the next thing a keyboard or screen-reader user wants.
+	 */
+	let pauseBtn: HTMLButtonElement | undefined = $state();
+	onMount(() => pauseBtn?.focus({ preventScroll: true }));
+
 	function togglePause() {
 		if (paused) {
 			void player.resume();
@@ -144,9 +152,11 @@
 	column, which is what keeps it as wide as the column. Nothing here scrolls
 	the page, so there is no slim band: the stage never scrolls away.
 -->
-<div class="fixed inset-y-0 left-1/2 z-10 flex w-full max-w-[560px] -translate-x-1/2 flex-col">
+<div
+	class="run-col fixed inset-y-0 left-1/2 z-10 flex w-full max-w-[560px] -translate-x-1/2 flex-col"
+>
 	<header
-		class="flex flex-none flex-col gap-1.5 bg-band"
+		class="run-head flex flex-none flex-col gap-1.5 bg-band"
 		style="padding: calc(22px + env(safe-area-inset-top)) 20px 50px; --focus-ring: var(--color-band-ink)"
 	>
 		<div class="-ml-[10px] flex min-w-0 items-center gap-1">
@@ -164,7 +174,7 @@
 			<span class="truncate pl-[38px] text-[15px] font-semibold text-band-small">{subtitle}</span>
 		{/if}
 
-		<div class="mt-2 flex flex-col items-center gap-2.5">
+		<div class="run-stage mt-2 flex flex-col items-center gap-2.5">
 			<StageCount
 				time={() => player.songTime()}
 				{beats}
@@ -177,7 +187,7 @@
 				     ("Dile que no con vuelta · Doble con mano") stays two whole lines at 360. -->
 				<p
 					aria-live="polite"
-					class="line-clamp-2 min-h-9 text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink"
+					class="run-call line-clamp-2 min-h-9 text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink"
 				>
 					{calledName ?? ''}
 				</p>
@@ -197,7 +207,7 @@
 	</header>
 
 	<div
-		class="-mt-7 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-t-[28px] bg-ground px-4 pt-4 pb-[112px]"
+		class="run-sheet -mt-7 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-t-[28px] bg-ground px-4 pt-4 pb-[112px]"
 	>
 		{#if song}
 			<!-- The app's own bar: the `<audio>` has no controls. It seeks once, on
@@ -284,13 +294,18 @@
 		</section>
 	</div>
 
-	<BottomBar fade>
+	<BottomBar fade class="run-bar">
 		<div class="flex gap-2.5">
 			<button type="button" class={STOP} onclick={onstop}>
 				<Icon name="stop" size={22} filled />Stop
 			</button>
 			<div class="flex min-w-0 flex-1">
-				<button type="button" class={button('primary', 'lg', true)} onclick={togglePause}>
+				<button
+					bind:this={pauseBtn}
+					type="button"
+					class={button('primary', 'lg', true)}
+					onclick={togglePause}
+				>
 					{#if paused}
 						<Icon name="play" size={22} filled />Resume
 					{:else}
@@ -306,5 +321,52 @@
 	.slots {
 		-webkit-mask-image: linear-gradient(#000 70%, transparent);
 		mask-image: linear-gradient(#000 70%, transparent);
+	}
+
+	/* A short phone: a smaller list and a tighter foot, so the "Now" row clears the transport's fade. */
+	@media (max-height: 700px) {
+		.slots {
+			max-height: 100px;
+		}
+		.run-sheet {
+			padding-bottom: 96px;
+		}
+	}
+
+	/*
+	 * A landscape phone: two halves. The stage is the left, the sheet the right
+	 * (overlapping the band from the side as it does from below in portrait),
+	 * the transport at the foot of the right half. A desktop keeps the portrait
+	 * 560 px column.
+	 */
+	@media (orientation: landscape) and (max-height: 520px) {
+		.run-col {
+			max-width: 900px;
+			flex-direction: row;
+		}
+		.run-head {
+			flex: 0 0 50%;
+			padding-top: calc(14px + env(safe-area-inset-top)) !important;
+			padding-bottom: 22px !important;
+		}
+		.run-head > span {
+			flex: none;
+		}
+		.run-call {
+			font-size: 24px;
+			min-height: 0;
+		}
+		.run-stage {
+			margin-block: auto;
+		}
+		.run-sheet {
+			margin-top: 0;
+			margin-left: -28px;
+			border-radius: 28px 0 0 28px;
+			padding-bottom: 112px;
+		}
+		:global(.run-bar) {
+			left: 50%;
+		}
 	}
 </style>

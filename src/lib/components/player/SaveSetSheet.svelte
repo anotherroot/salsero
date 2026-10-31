@@ -98,6 +98,7 @@
 				{#each [1, 2, 3, 4, 5] as n (n)}
 					<button
 						type="button"
+						aria-label="{n} of 5"
 						aria-pressed={rating === n}
 						onclick={() => (rating = nextRating(rating, n))}
 						class="h-12 flex-1 cursor-pointer rounded-[14px] text-[17px] font-extrabold {rating !==

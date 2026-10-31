@@ -131,6 +131,9 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      toggle) and the exercise page (exercise-page.ts).
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
+src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,
+                     the band's subtitles, the run summary, Play's state, Built-in
+                     or Yours, where Back goes. Client-safe
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
                      gives the picker (build.ts). Client-safe

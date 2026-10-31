@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
+	import { entryState } from '$lib/sheets/history.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Running from '$lib/components/player/Running.svelte';
@@ -245,7 +246,23 @@
 		// would ask "Unsaved changes" about the run just refused: unmount it
 		// first, then leave.
 		await tick();
-		await goto(resolve(data.back.href as `/${string}`));
+		// The sheet's own history entry is still on top of the player's: let its
+		// Back land first, then replace the player with where Back goes, so one
+		// browser Back from there reaches the page before the player.
+		if (entryState().sheets) {
+			await new Promise<void>((done) => {
+				const t = setTimeout(done, 600);
+				window.addEventListener(
+					'popstate',
+					() => {
+						clearTimeout(t);
+						done();
+					},
+					{ once: true }
+				);
+			});
+		}
+		await goto(resolve(data.back.href as `/${string}`), { replaceState: true });
 	}
 
 	// A navigation away or a tab close must not leave an AudioContext or a

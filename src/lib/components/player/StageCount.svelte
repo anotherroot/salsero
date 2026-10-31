@@ -53,7 +53,7 @@
 		role="img"
 		aria-label={digit.text === '–' ? 'Count not started' : `Count ${digit.text}`}
 		class="stage flex items-center justify-center"
-		style="--stage: min({size}px, 30dvh)"
+		style="--size: {size}px"
 	>
 		<span
 			class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.disc
@@ -74,8 +74,15 @@
 
 <style>
 	.stage {
+		--stage: min(var(--size), 30dvh);
 		width: var(--stage);
 		height: var(--stage);
 		font-size: calc(var(--stage) * 0.82);
+	}
+	/* A landscape phone has the whole left half, but little height. */
+	@media (orientation: landscape) and (max-height: 520px) {
+		.stage {
+			--stage: min(var(--size), 46dvh);
+		}
 	}
 </style>
