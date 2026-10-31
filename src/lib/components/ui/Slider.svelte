@@ -48,7 +48,8 @@
 	.slider {
 		appearance: none;
 		-webkit-appearance: none;
-		height: 26px;
+		/* 44 px touch target; the track and the 26 px thumb sit centred in it. */
+		height: 44px;
 		margin: 0;
 		background: transparent;
 		cursor: pointer;
