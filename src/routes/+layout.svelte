@@ -11,7 +11,9 @@
 	import { guardNavigation } from '$lib/unsaved/guard.svelte';
 	import { syncSheets } from '$lib/sheets/history.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
-	import { beforeNavigate } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
+	import { errorBack, errorView } from '$lib/nav/error-view';
 
 	let { data, children } = $props();
 	guardNavigation();
@@ -75,6 +77,29 @@
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
 	const tabs = $derived(showsTabs((navigating.to ?? page).route.id));
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
+
+	/*
+	 * Offline. The root layout has a server load, so a client navigation that
+	 * cannot reach the server falls back to a full page load and the browser's
+	 * own error page, never `+error.svelte`. So the navigation is stopped before
+	 * it starts and the Offline screen is laid OVER the page (not instead of it,
+	 * so whatever was typed stays). Registered after `guardNavigation()` so the
+	 * unsaved-changes guard has already had its say on the same navigation.
+	 */
+	let offline = $state<URL | null>(null);
+	beforeNavigate(({ to, willUnload, cancel }) => {
+		if (!to?.route.id || willUnload || to.url.origin !== page.url.origin) return;
+		if (navigator.onLine) return;
+		cancel();
+		offline = to.url;
+	});
+	afterNavigate(() => (offline = null));
+	const retryOffline = () => {
+		const url = offline;
+		offline = null;
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the URL the user tapped
+		if (url) void goto(url);
+	};
 </script>
 
 {#if nav}
@@ -105,6 +130,22 @@
 {:else}
 	{@render children()}
 	<UnsavedDialog />
+{/if}
+
+{#if offline}
+	<div data-dance={navDance.slug} class="fixed inset-0 z-40 overflow-y-auto bg-ground">
+		<div class="mx-auto max-w-[560px]">
+			<ErrorScreen
+				view={errorView(0, undefined, true)}
+				back={{
+					label: errorBack(page.url.pathname, navDance.slug).label,
+					onclick: () => (offline = null)
+				}}
+				todayHref={`/${navDance.slug}`}
+				onretry={retryOffline}
+			/>
+		</div>
+	</div>
 {/if}
 
 <!-- Outside the shell's {#if}: signing in is a navigation too. -->
