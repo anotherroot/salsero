@@ -10,9 +10,10 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
-	import { CHIP, FIELD_ERROR } from '$lib/components/ui/styles';
-	import { SPEEDS, type Speed } from '$lib/labels';
+	import { FIELD_ERROR } from '$lib/components/ui/styles';
+	import type { Speed } from '$lib/labels';
 	import SongPicker from './SongPicker.svelte';
+	import SpeedChips from './SpeedChips.svelte';
 
 	interface Props {
 		/** Prefix for the radio groups' names, so two pickers never share a group. */
@@ -67,23 +68,10 @@
 			<p class={FIELD_ERROR}><Icon name="warning" size={16} />{error}</p>
 		{/if}
 	</div>
-	<fieldset>
-		<legend class={GROUP_LABEL}>Speed</legend>
-		<div class="flex flex-wrap gap-1.5">
-			{#each SPEEDS as s (s)}
-				<label class={CHIP}>
-					<input
-						type="radio"
-						name="{name}-speed"
-						checked={speed === s}
-						onchange={() => (speed = s)}
-						class="sr-only"
-					/>
-					{s}×
-				</label>
-			{/each}
-		</div>
-	</fieldset>
+	<div>
+		<span class={GROUP_LABEL} aria-hidden="true">Speed</span>
+		<SpeedChips name="{name}-speed" value={speed} onchange={(s) => (speed = s)} />
+	</div>
 {:else}
 	<div class="py-0.5">
 		<Stepper label="Tempo" unit="BPM" min={60} max={300} step={5} bind:value={bpm} />

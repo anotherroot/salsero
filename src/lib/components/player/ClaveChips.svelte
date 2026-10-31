@@ -6,12 +6,14 @@
 		value: ClavePattern | null;
 		onchange: (clave: ClavePattern | null) => void;
 		name?: string;
+		/** The radio group's accessible name. */
+		label: string;
 	}
 
-	let { value, onchange, name = 'clave' }: Props = $props();
+	let { value, onchange, name = 'clave', label }: Props = $props();
 </script>
 
-<div class="flex flex-wrap gap-1.5">
+<div role="radiogroup" aria-label={label} class="flex flex-wrap gap-x-2 gap-y-1">
 	<label class={CHIP}>
 		<input
 			type="radio"

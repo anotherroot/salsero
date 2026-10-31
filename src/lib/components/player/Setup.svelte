@@ -222,6 +222,7 @@
 	<fieldset>
 		<legend class={label}>Voice count</legend>
 		<CountChips
+			label="Voice count"
 			patterns={dance.countPatterns}
 			value={count}
 			onchange={(p) => (countOverride = p)}
@@ -234,7 +235,7 @@
 	{#if dance.clave}
 		<fieldset>
 			<legend class={label}>Clave</legend>
-			<ClaveChips value={clave} onchange={(c) => (claveOverride = c)} />
+			<ClaveChips label="Clave" value={clave} onchange={(c) => (claveOverride = c)} />
 		</fieldset>
 	{/if}
 

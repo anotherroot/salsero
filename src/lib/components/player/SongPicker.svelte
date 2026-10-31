@@ -6,7 +6,8 @@
 	a row picks it and closes. Every way of closing stops the sample.
 -->
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, type Snippet } from 'svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -24,9 +25,22 @@
 		songId: number | null;
 		/** The id of the visible "Song" text, which names the field's button. */
 		labelId?: string;
+		/** `field` is the form field; `card` is the player's setup card. */
+		variant?: 'field' | 'card';
+		/** The card's red ring: no song picked. */
+		invalid?: boolean;
+		/** Drawn under the card's head. */
+		children?: Snippet;
 	}
 
-	let { songs, songId = $bindable(), labelId }: Props = $props();
+	let {
+		songs,
+		songId = $bindable(),
+		labelId,
+		variant = 'field',
+		invalid = false,
+		children
+	}: Props = $props();
 
 	const buttonId = $props.id();
 
@@ -135,29 +149,71 @@
 	</li>
 {/snippet}
 
-<div class="flex items-stretch rounded-lg border border-rule bg-raised">
-	<button
-		type="button"
-		id="{buttonId}-field"
-		aria-labelledby={labelId ? `${labelId} ${buttonId}-field` : undefined}
-		aria-haspopup="dialog"
-		onclick={() => (open = true)}
-		class="inset-focus flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left"
+{#if variant === 'card'}
+	<div
+		class="overflow-hidden rounded-2xl bg-surface {invalid ? 'ring-2 ring-danger ring-inset' : ''}"
 	>
-		<span class="min-w-0 flex-1">
+		<div class="flex items-center gap-3 py-2.5 pr-2.5 pl-3">
 			{#if picked}
-				<span class="block truncate text-[15px] font-medium">{picked.title}</span>
-				{@render line(picked)}
-			{:else}
-				<span class="block py-1 text-[15px] text-muted">Pick a song</span>
+				<SampleButton song={picked.sample} name={picked.title} />
 			{/if}
-		</span>
-		<span class="flex-none text-[14px] text-muted" aria-hidden="true">⌄</span>
-	</button>
-	{#if picked}
-		<SampleButton song={picked.sample} />
-	{/if}
-</div>
+			<button
+				type="button"
+				id="{buttonId}-field"
+				aria-labelledby={labelId ? `${labelId} ${buttonId}-field` : undefined}
+				aria-haspopup="dialog"
+				aria-invalid={invalid ? 'true' : undefined}
+				onclick={() => (open = true)}
+				class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+			>
+				<span class="min-w-0 flex-1">
+					{#if picked}
+						<span class="block truncate text-[16px] leading-[1.3] font-bold text-ink"
+							>{picked.title}</span
+						>
+						{#if sampling.id === picked.id}
+							<span class="block truncate text-[13px] font-bold text-accent-text"
+								>Sample from {clock(picked.sample.startS)}</span
+							>
+						{:else}
+							<span class="block truncate text-[13px] text-muted tabular-nums">{meta(picked)}</span>
+						{/if}
+					{:else}
+						<span class="block text-[16px] font-semibold text-muted">Pick a song</span>
+					{/if}
+				</span>
+				<span class="flex-none text-muted"><Icon name="chevron-down" size={20} /></span>
+			</button>
+		</div>
+		{#if children}
+			<div class="border-t border-hairline">{@render children()}</div>
+		{/if}
+	</div>
+{:else}
+	<div class="flex items-stretch rounded-lg border border-rule bg-raised">
+		<button
+			type="button"
+			id="{buttonId}-field"
+			aria-labelledby={labelId ? `${labelId} ${buttonId}-field` : undefined}
+			aria-haspopup="dialog"
+			onclick={() => (open = true)}
+			class="inset-focus flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left"
+		>
+			<span class="min-w-0 flex-1">
+				{#if picked}
+					<span class="block truncate text-[15px] font-medium">{picked.title}</span>
+					{@render line(picked)}
+				{:else}
+					<span class="block py-1 text-[15px] text-muted">Pick a song</span>
+				{/if}
+			</span>
+			<span class="flex-none text-[14px] text-muted" aria-hidden="true">⌄</span>
+		</button>
+		{#if picked}
+			<SampleButton song={picked.sample} />
+		{/if}
+	</div>
+{/if}
 
 <Sheet title="Pick a song" {open} onclose={close}>
 	<div class="relative">

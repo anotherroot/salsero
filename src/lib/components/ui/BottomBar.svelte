@@ -1,12 +1,14 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	/** Pinned to the bottom of a page. Callers add `pb-28` to their scroll content. */
-	let { children }: { children: Snippet } = $props();
+	/** Pinned to the bottom of a page. `fade`: no border, the page scrolls under a fade. Callers add `pb-28` to their scroll content. */
+	let { children, fade = false }: { children: Snippet; fade?: boolean } = $props();
 </script>
 
 <div
-	class="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-ground px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))]"
+	class="fixed inset-x-0 bottom-0 z-20 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] {fade
+		? 'bg-linear-to-b from-ground/0 to-ground to-[34%] pt-7'
+		: 'border-t border-hairline bg-ground pt-3'}"
 >
 	<div class="mx-auto max-w-[560px]">{@render children()}</div>
 </div>
