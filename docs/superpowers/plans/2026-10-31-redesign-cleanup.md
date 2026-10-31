@@ -338,3 +338,11 @@ Reserved for what the last plans' final reviews add. Each item: file, fix, check
 - **`act.ts` moves to `src/lib/act.ts` and `plural` into `format.ts`** — the calls the Moves and system plans left to Cleanup; `today.ts`' private copy of `plural` goes with it.
 - **Badge pairs are added to the contrast test as they are:** all pass today (lowest: done on done-soft, light, 4.62:1).
 - **Not done here — for the user:** a long name in a session header wraps to four lines (the Today session's header). It needs a design call (clamp at two lines with an ellipsis, or a smaller size), not a cleanup.
+
+Items added by the controller after plans 8, 10, 11 and 12 landed:
+
+- [ ] **Player Back during "Unlink …?"** (`src/lib/components/links/LinkPopup.svelte`, the question inside the full-screen player): hardware Back closes the links level too, not just the question. Give the question its own player history level (or make Back cancel only the question). Check: open the Link popup in the player, open "Unlink …?", press Back — only the question closes.
+- [ ] **Practice Play focus fallback** (`src/lib/components/player/Setup.svelte` `focusPlay`): a no-op when Play is disabled (no song picked or it failed to load); fall back to the Setup heading. Check once in a browser that focus lands on Play (or the heading) after Stop → Don't save.
+- [ ] **A 5xx message in a refusal** (`src/routes/[dance]/figures/[id]/+page.server.ts` around the `fail(e.status, …)`): clamp a status ≥ 500 to a generic "Couldn’t save. Try it again." Check: a spec, or read it.
+- [ ] **Settings and My count share one refusal/undo-toast shape**: `failed()`/`refused()` and the "… removed · Undo" toast are written twice (`src/routes/settings/+page.svelte`, `src/routes/voice/+page.svelte`) — one small helper; and the cookie → dance rule in the Settings and login loads uses the root layout's `lastDance` instead. Check: `npm run check`.
+- [ ] **`.replace()` on builder output fails silently** when the token is missing: Task 4's builder options cover most callers; for the rest, a `swap(cls, from, to)` that throws in dev. Check: a spec.
