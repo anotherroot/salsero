@@ -9,4 +9,4 @@
 	let { id, message }: { id: string; message: string } = $props();
 </script>
 
-<p {id} class={FIELD_ERROR}><Icon name="warning" size={16} filled />{message}</p>
+<p {id} class={FIELD_ERROR} role="alert"><Icon name="warning" size={16} filled />{message}</p>

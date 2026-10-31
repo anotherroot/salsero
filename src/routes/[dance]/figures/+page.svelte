@@ -78,12 +78,14 @@
 	}
 
 	function toggle(e: Event & { currentTarget: HTMLInputElement }, chip: FigureChip) {
-		if (filterQuery(filter, chip.change) === filterQuery(filter, {})) {
+		// Keep what is typed in the search, submitted or not.
+		const change = { ...chip.change, q };
+		if (filterQuery(filter, change) === filterQuery(filter, {})) {
 			// Nothing would change (All while it is on): the box goes back as it was.
 			e.currentTarget.checked = chip.on;
 			return;
 		}
-		refilter(chip.change, true);
+		refilter(change, true);
 	}
 </script>
 

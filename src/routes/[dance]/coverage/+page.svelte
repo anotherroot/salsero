@@ -93,7 +93,10 @@
 		{/if}
 	{/snippet}
 
-	<div class="flex flex-col gap-2" style={selecting ? 'padding-bottom: 5.5rem' : undefined}>
+	<div
+		class="flex flex-col gap-2"
+		style={selecting ? 'padding-bottom: calc(5.5rem + env(safe-area-inset-bottom))' : undefined}
+	>
 		{#if selecting}
 			<p class="px-4 text-[13px] text-muted">Tap in the order the routine should call them.</p>
 		{/if}
@@ -138,7 +141,11 @@
 									>{row.label}</span
 								>
 								{#if meta}
-									<span class="truncate text-[13px] leading-[1.35] text-muted">{meta}</span>
+									<!-- muted is under 4.5:1 on a picked row's tint; ink-2 clears it. -->
+									<span
+										class="truncate text-[13px] leading-[1.35] {n ? 'text-ink-2' : 'text-muted'}"
+										>{meta}</span
+									>
 								{/if}
 							</span>
 							{#if !selecting}
