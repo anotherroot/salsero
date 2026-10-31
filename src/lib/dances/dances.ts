@@ -54,13 +54,17 @@ export interface Dance {
 	 * `--color-accent` under `prefers-color-scheme: dark`. Same rule: keep in
 	 * sync with layout.css by hand.
 	 *
-	 * `--color-accent-ink` (the text/icon colour drawn on top of the accent) has
-	 * no counterpart here — it lives in layout.css only, because it depends on
-	 * the accent AND the theme together (bachata's dark accent is pale enough
-	 * to need a dark ink; every other accent/theme pairing uses white). Nobody
-	 * should go looking for `accentInk` in this registry.
+	 * `--color-on-accent` (the text/icon colour drawn on top of the accent) has
+	 * no counterpart here — it lives in layout.css and `theme/tokens.ts` only,
+	 * because it depends on the accent AND the theme together (both dark accents
+	 * are pale enough to need a dark ink; light ones use white). Nobody should go
+	 * looking for `accentInk` in this registry.
 	 */
 	accentDark: string;
+	/** `--color-band` in light mode: the colour of the page band. Same sync rule. */
+	band: string;
+	/** `--color-band` under `prefers-color-scheme: dark`. Same sync rule. */
+	bandDark: string;
 }
 
 export const DANCE_SLUGS = ['salsa', 'bachata'] as const;
@@ -103,8 +107,10 @@ export const DANCES: Record<DanceSlug, Dance> = {
 			{ slug: 'shadow', name: 'Sombra' },
 			{ slug: 'back-to-back', name: 'Espalda con espalda' }
 		],
-		accent: '#c2410c',
-		accentDark: '#f06a2e'
+		accent: '#d2401e',
+		accentDark: '#ff6b47',
+		band: '#D2401E',
+		bandDark: '#8f2a12'
 	},
 	bachata: {
 		slug: 'bachata',
@@ -133,8 +139,10 @@ export const DANCES: Record<DanceSlug, Dance> = {
 			{ slug: 'shadow', name: 'Shadow' },
 			{ slug: 'side-by-side', name: 'Side by side' }
 		],
-		accent: '#0f766e',
-		accentDark: '#2dd4bf'
+		accent: '#8e2a66',
+		accentDark: '#f07aae',
+		band: '#6B1D4F',
+		bandDark: '#4a1238'
 	}
 };
 

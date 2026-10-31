@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { THEMES } from '$lib/theme/tokens';
 import { DANCES, DANCE_SLUGS, DEFAULT_DANCE, getDance, isDanceSlug, isStyleOf } from './dances';
 
 describe('the dance registry', () => {
@@ -15,10 +16,23 @@ describe('the dance registry', () => {
 		expect(DEFAULT_DANCE).toBe('salsa');
 	});
 
-	it('keeps salsa looking exactly as it does today', () => {
+	it('carries the redesign accents and bands', () => {
 		const salsa = getDance('salsa');
-		expect(salsa.accent).toBe('#c2410c');
-		expect(salsa.accentDark).toBe('#f06a2e');
+		expect(salsa.accent).toBe('#d2401e');
+		expect(salsa.accentDark).toBe('#ff6b47');
+		expect(salsa.band).toBe('#D2401E');
+		expect(salsa.bandDark).toBe('#8f2a12');
+		const bachata = getDance('bachata');
+		expect(bachata.accent).toBe('#8e2a66');
+		expect(bachata.accentDark).toBe('#f07aae');
+		expect(bachata.band).toBe('#6B1D4F');
+		expect(bachata.bandDark).toBe('#4a1238');
+		for (const slug of DANCE_SLUGS) {
+			expect(DANCES[slug].accent).toBe(THEMES[slug].light.accent);
+			expect(DANCES[slug].accentDark).toBe(THEMES[slug].dark.accent);
+			expect(DANCES[slug].band).toBe(THEMES[slug].light.band);
+			expect(DANCES[slug].bandDark).toBe(THEMES[slug].dark.band);
+		}
 		expect(salsa.clave).toBe(true);
 		expect(salsa.styles).toEqual(['salsa', 'son', 'other']);
 	});
@@ -83,14 +97,14 @@ describe('the dance registry', () => {
 		// greps for it. `make-icons.sh` closes the third leg by reading the
 		// registry directly instead of hard-coding its own copy, so this test
 		// only has the stylesheet left to cover.
-		const css = readFileSync('src/routes/layout.css', 'utf8');
+		const css = readFileSync('src/routes/layout.css', 'utf8').toLowerCase();
 		for (const key of DANCE_SLUGS) {
 			const dance = DANCES[key];
 			expect(css, `${key}.accent (${dance.accent}) missing from layout.css`).toContain(
-				dance.accent
+				dance.accent.toLowerCase()
 			);
 			expect(css, `${key}.accentDark (${dance.accentDark}) missing from layout.css`).toContain(
-				dance.accentDark
+				dance.accentDark.toLowerCase()
 			);
 		}
 	});
