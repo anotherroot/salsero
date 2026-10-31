@@ -98,20 +98,23 @@ one routine, never a choice between routines (see the routines design,
 ### Seams
 
 Between two slots that do not connect — the hold does not reach
-(`positionSeams`) or the count does not (`timingSeams`) — the page draws a red
-line with two buttons and a short label naming what is missing:
+(`positionSeams`) or the count does not (`timingSeams`) — the page draws a warn
+box (amber, a warning icon, a short label naming what is missing) with worded
+buttons:
 
-- **↓+** builds **down from the slot above**: the picker is anchored on where
+- **↓ After n** builds **down from the slot above**: the picker is anchored on where
   that slot ends.
-- **↑+** builds **up into the slot below**: the picker is anchored on where
+- **↑ Before n** builds **up into the slot below**: the picker is anchored on where
   that slot starts.
-- **+**, near the right end of the line (the line still runs past it),
+- **+ Bridge**, the accent pill,
   closes the gap **in one step**: the picker is anchored on both slots, so
   Count means it starts on the count the slot above leaves and leaves the slot
   below on its count, and Hold means it starts where the slot above lands and
   ends where the slot below starts. The button is drawn only when at least one
   figure, variation or routine fits both sides with both filters on (`canBridge`
-  in `fit.ts`), so it never opens an empty list.
+  in `fit.ts`), so it never opens an empty list. The pills' accessible names
+  carry their visible words: "Add a slot after n", "Add a slot before n",
+  "Bridge slots a and b".
 
 A seam that connects draws nothing, so a clean routine stays quiet and an
 unfinished one shows exactly where the work is. Inserting is one-sided by
@@ -119,8 +122,9 @@ design: a gap often takes more than one figure to close, so the user builds
 from whichever side they are working from and the seam moves until it
 disappears.
 
-**The ends are always buildable.** A dashed **+** above slot 1 behaves as
-**↑+** into slot 1; one below the last slot behaves as **↓+** from it. An empty
+**The ends are always buildable.** A **+** above slot 1 behaves as
+**↑ Before** slot 1; the **Add a slot** button below the last slot behaves as
+**↓ After** it. An empty
 routine shows a single **+** whose picker has no anchor and no filter.
 
 ### Drag to reorder
@@ -132,7 +136,8 @@ would land, and the list auto-scrolls when the pointer nears the viewport's top
 or bottom edge. Release applies the new order optimistically and saves it;
 Escape or `pointercancel` puts it back.
 
-An open card collapses when its drag starts. Seams are hidden for the duration
+An open card collapses when its drag starts. A dashed gap shows where the card
+will land (`gapTop`). Seams are hidden for the duration
 of a drag and return with the server's answer — mid-drag they describe an order
 that does not exist.
 
@@ -160,10 +165,12 @@ Alternative cards swipe the same way: left removes that alternative. Swiping the
 ### Long-press: select
 
 A ~450 ms press on a card's body enters selection mode with that slot selected,
-through the existing `src/lib/longpress.ts` (the coverage page's). While
-selecting:
+through the existing `src/lib/longpress.ts` (the coverage page's). Selection
+can also start from **Select slots** in the band's ⋯ sheet, with nothing
+selected: the band reads "Select slots" and every action is greyed with its
+reason ("Select slots first."). While selecting:
 
-- the header reads **"2 selected ✕"**; ✕ or Escape leaves;
+- the band reads **"2 selected"** with ×; × or Escape leaves;
 - taps toggle slots in and out of the selection;
 - handles, swipes and expansion are off;
 - a bottom bar offers:
@@ -231,8 +238,9 @@ or in the banner when no slot is named.
 ### What goes away
 
 The per-slot edit sheet, the ↑/↓ buttons, the header's **+ Add** button, and
-the add sheet with its two `<select>`s. The header's **Edit** — name, notes,
-Duplicate routine, Archive — is unchanged.
+the add sheet with its two `<select>`s. The header's **Edit** is the band's
+pencil; Edit routine is the page's edit mode (× and one pinned Save) holding
+name, notes, Duplicate and Archive. Archive asks in a dialog.
 
 ## The picker
 

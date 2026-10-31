@@ -286,7 +286,7 @@
 			type="button"
 			class={addEnd}
 			disabled={selecting}
-			aria-label="Add after slot {rows.length}"
+			aria-label="Add a slot after slot {rows.length}"
 			onclick={() => onadd(rows.length, { row: rows.length - 1, side: 'after' })}
 			><Icon name="plus" size={20} />Add a slot</button
 		>

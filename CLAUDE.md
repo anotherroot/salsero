@@ -113,7 +113,8 @@ src/lib/moves/       PURE: what the Moves lists show — filter chips, headings,
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), the picker's fitting
-                     (fit.ts), the selection's rules, and the delete snapshot.
+                     (fit.ts), the selection's rules, the delete snapshot, and the routine
+                     page's wording and where a refusal shows (page.ts).
                      Client-safe
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe

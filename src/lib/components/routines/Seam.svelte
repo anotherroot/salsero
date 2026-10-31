@@ -58,16 +58,10 @@
 		<span class="mt-px flex-none"><Icon name="warning" size={16} /></span>{label}
 	</p>
 	<div class="flex flex-wrap gap-1.5">
-		{@render pill(`After ${above}`, 'arrow-down', `Add after slot ${above}`, onafter)}
-		{@render pill(`Before ${below}`, 'arrow-up', `Add before slot ${below}`, onbefore)}
+		{@render pill(`After ${above}`, 'arrow-down', `Add a slot after ${above}`, onafter)}
+		{@render pill(`Before ${below}`, 'arrow-up', `Add a slot before ${below}`, onbefore)}
 		{#if onbetween}
-			{@render pill(
-				'Bridge',
-				'plus',
-				`Add between slot ${above} and slot ${below}`,
-				onbetween,
-				true
-			)}
+			{@render pill('Bridge', 'plus', `Bridge slots ${above} and ${below}`, onbetween, true)}
 		{/if}
 	</div>
 </div>

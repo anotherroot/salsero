@@ -321,6 +321,7 @@ rules the boards follow that are not obvious from looking at them.
   closed cards show the note in italics and "or Doble, Complicada"; an open
   card has an accent ring, "Open ›", the note field and the alternatives rail
   (tinted tiles with open and remove squares, dashed "+ Alternative").
+- The band is 46 px for short names and 30 px past 18 characters or a word over 10; ⋯ opens a sheet with Select slots; edit has × and one pinned Save (no ✓).
 - Seams are warn-tinted boxes with a warning icon, the missing piece, and
   worded buttons "↓ After 3", "↑ Before 4", "+ Bridge".
 - The picker states what fits ("Add after slot 3 · starts on 1 from
@@ -332,7 +333,7 @@ rules the boards follow that are not obvious from looking at them.
   follows. Selecting: the band reads "3 selected" with ×, a bottom toolbar of
   five actions, the reason a greyed action is greyed in a strip above it.
 - Exercise and Taught in are rows under "More" at the bottom. Edit routine is
-  its own screen (× and ✓ on the band) with Duplicate and Archive rows.
+  the page's edit mode (× and one pinned Save) with Duplicate and Archive rows.
 
 ### Lessons
 
