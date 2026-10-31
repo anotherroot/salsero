@@ -17,7 +17,9 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { listRoutines } from '$lib/server/routines';
+import { createFigure } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
+import { actions as figureListActions } from './figures/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -77,5 +79,80 @@ describe('New routine', () => {
 			call(routineListActions.create, post('bachata', { name: 'Wave combo', notes: '' }))
 		).rejects.toMatchObject({ status: 303 });
 		expect(listRoutines(db, 'bachata').map((r) => r.name)).toEqual(['Wave combo']);
+	});
+});
+
+describe('New figure', () => {
+	const fields = {
+		figureName: 'Hammerlock',
+		name: 'From closed',
+		partner: 'partner',
+		style: 'sensual',
+		notes: 'Lead the turn early, on 1.'
+	};
+
+	it('puts a taken figure name under Figure name, in bachata too, keeping every field', async () => {
+		createFigure(db, 'bachata', {
+			figureName: 'Hammerlock',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'sensual',
+			notes: null
+		});
+		expect(await call(figureListActions.create, post('bachata', fields))).toMatchObject({
+			status: 400,
+			data: {
+				field: 'figureName',
+				message: "There's already a figure called Hammerlock.",
+				figureName: 'Hammerlock',
+				name: 'From closed',
+				notes: 'Lead the turn early, on 1.'
+			}
+		});
+	});
+
+	it('puts a missing variation name under Variation name', async () => {
+		expect(
+			await call(figureListActions.create, post('bachata', { ...fields, name: '' }))
+		).toMatchObject({
+			status: 400,
+			data: {
+				field: 'name',
+				message: 'Give the variation a name (up to 200 characters).',
+				figureName: 'Hammerlock'
+			}
+		});
+	});
+
+	it('puts a missing figure name under Figure name', async () => {
+		expect(
+			await call(figureListActions.create, post('bachata', { ...fields, figureName: '' }))
+		).toMatchObject({
+			status: 400,
+			data: {
+				field: 'figureName',
+				message: 'Give the figure a name (up to 200 characters).',
+				name: 'From closed'
+			}
+		});
+	});
+
+	it('puts too-long notes under Notes', async () => {
+		expect(
+			await call(figureListActions.create, post('bachata', { ...fields, notes: 'x'.repeat(2001) }))
+		).toMatchObject({
+			status: 400,
+			data: { field: 'notes', message: 'Notes are up to 2000 characters.' }
+		});
+	});
+
+	it('refuses a style from the other dance without naming a field', async () => {
+		const result = (await call(
+			figureListActions.create,
+			post('bachata', { ...fields, style: 'son' })
+		)) as { status: number; data: Record<string, unknown> };
+		expect(result.status).toBe(400);
+		expect(result.data.message).toBe('Pick how it is danced and its style.');
+		expect(result.data).not.toHaveProperty('field');
 	});
 });

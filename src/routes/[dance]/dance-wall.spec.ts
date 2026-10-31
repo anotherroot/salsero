@@ -738,7 +738,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				await call(figureListActions.create, post('salsa', { ...fields, name: '' }))
 			).toMatchObject({
 				status: 400,
-				data: { message: expect.stringMatching(/figure and the variation/) }
+				data: { message: 'Give the variation a name (up to 200 characters).' }
 			});
 		});
 

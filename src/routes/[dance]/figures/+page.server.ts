@@ -59,19 +59,42 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
-		if (!figureName || !name || !partner || !style || notes === undefined) {
+		const typed = {
+			figureName: String(form.get('figureName') ?? ''),
+			name: String(form.get('name') ?? ''),
+			notes: String(form.get('notes') ?? '')
+		};
+		// Each refusal names the field it is about, so the sheet shows it there.
+		if (!figureName) {
 			return fail(400, {
-				message: 'Give the figure and the variation a name (up to 200 characters).',
-				figureName: String(form.get('figureName') ?? ''),
-				name: String(form.get('name') ?? ''),
-				notes: String(form.get('notes') ?? '')
+				field: 'figureName' as const,
+				message: 'Give the figure a name (up to 200 characters).',
+				...typed
 			});
+		}
+		if (!name) {
+			return fail(400, {
+				field: 'name' as const,
+				message: 'Give the variation a name (up to 200 characters).',
+				...typed
+			});
+		}
+		if (notes === undefined) {
+			return fail(400, {
+				field: 'notes' as const,
+				message: 'Notes are up to 2000 characters.',
+				...typed
+			});
+		}
+		if (!partner || !style) {
+			return fail(400, { message: 'Pick how it is danced and its style.', ...typed });
 		}
 		// With every field valid, a taken figure name is the one thing
 		// `createFigure` still refuses.
 		const made = createFigure(getDb(), dance, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
+				field: 'figureName' as const,
 				message: `There's already a figure called ${figureName}.`,
 				figureName,
 				name,

@@ -6,7 +6,9 @@
 	import MovesScreen from '$lib/components/moves/MovesScreen.svelte';
 	import NavTile from '$lib/components/moves/NavTile.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
@@ -33,6 +35,12 @@
 		if (form?.message) creating = true;
 	});
 	let busy = $state(false);
+	// A refusal about one field names it; the rest (a style that is not the dance's) do not.
+	const field = $derived(form && 'field' in form ? form.field : undefined);
+	const otherError = $derived(form?.message && !field ? form.message : null);
+	const fieldErrors = $derived<Record<string, string>>(
+		field && form?.message ? { [field as string]: form.message } : {}
+	);
 
 	const filter = $derived<FigureFilter>(data.filter);
 	const count = $derived(data.figures.length);
@@ -172,12 +180,15 @@
 {#if creating}
 	<Sheet title="New figure" open={true} onclose={() => (creating = false)}>
 		<form
+			id="new-figure"
 			method="POST"
 			action="?/create"
-			class="space-y-3"
+			class="flex flex-col gap-3.5"
 			use:guarded={{
 				label: 'New figure',
-				submit: () => {
+				submit: ({ cancel }) => {
+					// One figure per tap: a second tap while the first is out is dropped.
+					if (busy) return cancel();
 					busy = true;
 					return async ({ update }) => {
 						await update();
@@ -186,25 +197,30 @@
 				}
 			}}
 		>
+			{#if otherError}<Banner kind="error">{otherError}</Banner>{/if}
 			<FigureFields
 				dance={data.dance}
 				figureName={form?.figureName}
 				name={form?.name}
 				style={data.defaultStyle}
 				notes={form?.notes}
+				errors={fieldErrors}
 			/>
-			{#if form?.message}
-				<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-					{form.message}
-				</p>
-			{/if}
-			<button
-				type="submit"
-				disabled={busy}
-				class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
-				>Add figure</button
-			>
-			<p class="text-[12px] text-muted">You can add recordings next.</p>
 		</form>
+
+		{#snippet footer()}
+			<div class="flex flex-col items-center gap-2.5">
+				<button
+					type="submit"
+					form="new-figure"
+					class={button('primary', 'md', true)}
+					aria-busy={busy}
+					aria-label={busy ? 'Adding figure' : undefined}
+				>
+					{#if busy}<Spinner />{:else}Add figure{/if}
+				</button>
+				<p class="text-center text-[13px] text-muted">You can add recordings next.</p>
+			</div>
+		{/snippet}
 	</Sheet>
 {/if}
