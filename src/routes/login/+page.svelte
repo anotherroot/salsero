@@ -17,7 +17,10 @@
 		<form
 			method="POST"
 			class="flex flex-col gap-4 rounded-[22px] bg-surface px-4 pt-5 pb-4"
-			use:enhance={() => {
+			use:enhance={({ cancel }) => {
+				// A second tap or Enter while signing in sends nothing: its fields are
+				// disabled by then, so it would post an empty login.
+				if (submitting) return cancel();
 				// Disabling the fields below is safe: enhance builds the FormData
 				// before this callback runs, so they are still sent.
 				submitting = true;
