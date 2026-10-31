@@ -102,6 +102,8 @@
 
 	async function record() {
 		const mine = ++gen;
+		// A refused Keep belongs to the take it was about, not the next one.
+		keepError = null;
 		controller = new AbortController();
 		// Held locally: a later run reassigns `controller`, and this one must keep
 		// listening to the signal it was started with.
@@ -276,6 +278,7 @@
 		if (stage === 'choosing') {
 			leaveOrAsk(null, () => {
 				capture = null;
+				keepError = null;
 				stage = 'grid';
 			});
 			return;
