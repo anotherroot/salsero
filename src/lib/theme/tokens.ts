@@ -54,8 +54,11 @@ export type Theme = Record<TokenName, string>;
 
 const BAND_INK = '#FFF3E4';
 
-/** The on-band switch track: black at 15 % over the band (ruling R7). Segmented uses it as `bg-black/15`. */
+/** The on-band switch track: black at 15 % over the band (ruling R7). Tailwind's `bg-band-track` uses it. */
 export const BAND_TRACK = '#00000026';
+
+/** Black at 45 % behind a sheet, dialog or the player's layer: Tailwind's `bg-scrim`, and written out in `dialog::backdrop`. */
+export const SCRIM = '#00000073';
 
 type Shared = Omit<Theme, DanceTokens>;
 type DanceTokens =

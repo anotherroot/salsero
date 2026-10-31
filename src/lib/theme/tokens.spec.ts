@@ -27,7 +27,15 @@ const pairs: [TokenName, TokenName][] = [
 	['band-small', 'band'],
 	['inverse-ink', 'inverse-bg'],
 	['inverse-accent', 'inverse-bg'],
-	['chip-ink', 'chip']
+	['chip-ink', 'chip'],
+	// Badge
+	['ink-2', 'chip'],
+	['status', 'accent-soft'],
+	['danger', 'danger-soft'],
+	['surface', 'ink-2'],
+	['on-accent', 'status'],
+	['surface', 'warn'],
+	['on-done', 'done']
 ];
 
 describe('theme tokens', () => {

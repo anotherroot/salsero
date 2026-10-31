@@ -119,7 +119,7 @@
 </script>
 
 <div
-	class="absolute inset-0 {z} theme-media flex flex-col bg-black/45 {shape === 'sheet'
+	class="absolute inset-0 {z} theme-media flex flex-col bg-scrim {shape === 'sheet'
 		? 'justify-end'
 		: 'items-center justify-center p-6'}"
 	role="presentation"

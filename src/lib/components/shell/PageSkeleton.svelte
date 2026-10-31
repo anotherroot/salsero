@@ -95,7 +95,7 @@
 					Moves
 				</h1>
 				<div
-					class="mt-[22px] grid h-[50px] grid-cols-2 rounded-full bg-black/15 p-[3px]"
+					class="mt-[22px] grid h-[50px] grid-cols-2 rounded-full bg-band-track p-[3px]"
 					aria-hidden="true"
 				>
 					<span

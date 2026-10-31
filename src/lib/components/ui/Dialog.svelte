@@ -120,8 +120,4 @@
 		color: var(--color-ink);
 		box-shadow: 0 20px 50px rgb(0 0 0 / 0.3);
 	}
-
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.45);
-	}
 </style>

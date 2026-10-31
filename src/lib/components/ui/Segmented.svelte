@@ -17,7 +17,7 @@
 		onchange?: (value: string) => void;
 	} = $props();
 
-	const track = $derived(onBand ? 'bg-black/15' : 'bg-chip');
+	const track = $derived(onBand ? 'bg-band-track' : 'bg-chip');
 	const ring = $derived(
 		onBand ? 'has-focus-visible:outline-band-ink' : 'has-focus-visible:outline-accent'
 	);

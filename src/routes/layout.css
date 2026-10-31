@@ -62,19 +62,9 @@
 	--color-status: #b8330f;
 	--color-inverse-accent: #ff8a6b;
 
-	/*
-	 * The old names, kept so every screen not yet redrawn still renders. Each is
-	 * an alias of a new token and goes when its last user is redrawn.
-	 * `accent-ink` and `overdue` alias DANCE tokens, so the dance rules below
-	 * set them again: a var() alias resolves where it is defined, not where it
-	 * is used.
-	 */
-	--color-plane: var(--color-ground);
-	--color-line: var(--color-hairline);
-	--color-rule: var(--color-field-line);
-	--color-done-bg: var(--color-done-soft);
-	--color-accent-ink: var(--color-on-accent);
-	--color-overdue: var(--color-status);
+	/* SCRIM behind a sheet or dialog (black at 45 %) and BAND_TRACK, the on-band switch track (black at 15 %). */
+	--color-scrim: #00000073;
+	--color-band-track: #00000026;
 }
 
 @layer theme {
@@ -105,8 +95,6 @@
 		--color-on-accent: #ffffff;
 		--color-status: #8e2a66;
 		--color-inverse-accent: #f07aae;
-		--color-accent-ink: var(--color-on-accent);
-		--color-overdue: var(--color-status);
 	}
 
 	@media (prefers-color-scheme: dark) {
@@ -183,8 +171,6 @@
 			--color-on-accent: #2a0716;
 			--color-status: #f07aae;
 			--color-inverse-accent: #8e2a66;
-			--color-accent-ink: var(--color-on-accent);
-			--color-overdue: var(--color-status);
 		}
 	}
 
@@ -196,9 +182,6 @@
 	 * itself, so it beats the scheme the layer inherits from the page;
 	 * `[data-dance='bachata'] .theme-media` outranks `.theme-media` by
 	 * specificity. Outside any media query on purpose: light mode too.
-	 *
-	 * The old aliases are set again: a var() alias resolves where it is
-	 * defined, so the ones from :root would carry the page's colours in.
 	 */
 	.theme-media {
 		color-scheme: dark;
@@ -243,12 +226,6 @@
 		--color-on-accent: #0b0b0d;
 		--color-status: #ff8a6b;
 		--color-inverse-accent: #b3340f;
-		--color-plane: var(--color-ground);
-		--color-line: var(--color-hairline);
-		--color-rule: var(--color-field-line);
-		--color-done-bg: var(--color-done-soft);
-		--color-accent-ink: var(--color-on-accent);
-		--color-overdue: var(--color-status);
 	}
 
 	[data-dance='bachata'] .theme-media {
@@ -262,14 +239,20 @@
 		--color-on-accent: #2a0716;
 		--color-status: #f07aae;
 		--color-inverse-accent: #8e2a66;
-		--color-accent-ink: var(--color-on-accent);
-		--color-overdue: var(--color-status);
 	}
 }
 
 html,
 body {
 	background: var(--color-ground);
+}
+
+/*
+ * SCRIM, written out: `::backdrop` does not inherit custom properties in every
+ * engine the phone or the work PC may run.
+ */
+dialog::backdrop {
+	background: #00000073;
 }
 
 body {

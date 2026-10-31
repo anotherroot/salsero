@@ -260,7 +260,7 @@
 				class="inline-flex h-11 items-center"
 			>
 				<span
-					class="inline-flex h-8 items-center gap-1.5 rounded-2xl bg-black/15 pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small"
+					class="inline-flex h-8 items-center gap-1.5 rounded-2xl bg-band-track pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small"
 					><Icon name="calendar" size={18} />Back to today</span
 				>
 			</a>

@@ -217,10 +217,6 @@
 		}
 	}
 
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.45);
-	}
-
 	.inner {
 		display: flex;
 		min-height: 0;
