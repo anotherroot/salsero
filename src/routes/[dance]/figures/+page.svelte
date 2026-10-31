@@ -222,6 +222,7 @@
 			<FigureFields
 				dance={data.dance}
 				figureName={form?.figureName}
+				autofocus
 				name={form?.name}
 				style={data.defaultStyle}
 				notes={form?.notes}

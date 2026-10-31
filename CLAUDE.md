@@ -108,6 +108,8 @@ src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
                      whether clave exists, accent colours). Client-safe
 src/lib/graph/       PURE figure graph: positions → what can follow what, the
                      gap report. Client-safe
+src/lib/moves/       PURE: what the Moves lists show — filter chips, headings, empty states,
+                     meta words, gaps, pick order. Client-safe
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), the picker's fitting
@@ -182,7 +184,9 @@ static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
-                     exercises/ links/ routines/
+                     exercises/ links/ routines/ moves/ (the Moves band and its tiles).
+                     ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
+                     line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
 src/lib/server/scope.ts  the dance wall at the route level: guards on params
                      and ids, so a request only ever reaches its own dance

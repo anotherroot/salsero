@@ -14,6 +14,12 @@
 		 * instead: a lesson's "Variation of a figure".
 		 */
 		asksFigureName?: boolean;
+		/**
+		 * Whether Figure name takes focus on mount. Only the New figure sheet
+		 * wants it: Edit and the lesson sheet's "New figure" must not raise the
+		 * keyboard.
+		 */
+		autofocus?: boolean;
 		/** The variation this form describes — "Doble". */
 		name?: string;
 		partner?: Partner;
@@ -27,6 +33,7 @@
 		dance,
 		figureName = '',
 		asksFigureName = true,
+		autofocus = false,
 		name = '',
 		partner = 'partner',
 		style,
@@ -49,13 +56,12 @@
 {#if asksFigureName}
 	<div>
 		<label class={LABEL} for="{uid}-figureName">Figure name</label>
-		<!-- The sheet exists to type this first. -->
 		<!-- svelte-ignore a11y_autofocus -->
 		<input
 			id="{uid}-figureName"
 			name="figureName"
 			required
-			autofocus
+			{autofocus}
 			maxlength="200"
 			placeholder="e.g. Dile que no, Enchufla"
 			value={figureName}
