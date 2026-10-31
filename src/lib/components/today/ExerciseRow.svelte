@@ -40,7 +40,7 @@
 		href={resolve('/[dance]/exercises/[id]', { dance, id: String(ex.id) })}
 		class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
 	>
-		<TypeTile exercise={ex} tone={tileTone(band, upNext)} />
+		<TypeTile exercise={ex} tone={tileTone(band, upNext)} onTint={upNext} />
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span
 				class="text-[16px] leading-[1.3] font-bold break-words {band === 'inactive'
@@ -50,7 +50,8 @@
 						><Badge tone="accent" solid>Up next</Badge></span
 					>{/if}</span
 			>
-			<span class="text-[13px] leading-[1.35] text-muted">
+			<!-- muted is under 4.5:1 on the Up next tint; ink-2 clears it in every theme. -->
+			<span class="text-[13px] leading-[1.35] {upNext ? 'text-ink-2' : 'text-muted'}">
 				{#each meta as part, i (i)}{i > 0 ? ' · ' : ''}<span
 						class={part.tone ? TONE[part.tone] : ''}>{part.text}</span
 					>{/each}{#if lastRating !== null}<span
