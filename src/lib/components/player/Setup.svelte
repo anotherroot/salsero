@@ -71,8 +71,8 @@
 		takes: CountTakeRow[];
 		/** The picked song's grid beats, for its tempo; null until they have loaded. */
 		songBeats: number[] | null;
-		/** Set when the last Play threw. Fixed words here; the page logs the error. */
-		startError: string | null;
+		/** The last Play threw. Fixed words here; the page logs the error. */
+		startError: boolean;
 	}
 
 	let {

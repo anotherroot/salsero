@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import Running from '$lib/components/player/Running.svelte';
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
@@ -11,6 +13,7 @@
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten, slotAt } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
+	import { runSubtitle } from '$lib/player/view';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -59,7 +62,8 @@
 	);
 	const activeSlot = $derived(slotAt(calledIndex, dancedSlots.length));
 	let finalElapsed = $state(0);
-	let startError = $state<string | null>(null);
+	/** The last Play threw. The screen says so in fixed words; the console has the error. */
+	let startError = $state(false);
 	let starting = $state(false);
 	let voiceVolume = $state(1);
 	/** The grid the running player was actually built with — song or synthetic. */
@@ -107,8 +111,13 @@
 		return data.callNames.find((f) => f.id === id)?.say ?? '';
 	}
 
-	function finish() {
+	/** Set when the run ended through the band's back, so Save this run then leaves. */
+	let leaving = $state(false);
+
+	/** `leave`: the band's back ended the run, not Stop or the song's end. */
+	function finish(leave = false) {
 		if (!player) return;
+		leaving = leave;
 		calledIds = player.called();
 		finalElapsed = player.songTime();
 		player.stop();
@@ -139,7 +148,7 @@
 	}
 
 	async function start(settings: PlayerSettings) {
-		startError = null;
+		startError = false;
 		speed = settings.speed;
 		voiceVolume = settings.voiceVolume;
 		runToggles = { count: settings.count, clave: settings.clave, callEvery: settings.callEvery };
@@ -150,6 +159,15 @@
 		const grid =
 			useSong && g0 ? { beats: g0.beats, counts: g0.counts } : syntheticGrid(settings.bpm, 400);
 		const runSong = useSong ? picked : null;
+		// The run's speed on the element BEFORE the player is built: it picks
+		// the voice's takes for the grid's tempo times `audio.playbackRate`, and
+		// Running only sets the rate once it mounts — after start. Without this
+		// the first run at 0.8× chose takes for 1×, and a later run the last
+		// run's speed. Synchronous, so nothing is awaited before start().
+		if (useSong && el) {
+			el.playbackRate = settings.speed;
+			el.preservesPitch = true;
+		}
 
 		// Read once, before the closure below is built: the planner runs inside
 		// the 25 ms tick for the whole run, and a reactive read in there would
@@ -186,7 +204,7 @@
 			// The screen says "Could not start the player." in fixed words;
 			// what was thrown is for whoever opens the console.
 			console.error(e);
-			startError = e instanceof Error ? e.message : String(e);
+			startError = true;
 			return;
 		}
 		player = handle;
@@ -212,6 +230,22 @@
 
 	function handleStop() {
 		finish();
+	}
+
+	/**
+	 * Save this run closed without saving: a run ended by the band's back then
+	 * goes where Back goes; Stop and the song's end come back to setup.
+	 */
+	async function closeSave() {
+		const leave = leaving;
+		leaving = false;
+		mode = 'setup';
+		if (!leave) return;
+		// The sheet's form is guarded, so a navigation while it is mounted
+		// would ask "Unsaved changes" about the run just refused: unmount it
+		// first, then leave.
+		await tick();
+		await goto(resolve(data.back.href as `/${string}`));
 	}
 
 	// A navigation away or a tab close must not leave an AudioContext or a
@@ -261,7 +295,7 @@
 {/if}
 
 {#if mode === 'running' && player && runningGrid}
-	<main class="space-y-4 px-4 pt-4 pb-4">
+	<main>
 		<Running
 			{player}
 			beats={runningGrid.beats}
@@ -282,6 +316,19 @@
 				player?.setToggles(runToggles);
 			}}
 			onstop={handleStop}
+			title={runningSong?.title ?? 'Practice'}
+			subtitle={runSubtitle(
+				{
+					routine: data.routine?.name ?? null,
+					song: !!runningSong,
+					speed,
+					bpm: runningBpm,
+					clave: runToggles?.clave ?? null
+				},
+				data.dance
+			)}
+			backLabel={data.back.label}
+			onback={() => finish(true)}
 		/>
 	</main>
 {:else if mode === 'done'}
@@ -292,6 +339,6 @@
 		calledCount={calledIds.length}
 		run={runJson}
 		fail={form && 'message' in form ? form : null}
-		onclose={() => (mode = 'setup')}
+		onclose={closeSave}
 	/>
 {/if}
