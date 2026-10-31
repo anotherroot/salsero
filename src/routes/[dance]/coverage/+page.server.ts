@@ -29,6 +29,7 @@ export const actions: Actions = {
 		const figureIds = ints(form, 'figureIds');
 		if (!name) {
 			return fail(400, {
+				field: 'name',
 				message: 'Give the routine a name (up to 200 characters).',
 				name: String(form.get('name') ?? '')
 			});

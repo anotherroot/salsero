@@ -284,7 +284,7 @@ rules the boards follow that are not obvious from looking at them.
   loop" badge.
 - Positions (the gap report): a warning banner for gaps; dead end and orphan in
   danger in the row's second line; tap a row for a rename/remove sheet (never
-  remove on the neutral position); the band "+" adds a position.
+  remove on the neutral position); the band "+" adds a position. Names are unique per dance among live positions, compared ignoring accents and case; Remove toasts "{name} removed" with Undo, which refuses if the name was taken meanwhile.
 - Coverage (renamed from "Routine coverage", subtitle "Versions by how many
   routines use them"): Select is a text button on the band; selection shows the
   tap order in numbered discs; a pinned bar "3 selected · Cancel · Create

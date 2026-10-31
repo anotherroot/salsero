@@ -229,6 +229,9 @@ positions                                      -- phase 3a; the handhold vocabul
   archived_at     timestamp, nullable
   created_at      timestamp
   unique (dance, slug)
+  -- names are unique per dance among LIVE rows, compared ignoring accents and
+  -- case (checked in the data function, not a constraint); Undo of a remove
+  -- refuses when another live position took the name
 
 figure_start_positions                         -- phase 3a; handholds a figure can START from
   figure_id       fk figures
@@ -330,7 +333,13 @@ The home page. One page serves both "exercises" and "today".
 
 ## Figures
 
-- **List:** search box, filter by style and partner/solo. Archived hidden.
+- **List:** search box, filter chips (style, partner/solo, Not linked), tiles to
+  Positions and Coverage with their counts. Archived hidden. See the
+  [redesign](2026-10-31-redesign-design.md), Moves.
+- **Positions:** `/[dance]/positions` is the gap report. A position is renamed
+  and removed in a sheet (never the neutral); a remove toasts with Undo.
+  Position names are unique per dance among live positions, compared ignoring
+  accents and case.
 - **New figure's style:** pre-selected from the user's pick in Settings
   ("New figures", one per dance, stored in `default_styles`), else the
   registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored
@@ -342,7 +351,7 @@ The home page. One page serves both "exercises" and "today".
   position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"
   (not built).
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many
-  routines can call it, and makes a routine from a selection. See
+  routines can call it, and makes a routine from a selection (Select; picks numbered in tap order). See
   [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).
 - **Recordings:** upload from the phone camera or mic via
   `<input type="file" accept="video/*,audio/*" capture>`, or any file from a
