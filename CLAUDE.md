@@ -166,7 +166,12 @@ src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled t
                      variants), drawn by components/ui/Icon.svelte
 src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the bar
                      shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
-                     while data is on the way (skeleton, leaving). PURE
+                     while data is on the way (skeleton, leaving). error-view.ts: the error
+                     pages' words and where their back goes. bands.spec.ts: every page draws
+                     a band (`PENDING` lists pages a plan still owes). PURE
+src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
+src/lib/app-bars.svelte.ts  tells the Android shell the strip colour under the navigation
+                     bar (`reportStrip`); `tabSurface` marks a bar pinned on the tab-bar surface
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
@@ -207,16 +212,22 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
 src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByDance
+src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed paired phone, a
+                     deleted voice take); a take's wav is unlinked when its hold expires
 src/lib/server/request-user.ts  where a device token may sign in: /api/ only
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
 src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
-                     half-bar starts); capture.ts owns the mic and the click
+                     half-bar starts); capture.ts owns the mic and the click.
+                     grid.ts (tempo states, takes, the Settings summary), recording.ts
+                     (the count dots and bar progress), back.ts (where My count goes
+                     back to: `voiceBack`/`myCountHref`) are PURE too
 static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
 src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
-                     exercises/ links/ routines/ moves/ (the Moves band and its tiles).
+                     exercises/ links/ routines/ moves/ (the Moves band and its tiles) system/
+                     (error, offline, choice sheet, status block, lead tile).
                      ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
                      line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
@@ -271,6 +282,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   WITH its variation, in one transaction (`src/lib/server/figures.ts`). A linked
   spot, and the video it is on, cannot be deleted until it is unlinked —
   archived targets included (`assertUnlinked` in `src/lib/server/spot-links.ts`).
+  A removed paired phone and a deleted voice take come back with Undo for a
+  minute: both are deleted at once and kept in an in-memory hold
+  (`src/lib/server/undo-hold.ts`); a take's file is unlinked when its hold expires.
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
   components and never branch on it.

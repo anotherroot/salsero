@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import type { IconName } from '$lib/icons/icons';
 	/**
 	 * "Slot 4 deleted · Undo", for six seconds. Keyed by `toast.id`, so a second
 	 * toast with the same wording restarts the clock instead of inheriting the
@@ -13,7 +15,14 @@
 	 * page.
 	 */
 	interface Props {
-		toast: { id: number; message: string; action?: string } | null;
+		toast: {
+			id: number;
+			message: string;
+			action?: string;
+			/** A 22 px leading icon; `tone: 'done'` colours it the check green. */
+			icon?: IconName;
+			tone?: 'done';
+		} | null;
 		onaction?: () => void;
 		ondismiss: () => void;
 		/** CSS `bottom` of the toast; the default clears the tab bar (or sits 16 px up when contained). */
@@ -50,6 +59,11 @@
 				? 'pr-1'
 				: 'pr-4'}"
 		>
+			{#if toast.icon}
+				<span class="flex-none {toast.tone === 'done' ? 'text-inverse-done' : 'text-inverse-ink'}"
+					><Icon name={toast.icon} size={22} /></span
+				>
+			{/if}
 			<span class="min-w-0 flex-1 text-[15px] leading-[1.35] font-semibold">{toast.message}</span>
 			{#if toast.action}
 				<button

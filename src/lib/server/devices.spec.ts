@@ -10,6 +10,7 @@ import {
 	dueByDance,
 	listDevices,
 	removeDevice,
+	restoreDevice,
 	setReminderMinute,
 	setVideoShortSide,
 	userForDeviceToken
@@ -51,13 +52,13 @@ describe('device tokens', () => {
 		const { id, token } = createDeviceToken(db, 'u1', 'Phone', T0);
 		expect(userForDeviceToken(db, 'nope', T0)).toBeNull();
 		expect(userForDeviceToken(db, '', T0)).toBeNull();
-		expect(removeDevice(db, 'u1', id)).toBe(true);
+		expect(removeDevice(db, 'u1', id)).not.toBeNull();
 		expect(userForDeviceToken(db, token, T0)).toBeNull();
 	});
 
 	it('cannot be removed by another user', () => {
 		const { id, token } = createDeviceToken(db, 'u1', 'Phone', T0);
-		expect(removeDevice(db, 'u2', id)).toBe(false);
+		expect(removeDevice(db, 'u2', id)).toBeNull();
 		expect(userForDeviceToken(db, token, T0)).not.toBeNull();
 	});
 
@@ -152,5 +153,22 @@ describe('dueByDance', () => {
 		const weekly = ex('salsa', 'Weekly', 7);
 		done(weekly.id, T0 - 2 * DAY);
 		expect(dueByDance(db, T0, 'Europe/Ljubljana').salsa.due).toEqual([]);
+	});
+});
+
+describe('Undo for a removed phone', () => {
+	it('removes and restores a phone: the old token signs in again', () => {
+		const { id, token } = createDeviceToken(db, 'u1', 'Phone', T0);
+		const snap = removeDevice(db, 'u1', id)!;
+		expect(userForDeviceToken(db, token, T0)).toBeNull();
+		expect(restoreDevice(db, 'u1', snap)).toBe(true);
+		expect(userForDeviceToken(db, token, T0)?.id).toBe('u1');
+	});
+
+	it('never restores into another user', () => {
+		const { id } = createDeviceToken(db, 'u1', 'Phone', T0);
+		const snap = removeDevice(db, 'u1', id)!;
+		expect(restoreDevice(db, 'u2', snap)).toBe(false);
+		expect(listDevices(db, 'u2')).toHaveLength(0);
 	});
 });

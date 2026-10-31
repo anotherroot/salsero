@@ -1,10 +1,19 @@
 <script lang="ts">
+	import { SWITCH_TRACK } from '$lib/components/ui/styles';
+
 	let {
 		checked = $bindable(false),
 		label,
 		name,
-		disabled = false
-	}: { checked?: boolean; label: string; name?: string; disabled?: boolean } = $props();
+		disabled = false,
+		onchange
+	}: {
+		checked?: boolean;
+		label: string;
+		name?: string;
+		disabled?: boolean;
+		onchange?: (checked: boolean) => void;
+	} = $props();
 </script>
 
 <label
@@ -18,11 +27,9 @@
 		{disabled}
 		aria-label={label}
 		bind:checked
+		onchange={(e) => onchange?.(e.currentTarget.checked)}
 	/>
-	<span
-		aria-hidden="true"
-		class="relative block h-8 w-[52px] rounded-full bg-field-line transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:opacity-50 peer-checked:[&>span]:translate-x-5"
-	>
+	<span aria-hidden="true" class={SWITCH_TRACK}>
 		<span
 			class="absolute top-[3px] left-[3px] h-[26px] w-[26px] rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none"
 		></span>

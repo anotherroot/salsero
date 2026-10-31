@@ -70,3 +70,10 @@ export const SELECT = `${FIELD} flex cursor-pointer items-center gap-2.5 pr-3 te
 /** A dashed "add" control: a label (or link) that opens the file picker. */
 export const DASHED_ADD =
 	'flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-field-line text-[16px] font-extrabold text-accent-text has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent';
+
+/**
+ * The Switch's track. Off is `bg-muted` (3:1 against every surface, so an off
+ * switch is visible), on is the accent. The thumb is white on both.
+ */
+export const SWITCH_TRACK =
+	'relative block h-8 w-[52px] rounded-full bg-muted transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:opacity-50 peer-checked:[&>span]:translate-x-5';

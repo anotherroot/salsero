@@ -36,6 +36,7 @@ export const TOKEN_NAMES = [
 	'skeleton',
 	'inverse-bg',
 	'inverse-ink',
+	'inverse-done',
 	'band',
 	'band-ink',
 	'on-cream',
@@ -98,7 +99,8 @@ const LIGHT: Shared = {
 	'disabled-ink': '#8a8a92',
 	skeleton: '#e6e6ea',
 	'inverse-bg': '#26262b',
-	'inverse-ink': '#f4f4f6'
+	'inverse-ink': '#f4f4f6',
+	'inverse-done': '#5cc98f'
 };
 
 const DARK: Shared = {
@@ -130,7 +132,8 @@ const DARK: Shared = {
 	'disabled-ink': '#6a6a72',
 	skeleton: '#2e2e34',
 	'inverse-bg': '#ececf0',
-	'inverse-ink': '#111114'
+	'inverse-ink': '#111114',
+	'inverse-done': '#1e7a4f'
 };
 
 type DanceInput = Pick<

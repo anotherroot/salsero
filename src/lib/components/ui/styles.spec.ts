@@ -11,7 +11,8 @@ import {
 	LABEL,
 	ROW,
 	SECTION_LABEL,
-	SELECT
+	SELECT,
+	SWITCH_TRACK
 } from './styles';
 
 describe('button', () => {
@@ -55,5 +56,13 @@ describe('DASHED_ADD', () => {
 		expect(DASHED_ADD).toContain('text-accent-text');
 		expect(DASHED_ADD).toContain('h-[52px]');
 		expect(DASHED_ADD).not.toMatch(/text-accent(\s|$)/);
+	});
+});
+
+describe('SWITCH_TRACK', () => {
+	it('is muted when off, accent when on, never the field line', () => {
+		expect(SWITCH_TRACK).toContain('bg-muted');
+		expect(SWITCH_TRACK).toContain('peer-checked:bg-accent');
+		expect(SWITCH_TRACK).not.toContain('bg-field-line');
 	});
 });

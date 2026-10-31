@@ -42,6 +42,7 @@
 	--color-skeleton: #e6e6ea;
 	--color-inverse-bg: #26262b;
 	--color-inverse-ink: #f4f4f6;
+	--color-inverse-done: #5cc98f;
 
 	/*
 	 * Salsa's colours, and the fallback for pages outside any dance (/login,
@@ -140,6 +141,7 @@
 			--color-skeleton: #2e2e34;
 			--color-inverse-bg: #ececf0;
 			--color-inverse-ink: #111114;
+			--color-inverse-done: #1e7a4f;
 
 			/* Salsa's dark colours (the fallback outside any dance, too). */
 			--color-band: #8f2a12;
@@ -230,6 +232,7 @@
 		--color-skeleton: #2e2e34;
 		--color-inverse-bg: #ececf0;
 		--color-inverse-ink: #111114;
+		--color-inverse-done: #1e7a4f;
 		--color-band: #8f2a12;
 		--color-band-ink: #fff3e4;
 		--color-on-cream: #8f2a12;

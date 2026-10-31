@@ -67,6 +67,18 @@ inside (`Pages.kt`, tested); other sites go to the browser and `salsa://` to
 `SALSA_ANDROID_CERT_SHA256` no longer matter to the app; they stay until
 removed on purpose.
 
+## The strip under the navigation bar follows the page (2026-10-31)
+
+The bottom strip used to stay the tab bar's colour (`navBarColor`). A pushed
+screen (a figure, Settings) has no tab bar, so that strip sat as a stripe under
+a page of another colour. The page now tells the shell: the root layout posts
+`tabs` or `page` to a `SalsaBars` WebMessageListener (`app-bars.svelte.ts`;
+`tabs` while the tab bar, or a bar pinned on its surface such as the figure
+page's variation switcher, is at the bottom). `WebShell` recolours the bottom
+layer: `tabs` to `navBarColor`, `page` to `pageColor`; anything else is
+ignored (`stripFor`, `Bars.kt`, tested). Without the WebView feature it stays
+`navBarColor`. Built and unit-tested, not yet tried on the phone.
+
 ## Purpose
 
 A lesson video goes up today in two steps: Shrink (`~/Projects/shrink`)
