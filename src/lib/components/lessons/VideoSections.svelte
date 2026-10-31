@@ -3,10 +3,11 @@
 	import { invalidateAll } from '$app/navigation';
 	import SectionPlayer from '$lib/components/ui/SectionPlayer.svelte';
 	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
-	import Icon from '$lib/components/video/Icon.svelte';
-	import { icons } from '$lib/components/video/icons';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { enhance } from '$app/forms';
+	import { button, iconButton } from '$lib/components/ui/styles';
 	import { openingSteps, type LinkStep } from '$lib/video/link-steps';
-	import { spotLabel, spotTime } from '$lib/video/spots';
+	import { sectionMeta, spotLabel } from '$lib/video/spots';
 	import type { Spot, SpotOwner, VideoSection } from '$lib/types';
 
 	/**
@@ -21,9 +22,11 @@
 		owner: SpotOwner;
 		/** The link button and the player's linking; without it the list only shows. */
 		linking?: boolean;
+		/** A section with exactly one link shows Unlink in place of the link button (the figure page). */
+		unlink?: boolean;
 	}
 
-	let { sections, src, owner, linking = false }: Props = $props();
+	let { sections, src, owner, linking = false, unlink = false }: Props = $props();
 
 	let playing = $state<Spot | null>(null);
 	let linkingSpot = $state<number | null>(null);
@@ -43,49 +46,46 @@
 		label: s.label,
 		linkedTo: s.links.map((l) => l.label)
 	});
-
-	const linkLine = (s: VideoSection) =>
-		s.links.map((l) => (l.archived ? `${l.label} (archived)` : l.label)).join(', ');
 </script>
 
-<div class="border-t border-line px-3 py-2">
-	<h3 class="mb-1 text-[12px] font-medium tracking-wide text-muted uppercase">Sections</h3>
+<div class="border-t border-hairline">
+	<h3 class="px-4 pt-2.5 text-[13px] font-bold text-muted">Sections · {sections.length}</h3>
 	{#if sections.length === 0}
-		<p class="pb-1 text-[13px] text-muted">
+		<p class="px-4 pt-1 pb-3 text-[13px] text-muted">
 			None yet. Open the video full screen and tap Section to mark one.
 		</p>
 	{:else}
-		<ul class="divide-y divide-line">
+		<ul>
 			{#each sections as s (s.id)}
-				<li class="flex items-center gap-2 py-2">
+				<li class="flex min-h-[58px] items-center gap-3 pr-1.5 pl-4">
 					<button
 						type="button"
-						class="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-[13px] text-accent-ink"
+						class="grid size-9 flex-none cursor-pointer place-items-center rounded-full bg-accent text-on-accent"
 						aria-label="Play {spotLabel(s)}"
-						onclick={() => (playing = asSpot(s))}>▶</button
+						onclick={() => (playing = asSpot(s))}><Icon name="play" size={18} filled /></button
 					>
-					<div class="min-w-0 flex-1">
-						<span class="block truncate text-[15px]">{spotLabel(s)}</span>
-						<span class="block truncate text-[12px] text-muted">
-							{s.label
-								? `${spotTime(s.startMs)}–${spotTime(s.endMs)}`
-								: ''}{#if s.links.length > 0}{s.label ? ' · ' : ''}<span class="text-ink-2"
-									><Icon d={icons.link} size={11} class="inline align-[-1px]" />
-									{linkLine(s)}</span
-								>{/if}
-						</span>
+					<div class="min-w-0 flex-1 py-2">
+						<span class="block truncate text-[16px] font-bold">{spotLabel(s)}</span>
+						<span class="line-clamp-2 block text-[13px] text-muted">{sectionMeta(s)}</span>
 					</div>
-					{#if linking}
+					{#if unlink && s.links.length === 1}
+						<form method="POST" action="?/unlinkSection" use:enhance>
+							<input type="hidden" name="linkId" value={s.links[0].id} />
+							<button
+								type="submit"
+								class={button('tertiary', 'sm')}
+								aria-label="Unlink {spotLabel(s)} from {s.links[0].label}">Unlink</button
+							>
+						</form>
+					{:else if linking}
 						<button
 							type="button"
-							class="grid size-11 shrink-0 place-items-center rounded-lg {s.links.length === 0
-								? 'text-accent'
-								: 'text-ink-2'}"
+							class="{iconButton('bare')} text-accent-text"
 							aria-label="Link {spotLabel(s)}"
 							onclick={() => {
 								steps = openingSteps(s.links.length);
 								linkingSpot = s.id;
-							}}><Icon d={icons.link} size={20} /></button
+							}}><Icon name="link" size={22} /></button
 						>
 					{/if}
 				</li>

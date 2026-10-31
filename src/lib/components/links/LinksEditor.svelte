@@ -4,6 +4,7 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import LinkList from './LinkList.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		FIELD,
 		FIELD_ERROR,
@@ -30,6 +31,7 @@
 
 	let { links, message, entered, canSave = false }: Props = $props();
 	const uid = $props.id();
+	let posting = $state<number | null>(null);
 	const webHost = (url: string) => {
 		const p = parseLink(url);
 		return p?.kind === 'web' ? p.host : url;
@@ -41,21 +43,43 @@
 		{#if kind === 'youtube'}
 			{#if canSave && parseLink(link.url)?.kind === 'youtube'}
 				{#if link.saving?.status === 'queued'}
-					<span class="mr-auto self-center px-2 text-[13px] text-muted"
-						>Saving — the home worker picks it up within a few minutes</span
+					<span
+						role="status"
+						class="mr-auto flex items-center gap-2 px-3 text-[13px] font-semibold text-muted"
+						><Spinner size={16} />Saving at 480p on the home worker</span
 					>
 				{:else if link.saving?.status === 'failed'}
-					<span class="mr-auto min-w-0 self-center px-2 py-1 text-[13px] break-words text-danger"
-						>Couldn't save: {link.saving.error ?? 'unknown error'}</span
+					<span
+						class="mr-auto flex min-w-0 items-center gap-1.5 px-3 py-1 text-[13px] font-bold break-words text-danger"
+						><Icon name="warning" size={16} filled />Couldn't save: {link.saving.error ??
+							'unknown error'}</span
 					>
 					<form method="POST" action="?/retryVideo" use:enhance>
 						<input type="hidden" name="linkId" value={link.id} />
-						<button type="submit" class="h-9 px-2 text-[13px]">Retry</button>
+						<button type="submit" class={button('tertiary', 'sm')}
+							><Icon name="refresh" size={18} />Retry</button
+						>
 					</form>
 				{:else}
-					<form method="POST" action="?/saveVideo" use:enhance class="mr-auto">
+					<form
+						method="POST"
+						action="?/saveVideo"
+						class="mr-auto"
+						use:enhance={() => {
+							posting = link.id;
+							return async ({ update }) => {
+								await update();
+								posting = null;
+							};
+						}}
+					>
 						<input type="hidden" name="linkId" value={link.id} />
-						<button type="submit" class="h-9 px-2 text-[13px]">Save video</button>
+						<button type="submit" class={button('secondary', 'sm')} disabled={posting === link.id}>
+							{#if posting === link.id}<Spinner size={18} />{:else}<Icon
+									name="download"
+									size={18}
+								/>{/if}Save video
+						</button>
 					</form>
 				{/if}
 			{/if}

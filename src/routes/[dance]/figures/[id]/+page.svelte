@@ -468,6 +468,7 @@
 									src="/recordings/{rec.file}"
 									owner={{ recordingId: rec.id }}
 									linking
+									unlink={editing}
 								/>
 							{/if}
 						</li>
@@ -527,55 +528,60 @@
 		</section>
 
 		<section class="pt-4">
-			<div class="flex items-center justify-between">
-				<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Sections</h2>
+			<div class="flex items-center justify-between pr-1.5">
+				<h2 class={SECTION_LABEL}>
+					{variation.sections.length > 0 ? `Sections · ${variation.sections.length}` : 'Sections'}
+				</h2>
 				<button
 					type="button"
-					class="mb-2 flex h-11 w-auto cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[14.5px] font-medium text-accent"
+					class={button('tertiary', 'sm')}
 					aria-haspopup="dialog"
 					onclick={() => (linkingSection = true)}
-					><svg
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2.2"
-						stroke-linecap="round"
-						class="shrink-0 text-muted"
-						aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg
-					>Link a section…</button
+					><Icon name="link" size={18} />Link a section</button
 				>
 			</div>
-			{#if variation.sections.length === 0}
-				<p class="text-[13px] text-muted">Point at the part of a lesson video that shows this.</p>
-			{:else}
-				<ul class="space-y-2">
-					{#each variation.sections as s (s.linkId)}
-						<li>
-							<SectionCard section={s}>
-								{#snippet unlink()}
-									<!-- Unlinking is an edit, like deleting a recording. -->
-									{#if editing}
-										<form method="POST" action="?/unlinkSection" use:enhance>
-											<input type="hidden" name="linkId" value={s.linkId} />
-											<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-										</form>
-									{/if}
-								{/snippet}
-							</SectionCard>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			{#if failed('unlinkSection')}
-				<p class="mt-2 text-[13px] text-danger" role="alert">{failed('unlinkSection')}</p>
-			{/if}
+			<div class="mt-1">
+				{#if variation.sections.length === 0}
+					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
+						Point at the part of a lesson video that shows this.
+					</p>
+				{:else}
+					<ul class="flex flex-col gap-2">
+						{#each variation.sections as s (s.linkId)}
+							<li>
+								<SectionCard section={s}>
+									{#snippet unlink()}
+										<!-- Unlinking is an edit, like deleting a recording. -->
+										{#if editing}
+											<form method="POST" action="?/unlinkSection" use:enhance>
+												<input type="hidden" name="linkId" value={s.linkId} />
+												<button
+													type="submit"
+													class={button('tertiary', 'sm')}
+													aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
+													>Unlink</button
+												>
+											</form>
+										{/if}
+									{/snippet}
+								</SectionCard>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				{#if failed('unlinkSection')}
+					<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
+				{/if}
+			</div>
 		</section>
 
 		<section class="pt-4">
-			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Links</h2>
-			<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
+			<h2 class={SECTION_LABEL}>
+				{data.links.length > 0 ? `Links · ${data.links.length}` : 'Links'}
+			</h2>
+			<div class="mt-1">
+				<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
+			</div>
 		</section>
 
 		{#if !editing}

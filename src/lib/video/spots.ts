@@ -3,7 +3,7 @@
  * needs them. PURE and client-safe: the media element speaks seconds, a spot
  * is stored in milliseconds, and every conversion between the two is here.
  */
-import type { Spot } from '$lib/types';
+import type { Spot, VideoSection } from '$lib/types';
 
 /** Seconds of media time to the integer milliseconds a spot stores. */
 export function msOf(s: number): number {
@@ -28,6 +28,18 @@ export function spotLabel(spot: Pick<Spot, 'startMs' | 'endMs' | 'label'>): stri
 	if (spot.label) return spot.label;
 	const start = spotTime(spot.startMs);
 	return spot.endMs === null ? start : `${start}–${spotTime(spot.endMs)}`;
+}
+
+/** A section's second line: its range when it has a label, then what it links to. */
+export function sectionMeta(
+	s: Pick<VideoSection, 'startMs' | 'endMs' | 'label' | 'links'>
+): string {
+	const range = s.label ? `${spotTime(s.startMs)}–${spotTime(s.endMs)} · ` : '';
+	const links =
+		s.links.length === 0
+			? 'Not linked'
+			: `Linked to ${s.links.map((l) => (l.archived ? `${l.label} (archived)` : l.label)).join(', ')}`;
+	return range + links;
 }
 
 /**
