@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screenFiles, summarise } from './upload-queue';
+import { screenFiles, summarise, summaryTitle, uploadCard } from './upload-queue';
 
 const file = (name: string, size: number, type = 'video/mp4') => ({ name, size, type });
 
@@ -55,5 +55,45 @@ describe('summarise', () => {
 				{ name: 'b.mp4', reason: 'the connection dropped' }
 			])
 		).toBe('Skipped a.txt (not a video), b.mp4 (the connection dropped).');
+	});
+});
+
+describe('uploadCard', () => {
+	it('says which file of how many is going up', () => {
+		expect(
+			uploadCard({ progress: 0.468, position: { index: 2, count: 3 }, retrying: false })
+		).toEqual({
+			title: 'Uploading 2 of 3… 46%',
+			helper: 'Keep this page open — a reload starts over',
+			tone: 'accent',
+			icon: 'upload',
+			percent: 46
+		});
+		expect(uploadCard({ progress: 0.2, position: null, retrying: false }).title).toBe(
+			'Uploading… 20%'
+		);
+	});
+	it('turns to a warning while retrying', () => {
+		expect(uploadCard({ progress: 0.468, position: null, retrying: true })).toEqual({
+			title: 'Connection dropped — retrying',
+			helper: 'Picks up from what the server already has · 46%',
+			tone: 'warn',
+			icon: 'refresh',
+			percent: 46
+		});
+	});
+	it('never reads 100 before it is done, and clamps', () => {
+		expect(uploadCard({ progress: 0.999, position: null, retrying: false }).percent).toBe(99);
+		expect(uploadCard({ progress: 2, position: null, retrying: false }).percent).toBe(100);
+		expect(uploadCard({ progress: -1, position: null, retrying: false }).percent).toBe(0);
+	});
+});
+
+describe('summaryTitle', () => {
+	it('is silent on success and names the loss otherwise', () => {
+		expect(summaryTitle(2, 0)).toBeNull();
+		expect(summaryTitle(1, 2)).toBe('Some files were skipped');
+		expect(summaryTitle(0, 1)).toBe('That file wasn’t added');
+		expect(summaryTitle(0, 3)).toBe('No videos were added');
 	});
 });

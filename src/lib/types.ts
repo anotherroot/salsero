@@ -230,6 +230,8 @@ export interface LessonRoutineRow {
 	id: number;
 	name: string;
 	exerciseId: number | null;
+	/** How often its exercise comes up; null when it has none. */
+	everyDays: number | null;
 }
 
 /**
@@ -242,6 +244,7 @@ export interface LessonExerciseRow {
 	source: Source;
 	byHand: boolean;
 	viaSections: ViaSection[];
+	everyDays: number;
 }
 
 /** An exercise as a picker offers it. */
