@@ -1,5 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { getDance, isDanceSlug } from '$lib/dances/dances';
+import { THEMES } from '$lib/theme/tokens';
 import type { RequestHandler } from './$types';
 
 /**
@@ -21,8 +22,8 @@ export const GET: RequestHandler = ({ params }) => {
 			start_url: `/${dance.slug}/`,
 			scope: `/${dance.slug}/`,
 			display: 'standalone',
-			background_color: '#f5f3ef',
-			theme_color: dance.accent,
+			background_color: THEMES[dance.slug].light.ground,
+			theme_color: dance.band,
 			icons: [
 				{ src: `/icons/${dance.slug}-192.png`, sizes: '192x192', type: 'image/png' },
 				{ src: `/icons/${dance.slug}-512.png`, sizes: '512x512', type: 'image/png' }

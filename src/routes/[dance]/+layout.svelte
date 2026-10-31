@@ -10,7 +10,8 @@
   derives the dance it needs and sets `data-dance` around all of it.
 -->
 <svelte:head>
-	<meta name="theme-color" content={data.dance.accent} />
+	<meta name="theme-color" media="(prefers-color-scheme: light)" content={data.dance.band} />
+	<meta name="theme-color" media="(prefers-color-scheme: dark)" content={data.dance.bandDark} />
 	<meta name="apple-mobile-web-app-title" content={data.dance.label} />
 	<link rel="manifest" href="/manifest-{data.dance.slug}.webmanifest" />
 	<link rel="apple-touch-icon" href="/icons/{data.dance.slug}-192.png" />
