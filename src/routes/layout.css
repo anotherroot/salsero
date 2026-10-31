@@ -239,6 +239,12 @@ select {
 	padding-right: 2rem;
 }
 
+/* A select that draws its own chevron (the kit's): drops the arrow above. Unlayered, like it, so it wins. */
+select.own-arrow {
+	background-image: none;
+	padding-right: 2.5rem;
+}
+
 /*
  * A link dims under the finger, so a tap shows before anything loads — the
  * first of the three signs in "Pending navigation" (design spec). Links only:

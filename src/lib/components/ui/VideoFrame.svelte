@@ -108,7 +108,8 @@
 		type="button"
 		onclick={openFull}
 		aria-label="Full screen"
-		class="{iconButton('bare')} text-muted"><Icon name="expand" size={22} /></button
+		class={iconButton('bare').replace('text-ink', 'text-muted')}
+		><Icon name="expand" size={22} /></button
 	>
 {/snippet}
 {#if caption}
@@ -127,8 +128,10 @@
 			aria-pressed={mirror}
 			aria-label="Mirror"
 			onclick={() => choose({ mirror: !mirror })}
-			class="{iconButton('bare')} {mirror ? 'bg-accent-soft text-accent-text' : 'text-muted'}"
-			><Icon name="mirror" size={22} /></button
+			class={iconButton('bare').replace(
+				'text-ink',
+				mirror ? 'bg-accent-soft text-accent-text' : 'text-muted'
+			)}><Icon name="mirror" size={22} /></button
 		>
 		<span class="text-[13px] font-bold text-muted">Mirror</span>
 		{#if owner && (!caption || action)}{@render fullScreen()}{/if}

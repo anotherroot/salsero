@@ -175,8 +175,11 @@
 			submit: () => {
 				busy = true;
 				return async ({ update, result }) => {
-					await update();
-					busy = false;
+					try {
+						await update();
+					} finally {
+						busy = false;
+					}
 					// The same name refused twice is the same `failed`, which the effect above cannot see.
 					const m = result.type === 'failure' ? result.data?.message : null;
 					if (typeof m === 'string') shown = m;

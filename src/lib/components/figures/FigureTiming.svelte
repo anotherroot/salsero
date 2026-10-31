@@ -3,7 +3,7 @@
 	import { COUNTS_PER_EIGHT, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 	import { lengthError } from '$lib/figures/page';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { CHIP, FIELD, LABEL } from '$lib/components/ui/styles';
+	import { SHORTCUT, FIELD, LABEL } from '$lib/components/ui/styles';
 
 	/**
 	 * Which count a variation begins on, and how many counts it takes. Both are
@@ -29,11 +29,6 @@
 
 	const counts = Array.from({ length: COUNTS_PER_EIGHT }, (_, i) => String(i + 1));
 	const shortcuts = ['4', '8', '16'];
-	// CHIP is drawn for a radio; a toggle button says "on" with aria-pressed instead.
-	const SHORTCUT = CHIP.replaceAll('has-checked:', 'aria-pressed:').replaceAll(
-		'has-focus-visible:',
-		'focus-visible:'
-	);
 	const uid = $props.id();
 </script>
 

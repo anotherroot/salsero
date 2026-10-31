@@ -60,16 +60,28 @@
 				<li class="flex min-h-[58px] items-center gap-3 pr-1.5 pl-4">
 					<button
 						type="button"
-						class="grid size-9 flex-none cursor-pointer place-items-center rounded-full bg-accent text-on-accent"
+						class="flex size-11 flex-none cursor-pointer items-center justify-center"
 						aria-label="Play {spotLabel(s)}"
-						onclick={() => (playing = asSpot(s))}><Icon name="play" size={18} filled /></button
+						onclick={() => (playing = asSpot(s))}
+						><span class="grid size-9 place-items-center rounded-full bg-accent text-on-accent"
+							><Icon name="play" size={18} filled /></span
+						></button
 					>
 					<div class="min-w-0 flex-1 py-2">
 						<span class="block truncate text-[16px] font-bold">{spotLabel(s)}</span>
 						<span class="line-clamp-2 block text-[13px] text-muted">{sectionMeta(s)}</span>
 					</div>
 					{#if unlink && s.links.length === 1}
-						<form method="POST" action="?/unlinkSection" use:enhance>
+						<form
+							method="POST"
+							action="?/unlinkSection"
+							use:enhance={() =>
+								async ({ update, result }) => {
+									await update();
+									// Already removed elsewhere: show the list as it is now.
+									if (result.type === 'failure' && result.status === 404) await invalidateAll();
+								}}
+						>
 							<input type="hidden" name="linkId" value={s.links[0].id} />
 							<button
 								type="submit"
@@ -80,7 +92,7 @@
 					{:else if linking}
 						<button
 							type="button"
-							class="{iconButton('bare')} text-accent-text"
+							class={iconButton('bare').replace('text-ink', 'text-accent-text')}
 							aria-label="Link {spotLabel(s)}"
 							onclick={() => {
 								steps = openingSteps(s.links.length);

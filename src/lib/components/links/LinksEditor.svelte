@@ -54,10 +54,26 @@
 						><Icon name="warning" size={16} filled />Couldn't save: {link.saving.error ??
 							'unknown error'}</span
 					>
-					<form method="POST" action="?/retryVideo" use:enhance>
+					<form
+						method="POST"
+						action="?/retryVideo"
+						use:enhance={() => {
+							posting = link.id;
+							return async ({ update }) => {
+								try {
+									await update();
+								} finally {
+									posting = null;
+								}
+							};
+						}}
+					>
 						<input type="hidden" name="linkId" value={link.id} />
-						<button type="submit" class={button('tertiary', 'sm')}
-							><Icon name="refresh" size={18} />Retry</button
+						<button type="submit" class={button('tertiary', 'sm')} disabled={posting === link.id}
+							>{#if posting === link.id}<Spinner size={18} />{:else}<Icon
+									name="refresh"
+									size={18}
+								/>{/if}Retry</button
 						>
 					</form>
 				{:else}
@@ -68,8 +84,11 @@
 						use:enhance={() => {
 							posting = link.id;
 							return async ({ update }) => {
-								await update();
-								posting = null;
+								try {
+									await update();
+								} finally {
+									posting = null;
+								}
 							};
 						}}
 					>

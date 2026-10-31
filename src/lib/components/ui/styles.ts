@@ -57,6 +57,9 @@ export const LABEL = 'mb-1.5 block pl-1 text-[13px] font-bold text-ink-2';
 /** A radio styled as a chip: wrap the input (`sr-only`) and its text in a <label> with this. */
 export const CHIP =
 	'relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip has-checked:font-extrabold has-checked:text-on-accent has-checked:before:bg-accent has-focus-visible:before:outline-2 has-focus-visible:before:outline-offset-2 has-focus-visible:before:outline-accent has-disabled:text-disabled-ink has-disabled:before:bg-disabled-bg';
+/** CHIP for a toggle button: lit by `aria-pressed` instead of a checked radio. Written out, since Tailwind only generates classes it can see literally. */
+export const SHORTCUT =
+	'relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip aria-pressed:font-extrabold aria-pressed:text-on-accent aria-pressed:before:bg-accent focus-visible:before:outline-2 focus-visible:before:outline-offset-2 focus-visible:before:outline-accent disabled:text-disabled-ink disabled:before:bg-disabled-bg';
 /** A grouped card of rows; hairlines between rows. */
 export const GROUP = 'divide-y divide-hairline overflow-hidden rounded-2xl bg-surface';
 export const ROW = 'flex min-h-14 items-center gap-3 px-4 py-2';

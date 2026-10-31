@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -18,6 +19,7 @@
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
 	import { uploadLink } from '$lib/app-mode';
 	import { page } from '$app/state';
+	import { spotLabel } from '$lib/video/spots';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
@@ -92,7 +94,7 @@
 		form && 'action' in form && form.action === 'move' && 'message' in form
 			? {
 					message: String(form.message),
-					field: ('field' in form ? (form.field as 'name' | 'figureName') : null) ?? null
+					field: 'field' in form ? (form.field as 'name' | 'figureName') : null
 				}
 			: null
 	);
@@ -133,13 +135,23 @@
 	let saving = $state(false);
 	/** The last `update` refusal, until the next save or the next time editing starts. A new object each time, so its banner scrolls in again. */
 	let refusal = $state<{ message: string } | null>(null);
-	function startEditing() {
+	// The band button that was focused is replaced when edit mode flips, so hand focus to its successor.
+	async function setEditing(on: boolean) {
+		editing = on;
+		await tick();
+		// The page has a big header and a slim band, each with the button; one is inert.
+		const key = on ? 'stop-editing' : 'start-editing';
+		document
+			.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)
+			.forEach((el) => !el.closest('[inert]') && el.focus());
+	}
+	async function startEditing() {
 		refusal = null;
-		editing = true;
 		window.scrollTo({ top: 0 });
+		await setEditing(true);
 	}
 	function stopEditing() {
-		leaveOrAsk(editForm ?? null, () => (editing = false), 'Stop editing');
+		leaveOrAsk(editForm ?? null, () => void setEditing(false), 'Stop editing');
 	}
 	const closeOnSuccess: SubmitFunction = () => {
 		saving = true;
@@ -150,16 +162,13 @@
 			} finally {
 				saving = false;
 			}
-			if (result.type === 'success') editing = false;
+			if (result.type === 'success') await setEditing(false);
 			else if (result.type === 'failure') {
 				const m = result.data?.message;
 				refusal = { message: typeof m === 'string' ? m : 'It did not save.' };
 			}
 		};
 	};
-	// layout.css gives every select its own small arrow, unlayered (so no utility can
-	// undo it); Ends at draws the kit's chevron instead.
-	const OWN_ARROW = 'background-image: none; padding-right: 2.5rem';
 	/** A refusal that just arrived: bring it into view, gently unless motion is reduced. */
 	function scrollIn(node: HTMLElement) {
 		const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -204,8 +213,11 @@
 	const closeOnArchive: SubmitFunction = () => {
 		archiveBusy = true;
 		return async ({ update, result }) => {
-			await update();
-			archiveBusy = false;
+			try {
+				await update();
+			} finally {
+				archiveBusy = false;
+			}
 			if (result.type === 'redirect') archiving = false;
 		};
 	};
@@ -231,7 +243,7 @@
 >
 	{#snippet left()}
 		{#if editing}
-			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
+			<BandButton focusKey="stop-editing" icon="close" label="Stop editing" onclick={stopEditing} />
 		{:else}
 			<BandButton
 				icon="back"
@@ -243,7 +255,7 @@
 	{#snippet right()}
 		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. -->
 		{#if !editing}
-			<BandButton icon="pencil" label="Edit" onclick={startEditing} />
+			<BandButton focusKey="start-editing" icon="pencil" label="Edit" onclick={startEditing} />
 		{/if}
 	{/snippet}
 
@@ -282,8 +294,7 @@
 							<select
 								id="edit-end"
 								name="endId"
-								class="{FIELD} cursor-pointer appearance-none pr-10"
-								style={OWN_ARROW}
+								class="own-arrow {FIELD} cursor-pointer appearance-none pr-10"
 							>
 								<option value="" selected={data.tags.endId === null}>{neutralName}</option>
 								{#each data.positions as position (position.id)}
@@ -511,6 +522,7 @@
 					{#each variation.recordings as rec (rec.id)}
 						{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
 						{@const refused = deleteRefusal(rec.id)}
+						{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
 						<li class="overflow-hidden rounded-2xl bg-surface">
 							{#if broken[rec.id] === 'missing'}
 								<VideoProblem
@@ -552,12 +564,8 @@
 									onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
 									onclosed={() => void invalidateAll()}
 									linking
-								>
-									{#snippet action()}
-										<!-- Deleting is an edit; adding a recording stays one tap away in view mode. -->
-										{#if editing}{@render trash(rec, day)}{/if}
-									{/snippet}
-								</VideoFrame>
+									action={editing ? recTrash : undefined}
+								/>
 							{/if}
 							{#if refused}
 								<div class="px-4 pb-3">
@@ -674,6 +682,9 @@
 													<button
 														type="submit"
 														class={button('tertiary', 'sm')}
+														aria-label="Unlink {spotLabel(
+															s.spot
+														)} from {figure.name} · {variation.name}"
 														aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
 														>Unlink</button
 													>

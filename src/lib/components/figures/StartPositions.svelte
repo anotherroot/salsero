@@ -33,9 +33,6 @@
 	// before — so only the "add" list filters archived ones out.
 	const addable = $derived(positions.filter((p) => !p.archived && !chosen.includes(p.id)));
 	const uid = $props.id();
-	// layout.css gives every select its own small arrow, unlayered (so no utility can
-	// undo it); this field draws the kit's chevron instead.
-	const OWN_ARROW = 'background-image: none; padding-right: 2.5rem';
 </script>
 
 <div>
@@ -80,8 +77,7 @@
 						// after a remove, and so the control never reads as a current value.
 						e.currentTarget.value = '';
 					}}
-					class="{FIELD} cursor-pointer appearance-none pr-10 text-muted"
-					style={OWN_ARROW}
+					class="own-arrow {FIELD} cursor-pointer appearance-none pr-10 text-muted"
 				>
 					<option value="">Choose a position…</option>
 					{#each addable as position (position.id)}

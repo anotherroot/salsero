@@ -14,7 +14,7 @@ import {
 
 const TZ = 'Europe/Ljubljana';
 const DAY = 86_400_000;
-const now = Date.UTC(2026, 9, 31, 10, 0); // noon local
+const now = Date.UTC(2026, 9, 31, 10, 0); // 11:00 CET
 const ex = (everyDays: number, active = true): PlanExercise => ({
 	id: 1,
 	name: 'Drill',
