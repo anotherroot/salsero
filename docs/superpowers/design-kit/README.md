@@ -99,3 +99,12 @@ are exactly that size. `kit.document(body, w, h, title)` for custom layouts.
 - Disabled = `disabled_bg` fill + `disabled_ink` text, plus the `disabled` attribute.
 - Pushed screens: `left=band_button(t, 'back', 'Back to <parent>')`, no tab bar.
 - Danger is crimson (light `#c4183c`, dark `#ff5c7a`) so it stays apart from salsa's red-orange accent.
+
+## Screens
+
+`screens/*.py` drew the per-area screen boards ("Screens · …" on the canvas),
+one file per area; `examples.py` holds the sample data and shared pieces they
+use. Each screen is a function returning HTML built from `kit.py`'s tokens and
+components, so the exact markup, spacing and copy for any screen is readable
+there. They were run from a scratch directory (`gen/kit` beside
+`gen/screens`); here they are reference only.
