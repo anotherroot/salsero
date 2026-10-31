@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
@@ -52,14 +53,7 @@
 			</p>
 		{/if}
 		{#if editLinks}
-			<button
-				type="button"
-				class="flex h-12 w-full cursor-pointer items-center gap-2.5 rounded-2xl bg-surface px-4 text-left text-[15px] font-extrabold text-accent-text"
-				aria-haspopup="dialog"
-				onclick={() => (linking = true)}
-			>
-				<Icon name="link" size={20} />Link a section…
-			</button>
+			<PickerOpener label="Link a section…" onclick={() => (linking = true)} />
 			<h2 class={SECTION_HEAD}>Links</h2>
 			<LinksEditor links={content.links} message={editLinks.message} entered={editLinks.entered} />
 			<LinkSectionSheet

@@ -270,7 +270,59 @@ describe('createAndLink', () => {
 		[{ kind: 'drill', name: '  ', everyDays: 3 }, 'Give it a name.']
 	] as const)('refuses %o', (create, message) => {
 		const c = create.kind === 'variation' ? { ...create, groupId: enchufla } : create;
-		expect(() => createAndLink(db, section, c)).toThrow(new SpotLinkError(message));
+		expect(() => createAndLink(db, section, c)).toThrow(
+			expect.objectContaining({ message, status: 400 })
+		);
+	});
+
+	it.each([
+		[{ kind: 'variation', groupId: 0, name: ' ' }, 'name'],
+		[{ kind: 'variation', groupId: -1, name: 'Nuevo' }, 'groupId'],
+		[{ kind: 'variation', groupId: 0, name: 'Doble' }, 'name'],
+		[
+			{ kind: 'figure', figureName: ' ', name: 'Basic', partner: 'partner', style: 'salsa' },
+			'figureName'
+		],
+		[
+			{ kind: 'figure', figureName: 'Enchufla', name: 'Basic', partner: 'partner', style: 'salsa' },
+			'figureName'
+		],
+		[
+			{ kind: 'figure', figureName: 'Sombrero', name: ' ', partner: 'partner', style: 'salsa' },
+			'name'
+		],
+		[
+			{
+				kind: 'figure',
+				figureName: 'Sombrero',
+				name: 'Basic',
+				partner: 'partner',
+				style: 'sensual'
+			},
+			'style'
+		],
+		[{ kind: 'drill', name: 'Arm', everyDays: 5 }, 'everyDays'],
+		[{ kind: 'drill', name: '', everyDays: 3 }, 'name']
+	] as const)('names the field of a refusal of %o', (create, field) => {
+		// groupId 0 is Enchufla; -1 is Paseo, a figure of the other dance.
+		const paseo = db.select().from(figureGroups).where(eq(figureGroups.name, 'Paseo')).get()!;
+		const c =
+			create.kind === 'variation'
+				? { ...create, groupId: create.groupId === 0 ? enchufla : paseo.id }
+				: create;
+		expect(() => createAndLink(db, section, c)).toThrow(expect.objectContaining({ field }));
+	});
+
+	it('names no field when the section is the problem', () => {
+		const thrown = (() => {
+			try {
+				createAndLink(db, point, { kind: 'drill', name: 'Arm', everyDays: 3 });
+			} catch (e) {
+				return e;
+			}
+		})();
+		expect(thrown).toBeInstanceOf(SpotLinkError);
+		expect((thrown as SpotLinkError).field).toBeUndefined();
 	});
 
 	it('leaves nothing behind when the link fails', () => {

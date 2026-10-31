@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PickerSong } from '$lib/types';
-import { groupSongs, highlight, searchSongs } from './search';
+import { groupSongs, highlight, pickerCount, searchSongs } from './search';
 
 function song(id: number, title: string, over: Partial<PickerSong> = {}): PickerSong {
 	return {
@@ -75,5 +75,14 @@ describe('highlight', () => {
 	it('is null with no match or an empty query', () => {
 		expect(highlight('Idilio', 'x')).toBeNull();
 		expect(highlight('Idilio', '  ')).toBeNull();
+	});
+});
+
+describe('pickerCount', () => {
+	it('counts songs and matches', () => {
+		expect(pickerCount(1, false)).toBe('1 song');
+		expect(pickerCount(8, false)).toBe('8 songs');
+		expect(pickerCount(1, true)).toBe('1 match');
+		expect(pickerCount(0, true)).toBe('0 matches');
 	});
 });

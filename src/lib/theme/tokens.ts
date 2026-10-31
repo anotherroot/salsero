@@ -203,4 +203,28 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 	}
 };
 
+const MEDIA_SURFACE = '#1c1c1f';
+
+/**
+ * The full-screen player's palette, always dark: kit `_media` — the dark theme
+ * on a black ground. The kit's rgba inks and hairline are composited over the
+ * surface here so every token stays `#rrggbb`. layout.css scopes it as
+ * `.theme-media`.
+ */
+function media(dark: Theme): Theme {
+	return {
+		...dark,
+		ground: '#000000',
+		raised: MEDIA_SURFACE,
+		ink: '#ffffff',
+		'ink-2': mix('#ffffff', MEDIA_SURFACE, 0.82),
+		muted: mix('#ffffff', MEDIA_SURFACE, 0.64),
+		hairline: mix('#ffffff', MEDIA_SURFACE, 0.16)
+	};
+}
+
+export const MEDIA: Record<DanceSlug, Theme> = {
+	salsa: media(THEMES.salsa.dark),
+	bachata: media(THEMES.bachata.dark)
+};
 export { DANCE_SLUGS };

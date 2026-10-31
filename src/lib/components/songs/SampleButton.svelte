@@ -7,13 +7,15 @@
 	/*
 	 * ▶ plays a 15 s sample of the song, ■ stops it. A tonal disc on a 48 px
 	 * hit area; while it samples, a ring around the disc fills over the 15 s.
-	 * A sibling of a row's link, never inside it.
+	 * A sibling of a row's link, never inside it. `tinted`: the row behind is
+	 * already accent-soft (the picked song), so the disc is the surface colour.
 	 */
 	let {
 		song,
 		name,
+		tinted = false,
 		class: klass = ''
-	}: { song: SampleSong; name?: string; class?: string } = $props();
+	}: { song: SampleSong; name?: string; tinted?: boolean; class?: string } = $props();
 
 	const on = $derived(sampling.id === song.id);
 	const label = $derived(
@@ -29,7 +31,9 @@
 	class="group flex size-12 flex-none cursor-pointer items-center justify-center rounded-full text-accent {klass}"
 >
 	<span
-		class="relative flex size-[34px] items-center justify-center rounded-full bg-accent-soft group-active:brightness-90"
+		class="relative flex size-[34px] items-center justify-center rounded-full group-active:brightness-90 {tinted
+			? 'bg-surface'
+			: 'bg-accent-soft'}"
 	>
 		{#if on}
 			<svg

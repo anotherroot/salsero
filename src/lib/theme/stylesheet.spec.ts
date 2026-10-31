@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DANCE_SLUGS } from '$lib/dances/dances';
-import { THEMES, TOKEN_NAMES } from './tokens';
+import { MEDIA, THEMES, TOKEN_NAMES } from './tokens';
 
 const css = readFileSync('src/routes/layout.css', 'utf8').toLowerCase();
+const block = (sel: RegExp) => css.match(sel)?.[1] ?? '';
 
 describe('layout.css', () => {
 	it('carries every token value of every theme', () => {
@@ -33,5 +34,20 @@ describe('layout.css', () => {
 			'done'
 		])
 			expect(css).toContain(`--color-${old}:`);
+	});
+	it('scopes the media palette for the player’s layers', () => {
+		const salsa = block(/\n\s*\.theme-media\s*\{([^}]*)\}/);
+		for (const n of TOKEN_NAMES)
+			expect(salsa, n).toContain(`--color-${n}: ${MEDIA.salsa[n].toLowerCase()};`);
+		const bachata = block(/\[data-dance='bachata'\]\s+\.theme-media\s*\{([^}]*)\}/);
+		for (const n of [
+			'band',
+			'accent',
+			'accent-text',
+			'accent-soft',
+			'on-accent',
+			'status'
+		] as const)
+			expect(bachata, n).toContain(`--color-${n}: ${MEDIA.bachata[n].toLowerCase()};`);
 	});
 });

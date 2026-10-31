@@ -5,11 +5,16 @@
  */
 import type { Spot, SpotOwner } from '$lib/types';
 
-/** A non-2xx answer, carrying the server's message — the player shows a 409's. */
+/**
+ * A non-2xx answer, carrying the server's message — the player shows a 409's —
+ * and, when the refusal names one, the field it is about (the Link popup's
+ * create steps show it there).
+ */
 export class SpotsApiError extends Error {
 	constructor(
 		readonly status: number,
-		message: string
+		message: string,
+		readonly field?: string
 	) {
 		super(message);
 	}
@@ -18,11 +23,10 @@ export class SpotsApiError extends Error {
 export async function ok(res: Response): Promise<Response> {
 	if (res.ok) return res;
 	const body: unknown = await res.json().catch(() => null);
-	const message =
-		body && typeof body === 'object' && 'message' in body && typeof body.message === 'string'
-			? body.message
-			: `video-spots: ${res.status}`;
-	throw new SpotsApiError(res.status, message);
+	const said = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+	const message = typeof said.message === 'string' ? said.message : `video-spots: ${res.status}`;
+	const field = typeof said.field === 'string' ? said.field : undefined;
+	throw new SpotsApiError(res.status, message, field);
 }
 
 const JSON_HEADERS = { 'content-type': 'application/json' };

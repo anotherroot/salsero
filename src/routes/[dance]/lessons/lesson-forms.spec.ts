@@ -1,6 +1,7 @@
 /**
- * The New lesson sheet's and the lesson page's Edit refusals: each names the
- * field it is about and hands back everything that was typed. `getDb()` is mocked per test, as in
+ * The New lesson sheet's, the lesson page's Edit and its four "from this
+ * lesson" sheets' refusals: each names the field it is about and hands back
+ * everything that was typed. `getDb()` is mocked per test, as in
  * `moves-forms.spec.ts`; nothing opens the real database.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,6 +15,7 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
+import { createFigure } from '$lib/server/figures';
 import { localDay } from '$lib/day/day';
 import { actions as listActions } from './+page.server';
 import { actions as lessonActions } from './[id]/+page.server';
@@ -202,6 +204,205 @@ describe('Edit lesson', () => {
 			title: 'Rueda · enchufla',
 			notes: 'Left hand low on 3',
 			lessonDay: '2026-01-04'
+		});
+	});
+});
+
+describe('From this lesson', () => {
+	const lesson = () =>
+		createLesson(db, 'salsa', { lessonDay: '2026-01-05', title: 'Rueda', notes: null }, 3).lesson
+			.id;
+	const figure = {
+		figureName: 'Enchufla',
+		name: 'Doble',
+		partner: 'partner',
+		style: 'salsa',
+		notes: 'Turn her on 5.'
+	};
+	const madeFigure = () =>
+		createFigure(db, 'salsa', { ...figure, partner: 'partner', style: 'salsa', notes: null })!;
+
+	it('puts a missing figure name under Figure name, keeping what was typed', async () => {
+		const result = await call(
+			lessonActions.newFigure,
+			post('salsa', { ...figure, figureName: ' ' }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				action: 'newFigure',
+				field: 'figureName',
+				message: 'Give the figure a name (up to 200 characters).',
+				name: 'Doble',
+				notes: 'Turn her on 5.'
+			}
+		});
+	});
+
+	it('puts a missing variation name under Variation name', async () => {
+		const result = await call(
+			lessonActions.newFigure,
+			post('salsa', { ...figure, name: '' }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				field: 'name',
+				message: 'Give the variation a name (up to 200 characters).',
+				figureName: 'Enchufla'
+			}
+		});
+	});
+
+	it('puts notes over 2000 characters under Notes', async () => {
+		const result = await call(
+			lessonActions.newFigure,
+			post('salsa', { ...figure, notes: 'x'.repeat(2001) }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { field: 'notes', message: 'Notes are up to 2000 characters.' }
+		});
+	});
+
+	it('refuses a style from the other dance without naming a field', async () => {
+		const result = (await call(
+			lessonActions.newFigure,
+			post('salsa', { ...figure, style: 'sensual' }, lesson())
+		)) as { status: number; data: Record<string, unknown> };
+		expect(result.status).toBe(400);
+		expect(result.data.message).toBe('Pick how it is danced and its style.');
+		expect(result.data).not.toHaveProperty('field');
+		expect(result.data).toMatchObject({ figureName: 'Enchufla', name: 'Doble' });
+	});
+
+	it('puts a taken figure name under Figure name, the message unchanged', async () => {
+		madeFigure();
+		const result = await call(lessonActions.newFigure, post('salsa', figure, lesson()));
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				field: 'figureName',
+				message: "There's already a figure called Enchufla.",
+				figureName: 'Enchufla',
+				name: 'Doble',
+				notes: 'Turn her on 5.'
+			}
+		});
+	});
+
+	it('puts a missing figure under Figure in Variation of a figure', async () => {
+		const result = await call(
+			lessonActions.newVariation,
+			post('salsa', { groupId: '', name: 'Doble', partner: 'partner', style: 'salsa' }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { action: 'newVariation', field: 'groupId', message: 'Pick a figure.', name: 'Doble' }
+		});
+	});
+
+	it('puts a missing variation name under Variation name in Variation of a figure', async () => {
+		const result = await call(
+			lessonActions.newVariation,
+			post(
+				'salsa',
+				{ groupId: String(madeFigure().group.id), name: '', partner: 'partner', style: 'salsa' },
+				lesson()
+			)
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { field: 'name', message: 'Give the variation a name (up to 200 characters).' }
+		});
+	});
+
+	it('puts a taken variation name under Variation name, the message unchanged', async () => {
+		const groupId = String(madeFigure().group.id);
+		const result = await call(
+			lessonActions.newVariation,
+			post(
+				'salsa',
+				{ groupId, name: 'Doble', partner: 'partner', style: 'salsa', notes: 'Hold' },
+				lesson()
+			)
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				field: 'name',
+				message: 'Enchufla already has a variation called Doble. Rename one first.',
+				groupId,
+				notes: 'Hold'
+			}
+		});
+	});
+
+	it('refuses a partner that is not offered without naming a field', async () => {
+		const result = (await call(
+			lessonActions.newVariation,
+			post(
+				'salsa',
+				{ groupId: String(madeFigure().group.id), name: 'Simple', partner: 'x', style: 'salsa' },
+				lesson()
+			)
+		)) as { status: number; data: Record<string, unknown> };
+		expect(result.status).toBe(400);
+		expect(result.data.message).toBe('Pick how it is danced and its style.');
+		expect(result.data).not.toHaveProperty('field');
+	});
+
+	it('puts a blank exercise name under Name, keeping the notes', async () => {
+		const result = await call(
+			lessonActions.newExercise,
+			post('salsa', { name: ' ', everyDays: '3', notes: 'Spot the wall' }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				action: 'newExercise',
+				field: 'name',
+				message: 'Give it a name (up to 200 characters).',
+				notes: 'Spot the wall'
+			}
+		});
+	});
+
+	it('refuses an exercise frequency that is not offered without naming a field', async () => {
+		const result = (await call(
+			lessonActions.newExercise,
+			post('salsa', { name: 'Spins', everyDays: '5', notes: '' }, lesson())
+		)) as { status: number; data: Record<string, unknown> };
+		expect(result.status).toBe(400);
+		expect(result.data.message).toBe('Pick how often to do it.');
+		expect(result.data).not.toHaveProperty('field');
+		expect(result.data).toMatchObject({ name: 'Spins' });
+	});
+
+	it('puts a blank routine name under Name', async () => {
+		const result = await call(
+			lessonActions.newRoutine,
+			post('salsa', { name: '', everyDays: '3', notes: 'Rueda calls' }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: {
+				action: 'newRoutine',
+				field: 'name',
+				message: 'Give the routine a name (up to 200 characters).',
+				notes: 'Rueda calls'
+			}
+		});
+	});
+
+	it('puts routine notes over 2000 characters under Notes', async () => {
+		const result = await call(
+			lessonActions.newRoutine,
+			post('salsa', { name: 'Rueda', everyDays: '3', notes: 'x'.repeat(2001) }, lesson())
+		);
+		expect(result).toMatchObject({
+			status: 400,
+			data: { field: 'notes', message: 'Notes are up to 2000 characters.', name: 'Rueda' }
 		});
 	});
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DANCE_SLUGS } from '$lib/dances/dances';
 import { contrast, mix } from './contrast';
-import { BAND_TRACK, THEMES, TOKEN_NAMES, type Scheme, type TokenName } from './tokens';
+import { BAND_TRACK, MEDIA, THEMES, TOKEN_NAMES, type Scheme, type TokenName } from './tokens';
 
 const SCHEMES: Scheme[] = ['light', 'dark'];
 
@@ -75,6 +75,25 @@ describe('theme tokens', () => {
 		expect(THEMES.salsa.light.band).toBe('#D2401E');
 		expect(THEMES.bachata.light.band).toBe('#6B1D4F');
 	});
+});
+
+describe('media palette', () => {
+	it('defines every token for both dances', () => {
+		for (const d of DANCE_SLUGS)
+			for (const n of TOKEN_NAMES)
+				expect(MEDIA[d][n], `${d} media ${n}`).toMatch(/^#[0-9a-f]{6}$/i);
+	});
+
+	it('is the dark theme on a black ground', () => {
+		expect(MEDIA.salsa.ground).toBe('#000000');
+		expect(MEDIA.bachata.accent).toBe(THEMES.bachata.dark.accent);
+	});
+
+	for (const d of DANCE_SLUGS)
+		it.each(pairs)(`${d} media: %s on %s is at least 4.5`, (fg, bg) => {
+			const t = MEDIA[d];
+			expect(contrast(t[fg], t[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+		});
 });
 
 describe('on-band switch track', () => {
