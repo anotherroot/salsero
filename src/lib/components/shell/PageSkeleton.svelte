@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { Skeleton } from '$lib/nav/pending';
 
 	/**
@@ -33,7 +34,7 @@
 						? 'border-b border-hairline'
 						: ''}"
 				>
-					{#if leading}<span class="bone size-10 flex-none rounded-[10px]"></span>{/if}
+					{#if leading}<span class="bone size-10 flex-none rounded-xl"></span>{/if}
 					<div class="flex flex-1 flex-col gap-2">
 						<span class="bone h-3 rounded-md" style="width: {w1}%"></span>
 						<span class="bone h-2.5 rounded-[5px] opacity-80" style="width: {w2}%"></span>
@@ -53,10 +54,34 @@
 		<p class="sr-only" role="status">Loading…</p>
 
 		<header
-			class="flex flex-col bg-band px-5 {skeleton.kind === 'moves' ? 'pb-[50px]' : 'pb-8'}"
-			style="padding-top: calc(30px + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink)"
+			class="flex flex-col bg-band px-5 {skeleton.kind === 'today'
+				? 'gap-[6px]'
+				: skeleton.kind === 'moves'
+					? 'pb-[50px]'
+					: 'pb-8'}"
+			style="padding-top: calc(30px + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink){skeleton.kind ===
+			'today'
+				? '; padding-bottom: 92px'
+				: ''}"
 		>
-			{#if skeleton.kind === 'moves'}
+			{#if skeleton.kind === 'today'}
+				<div class="flex items-center justify-between gap-3" aria-hidden="true">
+					<h1
+						class="font-display text-[46px] leading-[1.05] font-extrabold tracking-[-0.02em] text-band-ink"
+					>
+						Today
+					</h1>
+					<div class="-mr-[10px] flex text-band-ink">
+						<span class="flex size-11 items-center justify-center opacity-45"
+							><Icon name="chevron-left" size={24} /></span
+						>
+						<span class="flex size-11 items-center justify-center"
+							><Icon name="settings" size={24} /></span
+						>
+					</div>
+				</div>
+				<span class="mt-1 block h-[14px] w-[150px] rounded-[7px] bg-band-ink opacity-[0.28]"></span>
+			{:else if skeleton.kind === 'moves'}
 				<!-- As Screen draws it: the title, then the Segmented track with the destination's half lit. -->
 				<h1
 					class="font-display text-[46px] leading-[1.05] font-extrabold tracking-[-0.02em] text-band-ink"
@@ -83,12 +108,27 @@
 			{/if}
 		</header>
 
-		<div
-			class={skeleton.kind === 'moves'
-				? 'relative -mt-7 flex flex-col gap-2 rounded-t-[28px] bg-ground px-4 pt-5'
-				: 'space-y-4 px-4 pt-4'}
-		>
-			{#if skeleton.kind === 'moves'}
+		{#if skeleton.kind === 'today'}
+			<div
+				class="relative -mt-7 flex min-h-[60vh] flex-col gap-2 rounded-t-[28px] bg-ground px-4 pb-6"
+			>
+				<div
+					class="-mt-[42px] mb-[10px] flex min-h-[84px] items-center gap-[14px] rounded-[22px] bg-surface py-[14px] pr-[14px] pl-5 shadow-[0_4px_16px_rgb(0_0_0/0.12)]"
+					aria-hidden="true"
+				>
+					<span class="flex flex-1 flex-col gap-[10px]">
+						<span class="bone h-[18px] rounded-[9px]" style="width: 58%"></span>
+						<span class="bone h-[11px] rounded-[5px]" style="width: 38%"></span>
+					</span>
+					<span class="bone size-[54px] flex-none rounded-full"></span>
+				</div>
+				<span class="bone mt-0.5 block h-2.5 w-16 rounded-[5px]" aria-hidden="true"></span>
+				{@render rows(3, true)}
+				<span class="bone mt-3.5 block h-2.5 w-24 rounded-[5px]" aria-hidden="true"></span>
+				{@render rows(2, true)}
+			</div>
+		{:else if skeleton.kind === 'moves'}
+			<div class="relative -mt-7 flex flex-col gap-2 rounded-t-[28px] bg-ground px-4 pt-5">
 				{#if skeleton.segment === 'figures'}
 					<div class="flex gap-2" aria-hidden="true">
 						{#each [0, 1] as i (i)}
@@ -111,16 +151,17 @@
 				<span class="bone mt-1.5 mb-0.5 ml-4 block h-2.5 w-[72px] rounded-[5px]" aria-hidden="true"
 				></span>
 				{@render rows(skeleton.segment === 'figures' ? 5 : 6, false)}
-			{:else if skeleton.kind === 'list'}
-				{@render rows(7, false)}
-			{:else if skeleton.kind === 'today'}
-				{@render rows(3, true)}
-				{@render rows(3, true)}
-			{:else}
-				<div class="bone aspect-video rounded-2xl" aria-hidden="true"></div>
-				{@render rows(3, false)}
-			{/if}
-		</div>
+			</div>
+		{:else}
+			<div class="space-y-4 px-4 pt-4">
+				{#if skeleton.kind === 'list'}
+					{@render rows(7, false)}
+				{:else}
+					<div class="bone aspect-video rounded-2xl" aria-hidden="true"></div>
+					{@render rows(3, false)}
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>
 

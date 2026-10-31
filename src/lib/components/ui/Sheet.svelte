@@ -18,9 +18,18 @@
 		sub?: string;
 		/** Drawn inside the dialog: a modal dialog makes the page inert and covers a page-level toast. */
 		toast?: Snippet;
+		/** A rich line under the title (wins over `sub`). The header aligns to the top. */
+		subtitle?: Snippet;
+		/** Header controls between the title and the ×. */
+		actions?: Snippet;
+		/** Fixed at 88dvh, so the footer sits at the bottom however short the body; the body ends in a fade. */
+		tall?: boolean;
 	}
 
-	let { title, open, onclose, children, back, footer, sub, toast }: Props = $props();
+	let { title, open, onclose, children, back, footer, sub, toast, subtitle, actions, tall }: Props =
+		$props();
+	/** The footer's height, so the toast can sit just above it. */
+	let footerH = $state(0);
 	let dialog: HTMLDialogElement | undefined = $state();
 	/** This sheet's place in the stack while it is open. Not state: nothing renders from it. */
 	let key: number | null = null;
@@ -72,6 +81,7 @@
 
 <dialog
 	bind:this={dialog}
+	class:tall
 	aria-label={title}
 	onclose={() => {
 		// Closed by the browser itself (a close request it would not let us cancel).
@@ -90,16 +100,25 @@
 >
 	<div class="inner">
 		<div class="grabber" aria-hidden="true"></div>
-		<header class="flex min-h-11 items-center gap-1 px-4 pb-1" class:pl-2={back}>
+		<header
+			class="flex min-h-11 gap-1 px-4 pb-1 {subtitle ? 'items-start' : 'items-center'}"
+			class:pl-2={back}
+		>
 			{#if back}
 				<button type="button" class={iconButton('bare')} aria-label="Back" onclick={tryClose}>
 					<Icon name="back" />
 				</button>
 			{/if}
-			<div class="flex min-w-0 flex-1 flex-col gap-0.5" class:pl-1={!back}>
+			<div
+				class="flex min-w-0 flex-1 flex-col {subtitle ? 'gap-1 pt-2' : 'gap-0.5'}"
+				class:pl-1={!back}
+			>
 				<h2 class="font-display text-[22px] leading-tight font-extrabold text-ink">{title}</h2>
-				{#if sub}<span class="text-[14px] text-muted">{sub}</span>{/if}
+				{#if subtitle}{@render subtitle()}{:else if sub}<span class="text-[14px] text-muted"
+						>{sub}</span
+					>{/if}
 			</div>
+			{#if actions}{@render actions()}{/if}
 			{#if !back}
 				<button
 					type="button"
@@ -114,13 +133,26 @@
 		<div class="body px-4 pt-3 pb-2">
 			{#if open}{@render children()}{/if}
 		</div>
+		{#if tall}<div class="fade" aria-hidden="true"></div>{/if}
 		{#if footer}
-			<div class="flex flex-col gap-2 border-t border-hairline px-4 pt-3">
+			<div
+				class="flex flex-col gap-2 border-t border-hairline px-4 pt-3"
+				bind:clientHeight={footerH}
+			>
 				{@render footer()}
 			</div>
 		{/if}
 	</div>
-	{#if toast}{@render toast()}{/if}
+	{#if toast}
+		<div
+			class="absolute inset-x-0"
+			style:bottom={footer
+				? `calc(${footerH}px + max(env(safe-area-inset-bottom), 16px) + 8px)`
+				: '16px'}
+		>
+			{@render toast()}
+		</div>
+	{/if}
 </dialog>
 
 <style>
@@ -136,6 +168,19 @@
 		color: var(--color-ink);
 		box-shadow: 0 -8px 30px rgb(0 0 0 / 0.18);
 		overflow: hidden;
+	}
+
+	dialog.tall {
+		height: 88dvh;
+	}
+
+	.fade {
+		position: relative;
+		height: 28px;
+		flex: none;
+		margin-top: -28px;
+		pointer-events: none;
+		background: linear-gradient(to bottom, transparent, var(--color-sheet));
 	}
 
 	dialog[open] {

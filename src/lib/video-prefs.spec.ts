@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadVideoPrefs, parseVideoPrefs, saveVideoPrefs } from './video-prefs';
+import {
+	RATE_LABEL,
+	VIDEO_RATES,
+	loadVideoPrefs,
+	parseVideoPrefs,
+	saveVideoPrefs
+} from './video-prefs';
 
 describe('parseVideoPrefs', () => {
 	it('reads back what was saved', () => {
@@ -41,5 +47,11 @@ describe('saveVideoPrefs', () => {
 		fakeStorage('{"mirror":true,"rate":0.5}');
 		saveVideoPrefs({ hidden: true });
 		expect(loadVideoPrefs()).toEqual({ mirror: true, rate: 0.5, hidden: true });
+	});
+});
+
+describe('RATE_LABEL', () => {
+	it('labels every rate', () => {
+		expect(VIDEO_RATES.map((r) => RATE_LABEL[r])).toEqual(['¼×', '½×', '¾×', '1×']);
 	});
 });

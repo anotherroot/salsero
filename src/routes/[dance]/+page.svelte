@@ -6,11 +6,17 @@
 	import ExerciseRow from '$lib/components/today/ExerciseRow.svelte';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
-	import Picker from '$lib/components/picker/Picker.svelte';
-	import { exerciseGroups } from '$lib/picker/build';
+	import PastDay from '$lib/components/today/PastDay.svelte';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
-	import { classDayLabel, dayLabel, setSummary } from '$lib/format';
-	import { timeOfDay } from '$lib/day/day';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import HeroCard from '$lib/components/ui/HeroCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
+	import { heroFor, todayBands, type BandKey } from '$lib/exercises/today';
+	import { classDayLabel, dayLabel, lastDoneLabel, longDayLabel } from '$lib/format';
+	import { daysBetween } from '$lib/day/day';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
 	import type { ActionData, PageData } from './$types';
@@ -19,7 +25,6 @@
 
 	let openId = $state<number | null>(null);
 	let creating = $state(false);
-	let picking = $state(false);
 	let showInactive = $state(false);
 
 	// A session walks Today's due/upcoming bands one popup at a time. It lives
@@ -85,6 +90,19 @@
 			: null
 	);
 
+	// The hero drives the session: Start, Resume (with the next name), a disabled
+	// Start when everything is parked, or a quiet All done card.
+	const hero = $derived(
+		heroFor(data.plan, {
+			on: sessionOn,
+			next: firstUp?.exercise.name ?? null,
+			logged: tally.count
+		})
+	);
+	// Only a Resume names a next row, so only then is one tinted "Up next".
+	const upNextId = $derived(hero?.kind === 'resume' ? (firstUp?.exercise.id ?? null) : null);
+	const bands = $derived(todayBands(data.plan));
+
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
 	const lessonDayOf = (e: { lessonId: number | null }) => {
@@ -102,16 +120,12 @@
 	const openSets = $derived(data.daySets.filter((s) => s.exerciseId === openId));
 	const Log = $derived(open ? logFor(typeOf(open.source)) : null);
 
-	/** A past day's sets, grouped by exercise in the order they were first done. */
-	const pastGroups = $derived.by(() => {
-		const groups: { exerciseId: number; name: string; sets: typeof data.daySets }[] = [];
-		for (const s of [...data.daySets].reverse()) {
-			let g = groups.find((x) => x.exerciseId === s.exerciseId);
-			if (!g) groups.push((g = { exerciseId: s.exerciseId, name: s.exerciseName, sets: [] }));
-			g.sets.push(s);
-		}
-		return groups;
-	});
+	/** Each exercise's type and partner, for a past day's tiles; archived ones are absent. */
+	const kinds = $derived(
+		Object.fromEntries(
+			rows.map((r) => [r.exercise.id, { source: r.exercise.source, partner: r.exercise.partner }])
+		)
+	);
 
 	const failure = (action: string) =>
 		form && 'action' in form && form.action === action && 'message' in form
@@ -123,210 +137,145 @@
 	><title>{data.isToday ? 'Today' : dayLabel(data.day)} · {data.dance.label}</title></svelte:head
 >
 
-<header
-	class="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
->
-	<a
-		href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
-		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-		aria-label="Previous day">‹</a
-	>
-	<div class="text-center">
-		<h1 class="text-[17px] font-semibold">{data.isToday ? 'Today' : dayLabel(data.day)}</h1>
-		{#if !data.isToday}
-			<a href={resolve('/[dance]', { dance: data.dance.slug })} class="text-[12px] text-accent"
-				>Back to today</a
-			>
-		{:else}
-			<p class="text-[12px] text-muted">{dayLabel(data.day)}</p>
-		{/if}
-	</div>
-	{#if data.nextDay}
-		<a
-			href={data.nextDay === data.today
-				? resolve('/[dance]', { dance: data.dance.slug })
-				: resolve(`/${data.dance.slug}?day=${data.nextDay}`)}
-			class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-			aria-label="Next day">›</a
-		>
-	{:else}
-		<span class="grid size-11 place-items-center text-[22px] text-rule" aria-hidden="true">›</span>
-	{/if}
-</header>
+{#snippet rowsOf(key: BandKey, list: typeof data.plan.due)}
+	{#each list as row (row.exercise.id)}
+		<ExerciseRow
+			{row}
+			band={key}
+			dance={data.dance.slug}
+			lastRating={data.lastRatings[row.exercise.id] ?? null}
+			lessonDay={lessonDayOf(row.exercise)}
+			upNext={row.exercise.id === upNextId}
+			onlog={() => (openId = row.exercise.id)}
+		/>
+	{/each}
+{/snippet}
 
-<main class="px-4 pt-4">
-	{#if data.isToday}
-		{#if rows.length === 0}
-			<div class="mt-10 text-center">
-				<p class="text-[15px] font-medium">Nothing to practise yet.</p>
-				<p class="mt-1 text-[13px] text-muted">
-					Build a routine from your figures, or add a custom exercise below.
-				</p>
-				<a
-					href={resolve('/[dance]/routines', { dance: data.dance.slug })}
-					class="mt-4 inline-block rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-accent-ink"
-					>Build a routine</a
-				>
-			</div>
-		{/if}
-
-		{#if data.plan.doneToday.length > 0}
-			<section aria-labelledby="done-h">
-				<h2 id="done-h" class="mb-2 text-[12px] font-medium tracking-wide text-done uppercase">
-					Done today
-				</h2>
-				<ul class="space-y-2">
-					{#each data.plan.doneToday as row (row.exercise.id)}
-						<ExerciseRow
-							{row}
-							variant="done"
-							dance={data.dance.slug}
-							lastRating={data.lastRatings[row.exercise.id] ?? null}
-							lessonDay={lessonDayOf(row.exercise)}
-							onlog={() => (openId = row.exercise.id)}
-						/>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
-		{#if firstUp}
-			<button
-				type="button"
-				class="mt-6 mb-4 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink first:mt-0"
-				onclick={() => (sessionOn ? (openId = firstUp?.exercise.id ?? null) : startSession())}
-				>{sessionOn ? 'Resume session' : 'Start session'}</button
-			>
-		{/if}
-
-		{#if data.plan.due.length > 0}
-			<section aria-labelledby="due-h" class="mt-6 first:mt-0">
-				<h2 id="due-h" class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
-					Due
-				</h2>
-				<ul class="space-y-2">
-					{#each data.plan.due as row (row.exercise.id)}
-						<ExerciseRow
-							{row}
-							variant="due"
-							dance={data.dance.slug}
-							lastRating={data.lastRatings[row.exercise.id] ?? null}
-							lessonDay={lessonDayOf(row.exercise)}
-							onlog={() => (openId = row.exercise.id)}
-						/>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
-		<!-- Shown, not hidden: seeing what is coming is how you pick a short session. -->
-		{#if data.plan.upcoming.length > 0}
-			<section aria-labelledby="upcoming-h" class="mt-6 first:mt-0">
-				<h2 id="upcoming-h" class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
-					Not yet due
-				</h2>
-				<ul class="space-y-2">
-					{#each data.plan.upcoming as row (row.exercise.id)}
-						<ExerciseRow
-							{row}
-							variant="upcoming"
-							dance={data.dance.slug}
-							lastRating={data.lastRatings[row.exercise.id] ?? null}
-							lessonDay={lessonDayOf(row.exercise)}
-							onlog={() => (openId = row.exercise.id)}
-						/>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
-		{#if data.plan.inactive.length > 0}
-			<section class="mt-6">
-				<button
-					type="button"
-					class="mb-2 flex w-full items-center justify-between text-[12px] font-medium tracking-wide text-muted uppercase"
-					aria-expanded={showInactive}
-					onclick={() => (showInactive = !showInactive)}
-				>
-					<span>Inactive ({data.plan.inactive.length})</span>
-					<span aria-hidden="true">{showInactive ? '−' : '+'}</span>
-				</button>
-				{#if showInactive}
-					<ul class="space-y-2">
-						{#each data.plan.inactive as row (row.exercise.id)}
-							<ExerciseRow
-								{row}
-								variant="inactive"
-								dance={data.dance.slug}
-								lastRating={data.lastRatings[row.exercise.id] ?? null}
-								lessonDay={lessonDayOf(row.exercise)}
-								onlog={() => (openId = row.exercise.id)}
-							/>
-						{/each}
-					</ul>
-				{/if}
-			</section>
-		{/if}
-
-		<button
-			type="button"
-			class="mt-6 mb-4 h-12 w-full rounded-xl border border-dashed border-rule text-[14px] font-medium text-ink-2"
-			onclick={() => (creating = true)}>+ Custom exercise</button
-		>
-	{:else}
-		{#if pastGroups.length === 0}
-			<p class="mt-10 text-center text-[14px] text-muted">Nothing logged on this day.</p>
-		{/if}
-		<ul class="space-y-3">
-			{#each pastGroups as g (g.exerciseId)}
-				<li class="rounded-xl border border-done/30 bg-done-bg">
-					<button
-						type="button"
-						class="w-full px-4 pt-3 pb-1 text-left text-[15px] font-medium"
-						onclick={() => (openId = g.exerciseId)}>{g.name}</button
-					>
-					<ul class="px-4 pb-3">
-						{#each g.sets as s (s.id)}
-							<li class="flex gap-3 text-[13px] text-ink-2">
-								<span class="text-muted tabular-nums">{timeOfDay(s.doneAt, timezone)}</span>
-								<span>{setSummary(s) || 'Set'}{s.note ? ` — ${s.note}` : ''}</span>
-							</li>
-						{/each}
-					</ul>
-				</li>
-			{/each}
-		</ul>
-
-		<div class="mt-6 mb-4 rounded-xl border border-line bg-raised p-3">
-			<span class="mb-1 block text-[12px] font-medium text-ink-2"
-				>Forgot to log something that day?</span
-			>
-			<button
-				type="button"
-				class="flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[15px]"
-				aria-haspopup="dialog"
-				onclick={() => (picking = true)}
-			>
-				<span class="min-w-0 flex-1 truncate text-muted">Pick an exercise…</span>
-				<span class="text-[20px] leading-none text-muted" aria-hidden="true">›</span>
-			</button>
-		</div>
-		<Picker
-			open={picking}
-			title="Log a set on {dayLabel(data.day)}"
-			placeholder="Search exercises"
-			groups={exerciseGroups(data.exercises)}
-			kind="act"
-			nothingLeft="No exercises yet."
-			onpick={(row) => {
-				openId = row.value;
-				picking = false;
-			}}
-			onclose={() => (picking = false)}
+{#snippet heroCard()}
+	{#if hero}
+		<HeroCard
+			title={hero.title}
+			meta={hero.meta}
+			state={hero.kind === 'idle' ? 'disabled' : hero.kind === 'done' ? 'done' : 'default'}
+			onclick={hero.kind === 'start'
+				? startSession
+				: hero.kind === 'resume'
+					? () => (openId = firstUp?.exercise.id ?? null)
+					: undefined}
 		/>
 	{/if}
-</main>
+{/snippet}
+
+{#if data.isToday}
+	<Screen title="Today" subtitle={longDayLabel(data.today)} hero={hero ? heroCard : undefined}>
+		{#snippet right()}
+			<BandButton
+				icon="chevron-left"
+				label="Previous day"
+				href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
+			/>
+			<BandButton icon="settings" label="Settings" href={resolve('/settings')} />
+		{/snippet}
+
+		{#if bands.length === 0}
+			<div class="pt-10">
+				<EmptyState
+					icon="calendar"
+					title="Nothing to practise yet"
+					body="Build a routine from your figures, or add a custom exercise."
+				>
+					{#snippet action()}
+						<div class="flex w-[260px] flex-col gap-2">
+							<a
+								href={resolve('/[dance]/routines', { dance: data.dance.slug })}
+								class={button('primary', 'md', true)}
+								><Icon name="route" size={20} />Build a routine</a
+							>
+							<button
+								type="button"
+								class={button('secondary', 'md', true)}
+								onclick={() => (creating = true)}
+								><Icon name="plus" size={20} />Custom exercise</button
+							>
+						</div>
+					{/snippet}
+				</EmptyState>
+			</div>
+		{:else}
+			{#each bands as b, i (b.key)}
+				{#if b.key === 'inactive'}
+					<!-- Parked exercises fold away, closed by default. -->
+					<button
+						type="button"
+						class="flex min-h-11 w-full cursor-pointer items-center justify-between pr-2 pl-4 text-muted"
+						class:mt-1.5={i > 0}
+						aria-expanded={showInactive}
+						aria-controls="band-inactive"
+						onclick={() => (showInactive = !showInactive)}
+					>
+						<span class="text-[13px] font-bold">{b.label}</span>
+						<Icon name={showInactive ? 'chevron-up' : 'chevron-down'} size={20} />
+					</button>
+					<ul id="band-inactive" class={GROUP} hidden={!showInactive}>
+						{@render rowsOf(b.key, b.rows)}
+					</ul>
+				{:else}
+					<section aria-labelledby="band-{b.key}-h" class="flex flex-col gap-2">
+						<h2 id="band-{b.key}-h" class={SECTION_LABEL} class:pt-3.5={i > 0}>{b.label}</h2>
+						<ul class={GROUP}>
+							{@render rowsOf(b.key, b.rows)}
+						</ul>
+					</section>
+				{/if}
+			{/each}
+
+			<button
+				type="button"
+				class="mt-1.5 {button('secondary', 'md', true)}"
+				onclick={() => (creating = true)}><Icon name="plus" size={20} />Custom exercise</button
+			>
+		{/if}
+	</Screen>
+{:else}
+	<Screen title={dayLabel(data.day)} subtitle={lastDoneLabel(daysBetween(data.day, data.today))}>
+		{#snippet right()}
+			<BandButton
+				icon="chevron-left"
+				label="Previous day"
+				href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
+			/>
+			{#if data.nextDay}
+				<BandButton
+					icon="chevron-right"
+					label="Next day"
+					href={data.nextDay === data.today
+						? resolve('/[dance]', { dance: data.dance.slug })
+						: resolve(`/${data.dance.slug}?day=${data.nextDay}`)}
+				/>
+			{/if}
+		{/snippet}
+		{#snippet extra()}
+			<a
+				href={resolve('/[dance]', { dance: data.dance.slug })}
+				class="inline-flex h-11 items-center"
+			>
+				<span
+					class="inline-flex h-8 items-center gap-1.5 rounded-2xl bg-black/15 pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small"
+					><Icon name="calendar" size={18} />Back to today</span
+				>
+			</a>
+		{/snippet}
+
+		<PastDay
+			day={data.day}
+			daySets={data.daySets}
+			exercises={data.exercises}
+			{kinds}
+			{timezone}
+			onlog={(id) => (openId = id)}
+		/>
+	</Screen>
+{/if}
 
 {#if open && Log}
 	{#key `${open.id}:${bumpKey}`}

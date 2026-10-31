@@ -31,7 +31,7 @@ import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
-import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
+import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
@@ -125,6 +125,7 @@ export const actions: Actions = {
 	/** Quick-log the review exercise, the same one-tap path the figure page has. See `log-form.ts`. */
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
+	restoreSet: (event) => restoreSetFrom(event),
 
 	/*
 	 * `createFigure` opens its own transaction, so the figure and the link are two

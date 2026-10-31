@@ -4,6 +4,7 @@
 	import { dateLabel } from '$lib/format';
 	import { spotLabel } from '$lib/video/spots';
 	import SectionPlayer from './SectionPlayer.svelte';
+	import Icon from './Icon.svelte';
 	import type { LinkedSection } from '$lib/types';
 
 	/**
@@ -19,29 +20,33 @@
 			? `${section.video.from.title} · ${dateLabel(section.video.from.lessonDay)}`
 			: `Recording · ${section.video.from.figure}`
 	);
+	const range = $derived(spotLabel({ ...section.spot, label: null }));
 </script>
 
-<div class="flex items-center gap-2 rounded-xl border border-line bg-raised px-3 py-2">
+<div class="flex min-h-16 items-center rounded-2xl bg-surface pr-1.5 pl-3">
 	<button
 		type="button"
-		class="flex min-w-0 flex-1 items-center gap-3 text-left"
+		class="flex min-h-16 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
 		onclick={() => (open = true)}
 	>
 		<span
-			class="grid size-10 shrink-0 place-items-center rounded-full bg-accent text-[14px] text-accent-ink"
-			aria-hidden="true">▶</span
+			class="grid size-10 shrink-0 place-items-center rounded-full bg-accent text-on-accent"
+			aria-hidden="true"><Icon name="play" size={18} filled /></span
 		>
-		<span class="min-w-0">
-			<span class="block truncate text-[12px] text-muted">{from}</span>
-			<span class="block truncate text-[15px]">{spotLabel(section.spot)}</span>
-			{#if section.spot.label}
-				<span class="block text-[12px] text-muted"
-					>{spotLabel({ ...section.spot, label: null })}</span
-				>
-			{/if}
+		<span class="min-w-0 py-2">
+			<span class="block truncate text-[16px] font-bold">{spotLabel(section.spot)}</span>
+			<span class="block truncate text-[13px] text-muted"
+				>{section.spot.label ? `${from} · ${range}` : from}</span
+			>
 		</span>
 	</button>
-	{@render unlink?.()}
+	{#if unlink}
+		{@render unlink()}
+	{:else}
+		<span class="flex size-11 flex-none items-center justify-center text-chevron" aria-hidden="true"
+			><Icon name="repeat" size={20} /></span
+		>
+	{/if}
 </div>
 
 {#if open}

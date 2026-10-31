@@ -13,6 +13,14 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import Slider from '$lib/components/ui/Slider.svelte';
+	import Stars from '$lib/components/ui/Stars.svelte';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import SectionCard from '$lib/components/ui/SectionCard.svelte';
+	import LinkList from '$lib/components/links/LinkList.svelte';
+	import type { LinkRow, LinkedSection } from '$lib/types';
 	import {
 		button,
 		iconButton,
@@ -43,6 +51,39 @@
 	let toast = $state<{ id: number; message: string; action?: string } | null>(null);
 	let toastId = 0;
 	let sheetToastMsg = $state<{ id: number; message: string; action?: string } | null>(null);
+	let tallOpen = $state(false);
+	let tallToast = $state<{ id: number; message: string; action?: string } | null>(null);
+	let bpm = $state(180);
+	let bpmMin = $state(60);
+	let vol = $state(0.8);
+	let showBar = $state(false);
+
+	const kitSection = (label: string | null): LinkedSection => ({
+		linkId: 1,
+		spot: { id: 1, startMs: 20000, endMs: 44000, label, linkedTo: [] },
+		video: {
+			owner: { lessonVideoId: 1 },
+			src: '/lesson-videos/none.mp4',
+			from: { kind: 'lesson', lessonId: 1, title: 'Thursday class', lessonDay: '2026-10-22' }
+		}
+	});
+	const kitLinks: LinkRow[] = [
+		{
+			id: 1,
+			url: 'https://youtu.be/9bZkp7q19f0?t=75',
+			title: 'Son clave vs rumba clave',
+			createdAt: 0,
+			saving: null
+		},
+		{
+			id: 2,
+			url: 'https://salsaclave.com/patterns',
+			title: 'Clave patterns explained',
+			createdAt: 0,
+			saving: null
+		},
+		{ id: 3, url: 'https://example.org/notes', title: null, createdAt: 0, saving: null }
+	];
 
 	const tileTones = ['accent', 'quiet', 'done'] as const;
 	const tileExercises = [
@@ -275,6 +316,72 @@
 			</section>
 
 			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Video frame, sections, links</h2>
+				<div class="overflow-hidden rounded-2xl bg-surface">
+					<VideoFrame
+						src="/recordings/none.mp4"
+						owner={{ recordingId: 1 }}
+						caption={{ title: 'Recording · 22 Oct', meta: '12.4 MB' }}
+						onproblem={() => {}}
+					/>
+				</div>
+				<div class="overflow-hidden rounded-2xl bg-surface">
+					<VideoFrame
+						src="/recordings/none.mp4"
+						owner={{ recordingId: 1 }}
+						sourceUrl="https://youtu.be/9bZkp7q19f0"
+						onproblem={() => {}}
+					/>
+				</div>
+				<SectionCard section={kitSection('Clave on its own')} />
+				<SectionCard section={kitSection(null)}>
+					{#snippet unlink()}
+						<button
+							type="button"
+							class="{iconButton('bare')} text-muted"
+							aria-label="Unlink this section"><Icon name="close" size={20} /></button
+						>
+					{/snippet}
+				</SectionCard>
+				<LinkList links={kitLinks} />
+				<LinkList links={kitLinks}>
+					{#snippet actions(link, kind)}
+						{#if kind === 'youtube'}
+							<span class="flex-1"></span>
+							<button type="button" class={button('danger-text', 'sm')}
+								><Icon name="trash" size={18} />Remove</button
+							>
+						{:else}
+							<button
+								type="button"
+								class="{iconButton('bare')} text-muted"
+								aria-label="Remove {link.title ?? 'link'}"><Icon name="trash" size={20} /></button
+							>
+						{/if}
+					{/snippet}
+				</LinkList>
+			</section>
+
+			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Stepper, slider, stars, bottom bar</h2>
+				<div class="flex flex-col gap-3 rounded-2xl bg-surface p-4">
+					<Stepper bind:value={bpm} min={60} max={240} label="Tempo" unit="BPM" />
+					<Stepper bind:value={bpmMin} min={60} max={240} label="At min" unit="BPM" />
+					<Slider bind:value={vol} label="Volume" />
+				</div>
+				<div class="flex flex-col gap-1 text-ink">
+					{#each [1, 2, 3, 4, 5] as r (r)}<Stars rating={r} />{/each}
+				</div>
+				<div>
+					<button
+						type="button"
+						class={button('secondary', 'sm')}
+						onclick={() => (showBar = !showBar)}>Bottom bar</button
+					>
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Sheet, dialog, toast</h2>
 				<div class="flex flex-wrap gap-2">
 					<button type="button" class={button('secondary', 'sm')} onclick={() => (sheetOpen = true)}
@@ -284,6 +391,9 @@
 						type="button"
 						class={button('secondary', 'sm')}
 						onclick={() => ((sheetBack = true), (sheetOpen = true))}>Sheet with back</button
+					>
+					<button type="button" class={button('secondary', 'sm')} onclick={() => (tallOpen = true)}
+						>Tall sheet</button
 					>
 					<button
 						type="button"
@@ -324,6 +434,7 @@
 	{#snippet sheetToast()}
 		<Toast
 			contained
+			bottom="0"
 			toast={sheetToastMsg}
 			onaction={() => (sheetToastMsg = null)}
 			ondismiss={() => (sheetToastMsg = null)}
@@ -355,6 +466,49 @@
 				type="button"
 				class={button('primary', 'md', true)}
 				onclick={() => (sheetOpen = false)}>Save</button
+			>
+		{/snippet}
+	</Sheet>
+
+	{#snippet tallToastSnippet()}
+		<Toast
+			contained
+			bottom="0"
+			toast={tallToast}
+			onaction={() => (tallToast = null)}
+			ondismiss={() => (tallToast = null)}
+		/>
+	{/snippet}
+
+	<Sheet
+		title="Shines"
+		tall
+		open={tallOpen}
+		onclose={() => ((tallOpen = false), (tallToast = null))}
+		toast={tallToastSnippet}
+	>
+		{#snippet subtitle()}
+			<span class="flex items-center gap-1.5 text-[14px] text-muted"
+				>Last time: 3 days ago · <Stars rating={3} /></span
+			>
+		{/snippet}
+		{#snippet actions()}
+			<button
+				type="button"
+				class="flex h-11 items-center px-2 text-[15px] font-extrabold text-accent-text"
+				>Details ›</button
+			>
+		{/snippet}
+		<p class="text-ink-2">A short body.</p>
+		{#snippet footer()}
+			<button
+				type="button"
+				class={button('secondary', 'sm', true)}
+				onclick={() => (tallToast = { id: ++toastId, message: 'Set deleted', action: 'Undo' })}
+				>Show toast</button
+			>
+			<button type="button" class={button('primary', 'md', true)} onclick={() => (tallOpen = false)}
+				>Log set</button
 			>
 		{/snippet}
 	</Sheet>
@@ -401,6 +555,10 @@
 			>
 		{/snippet}
 	</Dialog>
+
+	{#if showBar}<BottomBar
+			><button type="button" class={button('primary', 'md', true)}>Log set</button></BottomBar
+		>{/if}
 
 	<Toast {toast} onaction={() => (toast = null)} ondismiss={() => (toast = null)} bottom="1rem" />
 </div>

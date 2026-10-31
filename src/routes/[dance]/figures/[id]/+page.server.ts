@@ -29,7 +29,7 @@ import {
 	isStartCount,
 	MAX_LENGTH_COUNTS
 } from '$lib/graph/timing';
-import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
+import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions, neutralPosition } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
@@ -388,6 +388,7 @@ export const actions: Actions = {
 	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
+	restoreSet: (event) => restoreSetFrom(event),
 
 	deleteRecording: async ({ params, request }) => {
 		const found = variationOf(params);

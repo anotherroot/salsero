@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
-	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
+	import { button, FIELD, FIELD_ERROR, LABEL, TEXTAREA } from '$lib/components/ui/styles';
+	import { DEFAULT_EVERY_DAYS } from '$lib/frequency';
 
 	interface Props {
 		message: string | null;
@@ -12,17 +16,15 @@
 
 	let { message, values, onclose }: Props = $props();
 	let busy = $state(false);
-
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
-	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
+	let everyDays = $state(DEFAULT_EVERY_DAYS);
 </script>
 
 <Sheet title="New exercise" open={true} {onclose}>
 	<form
+		id="new-exercise"
 		method="POST"
 		action="?/createExercise"
-		class="space-y-3"
+		class="flex flex-col gap-3.5"
 		use:guarded={{
 			label: 'New exercise',
 			submit: () => {
@@ -35,43 +37,46 @@
 			}
 		}}
 	>
-		<label class="block">
-			<span class={label}>Name</span>
+		<div>
+			<label for="new-exercise-name" class={LABEL}>Name</label>
 			<input
+				id="new-exercise-name"
 				name="name"
 				required
 				maxlength="200"
 				placeholder="e.g. Son basic, clave clapping"
 				value={values?.name ?? ''}
-				class={field}
+				class={FIELD}
+				aria-invalid={message ? 'true' : undefined}
+				aria-describedby={message ? 'new-exercise-error' : undefined}
 			/>
-		</label>
+			{#if message}
+				<p id="new-exercise-error" class={FIELD_ERROR} role="alert">
+					<Icon name="warning" size={16} />
+					<span>{message}</span>
+				</p>
+			{/if}
+		</div>
+		<FrequencyField name="everyDays" bind:value={everyDays} />
 		<label class="block">
-			<span class={label}>How often</span>
-			<select name="everyDays" class={field} value={DEFAULT_EVERY_DAYS}>
-				{#each FREQUENCIES as f (f.days)}
-					<option value={f.days}>{f.label}</option>
-				{/each}
-			</select>
-		</label>
-		<label class="block">
-			<span class={label}>Notes</span>
-			<textarea name="notes" rows="2" maxlength="2000" class={field}>{values?.notes ?? ''}</textarea
+			<span class={LABEL}>Notes<span class="font-normal text-muted">&nbsp;(optional)</span></span>
+			<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA}
+				>{values?.notes ?? ''}</textarea
 			>
 		</label>
-		{#if message}
-			<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-				{message}
-			</p>
-		{/if}
+	</form>
+	{#snippet footer()}
 		<button
 			type="submit"
+			form="new-exercise"
+			class="{button('primary', 'md', true)} gap-2"
+			aria-busy={busy}
 			disabled={busy}
-			class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
-			>Add exercise</button
 		>
-	</form>
-	<p class="mt-3 text-[12px] text-muted">
-		To practise a figure on its own, open it and tap Practise on its own.
-	</p>
+			{#if busy}<Spinner size={18} />{/if}Add exercise
+		</button>
+		<p class="mx-1 mt-1 text-[13px] leading-snug text-muted">
+			To practise a figure on its own, open it and tap Practise on its own.
+		</p>
+	{/snippet}
 </Sheet>

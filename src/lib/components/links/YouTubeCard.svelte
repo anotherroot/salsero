@@ -3,6 +3,9 @@
 	import { onMount } from 'svelte';
 	import { youtubeEmbed, youtubeThumb, youtubeWatch } from '$lib/links';
 	import { loadVideoPrefs, saveVideoPrefs } from '$lib/video-prefs';
+	import { clock } from '$lib/format';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { iconButton } from '$lib/components/ui/styles';
 
 	interface Props {
 		id: string;
@@ -42,34 +45,40 @@
 {:else}
 	<button
 		type="button"
-		class="relative block aspect-video w-full bg-black"
+		class="relative block aspect-video w-full cursor-pointer bg-black"
 		aria-label="Play {title ?? 'the video'}"
 		onclick={() => (playing = true)}
 	>
 		<img src={youtubeThumb(id)} alt="" loading="lazy" class="size-full object-cover" class:mirror />
 		<span class="absolute inset-0 grid place-items-center">
-			<span class="grid size-14 place-items-center rounded-full bg-black/70 text-[22px] text-white"
-				>▶</span
+			<span class="grid size-[52px] place-items-center rounded-full bg-black/70 text-white"
+				><Icon name="play" size={24} filled /></span
 			>
 		</span>
 	</button>
 {/if}
-<div class="flex items-center gap-2 px-3 py-2 text-[12px]">
-	<span class="min-w-0 flex-1 truncate text-ink-2">{title ?? 'YouTube'}</span>
+<div class="flex items-center gap-1 py-2 pr-1.5 pl-3.5">
+	<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+		<span class="text-[15px] leading-snug font-bold">{title ?? 'YouTube'}</span>
+		<span class="flex items-center gap-[5px] text-[12px] text-muted">
+			<Icon name="youtube" size={15} />youtube.com{start ? ` · from ${clock(start)}` : ''}
+		</span>
+	</div>
 	<button
 		type="button"
 		aria-pressed={mirror}
+		aria-label="Mirror"
 		onclick={toggleMirror}
-		class="h-8 rounded-lg border px-2.5 {mirror
-			? 'border-accent text-accent'
-			: 'border-rule text-ink-2'}">Mirror</button
+		class="{iconButton('bare')} {mirror ? 'bg-accent-soft text-accent-text' : 'text-muted'}"
+		><Icon name="mirror" size={22} /></button
 	>
 	<!-- Always offered: the work PC's browser may block the embed outright. -->
 	<a
 		href={youtubeWatch(id, start)}
 		target="_blank"
 		rel="external noopener noreferrer"
-		class="text-accent">Open on YouTube ↗</a
+		aria-label="Open on YouTube"
+		class="{iconButton('bare')} text-muted"><Icon name="external" size={22} /></a
 	>
 </div>
 

@@ -16,9 +16,9 @@
 	Wraps rather than sharing one row: seven options do not fit at 375 px, and a
 	fast song needs the sparse ones to be as reachable as salsa.
 -->
-<div class="flex flex-wrap gap-2">
+<div class="flex flex-wrap gap-1.5">
 	{#each patterns as p (p)}
-		<label class="{CHIP} min-w-[5.5rem] grow-0 basis-auto px-3">
+		<label class="{CHIP} min-w-11">
 			<input
 				type="radio"
 				{name}

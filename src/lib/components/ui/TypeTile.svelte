@@ -6,11 +6,14 @@
 
 	let {
 		exercise,
-		tone
+		tone,
+		onTint = false
 	}: {
 		/** null/undefined only with tone "done": a past day's archived exercise. */
 		exercise?: { source: Source; partner: Partner | null } | null;
 		tone: TileTone;
+		/** On an accent-soft row (Up next): an accent tile takes the surface so it does not vanish. */
+		onTint?: boolean;
 	} = $props();
 
 	const tile = $derived(exercise ? exerciseTile(exercise) : null);
@@ -19,7 +22,7 @@
 	);
 	const toneCls = $derived(
 		tone === 'accent'
-			? 'bg-accent-soft text-accent-text'
+			? `${onTint ? 'bg-surface' : 'bg-accent-soft'} text-accent-text`
 			: tone === 'quiet'
 				? 'bg-chip text-muted'
 				: 'bg-done-soft'

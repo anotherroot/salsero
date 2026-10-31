@@ -119,7 +119,9 @@ src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
-                     stopwatch, the Today session. practice-api.ts is the fetch
+                     stopwatch, the Today session, what Today shows (today.ts: bands,
+                     meta lines, hero states, past-day groups) and the type
+                     tile's icon and name (tile.ts). practice-api.ts is the fetch
                      side of remembering a practice. Client-safe
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
