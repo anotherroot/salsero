@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Picker from '$lib/components/picker/Picker.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { sectionGroups } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
 	import SectionPlayer from './SectionPlayer.svelte';
@@ -33,10 +34,9 @@
 	let opening = 0;
 	let linkForm: HTMLFormElement | undefined = $state();
 	let spotInput: HTMLInputElement | undefined = $state();
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity
-	const inFlight = new Set<string>();
+	const inFlight = new SvelteSet<string>();
 	/** What the hidden form is about to send; read by its submit, synchronously. */
-	let sending: { key: string; keep: boolean } | null = null;
+	let sending: { key: string; label: string; keep: boolean } | null = null;
 
 	// Every opening starts clean; a close of any kind fences off late answers.
 	let wasOpen = false;
@@ -59,7 +59,7 @@
 	function link(row: PickRow, keep: boolean) {
 		if (!linkForm || !spotInput || inFlight.has(row.key)) return;
 		spotInput.value = String(row.value);
-		sending = { key: row.key, keep };
+		sending = { key: row.key, label: row.label, keep };
 		linkForm.requestSubmit();
 	}
 
@@ -77,7 +77,13 @@
 					result.type === 'failure'
 						? (result.data as { message?: unknown } | undefined)?.message
 						: (result.error as { message?: unknown } | undefined)?.message;
-				if (here) message = typeof m === 'string' ? m : 'That could not be linked.';
+				if (here)
+					message =
+						typeof m === 'string'
+							? m
+							: sent
+								? `${sent.label} was not linked. Try it again.`
+								: 'That could not be linked.';
 				return;
 			}
 			await update();
@@ -110,6 +116,8 @@
 	title="Link a section"
 	placeholder="Search sections"
 	kind="link"
+	pending={inFlight}
+	emptyIcon="bookmark"
 	groups={sectionGroups(groups, 'In this lesson')}
 	nothingLeft="No sections to link. Open a lesson video full screen and tap Section to mark one."
 	{added}

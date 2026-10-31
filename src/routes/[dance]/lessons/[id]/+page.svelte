@@ -10,6 +10,8 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
+	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
@@ -321,11 +323,10 @@
 	/** Counts openings, so an answer that lands after a close is not counted in the next one. */
 	let opening = 0;
 	const linkForms: Partial<Record<LinkKind, HTMLFormElement>> = $state({});
-	/** Rows whose link is on its way: a second + on one would only be refused. Nothing renders it. */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity
-	const inFlight = new Set<string>();
+	/** Rows whose link is on its way: a second + on one would only be refused; the picker shows a spinner. */
+	const inFlight = new SvelteSet<string>();
 	/** What the hidden form is about to send; read by its submit, synchronously. */
-	let sending: { key: string; keep: boolean } | null = null;
+	let sending: { key: string; label: string; keep: boolean } | null = null;
 
 	function openPicker(kind: LinkKind) {
 		opening += 1;
@@ -347,7 +348,7 @@
 		const input = f.elements.namedItem(LINK[kind].field);
 		if (!(input instanceof HTMLInputElement)) return;
 		input.value = String(row.value);
-		sending = { key: row.key, keep };
+		sending = { key: row.key, label: row.label, keep };
 		f.requestSubmit();
 	}
 
@@ -362,12 +363,24 @@
 			const here = at === opening;
 			if (result.type === 'failure') {
 				const m = (result.data as { message?: unknown } | undefined)?.message;
-				if (here) pickMessage = typeof m === 'string' ? m : 'That could not be linked.';
+				if (here)
+					pickMessage =
+						typeof m === 'string'
+							? m
+							: sent
+								? `${sent.label} was not linked. Try it again.`
+								: 'That could not be linked.';
 				return;
 			}
 			if (result.type === 'error') {
 				const m = (result.error as { message?: unknown } | undefined)?.message;
-				if (here) pickMessage = typeof m === 'string' ? m : 'That could not be linked.';
+				if (here)
+					pickMessage =
+						typeof m === 'string'
+							? m
+							: sent
+								? `${sent.label} was not linked. Try it again.`
+								: 'That could not be linked.';
 				return;
 			}
 			await update();
@@ -619,78 +632,93 @@
 					{@render labelRow(sectionHeading('Figures', data.figures.length), 'figure', () =>
 						openFigureSheet()
 					)}
-					<ul class={GROUP}>
-						{#each data.figures as figure (figure.id)}
-							<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
-								<a
-									href={resolve('/[dance]/figures/[id]', {
-										dance: data.dance.slug,
-										id: String(figure.id)
-									})}
-									class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
-								>
-									{@render itemText(figure.name, viaBadge(figure.viaSections), figureMeta(figure))}
-								</a>
-								{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
-							</li>
-						{/each}
-						<li>{@render linkRow('figure', 'Link a figure…')}</li>
-					</ul>
+					{#if data.figures.length > 0}
+						<ul class={GROUP}>
+							{#each data.figures as figure (figure.id)}
+								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<a
+										href={resolve('/[dance]/figures/[id]', {
+											dance: data.dance.slug,
+											id: String(figure.id)
+										})}
+										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+									>
+										{@render itemText(
+											figure.name,
+											viaBadge(figure.viaSections),
+											figureMeta(figure)
+										)}
+									</a>
+									{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<PickerOpener label="Link an existing figure…" onclick={() => openPicker('figure')} />
 				</section>
 				<section class="flex flex-col gap-2">
 					{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine', () =>
 						createFrom('routine', '', '')
 					)}
-					<ul class={GROUP}>
-						{#each data.routines as routine (routine.id)}
-							<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
-								<a
-									href={resolve('/[dance]/routines/[id]', {
-										dance: data.dance.slug,
-										id: String(routine.id)
-									})}
-									class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
-								>
-									{@render itemText(routine.name, null, routineMeta(routine))}
-								</a>
-								<!-- A routine never reaches a lesson through a section. -->
-								{@render unlinkButton('routine', routine.id, routine.name, [])}
-							</li>
-						{/each}
-						<li>{@render linkRow('routine', 'Link a routine…')}</li>
-					</ul>
+					{#if data.routines.length > 0}
+						<ul class={GROUP}>
+							{#each data.routines as routine (routine.id)}
+								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<a
+										href={resolve('/[dance]/routines/[id]', {
+											dance: data.dance.slug,
+											id: String(routine.id)
+										})}
+										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+									>
+										{@render itemText(routine.name, null, routineMeta(routine))}
+									</a>
+									<!-- A routine never reaches a lesson through a section. -->
+									{@render unlinkButton('routine', routine.id, routine.name, [])}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<PickerOpener label="Link an existing routine…" onclick={() => openPicker('routine')} />
 				</section>
 				<section class="flex flex-col gap-2">
 					{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise', () =>
 						createFrom('exercise', '', '')
 					)}
-					<ul class={GROUP}>
-						{#each data.exercises as exercise (exercise.id)}
-							<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
-								<a
-									href={resolve('/[dance]/exercises/[id]', {
-										dance: data.dance.slug,
-										id: String(exercise.id)
-									})}
-									class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
-								>
-									{@render itemText(
+					{#if data.exercises.length > 0}
+						<ul class={GROUP}>
+							{#each data.exercises as exercise (exercise.id)}
+								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<a
+										href={resolve('/[dance]/exercises/[id]', {
+											dance: data.dance.slug,
+											id: String(exercise.id)
+										})}
+										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+									>
+										{@render itemText(
+											exercise.name,
+											viaBadge(exercise.viaSections),
+											exerciseMeta(exercise)
+										)}
+									</a>
+									<!-- The "+" is an icon, so bare accent is allowed. -->
+									<a
+										href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
+										class={iconButton('bare').replace('text-ink', 'text-accent')}
+										aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
+									>
+									{@render unlinkButton(
+										'exercise',
+										exercise.id,
 										exercise.name,
-										viaBadge(exercise.viaSections),
-										exerciseMeta(exercise)
+										exercise.viaSections
 									)}
-								</a>
-								<!-- The "+" is an icon, so bare accent is allowed. -->
-								<a
-									href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-									class={iconButton('bare').replace('text-ink', 'text-accent')}
-									aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
-								>
-								{@render unlinkButton('exercise', exercise.id, exercise.name, exercise.viaSections)}
-							</li>
-						{/each}
-						<li>{@render linkRow('exercise', 'Link an exercise…')}</li>
-					</ul>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<PickerOpener label="Link an existing exercise…" onclick={() => openPicker('exercise')} />
 				</section>
 			</div>
 		{/if}
@@ -866,18 +894,6 @@
 	{/if}
 {/snippet}
 
-<!-- A linked group's last row: opens the shared picker. -->
-{#snippet linkRow(kind: LinkKind, text: string)}
-	<button
-		type="button"
-		aria-haspopup="dialog"
-		class="flex min-h-[54px] w-full cursor-pointer items-center gap-3 px-4 text-left text-[16px] font-bold text-accent-text"
-		onclick={() => openPicker(kind)}
-	>
-		<Icon name="search" size={20} />{text}
-	</button>
-{/snippet}
-
 <!-- What a picker's tap and + post: one-tap link actions, filled in by `link()`. -->
 {#each LINK_KINDS as kind (kind)}
 	<form
@@ -896,6 +912,7 @@
 	title="Link a figure"
 	placeholder="Search figures"
 	kind="link"
+	pending={inFlight}
 	groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
 	nothingLeft="There are no figures yet."
 	create={[
@@ -916,6 +933,7 @@
 	title="Link a routine"
 	placeholder="Search routines"
 	kind="link"
+	pending={inFlight}
 	groups={[{ title: 'Routines', entries: routineRows(data.linkableRoutines) }]}
 	nothingLeft="There are no routines yet."
 	create={[{ key: 'routine', label: 'Routine' }]}
@@ -933,6 +951,7 @@
 	title="Link an exercise"
 	placeholder="Search exercises"
 	kind="link"
+	pending={inFlight}
 	groups={exerciseGroups(data.linkableExercises)}
 	nothingLeft="Nothing left to link. A figure’s or routine’s exercise lives under it."
 	create={[{ key: 'exercise', label: 'Exercise' }]}

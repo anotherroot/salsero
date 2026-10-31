@@ -9,8 +9,15 @@
 	let {
 		label,
 		onclick,
-		disabled = false
-	}: { label: string; onclick: () => void; disabled?: boolean } = $props();
+		disabled = false,
+		...rest
+	}: {
+		label: string;
+		onclick: () => void;
+		disabled?: boolean;
+		'aria-describedby'?: string;
+		id?: string;
+	} = $props();
 </script>
 
 <button
@@ -18,5 +25,6 @@
 	class={button('secondary', 'md', true)}
 	aria-haspopup="dialog"
 	{disabled}
+	{...rest}
 	{onclick}><Icon name="search" size={20} />{label}</button
 >

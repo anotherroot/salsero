@@ -1,8 +1,9 @@
 <script lang="ts">
 	import Picker from '$lib/components/picker/Picker.svelte';
+	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { GROUP, LABEL, SECTION_LABEL, SELECT, iconButton } from '$lib/components/ui/styles';
+	import { GROUP, LABEL, SECTION_LABEL, iconButton } from '$lib/components/ui/styles';
 	import { timeOfDay } from '$lib/day/day';
 	import { pastGroups } from '$lib/exercises/today';
 	import { dayLabel, setSummary } from '$lib/format';
@@ -78,17 +79,13 @@
 {/if}
 
 <div class="mt-3.5">
-	<label class={LABEL} for="past-forgot">Forgot to log something that day?</label>
-	<button
-		type="button"
+	<p id="past-forgot-label" class={LABEL}>Forgot to log something that day?</p>
+	<PickerOpener
 		id="past-forgot"
-		class={SELECT}
-		aria-haspopup="dialog"
+		label="Pick an exercise…"
+		aria-describedby="past-forgot-label"
 		onclick={() => (picking = true)}
-	>
-		<span class="min-w-0 flex-1 truncate font-medium text-muted">Pick an exercise…</span>
-		<span class="flex text-muted"><Icon name="chevron-down" size={20} /></span>
-	</button>
+	/>
 </div>
 
 <Picker

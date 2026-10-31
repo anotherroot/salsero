@@ -12,6 +12,7 @@
 	import RemoveWarning from '$lib/components/figures/RemoveWarning.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
+	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
@@ -653,16 +654,6 @@
 					<h2 class={SECTION_LABEL}>
 						{variation.sections.length > 0 ? `Sections · ${variation.sections.length}` : 'Sections'}
 					</h2>
-					<!-- Links are added while reading; editing only takes them away. -->
-					{#if !editing}
-						<button
-							type="button"
-							class={button('tertiary', 'sm')}
-							aria-haspopup="dialog"
-							onclick={() => (linkingSection = true)}
-							><Icon name="link" size={18} />Link a section</button
-						>
-					{/if}
 				</div>
 				<div class="mt-1">
 					{#if variation.sections.length === 0}
@@ -698,6 +689,12 @@
 					{/if}
 					{#if failed('unlinkSection')}
 						<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
+					{/if}
+					<!-- Links are added while reading; editing only takes them away. -->
+					{#if !editing}
+						<div class="mt-2">
+							<PickerOpener label="Link a section…" onclick={() => (linkingSection = true)} />
+						</div>
 					{/if}
 				</div>
 			</section>
