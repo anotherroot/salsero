@@ -63,6 +63,10 @@ export function roundButton(
 export const ON_VIDEO =
 	'inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full bg-black/60 px-2.5 text-[12.5px] tabular-nums';
 
+/** A key cap: the desktop legend and the editor's key hints. */
+export const KBD =
+	'inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-step px-1 text-[11px] font-bold text-ink tabular-nums';
+
 /* Old names, until Task 7 converts the last components and deletes them. */
 export const BTN = playerButton('neutral', 'md');
 export const BTN_ACCENT = playerButton('accent', 'md');

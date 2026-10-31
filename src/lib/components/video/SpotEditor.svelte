@@ -21,7 +21,7 @@
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { editorSub, linkEntry } from '$lib/video/chrome';
-	import { playerButton } from './styles';
+	import { KBD, playerButton } from './styles';
 	import Transport from './Transport.svelte';
 	import TrimStrip from './TrimStrip.svelte';
 
@@ -114,8 +114,6 @@
 	const DELETE = playerButton('danger-text').replace('px-4', 'px-3');
 	const RENAME = playerButton('ghost', 'md');
 	const DONE = playerButton('accent', 'cta');
-	const KBD =
-		'inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-step px-1 text-[11px] font-bold text-ink tabular-nums';
 
 	function onDrag(e: 'start' | 'end', ms: number) {
 		// Hundredths: the precision the times are shown in.
@@ -166,7 +164,7 @@
 		{#if entry.kind === 'open'}
 			<button
 				type="button"
-				class="-my-1.5 flex h-8 cursor-pointer items-center gap-1.5 self-start text-left text-[13px] {entry.invite
+				class="-my-3 flex h-11 cursor-pointer items-center gap-1.5 self-start text-left text-[13px] {entry.invite
 					? 'font-extrabold text-accent-text'
 					: 'font-semibold text-ink-2'}"
 				onclick={onlink}

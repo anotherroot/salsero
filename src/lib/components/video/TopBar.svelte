@@ -13,6 +13,8 @@
 		/** What shows, from `topBar(mode, level.kind)`. */
 		parts: TopBarParts;
 		spotsCount?: number;
+		/** Where the bar sits: over the picture in landscape (its wrapper pads), or the landscape panel's top. */
+		place?: 'overlay' | 'panel';
 		/** The Sections pill: opens the list beside the video (landscape). */
 		onspots?: () => void;
 		/** ‹ Full video, from a section's view. */
@@ -29,6 +31,7 @@
 		mirror,
 		rate,
 		parts,
+		place,
 		spotsCount = 0,
 		onspots,
 		onback,
@@ -57,7 +60,13 @@
 	);
 </script>
 
-<div class="relative flex h-14 flex-none items-center gap-1 px-2 {parts.glass ? '' : 'bg-ground'}">
+<div
+	class="relative flex flex-none items-center gap-1 {place === 'overlay'
+		? 'h-14'
+		: place === 'panel'
+			? 'h-[52px] pr-2 pl-10'
+			: 'h-14 px-2'} {parts.glass ? '' : 'bg-ground'}"
+>
 	<button
 		type="button"
 		class="grid size-11 flex-none cursor-pointer place-items-center text-white"
@@ -76,11 +85,17 @@
 		</button>
 	{/if}
 	{#if parts.title}
-		<div class="flex min-w-0 flex-1 flex-col gap-px pl-0.5">
+		<div
+			class="flex min-w-0 flex-1 flex-col gap-px pl-0.5 {parts.glass
+				? 'drop-shadow-[0_1px_3px_rgb(0_0_0/0.65)]'
+				: ''}"
+		>
 			<span class="truncate text-[16px] leading-[1.25] font-extrabold">{title}</span>
 			{#if parts.sub === 'looping' || subtitle}
-				<span class="truncate text-[12.5px] font-semibold text-muted"
-					>{parts.sub === 'looping' ? 'Looping' : subtitle}</span
+				<span
+					class="truncate text-[12.5px] font-semibold {parts.glass
+						? 'text-white/80'
+						: 'text-muted'}">{parts.sub === 'looping' ? 'Looping' : subtitle}</span
 				>
 			{/if}
 		</div>

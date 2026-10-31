@@ -50,11 +50,9 @@
 	import { holdScreenOn } from '$lib/video/screen-on';
 	import { NO_ZOOM, zoomTransform, type View } from '$lib/video/zoom';
 	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
-	import Icon from '$lib/components/video/Icon.svelte';
-	import { icons } from '$lib/components/video/icons';
 	import UiIcon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { BTN_GHOST, ON_VIDEO, playerButton } from '$lib/components/video/styles';
+	import { KBD, ON_VIDEO, playerButton } from '$lib/components/video/styles';
 	import TopBar from '$lib/components/video/TopBar.svelte';
 	import Transport from '$lib/components/video/Transport.svelte';
 	import Timeline from '$lib/components/video/Timeline.svelte';
@@ -784,13 +782,13 @@
 {/snippet}
 
 {#snippet editorCard(spot: Spot)}
-	<div class="flex flex-col rounded-2xl border border-(--pl-hover) bg-(--pl-surface)">
+	<div class="flex flex-col rounded-2xl border border-hairline bg-surface">
 		{@render editor(spot, true, false)}
 	</div>
 {/snippet}
 
 {#snippet clock()}
-	<span class="text-[15px] font-semibold tabular-nums">{preciseTime(currentMs)}</span>
+	<span class="text-[15px] font-extrabold tabular-nums">{preciseTime(currentMs)}</span>
 {/snippet}
 
 {#snippet fullTimeline(glass: boolean)}
@@ -860,11 +858,9 @@
 {/snippet}
 
 {#snippet keyLegend()}
-	<div
-		class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-1 pb-3 text-[12px] text-(--pl-muted)"
-	>
+	<div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-1 pb-3 text-[12px] text-muted">
 		{#each LEGEND as [k, what] (k)}
-			<span><kbd class="kbd">{k}</kbd> {what}</span>
+			<span><kbd class={KBD}>{k}</kbd> {what}</span>
 		{/each}
 	</div>
 {/snippet}
@@ -896,7 +892,7 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		bind:this={stage}
-		class="stage relative h-full w-full overflow-hidden bg-(--pl-bg) text-(--pl-ink) {mode}"
+		class="stage relative h-full w-full overflow-hidden bg-ground text-ink {mode}"
 		onpointermove={(e) => {
 			if (mode === 'overlay' && e.pointerType === 'mouse') wake();
 		}}
@@ -904,7 +900,7 @@
 		<!-- 1. the top bar -->
 		<div
 			class="area-top fade {mode === 'overlay'
-				? 'absolute inset-x-0 top-0 z-20 bg-linear-to-b from-black/65 to-transparent pb-4 text-white'
+				? 'absolute inset-x-0 top-0 z-20 bg-linear-to-b from-black/60 to-transparent px-11 pt-2.5 pb-[30px] text-white'
 				: ''}"
 			class:faded
 		>
@@ -914,6 +910,7 @@
 				{mirror}
 				{rate}
 				parts={topBar(mode, chromeLevel)}
+				place={mode === 'overlay' ? 'overlay' : mode === 'panel' ? 'panel' : undefined}
 				spotsCount={spots.length}
 				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
 				onback={phone && level.kind === 'section' ? () => nav.up() : undefined}
@@ -1034,26 +1031,22 @@
 				style:max-height="calc(100dvh - 176px)"
 			>
 				{#if sheet === 'list'}
-					<div class="relative flex max-h-[50dvh] min-h-0 flex-col border-t border-(--pl-raised)">
-						<button
-							type="button"
-							class="{BTN_GHOST} absolute top-1 right-2 z-10"
-							aria-label="Close list"
-							onclick={() => nav.up()}
-						>
-							<Icon d={icons.close} />
-						</button>
+					<section
+						aria-label="Sections and points"
+						class="flex max-h-[50dvh] min-h-0 flex-col gap-2 rounded-t-[28px] bg-sheet px-4 pt-2 pb-[max(env(safe-area-inset-bottom),22px)]"
+					>
 						<div class="min-h-0 flex-1 overflow-y-auto">
 							<SpotList
+								variant="sheet"
 								spots={listSpots}
 								activeId={null}
 								{loadFailed}
-								editAll
 								onopen={fromList}
 								onedit={toEdit}
+								onclose={() => nav.up()}
 							/>
 						</div>
-					</div>
+					</section>
 				{:else if level.kind === 'edit' && openSpot}
 					{@render editor(openSpot, false, true)}
 				{:else if hidden}
@@ -1118,7 +1111,7 @@
 			</div>
 		{:else if mode === 'overlay'}
 			<div
-				class="area-below fade absolute inset-x-0 bottom-0 z-20 bg-linear-to-t from-black/75 to-transparent pt-10 text-white"
+				class="area-below fade absolute inset-x-0 bottom-0 z-20 bg-linear-to-b from-transparent to-black/72 px-12 pt-10 pb-3.5 text-white"
 				class:faded
 			>
 				{#if level.kind === 'section' && openSpot}
@@ -1138,10 +1131,17 @@
 						{/snippet}
 					</SectionView>
 				{:else}
-					<div class="flex flex-col gap-1 px-6 pb-3">
+					<div class="flex flex-col">
 						{@render fullTimeline(true)}
-						<div class="flex items-center gap-2">
-							<span class="flex w-40 items-baseline gap-2">{@render clock()}</span>
+						<div class="mt-0.5 flex items-center gap-2">
+							<span class="flex w-[170px] items-baseline gap-2">
+								<span class="font-display text-[20px] font-extrabold tabular-nums"
+									>{preciseTime(currentMs)}</span
+								>
+								<span class="text-[14px] font-semibold text-white/85 tabular-nums"
+									>/ {durationMs ? preciseTime(durationMs) : '–'}</span
+								>
+							</span>
 							<span class="flex-1"></span>
 							<Transport
 								{paused}
@@ -1152,16 +1152,22 @@
 								ontenth={tenth}
 							/>
 							<span class="flex-1"></span>
-							<span class="flex w-40 justify-end gap-2">{@render markButtons(true)}</span>
+							<span class="flex w-[170px] justify-end gap-1.5">{@render markButtons(true)}</span>
 						</div>
 					</div>
 				{/if}
 			</div>
 		{:else if mode === 'panel'}
-			<div class="area-below flex items-center gap-2 px-3 py-1.5">
+			<div class="area-below flex h-[60px] items-center gap-2 pr-3 pl-11">
 				{@render clock()}
 				<span class="flex-1"></span>
-				<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
+				<Transport
+					{paused}
+					size={level.kind === 'edit' ? 'compact' : 'float'}
+					ontoggle={toggle}
+					onstep={nudge}
+					ontenth={tenth}
+				/>
 			</div>
 		{:else}
 			<div class="area-below flex flex-col">
@@ -1181,7 +1187,7 @@
 					<div class="px-4 pt-3">{@render fullTimeline(false)}</div>
 					<div class="flex items-center gap-2 px-4 py-2">
 						{@render clock()}
-						<span class="text-[12px] text-(--pl-muted) tabular-nums"
+						<span class="text-[12px] text-muted tabular-nums"
 							>/ {durationMs ? preciseTime(durationMs) : '–'}</span
 						>
 						<span class="flex-1"></span>
@@ -1196,26 +1202,19 @@
 
 		<!-- 4. beside the video -->
 		{#if mode === 'panel'}
-			<div class="area-side flex min-h-0 flex-col border-l border-(--pl-raised) bg-(--pl-bg)">
+			<div
+				class="area-side flex min-h-0 flex-col border-l border-surface bg-ground pr-[env(safe-area-inset-right)]"
+			>
 				{#if sheet === 'list'}
-					<div class="flex items-center justify-end px-2 pt-1">
-						<button
-							type="button"
-							class={BTN_GHOST}
-							aria-label="Close list"
-							onclick={() => nav.up()}
-						>
-							<Icon d={icons.close} />
-						</button>
-					</div>
-					<div class="-mt-10 min-h-0 flex-1 overflow-y-auto">
+					<div class="min-h-0 flex-1 overflow-y-auto pb-3">
 						<SpotList
+							variant="panel"
 							spots={listSpots}
 							activeId={null}
 							{loadFailed}
-							editAll
 							onopen={fromList}
 							onedit={toEdit}
+							onclose={() => nav.up()}
 						/>
 					</div>
 				{:else if level.kind === 'edit' && openSpot}
@@ -1223,12 +1222,12 @@
 				{/if}
 			</div>
 		{:else if mode === 'desktop'}
-			<div class="area-side min-h-0 overflow-y-auto border-l border-(--pl-raised)">
+			<div class="area-side min-h-0 overflow-y-auto border-l border-surface">
 				<SpotList
 					spots={listSpots}
 					activeId={openSpot?.id ?? null}
 					{loadFailed}
-					compact
+					variant="sidebar"
 					onopen={fromList}
 					onedit={toEdit}
 					expanded={level.kind === 'edit' ? editorCard : undefined}
@@ -1300,7 +1299,7 @@
 		grid-template-rows: auto minmax(0, 1fr) auto;
 	}
 	.stage.panel {
-		grid-template-columns: minmax(0, 1fr) minmax(280px, 40%);
+		grid-template-columns: minmax(0, 1fr) minmax(300px, 44%);
 	}
 	.stage.desktop {
 		grid-template-columns: minmax(0, 1fr) 400px;
@@ -1333,20 +1332,5 @@
 	.faded,
 	.faded :global(*) {
 		pointer-events: none;
-	}
-
-	.kbd {
-		display: inline-flex;
-		min-width: 1.4rem;
-		height: 1.4rem;
-		align-items: center;
-		justify-content: center;
-		padding: 0 0.35rem;
-		border: 1px solid var(--pl-tick);
-		border-radius: 0.35rem;
-		background: var(--pl-raised);
-		color: var(--pl-ink);
-		font: inherit;
-		font-size: 11px;
 	}
 </style>

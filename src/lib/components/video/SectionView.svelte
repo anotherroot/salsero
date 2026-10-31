@@ -93,7 +93,7 @@
 		{@render row?.()}
 	</div>
 {:else if variant === 'overlay'}
-	<div class="flex flex-col px-12 pb-3">
+	<div class="flex flex-col">
 		{@render badges?.()}
 		{@render track(true, true)}
 		<div class="mt-1.5">
