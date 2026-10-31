@@ -1,3 +1,5 @@
+import type { SongStatus } from '$lib/labels';
+
 /**
  * PURE: the song page's words and its one rule about taps. Client-safe;
  * imports nothing from `$lib/server`.
@@ -34,4 +36,30 @@ export function sampleLabels(custom: boolean): {
 	return custom
 		? { badge: 'Yours', tone: 'accent', meta: 'Set by you' }
 		: { badge: 'Automatic', tone: 'neutral', meta: 'A third of the way in, on a 1' };
+}
+
+export type SongStep = { state: 'done' | 'now' | 'todo'; title: string; meta: string };
+
+/** The rows of a song still being added; an upload has no Download. Empty once ready or failed. */
+export function songSteps(status: SongStatus, fromUpload: boolean): SongStep[] {
+	if (status !== 'waiting_download' && status !== 'waiting_analysis') return [];
+	const added: SongStep = {
+		state: 'done',
+		title: 'Added',
+		meta: fromUpload ? 'Uploaded' : 'From YouTube'
+	};
+	if (status === 'waiting_download')
+		return [
+			added,
+			{ state: 'now', title: 'Download', meta: 'Waiting for the home fetcher' },
+			{ state: 'todo', title: 'Find the beat', meta: 'Beat analysis on the laptop' }
+		];
+	const download: SongStep[] = fromUpload
+		? []
+		: [{ state: 'done', title: 'Download', meta: 'Downloaded' }];
+	return [
+		added,
+		...download,
+		{ state: 'now', title: 'Find the beat', meta: 'Waiting for beat analysis' }
+	];
 }

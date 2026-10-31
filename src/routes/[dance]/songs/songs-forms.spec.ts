@@ -200,3 +200,62 @@ describe('A song', () => {
 		expect(data.song.durationS).toBe(60);
 	});
 });
+
+describe('Song details', () => {
+	const edit = (dance: 'salsa' | 'bachata', id: number, fields: Record<string, string>) =>
+		call(songPage.actions.update, post(dance, fields, String(id)));
+
+	it('puts a missing title under Title, keeping artist and style', async () => {
+		const id = readySong('bachata');
+		expect(
+			await edit('bachata', id, { title: '', artist: 'Romeo', style: 'sensual' })
+		).toMatchObject({
+			status: 400,
+			data: {
+				field: 'title',
+				message: 'Give the song a title (up to 200 characters).',
+				title: '',
+				artist: 'Romeo',
+				style: 'sensual'
+			}
+		});
+	});
+
+	it('puts a long artist under Artist', async () => {
+		const id = readySong('bachata');
+		expect(
+			await edit('bachata', id, { title: 'x', artist: 'x'.repeat(201), style: 'sensual' })
+		).toMatchObject({
+			status: 400,
+			data: { field: 'artist', message: 'Keep the artist to 200 characters.' }
+		});
+	});
+
+	it('names no field for a style of the other dance', async () => {
+		const id = readySong('bachata');
+		const result = (await edit('bachata', id, { title: 'x', artist: '', style: 'son' })) as {
+			status: number;
+			data: Record<string, unknown>;
+		};
+		expect(result.status).toBe(400);
+		expect(result.data.message).toBe('Pick a style.');
+		expect(result.data.field).toBeUndefined();
+	});
+
+	it('saves a good edit', async () => {
+		const id = readySong('bachata');
+		expect(await edit('bachata', id, { title: 'New', artist: 'A', style: 'dominican' })).toEqual({
+			ok: true
+		});
+		expect(getSong(db, id)).toMatchObject({ title: 'New', artist: 'A', style: 'dominican' });
+	});
+
+	it('archives to Music and the song is gone', async () => {
+		const id = readySong('bachata');
+		expect(await call(songPage.actions.archive, post('bachata', {}, String(id)))).toMatchObject({
+			status: 303,
+			location: '/bachata/songs'
+		});
+		expect(() => songPage.load(post('bachata', {}, String(id)) as never)).toThrow();
+	});
+});

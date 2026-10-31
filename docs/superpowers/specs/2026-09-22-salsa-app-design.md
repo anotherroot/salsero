@@ -79,7 +79,7 @@ browser (work PC / phone, installable PWA)
   ├─ Figures             list, detail, recordings
   ├─ Lessons             (phase 4) list, detail, videos, figure/routine/exercise links
   ├─ Routines            (phase 3)
-  ├─ Songs               (phase 2) library, add by URL/upload, song page
+  ├─ Music               (phase 2) library, add by URL/upload, song page
   └─ Player              (phase 2) <audio> + Web Audio scheduler
         │ HTTPS
 salsa.anotherroot.eu → nginx (publicAcme, raised body size)
@@ -370,6 +370,14 @@ After 5 failed
 attempts, or a permanent error (video unavailable, longer than 15 minutes), the
 song is `failed` with the error shown, **Retry** and **Upload a file instead**.
 While laptop is off, songs simply wait; the library says so.
+
+**Music (since the redesign):** the Songs tab is Music: Being added (waiting and
+failed songs, plus the upload in flight), Count only, then A-Z. A song being
+added shows its steps on its own page (Added, Download, Find the beat; an upload
+has no Download); a failed one shows the error, Retry and Upload a file instead.
+The ready song page has the app's own timeline with the user's 1s as ticks.
+Song details is a sheet from the pencil, with a refusal under its field; Archive
+song asks in a dialog stacked over it (no browser `confirm()`).
 
 **Beat grid** (measured 2026-09-22 on a salsa and a son track): Beat This!'s
 BEATS are good — 96–97% of inter-beat intervals within 8% of the median, tempo

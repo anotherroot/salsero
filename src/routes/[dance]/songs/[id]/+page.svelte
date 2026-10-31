@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -12,12 +10,15 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import SongDetailsSheet from '$lib/components/songs/SongDetailsSheet.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import SeekBar from '$lib/components/ui/SeekBar.svelte';
 	import { GROUP, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
 	import { act } from '$lib/components/routines/act';
 	import { songName } from '$lib/songs/library';
-	import { sampleLabels, songSubtitle, tapProblem } from '$lib/songs/song-page';
+	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
 	import { clock } from '$lib/format';
 	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
 	import type { ActionData, PageData } from './$types';
@@ -32,7 +33,7 @@
 	let tapError: string | null = $state(null);
 	let now = $state(0);
 	let detailsOpen = $state(false);
-	let details: HTMLDetailsElement | undefined = $state();
+	let archiving = $state(false);
 
 	// One sound at a time: the sample pauses this page's own copy of the song.
 	$effect(() => {
@@ -60,7 +61,11 @@
 	const tapRefusal = $derived(form?.action === 'tap' ? form.message : null);
 	const tapShown = $derived(tapError ?? tapRefusal);
 	const sampleRefusal = $derived(form?.action === 'sample' ? form.message : null);
-	const otherRefusal = $derived(form?.message && !form.action ? form.message : null);
+	// Song details' own refusals (`title` is sent with them) live in its sheet.
+	const retryRefusal = $derived(
+		form?.message && !form.action && form.title === undefined ? form.message : null
+	);
+	const steps = $derived(songSteps(song.status, song.sourceUrl === null));
 	const tempoItems = TEMPO_FACTORS.map((f) => ({ value: String(f), label: TEMPO_LABEL[f] }));
 
 	$effect(() => {
@@ -94,15 +99,6 @@
 		audio.currentTime = s;
 		now = s;
 	}
-
-	async function openDetails() {
-		detailsOpen = true;
-		await tick();
-		details?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-	}
-
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 </script>
 
 <svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
@@ -116,7 +112,7 @@
 		/>
 	{/snippet}
 	{#snippet right()}
-		<BandButton icon="edit" label="Song details" onclick={openDetails} />
+		<BandButton icon="edit" label="Song details" onclick={() => (detailsOpen = true)} />
 	{/snippet}
 
 	{#if grid && song.audioFile}
@@ -290,90 +286,78 @@
 			</ul>
 		{/if}
 	{:else}
-		<section class="rounded-xl border border-line bg-raised p-4 text-[14px]">
-			{#if song.status === 'waiting_download'}
-				<p>Waiting for the home fetcher to download this song.</p>
-				<p class="mt-1 text-[12px] text-muted">
-					It runs on the laptop about once a minute while it is on.
-				</p>
-			{:else if song.status === 'waiting_analysis'}
-				<p>Waiting for beat analysis on the laptop.</p>
-			{:else}
-				<p class="text-danger">This song failed: {song.error ?? 'unknown error'}</p>
-				<form method="POST" action="?/retry" use:enhance class="mt-3">
-					<button
-						type="submit"
-						class="h-11 rounded-xl bg-accent px-4 text-[14px] font-semibold text-accent-ink"
-						>Retry</button
-					>
-				</form>
-				<p class="mt-2 text-[12px] text-muted">
-					Or upload the audio file from the <a
-						href={resolve('/[dance]/songs', { dance: data.dance.slug })}
-						class="text-accent">Music</a
-					> page.
-				</p>
+		{#if steps.length > 0}
+			<ul class={GROUP} aria-label="Progress">
+				{#each steps as step (step.title)}
+					<li class="flex min-h-14 items-center gap-3 py-2 pr-4 pl-4">
+						<span class="flex size-6 flex-none items-center justify-center">
+							{#if step.state === 'done'}
+								<span class="text-done"><Icon name="check-circle" size={24} filled /></span>
+							{:else if step.state === 'now'}
+								<Spinner size={24} />
+							{:else}
+								<span class="text-field-line"><Icon name="circle" size={24} /></span>
+							{/if}
+						</span>
+						<span class="flex min-w-0 flex-col gap-0.5">
+							<span
+								class="text-[16px] leading-[1.3] font-bold {step.state === 'todo'
+									? 'text-muted'
+									: 'text-ink'}">{step.title}</span
+							>
+							<span class="text-[13px] leading-[1.35] text-muted">{step.meta}</span>
+						</span>
+					</li>
+				{/each}
+			</ul>
+			<p class="px-3 pt-1 text-center text-[13px] leading-[1.45] text-muted">
+				It runs on the laptop about once a minute while it is on. This page updates by itself.
+			</p>
+		{:else}
+			<Banner kind="error" title="This song failed">{song.error ?? 'Unknown error'}</Banner>
+			<form method="POST" action="?/retry" use:enhance class="flex flex-col gap-2">
+				<button type="submit" class={button('primary', 'md', true)}>
+					<Icon name="refresh" size={20} />Retry
+				</button>
+				{#if retryRefusal}<Banner kind="error" title={retryRefusal} />{/if}
+			</form>
+			<a href={resolve(`/${data.dance.slug}/songs?add=1`)} class={button('secondary', 'md', true)}>
+				<Icon name="upload" size={20} />Upload a file instead
+			</a>
+			{#if song.sourceUrl}
+				<p class="px-3 text-center text-[13px] break-all text-muted">From {song.sourceUrl}</p>
 			{/if}
-		</section>
-	{/if}
-
-	{#if otherRefusal}
-		<Banner kind="error" title={otherRefusal} />
-	{/if}
-
-	<!-- Until Song details becomes a sheet (the next task), the pencil opens this. -->
-	<details bind:this={details} bind:open={detailsOpen} class="mt-4 rounded-xl border border-line">
-		<summary class="cursor-pointer px-3 py-3 text-[14px] font-medium">Song details</summary>
-		<form
-			method="POST"
-			action="?/update"
-			use:guarded={{
-				label: 'Song details',
-				submit:
-					() =>
-					async ({ update }) =>
-						update({ reset: false })
-			}}
-			class="space-y-3 px-3 pb-3"
-		>
-			<input
-				name="title"
-				required
-				maxlength="200"
-				value={song.title}
-				aria-label="Title"
-				placeholder="Title"
-				class={field}
-			/>
-			<input
-				name="artist"
-				maxlength="200"
-				value={song.artist ?? ''}
-				aria-label="Artist"
-				placeholder="Artist"
-				class={field}
-			/>
-			<select name="style" value={song.style} aria-label="Style" class={field}>
-				{#each data.dance.styles as s (s)}<option value={s}>{data.dance.styleLabel[s]}</option
-					>{/each}
-			</select>
-			<button
-				type="submit"
-				class="h-11 w-full rounded-xl border border-rule text-[14px] font-medium">Save</button
-			>
-		</form>
-		{#if song.sourceUrl}
-			<p class="truncate px-3 pb-3 text-[12px] text-muted">From {song.sourceUrl}</p>
 		{/if}
-		<form
-			method="POST"
-			action="?/archive"
-			class="border-t border-line px-3 py-3"
-			onsubmit={(e) => {
-				if (!confirm('Archive this song?')) e.preventDefault();
-			}}
-		>
-			<button type="submit" class="text-[14px] text-danger">Archive song</button>
-		</form>
-	</details>
+	{/if}
+
+	{#if retryRefusal && grid}
+		<Banner kind="error" title={retryRefusal} />
+	{/if}
 </Screen>
+
+<SongDetailsSheet
+	open={detailsOpen}
+	onclose={() => (detailsOpen = false)}
+	{song}
+	dance={data.dance}
+	{form}
+	onarchive={() => (archiving = true)}
+/>
+
+<Dialog
+	open={archiving}
+	icon="trash"
+	tone="danger"
+	title="Archive this song?"
+	body={`${name} leaves Music and the song popup. Sets you logged with it stay.`}
+	onclose={() => (archiving = false)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
+			>Cancel</button
+		>
+		<form method="POST" action="?/archive" use:enhance>
+			<button type="submit" class={button('danger', 'sm')}>Archive</button>
+		</form>
+	{/snippet}
+</Dialog>

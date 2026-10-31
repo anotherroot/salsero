@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sampleLabels, songSubtitle, tapProblem } from './song-page';
+import { sampleLabels, songSteps, songSubtitle, tapProblem } from './song-page';
 
 describe('tapProblem', () => {
 	it('refuses a tap before the song has ever played', () => {
@@ -37,5 +37,32 @@ describe('sampleLabels', () => {
 			tone: 'neutral',
 			meta: 'A third of the way in, on a 1'
 		});
+	});
+});
+
+describe('songSteps', () => {
+	it('walks a link through download and the beat', () => {
+		expect(songSteps('waiting_download', false)).toEqual([
+			{ state: 'done', title: 'Added', meta: 'From YouTube' },
+			{ state: 'now', title: 'Download', meta: 'Waiting for the home fetcher' },
+			{ state: 'todo', title: 'Find the beat', meta: 'Beat analysis on the laptop' }
+		]);
+		expect(songSteps('waiting_analysis', false)).toEqual([
+			{ state: 'done', title: 'Added', meta: 'From YouTube' },
+			{ state: 'done', title: 'Download', meta: 'Downloaded' },
+			{ state: 'now', title: 'Find the beat', meta: 'Waiting for beat analysis' }
+		]);
+	});
+
+	it('skips Download for an upload', () => {
+		expect(songSteps('waiting_analysis', true)).toEqual([
+			{ state: 'done', title: 'Added', meta: 'Uploaded' },
+			{ state: 'now', title: 'Find the beat', meta: 'Waiting for beat analysis' }
+		]);
+	});
+
+	it('has none once ready or failed', () => {
+		expect(songSteps('ready', false)).toEqual([]);
+		expect(songSteps('failed', true)).toEqual([]);
 	});
 });

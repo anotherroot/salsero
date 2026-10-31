@@ -128,12 +128,27 @@ export const actions: Actions = {
 	update: async ({ params, request }) => {
 		const song = songOf(params);
 		const form = await request.formData();
+		const sent = {
+			title: String(form.get('title') ?? ''),
+			artist: String(form.get('artist') ?? ''),
+			style: String(form.get('style') ?? '')
+		};
 		const title = text(form, 'title');
+		if (!title)
+			return fail(400, {
+				field: 'title' as const,
+				message: 'Give the song a title (up to 200 characters).',
+				...sent
+			});
 		const artist = optionalText(form, 'artist', 200);
+		if (artist === undefined)
+			return fail(400, {
+				field: 'artist' as const,
+				message: 'Keep the artist to 200 characters.',
+				...sent
+			});
 		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
-		if (!title || artist === undefined || !style) {
-			return fail(400, { message: 'Give the song a title (up to 200 characters).' });
-		}
+		if (!style) return fail(400, { message: 'Pick a style.', ...sent });
 		updateSongMeta(getDb(), song.id, { title, artist, style });
 		return { ok: true };
 	},
