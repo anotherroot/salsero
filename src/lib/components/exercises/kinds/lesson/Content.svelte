@@ -11,37 +11,41 @@
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
-	let { dance, content }: ContentProps = $props();
+	let { dance, content, onPage }: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
 
 {#if content.type === 'lesson'}
 	<div class="flex flex-col gap-3">
-		<a
-			class="flex items-center gap-3 rounded-2xl bg-surface py-2.5 pr-3.5 pl-3"
-			href={resolve('/[dance]/lessons/[id]', {
-				dance: dance.slug,
-				id: String(content.lesson.id)
-			})}
-		>
-			<span
-				class="grid size-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-text"
-				aria-hidden="true"><Icon name="lessons" size={20} /></span
+		{#if !onPage}
+			<a
+				class="flex items-center gap-3 rounded-2xl bg-surface py-2.5 pr-3.5 pl-3"
+				href={resolve('/[dance]/lessons/[id]', {
+					dance: dance.slug,
+					id: String(content.lesson.id)
+				})}
 			>
-			<span class="flex min-w-0 flex-1 flex-col gap-px">
-				<span class="truncate text-[16px] font-bold">{content.lesson.title}</span>
-				<span class="truncate text-[13px] text-muted"
-					>{longDayLabel(content.lesson.lessonDay)} · {content.videos.length}
-					{content.videos.length === 1 ? 'video' : 'videos'}</span
+				<span
+					class="grid size-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-text"
+					aria-hidden="true"><Icon name="lessons" size={20} /></span
 				>
-			</span>
-			<span class="flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</a>
+				<span class="flex min-w-0 flex-1 flex-col gap-px">
+					<span class="truncate text-[16px] font-bold">{content.lesson.title}</span>
+					<span class="truncate text-[13px] text-muted"
+						>{longDayLabel(content.lesson.lessonDay)} · {content.videos.length}
+						{content.videos.length === 1 ? 'video' : 'videos'}</span
+					>
+				</span>
+				<span class="flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		{/if}
 		{#if content.lesson.notes}
 			<LinkedText text={content.lesson.notes} class={PROSE} />
 		{/if}
 		{#if content.figures.length > 0}
-			<h3 class={SECTION_HEAD}>Figures</h3>
+			{#if onPage}<h2 class={SECTION_HEAD}>Figures</h2>{:else}<h3 class={SECTION_HEAD}>
+					Figures
+				</h3>{/if}
 			<ul class="-mt-1.5 flex flex-wrap gap-2">
 				{#each content.figures as f (f.id)}
 					<li>

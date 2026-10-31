@@ -10,9 +10,9 @@
  */
 import { error, fail } from '@sveltejs/kit';
 import { getDb } from './db';
-import { deleteSet, logSet } from './exercises';
+import { deleteSet, getSet, logSet } from './exercises';
 import { int, optionalInt, optionalText } from './form';
-import { danceOf, requireExerciseInDance, requireSetInDance } from './scope';
+import { danceOf, requireExerciseInDance } from './scope';
 import { isValidDay, localDay, noonOf } from '$lib/day/day';
 import { hasField } from '$lib/exercises/kinds';
 import type { SetSnapshot } from '$lib/types';
@@ -109,10 +109,15 @@ export function parseSetSnapshot(raw: string, now: number): SetSnapshot | null {
 
 export async function deleteSetFrom({ params, request }: LogEvent) {
 	const id = int(await request.formData(), 'setId');
+	// A set already gone is a refusal the page can show, not a 404 page.
+	const row = id === undefined ? null : getSet(getDb(), id);
+	if (id === undefined || !row) {
+		return fail(404, { action: 'deleteSet', message: 'That set was already removed.' });
+	}
 	// Before the delete, not after: `deleteSet` takes an id alone, so a set from
 	// the other dance would already be gone by the time it answered.
-	const row = id === undefined ? null : requireSetInDance(getDb(), danceOf(params), id);
-	if (id === undefined || !row || !deleteSet(getDb(), id)) {
+	requireExerciseInDance(getDb(), danceOf(params), row.exerciseId);
+	if (!deleteSet(getDb(), id)) {
 		return fail(404, { action: 'deleteSet', message: 'That set was already removed.' });
 	}
 	const snapshot: SetSnapshot = {

@@ -27,11 +27,11 @@
 >
 	{#snippet body(payload)}
 		<div class="flex flex-col gap-3">
-			<div class="flex items-center justify-between">
+			<div class="flex items-center justify-between pr-1">
 				<h3 class={SECTION_HEAD}>Reference</h3>
 				<button
 					type="button"
-					class="flex h-8 cursor-pointer items-center gap-1 px-2.5 text-[14px] font-extrabold text-accent-text"
+					class="-my-1.5 flex h-11 cursor-pointer items-center gap-1 px-2.5 text-[14px] font-extrabold text-accent-text"
 					aria-expanded={showReference}
 					aria-controls={contentId}
 					onclick={() => (showReference = !showReference)}
@@ -42,7 +42,7 @@
 					/>
 				</button>
 			</div>
-			<div id={contentId}>
+			<div id={contentId} class="contents">
 				{#if showReference}
 					<Content dance={props.dance} content={payload.content} timezone={props.timezone} />
 				{/if}

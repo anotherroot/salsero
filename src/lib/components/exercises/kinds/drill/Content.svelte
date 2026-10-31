@@ -47,7 +47,9 @@
 			{/if}
 		{/each}
 		{#if editLinks?.unlinkMessage}
-			<p class={FIELD_ERROR} role="alert">{editLinks.unlinkMessage}</p>
+			<p class={FIELD_ERROR} role="alert">
+				<Icon name="warning" size={16} filled />{editLinks.unlinkMessage}
+			</p>
 		{/if}
 		{#if editLinks}
 			<button

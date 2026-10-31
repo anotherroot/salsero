@@ -153,6 +153,13 @@ describe('deleteSetFrom', () => {
 	});
 });
 
+describe('deleteSetFrom, a set already gone', () => {
+	it('answers with a 404 failure and does not throw', async () => {
+		const res = await deleteSetFrom(post('salsa', { setId: '999999' }));
+		expect(res).toMatchObject({ status: 404, data: { action: 'deleteSet' } });
+	});
+});
+
 describe('deleteSetFrom and restoreSetFrom', () => {
 	it('hands back what it deleted, and Undo puts it back on its own day', async () => {
 		const wed = noonOf('2026-10-28', TZ);
@@ -200,6 +207,8 @@ describe('parseSetSnapshot', () => {
 	};
 	it('reads a whole snapshot', () =>
 		expect(parseSetSnapshot(JSON.stringify(ok), 2_000)).toEqual(ok));
+	it('ignores an extra id key', () =>
+		expect(parseSetSnapshot(JSON.stringify({ ...ok, id: 5 }), 2_000)).toEqual(ok));
 	it.each([
 		['a rating of 6', { ...ok, rating: 6 }],
 		['a set in the future', { ...ok, doneAt: 10_000_000 }],
