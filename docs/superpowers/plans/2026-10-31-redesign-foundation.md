@@ -409,3 +409,33 @@ for (const id of ['/[dance]/figures/[id]', '/[dance]/routines/[id]', '/[dance]/p
   icon SVGs. Main design spec: one line under its nav/UI section pointing to the redesign
   spec for the look and the four tabs.
 - [ ] **Step 4: Commit** `docs: the redesign foundation in CLAUDE.md and the kit gallery`.
+
+---
+
+## Carried to later plans (from the foundation's reviews)
+
+Built and reviewed 2026-10-31 (commits e906b57..60bad13). These came out of
+the reviews and belong to the plans named:
+
+- **Figure plan:** the VariationBar still sits at the old tab bar's offset (a
+  gap under it now that pushed screens have no tab bar).
+- **Moves plan:** the coverage selection bar (`coverage/+page.svelte`, 4.5rem)
+  is at the old offset. **Routine plan:** same for `routines/SelectionBar.svelte`.
+- **Today plan:** HeroCard has no disabled / "nothing due" state yet (the kit
+  has one); check its 52 px button / 13 px meta against the kit's 54 / 14.
+- **System plan:** NavProgress is cream, invisible on pages without a band
+  (login, pairing, share); the Android navigation-bar strip stays the tab bar's
+  colour under pushed screens; give `/dev/kit` nothing more than it has.
+- **Settings plan:** the Switch's off track is below 3:1 against the ground
+  (non-text contrast) — decide before Settings leans on switches.
+- **Every area plan:** use `text-accent-text`, not bare `text-accent`, for
+  small accent text (salsa light accent is 4.18:1 on the ground).
+- **Cleanup plan:** remove the old token aliases; first make the stylesheet
+  spec compare per theme block (today it only checks each hex appears); add a
+  check against bare `text-accent` on text; a scrim token (the 45 % black is
+  repeated in Sheet, Dialog, UnsavedDialog); `BAND_TRACK` and Segmented's
+  `bg-black/15` are two copies of one value; Dialog/Sheet header padding order;
+  icons.spec counting aliases; `PUBLIC_PATHS` lists `/icon-192.png` and
+  `/icon-512.png` that don't exist, and its comment still says TWA; the bachata
+  pages use the salsa favicon; `aria-invalid` thickens the field border (1 px
+  shift).
