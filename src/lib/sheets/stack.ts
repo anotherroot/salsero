@@ -69,6 +69,10 @@ export class SheetStack {
 	#next = 1;
 	/** Navigations on their way: Back moves wait for them. */
 	#holds = new Set<object>();
+	/** Waiting for history to catch up with the stack (`settled`). */
+	#waiters: (() => void)[] = [];
+	/** A move outside the slots' own (a stale entry left behind) is on its way: only a sync ends it. */
+	#landing = false;
 
 	constructor(private readonly port: SheetPort) {}
 
@@ -100,6 +104,34 @@ export class SheetStack {
 			this.port.go(wanted - this.#history);
 			this.#history = wanted;
 		}
+		if (this.#waiters.length > 0 && this.#caughtUp()) {
+			const run = this.#waiters;
+			this.#waiters = [];
+			for (const fn of run) fn();
+		}
+	}
+
+	/** History holds exactly the open sheets' entries, and no move is owed or on its way. */
+	#caughtUp(): boolean {
+		return (
+			this.#started &&
+			!this.#scheduled &&
+			!this.#landing &&
+			this.#holds.size === 0 &&
+			this.#history === this.#slots.length &&
+			this.#slots.every((s) => s.status === 'open')
+		);
+	}
+
+	/**
+	 * Run `fn` once, in a later task, when history has caught up with the
+	 * stack: every Back owed has landed and no navigation holds them. A load
+	 * started before then (`invalidateAll`) would be dropped by the popstate
+	 * those Backs bring; one started after it is not.
+	 */
+	settled(fn: () => void): void {
+		this.#waiters.push(fn);
+		this.#schedule();
 	}
 
 	/**
@@ -132,10 +164,12 @@ export class SheetStack {
 		if (depth > len) {
 			this.port.go(len - depth);
 			this.#history = len;
+			this.#landing = true;
 			return;
 		}
 		this.#history = depth;
 		this.anchor();
+		this.#schedule();
 	}
 
 	/** A sheet opened: push its entry. Returns its key. */
@@ -205,10 +239,12 @@ export class SheetStack {
 	/** History now holds `depth` sheet entries: a popstate landed. */
 	sync(depth: number): void {
 		if (!this.#started) return;
+		this.#landing = false;
 		if (depth > this.#slots.length) {
 			// Forward, or back, onto an entry no sheet owns any more.
 			this.port.go(this.#slots.length - depth);
 			this.#history = this.#slots.length;
+			this.#landing = true;
 			return;
 		}
 		while (this.#slots.length > depth) {

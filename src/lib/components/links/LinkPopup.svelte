@@ -508,12 +508,13 @@
 {/snippet}
 
 {#snippet createFooter()}
-	<!-- In flight it keeps the accent, as the kit's loading button: aria-busy, and `create` ignores a second press. -->
+	<!-- In flight it keeps the accent, as the kit's loading button: aria-busy and aria-disabled, and `create` ignores a second press. -->
 	<button
 		type="submit"
 		form={formId}
 		class={button('primary', 'md', true)}
 		aria-busy={busy ? 'true' : undefined}
+		aria-disabled={busy ? 'true' : undefined}
 		>{#if busy}<Spinner size={20} />{/if}Create and link</button
 	>
 {/snippet}

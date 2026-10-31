@@ -7,6 +7,7 @@
 	import { enhance } from '$app/forms';
 	import { button, iconButton } from '$lib/components/ui/styles';
 	import { openingSteps, type LinkStep } from '$lib/video/link-steps';
+	import { sheetStack } from '$lib/sheets/history.svelte';
 	import { sectionMeta, spotLabel } from '$lib/video/spots';
 	import type { Spot, SpotOwner, VideoSection } from '$lib/types';
 
@@ -36,25 +37,13 @@
 	function closeLink() {
 		linkingSpot = null;
 		steps = [];
-		refreshAfterBack();
-	}
-
-	/**
-	 * Each of the popup's levels holds a history entry, and SvelteKit drops a
-	 * load that a popstate overtakes. Closed by Back, × or Escape, the popup
-	 * goes from inside that popstate, so the refresh waits a task for it to
-	 * finish; closed by a tap or Done, the Back is still to come, so the
-	 * refresh runs again once it lands.
-	 */
-	function refreshAfterBack() {
-		const again = () => {
-			clearTimeout(timer);
-			removeEventListener('popstate', again);
-			void invalidateAll();
-		};
-		addEventListener('popstate', again);
-		const timer = setTimeout(() => removeEventListener('popstate', again), 1000);
-		setTimeout(() => void invalidateAll(), 0);
+		// Each level holds a history entry, and SvelteKit drops a load that a
+		// popstate overtakes: refresh once the popup's own Backs have landed,
+		// and not at all if the user has gone elsewhere meanwhile.
+		const href = location.href;
+		sheetStack.settled(() => {
+			if (location.href === href) void invalidateAll();
+		});
 	}
 
 	const asSpot = (s: VideoSection): Spot => ({

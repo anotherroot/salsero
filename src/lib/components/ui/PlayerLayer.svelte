@@ -74,9 +74,22 @@
 		};
 	});
 
-	/** What Tab can land on; of a radio group, only the checked one is a stop. */
+	/** What Tab can land on, before `radioStop` thins out radio groups. */
 	const TABBABLE =
-		'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]):not([type="radio"]), input[type="radio"]:checked:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+		'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+	const isRadio = (el: Element): el is HTMLInputElement =>
+		el instanceof HTMLInputElement && el.type === 'radio';
+
+	/**
+	 * A radio group is one Tab stop, as the browser has it: its checked radio,
+	 * or its first one when none is checked. Anything else is a stop.
+	 */
+	function radioStop(el: HTMLElement, all: HTMLElement[]): boolean {
+		if (!isRadio(el) || el.checked || !el.name) return true;
+		const group = all.filter((o) => isRadio(o) && o.name === el.name && o.form === el.form);
+		return group[0] === el && !group.some((r) => isRadio(r) && r.checked);
+	}
 
 	/**
 	 * The layer is modal (aria-modal) but not a top-layer dialog, so Tab would
@@ -86,8 +99,9 @@
 	function keepFocus(e: KeyboardEvent) {
 		if (!panel) return;
 		e.stopPropagation();
-		const stops = [...panel.querySelectorAll<HTMLElement>(TABBABLE)].filter(
-			(el) => el.tabIndex >= 0 && el.getClientRects().length > 0
+		const all = [...panel.querySelectorAll<HTMLElement>(TABBABLE)];
+		const stops = all.filter(
+			(el) => el.tabIndex >= 0 && el.getClientRects().length > 0 && radioStop(el, all)
 		);
 		const first = stops[0];
 		const last = stops.at(-1);

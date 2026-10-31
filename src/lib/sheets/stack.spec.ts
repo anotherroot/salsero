@@ -363,6 +363,72 @@ describe('SheetStack', () => {
 	});
 });
 
+describe('SheetStack.settled', () => {
+	it('already settled: runs once, a task later', () => {
+		const { s, tick } = setup();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		expect(ran).toEqual([]);
+		tick();
+		expect(ran).toEqual(['x']);
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('waits for the Back a sheet closed by its owner owes to land', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		const a = s.open(sheet('a', log).entry);
+		tick();
+		s.closedByOwner(a);
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		tick();
+		expect(calls.at(-1)).toBe('go(-1)');
+		tick();
+		expect(ran).toEqual([]);
+		s.sync(0);
+		expect(ran).toEqual([]);
+		tick();
+		expect(ran).toEqual(['x']);
+		s.sync(0);
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('waits for a hold to be released', () => {
+		const { s, tick } = setup();
+		const release = s.hold();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		tick();
+		tick();
+		expect(ran).toEqual([]);
+		release();
+		tick();
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('runs each waiter once, however often it is checked', () => {
+		const { s, tick } = setup();
+		const log: string[] = [];
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		s.settled(() => ran.push('y'));
+		const a = s.open(sheet('a', log).entry);
+		tick();
+		tick();
+		expect(ran).toEqual(['x', 'y']);
+		s.closedByOwner(a);
+		tick();
+		s.sync(0);
+		tick();
+		tick();
+		expect(ran).toEqual(['x', 'y']);
+	});
+});
+
 describe('SvelteKit history state', () => {
 	it('keeps page.state under the key history.svelte.ts reads', () => {
 		// history.svelte.ts reads the entry's state straight from history.state,
