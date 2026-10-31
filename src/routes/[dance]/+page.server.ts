@@ -11,7 +11,7 @@ import {
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { int, optionalText, text } from '$lib/server/form';
 import { lessonDays } from '$lib/server/lessons';
-import { logSetFrom, deleteSetFrom } from '$lib/server/log-form';
+import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { danceOf } from '$lib/server/scope';
 import { songChoices } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
@@ -79,6 +79,7 @@ export const actions: Actions = {
 	/** Log a set: now, or at noon of a past day when back-filling. See `log-form.ts`. */
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
+	restoreSet: (event) => restoreSetFrom(event),
 
 	createExercise: async ({ params, request }) => {
 		const dance = danceOf(params);

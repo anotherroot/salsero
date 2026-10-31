@@ -8,7 +8,7 @@ import {
 } from '$lib/server/exercises';
 import { checkbox, int, optionalText, text } from '$lib/server/form';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
-import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
+import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { practicePayload } from '$lib/server/practice-content';
 import { danceOf, requireExerciseInDance } from '$lib/server/scope';
@@ -48,6 +48,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 export const actions: Actions = {
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
+	restoreSet: (event) => restoreSetFrom(event),
 
 	update: async ({ params, request }) => {
 		const id = exerciseOf(params).id;

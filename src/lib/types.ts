@@ -498,3 +498,14 @@ export interface DeviceRow {
 	createdAt: number;
 	lastUsedAt: number | null;
 }
+
+/** A deleted set, whole, so Undo can put the same values back. */
+export interface SetSnapshot {
+	exerciseId: number;
+	doneAt: number;
+	durationS: number | null;
+	reps: number | null;
+	rating: number | null;
+	note: string | null;
+	playerJson: string | null;
+}

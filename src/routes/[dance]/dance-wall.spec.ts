@@ -210,6 +210,25 @@ describe("Today refuses the other dance's rows", () => {
 		expect(getSet(db, bachataSetId)).not.toBeNull();
 	});
 
+	it('will not restore a set onto an exercise of the other dance', async () => {
+		const snapshot = JSON.stringify({
+			exerciseId: bachataExerciseId,
+			doneAt: 1_000,
+			durationS: null,
+			reps: null,
+			rating: null,
+			note: null,
+			playerJson: null
+		});
+		const before = db.select().from(sets).all().length;
+		await refuses(todayActions.restoreSet, post('salsa', { snapshot }));
+		await refuses(
+			exercisePage.actions.restoreSet,
+			post('salsa', { snapshot }, String(salsaExerciseId))
+		);
+		expect(db.select().from(sets).all()).toHaveLength(before);
+	});
+
 	it('will not archive an exercise from the other dance', async () => {
 		await refuses(exercisePage.actions.archive, post('salsa', {}, String(bachataCustomId)));
 		expect(getExercise(db, bachataCustomId)?.archivedAt).toBeNull();
