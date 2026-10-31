@@ -6,6 +6,7 @@ import {
 	dateLabel,
 	dayLabel,
 	lastDoneLabel,
+	longDayLabel,
 	setSummary
 } from './format';
 
@@ -59,5 +60,12 @@ describe('byteSize', () => {
 	it('switches to gigabytes with one decimal, where lesson videos live', () => {
 		expect(byteSize(1.2 * 1024 * 1024 * 1024)).toBe('1.2 GB');
 		expect(byteSize(1024 * 1024 * 1024)).toBe('1.0 GB');
+	});
+});
+
+describe('longDayLabel', () => {
+	it('spells out the weekday and month', () => {
+		expect(longDayLabel('2026-10-31')).toBe('Saturday, 31 October');
+		expect(longDayLabel('2027-01-03')).toBe('Sunday, 3 January');
 	});
 });

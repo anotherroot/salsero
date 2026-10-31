@@ -71,3 +71,33 @@ export function clock(seconds: number): string {
 	const s = Math.max(0, Math.floor(seconds));
 	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+
+const LONG_WEEKDAYS = [
+	'Sunday',
+	'Monday',
+	'Tuesday',
+	'Wednesday',
+	'Thursday',
+	'Friday',
+	'Saturday'
+];
+const LONG_MONTHS = [
+	'January',
+	'February',
+	'March',
+	'April',
+	'May',
+	'June',
+	'July',
+	'August',
+	'September',
+	'October',
+	'November',
+	'December'
+];
+
+/** `2026-10-31` → `Saturday, 31 October`. Built by hand, like `dayLabel`. */
+export function longDayLabel(day: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	return `${LONG_WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${LONG_MONTHS[d.getUTCMonth()]}`;
+}
