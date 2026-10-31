@@ -98,6 +98,8 @@
 	<Content
 		dance={data.dance}
 		content={data.practice.content}
+		{timezone}
+		onPage
 		editLinks={{
 			message: failure('addLink'),
 			entered: form && 'urls' in form ? String(form.urls) : '',

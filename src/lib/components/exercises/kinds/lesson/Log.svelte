@@ -8,6 +8,6 @@
 <!-- A review is watching and remembering, not dancing along: no practice panel. -->
 <LogShell {...props} run={null} playing={false}>
 	{#snippet body(payload)}
-		<Content dance={props.dance} content={payload.content} />
+		<Content dance={props.dance} content={payload.content} timezone={props.timezone} />
 	{/snippet}
 </LogShell>

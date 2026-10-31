@@ -20,6 +20,10 @@ import RoutineLog from './routine/Log.svelte';
 export interface ContentProps {
 	dance: Dance;
 	content: PracticeContent;
+	/** For captions (a recording's day). */
+	timezone: string;
+	/** Rendered on the exercise page, not in the popup: section labels, the figure's "Edit links" link. */
+	onPage?: boolean;
 	/** Offer the links editor — only the drill's content, whose links are its own, honours it. */
 	editLinks?: {
 		message: string | null;
