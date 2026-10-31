@@ -13,6 +13,10 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import Slider from '$lib/components/ui/Slider.svelte';
+	import Stars from '$lib/components/ui/Stars.svelte';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import {
 		button,
 		iconButton,
@@ -43,6 +47,12 @@
 	let toast = $state<{ id: number; message: string; action?: string } | null>(null);
 	let toastId = 0;
 	let sheetToastMsg = $state<{ id: number; message: string; action?: string } | null>(null);
+	let tallOpen = $state(false);
+	let tallToast = $state<{ id: number; message: string; action?: string } | null>(null);
+	let bpm = $state(180);
+	let bpmMin = $state(60);
+	let vol = $state(0.8);
+	let showBar = $state(false);
 
 	const tileTones = ['accent', 'quiet', 'done'] as const;
 	const tileExercises = [
@@ -275,6 +285,25 @@
 			</section>
 
 			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Stepper, slider, stars, bottom bar</h2>
+				<div class="flex flex-col gap-3 rounded-2xl bg-surface p-4">
+					<Stepper bind:value={bpm} min={60} max={240} label="Tempo" unit="BPM" />
+					<Stepper bind:value={bpmMin} min={60} max={240} label="At min" unit="BPM" />
+					<Slider bind:value={vol} label="Volume" />
+				</div>
+				<div class="flex flex-col gap-1 text-ink">
+					{#each [1, 2, 3, 4, 5] as r (r)}<Stars rating={r} />{/each}
+				</div>
+				<div>
+					<button
+						type="button"
+						class={button('secondary', 'sm')}
+						onclick={() => (showBar = !showBar)}>Bottom bar</button
+					>
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Sheet, dialog, toast</h2>
 				<div class="flex flex-wrap gap-2">
 					<button type="button" class={button('secondary', 'sm')} onclick={() => (sheetOpen = true)}
@@ -284,6 +313,9 @@
 						type="button"
 						class={button('secondary', 'sm')}
 						onclick={() => ((sheetBack = true), (sheetOpen = true))}>Sheet with back</button
+					>
+					<button type="button" class={button('secondary', 'sm')} onclick={() => (tallOpen = true)}
+						>Tall sheet</button
 					>
 					<button
 						type="button"
@@ -324,6 +356,7 @@
 	{#snippet sheetToast()}
 		<Toast
 			contained
+			bottom="0"
 			toast={sheetToastMsg}
 			onaction={() => (sheetToastMsg = null)}
 			ondismiss={() => (sheetToastMsg = null)}
@@ -355,6 +388,49 @@
 				type="button"
 				class={button('primary', 'md', true)}
 				onclick={() => (sheetOpen = false)}>Save</button
+			>
+		{/snippet}
+	</Sheet>
+
+	{#snippet tallToastSnippet()}
+		<Toast
+			contained
+			bottom="0"
+			toast={tallToast}
+			onaction={() => (tallToast = null)}
+			ondismiss={() => (tallToast = null)}
+		/>
+	{/snippet}
+
+	<Sheet
+		title="Shines"
+		tall
+		open={tallOpen}
+		onclose={() => ((tallOpen = false), (tallToast = null))}
+		toast={tallToastSnippet}
+	>
+		{#snippet subtitle()}
+			<span class="flex items-center gap-1.5 text-[14px] text-muted"
+				>Last time: 3 days ago · <Stars rating={3} /></span
+			>
+		{/snippet}
+		{#snippet actions()}
+			<button
+				type="button"
+				class="flex h-11 items-center px-2 text-[15px] font-extrabold text-accent-text"
+				>Details ›</button
+			>
+		{/snippet}
+		<p class="text-ink-2">A short body.</p>
+		{#snippet footer()}
+			<button
+				type="button"
+				class={button('secondary', 'sm', true)}
+				onclick={() => (tallToast = { id: ++toastId, message: 'Set deleted', action: 'Undo' })}
+				>Show toast</button
+			>
+			<button type="button" class={button('primary', 'md', true)} onclick={() => (tallOpen = false)}
+				>Log set</button
 			>
 		{/snippet}
 	</Sheet>
@@ -401,6 +477,10 @@
 			>
 		{/snippet}
 	</Dialog>
+
+	{#if showBar}<BottomBar
+			><button type="button" class={button('primary', 'md', true)}>Log set</button></BottomBar
+		>{/if}
 
 	<Toast {toast} onaction={() => (toast = null)} ondismiss={() => (toast = null)} bottom="1rem" />
 </div>
