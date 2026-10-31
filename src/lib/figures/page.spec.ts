@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { plan, type PlanExercise } from '$lib/urgency/urgency';
 import {
 	archiveCopy,
+	deleteRecordingBody,
+	lengthError,
 	moveState,
 	practiceLine,
 	recordingDay,
@@ -151,5 +153,32 @@ describe('moveState', () => {
 	it('no figure chosen: its own figure', () =>
 		expect(moveState({ last: false, chosen: null, joinName: 'x' }).cta).toBe(
 			'Make it its own figure'
+		));
+});
+
+describe('lengthError', () => {
+	const msg = '1 to 64 counts. One 8-count is 8.';
+	it('a whole number from 1 to 64 is fine', () => {
+		expect(lengthError('16')).toBeNull();
+		expect(lengthError('64')).toBeNull();
+		expect(lengthError('1')).toBeNull();
+	});
+	it.each(['70', '0', '', '8.5', 'abc', '-8'])('%j is refused', (v) =>
+		expect(lengthError(v)).toBe(msg)
+	);
+});
+
+describe('deleteRecordingBody', () => {
+	it('names its sections', () =>
+		expect(deleteRecordingBody('Wednesday, 28 October', '34 MB', 2)).toBe(
+			'Wednesday, 28 October · 34 MB. Its 2 saved sections go with it. This can’t be undone.'
+		));
+	it('one section', () =>
+		expect(deleteRecordingBody('Wednesday, 28 October', '34 MB', 1)).toBe(
+			'Wednesday, 28 October · 34 MB. Its 1 saved section goes with it. This can’t be undone.'
+		));
+	it('no sections', () =>
+		expect(deleteRecordingBody('Wednesday, 28 October', '34 MB', 0)).toBe(
+			'Wednesday, 28 October · 34 MB. This can’t be undone.'
 		));
 });

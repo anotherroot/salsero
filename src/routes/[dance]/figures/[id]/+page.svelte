@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
@@ -10,6 +10,9 @@
 	import MoveSheet from '$lib/components/figures/MoveSheet.svelte';
 	import RemoveWarning from '$lib/components/figures/RemoveWarning.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import UploadButton from '$lib/components/ui/UploadButton.svelte';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -27,12 +30,26 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { button, GROUP, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
+	import {
+		button,
+		FIELD,
+		GROUP,
+		iconButton,
+		LABEL,
+		SECTION_LABEL
+	} from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
 	import { byteSize, longDayLabel } from '$lib/format';
-	import { archiveCopy, recordingDay, routineUseMeta, timingLine } from '$lib/figures/page';
+	import {
+		archiveCopy,
+		deleteRecordingBody,
+		recordingDay,
+		routineUseMeta,
+		timingLine
+	} from '$lib/figures/page';
+	import { plural } from '$lib/moves/plural';
 	import { localDay } from '$lib/day/day';
 	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
@@ -111,13 +128,77 @@
 	const linkFailure = $derived(failed('addLink') ?? failed('saveVideo') ?? failed('retryVideo'));
 	const linkEntered = $derived(form && 'urls' in form ? String(form.urls) : '');
 
-	const errorBox = 'rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger';
-	const closeOnSuccess: SubmitFunction =
-		() =>
-		async ({ update, result }) => {
-			await update({ reset: false });
+	// --- Edit mode: the band's pencil, × to stop (asks if unsaved), one Save pinned.
+	let editForm: HTMLFormElement | undefined = $state();
+	let saving = $state(false);
+	/** The last `update` refusal, until the next save or the next time editing starts. A new object each time, so its banner scrolls in again. */
+	let refusal = $state<{ message: string } | null>(null);
+	function startEditing() {
+		refusal = null;
+		editing = true;
+		window.scrollTo({ top: 0 });
+	}
+	function stopEditing() {
+		leaveOrAsk(editForm ?? null, () => (editing = false), 'Stop editing');
+	}
+	const closeOnSuccess: SubmitFunction = () => {
+		saving = true;
+		refusal = null;
+		return async ({ update, result }) => {
+			try {
+				await update({ reset: false });
+			} finally {
+				saving = false;
+			}
 			if (result.type === 'success') editing = false;
+			else if (result.type === 'failure') {
+				const m = result.data?.message;
+				refusal = { message: typeof m === 'string' ? m : 'It did not save.' };
+			}
 		};
+	};
+	// layout.css gives every select its own small arrow, unlayered (so no utility can
+	// undo it); Ends at draws the kit's chevron instead.
+	const OWN_ARROW = 'background-image: none; padding-right: 2.5rem';
+	/** A refusal that just arrived: bring it into view, gently unless motion is reduced. */
+	function scrollIn(node: HTMLElement) {
+		const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		node.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+	}
+
+	// --- Deleting a recording: a question first, in place of the old confirm().
+	let deleting = $state<{ id: number; body: string } | null>(null);
+	let deleteBusy = $state(false);
+	const deleteRecording: SubmitFunction = () => {
+		deleteBusy = true;
+		return async ({ update, result }) => {
+			try {
+				await update();
+			} finally {
+				deleteBusy = false;
+				// Any answer closes the question; a refusal shows in the recording's card.
+				deleting = null;
+			}
+			// Already gone: show the list as it is now.
+			if (result.type === 'failure' && result.status === 404) await invalidateAll();
+		};
+	};
+	const askDelete = (rec: { id: number; sizeBytes: number }, day: string) => {
+		deleting = {
+			id: rec.id,
+			body: deleteRecordingBody(
+				day,
+				byteSize(rec.sizeBytes),
+				(variation.recordingSections[rec.id] ?? []).length
+			)
+		};
+	};
+	const deleteRefusal = (id: number) =>
+		form && 'action' in form && form.action === 'deleteRecording' && 'recordingId' in form
+			? form.recordingId === id
+				? String(form.message)
+				: null
+			: null;
 	/** Archive lands on a sibling (the same route, so the sheet would stay) or the figures list. */
 	let archiveBusy = $state(false);
 	const closeOnArchive: SubmitFunction = () => {
@@ -132,29 +213,41 @@
 
 <svelte:head><title>{figure.name} · {variation.name} · {data.dance.label}</title></svelte:head>
 
-<Screen compact title={figure.name} subtitle={variation.name}>
+<!-- A recording's delete, while editing: asks first, in the Dialog below. -->
+{#snippet trash(rec: { id: number; sizeBytes: number }, day: string)}
+	<button
+		type="button"
+		aria-label="Delete this recording"
+		aria-haspopup="dialog"
+		class={iconButton('bare').replace('text-ink', 'text-danger')}
+		onclick={() => askDelete(rec, day)}><Icon name="trash" size={22} /></button
+	>
+{/snippet}
+
+<Screen
+	compact
+	title={figure.name}
+	subtitle={editing ? `Editing ${variation.name}` : variation.name}
+>
 	{#snippet left()}
-		<BandButton
-			icon="back"
-			label="Back to Moves"
-			href={resolve('/[dance]/figures', { dance: slug })}
-		/>
-	{/snippet}
-	{#snippet right()}
-		<!-- While editing, the form's own Save saves and closes edit mode. -->
-		{#if !editing}
+		{#if editing}
+			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
+		{:else}
 			<BandButton
-				icon="pencil"
-				label="Edit"
-				onclick={() => {
-					editing = true;
-					window.scrollTo({ top: 0 });
-				}}
+				icon="back"
+				label="Back to Moves"
+				href={resolve('/[dance]/figures', { dance: slug })}
 			/>
 		{/if}
 	{/snippet}
+	{#snippet right()}
+		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. -->
+		{#if !editing}
+			<BandButton icon="pencil" label="Edit" onclick={startEditing} />
+		{/if}
+	{/snippet}
 
-	<div class="flex flex-col gap-2 pb-4">
+	<div class="flex flex-col gap-2 {editing ? 'pb-28' : 'pb-4'}">
 		{#if editing}
 			<!--
 			Keyed on the variation: `editing` survives a step to another one, and
@@ -167,41 +260,53 @@
 					id="edit-form"
 					method="POST"
 					action="?/update"
-					class="space-y-3"
+					class="flex flex-col gap-3.5 pt-1.5"
+					bind:this={editForm}
 					use:guarded={{ label: `${variation.name} edits`, submit: closeOnSuccess }}
 				>
 					<FigureFields
 						dance={data.dance}
 						figureName={figure.name}
+						figureHelp={data.siblings.length > 1
+							? `Shared by its ${plural(data.siblings.length, 'variation', 'variations')}`
+							: undefined}
 						name={variation.name}
 						partner={variation.partner}
 						style={variation.styleTag ?? undefined}
 						notes={variation.notes}
 					/>
 					<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
-					<label class="block">
-						<span class="text-[13px] font-medium">Ends at</span>
-						<select
-							name="endId"
-							class="mt-1 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
-						>
-							<option value="" selected={data.tags.endId === null}>{neutralName}</option>
-							{#each data.positions as position (position.id)}
-								<option value={position.id} selected={data.tags.endId === position.id}>
-									{position.name}{position.archived ? ' (archived)' : ''}
-								</option>
-							{/each}
-						</select>
-					</label>
+					<div>
+						<label class={LABEL} for="edit-end">Ends at</label>
+						<div class="relative">
+							<select
+								id="edit-end"
+								name="endId"
+								class="{FIELD} cursor-pointer appearance-none pr-10"
+								style={OWN_ARROW}
+							>
+								<option value="" selected={data.tags.endId === null}>{neutralName}</option>
+								{#each data.positions as position (position.id)}
+									<option value={position.id} selected={data.tags.endId === position.id}>
+										{position.name}{position.archived ? ' (archived)' : ''}
+									</option>
+								{/each}
+							</select>
+							<span
+								class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
+								aria-hidden="true"><Icon name="chevron-down" size={20} /></span
+							>
+						</div>
+					</div>
 					<FigureTiming startCount={data.shape.startCount} lengthCounts={data.shape.lengthCounts} />
-					{#if failed('update')}
-						<p class={errorBox} role="alert">{failed('update')}</p>
+					{#if refusal}
+						<!-- Keyed on the answer: each refusal is brought into view as it arrives. -->
+						{#key refusal}
+							<div use:scrollIn>
+								<Banner kind="error" title="Not saved">{refusal.message}</Banner>
+							</div>
+						{/key}
 					{/if}
-					<button
-						type="submit"
-						class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-						>Save</button
-					>
 				</form>
 			{/key}
 		{:else}
@@ -323,6 +428,7 @@
 							type="submit"
 							class={button('secondary', 'sm')}
 							aria-busy={practising}
+							disabled={practising}
 							aria-describedby={failed('practise') ? 'practise-error' : undefined}
 						>
 							<!-- Both in one cell: the label keeps the width while the spinner shows. -->
@@ -393,21 +499,29 @@
 			{/each}
 		{/if}
 
-		<section class="flex flex-col gap-3 pt-3.5">
-			<h2 class="{SECTION_LABEL} -mb-1.5">
-				{!empty ? `Recordings · ${variation.recordings.length}` : 'Recordings'}
-			</h2>
+		<!-- While editing: the recordings with their delete, and the linked sections with Unlink. -->
+		<section class="flex flex-col gap-3 pt-3.5" class:hidden={editing && empty && !uploading}>
+			{#if !editing || !empty}
+				<h2 class="{SECTION_LABEL} -mb-1.5">
+					{!empty ? `Recordings · ${variation.recordings.length}` : 'Recordings'}
+				</h2>
+			{/if}
 			{#if variation.recordings.length > 0}
 				<ul class="flex flex-col gap-3">
 					{#each variation.recordings as rec (rec.id)}
 						{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
+						{@const refused = deleteRefusal(rec.id)}
 						<li class="overflow-hidden rounded-2xl bg-surface">
 							{#if broken[rec.id] === 'missing'}
 								<VideoProblem
 									title="This file is missing"
 									body="The server has no file for this recording."
 									meta="{day} · {byteSize(rec.sizeBytes)}"
-								/>
+								>
+									{#snippet action()}
+										{#if editing}{@render trash(rec, day)}{/if}
+									{/snippet}
+								</VideoProblem>
 							{:else if broken[rec.id] === 'unplayable'}
 								<VideoProblem
 									title="Can’t play here"
@@ -415,11 +529,16 @@
 									meta="{day} · {byteSize(rec.sizeBytes)}"
 								>
 									{#snippet action()}
-										<a
-											href={resolve('/recordings/[file]', { file: rec.file })}
-											download
-											class={button('tertiary', 'sm')}><Icon name="download" size={18} />Download</a
-										>
+										{#if editing}
+											{@render trash(rec, day)}
+										{:else}
+											<a
+												href={resolve('/recordings/[file]', { file: rec.file })}
+												download
+												class={button('tertiary', 'sm')}
+												><Icon name="download" size={18} />Download</a
+											>
+										{/if}
 									{/snippet}
 								</VideoProblem>
 							{:else}
@@ -436,29 +555,14 @@
 								>
 									{#snippet action()}
 										<!-- Deleting is an edit; adding a recording stays one tap away in view mode. -->
-										{#if editing}
-											<form
-												method="POST"
-												action="?/deleteRecording"
-												use:enhance
-												onsubmit={(e) => {
-													if (!confirm('Delete this recording?')) e.preventDefault();
-												}}
-											>
-												<input type="hidden" name="recordingId" value={rec.id} />
-												<button
-													type="submit"
-													aria-label="Delete this recording"
-													class="{iconButton('bare')} text-danger"
-													><Icon name="trash" size={22} /></button
-												>
-											</form>
-										{/if}
+										{#if editing}{@render trash(rec, day)}{/if}
 									{/snippet}
 								</VideoFrame>
 							{/if}
-							{#if form?.action === 'deleteRecording' && 'recordingId' in form && form.recordingId === rec.id}
-								<p class="px-4 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+							{#if refused}
+								<div class="px-4 pb-3">
+									<Banner kind="error" title="Not deleted">{refused}</Banner>
+								</div>
 							{/if}
 							<!-- Linking is done from the figure or drill a section shows; here a link
 					     can be undone, archived target or not, so the recording can go. -->
@@ -476,9 +580,15 @@
 				</ul>
 			{/if}
 			<!-- Keyed: the buttons hold upload state, and a step to another variation must not carry it over.
-			     One tree whether or not it sits in the empty card, so a started upload is not remounted. -->
+			     One tree whether or not it sits in the empty card (or is hidden while editing), so a
+			     started upload is not remounted. While a file goes up its own card stands alone. -->
 			{#key variation.id}
-				<div class={empty ? 'flex flex-col gap-3 rounded-2xl bg-surface p-4' : 'flex flex-col'}>
+				<div
+					class={empty && !uploading
+						? 'flex flex-col gap-3 rounded-2xl bg-surface p-4'
+						: 'flex flex-col'}
+					class:hidden={editing && !uploading}
+				>
 					{#if empty && !uploading}
 						<div class="flex items-center gap-3">
 							<span
@@ -510,6 +620,7 @@
 								accept="audio/*"
 								icon="mic"
 								label="Add audio"
+								noun="recording"
 								bind:busy={uploading}
 							/>
 						</div>
@@ -518,6 +629,7 @@
 							url="/api/figures/{variation.id}/recordings"
 							accept="video/*,audio/*"
 							label="Add video or audio"
+							noun="recording"
 							kind={empty ? 'primary' : 'secondary'}
 							size={empty ? 'sm' : 'md'}
 							bind:busy={uploading}
@@ -527,62 +639,69 @@
 			{/key}
 		</section>
 
-		<section class="pt-4">
-			<div class="flex items-center justify-between pr-1.5">
-				<h2 class={SECTION_LABEL}>
-					{variation.sections.length > 0 ? `Sections · ${variation.sections.length}` : 'Sections'}
-				</h2>
-				<button
-					type="button"
-					class={button('tertiary', 'sm')}
-					aria-haspopup="dialog"
-					onclick={() => (linkingSection = true)}
-					><Icon name="link" size={18} />Link a section</button
-				>
-			</div>
-			<div class="mt-1">
-				{#if variation.sections.length === 0}
-					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
-						Point at the part of a lesson video that shows this.
-					</p>
-				{:else}
-					<ul class="flex flex-col gap-2">
-						{#each variation.sections as s (s.linkId)}
-							<li>
-								<SectionCard section={s}>
-									{#snippet unlink()}
-										<!-- Unlinking is an edit, like deleting a recording. -->
-										{#if editing}
-											<form method="POST" action="?/unlinkSection" use:enhance>
-												<input type="hidden" name="linkId" value={s.linkId} />
-												<button
-													type="submit"
-													class={button('tertiary', 'sm')}
-													aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
-													>Unlink</button
-												>
-											</form>
-										{/if}
-									{/snippet}
-								</SectionCard>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-				{#if failed('unlinkSection')}
-					<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
-				{/if}
-			</div>
-		</section>
+		{#if !editing || variation.sections.length > 0}
+			<section class="pt-4">
+				<div class="flex min-h-11 items-center justify-between pr-1.5">
+					<h2 class={SECTION_LABEL}>
+						{variation.sections.length > 0 ? `Sections · ${variation.sections.length}` : 'Sections'}
+					</h2>
+					<!-- Links are added while reading; editing only takes them away. -->
+					{#if !editing}
+						<button
+							type="button"
+							class={button('tertiary', 'sm')}
+							aria-haspopup="dialog"
+							onclick={() => (linkingSection = true)}
+							><Icon name="link" size={18} />Link a section</button
+						>
+					{/if}
+				</div>
+				<div class="mt-1">
+					{#if variation.sections.length === 0}
+						<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
+							Point at the part of a lesson video that shows this.
+						</p>
+					{:else}
+						<ul class="flex flex-col gap-2">
+							{#each variation.sections as s (s.linkId)}
+								<li>
+									<SectionCard section={s}>
+										{#snippet unlink()}
+											<!-- Unlinking is an edit, like deleting a recording. -->
+											{#if editing}
+												<form method="POST" action="?/unlinkSection" use:enhance>
+													<input type="hidden" name="linkId" value={s.linkId} />
+													<button
+														type="submit"
+														class={button('tertiary', 'sm')}
+														aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
+														>Unlink</button
+													>
+												</form>
+											{/if}
+										{/snippet}
+									</SectionCard>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					{#if failed('unlinkSection')}
+						<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
+					{/if}
+				</div>
+			</section>
+		{/if}
 
-		<section class="pt-4">
-			<h2 class={SECTION_LABEL}>
-				{data.links.length > 0 ? `Links · ${data.links.length}` : 'Links'}
-			</h2>
-			<div class="mt-1">
-				<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
-			</div>
-		</section>
+		{#if !editing}
+			<section class="pt-4">
+				<h2 class={SECTION_LABEL}>
+					{data.links.length > 0 ? `Links · ${data.links.length}` : 'Links'}
+				</h2>
+				<div class="mt-1">
+					<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
+				</div>
+			</section>
+		{/if}
 
 		{#if !editing}
 			{#if data.taughtIn.length > 0}
@@ -651,6 +770,53 @@
 	/>
 {/if}
 
+{#if editing}
+	<BottomBar>
+		<button
+			type="submit"
+			form="edit-form"
+			class={button('primary', 'md', true)}
+			aria-busy={saving}
+			disabled={saving}
+		>
+			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}<Icon
+					name="check"
+					size={20}
+				/>Save{/if}
+		</button>
+	</BottomBar>
+{/if}
+
+<Dialog
+	open={deleting !== null}
+	title="Delete this recording?"
+	icon="trash"
+	tone="danger"
+	body={deleting?.body}
+	onclose={() => (deleting = null)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = null)}
+			>Cancel</button
+		>
+		<form method="POST" action="?/deleteRecording" use:enhance={deleteRecording}>
+			<input type="hidden" name="recordingId" value={deleting?.id} />
+			<button
+				type="submit"
+				class={button('danger', 'sm')}
+				aria-busy={deleteBusy}
+				disabled={deleteBusy}
+			>
+				<!-- Both in one cell: the label keeps the width while the spinner shows. -->
+				<span class="grid place-items-center">
+					<span class="col-start-1 row-start-1" class:invisible={deleteBusy}>Delete</span>
+					{#if deleteBusy}<span class="col-start-1 row-start-1"><Spinner size={18} /></span>{/if}
+				</span>
+			</button>
+		</form>
+	{/snippet}
+</Dialog>
+
 <MoveSheet
 	variation={variation.name}
 	figure={figure.name}
@@ -673,18 +839,18 @@
 		{/if}
 	</form>
 	{#snippet footer()}
-		<div class="flex gap-2">
+		<div class="grid grid-cols-[1fr_2fr] gap-2">
 			<button
 				type="button"
 				onclick={() => (archiving = false)}
-				class="{button('secondary', 'md', true)} flex-1!">Cancel</button
+				class={button('secondary', 'md', true)}>Cancel</button
 			>
 			<button
 				type="submit"
 				form="archive-form"
 				disabled={archiveBusy}
 				aria-busy={archiveBusy}
-				class="{button('danger', 'md', true)} flex-[2]! px-3!"
+				class={button('danger', 'md', true).replace('px-6', 'px-3')}
 				>{#if archiveBusy}<Spinner size={18} />{/if}{archive.button}</button
 			>
 		</div>

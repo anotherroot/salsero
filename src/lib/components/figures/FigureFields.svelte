@@ -25,6 +25,8 @@
 		partner?: Partner;
 		style?: string;
 		notes?: string | null;
+		/** A line under Figure name, e.g. "Shared by its 3 variations" on a figure's edit. */
+		figureHelp?: string;
 		/** Refusals, each shown under its own field. */
 		errors?: Partial<Record<'figureName' | 'name' | 'notes', string>>;
 	}
@@ -38,6 +40,7 @@
 		partner = 'partner',
 		style,
 		notes = '',
+		figureHelp,
 		errors = {}
 	}: Props = $props();
 
@@ -67,12 +70,18 @@
 			value={figureName}
 			class={FIELD}
 			aria-invalid={invalid('figureName')}
-			aria-describedby={describe('figureName')}
+			aria-describedby={describe('figureName') ??
+				(figureHelp ? `${uid}-figureName-help` : undefined)}
 		/>
 		{#if errors.figureName}<FieldError
 				id="{uid}-figureName-error"
 				message={errors.figureName}
-			/>{/if}
+			/>{:else if figureHelp}<p
+				id="{uid}-figureName-help"
+				class="mt-1.5 pl-1 text-[13px] text-muted"
+			>
+				{figureHelp}
+			</p>{/if}
 	</div>
 {/if}
 

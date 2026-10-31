@@ -348,8 +348,8 @@ The home page. One page serves both "exercises" and "today".
   Songs still start on the dance's first style.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
-  position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"
-  (not built).
+  position tags, "Follows from" / "Leads to". In routines · N: the live routines that call this
+  variation, by slot (`routinesUsing`), each opening the routine.
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many
   routines can call it, and makes a routine from a selection (Select; picks numbered in tap order). See
   [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).

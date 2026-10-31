@@ -5,6 +5,7 @@ import { frequencyLabel } from '$lib/frequency';
 import { longDayLabel } from '$lib/format';
 import type { MetaPart } from '$lib/exercises/today';
 import { plural } from '$lib/moves/plural';
+import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { RoutineUse } from '$lib/routines/coverage';
 import type { Plan, PlanExercise } from '$lib/urgency/urgency';
 
@@ -145,4 +146,26 @@ export function moveState(i: {
 				: null,
 		blocked: i.chosen !== null && (wanted === '' || clashes)
 	};
+}
+
+/**
+ * The Counts field's live check: a whole number from 1 to 64, else the message
+ * under the field. It never blocks Save; the server decides.
+ */
+export function lengthError(value: string): string | null {
+	const v = value.trim();
+	return /^\d+$/.test(v) && isLengthCounts(Number(v))
+		? null
+		: `1 to ${MAX_LENGTH_COUNTS} counts. One 8-count is 8.`;
+}
+
+/** The delete question's body: which recording, and the saved sections that go with it. */
+export function deleteRecordingBody(day: string, size: string, sections: number): string {
+	const goes =
+		sections === 0
+			? ''
+			: sections === 1
+				? 'Its 1 saved section goes with it. '
+				: `Its ${sections} saved sections go with it. `;
+	return `${day} · ${size}. ${goes}This can’t be undone.`;
 }

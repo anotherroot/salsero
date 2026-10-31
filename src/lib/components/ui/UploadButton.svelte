@@ -14,6 +14,8 @@
 		url: string;
 		accept: 'audio/*' | 'video/*,audio/*';
 		label: string;
+		/** What goes up, for the progress bar's name: "Uploading recording". */
+		noun?: string;
 		/** Extra request headers for this file (metadata rides in headers, not the body). */
 		headers?: (file: File) => Record<string, string>;
 		icon?: IconName;
@@ -27,6 +29,7 @@
 		url,
 		accept,
 		label,
+		noun = 'file',
 		headers,
 		icon = 'upload',
 		kind = 'secondary',
@@ -126,7 +129,7 @@
 	/>
 </label>
 {#if progress !== null}
-	<UploadCard pct={progress * 100} {label} />
+	<UploadCard pct={progress * 100} label={noun} />
 {/if}
 {#if message}
 	<div class="mt-2">
