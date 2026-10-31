@@ -123,7 +123,8 @@
 				{#each days as g (g.day)}
 					<div>
 						<h3 class="mb-1 text-[12px] text-muted">{dayLabel(g.day)}</h3>
-						<SetList sets={g.sets} {timezone} />
+						<!-- Undo for a deleted set on this page arrives with its redesign (plan 3, Task 8). -->
+						<SetList sets={g.sets} {timezone} ondeleted={() => {}} onfailed={() => {}} />
 					</div>
 				{/each}
 			</div>

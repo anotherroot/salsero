@@ -1,33 +1,70 @@
-<!-- src/lib/components/exercises/SetList.svelte -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { setSummary } from '$lib/format';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Stars from '$lib/components/ui/Stars.svelte';
+	import { GROUP, iconButton } from '$lib/components/ui/styles';
+	import { setMeta, setTitle } from '$lib/exercises/exercise-page';
 	import { timeOfDay } from '$lib/day/day';
 	import type { HistorySet } from '$lib/types';
 
 	interface Props {
 		sets: HistorySet[];
 		timezone: string;
+		/** The set is gone; `snapshot` puts it back (`restoreSet`). */
+		ondeleted: (snapshot: string) => void;
+		/** The delete was refused; the row is shown again. */
+		onfailed: (message: string) => void;
 	}
 
-	let { sets, timezone }: Props = $props();
+	let { sets, timezone, ondeleted, onfailed }: Props = $props();
+
+	/** Rows deleted but not yet reloaded away: they go at the tap, not after the round trip. */
+	let hiding = $state<number[]>([]);
+	const shown = $derived(sets.filter((s) => !hiding.includes(s.id)));
 </script>
 
-<ul class="divide-y divide-line rounded-xl border border-line">
-	{#each sets as s (s.id)}
-		<li class="flex items-center gap-3 px-3 py-2">
-			<span class="text-[13px] text-muted tabular-nums">{timeOfDay(s.doneAt, timezone)}</span>
-			<span class="min-w-0 flex-1 text-[14px]">
-				{setSummary(s) || 'Set'}
-				{#if s.note}<span class="block truncate text-[12px] text-muted">{s.note}</span>{/if}
-			</span>
-			<form method="POST" action="?/deleteSet" use:enhance>
+<ul class={GROUP}>
+	{#each shown as s (s.id)}
+		{@const title = setTitle(s)}
+		{@const time = timeOfDay(s.doneAt, timezone)}
+		<li class="flex min-h-[60px] items-center gap-3 pr-1.5 pl-4">
+			<div class="flex min-w-0 flex-1 flex-col gap-0.5 py-2">
+				<span class="text-[16px] leading-tight font-bold text-ink"
+					>{title.text}{#if title.rating !== null}{title.text ? ' · ' : ''}<Stars
+							rating={title.rating}
+							size={14}
+						/>{/if}</span
+				>
+				<span class="truncate text-[13px] text-muted">{setMeta(s, timezone)}</span>
+			</div>
+			<form
+				method="POST"
+				action="?/deleteSet"
+				use:enhance={() => {
+					hiding = [...hiding, s.id];
+					return async ({ update, result }) => {
+						await update();
+						if (result.type === 'success') {
+							ondeleted(String(result.data?.snapshot ?? ''));
+							return;
+						}
+						hiding = hiding.filter((id) => id !== s.id);
+						const m =
+							result.type === 'failure'
+								? (result.data as { message?: unknown } | undefined)?.message
+								: undefined;
+						onfailed(typeof m === 'string' ? m : 'Could not delete the set.');
+					};
+				}}
+			>
 				<input type="hidden" name="setId" value={s.id} />
 				<button
 					type="submit"
-					class="h-9 rounded-lg px-3 text-[13px] text-danger"
-					aria-label="Delete set logged at {timeOfDay(s.doneAt, timezone)}">Delete</button
+					class={iconButton('bare').replace('text-ink', 'text-muted')}
+					aria-label="Delete set logged at {time}"
 				>
+					<Icon name="trash" size={20} />
+				</button>
 			</form>
 		</li>
 	{/each}
