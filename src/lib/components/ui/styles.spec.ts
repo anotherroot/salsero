@@ -9,7 +9,8 @@ import {
 	iconButton,
 	LABEL,
 	ROW,
-	SECTION_LABEL
+	SECTION_LABEL,
+	SELECT
 } from './styles';
 
 describe('button', () => {
@@ -34,6 +35,11 @@ describe('constants', () => {
 	it('TEXTAREA has no fixed height', () => {
 		expect(TEXTAREA.split(' ')).not.toContain('h-[52px]');
 		expect(TEXTAREA).toContain('min-h-[52px]');
+	});
+	it('SELECT is a field-shaped button', () => {
+		for (const c of FIELD.split(' ')) expect(SELECT.split(' ')).toContain(c);
+		expect(SELECT).toContain('text-left');
+		expect(SELECT).toContain('cursor-pointer');
 	});
 	it('exist', () => {
 		for (const s of [FIELD, FIELD_ERROR, LABEL, GROUP, ROW, SECTION_LABEL])

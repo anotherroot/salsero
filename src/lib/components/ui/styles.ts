@@ -61,3 +61,5 @@ export const CHIP =
 export const GROUP = 'divide-y divide-hairline overflow-hidden rounded-2xl bg-surface';
 export const ROW = 'flex min-h-14 items-center gap-3 px-4 py-2';
 export const SECTION_LABEL = 'px-4 text-[13px] font-bold text-muted';
+/** A field-shaped button that opens a sheet; add a `chevron-down` 20 px `text-muted` and a muted placeholder span. */
+export const SELECT = `${FIELD} flex cursor-pointer items-center gap-2.5 pr-3 text-left`;

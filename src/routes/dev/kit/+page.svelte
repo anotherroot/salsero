@@ -12,6 +12,7 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import {
 		button,
 		iconButton,
@@ -23,6 +24,7 @@
 		GROUP,
 		ROW,
 		SECTION_LABEL,
+		SELECT,
 		type ButtonKind,
 		type ButtonSize,
 		type IconButtonVariant
@@ -42,6 +44,14 @@
 	let toastId = 0;
 	let sheetToastMsg = $state<{ id: number; message: string; action?: string } | null>(null);
 
+	const tileTones = ['accent', 'quiet', 'done'] as const;
+	const tileExercises = [
+		{ label: 'partner', exercise: { source: 'figure', partner: 'partner' } },
+		{ label: 'solo', exercise: { source: 'figure', partner: 'solo' } },
+		{ label: 'routine', exercise: { source: 'routine', partner: null } },
+		{ label: 'lesson', exercise: { source: 'lesson', partner: null } },
+		{ label: 'drill', exercise: { source: 'custom', partner: null } }
+	] as const;
 	const kinds: ButtonKind[] = ['primary', 'secondary', 'tertiary', 'danger', 'danger-text'];
 	const sizes: ButtonSize[] = ['sm', 'md', 'lg'];
 	const variants: IconButtonVariant[] = ['bare', 'tonal', 'filled', 'step'];
@@ -79,10 +89,22 @@
 		<div class="flex flex-col gap-8 px-4 pb-24">
 			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Hero card</h2>
-				<div>
-					<HeroCard title="Nothing due" meta="All done today" icon="check-circle" />
-				</div>
+				<HeroCard title="Start session" meta="3 due · 4 not yet due" />
+				<HeroCard title="Start session" meta="No active exercises · 3 inactive" state="disabled" />
+				<HeroCard title="All done for today" meta="5 exercises · 7 sets" state="done" />
 				<HeroCard title="As a link" href="/dev/kit" />
+			</section>
+
+			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Type tiles</h2>
+				{#each tileTones as tone (tone)}
+					<div class="flex items-center gap-3">
+						<span class="w-14 text-[13px] font-bold text-muted">{tone}</span>
+						{#each tileExercises as ex (ex.label)}
+							<TypeTile exercise={ex.exercise} {tone} />
+						{/each}
+					</div>
+				{/each}
 			</section>
 
 			<section class="flex flex-col gap-3">
@@ -132,6 +154,13 @@
 				<div>
 					<label class={LABEL} for="k4">Disabled</label>
 					<input id="k4" class={FIELD} value="Locked" disabled />
+				</div>
+				<div>
+					<label class={LABEL} for="k6">Select</label>
+					<button type="button" id="k6" class={SELECT}>
+						<span class="min-w-0 flex-1 truncate font-medium text-muted">Choose a figure</span>
+						<span class="flex text-muted"><Icon name="chevron-down" size={20} /></span>
+					</button>
 				</div>
 				<div>
 					<label class={LABEL} for="k5">Notes</label>
