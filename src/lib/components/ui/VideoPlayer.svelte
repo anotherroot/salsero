@@ -750,27 +750,32 @@
 {/snippet}
 
 <!-- The loop's name, and what it links to: a column on the picture, a row above the landscape timeline. -->
-{#snippet loopBadges(spot: Spot, row: boolean)}
+{#snippet loopBadges(spot: Spot, row: boolean, link: boolean)}
 	{@const entry = linkEntry(spot.linkedTo, linking, 'badge')}
 	<div class={row ? 'mb-1 flex gap-1.5' : 'flex flex-col items-start gap-1.5'}>
 		<span class="{ON_VIDEO} pointer-events-none font-bold text-white/92">
 			<span class="flex text-accent"><UiIcon name="repeat" size={15} /></span>
 			<span class="max-w-[60vw] truncate">{spotLabel(spot)}</span>
 		</span>
-		{#if entry.kind === 'open'}
+		{#if link && entry.kind === 'open'}
+			<!-- The 30 px pill sits in a 44 px button; the negative margin keeps the row's height. -->
 			<button
 				type="button"
-				class="{ON_VIDEO} cursor-pointer {entry.invite
-					? 'font-extrabold text-accent-text'
-					: 'font-bold text-white/92'}"
+				class="-my-[7px] grid h-11 cursor-pointer place-items-center"
 				aria-label={entry.label}
 				onclick={() => openLink(spot.id)}
 			>
-				<span class="flex {entry.invite ? '' : 'text-white/80'}"
-					><UiIcon name="link" size={14} /></span
-				>{entry.text}
+				<span
+					class="{ON_VIDEO} {entry.invite
+						? 'font-extrabold text-accent-text'
+						: 'font-bold text-white/92'}"
+				>
+					<span class="flex {entry.invite ? '' : 'text-white/80'}"
+						><UiIcon name="link" size={14} /></span
+					>{entry.text}
+				</span>
 			</button>
-		{:else if entry.kind === 'show'}
+		{:else if link && entry.kind === 'show'}
 			<span class="{ON_VIDEO} pointer-events-none font-bold text-white/92">
 				<span class="flex text-white/80"><UiIcon name="link" size={14} /></span>{entry.text}
 			</span>
@@ -1005,7 +1010,7 @@
 			{/if}
 			{#if loop && mode !== 'overlay'}
 				<div class="absolute top-2.5 left-2.5 z-10">
-					{@render loopBadges(loop, false)}
+					{@render loopBadges(loop, false, level.kind === 'section')}
 				</div>
 			{/if}
 			{#if loop}
@@ -1129,7 +1134,7 @@
 						ontenth={tenth}
 					>
 						{#snippet badges()}
-							{@render loopBadges(openSpot!, true)}
+							{@render loopBadges(openSpot!, true, true)}
 						{/snippet}
 					</SectionView>
 				{:else}
