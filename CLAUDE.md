@@ -87,6 +87,11 @@ Song samples and the song popup have theirs,
 where a 15 s sample starts (stored raw, snapped to a 1 on read), one sample at
 a time, the searchable popup in place of the song `<select>`, and Back closing
 the top sheet.
+The look and the four tabs have theirs,
+[`docs/superpowers/specs/2026-10-31-redesign-design.md`](docs/superpowers/specs/2026-10-31-redesign-design.md):
+the colour tokens in four themes, type, icons, the shared components, the band,
+and the Today / Moves / Lessons / Music tab bar. The design board it comes from
+is in `docs/superpowers/design-kit/`.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -129,6 +134,15 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      search, Recent then A-Z, the highlight. sample-player.svelte.ts
                      is the one impure part: the single sample `<audio>`, one
                      sample at a time. Client-safe
+src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
+                     and a spec checks they agree. contrast.ts is the ratio maths
+src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled tab
+                     variants), drawn by components/ui/Icon.svelte
+src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the bar
+                     shows. band.ts: the big or slim band by scroll. PURE
+src/routes/dev/kit/  the kit gallery: every shared component in every state, to
+                     compare with the design board. Dev only (404 in a build)
+docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
 src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      port, so Back closes only the top one, with holds while a
                      navigation or a link click is in flight. history.svelte.ts
@@ -195,8 +209,9 @@ scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-ch
                      ../salsaapp-wt/<name> on its own branch, vite on a devports port at
                      wt-N-<name>.salsa.localhost, .data cloned from main's by hooks/up
 scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is committed
-scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
-                     the registry's accents. Output is committed. Both scripts
+scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
+                     static/icon-bachata.svg → static/icons/. Output is committed.
+                     Both scripts
                      pull their tooling from nixpkgs at run time, so the flake
                      carries neither
 ```
@@ -321,7 +336,7 @@ npm run db:generate   # after editing src/lib/server/db/schema.ts
 ./scripts/deploy.sh   # see docs/deployment.md
 # slots: C-1…C-9 in tmux; prefix C-a for reset-db and close slot (tmux_project)
 ./scripts/make-clips.sh   # regenerate static/clips/ — only when the voice changes
-./scripts/make-icons.sh   # regenerate static/icons/ — only when a dance's accent changes
+./scripts/make-icons.sh   # regenerate static/icons/ — only when an icon SVG changes
 nix develop .#android -c ./android/gradlew -p android test assembleDebug   # the APK; see docs/deployment.md
 ```
 

@@ -588,6 +588,8 @@ unsaved.
 
 ## Pending navigation
 
+The look (colours, type, icons, shared components) and the four tabs (Today, Moves, Lessons, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
+
 Every page has a server `load`, and SvelteKit keeps the old page on screen
 until it answers, so a tap used to change nothing for a whole round trip. It
 read as a missed tap. Now a tap answers at once, in three steps, all in the
