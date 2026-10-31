@@ -6,13 +6,15 @@
 	 * collapse the open card and hide the seams (both would be wrong mid-drag),
 	 * waits for that layout, and corrects for how far the grabbed card moved, so
 	 * the card stays under the finger. Then it measures every card ONCE, and on
-	 * each move asks `$lib/gestures/drag` where the card would land and how far
-	 * each other card slides to make room.
+	 * each move asks `$lib/gestures/drag` where the card would land, how far
+	 * each other card slides to make room, and where the dashed gap it leaves
+	 * open is drawn.
 	 */
 	import { tick, untrack } from 'svelte';
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
-	import { autoScroll, dropIndex, shiftFor } from '$lib/gestures/drag';
+	import { autoScroll, dropIndex, gapTop, shiftFor } from '$lib/gestures/drag';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
 	import type { PickFrom, RowView, Swiped } from './types';
@@ -24,8 +26,6 @@
 		selected: number[];
 		swiped: Swiped;
 		flash: number | null;
-		/** How much of the viewport's top the page's sticky header covers, in px. */
-		insetTop: number;
 		press: LongPress;
 		onswipe: (key: string, side: Side) => void;
 		ontap: (id: number) => void;
@@ -46,7 +46,6 @@
 		selected,
 		swiped,
 		flash,
-		insetTop,
 		press,
 		onswipe,
 		ontap,
@@ -60,12 +59,14 @@
 		onadd
 	}: Props = $props();
 
-	/** The vertical gap between cards: `space-y-2`. */
+	/** The vertical gap between cards: the list's `gap-2`. */
 	const GAP = 8;
 	const items: HTMLElement[] = [];
 	let drag = $state<{ id: number; from: number; to: number; dy: number; step: number } | null>(
 		null
 	);
+	/** Each live card's top (relative to the list) and height, measured at grab. */
+	let measured = $state.raw<{ tops: number[]; heights: number[] }>({ tops: [], heights: [] });
 
 	async function grab(e: PointerEvent, index: number) {
 		// A right or middle press on the handle is not a drag.
@@ -86,10 +87,10 @@
 			// after a delete a trailing entry still points past `rows.length` — at a
 			// stale element, or `null` — and would throw here, leaving `dragging`
 			// stuck true because `ondragend` is below, unreached.
-			centers = items.slice(0, rows.length).map((el) => {
-				const b = el.getBoundingClientRect();
-				return b.top + b.height / 2 + window.scrollY;
-			});
+			const boxes = items.slice(0, rows.length).map((el) => el.getBoundingClientRect());
+			centers = boxes.map((b) => b.top + b.height / 2 + window.scrollY);
+			const listTop = list?.getBoundingClientRect().top ?? 0;
+			measured = { tops: boxes.map((b) => b.top - listTop), heights: boxes.map((b) => b.height) };
 			// Start offset by however far the layout change moved the card, so it is
 			// drawn exactly where the finger picked it up.
 			drag = { id, from: index, to: index, dy: before - box.top, step: box.height + GAP };
@@ -98,11 +99,12 @@
 			throw err;
 		}
 
-		// The sticky header and the bottom nav cover the viewport's edges, so the
-		// auto-scroll zones start where the list is actually visible — a finger
-		// held over the nav would otherwise never reach the bottom zone.
-		const nav = document.querySelector('nav[aria-label="Main"]');
-		const bottom = nav ? nav.getBoundingClientRect().top : window.innerHeight;
+		// The auto-scroll zones start where the list is actually visible: below
+		// the fixed slim band (a pushed screen has no other header), down to the
+		// viewport's bottom — there is no tab bar here, and the selection bar
+		// never shows during a drag.
+		const top = document.querySelector('[data-slim-band]')?.getBoundingClientRect().bottom ?? 0;
+		const bottom = window.innerHeight;
 		let y = e.clientY;
 		let frame = 0;
 		const update = () => {
@@ -112,7 +114,7 @@
 			drag.to = dropIndex(centers, centers[index] + dy, index);
 		};
 		const scroll = () => {
-			const v = autoScroll(y, insetTop, bottom);
+			const v = autoScroll(y, top, bottom);
 			if (v !== 0) {
 				window.scrollBy(0, v);
 				update();
@@ -190,37 +192,59 @@
 		});
 	});
 
-	const plus =
-		'grid size-9 place-items-center rounded-full border-[1.5px] border-dashed border-rule text-[20px] text-muted disabled:opacity-30';
+	/** The last slot's "Add a slot", and the routine's first when optimistic deletes emptied it. */
+	const addEnd =
+		'flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-accent/50 text-[15px] font-extrabold text-accent-text disabled:cursor-default disabled:border-field-line disabled:text-disabled-ink';
 </script>
 
 {#if rows.length === 0}
-	<button
-		type="button"
-		class="flex h-14 w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-rule text-[14px] text-muted"
-		onclick={() => onadd(0, null)}
-		>+ Add a figure — the first slot is where the routine starts</button
+	<button type="button" class={addEnd} onclick={() => onadd(0, null)}
+		><Icon name="plus" size={20} />Add a figure</button
 	>
 {:else}
 	<div class="flex justify-center pb-2">
 		<button
 			type="button"
-			class={plus}
+			class="group grid size-11 cursor-pointer place-items-center disabled:cursor-default"
 			disabled={selecting}
 			aria-label="Add before slot 1"
-			onclick={() => onadd(0, { row: 0, side: 'before' })}>+</button
+			onclick={() => onadd(0, { row: 0, side: 'before' })}
 		>
+			<span
+				class="grid size-9 place-items-center rounded-full border-[1.5px] border-dashed border-accent/50 text-accent-text group-disabled:border-field-line group-disabled:text-disabled-ink"
+				><Icon name="plus" size={18} /></span
+			>
+		</button>
 	</div>
-	<ul class="space-y-2" bind:this={list}>
+	<ul class="relative flex flex-col gap-2" bind:this={list}>
+		{#if drag}
+			<!-- Where the lifted card will land. Absolute, so it takes no room of its
+			     own: the cards around it slide to open the space it marks. -->
+			<li
+				aria-hidden="true"
+				class="pointer-events-none absolute inset-x-0 rounded-2xl border-2 border-dashed border-accent/45 bg-accent/5 transition-[top] duration-150 motion-reduce:transition-none"
+				style="top: {gapTop(
+					measured.tops,
+					measured.heights,
+					drag.from,
+					drag.to
+				)}px; height: {measured.heights[drag.from]}px"
+			></li>
+		{/if}
 		{#each rows as row, i (row.id)}
 			{@const lifted = drag?.id === row.id}
+			<!-- The offset is the `translate` property, not `transform`: CSS applies
+			     `translate` outside `scale`, so the lifted card's 1.03 does not
+			     stretch its offset and pull it off the finger. -->
 			<li
 				bind:this={items[i]}
 				data-slot={row.id}
-				class="rounded-xl {lifted ? 'relative z-10' : ''} {drag && !lifted
+				class="flex flex-col gap-2 rounded-2xl {lifted
+					? 'relative z-10 shadow-[0_18px_40px_rgb(0_0_0/0.22)] transition-[scale,rotate,box-shadow] duration-150 motion-safe:scale-[1.03] motion-safe:-rotate-[0.8deg] motion-reduce:transition-none'
+					: ''} {drag && !lifted
 					? 'transition-transform duration-150 motion-reduce:transition-none'
 					: ''} {flash === row.id ? 'flash' : ''}"
-				style="transform: translateY({offsetOf(i, row.id)}px)"
+				style="translate: 0 {offsetOf(i, row.id)}px"
 			>
 				<SlotCard
 					{row}
@@ -257,20 +281,21 @@
 			</li>
 		{/each}
 	</ul>
-	<div class="flex justify-center pt-2">
+	<div class="pt-2">
 		<button
 			type="button"
-			class={plus}
+			class={addEnd}
 			disabled={selecting}
-			aria-label="Add after slot {rows.length}"
-			onclick={() => onadd(rows.length, { row: rows.length - 1, side: 'after' })}>+</button
+			aria-label="Add a slot after slot {rows.length}"
+			onclick={() => onadd(rows.length, { row: rows.length - 1, side: 'after' })}
+			><Icon name="plus" size={20} />Add a slot</button
 		>
 	</div>
 {/if}
 
 <style>
 	/*
-	 * A ring, not a background: the card face (`bg-raised`) is opaque and sits
+	 * A ring, not a background: the card face (`bg-surface`) is opaque and sits
 	 * on top of the `<li>`, so a background flash here is invisible. A
 	 * box-shadow draws OUTSIDE the box instead, around the card, where nothing
 	 * covers it.

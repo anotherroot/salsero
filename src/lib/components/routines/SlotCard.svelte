@@ -8,6 +8,8 @@
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
 	import Swipeable from './Swipeable.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
 	import { resettingFocus } from './act';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import type { RowView, Swiped } from './types';
@@ -87,32 +89,44 @@
 
 <Swipeable
 	key={slotKey}
+	rounded="rounded-2xl"
+	reveal={100}
 	open={sideOf(slotKey)}
 	onchange={(side) => onswipe(slotKey, side)}
 	disabled={selecting}
-	end={{ label: 'Delete', onclick: ondelete }}
+	end={{ label: 'Delete', icon: 'trash', onclick: ondelete }}
 >
+	<!-- Lifted, the card is `raised`; its shadow, scale and tilt are on the `<li>`
+	     (SlotList), outside the swipe layer's clip. -->
 	<div
-		class="rounded-xl border bg-raised transition-[box-shadow,scale] duration-150 motion-reduce:transition-none {selected ||
-		expanded
-			? 'border-accent'
-			: 'border-line'} {lifted ? 'scale-[1.02] shadow-xl' : ''}"
+		class="rounded-2xl py-2 pr-1.5 pl-0.5 {selected
+			? 'bg-accent-soft'
+			: lifted
+				? 'bg-raised'
+				: 'bg-surface'} {!lifted && !selected && expanded
+			? 'shadow-[inset_0_0_0_2px_var(--color-accent)]'
+			: ''}"
 	>
 		<!-- Handle and number centred against the whole card, however many lines it has. -->
-		<div class="flex items-center gap-1 py-2 pr-2">
+		<div class="flex min-h-12 items-center gap-1.5">
 			{#if selecting}
-				<span class="grid size-11 shrink-0 place-items-center" aria-hidden="true">
-					<span
-						class="grid size-6 place-items-center rounded-full border text-[13px] {selected
-							? 'border-accent bg-accent text-accent-ink'
-							: 'border-rule'}">{selected ? '✓' : ''}</span
-					>
+				<span
+					class="grid size-11 shrink-0 place-items-center [--icon-knockout:var(--color-on-accent)]"
+					aria-hidden="true"
+				>
+					{#if selected}
+						<span class="text-accent"><Icon name="check-circle" size={24} filled /></span>
+					{:else}
+						<span class="size-6 rounded-full border-2 border-muted"></span>
+					{/if}
 				</span>
 			{:else}
 				<button
 					type="button"
 					data-handle
-					class="grid size-11 shrink-0 cursor-grab touch-none place-items-center text-[18px] tracking-[-3px] text-rule"
+					class="grid size-11 shrink-0 cursor-grab touch-none place-items-center rounded-xl text-muted active:bg-step {lifted
+						? 'bg-step'
+						: ''}"
 					aria-label="Move slot {index + 1}. Arrow keys move it."
 					onpointerdown={(e) => {
 						// The handle is for dragging and nothing else: keep the swipe
@@ -129,13 +143,15 @@
 							e.preventDefault();
 							onkeymove(1);
 						}
-					}}>⋮⋮</button
+					}}><Icon name="drag" size={20} /></button
 				>
 			{/if}
 
 			<span
-				class="mr-1 grid size-6 shrink-0 place-items-center rounded-full bg-accent/15 text-[11px] font-semibold text-accent"
-				>{index + 1}</span
+				class="grid size-[26px] shrink-0 place-items-center rounded-full text-[12px] font-extrabold tabular-nums {selected
+					? 'bg-accent text-on-accent'
+					: 'bg-accent-soft text-accent-text'}"
+				aria-hidden="true">{index + 1}</span
 			>
 
 			<div
@@ -160,27 +176,50 @@
 					}
 				}}
 			>
-				<p class="truncate text-[15px] font-medium">
-					{#if row.isRoutine}<span class="text-muted">↻ </span>{/if}{row.title}
+				<p
+					class="truncate text-[16px] leading-[1.3] font-bold {row.empty
+						? selected
+							? 'text-ink-2'
+							: 'text-muted'
+						: 'text-ink'}"
+				>
+					{#if row.isRoutine}<span class="mr-1.5 inline-block align-[-3px] text-accent-text"
+							><Icon name="route" size={18} /></span
+						>{/if}{row.title}
 				</p>
 				{#if row.meta}
-					<p class="mt-0.5 truncate text-[12px] text-muted">{row.meta}</p>
+					<p
+						class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
+							? 'text-ink-2'
+							: 'text-muted'}"
+					>
+						{row.meta}
+					</p>
 				{/if}
 				{#if !expanded}
 					{#if row.note}
-						<p class="mt-0.5 truncate text-[12.5px] text-ink-2 italic">{row.note}</p>
+						<p class="mt-[3px] truncate text-[13px] leading-[1.35] text-ink-2 italic">
+							{row.note}
+						</p>
 					{/if}
 					{#if row.alternatives.length > 0}
-						<p class="truncate text-[12px] text-muted">
-							/ {row.alternatives.map((a) => a.label).join(' / ')}
+						<p
+							class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
+								? 'text-ink-2'
+								: 'text-muted'}"
+						>
+							<b class="font-bold">or</b>
+							{row.alternatives.map((a) => a.label).join(', ')}
 						</p>
 					{/if}
 				{/if}
 			</div>
 
 			{#if expanded && row.href}
-				<a href={row.href} class="h-9 shrink-0 px-2 text-[13px] leading-9 font-medium text-accent"
-					>Open →</a
+				<a
+					href={row.href}
+					class="flex h-11 shrink-0 items-center gap-0.5 pr-1.5 pl-2.5 text-[15px] font-extrabold text-accent-text"
+					>Open<Icon name="chevron-right" size={18} /></a
 				>
 			{/if}
 		</div>
@@ -191,57 +230,69 @@
 			     here so selecting text never starts a swipe. -->
 			<div
 				role="presentation"
-				class="pr-3 pb-3 pl-[5rem]"
+				class="pt-0.5 pr-3.5 pb-1.5 pl-[78px]"
 				onpointerdown={(e) => e.stopPropagation()}
 			>
-				<input
-					bind:this={noteInput}
-					value={row.note ?? ''}
-					maxlength="200"
-					placeholder="✎ Add a note…"
-					aria-label="Note for slot {index + 1}"
-					class="w-full border-0 border-b border-dashed border-rule bg-transparent px-0 py-1 text-[13px] outline-none focus:border-accent"
-					onkeydown={(e) => {
-						if (e.key === 'Enter') e.currentTarget.blur();
-						if (e.key === 'Escape') {
-							e.currentTarget.value = row.note ?? '';
-							e.currentTarget.blur();
-						}
-					}}
-					onblur={(e) => {
-						// SvelteKit borrowing the focus after another action; `act` hands it back.
-						if (resettingFocus()) return;
-						const v = e.currentTarget.value.trim();
-						if (v !== (row.note ?? '')) onnote(v === '' ? null : v);
-					}}
-				/>
+				<div
+					class="group flex h-10 items-center gap-2 border-b-[1.5px] border-dashed border-field-line focus-within:border-b-2 focus-within:border-solid focus-within:border-accent"
+				>
+					<span class="flex-none text-muted group-focus-within:text-accent-text"
+						><Icon name="edit" size={16} /></span
+					>
+					<input
+						bind:this={noteInput}
+						value={row.note ?? ''}
+						maxlength="200"
+						placeholder="Add a note…"
+						aria-label="Note for slot {index + 1}"
+						class="h-9 min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] font-medium text-ink outline-none placeholder:text-muted focus-visible:shadow-none! focus-visible:outline-none!"
+						onkeydown={(e) => {
+							if (e.key === 'Enter') e.currentTarget.blur();
+							if (e.key === 'Escape') {
+								e.currentTarget.value = row.note ?? '';
+								e.currentTarget.blur();
+							}
+						}}
+						onblur={(e) => {
+							// SvelteKit borrowing the focus after another action; `act` hands it back.
+							if (resettingFocus()) return;
+							const v = e.currentTarget.value.trim();
+							if (v !== (row.note ?? '')) onnote(v === '' ? null : v);
+						}}
+					/>
+				</div>
 			</div>
 		{/if}
 	</div>
 </Swipeable>
 
-{#if expanded && !row.isRoutine}
-	<div class="mt-1.5 ml-7 space-y-1.5 border-l-2 border-accent/25 pl-3">
+{#if expanded && !row.isRoutine && (row.alternatives.length > 0 || row.canAddAlternative)}
+	<div
+		role="group"
+		aria-label="Alternatives for slot {index + 1}"
+		class="ml-7 flex flex-col gap-2 border-l-2 border-accent/25 py-0.5 pl-3"
+	>
 		{#each row.alternatives as alt (alt.id)}
 			{@const key = `alt:${row.id}:${alt.id}`}
 			<!--
-				The name, then Open and Delete as square icon buttons the card's height
-				and rounding. No timing: an alternative starts and lands exactly like
-				the slot's main figure, so it would only repeat the line above. A swipe
-				left still removes it too. Opaque tint, so the red under a swiped card
-				does not show through.
+				The name, then Open and Remove as square buttons the tile's height and
+				rounding. No timing: an alternative starts and lands exactly like the
+				slot's main figure, so it would only repeat the line above. A swipe
+				left still removes it too. `accent-soft` is opaque, so the red under a
+				swiped tile does not show through.
 			-->
-			<div class="flex items-stretch gap-1.5">
+			<div class="flex items-center gap-1.5">
 				<div class="min-w-0 flex-1">
 					<Swipeable
 						{key}
-						rounded="rounded-lg"
+						rounded="rounded-xl"
+						reveal={88}
 						open={sideOf(key)}
 						onchange={(side) => onswipe(key, side)}
 						end={{ label: 'Remove', onclick: () => onremoveAlt(alt.id, alt.label) }}
 					>
 						<p
-							class="h-10 truncate rounded-lg border border-accent/20 bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-raised))] px-3 text-[14px] leading-[38px]"
+							class="h-11 truncate rounded-xl bg-accent-soft px-3.5 text-[15px] leading-[44px] font-bold text-ink"
 						>
 							{alt.label}
 						</p>
@@ -249,59 +300,29 @@
 				</div>
 				<a
 					href={alt.href}
-					class="grid size-10 shrink-0 place-items-center rounded-lg border border-accent/20 bg-[color-mix(in_srgb,var(--color-accent)_10%,var(--color-raised))] text-accent"
+					class="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text"
 					aria-label="Open {alt.label}"
-					title="Open"
+					title="Open"><Icon name="external" size={18} /></a
 				>
-					<svg
-						viewBox="0 0 24 24"
-						class="size-[18px]"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<path d="M7 17 17 7M9 7h8v8" />
-					</svg>
-				</a>
 				<button
 					type="button"
-					class="grid size-10 shrink-0 place-items-center rounded-lg border border-danger/25 bg-[color-mix(in_srgb,var(--color-danger)_10%,var(--color-raised))] text-danger"
+					class="grid size-11 shrink-0 cursor-pointer place-items-center rounded-xl bg-danger-soft text-danger"
 					aria-label="Remove {alt.label}"
 					title="Remove"
-					onclick={() => onremoveAlt(alt.id, alt.label)}
+					onclick={() => onremoveAlt(alt.id, alt.label)}><Icon name="trash" size={18} /></button
 				>
-					<svg
-						viewBox="0 0 24 24"
-						class="size-[18px]"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						aria-hidden="true"
-					>
-						<path
-							d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"
-						/>
-					</svg>
-				</button>
 			</div>
 		{/each}
 		{#if row.canAddAlternative}
 			<button
 				type="button"
-				class="h-9 w-full rounded-lg border-[1.5px] border-dashed border-accent/40 text-[13px] font-medium text-accent"
-				onclick={onaddAlt}>+ Alternative</button
+				class="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed border-accent/50 text-[15px] font-extrabold text-accent-text"
+				onclick={onaddAlt}><Icon name="plus" size={18} />Alternative</button
 			>
 		{/if}
 	</div>
 {/if}
 
 {#if row.failure}
-	<p class="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-		{row.failure}
-	</p>
+	<Banner kind="error" title={row.failure} />
 {/if}

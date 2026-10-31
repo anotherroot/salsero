@@ -1,8 +1,23 @@
 <script lang="ts">
-	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
+	import { tick } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
+	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
-	import { FIELD, TEXTAREA } from '$lib/components/ui/styles';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import HeroCard from '$lib/components/ui/HeroCard.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
+	import RoutineMenu from '$lib/components/routines/RoutineMenu.svelte';
 	import SlotList from '$lib/components/routines/SlotList.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
@@ -18,16 +33,32 @@
 		type Anchor,
 		type Candidate
 	} from '$lib/routines/fit';
-	import { extractBlock, inOrder } from '$lib/routines/selection';
-	import type { RowEdges } from '$lib/routines/routines';
+	import { actionBlocks, extractBlock, inOrder } from '$lib/routines/selection';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
-	import { dateLabel } from '$lib/format';
+	import {
+		bandCompact,
+		factBadges,
+		factsOf,
+		makeRoutineCaption,
+		failurePlace,
+		seamLabel,
+		selectionTitle,
+		slotMeta
+	} from '$lib/routines/page';
+	import { longDayLabel } from '$lib/format';
+	import type { IconName } from '$lib/icons/icons';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let editing = $state(false);
+	/** The Save in the pinned bar is posting. */
+	let saving = $state(false);
+	/** The Archive question is open. */
+	let archiving = $state(false);
+	/** Archive is posting. */
+	let archivingNow = $state(false);
 	/** The slot tapped open, by id. One at a time. */
 	let expanded = $state<number | null>(null);
 	let selecting = $state(false);
@@ -36,9 +67,18 @@
 	let swiped = $state<Swiped>(null);
 	let dragging = $state(false);
 	let flash = $state<number | null>(null);
-	/** The sticky header's height: the top of the viewport a drag cannot see past. */
-	let headerHeight = $state(0);
 	let naming = $state(false);
+	/** Make routine is posting. */
+	let making = $state(false);
+	/** The band's ⋯ sheet. */
+	let menuOpen = $state(false);
+	let editForm = $state<HTMLFormElement>();
+	/**
+	 * The `form` whose page banner was dismissed. Raw, not a deep proxy, so it
+	 * stays the same object as `form`: the next refusal is a new object, and
+	 * its banner shows.
+	 */
+	let dismissed = $state.raw<ActionData | null>(null);
 	let picker = $state<{
 		title: string;
 		anchor: Anchor;
@@ -47,6 +87,8 @@
 	} | null>(null);
 	let toast = $state<{ id: number; message: string; undo: () => void } | null>(null);
 	let toastSeq = 0;
+	/** The selection bar's height: the Undo toast sits above it while selecting. */
+	let barHeight = $state(0);
 
 	/*
 	 * Optimistic overlays, cleared when their action returns — by which time
@@ -60,22 +102,89 @@
 	let pending = $state(0);
 
 	const routine = $derived(data.routine);
-	const failure = $derived(form && 'message' in form ? (form.message ?? null) : null);
+	/**
+	 * Where the last refusal shows: under the slot it was aimed at (on a long
+	 * routine a banner at the top is off-screen), under its field, or in a
+	 * banner — a slot id that names no slot here included.
+	 */
+	const place = $derived(
+		failurePlace(
+			form,
+			data.slots.map((s) => s.id)
+		)
+	);
+	/** The routine-level refusal, until it is dismissed. */
+	const bannerMessage = $derived(
+		place?.where === 'banner' && dismissed !== form ? place.message : null
+	);
+
+	/** The Edit form's refusals, each under its own field. */
+	const nameFieldError = $derived(
+		place?.where === 'edit' && place.field === 'name' && dismissed !== form ? place.message : null
+	);
+	const notesFieldError = $derived(
+		place?.where === 'edit' && place.field === 'notes' && dismissed !== form ? place.message : null
+	);
+	/** What was typed into the Edit form before a refused Save, so it is not lost. */
+	function typed(key: 'name' | 'notes'): string | undefined {
+		return place?.where === 'edit' &&
+			dismissed !== form &&
+			form &&
+			key in form &&
+			typeof form[key] === 'string'
+			? form[key]
+			: undefined;
+	}
 
 	/**
-	 * The slot a failure was aimed at, when the action named one — printed under
-	 * that slot rather than only in the banner, which on a long routine is
-	 * off-screen. `typeof` rather than a cast: `'stepId' in form` narrows the
-	 * members that do not declare it to `unknown`.
+	 * The band button that was focused is replaced when the band flips, so hand
+	 * focus to its successor. The page has a big header and a slim band, each
+	 * with the button; one is inert.
 	 */
-	const failedSlot = $derived(
-		form && 'stepId' in form && typeof form.stepId === 'number' && 'message' in form
-			? form.stepId
+	async function focusBand(key: string) {
+		await tick();
+		document
+			.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)
+			.forEach((el) => !el.closest('[inert]') && el.focus());
+	}
+	function startEditing() {
+		// A refusal or typed value from an earlier edit is stale now.
+		dismissed = form;
+		editing = true;
+		window.scrollTo({ top: 0 });
+		focusBand('stop-editing');
+	}
+	function stopEditing() {
+		dismissed = form;
+		editing = false;
+		focusBand('edit');
+	}
+
+	/*
+	 * Another routine reuses this component: nothing open, selected or pending
+	 * here may carry over — above all the Undo toast, whose restore would post
+	 * to the new routine's URL.
+	 */
+	afterNavigate(({ from, to }) => {
+		if (from?.params?.id === to?.params?.id) return;
+		toast = null;
+		selecting = false;
+		selected = [];
+		expanded = null;
+		swiped = null;
+		picker = null;
+		naming = false;
+		menuOpen = false;
+		editing = false;
+		archiving = false;
+		dismissed = null;
+	});
+
+	/** The Make routine sheet's refusal about its Name field. */
+	const nameError = $derived(
+		place?.where === 'extract' && place.field === 'name' && dismissed !== form
+			? place.message
 			: null
-	);
-	/** The banner keeps what the slots do not: routine-level failures, and a slot id that names no slot here. */
-	const bannerFailure = $derived(
-		failure !== null && data.slots.some((s) => s.id === failedSlot) ? null : failure
 	);
 
 	const positionNames = $derived(new Map(data.positions.map((p) => [p.id, p.name])));
@@ -95,13 +204,6 @@
 		return figuresById.has(id) ? name : `${name} (archived)`;
 	}
 
-	function metaOf(e: RowEdges): string {
-		if (e.starts.length === 0) return '';
-		const timing = `${e.startCounts.join('/')}→${e.next ?? '?'}`;
-		const hands = `${e.starts.map(posName).join(' / ')} → ${e.end === null ? '?' : posName(e.end)}`;
-		return `${timing} · ${hands}`;
-	}
-
 	/** What does not connect below server row `i`, worded; null when it connects. */
 	function seamOf(i: number): RowView['seam'] {
 		const p = data.positionSeams.find((s) => s.after === i);
@@ -110,15 +212,11 @@
 		if (next === undefined) return null;
 		const a = data.edges[i];
 		const b = data.edges[next];
-		const parts: string[] = [];
-		if (p && a.end !== null) {
-			parts.push(
-				`ends in ${posName(a.end)}, next starts from ${b.starts.map(posName).join(' or ')}`
-			);
-		}
-		if (t) parts.push(`ready for ${a.next}, next starts on ${b.startCounts.join(' or ')}`);
 		return {
-			label: parts.join(' · '),
+			label: seamLabel(
+				p && a.end !== null ? { end: posName(a.end), next: b.starts.map(posName) } : null,
+				t ? { ready: a.next, next: b.startCounts } : null
+			),
 			next,
 			bridge: canBridge(data.candidates, anchorBetween(a, b))
 		};
@@ -145,7 +243,12 @@
 					: main === undefined
 						? 'Empty — nothing to call here'
 						: optionName(main),
-				meta: metaOf(edges),
+				meta: slotMeta(
+					edges,
+					posName,
+					isRoutine ? (data.childSlots[slot.childId as number] ?? 0) : null
+				),
+				empty: !isRoutine && main === undefined,
 				note: slot.note,
 				href: isRoutine
 					? routineHref(slot.childId as number)
@@ -158,17 +261,22 @@
 					.filter((f) => !goneOptions.includes(`${slot.id}:${f}`))
 					.map((f) => ({ id: f, label: optionName(f), href: figureHref(f) })),
 				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
-				failure: failedSlot === slot.id ? failure : null,
+				failure: place?.where === 'slot' && place.stepId === slot.id ? place.message : null,
 				seam: stale ? null : seamOf(i)
 			};
 		})
 	);
 
 	const facts = $derived(
-		[
-			data.starts.length > 0 ? `Starts from ${data.starts.map(posName).join(', ')}` : null,
-			data.end === null ? null : `Ends at ${posName(data.end)}`
-		].filter((f) => f !== null)
+		factsOf(data.starts.map(posName), data.end === null ? null : posName(data.end))
+	);
+	const badges = $derived(
+		factBadges({
+			slots: data.slots.length,
+			breaks: data.breaks.length,
+			timingBreaks: data.timingBreaks.length,
+			loops: data.loops
+		})
 	);
 	const danceable = $derived(data.starts.length > 0);
 
@@ -278,6 +386,9 @@
 			// from Add above / below ends selection mode first.
 			if (selecting) stopSelecting();
 			expanded = id;
+			// The picker's opener (a seam, a slot's Add) is gone or elsewhere now.
+			await tick();
+			document.querySelector<HTMLElement>(`[data-slot="${id}"] [role=button]`)?.focus();
 		}
 	}
 
@@ -291,7 +402,8 @@
 
 	const press = longPress({
 		ms: 450,
-		tolerancePx: 10,
+		// Under the swipe's 10 px lock, so a locked swipe has always cancelled it.
+		tolerancePx: 9.5,
 		enabled: () => !selecting && !dragging,
 		onLongPress: (id) => {
 			selecting = true;
@@ -335,6 +447,11 @@
 		selecting = false;
 		selected = [];
 	}
+	/** × or Escape: the band's ⋯ takes the focus the × had. */
+	function leaveSelecting() {
+		stopSelecting();
+		focusBand('more');
+	}
 
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
 
@@ -367,9 +484,6 @@
 				expanded = id;
 			}
 		};
-
-	const hint = 'rounded-full bg-danger/10 px-2 py-0.5 font-medium text-danger';
-	const errorBox = 'rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger';
 </script>
 
 <svelte:head><title>{routine.name} · {data.dance.label}</title></svelte:head>
@@ -377,213 +491,364 @@
 <svelte:window
 	onkeydown={(e) => {
 		// Not while a sheet is open: that Escape closes the sheet, not the selection.
-		if (e.key === 'Escape' && selecting && !naming && picker === null) stopSelecting();
+		if (e.key === 'Escape' && selecting && !naming && !menuOpen && picker === null)
+			leaveSelecting();
 	}}
 />
 
-<header
-	bind:offsetHeight={headerHeight}
-	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
->
+{#snippet back()}
 	{#if selecting}
-		<button
-			type="button"
-			class="grid size-11 place-items-center rounded-full text-[20px] text-ink-2"
-			aria-label="Stop selecting"
-			onclick={stopSelecting}>×</button
-		>
-		<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{selected.length} selected</h1>
+		<BandButton
+			focusKey="stop-selecting"
+			icon="close"
+			label="Stop selecting"
+			onclick={leaveSelecting}
+		/>
+	{:else if editing}
+		<BandButton
+			focusKey="stop-editing"
+			icon="close"
+			label="Stop editing"
+			onclick={() => leaveOrAsk(editForm ?? null, stopEditing, 'Stop editing')}
+		/>
 	{:else}
-		<a
+		<BandButton
+			icon="back"
+			label="Back to Moves"
 			href={resolve('/[dance]/routines', { dance: data.dance.slug })}
-			class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-			aria-label="Back to routines">‹</a
-		>
-		<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{routine.name}</h1>
-		<!--
-			Done SAVES: it submits the edit form (by `form=`, since the header is
-			outside it). A refused save keeps you editing with the message showing.
-		-->
+		/>
+	{/if}
+{/snippet}
+
+{#snippet actions()}
+	<BandButton focusKey="edit" icon="pencil" label="Edit routine" onclick={startEditing} />
+	{#if data.slots.length > 0}
+		<BandButton
+			focusKey="more"
+			icon="more"
+			label="More actions"
+			onclick={() => (menuOpen = true)}
+		/>
+	{/if}
+{/snippet}
+
+{#snippet practise()}
+	<!-- The player picks the song: count only, or any of this dance's ready ones. -->
+	<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
+{/snippet}
+
+<Screen
+	title={selecting ? selectionTitle(selected.length) : editing ? 'Edit routine' : routine.name}
+	compact={selecting || (!editing && bandCompact(routine.name))}
+	left={back}
+	right={selecting || editing ? undefined : actions}
+	hero={selecting || editing || !danceable ? undefined : practise}
+>
+	<div
+		class={editing
+			? 'flex flex-col gap-3.5 pt-1 pb-28'
+			: `flex flex-col gap-2 ${selecting ? 'pb-36' : 'pb-4'}`}
+	>
 		{#if editing}
-			<button
-				type="submit"
-				form="edit-form"
-				class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent">Done</button
-			>
-		{:else}
-			<button
-				type="button"
-				class="h-10 rounded-lg px-3 text-[14px] font-medium text-accent"
-				onclick={() => (editing = true)}>Edit</button
-			>
-		{/if}
-	{/if}
-</header>
-
-<main class="space-y-6 px-4 pt-4 {selecting ? 'pb-40' : 'pb-4'}">
-	{#if bannerFailure}
-		<p class={errorBox} role="alert">{bannerFailure}</p>
-	{/if}
-
-	{#if editing}
-		<form
-			id="edit-form"
-			method="POST"
-			action="?/rename"
-			class="space-y-3"
-			use:guarded={{
-				label: 'Routine edits',
-				submit:
-					() =>
-					async ({ update, result }) => {
-						await update({ reset: false });
-						if (result.type === 'success') editing = false;
+			{#if bannerMessage}
+				<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
+			{/if}
+			<form
+				id="edit-form"
+				novalidate
+				bind:this={editForm}
+				method="POST"
+				action="?/rename"
+				class="flex flex-col gap-3.5"
+				use:guarded={{
+					label: 'Routine edits',
+					submit: () => {
+						saving = true;
+						return async ({ update, result }) => {
+							try {
+								await update({ reset: false });
+							} finally {
+								saving = false;
+							}
+							if (result.type === 'success') stopEditing();
+						};
 					}
-			}}
-		>
-			<label class="block">
-				<span class="mb-1 block text-[13px] text-muted">Name</span>
-				<input name="name" required maxlength="200" value={routine.name} class={FIELD} />
-			</label>
-			<label class="block">
-				<span class="mb-1 block text-[13px] text-muted">Notes</span>
-				<textarea name="notes" rows="5" maxlength="2000" class={TEXTAREA}
-					>{routine.notes ?? ''}</textarea
+				}}
+			>
+				<div>
+					<label class={LABEL} for="edit-name">Name</label>
+					<input
+						id="edit-name"
+						name="name"
+						required
+						maxlength="200"
+						value={typed('name') ?? routine.name}
+						class={FIELD}
+						aria-invalid={nameFieldError ? 'true' : undefined}
+						aria-describedby={nameFieldError ? 'edit-name-error' : 'edit-name-help'}
+					/>
+					{#if nameFieldError}
+						<FieldError id="edit-name-error" message={nameFieldError} />
+					{:else}
+						<p id="edit-name-help" class="mt-1.5 pl-1 text-[13px] text-muted">
+							Up to 200 characters
+						</p>
+					{/if}
+				</div>
+				<div>
+					<label class={LABEL} for="edit-notes"
+						>Notes <span class="font-medium text-muted">(optional)</span></label
+					>
+					<textarea
+						id="edit-notes"
+						name="notes"
+						rows="4"
+						maxlength="2000"
+						class={TEXTAREA}
+						aria-invalid={notesFieldError ? 'true' : undefined}
+						aria-describedby={notesFieldError ? 'edit-notes-error' : undefined}
+						>{typed('notes') ?? routine.notes ?? ''}</textarea
+					>
+					{#if notesFieldError}<FieldError id="edit-notes-error" message={notesFieldError} />{/if}
+				</div>
+			</form>
+
+			<h2 class="{SECTION_LABEL} pt-1">More</h2>
+			<ul class={GROUP}>
+				<li>
+					<!-- Not behind `use:enhance`: the action redirects to the copy, and a full
+					     navigation is what makes it obvious you are now editing the copy. -->
+					<form method="POST" action="?/duplicate">
+						<button
+							type="submit"
+							class="flex min-h-16 w-full items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+						>
+							<span class="flex-none text-accent-text"><Icon name="copy" size={22} /></span>
+							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+								<span class="text-[16px] leading-tight font-bold text-ink">Duplicate routine</span>
+								<span class="text-[13px] text-muted">Makes a copy and opens it</span>
+							</span>
+							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+						</button>
+					</form>
+				</li>
+				<li>
+					<button
+						type="button"
+						aria-haspopup="dialog"
+						class="flex min-h-16 w-full items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+						onclick={() => (archiving = true)}
+					>
+						<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
+						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+							<span class="text-[16px] leading-tight font-bold text-danger">Archive routine</span>
+							<span class="text-[13px] text-muted">Its slots and practice history are kept</span>
+						</span>
+					</button>
+				</li>
+			</ul>
+		{:else}
+			<!-- Selecting shows only the slots. -->
+			{#if !selecting}
+				{#if bannerMessage}
+					<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
+				{/if}
+				{#if routine.notes}
+					<p class="px-1 text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2">
+						{routine.notes}
+					</p>
+				{/if}
+				{#if facts}
+					<div class="flex flex-col gap-2 px-1 pt-0.5 pb-1">
+						<p class="text-[14px] font-semibold text-ink-2">
+							Starts from <b class="font-extrabold text-ink">{facts.from}</b
+							>{#if facts.to !== null}&nbsp;· ends at <b class="font-extrabold text-ink"
+									>{facts.to}</b
+								>{/if}
+						</p>
+						{#if badges.length > 0}
+							<div class="flex flex-wrap gap-1.5">
+								{#each badges as b (b.text)}
+									<Badge tone={b.tone}
+										>{#if b.loop}<Icon name="repeat" size={14} />{/if}{b.text}</Badge
+									>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
+			{/if}
+
+			{#if data.slots.length === 0}
+				<EmptyState
+					icon="route"
+					title="No slots yet"
+					body="The first slot is where the routine starts. Add a figure, then build from it."
 				>
-			</label>
-			<button
-				type="submit"
-				class="h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-				>Save</button
-			>
-		</form>
-		<!-- Not behind `use:enhance`: the action redirects to the copy, and a full
-		     navigation is what makes it obvious you are now editing the copy. -->
-		<form method="POST" action="?/duplicate">
-			<button type="submit" class="h-11 w-full rounded-xl border border-line text-[14px]"
-				>Duplicate routine</button
-			>
-		</form>
+					{#snippet action()}
+						<button type="button" class={button('primary')} onclick={() => openPicker(0, null)}
+							><Icon name="plus" size={20} />Add a figure</button
+						>
+					{/snippet}
+				</EmptyState>
+			{:else}
+				<section>
+					<h2 class="{SECTION_LABEL} mb-2 pt-1.5">Slots · {rows.length}</h2>
+					<SlotList
+						{rows}
+						{expanded}
+						{selecting}
+						{selected}
+						{swiped}
+						{flash}
+						{press}
+						onswipe={(key, side) => (swiped = side === null ? null : { key, side })}
+						ontap={tap}
+						ondragstart={() => {
+							dragging = true;
+							expanded = null;
+							swiped = null;
+						}}
+						ondragend={() => (dragging = false)}
+						onreorder={reorder}
+						ondelete={(id) => remove([id])}
+						onremoveAlt={removeAlternative}
+						onaddAlt={openAlternative}
+						onnote={(id, note) => send('note', { stepId: id, note })}
+						onadd={openPicker}
+					/>
+				</section>
+			{/if}
+
+			{#if !selecting && (data.exerciseId !== null || data.taughtIn.length > 0)}
+				<h2 class="{SECTION_LABEL} pt-3.5">More</h2>
+				<ul class={GROUP}>
+					{#if data.exerciseId !== null}
+						{@render moreRow(
+							resolve('/[dance]/exercises/[id]', {
+								dance: data.dance.slug,
+								id: String(data.exerciseId)
+							}),
+							'repeat',
+							'Exercise',
+							'History, how often, active'
+						)}
+					{/if}
+					{#each data.taughtIn as lesson (lesson.id)}
+						{@render moreRow(
+							resolve('/[dance]/lessons/[id]', {
+								dance: data.dance.slug,
+								id: String(lesson.id)
+							}),
+							'lessons',
+							lesson.title,
+							`Taught in · ${longDayLabel(lesson.lessonDay)}`
+						)}
+					{/each}
+				</ul>
+			{/if}
+		{/if}
+	</div>
+</Screen>
+
+{#snippet moreRow(href: string, icon: IconName, title: string, meta: string)}
+	<li>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
+		<a {href} class="flex min-h-16 items-center gap-3 py-2 pr-3.5 pl-4">
+			<span class="flex-none text-accent-text"><Icon name={icon} size={24} /></span>
+			<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span class="text-[16px] leading-tight font-bold text-ink">{title}</span>
+				<span class="text-[13px] text-muted">{meta}</span>
+			</span>
+			<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</a>
+	</li>
+{/snippet}
+
+<RoutineMenu
+	open={menuOpen}
+	title={routine.name}
+	canSelect={data.slots.length > 0}
+	onselect={() => {
+		selecting = true;
+		selected = [];
+		expanded = null;
+		swiped = null;
+		focusBand('stop-selecting');
+	}}
+	onclose={() => (menuOpen = false)}
+/>
+
+{#if editing}
+	<BottomBar>
+		<button
+			type="submit"
+			form="edit-form"
+			class={button('primary', 'md', true)}
+			aria-busy={saving}
+			disabled={saving}
+		>
+			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+		</button>
+	</BottomBar>
+{/if}
+
+<Dialog
+	open={archiving}
+	icon="trash"
+	tone="danger"
+	title="Archive “{routine.name}”?"
+	body="It leaves the Routines list. Its slots and practice history are kept."
+	onclose={() => (archiving = false)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
+			>Cancel</button
+		>
 		<form
 			method="POST"
 			action="?/archive"
-			onsubmit={(e) => {
-				if (!confirm(`Archive “${routine.name}”? Its slots and practice history are kept.`)) {
-					e.preventDefault();
-				}
+			use:enhance={() => {
+				archivingNow = true;
+				return async ({ update }) => {
+					await update();
+					archivingNow = false;
+				};
 			}}
 		>
-			<button type="submit" class="h-11 w-full rounded-xl text-[14px] text-danger"
-				>Archive routine</button
+			<button
+				type="submit"
+				class={button('danger', 'sm')}
+				aria-busy={archivingNow}
+				disabled={archivingNow}
 			>
+				{#if archivingNow}<Spinner /><span class="sr-only">Archiving…</span>{:else}Archive{/if}
+			</button>
 		</form>
-	{:else}
-		<section class="space-y-3">
-			{#if routine.notes}
-				<p class="text-[15px] whitespace-pre-line">{routine.notes}</p>
-			{/if}
-			{#if danceable}
-				<!-- The player picks the song: count only, or any of this dance's ready ones. -->
-				<a
-					href={practiseHref}
-					class="grid h-12 w-full place-items-center rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-					>Practise</a
-				>
-			{/if}
-			{#if data.exerciseId !== null}
-				<a
-					href={resolve('/[dance]/exercises/[id]', {
-						dance: data.dance.slug,
-						id: String(data.exerciseId)
-					})}
-					class="text-[14px] font-medium text-accent">Exercise →</a
-				>
-			{/if}
-		</section>
-	{/if}
-
-	{#if facts.length > 0 || data.breaks.length > 0 || data.timingBreaks.length > 0 || (!data.loops && data.slots.length > 0)}
-		<p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted">
-			{#if facts.length > 0}
-				<span>{facts.join(' · ')}</span>
-			{/if}
-			{#if data.breaks.length > 0}
-				<span class={hint}>{data.breaks.length} break{data.breaks.length === 1 ? '' : 's'}</span>
-			{/if}
-			{#if data.timingBreaks.length > 0}
-				<span class={hint}
-					>{data.timingBreaks.length} timing break{data.timingBreaks.length === 1 ? '' : 's'}</span
-				>
-			{/if}
-			{#if !data.loops && data.slots.length > 0}
-				<span class={hint}>does not loop</span>
-			{/if}
-		</p>
-	{/if}
-
-	<section>
-		<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Slots</h2>
-		<SlotList
-			{rows}
-			{expanded}
-			{selecting}
-			{selected}
-			{swiped}
-			{flash}
-			insetTop={headerHeight}
-			{press}
-			onswipe={(key, side) => (swiped = side === null ? null : { key, side })}
-			ontap={tap}
-			ondragstart={() => {
-				dragging = true;
-				expanded = null;
-				swiped = null;
-			}}
-			ondragend={() => (dragging = false)}
-			onreorder={reorder}
-			ondelete={(id) => remove([id])}
-			onremoveAlt={removeAlternative}
-			onaddAlt={openAlternative}
-			onnote={(id, note) => send('note', { stepId: id, note })}
-			onadd={openPicker}
-		/>
-	</section>
-
-	{#if data.taughtIn.length > 0}
-		<section>
-			<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">Taught in</h2>
-			<ul class="space-y-1">
-				{#each data.taughtIn as lesson (lesson.id)}
-					<li>
-						<a
-							class="text-[15px] text-accent"
-							href={resolve('/[dance]/lessons/[id]', {
-								dance: data.dance.slug,
-								id: String(lesson.id)
-							})}>{lesson.title}</a
-						>
-						<span class="text-[12px] text-muted">· {dateLabel(lesson.lessonDay)}</span>
-					</li>
-				{/each}
-			</ul>
-		</section>
-	{/if}
-</main>
+	{/snippet}
+</Dialog>
 
 {#if selecting}
 	<SelectionBar
+		bind:height={barHeight}
 		count={selected.length}
-		{extractBlocked}
+		blocks={actionBlocks(selected.length, extractBlocked)}
 		onabove={() => addAround('before')}
 		onbelow={() => addAround('after')}
 		onduplicate={() => {
+			// Selection from ⋯ starts empty: nothing to post yet.
+			if (selected.length === 0) return;
 			const ids = inOrder(rows, selected);
 			stopSelecting();
 			send('duplicateMany', { stepIds: ids });
 		}}
-		onextract={() => (naming = true)}
+		onextract={() => {
+			// A refused earlier Make routine (or rename) must not greet this one.
+			dismissed = form;
+			naming = true;
+		}}
 		ondelete={() => {
+			if (selected.length === 0) return;
 			const ids = inOrder(rows, selected);
 			stopSelecting();
 			remove(ids);
@@ -603,35 +868,92 @@
 
 <Sheet title="Make a routine" open={naming} onclose={() => (naming = false)}>
 	<form
+		id="make-routine"
+		novalidate
 		method="POST"
 		action="?/extract"
-		class="space-y-3"
-		use:guarded={{ label: 'New routine name', submit: extracted }}
+		class="flex flex-col gap-3.5"
+		use:guarded={{
+			label: 'New routine name',
+			submit: (input) => {
+				// One routine per tap: a second tap while the first is out is dropped.
+				if (making) return input.cancel();
+				making = true;
+				const done = extracted(input);
+				return async (args) => {
+					try {
+						const run = await done;
+						if (typeof run === 'function') await run(args);
+					} finally {
+						making = false;
+					}
+				};
+			}
+		}}
 	>
 		{#each inOrder(rows, selected) as id (id)}
 			<input type="hidden" name="stepIds" value={id} />
 		{/each}
-		{#if bannerFailure}
-			<p class={errorBox} role="alert">{bannerFailure}</p>
+		{#if place?.where === 'extract' && place.field === null && dismissed !== form}
+			<Banner kind="error" title={place.message} />
 		{/if}
-		<label class="block">
-			<span class="mb-1 block text-[12px] font-medium text-ink-2">Name</span>
-			<input name="name" required maxlength="200" placeholder="Hammerlock combo" class={FIELD} />
-		</label>
-		<p class="text-[12px] text-muted">
-			The {selected.length === 1 ? 'slot moves' : `${selected.length} slots move`} into the new routine,
-			and it takes their place here.
-		</p>
+		<div>
+			<label class={LABEL} for="make-name">Name</label>
+			<!-- The sheet exists to type this one thing. -->
+			<!-- svelte-ignore a11y_autofocus -->
+			<input
+				id="make-name"
+				name="name"
+				required
+				autofocus
+				maxlength="200"
+				value={place?.where === 'extract' &&
+				dismissed !== form &&
+				form &&
+				'name' in form &&
+				typeof form.name === 'string'
+					? form.name
+					: ''}
+				placeholder="Shine opener"
+				class={FIELD}
+				aria-invalid={nameError ? 'true' : undefined}
+				aria-describedby={nameError ? 'make-name-error' : undefined}
+			/>
+			{#if nameError}<FieldError id="make-name-error" message={nameError} />{/if}
+		</div>
+		<p class="text-[14px] leading-[1.45] text-muted">{makeRoutineCaption(selected.length)}</p>
+		<ol class="flex flex-col gap-1.5">
+			{#each inOrder(rows, selected) as id (id)}
+				{@const i = rows.findIndex((r) => r.id === id)}
+				<li class="flex items-center gap-2.5">
+					<span
+						class="grid size-[26px] shrink-0 place-items-center rounded-full bg-accent-soft text-[12px] font-extrabold text-accent-text tabular-nums"
+						>{i + 1}</span
+					>
+					<span class="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink-2"
+						>{rows[i].title}</span
+					>
+				</li>
+			{/each}
+		</ol>
+	</form>
+
+	{#snippet footer()}
 		<button
 			type="submit"
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-			>Make routine</button
+			form="make-routine"
+			class={button('primary', 'md', true)}
+			aria-busy={making}
+			aria-label={making ? 'Making routine' : undefined}
 		>
-	</form>
+			{#if making}<Spinner />{:else}<Icon name="route" size={20} />Make routine{/if}
+		</button>
+	{/snippet}
 </Sheet>
 
 <Toast
 	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
+	bottom={selecting ? `calc(${barHeight}px + 0.5rem)` : 'calc(1rem + env(safe-area-inset-bottom))'}
 	onaction={() => {
 		const t = toast;
 		toast = null;

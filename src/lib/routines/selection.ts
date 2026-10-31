@@ -27,3 +27,15 @@ export function extractBlock(
 	if (at[at.length - 1] - at[0] !== at.length - 1) return 'Select slots next to each other.';
 	return null;
 }
+
+export type SelectionAction = 'above' | 'below' | 'duplicate' | 'extract' | 'delete';
+
+/** Why each action of the selection bar is greyed, or null when it is open. */
+export function actionBlocks(
+	count: number,
+	extractBlocked: string | null
+): Record<SelectionAction, string | null> {
+	const beside = count === 1 ? null : 'Select one slot to add next to it.';
+	const some = count === 0 ? 'Select slots first.' : null;
+	return { above: beside, below: beside, duplicate: some, extract: extractBlocked, delete: some };
+}

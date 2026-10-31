@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoScroll, dropIndex, moved, shiftFor } from './drag';
+import { autoScroll, dropIndex, gapTop, moved, shiftFor } from './drag';
 
 const centers = [50, 150, 250, 350]; // four 100 px cards
 
@@ -36,5 +36,16 @@ describe('moved', () => {
 		const list = ['a', 'b', 'c'];
 		expect(moved(list, 0, 2)).toEqual(['b', 'c', 'a']);
 		expect(list).toEqual(['a', 'b', 'c']);
+	});
+});
+
+describe('gapTop', () => {
+	const tops = [0, 74, 188];
+	const heights = [66, 106, 66];
+	it('opens the gap where the dragged card lands', () => {
+		expect(gapTop(tops, heights, 0, 2)).toBe(188);
+		expect(gapTop(tops, heights, 2, 0)).toBe(0);
+		expect(gapTop(tops, heights, 1, 1)).toBe(74);
+		expect(gapTop([0, 74, 148, 222], [66, 66, 66, 66], 1, 3)).toBe(222);
 	});
 });

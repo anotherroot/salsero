@@ -1,18 +1,22 @@
 <script lang="ts">
 	/**
-	 * A card that swipes left to reveal a button underneath it: `end` (Delete).
-	 * Left only — a right swipe did nothing worth the accidental triggers. The
-	 * gesture arithmetic is `$lib/gestures/swipe`; this only wires pointer
-	 * events to it and draws the offset.
+	 * A card that swipes left to reveal a button underneath it: `end` (Delete,
+	 * Remove). Left only — a right swipe did nothing worth the accidental
+	 * triggers. The gesture arithmetic is `$lib/gestures/swipe`; this only wires
+	 * pointer events to it and draws the offset.
 	 *
 	 * `touch-pan-y` hands vertical movement to the browser, so the page still
 	 * scrolls from a card; only a horizontal move becomes a swipe.
 	 */
 	import type { Snippet } from 'svelte';
 	import { swipe, type Side } from '$lib/gestures/swipe';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import type { IconName } from '$lib/icons/icons';
 
 	interface Action {
 		label: string;
+		/** Drawn 22 px over the label. */
+		icon?: IconName;
 		onclick: () => void;
 	}
 
@@ -24,6 +28,8 @@
 		end?: Action;
 		disabled?: boolean;
 		rounded?: string;
+		/** The button's width: how far an open card rests from home. */
+		reveal?: number;
 		children: Snippet;
 	}
 
@@ -34,12 +40,15 @@
 		end,
 		disabled = false,
 		rounded = 'rounded-xl',
+		reveal = 84,
 		children
 	}: Props = $props();
 
-	const REVEAL = 84;
 	const gesture = swipe({
-		reveal: REVEAL,
+		// A getter, so the gesture reads the prop when it needs it.
+		get reveal() {
+			return reveal;
+		},
 		lockPx: 10,
 		snap: 0.4,
 		sides: () => ({ left: end !== undefined, right: false })
@@ -47,7 +56,7 @@
 
 	/** The live offset while a finger is on it; null at rest. */
 	let tracking = $state<number | null>(null);
-	const rest = $derived(open === 'left' ? -REVEAL : 0);
+	const rest = $derived(open === 'left' ? -reveal : 0);
 	const x = $derived(tracking ?? rest);
 </script>
 
@@ -62,12 +71,13 @@
 		<div class="absolute inset-0 bg-danger" aria-hidden="true"></div>
 		<button
 			type="button"
-			class="absolute inset-y-0 right-0 text-[13px] font-semibold text-white"
-			style="width: {REVEAL}px"
+			class="absolute inset-y-0 right-0 flex cursor-pointer flex-col items-center justify-center gap-1 text-[14px] font-extrabold text-on-danger"
+			style="width: {reveal}px"
 			onclick={() => {
 				onchange(null);
 				end.onclick();
-			}}>{end.label}</button
+			}}
+			>{#if end.icon}<Icon name={end.icon} size={22} />{/if}{end.label}</button
 		>
 	{/if}
 	<div

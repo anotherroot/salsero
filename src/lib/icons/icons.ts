@@ -14,6 +14,13 @@ const CANONICAL = {
 	sliders:
 		'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle>',
 	plus: '<path d="M12 5v14M5 12h14"></path>',
+	'add-above':
+		'<path d="M12 3v8M8 7h8"></path><rect x="4" y="14.5" width="16" height="6" rx="2"></rect>',
+	'add-below':
+		'<rect x="4" y="3.5" width="16" height="6" rx="2"></rect><path d="M12 13v8M8 17h8"></path>',
+	copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"></rect><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"></path>',
+	'arrow-up': '<path d="M12 19V5M6.5 10.5L12 5l5.5 5.5"></path>',
+	'arrow-down': '<path d="M12 5v14M6.5 13.5L12 19l5.5-5.5"></path>',
 	minus: '<path d="M5 12h14"></path>',
 	back: '<path d="M15 5l-7 7 7 7"></path>',
 	'chevron-right': '<path d="M9 6l6 6-6 6"></path>',

@@ -114,7 +114,8 @@ src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
                      version (`routinesUsing`, coverage.ts), the picker's fitting
-                     (fit.ts), the selection's rules, and the delete snapshot.
+                     (fit.ts), the selection's rules, the delete snapshot, and the routine
+                     page's wording and where a refusal shows (page.ts).
                      Client-safe
 src/lib/figures/     PURE: a figure page's lines — timing, the practice line, the
                      variation switcher's steps, Move and Archive wording, the

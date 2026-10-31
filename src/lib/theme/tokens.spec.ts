@@ -9,6 +9,8 @@ const pairs: [TokenName, TokenName][] = [
 	['ink', 'ground'],
 	['ink', 'surface'],
 	['ink-2', 'surface'],
+	['ink-2', 'accent-soft'],
+	['warn', 'warn-soft'],
 	['muted', 'surface'],
 	['muted', 'ground'],
 	['accent-text', 'surface'],

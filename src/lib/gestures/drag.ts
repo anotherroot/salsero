@@ -42,3 +42,11 @@ export function moved<T>(list: T[], from: number, to: number): T[] {
 	out.splice(to, 0, item);
 	return out;
 }
+
+/**
+ * The top (list-relative) of the gap the dragged card leaves open at `to`:
+ * the target's own top moving up, its bottom less the dragged height moving down.
+ */
+export function gapTop(tops: number[], heights: number[], from: number, to: number): number {
+	return to <= from ? tops[to] : tops[to] + heights[to] - heights[from];
+}

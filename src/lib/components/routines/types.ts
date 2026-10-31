@@ -18,8 +18,10 @@ export interface RowView {
 	id: number;
 	/** The main figure's label, or the embedded routine's name. */
 	title: string;
-	/** "1→1 · Closed → Open". Empty when nothing in the slot is danceable. */
+	/** "1→1 · Closed → Open", led by "Routine · 3 slots" for a routine. Empty when nothing is danceable. */
 	meta: string;
+	/** No option and no child: the title says so, muted. */
+	empty: boolean;
 	note: string | null;
 	/** Where swiping right or "Open →" goes; null when there is nothing to open.
 	 *  A `resolve()` result, not a bare string — `<a href>` needs that to pass
@@ -31,7 +33,6 @@ export interface RowView {
 	canAddAlternative: boolean;
 	/** A refusal aimed at this slot. */
 	failure: string | null;
-	/** What does not connect between this row and the next danceable one; null when it does. */
 	/**
 	 * What does not connect between this row and the next danceable one; null
 	 * when it does. `bridge`: something closes the gap in one step, so the seam

@@ -118,6 +118,13 @@ export const load: PageServerLoad = ({ params }) => {
 				.where(eq(exercises.routineId, routine.id))
 				.get()?.id ?? null,
 		slots,
+		// How many slots each embedded routine has, by its id — the card's
+		// "Routine · 3 slots" — counted from the shapes already built.
+		childSlots: Object.fromEntries(
+			slots.flatMap((s) =>
+				s.childId === null ? [] : [[s.childId, shapes.get(s.childId)?.slots.length ?? 0]]
+			)
+		) as Record<number, number>,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(figureLabels(db, dance)),
@@ -185,8 +192,23 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
-		if (!name || notes === undefined) {
-			return fail(400, { message: 'Give the routine a name (up to 200 characters).' });
+		// What was typed comes back, so a refused Save does not empty the form.
+		const typed = { name: String(form.get('name') ?? ''), notes: String(form.get('notes') ?? '') };
+		if (!name) {
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'Give the routine a name (up to 200 characters).',
+				...typed
+			});
+		}
+		if (notes === undefined) {
+			return fail(400, {
+				action: 'rename',
+				field: 'notes',
+				message: 'Notes are up to 2000 characters.',
+				...typed
+			});
 		}
 		updateRoutine(db, routine.id, { name, notes });
 		return { ok: true };
@@ -357,10 +379,18 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const stepIds = ints(form, 'stepIds');
 		const name = text(form, 'name');
-		if (!name) return fail(400, { message: 'Give the new routine a name (up to 200 characters).' });
+		if (!name) {
+			return fail(400, {
+				action: 'extract',
+				field: 'name',
+				message: 'Give the new routine a name (up to 200 characters).',
+				name: String(form.get('name') ?? '')
+			});
+		}
 		const made = stepIds.length === 0 ? null : extractRoutine(getDb(), routine.id, stepIds, name);
 		if (!made) {
 			return fail(400, {
+				action: 'extract',
 				message:
 					'Those slots cannot become a routine: they have to sit next to each other and hold no routine, and this routine cannot itself be embedded anywhere.'
 			});

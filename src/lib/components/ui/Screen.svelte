@@ -31,6 +31,7 @@
 
 <!-- The slim band: fixed, fades in once the big one has scrolled away. -->
 <div
+	data-slim-band
 	class="fixed inset-x-0 top-0 z-30 bg-band px-[10px] transition-opacity duration-150 motion-reduce:transition-none"
 	class:opacity-0={!slim}
 	class:pointer-events-none={!slim}
