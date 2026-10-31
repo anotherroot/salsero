@@ -295,12 +295,13 @@ now)`, computed per request. No cron, no cached "last done" column.
 
 The home page. One page serves both "exercises" and "today".
 
-- **Header:** date with ‹ › arrows; › disabled on today. `?day=YYYY-MM-DD`
-  in the URL so days are linkable and back-button friendly.
+- **Header:** today shows ‹ (previous day) and Settings on the band; a past
+  day shows ‹ › and "Back to today" (the look is in the redesign spec).
+  `?day=YYYY-MM-DD` in the URL so days are linkable and back-button friendly.
 - **Viewing today:**
   1. **Due** — active exercises at urgency ≥ 1, never-done included, most urgent
      first.
-  2. **Not yet due** — the rest of the active ones, dimmed but shown and still
+  2. **Not yet due** — the rest of the active ones, grey tiles but shown and still
      loggable: seeing what is coming is how you pick a short session.
   3. **Done today** — exercises with ≥1 set today, in the "done" colour,
      showing the set count. Ordered by most recent set first. (Done sits below

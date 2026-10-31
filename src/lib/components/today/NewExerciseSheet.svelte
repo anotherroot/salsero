@@ -37,9 +37,10 @@
 			}
 		}}
 	>
-		<label class="block">
-			<span class={LABEL}>Name</span>
+		<div>
+			<label for="new-exercise-name" class={LABEL}>Name</label>
 			<input
+				id="new-exercise-name"
 				name="name"
 				required
 				maxlength="200"
@@ -55,7 +56,7 @@
 					<span>{message}</span>
 				</p>
 			{/if}
-		</label>
+		</div>
 		<FrequencyField name="everyDays" bind:value={everyDays} />
 		<label class="block">
 			<span class={LABEL}>Notes<span class="font-normal text-muted">&nbsp;(optional)</span></span>

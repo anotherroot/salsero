@@ -2,7 +2,7 @@
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { GROUP, LABEL, SECTION_LABEL, SELECT } from '$lib/components/ui/styles';
+	import { GROUP, LABEL, SECTION_LABEL, SELECT, iconButton } from '$lib/components/ui/styles';
 	import { timeOfDay } from '$lib/day/day';
 	import { pastGroups } from '$lib/exercises/today';
 	import { dayLabel, setSummary } from '$lib/format';
@@ -40,12 +40,15 @@
 					<div class="flex min-h-[60px] items-center gap-3 py-2 pr-1.5">
 						<TypeTile tone="done" exercise={kinds[g.exerciseId]} />
 						<span class="min-w-0 flex-1 text-[16px] font-bold break-words text-ink">{g.name}</span>
-						<button
-							type="button"
-							class="flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full text-accent"
-							aria-label="Add a set of {g.name} to this day"
-							onclick={() => onlog(g.exerciseId)}><Icon name="plus" size={24} /></button
-						>
+						{#if kinds[g.exerciseId]}
+							<!-- An archived exercise can't take a set, so it gets no "+". -->
+							<button
+								type="button"
+								class={iconButton('bare').replace('text-ink', 'text-accent')}
+								aria-label="Add a set of {g.name} to this day"
+								onclick={() => onlog(g.exerciseId)}><Icon name="plus" size={24} /></button
+							>
+						{/if}
 					</div>
 				</div>
 				{#each g.sets as s (s.id)}
