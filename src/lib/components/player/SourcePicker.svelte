@@ -6,7 +6,7 @@
 	(`loadSongGrid`), since the owner also mounts the `<audio>`.
 -->
 <script lang="ts">
-	import { SOURCES } from '$lib/player/view';
+	import { RUN_SOURCES } from '$lib/player/view';
 	import type { PickerSong } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
@@ -51,7 +51,7 @@
 		<Segmented
 			label="Source"
 			name="{name}-source"
-			items={SOURCES}
+			items={RUN_SOURCES}
 			bind:value={() => source, (v) => (source = v === 'song' ? 'song' : 'count')}
 		/>
 	</div>

@@ -164,6 +164,10 @@ describe('what the Practice page derives', () => {
 		});
 		// Without an exercise there is nothing to go back to.
 		expect(practiceBack({ ...p, from: 'exercise', exercise: null }).href).toBe('/salsa/routines/3');
+		// An archived exercise's page 404s.
+		expect(practiceBack({ ...p, from: 'exercise', exercise: { ...EX, archived: true } }).href).toBe(
+			'/salsa/routines/3'
+		);
 	});
 	it('never lets `from` steer Back anywhere but Today', () => {
 		const p = { dance: 'bachata', routine: null, song: null, exercise: null } as const;

@@ -72,7 +72,7 @@ export function runSubtitle(
 }
 
 /** The Source switch's two options, shared by Setup and SourcePicker. */
-export const SOURCES = [
+export const RUN_SOURCES = [
 	{ value: 'count', label: 'Count only' },
 	{ value: 'song', label: 'A song' }
 ];
@@ -134,11 +134,12 @@ export function practiceBack(p: {
 	from: string | null;
 	routine: { id: number; name: string } | null;
 	song: { id: number; title: string } | null;
-	exercise: { id: number; name: string } | null;
+	/** `archived`: its page 404s, so Back cannot go there. */
+	exercise: { id: number; name: string; archived?: boolean } | null;
 }): { href: string; label: string } {
 	const today = { href: `/${p.dance}`, label: 'Back to Today' };
 	if (p.from === 'today') return today;
-	if (p.from === 'exercise' && p.exercise) {
+	if (p.from === 'exercise' && p.exercise && !p.exercise.archived) {
 		return { href: `/${p.dance}/exercises/${p.exercise.id}`, label: `Back to ${p.exercise.name}` };
 	}
 	if (p.routine) {

@@ -59,7 +59,11 @@ export const load: PageServerLoad = ({ url, params }) => {
 		// The URL's `?song=`, not the exercise's memory: Back returns to the page
 		// that opened Practice.
 		song: songId ? { id: songId, title: songs.find((s) => s.id === songId)!.title } : null,
-		exercise: exercise && { id: exercise.id, name: exercise.name }
+		exercise: exercise && {
+			id: exercise.id,
+			name: exercise.name,
+			archived: exercise.archivedAt !== null
+		}
 	});
 
 	return {
