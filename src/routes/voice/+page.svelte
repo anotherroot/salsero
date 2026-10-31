@@ -1,7 +1,14 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { act } from '$lib/components/routines/act';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
+	import Toast from '$lib/components/ui/Toast.svelte';
+	import { GROUP, ROW, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
+	import { recordedLabel, takeRows, tempoMeta, tempoState } from '$lib/voice/grid';
+	import { voiceBack } from '$lib/voice/back';
 	import { invalidateAll } from '$app/navigation';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import {
@@ -14,9 +21,9 @@
 	import { cutTake, recordAgainstClick, type Capture, type Take } from '$lib/voice/capture';
 	import { phraseCandidates, type PhraseSlice } from '$lib/voice/slice';
 	import { encodeWav } from '$lib/voice/wav';
-	import type { ActionData, PageData } from './$types';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
 
 	/** Bars counted per session. Four candidates beats re-recording until one is clean. */
 	const BARS = 4;
@@ -25,7 +32,9 @@
 
 	type Stage = 'grid' | 'arming' | 'recording' | 'choosing';
 	let stage = $state<Stage>('grid');
-	let pattern = $state<PhrasePattern>('salsa');
+	// `?pattern=` is where Practice was counting; anything else is salsa.
+	const asked = page.url.searchParams.get('pattern');
+	let pattern = $state<PhrasePattern>(PHRASE_PATTERNS.find((p) => p === asked) ?? 'salsa');
 	let bpm = $state<number>(TEMPO_LADDER[0]);
 	let error = $state<string | null>(null);
 	let saving = $state(false);
@@ -34,9 +43,6 @@
 	let capture: Capture | null = null;
 	let slices = $state<{ a: PhraseSlice[]; b: PhraseSlice[] }>({ a: [], b: [] });
 	let chosen = $state<{ a: number | null; b: number | null }>({ a: null, b: null });
-
-	const have = (p: string, t: number, half: 'a' | 'b') =>
-		data.takes.some((k) => k.pattern === p && k.bpm === t && k.phrase === half);
 
 	/** One context for every audition: iOS caps how many may exist at once. */
 	let preview: AudioContext | null = null;
@@ -214,6 +220,37 @@
 		})
 	);
 
+	// Back goes where My count was opened from: Practice, else Settings.
+	const backTo = $derived(voiceBack(page.url.searchParams.get('from')));
+	const rows = $derived(takeRows(data.takes, pattern));
+
+	let toast = $state<{ id: number; message: string; action?: string; undo?: () => void } | null>(
+		null
+	);
+	let seq = 0;
+
+	function refused(result: Awaited<ReturnType<typeof act>>) {
+		if (result.type !== 'failure') return false;
+		const message = (result.data as { message?: string } | undefined)?.message;
+		toast = { id: ++seq, message: message ?? 'Could not do that.' };
+		return true;
+	}
+
+	/** Delete now; the toast's Undo brings the take back for a minute. */
+	async function remove(id: number, deleted: string) {
+		if (refused(await act('delete', { id }))) return;
+		toast = {
+			id: ++seq,
+			message: deleted,
+			action: 'Undo',
+			undo: async () => {
+				const r = await act('restore', { id });
+				toast = null;
+				refused(r);
+			}
+		};
+	}
+
 	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
 	const chip =
 		'flex h-11 min-w-[5rem] cursor-pointer items-center justify-center rounded-lg border px-3 text-[13px] has-checked:border-accent has-checked:bg-accent has-checked:text-accent-ink border-rule bg-raised text-ink-2';
@@ -224,88 +261,79 @@
 
 <svelte:head><title>My count · Salsa</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
->
-	<a
-		href={resolve('/settings')}
-		aria-label="Back to Settings"
-		class="-mt-1 mb-1 -ml-3 flex h-11 w-11 items-center justify-center rounded-full text-ink"
-		><Icon name="back" /></a
-	>
-	<h1 class="text-[17px] font-semibold">My count</h1>
-</header>
+{#snippet back()}
+	<BandButton icon="back" label={backTo.label} href={backTo.href} />
+{/snippet}
+{#snippet patterns()}
+	<Segmented
+		onBand
+		name="pattern"
+		label="Count pattern"
+		items={PHRASE_PATTERNS.map((p) => ({ value: p, label: COUNT_PATTERN_LABEL[p] }))}
+		bind:value={pattern}
+	/>
+{/snippet}
 
-<main class="space-y-6 px-4 pt-4 pb-4">
-	<p class="text-[13px] text-muted">
-		Record yourself counting, and the player uses your voice instead of the built-in one. A tempo
-		with nothing recorded falls back to the built-in count, so there is no wrong order to do this
-		in.
-	</p>
-
-	{#if error}
-		<p class="rounded-lg border border-danger px-3 py-2 text-[13px] text-danger">{error}</p>
-	{/if}
-	{#if form?.message}
-		<p class="rounded-lg border border-danger px-3 py-2 text-[13px] text-danger">{form.message}</p>
-	{/if}
-
+<Screen title="My count" left={back} extra={stage === 'grid' ? patterns : undefined}>
 	{#if stage === 'grid'}
-		{#each PHRASE_PATTERNS as p (p)}
-			<section>
-				<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
-					{COUNT_PATTERN_LABEL[p]}
-				</h2>
-				<ul class="space-y-2">
-					{#each TEMPO_LADDER as t (t)}
-						<li class="flex items-center gap-3 rounded-xl border border-rule bg-raised px-3 py-2">
-							<span class="w-16 text-[15px] tabular-nums">{t} BPM</span>
-							<span class="flex-1 text-[13px] text-muted">
-								{#if have(p, t, 'a') && have(p, t, 'b')}
-									Recorded
-								{:else if have(p, t, 'a') || have(p, t, 'b')}
-									Half recorded
-								{:else}
-									—
-								{/if}
-							</span>
-							<button
-								type="button"
-								class="h-9 rounded-lg border border-rule px-3 text-[13px] text-ink"
-								onclick={() => {
-									pattern = p;
-									bpm = t;
-									stage = 'arming';
-								}}
-							>
-								{have(p, t, 'a') || have(p, t, 'b') ? 'Redo' : 'Record'}
-							</button>
-						</li>
-					{/each}
-				</ul>
-			</section>
-		{/each}
+		<p class="mx-1 text-[15px] text-ink-2">
+			Record yourself counting and the player uses your voice. A tempo with nothing recorded uses
+			the built-in count.
+		</p>
 
-		{#if data.takes.length}
-			<section>
-				<h2 class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
-					Everything recorded
-				</h2>
-				<ul class="space-y-1">
-					{#each data.takes as k (k.id)}
-						<li class="flex items-center gap-3 text-[13px]">
-							<span class="flex-1 text-ink-2">
-								{COUNT_PATTERN_LABEL[k.pattern]} · {k.bpm} BPM · phrase {k.phrase}
-							</span>
-							<form method="POST" action="?/delete" use:enhance>
-								<input type="hidden" name="id" value={k.id} />
-								<button class="text-danger">Delete</button>
-							</form>
-						</li>
-					{/each}
-				</ul>
-			</section>
+		{#if error}
+			<p class="rounded-lg border border-danger px-3 py-2 text-[13px] text-danger">{error}</p>
+		{/if}
+
+		<span class="{SECTION_LABEL} mt-1.5">{recordedLabel(data.takes, pattern)}</span>
+		<ul class={GROUP} aria-label="Tempos">
+			{#each TEMPO_LADDER as t (t)}
+				{@const state = tempoState(data.takes, pattern, t)}
+				{@const meta = tempoMeta(state, pattern)}
+				<li class="{ROW} min-h-16 pr-3">
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="text-[16px] font-bold text-ink tabular-nums">{t} BPM</span>
+						<span
+							class="text-[13px] {meta.tone === 'done'
+								? 'font-bold text-done'
+								: meta.tone === 'status'
+									? 'font-bold text-status'
+									: 'text-muted'}">{meta.text}</span
+						>
+					</span>
+					<button
+						type="button"
+						class={state.state === 'none' ? button('secondary', 'sm') : button('tertiary', 'sm')}
+						aria-label="{state.state === 'none' ? 'Record' : 'Redo'} {t} BPM"
+						onclick={() => {
+							bpm = t;
+							stage = 'arming';
+						}}
+					>
+						{#if state.state === 'none'}<Icon name="mic" size={18} />Record{:else}Redo{/if}
+					</button>
+				</li>
+			{/each}
+		</ul>
+
+		{#if rows.length}
+			<span class="{SECTION_LABEL} mt-3.5">Recorded takes</span>
+			<ul class={GROUP}>
+				{#each rows as r (r.id)}
+					<li class="{ROW} min-h-16 pr-1.5">
+						<span class="flex min-w-0 flex-1 flex-col">
+							<span class="text-[16px] font-bold text-ink tabular-nums">{r.title}</span>
+							<span class="text-[13px] text-muted">{r.meta}</span>
+						</span>
+						<button
+							type="button"
+							class={iconButton('bare').replace('text-ink', 'text-danger')}
+							aria-label={r.deleteLabel}
+							onclick={() => remove(r.id, r.deleted)}><Icon name="trash" size={20} /></button
+						>
+					</li>
+				{/each}
+			</ul>
 		{/if}
 	{:else if stage === 'arming'}
 		<section class="space-y-4">
@@ -413,4 +441,18 @@
 			>
 		</section>
 	{/if}
-</main>
+</Screen>
+
+<Toast
+	{toast}
+	onaction={() => toast?.undo?.()}
+	ondismiss={() => (toast = null)}
+	bottom="calc(1rem + env(safe-area-inset-bottom))"
+/>
+
+<Toast
+	{toast}
+	onaction={() => toast?.undo?.()}
+	ondismiss={() => (toast = null)}
+	bottom="calc(1rem + env(safe-area-inset-bottom))"
+/>

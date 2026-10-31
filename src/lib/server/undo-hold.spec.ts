@@ -41,6 +41,20 @@ describe('Hold', () => {
 		vi.advanceTimersByTime(120_000);
 		expect(gone).toHaveBeenCalledTimes(1);
 	});
+	it('survives an onExpire that throws', () => {
+		const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const h = new Hold<number>(60_000, () => {
+			throw new Error('boom');
+		});
+		h.put('a', 1);
+		expect(() => vi.advanceTimersByTime(60_000)).not.toThrow();
+		expect(h.take('a')).toBeNull();
+		h.put('b', 2);
+		expect(() => h.put('b', 3)).not.toThrow();
+		expect(h.take('b')).toBe(3);
+		expect(err).toHaveBeenCalledTimes(2);
+		err.mockRestore();
+	});
 	it('keeps keys apart', () => {
 		const h = new Hold<number>(60_000);
 		h.put('a', 1);

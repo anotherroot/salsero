@@ -15,19 +15,32 @@ export class Hold<T> {
 		private onExpire?: (value: T) => void
 	) {}
 
+	/**
+	 * `onExpire` may unlink a file. Whatever it does, a failure must not throw
+	 * out of a timer (an uncaught exception would take the server down) or out
+	 * of `put`, and must leave the hold usable.
+	 */
+	private expire(value: T): void {
+		try {
+			this.onExpire?.(value);
+		} catch (e) {
+			console.error('undo hold: onExpire failed', e);
+		}
+	}
+
 	/** Hold `value` under `key`; a value already held there expires at once. */
 	put(key: string, value: T): void {
 		const old = this.held.get(key);
 		if (old) {
 			clearTimeout(old.timer);
 			this.held.delete(key);
-			this.onExpire?.(old.value);
+			this.expire(old.value);
 		}
 		const timer = setTimeout(() => {
 			const cur = this.held.get(key);
 			if (cur?.timer !== timer) return;
 			this.held.delete(key);
-			this.onExpire?.(cur.value);
+			this.expire(cur.value);
 		}, this.ttlMs);
 		// A held value never keeps the process alive.
 		(timer as { unref?: () => void }).unref?.();

@@ -1,7 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { CountPattern } from '$lib/labels';
 import type { Db } from './db';
-import { countTakes } from './db/schema';
+import { countTakes, type CountTake } from './db/schema';
 
 export interface CountTakeInput {
 	pattern: CountPattern;
@@ -67,14 +67,42 @@ export function putCountTake(db: Db, input: CountTakeInput): { replaced: string 
 	});
 }
 
-/** Hard delete, like a recording. Returns the file to unlink, or null if it was already gone. */
-export function deleteCountTake(db: Db, id: number): string | null {
-	const row = db
-		.select({ file: countTakes.file })
-		.from(countTakes)
-		.where(eq(countTakes.id, id))
-		.get();
-	if (!row) return null;
-	db.delete(countTakes).where(eq(countTakes.id, id)).run();
-	return row.file;
+/**
+ * Hard delete, like a recording. Returns the whole row (the caller holds it
+ * for Undo and unlinks its file when the hold runs out), or null if it was
+ * already gone.
+ */
+export function deleteCountTake(db: Db, id: number): CountTake | null {
+	return db.transaction((tx) => {
+		const row = tx.select().from(countTakes).where(eq(countTakes.id, id)).get();
+		if (!row) return null;
+		tx.delete(countTakes).where(eq(countTakes.id, id)).run();
+		return row;
+	});
+}
+
+/**
+ * Put a deleted take back (inserted without its `id`, so it gets a new one).
+ * `'taken'` when the slot holds a take again: the newer recording wins, and
+ * the caller unlinks the restored row's file.
+ */
+export function restoreCountTake(db: Db, row: CountTake): 'ok' | 'taken' {
+	return db.transaction((tx) => {
+		const slot = tx
+			.select({ id: countTakes.id })
+			.from(countTakes)
+			.where(
+				and(
+					eq(countTakes.pattern, row.pattern),
+					eq(countTakes.bpm, row.bpm),
+					eq(countTakes.phrase, row.phrase)
+				)
+			)
+			.get();
+		if (slot) return 'taken';
+		const { id: _id, ...values } = row;
+		void _id;
+		tx.insert(countTakes).values(values).run();
+		return 'ok';
+	});
 }
