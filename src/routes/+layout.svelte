@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { navigating, page } from '$app/state';
-	import { DANCES, isDanceSlug, type DanceSlug } from '$lib/dances/dances';
+	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
@@ -26,8 +26,8 @@
 	 * unknown one means this is not a dance page.
 	 */
 	const danceOf = (path: string) => {
-		const slug = path.split('/')[1] ?? '';
-		return isDanceSlug(slug) ? DANCES[slug] : null;
+		const slug = danceInPath(path);
+		return slug ? DANCES[slug] : null;
 	};
 	const dance = $derived(danceOf(page.url.pathname));
 	/*

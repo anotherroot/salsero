@@ -1,9 +1,20 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import type { ActionData } from './$types';
+	import { page } from '$app/state';
+	import { isDanceSlug } from '$lib/dances/dances';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import StatusBlock from '$lib/components/system/StatusBlock.svelte';
+	import { button } from '$lib/components/ui/styles';
+	import type { ActionData, PageData } from './$types';
 
-	let { form }: { form: ActionData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let busy = $state(false);
+
+	// The app opened this page for one dance; otherwise the one last used.
+	const asked = $derived(page.url.searchParams.get('dance') ?? '');
+	const dance = $derived(isDanceSlug(asked) ? asked : data.lastDance);
 
 	// Straight into the app once the token exists; the link below is the
 	// fallback if Chrome wants a tap of its own for an app link.
@@ -12,44 +23,45 @@
 	});
 </script>
 
-<svelte:head><title>Pair the app · Salsa</title></svelte:head>
+<svelte:head><title>Pair the app</title></svelte:head>
 
-<main class="grid h-dvh place-items-center overflow-y-auto px-5 py-12">
-	<div class="w-full max-w-sm space-y-4">
-		<div>
-			<h1 class="text-[17px] font-semibold tracking-tight">Pair the app</h1>
-			<p class="mt-1 text-[13px] text-muted">
-				Lets the app upload videos in the background and remind you what is due. You can remove it
-				again in Settings.
-			</p>
-		</div>
+<div data-dance={dance} style:display="contents">
+	<Screen title="Pair the app">
 		{#if form?.link}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
-			<a
-				href={form.link}
-				class="flex h-11 w-full items-center justify-center rounded-lg bg-accent text-[15px] font-medium text-white"
-			>
-				Open the app
-			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			<StatusBlock
+				icon="check"
+				tone="done"
+				title="Paired"
+				body="Opening the app now. If it does not open by itself, tap the button."
+			/>
+			<BottomBar>
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
+				<a href={form.link} rel="external" class={button('primary', 'lg', true)}>Open the app</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			</BottomBar>
 		{:else}
-			<form
-				method="POST"
-				use:enhance={() => {
-					busy = true;
-					return async ({ update }) => {
-						await update();
-						busy = false;
-					};
-				}}
-			>
-				<button
-					disabled={busy}
-					class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white disabled:opacity-60"
+			<StatusBlock
+				icon="phone"
+				tone="accent"
+				title="Pair this phone"
+				body="Lets the app upload videos in the background and remind you what is due. You can remove it again in Settings."
+			/>
+			<BottomBar>
+				<form
+					method="POST"
+					use:enhance={() => {
+						busy = true;
+						return async ({ update }) => {
+							await update();
+							busy = false;
+						};
+					}}
 				>
-					Pair this phone
-				</button>
-			</form>
+					<button class={button('primary', 'lg', true)} disabled={busy} aria-busy={busy}>
+						{#if busy}<Spinner size={24} />{:else}Pair this phone{/if}
+					</button>
+				</form>
+			</BottomBar>
 		{/if}
-	</div>
-</main>
+	</Screen>
+</div>

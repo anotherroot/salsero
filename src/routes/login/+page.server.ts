@@ -10,6 +10,13 @@ import {
 	recordFailedLogin,
 	verifyPassword
 } from '$lib/server/auth';
+import {
+	DANCE_COOKIE,
+	DEFAULT_DANCE,
+	danceInPath,
+	isDanceSlug,
+	type DanceSlug
+} from '$lib/dances/dances';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -29,7 +36,12 @@ function safeNext(raw: string | null): string {
 	return raw;
 }
 
-export const load: PageServerLoad = ({ url }) => ({ next: safeNext(url.searchParams.get('next')) });
+export const load: PageServerLoad = ({ url, cookies }) => {
+	const next = safeNext(url.searchParams.get('next'));
+	const last = cookies.get(DANCE_COOKIE);
+	const dance: DanceSlug = danceInPath(next) ?? (last && isDanceSlug(last) ? last : DEFAULT_DANCE);
+	return { next, dance };
+};
 
 export const actions: Actions = {
 	default: async ({ request, cookies, getClientAddress, url }) => {

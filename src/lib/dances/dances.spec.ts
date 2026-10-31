@@ -1,7 +1,25 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { THEMES } from '$lib/theme/tokens';
-import { DANCES, DANCE_SLUGS, DEFAULT_DANCE, getDance, isDanceSlug, isStyleOf } from './dances';
+import {
+	DANCES,
+	danceInPath,
+	DANCE_SLUGS,
+	DEFAULT_DANCE,
+	getDance,
+	isDanceSlug,
+	isStyleOf
+} from './dances';
+
+describe('danceInPath', () => {
+	it('reads the first segment when it is a dance', () => {
+		expect(danceInPath('/bachata/figures/2')).toBe('bachata');
+		expect(danceInPath('/salsa')).toBe('salsa');
+		expect(danceInPath('/settings')).toBeNull();
+		expect(danceInPath('/')).toBeNull();
+		expect(danceInPath('/salsax/a')).toBeNull();
+	});
+});
 
 describe('the dance registry', () => {
 	it('knows its two slugs and no others', () => {

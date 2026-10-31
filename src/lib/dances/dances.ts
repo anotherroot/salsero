@@ -174,3 +174,9 @@ export function isStyleOf(slug: string, style: string): boolean {
  * plain constant should not have to be imported across route files.
  */
 export const DANCE_COOKIE = 'dance';
+
+/** The dance a path belongs to: its first segment, when that is a dance. */
+export function danceInPath(path: string): DanceSlug | null {
+	const slug = path.split('/')[1] ?? '';
+	return isDanceSlug(slug) ? slug : null;
+}
