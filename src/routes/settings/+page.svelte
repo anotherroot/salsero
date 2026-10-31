@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { clockLabel } from '$lib/clock';
-	import { DANCE_SLUGS, DANCES } from '$lib/dances/dances';
+	import { DANCES } from '$lib/dances/dances';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import type { ActionData, PageData } from './$types';
@@ -55,7 +55,7 @@
 		</div>
 		<form
 			method="POST"
-			action="?/styles"
+			action="?/style"
 			class="space-y-3"
 			use:guarded={{
 				label: 'Default styles',
@@ -68,22 +68,18 @@
 				}
 			}}
 		>
-			{#if form && 'styleMessage' in form && form.styleMessage}
-				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
-					{form.styleMessage}
-				</p>
+			{#if form && 'message' in form && form.message}
+				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">{form.message}</p>
 			{/if}
-			{#each DANCE_SLUGS as slug (slug)}
-				{@const dance = DANCES[slug]}
-				<label class="block">
-					<span class={label}>{dance.label}</span>
-					<select name="style-{slug}" class={field} value={data.defaultStyles[slug]}>
-						{#each dance.styles as s (s)}
-							<option value={s}>{dance.styleLabel[s]}</option>
-						{/each}
-					</select>
-				</label>
-			{/each}
+			<input type="hidden" name="dance" value={data.dance} />
+			<label class="block">
+				<span class={label}>{DANCES[data.dance].label}</span>
+				<select name="style" class={field} value={data.defaultStyle}>
+					{#each DANCES[data.dance].styles as s (s)}
+						<option value={s}>{DANCES[data.dance].styleLabel[s]}</option>
+					{/each}
+				</select>
+			</label>
 			<button
 				disabled={stylesBusy}
 				class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white disabled:opacity-60"
@@ -100,7 +96,7 @@
 		</div>
 		<form
 			method="POST"
-			action="?/app"
+			action="?/reminder"
 			class="space-y-3"
 			use:guarded={{
 				label: 'App settings',
@@ -125,6 +121,15 @@
 					value={clockLabel(data.device.reminderMinute)}
 				/>
 			</label>
+			<button
+				disabled={busy}
+				class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white disabled:opacity-60"
+			>
+				Save
+			</button>
+		</form>
+
+		<form method="POST" action="?/videoSize" class="space-y-3" use:enhance>
 			<label class="block">
 				<span class={label}>Compress videos to</span>
 				<select name="shortSide" class={field} value={data.device.shortSide}>
@@ -133,12 +138,9 @@
 					{/each}
 				</select>
 			</label>
-			<button
-				disabled={busy}
-				class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white disabled:opacity-60"
+			<button class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white"
+				>Save</button
 			>
-				Save
-			</button>
 		</form>
 
 		{#if data.devices.length > 0}
@@ -148,7 +150,7 @@
 						<span class="flex-1">
 							<span class="block text-[15px] text-ink">{device.label}</span>
 							<span class="block text-[12px] text-muted">
-								Paired {device.paired}{device.lastUsed ? ` · last used ${device.lastUsed}` : ''}
+								{device.meta}
 							</span>
 						</span>
 						<form method="POST" action="?/removeDevice" use:enhance>

@@ -70,12 +70,41 @@ export function listDevices(db: Db, userId: string): DeviceRow[] {
 		.all();
 }
 
-/** A hard delete: a token is a credential, not history. False if not the user's. */
-export function removeDevice(db: Db, userId: string, id: number): boolean {
-	const result = db
-		.delete(deviceTokens)
-		.where(and(eq(deviceTokens.id, id), eq(deviceTokens.userId, userId)))
-		.run();
+/** A removed phone, whole, so Undo can put the same credential back. Server-only. */
+export type DeviceSnapshot = {
+	userId: string;
+	label: string;
+	tokenHash: string;
+	createdAt: number;
+	lastUsedAt: number | null;
+};
+
+/**
+ * A hard delete: a token is a credential, not history. Returns what was
+ * removed (for Undo), or null if it was not the user's.
+ */
+export function removeDevice(db: Db, userId: string, id: number): DeviceSnapshot | null {
+	const where = and(eq(deviceTokens.id, id), eq(deviceTokens.userId, userId));
+	const row = db
+		.select({
+			userId: deviceTokens.userId,
+			label: deviceTokens.label,
+			tokenHash: deviceTokens.tokenHash,
+			createdAt: deviceTokens.createdAt,
+			lastUsedAt: deviceTokens.lastUsedAt
+		})
+		.from(deviceTokens)
+		.where(where)
+		.get();
+	if (!row) return null;
+	db.delete(deviceTokens).where(where).run();
+	return row;
+}
+
+/** Put a removed phone back as a new row. False for another user's, or a hash already present. */
+export function restoreDevice(db: Db, userId: string, snap: DeviceSnapshot): boolean {
+	if (snap.userId !== userId) return false;
+	const result = db.insert(deviceTokens).values(snap).onConflictDoNothing().run();
 	return result.changes > 0;
 }
 

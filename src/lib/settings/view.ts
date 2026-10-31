@@ -1,0 +1,27 @@
+/**
+ * What the Settings screen decides before it posts. PURE and client-safe.
+ */
+import { daysBetween } from '$lib/day/day';
+import { dateLabel } from '$lib/format';
+
+/** The time the reminder starts on when it is switched on with none saved. */
+export const DEFAULT_REMINDER = '19:30';
+
+/**
+ * What the reminder control posts: `''` turns it off, a valid `HH:MM` sets it,
+ * and `null` posts nothing (the time field was cleared while on; the field
+ * shows the saved time again).
+ */
+export function reminderToSave(on: boolean, time: string): string | null {
+	if (!on) return '';
+	return /^\d{2}:\d{2}$/.test(time) ? time : null;
+}
+
+/** `Paired 28 Oct 2026 · last used today`. Days are `YYYY-MM-DD` in the user's zone. */
+export function deviceMeta(paired: string, lastUsed: string | null, today: string): string {
+	const base = `Paired ${dateLabel(paired)}`;
+	if (lastUsed === null) return base;
+	const ago = daysBetween(lastUsed, today);
+	const when = ago <= 0 ? 'today' : ago === 1 ? 'yesterday' : dateLabel(lastUsed);
+	return `${base} · last used ${when}`;
+}
