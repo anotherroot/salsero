@@ -269,8 +269,10 @@
 				{:else if groups.recent.length > 0}
 					<h3 class={SECTION_LABEL}>Recent</h3>
 					{@render card(groups.recent)}
-					<h3 class="{SECTION_LABEL} mt-2">All songs A–Z</h3>
-					{@render card(groups.rest)}
+					{#if groups.rest.length > 0}
+						<h3 class="{SECTION_LABEL} mt-2">All songs A–Z</h3>
+						{@render card(groups.rest)}
+					{/if}
 				{:else}
 					{@render card(groups.rest)}
 				{/if}

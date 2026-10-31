@@ -152,6 +152,7 @@ export class SheetStack {
 		if (!this.#started) return;
 		const wanted = this.#wanted();
 		while (this.#history < wanted) this.port.push(++this.#history);
+		this.#schedule();
 	}
 
 	/**

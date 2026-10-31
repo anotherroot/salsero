@@ -143,7 +143,7 @@ These are the user's decisions unless marked *(builder's call)*.
 ## Two kinds of opener
 
 - **A linking picker** opens from a button that reads as an action and
-  carries the search icon: "Link a figure…", "Link a section…",
+  carries the search icon: "Link an existing figure…", "Link a section…",
   "Link a figure or drill…", "Pick an exercise…".
 - **A field picker** opens from a field inside a form, which shows the
   current value (or a muted placeholder) and a ›. Tapping it opens the same
@@ -171,9 +171,9 @@ lesson teaches.
 
 | # | Where | Opener | Kind | Groups | Tap does | + | Create row |
 |---|---|---|---|---|---|---|---|
-| 1 | Lesson page → Figures | "Link a figure…" (replaces `LinkPicker`) | linking | Figures | `?/linkFigure`, close | yes | + Figure, + Variation: open the lesson's New figure sheet in that mode, name filled |
-| 2 | Lesson page → Routines | "Link a routine…" | linking | Routines | `?/linkRoutine`, close | yes | + Routine: the lesson's New routine sheet |
-| 3 | Lesson page → Exercises | "Link an exercise…" | linking | Figures, Routines, Drills | `?/linkExercise`, close | yes | + Exercise: the lesson's New exercise sheet |
+| 1 | Lesson page → Figures | "Link an existing figure…" (replaces `LinkPicker`) | linking | Figures | `?/linkFigure`, close | yes | + Figure, + Variation: open the lesson's New figure sheet in that mode, name filled |
+| 2 | Lesson page → Routines | "Link an existing routine…" | linking | Routines | `?/linkRoutine`, close | yes | + Routine: the lesson's New routine sheet |
+| 3 | Lesson page → Exercises | "Link an existing exercise…" | linking | Figures, Routines, Drills | `?/linkExercise`, close | yes | + Exercise: the lesson's New exercise sheet |
 | 4 | Lesson → + New figure → Variation of a figure | Figure field, starts on the lesson's first taught figure, empty if none | field (pick a figure) | In this lesson, Figures | fills the field | no | none |
 | 5 | Figure page → Move to… | "Or join a figure" field, starts empty; the "A new figure of its own" card stays above it | field (pick a figure, not its own) | Figures | fills the field; the name field and button follow it | no | none |
 | 6 | Routine editor → every + | unchanged (seams, ends, Add above/below, + Alternative) | acting | Figures, Routines | adds the slot, close (today's behaviour) | no | none |

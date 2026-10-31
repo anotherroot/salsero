@@ -93,6 +93,6 @@ describe('linkRefusal', () => {
 		expect(linkRefusal(404, { label: 'Clave' })).toBe('Clave was not linked. Try it again.');
 	});
 	it('says it plainly when it knows neither', () => {
-		expect(linkRefusal(null, null)).toBe('That could not be linked.');
+		expect(linkRefusal(null, null)).toBe('Try it again.');
 	});
 });

@@ -1,7 +1,7 @@
 /**
  * The Link popup's levels. PURE and client-safe.
  */
-import type { LinkOptions } from '$lib/types';
+import type { LinkCreateField, LinkOptions } from '$lib/types';
 import { lengthText, spotTime } from '$lib/video/spots';
 
 /** The popup's levels, bottom first. 'links': linked list + the Link button. 'pick': the picker.
@@ -43,7 +43,7 @@ export function destination(o: Pick<LinkOptions, 'spot' | 'context'>): string {
 }
 
 export type CreateStep = 'variation' | 'figure' | 'drill';
-export type CreateSpot = 'name' | 'figureName' | 'groupId' | 'style' | 'everyDays' | 'banner';
+export type CreateSpot = LinkCreateField | 'banner';
 
 const SHOWN: Record<CreateStep, CreateSpot[]> = {
 	variation: ['groupId', 'name'],
