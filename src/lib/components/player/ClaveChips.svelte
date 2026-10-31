@@ -11,7 +11,7 @@
 	let { value, onchange, name = 'clave' }: Props = $props();
 </script>
 
-<div class="flex gap-2">
+<div class="flex flex-wrap gap-1.5">
 	<label class={CHIP}>
 		<input
 			type="radio"

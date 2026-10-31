@@ -8,7 +8,11 @@
 	import { loadSongGrid } from './songGrid.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
-	import { CHIP, LABEL } from '$lib/components/ui/styles';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Slider from '$lib/components/ui/Slider.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { CHIP, button, iconButton } from '$lib/components/ui/styles';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { syntheticGrid, UNIFORM_FLOW, type Flow } from '$lib/scheduler/scheduler';
 	import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
@@ -42,6 +46,11 @@
 	}
 
 	let { dance, exercise, songs, takes, cue, onrun, onactive }: Props = $props();
+
+	/** A group's label: 13/700 muted, 4 px over its control. */
+	const GROUP_LABEL = 'mb-1 block text-[13px] font-bold text-muted';
+	/** The filled Play button, at the board's 52 px rather than the usual 44. */
+	const PLAY = iconButton('filled').replace('h-11 w-11', 'h-[52px] w-[52px]');
 
 	// Seeded once from what the exercise remembers. The popup remounts this
 	// component after every logged set, so "once" is per set, which is right.
@@ -242,82 +251,94 @@
 	});
 </script>
 
-<section class="rounded-xl border border-line bg-raised p-3">
+<section
+	aria-label="Practice"
+	class="flex flex-none flex-col rounded-[18px] bg-surface pt-3 pr-3 pb-3.5 pl-4 {player && runGrid
+		? 'gap-2.5'
+		: 'gap-3'}"
+>
 	{#if player && runGrid}
 		<LiveCount
 			time={() => player?.songTime() ?? null}
 			beats={runGrid.beats}
 			counts={runGrid.counts}
 		/>
-		<p class="mt-1 text-center text-[13px] text-muted tabular-nums">
+		<p class="text-center text-[13px] font-bold text-muted tabular-nums">
 			{clock(elapsedMs(watch, now) / 1000)} · {summary}
 		</p>
 		{#if source === 'song' && audio}
-			<div class="mt-1"><SongProgress {audio} onseek={seek} /></div>
+			<SongProgress {audio} onseek={seek} />
 		{/if}
-		<div class="mt-3 flex gap-2">
+		<div class="grid grid-cols-2 gap-2">
 			<button
 				type="button"
-				class="h-12 flex-1 rounded-xl border border-rule text-[15px] font-medium"
-				onclick={() => (paused ? resume() : pause())}>{paused ? 'Resume' : 'Pause'}</button
+				class={button('secondary', 'md', true)}
+				onclick={() => (paused ? resume() : pause())}
 			>
-			<button
-				type="button"
-				class="h-12 flex-1 rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-				onclick={stop}>Stop</button
-			>
+				<Icon name={paused ? 'play' : 'pause'} size={20} filled />
+				{paused ? 'Resume' : 'Pause'}
+			</button>
+			<button type="button" class={button('primary', 'md', true)} onclick={stop}>
+				<Icon name="stop" size={20} filled />
+				Stop
+			</button>
 		</div>
-		<label class="mt-3 block">
-			<span class={LABEL}>Voice volume</span>
-			<input
-				type="range"
-				min="0"
-				max="1"
-				step="0.05"
+		<div class="flex flex-col gap-0.5">
+			<span class={GROUP_LABEL} aria-hidden="true">Voice volume</span>
+			<Slider
+				label="Voice volume"
 				bind:value={voiceVolume}
 				oninput={() => player?.setVoiceVolume(voiceVolume)}
-				class="w-full"
 			/>
-		</label>
+		</div>
 	{:else}
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-2.5">
 			<button
 				type="button"
-				class="min-w-0 flex-1 text-left"
+				class="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-2 text-left text-ink"
 				aria-expanded={expanded}
 				onclick={() => (expanded = !expanded)}
 			>
-				<span class="block text-[12px] text-muted">Practise with</span>
-				<span class="block truncate text-[14px] font-medium">{summary}</span>
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="text-[13px] font-bold text-muted">Practise with</span>
+					<span class="text-[15px] leading-[1.3] font-bold text-ink">{summary}</span>
+				</span>
+				<span class="text-muted">
+					<Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={20} />
+				</span>
 			</button>
 			<button
 				type="button"
-				disabled={starting || !canPlay}
+				disabled={!canPlay}
 				aria-label="Play"
-				class="grid size-12 place-items-center rounded-full bg-accent text-[20px] text-accent-ink disabled:opacity-50"
-				onclick={play}>{starting ? '…' : '▶'}</button
+				aria-busy={starting}
+				class={PLAY}
+				onclick={play}
 			>
+				{#if starting}<Spinner size={24} />{:else}<Icon name="play" size={24} filled />{/if}
+			</button>
 		</div>
 		{#if source === 'song' && grid && audio}
 			<!-- Before ▶ too: skip an intro, or rewind after a Stop left it mid-song. -->
-			<div class="mt-1"><SongProgress {audio} onseek={seek} /></div>
+			<SongProgress {audio} onseek={seek} />
 		{/if}
 		{#if watch.bankedMs > 0}
-			<p class="mt-2 text-[12px] text-muted">
-				{clock(elapsedMs(watch, Date.now()) / 1000)} practised — ▶ carries on.
+			<p
+				class="flex items-center gap-2 rounded-xl bg-done-soft px-3 py-[9px] text-[13px] font-bold text-done tabular-nums"
+			>
+				<Icon name="clock" size={18} />
+				{clock(elapsedMs(watch, Date.now()) / 1000)} practised — Play carries on
 			</p>
 		{/if}
 		{#if songGone}
-			<p class="mt-2 rounded-lg bg-plane px-3 py-2 text-[13px] text-muted">
-				Its song is not ready — pick another, or use the count.
-			</p>
+			<Banner kind="warning" title="Its song is not ready">Pick another, or use the count.</Banner>
 		{/if}
 		{#if startError}
-			<p class="mt-2 text-[13px] text-danger" role="alert">{startError}</p>
+			<Banner kind="error" title={startError} />
 		{/if}
 
 		{#if expanded}
-			<div class="mt-3 space-y-4">
+			<div class="flex flex-col gap-3 border-t border-hairline pt-3">
 				<SourcePicker
 					name="panel"
 					{songs}
@@ -329,7 +350,7 @@
 				/>
 
 				<fieldset>
-					<legend class={LABEL}>Voice count</legend>
+					<legend class={GROUP_LABEL}>Voice count</legend>
 					<CountChips
 						name="panel-count"
 						patterns={dance.countPatterns}
@@ -340,15 +361,15 @@
 
 				{#if dance.clave}
 					<fieldset>
-						<legend class={LABEL}>Clave</legend>
+						<legend class={GROUP_LABEL}>Clave</legend>
 						<ClaveChips name="panel-clave" value={clave} onchange={(c) => (clave = c)} />
 					</fieldset>
 				{/if}
 
 				{#if cue}
 					<fieldset>
-						<legend class={LABEL}>Call it on cue</legend>
-						<div class="flex gap-2">
+						<legend class={GROUP_LABEL}>Call it on cue</legend>
+						<div class="flex flex-wrap gap-1.5">
 							<label class={CHIP}>
 								<input
 									type="radio"

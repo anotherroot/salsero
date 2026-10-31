@@ -29,9 +29,9 @@
 	const count = $derived(index >= 0 ? counts[index] : null);
 </script>
 
-<div class="text-center" aria-live="off">
+<div class="flex flex-col items-center gap-2.5 pt-1 text-center" aria-live="off">
 	<div
-		class="text-[88px] leading-none font-bold tabular-nums {count === 1
+		class="font-display text-[92px] leading-[0.95] font-extrabold tabular-nums {count === 1
 			? 'text-accent'
 			: count === 5
 				? 'text-ink'
@@ -39,7 +39,7 @@
 	>
 		{count ?? '–'}
 	</div>
-	<div class="mt-3 flex justify-center gap-1.5" aria-hidden="true">
+	<div class="flex justify-center gap-[7px]" aria-hidden="true">
 		{#each [1, 2, 3, 4, 5, 6, 7, 8] as n (n)}
 			<span
 				class="size-3 rounded-full {n === count
@@ -47,8 +47,8 @@
 						? 'bg-accent'
 						: 'bg-ink'
 					: n === 4 || n === 8
-						? 'bg-line'
-						: 'bg-rule'}"
+						? 'bg-hairline'
+						: 'bg-field-line'}"
 			></span>
 		{/each}
 	</div>
