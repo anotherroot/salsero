@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { UPLOAD_CHUNK_BYTES } from '$lib/limits';
 	import {
@@ -48,6 +49,7 @@
 	let retrying = $state(false);
 	let message = $state<{ title: string; body: string } | null>(null);
 	let input: HTMLInputElement | undefined = $state();
+	let card: HTMLDivElement | undefined = $state();
 
 	// The request outlives an in-app navigation (the component goes, the XHR
 	// does not), so only a reload or a closed tab would cut it off.
@@ -165,6 +167,8 @@
 		const total = accepted.reduce((sum, f) => sum + f.size, 0);
 		let done = 0;
 		progress = accepted.length > 0 ? 0 : null;
+		await tick();
+		card?.focus();
 
 		for (const [i, file] of accepted.entries()) {
 			position = accepted.length > 1 ? { index: i + 1, count: accepted.length } : null;
@@ -208,11 +212,14 @@
 {/if}
 
 {#if progress !== null}
-	<UploadCard
-		{...uploadCard({ progress, position, retrying })}
-		pct={progress * 100}
-		label="videos"
-	/>
+	<!-- The label below is hidden while busy; focus moves here so it is not dropped. -->
+	<div bind:this={card} tabindex="-1" class="outline-none">
+		<UploadCard
+			{...uploadCard({ progress, position, retrying })}
+			pct={progress * 100}
+			label="videos"
+		/>
+	</div>
 {/if}
 <label class="{DASHED_ADD} {busy ? 'hidden!' : ''}">
 	<Icon name="upload" size={20} />{label}

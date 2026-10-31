@@ -193,6 +193,10 @@ batch, since every size is known before the first chunk, and `invalidateAll()`
 runs once at the end — refreshing between files would tear down and re-mount the
 `<video>` elements already on the page, mid-upload.
 
+While a chunk is being retried or resynced the card says so (warn, "Connection
+dropped — retrying") and holds its percent (`uploadCard` in `upload-queue.ts`).
+A batch with skipped files ends in an error banner titled by `summaryTitle`.
+
 ## Today: four bands instead of three
 
 `plan()` returned `doneToday / todo / inactive`. `todo` splits, so the page
@@ -213,7 +217,13 @@ stays collapsed.
 
 ## Interface notes
 
-- **A fifth bottom-nav tab**, between Figures and Songs.
+- **Lessons is one of the four tabs** (Today · Moves · Lessons · Music); see the
+  redesign spec.
+- The page reads notes → review exercise → Videos → Links → Figures → Routines
+  → Exercises (the redesign's order). Deleting a video whose sections are linked
+  says so on its card without asking first (`deleteBlock` mirrors
+  `linksBlocking`); otherwise a dialog counts the sections that go with it.
+  Archive asks in a dialog.
 - `LogSheet`'s footer now branches on `source`, not on `figureId`. It offered an
   "Archive exercise" button to anything with a null figure — which a lesson's
   review exercise has — and `archiveExercise` then refused it. It now offers
@@ -224,7 +234,7 @@ stays collapsed.
   it is not this year (`format.classDayLabel`). Classes are weekly, so the
   weekday is what tells two apart. Today reads the days from `lessonDays`.
 - **The library row says how much is in a lesson**: three chips under the date,
-  "6 sections · 1 routine · 3 figures", always all three — a zero fades rather
+  "6 sections · 1 routine · 3 figures", always all three — a zero is muted rather
   than vanishing, so a lesson still missing something shows it. Sections are
   spots with an end on its videos (points do not count); routines are live
   linked ones; figures are figure groups, not variations, reached by hand or

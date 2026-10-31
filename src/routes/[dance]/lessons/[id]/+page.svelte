@@ -773,6 +773,14 @@
 			use:enhance={() => {
 				archiveBusy = true;
 				return async ({ update, result }) => {
+					// An error result would be rendered as the error page by update() first,
+					// so it is handled before it.
+					if (result.type === 'error') {
+						archiveBusy = false;
+						archiving = false;
+						archiveError = messageOf(result.error, 'That lesson could not be archived.');
+						return;
+					}
 					if (result.type === 'redirect') {
 						// Archived: the edit form goes first, so leaving for Lessons is not
 						// asked about as unsaved changes.
@@ -785,12 +793,9 @@
 					} finally {
 						archiveBusy = false;
 					}
-					if (result.type === 'failure' || result.type === 'error') {
+					if (result.type === 'failure') {
 						archiving = false;
-						archiveError =
-							result.type === 'failure'
-								? messageOf(result.data, 'That lesson could not be archived.')
-								: messageOf(result.error, 'That lesson could not be archived.');
+						archiveError = messageOf(result.data, 'That lesson could not be archived.');
 					}
 				};
 			}}

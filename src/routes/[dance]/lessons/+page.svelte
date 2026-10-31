@@ -126,6 +126,7 @@
 		id="new-lesson"
 		method="POST"
 		action="?/create"
+		novalidate
 		class="flex flex-col gap-3.5"
 		use:guarded={{
 			label: 'New lesson',
