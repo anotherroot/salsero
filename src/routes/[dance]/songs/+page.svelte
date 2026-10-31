@@ -1,183 +1,186 @@
 <script lang="ts">
-	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import UploadButton from '$lib/components/ui/UploadButton.svelte';
-	import SampleButton from '$lib/components/songs/SampleButton.svelte';
-	import { sampling } from '$lib/songs/sample-player.svelte';
-	import { clock } from '$lib/format';
-	import type { ActionData, PageData } from './$types';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import SearchField from '$lib/components/ui/SearchField.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import SongRow from '$lib/components/songs/SongRow.svelte';
+	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { countOnlyMeta, libraryView, readyMeta, songName, songState } from '$lib/songs/library';
+	import type { SongItem } from '$lib/types';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
-	let busy = $state(false);
-	/*
-	 * The style chosen for an upload, and null until the picker is touched.
-	 * Derived rather than seeded once, because switching dance keeps this
-	 * component mounted — only the param changes — and 'salsa' is not a style
-	 * bachata has: a stale pick has to fall back to the new dance's first.
-	 */
-	let picked = $state<string | null>(null);
-	const uploadStyle = $derived(
-		picked && data.dance.styles.includes(picked) ? picked : data.dance.styles[0]
-	);
+	let { data }: { data: PageData } = $props();
 
-	const STATUS: Record<string, string> = {
-		waiting_download: 'Waiting for the home fetcher',
-		waiting_analysis: 'Waiting for beat analysis',
-		ready: '',
-		failed: 'Failed'
-	};
+	// The Add a song sheet opens on this.
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the sheet that reads it comes next (plan 8, Task 3)
+	let adding = $state(false);
+	// Client-side and not in the URL: the whole library is already here.
+	let query = $state('');
+	const view = $derived(libraryView(data.songs, query, false));
 
 	/*
 	 * The worker runs at home once a minute, so a waiting song changes state on
-	 * its own. Poll only while something is waiting.
+	 * its own. Poll only while something is waiting — searching or not.
 	 */
-	const waiting = $derived(data.songs.some((s) => s.status.startsWith('waiting')));
+	const waiting = $derived(data.songs.some((s) => s.status.startsWith('waiting_')));
 	$effect(() => {
 		if (!waiting) return;
 		const t = setInterval(() => invalidateAll(), 10_000);
 		return () => clearInterval(t);
 	});
 
-	const styleLabel = (s: string) => data.dance.styleLabel[s];
+	const songHref = (s: SongItem) =>
+		resolve('/[dance]/songs/[id]', { dance: data.dance.slug, id: String(s.id) });
 </script>
 
-<svelte:head><title>Songs · {data.dance.label}</title></svelte:head>
+<svelte:head><title>Music · {data.dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
->
-	<h1 class="text-[17px] font-semibold">Songs</h1>
-</header>
+<!-- A song being added or failed: its state as meta, a badge while the worker has it. -->
+{#snippet addingRow(s: SongItem, q: string)}
+	{@const st = songState(s, data.dance.styleLabel)}
+	<SongRow href={songHref(s)} name={songName(s)} query={q} meta={st.meta} tone={st.tone}>
+		{#snippet trailing()}
+			{#if st.badge}
+				<Badge tone={st.badge.tone}><Icon name={st.badge.icon} size={14} />{st.badge.text}</Badge>
+			{/if}
+		{/snippet}
+	</SongRow>
+{/snippet}
 
-<main class="space-y-5 px-4 pt-4 pb-4">
-	<form
-		method="POST"
-		action="?/addUrl"
-		class="space-y-2 rounded-xl border border-line bg-raised p-3"
-		use:guarded={{
-			label: 'Song from YouTube',
-			submit: () => {
-				busy = true;
-				return async ({ update }) => {
-					await update();
-					busy = false;
-				};
-			}
-		}}
-	>
-		<label for="url" class="block text-[12px] font-medium text-ink-2">Add from YouTube</label>
-		<input
-			id="url"
-			name="url"
-			type="url"
-			inputmode="url"
-			required
-			placeholder="https://www.youtube.com/watch?v=…"
-			value={form?.url ?? ''}
-			class="w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent"
-		/>
-		<div class="flex gap-2">
-			<input
-				name="title"
-				maxlength="200"
-				placeholder="Title (optional)"
-				aria-label="Title (optional)"
-				class="min-w-0 flex-1 rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent"
+{#snippet readyRow(s: SongItem, q: string)}
+	<SongRow
+		href={songHref(s)}
+		name={songName(s)}
+		query={q}
+		meta={readyMeta(s, data.dance.styleLabel)}
+		sample={s.sample}
+	/>
+{/snippet}
+
+<Screen title="Music">
+	{#snippet right()}
+		<BandButton icon="plus" label="Add a song" onclick={() => (adding = true)} />
+	{/snippet}
+
+	<div class="h-0.5 flex-none"></div>
+
+	{#if view.kind !== 'empty'}
+		<form role="search" onsubmit={(e) => e.preventDefault()}>
+			<SearchField
+				name="q"
+				placeholder="Search songs"
+				label="Search songs"
+				bind:value={query}
+				onclear={() => (query = '')}
 			/>
-			<select
-				name="style"
-				aria-label="Style"
-				class="rounded-lg border border-rule bg-raised px-2 text-[15px]"
+		</form>
+	{/if}
+
+	{#if view.kind !== 'search'}
+		<div class={GROUP} role="group" aria-label="Practice">
+			<a
+				href={resolve(`/${data.dance.slug}/player?bpm=180`)}
+				class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
 			>
-				{#each data.dance.styles as s (s)}<option value={s}>{data.dance.styleLabel[s]}</option
-					>{/each}
-			</select>
-		</div>
-		{#if form?.message}
-			<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-				{form.message}
-			</p>
-		{/if}
-		<button
-			type="submit"
-			disabled={busy}
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60"
-			>Add song</button
-		>
-	</form>
-
-	<div class="flex items-start gap-2">
-		<div class="min-w-0 flex-1">
-			<UploadButton
-				url="/api/songs?dance={data.dance.slug}"
-				accept="audio/*"
-				label="+ Upload an audio file"
-				headers={() => ({ 'x-style': uploadStyle })}
-			/>
-		</div>
-		<select
-			value={uploadStyle}
-			onchange={(e) => (picked = e.currentTarget.value)}
-			aria-label="Style of the uploaded song"
-			class="h-12 rounded-xl border border-rule bg-raised px-2 text-[15px]"
-		>
-			{#each data.dance.styles as s (s)}<option value={s}>{data.dance.styleLabel[s]}</option>{/each}
-		</select>
-	</div>
-
-	<a
-		href={resolve(`/${data.dance.slug}/player?bpm=180`)}
-		class="block h-11 w-full rounded-xl border border-rule text-center text-[14px] leading-[2.75rem] font-medium text-ink-2"
-		>Count-only drill</a
-	>
-
-	{#if data.songs.length === 0}
-		<p class="text-center text-[14px] text-muted">No songs yet.</p>
-	{/if}
-	<ul class="space-y-2">
-		{#each data.songs as s (s.id)}
-			{@const sample = s.sample}
-			<li class="overflow-hidden rounded-xl border border-line bg-raised">
-				<!-- The card opens the song; the ▶ on its right edge plays a sample. -->
-				<div class="flex items-stretch">
-					<a
-						href={resolve('/[dance]/songs/[id]', { dance: data.dance.slug, id: String(s.id) })}
-						class="block min-w-0 flex-1 px-4 py-3"
+				<span
+					class="flex size-10 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
+				>
+					<Icon name="metronome" size={22} />
+				</span>
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="text-[16px] leading-[1.3] font-bold text-ink">Count only</span>
+					<span class="text-[13px] leading-[1.35] text-muted"
+						>{countOnlyMeta(data.dance.clave)}</span
 					>
-						<span class="block truncate text-[15px] font-medium">{s.title || s.sourceUrl}</span>
-						{#if sample && sampling.id === sample.id}
-							<span class="text-[12px] text-accent">Sample from {clock(sample.startS)}</span>
-						{:else}
-							<span class="text-[12px] {s.status === 'failed' ? 'text-danger' : 'text-muted'}">
-								{styleLabel(s.style)}
-								{#if s.status === 'ready'}
-									· {s.bpm ? `${Math.round(s.bpm * s.tempoFactor)} BPM` : ''}
-									{s.durationS ? `· ${clock(s.durationS)}` : ''}
-								{:else}
-									· {STATUS[s.status]}{s.error ? `: ${s.error}` : ''}
-								{/if}
-							</span>
-						{/if}
-					</a>
-					{#if sample}
-						<SampleButton song={sample} />
-					{/if}
-				</div>
-				{#if s.status === 'failed'}
-					<form method="POST" action="?/retry" use:enhance class="border-t border-line px-4 py-2">
-						<input type="hidden" name="id" value={s.id} />
-						<button type="submit" class="text-[14px] font-medium text-accent">Retry</button>
-					</form>
-				{/if}
-			</li>
-		{/each}
-	</ul>
-	{#if waiting}
-		<p class="text-center text-[12px] text-muted">
-			Downloads and beat analysis run on the laptop at home, about once a minute while it is on.
-		</p>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		</div>
 	{/if}
-</main>
+
+	{#if view.kind === 'list'}
+		{#if view.adding.length}
+			<h2 class="{SECTION_LABEL} pt-2.5">{view.addingHeading}</h2>
+			<ul class={GROUP}>
+				{#each view.adding as s (s.id)}
+					{@render addingRow(s, '')}
+					{#if s.status === 'failed'}
+						<li class="border-t border-hairline px-2 pt-1 pb-2">
+							<form method="POST" action="?/retry" use:enhance>
+								<input type="hidden" name="id" value={s.id} />
+								<button
+									type="submit"
+									class={button('tertiary', 'sm')}
+									aria-label="Retry {songName(s)}"
+								>
+									<Icon name="refresh" size={20} /> Retry
+								</button>
+							</form>
+						</li>
+					{/if}
+				{/each}
+			</ul>
+		{/if}
+		{#if view.worker}
+			<Banner kind="info" title="Runs on the laptop at home">
+				Downloads and beat analysis happen about once a minute while it is on.
+			</Banner>
+		{/if}
+		{#if view.recent.length}
+			<h2 class="{SECTION_LABEL} pt-2.5">Recent</h2>
+			<ul class={GROUP}>
+				{#each view.recent as s (s.id)}{@render readyRow(s, '')}{/each}
+			</ul>
+		{/if}
+		{#if view.rest.length}
+			<h2 class="{SECTION_LABEL} pt-2.5">{view.restHeading}</h2>
+			<ul class={GROUP}>
+				{#each view.rest as s (s.id)}{@render readyRow(s, '')}{/each}
+			</ul>
+		{/if}
+	{:else if view.kind === 'search'}
+		{#if view.hits.length}
+			<h2 class="{SECTION_LABEL} pt-1.5">{view.heading}</h2>
+			<ul class={GROUP}>
+				{#each view.hits as s (s.id)}
+					{#if s.status === 'ready'}
+						{@render readyRow(s, query)}
+					{:else}
+						{@render addingRow(s, query)}
+					{/if}
+				{/each}
+			</ul>
+		{:else}
+			<EmptyState
+				icon="search"
+				title={`No song matches “${query.trim()}”`}
+				body="Add it with the + above."
+			>
+				{#snippet action()}
+					<button type="button" class={button('secondary', 'sm')} onclick={() => (adding = true)}>
+						Add a song
+					</button>
+				{/snippet}
+			</EmptyState>
+		{/if}
+	{:else}
+		<div class="h-10 flex-none"></div>
+		<EmptyState
+			icon="music"
+			title="No songs yet"
+			body="Add one from YouTube or upload an audio file. The laptop at home downloads it and finds the beat."
+		>
+			{#snippet action()}
+				<button type="button" class={button('primary', 'md')} onclick={() => (adding = true)}>
+					<Icon name="plus" size={20} /> Add a song
+				</button>
+			{/snippet}
+		</EmptyState>
+	{/if}
+</Screen>

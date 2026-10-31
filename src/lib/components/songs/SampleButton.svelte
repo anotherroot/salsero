@@ -2,50 +2,67 @@
 	import type { SampleSong } from '$lib/types';
 	import { SAMPLE_LENGTH_S } from '$lib/songs/sample';
 	import { playSample, sampling, stopSample } from '$lib/songs/sample-player.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
 
 	/*
-	 * ▶ plays a 15 s sample of the song, ■ stops it; the ring fills over the
-	 * sample. Sits on a row's right edge, split off by its left border.
+	 * ▶ plays a 15 s sample of the song, ■ stops it. A tonal disc on a 48 px
+	 * hit area; while it samples, a ring around the disc fills over the 15 s.
+	 * A sibling of a row's link, never inside it.
 	 */
-	let { song, class: klass = '' }: { song: SampleSong; class?: string } = $props();
+	let {
+		song,
+		name,
+		class: klass = ''
+	}: { song: SampleSong; name?: string; class?: string } = $props();
 
 	const on = $derived(sampling.id === song.id);
+	const label = $derived(
+		on ? 'Stop the sample' : name ? `Play a sample of ${name}` : 'Play a sample'
+	);
 </script>
 
 <button
 	type="button"
-	aria-label={on ? 'Stop the sample' : 'Play a sample'}
+	aria-label={label}
 	aria-pressed={on}
 	onclick={() => (on ? stopSample() : playSample(song))}
-	class="grid w-[52px] flex-none place-items-center border-l border-line text-accent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent {klass}"
+	class="group flex size-12 flex-none cursor-pointer items-center justify-center rounded-full text-accent {klass}"
 >
-	<span class="relative grid size-8 place-items-center">
-		<svg viewBox="0 0 32 32" class="absolute inset-0 -rotate-90" aria-hidden="true">
-			<circle cx="16" cy="16" r="14" fill="none" stroke-width="2.5" class="stroke-line" />
-			{#if on}
+	<span
+		class="relative flex size-[34px] items-center justify-center rounded-full bg-accent-soft group-active:brightness-90"
+	>
+		{#if on}
+			<svg
+				viewBox="0 0 42 42"
+				class="absolute -top-1 -left-1 size-[42px] -rotate-90"
+				aria-hidden="true"
+			>
+				<circle cx="21" cy="21" r="19" fill="none" stroke-width="2.5" class="stroke-hairline" />
 				{#key sampling.nonce}
 					<circle
-						cx="16"
-						cy="16"
-						r="14"
+						cx="21"
+						cy="21"
+						r="19"
 						fill="none"
 						stroke-width="2.5"
+						stroke-linecap="round"
 						class="run stroke-accent"
 						style:animation-duration="{SAMPLE_LENGTH_S}s"
 					/>
 				{/key}
-			{/if}
-		</svg>
-		<!-- U+FE0E keeps ▶ a text glyph where it would otherwise become an emoji. -->
-		<span class="text-[11px] leading-none" aria-hidden="true">{on ? '■' : '▶︎'}</span>
+			</svg>
+			<Icon name="stop" size={13} filled />
+		{:else}
+			<span class="ml-0.5 flex"><Icon name="play" size={15} filled /></span>
+		{/if}
 	</span>
 </button>
 
 <style>
-	/* 2π × 14 ≈ 88: the circle's length, so the offset runs from empty to full. */
+	/* 2π × 19 ≈ 119.4: the circle's length, so the offset runs from empty to full. */
 	.run {
-		stroke-dasharray: 88;
-		stroke-dashoffset: 88;
+		stroke-dasharray: 119.4;
+		stroke-dashoffset: 119.4;
 		animation-name: fill;
 		animation-timing-function: linear;
 		animation-fill-mode: forwards;
@@ -61,7 +78,7 @@
 	@media (prefers-reduced-motion: reduce) {
 		.run {
 			animation: none;
-			stroke-dashoffset: 30;
+			stroke-dashoffset: 79;
 		}
 	}
 </style>
