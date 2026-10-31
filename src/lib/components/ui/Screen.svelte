@@ -41,10 +41,23 @@
 	<!-- The same 560 px column as the page, inside the full-width bar. -->
 	<div class="mx-auto flex h-16 max-w-[560px] items-center gap-1">
 		{#if left}{@render left()}{/if}
-		<span
-			class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
-			>{title}</span
-		>
+		{#if compact && subtitle}
+			<!-- A compact screen's subtitle (a figure's variation) stays in the slim band. -->
+			<span class="flex min-w-0 flex-1 flex-col gap-px">
+				<span
+					class="truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
+					>{title}</span
+				>
+				<span class="truncate text-[12px] leading-[1.3] font-semibold text-band-small"
+					>{subtitle}</span
+				>
+			</span>
+		{:else}
+			<span
+				class="min-w-0 flex-1 truncate font-display text-[22px] leading-tight font-extrabold tracking-[-0.005em] text-band-ink"
+				>{title}</span
+			>
+		{/if}
 		{#if right}<div class="flex items-center">{@render right()}</div>{/if}
 	</div>
 </div>

@@ -17,6 +17,8 @@ export type Skeleton =
 	| { kind: 'today' }
 	| { kind: 'list'; title: string }
 	| { kind: 'detail' }
+	/** A figure's page: the compact band, the facts card, then its lists. */
+	| { kind: 'figure' }
 	/** Figures and Routines: the band with its segmented switch, then that segment's list. */
 	| { kind: 'moves'; segment: MovesSegment };
 
@@ -36,7 +38,6 @@ const LISTS: Record<string, string> = {
 };
 
 const DETAILS = new Set([
-	'/[dance]/figures/[id]',
 	'/[dance]/routines/[id]',
 	'/[dance]/lessons/[id]',
 	'/[dance]/songs/[id]',
@@ -56,6 +57,7 @@ export function skeletonFor(routeId: string | null | undefined): Skeleton | null
 	if (segment) return { kind: 'moves', segment };
 	const title = LISTS[routeId];
 	if (title) return { kind: 'list', title };
+	if (routeId === '/[dance]/figures/[id]') return { kind: 'figure' };
 	if (DETAILS.has(routeId)) return { kind: 'detail' };
 	return null;
 }

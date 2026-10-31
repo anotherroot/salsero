@@ -2,6 +2,7 @@
  * What a figure's page derives for display. PURE and client-safe.
  */
 import { frequencyLabel } from '$lib/frequency';
+import { longDayLabel } from '$lib/format';
 import type { MetaPart } from '$lib/exercises/today';
 import { plural } from '$lib/moves/plural';
 import type { RoutineUse } from '$lib/routines/coverage';
@@ -50,4 +51,47 @@ export function practiceLine(p: Plan<PlanExercise>): { title: string; meta: Meta
 		return { title: frequencyLabel(next.exercise.everyDays), meta: { text, tone: null } };
 	}
 	return null;
+}
+
+/**
+ * The facts card's timing: "Starts on 1 · 16 counts", and in a lighter weight
+ * " · 2 eights" (whole eights past one) or " · one 8-count".
+ */
+export function timingLine(start: number, length: number): { main: string; extra: string } {
+	const extra =
+		length === 8
+			? ' · one 8-count'
+			: length % 8 === 0 && length > 8
+				? ` · ${length / 8} eights`
+				: '';
+	return { main: `Starts on ${start} · ${length} counts`, extra };
+}
+
+/**
+ * The Archive sheet's title and button, and the caption under the page's
+ * Archive button. The last variation takes its figure with it.
+ */
+export function archiveCopy(
+	figure: string,
+	variation: string,
+	last: boolean
+): { title: string; button: string; caption: string } {
+	const kept = 'Its recordings and practice history are kept.';
+	return last
+		? {
+				title: `Archive ${variation}?`,
+				button: 'Archive and remove figure',
+				caption: `${figure} goes with it: ${variation} is its last variation. ${kept}`
+			}
+		: {
+				title: `Archive ${variation}?`,
+				button: `Archive ${variation}`,
+				caption: `${variation} leaves ${figure}. ${kept}`
+			};
+}
+
+/** A recording's day: "Wednesday, 28 October", with ", 2025" when it is not this year. */
+export function recordingDay(day: string, today: string): string {
+	const year = day.slice(0, 4);
+	return year === today.slice(0, 4) ? longDayLabel(day) : `${longDayLabel(day)}, ${year}`;
 }

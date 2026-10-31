@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { plan, type PlanExercise } from '$lib/urgency/urgency';
-import { practiceLine, routineUseMeta } from './page';
+import { archiveCopy, practiceLine, recordingDay, routineUseMeta, timingLine } from './page';
 
 const TZ = 'Europe/Ljubljana';
 const DAY = 86_400_000;
@@ -54,4 +54,38 @@ describe('practiceLine', () => {
 		}));
 	it('nothing to say', () =>
 		expect(practiceLine({ doneToday: [], due: [], upcoming: [], inactive: [] })).toBeNull());
+});
+
+describe('timingLine', () => {
+	it('names whole eights', () => {
+		expect(timingLine(1, 16)).toEqual({ main: 'Starts on 1 · 16 counts', extra: ' · 2 eights' });
+		expect(timingLine(1, 8).extra).toBe(' · one 8-count');
+	});
+	it('says nothing more when the length is not whole eights', () => {
+		expect(timingLine(5, 4)).toEqual({ main: 'Starts on 5 · 4 counts', extra: '' });
+		expect(timingLine(3, 12).extra).toBe('');
+	});
+});
+
+describe('archiveCopy', () => {
+	it('a variation among others', () =>
+		expect(archiveCopy('Enchufla', 'Doble', false)).toEqual({
+			title: 'Archive Doble?',
+			button: 'Archive Doble',
+			caption: 'Doble leaves Enchufla. Its recordings and practice history are kept.'
+		}));
+	it('the last variation takes its figure', () =>
+		expect(archiveCopy('Setenta', 'Basic', true)).toEqual({
+			title: 'Archive Basic?',
+			button: 'Archive and remove figure',
+			caption:
+				'Setenta goes with it: Basic is its last variation. Its recordings and practice history are kept.'
+		}));
+});
+
+describe('recordingDay', () => {
+	it('this year: the long day', () =>
+		expect(recordingDay('2026-10-28', '2026-10-31')).toBe('Wednesday, 28 October'));
+	it('another year: the year too', () =>
+		expect(recordingDay('2025-10-28', '2026-10-31')).toBe('Tuesday, 28 October, 2025'));
 });

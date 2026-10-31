@@ -19,10 +19,14 @@ describe('skeletonFor', () => {
 	});
 
 	it('gives every page behind an id the detail shape', () => {
-		for (const id of ['figures', 'routines', 'lessons', 'songs', 'exercises']) {
+		for (const id of ['routines', 'lessons', 'songs', 'exercises']) {
 			expect(skeletonFor(`/[dance]/${id}/[id]`)).toEqual({ kind: 'detail' });
 		}
 		expect(skeletonFor('/[dance]/player')).toEqual({ kind: 'detail' });
+	});
+
+	it('gives a figure its own shape', () => {
+		expect(skeletonFor('/[dance]/figures/[id]')).toEqual({ kind: 'figure' });
 	});
 
 	it('leaves pages outside the shell, the redirect and unknown routes to the bar alone', () => {
