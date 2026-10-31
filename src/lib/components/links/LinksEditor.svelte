@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import LinkList from './LinkList.svelte';
-	import { FIELD } from '$lib/components/ui/styles';
+	import { FIELD, TEXTAREA } from '$lib/components/ui/styles';
 	import { parseLink } from '$lib/links';
 	import type { LinkRow } from '$lib/types';
 
@@ -70,7 +70,7 @@
 		name="urls"
 		rows="2"
 		placeholder="Paste YouTube or other links, one per line"
-		class={FIELD}>{entered}</textarea
+		class={TEXTAREA}>{entered}</textarea
 	>
 	<input name="title" maxlength="200" placeholder="Title (optional, for one link)" class={FIELD} />
 	{#if message}

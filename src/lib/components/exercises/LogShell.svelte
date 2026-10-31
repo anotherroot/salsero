@@ -53,7 +53,7 @@
 	import LastTime from './LastTime.svelte';
 	import RatingChips from './RatingChips.svelte';
 	import { fetchPractice } from './fetch-practice';
-	import { FIELD, LABEL } from '$lib/components/ui/styles';
+	import { FIELD, LABEL, TEXTAREA } from '$lib/components/ui/styles';
 	import { typeInfo } from '$lib/exercises/kinds';
 	import { minutesFrom } from '$lib/exercises/practice';
 
@@ -231,7 +231,7 @@
 		{#if has('note')}
 			<label class="mt-3 block">
 				<span class={LABEL}>Note</span>
-				<textarea name="note" rows="2" maxlength="2000" class={FIELD}></textarea>
+				<textarea name="note" rows="2" maxlength="2000" class={TEXTAREA}></textarea>
 			</label>
 		{/if}
 

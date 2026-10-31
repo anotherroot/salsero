@@ -2,7 +2,7 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
-	import { FIELD } from '$lib/components/ui/styles';
+	import { FIELD, TEXTAREA } from '$lib/components/ui/styles';
 	import SlotList from '$lib/components/routines/SlotList.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
@@ -448,7 +448,7 @@
 			</label>
 			<label class="block">
 				<span class="mb-1 block text-[13px] text-muted">Notes</span>
-				<textarea name="notes" rows="5" maxlength="2000" class={FIELD}
+				<textarea name="notes" rows="5" maxlength="2000" class={TEXTAREA}
 					>{routine.notes ?? ''}</textarea
 				>
 			</label>

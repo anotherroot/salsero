@@ -45,13 +45,18 @@ export function iconButton(variant: IconButtonVariant): string {
 }
 
 export const FIELD =
-	'h-[52px] w-full rounded-[14px] border border-field-line bg-surface px-3.5 font-sans text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent aria-invalid:border-2 aria-invalid:border-danger disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-ink';
+	'h-[52px] w-full rounded-[14px] border border-field-line bg-surface px-3.5 font-sans text-[16px] font-semibold text-ink placeholder:font-medium placeholder:text-muted aria-invalid:border-2 aria-invalid:border-danger disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-ink';
+/** A multi-line field: FIELD's look, grows with its rows. */
+export const TEXTAREA = FIELD.replace(
+	'h-[52px]',
+	'h-auto min-h-[52px] py-3.5 leading-snug resize-y'
+);
 /** Text under a field. */
 export const FIELD_ERROR = 'mt-1.5 flex items-center gap-1.5 text-[13px] font-bold text-danger';
 export const LABEL = 'mb-1.5 block pl-1 text-[13px] font-bold text-ink-2';
 /** A radio styled as a chip: wrap the input (`sr-only`) and its text in a <label> with this. */
 export const CHIP =
-	'flex h-9 flex-none cursor-pointer items-center justify-center rounded-full bg-chip px-4 font-sans text-[14px] font-semibold text-chip-ink has-checked:bg-accent has-checked:font-extrabold has-checked:text-on-accent has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent has-disabled:bg-disabled-bg has-disabled:text-disabled-ink';
+	'relative isolate flex h-11 flex-none cursor-pointer items-center justify-center px-4 font-sans text-[14px] font-semibold text-chip-ink before:absolute before:inset-x-0 before:inset-y-1 before:-z-10 before:rounded-full before:bg-chip has-checked:font-extrabold has-checked:text-on-accent has-checked:before:bg-accent has-focus-visible:before:outline-2 has-focus-visible:before:outline-offset-2 has-focus-visible:before:outline-accent has-disabled:text-disabled-ink has-disabled:before:bg-disabled-bg';
 /** A grouped card of rows; hairlines between rows. */
 export const GROUP = 'divide-y divide-hairline overflow-hidden rounded-2xl bg-surface';
 export const ROW = 'flex min-h-14 items-center gap-3 px-4 py-2';

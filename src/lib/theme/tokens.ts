@@ -38,6 +38,7 @@ export const TOKEN_NAMES = [
 	'inverse-ink',
 	'band',
 	'band-ink',
+	'on-cream',
 	'band-small',
 	'accent',
 	'accent-text',
@@ -56,6 +57,7 @@ type Shared = Omit<Theme, DanceTokens>;
 type DanceTokens =
 	| 'band'
 	| 'band-ink'
+	| 'on-cream'
 	| 'band-small'
 	| 'accent'
 	| 'accent-text'
@@ -130,7 +132,14 @@ const DARK: Shared = {
 
 type DanceInput = Pick<
 	Theme,
-	'band' | 'band-small' | 'accent' | 'accent-text' | 'on-accent' | 'status' | 'inverse-accent'
+	| 'band'
+	| 'band-small'
+	| 'on-cream'
+	| 'accent'
+	| 'accent-text'
+	| 'on-accent'
+	| 'status'
+	| 'inverse-accent'
 >;
 
 function theme(base: Shared, scheme: Scheme, d: DanceInput): Theme {
@@ -148,6 +157,7 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 	salsa: {
 		light: theme(LIGHT, 'light', {
 			band: '#D2401E',
+			'on-cream': '#b3340f',
 			'band-small': '#ffffff',
 			accent: '#d2401e',
 			'accent-text': '#b3340f',
@@ -157,6 +167,7 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 		}),
 		dark: theme(DARK, 'dark', {
 			band: '#8f2a12',
+			'on-cream': '#8f2a12',
 			'band-small': '#f2dbcb',
 			accent: '#ff6b47',
 			'accent-text': '#ff7a59',
@@ -168,6 +179,7 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 	bachata: {
 		light: theme(LIGHT, 'light', {
 			band: '#6B1D4F',
+			'on-cream': '#6B1D4F',
 			'band-small': BAND_INK,
 			accent: '#8e2a66',
 			'accent-text': '#8e2a66',
@@ -177,6 +189,7 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 		}),
 		dark: theme(DARK, 'dark', {
 			band: '#4a1238',
+			'on-cream': '#4a1238',
 			'band-small': '#e9d8cf',
 			accent: '#f07aae',
 			'accent-text': '#f07aae',

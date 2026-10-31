@@ -14,6 +14,7 @@ const pairs: [TokenName, TokenName][] = [
 	['accent-text', 'surface'],
 	['status', 'surface'],
 	['on-accent', 'accent'],
+	['on-cream', 'band-ink'],
 	['danger', 'surface'],
 	['on-danger', 'danger'],
 	['done', 'surface'],

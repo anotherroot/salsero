@@ -15,7 +15,7 @@
 	const idle = $derived(onBand ? 'text-band-ink' : 'text-ink-2');
 	const picked = $derived(
 		onBand
-			? 'has-checked:bg-band-ink has-checked:text-band'
+			? 'has-checked:bg-band-ink has-checked:text-on-cream'
 			: 'has-checked:bg-surface has-checked:text-ink'
 	);
 </script>

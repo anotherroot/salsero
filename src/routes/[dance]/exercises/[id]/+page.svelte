@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import SetList from '$lib/components/exercises/SetList.svelte';
 	import { contentFor, logFor } from '$lib/components/exercises/kinds';
-	import { FIELD, LABEL } from '$lib/components/ui/styles';
+	import { FIELD, LABEL, TEXTAREA } from '$lib/components/ui/styles';
 	import { FREQUENCIES } from '$lib/frequency';
 	import { dayLabel, dateLabel } from '$lib/format';
 	import { localDay } from '$lib/day/day';
@@ -167,7 +167,7 @@
 			</label>
 			<label class="block">
 				<span class={LABEL}>{ownsItself ? 'Description' : 'Practice notes'}</span>
-				<textarea name="notes" rows="3" maxlength="2000" class={FIELD}
+				<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA}
 					>{exercise.notes ?? ''}</textarea
 				>
 			</label>

@@ -4,6 +4,7 @@ import {
 	CHIP,
 	FIELD,
 	FIELD_ERROR,
+	TEXTAREA,
 	GROUP,
 	iconButton,
 	LABEL,
@@ -29,7 +30,11 @@ describe('button', () => {
 });
 
 describe('constants', () => {
-	it('CHIP checks to accent', () => expect(CHIP).toContain('has-checked:bg-accent'));
+	it('CHIP checks to accent', () => expect(CHIP).toContain('has-checked:before:bg-accent'));
+	it('TEXTAREA has no fixed height', () => {
+		expect(TEXTAREA.split(' ')).not.toContain('h-[52px]');
+		expect(TEXTAREA).toContain('min-h-[52px]');
+	});
 	it('exist', () => {
 		for (const s of [FIELD, FIELD_ERROR, LABEL, GROUP, ROW, SECTION_LABEL])
 			expect(s.length).toBeGreaterThan(0);

@@ -52,6 +52,7 @@
 	 */
 	--color-band: #d2401e;
 	--color-band-ink: #fff3e4;
+	--color-on-cream: #b3340f;
 	--color-band-small: #ffffff;
 	--color-accent: #d2401e;
 	--color-accent-text: #b3340f;
@@ -95,6 +96,7 @@
 	[data-dance='bachata'] {
 		--color-band: #6b1d4f;
 		--color-band-ink: #fff3e4;
+		--color-on-cream: #6b1d4f;
 		--color-band-small: #fff3e4;
 		--color-accent: #8e2a66;
 		--color-accent-text: #8e2a66;
@@ -142,6 +144,7 @@
 			/* Salsa's dark colours (the fallback outside any dance, too). */
 			--color-band: #8f2a12;
 			--color-band-ink: #fff3e4;
+			--color-on-cream: #8f2a12;
 			--color-band-small: #f2dbcb;
 			--color-accent: #ff6b47;
 			--color-accent-text: #ff7a59;
@@ -170,6 +173,7 @@
 		:root:not([data-theme='light']) [data-dance='bachata'] {
 			--color-band: #4a1238;
 			--color-band-ink: #fff3e4;
+			--color-on-cream: #4a1238;
 			--color-band-small: #e9d8cf;
 			--color-accent: #f07aae;
 			--color-accent-text: #f07aae;
