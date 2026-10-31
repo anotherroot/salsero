@@ -31,7 +31,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	return {
 		figures: listFigures(db, dance, { ...filter, unlinked }),
 		// The page rebuilds its URL from these strings; `unlinked` rides as '1'.
-		filter: { ...filter, q, unlinked: unlinked ? '1' : undefined },
+		filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
 		// Figures with no section or no lesson, whatever the filter: the header's
 		// way into the "Not linked" filter, as `unrouted` is into coverage.
 		unlinked: listFigures(db, dance, { unlinked: true }).length,
