@@ -4,6 +4,7 @@ import {
 	classDayLabel,
 	clock,
 	dateLabel,
+	dayMonth,
 	dayLabel,
 	lastDoneLabel,
 	longDayLabel,
@@ -67,5 +68,9 @@ describe('longDayLabel', () => {
 	it('spells out the weekday and month', () => {
 		expect(longDayLabel('2026-10-31')).toBe('Saturday, 31 October');
 		expect(longDayLabel('2027-01-03')).toBe('Sunday, 3 January');
+	});
+
+	it('shortens a day to day and month', () => {
+		expect(dayMonth('2026-10-26')).toBe('26 Oct');
 	});
 });

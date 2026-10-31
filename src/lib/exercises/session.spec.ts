@@ -18,8 +18,8 @@ describe('nextInSession', () => {
 
 describe('sessionSummary', () => {
 	it('counts exercises and minutes', () => {
-		expect(sessionSummary(3, 1500)).toBe('Session done — 3 exercises, 25 min');
-		expect(sessionSummary(1, 0)).toBe('Session done — 1 exercise');
-		expect(sessionSummary(0, 0)).toBe('Session done');
+		expect(sessionSummary(3, 1500)).toBe('3 exercises, 25 min');
+		expect(sessionSummary(1, 0)).toBe('1 exercise');
+		expect(sessionSummary(0, 0)).toBe('Nothing logged');
 	});
 });

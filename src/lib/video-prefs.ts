@@ -48,3 +48,11 @@ export function saveVideoPrefs(p: Partial<VideoPrefs>): void {
 		// Private mode or storage full: the choice just is not remembered.
 	}
 }
+
+/** The playback-rate chips' labels. */
+export const RATE_LABEL: Record<VideoRate, string> = {
+	0.25: '¼×',
+	0.5: '½×',
+	0.75: '¾×',
+	1: '1×'
+};
