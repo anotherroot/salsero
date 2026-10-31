@@ -44,6 +44,7 @@
 	let segBand = $state('b');
 	let chip = $state('one');
 	let on = $state(true);
+	let bannerShown = $state(true);
 	let sheetOpen = $state(false);
 	let sheetBack = $state(false);
 	let dialogOpen = $state(false);
@@ -272,6 +273,19 @@
 						>{/snippet}
 				</Banner>
 				<Banner kind="info">No title, just a line.</Banner>
+				{#if bannerShown}
+					<Banner
+						kind="error"
+						title="Those slots could not be put back."
+						ondismiss={() => (bannerShown = false)}
+					/>
+				{:else}
+					<button
+						type="button"
+						class={button('tertiary', 'sm')}
+						onclick={() => (bannerShown = true)}>Show the dismissed banner</button
+					>
+				{/if}
 			</section>
 
 			<section class="flex flex-col gap-3">

@@ -54,7 +54,9 @@
 		<p class="sr-only" role="status">Loading…</p>
 
 		<header
-			class="flex flex-col bg-band px-5 {skeleton.kind === 'today' || skeleton.kind === 'figure'
+			class="flex flex-col bg-band px-5 {skeleton.kind === 'today' ||
+			skeleton.kind === 'figure' ||
+			skeleton.kind === 'routine'
 				? 'gap-[6px]'
 				: skeleton.kind === 'moves'
 					? 'pb-[50px]'
@@ -62,7 +64,7 @@
 			style="padding-top: calc({skeleton.kind === 'figure'
 				? 22
 				: 30}px + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink){skeleton.kind ===
-			'today'
+				'today' || skeleton.kind === 'routine'
 				? '; padding-bottom: 92px'
 				: skeleton.kind === 'figure'
 					? '; padding-bottom: 52px'
@@ -117,6 +119,21 @@
 					class="ml-[38px] block h-[14px] w-24 rounded-[7px] bg-band-ink opacity-[0.28]"
 					aria-hidden="true"
 				></span>
+			{:else if skeleton.kind === 'routine'}
+				<!-- As Screen's full band draws it: back, a 46 px title, the pencil and ⋯. -->
+				<div class="-mx-[10px] flex items-center gap-1 text-band-ink" aria-hidden="true">
+					<span class="flex size-11 flex-none items-center justify-center"
+						><Icon name="back" size={24} /></span
+					>
+					<span class="h-[46px] w-1/2 rounded-[10px] bg-band-ink opacity-30"></span>
+					<span class="flex-1"></span>
+					<span class="flex size-11 flex-none items-center justify-center opacity-60"
+						><Icon name="pencil" size={24} /></span
+					>
+					<span class="flex size-11 flex-none items-center justify-center opacity-60"
+						><Icon name="more" size={24} /></span
+					>
+				</div>
 			{:else if skeleton.kind === 'list'}
 				<h1 class="font-display text-[34px] leading-tight font-extrabold text-band-ink">
 					{skeleton.title}
@@ -170,6 +187,35 @@
 				</div>
 				<span class="bone mt-2 ml-4 block h-[13px] w-16 rounded-[6px]"></span>
 				{@render rows(2, false)}
+			</div>
+		{:else if skeleton.kind === 'routine'}
+			<div
+				class="relative -mt-7 flex flex-col gap-2 rounded-t-[28px] bg-ground px-4"
+				aria-hidden="true"
+			>
+				<!-- The Practise hero, straddling the sheet's edge; backed by the ground so the band does not show through. -->
+				<div class="-mt-[42px] mb-[10px] rounded-[22px] bg-ground">
+					<span class="bone block h-[84px] rounded-[22px]"></span>
+				</div>
+				<!-- The facts: where it starts and ends, then the loop and break badges. -->
+				<div class="flex flex-col gap-2 px-1 pt-0.5 pb-1">
+					<span class="bone block h-3.5 w-[70%] rounded-[7px]"></span>
+					<div class="flex gap-1.5">
+						<span class="bone h-[22px] w-24 rounded-full"></span>
+						<span class="bone h-[22px] w-16 rounded-full"></span>
+					</div>
+				</div>
+				<span class="bone mt-1.5 ml-4 block h-[13px] w-16 rounded-[6px]"></span>
+				{#each WIDTHS.slice(0, 4) as [w1, w2], i (i)}
+					<div class="flex h-16 items-center gap-2.5 rounded-2xl bg-surface pr-4 pl-3">
+						<span class="bone size-5 flex-none rounded-full"></span>
+						<span class="bone size-[26px] flex-none rounded-full"></span>
+						<div class="flex flex-1 flex-col gap-2">
+							<span class="bone h-3 rounded-md" style="width: {w1}%"></span>
+							<span class="bone h-2.5 rounded-[5px] opacity-80" style="width: {w2}%"></span>
+						</div>
+					</div>
+				{/each}
 			</div>
 		{:else if skeleton.kind === 'moves'}
 			<div class="relative -mt-7 flex flex-col gap-2 rounded-t-[28px] bg-ground px-4 pt-5">
