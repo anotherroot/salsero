@@ -9,7 +9,14 @@
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import { exerciseGroups } from '$lib/picker/build';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
-	import { classDayLabel, dayLabel, setSummary } from '$lib/format';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import HeroCard from '$lib/components/ui/HeroCard.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
+	import { heroFor, todayBands, type BandKey } from '$lib/exercises/today';
+	import { classDayLabel, dayLabel, longDayLabel, setSummary } from '$lib/format';
 	import { timeOfDay } from '$lib/day/day';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
@@ -85,6 +92,19 @@
 			: null
 	);
 
+	// The hero drives the session: Start, Resume (with the next name), a disabled
+	// Start when everything is parked, or a quiet All done card.
+	const hero = $derived(
+		heroFor(data.plan, {
+			on: sessionOn,
+			next: firstUp?.exercise.name ?? null,
+			logged: tally.count
+		})
+	);
+	// Only a Resume names a next row, so only then is one tinted "Up next".
+	const upNextId = $derived(hero?.kind === 'resume' ? (firstUp?.exercise.id ?? null) : null);
+	const bands = $derived(todayBands(data.plan));
+
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
 	const lessonDayOf = (e: { lessonId: number | null }) => {
@@ -123,158 +143,140 @@
 	><title>{data.isToday ? 'Today' : dayLabel(data.day)} · {data.dance.label}</title></svelte:head
 >
 
-<header
-	class="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
->
-	<a
-		href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
-		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-		aria-label="Previous day">‹</a
-	>
-	<div class="text-center">
-		<h1 class="text-[17px] font-semibold">{data.isToday ? 'Today' : dayLabel(data.day)}</h1>
-		{#if !data.isToday}
-			<a href={resolve('/[dance]', { dance: data.dance.slug })} class="text-[12px] text-accent"
-				>Back to today</a
-			>
-		{:else}
-			<p class="text-[12px] text-muted">{dayLabel(data.day)}</p>
-		{/if}
-	</div>
-	{#if data.nextDay}
-		<a
-			href={data.nextDay === data.today
-				? resolve('/[dance]', { dance: data.dance.slug })
-				: resolve(`/${data.dance.slug}?day=${data.nextDay}`)}
-			class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-			aria-label="Next day">›</a
-		>
-	{:else}
-		<span class="grid size-11 place-items-center text-[22px] text-rule" aria-hidden="true">›</span>
+{#snippet rowsOf(key: BandKey, list: typeof data.plan.due)}
+	{#each list as row (row.exercise.id)}
+		<ExerciseRow
+			{row}
+			band={key}
+			dance={data.dance.slug}
+			lastRating={data.lastRatings[row.exercise.id] ?? null}
+			lessonDay={lessonDayOf(row.exercise)}
+			upNext={row.exercise.id === upNextId}
+			onlog={() => (openId = row.exercise.id)}
+		/>
+	{/each}
+{/snippet}
+
+{#snippet heroCard()}
+	{#if hero}
+		<HeroCard
+			title={hero.title}
+			meta={hero.meta}
+			state={hero.kind === 'idle' ? 'disabled' : hero.kind === 'done' ? 'done' : 'default'}
+			onclick={hero.kind === 'start'
+				? startSession
+				: hero.kind === 'resume'
+					? () => (openId = firstUp?.exercise.id ?? null)
+					: undefined}
+		/>
 	{/if}
-</header>
+{/snippet}
 
-<main class="px-4 pt-4">
-	{#if data.isToday}
-		{#if rows.length === 0}
-			<div class="mt-10 text-center">
-				<p class="text-[15px] font-medium">Nothing to practise yet.</p>
-				<p class="mt-1 text-[13px] text-muted">
-					Build a routine from your figures, or add a custom exercise below.
-				</p>
-				<a
-					href={resolve('/[dance]/routines', { dance: data.dance.slug })}
-					class="mt-4 inline-block rounded-xl bg-accent px-5 py-3 text-[14px] font-semibold text-accent-ink"
-					>Build a routine</a
+{#if data.isToday}
+	<Screen title="Today" subtitle={longDayLabel(data.today)} hero={hero ? heroCard : undefined}>
+		{#snippet right()}
+			<BandButton
+				icon="chevron-left"
+				label="Previous day"
+				href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
+			/>
+			<BandButton icon="settings" label="Settings" href={resolve('/settings')} />
+		{/snippet}
+
+		{#if bands.length === 0}
+			<div class="pt-10">
+				<EmptyState
+					icon="calendar"
+					title="Nothing to practise yet"
+					body="Build a routine from your figures, or add a custom exercise."
 				>
+					{#snippet action()}
+						<div class="flex w-[260px] flex-col gap-2">
+							<a
+								href={resolve('/[dance]/routines', { dance: data.dance.slug })}
+								class={button('primary', 'md', true)}
+								><Icon name="route" size={20} />Build a routine</a
+							>
+							<button
+								type="button"
+								class={button('secondary', 'md', true)}
+								onclick={() => (creating = true)}
+								><Icon name="plus" size={20} />Custom exercise</button
+							>
+						</div>
+					{/snippet}
+				</EmptyState>
 			</div>
-		{/if}
+		{:else}
+			{#each bands as b, i (b.key)}
+				{#if b.key === 'inactive'}
+					<!-- Parked exercises fold away, closed by default. -->
+					<button
+						type="button"
+						class="flex min-h-11 w-full cursor-pointer items-center justify-between pr-2 pl-4 text-muted"
+						class:mt-1.5={i > 0}
+						aria-expanded={showInactive}
+						aria-controls="band-inactive"
+						onclick={() => (showInactive = !showInactive)}
+					>
+						<span class="text-[13px] font-bold">{b.label}</span>
+						<Icon name={showInactive ? 'chevron-up' : 'chevron-down'} size={20} />
+					</button>
+					<ul id="band-inactive" class={GROUP} hidden={!showInactive}>
+						{@render rowsOf(b.key, b.rows)}
+					</ul>
+				{:else}
+					<section aria-labelledby="band-{b.key}-h" class="flex flex-col gap-2">
+						<h2 id="band-{b.key}-h" class={SECTION_LABEL} class:pt-3.5={i > 0}>{b.label}</h2>
+						<ul class={GROUP}>
+							{@render rowsOf(b.key, b.rows)}
+						</ul>
+					</section>
+				{/if}
+			{/each}
 
-		{#if data.plan.doneToday.length > 0}
-			<section aria-labelledby="done-h">
-				<h2 id="done-h" class="mb-2 text-[12px] font-medium tracking-wide text-done uppercase">
-					Done today
-				</h2>
-				<ul class="space-y-2">
-					{#each data.plan.doneToday as row (row.exercise.id)}
-						<ExerciseRow
-							{row}
-							variant="done"
-							dance={data.dance.slug}
-							lastRating={data.lastRatings[row.exercise.id] ?? null}
-							lessonDay={lessonDayOf(row.exercise)}
-							onlog={() => (openId = row.exercise.id)}
-						/>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
-		{#if firstUp}
 			<button
 				type="button"
-				class="mt-6 mb-4 h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink first:mt-0"
-				onclick={() => (sessionOn ? (openId = firstUp?.exercise.id ?? null) : startSession())}
-				>{sessionOn ? 'Resume session' : 'Start session'}</button
+				class="mt-1.5 {button('secondary', 'md', true)}"
+				onclick={() => (creating = true)}><Icon name="plus" size={20} />Custom exercise</button
 			>
 		{/if}
-
-		{#if data.plan.due.length > 0}
-			<section aria-labelledby="due-h" class="mt-6 first:mt-0">
-				<h2 id="due-h" class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
-					Due
-				</h2>
-				<ul class="space-y-2">
-					{#each data.plan.due as row (row.exercise.id)}
-						<ExerciseRow
-							{row}
-							variant="due"
-							dance={data.dance.slug}
-							lastRating={data.lastRatings[row.exercise.id] ?? null}
-							lessonDay={lessonDayOf(row.exercise)}
-							onlog={() => (openId = row.exercise.id)}
-						/>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
-		<!-- Shown, not hidden: seeing what is coming is how you pick a short session. -->
-		{#if data.plan.upcoming.length > 0}
-			<section aria-labelledby="upcoming-h" class="mt-6 first:mt-0">
-				<h2 id="upcoming-h" class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase">
-					Not yet due
-				</h2>
-				<ul class="space-y-2">
-					{#each data.plan.upcoming as row (row.exercise.id)}
-						<ExerciseRow
-							{row}
-							variant="upcoming"
-							dance={data.dance.slug}
-							lastRating={data.lastRatings[row.exercise.id] ?? null}
-							lessonDay={lessonDayOf(row.exercise)}
-							onlog={() => (openId = row.exercise.id)}
-						/>
-					{/each}
-				</ul>
-			</section>
-		{/if}
-
-		{#if data.plan.inactive.length > 0}
-			<section class="mt-6">
-				<button
-					type="button"
-					class="mb-2 flex w-full items-center justify-between text-[12px] font-medium tracking-wide text-muted uppercase"
-					aria-expanded={showInactive}
-					onclick={() => (showInactive = !showInactive)}
-				>
-					<span>Inactive ({data.plan.inactive.length})</span>
-					<span aria-hidden="true">{showInactive ? '−' : '+'}</span>
-				</button>
-				{#if showInactive}
-					<ul class="space-y-2">
-						{#each data.plan.inactive as row (row.exercise.id)}
-							<ExerciseRow
-								{row}
-								variant="inactive"
-								dance={data.dance.slug}
-								lastRating={data.lastRatings[row.exercise.id] ?? null}
-								lessonDay={lessonDayOf(row.exercise)}
-								onlog={() => (openId = row.exercise.id)}
-							/>
-						{/each}
-					</ul>
-				{/if}
-			</section>
-		{/if}
-
-		<button
-			type="button"
-			class="mt-6 mb-4 h-12 w-full rounded-xl border border-dashed border-rule text-[14px] font-medium text-ink-2"
-			onclick={() => (creating = true)}>+ Custom exercise</button
+	</Screen>
+{:else}
+	<header
+		class="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
+		style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
+	>
+		<a
+			href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
+			class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
+			aria-label="Previous day">‹</a
 		>
-	{:else}
+		<div class="text-center">
+			<h1 class="text-[17px] font-semibold">{data.isToday ? 'Today' : dayLabel(data.day)}</h1>
+			{#if !data.isToday}
+				<a href={resolve('/[dance]', { dance: data.dance.slug })} class="text-[12px] text-accent"
+					>Back to today</a
+				>
+			{:else}
+				<p class="text-[12px] text-muted">{dayLabel(data.day)}</p>
+			{/if}
+		</div>
+		{#if data.nextDay}
+			<a
+				href={data.nextDay === data.today
+					? resolve('/[dance]', { dance: data.dance.slug })
+					: resolve(`/${data.dance.slug}?day=${data.nextDay}`)}
+				class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
+				aria-label="Next day">›</a
+			>
+		{:else}
+			<span class="grid size-11 place-items-center text-[22px] text-rule" aria-hidden="true">›</span
+			>
+		{/if}
+	</header>
+
+	<main class="px-4 pt-4">
 		{#if pastGroups.length === 0}
 			<p class="mt-10 text-center text-[14px] text-muted">Nothing logged on this day.</p>
 		{/if}
@@ -325,8 +327,8 @@
 			}}
 			onclose={() => (picking = false)}
 		/>
-	{/if}
-</main>
+	</main>
+{/if}
 
 {#if open && Log}
 	{#key `${open.id}:${bumpKey}`}
