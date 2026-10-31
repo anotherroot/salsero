@@ -32,7 +32,9 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
 	import { byteSize, fullDateLabel } from '$lib/format';
-	import { reviewMeta, sectionHeading } from '$lib/lessons/page';
+	import { deleteBlock, deleteVideoBody, reviewMeta, sectionHeading } from '$lib/lessons/page';
+	import { lessonVideoCaption } from '$lib/video/caption';
+	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import { spotTime } from '$lib/video/spots';
@@ -100,6 +102,20 @@
 		const m = (data as { message?: unknown } | undefined)?.message;
 		return typeof m === 'string' ? m : fallback;
 	};
+
+	// --- Delete a video: what blocks it is said at once; otherwise a question.
+	/** Why a video cannot go, by video id; cleared by the next tap of its trash. */
+	let videoRefused = $state<Record<number, string>>({});
+	/** The video the dialog asks about, with how many sections go with it. */
+	let deletingVideo = $state<{ id: number; sections: number } | null>(null);
+	let deleteBusy = $state(false);
+	function askDeleteVideo(id: number, sections: Parameters<typeof deleteBlock>[0]) {
+		const blocked = deleteBlock(sections);
+		videoRefused = blocked
+			? { ...videoRefused, [id]: blocked }
+			: Object.fromEntries(Object.entries(videoRefused).filter(([k]) => Number(k) !== id));
+		if (!blocked) deletingVideo = { id, sections: sections.length };
+	}
 
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
@@ -427,51 +443,68 @@
 
 			<section class="flex flex-col gap-2 pt-2.5">
 				<h2 class={SECTION_LABEL}>{sectionHeading('Videos', data.videos.length)}</h2>
-				<ul class="space-y-3">
-					{#each data.videos as video (video.id)}
-						<li class="overflow-hidden rounded-xl border border-line bg-raised">
+				<ul class="flex flex-col gap-3">
+					{#each data.videos as video, i (video.id)}
+						{@const videoSections = data.sections[video.id] ?? []}
+						{#snippet videoTrash()}
+							<button
+								type="button"
+								aria-label="Delete video {i + 1}"
+								aria-haspopup="dialog"
+								class={iconButton('bare').replace('text-ink', 'text-danger')}
+								onclick={() => askDeleteVideo(video.id, videoSections)}
+								><Icon name="trash" size={22} /></button
+							>
+						{/snippet}
+						<li class="overflow-hidden rounded-[22px] bg-surface">
 							{#if broken[video.id] === 'missing'}
-								<p class="p-4 text-[13px] text-muted">The file for this video is missing.</p>
+								<VideoProblem
+									title="This file is missing"
+									body="The server has no file for this video."
+									meta={byteSize(video.sizeBytes)}
+								>
+									{#snippet action()}{@render videoTrash()}{/snippet}
+								</VideoProblem>
 							{:else if broken[video.id] === 'unplayable'}
-								<p class="p-4 text-[13px] text-muted">
-									This browser can't play this file.
-									<a
-										href={resolve('/lesson-videos/[file]', { file: video.file })}
-										download
-										class="font-medium text-accent">Download it</a
-									>
-									or open it on your phone.
-								</p>
+								<VideoProblem
+									title="Can’t play here"
+									body="This browser can’t play this file. Download it or open it on your phone."
+									meta={byteSize(video.sizeBytes)}
+								>
+									{#snippet action()}
+										<span class="flex items-center gap-1">
+											<a
+												href={resolve('/lesson-videos/[file]', { file: video.file })}
+												download
+												class={button('tertiary', 'sm')}
+												><Icon name="download" size={18} />Download</a
+											>
+											{@render videoTrash()}
+										</span>
+									{/snippet}
+								</VideoProblem>
 							{:else}
 								<VideoFrame
 									src="/lesson-videos/{video.file}"
 									sourceUrl={video.sourceUrl}
 									owner={{ lessonVideoId: video.id }}
 									title={lesson.title}
+									caption={lessonVideoCaption(i, video)}
 									onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 									onclosed={() => void invalidateAll()}
 									linking
+									action={videoTrash}
 								/>
 							{/if}
-							<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
-								<span>{byteSize(video.sizeBytes)}</span>
-								<form
-									method="POST"
-									action="?/deleteVideo"
-									use:enhance
-									onsubmit={(e) => {
-										if (!confirm('Delete this video?')) e.preventDefault();
-									}}
-								>
-									<input type="hidden" name="videoId" value={video.id} />
-									<button type="submit" class="h-9 px-2 text-danger">Delete</button>
-								</form>
-							</div>
-							{#if form?.action === 'deleteVideo' && 'videoId' in form && form.videoId === video.id}
-								<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
+							{#if videoRefused[video.id]}
+								<div class="px-3 pb-2.5">
+									<Banner kind="error" title="Can’t delete this video"
+										>{videoRefused[video.id]}</Banner
+									>
+								</div>
 							{/if}
 							<VideoSections
-								sections={data.sections[video.id] ?? []}
+								sections={videoSections}
 								src="/lesson-videos/{video.file}"
 								owner={{ lessonVideoId: video.id }}
 								linking
@@ -667,6 +700,54 @@
 		</button>
 	</BottomBar>
 {/if}
+
+<Dialog
+	open={deletingVideo !== null}
+	title="Delete this video?"
+	body={deleteVideoBody(deletingVideo?.sections ?? 0)}
+	icon="trash"
+	tone="danger"
+	onclose={() => (deletingVideo = null)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deletingVideo = null)}
+			>Cancel</button
+		>
+		<form
+			method="POST"
+			action="?/deleteVideo"
+			use:enhance={() => {
+				deleteBusy = true;
+				const id = deletingVideo?.id;
+				return async ({ update, result }) => {
+					try {
+						if (result.type === 'failure' && id !== undefined) {
+							videoRefused = {
+								...videoRefused,
+								[id]: messageOf(result.data, 'That video could not be deleted.')
+							};
+						} else {
+							await update();
+						}
+					} finally {
+						deleteBusy = false;
+						deletingVideo = null;
+					}
+				};
+			}}
+		>
+			<input type="hidden" name="videoId" value={deletingVideo?.id ?? ''} />
+			<button
+				type="submit"
+				class={button('danger', 'sm')}
+				aria-busy={deleteBusy}
+				disabled={deleteBusy}
+			>
+				{#if deleteBusy}<Spinner /><span class="sr-only">Deleting…</span>{:else}Delete{/if}
+			</button>
+		</form>
+	{/snippet}
+</Dialog>
 
 <Dialog
 	open={archiving}
