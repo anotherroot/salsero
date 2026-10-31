@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { plan, type PlanExercise } from '$lib/urgency/urgency';
 import {
 	archiveCopy,
+	moveState,
 	practiceLine,
 	recordingDay,
 	routineUseMeta,
@@ -122,4 +123,33 @@ describe('variationNav', () => {
 	it('counts an unknown id as the first', () => {
 		expect(variationNav(three, 99).index).toBe(0);
 	});
+});
+
+describe('moveState', () => {
+	const dile = { name: 'Dile que no', variations: ['Basic', 'Doble'] };
+	it('a name that clashes, trimmed and in any case', () =>
+		expect(moveState({ last: false, chosen: dile, joinName: '  doble ' })).toEqual({
+			cta: 'Move to Dile que no',
+			danger: false,
+			clash: 'Dile que no already has a doble. Pick another name.',
+			blocked: true
+		}));
+	it('a blank name blocks without a clash', () =>
+		expect(moveState({ last: false, chosen: dile, joinName: '' })).toMatchObject({
+			blocked: true,
+			clash: null
+		}));
+	it('a free name goes', () =>
+		expect(moveState({ last: false, chosen: dile, joinName: 'Cuddle entry' }).blocked).toBe(false));
+	it('the last variation removes its figure', () =>
+		expect(moveState({ last: true, chosen: null, joinName: 'Basic' })).toEqual({
+			cta: 'Move and remove figure',
+			danger: true,
+			clash: null,
+			blocked: false
+		}));
+	it('no figure chosen: its own figure', () =>
+		expect(moveState({ last: false, chosen: null, joinName: 'x' }).cta).toBe(
+			'Make it its own figure'
+		));
 });

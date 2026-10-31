@@ -350,6 +350,7 @@ export const actions: Actions = {
 			if (!figureName) {
 				return fail(400, {
 					action: 'move',
+					field: 'figureName',
 					message: 'Give the new figure a name (up to 200 characters).'
 				});
 			}
@@ -377,12 +378,17 @@ export const actions: Actions = {
 					const target = groupId === undefined ? null : getGroup(db, groupId);
 					return fail(400, {
 						action: 'move',
+						field: 'name',
 						message: taken(target?.name ?? 'That figure', name ?? figure.name),
 						name: String(form.get('name') ?? '')
 					});
 				}
 				case 'figure-name-taken':
-					return fail(400, { action: 'move', message: figureTaken(figureName ?? '') });
+					return fail(400, {
+						action: 'move',
+						field: 'figureName',
+						message: figureTaken(figureName ?? '')
+					});
 			}
 		}
 		throw redirect(303, `/${params.dance}/figures/${figure.id}`);

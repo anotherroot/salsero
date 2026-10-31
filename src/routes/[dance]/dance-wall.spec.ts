@@ -697,6 +697,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'move',
+					field: 'name',
 					message: 'Second salsa figure already has a variation called Basic. Rename one first.'
 				}
 			});
@@ -711,20 +712,24 @@ describe("the detail pages refuse the other dance's rows", () => {
 				)
 			).toMatchObject({
 				status: 400,
-				data: { action: 'move', message: "There's already a figure called second salsa figure." }
+				data: {
+					action: 'move',
+					field: 'figureName',
+					message: "There's already a figure called second salsa figure."
+				}
 			});
-			expect(
-				await call(
-					figurePage.actions.move,
-					post('salsa', { target: String(before) }, String(salsaFigureId))
-				)
-			).toMatchObject({ status: 400, data: { action: 'move' } });
+			const same = await call(
+				figurePage.actions.move,
+				post('salsa', { target: String(before) }, String(salsaFigureId))
+			);
+			expect(same).toMatchObject({ status: 400, data: { action: 'move' } });
+			expect((same as { data: object }).data).not.toHaveProperty('field');
 			expect(
 				await call(
 					figurePage.actions.move,
 					post('salsa', { target: 'new', figureName: '' }, String(salsaFigureId))
 				)
-			).toMatchObject({ status: 400, data: { action: 'move' } });
+			).toMatchObject({ status: 400, data: { action: 'move', field: 'figureName' } });
 			expect(groupOf(salsaFigureId)).toBe(before);
 		});
 
@@ -956,6 +961,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'move',
+					field: 'name',
 					message: 'Second salsa figure already has a variation called doble. Rename one first.',
 					name: 'doble'
 				}

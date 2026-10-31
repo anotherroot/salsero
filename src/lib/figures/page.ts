@@ -118,3 +118,31 @@ export function variationNav(
 		position: `${index + 1} of ${count} ${count === 1 ? 'variation' : 'variations'}`
 	};
 }
+
+/**
+ * What Move to… shows for the destination typed so far: the button's words, a
+ * live name clash (compared trimmed and case-insensitive, as the server does)
+ * and whether the button is disabled.
+ */
+export function moveState(i: {
+	last: boolean;
+	chosen: { name: string; variations: string[] } | null;
+	joinName: string;
+}): { cta: string; danger: boolean; clash: string | null; blocked: boolean } {
+	const wanted = i.joinName.trim().toLowerCase();
+	const clashes =
+		i.chosen !== null && i.chosen.variations.some((v) => v.trim().toLowerCase() === wanted);
+	return {
+		cta: i.last
+			? 'Move and remove figure'
+			: i.chosen
+				? `Move to ${i.chosen.name}`
+				: 'Make it its own figure',
+		danger: i.last,
+		clash:
+			clashes && i.chosen
+				? `${i.chosen.name} already has a ${i.joinName.trim()}. Pick another name.`
+				: null,
+		blocked: i.chosen !== null && (wanted === '' || clashes)
+	};
+}

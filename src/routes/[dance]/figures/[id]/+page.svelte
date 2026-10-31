@@ -69,6 +69,15 @@
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	/** Its figure's only variation: taking it away removes the figure. */
 	const last = $derived(data.siblings.length === 1);
+	/** `move`'s refusal with the field it is about, for the sheet to place. */
+	const moveFailed = $derived(
+		form && 'action' in form && form.action === 'move' && 'message' in form
+			? {
+					message: String(form.message),
+					field: ('field' in form ? (form.field as 'name' | 'figureName') : null) ?? null
+				}
+			: null
+	);
 	const failed = (action: string) =>
 		form && 'action' in form && form.action === action && 'message' in form
 			? String(form.message)
@@ -106,12 +115,15 @@
 			if (result.type === 'success') editing = false;
 		};
 	/** Archive lands on a sibling (the same route, so the sheet would stay) or the figures list. */
-	const closeOnArchive: SubmitFunction =
-		() =>
-		async ({ update, result }) => {
+	let archiveBusy = $state(false);
+	const closeOnArchive: SubmitFunction = () => {
+		archiveBusy = true;
+		return async ({ update, result }) => {
 			await update();
+			archiveBusy = false;
 			if (result.type === 'redirect') archiving = false;
 		};
+	};
 </script>
 
 <svelte:head><title>{figure.name} · {variation.name} · {data.dance.label}</title></svelte:head>
@@ -601,7 +613,7 @@
 	figure={figure.name}
 	targets={data.moveTargets}
 	{last}
-	failed={failed('move')}
+	failed={moveFailed}
 	typedName={form && 'action' in form && form.action === 'move' && 'name' in form
 		? String(form.name)
 		: null}
@@ -610,28 +622,30 @@
 />
 
 <Sheet title={archive.title} open={archiving} onclose={() => (archiving = false)}>
-	<form method="POST" action="?/archive" class="space-y-3" use:enhance={closeOnArchive}>
+	<form id="archive-form" method="POST" action="?/archive" use:enhance={closeOnArchive}>
 		{#if last}
-			<RemoveWarning figure={figure.name} variation={variation.name} />
+			<RemoveWarning figure={figure.name} variation={variation.name} kept />
 		{:else}
-			<p class="text-[14px] text-ink-2">
-				{archive.caption}
-			</p>
+			<p class="text-[15px] font-medium text-ink-2">{archive.caption}</p>
 		{/if}
+	</form>
+	{#snippet footer()}
 		<div class="flex gap-2">
 			<button
 				type="button"
 				onclick={() => (archiving = false)}
-				class="h-12 flex-1 rounded-xl border border-rule text-[15px] font-semibold text-ink-2"
-				>Cancel</button
+				class="{button('secondary', 'md', true)} flex-1!">Cancel</button
 			>
 			<button
 				type="submit"
-				class="h-12 flex-[2] rounded-xl bg-danger text-[15px] font-semibold text-white"
-				>{archive.button}</button
+				form="archive-form"
+				disabled={archiveBusy}
+				aria-busy={archiveBusy}
+				class="{button('danger', 'md', true)} flex-[2]! px-3!"
+				>{#if archiveBusy}<Spinner size={18} />{/if}{archive.button}</button
 			>
 		</div>
-	</form>
+	{/snippet}
 </Sheet>
 
 <LinkSectionSheet
