@@ -11,7 +11,14 @@ import { track } from '$lib/unsaved/guard.svelte';
  * closed tab cuts it off, and that asks first.
  */
 
-export type SongUpload = { name: string; loaded: number; total: number; error: string | null };
+export type SongUpload = {
+	/** Which Music it shows in. */
+	dance: DanceSlug;
+	name: string;
+	loaded: number;
+	total: number;
+	error: string | null;
+};
 
 export const upload = $state<{ current: SongUpload | null }>({ current: null });
 
@@ -38,7 +45,7 @@ function fail(message: string) {
 export function startSongUpload(file: File, dance: DanceSlug, style: string): void {
 	if (upload.current && upload.current.error === null) return;
 
-	upload.current = { name: file.name, loaded: 0, total: file.size, error: null };
+	upload.current = { dance, name: file.name, loaded: 0, total: file.size, error: null };
 	untrack = track({ label: 'An upload', dirty: () => true, unloadOnly: true });
 
 	const xhr = new XMLHttpRequest();
@@ -54,9 +61,13 @@ export function startSongUpload(file: File, dance: DanceSlug, style: string): vo
 	xhr.onload = async () => {
 		if (xhr.status === 201) {
 			release();
-			// The song's own row replaces this one once the list has it.
-			await invalidateAll();
-			upload.current = null;
+			// The song's own row replaces this one once the list has it. A reload
+			// that fails must not leave Upload disabled behind a finished upload.
+			try {
+				await invalidateAll();
+			} finally {
+				upload.current = null;
+			}
 			return;
 		}
 		if (xhr.status === 413) return fail(`That file is too large (limit ${MAX_RECORDING_LABEL}).`);

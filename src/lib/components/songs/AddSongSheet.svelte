@@ -24,15 +24,32 @@
 		open,
 		onclose,
 		dance,
-		form
-	}: { open: boolean; onclose: () => void; dance: Dance; form: AddForm | null | undefined } =
-		$props();
+		form: given
+	}: {
+		open: boolean;
+		onclose: () => void;
+		dance: Dance;
+		form: AddForm | null | undefined;
+	} = $props();
 
 	let busy = $state(false);
-	/** Picked chip; a refusal brings back the one that was sent. Shared with the upload. */
-	let style = $derived(
-		form?.style && dance.styles.includes(form.style) ? form.style : dance.styles[0]
-	);
+	/**
+	 * The result the sheet was last closed on. Closing throws a refusal away
+	 * ("Close without saving"), so reopening must not bring it back. Raw: a
+	 * proxied copy would never be `===` the prop.
+	 */
+	let closedOn = $state.raw<AddForm | null | undefined>(undefined);
+	const form = $derived(given === closedOn ? null : given);
+
+	/*
+	 * The picked chip, shared with the upload; a refusal brings back the one
+	 * that was sent. Derived from strings only: the list's 10 s poll hands
+	 * back a new `dance` object, and an object dependency would snap the
+	 * pick back to the first style.
+	 */
+	const first = $derived(dance.styles[0]);
+	const sent = $derived(form?.style && dance.styles.includes(form.style) ? form.style : null);
+	let style = $derived(sent ?? first);
 	/** Why the picked file was not sent, under the Upload button. */
 	let fileProblem = $state<string | null>(null);
 	/** One upload at a time: another is moving and has not failed. */
@@ -45,6 +62,9 @@
 
 	function close() {
 		fileProblem = null;
+		closedOn = given;
+		// The fields come back empty on reopen; so does the pick.
+		style = first;
 		onclose();
 	}
 

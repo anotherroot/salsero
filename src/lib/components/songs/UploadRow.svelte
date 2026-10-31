@@ -2,14 +2,16 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import { uploadMeta } from '$lib/songs/library';
+	import type { DanceSlug } from '$lib/dances/dances';
 	import { dismissUpload, upload } from '$lib/songs/upload.svelte';
 
 	/*
 	 * The song upload in flight, at the head of Being added: its name, the
 	 * percent and a bar while bytes move; the server's reason and Dismiss
-	 * when it failed.
+	 * when it failed. Only in the Music of the dance it is filed under.
 	 */
-	const u = $derived(upload.current);
+	let { dance }: { dance: DanceSlug } = $props();
+	const u = $derived(upload.current?.dance === dance ? upload.current : null);
 	const pct = $derived(u && u.total > 0 ? Math.floor((u.loaded / u.total) * 100) : 0);
 </script>
 

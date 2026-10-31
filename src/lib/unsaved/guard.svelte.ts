@@ -203,7 +203,9 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 		},
 		blocked: () => opts.blocked?.() ?? null,
 		save: () => {
-			if (!form.checkValidity()) return Promise.resolve({ ok: false, invalid: form });
+			// A `novalidate` form leaves its checks to the server, whose message shows under the field.
+			if (!form.noValidate && !form.checkValidity())
+				return Promise.resolve({ ok: false, invalid: form });
 			return new Promise<SaveOutcome>((resolve) => {
 				waiting = resolve;
 				form.requestSubmit();

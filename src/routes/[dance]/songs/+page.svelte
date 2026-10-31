@@ -35,7 +35,9 @@
 	});
 	// Client-side and not in the URL: the whole library is already here.
 	let query = $state('');
-	const view = $derived(libraryView(data.songs, query, upload.current !== null));
+	// The upload in flight shows in the Music of the dance it is filed under.
+	const uploadHere = $derived(upload.current?.dance === data.dance.slug);
+	const view = $derived(libraryView(data.songs, query, uploadHere));
 
 	/*
 	 * The worker runs at home once a minute, so a waiting song changes state on
@@ -118,10 +120,10 @@
 	{/if}
 
 	{#if view.kind === 'list'}
-		{#if view.adding.length || upload.current}
+		{#if view.adding.length || uploadHere}
 			<h2 class="{SECTION_LABEL} pt-2.5">{view.addingHeading}</h2>
 			<ul class={GROUP}>
-				<UploadRow />
+				<UploadRow dance={data.dance.slug} />
 				{#each view.adding as s (s.id)}
 					{@render addingRow(s, '')}
 					{#if s.status === 'failed'}
