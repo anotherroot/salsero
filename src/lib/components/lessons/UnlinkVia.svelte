@@ -21,9 +21,11 @@
 		label: string;
 		via: ViaSection[];
 		onclose: () => void;
+		/** The unlink went through (the dialog is closing): the page moves focus off the row that is gone. */
+		onunlinked?: () => void;
 	}
 
-	let { action, name, id, label, via, onclose }: Props = $props();
+	let { action, name, id, label, via, onclose, onunlinked }: Props = $props();
 	let busy = $state(false);
 </script>
 
@@ -43,13 +45,14 @@
 			use:enhance={({ cancel }) => {
 				if (busy) return cancel();
 				busy = true;
-				return async ({ update }) => {
+				return async ({ update, result }) => {
 					try {
 						await update();
 					} finally {
 						busy = false;
 					}
 					onclose();
+					if (result.type === 'success') onunlinked?.();
 				};
 			}}
 		>

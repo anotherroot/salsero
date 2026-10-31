@@ -27,6 +27,7 @@
 	import { cutTake, recordAgainstClick, type Capture, type Take } from '$lib/voice/capture';
 	import { phraseCandidates, type PhraseSlice } from '$lib/voice/slice';
 	import { encodeWav } from '$lib/voice/wav';
+	import { focusAfterRemoval } from '$lib/focus';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -268,6 +269,7 @@
 
 	/** Delete now; the toast's Undo brings the take back for a minute. */
 	async function remove(id: number, deleted: string) {
+		const keys = rows.map((r) => `take-${r.id}`);
 		if (refused(await act('delete', { id }))) return;
 		toast = {
 			id: ++seq,
@@ -279,6 +281,7 @@
 				refused(r);
 			}
 		};
+		await focusAfterRemoval(keys, `take-${id}`, 'takes-heading');
 	}
 
 	/** Back from a stage that is not the list. Nothing chosen yet is lost on purpose. */
@@ -386,7 +389,9 @@
 		</ul>
 
 		{#if rows.length}
-			<span class="{SECTION_LABEL} mt-3.5">Recorded takes</span>
+			<span class="{SECTION_LABEL} mt-3.5" tabindex="-1" data-focus="takes-heading"
+				>Recorded takes</span
+			>
 			<ul class={GROUP} bind:this={takesList}>
 				{#each rows as r (r.id)}
 					<li class="{ROW} min-h-16 pr-1.5">
@@ -395,6 +400,7 @@
 							<span class="text-[13px] text-muted">{r.meta}</span>
 						</span>
 						<button
+							data-focus="take-{r.id}"
 							type="button"
 							class={iconButton('bare').replace('text-ink', 'text-danger')}
 							aria-label={r.deleteLabel}

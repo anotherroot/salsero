@@ -452,6 +452,7 @@
 			{#if view.main.state === 'logged'}
 				<!-- Still a submit: tapping it logs another set, as before. -->
 				<button
+					data-focus="sets-add"
 					type="submit"
 					form={formId}
 					class="inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done [&>svg]:[stroke-width:2.5]"
@@ -460,6 +461,7 @@
 				</button>
 			{:else}
 				<button
+					data-focus="sets-add"
 					type="submit"
 					form={formId}
 					class={button('primary', 'md', true)}

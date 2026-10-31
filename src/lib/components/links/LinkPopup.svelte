@@ -7,6 +7,7 @@
 
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { focusAfterRemoval } from '$lib/focus';
 	import { SvelteSet } from 'svelte/reactivity';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
@@ -270,6 +271,12 @@
 		onpush(key as CreateStep);
 	}
 
+	/** Once a link is gone: focus goes to the next link's ×, else the opener. */
+	function afterUnlink(l: LinkedTarget) {
+		const keys = (options?.linked ?? []).map((x) => `linked-${x.linkId}`);
+		return () => void focusAfterRemoval(keys, `linked-${l.linkId}`, 'linked-add');
+	}
+
 	function unlink(l: LinkedTarget) {
 		unlinkMessage = null;
 		if (l.alsoByHand) {
@@ -278,7 +285,8 @@
 		}
 		void run(
 			() => removeLink(spotId, l.linkId, false),
-			(m) => (unlinkMessage = m)
+			(m) => (unlinkMessage = m),
+			afterUnlink(l)
 		);
 	}
 
@@ -287,13 +295,17 @@
 		const l = asking;
 		if (!l) return;
 		unlinkMessage = null;
+		const focus = afterUnlink(l);
 		void run(
 			() => removeLink(spotId, l.linkId, alsoLesson),
 			(m) => {
 				asking = null;
 				unlinkMessage = m;
 			},
-			() => (asking = null)
+			() => {
+				asking = null;
+				focus();
+			}
 		);
 	}
 
@@ -372,6 +384,7 @@
 										>{/if}{#if l.archived}<Badge tone="warn">Archived</Badge>{/if}</span
 								>
 								<button
+									data-focus="linked-{l.linkId}"
 									type="button"
 									class={iconButton('bare').replace('text-ink', 'text-muted')}
 									aria-label="Unlink {l.label}"
@@ -386,7 +399,11 @@
 				<p class="px-1 text-[14px] text-muted">Not linked to anything yet.</p>
 			{/if}
 			<div class="mt-1">
-				<PickerOpener label="Link a figure or drill…" onclick={() => onpush('pick')} />
+				<PickerOpener
+					data-focus="linked-add"
+					label="Link a figure or drill…"
+					onclick={() => onpush('pick')}
+				/>
 			</div>
 		{/if}
 	</div>

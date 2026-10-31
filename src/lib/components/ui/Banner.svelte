@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
+	import { focusAfter, focusWasLost } from '$lib/focus';
 	import Icon from './Icon.svelte';
 	import type { IconName } from '$lib/icons/icons';
 
@@ -25,9 +26,19 @@
 		success: { box: 'bg-done-soft', ink: 'text-done', icon: 'check-circle' }
 	};
 	const l = $derived(look[kind]);
+	let root: HTMLDivElement | undefined = $state();
+
+	/** Dismiss: the banner goes, so focus moves to the next control past it (never to <body>). */
+	async function dismiss() {
+		const to = root ? focusAfter(root) : null;
+		ondismiss?.();
+		await tick();
+		if (focusWasLost()) to?.focus();
+	}
 </script>
 
 <div
+	bind:this={root}
 	role={kind === 'error' ? 'alert' : 'status'}
 	class="flex items-start gap-3 rounded-2xl p-3.5 {l.box}"
 	class:pr-1.5={!!ondismiss}
@@ -43,7 +54,7 @@
 			type="button"
 			class="-my-2.5 flex size-11 flex-none cursor-pointer items-center justify-center rounded-full text-muted active:bg-step"
 			aria-label="Dismiss"
-			onclick={ondismiss}><Icon name="close" size={20} /></button
+			onclick={dismiss}><Icon name="close" size={20} /></button
 		>
 	{/if}
 </div>

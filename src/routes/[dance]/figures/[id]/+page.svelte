@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -143,9 +144,7 @@
 		await tick();
 		// The page has a big header and a slim band, each with the button; one is inert.
 		const key = on ? 'stop-editing' : 'start-editing';
-		document
-			.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)
-			.forEach((el) => !el.closest('[inert]') && el.focus());
+		focusKeyed(key);
 	}
 	async function startEditing() {
 		refusal = null;
@@ -182,6 +181,8 @@
 	let deleteBusy = $state(false);
 	const deleteRecording: SubmitFunction = () => {
 		deleteBusy = true;
+		const keys = variation.recordings.map((r) => `recording-${r.id}`);
+		const gone = `recording-${deleting?.id}`;
 		return async ({ update, result }) => {
 			try {
 				await update();
@@ -192,6 +193,7 @@
 			}
 			// Already gone: show the list as it is now.
 			if (result.type === 'failure' && result.status === 404) await invalidateAll();
+			if (result.type === 'success') await focusAfterRemoval(keys, gone, 'stop-editing');
 		};
 	};
 	const askDelete = (rec: { id: number; sizeBytes: number }, day: string) => {
@@ -204,6 +206,17 @@
 			)
 		};
 	};
+	// Unlinking a section: focus goes to the next section, else the band's stop-editing.
+	const unlinkSection =
+		(linkId: number): SubmitFunction =>
+		() => {
+			const keys = variation.sections.map((x) => `section-${x.linkId}`);
+			return async ({ update, result }) => {
+				await update();
+				if (result.type === 'success')
+					await focusAfterRemoval(keys, `section-${linkId}`, 'stop-editing');
+			};
+		};
 	const deleteRefusal = (id: number) =>
 		form && 'action' in form && form.action === 'deleteRecording' && 'recordingId' in form
 			? form.recordingId === id
@@ -230,6 +243,7 @@
 <!-- A recording's delete, while editing: asks first, in the Dialog below. -->
 {#snippet trash(rec: { id: number; sizeBytes: number }, day: string)}
 	<button
+		data-focus="recording-{rec.id}"
 		type="button"
 		aria-label="Delete this recording"
 		aria-haspopup="dialog"
@@ -665,11 +679,15 @@
 						<ul class="flex flex-col gap-2">
 							{#each variation.sections as s (s.linkId)}
 								<li>
-									<SectionCard section={s}>
+									<SectionCard section={s} focusKey="section-{s.linkId}">
 										{#snippet unlink()}
 											<!-- Unlinking is an edit, like deleting a recording. -->
 											{#if editing}
-												<form method="POST" action="?/unlinkSection" use:enhance>
+												<form
+													method="POST"
+													action="?/unlinkSection"
+													use:enhance={unlinkSection(s.linkId)}
+												>
 													<input type="hidden" name="linkId" value={s.linkId} />
 													<button
 														type="submit"

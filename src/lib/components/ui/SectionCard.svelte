@@ -11,7 +11,11 @@
 	 * A linked section: where it is from and what it is. A tap plays it full
 	 * screen, looping. `unlink` is the page's own form, when it offers one.
 	 */
-	let { section, unlink }: { section: LinkedSection; unlink?: Snippet } = $props();
+	let {
+		section,
+		unlink,
+		focusKey
+	}: { section: LinkedSection; unlink?: Snippet; focusKey?: string } = $props();
 
 	let open = $state(false);
 
@@ -25,6 +29,7 @@
 
 <div class="flex min-h-16 items-center rounded-2xl bg-surface pr-1.5 pl-3">
 	<button
+		data-focus={focusKey}
 		type="button"
 		class="flex min-h-16 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
 		onclick={() => (open = true)}

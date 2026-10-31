@@ -2,6 +2,7 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
+	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { afterNavigate } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -143,9 +144,7 @@
 	 */
 	async function focusBand(key: string) {
 		await tick();
-		document
-			.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)
-			.forEach((el) => !el.closest('[inert]') && el.focus());
+		focusKeyed(key);
 	}
 	function startEditing() {
 		// A refusal or typed value from an earlier edit is stale now.
@@ -327,6 +326,9 @@
 	}
 
 	async function removeAlternative(stepId: number, figureId: number, label: string) {
+		const keys = (data.slots.find((s) => s.id === stepId)?.figureIds ?? [])
+			.slice(1)
+			.map((f) => `alt-${stepId}-${f}`);
 		const key = `${stepId}:${figureId}`;
 		goneOptions = [...goneOptions, key];
 		swiped = null;
@@ -334,6 +336,7 @@
 		goneOptions = goneOptions.filter((k) => k !== key);
 		if (result.type === 'success') {
 			showToast(`Removed ${label}`, () => send('restoreOption', { stepId, figureId }));
+			await focusAfterRemoval(keys, `alt-${stepId}-${figureId}`, `slot-${stepId}`);
 		}
 	}
 

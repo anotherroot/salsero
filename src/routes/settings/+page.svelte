@@ -4,6 +4,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
+	import { focusAfterRemoval } from '$lib/focus';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { GROUP, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
@@ -81,6 +82,7 @@
 	}
 
 	async function remove(id: number, label: string) {
+		const keys = data.devices.map((d) => `device-${d.id}`);
 		const result = await act('removeDevice', { id });
 		if (failed(result)) return;
 		toast = {
@@ -93,6 +95,7 @@
 				failed(r);
 			}
 		};
+		await focusAfterRemoval(keys, `device-${id}`, 'devices-fallback');
 	}
 
 	const savedSize = $derived(String(data.device.shortSide));
@@ -160,6 +163,7 @@
 		</div>
 		<button
 			type="button"
+			data-focus="devices-fallback"
 			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
 			onclick={() => (sheet = 'size')}
 		>
@@ -181,6 +185,7 @@
 						<span class="text-[13px] text-muted">{d.meta}</span>
 					</span>
 					<button
+						data-focus="device-{d.id}"
 						type="button"
 						class={button('danger-text', 'sm')}
 						aria-label="Remove {d.label}"

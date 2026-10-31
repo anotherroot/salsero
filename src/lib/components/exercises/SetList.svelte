@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { focusAfterRemoval } from '$lib/focus';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Stars from '$lib/components/ui/Stars.svelte';
 	import { GROUP, iconButton } from '$lib/components/ui/styles';
@@ -42,11 +43,13 @@
 				method="POST"
 				action="?/deleteSet"
 				use:enhance={() => {
+					const keys = sets.map((x) => `set-${x.id}`);
 					hiding = [...hiding, s.id];
 					return async ({ update, result }) => {
 						await update();
 						if (result.type === 'success') {
 							ondeleted(String(result.data?.snapshot ?? ''));
+							await focusAfterRemoval(keys, `set-${s.id}`, 'sets-add');
 							return;
 						}
 						// A refusal ("already removed") reloads: the list shows what the server has.
@@ -62,6 +65,7 @@
 			>
 				<input type="hidden" name="setId" value={s.id} />
 				<button
+					data-focus="set-{s.id}"
 					type="submit"
 					class={iconButton('bare').replace('text-ink', 'text-muted')}
 					aria-label="Delete set logged at {time}"

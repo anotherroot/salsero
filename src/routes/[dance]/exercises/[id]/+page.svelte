@@ -337,7 +337,12 @@
 			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
 		</button>
 	{:else}
-		<button type="button" class={button('primary', 'md', true)} onclick={() => (logging = true)}>
+		<button
+			type="button"
+			data-focus="sets-add"
+			class={button('primary', 'md', true)}
+			onclick={() => (logging = true)}
+		>
 			<Icon name="plus" size={20} />Log a set
 		</button>
 	{/if}

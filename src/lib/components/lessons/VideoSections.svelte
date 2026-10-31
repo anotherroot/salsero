@@ -5,6 +5,7 @@
 	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { enhance } from '$app/forms';
+	import { focusAfterRemoval } from '$lib/focus';
 	import { button, iconButton } from '$lib/components/ui/styles';
 	import { openingSteps, type LinkStep } from '$lib/video/link-steps';
 	import { sheetStack } from '$lib/sheets/history.svelte';
@@ -46,6 +47,7 @@
 		});
 	}
 
+	const ownerKey = $derived(Object.entries(owner).join('-'));
 	const asSpot = (s: VideoSection): Spot => ({
 		id: s.id,
 		startMs: s.startMs,
@@ -56,7 +58,13 @@
 </script>
 
 <div class="border-t border-hairline">
-	<h3 class="px-4 pt-2.5 text-[13px] font-bold text-muted">Sections · {sections.length}</h3>
+	<h3
+		class="px-4 pt-2.5 text-[13px] font-bold text-muted"
+		tabindex="-1"
+		data-focus="sections-heading-{ownerKey}"
+	>
+		Sections · {sections.length}
+	</h3>
 	{#if sections.length === 0}
 		<p class="px-4 pt-1 pb-3 text-[13px] text-muted">
 			None yet. Open the video full screen and tap Section to mark one.
@@ -66,6 +74,7 @@
 			{#each sections as s (s.id)}
 				<li class="flex min-h-[58px] items-center gap-3 pr-1.5 pl-4">
 					<button
+						data-focus="section-{s.id}"
 						type="button"
 						class="flex size-11 flex-none cursor-pointer items-center justify-center"
 						aria-label="Play {spotLabel(s)}"
@@ -82,12 +91,20 @@
 						<form
 							method="POST"
 							action="?/unlinkSection"
-							use:enhance={() =>
-								async ({ update, result }) => {
+							use:enhance={() => {
+								const keys = sections.map((x) => `section-${x.id}`);
+								return async ({ update, result }) => {
 									await update();
 									// Already removed elsewhere: show the list as it is now.
 									if (result.type === 'failure' && result.status === 404) await invalidateAll();
-								}}
+									if (result.type === 'success')
+										await focusAfterRemoval(
+											keys,
+											`section-${s.id}`,
+											`sections-heading-${ownerKey}`
+										);
+								};
+							}}
 						>
 							<input type="hidden" name="linkId" value={s.links[0].id} />
 							<button

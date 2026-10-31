@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { focusAfterRemoval } from '$lib/focus';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { FIELD, LABEL } from '$lib/components/ui/styles';
 
@@ -33,6 +34,13 @@
 	// before — so only the "add" list filters archived ones out.
 	const addable = $derived(positions.filter((p) => !p.archived && !chosen.includes(p.id)));
 	const uid = $props.id();
+
+	/** A chip is gone: focus goes to the next chip, else the dropdown that adds one. */
+	function remove(id: number) {
+		const keys = chosen.map((o) => `${uid}-start-${o}`);
+		chosen = chosen.filter((o) => o !== id);
+		void focusAfterRemoval(keys, `${uid}-start-${id}`, `${uid}-add`);
+	}
 </script>
 
 <div>
@@ -47,9 +55,10 @@
 			{@const p = positions.find((o) => o.id === id)}
 			{@const name = `${p?.name ?? `#${id}`}${p?.archived ? ' (archived)' : ''}`}
 			<button
+				data-focus="{uid}-start-{id}"
 				type="button"
 				aria-label="Remove {name}"
-				onclick={() => (chosen = chosen.filter((o) => o !== id))}
+				onclick={() => remove(id)}
 				class="group flex h-11 flex-none cursor-pointer items-center rounded-full"
 			>
 				<span
@@ -68,6 +77,7 @@
 			<div class="relative">
 				<select
 					id="{uid}-add"
+					data-focus="{uid}-add"
 					aria-label="Add a start position"
 					value=""
 					onchange={(e) => {

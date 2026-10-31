@@ -1,6 +1,8 @@
 <!-- src/lib/components/exercises/kinds/drill/Content.svelte -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { focusAfterRemoval } from '$lib/focus';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
@@ -17,6 +19,19 @@
 	let { content, editLinks, onPage = false }: ContentProps = $props();
 
 	let linking = $state(false);
+
+	/** Unlinking a section: focus goes to the next section, else the opener below. */
+	const unlinkSection =
+		(linkId: number): SubmitFunction =>
+		() => {
+			const keys =
+				content.type === 'drill' ? content.sections.map((x) => `section-${x.linkId}`) : [];
+			return async ({ update, result }) => {
+				await update();
+				if (result.type === 'success')
+					await focusAfterRemoval(keys, `section-${linkId}`, 'section-add');
+			};
+		};
 </script>
 
 {#if content.type === 'drill'}
@@ -33,9 +48,14 @@
 		{/if}
 		{#each content.sections as s (s.linkId)}
 			{#if editLinks}
-				<SectionCard section={s}>
+				<SectionCard section={s} focusKey="section-{s.linkId}">
 					{#snippet unlink()}
-						<form method="POST" action="?/unlinkSection" use:enhance class="flex-none">
+						<form
+							method="POST"
+							action="?/unlinkSection"
+							use:enhance={unlinkSection(s.linkId)}
+							class="flex-none"
+						>
 							<input type="hidden" name="linkId" value={s.linkId} />
 							<button type="submit" class={iconButton('bare')} aria-label="Unlink this section">
 								<span class="text-muted"><Icon name="close" size={20} /></span>
@@ -53,7 +73,11 @@
 			</p>
 		{/if}
 		{#if editLinks}
-			<PickerOpener label="Link a section…" onclick={() => (linking = true)} />
+			<PickerOpener
+				data-focus="section-add"
+				label="Link a section…"
+				onclick={() => (linking = true)}
+			/>
 			<h2 class={SECTION_HEAD}>Links</h2>
 			<LinksEditor links={content.links} message={editLinks.message} entered={editLinks.entered} />
 			<LinkSectionSheet

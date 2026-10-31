@@ -157,6 +157,7 @@
 			<div
 				role="button"
 				tabindex="0"
+				data-focus="slot-{row.id}"
 				aria-expanded={selecting ? undefined : expanded}
 				aria-pressed={selecting ? selected : undefined}
 				class="min-w-0 flex-1 cursor-pointer py-1 select-none [-webkit-touch-callout:none]"
@@ -300,6 +301,7 @@
 				</div>
 				<a
 					href={alt.href}
+					data-focus="alt-{row.id}-{alt.id}"
 					class="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-text"
 					aria-label="Open {alt.label}"
 					title="Open"><Icon name="external" size={18} /></a

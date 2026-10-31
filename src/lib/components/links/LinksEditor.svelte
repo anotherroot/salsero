@@ -2,6 +2,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { focusAfterRemoval } from '$lib/focus';
 	import LinkList from './LinkList.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -34,6 +36,16 @@
 	let { links, message, entered, canSave = false, compact = false }: Props = $props();
 	const uid = $props.id();
 	let posting = $state<number | null>(null);
+	/** Removing a link: focus goes to the next link's Remove, else the box that adds one. */
+	const removeLink =
+		(id: number): SubmitFunction =>
+		() => {
+			const keys = links.map((l) => `link-${l.id}`);
+			return async ({ update, result }) => {
+				await update();
+				if (result.type === 'success') await focusAfterRemoval(keys, `link-${id}`, 'links-add');
+			};
+		};
 	const webHost = (url: string) => {
 		const p = parseLink(url);
 		return p?.kind === 'web' ? p.host : url;
@@ -104,16 +116,17 @@
 					</form>
 				{/if}
 			{/if}
-			<form method="POST" action="?/deleteLink" use:enhance class="ml-auto">
+			<form method="POST" action="?/deleteLink" use:enhance={removeLink(link.id)} class="ml-auto">
 				<input type="hidden" name="linkId" value={link.id} />
-				<button type="submit" class={button('danger-text', 'sm')}
+				<button data-focus="link-{link.id}" type="submit" class={button('danger-text', 'sm')}
 					><Icon name="trash" size={18} />Remove</button
 				>
 			</form>
 		{:else}
-			<form method="POST" action="?/deleteLink" use:enhance>
+			<form method="POST" action="?/deleteLink" use:enhance={removeLink(link.id)}>
 				<input type="hidden" name="linkId" value={link.id} />
 				<button
+					data-focus="link-{link.id}"
 					type="submit"
 					class="{iconButton('bare')} text-muted"
 					aria-label="Remove {link.title ?? webHost(link.url)}"
@@ -141,6 +154,7 @@
 	<div>
 		<label class={LABEL} for="{uid}-urls">Add links</label>
 		<textarea
+			data-focus="links-add"
 			id="{uid}-urls"
 			name="urls"
 			rows="2"

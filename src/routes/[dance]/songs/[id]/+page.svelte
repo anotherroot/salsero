@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { focusAfterRemoval } from '$lib/focus';
 	import { resolve } from '$app/paths';
 	import SampleButton from '$lib/components/songs/SampleButton.svelte';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
@@ -123,6 +125,18 @@
 		tempoAsk = null;
 		tempo = String(song.tempoFactor);
 	}
+
+	/** Removing a 1: focus goes to the next one's Remove, else the Count speed heading. */
+	const removeAnchor =
+		(beat: number): SubmitFunction =>
+		() => {
+			const keys = data.anchors.map((b) => `anchor-${b}`);
+			return async ({ update, result }) => {
+				await update();
+				if (result.type === 'success')
+					await focusAfterRemoval(keys, `anchor-${beat}`, 'count-speed-heading');
+			};
+		};
 </script>
 
 <svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
@@ -280,7 +294,7 @@
 			{/if}
 		{/if}
 
-		<h2 class="{SECTION_LABEL} pt-2">Count speed</h2>
+		<h2 class="{SECTION_LABEL} pt-2" tabindex="-1" data-focus="count-speed-heading">Count speed</h2>
 		<Segmented
 			name="factor"
 			label="Count speed"
@@ -305,9 +319,10 @@
 					{@const time = clock(grid.beats[beat] ?? 0)}
 					<li class="flex min-h-14 items-center justify-between gap-3 pr-1 pl-4">
 						<span class="text-[16px] font-bold text-ink tabular-nums">{time}</span>
-						<form method="POST" action="?/removeAnchor" use:enhance>
+						<form method="POST" action="?/removeAnchor" use:enhance={removeAnchor(beat)}>
 							<input type="hidden" name="beat" value={beat} />
 							<button
+								data-focus="anchor-{beat}"
 								type="submit"
 								class={button('danger-text', 'sm')}
 								aria-label="Remove the 1 at {time}">Remove</button

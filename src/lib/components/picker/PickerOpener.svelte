@@ -17,6 +17,7 @@
 		disabled?: boolean;
 		'aria-describedby'?: string;
 		id?: string;
+		'data-focus'?: string;
 	} = $props();
 </script>
 

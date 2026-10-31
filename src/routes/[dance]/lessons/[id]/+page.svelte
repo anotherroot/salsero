@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
@@ -92,9 +93,7 @@
 		await tick();
 		// The big header and the slim band each draw the button; the hidden one is inert.
 		const key = on ? 'stop-editing' : 'start-editing';
-		document
-			.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)
-			.forEach((el) => !el.closest('[inert]') && el.focus());
+		focusKeyed(key);
 	}
 	function startEditing() {
 		refusal = null;
@@ -145,6 +144,28 @@
 	let addingRoutine = $state(false);
 	let logging = $state(false);
 	let broken = $state<Record<number, MediaProblem>>({});
+	/** Where focus goes when that row is gone: the list's keys, the row, the list's add control. */
+	let viaFocus: { keys: string[]; gone: string; fallback: string } | null = null;
+	/** The focus keys of a link list, in page order, and its add control. */
+	function listFocus(kind: LinkKind, id: number) {
+		const rows: { id: number }[] =
+			kind === 'figure' ? data.figures : kind === 'routine' ? data.routines : data.exercises;
+		return {
+			keys: rows.map((r) => `${kind}-${r.id}`),
+			gone: `${kind}-${id}`,
+			fallback: `${kind}-add`
+		};
+	}
+	/** A one-tap Unlink: once it lands, focus goes to the next row, else the list's opener. */
+	const unlinkRow =
+		(kind: LinkKind, id: number): SubmitFunction =>
+		() => {
+			const f = listFocus(kind, id);
+			return async ({ update, result }) => {
+				await update();
+				if (result.type === 'success') await focusAfterRemoval(f.keys, f.gone, f.fallback);
+			};
+		};
 	/** A row there through a section, whose Unlink is asking first. */
 	let unlinkingVia = $state<{
 		action: string;
@@ -501,13 +522,16 @@
 			{/if}
 
 			<section class="flex flex-col gap-2 pt-2.5">
-				<h2 class={SECTION_LABEL}>{sectionHeading('Videos', data.videos.length)}</h2>
+				<h2 class={SECTION_LABEL} tabindex="-1" data-focus="videos-heading">
+					{sectionHeading('Videos', data.videos.length)}
+				</h2>
 				{#if data.videos.length}
 					<ul class="flex flex-col gap-3">
 						{#each data.videos as video, i (video.id)}
 							{@const videoSections = data.sections[video.id] ?? []}
 							{#snippet videoTrash()}
 								<button
+									data-focus="video-{video.id}"
 									type="button"
 									aria-label="Delete video {i + 1}"
 									aria-haspopup="dialog"
@@ -614,6 +638,7 @@
 							{#each data.figures as figure (figure.id)}
 								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 									<a
+										data-focus="figure-{figure.id}"
 										href={resolve('/[dance]/figures/[id]', {
 											dance: data.dance.slug,
 											id: String(figure.id)
@@ -631,7 +656,11 @@
 							{/each}
 						</ul>
 					{/if}
-					<PickerOpener label="Link an existing figure…" onclick={() => openPicker('figure')} />
+					<PickerOpener
+						data-focus="figure-add"
+						label="Link an existing figure…"
+						onclick={() => openPicker('figure')}
+					/>
 				</section>
 				<section class="flex flex-col gap-2">
 					{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine', () =>
@@ -642,6 +671,7 @@
 							{#each data.routines as routine (routine.id)}
 								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 									<a
+										data-focus="routine-{routine.id}"
 										href={resolve('/[dance]/routines/[id]', {
 											dance: data.dance.slug,
 											id: String(routine.id)
@@ -656,7 +686,11 @@
 							{/each}
 						</ul>
 					{/if}
-					<PickerOpener label="Link an existing routine…" onclick={() => openPicker('routine')} />
+					<PickerOpener
+						data-focus="routine-add"
+						label="Link an existing routine…"
+						onclick={() => openPicker('routine')}
+					/>
 				</section>
 				<section class="flex flex-col gap-2">
 					{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise', () =>
@@ -667,6 +701,7 @@
 							{#each data.exercises as exercise (exercise.id)}
 								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 									<a
+										data-focus="exercise-{exercise.id}"
 										href={resolve('/[dance]/exercises/[id]', {
 											dance: data.dance.slug,
 											id: String(exercise.id)
@@ -695,7 +730,11 @@
 							{/each}
 						</ul>
 					{/if}
-					<PickerOpener label="Link an existing exercise…" onclick={() => openPicker('exercise')} />
+					<PickerOpener
+						data-focus="exercise-add"
+						label="Link an existing exercise…"
+						onclick={() => openPicker('exercise')}
+					/>
 				</section>
 			</div>
 		{/if}
@@ -734,6 +773,7 @@
 			use:enhance={() => {
 				deleteBusy = true;
 				const id = deletingVideo?.id;
+				const keys = data.videos.map((v) => `video-${v.id}`);
 				return async ({ update, result }) => {
 					try {
 						if (result.type === 'failure' && id !== undefined) {
@@ -749,6 +789,8 @@
 						deleteBusy = false;
 						deletingVideo = null;
 					}
+					if (result.type === 'success' && id !== undefined)
+						await focusAfterRemoval(keys, `video-${id}`, 'videos-heading');
 				};
 			}}
 		>
@@ -849,17 +891,19 @@
 			aria-haspopup="dialog"
 			aria-label="Unlink {name}"
 			class={iconButton('bare').replace('text-ink', 'text-muted')}
-			onclick={() =>
-				(unlinkingVia = {
+			onclick={() => {
+				viaFocus = listFocus(kind, id);
+				unlinkingVia = {
 					action: LINK[kind].unlink,
 					name: LINK[kind].field,
 					id,
 					label: name,
 					via
-				})}><Icon name="unlink" size={22} /></button
+				};
+			}}><Icon name="unlink" size={22} /></button
 		>
 	{:else}
-		<form method="POST" action={LINK[kind].unlink} class="flex" use:enhance>
+		<form method="POST" action={LINK[kind].unlink} class="flex" use:enhance={unlinkRow(kind, id)}>
 			<input type="hidden" name={LINK[kind].field} value={id} />
 			<button
 				type="submit"
@@ -1142,5 +1186,10 @@
 {/snippet}
 
 {#if unlinkingVia}
-	<UnlinkVia {...unlinkingVia} onclose={() => (unlinkingVia = null)} />
+	<UnlinkVia
+		{...unlinkingVia}
+		onclose={() => (unlinkingVia = null)}
+		onunlinked={() =>
+			viaFocus && void focusAfterRemoval(viaFocus.keys, viaFocus.gone, viaFocus.fallback)}
+	/>
 {/if}

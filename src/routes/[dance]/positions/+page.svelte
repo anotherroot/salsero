@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import { focusAfterRemoval } from '$lib/focus';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
@@ -93,6 +94,7 @@
 	{#snippet right()}
 		<BandButton
 			icon="plus"
+			focusKey="new-position"
 			label="New position"
 			onclick={() => {
 				seen = form;
@@ -117,6 +119,7 @@
 		{#each data.positions as p (p.id)}
 			{@const meta = positionMeta(p)}
 			<button
+				data-focus="position-{p.id}"
 				type="button"
 				class="flex min-h-16 w-full cursor-pointer items-center gap-2.5 py-[9px] pr-3.5 pl-4 text-left active:bg-step"
 				onclick={() => {
@@ -204,6 +207,7 @@
 						if (removing) return cancel();
 						removing = true;
 						const { id, name } = selected;
+						const keys = data.positions.map((p) => `position-${p.id}`);
 						return async ({ result, update }) => {
 							if (result.type !== 'success') {
 								removing = false;
@@ -215,6 +219,7 @@
 							selectedId = null;
 							removed(name, id);
 							removing = false;
+							await focusAfterRemoval(keys, `position-${id}`, 'new-position');
 						};
 					}}
 				>
