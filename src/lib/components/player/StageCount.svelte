@@ -51,7 +51,7 @@
 <div class="flex flex-col items-center gap-3" aria-live="off">
 	<span
 		role="img"
-		aria-label="Count {digit.text}"
+		aria-label={digit.text === '–' ? 'Count not started' : `Count ${digit.text}`}
 		class="stage flex items-center justify-center"
 		style="--stage: min({size}px, 30dvh)"
 	>
@@ -59,7 +59,7 @@
 			class="flex size-full items-center justify-center font-display leading-none font-extrabold tracking-[-0.03em] tabular-nums {digit.disc
 				? 'rounded-full bg-band-ink text-band shadow-[0_10px_30px_rgb(0_0_0/0.22)]'
 				: digit.dim
-					? 'text-band-ink/60'
+					? 'text-band-ink/75'
 					: 'text-band-ink'}">{digit.text}</span
 		>
 	</span>

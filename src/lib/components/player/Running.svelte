@@ -184,7 +184,7 @@
 			{/if}
 			{#if paused}
 				<span
-					class="inline-flex h-[30px] items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-ink tabular-nums ring-[1.5px] ring-band-ink ring-inset"
+					class="inline-flex h-[30px] items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small tabular-nums ring-[1.5px] ring-band-ink ring-inset"
 				>
 					<Icon name="pause" size={16} filled />Paused · {clock(elapsed)}
 				</span>
