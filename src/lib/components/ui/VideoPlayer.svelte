@@ -3,7 +3,6 @@
 	import { onMount, untrack } from 'svelte';
 	import { pushState, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getDance } from '$lib/dances/dances';
 	import { loadVideoPrefs, saveVideoPrefs, type VideoRate } from '$lib/video-prefs';
 	import {
 		edgeViewTime,
@@ -197,8 +196,6 @@
 		};
 		return [...spots].sort((a, b) => at(a) - at(b));
 	});
-
-	const accent = $derived(getDance(page.params.dance ?? 'salsa').accentDark);
 
 	/* ---------- history: one entry per screen ---------- */
 
@@ -631,7 +628,7 @@
 	 * phone with the editor or the list beside the video. desktop: video,
 	 * sidebar, keys.
 	 */
-	/** A sheet on top of the stack lays the screen out like the full video under it. */
+	/** `levelOf` skips sheets, so this is never 'sheet'; it only narrows the type for chrome.ts. */
 	const chromeLevel = $derived(level.kind === 'sheet' ? 'full' : level.kind);
 	const mode = $derived(playerMode(layout, chromeLevel, sheet === 'list'));
 	/** A phone, either way up: a section view carries ‹ Full video and Edit in its top bar. */
@@ -671,31 +668,6 @@
 		if (faded) wake();
 		else toggle();
 	}
-
-	const tokens = $derived(
-		[
-			['bg', '#0a0a0b'],
-			['surface', '#141417'],
-			['sheet', '#17171b'],
-			['raised', '#1e1e23'],
-			['hover', '#27272e'],
-			['line', '#2a2a31'],
-			['tick', '#3f3f46'],
-			['fill', '#52525b'],
-			['faint', '#71717a'],
-			['band', '#8b8b95'],
-			['muted', '#a1a1aa'],
-			['handle', '#d4d4d8'],
-			['ink-2', '#d4d4d8'],
-			['ink', '#f4f4f5'],
-			['accent', accent],
-			['accent-ink', '#140803'],
-			['danger', '#fca5a5'],
-			['danger-fill', '#dc2626']
-		]
-			.map(([k, v]) => `--pl-${k}: ${v}`)
-			.join('; ')
-	);
 
 	const badge = $derived(cornerBadge(rate, mirror));
 	let waiting = $state(false);
@@ -870,7 +842,6 @@
 	aria-label="Video"
 	class="player theme-media"
 	data-layout={layout}
-	style={tokens}
 	oncancel={(e) => {
 		// Esc, and Android Chrome's back on a modal dialog: up one level. Chrome
 		// makes a cancel uncancellable after a run of Escapes with no tap between

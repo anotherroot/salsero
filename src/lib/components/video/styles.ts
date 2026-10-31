@@ -4,7 +4,6 @@
  * the dance's accent reaches every button. Builders carry colour, size and
  * radius: append nothing that sets any of them.
  */
-import { button } from '$lib/components/ui/styles';
 
 export type PlayerButtonKind = 'neutral' | 'accent' | 'ghost' | 'glass' | 'outline' | 'danger-text';
 export type PlayerButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'cta';
@@ -66,12 +65,3 @@ export const ON_VIDEO =
 /** A key cap: the desktop legend and the editor's key hints. */
 export const KBD =
 	'inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-step px-1 text-[11px] font-bold text-ink tabular-nums';
-
-/* Old names, until Task 7 converts the last components and deletes them. */
-export const BTN = playerButton('neutral', 'md');
-export const BTN_ACCENT = playerButton('accent', 'md');
-export const BTN_GHOST = playerButton('ghost', 'md');
-export const BTN_OUTLINE = playerButton('outline', 'md');
-export const BTN_DANGER = playerButton('danger-text', 'md');
-export const BTN_DANGER_FILL = button('danger', 'sm');
-export const BTN_ON_VIDEO = playerButton('glass', 'md');
