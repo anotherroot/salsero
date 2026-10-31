@@ -185,6 +185,83 @@
 			--color-overdue: var(--color-status);
 		}
 	}
+
+	/*
+	 * The full-screen player's palette (`MEDIA` in tokens.ts, kit `_media`): the
+	 * player is always dark, whatever the scheme, so its layers (the picker, the
+	 * Link popup's levels, `PlayerLayer`) put `.theme-media` on themselves and
+	 * draw with the same token classes as the site. The rule sits on the layer
+	 * itself, so it beats the scheme the layer inherits from the page;
+	 * `[data-dance='bachata'] .theme-media` outranks `.theme-media` by
+	 * specificity. Outside any media query on purpose: light mode too.
+	 *
+	 * The old aliases are set again: a var() alias resolves where it is
+	 * defined, so the ones from :root would carry the page's colours in.
+	 */
+	.theme-media {
+		color-scheme: dark;
+		--icon-knockout: var(--color-surface);
+		--color-ground: #000000;
+		--color-surface: #1c1c1f;
+		--color-raised: #1c1c1f;
+		--color-sheet: #141416;
+		--color-field: #0b0b0d;
+		--color-hairline: #404043;
+		--color-field-line: #3a3a40;
+		--color-ink: #ffffff;
+		--color-ink-2: #d6d6d7;
+		--color-muted: #adadae;
+		--color-chevron: #6e6e76;
+		--color-chip: #2c2c31;
+		--color-chip-ink: #f4f4f6;
+		--color-step: #2c2c31;
+		--color-tab-bg: #121214;
+		--color-tab-line: #2c2c31;
+		--color-done: #5cc98f;
+		--color-on-done: #0b0b0d;
+		--color-done-soft: #173226;
+		--color-danger: #ff5c7a;
+		--color-on-danger: #1a0509;
+		--color-danger-soft: #3a1520;
+		--color-warn: #f0a04b;
+		--color-warn-soft: #33240f;
+		--color-disabled-bg: #232327;
+		--color-disabled-ink: #6a6a72;
+		--color-skeleton: #2e2e34;
+		--color-inverse-bg: #ececf0;
+		--color-inverse-ink: #111114;
+		--color-band: #8f2a12;
+		--color-band-ink: #fff3e4;
+		--color-on-cream: #8f2a12;
+		--color-band-small: #f2dbcb;
+		--color-accent: #ff6b47;
+		--color-accent-text: #ff7a59;
+		--color-accent-soft: #452a26;
+		--color-on-accent: #0b0b0d;
+		--color-status: #ff8a6b;
+		--color-inverse-accent: #b3340f;
+		--color-plane: var(--color-ground);
+		--color-line: var(--color-hairline);
+		--color-rule: var(--color-field-line);
+		--color-done-bg: var(--color-done-soft);
+		--color-accent-ink: var(--color-on-accent);
+		--color-overdue: var(--color-status);
+	}
+
+	[data-dance='bachata'] .theme-media {
+		--color-band: #4a1238;
+		--color-band-ink: #fff3e4;
+		--color-on-cream: #4a1238;
+		--color-band-small: #e9d8cf;
+		--color-accent: #f07aae;
+		--color-accent-text: #f07aae;
+		--color-accent-soft: #422d39;
+		--color-on-accent: #2a0716;
+		--color-status: #f07aae;
+		--color-inverse-accent: #8e2a66;
+		--color-accent-ink: var(--color-on-accent);
+		--color-overdue: var(--color-status);
+	}
 }
 
 html,
