@@ -290,7 +290,7 @@ it('goes back where Practice was opened from', () => {
   4. "Voice count" + `CountChips label="Voice count"`; "Clave" + `ClaveChips label="Clave"` when `dance.clave`.
   5. A song only: a `GROUP` with the Voice row (count only has it in the tempo group).
   6. "Voice volume" + `Slider` (label "Voice volume", `bind:value={voiceVolume}`) in `rounded-2xl bg-surface px-4 py-2`.
-  The Voice row: `<a class="{ROW} min-h-[58px]" href={resolve('/voice') + '?back=' + encodeURIComponent(page.url.pathname + page.url.search)}>` — "Voice" 16/700 `text-ink`, "Record your own count" 13 `text-muted`, trailing `voiceKind(takes, count, tempo)` 16 `text-muted` and `chevron-right` 20 `text-chevron`, where `tempo` is `bpm` for Count only, and for A song `bpmOf(songBeats) * speed` once the grid has loaded, else `null` (Built-in while it loads). The old "Use my own voice" link and the "Routine: …" paragraph go (both are now on the band or in this row).
+  The Voice row: `<a class="{ROW} min-h-[58px]" href={myCountHref(page.url.pathname + page.url.search, pattern)}>` — "Voice" 16/700 `text-ink`, "Record your own count" 13 `text-muted`, trailing `voiceKind(takes, count, tempo)` 16 `text-muted` and `chevron-right` 20 `text-chevron`, where `tempo` is `bpm` for Count only, and for A song `bpmOf(songBeats) * speed` once the grid has loaded, else `null` (Built-in while it loads). The old "Use my own voice" link and the "Routine: …" paragraph go (both are now on the band or in this row).
   Section labels sit `pt-2` above their control; the body ends `pb-32` so the last control clears the footer.
 - [ ] **Step 2: Play** in `<BottomBar fade>`: `const ps = playState({ source, songId, ready: songReady, error: songError, starting })`; when `ps.why`, a 13/700 `text-muted` centred line above the button; the button is `button('primary', 'lg', true)` with `disabled={ps.disabled}`, `aria-busy={ps.busy}`, content `<Icon name="play" size={22} filled />Play` or `<Spinner size={22} />Starting…`. `play()` is unchanged (still `stopSample()` then `onplay(...)` synchronously).
 - [ ] **Step 3: The page.** Delete the old sticky header and the old start-error paragraph; the
@@ -388,7 +388,7 @@ it('goes back where Practice was opened from', () => {
   player": the `<audio>` has no browser controls (the app's seek bar seeks before Play and
   while running); Back goes to where Practice was opened from (`practiceBack`, `?from=today`
   from the routine log popup); Back mid-run stops the run and offers Save this run first;
-  the Voice row says Built-in or Yours and opens My count with `?back=`.
+  the Voice row says Built-in or Yours and opens My count through `myCountHref` (`?from=`).
 - [ ] **Step 6: Commit** `feat(practice): landscape and desktop; docs`.
 
 ---
@@ -427,10 +427,7 @@ it('goes back where Practice was opened from', () => {
   player's own rule, ±12 %), for the chosen pattern; a song's tempo is its grid's × speed,
   Built-in while the grid loads. "Yours" for any recording at all would promise a voice
   the run will not use.
-- **The My count link carries `?back=<this page's path and query>`** for plan 12 to return
-  to (the spec: "My count's back control returns to where it was opened from"). Plan 12
-  must accept only a value starting with a single `/`. Until it lands, the parameter is
-  ignored.
+- **The My count link uses `myCountHref` from `src/lib/voice/back.ts`** (controller ruling, to agree with plan 12's Interfaces): Task 3 creates `back.ts` with exactly plan 12's signatures — `myCountHref(from?: string, pattern?: PhrasePattern): string` (`/voice` plus `?from=<encoded>` and/or `pattern=<p>`) and `voiceBack(from: string | null): { href; label: 'Back to Settings' | 'Back to Practice' }` (Practice only for `/<dance>/player…`, else Settings — no open redirect) — with plan 12's spec cases; plan 12 then only wires `/voice` to `voiceBack`.
 - **"Its song is not ready" is an info banner** here, as the Practice board draws it (the
   log popup's panel uses warning, as its board does). Setup has already fallen back to
   the count, so nothing is wrong yet.
