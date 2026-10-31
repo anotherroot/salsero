@@ -120,8 +120,16 @@
 	/** Exact seconds from the panel. Typing into Minutes clears it, so a hand-entered value wins. */
 	let exactS = $state<number | null>(null);
 
-	const minutesError = $derived(has('minutes') ? rangeError(minutes, 600) : null);
-	const repsError = $derived(has('reps') ? rangeError(reps, 10000) : null);
+	/**
+	 * Text a number field cannot parse (`validity.badInput`) reads as '' and,
+	 * with `novalidate`, would post as blank. It is out of range like any other.
+	 */
+	let minutesBad = $state(false);
+	let repsBad = $state(false);
+	const fieldError = (value: string, bad: boolean, max: number) =>
+		rangeError(bad ? '?' : value, max);
+	const minutesError = $derived(has('minutes') ? fieldError(minutes, minutesBad, 600) : null);
+	const repsError = $derived(has('reps') ? fieldError(reps, repsBad, 10000) : null);
 
 	const view = $derived(
 		footerFor({
@@ -151,6 +159,7 @@
 	$effect(() => {
 		if (!liveRun) return;
 		minutes = String(minutesFrom(liveRun.durationS));
+		minutesBad = false;
 		exactS = liveRun.durationS;
 	});
 
@@ -301,6 +310,8 @@
 						rating = null;
 						minutes = '';
 						reps = '';
+						minutesBad = false;
+						repsBad = false;
 						exactS = null;
 						justLogged = true;
 						// In a session "Logged" stays until Next, Skip or Finish — the Next
@@ -327,9 +338,9 @@
 						<div class="min-w-0">
 							<label for="{formId}-minutes" class={LABEL}>Minutes</label>
 							<div
-								class="{FIELD} flex items-center gap-2.5 has-focus-visible:shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent {minutesError
-									? 'border-2 border-danger'
-									: ''}"
+								class="{minutesError
+									? FIELD.replace('border-field-line', 'border-2 border-danger')
+									: FIELD} flex items-center gap-2.5 has-focus-visible:shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
 							>
 								<input
 									id="{formId}-minutes"
@@ -342,13 +353,14 @@
 									value={minutes}
 									oninput={(e) => {
 										minutes = e.currentTarget.value;
+										minutesBad = e.currentTarget.validity.badInput;
 										exactS = null;
 									}}
 									aria-invalid={minutesError ? 'true' : undefined}
 									aria-describedby={minutesError || exactS !== null
 										? `${formId}-minutes-msg`
 										: undefined}
-									class="h-11 w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted focus-visible:shadow-none focus-visible:outline-none"
+									class="h-11 w-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-muted focus-visible:shadow-none! focus-visible:outline-none!"
 								/>
 								<span class="flex-none text-[15px] font-semibold text-muted">min</span>
 							</div>
@@ -375,7 +387,10 @@
 								max="10000"
 								placeholder="0"
 								value={reps}
-								oninput={(e) => (reps = e.currentTarget.value)}
+								oninput={(e) => {
+									reps = e.currentTarget.value;
+									repsBad = e.currentTarget.validity.badInput;
+								}}
 								aria-invalid={repsError ? 'true' : undefined}
 								aria-describedby={repsError ? `${formId}-reps-msg` : undefined}
 								class={FIELD}
@@ -476,7 +491,12 @@
 					<span class="text-[13px] font-bold text-done">{session.summary}</span>
 				</span>
 			</div>
-			<button type="button" class={button('primary', 'md', true)} onclick={session.onfinish}>
+			<!-- Secondary while Log set is still offered above (Skip ran out the list): one primary per footer. -->
+			<button
+				type="button"
+				class={button(view.main ? 'secondary' : 'primary', 'md', true)}
+				onclick={session.onfinish}
+			>
 				Finish
 			</button>
 		{/if}
