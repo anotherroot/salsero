@@ -17,6 +17,10 @@
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import Stars from '$lib/components/ui/Stars.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import SectionCard from '$lib/components/ui/SectionCard.svelte';
+	import LinkList from '$lib/components/links/LinkList.svelte';
+	import type { LinkRow, LinkedSection } from '$lib/types';
 	import {
 		button,
 		iconButton,
@@ -53,6 +57,33 @@
 	let bpmMin = $state(60);
 	let vol = $state(0.8);
 	let showBar = $state(false);
+
+	const kitSection = (label: string | null): LinkedSection => ({
+		linkId: 1,
+		spot: { id: 1, startMs: 20000, endMs: 44000, label, linkedTo: [] },
+		video: {
+			owner: { lessonVideoId: 1 },
+			src: '/lesson-videos/none.mp4',
+			from: { kind: 'lesson', lessonId: 1, title: 'Thursday class', lessonDay: '2026-10-22' }
+		}
+	});
+	const kitLinks: LinkRow[] = [
+		{
+			id: 1,
+			url: 'https://youtu.be/9bZkp7q19f0?t=75',
+			title: 'Son clave vs rumba clave',
+			createdAt: 0,
+			saving: null
+		},
+		{
+			id: 2,
+			url: 'https://salsaclave.com/patterns',
+			title: 'Clave patterns explained',
+			createdAt: 0,
+			saving: null
+		},
+		{ id: 3, url: 'https://example.org/notes', title: null, createdAt: 0, saving: null }
+	];
 
 	const tileTones = ['accent', 'quiet', 'done'] as const;
 	const tileExercises = [
@@ -282,6 +313,53 @@
 					<Spinner size={32} />
 					<Spinner label="Loading" />
 				</div>
+			</section>
+
+			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Video frame, sections, links</h2>
+				<div class="overflow-hidden rounded-2xl bg-surface">
+					<VideoFrame
+						src="/recordings/none.mp4"
+						owner={{ recordingId: 1 }}
+						caption={{ title: 'Recording · 22 Oct', meta: '12.4 MB' }}
+						onproblem={() => {}}
+					/>
+				</div>
+				<div class="overflow-hidden rounded-2xl bg-surface">
+					<VideoFrame
+						src="/recordings/none.mp4"
+						owner={{ recordingId: 1 }}
+						sourceUrl="https://youtu.be/9bZkp7q19f0"
+						onproblem={() => {}}
+					/>
+				</div>
+				<SectionCard section={kitSection('Clave on its own')} />
+				<SectionCard section={kitSection(null)}>
+					{#snippet unlink()}
+						<button
+							type="button"
+							class="{iconButton('bare')} text-muted"
+							aria-label="Unlink this section"><Icon name="close" size={20} /></button
+						>
+					{/snippet}
+				</SectionCard>
+				<LinkList links={kitLinks} />
+				<LinkList links={kitLinks}>
+					{#snippet actions(link, kind)}
+						{#if kind === 'youtube'}
+							<span class="flex-1"></span>
+							<button type="button" class={button('danger-text', 'sm')}
+								><Icon name="trash" size={18} />Remove</button
+							>
+						{:else}
+							<button
+								type="button"
+								class="{iconButton('bare')} text-muted"
+								aria-label="Remove {link.title ?? 'link'}"><Icon name="trash" size={20} /></button
+							>
+						{/if}
+					{/snippet}
+				</LinkList>
 			</section>
 
 			<section class="flex flex-col gap-3">
