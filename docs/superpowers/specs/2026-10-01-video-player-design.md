@@ -37,7 +37,8 @@
 > and every 36 / 40 px pill or disc inside a 44 px hit area. The link entry reads
 > "Link" (the editor's line "Link to a figure or drill"). Toasts carry a tone
 > and an icon, and a place: over the video's bottom edge in the portrait
-> editor, at the bottom elsewhere. A spinner shows on the picture while the video
+> editor, and for a 'failed' toast in portrait at any level (a refusal belongs to
+> the picture); at the bottom elsewhere. A spinner shows on the picture while the video
 > buffers. The landscape editor's under-video transport is the compact one, and
 > the landscape panel is 44 % wide. Rename, Delete and Keys are `PlayerLayer`
 > sheets. What each screen shows is decided in `src/lib/video/chrome.ts`.

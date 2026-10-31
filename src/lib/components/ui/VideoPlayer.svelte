@@ -51,7 +51,7 @@
 	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
 	import UiIcon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { KBD, ON_VIDEO, playerButton } from '$lib/components/video/styles';
+	import { HIDE, KBD, ON_VIDEO, playerButton } from '$lib/components/video/styles';
 	import TopBar from '$lib/components/video/TopBar.svelte';
 	import Transport from '$lib/components/video/Transport.svelte';
 	import Timeline from '$lib/components/video/Timeline.svelte';
@@ -671,14 +671,16 @@
 
 	const badge = $derived(cornerBadge(rate, mirror));
 	let waiting = $state(false);
-	const HIDE = playerButton('ghost', 'md')
-		.replace('text-ink', 'text-ink-2')
-		.replace('px-3', 'pr-2 pl-3');
-	const SHOW = HIDE;
 	const MARK = playerButton('neutral', 'lg');
+	// Accent text needs a darker scrim than white does: 2.2:1 over a white frame at 60 %.
+	const INVITE = ON_VIDEO.replace('bg-black/60', 'bg-black/75');
 	const MARK_DESK = playerButton('neutral', 'md');
 	const MARK_GLASS = playerButton('glass', 'md');
 	const SECTION_ON = playerButton('accent', 'lg');
+	// playerButton carries `flex-none`, which would beat a `flex-1` appended to it: swap it.
+	const MARK_FILL = MARK.replace('flex-none', 'flex-1');
+	const MARK_WIDE = MARK.replace('flex-none', 'flex-[1.4]');
+	const SECTION_WIDE = SECTION_ON.replace('flex-none', 'flex-[1.4]');
 	const SECTION_ON_DESK = playerButton('accent', 'md');
 	const loopProgress = $derived(
 		loop && loop.endMs !== null
@@ -736,7 +738,7 @@
 				onclick={() => openLink(spot.id)}
 			>
 				<span
-					class="{ON_VIDEO} {entry.invite
+					class="{entry.invite ? INVITE : ON_VIDEO} {entry.invite
 						? 'font-extrabold text-accent-text'
 						: 'font-bold text-white/92'}"
 				>
@@ -775,18 +777,28 @@
 	/>
 {/snippet}
 
-{#snippet markButtons(overlay: boolean)}
-	<button type="button" class={overlay ? MARK_GLASS : MARK_DESK} onclick={mark}>
-		<UiIcon name="flag" size={18} />Mark
+{#snippet markButtons(overlay: boolean, iconOnly = false)}
+	<!-- iconOnly: a square 44 px button in place of the labelled pill (narrow landscape). -->
+	{@const square = (c: string) => (iconOnly ? c.replace('px-3', 'w-11 px-0') : c)}
+	<button
+		type="button"
+		class={square(overlay ? MARK_GLASS : MARK_DESK)}
+		aria-label="Mark point"
+		onclick={mark}
+	>
+		<UiIcon name="flag" size={18} />{#if !iconOnly}Mark{/if}
 	</button>
 	<button
 		type="button"
-		class={pendingStart !== null ? SECTION_ON_DESK : overlay ? MARK_GLASS : MARK_DESK}
+		class={pendingStart !== null ? SECTION_ON_DESK : square(overlay ? MARK_GLASS : MARK_DESK)}
+		aria-label={pendingStart === null ? 'Start section' : 'End section'}
 		onclick={section}
 	>
-		<UiIcon name="scissors" size={18} />{pendingStart === null
-			? 'Section'
-			: `End · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+		<UiIcon name="scissors" size={18} />{#if pendingStart !== null}{iconOnly
+				? ''
+				: 'End · '}{lengthText(
+				Math.max(0, currentMs - pendingStart)
+			)}{:else if !iconOnly}Section{/if}
 	</button>
 {/snippet}
 
@@ -816,7 +828,7 @@
 			{/if}
 		</div>
 		<div class="-mx-1 flex items-center">
-			<button type="button" class={SHOW} onclick={() => setHidden(false)}>
+			<button type="button" class={HIDE} onclick={() => setHidden(false)}>
 				<UiIcon name="chevron-up" size={18} />Show
 			</button>
 			<span class="flex-1"></span>
@@ -954,7 +966,7 @@
 			</VideoGestures>
 			{#if view.scale > 1}
 				<span
-					class="absolute right-2.5 z-10 flex h-9 items-center gap-0.5 rounded-full bg-black/60 pl-3 text-[13px] font-bold text-white/92 {mode ===
+					class="absolute right-2.5 z-10 flex h-9 items-center gap-0.5 rounded-full bg-black/75 pl-3 text-[13px] font-bold text-white/92 {mode ===
 					'overlay'
 						? 'top-16'
 						: badge
@@ -1006,17 +1018,15 @@
 						aria-label="Sections and points"
 						class="flex max-h-[50dvh] min-h-0 flex-col gap-2 rounded-t-[28px] bg-sheet px-4 pt-2 pb-[max(env(safe-area-inset-bottom),22px)]"
 					>
-						<div class="min-h-0 flex-1 overflow-y-auto">
-							<SpotList
-								variant="sheet"
-								spots={listSpots}
-								activeId={null}
-								{loadFailed}
-								onopen={fromList}
-								onedit={toEdit}
-								onclose={() => nav.up()}
-							/>
-						</div>
+						<SpotList
+							variant="sheet"
+							spots={listSpots}
+							activeId={null}
+							{loadFailed}
+							onopen={fromList}
+							onedit={toEdit}
+							onclose={() => nav.up()}
+						/>
 					</section>
 				{:else if level.kind === 'edit' && openSpot}
 					{@render editor(openSpot, false, true)}
@@ -1063,12 +1073,12 @@
 							<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 						</div>
 						<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
-							<button type="button" class="{MARK} flex-1" onclick={mark}>
+							<button type="button" class={MARK_FILL} onclick={mark}>
 								<UiIcon name="flag" size={20} />Mark point
 							</button>
 							<button
 								type="button"
-								class="{pendingStart === null ? MARK : SECTION_ON} flex-[1.4]"
+								class={pendingStart === null ? MARK_WIDE : SECTION_WIDE}
 								onclick={section}
 							>
 								<UiIcon name="scissors" size={20} />{pendingStart === null
@@ -1104,16 +1114,17 @@
 				{:else}
 					<div class="flex flex-col">
 						{@render fullTimeline(true)}
-						<div class="mt-0.5 flex items-center gap-2">
-							<span class="flex w-[170px] items-baseline gap-2">
+						<div class="mt-0.5 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+							<span class="flex min-w-0 items-baseline gap-2">
 								<span class="font-display text-[20px] font-extrabold tabular-nums"
 									>{preciseTime(currentMs)}</span
 								>
-								<span class="text-[14px] font-semibold text-white/85 tabular-nums"
-									>/ {durationMs ? preciseTime(durationMs) : '–'}</span
-								>
+								{#if vw >= 760}
+									<span class="text-[14px] font-semibold text-white/85 tabular-nums"
+										>/ {durationMs ? preciseTime(durationMs) : '–'}</span
+									>
+								{/if}
 							</span>
-							<span class="flex-1"></span>
 							<Transport
 								{paused}
 								size="float"
@@ -1122,8 +1133,9 @@
 								onstep={nudge}
 								ontenth={tenth}
 							/>
-							<span class="flex-1"></span>
-							<span class="flex w-[170px] justify-end gap-1.5">{@render markButtons(true)}</span>
+							<span class="flex min-w-0 justify-end gap-1.5"
+								>{@render markButtons(true, vw < 760)}</span
+							>
 						</div>
 					</div>
 				{/if}
@@ -1177,23 +1189,21 @@
 				class="area-side flex min-h-0 flex-col border-l border-surface bg-ground pr-[env(safe-area-inset-right)]"
 			>
 				{#if sheet === 'list'}
-					<div class="min-h-0 flex-1 overflow-y-auto pb-3">
-						<SpotList
-							variant="panel"
-							spots={listSpots}
-							activeId={null}
-							{loadFailed}
-							onopen={fromList}
-							onedit={toEdit}
-							onclose={() => nav.up()}
-						/>
-					</div>
+					<SpotList
+						variant="panel"
+						spots={listSpots}
+						activeId={null}
+						{loadFailed}
+						onopen={fromList}
+						onedit={toEdit}
+						onclose={() => nav.up()}
+					/>
 				{:else if level.kind === 'edit' && openSpot}
 					{@render editor(openSpot, false, false)}
 				{/if}
 			</div>
 		{:else if mode === 'desktop'}
-			<div class="area-side min-h-0 overflow-y-auto border-l border-surface">
+			<div class="area-side flex min-h-0 flex-col border-l border-surface">
 				<SpotList
 					spots={listSpots}
 					activeId={openSpot?.id ?? null}

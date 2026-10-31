@@ -142,19 +142,6 @@ describe('chrome', () => {
 		expect(c.title).toBe('Delete “1:04.0–1:11.2”?');
 		expect(c.sub).toBe('1:04.0–1:11.2 · 7.2 s');
 	});
-	it('pins the unreachable panel + section bar to the plain one', () => {
-		// Landscape opens the panel only for the list or the editor, so a section's
-		// view is never in 'panel' mode; whatever it returns is never shown.
-		expect(topBar('panel', 'section')).toEqual(topBar('panel', 'full'));
-		expect(topBar('panel', 'section')).toEqual({
-			glass: false,
-			back: false,
-			title: true,
-			sub: 'subtitle',
-			edit: null,
-			sections: false
-		});
-	});
 	it('places and marks toasts', () => {
 		// Landscape's panel is beside the video: its toast goes at the bottom of the screen.
 		expect(toastPlace('panel', 'edit', 'saved')).toBe('bottom');

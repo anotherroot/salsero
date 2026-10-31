@@ -4,7 +4,7 @@
 	import { preciseTime, sectionProgress, spotTime } from '$lib/video/spots';
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { playerButton } from './styles';
+	import { HIDE, playerButton } from './styles';
 	import Timeline from './Timeline.svelte';
 	import Transport from './Transport.svelte';
 
@@ -50,9 +50,6 @@
 
 	const endMs = $derived(spot.endMs ?? spot.startMs);
 	const progress = $derived(sectionProgress(spot, currentMs));
-	const HIDE = playerButton('ghost', 'md')
-		.replace('text-ink', 'text-ink-2')
-		.replace('px-3', 'pr-2 pl-3');
 	const BACK = playerButton('ghost', 'md');
 </script>
 

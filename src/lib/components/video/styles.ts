@@ -65,3 +65,8 @@ export const ON_VIDEO =
 /** A key cap: the desktop legend and the editor's key hints. */
 export const KBD =
 	'inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-step px-1 text-[11px] font-bold text-ink tabular-nums';
+
+/** The ghost "Hide" button that folds the portrait controls (and "Show" in the slim bar). */
+export const HIDE = playerButton('ghost', 'md')
+	.replace('text-ink', 'text-ink-2')
+	.replace('px-3', 'pr-2 pl-3');

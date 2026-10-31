@@ -9,6 +9,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PlayerLayer from '$lib/components/ui/PlayerLayer.svelte';
 	import { button, FIELD, LABEL } from '$lib/components/ui/styles';
+	import { KBD } from './styles';
 	import { deleteCopy, spotLine } from '$lib/video/chrome';
 
 	/**
@@ -28,6 +29,11 @@
 	}
 
 	let { kind, spot, message, oncancel, onrename, ondelete }: Props = $props();
+
+	// The Keys sheet's cap is one step up from the editor's hint chip.
+	const KEY_CAP = KBD.replace('h-5 min-w-5', 'h-6 min-w-6')
+		.replace('px-1', 'px-1.5')
+		.replace('text-[11px]', 'text-[12px]');
 
 	// flex-1 in place of the builder's flex-none: two buttons share the row.
 	const FLEX_SECONDARY = button('secondary').replace('flex-none', 'flex-1');
@@ -104,10 +110,7 @@
 		<dl class="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
 			{#each KEYS as [k, what] (k)}
 				<dt>
-					<kbd
-						class="inline-flex h-6 min-w-6 items-center justify-center rounded-md bg-step px-1.5 text-[12px] font-bold text-ink tabular-nums"
-						>{k}</kbd
-					>
+					<kbd class={KEY_CAP}>{k}</kbd>
 				</dt>
 				<dd class="text-[14px] text-ink-2">{what}</dd>
 			{/each}

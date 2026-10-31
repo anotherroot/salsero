@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ON_VIDEO, playerButton, roundButton } from './styles';
+import { HIDE, ON_VIDEO, playerButton, roundButton } from './styles';
 
 const KINDS = ['neutral', 'accent', 'ghost', 'glass', 'outline', 'danger-text'] as const;
 const SIZES = ['sm', 'md', 'lg', 'xl', 'cta'] as const;
@@ -23,6 +23,10 @@ describe('playerButton', () => {
 		expect(tile).toContain('rounded-2xl');
 		expect(tile).not.toContain('rounded-full');
 		expect(playerButton('neutral')).toContain('disabled:bg-disabled-bg');
+	});
+	it('carries flex-none, so a caller that wants flex-1 swaps it with .replace', () => {
+		for (const k of KINDS) expect(playerButton(k)).toContain('flex-none');
+		expect(HIDE).toContain('flex-none');
 	});
 });
 

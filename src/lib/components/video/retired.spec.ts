@@ -21,8 +21,7 @@ describe("the player's own palette and icons are retired", () => {
 	});
 	it('the player has no hex colour and no icon set of its own', () => {
 		const hex = player.filter((f) => /#[0-9a-fA-F]{3,8}\b/.test(readFileSync(f, 'utf8')));
-		// styles.spec.ts asserts on '#' itself; it names no colour.
-		expect(hex.filter((f) => !f.endsWith('.spec.ts'))).toEqual([]);
+		expect(hex).toEqual([]);
 		const own = player.filter((f) =>
 			/from '\.\/icons'|video\/Icon\.svelte|video\/icons/.test(readFileSync(f, 'utf8'))
 		);

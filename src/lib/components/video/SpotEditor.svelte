@@ -133,7 +133,7 @@
 	{/if}
 
 	<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto bg-ground px-4 pt-3.5 pb-2">
-		<div class="flex items-start gap-2">
+		<div class="flex flex-none items-start gap-2">
 			<button
 				type="button"
 				class="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5 text-left"
@@ -164,7 +164,7 @@
 		{#if entry.kind === 'open'}
 			<button
 				type="button"
-				class="-my-3 flex h-11 cursor-pointer items-center gap-1.5 self-start text-left text-[13px] {entry.invite
+				class="-my-3 flex h-11 flex-none cursor-pointer items-center gap-1.5 self-start text-left text-[13px] {entry.invite
 					? 'font-extrabold text-accent-text'
 					: 'font-semibold text-ink-2'}"
 				onclick={onlink}
@@ -175,7 +175,7 @@
 			</button>
 		{:else if entry.kind === 'show'}
 			<span
-				class="-my-1.5 flex h-8 items-center gap-1.5 self-start text-[13px] font-semibold text-ink-2"
+				class="-my-1.5 flex h-8 flex-none items-center gap-1.5 self-start text-[13px] font-semibold text-ink-2"
 			>
 				<Icon name="link" size={15} />{entry.text}
 			</span>
