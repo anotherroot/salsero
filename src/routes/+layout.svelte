@@ -94,7 +94,7 @@
 			{@render children()}
 		</div>
 		{#if skeleton}
-			<PageSkeleton {skeleton} />
+			<PageSkeleton {skeleton} {tabs} />
 		{/if}
 		{#if tabs}
 			<BottomNav dance={navDance.slug} path={shownPath} />

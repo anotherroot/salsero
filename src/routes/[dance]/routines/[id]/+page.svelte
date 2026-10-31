@@ -6,7 +6,7 @@
 	import SlotList from '$lib/components/routines/SlotList.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
-	import UndoToast from '$lib/components/routines/UndoToast.svelte';
+	import Toast from '$lib/components/ui/Toast.svelte';
 	import { act, type Field } from '$lib/components/routines/act';
 	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
@@ -630,9 +630,9 @@
 	</form>
 </Sheet>
 
-<UndoToast
-	toast={toast && { id: toast.id, message: toast.message }}
-	onundo={() => {
+<Toast
+	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
+	onaction={() => {
 		const t = toast;
 		toast = null;
 		t?.undo();

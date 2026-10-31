@@ -8,74 +8,82 @@
 	 * page would save a scroll of zero and break Back. A navigation that is
 	 * refused or fails also finds the old page exactly as it was left.
 	 *
-	 * It stops at the top of the bottom nav, so the tab that just lit stays
-	 * in view, and sits above the bars pinned over a page's end (z-30).
+	 * It stops at the top of the tab bar when the destination shows one, so the
+	 * tab that just lit stays in view, and runs to the bottom when it does not.
+	 * It sits above the bars pinned over a page's end (z-30).
 	 */
-	let { skeleton }: { skeleton: Skeleton } = $props();
+	let { skeleton, tabs }: { skeleton: Skeleton; tabs: boolean } = $props();
+
+	const WIDTHS = [
+		[62, 40],
+		[48, 56],
+		[70, 34],
+		[54, 46],
+		[66, 38]
+	];
 </script>
 
+{#snippet rows(n: number, leading: boolean)}
+	<div class="overflow-hidden rounded-2xl bg-surface" aria-hidden="true">
+		{#each { length: n }, i (i)}
+			{@const [w1, w2] = WIDTHS[i % WIDTHS.length]}
+			<div class="pl-4">
+				<div
+					class="flex min-h-16 items-center gap-3 pr-4 {i < n - 1
+						? 'border-b border-hairline'
+						: ''}"
+				>
+					{#if leading}<span class="bone size-10 flex-none rounded-[10px]"></span>{/if}
+					<div class="flex flex-1 flex-col gap-2">
+						<span class="bone h-3 rounded-md" style="width: {w1}%"></span>
+						<span class="bone h-2.5 rounded-[5px] opacity-80" style="width: {w2}%"></span>
+					</div>
+				</div>
+			</div>
+		{/each}
+	</div>
+{/snippet}
+
 <div
-	class="fixed inset-x-0 top-0 z-[35] overflow-hidden bg-plane"
-	style="bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom))"
+	class="fixed inset-x-0 top-0 z-[35] overflow-hidden bg-ground"
+	style="bottom: {tabs ? 'calc(3.5rem + 1px + env(safe-area-inset-bottom))' : '0'}"
 	aria-busy="true"
 >
 	<div class="mx-auto max-w-[560px]">
 		<p class="sr-only" role="status">Loading…</p>
 
-		{#if skeleton.kind === 'list'}
-			<header
-				class="border-b border-line px-4 pb-3"
-				style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
-			>
-				<h1 class="flex h-10 items-center text-[17px] font-semibold">{skeleton.title}</h1>
-			</header>
-			<div class="space-y-2 px-4 pt-4" aria-hidden="true">
-				{#each { length: 7 }, i (i)}
-					<div class="bone h-16 rounded-xl"></div>
-				{/each}
-			</div>
-		{:else if skeleton.kind === 'today'}
-			<header
-				class="flex h-[61px] items-center justify-center border-b border-line"
-				style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
-				aria-hidden="true"
-			>
-				<div class="bone h-5 w-28 rounded"></div>
-			</header>
-			<div class="space-y-6 px-4 pt-4" aria-hidden="true">
-				{#each { length: 3 }, band (band)}
-					<div class="space-y-2">
-						<div class="bone h-3.5 w-24 rounded"></div>
-						{#each { length: 2 }, i (i)}
-							<div class="bone h-20 rounded-xl"></div>
-						{/each}
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<header
-				class="flex h-[61px] items-center gap-2 border-b border-line px-2"
-				style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
-				aria-hidden="true"
-			>
-				<span class="grid size-11 place-items-center text-[22px] text-ink-2">‹</span>
-				<div class="bone h-5 w-40 rounded"></div>
-			</header>
-			<div class="space-y-4 px-4 pt-4" aria-hidden="true">
-				<div class="bone aspect-video rounded-xl"></div>
-				<div class="bone h-4 w-3/4 rounded"></div>
-				<div class="bone h-4 w-1/2 rounded"></div>
-				{#each { length: 3 }, i (i)}
-					<div class="bone h-14 rounded-xl"></div>
-				{/each}
-			</div>
-		{/if}
+		<header
+			class="flex flex-col bg-band px-5 pb-8"
+			style="padding-top: calc(30px + env(safe-area-inset-top))"
+		>
+			{#if skeleton.kind === 'list'}
+				<h1 class="font-display text-[34px] leading-tight font-extrabold text-band-ink">
+					{skeleton.title}
+				</h1>
+			{:else}
+				<div class="flex h-[42px] items-center" aria-hidden="true">
+					<span class="h-6 w-40 rounded-md bg-band-ink opacity-30"></span>
+				</div>
+			{/if}
+		</header>
+
+		<div class="space-y-4 px-4 pt-4">
+			{#if skeleton.kind === 'list'}
+				{@render rows(7, false)}
+			{:else if skeleton.kind === 'today'}
+				{@render rows(3, true)}
+				{@render rows(3, true)}
+			{:else}
+				<div class="bone aspect-video rounded-2xl" aria-hidden="true"></div>
+				{@render rows(3, false)}
+			{/if}
+		</div>
 	</div>
 </div>
 
 <style>
 	.bone {
-		background: var(--color-line);
+		background: var(--color-skeleton);
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.bone {
