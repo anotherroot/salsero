@@ -57,3 +57,9 @@ export function highlight(
 		after: chars.slice(to).join('')
 	};
 }
+
+/** The song popup's count line: `8 songs`, or `1 match` while searching. */
+export function pickerCount(n: number, searching: boolean): string {
+	const word = searching ? 'match' : 'song';
+	return n === 1 ? `1 ${word}` : `${n} ${word}${searching ? 'es' : 's'}`;
+}
