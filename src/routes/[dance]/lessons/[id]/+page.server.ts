@@ -102,13 +102,20 @@ export const actions: Actions = {
 		const title = text(form, 'title');
 		const notes = optionalText(form, 'notes');
 		const lessonDay = String(form.get('lessonDay') ?? '');
+		const entered = {
+			title: String(form.get('title') ?? ''),
+			notes: String(form.get('notes') ?? ''),
+			lessonDay
+		};
+		// The New lesson sheet's refusals, in its order: each under the field it is about.
+		const refuse = (message: string, field: 'lessonDay' | 'title' | 'notes') =>
+			fail(400, { action: 'update', field, message, ...entered });
 
-		if (!title || notes === undefined || !isValidDay(lessonDay) || lessonDay > today) {
-			return fail(400, {
-				action: 'update',
-				message: 'Give it a title and a day that is not in the future.'
-			});
-		}
+		if (!title) return refuse('Give it a title (up to 200 characters).', 'title');
+		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (!isValidDay(lessonDay)) return refuse('Pick the day of the class.', 'lessonDay');
+		if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
+
 		if (!updateLesson(getDb(), id, { lessonDay, title, notes })) {
 			return fail(404, { action: 'update', message: 'That lesson no longer exists.' });
 		}

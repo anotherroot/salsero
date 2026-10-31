@@ -17,6 +17,6 @@
 				href={piece.url}
 				target="_blank"
 				rel="external noopener noreferrer"
-				class="break-all text-accent underline">{piece.url}</a
+				class="break-all text-accent-text underline">{piece.url}</a
 			>{:else}{piece.text}{/if}{/each}
 </p>
