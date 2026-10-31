@@ -37,7 +37,9 @@
 	let selectedId = $state<number | null>(null);
 	let creating = $state(false);
 	let busy = $state(false);
-	let toast = $state<{ id: number; message: string; undo: () => void } | null>(null);
+	let removing = $state(false);
+	// `undo` is there only while there is something to undo; a failed Undo leaves a plain message.
+	let toast = $state<{ id: number; message: string; undo?: () => Promise<unknown> } | null>(null);
 	let toastSeq = 0;
 
 	const selected = $derived(data.positions.find((p) => p.id === selectedId) ?? null);
@@ -47,7 +49,9 @@
 		form !== seen && refusal?.action === 'rename' && refusal.id === selectedId ? refusal : null
 	);
 	const archiveRefusal = $derived(
-		refusal?.action === 'archive' && refusal.message ? refusal.message : null
+		form !== seen && refusal?.action === 'archive' && refusal.id === selectedId && refusal.message
+			? refusal.message
+			: null
 	);
 	const createRefusal = $derived(form !== seen && refusal?.action === 'create' ? refusal : null);
 
@@ -60,8 +64,19 @@
 		toast = {
 			id: ++toastSeq,
 			message: `${name} removed`,
-			undo: () => void act('restore', { id })
+			undo: () => act('restore', { id })
 		};
+	}
+
+	/** Undo a removal; when that fails, say why instead of losing it. */
+	async function undoRemoval() {
+		const t = toast;
+		toast = null;
+		if (!t?.undo) return;
+		const result = (await t.undo()) as { type: string; data?: { message?: string } };
+		if (result.type !== 'success') {
+			toast = { id: ++toastSeq, message: result.data?.message ?? 'Could not undo.' };
+		}
 	}
 </script>
 
@@ -184,21 +199,33 @@
 				<form
 					method="POST"
 					action="?/archive"
-					use:enhance={() => {
+					use:enhance={({ cancel }) => {
+						// One removal per tap: a second tap while the first is out is dropped.
+						if (removing) return cancel();
+						removing = true;
 						const { id, name } = selected;
 						return async ({ result, update }) => {
-							if (result.type !== 'success') return update();
+							if (result.type !== 'success') {
+								removing = false;
+								return update();
+							}
 							// Reload the list BEFORE the sheet goes: closing it pops its history
 							// entry, and that navigation can land over a reload still in flight.
 							await invalidateAll();
 							selectedId = null;
 							removed(name, id);
+							removing = false;
 						};
 					}}
 				>
 					<input type="hidden" name="id" value={selected.id} />
-					<button type="submit" class={button('danger-text', 'md', true)}>
-						<Icon name="trash" size={20} /> Remove position
+					<button
+						type="submit"
+						class={button('danger-text', 'md', true)}
+						aria-busy={removing}
+						aria-label={removing ? 'Removing position' : undefined}
+					>
+						{#if removing}<Spinner />{:else}<Icon name="trash" size={20} /> Remove position{/if}
 					</button>
 				</form>
 			{/if}
@@ -263,12 +290,12 @@
 {/if}
 
 <Toast
-	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
-	bottom="calc(1rem + env(safe-area-inset-bottom))"
-	onaction={() => {
-		const t = toast;
-		toast = null;
-		t?.undo();
+	toast={toast && {
+		id: toast.id,
+		message: toast.message,
+		action: toast.undo ? 'Undo' : undefined
 	}}
+	bottom="calc(1rem + env(safe-area-inset-bottom))"
+	onaction={undoRemoval}
 	ondismiss={() => (toast = null)}
 />

@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull, ne } from 'drizzle-orm';
 import type { Db } from './db';
+import { fold } from '$lib/fold';
 import { positions } from './db/schema';
 import { DANCE_SLUGS, DANCES, type DanceSlug } from '$lib/dances/dances';
 
@@ -168,13 +169,24 @@ export function seedPositions(db: Db) {
 }
 
 /**
- * Bring a removed position back (Undo). False when the row is missing or
- * already live — including when adding the same name again has already revived
- * it (`createPosition` reuses the archived row), so a late Undo does nothing.
+ * Is a LIVE position of the dance already called this? Compared folded
+ * (accents, case), so "caida" is "Caída". `exceptId` leaves a row out: the one
+ * being renamed.
+ */
+export function liveNameTaken(db: Db, dance: DanceSlug, name: string, exceptId?: number): boolean {
+	const want = fold(name);
+	return listPositions(db, dance).some((p) => p.id !== exceptId && fold(p.name) === want);
+}
+
+/**
+ * Bring a removed position back (Undo). False when the row is missing, already
+ * live (a replay), or a live position of its dance has since taken its name: a
+ * second one would be a duplicate the lists cannot tell apart.
  */
 export function restorePosition(db: Db, id: number): boolean {
 	const row = db.select().from(positions).where(eq(positions.id, id)).get();
 	if (!row || row.archivedAt === null) return false;
+	if (liveNameTaken(db, row.dance as DanceSlug, row.name, row.id)) return false;
 	db.update(positions).set({ archivedAt: null }).where(eq(positions.id, id)).run();
 	return true;
 }

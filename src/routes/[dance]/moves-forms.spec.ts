@@ -226,3 +226,63 @@ describe('Coverage: make routine', () => {
 		expect(result.data.field).toBeUndefined();
 	});
 });
+
+describe('Positions: names are unique among the live ones', () => {
+	beforeEach(() => seedPositions(db));
+	const caida = () => listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
+	const liveCaidas = () => listPositions(db, 'salsa').filter((p) => p.name === 'Caída');
+
+	it('Undo after the name was added again leaves exactly one live Caída and says so', async () => {
+		const id = caida().id;
+		await call(positionActions.archive, post('salsa', { id: String(id) }));
+		expect(liveCaidas()).toHaveLength(0);
+		expect(await call(positionActions.create, post('salsa', { name: 'Caída' }))).toEqual({
+			action: 'create',
+			ok: true
+		});
+		expect(await call(positionActions.restore, post('salsa', { id: String(id) }))).toMatchObject({
+			status: 409,
+			data: { action: 'restore', message: "Can't undo — a position called Caída exists again." }
+		});
+		expect(liveCaidas()).toHaveLength(1);
+		expect(getPosition(db, id)!.archivedAt).not.toBeNull();
+	});
+
+	it('refuses a create that differs only in case or accents', async () => {
+		for (const name of ['caida', 'CAÍDA']) {
+			expect(await call(positionActions.create, post('salsa', { name }))).toMatchObject({
+				status: 400,
+				data: { field: 'name', name }
+			});
+		}
+		expect(liveCaidas()).toHaveLength(1);
+	});
+
+	it('refuses a rename to another live name, but keeps a rename to its own', async () => {
+		const id = String(caida().id);
+		expect(
+			await call(positionActions.rename, post('salsa', { id, name: 'cerrada' }))
+		).toMatchObject({ status: 400, data: { field: 'name', message: 'That name is taken.' } });
+		expect(await call(positionActions.rename, post('salsa', { id, name: 'CAIDA' }))).toMatchObject({
+			action: 'rename',
+			ok: true
+		});
+	});
+
+	it('answers ok to removing a position that is already removed', async () => {
+		const id = String(caida().id);
+		await call(positionActions.archive, post('salsa', { id }));
+		expect(await call(positionActions.archive, post('salsa', { id }))).toEqual({
+			action: 'archive',
+			ok: true
+		});
+	});
+
+	it('refuses the neutral position, naming its id', async () => {
+		const n = listPositions(db, 'salsa').find((p) => p.neutral)!;
+		expect(await call(positionActions.archive, post('salsa', { id: String(n.id) }))).toMatchObject({
+			status: 400,
+			data: { action: 'archive', id: n.id }
+		});
+	});
+});

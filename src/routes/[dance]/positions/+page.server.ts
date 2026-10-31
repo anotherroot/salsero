@@ -5,7 +5,9 @@ import { checkbox, int, text } from '$lib/server/form';
 import {
 	archivePosition,
 	createPosition,
+	getPosition,
 	listPositions,
+	liveNameTaken,
 	restorePosition,
 	updatePosition
 } from '$lib/server/positions';
@@ -36,7 +38,7 @@ export const load: PageServerLoad = ({ params }) => {
 			name: p.name,
 			neutral: p.neutral,
 			// `byId.get(p.id)` always carries this same row's `id` alongside its
-			// counts — `counts` was built from these rows' own ids above — so the
+			// counts â `counts` was built from these rows' own ids above â so the
 			// spread is the only place `id` appears; listing it explicitly too
 			// would just be overwritten by the spread, which `tsc` refuses to do
 			// silently.
@@ -47,7 +49,7 @@ export const load: PageServerLoad = ({ params }) => {
 	};
 };
 
-/** A position id from this dance, or a 404 — the wall, for every action below. */
+/** A position id from this dance, or a 404 â the wall, for every action below. */
 function positionOf(params: { dance: string }, id: number | undefined) {
 	const dance = danceOf(params);
 	if (id === undefined) throw error(404, 'No such position');
@@ -61,19 +63,21 @@ export const actions: Actions = {
 		const name = text(form, 'name', 80);
 		if (!name)
 			return fail(400, { action: 'create', field: 'name', message: 'Give the position a name.' });
+		// The slug drops accents, so two names can differ in slug and still read the same.
+		const taken = {
+			action: 'create',
+			field: 'name',
+			message: 'That position already exists.',
+			name
+		};
+		if (liveNameTaken(getDb(), dance, name)) return fail(400, taken);
 		const made = createPosition(getDb(), dance, {
 			slug: slugify(name),
 			name,
 			neutral: false,
 			sortOrder: listPositions(getDb(), dance).length
 		});
-		if (!made)
-			return fail(400, {
-				action: 'create',
-				field: 'name',
-				message: 'That position already exists.',
-				name
-			});
+		if (!made) return fail(400, taken);
 		return { action: 'create', ok: true };
 	},
 
@@ -86,6 +90,14 @@ export const actions: Actions = {
 				action: 'rename',
 				field: 'name',
 				message: 'Give the position a name.',
+				id: found.id,
+				name
+			});
+		if (liveNameTaken(getDb(), danceOf(params), name, found.id))
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'That name is taken.',
 				id: found.id,
 				name
 			});
@@ -109,9 +121,12 @@ export const actions: Actions = {
 
 	archive: async ({ params, request }) => {
 		const found = positionOf(params, int(await request.formData(), 'id'));
+		// Already removed (a double tap, another tab): nothing to do, and not the neutral's refusal.
+		if (found.archivedAt !== null) return { action: 'archive', ok: true };
 		if (!archivePosition(getDb(), found.id, Date.now())) {
 			return fail(400, {
 				action: 'archive',
+				id: found.id,
 				message: 'The neutral position cannot be removed.'
 			});
 		}
@@ -119,11 +134,17 @@ export const actions: Actions = {
 	},
 
 	// Undo for a removal, inside the wall like every action here. A position that
-	// is already live (or was revived by adding its name again) is left alone,
-	// and that is still a success.
+	// is already live is a replay and still a success; one whose name a live
+	// position has taken meanwhile is refused, so Undo never makes a duplicate.
 	restore: async ({ params, request }) => {
 		const found = positionOf(params, int(await request.formData(), 'id'));
-		restorePosition(getDb(), found.id);
+		if (!restorePosition(getDb(), found.id) && getPosition(getDb(), found.id)?.archivedAt != null) {
+			return fail(409, {
+				action: 'restore',
+				id: found.id,
+				message: `Can't undo — a position called ${found.name} exists again.`
+			});
+		}
 		return { action: 'restore', ok: true };
 	}
 };

@@ -7,6 +7,7 @@ import {
 	createPosition,
 	getPosition,
 	listPositions,
+	liveNameTaken,
 	neutralPosition,
 	restorePosition,
 	seedPositions,
@@ -219,5 +220,26 @@ describe('restorePosition', () => {
 		createPosition(db, 'salsa', { slug: row.slug, name: row.name, neutral: false, sortOrder: 3 });
 		expect(restorePosition(db, row.id)).toBe(false);
 		expect(listPositions(db, 'salsa').filter((p) => p.slug === row.slug)).toHaveLength(1);
+	});
+});
+
+describe('liveNameTaken and restorePosition with a twin name', () => {
+	it('folds accents and case, and leaves the row itself out', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const caida = listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
+		expect(liveNameTaken(db, 'salsa', 'CAIDA')).toBe(true);
+		expect(liveNameTaken(db, 'salsa', 'caida', caida.id)).toBe(false);
+		expect(liveNameTaken(db, 'bachata', 'Caída')).toBe(false);
+	});
+
+	it('refuses to restore a row whose name a live position now has', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const caida = listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
+		archivePosition(db, caida.id, 5);
+		createPosition(db, 'salsa', { slug: 'ca-da', name: 'Caída', neutral: false, sortOrder: 99 });
+		expect(restorePosition(db, caida.id)).toBe(false);
+		expect(getPosition(db, caida.id)!.archivedAt).toBe(5);
 	});
 });
