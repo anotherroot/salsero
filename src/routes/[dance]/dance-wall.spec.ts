@@ -53,7 +53,14 @@ import {
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions, setFigureShape } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
-import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/server/routines';
+import {
+	addFigureSlot,
+	addOption,
+	archiveRoutine,
+	createRoutine,
+	createRoutineFromFigures,
+	routineSlots
+} from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
 import { exercises, figures, lessons, links, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
@@ -504,6 +511,20 @@ describe("the detail pages refuse the other dance's rows", () => {
 					{ id: groupOf(salsaFigureId2), name: 'Second salsa figure', variations: ['Basic'] }
 				]
 			});
+		});
+
+		it('load lists the routines that use the variation', () => {
+			createRoutineFromFigures(db, 'salsa', { name: 'Set A', notes: null }, [
+				salsaFigureId2,
+				salsaFigureId
+			]);
+			const second = createRoutineFromFigures(db, 'salsa', { name: 'Old set', notes: null }, [
+				salsaFigureId
+			])!;
+			archiveRoutine(db, second.routine.id, Date.now());
+			const data = loadWith('salsa', String(salsaFigureId)) as { routines: unknown[] };
+			expect(data.routines).toHaveLength(1);
+			expect(data).toMatchObject({ routines: [{ name: 'Set A', slots: [2], slotCount: 2 }] });
 		});
 
 		it('a ?v= link redirects to the variation', async () => {

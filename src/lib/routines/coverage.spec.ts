@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { coverage, coverageGroups } from './coverage';
-import type { RoutineShape } from './routines';
+import type { Graph } from '$lib/graph/graph';
+import { coverage, coverageGroups, routinesUsing } from './coverage';
+import type { OptionsSlot, RoutineShape } from './routines';
 
 const opts = (...ids: number[][]): RoutineShape => ({
 	slots: ids.map((figureIds) => ({ kind: 'options', figureIds }))
@@ -92,5 +93,55 @@ describe('coverageGroups', () => {
 			['none', 'In no routine', [1]],
 			['many', 'In 2+ routines', [2, 3]]
 		]);
+	});
+});
+
+describe('routinesUsing', () => {
+	const g: Graph = {
+		neutral: 1,
+		figures: [
+			{ id: 7, starts: [], end: null, start: 1, length: 8 },
+			{ id: 8, starts: [1], end: 2, start: 1, length: 8 },
+			{ id: 9, starts: [], end: null, start: 1, length: 8 }
+		]
+	};
+	const A = opts([9], [7, 9], [9], [9], [7]);
+	const B = opts([7], [9], [9], [9], [9], [9]);
+	const C: RoutineShape = {
+		slots: [
+			{ kind: 'options', figureIds: [9] },
+			{ kind: 'child', routineId: 2, slots: B.slots as OptionsSlot[] }
+		]
+	};
+	const shapes = new Map<number, RoutineShape>([
+		[1, A],
+		[2, B],
+		[3, C],
+		[4, opts([9])],
+		[5, opts([7])],
+		[6, opts([8])]
+	]);
+
+	it('numbers the slots that call it, once per routine', () => {
+		expect(
+			routinesUsing(g, 7, shapes, [
+				{ id: 1, name: 'Social set A' },
+				{ id: 2, name: 'Cubana combo' }
+			])
+		).toEqual([
+			{ id: 2, name: 'Cubana combo', slots: [1], slotCount: 6, loops: expect.any(Boolean) },
+			{ id: 1, name: 'Social set A', slots: [2, 5], slotCount: 5, loops: expect.any(Boolean) }
+		]);
+	});
+	it('counts an embedded routine at the embedding slot', () => {
+		expect(routinesUsing(g, 7, shapes, [{ id: 3, name: 'C' }])[0].slots).toEqual([2]);
+	});
+	it('ignores routines not passed in and routines that never call it', () => {
+		expect(routinesUsing(g, 7, shapes, [{ id: 4, name: 'Other' }])).toEqual([]);
+		expect(routinesUsing(g, 7, shapes, [])).toEqual([]);
+	});
+	it('says whether the routine loops', () => {
+		expect(routinesUsing(g, 7, shapes, [{ id: 5, name: 'L' }])[0].loops).toBe(true);
+		expect(routinesUsing(g, 8, shapes, [{ id: 6, name: 'N' }])[0].loops).toBe(false);
 	});
 });

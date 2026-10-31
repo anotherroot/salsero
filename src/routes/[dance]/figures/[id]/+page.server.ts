@@ -35,6 +35,11 @@ import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
 import { popupData } from '$lib/server/popup';
+import { exerciseHistory } from '$lib/server/exercises';
+import { listRoutines, routineShapes } from '$lib/server/routines';
+import { routinesUsing } from '$lib/routines/coverage';
+import { practiceLine } from '$lib/figures/page';
+import { plan } from '$lib/urgency/urgency';
 import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -96,6 +101,7 @@ const taken = (figure: string, name: string) =>
 const figureTaken = (name: string) => `There's already a figure called ${name}.`;
 
 export const load: PageServerLoad = ({ params, url, locals }) => {
+	const now = Date.now();
 	const dance = danceOf(params);
 
 	// An old link — `/figures/<base>?v=<variation>`, from before a variation had
@@ -163,6 +169,9 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		};
 	});
 
+	const zone = zoneOf(locals);
+	const popup = found.exercise ? popupData(db, dance, found.exercise.id, zone, now) : null;
+
 	return {
 		figure: { id: group.id, name: group.name },
 		variation: {
@@ -181,8 +190,21 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		},
 		siblings,
 		exercise: found.exercise,
-		popup: found.exercise
-			? popupData(db, dance, found.exercise.id, zoneOf(locals), Date.now())
+		popup,
+		// Derived per request, never stored — the same rule urgency follows.
+		routines: routinesUsing(graph, id, routineShapes(db, dance), listRoutines(db, dance)),
+		practice: popup
+			? practiceLine(
+					plan(
+						[popup.exercise],
+						exerciseHistory(db, popup.exercise.id, 50).map((s) => ({
+							exerciseId: popup.exercise.id,
+							doneAt: s.doneAt
+						})),
+						now,
+						zone
+					)
+				)
 			: null,
 		positions: [
 			...live.map((p) => ({ id: p.id, name: p.name, neutral: p.neutral, archived: false })),
