@@ -21,6 +21,7 @@
 	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
 	import { clock } from '$lib/format';
 	import { TEMPO_FACTORS, TEMPO_LABEL } from '$lib/labels';
+	import { watchMedia } from '$lib/media';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -34,6 +35,11 @@
 	let now = $state(0);
 	let detailsOpen = $state(false);
 	let archiving = $state(false);
+	/** Why the song will not play, from the audio element or from play(). */
+	let audioProblem: string | null = $state(null);
+	let tempoError: string | null = $state(null);
+	/** The count speed waiting for an answer to "This clears your 1s." */
+	let tempoAsk: string | null = $state(null);
 
 	// One sound at a time: the sample pauses this page's own copy of the song.
 	$effect(() => {
@@ -62,10 +68,9 @@
 	const tapShown = $derived(tapError ?? tapRefusal);
 	const sampleRefusal = $derived(form?.action === 'sample' ? form.message : null);
 	// Song details' own refusals (`title` is sent with them) live in its sheet.
-	const retryRefusal = $derived(
-		form?.message && !form.action && form.title === undefined ? form.message : null
-	);
+	const retryRefusal = $derived(form?.action === 'retry' ? form.message : null);
 	const steps = $derived(songSteps(song.status, song.sourceUrl === null));
+	let tempo = $derived(String(song.tempoFactor));
 	const tempoItems = TEMPO_FACTORS.map((f) => ({ value: String(f), label: TEMPO_LABEL[f] }));
 
 	$effect(() => {
@@ -90,7 +95,11 @@
 
 	function toggle() {
 		if (!audio) return;
-		if (audio.paused) void audio.play().catch(() => {});
+		if (audio.paused)
+			void audio.play().catch((e) => {
+				if (!(e instanceof DOMException && e.name === 'AbortError'))
+					audioProblem ??= 'The song would not play.';
+			});
 		else audio.pause();
 	}
 
@@ -98,6 +107,21 @@
 		if (!audio) return;
 		audio.currentTime = s;
 		now = s;
+		tapError = null;
+	}
+
+	async function setTempo(v: string) {
+		tempoError = null;
+		const r = await act('tempo', { factor: v });
+		if (r.type === 'failure') {
+			tempoError = String(r.data?.message ?? 'Could not change the count speed.');
+			tempo = String(song.tempoFactor);
+		}
+	}
+
+	function cancelTempo() {
+		tempoAsk = null;
+		tempo = String(song.tempoFactor);
 	}
 </script>
 
@@ -131,6 +155,12 @@
 			src="/audio/{song.audioFile}"
 			preload="auto"
 			class="hidden"
+			{@attach watchMedia(`/audio/${song.audioFile}`, (p) => {
+				audioProblem =
+					p === 'missing'
+						? 'The song’s audio file is missing.'
+						: 'This browser can’t play the song’s audio.';
+			})}
 			onplay={() => {
 				stopSample();
 				tapError = null;
@@ -160,6 +190,7 @@
 				</div>
 			</div>
 		</section>
+		{#if audioProblem}<Banner kind="error" title={audioProblem} />{/if}
 
 		<form
 			method="POST"
@@ -182,10 +213,10 @@
 				};
 			}}
 		>
+			<span class="sr-only" role="status">{tapped ? 'Got it' : ''}</span>
 			{#if tapped}
 				<button
 					type="submit"
-					aria-live="polite"
 					class="flex h-16 w-full flex-none items-center justify-center gap-2.5 rounded-full bg-done-soft font-display text-[22px] font-extrabold text-done"
 				>
 					<Icon name="check" size={24} />Got it
@@ -254,9 +285,10 @@
 			name="factor"
 			label="Count speed"
 			items={tempoItems}
-			value={String(song.tempoFactor)}
-			onchange={(v) => act('tempo', { factor: v })}
+			bind:value={tempo}
+			onchange={(v) => (data.anchors.length ? (tempoAsk = v) : setTempo(v))}
 		/>
+		{#if tempoError}<Banner kind="error" title={tempoError} />{/if}
 		<p class="px-3 pt-1 text-[13px] leading-[1.45] text-muted">
 			If the count runs at half or double your steps, switch it. This clears your taps.
 		</p>
@@ -329,10 +361,6 @@
 			{/if}
 		{/if}
 	{/if}
-
-	{#if retryRefusal && grid}
-		<Banner kind="error" title={retryRefusal} />
-	{/if}
 </Screen>
 
 <SongDetailsSheet
@@ -343,6 +371,29 @@
 	{form}
 	onarchive={() => (archiving = true)}
 />
+
+<Dialog
+	open={tempoAsk !== null}
+	icon="metronome"
+	title="Change count speed?"
+	body={data.anchors.length === 1
+		? 'This clears the 1 you tapped.'
+		: `This clears your ${data.anchors.length} 1s.`}
+	onclose={cancelTempo}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={cancelTempo}>Cancel</button>
+		<button
+			type="button"
+			class={button('primary', 'sm')}
+			onclick={() => {
+				const v = tempoAsk;
+				tempoAsk = null;
+				if (v !== null) void setTempo(v);
+			}}>Change</button
+		>
+	{/snippet}
+</Dialog>
 
 <Dialog
 	open={archiving}

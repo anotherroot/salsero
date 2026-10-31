@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { onMount } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { afterNavigate, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -24,8 +23,12 @@
 
 	// The Add a song sheet opens on this; `?add=1` opens it on arrival.
 	let adding = $state(false);
-	onMount(() => {
-		if (page.url.searchParams.get('add') === '1') adding = true;
+	afterNavigate(() => {
+		if (page.url.searchParams.get('add') !== '1') return;
+		adding = true;
+		const clean = resolve('/[dance]/songs', { dance: data.dance.slug });
+		// The router is not ready on a first load until this tick is over.
+		setTimeout(() => replaceState(clean, page.state), 0);
 	});
 	// Only Add a song's own refusals reach the sheet: they always hand the link back.
 	const addForm = $derived(form && 'url' in form ? form : null);
@@ -68,6 +71,17 @@
 	</SongRow>
 {/snippet}
 
+{#snippet retryStrip(s: SongItem)}
+	<li class="border-t border-hairline px-2 pt-1 pb-2">
+		<form method="POST" action="?/retry" use:enhance>
+			<input type="hidden" name="id" value={s.id} />
+			<button type="submit" class={button('tertiary', 'sm')} aria-label="Retry {songName(s)}">
+				<Icon name="refresh" size={20} /> Retry
+			</button>
+		</form>
+	</li>
+{/snippet}
+
 {#snippet readyRow(s: SongItem, q: string)}
 	<SongRow
 		href={songHref(s)}
@@ -95,6 +109,13 @@
 				onclear={() => (query = '')}
 			/>
 		</form>
+		<p class="sr-only" role="status">
+			{view.kind === 'search'
+				? view.hits.length
+					? view.heading
+					: `No song matches “${query.trim()}”`
+				: ''}
+		</p>
 	{/if}
 
 	{#if view.kind !== 'search'}
@@ -127,18 +148,7 @@
 				{#each view.adding as s (s.id)}
 					{@render addingRow(s, '')}
 					{#if s.status === 'failed'}
-						<li class="border-t border-hairline px-2 pt-1 pb-2">
-							<form method="POST" action="?/retry" use:enhance>
-								<input type="hidden" name="id" value={s.id} />
-								<button
-									type="submit"
-									class={button('tertiary', 'sm')}
-									aria-label="Retry {songName(s)}"
-								>
-									<Icon name="refresh" size={20} /> Retry
-								</button>
-							</form>
-						</li>
+						{@render retryStrip(s)}
 					{/if}
 				{/each}
 			</ul>
@@ -169,6 +179,7 @@
 						{@render readyRow(s, query)}
 					{:else}
 						{@render addingRow(s, query)}
+						{#if s.status === 'failed'}{@render retryStrip(s)}{/if}
 					{/if}
 				{/each}
 			</ul>

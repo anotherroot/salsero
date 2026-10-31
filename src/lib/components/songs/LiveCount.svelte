@@ -33,7 +33,7 @@
 	<div
 		class="font-display text-[88px] leading-none font-extrabold tracking-[-0.02em] tabular-nums {count ===
 		null
-			? 'text-chevron'
+			? 'text-muted'
 			: count === 1
 				? 'text-accent-text'
 				: count === 5

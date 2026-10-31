@@ -201,7 +201,7 @@
 			{:else}
 				<p class="px-3 pt-1 text-center text-[13px] text-muted">
 					{uploading
-						? 'One upload at a time — wait for the one in Music.'
+						? 'One upload at a time — wait for the one already going.'
 						: `Up to ${MAX_RECORDING_LABEL}. It gets the style above.`}
 				</p>
 			{/if}

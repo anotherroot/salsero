@@ -371,8 +371,8 @@ attempts, or a permanent error (video unavailable, longer than 15 minutes), the
 song is `failed` with the error shown, **Retry** and **Upload a file instead**.
 While laptop is off, songs simply wait; the library says so.
 
-**Music (since the redesign):** the Songs tab is Music: Being added (waiting and
-failed songs, plus the upload in flight), Count only, then A-Z. A song being
+**Music (since the redesign):** the Songs tab is Music: search, Count only,
+Being added (waiting and failed songs, plus the upload in flight), Recent, then A–Z. A song being
 added shows its steps on its own page (Added, Download, Find the beat; an upload
 has no Download); a failed one shows the error, Retry and Upload a file instead.
 The ready song page has the app's own timeline with the user's 1s as ticks.

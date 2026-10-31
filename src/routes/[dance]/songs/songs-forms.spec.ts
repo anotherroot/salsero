@@ -176,6 +176,21 @@ describe('A song', () => {
 		).toMatchObject({ status: 400, data: { action: 'sample', message: 'Play the song first.' } });
 	});
 
+	it('names the count speed in a refused change', async () => {
+		const id = readySong();
+		expect(
+			await call(songPage.actions.tempo, post('salsa', { factor: '3' }, String(id)))
+		).toMatchObject({ status: 400, data: { action: 'tempo', message: 'Bad tempo.' } });
+	});
+
+	it('names the retry in a refused retry of a song that has not failed', async () => {
+		const id = readySong();
+		expect(await call(songPage.actions.retry, post('salsa', {}, String(id)))).toMatchObject({
+			status: 409,
+			data: { action: 'retry' }
+		});
+	});
+
 	it('files a tap on a ready song', async () => {
 		const id = readySong();
 		expect(await call(songPage.actions.tap, post('salsa', { t: '12' }, String(id)))).toEqual({

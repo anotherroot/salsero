@@ -168,7 +168,12 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			}
 		});
 		if (cancelled) {
-			settle({ ok: false, message: 'It was not sent.' });
+			// A refusal the form shows itself (a range error) is a field to point at, not a mystery.
+			settle(
+				form.checkValidity() && !form.querySelector('[aria-invalid="true"]')
+					? { ok: false, message: 'It was not sent.' }
+					: { ok: false, invalid: form }
+			);
 			return;
 		}
 		// While the request is out the form is not "unsaved": a save that

@@ -40,7 +40,8 @@
 	const form = $derived(given === closedOn || given?.title === undefined ? null : given);
 
 	const sent = $derived(form?.style && dance.styles.includes(form.style) ? form.style : null);
-	let style = $derived(sent ?? song.style);
+	const stored = $derived(song.style);
+	let style = $derived(sent ?? stored);
 
 	const titleError = $derived(form?.field === 'title' ? form.message : null);
 	const artistError = $derived(form?.field === 'artist' ? form.message : null);
@@ -48,7 +49,7 @@
 
 	function close() {
 		closedOn = given;
-		style = song.style;
+		style = stored;
 		onclose();
 	}
 </script>

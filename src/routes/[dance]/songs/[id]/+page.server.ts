@@ -106,7 +106,7 @@ export const actions: Actions = {
 		const song = songOf(params);
 		const f = Number((await request.formData()).get('factor'));
 		if (!(TEMPO_FACTORS as readonly number[]).includes(f))
-			return fail(400, { message: 'Bad tempo.' });
+			return fail(400, { action: 'tempo' as const, message: 'Bad tempo.' });
 		setTempoFactor(getDb(), song.id, f as TempoFactor);
 		return { ok: true };
 	},
@@ -155,7 +155,7 @@ export const actions: Actions = {
 
 	retry: ({ params }) => {
 		if (!retrySong(getDb(), songOf(params).id)) {
-			return fail(409, { message: 'Only a failed song can be retried.' });
+			return fail(409, { action: 'retry' as const, message: 'Only a failed song can be retried.' });
 		}
 		return { ok: true };
 	},
