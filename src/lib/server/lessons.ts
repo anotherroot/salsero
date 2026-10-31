@@ -297,7 +297,12 @@ export function getLesson(db: Db, id: number) {
 		.sort((a, b) => a.name.localeCompare(b.name));
 
 	const linkedRoutines: LessonRoutineRow[] = db
-		.select({ id: routines.id, name: routines.name, exerciseId: exercises.id })
+		.select({
+			id: routines.id,
+			name: routines.name,
+			exerciseId: exercises.id,
+			everyDays: exercises.everyDays
+		})
 		.from(lessonRoutines)
 		.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
 		.leftJoin(exercises, eq(exercises.routineId, routines.id))
@@ -305,7 +310,12 @@ export function getLesson(db: Db, id: number) {
 		.orderBy(asc(routines.name))
 		.all();
 
-	const exerciseColumns = { id: exercises.id, name: exercises.name, source: exercises.source };
+	const exerciseColumns = {
+		id: exercises.id,
+		name: exercises.name,
+		source: exercises.source,
+		everyDays: exercises.everyDays
+	};
 	const handExercises = db
 		.select(exerciseColumns)
 		.from(lessonExercises)

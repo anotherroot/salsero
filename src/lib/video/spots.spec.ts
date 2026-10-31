@@ -11,6 +11,7 @@ import {
 	msOf,
 	resizeSpot,
 	shiftSpot,
+	sectionMeta,
 	sectionProgress,
 	sortSpots,
 	spotLabel,
@@ -221,4 +222,35 @@ describe('linkSummary', () => {
 	it('is the label for one', () =>
 		expect(linkSummary(['Enchufla · Doble'])).toBe('Enchufla · Doble'));
 	it('counts the rest', () => expect(linkSummary(['A', 'B', 'C'])).toBe('A +2'));
+});
+
+describe('sectionMeta', () => {
+	it('puts the range first for a labelled section', () => {
+		expect(
+			sectionMeta({
+				startMs: 12000,
+				endMs: 19000,
+				label: 'Second turn',
+				links: [{ id: 3, label: 'Hammerlock · Basic', archived: false }]
+			})
+		).toBe('0:12.0–0:19.0 · Linked to Hammerlock · Basic');
+	});
+	it('says Not linked', () => {
+		expect(sectionMeta({ startMs: 12000, endMs: 19000, label: null, links: [] })).toBe(
+			'Not linked'
+		);
+	});
+	it('marks archived links', () => {
+		expect(
+			sectionMeta({
+				startMs: 0,
+				endMs: 1000,
+				label: null,
+				links: [
+					{ id: 1, label: 'Cross · Basic', archived: false },
+					{ id: 2, label: 'Old drill', archived: true }
+				]
+			})
+		).toBe('Linked to Cross · Basic, Old drill (archived)');
+	});
 });

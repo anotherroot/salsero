@@ -11,9 +11,11 @@
 		links: LinkRow[];
 		/** Per-link controls — the editor's Remove. A footer row on a YouTube card, a trailing control on a web row. */
 		actions?: Snippet<[LinkRow, 'youtube' | 'web']>;
+		/** The lesson page's denser YouTube row. */
+		compact?: boolean;
 	}
 
-	let { links, actions }: Props = $props();
+	let { links, actions, compact = false }: Props = $props();
 
 	const parsedLinks = $derived(links.map((link) => ({ link, parsed: parseLink(link.url) })));
 	const youtube = $derived(parsedLinks.filter((l) => l.parsed?.kind === 'youtube'));
@@ -25,7 +27,7 @@
 		{#each youtube as { link, parsed } (link.id)}
 			{#if parsed?.kind === 'youtube'}
 				<li class="overflow-hidden rounded-2xl bg-surface">
-					<YouTubeCard id={parsed.id} start={parsed.start} title={link.title} />
+					<YouTubeCard id={parsed.id} start={parsed.start} title={link.title} {compact} />
 					{#if actions}
 						<div class="flex min-h-[52px] items-center gap-1 border-t border-hairline pr-1.5 pl-1">
 							{@render actions(link, 'youtube')}

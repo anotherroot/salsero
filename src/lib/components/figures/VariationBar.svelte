@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { variationNav } from '$lib/figures/page';
@@ -45,16 +46,27 @@
 		adding = false;
 	});
 	// A refusal shows only while the sheet has stayed open since it arrived.
-	let shown = $derived(failed);
+	let shown = $state<string | null>(null);
 	let wasAdding = false;
 	$effect(() => {
 		const now = adding;
 		if (wasAdding && !now) shown = null;
 		wasAdding = now;
 	});
-	// A refused name re-renders with the message; keep its sheet open to show it.
+	/*
+	 * A refused name re-renders with the message; open its sheet to show it. Only
+	 * a refusal that arrives while the bar is mounted: Edit unmounts the bar and
+	 * Stop editing brings it back with the old refusal still in `form`, which
+	 * must not reopen New variation.
+	 */
+	let seen = untrack(() => failed);
 	$effect(() => {
-		if (failed) adding = true;
+		const now = failed;
+		if (now && now !== seen) {
+			shown = now;
+			adding = true;
+		}
+		seen = now;
 	});
 
 	const nav = $derived(variationNav(siblings, currentId));
@@ -162,9 +174,15 @@
 			label: 'New variation',
 			submit: () => {
 				busy = true;
-				return async ({ update }) => {
-					await update();
-					busy = false;
+				return async ({ update, result }) => {
+					try {
+						await update();
+					} finally {
+						busy = false;
+					}
+					// The same name refused twice is the same `failed`, which the effect above cannot see.
+					const m = result.type === 'failure' ? result.data?.message : null;
+					if (typeof m === 'string') shown = m;
 				};
 			}
 		}}

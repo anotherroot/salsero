@@ -1,21 +1,48 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { track } from '$lib/unsaved/guard.svelte';
-	import { MAX_RECORDING_BYTES, MAX_RECORDING_LABEL } from '$lib/limits';
+	import { MAX_RECORDING_LABEL } from '$lib/limits';
+	import { uploadProblem } from '$lib/media';
+	import type { IconName } from '$lib/icons/icons';
+	import Icon from './Icon.svelte';
+	import Banner from './Banner.svelte';
+	import UploadCard from './UploadCard.svelte';
+	import { button } from './styles';
 
 	interface Props {
 		/** Endpoint taking the raw file as the POST body. */
 		url: string;
 		accept: 'audio/*' | 'video/*,audio/*';
 		label: string;
+		/** What goes up, for the progress bar's name: "Uploading recording". */
+		noun?: string;
 		/** Extra request headers for this file (metadata rides in headers, not the body). */
 		headers?: (file: File) => Record<string, string>;
+		icon?: IconName;
+		kind?: 'primary' | 'secondary';
+		size?: 'sm' | 'md';
+		/** True while a file is going up, for a parent that lays out around it. */
+		busy?: boolean;
 	}
 
-	let { url, accept, label, headers }: Props = $props();
+	let {
+		url,
+		accept,
+		label,
+		noun = 'file',
+		headers,
+		icon = 'upload',
+		kind = 'secondary',
+		size = 'md',
+		// eslint-disable-next-line no-useless-assignment -- the parent reads it back
+		busy = $bindable(false)
+	}: Props = $props();
 
 	let progress = $state<number | null>(null);
-	let message = $state<string | null>(null);
+	$effect(() => {
+		busy = progress !== null;
+	});
+	let message = $state<{ title: string; body?: string } | null>(null);
 	let input: HTMLInputElement | undefined = $state();
 
 	// The request outlives an in-app navigation (the component goes, the XHR
@@ -28,24 +55,16 @@
 		})
 	);
 
-	const mb = (n: number) => `${Math.round(n / 1024 / 1024)} MB`;
-	const allowed = $derived(accept === 'audio/*' ? /^audio\// : /^(video|audio)\//);
-
 	/*
 	 * XHR rather than fetch for upload progress: a phone upload over mobile data
 	 * can take a minute, and a spinner with no number reads as hung.
 	 */
 	function upload(file: File) {
 		message = null;
-		if (file.size > MAX_RECORDING_BYTES) {
-			message = `That file is ${mb(file.size)}; the limit is ${MAX_RECORDING_LABEL}.`;
-			return;
-		}
-		if (!allowed.test(file.type)) {
-			message =
-				accept === 'audio/*'
-					? 'Only audio files can be added.'
-					: 'Only video and audio files can be added.';
+		const problem = uploadProblem(file, accept);
+		if (problem) {
+			message = problem;
+			if (input) input.value = '';
 			return;
 		}
 
@@ -70,14 +89,16 @@
 			} catch {
 				/* plain-text error body */
 			}
-			message =
-				xhr.status === 413
-					? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
-					: text || 'Upload failed.';
+			message = {
+				title:
+					xhr.status === 413
+						? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
+						: text || 'Upload failed.'
+			};
 		};
 		xhr.onerror = () => {
 			progress = null;
-			message = 'Upload failed — check the connection and try again.';
+			message = { title: 'Upload failed — check the connection and try again.' };
 		};
 		progress = 0;
 		xhr.send(file);
@@ -85,12 +106,16 @@
 </script>
 
 <label
-	class="flex h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-rule text-[14px] font-medium text-ink-2 has-focus-visible:outline-2 has-focus-visible:outline-accent {progress !==
+	class="{button(
+		kind,
+		size,
+		true
+	)} has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent {progress !==
 	null
-		? 'pointer-events-none opacity-60'
+		? 'hidden!'
 		: ''}"
 >
-	{progress === null ? label : `Uploading… ${Math.round(progress * 100)}%`}
+	<Icon name={icon} size={20} />{label}
 	<input
 		bind:this={input}
 		type="file"
@@ -104,12 +129,12 @@
 	/>
 </label>
 {#if progress !== null}
-	<div class="mt-2 h-1.5 overflow-hidden rounded-full bg-line" aria-hidden="true">
-		<div class="h-full bg-accent transition-[width]" style="width: {progress * 100}%"></div>
-	</div>
+	<UploadCard pct={progress * 100} label={noun} />
 {/if}
 {#if message}
-	<p class="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-		{message}
-	</p>
+	<div class="mt-2">
+		<Banner kind="error" title={message.title}>
+			{#if message.body}{message.body}{/if}
+		</Banner>
+	</div>
 {/if}

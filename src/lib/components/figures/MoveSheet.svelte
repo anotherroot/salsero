@@ -76,6 +76,17 @@
 	const nameError = $derived(mv.clash ?? (shown?.field === 'name' ? shown.message : null));
 	const figureNameError = $derived(shown?.field === 'figureName' ? shown.message : null);
 	const bannerError = $derived(shown && !shown.field ? shown.message : null);
+	// A "name taken" refusal is about the figure it was posted to; choosing another one makes it stale.
+	let lastTarget = untrack(() => target);
+	$effect(() => {
+		const now = target;
+		if (now !== lastTarget) {
+			lastTarget = now;
+			untrack(() => {
+				if (shown?.field === 'name') shown = null;
+			});
+		}
+	});
 	const clearField = (f: 'name' | 'figureName') => {
 		if (shown?.field === f) shown = null;
 	};

@@ -1,106 +1,137 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
-	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
-	import { byteSize, dateLabel } from '$lib/format';
+	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
+	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { DEFAULT_EVERY_DAYS } from '$lib/frequency';
+	import { dateTile, diskSubtitle, lessonCounts, monthGroups, videoMeta } from '$lib/lessons/list';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let creating = $state(false);
+	// The `form` that was there when the sheet opened: an older refusal is not this sheet's.
+	let seen: unknown = $state(null);
 	// A failed create re-renders with the message; keep the sheet open to show it.
 	$effect(() => {
-		if (form?.message) creating = true;
+		if (form !== seen && form?.message) creating = true;
 	});
 	let busy = $state(false);
+	let everyDays = $state(DEFAULT_EVERY_DAYS);
 
-	const plural = (n: number, one: string, many: string) => ({ n, word: n === 1 ? one : many });
+	function openSheet() {
+		seen = form;
+		creating = true;
+	}
 
-	const label = 'mb-1 block text-[13px] text-muted';
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
+	// A refusal that is about no one field goes at the top of the sheet.
+	const otherError = $derived(form?.message && !form.field ? form.message : null);
+	const errors = $derived(
+		form?.field && form.message ? { [form.field]: form.message } : ({} as Record<string, string>)
+	);
+	// What was typed comes back with a refusal; an old one is not this sheet's.
+	const fresh = $derived(form !== seen ? form : null);
+	const groups = $derived(monthGroups(data.lessons));
 </script>
 
 <svelte:head><title>Lessons · {data.dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
->
-	<div class="flex items-center justify-between">
-		<h1 class="text-[17px] font-semibold">Lessons</h1>
-		<button
-			type="button"
-			class="h-10 rounded-xl bg-accent px-4 text-[14px] font-semibold text-accent-ink"
-			onclick={() => (creating = true)}>+ New</button
-		>
-	</div>
-	{#if data.storageBytes > 0}
-		<p class="mt-2 text-[12px] text-muted">
-			Videos on disk: {byteSize(data.storageBytes)}
-		</p>
-	{/if}
-</header>
+<Screen title="Lessons" subtitle={diskSubtitle(data.storageBytes)}>
+	{#snippet right()}
+		<BandButton icon="plus" label="New lesson" onclick={openSheet} />
+	{/snippet}
 
-<div class="px-4 py-4">
 	{#if data.lessons.length === 0}
-		<p class="mt-10 text-center text-[15px] text-muted">
-			No lessons yet. Add one after your next class — the videos, the notes, and something on Today
-			to make you go back over it.
-		</p>
+		<div class="h-[52px] flex-none"></div>
+		<EmptyState
+			icon="lessons"
+			title="No lessons yet"
+			body="Add one after your next class — the videos, the notes, and something on Today to make you go back over it."
+		>
+			{#snippet action()}
+				<button type="button" class={button('primary')} onclick={openSheet}>
+					<Icon name="plus" size={20} /> New lesson
+				</button>
+			{/snippet}
+		</EmptyState>
 	{:else}
-		<ul class="space-y-2">
-			{#each data.lessons as lesson (lesson.id)}
-				<li class="overflow-hidden rounded-xl border border-line bg-raised">
-					<a
-						href={resolve('/[dance]/lessons/[id]', {
-							dance: data.dance.slug,
-							id: String(lesson.id)
-						})}
-						class="block px-4 py-3"
-					>
-						<span class="block truncate text-[15px] font-medium">{lesson.title}</span>
-						<span class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted">
-							<span>{dateLabel(lesson.lessonDay)}</span>
-							{#if lesson.videos > 0}
-								<span aria-hidden="true">·</span>
-								<span
-									>{lesson.videos}
-									{lesson.videos === 1 ? 'video' : 'videos'} · {byteSize(lesson.videoBytes)}</span
+		<div class="flex flex-col gap-3.5">
+			{#each groups as group (group.key)}
+				<section class="flex flex-col gap-2">
+					<h2 class={SECTION_LABEL}>{group.label}</h2>
+					<ul class={GROUP} aria-label={group.label}>
+						{#each group.lessons as lesson (lesson.id)}
+							{@const tile = dateTile(lesson.lessonDay)}
+							{@const meta = videoMeta(lesson)}
+							<li>
+								<a
+									href={resolve('/[dance]/lessons/[id]', {
+										dance: data.dance.slug,
+										id: String(lesson.id)
+									})}
+									class="flex min-h-[84px] items-center gap-3 py-3 pr-3 pl-4 active:bg-step"
 								>
-							{/if}
-						</span>
-						<!-- Always all three, in the same place: a zero fades rather than vanishing, so a lesson still missing something shows it. -->
-						<span class="mt-2 flex flex-wrap gap-1.5">
-							{#each [plural(lesson.sections, 'section', 'sections'), plural(lesson.routines, 'routine', 'routines'), plural(lesson.figures, 'figure', 'figures')] as chip (chip.word)}
-								<span
-									class="rounded-full bg-plane px-2.5 py-0.5 text-[12px] {chip.n === 0
-										? 'text-muted opacity-60'
-										: 'text-ink-2'}"
-									><span class="font-semibold tabular-nums {chip.n === 0 ? '' : 'text-ink'}"
-										>{chip.n}</span
+									<span
+										aria-hidden="true"
+										class="flex h-[54px] w-12 flex-none flex-col items-center justify-center gap-[3px] rounded-xl bg-accent-soft"
 									>
-									{chip.word}</span
-								>
-							{/each}
-						</span>
-					</a>
-				</li>
+										<span
+											class="text-[11px] leading-none font-extrabold tracking-[0.06em] text-accent-text uppercase"
+											>{tile.weekday}</span
+										>
+										<span class="font-display text-[22px] leading-none font-extrabold text-ink"
+											>{tile.day}</span
+										>
+									</span>
+									<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+										<span class="text-[16px] leading-[1.3] font-bold text-ink"
+											><span class="sr-only">{tile.label}, </span>{lesson.title}</span
+										>
+										{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
+										<!-- Always all three, in the same place: a zero fades rather than vanishing, so a lesson still missing something shows it. -->
+										<span class="mt-[5px] flex flex-wrap gap-x-3 text-[13px]">
+											{#each lessonCounts(lesson) as c (c.word)}
+												<span class={c.n === 0 ? 'text-muted' : 'text-ink-2'}
+													><span class="font-extrabold tabular-nums {c.n === 0 ? '' : 'text-ink'}"
+														>{c.n}</span
+													>
+													{c.word}</span
+												>
+											{/each}
+										</span>
+									</span>
+									<span class="flex flex-none text-chevron"
+										><Icon name="chevron-right" size={20} /></span
+									>
+								</a>
+							</li>
+						{/each}
+					</ul>
+				</section>
 			{/each}
-		</ul>
+		</div>
 	{/if}
-</div>
+</Screen>
 
 <Sheet title="New lesson" open={creating} onclose={() => (creating = false)}>
 	<form
+		id="new-lesson"
 		method="POST"
 		action="?/create"
-		class="space-y-3"
+		class="flex flex-col gap-3.5"
 		use:guarded={{
 			label: 'New lesson',
-			submit: () => {
+			submit: ({ cancel }) => {
+				// One lesson per tap: a second tap while the first is out is dropped.
+				if (busy) return cancel();
 				busy = true;
 				return async ({ update }) => {
 					await update();
@@ -109,31 +140,32 @@
 			}
 		}}
 	>
-		{#if form?.message}
-			<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">{form.message}</p>
-		{/if}
+		{#if otherError && fresh}<Banner kind="error">{otherError}</Banner>{/if}
 
 		<LessonFields
-			lessonDay={form?.lessonDay ?? data.today}
-			title={form?.title ?? ''}
-			notes={form?.notes ?? null}
+			autofocus
+			lessonDay={fresh?.lessonDay ?? data.today}
+			title={fresh?.title ?? ''}
+			notes={fresh?.notes ?? null}
 			max={data.today}
+			errors={fresh ? errors : {}}
 		/>
 
-		<label class="block">
-			<span class={label}>Go over it again</span>
-			<select name="everyDays" class={field} value={DEFAULT_EVERY_DAYS}>
-				{#each FREQUENCIES as f (f.days)}
-					<option value={f.days}>{f.label}</option>
-				{/each}
-			</select>
-		</label>
+		<div class="flex flex-col gap-1.5">
+			<FrequencyField name="everyDays" label="Go over it again" bind:value={everyDays} />
+			<p class="pl-1 text-[13px] text-muted">Puts “Review: …” on Today; lower it as it settles.</p>
+		</div>
+	</form>
 
+	{#snippet footer()}
 		<button
 			type="submit"
-			disabled={busy}
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-50"
-			>Create lesson</button
+			form="new-lesson"
+			class={button('primary', 'md', true)}
+			aria-busy={busy}
+			aria-label={busy ? 'Creating lesson' : undefined}
 		>
-	</form>
+			{#if busy}<Spinner />{:else}Create lesson{/if}
+		</button>
+	{/snippet}
 </Sheet>

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { tick } from 'svelte';
+	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -20,9 +21,20 @@
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import Dialog from '$lib/components/ui/Dialog.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { GROUP, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
-	import { DEFAULT_EVERY_DAYS, FREQUENCIES, frequencyLabel } from '$lib/frequency';
-	import { byteSize, dateLabel } from '$lib/format';
+	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
+	import { byteSize, fullDateLabel } from '$lib/format';
+	import { deleteBlock, deleteVideoBody, reviewMeta, sectionHeading } from '$lib/lessons/page';
+	import { lessonVideoCaption } from '$lib/video/caption';
+	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import { spotTime } from '$lib/video/spots';
@@ -32,7 +44,79 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	// --- Edit mode: the band's pencil, the form alone on the page, one Save pinned.
 	let editing = $state(false);
+	let saving = $state(false);
+	let editForm: HTMLFormElement | undefined = $state();
+	type LessonField = 'lessonDay' | 'title' | 'notes';
+	/**
+	 * The last `update` refusal with what was typed, until the next save or the
+	 * next time editing starts: a field's message goes under it, any other at
+	 * the top of the form.
+	 */
+	let refusal = $state<{
+		field: LessonField | null;
+		message: string;
+		entered: { lessonDay: string; title: string; notes: string } | null;
+	} | null>(null);
+	const editErrors = $derived(
+		refusal?.field ? { [refusal.field]: refusal.message } : ({} as Record<string, string>)
+	);
+
+	/** The band button that was pressed is replaced when edit mode flips: hand focus to its successor. */
+	async function setEditing(on: boolean) {
+		editing = on;
+		await tick();
+		// The big header and the slim band each draw the button; the hidden one is inert.
+		const key = on ? 'stop-editing' : 'start-editing';
+		document
+			.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)
+			.forEach((el) => !el.closest('[inert]') && el.focus());
+	}
+	function startEditing() {
+		refusal = null;
+		window.scrollTo({ top: 0 });
+		void setEditing(true);
+	}
+	function stopEditing() {
+		leaveOrAsk(editForm ?? null, () => void setEditing(false), 'Stop editing');
+	}
+	const saveEdit: SubmitFunction = () => {
+		saving = true;
+		refusal = null;
+		return async ({ update, result }) => {
+			try {
+				await update({ reset: false });
+			} finally {
+				saving = false;
+			}
+			if (result.type === 'success') await setEditing(false);
+		};
+	};
+
+	// --- Archive, behind a question.
+	let archiving = $state(false);
+	let archiveBusy = $state(false);
+	let archiveError = $state<string | null>(null);
+	const messageOf = (data: unknown, fallback: string) => {
+		const m = (data as { message?: unknown } | undefined)?.message;
+		return typeof m === 'string' ? m : fallback;
+	};
+
+	// --- Delete a video: what blocks it is said at once; otherwise a question.
+	/** Why a video cannot go, by video id; cleared by the next tap of its trash. */
+	let videoRefused = $state<Record<number, string>>({});
+	/** The video the dialog asks about, with how many sections go with it. */
+	let deletingVideo = $state<{ id: number; sections: number } | null>(null);
+	let deleteBusy = $state(false);
+	function askDeleteVideo(id: number, sections: Parameters<typeof deleteBlock>[0]) {
+		const blocked = deleteBlock(sections);
+		videoRefused = blocked
+			? { ...videoRefused, [id]: blocked }
+			: Object.fromEntries(Object.entries(videoRefused).filter(([k]) => Number(k) !== id));
+		if (!blocked) deletingVideo = { id, sections: sections.length };
+	}
+
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
 	let addingRoutine = $state(false);
@@ -122,7 +206,25 @@
 		}
 		if (failure('newExercise')) addingExercise = true;
 		if (failure('newRoutine')) addingRoutine = true;
-		if (failure('update')) editing = true;
+	});
+
+	// A refused edit (and, without JavaScript, the page it re-renders) stays in edit mode, holding what was typed.
+	$effect(() => {
+		if (form?.action !== 'update' || !('message' in form) || typeof form.message !== 'string')
+			return;
+		refusal = {
+			field: 'field' in form && form.field ? (form.field as LessonField) : null,
+			message: form.message,
+			entered:
+				'title' in form && 'lessonDay' in form
+					? {
+							lessonDay: String(form.lessonDay ?? ''),
+							title: String(form.title ?? ''),
+							notes: String(form.notes ?? '')
+						}
+					: null
+		};
+		editing = true;
 	});
 
 	/*
@@ -220,351 +322,486 @@
 	const label = 'mb-1 block text-[13px] text-muted';
 	const field =
 		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
-	const heading = 'mb-2 text-[12px] font-medium tracking-wide text-muted uppercase';
 	const tag =
 		'ml-1.5 inline-block rounded-full border border-rule px-1.5 align-[1px] text-[11px] font-normal text-ink-2';
 </script>
 
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
+<Screen
+	compact
+	title={lesson.title}
+	subtitle={editing ? 'Editing' : fullDateLabel(lesson.lessonDay)}
 >
-	<div class="flex items-center gap-2">
-		<a
-			href={resolve('/[dance]/lessons', { dance: data.dance.slug })}
-			class="-ml-1 px-1 text-[20px] text-muted"
-			aria-label="Back">‹</a
-		>
-		<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">{lesson.title}</h1>
-		<!--
-			Done SAVES: it submits the edit form (by `form=`, since the header is
-			outside it). A refused save keeps you editing with the message showing,
-			so nothing typed is lost; a successful one closes edit mode.
-		-->
+	{#snippet left()}
 		{#if editing}
-			<button type="submit" form="edit-form" class="h-10 px-2 text-[14px] font-medium text-accent"
-				>Done</button
-			>
+			<BandButton focusKey="stop-editing" icon="close" label="Stop editing" onclick={stopEditing} />
 		{:else}
-			<button
-				type="button"
-				class="h-10 px-2 text-[14px] font-medium text-accent"
-				onclick={() => (editing = true)}>Edit</button
-			>
-		{/if}
-	</div>
-</header>
-
-<div class="space-y-6 px-4 py-4">
-	{#if editing}
-		<form
-			id="edit-form"
-			method="POST"
-			action="?/update"
-			class="space-y-3"
-			use:guarded={{
-				label: 'Lesson edits',
-				submit:
-					() =>
-					async ({ update, result }) => {
-						await update({ reset: false });
-						if (result.type === 'success') editing = false;
-					}
-			}}
-		>
-			{#if failure('update')}
-				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">
-					{failure('update')}
-				</p>
-			{/if}
-			<LessonFields
-				lessonDay={lesson.lessonDay}
-				title={lesson.title}
-				notes={lesson.notes}
-				max={data.today}
+			<BandButton
+				icon="back"
+				label="Back to Lessons"
+				href={resolve('/[dance]/lessons', { dance: data.dance.slug })}
 			/>
-			<button
-				type="submit"
-				class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-				>Save</button
+		{/if}
+	{/snippet}
+	{#snippet right()}
+		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. -->
+		{#if !editing}
+			<BandButton
+				focusKey="start-editing"
+				icon="pencil"
+				label="Edit lesson"
+				onclick={startEditing}
+			/>
+		{/if}
+	{/snippet}
+
+	<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
+		{#if editing}
+			{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}
+			<!-- `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
+			<form
+				id="edit-form"
+				method="POST"
+				action="?/update"
+				novalidate
+				bind:this={editForm}
+				class="flex flex-col gap-3.5"
+				use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
 			>
-		</form>
-
-		<form
-			method="POST"
-			action="?/archive"
-			use:enhance
-			onsubmit={(e) => {
-				if (!confirm('Archive this lesson? Its review exercise goes too.')) e.preventDefault();
-			}}
-		>
-			<button type="submit" class="h-10 text-[14px] text-danger">Archive lesson</button>
-		</form>
-	{:else}
-		<section>
-			<p class="text-[13px] text-muted">{dateLabel(lesson.lessonDay)}</p>
+				{#if refusal && !refusal.field}<Banner kind="error">{refusal.message}</Banner>{/if}
+				<LessonFields
+					lessonDay={refusal?.entered?.lessonDay ?? lesson.lessonDay}
+					title={refusal?.entered?.title ?? lesson.title}
+					notes={refusal?.entered ? refusal.entered.notes : lesson.notes}
+					max={data.today}
+					errors={editErrors}
+					notesRows={7}
+					notesHelp="Links in notes open when tapped."
+				/>
+			</form>
+			<div class="flex justify-center pt-1">
+				<button
+					type="button"
+					class={button('danger-text', 'sm')}
+					aria-haspopup="dialog"
+					onclick={() => {
+						archiveError = null;
+						archiving = true;
+					}}>Archive lesson</button
+				>
+			</div>
+		{:else}
 			{#if lesson.notes}
-				<LinkedText text={lesson.notes} class="mt-2 text-[15px] whitespace-pre-line" />
+				<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
+					<h2 class="text-[13px] font-bold text-muted">Notes</h2>
+					<LinkedText
+						text={lesson.notes}
+						class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink"
+					/>
+				</section>
 			{/if}
-		</section>
 
-		{#if data.exercise && data.popup}
-			<section class="rounded-xl border border-line bg-raised px-4 py-3">
-				<div class="flex items-center justify-between gap-3">
-					<div class="min-w-0">
-						<span class="block truncate text-[15px] font-medium">Go over this lesson</span>
+			{#if data.exercise && data.popup}
+				{@const review = data.exercise}
+				<div class={GROUP}>
+					<div class="flex min-h-16 items-center pr-1.5 pl-4">
 						<a
 							href={resolve('/[dance]/exercises/[id]', {
 								dance: data.dance.slug,
-								id: String(data.exercise.id)
+								id: String(review.id)
 							})}
-							class="text-[12px] text-accent"
-							>{frequencyLabel(data.exercise.everyDays)}{data.exercise.active ? '' : ' · inactive'} ·
-							Exercise →</a
+							class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
 						>
-					</div>
-					<button
-						type="button"
-						class="h-10 rounded-xl border border-rule px-4 text-[14px] font-medium"
-						onclick={() => (logging = true)}>Log…</button
-					>
-				</div>
-			</section>
-		{/if}
-
-		<section>
-			<h2 class={heading}>Links</h2>
-			<LinksEditor
-				links={data.links}
-				canSave
-				message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
-				entered={form && 'urls' in form ? String(form.urls) : ''}
-			/>
-		</section>
-
-		<section>
-			<h2 class={heading}>Videos</h2>
-			<ul class="space-y-3">
-				{#each data.videos as video (video.id)}
-					<li class="overflow-hidden rounded-xl border border-line bg-raised">
-						{#if broken[video.id] === 'missing'}
-							<p class="p-4 text-[13px] text-muted">The file for this video is missing.</p>
-						{:else if broken[video.id] === 'unplayable'}
-							<p class="p-4 text-[13px] text-muted">
-								This browser can't play this file.
-								<a
-									href={resolve('/lesson-videos/[file]', { file: video.file })}
-									download
-									class="font-medium text-accent">Download it</a
+							<span
+								class="grid size-10 flex-none place-items-center rounded-full bg-accent-soft text-accent-text"
+							>
+								<Icon name="repeat" size={20} />
+							</span>
+							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+								<span class="text-[16px] leading-[1.3] font-bold text-ink">Go over this lesson</span
 								>
-								or open it on your phone.
-							</p>
-						{:else}
-							<VideoFrame
+								<span class="text-[13px] leading-[1.35] text-muted"
+									>{#each reviewMeta(review) as part, i (i)}{i > 0 ? ' · ' : ''}<span
+											class:font-bold={part.strong}>{part.text}</span
+										>{/each}</span
+								>
+							</span>
+						</a>
+						<!-- The "+" is an icon, so bare accent is allowed. -->
+						<button
+							type="button"
+							class={iconButton('bare').replace('text-ink', 'text-accent')}
+							aria-label="Log a set of {review.name}"
+							onclick={() => (logging = true)}
+						>
+							<Icon name="plus" size={24} />
+						</button>
+					</div>
+				</div>
+			{/if}
+
+			<section class="flex flex-col gap-2 pt-2.5">
+				<h2 class={SECTION_LABEL}>{sectionHeading('Videos', data.videos.length)}</h2>
+				<ul class="flex flex-col gap-3">
+					{#each data.videos as video, i (video.id)}
+						{@const videoSections = data.sections[video.id] ?? []}
+						{#snippet videoTrash()}
+							<button
+								type="button"
+								aria-label="Delete video {i + 1}"
+								aria-haspopup="dialog"
+								class={iconButton('bare').replace('text-ink', 'text-danger')}
+								onclick={() => askDeleteVideo(video.id, videoSections)}
+								><Icon name="trash" size={22} /></button
+							>
+						{/snippet}
+						<li class="overflow-hidden rounded-[22px] bg-surface">
+							{#if broken[video.id] === 'missing'}
+								<VideoProblem
+									title="This file is missing"
+									body="The server has no file for this video."
+									meta={byteSize(video.sizeBytes)}
+								>
+									{#snippet action()}{@render videoTrash()}{/snippet}
+								</VideoProblem>
+							{:else if broken[video.id] === 'unplayable'}
+								<VideoProblem
+									title="Can’t play here"
+									body="This browser can’t play this file. Download it or open it on your phone."
+									meta={byteSize(video.sizeBytes)}
+								>
+									{#snippet action()}
+										<span class="flex items-center gap-1">
+											<a
+												href={resolve('/lesson-videos/[file]', { file: video.file })}
+												download
+												class={button('tertiary', 'sm')}
+												><Icon name="download" size={18} />Download</a
+											>
+											{@render videoTrash()}
+										</span>
+									{/snippet}
+								</VideoProblem>
+							{:else}
+								<VideoFrame
+									src="/lesson-videos/{video.file}"
+									sourceUrl={video.sourceUrl}
+									owner={{ lessonVideoId: video.id }}
+									title={lesson.title}
+									caption={lessonVideoCaption(i, video)}
+									onproblem={(p) => (broken = { ...broken, [video.id]: p })}
+									onclosed={() => void invalidateAll()}
+									linking
+									action={videoTrash}
+								/>
+							{/if}
+							{#if videoRefused[video.id]}
+								<div class="px-3 pb-2.5">
+									<Banner kind="error" title="Can’t delete this video"
+										>{videoRefused[video.id]}</Banner
+									>
+								</div>
+							{/if}
+							<VideoSections
+								sections={videoSections}
 								src="/lesson-videos/{video.file}"
-								sourceUrl={video.sourceUrl}
 								owner={{ lessonVideoId: video.id }}
-								title={lesson.title}
-								onproblem={(p) => (broken = { ...broken, [video.id]: p })}
-								onclosed={() => void invalidateAll()}
 								linking
 							/>
-						{/if}
-						<div class="flex items-center justify-between px-3 py-2 text-[12px] text-muted">
-							<span>{byteSize(video.sizeBytes)}</span>
-							<form
-								method="POST"
-								action="?/deleteVideo"
-								use:enhance
-								onsubmit={(e) => {
-									if (!confirm('Delete this video?')) e.preventDefault();
-								}}
-							>
-								<input type="hidden" name="videoId" value={video.id} />
-								<button type="submit" class="h-9 px-2 text-danger">Delete</button>
-							</form>
-						</div>
-						{#if form?.action === 'deleteVideo' && 'videoId' in form && form.videoId === video.id}
-							<p class="px-3 pb-2 text-[13px] text-danger" role="alert">{form.message}</p>
-						{/if}
-						<VideoSections
-							sections={data.sections[video.id] ?? []}
-							src="/lesson-videos/{video.file}"
-							owner={{ lessonVideoId: video.id }}
-							linking
+						</li>
+					{/each}
+				</ul>
+				<div class="mt-3">
+					{#if data.app}
+						<AppUploadLink
+							kind="dashed"
+							href={uploadLink(
+								{ lesson: lesson.id },
+								{ back: page.url.pathname, name: lesson.title }
+							)}
+							label="Add videos"
 						/>
-					</li>
-				{/each}
-			</ul>
-			<div class="mt-3">
-				{#if data.app}
-					<AppUploadLink
-						href={uploadLink(
-							{ lesson: lesson.id },
-							{ back: page.url.pathname, name: lesson.title }
-						)}
-						label="+ Add videos"
-					/>
-				{:else}
-					<ChunkedUploadButton
-						uploadUrl="/api/lessons/{lesson.id}/videos"
-						accept="video/*"
-						label="+ Add videos"
-						maxBytes={MAX_LESSON_VIDEO_BYTES}
-					/>
+					{:else}
+						<ChunkedUploadButton
+							uploadUrl="/api/lessons/{lesson.id}/videos"
+							accept="video/*"
+							label="Add videos"
+							maxBytes={MAX_LESSON_VIDEO_BYTES}
+						/>
+					{/if}
+				</div>
+			</section>
+			<section class="flex flex-col gap-2 pt-2.5">
+				<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
+				<LinksEditor
+					compact
+					links={data.links}
+					canSave
+					message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
+					entered={form && 'urls' in form ? String(form.urls) : ''}
+				/>
+			</section>
+			<section class="flex flex-col gap-2 pt-2.5">
+				<div class="flex items-center justify-between">
+					<h2 class={SECTION_LABEL}>{sectionHeading('Figures', data.figures.length)}</h2>
+					<button
+						type="button"
+						class="text-[13px] font-medium text-accent-text"
+						onclick={() => openFigureSheet()}>+ New figure</button
+					>
+				</div>
+				{#if data.figures.length > 0}
+					<ul class="space-y-2">
+						{#each data.figures as figure (figure.id)}
+							<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+								<a
+									href={resolve('/[dance]/figures/[id]', {
+										dance: data.dance.slug,
+										id: String(figure.id)
+									})}
+									class="min-w-0 flex-1"
+								>
+									<span class="block truncate text-[15px] font-medium"
+										>{figure.name}{#if figure.viaSections.length > 0}<span class={tag}
+												>{viaTag(figure.viaSections)}</span
+											>{/if}</span
+									>
+									<span class="block truncate text-[12px] text-muted"
+										>{figure.viaSections.length > 0
+											? viaRanges(figure.viaSections)
+											: PARTNER_LABEL[figure.partner]}</span
+									>
+								</a>
+								{#if figure.viaSections.length > 0}
+									<button
+										type="button"
+										class="h-9 px-2 text-[13px] text-muted"
+										onclick={() =>
+											(unlinkingVia = {
+												action: '?/unlinkFigure',
+												name: 'figureId',
+												id: figure.id,
+												label: figure.name,
+												via: figure.viaSections
+											})}>Unlink</button
+									>
+								{:else}
+									<form method="POST" action="?/unlinkFigure" use:enhance>
+										<input type="hidden" name="figureId" value={figure.id} />
+										<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+									</form>
+								{/if}
+							</li>
+						{/each}
+					</ul>
 				{/if}
-			</div>
-		</section>
-
-		<section>
-			<div class="flex items-center justify-between">
-				<h2 class={heading}>Exercises</h2>
-				<button
-					type="button"
-					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={() => createFrom('exercise', '', '')}>+ New exercise</button
-				>
-			</div>
-			{#if data.exercises.length > 0}
-				<ul class="space-y-2">
-					{#each data.exercises as exercise (exercise.id)}
-						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
-							<a
-								href={resolve('/[dance]/exercises/[id]', {
-									dance: data.dance.slug,
-									id: String(exercise.id)
-								})}
-								class="min-w-0 flex-1"
-								><span class="block truncate text-[15px]"
-									>{exercise.name}{#if exercise.viaSections.length > 0}<span class={tag}
-											>{viaTag(exercise.viaSections)}</span
-										>{/if}</span
-								>{#if exercise.viaSections.length > 0}<span class="block text-[12px] text-muted"
-										>{viaRanges(exercise.viaSections)}</span
-									>{/if}</a
-							>
-							<a
-								href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-								class="grid size-9 place-items-center text-[20px] text-accent"
-								aria-label="Log a set of {exercise.name}">+</a
-							>
-							{#if exercise.viaSections.length > 0}
-								<button
-									type="button"
-									class="h-9 px-2 text-[13px] text-muted"
-									onclick={() =>
-										(unlinkingVia = {
-											action: '?/unlinkExercise',
-											name: 'exerciseId',
-											id: exercise.id,
-											label: exercise.name,
-											via: exercise.viaSections
-										})}>Unlink</button
+				{@render linkButton('figure', 'Link an existing figure…')}
+			</section>
+			<section class="flex flex-col gap-2 pt-2.5">
+				<div class="flex items-center justify-between">
+					<h2 class={SECTION_LABEL}>{sectionHeading('Routines', data.routines.length)}</h2>
+					<button
+						type="button"
+						class="text-[13px] font-medium text-accent-text"
+						onclick={() => createFrom('routine', '', '')}>+ New routine</button
+					>
+				</div>
+				{#if data.routines.length > 0}
+					<ul class="space-y-2">
+						{#each data.routines as routine (routine.id)}
+							<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+								<a
+									href={resolve('/[dance]/routines/[id]', {
+										dance: data.dance.slug,
+										id: String(routine.id)
+									})}
+									class="min-w-0 flex-1 truncate text-[15px] font-medium">{routine.name}</a
 								>
-							{:else}
-								<form method="POST" action="?/unlinkExercise" use:enhance>
-									<input type="hidden" name="exerciseId" value={exercise.id} />
+								<form method="POST" action="?/unlinkRoutine" use:enhance>
+									<input type="hidden" name="routineId" value={routine.id} />
 									<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
 								</form>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			{@render linkButton('exercise', 'Link an existing exercise…')}
-		</section>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				{@render linkButton('routine', 'Link an existing routine…')}
+			</section>
+			<section class="flex flex-col gap-2 pt-2.5">
+				<div class="flex items-center justify-between">
+					<h2 class={SECTION_LABEL}>{sectionHeading('Exercises', data.exercises.length)}</h2>
+					<button
+						type="button"
+						class="text-[13px] font-medium text-accent-text"
+						onclick={() => createFrom('exercise', '', '')}>+ New exercise</button
+					>
+				</div>
+				{#if data.exercises.length > 0}
+					<ul class="space-y-2">
+						{#each data.exercises as exercise (exercise.id)}
+							<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
+								<a
+									href={resolve('/[dance]/exercises/[id]', {
+										dance: data.dance.slug,
+										id: String(exercise.id)
+									})}
+									class="min-w-0 flex-1"
+									><span class="block truncate text-[15px]"
+										>{exercise.name}{#if exercise.viaSections.length > 0}<span class={tag}
+												>{viaTag(exercise.viaSections)}</span
+											>{/if}</span
+									>{#if exercise.viaSections.length > 0}<span class="block text-[12px] text-muted"
+											>{viaRanges(exercise.viaSections)}</span
+										>{/if}</a
+								>
+								<a
+									href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
+									class="grid size-9 place-items-center text-[20px] text-accent"
+									aria-label="Log a set of {exercise.name}">+</a
+								>
+								{#if exercise.viaSections.length > 0}
+									<button
+										type="button"
+										class="h-9 px-2 text-[13px] text-muted"
+										onclick={() =>
+											(unlinkingVia = {
+												action: '?/unlinkExercise',
+												name: 'exerciseId',
+												id: exercise.id,
+												label: exercise.name,
+												via: exercise.viaSections
+											})}>Unlink</button
+									>
+								{:else}
+									<form method="POST" action="?/unlinkExercise" use:enhance>
+										<input type="hidden" name="exerciseId" value={exercise.id} />
+										<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
+									</form>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+				{@render linkButton('exercise', 'Link an existing exercise…')}
+			</section>
+		{/if}
+	</div>
+</Screen>
 
-		<section>
-			<div class="flex items-center justify-between">
-				<h2 class={heading}>Routines</h2>
-				<button
-					type="button"
-					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={() => createFrom('routine', '', '')}>+ New routine</button
-				>
-			</div>
-			{#if data.routines.length > 0}
-				<ul class="space-y-2">
-					{#each data.routines as routine (routine.id)}
-						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
-							<a
-								href={resolve('/[dance]/routines/[id]', {
-									dance: data.dance.slug,
-									id: String(routine.id)
-								})}
-								class="min-w-0 flex-1 truncate text-[15px] font-medium">{routine.name}</a
-							>
-							<form method="POST" action="?/unlinkRoutine" use:enhance>
-								<input type="hidden" name="routineId" value={routine.id} />
-								<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-							</form>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			{@render linkButton('routine', 'Link an existing routine…')}
-		</section>
+{#if editing}
+	<BottomBar>
+		<button
+			type="submit"
+			form="edit-form"
+			class={button('primary', 'md', true)}
+			aria-busy={saving}
+			disabled={saving}
+		>
+			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+		</button>
+	</BottomBar>
+{/if}
 
-		<section>
-			<div class="flex items-center justify-between">
-				<h2 class={heading}>Figures</h2>
-				<button
-					type="button"
-					class="mb-2 text-[13px] font-medium text-accent"
-					onclick={() => openFigureSheet()}>+ New figure</button
-				>
-			</div>
-			{#if data.figures.length > 0}
-				<ul class="space-y-2">
-					{#each data.figures as figure (figure.id)}
-						<li class="flex items-center gap-2 rounded-xl border border-line bg-raised px-4 py-3">
-							<a
-								href={resolve('/[dance]/figures/[id]', {
-									dance: data.dance.slug,
-									id: String(figure.id)
-								})}
-								class="min-w-0 flex-1"
-							>
-								<span class="block truncate text-[15px] font-medium"
-									>{figure.name}{#if figure.viaSections.length > 0}<span class={tag}
-											>{viaTag(figure.viaSections)}</span
-										>{/if}</span
-								>
-								<span class="block truncate text-[12px] text-muted"
-									>{figure.viaSections.length > 0
-										? viaRanges(figure.viaSections)
-										: PARTNER_LABEL[figure.partner]}</span
-								>
-							</a>
-							{#if figure.viaSections.length > 0}
-								<button
-									type="button"
-									class="h-9 px-2 text-[13px] text-muted"
-									onclick={() =>
-										(unlinkingVia = {
-											action: '?/unlinkFigure',
-											name: 'figureId',
-											id: figure.id,
-											label: figure.name,
-											via: figure.viaSections
-										})}>Unlink</button
-								>
-							{:else}
-								<form method="POST" action="?/unlinkFigure" use:enhance>
-									<input type="hidden" name="figureId" value={figure.id} />
-									<button type="submit" class="h-9 px-2 text-[13px] text-muted">Unlink</button>
-								</form>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			{@render linkButton('figure', 'Link an existing figure…')}
-		</section>
-	{/if}
-</div>
+<Dialog
+	open={deletingVideo !== null}
+	title="Delete this video?"
+	body={deleteVideoBody(deletingVideo?.sections ?? 0)}
+	icon="trash"
+	tone="danger"
+	onclose={() => (deletingVideo = null)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deletingVideo = null)}
+			>Cancel</button
+		>
+		<form
+			method="POST"
+			action="?/deleteVideo"
+			use:enhance={() => {
+				deleteBusy = true;
+				const id = deletingVideo?.id;
+				return async ({ update, result }) => {
+					try {
+						if (result.type === 'failure' && id !== undefined) {
+							videoRefused = {
+								...videoRefused,
+								[id]: messageOf(result.data, 'That video could not be deleted.')
+							};
+						} else {
+							await update();
+						}
+					} finally {
+						deleteBusy = false;
+						deletingVideo = null;
+					}
+				};
+			}}
+		>
+			<input type="hidden" name="videoId" value={deletingVideo?.id ?? ''} />
+			<button
+				type="submit"
+				class={button('danger', 'sm')}
+				aria-busy={deleteBusy}
+				disabled={deleteBusy}
+			>
+				{#if deleteBusy}<Spinner /><span class="sr-only">Deleting…</span>{:else}Delete{/if}
+			</button>
+		</form>
+	{/snippet}
+</Dialog>
+
+<Dialog
+	open={archiving}
+	title="Archive this lesson?"
+	body="Its review exercise goes too. The videos, links and sets are kept."
+	icon="warning"
+	tone="danger"
+	onclose={() => (archiving = false)}
+>
+	{#snippet actions()}
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
+			>Cancel</button
+		>
+		<form
+			method="POST"
+			action="?/archive"
+			use:enhance={() => {
+				archiveBusy = true;
+				return async ({ update, result }) => {
+					if (result.type === 'redirect') {
+						// Archived: the edit form goes first, so leaving for Lessons is not
+						// asked about as unsaved changes.
+						editing = false;
+						archiving = false;
+						await tick();
+					}
+					try {
+						await update();
+					} finally {
+						archiveBusy = false;
+					}
+					if (result.type === 'failure' || result.type === 'error') {
+						archiving = false;
+						archiveError =
+							result.type === 'failure'
+								? messageOf(result.data, 'That lesson could not be archived.')
+								: messageOf(result.error, 'That lesson could not be archived.');
+					}
+				};
+			}}
+		>
+			<button
+				type="submit"
+				class={button('danger', 'sm')}
+				aria-busy={archiveBusy}
+				disabled={archiveBusy}
+			>
+				{#if archiveBusy}<Spinner /><span class="sr-only">Archiving…</span>{:else}Archive{/if}
+			</button>
+		</form>
+	{/snippet}
+</Dialog>
 
 {#snippet linkButton(kind: LinkKind, text: string)}
 	<button

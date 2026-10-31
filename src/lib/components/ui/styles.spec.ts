@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	button,
 	CHIP,
+	DASHED_ADD,
 	FIELD,
 	FIELD_ERROR,
 	TEXTAREA,
@@ -45,5 +46,14 @@ describe('constants', () => {
 		for (const s of [FIELD, FIELD_ERROR, LABEL, GROUP, ROW, SECTION_LABEL])
 			expect(s.length).toBeGreaterThan(0);
 		expect(GROUP).toContain('divide-hairline');
+	});
+});
+
+describe('DASHED_ADD', () => {
+	it('is a dashed 52 px add control in the accent text colour', () => {
+		expect(DASHED_ADD).toContain('border-dashed');
+		expect(DASHED_ADD).toContain('text-accent-text');
+		expect(DASHED_ADD).toContain('h-[52px]');
+		expect(DASHED_ADD).not.toMatch(/text-accent(\s|$)/);
 	});
 });

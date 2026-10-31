@@ -107,3 +107,20 @@ export function dayMonth(day: string): string {
 	const d = new Date(`${day}T12:00:00Z`);
 	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
+
+/** `2026-10-28` → `28 October 2026`. Built by hand, like `dayLabel`. */
+export function fullDateLabel(day: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	return `${d.getUTCDate()} ${LONG_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** `2026-10-28` → `October 2026`. */
+export function monthLabel(day: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	return `${LONG_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** `2026-10-28` → `Wed`. */
+export function weekdayShort(day: string): string {
+	return WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()];
+}

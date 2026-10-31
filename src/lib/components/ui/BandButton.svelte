@@ -6,8 +6,10 @@
 		icon,
 		label,
 		href,
-		onclick
-	}: { icon: IconName; label: string; href?: string; onclick?: () => void } = $props();
+		onclick,
+		focusKey
+	}: { icon: IconName; label: string; href?: string; onclick?: () => void; focusKey?: string } =
+		$props();
 
 	// A bare cream icon on the band; the 44 px square is the hit area.
 	const cls =
@@ -16,7 +18,9 @@
 
 {#if href}
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a built href -->
-	<a {href} aria-label={label} class={cls} {onclick}><Icon name={icon} /></a>
+	<a data-focus={focusKey} {href} aria-label={label} class={cls} {onclick}><Icon name={icon} /></a>
 {:else}
-	<button type="button" aria-label={label} class={cls} {onclick}><Icon name={icon} /></button>
+	<button type="button" data-focus={focusKey} aria-label={label} class={cls} {onclick}
+		><Icon name={icon} /></button
+	>
 {/if}

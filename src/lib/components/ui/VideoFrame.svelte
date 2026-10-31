@@ -1,6 +1,6 @@
 <!-- src/lib/components/ui/VideoFrame.svelte -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { watchMedia, type MediaProblem } from '$lib/media';
 	import {
 		RATE_LABEL,
@@ -30,6 +30,8 @@
 		linking?: boolean;
 		/** A title and a line under the picture; Full screen then sits beside it. */
 		caption?: { title: string; meta?: string };
+		/** At the right of the caption row in place of Full screen (which then joins the control row). */
+		action?: Snippet;
 	}
 
 	let {
@@ -41,7 +43,8 @@
 		title = 'Video',
 		onclosed,
 		linking = false,
-		caption
+		caption,
+		action
 	}: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
@@ -105,7 +108,8 @@
 		type="button"
 		onclick={openFull}
 		aria-label="Full screen"
-		class="{iconButton('bare')} text-muted"><Icon name="expand" size={22} /></button
+		class={iconButton('bare').replace('text-ink', 'text-muted')}
+		><Icon name="expand" size={22} /></button
 	>
 {/snippet}
 {#if caption}
@@ -114,7 +118,7 @@
 			<span class="truncate text-[15px] font-bold">{caption.title}</span>
 			{#if caption.meta}<span class="text-[12px] text-muted">{caption.meta}</span>{/if}
 		</div>
-		{#if owner && kind === 'video'}{@render fullScreen()}{/if}
+		{#if action}{@render action()}{:else if owner && kind === 'video'}{@render fullScreen()}{/if}
 	</div>
 {/if}
 <div class="flex items-center gap-2 pr-3 pb-2.5 pl-2">
@@ -124,11 +128,13 @@
 			aria-pressed={mirror}
 			aria-label="Mirror"
 			onclick={() => choose({ mirror: !mirror })}
-			class="{iconButton('bare')} {mirror ? 'bg-accent-soft text-accent-text' : 'text-muted'}"
-			><Icon name="mirror" size={22} /></button
+			class={iconButton('bare').replace(
+				'text-ink',
+				mirror ? 'bg-accent-soft text-accent-text' : 'text-muted'
+			)}><Icon name="mirror" size={22} /></button
 		>
 		<span class="text-[13px] font-bold text-muted">Mirror</span>
-		{#if owner && !caption}{@render fullScreen()}{/if}
+		{#if owner && (!caption || action)}{@render fullScreen()}{/if}
 	{/if}
 	<span class="flex-1"></span>
 	<span class="flex h-9 items-center rounded-full bg-chip px-px" role="group" aria-label="Speed">

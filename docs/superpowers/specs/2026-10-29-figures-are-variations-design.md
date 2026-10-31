@@ -53,7 +53,10 @@ These are the user's:
 - **The version switcher is at the bottom of the screen** (option A from the
   first round, moved down): a bar pinned to the bottom with ‹ › and the
   current variation's name; tapping the name opens a sheet listing every
-  variation.
+  variation. It sits on the bottom edge (a figure's page is a pushed screen
+  with no tab bar) and is hidden while editing.
+- **Edit is the band's pencil**: the band shows × "Stop editing" (asks if
+  anything is unsaved) and one Save is pinned at the bottom in the bar's place.
 - **"Move … to…" sits at the end of the scrollable page**, not in the sheet
   and not in Edit.
 
@@ -313,7 +316,9 @@ header's amber "n not linked →" opens it, hidden when n is 0.
   page so it never hides the last row: ‹ and › step through the figure's live
   variations in id order (wrapping), and the middle shows "<variation>" over
   "2 of 3 variations". It is shown when the figure has one variation too, so
-  "+ New variation" is always one tap away.
+  "+ New variation" is always one tap away. It sits on the bottom edge (no tab bar
+  on a pushed screen) and is hidden while editing, when the band's pencil has
+  become × "Stop editing" and one Save is pinned there instead.
 
 ### The variations sheet (H)
 

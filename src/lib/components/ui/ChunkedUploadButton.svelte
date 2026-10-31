@@ -2,7 +2,17 @@
 	import { invalidateAll } from '$app/navigation';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { UPLOAD_CHUNK_BYTES } from '$lib/limits';
-	import { screenFiles, summarise, type Skipped } from '$lib/upload-queue';
+	import {
+		screenFiles,
+		summarise,
+		summaryTitle,
+		uploadCard,
+		type Skipped
+	} from '$lib/upload-queue';
+	import Banner from './Banner.svelte';
+	import Icon from './Icon.svelte';
+	import UploadCard from './UploadCard.svelte';
+	import { DASHED_ADD, iconButton } from './styles';
 
 	/**
 	 * Upload files in slices, so their size is bounded by the disk rather than by
@@ -34,7 +44,9 @@
 	let progress = $state<number | null>(null);
 	/** Which file of how many, while a batch of more than one is running. */
 	let position = $state<{ index: number; count: number } | null>(null);
-	let message = $state<string | null>(null);
+	/** True from a chunk request throwing (or a 409 resync) until the next 2xx. */
+	let retrying = $state(false);
+	let message = $state<{ title: string; body: string } | null>(null);
 	let input: HTMLInputElement | undefined = $state();
 
 	// The request outlives an in-app navigation (the component goes, the XHR
@@ -113,6 +125,7 @@
 			try {
 				res = await putChunk(url, blob, sent, file.size, file, (loaded) => onBytes(sent + loaded));
 			} catch {
+				retrying = true;
 				// A dropped connection leaves the partial truncated to the last good
 				// offset, so retrying the same chunk is always safe.
 				if (++attempts > 3) return 'the connection dropped';
@@ -122,6 +135,7 @@
 
 			if (res.status === 409) {
 				// The server says the file is at a different offset. Believe it.
+				retrying = true;
 				sent = res.received;
 				onBytes(sent);
 				if (++attempts > 3) return 'that upload got out of step';
@@ -130,6 +144,7 @@
 			if (res.status >= 400) return reasonFrom(res.status, res.body);
 
 			attempts = 0;
+			retrying = false;
 			sent = res.received;
 			onBytes(sent);
 
@@ -156,6 +171,7 @@
 			const reason = await uploadOne(file, (sent) => {
 				progress = total === 0 ? 1 : (done + sent) / total;
 			});
+			retrying = false;
 			if (reason === null) added += 1;
 			else failed.push({ name: file.name, reason });
 			done += file.size;
@@ -164,24 +180,42 @@
 
 		progress = null;
 		position = null;
+		retrying = false;
 		if (input) input.value = '';
-		message = summarise(added, failed);
+		const body = summarise(added, failed);
+		const title = summaryTitle(added, failed.length);
+		message = body && title ? { title, body } : null;
 		// Once, at the end: refreshing between files would tear down and re-mount
 		// the <video> elements already on the page, mid-upload.
 		if (added > 0) await invalidateAll();
 	}
 </script>
 
-<label
-	class="flex h-12 cursor-pointer items-center justify-center rounded-xl border border-dashed border-rule text-[14px] font-medium text-accent"
->
-	{#if !busy}
-		{label}
-	{:else if position}
-		Uploading {position.index} of {position.count}… {Math.round((progress ?? 0) * 100)}%
-	{:else}
-		Uploading… {Math.round((progress ?? 0) * 100)}%
-	{/if}
+{#if message}
+	<div class="mb-3">
+		<Banner kind="error" title={message.title}>
+			{message.body}
+			{#snippet action()}
+				<button
+					type="button"
+					class={iconButton('bare').replace('text-ink', 'text-muted')}
+					aria-label="Dismiss"
+					onclick={() => (message = null)}><Icon name="close" size={20} /></button
+				>
+			{/snippet}
+		</Banner>
+	</div>
+{/if}
+
+{#if progress !== null}
+	<UploadCard
+		{...uploadCard({ progress, position, retrying })}
+		pct={progress * 100}
+		label="videos"
+	/>
+{/if}
+<label class="{DASHED_ADD} {busy ? 'hidden!' : ''}">
+	<Icon name="upload" size={20} />{label}
 	<input
 		bind:this={input}
 		type="file"
@@ -195,13 +229,3 @@
 		}}
 	/>
 </label>
-
-{#if progress !== null}
-	<div class="mt-2 h-1 overflow-hidden rounded-full bg-rule">
-		<div class="h-full bg-accent transition-all" style="width: {progress * 100}%"></div>
-	</div>
-{/if}
-
-{#if message}
-	<p class="mt-2 text-[13px] text-danger">{message}</p>
-{/if}

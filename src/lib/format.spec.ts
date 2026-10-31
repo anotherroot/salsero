@@ -6,9 +6,12 @@ import {
 	dateLabel,
 	dayMonth,
 	dayLabel,
+	fullDateLabel,
 	lastDoneLabel,
 	longDayLabel,
-	setSummary
+	monthLabel,
+	setSummary,
+	weekdayShort
 } from './format';
 
 describe('format', () => {
@@ -72,5 +75,13 @@ describe('longDayLabel', () => {
 
 	it('shortens a day to day and month', () => {
 		expect(dayMonth('2026-10-26')).toBe('26 Oct');
+	});
+});
+
+describe('fullDateLabel, monthLabel, weekdayShort', () => {
+	it('spell a day out by hand', () => {
+		expect(fullDateLabel('2026-10-28')).toBe('28 October 2026');
+		expect(monthLabel('2026-01-03')).toBe('January 2026');
+		expect(weekdayShort('2026-10-28')).toBe('Wed');
 	});
 });
