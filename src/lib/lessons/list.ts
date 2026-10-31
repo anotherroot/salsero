@@ -1,6 +1,5 @@
 /** PURE, client-safe: what the Lessons list shows. */
-import { byteSize, monthLabel, weekdayShort, fullDateLabel } from '$lib/format';
-import { plural } from '$lib/moves/plural';
+import { byteSize, monthLabel, plural, weekdayShort, fullDateLabel } from '$lib/format';
 import type { LessonItem } from '$lib/types';
 
 /** Consecutive lessons of one month share a group; the load already sorts newest first. */

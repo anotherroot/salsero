@@ -13,9 +13,9 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { act } from '$lib/components/routines/act';
+	import { act } from '$lib/act';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { plural } from '$lib/moves/plural';
+	import { plural } from '$lib/format';
 	import { gapsTitle, positionBadges, positionMeta } from '$lib/moves/positions';
 	import type { ActionData, PageData } from './$types';
 

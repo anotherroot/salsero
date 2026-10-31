@@ -1,4 +1,4 @@
-import { plural } from './plural';
+import { plural } from '$lib/format';
 
 export type RoutineBadge = { tone: 'danger' | 'warn'; text: string };
 

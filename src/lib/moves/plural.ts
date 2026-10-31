@@ -1,4 +1,0 @@
-/** "1 slot", "4 slots". PURE. */
-export function plural(n: number, one: string, many: string): string {
-	return `${n} ${n === 1 ? one : many}`;
-}

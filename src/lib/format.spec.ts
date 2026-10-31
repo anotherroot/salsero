@@ -10,6 +10,7 @@ import {
 	lastDoneLabel,
 	longDayLabel,
 	monthLabel,
+	plural,
 	setSummary,
 	weekdayShort
 } from './format';
@@ -83,5 +84,13 @@ describe('fullDateLabel, monthLabel, weekdayShort', () => {
 		expect(fullDateLabel('2026-10-28')).toBe('28 October 2026');
 		expect(monthLabel('2026-01-03')).toBe('January 2026');
 		expect(weekdayShort('2026-10-28')).toBe('Wed');
+	});
+});
+
+describe('plural', () => {
+	it('picks the word by the count', () => {
+		expect(plural(1, 'slot', 'slots')).toBe('1 slot');
+		expect(plural(4, 'slot', 'slots')).toBe('4 slots');
+		expect(plural(0, 'routine', 'routines')).toBe('0 routines');
 	});
 });

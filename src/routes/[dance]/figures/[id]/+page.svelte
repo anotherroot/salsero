@@ -48,7 +48,7 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
-	import { byteSize, longDayLabel } from '$lib/format';
+	import { byteSize, longDayLabel, plural } from '$lib/format';
 	import {
 		archiveCopy,
 		deleteRecordingBody,
@@ -56,7 +56,6 @@
 		routineUseMeta,
 		timingLine
 	} from '$lib/figures/page';
-	import { plural } from '$lib/moves/plural';
 	import { localDay } from '$lib/day/day';
 	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData, SubmitFunction } from './$types';

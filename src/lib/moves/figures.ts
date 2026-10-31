@@ -5,7 +5,7 @@
  */
 import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
 import type { FigureListItem } from '$lib/types';
-import { plural } from './plural';
+import { plural } from '$lib/format';
 
 /** The load's `filter`: the search is always a string, the rest only when set. */
 export type FigureFilter = { q: string; style?: string; partner?: Partner; unlinked?: '1' };

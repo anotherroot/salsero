@@ -4,7 +4,7 @@
 	import { tabSurface } from '$lib/app-bars.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { variationNav } from '$lib/figures/page';
-	import { plural } from '$lib/moves/plural';
+	import { plural } from '$lib/format';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';

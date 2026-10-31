@@ -1,7 +1,7 @@
 /**
  * What a page does with an `act()` result, shared by Settings and My count:
- * the refusal toast's message, and the "… removed · Undo" toast. Lives next to
- * `act` for now; it moves to `$lib/act.ts` with it (Task 7). Client-safe.
+ * the refusal toast's message, and the "… removed · Undo" toast. Lives beside
+ * `act` in `$lib/act.ts`. Client-safe.
  */
 import type { IconName } from '$lib/icons/icons';
 import type { ActionResult } from '@sveltejs/kit';

@@ -1,4 +1,4 @@
-import { plural } from './plural';
+import { plural } from '$lib/format';
 
 /** What the graph says about one position (the server's `PositionCount`, without the id). */
 export interface PositionCounts {

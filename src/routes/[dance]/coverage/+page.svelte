@@ -12,7 +12,7 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { longPress } from '$lib/longpress';
-	import { plural } from '$lib/moves/plural';
+	import { plural } from '$lib/format';
 	import { groupHeading, pickNumber, pickedRows, togglePick } from '$lib/moves/picks';
 	import type { ActionData, PageData } from './$types';
 

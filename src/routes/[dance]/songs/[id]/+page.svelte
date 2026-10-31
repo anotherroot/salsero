@@ -18,7 +18,7 @@
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import SeekBar from '$lib/components/ui/SeekBar.svelte';
 	import { GROUP, SECTION_LABEL, button, iconButton, swap } from '$lib/components/ui/styles';
-	import { act } from '$lib/components/routines/act';
+	import { act } from '$lib/act';
 	import { songName } from '$lib/songs/library';
 	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
 	import { clock } from '$lib/format';

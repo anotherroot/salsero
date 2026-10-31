@@ -10,7 +10,7 @@
 	import Swipeable from './Swipeable.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
-	import { resettingFocus } from './act';
+	import { resettingFocus } from '$lib/act';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import type { RowView, Swiped } from './types';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { act } from '$lib/components/routines/act';
-	import { refusalMessage, undoToast, type ToastState } from '$lib/components/routines/act-toast';
+	import { act } from '$lib/act';
+	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';

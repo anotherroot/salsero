@@ -11,7 +11,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
-	import { plural } from '$lib/moves/plural';
+	import { plural } from '$lib/format';
 	import { routineBadges } from '$lib/moves/routines';
 	import type { ActionData, PageData } from './$types';
 

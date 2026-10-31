@@ -1,5 +1,8 @@
 # Redesign: new icons and one look for the whole app
 
+Status: built on branch `app-icons`, 2026-10-31 (plans 1-13 in
+`docs/superpowers/plans/2026-10-31-redesign-*.md`).
+
 Agreed 2026-10-31. Mockups, design system and every screen (light and dark):
 https://claude.ai/artifact/9f1bRKTJ9ST8Vxg17YC9XJ — the agreed icon is
 "5 · Flame & heart, round 3 → v4"; the agreed look is "C4 · Final picks";
@@ -137,6 +140,10 @@ Every component exists in the states on the design system board (sections
 - **Focus:** a 2 px accent ring plus a 4 px halo (accent at 20 %); around a
   filled control the ring sits after a 2 px gap. Visible on keyboard focus and
   on a focused text field.
+  Inside a card that clips (a group of rows), the ring and halo draw inside the
+  control; a filled control there keeps the outside ring.
+- **After a removal:** focus goes to the next row, else the previous, else the
+  list's add control or heading; a dismissed banner hands focus to what follows it.
 - **Pressed:** a pressed overlay (ink at 6 % light / white at 7 % dark), or the
   `accent_pressed` fill on filled buttons.
 - **Disabled:** `disabled_bg` / `disabled_ink`, and the control says why when it
@@ -515,3 +522,11 @@ in the routine picker, search on Routines.
   invented "done yesterday" line).
 - **Desktop layouts** (the video player's desktop layout, its "?" key list)
   are restyled with the same tokens, their layout unchanged.
+- **Cleanup, inset rings:** a clipping card draws the ring inside (`focus-inset`)
+  instead of dropping `overflow-hidden`, which would need every row rounded.
+- **Cleanup, focus after a removal:** next row, else previous, else the add
+  control or heading; only when focus was lost, so a pointer user is never moved.
+- **Cleanup, sheets refresh by themselves:** Sheet and Dialog refresh after a form
+  was sent inside them; the player's close goes through `refreshWhenSettled()`.
+- **Cleanup, `tone` on `iconButton` only:** `button()`'s kinds are its tones; invalid
+  fields use a 1 px border plus a 1 px inset danger shadow, not `border-2`.

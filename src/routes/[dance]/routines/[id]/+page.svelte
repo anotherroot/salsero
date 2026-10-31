@@ -23,7 +23,7 @@
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { act, type Field } from '$lib/components/routines/act';
+	import { act, type Field } from '$lib/act';
 	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
 		anchorAfter,

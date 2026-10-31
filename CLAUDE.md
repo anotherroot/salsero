@@ -35,7 +35,9 @@ version or a drill, shown as a card that loops it; a linked section and its
 video refuse to delete) and one picker for every list (search, figure headings, tap to pick, + to
 keep going) and the Link popup (link a section, or create the
 variation, figure or drill it shows, from the lesson page or the player; a
-lesson includes what its videos' sections link to).
+lesson includes what its videos' sections link to) and the redesign (the band and four tabs: Today, Moves, Lessons,
+Music; one look in four themes from `tokens.ts`; the shared components in `components/ui/`;
+designed error pages).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -161,14 +163,18 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      is the one song upload in flight, outliving the sheet. Client-safe
 src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
                      and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
-                     `.theme-media` in `layout.css` (the player's palette). contrast.ts is the ratio maths
+                     `.theme-media` in `layout.css` (the player's palette).
+                     `BAND_TRACK` and `SCRIM` are `bg-band-track` and `bg-scrim`; the scrim is also
+                     written out in one `::backdrop` rule. stylesheet.spec.ts checks each theme
+                     block, and that no removed alias is still used. contrast.ts is the ratio maths
 src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled tab
-                     variants), drawn by components/ui/Icon.svelte
+                     variants), drawn by components/ui/Icon.svelte (`stroke` for
+                     the heavier checks)
 src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the bar
                      shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
                      while data is on the way (skeleton, leaving). error-view.ts: the error
                      pages' words and where their back goes. bands.spec.ts: every page draws
-                     a band (`PENDING` lists pages a plan still owes). PURE
+                     a band (a page without one is named in the spec with its reason). PURE
 src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
 src/lib/app-bars.svelte.ts  tells the Android shell the strip colour under the navigation
                      bar (`reportStrip`); `tabSurface` marks a bar pinned on the tab-bar surface
@@ -178,7 +184,9 @@ docs/superpowers/design-kit/  the design board source (kit.py) the redesign was 
 src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      port, so Back closes only the top one, with holds while a
                      navigation or a link click is in flight. history.svelte.ts
-                     wires it to SvelteKit shallow routing; it reads the depth from
+                     wires it to SvelteKit shallow routing; `refreshWhenSettled()` is the one way to
+                     refresh after a close; `refreshIfSent` is Sheet and Dialog's own, so a form
+                     sent inside one still shows once it closes. it reads the depth from
                      `history.state['sveltekit:states']`, not `page.state`,
                      because `invalidateAll` resets `page.state`. `settled(fn)` runs fn once,
                      after history has caught up with the sheets' own Back moves
@@ -224,10 +232,17 @@ src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
                      back to: `voiceBack`/`myCountHref`) are PURE too
 static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
-src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
+src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dates, `plural`), row types.
+                     act.ts posts a page action without a form (`act`); act-toast.ts is the refusal
+                     message and the "removed · Undo" toast Settings and My count share.
+                     focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      exercises/ links/ routines/ moves/ (the Moves band and its tiles) system/
                      (error, offline, choice sheet, status block, lead tile).
+                     ui/styles.ts holds the class builders: `button(kind, size, full)`,
+                     `iconButton(variant, tone)`, `FIELD`/`TEXTAREA`/`SELECT` and their
+                     `_INVALID` twins, `CHIP`, `GROUP` and `CLIP` (`focus-inset`: a card that
+                     clips), and `swap()`, which throws when the token it replaces is missing
                      ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
                      line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
@@ -338,6 +353,18 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   it. One-tap forms (delete, move, a picker's Add) stay on `use:enhance`.
   Never a browser `confirm()` for unsaved work. See "Unsaved changes" in the
   design spec.
+- **A colour on a built control is the builder's.** `iconButton(variant, tone)`,
+  `FIELD_INVALID`: never append a `text-*` after the output or `.replace()` it (use
+  `swap()`). Tailwind 4 orders by property, not by class order, so an appended
+  class loses or wins by luck. `class-rules.spec.ts` enforces it.
+- **A card that clips uses `GROUP` or `CLIP`.** Rows draw their focus ring inside
+  it, since the card's `overflow-hidden` would cut an outside one
+  (`focus-clip.spec.ts`).
+- **After a one-tap removal, focus goes to the next row** (`focusAfterRemoval`,
+  `src/lib/focus.ts`), else the previous, else the list's add control: the
+  removed row's focus would fall to `<body>`.
+- **A refresh after a sheet or the player closes goes through `refreshWhenSettled()`.**
+  SvelteKit drops a reload that a popstate overtakes, and a close's Back is one.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **A device token signs in on `/api/` only** — never a page, never

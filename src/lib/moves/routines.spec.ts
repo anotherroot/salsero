@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plural } from './plural';
 import { routineBadges } from './routines';
-
-describe('plural', () => {
-	it('picks the word by the count', () => {
-		expect(plural(1, 'slot', 'slots')).toBe('1 slot');
-		expect(plural(4, 'slot', 'slots')).toBe('4 slots');
-		expect(plural(0, 'routine', 'routines')).toBe('0 routines');
-	});
-});
 
 describe('routineBadges', () => {
 	it('shows breaks as danger', () => {

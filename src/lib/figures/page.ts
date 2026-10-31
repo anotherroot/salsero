@@ -2,9 +2,8 @@
  * What a figure's page derives for display. PURE and client-safe.
  */
 import { frequencyLabel } from '$lib/frequency';
-import { longDayLabel } from '$lib/format';
+import { longDayLabel, plural } from '$lib/format';
 import type { MetaPart } from '$lib/exercises/today';
-import { plural } from '$lib/moves/plural';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { RoutineUse } from '$lib/routines/coverage';
 import type { Plan, PlanExercise } from '$lib/urgency/urgency';

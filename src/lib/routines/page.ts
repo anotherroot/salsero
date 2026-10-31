@@ -3,7 +3,7 @@
  * a slot's meta line, a seam's wording, and where a refusal is shown. PURE and
  * client-safe.
  */
-import { plural } from '$lib/moves/plural';
+import { plural } from '$lib/format';
 import type { RowEdges } from './routines';
 
 /** A long name, or one long word, gets the slim band's smaller type. */

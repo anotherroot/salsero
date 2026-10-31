@@ -7,12 +7,10 @@
 import type { Dance, DanceSlug } from '$lib/dances/dances';
 import { frequencyLabel } from '$lib/frequency';
 import { typeInfo } from '$lib/exercises/kinds';
-import { clock } from '$lib/format';
+import { clock, plural } from '$lib/format';
 import type { ClavePattern, CountPattern, Source, Speed } from '$lib/labels';
 import { chooseTakes } from '$lib/scheduler/attach';
 import type { CountTakeRow } from '$lib/types';
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** The count's disc in px: smaller when a song or a routine shares the screen. */
 export function stageSize(hasSong: boolean, hasRoutine: boolean): number {

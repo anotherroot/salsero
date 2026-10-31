@@ -6,7 +6,7 @@
  * walks comes first, and what is already finished is the quietest news.
  */
 import { frequencyLabel } from '$lib/frequency';
-import { lastDoneLabel } from '$lib/format';
+import { lastDoneLabel, plural } from '$lib/format';
 import type { DaySet, ExerciseItem } from '$lib/types';
 import type { Plan, PlanRow } from '$lib/urgency/urgency';
 
@@ -69,8 +69,6 @@ export type Hero = {
 	title: string;
 	meta: string;
 } | null;
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 export function heroFor(
 	plan: Plan<ExerciseItem>,

@@ -124,3 +124,8 @@ export function monthLabel(day: string): string {
 export function weekdayShort(day: string): string {
 	return WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()];
 }
+
+/** "1 slot", "4 slots". */
+export function plural(n: number, one: string, many: string): string {
+	return `${n} ${n === 1 ? one : many}`;
+}
