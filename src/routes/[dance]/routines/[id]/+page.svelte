@@ -9,7 +9,9 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { FIELD, GROUP, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
 	import RoutineMenu from '$lib/components/routines/RoutineMenu.svelte';
 	import SlotList from '$lib/components/routines/SlotList.svelte';
 	import SlotPicker from '$lib/components/routines/SlotPicker.svelte';
@@ -26,13 +28,14 @@
 		type Anchor,
 		type Candidate
 	} from '$lib/routines/fit';
-	import { extractBlock, inOrder } from '$lib/routines/selection';
+	import { actionBlocks, extractBlock, inOrder } from '$lib/routines/selection';
 	import { moved } from '$lib/gestures/drag';
 	import { longPress } from '$lib/longpress';
 	import {
 		bandCompact,
 		factBadges,
 		factsOf,
+		makeRoutineCaption,
 		failurePlace,
 		seamLabel,
 		selectionTitle,
@@ -54,6 +57,8 @@
 	let dragging = $state(false);
 	let flash = $state<number | null>(null);
 	let naming = $state(false);
+	/** Make routine is posting. */
+	let making = $state(false);
 	/** The band's ⋯ sheet. */
 	let menuOpen = $state(false);
 	let editForm = $state<HTMLFormElement>();
@@ -98,6 +103,11 @@
 	/** The routine-level refusal, until it is dismissed. */
 	const bannerMessage = $derived(
 		place?.where === 'banner' && dismissed !== form ? place.message : null
+	);
+
+	/** The Make routine sheet's refusal about its Name field. */
+	const nameError = $derived(
+		place?.where === 'extract' && place.field === 'name' ? place.message : null
 	);
 
 	const positionNames = $derived(new Map(data.positions.map((p) => [p.id, p.name])));
@@ -443,7 +453,7 @@
 	right={selecting || editing ? undefined : actions}
 	hero={selecting || editing || !danceable ? undefined : practise}
 >
-	<div class="flex flex-col gap-2 {selecting ? 'pb-40' : 'pb-4'}">
+	<div class="flex flex-col gap-2 {selecting ? 'pb-36' : 'pb-4'}">
 		{#if editing}
 			{#if place && (place.where === 'edit' || place.where === 'banner')}
 				<Banner kind="error" title={place.message} />
@@ -634,7 +644,7 @@
 {#if selecting}
 	<SelectionBar
 		count={selected.length}
-		{extractBlocked}
+		blocks={actionBlocks(selected.length, extractBlocked)}
 		onabove={() => addAround('before')}
 		onbelow={() => addAround('after')}
 		onduplicate={() => {
@@ -666,31 +676,80 @@
 
 <Sheet title="Make a routine" open={naming} onclose={() => (naming = false)}>
 	<form
+		id="make-routine"
 		method="POST"
 		action="?/extract"
-		class="space-y-3"
-		use:guarded={{ label: 'New routine name', submit: extracted }}
+		class="flex flex-col gap-3.5"
+		use:guarded={{
+			label: 'New routine name',
+			submit: (input) => {
+				// One routine per tap: a second tap while the first is out is dropped.
+				if (making) return input.cancel();
+				making = true;
+				const done = extracted(input);
+				return async (args) => {
+					try {
+						const run = await done;
+						if (typeof run === 'function') await run(args);
+					} finally {
+						making = false;
+					}
+				};
+			}
+		}}
 	>
 		{#each inOrder(rows, selected) as id (id)}
 			<input type="hidden" name="stepIds" value={id} />
 		{/each}
-		{#if place && (place.where === 'extract' || place.where === 'banner')}
+		{#if place?.where === 'extract' && place.field === null}
 			<Banner kind="error" title={place.message} />
 		{/if}
-		<label class="block">
-			<span class="mb-1 block text-[12px] font-medium text-ink-2">Name</span>
-			<input name="name" required maxlength="200" placeholder="Hammerlock combo" class={FIELD} />
-		</label>
-		<p class="text-[12px] text-muted">
-			The {selected.length === 1 ? 'slot moves' : `${selected.length} slots move`} into the new routine,
-			and it takes their place here.
-		</p>
+		<div>
+			<label class={LABEL} for="make-name">Name</label>
+			<!-- The sheet exists to type this one thing. -->
+			<!-- svelte-ignore a11y_autofocus -->
+			<input
+				id="make-name"
+				name="name"
+				required
+				autofocus
+				maxlength="200"
+				value={form && 'name' in form && typeof form.name === 'string' ? form.name : ''}
+				placeholder="Shine opener"
+				class={FIELD}
+				aria-invalid={nameError ? 'true' : undefined}
+				aria-describedby={nameError ? 'make-name-error' : undefined}
+			/>
+			{#if nameError}<FieldError id="make-name-error" message={nameError} />{/if}
+		</div>
+		<p class="text-[14px] leading-[1.45] text-muted">{makeRoutineCaption(selected.length)}</p>
+		<ol class="flex flex-col gap-1.5">
+			{#each inOrder(rows, selected) as id (id)}
+				{@const i = rows.findIndex((r) => r.id === id)}
+				<li class="flex items-center gap-2.5">
+					<span
+						class="grid size-[26px] shrink-0 place-items-center rounded-full bg-accent-soft text-[12px] font-extrabold text-accent-text tabular-nums"
+						>{i + 1}</span
+					>
+					<span class="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink-2"
+						>{rows[i].title}</span
+					>
+				</li>
+			{/each}
+		</ol>
+	</form>
+
+	{#snippet footer()}
 		<button
 			type="submit"
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-			>Make routine</button
+			form="make-routine"
+			class={button('primary', 'md', true)}
+			aria-busy={making}
+			aria-label={making ? 'Making routine' : undefined}
 		>
-	</form>
+			{#if making}<Spinner />{:else}<Icon name="route" size={20} />Make routine{/if}
+		</button>
+	{/snippet}
 </Sheet>
 
 <Toast

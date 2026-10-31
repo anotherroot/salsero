@@ -99,20 +99,26 @@
 	<!-- Lifted, the card is `raised`; its shadow, scale and tilt are on the `<li>`
 	     (SlotList), outside the swipe layer's clip. -->
 	<div
-		class="rounded-2xl py-2 pr-1.5 pl-0.5 {lifted ? 'bg-raised' : 'bg-surface'} {!lifted &&
-		(selected || expanded)
+		class="rounded-2xl py-2 pr-1.5 pl-0.5 {selected
+			? 'bg-accent-soft'
+			: lifted
+				? 'bg-raised'
+				: 'bg-surface'} {!lifted && !selected && expanded
 			? 'shadow-[inset_0_0_0_2px_var(--color-accent)]'
 			: ''}"
 	>
 		<!-- Handle and number centred against the whole card, however many lines it has. -->
 		<div class="flex min-h-12 items-center gap-1.5">
 			{#if selecting}
-				<span class="grid size-11 shrink-0 place-items-center" aria-hidden="true">
-					<span
-						class="grid size-6 place-items-center rounded-full border-2 text-[13px] {selected
-							? 'border-accent bg-accent text-on-accent'
-							: 'border-muted'}">{selected ? '✓' : ''}</span
-					>
+				<span
+					class="grid size-11 shrink-0 place-items-center [--icon-knockout:var(--color-on-accent)]"
+					aria-hidden="true"
+				>
+					{#if selected}
+						<span class="text-accent"><Icon name="check-circle" size={24} filled /></span>
+					{:else}
+						<span class="size-6 rounded-full border-2 border-muted"></span>
+					{/if}
 				</span>
 			{:else}
 				<button
@@ -142,7 +148,9 @@
 			{/if}
 
 			<span
-				class="grid size-[26px] shrink-0 place-items-center rounded-full bg-accent-soft text-[12px] font-extrabold text-accent-text tabular-nums"
+				class="grid size-[26px] shrink-0 place-items-center rounded-full text-[12px] font-extrabold tabular-nums {selected
+					? 'bg-accent text-on-accent'
+					: 'bg-accent-soft text-accent-text'}"
 				aria-hidden="true">{index + 1}</span
 			>
 
@@ -178,7 +186,13 @@
 						>{/if}{row.title}
 				</p>
 				{#if row.meta}
-					<p class="mt-0.5 truncate text-[13px] leading-[1.35] text-muted">{row.meta}</p>
+					<p
+						class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
+							? 'text-ink-2'
+							: 'text-muted'}"
+					>
+						{row.meta}
+					</p>
 				{/if}
 				{#if !expanded}
 					{#if row.note}
@@ -187,7 +201,11 @@
 						</p>
 					{/if}
 					{#if row.alternatives.length > 0}
-						<p class="mt-0.5 truncate text-[13px] leading-[1.35] text-muted">
+						<p
+							class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
+								? 'text-ink-2'
+								: 'text-muted'}"
+						>
 							<b class="font-bold">or</b>
 							{row.alternatives.map((a) => a.label).join(', ')}
 						</p>

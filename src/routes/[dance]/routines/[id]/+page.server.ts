@@ -364,10 +364,18 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const stepIds = ints(form, 'stepIds');
 		const name = text(form, 'name');
-		if (!name) return fail(400, { message: 'Give the new routine a name (up to 200 characters).' });
+		if (!name) {
+			return fail(400, {
+				action: 'extract',
+				field: 'name',
+				message: 'Give the new routine a name (up to 200 characters).',
+				name: String(form.get('name') ?? '')
+			});
+		}
 		const made = stepIds.length === 0 ? null : extractRoutine(getDb(), routine.id, stepIds, name);
 		if (!made) {
 			return fail(400, {
+				action: 'extract',
 				message:
 					'Those slots cannot become a routine: they have to sit next to each other and hold no routine, and this routine cannot itself be embedded anywhere.'
 			});

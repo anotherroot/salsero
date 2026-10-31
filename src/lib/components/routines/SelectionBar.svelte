@@ -1,12 +1,17 @@
 <script lang="ts">
 	/**
-	 * The long-press selection's actions. A greyed action still takes a tap — to
-	 * say why it is greyed, which a disabled button could not.
+	 * The long-press selection's actions, on the screen's bottom edge. A greyed
+	 * action still takes a tap — to say why it is greyed, which a disabled button
+	 * could not.
 	 */
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import type { IconName } from '$lib/icons/icons';
+	import type { SelectionAction } from '$lib/routines/selection';
+
 	interface Props {
 		count: number;
-		/** Why Make routine cannot run, or null when it can. */
-		extractBlocked: string | null;
+		/** Why each action cannot run, or null when it can. */
+		blocks: Record<SelectionAction, string | null>;
 		onabove: () => void;
 		onbelow: () => void;
 		onduplicate: () => void;
@@ -14,18 +19,16 @@
 		ondelete: () => void;
 	}
 
-	let { count, extractBlocked, onabove, onbelow, onduplicate, onextract, ondelete }: Props =
-		$props();
+	let { count, blocks, onabove, onbelow, onduplicate, onextract, ondelete }: Props = $props();
 
 	let hint = $state<string | null>(null);
 	// A reason belongs to the selection it was given for: tapping a second slot
 	// makes "Select one slot…" stale, and the bar should not keep saying it.
 	$effect(() => {
 		void count;
-		void extractBlocked;
+		void blocks;
 		hint = null;
 	});
-	const oneOnly = $derived(count === 1 ? null : 'Select one slot to add next to it.');
 
 	const run = (why: string | null, action: () => void) => () => {
 		hint = why;
@@ -33,32 +36,45 @@
 	};
 </script>
 
-{#snippet item(label: string, icon: string, why: string | null, action: () => void, danger = false)}
-	<!-- Five across a phone: a long label wraps to two lines rather than squeezing. -->
+{#snippet item(
+	label: string,
+	icon: IconName,
+	why: string | null,
+	action: () => void,
+	danger = false
+)}
 	<button
 		type="button"
 		aria-disabled={why !== null}
-		class="flex flex-col items-center gap-0.5 rounded-lg px-0.5 py-1.5 text-center text-[11px] leading-tight {why
-			? 'opacity-40'
-			: ''} {danger ? 'text-danger' : 'text-ink'}"
-		onclick={run(why, action)}
-		><span class="text-[17px] leading-none" aria-hidden="true">{icon}</span><span>{label}</span
-		></button
+		class="flex min-h-[60px] flex-col items-center justify-center gap-[5px] rounded-[14px] px-0.5 py-1.5 text-center text-[12px] leading-[1.2] font-bold {why
+			? 'text-disabled-ink'
+			: danger
+				? 'text-danger'
+				: 'text-ink'}"
+		onclick={run(why, action)}><Icon name={icon} size={24} />{label}</button
 	>
 {/snippet}
 
+<!-- `--icon-knockout`: filled icons cut their details out in the bar's colour. -->
 <div
-	class="fixed inset-x-0 z-30 mx-auto max-w-[560px] border-t border-line bg-surface/95 px-2 py-2 backdrop-blur"
-	style="bottom: calc(4.5rem + env(safe-area-inset-bottom))"
+	role="toolbar"
+	aria-label="Selected slots"
+	class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg px-2 pt-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] [--icon-knockout:var(--color-tab-bg)]"
+	style="padding-bottom: calc(8px + env(safe-area-inset-bottom))"
 >
 	{#if hint}
-		<p class="px-2 pb-1.5 text-[12px] text-ink-2" role="status">{hint}</p>
+		<p
+			class="mx-1 mb-1.5 flex items-start gap-2 rounded-xl bg-warn-soft px-3 py-2.5 text-[13px] leading-[1.4] font-semibold text-ink"
+			role="status"
+		>
+			<span class="mt-px flex-none text-warn"><Icon name="info" size={16} /></span>{hint}
+		</p>
 	{/if}
-	<div class="grid grid-cols-5 gap-1">
-		{@render item('Add above', '↑+', oneOnly, onabove)}
-		{@render item('Add below', '↓+', oneOnly, onbelow)}
-		{@render item('Duplicate', '⧉', null, onduplicate)}
-		{@render item('Make routine', '↻', extractBlocked, onextract)}
-		{@render item('Delete', '🗑', null, ondelete, true)}
+	<div class="grid grid-cols-5 gap-0.5">
+		{@render item('Add above', 'add-above', blocks.above, onabove)}
+		{@render item('Add below', 'add-below', blocks.below, onbelow)}
+		{@render item('Duplicate', 'copy', blocks.duplicate, onduplicate)}
+		{@render item('Make routine', 'route', blocks.extract, onextract)}
+		{@render item('Delete', 'trash', blocks.delete, ondelete, true)}
 	</div>
 </div>
