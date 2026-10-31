@@ -53,7 +53,14 @@ import {
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions, setFigureShape } from '$lib/server/graph';
 import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
-import { addFigureSlot, addOption, createRoutine, routineSlots } from '$lib/server/routines';
+import {
+	addFigureSlot,
+	addOption,
+	archiveRoutine,
+	createRoutine,
+	createRoutineFromFigures,
+	routineSlots
+} from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
 import { exercises, figures, lessons, links, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
@@ -506,6 +513,20 @@ describe("the detail pages refuse the other dance's rows", () => {
 			});
 		});
 
+		it('load lists the routines that use the variation', () => {
+			createRoutineFromFigures(db, 'salsa', { name: 'Set A', notes: null }, [
+				salsaFigureId2,
+				salsaFigureId
+			]);
+			const second = createRoutineFromFigures(db, 'salsa', { name: 'Old set', notes: null }, [
+				salsaFigureId
+			])!;
+			archiveRoutine(db, second.routine.id, Date.now());
+			const data = loadWith('salsa', String(salsaFigureId)) as { routines: unknown[] };
+			expect(data.routines).toHaveLength(1);
+			expect(data).toMatchObject({ routines: [{ name: 'Set A', slots: [2], slotCount: 2 }] });
+		});
+
 		it('a ?v= link redirects to the variation', async () => {
 			const v = doble();
 			expect(
@@ -612,7 +633,21 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'createVariation',
+					field: 'name',
+					name: ' basic ',
 					message: 'Dile que no already has a variation called basic. Rename one first.'
+				}
+			});
+			expect(
+				await call(
+					figurePage.actions.createVariation,
+					post('salsa', { name: '  ' }, String(salsaFigureId))
+				)
+			).toMatchObject({
+				status: 400,
+				data: {
+					field: 'name',
+					message: 'Give the variation a name (up to 200 characters).'
 				}
 			});
 			expect(listGroupVariations(db, groupOf(salsaFigureId))).toHaveLength(1);
@@ -662,6 +697,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'move',
+					field: 'name',
 					message: 'Second salsa figure already has a variation called Basic. Rename one first.'
 				}
 			});
@@ -676,20 +712,24 @@ describe("the detail pages refuse the other dance's rows", () => {
 				)
 			).toMatchObject({
 				status: 400,
-				data: { action: 'move', message: "There's already a figure called second salsa figure." }
+				data: {
+					action: 'move',
+					field: 'figureName',
+					message: "There's already a figure called second salsa figure."
+				}
 			});
-			expect(
-				await call(
-					figurePage.actions.move,
-					post('salsa', { target: String(before) }, String(salsaFigureId))
-				)
-			).toMatchObject({ status: 400, data: { action: 'move' } });
+			const same = await call(
+				figurePage.actions.move,
+				post('salsa', { target: String(before) }, String(salsaFigureId))
+			);
+			expect(same).toMatchObject({ status: 400, data: { action: 'move' } });
+			expect((same as { data: object }).data).not.toHaveProperty('field');
 			expect(
 				await call(
 					figurePage.actions.move,
 					post('salsa', { target: 'new', figureName: '' }, String(salsaFigureId))
 				)
-			).toMatchObject({ status: 400, data: { action: 'move' } });
+			).toMatchObject({ status: 400, data: { action: 'move', field: 'figureName' } });
 			expect(groupOf(salsaFigureId)).toBe(before);
 		});
 
@@ -921,6 +961,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'move',
+					field: 'name',
 					message: 'Second salsa figure already has a variation called doble. Rename one first.',
 					name: 'doble'
 				}

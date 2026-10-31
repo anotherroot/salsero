@@ -121,8 +121,11 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
                      stopwatch, the Today session, what Today shows (today.ts: bands,
                      meta lines, hero states, past-day groups) and the type
-                     tile's icon and name (tile.ts). practice-api.ts is the fetch
-                     side of remembering a practice. Client-safe
+                     tile's icon and name (tile.ts), what the log popup shows
+                     (log-view.ts: the footer's states, range errors, the rating
+                     toggle) and the exercise page (exercise-page.ts).
+                     practice-api.ts is the fetch side of remembering a practice.
+                     Client-safe
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
                      gives the picker (build.ts). Client-safe
@@ -167,7 +170,8 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      loop it implies), keys.ts, layout.ts, player-history.ts
                      (one history entry per screen, behind a port), zoom.ts
                      (pinch maths), taps.ts (double-tap) and screen-on.ts
-                     (the wake lock, injected) are PURE too. spots-api.ts is the player's
+                     (the wake lock, injected) and caption.ts (a recording's
+                     or lesson video's caption) are PURE too. spots-api.ts is the player's
                      fetch side of /api/video-spots. Client-safe. The player's
                      screens are src/lib/components/video/
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server

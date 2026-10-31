@@ -54,15 +54,19 @@
 		<p class="sr-only" role="status">Loading…</p>
 
 		<header
-			class="flex flex-col bg-band px-5 {skeleton.kind === 'today'
+			class="flex flex-col bg-band px-5 {skeleton.kind === 'today' || skeleton.kind === 'figure'
 				? 'gap-[6px]'
 				: skeleton.kind === 'moves'
 					? 'pb-[50px]'
 					: 'pb-8'}"
-			style="padding-top: calc(30px + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink){skeleton.kind ===
+			style="padding-top: calc({skeleton.kind === 'figure'
+				? 22
+				: 30}px + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink){skeleton.kind ===
 			'today'
 				? '; padding-bottom: 92px'
-				: ''}"
+				: skeleton.kind === 'figure'
+					? '; padding-bottom: 52px'
+					: ''}"
 		>
 			{#if skeleton.kind === 'today'}
 				<div class="flex items-center justify-between gap-3" aria-hidden="true">
@@ -97,6 +101,22 @@
 						class:col-start-2={skeleton.segment === 'routines'}
 					></span>
 				</div>
+			{:else if skeleton.kind === 'figure'}
+				<!-- As Screen's compact band draws it: back, a title, the pencil; the variation under it. -->
+				<div class="-mx-[10px] flex items-center gap-1 text-band-ink" aria-hidden="true">
+					<span class="flex size-11 flex-none items-center justify-center"
+						><Icon name="back" size={24} /></span
+					>
+					<span class="h-[30px] w-[55%] rounded-lg bg-band-ink opacity-30"></span>
+					<span class="flex-1"></span>
+					<span class="flex size-11 flex-none items-center justify-center opacity-60"
+						><Icon name="pencil" size={24} /></span
+					>
+				</div>
+				<span
+					class="ml-[38px] block h-[14px] w-24 rounded-[7px] bg-band-ink opacity-[0.28]"
+					aria-hidden="true"
+				></span>
 			{:else if skeleton.kind === 'list'}
 				<h1 class="font-display text-[34px] leading-tight font-extrabold text-band-ink">
 					{skeleton.title}
@@ -126,6 +146,30 @@
 				{@render rows(3, true)}
 				<span class="bone mt-3.5 block h-2.5 w-24 rounded-[5px]" aria-hidden="true"></span>
 				{@render rows(2, true)}
+			</div>
+		{:else if skeleton.kind === 'figure'}
+			<div
+				class="relative -mt-7 flex flex-col gap-2 rounded-t-[28px] bg-ground px-4 pt-5"
+				aria-hidden="true"
+			>
+				<!-- The facts card: two badges, the eight counts, a fact. -->
+				<div class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4">
+					<div class="flex gap-1.5">
+						<span class="bone h-[22px] w-14 rounded-full"></span>
+						<span class="bone h-[22px] w-24 rounded-full"></span>
+					</div>
+					<div class="flex gap-1">
+						{#each { length: 8 }, i (i)}
+							<span class="bone h-[30px] flex-1 rounded-lg"></span>
+						{/each}
+					</div>
+					<div class="flex flex-col gap-2">
+						<span class="bone h-2.5 w-[28%] rounded-[5px]"></span>
+						<span class="bone h-3 w-[62%] rounded-md"></span>
+					</div>
+				</div>
+				<span class="bone mt-2 ml-4 block h-[13px] w-16 rounded-[6px]"></span>
+				{@render rows(2, false)}
 			</div>
 		{:else if skeleton.kind === 'moves'}
 			<div class="relative -mt-7 flex flex-col gap-2 rounded-t-[28px] bg-ground px-4 pt-5">

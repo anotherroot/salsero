@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Stars from '$lib/components/ui/Stars.svelte';
 	import { GROUP, iconButton } from '$lib/components/ui/styles';
@@ -48,6 +49,8 @@
 							ondeleted(String(result.data?.snapshot ?? ''));
 							return;
 						}
+						// A refusal ("already removed") reloads: the list shows what the server has.
+						if (result.type === 'failure') await invalidateAll();
 						hiding = hiding.filter((id) => id !== s.id);
 						const m =
 							result.type === 'failure'

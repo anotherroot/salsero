@@ -42,7 +42,7 @@
 	<input
 		class="h-11 w-[76px] flex-none rounded-[22px] border-0 bg-field p-0 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums"
 		inputmode="numeric"
-		aria-label={label}
+		aria-label={unit ? `${label} (${unit})` : label}
 		{value}
 		onchange={commit}
 	/>

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import LogShell, { type LogProps } from '../../LogShell.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { button } from '$lib/components/ui/styles';
 	import Content from './Content.svelte';
 
 	let props: LogProps = $props();
@@ -13,15 +15,20 @@
 -->
 <LogShell {...props} run={null} playing={false}>
 	{#snippet body(payload)}
-		<Content dance={props.dance} content={payload.content} />
-		{#if payload.content.type === 'routine' && !props.backfillDay}
-			<a
-				href={resolve(
-					`/${props.dance.slug}/player?routine=${payload.content.routine.id}&exercise=${props.exercise.id}`
-				)}
-				class="mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-accent text-[15px] font-semibold text-accent"
-				>Practise in player →</a
-			>
-		{/if}
+		<div class="flex flex-col gap-3">
+			<Content dance={props.dance} content={payload.content} timezone={props.timezone} />
+			{#if payload.content.type === 'routine' && !props.backfillDay}
+				<a
+					href={resolve(
+						`/${props.dance.slug}/player?routine=${payload.content.routine.id}&exercise=${props.exercise.id}`
+					)}
+					class={button('secondary', 'md', true)}
+					><Icon name="play" size={20} />Practise in player</a
+				>
+				<p class="-mt-1 px-1 text-[13px] text-muted">
+					A run there saves itself. Log here when you practised away from the app.
+				</p>
+			{/if}
+		</div>
 	{/snippet}
 </LogShell>

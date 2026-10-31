@@ -31,6 +31,7 @@
 	/** The footer's height, so the toast can sit just above it. */
 	let footerH = $state(0);
 	let dialog: HTMLDialogElement | undefined = $state();
+	let header: HTMLElement | undefined = $state();
 	/** This sheet's place in the stack while it is open. Not state: nothing renders from it. */
 	let key: number | null = null;
 
@@ -47,6 +48,12 @@
 		if (open && !dialog.open) {
 			dialog.showModal();
 			const d = dialog;
+			// showModal focuses the first control, which may be a header action (the
+			// log popup's Skip): a stray Enter would act on it. Start on × (or Back)
+			// instead, unless the content asked for focus itself (`autofocus`).
+			if (header?.contains(document.activeElement)) {
+				header.querySelector<HTMLElement>('[data-sheet-close]')?.focus();
+			}
 			key = sheetStack.open({
 				tryLeave: (leave) => leaveOrAsk(d, leave, 'Close'),
 				close: () => onclose()
@@ -101,11 +108,18 @@
 	<div class="inner">
 		<div class="grabber" aria-hidden="true"></div>
 		<header
+			bind:this={header}
 			class="flex min-h-11 gap-1 px-4 pb-1 {subtitle ? 'items-start' : 'items-center'}"
 			class:pl-2={back}
 		>
 			{#if back}
-				<button type="button" class={iconButton('bare')} aria-label="Back" onclick={tryClose}>
+				<button
+					type="button"
+					class={iconButton('bare')}
+					aria-label="Back"
+					data-sheet-close
+					onclick={tryClose}
+				>
 					<Icon name="back" />
 				</button>
 			{/if}
@@ -124,6 +138,7 @@
 					type="button"
 					class="{iconButton('bare')} -mr-1.5"
 					aria-label="Close"
+					data-sheet-close
 					onclick={tryClose}
 				>
 					<Icon name="close" />

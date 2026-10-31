@@ -1,14 +1,20 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { variationNav } from '$lib/figures/page';
+	import { plural } from '$lib/moves/plural';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import { button, iconButton, FIELD, GROUP, LABEL } from '$lib/components/ui/styles';
 	import type { SiblingSummary } from '$lib/types';
 
 	/**
-	 * The figure's variations, pinned above the tabs: ‹ and › step through them,
-	 * the middle opens the list, and the list's last row makes a new one. Every
-	 * step is a link, so a variation is a URL of its own. Shown with a single
-	 * variation too — that is where "+ New variation" lives.
+	 * The figure's variations, pinned to the bottom edge: ‹ and › step through
+	 * them, the middle opens the list, and the list's footer makes a new one.
+	 * Every step is a link, so a variation is a URL of its own. Shown with a
+	 * single variation too — that is where "New variation" lives.
 	 */
 	interface Props {
 		figureName: string;
@@ -24,6 +30,7 @@
 
 	let listing = $state(false);
 	let adding = $state(false);
+	let busy = $state(false);
 	// By value, so a refresh of the page data does not re-run the effect below.
 	const stepId = $derived(currentId);
 
@@ -50,95 +57,64 @@
 		if (failed) adding = true;
 	});
 
-	const index = $derived(
-		Math.max(
-			0,
-			siblings.findIndex((s) => s.id === currentId)
-		)
-	);
-	const count = $derived(siblings.length);
-	const current = $derived(siblings[index]);
-	// They wrap: › on the last goes back to the first.
-	const prev = $derived(siblings[(index + count - 1) % count]);
-	const next = $derived(siblings[(index + 1) % count]);
+	const nav = $derived(variationNav(siblings, currentId));
+	const current = $derived(siblings[nav.index]);
+	const byId = (id: number | null) => siblings.find((s) => s.id === id);
+	const prev = $derived(byId(nav.prev));
+	const next = $derived(byId(nav.next));
 
 	const href = (id: number) => resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
 	const recordings = (n: number) =>
-		n === 0 ? 'no recordings' : `${n} ${n === 1 ? 'recording' : 'recordings'}`;
-
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
-	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
-	const stepClass =
-		'grid h-13 w-12 shrink-0 place-items-center rounded-[14px] border border-line bg-raised text-ink-2';
+		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
 </script>
 
-{#snippet chevron(path: string)}
-	<svg
-		width="18"
-		height="18"
-		viewBox="0 0 24 24"
-		fill="none"
-		stroke="currentColor"
-		stroke-width="2.4"
-		stroke-linecap="round"
-		stroke-linejoin="round"
-		aria-hidden="true"><path d={path} /></svg
-	>
-{/snippet}
-
-{#snippet step(to: SiblingSummary, label: string, path: string)}
-	{#if count > 1}
-		<a href={href(to.id)} class={stepClass} aria-label="{label}: {to.name}"
-			>{@render chevron(path)}</a
+{#snippet step(
+	to: SiblingSummary | undefined,
+	label: string,
+	icon: 'chevron-left' | 'chevron-right'
+)}
+	{#if to}
+		<a href={href(to.id)} class="{iconButton('step')} !h-12 !w-12" aria-label="{label}: {to.name}"
+			><Icon name={icon} size={22} /></a
 		>
 	{:else}
 		<!-- Nowhere to step to; kept so the bar does not change shape. -->
-		<span class="{stepClass} opacity-40" aria-hidden="true">{@render chevron(path)}</span>
+		<button type="button" disabled aria-label={label} class="{iconButton('step')} !h-12 !w-12"
+			><Icon name={icon} size={22} /></button
+		>
 	{/if}
 {/snippet}
 
 <!--
-	Flush on the bottom tabs (their 3.5rem, their 1px border and the safe area):
-	the bar is always there, so a gap above the tabs would read as a hole. The
-	page pads its own bottom so the end of it clears this.
+	A pushed screen has no tab bar, so the bar sits on the bottom edge, over the
+	safe area. The page ends in a spacer of its own so its last line clears this.
 -->
 <nav
 	aria-label="Variations of {figureName}"
-	class="fixed inset-x-0 z-30 mx-auto flex max-w-[560px] items-center gap-2 border-t border-line bg-surface px-3 py-2.5 shadow-[0_-4px_16px_rgb(0_0_0/0.06)]"
-	style="bottom: calc(3.5rem + 1px + env(safe-area-inset-bottom))"
+	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 pb-[calc(10px+env(safe-area-inset-bottom))]"
 >
-	{@render step(prev, 'Previous variation', 'M15 6l-6 6 6 6')}
-	<button
-		type="button"
-		aria-haspopup="dialog"
-		onclick={() => (listing = true)}
-		class="flex h-13 min-w-0 flex-1 items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-accent bg-accent/10 px-2"
-	>
-		<span class="flex min-w-0 flex-col items-center">
-			<span class="max-w-full truncate text-[15px] font-semibold text-ink">{current.name}</span>
-			<span class="text-[12px] text-muted"
-				>{index + 1} of {count} {count === 1 ? 'variation' : 'variations'}</span
-			>
-		</span>
-		<svg
-			width="16"
-			height="16"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			stroke-width="2.6"
-			stroke-linecap="round"
-			stroke-linejoin="round"
-			aria-hidden="true"
-			class="shrink-0 text-accent"><path d="M6 15l6-6 6 6" /></svg
+	<div class="mx-auto flex max-w-[560px] items-center gap-2">
+		{@render step(prev, 'Previous variation', 'chevron-left')}
+		<button
+			type="button"
+			aria-haspopup="dialog"
+			onclick={() => (listing = true)}
+			class="flex h-[52px] min-w-0 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-accent-soft px-4"
 		>
-	</button>
-	{@render step(next, 'Next variation', 'M9 6l6 6-6 6')}
+			<span class="flex min-w-0 flex-col items-center">
+				<span class="max-w-full truncate text-[16px] leading-tight font-extrabold text-ink"
+					>{current.name}</span
+				>
+				<span class="text-[12px] leading-tight font-bold text-accent-text">{nav.position}</span>
+			</span>
+			<span class="flex-none text-accent-text"><Icon name="chevron-up" size={18} /></span>
+		</button>
+		{@render step(next, 'Next variation', 'chevron-right')}
+	</div>
 </nav>
 
 <Sheet title="Variations of {figureName}" open={listing} onclose={() => (listing = false)}>
-	<ul class="space-y-1.5">
+	<ul class={GROUP} aria-label="Variations">
 		{#each siblings as s (s.id)}
 			{@const here = s.id === currentId}
 			<li>
@@ -146,74 +122,81 @@
 					href={href(s.id)}
 					aria-current={here ? 'page' : undefined}
 					onclick={() => (listing = false)}
-					class="flex items-center gap-3 rounded-xl p-3 {here
-						? 'border-[1.5px] border-accent bg-accent/10'
-						: 'border border-line bg-raised'}"
+					class="flex min-h-[72px] items-center gap-3 px-4 py-3 {here ? 'bg-accent-soft' : ''}"
 				>
-					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span class="text-[15px] font-semibold text-ink">{s.name}</span>
-						<span class="text-[12px] text-muted">{s.holds}</span>
-						<span class="text-[12px] text-muted">{s.timing} · {recordings(s.videos)}</span>
-					</span>
 					{#if here}
-						<svg
-							width="20"
-							height="20"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2.6"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							class="shrink-0 text-accent"
-							aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg
+						<span class="flex flex-none text-accent" style="--icon-knockout: var(--color-on-accent)"
+							><Icon name="check-circle" size={22} filled /></span
 						>
 					{/if}
+					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span class="text-[16px] leading-tight font-bold text-ink">{s.name}</span>
+						<span class="text-[13px] text-muted">{s.holds}</span>
+						<span class="text-[13px] text-muted">{s.timing} · {recordings(s.videos)}</span>
+					</span>
 				</a>
 			</li>
 		{/each}
 	</ul>
-	<button
-		type="button"
-		class="mt-2.5 h-12 w-full rounded-xl border border-dashed border-rule text-[14px] font-semibold text-accent"
-		onclick={() => {
-			listing = false;
-			adding = true;
-		}}>+ New variation</button
-	>
+	{#snippet footer()}
+		<button type="button" class={button('secondary', 'md', true)} onclick={() => (adding = true)}
+			><Icon name="plus" size={20} />New variation</button
+		>
+	{/snippet}
 </Sheet>
 
-<Sheet title="New variation of {figureName}" open={adding} onclose={() => (adding = false)}>
+<Sheet
+	title="New variation"
+	sub="of {figureName}"
+	back
+	open={adding}
+	onclose={() => (adding = false)}
+>
 	<!-- A success redirects to the new variation, which closes this (see above). -->
 	<form
+		id="new-variation"
 		method="POST"
 		action="?/createVariation"
-		class="space-y-3"
-		use:guarded={{ label: 'New variation' }}
+		class="flex flex-col gap-3.5"
+		use:guarded={{
+			label: 'New variation',
+			submit: () => {
+				busy = true;
+				return async ({ update }) => {
+					await update();
+					busy = false;
+				};
+			}
+		}}
 	>
-		{#if shown}
-			<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-				{shown}
-			</p>
-		{/if}
-		<label class="block">
-			<span class={label}>Name</span>
+		<div>
+			<label for="new-variation-name" class={LABEL}>Name</label>
 			<input
+				id="new-variation-name"
 				name="name"
 				required
 				maxlength="200"
 				placeholder="e.g. Doble, From cross"
-				class={field}
+				class={FIELD}
+				aria-invalid={shown ? 'true' : undefined}
+				aria-describedby={shown ? 'new-variation-error' : undefined}
 			/>
-		</label>
-		<p class="text-[12px] text-muted">
+			{#if shown}<FieldError id="new-variation-error" message={shown} />{/if}
+		</div>
+		<p class="px-1 text-[14px] leading-[1.45] text-muted">
 			It starts as a copy of {current.name} — handholds, timing and notes, not its recordings. Change
 			them with Edit.
 		</p>
+	</form>
+	{#snippet footer()}
 		<button
 			type="submit"
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink"
-			>Add variation</button
+			form="new-variation"
+			class={button('primary', 'md', true)}
+			aria-busy={busy}
+			disabled={busy}
 		>
-	</form>
+			{#if busy}<Spinner size={18} />{:else}<Icon name="plus" size={20} />{/if}Add variation
+		</button>
+	{/snippet}
 </Sheet>

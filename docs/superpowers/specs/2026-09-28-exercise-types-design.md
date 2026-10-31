@@ -86,7 +86,17 @@ never rewritten by a redesign.
   rating and note.
 - **The form** posts `?/log`; the day's sets for this exercise below it, with
   delete, as now.
-- **"Details →"** to the exercise page, where settings now live.
+- **"Details ›"** to the exercise page, where settings now live.
+- **The footer** is pinned under the form: **Log set**, **Saving…** while it
+  posts, **Logged** after (tapping it logs another), **Next: <name>** in a
+  session, and **Session done** with the tally and **Finish** when nothing is
+  left. While the panel plays, Log set is disabled with "Stop the count to log
+  it."
+- **A deleted set comes back with Undo.** The row goes at the tap and the toast
+  reads "Set deleted · Undo"; `deleteSet` returns a snapshot of the row, and
+  Undo posts it to `restoreSet`, which re-inserts it with the same instant (so
+  on its own day, with its rating, note and run) and a new id. Nothing refers
+  to a set id.
 - **Back-filling a past day** opens the same popup without the practice panel.
 - **Session "Next →"** after a successful log, when a session is running (see
   Session below).
@@ -328,8 +338,11 @@ are never in the database — the last-used choice is remembered in
 `/[dance]/exercises/[id]`, for every type. Guarded by `scope.ts` like every id
 route: an exercise of the other dance is a 404.
 
-- **Header:** name, type badge, and the owner — "Figure · Enchufla →",
-  "Lesson · 21 Sep →", "Routine · Friday combo →"; none for a drill.
+- **Header:** a compact band with the name and a pencil that turns on edit
+  mode, then the owner row ("Figure · Enchufla", "Lesson · 21 Sep", "Routine ·
+  Friday combo"; none for a drill), three stat tiles, and the sets grouped by
+  day with Undo after a delete. Settings appear in edit mode with one pinned
+  Save. The look is in the redesign spec (`2026-10-31-redesign-design.md`).
 - **Content:** the same `Reference` the popup shows. Links are editable here
   only for a drill; for a figure or lesson, "Edit on the figure page →".
 - **Log a set** — a big button opening the type's popup, here.

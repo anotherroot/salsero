@@ -14,6 +14,7 @@ import { practicePayload } from '$lib/server/practice-content';
 import { danceOf, requireExerciseInDance } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { isFrequency } from '$lib/frequency';
+import { localDay } from '$lib/day/day';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -40,6 +41,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		practice: practicePayload(db, row, locals.user.timezone, now),
 		history: exerciseHistory(db, row.id),
 		summary: exerciseSummary(db, row.id),
+		// The history's "Today" / "Yesterday": the server's day, so SSR and hydration agree.
+		today: localDay(now, locals.user.timezone),
 		// Only a drill's sections are its own; the others show their owner's.
 		linkable: row.source === 'custom' ? linkableSections(db, { exerciseId: row.id }) : []
 	};

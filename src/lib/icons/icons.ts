@@ -105,7 +105,8 @@ const CANONICAL = {
 	moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path>',
 	key: '<circle cx="8" cy="15" r="4"></circle><path d="M11 12l8.5-8.5M16.5 6.5l2.5 2.5M14 9l2 2"></path>',
 	flag: '<path d="M5 21V4"></path><path d="M5 4h12l-2.5 4 2.5 4H5"></path>',
-	circle: '<circle cx="12" cy="12" r="9"></circle>'
+	circle: '<circle cx="12" cy="12" r="9"></circle>',
+	'move-to': '<path d="M4 12h11M11 6.5l5.5 5.5-5.5 5.5"></path><path d="M20 5v14"></path>'
 } as const;
 
 /** Role names that render a canonical icon (the kit's ALIASES). */
