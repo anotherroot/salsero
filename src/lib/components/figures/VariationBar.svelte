@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
+	import { tabSurface } from '$lib/app-bars.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { variationNav } from '$lib/figures/page';
 	import { plural } from '$lib/moves/plural';
@@ -102,6 +103,7 @@
 	safe area. The page ends in a spacer of its own so its last line clears this.
 -->
 <nav
+	use:tabSurface
 	aria-label="Variations of {figureName}"
 	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 pb-[calc(10px+env(safe-area-inset-bottom))]"
 >

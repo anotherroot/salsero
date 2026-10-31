@@ -654,6 +654,23 @@ flash. If a page still feels slow behind its skeleton, the next step is to
 stream its slow queries (return them un-awaited from `load`) rather than to
 cache data on the client.
 
+## Settings
+
+Settings is pushed from Today (no tab). It saves on change: no Save button. It
+shows this dance's default style only (the dance comes from the dance cookie;
+the other dance's `default_styles` entry is untouched). The reminder is a
+switch plus a time row; turning it on uses the time last shown, else 19:30.
+My count shows one count pattern at a time (the band's segmented control;
+`?pattern=`). Removing a paired phone toasts with Undo for 60 s
+(`src/lib/server/undo-hold.ts`, a server hold: the token hash never reaches the
+page). Every page draws a band (`src/lib/nav/bands.spec.ts`).
+
+`+error.svelte` shows the designed error page (`nav/error-view.ts`: 4xx show
+their message, 5xx never show the server's; Back goes to the tab the failed URL
+belongs to). Offline is caught before the navigation (`navigator.onLine`),
+because SvelteKit answers an unreachable server with a full page reload; the
+Offline layer lies over the current page so nothing typed is lost.
+
 ## Errors
 
 - Form actions return validation failures that keep entered values; nothing

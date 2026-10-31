@@ -12,6 +12,7 @@
 	import { syncSheets } from '$lib/sheets/history.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { pinned, reportStrip } from '$lib/app-bars.svelte';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 
@@ -76,6 +77,7 @@
 	});
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
 	const tabs = $derived(showsTabs((navigating.to ?? page).route.id));
+	$effect(() => reportStrip(tabs || pinned.count > 0 ? 'tabs' : 'page'));
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 
 	/*

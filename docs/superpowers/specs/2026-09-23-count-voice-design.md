@@ -217,6 +217,11 @@ count_takes
 - **Serving:** `GET /count/[file]`, like `/audio/[file]`. Private, like
   everything else — `hooks.server.ts` denies by default.
 - **Deleting a take** is a hard delete, like a recording. Re-recording replaces.
+  It is undoable for a minute (the row and file are held in memory; Undo
+  inserts the take again under a new id).
+- **My count's Back** returns to Practice when it was opened from there
+  (`myCountHref` carries `?from=`, `voiceBack` accepts only a Practice page of
+  a known dance), else to Settings.
 
 ### Choosing a take, and playing it
 

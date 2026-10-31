@@ -440,6 +440,8 @@ rules the boards follow that are not obvious from looking at them.
   "Pair this phone". The share page is "Add to a lesson" (no dance name), with a
   spinner on the tapped row.
 
+- Offline: a tap made while the phone reports no connection shows the Offline page over the current one; a server that is down while the phone is online still ends in the browser's own error page (SvelteKit reloads the page then).
+
 ## Building it
 
 - Order (my call), all on one branch: tokens and fonts in `layout.css` → the icons and
