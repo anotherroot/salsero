@@ -1,9 +1,9 @@
 <script lang="ts">
 	import './layout.css';
 	import { navigating, page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import { DANCE_SLUGS, DANCES, isDanceSlug, type DanceSlug } from '$lib/dances/dances';
+	import { DANCES, isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
+	import { showsTabs } from '$lib/nav/tabs';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
@@ -32,7 +32,7 @@
 	const dance = $derived(danceOf(page.url.pathname));
 	/*
 	 * Where the app is going, while a navigation waits for its data (see
-	 * `$lib/nav/pending.ts`). The tabs, the switcher pills and the accent
+	 * `$lib/nav/pending.ts`). The tabs and the accent
 	 * follow it at once, so a tap shows before the page does; what the page
 	 * itself renders still follows `page`.
 	 */
@@ -58,10 +58,10 @@
 	});
 	const skeleton = $derived(late && navigating.to ? skeletonFor(navigating.to.route.id) : null);
 	/*
-	 * The tabs show everywhere, the switcher only inside a dance: on `/settings`
-	 * you are not in one, but the way back still has to lead somewhere.
+	 * The tabs show on the four top-level screens only (`showsTabs`), judged on
+	 * where the app is going so the bar comes or goes with the tap.
 	 *
-	 * Where it leads is remembered here rather than read from `data` each time.
+	 * Which dance they lead to is remembered here rather than read from `data` each time.
 	 * The root layout's load depends on a cookie, and SvelteKit's dependency
 	 * tracking does not cover cookies, so it never re-runs on a client-side
 	 * navigation: after switching to bachata and tapping Settings, `lastDance`
@@ -73,47 +73,32 @@
 		if (dance) seen = dance.slug;
 	});
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
+	const tabs = $derived(showsTabs((navigating.to ?? page).route.id));
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 </script>
 
 {#if nav}
 	<!--
 		`data-dance` carries the accent (see layout.css) down to everything a
-		dance touches: the switcher pills below, the page content, and
+		dance touches: the page content, and
 		`BottomNav` — which renders as a SIBLING of the wrapper div, not a
 		child of it, so it needs its own place inside this attribute's reach.
 		`display: contents` keeps the wrapper out of layout entirely.
 	-->
 	<div data-dance={navDance.slug} style:display="contents">
-		<!--
-			`aria-current="true"`, not "page": the bottom tabs already mark the
-			page, and on `/[dance]` the active pill and the Today tab are the
-			same destination — two "page" markers on one screen.
-		-->
-		{#snippet pills()}
-			<nav class="flex justify-center gap-1 px-4 pt-2" aria-label="Dance">
-				{#each DANCE_SLUGS as s (s)}
-					<a
-						href={resolve('/[dance]', { dance: s })}
-						aria-current={s === navDance.slug ? 'true' : undefined}
-						class="rounded-full px-3 py-1 text-[13px] font-medium {s === navDance.slug
-							? 'bg-accent text-accent-ink'
-							: 'text-muted'}">{DANCES[s].label}</a
-					>
-				{/each}
-			</nav>
-		{/snippet}
-		<div class="mx-auto min-h-dvh max-w-[560px] pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-			<!-- Not in the Android app: each dance has its own icon there, and its own task. -->
-			{#if dance && !data.app}
-				{@render pills()}
-			{/if}
+		<div
+			class="mx-auto min-h-dvh max-w-[560px] {tabs
+				? 'pb-[calc(4.5rem+env(safe-area-inset-bottom))]'
+				: ''}"
+		>
 			{@render children()}
 		</div>
 		{#if skeleton}
-			<PageSkeleton {skeleton} top={shownDance && !data.app ? pills : undefined} />
+			<PageSkeleton {skeleton} />
 		{/if}
-		<BottomNav dance={navDance.slug} path={shownPath} />
+		{#if tabs}
+			<BottomNav dance={navDance.slug} path={shownPath} />
+		{/if}
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
 		<UnsavedDialog />
 	</div>

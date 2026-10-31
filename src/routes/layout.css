@@ -78,6 +78,8 @@
 @layer theme {
 	:root {
 		color-scheme: light;
+		/* What a filled icon cuts its details out in; the tab bar sets its own. */
+		--icon-knockout: var(--color-surface);
 	}
 
 	/*

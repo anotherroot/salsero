@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import type { Skeleton } from '$lib/nav/pending';
 
 	/**
@@ -12,7 +11,7 @@
 	 * It stops at the top of the bottom nav, so the tab that just lit stays
 	 * in view, and sits above the bars pinned over a page's end (z-30).
 	 */
-	let { skeleton, top }: { skeleton: Skeleton; top?: Snippet } = $props();
+	let { skeleton }: { skeleton: Skeleton } = $props();
 </script>
 
 <div
@@ -21,7 +20,6 @@
 	aria-busy="true"
 >
 	<div class="mx-auto max-w-[560px]">
-		{@render top?.()}
 		<p class="sr-only" role="status">Loading…</p>
 
 		{#if skeleton.kind === 'list'}
