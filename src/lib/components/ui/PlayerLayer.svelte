@@ -73,6 +73,36 @@
 			}
 		};
 	});
+
+	/** What Tab can land on; of a radio group, only the checked one is a stop. */
+	const TABBABLE =
+		'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]):not([type="radio"]), input[type="radio"]:checked:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+	/**
+	 * The layer is modal (aria-modal) but not a top-layer dialog, so Tab would
+	 * walk on into the player beneath: wrap it inside the panel instead. A layer
+	 * nested in this one handles its own Tab first and stops it here.
+	 */
+	function keepFocus(e: KeyboardEvent) {
+		if (!panel) return;
+		e.stopPropagation();
+		const stops = [...panel.querySelectorAll<HTMLElement>(TABBABLE)].filter(
+			(el) => el.tabIndex >= 0 && el.getClientRects().length > 0
+		);
+		const first = stops[0];
+		const last = stops.at(-1);
+		const at = document.activeElement;
+		if (!first || !last) {
+			e.preventDefault();
+			panel.focus({ preventScroll: true });
+		} else if (e.shiftKey && (at === first || at === panel || !panel.contains(at))) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && (at === last || !panel.contains(at))) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
 </script>
 
 <div
@@ -84,6 +114,10 @@
 		if (e.target === e.currentTarget) onclose();
 	}}
 	onkeydown={(e) => {
+		if (e.key === 'Tab') {
+			keepFocus(e);
+			return;
+		}
 		// Escape here, not the player's dialog's cancel: one level back.
 		if (e.key !== 'Escape') return;
 		e.preventDefault();

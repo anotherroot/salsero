@@ -36,7 +36,25 @@
 	function closeLink() {
 		linkingSpot = null;
 		steps = [];
-		void invalidateAll();
+		refreshAfterBack();
+	}
+
+	/**
+	 * Each of the popup's levels holds a history entry, and SvelteKit drops a
+	 * load that a popstate overtakes. Closed by Back, × or Escape, the popup
+	 * goes from inside that popstate, so the refresh waits a task for it to
+	 * finish; closed by a tap or Done, the Back is still to come, so the
+	 * refresh runs again once it lands.
+	 */
+	function refreshAfterBack() {
+		const again = () => {
+			clearTimeout(timer);
+			removeEventListener('popstate', again);
+			void invalidateAll();
+		};
+		addEventListener('popstate', again);
+		const timer = setTimeout(() => removeEventListener('popstate', again), 1000);
+		setTimeout(() => void invalidateAll(), 0);
 	}
 
 	const asSpot = (s: VideoSection): Spot => ({
