@@ -6,8 +6,7 @@
 	import ExerciseRow from '$lib/components/today/ExerciseRow.svelte';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
-	import Picker from '$lib/components/picker/Picker.svelte';
-	import { exerciseGroups } from '$lib/picker/build';
+	import PastDay from '$lib/components/today/PastDay.svelte';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -16,8 +15,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import { heroFor, todayBands, type BandKey } from '$lib/exercises/today';
-	import { classDayLabel, dayLabel, longDayLabel, setSummary } from '$lib/format';
-	import { timeOfDay } from '$lib/day/day';
+	import { classDayLabel, dayLabel, lastDoneLabel, longDayLabel } from '$lib/format';
+	import { daysBetween } from '$lib/day/day';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
 	import type { ActionData, PageData } from './$types';
@@ -26,7 +25,6 @@
 
 	let openId = $state<number | null>(null);
 	let creating = $state(false);
-	let picking = $state(false);
 	let showInactive = $state(false);
 
 	// A session walks Today's due/upcoming bands one popup at a time. It lives
@@ -122,16 +120,12 @@
 	const openSets = $derived(data.daySets.filter((s) => s.exerciseId === openId));
 	const Log = $derived(open ? logFor(typeOf(open.source)) : null);
 
-	/** A past day's sets, grouped by exercise in the order they were first done. */
-	const pastGroups = $derived.by(() => {
-		const groups: { exerciseId: number; name: string; sets: typeof data.daySets }[] = [];
-		for (const s of [...data.daySets].reverse()) {
-			let g = groups.find((x) => x.exerciseId === s.exerciseId);
-			if (!g) groups.push((g = { exerciseId: s.exerciseId, name: s.exerciseName, sets: [] }));
-			g.sets.push(s);
-		}
-		return groups;
-	});
+	/** Each exercise's type and partner, for a past day's tiles; archived ones are absent. */
+	const kinds = $derived(
+		Object.fromEntries(
+			rows.map((r) => [r.exercise.id, { source: r.exercise.source, partner: r.exercise.partner }])
+		)
+	);
 
 	const failure = (action: string) =>
 		form && 'action' in form && form.action === action && 'message' in form
@@ -243,91 +237,44 @@
 		{/if}
 	</Screen>
 {:else}
-	<header
-		class="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
-		style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
-	>
-		<a
-			href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
-			class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-			aria-label="Previous day">‹</a
-		>
-		<div class="text-center">
-			<h1 class="text-[17px] font-semibold">{data.isToday ? 'Today' : dayLabel(data.day)}</h1>
-			{#if !data.isToday}
-				<a href={resolve('/[dance]', { dance: data.dance.slug })} class="text-[12px] text-accent"
-					>Back to today</a
-				>
-			{:else}
-				<p class="text-[12px] text-muted">{dayLabel(data.day)}</p>
+	<Screen title={dayLabel(data.day)} subtitle={lastDoneLabel(daysBetween(data.day, data.today))}>
+		{#snippet right()}
+			<BandButton
+				icon="chevron-left"
+				label="Previous day"
+				href={resolve(`/${data.dance.slug}?day=${data.prevDay}`)}
+			/>
+			{#if data.nextDay}
+				<BandButton
+					icon="chevron-right"
+					label="Next day"
+					href={data.nextDay === data.today
+						? resolve('/[dance]', { dance: data.dance.slug })
+						: resolve(`/${data.dance.slug}?day=${data.nextDay}`)}
+				/>
 			{/if}
-		</div>
-		{#if data.nextDay}
+		{/snippet}
+		{#snippet extra()}
 			<a
-				href={data.nextDay === data.today
-					? resolve('/[dance]', { dance: data.dance.slug })
-					: resolve(`/${data.dance.slug}?day=${data.nextDay}`)}
-				class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-				aria-label="Next day">›</a
+				href={resolve('/[dance]', { dance: data.dance.slug })}
+				class="inline-flex h-11 items-center"
 			>
-		{:else}
-			<span class="grid size-11 place-items-center text-[22px] text-rule" aria-hidden="true">›</span
-			>
-		{/if}
-	</header>
+				<span
+					class="inline-flex h-8 items-center gap-1.5 rounded-2xl bg-black/15 pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small"
+					><Icon name="calendar" size={18} />Back to today</span
+				>
+			</a>
+		{/snippet}
 
-	<main class="px-4 pt-4">
-		{#if pastGroups.length === 0}
-			<p class="mt-10 text-center text-[14px] text-muted">Nothing logged on this day.</p>
-		{/if}
-		<ul class="space-y-3">
-			{#each pastGroups as g (g.exerciseId)}
-				<li class="rounded-xl border border-done/30 bg-done-bg">
-					<button
-						type="button"
-						class="w-full px-4 pt-3 pb-1 text-left text-[15px] font-medium"
-						onclick={() => (openId = g.exerciseId)}>{g.name}</button
-					>
-					<ul class="px-4 pb-3">
-						{#each g.sets as s (s.id)}
-							<li class="flex gap-3 text-[13px] text-ink-2">
-								<span class="text-muted tabular-nums">{timeOfDay(s.doneAt, timezone)}</span>
-								<span>{setSummary(s) || 'Set'}{s.note ? ` — ${s.note}` : ''}</span>
-							</li>
-						{/each}
-					</ul>
-				</li>
-			{/each}
-		</ul>
-
-		<div class="mt-6 mb-4 rounded-xl border border-line bg-raised p-3">
-			<span class="mb-1 block text-[12px] font-medium text-ink-2"
-				>Forgot to log something that day?</span
-			>
-			<button
-				type="button"
-				class="flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[15px]"
-				aria-haspopup="dialog"
-				onclick={() => (picking = true)}
-			>
-				<span class="min-w-0 flex-1 truncate text-muted">Pick an exercise…</span>
-				<span class="text-[20px] leading-none text-muted" aria-hidden="true">›</span>
-			</button>
-		</div>
-		<Picker
-			open={picking}
-			title="Log a set on {dayLabel(data.day)}"
-			placeholder="Search exercises"
-			groups={exerciseGroups(data.exercises)}
-			kind="act"
-			nothingLeft="No exercises yet."
-			onpick={(row) => {
-				openId = row.value;
-				picking = false;
-			}}
-			onclose={() => (picking = false)}
+		<PastDay
+			day={data.day}
+			daySets={data.daySets}
+			exercises={data.exercises}
+			{kinds}
+			{timezone}
+			onlog={(id) => (openId = id)}
 		/>
-	</main>
+	</Screen>
 {/if}
 
 {#if open && Log}
