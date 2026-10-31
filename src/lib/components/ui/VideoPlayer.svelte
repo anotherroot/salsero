@@ -39,6 +39,7 @@
 	import { entryState } from '$lib/sheets/history.svelte';
 	import { keyAction, type KeyAction } from '$lib/video/keys';
 	import { layoutFor } from '$lib/video/layout';
+	import { playerMode, toastPlace, type ToastTone } from '$lib/video/chrome';
 	import { holdScreenOn } from '$lib/video/screen-on';
 	import { NO_ZOOM, zoomTransform, type View } from '$lib/video/zoom';
 	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
@@ -140,7 +141,7 @@
 	let pendingStart = $state<number | null>(null);
 	let sheetMessage = $state<string | null>(null);
 	type ToastAction = { label: string; run: () => void };
-	let toast = $state<{ text: string; actions: ToastAction[] } | null>(null);
+	let toast = $state<{ text: string; tone: ToastTone; actions: ToastAction[] } | null>(null);
 	type LinkCreateStep = 'variation' | 'figure' | 'drill';
 	/** The player's sheet for each of the Link popup's levels; every create step is 'link-new'. */
 	const LINK_SHEET: Record<LinkStep, SheetKind> = {
@@ -264,8 +265,8 @@
 
 	let toastTimer: ReturnType<typeof setTimeout> | undefined;
 	/** A toast; one offering Link stays a little longer, since linking is the next step. */
-	function say(text: string, ...actions: ToastAction[]) {
-		toast = { text, actions };
+	function say(text: string, tone: ToastTone, ...actions: ToastAction[]) {
+		toast = { text, tone, actions };
 		clearTimeout(toastTimer);
 		const long = actions.some((a) => a.label === 'Link');
 		toastTimer = setTimeout(() => (toast = null), long ? 6000 : 4000);
@@ -281,7 +282,7 @@
 	onMount(() => {
 		fetchSpots(owner).then(loaded, () => {
 			loadFailed = true;
-			say("Couldn't load spots");
+			say("Couldn't load spots", 'failed');
 		});
 	});
 
@@ -293,7 +294,7 @@
 			spots = [...spots, spot];
 			return spot;
 		} catch {
-			say("Couldn't save");
+			say("Couldn't save", 'failed');
 			return null;
 		}
 	}
@@ -301,7 +302,10 @@
 	async function mark() {
 		const spot = await save({ startMs: msOf(video.currentTime), endMs: null, label: null });
 		if (spot)
-			say(`Point saved at ${spotTime(spot.startMs)}`, { label: 'Edit', run: () => toEdit(spot) });
+			say(`Point saved at ${spotTime(spot.startMs)}`, 'saved', {
+				label: 'Edit',
+				run: () => toEdit(spot)
+			});
 	}
 
 	/** Set while a section save is in flight, so a double tap cannot post it twice. */
@@ -314,7 +318,7 @@
 			return;
 		}
 		if (now - pendingStart < MIN_SECTION_MS) {
-			say('Play on a little, then end the section');
+			say('Play on a little, then end the section', 'note');
 			return;
 		}
 		saving = true;
@@ -324,6 +328,7 @@
 				pendingStart = null;
 				say(
 					`Section saved · ${lengthText(now - spot.startMs)}`,
+					'saved',
 					{ label: 'Edit', run: () => toEdit(spot) },
 					...(linking ? [{ label: 'Link', run: () => openLink(spot.id) }] : [])
 				);
@@ -348,7 +353,7 @@
 			try {
 				await patchSpot(id, changes);
 			} catch {
-				say("Couldn't save");
+				say("Couldn't save", 'failed');
 				await fetchSpots(owner).then(loaded, () => {});
 			}
 		});
@@ -386,7 +391,7 @@
 		const next = change(spot, diff(spot, times), how !== 'drag');
 		if (how === 'now') {
 			const at = edge === 'start' ? next.startMs : (next.endMs ?? next.startMs);
-			say(`${edge === 'start' ? 'Start' : 'End'} set to ${preciseTime(at)}`);
+			say(`${edge === 'start' ? 'Start' : 'End'} set to ${preciseTime(at)}`, 'note');
 		} else if (how === 'tenth' || how === 'drag') {
 			// A fine move is for looking: pause where the edge shows.
 			video.pause();
@@ -420,7 +425,7 @@
 			await removeSpot(spot.id);
 			spots = spots.filter((s) => s.id !== spot.id);
 			nav.jump([FULL]);
-			say(`Deleted ${spotLabel(spot)}`, { label: 'Undo', run: () => undo(spot) });
+			say(`Deleted ${spotLabel(spot)}`, 'deleted', { label: 'Undo', run: () => undo(spot) });
 		} catch (e) {
 			// A linked section: the server says what to unlink first.
 			sheetMessage = e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save";
@@ -619,15 +624,9 @@
 	 * phone with the editor or the list beside the video. desktop: video,
 	 * sidebar, keys.
 	 */
-	const mode = $derived(
-		layout === 'portrait'
-			? 'portrait'
-			: layout === 'desktop'
-				? 'desktop'
-				: level.kind === 'edit' || sheet === 'list'
-					? 'panel'
-					: 'overlay'
-	);
+	/** A sheet on top of the stack lays the screen out like the full video under it. */
+	const chromeLevel = $derived(level.kind === 'sheet' ? 'full' : level.kind);
+	const mode = $derived(playerMode(layout, chromeLevel, sheet === 'list'));
 	/** A phone, either way up: a section view carries ‹ Full video and Edit in its top bar. */
 	const phone = $derived(mode === 'portrait' || mode === 'overlay');
 
@@ -854,7 +853,7 @@
 <dialog
 	bind:this={dialog}
 	aria-label="Video"
-	class="player"
+	class="player theme-media"
 	data-layout={layout}
 	style={tokens}
 	oncancel={(e) => {
@@ -992,6 +991,11 @@
 					class="pointer-events-none absolute bottom-0 left-0 h-[3px] bg-(--pl-accent)"
 					style:width="{loopProgress}%"
 				></span>
+			{/if}
+			{#if toast && toastPlace(mode, chromeLevel) === 'video'}
+				<div class="absolute inset-x-4 bottom-3 z-30 mx-auto max-w-md">
+					<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
+				</div>
 			{/if}
 		</div>
 
@@ -1192,12 +1196,9 @@
 			</div>
 		{/if}
 
-		{#if toast}
-			<div
-				class="absolute inset-x-4 z-30 mx-auto max-w-md"
-				style:bottom={mode === 'portrait' && level.kind === 'edit' ? '84px' : '20px'}
-			>
-				<Toast text={toast.text} actions={toast.actions} />
+		{#if toast && toastPlace(mode, chromeLevel) === 'bottom'}
+			<div class="absolute inset-x-4 z-30 mx-auto max-w-md" style:bottom="20px">
+				<Toast text={toast.text} tone={toast.tone} actions={toast.actions} />
 			</div>
 		{/if}
 
@@ -1234,8 +1235,7 @@
 		max-height: none;
 		padding: 0;
 		border: 0;
-		background: #0a0a0b;
-		color-scheme: dark;
+		background: var(--color-ground);
 	}
 	.player::backdrop {
 		background: black;
