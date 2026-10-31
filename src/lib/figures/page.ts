@@ -95,3 +95,26 @@ export function recordingDay(day: string, today: string): string {
 	const year = day.slice(0, 4);
 	return year === today.slice(0, 4) ? longDayLabel(day) : `${longDayLabel(day)}, ${year}`;
 }
+
+/**
+ * Where a variation sits among its siblings: ‹ and › wrap, and with one
+ * variation there is nowhere to step. An unknown id counts as the first.
+ */
+export function variationNav(
+	siblings: { id: number }[],
+	currentId: number
+): { index: number; count: number; prev: number | null; next: number | null; position: string } {
+	const count = siblings.length;
+	const index = Math.max(
+		0,
+		siblings.findIndex((s) => s.id === currentId)
+	);
+	const step = (by: number) => (count > 1 ? siblings[(index + by + count) % count].id : null);
+	return {
+		index,
+		count,
+		prev: step(-1),
+		next: step(1),
+		position: `${index + 1} of ${count} ${count === 1 ? 'variation' : 'variations'}`
+	};
+}

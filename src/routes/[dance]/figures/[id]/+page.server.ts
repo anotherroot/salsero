@@ -304,16 +304,26 @@ export const actions: Actions = {
 	/** "+ New variation": a copy of this one under a new name, opened. */
 	createVariation: async ({ params, request }) => {
 		const { figure, group } = variationOf(params);
-		const name = text(await request.formData(), 'name');
+		const form = await request.formData();
+		const name = text(form, 'name');
+		// What was typed, as typed, so the field keeps it under the refusal.
+		const typed = String(form.get('name') ?? '');
 		if (!name) {
 			return fail(400, {
 				action: 'createVariation',
-				message: 'Give the variation a name (up to 200 characters).'
+				field: 'name',
+				message: 'Give the variation a name (up to 200 characters).',
+				name: typed
 			});
 		}
 		const made = createVariationFrom(getDb(), figure.id, name);
 		if (!made) {
-			return fail(400, { action: 'createVariation', message: taken(group.name, name) });
+			return fail(400, {
+				action: 'createVariation',
+				field: 'name',
+				message: taken(group.name, name),
+				name: typed
+			});
 		}
 		throw redirect(303, `/${params.dance}/figures/${made.id}`);
 	},

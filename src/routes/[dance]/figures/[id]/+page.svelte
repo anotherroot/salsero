@@ -138,8 +138,7 @@
 		{/if}
 	{/snippet}
 
-	<!-- The bottom padding clears the variation bar pinned over the end of the page. -->
-	<div class="flex flex-col gap-2 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+	<div class="flex flex-col gap-2 pb-4">
 		{#if editing}
 			<!--
 			Keyed on the variation: `editing` survives a step to another one, and
@@ -581,17 +580,21 @@
 				><Icon name="trash" size={20} />Archive {variation.name}</button
 			>
 			<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
+			<!-- The variation bar is pinned over the page's end; this lets the caption clear it. -->
+			<div aria-hidden="true" class="h-[calc(4.5rem+env(safe-area-inset-bottom))]"></div>
 		{/if}
 	</div>
 </Screen>
 
-<VariationBar
-	figureName={figure.name}
-	siblings={data.siblings}
-	currentId={variation.id}
-	{slug}
-	failed={failed('createVariation')}
-/>
+{#if !editing}
+	<VariationBar
+		figureName={figure.name}
+		siblings={data.siblings}
+		currentId={variation.id}
+		{slug}
+		failed={failed('createVariation')}
+	/>
+{/if}
 
 <MoveSheet
 	variation={variation.name}

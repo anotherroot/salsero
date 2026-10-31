@@ -633,7 +633,21 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'createVariation',
+					field: 'name',
+					name: ' basic ',
 					message: 'Dile que no already has a variation called basic. Rename one first.'
+				}
+			});
+			expect(
+				await call(
+					figurePage.actions.createVariation,
+					post('salsa', { name: '  ' }, String(salsaFigureId))
+				)
+			).toMatchObject({
+				status: 400,
+				data: {
+					field: 'name',
+					message: 'Give the variation a name (up to 200 characters).'
 				}
 			});
 			expect(listGroupVariations(db, groupOf(salsaFigureId))).toHaveLength(1);

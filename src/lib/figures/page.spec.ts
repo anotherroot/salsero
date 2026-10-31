@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { plan, type PlanExercise } from '$lib/urgency/urgency';
-import { archiveCopy, practiceLine, recordingDay, routineUseMeta, timingLine } from './page';
+import {
+	archiveCopy,
+	practiceLine,
+	recordingDay,
+	routineUseMeta,
+	timingLine,
+	variationNav
+} from './page';
 
 const TZ = 'Europe/Ljubljana';
 const DAY = 86_400_000;
@@ -88,4 +95,31 @@ describe('recordingDay', () => {
 		expect(recordingDay('2026-10-28', '2026-10-31')).toBe('Wednesday, 28 October'));
 	it('another year: the year too', () =>
 		expect(recordingDay('2025-10-28', '2026-10-31')).toBe('Tuesday, 28 October, 2025'));
+});
+
+describe('variationNav', () => {
+	const three = [{ id: 4 }, { id: 9 }, { id: 12 }];
+	it('steps both ways and wraps', () => {
+		expect(variationNav(three, 9)).toEqual({
+			index: 1,
+			count: 3,
+			prev: 4,
+			next: 12,
+			position: '2 of 3 variations'
+		});
+		expect(variationNav(three, 12).next).toBe(4);
+		expect(variationNav(three, 4).prev).toBe(12);
+	});
+	it('has nowhere to step with one variation', () => {
+		expect(variationNav([{ id: 4 }], 4)).toEqual({
+			index: 0,
+			count: 1,
+			prev: null,
+			next: null,
+			position: '1 of 1 variation'
+		});
+	});
+	it('counts an unknown id as the first', () => {
+		expect(variationNav(three, 99).index).toBe(0);
+	});
 });
