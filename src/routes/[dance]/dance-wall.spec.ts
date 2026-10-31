@@ -284,6 +284,7 @@ describe("the player's song picker stays on its own side", () => {
 	};
 	type PlayerLoad = (e: { params: { dance: string }; url: URL; locals: unknown }) => {
 		songs: PickerSong[];
+		back: { href: string; label: string };
 		start: { source: string; songId: number | null; songGone: boolean };
 	};
 	const openPlayer = (dance: string, query: string) =>
@@ -304,6 +305,10 @@ describe("the player's song picker stays on its own side", () => {
 			[bachataSong, 'Bachata ready']
 		]);
 		expect(() => openPlayer('salsa', `song=${bachataSong}`)).toThrow(threw404);
+		expect(openPlayer('salsa', `song=${salsaSong}`).back).toEqual({
+			href: `/salsa/songs/${salsaSong}`,
+			label: 'Back to Salsa ready'
+		});
 		expect(openPlayer('salsa', `song=${salsaSong}`).start).toMatchObject({
 			source: 'song',
 			songId: salsaSong

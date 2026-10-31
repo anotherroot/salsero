@@ -8,6 +8,7 @@ import { buildGraph } from '$lib/server/graph';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { getRoutine, routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
+import { practiceBack } from '$lib/player/view';
 import { practiceStart } from '$lib/exercises/practice';
 import { danceOf, exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -51,7 +52,18 @@ export const load: PageServerLoad = ({ url, params }) => {
 			]
 		: [];
 
+	const back = practiceBack({
+		dance,
+		from: url.searchParams.get('from'),
+		routine: routine && { id: routine.id, name: routine.name },
+		// The URL's `?song=`, not the exercise's memory: Back returns to the page
+		// that opened Practice.
+		song: songId ? { id: songId, title: songs.find((s) => s.id === songId)!.title } : null,
+		exercise: exercise !== null
+	});
+
 	return {
+		back,
 		// The picker's songs. The picked one's grid is fetched by the page, as the
 		// popup's panel does, so changing song is not a navigation.
 		songs,
