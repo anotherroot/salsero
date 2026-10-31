@@ -4,14 +4,17 @@
 		value = $bindable(),
 		onBand = false,
 		name,
-		label
+		label,
+		onchange
 	}: {
-		items: { value: string; label: string }[];
+		items: readonly { value: string; label: string }[];
 		value: string;
 		onBand?: boolean;
 		name: string;
 		/** Names the group for a screen reader. */
 		label: string;
+		/** Called with the picked value, after the bound value has changed. */
+		onchange?: (value: string) => void;
 	} = $props();
 
 	const track = $derived(onBand ? 'bg-black/15' : 'bg-chip');
@@ -36,7 +39,14 @@
 		<label
 			class="flex h-11 cursor-pointer items-center justify-center rounded-full font-sans text-[15px] font-bold has-checked:font-extrabold has-focus-visible:outline-2 has-focus-visible:outline-offset-1 {ring} {idle} {picked}"
 		>
-			<input type="radio" class="sr-only" {name} value={item.value} bind:group={value} />
+			<input
+				type="radio"
+				class="sr-only"
+				{name}
+				value={item.value}
+				bind:group={value}
+				onchange={() => onchange?.(item.value)}
+			/>
 			{item.label}
 		</label>
 	{/each}

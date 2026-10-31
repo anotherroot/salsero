@@ -11,7 +11,14 @@
  * spec.
  */
 
-export type Skeleton = { kind: 'today' } | { kind: 'list'; title: string } | { kind: 'detail' };
+import { segmentOf, type MovesSegment } from '$lib/moves/segment';
+
+export type Skeleton =
+	| { kind: 'today' }
+	| { kind: 'list'; title: string }
+	| { kind: 'detail' }
+	/** Figures and Routines: the band with its segmented switch, then that segment's list. */
+	| { kind: 'moves'; segment: MovesSegment };
 
 /**
  * Long enough that a preloaded page (the load starts on touchstart) lands
@@ -20,11 +27,9 @@ export type Skeleton = { kind: 'today' } | { kind: 'list'; title: string } | { k
 export const SKELETON_DELAY_MS = 100;
 
 const LISTS: Record<string, string> = {
-	'/[dance]/figures': 'Figures',
-	'/[dance]/routines': 'Routines',
 	'/[dance]/lessons': 'Lessons',
 	'/[dance]/songs': 'Songs',
-	'/[dance]/coverage': 'Routine coverage',
+	'/[dance]/coverage': 'Coverage',
 	'/[dance]/positions': 'Positions',
 	'/settings': 'Settings',
 	'/voice': 'My count'
@@ -47,6 +52,8 @@ const DETAILS = new Set([
 export function skeletonFor(routeId: string | null | undefined): Skeleton | null {
 	if (!routeId) return null;
 	if (routeId === '/[dance]') return { kind: 'today' };
+	const segment = segmentOf(routeId);
+	if (segment) return { kind: 'moves', segment };
 	const title = LISTS[routeId];
 	if (title) return { kind: 'list', title };
 	if (DETAILS.has(routeId)) return { kind: 'detail' };
