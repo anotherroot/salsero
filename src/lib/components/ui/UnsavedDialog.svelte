@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { prompt } from '$lib/unsaved/guard.svelte';
+	import Icon from './Icon.svelte';
 	import { button } from './styles';
 
 	/*
@@ -103,11 +104,15 @@
 	{#if ask}
 		<div class="p-6">
 			{#if phase === 'saved'}
+				<span
+					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-done-soft text-done"
+					aria-hidden="true"><Icon name="check" size={22} /></span
+				>
 				<h2
 					id="unsaved-title"
-					class="font-display text-[22px] leading-tight font-extrabold text-done"
+					class="font-display text-[22px] leading-tight font-extrabold text-ink"
 				>
-					Saved ✓
+					Saved
 				</h2>
 				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
 				<div class="mt-5 space-y-2">
@@ -115,15 +120,24 @@
 					<button type="button" class={secondary} onclick={stay}>Stay</button>
 				</div>
 			{:else if phase === 'failed'}
+				<span
+					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-danger-soft text-danger"
+					aria-hidden="true"><Icon name="warning" size={22} /></span
+				>
 				<h2
 					id="unsaved-title"
 					class="font-display text-[22px] leading-tight font-extrabold text-ink"
 				>
 					Not saved
 				</h2>
+				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
 				<div class="mt-2 space-y-1" role="alert">
 					{#each messages as m, i (i)}
-						<p class="rounded-2xl bg-danger-soft px-3.5 py-3 text-[14px] text-danger">{m}</p>
+						<div
+							class="flex items-start gap-2 rounded-xl bg-danger-soft px-3 py-2.5 text-[14px] font-bold text-danger"
+						>
+							<span class="mt-px flex-none"><Icon name="warning" size={18} /></span><span>{m}</span>
+						</div>
 					{/each}
 				</div>
 				<div class="mt-5 space-y-2">
@@ -131,6 +145,10 @@
 					<button type="button" class={danger} onclick={leave}>{ask.verb} without saving</button>
 				</div>
 			{:else}
+				<span
+					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-accent-soft text-accent-text"
+					aria-hidden="true"><Icon name="edit" size={22} /></span
+				>
 				<h2
 					id="unsaved-title"
 					class="font-display text-[22px] leading-tight font-extrabold text-ink"

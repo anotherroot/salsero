@@ -6,11 +6,17 @@
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { GROUP, ROW, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
-	import { recordedLabel, takeRows, tempoMeta, tempoState } from '$lib/voice/grid';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import type { IconName } from '$lib/icons/icons';
+	import { CHIP, GROUP, ROW, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
+	import { tick, type Snippet } from 'svelte';
+	import { keptMessage, recordedLabel, takeRows, tempoMeta, tempoState } from '$lib/voice/grid';
+	import { NOTHING_CAPTURED, recordingView, silentLine, voiceError } from '$lib/voice/recording';
 	import { voiceBack } from '$lib/voice/back';
 	import { invalidateAll } from '$app/navigation';
-	import { track } from '$lib/unsaved/guard.svelte';
+	import { leaveOrAsk, track } from '$lib/unsaved/guard.svelte';
 	import {
 		COUNT_PATTERN_LABEL,
 		PHRASE_PATTERNS,
@@ -36,9 +42,13 @@
 	const asked = page.url.searchParams.get('pattern');
 	let pattern = $state<PhrasePattern>(PHRASE_PATTERNS.find((p) => p === asked) ?? 'salsa');
 	let bpm = $state<number>(TEMPO_LADDER[0]);
-	let error = $state<string | null>(null);
+	let error = $state<{ title: string; body: string } | null>(null);
+	/** A failed Keep, shown at the top of the choosing stage. */
+	let keepError = $state<string | null>(null);
 	let saving = $state(false);
-	let where = $state('');
+	/** The beat the click is on; null before the first one. */
+	let beat = $state<{ bar: number; count: number } | null>(null);
+	let takesList: HTMLElement | undefined = $state();
 
 	let capture: Capture | null = null;
 	let slices = $state<{ a: PhraseSlice[]; b: PhraseSlice[] }>({ a: [], b: [] });
@@ -99,7 +109,7 @@
 		stopped = false;
 		error = null;
 		stage = 'recording';
-		where = 'Get ready…';
+		beat = null;
 
 		running = (async () => {
 			try {
@@ -109,7 +119,7 @@
 					signal,
 					onBeat: (bar, count) => {
 						if (mine !== gen) return;
-						where = bar < 0 ? `Count in… ${count}` : `Bar ${bar + 1} of ${BARS} · ${count}`;
+						beat = { bar, count };
 					}
 				});
 				// Superseded by a redo while this one was finishing: its microphone
@@ -131,17 +141,12 @@
 					stage = 'arming';
 				} else {
 					stage = 'grid';
-					error = 'Nothing usable was captured. Check the microphone permission.';
+					error = NOTHING_CAPTURED;
 				}
 			} catch (e) {
 				if (mine !== gen) return;
 				stage = 'grid';
-				error =
-					e instanceof Error && e.name === 'NotAllowedError'
-						? 'The microphone was refused. Allow it and try again.'
-						: e instanceof Error
-							? e.message
-							: 'Recording failed.';
+				error = voiceError(e);
 			}
 		})();
 		await running;
@@ -188,20 +193,28 @@
 	async function keep(): Promise<boolean> {
 		if (!capture) return false;
 		saving = true;
-		error = null;
+		keepError = null;
 		try {
+			const kept: ('a' | 'b')[] = [];
 			for (const half of ['a', 'b'] as const) {
 				const i = chosen[half];
 				if (i === null) continue;
 				await upload(half, cutTake(capture, slices[half][i]));
+				kept.push(half);
 			}
 			capture = null;
 			stage = 'grid';
+			toast = { id: ++seq, message: keptMessage(bpm, kept, pattern), icon: 'check', tone: 'done' };
 			// The grid is server state; re-fetch rather than guessing what landed.
 			await invalidateAll();
+			await tick();
+			takesList?.scrollIntoView({
+				block: 'end',
+				behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+			});
 			return true;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not save the takes.';
+			keepError = e instanceof Error ? e.message : 'Could not save the takes.';
 			return false;
 		} finally {
 			saving = false;
@@ -216,7 +229,9 @@
 			dirty: () => stage === 'choosing' && capture !== null,
 			blocked: () => (chosen.a === null && chosen.b === null ? 'Pick a bar to keep first.' : null),
 			save: async () =>
-				(await keep()) ? { ok: true } : { ok: false, message: error ?? 'Could not save the takes.' }
+				(await keep())
+					? { ok: true }
+					: { ok: false, message: keepError ?? 'Could not save the takes.' }
 		})
 	);
 
@@ -224,9 +239,14 @@
 	const backTo = $derived(voiceBack(page.url.searchParams.get('from')));
 	const rows = $derived(takeRows(data.takes, pattern));
 
-	let toast = $state<{ id: number; message: string; action?: string; undo?: () => void } | null>(
-		null
-	);
+	let toast = $state<{
+		id: number;
+		message: string;
+		action?: string;
+		icon?: IconName;
+		tone?: 'done';
+		undo?: () => void;
+	} | null>(null);
 	let seq = 0;
 
 	function refused(result: Awaited<ReturnType<typeof act>>) {
@@ -251,18 +271,40 @@
 		};
 	}
 
-	const label = 'mb-1 block text-[12px] font-medium text-ink-2';
-	const chip =
-		'flex h-11 min-w-[5rem] cursor-pointer items-center justify-center rounded-lg border px-3 text-[13px] has-checked:border-accent has-checked:bg-accent has-checked:text-accent-ink border-rule bg-raised text-ink-2';
-	const btn = 'h-14 w-full rounded-2xl text-[16px] font-semibold';
-	/** The same button sharing a row, rather than each claiming the full width. */
-	const btnHalf = 'h-14 flex-1 rounded-2xl text-[16px] font-semibold';
+	/** Back from a stage that is not the list. Nothing chosen yet is lost on purpose. */
+	function leaveStage() {
+		if (stage === 'choosing') {
+			leaveOrAsk(null, () => {
+				capture = null;
+				stage = 'grid';
+			});
+			return;
+		}
+		if (stage === 'recording') {
+			gen++;
+			controller?.abort();
+		}
+		stage = 'grid';
+	}
+
+	const view = $derived(recordingView(pattern, BARS, beat));
+	const dotLook: Record<string, string> = {
+		current:
+			'bg-accent text-on-accent shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)]',
+		said: 'bg-accent-soft text-accent-text',
+		silent: 'bg-transparent text-muted shadow-[inset_0_0_0_2px_var(--color-hairline)]',
+		next: 'bg-surface text-ink shadow-[inset_0_0_0_1px_var(--color-field-line)]'
+	};
 </script>
 
 <svelte:head><title>My count · Salsa</title></svelte:head>
 
 {#snippet back()}
 	<BandButton icon="back" label={backTo.label} href={backTo.href} />
+{/snippet}
+{#snippet stageBack()}
+	<!-- An in-page stage change, not a history entry: the stage is not a place. -->
+	<BandButton icon="back" label="Back to My count" onclick={leaveStage} />
 {/snippet}
 {#snippet patterns()}
 	<Segmented
@@ -274,15 +316,30 @@
 	/>
 {/snippet}
 
-<Screen title="My count" left={back} extra={stage === 'grid' ? patterns : undefined}>
+<Screen
+	title={stage === 'grid'
+		? 'My count'
+		: stage === 'arming'
+			? `${bpm} BPM`
+			: stage === 'recording'
+				? 'Recording'
+				: 'Pick the bars'}
+	subtitle={stage === 'arming'
+		? `Count ${COUNT_PATTERN_LABEL[pattern]}`
+		: stage === 'grid'
+			? undefined
+			: `${COUNT_PATTERN_LABEL[pattern]} at ${bpm} BPM`}
+	left={stage === 'grid' ? back : stageBack}
+	extra={stage === 'grid' ? patterns : undefined}
+>
 	{#if stage === 'grid'}
-		<p class="mx-1 text-[15px] text-ink-2">
-			Record yourself counting and the player uses your voice. A tempo with nothing recorded uses
-			the built-in count.
-		</p>
-
 		{#if error}
-			<p class="rounded-lg border border-danger px-3 py-2 text-[13px] text-danger">{error}</p>
+			<Banner kind="error" title={error.title}>{error.body}</Banner>
+		{:else}
+			<p class="mx-1 text-[15px] text-ink-2">
+				Record yourself counting and the player uses your voice. A tempo with nothing recorded uses
+				the built-in count.
+			</p>
 		{/if}
 
 		<span class="{SECTION_LABEL} mt-1.5">{recordedLabel(data.takes, pattern)}</span>
@@ -307,6 +364,7 @@
 						aria-label="{state.state === 'none' ? 'Record' : 'Redo'} {t} BPM"
 						onclick={() => {
 							bpm = t;
+							error = null;
 							stage = 'arming';
 						}}
 					>
@@ -318,7 +376,7 @@
 
 		{#if rows.length}
 			<span class="{SECTION_LABEL} mt-3.5">Recorded takes</span>
-			<ul class={GROUP}>
+			<ul class={GROUP} bind:this={takesList}>
 				{#each rows as r (r.id)}
 					<li class="{ROW} min-h-16 pr-1.5">
 						<span class="flex min-w-0 flex-1 flex-col">
@@ -336,68 +394,136 @@
 			</ul>
 		{/if}
 	{:else if stage === 'arming'}
-		<section class="space-y-4">
-			<p class="text-[15px] text-ink">
-				{COUNT_PATTERN_LABEL[pattern]} at {bpm} BPM
-			</p>
+		<div class="flex flex-col gap-2 pb-24">
 			<!--
 				Not a suggestion. Through a speaker the click lands in the recording,
 				and the browser's echo cancellation then ducks the voice to cancel it.
 			-->
-			<p class="rounded-lg border border-rule bg-raised px-3 py-2 text-[13px] text-ink-2">
-				<strong class="text-ink">Put headphones on first.</strong> Otherwise the click gets recorded along
-				with your voice.
-			</p>
-			<p class="text-[13px] text-muted">
-				You get one bar of clicks to find the tempo, then count
-				<strong class="text-ink">{COUNT_PATTERN_LABEL[pattern]}</strong> out loud for {BARS} bars. Count
-				evenly and leave the silent beats silent.
-			</p>
-			<button type="button" class="{btn} bg-accent text-accent-ink" onclick={record}>Start</button>
-			<button
-				type="button"
-				class="{btn} border border-rule text-ink"
-				onclick={() => (stage = 'grid')}>Back</button
-			>
-		</section>
-	{:else if stage === 'recording'}
-		<section class="space-y-4 py-10 text-center">
-			<p class="text-[32px] font-semibold text-ink tabular-nums">{where}</p>
-			<p class="text-[13px] text-muted">Counting {COUNT_PATTERN_LABEL[pattern]} at {bpm} BPM</p>
-		</section>
-		<!--
-			Both leave before the four bars are up. Stop keeps the whole bars you
-			did count; Redo throws the lot away and starts the count-in again.
-		-->
-		<div class="flex gap-3">
-			<button type="button" class="{btnHalf} border border-rule text-ink" onclick={redo}>
-				Redo
-			</button>
-			<button
-				type="button"
-				class="{btnHalf} border border-danger text-danger"
-				onclick={stopRecording}
-			>
-				Stop
-			</button>
+			<Banner kind="warning" title="Put headphones on first">
+				Through a speaker the click gets recorded along with your voice.
+			</Banner>
+			<span class="{SECTION_LABEL} mt-3.5">How it goes</span>
+			<ol class="rounded-[22px] bg-surface py-1">
+				{#snippet step(n: number, text: Snippet)}
+					<li class="flex items-start gap-3.5 py-3 pr-4 pl-3.5">
+						<span
+							class="flex size-7 flex-none items-center justify-center rounded-full bg-accent-soft text-[14px] font-extrabold text-accent-text"
+							>{n}</span
+						>
+						<span class="pt-[3px] text-[15px] leading-[1.45] text-ink">{@render text()}</span>
+					</li>
+				{/snippet}
+				{#snippet one()}One bar of clicks to find the tempo.{/snippet}
+				{#snippet two()}Count <strong>{COUNT_PATTERN_LABEL[pattern]}</strong> out loud for {BARS} bars.{/snippet}
+				{#snippet three()}{silentLine(pattern)}{/snippet}
+				{@render step(1, one)}
+				{@render step(2, two)}
+				{@render step(3, three)}
+			</ol>
 		</div>
+		<BottomBar>
+			<button type="button" class={button('primary', 'lg', true)} onclick={record}
+				><Icon name="mic" size={24} />Start</button
+			>
+		</BottomBar>
+	{:else if stage === 'recording'}
+		<div class="flex flex-col gap-2 pb-24">
+			<div
+				class="flex flex-col items-center gap-[18px] rounded-[22px] bg-surface px-[18px] pt-[22px] pb-6"
+			>
+				<span
+					class="inline-flex h-[30px] items-center gap-2 rounded-full bg-danger-soft px-3 text-[13px] font-extrabold text-danger"
+					><span class="size-2 rounded-full bg-danger"></span>Recording</span
+				>
+				<p role="status" class="text-center">
+					<span class="block font-display text-[40px] leading-tight font-extrabold text-ink"
+						>{view.heading}</span
+					>
+					{#if view.say || view.line}
+						<span class="mt-1.5 block text-[15px] font-semibold text-muted">
+							{#if view.say}Say <strong class="text-ink">{view.say}</strong> now{:else}{view.line}{/if}
+						</span>
+					{/if}
+				</p>
+				<div aria-hidden="true" class="flex justify-center gap-[9px]">
+					{#each view.dots as dot, i (i)}
+						<span
+							class="flex size-[34px] items-center justify-center rounded-full text-[15px] font-extrabold tabular-nums {dotLook[
+								dot
+							]}">{i + 1}</span
+						>
+					{/each}
+				</div>
+				<div
+					role="progressbar"
+					aria-label="Bars counted"
+					aria-valuemin={0}
+					aria-valuemax={BARS}
+					aria-valuenow={view.barsDone}
+					class="flex w-full gap-1.5"
+				>
+					{#each Array.from({ length: BARS }, (_, i) => i) as i (i)}
+						<span
+							class="h-1.5 flex-1 overflow-hidden rounded-[3px] {i < view.barsDone
+								? 'bg-accent'
+								: 'bg-hairline'}"
+						>
+							{#if i === view.barsDone}
+								<span
+									class="block h-1.5 rounded-[3px] bg-accent"
+									style:width="{view.barFraction * 100}%"
+								></span>
+							{/if}
+						</span>
+					{/each}
+				</div>
+			</div>
+			<!--
+				Both leave before the four bars are up. Stop keeps the whole bars you
+				did count; Redo throws the lot away and starts the count-in again.
+			-->
+			<p class="px-4 pt-1.5 text-[13px] text-muted">
+				Stop keeps the whole bars you counted. Redo throws them away and starts the count-in again.
+			</p>
+		</div>
+		<BottomBar>
+			<div class="flex gap-2.5">
+				<div class="flex flex-1">
+					<button type="button" class={button('secondary', 'lg', true)} onclick={redo}
+						><Icon name="refresh" size={24} />Redo</button
+					>
+				</div>
+				<div class="flex flex-1">
+					<button type="button" class={button('primary', 'lg', true)} onclick={stopRecording}
+						><Icon name="stop" size={24} />Stop</button
+					>
+				</div>
+			</div>
+		</BottomBar>
 	{:else}
-		<section class="space-y-6">
-			<p class="text-[13px] text-muted">
-				Pick the best bar for each half. Listen before you keep it — a rushed or muttered one is
+		<div class="flex flex-col gap-2 pb-36">
+			{#if keepError}
+				<Banner kind="error" title="Could not save the takes">{keepError}</Banner>
+			{/if}
+			<p class="mx-1 text-[15px] text-ink-2">
+				Pick the best bar for each half. Listen before you keep it: a rushed or muttered one is
 				worse than the built-in voice.
 			</p>
 			{#each ['a', 'b'] as const as half (half)}
-				<div>
-					<span class={label}>
-						Counts {phraseCounts(pattern, half).join(' ')}
-					</span>
+				{@const counts = phraseCounts(pattern, half).join(' ')}
+				<span class="{SECTION_LABEL} mt-1.5">{half === 'a' ? 'First half' : 'Second half'}</span>
+				<div class="flex flex-col gap-2.5 rounded-[22px] bg-surface p-4">
+					<span class="text-[16px] font-bold text-ink">Counts {counts}</span>
 					{#if slices[half].length === 0}
-						<p class="text-[13px] text-muted">Nothing usable in this half.</p>
+						<span class="text-[14px] text-muted">Nothing usable in this half.</span>
 					{:else}
-						<div class="flex flex-wrap gap-2">
+						<div
+							role="radiogroup"
+							aria-label="Bar for counts {counts}"
+							class="flex flex-wrap gap-1.5"
+						>
 							{#each [...slices[half].keys()] as i (i)}
-								<label class={chip}>
+								<label class={CHIP}>
 									<input
 										type="radio"
 										name="pick-{half}"
@@ -409,46 +535,36 @@
 								</label>
 							{/each}
 						</div>
-						<button
-							type="button"
-							class="mt-2 h-9 rounded-lg border border-rule px-3 text-[13px] text-ink"
-							onclick={() => listen(half)}
-						>
-							Listen
-						</button>
+						<div>
+							<button type="button" class={button('secondary', 'sm')} onclick={() => listen(half)}
+								><Icon name="play" size={18} />Listen to bar {(chosen[half] ?? 0) + 1}</button
+							>
+						</div>
 					{/if}
 				</div>
 			{/each}
-
-			<button
-				type="button"
-				class="{btn} bg-accent text-accent-ink"
-				disabled={saving || (chosen.a === null && chosen.b === null)}
-				onclick={keep}
-			>
-				{saving ? 'Saving…' : 'Keep these'}
-			</button>
-			<button type="button" class="{btn} border border-rule text-ink" onclick={record}>
-				Record again
-			</button>
-			<button
-				type="button"
-				class="{btn} border border-rule text-ink"
-				onclick={() => {
-					capture = null;
-					stage = 'grid';
-				}}>Back</button
-			>
-		</section>
+		</div>
+		<BottomBar>
+			<div class="flex flex-col gap-2">
+				<button
+					type="button"
+					class={button('primary', 'lg', true)}
+					disabled={saving || (chosen.a === null && chosen.b === null)}
+					aria-busy={saving}
+					onclick={keep}
+				>
+					{#if saving}<Spinner size={22} />Saving…{:else}<Icon name="check" size={24} />Keep these{/if}
+				</button>
+				<button
+					type="button"
+					class={button('tertiary', 'md', true)}
+					disabled={saving}
+					onclick={record}><Icon name="refresh" size={20} />Record again</button
+				>
+			</div>
+		</BottomBar>
 	{/if}
 </Screen>
-
-<Toast
-	{toast}
-	onaction={() => toast?.undo?.()}
-	ondismiss={() => (toast = null)}
-	bottom="calc(1rem + env(safe-area-inset-bottom))"
-/>
 
 <Toast
 	{toast}
