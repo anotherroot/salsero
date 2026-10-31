@@ -77,7 +77,7 @@
 		<div class="flex flex-col gap-8 px-4 pb-24">
 			<section class="flex flex-col gap-3">
 				<h2 class={SECTION_LABEL}>Hero card</h2>
-				<div class="pt-[42px]">
+				<div>
 					<HeroCard title="Nothing due" meta="All done today" icon="check-circle" />
 				</div>
 				<HeroCard title="As a link" href="/dev/kit" />

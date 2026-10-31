@@ -80,6 +80,6 @@
 	class:pt-5={!hero}
 	style="padding-inline: 16px"
 >
-	{#if hero}{@render hero()}{/if}
+	{#if hero}<div class="-mt-[42px] mb-[10px]">{@render hero()}</div>{/if}
 	{@render children()}
 </div>

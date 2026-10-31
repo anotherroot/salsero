@@ -16,9 +16,9 @@
 		onclick?: () => void;
 	} = $props();
 
-	// Today's hero: sits first on the sheet and straddles its top edge.
+	// A plain card; Screen's hero slot does the straddling.
 	const cls =
-		'-mt-[42px] mb-[10px] flex min-h-[84px] w-full flex-none items-center gap-[14px] rounded-[22px] bg-surface py-[14px] pr-[14px] pl-5 text-left text-ink shadow-[0_4px_16px_rgb(0_0_0/0.12)]';
+		'flex min-h-[84px] w-full flex-none items-center gap-[14px] rounded-[22px] bg-surface py-[14px] pr-[14px] pl-5 text-left text-ink shadow-[0_4px_16px_rgb(0_0_0/0.12)]';
 </script>
 
 {#snippet body()}
