@@ -229,6 +229,8 @@
 		mode = 'running';
 	}
 
+	let setup: ReturnType<typeof Setup> | undefined = $state();
+
 	function handleStop() {
 		finish();
 	}
@@ -241,7 +243,12 @@
 		const leave = leaving;
 		leaving = false;
 		mode = 'setup';
-		if (!leave) return;
+		if (!leave) {
+			// The sheet that held focus is gone: put it on Play, not <body>.
+			await tick();
+			setup?.focusPlay();
+			return;
+		}
 		// The sheet's form is guarded, so a navigation while it is mounted
 		// would ask "Unsaved changes" about the run just refused: unmount it
 		// first, then leave.
@@ -291,6 +298,7 @@
 <!-- Save this run is a sheet: it draws over the setup it returns to. -->
 {#if mode !== 'running'}
 	<Setup
+		bind:this={setup}
 		songs={data.songs}
 		bind:source
 		bind:songId

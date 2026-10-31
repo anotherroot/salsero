@@ -18,6 +18,8 @@ import {
 const salsa = getDance('salsa');
 const bachata = getDance('bachata');
 
+const EX = { id: 9, name: 'Casino drill' };
+
 describe('what the Practice page derives', () => {
 	it('sizes the stage by what else shares the screen', () => {
 		expect(stageSize(true, true)).toBe(136);
@@ -126,31 +128,45 @@ describe('what the Practice page derives', () => {
 		expect(exerciseLine({ source: 'routine', everyDays: 3 })).toBe('Routine · Every 3 days');
 		expect(exerciseLine({ source: 'figure', everyDays: 7 })).toBe('Figure practice · Weekly');
 	});
+	it('shows no number for a count run without a tempo', () => {
+		expect(
+			runSubtitle({ routine: null, song: false, speed: 1, bpm: null, clave: null }, salsa)
+		).toBeUndefined();
+	});
 	it('goes back where Practice was opened from', () => {
-		const p = { dance: 'salsa', from: null, routine: null, song: null, exercise: false } as const;
+		const p = { dance: 'salsa', from: null, routine: null, song: null, exercise: null } as const;
 		expect(practiceBack(p)).toEqual({ href: '/salsa/songs', label: 'Back to Music' });
 		expect(practiceBack({ ...p, song: { id: 4, title: 'Vivir mi vida' } })).toEqual({
 			href: '/salsa/songs/4',
 			label: 'Back to Vivir mi vida'
 		});
-		expect(
-			practiceBack({ ...p, routine: { id: 3, name: 'Casino basics' }, exercise: true })
-		).toEqual({ href: '/salsa/routines/3', label: 'Back to Casino basics' });
+		expect(practiceBack({ ...p, routine: { id: 3, name: 'Casino basics' }, exercise: EX })).toEqual(
+			{ href: '/salsa/routines/3', label: 'Back to Casino basics' }
+		);
 		expect(
 			practiceBack({
 				...p,
 				from: 'today',
 				routine: { id: 3, name: 'Casino basics' },
-				exercise: true
+				exercise: EX
 			})
 		).toEqual({ href: '/salsa', label: 'Back to Today' });
-		expect(practiceBack({ ...p, exercise: true })).toEqual({
+		expect(practiceBack({ ...p, exercise: EX })).toEqual({
 			href: '/salsa',
 			label: 'Back to Today'
 		});
 	});
+	it('goes back to the exercise page when opened from it', () => {
+		const p = { dance: 'salsa', routine: { id: 3, name: 'Casino basics' }, song: null } as const;
+		expect(practiceBack({ ...p, from: 'exercise', exercise: EX })).toEqual({
+			href: '/salsa/exercises/9',
+			label: 'Back to Casino drill'
+		});
+		// Without an exercise there is nothing to go back to.
+		expect(practiceBack({ ...p, from: 'exercise', exercise: null }).href).toBe('/salsa/routines/3');
+	});
 	it('never lets `from` steer Back anywhere but Today', () => {
-		const p = { dance: 'bachata', routine: null, song: null, exercise: false } as const;
+		const p = { dance: 'bachata', routine: null, song: null, exercise: null } as const;
 		expect(practiceBack({ ...p, from: 'https://evil.example' })).toEqual({
 			href: '/bachata/songs',
 			label: 'Back to Music'

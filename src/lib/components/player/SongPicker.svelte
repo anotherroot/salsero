@@ -27,7 +27,7 @@
 		labelId?: string;
 		/** `field` is the form field; `card` is the player's setup card. */
 		variant?: 'field' | 'card';
-		/** The card's red ring: no song picked. */
+		/** The card's red ring: the picked song failed to load. */
 		invalid?: boolean;
 		/** Drawn under the card's head. */
 		children?: Snippet;

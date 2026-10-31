@@ -447,11 +447,12 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   (`SongProgress`) seeks before Play and while running, once on release. Back
   goes to where Practice was opened from (`practiceBack` in
   `src/lib/player/view.ts`: a routine's page, `?song=` the song, an exercise
-  alone Today, else Music; the routine log popup's link adds `?from=today`).
+  alone Today, else Music; the routine log popup's link adds `&from=today`, or `&from=exercise` on the exercise page).
   Back mid-run stops the run and offers Save this run first; Don't save then
   leaves. The Voice row says Built-in or Yours (Yours: a recorded set fits the
-  run's tempo) and opens My count through `myCountHref` (`?from=`, so My count
-  returns here). The running screen is the stage on the band (count disc, dots,
+  run's tempo) and opens My count through `myCountHref` (`from` and the pattern; My
+  count returns here once it reads them, plan 12; as `&from=…` after the other
+  parameters). The running screen is the stage on the band (count disc, dots,
   the figure called, the time), a sheet under it and Stop and Pause pinned; it
   does not scroll the page. A landscape phone puts the stage left and the sheet
   right; a desktop keeps the 560 px column.

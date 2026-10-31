@@ -65,11 +65,17 @@ export function runSubtitle(
 ): string | undefined {
 	const parts = [
 		r.routine,
-		r.song ? (r.speed === 1 ? null : `${r.speed}×`) : `${r.bpm} BPM`,
+		r.song ? (r.speed === 1 ? null : `${r.speed}×`) : r.bpm === null ? null : `${r.bpm} BPM`,
 		dance.clave && r.clave ? `clave ${r.clave}` : null
 	].filter((p): p is string => !!p);
 	return parts.length ? parts.join(' · ') : undefined;
 }
+
+/** The Source switch's two options, shared by Setup and SourcePicker. */
+export const SOURCES = [
+	{ value: 'count', label: 'Count only' },
+	{ value: 'song', label: 'A song' }
+];
 
 /** `calls` null: nothing was called, by design. */
 export function runSummary(durationS: number, calls: number | null): string {
@@ -128,10 +134,13 @@ export function practiceBack(p: {
 	from: string | null;
 	routine: { id: number; name: string } | null;
 	song: { id: number; title: string } | null;
-	exercise: boolean;
+	exercise: { id: number; name: string } | null;
 }): { href: string; label: string } {
 	const today = { href: `/${p.dance}`, label: 'Back to Today' };
 	if (p.from === 'today') return today;
+	if (p.from === 'exercise' && p.exercise) {
+		return { href: `/${p.dance}/exercises/${p.exercise.id}`, label: `Back to ${p.exercise.name}` };
+	}
 	if (p.routine) {
 		return { href: `/${p.dance}/routines/${p.routine.id}`, label: `Back to ${p.routine.name}` };
 	}

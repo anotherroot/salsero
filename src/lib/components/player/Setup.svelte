@@ -20,7 +20,7 @@
 	import type { PhrasePattern } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
 	import { bpmOf } from '$lib/beatgrid/beatgrid';
-	import { playState, setupSubtitle, voiceKind } from '$lib/player/view';
+	import { SOURCES, playState, setupSubtitle, voiceKind } from '$lib/player/view';
 	import { myCountHref } from '$lib/voice/back';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -218,10 +218,11 @@
 	}
 
 	const uid = $props.id();
-	const SOURCES = [
-		{ value: 'count', label: 'Count only' },
-		{ value: 'song', label: 'A song' }
-	];
+	let playBtn: HTMLButtonElement | undefined = $state();
+	/** Back from a refused or abandoned save: keyboard focus lands on Play, not <body>. */
+	export function focusPlay() {
+		playBtn?.focus({ preventScroll: true });
+	}
 
 	const ps = $derived(playState({ source, songId, ready: songReady, error: songError, starting }));
 
@@ -385,6 +386,7 @@
 	{/if}
 	<button
 		type="button"
+		bind:this={playBtn}
 		class={ps.busy ? PLAY_BUSY : PLAY}
 		disabled={ps.disabled}
 		aria-busy={ps.busy}

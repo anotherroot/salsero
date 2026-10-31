@@ -258,6 +258,8 @@
 						{#if on}<Badge tone="accent" solid>Now</Badge>{/if}
 					</li>
 				{/each}
+				<!-- Room to scroll the last row to the top (list height 130 - a 48 px row), so the mask never fades the active one. -->
+				<li aria-hidden="true" class="slots-pad flex-none"></li>
 			</ol>
 		{/if}
 
@@ -323,10 +325,17 @@
 		mask-image: linear-gradient(#000 70%, transparent);
 	}
 
+	.slots-pad {
+		height: 82px;
+	}
+
 	/* A short phone: a smaller list and a tighter foot, so the "Now" row clears the transport's fade. */
 	@media (max-height: 700px) {
 		.slots {
 			max-height: 100px;
+		}
+		.slots-pad {
+			height: 52px; /* 100 - 48 */
 		}
 		.run-sheet {
 			padding-bottom: 96px;
@@ -348,6 +357,7 @@
 			flex: 0 0 50%;
 			padding-top: calc(14px + env(safe-area-inset-top)) !important;
 			padding-bottom: 22px !important;
+			padding-left: max(20px, env(safe-area-inset-left)) !important;
 		}
 		.run-head > span {
 			flex: none;
@@ -365,8 +375,9 @@
 			border-radius: 28px 0 0 28px;
 			padding-bottom: 112px;
 		}
-		:global(.run-bar) {
+		.run-col :global(.run-bar) {
 			left: 50%;
+			padding-right: max(16px, env(safe-area-inset-right));
 		}
 	}
 </style>

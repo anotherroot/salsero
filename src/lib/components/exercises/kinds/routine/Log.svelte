@@ -20,7 +20,7 @@
 			{#if payload.content.type === 'routine' && !props.backfillDay}
 				<a
 					href={resolve(
-						`/${props.dance.slug}/player?routine=${payload.content.routine.id}&exercise=${props.exercise.id}&from=today`
+						`/${props.dance.slug}/player?routine=${payload.content.routine.id}&exercise=${props.exercise.id}&from=${props.from ?? 'today'}`
 					)}
 					class={button('secondary', 'md', true)}
 					><Icon name="play" size={20} />Practise in player</a

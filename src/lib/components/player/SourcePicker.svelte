@@ -6,6 +6,7 @@
 	(`loadSongGrid`), since the owner also mounts the `<audio>`.
 -->
 <script lang="ts">
+	import { SOURCES } from '$lib/player/view';
 	import type { PickerSong } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
@@ -41,10 +42,6 @@
 	const uid = $props.id();
 	/** A group's label: 13/700 muted, 4 px over its control. */
 	const GROUP_LABEL = 'mb-1 block text-[13px] font-bold text-muted';
-	const SOURCES = [
-		{ value: 'count', label: 'Count only' },
-		{ value: 'song', label: 'A song' }
-	];
 </script>
 
 {#if songs.length > 0}

@@ -24,7 +24,7 @@
 		const on = row.querySelector<HTMLElement>('input:checked')?.parentElement;
 		if (!on) return;
 		const end = on.offsetLeft + on.offsetWidth;
-		if (end > row.clientWidth) row.scrollLeft = end - row.clientWidth + 16;
+		if (end > row.clientWidth) row.scrollLeft = end - row.clientWidth + 16; // + the row's pr-4, so the chip clears the edge
 	});
 </script>
 
