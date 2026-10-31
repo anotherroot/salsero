@@ -5,6 +5,8 @@
  * radius: append nothing that sets any of them.
  */
 
+import { swap } from '$lib/components/ui/styles';
+
 export type PlayerButtonKind = 'neutral' | 'accent' | 'ghost' | 'glass' | 'outline' | 'danger-text';
 export type PlayerButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'cta';
 
@@ -67,6 +69,8 @@ export const KBD =
 	'inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-step px-1 text-[11px] font-bold text-ink tabular-nums';
 
 /** The ghost "Hide" button that folds the portrait controls (and "Show" in the slim bar). */
-export const HIDE = playerButton('ghost', 'md')
-	.replace('text-ink', 'text-ink-2')
-	.replace('px-3', 'pr-2 pl-3');
+export const HIDE = swap(
+	swap(playerButton('ghost', 'md'), 'text-ink', 'text-ink-2'),
+	'px-3',
+	'pr-2 pl-3'
+);

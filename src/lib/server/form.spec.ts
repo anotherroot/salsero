@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { int, ints } from './form';
+import { int, ints, refusalText } from './form';
 
 describe('int', () => {
 	it('parses a good integer', () => {
@@ -60,5 +60,13 @@ describe('ints', () => {
 		form.append('p', '5');
 		form.append('p', 'nope');
 		expect(ints(form, 'p')).toEqual([5]);
+	});
+});
+
+describe('refusalText', () => {
+	it('keeps a 4xx message and hides a 5xx one', () => {
+		expect(refusalText(409, 'Unlink it first.')).toBe('Unlink it first.');
+		expect(refusalText(500, 'SQLITE_BUSY at /data/x.db')).toBe('Couldn’t save. Try it again.');
+		expect(refusalText(503, 'x')).toBe('Couldn’t save. Try it again.');
 	});
 });

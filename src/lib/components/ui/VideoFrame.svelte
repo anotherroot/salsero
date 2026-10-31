@@ -11,7 +11,7 @@
 	} from '$lib/video-prefs';
 	import VideoPlayer from './VideoPlayer.svelte';
 	import Icon from './Icon.svelte';
-	import { iconButton } from './styles';
+	import { iconButton, swap } from './styles';
 	import type { SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -127,7 +127,8 @@
 			aria-pressed={mirror}
 			aria-label="Mirror"
 			onclick={() => choose({ mirror: !mirror })}
-			class={iconButton('bare').replace(
+			class={swap(
+				iconButton('bare'),
 				'text-ink',
 				mirror ? 'bg-accent-soft text-accent-text' : 'text-muted'
 			)}><Icon name="mirror" size={22} /></button

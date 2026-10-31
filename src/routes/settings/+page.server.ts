@@ -15,7 +15,7 @@ import { defaultStyle, setDefaultStyle } from '$lib/server/default-styles';
 import { listCountTakes } from '$lib/server/countTakes';
 import { Hold, UNDO_MS } from '$lib/server/undo-hold';
 import { int, text } from '$lib/server/form';
-import { DANCE_COOKIE, DEFAULT_DANCE, isDanceSlug, isStyleOf } from '$lib/dances/dances';
+import { isDanceSlug, isStyleOf } from '$lib/dances/dances';
 import { deviceMeta } from '$lib/settings/view';
 import { ownVoiceSummary } from '$lib/voice/grid';
 import { isVideoShortSide } from '$lib/video-sizes';
@@ -29,14 +29,13 @@ import type { Actions, PageServerLoad } from './$types';
 const removed = new Hold<DeviceSnapshot>(UNDO_MS);
 const holdKey = (userId: string, id: number) => `${userId}:${id}`;
 
-export const load: PageServerLoad = ({ locals, cookies }) => {
+export const load: PageServerLoad = async ({ locals, parent }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
 	const tz = locals.user.timezone;
 	// /settings has no dance in its URL and Today links to it plain, so the
-	// dance is the last one visited, by the same rule as the root layout.
-	const last = cookies.get(DANCE_COOKIE);
-	const dance = last && isDanceSlug(last) ? last : DEFAULT_DANCE;
+	// dance is the last one visited: the root layout's `lastDance`.
+	const { lastDance: dance } = await parent();
 	const today = localDay(Date.now(), tz);
 	return {
 		dance,

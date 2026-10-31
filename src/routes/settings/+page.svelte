@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { act } from '$lib/components/routines/act';
+	import { refusalMessage, undoToast, type ToastState } from '$lib/components/routines/act-toast';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { focusAfterRemoval } from '$lib/focus';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { GROUP, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { GROUP, ROW, SECTION_LABEL, button, swap } from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import { clockLabel } from '$lib/clock';
@@ -36,23 +37,13 @@
 
 	let sheet = $state<'style' | 'size' | null>(null);
 
-	let toast = $state<{
-		id: number;
-		message: string;
-		action?: string;
-		icon?: 'check';
-		tone?: 'done';
-		undo?: () => void;
-	} | null>(null);
+	let toast = $state<ToastState | null>(null);
 	let seq = 0;
 
 	function failed(result: ActionResult) {
-		if (result.type === 'success') return false;
-		const message =
-			result.type === 'failure'
-				? (result.data as { message?: string } | undefined)?.message
-				: undefined;
-		toast = { id: ++seq, message: message ?? 'Could not save.' };
+		const message = refusalMessage(result, 'Could not save.');
+		if (message === null) return false;
+		toast = { id: ++seq, message };
 		return true;
 	}
 
@@ -85,16 +76,12 @@
 		const keys = data.devices.map((d) => `device-${d.id}`);
 		const result = await act('removeDevice', { id });
 		if (failed(result)) return;
-		toast = {
-			id: ++seq,
-			message: `${label} removed`,
-			action: 'Undo',
-			undo: async () => {
-				toast = null;
-				const r = await act('restoreDevice', { id });
-				failed(r);
-			}
-		};
+		toast = undoToast(
+			++seq,
+			`${label} removed`,
+			() => (toast = null),
+			async () => failed(await act('restoreDevice', { id }))
+		);
 		await focusAfterRemoval(keys, `device-${id}`, 'devices-fallback');
 	}
 
@@ -111,7 +98,7 @@
 	<span class={SECTION_LABEL}>Practice</span>
 	<div class={GROUP}>
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
-		<a href="/voice" class={ROW.replace('min-h-14', 'min-h-16')}>
+		<a href="/voice" class={swap(ROW, 'min-h-14', 'min-h-16')}>
 			<LeadTile icon="mic" />
 			<span class="flex min-w-0 flex-1 flex-col">
 				<span class="text-[16px] font-bold text-ink">My count</span>

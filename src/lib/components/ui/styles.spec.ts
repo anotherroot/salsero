@@ -15,7 +15,8 @@ import {
 	ROW,
 	SECTION_LABEL,
 	SELECT,
-	SWITCH_TRACK
+	SWITCH_TRACK,
+	swap
 } from './styles';
 
 describe('button', () => {
@@ -91,5 +92,17 @@ describe('colours come from the builders', () => {
 			expect(c).not.toMatch(/border-2/);
 		}
 		expect(SELECT_INVALID.split(' ')).toContain('text-left');
+	});
+});
+
+describe('swap', () => {
+	it('replaces the first occurrence', () => {
+		expect(swap('a b c', 'b', 'x y')).toBe('a x y c');
+	});
+	it('throws in dev and tests when the token is missing', () => {
+		expect(() => swap(button('primary'), 'text-nope', 'text-ink')).toThrow(/text-nope/);
+	});
+	it('every swap over a builder still finds its token', () => {
+		expect(swap(iconButton('filled'), 'h-11 w-11', 'h-[52px] w-[52px]')).toContain('h-[52px]');
 	});
 });

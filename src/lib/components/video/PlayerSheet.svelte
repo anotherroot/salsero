@@ -8,7 +8,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import PlayerLayer from '$lib/components/ui/PlayerLayer.svelte';
-	import { button, FIELD, LABEL } from '$lib/components/ui/styles';
+	import { button, FIELD, LABEL, swap } from '$lib/components/ui/styles';
 	import { KBD } from './styles';
 	import { deleteCopy, spotLine } from '$lib/video/chrome';
 
@@ -31,14 +31,16 @@
 	let { kind, spot, message, oncancel, onrename, ondelete }: Props = $props();
 
 	// The Keys sheet's cap is one step up from the editor's hint chip.
-	const KEY_CAP = KBD.replace('h-5 min-w-5', 'h-6 min-w-6')
-		.replace('px-1', 'px-1.5')
-		.replace('text-[11px]', 'text-[12px]');
+	const KEY_CAP = swap(
+		swap(swap(KBD, 'h-5 min-w-5', 'h-6 min-w-6'), 'px-1', 'px-1.5'),
+		'text-[11px]',
+		'text-[12px]'
+	);
 
 	// flex-1 in place of the builder's flex-none: two buttons share the row.
-	const FLEX_SECONDARY = button('secondary').replace('flex-none', 'flex-1');
-	const FLEX_PRIMARY = button('primary').replace('flex-none', 'flex-1');
-	const FLEX_DANGER = button('danger').replace('flex-none', 'flex-1');
+	const FLEX_SECONDARY = swap(button('secondary'), 'flex-none', 'flex-1');
+	const FLEX_PRIMARY = swap(button('primary'), 'flex-none', 'flex-1');
+	const FLEX_DANGER = swap(button('danger'), 'flex-none', 'flex-1');
 	let label = $state(untrack(() => spot?.label ?? ''));
 
 	const KEYS: [string, string][] = [

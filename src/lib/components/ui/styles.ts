@@ -4,6 +4,21 @@
  * tokens only; the global focus rule in layout.css draws the ring.
  */
 
+/**
+ * Replace one class (or run of classes) in a builder's output. A plain
+ * `.replace()` does nothing when the token is missing, so a builder that
+ * changes leaves the caller on the old look without a sound. This throws in
+ * dev and in tests; in a production build it returns the string unchanged
+ * (a wrong look is better than a blank page).
+ */
+export function swap(cls: string, from: string, to: string): string {
+	if (!cls.includes(from)) {
+		if (import.meta.env.DEV) throw new Error(`swap: "${from}" is not in "${cls}"`);
+		return cls;
+	}
+	return cls.replace(from, to);
+}
+
 export type ButtonKind = 'primary' | 'secondary' | 'tertiary' | 'danger' | 'danger-text';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 export type IconButtonVariant = 'bare' | 'tonal' | 'filled' | 'step';
@@ -67,10 +82,7 @@ export function iconButton(variant: IconButtonVariant, tone: IconTone = 'ink'): 
 export const FIELD =
 	'h-[52px] w-full rounded-[14px] border border-field-line bg-surface px-3.5 font-sans text-[16px] font-semibold text-ink placeholder:font-medium placeholder:text-muted aria-invalid:border-danger aria-invalid:shadow-[inset_0_0_0_1px_var(--color-danger)] disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-ink';
 /** A multi-line field: FIELD's look, grows with its rows. */
-export const TEXTAREA = FIELD.replace(
-	'h-[52px]',
-	'h-auto min-h-[52px] py-3.5 leading-snug resize-y'
-);
+export const TEXTAREA = swap(FIELD, 'h-[52px]', 'h-auto min-h-[52px] py-3.5 leading-snug resize-y');
 /** Text under a field. */
 export const FIELD_ERROR = 'mt-1.5 flex items-center gap-1.5 text-[13px] font-bold text-danger';
 export const LABEL = 'mb-1.5 block pl-1 text-[13px] font-bold text-ink-2';
@@ -91,8 +103,8 @@ export const SELECT = `${FIELD} flex cursor-pointer items-center gap-2.5 pr-3 te
 
 const INVALID = 'border-danger shadow-[inset_0_0_0_1px_var(--color-danger)]';
 /** FIELD / SELECT marked invalid by their owner, for a control that cannot carry `aria-invalid` (a button). Still a 1 px border, so nothing moves. */
-export const FIELD_INVALID = FIELD.replace('border-field-line', INVALID);
-export const SELECT_INVALID = SELECT.replace('border-field-line', INVALID);
+export const FIELD_INVALID = swap(FIELD, 'border-field-line', INVALID);
+export const SELECT_INVALID = swap(SELECT, 'border-field-line', INVALID);
 
 /** A dashed "add" control: a label (or link) that opens the file picker. */
 export const DASHED_ADD =

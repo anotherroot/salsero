@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { GROUP, LABEL, SELECT } from '$lib/components/ui/styles';
+	import { GROUP, LABEL, SELECT, swap } from '$lib/components/ui/styles';
 	import { FREQUENCIES, frequencyLabel } from '$lib/frequency';
 
 	interface Props {
@@ -13,7 +13,7 @@
 	}
 
 	let { name, value = $bindable(), label = 'How often', tone = 'surface' }: Props = $props();
-	const box = $derived(tone === 'field' ? SELECT.replace('bg-surface', 'bg-field') : SELECT);
+	const box = $derived(tone === 'field' ? swap(SELECT, 'bg-surface', 'bg-field') : SELECT);
 	let open = $state(false);
 
 	function pick(days: number) {

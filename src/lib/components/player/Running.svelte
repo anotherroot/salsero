@@ -11,7 +11,7 @@
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
-	import { CLIP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { CLIP, SECTION_LABEL, button, swap } from '$lib/components/ui/styles';
 	import CountChips from './CountChips.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import StageCount from './StageCount.svelte';
@@ -139,10 +139,12 @@
 	}
 
 	// Soft danger, as tall as Pause, so the two never get confused mid-dance.
-	// Built with replace(): a colour appended after button() loses to its own.
-	const STOP = button('danger', 'lg')
-		.replace('bg-danger text-on-danger', 'bg-danger-soft text-danger')
-		.replace('px-7', 'pr-6 pl-5');
+	// Built with swap(): a colour appended after button() loses to its own.
+	const STOP = swap(
+		swap(button('danger', 'lg'), 'bg-danger text-on-danger', 'bg-danger-soft text-danger'),
+		'px-7',
+		'pr-6 pl-5'
+	);
 </script>
 
 <!--

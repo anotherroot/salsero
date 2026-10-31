@@ -31,7 +31,15 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
-	import { CHIP, FIELD_ERROR, GROUP, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import {
+		CHIP,
+		FIELD_ERROR,
+		GROUP,
+		ROW,
+		SECTION_LABEL,
+		button,
+		swap
+	} from '$lib/components/ui/styles';
 	import CountChips from './CountChips.svelte';
 	import ClaveChips from './ClaveChips.svelte';
 	import SongPicker from './SongPicker.svelte';
@@ -219,9 +227,21 @@
 
 	const uid = $props.id();
 	let playBtn: HTMLButtonElement | undefined = $state();
-	/** Back from a refused or abandoned save: keyboard focus lands on Play, not <body>. */
+	/**
+	 * Back from a refused or abandoned save: keyboard focus lands on Play, not
+	 * <body>. Play can be disabled (no song picked, or it failed to load), and a
+	 * disabled button takes no focus: then the screen's heading does.
+	 */
 	export function focusPlay() {
-		playBtn?.focus({ preventScroll: true });
+		if (playBtn && !playBtn.disabled) {
+			playBtn.focus({ preventScroll: true });
+			return;
+		}
+		const heading = document.querySelector<HTMLElement>('h1');
+		if (heading) {
+			heading.tabIndex = -1;
+			heading.focus({ preventScroll: true });
+		}
 	}
 
 	const ps = $derived(playState({ source, songId, ready: songReady, error: songError, starting }));
@@ -254,11 +274,11 @@
 	 * not unavailable. Still `disabled`, so a second tap cannot build a second player.
 	 */
 	const PLAY = button('primary', 'lg', true);
-	const PLAY_BUSY = PLAY.replace('disabled:bg-disabled-bg disabled:text-disabled-ink', '');
+	const PLAY_BUSY = swap(PLAY, 'disabled:bg-disabled-bg disabled:text-disabled-ink', '');
 </script>
 
 {#snippet voiceRow()}
-	<a class={ROW.replace('min-h-14', 'min-h-[58px]')} href={voiceHref}>
+	<a class={swap(ROW, 'min-h-14', 'min-h-[58px]')} href={voiceHref}>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="text-[16px] font-bold text-ink">Voice</span>
 			<span class="text-[13px] text-muted">Record your own count</span>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { act } from '$lib/components/routines/act';
+	import { refusalMessage, undoToast, type ToastState } from '$lib/components/routines/act-toast';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -9,7 +10,6 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import type { IconName } from '$lib/icons/icons';
 	import { CHIP, GROUP, ROW, SECTION_LABEL, button, iconButton } from '$lib/components/ui/styles';
 	import { tick, type Snippet } from 'svelte';
 	import { keptMessage, recordedLabel, takeRows, tempoMeta, tempoState } from '$lib/voice/grid';
@@ -247,23 +247,13 @@
 	const backTo = $derived(voiceBack(page.url.searchParams.get('from')));
 	const rows = $derived(takeRows(data.takes, pattern));
 
-	let toast = $state<{
-		id: number;
-		message: string;
-		action?: string;
-		icon?: IconName;
-		tone?: 'done';
-		undo?: () => void;
-	} | null>(null);
+	let toast = $state<ToastState | null>(null);
 	let seq = 0;
 
 	function refused(result: Awaited<ReturnType<typeof act>>) {
-		if (result.type === 'success') return false;
-		const message =
-			result.type === 'failure'
-				? (result.data as { message?: string } | undefined)?.message
-				: undefined;
-		toast = { id: ++seq, message: message ?? 'Could not do that.' };
+		const message = refusalMessage(result, 'Could not do that.');
+		if (message === null) return false;
+		toast = { id: ++seq, message };
 		return true;
 	}
 
@@ -271,16 +261,12 @@
 	async function remove(id: number, deleted: string) {
 		const keys = rows.map((r) => `take-${r.id}`);
 		if (refused(await act('delete', { id }))) return;
-		toast = {
-			id: ++seq,
-			message: deleted,
-			action: 'Undo',
-			undo: async () => {
-				toast = null;
-				const r = await act('restore', { id });
-				refused(r);
-			}
-		};
+		toast = undoToast(
+			++seq,
+			deleted,
+			() => (toast = null),
+			async () => refused(await act('restore', { id }))
+		);
 		await focusAfterRemoval(keys, `take-${id}`, 'takes-heading');
 	}
 

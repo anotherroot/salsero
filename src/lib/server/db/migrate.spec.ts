@@ -11,9 +11,15 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq } from 'drizzle-orm';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { openDb, type Db } from './index';
 import { exercises, figureGroups, figures, lessons, songs } from './schema';
+
+// Each test copies drizzle/ and applies every migration to a file database
+// with synchronous better-sqlite3 calls. Unloaded that is ~0.1 s; in a full
+// parallel run the default 5 s can be eaten by a starved worker, which is the
+// one flake seen. A generous bound turns "slow" into "slow, passing".
+vi.setConfig({ testTimeout: 30_000 });
 
 /** The connection behind a drizzle handle, for plain SQL. */
 const raw = (d: Db) => (d as unknown as { $client: Database.Database }).$client;

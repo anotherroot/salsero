@@ -12,7 +12,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { CHIP, button, iconButton } from '$lib/components/ui/styles';
+	import { CHIP, button, iconButton, swap } from '$lib/components/ui/styles';
 	import { createPlayer, type PlayerHandle } from '$lib/scheduler/attach';
 	import { syntheticGrid, UNIFORM_FLOW, type Flow } from '$lib/scheduler/scheduler';
 	import type { ClavePattern, CountPattern, Speed } from '$lib/labels';
@@ -50,7 +50,7 @@
 	/** A group's label: 13/700 muted, 4 px over its control. */
 	const GROUP_LABEL = 'mb-1 block text-[13px] font-bold text-muted';
 	/** The filled Play button, at the board's 52 px rather than the usual 44. */
-	const PLAY = iconButton('filled').replace('h-11 w-11', 'h-[52px] w-[52px]');
+	const PLAY = swap(iconButton('filled'), 'h-11 w-11', 'h-[52px] w-[52px]');
 
 	// Seeded once from what the exercise remembers. The popup remounts this
 	// component after every logged set, so "once" is per set, which is right.

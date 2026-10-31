@@ -10,13 +10,7 @@ import {
 	recordFailedLogin,
 	verifyPassword
 } from '$lib/server/auth';
-import {
-	DANCE_COOKIE,
-	DEFAULT_DANCE,
-	danceInPath,
-	isDanceSlug,
-	type DanceSlug
-} from '$lib/dances/dances';
+import { danceInPath, type DanceSlug } from '$lib/dances/dances';
 import { safeNext } from '$lib/safe-next';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -30,10 +24,9 @@ const DUMMY_HASH =
 	'scrypt$32768$8$1$YWJjZGVmZ2hpamtsbW5vcA==$' +
 	'ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWQ=';
 
-export const load: PageServerLoad = ({ url, cookies }) => {
+export const load: PageServerLoad = async ({ url, parent }) => {
 	const next = safeNext(url.searchParams.get('next'));
-	const last = cookies.get(DANCE_COOKIE);
-	const dance: DanceSlug = danceInPath(next) ?? (last && isDanceSlug(last) ? last : DEFAULT_DANCE);
+	const dance: DanceSlug = danceInPath(next) ?? (await parent()).lastDance;
 	return { next, dance };
 };
 

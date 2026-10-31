@@ -5,7 +5,7 @@
 	import type { Snippet } from 'svelte';
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
+	import { iconButton, SECTION_LABEL, swap } from '$lib/components/ui/styles';
 	import { playerButton } from './styles';
 
 	/**
@@ -30,8 +30,8 @@
 
 	const sidebar = $derived(variant === 'sidebar');
 	// The 36 px pill sits in a 44 px button (the cell), so the hit area holds.
-	const EDIT = playerButton('neutral', 'sm').replace('px-3', 'pr-3 pl-2.5');
-	const EDIT_ACCENT = playerButton('accent', 'sm').replace('px-3', 'pr-3 pl-2.5');
+	const EDIT = swap(playerButton('neutral', 'sm'), 'px-3', 'pr-3 pl-2.5');
+	const EDIT_ACCENT = swap(playerButton('accent', 'sm'), 'px-3', 'pr-3 pl-2.5');
 </script>
 
 {#snippet linkedLine(s: Spot)}

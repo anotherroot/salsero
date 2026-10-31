@@ -42,7 +42,8 @@
 		GROUP,
 		iconButton,
 		LABEL,
-		SECTION_LABEL
+		SECTION_LABEL,
+		swap
 	} from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
@@ -878,7 +879,7 @@
 				form="archive-form"
 				disabled={archiveBusy}
 				aria-busy={archiveBusy}
-				class={button('danger', 'md', true).replace('px-6', 'px-3')}
+				class={swap(button('danger', 'md', true), 'px-6', 'px-3')}
 				>{#if archiveBusy}<Spinner size={18} />{/if}{archive.button}</button
 			>
 		</div>

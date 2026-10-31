@@ -20,7 +20,7 @@ import {
 	variationNameTaken
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
-import { int, ints, oneOf, optionalText, text } from '$lib/server/form';
+import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, setFigureShape } from '$lib/server/graph';
 import {
 	DEFAULT_LENGTH_COUNTS,
@@ -473,7 +473,10 @@ export const actions: Actions = {
 			linkSpot(getDb(), spotId, { figureId: figure.id });
 		} catch (e) {
 			if (e instanceof SpotLinkError) {
-				return fail(e.status, { action: 'linkSection', message: e.message });
+				return fail(e.status, {
+					action: 'linkSection',
+					message: refusalText(e.status, e.message)
+				});
 			}
 			throw e;
 		}

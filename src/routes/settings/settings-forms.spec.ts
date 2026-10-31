@@ -34,7 +34,9 @@ function post(fields: Record<string, string>, user = USER, cookie: string | unde
 			body: new URLSearchParams(fields)
 		}),
 		locals: { user },
-		cookies: { get: () => cookie }
+		cookies: { get: () => cookie },
+		// the root layout's `lastDance`: the cookie's dance, else salsa
+		parent: async () => ({ lastDance: cookie ?? 'salsa' })
 	};
 }
 type Event = ReturnType<typeof post>;

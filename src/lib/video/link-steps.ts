@@ -5,8 +5,10 @@ import type { LinkCreateField, LinkOptions } from '$lib/types';
 import { lengthText, spotTime } from '$lib/video/spots';
 
 /** The popup's levels, bottom first. 'links': linked list + the Link button. 'pick': the picker.
- *  'variation' | 'figure' | 'drill': create steps. 'variation-figure': the variation step's Figure picker. */
-export type LinkStep = 'links' | 'pick' | 'variation' | 'figure' | 'drill' | 'variation-figure';
+ *  'variation' | 'figure' | 'drill': create steps. 'variation-figure': the variation step's Figure picker.
+ *  'unlink': the "Unlink …?" question, a level of its own only in the player (Back closes just it). */
+export type LinkStep =
+	'links' | 'pick' | 'variation' | 'figure' | 'drill' | 'variation-figure' | 'unlink';
 
 /** Where a host opens the popup: straight into the picker when the section has no links. */
 export function openingSteps(linkedCount: number): LinkStep[] {

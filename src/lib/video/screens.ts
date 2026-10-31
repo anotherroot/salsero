@@ -10,10 +10,18 @@ import type { LinkStep } from './link-steps';
  * `list`: the spot list as a panel beside the video (landscape), closed by Back like any sheet.
  * The Link popup takes one sheet per level, so Back steps down it one level at a
  * time: `link` its links list, `link-pick` the picker, `link-new` a create step
- * (which one, the player remembers), `link-figure` the variation step's Figure picker.
+ * (which one, the player remembers), `link-figure` the variation step's Figure picker, `link-unlink` the "Unlink …?" question.
  */
 export type PlayerSheet =
-	'rename' | 'delete' | 'keys' | 'list' | 'link' | 'link-pick' | 'link-new' | 'link-figure';
+	| 'rename'
+	| 'delete'
+	| 'keys'
+	| 'list'
+	| 'link'
+	| 'link-pick'
+	| 'link-new'
+	| 'link-figure'
+	| 'link-unlink';
 
 export type Screen =
 	| { kind: 'full' }
@@ -103,7 +111,8 @@ export function editStack(stack: Stack, spotId: number): Stack {
 const LINK_STEP: Partial<Record<PlayerSheet, LinkStep>> = {
 	link: 'links',
 	'link-pick': 'pick',
-	'link-figure': 'variation-figure'
+	'link-figure': 'variation-figure',
+	'link-unlink': 'unlink'
 };
 
 /** The stack's link sheets as popup steps, bottom first. `create` names the step 'link-new' stands for. */

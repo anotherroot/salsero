@@ -281,6 +281,8 @@
 		unlinkMessage = null;
 		if (l.alsoByHand) {
 			asking = l;
+			// In the player the question is a level of its own, so Back closes only it.
+			if (theme === 'dark') onpush('unlink');
 			return;
 		}
 		void run(
@@ -289,6 +291,17 @@
 			afterUnlink(l)
 		);
 	}
+
+	/** Cancel, an answer, or the layer's own close: the question goes, and with it its level. */
+	function closeQuestion() {
+		asking = null;
+		if (theme === 'dark' && top === 'unlink') onback();
+	}
+
+	// Back (or Escape) took the question's level away: the question goes with it.
+	$effect(() => {
+		if (theme === 'dark' && top !== 'unlink' && untrack(() => asking)) asking = null;
+	});
 
 	/** The question's answer: from this section only, or from the lesson too. */
 	function answer(alsoLesson: boolean) {
@@ -299,11 +312,11 @@
 		void run(
 			() => removeLink(spotId, l.linkId, alsoLesson),
 			(m) => {
-				asking = null;
+				closeQuestion();
 				unlinkMessage = m;
 			},
 			() => {
-				asking = null;
+				closeQuestion();
 				focus();
 			}
 		);
@@ -564,7 +577,7 @@
 		type="button"
 		class={button('tertiary', 'sm', true)}
 		disabled={busy}
-		onclick={() => (asking = null)}>Cancel</button
+		onclick={closeQuestion}>Cancel</button
 	>
 {/snippet}
 
@@ -635,7 +648,7 @@
 			icon="unlink"
 			tone="danger"
 			footer={questionActions}
-			onclose={() => (asking = null)}
+			onclose={closeQuestion}
 		/>
 	{/if}
 {:else}

@@ -52,6 +52,7 @@
 	import UiIcon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { HIDE, KBD, ON_VIDEO, playerButton } from '$lib/components/video/styles';
+	import { swap } from './styles';
 	import TopBar from '$lib/components/video/TopBar.svelte';
 	import Transport from '$lib/components/video/Transport.svelte';
 	import Timeline from '$lib/components/video/Timeline.svelte';
@@ -156,7 +157,8 @@
 		variation: 'link-new',
 		figure: 'link-new',
 		drill: 'link-new',
-		'variation-figure': 'link-figure'
+		'variation-figure': 'link-figure',
+		unlink: 'link-unlink'
 	};
 	const LINK_SHEETS: readonly SheetKind[] = Object.values(LINK_SHEET);
 	/** The section the Link popup is on, and the create step its 'link-new' sheet stands for. */
@@ -673,14 +675,14 @@
 	let waiting = $state(false);
 	const MARK = playerButton('neutral', 'lg');
 	// Accent text needs a darker scrim than white does: 2.2:1 over a white frame at 60 %.
-	const INVITE = ON_VIDEO.replace('bg-black/60', 'bg-black/75');
+	const INVITE = swap(ON_VIDEO, 'bg-black/60', 'bg-black/75');
 	const MARK_DESK = playerButton('neutral', 'md');
 	const MARK_GLASS = playerButton('glass', 'md');
 	const SECTION_ON = playerButton('accent', 'lg');
 	// playerButton carries `flex-none`, which would beat a `flex-1` appended to it: swap it.
-	const MARK_FILL = MARK.replace('flex-none', 'flex-1');
-	const MARK_WIDE = MARK.replace('flex-none', 'flex-[1.4]');
-	const SECTION_WIDE = SECTION_ON.replace('flex-none', 'flex-[1.4]');
+	const MARK_FILL = swap(MARK, 'flex-none', 'flex-1');
+	const MARK_WIDE = swap(MARK, 'flex-none', 'flex-[1.4]');
+	const SECTION_WIDE = swap(SECTION_ON, 'flex-none', 'flex-[1.4]');
 	const SECTION_ON_DESK = playerButton('accent', 'md');
 	const loopProgress = $derived(
 		loop && loop.endMs !== null
@@ -779,7 +781,7 @@
 
 {#snippet markButtons(overlay: boolean, iconOnly = false)}
 	<!-- iconOnly: a square 44 px button in place of the labelled pill (narrow landscape). -->
-	{@const square = (c: string) => (iconOnly ? c.replace('px-3', 'w-11 px-0') : c)}
+	{@const square = (c: string) => (iconOnly ? swap(c, 'px-3', 'w-11 px-0') : c)}
 	<button
 		type="button"
 		class={square(overlay ? MARK_GLASS : MARK_DESK)}

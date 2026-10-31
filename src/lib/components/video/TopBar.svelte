@@ -3,6 +3,7 @@
 	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
 	import type { TopBarParts } from '$lib/video/chrome';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { swap } from '$lib/components/ui/styles';
 	import { playerButton } from './styles';
 
 	interface Props {
@@ -48,15 +49,17 @@
 	// the inner span carries the look.
 	const HIT = 'grid h-11 flex-none cursor-pointer place-items-center';
 	const pill = $derived(
-		playerButton(parts.glass ? 'glass' : 'ghost', 'md')
-			.replace('h-11', 'h-10')
-			.replace('px-3', 'pr-3 pl-1')
+		swap(
+			swap(playerButton(parts.glass ? 'glass' : 'ghost', 'md'), 'h-11', 'h-10'),
+			'px-3',
+			'pr-3 pl-1'
+		)
 	);
-	const glassPill = playerButton('glass', 'md').replace('h-11', 'h-10');
+	const glassPill = swap(playerButton('glass', 'md'), 'h-11', 'h-10');
 	const editClass = $derived(
 		parts.edit === 'accent'
-			? playerButton('accent', 'md').replace('h-11', 'h-10').replace('px-3', 'pr-3.5 pl-3')
-			: glassPill.replace('px-3', 'pr-3.5 pl-3')
+			? swap(swap(playerButton('accent', 'md'), 'h-11', 'h-10'), 'px-3', 'pr-3.5 pl-3')
+			: swap(glassPill, 'px-3', 'pr-3.5 pl-3')
 	);
 </script>
 

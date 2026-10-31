@@ -26,7 +26,8 @@
 		LABEL,
 		SECTION_LABEL,
 		TEXTAREA,
-		button
+		button,
+		swap
 	} from '$lib/components/ui/styles';
 	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
@@ -183,7 +184,7 @@
 									required
 									maxlength="200"
 									value={exercise.name}
-									class={FIELD.replace('bg-surface', 'bg-field')}
+									class={swap(FIELD, 'bg-surface', 'bg-field')}
 								/>
 							</label>
 						{/if}
@@ -201,7 +202,7 @@
 								name="notes"
 								rows="3"
 								maxlength="2000"
-								class={TEXTAREA.replace('bg-surface', 'bg-field')}>{exercise.notes ?? ''}</textarea
+								class={swap(TEXTAREA, 'bg-surface', 'bg-field')}>{exercise.notes ?? ''}</textarea
 							>
 						</label>
 					</form>
