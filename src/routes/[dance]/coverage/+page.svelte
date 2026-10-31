@@ -1,21 +1,42 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { longPress } from '$lib/longpress';
+	import { plural } from '$lib/moves/plural';
+	import { groupHeading, pickNumber, pickedRows, togglePick } from '$lib/moves/picks';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	const refusal = $derived(
+		(form ?? null) as { field?: string; message?: string; name?: string } | null
+	);
+	const nameError = $derived(refusal?.field === 'name' ? refusal.message : undefined);
+	const bannerError = $derived(refusal?.field ? undefined : refusal?.message);
 
 	/** Picked version ids, in tap order — the new routine's slot order. */
 	let picked = $state<number[]>([]);
 	let selecting = $state(false);
 	let naming = $state(false);
 	let busy = $state(false);
+	// The `form` that was there when the sheet opened: an older refusal is not this sheet's.
+	let seen: unknown = $state(null);
 	// A failed create re-renders with the message; keep the sheet open to show it.
 	$effect(() => {
-		if (form?.message) naming = true;
+		if (form !== seen && refusal?.message) naming = true;
 	});
+
+	const rows = $derived(pickedRows(data.groups, picked));
+	const hasRows = $derived(data.groups.some((g) => g.rows.length > 0));
 
 	const press = longPress({
 		ms: 500,
@@ -28,7 +49,7 @@
 	});
 
 	function toggle(id: number) {
-		picked = picked.includes(id) ? picked.filter((p) => p !== id) : [...picked, id];
+		picked = togglePick(picked, id);
 		if (picked.length === 0) selecting = false;
 	}
 
@@ -50,53 +71,52 @@
 
 	const href = (id: number) =>
 		resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(id) });
-
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
 </script>
 
 <svelte:head><title>Coverage · {data.dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
->
-	<a
-		href={resolve('/[dance]/figures', { dance: data.dance.slug })}
-		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-		aria-label="Back to Figures">‹</a
-	>
-	<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">Routine coverage</h1>
-	{#if !selecting}
-		<button
-			type="button"
-			class="h-10 rounded-xl px-3 text-[14px] text-accent"
-			onclick={() => (selecting = true)}>Select</button
-		>
-	{/if}
-</header>
+<Screen title="Coverage" subtitle="Versions by how many routines use them">
+	{#snippet left()}
+		<BandButton
+			icon="back"
+			label="Back to Moves"
+			href={resolve('/[dance]/figures', { dance: data.dance.slug })}
+		/>
+	{/snippet}
+	{#snippet right()}
+		{#if !selecting && hasRows}
+			<button
+				type="button"
+				class="h-11 flex-none cursor-pointer px-2.5 text-[16px] font-extrabold text-band-small"
+				onclick={() => (selecting = true)}>Select</button
+			>
+		{/if}
+	{/snippet}
 
-<main class="space-y-5 px-4 pt-4 {selecting ? 'pb-20' : 'pb-4'}">
-	{#if data.groups.length === 0}
-		<p class="mt-10 text-center text-[14px] text-muted">No figures yet.</p>
-	{/if}
-	{#each data.groups as group (group.key)}
-		<section aria-labelledby="g-{group.key}">
+	<div class="flex flex-col gap-2" style={selecting ? 'padding-bottom: 5.5rem' : undefined}>
+		{#if selecting}
+			<p class="px-4 text-[13px] text-muted">Tap in the order the routine should call them.</p>
+		{/if}
+		{#if !hasRows}
+			<EmptyState icon="moves" title="No figures yet" />
+		{/if}
+		{#each data.groups as group (group.key)}
 			<h2
 				id="g-{group.key}"
-				class="mb-2 text-[12px] font-medium tracking-wide text-muted uppercase"
+				class="{SECTION_LABEL} pt-3.5 {group.key === 'none' ? 'text-status' : ''}"
 			>
-				{group.title} ({group.rows.length})
+				{groupHeading(group)}
 			</h2>
-			<ul class="space-y-2">
+			<ul class={GROUP} aria-labelledby="g-{group.key}">
 				{#each group.rows as row (row.id)}
-					{@const on = picked.includes(row.id)}
-					<li>
+					{@const n = pickNumber(picked, row.id)}
+					{@const meta = row.routines.map((r) => r.name).join(', ')}
+					<li class={n ? 'bg-accent-soft' : ''}>
 						<a
 							href={href(row.id)}
-							class="flex items-center gap-3 rounded-xl border bg-raised px-4 py-3 select-none [-webkit-touch-callout:none] {on
-								? 'border-accent'
-								: 'border-line'}"
+							class="flex w-full items-center gap-3 py-[9px] pr-3.5 pl-4 select-none [-webkit-touch-callout:none] active:bg-step {meta
+								? 'min-h-16'
+								: 'min-h-[52px]'}"
 							onpointerdown={(e) => press.down(row.id, e.clientX, e.clientY)}
 							onpointermove={(e) => press.move(e.clientX, e.clientY)}
 							onpointerup={() => press.up()}
@@ -106,93 +126,122 @@
 						>
 							{#if selecting}
 								<span
-									class="grid size-6 shrink-0 place-items-center rounded-full border text-[13px] {on
-										? 'border-accent bg-accent text-accent-ink'
-										: 'border-rule'}"
-									aria-hidden="true">{on ? picked.indexOf(row.id) + 1 : ''}</span
+									class="flex size-[26px] flex-none items-center justify-center rounded-full text-[13px] font-extrabold {n
+										? 'bg-accent text-on-accent'
+										: 'border-2 border-muted'}"
+									aria-hidden="true">{n ?? ''}</span
 								>
-								<span class="sr-only">{on ? 'Selected,' : 'Not selected,'}</span>
+								<span class="sr-only">{n ? 'Selected,' : 'Not selected,'}</span>
 							{/if}
-							<span class="min-w-0 flex-1">
-								<span class="block truncate text-[15px] font-medium">{row.label}</span>
-								{#if row.routines.length > 0}
-									<span class="block truncate text-[12px] text-muted">
-										{row.routines.map((r) => r.name).join(', ')}
-									</span>
+							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+								<span class="text-[16px] leading-[1.3] font-bold break-words text-ink"
+									>{row.label}</span
+								>
+								{#if meta}
+									<span class="truncate text-[13px] leading-[1.35] text-muted">{meta}</span>
 								{/if}
 							</span>
+							{#if !selecting}
+								<span class="flex flex-none text-chevron"
+									><Icon name="chevron-right" size={20} /></span
+								>
+							{/if}
 						</a>
 					</li>
 				{/each}
 			</ul>
-		</section>
-	{/each}
-</main>
+		{/each}
+	</div>
+</Screen>
 
 {#if selecting}
 	<div
-		class="fixed inset-x-0 z-30 mx-auto flex max-w-[560px] items-center gap-3 border-t border-line bg-surface/95 px-4 py-2 backdrop-blur"
-		style="bottom: calc(4.5rem + env(safe-area-inset-bottom))"
+		class="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[560px] items-center gap-1 border-t border-tab-line bg-tab-bg pt-3 pr-4 pl-5"
+		style="padding-bottom: calc(12px + env(safe-area-inset-bottom))"
 	>
-		<span class="flex-1 text-[14px] text-ink-2">{picked.length} selected</span>
-		<button type="button" class="h-10 px-3 text-[14px] text-ink-2" onclick={stopSelecting}
-			>Cancel</button
+		<span role="status" class="flex-1 text-[16px] font-bold text-ink">{picked.length} selected</span
 		>
+		<button type="button" class={button('tertiary', 'sm')} onclick={stopSelecting}>Cancel</button>
 		<button
 			type="button"
 			disabled={picked.length === 0}
-			class="h-10 rounded-xl bg-accent px-4 text-[14px] font-semibold text-accent-ink disabled:opacity-50"
-			onclick={() => (naming = true)}>Create routine</button
+			class={button('primary', 'sm')}
+			onclick={() => {
+				seen = form;
+				naming = true;
+			}}><Icon name="plus" size={20} /> Create routine</button
 		>
 	</div>
 {/if}
 
-<Sheet title="New routine" open={naming} onclose={() => (naming = false)}>
-	<form
-		method="POST"
-		action="?/create"
-		class="space-y-3"
-		use:guarded={{
-			label: 'New routine',
-			submit: () => {
-				busy = true;
-				// `update` follows the redirect to the new routine page.
-				return async ({ update }) => {
-					await update();
-					busy = false;
-				};
-			}
-		}}
-	>
-		{#if form?.message}
-			<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-				{form.message}
-			</p>
-		{/if}
-		{#each picked as id (id)}
-			<input type="hidden" name="figureIds" value={id} />
-		{/each}
-		<label class="block">
-			<span class="mb-1 block text-[12px] font-medium text-ink-2">Name</span>
-			<input
-				name="name"
-				required
-				maxlength="200"
-				value={form?.name ?? ''}
-				placeholder="Basic combo"
-				class={field}
-			/>
-		</label>
-		<p class="text-[12px] text-muted">
-			{picked.length}
-			{picked.length === 1 ? 'figure' : 'figures'}, in the order you picked them. Put them in order
-			on the routine page.
-		</p>
-		<button
-			type="submit"
-			disabled={busy}
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-50"
-			>Create routine</button
+{#if naming}
+	<Sheet title="New routine" open={true} onclose={() => (naming = false)}>
+		<form
+			id="cover-routine"
+			method="POST"
+			action="?/create"
+			class="flex flex-col gap-3.5"
+			use:guarded={{
+				label: 'New routine',
+				submit: ({ cancel }) => {
+					if (busy) return cancel();
+					busy = true;
+					// `update` follows the redirect to the new routine page.
+					return async ({ update }) => {
+						await update();
+						busy = false;
+					};
+				}
+			}}
 		>
-	</form>
-</Sheet>
+			{#if bannerError}<Banner kind="error">{bannerError}</Banner>{/if}
+			{#each picked as id (id)}
+				<input type="hidden" name="figureIds" value={id} />
+			{/each}
+			<div>
+				<label class={LABEL} for="cover-routine-name">Name</label>
+				<!-- svelte-ignore a11y_autofocus -->
+				<input
+					id="cover-routine-name"
+					name="name"
+					required
+					autofocus
+					maxlength="200"
+					value={refusal?.name ?? ''}
+					placeholder="Basic combo"
+					class={FIELD}
+					aria-invalid={nameError ? 'true' : undefined}
+					aria-describedby={nameError ? 'cover-routine-name-error' : undefined}
+				/>
+				{#if nameError}<FieldError id="cover-routine-name-error" message={nameError} />{/if}
+			</div>
+			<ul class={GROUP} aria-label="Picked versions">
+				{#each rows as r, i (r.id)}
+					<li class="flex min-h-12 items-center gap-3 px-4 py-2">
+						<span
+							class="flex size-[26px] flex-none items-center justify-center rounded-full bg-accent text-[13px] font-extrabold text-on-accent"
+							aria-hidden="true">{i + 1}</span
+						>
+						<span class="min-w-0 flex-1 text-[16px] font-bold break-words text-ink">{r.label}</span>
+					</li>
+				{/each}
+			</ul>
+			<p class="px-1 text-[13px] leading-[1.4] text-muted">
+				{plural(picked.length, 'figure', 'figures')}, in the order you picked them. Put them in
+				order on the routine page.
+			</p>
+		</form>
+
+		{#snippet footer()}
+			<button
+				type="submit"
+				form="cover-routine"
+				class={button('primary', 'md', true)}
+				aria-busy={busy}
+				aria-label={busy ? 'Creating routine' : undefined}
+			>
+				{#if busy}<Spinner />{:else}Create routine{/if}
+			</button>
+		{/snippet}
+	</Sheet>
+{/if}

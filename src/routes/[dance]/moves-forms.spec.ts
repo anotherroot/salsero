@@ -20,6 +20,7 @@ import { listRoutines } from '$lib/server/routines';
 import { createFigure } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
 import { actions as figureListActions } from './figures/+page.server';
+import { actions as coverageActions } from './coverage/+page.server';
 import { actions as positionActions } from './positions/+page.server';
 import { archivePosition, getPosition, listPositions, seedPositions } from '$lib/server/positions';
 
@@ -205,5 +206,23 @@ describe('Positions', () => {
 		expect(
 			await call(positionActions.rename, post('salsa', { id: String(row.id), name: '' }))
 		).toMatchObject({ status: 400, data: { field: 'name', message: 'Give the position a name.' } });
+	});
+});
+
+describe('Coverage: make routine', () => {
+	it('puts a missing routine name under Name, keeping the picks to resubmit', async () => {
+		const result = await call(coverageActions.create, post('salsa', { name: ' ', figureIds: '1' }));
+		expect(result).toMatchObject({
+			status: 400,
+			data: { field: 'name', message: 'Give the routine a name (up to 200 characters).' }
+		});
+	});
+
+	it('asks for a pick without naming a field', async () => {
+		const result = (await call(coverageActions.create, post('salsa', { name: 'Combo' }))) as {
+			data: { field?: string; message: string };
+		};
+		expect(result.data.message).toBe('Pick at least one figure.');
+		expect(result.data.field).toBeUndefined();
 	});
 });
