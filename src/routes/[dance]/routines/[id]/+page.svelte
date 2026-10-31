@@ -2,6 +2,7 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
@@ -86,6 +87,8 @@
 	} | null>(null);
 	let toast = $state<{ id: number; message: string; undo: () => void } | null>(null);
 	let toastSeq = 0;
+	/** The selection bar's height: the Undo toast sits above it while selecting. */
+	let barHeight = $state(0);
 
 	/*
 	 * Optimistic overlays, cleared when their action returns — by which time
@@ -117,42 +120,71 @@
 
 	/** The Edit form's refusals, each under its own field. */
 	const nameFieldError = $derived(
-		place?.where === 'edit' && place.field === 'name' ? place.message : null
+		place?.where === 'edit' && place.field === 'name' && dismissed !== form ? place.message : null
 	);
 	const notesFieldError = $derived(
-		place?.where === 'edit' && place.field === 'notes' ? place.message : null
+		place?.where === 'edit' && place.field === 'notes' && dismissed !== form ? place.message : null
 	);
 	/** What was typed into the Edit form before a refused Save, so it is not lost. */
 	function typed(key: 'name' | 'notes'): string | undefined {
-		return place?.where === 'edit' && form && key in form && typeof form[key] === 'string'
+		return place?.where === 'edit' &&
+			dismissed !== form &&
+			form &&
+			key in form &&
+			typeof form[key] === 'string'
 			? form[key]
 			: undefined;
 	}
 
 	/**
-	 * Focus a band button by its label. `BandButton` has no focus key on this
-	 * branch, so find it by `aria-label` in whichever band is not inert.
+	 * The band button that was focused is replaced when the band flips, so hand
+	 * focus to its successor. The page has a big header and a slim band, each
+	 * with the button; one is inert.
 	 */
-	async function focusBand(label: string) {
+	async function focusBand(key: string) {
 		await tick();
-		const el = [...document.querySelectorAll<HTMLElement>(`[aria-label="${label}"]`)].find(
-			(e) => !e.closest('[inert]')
-		);
-		el?.focus();
+		document
+			.querySelectorAll<HTMLElement>(`[data-focus="${key}"]`)
+			.forEach((el) => !el.closest('[inert]') && el.focus());
 	}
 	function startEditing() {
+		// A refusal or typed value from an earlier edit is stale now.
+		dismissed = form;
 		editing = true;
 		window.scrollTo({ top: 0 });
-		focusBand('Stop editing');
+		focusBand('stop-editing');
 	}
 	function stopEditing() {
+		dismissed = form;
 		editing = false;
-		focusBand('Edit routine');
+		focusBand('edit');
 	}
+
+	/*
+	 * Another routine reuses this component: nothing open, selected or pending
+	 * here may carry over — above all the Undo toast, whose restore would post
+	 * to the new routine's URL.
+	 */
+	afterNavigate(({ from, to }) => {
+		if (from?.params?.id === to?.params?.id) return;
+		toast = null;
+		selecting = false;
+		selected = [];
+		expanded = null;
+		swiped = null;
+		picker = null;
+		naming = false;
+		menuOpen = false;
+		editing = false;
+		archiving = false;
+		dismissed = null;
+	});
 
 	/** The Make routine sheet's refusal about its Name field. */
 	const nameError = $derived(
-		place?.where === 'extract' && place.field === 'name' ? place.message : null
+		place?.where === 'extract' && place.field === 'name' && dismissed !== form
+			? place.message
+			: null
 	);
 
 	const positionNames = $derived(new Map(data.positions.map((p) => [p.id, p.name])));
@@ -354,6 +386,9 @@
 			// from Add above / below ends selection mode first.
 			if (selecting) stopSelecting();
 			expanded = id;
+			// The picker's opener (a seam, a slot's Add) is gone or elsewhere now.
+			await tick();
+			document.querySelector<HTMLElement>(`[data-slot="${id}"] [role=button]`)?.focus();
 		}
 	}
 
@@ -367,7 +402,8 @@
 
 	const press = longPress({
 		ms: 450,
-		tolerancePx: 10,
+		// Under the swipe's 10 px lock, so a locked swipe has always cancelled it.
+		tolerancePx: 9.5,
 		enabled: () => !selecting && !dragging,
 		onLongPress: (id) => {
 			selecting = true;
@@ -411,6 +447,11 @@
 		selecting = false;
 		selected = [];
 	}
+	/** × or Escape: the band's ⋯ takes the focus the × had. */
+	function leaveSelecting() {
+		stopSelecting();
+		focusBand('more');
+	}
 
 	const extractBlocked = $derived(extractBlock(rows, selected, data.embeddedIn));
 
@@ -450,15 +491,22 @@
 <svelte:window
 	onkeydown={(e) => {
 		// Not while a sheet is open: that Escape closes the sheet, not the selection.
-		if (e.key === 'Escape' && selecting && !naming && !menuOpen && picker === null) stopSelecting();
+		if (e.key === 'Escape' && selecting && !naming && !menuOpen && picker === null)
+			leaveSelecting();
 	}}
 />
 
 {#snippet back()}
 	{#if selecting}
-		<BandButton icon="close" label="Stop selecting" onclick={stopSelecting} />
+		<BandButton
+			focusKey="stop-selecting"
+			icon="close"
+			label="Stop selecting"
+			onclick={leaveSelecting}
+		/>
 	{:else if editing}
 		<BandButton
+			focusKey="stop-editing"
 			icon="close"
 			label="Stop editing"
 			onclick={() => leaveOrAsk(editForm ?? null, stopEditing, 'Stop editing')}
@@ -473,9 +521,14 @@
 {/snippet}
 
 {#snippet actions()}
-	<BandButton icon="pencil" label="Edit routine" onclick={startEditing} />
+	<BandButton focusKey="edit" icon="pencil" label="Edit routine" onclick={startEditing} />
 	{#if data.slots.length > 0}
-		<BandButton icon="more" label="More actions" onclick={() => (menuOpen = true)} />
+		<BandButton
+			focusKey="more"
+			icon="more"
+			label="More actions"
+			onclick={() => (menuOpen = true)}
+		/>
 	{/if}
 {/snippet}
 
@@ -497,11 +550,12 @@
 			: `flex flex-col gap-2 ${selecting ? 'pb-36' : 'pb-4'}`}
 	>
 		{#if editing}
-			{#if place?.where === 'banner'}
-				<Banner kind="error" title={place.message} />
+			{#if bannerMessage}
+				<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
 			{/if}
 			<form
 				id="edit-form"
+				novalidate
 				bind:this={editForm}
 				method="POST"
 				action="?/rename"
@@ -720,6 +774,7 @@
 		selected = [];
 		expanded = null;
 		swiped = null;
+		focusBand('stop-selecting');
 	}}
 	onclose={() => (menuOpen = false)}
 />
@@ -775,6 +830,7 @@
 
 {#if selecting}
 	<SelectionBar
+		bind:height={barHeight}
 		count={selected.length}
 		blocks={actionBlocks(selected.length, extractBlocked)}
 		onabove={() => addAround('before')}
@@ -786,7 +842,11 @@
 			stopSelecting();
 			send('duplicateMany', { stepIds: ids });
 		}}
-		onextract={() => (naming = true)}
+		onextract={() => {
+			// A refused earlier Make routine (or rename) must not greet this one.
+			dismissed = form;
+			naming = true;
+		}}
 		ondelete={() => {
 			if (selected.length === 0) return;
 			const ids = inOrder(rows, selected);
@@ -809,6 +869,7 @@
 <Sheet title="Make a routine" open={naming} onclose={() => (naming = false)}>
 	<form
 		id="make-routine"
+		novalidate
 		method="POST"
 		action="?/extract"
 		class="flex flex-col gap-3.5"
@@ -833,7 +894,7 @@
 		{#each inOrder(rows, selected) as id (id)}
 			<input type="hidden" name="stepIds" value={id} />
 		{/each}
-		{#if place?.where === 'extract' && place.field === null}
+		{#if place?.where === 'extract' && place.field === null && dismissed !== form}
 			<Banner kind="error" title={place.message} />
 		{/if}
 		<div>
@@ -846,7 +907,13 @@
 				required
 				autofocus
 				maxlength="200"
-				value={form && 'name' in form && typeof form.name === 'string' ? form.name : ''}
+				value={place?.where === 'extract' &&
+				dismissed !== form &&
+				form &&
+				'name' in form &&
+				typeof form.name === 'string'
+					? form.name
+					: ''}
 				placeholder="Shine opener"
 				class={FIELD}
 				aria-invalid={nameError ? 'true' : undefined}
@@ -886,7 +953,7 @@
 
 <Toast
 	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
-	bottom="calc(1rem + env(safe-area-inset-bottom))"
+	bottom={selecting ? `calc(${barHeight}px + 0.5rem)` : 'calc(1rem + env(safe-area-inset-bottom))'}
 	onaction={() => {
 		const t = toast;
 		toast = null;

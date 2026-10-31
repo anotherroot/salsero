@@ -178,7 +178,9 @@
 			>
 				<p
 					class="truncate text-[16px] leading-[1.3] font-bold {row.empty
-						? 'text-muted'
+						? selected
+							? 'text-ink-2'
+							: 'text-muted'
 						: 'text-ink'}"
 				>
 					{#if row.isRoutine}<span class="mr-1.5 inline-block align-[-3px] text-accent-text"
@@ -264,7 +266,7 @@
 	</div>
 </Swipeable>
 
-{#if expanded && !row.isRoutine}
+{#if expanded && !row.isRoutine && (row.alternatives.length > 0 || row.canAddAlternative)}
 	<div
 		role="group"
 		aria-label="Alternatives for slot {index + 1}"

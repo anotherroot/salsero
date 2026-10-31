@@ -41,7 +41,7 @@
 	{#if ondismiss}
 		<button
 			type="button"
-			class="-my-2 flex size-10 flex-none cursor-pointer items-center justify-center rounded-full text-muted active:bg-step"
+			class="-my-2.5 flex size-11 flex-none cursor-pointer items-center justify-center rounded-full text-muted active:bg-step"
 			aria-label="Dismiss"
 			onclick={ondismiss}><Icon name="close" size={20} /></button
 		>

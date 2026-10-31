@@ -12,7 +12,7 @@
 	import Banner from './Banner.svelte';
 	import Icon from './Icon.svelte';
 	import UploadCard from './UploadCard.svelte';
-	import { DASHED_ADD, iconButton } from './styles';
+	import { DASHED_ADD } from './styles';
 
 	/**
 	 * Upload files in slices, so their size is bounded by the disk rather than by
@@ -193,16 +193,8 @@
 
 {#if message}
 	<div class="mb-3">
-		<Banner kind="error" title={message.title}>
+		<Banner kind="error" title={message.title} ondismiss={() => (message = null)}>
 			{message.body}
-			{#snippet action()}
-				<button
-					type="button"
-					class={iconButton('bare').replace('text-ink', 'text-muted')}
-					aria-label="Dismiss"
-					onclick={() => (message = null)}><Icon name="close" size={20} /></button
-				>
-			{/snippet}
 		</Banner>
 	</div>
 {/if}

@@ -46,7 +46,7 @@ Nothing about what a routine *is* changes. No schema change, no migration.
  └──────────────────────────────────┘
      │ ┌ Enchufla · Doble      1→1 ┐    ← alternatives: smaller, tinted
      │ └ + Alternative             ┘
- ─────────── (↓+) (↑+) ── hammerlock? ─  ← a seam that does not connect
+ ── (↓ After 3) (↑ Before 4) hammerlock? ─  ← a seam that does not connect
  ┌──────────────────────────────────┐
  │ ⋮⋮  4  Sombrero                   │
  └──────────────────────────────────┘
@@ -125,7 +125,8 @@ disappears.
 **The ends are always buildable.** A **+** above slot 1 behaves as
 **↑ Before** slot 1; the **Add a slot** button below the last slot behaves as
 **↓ After** it. An empty
-routine shows a single **+** whose picker has no anchor and no filter.
+routine shows the **No slots yet** empty state with an **Add a figure** button,
+whose picker has no anchor and no filter.
 
 ### Drag to reorder
 
@@ -177,8 +178,8 @@ reason ("Select slots first."). While selecting:
 
 | Action           | When                                     | Does                                                                                                 |
 | ---------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Add above**    | exactly one selected                     | the picker, anchored as **↑+** into that slot                                                       |
-| **Add below**    | exactly one selected                     | the picker, anchored as **↓+** from that slot                                                       |
+| **Add above**    | exactly one selected                     | the picker, anchored as **↑ Before** that slot                                                      |
+| **Add below**    | exactly one selected                     | the picker, anchored as **↓ After** that slot                                                       |
 | **Duplicate**    | any                                      | copies of the selected slots, in their order, directly after the last selected slot                 |
 | **Make routine** | a contiguous run, no embedded slot in it, and this routine not itself embedded | asks for a name, then replaces the run with one slot embedding a new routine made of it |
 | **Delete**       | any                                      | deletes them all, with undo                                                                          |
@@ -232,7 +233,7 @@ Every change is applied optimistically, then the page calls `invalidateAll()`
 so the server's state replaces the guess. When an action is refused — an
 alternative that no longer fits because a figure's tags changed, a slot already
 deleted in another tab — the server's state wins and the message shows under
-the slot it was aimed at, through the page's existing `failedSlot` mechanism,
+the slot it was aimed at, through `failurePlace` (`src/lib/routines/page.ts`),
 or in the banner when no slot is named.
 
 ### What goes away
@@ -285,10 +286,10 @@ What the picker filters against, by how it was opened:
 
 | Opened from                              | Anchor  | Context line                          | **Count** keeps             | **Hold** keeps                       |
 | ---------------------------------------- | ------- | ------------------------------------- | --------------------------- | ------------------------------------ |
-| ↓+ under slot *i*, bottom +, Add below   | `after` | "Starts on *n* from *position*"       | start count = slot's next   | starts include the slot's end        |
-| ↑+ above slot *i*, top +, Add above      | `before`| "Ends on *n* at *position*"           | next count ∈ slot's start counts | end ∈ slot's start positions         |
+| ↓ After slot *i*, bottom +, Add below    | `after` | "Starts on *n* from *position*"       | start count = slot's next   | starts include the slot's end        |
+| ↑ Before slot *i*, top +, Add above      | `before`| "Ends on *n* at *position*"           | next count ∈ slot's start counts | end ∈ slot's start positions         |
 | + Alternative                            | `alternative` | "*Closed → Open*, 1→1"          | always on — see below       | always on — see below                |
-| the single + of an empty routine         | none    | none                                  | —                           | —                                    |
+| Add a figure in an empty routine         | none    | none                                  | —                           | —                                    |
 
 "Ends on *n*" is the count **before** the anchor slot's start count — a slot
 starting on 1 is reached by a figure ending on 8 — because that is how a dancer
@@ -374,8 +375,8 @@ the rule governs adding, it is not a migration.
 
 `SlotCard.svelte` (handle, swipe layers, expand/collapse, note field,
 alternative cards), `Seam.svelte`, `SlotPicker.svelte` (a wrapper that feeds
-`fit.ts`'s output to the shared picker), `SelectionBar.svelte`,
-`UndoToast.svelte`. The page becomes the wiring between them and the actions.
+`fit.ts`'s output to the shared picker), `SelectionBar.svelte`, and
+the shared `Toast` (`src/lib/components/ui/Toast.svelte`) for Undo. The page becomes the wiring between them and the actions.
 
 ### Server
 

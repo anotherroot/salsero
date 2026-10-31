@@ -17,9 +17,20 @@
 		onduplicate: () => void;
 		onextract: () => void;
 		ondelete: () => void;
+		/** The bar's rendered height, for whatever must sit above it. */
+		height?: number;
 	}
 
-	let { count, blocks, onabove, onbelow, onduplicate, onextract, ondelete }: Props = $props();
+	let {
+		count,
+		blocks,
+		onabove,
+		onbelow,
+		onduplicate,
+		onextract,
+		ondelete,
+		height = $bindable(0)
+	}: Props = $props();
 
 	let hint = $state<string | null>(null);
 	// A reason belongs to the selection it was given for: tapping a second slot
@@ -59,6 +70,7 @@
 <div
 	role="toolbar"
 	aria-label="Selected slots"
+	bind:offsetHeight={height}
 	class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg px-2 pt-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] [--icon-knockout:var(--color-tab-bg)]"
 	style="padding-bottom: calc(8px + env(safe-area-inset-bottom))"
 >
