@@ -109,3 +109,15 @@ describe('on-band switch track', () => {
 			}
 	});
 });
+
+describe('switch off track and toast check', () => {
+	it('keeps the switch off track and the toast check visible (non-text, 3:1)', () => {
+		for (const d of DANCE_SLUGS)
+			for (const s of ['light', 'dark'] as const) {
+				const t = THEMES[d][s];
+				for (const bg of [t.surface, t.ground, t.sheet, t.raised])
+					expect(contrast(t.muted, bg), `${d} ${s}`).toBeGreaterThanOrEqual(3);
+				expect(contrast(t['inverse-done'], t['inverse-bg'])).toBeGreaterThanOrEqual(3);
+			}
+	});
+});
