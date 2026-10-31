@@ -899,8 +899,8 @@
 	groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
 	nothingLeft="There are no figures yet."
 	create={[
-		{ key: 'figure', label: '+ Figure' },
-		{ key: 'variation', label: '+ Variation' }
+		{ key: 'figure', label: 'Figure' },
+		{ key: 'variation', label: 'Variation' }
 	]}
 	{added}
 	message={picking === 'figure' ? pickMessage : null}
@@ -918,7 +918,7 @@
 	kind="link"
 	groups={[{ title: 'Routines', entries: routineRows(data.linkableRoutines) }]}
 	nothingLeft="There are no routines yet."
-	create={[{ key: 'routine', label: '+ Routine' }]}
+	create={[{ key: 'routine', label: 'Routine' }]}
 	{added}
 	message={picking === 'routine' ? pickMessage : null}
 	onpick={(row) => link('routine', row, false)}
@@ -935,7 +935,7 @@
 	kind="link"
 	groups={exerciseGroups(data.linkableExercises)}
 	nothingLeft="Nothing left to link. A figure’s or routine’s exercise lives under it."
-	create={[{ key: 'exercise', label: '+ Exercise' }]}
+	create={[{ key: 'exercise', label: 'Exercise' }]}
 	{added}
 	message={picking === 'exercise' ? pickMessage : null}
 	onpick={(row) => link('exercise', row, false)}

@@ -60,9 +60,9 @@
 	type CreateStep = 'variation' | 'figure' | 'drill';
 	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill'];
 	const CREATE_ROW = [
-		{ key: 'variation', label: '+ Variation' },
-		{ key: 'figure', label: '+ Figure' },
-		{ key: 'drill', label: '+ Drill' }
+		{ key: 'variation', label: 'Variation' },
+		{ key: 'figure', label: 'Figure' },
+		{ key: 'drill', label: 'Drill' }
 	];
 
 	let options = $state<LinkOptions | null>(null);
