@@ -97,6 +97,11 @@
 	let gen = 0;
 	let controller: AbortController | null = null;
 	let running: Promise<void> | null = null;
+	// Leaving mid-recording stops the microphone and the click.
+	$effect(() => () => {
+		gen++;
+		controller?.abort();
+	});
 	/** True once a run has been stopped, so an empty result is not called a failure. */
 	let stopped = false;
 
@@ -252,8 +257,11 @@
 	let seq = 0;
 
 	function refused(result: Awaited<ReturnType<typeof act>>) {
-		if (result.type !== 'failure') return false;
-		const message = (result.data as { message?: string } | undefined)?.message;
+		if (result.type === 'success') return false;
+		const message =
+			result.type === 'failure'
+				? (result.data as { message?: string } | undefined)?.message
+				: undefined;
 		toast = { id: ++seq, message: message ?? 'Could not do that.' };
 		return true;
 	}
@@ -266,8 +274,8 @@
 			message: deleted,
 			action: 'Undo',
 			undo: async () => {
-				const r = await act('restore', { id });
 				toast = null;
+				const r = await act('restore', { id });
 				refused(r);
 			}
 		};
@@ -438,8 +446,10 @@
 					class="inline-flex h-[30px] items-center gap-2 rounded-full bg-danger-soft px-3 text-[13px] font-extrabold text-danger"
 					><span class="size-2 rounded-full bg-danger"></span>Recording</span
 				>
-				<p role="status" class="text-center">
-					<span class="block font-display text-[40px] leading-tight font-extrabold text-ink"
+				<p class="text-center">
+					<span
+						aria-live="polite"
+						class="block font-display text-[40px] leading-tight font-extrabold text-ink"
 						>{view.heading}</span
 					>
 					{#if view.say || view.line}

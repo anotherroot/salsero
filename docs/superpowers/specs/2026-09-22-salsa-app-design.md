@@ -661,7 +661,7 @@ shows this dance's default style only (the dance comes from the dance cookie;
 the other dance's `default_styles` entry is untouched). The reminder is a
 switch plus a time row; turning it on uses the time last shown, else 19:30.
 My count shows one count pattern at a time (the band's segmented control;
-`?pattern=`). Removing a paired phone toasts with Undo for 60 s
+`?pattern=`). Removing a paired phone toasts for 6 s with Undo, held 60 s on the server
 (`src/lib/server/undo-hold.ts`, a server hold: the token hash never reaches the
 page). Every page draws a band (`src/lib/nav/bands.spec.ts`).
 

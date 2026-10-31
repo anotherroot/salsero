@@ -182,8 +182,9 @@ zero and so may sit perceptibly late. Worth fixing there in the same pass.
 
 A route of its own (`/voice`), reached from the player's setup screen.
 
-- A grid of pattern × tempo showing which cells are filled.
-- Picking a cell: the headphone warning, one bar of count-in, then the click
+- One count pattern at a time (the band's segmented control), its takes listed
+  by tempo and phrase.
+- Starting a recording: the headphone warning, one bar of count-in, then the click
   runs and the user counts **four bars**.
 - Those four bars are sliced into four candidate A takes and four candidate B
   takes. The user auditions them against the click and keeps one of each.

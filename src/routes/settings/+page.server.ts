@@ -73,7 +73,8 @@ export const actions: Actions = {
 	reminder: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
 		const form = await request.formData();
-		const minute = minuteOfDay(String(form.get('reminder') ?? ''));
+		const raw = form.get('reminder');
+		const minute = typeof raw === 'string' ? minuteOfDay(raw) : undefined;
 		if (minute === undefined) return fail(400, { message: 'Pick a time, or switch it off.' });
 		setReminderMinute(getDb(), locals.user.id, minute);
 		return { ok: true };
@@ -91,7 +92,7 @@ export const actions: Actions = {
 		if (!locals.user) throw error(401);
 		const id = int(await request.formData(), 'id');
 		const snap = id === undefined ? null : removeDevice(getDb(), locals.user.id, id);
-		if (id === undefined || !snap) throw error(404);
+		if (id === undefined || !snap) return fail(404, { message: 'That phone is already gone.' });
 		removed.put(holdKey(locals.user.id, id), snap);
 		return { removed: id };
 	},

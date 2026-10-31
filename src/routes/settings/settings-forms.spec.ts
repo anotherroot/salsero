@@ -83,6 +83,11 @@ describe('reminder', () => {
 		expect(deviceSettings(db, 'u1').reminderMinute).toBe(450);
 		await call(actions.reminder, post({ reminder: '' }));
 		expect(deviceSettings(db, 'u1').reminderMinute).toBeNull();
+		// A missing field is not "off".
+		await call(actions.reminder, post({ reminder: '07:30' }));
+		expect(await call(actions.reminder, post({}))).toMatchObject({ status: 400 });
+		expect(deviceSettings(db, 'u1').reminderMinute).toBe(450);
+		await call(actions.reminder, post({ reminder: '' }));
 		expect(await call(actions.reminder, post({ reminder: '25:00' }))).toMatchObject({
 			status: 400
 		});
@@ -116,11 +121,10 @@ describe('removing a phone and Undo', () => {
 
 	it("never touches another user's phone", async () => {
 		const { id, token } = createDeviceToken(db, 'u1', 'Phone', T0);
-		await expect(call(actions.removeDevice, post({ id: String(id) }, OTHER))).rejects.toMatchObject(
-			{
-				status: 404
-			}
-		);
+		expect(await call(actions.removeDevice, post({ id: String(id) }, OTHER))).toMatchObject({
+			status: 404,
+			data: { message: 'That phone is already gone.' }
+		});
 		expect(userForDeviceToken(db, token, T0)).not.toBeNull();
 
 		await call(actions.removeDevice, post({ id: String(id) }));

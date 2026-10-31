@@ -24,7 +24,8 @@
 	} = $props();
 
 	// One name per instance, so two sheets on a page never share a radio group.
-	const name = `choice-${Math.random().toString(36).slice(2, 8)}`;
+	const id = $props.id();
+	const name = `choice-${id}`;
 </script>
 
 <Sheet {title} {open} {onclose}>
@@ -44,6 +45,8 @@
 							class="size-[22px] flex-none cursor-pointer"
 							style="accent-color: var(--color-accent)"
 							onchange={() => onpick(o.value)}
+							// The picked one does not change, so it only closes.
+							onclick={() => o.value === value && onclose()}
 						/>
 					</label>
 				{/each}

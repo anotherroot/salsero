@@ -69,7 +69,7 @@ export function takeRows(
 ): { id: number; title: string; meta: string; deleteLabel: string; deleted: string }[] {
 	return takes
 		.filter((t) => t.pattern === pattern)
-		.toSorted((x, y) => x.bpm - y.bpm || x.phrase.localeCompare(y.phrase))
+		.sort((x, y) => x.bpm - y.bpm || x.phrase.localeCompare(y.phrase))
 		.map((t) => {
 			const title = `${t.bpm} BPM · counts ${counts(pattern, t.phrase)}`;
 			const letter = t.phrase.toUpperCase();

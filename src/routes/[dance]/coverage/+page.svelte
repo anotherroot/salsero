@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { tabSurface } from '$lib/app-bars.svelte';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -163,6 +164,7 @@
 
 {#if selecting}
 	<div
+		use:tabSurface
 		class="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[560px] items-center gap-1 border-t border-tab-line bg-tab-bg pt-3 pr-4 pl-5"
 		style="padding-bottom: calc(12px + env(safe-area-inset-bottom))"
 	>

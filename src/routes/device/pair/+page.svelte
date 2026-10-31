@@ -49,7 +49,8 @@
 			<BottomBar>
 				<form
 					method="POST"
-					use:enhance={() => {
+					use:enhance={({ cancel }) => {
+						if (busy) return cancel();
 						busy = true;
 						return async ({ update }) => {
 							await update();
@@ -57,8 +58,8 @@
 						};
 					}}
 				>
-					<button class={button('primary', 'lg', true)} disabled={busy} aria-busy={busy}>
-						{#if busy}<Spinner size={24} />{:else}Pair this phone{/if}
+					<button class={button('primary', 'lg', true)} aria-busy={busy}>
+						{#if busy}<Spinner size={24} /> Pairing…{:else}Pair this phone{/if}
 					</button>
 				</form>
 			</BottomBar>

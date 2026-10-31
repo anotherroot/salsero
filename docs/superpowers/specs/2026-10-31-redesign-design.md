@@ -439,8 +439,11 @@ rules the boards follow that are not obvious from looking at them.
 - Sign in is titled "Sign in" (not the dance name). Pairing is the one-tap
   "Pair this phone". The share page is "Add to a lesson" (no dance name), with a
   spinner on the tapped row.
-
-- Offline: a tap made while the phone reports no connection shows the Offline page over the current one; a server that is down while the phone is online still ends in the browser's own error page (SvelteKit reloads the page then).
+- Offline: a tap made while the phone reports no connection shows the Offline
+  page over the current one, as a modal dialog in the top layer, so it also
+  covers an open sheet; Back dismisses it. A server that is down while the
+  phone is online still ends in the browser's own error page (SvelteKit
+  reloads the page then).
 
 ## Building it
 
@@ -494,8 +497,8 @@ in the routine picker, search on Routines.
   moment they land, and the four-tab bar needs Moves and Music to exist. No
   compatibility layer for old tokens or the old BottomNav.
 - **Android system bars:** painted natively per flavor — the status bar in the
-  dance's band colour (light and dark), the navigation bar in the tab bar's
-  colour — so the band runs to the top of the screen. The full-screen player
+  dance's band colour (light and dark), the navigation bar follows the page (the tab bar's colour where
+  the tab bar or a pinned bottom bar shows, the page colour elsewhere) — so the band runs to the top of the screen. The full-screen player
   keeps its own handling.
 - **Fonts self-hosted** (bundled via `@fontsource-variable/*`, imported in `layout.css`), no Google Fonts request.
 - **Lesson page order** is Videos before Links, and Figures before Exercises.

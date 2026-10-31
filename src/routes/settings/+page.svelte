@@ -23,13 +23,15 @@
 	);
 	const sizeOptions = VIDEO_SHORT_SIDES.map((s) => ({ value: String(s), label: `${s}p` }));
 
-	let on = $state(false);
-	let time = $state(DEFAULT_REMINDER);
-	// Seeded from the saved settings, and again whenever they reload.
-	$effect(() => {
-		on = data.device.reminderMinute !== null;
-		time = clockLabel(data.device.reminderMinute) || DEFAULT_REMINDER;
+	/** The reminder as saved: the switch and the time. */
+	const seed = () => ({
+		on: data.device.reminderMinute !== null,
+		time: clockLabel(data.device.reminderMinute) || DEFAULT_REMINDER
 	});
+	// Seeded from the saved settings (so the first paint is right), and again whenever they reload.
+	let on = $state(seed().on);
+	let time = $state(seed().time);
+	$effect(reseed);
 
 	let sheet = $state<'style' | 'size' | null>(null);
 
@@ -44,8 +46,11 @@
 	let seq = 0;
 
 	function failed(result: ActionResult) {
-		if (result.type !== 'failure') return false;
-		const message = (result.data as { message?: string } | undefined)?.message;
+		if (result.type === 'success') return false;
+		const message =
+			result.type === 'failure'
+				? (result.data as { message?: string } | undefined)?.message
+				: undefined;
 		toast = { id: ++seq, message: message ?? 'Could not save.' };
 		return true;
 	}
@@ -61,14 +66,15 @@
 	}
 
 	function reseed() {
-		on = data.device.reminderMinute !== null;
-		time = clockLabel(data.device.reminderMinute) || DEFAULT_REMINDER;
+		const s = seed();
+		on = s.on;
+		time = s.time;
 	}
 
 	function saveReminder() {
 		const reminder = reminderToSave(on, time);
 		if (reminder === null) {
-			time = clockLabel(data.device.reminderMinute) || DEFAULT_REMINDER;
+			time = seed().time;
 			return;
 		}
 		void save('reminder', { reminder });
@@ -82,8 +88,8 @@
 			message: `${label} removed`,
 			action: 'Undo',
 			undo: async () => {
-				const r = await act('restoreDevice', { id });
 				toast = null;
+				const r = await act('restoreDevice', { id });
 				failed(r);
 			}
 		};
@@ -130,7 +136,14 @@
 				<span class="text-[16px] font-bold text-ink">Daily reminder</span>
 				<span class="text-[13px] text-muted">What is due, as a notification</span>
 			</span>
-			<Switch label="Daily reminder" bind:checked={on} onchange={saveReminder} />
+			<Switch
+				label="Daily reminder"
+				checked={on}
+				onchange={(c) => {
+					on = c;
+					saveReminder();
+				}}
+			/>
 		</div>
 		<div class="{ROW} min-h-[60px] pr-3.5">
 			<span class="min-w-0 flex-1 text-[16px] font-bold {on ? 'text-ink' : 'text-disabled-ink'}"
@@ -142,7 +155,7 @@
 				bind:value={time}
 				disabled={!on}
 				onchange={saveReminder}
-				class="h-11 w-24 flex-none rounded-full bg-field px-0 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums disabled:bg-disabled-bg disabled:text-disabled-ink"
+				class="h-11 w-28 min-w-24 flex-none rounded-full bg-field px-3 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums disabled:bg-disabled-bg disabled:text-disabled-ink"
 			/>
 		</div>
 		<button

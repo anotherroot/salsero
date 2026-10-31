@@ -18,6 +18,8 @@ describe('danceInPath', () => {
 		expect(danceInPath('/settings')).toBeNull();
 		expect(danceInPath('/')).toBeNull();
 		expect(danceInPath('/salsax/a')).toBeNull();
+		expect(danceInPath('/bachata/')).toBe('bachata');
+		expect(danceInPath('/salsa-x')).toBeNull();
 	});
 });
 

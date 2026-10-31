@@ -17,6 +17,7 @@ import {
 	isDanceSlug,
 	type DanceSlug
 } from '$lib/dances/dances';
+import { safeNext } from '$lib/safe-next';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -28,13 +29,6 @@ import type { Actions, PageServerLoad } from './$types';
 const DUMMY_HASH =
 	'scrypt$32768$8$1$YWJjZGVmZ2hpamtsbW5vcA==$' +
 	'ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWR1bW15ZHVtbXlkdW1teWQ=';
-
-/** Only same-origin absolute paths, so `?next=` cannot become an open redirect. */
-function safeNext(raw: string | null): string {
-	if (!raw) return '/';
-	if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
-	return raw;
-}
 
 export const load: PageServerLoad = ({ url, cookies }) => {
 	const next = safeNext(url.searchParams.get('next'));
