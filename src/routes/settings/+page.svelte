@@ -1,180 +1,237 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { resolve } from '$app/paths';
+	import { act } from '$lib/components/routines/act';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
+	import Toast from '$lib/components/ui/Toast.svelte';
+	import { GROUP, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
+	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
-	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
-	import type { ActionData, PageData } from './$types';
+	import type { ActionResult } from '@sveltejs/kit';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
-	let busy = $state(false);
-	let stylesBusy = $state(false);
+	let { data }: { data: PageData } = $props();
 
-	const label = 'mb-1 block text-[13px] text-muted';
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
+	const dance = $derived(DANCES[data.dance]);
+	const styleOptions = $derived(
+		dance.styles.map((s) => ({ value: s, label: dance.styleLabel[s] }))
+	);
+	const sizeOptions = VIDEO_SHORT_SIDES.map((s) => ({ value: String(s), label: `${s}p` }));
+
+	let on = $state(false);
+	let time = $state(DEFAULT_REMINDER);
+	// Seeded from the saved settings, and again whenever they reload.
+	$effect(() => {
+		on = data.device.reminderMinute !== null;
+		time = clockLabel(data.device.reminderMinute) || DEFAULT_REMINDER;
+	});
+
+	let sheet = $state<'style' | 'size' | null>(null);
+
+	let toast = $state<{
+		id: number;
+		message: string;
+		action?: string;
+		icon?: 'check';
+		tone?: 'done';
+		undo?: () => void;
+	} | null>(null);
+	let seq = 0;
+
+	function failed(result: ActionResult) {
+		if (result.type !== 'failure') return false;
+		const message = (result.data as { message?: string } | undefined)?.message;
+		toast = { id: ++seq, message: message ?? 'Could not save.' };
+		return true;
+	}
+
+	/** Post one setting; "Saved" on success, the server's message on a refusal. */
+	async function save(name: string, fields: Record<string, string | number>) {
+		const result = await act(name, fields);
+		if (failed(result)) {
+			if (result.type === 'failure' && result.status === 0) reseed();
+			return;
+		}
+		toast = { id: ++seq, message: 'Saved', icon: 'check', tone: 'done' };
+	}
+
+	function reseed() {
+		on = data.device.reminderMinute !== null;
+		time = clockLabel(data.device.reminderMinute) || DEFAULT_REMINDER;
+	}
+
+	function saveReminder() {
+		const reminder = reminderToSave(on, time);
+		if (reminder === null) {
+			time = clockLabel(data.device.reminderMinute) || DEFAULT_REMINDER;
+			return;
+		}
+		void save('reminder', { reminder });
+	}
+
+	async function remove(id: number, label: string) {
+		const result = await act('removeDevice', { id });
+		if (failed(result)) return;
+		toast = {
+			id: ++seq,
+			message: `${label} removed`,
+			action: 'Undo',
+			undo: async () => {
+				const r = await act('restoreDevice', { id });
+				toast = null;
+				failed(r);
+			}
+		};
+	}
+
+	const savedSize = $derived(String(data.device.shortSide));
 </script>
 
-<svelte:head><title>Settings · Salsa</title></svelte:head>
+<svelte:head><title>Settings · {dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
->
-	<a
-		href={resolve('/[dance]', { dance: data.lastDance })}
-		aria-label="Back to Today"
-		class="-mt-1 mb-1 -ml-3 flex h-11 w-11 items-center justify-center rounded-full text-ink"
-		><Icon name="back" /></a
-	>
-	<h1 class="text-[17px] font-semibold">Settings</h1>
-</header>
+<Screen title="Settings">
+	{#snippet left()}
+		<BandButton icon="back" label="Back to Today" href={`/${data.dance}`} />
+	{/snippet}
 
-<main class="space-y-6 px-4 pt-4 pb-4">
-	<section>
-		<a
-			href={resolve('/voice')}
-			class="flex items-center gap-3 rounded-xl border border-line bg-raised px-4 py-3"
-		>
-			<span class="flex-1">
-				<span class="block text-[15px] font-medium text-ink">My count</span>
-				<span class="block text-[13px] text-muted">
-					Record yourself counting, for the player to use instead of the built-in voice
-				</span>
+	<span class={SECTION_LABEL}>Practice</span>
+	<div class={GROUP}>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+		<a href="/voice" class={ROW.replace('min-h-14', 'min-h-16')}>
+			<LeadTile icon="mic" />
+			<span class="flex min-w-0 flex-1 flex-col">
+				<span class="text-[16px] font-bold text-ink">My count</span>
+				<span class="text-[13px] text-muted">{data.ownVoice}</span>
 			</span>
-			<span class="text-[20px] text-muted" aria-hidden="true">›</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</a>
-	</section>
-
-	<section class="space-y-3">
-		<div>
-			<h2 class="text-[15px] font-medium text-ink">New figures</h2>
-			<p class="text-[13px] text-muted">The style a new figure starts on.</p>
-		</div>
-		<form
-			method="POST"
-			action="?/style"
-			class="space-y-3"
-			use:guarded={{
-				label: 'Default styles',
-				submit: () => {
-					stylesBusy = true;
-					return async ({ update }) => {
-						await update({ reset: false });
-						stylesBusy = false;
-					};
-				}
-			}}
+		<button
+			type="button"
+			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			onclick={() => (sheet = 'style')}
 		>
-			{#if form && 'message' in form && form.message}
-				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">{form.message}</p>
-			{/if}
-			<input type="hidden" name="dance" value={data.dance} />
-			<label class="block">
-				<span class={label}>{DANCES[data.dance].label}</span>
-				<select name="style" class={field} value={data.defaultStyle}>
-					{#each DANCES[data.dance].styles as s (s)}
-						<option value={s}>{DANCES[data.dance].styleLabel[s]}</option>
-					{/each}
-				</select>
-			</label>
-			<button
-				disabled={stylesBusy}
-				class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white disabled:opacity-60"
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">New figures start on</span>
+			<span class="text-[15px] font-semibold text-muted">{dance.styleLabel[data.defaultStyle]}</span
 			>
-				Save
-			</button>
-		</form>
-	</section>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
+	</div>
 
-	<section class="space-y-3">
-		<div>
-			<h2 class="text-[15px] font-medium text-ink">Android app</h2>
-			<p class="text-[13px] text-muted">Used by the phone app, not by this page.</p>
+	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
+	<div class={GROUP}>
+		<div class="{ROW} pr-1.5">
+			<LeadTile icon="bell" />
+			<span class="flex min-w-0 flex-1 flex-col">
+				<span class="text-[16px] font-bold text-ink">Daily reminder</span>
+				<span class="text-[13px] text-muted">What is due, as a notification</span>
+			</span>
+			<Switch label="Daily reminder" bind:checked={on} onchange={saveReminder} />
 		</div>
-		<form
-			method="POST"
-			action="?/reminder"
-			class="space-y-3"
-			use:guarded={{
-				label: 'App settings',
-				submit: () => {
-					busy = true;
-					return async ({ update }) => {
-						await update({ reset: false });
-						busy = false;
-					};
-				}
-			}}
+		<div class="{ROW} min-h-[60px] pr-3.5">
+			<span class="min-w-0 flex-1 text-[16px] font-bold {on ? 'text-ink' : 'text-disabled-ink'}"
+				>Time</span
+			>
+			<input
+				type="time"
+				aria-label="Reminder time"
+				bind:value={time}
+				disabled={!on}
+				onchange={saveReminder}
+				class="h-11 w-24 flex-none rounded-full bg-field px-0 text-center font-sans text-[18px] font-extrabold text-ink tabular-nums disabled:bg-disabled-bg disabled:text-disabled-ink"
+			/>
+		</div>
+		<button
+			type="button"
+			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			onclick={() => (sheet = 'size')}
 		>
-			{#if form && 'message' in form && form.message}
-				<p class="bg-danger-bg rounded-lg px-3 py-2 text-[13px] text-danger">{form.message}</p>
-			{/if}
-			<label class="block">
-				<span class={label}>Daily reminder (empty = off)</span>
-				<input
-					type="time"
-					name="reminder"
-					class={field}
-					value={clockLabel(data.device.reminderMinute)}
-				/>
-			</label>
-			<button
-				disabled={busy}
-				class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white disabled:opacity-60"
-			>
-				Save
-			</button>
-		</form>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Compress videos to</span>
+			<span class="text-[15px] font-semibold text-muted">{savedSize}p</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
+	</div>
+	<p class="px-4 pt-0.5 text-[13px] text-muted">Read by the phone app when it opens.</p>
 
-		<form method="POST" action="?/videoSize" class="space-y-3" use:enhance>
-			<label class="block">
-				<span class={label}>Compress videos to</span>
-				<select name="shortSide" class={field} value={data.device.shortSide}>
-					{#each VIDEO_SHORT_SIDES as side (side)}
-						<option value={side}>{side}p</option>
-					{/each}
-				</select>
-			</label>
-			<button class="h-11 w-full rounded-lg bg-accent text-[15px] font-medium text-white"
-				>Save</button
-			>
-		</form>
+	{#if data.devices.length}
+		<span class="{SECTION_LABEL} mt-[14px]">Paired phones</span>
+		<ul class={GROUP}>
+			{#each data.devices as d (d.id)}
+				<li class="{ROW} min-h-16 pr-1.5">
+					<LeadTile icon="phone" />
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="truncate text-[16px] font-bold text-ink">{d.label}</span>
+						<span class="text-[13px] text-muted">{d.meta}</span>
+					</span>
+					<button
+						type="button"
+						class={button('danger-text', 'sm')}
+						aria-label="Remove {d.label}"
+						onclick={() => remove(d.id, d.label)}>Remove</button
+					>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 
-		{#if data.devices.length > 0}
-			<ul class="space-y-2">
-				{#each data.devices as device (device.id)}
-					<li class="flex items-center gap-3 rounded-xl border border-line bg-raised px-4 py-3">
-						<span class="flex-1">
-							<span class="block text-[15px] text-ink">{device.label}</span>
-							<span class="block text-[12px] text-muted">
-								{device.meta}
-							</span>
-						</span>
-						<form method="POST" action="?/removeDevice" use:enhance>
-							<input type="hidden" name="id" value={device.id} />
-							<button class="text-[13px] text-danger">Remove</button>
-						</form>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
+	<span class="{SECTION_LABEL} mt-[14px]">Account</span>
+	<div class={GROUP}>
+		<div class="{ROW} min-h-16 pr-1.5">
+			<LeadTile icon="solo" />
+			<span class="flex min-w-0 flex-1 flex-col">
+				<span class="truncate text-[16px] font-bold text-ink">{data.user?.email}</span>
+				<span class="text-[13px] text-muted">Signed in</span>
+			</span>
+			<!--
+				A POST, not a link: /logout has always been a POST so that a prefetch or
+				a crawled link cannot sign you out from under you.
+			-->
+			<form method="POST" action="/logout">
+				<button class={button('tertiary', 'sm')}><Icon name="logout" size={18} />Sign out</button>
+			</form>
+		</div>
+	</div>
+</Screen>
 
-	<section class="space-y-2">
-		{#if data.user}
-			<p class="text-[13px] text-muted">Signed in as {data.user.email}</p>
-		{/if}
-		<!--
-			A POST, not a link: /logout has always been a POST so that a prefetch or
-			a crawled link cannot sign you out from under you.
-		-->
-		<form method="POST" action="/logout">
-			<button class="h-11 w-full rounded-lg border border-rule text-[15px] text-ink">
-				Sign out
-			</button>
-		</form>
-	</section>
-</main>
+<ChoiceSheet
+	open={sheet === 'style'}
+	title="New figures start on"
+	intro="The style a new figure starts on. You can change it on the figure."
+	legend="Style"
+	options={styleOptions}
+	value={data.defaultStyle}
+	onpick={(style) => {
+		sheet = null;
+		void save('style', { dance: data.dance, style });
+	}}
+	onclose={() => (sheet = null)}
+/>
+<ChoiceSheet
+	open={sheet === 'size'}
+	title="Compress videos to"
+	legend="Size"
+	options={sizeOptions}
+	value={savedSize}
+	onpick={(shortSide) => {
+		sheet = null;
+		void save('videoSize', { shortSide });
+	}}
+	onclose={() => (sheet = null)}
+/>
+
+<Toast
+	toast={toast && {
+		id: toast.id,
+		message: toast.message,
+		action: toast.action,
+		icon: toast.icon,
+		tone: toast.tone
+	}}
+	onaction={() => toast?.undo?.()}
+	ondismiss={() => (toast = null)}
+	bottom="calc(1rem + env(safe-area-inset-bottom))"
+/>
