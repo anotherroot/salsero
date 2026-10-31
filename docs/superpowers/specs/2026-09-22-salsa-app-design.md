@@ -298,12 +298,14 @@ The home page. One page serves both "exercises" and "today".
 - **Header:** date with ‹ › arrows; › disabled on today. `?day=YYYY-MM-DD`
   in the URL so days are linkable and back-button friendly.
 - **Viewing today:**
-  1. **Done today** — exercises with ≥1 set today, at the top, in the "done"
-     colour, showing the set count. Ordered by most recent set first.
-  2. **Due** — active exercises at urgency ≥ 1, never-done included, most urgent
+  1. **Due** — active exercises at urgency ≥ 1, never-done included, most urgent
      first.
-  3. **Not yet due** — the rest of the active ones, dimmed but shown and still
+  2. **Not yet due** — the rest of the active ones, dimmed but shown and still
      loggable: seeing what is coming is how you pick a short session.
+  3. **Done today** — exercises with ≥1 set today, in the "done" colour,
+     showing the set count. Ordered by most recent set first. (Done sits below
+     the first two since 2026-10-31: what the session walks comes first; the
+     look is in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).)
   4. **Inactive** — dimmed, collapsed by default, alphabetical. Parking an
      exercise beats its urgency, so an overdue inactive one stays here.
 - **Viewing a past day:** the exercises done that day with their sets (read-only
