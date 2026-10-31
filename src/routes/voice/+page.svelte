@@ -402,7 +402,7 @@
 						<button
 							data-focus="take-{r.id}"
 							type="button"
-							class={iconButton('bare').replace('text-ink', 'text-danger')}
+							class={iconButton('bare', 'danger')}
 							aria-label={r.deleteLabel}
 							onclick={() => remove(r.id, r.deleted)}><Icon name="trash" size={20} /></button
 						>

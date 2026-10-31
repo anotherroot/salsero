@@ -248,7 +248,7 @@
 		type="button"
 		aria-label="Delete this recording"
 		aria-haspopup="dialog"
-		class={iconButton('bare').replace('text-ink', 'text-danger')}
+		class={iconButton('bare', 'danger')}
 		onclick={() => askDelete(rec, day)}><Icon name="trash" size={22} /></button
 	>
 {/snippet}
@@ -409,7 +409,7 @@
 						</span>
 						<button
 							type="button"
-							class={iconButton('bare').replace('text-ink', 'text-accent')}
+							class={iconButton('bare', 'accent')}
 							aria-label="Log {popup.exercise.name}"
 							aria-haspopup="dialog"
 							onclick={() => (logging = true)}><Icon name="plus" size={24} /></button

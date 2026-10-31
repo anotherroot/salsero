@@ -60,7 +60,7 @@
 			target="_blank"
 			rel="external noopener noreferrer"
 			aria-label="Open on YouTube"
-			class="{iconButton('bare')} text-muted"><Icon name="external" size={22} /></a
+			class={iconButton('bare', 'muted')}><Icon name="external" size={22} /></a
 		>
 	</div>
 {:else}
@@ -107,7 +107,7 @@
 			aria-pressed={mirror}
 			aria-label="Mirror"
 			onclick={toggleMirror}
-			class="{iconButton('bare')} {mirror ? 'bg-accent-soft text-accent-text' : 'text-muted'}"
+			class={mirror ? iconButton('tonal') : iconButton('bare', 'muted')}
 			><Icon name="mirror" size={22} /></button
 		>
 		<!-- Always offered: the work PC's browser may block the embed outright. -->
@@ -116,7 +116,7 @@
 			target="_blank"
 			rel="external noopener noreferrer"
 			aria-label="Open on YouTube"
-			class="{iconButton('bare')} text-muted"><Icon name="external" size={22} /></a
+			class={iconButton('bare', 'muted')}><Icon name="external" size={22} /></a
 		>
 	</div>
 {/if}

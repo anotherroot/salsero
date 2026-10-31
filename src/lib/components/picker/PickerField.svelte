@@ -9,7 +9,7 @@
 	import Picker from './Picker.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { LABEL, SELECT } from '$lib/components/ui/styles';
+	import { LABEL, SELECT, SELECT_INVALID } from '$lib/components/ui/styles';
 	import { isHeading, type PickGroup, type PickRow } from '$lib/picker/model';
 
 	interface Props {
@@ -76,7 +76,7 @@
 		-->
 		<button
 			type="button"
-			class={error ? SELECT.replace('border border-field-line', 'border-2 border-danger') : SELECT}
+			class={error ? SELECT_INVALID : SELECT}
 			aria-labelledby="{id}-label {id}-value"
 			aria-haspopup="dialog"
 			aria-describedby={error ? `${id}-error` : undefined}

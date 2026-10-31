@@ -67,6 +67,7 @@
 		button,
 		FIELD,
 		FIELD_ERROR,
+		FIELD_INVALID,
 		LABEL,
 		SECTION_LABEL,
 		TEXTAREA
@@ -341,7 +342,7 @@
 							<label for="{formId}-minutes" class={LABEL}>Minutes</label>
 							<div
 								class="{minutesError
-									? FIELD.replace('border-field-line', 'border-2 border-danger')
+									? FIELD_INVALID
 									: FIELD} flex items-center gap-2.5 has-focus-visible:shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-accent)_20%,transparent)] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
 							>
 								<input

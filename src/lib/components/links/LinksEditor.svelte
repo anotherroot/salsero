@@ -128,7 +128,7 @@
 				<button
 					data-focus="link-{link.id}"
 					type="submit"
-					class="{iconButton('bare')} text-muted"
+					class={iconButton('bare', 'muted')}
 					aria-label="Remove {link.title ?? webHost(link.url)}"
 					><Icon name="trash" size={20} /></button
 				>

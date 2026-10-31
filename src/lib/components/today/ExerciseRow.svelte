@@ -28,10 +28,8 @@
 	const ex = $derived(row.exercise);
 	const meta = $derived(rowMeta(row, band, lessonDay));
 	const TONE = { status: 'font-bold text-status', done: 'font-bold text-done' } as const;
-	// The "+" is an icon, so bare accent is allowed; swap the bare button's ink for it.
-	const plus = $derived(
-		iconButton('bare').replace('text-ink', band === 'doneToday' ? 'text-done' : 'text-accent')
-	);
+	// The "+" is an icon, so bare accent is allowed.
+	const plus = $derived(iconButton('bare', band === 'doneToday' ? 'done' : 'accent'));
 </script>
 
 <li class="flex min-h-[66px] items-center pr-1.5 pl-4" class:bg-accent-soft={upNext}>

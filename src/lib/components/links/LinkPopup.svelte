@@ -386,7 +386,7 @@
 								<button
 									data-focus="linked-{l.linkId}"
 									type="button"
-									class={iconButton('bare').replace('text-ink', 'text-muted')}
+									class={iconButton('bare', 'muted')}
 									aria-label="Unlink {l.label}"
 									disabled={busy}
 									onclick={() => unlink(l)}><Icon name="close" /></button

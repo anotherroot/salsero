@@ -33,19 +33,39 @@ export function button(kind: ButtonKind, size: ButtonSize = 'md', full = false):
 }
 
 const ICON_BUTTON: Record<IconButtonVariant, string> = {
-	bare: 'text-ink active:bg-step disabled:text-disabled-ink',
+	bare: 'active:bg-step disabled:text-disabled-ink',
 	tonal: 'bg-accent-soft text-accent-text disabled:bg-disabled-bg disabled:text-disabled-ink',
 	filled: 'bg-accent text-on-accent disabled:bg-disabled-bg disabled:text-disabled-ink',
-	step: 'bg-step text-ink active:brightness-90 disabled:bg-disabled-bg disabled:text-disabled-ink'
+	step: 'bg-step active:brightness-90 disabled:bg-disabled-bg disabled:text-disabled-ink'
 };
 
-/** A 44 px round icon-only button; give it an aria-label. */
-export function iconButton(variant: IconButtonVariant): string {
-	return `flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full transition-colors disabled:cursor-default ${ICON_BUTTON[variant]}`;
+export type IconTone = 'ink' | 'muted' | 'accent' | 'accent-text' | 'danger' | 'done';
+
+/** Written out so Tailwind sees every class. */
+const ICON_TONE: Record<IconTone, string> = {
+	ink: 'text-ink',
+	muted: 'text-muted',
+	accent: 'text-accent',
+	'accent-text': 'text-accent-text',
+	danger: 'text-danger',
+	done: 'text-done'
+};
+
+/**
+ * A 44 px round icon-only button; give it an aria-label. `tone` is the icon's
+ * colour for a bare or step button (tonal and filled carry their own). Never
+ * append a colour class to the result: Tailwind's order lets the builder win.
+ */
+export function iconButton(variant: 'bare' | 'step', tone?: IconTone): string;
+export function iconButton(variant: 'tonal' | 'filled'): string;
+export function iconButton(variant: IconButtonVariant): string;
+export function iconButton(variant: IconButtonVariant, tone: IconTone = 'ink'): string {
+	const colour = variant === 'bare' || variant === 'step' ? ` ${ICON_TONE[tone]}` : '';
+	return `flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full transition-colors disabled:cursor-default ${ICON_BUTTON[variant]}${colour}`;
 }
 
 export const FIELD =
-	'h-[52px] w-full rounded-[14px] border border-field-line bg-surface px-3.5 font-sans text-[16px] font-semibold text-ink placeholder:font-medium placeholder:text-muted aria-invalid:border-2 aria-invalid:border-danger disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-ink';
+	'h-[52px] w-full rounded-[14px] border border-field-line bg-surface px-3.5 font-sans text-[16px] font-semibold text-ink placeholder:font-medium placeholder:text-muted aria-invalid:border-danger aria-invalid:shadow-[inset_0_0_0_1px_var(--color-danger)] disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-ink';
 /** A multi-line field: FIELD's look, grows with its rows. */
 export const TEXTAREA = FIELD.replace(
 	'h-[52px]',
@@ -68,6 +88,11 @@ export const ROW = 'flex min-h-14 items-center gap-3 px-4 py-2';
 export const SECTION_LABEL = 'px-4 text-[13px] font-bold text-muted';
 /** A field-shaped button that opens a sheet; add a `chevron-down` 20 px `text-muted` and a muted placeholder span. */
 export const SELECT = `${FIELD} flex cursor-pointer items-center gap-2.5 pr-3 text-left`;
+
+const INVALID = 'border-danger shadow-[inset_0_0_0_1px_var(--color-danger)]';
+/** FIELD / SELECT marked invalid by their owner, for a control that cannot carry `aria-invalid` (a button). Still a 1 px border, so nothing moves. */
+export const FIELD_INVALID = FIELD.replace('border-field-line', INVALID);
+export const SELECT_INVALID = SELECT.replace('border-field-line', INVALID);
 
 /** A dashed "add" control: a label (or link) that opens the file picker. */
 export const DASHED_ADD =

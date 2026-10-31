@@ -108,8 +108,7 @@
 		type="button"
 		onclick={openFull}
 		aria-label="Full screen"
-		class={iconButton('bare').replace('text-ink', 'text-muted')}
-		><Icon name="expand" size={22} /></button
+		class={iconButton('bare', 'muted')}><Icon name="expand" size={22} /></button
 	>
 {/snippet}
 {#if caption}

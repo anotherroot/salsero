@@ -353,7 +353,7 @@
 					{#snippet unlink()}
 						<button
 							type="button"
-							class="{iconButton('bare')} text-muted"
+							class={iconButton('bare', 'muted')}
 							aria-label="Unlink this section"><Icon name="close" size={20} /></button
 						>
 					{/snippet}
@@ -369,7 +369,7 @@
 						{:else}
 							<button
 								type="button"
-								class="{iconButton('bare')} text-muted"
+								class={iconButton('bare', 'muted')}
 								aria-label="Remove {link.title ?? 'link'}"><Icon name="trash" size={20} /></button
 							>
 						{/if}

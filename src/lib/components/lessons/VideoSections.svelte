@@ -111,7 +111,7 @@
 					{:else if linking}
 						<button
 							type="button"
-							class={iconButton('bare').replace('text-ink', 'text-accent-text')}
+							class={iconButton('bare', 'accent-text')}
 							aria-label="Link {spotLabel(s)}"
 							onclick={() => {
 								steps = openingSteps(s.links.length);

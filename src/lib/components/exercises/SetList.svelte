@@ -67,7 +67,7 @@
 				<button
 					data-focus="set-{s.id}"
 					type="submit"
-					class={iconButton('bare').replace('text-ink', 'text-muted')}
+					class={iconButton('bare', 'muted')}
 					aria-label="Delete set logged at {time}"
 				>
 					<Icon name="trash" size={20} />

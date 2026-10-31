@@ -45,7 +45,7 @@
 							<!-- An archived exercise can't take a set, so it gets no "+". -->
 							<button
 								type="button"
-								class={iconButton('bare').replace('text-ink', 'text-accent')}
+								class={iconButton('bare', 'accent')}
 								aria-label="Add a set of {g.name} to this day"
 								onclick={() => onlog(g.exerciseId)}><Icon name="plus" size={24} /></button
 							>

@@ -5,6 +5,8 @@ import {
 	DASHED_ADD,
 	FIELD,
 	FIELD_ERROR,
+	FIELD_INVALID,
+	SELECT_INVALID,
 	TEXTAREA,
 	CLIP,
 	GROUP,
@@ -67,5 +69,27 @@ describe('SWITCH_TRACK', () => {
 		expect(SWITCH_TRACK).toContain('bg-muted');
 		expect(SWITCH_TRACK).toContain('peer-checked:bg-accent');
 		expect(SWITCH_TRACK).not.toContain('bg-field-line');
+	});
+});
+
+const colours = (c: string) =>
+	c.split(' ').filter((x) => /^text-(ink|muted|accent|accent-text|danger|done|on-accent)$/.test(x));
+
+describe('colours come from the builders', () => {
+	it('one colour per icon button', () => {
+		for (const t of ['ink', 'muted', 'accent', 'accent-text', 'danger', 'done'] as const) {
+			expect(colours(iconButton('bare', t))).toEqual([`text-${t}`]);
+			expect(colours(iconButton('step', t))).toEqual([`text-${t}`]);
+		}
+		expect(colours(iconButton('bare'))).toEqual(['text-ink']);
+	});
+	it('an invalid field keeps a 1 px border', () => {
+		expect(FIELD).not.toMatch(/border-2/);
+		for (const c of [FIELD_INVALID, SELECT_INVALID]) {
+			expect(c.split(' ')).toContain('border-danger');
+			expect(c.split(' ')).not.toContain('border-field-line');
+			expect(c).not.toMatch(/border-2/);
+		}
+		expect(SELECT_INVALID.split(' ')).toContain('text-left');
 	});
 });

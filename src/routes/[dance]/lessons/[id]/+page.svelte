@@ -512,7 +512,7 @@
 						<!-- The "+" is an icon, so bare accent is allowed. -->
 						<button
 							type="button"
-							class={iconButton('bare').replace('text-ink', 'text-accent')}
+							class={iconButton('bare', 'accent')}
 							aria-label="Log a set of {review.name}"
 							onclick={() => (logging = true)}
 						>
@@ -536,7 +536,7 @@
 									type="button"
 									aria-label="Delete video {i + 1}"
 									aria-haspopup="dialog"
-									class={iconButton('bare').replace('text-ink', 'text-danger')}
+									class={iconButton('bare', 'danger')}
 									onclick={() => askDeleteVideo(video.id, videoSections)}
 									><Icon name="trash" size={22} /></button
 								>
@@ -718,7 +718,7 @@
 									<!-- The "+" is an icon, so bare accent is allowed. -->
 									<a
 										href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-										class={iconButton('bare').replace('text-ink', 'text-accent')}
+										class={iconButton('bare', 'accent')}
 										aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
 									>
 									{@render unlinkButton(
@@ -891,7 +891,7 @@
 			type="button"
 			aria-haspopup="dialog"
 			aria-label="Unlink {name}"
-			class={iconButton('bare').replace('text-ink', 'text-muted')}
+			class={iconButton('bare', 'muted')}
 			onclick={() => {
 				viaFocus = listFocus(kind, id);
 				unlinkingVia = {
@@ -906,10 +906,7 @@
 	{:else}
 		<form method="POST" action={LINK[kind].unlink} class="flex" use:enhance={unlinkRow(kind, id)}>
 			<input type="hidden" name={LINK[kind].field} value={id} />
-			<button
-				type="submit"
-				aria-label="Unlink {name}"
-				class={iconButton('bare').replace('text-ink', 'text-muted')}
+			<button type="submit" aria-label="Unlink {name}" class={iconButton('bare', 'muted')}
 				><Icon name="unlink" size={22} /></button
 			>
 		</form>

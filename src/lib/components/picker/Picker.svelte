@@ -198,7 +198,7 @@
 			{#if trail === 'add'}
 				<button
 					type="button"
-					class="{iconButton('bare').replace('text-ink', 'text-accent')} mr-1.5"
+					class="{iconButton('bare', 'accent')} mr-1.5"
 					aria-label="Link {r.label} and keep picking"
 					onclick={() => onadd?.(r)}><Icon name="plus" size={24} /></button
 				>
