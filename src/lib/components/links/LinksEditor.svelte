@@ -27,9 +27,11 @@
 		 * has no stored videos, so its links stay links.
 		 */
 		canSave?: boolean;
+		/** The lesson page's denser YouTube row. */
+		compact?: boolean;
 	}
 
-	let { links, message, entered, canSave = false }: Props = $props();
+	let { links, message, entered, canSave = false, compact = false }: Props = $props();
 	const uid = $props.id();
 	let posting = $state<number | null>(null);
 	const webHost = (url: string) => {
@@ -38,7 +40,7 @@
 	};
 </script>
 
-<LinkList {links}>
+<LinkList {links} {compact}>
 	{#snippet actions(link, kind)}
 		{#if kind === 'youtube'}
 			{#if canSave && parseLink(link.url)?.kind === 'youtube'}

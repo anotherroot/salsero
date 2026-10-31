@@ -515,17 +515,18 @@
 				<div class="mt-3">
 					{#if data.app}
 						<AppUploadLink
+							kind="dashed"
 							href={uploadLink(
 								{ lesson: lesson.id },
 								{ back: page.url.pathname, name: lesson.title }
 							)}
-							label="+ Add videos"
+							label="Add videos"
 						/>
 					{:else}
 						<ChunkedUploadButton
 							uploadUrl="/api/lessons/{lesson.id}/videos"
 							accept="video/*"
-							label="+ Add videos"
+							label="Add videos"
 							maxBytes={MAX_LESSON_VIDEO_BYTES}
 						/>
 					{/if}
@@ -534,6 +535,7 @@
 			<section class="flex flex-col gap-2 pt-2.5">
 				<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
 				<LinksEditor
+					compact
 					links={data.links}
 					canSave
 					message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}

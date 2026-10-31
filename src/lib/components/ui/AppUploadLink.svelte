@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { IconName } from '$lib/icons/icons';
 	import Icon from './Icon.svelte';
-	import { button } from './styles';
+	import { button, DASHED_ADD } from './styles';
 
 	/**
 	 * Inside the Android app, an upload is the app's job: this link hands the
@@ -13,7 +13,7 @@
 		label: string;
 		hint?: string;
 		icon?: IconName;
-		kind?: 'primary' | 'secondary';
+		kind?: 'primary' | 'secondary' | 'dashed';
 	}
 
 	let {
@@ -26,6 +26,8 @@
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
-<a {href} class={button(kind, 'md', true)}><Icon name={icon} size={20} />{label}</a>
+<a {href} class={kind === 'dashed' ? DASHED_ADD : button(kind, 'md', true)}
+	><Icon name={kind === 'dashed' ? 'upload' : icon} size={20} />{label}</a
+>
 <!-- eslint-enable svelte/no-navigation-without-resolve -->
 <p class="mt-1.5 text-center text-[13px] text-muted">{hint}</p>

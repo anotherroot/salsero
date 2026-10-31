@@ -66,3 +66,7 @@ export const ROW = 'flex min-h-14 items-center gap-3 px-4 py-2';
 export const SECTION_LABEL = 'px-4 text-[13px] font-bold text-muted';
 /** A field-shaped button that opens a sheet; add a `chevron-down` 20 px `text-muted` and a muted placeholder span. */
 export const SELECT = `${FIELD} flex cursor-pointer items-center gap-2.5 pr-3 text-left`;
+
+/** A dashed "add" control: a label (or link) that opens the file picker. */
+export const DASHED_ADD =
+	'flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-field-line text-[16px] font-extrabold text-accent-text has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent';
