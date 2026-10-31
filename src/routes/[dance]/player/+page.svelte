@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { resolve } from '$app/paths';
 	import Running from '$lib/components/player/Running.svelte';
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
@@ -184,7 +183,10 @@
 		try {
 			await handle.start();
 		} catch (e) {
-			startError = e instanceof Error ? e.message : 'Could not start the player.';
+			// The screen says "Could not start the player." in fixed words;
+			// what was thrown is for whoever opens the console.
+			console.error(e);
+			startError = e instanceof Error ? e.message : String(e);
 			return;
 		}
 		player = handle;
@@ -222,62 +224,44 @@
 	});
 </script>
 
-<svelte:head><title>Player · {data.dance.label}</title></svelte:head>
+<svelte:head><title>Practice · {data.dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 flex items-center gap-2 border-b border-line bg-plane/95 px-2 py-2 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.5rem)"
->
-	<a
-		href={resolve('/[dance]', { dance: data.dance.slug })}
-		class="grid size-11 place-items-center rounded-full text-[22px] text-ink-2"
-		aria-label="Back to Today">‹</a
-	>
-	<h1 class="min-w-0 flex-1 truncate text-[17px] font-semibold">
-		{(mode === 'setup' ? picked : runningSong)?.title || 'Practice'}
-	</h1>
-</header>
+<!--
+	Always mounted whenever there is a song, from the very first render, so
+	`audio` is a real element before Play is ever pressed — `createPlayer`
+	needs it at that moment, not after the screen switches to "running".
+	Always hidden, with no browser controls: the app's own SongProgress seeks,
+	and the device's volume keys set the song's level.
+-->
+{#if picked}
+	<audio bind:this={audio} src="/audio/{picked.audioFile}" preload="auto" hidden></audio>
+{/if}
 
-<main class="space-y-4 px-4 pt-4 pb-4">
-	{#if startError}
-		<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger" role="alert">
-			{startError}
-		</p>
-	{/if}
+<!-- Save this run is a sheet: it draws over the setup it returns to. -->
+{#if mode !== 'running'}
+	<Setup
+		songs={data.songs}
+		bind:source
+		bind:songId
+		songReady={picked !== null}
+		songError={song.error}
+		{audio}
+		rememberedBpm={data.start.bpm}
+		songGone={data.start.songGone}
+		defaultBpm={data.bpm}
+		dance={data.dance}
+		routine={data.routine}
+		onplay={handlePlay}
+		{starting}
+		back={data.back}
+		takes={data.takes}
+		songBeats={song.grid?.beats ?? null}
+		{startError}
+	/>
+{/if}
 
-	<!--
-		Always mounted whenever there is a song, from the very first render, so
-		`audio` is a real element before Play is ever pressed — `createPlayer`
-		needs it at that moment, not after the screen switches to "running".
-		Hidden until then; `controls` stays on so seeking works while running.
-	-->
-	{#if picked}
-		<audio
-			bind:this={audio}
-			src="/audio/{picked.audioFile}"
-			controls
-			preload="auto"
-			class="w-full {mode === 'running' ? '' : 'hidden'}"
-		></audio>
-	{/if}
-
-	{#if mode === 'setup'}
-		<Setup
-			songs={data.songs}
-			bind:source
-			bind:songId
-			songReady={picked !== null}
-			songError={song.error}
-			{audio}
-			rememberedBpm={data.start.bpm}
-			songGone={data.start.songGone}
-			defaultBpm={data.bpm}
-			dance={data.dance}
-			routine={data.routine}
-			onplay={handlePlay}
-			{starting}
-		/>
-	{:else if mode === 'running' && player && runningGrid}
+{#if mode === 'running' && player && runningGrid}
+	<main class="space-y-4 px-4 pt-4 pb-4">
 		<Running
 			{player}
 			beats={runningGrid.beats}
@@ -299,15 +283,15 @@
 			}}
 			onstop={handleStop}
 		/>
-	{:else if mode === 'done'}
-		<SaveSetSheet
-			exercise={data.exercise && { id: data.exercise.id, name: data.exercise.name }}
-			exercises={data.exercises}
-			durationS={finalElapsed}
-			calledCount={calledIds.length}
-			run={runJson}
-			fail={form && 'message' in form ? form : null}
-			onclose={() => (mode = 'setup')}
-		/>
-	{/if}
-</main>
+	</main>
+{:else if mode === 'done'}
+	<SaveSetSheet
+		exercise={data.exercise && { id: data.exercise.id, name: data.exercise.name }}
+		exercises={data.exercises}
+		durationS={finalElapsed}
+		calledCount={calledIds.length}
+		run={runJson}
+		fail={form && 'message' in form ? form : null}
+		onclose={() => (mode = 'setup')}
+	/>
+{/if}
