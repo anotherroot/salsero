@@ -11,9 +11,12 @@
 	import { resolve } from '$app/paths';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import SampleButton from '$lib/components/songs/SampleButton.svelte';
-	import { FIELD } from '$lib/components/ui/styles';
+	import SearchField from '$lib/components/ui/SearchField.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { SECTION_LABEL } from '$lib/components/ui/styles';
 	import { getDance, isDanceSlug } from '$lib/dances/dances';
-	import { groupSongs, highlight, searchSongs } from '$lib/songs/search';
+	import { groupSongs, highlight, pickerCount, searchSongs } from '$lib/songs/search';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
 	import type { PickerSong } from '$lib/types';
@@ -41,15 +44,7 @@
 	const searching = $derived(query.trim() !== '');
 	const hits = $derived(searchSongs(songs, query));
 	const groups = $derived(groupSongs(songs));
-	const countText = $derived(
-		searching
-			? hits.length === 1
-				? '1 match'
-				: `${hits.length} matches`
-			: songs.length === 1
-				? '1 song'
-				: `${songs.length} songs`
-	);
+	const countText = $derived(pickerCount(searching ? hits.length : songs.length, searching));
 
 	// Focus the search only with a mouse: on a phone the keyboard would cover
 	// the list, which is what the popup was opened to see and sample.
@@ -92,131 +87,138 @@
 	onDestroy(() => {
 		if (songs.some((s) => s.id === sampling.id)) stopSample();
 	});
-
-	const heading =
-		'border-t border-line bg-surface px-3 pt-2.5 pb-1.5 text-[11px] font-medium tracking-wide text-muted uppercase first:border-t-0';
 </script>
 
-{#snippet line(s: PickerSong)}
-	{#if sampling.id === s.id}
-		<span class="block truncate text-[12px] text-accent">Sample from {clock(s.sample.startS)}</span>
-	{:else}
-		<span class="block truncate text-[12px] text-muted tabular-nums">{meta(s)}</span>
-	{/if}
-{/snippet}
-
-{#snippet row(s: PickerSong)}
+{#snippet row(s: PickerSong, last: boolean)}
 	{@const on = s.id === songId}
 	{@const h = searching ? highlight(s.title, query) : null}
-	<li class="flex items-stretch border-t border-line first:border-t-0 {on ? 'bg-accent/8' : ''}">
-		<button
-			type="button"
-			aria-current={on ? 'true' : undefined}
-			onclick={() => pick(s)}
-			class="inset-focus flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left"
+	<li class="pl-4 {on ? 'bg-accent-soft' : ''}">
+		<div
+			class="flex min-h-16 items-center gap-1 pr-1 {last
+				? ''
+				: 'shadow-[inset_0_-1px_0_var(--color-hairline)]'}"
 		>
-			<span
-				class="grid size-4 flex-none place-items-center rounded-full border-[1.5px] {on
-					? 'border-accent'
-					: 'border-rule'}"
-				aria-hidden="true"
+			<button
+				type="button"
+				aria-current={on ? 'true' : undefined}
+				onclick={() => pick(s)}
+				class="inset-focus flex min-w-0 flex-1 items-center gap-3 py-[9px] text-left"
 			>
-				{#if on}<span class="size-2 rounded-full bg-accent"></span>{/if}
-			</span>
-			<span class="min-w-0">
-				<span class="block truncate text-[15px] font-medium">
-					{#if h}{h.before}<mark class="bg-transparent font-bold text-accent">{h.match}</mark
-						>{h.after}{:else}{s.title}{/if}
+				<span
+					class="grid size-[22px] flex-none place-items-center rounded-full border-2 {on
+						? 'border-accent'
+						: 'border-field-line'}"
+					aria-hidden="true"
+				>
+					{#if on}<span class="size-2.5 rounded-full bg-accent"></span>{/if}
 				</span>
-				{@render line(s)}
-			</span>
-		</button>
-		<SampleButton song={s.sample} />
+				<span class="min-w-0">
+					<span class="block truncate text-[16px] leading-[1.3] font-bold text-ink">
+						{#if h}{h.before}<mark
+								class="rounded-[4px] bg-accent-soft px-px font-extrabold text-accent-text"
+								>{h.match}</mark
+							>{h.after}{:else}{s.title}{/if}
+					</span>
+					{#if sampling.id === s.id}
+						<span class="block truncate text-[13px] leading-[1.35] font-bold text-accent-text"
+							>Sample from {clock(s.sample.startS)}</span
+						>
+					{:else}
+						<span
+							class="block truncate text-[13px] leading-[1.35] {on ? 'text-ink-2' : 'text-muted'}"
+							>{meta(s)}</span
+						>
+					{/if}
+				</span>
+			</button>
+			<SampleButton song={s.sample} name={s.title} tinted={on} />
+		</div>
 	</li>
 {/snippet}
 
-<div class="flex items-stretch rounded-lg border border-rule bg-raised">
+{#snippet card(list: PickerSong[])}
+	<ul class="overflow-hidden rounded-2xl bg-surface">
+		{#each list as s, i (s.id)}{@render row(s, i === list.length - 1)}{/each}
+	</ul>
+{/snippet}
+
+<div
+	class="flex items-center rounded-[14px] bg-surface pr-1 shadow-[inset_0_0_0_1px_var(--color-field-line)]"
+>
 	<button
 		type="button"
 		id="{buttonId}-field"
 		aria-labelledby={labelId ? `${labelId} ${buttonId}-field` : undefined}
 		aria-haspopup="dialog"
 		onclick={() => (open = true)}
-		class="inset-focus flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left"
+		class="inset-focus flex min-h-[60px] min-w-0 flex-1 items-center gap-2 py-2 pr-1 pl-3.5 text-left"
 	>
 		<span class="min-w-0 flex-1">
 			{#if picked}
-				<span class="block truncate text-[15px] font-medium">{picked.title}</span>
-				{@render line(picked)}
+				<span class="block truncate text-[16px] leading-[1.3] font-bold text-ink"
+					>{picked.title}</span
+				>
+				{#if sampling.id === picked.id}
+					<span class="block truncate text-[13px] leading-[1.35] font-bold text-accent-text"
+						>Sample from {clock(picked.sample.startS)}</span
+					>
+				{:else}
+					<span class="block truncate text-[13px] leading-[1.35] text-muted">{meta(picked)}</span>
+				{/if}
 			{:else}
-				<span class="block py-1 text-[15px] text-muted">Pick a song</span>
+				<span class="block text-[16px] font-medium text-muted">Pick a song</span>
 			{/if}
 		</span>
-		<span class="flex-none text-[14px] text-muted" aria-hidden="true">⌄</span>
+		<span class="flex flex-none text-muted" aria-hidden="true"
+			><Icon name="chevron-down" size={20} /></span
+		>
 	</button>
 	{#if picked}
-		<SampleButton song={picked.sample} />
+		<SampleButton song={picked.sample} name={picked.title} />
 	{/if}
 </div>
 
-<Sheet title="Pick a song" {open} onclose={close}>
-	<div class="relative">
-		<svg
-			width="16"
-			height="16"
-			viewBox="0 0 16 16"
-			fill="none"
-			stroke-width="1.8"
-			class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 stroke-muted"
-			aria-hidden="true"
-		>
-			<circle cx="7" cy="7" r="5" />
-			<path d="M11 11l3.5 3.5" stroke-linecap="round" />
-		</svg>
-		<input
-			bind:this={search}
-			bind:value={query}
-			type="search"
-			placeholder="Search songs"
-			aria-label="Search songs"
-			autocomplete="off"
-			class="{FIELD} pl-9 placeholder:text-muted"
-		/>
-	</div>
-	<p class="mt-2 mb-2 flex justify-between gap-3 text-[12px] text-muted">
-		<span>{countText}</span>
-		<span class="text-right">▶ hear 15 s · tap a song to pick it</span>
-	</p>
+<Sheet title="Pick a song" {open} onclose={close} tall={songs.length > 0}>
+	<div class="flex h-full min-h-0 flex-col gap-2">
+		<SearchField placeholder="Search songs" bind:value={query} bind:input={search} />
+		<p class="flex justify-between gap-2 px-1 text-[13px] text-muted">
+			<span class="font-bold">{countText}</span>
+			<span class="flex items-center gap-1 text-right"
+				><Icon name="play" size={12} filled />hear 15 s · tap a song to pick it</span
+			>
+		</p>
 
-	<!-- 88dvh is the sheet's cap; the rest is its header, the search and the count line. -->
-	<div class="max-h-[calc(88dvh-11.5rem)] overflow-y-auto rounded-lg border border-line bg-raised">
-		{#if searching}
-			{#if hits.length > 0}
-				<ul>
-					{#each hits as s (s.id)}{@render row(s)}{/each}
-				</ul>
-			{:else}
-				<p class="px-4 py-7 text-center text-[14px] leading-relaxed text-muted">
-					No song matches “{query.trim()}”.<br />
-					<a
-						href={resolve('/[dance]/songs', { dance: slug })}
-						onclick={close}
-						class="font-medium text-accent">Add it on the Songs page.</a
-					>
-				</p>
-			{/if}
-		{:else}
-			{#if groups.recent.length > 0}
-				<p class={heading}>Recent</p>
-				<ul>
-					{#each groups.recent as s (s.id)}{@render row(s)}{/each}
-				</ul>
-				<p class={heading}>All songs A–Z</p>
-			{/if}
-			<ul>
-				{#each groups.rest as s (s.id)}{@render row(s)}{/each}
-			</ul>
-		{/if}
+		<div class="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
+			<div class="flex flex-col gap-2">
+				{#if searching}
+					{#if hits.length > 0}
+						{@render card(hits)}
+					{:else}
+						<EmptyState
+							icon="search"
+							title="No song matches “{query.trim()}”"
+							body="Once it is added and ready, it shows here."
+						>
+							{#snippet action()}
+								<a
+									href={resolve(`/${slug}/songs?add=1`)}
+									onclick={close}
+									class="inline-flex min-h-11 items-center text-[15px] font-extrabold text-accent-text"
+									>Add it in Music</a
+								>
+							{/snippet}
+						</EmptyState>
+					{/if}
+				{:else if groups.recent.length > 0}
+					<h3 class={SECTION_LABEL}>Recent</h3>
+					{@render card(groups.recent)}
+					<h3 class="{SECTION_LABEL} mt-2">All songs A–Z</h3>
+					{@render card(groups.rest)}
+				{:else}
+					{@render card(groups.rest)}
+				{/if}
+			</div>
+		</div>
 	</div>
 </Sheet>
 
@@ -228,5 +230,6 @@
 	 */
 	.inset-focus:focus-visible {
 		outline-offset: -2px;
+		box-shadow: none;
 	}
 </style>

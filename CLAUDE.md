@@ -136,9 +136,13 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      Client-safe
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
-                     gives the picker (build.ts). Client-safe
+                     gives the picker (build.ts); view.ts is what a row ends in, the create
+                     row's lead, the body's state and the height. Client-safe
 src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
-                     PickerField.svelte (a form field that opens it)
+                     PickerField.svelte (a form field that opens it) and
+                     PickerOpener.svelte (the full-width tonal button that opens one)
+src/lib/components/ui/PlayerLayer.svelte  a Sheet or Dialog as an overlay inside the
+                     full-screen player (`.theme-media`), not a second top-layer dialog
 src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
                      Client-safe
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
@@ -153,7 +157,8 @@ src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back
                      song page's steps, tap rule and the seek bar's maths. upload.svelte.ts
                      is the one song upload in flight, outliving the sheet. Client-safe
 src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
-                     and a spec checks they agree. contrast.ts is the ratio maths
+                     and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
+                     `.theme-media` in `layout.css` (the player's palette). contrast.ts is the ratio maths
 src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled tab
                      variants), drawn by components/ui/Icon.svelte
 src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the bar
@@ -167,7 +172,8 @@ src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      navigation or a link click is in flight. history.svelte.ts
                      wires it to SvelteKit shallow routing; it reads the depth from
                      `history.state['sveltekit:states']`, not `page.state`,
-                     because `invalidateAll` resets `page.state`
+                     because `invalidateAll` resets `page.state`. `settled(fn)` runs fn once,
+                     after history has caught up with the sheets' own Back moves
 src/lib/fold.ts      accent and case folding, shared by the shared picker, the
                      routine picker and the song search
 src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
