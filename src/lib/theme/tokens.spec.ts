@@ -35,7 +35,10 @@ const pairs: [TokenName, TokenName][] = [
 	['surface', 'ink-2'],
 	['on-accent', 'status'],
 	['surface', 'warn'],
-	['on-done', 'done']
+	['on-done', 'done'],
+	// A pressed picker row is bg-step: its title is ink, its meta ink-2 (muted is 4.29:1 there in light)
+	['ink', 'step'],
+	['ink-2', 'step']
 ];
 
 describe('theme tokens', () => {

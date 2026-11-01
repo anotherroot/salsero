@@ -181,7 +181,7 @@
 			<button
 				type="button"
 				data-pick
-				class="flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 rounded-xl py-[9px] text-left disabled:cursor-default {trail ===
+				class="group/pick flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 rounded-xl py-[9px] text-left disabled:cursor-default {trail ===
 				'none'
 					? 'pr-3.5'
 					: ''}"
@@ -195,10 +195,11 @@
 						: 'text-ink'}">{@render marked(text)}</span
 				>
 				{#if r.meta}
+					<!-- Pressed, the row is bg-step, where muted is 4.29:1 in light: ink-2 then. -->
 					<span
 						class="block max-w-full truncate text-[13px] leading-[1.35] {isChosen
 							? 'text-ink-2'
-							: 'text-muted'}">{r.meta}</span
+							: 'text-muted group-active/pick:text-ink-2'}">{r.meta}</span
 					>
 				{/if}
 			</button>
