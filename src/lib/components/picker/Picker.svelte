@@ -24,7 +24,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, CLIP, iconButton, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { IconName } from '$lib/icons/icons';
-	import { shown, type PickGroup, type PickRow } from '$lib/picker/model';
+	import { segments, shown, type PickGroup, type PickRow } from '$lib/picker/model';
 	import {
 		createLead,
 		doneLabel,
@@ -153,6 +153,13 @@
 	];
 </script>
 
+{#snippet marked(text: string)}
+	<!-- What the search matched, every word, the same in every picker (and the song popup). -->
+	{#if typed}{#each segments(text, typed) as s, i (i)}{#if s.hit}<mark
+					class="rounded-[4px] bg-accent-soft px-px font-extrabold text-accent-text">{s.text}</mark
+				>{:else}{s.text}{/if}{/each}{:else}{text}{/if}
+{/snippet}
+
 {#snippet row(r: PickRow, text: string, indent: boolean, last: boolean)}
 	{@const trail = rowTrail(kind, r, chosen, pending)}
 	{@const linked = trail === 'linked'}
@@ -185,7 +192,7 @@
 				<span
 					class="block max-w-full truncate text-[16px] leading-[1.3] font-bold {linked
 						? 'text-muted'
-						: 'text-ink'}">{text}</span
+						: 'text-ink'}">{@render marked(text)}</span
 				>
 				{#if r.meta}
 					<span
@@ -262,7 +269,7 @@
 						<p
 							class="truncate px-4 pt-3.5 pb-0.5 text-[13px] leading-[1.3] font-extrabold tracking-[0.01em] text-ink-2"
 						>
-							{line.text}
+							{@render marked(line.text)}
 						</p>
 					{:else}
 						{@render row(line.row, line.text, line.indent, last)}

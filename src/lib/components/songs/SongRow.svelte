@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import type { SampleSong } from '$lib/types';
 	import { clock } from '$lib/format';
-	import { highlight } from '$lib/songs/search';
+	import { segments } from '$lib/picker/model';
 	import { sampling } from '$lib/songs/sample-player.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SampleButton from './SampleButton.svelte';
@@ -29,7 +29,8 @@
 		trailing?: Snippet;
 	} = $props();
 
-	const mark = $derived(highlight(name, query));
+	// Every word the search matched, marked as in every picker.
+	const segs = $derived(segments(name, query));
 	const sampled = $derived(sample !== null && sampling.id === sample.id);
 </script>
 
@@ -37,9 +38,9 @@
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 	<a {href} class="flex min-w-0 flex-1 flex-col gap-0.5 py-[9px]">
 		<span class="truncate text-[16px] leading-[1.3] font-bold text-ink"
-			>{#if mark}{mark.before}<mark
-					class="rounded bg-accent-soft px-px font-extrabold text-accent-text">{mark.match}</mark
-				>{mark.after}{:else}{name}{/if}</span
+			>{#each segs as seg, i (i)}{#if seg.hit}<mark
+						class="rounded bg-accent-soft px-px font-extrabold text-accent-text">{seg.text}</mark
+					>{:else}{seg.text}{/if}{/each}</span
 		>
 		{#if sampled && sample}
 			<span class="truncate text-[13px] leading-[1.35] font-bold text-accent-text"

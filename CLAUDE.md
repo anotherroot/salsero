@@ -155,7 +155,7 @@ src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are 
                      navigation guard. ui/UnsavedDialog.svelte asks the question
 src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back to a 1)
                      and its fade. search.ts is PURE: the song popup's folded
-                     search, Recent then A-Z, the highlight. sample-player.svelte.ts
+                     search, Recent then A-Z (matches marked by picker/model.ts `segments`). sample-player.svelte.ts
                      is the one impure part: the single sample `<audio>`, one
                      sample at a time. library.ts is PURE: the Music tab's groups, meta,
                      badges and upload checks. song-page.ts and timeline.ts are PURE: the

@@ -1,5 +1,6 @@
 /**
- * PURE: searching and grouping the song popup's list. Client-safe.
+ * PURE: searching and grouping the song popup's list (the shared picker marks
+ * the matches). Client-safe.
  */
 import { fold } from '$lib/fold';
 
@@ -27,37 +28,6 @@ export function groupSongs<S extends { title: string; recentRank: number | null 
 	const rest = songs.filter((s) => s.recentRank === null).sort(byTitle);
 	return { recent, rest };
 }
-
-/**
- * The first match of the query in the title, cut from the ORIGINAL title so
- * its accents stay. Folds per character: NFD can change a string's length, so
- * indexes into the folded whole would not line up.
- */
-export function highlight(
-	title: string,
-	query: string
-): { before: string; match: string; after: string } | null {
-	const q = fold(query.trim());
-	if (!q) return null;
-	const chars = Array.from(title);
-	let folded = '';
-	const owner: number[] = []; // folded UTF-16 index -> original char index
-	chars.forEach((c, i) => {
-		const f = fold(c);
-		for (let k = 0; k < f.length; k++) owner.push(i);
-		folded += f;
-	});
-	const at = folded.indexOf(q);
-	if (at < 0) return null;
-	const from = owner[at];
-	const to = owner[at + q.length - 1] + 1;
-	return {
-		before: chars.slice(0, from).join(''),
-		match: chars.slice(from, to).join(''),
-		after: chars.slice(to).join('')
-	};
-}
-
 /** The song popup's count line: `8 songs`, or `1 match` while searching. */
 export function pickerCount(n: number, searching: boolean): string {
 	const word = searching ? 'match' : 'song';

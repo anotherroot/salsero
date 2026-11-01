@@ -16,7 +16,8 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { CLIP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import { getDance, isDanceSlug } from '$lib/dances/dances';
-	import { groupSongs, highlight, pickerCount, searchSongs } from '$lib/songs/search';
+	import { groupSongs, pickerCount, searchSongs } from '$lib/songs/search';
+	import { segments } from '$lib/picker/model';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
 	import type { PickerSong } from '$lib/types';
@@ -104,7 +105,7 @@
 
 {#snippet row(s: PickerSong, last: boolean)}
 	{@const on = s.id === songId}
-	{@const h = searching ? highlight(s.title, query) : null}
+	{@const segs = searching ? segments(s.title, query) : [{ text: s.title, hit: false }]}
 	<li class="pl-4 {on ? 'bg-accent-soft' : ''}">
 		<div
 			class="flex min-h-16 items-center gap-1 pr-1 {last
@@ -127,10 +128,10 @@
 				</span>
 				<span class="min-w-0">
 					<span class="block truncate text-[16px] leading-[1.3] font-bold text-ink">
-						{#if h}{h.before}<mark
-								class="rounded-[4px] bg-accent-soft px-px font-extrabold text-accent-text"
-								>{h.match}</mark
-							>{h.after}{:else}{s.title}{/if}
+						{#each segs as seg, i (i)}{#if seg.hit}<mark
+									class="rounded-[4px] bg-accent-soft px-px font-extrabold text-accent-text"
+									>{seg.text}</mark
+								>{:else}{seg.text}{/if}{/each}
 					</span>
 					{#if sampling.id === s.id}
 						<span class="block truncate text-[13px] leading-[1.35] font-bold text-accent-text"
