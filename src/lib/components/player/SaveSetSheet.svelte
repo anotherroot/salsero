@@ -29,9 +29,11 @@
 		} | null;
 		/** "Don't save": leaves without logging anything. */
 		onclose: () => void;
+		/** The run was logged: the page leaves (the save's own redirect is not followed). */
+		onsaved: () => void;
 	}
 
-	let { exercise, exercises, summary, durationS, run, fail, onclose }: Props = $props();
+	let { exercise, exercises, summary, durationS, run, fail, onclose, onsaved }: Props = $props();
 
 	let rating = $state<number | null>(fail?.rating ?? null);
 	let busy = $state(false);
@@ -53,7 +55,13 @@
 			dirty: () => true,
 			submit: () => {
 				busy = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
+					// Logged: where the run goes next is the page's call (back to its
+					// opener), not the action's redirect to Today.
+					if (result.type === 'redirect') {
+						onsaved();
+						return;
+					}
 					await update();
 					busy = false;
 				};
