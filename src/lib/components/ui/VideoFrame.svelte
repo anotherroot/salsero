@@ -1,6 +1,6 @@
 <!-- src/lib/components/ui/VideoFrame.svelte -->
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { watchMedia, type MediaProblem } from '$lib/media';
 	import {
 		RATE_LABEL,
@@ -9,10 +9,16 @@
 		saveVideoPrefs,
 		type VideoRate
 	} from '$lib/video-prefs';
+	import { inlineBands, inlineParts, lengthText, timeText } from '$lib/video/inline';
+	import { buffering } from '$lib/video/chrome';
+	import { fetchSpots } from '$lib/video/spots-api';
+	import { ON_VIDEO } from '$lib/components/video/styles';
+	import Timeline from '$lib/components/video/Timeline.svelte';
 	import VideoPlayer from './VideoPlayer.svelte';
 	import Icon from './Icon.svelte';
-	import { iconButton } from './styles';
-	import type { SpotOwner } from '$lib/types';
+	import Spinner from './Spinner.svelte';
+	import { CLIP, iconButton } from './styles';
+	import type { Spot, SpotOwner } from '$lib/types';
 
 	interface Props {
 		src: string;
@@ -32,6 +38,8 @@
 		caption?: { title: string; meta?: string };
 		/** At the right of the caption row in place of Full screen (which then joins the control row). */
 		action?: Snippet;
+		/** The page's own list of this video's sections: when it changes (a section edited from the list), the bar fetches its bands again. */
+		sections?: unknown;
 	}
 
 	let {
@@ -44,7 +52,8 @@
 		onclosed,
 		linking = false,
 		caption,
-		action
+		action,
+		sections
 	}: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
@@ -71,6 +80,37 @@
 	let inline: HTMLVideoElement | undefined = $state();
 	let fullAt = $state<number | null>(null);
 
+	// Our controls on the picture (`$lib/video/inline`): the browser's are off.
+	let played = $state(false);
+	let paused = $state(true);
+	let currentTime = $state(0);
+	let duration = $state(NaN);
+	let waiting = $state(false);
+	let spots = $state<Spot[]>([]);
+	const parts = $derived(inlineParts({ played, paused, waiting }));
+	const length = $derived(lengthText(duration));
+
+	/** The sections as bands. Fetched on the first play, so a page scrolled past asks nothing; a failure leaves the bar bare. */
+	function loadSpots() {
+		if (!owner) return;
+		fetchSpots(owner)
+			.then((s) => (spots = s))
+			.catch(() => {});
+	}
+
+	// A page refresh after a section changed elsewhere (the section list's own player) brings a new list.
+	$effect(() => {
+		void sections;
+		if (untrack(() => played)) untrack(loadSpots);
+	});
+
+	function toggle() {
+		if (!inline) return;
+		// A refused play (autoplay policy, a source gone) leaves the disc showing.
+		if (inline.paused) inline.play().catch(() => {});
+		else inline.pause();
+	}
+
 	function openFull() {
 		if (!inline) return;
 		inline.pause();
@@ -79,19 +119,86 @@
 </script>
 
 {#if kind === 'video'}
-	<!-- svelte-ignore a11y_media_has_caption -->
-	<video
-		bind:this={inline}
-		{src}
-		controls
-		playsinline
-		preload="metadata"
-		class="aspect-video w-full bg-black"
-		class:mirror
-		bind:playbackRate={rate}
-		{@attach watchMedia(src, onproblem)}
-		{@attach keepPitch}
-	></video>
+	<div class="{CLIP} relative aspect-video w-full bg-black">
+		<!-- svelte-ignore a11y_media_has_caption -->
+		<video
+			bind:this={inline}
+			{src}
+			playsinline
+			disableremoteplayback
+			preload="metadata"
+			class="absolute inset-0 size-full"
+			class:mirror
+			bind:playbackRate={rate}
+			bind:paused
+			bind:currentTime
+			bind:duration
+			onplay={() => {
+				if (!played) loadSpots();
+				played = true;
+			}}
+			onwaiting={() => (waiting = buffering(waiting, 'waiting'))}
+			onplaying={() => (waiting = buffering(waiting, 'playing'))}
+			oncanplay={() => (waiting = buffering(waiting, 'canplay'))}
+			onseeked={() => (waiting = buffering(waiting, 'seeked'))}
+			onpause={() => (waiting = buffering(waiting, 'pause'))}
+			onerror={() => (waiting = buffering(waiting, 'error'))}
+			onemptied={() => (waiting = buffering(waiting, 'emptied'))}
+			{@attach watchMedia(src, onproblem)}
+			{@attach keepPitch}
+		></video>
+		<!-- Outside the mirrored element, so Mirror never flips the controls.
+		     The player's palette: the overlay sits on a black picture in either page theme. -->
+		<div class="theme-media absolute inset-0">
+			<button
+				type="button"
+				aria-label={paused ? 'Play' : 'Pause'}
+				onclick={toggle}
+				class="absolute inset-0 grid cursor-pointer place-items-center"
+			>
+				{#if parts.spinner || parts.disc}
+					<span
+						aria-hidden="true"
+						class="grid size-12 place-items-center rounded-full bg-black/55 text-white shadow-[inset_0_0_0_1.5px_rgb(255_255_255/0.35)]"
+					>
+						{#if parts.spinner}
+							<Spinner size={24} />
+						{:else}
+							<span class="ml-[3px] flex"><Icon name="play" filled size={24} /></span>
+						{/if}
+					</span>
+				{/if}
+			</button>
+			{#if parts.length && length}
+				<span
+					class="{ON_VIDEO} pointer-events-none absolute right-2 bottom-2 font-bold text-white/92"
+					>{length}</span
+				>
+			{/if}
+			{#if parts.bar && length}
+				<div
+					class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-b from-black/0 to-black/72 px-3 pt-3"
+				>
+					<span class="block text-[12px] font-extrabold text-white tabular-nums"
+						>{timeText(currentTime, duration)}</span
+					>
+					<div class="pointer-events-auto">
+						<Timeline
+							fromMs={0}
+							toMs={duration * 1000}
+							currentMs={currentTime * 1000}
+							bands={inlineBands(spots)}
+							glass
+							keyboard
+							onseek={(ms) => {
+								if (inline) inline.currentTime = ms / 1000;
+							}}
+						/>
+					</div>
+				</div>
+			{/if}
+		</div>
+	</div>
 {:else}
 	<audio
 		{src}
@@ -175,6 +282,8 @@
 		onclose={(at) => {
 			if (inline) inline.currentTime = at;
 			fullAt = null;
+			// Sections added or moved in the player show on the bar.
+			if (played) loadSpots();
 			onclosed?.();
 		}}
 	/>

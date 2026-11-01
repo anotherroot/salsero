@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- band in src/routes/layout.css, salsa: the coloured strip under the status bar. -->
-    <color name="band">#D2401E</color>
-</resources>

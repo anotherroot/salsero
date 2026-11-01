@@ -10,7 +10,7 @@
 </script>
 
 <div
-	class="{extra} fixed inset-x-0 bottom-0 z-20 px-4 pb-[calc(12px+env(safe-area-inset-bottom))] {fade
+	class="{extra} fixed inset-x-0 bottom-0 z-20 px-4 pb-[calc(12px+var(--safe-bottom))] {fade
 		? 'bg-linear-to-b from-ground/0 to-ground to-[34%] pt-7'
 		: 'border-t border-hairline bg-ground pt-3'}"
 >

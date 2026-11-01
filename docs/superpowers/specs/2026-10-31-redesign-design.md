@@ -98,8 +98,12 @@ bottom bar has four tabs with icons; nothing the app does today is lost.
 
 The design system board (sections 02–03) is the reference; these are its
 values. `src/routes/layout.css` gets them as CSS custom properties, set per
-dance and per scheme exactly as today's `[data-dance]` / `prefers-color-scheme`
-rules do.
+dance and per scheme by `[data-dance]` and `<html data-theme>`. Since 2026-11-01 the
+scheme is a Settings choice (System, Light, Dark; a cookie per browser,
+`$lib/theme/scheme.ts`): the hook writes it into `<html data-theme-choice>` and
+the script in `src/app.html` resolves it to `data-theme` before the first paint,
+asking `prefers-color-scheme` for System. An attribute rather than the media
+query, so one copy of the dark colours serves both System and Dark.
 
 | role | salsa light | salsa dark | bachata light | bachata dark |
 |---|---|---|---|---|
@@ -282,7 +286,9 @@ rules the boards follow that are not obvious from looking at them.
 - Settings are read on the page and edited behind the band's pencil (× Stop
   editing, Save pinned), as every other edit screen.
 - Video under a log or a lesson: Mirror, a 4-way speed switch and Full screen
-  in a control row beneath it.
+  in a control row beneath it. The picture carries our own controls, not the
+  browser's (since 2026-11-01): a play disc, then the time and a seek bar with
+  the sections as bands; a tap plays it in place.
 
 ### Moves
 
@@ -352,7 +358,8 @@ rules the boards follow that are not obvious from looking at them.
 - New lesson: Title, day (today by default), notes, "Go over it again".
 - Lesson page order: notes → the review exercise → Videos → Links → Figures →
   Routines → Exercises.
-- Video card: inline video, Full screen, Mirror toggle, speed switch, size,
+- Video card: inline video (our controls on the picture, a tap plays it in
+  place — as under a log), Full screen, Mirror toggle, speed switch, size,
   delete; sections below with play, range, what each links to or a muted "not
   linked", and an accent link button.
 - Uploads: a batch card ("Uploading 2 of 3… 46%"); failures and unplayable

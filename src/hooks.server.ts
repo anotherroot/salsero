@@ -6,6 +6,7 @@ import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
+import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
 
 /**
  * Routes reachable without a session. Everything else redirects to /login.
@@ -75,5 +76,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(303, '/');
 	}
 
-	return resolve(event);
+	// Light or dark, as chosen in Settings: written into <html> for app.html's script.
+	const theme = themeChoice(event.cookies.get(THEME_COOKIE));
+	return resolve(event, { transformPageChunk: ({ html }) => fillTheme(html, theme) });
 };

@@ -5,7 +5,6 @@
 	 * could not.
 	 */
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { tabSurface } from '$lib/app-bars.svelte';
 	import type { IconName } from '$lib/icons/icons';
 	import type { SelectionAction } from '$lib/routines/selection';
 
@@ -70,11 +69,10 @@
 <!-- `--icon-knockout`: filled icons cut their details out in the bar's colour. -->
 <div
 	role="toolbar"
-	use:tabSurface
 	aria-label="Selected slots"
 	bind:offsetHeight={height}
 	class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg px-2 pt-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] [--icon-knockout:var(--color-tab-bg)]"
-	style="padding-bottom: calc(8px + env(safe-area-inset-bottom))"
+	style="padding-bottom: calc(8px + var(--safe-bottom))"
 >
 	{#if hint}
 		<p

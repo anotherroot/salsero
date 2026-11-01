@@ -24,7 +24,8 @@
             its TWA-era class name, so an icon pinned to it stays. It opens the
             dance's Today, or the intent's data when the app itself opens a
             page. singleTask: a notification reuses the open screen. The config
-            changes are handled so turning the phone keeps the page.
+            changes are handled so turning the phone keeps the page. It stands
+            upright, but for a full-screen video (WebShell.turn, Turning.kt).
         -->
         <activity
             android:name="${launcher}"

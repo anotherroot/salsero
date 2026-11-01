@@ -51,7 +51,7 @@ export interface Dance {
 	 */
 	accent: string;
 	/**
-	 * `--color-accent` under `prefers-color-scheme: dark`. Same rule: keep in
+	 * `--color-accent` in dark mode. Same rule: keep in
 	 * sync with layout.css by hand.
 	 *
 	 * `--color-on-accent` (the text/icon colour drawn on top of the accent) has
@@ -63,7 +63,7 @@ export interface Dance {
 	accentDark: string;
 	/** `--color-band` in light mode: the colour of the page band. Same sync rule. */
 	band: string;
-	/** `--color-band` under `prefers-color-scheme: dark`. Same sync rule. */
+	/** `--color-band` in dark mode. Same sync rule. */
 	bandDark: string;
 }
 
@@ -175,8 +175,12 @@ export function isStyleOf(slug: string, style: string): boolean {
  */
 export const DANCE_COOKIE = 'dance';
 
-/** The dance a path belongs to: its first segment, when that is a dance. */
+/**
+ * The dance a path belongs to: its first segment, when that is a dance. A query
+ * or hash is not part of it: login's `next` is `/bachata?app=android` when the
+ * bachata app opens signed out.
+ */
 export function danceInPath(path: string): DanceSlug | null {
-	const slug = path.split('/')[1] ?? '';
+	const slug = path.split(/[?#]/)[0].split('/')[1] ?? '';
 	return isDanceSlug(slug) ? slug : null;
 }

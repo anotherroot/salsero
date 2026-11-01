@@ -67,7 +67,51 @@ inside (`Pages.kt`, tested); other sites go to the browser and `salsa://` to
 `SALSA_ANDROID_CERT_SHA256` no longer matter to the app; they stay until
 removed on purpose.
 
-## The strip under the navigation bar follows the page (2026-10-31)
+## The app stands upright (2026-11-01)
+
+Every page is laid out for a phone held upright; only a video gains from
+turning it. So the app is locked to portrait, but for a video: the full-screen
+video player (`VideoPlayer.svelte`, `$lib/video/turning.ts`) posts `free` to a
+`SalsaTurn` WebMessageListener when it opens and `portrait` when it closes,
+and a video WebView shows full screen itself (a YouTube embed) frees it too.
+Free means `FULL_USER`: any way up, within the phone's own rotation lock
+(`orientationFor`, `Turning.kt`, tested). A new page load stands it upright
+again, so a player that never closed (a reload, a crash) cannot leave it free.
+The lock is set in code, not the manifest, so the shell can lift it. Without
+the WebView feature the app stays upright, player included. The Practice
+page's landscape styles stay for a browser. Tried on the phone
+(2026-11-01): upright, and the player turns.
+
+## The page runs under the bars (2026-11-01)
+
+Replaces the strips of the sections below. Tried on the phone, they read as
+foreign: the status bar stayed one colour while the band under it was another,
+the strip under the tabs was a shade off, a page without tabs ended in a hard
+line above the gesture bar, and a theme chosen in Settings could never reach a
+colour resource.
+
+Now the WebView fills the screen and the page draws under the status bar and
+the navigation bar, as a native screen does. `splitInsets` (`Bars.kt`, tested)
+shares the insets out: the top and bottom go to the page as `--safe-top` /
+`--safe-bottom`; the sides (a cutout, a side navigation bar) and the keyboard
+still pad the WebView. The page is told through `window.appInsets`, set by a
+document-start script (replaced when the insets change, so the heights are
+there before the first paint) and by `evaluateJavascript` for the page already
+open; `src/app.html` writes them onto `<html>`. Not `env(safe-area-inset-*)`:
+WebView reports it unreliably across versions, so the app reads `--safe-*`
+everywhere (`layout.css` defaults them to `env()` for a browser;
+`class-rules.spec.ts` keeps `env()` out of components). `Screen` lays a
+band-coloured strip under the status bar, so the band always fills it; the
+full-screen video player pads by `--safe-top`.
+
+Status-bar icons are always light (the band is dark in all four themes). The
+navigation bar's follow the page's theme: `src/app.html` posts `light` or
+`dark` to `SalsaBars` (`schemeFor`). WebView's own scrollbar is off: it ran the
+full height, over the band and the tab bar. Without the document-start feature
+the bars pad the WebView, as before. Built and unit-tested, not yet tried on the
+phone.
+
+## The strip under the navigation bar follows the page (2026-10-31, replaced)
 
 The bottom strip used to stay the tab bar's colour (`navBarColor`). A pushed
 screen (a figure, Settings) has no tab bar, so that strip sat as a stripe under

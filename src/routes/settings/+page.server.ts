@@ -19,6 +19,7 @@ import { isDanceSlug, isStyleOf } from '$lib/dances/dances';
 import { deviceMeta } from '$lib/settings/view';
 import { ownVoiceSummary } from '$lib/voice/grid';
 import { isVideoShortSide } from '$lib/video-sizes';
+import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -55,6 +56,20 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 };
 
 export const actions: Actions = {
+	/** Light, dark or the system's: per browser, so the phone and the work PC keep their own. */
+	theme: async ({ locals, request, cookies }) => {
+		if (!locals.user) throw error(401);
+		const theme = text(await request.formData(), 'theme');
+		if (!isThemeChoice(theme)) return fail(400, { message: 'Pick one of the themes.' });
+		cookies.set(THEME_COOKIE, theme, {
+			path: '/',
+			maxAge: 365 * 24 * 3600,
+			sameSite: 'lax',
+			httpOnly: true
+		});
+		return { ok: true };
+	},
+
 	/** The style a new figure of one dance starts on. */
 	style: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
-	import { tabSurface } from '$lib/app-bars.svelte';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -96,7 +95,7 @@
 
 	<div
 		class="flex flex-col gap-2"
-		style={selecting ? 'padding-bottom: calc(5.5rem + env(safe-area-inset-bottom))' : undefined}
+		style={selecting ? 'padding-bottom: calc(5.5rem + var(--safe-bottom))' : undefined}
 	>
 		{#if selecting}
 			<p class="px-4 text-[13px] text-muted">Tap in the order the routine should call them.</p>
@@ -164,9 +163,8 @@
 
 {#if selecting}
 	<div
-		use:tabSurface
 		class="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[560px] items-center gap-1 border-t border-tab-line bg-tab-bg pt-3 pr-4 pl-5"
-		style="padding-bottom: calc(12px + env(safe-area-inset-bottom))"
+		style="padding-bottom: calc(12px + var(--safe-bottom))"
 	>
 		<span role="status" class="flex-1 text-[16px] font-bold text-ink">{picked.length} selected</span
 		>

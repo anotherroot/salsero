@@ -286,7 +286,7 @@
 	</div>
 
 	<div
-		class="flex flex-none items-center gap-2 border-t border-surface bg-ground px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),22px)]"
+		class="flex flex-none items-center gap-2 border-t border-surface bg-ground px-4 pt-2.5 pb-[max(var(--safe-bottom),22px)]"
 	>
 		<button type="button" class={DELETE} onclick={ondelete}>
 			<Icon name="trash" size={20} />Delete

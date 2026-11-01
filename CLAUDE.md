@@ -25,7 +25,8 @@ looping view, an editor — with 0.1 s steps, a drag-and-nudge trim strip,
 delete that asks and undoes, Back up one level, pinch zoom, double-tap jumps,
 the screen kept on, and portrait (built for upright videos: Hide, a row of
 sections), landscape and desktop layouts; 0.25–1×, mirror, saved points and
-sections) and the routine editor
+sections), and the inline video with our own controls: play, the time, a seek
+bar with the sections, and the routine editor
 (drag to reorder, swipe to delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
 (Save video on a figure's or lesson's YouTube link: the home worker downloads
@@ -166,7 +167,8 @@ src/lib/theme/       tokens.ts is the colour source (four themes); layout.css co
                      `.theme-media` in `layout.css` (the player's palette).
                      `BAND_TRACK` and `SCRIM` are `bg-band-track` and `bg-scrim`; the scrim is also
                      written out in one `::backdrop` rule. stylesheet.spec.ts checks each theme
-                     block, and that no removed alias is still used. contrast.ts is the ratio maths
+                     block, and that no removed alias is still used. contrast.ts is the ratio maths.
+                     scheme.ts: the Settings theme (System, Light, Dark; a cookie per browser)
 src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled tab
                      variants), drawn by components/ui/Icon.svelte (`stroke` for
                      the heavier checks)
@@ -176,8 +178,10 @@ src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the 
                      pages' words and where their back goes. bands.spec.ts: every page draws
                      a band (a page without one is named in the spec with its reason). PURE
 src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
-src/lib/app-bars.svelte.ts  tells the Android shell the strip colour under the navigation
-                     bar (`reportStrip`); `tabSurface` marks a bar pinned on the tab-bar surface
+src/app.html         a script before the first paint: the theme choice → `data-theme`
+                     (light/dark, told to the Android shell), and the Android app's
+                     insets → `--safe-*`. Read the safe area through `--safe-*`, never
+                     `env()` (class-rules.spec.ts): the app draws the page under its bars
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
@@ -200,8 +204,10 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      loop it implies), keys.ts, layout.ts, player-history.ts
                      (one history entry per screen, behind a port), zoom.ts
                      (pinch maths), taps.ts (double-tap) and screen-on.ts
-                     (the wake lock, injected), caption.ts (a recording's
-                     or lesson video's caption) and chrome.ts (which parts the top
+                     (the wake lock, injected), turning.ts (the Android app
+                     stands upright; the player lets it turn), caption.ts (a recording's
+                     or lesson video's caption), inline.ts (what the inline
+                     video's overlay shows, its time line and bands) and chrome.ts (which parts the top
                      bar shows per layout and level, the link entry's words, the
                      delete sheet's copy, the toast's icon and place, the buffering
                      spinner) are PURE too. spots-api.ts is the player's

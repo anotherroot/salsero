@@ -29,6 +29,12 @@
 
 <svelte:window bind:scrollY />
 
+<!--
+	Under the status bar: always the band, so the bar reads as part of the header
+	and nothing scrolls into it. As tall as the safe area (0 in a desktop browser).
+-->
+<div aria-hidden="true" class="fixed inset-x-0 top-0 z-30 h-[var(--safe-top)] bg-band"></div>
+
 <!-- The slim band: fixed, fades in once the big one has scrolled away. -->
 <div
 	data-slim-band
@@ -37,7 +43,7 @@
 	class:pointer-events-none={!slim}
 	aria-hidden={slim ? undefined : 'true'}
 	inert={!slim}
-	style="padding-top: env(safe-area-inset-top); height: calc(4rem + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink)"
+	style="padding-top: var(--safe-top); height: calc(4rem + var(--safe-top)); --focus-ring: var(--color-band-ink)"
 >
 	<!-- The same 560 px column as the page, inside the full-width bar. -->
 	<div class="mx-auto flex h-16 max-w-[560px] items-center gap-1">
@@ -69,7 +75,7 @@
 	inert={slim}
 	style="--focus-ring: var(--color-band-ink); padding-top: calc({compact
 		? 22
-		: 30}px + env(safe-area-inset-top)); padding-bottom: {hero ? 92 : extra ? 50 : 52}px"
+		: 30}px + var(--safe-top)); padding-bottom: {hero ? 92 : extra ? 50 : 52}px"
 >
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex min-w-0 flex-1 items-center gap-1" class:-ml-[10px]={!!left}>

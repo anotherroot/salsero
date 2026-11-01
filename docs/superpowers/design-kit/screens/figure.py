@@ -112,7 +112,7 @@ def section_row(t, title, meta, trailing=None, href='#', last=False):
 
 
 def recording(t, date, size, dur, tone=0, spots=(), editing=False):
-    """A recording: the inline player (16:9, a tap goes full screen), its date and size, and the
+    """A recording: the inline player (16:9, a tap plays it in place; Full screen is in the row), its date and size, and the
     sections saved on it (each can link to a variation or a drill)."""
     th = kit.thumb(t, 358, 190, dur, tone, radius=0).replace('width: 358px', 'width: 100%')
     tools = (kit.icon_button(t, 'trash', 'Delete this recording', 'bare', color=t['danger'], on=t['surface']) if editing else

@@ -34,6 +34,10 @@ const COLOUR =
 const ICON_ONLY: Record<string, string> = {};
 
 describe('class rules', () => {
+	it('reads the safe area through --safe-*, never env() directly', () => {
+		// The Android app sets --safe-* itself; env() there is unreliable (layout.css).
+		expect(hits((l) => l.includes('env(safe-area-inset'))).toEqual([]);
+	});
 	it('no builder output has its text colour replaced', () => {
 		expect(hits((l) => /(iconButton|button)\([^)]*\)\s*\.replace\(\s*'text-/.test(l))).toEqual([]);
 	});

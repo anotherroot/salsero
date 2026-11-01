@@ -7,6 +7,7 @@
 
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { focusAfterRemoval } from '$lib/focus';
 	import { SvelteSet } from 'svelte/reactivity';
 	import Picker from '$lib/components/picker/Picker.svelte';
@@ -48,9 +49,10 @@
 
 	/**
 	 * One section's links, as levels the host stacks (`steps`, the top one
-	 * shows): the links list (× unlinks) with one "Link a figure or drill…"
-	 * opener; the shared picker over it (a tap links and closes everything, +
-	 * links and stays, Done closes); and the create steps, opened from the
+	 * shows): the links list (a row opens its figure page or drill, × unlinks)
+	 * with one "Link a figure or drill…" opener; the shared picker over it (a
+	 * tap links and closes everything, + links and stays, Done closes); and the
+	 * create steps, opened from the
 	 * picker's create row on top of it, which make a variation, a figure or a
 	 * drill and link it. A section with no links opens straight into the
 	 * picker (`openingSteps`). See
@@ -75,9 +77,14 @@
 		onclose: () => void;
 		/** After every change: the section's link labels, for the small lines. */
 		onchange?: (labels: string[]) => void;
+		/**
+		 * A linked row's tap, in place of following its link: the player closes
+		 * itself first, so its history entries are gone before the page changes.
+		 */
+		onopen?: (href: string) => void;
 	}
 
-	let { spotId, theme, steps, onpush, onback, onclose, onchange }: Props = $props();
+	let { spotId, theme, steps, onpush, onback, onclose, onchange, onopen }: Props = $props();
 
 	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill'];
 	const CREATE_ROW = [
@@ -173,6 +180,12 @@
 			refusal = null;
 		}
 	});
+
+	/** A linked row's page: the variation's figure page, or the drill's exercise page. */
+	const targetHref = (dance: string, t: SectionTarget) =>
+		'figureId' in t
+			? resolve('/[dance]/figures/[id]', { dance, id: String(t.figureId) })
+			: resolve('/[dance]/exercises/[id]', { dance, id: String(t.exerciseId) });
 
 	const targetKey = (t: SectionTarget) =>
 		'figureId' in t ? `figure:${t.figureId}` : `exercise:${t.exerciseId}`;
@@ -382,19 +395,30 @@
 				<h3 class={SECTION_LABEL}>Linked</h3>
 				<ul class="rounded-2xl bg-surface">
 					{#each options.linked as l, i (l.linkId)}
+						{@const href = targetHref(options.dance, l.target)}
 						<li class="pl-4">
 							<div
 								class="flex min-h-14 items-center gap-2 pr-1.5 {i < options.linked.length - 1
 									? 'border-b border-hairline'
 									: ''}"
 							>
-								<span
-									class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 py-2 text-[16px] leading-[1.3] font-bold {l.archived
+								<a
+									{href}
+									class="flex min-h-14 min-w-0 flex-1 items-center gap-2 self-stretch py-2 text-[16px] leading-[1.3] font-bold {l.archived
 										? 'text-muted'
 										: 'text-ink'}"
-									><span class="min-w-0 break-words">{l.label}</span>{#if l.drill}<Badge
-											tone="neutral">Drill</Badge
-										>{/if}{#if l.archived}<Badge tone="warn">Archived</Badge>{/if}</span
+									onclick={(e) => {
+										if (!onopen) return;
+										e.preventDefault();
+										onopen(href);
+									}}
+									><span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1"
+										><span class="min-w-0 break-words">{l.label}</span>{#if l.drill}<Badge
+												tone="neutral">Drill</Badge
+											>{/if}{#if l.archived}<Badge tone="warn">Archived</Badge>{/if}</span
+									><span class="flex flex-none text-chevron" aria-hidden="true"
+										><Icon name="chevron-right" size={20} /></span
+									></a
 								>
 								<button
 									data-focus="linked-{l.linkId}"

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { destination, linkHeading, openingSteps, refusalAt, stacked } from './link-steps';
+import { MAX_SPOT_LABEL } from '$lib/limits';
+import {
+	destination,
+	linkHeading,
+	openingSteps,
+	refusalAt,
+	stacked,
+	suggestedName
+} from './link-steps';
 
 describe('openingSteps', () => {
 	it('openingSteps: no links → pick; some → links', () => {
@@ -41,5 +49,25 @@ describe('the popup’s view rules', () => {
 		expect(refusalAt('drill', 'everyDays')).toBe('everyDays');
 		expect(refusalAt('drill', 'figureName')).toBe('banner');
 		expect(refusalAt('figure', undefined)).toBe('banner');
+	});
+});
+
+describe('suggestedName', () => {
+	it('offers the one link’s name to an unnamed section that had none', () => {
+		expect(suggestedName(null, 0, ['Cradle exit · With turn'])).toBe('Cradle exit · With turn');
+	});
+	it('offers nothing to a section with a name of its own', () => {
+		expect(suggestedName('Madrid', 0, ['Paso Madrid · Basic'])).toBeNull();
+	});
+	it('offers nothing when the section already had links', () => {
+		expect(suggestedName(null, 1, ['Paso Madrid · Basic'])).toBeNull();
+	});
+	it('offers nothing for several links, or none', () => {
+		expect(suggestedName(null, 0, ['A · B', 'C · D'])).toBeNull();
+		expect(suggestedName(null, 0, [])).toBeNull();
+	});
+	it('cuts a long name to fit a section’s name', () => {
+		const long = 'x'.repeat(MAX_SPOT_LABEL + 20);
+		expect(suggestedName(null, 0, [long])).toBe(long.slice(0, MAX_SPOT_LABEL));
 	});
 });

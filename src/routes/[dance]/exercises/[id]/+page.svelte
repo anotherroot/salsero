@@ -347,7 +347,7 @@
 
 <Toast
 	toast={notice}
-	bottom="calc(5.75rem + env(safe-area-inset-bottom))"
+	bottom="calc(5.75rem + var(--safe-bottom))"
 	onaction={undo}
 	ondismiss={() => {
 		notice = null;

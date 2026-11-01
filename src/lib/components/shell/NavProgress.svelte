@@ -8,7 +8,7 @@
 -->
 <div
 	class="pointer-events-none fixed inset-x-0 z-50 h-[3px] overflow-hidden"
-	style="top: env(safe-area-inset-top)"
+	style="top: var(--safe-top)"
 	aria-hidden="true"
 >
 	<div class="run h-full w-2/5 bg-band-ink"></div>
