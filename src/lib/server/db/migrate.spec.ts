@@ -11,18 +11,24 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq } from 'drizzle-orm';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it } from 'vitest';
 import { openDb, type Db } from './index';
 import { exercises, figureGroups, figures, lessons, songs } from './schema';
 
-// Each test copies drizzle/ and applies every migration to a file database
-// with synchronous better-sqlite3 calls. Unloaded that is ~0.1 s; in a full
-// parallel run the default 5 s can be eaten by a starved worker, which is the
-// one flake seen. A generous bound turns "slow" into "slow, passing".
-vi.setConfig({ testTimeout: 30_000 });
-
 /** The connection behind a drizzle handle, for plain SQL. */
 const raw = (d: Db) => (d as unknown as { $client: Database.Database }).$client;
+
+/**
+ * A database file for the old schema. `synchronous = OFF`: it is a throwaway
+ * temp file, and with the default every migration's commit waits for an fsync,
+ * which a busy disk (a build, git, another slot) stretched to 15 s.
+ */
+function oldDb(file: string): Database.Database {
+	const old = new Database(file);
+	old.pragma('synchronous = OFF');
+	old.pragma('foreign_keys = ON');
+	return old;
+}
 
 /** The last migration before the dance column. */
 const LAST_OLD = '0004_absent_captain_midlands';
@@ -58,8 +64,7 @@ it('backfills every existing row to salsa, and figures keep their style', () => 
 	const file = join(temp('salsa-db-'), 'old.db');
 
 	// 1. A database at the old schema, with rows that predate `dance`.
-	const old = new Database(file);
-	old.pragma('foreign_keys = ON');
+	const old = oldDb(file);
 	migrate(drizzle(old), { migrationsFolder: migrationsThrough(LAST_OLD) });
 	old
 		.prepare(
@@ -107,8 +112,7 @@ it('lets a bachata figure through the vestigial style CHECK', () => {
 
 it('turns base figures into groups and materialises what variations inherited', () => {
 	const file = join(temp('salsa-db-'), 'old.db');
-	const old = new Database(file);
-	old.pragma('foreign_keys = ON');
+	const old = oldDb(file);
 	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0015_smiling_baron_strucker') });
 
 	for (const [id, slug, neutral] of [
@@ -191,8 +195,7 @@ it('turns base figures into groups and materialises what variations inherited', 
 
 it('keeps live figure names unique per dance and base variation names unique per figure', () => {
 	const file = join(temp('salsa-db-'), 'old.db');
-	const old = new Database(file);
-	old.pragma('foreign_keys = ON');
+	const old = oldDb(file);
 	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0015_smiling_baron_strucker') });
 	const fig = old.prepare(
 		`insert into figures (id, name, dance, parent_id, created_at) values (?, ?, 'salsa', ?, 1)`
