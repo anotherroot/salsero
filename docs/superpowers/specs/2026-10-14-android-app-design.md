@@ -79,8 +79,8 @@ Free means `FULL_USER`: any way up, within the phone's own rotation lock
 again, so a player that never closed (a reload, a crash) cannot leave it free.
 The lock is set in code, not the manifest, so the shell can lift it. Without
 the WebView feature the app stays upright, player included. The Practice
-page's landscape styles stay for a browser. Built and unit-tested, not yet
-tried on the phone.
+page's landscape styles stay for a browser. Tried on the phone
+(2026-11-01): upright, and the player turns.
 
 ## The page runs under the bars (2026-11-01)
 
