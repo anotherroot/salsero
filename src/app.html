@@ -1,10 +1,44 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme-choice="%salsa.theme%">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="mobile-web-app-capable" content="yes" />
+		<script>
+			/*
+			 * Before the first paint, so nothing flashes the wrong colours.
+			 *
+			 * The theme: `data-theme-choice` (Settings, `$lib/theme/scheme.ts`)
+			 * becomes `data-theme="light|dark"`, which layout.css reads. System
+			 * follows `prefers-color-scheme`, live. The Android shell hears the
+			 * result (`SalsaBars`) to colour the navigation bar's icons.
+			 *
+			 * The insets: the Android shell draws the page under the system bars
+			 * and leaves their sizes in `window.appInsets` (top, bottom, left, right in
+			 * CSS px), which become `--safe-*`. In a browser
+			 * those fall back to `env(safe-area-inset-*)` (layout.css).
+			 */
+			(function () {
+				var root = document.documentElement;
+				var dark = matchMedia('(prefers-color-scheme: dark)');
+				window.salsaTheme = function () {
+					var choice = root.dataset.themeChoice;
+					var scheme =
+						choice === 'light' || choice === 'dark' ? choice : dark.matches ? 'dark' : 'light';
+					root.dataset.theme = scheme;
+					if (window.SalsaBars) window.SalsaBars.postMessage(scheme);
+				};
+				window.salsaTheme();
+				dark.addEventListener('change', window.salsaTheme);
+				window.applyAppInsets = function () {
+					var insets = window.appInsets;
+					if (!insets) return;
+					for (var side in insets) root.style.setProperty('--safe-' + side, insets[side] + 'px');
+				};
+				window.applyAppInsets();
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

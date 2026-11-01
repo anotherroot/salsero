@@ -815,7 +815,7 @@
 {/snippet}
 
 {#snippet slimBar(spot: Spot | null)}
-	<div class="flex flex-col bg-ground px-4 pt-1 pb-[max(env(safe-area-inset-bottom),22px)]">
+	<div class="flex flex-col bg-ground px-4 pt-1 pb-[max(var(--safe-bottom),22px)]">
 		<div class="px-1">
 			{#if spot}
 				<Timeline
@@ -1018,7 +1018,7 @@
 				{#if sheet === 'list'}
 					<section
 						aria-label="Sections and points"
-						class="flex max-h-[50dvh] min-h-0 flex-col gap-2 rounded-t-[28px] bg-sheet px-4 pt-2 pb-[max(env(safe-area-inset-bottom),22px)]"
+						class="flex max-h-[50dvh] min-h-0 flex-col gap-2 rounded-t-[28px] bg-sheet px-4 pt-2 pb-[max(var(--safe-bottom),22px)]"
 					>
 						<SpotList
 							variant="sheet"
@@ -1052,9 +1052,7 @@
 						{/snippet}
 					</SectionView>
 				{:else}
-					<div
-						class="flex flex-col gap-1.5 bg-ground pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)]"
-					>
+					<div class="flex flex-col gap-1.5 bg-ground pt-1.5 pb-[max(var(--safe-bottom),22px)]">
 						<div class="flex items-center pr-2 pl-5">
 							<span class="flex items-baseline gap-2">
 								<span
@@ -1188,7 +1186,7 @@
 		<!-- 4. beside the video -->
 		{#if mode === 'panel'}
 			<div
-				class="area-side flex min-h-0 flex-col border-l border-surface bg-ground pr-[env(safe-area-inset-right)]"
+				class="area-side flex min-h-0 flex-col border-l border-surface bg-ground pr-[var(--safe-right)]"
 			>
 				{#if sheet === 'list'}
 					<SpotList
@@ -1255,7 +1253,8 @@
 		height: 100dvh;
 		max-width: none;
 		max-height: none;
-		padding: 0;
+		/* Clear of the status bar: in the Android app the page runs under it. */
+		padding: var(--safe-top) 0 0;
 		border: 0;
 		background: var(--color-ground);
 	}

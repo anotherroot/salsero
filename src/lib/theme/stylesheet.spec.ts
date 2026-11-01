@@ -19,8 +19,8 @@ function colours(selector: string): Record<string, string> {
 
 const SALSA_LIGHT = colours('@theme {');
 const BACHATA_LIGHT = colours("\n\t[data-dance='bachata'] {");
-const SALSA_DARK = colours("\n\t\t:root:not([data-theme='light']) {");
-const BACHATA_DARK = colours("\n\t\t:root:not([data-theme='light']) [data-dance='bachata'] {");
+const SALSA_DARK = colours("\n\t:root[data-theme='dark'] {");
+const BACHATA_DARK = colours("\n\t:root[data-theme='dark'] [data-dance='bachata'] {");
 
 /** Each theme as the cascade resolves it: later blocks override earlier ones. */
 const RESOLVED = {

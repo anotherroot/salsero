@@ -1,5 +1,6 @@
 import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
 import { DANCE_COOKIE, DEFAULT_DANCE, isDanceSlug } from '$lib/dances/dances';
+import { THEME_COOKIE, themeChoice } from '$lib/theme/scheme';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -18,6 +19,8 @@ export const load: LayoutServerLoad = ({ locals, cookies, url }) => {
 	return {
 		user: locals.user,
 		lastDance: last && isDanceSlug(last) ? last : DEFAULT_DANCE,
+		// Light, dark or system (Settings): the theme-color tags and the Settings row read it.
+		theme: themeChoice(cookies.get(THEME_COOKIE)),
 		// The query too: the hook sets the cookie on this very response, so the
 		// first page of a launch cannot read it back yet.
 		app: cookies.get(APP_COOKIE) === APP_VALUE || url.searchParams.get(APP_PARAM) === APP_VALUE

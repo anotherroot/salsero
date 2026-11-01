@@ -159,7 +159,7 @@
 >
 	<header
 		class="run-head flex flex-none flex-col gap-1.5 bg-band"
-		style="padding: calc(22px + env(safe-area-inset-top)) 20px 50px; --focus-ring: var(--color-band-ink)"
+		style="padding: calc(22px + var(--safe-top)) 20px 50px; --focus-ring: var(--color-band-ink)"
 	>
 		<div class="-ml-[10px] flex min-w-0 items-center gap-1">
 			<!-- Its name is the action; where it ends up is the hover hint. -->
@@ -357,9 +357,9 @@
 		}
 		.run-head {
 			flex: 0 0 50%;
-			padding-top: calc(14px + env(safe-area-inset-top)) !important;
+			padding-top: calc(14px + var(--safe-top)) !important;
 			padding-bottom: 22px !important;
-			padding-left: max(20px, env(safe-area-inset-left)) !important;
+			padding-left: max(20px, var(--safe-left)) !important;
 		}
 		.run-head > span {
 			flex: none;
@@ -379,7 +379,7 @@
 		}
 		.run-col :global(.run-bar) {
 			left: 50%;
-			padding-right: max(16px, env(safe-area-inset-right));
+			padding-right: max(16px, var(--safe-right));
 		}
 	}
 </style>

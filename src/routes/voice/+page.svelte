@@ -577,5 +577,5 @@
 	{toast}
 	onaction={() => toast?.undo?.()}
 	ondismiss={() => (toast = null)}
-	bottom="calc(1rem + env(safe-area-inset-bottom))"
+	bottom="calc(1rem + var(--safe-bottom))"
 />

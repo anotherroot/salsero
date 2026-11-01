@@ -13,9 +13,7 @@ import android.webkit.CookieManager
  * The classes keep their TWA-era names so home-screen icons pinned to them stay.
  */
 abstract class DanceLauncher(private val dance: String) : WebShell() {
-    override val barColor: Int get() = R.color.band
     override val pageColor: Int get() = R.color.ground
-    override val navBarColor: Int get() = R.color.tab_bar
 
     override fun onCreate(savedInstanceState: Bundle?) {
         markAsApp()

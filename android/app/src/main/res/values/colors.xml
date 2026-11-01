@@ -2,6 +2,4 @@
 <resources>
     <!-- ground in src/routes/layout.css: the page under the bars. -->
     <color name="ground">#f2f2f5</color>
-    <!-- tab-bar in src/routes/layout.css: the bottom tabs, carried on under the navigation bar. -->
-    <color name="tab_bar">#f9f9fb</color>
 </resources>

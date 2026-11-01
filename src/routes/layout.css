@@ -97,81 +97,85 @@
 		--color-inverse-accent: #f07aae;
 	}
 
-	@media (prefers-color-scheme: dark) {
-		:root:not([data-theme='light']) {
-			color-scheme: dark;
-			--color-ground: #0b0b0d;
-			--color-surface: #1c1c1f;
-			--color-raised: #242428;
-			--color-sheet: #141416;
-			--color-field: #0b0b0d;
-			--color-hairline: #2c2c31;
-			--color-field-line: #3a3a40;
-			--color-ink: #f4f4f6;
-			--color-ink-2: #c8c8ce;
-			--color-muted: #98989f;
-			--color-chevron: #6e6e76;
-			--color-chip: #2c2c31;
-			--color-chip-ink: #f4f4f6;
-			--color-step: #2c2c31;
-			--color-tab-bg: #121214;
-			--color-tab-line: #2c2c31;
-			--color-done: #5cc98f;
-			--color-on-done: #0b0b0d;
-			--color-done-soft: #173226;
-			--color-danger: #ff5c7a;
-			--color-on-danger: #1a0509;
-			--color-danger-soft: #3a1520;
-			--color-warn: #f0a04b;
-			--color-warn-soft: #33240f;
-			--color-disabled-bg: #232327;
-			--color-disabled-ink: #6a6a72;
-			--color-skeleton: #2e2e34;
-			--color-inverse-bg: #ececf0;
-			--color-inverse-ink: #111114;
-			--color-inverse-done: #1e7a4f;
+	/*
+	 * Dark mode. `data-theme` on <html> is set before the first paint by the
+	 * script in `src/app.html`: from the Settings choice (`$lib/theme/scheme.ts`),
+	 * or from `prefers-color-scheme` when the choice is System. An attribute
+	 * rather than the media query, so a choice can override the system both ways.
+	 */
+	:root[data-theme='dark'] {
+		color-scheme: dark;
+		--color-ground: #0b0b0d;
+		--color-surface: #1c1c1f;
+		--color-raised: #242428;
+		--color-sheet: #141416;
+		--color-field: #0b0b0d;
+		--color-hairline: #2c2c31;
+		--color-field-line: #3a3a40;
+		--color-ink: #f4f4f6;
+		--color-ink-2: #c8c8ce;
+		--color-muted: #98989f;
+		--color-chevron: #6e6e76;
+		--color-chip: #2c2c31;
+		--color-chip-ink: #f4f4f6;
+		--color-step: #2c2c31;
+		--color-tab-bg: #121214;
+		--color-tab-line: #2c2c31;
+		--color-done: #5cc98f;
+		--color-on-done: #0b0b0d;
+		--color-done-soft: #173226;
+		--color-danger: #ff5c7a;
+		--color-on-danger: #1a0509;
+		--color-danger-soft: #3a1520;
+		--color-warn: #f0a04b;
+		--color-warn-soft: #33240f;
+		--color-disabled-bg: #232327;
+		--color-disabled-ink: #6a6a72;
+		--color-skeleton: #2e2e34;
+		--color-inverse-bg: #ececf0;
+		--color-inverse-ink: #111114;
+		--color-inverse-done: #1e7a4f;
 
-			/* Salsa's dark colours (the fallback outside any dance, too). */
-			--color-band: #8f2a12;
-			--color-band-ink: #fff3e4;
-			--color-on-cream: #8f2a12;
-			--color-band-small: #f2dbcb;
-			--color-accent: #ff6b47;
-			--color-accent-text: #ff7a59;
-			--color-accent-soft: #452a26;
-			--color-on-accent: #0b0b0d;
-			--color-status: #ff8a6b;
-			--color-inverse-accent: #b3340f;
-		}
+		/* Salsa's dark colours (the fallback outside any dance, too). */
+		--color-band: #8f2a12;
+		--color-band-ink: #fff3e4;
+		--color-on-cream: #8f2a12;
+		--color-band-small: #f2dbcb;
+		--color-accent: #ff6b47;
+		--color-accent-text: #ff7a59;
+		--color-accent-soft: #452a26;
+		--color-on-accent: #0b0b0d;
+		--color-status: #ff8a6b;
+		--color-inverse-accent: #b3340f;
+	}
 
-		/*
-		 * Bachata's colours, in dark mode. A DESCENDANT combinator (the space),
-		 * not a compound selector: `data-dance` sits on a wrapper div inside the
-		 * tree (`src/routes/+layout.svelte`), never on `:root` itself, so a
-		 * selector requiring one element to be BOTH `:root` and `[data-dance=
-		 * 'bachata']` — as the salsa dark rule above reads at a glance — would
-		 * never match anything and this override would silently never apply,
-		 * leaving bachata stuck on its light colours after dark fell.
-		 * `:root:not([data-theme='light'])` here is an ANCESTOR condition:
-		 * "once dark mode is in effect", true for every element in the page.
-		 * Keep `accent` and `band` IN SYNC BY HAND with
-		 * `DANCES.bachata.accentDark` / `bandDark`.
-		 *
-		 * `on-accent` is set here too: the pale pink accent needs a dark ink
-		 * (`bg-accent text-on-accent` is Play, Log set, Save, every selected chip).
-		 */
-		:root:not([data-theme='light']) [data-dance='bachata'] {
-			--color-band: #4a1238;
-			--color-band-ink: #fff3e4;
-			--color-on-cream: #4a1238;
-			--color-band-small: #e9d8cf;
-			--color-accent: #f07aae;
-			--color-accent-text: #f07aae;
-			--color-accent-soft: #422d39;
-			--color-on-accent: #2a0716;
-			--color-status: #f07aae;
-			--color-inverse-accent: #8e2a66;
-		}
+	/*
+	 * Bachata's colours, in dark mode. A DESCENDANT combinator (the space),
+	 * not a compound selector: `data-dance` sits on a wrapper div inside the
+	 * tree (`src/routes/+layout.svelte`), never on `:root` itself, so a
+	 * selector requiring one element to be BOTH `:root` and `[data-dance=
+	 * 'bachata']` — as the salsa dark rule above reads at a glance — would
+	 * never match anything and this override would silently never apply,
+	 * leaving bachata stuck on its light colours after dark fell.
+	 * `:root[data-theme='dark']` here is an ANCESTOR condition:
+	 * "once dark mode is in effect", true for every element in the page.
+	 * Keep `accent` and `band` IN SYNC BY HAND with
+	 * `DANCES.bachata.accentDark` / `bandDark`.
+	 *
+	 * `on-accent` is set here too: the pale pink accent needs a dark ink
+	 * (`bg-accent text-on-accent` is Play, Log set, Save, every selected chip).
+	 */
+	:root[data-theme='dark'] [data-dance='bachata'] {
+		--color-band: #4a1238;
+		--color-band-ink: #fff3e4;
+		--color-on-cream: #4a1238;
+		--color-band-small: #e9d8cf;
+		--color-accent: #f07aae;
+		--color-accent-text: #f07aae;
+		--color-accent-soft: #422d39;
+		--color-on-accent: #2a0716;
+		--color-status: #f07aae;
+		--color-inverse-accent: #8e2a66;
 	}
 
 	/*
@@ -289,6 +293,16 @@ body {
 :root {
 	/* The tab bar's own height: 10 px above, the 44 px link, 8 px below, a 1 px line. Users add the safe area. */
 	--tab-bar-h: 63px;
+	/*
+	 * How much of the page the system bars cover. Use these, never `env()`
+	 * directly (`class-rules.spec.ts`): the Android app draws the page under its
+	 * bars and sets them on <html> (src/app.html), because WebView's own
+	 * `env(safe-area-inset-*)` is unreliable across versions.
+	 */
+	--safe-top: env(safe-area-inset-top, 0px);
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-left: env(safe-area-inset-left, 0px);
+	--safe-right: env(safe-area-inset-right, 0px);
 }
 
 /*

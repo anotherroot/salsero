@@ -34,7 +34,7 @@
 	let { toast, onaction, ondismiss, bottom, contained = false }: Props = $props();
 
 	const offset = $derived(
-		bottom ?? (contained ? '1rem' : 'calc(var(--tab-bar-h) + 1rem + env(safe-area-inset-bottom))')
+		bottom ?? (contained ? '1rem' : 'calc(var(--tab-bar-h) + 1rem + var(--safe-bottom))')
 	);
 
 	$effect(() => {

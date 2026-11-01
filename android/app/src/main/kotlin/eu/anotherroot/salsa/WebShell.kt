@@ -8,14 +8,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.LayerDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.WindowManager
@@ -38,7 +35,6 @@ import androidx.activity.result.contract.ActivityResultContracts.RequestMultiple
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
-import androidx.core.graphics.Insets
 import androidx.core.graphics.createBitmap
 import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
@@ -46,6 +42,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.ScriptHandler
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONException
@@ -72,19 +69,8 @@ abstract class WebShell : ComponentActivity() {
     /** The page a launch opens; [data] is the intent's address, or null. */
     protected abstract fun startUrl(data: String?): String
 
-    /** A colour resource: the strip behind the status bar. */
-    protected abstract val barColor: Int
-
-    /** A colour resource: the page's background, the WebView's and the window's. */
-    protected open val pageColor: Int get() = barColor
-
-    /**
-     * A colour resource for the strip under the navigation bar: the tab bar's
-     * colour while the page shows tabs (or a bar on their surface), the page's
-     * otherwise, as the page tells through `SalsaBars` ([Strip]). Without the
-     * WebMessageListener feature it stays this colour, as before.
-     */
-    protected open val navBarColor: Int get() = barColor
+    /** A colour resource: the page's background, the WebView's and the window's, before the page paints. */
+    protected abstract val pageColor: Int
 
     /**
      * After Android killed the app in the background, reopen the page that was
@@ -94,7 +80,6 @@ abstract class WebShell : ComponentActivity() {
     protected open val restoresPage: Boolean get() = true
 
     private lateinit var root: FrameLayout
-    private lateinit var background: LayerDrawable
     private lateinit var web: WebView
 
     /** False once the renderer is gone: that WebView must not be touched again. */
@@ -103,6 +88,17 @@ abstract class WebShell : ComponentActivity() {
     private var pendingPermission: PermissionRequest? = null
     private var fullscreen: View? = null
     private var fullscreenDone: WebChromeClient.CustomViewCallback? = null
+
+    /**
+     * The page runs under the system bars and is told their heights (`--safe-top`,
+     * `--safe-bottom`; [splitInsets]). Needs a document-start script, so the heights
+     * are there before the first paint; without one, the bars pad the WebView.
+     */
+    private val underBars = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+
+    /** The last [insetsScript] sent, and the document-start copy of it every new page runs. */
+    private var insets: String? = null
+    private var insetsAtStart: ScriptHandler? = null
 
     /** Android's text-to-speech, started the first time a page speaks. */
     private var tts: TextToSpeech? = null
@@ -127,40 +123,25 @@ abstract class WebShell : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val page = ContextCompat.getColor(this, pageColor)
-        val top = ContextCompat.getColor(this, barColor)
-        val bottom = ContextCompat.getColor(this, navBarColor)
-        enableEdgeToEdge(barStyle(top), barStyle(bottom))
-
-        // Three layers: the page colour everywhere, a strip at the top as tall as
-        // the status bar in the band's colour, and a strip at the bottom as tall
-        // as the navigation bar, in the colour of the tabs that sit on it.
-        background = LayerDrawable(
-            arrayOf(ColorDrawable(page), ColorDrawable(top), ColorDrawable(bottom)),
-        ).apply {
-            setLayerGravity(1, Gravity.TOP or Gravity.FILL_HORIZONTAL)
-            setLayerHeight(1, 0)
-            setLayerGravity(2, Gravity.BOTTOM or Gravity.FILL_HORIZONTAL)
-            setLayerHeight(2, 0)
-        }
-        root = FrameLayout(this).apply { this.background = background }
+        // Light icons on the status bar: the band under it is dark in every theme.
+        // The navigation bar's follow the page's theme once it says ([barsBridge]).
+        enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), barStyle(page))
+        root = FrameLayout(this).apply { setBackgroundColor(page) }
         web = WebView(this).apply { setBackgroundColor(page) }
         root.addView(web, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setContentView(root)
-        // The page stays clear of the bars and the keyboard, as it did in the browser.
+        // The page runs under the status and navigation bars and pads itself by
+        // what it is told ([splitInsets]); the keyboard and the sides pad the WebView.
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val pad = if (fullscreen != null) {
-                Insets.NONE
-            } else {
-                insets.getInsets(
-                    WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or
-                        WindowInsetsCompat.Type.ime(),
-                )
+            if (fullscreen != null) {
+                view.setPadding(0, 0, 0, 0)
+                return@setOnApplyWindowInsetsListener WindowInsetsCompat.CONSUMED
             }
-            val navBar = if (fullscreen != null) 0 else insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val statusBar = if (fullscreen != null) 0 else insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            background.setLayerHeight(1, statusBar)
-            background.setLayerHeight(2, navBar)
-            view.setPadding(pad.left, pad.top, pad.right, pad.bottom)
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            val split = splitInsets(bars.left, bars.top, bars.right, bars.bottom, keyboard, underBars)
+            view.setPadding(split.padLeft, split.padTop, split.padRight, split.padBottom)
+            if (underBars) tellInsets(split.safeTop, split.safeBottom)
             WindowInsetsCompat.CONSUMED
         }
 
@@ -169,6 +150,19 @@ abstract class WebShell : ComponentActivity() {
         if (savedInstanceState == null || !restoresPage || web.restoreState(savedInstanceState) == null) {
             web.loadUrl(startUrl(intent?.dataString))
         }
+    }
+
+    /**
+     * Hands the page the bars' heights: for the page already open, and for every
+     * page after it (a document-start script, replaced when they change).
+     */
+    private fun tellInsets(top: Int, bottom: Int) {
+        val script = insetsScript(top, bottom, resources.displayMetrics.density)
+        if (script == insets || !alive) return
+        insets = script
+        insetsAtStart?.remove()
+        insetsAtStart = WebViewCompat.addDocumentStartJavaScript(web, script, setOf(BuildConfig.SITE))
+        web.evaluateJavascript(script, null)
     }
 
     /** Light bars get dark icons; dark bars (the bands, night mode) light ones. */
@@ -180,6 +174,10 @@ abstract class WebShell : ComponentActivity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setUp(web: WebView) {
+        // The page scrolls without a bar of its own, as a native screen does: WebView's
+        // ran the full height, over the band and the tab bar.
+        web.isVerticalScrollBarEnabled = false
+        web.isHorizontalScrollBarEnabled = false
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -263,6 +261,11 @@ abstract class WebShell : ComponentActivity() {
         }
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) = keepAwake(false)
+
+        // A page that started before the first insets arrived still gets them.
+        override fun onPageCommitVisible(view: WebView, url: String?) {
+            insets?.let { view.evaluateJavascript(it, null) }
+        }
 
         override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
             // The page's renderer crashed or was killed for memory: start the screen over
@@ -390,22 +393,17 @@ abstract class WebShell : ComponentActivity() {
     }
 
     /**
-     * The strip under the navigation bar follows the page: a pushed screen has
-     * no tab bar, so the page says `tabs` or `page` ([stripFor]) and the bottom
-     * layer takes [navBarColor] or [pageColor].
+     * The navigation bar's icons follow the page's theme, which Settings may set
+     * apart from the phone's: `src/app.html` says `light` or `dark` ([schemeFor]).
      */
     private fun barsBridge(web: WebView) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
         val origin = setOf(BuildConfig.SITE)
         WebViewCompat.addWebMessageListener(web, BARS_OBJECT, origin) { _, message, _, isMainFrame, _ ->
             if (!isMainFrame) return@addWebMessageListener
-            val color = when (stripFor(message.data)) {
-                Strip.TABS -> navBarColor
-                Strip.PAGE -> pageColor
-                null -> return@addWebMessageListener
-            }
+            val scheme = schemeFor(message.data) ?: return@addWebMessageListener
             runOnUiThread {
-                (background.getDrawable(2) as ColorDrawable).color = ContextCompat.getColor(this, color)
+                WindowCompat.getInsetsController(window, root).isAppearanceLightNavigationBars = scheme == Scheme.LIGHT
             }
         }
     }
