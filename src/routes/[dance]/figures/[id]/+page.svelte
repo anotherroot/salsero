@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { resolve } from '$app/paths';
@@ -230,12 +231,21 @@
 	const closeOnArchive: SubmitFunction = () => {
 		archiveBusy = true;
 		return async ({ update, result }) => {
+			if (result.type === 'redirect') {
+				// Close the sheet, then replace this page with the sibling or the list.
+				archiving = false;
+				try {
+					await leaveRemoved(result.location);
+				} finally {
+					archiveBusy = false;
+				}
+				return;
+			}
 			try {
 				await update();
 			} finally {
 				archiveBusy = false;
 			}
-			if (result.type === 'redirect') archiving = false;
 		};
 	};
 </script>

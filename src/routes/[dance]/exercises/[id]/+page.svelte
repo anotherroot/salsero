@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -381,6 +382,9 @@
 							editing = false;
 							archiving = false;
 							await tick();
+							await leaveRemoved(result.location);
+							archiveBusy = false;
+							return;
 						}
 						try {
 							await update();

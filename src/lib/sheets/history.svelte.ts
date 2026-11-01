@@ -96,12 +96,14 @@ function releaseClick(): void {
  */
 export function gotoWhenSettled(
 	href: string,
-	opts: Parameters<typeof goto>[1] = {}
+	opts: Parameters<typeof goto>[1] = {},
+	before?: () => void
 ): Promise<void> {
 	releaseClick();
 	sentAt = null;
 	return new Promise((resolve, reject) => {
 		sheetStack.settled(() => {
+			before?.();
 			// eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller's href, already built
 			goto(href, opts).then(resolve, reject);
 		});

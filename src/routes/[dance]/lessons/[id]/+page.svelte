@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
@@ -842,6 +843,9 @@
 						editing = false;
 						archiving = false;
 						await tick();
+						await leaveRemoved(result.location);
+						archiveBusy = false;
+						return;
 					}
 					try {
 						await update();

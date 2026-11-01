@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { SubmitFunction } from '@sveltejs/kit';
@@ -424,7 +425,20 @@
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (archiving = false)}
 			>Cancel</button
 		>
-		<form method="POST" action="?/archive" use:enhance>
+		<form
+			method="POST"
+			action="?/archive"
+			use:enhance={() => {
+				return async ({ update, result }) => {
+					if (result.type === 'redirect') {
+						archiving = false;
+						await leaveRemoved(result.location);
+						return;
+					}
+					await update();
+				};
+			}}
+		>
 			<button type="submit" class={button('danger', 'sm')}>Archive</button>
 		</form>
 	{/snippet}

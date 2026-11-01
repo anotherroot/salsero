@@ -1,6 +1,7 @@
 import { tick } from 'svelte';
 import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 import { page } from '$app/state';
+import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { TabId } from './tabs';
 import {
@@ -17,6 +18,7 @@ import {
 	leave,
 	pageTitle,
 	parseTrail,
+	removalTarget,
 	scrollFor,
 	tabTarget,
 	type Arrival,
@@ -213,5 +215,21 @@ export function syncTrail(): void {
 		set(arrive(trail.value, a));
 		const y = scrollFor(trail.value, a);
 		if (y !== null && !to.hash) window.scrollTo(0, y);
+	});
+}
+
+/**
+ * A removal's redirect (`?/delete`, `?/archive`), from code: leave the page
+ * that is gone for where `removalTarget` says. Always a replace, never
+ * `history.back()`: the gone page's own entry must not stay reachable. The
+ * caller closes its dialog first; this goes once the sheets' history has settled.
+ */
+export async function leaveRemoved(location: string): Promise<void> {
+	const gone = page.url.pathname;
+	const target = removalTarget(trail.value, gone, location);
+	if (!target.carry) set(forget(trail.value, gone));
+	// The intent is set once the sheets have settled: their Back moves are not this arrival.
+	await gotoWhenSettled(target.href, { replaceState: true, invalidateAll: true }, () => {
+		if (target.intent) intend(target.intent);
 	});
 }

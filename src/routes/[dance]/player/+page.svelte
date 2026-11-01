@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { entryState } from '$lib/sheets/history.svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { goBack } from '$lib/nav/trail.svelte';
 	import Running from '$lib/components/player/Running.svelte';
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
@@ -269,7 +268,7 @@
 				);
 			});
 		}
-		await goto(resolve(data.back.href as `/${string}`), { replaceState: true });
+		await goBack(data.back, { replace: true });
 	}
 
 	// A navigation away or a tab close must not leave an AudioContext or a

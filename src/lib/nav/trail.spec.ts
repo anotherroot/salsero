@@ -17,6 +17,7 @@ import {
 	pageTitle,
 	parseTrail,
 	remembered,
+	removalTarget,
 	scrollFor,
 	tabTarget,
 	type Arrival,
@@ -458,5 +459,32 @@ describe('parseTrail', () => {
 	it('round-trips', () => {
 		const t = opening();
 		expect(parseTrail(JSON.stringify(t))).toEqual(t);
+	});
+});
+
+describe('removalTarget', () => {
+	it('a deleted lesson goes back to the figure that opened it', () => {
+		expect(removalTarget(opening(), '/salsa/lessons/5', '/salsa/lessons')).toEqual({
+			href: '/salsa/figures/12',
+			replace: true,
+			intent: 'back',
+			carry: false
+		});
+	});
+	it('a deleted page with no opener lands where the server said', () => {
+		expect(removalTarget(EMPTY_TRAIL, '/salsa/lessons/5', '/salsa/lessons')).toEqual({
+			href: '/salsa/lessons',
+			replace: true,
+			intent: null,
+			carry: false
+		});
+	});
+	it('an archived variation with siblings stays on the figure and keeps its opener', () => {
+		expect(removalTarget(opening(), '/salsa/figures/12', '/salsa/figures/13')).toEqual({
+			href: '/salsa/figures/13',
+			replace: true,
+			intent: null,
+			carry: true
+		});
 	});
 });

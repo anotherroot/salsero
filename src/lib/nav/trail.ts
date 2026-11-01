@@ -308,3 +308,25 @@ export function parseTrail(raw: string | null): Trail {
 		entries: strings(v.entries) as Record<number, string>
 	};
 }
+
+/**
+ * Where a page that was just removed leaves you. The server's `location` for a
+ * figure page is a sibling variation: stay on the figure, keeping its opener
+ * (`carry`). Otherwise go back to the removed page's opener, as a back; with
+ * none recorded, where the server said. Always a replace: the removed page's
+ * own history entry must not stay reachable.
+ */
+export function removalTarget(
+	t: Trail,
+	gone: PageKey,
+	location: string
+): { href: string; replace: true; intent: 'back' | null; carry: boolean } {
+	const path = location.split(/[?#]/)[0];
+	const dance = danceInPath(path);
+	const parts = path.split('/');
+	if (dance && parts[2] === 'figures' && parts.length === 4)
+		return { href: location, replace: true, intent: null, carry: true };
+	const opener = t.pages[gone]?.opener ?? null;
+	if (opener) return { href: hrefOf(t, opener), replace: true, intent: 'back', carry: false };
+	return { href: location, replace: true, intent: null, carry: false };
+}

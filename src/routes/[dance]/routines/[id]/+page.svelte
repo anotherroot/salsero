@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
@@ -815,7 +816,16 @@
 			action="?/archive"
 			use:enhance={() => {
 				archivingNow = true;
-				return async ({ update }) => {
+				return async ({ update, result }) => {
+					if (result.type === 'redirect') {
+						archiving = false;
+						try {
+							await leaveRemoved(result.location);
+						} finally {
+							archivingNow = false;
+						}
+						return;
+					}
 					await update();
 					archivingNow = false;
 				};
