@@ -17,6 +17,7 @@ export const TABS: readonly {
 
 /** First segment after the dance -> the tab it belongs to. */
 const SECTION: Record<string, TabId> = {
+	exercises: 'today',
 	figures: 'moves',
 	routines: 'moves',
 	positions: 'moves',
@@ -41,6 +42,13 @@ export function tabFor(path: string, dance: DanceSlug): TabId | null {
 	const first = path.slice(prefix.length).split('/')[1] ?? '';
 	if (first === '') return 'today';
 	return SECTION[first] ?? null;
+}
+
+/** The main lists a tab opens on. Moves has two: figures and routines. */
+export function rootsOf(tab: TabId, dance: DanceSlug): string[] {
+	if (tab === 'moves') return [`/${dance}/figures`, `/${dance}/routines`];
+	const path = { today: '', lessons: '/lessons', music: '/songs' }[tab];
+	return [`/${dance}${path}`];
 }
 
 const TOP_LEVEL = new Set([

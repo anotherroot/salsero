@@ -1,0 +1,266 @@
+import { danceInPath, type DanceSlug } from '$lib/dances/dances';
+import { rootsOf, tabFor, type TabId } from './tabs';
+
+/**
+ * The trail: which pages you have seen this session, where each was opened
+ * from (its opener), the search and scroll each keeps, and the last page of
+ * each tab. PURE — the layout feeds it arrivals and reads targets back.
+ */
+
+export type PageKey = string; // a pathname, e.g. '/salsa/figures/12'
+
+export interface Visit {
+	search: string;
+	scrollY: number;
+	opener: PageKey | null;
+	title: string;
+}
+
+export interface Trail {
+	pages: Record<PageKey, Visit>;
+	/** `${dance}:${tab}` → the last page seen in that tab (never Practice or share). */
+	last: Record<string, PageKey>;
+	/** `${dance}:${tab}` → the last main list seen in that tab (Moves: figures or routines). */
+	lastRoot: Record<string, PageKey>;
+	/** History slot index → the page in it. */
+	entries: Record<number, PageKey>;
+}
+
+export const EMPTY_TRAIL: Trail = { pages: {}, last: {}, lastRoot: {}, entries: {} };
+
+export type Intent = 'tab' | 'back' | null;
+
+export interface Arrival {
+	to: PageKey;
+	search: string;
+	title: string;
+	/** null: came from outside the app, or from a page outside a dance. */
+	from: PageKey | null;
+	index: number;
+	prevIndex: number | null;
+	kind: 'enter' | 'pop' | 'push' | 'replace';
+	intent: Intent;
+}
+
+/** Popup flags and the Today session are not a place to come back to. */
+const DROPPED = new Set(['log', 'new', 'add', 'session', 'v']);
+
+/** The query worth keeping: day, q and chips stay; popup flags go. */
+export function keptSearch(search: string): string {
+	const kept = search
+		.replace(/^\?/, '')
+		.split('&')
+		.filter((p) => p !== '' && !DROPPED.has(p.split('=')[0]));
+	return kept.length ? `?${kept.join('&')}` : '';
+}
+
+/** Under a dance: /salsa/..., /bachata/... */
+export function isTrailPage(path: string): boolean {
+	return danceInPath(path) !== null;
+}
+
+function firstSegment(path: string): string {
+	const dance = danceInPath(path);
+	if (!dance) return '';
+	return path.slice(dance.length + 1).split('/')[1] ?? '';
+}
+
+/** A trail page that is not Practice or share: those are never a tab's last page. */
+export function remembered(path: string): boolean {
+	if (!isTrailPage(path)) return false;
+	const first = firstSegment(path);
+	return first !== 'player' && first !== 'share';
+}
+
+const ROOTS = new Set(['', 'figures', 'routines', 'lessons', 'songs']);
+
+/** The main lists: /<d>, /<d>/figures, /<d>/routines, /<d>/lessons, /<d>/songs. */
+export function isRoot(path: string): boolean {
+	const dance = danceInPath(path);
+	if (!dance) return false;
+	const rest = path.slice(dance.length + 1);
+	if (rest === '') return true;
+	const parts = rest.split('/');
+	return parts.length === 2 && ROOTS.has(parts[1]);
+}
+
+const CHAIN_LIMIT = 50;
+
+/**
+ * Where `to` was opened from. A push from a trail page says `from`, unless
+ * `to` is already up `from`'s chain: linking back up must not make a loop.
+ */
+export function openerFor(t: Trail, to: PageKey, from: PageKey | null): PageKey | null {
+	const existing = t.pages[to]?.opener ?? null;
+	if (isRoot(to)) return null;
+	if (from === null || !isTrailPage(from)) return existing;
+	let cur: PageKey | null = from;
+	for (let i = 0; i < CHAIN_LIMIT && cur !== null; i++) {
+		if (cur === to) return existing;
+		cur = t.pages[cur]?.opener ?? null;
+	}
+	return from;
+}
+
+export function arrive(t: Trail, a: Arrival): Trail {
+	if (!isTrailPage(a.to)) return t;
+	const existing = t.pages[a.to];
+	let opener: PageKey | null;
+	if (isRoot(a.to)) opener = null;
+	else if (a.kind === 'enter') opener = existing?.opener ?? null;
+	else if (a.kind === 'pop' || a.intent === 'tab' || a.intent === 'back')
+		opener = existing?.opener ?? null;
+	else if (a.kind === 'replace') {
+		// A variation step or a refilter: the page is the same place in the trail.
+		opener =
+			a.from === null || a.from === a.to
+				? (existing?.opener ?? null)
+				: (t.pages[a.from]?.opener ?? existing?.opener ?? null);
+	} else opener = openerFor(t, a.to, a.from);
+
+	const pages = {
+		...t.pages,
+		[a.to]: {
+			search: keptSearch(a.search),
+			scrollY: existing?.scrollY ?? 0,
+			opener,
+			title: a.title
+		}
+	};
+	const entries: Record<number, PageKey> = { ...t.entries, [a.index]: a.to };
+	if (a.kind === 'push') {
+		for (const k of Object.keys(entries)) if (Number(k) > a.index) delete entries[Number(k)];
+	}
+
+	let last = t.last;
+	let lastRoot = t.lastRoot;
+	const dance = danceInPath(a.to)!;
+	const tab = tabFor(a.to, dance);
+	if (tab) {
+		const key = `${dance}:${tab}`;
+		if (remembered(a.to)) last = { ...last, [key]: a.to };
+		if (isRoot(a.to)) lastRoot = { ...lastRoot, [key]: a.to };
+	}
+	return { pages, last, lastRoot, entries };
+}
+
+/** Store where the page was scrolled to as it is left. Creates no record. */
+export function leave(t: Trail, key: PageKey, scrollY: number): Trail {
+	const v = t.pages[key];
+	if (!v) return t;
+	return { ...t, pages: { ...t.pages, [key]: { ...v, scrollY } } };
+}
+
+/** A page that no longer exists: out of the trail, its children reattached. */
+export function forget(t: Trail, key: PageKey): Trail {
+	const gone = t.pages[key];
+	const pages: Record<PageKey, Visit> = {};
+	for (const [k, v] of Object.entries(t.pages)) {
+		if (k === key) continue;
+		pages[k] = v.opener === key ? { ...v, opener: gone?.opener ?? null } : v;
+	}
+	const without = (r: Record<string, PageKey>) =>
+		Object.fromEntries(Object.entries(r).filter(([, v]) => v !== key));
+	return {
+		pages,
+		last: without(t.last),
+		lastRoot: without(t.lastRoot),
+		entries: without(t.entries) as Record<number, PageKey>
+	};
+}
+
+/** The key with its kept search. */
+export function hrefOf(t: Trail, key: PageKey): string {
+	return key + (t.pages[key]?.search ?? '');
+}
+
+export function backTarget(
+	t: Trail,
+	key: PageKey,
+	fallback: { href: string; label: string }
+): { href: string; label: string; key: PageKey | null } {
+	const opener = t.pages[key]?.opener ?? null;
+	if (opener && t.pages[opener]) {
+		return { href: hrefOf(t, opener), label: `Back to ${t.pages[opener].title}`, key: opener };
+	}
+	const path = fallback.href.split(/[?#]/)[0];
+	const href = t.pages[path] ? hrefOf(t, path) : fallback.href;
+	return { href, label: fallback.label, key: null };
+}
+
+/** What a tap on a tab does: scroll its list to the top, or go to a page. */
+export function tabTarget(
+	t: Trail,
+	tab: TabId,
+	dance: DanceSlug,
+	current: PageKey
+): { href: string } | { scrollTop: true } {
+	const roots = rootsOf(tab, dance);
+	const k = `${dance}:${tab}`;
+	if (tab === tabFor(current, dance)) {
+		if (roots.includes(current)) return { scrollTop: true };
+		return { href: hrefOf(t, t.lastRoot[k] ?? roots[0]) };
+	}
+	return { href: hrefOf(t, t.last[k] ?? t.lastRoot[k] ?? roots[0]) };
+}
+
+/** Where to scroll after an arrival; null leaves it to the browser. */
+export function scrollFor(t: Trail, a: Arrival): number | null {
+	if (a.kind === 'pop' || a.kind === 'enter') return null;
+	if (a.from === a.to) return null;
+	return t.pages[a.to]?.scrollY ?? null;
+}
+
+/**
+ * Whether Back can step the browser's history (the slot before is the target)
+ * or has to go to the page.
+ */
+export function backMove(
+	entries: Record<number, PageKey>,
+	index: number,
+	target: PageKey | null
+): 'history' | 'goto' {
+	return target !== null && entries[index - 1] === target ? 'history' : 'goto';
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> =>
+	typeof v === 'object' && v !== null && !Array.isArray(v);
+
+function strings(v: unknown): Record<string, string> {
+	if (!isObj(v)) return {};
+	return Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'string')) as Record<
+		string,
+		string
+	>;
+}
+
+/** Stored text back to a trail; anything bad or missing is an empty trail. */
+export function parseTrail(raw: string | null): Trail {
+	if (!raw) return EMPTY_TRAIL;
+	let v: unknown;
+	try {
+		v = JSON.parse(raw);
+	} catch {
+		return EMPTY_TRAIL;
+	}
+	if (!isObj(v)) return EMPTY_TRAIL;
+	const pages: Record<PageKey, Visit> = {};
+	if (isObj(v.pages)) {
+		for (const [k, p] of Object.entries(v.pages)) {
+			if (
+				isObj(p) &&
+				typeof p.search === 'string' &&
+				typeof p.scrollY === 'number' &&
+				typeof p.title === 'string' &&
+				(p.opener === null || typeof p.opener === 'string')
+			)
+				pages[k] = { search: p.search, scrollY: p.scrollY, opener: p.opener, title: p.title };
+		}
+	}
+	return {
+		pages,
+		last: strings(v.last),
+		lastRoot: strings(v.lastRoot),
+		entries: strings(v.entries) as Record<number, PageKey>
+	};
+}
