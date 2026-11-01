@@ -119,3 +119,23 @@ export const DASHED_ADD =
  */
 export const SWITCH_TRACK =
 	'relative block h-8 w-[52px] rounded-full bg-muted transition-colors peer-checked:bg-accent peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent peer-disabled:opacity-50 peer-checked:[&>span]:translate-x-5';
+
+/*
+ * Variants built with swap() live here, in a module, never in a .svelte file:
+ * a spec imports this one, so swap()'s dev guard runs and a token that is no
+ * longer in the builder fails `npm run check` (class-rules.spec.ts).
+ */
+
+/** A field on a surface card (the exercise page's settings): the box reads as a field. */
+export const FIELD_ON_CARD = swap(FIELD, 'bg-surface', 'bg-field');
+export const TEXTAREA_ON_CARD = swap(TEXTAREA, 'bg-surface', 'bg-field');
+export const SELECT_ON_CARD = swap(SELECT, 'bg-surface', 'bg-field');
+
+/** The filled round Play / Pause at the board's 52 px rather than the usual 44. */
+export const PLAY_ROUND = swap(iconButton('filled'), 'h-11 w-11', 'size-[52px]');
+
+/** A row led by a 40 px LeadTile with two lines (Settings' My count): 64 px. */
+export const ROW_TALL = swap(ROW, 'min-h-14', 'min-h-16');
+
+/** A full-width danger button sharing its row: less side padding, so the label fits. */
+export const DANGER_SHARED = swap(button('danger', 'md', true), 'px-6', 'px-3');

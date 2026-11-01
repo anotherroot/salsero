@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { untrack } from 'svelte';
 	import type { CallEvery, ClavePattern, CountPattern, Speed } from '$lib/labels';
 
 	export interface PlayerSettings {
@@ -31,15 +32,12 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
+	import { CHIP, FIELD_ERROR, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import {
-		CHIP,
-		FIELD_ERROR,
-		GROUP,
-		ROW,
-		SECTION_LABEL,
-		button,
-		swap
-	} from '$lib/components/ui/styles';
+		SETUP_PLAY as PLAY,
+		SETUP_PLAY_BUSY as PLAY_BUSY,
+		SETUP_VOICE_ROW as VOICE_ROW
+	} from './styles';
 	import CountChips from './CountChips.svelte';
 	import ClaveChips from './ClaveChips.svelte';
 	import SongPicker from './SongPicker.svelte';
@@ -148,7 +146,9 @@
 
 	// The stored `source` is no longer read back: the page decides it, from
 	// `?song=` or the exercise's own memory.
-	let bpm = $state(rememberedBpm ?? num(stored.bpm, 60, 300, defaultBpm));
+	// A seed, read once: the Stepper owns the tempo after that. Nothing in the
+	// player links to another player, so these props do not change under it.
+	let bpm = $state(untrack(() => rememberedBpm ?? num(stored.bpm, 60, 300, defaultBpm)));
 	// `count` and `clave` need to do two things at once: start from a value
 	// that depends on `dance` (through `pick`, below) AND stay editable by the
 	// pickers afterwards. A plain `$state` can only do the second — its
@@ -267,17 +267,10 @@
 
 	/** A control's visible label; the control carries the same name for a screen reader. */
 	const LABEL = `${SECTION_LABEL} pt-2`;
-
-	/**
-	 * Starting… keeps the accent, as the board's loading button does: it is busy,
-	 * not unavailable. Still `disabled`, so a second tap cannot build a second player.
-	 */
-	const PLAY = button('primary', 'lg', true);
-	const PLAY_BUSY = swap(PLAY, 'disabled:bg-disabled-bg disabled:text-disabled-ink', '');
 </script>
 
 {#snippet voiceRow()}
-	<a class={swap(ROW, 'min-h-14', 'min-h-[58px]')} href={voiceHref}>
+	<a class={VOICE_ROW} href={voiceHref}>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="text-[16px] font-bold text-ink">Voice</span>
 			<span class="text-[13px] text-muted">Record your own count</span>

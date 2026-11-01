@@ -49,7 +49,7 @@
 </script>
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
@@ -109,11 +109,16 @@
 	const info = $derived(typeInfo(exercise.source));
 	const has = (f: 'minutes' | 'reps' | 'rating' | 'note') => info.fields.includes(f);
 	const formId = $derived(`log-${exercise.id}`);
+	/** The main button just after a log: done colours, primary's size and shape. */
+	const LOGGED =
+		'inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done';
 	const detailsHref = $derived(
 		resolve('/[dance]/exercises/[id]', { dance: dance.slug, id: String(exercise.id) })
 	);
 
-	let payload = $state<PracticePayload | null>(initial);
+	// A seed, read once: the popup is keyed by exercise (Today's `{#key}`), and
+	// after that `load()` keeps the payload current.
+	let payload = $state<PracticePayload | null>(untrack(() => initial));
 	let loadError = $state<string | null>(null);
 	let busy = $state(false);
 	let justLogged = $state(false);
@@ -450,32 +455,28 @@
 
 	{#snippet footer()}
 		{#if view.main}
-			{#if view.main.state === 'logged'}
-				<!-- Still a submit: tapping it logs another set, as before. -->
-				<button
-					data-focus="sets-add"
-					type="submit"
-					form={formId}
-					class="inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done"
-				>
-					<Icon name="check" size={22} stroke={2.5} />{view.main.label}
-				</button>
-			{:else}
-				<button
-					data-focus="sets-add"
-					type="submit"
-					form={formId}
-					class={button('primary', 'md', true)}
-					disabled={view.main.state !== 'log'}
-					aria-busy={view.main.state === 'saving' ? 'true' : undefined}
-				>
-					{#if view.main.state === 'saving'}
-						<Spinner size={20} />
-					{:else if view.main.state === 'log'}
-						<Icon name="check" size={22} />
-					{/if}{view.main.label}
-				</button>
-			{/if}
+			<!--
+				One element in every state: "Logged" fading back to "Log set" 2.5 s later
+				must not destroy a focused button (focusAfterRemoval's fallback lands
+				here after a keyboard delete). "Logged" is still a submit: tapping it
+				logs another set.
+			-->
+			<button
+				data-focus="sets-add"
+				type="submit"
+				form={formId}
+				class={view.main.state === 'logged' ? LOGGED : button('primary', 'md', true)}
+				disabled={view.main.state !== 'log' && view.main.state !== 'logged'}
+				aria-busy={view.main.state === 'saving' ? 'true' : undefined}
+			>
+				{#if view.main.state === 'saving'}
+					<Spinner size={20} />
+				{:else if view.main.state === 'logged'}
+					<Icon name="check" size={22} stroke={2.5} />
+				{:else if view.main.state === 'log'}
+					<Icon name="check" size={22} />
+				{/if}{view.main.label}
+			</button>
 		{/if}
 		{#if view.hint}
 			<p class="text-center text-[13px] font-bold text-muted">{view.hint}</p>

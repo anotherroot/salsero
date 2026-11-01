@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { focusAfter, focusWasLost } from '$lib/focus';
 	import type { IconName } from '$lib/icons/icons';
 	/**
 	 * "Slot 4 deleted · Undo", for six seconds. Keyed by `toast.id`, so a second
@@ -47,6 +49,32 @@
 		const timer = setTimeout(ondismiss, 6000);
 		return () => clearTimeout(timer);
 	});
+
+	let region: HTMLElement | undefined = $state();
+	let card: HTMLElement | undefined = $state();
+	/** Where focus was before it came to the toast's button. */
+	let returnTo: HTMLElement | null = null;
+
+	/**
+	 * A toast that goes (Undo, or its six seconds) while its button has focus
+	 * would drop focus to <body>. Before the DOM loses it (`.pre`), note that it
+	 * had focus; once it is gone, focus goes back where it came from, else to
+	 * the next control after the toast.
+	 */
+	$effect.pre(() => {
+		if (toast === null) return;
+		void toast.id;
+		return () => {
+			if (!card?.contains(document.activeElement)) return;
+			const back = returnTo;
+			const at = region;
+			void tick().then(() => {
+				if (!at?.isConnected || !focusWasLost()) return;
+				if (back?.isConnected && !back.closest('[inert]')) back.focus();
+				else focusAfter(at)?.focus();
+			});
+		};
+	});
 </script>
 
 <div
@@ -55,9 +83,15 @@
 		: 'pointer-events-none'}"
 	style:bottom={offset}
 	role="status"
+	bind:this={region}
 >
 	{#if toast}
 		<div
+			bind:this={card}
+			onfocusin={(e) => {
+				const from = e.relatedTarget;
+				if (from instanceof HTMLElement && !card?.contains(from)) returnTo = from;
+			}}
 			class="flex min-h-[52px] items-center gap-3 rounded-2xl bg-inverse-bg py-1 pl-4 text-inverse-ink shadow-[0_10px_30px_rgb(0_0_0/0.28)] {toast.action
 				? 'pr-1'
 				: 'pr-4'}"

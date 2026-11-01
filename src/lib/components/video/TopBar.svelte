@@ -3,8 +3,7 @@
 	import { VIDEO_RATES, type VideoRate } from '$lib/video-prefs';
 	import type { TopBarParts } from '$lib/video/chrome';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { swap } from '$lib/components/ui/styles';
-	import { playerButton } from './styles';
+	import { TOP_GLASS, topBack, topEdit } from './styles';
 
 	interface Props {
 		title: string;
@@ -48,19 +47,9 @@
 	// The 40 px pills sit in a 44 px button: the outer button is the hit area,
 	// the inner span carries the look.
 	const HIT = 'grid h-11 flex-none cursor-pointer place-items-center';
-	const pill = $derived(
-		swap(
-			swap(playerButton(parts.glass ? 'glass' : 'ghost', 'md'), 'h-11', 'h-10'),
-			'px-3',
-			'pr-3 pl-1'
-		)
-	);
-	const glassPill = swap(playerButton('glass', 'md'), 'h-11', 'h-10');
-	const editClass = $derived(
-		parts.edit === 'accent'
-			? swap(swap(playerButton('accent', 'md'), 'h-11', 'h-10'), 'px-3', 'pr-3.5 pl-3')
-			: swap(glassPill, 'px-3', 'pr-3.5 pl-3')
-	);
+	const pill = $derived(topBack(parts.glass));
+	const glassPill = TOP_GLASS;
+	const editClass = $derived(topEdit(parts.edit === 'accent'));
 </script>
 
 <div

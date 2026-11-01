@@ -5,7 +5,7 @@
  * radius: append nothing that sets any of them.
  */
 
-import { swap } from '$lib/components/ui/styles';
+import { button, swap } from '$lib/components/ui/styles';
 
 export type PlayerButtonKind = 'neutral' | 'accent' | 'ghost' | 'glass' | 'outline' | 'danger-text';
 export type PlayerButtonSize = 'sm' | 'md' | 'lg' | 'xl' | 'cta';
@@ -74,3 +74,65 @@ export const HIDE = swap(
 	'px-3',
 	'pr-2 pl-3'
 );
+
+/*
+ * The screens' variants, built here rather than in the components so the spec
+ * that imports this module runs swap()'s dev guard on every one of them.
+ */
+
+/** The spot list's Edit: a 36 px pill in a 44 px cell, a little less padding before its icon. */
+export const SPOT_EDIT = swap(playerButton('neutral', 'sm'), 'px-3', 'pr-3 pl-2.5');
+export const SPOT_EDIT_ACCENT = swap(playerButton('accent', 'sm'), 'px-3', 'pr-3 pl-2.5');
+
+/** The editor's ±step tiles share the row (flex-1 for the builder's flex-none). */
+export const EDITOR_STEP = swap(playerButton('neutral', 'xl', 'tile'), 'flex-none', 'flex-1');
+/** The editor's "now" tile: a little wider, its time over its label. */
+export const EDITOR_NOW = swap(
+	swap(EDITOR_STEP, 'flex-1', 'flex-[1.3] flex-col'),
+	'gap-2',
+	'gap-0'
+);
+export const EDITOR_WHOLE = swap(
+	swap(playerButton('outline', 'md'), 'flex-none', 'flex-1'),
+	'px-3',
+	'px-1'
+);
+export const EDITOR_DELETE = swap(playerButton('danger-text'), 'px-4', 'px-3');
+
+/** The Keys sheet's cap: one step up from the editor's hint chip. */
+export const KEY_CAP = swap(
+	swap(swap(KBD, 'h-5 min-w-5', 'h-6 min-w-6'), 'px-1', 'px-1.5'),
+	'text-[11px]',
+	'text-[12px]'
+);
+
+/** Two of the sheet's buttons share a row: flex-1 in place of the builder's flex-none. */
+export const SHEET_SECONDARY = swap(button('secondary'), 'flex-none', 'flex-1');
+export const SHEET_PRIMARY = swap(button('primary'), 'flex-none', 'flex-1');
+export const SHEET_DANGER = swap(button('danger'), 'flex-none', 'flex-1');
+
+/** The top bar's 40 px pills sit in a 44 px button: the outer button is the hit area. */
+const top = (kind: PlayerButtonKind) => swap(playerButton(kind, 'md'), 'h-11', 'h-10');
+/** The back pill: glass over the picture, ghost on a panel. */
+export const topBack = (glass: boolean) =>
+	swap(top(glass ? 'glass' : 'ghost'), 'px-3', 'pr-3 pl-1');
+export const TOP_GLASS = top('glass');
+/** The Edit / Link pill: accent while editing, glass otherwise. */
+export const topEdit = (accent: boolean) =>
+	swap(top(accent ? 'accent' : 'glass'), 'px-3', 'pr-3.5 pl-3');
+
+/** Mark and Section. */
+export const MARK = playerButton('neutral', 'lg');
+export const MARK_DESK = playerButton('neutral', 'md');
+export const MARK_GLASS = playerButton('glass', 'md');
+/** A square 44 px Mark (narrow landscape: the icon without its label). */
+export const MARK_DESK_SQUARE = swap(MARK_DESK, 'px-3', 'w-11 px-0');
+export const MARK_GLASS_SQUARE = swap(MARK_GLASS, 'px-3', 'w-11 px-0');
+export const SECTION_ON = playerButton('accent', 'lg');
+export const SECTION_ON_DESK = playerButton('accent', 'md');
+// playerButton carries `flex-none`, which would beat a `flex-1` appended to it: swap it.
+export const MARK_FILL = swap(MARK, 'flex-none', 'flex-1');
+export const MARK_WIDE = swap(MARK, 'flex-none', 'flex-[1.4]');
+export const SECTION_WIDE = swap(SECTION_ON, 'flex-none', 'flex-[1.4]');
+/** An invite on the picture: accent text needs a darker scrim than white (2.2:1 over a white frame at 60 %). */
+export const INVITE = swap(ON_VIDEO, 'bg-black/60', 'bg-black/75');

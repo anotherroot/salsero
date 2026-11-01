@@ -16,8 +16,6 @@ export interface PickRow {
 	/** Shown under a heading instead of `label`: "Doble". Defaults to `label`. */
 	short?: string;
 	meta?: string;
-	/** Show `meta` in the accent: it is live (a song's sample playing). */
-	metaAccent?: boolean;
 	/** Extra text the search matches (a section's time range). Never `meta`. */
 	keywords?: string;
 	linked?: boolean;

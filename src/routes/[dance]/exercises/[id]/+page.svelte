@@ -22,14 +22,13 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import {
-		FIELD,
 		FIELD_ERROR,
+		FIELD_ON_CARD,
 		GROUP,
 		LABEL,
 		SECTION_LABEL,
-		TEXTAREA,
-		button,
-		swap
+		TEXTAREA_ON_CARD,
+		button
 	} from '$lib/components/ui/styles';
 	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
@@ -184,7 +183,7 @@
 									required
 									maxlength="200"
 									value={exercise.name}
-									class={swap(FIELD, 'bg-surface', 'bg-field')}
+									class={FIELD_ON_CARD}
 								/>
 							</label>
 						{/if}
@@ -198,11 +197,8 @@
 						</div>
 						<label class="block">
 							<span class={LABEL}>{ownsItself ? 'Description' : 'Practice notes'}</span>
-							<textarea
-								name="notes"
-								rows="3"
-								maxlength="2000"
-								class={swap(TEXTAREA, 'bg-surface', 'bg-field')}>{exercise.notes ?? ''}</textarea
+							<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA_ON_CARD}
+								>{exercise.notes ?? ''}</textarea
 							>
 						</label>
 					</form>

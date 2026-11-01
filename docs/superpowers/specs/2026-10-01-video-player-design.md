@@ -213,7 +213,10 @@ WebView — taken again whenever the page comes back).
 list — everywhere; M and S at the full video; I / O (start / end to now) in
 the editor; [ / ] (jump to start / the last 2 s) in a section's view and
 editor; L (rest the loop) in the editor; Esc up one level. Ignored while
-typing and with Ctrl/Cmd/Alt held.
+typing and with Ctrl/Cmd/Alt held. The timeline is a tab stop (`role="slider"`):
+on it ↑ / ↓ are the 0.1 s step too, and Home / End go to the track's ends.
+The trim strip's handles are drawn only (`aria-hidden`): the edges move with
+the editor's buttons and I / O, and its Start / End rows read the times out.
 
 **The loop** is checked on every animation frame while playing, not on
 `timeupdate` (~4 Hz, which would overshoot a quarter-second at 1×): once

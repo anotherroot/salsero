@@ -56,20 +56,34 @@
 		const f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
 		onseek(Math.round(fromMs + f * span));
 	}
+
+	/**
+	 * The steps are the player's own keys, which reach its window handler from
+	 * here: Left / Right ±1 s, Up / Down ±0.1 s on a slider (`keys.ts`). Home and
+	 * End, the track's ends, are this slider's.
+	 */
+	function onkeydown(e: KeyboardEvent) {
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (e.key !== 'Home' && e.key !== 'End') return;
+		e.preventDefault();
+		onseek(e.key === 'Home' ? fromMs : toMs);
+	}
 </script>
 
-<!-- In the full-screen player the arrow keys are the player's (±1 s), so the slider takes no focus of
-     its own; with `keyboard` (the inline video) it is focusable and ←/→ move 5 s. -->
+<!-- A tab stop in both places. In the full-screen player the arrow keys are the player's (±1 s,
+     ↑/↓ 0.1 s on the slider, keys.ts) and Home / End are this slider's; with `keyboard` (the
+     inline video) the slider owns its keys and ←/→ move 5 s. -->
 <div
 	role="slider"
-	tabindex={keyboard ? 0 : -1}
+	tabindex="0"
 	aria-label="Position"
+	aria-orientation="horizontal"
 	aria-valuemin={fromMs}
 	aria-valuemax={toMs}
 	aria-valuenow={currentMs}
 	aria-valuetext={preciseTime(currentMs)}
-	class="relative h-11 cursor-pointer touch-none"
-	onkeydown={keyboard ? key : undefined}
+	class="relative h-11 cursor-pointer touch-none rounded-lg"
+	onkeydown={keyboard ? key : onkeydown}
 	onpointerdown={(e) => {
 		e.currentTarget.setPointerCapture(e.pointerId);
 		dragging = true;

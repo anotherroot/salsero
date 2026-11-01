@@ -62,4 +62,14 @@ describe('class rules', () => {
 		);
 		expect(bad).toEqual([]);
 	});
+	it('no .svelte file builds a class with swap()', () => {
+		// A component's script runs in no spec, so swap()'s dev guard never sees a
+		// token gone from its builder. Variants live in a styles.ts a spec imports.
+		const svelte = files.filter(({ f }) => f.endsWith('.svelte'));
+		expect(svelte.length).toBeGreaterThan(100);
+		const bad = svelte.flatMap(({ f, lines }) =>
+			lines.flatMap((l, i) => (/\bswap\(/.test(l) ? [`${f}:${i + 1}: ${l.trim()}`] : []))
+		);
+		expect(bad).toEqual([]);
+	});
 });

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { clock } from '$lib/format';
 	import type { CountPattern, Speed } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
@@ -11,7 +11,8 @@
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
-	import { CLIP, SECTION_LABEL, button, swap } from '$lib/components/ui/styles';
+	import { CLIP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { RUN_STOP as STOP } from './styles';
 	import CountChips from './CountChips.svelte';
 	import SongProgress from './SongProgress.svelte';
 	import StageCount from './StageCount.svelte';
@@ -76,7 +77,8 @@
 	}: Props = $props();
 
 	let paused = $state(false);
-	let voiceVolume = $state(initialVoiceVolume);
+	// The setup's volume, read once: from here on the slider is the source.
+	let voiceVolume = $state(untrack(() => initialVoiceVolume));
 	/** Polled rather than read once: nothing else in this component re-renders on its own each tick. */
 	let elapsed = $state(0);
 
@@ -137,14 +139,6 @@
 			paused = true;
 		}
 	}
-
-	// Soft danger, as tall as Pause, so the two never get confused mid-dance.
-	// Built with swap(): a colour appended after button() loses to its own.
-	const STOP = swap(
-		swap(button('danger', 'lg'), 'bg-danger text-on-danger', 'bg-danger-soft text-danger'),
-		'px-7',
-		'pr-6 pl-5'
-	);
 </script>
 
 <!--
@@ -208,64 +202,70 @@
 		</div>
 	</header>
 
+	<!--
+		The sheet clips and an inner box scrolls: a desktop browser's classic
+		scrollbar on the rounded box itself ran straight up through the 28 px
+		curve, so an overflowing sheet showed a square top corner.
+	-->
 	<div
-		class="run-sheet -mt-7 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-t-[28px] bg-ground px-4 pt-4 pb-[112px]"
+		class="run-sheet -mt-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[28px] bg-ground"
 	>
-		{#if song}
-			<!-- The app's own bar: the `<audio>` has no controls. It seeks once, on
+		<div class="run-scroll flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pt-4 pb-[112px]">
+			{#if song}
+				<!-- The app's own bar: the `<audio>` has no controls. It seeks once, on
 			     release — each seek clears the count already queued. -->
-			<SongProgress {audio} onseek={(t) => player.seek(t)} />
-		{/if}
+				<SongProgress {audio} onseek={(t) => player.seek(t)} />
+			{/if}
 
-		{#if slots.length > 0}
-			<!--
+			{#if slots.length > 0}
+				<!--
 				A routine run shows the whole sequence, with the current slot at the top
 				of its own scroller: the figure being called is already on the band in
 				large type, so what this adds is what comes NEXT and how far through you are.
 			-->
-			<ol
-				bind:this={slotList}
-				aria-label="Routine"
-				class="slots relative max-h-[130px] flex-none overflow-y-auto rounded-2xl bg-surface"
-			>
-				{#each slots as slot, i (i)}
-					{@const on = i === activeSlot}
-					<li
-						bind:this={slotEls[i]}
-						aria-current={on ? 'step' : undefined}
-						class="flex min-h-12 items-center gap-3 border-b border-hairline py-1.5 pr-3.5 pl-3.5 {on
-							? 'bg-accent-soft'
-							: ''}"
-					>
-						<span
-							class="w-[18px] flex-none text-[13px] font-extrabold tabular-nums {on
-								? 'text-accent-text'
-								: 'text-muted'}">{i + 1}</span
+				<ol
+					bind:this={slotList}
+					aria-label="Routine"
+					class="slots relative max-h-[130px] flex-none overflow-y-auto rounded-2xl bg-surface"
+				>
+					{#each slots as slot, i (i)}
+						{@const on = i === activeSlot}
+						<li
+							bind:this={slotEls[i]}
+							aria-current={on ? 'step' : undefined}
+							class="flex min-h-12 items-center gap-3 border-b border-hairline py-1.5 pr-3.5 pl-3.5 {on
+								? 'bg-accent-soft'
+								: ''}"
 						>
-						<span
-							class="min-w-0 flex-1 text-[15px] leading-[1.3] {on
-								? 'font-extrabold text-accent-text'
-								: 'font-semibold text-ink-2'}"
-						>
-							{slot.figureIds.map(nameOf).join('  /  ')}
-							{#if slot.note}
-								<!-- The note is the reason the slot was written down — "hand change
+							<span
+								class="w-[18px] flex-none text-[13px] font-extrabold tabular-nums {on
+									? 'text-accent-text'
+									: 'text-muted'}">{i + 1}</span
+							>
+							<span
+								class="min-w-0 flex-1 text-[15px] leading-[1.3] {on
+									? 'font-extrabold text-accent-text'
+									: 'font-semibold text-ink-2'}"
+							>
+								{slot.figureIds.map(nameOf).join('  /  ')}
+								{#if slot.note}
+									<!-- The note is the reason the slot was written down — "hand change
 								     here" is no use on the routine page while you are dancing. -->
-								<span
-									class="block text-[12px] font-semibold {on ? 'text-accent-text' : 'text-muted'}"
-									>{slot.note}</span
-								>
-							{/if}
-						</span>
-						{#if on}<Badge tone="accent" solid>Now</Badge>{/if}
-					</li>
-				{/each}
-				<!-- Room to scroll the last row to the top (list height 130 - a 48 px row), so the mask never fades the active one. -->
-				<li aria-hidden="true" class="slots-pad flex-none"></li>
-			</ol>
-		{/if}
+									<span
+										class="block text-[12px] font-semibold {on ? 'text-accent-text' : 'text-muted'}"
+										>{slot.note}</span
+									>
+								{/if}
+							</span>
+							{#if on}<Badge tone="accent" solid>Now</Badge>{/if}
+						</li>
+					{/each}
+					<!-- Room to scroll the last row to the top (list height 130 - a 48 px row), so the mask never fades the active one. -->
+					<li aria-hidden="true" class="slots-pad flex-none"></li>
+				</ol>
+			{/if}
 
-		<!--
+			<!--
 			Both of these are adjustable DURING the run on purpose. Whether the voice
 			sits right against the music is only knowable once the music is playing,
 			and a song that turns out too fast to count every beat wants the pattern
@@ -274,28 +274,29 @@
 			`dance.countPatterns`, not the global `COUNT_PATTERNS`, for the same
 			reason Setup's picker does: bachata has no 'son' count.
 		-->
-		<section class="flex flex-none flex-col gap-2" aria-labelledby="run-voice">
-			<h2 id="run-voice" class={SECTION_LABEL}>Voice</h2>
-			<div class="{CLIP} rounded-2xl bg-surface">
-				<div class="py-1.5 pl-3">
-					<CountChips
-						patterns={dance.countPatterns}
-						value={count}
-						onchange={oncount}
-						name="runCount"
-						label="Voice count"
-						scroll={!!song || slots.length > 0}
-					/>
+			<section class="flex flex-none flex-col gap-2" aria-labelledby="run-voice">
+				<h2 id="run-voice" class={SECTION_LABEL}>Voice</h2>
+				<div class="{CLIP} rounded-2xl bg-surface">
+					<div class="py-1.5 pl-3">
+						<CountChips
+							patterns={dance.countPatterns}
+							value={count}
+							onchange={oncount}
+							name="runCount"
+							label="Voice count"
+							scroll={!!song || slots.length > 0}
+						/>
+					</div>
+					<div class="border-t border-hairline px-4 py-1">
+						<Slider
+							label="Voice volume"
+							bind:value={voiceVolume}
+							oninput={() => player.setVoiceVolume(voiceVolume)}
+						/>
+					</div>
 				</div>
-				<div class="border-t border-hairline px-4 py-1">
-					<Slider
-						label="Voice volume"
-						bind:value={voiceVolume}
-						oninput={() => player.setVoiceVolume(voiceVolume)}
-					/>
-				</div>
-			</div>
-		</section>
+			</section>
+		</div>
 	</div>
 
 	<BottomBar fade class="run-bar">
@@ -339,7 +340,7 @@
 		.slots-pad {
 			height: 52px; /* 100 - 48 */
 		}
-		.run-sheet {
+		.run-scroll {
 			padding-bottom: 96px;
 		}
 	}
@@ -375,6 +376,8 @@
 			margin-top: 0;
 			margin-left: -28px;
 			border-radius: 28px 0 0 28px;
+		}
+		.run-scroll {
 			padding-bottom: 112px;
 		}
 		.run-col :global(.run-bar) {

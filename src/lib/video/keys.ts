@@ -41,12 +41,22 @@ const BY_LEVEL: Partial<Record<Level, Record<string, KeyAction>>> = {
 	edit: { i: 'setStart', o: 'setEnd', '[': 'jumpStart', ']': 'jumpEnd', l: 'loop' }
 };
 
+/**
+ * On the focused timeline, Up / Down are its small step, as a slider's are.
+ * Nowhere else: there they scroll the list or the page.
+ */
+const ON_SLIDER: Record<string, KeyAction> = { ArrowUp: 'tenthFwd', ArrowDown: 'tenthBack' };
+
 export function keyAction(
 	e: { key: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean },
-	level: Level
+	level: Level,
+	/** Focus is on the timeline (`role="slider"`). */
+	onSlider = false
 ): KeyAction | null {
 	// Ctrl/Cmd+L, Ctrl+S and the like belong to the browser.
 	if (e.ctrlKey || e.metaKey || e.altKey) return null;
 	const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-	return EVERYWHERE[key] ?? BY_LEVEL[level]?.[key] ?? null;
+	return (
+		EVERYWHERE[key] ?? BY_LEVEL[level]?.[key] ?? (onSlider ? ON_SLIDER[key] : undefined) ?? null
+	);
 }

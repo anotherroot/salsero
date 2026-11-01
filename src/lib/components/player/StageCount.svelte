@@ -35,11 +35,17 @@
 	const digit = $derived(stageDigit(count, paused));
 	const dots = $derived(stageDots(count, paused));
 
+	/*
+	 * Raised for a phone in sunlight: beat is ≥ 3.4:1 on three bands, quiet
+	 * ≥ 2.2:1. The light salsa band cannot reach 3:1 without beat outshining
+	 * held (cream itself is 4.3:1 there), so it gets 2.2 and 1.7, up from 1.7 and 1.3.
+	 * Decorative (aria-hidden): the digit carries the count.
+	 */
 	const DOT_TONE = {
 		now: 'bg-band-ink',
 		held: 'bg-band-ink/60',
-		beat: 'bg-band-ink/36',
-		quiet: 'bg-band-ink/20'
+		beat: 'bg-band-ink/55',
+		quiet: 'bg-band-ink/36'
 	} as const;
 </script>
 

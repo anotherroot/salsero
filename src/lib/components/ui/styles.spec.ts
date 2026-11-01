@@ -16,8 +16,17 @@ import {
 	SECTION_LABEL,
 	SELECT,
 	SWITCH_TRACK,
-	swap
+	swap,
+	DANGER_SHARED,
+	FIELD_ON_CARD,
+	PLAY_ROUND,
+	ROW_TALL,
+	SELECT_ON_CARD,
+	TEXTAREA_ON_CARD
 } from './styles';
+
+/** Whole class tokens, so `px-3` is not found inside `px-3.5`. */
+const tokens = (cls: string) => new Set(cls.split(/\s+/));
 
 describe('button', () => {
 	it('primary is solid accent', () => {
@@ -109,5 +118,29 @@ describe('swap', () => {
 	});
 	it('every swap over a builder still finds its token', () => {
 		expect(swap(iconButton('filled'), 'h-11 w-11', 'h-[52px] w-[52px]')).toContain('h-[52px]');
+	});
+});
+
+describe('swap() variants', () => {
+	// Importing this module already ran swap()'s dev guard on each one; these
+	// pin what each swap is for.
+	it('a field on a card reads as a field', () => {
+		for (const c of [FIELD_ON_CARD, TEXTAREA_ON_CARD, SELECT_ON_CARD]) {
+			expect(tokens(c).has('bg-field')).toBe(true);
+			expect(tokens(c).has('bg-surface')).toBe(false);
+		}
+	});
+	it('the round Play is 52 px', () => {
+		expect(tokens(PLAY_ROUND).has('size-[52px]')).toBe(true);
+		expect(tokens(PLAY_ROUND).has('h-11')).toBe(false);
+	});
+	it('the tall row is 64 px', () => {
+		expect(tokens(ROW_TALL).has('min-h-16')).toBe(true);
+		expect(tokens(ROW_TALL).has('min-h-14')).toBe(false);
+	});
+	it('a shared danger button keeps its colour with less padding', () => {
+		expect(tokens(DANGER_SHARED).has('bg-danger')).toBe(true);
+		expect(tokens(DANGER_SHARED).has('px-3')).toBe(true);
+		expect(tokens(DANGER_SHARED).has('px-6')).toBe(false);
 	});
 });

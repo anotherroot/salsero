@@ -7,7 +7,7 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { focusAfterRemoval } from '$lib/focus';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { GROUP, ROW, SECTION_LABEL, button, swap } from '$lib/components/ui/styles';
+	import { GROUP, ROW, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import { clockLabel } from '$lib/clock';
@@ -109,7 +109,7 @@
 	<span class={SECTION_LABEL}>Practice</span>
 	<div class={GROUP}>
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
-		<a href="/voice" class={swap(ROW, 'min-h-14', 'min-h-16')}>
+		<a href="/voice" class={ROW_TALL}>
 			<LeadTile icon="mic" />
 			<span class="flex min-w-0 flex-1 flex-col">
 				<span class="text-[16px] font-bold text-ink">My count</span>

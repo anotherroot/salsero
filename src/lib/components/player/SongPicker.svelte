@@ -30,7 +30,11 @@
 		labelId?: string;
 		/** `field` is the form field; `card` is the player's setup card. */
 		variant?: 'field' | 'card';
-		/** The card's red ring: the picked song failed to load. */
+		/**
+		 * The card's red ring: the picked song failed to load. Drawn only; a
+		 * button takes no `aria-invalid`, and the caller's error line under the
+		 * card (`role="alert"`) is what is announced.
+		 */
 		invalid?: boolean;
 		/** Drawn under the card's head. */
 		children?: Snippet;
@@ -167,7 +171,6 @@
 				id="{buttonId}-field"
 				aria-labelledby={labelId ? `${labelId} ${buttonId}-field` : undefined}
 				aria-haspopup="dialog"
-				aria-invalid={invalid ? 'true' : undefined}
 				onclick={() => (open = true)}
 				class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
 			>
