@@ -325,7 +325,7 @@
 	</div>
 </Screen>
 
-<BottomBar>
+<BottomBar mode={editing}>
 	{#if editing}
 		<button
 			type="submit"
@@ -350,7 +350,7 @@
 
 <Toast
 	toast={notice}
-	bottom="calc(5.75rem + var(--safe-bottom))"
+	bottom="calc(5.75rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
 	onaction={undo}
 	ondismiss={() => {
 		notice = null;

@@ -116,12 +116,14 @@
 {/snippet}
 
 <!--
-	A pushed screen has no tab bar, so the bar sits on the bottom edge, over the
-	safe area. The page ends in a spacer of its own so its last line clears this.
+	The bar sits directly above the tab bar (`--pin-bottom`), or on the bottom edge
+	over the safe area where none shows. The page ends in a spacer of its own so
+	its last line clears this.
 -->
 <nav
 	aria-label="Variations of {figureName}"
-	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 pb-[calc(10px+var(--safe-bottom))]"
+	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5"
+	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
 >
 	<div class="mx-auto flex max-w-[560px] items-center gap-2">
 		{@render step(prev, 'Previous variation', 'chevron-left')}

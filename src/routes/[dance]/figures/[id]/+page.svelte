@@ -798,7 +798,7 @@
 {/if}
 
 {#if editing}
-	<BottomBar>
+	<BottomBar mode>
 		<button
 			type="submit"
 			form="edit-form"

@@ -23,32 +23,26 @@ describe('tabFor', () => {
 });
 
 describe('showsTabs', () => {
-	it('shows the bar on the four top-level screens', () => {
+	it('shows the bar on the top-level and the pushed screens inside a dance', () => {
 		for (const id of [
 			'/[dance]',
 			'/[dance]/figures',
 			'/[dance]/routines',
 			'/[dance]/lessons',
-			'/[dance]/songs'
+			'/[dance]/songs',
+			'/[dance]/figures/[id]',
+			'/[dance]/routines/[id]',
+			'/[dance]/lessons/[id]',
+			'/[dance]/songs/[id]',
+			'/[dance]/exercises/[id]',
+			'/[dance]/positions',
+			'/[dance]/coverage'
 		])
 			expect(showsTabs(id)).toBe(true);
 	});
 
-	it('hides it everywhere else', () => {
-		for (const id of [
-			'/[dance]/figures/[id]',
-			'/[dance]/routines/[id]',
-			'/[dance]/player',
-			'/[dance]/positions',
-			'/[dance]/coverage',
-			'/[dance]/lessons/[id]',
-			'/[dance]/songs/[id]',
-			'/[dance]/exercises/[id]',
-			'/settings',
-			'/voice',
-			'/login',
-			null
-		])
+	it('hides it on Practice, share and outside a dance', () => {
+		for (const id of ['/[dance]/player', '/[dance]/share', '/settings', '/voice', '/login', null])
 			expect(showsTabs(id)).toBe(false);
 	});
 });

@@ -10,6 +10,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { claimBottom } from '$lib/nav/chrome.svelte';
 	import { longPress } from '$lib/longpress';
 	import { plural } from '$lib/format';
 	import { groupHeading, pickNumber, pickedRows, togglePick } from '$lib/moves/picks';
@@ -26,6 +27,8 @@
 	/** Picked version ids, in tap order — the new routine's slot order. */
 	let picked = $state<number[]>([]);
 	let selecting = $state(false);
+	// The selection bar takes the bottom edge; the tab bar steps aside while it shows.
+	claimBottom(() => selecting);
 	let naming = $state(false);
 	let busy = $state(false);
 	// The `form` that was there when the sheet opened: an older refusal is not this sheet's.

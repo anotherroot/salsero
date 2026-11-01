@@ -785,7 +785,7 @@
 />
 
 {#if editing}
-	<BottomBar>
+	<BottomBar mode>
 		<button
 			type="submit"
 			form="edit-form"
@@ -958,7 +958,9 @@
 
 <Toast
 	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
-	bottom={selecting ? `calc(${barHeight}px + 0.5rem)` : 'calc(1rem + var(--safe-bottom))'}
+	bottom={selecting
+		? `calc(${barHeight}px + 0.5rem)`
+		: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'}
 	onaction={() => {
 		const t = toast;
 		toast = null;

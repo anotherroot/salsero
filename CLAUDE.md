@@ -180,6 +180,10 @@ src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the 
                      and scroll, each tab's last page, where back and a tab tap go. PURE.
                      trail.svelte.ts wires it to the router (`syncTrail`, in the root layout)
                      and sessionStorage; shell/BackButton.svelte is the band's back that uses it
+                     (only trail.svelte.ts is not PURE; tabs, band, pending, error-view, trail are).
+                     chrome.svelte.ts: `claimBottom`, an edit or selection bar takes the bottom and the
+                     tab bar steps aside. The tab bar shows on every screen of a dance but Practice/share;
+                     pinned bars sit at `--pin-bottom` / `--pin-safe` (set by the root layout)
 src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's

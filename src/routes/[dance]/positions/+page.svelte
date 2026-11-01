@@ -302,7 +302,7 @@
 		message: toast.message,
 		action: toast.undo ? 'Undo' : undefined
 	}}
-	bottom="calc(1rem + var(--safe-bottom))"
+	bottom="calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
 	onaction={undoRemoval}
 	ondismiss={() => (toast = null)}
 />

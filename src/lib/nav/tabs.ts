@@ -51,15 +51,16 @@ export function rootsOf(tab: TabId, dance: DanceSlug): string[] {
 	return [`/${dance}${path}`];
 }
 
-const TOP_LEVEL = new Set([
-	'/[dance]',
-	'/[dance]/figures',
-	'/[dance]/routines',
-	'/[dance]/lessons',
-	'/[dance]/songs'
-]);
+/** Inside a dance the bar stays, except where the app is the whole screen. */
+const BARE = new Set(['/[dance]/player', '/[dance]/share']);
 
-/** The bar is for the four top-level screens only; detail screens have a Back. */
+/**
+ * The bar shows on every screen of a dance but Practice and share: pushed
+ * screens keep it so a tab is always one tap away (edit and selection bars
+ * take the bottom while they show, see `chrome.svelte.ts`).
+ */
 export function showsTabs(routeId: string | null): boolean {
-	return routeId != null && TOP_LEVEL.has(routeId);
+	if (routeId == null) return false;
+	if (routeId !== '/[dance]' && !routeId.startsWith('/[dance]/')) return false;
+	return !BARE.has(routeId);
 }

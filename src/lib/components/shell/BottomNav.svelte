@@ -38,6 +38,7 @@
 	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg"
 	style="height: calc(var(--tab-bar-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); --icon-knockout: var(--color-tab-bg)"
 	aria-label="Main"
+	data-tab-bar
 >
 	<ul
 		class="mx-auto grid max-w-[560px] items-center gap-1 px-2 pt-[10px] pb-2"

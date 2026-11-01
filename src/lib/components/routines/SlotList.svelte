@@ -101,10 +101,11 @@
 
 		// The auto-scroll zones start where the list is actually visible: below
 		// the fixed slim band (a pushed screen has no other header), down to the
-		// viewport's bottom — there is no tab bar here, and the selection bar
-		// never shows during a drag.
+		// tab bar's top when it shows, else the viewport's bottom (the selection
+		// bar never shows during a drag).
 		const top = document.querySelector('[data-slim-band]')?.getBoundingClientRect().bottom ?? 0;
-		const bottom = window.innerHeight;
+		const bottom =
+			document.querySelector('[data-tab-bar]')?.getBoundingClientRect().top ?? window.innerHeight;
 		let y = e.clientY;
 		let frame = 0;
 		const update = () => {

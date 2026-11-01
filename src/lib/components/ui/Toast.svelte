@@ -25,7 +25,7 @@
 		} | null;
 		onaction?: () => void;
 		ondismiss: () => void;
-		/** CSS `bottom` of the toast; the default clears the tab bar (or sits 16 px up when contained). */
+		/** CSS `bottom` of the toast; the default clears the tab bar when one shows (or sits 16 px up when contained). */
 		bottom?: string;
 		/** Absolute within its container (a dialog) instead of fixed to the viewport. */
 		contained?: boolean;
@@ -34,7 +34,10 @@
 	let { toast, onaction, ondismiss, bottom, contained = false }: Props = $props();
 
 	const offset = $derived(
-		bottom ?? (contained ? '1rem' : 'calc(var(--tab-bar-h) + 1rem + var(--safe-bottom))')
+		bottom ??
+			(contained
+				? '1rem'
+				: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))')
 	);
 
 	$effect(() => {
