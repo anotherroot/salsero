@@ -25,7 +25,8 @@ looping view, an editor — with 0.1 s steps, a drag-and-nudge trim strip,
 delete that asks and undoes, Back up one level, pinch zoom, double-tap jumps,
 the screen kept on, and portrait (built for upright videos: Hide, a row of
 sections), landscape and desktop layouts; 0.25–1×, mirror, saved points and
-sections) and the routine editor
+sections), and the inline video with our own controls: play, the time, a seek
+bar with the sections, and the routine editor
 (drag to reorder, swipe to delete, seams that build where a routine does not connect, a picker that offers
 what fits, a long-press selection with Make routine) and saved YouTube videos
 (Save video on a figure's or lesson's YouTube link: the home worker downloads
@@ -205,7 +206,8 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      (pinch maths), taps.ts (double-tap) and screen-on.ts
                      (the wake lock, injected), turning.ts (the Android app
                      stands upright; the player lets it turn), caption.ts (a recording's
-                     or lesson video's caption) and chrome.ts (which parts the top
+                     or lesson video's caption), inline.ts (what the inline
+                     video's overlay shows, its time line and bands) and chrome.ts (which parts the top
                      bar shows per layout and level, the link entry's words, the
                      delete sheet's copy, the toast's icon and place, the buffering
                      spinner) are PURE too. spots-api.ts is the player's

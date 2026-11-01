@@ -1,6 +1,7 @@
 <!-- src/lib/components/video/Timeline.svelte -->
 <script lang="ts">
 	import { preciseTime } from '$lib/video/spots';
+	import { seekKey } from '$lib/songs/timeline';
 
 	interface Band {
 		id: number;
@@ -22,6 +23,8 @@
 		accentFill?: boolean;
 		/** On the picture (landscape): a lighter track. */
 		glass?: boolean;
+		/** The slider takes focus and the arrow keys (the inline video). The full-screen player owns its keys, so it leaves this off. */
+		keyboard?: boolean;
 		onseek: (ms: number) => void;
 	}
 
@@ -33,11 +36,19 @@
 		pending = null,
 		accentFill = false,
 		glass = false,
+		keyboard = false,
 		onseek
 	}: Props = $props();
 
 	const span = $derived(Math.max(1, toMs - fromMs));
 	const pct = (ms: number) => Math.max(0, Math.min(100, ((ms - fromMs) / span) * 100));
+
+	function key(e: KeyboardEvent) {
+		const to = seekKey(e.key, (currentMs - fromMs) / 1000, span / 1000);
+		if (to === null) return;
+		e.preventDefault();
+		onseek(fromMs + Math.round(to * 1000));
+	}
 
 	let dragging = false;
 	function seekAt(e: PointerEvent) {
@@ -47,16 +58,18 @@
 	}
 </script>
 
-<!-- The arrow keys are the player's (±1 s), so the slider takes no focus of its own. -->
+<!-- In the full-screen player the arrow keys are the player's (±1 s), so the slider takes no focus of
+     its own; with `keyboard` (the inline video) it is focusable and ←/→ move 5 s. -->
 <div
 	role="slider"
-	tabindex="-1"
+	tabindex={keyboard ? 0 : -1}
 	aria-label="Position"
 	aria-valuemin={fromMs}
 	aria-valuemax={toMs}
 	aria-valuenow={currentMs}
 	aria-valuetext={preciseTime(currentMs)}
 	class="relative h-11 cursor-pointer touch-none"
+	onkeydown={keyboard ? key : undefined}
 	onpointerdown={(e) => {
 		e.currentTarget.setPointerCapture(e.pointerId);
 		dragging = true;
