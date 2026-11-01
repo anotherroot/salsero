@@ -622,6 +622,13 @@ unsaved.
 
 The look (colours, type, icons, shared components) and the four tabs (Today, Moves, Lessons, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
 
+## Where you are
+
+Where Back and the tabs lead (a pure trail of pages, each tab reopening where
+you left it, a removed page and a finished Practice run going back to the page
+that opened them) is specified in
+[`2026-11-01-pages-keep-state-design.md`](2026-11-01-pages-keep-state-design.md).
+
 ## Pending navigation
 
 Every page has a server `load`, and SvelteKit keeps the old page on screen

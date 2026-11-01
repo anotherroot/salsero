@@ -2,6 +2,7 @@
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { gotoWhenSettled, releaseClick } from '$lib/sheets/history.svelte';
 	import { variationNav } from '$lib/figures/page';
 	import { plural } from '$lib/format';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -14,7 +15,8 @@
 	/**
 	 * The figure's variations, pinned to the bottom edge: ‹ and › step through
 	 * them, the middle opens the list, and the list's footer makes a new one.
-	 * Every step is a link, so a variation is a URL of its own. Shown with a
+	 * Every step is a link, so a variation is a URL of its own; it replaces the
+	 * history entry, as the figure is one page in the trail. Shown with a
 	 * single variation too — that is where "New variation" lives.
 	 */
 	interface Props {
@@ -37,8 +39,8 @@
 
 	/*
 	 * Stepping to another variation is a same-route navigation, so SvelteKit
-	 * keeps this component — and both sheets with it. A new id closes them: a
-	 * row picked in the list, and the redirect a new variation lands on.
+	 * keeps this component — and both sheets with it. A new id closes them (the
+	 * ‹ › steps; a picked row and a new variation close them first).
 	 */
 	$effect(() => {
 		void stepId;
@@ -78,6 +80,21 @@
 	const href = (id: number) => resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
 	const recordings = (n: number) =>
 		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
+
+	/*
+	 * A row is a real link (long-press, new tab), but a tap closes the list
+	 * first and only then replaces the page's own history entry: replacing
+	 * from inside the sheet would replace the sheet's entry and leave the old
+	 * variation one Back below.
+	 */
+	function pick(e: MouseEvent, id: number) {
+		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+		e.preventDefault();
+		listing = false;
+		if (id !== currentId) void gotoWhenSettled(href(id), { replaceState: true });
+		// The variation already shown: no navigation follows, so the list's close goes now.
+		else releaseClick();
+	}
 </script>
 
 {#snippet step(
@@ -86,8 +103,11 @@
 	icon: 'chevron-left' | 'chevron-right'
 )}
 	{#if to}
-		<a href={href(to.id)} class="{iconButton('step')} !h-12 !w-12" aria-label="{label}: {to.name}"
-			><Icon name={icon} size={22} /></a
+		<a
+			href={href(to.id)}
+			data-sveltekit-replacestate
+			class="{iconButton('step')} !h-12 !w-12"
+			aria-label="{label}: {to.name}"><Icon name={icon} size={22} /></a
 		>
 	{:else}
 		<!-- Nowhere to step to; kept so the bar does not change shape. -->
@@ -98,12 +118,14 @@
 {/snippet}
 
 <!--
-	A pushed screen has no tab bar, so the bar sits on the bottom edge, over the
-	safe area. The page ends in a spacer of its own so its last line clears this.
+	The bar sits directly above the tab bar (`--pin-bottom`), or on the bottom edge
+	over the safe area where none shows. The page ends in a spacer of its own so
+	its last line clears this.
 -->
 <nav
 	aria-label="Variations of {figureName}"
-	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 pb-[calc(10px+var(--safe-bottom))]"
+	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5"
+	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
 >
 	<div class="mx-auto flex max-w-[560px] items-center gap-2">
 		{@render step(prev, 'Previous variation', 'chevron-left')}
@@ -133,7 +155,7 @@
 				<a
 					href={href(s.id)}
 					aria-current={here ? 'page' : undefined}
-					onclick={() => (listing = false)}
+					onclick={(e) => pick(e, s.id)}
 					class="flex min-h-[72px] items-center gap-3 px-4 py-3 {here ? 'bg-accent-soft' : ''}"
 				>
 					{#if here}
@@ -164,7 +186,7 @@
 	open={adding}
 	onclose={() => (adding = false)}
 >
-	<!-- A success redirects to the new variation, which closes this (see above). -->
+	<!-- A success closes the sheets, then replaces this entry with the new variation (below). -->
 	<form
 		id="new-variation"
 		method="POST"
@@ -176,7 +198,16 @@
 				busy = true;
 				return async ({ update, result }) => {
 					try {
-						await update();
+						// A new variation is a step within the figure, like the switcher: the
+						// sheets close first, then it takes the page's own history entry.
+						if (result.type === 'redirect') {
+							adding = false;
+							listing = false;
+							await gotoWhenSettled(result.location, {
+								replaceState: true,
+								invalidateAll: true
+							});
+						} else await update();
 					} finally {
 						busy = false;
 					}

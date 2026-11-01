@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
@@ -10,6 +11,7 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -515,10 +517,11 @@
 			onclick={() => leaveOrAsk(editForm ?? null, stopEditing, 'Stop editing')}
 		/>
 	{:else}
-		<BandButton
-			icon="back"
-			label="Back to Moves"
-			href={resolve('/[dance]/routines', { dance: data.dance.slug })}
+		<BackButton
+			fallback={{
+				href: resolve('/[dance]/routines', { dance: data.dance.slug }),
+				label: 'Back to Moves'
+			}}
 		/>
 	{/if}
 {/snippet}
@@ -783,7 +786,7 @@
 />
 
 {#if editing}
-	<BottomBar>
+	<BottomBar mode>
 		<button
 			type="submit"
 			form="edit-form"
@@ -813,7 +816,16 @@
 			action="?/archive"
 			use:enhance={() => {
 				archivingNow = true;
-				return async ({ update }) => {
+				return async ({ update, result }) => {
+					if (result.type === 'redirect') {
+						archiving = false;
+						try {
+							await leaveRemoved(result.location);
+						} finally {
+							archivingNow = false;
+						}
+						return;
+					}
 					await update();
 					archivingNow = false;
 				};
@@ -956,7 +968,9 @@
 
 <Toast
 	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
-	bottom={selecting ? `calc(${barHeight}px + 0.5rem)` : 'calc(1rem + var(--safe-bottom))'}
+	bottom={selecting
+		? `calc(${barHeight}px + 0.5rem)`
+		: 'calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))'}
 	onaction={() => {
 		const t = toast;
 		toast = null;

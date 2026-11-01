@@ -174,9 +174,11 @@ Every component exists in the states on the design system board (sections
 
 ## Navigation
 
-- **Four tabs: Today · Moves · Lessons · Music.** The tab bar shows on these
-  four screens only. Every other screen is pushed: a back chevron on the band,
-  no tab bar.
+- **Four tabs: Today · Moves · Lessons · Music.** The tab bar shows on every
+  screen of a dance except Practice and share; a pushed screen has a back
+  chevron on the band and the bar too (an edit's Save bar or a selection bar
+  takes the bottom and the tab bar steps aside). See
+  [pages keep their place](2026-11-01-pages-keep-state-design.md).
 - **Moves** = Figures | Routines, switched by the segmented control on the
   band. Positions and Coverage are two half-width tiles at the top of the
   Figures list (with their counts: "31 / 41 tagged", "7 in no routine"); each
@@ -315,8 +317,8 @@ rules the boards follow that are not obvious from looking at them.
   Leads to as two lists, recordings (16:9 player, date · size, mirror, speed,
   full screen) each with its sections, linked sections, links, Taught in,
   "Move Doble to…", "Archive Doble".
-- The variation switcher is pinned at the bottom on the tab-bar surface (there
-  is no tab bar on a pushed screen) and hidden while editing. Its sheet lists
+- The variation switcher is pinned directly above the tab bar, on the tab-bar
+  surface, and hidden while editing. Its sheet lists
   the variations with New variation in the footer.
 - Edit: start positions as removable chips, Ends at, a 1–8 "Starts on" grid,
   Counts with 4/8/16 shortcuts; a "Not saved" banner carries the server's

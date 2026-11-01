@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { afterNavigate, invalidateAll, replaceState } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { keepSearch } from '$lib/nav/trail.svelte';
+	import { entryState } from '$lib/sheets/history.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -21,13 +23,25 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
+	/** This page's href with `key` set to `value`, or taken out when `value` is ''. */
+	const songsHref = (key: string, value: string) => {
+		const href = resolve('/[dance]/songs', { dance: data.dance.slug });
+		const kept = [...page.url.searchParams].filter(([k]) => k !== key);
+		const qs = new URLSearchParams(value ? [...kept, [key, value]] : kept).toString();
+		return qs ? `${href}?${qs}` : href;
+	};
+
 	// The Add a song sheet opens on this; `?add=1` opens it on arrival.
 	let adding = $state(false);
-	afterNavigate(() => {
+	afterNavigate((nav) => {
+		// A back or a link that lands here with its own search: show it.
+		if (nav.type === 'popstate' || nav.type === 'link')
+			query = page.url.searchParams.get('q') ?? '';
 		if (page.url.searchParams.get('add') !== '1') return;
 		adding = true;
-		const clean = resolve('/[dance]/songs', { dance: data.dance.slug });
+		const clean = songsHref('add', '');
 		// The router is not ready on a first load until this tick is over.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
 		setTimeout(() => replaceState(clean, page.state), 0);
 	});
 	// Only Add a song's own refusals reach the sheet: they always hand the link back.
@@ -36,8 +50,37 @@
 	$effect(() => {
 		if (addForm?.message) adding = true;
 	});
-	// Client-side and not in the URL: the whole library is already here.
-	let query = $state('');
+	/*
+	 * Filtered client-side as you type: the whole library is already here. It
+	 * also goes into the URL as `q` once typing pauses, so a reload and the
+	 * trail bring the search back like Figures'. A shallow replace, not a
+	 * `goto`: a navigation would stop a playing sample and, offline, raise the
+	 * Offline screen. `page.url` does not follow a shallow replace, so the URL
+	 * is read from `location`.
+	 */
+	let query = $state(page.url.searchParams.get('q') ?? '');
+	function keepQuery(q: string) {
+		const url = new URL(location.href);
+		if ((url.searchParams.get('q') ?? '') === q) return;
+		// A sheet's own entry is not the page's: wait until it has closed.
+		if (entryState().sheets) {
+			pending = setTimeout(() => keepQuery(q), 300);
+			return;
+		}
+		if (q) url.searchParams.set('q', q);
+		else url.searchParams.delete('q');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- this page's own path; only the query changes
+		replaceState(url.pathname + url.search, entryState());
+		keepSearch();
+	}
+	let pending: ReturnType<typeof setTimeout> | undefined;
+	$effect(() => {
+		const q = query.trim() ? query : '';
+		pending = setTimeout(() => keepQuery(q), 300);
+		return () => clearTimeout(pending);
+	});
+	// A song tapped mid-pause: that navigation goes, this one must not overtake it.
+	beforeNavigate(() => clearTimeout(pending));
 	// The upload in flight shows in the Music of the dance it is filed under.
 	const uploadHere = $derived(upload.current?.dance === data.dance.slug);
 	const view = $derived(libraryView(data.songs, query, uploadHere));

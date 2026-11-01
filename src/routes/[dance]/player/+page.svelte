@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { entryState } from '$lib/sheets/history.svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { backFor, goBack } from '$lib/nav/trail.svelte';
 	import Running from '$lib/components/player/Running.svelte';
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
 	import Setup, { type PlayerSettings } from '$lib/components/player/Setup.svelte';
@@ -249,9 +249,20 @@
 			setup?.focusPlay();
 			return;
 		}
+		await leaveRun();
+	}
+
+	/** Save this run logged the run: however it ended, leave as the band's back would. */
+	async function saved() {
+		leaving = false;
+		mode = 'setup';
+		await leaveRun();
+	}
+
+	/** The sheet has been told to go (`mode` is off 'done'): once it has, go to the opener. */
+	async function leaveRun() {
 		// The sheet's form is guarded, so a navigation while it is mounted
-		// would ask "Unsaved changes" about the run just refused: unmount it
-		// first, then leave.
+		// would ask "Unsaved changes" about the run: unmount it first, then leave.
 		await tick();
 		// The sheet's own history entry is still on top of the player's: let its
 		// Back land first, then replace the player with where Back goes, so one
@@ -269,7 +280,7 @@
 				);
 			});
 		}
-		await goto(resolve(data.back.href as `/${string}`), { replaceState: true });
+		await goBack(data.back, { replace: true });
 	}
 
 	// A navigation away or a tab close must not leave an AudioContext or a
@@ -352,7 +363,7 @@
 				},
 				data.dance
 			)}
-			backLabel={data.back.label}
+			backLabel={backFor(page.url.pathname, data.back).label}
 			onback={() => finish(true)}
 		/>
 	</main>
@@ -372,5 +383,6 @@
 		run={runJson}
 		fail={form && 'message' in form ? form : null}
 		onclose={closeSave}
+		onsaved={saved}
 	/>
 {/if}

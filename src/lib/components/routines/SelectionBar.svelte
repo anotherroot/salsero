@@ -5,6 +5,7 @@
 	 * could not.
 	 */
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { claimBottom } from '$lib/nav/chrome.svelte';
 	import type { IconName } from '$lib/icons/icons';
 	import type { SelectionAction } from '$lib/routines/selection';
 
@@ -31,6 +32,9 @@
 		ondelete,
 		height = $bindable(0)
 	}: Props = $props();
+
+	// Mounted only while a selection shows: the tab bar steps aside for it.
+	claimBottom(() => true);
 
 	let hint = $state<string | null>(null);
 	// A reason belongs to the selection it was given for: tapping a second slot

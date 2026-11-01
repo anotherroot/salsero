@@ -124,8 +124,10 @@ export function exerciseLine(e: { source: Source; everyDays: number }): string {
 }
 
 /**
- * Where Back goes. Built only from the validated dance slug and numeric ids,
- * and `from` is compared to a literal, never echoed: no open redirect.
+ * The no-opener fallback for Back. The band's back goes to the page Practice was
+ * opened from (the trail, `nav/trail.ts`); only a Practice with none recorded
+ * (a fresh tab, a reload) uses this, keyed by `?from=`. Built only from the
+ * validated dance slug and numeric ids, and `from` is compared to a literal, never echoed: no open redirect.
  */
 export function practiceBack(p: {
 	dance: DanceSlug;
