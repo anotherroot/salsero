@@ -162,7 +162,9 @@ Every component exists in the states on the design system board (sections
 - **Selection:** chip, segmented, switch, checkbox, radio.
 - **Overlays:** bottom sheet (grabber, title, close/back, footer actions) over
   a scrim; dialog (raised, icon, title, body, actions); toast (inverse colours,
-  one action, e.g. Undo).
+  one action, e.g. Undo). A sheet's title stops at two lines with an ellipsis
+  (a long exercise name beside Skip and Details ran to four); the full name
+  stays in its `title` and the dialog's label.
 - **Feedback:** banner (info/warning/error/success; info uses accent_soft —
   there is no blue), empty state (icon, title, line, action), badge.
 - **Media:** video card (row and tile), YouTube card (link / saving / saved /

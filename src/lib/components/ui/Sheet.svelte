@@ -133,7 +133,13 @@
 				class="flex min-w-0 flex-1 flex-col {subtitle ? 'gap-1 pt-2' : 'gap-0.5'}"
 				class:pl-1={!back}
 			>
-				<h2 class="font-display text-[22px] leading-tight font-extrabold text-ink">{title}</h2>
+				<!-- Two lines at most: a long exercise name beside Skip and Details ran to four. The full name stays in the title and the dialog's label. -->
+				<h2
+					class="line-clamp-2 font-display text-[22px] leading-tight font-extrabold break-words text-ink"
+					{title}
+				>
+					{title}
+				</h2>
 				{#if subtitle}{@render subtitle()}{:else if sub}<span class="text-[14px] text-muted"
 						>{sub}</span
 					>{/if}
