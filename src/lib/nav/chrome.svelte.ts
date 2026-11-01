@@ -1,3 +1,5 @@
+import { untrack } from 'svelte';
+
 /**
  * Who has the bottom edge. An edit's Save bar or a selection bar takes the
  * bottom while it shows, and the tab bar steps aside for it (the layout reads
@@ -15,9 +17,8 @@ export const bottom = {
 export function claimBottom(active: () => boolean): void {
 	$effect(() => {
 		if (!active()) return;
-		claims++;
-		return () => {
-			claims--;
-		};
+		// untrack: `claims++` reads then writes, and would make this effect depend on its own write.
+		untrack(() => claims++);
+		return () => untrack(() => claims--);
 	});
 }
