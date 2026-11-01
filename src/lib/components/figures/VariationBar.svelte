@@ -2,7 +2,7 @@
 	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
-	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
+	import { gotoWhenSettled, releaseClick } from '$lib/sheets/history.svelte';
 	import { variationNav } from '$lib/figures/page';
 	import { plural } from '$lib/format';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -92,6 +92,8 @@
 		e.preventDefault();
 		listing = false;
 		if (id !== currentId) void gotoWhenSettled(href(id), { replaceState: true });
+		// The variation already shown: no navigation follows, so the list's close goes now.
+		else releaseClick();
 	}
 </script>
 

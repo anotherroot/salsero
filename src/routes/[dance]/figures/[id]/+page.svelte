@@ -792,7 +792,7 @@
 			>
 			<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
 			<!-- The variation bar is pinned over the page's end; this lets the caption clear it. -->
-			<div aria-hidden="true" class="h-[calc(4.5rem+var(--safe-bottom))]"></div>
+			<div aria-hidden="true" class="h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))]"></div>
 		{/if}
 	</div>
 </Screen>

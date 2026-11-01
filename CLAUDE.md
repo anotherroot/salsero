@@ -200,7 +200,9 @@ src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      sent inside one still shows once it closes. It reads the depth from
                      `history.state['sveltekit:states']`, not `page.state`,
                      because `invalidateAll` resets `page.state`. `settled(fn)` runs fn once,
-                     after history has caught up with the sheets' own Back moves
+                     after history has caught up with the sheets' own Back moves.
+                     `gotoWhenSettled(href, opts)` is close-then-go: the caller closes its
+                     sheets, and the navigation (often a replace) goes once their Back has landed
 src/lib/fold.ts      accent and case folding, shared by the shared picker, the
                      routine picker and the song search
 src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,

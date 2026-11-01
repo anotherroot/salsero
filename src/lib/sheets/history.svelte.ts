@@ -79,7 +79,12 @@ export function markSent(): void {
 /** A link click's hold on the stack's Back moves (see `syncSheets`), until its navigation takes over. */
 let clickRelease: (() => void) | null = null;
 let clickTimer: ReturnType<typeof setTimeout> | undefined;
-function releaseClick(): void {
+/**
+ * Let go of a link click's hold now: for a click the caller prevented that
+ * goes nowhere (the current variation tapped in the switcher's list), so a
+ * sheet it closes steps Back at once rather than after the fallback.
+ */
+export function releaseClick(): void {
 	clearTimeout(clickTimer);
 	clickRelease?.();
 	clickRelease = null;
