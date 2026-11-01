@@ -8,8 +8,13 @@
 		href,
 		onclick,
 		focusKey
-	}: { icon: IconName; label: string; href?: string; onclick?: () => void; focusKey?: string } =
-		$props();
+	}: {
+		icon: IconName;
+		label: string;
+		href?: string;
+		onclick?: (e: MouseEvent) => void;
+		focusKey?: string;
+	} = $props();
 
 	// A bare cream icon on the band; the 44 px square is the hit area.
 	const cls =

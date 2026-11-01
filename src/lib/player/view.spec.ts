@@ -4,7 +4,6 @@ import type { CountPattern } from '$lib/labels';
 import type { CountTakeRow } from '$lib/types';
 import {
 	exerciseLine,
-	leaveByHistory,
 	playState,
 	practiceBack,
 	runSubtitle,
@@ -177,25 +176,5 @@ describe('what the Practice page derives', () => {
 			label: 'Back to Music'
 		});
 		expect(practiceBack({ ...p, from: '//evil.example' }).href.startsWith('/bachata')).toBe(true);
-	});
-});
-
-describe('leaveByHistory', () => {
-	const at = (pathname: string, search = '') => ({ pathname, search });
-	it('steps back when Practice was entered from the Back target', () => {
-		expect(leaveByHistory(at('/salsa/routines/3'), '/salsa/routines/3')).toBe(true);
-		expect(leaveByHistory(at('/salsa/exercises/7'), '/salsa/exercises/7')).toBe(true);
-	});
-	it('a target without a query matches the page whatever its query', () => {
-		expect(leaveByHistory(at('/salsa', '?session=1'), '/salsa')).toBe(true);
-	});
-	it('a target with a query must match it', () => {
-		expect(leaveByHistory(at('/salsa/songs', '?q=x'), '/salsa/songs?q=y')).toBe(false);
-		expect(leaveByHistory(at('/salsa/songs', '?q=y'), '/salsa/songs?q=y')).toBe(true);
-	});
-	it('replaces otherwise: another page, or the player loaded first', () => {
-		expect(leaveByHistory(at('/salsa/songs/4'), '/salsa/routines/3')).toBe(false);
-		expect(leaveByHistory(at('/salsa/routines/30'), '/salsa/routines/3')).toBe(false);
-		expect(leaveByHistory(null, '/salsa')).toBe(false);
 	});
 });

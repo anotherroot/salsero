@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -9,6 +10,7 @@
 	import { restoreSet } from '$lib/components/exercises/restore-set';
 	import { contentFor, logFor } from '$lib/components/exercises/kinds';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -131,10 +133,8 @@
 		{#if editing}
 			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
 		{:else}
-			<BandButton
-				icon="back"
-				label="Back to Today"
-				href={resolve('/[dance]', { dance: data.dance.slug })}
+			<BackButton
+				fallback={{ href: resolve('/[dance]', { dance: data.dance.slug }), label: 'Back to Today' }}
 			/>
 		{/if}
 	{/snippet}
@@ -322,7 +322,7 @@
 	</div>
 </Screen>
 
-<BottomBar>
+<BottomBar mode={editing}>
 	{#if editing}
 		<button
 			type="submit"
@@ -347,7 +347,7 @@
 
 <Toast
 	toast={notice}
-	bottom="calc(5.75rem + var(--safe-bottom))"
+	bottom="calc(5.75rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
 	onaction={undo}
 	ondismiss={() => {
 		notice = null;
@@ -378,6 +378,9 @@
 							editing = false;
 							archiving = false;
 							await tick();
+							await leaveRemoved(result.location);
+							archiveBusy = false;
+							return;
 						}
 						try {
 							await update();

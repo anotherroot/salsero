@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { showsTabs, tabFor, TABS } from './tabs';
+import { rootsOf, showsTabs, tabFor, TABS } from './tabs';
 
 describe('tabFor', () => {
 	it('lights the tab a path belongs to', () => {
@@ -12,6 +12,7 @@ describe('tabFor', () => {
 		expect(tabFor('/salsa/lessons/4', 'salsa')).toBe('lessons');
 		expect(tabFor('/salsa/songs/9', 'salsa')).toBe('music');
 		expect(tabFor('/salsa/player', 'salsa')).toBe('music');
+		expect(tabFor('/salsa/exercises/4', 'salsa')).toBe('today');
 	});
 
 	it('lights nothing outside the dance', () => {
@@ -22,32 +23,26 @@ describe('tabFor', () => {
 });
 
 describe('showsTabs', () => {
-	it('shows the bar on the four top-level screens', () => {
+	it('shows the bar on the top-level and the pushed screens inside a dance', () => {
 		for (const id of [
 			'/[dance]',
 			'/[dance]/figures',
 			'/[dance]/routines',
 			'/[dance]/lessons',
-			'/[dance]/songs'
+			'/[dance]/songs',
+			'/[dance]/figures/[id]',
+			'/[dance]/routines/[id]',
+			'/[dance]/lessons/[id]',
+			'/[dance]/songs/[id]',
+			'/[dance]/exercises/[id]',
+			'/[dance]/positions',
+			'/[dance]/coverage'
 		])
 			expect(showsTabs(id)).toBe(true);
 	});
 
-	it('hides it everywhere else', () => {
-		for (const id of [
-			'/[dance]/figures/[id]',
-			'/[dance]/routines/[id]',
-			'/[dance]/player',
-			'/[dance]/positions',
-			'/[dance]/coverage',
-			'/[dance]/lessons/[id]',
-			'/[dance]/songs/[id]',
-			'/[dance]/exercises/[id]',
-			'/settings',
-			'/voice',
-			'/login',
-			null
-		])
+	it('hides it on Practice, share and outside a dance', () => {
+		for (const id of ['/[dance]/player', '/[dance]/share', '/settings', '/voice', '/login', null])
 			expect(showsTabs(id)).toBe(false);
 	});
 });
@@ -55,5 +50,14 @@ describe('showsTabs', () => {
 describe('TABS', () => {
 	it('has four, in order', () => {
 		expect(TABS.map((t) => t.label)).toEqual(['Today', 'Moves', 'Lessons', 'Music']);
+	});
+});
+
+describe('rootsOf', () => {
+	it('names the main lists of a tab', () => {
+		expect(rootsOf('moves', 'bachata')).toEqual(['/bachata/figures', '/bachata/routines']);
+		expect(rootsOf('today', 'salsa')).toEqual(['/salsa']);
+		expect(rootsOf('lessons', 'salsa')).toEqual(['/salsa/lessons']);
+		expect(rootsOf('music', 'salsa')).toEqual(['/salsa/songs']);
 	});
 });

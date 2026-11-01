@@ -24,7 +24,7 @@
 	import { RUN_SOURCES, playState, setupSubtitle, voiceKind } from '$lib/player/view';
 	import { myCountHref } from '$lib/voice/back';
 	import Screen from '$lib/components/ui/Screen.svelte';
-	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
@@ -264,7 +264,6 @@
 	const voiceHref = $derived(
 		resolve(myCountHref(page.url.pathname + page.url.search, phrase) as `/${string}`)
 	);
-	const backHref = $derived(resolve(back.href as `/${string}`));
 
 	/** A control's visible label; the control carries the same name for a screen reader. */
 	const LABEL = `${SECTION_LABEL} pt-2`;
@@ -283,7 +282,7 @@
 
 <Screen title="Practice" subtitle={setupSubtitle(routine)}>
 	{#snippet left()}
-		<BandButton icon="back" label={back.label} href={backHref} />
+		<BackButton fallback={back} />
 	{/snippet}
 	{#snippet extra()}
 		{#if songs.length > 0}

@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { rememberedHref } from '$lib/nav/trail.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
@@ -28,7 +29,9 @@
 			to === 'figures'
 				? resolve('/[dance]/figures', { dance })
 				: resolve('/[dance]/routines', { dance });
-		goto(href, { replaceState: true, keepFocus: true });
+		// Each list comes back with the chips and search it was left with.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- `href` is resolved; the trail adds its search
+		goto(rememberedHref(href), { replaceState: true, keepFocus: true });
 	}
 </script>
 

@@ -124,8 +124,10 @@ export function exerciseLine(e: { source: Source; everyDays: number }): string {
 }
 
 /**
- * Where Back goes. Built only from the validated dance slug and numeric ids,
- * and `from` is compared to a literal, never echoed: no open redirect.
+ * The no-opener fallback for Back. The band's back goes to the page Practice was
+ * opened from (the trail, `nav/trail.ts`); only a Practice with none recorded
+ * (a fresh tab, a reload) uses this, keyed by `?from=`. Built only from the
+ * validated dance slug and numeric ids, and `from` is compared to a literal, never echoed: no open redirect.
  */
 export function practiceBack(p: {
 	dance: DanceSlug;
@@ -148,22 +150,4 @@ export function practiceBack(p: {
 	}
 	if (p.exercise) return today;
 	return { href: `/${p.dance}/songs`, label: 'Back to Music' };
-}
-
-/**
- * Leaving by Back's target: true when Practice was entered from that very
- * page, so the browser's own Back goes there. Replacing the player with it
- * instead left the page twice in history, and one Back landed on it again.
- * `from` is the page before the player (`afterNavigate`'s `from`), null
- * when the player was the first page loaded. A target without a query
- * matches the page whatever its query (Today with `?session=1` is Today).
- */
-export function leaveByHistory(
-	from: { pathname: string; search: string } | null,
-	backHref: string
-): boolean {
-	if (!from) return false;
-	const q = backHref.indexOf('?');
-	if (q < 0) return from.pathname === backHref;
-	return from.pathname + from.search === backHref;
 }

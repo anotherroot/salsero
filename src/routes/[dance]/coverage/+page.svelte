@@ -2,7 +2,7 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
-	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -10,6 +10,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { claimBottom } from '$lib/nav/chrome.svelte';
 	import { longPress } from '$lib/longpress';
 	import { plural } from '$lib/format';
 	import { groupHeading, pickNumber, pickedRows, togglePick } from '$lib/moves/picks';
@@ -26,6 +27,8 @@
 	/** Picked version ids, in tap order — the new routine's slot order. */
 	let picked = $state<number[]>([]);
 	let selecting = $state(false);
+	// The selection bar takes the bottom edge; the tab bar steps aside while it shows.
+	claimBottom(() => selecting);
 	let naming = $state(false);
 	let busy = $state(false);
 	// The `form` that was there when the sheet opened: an older refusal is not this sheet's.
@@ -77,10 +80,11 @@
 
 <Screen title="Coverage" subtitle="Versions by how many routines use them">
 	{#snippet left()}
-		<BandButton
-			icon="back"
-			label="Back to Moves"
-			href={resolve('/[dance]/figures', { dance: data.dance.slug })}
+		<BackButton
+			fallback={{
+				href: resolve('/[dance]/figures', { dance: data.dance.slug }),
+				label: 'Back to Moves'
+			}}
 		/>
 	{/snippet}
 	{#snippet right()}

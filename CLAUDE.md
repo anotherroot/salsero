@@ -176,7 +176,15 @@ src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the 
                      shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
                      while data is on the way (skeleton, leaving). error-view.ts: the error
                      pages' words and where their back goes. bands.spec.ts: every page draws
-                     a band (a page without one is named in the spec with its reason). PURE
+                     a band (a page without one is named in the spec with its reason).
+                     trail.ts: the session's trail of pages — each page's opener, kept search
+                     and scroll, each tab's last page, where back and a tab tap go. PURE.
+                     trail.svelte.ts wires it to the router (`syncTrail`, in the root layout)
+                     and sessionStorage; shell/BackButton.svelte is the band's back that uses it
+                     (only trail.svelte.ts is not PURE; tabs, band, pending, error-view, trail are).
+                     chrome.svelte.ts: `claimBottom`, an edit or selection bar takes the bottom and the
+                     tab bar steps aside. The tab bar shows on every screen of a dance but Practice/share;
+                     pinned bars sit at `--pin-bottom` / `--pin-safe` (set by the root layout)
 src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's
@@ -193,7 +201,9 @@ src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      sent inside one still shows once it closes. It reads the depth from
                      `history.state['sveltekit:states']`, not `page.state`,
                      because `invalidateAll` resets `page.state`. `settled(fn)` runs fn once,
-                     after history has caught up with the sheets' own Back moves
+                     after history has caught up with the sheets' own Back moves.
+                     `gotoWhenSettled(href, opts)` is close-then-go: the caller closes its
+                     sheets, and the navigation (often a replace) goes once their Back has landed
 src/lib/fold.ts      accent and case folding, shared by the shared picker, the
                      routine picker and the song search
 src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,

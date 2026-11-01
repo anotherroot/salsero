@@ -4,12 +4,14 @@
 	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
+	import { bottom } from '$lib/nav/chrome.svelte';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
 	import { guardNavigation, prompt } from '$lib/unsaved/guard.svelte';
 	import { syncSheets } from '$lib/sheets/history.svelte';
+	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
@@ -19,6 +21,8 @@
 	guardNavigation();
 	// Back closes the top sheet, not the page (`$lib/sheets/stack.ts`).
 	syncSheets();
+	// Tabs reopen where you left them; the band's back goes where you came from.
+	syncTrail();
 	// A sample belongs to the page it was started on.
 	beforeNavigate(() => stopSample());
 	/*
@@ -60,8 +64,10 @@
 	});
 	const skeleton = $derived(late && navigating.to ? skeletonFor(navigating.to.route.id) : null);
 	/*
-	 * The tabs show on the four top-level screens only (`showsTabs`), judged on
-	 * where the app is going so the bar comes or goes with the tap.
+	 * The tabs show inside a dance except Practice and share (`showsTabs`), judged
+	 * on where the app is going so the bar comes or goes with the tap, and step
+	 * aside while a bar claims the bottom (`$lib/nav/chrome.svelte.ts`). Pinned
+	 * bars read `--pin-bottom` / `--pin-safe` to sit above the tab bar or on the edge.
 	 *
 	 * Which dance they lead to is remembered here rather than read from `data` each time.
 	 * The root layout's load depends on a cookie, and SvelteKit's dependency
@@ -75,7 +81,7 @@
 		if (dance) seen = dance.slug;
 	});
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
-	const tabs = $derived(showsTabs((navigating.to ?? page).route.id));
+	const tabs = $derived(showsTabs((navigating.to ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 
 	/*
@@ -176,7 +182,12 @@
 		unsaved-changes dialog.
 		`display: contents` keeps the wrapper out of layout entirely.
 	-->
-	<div data-dance={navDance.slug} style:display="contents">
+	<div
+		data-dance={navDance.slug}
+		style:display="contents"
+		style:--pin-bottom={tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0px'}
+		style:--pin-safe={tabs ? '0px' : 'var(--safe-bottom)'}
+	>
 		<div
 			class="mx-auto min-h-dvh max-w-[560px] {tabs
 				? 'pb-[calc(var(--tab-bar-h)+12px+var(--safe-bottom))]'
