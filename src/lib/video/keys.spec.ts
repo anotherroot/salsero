@@ -63,4 +63,13 @@ describe('keyAction', () => {
 		expect(keyAction(k('x'), 'full')).toBeNull();
 		expect(keyAction(k('Escape'), 'edit')).toBeNull();
 	});
+
+	it('Up / Down are the 0.1 s step on the timeline only', () => {
+		expect(keyAction(k('ArrowUp'), 'full', true)).toBe('tenthFwd');
+		expect(keyAction(k('ArrowDown'), 'section', true)).toBe('tenthBack');
+		expect(keyAction(k('ArrowUp'), 'full')).toBeNull();
+		expect(keyAction(k('ArrowDown'), 'edit', false)).toBeNull();
+		// Left / Right stay the 1 s step there too.
+		expect(keyAction(k('ArrowLeft'), 'full', true)).toBe('back1');
+	});
 });

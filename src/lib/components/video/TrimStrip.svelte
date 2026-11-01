@@ -1,7 +1,7 @@
 <!-- src/lib/components/video/TrimStrip.svelte -->
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { preciseTime, spotTime } from '$lib/video/spots';
+	import { spotTime } from '$lib/video/spots';
 	import { fitWindow, GRAB_PX, handleAt, msAtX, pctOf, trimWindow } from '$lib/video/trim';
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -108,14 +108,12 @@
 				style:left="{startPct}%"
 				style:width="{endPct - startPct}%"
 			></span>
-			<!-- The edges are moved by the buttons and I / O: sliders for the reader, not tab stops. -->
+			<!--
+				The handles are drawn, not controls: the edges move with the editor's
+				buttons and I / O, and its Start / End rows read their times out.
+			-->
 			<span
-				role="slider"
-				aria-label="Start"
-				aria-valuemin={0}
-				aria-valuemax={durationS * 1000}
-				aria-valuenow={spot.startMs}
-				aria-valuetext={preciseTime(spot.startMs)}
+				aria-hidden="true"
 				class="absolute inset-y-0 grid w-[22px] -translate-x-full place-items-center rounded-l-[10px] {selected ===
 				'start'
 					? 'bg-accent'
@@ -125,12 +123,7 @@
 				<span class="h-[22px] w-0.5 rounded-full bg-black/45"></span>
 			</span>
 			<span
-				role="slider"
-				aria-label="End"
-				aria-valuemin={0}
-				aria-valuemax={durationS * 1000}
-				aria-valuenow={spot.endMs ?? 0}
-				aria-valuetext={preciseTime(spot.endMs ?? 0)}
+				aria-hidden="true"
 				class="absolute inset-y-0 grid w-[22px] place-items-center rounded-r-[10px] {selected ===
 				'end'
 					? 'bg-accent'

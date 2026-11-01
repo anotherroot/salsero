@@ -626,7 +626,8 @@
 	function onkeydown(e: KeyboardEvent) {
 		if (closed || e.target instanceof HTMLInputElement) return;
 		if (sheet) return;
-		const a = keyAction(e, level.kind);
+		const onSlider = e.target instanceof Element && e.target.getAttribute('role') === 'slider';
+		const a = keyAction(e, level.kind, onSlider);
 		if (!a) return;
 		// Also stops a focused button's own Space activation, which would toggle twice.
 		e.preventDefault();
