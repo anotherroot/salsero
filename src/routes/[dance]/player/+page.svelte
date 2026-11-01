@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick } from 'svelte';
 	import { entryState } from '$lib/sheets/history.svelte';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Running from '$lib/components/player/Running.svelte';
 	import SaveSetSheet from '$lib/components/player/SaveSetSheet.svelte';
@@ -14,7 +14,7 @@
 	import { routinePlan } from '$lib/routines/plan';
 	import { flatten, slotAt } from '$lib/routines/routines';
 	import { syntheticGrid } from '$lib/scheduler/scheduler';
-	import { exerciseLine, runSubtitle, runSummary } from '$lib/player/view';
+	import { exerciseLine, leaveByHistory, runSubtitle, runSummary } from '$lib/player/view';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -269,8 +269,21 @@
 				);
 			});
 		}
-		await goto(resolve(data.back.href as `/${string}`), { replaceState: true });
+		// Entered from the Back target itself: step back to it rather than
+		// replacing the player with a second copy of it.
+		if (leaveByHistory(enteredFrom, data.back.href)) history.back();
+		else await goto(resolve(data.back.href as `/${string}`), { replaceState: true });
 	}
+
+	/** The page before the player, for `closeSave`. Not state: nothing renders from it. */
+	let enteredFrom: { pathname: string; search: string } | null = null;
+	afterNavigate((nav) => {
+		// Only an arrival from another page: a search change on the player itself keeps the first.
+		if (nav.from?.url.pathname === nav.to?.url.pathname) return;
+		enteredFrom = nav.from
+			? { pathname: nav.from.url.pathname, search: nav.from.url.search }
+			: null;
+	});
 
 	// A navigation away or a tab close must not leave an AudioContext or a
 	// screen wake lock running.
