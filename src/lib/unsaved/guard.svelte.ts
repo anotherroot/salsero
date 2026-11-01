@@ -168,7 +168,12 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			}
 		});
 		if (cancelled) {
-			settle({ ok: false, message: 'It was not sent.' });
+			// A refusal the form shows itself (a range error) is a field to point at, not a mystery.
+			settle(
+				form.checkValidity() && !form.querySelector('[aria-invalid="true"]')
+					? { ok: false, message: 'It was not sent.' }
+					: { ok: false, invalid: form }
+			);
 			return;
 		}
 		// While the request is out the form is not "unsaved": a save that
@@ -203,7 +208,9 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 		},
 		blocked: () => opts.blocked?.() ?? null,
 		save: () => {
-			if (!form.checkValidity()) return Promise.resolve({ ok: false, invalid: form });
+			// A `novalidate` form leaves its checks to the server, whose message shows under the field.
+			if (!form.noValidate && !form.checkValidity())
+				return Promise.resolve({ ok: false, invalid: form });
 			return new Promise<SaveOutcome>((resolve) => {
 				waiting = resolve;
 				form.requestSubmit();

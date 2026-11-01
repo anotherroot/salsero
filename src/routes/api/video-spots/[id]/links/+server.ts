@@ -24,7 +24,10 @@ function optionsOr404(id: number, userId: string) {
 export const GET: RequestHandler = ({ params, locals }) =>
 	json(optionsOr404(spotId(params.id), locals.user!.id));
 
-/** `{ target }` links an existing variation or drill; `{ create }` makes one and links it. */
+/**
+ * `{ target }` links an existing variation or drill; `{ create }` makes one and
+ * links it. A create refused for one of its fields answers `{ message, field }`.
+ */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const id = spotId(params.id);
 	const userId = locals.user!.id;
@@ -35,7 +38,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		if ('target' in body) linkSpot(getDb(), id, body.target);
 		else createAndLink(getDb(), id, body.create);
 	} catch (e) {
-		if (e instanceof SpotLinkError) throw error(e.status, e.message);
+		if (e instanceof SpotLinkError) {
+			// A refusal that names its field answers it, so the popup shows it there.
+			if (e.field) return json({ message: e.message, field: e.field }, { status: e.status });
+			throw error(e.status, e.message);
+		}
 		throw e;
 	}
 	return json(optionsOr404(id, userId));

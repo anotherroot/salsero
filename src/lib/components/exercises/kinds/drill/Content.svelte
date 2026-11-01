@@ -1,62 +1,88 @@
 <!-- src/lib/components/exercises/kinds/drill/Content.svelte -->
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { focusAfterRemoval } from '$lib/focus';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import PickerOpener from '$lib/components/picker/PickerOpener.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
+	import { FIELD_ERROR, iconButton } from '$lib/components/ui/styles';
+	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
 	// `editLinks` is honoured here only: a drill is the one type whose links and
 	// sections are its own. The other types' are edited on their owner's page.
-	let { content, editLinks }: ContentProps = $props();
+	let { content, editLinks, onPage = false }: ContentProps = $props();
 
 	let linking = $state(false);
+
+	/** Unlinking a section: focus goes to the next section, else the opener below. */
+	const unlinkSection =
+		(linkId: number): SubmitFunction =>
+		() => {
+			const keys =
+				content.type === 'drill' ? content.sections.map((x) => `section-${x.linkId}`) : [];
+			return async ({ update, result }) => {
+				await update();
+				if (result.type === 'success')
+					await focusAfterRemoval(keys, `section-${linkId}`, 'section-add');
+			};
+		};
 </script>
 
 {#if content.type === 'drill'}
-	<div class="space-y-3">
+	<div class="flex flex-col gap-3">
 		{#if content.notes}
-			<LinkedText text={content.notes} class="text-[15px] whitespace-pre-line" />
+			{#if onPage}<h2 class={SECTION_HEAD}>Description</h2>{/if}
+			<LinkedText text={content.notes} class={PROSE} />
+		{/if}
+		{#if !onPage}
+			<LinkList links={content.links} />
+		{/if}
+		{#if onPage && (content.sections.length > 0 || editLinks)}
+			<h2 class={SECTION_HEAD}>Sections</h2>
 		{/if}
 		{#each content.sections as s (s.linkId)}
-			<SectionCard section={s}>
-				{#snippet unlink()}
-					{#if editLinks}
-						<form method="POST" action="?/unlinkSection" use:enhance>
+			{#if editLinks}
+				<SectionCard section={s} focusKey="section-{s.linkId}">
+					{#snippet unlink()}
+						<form
+							method="POST"
+							action="?/unlinkSection"
+							use:enhance={unlinkSection(s.linkId)}
+							class="flex-none"
+						>
 							<input type="hidden" name="linkId" value={s.linkId} />
 							<button
 								type="submit"
-								class="grid size-9 place-items-center text-muted"
-								aria-label="Unlink this section">×</button
+								class={iconButton('bare', 'muted')}
+								aria-label="Unlink this section"
 							>
+								<Icon name="close" size={20} />
+							</button>
 						</form>
-					{/if}
-				{/snippet}
-			</SectionCard>
+					{/snippet}
+				</SectionCard>
+			{:else}
+				<SectionCard section={s} />
+			{/if}
 		{/each}
 		{#if editLinks?.unlinkMessage}
-			<p class="text-[13px] text-danger" role="alert">{editLinks.unlinkMessage}</p>
+			<p class={FIELD_ERROR} role="alert">
+				<Icon name="warning" size={16} filled />{editLinks.unlinkMessage}
+			</p>
 		{/if}
 		{#if editLinks}
-			<button
-				type="button"
-				class="flex h-11 w-full cursor-pointer items-center gap-2 rounded-[10px] border border-rule bg-raised px-3 text-left text-[14.5px] font-medium text-accent"
-				aria-haspopup="dialog"
+			<PickerOpener
+				data-focus="section-add"
+				label="Link a section…"
 				onclick={() => (linking = true)}
-				><svg
-					width="16"
-					height="16"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2.2"
-					stroke-linecap="round"
-					class="shrink-0 text-muted"
-					aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg
-				>Link a section…</button
-			>
+			/>
+			<h2 class={SECTION_HEAD}>Links</h2>
 			<LinksEditor links={content.links} message={editLinks.message} entered={editLinks.entered} />
 			<LinkSectionSheet
 				open={linking}
@@ -64,7 +90,7 @@
 				groups={editLinks.linkable ?? []}
 				hidden={{}}
 			/>
-		{:else}
+		{:else if onPage}
 			<LinkList links={content.links} />
 		{/if}
 	</div>

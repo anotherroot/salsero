@@ -17,6 +17,12 @@
 > the levels are four history levels: `link`, `link-pick`, `link-new`,
 > `link-figure`. Where the text below describes the list, the picker replaces it.
 >
+> **Updated 2026-10-31 (the redesign):** the levels are stacked bottom sheets:
+> a `Sheet` each on site pages (so Back closes the top level), a `PlayerLayer`
+> in the player. "Unlink …?" is a dialog over the links. A create refusal names
+> its field (`{ message, field }` from POST /api/video-spots/[id]/links) and
+> shows under it.
+>
 > Mockup: `.superpowers/brainstorm/3008515-1793306080/content/section-create-v3.html`
 > (local, not committed; open it in a browser). Rows A and B are the design.
 

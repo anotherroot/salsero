@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- color-plane in src/routes/layout.css, dark: the page under the bars at night. -->
-    <color name="plane">#100f0e</color>
-    <!-- color-surface in src/routes/layout.css, dark: the bottom tabs under the navigation bar at night. -->
-    <color name="surface">#1b1a18</color>
+    <!-- ground in src/routes/layout.css, dark: the page under the bars at night. -->
+    <color name="ground">#0b0b0d</color>
+    <!-- tab-bar in src/routes/layout.css, dark: the bottom tabs under the navigation bar at night. -->
+    <color name="tab_bar">#121214</color>
 </resources>

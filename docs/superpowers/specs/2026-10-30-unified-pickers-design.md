@@ -14,6 +14,14 @@
 > next to a screenshot of today's app at phone width. Where this document and
 > the mockup disagree, this document wins.
 
+> **Updated 2026-10-31 (the redesign):** openers are `PickerOpener` (full-width
+> tonal, search icon) everywhere. A stacked picker shows Back, the field picker
+> included. The + in flight is a spinner. A refusal is a banner over the list.
+> The create row's buttons are tonal pills with a + icon. In the player the
+> picker is a `PlayerLayer` in the media palette (`.theme-media`). The song
+> popup stays its own sheet, drawn to the Music board, with "Add it in Music"
+> opening Music's Add a song.
+
 ## Why
 
 The task in the notes was "searchable inputs in the figure selection for
@@ -190,8 +198,9 @@ In #12 the song popup keeps everything of its own (see
 listed (title or artist, Recent, A to Z), each row ends in its ▶ sample, the
 second line turns into "Sample from 0:45" in the accent while it plays, a
 sample stops when its row is filtered out and when the popup closes, and the
-empty box points to the Songs page. It uses the shared picker for the sheet,
-the search, the rows, the ✓ and the highlight.
+empty box points to Music ("Add it in Music"). Since the 2026-10-31 redesign
+it is its own sheet in the new look (a picked song is a filled radio dot), and
+shares the picker's search marking (`segments` in `src/lib/picker/model.ts`).
 
 In #9 there are two groups, the near group and **Other videos**, and inside
 each a heading per video ("Tuesday class — Enchufla · 27 Oct", "Recording ·

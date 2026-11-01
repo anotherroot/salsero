@@ -182,8 +182,9 @@ zero and so may sit perceptibly late. Worth fixing there in the same pass.
 
 A route of its own (`/voice`), reached from the player's setup screen.
 
-- A grid of pattern × tempo showing which cells are filled.
-- Picking a cell: the headphone warning, one bar of count-in, then the click
+- One count pattern at a time (the band's segmented control), its takes listed
+  by tempo and phrase.
+- Starting a recording: the headphone warning, one bar of count-in, then the click
   runs and the user counts **four bars**.
 - Those four bars are sliced into four candidate A takes and four candidate B
   takes. The user auditions them against the click and keeps one of each.
@@ -217,6 +218,11 @@ count_takes
 - **Serving:** `GET /count/[file]`, like `/audio/[file]`. Private, like
   everything else — `hooks.server.ts` denies by default.
 - **Deleting a take** is a hard delete, like a recording. Re-recording replaces.
+  It is undoable for a minute (the row and file are held in memory; Undo
+  inserts the take again under a new id).
+- **My count's Back** returns to Practice when it was opened from there
+  (`myCountHref` carries `?from=`, `voiceBack` accepts only a Practice page of
+  a known dance), else to Settings.
 
 ### Choosing a take, and playing it
 

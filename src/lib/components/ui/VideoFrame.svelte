@@ -1,9 +1,17 @@
 <!-- src/lib/components/ui/VideoFrame.svelte -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { watchMedia, type MediaProblem } from '$lib/media';
-	import { VIDEO_RATES, loadVideoPrefs, saveVideoPrefs, type VideoRate } from '$lib/video-prefs';
+	import {
+		RATE_LABEL,
+		VIDEO_RATES,
+		loadVideoPrefs,
+		saveVideoPrefs,
+		type VideoRate
+	} from '$lib/video-prefs';
 	import VideoPlayer from './VideoPlayer.svelte';
+	import Icon from './Icon.svelte';
+	import { iconButton } from './styles';
 	import type { SpotOwner } from '$lib/types';
 
 	interface Props {
@@ -20,6 +28,10 @@
 		onclosed?: () => void;
 		/** The full-screen player may link sections: only where the page manages them. */
 		linking?: boolean;
+		/** A title and a line under the picture; Full screen then sits beside it. */
+		caption?: { title: string; meta?: string };
+		/** At the right of the caption row in place of Full screen (which then joins the control row). */
+		action?: Snippet;
 	}
 
 	let {
@@ -30,7 +42,9 @@
 		sourceUrl = null,
 		title = 'Video',
 		onclosed,
-		linking = false
+		linking = false,
+		caption,
+		action
 	}: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
@@ -89,34 +103,52 @@
 		{@attach keepPitch}
 	></audio>
 {/if}
-<div class="flex items-center gap-2 px-3 pt-2 text-[12px]">
+{#snippet fullScreen()}
+	<button
+		type="button"
+		onclick={openFull}
+		aria-label="Full screen"
+		class={iconButton('bare', 'muted')}><Icon name="expand" size={22} /></button
+	>
+{/snippet}
+{#if caption}
+	<div class="flex items-center gap-1 py-1.5 pr-1.5 pl-3.5">
+		<div class="flex min-w-0 flex-1 flex-col gap-px">
+			<span class="truncate text-[15px] font-bold">{caption.title}</span>
+			{#if caption.meta}<span class="text-[12px] text-muted">{caption.meta}</span>{/if}
+		</div>
+		{#if action}{@render action()}{:else if owner && kind === 'video'}{@render fullScreen()}{/if}
+	</div>
+{/if}
+<div class="flex items-center gap-2 pr-3 pb-2.5 pl-2">
 	{#if kind === 'video'}
 		<button
 			type="button"
 			aria-pressed={mirror}
+			aria-label="Mirror"
 			onclick={() => choose({ mirror: !mirror })}
-			class="h-8 rounded-lg border px-2.5 {mirror
-				? 'border-accent text-accent'
-				: 'border-rule text-ink-2'}">Mirror</button
+			class={mirror ? iconButton('tonal') : iconButton('bare', 'muted')}
+			><Icon name="mirror" size={22} /></button
 		>
-		{#if owner}
-			<button
-				type="button"
-				onclick={openFull}
-				class="h-8 rounded-lg border border-rule px-2.5 text-ink-2">Full screen</button
-			>
-		{/if}
+		<span class="text-[13px] font-bold text-muted">Mirror</span>
+		{#if owner && (!caption || action)}{@render fullScreen()}{/if}
 	{/if}
-	<span class="ml-auto flex gap-1" role="group" aria-label="Speed">
+	<span class="flex-1"></span>
+	<span class="flex h-9 items-center rounded-full bg-chip px-px" role="group" aria-label="Speed">
 		{#each VIDEO_RATES as r (r)}
 			<button
 				type="button"
 				aria-pressed={rate === r}
+				aria-label="Speed {r}×"
 				onclick={() => choose({ rate: r })}
-				class="h-8 min-w-11 rounded-lg border px-2 {rate === r
-					? 'border-accent bg-accent text-accent-ink'
-					: 'border-rule text-ink-2'}">{r}×</button
+				class="flex h-11 w-10 cursor-pointer items-center justify-center"
 			>
+				<span
+					class="flex h-[30px] w-9 items-center justify-center rounded-full text-[13px] {rate === r
+						? 'bg-surface font-extrabold text-ink shadow-[0_1px_3px_rgba(0,0,0,0.14)]'
+						: 'font-bold text-ink-2'}">{RATE_LABEL[r]}</span
+				>
+			</button>
 		{/each}
 	</span>
 </div>
@@ -125,7 +157,7 @@
 		href={sourceUrl}
 		target="_blank"
 		rel="external noopener noreferrer"
-		class="block px-3 pt-1 text-[12px] text-muted">from YouTube ↗</a
+		class="block px-3.5 pb-2.5 text-[12px] text-muted">from YouTube ↗</a
 	>
 {/if}
 

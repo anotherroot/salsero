@@ -24,9 +24,9 @@
 	}}
 >
 	{#snippet body(payload)}
-		<Content dance={props.dance} content={payload.content} />
-		{#if !props.backfillDay}
-			<div class="mt-3">
+		<div class="flex flex-col gap-3">
+			<Content dance={props.dance} content={payload.content} timezone={props.timezone} />
+			{#if !props.backfillDay}
 				{#key logged}
 					<PracticePanel
 						dance={props.dance}
@@ -38,7 +38,7 @@
 						onactive={(a) => (playing = a)}
 					/>
 				{/key}
-			</div>
-		{/if}
+			{/if}
+		</div>
 	{/snippet}
 </LogShell>

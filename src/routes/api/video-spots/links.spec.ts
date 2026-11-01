@@ -120,7 +120,9 @@ describe('POST /api/video-spots/[id]/links', () => {
 
 	it('is a 409 for the same target twice', async () => {
 		await post(section, { target: { figureId: basic } });
-		expect((await outcome(() => post(section, { target: { figureId: basic } }))).status).toBe(409);
+		const res = await outcome(() => post(section, { target: { figureId: basic } }));
+		expect(res).toMatchObject({ status: 409, message: 'Already linked.' });
+		expect((res.body as { field?: string } | undefined)?.field).toBeUndefined();
 	});
 
 	it('is a 400 for a target of the other dance', async () => {
@@ -157,7 +159,7 @@ describe('POST /api/video-spots/[id]/links', () => {
 		);
 		expect(res).toMatchObject({
 			status: 400,
-			message: "There's already a figure called Enchufla."
+			body: { message: "There's already a figure called Enchufla.", field: 'figureName' }
 		});
 	});
 

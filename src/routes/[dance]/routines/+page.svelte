@@ -1,85 +1,93 @@
 <script lang="ts">
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import MovesScreen from '$lib/components/moves/MovesScreen.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
+	import { plural } from '$lib/format';
+	import { routineBadges } from '$lib/moves/routines';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let creating = $state(false);
+	// `?new=1` opens the sheet on arrival, as it does on Figures.
+	let creating = $state(page.url.searchParams.get('new') === '1');
 	// A failed create re-renders with the message; keep the sheet open to show it.
 	$effect(() => {
 		if (form?.message) creating = true;
 	});
 	let busy = $state(false);
 
-	const label = 'mb-1 block text-[13px] text-muted';
-	const field =
-		'w-full rounded-lg border border-rule bg-raised px-3 py-2.5 text-[15px] outline-none focus:border-accent';
-	const hint = 'rounded-full bg-danger/10 px-2 py-0.5 font-medium text-danger';
+	const nameError = $derived(form?.field === 'name' ? form.message : null);
+	const notesError = $derived(form?.field === 'notes' ? form.message : null);
+	// A refusal that is about no one field goes at the top of the sheet.
+	const otherError = $derived(form?.message && !form.field ? form.message : null);
 </script>
 
 <svelte:head><title>Routines · {data.dance.label}</title></svelte:head>
 
-<header
-	class="sticky top-0 z-20 border-b border-line bg-plane/95 px-4 pb-3 backdrop-blur"
-	style="padding-top: max(env(safe-area-inset-top), 0.75rem)"
->
-	<div class="flex items-center justify-between">
-		<h1 class="text-[17px] font-semibold">Routines</h1>
-		<button
-			type="button"
-			class="h-10 rounded-xl bg-accent px-4 text-[14px] font-semibold text-accent-ink"
-			onclick={() => (creating = true)}>+ New</button
-		>
-	</div>
-</header>
-
-<div class="px-4 py-4">
+<MovesScreen segment="routines" dance={data.dance.slug} onnew={() => (creating = true)}>
 	{#if data.routines.length === 0}
-		<p class="mt-10 text-center text-[15px] text-muted">
-			No routines yet. String some figures together into one you can call as a single set.
-		</p>
+		<div class="h-10 flex-none"></div>
+		<EmptyState
+			icon="routine"
+			title="No routines yet"
+			body="String some figures together into one you can call as a single set."
+		>
+			{#snippet action()}
+				<button type="button" class={button('primary')} onclick={() => (creating = true)}>
+					<Icon name="plus" size={20} /> New routine
+				</button>
+			{/snippet}
+		</EmptyState>
 	{:else}
-		<ul class="space-y-2">
+		<h2 class="{SECTION_LABEL} pt-1">{plural(data.routines.length, 'routine', 'routines')}</h2>
+		<div class={GROUP}>
 			{#each data.routines as routine (routine.id)}
-				<li class="overflow-hidden rounded-xl border border-line bg-raised px-4 py-3">
-					<div class="flex items-start justify-between gap-3">
-						<a
-							class="min-w-0 flex-1"
-							href={resolve('/[dance]/routines/[id]', {
-								dance: data.dance.slug,
-								id: String(routine.id)
-							})}
+				<a
+					class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
+					href={resolve('/[dance]/routines/[id]', {
+						dance: data.dance.slug,
+						id: String(routine.id)
+					})}
+				>
+					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{routine.name}</span
 						>
-							<span class="block truncate text-[15px] font-medium">{routine.name}</span>
-							<span
-								class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted"
-							>
-								<span>{routine.slots} {routine.slots === 1 ? 'slot' : 'slots'}</span>
-								{#if routine.breaks > 0}
-									<span class={hint}>{routine.breaks} break{routine.breaks === 1 ? '' : 's'}</span>
-								{/if}
-								{#if !routine.loops && routine.slots > 0}
-									<span class={hint}>does not loop</span>
-								{/if}
-							</span>
-						</a>
-					</div>
-				</li>
+						<span
+							class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
+						>
+							<span>{plural(routine.slots, 'slot', 'slots')}</span>
+							{#each routineBadges(routine) as b (b.text)}
+								<Badge tone={b.tone}>{b.text}</Badge>
+							{/each}
+						</span>
+					</span>
+					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+				</a>
 			{/each}
-		</ul>
+		</div>
 	{/if}
-</div>
+</MovesScreen>
 
 <Sheet title="New routine" open={creating} onclose={() => (creating = false)}>
 	<form
+		id="new-routine"
 		method="POST"
 		action="?/create"
-		class="space-y-3"
+		class="flex flex-col gap-3.5"
 		use:guarded={{
 			label: 'New routine',
-			submit: () => {
+			submit: ({ cancel }) => {
+				// One routine per tap: a second tap while the first is out is dropped.
+				if (busy) return cancel();
 				busy = true;
 				return async ({ update }) => {
 					await update();
@@ -88,38 +96,53 @@
 			}
 		}}
 	>
-		{#if form?.message}
-			<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{form.message}</p>
-		{/if}
+		{#if otherError}<Banner kind="error">{otherError}</Banner>{/if}
 
-		<label class="block">
-			<span class={label}>Name</span>
+		<div>
+			<label class={LABEL} for="routine-name">Name</label>
+			<!-- The sheet exists to type this one thing. -->
+			<!-- svelte-ignore a11y_autofocus -->
 			<input
+				id="routine-name"
 				name="name"
 				required
+				autofocus
 				maxlength="200"
 				value={form?.name ?? ''}
 				placeholder="Basic combo"
-				class={field}
+				class={FIELD}
+				aria-invalid={nameError ? 'true' : undefined}
+				aria-describedby={nameError ? 'routine-name-error' : undefined}
 			/>
-		</label>
+			{#if nameError}<FieldError id="routine-name-error" message={nameError} />{/if}
+		</div>
 
-		<label class="block">
-			<span class={label}>Notes</span>
+		<div>
+			<label class={LABEL} for="routine-notes">Notes</label>
 			<textarea
+				id="routine-notes"
 				name="notes"
-				rows="5"
+				rows="4"
 				maxlength="2000"
 				placeholder="What this is for, when to reach for it…"
-				class={field}>{form?.notes ?? ''}</textarea
+				class={TEXTAREA}
+				aria-invalid={notesError ? 'true' : undefined}
+				aria-describedby={notesError ? 'routine-notes-error' : undefined}
+				>{form?.notes ?? ''}</textarea
 			>
-		</label>
+			{#if notesError}<FieldError id="routine-notes-error" message={notesError} />{/if}
+		</div>
+	</form>
 
+	{#snippet footer()}
 		<button
 			type="submit"
-			disabled={busy}
-			class="h-11 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-50"
-			>Create routine</button
+			form="new-routine"
+			class={button('primary', 'md', true)}
+			aria-busy={busy}
+			aria-label={busy ? 'Creating routine' : undefined}
 		>
-	</form>
+			{#if busy}<Spinner />{:else}Create routine{/if}
+		</button>
+	{/snippet}
 </Sheet>

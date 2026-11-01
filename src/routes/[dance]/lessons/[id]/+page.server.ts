@@ -31,7 +31,7 @@ import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
-import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
+import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
@@ -102,13 +102,20 @@ export const actions: Actions = {
 		const title = text(form, 'title');
 		const notes = optionalText(form, 'notes');
 		const lessonDay = String(form.get('lessonDay') ?? '');
+		const entered = {
+			title: String(form.get('title') ?? ''),
+			notes: String(form.get('notes') ?? ''),
+			lessonDay
+		};
+		// The New lesson sheet's refusals, in its order: each under the field it is about.
+		const refuse = (message: string, field: 'lessonDay' | 'title' | 'notes') =>
+			fail(400, { action: 'update', field, message, ...entered });
 
-		if (!title || notes === undefined || !isValidDay(lessonDay) || lessonDay > today) {
-			return fail(400, {
-				action: 'update',
-				message: 'Give it a title and a day that is not in the future.'
-			});
-		}
+		if (!title) return refuse('Give it a title (up to 200 characters).', 'title');
+		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (!isValidDay(lessonDay)) return refuse('Pick the day of the class.', 'lessonDay');
+		if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
+
 		if (!updateLesson(getDb(), id, { lessonDay, title, notes })) {
 			return fail(404, { action: 'update', message: 'That lesson no longer exists.' });
 		}
@@ -125,6 +132,7 @@ export const actions: Actions = {
 	/** Quick-log the review exercise, the same one-tap path the figure page has. See `log-form.ts`. */
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
+	restoreSet: (event) => restoreSetFrom(event),
 
 	/*
 	 * `createFigure` opens its own transaction, so the figure and the link are two
@@ -141,21 +149,22 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[dance].styles);
 		const notes = optionalText(form, 'notes');
+		const typed = {
+			figureName: String(form.get('figureName') ?? ''),
+			name: String(form.get('name') ?? ''),
+			notes: String(form.get('notes') ?? '')
+		};
+		// Each refusal names the field it is about, so the sheet shows it there —
+		// the words the Moves sheet uses. Partner and style have no field: a
+		// value the form does not offer goes in the sheet's banner.
+		const refuse = (message: string, field?: 'figureName' | 'name' | 'notes') =>
+			fail(400, { action: 'newFigure' as const, ...(field && { field }), message, ...typed });
 
-		if (
-			!figureName ||
-			!name ||
-			partner === undefined ||
-			style === undefined ||
-			notes === undefined
-		) {
-			return fail(400, {
-				action: 'newFigure',
-				message: 'Give the figure and the variation a name (up to 200 characters).',
-				figureName: String(form.get('figureName') ?? ''),
-				name: String(form.get('name') ?? ''),
-				notes: String(form.get('notes') ?? '')
-			});
+		if (!figureName) return refuse('Give the figure a name (up to 200 characters).', 'figureName');
+		if (!name) return refuse('Give the variation a name (up to 200 characters).', 'name');
+		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (partner === undefined || style === undefined) {
+			return refuse('Pick how it is danced and its style.');
 		}
 
 		const db = getDb();
@@ -164,7 +173,8 @@ export const actions: Actions = {
 		const made = createFigure(db, dance, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
-				action: 'newFigure',
+				action: 'newFigure' as const,
+				field: 'figureName' as const,
 				message: `There's already a figure called ${figureName}.`,
 				figureName,
 				name,
@@ -195,12 +205,14 @@ export const actions: Actions = {
 			name: String(form.get('name') ?? ''),
 			notes: String(form.get('notes') ?? '')
 		};
-		const refuse = (message: string) =>
-			fail(400, { action: 'newVariation' as const, message, ...typed });
+		const refuse = (message: string, field?: 'groupId' | 'name' | 'notes') =>
+			fail(400, { action: 'newVariation' as const, ...(field && { field }), message, ...typed });
 
-		if (groupId === undefined) return refuse('Pick a figure.');
-		if (!name || partner === undefined || style === undefined || notes === undefined) {
-			return refuse('Give the variation a name (up to 200 characters).');
+		if (groupId === undefined) return refuse('Pick a figure.', 'groupId');
+		if (!name) return refuse('Give the variation a name (up to 200 characters).', 'name');
+		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (partner === undefined || style === undefined) {
+			return refuse('Pick how it is danced and its style.');
 		}
 
 		const db = getDb();
@@ -209,7 +221,10 @@ export const actions: Actions = {
 			throw error(404, 'Figure not found');
 		}
 		if (variationNameTaken(db, group.id, name, null)) {
-			return refuse(`${group.name} already has a variation called ${name}. Rename one first.`);
+			return refuse(
+				`${group.name} already has a variation called ${name}. Rename one first.`,
+				'name'
+			);
 		}
 		const made = createVariationIn(db, group.id, { name, partner, style, notes });
 		// Checked above; only a race with another tab gets here.
@@ -224,14 +239,17 @@ export const actions: Actions = {
 		const name = text(form, 'name');
 		const everyDays = int(form, 'everyDays');
 		const notes = optionalText(form, 'notes');
+		const typed = {
+			name: String(form.get('name') ?? ''),
+			notes: String(form.get('notes') ?? '')
+		};
+		const refuse = (message: string, field?: 'name' | 'notes') =>
+			fail(400, { action: 'newExercise' as const, ...(field && { field }), message, ...typed });
 
-		if (!name || everyDays === undefined || !isFrequency(everyDays) || notes === undefined) {
-			return fail(400, {
-				action: 'newExercise',
-				message: 'Give it a name (up to 200 characters) and a frequency.',
-				name: String(form.get('name') ?? ''),
-				notes: String(form.get('notes') ?? '')
-			});
+		if (!name) return refuse('Give it a name (up to 200 characters).', 'name');
+		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (everyDays === undefined || !isFrequency(everyDays)) {
+			return refuse('Pick how often to do it.');
 		}
 
 		const db = getDb();
@@ -274,14 +292,16 @@ export const actions: Actions = {
 		const notes = optionalText(form, 'notes');
 		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
 
-		if (!name || notes === undefined || !isFrequency(everyDays)) {
-			return fail(400, {
-				action: 'newRoutine',
-				message: 'Give the routine a name (up to 200 characters).',
-				name: String(form.get('name') ?? ''),
-				notes: String(form.get('notes') ?? '')
-			});
-		}
+		const typed = {
+			name: String(form.get('name') ?? ''),
+			notes: String(form.get('notes') ?? '')
+		};
+		const refuse = (message: string, field?: 'name' | 'notes') =>
+			fail(400, { action: 'newRoutine' as const, ...(field && { field }), message, ...typed });
+
+		if (!name) return refuse('Give the routine a name (up to 200 characters).', 'name');
+		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (!isFrequency(everyDays)) return refuse('Pick how often to do it.');
 
 		const db = getDb();
 		const { routine } = createRoutine(db, dance, { name, notes }, everyDays);

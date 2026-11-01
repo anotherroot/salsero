@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PickerSong } from '$lib/types';
-import { groupSongs, searchSongs } from './search';
+import { groupSongs, pickerCount, searchSongs } from './search';
 
 function song(id: number, title: string, over: Partial<PickerSong> = {}): PickerSong {
 	return {
@@ -54,5 +54,14 @@ describe('groupSongs', () => {
 		]);
 		expect(g.recent.map((s) => s.id)).toEqual([3, 1]);
 		expect(g.rest.map((s) => s.id)).toEqual([4, 2]);
+	});
+});
+
+describe('pickerCount', () => {
+	it('counts songs and matches', () => {
+		expect(pickerCount(1, false)).toBe('1 song');
+		expect(pickerCount(8, false)).toBe('8 songs');
+		expect(pickerCount(1, true)).toBe('1 match');
+		expect(pickerCount(0, true)).toBe('0 matches');
 	});
 });

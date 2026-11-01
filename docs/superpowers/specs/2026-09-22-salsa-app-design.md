@@ -79,7 +79,7 @@ browser (work PC / phone, installable PWA)
   ├─ Figures             list, detail, recordings
   ├─ Lessons             (phase 4) list, detail, videos, figure/routine/exercise links
   ├─ Routines            (phase 3)
-  ├─ Songs               (phase 2) library, add by URL/upload, song page
+  ├─ Music               (phase 2) library, add by URL/upload, song page
   └─ Player              (phase 2) <audio> + Web Audio scheduler
         │ HTTPS
 salsa.anotherroot.eu → nginx (publicAcme, raised body size)
@@ -229,6 +229,9 @@ positions                                      -- phase 3a; the handhold vocabul
   archived_at     timestamp, nullable
   created_at      timestamp
   unique (dance, slug)
+  -- names are unique per dance among LIVE rows, compared ignoring accents and
+  -- case (checked in the data function, not a constraint); Undo of a remove
+  -- refuses when another live position took the name
 
 figure_start_positions                         -- phase 3a; handholds a figure can START from
   figure_id       fk figures
@@ -295,15 +298,18 @@ now)`, computed per request. No cron, no cached "last done" column.
 
 The home page. One page serves both "exercises" and "today".
 
-- **Header:** date with ‹ › arrows; › disabled on today. `?day=YYYY-MM-DD`
-  in the URL so days are linkable and back-button friendly.
+- **Header:** today shows ‹ (previous day) and Settings on the band; a past
+  day shows ‹ › and "Back to today" (the look is in the redesign spec).
+  `?day=YYYY-MM-DD` in the URL so days are linkable and back-button friendly.
 - **Viewing today:**
-  1. **Done today** — exercises with ≥1 set today, at the top, in the "done"
-     colour, showing the set count. Ordered by most recent set first.
-  2. **Due** — active exercises at urgency ≥ 1, never-done included, most urgent
+  1. **Due** — active exercises at urgency ≥ 1, never-done included, most urgent
      first.
-  3. **Not yet due** — the rest of the active ones, dimmed but shown and still
+  2. **Not yet due** — the rest of the active ones, grey tiles but shown and still
      loggable: seeing what is coming is how you pick a short session.
+  3. **Done today** — exercises with ≥1 set today, in the "done" colour,
+     showing the set count. Ordered by most recent set first. (Done sits below
+     the first two since 2026-10-31: what the session walks comes first; the
+     look is in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).)
   4. **Inactive** — dimmed, collapsed by default, alphabetical. Parking an
      exercise beats its urgency, so an overdue inactive one stays here.
 - **Viewing a past day:** the exercises done that day with their sets (read-only
@@ -327,7 +333,13 @@ The home page. One page serves both "exercises" and "today".
 
 ## Figures
 
-- **List:** search box, filter by style and partner/solo. Archived hidden.
+- **List:** search box, filter chips (style, partner/solo, Not linked), tiles to
+  Positions and Coverage with their counts. Archived hidden. See the
+  [redesign](2026-10-31-redesign-design.md), Moves.
+- **Positions:** `/[dance]/positions` is the gap report. A position is renamed
+  and removed in a sheet (never the neutral); a remove toasts with Undo.
+  Position names are unique per dance among live positions, compared ignoring
+  accents and case.
 - **New figure's style:** pre-selected from the user's pick in Settings
   ("New figures", one per dance, stored in `default_styles`), else the
   registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored
@@ -336,10 +348,10 @@ The home page. One page serves both "exercises" and "today".
   Songs still start on the dance's first style.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
-  position tags, "Follows from" / "Leads to". Phase 3b: "used in routines"
-  (not built).
+  position tags, "Follows from" / "Leads to". In routines · N: the live routines that call this
+  variation, by slot (`routinesUsing`), each opening the routine.
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many
-  routines can call it, and makes a routine from a selection. See
+  routines can call it, and makes a routine from a selection (Select; picks numbered in tap order). See
   [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).
 - **Recordings:** upload from the phone camera or mic via
   `<input type="file" accept="video/*,audio/*" capture>`, or any file from a
@@ -358,6 +370,14 @@ After 5 failed
 attempts, or a permanent error (video unavailable, longer than 15 minutes), the
 song is `failed` with the error shown, **Retry** and **Upload a file instead**.
 While laptop is off, songs simply wait; the library says so.
+
+**Music (since the redesign):** the Songs tab is Music: search, Count only,
+Being added (waiting and failed songs, plus the upload in flight), Recent, then A–Z. A song being
+added shows its steps on its own page (Added, Download, Find the beat; an upload
+has no Download); a failed one shows the error, Retry and Upload a file instead.
+The ready song page has the app's own timeline with the user's 1s as ticks.
+Song details is a sheet from the pencil, with a refusal under its field; Archive
+song asks in a dialog stacked over it (no browser `confirm()`).
 
 **Beat grid** (measured 2026-09-22 on a salsa and a son track): Beat This!'s
 BEATS are good — 96–97% of inter-beat intervals within 8% of the median, tempo
@@ -422,6 +442,20 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   straight here; its sheet of songs is gone. The song's progress bar
   (`player/SongProgress.svelte`) shows before Play, so an intro can be
   skipped.
+- **Practice in the new look** (since 2026-10-31; the look is in the redesign
+  spec). The `<audio>` has no browser controls: the app's seek bar
+  (`SongProgress`) seeks before Play and while running, once on release. Back
+  goes to where Practice was opened from (`practiceBack` in
+  `src/lib/player/view.ts`: a routine's page, `?song=` the song, an exercise
+  alone Today, else Music; the routine log popup's link adds `&from=today`, or `&from=exercise` on the exercise page).
+  Back mid-run stops the run and offers Save this run first; Don't save then
+  leaves. The Voice row says Built-in or Yours (Yours: a recorded set fits the
+  run's tempo) and opens My count through `myCountHref` (`from` and the pattern; My
+  count returns here once it reads them, plan 12; as `&from=…` after the other
+  parameters). The running screen is the stage on the band (count disc, dots,
+  the figure called, the time), a sheet under it and Stop and Pause pinned; it
+  does not scroll the page. A landscape phone puts the stage left and the sheet
+  right; a desktop keeps the 560 px column.
 - **Song samples and the song popup** (since 2026-10-30) have their own
   spec, [`2026-10-30-song-samples-design.md`](2026-10-30-song-samples-design.md).
   `SourcePicker`'s song `<select>` is now `player/SongPicker.svelte`: a field
@@ -586,6 +620,8 @@ unsaved.
   an edit, and is not guarded. Edit mode still has no Cancel; leaving is the
   way to discard.
 
+The look (colours, type, icons, shared components) and the four tabs (Today, Moves, Lessons, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
+
 ## Pending navigation
 
 Every page has a server `load`, and SvelteKit keeps the old page on screen
@@ -596,8 +632,8 @@ root layout (`src/routes/+layout.svelte`, driven by `navigating` from
 
 - **Under the finger.** A link dims while pressed (`a[href]:active` in
   `layout.css`).
-- **At once.** The destination's bottom tab and dance pill light, the accent
-  follows a dance switch, and a thin bar runs along the top (`NavProgress`).
+- **At once.** The destination's bottom tab lights, the accent
+  follows the destination's dance, and a thin bar runs along the top (`NavProgress`).
   The bar runs on every navigation, a search or a day step included.
 - **After 100 ms** (`SKELETON_DELAY_MS`) still waiting, a skeleton shaped like
   the destination covers the page (`PageSkeleton`): Today, a list (titled with
@@ -610,13 +646,30 @@ The skeleton **covers** the old page and never replaces it. SvelteKit saves the
 old page's scroll position only once the new data has arrived, so hiding it
 would save a scroll of zero and break Back. A refused or failed navigation also
 finds the old page exactly as it was. The cover stops at the top of the bottom
-nav and sits above the bars pinned over a page's end (z-30).
+nav when the destination shows one, and sits above the bars pinned over a page's end (z-30).
 
 Links already preload on touchstart (`data-sveltekit-preload-data="hover"` in
 `app.html`), so the 100 ms is usually enough for a page to land without a grey
 flash. If a page still feels slow behind its skeleton, the next step is to
 stream its slow queries (return them un-awaited from `load`) rather than to
 cache data on the client.
+
+## Settings
+
+Settings is pushed from Today (no tab). It saves on change: no Save button. It
+shows this dance's default style only (the dance comes from the dance cookie;
+the other dance's `default_styles` entry is untouched). The reminder is a
+switch plus a time row; turning it on uses the time last shown, else 19:30.
+My count shows one count pattern at a time (the band's segmented control;
+`?pattern=`). Removing a paired phone toasts for 6 s with Undo, held 60 s on the server
+(`src/lib/server/undo-hold.ts`, a server hold: the token hash never reaches the
+page). Every page draws a band (`src/lib/nav/bands.spec.ts`).
+
+`+error.svelte` shows the designed error page (`nav/error-view.ts`: 4xx show
+their message, 5xx never show the server's; Back goes to the tab the failed URL
+belongs to). Offline is caught before the navigation (`navigator.onLine`),
+because SvelteKit answers an unreachable server with a full page reload; the
+Offline layer lies over the current page so nothing typed is lost.
 
 ## Errors
 

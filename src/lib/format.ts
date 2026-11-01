@@ -71,3 +71,61 @@ export function clock(seconds: number): string {
 	const s = Math.max(0, Math.floor(seconds));
 	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+
+const LONG_WEEKDAYS = [
+	'Sunday',
+	'Monday',
+	'Tuesday',
+	'Wednesday',
+	'Thursday',
+	'Friday',
+	'Saturday'
+];
+const LONG_MONTHS = [
+	'January',
+	'February',
+	'March',
+	'April',
+	'May',
+	'June',
+	'July',
+	'August',
+	'September',
+	'October',
+	'November',
+	'December'
+];
+
+/** `2026-10-31` → `Saturday, 31 October`. Built by hand, like `dayLabel`. */
+export function longDayLabel(day: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	return `${LONG_WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${LONG_MONTHS[d.getUTCMonth()]}`;
+}
+
+/** `2026-10-26` → `26 Oct`. Built by hand, like `dayLabel`. */
+export function dayMonth(day: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/** `2026-10-28` → `28 October 2026`. Built by hand, like `dayLabel`. */
+export function fullDateLabel(day: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	return `${d.getUTCDate()} ${LONG_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** `2026-10-28` → `October 2026`. */
+export function monthLabel(day: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	return `${LONG_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** `2026-10-28` → `Wed`. */
+export function weekdayShort(day: string): string {
+	return WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()];
+}
+
+/** "1 slot", "4 slots". */
+export function plural(n: number, one: string, many: string): string {
+	return `${n} ${n === 1 ? one : many}`;
+}

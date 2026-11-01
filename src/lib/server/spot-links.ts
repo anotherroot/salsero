@@ -21,6 +21,7 @@ import {
 	videoSpots
 } from './db/schema';
 import type {
+	LinkCreateField,
 	LinkedSection,
 	SectionGroup,
 	SectionLinkChip,
@@ -32,11 +33,15 @@ import type {
 } from '$lib/types';
 import { lessonsReaching } from './lesson-links';
 
-/** A link that cannot be made. `status` is what the route answers with. */
+/**
+ * A link that cannot be made. `status` is what the route answers with; `field`,
+ * when a create step's field is the reason, is where the Link popup shows it.
+ */
 export class SpotLinkError extends Error {
 	constructor(
 		message: string,
-		readonly status: 400 | 409 = 400
+		readonly status: 400 | 409 = 400,
+		readonly field?: LinkCreateField
 	) {
 		super(message);
 	}

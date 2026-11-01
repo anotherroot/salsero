@@ -4,9 +4,15 @@ import {
 	classDayLabel,
 	clock,
 	dateLabel,
+	dayMonth,
 	dayLabel,
+	fullDateLabel,
 	lastDoneLabel,
-	setSummary
+	longDayLabel,
+	monthLabel,
+	plural,
+	setSummary,
+	weekdayShort
 } from './format';
 
 describe('format', () => {
@@ -59,5 +65,32 @@ describe('byteSize', () => {
 	it('switches to gigabytes with one decimal, where lesson videos live', () => {
 		expect(byteSize(1.2 * 1024 * 1024 * 1024)).toBe('1.2 GB');
 		expect(byteSize(1024 * 1024 * 1024)).toBe('1.0 GB');
+	});
+});
+
+describe('longDayLabel', () => {
+	it('spells out the weekday and month', () => {
+		expect(longDayLabel('2026-10-31')).toBe('Saturday, 31 October');
+		expect(longDayLabel('2027-01-03')).toBe('Sunday, 3 January');
+	});
+
+	it('shortens a day to day and month', () => {
+		expect(dayMonth('2026-10-26')).toBe('26 Oct');
+	});
+});
+
+describe('fullDateLabel, monthLabel, weekdayShort', () => {
+	it('spell a day out by hand', () => {
+		expect(fullDateLabel('2026-10-28')).toBe('28 October 2026');
+		expect(monthLabel('2026-01-03')).toBe('January 2026');
+		expect(weekdayShort('2026-10-28')).toBe('Wed');
+	});
+});
+
+describe('plural', () => {
+	it('picks the word by the count', () => {
+		expect(plural(1, 'slot', 'slots')).toBe('1 slot');
+		expect(plural(4, 'slot', 'slots')).toBe('4 slots');
+		expect(plural(0, 'routine', 'routines')).toBe('0 routines');
 	});
 });

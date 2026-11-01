@@ -1,4 +1,10 @@
-import { afterNavigate, beforeNavigate, onNavigate, pushState } from '$app/navigation';
+import {
+	afterNavigate,
+	beforeNavigate,
+	invalidateAll,
+	onNavigate,
+	pushState
+} from '$app/navigation';
 import { SheetStack } from './stack';
 
 /*
@@ -32,12 +38,57 @@ export const sheetStack = new SheetStack({
 	later: (fn) => setTimeout(fn, 0)
 });
 
+/**
+ * Refresh the page's data once history has caught up with the sheets' own Back
+ * moves, and not at all if the user has gone elsewhere meanwhile. A reload
+ * started before a close's Back has landed is dropped by SvelteKit when the
+ * popstate arrives, so every refresh that follows a sheet's or the player's
+ * close goes through here. Resolves when the refresh is done (or skipped).
+ */
+export function refreshWhenSettled(): Promise<void> {
+	const href = location.href;
+	return new Promise((resolve) => {
+		sheetStack.settled(() => {
+			if (location.href === href) void invalidateAll().finally(resolve);
+			else resolve();
+		});
+	});
+}
+
+/** The URL a form was submitted on while a sheet was open, until a close refreshes for it. */
+let sentAt: string | null = null;
+
+/**
+ * Called when a Sheet or Dialog has really closed: if a form was sent from
+ * the page while a sheet was open, its `update()` may have been dropped by the
+ * close's Back, so refresh once history has settled.
+ */
+export function refreshIfSent(): void {
+	if (sentAt === null) return;
+	const at = sentAt;
+	sentAt = null;
+	if (at === location.href) void refreshWhenSettled();
+}
+
+/** An `act()` save posts without a <form>, so it marks itself as sent the same way. */
+export function markSent(): void {
+	if (sheetStack.openCount > 0) sentAt = location.href;
+}
+
 /** Keep the stack in step with history. Call once, from the root layout. */
 export function syncSheets(): void {
 	$effect(() => {
 		const onpop = () => sheetStack.sync(entryDepth());
 		window.addEventListener('popstate', onpop);
 		return () => window.removeEventListener('popstate', onpop);
+	});
+	// Mark a form sent while a sheet is open (see `refreshIfSent`).
+	$effect(() => {
+		const onsubmit = () => {
+			if (sheetStack.openCount > 0) sentAt = location.href;
+		};
+		document.addEventListener('submit', onsubmit, true);
+		return () => document.removeEventListener('submit', onsubmit, true);
 	});
 	/*
 	 * A link click reaches `beforeNavigate` only a frame and a task later

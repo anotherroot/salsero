@@ -1,24 +1,28 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import Screen from '$lib/components/ui/Screen.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 	let submitting = $state(false);
 </script>
 
-<svelte:head><title>Sign in · Salsa</title></svelte:head>
+<svelte:head><title>Sign in</title></svelte:head>
 
-<main class="grid h-dvh place-items-center overflow-y-auto px-5 py-12">
-	<div class="w-full max-w-sm">
-		<div class="mb-8">
-			<h1 class="text-[17px] font-semibold tracking-tight">Salsa</h1>
-			<p class="mt-1 text-[13px] text-muted">Sign in to continue.</p>
-		</div>
-
+<div data-dance={data.dance} style:display="contents">
+	<Screen title="Sign in" subtitle="Welcome back. Sign in to practise.">
 		<form
 			method="POST"
-			class="rounded-xl border border-line bg-surface p-5"
-			use:enhance={() => {
+			class="flex flex-col gap-4 rounded-[22px] bg-surface px-4 pt-5 pb-4"
+			use:enhance={({ cancel }) => {
+				// A second tap or Enter while signing in sends nothing: its fields are
+				// disabled by then, so it would post an empty login.
+				if (submitting) return cancel();
+				// Disabling the fields below is safe: enhance builds the FormData
+				// before this callback runs, so they are still sent.
 				submitting = true;
 				return async ({ update }) => {
 					await update();
@@ -28,47 +32,44 @@
 		>
 			<input type="hidden" name="next" value={data.next} />
 
-			<label class="mb-4 block">
-				<span class="mb-1.5 block text-[12px] font-medium text-ink-2">Email</span>
+			<label class="block">
+				<span class={LABEL}>Email</span>
 				<input
 					name="email"
 					type="email"
 					autocomplete="username"
 					required
+					disabled={submitting}
 					value={form?.email ?? ''}
-					class="w-full rounded-lg border border-rule bg-raised px-3 py-2 text-[14px] outline-none focus:border-accent"
+					class={FIELD}
 				/>
 			</label>
 
-			<label class="mb-5 block">
-				<span class="mb-1.5 block text-[12px] font-medium text-ink-2">Password</span>
+			<label class="block">
+				<span class={LABEL}>Password</span>
 				<input
 					name="password"
 					type="password"
 					autocomplete="current-password"
 					required
-					class="w-full rounded-lg border border-rule bg-raised px-3 py-2 text-[14px] outline-none focus:border-accent"
+					disabled={submitting}
+					class={FIELD}
 				/>
 			</label>
 
 			{#if form?.message}
-				<p
-					class="mb-4 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[13px] text-danger"
-					role="alert"
-				>
-					{form.message}
-				</p>
+				<Banner kind="error" title={form.message} />
 			{/if}
 
-			<button
-				type="submit"
-				disabled={submitting}
-				class="w-full rounded-lg bg-accent py-2 text-[14px] font-medium text-accent-ink disabled:opacity-60"
-			>
-				{submitting ? 'Signing in…' : 'Sign in'}
+			<button type="submit" class={button('primary', 'lg', true)} aria-busy={submitting}>
+				{#if submitting}
+					<Spinner size={24} /> Signing in…
+				{:else}
+					Sign in
+				{/if}
 			</button>
 		</form>
 
-		<p class="mt-4 text-center text-[12px] text-muted">Registration is closed.</p>
-	</div>
-</main>
+		<p class="mt-1.5 text-center text-[13px] text-muted">Registration is closed.</p>
+	</Screen>
+</div>

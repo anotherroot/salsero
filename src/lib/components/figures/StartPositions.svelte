@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { focusAfterRemoval } from '$lib/focus';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { FIELD, LABEL } from '$lib/components/ui/styles';
 
 	/**
 	 * The handholds a figure can start from, as a compact picker: one dropdown
@@ -30,49 +33,72 @@
 	// would wipe the tag just for opening the page — a bug this form has had once
 	// before — so only the "add" list filters archived ones out.
 	const addable = $derived(positions.filter((p) => !p.archived && !chosen.includes(p.id)));
+	const uid = $props.id();
+
+	/** A chip is gone: focus goes to the next chip, else the dropdown that adds one. */
+	function remove(id: number) {
+		const keys = chosen.map((o) => `${uid}-start-${o}`);
+		chosen = chosen.filter((o) => o !== id);
+		void focusAfterRemoval(keys, `${uid}-start-${id}`, `${uid}-add`);
+	}
 </script>
 
 <div>
-	<span class="text-[13px] font-medium">Starts from</span>
+	<span class={LABEL}>Starts from</span>
 
 	{#each chosen as id (id)}
 		<input type="hidden" name="startIds" value={id} />
 	{/each}
 
-	<div class="mt-1 flex flex-wrap items-center gap-1.5">
+	<div class="flex flex-wrap items-center gap-x-1.5">
 		{#each chosen as id (id)}
 			{@const p = positions.find((o) => o.id === id)}
+			{@const name = `${p?.name ?? `#${id}`}${p?.archived ? ' (archived)' : ''}`}
 			<button
+				data-focus="{uid}-start-{id}"
 				type="button"
-				onclick={() => (chosen = chosen.filter((o) => o !== id))}
-				class="flex h-8 items-center gap-1.5 rounded-full bg-accent/15 pr-2 pl-3 text-[13px] font-medium text-accent"
+				aria-label="Remove {name}"
+				onclick={() => remove(id)}
+				class="group flex h-11 flex-none cursor-pointer items-center rounded-full"
 			>
-				{p?.name ?? `#${id}`}{p?.archived ? ' (archived)' : ''}
-				<span aria-hidden="true" class="text-[15px] leading-none">×</span>
-				<span class="sr-only">Remove</span>
+				<span
+					class="flex h-[34px] items-center gap-1 rounded-full bg-accent-soft pr-2 pl-3.5 text-[14px] font-bold text-accent-text group-active:brightness-95"
+					>{name}<Icon name="close" size={16} /></span
+				>
 			</button>
 		{:else}
-			<span class="text-[13px] text-muted">{neutralName}</span>
+			<span class="flex min-h-11 items-center pl-1 text-[14px] text-muted">{neutralName}</span>
 		{/each}
 	</div>
 
 	{#if addable.length > 0}
-		<select
-			aria-label="Add a start position"
-			value=""
-			onchange={(e) => {
-				const id = Number(e.currentTarget.value);
-				if (id) chosen = [...chosen, id];
-				// Snap back to the placeholder so the same option can be re-picked
-				// after a remove, and so the control never reads as a current value.
-				e.currentTarget.value = '';
-			}}
-			class="mt-1.5 h-11 w-full rounded-xl border border-line bg-raised px-3 text-[15px]"
-		>
-			<option value="">Add a start position…</option>
-			{#each addable as position (position.id)}
-				<option value={position.id}>{position.name}</option>
-			{/each}
-		</select>
+		<div class="mt-1">
+			<label class={LABEL} for="{uid}-add">Add a start position</label>
+			<div class="relative">
+				<select
+					id="{uid}-add"
+					data-focus="{uid}-add"
+					aria-label="Add a start position"
+					value=""
+					onchange={(e) => {
+						const id = Number(e.currentTarget.value);
+						if (id) chosen = [...chosen, id];
+						// Snap back to the placeholder so the same option can be re-picked
+						// after a remove, and so the control never reads as a current value.
+						e.currentTarget.value = '';
+					}}
+					class="own-arrow {FIELD} cursor-pointer appearance-none pr-10 text-muted"
+				>
+					<option value="">Choose a position…</option>
+					{#each addable as position (position.id)}
+						<option value={position.id}>{position.name}</option>
+					{/each}
+				</select>
+				<span
+					class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
+					aria-hidden="true"><Icon name="chevron-down" size={20} /></span
+				>
+			</div>
+		</div>
 	{/if}
 </div>

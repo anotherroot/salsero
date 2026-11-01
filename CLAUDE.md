@@ -35,7 +35,9 @@ version or a drill, shown as a card that loops it; a linked section and its
 video refuse to delete) and one picker for every list (search, figure headings, tap to pick, + to
 keep going) and the Link popup (link a section, or create the
 variation, figure or drill it shows, from the lesson page or the player; a
-lesson includes what its videos' sections link to).
+lesson includes what its videos' sections link to) and the redesign (the band and four tabs: Today, Moves, Lessons,
+Music; one look in four themes from `tokens.ts`; the shared components in `components/ui/`;
+designed error pages).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -87,6 +89,11 @@ Song samples and the song popup have theirs,
 where a 15 s sample starts (stored raw, snapped to a 1 on read), one sample at
 a time, the searchable popup in place of the song `<select>`, and Back closing
 the top sheet.
+The look and the four tabs have theirs,
+[`docs/superpowers/specs/2026-10-31-redesign-design.md`](docs/superpowers/specs/2026-10-31-redesign-design.md):
+the colour tokens in four themes, type, icons, the shared components, the band,
+and the Today / Moves / Lessons / Music tab bar. The design board it comes from
+is in `docs/superpowers/design-kit/`.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -103,22 +110,44 @@ src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
                      whether clave exists, accent colours). Client-safe
 src/lib/graph/       PURE figure graph: positions → what can follow what, the
                      gap report. Client-safe
+src/lib/moves/       PURE: what the Moves lists show — filter chips, headings, empty states,
+                     meta words, gaps, pick order. Client-safe
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
-                     (which routines can call each version), the picker's fitting
-                     (fit.ts), the selection's rules, and the delete snapshot.
+                     (which routines can call each version), which routines use a
+                     version (`routinesUsing`, coverage.ts), the picker's fitting
+                     (fit.ts), the selection's rules, the delete snapshot, and the routine
+                     page's wording and where a refusal shows (page.ts).
                      Client-safe
+src/lib/figures/     PURE: a figure page's lines — timing, the practice line, the
+                     variation switcher's steps, Move and Archive wording, the
+                     delete question, the length check. Client-safe
+src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
+                     page's lines — via-section badges, row metas, the delete and unlink
+                     questions. Client-safe
 src/lib/links.ts     PURE URL parsing (YouTube-aware) and linkified notes —
                      no {@html}. Client-safe
 src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      where a practice opens (practice.ts), a wall-clock
-                     stopwatch, the Today session. practice-api.ts is the fetch
-                     side of remembering a practice. Client-safe
+                     stopwatch, the Today session, what Today shows (today.ts: bands,
+                     meta lines, hero states, past-day groups) and the type
+                     tile's icon and name (tile.ts), what the log popup shows
+                     (log-view.ts: the footer's states, range errors, the rating
+                     toggle) and the exercise page (exercise-page.ts).
+                     practice-api.ts is the fetch side of remembering a practice.
+                     Client-safe
+src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,
+                     the band's subtitles, the run summary, Play's state, Built-in
+                     or Yours, where Back goes. Client-safe
 src/lib/picker/      PURE picker model and builders: word search, figure
                      headings, group order (model.ts), and the rows each list
-                     gives the picker (build.ts). Client-safe
+                     gives the picker (build.ts); view.ts is what a row ends in, the create
+                     row's lead, the body's state and the height. Client-safe
 src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
-                     PickerField.svelte (a form field that opens it)
+                     PickerField.svelte (a form field that opens it) and
+                     PickerOpener.svelte (the full-width tonal button that opens one)
+src/lib/components/ui/PlayerLayer.svelte  a Sheet or Dialog as an overlay inside the
+                     full-screen player (`.theme-media`), not a second top-layer dialog
 src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
                      Client-safe
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
@@ -126,15 +155,41 @@ src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are 
                      navigation guard. ui/UnsavedDialog.svelte asks the question
 src/lib/songs/       sample.ts is PURE: where a 15 s sample starts (snapped back to a 1)
                      and its fade. search.ts is PURE: the song popup's folded
-                     search, Recent then A-Z (the shared picker marks matches). sample-player.svelte.ts
+                     search, Recent then A-Z (matches marked by picker/model.ts `segments`). sample-player.svelte.ts
                      is the one impure part: the single sample `<audio>`, one
-                     sample at a time. Client-safe
+                     sample at a time. library.ts is PURE: the Music tab's groups, meta,
+                     badges and upload checks. song-page.ts and timeline.ts are PURE: the
+                     song page's steps, tap rule and the seek bar's maths. upload.svelte.ts
+                     is the one song upload in flight, outliving the sheet. Client-safe
+src/lib/theme/       tokens.ts is the colour source (four themes); layout.css copies it
+                     and a spec checks they agree. `tokens.ts` also holds `MEDIA`, copied into
+                     `.theme-media` in `layout.css` (the player's palette).
+                     `BAND_TRACK` and `SCRIM` are `bg-band-track` and `bg-scrim`; the scrim is also
+                     written out in one `::backdrop` rule. stylesheet.spec.ts checks each theme
+                     block, and that no removed alias is still used. contrast.ts is the ratio maths
+src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled tab
+                     variants), drawn by components/ui/Icon.svelte (`stroke` for
+                     the heavier checks)
+src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the bar
+                     shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
+                     while data is on the way (skeleton, leaving). error-view.ts: the error
+                     pages' words and where their back goes. bands.spec.ts: every page draws
+                     a band (a page without one is named in the spec with its reason). PURE
+src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
+src/lib/app-bars.svelte.ts  tells the Android shell the strip colour under the navigation
+                     bar (`reportStrip`); `tabSurface` marks a bar pinned on the tab-bar surface
+src/routes/dev/kit/  the kit gallery: every shared component in every state, to
+                     compare with the design board. Dev only (404 in a build)
+docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
 src/lib/sheets/      stack.ts is PURE: one history entry per open Sheet behind a
                      port, so Back closes only the top one, with holds while a
                      navigation or a link click is in flight. history.svelte.ts
-                     wires it to SvelteKit shallow routing; it reads the depth from
+                     wires it to SvelteKit shallow routing; `refreshWhenSettled()` is the one way to
+                     refresh after a close; `refreshIfSent` is Sheet and Dialog's own, so a form
+                     sent inside one still shows once it closes. It reads the depth from
                      `history.state['sveltekit:states']`, not `page.state`,
-                     because `invalidateAll` resets `page.state`
+                     because `invalidateAll` resets `page.state`. `settled(fn)` runs fn once,
+                     after history has caught up with the sheets' own Back moves
 src/lib/fold.ts      accent and case folding, shared by the shared picker, the
                      routine picker and the song search
 src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
@@ -145,9 +200,16 @@ src/lib/video/       PURE spots.ts: spot times, labels, ±1 s and 0.1 s steps,
                      loop it implies), keys.ts, layout.ts, player-history.ts
                      (one history entry per screen, behind a port), zoom.ts
                      (pinch maths), taps.ts (double-tap) and screen-on.ts
-                     (the wake lock, injected) are PURE too. spots-api.ts is the player's
+                     (the wake lock, injected), caption.ts (a recording's
+                     or lesson video's caption) and chrome.ts (which parts the top
+                     bar shows per layout and level, the link entry's words, the
+                     delete sheet's copy, the toast's icon and place, the buffering
+                     spinner) are PURE too. spots-api.ts is the player's
                      fetch side of /api/video-spots. Client-safe. The player's
-                     screens are src/lib/components/video/
+                     screens are src/lib/components/video/ and draw from
+                     `.theme-media` (the media palette), the shared ui/Icon and
+                     the builders in video/styles.ts; no palette or icons of
+                     their own
 worker/              Python home worker (yt-dlp, ffmpeg, Beat This!) — runs at home, not on the server
 android/             the Android apps (Kotlin): one per dance as Gradle flavors, each a WebView launcher, salsa:// links, the upload
                      and reminder workers. No screens of its own. Pure parts (Links,
@@ -158,16 +220,31 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
 src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByDance
+src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed paired phone, a
+                     deleted voice take); a take's wav is unlinked when its hold expires
 src/lib/server/request-user.ts  where a device token may sign in: /api/ only
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
 src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
-                     half-bar starts); capture.ts owns the mic and the click
+                     half-bar starts); capture.ts owns the mic and the click.
+                     grid.ts (tempo states, takes, the Settings summary), recording.ts
+                     (the count dots and bar progress), back.ts (where My count goes
+                     back to: `voiceBack`/`myCountHref`) are PURE too
 static/worklets/     recorder.js — the AudioWorklet that captures the mic.
                      Served, not bundled: addModule() takes a URL
-src/lib/*.ts         client-safe: labels, frequency presets, limits, format, row types
+src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dates, `plural`), row types.
+                     act.ts posts a page action without a form (`act`); act-toast.ts is the refusal
+                     message and the "removed · Undo" toast Settings and My count share.
+                     focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
-                     exercises/ links/ routines/
+                     exercises/ links/ routines/ moves/ (the Moves band and its tiles) system/
+                     (error, offline, choice sheet, status block, lead tile).
+                     ui/styles.ts holds the class builders: `button(kind, size, full)`,
+                     `iconButton(variant, tone)`, `FIELD`/`TEXTAREA`/`SELECT` and their
+                     `_INVALID` twins, `CHIP`, `GROUP` and `CLIP` (`focus-inset`: a card that
+                     clips), and `swap()`, which throws in dev and tests when the class token it replaces is missing
+                     ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
+                     line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
 src/lib/server/scope.ts  the dance wall at the route level: guards on params
                      and ids, so a request only ever reaches its own dance
@@ -195,10 +272,10 @@ scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-ch
                      ../salsaapp-wt/<name> on its own branch, vite on a devports port at
                      wt-N-<name>.salsa.localhost, .data cloned from main's by hooks/up
 scripts/make-clips.sh  one-off: Piper + ffmpeg → static/clips/. Output is committed
-scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
-                     the registry's accents. Output is committed. Both scripts
-                     pull their tooling from nixpkgs at run time, so the flake
-                     carries neither
+scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
+                     static/icon-bachata.svg → static/icons/. Output is committed.
+                     Both scripts pull their tooling from nixpkgs at run time, so the
+                     flake carries neither
 ```
 
 ## Hard rules
@@ -220,6 +297,9 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   WITH its variation, in one transaction (`src/lib/server/figures.ts`). A linked
   spot, and the video it is on, cannot be deleted until it is unlinked —
   archived targets included (`assertUnlinked` in `src/lib/server/spot-links.ts`).
+  A removed paired phone and a deleted voice take come back with Undo for a
+  minute: both are deleted at once and kept in an in-memory hold
+  (`src/lib/server/undo-hold.ts`); a take's file is unlinked when its hold expires.
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
   components and never branch on it.
@@ -273,6 +353,18 @@ scripts/make-icons.sh  one-off: librsvg → static/icons/, tinted per dance from
   it. One-tap forms (delete, move, a picker's Add) stay on `use:enhance`.
   Never a browser `confirm()` for unsaved work. See "Unsaved changes" in the
   design spec.
+- **A colour on a built control is the builder's.** `iconButton(variant, tone)`,
+  `FIELD_INVALID`: never append a `text-*` after the output or `.replace()` it (use
+  `swap()`). Tailwind 4 orders by property, not by class order, so an appended
+  class loses or wins by luck. `class-rules.spec.ts` enforces it.
+- **A card that clips uses `GROUP` or `CLIP`.** Rows draw their focus ring inside
+  it, since the card's `overflow-hidden` would cut an outside one
+  (`focus-clip.spec.ts`).
+- **After a one-tap removal, focus goes to the next row** (`focusAfterRemoval`,
+  `src/lib/focus.ts`), else the previous, else the list's add control: the
+  removed row's focus would fall to `<body>`.
+- **A refresh after a sheet or the player closes goes through `refreshWhenSettled()`.**
+  SvelteKit drops a reload that a popstate overtakes, and a close's Back is one.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **A device token signs in on `/api/` only** — never a page, never
@@ -321,7 +413,7 @@ npm run db:generate   # after editing src/lib/server/db/schema.ts
 ./scripts/deploy.sh   # see docs/deployment.md
 # slots: C-1…C-9 in tmux; prefix C-a for reset-db and close slot (tmux_project)
 ./scripts/make-clips.sh   # regenerate static/clips/ — only when the voice changes
-./scripts/make-icons.sh   # regenerate static/icons/ — only when a dance's accent changes
+./scripts/make-icons.sh   # regenerate static/icons/ — only when an icon SVG changes
 nix develop .#android -c ./android/gradlew -p android test assembleDebug   # the APK; see docs/deployment.md
 ```
 

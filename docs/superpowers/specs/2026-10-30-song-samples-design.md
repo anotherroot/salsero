@@ -93,9 +93,10 @@ the top:
 **Search.** Filters as you type, matching anywhere in the title or the artist,
 ignoring accents and case ("valio" finds "Valió la pena"). Reuse `fold` from
 `src/lib/routines/fit.ts` (move it somewhere shared if that reads better). The
-matched letters are highlighted in the title (since 2026-10-30 the popup is
-the shared picker, #12 in `2026-10-30-unified-pickers-design.md`, which marks
-matches in every list and the picked song with a ✓). While searching it is one flat
+matched letters are highlighted in the title: every word of the query, marked
+by `segments` in `src/lib/picker/model.ts`, the same marking every picker uses
+(since the 2026-10-31 redesign the popup is its own sheet in the new look, the
+picked song a filled radio dot; see `2026-10-31-redesign-design.md`). While searching it is one flat
 list, A to Z. With no match: "No song matches “xyz”." and a pointer to the
 Songs page; the typed text stays. A running sample keeps playing while typing
 if its row is still in the list.

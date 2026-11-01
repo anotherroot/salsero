@@ -20,7 +20,7 @@ import {
 	variationNameTaken
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
-import { int, ints, oneOf, optionalText, text } from '$lib/server/form';
+import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, setFigureShape } from '$lib/server/graph';
 import {
 	DEFAULT_LENGTH_COUNTS,
@@ -29,12 +29,17 @@ import {
 	isStartCount,
 	MAX_LENGTH_COUNTS
 } from '$lib/graph/timing';
-import { deleteSetFrom, logSetFrom } from '$lib/server/log-form';
+import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions, neutralPosition } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
 import { popupData } from '$lib/server/popup';
+import { exerciseHistory } from '$lib/server/exercises';
+import { listRoutines, routineShapes } from '$lib/server/routines';
+import { routinesUsing } from '$lib/routines/coverage';
+import { practiceLine } from '$lib/figures/page';
+import { plan } from '$lib/urgency/urgency';
 import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -96,6 +101,7 @@ const taken = (figure: string, name: string) =>
 const figureTaken = (name: string) => `There's already a figure called ${name}.`;
 
 export const load: PageServerLoad = ({ params, url, locals }) => {
+	const now = Date.now();
 	const dance = danceOf(params);
 
 	// An old link — `/figures/<base>?v=<variation>`, from before a variation had
@@ -163,6 +169,9 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		};
 	});
 
+	const zone = zoneOf(locals);
+	const popup = found.exercise ? popupData(db, dance, found.exercise.id, zone, now) : null;
+
 	return {
 		figure: { id: group.id, name: group.name },
 		variation: {
@@ -181,8 +190,21 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		},
 		siblings,
 		exercise: found.exercise,
-		popup: found.exercise
-			? popupData(db, dance, found.exercise.id, zoneOf(locals), Date.now())
+		popup,
+		// Derived per request, never stored — the same rule urgency follows.
+		routines: routinesUsing(graph, id, routineShapes(db, dance), listRoutines(db, dance)),
+		practice: popup
+			? practiceLine(
+					plan(
+						[popup.exercise],
+						exerciseHistory(db, popup.exercise.id, 50).map((s) => ({
+							exerciseId: popup.exercise.id,
+							doneAt: s.doneAt
+						})),
+						now,
+						zone
+					)
+				)
 			: null,
 		positions: [
 			...live.map((p) => ({ id: p.id, name: p.name, neutral: p.neutral, archived: false })),
@@ -282,16 +304,26 @@ export const actions: Actions = {
 	/** "+ New variation": a copy of this one under a new name, opened. */
 	createVariation: async ({ params, request }) => {
 		const { figure, group } = variationOf(params);
-		const name = text(await request.formData(), 'name');
+		const form = await request.formData();
+		const name = text(form, 'name');
+		// What was typed, as typed, so the field keeps it under the refusal.
+		const typed = String(form.get('name') ?? '');
 		if (!name) {
 			return fail(400, {
 				action: 'createVariation',
-				message: 'Give the variation a name (up to 200 characters).'
+				field: 'name',
+				message: 'Give the variation a name (up to 200 characters).',
+				name: typed
 			});
 		}
 		const made = createVariationFrom(getDb(), figure.id, name);
 		if (!made) {
-			return fail(400, { action: 'createVariation', message: taken(group.name, name) });
+			return fail(400, {
+				action: 'createVariation',
+				field: 'name',
+				message: taken(group.name, name),
+				name: typed
+			});
 		}
 		throw redirect(303, `/${params.dance}/figures/${made.id}`);
 	},
@@ -318,6 +350,7 @@ export const actions: Actions = {
 			if (!figureName) {
 				return fail(400, {
 					action: 'move',
+					field: 'figureName',
 					message: 'Give the new figure a name (up to 200 characters).'
 				});
 			}
@@ -345,12 +378,17 @@ export const actions: Actions = {
 					const target = groupId === undefined ? null : getGroup(db, groupId);
 					return fail(400, {
 						action: 'move',
+						field: 'name',
 						message: taken(target?.name ?? 'That figure', name ?? figure.name),
 						name: String(form.get('name') ?? '')
 					});
 				}
 				case 'figure-name-taken':
-					return fail(400, { action: 'move', message: figureTaken(figureName ?? '') });
+					return fail(400, {
+						action: 'move',
+						field: 'figureName',
+						message: figureTaken(figureName ?? '')
+					});
 			}
 		}
 		throw redirect(303, `/${params.dance}/figures/${figure.id}`);
@@ -388,6 +426,7 @@ export const actions: Actions = {
 	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
+	restoreSet: (event) => restoreSetFrom(event),
 
 	deleteRecording: async ({ params, request }) => {
 		const found = variationOf(params);
@@ -434,7 +473,10 @@ export const actions: Actions = {
 			linkSpot(getDb(), spotId, { figureId: figure.id });
 		} catch (e) {
 			if (e instanceof SpotLinkError) {
-				return fail(e.status, { action: 'linkSection', message: e.message });
+				return fail(e.status, {
+					action: 'linkSection',
+					message: refusalText(e.status, e.message)
+				});
 			}
 			throw e;
 		}

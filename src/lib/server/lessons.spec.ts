@@ -33,7 +33,8 @@ import {
 import { addFigureExercise, archiveVariation, createFigure, createVariationFrom } from './figures';
 import { addSpot } from './spots';
 import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
-import { spotLinks } from './db/schema';
+import { exercises, spotLinks } from './db/schema';
+import { eq } from 'drizzle-orm';
 import { archiveRoutine, createRoutine } from './routines';
 
 let db: Db;
@@ -213,6 +214,21 @@ describe('a figure exercise never shows up in both places', () => {
 		const exercise = addFigureExercise(db, figure.id)!;
 		linkFigure(db, lesson.id, figure.id);
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(false);
+	});
+});
+
+describe('frequencies on the lesson page', () => {
+	it('lists a linked routine and a linked drill with their frequencies', () => {
+		const { lesson } = createLesson(db, 'salsa', lessonInput);
+		const { routine } = createRoutine(db, 'salsa', { name: 'Rueda combo', notes: null });
+		db.update(exercises).set({ everyDays: 7 }).where(eq(exercises.routineId, routine.id)).run();
+		const custom = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		linkRoutine(db, lesson.id, routine.id);
+		linkExercise(db, lesson.id, custom.id);
+
+		const got = getLesson(db, lesson.id)!;
+		expect(got.routines[0].everyDays).toBe(7);
+		expect(got.exercises[0].everyDays).toBe(1);
 	});
 });
 
@@ -518,7 +534,12 @@ describe('linking routines', () => {
 
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(true);
 		expect(getLesson(db, lesson.id)!.routines).toEqual([
-			{ id: routine.id, name: 'Rueda combo', exerciseId: exercise.id }
+			{
+				id: routine.id,
+				name: 'Rueda combo',
+				exerciseId: exercise.id,
+				everyDays: exercise.everyDays
+			}
 		]);
 	});
 

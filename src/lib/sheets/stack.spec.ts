@@ -36,6 +36,22 @@ function sheet(name: string, log: string[], unsaved = false) {
 }
 
 describe('SheetStack', () => {
+	it('counts the sheets that are open (openCount)', () => {
+		const { s, tick } = setup();
+		const log: string[] = [];
+		expect(s.openCount).toBe(0);
+		const a = s.open(sheet('a', log).entry);
+		const b = s.open(sheet('b', log).entry);
+		expect(s.openCount).toBe(2);
+		s.requestClose(b);
+		expect(s.openCount).toBe(1);
+		tick();
+		s.sync(1);
+		expect(s.openCount).toBe(1);
+		s.closedByOwner(a);
+		expect(s.openCount).toBe(0);
+	});
+
 	it('pushes one entry per sheet it opens', () => {
 		const { s, calls } = setup();
 		const log: string[] = [];
@@ -360,6 +376,102 @@ describe('SheetStack', () => {
 		expect(calls).toEqual([]);
 		s.start(0);
 		expect(calls).toEqual(['push(1)']);
+	});
+});
+
+describe('SheetStack.settled', () => {
+	it('already settled: runs once, a task later', () => {
+		const { s, tick } = setup();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		expect(ran).toEqual([]);
+		tick();
+		expect(ran).toEqual(['x']);
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('waits for the Back a sheet closed by its owner owes to land', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		const a = s.open(sheet('a', log).entry);
+		tick();
+		s.closedByOwner(a);
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		tick();
+		expect(calls.at(-1)).toBe('go(-1)');
+		tick();
+		expect(ran).toEqual([]);
+		s.sync(0);
+		expect(ran).toEqual([]);
+		tick();
+		expect(ran).toEqual(['x']);
+		s.sync(0);
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('waits for a hold to be released', () => {
+		const { s, tick } = setup();
+		const release = s.hold();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		tick();
+		tick();
+		expect(ran).toEqual([]);
+		release();
+		tick();
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('runs each waiter once, however often it is checked', () => {
+		const { s, tick } = setup();
+		const log: string[] = [];
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		s.settled(() => ran.push('y'));
+		const a = s.open(sheet('a', log).entry);
+		tick();
+		tick();
+		expect(ran).toEqual(['x', 'y']);
+		s.closedByOwner(a);
+		tick();
+		s.sync(0);
+		tick();
+		tick();
+		expect(ran).toEqual(['x', 'y']);
+	});
+
+	it('waits for the stale entry a reload left to be gone over', () => {
+		const { s, calls, tick } = setup();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		s.start(2);
+		expect(calls).toEqual(['go(-2)']);
+		tick();
+		expect(ran).toEqual([]);
+		s.sync(0);
+		tick();
+		expect(ran).toEqual(['x']);
+		tick();
+		expect(ran).toEqual(['x']);
+	});
+
+	it('runs after the entry a stayed Back took is pushed again', () => {
+		const { s, calls, tick } = setup();
+		const log: string[] = [];
+		s.open(sheet('a', log, true).entry);
+		tick();
+		const ran: string[] = [];
+		s.settled(() => ran.push('x'));
+		s.sync(0);
+		expect(calls.at(-1)).toBe('push(1)');
+		expect(ran).toEqual([]);
+		tick();
+		expect(ran).toEqual(['x']);
+		expect(log).toEqual([]);
 	});
 });
 

@@ -3,14 +3,19 @@
 	import { onMount } from 'svelte';
 	import { youtubeEmbed, youtubeThumb, youtubeWatch } from '$lib/links';
 	import { loadVideoPrefs, saveVideoPrefs } from '$lib/video-prefs';
+	import { clock } from '$lib/format';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { iconButton } from '$lib/components/ui/styles';
 
 	interface Props {
 		id: string;
 		start: number | null;
 		title: string | null;
+		/** The lesson page: a closed card is a 112 x 64 thumbnail beside its title. */
+		compact?: boolean;
 	}
 
-	let { id, start, title }: Props = $props();
+	let { id, start, title, compact = false }: Props = $props();
 
 	/*
 	 * A thumbnail until tapped. Five iframes on a lesson would load five players
@@ -29,49 +34,92 @@
 	}
 </script>
 
-{#if playing}
-	<iframe
-		src={youtubeEmbed(id, start)}
-		title={title ?? 'YouTube video'}
-		class="aspect-video w-full bg-black"
-		class:mirror
-		allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-		allowfullscreen
-		referrerpolicy="strict-origin-when-cross-origin"
-	></iframe>
+{#if compact && !playing}
+	<div class="flex items-center gap-3 pt-3 pr-1.5 pb-2.5 pl-3">
+		<button
+			type="button"
+			class="relative block h-16 w-28 flex-none cursor-pointer overflow-hidden rounded-xl bg-black"
+			aria-label="Play {title ?? 'the video'}"
+			onclick={() => (playing = true)}
+		>
+			<img src={youtubeThumb(id)} alt="" loading="lazy" class="size-full object-cover" />
+			<span class="absolute inset-0 grid place-items-center">
+				<span class="grid size-8 place-items-center rounded-full bg-black/70 text-white"
+					><Icon name="play" size={16} filled /></span
+				>
+			</span>
+		</button>
+		<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="text-[16px] leading-[1.3] font-bold">{title ?? 'YouTube'}</span>
+			<span class="flex items-center gap-[5px] text-[13px] text-muted">
+				<Icon name="youtube" size={16} />youtube.com{start ? ` · from ${clock(start)}` : ''}
+			</span>
+		</div>
+		<a
+			href={youtubeWatch(id, start)}
+			target="_blank"
+			rel="external noopener noreferrer"
+			aria-label="Open on YouTube"
+			class={iconButton('bare', 'muted')}><Icon name="external" size={22} /></a
+		>
+	</div>
 {:else}
-	<button
-		type="button"
-		class="relative block aspect-video w-full bg-black"
-		aria-label="Play {title ?? 'the video'}"
-		onclick={() => (playing = true)}
-	>
-		<img src={youtubeThumb(id)} alt="" loading="lazy" class="size-full object-cover" class:mirror />
-		<span class="absolute inset-0 grid place-items-center">
-			<span class="grid size-14 place-items-center rounded-full bg-black/70 text-[22px] text-white"
-				>▶</span
-			>
-		</span>
-	</button>
+	{#if playing}
+		<iframe
+			src={youtubeEmbed(id, start)}
+			title={title ?? 'YouTube video'}
+			class="aspect-video w-full bg-black"
+			class:mirror
+			allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+			allowfullscreen
+			referrerpolicy="strict-origin-when-cross-origin"
+		></iframe>
+	{:else}
+		<button
+			type="button"
+			class="relative block aspect-video w-full cursor-pointer bg-black"
+			aria-label="Play {title ?? 'the video'}"
+			onclick={() => (playing = true)}
+		>
+			<img
+				src={youtubeThumb(id)}
+				alt=""
+				loading="lazy"
+				class="size-full object-cover"
+				class:mirror
+			/>
+			<span class="absolute inset-0 grid place-items-center">
+				<span class="grid size-[52px] place-items-center rounded-full bg-black/70 text-white"
+					><Icon name="play" size={24} filled /></span
+				>
+			</span>
+		</button>
+	{/if}
+	<div class="flex items-center gap-1 py-2 pr-1.5 pl-3.5">
+		<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="text-[15px] leading-snug font-bold">{title ?? 'YouTube'}</span>
+			<span class="flex items-center gap-[5px] text-[12px] text-muted">
+				<Icon name="youtube" size={15} />youtube.com{start ? ` · from ${clock(start)}` : ''}
+			</span>
+		</div>
+		<button
+			type="button"
+			aria-pressed={mirror}
+			aria-label="Mirror"
+			onclick={toggleMirror}
+			class={mirror ? iconButton('tonal') : iconButton('bare', 'muted')}
+			><Icon name="mirror" size={22} /></button
+		>
+		<!-- Always offered: the work PC's browser may block the embed outright. -->
+		<a
+			href={youtubeWatch(id, start)}
+			target="_blank"
+			rel="external noopener noreferrer"
+			aria-label="Open on YouTube"
+			class={iconButton('bare', 'muted')}><Icon name="external" size={22} /></a
+		>
+	</div>
 {/if}
-<div class="flex items-center gap-2 px-3 py-2 text-[12px]">
-	<span class="min-w-0 flex-1 truncate text-ink-2">{title ?? 'YouTube'}</span>
-	<button
-		type="button"
-		aria-pressed={mirror}
-		onclick={toggleMirror}
-		class="h-8 rounded-lg border px-2.5 {mirror
-			? 'border-accent text-accent'
-			: 'border-rule text-ink-2'}">Mirror</button
-	>
-	<!-- Always offered: the work PC's browser may block the embed outright. -->
-	<a
-		href={youtubeWatch(id, start)}
-		target="_blank"
-		rel="external noopener noreferrer"
-		class="text-accent">Open on YouTube ↗</a
-	>
-</div>
 
 <style>
 	/* The embed's own controls mirror with it — the accepted cost of doing this from outside. */

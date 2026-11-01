@@ -358,6 +358,18 @@ describe('song samples and the picker', () => {
 		expect(recentSongIds(db, 'bachata')).toEqual([c.id]);
 	});
 
+	it('ranks the recent songs in the library list, ready songs only', () => {
+		const a = readySong('A');
+		readySong('B');
+		const w = createSongFromUrl(db, 'salsa', { url: URL, title: '', style: 'salsa' });
+		const e = ex();
+		play(e.id, 100, a.id);
+		const byId = new Map(listSongs(db, 'salsa').map((r) => [r.id, r.recentRank]));
+		expect(byId.get(a.id)).toBe(0);
+		expect(byId.get(w.id)).toBeNull();
+		expect([...byId.values()].filter((r) => r === null)).toHaveLength(2);
+	});
+
 	it('ranks the recent songs in the picker and leaves archived ones out', () => {
 		const a = readySong('A');
 		const b = readySong('B');

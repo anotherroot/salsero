@@ -65,3 +65,11 @@ export function ints(form: FormData, key: string): number[] {
 	}
 	return [...out];
 }
+
+/**
+ * The message a refusal may show: a 4xx message is for the user, a 5xx one is
+ * ours (a path, a SQL error), so it becomes the generic line.
+ */
+export function refusalText(status: number, message: string): string {
+	return status >= 500 ? 'Couldn’t save. Try it again.' : message;
+}

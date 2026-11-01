@@ -5,6 +5,8 @@
 	 * closes — there is no confirm step. The sheet is the shared Picker; what
 	 * fits (and the Count / Hold chips) stays here, in fit.ts.
 	 */
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { CHIP } from '$lib/components/ui/styles';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import type { PickGroup as Group, PickHeading, PickRow } from '$lib/picker/model';
 	import {
@@ -26,6 +28,9 @@
 	}
 
 	let { open, title, anchor, candidates, positionName, onpick, onclose }: Props = $props();
+
+	const RESCUE =
+		'min-h-6 cursor-pointer font-extrabold text-accent-text underline underline-offset-[3px]';
 
 	let query = $state('');
 	let count = $state(true);
@@ -93,11 +98,6 @@
 		const c = candidates.find((x) => `${x.kind}:${x.id}` === r.key);
 		if (c) onpick(c);
 	}
-
-	const chip = (on: boolean) =>
-		`h-8 rounded-full border px-3 text-[13px] ${
-			on ? 'border-accent bg-accent/10 font-medium text-accent' : 'border-line bg-raised text-muted'
-		}`;
 </script>
 
 <Picker
@@ -114,25 +114,23 @@
 >
 	{#snippet top()}
 		{#if context}
-			<p class="mt-2 text-[13px] text-ink-2">{context}</p>
+			<p class="mt-2 flex items-center gap-1.5 text-[13px] font-semibold text-ink-2">
+				<span class="flex-none text-accent-text"><Icon name="flag" size={15} /></span>{context}
+			</p>
 		{/if}
 		{#if list.toggles.count || list.toggles.hold}
-			<div class="mt-2 flex gap-2">
+			<div role="group" aria-label="Filters" class="mt-2 flex gap-2">
 				{#if list.toggles.count}
-					<button
-						type="button"
-						class={chip(count)}
-						aria-pressed={count}
-						onclick={() => (count = !count)}>{count ? '✓ ' : ''}Count</button
-					>
+					<label class={CHIP}>
+						<input type="checkbox" class="sr-only" bind:checked={count} />
+						{#if count}<span class="mr-1 flex"><Icon name="check" size={16} /></span>{/if}Count
+					</label>
 				{/if}
 				{#if list.toggles.hold}
-					<button
-						type="button"
-						class={chip(hold)}
-						aria-pressed={hold}
-						onclick={() => (hold = !hold)}>{hold ? '✓ ' : ''}Hold</button
-					>
+					<label class={CHIP}>
+						<input type="checkbox" class="sr-only" bind:checked={hold} />
+						{#if hold}<span class="mr-1 flex"><Icon name="check" size={16} /></span>{/if}Hold
+					</label>
 				{/if}
 			</div>
 		{/if}
@@ -140,13 +138,11 @@
 	{#snippet empty()}
 		{emptyText}
 		{#if list.emptiedBy.includes('hold')}
-			<button type="button" class="font-semibold text-accent" onclick={() => (hold = false)}
-				>Turn off Hold</button
-			> to see the rest.
+			<button type="button" class={RESCUE} onclick={() => (hold = false)}>Turn off Hold</button> to see
+			the rest.
 		{:else if list.emptiedBy.includes('count')}
-			<button type="button" class="font-semibold text-accent" onclick={() => (count = false)}
-				>Turn off Count</button
-			> to see the rest.
+			<button type="button" class={RESCUE} onclick={() => (count = false)}>Turn off Count</button> to
+			see the rest.
 		{/if}
 	{/snippet}
 </Picker>

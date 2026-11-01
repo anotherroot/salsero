@@ -1,11 +1,10 @@
 <!-- src/lib/components/video/TrimStrip.svelte -->
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { spotTime } from '$lib/video/spots';
+	import { preciseTime, spotTime } from '$lib/video/spots';
 	import { fitWindow, GRAB_PX, handleAt, msAtX, pctOf, trimWindow } from '$lib/video/trim';
 	import type { Spot } from '$lib/types';
-	import Icon from './Icon.svelte';
-	import { icons } from './icons';
+	import Icon from '$lib/components/ui/Icon.svelte';
 
 	/**
 	 * A zoomed timeline of one spot: drag a handle to move that edge, tap
@@ -65,11 +64,11 @@
 	}
 </script>
 
-<div class="flex flex-col gap-1">
+<div class="flex flex-none flex-col gap-1">
 	<div
 		role="group"
 		aria-label="Section edges: drag a handle, tap to seek"
-		class="relative h-17 shrink-0 cursor-pointer touch-none overflow-hidden rounded-xl bg-(--pl-surface)"
+		class="relative h-16 shrink-0 cursor-pointer touch-none overflow-hidden rounded-xl bg-surface"
 		onpointerdown={(e) => {
 			const p = where(e);
 			const edge = handleAt(p.x, p.width, win, spot, GRAB_PX * p.scale);
@@ -99,37 +98,53 @@
 	>
 		{#each ticks as t (t.ms)}
 			<span
-				class="absolute bottom-0 w-px bg-(--pl-tick)"
+				class="absolute bottom-0 w-px {t.major ? 'h-[18px] bg-white/45' : 'h-[9px] bg-white/25'}"
 				style:left="{pctOf(t.ms, win)}%"
-				style:height={t.major ? '18px' : '9px'}
 			></span>
 		{/each}
 		{#if isSection}
 			<span
-				class="absolute inset-y-0 border-y-[3px] border-(--pl-accent) bg-(--pl-accent)/15"
+				class="absolute inset-y-0 border-y-[3px] border-accent bg-accent/16"
 				style:left="{startPct}%"
 				style:width="{endPct - startPct}%"
 			></span>
+			<!-- The edges are moved by the buttons and I / O: sliders for the reader, not tab stops. -->
 			<span
-				class="absolute inset-y-0 grid w-[22px] -translate-x-full place-items-center rounded-l-[10px]"
+				role="slider"
+				aria-label="Start"
+				aria-valuemin={0}
+				aria-valuemax={durationS * 1000}
+				aria-valuenow={spot.startMs}
+				aria-valuetext={preciseTime(spot.startMs)}
+				class="absolute inset-y-0 grid w-[22px] -translate-x-full place-items-center rounded-l-[10px] {selected ===
+				'start'
+					? 'bg-accent'
+					: 'bg-ink-2'}"
 				style:left="{startPct}%"
-				style:background={selected === 'start' ? 'var(--pl-accent)' : 'var(--pl-handle)'}
 			>
 				<span class="h-[22px] w-0.5 rounded-full bg-black/45"></span>
 			</span>
 			<span
-				class="absolute inset-y-0 grid w-[22px] place-items-center rounded-r-[10px]"
+				role="slider"
+				aria-label="End"
+				aria-valuemin={0}
+				aria-valuemax={durationS * 1000}
+				aria-valuenow={spot.endMs ?? 0}
+				aria-valuetext={preciseTime(spot.endMs ?? 0)}
+				class="absolute inset-y-0 grid w-[22px] place-items-center rounded-r-[10px] {selected ===
+				'end'
+					? 'bg-accent'
+					: 'bg-ink-2'}"
 				style:left="{endPct}%"
-				style:background={selected === 'end' ? 'var(--pl-accent)' : 'var(--pl-handle)'}
 			>
 				<span class="h-[22px] w-0.5 rounded-full bg-black/45"></span>
 			</span>
 		{:else}
 			<span
-				class="absolute inset-y-0 grid w-[22px] -translate-x-1/2 place-items-center rounded-[10px] bg-(--pl-accent) text-(--pl-accent-ink)"
+				class="absolute inset-y-0 grid w-6 -translate-x-1/2 place-items-center rounded-[10px] bg-accent text-on-accent"
 				style:left="{startPct}%"
 			>
-				<Icon d={icons.flag} size={14} />
+				<Icon name="flag" size={15} />
 			</span>
 		{/if}
 		<span
@@ -137,7 +152,7 @@
 			style:left="{pctOf(currentMs, win)}%"
 		></span>
 	</div>
-	<div class="flex justify-between text-[11px] text-(--pl-muted) tabular-nums">
+	<div class="flex justify-between text-[11.5px] font-semibold text-muted tabular-nums">
 		<span>{spotTime(win.fromMs)}</span>
 		<span>drag a handle · tap to seek</span>
 		<span>{spotTime(win.toMs)}</span>

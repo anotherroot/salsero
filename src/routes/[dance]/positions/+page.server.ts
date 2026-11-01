@@ -5,9 +5,13 @@ import { checkbox, int, text } from '$lib/server/form';
 import {
 	archivePosition,
 	createPosition,
+	getPosition,
 	listPositions,
+	liveNameTaken,
+	restorePosition,
 	updatePosition
 } from '$lib/server/positions';
+import { taggedFigures } from '$lib/server/graph';
 import { positionCounts } from '$lib/graph/graph';
 import { danceOf, requirePositionInDance } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -39,7 +43,9 @@ export const load: PageServerLoad = ({ params }) => {
 			// would just be overwritten by the spread, which `tsc` refuses to do
 			// silently.
 			...byId.get(p.id)!
-		}))
+		})),
+		// How much of the repertoire carries tags: the intro's first sentence.
+		tagged: taggedFigures(db, dance)
 	};
 };
 
@@ -55,14 +61,23 @@ export const actions: Actions = {
 		const dance = danceOf(params);
 		const form = await request.formData();
 		const name = text(form, 'name', 80);
-		if (!name) return fail(400, { action: 'create', message: 'Give the position a name.' });
+		if (!name)
+			return fail(400, { action: 'create', field: 'name', message: 'Give the position a name.' });
+		// The slug drops accents, so two names can differ in slug and still read the same.
+		const taken = {
+			action: 'create',
+			field: 'name',
+			message: 'That position already exists.',
+			name
+		};
+		if (liveNameTaken(getDb(), dance, name)) return fail(400, taken);
 		const made = createPosition(getDb(), dance, {
 			slug: slugify(name),
 			name,
 			neutral: false,
 			sortOrder: listPositions(getDb(), dance).length
 		});
-		if (!made) return fail(400, { action: 'create', message: 'That position already exists.' });
+		if (!made) return fail(400, taken);
 		return { action: 'create', ok: true };
 	},
 
@@ -70,7 +85,22 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const found = positionOf(params, int(form, 'id'));
 		const name = text(form, 'name', 80);
-		if (!name) return fail(400, { action: 'rename', message: 'Give the position a name.' });
+		if (!name)
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'Give the position a name.',
+				id: found.id,
+				name
+			});
+		if (liveNameTaken(getDb(), danceOf(params), name, found.id))
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'That name is taken.',
+				id: found.id,
+				name
+			});
 		// The slug is left alone: it is the seed's identity, not the label.
 		const row = updatePosition(getDb(), found.id, {
 			slug: found.slug,
@@ -78,18 +108,43 @@ export const actions: Actions = {
 			neutral: checkbox(form, 'neutral') || found.neutral,
 			sortOrder: found.sortOrder
 		});
-		if (!row) return fail(400, { action: 'rename', message: 'That name is taken.' });
+		if (!row)
+			return fail(400, {
+				action: 'rename',
+				field: 'name',
+				message: 'That name is taken.',
+				id: found.id,
+				name
+			});
 		return { action: 'rename', ok: true };
 	},
 
 	archive: async ({ params, request }) => {
 		const found = positionOf(params, int(await request.formData(), 'id'));
+		// Already removed (a double tap, another tab): nothing to do, and not the neutral's refusal.
+		if (found.archivedAt !== null) return { action: 'archive', ok: true };
 		if (!archivePosition(getDb(), found.id, Date.now())) {
 			return fail(400, {
 				action: 'archive',
+				id: found.id,
 				message: 'The neutral position cannot be removed.'
 			});
 		}
 		return { action: 'archive', ok: true };
+	},
+
+	// Undo for a removal, inside the wall like every action here. A position that
+	// is already live is a replay and still a success; one whose name a live
+	// position has taken meanwhile is refused, so Undo never makes a duplicate.
+	restore: async ({ params, request }) => {
+		const found = positionOf(params, int(await request.formData(), 'id'));
+		if (!restorePosition(getDb(), found.id) && getPosition(getDb(), found.id)?.archivedAt != null) {
+			return fail(409, {
+				action: 'restore',
+				id: found.id,
+				message: `Can't undo — a position called ${found.name} exists again.`
+			});
+		}
+		return { action: 'restore', ok: true };
 	}
 };

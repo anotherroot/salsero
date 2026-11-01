@@ -64,7 +64,8 @@ export const load: PageServerLoad = ({ params }) => {
 			status: song.status,
 			error: song.error,
 			audioFile: song.audioFile,
-			tempoFactor: song.tempoFactor
+			tempoFactor: song.tempoFactor,
+			durationS: song.durationS
 		},
 		anchors,
 		grid,
@@ -81,10 +82,10 @@ export const actions: Actions = {
 		const song = songOf(params);
 		const t = Number((await request.formData()).get('t'));
 		if (!Number.isFinite(t) || song.status !== 'ready')
-			return fail(400, { message: 'Play the song first.' });
+			return fail(400, { action: 'tap' as const, message: 'Play the song first.' });
 		const beats = scaleBeats(parse(song.beatsJson), song.tempoFactor as TempoFactor);
 		const i = nearestBeat(beats, t - TAP_LATENCY_S);
-		if (i < 0) return fail(400, { message: 'No beats to snap to.' });
+		if (i < 0) return fail(400, { action: 'tap' as const, message: 'No beats to snap to.' });
 		setAnchors(getDb(), song.id, addAnchor(parse(song.anchorsJson), i));
 		return { ok: true };
 	},
@@ -105,7 +106,7 @@ export const actions: Actions = {
 		const song = songOf(params);
 		const f = Number((await request.formData()).get('factor'));
 		if (!(TEMPO_FACTORS as readonly number[]).includes(f))
-			return fail(400, { message: 'Bad tempo.' });
+			return fail(400, { action: 'tempo' as const, message: 'Bad tempo.' });
 		setTempoFactor(getDb(), song.id, f as TempoFactor);
 		return { ok: true };
 	},
@@ -115,7 +116,7 @@ export const actions: Actions = {
 		const song = songOf(params);
 		const t = Number((await request.formData()).get('t'));
 		if (!Number.isFinite(t) || !setSampleStart(getDb(), song.id, t))
-			return fail(400, { message: 'Play the song first.' });
+			return fail(400, { action: 'sample' as const, message: 'Play the song first.' });
 		return { ok: true };
 	},
 
@@ -127,19 +128,34 @@ export const actions: Actions = {
 	update: async ({ params, request }) => {
 		const song = songOf(params);
 		const form = await request.formData();
+		const sent = {
+			title: String(form.get('title') ?? ''),
+			artist: String(form.get('artist') ?? ''),
+			style: String(form.get('style') ?? '')
+		};
 		const title = text(form, 'title');
+		if (!title)
+			return fail(400, {
+				field: 'title' as const,
+				message: 'Give the song a title (up to 200 characters).',
+				...sent
+			});
 		const artist = optionalText(form, 'artist', 200);
+		if (artist === undefined)
+			return fail(400, {
+				field: 'artist' as const,
+				message: 'Keep the artist to 200 characters.',
+				...sent
+			});
 		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
-		if (!title || artist === undefined || !style) {
-			return fail(400, { message: 'Give the song a title (up to 200 characters).' });
-		}
+		if (!style) return fail(400, { message: 'Pick a style.', ...sent });
 		updateSongMeta(getDb(), song.id, { title, artist, style });
 		return { ok: true };
 	},
 
 	retry: ({ params }) => {
 		if (!retrySong(getDb(), songOf(params).id)) {
-			return fail(409, { message: 'Only a failed song can be retried.' });
+			return fail(409, { action: 'retry' as const, message: 'Only a failed song can be retried.' });
 		}
 		return { ok: true };
 	},

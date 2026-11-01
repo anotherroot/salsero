@@ -6,10 +6,15 @@
 	(`loadSongGrid`), since the owner also mounts the `<audio>`.
 -->
 <script lang="ts">
+	import { RUN_SOURCES } from '$lib/player/view';
 	import type { PickerSong } from '$lib/types';
-	import { CHIP, FIELD, LABEL } from '$lib/components/ui/styles';
-	import { SPEEDS, type Speed } from '$lib/labels';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
+	import { FIELD_ERROR } from '$lib/components/ui/styles';
+	import type { Speed } from '$lib/labels';
 	import SongPicker from './SongPicker.svelte';
+	import SpeedChips from './SpeedChips.svelte';
 
 	interface Props {
 		/** Prefix for the radio groups' names, so two pickers never share a group. */
@@ -35,62 +40,37 @@
 	}: Props = $props();
 
 	const uid = $props.id();
+	/** A group's label: 13/700 muted, 4 px over its control. */
+	const GROUP_LABEL = 'mb-1 block text-[13px] font-bold text-muted';
 </script>
 
 {#if songs.length > 0}
-	<fieldset>
-		<legend class={LABEL}>Source</legend>
-		<div class="flex gap-2">
-			<label class={CHIP}>
-				<input
-					type="radio"
-					name="{name}-source"
-					checked={source === 'count'}
-					onchange={() => (source = 'count')}
-					class="sr-only"
-				/>
-				Count only
-			</label>
-			<label class={CHIP}>
-				<input
-					type="radio"
-					name="{name}-source"
-					checked={source === 'song'}
-					onchange={() => (source = 'song')}
-					class="sr-only"
-				/>
-				A song
-			</label>
-		</div>
-	</fieldset>
+	<div>
+		<!-- The radiogroup carries the same name for a screen reader. -->
+		<span class={GROUP_LABEL} aria-hidden="true">Source</span>
+		<Segmented
+			label="Source"
+			name="{name}-source"
+			items={RUN_SOURCES}
+			bind:value={() => source, (v) => (source = v === 'song' ? 'song' : 'count')}
+		/>
+	</div>
 {/if}
 
 {#if source === 'song'}
 	<div>
-		<span class={LABEL} id="{uid}-song">Song</span>
+		<span class={GROUP_LABEL} id="{uid}-song">Song</span>
 		<SongPicker bind:songId {songs} labelId="{uid}-song" />
+		{#if error}
+			<p class={FIELD_ERROR}><Icon name="warning" size={16} />{error}</p>
+		{/if}
 	</div>
-	{#if error}<p class="text-[13px] text-danger">{error}</p>{/if}
-	<fieldset>
-		<legend class={LABEL}>Speed</legend>
-		<div class="flex gap-2">
-			{#each SPEEDS as s (s)}
-				<label class={CHIP}>
-					<input
-						type="radio"
-						name="{name}-speed"
-						checked={speed === s}
-						onchange={() => (speed = s)}
-						class="sr-only"
-					/>
-					{s}×
-				</label>
-			{/each}
-		</div>
-	</fieldset>
+	<div>
+		<span class={GROUP_LABEL} aria-hidden="true">Speed</span>
+		<SpeedChips name="{name}-speed" value={speed} onchange={(s) => (speed = s)} />
+	</div>
 {:else}
-	<label class="block">
-		<span class={LABEL}>Tempo (BPM)</span>
-		<input type="number" inputmode="numeric" min="60" max="300" bind:value={bpm} class={FIELD} />
-	</label>
+	<div class="py-0.5">
+		<Stepper label="Tempo" unit="BPM" min={60} max={300} step={5} bind:value={bpm} />
+	</div>
 {/if}

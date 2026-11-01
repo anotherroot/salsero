@@ -1,11 +1,15 @@
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
 import { figures, positions } from './db/schema';
 import {
 	archivePosition,
 	createPosition,
+	getPosition,
 	listPositions,
+	liveNameTaken,
 	neutralPosition,
+	restorePosition,
 	seedPositions,
 	updatePosition
 } from './positions';
@@ -174,5 +178,68 @@ describe('archivePosition', () => {
 		expect(archivePosition(db, closed.id, Date.now())).toBe(true);
 		expect(listPositions(db, 'salsa').some((p) => p.id === closed.id)).toBe(false);
 		expect(archivePosition(db, closed.id, Date.now())).toBe(false);
+	});
+});
+
+describe('restorePosition', () => {
+	const setup = () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const row = listPositions(db, 'salsa').find((p) => !p.neutral)!;
+		return { db, row };
+	};
+
+	it('brings a removed position back with its name and its figures still tagged', () => {
+		const { db, row } = setup();
+		const fig = db
+			.insert(figures)
+			.values({ name: 'enchufla', dance: 'salsa', endPositionId: row.id })
+			.returning()
+			.get();
+		archivePosition(db, row.id, 5);
+		expect(restorePosition(db, row.id)).toBe(true);
+		const back = getPosition(db, row.id)!;
+		expect(back.archivedAt).toBeNull();
+		expect(back.name).toBe(row.name);
+		expect(listPositions(db, 'salsa').map((p) => p.id)).toContain(row.id);
+		expect(db.select().from(figures).where(eq(figures.id, fig.id)).get()!.endPositionId).toBe(
+			row.id
+		);
+	});
+
+	it('does nothing to a live position, or one that does not exist', () => {
+		const { db, row } = setup();
+		expect(restorePosition(db, row.id)).toBe(false);
+		expect(getPosition(db, row.id)).toEqual(row);
+		expect(restorePosition(db, 99999)).toBe(false);
+	});
+
+	it('after the name was added again, leaves exactly one live position', () => {
+		const { db, row } = setup();
+		archivePosition(db, row.id, 5);
+		createPosition(db, 'salsa', { slug: row.slug, name: row.name, neutral: false, sortOrder: 3 });
+		expect(restorePosition(db, row.id)).toBe(false);
+		expect(listPositions(db, 'salsa').filter((p) => p.slug === row.slug)).toHaveLength(1);
+	});
+});
+
+describe('liveNameTaken and restorePosition with a twin name', () => {
+	it('folds accents and case, and leaves the row itself out', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const caida = listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
+		expect(liveNameTaken(db, 'salsa', 'CAIDA')).toBe(true);
+		expect(liveNameTaken(db, 'salsa', 'caida', caida.id)).toBe(false);
+		expect(liveNameTaken(db, 'bachata', 'Caída')).toBe(false);
+	});
+
+	it('refuses to restore a row whose name a live position now has', () => {
+		const db = openDb(':memory:');
+		seedPositions(db);
+		const caida = listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
+		archivePosition(db, caida.id, 5);
+		createPosition(db, 'salsa', { slug: 'ca-da', name: 'Caída', neutral: false, sortOrder: 99 });
+		expect(restorePosition(db, caida.id)).toBe(false);
+		expect(getPosition(db, caida.id)!.archivedAt).toBe(5);
 	});
 });

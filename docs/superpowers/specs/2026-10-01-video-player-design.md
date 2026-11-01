@@ -27,6 +27,23 @@
 > [`2026-10-30-unified-pickers-design.md`](2026-10-30-unified-pickers-design.md). Everywhere else the player opens,
 > the badge and the line only show.
 
+> **Redesign, 2026-10-31:** the player's look follows
+> [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md); behaviour is
+> unchanged. The dialog is `.theme-media`, the always-dark palette from `MEDIA`
+> in `tokens.ts` — the player's own `--pl-*` palette and icon set are gone,
+> and it draws the shared `ui/Icon`. Buttons come from the builders
+> (`playerButton`, `roundButton`, `ON_VIDEO` in `components/video/styles.ts`):
+> round transport with Play as an accent disc, the speed pill opening a popover,
+> and every 36 / 40 px pill or disc inside a 44 px hit area. The link entry reads
+> "Link" (the editor's line "Link to a figure or drill"). Toasts carry a tone
+> and an icon, and a place: over the video's bottom edge in the portrait
+> editor, and for a 'failed' toast in portrait at any level (a refusal belongs to
+> the picture); at the bottom elsewhere. A spinner shows on the picture while the video
+> buffers. The landscape editor's under-video transport is the compact one, and
+> the landscape panel is 44 % wide. Rename, Delete and Keys are `PlayerLayer`
+> sheets. What each screen shows is decided in `src/lib/video/chrome.ts`.
+>
+
 ## Purpose
 
 A move is learned from a recording by taking it apart: slow it right down,
@@ -270,7 +287,9 @@ positions and handles), `screens.ts` (the stack, `loopOf`, `doneTarget`,
 `prune`), `keys.ts`, `layout.ts`, `player-history.ts` (behind a port),
 `zoom.ts` (fit, clamp, pinch, pan, wheel), `taps.ts` (single, double, which
 side, chained) and `screen-on.ts` (the wake lock, behind an injected
-environment).
+environment) and `chrome.ts` (which parts the top bar shows per layout and
+level, the link entry's words, the delete sheet's copy, the toast's icon and
+place, the buffering spinner).
 
 `ui/VideoPlayer.svelte` fetches the spots when it opens, and writes each change
 straight through the API, updating its list from the response. A failed fetch

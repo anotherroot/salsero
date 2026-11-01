@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- band in src/routes/layout.css, salsa, dark: the strip under the status bar at night. -->
+    <color name="band">#8f2a12</color>
+</resources>

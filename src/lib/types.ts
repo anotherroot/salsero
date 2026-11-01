@@ -82,6 +82,8 @@ export interface SongItem {
 	createdAt: number;
 	/** Null unless the song is ready with an audio file. */
 	sample: SampleSong | null;
+	/** 0 = practised most recently; null otherwise. Ready songs only. */
+	recentRank: number | null;
 }
 
 /** What a play button needs to play a song's sample. */
@@ -228,6 +230,8 @@ export interface LessonRoutineRow {
 	id: number;
 	name: string;
 	exerciseId: number | null;
+	/** How often its exercise comes up; null when it has none. */
+	everyDays: number | null;
 }
 
 /**
@@ -240,6 +244,7 @@ export interface LessonExerciseRow {
 	source: Source;
 	byHand: boolean;
 	viaSections: ViaSection[];
+	everyDays: number;
 }
 
 /** An exercise as a picker offers it. */
@@ -422,6 +427,9 @@ export interface LinkOptions {
 	defaults: { partner: Partner; style: string };
 }
 
+/** A create step's field a refusal of `createAndLink` names, so the popup shows it there. */
+export type LinkCreateField = 'name' | 'figureName' | 'groupId' | 'style' | 'everyDays';
+
 /** What the Link popup's create steps send. */
 export type LinkCreate =
 	| { kind: 'variation'; groupId: number; name: string }
@@ -497,4 +505,15 @@ export interface DeviceRow {
 	label: string;
 	createdAt: number;
 	lastUsedAt: number | null;
+}
+
+/** A deleted set, whole, so Undo can put the same values back. */
+export interface SetSnapshot {
+	exerciseId: number;
+	doneAt: number;
+	durationS: number | null;
+	reps: number | null;
+	rating: number | null;
+	note: string | null;
+	playerJson: string | null;
 }

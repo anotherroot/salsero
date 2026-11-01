@@ -61,3 +61,42 @@ export function summarise(added: number, rejected: Skipped[]): string | null {
 	if (added === 0) return skipped;
 	return `${added} video${added === 1 ? '' : 's'} added. ${skipped}`;
 }
+
+/** What the upload card shows while a video goes up. Pure: the component only draws it. */
+export function uploadCard(s: {
+	progress: number;
+	position: { index: number; count: number } | null;
+	retrying: boolean;
+}): {
+	title: string;
+	helper: string;
+	tone: 'accent' | 'warn';
+	icon: 'upload' | 'refresh';
+	percent: number;
+} {
+	const percent = Math.min(100, Math.max(0, Math.floor(s.progress * 100)));
+	if (s.retrying) {
+		return {
+			title: 'Connection dropped — retrying',
+			helper: `Picks up from what the server already has · ${percent}%`,
+			tone: 'warn',
+			icon: 'refresh',
+			percent
+		};
+	}
+	const of = s.position ? ` ${s.position.index} of ${s.position.count}` : '';
+	return {
+		title: `Uploading${of}… ${percent}%`,
+		helper: 'Keep this page open — a reload starts over',
+		tone: 'accent',
+		icon: 'upload',
+		percent
+	};
+}
+
+/** The title of the batch's outcome card, or `null` when nothing was skipped. */
+export function summaryTitle(added: number, skipped: number): string | null {
+	if (skipped === 0) return null;
+	if (added > 0) return 'Some files were skipped';
+	return skipped === 1 ? 'That file wasn’t added' : 'No videos were added';
+}

@@ -87,7 +87,7 @@
 	}
 </script>
 
-<div class="flex items-center gap-2 text-[12px] text-muted tabular-nums">
+<div class="flex items-center gap-2 text-[12px] font-bold text-muted tabular-nums">
 	<span class="w-10 text-right">{clock(shown)}</span>
 	<div
 		bind:this={bar}
@@ -106,7 +106,7 @@
 		onkeydown={key}
 	>
 		<div bind:this={track} class="absolute inset-x-2 inset-y-0">
-			<div class="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-rule">
+			<div class="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-hairline">
 				<div class="h-full rounded-full bg-accent" style:width="{pct}%"></div>
 			</div>
 			<div

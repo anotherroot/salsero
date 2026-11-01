@@ -69,26 +69,31 @@ export function songSample(song: Song): SampleSong | null {
 }
 
 export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
+	const recent = recentSongIds(db, dance);
 	return db
 		.select()
 		.from(songs)
 		.where(and(isNull(songs.archivedAt), eq(songs.dance, dance)))
 		.orderBy(desc(songs.createdAt), desc(songs.id))
 		.all()
-		.map((s) => ({
-			id: s.id,
-			title: s.title,
-			artist: s.artist,
-			style: s.style,
-			sourceUrl: s.sourceUrl,
-			status: s.status,
-			error: s.error,
-			durationS: s.durationS,
-			bpm: s.bpm,
-			tempoFactor: s.tempoFactor as TempoFactor,
-			createdAt: s.createdAt,
-			sample: s.status === 'ready' ? songSample(s) : null
-		}));
+		.map((s) => {
+			const r = recent.indexOf(s.id);
+			return {
+				id: s.id,
+				title: s.title,
+				artist: s.artist,
+				style: s.style,
+				sourceUrl: s.sourceUrl,
+				status: s.status,
+				error: s.error,
+				durationS: s.durationS,
+				bpm: s.bpm,
+				tempoFactor: s.tempoFactor as TempoFactor,
+				createdAt: s.createdAt,
+				sample: s.status === 'ready' ? songSample(s) : null,
+				recentRank: s.status === 'ready' && r >= 0 ? r : null
+			};
+		});
 }
 
 /**

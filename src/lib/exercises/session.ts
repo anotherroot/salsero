@@ -16,8 +16,12 @@ export function nextInSession<R extends { exercise: { id: number } }>(
 	);
 }
 
+/**
+ * The Session done card's second line (its title says "Session done"):
+ * "3 exercises, 25 min", or "Nothing logged" when the session logged none.
+ */
 export function sessionSummary(count: number, seconds: number): string {
-	if (count === 0) return 'Session done';
+	if (count === 0) return 'Nothing logged';
 	const minutes = Math.round(seconds / 60);
-	return `Session done — ${count} ${count === 1 ? 'exercise' : 'exercises'}${minutes > 0 ? `, ${minutes} min` : ''}`;
+	return `${count} ${count === 1 ? 'exercise' : 'exercises'}${minutes > 0 ? `, ${minutes} min` : ''}`;
 }

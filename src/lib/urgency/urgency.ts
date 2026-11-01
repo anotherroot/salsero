@@ -39,8 +39,9 @@ export interface PlanRow<E extends PlanExercise = PlanExercise> {
 }
 
 /**
- * The four bands the Today page reads top-down: what you have already logged,
- * what is asking to be done, what is coming, and what you have parked.
+ * The four bands of the Today page. It reads them Due first: what is asking to
+ * be done, what is coming, what you have already logged, and what you have
+ * parked (the order lives in `src/lib/exercises/today.ts`).
  *
  * The split between `due` and `upcoming` is the whole point of having both: a
  * list that mixes them makes "am I behind?" a question you have to compute.

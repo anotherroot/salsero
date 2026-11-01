@@ -18,7 +18,7 @@ import { sets } from '$lib/server/db/schema';
 import { createCustomExercise, getSet, logSet } from '$lib/server/exercises';
 import { addFigureExercise, createFigure } from '$lib/server/figures';
 import { noonOf } from '$lib/day/day';
-import { deleteSetFrom, logSetFrom } from './log-form';
+import { deleteSetFrom, logSetFrom, parseSetSnapshot, restoreSetFrom } from './log-form';
 
 const TZ = 'Europe/Ljubljana';
 const USER = { id: 'u1', email: 'u@example.com', timezone: TZ };
@@ -151,4 +151,70 @@ describe('deleteSetFrom', () => {
 		});
 		expect(getSet(db, theirs.id)).not.toBeNull();
 	});
+});
+
+describe('deleteSetFrom, a set already gone', () => {
+	it('answers with a 404 failure and does not throw', async () => {
+		const res = await deleteSetFrom(post('salsa', { setId: '999999' }));
+		expect(res).toMatchObject({ status: 404, data: { action: 'deleteSet' } });
+	});
+});
+
+describe('deleteSetFrom and restoreSetFrom', () => {
+	it('hands back what it deleted, and Undo puts it back on its own day', async () => {
+		const wed = noonOf('2026-10-28', TZ);
+		const s = logSet(db, {
+			exerciseId: drillId,
+			doneAt: wed,
+			durationS: 720,
+			reps: 20,
+			rating: 2,
+			note: 'warm-up',
+			playerJson: '{"bpm":180}'
+		});
+		const res = await deleteSetFrom(post('salsa', { setId: String(s.id) }));
+		expect(getSet(db, s.id)).toBeNull();
+		const snapshot = (res as { snapshot: string }).snapshot;
+		await restoreSetFrom(post('salsa', { snapshot }));
+		const back = db.select().from(sets).all();
+		expect(back).toHaveLength(1);
+		expect(back[0]).toMatchObject({
+			exerciseId: drillId,
+			doneAt: wed,
+			durationS: 720,
+			reps: 20,
+			rating: 2,
+			note: 'warm-up',
+			playerJson: '{"bpm":180}'
+		});
+	});
+	it('refuses a malformed snapshot and inserts nothing', async () => {
+		const res = await restoreSetFrom(post('salsa', { snapshot: 'not json' }));
+		expect(res).toMatchObject({ status: 400 });
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+});
+
+describe('parseSetSnapshot', () => {
+	const ok = {
+		exerciseId: 1,
+		doneAt: 1_000,
+		durationS: null,
+		reps: null,
+		rating: 4,
+		note: null,
+		playerJson: null
+	};
+	it('reads a whole snapshot', () =>
+		expect(parseSetSnapshot(JSON.stringify(ok), 2_000)).toEqual(ok));
+	it('ignores an extra id key', () =>
+		expect(parseSetSnapshot(JSON.stringify({ ...ok, id: 5 }), 2_000)).toEqual(ok));
+	it.each([
+		['a rating of 6', { ...ok, rating: 6 }],
+		['a set in the future', { ...ok, doneAt: 10_000_000 }],
+		['no exercise', { ...ok, exerciseId: undefined }],
+		['a fractional duration', { ...ok, durationS: 1.5 }],
+		['an overlong note', { ...ok, note: 'x'.repeat(2001) }],
+		['an overlong run', { ...ok, playerJson: 'x'.repeat(4001) }]
+	])('refuses %s', (_, v) => expect(parseSetSnapshot(JSON.stringify(v), 2_000)).toBeNull());
 });

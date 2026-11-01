@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractBlock, inOrder } from './selection';
+import { actionBlocks, extractBlock, inOrder } from './selection';
 
 const rows = [
 	{ id: 10, isRoutine: false },
@@ -25,5 +25,29 @@ describe('extractBlock', () => {
 		expect(extractBlock(rows, [10], ['Social mix'])).toBe(
 			'This routine is embedded in Social mix — embedding is one level.'
 		);
+	});
+});
+
+describe('actionBlocks', () => {
+	it('blocks everything for an empty selection, with extract’s own reason', () => {
+		expect(actionBlocks(0, 'Select the slots to make into a routine.')).toEqual({
+			above: 'Select one slot to add next to it.',
+			below: 'Select one slot to add next to it.',
+			duplicate: 'Select slots first.',
+			delete: 'Select slots first.',
+			extract: 'Select the slots to make into a routine.'
+		});
+	});
+	it('allows everything for one slot', () => {
+		expect(Object.values(actionBlocks(1, null)).every((v) => v === null)).toBe(true);
+	});
+	it('blocks only the add-next-to actions for several', () => {
+		expect(actionBlocks(3, null)).toEqual({
+			above: 'Select one slot to add next to it.',
+			below: 'Select one slot to add next to it.',
+			duplicate: null,
+			delete: null,
+			extract: null
+		});
 	});
 });

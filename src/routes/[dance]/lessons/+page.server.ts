@@ -36,25 +36,18 @@ export const actions: Actions = {
 			lessonDay
 		};
 
-		if (!title || notes === undefined || everyDays === undefined || !isFrequency(everyDays)) {
-			return fail(400, {
-				action: 'create',
-				message: 'Give it a title (up to 200 characters) and a frequency.',
-				...entered
-			});
+		const refuse = (message: string, field?: 'lessonDay' | 'title' | 'notes') =>
+			fail(400, { action: 'create', ...(field ? { field } : {}), message, ...entered });
+
+		if (!title) return refuse('Give it a title (up to 200 characters).', 'title');
+		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
+		if (everyDays === undefined || !isFrequency(everyDays)) {
+			return refuse('Pick how often to go over it.');
 		}
-		if (!isValidDay(lessonDay)) {
-			return fail(400, { action: 'create', message: 'Pick the day of the class.', ...entered });
-		}
+		if (!isValidDay(lessonDay)) return refuse('Pick the day of the class.', 'lessonDay');
 		// A class you have not attended yet is not a lesson — the same instinct the
 		// Today page has about future days.
-		if (lessonDay > today) {
-			return fail(400, {
-				action: 'create',
-				message: 'That day is in the future.',
-				...entered
-			});
-		}
+		if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
 
 		const { lesson } = createLesson(getDb(), dance, { lessonDay, title, notes }, everyDays);
 		throw redirect(303, `/${dance}/lessons/${lesson.id}`);

@@ -33,13 +33,17 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
-		if (!name || notes === undefined) {
-			return fail(400, {
-				message: 'Give the routine a name (up to 200 characters).',
+		// A refusal names its field, so the sheet shows it under that field and
+		// keeps everything typed.
+		const refuse = (field: 'name' | 'notes', message: string) =>
+			fail(400, {
+				field,
+				message,
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
-		}
+		if (!name) return refuse('name', 'Give the routine a name (up to 200 characters).');
+		if (notes === undefined) return refuse('notes', 'Notes are up to 2000 characters.');
 		const { routine } = createRoutine(getDb(), dance, { name, notes });
 		throw redirect(303, `/${dance}/routines/${routine.id}`);
 	}

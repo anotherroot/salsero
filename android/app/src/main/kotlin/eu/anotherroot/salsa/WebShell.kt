@@ -72,13 +72,17 @@ abstract class WebShell : ComponentActivity() {
     /** The page a launch opens; [data] is the intent's address, or null. */
     protected abstract fun startUrl(data: String?): String
 
-    /** A colour resource: the page's background, shown under the status bar. */
+    /** A colour resource: the strip behind the status bar. */
     protected abstract val barColor: Int
 
+    /** A colour resource: the page's background, the WebView's and the window's. */
+    protected open val pageColor: Int get() = barColor
+
     /**
-     * A colour resource for the strip under the navigation bar. The page is
-     * padded clear of it, so without this the strip shows [barColor] below a
-     * page whose bottom tabs are another colour.
+     * A colour resource for the strip under the navigation bar: the tab bar's
+     * colour while the page shows tabs (or a bar on their surface), the page's
+     * otherwise, as the page tells through `SalsaBars` ([Strip]). Without the
+     * WebMessageListener feature it stays this colour, as before.
      */
     protected open val navBarColor: Int get() = barColor
 
@@ -90,6 +94,7 @@ abstract class WebShell : ComponentActivity() {
     protected open val restoresPage: Boolean get() = true
 
     private lateinit var root: FrameLayout
+    private lateinit var background: LayerDrawable
     private lateinit var web: WebView
 
     /** False once the renderer is gone: that WebView must not be touched again. */
@@ -121,25 +126,24 @@ abstract class WebShell : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val color = ContextCompat.getColor(this, barColor)
-        // Light bars get dark icons; dark bars (night mode) light ones.
-        val bars = if (ColorUtils.calculateLuminance(color) > 0.5) {
-            SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
-        } else {
-            SystemBarStyle.dark(Color.TRANSPARENT)
-        }
-        enableEdgeToEdge(bars, bars)
+        val page = ContextCompat.getColor(this, pageColor)
+        val top = ContextCompat.getColor(this, barColor)
+        val bottom = ContextCompat.getColor(this, navBarColor)
+        enableEdgeToEdge(barStyle(top), barStyle(bottom))
 
-        // Two layers: the page colour everywhere, and a band at the bottom, as
-        // tall as the navigation bar, in the colour of the tabs that sit on it.
-        val background = LayerDrawable(
-            arrayOf(ColorDrawable(color), ColorDrawable(ContextCompat.getColor(this, navBarColor))),
+        // Three layers: the page colour everywhere, a strip at the top as tall as
+        // the status bar in the band's colour, and a strip at the bottom as tall
+        // as the navigation bar, in the colour of the tabs that sit on it.
+        background = LayerDrawable(
+            arrayOf(ColorDrawable(page), ColorDrawable(top), ColorDrawable(bottom)),
         ).apply {
-            setLayerGravity(1, Gravity.BOTTOM or Gravity.FILL_HORIZONTAL)
+            setLayerGravity(1, Gravity.TOP or Gravity.FILL_HORIZONTAL)
             setLayerHeight(1, 0)
+            setLayerGravity(2, Gravity.BOTTOM or Gravity.FILL_HORIZONTAL)
+            setLayerHeight(2, 0)
         }
         root = FrameLayout(this).apply { this.background = background }
-        web = WebView(this).apply { setBackgroundColor(color) }
+        web = WebView(this).apply { setBackgroundColor(page) }
         root.addView(web, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setContentView(root)
         // The page stays clear of the bars and the keyboard, as it did in the browser.
@@ -153,7 +157,9 @@ abstract class WebShell : ComponentActivity() {
                 )
             }
             val navBar = if (fullscreen != null) 0 else insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            background.setLayerHeight(1, navBar)
+            val statusBar = if (fullscreen != null) 0 else insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            background.setLayerHeight(1, statusBar)
+            background.setLayerHeight(2, navBar)
             view.setPadding(pad.left, pad.top, pad.right, pad.bottom)
             WindowInsetsCompat.CONSUMED
         }
@@ -163,6 +169,13 @@ abstract class WebShell : ComponentActivity() {
         if (savedInstanceState == null || !restoresPage || web.restoreState(savedInstanceState) == null) {
             web.loadUrl(startUrl(intent?.dataString))
         }
+    }
+
+    /** Light bars get dark icons; dark bars (the bands, night mode) light ones. */
+    private fun barStyle(color: Int) = if (ColorUtils.calculateLuminance(color) > 0.5) {
+        SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+    } else {
+        SystemBarStyle.dark(Color.TRANSPARENT)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -181,6 +194,7 @@ abstract class WebShell : ComponentActivity() {
         web.setDownloadListener { url, userAgent, disposition, mime, _ -> download(url, userAgent, disposition, mime) }
         wakeLockBridge(web)
         speechBridge(web)
+        barsBridge(web)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -376,6 +390,27 @@ abstract class WebShell : ComponentActivity() {
     }
 
     /**
+     * The strip under the navigation bar follows the page: a pushed screen has
+     * no tab bar, so the page says `tabs` or `page` ([stripFor]) and the bottom
+     * layer takes [navBarColor] or [pageColor].
+     */
+    private fun barsBridge(web: WebView) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        val origin = setOf(BuildConfig.SITE)
+        WebViewCompat.addWebMessageListener(web, BARS_OBJECT, origin) { _, message, _, isMainFrame, _ ->
+            if (!isMainFrame) return@addWebMessageListener
+            val color = when (stripFor(message.data)) {
+                Strip.TABS -> navBarColor
+                Strip.PAGE -> pageColor
+                null -> return@addWebMessageListener
+            }
+            runOnUiThread {
+                (background.getDrawable(2) as ColorDrawable).color = ContextCompat.getColor(this, color)
+            }
+        }
+    }
+
+    /**
      * `speechSynthesis` for our pages, spoken by Android's TextToSpeech: the
      * engine Chrome on Android speaks with, so rate, pitch, volume and the
      * default voice behave as they did there. No voice list: a page gets the
@@ -465,6 +500,8 @@ abstract class WebShell : ComponentActivity() {
             PermissionRequest.RESOURCE_AUDIO_CAPTURE to Manifest.permission.RECORD_AUDIO,
             PermissionRequest.RESOURCE_VIDEO_CAPTURE to Manifest.permission.CAMERA,
         )
+
+        const val BARS_OBJECT = "SalsaBars"
 
         const val WAKE_LOCK_OBJECT = "appWakeLock"
 

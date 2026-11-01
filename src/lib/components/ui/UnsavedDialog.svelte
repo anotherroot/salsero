@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { prompt } from '$lib/unsaved/guard.svelte';
+	import Icon from './Icon.svelte';
+	import { button } from './styles';
 
 	/*
 	 * The one "you have unsaved changes" question, for a navigation and for a
@@ -80,10 +82,9 @@
 		phase = failed.length > 0 ? 'failed' : 'saved';
 	}
 
-	const primary =
-		'h-12 w-full rounded-xl bg-accent text-[15px] font-semibold text-accent-ink disabled:opacity-60';
-	const secondary = 'h-11 w-full rounded-xl border border-rule text-[14px] font-medium';
-	const danger = 'h-11 w-full rounded-xl text-[14px] font-medium text-danger';
+	const primary = button('primary', 'md', true);
+	const secondary = button('secondary', 'sm', true);
+	const danger = button('danger-text', 'sm', true);
 </script>
 
 <dialog
@@ -101,19 +102,42 @@
 	}}
 >
 	{#if ask}
-		<div class="p-5">
+		<div class="p-6">
 			{#if phase === 'saved'}
-				<h2 id="unsaved-title" class="text-[17px] font-semibold text-done">Saved ✓</h2>
-				<p class="mt-1 text-[14px] text-ink-2">{labels.join(', ')}.</p>
+				<span
+					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-done-soft text-done"
+					aria-hidden="true"><Icon name="check" size={22} /></span
+				>
+				<h2
+					id="unsaved-title"
+					class="font-display text-[22px] leading-tight font-extrabold text-ink"
+				>
+					Saved
+				</h2>
+				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
 				<div class="mt-5 space-y-2">
 					<button type="button" class={primary} onclick={leave}>{ask.verb}</button>
 					<button type="button" class={secondary} onclick={stay}>Stay</button>
 				</div>
 			{:else if phase === 'failed'}
-				<h2 id="unsaved-title" class="text-[17px] font-semibold">Not saved</h2>
+				<span
+					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-danger-soft text-danger"
+					aria-hidden="true"><Icon name="warning" size={22} /></span
+				>
+				<h2
+					id="unsaved-title"
+					class="font-display text-[22px] leading-tight font-extrabold text-ink"
+				>
+					Not saved
+				</h2>
+				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">{labels.join(', ')}.</p>
 				<div class="mt-2 space-y-1" role="alert">
 					{#each messages as m, i (i)}
-						<p class="rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{m}</p>
+						<div
+							class="flex items-start gap-2 rounded-xl bg-danger-soft px-3 py-2.5 text-[14px] font-bold text-danger"
+						>
+							<span class="mt-px flex-none"><Icon name="warning" size={18} /></span><span>{m}</span>
+						</div>
 					{/each}
 				</div>
 				<div class="mt-5 space-y-2">
@@ -121,8 +145,17 @@
 					<button type="button" class={danger} onclick={leave}>{ask.verb} without saving</button>
 				</div>
 			{:else}
-				<h2 id="unsaved-title" class="text-[17px] font-semibold">Unsaved changes</h2>
-				<p class="mt-1 text-[14px] text-ink-2">
+				<span
+					class="mb-3 flex size-10 items-center justify-center rounded-xl bg-accent-soft text-accent-text"
+					aria-hidden="true"><Icon name="edit" size={22} /></span
+				>
+				<h2
+					id="unsaved-title"
+					class="font-display text-[22px] leading-tight font-extrabold text-ink"
+				>
+					Unsaved changes
+				</h2>
+				<p class="mt-2 text-[15px] leading-[1.45] text-ink-2">
 					{labels.join(', ')}
 					{plural ? 'are' : 'is'} not saved yet.
 				</p>
@@ -156,14 +189,10 @@
 		width: calc(100% - 32px);
 		max-width: 380px;
 		padding: 0;
-		border: 1px solid var(--color-line);
-		border-radius: 18px;
-		background: var(--color-surface);
+		border: none;
+		border-radius: 22px;
+		background: var(--color-raised);
 		color: var(--color-ink);
 		box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
-	}
-
-	dialog::backdrop {
-		background: rgb(0 0 0 / 0.4);
 	}
 </style>
