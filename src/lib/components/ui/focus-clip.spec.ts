@@ -35,6 +35,11 @@ const ALLOWED: [file: string, line: string, why: string][] = [
 		'the strip clips its handles; they are not tab stops (buttons and I / O move them)'
 	],
 	[
+		'src/lib/components/player/Running.svelte',
+		'run-sheet',
+		'the running sheet rounds its scroller (and its scrollbar); its controls sit 16 px in'
+	],
+	[
 		'src/lib/components/ui/PlayerLayer.svelte',
 		'sheet-panel',
 		'the sheet panel: its header controls sit at least 8 px in; its rows are in their own CLIP cards'
