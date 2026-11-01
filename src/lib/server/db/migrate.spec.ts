@@ -4,7 +4,7 @@
  * migration, fills it with rows shaped like the real ones, then runs the new
  * migrations over it and checks what came out.
  */
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -41,8 +41,15 @@ afterEach(() => {
 	for (const dir of temps) rmSync(dir, { recursive: true, force: true });
 });
 
+/**
+ * In RAM where there is one (/dev/shm on Linux). `openDb` runs the new
+ * migrations with its own pragmas, so every commit there waits for an fsync,
+ * and a busy disk stretched one test past 5 s even with `oldDb`'s OFF.
+ */
+const TEMP_ROOT = existsSync('/dev/shm') ? '/dev/shm' : tmpdir();
+
 function temp(prefix: string): string {
-	const dir = mkdtempSync(join(tmpdir(), prefix));
+	const dir = mkdtempSync(join(TEMP_ROOT, prefix));
 	temps.push(dir);
 	return dir;
 }
