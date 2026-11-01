@@ -1,14 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import {
-		afterNavigate,
-		beforeNavigate,
-		goto,
-		invalidateAll,
-		replaceState
-	} from '$app/navigation';
+	import { afterNavigate, beforeNavigate, invalidateAll, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { keepSearch } from '$lib/nav/trail.svelte';
+	import { entryState } from '$lib/sheets/history.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -56,15 +52,26 @@
 	});
 	/*
 	 * Filtered client-side as you type: the whole library is already here. It
-	 * also goes into the URL as `q` once typing pauses (a replace, keeping the
-	 * focus and the scroll), so the trail brings the search back like
-	 * Figures'. The load reads no search, so that navigation fetches nothing.
+	 * also goes into the URL as `q` once typing pauses, so a reload and the
+	 * trail bring the search back like Figures'. A shallow replace, not a
+	 * `goto`: a navigation would stop a playing sample and, offline, raise the
+	 * Offline screen. `page.url` does not follow a shallow replace, so the URL
+	 * is read from `location`.
 	 */
 	let query = $state(page.url.searchParams.get('q') ?? '');
 	function keepQuery(q: string) {
-		if ((page.url.searchParams.get('q') ?? '') === q) return;
-		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
-		void goto(songsHref('q', q), { keepFocus: true, replaceState: true, noScroll: true });
+		const url = new URL(location.href);
+		if ((url.searchParams.get('q') ?? '') === q) return;
+		// A sheet's own entry is not the page's: wait until it has closed.
+		if (entryState().sheets) {
+			pending = setTimeout(() => keepQuery(q), 300);
+			return;
+		}
+		if (q) url.searchParams.set('q', q);
+		else url.searchParams.delete('q');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- this page's own path; only the query changes
+		replaceState(url.pathname + url.search, entryState());
+		keepSearch();
 	}
 	let pending: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {

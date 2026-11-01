@@ -201,6 +201,16 @@ export function leave(t: Trail, key: PageKey, scrollY: number): Trail {
 	return { ...t, pages: { ...t.pages, [key]: { ...v, scrollY } } };
 }
 
+/**
+ * A page's search changed without a navigation (Music's search, written into
+ * the URL with a shallow replace): keep the new one. Creates no record.
+ */
+export function searched(t: Trail, key: PageKey, search: string): Trail {
+	const v = t.pages[key];
+	if (!v) return t;
+	return { ...t, pages: { ...t.pages, [key]: { ...v, search: keptSearch(search) } } };
+}
+
 /** A page that no longer exists: out of the trail, its children reattached. */
 export function forget(t: Trail, key: PageKey): Trail {
 	const gone = t.pages[key];

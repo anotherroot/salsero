@@ -20,6 +20,7 @@ import {
 	remembered,
 	removalTarget,
 	scrollFor,
+	searched,
 	slotted,
 	tabTarget,
 	vacate,
@@ -332,6 +333,13 @@ describe('leave and hrefOf', () => {
 		expect(leave(t, '/salsa/lessons/5', 300).pages['/salsa/lessons/5'].scrollY).toBe(300);
 		expect(leave(t, '/salsa/nowhere', 300)).toEqual(t);
 		expect(hrefOf(t, '/salsa/nowhere')).toBe('/salsa/nowhere');
+	});
+
+	it('takes a search changed in place, without its popup flags', () => {
+		const t = opening();
+		const s = searched(t, '/salsa/lessons/5', '?q=son&add=1');
+		expect(hrefOf(s, '/salsa/lessons/5')).toBe('/salsa/lessons/5?q=son');
+		expect(searched(t, '/salsa/nowhere', '?q=son')).toEqual(t);
 	});
 });
 

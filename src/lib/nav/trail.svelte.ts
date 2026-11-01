@@ -21,6 +21,7 @@ import {
 	parseTrail,
 	removalTarget,
 	scrollFor,
+	searched,
 	tabTarget,
 	vacate,
 	type Arrival,
@@ -103,6 +104,15 @@ export function tabHref(tab: TabId, dance: DanceSlug, current: string): string |
 /** The path with the search it was left with, if this session saw it. */
 export function rememberedHref(path: string): string {
 	return hrefOf(trail.value, path);
+}
+
+/**
+ * The current page changed its search with a shallow `replaceState` (no
+ * navigation, so the router never told the trail): keep what the URL now says.
+ */
+export function keepSearch(): void {
+	load();
+	set(searched(trail.value, location.pathname, location.search));
 }
 
 /** Where the band's back goes from `current`, and its label. */
