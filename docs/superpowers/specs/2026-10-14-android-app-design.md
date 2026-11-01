@@ -67,6 +67,21 @@ inside (`Pages.kt`, tested); other sites go to the browser and `salsa://` to
 `SALSA_ANDROID_CERT_SHA256` no longer matter to the app; they stay until
 removed on purpose.
 
+## The app stands upright (2026-11-01)
+
+Every page is laid out for a phone held upright; only a video gains from
+turning it. So the app is locked to portrait, but for a video: the full-screen
+video player (`VideoPlayer.svelte`, `$lib/video/turning.ts`) posts `free` to a
+`SalsaTurn` WebMessageListener when it opens and `portrait` when it closes,
+and a video WebView shows full screen itself (a YouTube embed) frees it too.
+Free means `FULL_USER`: any way up, within the phone's own rotation lock
+(`orientationFor`, `Turning.kt`, tested). A new page load stands it upright
+again, so a player that never closed (a reload, a crash) cannot leave it free.
+The lock is set in code, not the manifest, so the shell can lift it. Without
+the WebView feature the app stays upright, player included. The Practice
+page's landscape styles stay for a browser. Built and unit-tested, not yet
+tried on the phone.
+
 ## The page runs under the bars (2026-11-01)
 
 Replaces the strips of the sections below. Tried on the phone, they read as

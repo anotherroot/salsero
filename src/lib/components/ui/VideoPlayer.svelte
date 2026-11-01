@@ -47,6 +47,7 @@
 		type ToastTone
 	} from '$lib/video/chrome';
 	import { holdScreenOn } from '$lib/video/screen-on';
+	import { letPhoneTurn, type TurnBridge } from '$lib/video/turning';
 	import { NO_ZOOM, zoomTransform, type View } from '$lib/video/zoom';
 	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
 	import UiIcon from '$lib/components/ui/Icon.svelte';
@@ -307,6 +308,9 @@
 	});
 
 	onMount(() => holdScreenOn({ wakeLock: navigator.wakeLock, doc: document }));
+
+	// The Android app stands upright everywhere else; the video may turn.
+	onMount(() => letPhoneTurn((window as { SalsaTurn?: TurnBridge }).SalsaTurn));
 
 	async function save(input: { startMs: number; endMs: number | null; label: string | null }) {
 		try {

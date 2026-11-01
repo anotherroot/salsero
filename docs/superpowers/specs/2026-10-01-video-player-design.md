@@ -127,6 +127,9 @@ and the `Sections (n)` list open as a panel beside the video; **desktop** — th
 video with its timeline and transport below and a key legend, a sidebar list
 whose open card expands into the editor. The four areas keep one DOM order
 re-arranged by a CSS grid, so rotating the phone never remounts the video.
+The Android app keeps every other page upright; the player tells it the phone
+may turn while it is open (`letPhoneTurn`, `turning.ts`; the Android spec's
+»The app stands upright«).
 
 **Full video:** the time to hundredths, a scrubbable timeline with sections as
 bands and points as ticks (and the band of a section being marked),
