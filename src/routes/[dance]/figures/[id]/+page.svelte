@@ -582,6 +582,7 @@
 									onclosed={() => void refreshWhenSettled()}
 									linking
 									action={editing ? recTrash : undefined}
+									sections={variation.recordingSections[rec.id]}
 								/>
 							{/if}
 							{#if refused}

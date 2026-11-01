@@ -1,6 +1,6 @@
 <!-- src/lib/components/ui/VideoFrame.svelte -->
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { watchMedia, type MediaProblem } from '$lib/media';
 	import {
 		RATE_LABEL,
@@ -38,6 +38,8 @@
 		caption?: { title: string; meta?: string };
 		/** At the right of the caption row in place of Full screen (which then joins the control row). */
 		action?: Snippet;
+		/** The page's own list of this video's sections: when it changes (a section edited from the list), the bar fetches its bands again. */
+		sections?: unknown;
 	}
 
 	let {
@@ -50,7 +52,8 @@
 		onclosed,
 		linking = false,
 		caption,
-		action
+		action,
+		sections
 	}: Props = $props();
 
 	// Defaults on the server and the first client render, then the stored
@@ -94,6 +97,12 @@
 			.then((s) => (spots = s))
 			.catch(() => {});
 	}
+
+	// A page refresh after a section changed elsewhere (the section list's own player) brings a new list.
+	$effect(() => {
+		void sections;
+		if (untrack(() => played)) untrack(loadSpots);
+	});
 
 	function toggle() {
 		if (!inline) return;

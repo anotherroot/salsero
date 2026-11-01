@@ -579,6 +579,7 @@
 										onclosed={() => void refreshWhenSettled()}
 										linking
 										action={videoTrash}
+										sections={videoSections}
 									/>
 								{/if}
 								{#if videoRefused[video.id]}
