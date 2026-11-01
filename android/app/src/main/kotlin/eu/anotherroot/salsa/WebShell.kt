@@ -89,6 +89,9 @@ abstract class WebShell : ComponentActivity() {
     private var fullscreen: View? = null
     private var fullscreenDone: WebChromeClient.CustomViewCallback? = null
 
+    /** The page's full-screen video player is open and lets the phone turn ([turnBridge]). */
+    private var pageTurns = false
+
     /**
      * The page runs under the system bars and is told their heights (`--safe-top`,
      * `--safe-bottom`; [splitInsets]). Needs a document-start script, so the heights
@@ -122,6 +125,7 @@ abstract class WebShell : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        turn()
         val page = ContextCompat.getColor(this, pageColor)
         // Light icons on the status bar: the band under it is dark in every theme.
         // The navigation bar's follow the page's theme once it says ([barsBridge]).
@@ -193,6 +197,7 @@ abstract class WebShell : ComponentActivity() {
         wakeLockBridge(web)
         speechBridge(web)
         barsBridge(web)
+        turnBridge(web)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -260,7 +265,12 @@ abstract class WebShell : ComponentActivity() {
             }
         }
 
-        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) = keepAwake(false)
+        // A new page starts with the screen free to dim, and upright: its player asks again.
+        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+            keepAwake(false)
+            pageTurns = false
+            turn()
+        }
 
         // A page that started before the first insets arrived still gets them.
         override fun onPageCommitVisible(view: WebView, url: String?) {
@@ -320,6 +330,7 @@ abstract class WebShell : ComponentActivity() {
             fullscreenDone = callback
             root.addView(frame, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
             systemBars(show = false)
+            turn()
         }
 
         override fun onHideCustomView() = leaveFullscreen()
@@ -333,6 +344,7 @@ abstract class WebShell : ComponentActivity() {
         fullscreen = null
         root.removeView(frame)
         systemBars(show = true)
+        turn()
         fullscreenDone?.onCustomViewHidden()
         fullscreenDone = null
     }
@@ -406,6 +418,27 @@ abstract class WebShell : ComponentActivity() {
                 WindowCompat.getInsetsController(window, root).isAppearanceLightNavigationBars = scheme == Scheme.LIGHT
             }
         }
+    }
+
+    /**
+     * The app stands upright; the page's full-screen video player posts `free`
+     * while it is open and `portrait` when it closes ([turningFor], [orientationFor]).
+     */
+    private fun turnBridge(web: WebView) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
+        val origin = setOf(BuildConfig.SITE)
+        WebViewCompat.addWebMessageListener(web, TURN_OBJECT, origin) { _, message, _, isMainFrame, _ ->
+            if (!isMainFrame) return@addWebMessageListener
+            val turning = turningFor(message.data) ?: return@addWebMessageListener
+            runOnUiThread {
+                pageTurns = turning == Turning.FREE
+                turn()
+            }
+        }
+    }
+
+    private fun turn() {
+        requestedOrientation = orientationFor(pageTurns, fullscreen != null)
     }
 
     /**
@@ -500,6 +533,8 @@ abstract class WebShell : ComponentActivity() {
         )
 
         const val BARS_OBJECT = "SalsaBars"
+
+        const val TURN_OBJECT = "SalsaTurn"
 
         const val WAKE_LOCK_OBJECT = "appWakeLock"
 
