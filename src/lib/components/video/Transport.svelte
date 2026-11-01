@@ -45,14 +45,14 @@
 		<button
 			type="button"
 			class="{side} text-[14px]"
-			aria-label="Back 1 s"
+			aria-label="−1 s, back"
 			onclick={() => onstep(-1)}>−1 s</button
 		>
 	{/if}
 	<button
 		type="button"
 		class="{side} text-[13px]"
-		aria-label="Back 0.1 s"
+		aria-label="−0.1 s, back"
 		onclick={() => ontenth(-1)}>−0.1 s</button
 	>
 	<button type="button" class={play} aria-label={paused ? 'Play' : 'Pause'} onclick={ontoggle}>
@@ -65,14 +65,14 @@
 	<button
 		type="button"
 		class="{side} text-[13px]"
-		aria-label="Forward 0.1 s"
+		aria-label="+0.1 s, forward"
 		onclick={() => ontenth(1)}>+0.1 s</button
 	>
 	{#if !compact}
 		<button
 			type="button"
 			class="{side} text-[14px]"
-			aria-label="Forward 1 s"
+			aria-label="+1 s, forward"
 			onclick={() => onstep(1)}>+1 s</button
 		>
 	{/if}
