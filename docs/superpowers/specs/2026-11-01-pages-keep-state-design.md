@@ -131,12 +131,19 @@ remembers which page you were last on. So:
 
 - Switching Figures ↔ Routines brings each list back as you left it (the
   toggle no longer drops the chips and the search).
-- Any way of reaching a page this session restores it: a tab tap, the lit
-  tab, the band's back, the no-opener fallback, a link.
-- Popup flags in the URL (`?log=1`, `?new=1`, `?add=1` and the like) are
+- Any way of reaching a page this session restores its scroll. The tabs, the
+  band's back (and its no-opener fallback) and the Figures/Routines switch
+  also bring back its chips and search; a plain link opens the URL it names.
+  *(Settled while planning.)*
+- Popup flags in the URL (`?log=1`, `?new=1`, `?add=1`, the old `?v=`) are
   never brought back. Today's `?day=` (a past day) is brought back.
-  `?session=1` (a Today session) is brought back only while that session is
-  still running.
+  `?session=1` (a Today session) is not: its count and skips live in the
+  page and end when you leave it, so a session you leave is over.
+  *(Settled while planning.)*
+- A new variation is a step within the figure, like the switcher: it keeps
+  the figure's opener rather than taking the previous variation as one.
+  *(Settled while planning; overrides the "created" rule below for
+  variations.)*
 
 - Scroll position, on every page (lists and pushed screens alike).
 - Moves: Figures or Routines.
