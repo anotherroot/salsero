@@ -2,6 +2,7 @@
  * The Link popup's levels. PURE and client-safe.
  */
 import type { LinkCreateField, LinkOptions } from '$lib/types';
+import { MAX_SPOT_LABEL } from '$lib/limits';
 import { lengthText, spotTime } from '$lib/video/spots';
 
 /** The popup's levels, bottom first. 'links': linked list + the Link button. 'pick': the picker.
@@ -57,4 +58,18 @@ const SHOWN: Record<CreateStep, CreateSpot[]> = {
 export function refusalAt(step: CreateStep, field: string | undefined): CreateSpot {
 	const hit = SHOWN[step].find((f) => f === field);
 	return hit ?? 'banner';
+}
+
+/**
+ * The name the Rename sheet offers once the popup closes: the link's own, when
+ * an unnamed section went from no links to exactly one. Several links, a
+ * section that had some already, or one with a name of its own: nothing.
+ */
+export function suggestedName(
+	label: string | null,
+	linkedBefore: number,
+	linkedNow: string[]
+): string | null {
+	if (label !== null || linkedBefore !== 0 || linkedNow.length !== 1) return null;
+	return linkedNow[0].slice(0, MAX_SPOT_LABEL);
 }

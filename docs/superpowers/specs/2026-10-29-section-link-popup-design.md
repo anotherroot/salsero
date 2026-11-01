@@ -135,6 +135,10 @@ picker; already-linked items are shown greyed, not left out.*
 - **Linked:** one row per link, labelled with `figureLabels` ("Enchufla ·
   Doble") or the drill's name with a "Drill" note, archived ones marked
   "(archived)". Each has **×**. Unlinking follows "Unlinking" below.
+- *Added 2026-11-01:* tapping a Linked row opens what it links to: the
+  variation's figure page, or the drill's exercise page. Inside the player,
+  the player closes first (its history entries go), then the app goes there,
+  so Back from that page lands on the page the player was opened from.
 - **Search**, never focused on open. It filters the rows below by label,
   trimmed and case-insensitive.
 - **Candidates**, each with a one-tap **Add**, leaving out what is already
@@ -281,6 +285,15 @@ the same way.
   then closes the popup. The Android check is for the player.
 - `Spot.linkedTo` (labels) stays as the player's source for the small
   lines. The popup loads its own data when it opens.
+- **The name offer** (added 2026-11-01): when the popup finishes (a tap,
+  Done, Create and link) on a section with **no name and no links**, and it
+  now has **exactly one** link, the player's Rename sheet opens in the popup's
+  place with that link's label filled in ("Cradle exit · With turn", or the
+  drill's name; cut to the 80-character name limit). Save keeps it, Cancel
+  leaves the times. Several links, a named section, or one that already had
+  links: no offer. Backing out of the popup offers nothing. Site pages offer
+  nothing either: sections are named in the player (`suggestedName`,
+  `src/lib/video/link-steps.ts`).
 
 ## Server
 

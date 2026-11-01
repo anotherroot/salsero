@@ -21,6 +21,8 @@
 	interface Props {
 		kind: Exclude<PlayerSheet, 'list'>;
 		spot: Spot | null;
+		/** Rename: a name to offer in place of the section's own (the Link popup's first link). */
+		name?: string;
 		/** A refusal from the server (a 409 on delete), shown in the sheet. */
 		message: string | null;
 		oncancel: () => void;
@@ -28,7 +30,7 @@
 		ondelete: () => void;
 	}
 
-	let { kind, spot, message, oncancel, onrename, ondelete }: Props = $props();
+	let { kind, spot, name, message, oncancel, onrename, ondelete }: Props = $props();
 
 	// The Keys sheet's cap is one step up from the editor's hint chip.
 	const KEY_CAP = swap(
@@ -41,7 +43,7 @@
 	const FLEX_SECONDARY = swap(button('secondary'), 'flex-none', 'flex-1');
 	const FLEX_PRIMARY = swap(button('primary'), 'flex-none', 'flex-1');
 	const FLEX_DANGER = swap(button('danger'), 'flex-none', 'flex-1');
-	let label = $state(untrack(() => spot?.label ?? ''));
+	let label = $state(untrack(() => name ?? spot?.label ?? ''));
 
 	const KEYS: [string, string][] = [
 		['Space', 'play / pause'],
