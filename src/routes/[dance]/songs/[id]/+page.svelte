@@ -17,7 +17,7 @@
 	import SongDetailsSheet from '$lib/components/songs/SongDetailsSheet.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import SeekBar from '$lib/components/ui/SeekBar.svelte';
-	import { GROUP, SECTION_LABEL, button, iconButton, swap } from '$lib/components/ui/styles';
+	import { GROUP, PLAY_ROUND, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { act } from '$lib/act';
 	import { songName } from '$lib/songs/library';
 	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
@@ -193,7 +193,7 @@
 			<div class="flex items-center gap-3.5">
 				<button
 					type="button"
-					class={swap(iconButton('filled'), 'h-11 w-11', 'size-[52px]')}
+					class={PLAY_ROUND}
 					aria-label={paused ? 'Play the song' : 'Pause the song'}
 					onclick={toggle}
 				>

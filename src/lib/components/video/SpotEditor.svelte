@@ -21,8 +21,14 @@
 	import type { Spot } from '$lib/types';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { editorSub, linkEntry } from '$lib/video/chrome';
-	import { swap } from '$lib/components/ui/styles';
-	import { KBD, playerButton } from './styles';
+	import {
+		EDITOR_DELETE as DELETE,
+		EDITOR_NOW as NOW,
+		EDITOR_STEP as STEP,
+		EDITOR_WHOLE as WHOLE,
+		KBD,
+		playerButton
+	} from './styles';
 	import Transport from './Transport.svelte';
 	import TrimStrip from './TrimStrip.svelte';
 
@@ -107,10 +113,6 @@
 	// The 36 px Loop pill sits in a 44 px button. The builders' own sizes, with
 	// the flex and gap they set swapped out by .replace, never a class appended.
 	const LOOP = $derived(playerButton(looping ? 'accent' : 'neutral', 'sm'));
-	const STEP = swap(playerButton('neutral', 'xl', 'tile'), 'flex-none', 'flex-1');
-	const NOW = swap(swap(STEP, 'flex-1', 'flex-[1.3] flex-col'), 'gap-2', 'gap-0');
-	const WHOLE = swap(swap(playerButton('outline', 'md'), 'flex-none', 'flex-1'), 'px-3', 'px-1');
-	const DELETE = swap(playerButton('danger-text'), 'px-4', 'px-3');
 	const RENAME = playerButton('ghost', 'md');
 	const DONE = playerButton('accent', 'cta');
 

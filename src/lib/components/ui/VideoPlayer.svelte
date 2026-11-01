@@ -51,8 +51,20 @@
 	import VideoGestures from '$lib/components/video/VideoGestures.svelte';
 	import UiIcon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import { HIDE, KBD, ON_VIDEO, playerButton } from '$lib/components/video/styles';
-	import { swap } from './styles';
+	import {
+		HIDE,
+		INVITE,
+		KBD,
+		MARK_DESK,
+		MARK_DESK_SQUARE,
+		MARK_FILL,
+		MARK_GLASS,
+		MARK_GLASS_SQUARE,
+		MARK_WIDE,
+		ON_VIDEO,
+		SECTION_ON_DESK,
+		SECTION_WIDE
+	} from '$lib/components/video/styles';
 	import TopBar from '$lib/components/video/TopBar.svelte';
 	import Transport from '$lib/components/video/Transport.svelte';
 	import Timeline from '$lib/components/video/Timeline.svelte';
@@ -673,17 +685,6 @@
 
 	const badge = $derived(cornerBadge(rate, mirror));
 	let waiting = $state(false);
-	const MARK = playerButton('neutral', 'lg');
-	// Accent text needs a darker scrim than white does: 2.2:1 over a white frame at 60 %.
-	const INVITE = swap(ON_VIDEO, 'bg-black/60', 'bg-black/75');
-	const MARK_DESK = playerButton('neutral', 'md');
-	const MARK_GLASS = playerButton('glass', 'md');
-	const SECTION_ON = playerButton('accent', 'lg');
-	// playerButton carries `flex-none`, which would beat a `flex-1` appended to it: swap it.
-	const MARK_FILL = swap(MARK, 'flex-none', 'flex-1');
-	const MARK_WIDE = swap(MARK, 'flex-none', 'flex-[1.4]');
-	const SECTION_WIDE = swap(SECTION_ON, 'flex-none', 'flex-[1.4]');
-	const SECTION_ON_DESK = playerButton('accent', 'md');
 	const loopProgress = $derived(
 		loop && loop.endMs !== null
 			? Math.max(0, Math.min(100, ((currentMs - loop.startMs) / (loop.endMs - loop.startMs)) * 100))
@@ -781,18 +782,19 @@
 
 {#snippet markButtons(overlay: boolean, iconOnly = false)}
 	<!-- iconOnly: a square 44 px button in place of the labelled pill (narrow landscape). -->
-	{@const square = (c: string) => (iconOnly ? swap(c, 'px-3', 'w-11 px-0') : c)}
-	<button
-		type="button"
-		class={square(overlay ? MARK_GLASS : MARK_DESK)}
-		aria-label="Mark point"
-		onclick={mark}
-	>
+	{@const markClass = overlay
+		? iconOnly
+			? MARK_GLASS_SQUARE
+			: MARK_GLASS
+		: iconOnly
+			? MARK_DESK_SQUARE
+			: MARK_DESK}
+	<button type="button" class={markClass} aria-label="Mark point" onclick={mark}>
 		<UiIcon name="flag" size={18} />{#if !iconOnly}Mark{/if}
 	</button>
 	<button
 		type="button"
-		class={pendingStart !== null ? SECTION_ON_DESK : square(overlay ? MARK_GLASS : MARK_DESK)}
+		class={pendingStart !== null ? SECTION_ON_DESK : markClass}
 		aria-label={pendingStart === null ? 'Start section' : 'End section'}
 		onclick={section}
 	>

@@ -357,6 +357,10 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `FIELD_INVALID`: never append a `text-*` after the output or `.replace()` it (use
   `swap()`). Tailwind 4 orders by property, not by class order, so an appended
   class loses or wins by luck. `class-rules.spec.ts` enforces it.
+  `swap()` is called in a `.ts` module, never a `.svelte` file: no spec runs a
+  component's script, so its dev guard would never see a token gone from the
+  builder. Variants live in `ui/styles.ts`, `video/styles.ts` and
+  `player/styles.ts`, each imported by a spec (also enforced by `class-rules.spec.ts`).
 - **A card that clips uses `GROUP` or `CLIP`.** Rows draw their focus ring inside
   it, since the card's `overflow-hidden` would cut an outside one
   (`focus-clip.spec.ts`).
