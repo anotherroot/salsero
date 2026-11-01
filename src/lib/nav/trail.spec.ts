@@ -6,7 +6,9 @@ import {
 	backTarget,
 	EMPTY_TRAIL,
 	forget,
+	goneHref,
 	hrefOf,
+	isGone,
 	isRoot,
 	isTrailPage,
 	keptSearch,
@@ -363,6 +365,55 @@ describe('backMove', () => {
 		expect(backMove(e, 2, '/salsa/figures')).toBe('goto');
 		expect(backMove(e, 2, null)).toBe('goto');
 		expect(backMove(e, 1, '/salsa/routines')).toBe('goto');
+	});
+	it('uses history when the slot keeps only what a back brings back', () => {
+		const e = { 1: '/salsa/figures?q=enc&chip=open', 2: '/salsa/figures/12' };
+		expect(backMove(e, 2, '/salsa/figures')).toBe('history');
+	});
+	it('navigates when the slot below would reopen a popup or a session', () => {
+		expect(
+			backMove({ 1: '/salsa/figures?new=1', 2: '/salsa/figures/12' }, 2, '/salsa/figures')
+		).toBe('goto');
+		expect(backMove({ 1: '/salsa?session=1', 2: '/salsa/exercises/4' }, 2, '/salsa')).toBe('goto');
+		expect(
+			backMove({ 1: '/salsa/exercises/4?log=1', 2: '/salsa/lessons/5' }, 2, '/salsa/exercises/4')
+		).toBe('goto');
+	});
+});
+
+describe('entries', () => {
+	it('hold the href each slot was left on, search included', () => {
+		const t = arrive(EMPTY_TRAIL, A({ to: '/salsa/figures', search: '?new=1', index: 4 }));
+		expect(t.entries[4]).toBe('/salsa/figures?new=1');
+		expect(t.pages['/salsa/figures'].search).toBe('');
+	});
+	it('are forgotten by path, whatever their search', () => {
+		let t = arrive(EMPTY_TRAIL, A({ to: '/salsa/routines/3', search: '?add=1', index: 4 }));
+		t = forget(t, '/salsa/routines/3');
+		expect(t.entries).toEqual({});
+	});
+});
+
+describe('gone', () => {
+	it('is a 404 or a 410 while online', () => {
+		expect(isGone(404, true)).toBe(true);
+		expect(isGone(410, true)).toBe(true);
+	});
+	it('is not a server error, a refusal or anything offline', () => {
+		expect(isGone(500, true)).toBe(false);
+		expect(isGone(403, true)).toBe(false);
+		expect(isGone(200, true)).toBe(false);
+		expect(isGone(404, false)).toBe(false);
+	});
+	it("lands on the tab's last main list, with its kept search", () => {
+		let t = opening();
+		t = arrive(t, A({ to: '/salsa/figures', search: '?q=enc', index: 5, kind: 'push' }));
+		t = arrive(t, A({ to: '/salsa/routines', search: '?q=loop', index: 5, kind: 'replace' }));
+		expect(goneHref(t, '/salsa/figures/99')).toBe('/salsa/routines?q=loop');
+	});
+	it("lands on the tab's first main list when none was seen", () => {
+		expect(goneHref(EMPTY_TRAIL, '/salsa/lessons/9')).toBe('/salsa/lessons');
+		expect(goneHref(EMPTY_TRAIL, '/bachata/figures/9')).toBe('/bachata/figures');
 	});
 });
 

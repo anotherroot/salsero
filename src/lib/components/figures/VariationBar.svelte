@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { variationNav } from '$lib/figures/page';
 	import { plural } from '$lib/format';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -39,8 +39,8 @@
 
 	/*
 	 * Stepping to another variation is a same-route navigation, so SvelteKit
-	 * keeps this component — and both sheets with it. A new id closes them: a
-	 * row picked in the list, and the redirect a new variation lands on.
+	 * keeps this component — and both sheets with it. A new id closes them (the
+	 * ‹ › steps; a picked row and a new variation close them first).
 	 */
 	$effect(() => {
 		void stepId;
@@ -80,6 +80,19 @@
 	const href = (id: number) => resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
 	const recordings = (n: number) =>
 		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
+
+	/*
+	 * A row is a real link (long-press, new tab), but a tap closes the list
+	 * first and only then replaces the page's own history entry: replacing
+	 * from inside the sheet would replace the sheet's entry and leave the old
+	 * variation one Back below.
+	 */
+	function pick(e: MouseEvent, id: number) {
+		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+		e.preventDefault();
+		listing = false;
+		if (id !== currentId) void gotoWhenSettled(href(id), { replaceState: true });
+	}
 </script>
 
 {#snippet step(
@@ -137,9 +150,8 @@
 			<li>
 				<a
 					href={href(s.id)}
-					data-sveltekit-replacestate
 					aria-current={here ? 'page' : undefined}
-					onclick={() => (listing = false)}
+					onclick={(e) => pick(e, s.id)}
 					class="flex min-h-[72px] items-center gap-3 px-4 py-3 {here ? 'bg-accent-soft' : ''}"
 				>
 					{#if here}
@@ -170,7 +182,7 @@
 	open={adding}
 	onclose={() => (adding = false)}
 >
-	<!-- A success redirects to the new variation, which closes this (see above). -->
+	<!-- A success closes the sheets, then replaces this entry with the new variation (below). -->
 	<form
 		id="new-variation"
 		method="POST"
@@ -182,12 +194,16 @@
 				busy = true;
 				return async ({ update, result }) => {
 					try {
-						// A new variation is a step within the figure, like the switcher:
-						// it takes this entry's place and keeps the figure's opener.
-						if (result.type === 'redirect')
-							// eslint-disable-next-line svelte/no-navigation-without-resolve -- the server's redirect
-							await goto(result.location, { replaceState: true, invalidateAll: true });
-						else await update();
+						// A new variation is a step within the figure, like the switcher: the
+						// sheets close first, then it takes the page's own history entry.
+						if (result.type === 'redirect') {
+							adding = false;
+							listing = false;
+							await gotoWhenSettled(result.location, {
+								replaceState: true,
+								invalidateAll: true
+							});
+						} else await update();
 					} finally {
 						busy = false;
 					}

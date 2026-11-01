@@ -1,8 +1,8 @@
 import { tick } from 'svelte';
 import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 import { page } from '$app/state';
-import { danceInPath, type DanceSlug } from '$lib/dances/dances';
-import { rootsOf, tabFor, type TabId } from './tabs';
+import type { DanceSlug } from '$lib/dances/dances';
+import type { TabId } from './tabs';
 import {
 	arrivalKind,
 	arrive,
@@ -10,7 +10,9 @@ import {
 	backTarget,
 	EMPTY_TRAIL,
 	forget,
+	goneHref,
 	hrefOf,
+	isGone,
 	isTrailPage,
 	leave,
 	pageTitle,
@@ -180,13 +182,19 @@ export function syncTrail(): void {
 		if (!to || !isTrailPage(to.pathname)) return;
 		const path = to.pathname;
 
-		// A tab or a back reached a page that is gone: off the trail, onto the tab's list.
-		if ((it === 'tab' || it === 'back') && page.status >= 400) {
-			const dance = danceInPath(path)!;
+		/*
+		 * An error page is never a place to come back to: it does not arrive, so
+		 * no tab reopens on it. A page that is gone (404/410, online) also leaves
+		 * the trail, and a tab or a back that reached it goes on, quietly, to the
+		 * tab's list. Anything else (a 5xx, a refusal) leaves the trail as it was:
+		 * the page may well be back on the next try.
+		 */
+		if (page.status >= 400) {
+			if (!isGone(page.status, navigator.onLine)) return;
 			set(forget(trail.value, path));
-			const root = rootsOf(tabFor(path, dance) ?? 'today', dance)[0];
-			// eslint-disable-next-line svelte/no-navigation-without-resolve -- a trail href, built from resolved paths
-			void goto(hrefOf(trail.value, root), { replaceState: true });
+			if (it === 'tab' || it === 'back')
+				// eslint-disable-next-line svelte/no-navigation-without-resolve -- a trail href, built from resolved paths
+				void goto(goneHref(trail.value, path), { replaceState: true });
 			return;
 		}
 

@@ -1,6 +1,7 @@
 import {
 	afterNavigate,
 	beforeNavigate,
+	goto,
 	invalidateAll,
 	onNavigate,
 	pushState
@@ -75,6 +76,38 @@ export function markSent(): void {
 	if (sheetStack.openCount > 0) sentAt = location.href;
 }
 
+/** A link click's hold on the stack's Back moves (see `syncSheets`), until its navigation takes over. */
+let clickRelease: (() => void) | null = null;
+let clickTimer: ReturnType<typeof setTimeout> | undefined;
+function releaseClick(): void {
+	clearTimeout(clickTimer);
+	clickRelease?.();
+	clickRelease = null;
+}
+
+/**
+ * Close-then-go: for a link or a form inside a sheet whose navigation must
+ * REPLACE the page's own entry (a variation picked in the switcher's list).
+ * The caller closes its sheets first; once history has stepped back over
+ * their entries, this goes to `href`. The click's hold is let go at once (the
+ * click was prevented: no navigation of its own follows), and a refresh owed
+ * for a form sent from the sheet is dropped, since this navigation loads the
+ * page's data itself and a refresh started after it would abort it.
+ */
+export function gotoWhenSettled(
+	href: string,
+	opts: Parameters<typeof goto>[1] = {}
+): Promise<void> {
+	releaseClick();
+	sentAt = null;
+	return new Promise((resolve, reject) => {
+		sheetStack.settled(() => {
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller's href, already built
+			goto(href, opts).then(resolve, reject);
+		});
+	});
+}
+
 /** Keep the stack in step with history. Call once, from the root layout. */
 export function syncSheets(): void {
 	$effect(() => {
@@ -100,13 +133,6 @@ export function syncSheets(): void {
 	 * none follows (a prevented click, a hash link). Holding for a click that
 	 * goes nowhere only delays a Back by the fallback.
 	 */
-	let clickRelease: (() => void) | null = null;
-	let clickTimer: ReturnType<typeof setTimeout> | undefined;
-	const releaseClick = () => {
-		clearTimeout(clickTimer);
-		clickRelease?.();
-		clickRelease = null;
-	};
 	$effect(() => {
 		const onclick = (e: MouseEvent) => {
 			if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;

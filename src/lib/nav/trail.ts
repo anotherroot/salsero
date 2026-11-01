@@ -22,9 +22,15 @@ export interface Trail {
 	last: Record<string, PageKey>;
 	/** `${dance}:${tab}` → the last main list seen in that tab (Moves: figures or routines). */
 	lastRoot: Record<string, PageKey>;
-	/** History slot index → the page in it. */
-	entries: Record<number, PageKey>;
+	/**
+	 * History slot index → the href in it: the page and its search as the slot
+	 * holds it, popup flags and all, since that is what a history step restores.
+	 */
+	entries: Record<number, string>;
 }
+
+/** An entry's page: its href without the search. */
+const pathOf = (href: string): PageKey => href.split('?')[0];
 
 export const EMPTY_TRAIL: Trail = { pages: {}, last: {}, lastRoot: {}, entries: {} };
 
@@ -127,7 +133,7 @@ export function arrive(t: Trail, a: Arrival): Trail {
 			title: a.title
 		}
 	};
-	const entries: Record<number, PageKey> = { ...t.entries, [a.index]: a.to };
+	const entries: Record<number, string> = { ...t.entries, [a.index]: a.to + a.search };
 	if (a.kind === 'push') {
 		for (const k of Object.keys(entries)) if (Number(k) > a.index) delete entries[Number(k)];
 	}
@@ -165,7 +171,9 @@ export function forget(t: Trail, key: PageKey): Trail {
 		pages,
 		last: without(t.last),
 		lastRoot: without(t.lastRoot),
-		entries: without(t.entries) as Record<number, PageKey>
+		entries: Object.fromEntries(
+			Object.entries(t.entries).filter(([, v]) => pathOf(v) !== key)
+		) as Record<number, string>
 	};
 }
 
@@ -213,14 +221,31 @@ export function scrollFor(t: Trail, a: Arrival): number | null {
 
 /**
  * Whether Back can step the browser's history (the slot before is the target)
- * or has to go to the page.
+ * or has to go to the page. A slot whose search carries a popup flag or a
+ * Today session would bring it back, so that one is gone to instead.
  */
 export function backMove(
-	entries: Record<number, PageKey>,
+	entries: Record<number, string>,
 	index: number,
 	target: PageKey | null
 ): 'history' | 'goto' {
-	return target !== null && entries[index - 1] === target ? 'history' : 'goto';
+	const below = entries[index - 1];
+	if (target === null || below === undefined || pathOf(below) !== target) return 'goto';
+	const search = below.slice(target.length);
+	return keptSearch(search) === search ? 'history' : 'goto';
+}
+
+/** A page that no longer exists: not found or gone, and only while online. */
+export function isGone(status: number, online: boolean): boolean {
+	return online && (status === 404 || status === 410);
+}
+
+/** Where a tab or a back that reached a gone page lands: its tab's last main list. */
+export function goneHref(t: Trail, path: PageKey): string {
+	const dance = danceInPath(path);
+	if (!dance) return '/';
+	const tab = tabFor(path, dance) ?? 'today';
+	return hrefOf(t, t.lastRoot[`${dance}:${tab}`] ?? rootsOf(tab, dance)[0]);
 }
 
 /**
@@ -280,6 +305,6 @@ export function parseTrail(raw: string | null): Trail {
 		pages,
 		last: strings(v.last),
 		lastRoot: strings(v.lastRoot),
-		entries: strings(v.entries) as Record<number, PageKey>
+		entries: strings(v.entries) as Record<number, string>
 	};
 }
