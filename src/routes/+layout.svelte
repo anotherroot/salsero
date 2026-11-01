@@ -10,6 +10,7 @@
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
 	import { guardNavigation, prompt } from '$lib/unsaved/guard.svelte';
 	import { syncSheets } from '$lib/sheets/history.svelte';
+	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
@@ -19,6 +20,8 @@
 	guardNavigation();
 	// Back closes the top sheet, not the page (`$lib/sheets/stack.ts`).
 	syncSheets();
+	// Tabs reopen where you left them; the band's back goes where you came from.
+	syncTrail();
 	// A sample belongs to the page it was started on.
 	beforeNavigate(() => stopSample());
 	/*

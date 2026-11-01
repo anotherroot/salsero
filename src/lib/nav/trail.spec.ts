@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	arrivalKind,
 	arrive,
 	backMove,
 	backTarget,
@@ -11,6 +12,7 @@ import {
 	keptSearch,
 	leave,
 	openerFor,
+	pageTitle,
 	parseTrail,
 	remembered,
 	scrollFor,
@@ -361,6 +363,37 @@ describe('backMove', () => {
 		expect(backMove(e, 2, '/salsa/figures')).toBe('goto');
 		expect(backMove(e, 2, null)).toBe('goto');
 		expect(backMove(e, 1, '/salsa/routines')).toBe('goto');
+	});
+});
+
+describe('arrivalKind', () => {
+	it('names the first load and history moves by their type', () => {
+		expect(arrivalKind('enter', 7, null)).toBe('enter');
+		expect(arrivalKind('popstate', 7, 8)).toBe('pop');
+	});
+	it('is a replace when the slot index did not move, a push when it did', () => {
+		expect(arrivalKind('goto', 7, 7)).toBe('replace');
+		expect(arrivalKind('link', 8, 7)).toBe('push');
+	});
+	it("compares with the slot the navigation left, a sheet's shallow entry included", () => {
+		// The page's own entry was 7; a sheet pushed 8; a replace from inside it stays on 8.
+		expect(arrivalKind('goto', 8, 8)).toBe('replace');
+		// A link from inside that sheet lands on 9.
+		expect(arrivalKind('link', 9, 8)).toBe('push');
+	});
+	it('is a push when the slot it left is unknown', () => {
+		expect(arrivalKind('goto', 7, null)).toBe('push');
+	});
+});
+
+describe('pageTitle', () => {
+	it('drops the dance suffix', () => {
+		expect(pageTitle('Enchufla · Doble · Salsa')).toBe('Enchufla · Doble');
+		expect(pageTitle('Lessons · Bachata')).toBe('Lessons');
+	});
+	it('leaves a title without one as it is', () => {
+		expect(pageTitle('Sign in')).toBe('Sign in');
+		expect(pageTitle('Salsa')).toBe('Salsa');
 	});
 });
 

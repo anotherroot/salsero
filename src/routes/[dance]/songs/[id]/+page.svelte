@@ -9,6 +9,7 @@
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -143,10 +144,11 @@
 
 <Screen compact title={name} {subtitle}>
 	{#snippet left()}
-		<BandButton
-			icon="back"
-			label="Back to Music"
-			href={resolve('/[dance]/songs', { dance: data.dance.slug })}
+		<BackButton
+			fallback={{
+				href: resolve('/[dance]/songs', { dance: data.dance.slug }),
+				label: 'Back to Music'
+			}}
 		/>
 	{/snippet}
 	{#snippet right()}

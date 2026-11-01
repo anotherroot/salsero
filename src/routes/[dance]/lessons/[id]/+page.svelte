@@ -28,6 +28,7 @@
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -418,10 +419,11 @@
 		{#if editing}
 			<BandButton focusKey="stop-editing" icon="close" label="Stop editing" onclick={stopEditing} />
 		{:else}
-			<BandButton
-				icon="back"
-				label="Back to Lessons"
-				href={resolve('/[dance]/lessons', { dance: data.dance.slug })}
+			<BackButton
+				fallback={{
+					href: resolve('/[dance]/lessons', { dance: data.dance.slug }),
+					label: 'Back to Lessons'
+				}}
 			/>
 		{/if}
 	{/snippet}

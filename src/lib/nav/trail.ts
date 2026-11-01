@@ -1,4 +1,4 @@
-import { danceInPath, type DanceSlug } from '$lib/dances/dances';
+import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
 import { rootsOf, tabFor, type TabId } from './tabs';
 
 /**
@@ -221,6 +221,25 @@ export function backMove(
 	target: PageKey | null
 ): 'history' | 'goto' {
 	return target !== null && entries[index - 1] === target ? 'history' : 'goto';
+}
+
+/**
+ * What kind of arrival a navigation was. `before` is the history slot the
+ * navigation left (read in `beforeNavigate`, so a sheet's shallow entry
+ * counts): staying on it is a replace, moving off it a push.
+ */
+export function arrivalKind(type: string, index: number, before: number | null): Arrival['kind'] {
+	if (type === 'enter') return 'enter';
+	if (type === 'popstate') return 'pop';
+	return before !== null && index === before ? 'replace' : 'push';
+}
+
+const SUFFIXES = Object.values(DANCES).map((d) => ` · ${d.label}`);
+
+/** A page's `<title>` without its ` · Salsa` / ` · Bachata`: the name a back label uses. */
+export function pageTitle(title: string): string {
+	const suffix = SUFFIXES.find((s) => title.endsWith(s));
+	return suffix ? title.slice(0, -suffix.length) : title;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> =>

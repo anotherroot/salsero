@@ -9,6 +9,7 @@
 	import { restoreSet } from '$lib/components/exercises/restore-set';
 	import { contentFor, logFor } from '$lib/components/exercises/kinds';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -132,10 +133,8 @@
 		{#if editing}
 			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
 		{:else}
-			<BandButton
-				icon="back"
-				label="Back to Today"
-				href={resolve('/[dance]', { dance: data.dance.slug })}
+			<BackButton
+				fallback={{ href: resolve('/[dance]', { dance: data.dance.slug }), label: 'Back to Today' }}
 			/>
 		{/if}
 	{/snippet}

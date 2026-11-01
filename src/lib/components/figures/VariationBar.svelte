@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { variationNav } from '$lib/figures/page';
@@ -14,7 +15,8 @@
 	/**
 	 * The figure's variations, pinned to the bottom edge: ‹ and › step through
 	 * them, the middle opens the list, and the list's footer makes a new one.
-	 * Every step is a link, so a variation is a URL of its own. Shown with a
+	 * Every step is a link, so a variation is a URL of its own; it replaces the
+	 * history entry, as the figure is one page in the trail. Shown with a
 	 * single variation too — that is where "New variation" lives.
 	 */
 	interface Props {
@@ -86,8 +88,11 @@
 	icon: 'chevron-left' | 'chevron-right'
 )}
 	{#if to}
-		<a href={href(to.id)} class="{iconButton('step')} !h-12 !w-12" aria-label="{label}: {to.name}"
-			><Icon name={icon} size={22} /></a
+		<a
+			href={href(to.id)}
+			data-sveltekit-replacestate
+			class="{iconButton('step')} !h-12 !w-12"
+			aria-label="{label}: {to.name}"><Icon name={icon} size={22} /></a
 		>
 	{:else}
 		<!-- Nowhere to step to; kept so the bar does not change shape. -->
@@ -132,6 +137,7 @@
 			<li>
 				<a
 					href={href(s.id)}
+					data-sveltekit-replacestate
 					aria-current={here ? 'page' : undefined}
 					onclick={() => (listing = false)}
 					class="flex min-h-[72px] items-center gap-3 px-4 py-3 {here ? 'bg-accent-soft' : ''}"
@@ -176,7 +182,12 @@
 				busy = true;
 				return async ({ update, result }) => {
 					try {
-						await update();
+						// A new variation is a step within the figure, like the switcher:
+						// it takes this entry's place and keeps the figure's opener.
+						if (result.type === 'redirect')
+							// eslint-disable-next-line svelte/no-navigation-without-resolve -- the server's redirect
+							await goto(result.location, { replaceState: true, invalidateAll: true });
+						else await update();
 					} finally {
 						busy = false;
 					}

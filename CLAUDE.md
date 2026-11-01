@@ -175,7 +175,11 @@ src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the 
                      shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
                      while data is on the way (skeleton, leaving). error-view.ts: the error
                      pages' words and where their back goes. bands.spec.ts: every page draws
-                     a band (a page without one is named in the spec with its reason). PURE
+                     a band (a page without one is named in the spec with its reason).
+                     trail.ts: the session's trail of pages — each page's opener, kept search
+                     and scroll, each tab's last page, where back and a tab tap go. PURE.
+                     trail.svelte.ts wires it to the router (`syncTrail`, in the root layout)
+                     and sessionStorage; shell/BackButton.svelte is the band's back that uses it
 src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's

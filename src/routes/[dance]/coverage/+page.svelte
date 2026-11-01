@@ -2,7 +2,7 @@
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
-	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -77,10 +77,11 @@
 
 <Screen title="Coverage" subtitle="Versions by how many routines use them">
 	{#snippet left()}
-		<BandButton
-			icon="back"
-			label="Back to Moves"
-			href={resolve('/[dance]/figures', { dance: data.dance.slug })}
+		<BackButton
+			fallback={{
+				href: resolve('/[dance]/figures', { dance: data.dance.slug }),
+				label: 'Back to Moves'
+			}}
 		/>
 	{/snippet}
 	{#snippet right()}
