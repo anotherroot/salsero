@@ -4,6 +4,7 @@ import {
 	arrive,
 	backMove,
 	backTarget,
+	carryRemoved,
 	EMPTY_TRAIL,
 	forget,
 	goneHref,
@@ -19,7 +20,9 @@ import {
 	remembered,
 	removalTarget,
 	scrollFor,
+	slotted,
 	tabTarget,
+	vacate,
 	type Arrival,
 	type Trail
 } from './trail';
@@ -486,5 +489,137 @@ describe('removalTarget', () => {
 			intent: null,
 			carry: true
 		});
+	});
+});
+
+/** V2 → R (a routine that uses it) → V1, a sibling in R's slots. */
+function stepping(): Trail {
+	let t = EMPTY_TRAIL;
+	t = arrive(t, A({ to: '/salsa/figures', title: 'Moves', kind: 'enter', index: 1 }));
+	t = arrive(
+		t,
+		A({ to: '/salsa/figures/2', title: 'Enchufla · V2', from: '/salsa/figures', index: 2 })
+	);
+	t = arrive(t, A({ to: '/salsa/routines/3', title: 'Loop', from: '/salsa/figures/2', index: 3 }));
+	t = arrive(
+		t,
+		A({ to: '/salsa/figures/1', title: 'Enchufla · V1', from: '/salsa/routines/3', index: 4 })
+	);
+	return t;
+}
+
+/** The back chain from `key`, stopping at the first repeat (a loop) or after 10 steps. */
+function chain(t: Trail, key: string): string[] {
+	const seen: string[] = [key];
+	let cur = t.pages[key]?.opener ?? null;
+	while (cur !== null && seen.length < 10) {
+		seen.push(cur);
+		if (seen.indexOf(cur) !== seen.length - 1) break;
+		cur = t.pages[cur]?.opener ?? null;
+	}
+	return seen;
+}
+
+describe('carried openers never loop', () => {
+	it('a variation step back to a page up the chain keeps its own opener', () => {
+		let t = stepping();
+		t = arrive(
+			t,
+			A({
+				to: '/salsa/figures/2',
+				title: 'Enchufla · V2',
+				from: '/salsa/figures/1',
+				index: 4,
+				prevIndex: 4,
+				kind: 'replace'
+			})
+		);
+		expect(t.pages['/salsa/figures/2'].opener).toBe('/salsa/figures');
+		expect(chain(t, '/salsa/routines/3')).toEqual([
+			'/salsa/routines/3',
+			'/salsa/figures/2',
+			'/salsa/figures'
+		]);
+	});
+});
+
+describe('carryRemoved', () => {
+	it('an archived variation: its sibling takes its opener and its children', () => {
+		let t = opening();
+		t = arrive(
+			t,
+			A({
+				to: '/salsa/figures/12',
+				from: '/salsa/lessons/5',
+				index: 5,
+				prevIndex: 4,
+				intent: 'tab',
+				title: 'Enchufla · Doble'
+			})
+		);
+		const snapshot = JSON.stringify(t);
+		const c = carryRemoved(t, '/salsa/figures/12', '/salsa/figures/13');
+		expect(JSON.stringify(t)).toBe(snapshot);
+		expect(c.pages['/salsa/figures/12']).toBeUndefined();
+		expect(c.pages['/salsa/figures/13'].opener).toBe('/salsa/routines/3');
+		expect(c.pages['/salsa/lessons/5'].opener).toBe('/salsa/figures/13');
+		expect(Object.values(c.last)).not.toContain('/salsa/figures/12');
+		expect(Object.values(c.entries)).not.toContain('/salsa/figures/12');
+		// The arrival that follows (a replace from the gone page) keeps all that.
+		const after = arrive(
+			c,
+			A({
+				to: '/salsa/figures/13',
+				title: 'Enchufla · Simple',
+				from: '/salsa/figures/12',
+				index: 5,
+				prevIndex: 5,
+				kind: 'replace'
+			})
+		);
+		expect(after.pages['/salsa/figures/13'].opener).toBe('/salsa/routines/3');
+		expect(backTarget(after, '/salsa/lessons/5', FB).href).toBe('/salsa/figures/13');
+		expect(after.last['salsa:moves']).toBe('/salsa/figures/13');
+	});
+
+	it("does not make a loop when the sibling is up the archived page's chain", () => {
+		// V2 → R → V1, archive V1: its sibling is V2, which R was opened from.
+		const t = carryRemoved(stepping(), '/salsa/figures/1', '/salsa/figures/2');
+		expect(t.pages['/salsa/figures/2'].opener).toBe('/salsa/figures');
+		expect(t.pages['/salsa/routines/3'].opener).toBe('/salsa/figures/2');
+	});
+
+	it("a child the sibling was opened from goes to the archived page's opener instead", () => {
+		// V1 → L (a lesson), L → V2 (V2's opener L): archive V1 into V2.
+		let t = EMPTY_TRAIL;
+		t = arrive(t, A({ to: '/salsa/figures/1', title: 'V1', kind: 'enter', index: 1 }));
+		t = arrive(t, A({ to: '/salsa/lessons/5', title: 'L', from: '/salsa/figures/1', index: 2 }));
+		t = arrive(t, A({ to: '/salsa/figures/2', title: 'V2', from: '/salsa/lessons/5', index: 3 }));
+		t = carryRemoved(t, '/salsa/figures/1', '/salsa/figures/2');
+		expect(t.pages['/salsa/figures/2'].opener).toBe('/salsa/lessons/5');
+		expect(t.pages['/salsa/lessons/5'].opener).toBeNull();
+	});
+});
+
+describe('slots', () => {
+	it('slotted puts the href in, or takes the slot out; a push drops what is above', () => {
+		const e = { 1: '/salsa', 2: '/salsa/figures', 3: '/salsa/figures/2' };
+		expect(slotted(e, 2, '/salsa/songs', 'replace')).toEqual({
+			1: '/salsa',
+			2: '/salsa/songs',
+			3: '/salsa/figures/2'
+		});
+		expect(slotted(e, 2, '/salsa/songs', 'push')).toEqual({ 1: '/salsa', 2: '/salsa/songs' });
+		expect(slotted(e, 2, null, 'push')).toEqual({ 1: '/salsa' });
+		expect(slotted(e, 3, null, 'replace')).toEqual({ 1: '/salsa', 2: '/salsa/figures' });
+		expect(e).toEqual({ 1: '/salsa', 2: '/salsa/figures', 3: '/salsa/figures/2' });
+	});
+
+	it('vacate: Settings or an error page in a slot is no place for a back to step into', () => {
+		let t = opening();
+		t = vacate(t, 3, 'push');
+		expect(t.entries).toEqual({ 1: '/salsa/routines', 2: '/salsa/routines/3' });
+		expect(backMove(t.entries, 4, '/salsa/figures/12')).toBe('goto');
+		expect(t.pages['/salsa/figures/12']).toBeDefined();
 	});
 });

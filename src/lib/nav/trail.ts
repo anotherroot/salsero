@@ -108,6 +108,53 @@ export function openerFor(t: Trail, to: PageKey, from: PageKey | null): PageKey 
 	return from;
 }
 
+/** Whether `start`'s back chain (itself included) reaches `key`. */
+function chainReaches(t: Trail, start: PageKey | null, key: PageKey): boolean {
+	let cur = start;
+	for (let i = 0; i < CHAIN_LIMIT && cur !== null; i++) {
+		if (cur === key) return true;
+		cur = t.pages[cur]?.opener ?? null;
+	}
+	return false;
+}
+
+/**
+ * The opener `to` takes over from the page it stands in for (a variation
+ * step, an archived variation's sibling): `carried`, unless its chain reaches
+ * `to`, which would make a loop; then `to` keeps its own.
+ */
+function carriedOpener(t: Trail, to: PageKey, carried: PageKey | null): PageKey | null {
+	const existing = t.pages[to]?.opener ?? null;
+	if (carried === null || chainReaches(t, carried, to)) return existing;
+	return carried;
+}
+
+/**
+ * The history slots after an arrival at `index`: `href` in it, or the slot
+ * taken out (null: a page a back must not step into: outside a dance, an
+ * error). A push drops every slot above it: they are gone from history.
+ */
+export function slotted(
+	entries: Record<number, string>,
+	index: number,
+	href: string | null,
+	kind: Arrival['kind']
+): Record<number, string> {
+	const out: Record<number, string> = {};
+	for (const [k, v] of Object.entries(entries)) {
+		const i = Number(k);
+		if (i === index || (kind === 'push' && i > index)) continue;
+		out[i] = v;
+	}
+	if (href !== null) out[index] = href;
+	return out;
+}
+
+/** An arrival that is no place in the trail (outside a dance, an error page): only its slot goes. */
+export function vacate(t: Trail, index: number, kind: Arrival['kind']): Trail {
+	return { ...t, entries: slotted(t.entries, index, null, kind) };
+}
+
 export function arrive(t: Trail, a: Arrival): Trail {
 	if (!isTrailPage(a.to)) return t;
 	const existing = t.pages[a.to];
@@ -121,7 +168,7 @@ export function arrive(t: Trail, a: Arrival): Trail {
 		opener =
 			a.from === null || a.from === a.to
 				? (existing?.opener ?? null)
-				: (t.pages[a.from]?.opener ?? existing?.opener ?? null);
+				: carriedOpener(t, a.to, t.pages[a.from]?.opener ?? null);
 	} else opener = openerFor(t, a.to, a.from);
 
 	const pages = {
@@ -133,10 +180,7 @@ export function arrive(t: Trail, a: Arrival): Trail {
 			title: a.title
 		}
 	};
-	const entries: Record<number, string> = { ...t.entries, [a.index]: a.to + a.search };
-	if (a.kind === 'push') {
-		for (const k of Object.keys(entries)) if (Number(k) > a.index) delete entries[Number(k)];
-	}
+	const entries = slotted(t.entries, a.index, a.to + a.search, a.kind);
 
 	let last = t.last;
 	let lastRoot = t.lastRoot;
@@ -175,6 +219,34 @@ export function forget(t: Trail, key: PageKey): Trail {
 			Object.entries(t.entries).filter(([, v]) => pathOf(v) !== key)
 		) as Record<number, string>
 	};
+}
+
+/**
+ * An archived variation whose figure has siblings: `to`, the sibling the
+ * figure stays on, stands in for it. `to` takes its opener (unless that would
+ * loop) and the pages it opened, and `gone` leaves the trail. Called before
+ * the replace that lands on `to`, which then keeps all of this.
+ */
+export function carryRemoved(t: Trail, gone: PageKey, to: PageKey): Trail {
+	const g = t.pages[gone];
+	// Children first go to the gone page's opener, as for any removal.
+	const f = forget(t, gone);
+	if (!g) return f;
+	const pages = { ...f.pages };
+	const prev = pages[to];
+	pages[to] = {
+		search: prev?.search ?? '',
+		scrollY: prev?.scrollY ?? 0,
+		title: prev?.title ?? g.title,
+		opener: carriedOpener(f, to, g.opener)
+	};
+	// Then to the sibling, unless the sibling's own chain runs through them.
+	const next = { ...f, pages };
+	for (const [k, v] of Object.entries(t.pages)) {
+		if (k === to || k === gone || v.opener !== gone) continue;
+		if (!chainReaches(next, to, k)) pages[k] = { ...pages[k], opener: to };
+	}
+	return next;
 }
 
 /** The key with its kept search. */

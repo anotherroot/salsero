@@ -9,6 +9,7 @@ import {
 	arrive,
 	backMove,
 	backTarget,
+	carryRemoved,
 	EMPTY_TRAIL,
 	forget,
 	goneHref,
@@ -21,6 +22,7 @@ import {
 	removalTarget,
 	scrollFor,
 	tabTarget,
+	vacate,
 	type Arrival,
 	type Intent,
 	type PageKey,
@@ -181,20 +183,28 @@ export function syncTrail(): void {
 		before = null;
 		const it = intent;
 		intent = null;
-		if (!to || !isTrailPage(to.pathname)) return;
+		if (!to) return;
+		const kind = arrivalKind(nav.type, index, prevIndex);
+		// A page outside a dance (Settings, My count) is no place for a band back
+		// to step into: its slot leaves the trail's history.
+		if (!isTrailPage(to.pathname)) {
+			set(vacate(trail.value, index, kind));
+			return;
+		}
 		const path = to.pathname;
 
 		/*
 		 * An error page is never a place to come back to: it does not arrive, so
-		 * no tab reopens on it. A page that is gone (404/410, online) also leaves
-		 * the trail, and a tab or a back that reached it goes on, quietly, to the
-		 * tab's list. Anything else (a 5xx, a refusal) leaves the trail as it was:
-		 * the page may well be back on the next try.
+		 * no tab reopens on it, and its slot is no step for a back. A page that is
+		 * gone (404/410, online) also leaves the trail, and a tab or a back that
+		 * reached it goes on, quietly, to the tab's list. Anything else (a 5xx, a
+		 * refusal) leaves the pages as they were: the page may well be back on the
+		 * next try.
 		 */
 		if (page.status >= 400) {
-			if (!isGone(page.status, navigator.onLine)) return;
-			set(forget(trail.value, path));
-			if (it === 'tab' || it === 'back')
+			const gone = isGone(page.status, navigator.onLine);
+			set(vacate(gone ? forget(trail.value, path) : trail.value, index, kind));
+			if (gone && (it === 'tab' || it === 'back'))
 				// eslint-disable-next-line svelte/no-navigation-without-resolve -- a trail href, built from resolved paths
 				void goto(goneHref(trail.value, path), { replaceState: true });
 			return;
@@ -209,7 +219,7 @@ export function syncTrail(): void {
 			from: nav.from?.url.pathname ?? null,
 			index,
 			prevIndex,
-			kind: arrivalKind(nav.type, index, prevIndex),
+			kind,
 			intent: it
 		};
 		set(arrive(trail.value, a));
@@ -227,7 +237,12 @@ export function syncTrail(): void {
 export async function leaveRemoved(location: string): Promise<void> {
 	const gone = page.url.pathname;
 	const target = removalTarget(trail.value, gone, location);
-	if (!target.carry) set(forget(trail.value, gone));
+	// A sibling variation stands in for an archived one: it takes its opener and the pages it opened.
+	set(
+		target.carry
+			? carryRemoved(trail.value, gone, target.href.split(/[?#]/)[0])
+			: forget(trail.value, gone)
+	);
 	// The intent is set once the sheets have settled: their Back moves are not this arrival.
 	await gotoWhenSettled(target.href, { replaceState: true, invalidateAll: true }, () => {
 		if (target.intent) intend(target.intent);
