@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { untrack } from 'svelte';
 	import type { CallEvery, ClavePattern, CountPattern, Speed } from '$lib/labels';
 
 	export interface PlayerSettings {
@@ -148,7 +149,9 @@
 
 	// The stored `source` is no longer read back: the page decides it, from
 	// `?song=` or the exercise's own memory.
-	let bpm = $state(rememberedBpm ?? num(stored.bpm, 60, 300, defaultBpm));
+	// A seed, read once: the Stepper owns the tempo after that. Nothing in the
+	// player links to another player, so these props do not change under it.
+	let bpm = $state(untrack(() => rememberedBpm ?? num(stored.bpm, 60, 300, defaultBpm)));
 	// `count` and `clave` need to do two things at once: start from a value
 	// that depends on `dance` (through `pick`, below) AND stay editable by the
 	// pickers afterwards. A plain `$state` can only do the second — its

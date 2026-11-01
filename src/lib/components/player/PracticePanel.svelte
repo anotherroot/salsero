@@ -1,6 +1,6 @@
 <!-- src/lib/components/player/PracticePanel.svelte -->
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import CountChips from './CountChips.svelte';
 	import ClaveChips from './ClaveChips.svelte';
 	import SongProgress from './SongProgress.svelte';
@@ -52,22 +52,31 @@
 	/** The filled Play button, at the board's 52 px rather than the usual 44. */
 	const PLAY = swap(iconButton('filled'), 'h-11 w-11', 'h-[52px] w-[52px]');
 
-	// Seeded once from what the exercise remembers. The popup remounts this
-	// component after every logged set, so "once" is per set, which is right.
-	const remembered = parsePracticeConfig(exercise.practiceJson, dance);
-	const start = practiceStart(
-		exercise,
-		songs.map((s) => s.id)
-	);
-	const songGone = start.songGone;
+	// Seeded once from what the exercise remembers, on purpose (`untrack`): the
+	// popup remounts this component after every logged set, so "once" is per
+	// set, which is right. Following the props live would undo the user's own
+	// picks whenever the page reloads its data.
+	const seed = untrack(() => {
+		const remembered = parsePracticeConfig(exercise.practiceJson, dance);
+		return {
+			remembered,
+			start: practiceStart(
+				exercise,
+				songs.map((s) => s.id)
+			),
+			bpm: exercise.countBpm ?? DEFAULT_PRACTICE_BPM,
+			callEvery: cue ? remembered.callEvery : null
+		};
+	});
+	const songGone = seed.start.songGone;
 
-	let source = $state<'count' | 'song'>(start.source);
-	let songId = $state<number | null>(start.songId);
-	let bpm = $state(exercise.countBpm ?? DEFAULT_PRACTICE_BPM);
-	let count = $state<CountPattern>(remembered.count);
-	let clave = $state<ClavePattern | null>(remembered.clave);
-	let speed = $state<Speed>(remembered.speed);
-	let callEvery = $state<CueEvery | null>(cue ? remembered.callEvery : null);
+	let source = $state<'count' | 'song'>(seed.start.source);
+	let songId = $state<number | null>(seed.start.songId);
+	let bpm = $state(seed.bpm);
+	let count = $state<CountPattern>(seed.remembered.count);
+	let clave = $state<ClavePattern | null>(seed.remembered.clave);
+	let speed = $state<Speed>(seed.remembered.speed);
+	let callEvery = $state<CueEvery | null>(seed.callEvery);
 	let voiceVolume = $state(1);
 	let expanded = $state(songGone);
 

@@ -49,7 +49,7 @@
 </script>
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
@@ -113,7 +113,9 @@
 		resolve('/[dance]/exercises/[id]', { dance: dance.slug, id: String(exercise.id) })
 	);
 
-	let payload = $state<PracticePayload | null>(initial);
+	// A seed, read once: the popup is keyed by exercise (Today's `{#key}`), and
+	// after that `load()` keeps the payload current.
+	let payload = $state<PracticePayload | null>(untrack(() => initial));
 	let loadError = $state<string | null>(null);
 	let busy = $state(false);
 	let justLogged = $state(false);

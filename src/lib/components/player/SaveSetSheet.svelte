@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import PickerField from '$lib/components/picker/PickerField.svelte';
@@ -33,9 +34,12 @@
 
 	let { exercise, exercises, summary, durationS, run, fail, onclose }: Props = $props();
 
-	let rating = $state<number | null>(fail?.rating ?? null);
+	// Seeded once from a failed save (a page reloaded without JS). While the
+	// sheet stays mounted `fail` only echoes what these already hold, and
+	// following it would undo a change made after the refusal.
+	let rating = $state<number | null>(untrack(() => fail?.rating ?? null));
 	let busy = $state(false);
-	let exerciseId = $state<number | null>(fail?.exerciseId ?? null);
+	let exerciseId = $state<number | null>(untrack(() => fail?.exerciseId ?? null));
 	const formId = $props.id();
 </script>
 

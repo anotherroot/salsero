@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { clock } from '$lib/format';
 	import type { CountPattern, Speed } from '$lib/labels';
 	import type { Dance } from '$lib/dances/dances';
@@ -76,7 +76,8 @@
 	}: Props = $props();
 
 	let paused = $state(false);
-	let voiceVolume = $state(initialVoiceVolume);
+	// The setup's volume, read once: from here on the slider is the source.
+	let voiceVolume = $state(untrack(() => initialVoiceVolume));
 	/** Polled rather than read once: nothing else in this component re-renders on its own each tick. */
 	let elapsed = $state(0);
 
