@@ -98,8 +98,12 @@ bottom bar has four tabs with icons; nothing the app does today is lost.
 
 The design system board (sections 02–03) is the reference; these are its
 values. `src/routes/layout.css` gets them as CSS custom properties, set per
-dance and per scheme exactly as today's `[data-dance]` / `prefers-color-scheme`
-rules do.
+dance and per scheme by `[data-dance]` and `<html data-theme>`. Since 2026-11-01 the
+scheme is a Settings choice (System, Light, Dark; a cookie per browser,
+`$lib/theme/scheme.ts`): the hook writes it into `<html data-theme-choice>` and
+the script in `src/app.html` resolves it to `data-theme` before the first paint,
+asking `prefers-color-scheme` for System. An attribute rather than the media
+query, so one copy of the dark colours serves both System and Dark.
 
 | role | salsa light | salsa dark | bachata light | bachata dark |
 |---|---|---|---|---|

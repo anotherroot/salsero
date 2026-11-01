@@ -47,7 +47,7 @@
 
 <div
 	class="fixed inset-x-0 top-0 z-[35] overflow-hidden bg-ground"
-	style="bottom: {tabs ? 'calc(var(--tab-bar-h) + env(safe-area-inset-bottom))' : '0'}"
+	style="bottom: {tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0'}"
 	aria-busy="true"
 >
 	<div class="mx-auto max-w-[560px]">
@@ -63,8 +63,8 @@
 					: 'pb-8'}"
 			style="padding-top: calc({skeleton.kind === 'figure'
 				? 22
-				: 30}px + env(safe-area-inset-top)); --focus-ring: var(--color-band-ink){skeleton.kind ===
-				'today' || skeleton.kind === 'routine'
+				: 30}px + var(--safe-top)); --focus-ring: var(--color-band-ink){skeleton.kind === 'today' ||
+			skeleton.kind === 'routine'
 				? '; padding-bottom: 92px'
 				: skeleton.kind === 'figure'
 					? '; padding-bottom: 52px'

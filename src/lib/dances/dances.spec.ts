@@ -21,6 +21,11 @@ describe('danceInPath', () => {
 		expect(danceInPath('/bachata/')).toBe('bachata');
 		expect(danceInPath('/salsa-x')).toBeNull();
 	});
+	it('stops at a query or a hash', () => {
+		expect(danceInPath('/bachata?app=android')).toBe('bachata');
+		expect(danceInPath('/salsa#top')).toBe('salsa');
+		expect(danceInPath('/settings?x=/bachata')).toBeNull();
+	});
 });
 
 describe('the dance registry', () => {

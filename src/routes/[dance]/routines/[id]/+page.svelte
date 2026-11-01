@@ -956,7 +956,7 @@
 
 <Toast
 	toast={toast && { id: toast.id, message: toast.message, action: 'Undo' }}
-	bottom={selecting ? `calc(${barHeight}px + 0.5rem)` : 'calc(1rem + env(safe-area-inset-bottom))'}
+	bottom={selecting ? `calc(${barHeight}px + 0.5rem)` : 'calc(1rem + var(--safe-bottom))'}
 	onaction={() => {
 		const t = toast;
 		toast = null;

@@ -17,7 +17,7 @@
 <!-- `--icon-knockout`: filled icons cut their details out in the bar's colour. -->
 <nav
 	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg"
-	style="height: calc(var(--tab-bar-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); --icon-knockout: var(--color-tab-bg)"
+	style="height: calc(var(--tab-bar-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); --icon-knockout: var(--color-tab-bg)"
 	aria-label="Main"
 >
 	<ul

@@ -14,6 +14,7 @@
 	import { DANCES } from '$lib/dances/dances';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
+	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
 	import type { ActionResult } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 
@@ -35,7 +36,17 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<'style' | 'size' | null>(null);
+	let sheet = $state<'style' | 'size' | 'theme' | null>(null);
+
+	const themeOptions = THEME_CHOICES.map((t) => ({ value: t, label: THEME_LABEL[t] }));
+
+	/** Shown at once; put back if the server refuses it. */
+	async function saveTheme(theme: ThemeChoice) {
+		const before = data.theme;
+		showChoice(theme);
+		const result = await act('theme', { theme });
+		if (failed(result)) showChoice(before);
+	}
 
 	let toast = $state<ToastState | null>(null);
 	let seq = 0;
@@ -117,6 +128,20 @@
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</button>
 	</div>
+
+	<span class="{SECTION_LABEL} mt-[14px]">Appearance</span>
+	<div class={GROUP}>
+		<button
+			type="button"
+			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			onclick={() => (sheet = 'theme')}
+		>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Theme</span>
+			<span class="text-[15px] font-semibold text-muted">{THEME_LABEL[data.theme]}</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
+	</div>
+	<p class="px-4 pt-0.5 text-[13px] text-muted">For this browser or phone only.</p>
 
 	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
 	<div class={GROUP}>
@@ -216,6 +241,19 @@
 	onclose={() => (sheet = null)}
 />
 <ChoiceSheet
+	open={sheet === 'theme'}
+	title="Theme"
+	intro="System follows the phone's or computer's own light or dark setting."
+	legend="Theme"
+	options={themeOptions}
+	value={data.theme}
+	onpick={(theme) => {
+		sheet = null;
+		void saveTheme(theme as ThemeChoice);
+	}}
+	onclose={() => (sheet = null)}
+/>
+<ChoiceSheet
 	open={sheet === 'size'}
 	title="Compress videos to"
 	legend="Size"
@@ -238,5 +276,5 @@
 	}}
 	onaction={() => toast?.undo?.()}
 	ondismiss={() => (toast = null)}
-	bottom="calc(1rem + env(safe-area-inset-bottom))"
+	bottom="calc(1rem + var(--safe-bottom))"
 />

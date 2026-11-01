@@ -71,7 +71,7 @@
 {/snippet}
 
 {#if variant === 'panel'}
-	<div class="flex flex-col gap-1.5 bg-ground pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)]">
+	<div class="flex flex-col gap-1.5 bg-ground pt-1.5 pb-[max(var(--safe-bottom),22px)]">
 		<div class="flex items-center pr-2 pl-5">
 			<span class="font-display text-[26px] font-extrabold tracking-[-0.01em] tabular-nums"
 				>{progress}</span

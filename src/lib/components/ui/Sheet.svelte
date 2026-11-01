@@ -170,9 +170,7 @@
 	{#if toast}
 		<div
 			class="absolute inset-x-0"
-			style:bottom={footer
-				? `calc(${footerH}px + max(env(safe-area-inset-bottom), 16px) + 8px)`
-				: '16px'}
+			style:bottom={footer ? `calc(${footerH}px + max(var(--safe-bottom), 16px) + 8px)` : '16px'}
 		>
 			{@render toast()}
 		</div>
@@ -228,7 +226,7 @@
 		flex: 1;
 		flex-direction: column;
 		padding-top: 8px;
-		padding-bottom: max(env(safe-area-inset-bottom), 16px);
+		padding-bottom: max(var(--safe-bottom), 16px);
 	}
 
 	.grabber {
