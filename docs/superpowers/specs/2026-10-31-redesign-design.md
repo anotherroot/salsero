@@ -280,7 +280,9 @@ rules the boards follow that are not obvious from looking at them.
 - Settings are read on the page and edited behind the band's pencil (× Stop
   editing, Save pinned), as every other edit screen.
 - Video under a log or a lesson: Mirror, a 4-way speed switch and Full screen
-  in a control row beneath it.
+  in a control row beneath it. The picture carries our own controls, not the
+  browser's (since 2026-11-01): a play disc, then the time and a seek bar with
+  the sections as bands; a tap plays it in place.
 
 ### Moves
 
@@ -350,7 +352,8 @@ rules the boards follow that are not obvious from looking at them.
 - New lesson: Title, day (today by default), notes, "Go over it again".
 - Lesson page order: notes → the review exercise → Videos → Links → Figures →
   Routines → Exercises.
-- Video card: inline video, Full screen, Mirror toggle, speed switch, size,
+- Video card: inline video (our controls on the picture, a tap plays it in
+  place — as under a log), Full screen, Mirror toggle, speed switch, size,
   delete; sections below with play, range, what each links to or a muted "not
   linked", and an accent link button.
 - Uploads: a batch card ("Uploading 2 of 3… 46%"); failures and unplayable

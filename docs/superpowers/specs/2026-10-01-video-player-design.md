@@ -48,9 +48,10 @@
 
 A move is learned from a recording by taking it apart: slow it right down,
 step back a second, watch the same four counts again and again. The inline
-player is the browser's own `<video controls>`, and its fullscreen is the
+player was the browser's own `<video controls>`, and its fullscreen was the
 browser's too — on an iPhone that is iOS's player, which shows no web
-controls at all. So the tools for taking a move apart cannot live there.
+controls at all. So the tools for taking a move apart could not live there.
+Since 2026-11-01 the inline player draws its own controls too (below).
 
 This adds our own full-screen player, opened from any uploaded video, with
 ±1 s steps, 0.25×–1× speed, mirror, and **spots**: saved moments and
@@ -64,10 +65,31 @@ Audio-only figure recordings keep the inline player only.
 
 ## The inline player
 
-`ui/VideoFrame.svelte` keeps its native controls, Mirror and the speed row
-(now 0.25 / 0.5 / 0.75 / 1). It gains one button, **Full screen**, next to
-Mirror, shown for `kind === 'video'` only. Mirror and speed are shared with the
-full-screen player through `src/lib/video-prefs.ts`, as today.
+`ui/VideoFrame.svelte` is every video that sits in a page: the lesson page,
+the figure page's recordings, the Today log popups and the exercise page.
+Under the picture are Mirror, the speed row (0.25 / 0.5 / 0.75 / 1) and
+**Full screen**, as the redesign board draws them. Mirror and speed are shared
+with the full-screen player through `src/lib/video-prefs.ts`.
+
+Since 2026-11-01 the picture carries our own controls instead of the
+browser's: no volume, no ⋮ menu, no browser full screen — volume is the
+phone's. Before the first play it is the board's thumbnail: a dark play disc
+in the centre and the length in a pill at the bottom right. A tap on the
+picture plays it in place, not full screen; a second tap pauses. Once it has
+played, a dark fade at the bottom holds the time (`0:09 / 1:08`) and the
+full-screen player's seek bar, with the video's sections as bands and its
+points as ticks; the disc comes back while it is paused and a spinner shows
+while it waits for data. The bar takes the keyboard (←/→ move 5 s). Mirror
+flips the picture only, never the controls. What the overlay shows for a
+state, the time line and the bands are decided in `src/lib/video/inline.ts`.
+
+The sections are fetched on the first play and again when the full-screen
+player closes, so a page scrolled past makes no extra request. A failed fetch
+leaves the bar without bands. Opening Full screen pauses the inline video;
+closing it lands the inline video on the player's time.
+
+Audio-only figure recordings keep the browser's `<audio controls>`. The
+mockups are `docs/superpowers/design-kit/screens/inline.py`.
 
 ## The full-screen player
 
