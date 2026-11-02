@@ -21,6 +21,7 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
+import { users } from '$lib/server/db/schema';
 import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import {
 	createSongFromUrl,
@@ -277,5 +278,20 @@ describe('Song details', () => {
 			location: '/bachata/songs'
 		});
 		expect(() => songPage.load(post('bachata', {}, String(id)) as never)).toThrow();
+	});
+});
+
+describe('Add a song when the person is at the storage limit', () => {
+	it('is refused with 413 and queues nothing', async () => {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u@example.com', passwordHash: 'x', storageLimitBytes: 0 })
+			.run();
+		expect(
+			await call(
+				songList.actions.addUrl,
+				post('salsa', { url: 'https://youtu.be/dQw4w9WgXcQ', title: 'T', style: 'son' })
+			)
+		).toMatchObject({ status: 413, data: { field: 'url' } });
+		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
 	});
 });

@@ -91,4 +91,13 @@ describe('admin', () => {
 		expect(r.url).toMatch(/^http:\/\/localhost\/join\?code=[\w-]{43}$/);
 		expect(r.qr.size).toBeGreaterThan(20);
 	});
+
+	it('the login rate limit applies to Join too', async () => {
+		for (let i = 0; i < 12; i++) {
+			const { event } = post({ code: 'nope', email: 'r@example.com', password: 'Correct-Horse-9' });
+			await run(event);
+		}
+		const { event } = post({ code: 'nope', email: 'r@example.com', password: 'Correct-Horse-9' });
+		expect(await run(event)).toMatchObject({ status: 429 });
+	});
 });

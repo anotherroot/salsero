@@ -46,7 +46,7 @@ export async function deleteLinkFrom(request: Request, db: Db, owner: LinkOwner)
 /** Save a YouTube link as a video — on the figure and lesson pages only. See `video-downloads.ts`. */
 export async function saveVideoFrom(request: Request, db: Db, owner: LinkOwner, userId: string) {
 	const id = int(await request.formData(), 'linkId');
-	const room = roomFor(db, userId, 0);
+	const room = roomFor(db, userId, 1);
 	if (!room.ok) return fail(413, { action: 'saveVideo' as const, message: room.message });
 	const result = id === undefined ? 'not-found' : requestVideoDownload(db, owner, id);
 	if (result === 'not-found') {
@@ -63,7 +63,7 @@ export async function saveVideoFrom(request: Request, db: Db, owner: LinkOwner, 
 
 export async function retryVideoFrom(request: Request, db: Db, owner: LinkOwner, userId: string) {
 	const id = int(await request.formData(), 'linkId');
-	const room = roomFor(db, userId, 0);
+	const room = roomFor(db, userId, 1);
 	if (!room.ok) return fail(413, { action: 'retryVideo' as const, message: room.message });
 	if (id === undefined || !retryVideoDownload(db, owner, id)) {
 		return fail(404, { action: 'retryVideo' as const, message: 'That link was already removed.' });

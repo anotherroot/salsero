@@ -48,8 +48,8 @@ export const actions: Actions = {
 			});
 		}
 		// The size is unknown until the worker has it: refuse only a person already
-		// at or over the limit; it is accepted when it lands.
-		const room = roomFor(getDb(), wall.userId, 0);
+		// at or over the limit (one byte more would not fit); it is accepted when it lands.
+		const room = roomFor(getDb(), wall.userId, 1);
 		if (!room.ok) return fail(413, { field: 'url' as const, message: room.message, ...kept });
 		createSongFromUrl(getDb(), wall, { url, title: title ?? '', style });
 		return { ok: true };
