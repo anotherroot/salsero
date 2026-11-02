@@ -43,6 +43,8 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 			lastUsedAt: deviceTokens.lastUsedAt,
 			id: users.id,
 			email: users.email,
+			firstName: users.firstName,
+			lastName: users.lastName,
 			timezone: users.timezone,
 			isAdmin: users.isAdmin
 		})
@@ -54,7 +56,14 @@ export function userForDeviceToken(db: Db, token: string, now: number) {
 	if (row.lastUsedAt === null || now - row.lastUsedAt >= TOUCH_EVERY_MS) {
 		db.update(deviceTokens).set({ lastUsedAt: now }).where(eq(deviceTokens.id, row.deviceId)).run();
 	}
-	return { id: row.id, email: row.email, timezone: row.timezone, isAdmin: row.isAdmin };
+	return {
+		id: row.id,
+		email: row.email,
+		firstName: row.firstName,
+		lastName: row.lastName,
+		timezone: row.timezone,
+		isAdmin: row.isAdmin
+	};
 }
 
 export function listDevices(db: Db, userId: string): DeviceRow[] {

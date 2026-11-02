@@ -56,6 +56,8 @@ describe('join', () => {
 		const { event, set } = post({
 			code,
 			email: 'New@Example.com',
+			firstName: 'Ana',
+			lastName: 'Kranjc',
 			password: 'Correct-Horse-9',
 			timezone: 'UTC'
 		});
@@ -64,8 +66,30 @@ describe('join', () => {
 		expect(db.select().from(sessions).all()).toHaveLength(1);
 	});
 
+	it('no first or last name fails with the field marked and makes no user', async () => {
+		const { code } = createInvite(db, 'admin', Date.now());
+		const base = { code, email: 'n@example.com', password: 'Correct-Horse-9' };
+		const noFirst = (await run(post({ ...base, lastName: 'K' }).event)) as {
+			status: number;
+			data: { field: string };
+		};
+		expect(noFirst.status).toBe(400);
+		expect(noFirst.data.field).toBe('firstName');
+		const noLast = (await run(post({ ...base, firstName: 'Ana' }).event)) as {
+			data: { field: string };
+		};
+		expect(noLast.data.field).toBe('lastName');
+		expect(db.select().from(users).all()).toHaveLength(1);
+	});
+
 	it('a dead code gets the refusal and no account', async () => {
-		const { event } = post({ code: 'nope', email: 'n@example.com', password: 'Correct-Horse-9' });
+		const { event } = post({
+			code: 'nope',
+			firstName: 'Ana',
+			lastName: 'K',
+			email: 'n@example.com',
+			password: 'Correct-Horse-9'
+		});
 		const res = (await run(event)) as { status: number; data: { message: string } };
 		expect(res.status).toBe(400);
 		expect(res.data.message).toBe('This invite no longer works. Ask for a new one.');
@@ -94,10 +118,22 @@ describe('admin', () => {
 
 	it('the login rate limit applies to Join too', async () => {
 		for (let i = 0; i < 12; i++) {
-			const { event } = post({ code: 'nope', email: 'r@example.com', password: 'Correct-Horse-9' });
+			const { event } = post({
+				code: 'nope',
+				firstName: 'Ana',
+				lastName: 'K',
+				email: 'r@example.com',
+				password: 'Correct-Horse-9'
+			});
 			await run(event);
 		}
-		const { event } = post({ code: 'nope', email: 'r@example.com', password: 'Correct-Horse-9' });
+		const { event } = post({
+			code: 'nope',
+			firstName: 'Ana',
+			lastName: 'K',
+			email: 'r@example.com',
+			password: 'Correct-Horse-9'
+		});
 		expect(await run(event)).toMatchObject({ status: 429 });
 	});
 });

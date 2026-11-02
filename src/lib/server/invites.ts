@@ -5,11 +5,16 @@ import type { Db } from './db';
 import { invites, users } from './db/schema';
 import { rejectWeak } from './admin';
 import { hashPassword } from './password';
+import { cleanName } from '$lib/names';
 import { DEFAULT_STORAGE_LIMIT_BYTES, INVITE_TTL_MS } from '$lib/limits';
 
 export type JoinResult =
 	| { ok: true; userId: string }
-	| { ok: false; reason: 'invite' | 'email' | 'email-taken' | 'weak'; message: string };
+	| {
+			ok: false;
+			reason: 'invite' | 'email' | 'email-taken' | 'weak' | 'first-name' | 'last-name';
+			message: string;
+	  };
 
 export const INVITE_REFUSAL = 'This invite no longer works. Ask for a new one.';
 
@@ -66,12 +71,31 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function redeemInvite(
 	db: Db,
-	input: { code: string; email: string; password: string; timezone: string },
+	input: {
+		code: string;
+		email: string;
+		password: string;
+		timezone: string;
+		firstName: string;
+		lastName: string;
+	},
 	now: number
 ): Promise<JoinResult> {
 	const email = input.email.trim().toLowerCase();
 	if (!EMAIL.test(email)) {
 		return { ok: false, reason: 'email', message: 'Enter a valid email address.' };
+	}
+	const firstName = cleanName(input.firstName);
+	if (!firstName) {
+		return {
+			ok: false,
+			reason: 'first-name',
+			message: 'Enter your first name (up to 60 letters).'
+		};
+	}
+	const lastName = cleanName(input.lastName);
+	if (!lastName) {
+		return { ok: false, reason: 'last-name', message: 'Enter your last name (up to 60 letters).' };
 	}
 	const weak = rejectWeak(input.password);
 	if (weak) return { ok: false, reason: 'weak', message: `Password ${weak}.` };
@@ -104,6 +128,8 @@ export async function redeemInvite(
 					.values({
 						id,
 						email,
+						firstName,
+						lastName,
 						passwordHash,
 						isAdmin: false,
 						storageLimitBytes: DEFAULT_STORAGE_LIMIT_BYTES,

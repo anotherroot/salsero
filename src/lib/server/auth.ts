@@ -26,6 +26,8 @@ export function validateSession(id: string | undefined) {
 			.select({
 				userId: users.id,
 				email: users.email,
+				firstName: users.firstName,
+				lastName: users.lastName,
 				// Carried on the session so the day boundary costs no extra query.
 				timezone: users.timezone,
 				isAdmin: users.isAdmin

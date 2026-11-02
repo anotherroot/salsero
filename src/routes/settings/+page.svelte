@@ -19,10 +19,12 @@
 	} from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
+	import { fullName } from '$lib/names';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
+	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
@@ -49,7 +51,9 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<'style' | 'size' | 'theme' | 'ask' | null>(null);
+	let sheet = $state<'style' | 'size' | 'theme' | 'ask' | 'name' | null>(null);
+	let naming = $state(false);
+	let nameError = $state<{ field?: 'firstName' | 'lastName'; message: string } | null>(null);
 	let asking = $state(false);
 	let askError = $state('');
 
@@ -287,6 +291,20 @@
 
 	<span class="{SECTION_LABEL} mt-[14px]">Account</span>
 	<div class={GROUP}>
+		<button
+			type="button"
+			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			onclick={() => {
+				nameError = null;
+				sheet = 'name';
+			}}
+		>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Name</span>
+			<span class="truncate text-[15px] font-semibold text-muted">
+				{fullName({ ...data.name, email: data.user?.email ?? '' })}
+			</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
 		<div class="{ROW} min-h-16 pr-1.5">
 			<LeadTile icon="solo" />
 			<span class="flex min-w-0 flex-1 flex-col">
@@ -378,6 +396,50 @@
 	{#snippet footer()}
 		<button type="submit" form="ask-more" class={button('primary', 'md', true)} aria-busy={asking}>
 			Ask for more
+		</button>
+	{/snippet}
+</Sheet>
+
+<Sheet title="Name" open={sheet === 'name'} onclose={() => (sheet = null)}>
+	<form
+		id="edit-name"
+		method="POST"
+		action="?/name"
+		class="flex flex-col gap-3.5"
+		use:guarded={{
+			label: 'Your name',
+			submit: ({ cancel }) => {
+				if (naming) return cancel();
+				nameError = null;
+				naming = true;
+				return async ({ result, update }) => {
+					if (result.type === 'failure') {
+						nameError = {
+							field: result.data?.field as 'firstName' | 'lastName' | undefined,
+							message: String(result.data?.message ?? 'Could not save.')
+						};
+					}
+					try {
+						await update({ reset: false });
+						if (result.type === 'success') sheet = null;
+					} finally {
+						naming = false;
+					}
+				};
+			}
+		}}
+	>
+		<NameFields
+			idPrefix="settings-name"
+			firstName={data.name.firstName}
+			lastName={data.name.lastName}
+			field={nameError?.field}
+			message={nameError?.message}
+		/>
+	</form>
+	{#snippet footer()}
+		<button type="submit" form="edit-name" class={button('primary', 'md', true)} aria-busy={naming}>
+			Save
 		</button>
 	{/snippet}
 </Sheet>

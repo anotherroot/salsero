@@ -2,6 +2,9 @@
 interface SessionUser {
 	id: string;
 	email: string;
+	/** Null until the person has been to /welcome (accounts made before names). */
+	firstName: string | null;
+	lastName: string | null;
 	/** IANA zone deciding when "today" rolls over. See `src/lib/day/day.ts`. */
 	timezone: string;
 	/** The admin invites people and sees their storage. */

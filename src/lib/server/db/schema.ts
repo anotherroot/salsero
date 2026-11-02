@@ -34,6 +34,9 @@ export const users = sqliteTable('users', {
 	id: text('id').primaryKey(),
 	email: text('email').notNull().unique(),
 	passwordHash: text('password_hash').notNull(),
+	/** Asked at Join, or on /welcome for an account made before names. Null until then. */
+	firstName: text('first_name'),
+	lastName: text('last_name'),
 	/** IANA zone that decides when "today" rolls over. See `src/lib/day/day.ts`. */
 	timezone: text('timezone').notNull().default('Europe/Ljubljana'),
 	createdAt: createdAt(),

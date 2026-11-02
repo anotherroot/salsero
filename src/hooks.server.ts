@@ -4,6 +4,7 @@ import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
+import { needsName } from '$lib/names';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
@@ -47,6 +48,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		? {
 				id: session.userId,
 				email: session.email,
+				firstName: session.firstName,
+				lastName: session.lastName,
 				timezone: session.timezone,
 				isAdmin: session.isAdmin
 			}
@@ -81,6 +84,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	if (event.locals.user && (path === '/login' || path === '/join')) {
 		throw redirect(303, '/');
+	}
+	// Accounts made before names are asked for one before anything else.
+	if (needsName(path, event.locals.user)) {
+		throw redirect(303, `/welcome?next=${encodeURIComponent(path + event.url.search)}`);
 	}
 
 	// Light or dark, as chosen in Settings: written into <html> for app.html's script.
