@@ -8,9 +8,13 @@ import { putCountTake } from './countTakes';
 import { U1_SALSA, U2_SALSA } from './test-walls';
 import {
 	askForMore,
+	listOpenRequests,
+	listPeople,
 	listStorageItems,
 	openRequest,
+	resolveRequest,
 	roomFor,
+	setStorageLimit,
 	storageOf,
 	usedBytes
 } from './storage';
@@ -194,5 +198,63 @@ describe('askForMore', () => {
 		db.update(storageRequests).set({ resolvedAt: 1500, outcome: 'declined' }).run();
 		expect(openRequest(db, 'u1')).toBeNull();
 		expect(askForMore(db, 'u1', null, 2000)).toBe('asked');
+	});
+});
+
+describe('admin: people, limits and requests', () => {
+	const GB = 1024 ** 3;
+	beforeEach(() => {
+		db = openDb(':memory:');
+		user('a', 1 * GB);
+		user('b', null);
+	});
+
+	it('listPeople and listOpenRequests expose numbers and email only', () => {
+		recording(U1_SALSA, 'Secret figure', 5 * MB);
+		askForMore(db, 'a', 'a note', 5);
+		expect(Object.keys(listPeople(db)[0]).sort()).toEqual(
+			['createdAt', 'email', 'id', 'isAdmin', 'limitBytes', 'usedBytes'].sort()
+		);
+		expect(Object.keys(listOpenRequests(db)[0]).sort()).toEqual(
+			['createdAt', 'email', 'id', 'limitBytes', 'note', 'usedBytes', 'userId'].sort()
+		);
+		expect(listOpenRequests(db)[0]).toMatchObject({ email: 'a@example.com', limitBytes: GB });
+	});
+
+	it('granting sets the limit and closes the request; settings sees none open', () => {
+		askForMore(db, 'a', null, 5);
+		const [req] = listOpenRequests(db);
+		expect(resolveRequest(db, req.id, 'granted', 2 * GB, 9)).toBe(true);
+		expect(storageOf(db, 'a').limitBytes).toBe(2 * GB);
+		expect(listOpenRequests(db)).toEqual([]);
+		expect(openRequest(db, 'a')).toBeNull();
+		expect(askForMore(db, 'a', null, 10)).toBe('asked');
+		const row = db.select().from(storageRequests).all()[0];
+		expect(row).toMatchObject({ outcome: 'granted', grantedLimitBytes: 2 * GB, resolvedAt: 9 });
+	});
+
+	it('declining closes it and leaves the limit', () => {
+		askForMore(db, 'a', null, 5);
+		const [req] = listOpenRequests(db);
+		expect(resolveRequest(db, req.id, 'declined', null, 9)).toBe(true);
+		expect(storageOf(db, 'a').limitBytes).toBe(GB);
+		expect(db.select().from(storageRequests).all()[0].outcome).toBe('declined');
+		expect(resolveRequest(db, req.id, 'granted', 2 * GB, 10)).toBe(false);
+	});
+
+	it('refuses bad limits and unknown ids', () => {
+		askForMore(db, 'a', null, 5);
+		const [req] = listOpenRequests(db);
+		for (const bad of [0, -5, 1.5, NaN, null]) {
+			expect(resolveRequest(db, req.id, 'granted', bad as number, 9)).toBe(false);
+		}
+		expect(listOpenRequests(db)).toHaveLength(1);
+		expect(setStorageLimit(db, 'a', 0)).toBe(false);
+		expect(setStorageLimit(db, 'a', 2.5)).toBe(false);
+		expect(setStorageLimit(db, 'nobody', GB)).toBe(false);
+		expect(setStorageLimit(db, 'a', null)).toBe(true);
+		expect(storageOf(db, 'a').limitBytes).toBeNull();
+		expect(setStorageLimit(db, 'a', 3 * GB)).toBe(true);
+		expect(storageOf(db, 'a').limitBytes).toBe(3 * GB);
 	});
 });

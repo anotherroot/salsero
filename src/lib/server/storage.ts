@@ -259,3 +259,120 @@ export function askForMore(
 		return 'asked';
 	});
 }
+
+function validLimit(limitBytes: number | null): boolean {
+	return limitBytes === null || (Number.isSafeInteger(limitBytes) && limitBytes > 0);
+}
+
+/**
+ * Everyone, oldest first. Numbers and the email only: the admin must not see
+ * what anyone has (anti-goal), so nothing else is selected.
+ */
+export function listPeople(db: Db): {
+	id: string;
+	email: string;
+	createdAt: number;
+	usedBytes: number;
+	limitBytes: number | null;
+	isAdmin: boolean;
+}[] {
+	return db
+		.select({
+			id: users.id,
+			email: users.email,
+			createdAt: users.createdAt,
+			limit: users.storageLimitBytes,
+			isAdmin: users.isAdmin
+		})
+		.from(users)
+		.orderBy(users.createdAt, users.email)
+		.all()
+		.map((u) => ({
+			id: u.id,
+			email: u.email,
+			createdAt: u.createdAt,
+			usedBytes: usedBytes(db, u.id),
+			limitBytes: u.limit,
+			isAdmin: u.isAdmin
+		}));
+}
+
+/** Open requests, oldest first, with the asker's numbers. */
+export function listOpenRequests(db: Db): {
+	id: number;
+	userId: string;
+	email: string;
+	note: string | null;
+	createdAt: number;
+	usedBytes: number;
+	limitBytes: number | null;
+}[] {
+	return db
+		.select({
+			id: storageRequests.id,
+			userId: storageRequests.userId,
+			email: users.email,
+			note: storageRequests.note,
+			createdAt: storageRequests.createdAt,
+			limit: users.storageLimitBytes
+		})
+		.from(storageRequests)
+		.innerJoin(users, eq(users.id, storageRequests.userId))
+		.where(isNull(storageRequests.resolvedAt))
+		.orderBy(storageRequests.createdAt, storageRequests.id)
+		.all()
+		.map((r) => ({
+			id: r.id,
+			userId: r.userId,
+			email: r.email,
+			note: r.note,
+			createdAt: r.createdAt,
+			usedBytes: usedBytes(db, r.userId),
+			limitBytes: r.limit
+		}));
+}
+
+/** Sets one person's limit (null = no limit). False when nobody has that id or the limit is not valid. */
+export function setStorageLimit(db: Db, userId: string, limitBytes: number | null): boolean {
+	if (!validLimit(limitBytes)) return false;
+	return (
+		db.update(users).set({ storageLimitBytes: limitBytes }).where(eq(users.id, userId)).run()
+			.changes === 1
+	);
+}
+
+/**
+ * Closes an open request. Granted sets the person's limit in the same
+ * transaction; declined leaves it alone. False when the request is missing,
+ * already closed, or the limit is not valid.
+ */
+export function resolveRequest(
+	db: Db,
+	id: number,
+	outcome: 'granted' | 'declined',
+	limitBytes: number | null,
+	now: number
+): boolean {
+	if (outcome !== 'granted' && outcome !== 'declined') return false;
+	if (outcome === 'granted' && (limitBytes === null || !validLimit(limitBytes))) return false;
+	return db.transaction((tx) => {
+		const req = tx
+			.select()
+			.from(storageRequests)
+			.where(and(eq(storageRequests.id, id), isNull(storageRequests.resolvedAt)))
+			.get();
+		if (!req) return false;
+		tx.update(storageRequests)
+			.set({
+				resolvedAt: now,
+				outcome,
+				grantedLimitBytes: outcome === 'granted' ? limitBytes : null
+			})
+			.where(eq(storageRequests.id, id))
+			.run();
+		if (outcome === 'granted') {
+			tx.update(users).set({ storageLimitBytes: limitBytes }).where(eq(users.id, req.userId)).run();
+		}
+		return true;
+	});
+}
