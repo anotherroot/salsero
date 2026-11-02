@@ -80,7 +80,7 @@ function zoneOf(locals: App.Locals): string {
 function variationOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const found = getFigure(db, variationId(params.id));
+	const found = getFigure(db, variationId(params.id), wall.userId);
 	if (
 		!found ||
 		found.figure.archivedAt !== null ||
@@ -166,7 +166,10 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			name: s.name,
 			holds: `${starts.map(nameOf).join(' / ')} → ${nameOf(end)}`,
 			timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
-			videos: s.id === id ? found.recordings.length : (getFigure(db, s.id)?.recordings.length ?? 0)
+			videos:
+				s.id === id
+					? found.recordings.length
+					: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
 		};
 	});
 
@@ -415,7 +418,7 @@ export const actions: Actions = {
 	/** Give this variation its own exercise, so it shows on Today. */
 	practise: ({ params, locals }) => {
 		const { figure } = variationOf(params, locals);
-		if (!addFigureExercise(getDb(), figure.id)) {
+		if (!addFigureExercise(getDb(), wallOf(params, locals).userId, figure.id)) {
 			return fail(400, {
 				action: 'practise',
 				message: 'This variation is already practised on its own.'

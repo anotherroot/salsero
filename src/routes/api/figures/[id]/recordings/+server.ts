@@ -30,7 +30,7 @@ import type { RequestHandler } from './$types';
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const figureId = Number(params.id);
 	const db = getDb();
-	const found = Number.isInteger(figureId) ? getFigure(db, figureId) : null;
+	const found = Number.isInteger(figureId) ? getFigure(db, figureId, locals.user?.id ?? '') : null;
 	if (!found || found.figure.archivedAt !== null || found.figure.userId !== locals.user?.id)
 		throw error(404, 'Figure not found');
 

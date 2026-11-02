@@ -17,6 +17,7 @@ import {
 } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { inSpace, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
+import { entryFor } from './entries';
 import type { Partner } from '$lib/labels';
 import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
@@ -267,22 +268,33 @@ export function renameFigure(db: Db, groupId: number, name: string): boolean {
 }
 
 /**
- * Give a variation its own exercise, so it shows on Today; named with its
- * label. Null for a missing or archived variation, and for one that already has
- * an exercise, archived or not. The only writer of `source: 'figure'`.
+ * Give a person their own exercise for a variation, so it shows on Today;
+ * named with its label. Null for a missing or archived variation, one the
+ * person cannot see, and one this person already has a live exercise for. An
+ * archived entry of theirs comes back (the same row, so its sets stay) instead
+ * of a second one. The only writer of `source: 'figure'`. The entry is always
+ * the caller's, never the figure's owner's.
  */
-export function addFigureExercise(db: Db, figureId: number, everyDays = 3) {
+export function addFigureExercise(db: Db, userId: string, figureId: number, everyDays = 3) {
 	return db.transaction((tx) => {
 		const figure = tx.select().from(figures).where(eq(figures.id, figureId)).get();
 		if (!figure || figure.archivedAt !== null) return null;
+		// Task 7 tightens this to figureAccess >= read
+		if (figure.teamId === null && figure.userId !== userId) return null;
 		const label = labelOf(tx, figureId);
 		if (label === null) return null;
-		const existing = tx
-			.select({ id: exercises.id })
-			.from(exercises)
-			.where(eq(exercises.figureId, figureId))
-			.get();
-		if (existing) return null;
+		const existing = entryFor(tx, userId, { figureId });
+		if (existing) {
+			if (existing.archivedAt === null) return null;
+			return (
+				tx
+					.update(exercises)
+					.set({ archivedAt: null, name: label })
+					.where(eq(exercises.id, existing.id))
+					.returning()
+					.get() ?? null
+			);
+		}
 		return tx
 			.insert(exercises)
 			.values({
@@ -290,7 +302,7 @@ export function addFigureExercise(db: Db, figureId: number, everyDays = 3) {
 				source: 'figure',
 				figureId,
 				dance: figure.dance,
-				userId: figure.userId,
+				userId,
 				everyDays
 			})
 			.returning()
@@ -327,7 +339,10 @@ export function archiveVariation(
 		const row = tx.select().from(figures).where(eq(figures.id, id)).get();
 		if (!row || row.archivedAt !== null || row.groupId === null) return null;
 		tx.update(figures).set({ archivedAt: now }).where(eq(figures.id, id)).run();
-		tx.update(exercises).set({ archivedAt: now }).where(eq(exercises.figureId, id)).run();
+		tx.update(exercises)
+			.set({ archivedAt: now })
+			.where(and(eq(exercises.figureId, id), isNull(exercises.archivedAt)))
+			.run();
 		return { figureRemoved: archiveGroupIfEmpty(tx, row.groupId, now) };
 	});
 }
@@ -523,10 +538,10 @@ export function listMoveTargets(db: Db, space: Space, exceptGroupId: number | nu
 		}));
 }
 
-export function getFigure(db: Db, id: number) {
+export function getFigure(db: Db, id: number, userId: string) {
 	const figure = db.select().from(figures).where(eq(figures.id, id)).get();
 	if (!figure) return null;
-	const exercise = db.select().from(exercises).where(eq(exercises.figureId, id)).get() ?? null;
+	const exercise = entryFor(db, userId, { figureId: id });
 	const recs = db
 		.select()
 		.from(recordings)

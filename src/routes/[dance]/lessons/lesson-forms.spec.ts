@@ -155,7 +155,10 @@ describe('Edit lesson', () => {
 				lessonDay: '2026-01-06'
 			}
 		});
-		expect(getLesson(db, id)?.lesson).toMatchObject({ title: 'Rueda', lessonDay: '2026-01-05' });
+		expect(getLesson(db, id, 'u1')?.lesson).toMatchObject({
+			title: 'Rueda',
+			lessonDay: '2026-01-05'
+		});
 	});
 
 	it('puts a day after today under Day of the class', async () => {
@@ -201,7 +204,7 @@ describe('Edit lesson', () => {
 			lessonDay: '2026-01-04'
 		});
 		expect(result).toEqual({ action: 'update', ok: true });
-		expect(getLesson(db, id)?.lesson).toMatchObject({
+		expect(getLesson(db, id, 'u1')?.lesson).toMatchObject({
 			title: 'Rueda · enchufla',
 			notes: 'Left hand low on 3',
 			lessonDay: '2026-01-04'

@@ -137,7 +137,10 @@ export function archiveRoutine(db: Db, id: number, now: number): boolean {
 			.where(and(eq(routines.id, id), isNull(routines.archivedAt)))
 			.run();
 		if (res.changes === 0) return false;
-		tx.update(exercises).set({ archivedAt: now }).where(eq(exercises.routineId, id)).run();
+		tx.update(exercises)
+			.set({ archivedAt: now })
+			.where(and(eq(exercises.routineId, id), isNull(exercises.archivedAt)))
+			.run();
 		return true;
 	});
 }

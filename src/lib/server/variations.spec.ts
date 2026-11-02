@@ -114,7 +114,7 @@ describe('createVariationFrom', () => {
 			notes: null
 		});
 		expect(linkFigure(db, lesson.id, src.id)).toBe(true);
-		addFigureExercise(db, src.id);
+		addFigureExercise(db, 'u1', src.id);
 
 		const before = db.select().from(figures).where(eq(figures.id, src.id)).get()!;
 		const copy = createVariationFrom(db, src.id, 'Doble')!;
@@ -201,7 +201,7 @@ describe('createVariationIn', () => {
 describe('updateVariation', () => {
 	it('renames its exercise to the label', () => {
 		const { figure } = fig();
-		const ex = addFigureExercise(db, figure.id)!;
+		const ex = addFigureExercise(db, 'u1', figure.id)!;
 		expect(updateVariation(db, figure.id, input('Doble'))!.name).toBe('Doble');
 		expect(db.select().from(exercises).where(eq(exercises.id, ex.id)).get()!.name).toBe(
 			'Enchufla · Doble'
@@ -221,8 +221,8 @@ describe('renameFigure', () => {
 	it('renames every exercise of the figure', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
-		const e1 = addFigureExercise(db, figure.id)!;
-		const e2 = addFigureExercise(db, v2.id)!;
+		const e1 = addFigureExercise(db, 'u1', figure.id)!;
+		const e2 = addFigureExercise(db, 'u1', v2.id)!;
 		expect(renameFigure(db, figure.groupId!, 'Setenta')).toBe(true);
 		const name = (id: number) =>
 			db.select().from(exercises).where(eq(exercises.id, id)).get()!.name;
@@ -388,7 +388,7 @@ describe('addFigureExercise', () => {
 	it('works on any variation and names it with the label', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
-		expect(addFigureExercise(db, v2.id)!.name).toBe('Enchufla · Doble');
+		expect(addFigureExercise(db, 'u1', v2.id)!.name).toBe('Enchufla · Doble');
 	});
 });
 
@@ -420,7 +420,7 @@ describe('moveVariation', () => {
 			.returning()
 			.get();
 		db.insert(lessonFigures).values({ lessonId: lesson, figureId: id }).run();
-		const ex = addFigureExercise(db, id)!;
+		const ex = addFigureExercise(db, 'u1', id)!;
 		db.insert(sets).values({ exerciseId: ex.id, doneAt: 1 }).run();
 		const r = db.insert(routines).values({ name: 'R' }).returning().get();
 		const step = db.insert(routineSteps).values({ routineId: r.id, position: 0 }).returning().get();
@@ -498,7 +498,7 @@ describe('moveVariation', () => {
 		const a = fig('Enchufla', 'Doble');
 		createVariationFrom(db, a.figure.id, 'Simple');
 		const b = fig('Setenta', 'doble');
-		const ex = addFigureExercise(db, a.figure.id)!;
+		const ex = addFigureExercise(db, 'u1', a.figure.id)!;
 		expect(moveVariation(db, a.figure.id, { groupId: b.group.id })).toEqual({
 			ok: false,
 			reason: 'name-taken'
@@ -564,7 +564,7 @@ describe('moveVariation', () => {
 describe('archiveVariation', () => {
 	it('archives its exercise and, when last, its figure', () => {
 		const a = fig();
-		const ex = addFigureExercise(db, a.figure.id)!;
+		const ex = addFigureExercise(db, 'u1', a.figure.id)!;
 		expect(isLastVariation(db, a.figure.id)).toBe(true);
 		expect(archiveVariation(db, a.figure.id, 5)).toEqual({ figureRemoved: true });
 		expect(db.select().from(exercises).where(eq(exercises.id, ex.id)).get()!.archivedAt).toBe(5);

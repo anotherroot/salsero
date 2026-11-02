@@ -33,6 +33,7 @@ import {
 	type Lesson
 } from './db/schema';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
+import { entryFor, entryJoin, type EntryTarget } from './entries';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -181,7 +182,10 @@ export function archiveLesson(db: Db, id: number, now: number): boolean {
 			.where(and(eq(lessons.id, id), isNull(lessons.archivedAt)))
 			.run();
 		if (res.changes === 0) return false;
-		tx.update(exercises).set({ archivedAt: now }).where(eq(exercises.lessonId, id)).run();
+		tx.update(exercises)
+			.set({ archivedAt: now })
+			.where(and(eq(exercises.lessonId, id), isNull(exercises.archivedAt)))
+			.run();
 		return true;
 	});
 }
@@ -308,11 +312,11 @@ function linkedRoutineIds(db: Db, lessonId: number): number[] {
 		.map((r) => r.id);
 }
 
-export function getLesson(db: Db, id: number) {
+export function getLesson(db: Db, id: number, userId: string) {
 	const lesson = db.select().from(lessons).where(eq(lessons.id, id)).get();
 	if (!lesson) return null;
 
-	const exercise = db.select().from(exercises).where(eq(exercises.lessonId, id)).get() ?? null;
+	const exercise = entryFor(db, userId, { lessonId: id });
 
 	const videos: LessonVideoRow[] = db
 		.select({
@@ -343,7 +347,7 @@ export function getLesson(db: Db, id: number) {
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.leftJoin(exercises, eq(exercises.figureId, figures.id))
+		.leftJoin(exercises, entryJoin(userId, eq(exercises.figureId, figures.id)))
 		.where(eq(lessonFigures.lessonId, id))
 		.all();
 	const handFigureIds = new Set(handFigures.map((r) => r.id));
@@ -355,7 +359,7 @@ export function getLesson(db: Db, id: number) {
 					.select(figureColumns)
 					.from(figures)
 					.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-					.leftJoin(exercises, eq(exercises.figureId, figures.id))
+					.leftJoin(exercises, entryJoin(userId, eq(exercises.figureId, figures.id)))
 					.where(inArray(figures.id, sectionFigureIds))
 					.all();
 	const linkedFigures: LessonFigureRow[] = [...handFigures, ...sectionFigures]
@@ -376,7 +380,7 @@ export function getLesson(db: Db, id: number) {
 		})
 		.from(lessonRoutines)
 		.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
-		.leftJoin(exercises, eq(exercises.routineId, routines.id))
+		.leftJoin(exercises, entryJoin(userId, eq(exercises.routineId, routines.id)))
 		.where(eq(lessonRoutines.lessonId, id))
 		.orderBy(asc(routines.name))
 		.all();
@@ -457,12 +461,7 @@ export function linkFigure(db: Db, lessonId: number, figureId: number): boolean 
 		const res = tx.insert(lessonFigures).values({ lessonId, figureId }).onConflictDoNothing().run();
 		if (res.changes === 0) return false;
 
-		const owned = tx
-			.select({ id: exercises.id })
-			.from(exercises)
-			.where(eq(exercises.figureId, figureId))
-			.all()
-			.map((r) => r.id);
+		const owned = ownEntryIds(tx, space, { figureId });
 		if (owned.length > 0) {
 			tx.delete(lessonExercises)
 				.where(
@@ -534,12 +533,7 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number): boolea
 			.run();
 		if (res.changes === 0) return false;
 
-		const owned = tx
-			.select({ id: exercises.id })
-			.from(exercises)
-			.where(eq(exercises.routineId, routineId))
-			.all()
-			.map((r) => r.id);
+		const owned = ownEntryIds(tx, space, { routineId });
 		if (owned.length > 0) {
 			tx.delete(lessonExercises)
 				.where(
@@ -827,4 +821,15 @@ export function routineTaughtIn(db: Db, space: Space, routineId: number) {
 		)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all();
+}
+
+/**
+ * The entry ids a link would sweep out of the lesson's hand-linked list: the
+ * lesson's own person's entry for the target. A group's lesson hand-links no
+ * entries (`linkExercise` refuses another person's), so it sweeps none.
+ */
+function ownEntryIds(db: Db, space: Space, target: EntryTarget): number[] {
+	if (isTeam(space)) return [];
+	const entry = entryFor(db, space.userId, target);
+	return entry ? [entry.id] : [];
 }

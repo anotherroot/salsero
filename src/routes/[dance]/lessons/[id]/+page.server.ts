@@ -63,7 +63,7 @@ function lessonId(params: { id: string }): number {
  */
 function lessonOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const wall = wallOf(params, locals);
-	const found = getLesson(getDb(), lessonId(params));
+	const found = getLesson(getDb(), lessonId(params), wall.userId);
 	if (!found || found.lesson.archivedAt !== null || !inWall(found.lesson, wall)) {
 		throw error(404, 'No such lesson');
 	}

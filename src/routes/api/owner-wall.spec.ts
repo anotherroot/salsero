@@ -295,9 +295,9 @@ describe('lessons, videos, spots and links stand behind their owner on the flat 
 				})
 			});
 		expect(await status(put(U2))).toBe(404);
-		expect(getLesson(db, lessonId)!.videos).toHaveLength(1);
+		expect(getLesson(db, lessonId, 'u1')!.videos).toHaveLength(1);
 		expect(await status(put(U1))).toBe(201);
-		expect(getLesson(db, lessonId)!.videos).toHaveLength(2);
+		expect(getLesson(db, lessonId, 'u1')!.videos).toHaveLength(2);
 	});
 
 	it("another person's video has no spots to list or add to", async () => {
@@ -454,7 +454,7 @@ describe('lessons, videos, spots and links stand behind their owner on the flat 
 			.from(lessonVideos)
 			.all()
 			.find((v) => v.id === video.lessonVideoId)!;
-		expect(getLesson(db, lv.lessonId)!.lesson.userId).toBe('u1');
+		expect(getLesson(db, lv.lessonId, 'u1')!.lesson.userId).toBe('u1');
 		const r = db
 			.select()
 			.from(recordings)

@@ -1,7 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
 import { getDb, type Db } from '$lib/server/db';
-import { exercises } from '$lib/server/db/schema';
 import { figureLabels, listVersions } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { routineTaughtIn } from '$lib/server/lessons';
@@ -41,6 +39,7 @@ import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
 import { requireRoutineInWall, wallOf } from '$lib/server/scope';
+import { entryFor } from '$lib/server/entries';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -111,12 +110,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
 		// The routine's own exercise, so "Practise" can hand the player an exercise
 		// id and the save sheet comes up with the right one already chosen.
-		exerciseId:
-			db
-				.select({ id: exercises.id })
-				.from(exercises)
-				.where(eq(exercises.routineId, routine.id))
-				.get()?.id ?? null,
+		exerciseId: entryFor(db, wall.userId, { routineId: routine.id })?.id ?? null,
 		slots,
 		// How many slots each embedded routine has, by its id — the card's
 		// "Routine · 3 slots" — counted from the shapes already built.

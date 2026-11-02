@@ -137,7 +137,7 @@ describe('the lesson page', () => {
 			post('salsa', lessonId, { figureId: String(doble), alsoSections: '1' })
 		);
 		expect(links()).toEqual([]);
-		expect(getLesson(db, lessonId)!.figures).toEqual([]);
+		expect(getLesson(db, lessonId, 'u1')!.figures).toEqual([]);
 	});
 
 	it('keeps the section links when not asked', async () => {
@@ -245,7 +245,7 @@ describe('the drill’s exercise page', () => {
 	});
 
 	it('refuses on a figure’s exercise, which is not a drill', async () => {
-		const ex = addFigureExercise(db, figureId)!;
+		const ex = addFigureExercise(db, 'u1', figureId)!;
 		const res = await call(
 			exercisePage.actions.linkSection,
 			post('salsa', ex.id, { spotId: String(section) })

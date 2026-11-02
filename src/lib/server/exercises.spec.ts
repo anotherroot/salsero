@@ -19,7 +19,7 @@ describe('listPickExercises', () => {
 			style: 'salsa',
 			notes: null
 		})!;
-		const own = addFigureExercise(db, figure.id, 5)!;
+		const own = addFigureExercise(db, 'u1', figure.id, 5)!;
 		const custom = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 2, notes: null });
 		const { exercise: routineEx } = createRoutine(db, U1_SALSA, { name: 'Zeta', notes: null });
 

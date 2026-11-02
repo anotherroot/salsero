@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ params, request, locals }) => {
 	if (!RECORDING_FILE_RE.test(params.file)) throw error(404, 'Not found');
 	const rec = getRecordingByFile(getDb(), params.file);
 	// Another person's recording and a missing one get the same 404.
-	const owner = rec ? getFigure(getDb(), rec.figureId)?.figure.userId : null;
+	const owner = rec ? getFigure(getDb(), rec.figureId, '')?.figure.userId : null;
 	if (!rec || !locals.user || owner !== locals.user.id) throw error(404, 'Not found');
 	return serveFile(join(recordingsDir(), rec.file), rec.mime, request);
 };

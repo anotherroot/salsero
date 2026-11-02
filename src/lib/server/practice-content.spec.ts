@@ -61,7 +61,7 @@ describe('practicePayload', () => {
 
 	it('gives a figure its notes, spoken name, length and links', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const exercise = addFigureExercise(db, figure.id)!;
+		const exercise = addFigureExercise(db, 'u1', figure.id)!;
 		addLinks(db, { figureId: figure.id }, ['https://a.org'], 'Demo');
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({
 			type: 'figure',
@@ -74,7 +74,7 @@ describe('practicePayload', () => {
 	it('shows a variation by its label but says the figure’s name', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
-		const exercise = addFigureExercise(db, doble.id)!;
+		const exercise = addFigureExercise(db, 'u1', doble.id)!;
 		const { content } = practicePayload(db, exercise, TZ, Date.now());
 		expect(content.type === 'figure' && content.figure).toMatchObject({
 			name: 'Enchufla · Doble',
@@ -84,7 +84,7 @@ describe('practicePayload', () => {
 
 	it('derives the cue’s 8-counts from the figure’s length in counts', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const exercise = addFigureExercise(db, figure.id)!;
+		const exercise = addFigureExercise(db, 'u1', figure.id)!;
 		db.update(figures).set({ lengthCounts: 12 }).where(eq(figures.id, figure.id)).run();
 		const content = practicePayload(db, exercise, TZ, Date.now()).content;
 		// 12 counts round up to two 8-counts, so the cue is never called over itself.
@@ -158,7 +158,7 @@ describe('practicePayload sections', () => {
 
 	it('gives a figure its own sections, not its variations’', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const exercise = addFigureExercise(db, figure.id)!;
+		const exercise = addFigureExercise(db, 'u1', figure.id)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
 		linkSpot(db, 'u1', section(), { figureId: doble.id });
 		expect(sectionsOf(practicePayload(db, exercise, TZ, Date.now()).content)).toEqual([]);
@@ -171,7 +171,7 @@ describe('practicePayload sections', () => {
 	it('a figure exercise is named by its label', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
-		const exercise = addFigureExercise(db, doble.id)!;
+		const exercise = addFigureExercise(db, 'u1', doble.id)!;
 		const content = practicePayload(db, exercise, TZ, Date.now()).content;
 		expect(content.type === 'figure' && content.figure.name).toBe('Enchufla · Doble');
 	});

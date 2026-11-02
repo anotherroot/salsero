@@ -48,7 +48,8 @@ const bare = (exercise: Exercise): PracticeContent => ({
 function contentOf(db: Db, exercise: Exercise): PracticeContent {
 	switch (typeOf(exercise.source)) {
 		case 'lesson': {
-			const found = exercise.lessonId === null ? null : getLesson(db, exercise.lessonId);
+			const found =
+				exercise.lessonId === null ? null : getLesson(db, exercise.lessonId, exercise.userId ?? '');
 			if (!found) return bare(exercise);
 			const { lesson } = found;
 			return {
@@ -65,7 +66,8 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 			};
 		}
 		case 'figure': {
-			const found = exercise.figureId === null ? null : getFigure(db, exercise.figureId);
+			const found =
+				exercise.figureId === null ? null : getFigure(db, exercise.figureId, exercise.userId ?? '');
 			if (!found) return bare(exercise);
 			const { figure } = found;
 			// Read in the figure's own space: an entry's figure may be a group's.

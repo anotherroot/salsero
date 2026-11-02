@@ -46,6 +46,7 @@ beforeEach(() => {
 	handle.db = db;
 	figureExerciseId = addFigureExercise(
 		db,
+		'u1',
 		createFigure(db, U1_SALSA, {
 			figureName: 'Enchufla',
 			name: 'Basic',

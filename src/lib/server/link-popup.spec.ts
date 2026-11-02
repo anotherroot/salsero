@@ -226,7 +226,7 @@ describe('createAndLink', () => {
 			spotId: section,
 			figureId: made.id
 		});
-		expect(getLesson(db, lessonId)!.figures).toEqual([
+		expect(getLesson(db, lessonId, 'u1')!.figures).toEqual([
 			expect.objectContaining({ id: made.id, byHand: false })
 		]);
 	});
@@ -377,8 +377,8 @@ describe('unlinkFromSection', () => {
 		const drillLink = linkSpot(db, 'u1', section, { exerciseId: drill });
 		expect(unlinkFromSection(db, section, link, true)).toBe(true);
 		expect(unlinkFromSection(db, section, drillLink, true)).toBe(true);
-		expect(getLesson(db, lessonId)!.figures).toEqual([]);
-		expect(getLesson(db, lessonId)!.exercises).toEqual([]);
+		expect(getLesson(db, lessonId, 'u1')!.figures).toEqual([]);
+		expect(getLesson(db, lessonId, 'u1')!.exercises).toEqual([]);
 	});
 
 	it("refuses another spot's link and deletes nothing", () => {

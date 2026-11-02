@@ -163,7 +163,7 @@ describe('figures: the data functions stand behind a wall', () => {
 		})!;
 		expect(into.userId).toBe('u1');
 		expect(createVariationFrom(db, into.id, 'Triple')!.userId).toBe('u1');
-		expect(addFigureExercise(db, into.id)!.userId).toBe('u1');
+		expect(addFigureExercise(db, 'u1', into.id)!.userId).toBe('u1');
 		const moved = moveVariation(db, into.id, { newFigure: 'Elsewhere' });
 		expect(moved.ok).toBe(true);
 		const groups = db.select().from(figureGroups).all();
@@ -173,7 +173,7 @@ describe('figures: the data functions stand behind a wall', () => {
 	it("a variation cannot be moved into another person's figure", () => {
 		const theirs = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Theirs' })!;
 		expect(moveVariation(db, theirs.figure.id, { groupId })).toEqual({ ok: false, reason: 'gone' });
-		expect(getFigure(db, theirs.figure.id)!.figure.groupId).toBe(theirs.group.id);
+		expect(getFigure(db, theirs.figure.id, 'u1')!.figure.groupId).toBe(theirs.group.id);
 	});
 });
 
@@ -1174,7 +1174,7 @@ describe('lessons, sections and their links stand behind a wall', () => {
 	});
 
 	it('a lesson and its review exercise carry the wall owner', () => {
-		const { lesson, exercise } = getLesson(db, mine)! as ReturnType<typeof getLesson> & {};
+		const { lesson, exercise } = getLesson(db, mine, 'u1')! as ReturnType<typeof getLesson> & {};
 		expect([lesson.userId, lesson.dance]).toEqual(['u1', 'salsa']);
 		expect([exercise!.userId, exercise!.dance]).toEqual(['u1', 'salsa']);
 	});
@@ -1283,7 +1283,7 @@ describe('lessons, sections and their links stand behind a wall', () => {
 			post(U2, 'salsa', { title: 'Theirs', notes: '', everyDays: '3', lessonDay: '2026-10-01' })
 		);
 		const id = Number(made.location.split('/').pop());
-		const { lesson, exercise } = getLesson(db, id)!;
+		const { lesson, exercise } = getLesson(db, id, 'u2')!;
 		expect([lesson.userId, exercise!.userId]).toEqual(['u2', 'u2']);
 	});
 

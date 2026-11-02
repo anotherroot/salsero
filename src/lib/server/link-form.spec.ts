@@ -20,7 +20,7 @@ beforeEach(() => {
 		notes: null
 	})!;
 	figureId = made.figure.id;
-	figureExerciseId = addFigureExercise(db, made.figure.id)!.id;
+	figureExerciseId = addFigureExercise(db, 'u1', made.figure.id)!.id;
 });
 
 const form = (fields: Record<string, string>) =>

@@ -114,7 +114,7 @@ describe('completeVideoJob', () => {
 		requestVideoDownload(db, { figureId }, id);
 		const job = claimVideoJob(db, T)!;
 		expect(completeVideoJob(db, job.id, FILE)).toEqual({ recordingId: expect.any(Number) });
-		const [rec] = getFigure(db, figureId)!.recordings;
+		const [rec] = getFigure(db, figureId, 'u1')!.recordings;
 		expect(rec).toMatchObject({ file: 'a.mp4', kind: 'video', sourceUrl: url, sizeBytes: 1234 });
 		expect(listLinks(db, { figureId })).toEqual([]);
 		expect(jobs()).toEqual([]);
@@ -128,7 +128,7 @@ describe('completeVideoJob', () => {
 		requestVideoDownload(db, { lessonId }, id);
 		const job = claimVideoJob(db, T)!;
 		const done = completeVideoJob(db, job.id, FILE) as { lessonVideoId: number };
-		expect(getLesson(db, lessonId)!.videos[0]).toMatchObject({
+		expect(getLesson(db, lessonId, 'u1')!.videos[0]).toMatchObject({
 			id: done.lessonVideoId,
 			sourceUrl: YT
 		});
@@ -143,6 +143,6 @@ describe('completeVideoJob', () => {
 		expect(deleteLink(db, { figureId }, id)).toBe(true);
 		expect(db.select().from(videoDownloads).where(eq(videoDownloads.id, job.id)).all()).toEqual([]);
 		expect(completeVideoJob(db, job.id, FILE)).toBeNull();
-		expect(getFigure(db, figureId)!.recordings).toEqual([]);
+		expect(getFigure(db, figureId, 'u1')!.recordings).toEqual([]);
 	});
 });

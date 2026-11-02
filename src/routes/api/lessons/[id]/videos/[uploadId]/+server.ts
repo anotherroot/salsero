@@ -36,7 +36,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!UPLOAD_ID_RE.test(params.uploadId)) return fail(404, 'Bad upload id.');
 
 	const db = getDb();
-	const found = getLesson(db, lessonId);
+	const found = getLesson(db, lessonId, locals.user?.id ?? '');
 	// Flat: no dance in the URL, so the person is the wall. Another person's
 	// lesson and a missing one get the same 404.
 	const mine = found !== null && !!locals.user && found.lesson.userId === locals.user.id;
