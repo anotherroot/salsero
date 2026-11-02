@@ -148,7 +148,7 @@ groups, across both dances, and drops into some only now and then.
 
 ### What a member sees
 
-- The **group page** (reached from the Lessons tab) lists the group's
+- The **group page** (reached from the Groups tab) lists the group's
   published lessons, newest first, each marked **Added** or with **Add**.
 - A group lesson's page shows everything it holds: the videos, notes,
   sections with their links, its figures, routines and drills. Read-only for
@@ -171,9 +171,10 @@ groups, across both dances, and drops into some only now and then.
   renames a drill, the member sees the fix.
 - Adding **costs no storage.** The files are the group's and count against
   the group.
-- Figures from the lesson show in the member's **Moves**, under a
-  **Group / Mine** filter, and get no practice entry unless the member turns
-  one on, as with their own figures today.
+- Figures from the lesson show in the member's **Moves**, under the group's
+  heading after their own figures (no filter; see "Decided from the
+  mockups" 5), and get no practice entry unless the member turns one on, as
+  with their own figures today.
 - A drill whose practice plays a song: the member's entry starts with the
   same practice mode but no song; songs are personal, and they pick their own.
 - *(My call)* Something added to a lesson after the member added it (a new
@@ -238,7 +239,7 @@ groups, across both dances, and drops into some only now and then.
 - If the group later deletes a lesson someone had added, their entries and
   logs keep its name: "Tue 3 Nov · Salsa nadaljevalna (deleted)".
 - **Deleting a group** (owner only) keeps it restorable for 30 days; the
-  owner still sees it in the Lessons tab's groups, marked, with Restore. Members see a notice on the group's lessons for
+  owner still sees it in the Groups tab, marked, with Restore. Members see a notice on the group's lessons for
   those 30 days ("Salsa nadaljevalna is being deleted on 2 Dec · Make my own
   copy"). Then the group's files are deleted and its rows stay, archived and
   unreachable, so members' logs keep their names: "Tue 3 Nov · Salsa
@@ -318,6 +319,45 @@ groups, across both dances, and drops into some only now and then.
    comes with "your moves across groups" (below).
 6. **Today:** a heading per group (option B).
 
+## Settled while planning (2026-11-02)
+
+*(My calls, from the plan's loophole review; see
+`docs/superpowers/plans/2026-11-02-groups.md`, "Structural risks".)*
+
+- **Added is its own thing.** A lesson is in your Lessons because you added
+  it, even if you unticked everything that goes on Today.
+- **Remove from my lessons** keeps on Today what another lesson you still
+  have also holds.
+- **"1 new drill · Add"** has a **Not now** that dismisses it until
+  something else is added.
+- **Handing a group over** is refused when the new owner already owns as
+  many groups as they may make.
+- **A disk floor:** any upload, a person's or a group's, is refused when it
+  would leave the server under 2 GB free, whatever the limits say. Group
+  limits can add up past the disk (15 people in each other's 30 groups would
+  be 90 GB); the admin line shows that, and the floor makes sure the disk
+  never fills.
+- **Make my own copy** puts the copied variations under your figure of the
+  same name, if you have one; a variation name you already use there gets
+  the group's name added ("Doble (Salsa nadaljevalna)"). Figure recordings
+  are not copied.
+- **A group drill never holds a song;** a member picks their own.
+- **Taken out means off Today.** When an editor unlinks a drill, routine or
+  figure from a lesson (or archives it), members whose added lessons no
+  longer hold it get it off Today, logs kept. If it comes back, it shows as
+  "1 new … · Add".
+- **What a member opens shows only what they can reach.** A figure or
+  routine page lists its lessons, routines, sections and neighbours from the
+  published lessons only, never a draft's.
+- **Restore** brings back members' entries only if they went with the thing
+  being restored; one a member had removed earlier stays removed. Restoring
+  something whose name is now taken is refused, naming it.
+- **The group link** is private: someone signed out is sent to Sign in,
+  which shows the "only adds people who already have an account" sentence.
+  The group's name is never shown to someone not signed in.
+- In the code a group is a **team** (`team_id`), because "group" already
+  means a figure there (`figure_groups`). People only ever read "group".
+
 ## Next step: your moves across groups
 
 Not in this step; its own design right after. Agreed in the brainstorm:
@@ -368,7 +408,8 @@ Not in this step; its own design right after. Agreed in the brainstorm:
 - The look follows the redesign
   ([`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md)): the
   tokens, the band, the four tabs, the shared components in
-  `components/ui/`. No fifth tab.
+  `components/ui/`, plus the fifth tab, Groups ("Decided from the
+  mockups" 1); the redesign spec's tab bar is updated to five.
 - The server has 22 GB free and 3.7 GB of RAM shared with other services
   (2026-11-02). The whole app used 395 MB after two months of one person's
   heavy use.
