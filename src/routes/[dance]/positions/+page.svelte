@@ -94,15 +94,17 @@
 		/>
 	{/snippet}
 	{#snippet right()}
-		<BandButton
-			icon="plus"
-			focusKey="new-position"
-			label="New position"
-			onclick={() => {
-				seen = form;
-				creating = true;
-			}}
-		/>
+		{#if data.isAdmin}
+			<BandButton
+				icon="plus"
+				focusKey="new-position"
+				label="New position"
+				onclick={() => {
+					seen = form;
+					creating = true;
+				}}
+			/>
+		{/if}
 	{/snippet}
 
 	<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
@@ -123,7 +125,10 @@
 			<button
 				data-focus="position-{p.id}"
 				type="button"
-				class="flex min-h-16 w-full cursor-pointer items-center gap-2.5 py-[9px] pr-3.5 pl-4 text-left active:bg-step"
+				disabled={!data.isAdmin}
+				class="flex min-h-16 w-full items-center gap-2.5 py-[9px] pr-3.5 pl-4 text-left {data.isAdmin
+					? 'cursor-pointer active:bg-step'
+					: 'cursor-default'}"
 				onclick={() => {
 					seen = form;
 					selectedId = p.id;
@@ -141,13 +146,15 @@
 					>
 				</span>
 				{#if p.neutral}<Badge tone="accent">neutral</Badge>{/if}
-				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+				{#if data.isAdmin}
+					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+				{/if}
 			</button>
 		{/each}
 	</div>
 </Screen>
 
-{#if selected}
+{#if data.isAdmin && selected}
 	<Sheet title={selected.name} sub="Position" open={true} onclose={() => (selectedId = null)}>
 		{#if archiveRefusal}<div class="mb-3.5">
 				<Banner kind="error">{archiveRefusal}</Banner>
@@ -240,7 +247,7 @@
 	</Sheet>
 {/if}
 
-{#if creating}
+{#if data.isAdmin && creating}
 	<Sheet title="New position" open={true} onclose={() => (creating = false)}>
 		<form
 			id="new-position"

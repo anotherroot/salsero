@@ -45,8 +45,9 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	const title = safeDecodeHeader(request.headers.get('x-title')) || null;
 	const file = `${randomUUID()}.${extensionFor(mime, '')}`;
 	const path = join(audioDir(), file);
+	let sizeBytes: number;
 	try {
-		await saveStream(request.body, path, MAX_RECORDING_BYTES);
+		sizeBytes = await saveStream(request.body, path, MAX_RECORDING_BYTES);
 	} catch (err) {
 		if (err instanceof TooLargeError) throw error(413, 'Audio too large');
 		throw error(400, 'Upload interrupted');
@@ -56,7 +57,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		file,
 		mime,
 		title,
-		durationS: Number.isFinite(duration) && duration > 0 ? duration : null
+		durationS: Number.isFinite(duration) && duration > 0 ? duration : null,
+		sizeBytes
 	});
 	if (!stored) {
 		// The song moved on while the body streamed in.

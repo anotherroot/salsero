@@ -1,20 +1,25 @@
 /**
- * Which dance a request is allowed to touch, and the rows it may reach by id.
+ * Which wall a request stands behind — one person's side of one dance — and the
+ * rows it may reach by id.
  *
  * `/salsa/…` and `/bachata/…` are the same code with a different slug, and the
- * ids in a form body are just numbers — nothing in them says which dance they
- * came from. Without a check, a POST to `/salsa` carrying a bachata id acts on
- * the other side of the wall while the URL claims otherwise. That is worse than
- * the reading version of the same bug, because it mutates.
+ * ids in a form body are just numbers — nothing in them says which dance, or
+ * whose, they came from. Without a check, a POST to `/salsa` carrying a bachata
+ * id, or another person's, acts on the other side of the wall while the URL
+ * claims otherwise. That is worse than the reading version of the same bug,
+ * because it mutates.
  *
  * The detail pages (a figure, a lesson) hold their own guard on top of these,
  * because each also decides what "archived" means for its own row. Everything
  * else is shared: exercises and sets are reached from both Today and the
  * player, and a song from both the list and its own page.
  *
- * A missing row and a row from the other dance get the same answer, 404 — the
+ * A missing row and a row from another wall get the same answer, 404 — the
  * same one the detail pages give, and deliberately indistinguishable: telling
- * them apart would confirm that some other dance owns that id.
+ * them apart would confirm that someone else owns that id.
+ *
+ * Positions are the one exception: a shared list per dance, used by everyone
+ * and edited by the admin, so they stand behind the dance alone.
  */
 import { error } from '@sveltejs/kit';
 import type { Db } from './db';
@@ -35,37 +40,59 @@ import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
  *
  * It also replaces the `params.dance as DanceSlug` cast, which was the thing
  * silencing the compiler about exactly this.
+ *
+ * Everything else goes through `wallOf`; only the positions page, whose list
+ * is shared by everyone in a dance, needs the dance with no person.
  */
 export function danceOf(params: { dance: string }): DanceSlug {
 	if (!isDanceSlug(params.dance)) throw error(404, 'No such dance');
 	return params.dance;
 }
 
-/** The exercise if it belongs to this dance, else null — for reads that degrade. */
-export function exerciseInDance(db: Db, dance: DanceSlug, id: number) {
+/** One person's side of one dance: what every data function filters by. */
+export type Wall = { userId: string; dance: DanceSlug };
+
+/** The wall this request stands behind: its dance and its signed-in user. */
+export function wallOf(params: { dance: string }, locals: App.Locals): Wall {
+	const dance = danceOf(params);
+	if (!locals.user) throw error(401, 'Sign in');
+	return { userId: locals.user.id, dance };
+}
+
+/** Whether a row is in this wall: this person's, in this dance. */
+export function inWall(row: { dance: string; userId: string | null }, wall: Wall): boolean {
+	return row.dance === wall.dance && row.userId === wall.userId;
+}
+
+/** A 404 unless the signed-in user is the admin. */
+export function requireAdmin(locals: App.Locals): void {
+	if (!locals.user?.isAdmin) throw error(404, 'Not found');
+}
+
+/** The exercise if it is in this wall, else null — for reads that degrade. */
+export function exerciseInWall(db: Db, wall: Wall, id: number) {
 	const found = getExercise(db, id);
-	return found && found.dance === dance ? found : null;
+	return found && inWall(found, wall) ? found : null;
 }
 
 /**
  * The exercise, or a 404. Anything that writes by id uses this: a mismatch must
  * stop the request, not fall through to a friendlier message that still acted.
  */
-export function requireExerciseInDance(db: Db, dance: DanceSlug, id: number) {
-	const found = exerciseInDance(db, dance, id);
+export function requireExerciseInWall(db: Db, wall: Wall, id: number) {
+	const found = exerciseInWall(db, wall, id);
 	if (!found) throw error(404, 'No such exercise');
 	return found;
 }
 
 /**
- * The set, or a 404. A set has no `dance` column: it is the dance of its
- * exercise, resolved through `exerciseId` rather than denormalised — which is
- * the same rule the schema already follows for recordings and lesson videos.
+ * The set, or a 404. A set has no `dance` or owner column: it is the wall of
+ * its exercise, resolved through `exerciseId`.
  */
-export function requireSetInDance(db: Db, dance: DanceSlug, id: number) {
+export function requireSetInWall(db: Db, wall: Wall, id: number) {
 	const set = getSet(db, id);
 	if (!set) throw error(404, 'No such set');
-	requireExerciseInDance(db, dance, set.exerciseId);
+	requireExerciseInWall(db, wall, set.exerciseId);
 	return set;
 }
 
@@ -77,9 +104,9 @@ export function requireSetInDance(db: Db, dance: DanceSlug, id: number) {
  * called from both. Archived is a separate question the detail page asks after
  * this one, because the list's retry has its own answer for it.
  */
-export function requireSongInDance(db: Db, dance: DanceSlug, id: number) {
+export function requireSongInWall(db: Db, wall: Wall, id: number) {
 	const song = getSong(db, id);
-	if (!song || song.dance !== dance) throw error(404, 'Song not found');
+	if (!song || !inWall(song, wall)) throw error(404, 'Song not found');
 	return song;
 }
 
@@ -109,8 +136,8 @@ export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
  * An archived routine is still a routine: the page shows it and offers to look,
  * the same way an archived position can still be renamed.
  */
-export function requireRoutineInDance(db: Db, dance: DanceSlug, id: number) {
+export function requireRoutineInWall(db: Db, wall: Wall, id: number) {
 	const routine = getRoutine(db, id);
-	if (!routine || routine.dance !== dance) throw error(404, 'No such routine');
+	if (!routine || !inWall(routine, wall)) throw error(404, 'No such routine');
 	return routine;
 }

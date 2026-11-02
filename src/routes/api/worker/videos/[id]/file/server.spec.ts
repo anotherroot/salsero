@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const envMock = vi.hoisted(() => ({ DATA_DIR: '' }));
 vi.mock('$env/dynamic/private', () => ({ env: envMock }));
@@ -31,7 +32,7 @@ beforeEach(async () => {
 	envMock.DATA_DIR = await mkdtemp(join(tmpdir(), 'salsa-saved-'));
 	db = openDb(':memory:');
 	handle.db = db;
-	figureId = createFigure(db, 'salsa', {
+	figureId = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',
@@ -101,7 +102,7 @@ describe('a saved video arriving in chunks', () => {
 	});
 
 	it('puts a lesson’s video among the lesson videos', async () => {
-		const lessonId = createLesson(db, 'salsa', {
+		const lessonId = createLesson(db, U1_SALSA, {
 			lessonDay: '2026-10-14',
 			title: 'Class',
 			notes: null

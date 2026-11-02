@@ -70,6 +70,8 @@
 			</button>
 		</form>
 
-		<p class="mt-1.5 text-center text-[13px] text-muted">Registration is closed.</p>
+		<p class="mt-1.5 text-center text-[13px] text-muted">
+			Got an invite? Open its link, or scan its code with your camera.
+		</p>
 	</Screen>
 </div>

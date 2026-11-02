@@ -5,6 +5,7 @@
  * `moves-forms.spec.ts`; nothing opens the real database.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -61,7 +62,7 @@ describe('New lesson', () => {
 				lessonDay: '2026-01-05'
 			}
 		});
-		expect(listLessons(db, 'salsa')).toEqual([]);
+		expect(listLessons(db, U1_SALSA)).toEqual([]);
 	});
 
 	it('puts a day in the future under Day of the class, in bachata too', async () => {
@@ -129,14 +130,14 @@ describe('New lesson', () => {
 		} catch (e) {
 			thrown = e;
 		}
-		const [lesson] = listLessons(db, 'salsa');
+		const [lesson] = listLessons(db, U1_SALSA);
 		expect(thrown).toMatchObject({ status: 303, location: `/salsa/lessons/${lesson.id}` });
 	});
 });
 
 describe('Edit lesson', () => {
 	const made = () =>
-		createLesson(db, 'salsa', { lessonDay: '2026-01-05', title: 'Rueda', notes: null }, 3).lesson
+		createLesson(db, U1_SALSA, { lessonDay: '2026-01-05', title: 'Rueda', notes: null }, 3).lesson
 			.id;
 	const edit = (id: number, fields: Record<string, string>) =>
 		call(lessonActions.update, post('salsa', fields, id));
@@ -210,7 +211,7 @@ describe('Edit lesson', () => {
 
 describe('From this lesson', () => {
 	const lesson = () =>
-		createLesson(db, 'salsa', { lessonDay: '2026-01-05', title: 'Rueda', notes: null }, 3).lesson
+		createLesson(db, U1_SALSA, { lessonDay: '2026-01-05', title: 'Rueda', notes: null }, 3).lesson
 			.id;
 	const figure = {
 		figureName: 'Enchufla',
@@ -220,7 +221,7 @@ describe('From this lesson', () => {
 		notes: 'Turn her on 5.'
 	};
 	const madeFigure = () =>
-		createFigure(db, 'salsa', { ...figure, partner: 'partner', style: 'salsa', notes: null })!;
+		createFigure(db, U1_SALSA, { ...figure, partner: 'partner', style: 'salsa', notes: null })!;
 
 	it('puts a missing figure name under Figure name, keeping what was typed', async () => {
 		const result = await call(

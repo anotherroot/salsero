@@ -3,7 +3,7 @@
  * `docs/superpowers/specs/2026-10-15-video-section-links-design.md`.
  *
  * Every rule the table cannot carry lives here: a section and not a point, one
- * dance, drills only. Imported BY `spots.ts`, `figures.ts` and `lessons.ts` —
+ * wall (one person's side of one dance), drills only. Imported BY `spots.ts`, `figures.ts` and `lessons.ts` —
  * their deletes ask `assertUnlinked` first — so it imports none of them.
  */
 import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
@@ -71,7 +71,9 @@ export function videoOfSpot(db: Db, spotId: number) {
 			lessonVideoId: videoSpots.lessonVideoId,
 			recordingId: videoSpots.recordingId,
 			lessonDance: lessons.dance,
-			figureDance: figures.dance
+			lessonUser: lessons.userId,
+			figureDance: figures.dance,
+			figureUser: figures.userId
 		})
 		.from(videoSpots)
 		.leftJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
@@ -85,26 +87,36 @@ export function videoOfSpot(db: Db, spotId: number) {
 		row.lessonVideoId !== null
 			? { lessonVideoId: row.lessonVideoId }
 			: { recordingId: row.recordingId! };
-	return { owner, dance: (row.lessonDance ?? row.figureDance)!, isSection: row.endMs !== null };
+	return {
+		owner,
+		dance: (row.lessonDance ?? row.figureDance)!,
+		/** Whose video it is: its lesson's or its figure's owner. */
+		userId: row.lessonDance !== null ? row.lessonUser : row.figureUser,
+		isSection: row.endMs !== null
+	};
 }
 
-/** The target's dance. Throws for a missing target or an exercise that is not a drill. */
-function targetDance(db: Db, target: SectionTarget): string {
+/**
+ * The target's dance, if it is `userId`'s. Throws for a missing target, another
+ * person's (the same answer: telling them apart would confirm the id exists),
+ * or an exercise that is not a drill.
+ */
+function targetDance(db: Db, userId: string, target: SectionTarget): string {
 	if ('figureId' in target) {
 		const f = db
-			.select({ dance: figures.dance })
+			.select({ dance: figures.dance, userId: figures.userId })
 			.from(figures)
 			.where(eq(figures.id, target.figureId))
 			.get();
-		if (!f) throw new SpotLinkError('No such figure.');
+		if (!f || f.userId !== userId) throw new SpotLinkError('No such figure.');
 		return f.dance;
 	}
 	const e = db
-		.select({ dance: exercises.dance, source: exercises.source })
+		.select({ dance: exercises.dance, userId: exercises.userId, source: exercises.source })
 		.from(exercises)
 		.where(eq(exercises.id, target.exerciseId))
 		.get();
-	if (!e) throw new SpotLinkError('No such exercise.');
+	if (!e || e.userId !== userId) throw new SpotLinkError('No such exercise.');
 	if (e.source !== 'custom') throw new SpotLinkError('Only a drill can have sections of its own.');
 	return e.dance;
 }
@@ -114,12 +126,16 @@ export const targetColumn = (target: SectionTarget) =>
 		? eq(spotLinks.figureId, target.figureId)
 		: eq(spotLinks.exerciseId, target.exerciseId);
 
-/** The new link's id. Throws `SpotLinkError` for a point, another dance, a non-drill, a duplicate. */
-export function linkSpot(db: Db, spotId: number, target: SectionTarget): number {
+/**
+ * The new link's id, linking `userId`'s section to `userId`'s target. Throws
+ * `SpotLinkError` for a point, another dance, a non-drill, a duplicate — and for
+ * a section or target of another person's, with the answer a missing one gets.
+ */
+export function linkSpot(db: Db, userId: string, spotId: number, target: SectionTarget): number {
 	const video = videoOfSpot(db, spotId);
-	if (!video) throw new SpotLinkError('No such section.');
+	if (!video || video.userId !== userId) throw new SpotLinkError('No such section.');
 	if (!video.isSection) throw new SpotLinkError('Only a section can be linked, not a point.');
-	if (targetDance(db, target) !== video.dance) {
+	if (targetDance(db, userId, target) !== video.dance) {
 		throw new SpotLinkError('That section is from the other dance.');
 	}
 	const taken = db
@@ -270,11 +286,13 @@ export function assertUnlinked(db: Db, scope: { spotId: number } | SpotOwner): v
 type BareSpot = Omit<Spot, 'linkedTo'>;
 
 /**
- * Every live video of a dance, in the sheet's order: lesson videos newest
+ * Every live video in a wall, in the sheet's order: lesson videos newest
  * lesson first, then figure recordings by figure. Archived lessons and figures
  * are gone from every list, so their videos are gone from this one.
  */
-function videosOf(db: Db, dance: string): SectionVideo[] {
+function videosOf(db: Db, wall: { dance: string; userId: string | null }): SectionVideo[] {
+	if (wall.userId === null) return [];
+	const userId = wall.userId;
 	const lessonRows = db
 		.select({
 			id: lessonVideos.id,
@@ -285,7 +303,9 @@ function videosOf(db: Db, dance: string): SectionVideo[] {
 		})
 		.from(lessonVideos)
 		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-		.where(and(eq(lessons.dance, dance), isNull(lessons.archivedAt)))
+		.where(
+			and(eq(lessons.dance, wall.dance), eq(lessons.userId, userId), isNull(lessons.archivedAt))
+		)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id), asc(lessonVideos.id))
 		.all();
 	const recRows = db
@@ -298,7 +318,14 @@ function videosOf(db: Db, dance: string): SectionVideo[] {
 		.from(recordings)
 		.innerJoin(figures, eq(figures.id, recordings.figureId))
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), eq(recordings.kind, 'video')))
+		.where(
+			and(
+				eq(figures.dance, wall.dance),
+				eq(figures.userId, userId),
+				isNull(figures.archivedAt),
+				eq(recordings.kind, 'video')
+			)
+		)
 		.orderBy(asc(figureGroups.name), asc(figures.name), asc(recordings.id))
 		.all();
 	return [
@@ -324,13 +351,13 @@ function videosOf(db: Db, dance: string): SectionVideo[] {
 }
 
 /**
- * A target's dance and the lessons it is taught in (a variation's own links only).
- * Null for a target that does not exist.
+ * A target's wall (dance and owner) and the lessons it is taught in (a
+ * variation's own links only). Null for a target that does not exist.
  */
 function targetContext(db: Db, target: SectionTarget) {
 	if ('figureId' in target) {
 		const f = db
-			.select({ dance: figures.dance })
+			.select({ dance: figures.dance, userId: figures.userId })
 			.from(figures)
 			.where(eq(figures.id, target.figureId))
 			.get();
@@ -341,12 +368,12 @@ function targetContext(db: Db, target: SectionTarget) {
 			.where(eq(lessonFigures.figureId, target.figureId))
 			.all();
 		return {
-			dance: f.dance,
+			wall: { dance: f.dance, userId: f.userId },
 			taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
 		};
 	}
 	const e = db
-		.select({ dance: exercises.dance })
+		.select({ dance: exercises.dance, userId: exercises.userId })
 		.from(exercises)
 		.where(eq(exercises.id, target.exerciseId))
 		.get();
@@ -357,7 +384,7 @@ function targetContext(db: Db, target: SectionTarget) {
 		.where(eq(lessonExercises.exerciseId, target.exerciseId))
 		.all();
 	return {
-		dance: e.dance,
+		wall: { dance: e.dance, userId: e.userId },
 		taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
 	};
 }
@@ -397,8 +424,8 @@ function labelled(db: Db, spots: BareSpot[]): Spot[] {
 }
 
 /**
- * The "Link a section" picker: every section of the target's dance, grouped by
- * video, the ones already linked to it flagged. Lessons it is taught in come first.
+ * The "Link a section" picker: every section in the target's wall — its owner's,
+ * of its dance — grouped by video, the ones already linked to it flagged. Lessons it is taught in come first.
  */
 export function linkableSections(db: Db, target: SectionTarget): SectionGroup[] {
 	const context = targetContext(db, target);
@@ -412,7 +439,7 @@ export function linkableSections(db: Db, target: SectionTarget): SectionGroup[] 
 			.map((r) => r.id)
 	);
 	const byVideo = sectionsByVideo(db);
-	const groups = videosOf(db, context.dance)
+	const groups = videosOf(db, context.wall)
 		.map((video) => ({
 			video,
 			taughtHere: video.from.kind === 'lesson' && context.taught.has(video.from.lessonId),
@@ -443,8 +470,9 @@ export function sectionsFor(db: Db, target: SectionTarget): LinkedSection[] {
 	);
 	if (linkOf.size === 0) return [];
 	const byVideo = sectionsByVideo(db, inArray(videoSpots.id, [...linkOf.keys()]));
-	// One dance per link, so every linked section's video is among these.
-	return videosOf(db, context.dance).flatMap((video) =>
+	// One wall per link, so every linked section's video is among these; a
+	// link that crosses walls (only old data could hold one) shows nothing.
+	return videosOf(db, context.wall).flatMap((video) =>
 		labelled(db, byVideo.get(ownerKey(video.owner)) ?? []).map((spot) => ({
 			linkId: linkOf.get(spot.id)!,
 			spot,

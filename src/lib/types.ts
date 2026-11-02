@@ -517,3 +517,15 @@ export interface SetSnapshot {
 	note: string | null;
 	playerJson: string | null;
 }
+
+/** One thing a person has on disk, as the "What uses space" page lists it. */
+export type StorageItem = {
+	kind: 'lessonVideo' | 'recording' | 'song' | 'voice';
+	/** Null for the count voice, which is one row for all its takes. */
+	id: number | null;
+	title: string;
+	context: string;
+	sizeBytes: number;
+	archived: boolean;
+	href: string | null;
+};

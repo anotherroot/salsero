@@ -48,7 +48,13 @@ export async function seedAdmin(db: Db, email: string | undefined, password: str
 	if (weak) throw new Error(`Refusing to create the admin: ADMIN_PASSWORD ${weak}.`);
 
 	db.insert(users)
-		.values({ id: randomUUID(), email: normalized, passwordHash: await hashPassword(password) })
+		.values({
+			id: randomUUID(),
+			email: normalized,
+			passwordHash: await hashPassword(password),
+			isAdmin: true,
+			storageLimitBytes: null
+		})
 		.run();
 	console.log(`Created admin user ${normalized}.`);
 }

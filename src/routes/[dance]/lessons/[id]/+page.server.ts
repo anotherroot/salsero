@@ -37,7 +37,7 @@ import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf } from '$lib/server/scope';
+import { inWall, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -55,16 +55,16 @@ function lessonId(params: { id: string }): number {
 /**
  * The lesson this URL names, or a 404.
  *
- * `getLesson` is id-scoped, so the dance test is the only thing stopping
- * `/salsa/lessons/7` from opening a bachata lesson while the URL claims
- * otherwise. Archived is gone from every list, so it is gone from its own URL
+ * `getLesson` is id-scoped, so the wall test is the only thing stopping
+ * `/salsa/lessons/7` from opening a bachata lesson, or another person's, while
+ * the URL claims otherwise. Archived is gone from every list, so it is gone from its own URL
  * too — the same answer the figure page gives. Every action below reaches the
  * row by id, so each one starts here.
  */
-function lessonOf(params: { dance: string; id: string }) {
-	const dance = danceOf(params);
+function lessonOf(params: { dance: string; id: string }, locals: App.Locals) {
+	const wall = wallOf(params, locals);
 	const found = getLesson(getDb(), lessonId(params));
-	if (!found || found.lesson.archivedAt !== null || found.lesson.dance !== dance) {
+	if (!found || found.lesson.archivedAt !== null || !inWall(found.lesson, wall)) {
 		throw error(404, 'No such lesson');
 	}
 	return found;
@@ -72,7 +72,8 @@ function lessonOf(params: { dance: string; id: string }) {
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
-	const found = lessonOf(params);
+	const wall = wallOf(params, locals);
+	const found = lessonOf(params, locals);
 	const tz = zone(locals);
 	return {
 		...found,
@@ -81,22 +82,20 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		),
 		linkableFigures: listLinkableFigures(db, found.lesson.id),
 		// The figures "Variation of a figure" can add to, with their variations' names.
-		figureGroups: listMoveTargets(db, danceOf(params), null),
+		figureGroups: listMoveTargets(db, wall, null),
 		linkableRoutines: listLinkableRoutines(db, found.lesson.id),
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), tz),
 		// What "Add figure" pre-selects. Settings picks it.
-		defaultStyle: locals.user
-			? defaultStyle(db, locals.user.id, danceOf(params))
-			: DANCES[danceOf(params)].defaultStyle,
-		popup: found.exercise ? popupData(db, danceOf(params), found.exercise.id, tz, Date.now()) : null
+		defaultStyle: defaultStyle(db, wall.userId, wall.dance),
+		popup: found.exercise ? popupData(db, wall, found.exercise.id, tz, Date.now()) : null
 	};
 };
 
 export const actions: Actions = {
 	update: async ({ params, request, locals }) => {
-		const id = lessonOf(params).lesson.id;
+		const id = lessonOf(params, locals).lesson.id;
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
 		const title = text(form, 'title');
@@ -122,8 +121,8 @@ export const actions: Actions = {
 		return { action: 'update', ok: true };
 	},
 
-	archive: async ({ params }) => {
-		if (!archiveLesson(getDb(), lessonOf(params).lesson.id, Date.now())) {
+	archive: async ({ params, locals }) => {
+		if (!archiveLesson(getDb(), lessonOf(params, locals).lesson.id, Date.now())) {
 			return fail(400, { action: 'archive', message: 'That lesson is already archived.' });
 		}
 		throw redirect(303, `/${params.dance}/lessons`);
@@ -140,9 +139,10 @@ export const actions: Actions = {
 	 * that exists but is not linked — visible in Figures, fixable with one tap —
 	 * which is a better trade than depending on savepoint nesting.
 	 */
-	newFigure: async ({ params, request }) => {
-		const dance = danceOf(params);
-		const id = lessonOf(params).lesson.id;
+	newFigure: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const dance = wall.dance;
+		const id = lessonOf(params, locals).lesson.id;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
@@ -170,7 +170,7 @@ export const actions: Actions = {
 		const db = getDb();
 		// With every field valid, a taken figure name is the one thing
 		// `createFigure` still refuses.
-		const made = createFigure(db, dance, { figureName, name, partner, style, notes });
+		const made = createFigure(db, wall, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				action: 'newFigure' as const,
@@ -187,13 +187,14 @@ export const actions: Actions = {
 
 	/*
 	 * "Variation of a figure": a blank variation in an existing figure of this
-	 * dance, linked straight away. Two calls, for the reason `newFigure` gives.
-	 * A posted group id is just a number: one that is missing, archived or of
-	 * the other dance is the dance wall's 404, and nothing is written.
+	 * wall, linked straight away. Two calls, for the reason `newFigure` gives.
+	 * A posted group id is just a number: one that is missing, archived, of the
+	 * other dance or another person's is the wall's 404, and nothing is written.
 	 */
-	newVariation: async ({ params, request }) => {
-		const dance = danceOf(params);
-		const id = lessonOf(params).lesson.id;
+	newVariation: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const dance = wall.dance;
+		const id = lessonOf(params, locals).lesson.id;
 		const form = await request.formData();
 		const groupId = int(form, 'groupId');
 		const name = text(form, 'name');
@@ -217,7 +218,7 @@ export const actions: Actions = {
 
 		const db = getDb();
 		const group = getGroup(db, groupId);
-		if (!group || group.archivedAt !== null || group.dance !== dance) {
+		if (!group || group.archivedAt !== null || !inWall(group, wall)) {
 			throw error(404, 'Figure not found');
 		}
 		if (variationNameTaken(db, group.id, name, null)) {
@@ -233,8 +234,8 @@ export const actions: Actions = {
 		return { action: 'newVariation', ok: true };
 	},
 
-	newExercise: async ({ params, request }) => {
-		const id = lessonOf(params).lesson.id;
+	newExercise: async ({ params, request, locals }) => {
+		const id = lessonOf(params, locals).lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const everyDays = int(form, 'everyDays');
@@ -253,13 +254,13 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const exercise = createCustomExercise(db, danceOf(params), { name, everyDays, notes });
+		const exercise = createCustomExercise(db, wallOf(params, locals), { name, everyDays, notes });
 		linkExercise(db, id, exercise.id);
 		return { action: 'newExercise', ok: true };
 	},
 
-	linkFigure: async ({ params, request }) => {
-		const id = lessonOf(params).lesson.id;
+	linkFigure: async ({ params, request, locals }) => {
+		const id = lessonOf(params, locals).lesson.id;
 		const figureId = int(await request.formData(), 'figureId');
 		if (figureId === undefined || !linkFigure(getDb(), id, figureId)) {
 			return fail(400, { action: 'linkFigure', message: 'That figure could not be linked.' });
@@ -267,8 +268,8 @@ export const actions: Actions = {
 		return { action: 'linkFigure', ok: true };
 	},
 
-	unlinkFigure: async ({ params, request }) => {
-		const id = lessonOf(params).lesson.id;
+	unlinkFigure: async ({ params, request, locals }) => {
+		const id = lessonOf(params, locals).lesson.id;
 		const form = await request.formData();
 		const figureId = int(form, 'figureId');
 		// A row there through a section: its Unlink takes the section links with it.
@@ -284,9 +285,10 @@ export const actions: Actions = {
 	 * straight to the routine's page: a routine is only a name until its slots
 	 * are built, and that page is where they are built.
 	 */
-	newRoutine: async ({ params, request }) => {
-		const dance = danceOf(params);
-		const id = lessonOf(params).lesson.id;
+	newRoutine: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const dance = wall.dance;
+		const id = lessonOf(params, locals).lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
@@ -304,13 +306,13 @@ export const actions: Actions = {
 		if (!isFrequency(everyDays)) return refuse('Pick how often to do it.');
 
 		const db = getDb();
-		const { routine } = createRoutine(db, dance, { name, notes }, everyDays);
+		const { routine } = createRoutine(db, wall, { name, notes }, everyDays);
 		linkRoutine(db, id, routine.id);
 		throw redirect(303, `/${dance}/routines/${routine.id}`);
 	},
 
-	linkRoutine: async ({ params, request }) => {
-		const id = lessonOf(params).lesson.id;
+	linkRoutine: async ({ params, request, locals }) => {
+		const id = lessonOf(params, locals).lesson.id;
 		const routineId = int(await request.formData(), 'routineId');
 		if (routineId === undefined || !linkRoutine(getDb(), id, routineId)) {
 			return fail(400, { action: 'linkRoutine', message: 'That routine could not be linked.' });
@@ -318,8 +320,8 @@ export const actions: Actions = {
 		return { action: 'linkRoutine', ok: true };
 	},
 
-	unlinkRoutine: async ({ params, request }) => {
-		const id = lessonOf(params).lesson.id;
+	unlinkRoutine: async ({ params, request, locals }) => {
+		const id = lessonOf(params, locals).lesson.id;
 		const routineId = int(await request.formData(), 'routineId');
 		if (routineId === undefined || !unlinkRoutine(getDb(), id, routineId)) {
 			return fail(400, { action: 'unlinkRoutine', message: 'That routine was already unlinked.' });
@@ -327,8 +329,8 @@ export const actions: Actions = {
 		return { action: 'unlinkRoutine', ok: true };
 	},
 
-	linkExercise: async ({ params, request }) => {
-		const id = lessonOf(params).lesson.id;
+	linkExercise: async ({ params, request, locals }) => {
+		const id = lessonOf(params, locals).lesson.id;
 		const exerciseId = int(await request.formData(), 'exerciseId');
 		if (exerciseId === undefined || !linkExercise(getDb(), id, exerciseId)) {
 			return fail(400, {
@@ -340,8 +342,8 @@ export const actions: Actions = {
 		return { action: 'linkExercise', ok: true };
 	},
 
-	unlinkExercise: async ({ params, request }) => {
-		const id = lessonOf(params).lesson.id;
+	unlinkExercise: async ({ params, request, locals }) => {
+		const id = lessonOf(params, locals).lesson.id;
 		const form = await request.formData();
 		const exerciseId = int(form, 'exerciseId');
 		const alsoSections = form.get('alsoSections') === '1';
@@ -355,12 +357,12 @@ export const actions: Actions = {
 	},
 
 	/** Row first, then file: an orphan file is harmless, a row pointing at nothing is not. */
-	deleteVideo: async ({ params, request }) => {
-		const found = lessonOf(params);
+	deleteVideo: async ({ params, request, locals }) => {
+		const found = lessonOf(params, locals);
 		const id = int(await request.formData(), 'videoId');
 		// Checked against THIS lesson's videos before the delete: the data
 		// function deletes by id alone, so an id from another lesson — and so
-		// possibly from the other dance — would be gone before anyone noticed.
+		// possibly from another wall — would be gone before anyone noticed.
 		if (id === undefined || !found.videos.some((v) => v.id === id)) {
 			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
 		}
@@ -380,12 +382,22 @@ export const actions: Actions = {
 		return { action: 'deleteVideo', ok: true };
 	},
 
-	addLink: async ({ params, request }) =>
-		addLinkFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id }),
-	deleteLink: async ({ params, request }) =>
-		deleteLinkFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id }),
-	saveVideo: async ({ params, request }) =>
-		saveVideoFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id }),
-	retryVideo: async ({ params, request }) =>
-		retryVideoFrom(request, getDb(), { lessonId: lessonOf(params).lesson.id })
+	addLink: async ({ params, request, locals }) =>
+		addLinkFrom(request, getDb(), { lessonId: lessonOf(params, locals).lesson.id }),
+	deleteLink: async ({ params, request, locals }) =>
+		deleteLinkFrom(request, getDb(), { lessonId: lessonOf(params, locals).lesson.id }),
+	saveVideo: async ({ params, request, locals }) =>
+		saveVideoFrom(
+			request,
+			getDb(),
+			{ lessonId: lessonOf(params, locals).lesson.id },
+			locals.user!.id
+		),
+	retryVideo: async ({ params, request, locals }) =>
+		retryVideoFrom(
+			request,
+			getDb(),
+			{ lessonId: lessonOf(params, locals).lesson.id },
+			locals.user!.id
+		)
 };

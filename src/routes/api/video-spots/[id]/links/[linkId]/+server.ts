@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { linkOptionsFor } from '$lib/server/link-popup';
+import { spotOwner } from '$lib/server/spots';
 import { unlinkFromSection } from '$lib/server/spot-links';
 import type { RequestHandler } from './$types';
 
@@ -15,6 +16,8 @@ export const DELETE: RequestHandler = ({ params, url, locals }) => {
 	const spotId = id(params.id, 'section');
 	const linkId = id(params.linkId, 'link');
 	const db = getDb();
+	// Another person's section is a missing one: checked before anything is deleted.
+	if (spotOwner(db, spotId) !== locals.user?.id) throw error(404, 'No such section');
 	if (!unlinkFromSection(db, spotId, linkId, url.searchParams.get('alsoLesson') === '1')) {
 		throw error(404, 'No such link');
 	}

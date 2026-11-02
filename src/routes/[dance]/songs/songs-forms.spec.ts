@@ -21,12 +21,15 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
+import { users } from '$lib/server/db/schema';
+import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import {
 	createSongFromUrl,
 	getSong,
 	listSongs,
 	storeAnalysis,
-	storeFetchedAudio
+	storeFetchedAudio,
+	failJob
 } from '$lib/server/songs';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
@@ -80,7 +83,7 @@ describe('Add a song', () => {
 				style: 'sensual'
 			}
 		});
-		expect(listSongs(db, 'bachata')).toHaveLength(0);
+		expect(listSongs(db, U1_BACHATA)).toHaveLength(0);
 	});
 
 	it('puts a long title under Title, keeping the link and the style', async () => {
@@ -104,7 +107,7 @@ describe('Add a song', () => {
 				style: 'traditional'
 			}
 		});
-		expect(listSongs(db, 'bachata')).toHaveLength(0);
+		expect(listSongs(db, U1_BACHATA)).toHaveLength(0);
 	});
 
 	it('checks the link before the title', async () => {
@@ -127,9 +130,9 @@ describe('Add a song', () => {
 				})
 			)
 		).toEqual({ ok: true });
-		const [song] = listSongs(db, 'bachata');
+		const [song] = listSongs(db, U1_BACHATA);
 		expect(song).toMatchObject({ status: 'waiting_download', style: 'sensual', title: 'Obsesión' });
-		expect(listSongs(db, 'salsa')).toHaveLength(0);
+		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
 	});
 
 	it("files a style from the other dance under the dance's first style", async () => {
@@ -139,17 +142,21 @@ describe('Add a song', () => {
 				post('bachata', { url: 'https://www.youtube.com/watch?v=7hdQ', style: 'son' })
 			)
 		).toEqual({ ok: true });
-		expect(listSongs(db, 'bachata')[0].style).toBe('dominican');
+		expect(listSongs(db, U1_BACHATA)[0].style).toBe('dominican');
 	});
 });
 
 /** A song ready to count: audio, and a beat every 0.3 s for a minute. */
 function readySong(dance: 'salsa' | 'bachata' = 'salsa') {
-	const song = createSongFromUrl(db, dance, {
-		url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
-		title: 'Quimbara',
-		style: dance === 'salsa' ? 'salsa' : 'sensual'
-	});
+	const song = createSongFromUrl(
+		db,
+		{ userId: 'u1', dance },
+		{
+			url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
+			title: 'Quimbara',
+			style: dance === 'salsa' ? 'salsa' : 'sensual'
+		}
+	);
 	storeFetchedAudio(db, song.id, { file: 'a.m4a', mime: 'audio/mp4', title: null, durationS: 60 });
 	const beats = Array.from({ length: 200 }, (_, i) => i * 0.3);
 	storeAnalysis(db, song.id, { beats, downbeats: [], durationS: 60 });
@@ -158,7 +165,7 @@ function readySong(dance: 'salsa' | 'bachata' = 'salsa') {
 
 describe('A song', () => {
 	it('names the tap in a refused tap on a waiting song', async () => {
-		const { id } = createSongFromUrl(db, 'salsa', {
+		const { id } = createSongFromUrl(db, U1_SALSA, {
 			url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
 			title: '',
 			style: 'salsa'
@@ -272,5 +279,47 @@ describe('Song details', () => {
 			location: '/bachata/songs'
 		});
 		expect(() => songPage.load(post('bachata', {}, String(id)) as never)).toThrow();
+	});
+});
+
+describe('Add a song when the person is at the storage limit', () => {
+	it('is refused with 413 and queues nothing', async () => {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u@example.com', passwordHash: 'x', storageLimitBytes: 0 })
+			.run();
+		expect(
+			await call(
+				songList.actions.addUrl,
+				post('salsa', { url: 'https://youtu.be/dQw4w9WgXcQ', title: 'T', style: 'son' })
+			)
+		).toMatchObject({ status: 413, data: { field: 'url' } });
+		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
+	});
+});
+
+describe('Retry a song when the person is at the storage limit', () => {
+	function failedSong() {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u@example.com', passwordHash: 'x', storageLimitBytes: 0 })
+			.run();
+		const song = createSongFromUrl(db, U1_SALSA, {
+			url: 'https://youtu.be/dQw4w9WgXcQ',
+			title: 'T',
+			style: 'son'
+		});
+		failJob(db, song.id, 'boom', true);
+		return song.id;
+	}
+
+	it('is refused with 413 from the list and from the song page', async () => {
+		const id = failedSong();
+		expect(await call(songList.actions.retry, post('salsa', { id: String(id) }))).toMatchObject({
+			status: 413
+		});
+		expect(await call(songPage.actions.retry, post('salsa', {}, String(id)))).toMatchObject({
+			status: 413,
+			data: { action: 'retry' }
+		});
+		expect(getSong(db, id)?.status).toBe('failed');
 	});
 });

@@ -3,6 +3,7 @@ import { seedAdmin } from '../admin';
 import { sweepUploads } from '../files';
 import { importNoteLinks } from '../links';
 import { seedPositions } from '../positions';
+import { backfillSongSizes } from '../storage';
 import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
 import { getDb } from './index';
 
@@ -23,6 +24,7 @@ export function bootstrap(): Promise<void> {
 			// user deletes afterwards is never brought back by a restart.
 			importNoteLinks(getDb(), Date.now());
 		})
+		.then(() => backfillSongSizes(getDb(), Date.now()))
 		.then(() => {
 			// Abandoned chunked uploads, swept once per process rather than by a
 			// cron or a unit there would be nothing to remind anyone about. Not

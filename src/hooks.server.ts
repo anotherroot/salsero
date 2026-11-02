@@ -17,6 +17,8 @@ import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
  */
 const PUBLIC_PATHS = new Set([
 	'/login',
+	// The invite's link carries its code in the query string, so the path is what is public.
+	'/join',
 	'/health',
 	'/manifest-salsa.webmanifest',
 	'/manifest-bachata.webmanifest',
@@ -42,7 +44,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// No session: a paired Android app may still sign in with its device
 	// token — on the API only, never a page and never the worker's prefix.
 	event.locals.user = session
-		? { id: session.userId, email: session.email, timezone: session.timezone }
+		? {
+				id: session.userId,
+				email: session.email,
+				timezone: session.timezone,
+				isAdmin: session.isAdmin
+			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 
 	// The Android app's launchers open with ?app=android. Remember it per
@@ -72,7 +79,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (path.startsWith('/api/')) return new Response('Not signed in', { status: 401 });
 		throw redirect(303, `/login?next=${encodeURIComponent(path + event.url.search)}`);
 	}
-	if (event.locals.user && path === '/login') {
+	if (event.locals.user && (path === '/login' || path === '/join')) {
 		throw redirect(303, '/');
 	}
 

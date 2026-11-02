@@ -13,6 +13,7 @@ import {
 	SpotError
 } from './spots';
 import { linkSpot, SpotLinkedError } from './spot-links';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let recordingId: number;
@@ -20,7 +21,7 @@ let lessonVideoId: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	const { figure } = createFigure(db, 'salsa', {
+	const { figure } = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',
@@ -35,7 +36,7 @@ beforeEach(() => {
 		sizeBytes: 10,
 		note: null
 	}).id;
-	const { lesson } = createLesson(db, 'salsa', {
+	const { lesson } = createLesson(db, U1_SALSA, {
 		lessonDay: '2026-09-20',
 		title: 'Class',
 		notes: null
@@ -177,7 +178,7 @@ describe('spots', () => {
 
 describe('linked sections', () => {
 	const figure = (name: string) =>
-		createFigure(db, 'salsa', {
+		createFigure(db, U1_SALSA, {
 			figureName: name,
 			name: 'Basic',
 			partner: 'partner',
@@ -189,7 +190,7 @@ describe('linked sections', () => {
 		const figureId = figure('Dile que no');
 		for (const owner of [{ recordingId }, { lessonVideoId }]) {
 			const s = addSpot(db, owner, { startMs: 0, endMs: 1000, label: null })!;
-			linkSpot(db, s.id, { figureId });
+			linkSpot(db, 'u1', s.id, { figureId });
 			expect(() => deleteSpot(db, s.id)).toThrow(SpotLinkedError);
 			expect(listSpots(db, owner)[0].linkedTo).toEqual(['Dile que no · Basic']);
 		}
@@ -201,7 +202,7 @@ describe('linked sections', () => {
 
 	it('keeps linkedTo through a rename and a move', () => {
 		const s = addSpot(db, { lessonVideoId }, { startMs: 0, endMs: 1000, label: null })!;
-		linkSpot(db, s.id, { figureId: figure('Setenta') });
+		linkSpot(db, 'u1', s.id, { figureId: figure('Setenta') });
 		expect(updateSpot(db, s.id, { label: 'x' })!.linkedTo).toEqual(['Setenta · Basic']);
 		expect(updateSpot(db, s.id, { endMs: 2000 })!.linkedTo).toEqual(['Setenta · Basic']);
 	});

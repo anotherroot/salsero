@@ -7,12 +7,25 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { focusAfterRemoval } from '$lib/focus';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { GROUP, ROW, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import {
+		CLIP,
+		GROUP,
+		LABEL,
+		ROW,
+		ROW_TALL,
+		SECTION_LABEL,
+		TEXTAREA,
+		button
+	} from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
+	import { barFraction, usageLine } from '$lib/storage-view';
+	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
 	import type { ActionResult } from '@sveltejs/kit';
@@ -36,7 +49,9 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<'style' | 'size' | 'theme' | null>(null);
+	let sheet = $state<'style' | 'size' | 'theme' | 'ask' | null>(null);
+	let asking = $state(false);
+	let askError = $state('');
 
 	const themeOptions = THEME_CHOICES.map((t) => ({ value: t, label: THEME_LABEL[t] }));
 
@@ -106,7 +121,54 @@
 		<BandButton icon="back" label="Back to Today" href={`/${data.dance}`} />
 	{/snippet}
 
-	<span class={SECTION_LABEL}>Practice</span>
+	<span class={SECTION_LABEL}>Storage</span>
+	<div class={GROUP}>
+		<div class="flex flex-col gap-2 px-4 py-3">
+			<span class="text-[16px] font-bold text-ink">
+				{usageLine(data.storage.usedBytes, data.storage.limitBytes)}
+			</span>
+			{#if data.storage.limitBytes !== null}
+				<div
+					class="{CLIP} h-2 rounded-full bg-chip"
+					role="meter"
+					aria-label="Space used"
+					aria-valuemin={0}
+					aria-valuemax={data.storage.limitBytes}
+					aria-valuenow={Math.min(data.storage.usedBytes, data.storage.limitBytes)}
+				>
+					<div
+						class="h-full rounded-full bg-accent"
+						style:width="{barFraction(data.storage.usedBytes, data.storage.limitBytes) * 100}%"
+					></div>
+				</div>
+			{/if}
+		</div>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+		<a href="/settings/storage" class={ROW_TALL}>
+			<LeadTile icon="sliders" />
+			<span class="flex min-w-0 flex-1 flex-col">
+				<span class="text-[16px] font-bold text-ink">What uses space</span>
+				<span class="text-[13px] text-muted">Biggest first, with Delete</span>
+			</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</a>
+		{#if data.storage.limitBytes !== null}
+			{#if data.asked}
+				<div class="{ROW_TALL} text-[15px] font-semibold text-muted">{data.asked}</div>
+			{:else}
+				<button
+					type="button"
+					class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+					onclick={() => (sheet = 'ask')}
+				>
+					<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Ask for more</span>
+					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+				</button>
+			{/if}
+		{/if}
+	</div>
+
+	<span class="{SECTION_LABEL} mt-[14px]">Practice</span>
 	<div class={GROUP}>
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 		<a href="/voice" class={ROW_TALL}>
@@ -208,6 +270,21 @@
 		</ul>
 	{/if}
 
+	{#if data.isAdmin}
+		<span class="{SECTION_LABEL} mt-[14px]">Admin</span>
+		<div class={GROUP}>
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+			<a href="/admin" class={ROW_TALL}>
+				<LeadTile icon="people" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">Admin</span>
+					<span class="text-[13px] text-muted">Invite someone</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		</div>
+	{/if}
+
 	<span class="{SECTION_LABEL} mt-[14px]">Account</span>
 	<div class={GROUP}>
 		<div class="{ROW} min-h-16 pr-1.5">
@@ -265,6 +342,45 @@
 	}}
 	onclose={() => (sheet = null)}
 />
+
+<Sheet title="Ask for more" open={sheet === 'ask'} onclose={() => (sheet = null)}>
+	<form
+		id="ask-more"
+		method="POST"
+		action="?/ask"
+		class="flex flex-col gap-3.5"
+		use:guarded={{
+			label: 'Ask for more',
+			submit: ({ cancel }) => {
+				if (asking) return cancel();
+				askError = '';
+				asking = true;
+				return async ({ result, update }) => {
+					askError =
+						result.type === 'failure' ? String(result.data?.message ?? 'Could not ask.') : '';
+					try {
+						await update();
+						if (result.type === 'success') sheet = null;
+					} finally {
+						asking = false;
+					}
+				};
+			}
+		}}
+	>
+		{#if askError}<Banner kind="error" title={askError} />{/if}
+		<p class="text-[14px] text-muted">The admin sees how much you use. A note is optional.</p>
+		<label class="block">
+			<span class={LABEL}>Note</span>
+			<textarea name="note" rows="3" maxlength="500" class={TEXTAREA}></textarea>
+		</label>
+	</form>
+	{#snippet footer()}
+		<button type="submit" form="ask-more" class={button('primary', 'md', true)} aria-busy={asking}>
+			Ask for more
+		</button>
+	{/snippet}
+</Sheet>
 
 <Toast
 	toast={toast && {

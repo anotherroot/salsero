@@ -28,6 +28,7 @@ import {
 	variationNameTaken
 } from './figures';
 import { createCustomExercise } from './exercises';
+import { inWall, type Wall } from './scope';
 import { linkSpot, SpotLinkError, videoOfSpot } from './spot-links';
 import { viaSections } from './lesson-links';
 import { defaultStyle } from './default-styles';
@@ -128,8 +129,10 @@ function lessonSide(db: Db, lessonId: number) {
  */
 export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkOptions | null {
 	const video = videoOfSpot(db, spotId);
-	if (!video || !video.isSection) return null;
+	if (!video || !video.isSection || video.userId === null) return null;
+	// The section's own wall: everything offered is its owner's, of its dance.
 	const dance = video.dance as DanceSlug;
+	const wall: Wall = { dance, userId: video.userId };
 	const spot = db
 		.select({
 			id: videoSpots.id,
@@ -158,7 +161,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		byHand = side.byHand;
 		// Every variation of a figure the lesson teaches is near, not just the taught one.
 		const taughtGroups = new Set(
-			listVersions(db, dance)
+			listVersions(db, wall)
 				.filter((v) => side.on.has(key({ figureId: v.id })))
 				.map((v) => v.groupId)
 		);
@@ -182,7 +185,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		.sort(byLabel);
 	const taken = new Set(linked.map((l) => key(l.target)));
 
-	const variations = listVersions(db, dance).map((v) => ({
+	const variations = listVersions(db, wall).map((v) => ({
 		option: {
 			target: { figureId: v.id },
 			label: v.label,
@@ -198,7 +201,12 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
 		.from(exercises)
 		.where(
-			and(eq(exercises.dance, dance), eq(exercises.source, 'custom'), isNull(exercises.archivedAt))
+			and(
+				eq(exercises.dance, wall.dance),
+				eq(exercises.userId, wall.userId),
+				eq(exercises.source, 'custom'),
+				isNull(exercises.archivedAt)
+			)
 		)
 		.orderBy(asc(exercises.name))
 		.all()
@@ -227,7 +235,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const nearGroups = new Set(
 		variations.filter((v) => isNear(v.option, v.groupId)).map((v) => v.groupId)
 	);
-	const figureChoices = listMoveTargets(db, dance, null).map((g) => ({
+	const figureChoices = listMoveTargets(db, wall, null).map((g) => ({
 		groupId: g.id,
 		name: g.name,
 		variations: g.variations,
@@ -252,24 +260,26 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 }
 
 /**
- * Make a variation, a figure or a drill and link the section to it — both or
- * neither. The creators run inside this transaction (drizzle nests them as
+ * Make a variation, a figure or a drill in the section's wall and link the
+ * section to it — both or neither. `userId` is who asks: a section of anyone
+ * else's is refused as missing, so nothing is made in another person's wall. The creators run inside this transaction (drizzle nests them as
  * savepoints), so a link that fails takes the new row with it. Returns the
  * link's id; throws `SpotLinkError` with what to tell the user and, when a
  * field is the reason, which one (the popup shows it under that field).
  */
-export function createAndLink(db: Db, spotId: number, create: LinkCreate): number {
+export function createAndLink(db: Db, userId: string, spotId: number, create: LinkCreate): number {
 	return db.transaction((tx) => {
 		const video = videoOfSpot(tx, spotId);
-		if (!video) throw new SpotLinkError('No such section.');
+		if (!video || video.userId !== userId) throw new SpotLinkError('No such section.');
 		const dance = video.dance as DanceSlug;
+		const wall: Wall = { dance, userId };
 		const name = create.name.trim();
 		if (!name) throw new SpotLinkError('Give it a name.', 400, 'name');
 
 		let target: SectionTarget;
 		if (create.kind === 'variation') {
 			const group = getGroup(tx, create.groupId);
-			if (!group || group.archivedAt !== null || group.dance !== dance) {
+			if (!group || group.archivedAt !== null || !inWall(group, wall)) {
 				throw new SpotLinkError('No such figure.', 400, 'groupId');
 			}
 			if (variationNameTaken(tx, group.id, name, null)) {
@@ -290,14 +300,14 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 			if (!isStyleOf(dance, create.style)) {
 				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
 			}
-			if (figureNameTaken(tx, dance, figureName, null)) {
+			if (figureNameTaken(tx, wall, figureName, null)) {
 				throw new SpotLinkError(
 					`There's already a figure called ${figureName}.`,
 					400,
 					'figureName'
 				);
 			}
-			const made = createFigure(tx, dance, {
+			const made = createFigure(tx, wall, {
 				figureName,
 				name,
 				partner: create.partner,
@@ -309,21 +319,24 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 		} else {
 			if (!isFrequency(create.everyDays))
 				throw new SpotLinkError('Pick how often.', 400, 'everyDays');
-			const made = createCustomExercise(tx, dance, {
+			const made = createCustomExercise(tx, wall, {
 				name,
 				everyDays: create.everyDays,
 				notes: null
 			});
 			target = { exerciseId: made.id };
 		}
-		return linkSpot(tx, spotId, target);
+		return linkSpot(tx, userId, spotId, target);
 	});
 }
 
-/** `linkOptions` with this user's default style for the section's dance. */
+/**
+ * `linkOptions` with this user's default style for the section's dance. Null
+ * for a section that is not this user's — the same answer a missing one gets.
+ */
 export function linkOptionsFor(db: Db, spotId: number, userId: string): LinkOptions | null {
 	const video = videoOfSpot(db, spotId);
-	if (!video) return null;
+	if (!video || video.userId !== userId) return null;
 	return linkOptions(db, spotId, defaultStyle(db, userId, video.dance as DanceSlug));
 }
 

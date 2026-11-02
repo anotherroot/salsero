@@ -6,6 +6,7 @@
  * opened.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 vi.mock('$lib/server/db', async () => {
@@ -45,7 +46,7 @@ beforeEach(() => {
 	handle.db = db;
 	figureExerciseId = addFigureExercise(
 		db,
-		createFigure(db, 'salsa', {
+		createFigure(db, U1_SALSA, {
 			figureName: 'Enchufla',
 			name: 'Basic',
 			partner: 'partner',
@@ -53,8 +54,12 @@ beforeEach(() => {
 			notes: null
 		})!.figure.id
 	)!.id;
-	drillId = createCustomExercise(db, 'salsa', { name: 'Son switch', everyDays: 2, notes: null }).id;
-	bachataDrillId = createCustomExercise(db, 'bachata', {
+	drillId = createCustomExercise(db, U1_SALSA, {
+		name: 'Son switch',
+		everyDays: 2,
+		notes: null
+	}).id;
+	bachataDrillId = createCustomExercise(db, U1_BACHATA, {
 		name: 'Hips',
 		everyDays: 2,
 		notes: null

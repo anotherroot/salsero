@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const envMock = vi.hoisted(() => ({ DATA_DIR: '' }));
 vi.mock('$env/dynamic/private', () => ({ env: envMock }));
@@ -28,7 +29,7 @@ beforeEach(async () => {
 	envMock.DATA_DIR = await mkdtemp(join(tmpdir(), 'salsa-claim-'));
 	db = openDb(':memory:');
 	handle.db = db;
-	figureId = createFigure(db, 'salsa', {
+	figureId = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',

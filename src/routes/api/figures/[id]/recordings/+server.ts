@@ -3,6 +3,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
+import { roomFor } from '$lib/server/storage';
 import { addRecording, getFigure } from '$lib/server/figures';
 import {
 	MAX_RECORDING_BYTES,
@@ -26,11 +27,12 @@ import type { RequestHandler } from './$types';
  * client is refused before uploading anything, and by counting bytes while
  * streaming, because the header can be absent or wrong.
  */
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const figureId = Number(params.id);
 	const db = getDb();
 	const found = Number.isInteger(figureId) ? getFigure(db, figureId) : null;
-	if (!found || found.figure.archivedAt !== null) throw error(404, 'Figure not found');
+	if (!found || found.figure.archivedAt !== null || found.figure.userId !== locals.user?.id)
+		throw error(404, 'Figure not found');
 
 	const mime = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
 	const kind = mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : null;
@@ -39,6 +41,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	const declared = Number(request.headers.get('content-length') ?? 0);
 	if (declared > MAX_RECORDING_BYTES)
 		throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
+	const room = roomFor(db, locals.user.id, declared);
+	if (!room.ok) throw error(413, room.message);
 	if (!request.body) throw error(400, 'Empty upload.');
 
 	const originalName = safeDecodeHeader(request.headers.get('x-filename'));
@@ -62,6 +66,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		throw error(400, 'Empty upload.');
 	}
 
+	// The header can be absent or wrong: check the bytes that really arrived.
+	const after = roomFor(db, locals.user!.id, bytes);
+	if (!after.ok) {
+		await unlink(path).catch(() => {});
+		throw error(413, after.message);
+	}
 	const recording = addRecording(db, { figureId, file, mime, kind, sizeBytes: bytes, note });
 	return json(recording, { status: 201 });
 };

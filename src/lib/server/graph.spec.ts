@@ -6,6 +6,7 @@ import { figureGroups, figures, figureStartPositions } from './db/schema';
 import { archiveVariation, createFigure, createVariationFrom } from './figures';
 import { buildGraph, figurePositions, setFigureShape, taggedFigures } from './graph';
 import { archivePosition, listPositions, seedPositions } from './positions';
+import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 const figureInput = (name: string) => ({
 	figureName: name,
@@ -32,9 +33,9 @@ function setup(): { db: Db; pos: (slug: string) => number } {
 describe('buildGraph', () => {
 	it('uses the dance neutral, so an untagged figure connects to everything', () => {
 		const { db, pos } = setup();
-		createFigure(db, 'salsa', figureInput('enchufla'));
-		createFigure(db, 'salsa', figureInput('dile que no'));
-		const g = buildGraph(db, 'salsa');
+		createFigure(db, U1_SALSA, figureInput('enchufla'));
+		createFigure(db, U1_SALSA, figureInput('dile que no'));
+		const g = buildGraph(db, U1_SALSA);
 
 		expect(g.neutral).toBe(pos('open-two'));
 		expect(g.figures).toHaveLength(2);
@@ -44,17 +45,17 @@ describe('buildGraph', () => {
 
 	it('is walled by dance', () => {
 		const { db } = setup();
-		createFigure(db, 'salsa', figureInput('enchufla'));
-		createFigure(db, 'bachata', { ...figureInput('basico'), style: 'dominican' });
-		expect(buildGraph(db, 'salsa').figures).toHaveLength(1);
-		expect(buildGraph(db, 'bachata').figures).toHaveLength(1);
+		createFigure(db, U1_SALSA, figureInput('enchufla'));
+		createFigure(db, U1_BACHATA, { ...figureInput('basico'), style: 'dominican' });
+		expect(buildGraph(db, U1_SALSA).figures).toHaveLength(1);
+		expect(buildGraph(db, U1_BACHATA).figures).toHaveLength(1);
 	});
 
 	it('leaves out archived figures', () => {
 		const { db } = setup();
-		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		archiveVariation(db, made.figure.id, Date.now());
-		expect(buildGraph(db, 'salsa').figures).toEqual([]);
+		expect(buildGraph(db, U1_SALSA).figures).toEqual([]);
 	});
 });
 
@@ -68,7 +69,7 @@ const shape = (
 describe('setFigureShape', () => {
 	it('stores starts, end and timing, and the graph reads them back', () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
 		expect(
 			setFigureShape(
 				db,
@@ -84,13 +85,13 @@ describe('setFigureShape', () => {
 			startIds: [pos('open-two'), pos('cross-hand')].sort((a, b) => a - b),
 			endId: pos('hammerlock-r')
 		});
-		const g = buildGraph(db, 'salsa');
+		const g = buildGraph(db, U1_SALSA);
 		expect(g.figures[0]).toMatchObject({ start: 5, length: 12, end: pos('hammerlock-r') });
 	});
 
 	it('replaces the starts rather than adding to them', () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
 		setFigureShape(db, made.figure.id, shape([pos('open-two'), pos('cross-hand')], null));
 		setFigureShape(db, made.figure.id, shape([pos('closed')], null));
 		expect(figurePositions(db, made.figure.id).startIds).toEqual([pos('closed')]);
@@ -98,7 +99,7 @@ describe('setFigureShape', () => {
 
 	it('refuses a position from the other dance, writing nothing', () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
 		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
 
 		expect(setFigureShape(db, made.figure.id, shape([bachataShadow.id], null))).toBe(false);
@@ -111,12 +112,12 @@ describe('setFigureShape', () => {
 		).toBe(false);
 		expect(figurePositions(db, made.figure.id)).toEqual({ startIds: [], endId: null });
 		// The timing half of the refused write did not land either.
-		expect(buildGraph(db, 'salsa').figures[0]).toMatchObject({ start: 1, length: 8 });
+		expect(buildGraph(db, U1_SALSA).figures[0]).toMatchObject({ start: 1, length: 8 });
 	});
 
 	it('refuses timing out of range and a missing figure, writing nothing', () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
 		const id = made.figure.id;
 		const open = [pos('open-two')];
 		expect(setFigureShape(db, id, shape(open, null, { startCount: 0 }))).toBe(false);
@@ -130,7 +131,7 @@ describe('setFigureShape', () => {
 
 	it('rejects a duplicate (figure, position) row at the database level', () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
 		const row = { figureId: made.figure.id, positionId: pos('open-two') };
 		db.insert(figureStartPositions).values(row).run();
 		// The composite primary key is the backstop for the de-duplication
@@ -140,7 +141,7 @@ describe('setFigureShape', () => {
 
 	it('de-duplicates a repeated start position rather than throwing', () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
 		const open = pos('open-two');
 		expect(setFigureShape(db, made.figure.id, shape([open, open], null))).toBe(true);
 		expect(figurePositions(db, made.figure.id).startIds).toEqual([open]);
@@ -152,7 +153,7 @@ describe('setFigureShape', () => {
 		// A page round-trip re-posts the SAME ids on every save, archived or not,
 		// so this is what that save must not lose.
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('sombrero'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
 		const crossHand = pos('cross-hand'); // not the neutral row, so it can be archived
 		expect(setFigureShape(db, made.figure.id, shape([crossHand], crossHand))).toBe(true);
 		expect(archivePosition(db, crossHand, Date.now())).toBe(true);
@@ -167,7 +168,7 @@ describe('setFigureShape', () => {
 describe('a variation stands on its own', () => {
 	it("a variation's graph node is its own values", () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		setFigureShape(
 			db,
 			made.figure.id,
@@ -176,7 +177,7 @@ describe('a variation stands on its own', () => {
 		const other = createVariationFrom(db, made.figure.id, 'Doble')!;
 		// The copy carries the source's shape; clear it so the sibling is blank.
 		setFigureShape(db, other.id, shape([], null));
-		const g = buildGraph(db, 'salsa');
+		const g = buildGraph(db, U1_SALSA);
 		const node = g.figures.find((f) => f.id === other.id)!;
 		expect(node).toMatchObject({ starts: [], end: null, start: 1, length: 8 });
 		expect(g.figures.find((f) => f.id === made.figure.id)!.starts).toEqual([pos('closed')]);
@@ -184,34 +185,34 @@ describe('a variation stands on its own', () => {
 
 	it('leaves out a live variation whose group is archived', () => {
 		const { db } = setup();
-		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		db.update(figureGroups).set({ archivedAt: 1 }).where(eq(figureGroups.id, made.group.id)).run();
-		expect(buildGraph(db, 'salsa').figures).toEqual([]);
+		expect(buildGraph(db, U1_SALSA).figures).toEqual([]);
 	});
 
 	it('taggedFigures counts variations', () => {
 		const { db, pos } = setup();
-		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		const other = createVariationFrom(db, made.figure.id, 'Doble')!;
 		setFigureShape(db, other.id, shape([], null));
 		setFigureShape(db, made.figure.id, shape([pos('closed')], null));
-		expect(taggedFigures(db, 'salsa')).toEqual({ done: 1, total: 2 });
+		expect(taggedFigures(db, U1_SALSA)).toEqual({ done: 1, total: 2 });
 	});
 
 	it('taggedFigures leaves out a live variation whose group is archived', () => {
 		const { db } = setup();
-		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
-		createFigure(db, 'salsa', figureInput('sombrero'));
+		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
+		createFigure(db, U1_SALSA, figureInput('sombrero'));
 		db.update(figureGroups).set({ archivedAt: 1 }).where(eq(figureGroups.id, made.group.id)).run();
-		expect(taggedFigures(db, 'salsa')).toEqual({ done: 0, total: 1 });
+		expect(taggedFigures(db, U1_SALSA)).toEqual({ done: 0, total: 1 });
 	});
 
 	it('orders nodes by figure name, then variation name', () => {
 		const { db } = setup();
-		const zeta = createFigure(db, 'salsa', figureInput('Zeta'))!;
-		const alpha = createFigure(db, 'salsa', figureInput('Alpha'))!;
+		const zeta = createFigure(db, U1_SALSA, figureInput('Zeta'))!;
+		const alpha = createFigure(db, U1_SALSA, figureInput('Alpha'))!;
 		const alpha2 = createVariationFrom(db, alpha.figure.id, 'Aaa')!;
-		expect(buildGraph(db, 'salsa').figures.map((f) => f.id)).toEqual([
+		expect(buildGraph(db, U1_SALSA).figures.map((f) => f.id)).toEqual([
 			alpha2.id,
 			alpha.figure.id,
 			zeta.figure.id
@@ -222,16 +223,16 @@ describe('a variation stands on its own', () => {
 describe('timing defaults', () => {
 	it('stores a new figure as start 1, 8 counts', () => {
 		const { db } = setup();
-		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		expect(made.figure.lengthCounts).toBe(8);
 		expect(made.figure.startCount).toBe(1);
-		expect(buildGraph(db, 'salsa').figures[0]).toMatchObject({ start: 1, length: 8 });
+		expect(buildGraph(db, U1_SALSA).figures[0]).toMatchObject({ start: 1, length: 8 });
 	});
 
 	it('reads a null length as 8 — a row the backfill or createFigure never touched', () => {
 		const { db } = setup();
-		const made = createFigure(db, 'salsa', figureInput('enchufla'))!;
+		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		db.update(figures).set({ lengthCounts: null }).where(eq(figures.id, made.figure.id)).run();
-		expect(buildGraph(db, 'salsa').figures[0].length).toBe(8);
+		expect(buildGraph(db, U1_SALSA).figures[0].length).toBe(8);
 	});
 });

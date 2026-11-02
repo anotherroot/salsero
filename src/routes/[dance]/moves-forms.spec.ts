@@ -7,6 +7,7 @@
  * ever opens the real database.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -24,7 +25,7 @@ import { actions as coverageActions } from './coverage/+page.server';
 import { actions as positionActions } from './positions/+page.server';
 import { archivePosition, getPosition, listPositions, seedPositions } from '$lib/server/positions';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
 function post(dance: string, fields: Record<string, string>, id = '') {
@@ -63,7 +64,7 @@ describe('New routine', () => {
 				notes: 'For Fridays'
 			}
 		});
-		expect(listRoutines(db, 'salsa')).toEqual([]);
+		expect(listRoutines(db, U1_SALSA)).toEqual([]);
 	});
 
 	it('refuses notes that are too long under the Notes field, keeping the name', async () => {
@@ -81,7 +82,7 @@ describe('New routine', () => {
 		await expect(
 			call(routineListActions.create, post('bachata', { name: 'Wave combo', notes: '' }))
 		).rejects.toMatchObject({ status: 303 });
-		expect(listRoutines(db, 'bachata').map((r) => r.name)).toEqual(['Wave combo']);
+		expect(listRoutines(db, U1_BACHATA).map((r) => r.name)).toEqual(['Wave combo']);
 	});
 });
 
@@ -95,7 +96,7 @@ describe('New figure', () => {
 	};
 
 	it('puts a taken figure name under Figure name, in bachata too, keeping every field', async () => {
-		createFigure(db, 'bachata', {
+		createFigure(db, U1_BACHATA, {
 			figureName: 'Hammerlock',
 			name: 'Basic',
 			partner: 'partner',

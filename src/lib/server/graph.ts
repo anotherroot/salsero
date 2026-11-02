@@ -2,8 +2,8 @@
  * Turning rows into a `Graph`, and writing a figure's tags.
  *
  * The dance wall lives here, not in `src/lib/graph/`: that module is pure and
- * never learns what a dance is, so this one scopes first and hands it a graph
- * of one dance only.
+ * never learns what a dance or a person is, so this one scopes first and hands it a graph
+ * of one wall only (one person's side of one dance); positions stay shared.
  */
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db } from './db';
@@ -16,7 +16,7 @@ import {
 	isLengthCounts,
 	isStartCount
 } from '$lib/graph/timing';
-import type { DanceSlug } from '$lib/dances/dances';
+import type { Wall } from './scope';
 
 /**
  * The live variations (of live figures) of one dance as a graph.
@@ -26,7 +26,7 @@ import type { DanceSlug } from '$lib/dances/dances';
  * would make every untagged figure share one position anyway, which is the
  * same answer, so it degrades rather than throwing.
  */
-export function buildGraph(db: Db, dance: DanceSlug): Graph {
+export function buildGraph(db: Db, wall: Wall): Graph {
 	const rows = db
 		.select({
 			id: figures.id,
@@ -37,7 +37,12 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.where(
-			and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
+			and(
+				eq(figures.dance, wall.dance),
+				eq(figures.userId, wall.userId),
+				isNull(figures.archivedAt),
+				isNull(figureGroups.archivedAt)
+			)
 		)
 		.orderBy(figureGroups.name, figures.name, figures.id)
 		.all();
@@ -71,7 +76,7 @@ export function buildGraph(db: Db, dance: DanceSlug): Graph {
 	}));
 
 	return {
-		neutral: neutralPosition(db, dance)?.id ?? 0,
+		neutral: neutralPosition(db, wall.dance)?.id ?? 0,
 		figures: nodes
 	};
 }
@@ -158,13 +163,18 @@ export function setFigureShape(db: Db, figureId: number, shape: FigureShape): bo
 /**
  * How much of the repertoire carries handhold tags, counted per live variation of a live figure.
  */
-export function taggedFigures(db: Db, dance: DanceSlug): { done: number; total: number } {
+export function taggedFigures(db: Db, wall: Wall): { done: number; total: number } {
 	const rows = db
 		.select({ id: figures.id, end: figures.endPositionId })
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
 		.where(
-			and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
+			and(
+				eq(figures.dance, wall.dance),
+				eq(figures.userId, wall.userId),
+				isNull(figures.archivedAt),
+				isNull(figureGroups.archivedAt)
+			)
 		)
 		.all();
 	const ids = rows.map((r) => r.id);

@@ -16,6 +16,7 @@ import {
 	type FigureGroup
 } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
+import type { Wall } from './scope';
 import type { Partner } from '$lib/labels';
 import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
@@ -39,6 +40,11 @@ const norm = (name: string) => name.trim().toLowerCase();
 
 /** "Enchufla · Doble" — the figure's name and the variation's. */
 const labelFor = (figureName: string, name: string) => `${figureName} · ${name}`;
+
+/** The wall a figure or group row stands in (its owner is never null once written). */
+function wallOfRow(row: { dance: string; userId: string | null }): Wall {
+	return { dance: row.dance as DanceSlug, userId: row.userId ?? '' };
+}
 
 /** The label of one variation, or null when it is gone. */
 function labelOf(tx: Db, figureId: number): string | null {
@@ -67,14 +73,19 @@ function syncExerciseNames(tx: Db, where: SQL | undefined) {
 	}
 }
 
+const inWallGroups = (wall: Wall) =>
+	and(eq(figureGroups.dance, wall.dance), eq(figureGroups.userId, wall.userId));
+const inWallFigures = (wall: Wall) =>
+	and(eq(figures.dance, wall.dance), eq(figures.userId, wall.userId));
+
 export function getGroup(db: Db, groupId: number): FigureGroup | null {
 	return db.select().from(figureGroups).where(eq(figureGroups.id, groupId)).get() ?? null;
 }
 
-/** Whether another live figure of the dance has the name (trimmed, case-insensitive). */
+/** Whether another live figure in the wall has the name (trimmed, case-insensitive). */
 export function figureNameTaken(
 	db: Db,
-	dance: DanceSlug,
+	wall: Wall,
 	name: string,
 	exceptGroupId: number | null
 ): boolean {
@@ -82,7 +93,7 @@ export function figureNameTaken(
 	return db
 		.select({ id: figureGroups.id, name: figureGroups.name })
 		.from(figureGroups)
-		.where(and(eq(figureGroups.dance, dance), isNull(figureGroups.archivedAt)))
+		.where(and(inWallGroups(wall), isNull(figureGroups.archivedAt)))
 		.all()
 		.some((g) => g.id !== exceptGroupId && norm(g.name) === wanted);
 }
@@ -121,20 +132,25 @@ export function variationNameTaken(
  */
 export function createFigure(
 	db: Db,
-	dance: DanceSlug,
+	wall: Wall,
 	input: FigureInput & { figureName: string }
 ): { figure: Figure; group: FigureGroup } | null {
 	const { figureName, ...rest } = input;
-	if (!isStyleOf(dance, rest.style)) return null;
+	if (!isStyleOf(wall.dance, rest.style)) return null;
 	if (!figureName.trim() || !rest.name.trim()) return null;
-	if (figureNameTaken(db, dance, figureName, null)) return null;
+	if (figureNameTaken(db, wall, figureName, null)) return null;
 	return db.transaction((tx) => {
-		const group = tx.insert(figureGroups).values({ dance, name: figureName }).returning().get();
+		const group = tx
+			.insert(figureGroups)
+			.values({ dance: wall.dance, userId: wall.userId, name: figureName })
+			.returning()
+			.get();
 		const figure = tx
 			.insert(figures)
 			.values({
 				...values(rest),
-				dance,
+				dance: wall.dance,
+				userId: wall.userId,
 				groupId: group.id,
 				startCount: 1,
 				lengthCounts: DEFAULT_LENGTH_COUNTS
@@ -163,6 +179,7 @@ export function createVariationIn(db: Db, groupId: number, input: FigureInput): 
 			.values({
 				...values(input),
 				dance: group.dance,
+				userId: group.userId,
 				groupId: group.id,
 				startCount: 1,
 				lengthCounts: DEFAULT_LENGTH_COUNTS
@@ -191,6 +208,7 @@ export function createVariationFrom(db: Db, fromId: number, name: string): Figur
 				notes: src.notes,
 				partner: src.partner,
 				dance: src.dance,
+				userId: src.userId,
 				styleTag: src.styleTag,
 				groupId: src.groupId,
 				endPositionId: src.endPositionId,
@@ -243,7 +261,7 @@ export function renameFigure(db: Db, groupId: number, name: string): boolean {
 	return db.transaction((tx) => {
 		const group = tx.select().from(figureGroups).where(eq(figureGroups.id, groupId)).get();
 		if (!group || !name.trim()) return false;
-		if (figureNameTaken(tx, group.dance as DanceSlug, name, groupId)) return false;
+		if (figureNameTaken(tx, wallOfRow(group), name, groupId)) return false;
 		tx.update(figureGroups).set({ name }).where(eq(figureGroups.id, groupId)).run();
 		syncExerciseNames(tx, eq(figures.groupId, groupId));
 		return true;
@@ -269,7 +287,14 @@ export function addFigureExercise(db: Db, figureId: number, everyDays = 3) {
 		if (existing) return null;
 		return tx
 			.insert(exercises)
-			.values({ name: label, source: 'figure', figureId, dance: figure.dance, everyDays })
+			.values({
+				name: label,
+				source: 'figure',
+				figureId,
+				dance: figure.dance,
+				userId: figure.userId,
+				everyDays
+			})
 			.returning()
 			.get();
 	});
@@ -344,7 +369,7 @@ export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
 		let name = row.name;
 		if ('groupId' in to) {
 			const g = getGroup(tx, to.groupId);
-			if (!g || g.archivedAt !== null || g.dance !== row.dance) {
+			if (!g || g.archivedAt !== null || g.dance !== row.dance || g.userId !== row.userId) {
 				return { ok: false, reason: 'gone' };
 			}
 			if (g.id === from) return { ok: false, reason: 'same-figure' };
@@ -353,10 +378,14 @@ export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
 			target = g.id;
 		} else {
 			const name = to.newFigure.trim();
-			if (!name || figureNameTaken(tx, row.dance as DanceSlug, name, null)) {
+			if (!name || figureNameTaken(tx, wallOfRow(row), name, null)) {
 				return { ok: false, reason: 'figure-name-taken' };
 			}
-			target = tx.insert(figureGroups).values({ dance: row.dance, name }).returning().get().id;
+			target = tx
+				.insert(figureGroups)
+				.values({ dance: row.dance, userId: row.userId, name })
+				.returning()
+				.get().id;
 		}
 		tx.update(figures).set({ groupId: target, name }).where(eq(figures.id, id)).run();
 		syncExerciseNames(tx, eq(figures.id, id));
@@ -373,14 +402,14 @@ export interface FigureFilter {
 }
 
 /**
- * The variation ids of `dance` linked to a section anywhere, and those a live
+ * The variation ids in `wall` linked to a section anywhere, and those a live
  * lesson reaches — by hand or through a section of one of its videos (the rule
  * `lesson-links.ts` reads per lesson, here in bulk for the whole list).
  */
-function linkedVariations(db: Db, dance: DanceSlug): { section: Set<number>; lesson: Set<number> } {
+function linkedVariations(db: Db, wall: Wall): { section: Set<number>; lesson: Set<number> } {
 	const ids = (rows: { id: number | null }[]) =>
 		new Set(rows.flatMap((r) => (r.id === null ? [] : [r.id])));
-	const ofDance = and(eq(figures.dance, dance), isNotNull(spotLinks.figureId));
+	const ofDance = and(inWallFigures(wall), isNotNull(spotLinks.figureId));
 	const section = ids(
 		db
 			.selectDistinct({ id: spotLinks.figureId })
@@ -392,8 +421,16 @@ function linkedVariations(db: Db, dance: DanceSlug): { section: Set<number>; les
 	const byHand = db
 		.selectDistinct({ id: lessonFigures.figureId })
 		.from(lessonFigures)
+		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
 		.innerJoin(lessons, eq(lessons.id, lessonFigures.lessonId))
-		.where(and(eq(lessons.dance, dance), isNull(lessons.archivedAt)))
+		.where(
+			and(
+				inWallFigures(wall),
+				eq(lessons.dance, wall.dance),
+				eq(lessons.userId, wall.userId),
+				isNull(lessons.archivedAt)
+			)
+		)
 		.all();
 	const viaSections = db
 		.selectDistinct({ id: spotLinks.figureId })
@@ -412,11 +449,11 @@ function linkedVariations(db: Db, dance: DanceSlug): { section: Set<number>; les
  * also matches the figure's own name. `hasSection`/`hasLesson` look at every
  * live variation, whatever the filter matched.
  */
-export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {}): FigureListItem[] {
+export function listFigures(db: Db, wall: Wall, filter: FigureFilter = {}): FigureListItem[] {
 	const groups = db
 		.select()
 		.from(figureGroups)
-		.where(and(eq(figureGroups.dance, dance), isNull(figureGroups.archivedAt)))
+		.where(and(inWallGroups(wall), isNull(figureGroups.archivedAt)))
 		.orderBy(asc(figureGroups.name))
 		.all();
 	const rows = db
@@ -430,11 +467,11 @@ export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {})
 		})
 		.from(figures)
 		.leftJoin(recordings, eq(recordings.figureId, figures.id))
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), isNotNull(figures.groupId)))
+		.where(and(inWallFigures(wall), isNull(figures.archivedAt), isNotNull(figures.groupId)))
 		.groupBy(figures.id)
 		.orderBy(asc(figures.id))
 		.all();
-	const linked = linkedVariations(db, dance);
+	const linked = linkedVariations(db, wall);
 	const q = filter.q ? filter.q.trim().toLowerCase() : '';
 	const items: FigureListItem[] = [];
 	for (const g of groups) {
@@ -468,13 +505,13 @@ export function listFigures(db: Db, dance: DanceSlug, filter: FigureFilter = {})
  * label) and says (the figure's name — a spoken call has three counts to fit
  * in). Archived ones are excluded: the planner will never reach one.
  */
-export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): CalledFigure[] {
+export function listFiguresForCall(db: Db, wall: Wall, ids: number[]): CalledFigure[] {
 	if (ids.length === 0) return [];
 	return db
 		.select({ id: figures.id, figure: figureGroups.name, name: figures.name })
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt), inArray(figures.id, ids)))
+		.where(and(inWallFigures(wall), isNull(figures.archivedAt), inArray(figures.id, ids)))
 		.orderBy(asc(figureGroups.name), asc(figures.id))
 		.all()
 		.map((r) => ({ id: r.id, name: labelFor(r.figure, r.name), say: r.figure }));
@@ -485,12 +522,8 @@ export function listFiguresForCall(db: Db, dance: DanceSlug, ids: number[]): Cal
  * variation can move to (every figure but its own), or where a lesson can add
  * one (`exceptGroupId` null: every figure).
  */
-export function listMoveTargets(
-	db: Db,
-	dance: DanceSlug,
-	exceptGroupId: number | null
-): MoveTarget[] {
-	return listFigures(db, dance)
+export function listMoveTargets(db: Db, wall: Wall, exceptGroupId: number | null): MoveTarget[] {
+	return listFigures(db, wall)
 		.filter((g) => g.id !== exceptGroupId)
 		.map((g) => ({
 			id: g.id,
@@ -548,20 +581,20 @@ export function getRecordingByFile(db: Db, file: string) {
  * "Enchufla · Doble", even for a figure with one variation. Archived rows
  * included: a routine slot can still name one, and a name beats "archived".
  */
-export function figureLabels(db: Db, dance: DanceSlug): Map<number, string> {
+export function figureLabels(db: Db, wall: Wall): Map<number, string> {
 	return new Map(
 		db
 			.select({ id: figures.id, figure: figureGroups.name, name: figures.name })
 			.from(figures)
 			.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-			.where(eq(figures.dance, dance))
+			.where(inWallFigures(wall))
 			.all()
 			.map((r) => [r.id, labelFor(r.figure, r.name)])
 	);
 }
 
 /** Live variations of live figures, by figure name then variation id — what a picker offers. */
-export function listVersions(db: Db, dance: DanceSlug): FigureVersion[] {
+export function listVersions(db: Db, wall: Wall): FigureVersion[] {
 	return db
 		.select({
 			id: figures.id,
@@ -571,9 +604,7 @@ export function listVersions(db: Db, dance: DanceSlug): FigureVersion[] {
 		})
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(
-			and(eq(figures.dance, dance), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
-		)
+		.where(and(inWallFigures(wall), isNull(figures.archivedAt), isNull(figureGroups.archivedAt)))
 		.orderBy(asc(figureGroups.name), asc(figures.id))
 		.all()
 		.map((r) => ({ ...r, label: labelFor(r.figure, r.name) }));

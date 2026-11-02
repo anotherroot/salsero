@@ -10,9 +10,10 @@ import type { RequestHandler } from './$types';
  * hooks.server.ts. Range matters twice over here: iOS refuses to play media
  * without it, and these files run to a gigabyte.
  */
-export const GET: RequestHandler = async ({ params, request }) => {
+export const GET: RequestHandler = async ({ params, request, locals }) => {
 	if (!LESSON_VIDEO_FILE_RE.test(params.file)) throw error(404, 'Not found');
 	const video = getLessonVideoByFile(getDb(), params.file);
-	if (!video) throw error(404, 'Not found');
+	// Another person's video and a missing one get the same 404.
+	if (!video || !locals.user || video.userId !== locals.user.id) throw error(404, 'Not found');
 	return serveFile(join(lessonVideosDir(), video.file), video.mime, request);
 };

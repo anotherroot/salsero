@@ -4,6 +4,7 @@
  * `src/routes/[dance]/dance-wall.spec.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -33,20 +34,24 @@ let other: number;
 let point: number;
 
 const fig = (dance: 'salsa' | 'bachata', figureName: string) =>
-	createFigure(db, dance, {
-		figureName,
-		name: 'Basic',
-		partner: 'partner',
-		style: dance === 'salsa' ? 'salsa' : 'sensual',
-		notes: null
-	})!.figure.id;
+	createFigure(
+		db,
+		{ userId: 'u1', dance },
+		{
+			figureName,
+			name: 'Basic',
+			partner: 'partner',
+			style: dance === 'salsa' ? 'salsa' : 'sensual',
+			notes: null
+		}
+	)!.figure.id;
 
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
 	basic = fig('salsa', 'Enchufla');
 	paseo = fig('bachata', 'Paseo');
-	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
+	lessonId = createLesson(db, U1_SALSA, { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
 	const lessonVideoId = addLessonVideo(db, {
 		lessonId,
@@ -177,10 +182,10 @@ describe('POST /api/video-spots/[id]/links', () => {
 describe('DELETE /api/video-spots/[id]/links/[linkId]', () => {
 	it('keeps the hand link without alsoLesson, and takes it with', async () => {
 		linkFigure(db, lessonId, basic);
-		const first = linkSpot(db, section, { figureId: basic });
+		const first = linkSpot(db, 'u1', section, { figureId: basic });
 		expect((await outcome(() => del(section, first))).status).toBe(200);
 		expect(db.select().from(lessonFigures).all()).toHaveLength(1);
-		const second = linkSpot(db, section, { figureId: basic });
+		const second = linkSpot(db, 'u1', section, { figureId: basic });
 		const res = await outcome(() => del(section, second, true));
 		expect(res.status).toBe(200);
 		expect(res.body!.linked).toEqual([]);
@@ -188,7 +193,7 @@ describe('DELETE /api/video-spots/[id]/links/[linkId]', () => {
 	});
 
 	it("is a 404 for another spot's link", async () => {
-		const link = linkSpot(db, other, { figureId: basic });
+		const link = linkSpot(db, 'u1', other, { figureId: basic });
 		expect((await outcome(() => del(section, link))).status).toBe(404);
 	});
 });

@@ -7,6 +7,7 @@ import { MAX_PRE_ROLL_S, MAX_TAKE_BYTES, MAX_TAKE_LABEL } from '$lib/limits';
 import { putCountTake } from '$lib/server/countTakes';
 import { getDb } from '$lib/server/db';
 import { TooLargeError, countDir, saveStream } from '$lib/server/files';
+import { roomFor, takeSlotBytes } from '$lib/server/storage';
 import type { RequestHandler } from './$types';
 
 /** A header that must be a finite number in a sane range, or the upload is refused. */
@@ -27,7 +28,8 @@ function num(raw: string | null, min: number, max: number): number | null {
  * take and found one it could not place, which surfaces as silence rather than
  * as an error.
  */
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	if (!locals.user) throw error(401, 'Sign in');
 	const h = request.headers;
 
 	const pattern = h.get('x-pattern');
@@ -54,6 +56,14 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (Number(h.get('content-length') ?? 0) > MAX_TAKE_BYTES) {
 		throw error(413, `That take is larger than ${MAX_TAKE_LABEL}.`);
 	}
+	// A take replacing one in the same slot only adds the difference.
+	const replacedBytes = takeSlotBytes(getDb(), locals.user.id, { pattern: pattern!, bpm, phrase });
+	const room = roomFor(
+		getDb(),
+		locals.user.id,
+		Math.max(0, Number(h.get('content-length') ?? 0) - replacedBytes)
+	);
+	if (!room.ok) throw error(413, room.message);
 	if (!request.body) throw error(400, 'Empty upload.');
 
 	const file = `${randomUUID()}.wav`;
@@ -66,7 +76,13 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw e;
 	}
 
-	const { replaced } = putCountTake(getDb(), {
+	const after = roomFor(getDb(), locals.user.id, Math.max(0, sizeBytes - replacedBytes));
+	if (!after.ok) {
+		await unlink(path).catch(() => {});
+		throw error(413, after.message);
+	}
+
+	const { replaced } = putCountTake(getDb(), locals.user.id, {
 		pattern: pattern as PhrasePattern,
 		bpm,
 		phrase,

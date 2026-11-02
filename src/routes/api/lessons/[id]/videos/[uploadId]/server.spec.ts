@@ -17,6 +17,7 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { createLesson, getLesson } from '$lib/server/lessons';
+import { U1_SALSA } from '$lib/server/test-walls';
 import { PUT } from './+server';
 
 const UPLOAD = '0f8fad5b-d9cb-469f-a165-70867728950e';
@@ -27,7 +28,7 @@ beforeEach(async () => {
 	envMock.DATA_DIR = await mkdtemp(join(tmpdir(), 'salsa-chunks-'));
 	db = openDb(':memory:');
 	handle.db = db;
-	lessonId = createLesson(db, 'salsa', {
+	lessonId = createLesson(db, U1_SALSA, {
 		lessonDay: '2026-10-14',
 		title: 'Wednesday class',
 		notes: null
@@ -47,8 +48,13 @@ function put(start: number, bytes: Uint8Array, total: number) {
 		},
 		body: new Blob([bytes as Uint8Array<ArrayBuffer>])
 	});
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- only the fields PUT reads
-	return PUT({ params: { id: String(lessonId), uploadId: UPLOAD }, request } as any);
+	const event = {
+		params: { id: String(lessonId), uploadId: UPLOAD },
+		request,
+		locals: { user: { id: 'u1' } }
+	};
+	// Only the fields PUT reads.
+	return PUT(event as unknown as Parameters<typeof PUT>[0]);
 }
 
 describe('a finished upload asked about again', () => {

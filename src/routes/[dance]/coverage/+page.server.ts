@@ -4,25 +4,26 @@ import { listVersions } from '$lib/server/figures';
 import { createRoutineFromFigures, listRoutines, routineShapes } from '$lib/server/routines';
 import { ints, text } from '$lib/server/form';
 import { coverage, coverageGroups } from '$lib/routines/coverage';
-import { danceOf } from '$lib/server/scope';
+import { wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params }) => {
-	const dance = danceOf(params);
+export const load: PageServerLoad = ({ params, locals }) => {
+	const wall = wallOf(params, locals);
 	const db = getDb();
 	// Derived per request, never stored: a slot edited on a routine page
 	// changes these answers with nothing else touched.
 	return {
 		groups: coverageGroups(
-			coverage(listVersions(db, dance), routineShapes(db, dance), listRoutines(db, dance))
+			coverage(listVersions(db, wall), routineShapes(db, wall), listRoutines(db, wall))
 		)
 	};
 };
 
 export const actions: Actions = {
 	/** A new routine from the picked versions, in the order they were picked. */
-	create: async ({ params, request }) => {
-		const dance = danceOf(params);
+	create: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const dance = wall.dance;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		// `ints` keeps first-seen order and drops duplicates.
@@ -37,7 +38,7 @@ export const actions: Actions = {
 		if (figureIds.length === 0) {
 			return fail(400, { message: 'Pick at least one figure.', name });
 		}
-		const made = createRoutineFromFigures(getDb(), dance, { name, notes: null }, figureIds);
+		const made = createRoutineFromFigures(getDb(), wall, { name, notes: null }, figureIds);
 		// Every id from the page is a live version of this dance; anything else
 		// is a tampered body or a stale page, answered like every other
 		// cross-dance id.

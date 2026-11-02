@@ -12,7 +12,7 @@ import { listCountTakesFor } from '$lib/server/countTakes';
 import { int, optionalText, text } from '$lib/server/form';
 import { lessonDays } from '$lib/server/lessons';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
-import { danceOf } from '$lib/server/scope';
+import { wallOf } from '$lib/server/scope';
 import { songChoices } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
@@ -28,7 +28,8 @@ function zone(locals: App.Locals): string {
 }
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
-	const dance = danceOf(params);
+	const wall = wallOf(params, locals);
+	const dance = wall.dance;
 	const tz = zone(locals);
 	const now = Date.now();
 	const today = localDay(now, tz);
@@ -43,12 +44,12 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	const day = requested ?? today;
 
 	const db = getDb();
-	const exercises = listExercises(db, dance);
+	const exercises = listExercises(db, wall);
 
 	// Widen the window by a day each side, then let localDay decide membership:
 	// the day boundary is decided in ONE place, in the user's zone.
 	const noon = noonOf(day, tz);
-	const daySets = listSetsBetween(db, noon - DAY_MS, noon + DAY_MS, dance).filter(
+	const daySets = listSetsBetween(db, noon - DAY_MS, noon + DAY_MS, wall).filter(
 		(s) => localDay(s.doneAt, tz) === day
 	);
 
@@ -58,20 +59,20 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		prevDay: shiftDay(day, -1),
 		nextDay: day === today ? null : shiftDay(day, 1),
 		isToday: day === today,
-		plan: plan(exercises, listSetTimes(db, dance), now, tz),
+		plan: plan(exercises, listSetTimes(db, wall), now, tz),
 		daySets,
 		// For the past-day "add a forgotten set" picker.
-		exercises: listPickExercises(db, dance),
+		exercises: listPickExercises(db, wall),
 		// For the practice panel's song picker.
-		songs: songChoices(db, dance),
+		songs: songChoices(db, wall),
 		// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.
-		lessonDays: lessonDays(db, dance),
+		lessonDays: lessonDays(db, wall),
 		// The latest set's rating per exercise, for the dots on each row.
 		lastRatings: Object.fromEntries(
-			[...lastSets(db, dance)].map(([id, s]) => [id, s.rating] as [number, number | null])
+			[...lastSets(db, wall)].map(([id, s]) => [id, s.rating] as [number, number | null])
 		),
 		// The practice panel's voice: the user's recorded count, a few dozen rows.
-		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
+		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
 	};
 };
 
@@ -81,8 +82,8 @@ export const actions: Actions = {
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
 
-	createExercise: async ({ params, request }) => {
-		const dance = danceOf(params);
+	createExercise: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const everyDays = int(form, 'everyDays');
@@ -95,7 +96,7 @@ export const actions: Actions = {
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), dance, { name, everyDays, notes });
+		createCustomExercise(getDb(), wall, { name, everyDays, notes });
 		return { action: 'createExercise', ok: true };
 	}
 };

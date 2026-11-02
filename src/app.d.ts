@@ -4,6 +4,8 @@ interface SessionUser {
 	email: string;
 	/** IANA zone deciding when "today" rolls over. See `src/lib/day/day.ts`. */
 	timezone: string;
+	/** The admin invites people and sees their storage. */
+	isAdmin: boolean;
 }
 
 declare global {

@@ -6,8 +6,9 @@ import type { RequestHandler } from './$types';
 
 /**
  * A section's links, for the Link popup. Flat like `/api/video-spots`: no dance
- * in the URL — the spot's own dance is the wall, and `linkSpot` refuses a
- * target from the other one.
+ * in the URL — the spot's own wall is the wall. `linkOptionsFor` answers null
+ * for another person's section (a 404 here), and `linkSpot` refuses a target
+ * from another dance or another person.
  */
 function spotId(raw: string): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
@@ -35,8 +36,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const body = parseLinkBody(await request.json().catch(() => null));
 	if (!body) throw error(400, 'Send a target or something to create.');
 	try {
-		if ('target' in body) linkSpot(getDb(), id, body.target);
-		else createAndLink(getDb(), id, body.create);
+		if ('target' in body) linkSpot(getDb(), userId, id, body.target);
+		else createAndLink(getDb(), userId, id, body.create);
 	} catch (e) {
 		if (e instanceof SpotLinkError) {
 			// A refusal that names its field answers it, so the popup shows it there.

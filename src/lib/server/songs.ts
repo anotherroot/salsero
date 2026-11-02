@@ -4,7 +4,7 @@ import { exercises, sets, songs, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
-import type { DanceSlug } from '$lib/dances/dances';
+import type { Wall } from './scope';
 import type { TempoFactor } from '$lib/labels';
 import type { PickerSong, SampleSong, SongItem } from '$lib/types';
 
@@ -16,7 +16,7 @@ const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 
 export function createSongFromUrl(
 	db: Db,
-	dance: DanceSlug,
+	wall: Wall,
 	input: { url: string; title: string; style: string }
 ): Song {
 	return db
@@ -26,7 +26,8 @@ export function createSongFromUrl(
 			title: input.title,
 			style: input.style,
 			status: 'waiting_download',
-			dance
+			dance: wall.dance,
+			userId: wall.userId
 		})
 		.returning()
 		.get();
@@ -34,8 +35,8 @@ export function createSongFromUrl(
 
 export function createSongFromUpload(
 	db: Db,
-	dance: DanceSlug,
-	input: { file: string; mime: string; title: string; style: string }
+	wall: Wall,
+	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number }
 ): Song {
 	return db
 		.insert(songs)
@@ -44,8 +45,10 @@ export function createSongFromUpload(
 			mime: input.mime,
 			title: input.title,
 			style: input.style,
+			sizeBytes: input.sizeBytes ?? null,
 			status: 'waiting_analysis',
-			dance
+			dance: wall.dance,
+			userId: wall.userId
 		})
 		.returning()
 		.get();
@@ -68,12 +71,14 @@ export function songSample(song: Song): SampleSong | null {
 	};
 }
 
-export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
-	const recent = recentSongIds(db, dance);
+export function listSongs(db: Db, wall: Wall): SongItem[] {
+	const recent = recentSongIds(db, wall);
 	return db
 		.select()
 		.from(songs)
-		.where(and(isNull(songs.archivedAt), eq(songs.dance, dance)))
+		.where(
+			and(isNull(songs.archivedAt), eq(songs.dance, wall.dance), eq(songs.userId, wall.userId))
+		)
 		.orderBy(desc(songs.createdAt), desc(songs.id))
 		.all()
 		.map((s) => {
@@ -103,12 +108,12 @@ export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
  * first; song ids are read from their JSON in code, so a malformed row is
  * skipped rather than throwing.
  */
-export function recentSongIds(db: Db, dance: DanceSlug, limit = 5): number[] {
+export function recentSongIds(db: Db, wall: Wall, limit = 5): number[] {
 	const rows = db
 		.select({ playerJson: sets.playerJson })
 		.from(sets)
 		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
-		.where(eq(exercises.dance, dance))
+		.where(and(eq(exercises.dance, wall.dance), eq(exercises.userId, wall.userId)))
 		.orderBy(desc(sets.doneAt), desc(sets.id))
 		.limit(200)
 		.all();
@@ -127,7 +132,8 @@ export function recentSongIds(db: Db, dance: DanceSlug, limit = 5): number[] {
 					inArray(songs.id, seen),
 					isNull(songs.archivedAt),
 					eq(songs.status, 'ready'),
-					eq(songs.dance, dance)
+					eq(songs.dance, wall.dance),
+					eq(songs.userId, wall.userId)
 				)
 			)
 			.all()
@@ -146,13 +152,20 @@ function songIdOf(json: string | null): number | null {
 	}
 }
 
-/** Ready, unarchived songs of one dance, for the song popup: by title, with their sample and recency. */
-export function songChoices(db: Db, dance: DanceSlug): PickerSong[] {
-	const recent = recentSongIds(db, dance);
+/** Ready, unarchived songs of one wall, for the song popup: by title, with their sample and recency. */
+export function songChoices(db: Db, wall: Wall): PickerSong[] {
+	const recent = recentSongIds(db, wall);
 	const rows = db
 		.select()
 		.from(songs)
-		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready'), eq(songs.dance, dance)))
+		.where(
+			and(
+				isNull(songs.archivedAt),
+				eq(songs.status, 'ready'),
+				eq(songs.dance, wall.dance),
+				eq(songs.userId, wall.userId)
+			)
+		)
 		.orderBy(songs.title)
 		.all();
 	const out: PickerSong[] = [];
@@ -306,7 +319,13 @@ export function claimJob(db: Db, now: number): Job | null {
 export function storeFetchedAudio(
 	db: Db,
 	id: number,
-	input: { file: string; mime: string; title: string | null; durationS: number | null }
+	input: {
+		file: string;
+		mime: string;
+		title: string | null;
+		durationS: number | null;
+		sizeBytes?: number;
+	}
 ): boolean {
 	const song = getSong(db, id);
 	if (!song || song.status !== 'waiting_download') return false;
@@ -317,6 +336,7 @@ export function storeFetchedAudio(
 				audioFile: input.file,
 				mime: input.mime,
 				durationS: input.durationS,
+				sizeBytes: input.sizeBytes ?? null,
 				title: song.title === '' && input.title ? input.title.slice(0, 200) : song.title,
 				status: 'waiting_analysis',
 				claimedAt: null,
@@ -365,4 +385,40 @@ export function failJob(db: Db, id: number, error: string, permanent: boolean): 
 		)
 		.where(eq(songs.id, id))
 		.run();
+}
+
+/**
+ * Delete a person's song for good (songs are one of the hard deletes, to free
+ * space). Null when it is not theirs. Refused while a live exercise uses it;
+ * archived exercises lose the link in the same transaction. The caller
+ * unlinks the audio file once the row is gone.
+ */
+export function deleteSong(
+	db: Db,
+	userId: string,
+	id: number
+): { ok: true; file: string | null } | { ok: false; usedBy: string[]; busy?: true } | null {
+	return db.transaction((tx) => {
+		const song = tx
+			.select()
+			.from(songs)
+			.where(and(eq(songs.id, id), eq(songs.userId, userId)))
+			.get();
+		if (!song) return null;
+		// The worker is still on it: it would write into a row that is gone.
+		if ((WAITING as readonly string[]).includes(song.status)) {
+			return { ok: false as const, usedBy: [], busy: true as const };
+		}
+		const users = tx
+			.select({ name: exercises.name, archivedAt: exercises.archivedAt })
+			.from(exercises)
+			.where(eq(exercises.songId, id))
+			.orderBy(asc(exercises.name))
+			.all();
+		const live = users.filter((e) => e.archivedAt === null).map((e) => e.name);
+		if (live.length) return { ok: false as const, usedBy: live };
+		tx.update(exercises).set({ songId: null }).where(eq(exercises.songId, id)).run();
+		tx.delete(songs).where(eq(songs.id, id)).run();
+		return { ok: true as const, file: song.audioFile };
+	});
 }

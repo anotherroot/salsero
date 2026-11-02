@@ -16,6 +16,7 @@
  * `openDb(':memory:')`, the same way every other spec in this repo does.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -79,7 +80,7 @@ import * as gridEndpoint from './songs/[id]/grid/+server';
 import * as practiceEndpoint from './exercises/[id]/practice/+server';
 import type { PickerSong } from '$lib/types';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
 function post(dance: string, fields: Record<string, string>, id = '') {
@@ -149,26 +150,26 @@ beforeEach(() => {
 	handle.db = db;
 	seedPositions(db);
 
-	const salsaFigure = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!;
+	const salsaFigure = createFigure(db, U1_SALSA, { ...figureInput, style: 'salsa' })!;
 	salsaExerciseId = addFigureExercise(db, salsaFigure.figure.id)!.id;
 	salsaFigureId = salsaFigure.figure.id;
-	salsaFigureId2 = createFigure(db, 'salsa', {
+	salsaFigureId2 = createFigure(db, U1_SALSA, {
 		...figureInput,
 		figureName: 'Second salsa figure',
 		style: 'salsa'
 	})!.figure.id;
-	salsaRoutineAId = createRoutine(db, 'salsa', { name: 'Routine A', notes: null }).routine.id;
-	salsaRoutineBId = createRoutine(db, 'salsa', { name: 'Routine B', notes: null }).routine.id;
-	bachataRoutineId = createRoutine(db, 'bachata', { name: 'Bachata routine', notes: null }).routine
+	salsaRoutineAId = createRoutine(db, U1_SALSA, { name: 'Routine A', notes: null }).routine.id;
+	salsaRoutineBId = createRoutine(db, U1_SALSA, { name: 'Routine B', notes: null }).routine.id;
+	bachataRoutineId = createRoutine(db, U1_BACHATA, { name: 'Bachata routine', notes: null }).routine
 		.id;
-	const bachata = createFigure(db, 'bachata', {
+	const bachata = createFigure(db, U1_BACHATA, {
 		...figureInput,
 		figureName: 'Basico',
 		style: 'sensual'
 	})!;
 	bachataFigureId = bachata.figure.id;
 	bachataExerciseId = addFigureExercise(db, bachata.figure.id)!.id;
-	bachataCustomId = createCustomExercise(db, 'bachata', {
+	bachataCustomId = createCustomExercise(db, U1_BACHATA, {
 		name: 'Hip drills',
 		everyDays: 3,
 		notes: null
@@ -182,14 +183,14 @@ beforeEach(() => {
 		note: null,
 		playerJson: null
 	}).id;
-	bachataSongId = createSongFromUrl(db, 'bachata', {
+	bachataSongId = createSongFromUrl(db, U1_BACHATA, {
 		url: 'https://example.com/b',
 		title: 'Bachata song',
 		style: 'sensual'
 	}).id;
 	// `retry` only bites on a failed song, so put it there the way the worker would.
 	failJob(db, bachataSongId, 'download failed', true);
-	bachataLessonId = createLesson(db, 'bachata', {
+	bachataLessonId = createLesson(db, U1_BACHATA, {
 		lessonDay: '2020-01-01',
 		title: 'Bachata class',
 		notes: null
@@ -273,12 +274,16 @@ describe("Today refuses the other dance's rows", () => {
 
 describe("the player's song picker stays on its own side", () => {
 	const ready = (dance: 'salsa' | 'bachata', title: string) => {
-		const song = createSongFromUpload(db, dance, {
-			file: `${title}.mp3`,
-			mime: 'audio/mpeg',
-			title,
-			style: dance === 'salsa' ? 'salsa' : 'sensual'
-		});
+		const song = createSongFromUpload(
+			db,
+			{ userId: 'u1', dance },
+			{
+				file: `${title}.mp3`,
+				mime: 'audio/mpeg',
+				title,
+				style: dance === 'salsa' ? 'salsa' : 'sensual'
+			}
+		);
 		storeAnalysis(db, song.id, { beats: [0, 0.5], downbeats: [0], durationS: 1 });
 		return song.id;
 	};
@@ -353,7 +358,7 @@ describe("the player refuses the other dance's exercise", () => {
 
 describe("the detail pages refuse the other dance's rows", () => {
 	it('will not give a bachata figure an exercise from a salsa URL', async () => {
-		const bare = createFigure(db, 'bachata', {
+		const bare = createFigure(db, U1_BACHATA, {
 			...figureInput,
 			figureName: 'Bare',
 			style: 'sensual'
@@ -363,7 +368,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 	});
 
 	it('gives a figure its exercise from its own dance', async () => {
-		const bare = createFigure(db, 'salsa', { ...figureInput, figureName: 'Bare', style: 'salsa' })!;
+		const bare = createFigure(db, U1_SALSA, {
+			...figureInput,
+			figureName: 'Bare',
+			style: 'salsa'
+		})!;
 		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
 		expect(getFigure(db, bare.figure.id)?.exercise?.source).toBe('figure');
 	});
@@ -519,11 +528,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 		});
 
 		it('load lists the routines that use the variation', () => {
-			createRoutineFromFigures(db, 'salsa', { name: 'Set A', notes: null }, [
+			createRoutineFromFigures(db, U1_SALSA, { name: 'Set A', notes: null }, [
 				salsaFigureId2,
 				salsaFigureId
 			]);
-			const second = createRoutineFromFigures(db, 'salsa', { name: 'Old set', notes: null }, [
+			const second = createRoutineFromFigures(db, U1_SALSA, { name: 'Old set', notes: null }, [
 				salsaFigureId
 			])!;
 			archiveRoutine(db, second.routine.id, Date.now());
@@ -951,7 +960,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			// A name taken in the target is refused, keeping what was typed.
 			const back = groupOf(salsaFigureId2);
 			createVariationFrom(db, salsaFigureId2, 'Doble');
-			const other = createFigure(db, 'salsa', {
+			const other = createFigure(db, U1_SALSA, {
 				...figureInput,
 				figureName: 'Third',
 				name: 'Solo',
@@ -1059,7 +1068,7 @@ describe("the routine detail route refuses the other dance's rows", () => {
 	// `duplicateMany` and `extract`, whose data functions take `routine.id`
 	// natively and scope in SQL. For these three,
 	// `ownsSlot` in the route is the ONLY guard: a same-dance slot from a
-	// SECOND salsa routine passes `requireRoutineInDance` (routine A really is
+	// SECOND salsa routine passes `requireRoutineInWall` (routine A really is
 	// salsa) and would pass the data function's own dance check too, since
 	// both routines are salsa. A bachata slot would prove nothing here — it
 	// would already be caught by a dance check unrelated to `ownsSlot`.
@@ -1219,7 +1228,7 @@ describe('an unknown dance in the URL cannot write a row', () => {
 			todayActions.createExercise,
 			post('kizomba', { name: 'Smuggled', everyDays: '3', notes: '' })
 		);
-		expect(listExercises(db, 'salsa').map((e) => e.name)).not.toContain('Smuggled');
+		expect(listExercises(db, U1_SALSA).map((e) => e.name)).not.toContain('Smuggled');
 		expect(
 			db
 				.select()
@@ -1246,7 +1255,7 @@ describe('an unknown dance in the URL cannot write a row', () => {
 				.all()
 				.map((l) => l.dance)
 		).not.toContain('kizomba');
-		expect(listLessons(db, 'salsa')).toHaveLength(0);
+		expect(listLessons(db, U1_SALSA)).toHaveLength(0);
 	});
 });
 
@@ -1264,7 +1273,7 @@ describe('the JSON endpoints refuse the other dance', () => {
 		// dance wall deleted, and prove nothing about it. A READY song is the
 		// only way to isolate the wall: it must be the one thing standing
 		// between a salsa request and a 200.
-		const ready = createSongFromUpload(db, 'bachata', {
+		const ready = createSongFromUpload(db, U1_BACHATA, {
 			file: 'bachata-ready.mp3',
 			mime: 'audio/mpeg',
 			title: 'Bachata ready',

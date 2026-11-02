@@ -85,3 +85,9 @@ export const MAX_PRE_ROLL_S = 0.25;
 
 /** Longest spot label, in characters — a name like "Cross-body, the hand change", not a note. */
 export const MAX_SPOT_LABEL = 80;
+
+/** What a new account may store: 1 GiB. The admin's limit is null (none). */
+export const DEFAULT_STORAGE_LIMIT_BYTES = 1024 ** 3;
+
+/** How long an invite works: 24 hours. */
+export const INVITE_TTL_MS = 24 * 60 * 60 * 1000;

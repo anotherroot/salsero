@@ -13,8 +13,10 @@ import {
 } from '$lib/server/devices';
 import { defaultStyle, setDefaultStyle } from '$lib/server/default-styles';
 import { listCountTakes } from '$lib/server/countTakes';
+import { askForMore, openRequest, storageOf } from '$lib/server/storage';
+import { askedLine } from '$lib/storage-view';
 import { Hold, UNDO_MS } from '$lib/server/undo-hold';
-import { int, text } from '$lib/server/form';
+import { int, optionalText, text } from '$lib/server/form';
 import { isDanceSlug, isStyleOf } from '$lib/dances/dances';
 import { deviceMeta } from '$lib/settings/view';
 import { ownVoiceSummary } from '$lib/voice/grid';
@@ -38,8 +40,10 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	// dance is the last one visited: the root layout's `lastDance`.
 	const { lastDance: dance } = await parent();
 	const today = localDay(Date.now(), tz);
+	const asked = openRequest(db, locals.user.id);
 	return {
 		dance,
+		isAdmin: locals.user.isAdmin,
 		defaultStyle: defaultStyle(db, locals.user.id, dance),
 		device: deviceSettings(db, locals.user.id),
 		devices: listDevices(db, locals.user.id).map((d) => ({
@@ -51,11 +55,25 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 				today
 			)
 		})),
-		ownVoice: ownVoiceSummary(listCountTakes(db))
+		ownVoice: ownVoiceSummary(listCountTakes(db, locals.user.id)),
+		storage: storageOf(db, locals.user.id),
+		asked: asked ? askedLine(localDay(asked.createdAt, tz)) : null
 	};
 };
 
 export const actions: Actions = {
+	/** An optional note to the admin; one open request per person. */
+	ask: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		if (storageOf(getDb(), locals.user.id).limitBytes === null) {
+			return fail(400, { message: 'You have no limit, so there is nothing to ask for.' });
+		}
+		const note = optionalText(await request.formData(), 'note', 500);
+		if (note === undefined) return fail(400, { message: 'Keep the note under 500 characters.' });
+		const res = askForMore(getDb(), locals.user.id, note, Date.now());
+		return { asked: res === 'asked' };
+	},
+
 	/** Light, dark or the system's: per browser, so the phone and the work PC keep their own. */
 	theme: async ({ locals, request, cookies }) => {
 		if (!locals.user) throw error(401);

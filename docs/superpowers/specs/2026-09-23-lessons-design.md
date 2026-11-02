@@ -128,9 +128,9 @@ exceed it: `total` is rejected up front, the byte count inside `appendStream`
 rejects a lying `content-length` mid-stream, and the strict-append rule makes
 the file a gap-free prefix of `total`, so `size <= total <= 1 GiB` is an
 invariant rather than a hope. The limit is the **disk**, not the edge: the box
-is ~80% full and shared with four other services. The Lessons page shows total
-bytes used, archived lessons included, because an archived lesson's video is
-still on that disk.
+is ~80% full and shared with four other services. The Lessons page shows the
+person's own total (since accounts, 2026-11-02), archived lessons included,
+because an archived lesson's video is still on that disk.
 
 **`appendStream` is `saveStream`'s sibling**, differing in the two ways that
 make an upload resumable: it opens for append rather than exclusive create, and

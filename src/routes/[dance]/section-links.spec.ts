@@ -7,6 +7,7 @@
  * never reach `$DATA_DIR`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -69,7 +70,7 @@ let otherSection: number;
 
 /** A new figure's one variation, "Basic". */
 const salsaFigure = (figureName: string) =>
-	createFigure(db, 'salsa', {
+	createFigure(db, U1_SALSA, {
 		figureName,
 		name: 'Basic',
 		partner: 'partner',
@@ -84,10 +85,10 @@ beforeEach(() => {
 	handle.db = db;
 	figureId = salsaFigure('Enchufla');
 	doble = createVariationFrom(db, figureId, 'Doble')!.id;
-	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
-	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
+	drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null }).id;
+	lessonId = createLesson(db, U1_SALSA, { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
-	otherLessonId = createLesson(db, 'salsa', {
+	otherLessonId = createLesson(db, U1_SALSA, {
 		lessonDay: '2026-10-13',
 		title: 'Other',
 		notes: null
@@ -109,7 +110,7 @@ beforeEach(() => {
 
 describe('the lesson page', () => {
 	it('loads each video’s sections with their links', () => {
-		linkSpot(db, section, { figureId: doble });
+		linkSpot(db, 'u1', section, { figureId: doble });
 		const data = loadAt(lessonPage.load, 'salsa', lessonId);
 		expect(data.sections).toEqual({
 			[videoId]: [
@@ -130,7 +131,7 @@ describe('the lesson page', () => {
 
 	it('takes a variation off with its section links when asked', async () => {
 		linkFigure(db, lessonId, doble);
-		linkSpot(db, section, { figureId: doble });
+		linkSpot(db, 'u1', section, { figureId: doble });
 		await call(
 			lessonPage.actions.unlinkFigure,
 			post('salsa', lessonId, { figureId: String(doble), alsoSections: '1' })
@@ -141,7 +142,7 @@ describe('the lesson page', () => {
 
 	it('keeps the section links when not asked', async () => {
 		linkFigure(db, lessonId, doble);
-		linkSpot(db, section, { figureId: doble });
+		linkSpot(db, 'u1', section, { figureId: doble });
 		await call(
 			lessonPage.actions.unlinkFigure,
 			post('salsa', lessonId, { figureId: String(doble) })
@@ -150,8 +151,8 @@ describe('the lesson page', () => {
 	});
 
 	it("takes a drill off with its section links, and leaves another lesson's alone", async () => {
-		linkSpot(db, section, { exerciseId: drill });
-		linkSpot(db, otherSection, { exerciseId: drill });
+		linkSpot(db, 'u1', section, { exerciseId: drill });
+		linkSpot(db, 'u1', otherSection, { exerciseId: drill });
 		await call(
 			lessonPage.actions.unlinkExercise,
 			post('salsa', lessonId, { exerciseId: String(drill), alsoSections: '1' })
@@ -184,7 +185,7 @@ describe('the figure page', () => {
 	});
 
 	it('refuses a section of the other dance', async () => {
-		const bachataLesson = createLesson(db, 'bachata', {
+		const bachataLesson = createLesson(db, U1_BACHATA, {
 			lessonDay: '2026-10-12',
 			title: 'B',
 			notes: null
@@ -205,7 +206,7 @@ describe('the figure page', () => {
 	});
 
 	it('loads the variation’s cards and what it could link', () => {
-		linkSpot(db, section, { figureId: doble });
+		linkSpot(db, 'u1', section, { figureId: doble });
 		const data = loadAt(figurePage.load, 'salsa', doble) as {
 			variation: { sections: { linkId: number }[] };
 			linkable: { video: { src: string }; sections: { id: number; linked: boolean }[] }[];
@@ -230,7 +231,7 @@ describe('the drill’s exercise page', () => {
 		await call(exercisePage.actions.linkSection, post('salsa', drill, { spotId: String(section) }));
 		const [link] = links();
 		expect(link.exerciseId).toBe(drill);
-		const other = createCustomExercise(db, 'salsa', { name: 'Shines', everyDays: 3, notes: null });
+		const other = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null });
 		const res = await call(
 			exercisePage.actions.unlinkSection,
 			post('salsa', other.id, { linkId: String(link.id) })
@@ -273,14 +274,14 @@ describe('the figure page, for its recordings’ sections', () => {
 	};
 
 	it('unlinks a link of its recording’s section to an archived drill — nowhere else can', async () => {
-		const link = linkSpot(db, recordingSection(), { exerciseId: drill });
+		const link = linkSpot(db, 'u1', recordingSection(), { exerciseId: drill });
 		archiveExercise(db, drill, Date.now());
 		await call(figurePage.actions.unlinkSection, post('salsa', figureId, { linkId: String(link) }));
 		expect(links()).toEqual([]);
 	});
 
 	it('refuses a link that is neither its own nor on its recordings', async () => {
-		const link = linkSpot(db, section, { exerciseId: drill });
+		const link = linkSpot(db, 'u1', section, { exerciseId: drill });
 		const res = await call(
 			figurePage.actions.unlinkSection,
 			post('salsa', figureId, { linkId: String(link) })
@@ -291,7 +292,7 @@ describe('the figure page, for its recordings’ sections', () => {
 
 	it('loads its recordings’ sections with their links', () => {
 		const s = recordingSection();
-		linkSpot(db, s, { exerciseId: drill });
+		linkSpot(db, 'u1', s, { exerciseId: drill });
 		const data = loadAt(figurePage.load, 'salsa', figureId) as {
 			variation: { recordingSections: Record<number, { id: number; links: unknown[] }[]> };
 		};

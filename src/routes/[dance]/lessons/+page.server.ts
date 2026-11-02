@@ -4,7 +4,7 @@ import { createLesson, lessonVideoBytes, listLessons } from '$lib/server/lessons
 import { int, optionalText, text } from '$lib/server/form';
 import { isValidDay, localDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
-import { danceOf } from '$lib/server/scope';
+import { wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -14,16 +14,17 @@ function zone(locals: App.Locals): string {
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
+	const wall = wallOf(params, locals);
 	return {
-		lessons: listLessons(db, danceOf(params)),
-		storageBytes: lessonVideoBytes(db),
+		lessons: listLessons(db, wall),
+		storageBytes: lessonVideoBytes(db, wall.userId),
 		today: localDay(Date.now(), zone(locals))
 	};
 };
 
 export const actions: Actions = {
 	create: async ({ params, request, locals }) => {
-		const dance = danceOf(params);
+		const wall = wallOf(params, locals);
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
 		const title = text(form, 'title');
@@ -49,7 +50,7 @@ export const actions: Actions = {
 		// Today page has about future days.
 		if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
 
-		const { lesson } = createLesson(getDb(), dance, { lessonDay, title, notes }, everyDays);
-		throw redirect(303, `/${dance}/lessons/${lesson.id}`);
+		const { lesson } = createLesson(getDb(), wall, { lessonDay, title, notes }, everyDays);
+		throw redirect(303, `/${wall.dance}/lessons/${lesson.id}`);
 	}
 };

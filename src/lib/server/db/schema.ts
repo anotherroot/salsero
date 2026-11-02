@@ -44,7 +44,11 @@ export const users = sqliteTable('users', {
 	 */
 	reminderMinute: integer('reminder_minute'),
 	/** What the Android app compresses a video to. One of `VIDEO_SHORT_SIDES`. */
-	videoShortSide: integer('video_short_side').notNull().default(480)
+	videoShortSide: integer('video_short_side').notNull().default(480),
+	/** The admin invites people and sees their storage. */
+	isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
+	/** Bytes of recordings, videos, songs and takes the account may keep; null = no limit. */
+	storageLimitBytes: integer('storage_limit_bytes')
 });
 
 /**
@@ -114,11 +118,16 @@ export const figureGroups = sqliteTable(
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		dance: text('dance').notNull(),
+		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
+		userId: text('user_id'),
 		name: text('name').notNull(),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
-	(t) => [index('figure_groups_dance_idx').on(t.dance)]
+	(t) => [
+		index('figure_groups_dance_idx').on(t.dance),
+		index('figure_groups_user_idx').on(t.userId, t.dance)
+	]
 );
 
 /**
@@ -135,6 +144,8 @@ export const figures = sqliteTable(
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		name: text('name').notNull(),
 		notes: text('notes'),
+		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
+		userId: text('user_id'),
 		partner: text('partner', { enum: PARTNER }).notNull().default('partner'),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
@@ -209,7 +220,8 @@ export const figures = sqliteTable(
 		check('figures_partner_ck', sql`${t.partner} in ('partner', 'solo')`),
 		check('figures_style_ck', sql`${t.style} in ('salsa', 'son', 'other')`),
 		index('figures_parent_idx').on(t.parentId),
-		index('figures_group_idx').on(t.groupId)
+		index('figures_group_idx').on(t.groupId),
+		index('figures_user_idx').on(t.userId, t.dance)
 	]
 );
 
@@ -318,12 +330,17 @@ export const routines = sqliteTable(
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
+		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
+		userId: text('user_id'),
 		name: text('name').notNull(),
 		notes: text('notes'),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
-	(t) => [index('routines_dance_idx').on(t.dance, t.archivedAt)]
+	(t) => [
+		index('routines_dance_idx').on(t.dance, t.archivedAt),
+		index('routines_user_idx').on(t.userId, t.dance)
+	]
 );
 
 /**
@@ -407,6 +424,8 @@ export const songs = sqliteTable(
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
 		artist: text('artist'),
+		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
+		userId: text('user_id'),
 		style: text('style').notNull().default('salsa'),
 		sourceUrl: text('source_url'),
 		status: text('status', { enum: SONG_STATUSES }).notNull(),
@@ -427,13 +446,16 @@ export const songs = sqliteTable(
 		 * Snapped on read by `sampleStart` (`$lib/songs/sample`), never on write.
 		 */
 		sampleStartS: real('sample_start_s'),
+		/** The audio file's size, for the owner's storage count; null until stored. */
+		sizeBytes: integer('size_bytes'),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
 	(t) => [
 		check('songs_tempo_ck', sql`${t.tempoFactor} in (0.5, 1, 2)`),
 		check('songs_source_ck', sql`${t.sourceUrl} is not null or ${t.audioFile} is not null`),
-		index('songs_status_idx').on(t.status, t.createdAt)
+		index('songs_status_idx').on(t.status, t.createdAt),
+		index('songs_user_idx').on(t.userId, t.dance)
 	]
 );
 
@@ -455,6 +477,8 @@ export const exercises = sqliteTable(
 		name: text('name').notNull(),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
+		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
+		userId: text('user_id'),
 		source: text('source', { enum: SOURCES }).notNull(),
 		figureId: integer('figure_id').references(() => figures.id),
 		practiceMode: text('practice_mode', { enum: PRACTICE_MODES }).notNull().default('none'),
@@ -501,7 +525,8 @@ export const exercises = sqliteTable(
 		// `parsePracticeInput` (src/lib/exercises/practice.ts) and
 		// `setPracticeSettings` (src/lib/server/exercises.ts) enforce the
 		// song/count pairing instead.
-		index('exercises_figure_idx').on(t.figureId)
+		index('exercises_figure_idx').on(t.figureId),
+		index('exercises_user_idx').on(t.userId, t.dance)
 	]
 );
 
@@ -552,6 +577,8 @@ export const lessons = sqliteTable(
 		lessonDay: text('lesson_day').notNull(),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
+		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
+		userId: text('user_id'),
 		title: text('title').notNull(),
 		notes: text('notes'),
 		archivedAt: integer('archived_at'),
@@ -559,7 +586,8 @@ export const lessons = sqliteTable(
 	},
 	(t) => [
 		check('lessons_day_ck', sql`${t.lessonDay} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`),
-		index('lessons_day_idx').on(t.lessonDay)
+		index('lessons_day_idx').on(t.lessonDay),
+		index('lessons_user_idx').on(t.userId, t.dance)
 	]
 );
 
@@ -837,6 +865,8 @@ export const countTakes = sqliteTable(
 	'count_takes',
 	{
 		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
+		userId: text('user_id'),
 		pattern: text('pattern', { enum: COUNT_PATTERNS }).notNull(),
 		/** The click tempo it was counted against. */
 		bpm: integer('bpm').notNull(),
@@ -852,7 +882,36 @@ export const countTakes = sqliteTable(
 		sizeBytes: integer('size_bytes').notNull(),
 		createdAt: createdAt()
 	},
-	(t) => [uniqueIndex('count_takes_slot_idx').on(t.pattern, t.bpm, t.phrase)]
+	(t) => [
+		uniqueIndex('count_takes_user_slot_idx').on(t.userId, t.pattern, t.bpm, t.phrase),
+		index('count_takes_user_idx').on(t.userId)
+	]
+);
+
+/** An admin-made invite. Only the SHA-256 of the code is kept; it is shown once. */
+export const invites = sqliteTable('invites', {
+	id: text('id').primaryKey(),
+	codeHash: text('code_hash').notNull().unique(),
+	createdBy: text('created_by').notNull(),
+	createdAt: createdAt(),
+	expiresAt: integer('expires_at').notNull(),
+	usedAt: integer('used_at'),
+	usedBy: text('used_by')
+});
+
+/** A request for more storage. `outcome` is 'granted' | 'declined', validated in code. */
+export const storageRequests = sqliteTable(
+	'storage_requests',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		userId: text('user_id').notNull(),
+		note: text('note'),
+		createdAt: createdAt(),
+		resolvedAt: integer('resolved_at'),
+		outcome: text('outcome'),
+		grantedLimitBytes: integer('granted_limit_bytes')
+	},
+	(t) => [index('storage_requests_user_idx').on(t.userId, t.resolvedAt)]
 );
 
 export type Figure = typeof figures.$inferSelect;

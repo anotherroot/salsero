@@ -7,10 +7,10 @@
  */
 import { asc, eq } from 'drizzle-orm';
 import type { Db } from './db';
-import { lessonVideos, recordings, videoSpots } from './db/schema';
+import { figures, lessons, lessonVideos, recordings, videoSpots } from './db/schema';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
-import { assertUnlinked, linkChips } from './spot-links';
+import { assertUnlinked, linkChips, videoOfSpot } from './spot-links';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
 export class SpotError extends Error {}
@@ -45,6 +45,34 @@ function ownerColumn(owner: SpotOwner) {
 	return 'recordingId' in owner
 		? eq(videoSpots.recordingId, owner.recordingId)
 		: eq(videoSpots.lessonVideoId, owner.lessonVideoId);
+}
+
+/**
+ * Whose video this is — its figure's owner for a recording, its lesson's for a
+ * lesson video — or null when there is no such video. The flat routes compare
+ * it with the signed-in person: no dance in the URL, so the person is the wall.
+ */
+export function videoOwner(db: Db, owner: SpotOwner): string | null {
+	const row =
+		'recordingId' in owner
+			? db
+					.select({ userId: figures.userId })
+					.from(recordings)
+					.innerJoin(figures, eq(figures.id, recordings.figureId))
+					.where(eq(recordings.id, owner.recordingId))
+					.get()
+			: db
+					.select({ userId: lessons.userId })
+					.from(lessonVideos)
+					.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+					.where(eq(lessonVideos.id, owner.lessonVideoId))
+					.get();
+	return row?.userId ?? null;
+}
+
+/** Whose spot this is: its video's owner. Null for a missing spot. */
+export function spotOwner(db: Db, spotId: number): string | null {
+	return videoOfSpot(db, spotId)?.userId ?? null;
 }
 
 export function ownerExists(db: Db, owner: SpotOwner): boolean {

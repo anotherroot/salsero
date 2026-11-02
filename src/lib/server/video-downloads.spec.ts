@@ -15,6 +15,7 @@ import {
 	requestVideoDownload,
 	retryVideoDownload
 } from './video-downloads';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const YT = 'https://youtu.be/dQw4w9WgXcQ';
 const T = 1_800_000_000_000;
@@ -25,14 +26,14 @@ let lessonId: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	figureId = createFigure(db, 'salsa', {
+	figureId = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',
 		style: 'salsa',
 		notes: null
 	})!.figure.id;
-	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-14', title: 'Class', notes: null })
+	lessonId = createLesson(db, U1_SALSA, { lessonDay: '2026-10-14', title: 'Class', notes: null })
 		.lesson.id;
 });
 
@@ -54,7 +55,7 @@ describe('requestVideoDownload', () => {
 		expect(requestVideoDownload(db, { figureId }, web)).toBe('not-youtube');
 		const onLesson = linkOn({ lessonId });
 		expect(requestVideoDownload(db, { figureId }, onLesson)).toBe('not-found');
-		const drill = createCustomExercise(db, 'salsa', { name: 'D', everyDays: 2, notes: null });
+		const drill = createCustomExercise(db, U1_SALSA, { name: 'D', everyDays: 2, notes: null });
 		const d = linkOn({ exerciseId: drill.id });
 		expect(requestVideoDownload(db, { exerciseId: drill.id }, d)).toBe('not-found');
 		expect(jobs()).toEqual([]);
