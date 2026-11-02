@@ -119,7 +119,7 @@ describe('bearerToken', () => {
 describe('dueByDance', () => {
 	const DAY = 86_400_000;
 	const ex = (dance: 'salsa' | 'bachata', name: string, everyDays = 1) =>
-		createCustomExercise(db, dance, { name, everyDays, notes: null });
+		createCustomExercise(db, { userId: 'u1', dance }, { name, everyDays, notes: null });
 	const done = (exerciseId: number, doneAt: number) =>
 		logSet(db, {
 			exerciseId,
@@ -138,7 +138,7 @@ describe('dueByDance', () => {
 		done(mild.id, T0 - 3 * DAY);
 		done(urgent.id, T0 - 10 * DAY);
 		ex('bachata', 'Basics');
-		expect(dueByDance(db, T0, 'Europe/Ljubljana')).toEqual({
+		expect(dueByDance(db, 'u1', T0, 'Europe/Ljubljana')).toEqual({
 			salsa: { due: ['Urgent', 'Mild'] },
 			bachata: { due: ['Basics'] }
 		});
@@ -153,7 +153,7 @@ describe('dueByDance', () => {
 		archiveExercise(db, gone.id, T0);
 		const weekly = ex('salsa', 'Weekly', 7);
 		done(weekly.id, T0 - 2 * DAY);
-		expect(dueByDance(db, T0, 'Europe/Ljubljana').salsa.due).toEqual([]);
+		expect(dueByDance(db, 'u1', T0, 'Europe/Ljubljana').salsa.due).toEqual([]);
 	});
 });
 

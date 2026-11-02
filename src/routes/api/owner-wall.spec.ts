@@ -102,3 +102,18 @@ describe("recordings stand behind the figure's owner", () => {
 		expect(await status(fetchFile(U1))).toBe(200);
 	});
 });
+
+import { createCustomExercise } from '$lib/server/exercises';
+import { GET as deviceToday } from './device/today/+server';
+
+describe('the device reminder lists only the token owner’s exercises', () => {
+	it('is per person', async () => {
+		createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 1, notes: null });
+		const body = async (user: typeof U1) =>
+			(await run(deviceToday, { locals: { user } })).json() as Promise<{
+				salsa: { due: string[] };
+			}>;
+		expect((await body(U1)).salsa.due).toEqual(['Clave']);
+		expect((await body(U2)).salsa.due).toEqual([]);
+	});
+});

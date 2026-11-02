@@ -10,7 +10,7 @@ import { getRoutine, routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
 import { practiceStart } from '$lib/exercises/practice';
-import { danceOf, exerciseInDance, requireExerciseInDance, wallOf } from '$lib/server/scope';
+import { danceOf, exerciseInWall, requireExerciseInWall, wallOf, inWall } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
@@ -31,13 +31,13 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// Same id-scoping as the song: an exercise from the other dance is not this
 	// player's to practise, so it comes back as "no exercise" rather than a run
 	// that would log its set on the far side of the wall.
-	const exercise = exerciseId ? exerciseInDance(db, dance, exerciseId) : null;
+	const exercise = exerciseId ? exerciseInWall(db, wall, exerciseId) : null;
 
 	const routineId = Number(url.searchParams.get('routine')) || null;
 	const routine = routineId ? getRoutine(db, routineId) : null;
 	// Same id-scoping as the song and the exercise: a routine from the other
 	// dance is not this player's to walk.
-	if (routineId && (!routine || routine.archivedAt !== null || routine.dance !== dance)) {
+	if (routineId && (!routine || routine.archivedAt !== null || !inWall(routine, wall))) {
 		throw error(404, 'No such routine');
 	}
 	const shape = routine ? (routineShapes(db, dance).get(routine.id) ?? { slots: [] }) : null;
@@ -91,7 +91,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph: buildGraph(db, wall),
 		exercise,
-		exercises: listPickExercises(db, dance),
+		exercises: listPickExercises(db, wall),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
@@ -100,7 +100,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 
 export const actions: Actions = {
 	/** Log the finished run as a set on the exercise it was practised for. */
-	save: async ({ params, request }) => {
+	save: async ({ params, request, locals }) => {
 		const form = await request.formData();
 		const exerciseId = int(form, 'exerciseId');
 		const durationS = optionalInt(form, 'durationS', 0, 24 * 3600);
@@ -127,7 +127,7 @@ export const actions: Actions = {
 		// The run is logged by id, so the id is checked against this dance: the
 		// sheet only ever offers this dance's exercises, and a posted id must not
 		// be able to reach past that.
-		requireExerciseInDance(getDb(), danceOf(params), exerciseId);
+		requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
 		try {
 			logSet(getDb(), {
 				exerciseId,

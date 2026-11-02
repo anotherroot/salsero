@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { U1_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises } from './db/schema';
@@ -47,7 +48,7 @@ beforeEach(() => {
 	db = openDb(':memory:');
 	figureId = fig('salsa', 'Enchufla');
 	doble = createVariationFrom(db, figureId, 'Doble')!.id;
-	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
+	drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null }).id;
 	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
 	lessonVideoId = addLessonVideo(db, {

@@ -150,12 +150,18 @@ export function bearerToken(header: string | null): string | null {
  */
 export function dueByDance(
 	db: Db,
+	userId: string,
 	now: number,
 	timeZone: string
 ): Record<DanceSlug, { due: string[] }> {
 	const out = {} as Record<DanceSlug, { due: string[] }>;
 	for (const dance of DANCE_SLUGS) {
-		const today = plan(listExercises(db, dance), listSetTimes(db, dance), now, timeZone);
+		const today = plan(
+			listExercises(db, { userId, dance }),
+			listSetTimes(db, { userId, dance }),
+			now,
+			timeZone
+		);
 		out[dance] = { due: today.due.map((row) => row.exercise.name) };
 	}
 	return out;

@@ -26,7 +26,7 @@ describe('links', () => {
 	it('adds, lists in insertion order, and deletes on each kind of owner', () => {
 		const lesson = lessonOn(null);
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const drill = createCustomExercise(db, 'salsa', {
+		const drill = createCustomExercise(db, U1_SALSA, {
 			name: 'Son switch',
 			everyDays: 2,
 			notes: null

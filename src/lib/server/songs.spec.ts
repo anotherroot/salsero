@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { U1_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { songs } from './db/schema';
 import { openDb, type Db } from './db';
@@ -295,7 +296,11 @@ describe('song samples and the picker', () => {
 		return s;
 	};
 	const ex = (dance: 'salsa' | 'bachata' = 'salsa') =>
-		createCustomExercise(db, dance, { name: `E${n++}`, everyDays: 1, notes: null });
+		createCustomExercise(
+			db,
+			{ userId: 'u1', dance },
+			{ name: `E${n++}`, everyDays: 1, notes: null }
+		);
 	const play = (exerciseId: number, doneAt: number, songId: number | null | 'count') =>
 		logSet(db, {
 			exerciseId,
@@ -426,7 +431,7 @@ describe('recent songs skip what the picker will not show', () => {
 			title: 'W',
 			style: 'salsa'
 		});
-		const e = createCustomExercise(db, 'salsa', { name: 'E', everyDays: 1, notes: null });
+		const e = createCustomExercise(db, U1_SALSA, { name: 'E', everyDays: 1, notes: null });
 		const log = (doneAt: number, playerJson: string) =>
 			logSet(db, {
 				exerciseId: e.id,

@@ -6,21 +6,21 @@
  */
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { localDay } from '$lib/day/day';
-import type { DanceSlug } from '$lib/dances/dances';
+import type { Wall } from './scope';
 import type { Db } from './db';
 import { listCountTakesFor } from './countTakes';
 import { exerciseHistory, listExercises } from './exercises';
 import { songChoices } from './songs';
 
-export function popupData(db: Db, dance: DanceSlug, exerciseId: number, tz: string, now: number) {
-	const exercise = listExercises(db, dance).find((e) => e.id === exerciseId);
+export function popupData(db: Db, wall: Wall, exerciseId: number, tz: string, now: number) {
+	const exercise = listExercises(db, wall).find((e) => e.id === exerciseId);
 	if (!exercise) return null;
 	const today = localDay(now, tz);
 	return {
 		exercise,
 		// Fifty is far more sets than one day holds; the filter decides "today".
 		sets: exerciseHistory(db, exerciseId, 50).filter((s) => localDay(s.doneAt, tz) === today),
-		songs: songChoices(db, dance),
+		songs: songChoices(db, wall.dance),
 		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
 	};
 }

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { openDb, type Db } from './db';
+import type { Db } from './db';
 import { songs } from './db/schema';
 import {
 	archiveExercise,
@@ -34,11 +34,11 @@ import {
 import { archiveLesson, createLesson, linkFigure, taughtIn } from './lessons';
 import { createSongFromUpload, songChoices } from './songs';
 import { createRoutine } from './routines';
-import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { U1_SALSA, U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 });
 
 const figureInput = {
@@ -61,7 +61,7 @@ describe('figures', () => {
 	it('creates a figure without an exercise', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		expect(getFigure(db, figure.id)?.exercise).toBeNull();
-		expect(listExercises(db, 'salsa')).toEqual([]);
+		expect(listExercises(db, U1_SALSA)).toEqual([]);
 	});
 
 	it('adds a figure exercise on request, with the figure name and dance', () => {
@@ -75,7 +75,7 @@ describe('figures', () => {
 			everyDays: 7
 		});
 		expect(getFigure(db, figure.id)?.exercise?.id).toBe(exercise.id);
-		expect(listExercises(db, 'bachata').map((e) => e.partner)).toEqual(['partner']);
+		expect(listExercises(db, U1_BACHATA).map((e) => e.partner)).toEqual(['partner']);
 	});
 
 	it('refuses a variation that already has one, an archived or missing variation', () => {
@@ -92,7 +92,7 @@ describe('figures', () => {
 		expect(addFigureExercise(db, gone.id)).toBeNull();
 
 		expect(addFigureExercise(db, 9999)).toBeNull();
-		expect(listExercises(db, 'salsa')).toHaveLength(2);
+		expect(listExercises(db, U1_SALSA)).toHaveLength(2);
 	});
 
 	it('renames and archives the exercise with its variation only when there is one', () => {
@@ -112,9 +112,9 @@ describe('figures', () => {
 		const { figure, group } = createFigure(db, U1_SALSA, figureInput)!;
 		addFigureExercise(db, figure.id);
 		updateVariation(db, figure.id, { ...figureInput, name: 'Con vuelta' });
-		expect(listExercises(db, 'salsa')[0].name).toBe('Dile que no · Con vuelta');
+		expect(listExercises(db, U1_SALSA)[0].name).toBe('Dile que no · Con vuelta');
 		expect(renameFigure(db, group.id, 'Dile que si')).toBe(true);
-		expect(listExercises(db, 'salsa')[0].name).toBe('Dile que si · Con vuelta');
+		expect(listExercises(db, U1_SALSA)[0].name).toBe('Dile que si · Con vuelta');
 	});
 
 	it('archives the exercise with the variation, keeping the sets', () => {
@@ -122,9 +122,9 @@ describe('figures', () => {
 		const exercise = addFigureExercise(db, figure.id)!;
 		logSet(db, bareSet(exercise.id, 1000));
 		expect(archiveVariation(db, figure.id, 2000)).toEqual({ figureRemoved: true });
-		expect(listExercises(db, 'salsa')).toHaveLength(0);
+		expect(listExercises(db, U1_SALSA)).toHaveLength(0);
 		expect(listFigures(db, U1_SALSA)).toHaveLength(0);
-		expect(listSetTimes(db, 'salsa')).toHaveLength(1);
+		expect(listSetTimes(db, U1_SALSA)).toHaveLength(1);
 		expect(archiveVariation(db, figure.id, 3000)).toBeNull();
 	});
 
@@ -173,21 +173,21 @@ describe('figures', () => {
 
 describe('exercises and sets', () => {
 	it('logs and deletes sets', () => {
-		const ex = createCustomExercise(db, 'salsa', {
+		const ex = createCustomExercise(db, U1_SALSA, {
 			name: 'Clave clapping',
 			everyDays: 1,
 			notes: null
 		});
 		const s = logSet(db, { ...bareSet(ex.id, 5000), reps: 3, rating: 4 });
 		logSet(db, bareSet(ex.id, 6000));
-		expect(listSetsBetween(db, 0, 10_000, 'salsa').map((r) => r.doneAt)).toEqual([6000, 5000]);
-		expect(listSetsBetween(db, 5500, 10_000, 'salsa')).toHaveLength(1);
+		expect(listSetsBetween(db, 0, 10_000, U1_SALSA).map((r) => r.doneAt)).toEqual([6000, 5000]);
+		expect(listSetsBetween(db, 5500, 10_000, U1_SALSA)).toHaveLength(1);
 		expect(deleteSet(db, s.id)).toBe(true);
-		expect(listSetTimes(db, 'salsa')).toEqual([{ exerciseId: ex.id, doneAt: 6000 }]);
+		expect(listSetTimes(db, U1_SALSA)).toEqual([{ exerciseId: ex.id, doneAt: 6000 }]);
 	});
 
 	it('refuses a rating outside 1–5', () => {
-		const ex = createCustomExercise(db, 'salsa', { name: 'x', everyDays: 1, notes: null });
+		const ex = createCustomExercise(db, U1_SALSA, { name: 'x', everyDays: 1, notes: null });
 		expect(() => logSet(db, { ...bareSet(ex.id, 1), rating: 6 })).toThrow();
 	});
 
@@ -199,24 +199,24 @@ describe('exercises and sets', () => {
 			active: false,
 			notes: 'n'
 		});
-		const [row] = listExercises(db, 'salsa');
+		const [row] = listExercises(db, U1_SALSA);
 		expect(row.name).toBe('Dile que no · Basic');
 		expect(row.everyDays).toBe(1);
 		expect(row.active).toBe(false);
 	});
 
 	it('archives custom exercises only', () => {
-		const custom = createCustomExercise(db, 'salsa', { name: 'c', everyDays: 3, notes: null });
+		const custom = createCustomExercise(db, U1_SALSA, { name: 'c', everyDays: 3, notes: null });
 		const exercise = addFigureExercise(db, createFigure(db, U1_SALSA, figureInput)!.figure.id)!;
 		expect(archiveExercise(db, exercise.id, 1)).toBe(false);
 		expect(archiveExercise(db, custom.id, 1)).toBe(true);
-		expect(listExercises(db, 'salsa').map((e) => e.id)).toEqual([exercise.id]);
+		expect(listExercises(db, U1_SALSA).map((e) => e.id)).toEqual([exercise.id]);
 	});
 
 	it("carries a routine's exercise routineId through listExercises, and leaves it null elsewhere", () => {
 		const { routine, exercise } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
-		const custom = createCustomExercise(db, 'salsa', { name: 'c', everyDays: 3, notes: null });
-		const rows = listExercises(db, 'salsa');
+		const custom = createCustomExercise(db, U1_SALSA, { name: 'c', everyDays: 3, notes: null });
+		const rows = listExercises(db, U1_SALSA);
 		const routineRow = rows.find((r) => r.id === exercise.id)!;
 		expect(routineRow.source).toBe('routine');
 		expect(routineRow.routineId).toBe(routine.id);
@@ -251,7 +251,7 @@ describe('exercises and sets', () => {
 	});
 
 	it('keeps a player run on its set', () => {
-		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		const s = logSet(db, {
 			...bareSet(e.id, 1),
 			durationS: 300,
@@ -323,28 +323,28 @@ describe('Today is walled off by dance', () => {
 		logSet(db, bareSet(salsaExercise.id, 1_000));
 		logSet(db, bareSet(bachataExercise.id, 2_000));
 
-		expect(listExercises(db, 'salsa').map((e) => e.name)).toEqual(['Dile que no · Basic']);
-		expect(listExercises(db, 'bachata').map((e) => e.name)).toEqual(['Basico · Basic']);
+		expect(listExercises(db, U1_SALSA).map((e) => e.name)).toEqual(['Dile que no · Basic']);
+		expect(listExercises(db, U1_BACHATA).map((e) => e.name)).toEqual(['Basico · Basic']);
 
-		expect(listSetTimes(db, 'salsa')).toEqual([{ exerciseId: salsaExercise.id, doneAt: 1_000 }]);
-		expect(listSetTimes(db, 'bachata')).toEqual([
+		expect(listSetTimes(db, U1_SALSA)).toEqual([{ exerciseId: salsaExercise.id, doneAt: 1_000 }]);
+		expect(listSetTimes(db, U1_BACHATA)).toEqual([
 			{ exerciseId: bachataExercise.id, doneAt: 2_000 }
 		]);
 
-		expect(listSetsBetween(db, 0, 10_000, 'bachata').map((s) => s.exerciseName)).toEqual([
+		expect(listSetsBetween(db, 0, 10_000, U1_BACHATA).map((s) => s.exerciseName)).toEqual([
 			'Basico · Basic'
 		]);
 	});
 
 	it('creates a custom exercise into the dance it was asked for', () => {
-		const made = createCustomExercise(db, 'bachata', {
+		const made = createCustomExercise(db, U1_BACHATA, {
 			name: 'Footwork',
 			everyDays: 2,
 			notes: null
 		});
 		expect(made.dance).toBe('bachata');
-		expect(listExercises(db, 'salsa')).toEqual([]);
-		expect(listExercises(db, 'bachata').map((e) => e.name)).toEqual(['Footwork']);
+		expect(listExercises(db, U1_SALSA)).toEqual([]);
+		expect(listExercises(db, U1_BACHATA).map((e) => e.name)).toEqual(['Footwork']);
 	});
 
 	it('offers only its own dance ready songs to the picker', () => {
@@ -386,7 +386,7 @@ describe('practice settings', () => {
 	};
 
 	it('stores count mode with its tempo and config, clearing the song', () => {
-		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		expect(
 			setPracticeSettings(db, e.id, { mode: 'count', songId: null, countBpm: 150, config })
 		).toBe(true);
@@ -396,7 +396,7 @@ describe('practice settings', () => {
 	});
 
 	it('stores a ready song of the same dance, clearing the tempo', () => {
-		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		const song = readySong('salsa');
 		expect(
 			setPracticeSettings(db, e.id, { mode: 'song', songId: song.id, countBpm: null, config })
@@ -405,7 +405,7 @@ describe('practice settings', () => {
 	});
 
 	it('refuses a song from the other dance, or one that is not ready', () => {
-		const e = createCustomExercise(db, 'bachata', { name: 'Footwork', everyDays: 2, notes: null });
+		const e = createCustomExercise(db, U1_BACHATA, { name: 'Footwork', everyDays: 2, notes: null });
 		const salsaSong = readySong('salsa');
 		expect(
 			setPracticeSettings(db, e.id, { mode: 'song', songId: salsaSong.id, countBpm: null, config })
@@ -431,13 +431,13 @@ describe('history', () => {
 	) => logSet(db, { ...bareSet(exerciseId, doneAt), ...extra });
 
 	it('lists an exercise’s sets newest first, capped', () => {
-		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		for (let i = 1; i <= 5; i++) set(e.id, i * 1000);
 		expect(exerciseHistory(db, e.id, 3).map((s) => s.doneAt)).toEqual([5000, 4000, 3000]);
 	});
 
 	it('summarises every set, and averages the latest five rated ones', () => {
-		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		set(e.id, 1, { rating: 1, durationS: 60 });
 		for (let i = 2; i <= 6; i++) set(e.id, i, { rating: 4, durationS: 120 });
 		set(e.id, 7); // unrated, no duration
@@ -445,22 +445,22 @@ describe('history', () => {
 	});
 
 	it('summarises an exercise with no sets', () => {
-		const e = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const e = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		expect(exerciseSummary(db, e.id)).toEqual({ sets: 0, totalS: 0, recentRating: null });
 	});
 
 	it('finds the latest set per exercise, within one dance', () => {
-		const a = createCustomExercise(db, 'salsa', { name: 'A', everyDays: 1, notes: null });
-		const b = createCustomExercise(db, 'bachata', { name: 'B', everyDays: 1, notes: null });
+		const a = createCustomExercise(db, U1_SALSA, { name: 'A', everyDays: 1, notes: null });
+		const b = createCustomExercise(db, U1_BACHATA, { name: 'B', everyDays: 1, notes: null });
 		set(a.id, 1000, { rating: 2 });
 		set(a.id, 3000, { rating: 5, note: 'clean' });
 		set(b.id, 2000, { rating: 1 });
-		const last = lastSets(db, 'salsa');
+		const last = lastSets(db, U1_SALSA);
 		expect([...last.keys()]).toEqual([a.id]);
 		expect(last.get(a.id)).toMatchObject({ doneAt: 3000, rating: 5, note: 'clean' });
 		expect(lastSet(db, a.id)?.doneAt).toBe(3000);
 		expect(
-			lastSet(db, createCustomExercise(db, 'salsa', { name: 'C', everyDays: 1, notes: null }).id)
+			lastSet(db, createCustomExercise(db, U1_SALSA, { name: 'C', everyDays: 1, notes: null }).id)
 		).toBeNull();
 	});
 });

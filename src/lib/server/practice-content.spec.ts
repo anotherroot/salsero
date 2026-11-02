@@ -92,7 +92,7 @@ describe('practicePayload', () => {
 	});
 
 	it('gives a drill its own notes and links', () => {
-		const drill = createCustomExercise(db, 'salsa', {
+		const drill = createCustomExercise(db, U1_SALSA, {
 			name: 'Son switch',
 			everyDays: 2,
 			notes: 'Switch every 4'
@@ -118,7 +118,7 @@ describe('practicePayload', () => {
 	});
 
 	it('reports the last set in calendar days, in the user’s zone', () => {
-		const drill = createCustomExercise(db, 'salsa', { name: 'D', everyDays: 1, notes: null });
+		const drill = createCustomExercise(db, U1_SALSA, { name: 'D', everyDays: 1, notes: null });
 		// 23:30 local on the 19th, read at 08:00 on the 20th: "yesterday", though under 9 hours ago.
 		set(drill.id, noonOf('2026-09-19', TZ) + 11.5 * 3_600_000, 3);
 		const now = noonOf('2026-09-20', TZ) - 4 * 3_600_000;
@@ -129,7 +129,7 @@ describe('practicePayload', () => {
 	});
 
 	it('has no last set for a fresh exercise', () => {
-		const drill = createCustomExercise(db, 'salsa', { name: 'D', everyDays: 1, notes: null });
+		const drill = createCustomExercise(db, U1_SALSA, { name: 'D', everyDays: 1, notes: null });
 		expect(practicePayload(db, getExercise(db, drill.id)!, TZ, Date.now()).last).toBeNull();
 	});
 });
@@ -174,7 +174,7 @@ describe('practicePayload sections', () => {
 	});
 
 	it('gives a drill its sections', () => {
-		const drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null });
+		const drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null });
 		linkSpot(db, section(), { exerciseId: drill.id });
 		expect(sectionsOf(practicePayload(db, drill, TZ, Date.now()).content)).toHaveLength(1);
 	});

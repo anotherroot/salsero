@@ -17,9 +17,12 @@ export const U2_SALSA: Wall = { userId: 'u2', dance: 'salsa' };
 export function openOwnedDb(): Db {
 	const db = openDb(':memory:');
 	for (const table of ['lessons', 'routines', 'exercises', 'songs']) {
+		// Custom exercises are made with an owner now (`createCustomExercise`); only the
+		// ones lessons and routines make still arrive without.
+		const when = table === 'exercises' ? " AND NEW.source <> 'custom'" : '';
 		db.run(
 			sql.raw(
-				`CREATE TRIGGER ${table}_owned AFTER INSERT ON ${table} WHEN NEW.user_id IS NULL BEGIN UPDATE ${table} SET user_id = 'u1' WHERE id = NEW.id; END`
+				`CREATE TRIGGER ${table}_owned AFTER INSERT ON ${table} WHEN NEW.user_id IS NULL${when} BEGIN UPDATE ${table} SET user_id = 'u1' WHERE id = NEW.id; END`
 			)
 		);
 	}

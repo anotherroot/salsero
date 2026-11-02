@@ -12,7 +12,7 @@ import { error, fail } from '@sveltejs/kit';
 import { getDb } from './db';
 import { deleteSet, getSet, logSet } from './exercises';
 import { int, optionalInt, optionalText } from './form';
-import { danceOf, requireExerciseInDance } from './scope';
+import { requireExerciseInWall, wallOf } from './scope';
 import { isValidDay, localDay, noonOf } from '$lib/day/day';
 import { hasField } from '$lib/exercises/kinds';
 import type { SetSnapshot } from '$lib/types';
@@ -22,7 +22,7 @@ export type LogEvent = { params: { dance: string }; request: Request; locals: Ap
 export async function logSetFrom({ params, request, locals }: LogEvent) {
 	if (!locals.user) throw error(401);
 	const tz = locals.user.timezone;
-	const dance = danceOf(params);
+	const wall = wallOf(params, locals);
 	const form = await request.formData();
 	const exerciseId = int(form, 'exerciseId');
 	const durationMin = optionalInt(form, 'durationMin', 0, 600);
@@ -48,7 +48,7 @@ export async function logSetFrom({ params, request, locals }: LogEvent) {
 
 	// The id arrives in a form body, so it is checked against the URL's dance
 	// rather than trusted.
-	const exercise = requireExerciseInDance(getDb(), dance, exerciseId);
+	const exercise = requireExerciseInWall(getDb(), wall, exerciseId);
 	const has = (f: Parameters<typeof hasField>[1]) => hasField(exercise.source, f);
 
 	const now = Date.now();
@@ -107,7 +107,7 @@ export function parseSetSnapshot(raw: string, now: number): SetSnapshot | null {
 	};
 }
 
-export async function deleteSetFrom({ params, request }: LogEvent) {
+export async function deleteSetFrom({ params, request, locals }: LogEvent) {
 	const id = int(await request.formData(), 'setId');
 	// A set already gone is a refusal the page can show, not a 404 page.
 	const row = id === undefined ? null : getSet(getDb(), id);
@@ -116,7 +116,7 @@ export async function deleteSetFrom({ params, request }: LogEvent) {
 	}
 	// Before the delete, not after: `deleteSet` takes an id alone, so a set from
 	// the other dance would already be gone by the time it answered.
-	requireExerciseInDance(getDb(), danceOf(params), row.exerciseId);
+	requireExerciseInWall(getDb(), wallOf(params, locals), row.exerciseId);
 	if (!deleteSet(getDb(), id)) {
 		return fail(404, { action: 'deleteSet', message: 'That set was already removed.' });
 	}
@@ -137,13 +137,13 @@ export async function deleteSetFrom({ params, request }: LogEvent) {
  * re-inserts the same values with the original instant: a new id, the same
  * set. Nothing is held back on the client.
  */
-export async function restoreSetFrom({ params, request }: LogEvent) {
+export async function restoreSetFrom({ params, request, locals }: LogEvent) {
 	const form = await request.formData();
 	const snap = parseSetSnapshot(String(form.get('snapshot') ?? ''), Date.now());
 	if (!snap) {
 		return fail(400, { action: 'restoreSet', message: 'That set could not be put back.' });
 	}
-	requireExerciseInDance(getDb(), danceOf(params), snap.exerciseId);
+	requireExerciseInWall(getDb(), wallOf(params, locals), snap.exerciseId);
 	try {
 		logSet(getDb(), snap);
 	} catch {

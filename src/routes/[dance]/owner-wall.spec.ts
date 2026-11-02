@@ -367,3 +367,227 @@ describe('positions are shared, and only the admin changes them', () => {
 		);
 	});
 });
+
+/* ── Exercises, sets, Today, the player ───────────────────────────────── */
+
+import {
+	archiveExercise,
+	createCustomExercise,
+	exerciseHistory,
+	getExercise,
+	lastSets,
+	listExercises,
+	listPickExercises,
+	listSetsBetween,
+	listSetTimes,
+	logSet,
+	setPracticeSettings
+} from '$lib/server/exercises';
+import { createSongFromUpload } from '$lib/server/songs';
+import { dueByDance } from '$lib/server/devices';
+import { requireExerciseInWall, requireSetInWall } from '$lib/server/scope';
+import { sets as setsTable, songs } from '$lib/server/db/schema';
+import * as todayPage from './+page.server';
+import * as exercisePage from './exercises/[id]/+page.server';
+import * as practiceEndpoint from './exercises/[id]/practice/+server';
+import * as playerPage from './player/+page.server';
+
+describe('exercises: the data functions stand behind a wall', () => {
+	let mine: number;
+	beforeEach(() => {
+		mine = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 2, notes: null }).id;
+		logSet(db, {
+			exerciseId: mine,
+			doneAt: 5000,
+			durationS: 60,
+			reps: null,
+			rating: 3,
+			note: null,
+			playerJson: null
+		});
+	});
+
+	it('a created exercise carries the wall owner and dance', () => {
+		const row = getExercise(db, mine)!;
+		expect(row.userId).toBe('u1');
+		expect(row.dance).toBe('salsa');
+		const other = createCustomExercise(db, U1_BACHATA, { name: 'B', everyDays: 1, notes: null });
+		expect(other.userId).toBe('u1');
+		expect(other.dance).toBe('bachata');
+	});
+
+	it("lists show none of another person's exercises or sets, in the same dance", () => {
+		expect(listExercises(db, U1_SALSA)).toHaveLength(1);
+		expect(listExercises(db, U2_SALSA)).toEqual([]);
+		expect(listPickExercises(db, U2_SALSA)).toEqual([]);
+		expect(listSetTimes(db, U1_SALSA)).toHaveLength(1);
+		expect(listSetTimes(db, U2_SALSA)).toEqual([]);
+		expect(listSetsBetween(db, 0, 10_000, U2_SALSA)).toEqual([]);
+		expect(lastSets(db, U2_SALSA).size).toBe(0);
+		expect(dueByDance(db, 'u2', 10 * 86_400_000, 'UTC')).toEqual({
+			salsa: { due: [] },
+			bachata: { due: [] }
+		});
+		expect(dueByDance(db, 'u1', 10 * 86_400_000, 'UTC').salsa.due).toEqual(['Clave']);
+	});
+
+	it('the guards refuse another person’s exercise and set with a 404', () => {
+		const set = db.select().from(setsTable).get()!;
+		expect(() => requireExerciseInWall(db, U2_SALSA, mine)).toThrow(
+			expect.objectContaining({ status: 404 })
+		);
+		expect(() => requireSetInWall(db, U2_SALSA, set.id)).toThrow(
+			expect.objectContaining({ status: 404 })
+		);
+		expect(requireExerciseInWall(db, U1_SALSA, mine).id).toBe(mine);
+		expect(requireSetInWall(db, U1_SALSA, set.id).id).toBe(set.id);
+	});
+
+	it("a practice song must be the exercise's owner's", () => {
+		const song = createSongFromUpload(db, 'salsa', {
+			file: 's.m4a',
+			mime: 'audio/mp4',
+			title: 'S',
+			style: 'salsa'
+		});
+		const owned = (userId: string) =>
+			db.update(songs).set({ status: 'ready', userId }).where(eq(songs.id, song.id)).run();
+		const input = { mode: 'song', songId: song.id, countBpm: null, config: {} } as never;
+		owned('u2');
+		expect(setPracticeSettings(db, mine, input)).toBe(false);
+		owned('u1');
+		expect(setPracticeSettings(db, mine, input)).toBe(true);
+	});
+});
+
+describe("Today, the exercise page and the player refuse another person's exercise", () => {
+	let mine: number;
+	let setId: number;
+	beforeEach(() => {
+		mine = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 2, notes: 'n' }).id;
+		setId = logSet(db, {
+			exerciseId: mine,
+			doneAt: Date.now(),
+			durationS: 60,
+			reps: null,
+			rating: 3,
+			note: null,
+			playerJson: null
+		}).id;
+	});
+
+	const unchanged = () => {
+		const row = getExercise(db, mine)!;
+		expect(row.archivedAt).toBeNull();
+		expect(row.name).toBe('Clave');
+		expect(row.notes).toBe('n');
+		expect(exerciseHistory(db, mine)).toHaveLength(1);
+	};
+
+	it('Today shows none of the other person’s exercises or sets', async () => {
+		const data = (await loadAt(todayPage.load, U2, 'salsa')) as {
+			plan: { due: unknown[]; upcoming: unknown[]; doneToday: unknown[] };
+			daySets: unknown[];
+			exercises: unknown[];
+			lastRatings: Record<string, unknown>;
+		};
+		expect(data.exercises).toEqual([]);
+		expect(data.daySets).toEqual([]);
+		expect(data.plan.due).toEqual([]);
+		expect(Object.keys(data.lastRatings)).toEqual([]);
+		const own = (await loadAt(todayPage.load, U1, 'salsa')) as typeof data;
+		expect(own.exercises).toHaveLength(1);
+	});
+
+	it('creating an exercise on Today carries the person', async () => {
+		await call(
+			todayPage.actions.createExercise,
+			post(U2, 'salsa', { name: 'Mine', everyDays: '3' })
+		);
+		const made = db.select().from(exercises).where(eq(exercises.name, 'Mine')).get()!;
+		expect(made.userId).toBe('u2');
+		expect(listExercises(db, U1_SALSA).map((e) => e.name)).toEqual(['Clave']);
+	});
+
+	it('logging, deleting and restoring a set of another person is a 404', async () => {
+		await refuses(
+			todayPage.actions.log,
+			post(U2, 'salsa', { exerciseId: String(mine), reps: '5' })
+		);
+		await refuses(todayPage.actions.deleteSet, post(U2, 'salsa', { setId: String(setId) }));
+		await refuses(
+			todayPage.actions.restoreSet,
+			post(U2, 'salsa', {
+				snapshot: JSON.stringify({
+					exerciseId: mine,
+					doneAt: 1000,
+					durationS: 5,
+					reps: null,
+					rating: null,
+					note: null,
+					playerJson: null
+				})
+			})
+		);
+		expect(exerciseHistory(db, mine)).toHaveLength(1);
+		expect(db.select().from(setsTable).all()).toHaveLength(1);
+	});
+
+	it('the exercise page: load and every action by id are a 404, nothing changes', async () => {
+		const id = String(mine);
+		expect(() => loadAt(exercisePage.load, U2, 'salsa', id)).toThrow(threw404);
+		for (const [name, fields] of [
+			['log', { exerciseId: id, reps: '5' }],
+			['deleteSet', { setId: String(setId) }],
+			['update', { name: 'Hijack', everyDays: '1', notes: 'x' }],
+			['archive', {}],
+			['linkSection', { spotId: '1' }],
+			['unlinkSection', { spotId: '1' }],
+			['addLink', { url: 'https://example.com', title: 't' }],
+			['deleteLink', { linkId: '1' }]
+		] as const) {
+			await refuses(
+				(exercisePage.actions as Record<string, unknown>)[name],
+				post(U2, 'salsa', { ...fields }, id)
+			);
+		}
+		unchanged();
+		expect(archiveExercise(db, mine, 1)).toBe(true);
+	});
+
+	it('the practice endpoint is a 404 for another person’s exercise', async () => {
+		const get = practiceEndpoint.GET as unknown as (e: unknown) => unknown;
+		const put = practiceEndpoint.POST as unknown as (e: unknown) => Promise<unknown>;
+		expect(() =>
+			get({ params: { dance: 'salsa', id: String(mine) }, locals: { user: U2 } })
+		).toThrow(threw404);
+		await expect(
+			put({
+				params: { dance: 'salsa', id: String(mine) },
+				locals: { user: U2 },
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					body: JSON.stringify({ mode: 'count', countBpm: 100 })
+				})
+			})
+		).rejects.toMatchObject({ status: 404 });
+		expect(getExercise(db, mine)!.countBpm).toBeNull();
+	});
+
+	it('the player offers no exercise of another person, and refuses to save a run on it', async () => {
+		const url = new URL(`http://localhost/?exercise=${mine}`);
+		const load = playerPage.load as unknown as (e: unknown) => {
+			exercise: unknown;
+			exercises: unknown[];
+		};
+		const theirs = load({ url, params: { dance: 'salsa' }, locals: { user: U2 } });
+		expect(theirs.exercise).toBeNull();
+		expect(theirs.exercises).toEqual([]);
+		expect(load({ url, params: { dance: 'salsa' }, locals: { user: U1 } }).exercise).not.toBeNull();
+		await refuses(
+			playerPage.actions.save,
+			post(U2, 'salsa', { exerciseId: String(mine), durationS: '60' })
+		);
+		expect(exerciseHistory(db, mine)).toHaveLength(1);
+	});
+});

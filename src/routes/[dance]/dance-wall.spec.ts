@@ -169,7 +169,7 @@ beforeEach(() => {
 	})!;
 	bachataFigureId = bachata.figure.id;
 	bachataExerciseId = addFigureExercise(db, bachata.figure.id)!.id;
-	bachataCustomId = createCustomExercise(db, 'bachata', {
+	bachataCustomId = createCustomExercise(db, U1_BACHATA, {
 		name: 'Hip drills',
 		everyDays: 3,
 		notes: null
@@ -1224,7 +1224,7 @@ describe('an unknown dance in the URL cannot write a row', () => {
 			todayActions.createExercise,
 			post('kizomba', { name: 'Smuggled', everyDays: '3', notes: '' })
 		);
-		expect(listExercises(db, 'salsa').map((e) => e.name)).not.toContain('Smuggled');
+		expect(listExercises(db, U1_SALSA).map((e) => e.name)).not.toContain('Smuggled');
 		expect(
 			db
 				.select()

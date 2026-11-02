@@ -85,7 +85,7 @@ beforeEach(() => {
 	handle.db = db;
 	figureId = salsaFigure('Enchufla');
 	doble = createVariationFrom(db, figureId, 'Doble')!.id;
-	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
+	drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null }).id;
 	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
 	otherLessonId = createLesson(db, 'salsa', {
@@ -231,7 +231,7 @@ describe('the drill’s exercise page', () => {
 		await call(exercisePage.actions.linkSection, post('salsa', drill, { spotId: String(section) }));
 		const [link] = links();
 		expect(link.exerciseId).toBe(drill);
-		const other = createCustomExercise(db, 'salsa', { name: 'Shines', everyDays: 3, notes: null });
+		const other = createCustomExercise(db, U1_SALSA, { name: 'Shines', everyDays: 3, notes: null });
 		const res = await call(
 			exercisePage.actions.unlinkSection,
 			post('salsa', other.id, { linkId: String(link.id) })

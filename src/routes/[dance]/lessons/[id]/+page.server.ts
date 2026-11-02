@@ -90,7 +90,9 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		defaultStyle: locals.user
 			? defaultStyle(db, locals.user.id, danceOf(params))
 			: DANCES[danceOf(params)].defaultStyle,
-		popup: found.exercise ? popupData(db, danceOf(params), found.exercise.id, tz, Date.now()) : null
+		popup: found.exercise
+			? popupData(db, wallOf(params, locals), found.exercise.id, tz, Date.now())
+			: null
 	};
 };
 
@@ -234,7 +236,7 @@ export const actions: Actions = {
 		return { action: 'newVariation', ok: true };
 	},
 
-	newExercise: async ({ params, request }) => {
+	newExercise: async ({ params, request, locals }) => {
 		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
@@ -254,7 +256,7 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const exercise = createCustomExercise(db, danceOf(params), { name, everyDays, notes });
+		const exercise = createCustomExercise(db, wallOf(params, locals), { name, everyDays, notes });
 		linkExercise(db, id, exercise.id);
 		return { action: 'newExercise', ok: true };
 	},

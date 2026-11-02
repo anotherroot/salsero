@@ -171,7 +171,7 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 	});
 
 	const zone = zoneOf(locals);
-	const popup = found.exercise ? popupData(db, dance, found.exercise.id, zone, now) : null;
+	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
 
 	return {
 		figure: { id: group.id, name: group.name },

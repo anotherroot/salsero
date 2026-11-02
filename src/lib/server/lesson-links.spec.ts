@@ -35,7 +35,7 @@ beforeEach(() => {
 		notes: null
 	})!.figure.id;
 	doble = createVariationFrom(db, basic, 'Doble')!.id;
-	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
+	drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null }).id;
 
 	const lesson = lessonWithVideo('Cubana', 'l1.mp4');
 	lessonId = lesson.id;

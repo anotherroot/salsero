@@ -1,12 +1,12 @@
 import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, sql, sum } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, figureGroups, figures, sets, songs } from './db/schema';
-import type { DanceSlug } from '$lib/dances/dances';
+import type { Wall } from './scope';
 import type { PracticeInput } from '$lib/exercises/practice';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
 /** Every exercise that has not been archived, with its figure's partner flag. */
-export function listExercises(db: Db, dance: DanceSlug): ExerciseItem[] {
+export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 	return db
 		.select({
 			id: exercises.id,
@@ -27,13 +27,19 @@ export function listExercises(db: Db, dance: DanceSlug): ExerciseItem[] {
 		})
 		.from(exercises)
 		.leftJoin(figures, eq(figures.id, exercises.figureId))
-		.where(and(isNull(exercises.archivedAt), eq(exercises.dance, dance)))
+		.where(
+			and(
+				isNull(exercises.archivedAt),
+				eq(exercises.dance, wall.dance),
+				eq(exercises.userId, wall.userId)
+			)
+		)
 		.all()
 		.map((r) => ({ ...r, archived: false }));
 }
 
 /** Every live exercise of the dance as a picker offers it, by name. Nothing is linked. */
-export function listPickExercises(db: Db, dance: DanceSlug): PickExercise[] {
+export function listPickExercises(db: Db, wall: Wall): PickExercise[] {
 	return db
 		.select({
 			id: exercises.id,
@@ -46,7 +52,13 @@ export function listPickExercises(db: Db, dance: DanceSlug): PickExercise[] {
 		.from(exercises)
 		.leftJoin(figures, eq(figures.id, exercises.figureId))
 		.leftJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(and(isNull(exercises.archivedAt), eq(exercises.dance, dance)))
+		.where(
+			and(
+				isNull(exercises.archivedAt),
+				eq(exercises.dance, wall.dance),
+				eq(exercises.userId, wall.userId)
+			)
+		)
 		.orderBy(asc(exercises.name), asc(exercises.id))
 		.all()
 		.map((r) => ({ ...r, linked: false }));
@@ -57,12 +69,12 @@ export function listPickExercises(db: Db, dance: DanceSlug): PickExercise[] {
  * is how a set knows its dance: `sets` carries no `dance` column on purpose —
  * it would be a second copy of a fact that can drift.
  */
-export function listSetTimes(db: Db, dance: DanceSlug): { exerciseId: number; doneAt: number }[] {
+export function listSetTimes(db: Db, wall: Wall): { exerciseId: number; doneAt: number }[] {
 	return db
 		.select({ exerciseId: sets.exerciseId, doneAt: sets.doneAt })
 		.from(sets)
 		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
-		.where(eq(exercises.dance, dance))
+		.where(and(eq(exercises.dance, wall.dance), eq(exercises.userId, wall.userId)))
 		.all();
 }
 
@@ -78,14 +90,10 @@ export interface SettingsInput {
 	notes: string | null;
 }
 
-export function createCustomExercise(
-	db: Db,
-	dance: DanceSlug,
-	input: Omit<SettingsInput, 'active'>
-) {
+export function createCustomExercise(db: Db, wall: Wall, input: Omit<SettingsInput, 'active'>) {
 	return db
 		.insert(exercises)
-		.values({ ...input, source: 'custom', dance })
+		.values({ ...input, source: 'custom', dance: wall.dance, userId: wall.userId })
 		.returning()
 		.get();
 }
@@ -125,6 +133,7 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 		if (
 			!song ||
 			song.dance !== current.dance ||
+			song.userId !== current.userId ||
 			song.status !== 'ready' ||
 			song.archivedAt !== null
 		) {
@@ -189,7 +198,7 @@ export function deleteSet(db: Db, id: number): boolean {
  * window around a calendar day and filters with `localDay`, so which day a set
  * belongs to is decided in one place, in the user's zone.
  */
-export function listSetsBetween(db: Db, from: number, to: number, dance: DanceSlug): DaySet[] {
+export function listSetsBetween(db: Db, from: number, to: number, wall: Wall): DaySet[] {
 	return db
 		.select({
 			id: sets.id,
@@ -203,7 +212,14 @@ export function listSetsBetween(db: Db, from: number, to: number, dance: DanceSl
 		})
 		.from(sets)
 		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
-		.where(and(gte(sets.doneAt, from), lt(sets.doneAt, to), eq(exercises.dance, dance)))
+		.where(
+			and(
+				gte(sets.doneAt, from),
+				lt(sets.doneAt, to),
+				eq(exercises.dance, wall.dance),
+				eq(exercises.userId, wall.userId)
+			)
+		)
 		.orderBy(desc(sets.doneAt))
 		.all();
 }
@@ -261,12 +277,12 @@ export function exerciseSummary(db: Db, id: number): ExerciseSummary {
  * `max()` aggregate, the other selected columns come from the row holding that
  * maximum. Two sets at the same millisecond pick either, which is fine.
  */
-export function lastSets(db: Db, dance: DanceSlug): Map<number, HistorySet> {
+export function lastSets(db: Db, wall: Wall): Map<number, HistorySet> {
 	const rows = db.all<HistorySet & { exerciseId: number }>(sql`
 		select s.exercise_id as exerciseId, s.id as id, max(s.done_at) as doneAt,
 		       s.duration_s as durationS, s.reps as reps, s.rating as rating, s.note as note
 		from sets s join exercises e on e.id = s.exercise_id
-		where e.dance = ${dance}
+		where e.dance = ${wall.dance} and e.user_id = ${wall.userId}
 		group by s.exercise_id`);
 	return new Map(rows.map(({ exerciseId, ...set }) => [exerciseId, set]));
 }

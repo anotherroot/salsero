@@ -55,7 +55,7 @@ describe('requestVideoDownload', () => {
 		expect(requestVideoDownload(db, { figureId }, web)).toBe('not-youtube');
 		const onLesson = linkOn({ lessonId });
 		expect(requestVideoDownload(db, { figureId }, onLesson)).toBe('not-found');
-		const drill = createCustomExercise(db, 'salsa', { name: 'D', everyDays: 2, notes: null });
+		const drill = createCustomExercise(db, U1_SALSA, { name: 'D', everyDays: 2, notes: null });
 		const d = linkOn({ exerciseId: drill.id });
 		expect(requestVideoDownload(db, { exerciseId: drill.id }, d)).toBe('not-found');
 		expect(jobs()).toEqual([]);

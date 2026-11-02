@@ -61,31 +61,30 @@ export function requireAdmin(locals: App.Locals): void {
 	if (!locals.user?.isAdmin) throw error(404, 'Not found');
 }
 
-/** The exercise if it belongs to this dance, else null — for reads that degrade. */
-export function exerciseInDance(db: Db, dance: DanceSlug, id: number) {
+/** The exercise if it is in this wall, else null — for reads that degrade. */
+export function exerciseInWall(db: Db, wall: Wall, id: number) {
 	const found = getExercise(db, id);
-	return found && found.dance === dance ? found : null;
+	return found && inWall(found, wall) ? found : null;
 }
 
 /**
  * The exercise, or a 404. Anything that writes by id uses this: a mismatch must
  * stop the request, not fall through to a friendlier message that still acted.
  */
-export function requireExerciseInDance(db: Db, dance: DanceSlug, id: number) {
-	const found = exerciseInDance(db, dance, id);
+export function requireExerciseInWall(db: Db, wall: Wall, id: number) {
+	const found = exerciseInWall(db, wall, id);
 	if (!found) throw error(404, 'No such exercise');
 	return found;
 }
 
 /**
- * The set, or a 404. A set has no `dance` column: it is the dance of its
- * exercise, resolved through `exerciseId` rather than denormalised — which is
- * the same rule the schema already follows for recordings and lesson videos.
+ * The set, or a 404. A set has no `dance` or owner column: it is the wall of
+ * its exercise, resolved through `exerciseId`.
  */
-export function requireSetInDance(db: Db, dance: DanceSlug, id: number) {
+export function requireSetInWall(db: Db, wall: Wall, id: number) {
 	const set = getSet(db, id);
 	if (!set) throw error(404, 'No such set');
-	requireExerciseInDance(db, dance, set.exerciseId);
+	requireExerciseInWall(db, wall, set.exerciseId);
 	return set;
 }
 

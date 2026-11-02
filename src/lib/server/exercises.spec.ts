@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { openDb, type Db } from './db';
+import type { Db } from './db';
 import { archiveExercise, createCustomExercise, listPickExercises } from './exercises';
 import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
-import { U1_SALSA } from '$lib/server/test-walls';
+import { U1_SALSA, U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 });
 
 describe('listPickExercises', () => {
@@ -20,10 +20,10 @@ describe('listPickExercises', () => {
 			notes: null
 		})!;
 		const own = addFigureExercise(db, figure.id, 5)!;
-		const custom = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 2, notes: null });
+		const custom = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 2, notes: null });
 		const { exercise: routineEx } = createRoutine(db, 'salsa', { name: 'Zeta', notes: null });
 
-		const rows = listPickExercises(db, 'salsa');
+		const rows = listPickExercises(db, U1_SALSA);
 		expect(rows.map((r) => r.name)).toEqual([...rows.map((r) => r.name)].sort());
 		expect(rows).toHaveLength(3);
 		expect(rows.find((r) => r.id === own.id)).toEqual({
@@ -52,10 +52,10 @@ describe('listPickExercises', () => {
 	});
 
 	it("leaves out archived exercises and the other dance's", () => {
-		const gone = createCustomExercise(db, 'salsa', { name: 'Gone', everyDays: 2, notes: null });
-		const kept = createCustomExercise(db, 'salsa', { name: 'Kept', everyDays: 2, notes: null });
-		createCustomExercise(db, 'bachata', { name: 'Other', everyDays: 2, notes: null });
+		const gone = createCustomExercise(db, U1_SALSA, { name: 'Gone', everyDays: 2, notes: null });
+		const kept = createCustomExercise(db, U1_SALSA, { name: 'Kept', everyDays: 2, notes: null });
+		createCustomExercise(db, U1_BACHATA, { name: 'Other', everyDays: 2, notes: null });
 		archiveExercise(db, gone.id, 1000);
-		expect(listPickExercises(db, 'salsa').map((r) => r.id)).toEqual([kept.id]);
+		expect(listPickExercises(db, U1_SALSA).map((r) => r.id)).toEqual([kept.id]);
 	});
 });

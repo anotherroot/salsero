@@ -36,7 +36,7 @@ import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
 import { exercises, spotLinks } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { archiveRoutine, createRoutine } from './routines';
-import { U1_SALSA, openOwnedDb } from '$lib/server/test-walls';
+import { U1_SALSA, openOwnedDb, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -74,7 +74,7 @@ describe('createLesson', () => {
 
 	it('puts the review exercise on Today with its lesson id', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const row = listExercises(db, 'salsa').find((e) => e.lessonId === lesson.id);
+		const row = listExercises(db, U1_SALSA).find((e) => e.lessonId === lesson.id);
 		expect(row?.partner).toBeNull();
 		expect(row?.source).toBe('lesson');
 	});
@@ -105,7 +105,7 @@ describe('archiveLesson', () => {
 
 		expect(archiveLesson(db, lesson.id, 1000)).toBe(true);
 		expect(listLessons(db, 'salsa')).toHaveLength(0);
-		expect(listExercises(db, 'salsa').some((e) => e.id === exercise.id)).toBe(false);
+		expect(listExercises(db, U1_SALSA).some((e) => e.id === exercise.id)).toBe(false);
 		expect(getLesson(db, lesson.id)?.videos).toHaveLength(1);
 	});
 
@@ -223,7 +223,7 @@ describe('frequencies on the lesson page', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const { routine } = createRoutine(db, 'salsa', { name: 'Rueda combo', notes: null });
 		db.update(exercises).set({ everyDays: 7 }).where(eq(exercises.routineId, routine.id)).run();
-		const custom = createCustomExercise(db, 'salsa', { name: 'Drill', everyDays: 1, notes: null });
+		const custom = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		linkRoutine(db, lesson.id, routine.id);
 		linkExercise(db, lesson.id, custom.id);
 
@@ -236,7 +236,7 @@ describe('frequencies on the lesson page', () => {
 describe('linking exercises', () => {
 	it('links a custom exercise and unlinks it again', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const custom = createCustomExercise(db, 'salsa', {
+		const custom = createCustomExercise(db, U1_SALSA, {
 			name: 'Son basic',
 			everyDays: 3,
 			notes: null
@@ -257,7 +257,7 @@ describe('linking exercises', () => {
 
 	it('refuses an archived exercise', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const custom = createCustomExercise(db, 'salsa', {
+		const custom = createCustomExercise(db, U1_SALSA, {
 			name: 'Son basic',
 			everyDays: 3,
 			notes: null
@@ -304,7 +304,7 @@ describe('the link pickers', () => {
 		// The null-propagating `NOT IN` bug would empty this list entirely.
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const custom = createCustomExercise(db, 'salsa', {
+		const custom = createCustomExercise(db, U1_SALSA, {
 			name: 'Son basic',
 			everyDays: 3,
 			notes: null
@@ -316,8 +316,12 @@ describe('the link pickers', () => {
 
 	it('listLinkableExercises: a linked drill is present with linked true', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const linked = createCustomExercise(db, 'salsa', { name: 'Linked', everyDays: 3, notes: null });
-		const free = createCustomExercise(db, 'salsa', { name: 'Free', everyDays: 3, notes: null });
+		const linked = createCustomExercise(db, U1_SALSA, {
+			name: 'Linked',
+			everyDays: 3,
+			notes: null
+		});
+		const free = createCustomExercise(db, U1_SALSA, { name: 'Free', everyDays: 3, notes: null });
 		linkExercise(db, lesson.id, linked.id);
 		expect(listLinkableExercises(db, lesson.id)).toEqual([
 			expect.objectContaining({ id: free.id, linked: false, everyDays: 3, source: 'custom' }),
@@ -346,8 +350,12 @@ describe('the link pickers', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		addFigureExercise(db, figure.id);
 		linkFigure(db, lesson.id, figure.id);
-		const gone = createCustomExercise(db, 'salsa', { name: 'Archived', everyDays: 3, notes: null });
-		const free = createCustomExercise(db, 'salsa', { name: 'Free', everyDays: 3, notes: null });
+		const gone = createCustomExercise(db, U1_SALSA, {
+			name: 'Archived',
+			everyDays: 3,
+			notes: null
+		});
+		const free = createCustomExercise(db, U1_SALSA, { name: 'Free', everyDays: 3, notes: null });
 		archiveExercise(db, gone.id, 1000);
 		expect(listLinkableExercises(db, lesson.id).map((e) => e.id)).toEqual([free.id]);
 	});
@@ -355,9 +363,17 @@ describe('the link pickers', () => {
 	it('leaves out archived and any lesson review exercise', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		createLesson(db, 'salsa', { ...lessonInput, title: 'Other' });
-		const linked = createCustomExercise(db, 'salsa', { name: 'Linked', everyDays: 3, notes: null });
-		const gone = createCustomExercise(db, 'salsa', { name: 'Archived', everyDays: 3, notes: null });
-		const free = createCustomExercise(db, 'salsa', { name: 'Free', everyDays: 3, notes: null });
+		const linked = createCustomExercise(db, U1_SALSA, {
+			name: 'Linked',
+			everyDays: 3,
+			notes: null
+		});
+		const gone = createCustomExercise(db, U1_SALSA, {
+			name: 'Archived',
+			everyDays: 3,
+			notes: null
+		});
+		const free = createCustomExercise(db, U1_SALSA, { name: 'Free', everyDays: 3, notes: null });
 
 		linkExercise(db, lesson.id, linked.id);
 		archiveExercise(db, gone.id, 1000);
@@ -505,7 +521,7 @@ describe('lessons are walled off by dance', () => {
 		// — this clause in `linkExercise` is the only thing standing between a
 		// bachata lesson and a salsa exercise id posted at it by hand.
 		const lesson = createLesson(db, 'bachata', lessonInput);
-		const salsaExercise = createCustomExercise(db, 'salsa', {
+		const salsaExercise = createCustomExercise(db, U1_SALSA, {
 			name: 'Salsa footwork',
 			everyDays: 2,
 			notes: null
@@ -516,8 +532,8 @@ describe('lessons are walled off by dance', () => {
 
 	it('offers only its own dance exercises to link', () => {
 		const lesson = createLesson(db, 'bachata', lessonInput);
-		createCustomExercise(db, 'salsa', { name: 'Salsa footwork', everyDays: 2, notes: null });
-		const own = createCustomExercise(db, 'bachata', {
+		createCustomExercise(db, U1_SALSA, { name: 'Salsa footwork', everyDays: 2, notes: null });
+		const own = createCustomExercise(db, U1_BACHATA, {
 			name: 'Bachata footwork',
 			everyDays: 2,
 			notes: null
@@ -636,7 +652,7 @@ describe('a routine exercise never shows up in both places', () => {
 	it('leaves its exercise out of the picker once its routine is linked', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
-		const custom = createCustomExercise(db, 'salsa', {
+		const custom = createCustomExercise(db, U1_SALSA, {
 			name: 'Son basic',
 			everyDays: 3,
 			notes: null
@@ -674,7 +690,7 @@ describe('through sections', () => {
 		lessonId = createLesson(db, 'salsa', lessonInput).lesson.id;
 		basic = createFigure(db, U1_SALSA, figureInput)!.figure.id;
 		doble = createVariationFrom(db, basic, 'Doble')!.id;
-		drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
+		drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null }).id;
 		const videoId = addLessonVideo(db, video(lessonId, 'l.mp4', 1)).id;
 		a = addSpot(db, { lessonVideoId: videoId }, { startMs: 1000, endMs: 4000, label: null })!.id;
 		b = addSpot(db, { lessonVideoId: videoId }, { startMs: 6000, endMs: 9000, label: 'B' })!.id;

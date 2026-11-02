@@ -200,7 +200,12 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
 		.from(exercises)
 		.where(
-			and(eq(exercises.dance, dance), eq(exercises.source, 'custom'), isNull(exercises.archivedAt))
+			and(
+				eq(exercises.dance, wall.dance),
+				eq(exercises.userId, wall.userId),
+				eq(exercises.source, 'custom'),
+				isNull(exercises.archivedAt)
+			)
 		)
 		.orderBy(asc(exercises.name))
 		.all()
@@ -312,7 +317,7 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 		} else {
 			if (!isFrequency(create.everyDays))
 				throw new SpotLinkError('Pick how often.', 400, 'everyDays');
-			const made = createCustomExercise(tx, dance, {
+			const made = createCustomExercise(tx, wall, {
 				name,
 				everyDays: create.everyDays,
 				notes: null

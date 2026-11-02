@@ -8,7 +8,7 @@ import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import { linkSpot, SpotLinkError, unlinkFromSection } from './spot-links';
 import { createAndLink, linkOptions } from './link-popup';
-import { openOwnedDb } from '$lib/server/test-walls';
+import { openOwnedDb, U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let lessonId: number;
@@ -46,7 +46,7 @@ beforeEach(() => {
 	doble = createVariationFrom(db, basic, 'Doble')!.id;
 	fig('salsa', 'Setenta');
 	fig('bachata', 'Paseo');
-	drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
+	drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null }).id;
 	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
 	const videoId = addLessonVideo(db, {
