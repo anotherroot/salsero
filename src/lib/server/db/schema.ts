@@ -51,7 +51,9 @@ export const users = sqliteTable('users', {
 	/** The admin invites people and sees their storage. */
 	isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false),
 	/** Bytes of recordings, videos, songs and takes the account may keep; null = no limit. */
-	storageLimitBytes: integer('storage_limit_bytes')
+	storageLimitBytes: integer('storage_limit_bytes'),
+	/** How many groups the person may make; null = `TEAMS_MADE_DEFAULT`. */
+	groupLimit: integer('group_limit')
 });
 
 /**
@@ -123,13 +125,16 @@ export const figureGroups = sqliteTable(
 		dance: text('dance').notNull(),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
+		/** The team that owns this, instead of a person. Nullable, no foreign key, like `user_id`; exactly one of the two is set (see `integrity.ts`). */
+		teamId: integer('team_id'),
 		name: text('name').notNull(),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
 	(t) => [
 		index('figure_groups_dance_idx').on(t.dance),
-		index('figure_groups_user_idx').on(t.userId, t.dance)
+		index('figure_groups_user_idx').on(t.userId, t.dance),
+		index('figure_groups_team_idx').on(t.teamId, t.dance)
 	]
 );
 
@@ -149,6 +154,8 @@ export const figures = sqliteTable(
 		notes: text('notes'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
+		/** The team that owns this, instead of a person. Nullable, no foreign key, like `user_id`; exactly one of the two is set (see `integrity.ts`). */
+		teamId: integer('team_id'),
 		partner: text('partner', { enum: PARTNER }).notNull().default('partner'),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
@@ -224,7 +231,8 @@ export const figures = sqliteTable(
 		check('figures_style_ck', sql`${t.style} in ('salsa', 'son', 'other')`),
 		index('figures_parent_idx').on(t.parentId),
 		index('figures_group_idx').on(t.groupId),
-		index('figures_user_idx').on(t.userId, t.dance)
+		index('figures_user_idx').on(t.userId, t.dance),
+		index('figures_team_idx').on(t.teamId, t.dance)
 	]
 );
 
@@ -335,6 +343,8 @@ export const routines = sqliteTable(
 		dance: text('dance').notNull().default('salsa'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
+		/** The team that owns this, instead of a person. Nullable, no foreign key, like `user_id`; exactly one of the two is set (see `integrity.ts`). */
+		teamId: integer('team_id'),
 		name: text('name').notNull(),
 		notes: text('notes'),
 		archivedAt: integer('archived_at'),
@@ -342,7 +352,8 @@ export const routines = sqliteTable(
 	},
 	(t) => [
 		index('routines_dance_idx').on(t.dance, t.archivedAt),
-		index('routines_user_idx').on(t.userId, t.dance)
+		index('routines_user_idx').on(t.userId, t.dance),
+		index('routines_team_idx').on(t.teamId, t.dance)
 	]
 );
 
@@ -482,6 +493,8 @@ export const exercises = sqliteTable(
 		dance: text('dance').notNull().default('salsa'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
+		/** The team that owns this, instead of a person. Nullable, no foreign key, like `user_id`; exactly one of the two is set (see `integrity.ts`). */
+		teamId: integer('team_id'),
 		source: text('source', { enum: SOURCES }).notNull(),
 		figureId: integer('figure_id').references(() => figures.id),
 		practiceMode: text('practice_mode', { enum: PRACTICE_MODES }).notNull().default('none'),
@@ -513,6 +526,11 @@ export const exercises = sqliteTable(
 		 * column, and is the enforcement.
 		 */
 		routineId: integer('routine_id').references(() => routines.id),
+		/**
+		 * Set iff `source = 'added'`: the group drill (a `custom` exercise owned by a team) this
+		 * member's practice entry points at. No CHECK, for the reason `lessonId` has none.
+		 */
+		drillId: integer('drill_id').references((): AnySQLiteColumn => exercises.id),
 		everyDays: real('every_days').notNull().default(3),
 		active: integer('active', { mode: 'boolean' }).notNull().default(true),
 		archivedAt: integer('archived_at'),
@@ -529,7 +547,21 @@ export const exercises = sqliteTable(
 		// `setPracticeSettings` (src/lib/server/exercises.ts) enforce the
 		// song/count pairing instead.
 		index('exercises_figure_idx').on(t.figureId),
-		index('exercises_user_idx').on(t.userId, t.dance)
+		index('exercises_user_idx').on(t.userId, t.dance),
+		index('exercises_team_idx').on(t.teamId, t.dance),
+		// One entry per person per thing: the entry is found, never doubled.
+		uniqueIndex('exercises_entry_lesson_idx')
+			.on(t.userId, t.lessonId)
+			.where(sql`${t.lessonId} is not null`),
+		uniqueIndex('exercises_entry_routine_idx')
+			.on(t.userId, t.routineId)
+			.where(sql`${t.routineId} is not null`),
+		uniqueIndex('exercises_entry_figure_idx')
+			.on(t.userId, t.figureId)
+			.where(sql`${t.figureId} is not null`),
+		uniqueIndex('exercises_entry_drill_idx')
+			.on(t.userId, t.drillId)
+			.where(sql`${t.drillId} is not null`)
 	]
 );
 
@@ -582,15 +614,20 @@ export const lessons = sqliteTable(
 		dance: text('dance').notNull().default('salsa'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
+		/** The team that owns this, instead of a person. Nullable, no foreign key, like `user_id`; exactly one of the two is set (see `integrity.ts`). */
+		teamId: integer('team_id'),
 		title: text('title').notNull(),
 		notes: text('notes'),
+		/** A team lesson is a draft (null) until an editor publishes it; members see it only after. */
+		publishedAt: integer('published_at'),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt()
 	},
 	(t) => [
 		check('lessons_day_ck', sql`${t.lessonDay} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`),
 		index('lessons_day_idx').on(t.lessonDay),
-		index('lessons_user_idx').on(t.userId, t.dance)
+		index('lessons_user_idx').on(t.userId, t.dance),
+		index('lessons_team_idx').on(t.teamId, t.dance)
 	]
 );
 
@@ -912,9 +949,120 @@ export const storageRequests = sqliteTable(
 		createdAt: createdAt(),
 		resolvedAt: integer('resolved_at'),
 		outcome: text('outcome'),
-		grantedLimitBytes: integer('granted_limit_bytes')
+		grantedLimitBytes: integer('granted_limit_bytes'),
+		/** Set when the request is for a team's space rather than the person's. */
+		teamId: integer('team_id')
 	},
 	(t) => [index('storage_requests_user_idx').on(t.userId, t.resolvedAt)]
+);
+
+/* ── Groups (in code, teams: `figure_groups` already means a figure) ───── */
+
+/** A group: a class that shares its lessons. Its rows carry `team_id` instead of `user_id`. */
+export const teams = sqliteTable('teams', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	dance: text('dance').notNull(),
+	name: text('name').notNull(),
+	/** What a person types to join. */
+	code: text('code').notNull().unique(),
+	/** Bytes the group may keep; null = computed. */
+	storageLimitBytes: integer('storage_limit_bytes'),
+	deletedAt: integer('deleted_at'),
+	deletedBy: text('deleted_by'),
+	purgedAt: integer('purged_at'),
+	createdBy: text('created_by').notNull(),
+	createdAt: createdAt()
+});
+
+export const teamMembers = sqliteTable(
+	'team_members',
+	{
+		teamId: integer('team_id')
+			.notNull()
+			.references(() => teams.id),
+		userId: text('user_id').notNull(),
+		role: text('role').notNull(),
+		joinedAt: integer('joined_at').notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.teamId, t.userId] }),
+		check('team_members_role_ck', sql`${t.role} in ('owner', 'editor', 'member')`),
+		uniqueIndex('team_members_owner_idx')
+			.on(t.teamId)
+			.where(sql`${t.role} = 'owner'`),
+		index('team_members_user_idx').on(t.userId)
+	]
+);
+
+/** A team lesson a person added to their own Lessons; `seen_at` drives "new". */
+export const lessonAdds = sqliteTable(
+	'lesson_adds',
+	{
+		userId: text('user_id').notNull(),
+		lessonId: integer('lesson_id')
+			.notNull()
+			.references(() => lessons.id),
+		addedAt: integer('added_at').notNull(),
+		seenAt: integer('seen_at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.lessonId] })]
+);
+
+/** The change log of a team: one row per edit, under the root it belongs to. */
+export const teamChanges = sqliteTable(
+	'team_changes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		teamId: integer('team_id').notNull(),
+		rootKind: text('root_kind').notNull(),
+		rootId: integer('root_id').notNull(),
+		actorId: text('actor_id').notNull(),
+		at: integer('at').notNull(),
+		verb: text('verb').notNull(),
+		subject: text('subject').notNull(),
+		subjectId: integer('subject_id'),
+		beforeJson: text('before_json'),
+		afterJson: text('after_json'),
+		trashId: integer('trash_id')
+	},
+	(t) => [
+		check(
+			'team_changes_root_kind_ck',
+			sql`${t.rootKind} in ('lesson', 'figure', 'routine', 'drill', 'team')`
+		),
+		check(
+			'team_changes_verb_ck',
+			sql`${t.verb} in ('add', 'change', 'remove', 'archive', 'restore', 'publish')`
+		),
+		index('team_changes_root_idx').on(t.teamId, t.rootKind, t.rootId, t.at)
+	]
+);
+
+/** What a team removed, kept so it can be restored until purged. */
+export const teamTrash = sqliteTable(
+	'team_trash',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		teamId: integer('team_id').notNull(),
+		kind: text('kind').notNull(),
+		label: text('label').notNull(),
+		rootKind: text('root_kind').notNull(),
+		rootId: integer('root_id').notNull(),
+		rowsJson: text('rows_json').notNull(),
+		filesJson: text('files_json').notNull().default('[]'),
+		sizeBytes: integer('size_bytes').notNull().default(0),
+		deletedBy: text('deleted_by').notNull(),
+		deletedAt: integer('deleted_at').notNull(),
+		restoredAt: integer('restored_at'),
+		purgedAt: integer('purged_at')
+	},
+	(t) => [
+		check(
+			'team_trash_kind_ck',
+			sql`${t.kind} in ('video', 'section', 'link', 'spot-link', 'recording')`
+		),
+		index('team_trash_team_idx').on(t.teamId, t.deletedAt)
+	]
 );
 
 export type Figure = typeof figures.$inferSelect;

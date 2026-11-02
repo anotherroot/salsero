@@ -1,6 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { seedAdmin } from '../admin';
 import { sweepUploads } from '../files';
+import { ownerIntegrity } from '../integrity';
 import { importNoteLinks } from '../links';
 import { seedPositions } from '../positions';
 import { backfillSongSizes } from '../storage';
@@ -25,6 +26,15 @@ export function bootstrap(): Promise<void> {
 			importNoteLinks(getDb(), Date.now());
 		})
 		.then(() => backfillSongSizes(getDb(), Date.now()))
+		.then(() => {
+			// Who owns what, checked once per process. Only logged: a bad row is for a
+			// person to look at, never a reason to refuse requests.
+			try {
+				for (const line of ownerIntegrity(getDb())) console.warn(`[integrity] ${line}`);
+			} catch (err) {
+				console.warn('[integrity] check failed', err);
+			}
+		})
 		.then(() => {
 			// Abandoned chunked uploads, swept once per process rather than by a
 			// cron or a unit there would be nothing to remind anyone about. Not

@@ -30,6 +30,8 @@ const BY_SOURCE: Record<Source, ExerciseType> = {
 	lesson: 'lesson',
 	figure: 'figure',
 	custom: 'drill',
+	// A member's entry for a group drill; Task 9 gives it its own semantics.
+	added: 'drill',
 	routine: 'routine'
 };
 

@@ -91,3 +91,6 @@ export const DEFAULT_STORAGE_LIMIT_BYTES = 1024 ** 3;
 
 /** How long an invite works: 24 hours. */
 export const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** How many groups a person may make unless the admin says otherwise. */
+export const TEAMS_MADE_DEFAULT = 3;

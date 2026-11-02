@@ -12,8 +12,8 @@ describe('exercise types', () => {
 		expect(typeOf('routine')).toBe('routine');
 	});
 
-	it('gives reps to a drill only', () => {
-		expect(SOURCES.filter((s) => hasField(s, 'reps'))).toEqual(['custom']);
+	it('gives reps to a drill and its group entry only', () => {
+		expect(SOURCES.filter((s) => hasField(s, 'reps'))).toEqual(['custom', 'added']);
 	});
 
 	it('gives every type minutes, a rating and a note', () => {
