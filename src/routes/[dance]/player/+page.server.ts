@@ -40,7 +40,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	if (routineId && (!routine || routine.archivedAt !== null || !inWall(routine, wall))) {
 		throw error(404, 'No such routine');
 	}
-	const shape = routine ? (routineShapes(db, dance).get(routine.id) ?? { slots: [] }) : null;
+	const shape = routine ? (routineShapes(db, wall).get(routine.id) ?? { slots: [] }) : null;
 	// Every figure the routine can call: the run's pool, and what the voice has
 	// a name for.
 	const figureIds = shape

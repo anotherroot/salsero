@@ -193,7 +193,7 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		exercise: found.exercise,
 		popup,
 		// Derived per request, never stored — the same rule urgency follows.
-		routines: routinesUsing(graph, id, routineShapes(db, dance), listRoutines(db, dance)),
+		routines: routinesUsing(graph, id, routineShapes(db, wall), listRoutines(db, wall)),
 		practice: popup
 			? practiceLine(
 					plan(

@@ -158,9 +158,9 @@ beforeEach(() => {
 		figureName: 'Second salsa figure',
 		style: 'salsa'
 	})!.figure.id;
-	salsaRoutineAId = createRoutine(db, 'salsa', { name: 'Routine A', notes: null }).routine.id;
-	salsaRoutineBId = createRoutine(db, 'salsa', { name: 'Routine B', notes: null }).routine.id;
-	bachataRoutineId = createRoutine(db, 'bachata', { name: 'Bachata routine', notes: null }).routine
+	salsaRoutineAId = createRoutine(db, U1_SALSA, { name: 'Routine A', notes: null }).routine.id;
+	salsaRoutineBId = createRoutine(db, U1_SALSA, { name: 'Routine B', notes: null }).routine.id;
+	bachataRoutineId = createRoutine(db, U1_BACHATA, { name: 'Bachata routine', notes: null }).routine
 		.id;
 	const bachata = createFigure(db, U1_BACHATA, {
 		...figureInput,
@@ -1068,7 +1068,7 @@ describe("the routine detail route refuses the other dance's rows", () => {
 	// `duplicateMany` and `extract`, whose data functions take `routine.id`
 	// natively and scope in SQL. For these three,
 	// `ownsSlot` in the route is the ONLY guard: a same-dance slot from a
-	// SECOND salsa routine passes `requireRoutineInDance` (routine A really is
+	// SECOND salsa routine passes `requireRoutineInWall` (routine A really is
 	// salsa) and would pass the data function's own dance check too, since
 	// both routines are salsa. A bachata slot would prove nothing here — it
 	// would already be caught by a dance check unrelated to `ownsSlot`.

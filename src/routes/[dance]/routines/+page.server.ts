@@ -4,18 +4,18 @@ import { buildGraph } from '$lib/server/graph';
 import { createRoutine, listRoutines, routineShapes } from '$lib/server/routines';
 import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { optionalText, text } from '$lib/server/form';
-import { danceOf, wallOf } from '$lib/server/scope';
+import { wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals }) => {
-	const dance = danceOf(params);
+	const wall = wallOf(params, locals);
 	const db = getDb();
-	const graph = buildGraph(db, wallOf(params, locals));
-	const shapes = routineShapes(db, dance);
+	const graph = buildGraph(db, wall);
+	const shapes = routineShapes(db, wall);
 	// Derived per request, never stored — the same rule urgency follows. A tag
 	// edited on a figure page changes these answers with no routine touched.
 	return {
-		routines: listRoutines(db, dance).map((r) => {
+		routines: listRoutines(db, wall).map((r) => {
 			const shape = shapes.get(r.id) ?? { slots: [] };
 			return {
 				...r,
@@ -28,8 +28,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 };
 
 export const actions: Actions = {
-	create: async ({ params, request }) => {
-		const dance = danceOf(params);
+	create: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
@@ -44,8 +44,8 @@ export const actions: Actions = {
 			});
 		if (!name) return refuse('name', 'Give the routine a name (up to 200 characters).');
 		if (notes === undefined) return refuse('notes', 'Notes are up to 2000 characters.');
-		const { routine } = createRoutine(getDb(), dance, { name, notes });
-		throw redirect(303, `/${dance}/routines/${routine.id}`);
+		const { routine } = createRoutine(getDb(), wall, { name, notes });
+		throw redirect(303, `/${wall.dance}/routines/${routine.id}`);
 	}
 	// No `archive` here on purpose. Archiving a routine is a real loss of a thing
 	// you built, and a Remove button sitting on every row of the library is one

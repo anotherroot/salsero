@@ -43,8 +43,8 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// Versions no routine can call: the Figures header's way into coverage.
 		unrouted: coverage(
 			listVersions(db, wall),
-			routineShapes(db, dance),
-			listRoutines(db, dance)
+			routineShapes(db, wall),
+			listRoutines(db, wall)
 		).filter((r) => r.routines.length === 0).length,
 		// What the new-figure form pre-selects. Settings picks it.
 		defaultStyle: defaultStyle(db, locals.user.id, dance)

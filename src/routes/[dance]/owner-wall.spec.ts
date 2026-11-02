@@ -807,3 +807,275 @@ describe('count takes are per person', () => {
 		expect(listCountTakes(db, 'u1')).toHaveLength(1);
 	});
 });
+
+/* ── Routines ─────────────────────────────────────────────────────────── */
+
+import {
+	addChildSlot,
+	addFigureSlot,
+	addOption,
+	createRoutine,
+	duplicateRoutine,
+	embeddable,
+	extractRoutine,
+	listPickRoutines,
+	listRoutines,
+	restoreOption,
+	restoreSlots,
+	routineShapes,
+	routineSlots
+} from '$lib/server/routines';
+import { requireRoutineInWall } from '$lib/server/scope';
+import * as routinePage from './routines/[id]/+page.server';
+import * as routineList from './routines/+page.server';
+
+describe('routines: the data functions stand behind a wall', () => {
+	let mine: number;
+	let theirs: number;
+
+	beforeEach(() => {
+		mine = createRoutine(db, U1_SALSA, { name: 'Mine', notes: null }).routine.id;
+		theirs = createRoutine(db, U2_SALSA, { name: 'Theirs', notes: null }).routine.id;
+	});
+
+	it("lists, shapes and pickers show none of another person's routines, in the same dance", () => {
+		expect(listRoutines(db, U1_SALSA).map((r) => r.name)).toEqual(['Mine']);
+		expect(listRoutines(db, U2_SALSA).map((r) => r.name)).toEqual(['Theirs']);
+		expect([...routineShapes(db, U1_SALSA).keys()]).toEqual([mine]);
+		expect([...routineShapes(db, U2_SALSA).keys()]).toEqual([theirs]);
+		expect(listPickRoutines(db, U2_SALSA).map((r) => r.id)).toEqual([theirs]);
+		expect(listRoutines(db, U1_BACHATA)).toEqual([]);
+	});
+
+	it('every create path carries the wall owner, on the routine and on its exercise', () => {
+		const exerciseOwner = (routineId: number) =>
+			db.select().from(exercises).where(eq(exercises.routineId, routineId)).get()?.userId;
+		const fromFigures = createRoutineFromFigures(
+			db,
+			U1_SALSA,
+			{ name: 'FromFigures', notes: null },
+			[figureId]
+		)!;
+		const copy = duplicateRoutine(db, mine)!;
+		addFigureSlot(db, mine, figureId);
+		const stepId = routineSlots(db, mine)[0].id;
+		const extracted = extractRoutine(db, mine, [stepId], 'Extracted')!;
+		for (const id of [mine, fromFigures.routine.id, copy.id, extracted.routineId]) {
+			expect(getRoutineRow(id).userId).toBe('u1');
+			expect(exerciseOwner(id)).toBe('u1');
+		}
+		expect(getRoutineRow(theirs).userId).toBe('u2');
+		expect(exerciseOwner(theirs)).toBe('u2');
+		// A copy of someone's routine is the copy-maker's only through their own wall:
+		// duplicating keeps the source's owner, never a guess.
+		expect(duplicateRoutine(db, theirs)!.userId).toBe('u2');
+	});
+
+	it('the library create action makes a routine for the signed-in person', async () => {
+		const res = await redirectOf(
+			routineList.actions.create,
+			post(U2, 'salsa', { name: 'Another' })
+		);
+		expect(res.status).toBe(303);
+		const id = Number(res.location.split('/').pop());
+		expect(getRoutineRow(id).userId).toBe('u2');
+		expect(db.select().from(exercises).where(eq(exercises.routineId, id)).get()?.userId).toBe('u2');
+		expect(listRoutines(db, U1_SALSA).map((r) => r.name)).toEqual(['Mine']);
+	});
+
+	it("requireRoutineInWall gives another person's routine the missing one's 404", () => {
+		expect(requireRoutineInWall(db, U1_SALSA, mine).id).toBe(mine);
+		for (const id of [theirs, 9999]) {
+			expect(() => requireRoutineInWall(db, U1_SALSA, id)).toThrow(threw404);
+		}
+		expect(() => requireRoutineInWall(db, U1_BACHATA, mine)).toThrow(threw404);
+	});
+
+	it("will not build a routine from another person's figure, and writes nothing", () => {
+		const theirFigure = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Theirs' })!.figure
+			.id;
+		const before = db.select().from(routines).all().length;
+		expect(
+			createRoutineFromFigures(db, U1_SALSA, { name: 'X', notes: null }, [figureId, theirFigure])
+		).toBeNull();
+		expect(db.select().from(routines).all()).toHaveLength(before);
+		expect(
+			db
+				.select()
+				.from(exercises)
+				.all()
+				.filter((e) => e.name === 'X')
+		).toEqual([]);
+	});
+
+	describe('ids in a form body from the other side of the wall', () => {
+		let theirFigure: number;
+		let sibling: number;
+
+		beforeEach(() => {
+			theirFigure = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Theirs' })!.figure.id;
+			// Same landing as figureId, in u1's own wall: the control that a refusal
+			// below comes from the wall and not from the alternative rules.
+			sibling = createVariationIn(db, groupId, {
+				name: 'Doble',
+				partner: 'partner',
+				style: 'salsa',
+				notes: null
+			})!.id;
+		});
+
+		it('accepts u1’s own sibling variation as an alternative (the control)', () => {
+			const stepId = addFigureSlot(db, mine, figureId)!;
+			expect(addOption(db, stepId, sibling)).toBe(true);
+		});
+
+		it("addOption, restoreOption and insertSlot refuse another person's figure", async () => {
+			const stepId = addFigureSlot(db, mine, figureId)!;
+			expect(addOption(db, stepId, theirFigure)).toBe(false);
+			expect(restoreOption(db, stepId, theirFigure)).toBe(false);
+			expect(addFigureSlot(db, mine, theirFigure)).toBeNull();
+			const res = (await call(
+				routinePage.actions.addOption,
+				post(U1, 'salsa', { stepId: String(stepId), figureId: String(theirFigure) }, String(mine))
+			)) as { status: number };
+			expect(res.status).toBe(400);
+			const inserted = (await call(
+				routinePage.actions.insert,
+				post(U1, 'salsa', { at: '0', figureId: String(theirFigure) }, String(mine))
+			)) as { status: number };
+			expect(inserted.status).toBe(400);
+			expect(routineSlots(db, mine)).toHaveLength(1);
+			expect(routineSlots(db, mine)[0].figureIds).toEqual([figureId]);
+		});
+
+		it('restoreSlots refuses a snapshot holding another person’s figure or routine', async () => {
+			const figureSnap = [{ position: 0, childId: null, note: null, figureIds: [theirFigure] }];
+			const childSnap = [{ position: 0, childId: theirs, note: null, figureIds: [] }];
+			expect(restoreSlots(db, mine, figureSnap)).toBe(false);
+			expect(restoreSlots(db, mine, childSnap)).toBe(false);
+			for (const snap of [figureSnap, childSnap]) {
+				const res = (await call(
+					routinePage.actions.restore,
+					post(U1, 'salsa', { snapshot: JSON.stringify(snap) }, String(mine))
+				)) as { status: number };
+				expect(res.status).toBe(400);
+			}
+			expect(routineSlots(db, mine)).toEqual([]);
+		});
+
+		it("will not embed another person's routine, and never offers it", async () => {
+			expect(addChildSlot(db, mine, theirs)).toBeNull();
+			expect(embeddable(db, mine)).toEqual([]);
+			const res = (await call(
+				routinePage.actions.insert,
+				post(U1, 'salsa', { at: '0', childId: String(theirs) }, String(mine))
+			)) as { status: number };
+			expect(res.status).toBe(400);
+			expect(routineSlots(db, mine)).toEqual([]);
+			expect(routineSlots(db, theirs)).toEqual([]);
+			// The control: u1's own second routine can be embedded.
+			const own = createRoutine(db, U1_SALSA, { name: 'Own', notes: null }).routine.id;
+			expect(embeddable(db, mine).map((r) => r.id)).toEqual([own]);
+			expect(addChildSlot(db, mine, own)).not.toBeNull();
+		});
+
+		it('the coverage page 404s on another person’s figure id and writes nothing', async () => {
+			const before = db.select().from(routines).all().length;
+			await refuses(
+				coveragePage.actions.create,
+				post(U1, 'salsa', { name: 'Mix', figureIds: String(theirFigure) })
+			);
+			await refuses(coveragePage.actions.create, {
+				...post(U1, 'salsa', {}),
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					headers: { 'content-type': 'application/x-www-form-urlencoded' },
+					body: `name=Mix&figureIds=${figureId}&figureIds=${theirFigure}`
+				})
+			});
+			expect(db.select().from(routines).all()).toHaveLength(before);
+		});
+	});
+});
+
+describe("the routine pages refuse another person's routine", () => {
+	let mine: number;
+	let theirs: number;
+	let theirStep: number;
+
+	beforeEach(() => {
+		mine = createRoutine(db, U1_SALSA, { name: 'Mine', notes: 'n' }).routine.id;
+		theirs = createRoutine(db, U2_SALSA, { name: 'Theirs', notes: null }).routine.id;
+		addFigureSlot(db, mine, figureId);
+		addFigureSlot(db, mine, figureId);
+		theirStep = routineSlots(db, mine)[0].id;
+	});
+
+	const snapshot = () => ({
+		routines: db.select().from(routines).all(),
+		slots: routineSlots(db, mine),
+		exercises: db.select().from(exercises).all()
+	});
+
+	it('the library lists none of u1’s routines for u2', async () => {
+		const data = (await loadAt(routineList.load, U2, 'salsa')) as { routines: { id: number }[] };
+		expect(data.routines.map((r) => r.id)).toEqual([theirs]);
+		const own = (await loadAt(routineList.load, U1, 'salsa')) as { routines: { id: number }[] };
+		expect(own.routines.map((r) => r.id)).toEqual([mine]);
+	});
+
+	it('the page 404s for another person, and for the same person in the other dance', () => {
+		expect(() => loadAt(routinePage.load, U2, 'salsa', String(mine))).toThrow(threw404);
+		expect(() => loadAt(routinePage.load, U1, 'bachata', String(mine))).toThrow(threw404);
+		expect(() => loadAt(routinePage.load, U1, 'salsa', String(theirs))).toThrow(threw404);
+		expect(loadAt(routinePage.load, U1, 'salsa', String(mine))).toMatchObject({
+			routine: { id: mine }
+		});
+	});
+
+	it.each([
+		['rename', { name: 'Hijacked', notes: '' }],
+		['duplicate', {}],
+		['archive', {}],
+		['addOption', { figureId: '1' }],
+		['removeOption', { figureId: '1' }],
+		['note', { note: 'Hijacked' }],
+		['insert', { at: '0', figureId: '1' }],
+		['reorder', { index: '1' }],
+		['deleteMany', {}],
+		[
+			'restore',
+			{ snapshot: JSON.stringify([{ position: 0, childId: null, note: null, figureIds: [1] }]) }
+		],
+		['restoreOption', { figureId: '1' }],
+		['duplicateMany', {}],
+		['extract', { name: 'Taken' }]
+	])('%s on u1’s routine as u2 is a 404 and changes nothing', async (action, extra) => {
+		const before = snapshot();
+		const ids = { stepId: String(theirStep), stepIds: String(theirStep) };
+		await refuses(
+			routinePage.actions[action as keyof typeof routinePage.actions],
+			post(U2, 'salsa', { ...ids, ...extra }, String(mine))
+		);
+		expect(snapshot()).toEqual(before);
+	});
+
+	it('u1 acting on u2’s routine is refused the same way', async () => {
+		const before = snapshot();
+		await refuses(
+			routinePage.actions.rename,
+			post(U1, 'salsa', { name: 'Hijacked', notes: '' }, String(theirs))
+		);
+		await refuses(routinePage.actions.archive, post(U1, 'salsa', {}, String(theirs)));
+		await refuses(routinePage.actions.duplicate, post(U1, 'salsa', {}, String(theirs)));
+		expect(snapshot()).toEqual(before);
+		expect(db.select().from(routines).where(eq(routines.id, theirs)).get()).toMatchObject({
+			name: 'Theirs',
+			archivedAt: null
+		});
+	});
+});
+
+function getRoutineRow(id: number) {
+	return db.select().from(routines).where(eq(routines.id, id)).get()!;
+}

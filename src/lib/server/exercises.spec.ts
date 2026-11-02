@@ -21,7 +21,7 @@ describe('listPickExercises', () => {
 		})!;
 		const own = addFigureExercise(db, figure.id, 5)!;
 		const custom = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 2, notes: null });
-		const { exercise: routineEx } = createRoutine(db, 'salsa', { name: 'Zeta', notes: null });
+		const { exercise: routineEx } = createRoutine(db, U1_SALSA, { name: 'Zeta', notes: null });
 
 		const rows = listPickExercises(db, U1_SALSA);
 		expect(rows.map((r) => r.name)).toEqual([...rows.map((r) => r.name)].sort());

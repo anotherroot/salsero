@@ -287,8 +287,9 @@ export const actions: Actions = {
 	 * straight to the routine's page: a routine is only a name until its slots
 	 * are built, and that page is where they are built.
 	 */
-	newRoutine: async ({ params, request }) => {
-		const dance = danceOf(params);
+	newRoutine: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const dance = wall.dance;
 		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
@@ -307,7 +308,7 @@ export const actions: Actions = {
 		if (!isFrequency(everyDays)) return refuse('Pick how often to do it.');
 
 		const db = getDb();
-		const { routine } = createRoutine(db, dance, { name, notes }, everyDays);
+		const { routine } = createRoutine(db, wall, { name, notes }, everyDays);
 		linkRoutine(db, id, routine.id);
 		throw redirect(303, `/${dance}/routines/${routine.id}`);
 	},

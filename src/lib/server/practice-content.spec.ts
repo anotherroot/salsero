@@ -107,7 +107,10 @@ describe('practicePayload', () => {
 
 	it('gives a routine its slots as names', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const { routine, exercise: made } = createRoutine(db, 'salsa', { name: 'Friday', notes: null });
+		const { routine, exercise: made } = createRoutine(db, U1_SALSA, {
+			name: 'Friday',
+			notes: null
+		});
 		const exercise = getExercise(db, made.id)!; // re-read: the owner was filled in after the insert
 		addFigureSlot(db, routine.id, figure.id);
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({

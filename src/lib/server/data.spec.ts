@@ -214,7 +214,7 @@ describe('exercises and sets', () => {
 	});
 
 	it("carries a routine's exercise routineId through listExercises, and leaves it null elsewhere", () => {
-		const { routine, exercise } = createRoutine(db, 'salsa', { name: 'Combo', notes: null });
+		const { routine, exercise } = createRoutine(db, U1_SALSA, { name: 'Combo', notes: null });
 		const custom = createCustomExercise(db, U1_SALSA, { name: 'c', everyDays: 3, notes: null });
 		const rows = listExercises(db, U1_SALSA);
 		const routineRow = rows.find((r) => r.id === exercise.id)!;

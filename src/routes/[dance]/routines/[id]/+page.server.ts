@@ -40,7 +40,7 @@ import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
-import { danceOf, requireRoutineInDance, wallOf } from '$lib/server/scope';
+import { requireRoutineInWall, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -49,20 +49,19 @@ import type { Actions, PageServerLoad } from './$types';
  * `[dance]` layout's gate, so the dance has to be resolved here on every
  * path, and doing it once by name beats nine copies.
  */
-function routineOf(params: { dance: string; id: string }) {
-	return requireRoutineInDance(getDb(), danceOf(params), Number(params.id));
+function routineOf(params: { dance: string; id: string }, locals: App.Locals) {
+	return requireRoutineInWall(getDb(), wallOf(params, locals), Number(params.id));
 }
 
 export const load: PageServerLoad = ({ params, locals }) => {
-	const dance = danceOf(params);
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const routine = routineOf(params);
+	const routine = routineOf(params, locals);
 	const graph = buildGraph(db, wall);
-	const shapes = routineShapes(db, dance);
+	const shapes = routineShapes(db, wall);
 	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
-	const positions = listPositions(db, dance);
+	const positions = listPositions(db, wall.dance);
 
 	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. Only the break count above the
@@ -187,8 +186,8 @@ function slotFail(message: string, stepId: number | undefined) {
 }
 
 export const actions: Actions = {
-	rename: async ({ params, request }) => {
-		const routine = routineOf(params);
+	rename: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
 		const name = text(form, 'name');
@@ -215,8 +214,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	duplicate: async ({ params }) => {
-		const routine = routineOf(params);
+	duplicate: async ({ params, locals }) => {
+		const routine = routineOf(params, locals);
 		const copy = duplicateRoutine(getDb(), routine.id);
 		if (!copy) return fail(400, { message: 'Could not copy that routine.' });
 		// Straight to the copy: you duplicated it in order to change it, and landing
@@ -224,8 +223,8 @@ export const actions: Actions = {
 		throw redirect(303, `/${params.dance}/routines/${copy.id}`);
 	},
 
-	archive: async ({ params }) => {
-		const routine = routineOf(params);
+	archive: async ({ params, locals }) => {
+		const routine = routineOf(params, locals);
 		// The boolean is deliberately ignored: archiving twice is idempotent — the
 		// row is archived either way and the list omits it — so a second attempt is
 		// a no-op worth redirecting, not an error worth reporting.
@@ -233,8 +232,8 @@ export const actions: Actions = {
 		throw redirect(303, `/${params.dance}/routines`);
 	},
 
-	addOption: async ({ params, request }) => {
-		const routine = routineOf(params);
+	addOption: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
@@ -254,8 +253,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	removeOption: async ({ params, request }) => {
-		const routine = routineOf(params);
+	removeOption: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
@@ -272,8 +271,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	note: async ({ params, request }) => {
-		const routine = routineOf(params);
+	note: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
@@ -290,8 +289,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	insert: async ({ params, request }) => {
-		const routine = routineOf(params);
+	insert: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
 		const at = int(form, 'at');
@@ -312,8 +311,8 @@ export const actions: Actions = {
 		return { ok: true, stepId };
 	},
 
-	reorder: async ({ params, request }) => {
-		const routine = routineOf(params);
+	reorder: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
 		const index = int(form, 'index');
@@ -327,8 +326,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	deleteMany: async ({ params, request }) => {
-		const routine = routineOf(params);
+	deleteMany: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const form = await request.formData();
 		const stepIds = ints(form, 'stepIds');
 		const snapshot = stepIds.length === 0 ? null : deleteSlots(getDb(), routine.id, stepIds);
@@ -337,8 +336,8 @@ export const actions: Actions = {
 		return { ok: true, snapshot };
 	},
 
-	restore: async ({ params, request }) => {
-		const routine = routineOf(params);
+	restore: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const form = await request.formData();
 		const snapshot = parseSnapshots(String(form.get('snapshot') ?? ''));
 		if (!snapshot || !restoreSlots(getDb(), routine.id, snapshot)) {
@@ -347,8 +346,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	restoreOption: async ({ params, request }) => {
-		const routine = routineOf(params);
+	restoreOption: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
 		const stepId = int(form, 'stepId');
@@ -365,8 +364,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	duplicateMany: async ({ params, request }) => {
-		const routine = routineOf(params);
+	duplicateMany: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const form = await request.formData();
 		const stepIds = ints(form, 'stepIds');
 		if (stepIds.length === 0 || duplicateSlots(getDb(), routine.id, stepIds) === null) {
@@ -375,8 +374,8 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	extract: async ({ params, request }) => {
-		const routine = routineOf(params);
+	extract: async ({ params, request, locals }) => {
+		const routine = routineOf(params, locals);
 		const form = await request.formData();
 		const stepIds = ints(form, 'stepIds');
 		const name = text(form, 'name');

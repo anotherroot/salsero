@@ -8,7 +8,7 @@ export const U1_BACHATA: Wall = { userId: 'u1', dance: 'bachata' };
 export const U2_SALSA: Wall = { userId: 'u2', dance: 'salsa' };
 
 /**
- * An in-memory database where a lesson, routine or exercise inserted
+ * An in-memory database where a lesson or exercise inserted
  * without an owner is given to `u1`. Specs of areas still on the dance wall
  * (their create paths do not set `userId` yet) use it so the figures they
  * read — which are per person — still match. Each area task drops it from
@@ -16,10 +16,10 @@ export const U2_SALSA: Wall = { userId: 'u2', dance: 'salsa' };
  */
 export function openOwnedDb(): Db {
 	const db = openDb(':memory:');
-	for (const table of ['lessons', 'routines', 'exercises']) {
+	for (const table of ['lessons', 'exercises']) {
 		// Custom exercises are made with an owner now (`createCustomExercise`); only the
-		// ones lessons and routines make still arrive without.
-		const when = table === 'exercises' ? " AND NEW.source <> 'custom'" : '';
+		// ones lessons make still arrive without.
+		const when = table === 'exercises' ? " AND NEW.source NOT IN ('custom', 'routine')" : '';
 		db.run(
 			sql.raw(
 				`CREATE TRIGGER ${table}_owned AFTER INSERT ON ${table} WHEN NEW.user_id IS NULL${when} BEGIN UPDATE ${table} SET user_id = 'u1' WHERE id = NEW.id; END`

@@ -128,8 +128,8 @@ export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
  * An archived routine is still a routine: the page shows it and offers to look,
  * the same way an archived position can still be renamed.
  */
-export function requireRoutineInDance(db: Db, dance: DanceSlug, id: number) {
+export function requireRoutineInWall(db: Db, wall: Wall, id: number) {
 	const routine = getRoutine(db, id);
-	if (!routine || routine.dance !== dance) throw error(404, 'No such routine');
+	if (!routine || !inWall(routine, wall)) throw error(404, 'No such routine');
 	return routine;
 }

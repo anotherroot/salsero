@@ -9,13 +9,12 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);
-	const dance = wall.dance;
 	const db = getDb();
 	// Derived per request, never stored: a slot edited on a routine page
 	// changes these answers with nothing else touched.
 	return {
 		groups: coverageGroups(
-			coverage(listVersions(db, wall), routineShapes(db, dance), listRoutines(db, dance))
+			coverage(listVersions(db, wall), routineShapes(db, wall), listRoutines(db, wall))
 		)
 	};
 };

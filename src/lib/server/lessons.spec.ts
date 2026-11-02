@@ -221,7 +221,7 @@ describe('a figure exercise never shows up in both places', () => {
 describe('frequencies on the lesson page', () => {
 	it('lists a linked routine and a linked drill with their frequencies', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine } = createRoutine(db, 'salsa', { name: 'Rueda combo', notes: null });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'Rueda combo', notes: null });
 		db.update(exercises).set({ everyDays: 7 }).where(eq(exercises.routineId, routine.id)).run();
 		const custom = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
 		linkRoutine(db, lesson.id, routine.id);
@@ -459,8 +459,8 @@ describe('listLessons', () => {
 
 	it('counts live linked routines', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const kept = createRoutine(db, 'salsa', { name: 'Kept', notes: null }).routine;
-		const gone = createRoutine(db, 'salsa', { name: 'Gone', notes: null }).routine;
+		const kept = createRoutine(db, U1_SALSA, { name: 'Kept', notes: null }).routine;
+		const gone = createRoutine(db, U1_SALSA, { name: 'Gone', notes: null }).routine;
 		linkRoutine(db, lesson.id, kept.id);
 		linkRoutine(db, lesson.id, gone.id);
 		archiveRoutine(db, gone.id, 1000);
@@ -548,7 +548,7 @@ describe('linking routines', () => {
 
 	it('links a routine and lists it with the exercise that came with it', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		const { routine, exercise } = createRoutine(db, U1_SALSA, routineInput);
 
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(true);
 		expect(getLesson(db, lesson.id)!.routines).toEqual([
@@ -563,7 +563,7 @@ describe('linking routines', () => {
 
 	it('refuses a second link of the same routine', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine } = createRoutine(db, 'salsa', routineInput);
+		const { routine } = createRoutine(db, U1_SALSA, routineInput);
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(true);
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(false);
 		expect(getLesson(db, lesson.id)!.routines).toHaveLength(1);
@@ -571,7 +571,7 @@ describe('linking routines', () => {
 
 	it('refuses an archived routine, and one that does not exist', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine } = createRoutine(db, 'salsa', routineInput);
+		const { routine } = createRoutine(db, U1_SALSA, routineInput);
 		archiveRoutine(db, routine.id, 1000);
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(false);
 		expect(linkRoutine(db, lesson.id, 999)).toBe(false);
@@ -579,14 +579,14 @@ describe('linking routines', () => {
 
 	it('refuses a routine from another dance', () => {
 		const { lesson } = createLesson(db, 'bachata', lessonInput);
-		const { routine } = createRoutine(db, 'salsa', routineInput);
+		const { routine } = createRoutine(db, U1_SALSA, routineInput);
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(false);
 		expect(listLinkableRoutines(db, lesson.id)).toEqual([]);
 	});
 
 	it('unlinks, and reports whether there was anything to unlink', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine } = createRoutine(db, 'salsa', routineInput);
+		const { routine } = createRoutine(db, U1_SALSA, routineInput);
 		linkRoutine(db, lesson.id, routine.id);
 		expect(unlinkRoutine(db, lesson.id, routine.id)).toBe(true);
 		expect(unlinkRoutine(db, lesson.id, routine.id)).toBe(false);
@@ -595,7 +595,7 @@ describe('linking routines', () => {
 
 	it('listLinkableRoutines: a linked routine is present with linked true and carries slots and loops', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const a = createRoutine(db, 'salsa', routineInput).routine;
+		const a = createRoutine(db, U1_SALSA, routineInput).routine;
 		linkRoutine(db, lesson.id, a.id);
 		expect(listLinkableRoutines(db, lesson.id)).toEqual([
 			{ id: a.id, name: 'Rueda combo', slots: 0, loops: false, linked: true }
@@ -604,9 +604,9 @@ describe('linking routines', () => {
 
 	it('offers only unarchived routines', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const a = createRoutine(db, 'salsa', routineInput).routine;
-		const b = createRoutine(db, 'salsa', { name: 'Shines', notes: null }).routine;
-		const gone = createRoutine(db, 'salsa', { name: 'Old combo', notes: null }).routine;
+		const a = createRoutine(db, U1_SALSA, routineInput).routine;
+		const b = createRoutine(db, U1_SALSA, { name: 'Shines', notes: null }).routine;
+		const gone = createRoutine(db, U1_SALSA, { name: 'Old combo', notes: null }).routine;
 		archiveRoutine(db, gone.id, 1000);
 
 		linkRoutine(db, lesson.id, a.id);
@@ -622,7 +622,7 @@ describe('a routine exercise never shows up in both places', () => {
 
 	it('drops it from the linked list when its routine is linked afterwards', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		const { routine, exercise } = createRoutine(db, U1_SALSA, routineInput);
 
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(true);
 		linkRoutine(db, lesson.id, routine.id);
@@ -634,14 +634,14 @@ describe('a routine exercise never shows up in both places', () => {
 
 	it('refuses to link it once its routine is already linked', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		const { routine, exercise } = createRoutine(db, U1_SALSA, routineInput);
 		linkRoutine(db, lesson.id, routine.id);
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(false);
 	});
 
 	it('hides it on read even if a row predates the link', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		const { routine, exercise } = createRoutine(db, U1_SALSA, routineInput);
 		linkRoutine(db, lesson.id, routine.id);
 		db.run(
 			`insert into lesson_exercises (lesson_id, exercise_id, created_at) values (${lesson.id}, ${exercise.id}, 0)`
@@ -651,7 +651,7 @@ describe('a routine exercise never shows up in both places', () => {
 
 	it('leaves its exercise out of the picker once its routine is linked', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { routine, exercise } = createRoutine(db, 'salsa', routineInput);
+		const { routine, exercise } = createRoutine(db, U1_SALSA, routineInput);
 		const custom = createCustomExercise(db, U1_SALSA, {
 			name: 'Son basic',
 			everyDays: 3,
@@ -667,7 +667,7 @@ describe('a routine exercise never shows up in both places', () => {
 
 describe('routineTaughtIn', () => {
 	it('lists the lessons that link a routine, newest first, without archived ones', () => {
-		const { routine } = createRoutine(db, 'salsa', { name: 'Rueda combo', notes: null });
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'Rueda combo', notes: null });
 		const older = createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-09-01' }).lesson;
 		const newer = createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-09-15' }).lesson;
 		const gone = createLesson(db, 'salsa', { ...lessonInput, lessonDay: '2026-09-20' }).lesson;

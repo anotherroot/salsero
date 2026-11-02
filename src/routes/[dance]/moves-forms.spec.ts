@@ -7,7 +7,7 @@
  * ever opens the real database.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
+import { U1_BACHATA, U1_SALSA, openOwnedDb } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -64,7 +64,7 @@ describe('New routine', () => {
 				notes: 'For Fridays'
 			}
 		});
-		expect(listRoutines(db, 'salsa')).toEqual([]);
+		expect(listRoutines(db, U1_SALSA)).toEqual([]);
 	});
 
 	it('refuses notes that are too long under the Notes field, keeping the name', async () => {
@@ -82,7 +82,7 @@ describe('New routine', () => {
 		await expect(
 			call(routineListActions.create, post('bachata', { name: 'Wave combo', notes: '' }))
 		).rejects.toMatchObject({ status: 303 });
-		expect(listRoutines(db, 'bachata').map((r) => r.name)).toEqual(['Wave combo']);
+		expect(listRoutines(db, U1_BACHATA).map((r) => r.name)).toEqual(['Wave combo']);
 	});
 });
 

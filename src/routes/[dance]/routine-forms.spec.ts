@@ -4,7 +4,7 @@
  * `getDb()` is mocked, as in `dance-wall.spec.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { U1_SALSA, openOwnedDb } from '$lib/server/test-walls';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -13,7 +13,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { type Db } from '$lib/server/db';
+import { openDb, type Db } from '$lib/server/db';
 import { createFigure } from '$lib/server/figures';
 import {
 	addChildSlot,
@@ -46,10 +46,10 @@ let a: number;
 let other: number;
 
 beforeEach(() => {
-	db = openOwnedDb();
+	db = openDb(':memory:');
 	handle.db = db;
-	r = createRoutine(db, 'salsa', { name: 'Friday', notes: null }).routine.id;
-	other = createRoutine(db, 'salsa', { name: 'Other', notes: null }).routine.id;
+	r = createRoutine(db, U1_SALSA, { name: 'Friday', notes: null }).routine.id;
+	other = createRoutine(db, U1_SALSA, { name: 'Other', notes: null }).routine.id;
 	const make = (figureName: string) =>
 		createFigure(db, U1_SALSA, {
 			figureName,
