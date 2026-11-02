@@ -16,7 +16,14 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { appFlags, countTakes, songs, users } from '$lib/server/db/schema';
+import {
+	appFlags,
+	countTakes,
+	lessonVideos,
+	recordings,
+	songs,
+	users
+} from '$lib/server/db/schema';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { addRecording, createFigure } from '$lib/server/figures';
 import { createLesson } from '$lib/server/lessons';
@@ -201,5 +208,52 @@ describe('backfillSongSizes', () => {
 		db.update(songs).set({ sizeBytes: null }).run();
 		await backfillSongSizes(db, 2);
 		expect(usedBytes(db, 'u1')).toBe(0);
+	});
+});
+
+describe('a client that changes its declared total mid-upload', () => {
+	it('is refused on the later chunk, with no row and no finished file', async () => {
+		const send = (start: number, len: number, total: number) =>
+			run(putChunk, {
+				params: { id: String(lessonId), uploadId: '22222222-2222-4222-8222-222222222222' },
+				locals: { user: U1 },
+				request: new Request('http://localhost/', {
+					method: 'PUT',
+					headers: {
+						'content-type': 'video/mp4',
+						'content-range': `bytes ${start}-${start + len - 1}/${total}`
+					},
+					body: new Uint8Array(len)
+				})
+			});
+		expect((await send(0, 1000, 5 * MB)).status).toBe(204);
+		const res = await send(1000, 1000, 11 * MB);
+		expect(res.status).toBe(413);
+		expect(((await res.json()) as { message: string }).message).toMatch(/^Not enough room/);
+		expect(db.select().from(lessonVideos).all()).toEqual([]);
+		const { lessonVideosDir } = await import('$lib/server/files');
+		expect(await readdir(lessonVideosDir())).toEqual([]);
+	});
+});
+
+describe('a recording that outgrows its declared length', () => {
+	it('is unlinked and gets no row when the real bytes do not fit', async () => {
+		fill(10 * MB - 5);
+		const before = db.select().from(recordings).all().length;
+		const res = await status(
+			run(postRecording, {
+				params: { id: String(figureId) },
+				locals: { user: U1 },
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					headers: { 'content-type': 'video/mp4' },
+					body: new Uint8Array(100)
+				})
+			})
+		);
+		expect(res).toBe(413);
+		expect(db.select().from(recordings).all()).toHaveLength(before);
+		const { recordingsDir } = await import('$lib/server/files');
+		expect(await readdir(recordingsDir())).toEqual([]);
 	});
 });

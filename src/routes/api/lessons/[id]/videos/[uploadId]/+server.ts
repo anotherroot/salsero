@@ -56,10 +56,11 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 	if (finished) return fail(404, 'Bad upload id.');
 
-	// The total is declared with the first chunk: refuse there, before any byte is
-	// written, so nothing is uploaded only to be turned away.
+	// The total is declared with every chunk, and a client could change it
+	// mid-upload: check each one against what the finished video will add, before
+	// any byte of the chunk is written.
 	const range = parseContentRange(request.headers.get('content-range'));
-	if (range && range.start === 0) {
+	if (range) {
 		const room = roomFor(db, found.lesson.userId!, range.total);
 		if (!room.ok) return fail(413, room.message);
 	}
@@ -90,6 +91,12 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		(s) => s.size,
 		() => 0
 	);
+	// The real size, whatever the chunks declared along the way.
+	const after = roomFor(db, found.lesson.userId!, size);
+	if (!after.ok) {
+		await unlink(target).catch(() => {});
+		return fail(413, after.message);
+	}
 	if (size === 0) {
 		await unlink(target).catch(() => {});
 		return fail(400, 'That upload was empty.');
