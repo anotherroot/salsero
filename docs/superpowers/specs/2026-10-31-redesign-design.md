@@ -107,8 +107,8 @@ query, so one copy of the dark colours serves both System and Dark.
 
 | role | salsa light | salsa dark | bachata light | bachata dark |
 |---|---|---|---|---|
-| band | `#D2401E` | `#8f2a12` | `#6B1D4F` | `#4a1238` |
-| small text on band | `#ffffff` | cream 88 % | cream `#FFF3E4` | cream 88 % |
+| band (same in dark since 2026-11-01) | `#D2401E` | `#D2401E` | `#6B1D4F` | `#6B1D4F` |
+| small text on band | `#ffffff` | `#ffffff` | cream `#FFF3E4` | cream `#FFF3E4` |
 | accent | `#d2401e` | `#ff6b47` | `#8e2a66` | `#f07aae` |
 | accent_text (small accent text) | `#b3340f` | `#ff7a59` | `#8e2a66` | `#f07aae` |
 | on_accent | `#ffffff` | `#0b0b0d` | `#ffffff` | `#2a0716` |

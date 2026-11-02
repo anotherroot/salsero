@@ -137,10 +137,10 @@
 		--color-inverse-done: #1e7a4f;
 
 		/* Salsa's dark colours (the fallback outside any dance, too). */
-		--color-band: #8f2a12;
+		--color-band: #d2401e;
 		--color-band-ink: #fff3e4;
-		--color-on-cream: #8f2a12;
-		--color-band-small: #f2dbcb;
+		--color-on-cream: #b3340f;
+		--color-band-small: #ffffff;
 		--color-accent: #ff6b47;
 		--color-accent-text: #ff7a59;
 		--color-accent-soft: #452a26;
@@ -160,16 +160,16 @@
 	 * `:root[data-theme='dark']` here is an ANCESTOR condition:
 	 * "once dark mode is in effect", true for every element in the page.
 	 * Keep `accent` and `band` IN SYNC BY HAND with
-	 * `DANCES.bachata.accentDark` / `bandDark`.
+	 * `DANCES.bachata.accentDark` / `band`.
 	 *
 	 * `on-accent` is set here too: the pale pink accent needs a dark ink
 	 * (`bg-accent text-on-accent` is Play, Log set, Save, every selected chip).
 	 */
 	:root[data-theme='dark'] [data-dance='bachata'] {
-		--color-band: #4a1238;
+		--color-band: #6b1d4f;
 		--color-band-ink: #fff3e4;
-		--color-on-cream: #4a1238;
-		--color-band-small: #e9d8cf;
+		--color-on-cream: #6b1d4f;
+		--color-band-small: #fff3e4;
 		--color-accent: #f07aae;
 		--color-accent-text: #f07aae;
 		--color-accent-soft: #422d39;
@@ -220,10 +220,10 @@
 		--color-inverse-bg: #ececf0;
 		--color-inverse-ink: #111114;
 		--color-inverse-done: #1e7a4f;
-		--color-band: #8f2a12;
+		--color-band: #d2401e;
 		--color-band-ink: #fff3e4;
-		--color-on-cream: #8f2a12;
-		--color-band-small: #f2dbcb;
+		--color-on-cream: #b3340f;
+		--color-band-small: #ffffff;
 		--color-accent: #ff6b47;
 		--color-accent-text: #ff7a59;
 		--color-accent-soft: #452a26;
@@ -233,10 +233,10 @@
 	}
 
 	[data-dance='bachata'] .theme-media {
-		--color-band: #4a1238;
+		--color-band: #6b1d4f;
 		--color-band-ink: #fff3e4;
-		--color-on-cream: #4a1238;
-		--color-band-small: #e9d8cf;
+		--color-on-cream: #6b1d4f;
+		--color-band-small: #fff3e4;
 		--color-accent: #f07aae;
 		--color-accent-text: #f07aae;
 		--color-accent-soft: #422d39;
