@@ -37,7 +37,8 @@ describe('device tokens', () => {
 		expect(userForDeviceToken(db, token, T0)).toEqual({
 			id: 'u1',
 			email: 'u1@example.com',
-			timezone: 'Europe/Ljubljana'
+			timezone: 'Europe/Ljubljana',
+			isAdmin: false
 		});
 	});
 

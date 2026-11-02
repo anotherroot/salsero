@@ -41,6 +41,26 @@ export function danceOf(params: { dance: string }): DanceSlug {
 	return params.dance;
 }
 
+/** One person's side of one dance: what every data function filters by. */
+export type Wall = { userId: string; dance: DanceSlug };
+
+/** The wall this request stands behind: its dance and its signed-in user. */
+export function wallOf(params: { dance: string }, locals: App.Locals): Wall {
+	const dance = danceOf(params);
+	if (!locals.user) throw error(401, 'Sign in');
+	return { userId: locals.user.id, dance };
+}
+
+/** Whether a row is in this wall: this person's, in this dance. */
+export function inWall(row: { dance: string; userId: string | null }, wall: Wall): boolean {
+	return row.dance === wall.dance && row.userId === wall.userId;
+}
+
+/** A 404 unless the signed-in user is the admin. */
+export function requireAdmin(locals: App.Locals): void {
+	if (!locals.user?.isAdmin) throw error(404, 'Not found');
+}
+
 /** The exercise if it belongs to this dance, else null — for reads that degrade. */
 export function exerciseInDance(db: Db, dance: DanceSlug, id: number) {
 	const found = getExercise(db, id);

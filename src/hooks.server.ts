@@ -42,7 +42,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// No session: a paired Android app may still sign in with its device
 	// token — on the API only, never a page and never the worker's prefix.
 	event.locals.user = session
-		? { id: session.userId, email: session.email, timezone: session.timezone }
+		? {
+				id: session.userId,
+				email: session.email,
+				timezone: session.timezone,
+				isAdmin: session.isAdmin
+			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 
 	// The Android app's launchers open with ?app=android. Remember it per

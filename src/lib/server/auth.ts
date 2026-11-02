@@ -27,7 +27,8 @@ export function validateSession(id: string | undefined) {
 				userId: users.id,
 				email: users.email,
 				// Carried on the session so the day boundary costs no extra query.
-				timezone: users.timezone
+				timezone: users.timezone,
+				isAdmin: users.isAdmin
 			})
 			.from(sessions)
 			.innerJoin(users, eq(users.id, sessions.userId))
