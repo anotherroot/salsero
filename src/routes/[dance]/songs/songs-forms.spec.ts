@@ -21,6 +21,7 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
+import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import {
 	createSongFromUrl,
 	getSong,
@@ -80,7 +81,7 @@ describe('Add a song', () => {
 				style: 'sensual'
 			}
 		});
-		expect(listSongs(db, 'bachata')).toHaveLength(0);
+		expect(listSongs(db, U1_BACHATA)).toHaveLength(0);
 	});
 
 	it('puts a long title under Title, keeping the link and the style', async () => {
@@ -104,7 +105,7 @@ describe('Add a song', () => {
 				style: 'traditional'
 			}
 		});
-		expect(listSongs(db, 'bachata')).toHaveLength(0);
+		expect(listSongs(db, U1_BACHATA)).toHaveLength(0);
 	});
 
 	it('checks the link before the title', async () => {
@@ -127,9 +128,9 @@ describe('Add a song', () => {
 				})
 			)
 		).toEqual({ ok: true });
-		const [song] = listSongs(db, 'bachata');
+		const [song] = listSongs(db, U1_BACHATA);
 		expect(song).toMatchObject({ status: 'waiting_download', style: 'sensual', title: 'Obsesión' });
-		expect(listSongs(db, 'salsa')).toHaveLength(0);
+		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
 	});
 
 	it("files a style from the other dance under the dance's first style", async () => {
@@ -139,17 +140,21 @@ describe('Add a song', () => {
 				post('bachata', { url: 'https://www.youtube.com/watch?v=7hdQ', style: 'son' })
 			)
 		).toEqual({ ok: true });
-		expect(listSongs(db, 'bachata')[0].style).toBe('dominican');
+		expect(listSongs(db, U1_BACHATA)[0].style).toBe('dominican');
 	});
 });
 
 /** A song ready to count: audio, and a beat every 0.3 s for a minute. */
 function readySong(dance: 'salsa' | 'bachata' = 'salsa') {
-	const song = createSongFromUrl(db, dance, {
-		url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
-		title: 'Quimbara',
-		style: dance === 'salsa' ? 'salsa' : 'sensual'
-	});
+	const song = createSongFromUrl(
+		db,
+		{ userId: 'u1', dance },
+		{
+			url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
+			title: 'Quimbara',
+			style: dance === 'salsa' ? 'salsa' : 'sensual'
+		}
+	);
 	storeFetchedAudio(db, song.id, { file: 'a.m4a', mime: 'audio/mp4', title: null, durationS: 60 });
 	const beats = Array.from({ length: 200 }, (_, i) => i * 0.3);
 	storeAnalysis(db, song.id, { beats, downbeats: [], durationS: 60 });
@@ -158,7 +163,7 @@ function readySong(dance: 'salsa' | 'bachata' = 'salsa') {
 
 describe('A song', () => {
 	it('names the tap in a refused tap on a waiting song', async () => {
-		const { id } = createSongFromUrl(db, 'salsa', {
+		const { id } = createSongFromUrl(db, U1_SALSA, {
 			url: 'https://www.youtube.com/watch?v=Kd3Qe0bP2sA',
 			title: '',
 			style: 'salsa'

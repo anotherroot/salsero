@@ -96,9 +96,9 @@ export function requireSetInWall(db: Db, wall: Wall, id: number) {
  * called from both. Archived is a separate question the detail page asks after
  * this one, because the list's retry has its own answer for it.
  */
-export function requireSongInDance(db: Db, dance: DanceSlug, id: number) {
+export function requireSongInWall(db: Db, wall: Wall, id: number) {
 	const song = getSong(db, id);
-	if (!song || song.dance !== dance) throw error(404, 'Song not found');
+	if (!song || !inWall(song, wall)) throw error(404, 'Song not found');
 	return song;
 }
 

@@ -64,7 +64,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// For the past-day "add a forgotten set" picker.
 		exercises: listPickExercises(db, wall),
 		// For the practice panel's song picker.
-		songs: songChoices(db, dance),
+		songs: songChoices(db, wall),
 		// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.
 		lessonDays: lessonDays(db, dance),
 		// The latest set's rating per exercise, for the dots on each row.
@@ -72,7 +72,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 			[...lastSets(db, wall)].map(([id, s]) => [id, s.rating] as [number, number | null])
 		),
 		// The practice panel's voice: the user's recorded count, a few dozen rows.
-		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
+		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
 	};
 };
 

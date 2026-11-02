@@ -20,7 +20,7 @@ import {
 } from '$lib/beatgrid/beatgrid';
 import { TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf, requireSongInDance } from '$lib/server/scope';
+import { danceOf, requireSongInWall, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -31,8 +31,8 @@ import type { Actions, PageServerLoad } from './$types';
  * you are in. Every action below reaches the row by id too, so each goes
  * through here rather than trusting the id alone.
  */
-function songOf(params: { dance: string; id: string }) {
-	const song = requireSongInDance(getDb(), danceOf(params), Number(params.id));
+function songOf(params: { dance: string; id: string }, locals: App.Locals) {
+	const song = requireSongInWall(getDb(), wallOf(params, locals), Number(params.id));
 	// Archived is gone from every list, so it is gone from its own URL too —
 	// the one rule this page adds on top of the shared dance guard.
 	if (song.archivedAt !== null) throw error(404, 'Song not found');
@@ -41,8 +41,8 @@ function songOf(params: { dance: string; id: string }) {
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
-export const load: PageServerLoad = ({ params }) => {
-	const song = songOf(params);
+export const load: PageServerLoad = ({ params, locals }) => {
+	const song = songOf(params, locals);
 	const anchors = parse(song.anchorsJson);
 	const grid =
 		song.status === 'ready'
@@ -78,8 +78,8 @@ export const load: PageServerLoad = ({ params }) => {
 
 export const actions: Actions = {
 	/** A tap on "the 1" at playhead time `t`, snapped to the nearest beat after reaction-time compensation. */
-	tap: async ({ params, request }) => {
-		const song = songOf(params);
+	tap: async ({ params, request, locals }) => {
+		const song = songOf(params, locals);
 		const t = Number((await request.formData()).get('t'));
 		if (!Number.isFinite(t) || song.status !== 'ready')
 			return fail(400, { action: 'tap' as const, message: 'Play the song first.' });
@@ -90,20 +90,20 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	removeAnchor: async ({ params, request }) => {
-		const song = songOf(params);
+	removeAnchor: async ({ params, request, locals }) => {
+		const song = songOf(params, locals);
 		const i = Number((await request.formData()).get('beat'));
 		setAnchors(getDb(), song.id, removeAnchor(parse(song.anchorsJson), i));
 		return { ok: true };
 	},
 
-	resetAnchors: ({ params }) => {
-		setAnchors(getDb(), songOf(params).id, []);
+	resetAnchors: ({ params, locals }) => {
+		setAnchors(getDb(), songOf(params, locals).id, []);
 		return { ok: true };
 	},
 
-	tempo: async ({ params, request }) => {
-		const song = songOf(params);
+	tempo: async ({ params, request, locals }) => {
+		const song = songOf(params, locals);
 		const f = Number((await request.formData()).get('factor'));
 		if (!(TEMPO_FACTORS as readonly number[]).includes(f))
 			return fail(400, { action: 'tempo' as const, message: 'Bad tempo.' });
@@ -112,21 +112,21 @@ export const actions: Actions = {
 	},
 
 	/** The sample starts where the playhead `t` is; the song snaps it to a 1 when it plays. */
-	sample: async ({ params, request }) => {
-		const song = songOf(params);
+	sample: async ({ params, request, locals }) => {
+		const song = songOf(params, locals);
 		const t = Number((await request.formData()).get('t'));
 		if (!Number.isFinite(t) || !setSampleStart(getDb(), song.id, t))
 			return fail(400, { action: 'sample' as const, message: 'Play the song first.' });
 		return { ok: true };
 	},
 
-	sampleAuto: ({ params }) => {
-		setSampleStart(getDb(), songOf(params).id, null);
+	sampleAuto: ({ params, locals }) => {
+		setSampleStart(getDb(), songOf(params, locals).id, null);
 		return { ok: true };
 	},
 
-	update: async ({ params, request }) => {
-		const song = songOf(params);
+	update: async ({ params, request, locals }) => {
+		const song = songOf(params, locals);
 		const form = await request.formData();
 		const sent = {
 			title: String(form.get('title') ?? ''),
@@ -153,15 +153,15 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	retry: ({ params }) => {
-		if (!retrySong(getDb(), songOf(params).id)) {
+	retry: ({ params, locals }) => {
+		if (!retrySong(getDb(), songOf(params, locals).id)) {
 			return fail(409, { action: 'retry' as const, message: 'Only a failed song can be retried.' });
 		}
 		return { ok: true };
 	},
 
-	archive: ({ params }) => {
-		archiveSong(getDb(), songOf(params).id, Date.now());
+	archive: ({ params, locals }) => {
+		archiveSong(getDb(), songOf(params, locals).id, Date.now());
 		throw redirect(303, `/${params.dance}/songs`);
 	}
 };

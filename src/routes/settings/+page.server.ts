@@ -51,7 +51,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 				today
 			)
 		})),
-		ownVoice: ownVoiceSummary(listCountTakes(db))
+		ownVoice: ownVoiceSummary(listCountTakes(db, locals.user.id))
 	};
 };
 

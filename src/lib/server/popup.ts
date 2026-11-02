@@ -20,7 +20,7 @@ export function popupData(db: Db, wall: Wall, exerciseId: number, tz: string, no
 		exercise,
 		// Fifty is far more sets than one day holds; the filter decides "today".
 		sets: exerciseHistory(db, exerciseId, 50).filter((s) => localDay(s.doneAt, tz) === today),
-		songs: songChoices(db, wall.dance),
-		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
+		songs: songChoices(db, wall),
+		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
 	};
 }

@@ -17,10 +17,11 @@ import { DANCES, isDanceSlug } from '$lib/dances/dances';
 import type { RequestHandler } from './$types';
 
 /** Upload a song file from the browser. Raw body, streamed — see the recordings endpoint. */
-export const POST: RequestHandler = async ({ request, url }) => {
+export const POST: RequestHandler = async ({ request, url, locals }) => {
 	// The endpoint is shared by both dances (it stays flat, out of `[dance]`),
 	// so the caller has to say which one it is uploading into. No default: a
 	// guess here would file the song on the wrong side of the wall.
+	if (!locals.user) throw error(401, 'Sign in');
 	const dance = url.searchParams.get('dance') ?? '';
 	if (!isDanceSlug(dance)) return new Response('Unknown dance', { status: 400 });
 
@@ -51,6 +52,10 @@ export const POST: RequestHandler = async ({ request, url }) => {
 	}
 
 	const title = name.replace(/\.[a-z0-9]{1,5}$/i, '').slice(0, 200);
-	const song = createSongFromUpload(getDb(), dance, { file, mime, title, style });
+	const song = createSongFromUpload(
+		getDb(),
+		{ userId: locals.user.id, dance },
+		{ file, mime, title, style }
+	);
 	return json({ id: song.id }, { status: 201 });
 };

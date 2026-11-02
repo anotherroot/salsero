@@ -4,7 +4,7 @@ import { exercises, sets, songs, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
-import type { DanceSlug } from '$lib/dances/dances';
+import type { Wall } from './scope';
 import type { TempoFactor } from '$lib/labels';
 import type { PickerSong, SampleSong, SongItem } from '$lib/types';
 
@@ -16,7 +16,7 @@ const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 
 export function createSongFromUrl(
 	db: Db,
-	dance: DanceSlug,
+	wall: Wall,
 	input: { url: string; title: string; style: string }
 ): Song {
 	return db
@@ -26,7 +26,8 @@ export function createSongFromUrl(
 			title: input.title,
 			style: input.style,
 			status: 'waiting_download',
-			dance
+			dance: wall.dance,
+			userId: wall.userId
 		})
 		.returning()
 		.get();
@@ -34,7 +35,7 @@ export function createSongFromUrl(
 
 export function createSongFromUpload(
 	db: Db,
-	dance: DanceSlug,
+	wall: Wall,
 	input: { file: string; mime: string; title: string; style: string }
 ): Song {
 	return db
@@ -45,7 +46,8 @@ export function createSongFromUpload(
 			title: input.title,
 			style: input.style,
 			status: 'waiting_analysis',
-			dance
+			dance: wall.dance,
+			userId: wall.userId
 		})
 		.returning()
 		.get();
@@ -68,12 +70,14 @@ export function songSample(song: Song): SampleSong | null {
 	};
 }
 
-export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
-	const recent = recentSongIds(db, dance);
+export function listSongs(db: Db, wall: Wall): SongItem[] {
+	const recent = recentSongIds(db, wall);
 	return db
 		.select()
 		.from(songs)
-		.where(and(isNull(songs.archivedAt), eq(songs.dance, dance)))
+		.where(
+			and(isNull(songs.archivedAt), eq(songs.dance, wall.dance), eq(songs.userId, wall.userId))
+		)
 		.orderBy(desc(songs.createdAt), desc(songs.id))
 		.all()
 		.map((s) => {
@@ -103,12 +107,12 @@ export function listSongs(db: Db, dance: DanceSlug): SongItem[] {
  * first; song ids are read from their JSON in code, so a malformed row is
  * skipped rather than throwing.
  */
-export function recentSongIds(db: Db, dance: DanceSlug, limit = 5): number[] {
+export function recentSongIds(db: Db, wall: Wall, limit = 5): number[] {
 	const rows = db
 		.select({ playerJson: sets.playerJson })
 		.from(sets)
 		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
-		.where(eq(exercises.dance, dance))
+		.where(and(eq(exercises.dance, wall.dance), eq(exercises.userId, wall.userId)))
 		.orderBy(desc(sets.doneAt), desc(sets.id))
 		.limit(200)
 		.all();
@@ -127,7 +131,8 @@ export function recentSongIds(db: Db, dance: DanceSlug, limit = 5): number[] {
 					inArray(songs.id, seen),
 					isNull(songs.archivedAt),
 					eq(songs.status, 'ready'),
-					eq(songs.dance, dance)
+					eq(songs.dance, wall.dance),
+					eq(songs.userId, wall.userId)
 				)
 			)
 			.all()
@@ -146,13 +151,20 @@ function songIdOf(json: string | null): number | null {
 	}
 }
 
-/** Ready, unarchived songs of one dance, for the song popup: by title, with their sample and recency. */
-export function songChoices(db: Db, dance: DanceSlug): PickerSong[] {
-	const recent = recentSongIds(db, dance);
+/** Ready, unarchived songs of one wall, for the song popup: by title, with their sample and recency. */
+export function songChoices(db: Db, wall: Wall): PickerSong[] {
+	const recent = recentSongIds(db, wall);
 	const rows = db
 		.select()
 		.from(songs)
-		.where(and(isNull(songs.archivedAt), eq(songs.status, 'ready'), eq(songs.dance, dance)))
+		.where(
+			and(
+				isNull(songs.archivedAt),
+				eq(songs.status, 'ready'),
+				eq(songs.dance, wall.dance),
+				eq(songs.userId, wall.userId)
+			)
+		)
 		.orderBy(songs.title)
 		.all();
 	const out: PickerSong[] = [];

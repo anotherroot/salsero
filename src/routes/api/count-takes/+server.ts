@@ -27,7 +27,8 @@ function num(raw: string | null, min: number, max: number): number | null {
  * take and found one it could not place, which surfaces as silence rather than
  * as an error.
  */
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	if (!locals.user) throw error(401, 'Sign in');
 	const h = request.headers;
 
 	const pattern = h.get('x-pattern');
@@ -66,7 +67,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw e;
 	}
 
-	const { replaced } = putCountTake(getDb(), {
+	const { replaced } = putCountTake(getDb(), locals.user.id, {
 		pattern: pattern as PhrasePattern,
 		bpm,
 		phrase,

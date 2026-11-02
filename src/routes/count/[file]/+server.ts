@@ -10,8 +10,9 @@ import type { RequestHandler } from './$types';
  * non-public path. The name is checked against the row rather than trusted, so
  * a crafted path can only ever reach a file we put there.
  */
-export const GET: RequestHandler = ({ params, request }) => {
+export const GET: RequestHandler = ({ params, request, locals }) => {
+	if (!locals.user) throw error(401, 'Sign in');
 	if (!RECORDING_FILE_RE.test(params.file)) throw error(404, 'Not found');
-	if (!getCountTakeByFile(getDb(), params.file)) throw error(404, 'Not found');
+	if (!getCountTakeByFile(getDb(), locals.user.id, params.file)) throw error(404, 'Not found');
 	return serveFile(join(countDir(), params.file), 'audio/wav', request);
 };

@@ -348,13 +348,13 @@ describe('Today is walled off by dance', () => {
 	});
 
 	it('offers only its own dance ready songs to the picker', () => {
-		createSongFromUpload(db, 'salsa', {
+		createSongFromUpload(db, U1_SALSA, {
 			file: 'a.m4a',
 			mime: 'audio/mp4',
 			title: 'El Cantante',
 			style: 'salsa'
 		});
-		createSongFromUpload(db, 'bachata', {
+		createSongFromUpload(db, U1_BACHATA, {
 			file: 'b.m4a',
 			mime: 'audio/mp4',
 			title: 'Obsesion',
@@ -363,7 +363,7 @@ describe('Today is walled off by dance', () => {
 		// createSongFromUpload leaves status 'waiting_analysis'; mark both ready.
 		db.update(songs).set({ status: 'ready' }).run();
 
-		expect(songChoices(db, 'bachata').map((s) => s.title)).toEqual(['Obsesion']);
+		expect(songChoices(db, U1_BACHATA).map((s) => s.title)).toEqual(['Obsesion']);
 	});
 });
 
@@ -375,12 +375,16 @@ describe('practice settings', () => {
 		callEvery: null
 	};
 	const readySong = (dance: 'salsa' | 'bachata') => {
-		const s = createSongFromUpload(db, dance, {
-			file: `${dance}.m4a`,
-			mime: 'audio/mp4',
-			title: 'Song',
-			style: 'salsa'
-		});
+		const s = createSongFromUpload(
+			db,
+			{ userId: 'u1', dance },
+			{
+				file: `${dance}.m4a`,
+				mime: 'audio/mp4',
+				title: 'Song',
+				style: 'salsa'
+			}
+		);
 		db.update(songs).set({ status: 'ready' }).where(eq(songs.id, s.id)).run();
 		return s;
 	};
@@ -410,7 +414,7 @@ describe('practice settings', () => {
 		expect(
 			setPracticeSettings(db, e.id, { mode: 'song', songId: salsaSong.id, countBpm: null, config })
 		).toBe(false);
-		const waiting = createSongFromUpload(db, 'bachata', {
+		const waiting = createSongFromUpload(db, U1_BACHATA, {
 			file: 'w.m4a',
 			mime: 'audio/mp4',
 			title: 'W',

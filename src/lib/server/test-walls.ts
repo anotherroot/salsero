@@ -8,7 +8,7 @@ export const U1_BACHATA: Wall = { userId: 'u1', dance: 'bachata' };
 export const U2_SALSA: Wall = { userId: 'u2', dance: 'salsa' };
 
 /**
- * An in-memory database where a lesson, routine, exercise or song inserted
+ * An in-memory database where a lesson, routine or exercise inserted
  * without an owner is given to `u1`. Specs of areas still on the dance wall
  * (their create paths do not set `userId` yet) use it so the figures they
  * read — which are per person — still match. Each area task drops it from
@@ -16,7 +16,7 @@ export const U2_SALSA: Wall = { userId: 'u2', dance: 'salsa' };
  */
 export function openOwnedDb(): Db {
 	const db = openDb(':memory:');
-	for (const table of ['lessons', 'routines', 'exercises', 'songs']) {
+	for (const table of ['lessons', 'routines', 'exercises']) {
 		// Custom exercises are made with an owner now (`createCustomExercise`); only the
 		// ones lessons and routines make still arrive without.
 		const when = table === 'exercises' ? " AND NEW.source <> 'custom'" : '';

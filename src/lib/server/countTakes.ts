@@ -16,8 +16,13 @@ export interface CountTakeInput {
 }
 
 /** Everything recorded, oldest first — the recording grid reads this. */
-export function listCountTakes(db: Db) {
-	return db.select().from(countTakes).orderBy(asc(countTakes.bpm), asc(countTakes.phrase)).all();
+export function listCountTakes(db: Db, userId: string) {
+	return db
+		.select()
+		.from(countTakes)
+		.where(eq(countTakes.userId, userId))
+		.orderBy(asc(countTakes.bpm), asc(countTakes.phrase))
+		.all();
 }
 
 /**
@@ -25,17 +30,23 @@ export function listCountTakes(db: Db) {
  * picks the nearest tempo; a pattern with nothing recorded returns [] and the
  * run falls back to the shipped clips.
  */
-export function listCountTakesFor(db: Db, pattern: CountPattern) {
+export function listCountTakesFor(db: Db, userId: string, pattern: CountPattern) {
 	return db
 		.select()
 		.from(countTakes)
-		.where(eq(countTakes.pattern, pattern))
+		.where(and(eq(countTakes.userId, userId), eq(countTakes.pattern, pattern)))
 		.orderBy(asc(countTakes.bpm))
 		.all();
 }
 
-export function getCountTakeByFile(db: Db, file: string) {
-	return db.select().from(countTakes).where(eq(countTakes.file, file)).get() ?? null;
+export function getCountTakeByFile(db: Db, userId: string, file: string) {
+	return (
+		db
+			.select()
+			.from(countTakes)
+			.where(and(eq(countTakes.file, file), eq(countTakes.userId, userId)))
+			.get() ?? null
+	);
 }
 
 /**
@@ -46,13 +57,18 @@ export function getCountTakeByFile(db: Db, file: string) {
  * disk nobody will ever reclaim. Deliberately not done inside the transaction:
  * a failed unlink must not roll back a good recording.
  */
-export function putCountTake(db: Db, input: CountTakeInput): { replaced: string | null } {
+export function putCountTake(
+	db: Db,
+	userId: string,
+	input: CountTakeInput
+): { replaced: string | null } {
 	return db.transaction((tx) => {
 		const existing = tx
 			.select({ file: countTakes.file })
 			.from(countTakes)
 			.where(
 				and(
+					eq(countTakes.userId, userId),
 					eq(countTakes.pattern, input.pattern),
 					eq(countTakes.bpm, input.bpm),
 					eq(countTakes.phrase, input.phrase)
@@ -62,7 +78,9 @@ export function putCountTake(db: Db, input: CountTakeInput): { replaced: string 
 		if (existing) {
 			tx.delete(countTakes).where(eq(countTakes.file, existing.file)).run();
 		}
-		tx.insert(countTakes).values(input).run();
+		tx.insert(countTakes)
+			.values({ ...input, userId })
+			.run();
 		return { replaced: existing?.file ?? null };
 	});
 }
@@ -72,9 +90,13 @@ export function putCountTake(db: Db, input: CountTakeInput): { replaced: string 
  * for Undo and unlinks its file when the hold runs out), or null if it was
  * already gone.
  */
-export function deleteCountTake(db: Db, id: number): CountTake | null {
+export function deleteCountTake(db: Db, userId: string, id: number): CountTake | null {
 	return db.transaction((tx) => {
-		const row = tx.select().from(countTakes).where(eq(countTakes.id, id)).get();
+		const row = tx
+			.select()
+			.from(countTakes)
+			.where(and(eq(countTakes.id, id), eq(countTakes.userId, userId)))
+			.get();
 		if (!row) return null;
 		tx.delete(countTakes).where(eq(countTakes.id, id)).run();
 		return row;
@@ -93,6 +115,7 @@ export function restoreCountTake(db: Db, row: CountTake): 'ok' | 'taken' {
 			.from(countTakes)
 			.where(
 				and(
+					eq(countTakes.userId, row.userId ?? ''),
 					eq(countTakes.pattern, row.pattern),
 					eq(countTakes.bpm, row.bpm),
 					eq(countTakes.phrase, row.phrase)

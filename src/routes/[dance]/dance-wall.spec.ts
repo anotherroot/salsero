@@ -183,7 +183,7 @@ beforeEach(() => {
 		note: null,
 		playerJson: null
 	}).id;
-	bachataSongId = createSongFromUrl(db, 'bachata', {
+	bachataSongId = createSongFromUrl(db, U1_BACHATA, {
 		url: 'https://example.com/b',
 		title: 'Bachata song',
 		style: 'sensual'
@@ -274,12 +274,16 @@ describe("Today refuses the other dance's rows", () => {
 
 describe("the player's song picker stays on its own side", () => {
 	const ready = (dance: 'salsa' | 'bachata', title: string) => {
-		const song = createSongFromUpload(db, dance, {
-			file: `${title}.mp3`,
-			mime: 'audio/mpeg',
-			title,
-			style: dance === 'salsa' ? 'salsa' : 'sensual'
-		});
+		const song = createSongFromUpload(
+			db,
+			{ userId: 'u1', dance },
+			{
+				file: `${title}.mp3`,
+				mime: 'audio/mpeg',
+				title,
+				style: dance === 'salsa' ? 'salsa' : 'sensual'
+			}
+		);
 		storeAnalysis(db, song.id, { beats: [0, 0.5], downbeats: [0], durationS: 1 });
 		return song.id;
 	};
@@ -1269,7 +1273,7 @@ describe('the JSON endpoints refuse the other dance', () => {
 		// dance wall deleted, and prove nothing about it. A READY song is the
 		// only way to isolate the wall: it must be the one thing standing
 		// between a salsa request and a 200.
-		const ready = createSongFromUpload(db, 'bachata', {
+		const ready = createSongFromUpload(db, U1_BACHATA, {
 			file: 'bachata-ready.mp3',
 			mime: 'audio/mpeg',
 			title: 'Bachata ready',

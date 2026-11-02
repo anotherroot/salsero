@@ -21,29 +21,29 @@ beforeEach(() => {
 
 describe('deleteCountTake', () => {
 	it('returns the whole row, or null when it is gone', () => {
-		putCountTake(db, take('a.wav'));
-		const id = listCountTakes(db)[0].id;
-		const row = deleteCountTake(db, id);
+		putCountTake(db, 'u1', take('a.wav'));
+		const id = listCountTakes(db, 'u1')[0].id;
+		const row = deleteCountTake(db, 'u1', id);
 		expect(row).toMatchObject({ id, file: 'a.wav', bpm: 120, phrase: 'a' });
-		expect(listCountTakes(db)).toEqual([]);
-		expect(deleteCountTake(db, id)).toBeNull();
+		expect(listCountTakes(db, 'u1')).toEqual([]);
+		expect(deleteCountTake(db, 'u1', id)).toBeNull();
 	});
 });
 
 describe('restoreCountTake', () => {
 	it('puts the take back under a new id', () => {
-		putCountTake(db, take('a.wav'));
-		const row = deleteCountTake(db, listCountTakes(db)[0].id)!;
+		putCountTake(db, 'u1', take('a.wav'));
+		const row = deleteCountTake(db, 'u1', listCountTakes(db, 'u1')[0].id)!;
 		expect(restoreCountTake(db, row)).toBe('ok');
-		expect(listCountTakes(db)).toHaveLength(1);
-		expect(listCountTakes(db)[0].file).toBe('a.wav');
+		expect(listCountTakes(db, 'u1')).toHaveLength(1);
+		expect(listCountTakes(db, 'u1')[0].file).toBe('a.wav');
 	});
 
 	it('is taken when the slot holds a newer take, and changes nothing', () => {
-		putCountTake(db, take('a.wav'));
-		const row = deleteCountTake(db, listCountTakes(db)[0].id)!;
-		putCountTake(db, take('b.wav'));
+		putCountTake(db, 'u1', take('a.wav'));
+		const row = deleteCountTake(db, 'u1', listCountTakes(db, 'u1')[0].id)!;
+		putCountTake(db, 'u1', take('b.wav'));
 		expect(restoreCountTake(db, row)).toBe('taken');
-		expect(listCountTakes(db).map((t) => t.file)).toEqual(['b.wav']);
+		expect(listCountTakes(db, 'u1').map((t) => t.file)).toEqual(['b.wav']);
 	});
 });

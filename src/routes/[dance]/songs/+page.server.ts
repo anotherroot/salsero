@@ -3,11 +3,11 @@ import { getDb } from '$lib/server/db';
 import { oneOf, optionalText } from '$lib/server/form';
 import { createSongFromUrl, listSongs, retrySong } from '$lib/server/songs';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf, requireSongInDance } from '$lib/server/scope';
+import { requireSongInWall, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params }) => ({
-	songs: listSongs(getDb(), danceOf(params))
+export const load: PageServerLoad = ({ params, locals }) => ({
+	songs: listSongs(getDb(), wallOf(params, locals))
 });
 
 function httpUrl(raw: string): string | null {
@@ -20,8 +20,9 @@ function httpUrl(raw: string): string | null {
 }
 
 export const actions: Actions = {
-	addUrl: async ({ params, request }) => {
-		const dance = danceOf(params);
+	addUrl: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const dance = wall.dance;
 		const form = await request.formData();
 		const raw = String(form.get('url') ?? '');
 		const url = httpUrl(raw);
@@ -45,17 +46,17 @@ export const actions: Actions = {
 				...kept
 			});
 		}
-		createSongFromUrl(getDb(), dance, { url, title: title ?? '', style });
+		createSongFromUrl(getDb(), wall, { url, title: title ?? '', style });
 		return { ok: true };
 	},
 
-	retry: async ({ params, request }) => {
-		const dance = danceOf(params);
+	retry: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
 		const id = Number((await request.formData()).get('id'));
 		// The same guard the song's own page uses. Without it this action would
 		// re-queue — and, through its 409, confirm the existence of — a song on
 		// the other side of the wall.
-		requireSongInDance(getDb(), dance, id);
+		requireSongInWall(getDb(), wall, id);
 		if (!retrySong(getDb(), id))
 			return fail(409, { message: 'Only a failed song can be retried.' });
 		return { ok: true };

@@ -24,7 +24,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// This dance's ready songs only: a song from the other dance is no song at
 	// all here, or `/salsa/player?song=` would play a bachata track under a
 	// salsa count.
-	const songs = songChoices(db, dance);
+	const songs = songChoices(db, wall);
 	if (songId && !songs.some((s) => s.id === songId)) {
 		throw error(404, 'No analysed song here');
 	}
@@ -94,7 +94,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		exercises: listPickExercises(db, wall),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
-		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, p))
+		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
 	};
 };
 

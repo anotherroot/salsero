@@ -117,3 +117,96 @@ describe('the device reminder lists only the token owner’s exercises', () => {
 		expect((await body(U2)).salsa.due).toEqual([]);
 	});
 });
+
+import { createSongFromUpload } from '$lib/server/songs';
+import { putCountTake } from '$lib/server/countTakes';
+import { songs, countTakes } from '$lib/server/db/schema';
+import { GET as getAudio } from '../audio/[file]/+server';
+import { GET as getCount } from '../count/[file]/+server';
+import { POST as uploadSong } from './songs/+server';
+import { POST as uploadTake } from './count-takes/+server';
+
+const SONG_FILE = '00000000-0000-4000-8000-0000000000a1.m4a';
+const TAKE_FILE = '00000000-0000-4000-8000-0000000000b1.wav';
+
+describe('songs and count takes stand behind their owner on the flat routes', () => {
+	beforeEach(async () => {
+		await mkdir(join(envMock.DATA_DIR, 'audio'), { recursive: true });
+		await mkdir(join(envMock.DATA_DIR, 'count'), { recursive: true });
+		await writeFile(join(envMock.DATA_DIR, 'audio', SONG_FILE), Buffer.alloc(10, 1));
+		await writeFile(join(envMock.DATA_DIR, 'count', TAKE_FILE), Buffer.alloc(10, 1));
+		createSongFromUpload(db, U1_SALSA, {
+			file: SONG_FILE,
+			mime: 'audio/mp4',
+			title: 'S',
+			style: 'salsa'
+		});
+		putCountTake(db, 'u1', {
+			pattern: 'salsa',
+			bpm: 120,
+			phrase: 'a',
+			file: TAKE_FILE,
+			sampleRate: 44100,
+			preRollS: 0.1,
+			lengthS: 1,
+			durationS: 1.5,
+			sizeBytes: 10
+		});
+	});
+
+	const get = async (handler: unknown, file: string, user: typeof U1) =>
+		run(handler, { params: { file }, locals: { user }, request: new Request('http://localhost/') });
+
+	it("another person's song audio is a 404; the owner's is served", async () => {
+		expect(await status(get(getAudio, SONG_FILE, U2))).toBe(404);
+		expect(await status(get(getAudio, SONG_FILE, U1))).toBe(200);
+	});
+
+	it("another person's count take is a 404; the owner's is served", async () => {
+		expect(await status(get(getCount, TAKE_FILE, U2))).toBe(404);
+		expect(await status(get(getCount, TAKE_FILE, U1))).toBe(200);
+	});
+
+	it('a song upload carries the signed-in person and the dance', async () => {
+		const res = await run(uploadSong, {
+			locals: { user: U2 },
+			url: new URL('http://localhost/api/songs?dance=salsa'),
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'content-type': 'audio/mp4', 'x-filename': 'b.m4a' },
+				body: new Uint8Array(5).fill(3)
+			})
+		});
+		expect(res.status).toBe(201);
+		const { id } = (await res.json()) as { id: number };
+		const row = db
+			.select()
+			.from(songs)
+			.all()
+			.find((s) => s.id === id)!;
+		expect([row.userId, row.dance]).toEqual(['u2', 'salsa']);
+	});
+
+	it("a take upload is the signed-in person's own slot and replaces nobody else's", async () => {
+		const res = await run(uploadTake, {
+			locals: { user: U2 },
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: {
+					'x-pattern': 'salsa',
+					'x-bpm': '120',
+					'x-phrase': 'a',
+					'x-sample-rate': '44100',
+					'x-length': '1',
+					'x-pre-roll': '0.1',
+					'x-duration': '1.5'
+				},
+				body: new Uint8Array(5).fill(3)
+			})
+		});
+		expect(res.status).toBe(201);
+		const rows = db.select().from(countTakes).all();
+		expect(rows.map((t) => t.userId).sort()).toEqual(['u1', 'u2']);
+		expect(rows.find((t) => t.userId === 'u1')!.file).toBe(TAKE_FILE);
+	});
+});

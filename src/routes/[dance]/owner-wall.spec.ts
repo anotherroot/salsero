@@ -444,12 +444,13 @@ describe('exercises: the data functions stand behind a wall', () => {
 	});
 
 	it("a practice song must be the exercise's owner's", () => {
-		const song = createSongFromUpload(db, 'salsa', {
+		const song = createSongFromUpload(db, U1_SALSA, {
 			file: 's.m4a',
 			mime: 'audio/mp4',
 			title: 'S',
 			style: 'salsa'
 		});
+		expect(song.userId).toBe('u1');
 		const owned = (userId: string) =>
 			db.update(songs).set({ status: 'ready', userId }).where(eq(songs.id, song.id)).run();
 		const input = { mode: 'song', songId: song.id, countBpm: null, config: {} } as never;
@@ -589,5 +590,220 @@ describe("Today, the exercise page and the player refuse another person's exerci
 			post(U2, 'salsa', { exerciseId: String(mine), durationS: '60' })
 		);
 		expect(exerciseHistory(db, mine)).toHaveLength(1);
+	});
+});
+
+// ---- Songs and the count voice -------------------------------------------
+
+import {
+	createSongFromUrl,
+	failJob,
+	getSong,
+	listSongs,
+	recentSongIds,
+	songChoices,
+	storeAnalysis
+} from '$lib/server/songs';
+import { requireSongInWall } from '$lib/server/scope';
+import {
+	deleteCountTake,
+	listCountTakes,
+	putCountTake,
+	restoreCountTake
+} from '$lib/server/countTakes';
+import { countTakes } from '$lib/server/db/schema';
+import * as songList from './songs/+page.server';
+import * as songPage from './songs/[id]/+page.server';
+import * as songGrid from './songs/[id]/grid/+server';
+import * as voicePage from '../voice/+page.server';
+
+describe('songs: the data functions stand behind a wall', () => {
+	let mine: number;
+	beforeEach(() => {
+		mine = createSongFromUpload(db, U1_SALSA, {
+			file: 'a.m4a',
+			mime: 'audio/mp4',
+			title: 'Mine',
+			style: 'salsa'
+		}).id;
+		storeAnalysis(db, mine, { beats: [0, 0.5, 1, 1.5], downbeats: [0], durationS: 2 });
+	});
+
+	it('both create paths carry the wall owner and dance', () => {
+		const up = getSong(db, mine)!;
+		expect([up.userId, up.dance]).toEqual(['u1', 'salsa']);
+		const url = createSongFromUrl(db, U1_BACHATA, {
+			url: 'https://x.test/',
+			title: '',
+			style: 'bachata'
+		});
+		expect([url.userId, url.dance]).toEqual(['u1', 'bachata']);
+	});
+
+	it("lists and choices show none of another person's songs, in the same dance", () => {
+		expect(listSongs(db, U1_SALSA)).toHaveLength(1);
+		expect(listSongs(db, U2_SALSA)).toEqual([]);
+		expect(songChoices(db, U1_SALSA)).toHaveLength(1);
+		expect(songChoices(db, U2_SALSA)).toEqual([]);
+		expect(recentSongIds(db, U2_SALSA)).toEqual([]);
+	});
+
+	it("recent songs come from the person's own sets only", () => {
+		const ex = createCustomExercise(db, U1_SALSA, { name: 'E', everyDays: 1, notes: null }).id;
+		logSet(db, {
+			exerciseId: ex,
+			doneAt: 1,
+			durationS: 60,
+			reps: null,
+			rating: null,
+			note: null,
+			playerJson: JSON.stringify({ songId: mine })
+		});
+		expect(recentSongIds(db, U1_SALSA)).toEqual([mine]);
+		expect(recentSongIds(db, U2_SALSA)).toEqual([]);
+	});
+
+	it('the guard refuses another person’s song with a 404', () => {
+		expect(() => requireSongInWall(db, U2_SALSA, mine)).toThrow(threw404);
+		expect(() => requireSongInWall(db, U1_BACHATA, mine)).toThrow(threw404);
+		expect(requireSongInWall(db, U1_SALSA, mine).id).toBe(mine);
+	});
+});
+
+describe("the songs pages refuse another person's song", () => {
+	let mine: number;
+	let failed: number;
+	beforeEach(() => {
+		mine = createSongFromUpload(db, U1_SALSA, {
+			file: 'a.m4a',
+			mime: 'audio/mp4',
+			title: 'Mine',
+			style: 'salsa'
+		}).id;
+		storeAnalysis(db, mine, { beats: [0, 0.5, 1, 1.5], downbeats: [0], durationS: 2 });
+		failed = createSongFromUrl(db, U1_SALSA, {
+			url: 'https://x.test/',
+			title: 'F',
+			style: 'salsa'
+		}).id;
+		failJob(db, failed, 'nope', true);
+	});
+
+	it('the list shows none of them, and adding by URL makes the person’s own', async () => {
+		const data = (await loadAt(songList.load, U2, 'salsa')) as { songs: unknown[] };
+		expect(data.songs).toEqual([]);
+		const own = (await loadAt(songList.load, U1, 'salsa')) as { songs: unknown[] };
+		expect(own.songs).toHaveLength(2);
+		await call(
+			songList.actions.addUrl,
+			post(U2, 'salsa', { url: 'https://y.test/', style: 'salsa' })
+		);
+		const added = db.select().from(songs).where(eq(songs.sourceUrl, 'https://y.test/')).get()!;
+		expect(added.userId).toBe('u2');
+	});
+
+	it('retry on the list is a 404 and leaves the song failed', async () => {
+		await refuses(songList.actions.retry, post(U2, 'salsa', { id: String(failed) }));
+		expect(getSong(db, failed)!.status).toBe('failed');
+	});
+
+	it('the song page: load and every action are a 404, nothing changes', async () => {
+		expect(() => loadAt(songPage.load, U2, 'salsa', String(mine))).toThrow(threw404);
+		const before = getSong(db, mine)!;
+		const names = Object.keys(songPage.actions);
+		expect(names.length).toBeGreaterThan(5);
+		for (const name of names) {
+			const action = (songPage.actions as Record<string, unknown>)[name];
+			await refuses(
+				action,
+				post(
+					U2,
+					'salsa',
+					{ index: '1', factor: '0.5', startS: '1', title: 'Hijack', style: 'salsa' },
+					String(mine)
+				)
+			);
+		}
+		expect(getSong(db, mine)).toEqual(before);
+	});
+
+	it('the grid endpoint is a 404 for another person', () => {
+		const get = songGrid.GET as unknown as (e: unknown) => Response;
+		const ev = (user: User) => ({ params: { dance: 'salsa', id: String(mine) }, locals: { user } });
+		expect(() => get(ev(U2))).toThrow(threw404);
+		expect(get(ev(U1)).status).toBe(200);
+	});
+});
+
+describe('count takes are per person', () => {
+	const take = (file: string, phrase: 'a' | 'b' = 'a') => ({
+		pattern: 'salsa' as const,
+		bpm: 120,
+		phrase,
+		file,
+		sampleRate: 44100,
+		preRollS: 0.1,
+		lengthS: 1,
+		durationS: 1.5,
+		sizeBytes: 10
+	});
+
+	it('a take carries its owner, and the same slot is free for each person', () => {
+		expect(putCountTake(db, 'u1', take('a.wav')).replaced).toBeNull();
+		expect(putCountTake(db, 'u2', take('b.wav')).replaced).toBeNull();
+		expect(listCountTakes(db, 'u1').map((t) => [t.userId, t.file])).toEqual([['u1', 'a.wav']]);
+		expect(listCountTakes(db, 'u2').map((t) => [t.userId, t.file])).toEqual([['u2', 'b.wav']]);
+	});
+
+	it('replacing a take replaces only that person’s', () => {
+		putCountTake(db, 'u1', take('a.wav'));
+		putCountTake(db, 'u2', take('b.wav'));
+		expect(putCountTake(db, 'u2', take('c.wav')).replaced).toBe('b.wav');
+		expect(listCountTakes(db, 'u1').map((t) => t.file)).toEqual(['a.wav']);
+		expect(listCountTakes(db, 'u2').map((t) => t.file)).toEqual(['c.wav']);
+	});
+
+	it('deleting another person’s take gives null and keeps it; restore goes back to the owner', () => {
+		putCountTake(db, 'u1', take('a.wav'));
+		const id = listCountTakes(db, 'u1')[0].id;
+		expect(deleteCountTake(db, 'u2', id)).toBeNull();
+		expect(listCountTakes(db, 'u1')).toHaveLength(1);
+		const row = deleteCountTake(db, 'u1', id)!;
+		putCountTake(db, 'u2', take('b.wav'));
+		expect(restoreCountTake(db, row)).toBe('ok');
+		expect(listCountTakes(db, 'u1').map((t) => t.file)).toEqual(['a.wav']);
+		expect(listCountTakes(db, 'u2').map((t) => t.file)).toEqual(['b.wav']);
+		const owners = db
+			.select()
+			.from(countTakes)
+			.all()
+			.map((t) => t.userId);
+		expect(owners.sort()).toEqual(['u1', 'u2']);
+	});
+
+	it('/voice lists and deletes only the signed-in person’s takes', async () => {
+		putCountTake(db, 'u1', take('a.wav'));
+		const id = listCountTakes(db, 'u1')[0].id;
+		const data = (await loadAt(voicePage.load, U2, 'salsa')) as { takes: unknown[] };
+		expect(data.takes).toEqual([]);
+		const res = (await call(voicePage.actions.delete, post(U2, 'salsa', { id: String(id) }))) as {
+			status: number;
+		};
+		expect(res.status).toBe(404);
+		expect(listCountTakes(db, 'u1')).toHaveLength(1);
+	});
+
+	it('a restore by another person finds no hold', async () => {
+		putCountTake(db, 'u1', take('a.wav'));
+		const id = listCountTakes(db, 'u1')[0].id;
+		await call(voicePage.actions.delete, post(U1, 'salsa', { id: String(id) }));
+		const res = (await call(voicePage.actions.restore, post(U2, 'salsa', { id: String(id) }))) as {
+			status: number;
+		};
+		expect(res.status).toBe(410);
+		expect(listCountTakes(db, 'u1')).toEqual([]);
+		const ok = await call(voicePage.actions.restore, post(U1, 'salsa', { id: String(id) }));
+		expect(ok).toEqual({ ok: true });
+		expect(listCountTakes(db, 'u1')).toHaveLength(1);
 	});
 });

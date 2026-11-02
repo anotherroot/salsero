@@ -37,7 +37,8 @@ const post = (fields: Record<string, string>) => ({
 		method: 'POST',
 		headers: { 'content-type': 'application/x-www-form-urlencoded' },
 		body: new URLSearchParams(fields)
-	})
+	}),
+	locals: { user: { id: 'u1' } }
 });
 const call = (action: unknown, fields: Record<string, string>) =>
 	(action as (e: ReturnType<typeof post>) => Promise<unknown>)(post(fields));
@@ -47,8 +48,8 @@ let db: Db;
 /** A take in slot 120/a with its file on disk; returns its id. */
 async function seed(file: string, phrase: 'a' | 'b' = 'a') {
 	await writeFile(join(handle.dir, file), 'wav!');
-	putCountTake(db, input(file, phrase));
-	return listCountTakes(db).find((t) => t.file === file)!.id;
+	putCountTake(db, 'u1', input(file, phrase));
+	return listCountTakes(db, 'u1').find((t) => t.file === file)!.id;
 }
 
 beforeEach(async () => {
@@ -65,11 +66,11 @@ describe('delete and restore', () => {
 	it('deletes the row, keeps the file, and restore brings the same file back', async () => {
 		const id = await seed('a.wav');
 		expect(await call(actions.delete, { id: String(id) })).toEqual({ deleted: id });
-		expect(listCountTakes(db)).toEqual([]);
+		expect(listCountTakes(db, 'u1')).toEqual([]);
 		expect(existsSync(join(handle.dir, 'a.wav'))).toBe(true);
 
 		expect(await call(actions.restore, { id: String(id) })).toEqual({ ok: true });
-		const rows = listCountTakes(db);
+		const rows = listCountTakes(db, 'u1');
 		expect(rows).toHaveLength(1);
 		expect(rows[0].file).toBe('a.wav');
 		expect(existsSync(join(handle.dir, 'a.wav'))).toBe(true);
@@ -95,7 +96,7 @@ describe('delete and restore', () => {
 		};
 		expect(res.status).toBe(410);
 		expect(res.data.message).toBe('Too late to undo.');
-		expect(listCountTakes(db)).toEqual([]);
+		expect(listCountTakes(db, 'u1')).toEqual([]);
 	});
 
 	it('Review Focus 2: a newer take wins; Undo is refused and the old file goes at once', async () => {
@@ -109,7 +110,7 @@ describe('delete and restore', () => {
 		};
 		expect(res.status).toBe(409);
 		expect(res.data.message).toBe('A newer take holds that slot now.');
-		expect(listCountTakes(db).map((t) => t.file)).toEqual(['new.wav']);
+		expect(listCountTakes(db, 'u1').map((t) => t.file)).toEqual(['new.wav']);
 		expect(existsSync(join(handle.dir, 'old.wav'))).toBe(false);
 		expect(existsSync(join(handle.dir, 'new.wav'))).toBe(true);
 	});
@@ -120,7 +121,7 @@ describe('delete and restore', () => {
 		await call(actions.restore, { id: String(id) });
 		const again = (await call(actions.restore, { id: String(id) })) as { status: number };
 		expect(again.status).toBe(410);
-		expect(listCountTakes(db)).toHaveLength(1);
+		expect(listCountTakes(db, 'u1')).toHaveLength(1);
 	});
 
 	it('refuses an unknown id as gone, and a bad one as unknown', async () => {
