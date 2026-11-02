@@ -61,10 +61,8 @@ export interface Dance {
 	 * looking for `accentInk` in this registry.
 	 */
 	accentDark: string;
-	/** `--color-band` in light mode: the colour of the page band. Same sync rule. */
+	/** `--color-band`, light and dark alike: the colour of the page band. Same sync rule. */
 	band: string;
-	/** `--color-band` in dark mode. Same sync rule. */
-	bandDark: string;
 }
 
 export const DANCE_SLUGS = ['salsa', 'bachata'] as const;
@@ -109,8 +107,7 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		],
 		accent: '#d2401e',
 		accentDark: '#ff6b47',
-		band: '#D2401E',
-		bandDark: '#8f2a12'
+		band: '#D2401E'
 	},
 	bachata: {
 		slug: 'bachata',
@@ -141,8 +138,7 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		],
 		accent: '#8e2a66',
 		accentDark: '#f07aae',
-		band: '#6B1D4F',
-		bandDark: '#4a1238'
+		band: '#6B1D4F'
 	}
 };
 

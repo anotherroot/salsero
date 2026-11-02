@@ -137,7 +137,7 @@ THEMES = {
         on_accent='#ffffff', status='#b8330f', inverse_accent='#ff8a6b',
         shadow='0 8px 24px rgba(90,20,0,0.16), 0 1px 3px rgba(90,20,0,0.08)', band_shadow='rgba(80,14,0,0.22)'),
     ('salsa', 'dark'): _theme(
-        'salsa', 'dark', _DARK, band='#8f2a12', band_small='rgba(255,243,228,0.88)', accent='#ff6b47',
+        'salsa', 'dark', _DARK, band='#D2401E', band_small='#ffffff', accent='#ff6b47',
         accent_text='#ff7a59', on_accent='#0b0b0d', status='#ff8a6b', inverse_accent='#b3340f',
         shadow='0 8px 24px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06)', band_shadow='rgba(0,0,0,0.3)'),
     ('bachata', 'light'): _theme(
@@ -145,7 +145,7 @@ THEMES = {
         on_accent='#ffffff', status='#8e2a66', inverse_accent='#f07aae',
         shadow='0 8px 24px rgba(40,0,24,0.16)', band_shadow='rgba(30,0,18,0.3)'),
     ('bachata', 'dark'): _theme(
-        'bachata', 'dark', _DARK, band='#4a1238', band_small='rgba(255,243,228,0.88)', accent='#f07aae',
+        'bachata', 'dark', _DARK, band='#6B1D4F', band_small=CREAM, accent='#f07aae',
         accent_text='#f07aae', on_accent='#2a0716', status='#f07aae', inverse_accent='#8e2a66',
         shadow='0 8px 24px rgba(0,0,0,0.5)', band_shadow='rgba(0,0,0,0.3)'),
 }

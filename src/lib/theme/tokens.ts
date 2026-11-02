@@ -160,8 +160,8 @@ function theme(base: Shared, scheme: Scheme, d: DanceInput): Theme {
 	};
 }
 
-// band-small in the dark themes is cream at 88 % composited over the dark band
-// (ruling R2: every token stays #rrggbb).
+// The band is the same in light and dark (since 2026-11-01): the darkened bands
+// read as dull, and the light ones hold their contrast on the dark ground.
 export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 	salsa: {
 		light: theme(LIGHT, 'light', {
@@ -175,9 +175,9 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 			'inverse-accent': '#ff8a6b'
 		}),
 		dark: theme(DARK, 'dark', {
-			band: '#8f2a12',
-			'on-cream': '#8f2a12',
-			'band-small': '#f2dbcb',
+			band: '#D2401E',
+			'on-cream': '#b3340f',
+			'band-small': '#ffffff',
 			accent: '#ff6b47',
 			'accent-text': '#ff7a59',
 			'on-accent': '#0b0b0d',
@@ -197,9 +197,9 @@ export const THEMES: Record<DanceSlug, Record<Scheme, Theme>> = {
 			'inverse-accent': '#f07aae'
 		}),
 		dark: theme(DARK, 'dark', {
-			band: '#4a1238',
-			'on-cream': '#4a1238',
-			'band-small': '#e9d8cf',
+			band: '#6B1D4F',
+			'on-cream': '#6B1D4F',
+			'band-small': BAND_INK,
 			accent: '#f07aae',
 			'accent-text': '#f07aae',
 			'on-accent': '#2a0716',
