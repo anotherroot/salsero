@@ -36,7 +36,7 @@ export function createSongFromUrl(
 export function createSongFromUpload(
 	db: Db,
 	wall: Wall,
-	input: { file: string; mime: string; title: string; style: string }
+	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number }
 ): Song {
 	return db
 		.insert(songs)
@@ -45,6 +45,7 @@ export function createSongFromUpload(
 			mime: input.mime,
 			title: input.title,
 			style: input.style,
+			sizeBytes: input.sizeBytes ?? null,
 			status: 'waiting_analysis',
 			dance: wall.dance,
 			userId: wall.userId
@@ -318,7 +319,13 @@ export function claimJob(db: Db, now: number): Job | null {
 export function storeFetchedAudio(
 	db: Db,
 	id: number,
-	input: { file: string; mime: string; title: string | null; durationS: number | null }
+	input: {
+		file: string;
+		mime: string;
+		title: string | null;
+		durationS: number | null;
+		sizeBytes?: number;
+	}
 ): boolean {
 	const song = getSong(db, id);
 	if (!song || song.status !== 'waiting_download') return false;
@@ -329,6 +336,7 @@ export function storeFetchedAudio(
 				audioFile: input.file,
 				mime: input.mime,
 				durationS: input.durationS,
+				sizeBytes: input.sizeBytes ?? null,
 				title: song.title === '' && input.title ? input.title.slice(0, 200) : song.title,
 				status: 'waiting_analysis',
 				claimedAt: null,

@@ -513,7 +513,17 @@ export const actions: Actions = {
 	deleteLink: async ({ params, request, locals }) =>
 		deleteLinkFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
 	saveVideo: async ({ params, request, locals }) =>
-		saveVideoFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+		saveVideoFrom(
+			request,
+			getDb(),
+			{ figureId: variationOf(params, locals).figure.id },
+			locals.user!.id
+		),
 	retryVideo: async ({ params, request, locals }) =>
-		retryVideoFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id })
+		retryVideoFrom(
+			request,
+			getDb(),
+			{ figureId: variationOf(params, locals).figure.id },
+			locals.user!.id
+		)
 };

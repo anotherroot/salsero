@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { oneOf, optionalText } from '$lib/server/form';
 import { createSongFromUrl, listSongs, retrySong } from '$lib/server/songs';
+import { roomFor } from '$lib/server/storage';
 import { DANCES } from '$lib/dances/dances';
 import { requireSongInWall, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
@@ -46,6 +47,10 @@ export const actions: Actions = {
 				...kept
 			});
 		}
+		// The size is unknown until the worker has it: refuse only a person already
+		// at or over the limit; it is accepted when it lands.
+		const room = roomFor(getDb(), wall.userId, 0);
+		if (!room.ok) return fail(413, { field: 'url' as const, message: room.message, ...kept });
 		createSongFromUrl(getDb(), wall, { url, title: title ?? '', style });
 		return { ok: true };
 	},

@@ -10,9 +10,11 @@ import {
 	lessonVideosDir,
 	safeDecodeHeader,
 	uploadsDir,
+	parseContentRange,
 	UPLOAD_ID_RE,
 	writeChunk
 } from '$lib/server/files';
+import { roomFor } from '$lib/server/storage';
 import { MAX_LESSON_VIDEO_BYTES, MAX_LESSON_VIDEO_LABEL } from '$lib/limits';
 import type { RequestHandler } from './$types';
 
@@ -53,6 +55,14 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		return json(finished, { status: 201 });
 	}
 	if (finished) return fail(404, 'Bad upload id.');
+
+	// The total is declared with the first chunk: refuse there, before any byte is
+	// written, so nothing is uploaded only to be turned away.
+	const range = parseContentRange(request.headers.get('content-range'));
+	if (range && range.start === 0) {
+		const room = roomFor(db, found.lesson.userId!, range.total);
+		if (!room.ok) return fail(413, room.message);
+	}
 
 	const partial = join(uploadsDir(), `${params.uploadId}.part`);
 	const chunk = await writeChunk(request, partial, MAX_LESSON_VIDEO_BYTES, {

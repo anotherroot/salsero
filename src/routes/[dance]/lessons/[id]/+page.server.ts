@@ -387,7 +387,17 @@ export const actions: Actions = {
 	deleteLink: async ({ params, request, locals }) =>
 		deleteLinkFrom(request, getDb(), { lessonId: lessonOf(params, locals).lesson.id }),
 	saveVideo: async ({ params, request, locals }) =>
-		saveVideoFrom(request, getDb(), { lessonId: lessonOf(params, locals).lesson.id }),
+		saveVideoFrom(
+			request,
+			getDb(),
+			{ lessonId: lessonOf(params, locals).lesson.id },
+			locals.user!.id
+		),
 	retryVideo: async ({ params, request, locals }) =>
-		retryVideoFrom(request, getDb(), { lessonId: lessonOf(params, locals).lesson.id })
+		retryVideoFrom(
+			request,
+			getDb(),
+			{ lessonId: lessonOf(params, locals).lesson.id },
+			locals.user!.id
+		)
 };
