@@ -20,7 +20,7 @@ let elsewhere: number;
 let onRecording: number;
 
 function lessonWithVideo(title: string, file: string) {
-	const id = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title, notes: null }).lesson.id;
+	const id = createLesson(db, U1_SALSA, { lessonDay: '2026-10-12', title, notes: null }).lesson.id;
 	const videoId = addLessonVideo(db, { lessonId: id, file, mime: 'video/mp4', sizeBytes: 1 }).id;
 	return { id, videoId };
 }
@@ -80,9 +80,9 @@ describe('viaSections', () => {
 	});
 
 	it("keys this lesson's section links by variation and drill, each by start", () => {
-		linkSpot(db, a, { figureId: doble });
-		linkSpot(db, b, { figureId: doble });
-		linkSpot(db, a, { exerciseId: drill });
+		linkSpot(db, 'u1', a, { figureId: doble });
+		linkSpot(db, 'u1', b, { figureId: doble });
+		linkSpot(db, 'u1', a, { exerciseId: drill });
 		const via = viaSections(db, lessonId);
 		expect(via.figures.get(doble)!.map((s) => s.spotId)).toEqual([b, a]);
 		expect(via.figures.get(doble)![1]).toEqual({
@@ -95,7 +95,7 @@ describe('viaSections', () => {
 	});
 
 	it("leaves out another lesson's sections", () => {
-		linkSpot(db, elsewhere, { figureId: doble });
+		linkSpot(db, 'u1', elsewhere, { figureId: doble });
 		expect(viaSections(db, lessonId).figures.size).toBe(0);
 		expect(
 			viaSections(db, otherLessonId)
@@ -107,18 +107,18 @@ describe('viaSections', () => {
 
 describe('lessonsReaching', () => {
 	it('names a lesson once, however many of its sections link the target', () => {
-		linkSpot(db, a, { figureId: doble });
-		linkSpot(db, b, { figureId: doble });
+		linkSpot(db, 'u1', a, { figureId: doble });
+		linkSpot(db, 'u1', b, { figureId: doble });
 		expect(lessonsReaching(db, { figureId: doble })).toEqual([lessonId]);
 	});
 
 	it('works for a drill', () => {
-		linkSpot(db, b, { exerciseId: drill });
+		linkSpot(db, 'u1', b, { exerciseId: drill });
 		expect(lessonsReaching(db, { exerciseId: drill })).toEqual([lessonId]);
 	});
 
 	it("ignores a recording's sections", () => {
-		linkSpot(db, onRecording, { figureId: doble });
+		linkSpot(db, 'u1', onRecording, { figureId: doble });
 		expect(lessonsReaching(db, { figureId: doble })).toEqual([]);
 	});
 });

@@ -33,7 +33,7 @@ beforeEach(() => {
 		style: 'salsa',
 		notes: null
 	})!.figure.id;
-	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-14', title: 'Class', notes: null })
+	lessonId = createLesson(db, U1_SALSA, { lessonDay: '2026-10-14', title: 'Class', notes: null })
 		.lesson.id;
 });
 

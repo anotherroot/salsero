@@ -31,6 +31,7 @@ import {
 	videoSpots
 } from './db/schema';
 import type { DanceSlug } from '$lib/dances/dances';
+import { inWall, type Wall } from './scope';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -64,16 +65,36 @@ export function reviewName(title: string): string {
 	return `Review: ${title}`;
 }
 
+/** The wall, as a filter on each root table a lesson reaches. */
+const lessonsIn = (wall: Wall) =>
+	and(eq(lessons.dance, wall.dance), eq(lessons.userId, wall.userId));
+const routinesIn = (wall: Wall) =>
+	and(eq(routines.dance, wall.dance), eq(routines.userId, wall.userId));
+const figuresIn = (wall: Wall) =>
+	and(eq(figures.dance, wall.dance), eq(figures.userId, wall.userId));
+
+/** A lesson's wall, for comparing a linked row with it. Null for a missing lesson. */
+function lessonWall(db: Db, lessonId: number): Wall | null {
+	const lesson = db
+		.select({ dance: lessons.dance, userId: lessons.userId })
+		.from(lessons)
+		.where(eq(lessons.id, lessonId))
+		.get();
+	if (!lesson || lesson.userId === null) return null;
+	return { dance: lesson.dance as DanceSlug, userId: lesson.userId };
+}
+
 /**
  * Create a lesson AND its review exercise, in one transaction — the same rule
  * `createFigure` follows. A lesson with nothing on Today is a lesson you never
  * go back to, which is the one thing this feature exists to prevent.
  */
-export function createLesson(db: Db, dance: DanceSlug, input: LessonInput, everyDays = 3) {
+export function createLesson(db: Db, wall: Wall, input: LessonInput, everyDays = 3) {
+	const { dance, userId } = wall;
 	return db.transaction((tx) => {
 		const lesson = tx
 			.insert(lessons)
-			.values({ ...input, dance })
+			.values({ ...input, dance, userId })
 			.returning()
 			.get();
 		const exercise = tx
@@ -83,6 +104,7 @@ export function createLesson(db: Db, dance: DanceSlug, input: LessonInput, every
 				source: 'lesson',
 				lessonId: lesson.id,
 				dance,
+				userId,
 				everyDays
 			})
 			.returning()
@@ -121,17 +143,17 @@ export function archiveLesson(db: Db, id: number, now: number): boolean {
 /**
  * The library: newest class first, with what its videos cost on disk and how
  * much is in it — sections, routines, figures. Each count is one grouped query
- * over the whole dance, keyed by lesson, so the list stays a fixed number of
+ * over the whole wall, keyed by lesson, so the list stays a fixed number of
  * queries however many lessons there are.
  */
-export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
+export function listLessons(db: Db, wall: Wall): LessonItem[] {
 	const sections = new Map(
 		db
 			.select({ id: lessonVideos.lessonId, n: count(videoSpots.id) })
 			.from(videoSpots)
 			.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
 			.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-			.where(and(eq(lessons.dance, dance), isNotNull(videoSpots.endMs)))
+			.where(and(lessonsIn(wall), isNotNull(videoSpots.endMs)))
 			.groupBy(lessonVideos.lessonId)
 			.all()
 			.map((r) => [r.id, r.n])
@@ -141,7 +163,7 @@ export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
 			.select({ id: lessonRoutines.lessonId, n: count(routines.id) })
 			.from(lessonRoutines)
 			.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
-			.where(and(eq(routines.dance, dance), isNull(routines.archivedAt)))
+			.where(and(routinesIn(wall), isNull(routines.archivedAt)))
 			.groupBy(lessonRoutines.lessonId)
 			.all()
 			.map((r) => [r.id, r.n])
@@ -151,7 +173,7 @@ export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
 		.select({ id: lessonFigures.lessonId, group: figures.groupId })
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt)))
+		.where(and(figuresIn(wall), isNull(figures.archivedAt)))
 		.all();
 	const viaSection = db
 		.select({ id: lessonVideos.lessonId, group: figures.groupId })
@@ -159,7 +181,7 @@ export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
 		.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
 		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
 		.innerJoin(figures, eq(figures.id, spotLinks.figureId))
-		.where(and(eq(figures.dance, dance), isNull(figures.archivedAt)))
+		.where(and(figuresIn(wall), isNull(figures.archivedAt)))
 		.all();
 	const figureGroupsOf = new Map<number, Set<number | null>>();
 	for (const { id, group } of [...hand, ...viaSection]) {
@@ -178,7 +200,7 @@ export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
 		})
 		.from(lessons)
 		.leftJoin(lessonVideos, eq(lessonVideos.lessonId, lessons.id))
-		.where(and(isNull(lessons.archivedAt), eq(lessons.dance, dance)))
+		.where(and(isNull(lessons.archivedAt), lessonsIn(wall)))
 		.groupBy(lessons.id)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all()
@@ -192,26 +214,29 @@ export function listLessons(db: Db, dance: DanceSlug): LessonItem[] {
 }
 
 /** Each lesson's day, by id, for Today's lesson rows. */
-export function lessonDays(db: Db, dance: DanceSlug): Record<number, string> {
+export function lessonDays(db: Db, wall: Wall): Record<number, string> {
 	return Object.fromEntries(
 		db
 			.select({ id: lessons.id, day: lessons.lessonDay })
 			.from(lessons)
-			.where(eq(lessons.dance, dance))
+			.where(lessonsIn(wall))
 			.all()
 			.map((r) => [r.id, r.day])
 	);
 }
 
 /**
- * Every byte lesson videos occupy, archived lessons included — an archived
- * lesson's video is still on a disk that is 80% full, so the readout must say
- * so. See `MAX_LESSON_VIDEO_BYTES` in `src/lib/limits.ts`.
+ * Every byte this person's lesson videos occupy, both dances and archived
+ * lessons included — an archived lesson's video is still on the disk, so the
+ * readout must say so. Another person's videos are not theirs to see, not even
+ * as a number. See `MAX_LESSON_VIDEO_BYTES` in `src/lib/limits.ts`.
  */
-export function lessonVideoBytes(db: Db): number {
+export function lessonVideoBytes(db: Db, userId: string): number {
 	const row = db
 		.select({ total: sum(lessonVideos.sizeBytes) })
 		.from(lessonVideos)
+		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+		.where(eq(lessons.userId, userId))
 		.get();
 	return Number(row?.total ?? 0);
 }
@@ -367,20 +392,16 @@ export function getLesson(db: Db, id: number) {
 export function linkFigure(db: Db, lessonId: number, figureId: number): boolean {
 	return db.transaction((tx) => {
 		const figure = tx
-			.select({ id: figures.id, dance: figures.dance })
+			.select({ id: figures.id, dance: figures.dance, userId: figures.userId })
 			.from(figures)
 			.where(and(eq(figures.id, figureId), isNull(figures.archivedAt)))
 			.get();
 		if (!figure) return false;
 
-		const lesson = tx
-			.select({ dance: lessons.dance })
-			.from(lessons)
-			.where(eq(lessons.id, lessonId))
-			.get();
-		// A lesson and a figure from different dances must never join: the wall
-		// is the point, and no CHECK can express it (see `schema.ts`).
-		if (!lesson || lesson.dance !== figure.dance) return false;
+		// A lesson and a figure from different walls (dances or people) must never
+		// join: the wall is the point, and no CHECK can express it (see `schema.ts`).
+		const wall = lessonWall(tx, lessonId);
+		if (!wall || !inWall(figure, wall)) return false;
 
 		const res = tx.insert(lessonFigures).values({ lessonId, figureId }).onConflictDoNothing().run();
 		if (res.changes === 0) return false;
@@ -439,20 +460,16 @@ export function unlinkFigure(
 export function linkRoutine(db: Db, lessonId: number, routineId: number): boolean {
 	return db.transaction((tx) => {
 		const routine = tx
-			.select({ id: routines.id, dance: routines.dance })
+			.select({ id: routines.id, dance: routines.dance, userId: routines.userId })
 			.from(routines)
 			.where(and(eq(routines.id, routineId), isNull(routines.archivedAt)))
 			.get();
 		if (!routine) return false;
 
-		const lesson = tx
-			.select({ dance: lessons.dance })
-			.from(lessons)
-			.where(eq(lessons.id, lessonId))
-			.get();
-		// The dance wall, as in `linkFigure`: the route checks the lesson's dance,
-		// and this is the only check on the routine id posted with it.
-		if (!lesson || lesson.dance !== routine.dance) return false;
+		// The wall, as in `linkFigure`: the route checks the lesson's wall, and
+		// this is the only check on the routine id posted with it.
+		const wall = lessonWall(tx, lessonId);
+		if (!wall || !inWall(routine, wall)) return false;
 
 		const res = tx
 			.insert(lessonRoutines)
@@ -497,6 +514,7 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 			.select({
 				id: exercises.id,
 				dance: exercises.dance,
+				userId: exercises.userId,
 				figureId: exercises.figureId,
 				routineId: exercises.routineId,
 				lessonId: exercises.lessonId
@@ -509,14 +527,10 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 		// included; it is never something a lesson "links".
 		if (exercise.lessonId !== null) return false;
 
-		const lesson = tx
-			.select({ dance: lessons.dance })
-			.from(lessons)
-			.where(eq(lessons.id, lessonId))
-			.get();
-		// A lesson and an exercise from different dances must never join: the wall
+		// A lesson and an exercise from different walls must never join: the wall
 		// is the point, and no CHECK can express it (see `schema.ts`).
-		if (!lesson || lesson.dance !== exercise.dance) return false;
+		const wall = lessonWall(tx, lessonId);
+		if (!wall || !inWall(exercise, wall)) return false;
 
 		if (exercise.figureId !== null) {
 			const linked = tx
@@ -579,44 +593,25 @@ export function unlinkExercise(
 	});
 }
 
-/** Live variations of the lesson's dance, by label; `linked` marks those already on the lesson. */
+/** Live variations in the lesson's wall, by label; `linked` marks those already on the lesson. */
 export function listLinkableFigures(
 	db: Db,
 	lessonId: number
 ): (FigureVersion & { linked: boolean })[] {
-	const lesson = db
-		.select({ dance: lessons.dance, userId: lessons.userId })
-		.from(lessons)
-		.where(eq(lessons.id, lessonId))
-		.get();
-	if (!lesson) return [];
+	const wall = lessonWall(db, lessonId);
+	if (!wall) return [];
 
 	const linked = new Set(linkedFigureIds(db, lessonId));
-	return listVersions(db, { dance: lesson.dance as DanceSlug, userId: lesson.userId ?? '' }).map(
-		(v) => ({
-			...v,
-			linked: linked.has(v.id)
-		})
-	);
+	return listVersions(db, wall).map((v) => ({ ...v, linked: linked.has(v.id) }));
 }
 
-/** Unarchived routines of the lesson's dance, alphabetical; `linked` marks those already on it. */
+/** Unarchived routines in the lesson's wall, alphabetical; `linked` marks those already on it. */
 export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
-	const lesson = db
-		.select({ dance: lessons.dance, userId: lessons.userId })
-		.from(lessons)
-		.where(eq(lessons.id, lessonId))
-		.get();
-	if (!lesson) return [];
+	const wall = lessonWall(db, lessonId);
+	if (!wall) return [];
 
 	const linked = new Set(linkedRoutineIds(db, lessonId));
-	return listPickRoutines(db, {
-		dance: lesson.dance as DanceSlug,
-		userId: lesson.userId ?? ''
-	}).map((r) => ({
-		...r,
-		linked: linked.has(r.id)
-	}));
+	return listPickRoutines(db, wall).map((r) => ({ ...r, linked: linked.has(r.id) }));
 }
 
 /**
@@ -626,12 +621,8 @@ export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
  * into a second lesson makes "whose is this?" unanswerable on screen.
  */
 export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] {
-	const lesson = db
-		.select({ dance: lessons.dance })
-		.from(lessons)
-		.where(eq(lessons.id, lessonId))
-		.get();
-	if (!lesson) return [];
+	const wall = lessonWall(db, lessonId);
+	if (!wall) return [];
 
 	const alreadyLinked = new Set([
 		...db
@@ -648,7 +639,8 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 	const where = [
 		isNull(exercises.archivedAt),
 		ne(exercises.source, 'lesson'),
-		eq(exercises.dance, lesson.dance)
+		eq(exercises.dance, wall.dance),
+		eq(exercises.userId, wall.userId)
 	];
 	if (linkedFigures.length > 0) {
 		// `NOT IN` is null-propagating: a custom exercise has a null `figure_id`,
@@ -698,16 +690,24 @@ export function deleteLessonVideo(db: Db, id: number) {
 	});
 }
 
+/** A lesson video by its file name, with whose it is: its lesson's owner, for the media server. */
 export function getLessonVideoByFile(db: Db, file: string) {
-	return db.select().from(lessonVideos).where(eq(lessonVideos.file, file)).get() ?? null;
+	const row = db
+		.select({ video: lessonVideos, userId: lessons.userId })
+		.from(lessonVideos)
+		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+		.where(eq(lessonVideos.file, file))
+		.get();
+	return row ? { ...row.video, userId: row.userId } : null;
 }
 
 /**
  * The lessons that taught a figure — the lesson→figure link read from the
  * figure's side, which until now only the lesson page could show. Archived
- * lessons are gone from every list, so they are gone from this one.
+ * lessons are gone from every list, so they are gone from this one. Only the
+ * wall's lessons: a lesson of someone else's never reaches this figure's page.
  */
-export function taughtIn(db: Db, figureId: number) {
+export function taughtIn(db: Db, wall: Wall, figureId: number) {
 	const ids = [
 		...db
 			.select({ id: lessonFigures.lessonId })
@@ -722,18 +722,20 @@ export function taughtIn(db: Db, figureId: number) {
 	return db
 		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })
 		.from(lessons)
-		.where(and(inArray(lessons.id, ids), isNull(lessons.archivedAt)))
+		.where(and(inArray(lessons.id, ids), lessonsIn(wall), isNull(lessons.archivedAt)))
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all();
 }
 
 /** `taughtIn`, for a routine: the lessons that link it, newest class first. */
-export function routineTaughtIn(db: Db, routineId: number) {
+export function routineTaughtIn(db: Db, wall: Wall, routineId: number) {
 	return db
 		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })
 		.from(lessonRoutines)
 		.innerJoin(lessons, eq(lessons.id, lessonRoutines.lessonId))
-		.where(and(eq(lessonRoutines.routineId, routineId), isNull(lessons.archivedAt)))
+		.where(
+			and(eq(lessonRoutines.routineId, routineId), lessonsIn(wall), isNull(lessons.archivedAt))
+		)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all();
 }

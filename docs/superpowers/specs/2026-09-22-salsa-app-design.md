@@ -1,7 +1,9 @@
 # Salsa app — design
 
 > **Status:** approved in brainstorming, 2026-09-22. Hosted at
-> `salsa.anotherroot.eu`. Single user. Multi-dance since 2026-09-24 — see
+> `salsa.anotherroot.eu`. Several people since 2026-11-02, each behind their
+> own wall — see [`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md).
+> Multi-dance since 2026-09-24 — see
 > [`2026-09-24-multi-dance-design.md`](2026-09-24-multi-dance-design.md) for
 > the dance dimension, the registry, and the URL scheme.
 
@@ -689,10 +691,14 @@ Offline layer lies over the current page so nothing typed is lost.
 
 ## Auth
 
-Single user, email + password, carried over from muscle_model: scrypt, session
+Email + password, carried over from muscle_model: scrypt, session
 cookie, login rate-limited per IP and per account, identical copy for wrong
 password and unknown user, admin seeded from env (`ADMIN_EMAIL`,
 `ADMIN_PASSWORD`). No Cloudflare Access in front, same as muscle.
+
+Single user until 2026-11-02. Accounts — the admin's one-time invites, the
+owner wall inside each dance, storage limits — are in
+[`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md).
 
 ## Testing
 

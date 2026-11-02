@@ -13,10 +13,10 @@
  * from `$env/dynamic/private` — and that does NOT see a `process.env`
  * assignment made from a test file. Mocking the module is therefore the only
  * way to be sure no test ever opens the real database: each test gets its own
- * `openOwnedDb()`, the same way every other spec in this repo does.
+ * `openDb(':memory:')`, the same way every other spec in this repo does.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { U1_SALSA, U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
+import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -25,7 +25,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { type Db } from '$lib/server/db';
+import { openDb, type Db } from '$lib/server/db';
 import {
 	addFigureExercise,
 	addRecording,
@@ -146,7 +146,7 @@ let bachataLessonId: number;
 let bachataRoutineId: number;
 
 beforeEach(() => {
-	db = openOwnedDb();
+	db = openDb(':memory:');
 	handle.db = db;
 	seedPositions(db);
 
@@ -190,7 +190,7 @@ beforeEach(() => {
 	}).id;
 	// `retry` only bites on a failed song, so put it there the way the worker would.
 	failJob(db, bachataSongId, 'download failed', true);
-	bachataLessonId = createLesson(db, 'bachata', {
+	bachataLessonId = createLesson(db, U1_BACHATA, {
 		lessonDay: '2020-01-01',
 		title: 'Bachata class',
 		notes: null
@@ -1255,7 +1255,7 @@ describe('an unknown dance in the URL cannot write a row', () => {
 				.all()
 				.map((l) => l.dance)
 		).not.toContain('kizomba');
-		expect(listLessons(db, 'salsa')).toHaveLength(0);
+		expect(listLessons(db, U1_SALSA)).toHaveLength(0);
 	});
 });
 

@@ -12,7 +12,7 @@ import { listCountTakesFor } from '$lib/server/countTakes';
 import { int, optionalText, text } from '$lib/server/form';
 import { lessonDays } from '$lib/server/lessons';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
-import { danceOf, wallOf } from '$lib/server/scope';
+import { wallOf } from '$lib/server/scope';
 import { songChoices } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
@@ -28,8 +28,8 @@ function zone(locals: App.Locals): string {
 }
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
-	const dance = danceOf(params);
 	const wall = wallOf(params, locals);
+	const dance = wall.dance;
 	const tz = zone(locals);
 	const now = Date.now();
 	const today = localDay(now, tz);
@@ -66,7 +66,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// For the practice panel's song picker.
 		songs: songChoices(db, wall),
 		// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.
-		lessonDays: lessonDays(db, dance),
+		lessonDays: lessonDays(db, wall),
 		// The latest set's rating per exercise, for the dots on each row.
 		lastRatings: Object.fromEntries(
 			[...lastSets(db, wall)].map(([id, s]) => [id, s.rating] as [number, number | null])

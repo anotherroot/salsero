@@ -80,7 +80,10 @@ export const actions: Actions = {
 		throw redirect(303, `/${params.dance}`);
 	},
 
-	/** A drill's own section. `linkSpot` refuses any other type, and a section of the other dance. */
+	/**
+	 * A drill's own section. `linkSpot` refuses any other type, a section of the
+	 * other dance, and another person's section as if it were missing.
+	 */
 	linkSection: async ({ params, request, locals }) => {
 		const exerciseId = exerciseOf(params, locals).id;
 		const spotId = int(await request.formData(), 'spotId');
@@ -88,7 +91,7 @@ export const actions: Actions = {
 			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
 		}
 		try {
-			linkSpot(getDb(), spotId, { exerciseId });
+			linkSpot(getDb(), wallOf(params, locals).userId, spotId, { exerciseId });
 		} catch (e) {
 			if (e instanceof SpotLinkError) {
 				return fail(e.status, { action: 'linkSection', message: e.message });

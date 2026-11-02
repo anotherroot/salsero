@@ -43,7 +43,7 @@ import { plan } from '$lib/urgency/urgency';
 import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf, wallOf, inWall } from '$lib/server/scope';
+import { wallOf, inWall } from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -230,7 +230,7 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		leadsTo: link(follows(graph, id)),
 		followsFrom: link(precedes(graph, id)),
 		links: listLinks(db, { figureId: id }),
-		taughtIn: taughtIn(db, id),
+		taughtIn: taughtIn(db, wall, id),
 		linkable: linkableSections(db, { figureId: id }),
 		moveTargets: listMoveTargets(db, wall, group.id)
 	};
@@ -252,7 +252,7 @@ export const actions: Actions = {
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
+		const style = oneOf(form, 'style', DANCES[wallOf(params, locals).dance].styles);
 		const notes = optionalText(form, 'notes');
 		const startIds = ints(form, 'startIds');
 		const rawEnd = String(form.get('endId') ?? '');
@@ -463,7 +463,10 @@ export const actions: Actions = {
 		return { action: 'deleteRecording', ok: true };
 	},
 
-	/** A section for this variation. `linkSpot` refuses one from the other dance. */
+	/**
+	 * A section for this variation. `linkSpot` refuses one from the other dance,
+	 * and another person's as if it were missing.
+	 */
 	linkSection: async ({ params, request, locals }) => {
 		const { figure } = variationOf(params, locals);
 		const spotId = int(await request.formData(), 'spotId');
@@ -471,7 +474,7 @@ export const actions: Actions = {
 			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
 		}
 		try {
-			linkSpot(getDb(), spotId, { figureId: figure.id });
+			linkSpot(getDb(), wallOf(params, locals).userId, spotId, { figureId: figure.id });
 		} catch (e) {
 			if (e instanceof SpotLinkError) {
 				return fail(e.status, {

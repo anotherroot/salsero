@@ -2,7 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { setPracticeSettings } from '$lib/server/exercises';
 import { practicePayload } from '$lib/server/practice-content';
-import { danceOf, requireExerciseInWall, wallOf } from '$lib/server/scope';
+import { requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { DANCES } from '$lib/dances/dances';
 import { parsePracticeInput } from '$lib/exercises/practice';
 import type { RequestHandler } from './$types';
@@ -30,7 +30,10 @@ export const GET: RequestHandler = ({ params, locals }) => {
  */
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const exercise = exerciseOf(params, locals);
-	const input = parsePracticeInput(await request.json().catch(() => null), DANCES[danceOf(params)]);
+	const input = parsePracticeInput(
+		await request.json().catch(() => null),
+		DANCES[wallOf(params, locals).dance]
+	);
 	if (!input || !setPracticeSettings(getDb(), exercise.id, input)) {
 		throw error(400, 'Those practice settings cannot be used');
 	}

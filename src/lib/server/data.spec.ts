@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Db } from './db';
+import { openDb, type Db } from './db';
 import { songs } from './db/schema';
 import {
 	archiveExercise,
@@ -34,11 +34,11 @@ import {
 import { archiveLesson, createLesson, linkFigure, taughtIn } from './lessons';
 import { createSongFromUpload, songChoices } from './songs';
 import { createRoutine } from './routines';
-import { U1_SALSA, U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
+import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
-	db = openOwnedDb();
+	db = openDb(':memory:');
 });
 
 const figureInput = {
@@ -472,23 +472,23 @@ describe('history', () => {
 describe('taught in', () => {
 	it('lists the live lessons that linked a figure, newest first', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const older = createLesson(db, 'salsa', {
+		const older = createLesson(db, U1_SALSA, {
 			lessonDay: '2026-09-01',
 			title: 'Older',
 			notes: null
 		}).lesson;
-		const newer = createLesson(db, 'salsa', {
+		const newer = createLesson(db, U1_SALSA, {
 			lessonDay: '2026-09-20',
 			title: 'Newer',
 			notes: null
 		}).lesson;
-		const gone = createLesson(db, 'salsa', {
+		const gone = createLesson(db, U1_SALSA, {
 			lessonDay: '2026-09-10',
 			title: 'Gone',
 			notes: null
 		}).lesson;
 		for (const l of [older, newer, gone]) linkFigure(db, l.id, figure.id);
 		archiveLesson(db, gone.id, 1);
-		expect(taughtIn(db, figure.id).map((l) => l.title)).toEqual(['Newer', 'Older']);
+		expect(taughtIn(db, U1_SALSA, figure.id).map((l) => l.title)).toEqual(['Newer', 'Older']);
 	});
 });

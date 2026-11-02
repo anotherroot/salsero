@@ -20,7 +20,7 @@ import {
 } from '$lib/beatgrid/beatgrid';
 import { TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf, requireSongInWall, wallOf } from '$lib/server/scope';
+import { requireSongInWall, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -147,7 +147,7 @@ export const actions: Actions = {
 				message: 'Keep the artist to 200 characters.',
 				...sent
 			});
-		const style = oneOf(form, 'style', DANCES[danceOf(params)].styles);
+		const style = oneOf(form, 'style', DANCES[wallOf(params, locals).dance].styles);
 		if (!style) return fail(400, { message: 'Pick a style.', ...sent });
 		updateSongMeta(getDb(), song.id, { title, artist, style });
 		return { ok: true };

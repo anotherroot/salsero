@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Db } from './db';
+import { openDb, type Db } from './db';
 import { archiveExercise, createCustomExercise, listPickExercises } from './exercises';
 import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
-import { U1_SALSA, U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
+import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
-	db = openOwnedDb();
+	db = openDb(':memory:');
 });
 
 describe('listPickExercises', () => {

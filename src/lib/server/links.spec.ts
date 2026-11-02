@@ -20,7 +20,7 @@ const figureInput = {
 	notes: null
 };
 const lessonOn = (notes: string | null) =>
-	createLesson(db, 'salsa', { lessonDay: '2026-09-20', title: 'Class', notes }).lesson;
+	createLesson(db, U1_SALSA, { lessonDay: '2026-09-20', title: 'Class', notes }).lesson;
 
 describe('links', () => {
 	it('adds, lists in insertion order, and deletes on each kind of owner', () => {

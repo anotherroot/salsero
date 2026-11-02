@@ -28,14 +28,17 @@ import type { RequestHandler } from './$types';
  * what lets the size stand in for the whole protocol; supporting them would
  * need a manifest, which is the table this avoids.
  */
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const lessonId = Number(params.id);
 	if (!Number.isInteger(lessonId) || lessonId < 1) return fail(404, 'No such lesson.');
 	if (!UPLOAD_ID_RE.test(params.uploadId)) return fail(404, 'Bad upload id.');
 
 	const db = getDb();
 	const found = getLesson(db, lessonId);
-	if (!found || found.lesson.archivedAt !== null) return fail(404, 'No such lesson.');
+	// Flat: no dance in the URL, so the person is the wall. Another person's
+	// lesson and a missing one get the same 404.
+	const mine = found !== null && !!locals.user && found.lesson.userId === locals.user.id;
+	if (!found || !mine || found.lesson.archivedAt !== null) return fail(404, 'No such lesson.');
 
 	// Already finished: the client lost our 201 and is asking again. Answer the
 	// same row, or it would upload the whole video a second time as a new one.
@@ -44,7 +47,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		(text) => JSON.parse(text) as unknown,
 		() => null
 	);
-	if (finished) return json(finished, { status: 201 });
+	// Only for this lesson: an upload id is the client's, and a finished one of
+	// another lesson's is not this request's to read back.
+	if (finished && (finished as { lessonId?: unknown }).lessonId === lessonId) {
+		return json(finished, { status: 201 });
+	}
+	if (finished) return fail(404, 'Bad upload id.');
 
 	const partial = join(uploadsDir(), `${params.uploadId}.part`);
 	const chunk = await writeChunk(request, partial, MAX_LESSON_VIDEO_BYTES, {

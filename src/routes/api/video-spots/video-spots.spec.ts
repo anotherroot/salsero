@@ -43,7 +43,9 @@ beforeEach(() => {
 });
 
 type Handler = (event: unknown) => Promise<Response> | Response;
-const run = (h: unknown, event: unknown) => (h as Handler)(event);
+/** As the signed-in owner of every row these specs make. */
+const USER = { id: 'u1', email: 'u1@example.com', timezone: 'UTC', isAdmin: true };
+const run = (h: unknown, event: object) => (h as Handler)({ locals: { user: USER }, ...event });
 
 const get = (query: string) =>
 	run(list.GET, { url: new URL(`http://localhost/api/video-spots?${query}`) });
@@ -179,7 +181,7 @@ describe('a linked section', () => {
 			style: 'salsa',
 			notes: null
 		})!.figure.id;
-		linkSpot(db, spot.id, { figureId: other });
+		linkSpot(db, 'u1', spot.id, { figureId: other });
 
 		const listed = await (await get(`recording=${recordingId}`)).json();
 		expect(listed[0].linkedTo).toEqual(['Setenta · Basic']);

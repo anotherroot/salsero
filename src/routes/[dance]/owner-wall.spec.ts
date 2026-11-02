@@ -1079,3 +1079,271 @@ describe("the routine pages refuse another person's routine", () => {
 function getRoutineRow(id: number) {
 	return db.select().from(routines).where(eq(routines.id, id)).get()!;
 }
+
+import {
+	addLessonVideo,
+	createLesson,
+	getLesson,
+	lessonDays,
+	lessonVideoBytes,
+	linkExercise,
+	linkFigure,
+	linkRoutine,
+	listLessons,
+	listLinkableExercises,
+	listLinkableFigures,
+	listLinkableRoutines,
+	routineTaughtIn,
+	taughtIn
+} from '$lib/server/lessons';
+import { addSpot } from '$lib/server/spots';
+import { linkableSections, sectionsFor } from '$lib/server/spot-links';
+import {
+	lessonExercises,
+	lessonFigures,
+	lessonRoutines,
+	lessons,
+	lessonVideos,
+	links as linksTable,
+	spotLinks
+} from '$lib/server/db/schema';
+import * as lessonPage from './lessons/[id]/+page.server';
+import * as lessonList from './lessons/+page.server';
+import * as sharePage from './share/+page.server';
+
+describe('lessons, sections and their links stand behind a wall', () => {
+	let mine: number;
+	let theirFigure: number;
+	let theirGroup: number;
+	let theirRoutine: number;
+	let theirDrill: number;
+	let theirSection: number;
+	let mySection: number;
+
+	beforeEach(() => {
+		mine = createLesson(db, U1_SALSA, { lessonDay: '2026-10-14', title: 'Mine', notes: 'n' }).lesson
+			.id;
+		const video = addLessonVideo(db, {
+			lessonId: mine,
+			file: '00000000-0000-4000-8000-0000000000d1.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 100
+		});
+		mySection = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 0, endMs: 1000, label: 'My bit' }
+		)!.id;
+
+		const made = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Theirs' })!;
+		theirFigure = made.figure.id;
+		theirGroup = made.group.id;
+		const theirRec = addRecording(db, {
+			figureId: theirFigure,
+			file: '00000000-0000-4000-8000-0000000000d2.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 50,
+			note: null
+		}).id;
+		theirSection = addSpot(
+			db,
+			{ recordingId: theirRec },
+			{ startMs: 0, endMs: 500, label: 'Their bit' }
+		)!.id;
+		theirRoutine = createRoutine(db, U2_SALSA, { name: 'Their routine', notes: null }).routine.id;
+		theirDrill = createCustomExercise(db, U2_SALSA, {
+			name: 'Their drill',
+			everyDays: 3,
+			notes: null
+		}).id;
+	});
+
+	const snapshot = () => ({
+		lessons: db.select().from(lessons).all(),
+		exercises: db.select().from(exercises).all(),
+		figures: db.select().from(figures).all(),
+		groups: db.select().from(figureGroups).all(),
+		routines: db.select().from(routines).all(),
+		lessonFigures: db.select().from(lessonFigures).all(),
+		lessonRoutines: db.select().from(lessonRoutines).all(),
+		lessonExercises: db.select().from(lessonExercises).all(),
+		lessonVideos: db.select().from(lessonVideos).all(),
+		links: db.select().from(linksTable).all(),
+		spotLinks: db.select().from(spotLinks).all()
+	});
+
+	it('a lesson and its review exercise carry the wall owner', () => {
+		const { lesson, exercise } = getLesson(db, mine)! as ReturnType<typeof getLesson> & {};
+		expect([lesson.userId, lesson.dance]).toEqual(['u1', 'salsa']);
+		expect([exercise!.userId, exercise!.dance]).toEqual(['u1', 'salsa']);
+	});
+
+	it("lists and Today's lesson days show none of another person's lessons", () => {
+		expect(listLessons(db, U1_SALSA).map((l) => l.id)).toEqual([mine]);
+		expect(listLessons(db, U2_SALSA)).toEqual([]);
+		expect(Object.keys(lessonDays(db, U2_SALSA))).toEqual([]);
+		expect(Object.keys(lessonDays(db, U1_SALSA))).toEqual([String(mine)]);
+		expect(lessonVideoBytes(db, 'u1')).toBe(100);
+		expect(lessonVideoBytes(db, 'u2')).toBe(0);
+	});
+
+	it("a lesson links none of another person's figures, routines or exercises", () => {
+		const before = snapshot();
+		expect(linkFigure(db, mine, theirFigure)).toBe(false);
+		expect(linkRoutine(db, mine, theirRoutine)).toBe(false);
+		expect(linkExercise(db, mine, theirDrill)).toBe(false);
+		expect(snapshot()).toEqual(before);
+		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(theirFigure);
+		expect(listLinkableRoutines(db, mine).map((r) => r.id)).not.toContain(theirRoutine);
+		expect(listLinkableExercises(db, mine).map((e) => e.id)).not.toContain(theirDrill);
+		// The owner's own figure still links.
+		expect(linkFigure(db, mine, figureId)).toBe(true);
+	});
+
+	it("taught-in lists only the person's own lessons", () => {
+		const theirLesson = createLesson(db, U2_SALSA, {
+			lessonDay: '2026-10-14',
+			title: 'Their lesson',
+			notes: null
+		}).lesson.id;
+		const myRoutine = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine.id;
+		// Rows no data function writes any more, as old data could hold them.
+		db.insert(lessonFigures).values({ lessonId: theirLesson, figureId }).run();
+		db.insert(lessonRoutines).values({ lessonId: theirLesson, routineId: myRoutine }).run();
+		expect(taughtIn(db, U1_SALSA, figureId)).toEqual([]);
+		expect(routineTaughtIn(db, U1_SALSA, myRoutine)).toEqual([]);
+	});
+
+	it("the section picker lists only the person's own sections (R3)", () => {
+		const offered = (groups: ReturnType<typeof linkableSections>) =>
+			groups.flatMap((g) => g.sections.map((s) => s.id));
+		expect(offered(linkableSections(db, { figureId }))).toEqual([mySection]);
+		const myDrill = createCustomExercise(db, U1_SALSA, { name: 'D', everyDays: 3, notes: null }).id;
+		expect(offered(linkableSections(db, { exerciseId: myDrill }))).toEqual([mySection]);
+		expect(offered(linkableSections(db, { figureId: theirFigure }))).toEqual([theirSection]);
+		// A link written before the wall still shows nothing of the other person's.
+		db.insert(spotLinks).values({ spotId: theirSection, figureId }).run();
+		expect(sectionsFor(db, { figureId })).toEqual([]);
+	});
+
+	it("the figure and exercise pages refuse another person's section id (R3)", async () => {
+		const myDrill = createCustomExercise(db, U1_SALSA, { name: 'D', everyDays: 3, notes: null }).id;
+		const figureData = (await loadAt(figurePage.load, U1, 'salsa', String(figureId))) as {
+			linkable: { sections: { id: number }[] }[];
+		};
+		expect(figureData.linkable.flatMap((g) => g.sections.map((s) => s.id))).toEqual([mySection]);
+		const exerciseData = (await loadAt(exercisePage.load, U1, 'salsa', String(myDrill))) as {
+			linkable: { sections: { id: number }[] }[];
+		};
+		expect(exerciseData.linkable.flatMap((g) => g.sections.map((s) => s.id))).toEqual([mySection]);
+
+		const before = snapshot();
+		const onFigure = await call(
+			figurePage.actions.linkSection,
+			post(U1, 'salsa', { spotId: String(theirSection) }, String(figureId))
+		);
+		expect(onFigure).toMatchObject({ status: 400 });
+		const onDrill = await call(
+			exercisePage.actions.linkSection,
+			post(U1, 'salsa', { spotId: String(theirSection) }, String(myDrill))
+		);
+		expect(onDrill).toMatchObject({ status: 400 });
+		expect(snapshot()).toEqual(before);
+		// The owner's own section links.
+		await call(
+			figurePage.actions.linkSection,
+			post(U1, 'salsa', { spotId: String(mySection) }, String(figureId))
+		);
+		expect(db.select().from(spotLinks).all()).toHaveLength(1);
+	});
+
+	it('the lesson list, Today and the share sheet show u2 none of u1’s lessons', async () => {
+		const list = (await loadAt(lessonList.load, U2, 'salsa')) as {
+			lessons: unknown[];
+			storageBytes: number;
+		};
+		expect(list.lessons).toEqual([]);
+		expect(list.storageBytes).toBe(0);
+		const share = (await (sharePage.load as unknown as Load)({
+			params: { dance: 'salsa', id: '' },
+			url: new URL('http://localhost/?key=0f8fad5b-d9cb-469f-a165-70867728950e'),
+			locals: { user: U2 }
+		})) as { lessons: unknown[] };
+		expect(share.lessons).toEqual([]);
+		const today = (await loadAt(todayPage.load, U2, 'salsa')) as {
+			lessonDays: Record<string, string>;
+		};
+		expect(today.lessonDays).toEqual({});
+	});
+
+	it('a lesson made from the list belongs to whoever made it', async () => {
+		const made = await redirectOf(
+			lessonList.actions.create,
+			post(U2, 'salsa', { title: 'Theirs', notes: '', everyDays: '3', lessonDay: '2026-10-01' })
+		);
+		const id = Number(made.location.split('/').pop());
+		const { lesson, exercise } = getLesson(db, id)!;
+		expect([lesson.userId, exercise!.userId]).toEqual(['u2', 'u2']);
+	});
+
+	it('the lesson page 404s for another person', () => {
+		expect(() => loadAt(lessonPage.load, U2, 'salsa', String(mine))).toThrow(threw404);
+		expect(() => loadAt(lessonPage.load, U1, 'bachata', String(mine))).toThrow(threw404);
+		expect(loadAt(lessonPage.load, U1, 'salsa', String(mine))).toMatchObject({
+			lesson: { id: mine }
+		});
+	});
+
+	it.each([
+		['update', { title: 'Hijacked', notes: '', lessonDay: '2026-10-01' }],
+		['archive', {}],
+		['newFigure', { figureName: 'X', name: 'Y', partner: 'partner', style: 'salsa', notes: '' }],
+		['newVariation', { groupId: '1', name: 'Y', partner: 'partner', style: 'salsa', notes: '' }],
+		['newExercise', { name: 'X', everyDays: '3', notes: '' }],
+		['newRoutine', { name: 'X', notes: '', everyDays: '3' }],
+		['linkFigure', { figureId: '1' }],
+		['unlinkFigure', { figureId: '1' }],
+		['linkRoutine', { routineId: '1' }],
+		['unlinkRoutine', { routineId: '1' }],
+		['linkExercise', { exerciseId: '1' }],
+		['unlinkExercise', { exerciseId: '1' }],
+		['deleteVideo', { videoId: '1' }],
+		['addLink', { urls: 'https://example.com/a' }],
+		['deleteLink', { linkId: '1' }],
+		['saveVideo', { linkId: '1' }],
+		['retryVideo', { linkId: '1' }]
+	])('%s on u1’s lesson as u2 is a 404 and changes nothing', async (action, fields) => {
+		const before = snapshot();
+		await refuses(
+			lessonPage.actions[action as keyof typeof lessonPage.actions],
+			post(U2, 'salsa', fields, String(mine))
+		);
+		expect(snapshot()).toEqual(before);
+	});
+
+	it('ids in a form body from another person are refused on one’s own lesson', async () => {
+		const before = snapshot();
+		const on = (action: keyof typeof lessonPage.actions, fields: Record<string, string>) =>
+			call(lessonPage.actions[action], post(U1, 'salsa', fields, String(mine)));
+		expect(await on('linkFigure', { figureId: String(theirFigure) })).toMatchObject({
+			status: 400
+		});
+		expect(await on('linkRoutine', { routineId: String(theirRoutine) })).toMatchObject({
+			status: 400
+		});
+		expect(await on('linkExercise', { exerciseId: String(theirDrill) })).toMatchObject({
+			status: 400
+		});
+		await refuses(
+			lessonPage.actions.newVariation,
+			post(
+				U1,
+				'salsa',
+				{ groupId: String(theirGroup), name: 'Y', partner: 'partner', style: 'salsa', notes: '' },
+				String(mine)
+			)
+		);
+		expect(snapshot()).toEqual(before);
+	});
+});

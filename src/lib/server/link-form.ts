@@ -1,7 +1,7 @@
 /**
  * The "Links" editor's two actions, shared by the lesson, figure and exercise
- * pages. Each page resolves its owner through its own dance-guarded lookup
- * (`figureOf`, `lessonOf`, `requireExerciseInDance`) and hands it in — so a
+ * pages. Each page resolves its owner through its own wall-guarded lookup
+ * (`variationOf`, `lessonOf`, `requireExerciseInWall`) and hands it in — so a
  * link can only ever be added to, or removed from, the page it was posted on.
  */
 import { fail } from '@sveltejs/kit';

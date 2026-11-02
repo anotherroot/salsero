@@ -1,20 +1,25 @@
 /**
- * Which dance a request is allowed to touch, and the rows it may reach by id.
+ * Which wall a request stands behind — one person's side of one dance — and the
+ * rows it may reach by id.
  *
  * `/salsa/…` and `/bachata/…` are the same code with a different slug, and the
- * ids in a form body are just numbers — nothing in them says which dance they
- * came from. Without a check, a POST to `/salsa` carrying a bachata id acts on
- * the other side of the wall while the URL claims otherwise. That is worse than
- * the reading version of the same bug, because it mutates.
+ * ids in a form body are just numbers — nothing in them says which dance, or
+ * whose, they came from. Without a check, a POST to `/salsa` carrying a bachata
+ * id, or another person's, acts on the other side of the wall while the URL
+ * claims otherwise. That is worse than the reading version of the same bug,
+ * because it mutates.
  *
  * The detail pages (a figure, a lesson) hold their own guard on top of these,
  * because each also decides what "archived" means for its own row. Everything
  * else is shared: exercises and sets are reached from both Today and the
  * player, and a song from both the list and its own page.
  *
- * A missing row and a row from the other dance get the same answer, 404 — the
+ * A missing row and a row from another wall get the same answer, 404 — the
  * same one the detail pages give, and deliberately indistinguishable: telling
- * them apart would confirm that some other dance owns that id.
+ * them apart would confirm that someone else owns that id.
+ *
+ * Positions are the one exception: a shared list per dance, used by everyone
+ * and edited by the admin, so they stand behind the dance alone.
  */
 import { error } from '@sveltejs/kit';
 import type { Db } from './db';
@@ -35,6 +40,9 @@ import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
  *
  * It also replaces the `params.dance as DanceSlug` cast, which was the thing
  * silencing the compiler about exactly this.
+ *
+ * Everything else goes through `wallOf`; only the positions page, whose list
+ * is shared by everyone in a dance, needs the dance with no person.
  */
 export function danceOf(params: { dance: string }): DanceSlug {
 	if (!isDanceSlug(params.dance)) throw error(404, 'No such dance');

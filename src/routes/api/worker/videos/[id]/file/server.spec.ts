@@ -102,7 +102,7 @@ describe('a saved video arriving in chunks', () => {
 	});
 
 	it('puts a lesson’s video among the lesson videos', async () => {
-		const lessonId = createLesson(db, 'salsa', {
+		const lessonId = createLesson(db, U1_SALSA, {
 			lessonDay: '2026-10-14',
 			title: 'Class',
 			notes: null

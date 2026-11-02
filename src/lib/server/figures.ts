@@ -402,7 +402,7 @@ export interface FigureFilter {
 }
 
 /**
- * The variation ids of `dance` linked to a section anywhere, and those a live
+ * The variation ids in `wall` linked to a section anywhere, and those a live
  * lesson reaches — by hand or through a section of one of its videos (the rule
  * `lesson-links.ts` reads per lesson, here in bulk for the whole list).
  */
@@ -423,7 +423,14 @@ function linkedVariations(db: Db, wall: Wall): { section: Set<number>; lesson: S
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
 		.innerJoin(lessons, eq(lessons.id, lessonFigures.lessonId))
-		.where(and(inWallFigures(wall), eq(lessons.dance, wall.dance), isNull(lessons.archivedAt)))
+		.where(
+			and(
+				inWallFigures(wall),
+				eq(lessons.dance, wall.dance),
+				eq(lessons.userId, wall.userId),
+				isNull(lessons.archivedAt)
+			)
+		)
 		.all();
 	const viaSections = db
 		.selectDistinct({ id: spotLinks.figureId })

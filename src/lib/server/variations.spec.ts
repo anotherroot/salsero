@@ -108,7 +108,7 @@ describe('createVariationFrom', () => {
 			note: null
 		});
 		db.insert(links).values({ figureId: src.id, url: 'https://example.com' }).run();
-		const { lesson } = createLesson(db, 'salsa', {
+		const { lesson } = createLesson(db, U1_SALSA, {
 			lessonDay: '2026-09-20',
 			title: 'L',
 			notes: null
@@ -296,7 +296,7 @@ describe('labels and lists', () => {
 				sizeBytes: 1,
 				note: null
 			});
-			linkSpot(db, section({ recordingId: rec.id }), { figureId: doble.id });
+			linkSpot(db, 'u1', section({ recordingId: rec.id }), { figureId: doble.id });
 
 			expect(flags()).toEqual({ Enchufla: [true, false], Setenta: [false, false] });
 		});
@@ -305,18 +305,20 @@ describe('labels and lists', () => {
 			const { figure: enchufla } = fig();
 			const { figure: setenta } = fig('Setenta');
 			const { figure: vacilala } = fig('Vacilala');
-			const lesson = createLesson(db, 'salsa', {
+			const lesson = createLesson(db, U1_SALSA, {
 				lessonDay: '2026-10-28',
 				title: 'Class',
 				notes: null
 			}).lesson;
-			const gone = createLesson(db, 'salsa', {
+			const gone = createLesson(db, U1_SALSA, {
 				lessonDay: '2026-10-21',
 				title: 'Old class',
 				notes: null
 			}).lesson;
 			linkFigure(db, lesson.id, enchufla.id);
-			linkSpot(db, section({ lessonVideoId: lessonVideo(lesson.id) }), { figureId: setenta.id });
+			linkSpot(db, 'u1', section({ lessonVideoId: lessonVideo(lesson.id) }), {
+				figureId: setenta.id
+			});
 			linkFigure(db, gone.id, vacilala.id);
 			archiveLesson(db, gone.id, 1000);
 
@@ -330,12 +332,12 @@ describe('labels and lists', () => {
 		it('filters to the figures missing either link', () => {
 			const { figure: enchufla } = fig();
 			fig('Setenta');
-			const lesson = createLesson(db, 'salsa', {
+			const lesson = createLesson(db, U1_SALSA, {
 				lessonDay: '2026-10-28',
 				title: 'Class',
 				notes: null
 			}).lesson;
-			linkSpot(db, section({ lessonVideoId: lessonVideo(lesson.id) }), {
+			linkSpot(db, 'u1', section({ lessonVideoId: lessonVideo(lesson.id) }), {
 				figureId: enchufla.id
 			});
 
@@ -404,7 +406,7 @@ describe('moveVariation', () => {
 			sizeBytes: 1,
 			note: null
 		});
-		const lesson = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'L', notes: null })
+		const lesson = createLesson(db, U1_SALSA, { lessonDay: '2026-10-12', title: 'L', notes: null })
 			.lesson.id;
 		const spot = db
 			.insert(videoSpots)

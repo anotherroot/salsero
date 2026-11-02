@@ -142,7 +142,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// The per-row markers, indexed by `slots` rather than the flat run, so an
 		// archived-only slot or an embedded routine cannot shift them.
 		timingSeams: timingSeams(graph, shape),
-		taughtIn: routineTaughtIn(db, routine.id),
+		taughtIn: routineTaughtIn(db, wall, routine.id),
 		candidates,
 		// Per row, parallel to `slots`: where it begins and lands — the picker's
 		// anchors and the seams' labels.

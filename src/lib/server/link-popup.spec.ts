@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { type Db } from './db';
+import { openDb, type Db } from './db';
 import { exercises, figureGroups, figures, lessonFigures, spotLinks } from './db/schema';
 import { addRecording, createFigure, createVariationFrom, getGroup } from './figures';
 import { addLessonVideo, createLesson, getLesson, linkExercise, linkFigure } from './lessons';
@@ -8,7 +8,7 @@ import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import { linkSpot, SpotLinkError, unlinkFromSection } from './spot-links';
 import { createAndLink, linkOptions } from './link-popup';
-import { openOwnedDb, U1_SALSA } from '$lib/server/test-walls';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let lessonId: number;
@@ -39,7 +39,7 @@ const fig = (
 	)!.figure;
 
 beforeEach(() => {
-	db = openOwnedDb();
+	db = openDb(':memory:');
 	const b = fig('salsa', 'Enchufla', 'solo');
 	basic = b.id;
 	enchufla = b.groupId!;
@@ -47,7 +47,7 @@ beforeEach(() => {
 	fig('salsa', 'Setenta');
 	fig('bachata', 'Paseo');
 	drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null }).id;
-	lessonId = createLesson(db, 'salsa', { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
+	lessonId = createLesson(db, U1_SALSA, { lessonDay: '2026-10-12', title: 'Cubana', notes: null })
 		.lesson.id;
 	const videoId = addLessonVideo(db, {
 		lessonId,
@@ -112,7 +112,7 @@ describe('linkOptions', () => {
 	});
 
 	it('moves a linked target to Linked, marking whether it is also linked by hand', () => {
-		linkSpot(db, section, { figureId: doble });
+		linkSpot(db, 'u1', section, { figureId: doble });
 		let o = linkOptions(db, section, 'salsa')!;
 		expect(o.linked).toEqual([
 			{
@@ -134,7 +134,7 @@ describe('linkOptions', () => {
 	});
 
 	it("puts what another section of the lesson links among the lesson's own", () => {
-		linkSpot(db, other, { exerciseId: drill });
+		linkSpot(db, 'u1', other, { exerciseId: drill });
 		expect(labels(linkOptions(db, section, 'salsa')!.near)).toEqual(['Clave']);
 		expect(linkOptions(db, section, 'salsa')!.near[0].linked).toBe(false);
 	});
@@ -159,7 +159,7 @@ describe('linkOptions', () => {
 
 	it('lesson: a figure taught only through another section still widens near to all its variations', () => {
 		// No linkFigure: the lesson reaches Basic only through a section's link.
-		linkSpot(db, other, { figureId: basic });
+		linkSpot(db, 'u1', other, { figureId: basic });
 		const o = linkOptions(db, section, 'salsa')!;
 		expect(labels(o.near)).toEqual(['Enchufla · Basic', 'Enchufla · Doble']);
 		expect(labels(o.figures)).toEqual(['Setenta · Basic']);
@@ -167,8 +167,8 @@ describe('linkOptions', () => {
 
 	it('a target already linked to the section is listed with linked true, not left out', () => {
 		linkFigure(db, lessonId, basic);
-		linkSpot(db, section, { figureId: doble });
-		linkSpot(db, section, { exerciseId: drill });
+		linkSpot(db, 'u1', section, { figureId: doble });
+		linkSpot(db, 'u1', section, { exerciseId: drill });
 		const o = linkOptions(db, section, 'salsa')!;
 		expect(o.near.map((x) => [x.label, x.linked])).toEqual([
 			['Enchufla · Basic', false],
@@ -210,7 +210,7 @@ describe('linkOptions', () => {
 
 describe('createAndLink', () => {
 	it('makes a variation in the figure, copying partner and style from its first, and links it', () => {
-		const linkId = createAndLink(db, section, {
+		const linkId = createAndLink(db, 'u1', section, {
 			kind: 'variation',
 			groupId: enchufla,
 			name: 'Triple'
@@ -232,7 +232,7 @@ describe('createAndLink', () => {
 	});
 
 	it('makes a figure with its first variation, and links it', () => {
-		createAndLink(db, section, {
+		createAndLink(db, 'u1', section, {
 			kind: 'figure',
 			figureName: 'Sombrero',
 			name: 'Basic',
@@ -243,7 +243,7 @@ describe('createAndLink', () => {
 	});
 
 	it('makes a drill, and links it', () => {
-		createAndLink(db, section, { kind: 'drill', name: 'Arm styling', everyDays: 7 });
+		createAndLink(db, 'u1', section, { kind: 'drill', name: 'Arm styling', everyDays: 7 });
 		const made = db.select().from(exercises).where(eq(exercises.name, 'Arm styling')).get()!;
 		expect(made).toMatchObject({ source: 'custom', everyDays: 7, dance: 'salsa' });
 		expect(labels(linkOptions(db, section, 'salsa')!.linked)).toEqual(['Arm styling']);
@@ -275,7 +275,7 @@ describe('createAndLink', () => {
 		[{ kind: 'drill', name: '  ', everyDays: 3 }, 'Give it a name.']
 	] as const)('refuses %o', (create, message) => {
 		const c = create.kind === 'variation' ? { ...create, groupId: enchufla } : create;
-		expect(() => createAndLink(db, section, c)).toThrow(
+		expect(() => createAndLink(db, 'u1', section, c)).toThrow(
 			expect.objectContaining({ message, status: 400 })
 		);
 	});
@@ -315,13 +315,13 @@ describe('createAndLink', () => {
 			create.kind === 'variation'
 				? { ...create, groupId: create.groupId === 0 ? enchufla : paseo.id }
 				: create;
-		expect(() => createAndLink(db, section, c)).toThrow(expect.objectContaining({ field }));
+		expect(() => createAndLink(db, 'u1', section, c)).toThrow(expect.objectContaining({ field }));
 	});
 
 	it('names no field when the section is the problem', () => {
 		const thrown = (() => {
 			try {
-				createAndLink(db, point, { kind: 'drill', name: 'Arm', everyDays: 3 });
+				createAndLink(db, 'u1', point, { kind: 'drill', name: 'Arm', everyDays: 3 });
 			} catch (e) {
 				return e;
 			}
@@ -334,7 +334,7 @@ describe('createAndLink', () => {
 		const figuresBefore = db.select().from(figures).all().length;
 		const groupsBefore = db.select().from(figureGroups).all().length;
 		expect(() =>
-			createAndLink(db, point, {
+			createAndLink(db, 'u1', point, {
 				kind: 'figure',
 				figureName: 'Sombrero',
 				name: 'Basic',
@@ -344,9 +344,9 @@ describe('createAndLink', () => {
 		).toThrow(SpotLinkError);
 		expect(db.select().from(figures).all()).toHaveLength(figuresBefore);
 		expect(db.select().from(figureGroups).all()).toHaveLength(groupsBefore);
-		expect(() => createAndLink(db, point, { kind: 'drill', name: 'Arm', everyDays: 3 })).toThrow(
-			SpotLinkError
-		);
+		expect(() =>
+			createAndLink(db, 'u1', point, { kind: 'drill', name: 'Arm', everyDays: 3 })
+		).toThrow(SpotLinkError);
 		expect(db.select().from(exercises).where(eq(exercises.name, 'Arm')).all()).toEqual([]);
 	});
 
@@ -354,7 +354,7 @@ describe('createAndLink', () => {
 		const paseo = db.select().from(figureGroups).where(eq(figureGroups.name, 'Paseo')).get()!;
 		const before = db.select().from(figures).all().length;
 		expect(() =>
-			createAndLink(db, section, { kind: 'variation', groupId: paseo.id, name: 'Nuevo' })
+			createAndLink(db, 'u1', section, { kind: 'variation', groupId: paseo.id, name: 'Nuevo' })
 		).toThrow(SpotLinkError);
 		expect(db.select().from(figures).all()).toHaveLength(before);
 		expect(getGroup(db, paseo.id)!.archivedAt).toBeNull();
@@ -364,7 +364,7 @@ describe('createAndLink', () => {
 describe('unlinkFromSection', () => {
 	it('keeps the hand link unless asked', () => {
 		linkFigure(db, lessonId, doble);
-		const link = linkSpot(db, section, { figureId: doble });
+		const link = linkSpot(db, 'u1', section, { figureId: doble });
 		expect(unlinkFromSection(db, section, link, false)).toBe(true);
 		expect(db.select().from(lessonFigures).all()).toHaveLength(1);
 		expect(db.select().from(spotLinks).all()).toHaveLength(0);
@@ -373,8 +373,8 @@ describe('unlinkFromSection', () => {
 	it('removes the hand link too when asked', () => {
 		linkFigure(db, lessonId, doble);
 		linkExercise(db, lessonId, drill);
-		const link = linkSpot(db, section, { figureId: doble });
-		const drillLink = linkSpot(db, section, { exerciseId: drill });
+		const link = linkSpot(db, 'u1', section, { figureId: doble });
+		const drillLink = linkSpot(db, 'u1', section, { exerciseId: drill });
 		expect(unlinkFromSection(db, section, link, true)).toBe(true);
 		expect(unlinkFromSection(db, section, drillLink, true)).toBe(true);
 		expect(getLesson(db, lessonId)!.figures).toEqual([]);
@@ -382,7 +382,7 @@ describe('unlinkFromSection', () => {
 	});
 
 	it("refuses another spot's link and deletes nothing", () => {
-		const link = linkSpot(db, other, { figureId: doble });
+		const link = linkSpot(db, 'u1', other, { figureId: doble });
 		expect(unlinkFromSection(db, section, link, true)).toBe(false);
 		expect(db.select().from(spotLinks).all()).toHaveLength(1);
 	});

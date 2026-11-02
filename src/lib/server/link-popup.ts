@@ -129,9 +129,10 @@ function lessonSide(db: Db, lessonId: number) {
  */
 export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkOptions | null {
 	const video = videoOfSpot(db, spotId);
-	if (!video || !video.isSection) return null;
+	if (!video || !video.isSection || video.userId === null) return null;
+	// The section's own wall: everything offered is its owner's, of its dance.
 	const dance = video.dance as DanceSlug;
-	const wall: Wall = { dance, userId: video.userId ?? '' };
+	const wall: Wall = { dance, userId: video.userId };
 	const spot = db
 		.select({
 			id: videoSpots.id,
@@ -259,18 +260,19 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 }
 
 /**
- * Make a variation, a figure or a drill and link the section to it — both or
- * neither. The creators run inside this transaction (drizzle nests them as
+ * Make a variation, a figure or a drill in the section's wall and link the
+ * section to it — both or neither. `userId` is who asks: a section of anyone
+ * else's is refused as missing, so nothing is made in another person's wall. The creators run inside this transaction (drizzle nests them as
  * savepoints), so a link that fails takes the new row with it. Returns the
  * link's id; throws `SpotLinkError` with what to tell the user and, when a
  * field is the reason, which one (the popup shows it under that field).
  */
-export function createAndLink(db: Db, spotId: number, create: LinkCreate): number {
+export function createAndLink(db: Db, userId: string, spotId: number, create: LinkCreate): number {
 	return db.transaction((tx) => {
 		const video = videoOfSpot(tx, spotId);
-		if (!video) throw new SpotLinkError('No such section.');
+		if (!video || video.userId !== userId) throw new SpotLinkError('No such section.');
 		const dance = video.dance as DanceSlug;
-		const wall: Wall = { dance, userId: video.userId ?? '' };
+		const wall: Wall = { dance, userId };
 		const name = create.name.trim();
 		if (!name) throw new SpotLinkError('Give it a name.', 400, 'name');
 
@@ -324,14 +326,17 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 			});
 			target = { exerciseId: made.id };
 		}
-		return linkSpot(tx, spotId, target);
+		return linkSpot(tx, userId, spotId, target);
 	});
 }
 
-/** `linkOptions` with this user's default style for the section's dance. */
+/**
+ * `linkOptions` with this user's default style for the section's dance. Null
+ * for a section that is not this user's — the same answer a missing one gets.
+ */
 export function linkOptionsFor(db: Db, spotId: number, userId: string): LinkOptions | null {
 	const video = videoOfSpot(db, spotId);
-	if (!video) return null;
+	if (!video || video.userId !== userId) return null;
 	return linkOptions(db, spotId, defaultStyle(db, userId, video.dance as DanceSlug));
 }
 

@@ -1,18 +1,23 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { deleteSpot, SpotError, updateSpot } from '$lib/server/spots';
+import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import type { RequestHandler } from './$types';
 
-/** The spot id from the path, or a 404 — a bad id and a missing spot get the same answer. */
-function spotId(raw: string): number {
+/**
+ * The spot id from the path, if it is the signed-in person's, or a 404 — a bad
+ * id, a missing spot and another person's get the same answer.
+ */
+function spotId(raw: string, locals: App.Locals): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
 	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, 'No such spot');
+	const userId = spotOwner(getDb(), id);
+	if (userId === null || userId !== locals.user?.id) throw error(404, 'No such spot');
 	return id;
 }
 
-export const PATCH: RequestHandler = async ({ params, request }) => {
-	const id = spotId(params.id);
+export const PATCH: RequestHandler = async ({ params, request, locals }) => {
+	const id = spotId(params.id, locals);
 	const body: unknown = await request.json().catch(() => null);
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw error(400, 'Bad JSON.');
 	// Only the keys sent change: a missing `label` keeps it, and `null` is how
@@ -33,8 +38,8 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 };
 
 /** A linked section is a 409 whose message names what to unlink — the player shows it. */
-export const DELETE: RequestHandler = ({ params }) => {
-	const id = spotId(params.id);
+export const DELETE: RequestHandler = ({ params, locals }) => {
+	const id = spotId(params.id, locals);
 	let gone: boolean;
 	try {
 		gone = deleteSpot(getDb(), id);

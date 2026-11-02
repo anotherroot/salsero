@@ -3,11 +3,11 @@
  * can show it under that field, and hands back everything that was typed.
  *
  * Like `dance-wall.spec.ts`, the actions reach the database through `getDb()`,
- * which is mocked: each test gets its own `openOwnedDb()` and nothing
+ * which is mocked: each test gets its own `openDb(':memory:')` and nothing
  * ever opens the real database.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { U1_BACHATA, U1_SALSA, openOwnedDb } from '$lib/server/test-walls';
+import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -16,7 +16,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { type Db } from '$lib/server/db';
+import { openDb, type Db } from '$lib/server/db';
 import { listRoutines } from '$lib/server/routines';
 import { createFigure } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
@@ -46,7 +46,7 @@ const call = (action: unknown, event: ReturnType<typeof post>) => (action as Inv
 let db: Db;
 
 beforeEach(() => {
-	db = openOwnedDb();
+	db = openDb(':memory:');
 	handle.db = db;
 });
 

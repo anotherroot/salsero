@@ -10,12 +10,12 @@ import { getRoutine, routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
 import { practiceStart } from '$lib/exercises/practice';
-import { danceOf, exerciseInWall, requireExerciseInWall, wallOf, inWall } from '$lib/server/scope';
+import { exerciseInWall, requireExerciseInWall, wallOf, inWall } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
-	const dance = danceOf(params);
 	const wall = wallOf(params, locals);
+	const dance = wall.dance;
 	const db = getDb();
 	const songId = Number(url.searchParams.get('song')) || null;
 	const bpm = Number(url.searchParams.get('bpm')) || null;

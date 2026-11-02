@@ -262,8 +262,14 @@ src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      ui/SearchField.svelte is the search pill, ui/FieldError.svelte the
                      line under a refused field
 src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, files
-src/lib/server/scope.ts  the dance wall at the route level: guards on params
-                     and ids, so a request only ever reaches its own dance
+src/lib/server/scope.ts  the wall at the route level: `Wall` ({ userId, dance }),
+                     `wallOf(params, locals)`, `inWall(row, wall)` and the
+                     `require*InWall` guards on ids, so a request only ever reaches
+                     its own person's side of its own dance. `danceOf` and
+                     `requirePositionInDance` are for the shared positions only
+src/lib/server/test-walls.ts  specs only: `U1_SALSA`, `U1_BACHATA`, `U2_SALSA`.
+                     `[dance]/owner-wall.spec.ts` and `api/owner-wall.spec.ts`
+                     act as u2 on u1's rows, area by area
 src/routes/[dance]/  every page lives under its dance. Flat routes — login,
                      settings, voice, api, the media servers — are shared
 src/routes/          pages + actions. api/figures/[id]/recordings and api/songs
@@ -405,6 +411,24 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   happens in the data-access layer — `src/lib/urgency/` and `src/lib/day/`
   never learn that dances exist. `video_spots`' own API is flat
   (`/api/video-spots`), like the media servers.
+- **A person is the wall inside the dance.** The root tables — `figure_groups`,
+  `figures`, `songs`, `exercises`, `lessons`, `routines`, `count_takes` —
+  carry `user_id`, set on every insert from the request's `Wall`
+  (`{ userId, dance }`, `wallOf(params, locals)` in `src/lib/server/scope.ts`).
+  Everything else (sets, recordings, lesson videos, spots, spot links, the
+  lesson join tables, links, video downloads, routine steps) derives its owner
+  through its parent, as it derives its dance. Data functions take a `Wall`
+  where they once took a dance, and filter by both; a comparison of two rows is
+  `inWall(row, wall)`, never `.dance` alone. Another person's id and a missing
+  one get the same 404 (in a form body inside one's own row, the same refusal a
+  missing id gets). Flat routes — `/api/video-spots*`, the uploads, and the
+  four media servers (`recordings`, `audio`, `count`, `lesson-videos`) — have
+  no dance in the URL, so they check the row's owner against `locals.user.id`
+  (`spotOwner`/`videoOwner` in `spots.ts` for spots). Positions are the one
+  exception: one shared list per dance, edited only by the admin. The worker's
+  queue (`/api/worker/*`) is global; a job's result lands on its own row, so
+  it belongs to whoever owns that row. See
+  [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md).
 - **`figures.style` is vestigial; `style_tag` is real.** Read by nothing,
   backfilled into `style_tag` by migration 0005. Do not drop it or widen
   `figures_style_ck` — see the CHECK rule above for why a rebuild here can't
