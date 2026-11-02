@@ -1,10 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises } from './db/schema';
+import { exercises, lessonExercises } from './db/schema';
 import { entryFor } from './entries';
 import { addFigureExercise, archiveVariation, createFigure, getFigure } from './figures';
-import { archiveLesson, createLesson, getLesson, linkFigure } from './lessons';
+import {
+	addLessonVideo,
+	archiveLesson,
+	createLesson,
+	getLesson,
+	linkFigure,
+	linkRoutine
+} from './lessons';
+import { addSpot } from './spots';
+import { linkInSpace } from './spot-links';
 import { archiveRoutine, createRoutine } from './routines';
 import { T1_SALSA, U1_SALSA } from './test-walls';
 
@@ -163,5 +172,79 @@ describe('archive cascades', () => {
 		archiveVariation(db, figureId, 2000);
 		expect(entryFor(db, 'u3', { figureId })!.archivedAt).toBe(1000);
 		expect(entryFor(db, 'u1', { figureId })!.archivedAt).toBe(2000);
+	});
+});
+
+describe('getLesson rows through other joins', () => {
+	// Catches: dropping entryJoin on the routine rows duplicates the routine or shows u1's everyDays.
+	it('holds one routine row, with the viewer’s exerciseId and everyDays', () => {
+		linkRoutine(db, lessonId, routineId);
+		const rows = getLesson(db, lessonId, 'u2')!.routines;
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({
+			exerciseId: entryFor(db, 'u2', { routineId })!.id,
+			everyDays: 5
+		});
+		expect(getLesson(db, lessonId, 'u3')!.routines[0].exerciseId).toBeNull();
+	});
+
+	// Catches: dropping entryJoin on the section-derived figure join duplicates the row or returns the other person's.
+	it('holds one row for a variation reached only through a section', () => {
+		const other = createFigure(db, T1_SALSA, {
+			figureName: 'Setenta',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		entry('u1', 'figure', other);
+		const mine = entry('u2', 'figure', other);
+		const video = addLessonVideo(db, { lessonId, file: 'l.mp4', mime: 'video/mp4', sizeBytes: 1 });
+		const spot = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 1000, endMs: 5000, label: 'X' }
+		)!;
+		linkInSpace(db, T1_SALSA, spot.id, { figureId: other });
+		const rows = getLesson(db, lessonId, 'u2')!.figures.filter((f) => f.id === other);
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({ byHand: false, exerciseId: mine.id });
+	});
+});
+
+describe('linkFigure and linkRoutine sweeps', () => {
+	// Catches: sweeping by target alone removes other people's hand links, or none of the owner's.
+	it('sweeps only the personal lesson owner’s entry out of lesson_exercises', () => {
+		const lesson = createLesson(db, U1_SALSA, {
+			lessonDay: '2026-09-23',
+			title: 'Mine',
+			notes: null
+		}).lesson.id;
+		const figure = createFigure(db, U1_SALSA, {
+			figureName: 'Own',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		const routine = createRoutine(db, U1_SALSA, { name: 'Own show', notes: null }).routine.id;
+		const hand = (exerciseId: number) =>
+			db.insert(lessonExercises).values({ lessonId: lesson, exerciseId }).run();
+		const stranger = entry('u2', 'figure', figure);
+		const mine = addFigureExercise(db, 'u1', figure)!;
+		const myRoutine = entryFor(db, 'u1', { routineId: routine })!;
+		const strangerRoutine = entry('u2', 'routine', routine);
+		for (const id of [mine.id, stranger.id, myRoutine.id, strangerRoutine.id]) hand(id);
+
+		expect(linkFigure(db, lesson, figure)).toBe(true);
+		expect(linkRoutine(db, lesson, routine)).toBe(true);
+
+		const left = db
+			.select({ id: lessonExercises.exerciseId })
+			.from(lessonExercises)
+			.where(and(eq(lessonExercises.lessonId, lesson)))
+			.all()
+			.map((r) => r.id);
+		expect(left.sort()).toEqual([stranger.id, strangerRoutine.id].sort());
 	});
 });

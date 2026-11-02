@@ -272,7 +272,7 @@ export function renameFigure(db: Db, groupId: number, name: string): boolean {
  * named with its label. Null for a missing or archived variation, one the
  * person cannot see, and one this person already has a live exercise for. An
  * archived entry of theirs comes back (the same row, so its sets stay) instead
- * of a second one. The only writer of `source: 'figure'`. The entry is always
+ * of a second one, keeping its old `everyDays` (the argument is ignored then). The only writer of `source: 'figure'`. The entry is always
  * the caller's, never the figure's owner's.
  */
 export function addFigureExercise(db: Db, userId: string, figureId: number, everyDays = 3) {
