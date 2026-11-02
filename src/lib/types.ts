@@ -529,3 +529,23 @@ export type StorageItem = {
 	archived: boolean;
 	href: string | null;
 };
+
+/** A person's role in a group. */
+export type Role = 'owner' | 'editor' | 'member';
+
+/** A person in a group's people list. */
+export interface Person {
+	id: string;
+	name: string;
+	role: Role;
+}
+
+/** One group in a person's list. `deletedAt` is only ever set for the owner. */
+export interface TeamItem {
+	id: number;
+	name: string;
+	dance: DanceSlug;
+	role: Role;
+	people: number;
+	deletedAt: number | null;
+}
