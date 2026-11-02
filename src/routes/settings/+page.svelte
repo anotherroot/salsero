@@ -208,6 +208,21 @@
 		</ul>
 	{/if}
 
+	{#if data.isAdmin}
+		<span class="{SECTION_LABEL} mt-[14px]">Admin</span>
+		<div class={GROUP}>
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+			<a href="/admin" class={ROW_TALL}>
+				<LeadTile icon="people" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">Admin</span>
+					<span class="text-[13px] text-muted">Invite someone</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		</div>
+	{/if}
+
 	<span class="{SECTION_LABEL} mt-[14px]">Account</span>
 	<div class={GROUP}>
 		<div class="{ROW} min-h-16 pr-1.5">

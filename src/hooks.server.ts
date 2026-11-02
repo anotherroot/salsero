@@ -17,6 +17,8 @@ import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
  */
 const PUBLIC_PATHS = new Set([
 	'/login',
+	// The invite's link carries its code in the query string, so the path is what is public.
+	'/join',
 	'/health',
 	'/manifest-salsa.webmanifest',
 	'/manifest-bachata.webmanifest',
@@ -77,7 +79,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (path.startsWith('/api/')) return new Response('Not signed in', { status: 401 });
 		throw redirect(303, `/login?next=${encodeURIComponent(path + event.url.search)}`);
 	}
-	if (event.locals.user && path === '/login') {
+	if (event.locals.user && (path === '/login' || path === '/join')) {
 		throw redirect(303, '/');
 	}
 

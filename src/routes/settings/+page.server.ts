@@ -40,6 +40,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const today = localDay(Date.now(), tz);
 	return {
 		dance,
+		isAdmin: locals.user.isAdmin,
 		defaultStyle: defaultStyle(db, locals.user.id, dance),
 		device: deviceSettings(db, locals.user.id),
 		devices: listDevices(db, locals.user.id).map((d) => ({

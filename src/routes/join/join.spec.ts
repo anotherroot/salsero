@@ -1,0 +1,94 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const handle = vi.hoisted(() => ({ db: undefined as unknown }));
+vi.mock('$lib/server/db', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
+	return { ...actual, getDb: () => handle.db };
+});
+
+import { openDb, type Db } from '$lib/server/db';
+import { sessions, users } from '$lib/server/db/schema';
+import { createInvite } from '$lib/server/invites';
+import { actions as adminActions, load as adminLoad } from '../admin/+page.server';
+import { actions, load } from './+page.server';
+
+let db: Db;
+beforeEach(() => {
+	db = openDb(':memory:');
+	handle.db = db;
+	db.insert(users)
+		.values({ id: 'admin', email: 'a@example.com', passwordHash: 'x', isAdmin: true })
+		.run();
+});
+
+const parent = async () => ({ lastDance: 'salsa' });
+
+function post(fields: Record<string, string>) {
+	const set = vi.fn();
+	return {
+		set,
+		event: {
+			request: new Request('http://localhost/join', {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams(fields)
+			}),
+			cookies: { set },
+			getClientAddress: () => '1.2.3.4',
+			url: new URL('http://localhost/join')
+		}
+	};
+}
+const run = (e: unknown) => (actions.default as (e: unknown) => Promise<unknown>)(e);
+
+describe('join', () => {
+	it('load: a dead code is invalid, a live one valid', async () => {
+		const url = (c: string) => new URL(`http://localhost/join?code=${c}`);
+		const dead = await (load as (e: unknown) => Promise<unknown>)({ url: url('x'), parent });
+		expect(dead).toMatchObject({ valid: false });
+		const { code } = createInvite(db, 'admin', Date.now());
+		const live = await (load as (e: unknown) => Promise<unknown>)({ url: url(code), parent });
+		expect(live).toMatchObject({ valid: true });
+	});
+
+	it('the action signs the new person in and redirects to /', async () => {
+		const { code } = createInvite(db, 'admin', Date.now());
+		const { event, set } = post({
+			code,
+			email: 'New@Example.com',
+			password: 'Correct-Horse-9',
+			timezone: 'UTC'
+		});
+		await expect(run(event)).rejects.toMatchObject({ status: 303, location: '/' });
+		expect(set).toHaveBeenCalledWith('salsa_session', expect.any(String), expect.anything());
+		expect(db.select().from(sessions).all()).toHaveLength(1);
+	});
+
+	it('a dead code gets the refusal and no account', async () => {
+		const { event } = post({ code: 'nope', email: 'n@example.com', password: 'Correct-Horse-9' });
+		const res = (await run(event)) as { status: number; data: { message: string } };
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('This invite no longer works. Ask for a new one.');
+		expect(db.select().from(users).all()).toHaveLength(1);
+	});
+});
+
+describe('admin', () => {
+	const as = (isAdmin: boolean) => ({
+		locals: { user: { id: 'admin', email: 'a@example.com', timezone: 'UTC', isAdmin } },
+		url: new URL('http://localhost/admin'),
+		parent
+	});
+	it('load is a 404 for a non-admin', async () => {
+		await expect((adminLoad as (e: unknown) => Promise<unknown>)(as(false))).rejects.toMatchObject({
+			status: 404
+		});
+	});
+	it('the invite action is a 404 for a non-admin and gives the admin a link and a QR', async () => {
+		const inv = adminActions.invite as (e: unknown) => Promise<unknown>;
+		await expect(inv(as(false))).rejects.toMatchObject({ status: 404 });
+		const r = (await inv(as(true))) as { url: string; qr: { size: number } };
+		expect(r.url).toMatch(/^http:\/\/localhost\/join\?code=[\w-]{43}$/);
+		expect(r.qr.size).toBeGreaterThan(20);
+	});
+});
