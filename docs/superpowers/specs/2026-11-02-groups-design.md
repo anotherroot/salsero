@@ -52,6 +52,8 @@ groups, across both dances, and drops into some only now and then.
 - Pooling storage (members giving some of theirs to a group), and the paid
   storage perk.
 - Moving an existing personal lesson into a group.
+- Using a group's figures, variations or routines in your own routines,
+  figures or lessons: that is "your moves across groups", the next step.
 - Shared songs. Songs stay personal.
 - Live updates while two people have the same page open. A change shows on
   the next open or refresh.
@@ -290,22 +292,51 @@ groups, across both dances, and drops into some only now and then.
   every person's and group's limit (the admin's own unlimited one aside)
   next to the free disk, so the admin sees it coming before raising anyone.
 
-## Not sure yet (options in the mockups)
+## Decided from the mockups (2026-11-02)
 
-1. **Where groups show in the Lessons tab:** a strip of group cards at the
-   top; filter chips (Mine · Salsa nadaljevalna · …) over one list; or one
-   "Groups" row that opens a list of groups.
-2. **What the Add sheet offers:** ticks per item; all or nothing; or a
-   lighter "Add" with the ticks behind "Choose…".
-3. **How a clash looks:** both versions side by side to pick from; the other
-   version above, yours below in an editable box; or a banner on the page
-   ("Ana changed this · Show") before you start typing.
-4. **A removed member (as against one who left):** keeps their added lessons
-   read-only like a leaver; or loses them, logs keeping the names.
-5. **What a member's Moves shows of a group:** only what their added lessons
-   hold; or everything in the group's published lessons.
-6. **How Today marks a group's practice:** a small group badge on the row; a
-   separate heading per group; or nothing.
+1. **Where groups live:** the user leans to a **Groups tab**, a fifth tab,
+   because a group has many pages (its lessons, people, code, History,
+   Recently deleted, storage). Drawn on the canvas; the fallback is one
+   "Groups" row at the top of the Lessons tab that opens the list of groups
+   (option C, the user's favourite of the three). A fifth tab fits: about
+   75 px each on the narrowest phone, and the app had five tabs before the
+   redesign.
+2. **Add sheet:** ticks per item, all on (option A). The figures are listed
+   too, **unticked**: a tick only decides what goes on Today, never what is
+   visible. An unticked figure and its sections still show in the lesson.
+3. **A clash:** *(my call; the user found all three fine)* the other
+   version above, yours below in an editable box (option B). Also: a link
+   to a figure renamed meanwhile shows the new name (links point at the
+   row); a link to one archived meanwhile is refused, "Archived by Ana",
+   with Restore or pick another.
+4. **A removed member:** *(my call)* keeps their added lessons read-only,
+   like one who left (option A).
+5. **Moves:** no Group / Mine toggle. Your figures, then each group's
+   figures from the lessons you added, under a slight group heading
+   (option A's content, the user's wish for no toggle). In this step group
+   figures are viewed and practised only; using them in your own routines
+   comes with "your moves across groups" (below).
+6. **Today:** a heading per group (option B).
+
+## Next step: your moves across groups
+
+Not in this step; its own design right after. Agreed in the brainstorm:
+
+- **"Same as…"** on any figure or variation a person can see, their own or a
+  group's, links it to another: figure with figure (one school's "Setenta"
+  is another's "Sombrero"), variation with variation. Moves then shows the
+  set as one row under the name the person picks, each school's variations
+  side by side; routines, the gap report and coverage count it as one move.
+- It is **personal first**: it changes nothing in the group, and two people
+  can see it differently. Later, a group's editors can **suggest** it to
+  their members.
+- Leaving a group freezes that group's members of a person's sets into
+  their own copies (no videos, no storage), so nothing breaks.
+- **Positions** get "same as" too, plus **"a finer version of"** (the
+  sub-position idea: connects as its parent). The shared base list per
+  dance stays, so groups connect without everyone mapping everything.
+- The figures table is not remodelled: "same as" is a new link on top
+  (the table cannot be rebuilt; `CLAUDE.md`).
 
 ## Constraints from the project
 
