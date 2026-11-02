@@ -20,7 +20,12 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	};
 };
 
-/** The GB the admin picked (a preset button) or typed; undefined when it is not a positive number. */
+/**
+ * The limit in GB. A preset button the admin pressed (`preset`) is explicit and
+ * wins over whatever is typed; with no preset, the typed `gb` is used (Enter in
+ * the field sends only `gb`, since the form's first submit is an unnamed one).
+ * undefined when it is not a positive number.
+ */
 function limitFrom(form: FormData): number | undefined {
 	const raw = String(form.get('preset') || form.get('gb') || '').trim();
 	if (raw === '') return undefined;

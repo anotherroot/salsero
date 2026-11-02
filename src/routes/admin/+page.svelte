@@ -16,6 +16,7 @@
 	let { data }: { data: PageData } = $props();
 	let person = $state<PageData['people'][number] | null>(null);
 	let formError = $state('');
+	let requestErrors = $state<Record<number, string>>({});
 	let sending = $state(false);
 
 	let invite = $state<{ url: string; qr: { size: number; cells: boolean[] } } | null>(null);
@@ -39,6 +40,8 @@
 </script>
 
 {#snippet limitFields()}
+	<!-- Enter in the number field presses the first submit button: this unnamed one, so only gb is sent -->
+	<button type="submit" class="sr-only" tabindex="-1" aria-hidden="true">Set</button>
 	<div class="flex flex-wrap gap-2">
 		{#each LIMIT_PRESETS_GB as gb (gb)}
 			<button type="submit" name="preset" value={gb} class={button('secondary', 'sm')}>
@@ -79,10 +82,10 @@
 						submit: ({ cancel }) => {
 							if (sending) return cancel();
 							sending = true;
-							formError = '';
+							requestErrors[r.id] = '';
 							return async ({ result, update }) => {
 								if (result.type === 'failure')
-									formError = String(result.data?.message ?? 'It did not save.');
+									requestErrors[r.id] = String(result.data?.message ?? 'It did not save.');
 								try {
 									await update();
 								} finally {
@@ -104,10 +107,10 @@
 					use:enhance={({ cancel }) => {
 						if (sending) return cancel();
 						sending = true;
-						formError = '';
+						requestErrors[r.id] = '';
 						return async ({ result, update }) => {
 							if (result.type === 'failure')
-								formError = String(result.data?.message ?? 'It did not save.');
+								requestErrors[r.id] = String(result.data?.message ?? 'It did not save.');
 							try {
 								await update();
 							} finally {
@@ -119,9 +122,9 @@
 					<input type="hidden" name="id" value={r.id} />
 					<button type="submit" class={button('tertiary', 'md', true)}>Decline</button>
 				</form>
+				{#if requestErrors[r.id]}<Banner kind="error" title={requestErrors[r.id]} />{/if}
 			</div>
 		{/each}
-		{#if formError}<Banner kind="error" title={formError} />{/if}
 	{/if}
 
 	<span class={SECTION_LABEL}>Invite someone</span>

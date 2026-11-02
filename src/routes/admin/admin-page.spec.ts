@@ -103,3 +103,16 @@ describe('admin page', () => {
 		});
 	});
 });
+
+describe('admin page: preset or typed', () => {
+	it('a pressed preset wins over a typed number; Enter (gb alone) uses the number', async () => {
+		askForMore(db, 'p', null, 1);
+		const id = String(db.select().from(storageRequests).all()[0].id);
+		expect(await act('setLimit', ev(true, { userId: 'p', preset: '2', gb: '8' }))).toEqual({
+			ok: true
+		});
+		expect(storageOf(db, 'p').limitBytes).toBe(2 * GB);
+		expect(await act('grant', ev(true, { id, gb: '8' }))).toEqual({ ok: true });
+		expect(storageOf(db, 'p').limitBytes).toBe(8 * GB);
+	});
+});
