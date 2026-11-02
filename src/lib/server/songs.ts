@@ -397,7 +397,7 @@ export function deleteSong(
 	db: Db,
 	userId: string,
 	id: number
-): { ok: true; file: string | null } | { ok: false; usedBy: string[] } | null {
+): { ok: true; file: string | null } | { ok: false; usedBy: string[]; busy?: true } | null {
 	return db.transaction((tx) => {
 		const song = tx
 			.select()
@@ -405,6 +405,10 @@ export function deleteSong(
 			.where(and(eq(songs.id, id), eq(songs.userId, userId)))
 			.get();
 		if (!song) return null;
+		// The worker is still on it: it would write into a row that is gone.
+		if ((WAITING as readonly string[]).includes(song.status)) {
+			return { ok: false as const, usedBy: [], busy: true as const };
+		}
 		const users = tx
 			.select({ name: exercises.name, archivedAt: exercises.archivedAt })
 			.from(exercises)

@@ -11,6 +11,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
+import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import {
@@ -153,6 +154,7 @@ describe('removing a phone and Undo', () => {
 
 describe('ask for more', () => {
 	it('opens one request per person and says when one is waiting', async () => {
+		db.update(users).set({ storageLimitBytes: 1000 }).where(eq(users.id, 'u1')).run();
 		expect(await call(actions.ask, post({ note: 'hi' }))).toMatchObject({ asked: true });
 		expect(await call(actions.ask, post({ note: 'again' }))).toMatchObject({ asked: false });
 		const data = (await (load as (e: unknown) => unknown)(post({}))) as {
@@ -160,6 +162,16 @@ describe('ask for more', () => {
 			storage: unknown;
 		};
 		expect(data.asked).toMatch(/waiting$/);
-		expect(data.storage as object).toMatchObject({ limitBytes: null });
+		expect(data.storage as object).toMatchObject({ limitBytes: 1000 });
+	});
+});
+
+describe('ask for more with no limit', () => {
+	it('is refused, opening nothing', async () => {
+		const res = (await call(actions.ask, post({ note: 'hi' }))) as { status?: number };
+		// u1 in this spec has no limit set
+		expect(res.status).toBe(400);
+		const data = (await (load as (e: unknown) => unknown)(post({}))) as { asked: string | null };
+		expect(data.asked).toBeNull();
 	});
 });

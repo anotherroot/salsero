@@ -88,7 +88,9 @@ export const actions: Actions = {
 			return fail(409, {
 				action: 'deleteSong',
 				id,
-				message: `Used by: ${res.usedBy.join(', ')}. Remove it there first.`
+				message: res.busy
+					? 'This song is still being prepared. Try again in a few minutes.'
+					: `Used by: ${res.usedBy.join(', ')}. Remove it there first.`
 			});
 		}
 		if (res.file) await unlink(join(audioDir(), res.file)).catch(() => {});

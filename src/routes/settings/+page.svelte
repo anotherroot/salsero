@@ -7,7 +7,16 @@
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { focusAfterRemoval } from '$lib/focus';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { CLIP, GROUP, ROW, ROW_TALL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import {
+		CLIP,
+		GROUP,
+		LABEL,
+		ROW,
+		ROW_TALL,
+		SECTION_LABEL,
+		TEXTAREA,
+		button
+	} from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
 	import { clockLabel } from '$lib/clock';
@@ -15,8 +24,8 @@
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
-	import { TEXTAREA, LABEL } from '$lib/components/ui/styles';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
 	import { THEME_CHOICES, THEME_LABEL, showChoice, type ThemeChoice } from '$lib/theme/scheme';
 	import type { ActionResult } from '@sveltejs/kit';
@@ -42,6 +51,7 @@
 
 	let sheet = $state<'style' | 'size' | 'theme' | 'ask' | null>(null);
 	let asking = $state(false);
+	let askError = $state('');
 
 	const themeOptions = THEME_CHOICES.map((t) => ({ value: t, label: THEME_LABEL[t] }));
 
@@ -343,11 +353,14 @@
 			label: 'Ask for more',
 			submit: ({ cancel }) => {
 				if (asking) return cancel();
+				askError = '';
 				asking = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
+					askError =
+						result.type === 'failure' ? String(result.data?.message ?? 'Could not ask.') : '';
 					try {
 						await update();
-						sheet = null;
+						if (result.type === 'success') sheet = null;
 					} finally {
 						asking = false;
 					}
@@ -355,6 +368,7 @@
 			}
 		}}
 	>
+		{#if askError}<Banner kind="error" title={askError} />{/if}
 		<p class="text-[14px] text-muted">The admin sees how much you use. A note is optional.</p>
 		<label class="block">
 			<span class={LABEL}>Note</span>

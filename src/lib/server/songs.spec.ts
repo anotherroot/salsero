@@ -465,8 +465,16 @@ describe('recent songs skip what the picker will not show', () => {
 });
 
 describe('deleteSong', () => {
-	const mk = (wall = U1_SALSA, file = 's.mp3') =>
-		createSongFromUpload(db, wall, { file, mime: 'audio/mpeg', title: 'T', style: 'son' });
+	const mk = (wall = U1_SALSA, file = 's.mp3') => {
+		const s = createSongFromUpload(db, wall, {
+			file,
+			mime: 'audio/mpeg',
+			title: 'T',
+			style: 'son'
+		});
+		db.update(songs).set({ status: 'ready' }).where(eq(songs.id, s.id)).run();
+		return s;
+	};
 	const exercise = (songId: number, name: string, archivedAt: number | null) =>
 		db
 			.insert(exercises)
@@ -486,6 +494,13 @@ describe('deleteSong', () => {
 		const s = mk();
 		expect(deleteSong(db, 'u2', s.id)).toBeNull();
 		expect(deleteSong(db, 'u1', 999)).toBeNull();
+		expect(getSong(db, s.id)).not.toBeNull();
+	});
+
+	it('is refused with busy while the worker is still on it', () => {
+		const s = mk();
+		db.update(songs).set({ status: 'waiting_analysis' }).run();
+		expect(deleteSong(db, 'u1', s.id)).toEqual({ ok: false, usedBy: [], busy: true });
 		expect(getSong(db, s.id)).not.toBeNull();
 	});
 

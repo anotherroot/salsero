@@ -65,6 +65,9 @@ export const actions: Actions = {
 	/** An optional note to the admin; one open request per person. */
 	ask: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
+		if (storageOf(getDb(), locals.user.id).limitBytes === null) {
+			return fail(400, { message: 'You have no limit, so there is nothing to ask for.' });
+		}
 		const note = optionalText(await request.formData(), 'note', 500);
 		if (note === undefined) return fail(400, { message: 'Keep the note under 500 characters.' });
 		const res = askForMore(getDb(), locals.user.id, note, Date.now());

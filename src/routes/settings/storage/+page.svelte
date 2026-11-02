@@ -52,15 +52,9 @@
 		<BandButton icon="back" label="Back to Settings" href="/settings" />
 	{/snippet}
 
-	<p class="px-4 text-[15px] font-semibold text-ink">
-		{usageLine(data.storage.usedBytes, data.storage.limitBytes)}
-	</p>
-	<p class="px-4 text-[15px] font-semibold text-ink">
-		{usageLine(data.storage.usedBytes, data.storage.limitBytes)}
-	</p>
 	{#if data.storage.limitBytes !== null}
 		<div
-			class="{CLIP} h-2 rounded-full bg-chip"
+			class="{CLIP} mx-4 h-2 rounded-full bg-chip"
 			role="meter"
 			aria-label="Space used"
 			aria-valuemin={0}
@@ -95,7 +89,10 @@
 						{#if deletable(item)}
 							<form method="POST" action="?/{ACTION[item.kind]}" use:enhance={remove(item)}>
 								<input type="hidden" name="id" value={item.id} />
-								<button class={button('danger-text', 'sm')} aria-label="Delete {item.title}">
+								<button
+									class={button('danger-text', 'sm')}
+									aria-label="Delete {item.title}, {item.context}"
+								>
 									Delete
 								</button>
 							</form>
