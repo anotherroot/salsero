@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { messageFromBody } from '$lib/upload-error';
 	import { invalidateAll } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { track } from '$lib/unsaved/guard.svelte';
@@ -100,12 +101,7 @@
 
 	/** A server message, as a phrase that reads inside brackets after a filename. */
 	function reasonFrom(status: number, body: string): string {
-		let text = body;
-		try {
-			text = JSON.parse(body).message ?? body;
-		} catch {
-			/* plain-text error body */
-		}
+		const text = messageFromBody(body);
 		return (text || `the server said ${status}`).replace(/\.$/, '');
 	}
 

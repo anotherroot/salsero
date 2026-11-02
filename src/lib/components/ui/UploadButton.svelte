@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { uploadFailure } from '$lib/upload-error';
 	import { invalidateAll } from '$app/navigation';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import { MAX_RECORDING_LABEL } from '$lib/limits';
@@ -83,18 +84,11 @@
 				await invalidateAll();
 				return;
 			}
-			let text = xhr.responseText;
-			try {
-				text = JSON.parse(text).message ?? text;
-			} catch {
-				/* plain-text error body */
-			}
-			message = {
-				title:
-					xhr.status === 413
-						? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
-						: text || 'Upload failed.'
-			};
+			const fallback =
+				xhr.status === 413
+					? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
+					: 'Upload failed.';
+			message = { title: uploadFailure(xhr.responseText, fallback) };
 		};
 		xhr.onerror = () => {
 			progress = null;

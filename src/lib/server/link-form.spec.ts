@@ -118,6 +118,31 @@ describe('saveVideoFrom and retryVideoFrom', () => {
 		expect(listLinks(db, { figureId })[0].saving).toBeFalsy();
 	});
 
+	it('refuses a retry when the person is already over the limit', async () => {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u1@example.com', passwordHash: 'x', storageLimitBytes: 0 })
+			.run();
+		const id = linkOf('https://youtu.be/dQw4w9WgXcQ');
+		const f = createFigure(db, U1_SALSA, {
+			figureName: 'X',
+			name: 'Y',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!;
+		addRecording(db, {
+			figureId: f.figure.id,
+			file: 'x.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 1,
+			note: null
+		});
+		expect(
+			await retryVideoFrom(form({ linkId: String(id) }), db, { figureId }, 'u1')
+		).toMatchObject({ status: 413, data: { action: 'retryVideo' } });
+	});
+
 	it('queues a YouTube link, and retries it once it failed', async () => {
 		const id = linkOf('https://youtu.be/dQw4w9WgXcQ');
 		expect(await saveVideoFrom(form({ linkId: String(id) }), db, { figureId }, 'u1')).toMatchObject(

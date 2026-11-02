@@ -38,7 +38,7 @@ keep going) and the Link popup (link a section, or create the
 variation, figure or drill it shows, from the lesson page or the player; a
 lesson includes what its videos' sections link to) and the redesign (the band and four tabs: Today, Moves, Lessons,
 Music; one look in four themes from `tokens.ts`; the shared components in `components/ui/`;
-designed error pages).
+designed error pages) and accounts (one-time invites from the admin, a person's own private app, a storage limit with What uses space and Ask for more, an admin page).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -95,6 +95,10 @@ The look and the four tabs have theirs,
 the colour tokens in four themes, type, icons, the shared components, the band,
 and the Today / Moves / Lessons / Music tab bar. The design board it comes from
 is in `docs/superpowers/design-kit/`.
+Accounts have theirs,
+[`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md):
+the owner wall, one-time invites and Join, the storage limit and what counts
+against it, What uses space, Ask for more, and the admin page.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -239,6 +243,15 @@ src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByD
 src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed paired phone, a
                      deleted voice take); a take's wav is unlinked when its hold expires
 src/lib/server/request-user.ts  where a device token may sign in: /api/ only
+src/lib/server/storage.ts  what a person uses (computed from size columns, never stored), `roomFor`
+                     (refuses at or over the limit), and `listStorageItems` for What uses space
+src/lib/server/invites.ts  one-time invites and joining with one
+src/routes/admin/    the admin page: people, limits, invites, requests for more space
+src/routes/join/     Join: a person creates their account from an invite link (public)
+src/routes/settings/storage/  What uses space: the person's files biggest first, Delete, Ask for more
+src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe
+src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
+src/lib/upload-error.ts  PURE: the message in a failed upload's body, or a fallback. Client-safe
 src/lib/scheduler/attach.ts  the impure player: AudioContext, clips, the
                      25 ms look-ahead loop, speechSynthesis, the wake lock
 src/lib/voice/       wav.ts and slice.ts are PURE (WAV bytes, where a recorded
@@ -310,18 +323,20 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for the
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
-- **Archive, don't delete.** Figures and exercises get `archived_at`; songs (only from Settings → What uses space, `deleteSong`: refused while a live exercise uses it, archived ones lose `song_id`), sets,
-  recordings, links, spots (`video_spots`, deleted with their video), section
-  links (`spot_links`, deleted on unlink) and
-  saves in flight (`video_downloads`, deleted with their link, or when the
-  link becomes a video) are the only hard deletes. A variation's exercise is
-  opt-in (`addFigureExercise`); when one exists it is renamed and archived
-  WITH its variation, in one transaction (`src/lib/server/figures.ts`). A linked
-  spot, and the video it is on, cannot be deleted until it is unlinked —
-  archived targets included (`assertUnlinked` in `src/lib/server/spot-links.ts`).
-  A removed paired phone and a deleted voice take come back with Undo for a
-  minute: both are deleted at once and kept in an in-memory hold
-  (`src/lib/server/undo-hold.ts`); a take's file is unlinked when its hold expires.
+- **Archive, don't delete.** Figures and exercises get `archived_at`; songs
+  (only from Settings → What uses space, `deleteSong`: refused while a live
+  exercise uses it, archived ones lose `song_id`), sets, recordings, links,
+  spots (`video_spots`, deleted with their video), section links (`spot_links`,
+  deleted on unlink) and saves in flight (`video_downloads`, deleted with their
+  link, or when the link becomes a video) are the only hard deletes. A
+  variation's exercise is opt-in (`addFigureExercise`); when one exists it is
+  renamed and archived WITH its variation, in one transaction
+  (`src/lib/server/figures.ts`). A linked spot, and the video it is on, cannot
+  be deleted until it is unlinked — archived targets included (`assertUnlinked`
+  in `src/lib/server/spot-links.ts`). A removed paired phone and a deleted voice
+  take come back with Undo for a minute: both are deleted at once and kept in an
+  in-memory hold (`src/lib/server/undo-hold.ts`); a take's file is unlinked when
+  its hold expires.
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
   components and never branch on it.

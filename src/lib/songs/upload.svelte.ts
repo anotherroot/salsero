@@ -1,6 +1,7 @@
 import { invalidateAll } from '$app/navigation';
 import type { DanceSlug } from '$lib/dances/dances';
 import { MAX_RECORDING_LABEL } from '$lib/limits';
+import { uploadFailure } from '$lib/upload-error';
 import { track } from '$lib/unsaved/guard.svelte';
 
 /*
@@ -70,14 +71,11 @@ export function startSongUpload(file: File, dance: DanceSlug, style: string): vo
 			}
 			return;
 		}
-		if (xhr.status === 413) return fail(`That file is too large (limit ${MAX_RECORDING_LABEL}).`);
-		let text = xhr.responseText;
-		try {
-			text = JSON.parse(text).message ?? text;
-		} catch {
-			/* plain-text error body */
-		}
-		fail(text || 'Upload failed.');
+		const fallback =
+			xhr.status === 413
+				? `That file is too large (limit ${MAX_RECORDING_LABEL}).`
+				: 'Upload failed.';
+		fail(uploadFailure(xhr.responseText, fallback));
 	};
 	xhr.onerror = () => fail('Upload failed — check the connection and try again.');
 	xhr.send(file);

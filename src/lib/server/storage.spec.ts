@@ -173,7 +173,7 @@ describe('listStorageItems', () => {
 			title: 'Lesson video',
 			context: 'Lesson · 15 salsa cubana moves'
 		});
-		expect(items[2]).toMatchObject({ context: 'Enchufla · Basic', archived: true });
+		expect(items[2]).toMatchObject({ context: 'Enchufla · Basic', archived: true, href: null });
 		expect(items[3]).toMatchObject({ id: null, href: '/voice', archived: false });
 		expect(items[0].href).toBe(`/salsa/lessons/${lesson.id}`);
 	});

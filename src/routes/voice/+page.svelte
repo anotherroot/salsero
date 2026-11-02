@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { uploadFailure } from '$lib/upload-error';
 	import { page } from '$app/state';
 	import { act } from '$lib/act';
 	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
@@ -194,7 +195,7 @@
 			},
 			body: encodeWav(take.frames, take.sampleRate) as BodyInit
 		});
-		if (!res.ok) throw new Error(await res.text());
+		if (!res.ok) throw new Error(uploadFailure(await res.text(), 'Upload failed.'));
 	}
 
 	/** Upload the chosen bars. True when they all landed. */

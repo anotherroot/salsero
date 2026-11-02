@@ -44,7 +44,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 
 	// Already finished: the client lost our 201 and is asking again. Answer the
 	// same row, or it would upload the whole video a second time as a new one.
-	const done = join(uploadsDir(), `${params.uploadId}.done`);
+	const done = join(uploadsDir(), `${lessonId}-${params.uploadId}.done`);
 	const finished = await readFile(done, 'utf8').then(
 		(text) => JSON.parse(text) as unknown,
 		() => null
@@ -65,7 +65,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		if (!room.ok) return fail(413, room.message);
 	}
 
-	const partial = join(uploadsDir(), `${params.uploadId}.part`);
+	const partial = join(uploadsDir(), `${lessonId}-${params.uploadId}.part`);
 	const chunk = await writeChunk(request, partial, MAX_LESSON_VIDEO_BYTES, {
 		notVideo: 'Only video files can be added to a lesson.',
 		tooLarge: `That video is bigger than the ${MAX_LESSON_VIDEO_LABEL} limit.`

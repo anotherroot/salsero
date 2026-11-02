@@ -21,6 +21,7 @@ import {
 import { TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { requireSongInWall, wallOf } from '$lib/server/scope';
+import { roomFor } from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -154,6 +155,8 @@ export const actions: Actions = {
 	},
 
 	retry: ({ params, locals }) => {
+		const room = roomFor(getDb(), wallOf(params, locals).userId, 1);
+		if (!room.ok) return fail(413, { action: 'retry' as const, message: room.message });
 		if (!retrySong(getDb(), songOf(params, locals).id)) {
 			return fail(409, { action: 'retry' as const, message: 'Only a failed song can be retried.' });
 		}

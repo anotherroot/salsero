@@ -28,7 +28,8 @@ import {
 	getSong,
 	listSongs,
 	storeAnalysis,
-	storeFetchedAudio
+	storeFetchedAudio,
+	failJob
 } from '$lib/server/songs';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
@@ -293,5 +294,32 @@ describe('Add a song when the person is at the storage limit', () => {
 			)
 		).toMatchObject({ status: 413, data: { field: 'url' } });
 		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
+	});
+});
+
+describe('Retry a song when the person is at the storage limit', () => {
+	function failedSong() {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u@example.com', passwordHash: 'x', storageLimitBytes: 0 })
+			.run();
+		const song = createSongFromUrl(db, U1_SALSA, {
+			url: 'https://youtu.be/dQw4w9WgXcQ',
+			title: 'T',
+			style: 'son'
+		});
+		failJob(db, song.id, 'boom', true);
+		return song.id;
+	}
+
+	it('is refused with 413 from the list and from the song page', async () => {
+		const id = failedSong();
+		expect(await call(songList.actions.retry, post('salsa', { id: String(id) }))).toMatchObject({
+			status: 413
+		});
+		expect(await call(songPage.actions.retry, post('salsa', {}, String(id)))).toMatchObject({
+			status: 413,
+			data: { action: 'retry' }
+		});
+		expect(getSong(db, id)?.status).toBe('failed');
 	});
 });

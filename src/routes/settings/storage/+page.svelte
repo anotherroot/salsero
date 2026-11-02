@@ -78,14 +78,23 @@
 			{#each data.items as item (key(item))}
 				<li>
 					<div class="flex min-h-16 items-center gap-3 py-2 pr-1.5 pl-4">
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- hrefs carry their own dance -->
-						<a href={item.href} class="flex min-w-0 flex-1 flex-col" data-focus={key(item)}>
+						{#snippet label()}
 							<span class="flex items-center gap-2">
 								<span class="truncate text-[16px] font-bold text-ink">{item.title}</span>
 								{#if item.archived}<Badge>archived</Badge>{/if}
 							</span>
 							<span class="truncate text-[13px] text-muted">{itemMeta(item)}</span>
-						</a>
+						{/snippet}
+						{#if item.href}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- hrefs carry their own dance -->
+							<a href={item.href} class="flex min-w-0 flex-1 flex-col" data-focus={key(item)}>
+								{@render label()}
+							</a>
+						{:else}
+							<div class="flex min-w-0 flex-1 flex-col" data-focus={key(item)} tabindex="-1">
+								{@render label()}
+							</div>
+						{/if}
 						{#if deletable(item)}
 							<form method="POST" action="?/{ACTION[item.kind]}" use:enhance={remove(item)}>
 								<input type="hidden" name="id" value={item.id} />

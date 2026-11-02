@@ -164,7 +164,10 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 			context: `${r.figure} · ${r.name}`,
 			sizeBytes: r.size,
 			archived: r.figureArchived !== null || r.groupArchived !== null,
-			href: `/${r.dance}/figures/${r.figureId}`
+			href:
+				r.figureArchived !== null || r.groupArchived !== null
+					? null
+					: `/${r.dance}/figures/${r.figureId}`
 		});
 	}
 
@@ -189,7 +192,7 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 			context: `Lesson · ${v.title}`,
 			sizeBytes: v.size,
 			archived: v.archived !== null,
-			href: `/${v.dance}/lessons/${v.lessonId}`
+			href: v.archived !== null ? null : `/${v.dance}/lessons/${v.lessonId}`
 		});
 	}
 
@@ -206,7 +209,7 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 			context: s.artist ? `Song · ${s.artist}` : 'Song',
 			sizeBytes: s.sizeBytes ?? 0,
 			archived: s.archivedAt !== null,
-			href: `/${s.dance}/songs/${s.id}`
+			href: s.archivedAt !== null ? null : `/${s.dance}/songs/${s.id}`
 		});
 	}
 

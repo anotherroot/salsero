@@ -62,6 +62,9 @@ export const actions: Actions = {
 		// re-queue — and, through its 409, confirm the existence of — a song on
 		// the other side of the wall.
 		requireSongInWall(getDb(), wall, id);
+		// A retry downloads again: refused at or over the limit, as addUrl is.
+		const room = roomFor(getDb(), wall.userId, 1);
+		if (!room.ok) return fail(413, { message: room.message });
 		if (!retrySong(getDb(), id))
 			return fail(409, { message: 'Only a failed song can be retried.' });
 		return { ok: true };
