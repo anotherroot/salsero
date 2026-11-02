@@ -37,7 +37,7 @@ import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
-import { U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -607,3 +607,40 @@ describe('figure groups stay consistent', () => {
 function getGroupRow(id: number) {
 	return db.select().from(figureGroups).where(eq(figureGroups.id, id)).get()!;
 }
+
+describe('in a group', () => {
+	const input = { name: 'Basic', partner: 'partner' as const, style: 'salsa', notes: null };
+
+	it('creates a figure owned by the team alone, out of the person’s lists', () => {
+		const db = openDb(':memory:');
+		const made = createFigure(db, T1_SALSA, { ...input, figureName: 'Enchufla' })!;
+		expect(made.group).toMatchObject({ userId: null, teamId: 1 });
+		expect(made.figure).toMatchObject({ userId: null, teamId: 1 });
+		const doble = createVariationIn(db, made.group.id, { ...input, name: 'Doble' })!;
+		expect(doble).toMatchObject({ userId: null, teamId: 1 });
+		expect(listFigures(db, U1_SALSA)).toEqual([]);
+		expect(listVersions(db, U1_SALSA)).toEqual([]);
+		expect(listFigures(db, T1_SALSA).map((f) => f.name)).toEqual(['Enchufla']);
+		// The name is the team's: the person may use it too.
+		expect(createFigure(db, U1_SALSA, { ...input, figureName: 'Enchufla' })).not.toBeNull();
+		expect(createFigure(db, T1_SALSA, { ...input, figureName: 'enchufla' })).toBeNull();
+	});
+
+	it('moves a variation only within its own space', () => {
+		const db = openDb(':memory:');
+		const team = createFigure(db, T1_SALSA, { ...input, figureName: 'Enchufla' })!;
+		const mine = createFigure(db, U1_SALSA, { ...input, figureName: 'Setenta' })!;
+		expect(moveVariation(db, team.figure.id, { groupId: mine.group.id })).toEqual({
+			ok: false,
+			reason: 'gone'
+		});
+		const moved = moveVariation(db, team.figure.id, { newFigure: 'Setenta' });
+		expect(moved).toMatchObject({ ok: true });
+		const g = db
+			.select()
+			.from(figureGroups)
+			.where(eq(figureGroups.id, (moved as { groupId: number }).groupId))
+			.get();
+		expect(g).toMatchObject({ userId: null, teamId: 1 });
+	});
+});

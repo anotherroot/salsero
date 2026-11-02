@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { figures } from './db/schema';
+import { exercises, figures } from './db/schema';
 import { createCustomExercise, getExercise, logSet } from './exercises';
 import { addFigureExercise, createFigure, createVariationFrom } from './figures';
 import { addLessonVideo, createLesson, linkFigure } from './lessons';
@@ -11,7 +11,7 @@ import { addLinks } from './links';
 import { addFigureSlot, createRoutine } from './routines';
 import { practicePayload } from './practice-content';
 import { noonOf } from '$lib/day/day';
-import { U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 
 const TZ = 'Europe/Ljubljana';
 let db: Db;
@@ -180,5 +180,40 @@ describe('practicePayload sections', () => {
 		const drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null });
 		linkSpot(db, 'u1', section(), { exerciseId: drill.id });
 		expect(sectionsOf(practicePayload(db, drill, TZ, Date.now()).content)).toHaveLength(1);
+	});
+});
+
+describe('practicePayload for an entry of a group', () => {
+	// u2's own exercise row, pointing at the group's routine or figure.
+	const entry = (values: { source: 'routine' | 'figure'; routineId?: number; figureId?: number }) =>
+		db
+			.insert(exercises)
+			.values({ name: 'entry', userId: 'u2', dance: 'salsa', ...values })
+			.returning()
+			.get();
+
+	it("reads a group routine's slots in the group's space", () => {
+		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
+		const { routine } = createRoutine(db, T1_SALSA, { name: 'Group', notes: null });
+		addFigureSlot(db, routine.id, figure.id);
+		const content = practicePayload(
+			db,
+			entry({ source: 'routine', routineId: routine.id }),
+			TZ,
+			Date.now()
+		).content;
+		expect(content).toMatchObject({ type: 'routine', slots: [{ names: ['Enchufla · Basic'] }] });
+	});
+
+	it('names a group figure by its label', () => {
+		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
+		const doble = createVariationFrom(db, figure.id, 'Doble')!;
+		const content = practicePayload(
+			db,
+			entry({ source: 'figure', figureId: doble.id }),
+			TZ,
+			Date.now()
+		).content;
+		expect(content.type === 'figure' && content.figure.name).toBe('Enchufla · Doble');
 	});
 });

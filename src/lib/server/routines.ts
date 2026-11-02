@@ -13,11 +13,18 @@
  */
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, figures, routineStepOptions, routineSteps, routines } from './db/schema';
+import {
+	exercises,
+	figures,
+	routineStepOptions,
+	routineSteps,
+	routines,
+	type Exercise,
+	type Routine
+} from './db/schema';
 import { buildGraph } from './graph';
-import { inWall, type Wall } from './scope';
+import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
-import type { DanceSlug } from '$lib/dances/dances';
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { PickRoutine, RoutineItem, SlotRow } from '$lib/types';
@@ -48,38 +55,40 @@ export interface RoutineInput {
 	name: string;
 	notes: string | null;
 }
-/** The routines of this wall, as a where clause. */
-function inWallOf(wall: Wall) {
-	return and(eq(routines.dance, wall.dance), eq(routines.userId, wall.userId));
-}
+/**
+ * The space a routine row stands in, for the figure graph and the routines it
+ * is read against. Only its owner is read: no one acts through it.
+ */
+const ownerSpace = (routine: { dance: string; userId: string | null; teamId: number | null }) =>
+	spaceOfRow(routine, '');
 
-/** The wall a routine row stands in, for the figure graph it is read against. */
-function routineWall(routine: { dance: string; userId: string | null }): Wall {
-	return { dance: routine.dance as DanceSlug, userId: routine.userId ?? '' };
-}
+/** A new routine, and the exercise a person's comes with; a group's has none. */
+type Made = { routine: Routine; exercise: Exercise | null };
 
 /**
- * The routine row and its exercise, inside a caller's transaction.
+ * The routine row and, in a person's space, its exercise, inside a caller's
+ * transaction. A group's routine gets no exercise of its own: nobody would
+ * practise it, and each member's Add makes theirs.
  *
  * `source: 'routine'` and `routineId` are set as a pair. There is no CHECK
  * pairing them (see `schema.ts`); this function is the enforcement, and it is
  * the only thing that ever writes `exercises.routine_id`.
  */
-function insertRoutine(tx: Tx, wall: Wall, input: RoutineInput, everyDays: number) {
-	const { dance, userId } = wall;
+function insertRoutine(tx: Tx, space: Space, input: RoutineInput, everyDays: number): Made {
 	const routine = tx
 		.insert(routines)
-		.values({ ...input, dance, userId })
+		.values({ ...input, ...ownerValues(space) })
 		.returning()
 		.get();
+	if (isTeam(space)) return { routine, exercise: null };
 	const exercise = tx
 		.insert(exercises)
 		.values({
 			name: routine.name,
 			source: 'routine',
 			routineId: routine.id,
-			dance,
-			userId,
+			dance: space.dance,
+			userId: space.userId,
 			everyDays
 		})
 		.returning()
@@ -89,10 +98,18 @@ function insertRoutine(tx: Tx, wall: Wall, input: RoutineInput, everyDays: numbe
 
 /**
  * Create a routine and its exercise together — the rule lessons follow too —
- * so a routine appears in Today without a second step.
+ * so a routine appears in Today without a second step. In a group, the
+ * routine alone (see `insertRoutine`).
  */
-export function createRoutine(db: Db, wall: Wall, input: RoutineInput, everyDays = 3) {
-	return db.transaction((tx) => insertRoutine(tx, wall, input, everyDays));
+export function createRoutine(
+	db: Db,
+	wall: Wall,
+	input: RoutineInput,
+	everyDays?: number
+): { routine: Routine; exercise: Exercise };
+export function createRoutine(db: Db, space: Space, input: RoutineInput, everyDays?: number): Made;
+export function createRoutine(db: Db, space: Space, input: RoutineInput, everyDays = 3): Made {
+	return db.transaction((tx) => insertRoutine(tx, space, input, everyDays));
 }
 
 /** Edit a routine. A rename carries over to its exercise so the two never drift. */
@@ -130,7 +147,7 @@ export function getRoutine(db: Db, id: number) {
 }
 
 /** The library: newest first, with how many slots each holds. */
-export function listRoutines(db: Db, wall: Wall): RoutineItem[] {
+export function listRoutines(db: Db, space: Space): RoutineItem[] {
 	return db
 		.select({
 			id: routines.id,
@@ -141,17 +158,17 @@ export function listRoutines(db: Db, wall: Wall): RoutineItem[] {
 		})
 		.from(routines)
 		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
-		.where(and(inWallOf(wall), isNull(routines.archivedAt)))
+		.where(and(ownedBy(routines, space), isNull(routines.archivedAt)))
 		.groupBy(routines.id)
 		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
 }
 
 /** Every live routine of the dance as a picker offers it, by name. */
-export function listPickRoutines(db: Db, wall: Wall): Omit<PickRoutine, 'linked'>[] {
-	const shapes = routineShapes(db, wall);
-	const graph = buildGraph(db, wall);
-	return listRoutines(db, wall)
+export function listPickRoutines(db: Db, space: Space): Omit<PickRoutine, 'linked'>[] {
+	const shapes = routineShapes(db, space);
+	const graph = buildGraph(db, space);
+	return listRoutines(db, space)
 		.map((r) => {
 			const shape = shapes.get(r.id);
 			return {
@@ -175,7 +192,7 @@ export function listPickRoutines(db: Db, wall: Wall): Omit<PickRoutine, 'linked'
  * Archived routines are included. A shape is a reading, and the list decides
  * separately what it offers.
  */
-export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
+export function routineShapes(db: Db, space: Space): Map<number, RoutineShape> {
 	// Three dance filters follow, and only one of them can change the result today.
 	//
 	// The one on the routines query below decides which ids become keys, so it is
@@ -195,7 +212,7 @@ export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
 		})
 		.from(routineSteps)
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
-		.where(inWallOf(wall))
+		.where(ownedBy(routines, space))
 		.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
 		.all();
 
@@ -204,7 +221,7 @@ export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
 		.from(routineStepOptions)
 		.innerJoin(routineSteps, eq(routineSteps.id, routineStepOptions.stepId))
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
-		.where(inWallOf(wall))
+		.where(ownedBy(routines, space))
 		.orderBy(...MAIN_FIRST)
 		.all();
 
@@ -222,7 +239,11 @@ export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
 	}
 
 	const out = new Map<number, RoutineShape>();
-	for (const r of db.select({ id: routines.id }).from(routines).where(inWallOf(wall)).all()) {
+	for (const r of db
+		.select({ id: routines.id })
+		.from(routines)
+		.where(ownedBy(routines, space))
+		.all()) {
 		out.set(r.id, { slots: [] });
 	}
 	for (const s of steps) {
@@ -375,7 +396,7 @@ export function insertSlot(
 	if (!routine) return null;
 	if ('childId' in content) {
 		if (!canEmbed(db, routineId, content.childId)) return null;
-	} else if (landingIn(buildGraph(db, routineWall(routine)), content.figureId) === null) {
+	} else if (landingIn(buildGraph(db, ownerSpace(routine)), content.figureId) === null) {
 		return null;
 	}
 	return db.transaction((tx) => {
@@ -417,20 +438,34 @@ export function addChildSlot(db: Db, routineId: number, childId: number): number
  * the routine page afterwards.
  *
  * All or nothing: null, with nothing written, for an empty list or any id
- * that is not an unarchived figure or variation of this dance.
+ * that is not an unarchived figure or variation of this space.
  */
 export function createRoutineFromFigures(
 	db: Db,
 	wall: Wall,
 	input: RoutineInput,
 	figureIds: number[],
+	everyDays?: number
+): { routine: Routine; exercise: Exercise } | null;
+export function createRoutineFromFigures(
+	db: Db,
+	space: Space,
+	input: RoutineInput,
+	figureIds: number[],
+	everyDays?: number
+): Made | null;
+export function createRoutineFromFigures(
+	db: Db,
+	space: Space,
+	input: RoutineInput,
+	figureIds: number[],
 	everyDays = 3
-) {
+): Made | null {
 	if (figureIds.length === 0) return null;
-	const graph = buildGraph(db, wall);
+	const graph = buildGraph(db, space);
 	if (figureIds.some((id) => landingIn(graph, id) === null)) return null;
 	return db.transaction((tx) => {
-		const made = insertRoutine(tx, wall, input, everyDays);
+		const made = insertRoutine(tx, space, input, everyDays);
 		figureIds.forEach((figureId, position) => {
 			const step = tx
 				.insert(routineSteps)
@@ -459,7 +494,7 @@ export function canEmbed(db: Db, parentId: number, childId: number): boolean {
 	if (parentId === childId) return false;
 	const parent = getRoutine(db, parentId);
 	const child = getRoutine(db, childId);
-	if (!parent || !child || !inWall(child, routineWall(parent))) return false;
+	if (!parent || !child || !inSpace(child, ownerSpace(parent))) return false;
 	const childEmbeds = db
 		.select({ id: routineSteps.id })
 		.from(routineSteps)
@@ -481,7 +516,7 @@ export function embeddable(db: Db, routineId: number): { id: number; name: strin
 	return db
 		.select({ id: routines.id, name: routines.name })
 		.from(routines)
-		.where(and(inWallOf(routineWall(routine)), isNull(routines.archivedAt)))
+		.where(and(ownedBy(routines, ownerSpace(routine)), isNull(routines.archivedAt)))
 		.orderBy(asc(routines.name))
 		.all()
 		.filter((r) => canEmbed(db, routineId, r.id));
@@ -506,7 +541,7 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	if (!step || step.childId !== null) return false;
 	const routine = getRoutine(db, step.routineId);
 	if (!routine) return false;
-	const g = buildGraph(db, routineWall(routine));
+	const g = buildGraph(db, ownerSpace(routine));
 	const landing = landingIn(g, figureId);
 	if (landing === null) return false;
 	const existing = db
@@ -571,11 +606,11 @@ export function restoreOption(db: Db, stepId: number, figureId: number): boolean
 	if (!step || step.childId !== null) return false;
 	const routine = getRoutine(db, step.routineId);
 	const figure = db
-		.select({ dance: figures.dance, userId: figures.userId })
+		.select({ dance: figures.dance, userId: figures.userId, teamId: figures.teamId })
 		.from(figures)
 		.where(eq(figures.id, figureId))
 		.get();
-	if (!routine || !figure || !inWall(figure, routineWall(routine))) return false;
+	if (!routine || !figure || !inSpace(figure, ownerSpace(routine))) return false;
 	db.insert(routineStepOptions).values({ stepId, figureId }).onConflictDoNothing().run();
 	return true;
 }
@@ -640,13 +675,7 @@ export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]
 		const ours = db
 			.select({ id: figures.id })
 			.from(figures)
-			.where(
-				and(
-					inArray(figures.id, figureIds),
-					eq(figures.dance, routine.dance),
-					eq(figures.userId, routine.userId ?? '')
-				)
-			)
+			.where(and(inArray(figures.id, figureIds), ownedBy(figures, ownerSpace(routine))))
 			.all();
 		if (ours.length !== figureIds.length) return false;
 	}
@@ -760,7 +789,7 @@ export function extractRoutine(
 	const routine = getRoutine(db, routineId);
 	const wanted = [...new Set(stepIds)];
 	if (!routine || wanted.length === 0 || embeddedIn(db, routineId).length > 0) return null;
-	const wall = routineWall(routine);
+	const space = ownerSpace(routine);
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
 		const run = tx
@@ -773,7 +802,7 @@ export function extractRoutine(
 		const at = ids.indexOf(run[0].id);
 		if (ids.indexOf(run[run.length - 1].id) - at !== run.length - 1) return null;
 
-		const made = insertRoutine(tx, wall, { name, notes: null }, 3);
+		const made = insertRoutine(tx, space, { name, notes: null }, 3);
 		run.forEach((s, k) =>
 			tx
 				.update(routineSteps)
@@ -808,26 +837,28 @@ export function extractRoutine(
 export function duplicateRoutine(db: Db, id: number) {
 	const source = getRoutine(db, id);
 	if (!source) return null;
-	const dance = source.dance as DanceSlug;
-	const userId = source.userId;
+	const { dance, userId, teamId } = source;
 	const slots = routineSlots(db, id);
 
 	return db.transaction((tx) => {
 		const routine = tx
 			.insert(routines)
-			.values({ dance, userId, name: `${source.name} (copy)`, notes: source.notes })
+			.values({ dance, userId, teamId, name: `${source.name} (copy)`, notes: source.notes })
 			.returning()
 			.get();
-		tx.insert(exercises)
-			.values({
-				name: routine.name,
-				source: 'routine',
-				routineId: routine.id,
-				dance,
-				userId,
-				everyDays: 3
-			})
-			.run();
+		// A group's routine has no exercise of its own: see `insertRoutine`.
+		if (teamId === null) {
+			tx.insert(exercises)
+				.values({
+					name: routine.name,
+					source: 'routine',
+					routineId: routine.id,
+					dance,
+					userId,
+					everyDays: 3
+				})
+				.run();
+		}
 
 		for (const slot of slots) {
 			const step = tx

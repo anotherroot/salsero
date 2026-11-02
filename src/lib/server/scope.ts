@@ -22,6 +22,8 @@
  * and edited by the admin, so they stand behind the dance alone.
  */
 import { error } from '@sveltejs/kit';
+import { and, eq, isNull, type SQL } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import { getExercise, getSet } from './exercises';
 import { getPosition } from './positions';
@@ -57,6 +59,82 @@ export function wallOf(params: { dance: string }, locals: App.Locals): Wall {
 	const dance = danceOf(params);
 	if (!locals.user) throw error(401, 'Sign in');
 	return { userId: locals.user.id, dance };
+}
+
+/**
+ * A group's side of one dance, and the person acting in it. A group row has
+ * `team_id` set and `user_id` null: who made it is History's to say, never
+ * `user_id`, or the maker's storage and lists would carry the group's things.
+ * (In code a group is a team: `figure_groups` already means a figure.)
+ */
+export type TeamSpace = { dance: DanceSlug; teamId: number; actorId: string };
+
+/**
+ * Whose content a request stands in: a person's own wall or a group's. The
+ * content functions (figures, lessons, routines, drills, section links) take a
+ * `Space`; personal-only code (songs, count takes, Today, storage, settings)
+ * keeps taking a `Wall`.
+ */
+export type Space = Wall | TeamSpace;
+
+export function isTeam(s: Space): s is TeamSpace {
+	return 'teamId' in s;
+}
+
+/** The person acting in a space: the wall's own person, or the group's actor. */
+export function actorOf(s: Space): string {
+	return isTeam(s) ? s.actorId : s.userId;
+}
+
+/**
+ * A root table's rows in this space, as a where clause: the dance, and either
+ * this person's with no team, or this team's. A person's lists never show a
+ * team row, not even one that somehow carried their id.
+ */
+export function ownedBy(
+	cols: { userId: SQLiteColumn; teamId: SQLiteColumn; dance: SQLiteColumn },
+	s: Space
+): SQL {
+	const owner = isTeam(s)
+		? eq(cols.teamId, s.teamId)
+		: and(eq(cols.userId, s.userId), isNull(cols.teamId));
+	return and(eq(cols.dance, s.dance), owner)!;
+}
+
+/** The owner columns a new root row is inserted with: exactly one of the two set. */
+export function ownerValues(s: Space): {
+	dance: DanceSlug;
+	userId: string | null;
+	teamId: number | null;
+} {
+	return isTeam(s)
+		? { dance: s.dance, userId: null, teamId: s.teamId }
+		: { dance: s.dance, userId: s.userId, teamId: null };
+}
+
+/** Whether a row is in this space: its dance, and its person (with no team) or its team. */
+export function inSpace(
+	row: { dance: string; userId: string | null; teamId: number | null },
+	s: Space
+): boolean {
+	if (row.dance !== s.dance) return false;
+	return isTeam(s) ? row.teamId === s.teamId : row.teamId === null && row.userId === s.userId;
+}
+
+/**
+ * The space a root row stands in; `actorId` is who acts when it is a team's.
+ * Throws when both owners are set: `ownerIntegrity` reports such a row, and
+ * guessing would put it on the wrong side of a wall. A row with neither gets a
+ * wall no request has (`userId: ''`), so it fails closed.
+ */
+export function spaceOfRow(
+	row: { dance: string; userId: string | null; teamId: number | null },
+	actorId: string
+): Space {
+	if (row.userId !== null && row.teamId !== null) throw new Error('row has no owner');
+	const dance = row.dance as DanceSlug;
+	if (row.teamId !== null) return { dance, teamId: row.teamId, actorId };
+	return { dance, userId: row.userId ?? '' };
 }
 
 /** Whether a row is in this wall: this person's, in this dance. */

@@ -36,7 +36,7 @@ import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
 import { exercises, spotLinks } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { archiveRoutine, createRoutine } from './routines';
-import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -816,5 +816,56 @@ describe('through sections', () => {
 		expect(unlinkExercise(db, lessonId, drill, true)).toBe(true);
 		expect(exercisesOf()).toEqual([]);
 		expect(spotLinkCount()).toBe(0);
+	});
+});
+
+describe('in a group', () => {
+	const figureInput = { name: 'Basic', partner: 'partner' as const, style: 'salsa', notes: null };
+
+	it('creates a lesson owned by the team, with no exercise', () => {
+		const made = createLesson(db, T1_SALSA, lessonInput);
+		expect(made.lesson).toMatchObject({ userId: null, teamId: 1 });
+		expect(made.exercise).toBeNull();
+		expect(db.select().from(exercises).all()).toEqual([]);
+		expect(listLessons(db, U1_SALSA)).toEqual([]);
+		expect(listLessons(db, T1_SALSA).map((l) => l.title)).toEqual(['Rueda basics']);
+	});
+
+	it('refuses a figure, routine or drill of another owner', () => {
+		const lessonId = createLesson(db, T1_SALSA, lessonInput).lesson.id;
+		const mine = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Enchufla' })!.figure;
+		const routine = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null });
+		expect(linkFigure(db, lessonId, mine.id)).toBe(false);
+		expect(linkRoutine(db, lessonId, routine.id)).toBe(false);
+		expect(linkExercise(db, lessonId, drill.id)).toBe(false);
+		expect(listLinkableFigures(db, lessonId)).toEqual([]);
+		expect(listLinkableRoutines(db, lessonId)).toEqual([]);
+		expect(listLinkableExercises(db, lessonId)).toEqual([]);
+
+		const theirs = createFigure(db, T1_SALSA, { ...figureInput, figureName: 'Enchufla' })!.figure;
+		const teamDrill = createCustomExercise(db, T1_SALSA, {
+			name: 'Clave',
+			everyDays: 3,
+			notes: null
+		});
+		expect(linkFigure(db, lessonId, theirs.id)).toBe(true);
+		expect(linkExercise(db, lessonId, teamDrill.id)).toBe(true);
+	});
+
+	it("judges an entry by its target's owner, not its own", () => {
+		const mineLesson = createLesson(db, U1_SALSA, lessonInput).lesson.id;
+		const teamFigure = createFigure(db, T1_SALSA, {
+			...figureInput,
+			figureName: 'Enchufla'
+		})!.figure;
+		// u1's own entry for the group's figure: u1's row, the group's target.
+		const entry = db
+			.insert(exercises)
+			.values({ name: 'Enchufla · Basic', source: 'figure', figureId: teamFigure.id, userId: 'u1' })
+			.returning()
+			.get();
+		expect(linkExercise(db, mineLesson, entry.id)).toBe(false);
+		expect(listLinkableExercises(db, mineLesson).map((e) => e.id)).not.toContain(entry.id);
 	});
 });

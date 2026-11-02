@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, sql, sum } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, figureGroups, figures, sets, songs } from './db/schema';
-import type { Wall } from './scope';
+import { ownerValues, type Space, type Wall } from './scope';
 import type { PracticeInput } from '$lib/exercises/practice';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
@@ -90,10 +90,15 @@ export interface SettingsInput {
 	notes: string | null;
 }
 
-export function createCustomExercise(db: Db, wall: Wall, input: Omit<SettingsInput, 'active'>) {
+/**
+ * A drill in a person's or a group's space. It starts with no song, and a
+ * group's never gets one: songs are personal, and a group drill holding its
+ * editor's song would play it to everyone (see `setPracticeSettings`).
+ */
+export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsInput, 'active'>) {
 	return db
 		.insert(exercises)
-		.values({ ...input, source: 'custom', dance: wall.dance, userId: wall.userId })
+		.values({ ...input, source: 'custom', ...ownerValues(space), songId: null })
 		.returning()
 		.get();
 }
@@ -121,11 +126,15 @@ export function updateExercise(db: Db, id: number, input: SettingsInput) {
  * and a stored song the panel cannot open would greet the user with an error
  * the next time. `parsePracticeInput` has already cleared the unused half of
  * the mode's pair.
+ *
+ * A group's exercise never holds a song: songs are personal (see
+ * `createCustomExercise`).
  */
 export function setPracticeSettings(db: Db, id: number, input: PracticeInput): boolean {
 	const current = db.select().from(exercises).where(eq(exercises.id, id)).get();
 	if (!current) return false;
 	if (input.mode === 'song') {
+		if (current.teamId !== null) return false;
 		const song =
 			input.songId === null
 				? null

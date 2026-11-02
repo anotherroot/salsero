@@ -19,8 +19,7 @@ import { getRoutine, routineSlots } from './routines';
 import { daysBetween, localDay } from '$lib/day/day';
 import { typeOf } from '$lib/exercises/kinds';
 import { DEFAULT_LENGTH_COUNTS, eightsSpan } from '$lib/graph/timing';
-import type { DanceSlug } from '$lib/dances/dances';
-import type { Wall } from './scope';
+import { spaceOfRow, type Space } from './scope';
 import type { PracticeContent, PracticePayload } from '$lib/types';
 
 type Exercise = typeof exercises.$inferSelect;
@@ -69,7 +68,8 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 			const found = exercise.figureId === null ? null : getFigure(db, exercise.figureId);
 			if (!found) return bare(exercise);
 			const { figure } = found;
-			const label = figureLabels(db, exerciseWall(exercise)).get(figure.id) ?? figure.name;
+			// Read in the figure's own space: an entry's figure may be a group's.
+			const label = figureLabels(db, targetSpace(figure, exercise)).get(figure.id) ?? figure.name;
 			// The voice says the figure's name; the label is for showing.
 			const say = (figure.groupId !== null && getGroup(db, figure.groupId)?.name) || figure.name;
 			return {
@@ -97,9 +97,10 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 			if (exercise.routineId === null) return bare(exercise);
 			const routine = getRoutine(db, exercise.routineId);
 			if (!routine) return bare(exercise);
-			// Every figure of the dance, archived included: a slot can still name
-			// one. A variation reads "Enchufla · Doble".
-			const names = figureLabels(db, exerciseWall(exercise));
+			// Every figure of the routine's space, archived included: a slot can still
+			// name one. A variation reads "Enchufla · Doble". The routine's space, not
+			// the exercise's: an entry's routine may be a group's.
+			const names = figureLabels(db, targetSpace(routine, exercise));
 			return {
 				type: 'routine',
 				routine: { id: routine.id, name: routine.name, notes: routine.notes },
@@ -122,7 +123,15 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 	}
 }
 
-/** The wall an exercise stands in: its figures and routines are read against it. */
-function exerciseWall(exercise: Exercise): Wall {
-	return { dance: exercise.dance as DanceSlug, userId: exercise.userId ?? '' };
+/**
+ * The space a target (a figure or routine) stands in, with the exercise's
+ * person acting: its figures are read against it. An entry's own owner is its
+ * person, but its target may be a group's, and only the target's space holds
+ * the names its slots use.
+ */
+function targetSpace(
+	target: { dance: string; userId: string | null; teamId: number | null },
+	exercise: Exercise
+): Space {
+	return spaceOfRow(target, exercise.userId ?? '');
 }

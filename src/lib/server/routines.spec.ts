@@ -33,7 +33,7 @@ import { setFigureShape } from './graph';
 import { exercises, routineStepOptions } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
-import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 
 /**
  * A minimal figure of one dance, with its exercise. `dance` defaults to salsa;
@@ -867,5 +867,55 @@ describe('listPickRoutines', () => {
 			{ id: open.id, name: 'Open', slots: 1, loops: false },
 			{ id: parent.id, name: 'Parent', slots: 2, loops: expect.any(Boolean) }
 		]);
+	});
+});
+
+describe('in a group', () => {
+	const teamFigure = (db: ReturnType<typeof openDb>, name: string) =>
+		createFigure(db, T1_SALSA, {
+			figureName: name,
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure;
+
+	it('creates a routine owned by the team, with no exercise, out of the person’s lists', () => {
+		const db = openDb(':memory:');
+		const made = createRoutine(db, T1_SALSA, { name: 'Group routine', notes: null });
+		expect(made.routine).toMatchObject({ userId: null, teamId: 1 });
+		expect(made.exercise).toBeNull();
+		expect(db.select().from(exercises).all()).toEqual([]);
+		expect(listRoutines(db, U1_SALSA)).toEqual([]);
+		expect(listRoutines(db, T1_SALSA).map((r) => r.name)).toEqual(['Group routine']);
+	});
+
+	it("builds from the team's figures, and refuses the person's", () => {
+		const db = openDb(':memory:');
+		const theirs = teamFigure(db, 'Enchufla');
+		const mine = figure(db, 'Setenta');
+		expect(
+			createRoutineFromFigures(db, T1_SALSA, { name: 'X', notes: null }, [mine.id])
+		).toBeNull();
+		const made = createRoutineFromFigures(db, T1_SALSA, { name: 'X', notes: null }, [theirs.id])!;
+		expect(made.exercise).toBeNull();
+		expect(addFigureSlot(db, made.routine.id, mine.id)).toBeNull();
+		expect(routineShapes(db, T1_SALSA).get(made.routine.id)?.slots).toHaveLength(1);
+		expect(routineShapes(db, U1_SALSA).has(made.routine.id)).toBe(false);
+	});
+
+	it('keeps a copy and an extracted routine in the team', () => {
+		const db = openDb(':memory:');
+		const theirs = teamFigure(db, 'Enchufla');
+		const made = createRoutineFromFigures(db, T1_SALSA, { name: 'X', notes: null }, [
+			theirs.id,
+			theirs.id
+		])!;
+		const copy = duplicateRoutine(db, made.routine.id)!;
+		expect(copy).toMatchObject({ userId: null, teamId: 1 });
+		const steps = routineSlots(db, made.routine.id).map((s) => s.id);
+		const pulled = extractRoutine(db, made.routine.id, [steps[0]], 'Part')!;
+		expect(getRoutine(db, pulled.routineId)).toMatchObject({ userId: null, teamId: 1 });
+		expect(db.select().from(exercises).all()).toEqual([]);
 	});
 });

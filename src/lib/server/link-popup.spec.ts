@@ -7,8 +7,8 @@ import { addLessonVideo, createLesson, getLesson, linkExercise, linkFigure } fro
 import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import { linkSpot, SpotLinkError, unlinkFromSection } from './spot-links';
-import { createAndLink, linkOptions } from './link-popup';
-import { U1_SALSA } from '$lib/server/test-walls';
+import { createAndLink, createAndLinkIn, linkOptions } from './link-popup';
+import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let lessonId: number;
@@ -385,5 +385,66 @@ describe('unlinkFromSection', () => {
 		const link = linkSpot(db, 'u1', other, { figureId: doble });
 		expect(unlinkFromSection(db, section, link, true)).toBe(false);
 		expect(db.select().from(spotLinks).all()).toHaveLength(1);
+	});
+});
+
+describe('in a group', () => {
+	function teamSection() {
+		const teamLesson = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-10-12',
+			title: 'Group class',
+			notes: null
+		}).lesson.id;
+		const video = addLessonVideo(db, {
+			lessonId: teamLesson,
+			file: 't.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		return addSpot(db, { lessonVideoId: video }, { startMs: 0, endMs: 2000, label: null })!.id;
+	}
+
+	it("offers a group's section only the group's figures and drills", () => {
+		const s = teamSection();
+		createFigure(db, T1_SALSA, {
+			figureName: 'Group figure',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		});
+		createCustomExercise(db, T1_SALSA, { name: 'Group drill', everyDays: 3, notes: null });
+		const options = linkOptions(db, s, 'salsa')!;
+		expect(labels([...options.near, ...options.figures, ...options.drills])).toEqual([
+			'Group figure · Basic',
+			'Group drill'
+		]);
+		expect(options.figureChoices.map((f) => f.name)).toEqual(['Group figure']);
+	});
+
+	it("makes what it links in the group, and refuses a person's figure", () => {
+		const s = teamSection();
+		createAndLinkIn(db, T1_SALSA, s, {
+			kind: 'figure',
+			figureName: 'Enchufla',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa'
+		});
+		createAndLinkIn(db, T1_SALSA, s, { kind: 'drill', name: 'Clave', everyDays: 3 });
+		const made = db.select().from(figureGroups).where(eq(figureGroups.teamId, 1)).all();
+		expect(made.map((g) => g.name)).toEqual(['Enchufla']);
+		expect(db.select().from(exercises).where(eq(exercises.teamId, 1)).get()).toMatchObject({
+			name: 'Clave',
+			userId: null,
+			songId: null
+		});
+		expect(() =>
+			createAndLinkIn(db, T1_SALSA, s, { kind: 'variation', groupId: enchufla, name: 'Triple' })
+		).toThrow('No such figure.');
+		// A person reaching a group's section by id is answered as missing.
+		expect(() =>
+			createAndLink(db, 'u1', s, { kind: 'drill', name: 'Other', everyDays: 3 })
+		).toThrow('No such section.');
 	});
 });

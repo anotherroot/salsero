@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises } from './db/schema';
@@ -13,6 +13,7 @@ import {
 	linkableSections,
 	linkChips,
 	linksBlocking,
+	linkInSpace,
 	linkSpot,
 	SpotLinkedError,
 	SpotLinkError,
@@ -310,5 +311,45 @@ describe('reads', () => {
 				]
 			}
 		]);
+	});
+});
+
+describe('in a group', () => {
+	function teamSection() {
+		const teamLesson = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-10-12',
+			title: 'Group class',
+			notes: null
+		}).lesson.id;
+		const video = addLessonVideo(db, {
+			lessonId: teamLesson,
+			file: 't.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		return addSpot(db, { lessonVideoId: video }, { startMs: 0, endMs: 2000, label: null })!.id;
+	}
+
+	it("refuses to link a group's section to a person's figure or drill", () => {
+		const s = teamSection();
+		expect(() => linkInSpace(db, T1_SALSA, s, { figureId })).toThrow('No such figure.');
+		expect(() => linkInSpace(db, T1_SALSA, s, { exerciseId: drill })).toThrow('No such exercise.');
+		// …and a person's section to the group's figure.
+		const theirs = createFigure(db, T1_SALSA, {
+			figureName: 'Enchufla',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		expect(() => linkInSpace(db, U1_SALSA, section, { figureId: theirs })).toThrow(
+			'No such figure.'
+		);
+		expect(linkInSpace(db, T1_SALSA, s, { figureId: theirs })).toBeGreaterThan(0);
+	});
+
+	it("answers a group's section as missing to a person, until access says who may edit", () => {
+		const s = teamSection();
+		expect(() => linkSpot(db, 'u1', s, { figureId })).toThrow('No such section.');
 	});
 });

@@ -34,7 +34,7 @@ import {
 import { archiveLesson, createLesson, linkFigure, taughtIn } from './lessons';
 import { createSongFromUpload, songChoices } from './songs';
 import { createRoutine } from './routines';
-import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -424,6 +424,22 @@ describe('practice settings', () => {
 			setPracticeSettings(db, e.id, { mode: 'song', songId: waiting.id, countBpm: null, config })
 		).toBe(false);
 		expect(getExercise(db, e.id)?.practiceMode).toBe('none');
+	});
+
+	it("makes a group's drill with no song, and never stores one on it", () => {
+		const e = createCustomExercise(db, T1_SALSA, {
+			name: 'Group drill',
+			everyDays: 1,
+			notes: null
+		});
+		expect(e).toMatchObject({ userId: null, teamId: 1, songId: null, source: 'custom' });
+		const song = readySong('salsa');
+		expect(
+			setPracticeSettings(db, e.id, { mode: 'song', songId: song.id, countBpm: null, config })
+		).toBe(false);
+		expect(
+			setPracticeSettings(db, e.id, { mode: 'count', songId: null, countBpm: 150, config })
+		).toBe(true);
 	});
 });
 
