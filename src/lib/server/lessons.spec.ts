@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { openDb, type Db } from './db';
+import { type Db } from './db';
 import {
 	addLessonVideo,
 	archiveLesson,
@@ -36,10 +36,11 @@ import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
 import { exercises, spotLinks } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { archiveRoutine, createRoutine } from './routines';
+import { U1_SALSA, openOwnedDb } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 });
 
 const lessonInput = {
@@ -137,7 +138,7 @@ describe('a lesson owns its review exercise', () => {
 describe('linking figures', () => {
 	it('links a figure and lists it with the exercise that came with it', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
 
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
@@ -148,14 +149,14 @@ describe('linking figures', () => {
 
 	it('lists a linked figure that has no exercise, with a null exerciseId', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		expect(getLesson(db, lesson.id)!.figures).toMatchObject([{ id: figure.id, exerciseId: null }]);
 	});
 
 	it('refuses a second link of the same figure', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(false);
 		expect(getLesson(db, lesson.id)!.figures).toHaveLength(1);
@@ -163,7 +164,7 @@ describe('linking figures', () => {
 
 	it('links a variation', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
 		expect(linkFigure(db, lesson.id, doble.id)).toBe(true);
 		expect(taughtIn(db, doble.id).map((l) => l.id)).toEqual([lesson.id]);
@@ -171,7 +172,7 @@ describe('linking figures', () => {
 
 	it('does not teach its sibling', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
 		linkFigure(db, lesson.id, doble.id);
 		expect(taughtIn(db, figure.id)).toEqual([]);
@@ -179,14 +180,14 @@ describe('linking figures', () => {
 
 	it('refuses an archived figure', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		db.run(`update figures set archived_at = 1 where id = ${figure.id}`);
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(false);
 	});
 
 	it('unlinks, and reports whether there was anything to unlink', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		linkFigure(db, lesson.id, figure.id);
 		expect(unlinkFigure(db, lesson.id, figure.id)).toBe(true);
 		expect(unlinkFigure(db, lesson.id, figure.id)).toBe(false);
@@ -196,7 +197,7 @@ describe('linking figures', () => {
 describe('a figure exercise never shows up in both places', () => {
 	it('drops it from the linked list when its figure is linked afterwards', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
 
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(true);
@@ -210,7 +211,7 @@ describe('a figure exercise never shows up in both places', () => {
 
 	it('refuses to link it once its figure is already linked', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
 		linkFigure(db, lesson.id, figure.id);
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(false);
@@ -269,7 +270,7 @@ describe('linking exercises', () => {
 describe('the link pickers', () => {
 	it('listLinkableFigures: a hand-linked variation is present with linked true', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const a = createFigure(db, 'salsa', figureInput)!.figure;
+		const a = createFigure(db, U1_SALSA, figureInput)!.figure;
 		linkFigure(db, lesson.id, a.id);
 		expect(listLinkableFigures(db, lesson.id)).toEqual([
 			expect.objectContaining({ id: a.id, label: 'Enchufla · Basic', linked: true })
@@ -278,9 +279,9 @@ describe('the link pickers', () => {
 
 	it('listLinkableFigures: other live variations of the dance are linked false; archived ones absent', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const a = createFigure(db, 'salsa', figureInput)!.figure;
-		const b = createFigure(db, 'salsa', { ...figureInput, figureName: 'Dile que no' })!.figure;
-		const c = createFigure(db, 'salsa', { ...figureInput, figureName: 'Old' })!.figure;
+		const a = createFigure(db, U1_SALSA, figureInput)!.figure;
+		const b = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Dile que no' })!.figure;
+		const c = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Old' })!.figure;
 		archiveVariation(db, c.id, 1000);
 		linkFigure(db, lesson.id, a.id);
 		expect(listLinkableFigures(db, lesson.id).map((f) => [f.id, f.linked])).toEqual([
@@ -291,7 +292,7 @@ describe('the link pickers', () => {
 
 	it('lists variations to link by label', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		createVariationFrom(db, figure.id, 'Doble');
 		expect(listLinkableFigures(db, lesson.id).map((f) => f.label)).toEqual([
 			'Enchufla · Basic',
@@ -302,7 +303,7 @@ describe('the link pickers', () => {
 	it('keeps custom exercises in the picker once a figure is linked', () => {
 		// The null-propagating `NOT IN` bug would empty this list entirely.
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const custom = createCustomExercise(db, 'salsa', {
 			name: 'Son basic',
 			everyDays: 3,
@@ -326,7 +327,7 @@ describe('the link pickers', () => {
 
 	it('listLinkableExercises: a figure exercise carries figure and variation names', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const own = addFigureExercise(db, figure.id)!;
 		expect(listLinkableExercises(db, lesson.id)).toEqual([
 			expect.objectContaining({
@@ -342,7 +343,7 @@ describe('the link pickers', () => {
 	it("listLinkableExercises: another lesson's review exercise and the exercise of a linked figure stay absent", () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
 		createLesson(db, 'salsa', { ...lessonInput, title: 'Other' });
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		addFigureExercise(db, figure.id);
 		linkFigure(db, lesson.id, figure.id);
 		const gone = createCustomExercise(db, 'salsa', { name: 'Archived', everyDays: 3, notes: null });
@@ -452,10 +453,11 @@ describe('listLessons', () => {
 
 	it('counts figures once, whether linked by hand or through a section, leaving archived variations out', () => {
 		const { lesson } = createLesson(db, 'salsa', lessonInput);
-		const basic = createFigure(db, 'salsa', figureInput)!.figure.id;
+		const basic = createFigure(db, U1_SALSA, figureInput)!.figure.id;
 		const doble = createVariationFrom(db, basic, 'Doble')!.id;
-		const setenta = createFigure(db, 'salsa', { ...figureInput, figureName: 'Setenta' })!.figure.id;
-		const vacilala = createFigure(db, 'salsa', { ...figureInput, figureName: 'Vacilala' })!.figure
+		const setenta = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Setenta' })!.figure
+			.id;
+		const vacilala = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Vacilala' })!.figure
 			.id;
 		const videoId = addLessonVideo(db, video(lesson.id, 'a.mp4', 1)).id;
 		const spot = addSpot(db, { lessonVideoId: videoId }, { startMs: 0, endMs: 1000, label: null })!;
@@ -485,7 +487,7 @@ describe('lessons are walled off by dance', () => {
 
 	it('refuses to link a figure from another dance', () => {
 		const lesson = createLesson(db, 'bachata', lessonInput);
-		const salsaFigure = createFigure(db, 'salsa', {
+		const salsaFigure = createFigure(db, U1_SALSA, {
 			figureName: 'Dile que no',
 			name: 'Basic',
 			partner: 'partner',
@@ -670,7 +672,7 @@ describe('through sections', () => {
 
 	beforeEach(() => {
 		lessonId = createLesson(db, 'salsa', lessonInput).lesson.id;
-		basic = createFigure(db, 'salsa', figureInput)!.figure.id;
+		basic = createFigure(db, U1_SALSA, figureInput)!.figure.id;
 		doble = createVariationFrom(db, basic, 'Doble')!.id;
 		drill = createCustomExercise(db, 'salsa', { name: 'Clave', everyDays: 3, notes: null }).id;
 		const videoId = addLessonVideo(db, video(lessonId, 'l.mp4', 1)).id;

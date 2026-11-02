@@ -15,6 +15,7 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'driz
 import type { Db } from './db';
 import { exercises, figures, routineStepOptions, routineSteps, routines } from './db/schema';
 import { buildGraph } from './graph';
+import type { Wall } from './scope';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import type { DanceSlug } from '$lib/dances/dances';
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
@@ -47,6 +48,11 @@ export interface RoutineInput {
 	name: string;
 	notes: string | null;
 }
+/** The wall a routine row stands in, for the figure graph it is read against. */
+function routineWall(routine: { dance: string; userId: string | null }): Wall {
+	return { dance: routine.dance as DanceSlug, userId: routine.userId ?? '' };
+}
+
 /**
  * The routine row and its exercise, inside a caller's transaction.
  *
@@ -54,10 +60,16 @@ export interface RoutineInput {
  * pairing them (see `schema.ts`); this function is the enforcement, and it is
  * the only thing that ever writes `exercises.routine_id`.
  */
-function insertRoutine(tx: Tx, dance: DanceSlug, input: RoutineInput, everyDays: number) {
+function insertRoutine(
+	tx: Tx,
+	dance: DanceSlug,
+	input: RoutineInput,
+	everyDays: number,
+	userId?: string
+) {
 	const routine = tx
 		.insert(routines)
-		.values({ ...input, dance })
+		.values({ ...input, dance, userId })
 		.returning()
 		.get();
 	const exercise = tx
@@ -67,6 +79,7 @@ function insertRoutine(tx: Tx, dance: DanceSlug, input: RoutineInput, everyDays:
 			source: 'routine',
 			routineId: routine.id,
 			dance,
+			userId,
 			everyDays
 		})
 		.returning()
@@ -135,9 +148,10 @@ export function listRoutines(db: Db, dance: DanceSlug): RoutineItem[] {
 }
 
 /** Every live routine of the dance as a picker offers it, by name. */
-export function listPickRoutines(db: Db, dance: DanceSlug): Omit<PickRoutine, 'linked'>[] {
+export function listPickRoutines(db: Db, wall: Wall): Omit<PickRoutine, 'linked'>[] {
+	const dance = wall.dance;
 	const shapes = routineShapes(db, dance);
-	const graph = buildGraph(db, dance);
+	const graph = buildGraph(db, wall);
 	return listRoutines(db, dance)
 		.map((r) => {
 			const shape = shapes.get(r.id);
@@ -366,7 +380,7 @@ export function insertSlot(
 	if (!routine) return null;
 	if ('childId' in content) {
 		if (!canEmbed(db, routineId, content.childId)) return null;
-	} else if (landingIn(buildGraph(db, routine.dance as DanceSlug), content.figureId) === null) {
+	} else if (landingIn(buildGraph(db, routineWall(routine)), content.figureId) === null) {
 		return null;
 	}
 	return db.transaction((tx) => {
@@ -412,16 +426,16 @@ export function addChildSlot(db: Db, routineId: number, childId: number): number
  */
 export function createRoutineFromFigures(
 	db: Db,
-	dance: DanceSlug,
+	wall: Wall,
 	input: RoutineInput,
 	figureIds: number[],
 	everyDays = 3
 ) {
 	if (figureIds.length === 0) return null;
-	const graph = buildGraph(db, dance);
+	const graph = buildGraph(db, wall);
 	if (figureIds.some((id) => landingIn(graph, id) === null)) return null;
 	return db.transaction((tx) => {
-		const made = insertRoutine(tx, dance, input, everyDays);
+		const made = insertRoutine(tx, wall.dance, input, everyDays, wall.userId);
 		figureIds.forEach((figureId, position) => {
 			const step = tx
 				.insert(routineSteps)
@@ -497,8 +511,7 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	if (!step || step.childId !== null) return false;
 	const routine = getRoutine(db, step.routineId);
 	if (!routine) return false;
-	const dance = routine.dance as DanceSlug;
-	const g = buildGraph(db, dance);
+	const g = buildGraph(db, routineWall(routine));
 	const landing = landingIn(g, figureId);
 	if (landing === null) return false;
 	const existing = db

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { openDb, type Db } from './db';
+import { type Db } from './db';
 import { figures } from './db/schema';
 import { createCustomExercise, getExercise, logSet } from './exercises';
 import { addFigureExercise, createFigure, createVariationFrom } from './figures';
@@ -11,11 +11,12 @@ import { addLinks } from './links';
 import { addFigureSlot, createRoutine } from './routines';
 import { practicePayload } from './practice-content';
 import { noonOf } from '$lib/day/day';
+import { U1_SALSA, openOwnedDb } from '$lib/server/test-walls';
 
 const TZ = 'Europe/Ljubljana';
 let db: Db;
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 });
 
 const figureInput = {
@@ -43,7 +44,7 @@ describe('practicePayload', () => {
 			title: 'Rueda',
 			notes: 'Watch the video'
 		});
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		linkFigure(db, lesson.id, figure.id);
 		addLinks(db, { lessonId: lesson.id }, ['https://youtu.be/dQw4w9WgXcQ'], null);
 		const p = practicePayload(db, exercise, TZ, Date.now());
@@ -59,7 +60,7 @@ describe('practicePayload', () => {
 	});
 
 	it('gives a figure its notes, spoken name, length and links', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
 		addLinks(db, { figureId: figure.id }, ['https://a.org'], 'Demo');
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({
@@ -71,7 +72,7 @@ describe('practicePayload', () => {
 	});
 
 	it('shows a variation by its label but says the figure’s name', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
 		const exercise = addFigureExercise(db, doble.id)!;
 		const { content } = practicePayload(db, exercise, TZ, Date.now());
@@ -82,7 +83,7 @@ describe('practicePayload', () => {
 	});
 
 	it('derives the cue’s 8-counts from the figure’s length in counts', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
 		db.update(figures).set({ lengthCounts: 12 }).where(eq(figures.id, figure.id)).run();
 		const content = practicePayload(db, exercise, TZ, Date.now()).content;
@@ -105,8 +106,9 @@ describe('practicePayload', () => {
 	});
 
 	it('gives a routine its slots as names', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
-		const { routine, exercise } = createRoutine(db, 'salsa', { name: 'Friday', notes: null });
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
+		const { routine, exercise: made } = createRoutine(db, 'salsa', { name: 'Friday', notes: null });
+		const exercise = getExercise(db, made.id)!; // re-read: the owner was filled in after the insert
 		addFigureSlot(db, routine.id, figure.id);
 		expect(practicePayload(db, exercise, TZ, Date.now()).content).toMatchObject({
 			type: 'routine',
@@ -152,7 +154,7 @@ describe('practicePayload sections', () => {
 		'sections' in content ? (content.sections as { spot: { label: string } }[]) : null;
 
 	it('gives a figure its own sections, not its variations’', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
 		linkSpot(db, section(), { figureId: doble.id });
@@ -164,7 +166,7 @@ describe('practicePayload sections', () => {
 	});
 
 	it('a figure exercise is named by its label', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
 		const exercise = addFigureExercise(db, doble.id)!;
 		const content = practicePayload(db, exercise, TZ, Date.now()).content;

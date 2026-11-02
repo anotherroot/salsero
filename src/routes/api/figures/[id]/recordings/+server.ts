@@ -26,11 +26,12 @@ import type { RequestHandler } from './$types';
  * client is refused before uploading anything, and by counting bytes while
  * streaming, because the header can be absent or wrong.
  */
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const figureId = Number(params.id);
 	const db = getDb();
 	const found = Number.isInteger(figureId) ? getFigure(db, figureId) : null;
-	if (!found || found.figure.archivedAt !== null) throw error(404, 'Figure not found');
+	if (!found || found.figure.archivedAt !== null || found.figure.userId !== locals.user?.id)
+		throw error(404, 'Figure not found');
 
 	const mime = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
 	const kind = mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : null;

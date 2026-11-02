@@ -5,6 +5,7 @@
  * `moves-forms.spec.ts`; nothing opens the real database.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -220,7 +221,7 @@ describe('From this lesson', () => {
 		notes: 'Turn her on 5.'
 	};
 	const madeFigure = () =>
-		createFigure(db, 'salsa', { ...figure, partner: 'partner', style: 'salsa', notes: null })!;
+		createFigure(db, U1_SALSA, { ...figure, partner: 'partner', style: 'salsa', notes: null })!;
 
 	it('puts a missing figure name under Figure name, keeping what was typed', async () => {
 		const result = await call(

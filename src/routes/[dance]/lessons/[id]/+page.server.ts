@@ -37,7 +37,7 @@ import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf } from '$lib/server/scope';
+import { danceOf, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -81,7 +81,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		),
 		linkableFigures: listLinkableFigures(db, found.lesson.id),
 		// The figures "Variation of a figure" can add to, with their variations' names.
-		figureGroups: listMoveTargets(db, danceOf(params), null),
+		figureGroups: listMoveTargets(db, wallOf(params, locals), null),
 		linkableRoutines: listLinkableRoutines(db, found.lesson.id),
 		linkableExercises: listLinkableExercises(db, found.lesson.id),
 		links: listLinks(db, { lessonId: found.lesson.id }),
@@ -140,8 +140,9 @@ export const actions: Actions = {
 	 * that exists but is not linked — visible in Figures, fixable with one tap —
 	 * which is a better trade than depending on savepoint nesting.
 	 */
-	newFigure: async ({ params, request }) => {
+	newFigure: async ({ params, request, locals }) => {
 		const dance = danceOf(params);
+		const wall = wallOf(params, locals);
 		const id = lessonOf(params).lesson.id;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
@@ -170,7 +171,7 @@ export const actions: Actions = {
 		const db = getDb();
 		// With every field valid, a taken figure name is the one thing
 		// `createFigure` still refuses.
-		const made = createFigure(db, dance, { figureName, name, partner, style, notes });
+		const made = createFigure(db, wall, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				action: 'newFigure' as const,

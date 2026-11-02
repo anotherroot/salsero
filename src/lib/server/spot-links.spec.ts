@@ -31,13 +31,17 @@ let section: number;
 let point: number;
 
 const fig = (dance: 'salsa' | 'bachata', figureName: string) =>
-	createFigure(db, dance, {
-		figureName,
-		name: 'Basic',
-		partner: 'partner',
-		style: dance === 'salsa' ? 'salsa' : 'sensual',
-		notes: null
-	})!.figure.id;
+	createFigure(
+		db,
+		{ userId: 'u1', dance },
+		{
+			figureName,
+			name: 'Basic',
+			partner: 'partner',
+			style: dance === 'salsa' ? 'salsa' : 'sensual',
+			notes: null
+		}
+	)!.figure.id;
 
 beforeEach(() => {
 	db = openDb(':memory:');

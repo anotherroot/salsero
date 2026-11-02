@@ -7,6 +7,7 @@
  * never reach `$DATA_DIR`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -69,7 +70,7 @@ let otherSection: number;
 
 /** A new figure's one variation, "Basic". */
 const salsaFigure = (figureName: string) =>
-	createFigure(db, 'salsa', {
+	createFigure(db, U1_SALSA, {
 		figureName,
 		name: 'Basic',
 		partner: 'partner',

@@ -585,30 +585,35 @@ export function listLinkableFigures(
 	lessonId: number
 ): (FigureVersion & { linked: boolean })[] {
 	const lesson = db
-		.select({ dance: lessons.dance })
+		.select({ dance: lessons.dance, userId: lessons.userId })
 		.from(lessons)
 		.where(eq(lessons.id, lessonId))
 		.get();
 	if (!lesson) return [];
 
 	const linked = new Set(linkedFigureIds(db, lessonId));
-	return listVersions(db, lesson.dance as DanceSlug).map((v) => ({
-		...v,
-		linked: linked.has(v.id)
-	}));
+	return listVersions(db, { dance: lesson.dance as DanceSlug, userId: lesson.userId ?? '' }).map(
+		(v) => ({
+			...v,
+			linked: linked.has(v.id)
+		})
+	);
 }
 
 /** Unarchived routines of the lesson's dance, alphabetical; `linked` marks those already on it. */
 export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
 	const lesson = db
-		.select({ dance: lessons.dance })
+		.select({ dance: lessons.dance, userId: lessons.userId })
 		.from(lessons)
 		.where(eq(lessons.id, lessonId))
 		.get();
 	if (!lesson) return [];
 
 	const linked = new Set(linkedRoutineIds(db, lessonId));
-	return listPickRoutines(db, lesson.dance as DanceSlug).map((r) => ({
+	return listPickRoutines(db, {
+		dance: lesson.dance as DanceSlug,
+		userId: lesson.userId ?? ''
+	}).map((r) => ({
 		...r,
 		linked: linked.has(r.id)
 	}));

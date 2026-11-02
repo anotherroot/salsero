@@ -43,7 +43,7 @@ import { plan } from '$lib/urgency/urgency';
 import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf } from '$lib/server/scope';
+import { danceOf, wallOf, inWall } from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -77,20 +77,20 @@ function zoneOf(locals: App.Locals): string {
  * archived variation, or one whose figure is gone, has no page either: every
  * action goes through here, so none of them can write to one.
  */
-function variationOf(params: { dance: string; id: string }) {
-	const dance = danceOf(params);
+function variationOf(params: { dance: string; id: string }, locals: App.Locals) {
+	const wall = wallOf(params, locals);
 	const db = getDb();
 	const found = getFigure(db, variationId(params.id));
 	if (
 		!found ||
 		found.figure.archivedAt !== null ||
-		found.figure.dance !== dance ||
+		!inWall(found.figure, wall) ||
 		found.figure.groupId === null
 	) {
 		throw error(404, 'Figure not found');
 	}
 	const group = getGroup(db, found.figure.groupId);
-	if (!group || group.archivedAt !== null || group.dance !== dance) {
+	if (!group || group.archivedAt !== null || !inWall(group, wall)) {
 		throw error(404, 'Figure not found');
 	}
 	return { ...found, group };
@@ -102,7 +102,8 @@ const figureTaken = (name: string) => `There's already a figure called ${name}.`
 
 export const load: PageServerLoad = ({ params, url, locals }) => {
 	const now = Date.now();
-	const dance = danceOf(params);
+	const wall = wallOf(params, locals);
+	const dance = wall.dance;
 
 	// An old link — `/figures/<base>?v=<variation>`, from before a variation had
 	// a page of its own — lands on the variation. If that id is bad, its page
@@ -114,13 +115,13 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 	}
 
 	const db = getDb();
-	const found = variationOf(params);
+	const found = variationOf(params, locals);
 	const { figure, group } = found;
 	const id = figure.id;
 
-	const graph = buildGraph(db, dance);
+	const graph = buildGraph(db, wall);
 	const node = figureById(graph, id);
-	const labels = figureLabels(db, dance);
+	const labels = figureLabels(db, wall);
 	// The graph holds live variations of live figures only, never this one's self.
 	const link = (ids: number[]) =>
 		ids.filter((other) => other !== id).map((other) => ({ id: other, name: labels.get(other)! }));
@@ -231,7 +232,7 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		links: listLinks(db, { figureId: id }),
 		taughtIn: taughtIn(db, id),
 		linkable: linkableSections(db, { figureId: id }),
-		moveTargets: listMoveTargets(db, dance, group.id)
+		moveTargets: listMoveTargets(db, wall, group.id)
 	};
 };
 
@@ -245,8 +246,8 @@ export const actions: Actions = {
 	 * position of another dance — and only then the details and the figure's
 	 * name. A refused save leaves nothing half-done.
 	 */
-	update: async ({ params, request }) => {
-		const found = variationOf(params);
+	update: async ({ params, request, locals }) => {
+		const found = variationOf(params, locals);
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
@@ -277,8 +278,8 @@ export const actions: Actions = {
 
 		const db = getDb();
 		const { figure, group } = found;
-		const dance = danceOf(params);
-		if (figureNameTaken(db, dance, figureName, group.id)) {
+		const wall = wallOf(params, locals);
+		if (figureNameTaken(db, wall, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		if (variationNameTaken(db, group.id, name, figure.id)) {
@@ -302,8 +303,8 @@ export const actions: Actions = {
 	},
 
 	/** "+ New variation": a copy of this one under a new name, opened. */
-	createVariation: async ({ params, request }) => {
-		const { figure, group } = variationOf(params);
+	createVariation: async ({ params, request, locals }) => {
+		const { figure, group } = variationOf(params, locals);
 		const form = await request.formData();
 		const name = text(form, 'name');
 		// What was typed, as typed, so the field keeps it under the refusal.
@@ -334,8 +335,8 @@ export const actions: Actions = {
 	 * (`target=new`, named by `figureName`). The URL stays the same — the
 	 * variation keeps its id.
 	 */
-	move: async ({ params, request }) => {
-		const { figure, group } = variationOf(params);
+	move: async ({ params, request, locals }) => {
+		const { figure, group } = variationOf(params, locals);
 		const form = await request.formData();
 		const rawTarget = String(form.get('target') ?? '');
 		const db = getDb();
@@ -399,8 +400,8 @@ export const actions: Actions = {
 	 * left, or on the figures list when this was the last and the figure went
 	 * with it.
 	 */
-	archive: ({ params }) => {
-		const { figure, group } = variationOf(params);
+	archive: ({ params, locals }) => {
+		const { figure, group } = variationOf(params, locals);
 		const db = getDb();
 		const done = archiveVariation(db, figure.id, Date.now());
 		if (!done) throw error(404, 'Figure not found');
@@ -412,8 +413,8 @@ export const actions: Actions = {
 	},
 
 	/** Give this variation its own exercise, so it shows on Today. */
-	practise: ({ params }) => {
-		const { figure } = variationOf(params);
+	practise: ({ params, locals }) => {
+		const { figure } = variationOf(params, locals);
 		if (!addFigureExercise(getDb(), figure.id)) {
 			return fail(400, {
 				action: 'practise',
@@ -428,8 +429,8 @@ export const actions: Actions = {
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
 
-	deleteRecording: async ({ params, request }) => {
-		const found = variationOf(params);
+	deleteRecording: async ({ params, request, locals }) => {
+		const found = variationOf(params, locals);
 		const id = int(await request.formData(), 'recordingId');
 		// Checked against THIS variation's recordings before the delete, not
 		// after: `deleteRecording` is a blind delete-and-return, so an id
@@ -463,8 +464,8 @@ export const actions: Actions = {
 	},
 
 	/** A section for this variation. `linkSpot` refuses one from the other dance. */
-	linkSection: async ({ params, request }) => {
-		const { figure } = variationOf(params);
+	linkSection: async ({ params, request, locals }) => {
+		const { figure } = variationOf(params, locals);
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
 			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
@@ -483,8 +484,8 @@ export const actions: Actions = {
 		return { action: 'linkSection', ok: true };
 	},
 
-	unlinkSection: async ({ params, request }) => {
-		const found = variationOf(params);
+	unlinkSection: async ({ params, request, locals }) => {
+		const found = variationOf(params, locals);
 		const id = int(await request.formData(), 'linkId');
 		const link = id === undefined ? null : getSpotLink(getDb(), id);
 		// This variation's own link, or any link of a section on one of its
@@ -504,12 +505,12 @@ export const actions: Actions = {
 		return { action: 'unlinkSection', ok: true };
 	},
 
-	addLink: async ({ params, request }) =>
-		addLinkFrom(request, getDb(), { figureId: variationOf(params).figure.id }),
-	deleteLink: async ({ params, request }) =>
-		deleteLinkFrom(request, getDb(), { figureId: variationOf(params).figure.id }),
-	saveVideo: async ({ params, request }) =>
-		saveVideoFrom(request, getDb(), { figureId: variationOf(params).figure.id }),
-	retryVideo: async ({ params, request }) =>
-		retryVideoFrom(request, getDb(), { figureId: variationOf(params).figure.id })
+	addLink: async ({ params, request, locals }) =>
+		addLinkFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+	deleteLink: async ({ params, request, locals }) =>
+		deleteLinkFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+	saveVideo: async ({ params, request, locals }) =>
+		saveVideoFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+	retryVideo: async ({ params, request, locals }) =>
+		retryVideoFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id })
 };

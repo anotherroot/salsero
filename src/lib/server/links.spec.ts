@@ -5,6 +5,7 @@ import { createCustomExercise } from './exercises';
 import { addFigureExercise, createFigure } from './figures';
 import { createLesson, updateLesson } from './lessons';
 import { addLinks, deleteLink, importNoteLinks, listLinks, NOTE_LINKS_FLAG } from './links';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -24,7 +25,7 @@ const lessonOn = (notes: string | null) =>
 describe('links', () => {
 	it('adds, lists in insertion order, and deletes on each kind of owner', () => {
 		const lesson = lessonOn(null);
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const drill = createCustomExercise(db, 'salsa', {
 			name: 'Son switch',
 			everyDays: 2,
@@ -66,7 +67,7 @@ describe('links', () => {
 	});
 
 	it('refuses links on an exercise a figure, lesson or routine owns', () => {
-		const exercise = addFigureExercise(db, createFigure(db, 'salsa', figureInput)!.figure.id)!;
+		const exercise = addFigureExercise(db, createFigure(db, U1_SALSA, figureInput)!.figure.id)!;
 		expect(addLinks(db, { exerciseId: exercise.id }, ['https://a.org'], null)).toBeNull();
 		expect(db.select().from(links).all()).toHaveLength(0);
 	});

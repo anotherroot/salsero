@@ -71,7 +71,9 @@ export function videoOfSpot(db: Db, spotId: number) {
 			lessonVideoId: videoSpots.lessonVideoId,
 			recordingId: videoSpots.recordingId,
 			lessonDance: lessons.dance,
-			figureDance: figures.dance
+			lessonUser: lessons.userId,
+			figureDance: figures.dance,
+			figureUser: figures.userId
 		})
 		.from(videoSpots)
 		.leftJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
@@ -85,7 +87,13 @@ export function videoOfSpot(db: Db, spotId: number) {
 		row.lessonVideoId !== null
 			? { lessonVideoId: row.lessonVideoId }
 			: { recordingId: row.recordingId! };
-	return { owner, dance: (row.lessonDance ?? row.figureDance)!, isSection: row.endMs !== null };
+	return {
+		owner,
+		dance: (row.lessonDance ?? row.figureDance)!,
+		/** Whose video it is: its lesson's or its figure's owner. */
+		userId: row.lessonDance !== null ? row.lessonUser : row.figureUser,
+		isSection: row.endMs !== null
+	};
 }
 
 /** The target's dance. Throws for a missing target or an exercise that is not a drill. */

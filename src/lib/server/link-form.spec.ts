@@ -5,13 +5,14 @@ import { addFigureExercise, createFigure } from './figures';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from './link-form';
 import { addLinks, listLinks } from './links';
 import { claimVideoJob, failVideoJob } from './video-downloads';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let figureId: number;
 let figureExerciseId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
-	const made = createFigure(db, 'salsa', {
+	const made = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',

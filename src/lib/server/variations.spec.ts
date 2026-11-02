@@ -37,6 +37,7 @@ import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -44,13 +45,17 @@ beforeEach(() => {
 });
 
 const fig = (figureName = 'Enchufla', name = 'Basic', dance: 'salsa' | 'bachata' = 'salsa') =>
-	createFigure(db, dance, {
-		figureName,
-		name,
-		partner: 'partner',
-		style: dance === 'salsa' ? 'salsa' : 'dominican',
-		notes: null
-	})!;
+	createFigure(
+		db,
+		{ userId: 'u1', dance },
+		{
+			figureName,
+			name,
+			partner: 'partner',
+			style: dance === 'salsa' ? 'salsa' : 'dominican',
+			notes: null
+		}
+	)!;
 
 const input = (
 	name: string,
@@ -74,7 +79,7 @@ describe('createFigure', () => {
 
 	it('refuses a taken figure name in the same dance', () => {
 		fig();
-		expect(createFigure(db, 'salsa', { figureName: 'enchufla ', ...input('Basic') })).toBeNull();
+		expect(createFigure(db, U1_SALSA, { figureName: 'enchufla ', ...input('Basic') })).toBeNull();
 		expect(fig('Enchufla', 'Basic', 'bachata')).not.toBeNull();
 	});
 });
@@ -178,7 +183,7 @@ describe('createVariationIn', () => {
 			db.select().from(figureStartPositions).where(eq(figureStartPositions.figureId, made.id)).all()
 		).toEqual([]);
 		expect(db.select().from(exercises).where(eq(exercises.figureId, made.id)).all()).toEqual([]);
-		expect(figureLabels(db, 'salsa').get(made.id)).toBe('Enchufla · Doble');
+		expect(figureLabels(db, U1_SALSA).get(made.id)).toBe('Enchufla · Doble');
 	});
 
 	it('refuses a taken name, an archived group, and another dance’s style', () => {
@@ -240,7 +245,7 @@ describe('renameFigure', () => {
 describe('labels and lists', () => {
 	it('figureLabels always shows both names', () => {
 		const { figure } = fig('Setenta');
-		expect(figureLabels(db, 'salsa').get(figure.id)).toBe('Setenta · Basic');
+		expect(figureLabels(db, U1_SALSA).get(figure.id)).toBe('Setenta · Basic');
 	});
 
 	it('listFigures is one row per figure', () => {
@@ -256,7 +261,7 @@ describe('labels and lists', () => {
 			sizeBytes: 1,
 			note: null
 		});
-		expect(listFigures(db, 'salsa', {})).toEqual([
+		expect(listFigures(db, U1_SALSA, {})).toEqual([
 			{
 				id: figure.groupId,
 				name: 'Enchufla',
@@ -272,7 +277,7 @@ describe('labels and lists', () => {
 	describe('section and lesson links', () => {
 		const flags = () =>
 			Object.fromEntries(
-				listFigures(db, 'salsa', {}).map((f) => [f.name, [f.hasSection, f.hasLesson]])
+				listFigures(db, U1_SALSA, {}).map((f) => [f.name, [f.hasSection, f.hasLesson]])
 			);
 		const lessonVideo = (lessonId: number) =>
 			addLessonVideo(db, { lessonId, file: `${lessonId}.mp4`, mime: 'video/mp4', sizeBytes: 1 }).id;
@@ -334,7 +339,7 @@ describe('labels and lists', () => {
 				figureId: enchufla.id
 			});
 
-			expect(listFigures(db, 'salsa', { unlinked: true }).map((f) => f.name)).toEqual(['Setenta']);
+			expect(listFigures(db, U1_SALSA, { unlinked: true }).map((f) => f.name)).toEqual(['Setenta']);
 		});
 	});
 
@@ -343,14 +348,14 @@ describe('labels and lists', () => {
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
 		fig('Setenta');
 		updateVariation(db, v2.id, input('Doble', { partner: 'solo' }));
-		expect(listFigures(db, 'salsa', { q: 'doble' }).map((f) => f.name)).toEqual(['Enchufla']);
-		expect(listFigures(db, 'salsa', { partner: 'solo' }).map((f) => f.name)).toEqual(['Enchufla']);
+		expect(listFigures(db, U1_SALSA, { q: 'doble' }).map((f) => f.name)).toEqual(['Enchufla']);
+		expect(listFigures(db, U1_SALSA, { partner: 'solo' }).map((f) => f.name)).toEqual(['Enchufla']);
 	});
 
 	it('listVersions lists variations with their figure', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
-		expect(listVersions(db, 'salsa')).toEqual([
+		expect(listVersions(db, U1_SALSA)).toEqual([
 			{
 				id: figure.id,
 				groupId: figure.groupId,
@@ -371,7 +376,7 @@ describe('labels and lists', () => {
 	it('listFiguresForCall says the figure name', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
-		expect(listFiguresForCall(db, 'salsa', [v2.id])).toEqual([
+		expect(listFiguresForCall(db, U1_SALSA, [v2.id])).toEqual([
 			{ id: v2.id, name: 'Enchufla · Doble', say: 'Enchufla' }
 		]);
 	});

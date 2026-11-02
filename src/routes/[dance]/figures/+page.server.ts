@@ -8,12 +8,13 @@ import { taggedFigures } from '$lib/server/graph';
 import { oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, type Partner } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { danceOf } from '$lib/server/scope';
+import { wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	if (!locals.user) throw error(401);
-	const dance = danceOf(params);
+	const wall = wallOf(params, locals);
+	const dance = wall.dance;
 	const q = url.searchParams.get('q')?.trim() ?? '';
 	const style = url.searchParams.get('style');
 	const partner = url.searchParams.get('partner');
@@ -29,19 +30,19 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	const unlinked = url.searchParams.get('unlinked') === '1';
 	const db = getDb();
 	return {
-		figures: listFigures(db, dance, { ...filter, unlinked }),
+		figures: listFigures(db, wall, { ...filter, unlinked }),
 		// The page rebuilds its URL from these strings; `unlinked` rides as '1'.
 		filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
 		// Figures with no section or no lesson, whatever the filter: the header's
 		// way into the "Not linked" filter, as `unrouted` is into coverage.
-		unlinked: listFigures(db, dance, { unlinked: true }).length,
+		unlinked: listFigures(db, wall, { unlinked: true }).length,
 		// How much of the repertoire carries handhold tags. An untagged figure
 		// reads as neutral, which is right for most of casino but worth surfacing:
 		// the graph is only as good as this fraction.
-		tagged: taggedFigures(db, dance),
+		tagged: taggedFigures(db, wall),
 		// Versions no routine can call: the Figures header's way into coverage.
 		unrouted: coverage(
-			listVersions(db, dance),
+			listVersions(db, wall),
 			routineShapes(db, dance),
 			listRoutines(db, dance)
 		).filter((r) => r.routines.length === 0).length,
@@ -51,8 +52,9 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 };
 
 export const actions: Actions = {
-	create: async ({ params, request }) => {
-		const dance = danceOf(params);
+	create: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const dance = wall.dance;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
@@ -91,7 +93,7 @@ export const actions: Actions = {
 		}
 		// With every field valid, a taken figure name is the one thing
 		// `createFigure` still refuses.
-		const made = createFigure(getDb(), dance, { figureName, name, partner, style, notes });
+		const made = createFigure(getDb(), wall, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				field: 'figureName' as const,

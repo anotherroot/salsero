@@ -40,7 +40,7 @@ import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
-import { danceOf, requireRoutineInDance } from '$lib/server/scope';
+import { danceOf, requireRoutineInDance, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -53,11 +53,12 @@ function routineOf(params: { dance: string; id: string }) {
 	return requireRoutineInDance(getDb(), danceOf(params), Number(params.id));
 }
 
-export const load: PageServerLoad = ({ params }) => {
+export const load: PageServerLoad = ({ params, locals }) => {
 	const dance = danceOf(params);
+	const wall = wallOf(params, locals);
 	const db = getDb();
 	const routine = routineOf(params);
-	const graph = buildGraph(db, dance);
+	const graph = buildGraph(db, wall);
 	const shapes = routineShapes(db, dance);
 	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
@@ -74,7 +75,7 @@ export const load: PageServerLoad = ({ params }) => {
 	// exactly as it is on the server. Archived figures are not candidates; a slot
 	// still holding one names it through `labels`.
 	const candidates: Candidate[] = [
-		...listVersions(db, dance).flatMap((v): Candidate[] => {
+		...listVersions(db, wall).flatMap((v): Candidate[] => {
 			const node = figureById(graph, v.id);
 			if (!node) return [];
 			return [
@@ -127,7 +128,7 @@ export const load: PageServerLoad = ({ params }) => {
 		) as Record<number, number>,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
-		labels: Object.fromEntries(figureLabels(db, dance)),
+		labels: Object.fromEntries(figureLabels(db, wall)),
 		positions: positions.map((p) => ({ id: p.id, name: p.name })),
 		starts: routineStarts(graph, shape),
 		end: routineEnd(graph, shape),

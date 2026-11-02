@@ -10,11 +10,12 @@ import { getRoutine, routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
 import { practiceStart } from '$lib/exercises/practice';
-import { danceOf, exerciseInDance, requireExerciseInDance } from '$lib/server/scope';
+import { danceOf, exerciseInDance, requireExerciseInDance, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ url, params }) => {
+export const load: PageServerLoad = ({ url, params, locals }) => {
 	const dance = danceOf(params);
+	const wall = wallOf(params, locals);
 	const db = getDb();
 	const songId = Number(url.searchParams.get('song')) || null;
 	const bpm = Number(url.searchParams.get('bpm')) || null;
@@ -85,10 +86,10 @@ export const load: PageServerLoad = ({ url, params }) => {
 		routine: routine && shape ? { id: routine.id, name: routine.name, shape, figureIds } : null,
 		// Names only, for `sayOf` and the on-screen call. Empty without a routine:
 		// nothing else calls figures.
-		callNames: listFiguresForCall(db, dance, figureIds),
+		callNames: listFiguresForCall(db, wall, figureIds),
 		// The position graph, which a routine is flattened and walked on.
 		// Client-safe: `Graph` is plain data from a pure module.
-		graph: buildGraph(db, dance),
+		graph: buildGraph(db, wall),
 		exercise,
 		exercises: listPickExercises(db, dance),
 		// Every pattern's takes: which one the run uses is a client-side choice

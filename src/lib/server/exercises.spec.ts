@@ -3,6 +3,7 @@ import { openDb, type Db } from './db';
 import { archiveExercise, createCustomExercise, listPickExercises } from './exercises';
 import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -11,7 +12,7 @@ beforeEach(() => {
 
 describe('listPickExercises', () => {
 	it('returns every live exercise of the dance with source, everyDays, figure and variation', () => {
-		const { figure } = createFigure(db, 'salsa', {
+		const { figure } = createFigure(db, U1_SALSA, {
 			figureName: 'Enchufla',
 			name: 'Doble',
 			partner: 'partner',

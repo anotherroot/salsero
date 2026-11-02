@@ -13,7 +13,7 @@ import {
 } from '$lib/server/positions';
 import { taggedFigures } from '$lib/server/graph';
 import { positionCounts } from '$lib/graph/graph';
-import { danceOf, requirePositionInDance } from '$lib/server/scope';
+import { danceOf, requireAdmin, requirePositionInDance, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 /** A slug from a name: stable, lowercase, no spaces. */
@@ -23,17 +23,20 @@ const slugify = (name: string) =>
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-|-$/g, '') || 'position';
 
-export const load: PageServerLoad = ({ params }) => {
-	const dance = danceOf(params);
+export const load: PageServerLoad = ({ params, locals }) => {
+	const wall = wallOf(params, locals);
+	const dance = wall.dance;
 	const db = getDb();
 	const rows = listPositions(db, dance);
 	const counts = positionCounts(
-		buildGraph(db, dance),
+		buildGraph(db, wall),
 		rows.map((p) => p.id)
 	);
 	const byId = new Map(counts.map((c) => [c.id, c]));
 
 	return {
+		// Positions are shared by everyone: only the admin changes them.
+		isAdmin: locals.user?.isAdmin === true,
 		positions: rows.map((p) => ({
 			name: p.name,
 			neutral: p.neutral,
@@ -45,7 +48,7 @@ export const load: PageServerLoad = ({ params }) => {
 			...byId.get(p.id)!
 		})),
 		// How much of the repertoire carries tags: the intro's first sentence.
-		tagged: taggedFigures(db, dance)
+		tagged: taggedFigures(db, wall)
 	};
 };
 
@@ -57,7 +60,8 @@ function positionOf(params: { dance: string }, id: number | undefined) {
 }
 
 export const actions: Actions = {
-	create: async ({ params, request }) => {
+	create: async ({ params, request, locals }) => {
+		requireAdmin(locals);
 		const dance = danceOf(params);
 		const form = await request.formData();
 		const name = text(form, 'name', 80);
@@ -81,7 +85,8 @@ export const actions: Actions = {
 		return { action: 'create', ok: true };
 	},
 
-	rename: async ({ params, request }) => {
+	rename: async ({ params, request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		const found = positionOf(params, int(form, 'id'));
 		const name = text(form, 'name', 80);
@@ -119,7 +124,8 @@ export const actions: Actions = {
 		return { action: 'rename', ok: true };
 	},
 
-	archive: async ({ params, request }) => {
+	archive: async ({ params, request, locals }) => {
+		requireAdmin(locals);
 		const found = positionOf(params, int(await request.formData(), 'id'));
 		// Already removed (a double tap, another tab): nothing to do, and not the neutral's refusal.
 		if (found.archivedAt !== null) return { action: 'archive', ok: true };
@@ -136,7 +142,8 @@ export const actions: Actions = {
 	// Undo for a removal, inside the wall like every action here. A position that
 	// is already live is a replay and still a success; one whose name a live
 	// position has taken meanwhile is refused, so Undo never makes a duplicate.
-	restore: async ({ params, request }) => {
+	restore: async ({ params, request, locals }) => {
+		requireAdmin(locals);
 		const found = positionOf(params, int(await request.formData(), 'id'));
 		if (!restorePosition(getDb(), found.id) && getPosition(getDb(), found.id)?.archivedAt != null) {
 			return fail(409, {

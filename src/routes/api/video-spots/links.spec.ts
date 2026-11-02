@@ -4,6 +4,7 @@
  * `src/routes/[dance]/dance-wall.spec.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { openOwnedDb } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -12,7 +13,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { openDb, type Db } from '$lib/server/db';
+import { type Db } from '$lib/server/db';
 import { lessonFigures } from '$lib/server/db/schema';
 import { createFigure } from '$lib/server/figures';
 import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
@@ -33,16 +34,20 @@ let other: number;
 let point: number;
 
 const fig = (dance: 'salsa' | 'bachata', figureName: string) =>
-	createFigure(db, dance, {
-		figureName,
-		name: 'Basic',
-		partner: 'partner',
-		style: dance === 'salsa' ? 'salsa' : 'sensual',
-		notes: null
-	})!.figure.id;
+	createFigure(
+		db,
+		{ userId: 'u1', dance },
+		{
+			figureName,
+			name: 'Basic',
+			partner: 'partner',
+			style: dance === 'salsa' ? 'salsa' : 'sensual',
+			notes: null
+		}
+	)!.figure.id;
 
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 	handle.db = db;
 	basic = fig('salsa', 'Enchufla');
 	paseo = fig('bachata', 'Paseo');

@@ -13,6 +13,7 @@ import {
 	SpotError
 } from './spots';
 import { linkSpot, SpotLinkedError } from './spot-links';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let recordingId: number;
@@ -20,7 +21,7 @@ let lessonVideoId: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	const { figure } = createFigure(db, 'salsa', {
+	const { figure } = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',
@@ -177,7 +178,7 @@ describe('spots', () => {
 
 describe('linked sections', () => {
 	const figure = (name: string) =>
-		createFigure(db, 'salsa', {
+		createFigure(db, U1_SALSA, {
 			figureName: name,
 			name: 'Basic',
 			partner: 'partner',

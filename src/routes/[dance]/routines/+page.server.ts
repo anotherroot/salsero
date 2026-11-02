@@ -4,13 +4,13 @@ import { buildGraph } from '$lib/server/graph';
 import { createRoutine, listRoutines, routineShapes } from '$lib/server/routines';
 import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { optionalText, text } from '$lib/server/form';
-import { danceOf } from '$lib/server/scope';
+import { danceOf, wallOf } from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params }) => {
+export const load: PageServerLoad = ({ params, locals }) => {
 	const dance = danceOf(params);
 	const db = getDb();
-	const graph = buildGraph(db, dance);
+	const graph = buildGraph(db, wallOf(params, locals));
 	const shapes = routineShapes(db, dance);
 	// Derived per request, never stored — the same rule urgency follows. A tag
 	// edited on a figure page changes these answers with no routine touched.

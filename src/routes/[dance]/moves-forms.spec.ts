@@ -3,10 +3,11 @@
  * can show it under that field, and hands back everything that was typed.
  *
  * Like `dance-wall.spec.ts`, the actions reach the database through `getDb()`,
- * which is mocked: each test gets its own `openDb(':memory:')` and nothing
+ * which is mocked: each test gets its own `openOwnedDb()` and nothing
  * ever opens the real database.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -15,7 +16,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { openDb, type Db } from '$lib/server/db';
+import { type Db } from '$lib/server/db';
 import { listRoutines } from '$lib/server/routines';
 import { createFigure } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
@@ -24,7 +25,7 @@ import { actions as coverageActions } from './coverage/+page.server';
 import { actions as positionActions } from './positions/+page.server';
 import { archivePosition, getPosition, listPositions, seedPositions } from '$lib/server/positions';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
 function post(dance: string, fields: Record<string, string>, id = '') {
@@ -45,7 +46,7 @@ const call = (action: unknown, event: ReturnType<typeof post>) => (action as Inv
 let db: Db;
 
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 	handle.db = db;
 });
 
@@ -95,7 +96,7 @@ describe('New figure', () => {
 	};
 
 	it('puts a taken figure name under Figure name, in bachata too, keeping every field', async () => {
-		createFigure(db, 'bachata', {
+		createFigure(db, U1_BACHATA, {
 			figureName: 'Hammerlock',
 			name: 'Basic',
 			partner: 'partner',

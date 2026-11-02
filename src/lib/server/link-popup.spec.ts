@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { openDb, type Db } from './db';
+import { type Db } from './db';
 import { exercises, figureGroups, figures, lessonFigures, spotLinks } from './db/schema';
 import { addRecording, createFigure, createVariationFrom, getGroup } from './figures';
 import { addLessonVideo, createLesson, getLesson, linkExercise, linkFigure } from './lessons';
@@ -8,6 +8,7 @@ import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import { linkSpot, SpotLinkError, unlinkFromSection } from './spot-links';
 import { createAndLink, linkOptions } from './link-popup';
+import { openOwnedDb } from '$lib/server/test-walls';
 
 let db: Db;
 let lessonId: number;
@@ -25,16 +26,20 @@ const fig = (
 	figureName: string,
 	partner: 'partner' | 'solo' = 'partner'
 ) =>
-	createFigure(db, dance, {
-		figureName,
-		name: 'Basic',
-		partner,
-		style: dance === 'salsa' ? 'son' : 'sensual',
-		notes: null
-	})!.figure;
+	createFigure(
+		db,
+		{ userId: 'u1', dance },
+		{
+			figureName,
+			name: 'Basic',
+			partner,
+			style: dance === 'salsa' ? 'son' : 'sensual',
+			notes: null
+		}
+	)!.figure;
 
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 	const b = fig('salsa', 'Enchufla', 'solo');
 	basic = b.id;
 	enchufla = b.groupId!;

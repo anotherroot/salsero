@@ -28,6 +28,7 @@ import {
 	variationNameTaken
 } from './figures';
 import { createCustomExercise } from './exercises';
+import { inWall, type Wall } from './scope';
 import { linkSpot, SpotLinkError, videoOfSpot } from './spot-links';
 import { viaSections } from './lesson-links';
 import { defaultStyle } from './default-styles';
@@ -130,6 +131,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const video = videoOfSpot(db, spotId);
 	if (!video || !video.isSection) return null;
 	const dance = video.dance as DanceSlug;
+	const wall: Wall = { dance, userId: video.userId ?? '' };
 	const spot = db
 		.select({
 			id: videoSpots.id,
@@ -158,7 +160,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		byHand = side.byHand;
 		// Every variation of a figure the lesson teaches is near, not just the taught one.
 		const taughtGroups = new Set(
-			listVersions(db, dance)
+			listVersions(db, wall)
 				.filter((v) => side.on.has(key({ figureId: v.id })))
 				.map((v) => v.groupId)
 		);
@@ -182,7 +184,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		.sort(byLabel);
 	const taken = new Set(linked.map((l) => key(l.target)));
 
-	const variations = listVersions(db, dance).map((v) => ({
+	const variations = listVersions(db, wall).map((v) => ({
 		option: {
 			target: { figureId: v.id },
 			label: v.label,
@@ -227,7 +229,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const nearGroups = new Set(
 		variations.filter((v) => isNear(v.option, v.groupId)).map((v) => v.groupId)
 	);
-	const figureChoices = listMoveTargets(db, dance, null).map((g) => ({
+	const figureChoices = listMoveTargets(db, wall, null).map((g) => ({
 		groupId: g.id,
 		name: g.name,
 		variations: g.variations,
@@ -263,13 +265,14 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 		const video = videoOfSpot(tx, spotId);
 		if (!video) throw new SpotLinkError('No such section.');
 		const dance = video.dance as DanceSlug;
+		const wall: Wall = { dance, userId: video.userId ?? '' };
 		const name = create.name.trim();
 		if (!name) throw new SpotLinkError('Give it a name.', 400, 'name');
 
 		let target: SectionTarget;
 		if (create.kind === 'variation') {
 			const group = getGroup(tx, create.groupId);
-			if (!group || group.archivedAt !== null || group.dance !== dance) {
+			if (!group || group.archivedAt !== null || !inWall(group, wall)) {
 				throw new SpotLinkError('No such figure.', 400, 'groupId');
 			}
 			if (variationNameTaken(tx, group.id, name, null)) {
@@ -290,14 +293,14 @@ export function createAndLink(db: Db, spotId: number, create: LinkCreate): numbe
 			if (!isStyleOf(dance, create.style)) {
 				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
 			}
-			if (figureNameTaken(tx, dance, figureName, null)) {
+			if (figureNameTaken(tx, wall, figureName, null)) {
 				throw new SpotLinkError(
 					`There's already a figure called ${figureName}.`,
 					400,
 					'figureName'
 				);
 			}
-			const made = createFigure(tx, dance, {
+			const made = createFigure(tx, wall, {
 				figureName,
 				name,
 				partner: create.partner,

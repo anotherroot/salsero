@@ -15,6 +15,7 @@ import {
 	requestVideoDownload,
 	retryVideoDownload
 } from './video-downloads';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const YT = 'https://youtu.be/dQw4w9WgXcQ';
 const T = 1_800_000_000_000;
@@ -25,7 +26,7 @@ let lessonId: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	figureId = createFigure(db, 'salsa', {
+	figureId = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',

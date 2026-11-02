@@ -34,6 +34,7 @@ import {
 import { archiveLesson, createLesson, linkFigure, taughtIn } from './lessons';
 import { createSongFromUpload, songChoices } from './songs';
 import { createRoutine } from './routines';
+import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -58,13 +59,13 @@ const bareSet = (exerciseId: number, doneAt: number) => ({
 });
 describe('figures', () => {
 	it('creates a figure without an exercise', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		expect(getFigure(db, figure.id)?.exercise).toBeNull();
 		expect(listExercises(db, 'salsa')).toEqual([]);
 	});
 
 	it('adds a figure exercise on request, with the figure name and dance', () => {
-		const { figure } = createFigure(db, 'bachata', { ...figureInput, style: 'sensual' })!;
+		const { figure } = createFigure(db, U1_BACHATA, { ...figureInput, style: 'sensual' })!;
 		const exercise = addFigureExercise(db, figure.id, 7)!;
 		expect(exercise).toMatchObject({
 			name: 'Dile que no · Basic',
@@ -78,7 +79,7 @@ describe('figures', () => {
 	});
 
 	it('refuses a variation that already has one, an archived or missing variation', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		addFigureExercise(db, figure.id);
 		expect(addFigureExercise(db, figure.id)).toBeNull();
 
@@ -86,7 +87,7 @@ describe('figures', () => {
 		const v = createVariationFrom(db, figure.id, 'Doble')!;
 		expect(addFigureExercise(db, v.id)?.name).toBe('Dile que no · Doble');
 
-		const gone = createFigure(db, 'salsa', { ...figureInput, figureName: 'Gone' })!.figure;
+		const gone = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Gone' })!.figure;
 		archiveVariation(db, gone.id, 1);
 		expect(addFigureExercise(db, gone.id)).toBeNull();
 
@@ -95,11 +96,11 @@ describe('figures', () => {
 	});
 
 	it('renames and archives the exercise with its variation only when there is one', () => {
-		const bare = createFigure(db, 'salsa', { ...figureInput, figureName: 'Bare' })!.figure;
+		const bare = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Bare' })!.figure;
 		expect(updateVariation(db, bare.id, { ...figureInput, name: 'Bare 2' })?.name).toBe('Bare 2');
 		expect(archiveVariation(db, bare.id, 1)).toEqual({ figureRemoved: true });
 
-		const owned = createFigure(db, 'salsa', { ...figureInput, figureName: 'Owned' })!;
+		const owned = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Owned' })!;
 		const exercise = addFigureExercise(db, owned.figure.id)!;
 		updateVariation(db, owned.figure.id, { ...figureInput, name: 'Owned 2' });
 		expect(getExercise(db, exercise.id)?.name).toBe('Owned · Owned 2');
@@ -108,7 +109,7 @@ describe('figures', () => {
 	});
 
 	it('carries a variation rename and a figure rename over to the exercise', () => {
-		const { figure, group } = createFigure(db, 'salsa', figureInput)!;
+		const { figure, group } = createFigure(db, U1_SALSA, figureInput)!;
 		addFigureExercise(db, figure.id);
 		updateVariation(db, figure.id, { ...figureInput, name: 'Con vuelta' });
 		expect(listExercises(db, 'salsa')[0].name).toBe('Dile que no · Con vuelta');
@@ -117,19 +118,19 @@ describe('figures', () => {
 	});
 
 	it('archives the exercise with the variation, keeping the sets', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const exercise = addFigureExercise(db, figure.id)!;
 		logSet(db, bareSet(exercise.id, 1000));
 		expect(archiveVariation(db, figure.id, 2000)).toEqual({ figureRemoved: true });
 		expect(listExercises(db, 'salsa')).toHaveLength(0);
-		expect(listFigures(db, 'salsa')).toHaveLength(0);
+		expect(listFigures(db, U1_SALSA)).toHaveLength(0);
 		expect(listSetTimes(db, 'salsa')).toHaveLength(1);
 		expect(archiveVariation(db, figure.id, 3000)).toBeNull();
 	});
 
 	it('filters and counts recordings', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
-		createFigure(db, 'salsa', {
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
+		createFigure(db, U1_SALSA, {
 			...figureInput,
 			figureName: 'Son basic',
 			partner: 'solo',
@@ -143,19 +144,19 @@ describe('figures', () => {
 			sizeBytes: 10,
 			note: null
 		});
-		expect(listFigures(db, 'salsa').map((f) => [f.name, f.recordings])).toEqual([
+		expect(listFigures(db, U1_SALSA).map((f) => [f.name, f.recordings])).toEqual([
 			['Dile que no', 1],
 			['Son basic', 0]
 		]);
-		expect(listFigures(db, 'salsa', { style: 'son' }).map((f) => f.name)).toEqual(['Son basic']);
-		expect(listFigures(db, 'salsa', { partner: 'partner' }).map((f) => f.name)).toEqual([
+		expect(listFigures(db, U1_SALSA, { style: 'son' }).map((f) => f.name)).toEqual(['Son basic']);
+		expect(listFigures(db, U1_SALSA, { partner: 'partner' }).map((f) => f.name)).toEqual([
 			'Dile que no'
 		]);
-		expect(listFigures(db, 'salsa', { q: 'dile' }).map((f) => f.name)).toEqual(['Dile que no']);
+		expect(listFigures(db, U1_SALSA, { q: 'dile' }).map((f) => f.name)).toEqual(['Dile que no']);
 	});
 
 	it('returns a deleted recording so its file can be removed', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const rec = addRecording(db, {
 			figureId: figure.id,
 			file: 'b.webm',
@@ -191,7 +192,7 @@ describe('exercises and sets', () => {
 	});
 
 	it('keeps a figure exercise named after its figure', () => {
-		const exercise = addFigureExercise(db, createFigure(db, 'salsa', figureInput)!.figure.id)!;
+		const exercise = addFigureExercise(db, createFigure(db, U1_SALSA, figureInput)!.figure.id)!;
 		updateExercise(db, exercise.id, {
 			name: 'Other',
 			everyDays: 1,
@@ -206,7 +207,7 @@ describe('exercises and sets', () => {
 
 	it('archives custom exercises only', () => {
 		const custom = createCustomExercise(db, 'salsa', { name: 'c', everyDays: 3, notes: null });
-		const exercise = addFigureExercise(db, createFigure(db, 'salsa', figureInput)!.figure.id)!;
+		const exercise = addFigureExercise(db, createFigure(db, U1_SALSA, figureInput)!.figure.id)!;
 		expect(archiveExercise(db, exercise.id, 1)).toBe(false);
 		expect(archiveExercise(db, custom.id, 1)).toBe(true);
 		expect(listExercises(db, 'salsa').map((e) => e.id)).toEqual([exercise.id]);
@@ -224,13 +225,17 @@ describe('exercises and sets', () => {
 	});
 
 	it('names and says the figures a routine asks for by id', () => {
-		const plain = createFigure(db, 'salsa', { ...figureInput, figureName: 'Enchufla' })!;
-		const other = createFigure(db, 'salsa', { ...figureInput, figureName: 'Setenta' })!;
-		const gone = createFigure(db, 'salsa', { ...figureInput, figureName: 'Vacilala' })!;
-		createFigure(db, 'salsa', figureInput);
+		const plain = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Enchufla' })!;
+		const other = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Setenta' })!;
+		const gone = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Vacilala' })!;
+		createFigure(db, U1_SALSA, figureInput);
 		archiveVariation(db, gone.figure.id, Date.now());
 
-		const out = listFiguresForCall(db, 'salsa', [plain.figure.id, other.figure.id, gone.figure.id]);
+		const out = listFiguresForCall(db, U1_SALSA, [
+			plain.figure.id,
+			other.figure.id,
+			gone.figure.id
+		]);
 		// The archived one, and the figure nobody asked for, are not named.
 		expect(out.map((f) => f.name)).toEqual(['Enchufla · Basic', 'Setenta · Basic']);
 		expect(out.find((f) => f.id === other.figure.id)?.say).toBe('Setenta');
@@ -241,8 +246,8 @@ describe('exercises and sets', () => {
 	// return that implements it: drizzle renders `inArray(col, [])` as a false
 	// condition, so today the query would answer the same way on its own.
 	it('names nothing for an empty id list', () => {
-		createFigure(db, 'salsa', figureInput);
-		expect(listFiguresForCall(db, 'salsa', [])).toEqual([]);
+		createFigure(db, U1_SALSA, figureInput);
+		expect(listFiguresForCall(db, U1_SALSA, [])).toEqual([]);
 	});
 
 	it('keeps a player run on its set', () => {
@@ -260,55 +265,55 @@ describe('figures are walled off by dance', () => {
 	const bachataInput = { ...figureInput, figureName: 'Basico', style: 'sensual' };
 
 	it('lists only its own dance', () => {
-		createFigure(db, 'salsa', figureInput);
-		createFigure(db, 'bachata', bachataInput);
+		createFigure(db, U1_SALSA, figureInput);
+		createFigure(db, U1_BACHATA, bachataInput);
 
-		expect(listFigures(db, 'salsa').map((f) => f.name)).toEqual(['Dile que no']);
-		expect(listFigures(db, 'bachata').map((f) => f.name)).toEqual(['Basico']);
+		expect(listFigures(db, U1_SALSA).map((f) => f.name)).toEqual(['Dile que no']);
+		expect(listFigures(db, U1_BACHATA).map((f) => f.name)).toEqual(['Basico']);
 	});
 
 	it('gives the figure exercise its figure dance', () => {
-		const made = createFigure(db, 'bachata', bachataInput);
+		const made = createFigure(db, U1_BACHATA, bachataInput);
 		expect(made).not.toBeNull();
 		const exercise = addFigureExercise(db, made!.figure.id)!;
 		expect(getExercise(db, exercise.id)?.dance).toBe('bachata');
 	});
 
 	it('refuses a style that belongs to another dance', () => {
-		expect(createFigure(db, 'bachata', { ...bachataInput, style: 'son' })).toBeNull();
-		expect(createFigure(db, 'salsa', { ...figureInput, style: 'sensual' })).toBeNull();
-		expect(listFigures(db, 'salsa')).toEqual([]);
-		expect(listFigures(db, 'bachata')).toEqual([]);
+		expect(createFigure(db, U1_BACHATA, { ...bachataInput, style: 'son' })).toBeNull();
+		expect(createFigure(db, U1_SALSA, { ...figureInput, style: 'sensual' })).toBeNull();
+		expect(listFigures(db, U1_SALSA)).toEqual([]);
+		expect(listFigures(db, U1_BACHATA)).toEqual([]);
 	});
 
 	it('refuses an edit that moves a figure outside its dance styles', () => {
-		const made = createFigure(db, 'salsa', figureInput)!;
+		const made = createFigure(db, U1_SALSA, figureInput)!;
 		expect(updateVariation(db, made.figure.id, { ...figureInput, style: 'sensual' })).toBeNull();
 		expect(getFigure(db, made.figure.id)?.figure.styleTag).toBe('salsa');
 	});
 
 	it('a figure knows the dance it belongs to, so a loader can refuse it', () => {
-		const made = createFigure(db, 'bachata', bachataInput)!;
+		const made = createFigure(db, U1_BACHATA, bachataInput)!;
 		expect(getFigure(db, made.figure.id)?.figure.dance).toBe('bachata');
 	});
 
 	it('names only its own dance figures when a routine asks by id', () => {
-		const salsa = createFigure(db, 'salsa', figureInput)!;
-		const bachata = createFigure(db, 'bachata', bachataInput)!;
+		const salsa = createFigure(db, U1_SALSA, figureInput)!;
+		const bachata = createFigure(db, U1_BACHATA, bachataInput)!;
 		// Both ids, both times: a routine's option list reaches the player as bare
 		// numbers, so the dance has to be what decides, not the caller's honesty.
 		const ids = [salsa.figure.id, bachata.figure.id];
-		expect(listFiguresForCall(db, 'salsa', ids).map((f) => f.name)).toEqual([
+		expect(listFiguresForCall(db, U1_SALSA, ids).map((f) => f.name)).toEqual([
 			'Dile que no · Basic'
 		]);
-		expect(listFiguresForCall(db, 'bachata', ids).map((f) => f.name)).toEqual(['Basico · Basic']);
+		expect(listFiguresForCall(db, U1_BACHATA, ids).map((f) => f.name)).toEqual(['Basico · Basic']);
 	});
 });
 
 describe('Today is walled off by dance', () => {
 	it('never shows another dance exercise, set or song', () => {
-		const salsa = createFigure(db, 'salsa', figureInput)!;
-		const bachata = createFigure(db, 'bachata', {
+		const salsa = createFigure(db, U1_SALSA, figureInput)!;
+		const bachata = createFigure(db, U1_BACHATA, {
 			...figureInput,
 			figureName: 'Basico',
 			style: 'sensual'
@@ -462,7 +467,7 @@ describe('history', () => {
 
 describe('taught in', () => {
 	it('lists the live lessons that linked a figure, newest first', () => {
-		const { figure } = createFigure(db, 'salsa', figureInput)!;
+		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		const older = createLesson(db, 'salsa', {
 			lessonDay: '2026-09-01',
 			title: 'Older',

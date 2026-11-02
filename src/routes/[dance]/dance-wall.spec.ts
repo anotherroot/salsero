@@ -13,9 +13,10 @@
  * from `$env/dynamic/private` — and that does NOT see a `process.env`
  * assignment made from a test file. Mocking the module is therefore the only
  * way to be sure no test ever opens the real database: each test gets its own
- * `openDb(':memory:')`, the same way every other spec in this repo does.
+ * `openOwnedDb()`, the same way every other spec in this repo does.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA, U1_BACHATA, openOwnedDb } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -24,7 +25,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { openDb, type Db } from '$lib/server/db';
+import { type Db } from '$lib/server/db';
 import {
 	addFigureExercise,
 	addRecording,
@@ -79,7 +80,7 @@ import * as gridEndpoint from './songs/[id]/grid/+server';
 import * as practiceEndpoint from './exercises/[id]/practice/+server';
 import type { PickerSong } from '$lib/types';
 
-const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
 function post(dance: string, fields: Record<string, string>, id = '') {
@@ -145,14 +146,14 @@ let bachataLessonId: number;
 let bachataRoutineId: number;
 
 beforeEach(() => {
-	db = openDb(':memory:');
+	db = openOwnedDb();
 	handle.db = db;
 	seedPositions(db);
 
-	const salsaFigure = createFigure(db, 'salsa', { ...figureInput, style: 'salsa' })!;
+	const salsaFigure = createFigure(db, U1_SALSA, { ...figureInput, style: 'salsa' })!;
 	salsaExerciseId = addFigureExercise(db, salsaFigure.figure.id)!.id;
 	salsaFigureId = salsaFigure.figure.id;
-	salsaFigureId2 = createFigure(db, 'salsa', {
+	salsaFigureId2 = createFigure(db, U1_SALSA, {
 		...figureInput,
 		figureName: 'Second salsa figure',
 		style: 'salsa'
@@ -161,7 +162,7 @@ beforeEach(() => {
 	salsaRoutineBId = createRoutine(db, 'salsa', { name: 'Routine B', notes: null }).routine.id;
 	bachataRoutineId = createRoutine(db, 'bachata', { name: 'Bachata routine', notes: null }).routine
 		.id;
-	const bachata = createFigure(db, 'bachata', {
+	const bachata = createFigure(db, U1_BACHATA, {
 		...figureInput,
 		figureName: 'Basico',
 		style: 'sensual'
@@ -353,7 +354,7 @@ describe("the player refuses the other dance's exercise", () => {
 
 describe("the detail pages refuse the other dance's rows", () => {
 	it('will not give a bachata figure an exercise from a salsa URL', async () => {
-		const bare = createFigure(db, 'bachata', {
+		const bare = createFigure(db, U1_BACHATA, {
 			...figureInput,
 			figureName: 'Bare',
 			style: 'sensual'
@@ -363,7 +364,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 	});
 
 	it('gives a figure its exercise from its own dance', async () => {
-		const bare = createFigure(db, 'salsa', { ...figureInput, figureName: 'Bare', style: 'salsa' })!;
+		const bare = createFigure(db, U1_SALSA, {
+			...figureInput,
+			figureName: 'Bare',
+			style: 'salsa'
+		})!;
 		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
 		expect(getFigure(db, bare.figure.id)?.exercise?.source).toBe('figure');
 	});
@@ -519,11 +524,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 		});
 
 		it('load lists the routines that use the variation', () => {
-			createRoutineFromFigures(db, 'salsa', { name: 'Set A', notes: null }, [
+			createRoutineFromFigures(db, U1_SALSA, { name: 'Set A', notes: null }, [
 				salsaFigureId2,
 				salsaFigureId
 			]);
-			const second = createRoutineFromFigures(db, 'salsa', { name: 'Old set', notes: null }, [
+			const second = createRoutineFromFigures(db, U1_SALSA, { name: 'Old set', notes: null }, [
 				salsaFigureId
 			])!;
 			archiveRoutine(db, second.routine.id, Date.now());
@@ -951,7 +956,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			// A name taken in the target is refused, keeping what was typed.
 			const back = groupOf(salsaFigureId2);
 			createVariationFrom(db, salsaFigureId2, 'Doble');
-			const other = createFigure(db, 'salsa', {
+			const other = createFigure(db, U1_SALSA, {
 				...figureInput,
 				figureName: 'Third',
 				name: 'Solo',

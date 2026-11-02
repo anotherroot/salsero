@@ -3,6 +3,7 @@
  * test ever opens the real database — see `src/routes/[dance]/dance-wall.spec.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -24,7 +25,7 @@ let recordingId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
-	const { figure } = createFigure(db, 'salsa', {
+	const { figure } = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',
@@ -171,7 +172,7 @@ describe('PATCH and DELETE /api/video-spots/[id]', () => {
 describe('a linked section', () => {
 	it('is a 409 to delete, naming its link, and GET carries linkedTo', async () => {
 		const spot = addSpot(db, { recordingId }, { startMs: 0, endMs: 1000, label: null })!;
-		const other = createFigure(db, 'salsa', {
+		const other = createFigure(db, U1_SALSA, {
 			figureName: 'Setenta',
 			name: 'Basic',
 			partner: 'partner',

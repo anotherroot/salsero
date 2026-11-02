@@ -6,6 +6,7 @@ import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
+import { U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let lessonId: number;
@@ -26,7 +27,7 @@ function lessonWithVideo(title: string, file: string) {
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	basic = createFigure(db, 'salsa', {
+	basic = createFigure(db, U1_SALSA, {
 		figureName: 'Enchufla',
 		name: 'Basic',
 		partner: 'partner',
