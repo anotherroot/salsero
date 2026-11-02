@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { users } from './db/schema';
+import { storageRequests, users } from './db/schema';
 import { addRecording, archiveVariation, createFigure } from './figures';
 import { addLessonVideo, createLesson } from './lessons';
 import { createSongFromUpload } from './songs';
 import { putCountTake } from './countTakes';
 import { U1_SALSA, U2_SALSA } from './test-walls';
-import { roomFor, storageOf, usedBytes } from './storage';
+import {
+	askForMore,
+	listStorageItems,
+	openRequest,
+	roomFor,
+	storageOf,
+	usedBytes
+} from './storage';
 
 const MB = 1024 * 1024;
 let db: Db;
@@ -123,5 +130,69 @@ describe('roomFor', () => {
 	it('refuses even a zero-byte ask when already over', () => {
 		recording(U1_SALSA, 'A', 1100 * MB);
 		expect(roomFor(db, 'u1', 0).ok).toBe(false);
+	});
+});
+
+describe('listStorageItems', () => {
+	it('lists the person’s files biggest first, attributed, with archived marked', () => {
+		const figId = recording(U1_SALSA, 'Enchufla', 3 * MB);
+		recording(U2_SALSA, 'Other', 99 * MB);
+		archiveVariation(db, figId, 1);
+		const lesson = createLesson(db, U1_SALSA, {
+			title: '15 salsa cubana moves',
+			lessonDay: '2026-11-01',
+			notes: null
+		}).lesson;
+		addLessonVideo(db, {
+			lessonId: lesson.id,
+			file: 'v.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 9 * MB
+		});
+		createSongFromUpload(db, U1_SALSA, {
+			file: 's.mp3',
+			mime: 'audio/mpeg',
+			title: 'Song A',
+			style: 'son',
+			sizeBytes: 5 * MB
+		});
+		take('u1', 100, 1 * MB, 't.wav');
+		take('u1', 110, 1 * MB, 't2.wav');
+		const items = listStorageItems(db, 'u1');
+		expect(items.map((i) => [i.kind, i.sizeBytes])).toEqual([
+			['lessonVideo', 9 * MB],
+			['song', 5 * MB],
+			['recording', 3 * MB],
+			['voice', 2 * MB]
+		]);
+		expect(items[0]).toMatchObject({
+			title: 'Lesson video',
+			context: 'Lesson · 15 salsa cubana moves'
+		});
+		expect(items[2]).toMatchObject({ context: 'Enchufla · Basic', archived: true });
+		expect(items[3]).toMatchObject({ id: null, href: '/voice', archived: false });
+		expect(items[0].href).toBe(`/salsa/lessons/${lesson.id}`);
+	});
+
+	it('has no voice row without takes', () => {
+		expect(listStorageItems(db, 'u1')).toEqual([]);
+	});
+});
+
+describe('askForMore', () => {
+	it('opens one request per person; a second ask says so', () => {
+		expect(askForMore(db, 'u1', ' more please ', 1000)).toBe('asked');
+		expect(openRequest(db, 'u1')).toEqual({ createdAt: 1000, note: 'more please' });
+		expect(askForMore(db, 'u1', null, 2000)).toBe('already-open');
+		expect(openRequest(db, 'u2')).toBeNull();
+		expect(askForMore(db, 'u2', '  ', 3000)).toBe('asked');
+		expect(openRequest(db, 'u2')).toEqual({ createdAt: 3000, note: null });
+	});
+
+	it('a resolved request does not block a new one', () => {
+		askForMore(db, 'u1', null, 1000);
+		db.update(storageRequests).set({ resolvedAt: 1500, outcome: 'declined' }).run();
+		expect(openRequest(db, 'u1')).toBeNull();
+		expect(askForMore(db, 'u1', null, 2000)).toBe('asked');
 	});
 });

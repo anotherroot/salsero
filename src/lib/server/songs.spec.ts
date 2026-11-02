@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
-import { songs } from './db/schema';
+import { exercises, songs } from './db/schema';
 import { openDb, type Db } from './db';
 import { createCustomExercise, logSet } from './exercises';
 import {
@@ -11,6 +11,7 @@ import {
 	claimJob,
 	createSongFromUpload,
 	createSongFromUrl,
+	deleteSong,
 	failJob,
 	getSong,
 	listSongs,
@@ -460,5 +461,51 @@ describe('recent songs skip what the picker will not show', () => {
 			['A', 0],
 			['B', 1]
 		]);
+	});
+});
+
+describe('deleteSong', () => {
+	const mk = (wall = U1_SALSA, file = 's.mp3') =>
+		createSongFromUpload(db, wall, { file, mime: 'audio/mpeg', title: 'T', style: 'son' });
+	const exercise = (songId: number, name: string, archivedAt: number | null) =>
+		db
+			.insert(exercises)
+			.values({
+				name,
+				source: 'custom',
+				everyDays: 3,
+				practiceMode: 'song',
+				songId,
+				userId: 'u1',
+				archivedAt
+			} as never)
+			.returning()
+			.get();
+
+	it('is null for another person’s song and a missing one, deleting nothing', () => {
+		const s = mk();
+		expect(deleteSong(db, 'u2', s.id)).toBeNull();
+		expect(deleteSong(db, 'u1', 999)).toBeNull();
+		expect(getSong(db, s.id)).not.toBeNull();
+	});
+
+	it('deletes the row and hands back the audio file', () => {
+		const s = mk();
+		expect(deleteSong(db, 'u1', s.id)).toEqual({ ok: true, file: 's.mp3' });
+		expect(getSong(db, s.id)).toBeNull();
+	});
+
+	it('is refused while a live exercise uses it, naming the exercise', () => {
+		const s = mk();
+		exercise(s.id, 'Warm up', null);
+		expect(deleteSong(db, 'u1', s.id)).toEqual({ ok: false, usedBy: ['Warm up'] });
+		expect(getSong(db, s.id)).not.toBeNull();
+	});
+
+	it('clears the link on archived exercises in the same go', () => {
+		const s = mk();
+		const e = exercise(s.id, 'Old', 5);
+		expect(deleteSong(db, 'u1', s.id)).toMatchObject({ ok: true });
+		expect(db.select().from(exercises).where(eq(exercises.id, e.id)).get()!.songId).toBeNull();
 	});
 });

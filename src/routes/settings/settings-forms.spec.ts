@@ -150,3 +150,16 @@ describe('removing a phone and Undo', () => {
 		expect(listDevices(db, 'u1')).toHaveLength(0);
 	});
 });
+
+describe('ask for more', () => {
+	it('opens one request per person and says when one is waiting', async () => {
+		expect(await call(actions.ask, post({ note: 'hi' }))).toMatchObject({ asked: true });
+		expect(await call(actions.ask, post({ note: 'again' }))).toMatchObject({ asked: false });
+		const data = (await (load as (e: unknown) => unknown)(post({}))) as {
+			asked: string;
+			storage: unknown;
+		};
+		expect(data.asked).toMatch(/waiting$/);
+		expect(data.storage as object).toMatchObject({ limitBytes: null });
+	});
+});

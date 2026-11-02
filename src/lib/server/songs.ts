@@ -386,3 +386,35 @@ export function failJob(db: Db, id: number, error: string, permanent: boolean): 
 		.where(eq(songs.id, id))
 		.run();
 }
+
+/**
+ * Delete a person's song for good (songs are one of the hard deletes, to free
+ * space). Null when it is not theirs. Refused while a live exercise uses it;
+ * archived exercises lose the link in the same transaction. The caller
+ * unlinks the audio file once the row is gone.
+ */
+export function deleteSong(
+	db: Db,
+	userId: string,
+	id: number
+): { ok: true; file: string | null } | { ok: false; usedBy: string[] } | null {
+	return db.transaction((tx) => {
+		const song = tx
+			.select()
+			.from(songs)
+			.where(and(eq(songs.id, id), eq(songs.userId, userId)))
+			.get();
+		if (!song) return null;
+		const users = tx
+			.select({ name: exercises.name, archivedAt: exercises.archivedAt })
+			.from(exercises)
+			.where(eq(exercises.songId, id))
+			.orderBy(asc(exercises.name))
+			.all();
+		const live = users.filter((e) => e.archivedAt === null).map((e) => e.name);
+		if (live.length) return { ok: false as const, usedBy: live };
+		tx.update(exercises).set({ songId: null }).where(eq(exercises.songId, id)).run();
+		tx.delete(songs).where(eq(songs.id, id)).run();
+		return { ok: true as const, file: song.audioFile };
+	});
+}

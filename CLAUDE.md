@@ -310,7 +310,7 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for the
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
-- **Archive, don't delete.** Figures and exercises get `archived_at`; sets,
+- **Archive, don't delete.** Figures and exercises get `archived_at`; songs (only from Settings → What uses space, `deleteSong`: refused while a live exercise uses it, archived ones lose `song_id`), sets,
   recordings, links, spots (`video_spots`, deleted with their video), section
   links (`spot_links`, deleted on unlink) and
   saves in flight (`video_downloads`, deleted with their link, or when the
