@@ -152,7 +152,7 @@ private object SelfUpdate {
 
     /** On [io]; [start] catches what it throws. */
     private fun run(app: Context) {
-        if (!UploadQueue.store(app).isEmpty()) return send("busy")
+        if (updateWaits(UploadRun.running)) return send("busy")
         val published = try {
             check()
         } catch (e: IOException) {
@@ -202,14 +202,16 @@ private object SelfUpdate {
     }
 
     /**
-     * The last step, on [io]. Not while an upload is queued (installing ends
+     * The last step, on [io]. Not while an upload is running (installing ends
      * this process, and the upload with it): `busy`, and the page asks again.
+     * A job only queued (paused for this update, backing off) does not wait:
+     * it is on disk, and the next launch carries on with it.
      * A file that waited for the setting is checked again first.
      */
     private fun installOnIo(app: Context, checked: Checked, recheck: Boolean) {
         io.execute {
             try {
-                if (!UploadQueue.store(app).isEmpty()) return@execute send("busy")
+                if (updateWaits(UploadRun.running)) return@execute send("busy")
                 if (recheck && !matches(checked.apk, checked.size, checked.sha256)) {
                     checked.apk.delete()
                     return@execute send("failed:check")

@@ -49,14 +49,17 @@ object Notify {
         "The server no longer knows this phone. Tap to pair it.", PAIR_PATH,
     )
 
-    /** One per video (same id as its result), replaced when the retry posts it again. */
+    /** One per video (same id as its result), replaced when the retry posts it again, silently while it shows. */
     fun updateNeeded(context: Context, id: Int, appName: String, videoName: String, path: String) =
-        post(context, 100 + id, RESULTS, "Update the $appName app", "Update the $appName app to finish uploading $videoName.", path)
+        post(context, 100 + id, RESULTS, "Update the $appName app", "Update the $appName app to finish uploading $videoName.", path, onlyAlertOnce = true)
 
     fun reminder(context: Context, title: String, text: String, path: String) =
         post(context, REMINDER_ID, REMINDERS, title, text, path)
 
-    private fun post(context: Context, id: Int, channel: String, title: String, text: String?, path: String) {
+    private fun post(
+        context: Context, id: Int, channel: String, title: String, text: String?, path: String,
+        onlyAlertOnce: Boolean = false,
+    ) {
         // Also false when the user has turned this app's notifications off; true below Android 13 otherwise.
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         channels(context)
@@ -70,6 +73,7 @@ object Notify {
             .setStyle(text?.let { NotificationCompat.BigTextStyle().bigText(it) })
             .setContentIntent(tap)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(onlyAlertOnce)
             .build()
         context.getSystemService(NotificationManager::class.java).notify(id, n)
     }

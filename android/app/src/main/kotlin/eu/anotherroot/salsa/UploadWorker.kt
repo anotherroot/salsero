@@ -39,7 +39,17 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
     override suspend fun getForegroundInfo(): ForegroundInfo = Notify.progress(ctx, "Uploading", "Preparing", null)
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result {
+        // The updater waits while this is up (UploadRun); a job left queued does not hold it.
+        UploadRun.begin()
+        try {
+            return drain()
+        } finally {
+            UploadRun.end()
+        }
+    }
+
+    private suspend fun drain(): Result = withContext(Dispatchers.IO) {
         try {
             setForeground(getForegroundInfo())
         } catch (e: Exception) {
