@@ -50,7 +50,7 @@ import { setFigureShape } from './graph';
 import { usedBytes } from './storage';
 import { purgeTeams } from './team-purge';
 import { linkCopy } from './files';
-import { copyCost, copyLesson, copySummary, type CopyFiles } from './copy-lesson';
+import { copyCost, copyLesson, copySummary, suffixed, type CopyFiles } from './copy-lesson';
 import { T1_SALSA, U2_SALSA } from './test-walls';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -447,6 +447,73 @@ describe('copyLesson', () => {
 		vi.restoreAllMocks();
 		expect(snapshot()).toEqual(before);
 		expect(readdirSync(dir).sort()).toEqual([VIDEO, REC].sort());
+	});
+
+	it('starts paused what the person already practises through an entry (R23)', async () => {
+		addLesson(
+			db,
+			'u2',
+			w.lesson,
+			{ lesson: true, routineIds: [w.show], drillIds: [w.drill], figureIds: [] },
+			T
+		);
+		const id = ((await copyLesson(db, 'u2', w.lesson, T, files)) as { lessonId: number }).lessonId;
+		const active = (target: { lessonId: number } | { routineId: number }) =>
+			db
+				.select({ a: exercises.active })
+				.from(exercises)
+				.where(
+					and(
+						eq(exercises.userId, 'u2'),
+						'lessonId' in target
+							? eq(exercises.lessonId, target.lessonId)
+							: eq(exercises.routineId, target.routineId)
+					)
+				)
+				.get()!.a;
+		const mine = (name: string) =>
+			db
+				.select()
+				.from(routines)
+				.where(and(eq(routines.userId, 'u2'), eq(routines.name, name)))
+				.get()!.id;
+		expect(active({ lessonId: id })).toBe(false);
+		expect(active({ routineId: mine('Show') })).toBe(false);
+		// Intro was not picked: no entry, so its copy is on Today.
+		expect(active({ routineId: mine('Intro') })).toBe(true);
+		const drill = db
+			.select()
+			.from(exercises)
+			.where(and(eq(exercises.userId, 'u2'), eq(exercises.source, 'custom')))
+			.get()!;
+		expect(drill).toMatchObject({ active: false, everyDays: 2 });
+		// The entries themselves are untouched.
+		expect(
+			db
+				.select({ a: exercises.active })
+				.from(exercises)
+				.where(and(eq(exercises.userId, 'u2'), eq(exercises.source, 'added')))
+				.get()!.a
+		).toBe(true);
+	});
+
+	it('starts everything active for a person with no entries', async () => {
+		await copyLesson(db, 'u2', w.lesson, T, files);
+		const mine = db.select().from(exercises).where(eq(exercises.userId, 'u2')).all();
+		expect(mine.map((e) => e.source).sort()).toEqual(['custom', 'lesson', 'routine', 'routine']);
+		expect(mine.every((e) => e.active)).toBe(true);
+	});
+
+	it('cuts a suffixed name to fit the form, keeping the suffix whole', async () => {
+		expect(suffixed('Doble', ' (G)')).toBe('Doble (G)');
+		expect(suffixed('x'.repeat(200), ' (G 2)')).toBe(`${'x'.repeat(194)} (G 2)`);
+		const long = 'D'.repeat(200);
+		db.update(figures).set({ name: long }).where(eq(figures.id, w.doble)).run();
+		createFigure(db, U2_SALSA, { figureName: 'Enchufla', name: long, ...shape });
+		await copyLesson(db, 'u2', w.lesson, T, files);
+		const copied = mineIn('Enchufla').map((v) => v.name)[2];
+		expect(copied).toBe(`${'D'.repeat(200 - 21)} (Salsa nadaljevalna)`);
+		expect(copied).toHaveLength(200);
 	});
 
 	it('works for a former member who had added the lesson, and an editor', async () => {

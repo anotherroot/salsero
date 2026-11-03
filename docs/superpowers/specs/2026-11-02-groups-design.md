@@ -259,7 +259,9 @@ groups, across both dances, and drops into some only now and then.
   link cannot be made), so the group's purge never takes them; the copy gets
   its own review exercise, and its routines theirs, as any lesson and routine
   of a person's do. Routines and drills keep their names (neither has a name
-  rule). Copying twice makes two copies. `src/lib/server/copy-lesson.ts`.
+  rule). An exercise the copy makes starts paused when the person already
+  practises its source through an entry, so Today is not doubled. Copying
+  twice makes two copies. `src/lib/server/copy-lesson.ts`.
 
 ### Storage
 

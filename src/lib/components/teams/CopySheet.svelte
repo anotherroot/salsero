@@ -29,11 +29,16 @@
 
 	let busy = $state(false);
 	let refused = $state<{ message: string; askForMore: boolean } | null>(null);
+	/** Closing forgets a refusal, so the next open starts clean. */
+	function close() {
+		refused = null;
+		onclose();
+	}
 
 	const items = $derived(copyItems(summary));
 </script>
 
-<Sheet title={MAKE_COPY} sub={copyLine(summary.bytes)} {open} {onclose}>
+<Sheet title={MAKE_COPY} sub={copyLine(summary.bytes)} {open} onclose={close}>
 	<div class="flex flex-col gap-2">
 		{#if refused}
 			{@const r = refused}
@@ -70,7 +75,7 @@
 					try {
 						if (result.type === 'redirect') {
 							// The new lesson opens over this page, once the sheet's Back has landed.
-							onclose();
+							close();
 							await gotoWhenSettled(result.location);
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown; askForMore?: unknown } | undefined;

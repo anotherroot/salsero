@@ -1,6 +1,9 @@
 /** Small, strict readers for FormData. Each returns `undefined` on bad input so actions can `fail(400)`. */
 
-export function text(form: FormData, key: string, max = 200): string | undefined {
+/** The longest a name may be (a title, a figure's or a variation's name): what `text` takes by default. */
+export const NAME_MAX = 200;
+
+export function text(form: FormData, key: string, max = NAME_MAX): string | undefined {
 	const v = String(form.get(key) ?? '').trim();
 	return v.length > 0 && v.length <= max ? v : undefined;
 }

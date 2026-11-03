@@ -8,7 +8,9 @@
  * links, its links; the variations in the lesson's reach (`reachFrom`) with
  * their timing, positions and links; its routines and the routines they
  * embed, slots remapped; its drills with their links. Recordings are not
- * copied, and the person's practice entries stay on the group's lesson.
+ * copied, and the person's practice entries stay on the group's lesson; a
+ * copied exercise whose source they practise through a live entry starts
+ * paused, so Today is not doubled.
  *
  * Names (risk 14): a variation joins the person's live figure of the same name
  * (trimmed, any case — the rule `figureNameTaken` keeps unique), or a new
@@ -52,6 +54,8 @@ import { createLesson, linkExercise, linkFigure, linkRoutine } from './lessons';
 import { variationNameTaken } from './figures';
 import { createCustomExercise } from './exercises';
 import { createRoutine, routineSlots } from './routines';
+import { entryFor, type EntryTarget } from './entries';
+import { NAME_MAX } from './form';
 import { addSpot } from './spots';
 import { linkInSpace } from './spot-links';
 import type { DanceSlug } from '$lib/dances/dances';
@@ -69,6 +73,23 @@ export type CopyResult =
 	{ ok: true; lessonId: number } | { ok: false; room: Extract<Room, { ok: false }> };
 
 const norm = (name: string) => name.trim().toLowerCase();
+
+/**
+ * "Doble (Salsa nadaljevalna)", cut so it still fits a variation name's form
+ * field: the base is shortened, the suffix kept whole.
+ */
+export function suffixed(base: string, suffix: string): string {
+	return `${base.slice(0, Math.max(0, NAME_MAX - suffix.length)).trimEnd()}${suffix}`;
+}
+
+/**
+ * A copy's exercise starts paused when the person already practises its
+ * source through a live entry (ruling R23): the copy must not double Today.
+ */
+function pauseIfPractised(tx: Db, exerciseId: number, userId: string, source: EntryTarget): void {
+	if (entryFor(tx, userId, source)?.archivedAt !== null) return;
+	tx.update(exercises).set({ active: false }).where(eq(exercises.id, exerciseId)).run();
+}
 
 /**
  * The group lesson this person may copy: one they can read, of a group. A
@@ -170,11 +191,12 @@ function copyRows(
 ): number {
 	const teamName = getTeam(tx, lesson.teamId)?.name ?? 'group';
 	const reach = reachFrom(tx, lesson.teamId, [lesson.id]);
-	const made = createLesson(tx, wall, {
+	const { lesson: made, exercise: review } = createLesson(tx, wall, {
 		lessonDay: lesson.lessonDay,
 		title: lesson.title,
 		notes: lesson.notes
-	}).lesson;
+	});
+	pauseIfPractised(tx, review.id, wall.userId, { lessonId: lesson.id });
 
 	const variationMap = copyVariations(tx, wall, [...reach.variations], teamName, now);
 	const drillMap = copyDrills(tx, wall, [...reach.drills], now);
@@ -317,7 +339,7 @@ function copyVariations(
 		const groupId = groupFor(figureName);
 		let name = v.name;
 		for (let n = 1; variationNameTaken(tx, groupId, name, null); n++) {
-			name = n === 1 ? `${v.name} (${teamName})` : `${v.name} (${teamName} ${n})`;
+			name = suffixed(v.name, n === 1 ? ` (${teamName})` : ` (${teamName} ${n})`);
 		}
 		const copy = tx
 			.insert(figures)
@@ -374,6 +396,7 @@ function copyDrills(tx: Db, wall: Wall, ids: number[], now: number): Map<number,
 			.set({ practiceMode: d.practiceMode, countBpm: d.countBpm, practiceJson: d.practiceJson })
 			.where(eq(exercises.id, copy.id))
 			.run();
+		pauseIfPractised(tx, copy.id, wall.userId, { drillId: d.id });
 		copyLinks(tx, { exerciseId: d.id }, { exerciseId: copy.id }, now);
 		out.set(d.id, copy.id);
 	}
@@ -402,7 +425,9 @@ function copyRoutines(
 		.orderBy(asc(routines.id))
 		.all();
 	for (const r of rows) {
-		out.set(r.id, createRoutine(tx, wall, { name: r.name, notes: r.notes }).routine.id);
+		const made = createRoutine(tx, wall, { name: r.name, notes: r.notes });
+		pauseIfPractised(tx, made.exercise.id, wall.userId, { routineId: r.id });
+		out.set(r.id, made.routine.id);
 	}
 	for (const r of rows) {
 		let position = 0;
