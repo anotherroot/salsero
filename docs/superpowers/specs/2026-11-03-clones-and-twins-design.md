@@ -79,11 +79,17 @@ edit a class figure into their own). A teacher uses both.
      Salsa Tuesdays", and you can take one into yours (then charged to you).
      A clone made into a group brings its recordings, charged to the group,
      since members need them.
-3. **The source stays visible.** Your clone's page shows where it came from
-   ("From Salsa Tuesdays") and, when the source changed since you last took
-   from it, what changed: "Updated since: timing, 1 recording · Compare".
+3. **The source stays visible** *(user agreed)*. Your clone's page has a
+   switcher at the top, one tab per source ("Yours", "Salsa Tuesdays"): the
+   same switcher a twin's page has, so there is one way of showing "theirs"
+   beside "yours". "Yours" is yours to edit; the source's tab is its version
+   as it is now, read-only, with Take on a recording. When the source changed
+   since you last took from it, a line above says what: "Salsa Tuesdays
+   changed it since you took it: timing, 1 recording · Compare". A twin's tab
+   is the same, without Take or Compare.
 4. **Copy to…** makes a clone in another place you can edit: your app, or a
-   group you own or edit. This includes group to group *(user)*: you may put
+   group you own or edit. A lesson copied into a group lands there as a
+   **draft** *(user)*, like any new group lesson. This includes group to group *(user)*: you may put
    a class's Enchufla straight into a group you teach. Only people who can
    see both places ever see that one came from the other.
 5. **Sending to a group sends exactly one version** *(user)*. If what you
@@ -199,7 +205,8 @@ leaving you read nothing of the group; you have your own copies instead. A
 cleaner wall. CLAUDE.md's wall rule and `access.ts` change with it.
 
 - **Leaving asks what to keep**: Keep everything, choose item by item, or
-  delete everything. What you keep becomes clones in your app: lessons with
+  keep only what your own routines use ("Keep only what my routines use"
+  *(user)*: never "Keep nothing", since those are kept regardless). What you keep becomes clones in your app: lessons with
   their videos and sections, figures, routines, drills, songs. The files are
   hard-linked under new names (no extra disk) and charged to you; keeping
   may take you over your limit, which is allowed, and uploads are refused
@@ -226,7 +233,8 @@ cleaner wall. CLAUDE.md's wall rule and `access.ts` change with it.
   your app: your own Enchufla and Salsa Tuesdays', or Salsa Tuesdays' and
   Rueda club's. Any number can be twins.
 - Twins show as **one**: one row in Moves and in every picker, one page with
-  a section per source ("Yours", "Salsa Tuesdays", "Rueda club"), counted
+  a tab per source ("Yours", "Salsa Tuesdays", "Rueda club"), the same
+  switcher as a clone's page, counted
   once where the app counts moves.
 - Twins are **personal** *(my call; the user agreed)*: your grouping is
   yours; other members don't see it.
@@ -313,7 +321,9 @@ clone and twin screens are drawn: what the app calls a **variation** becomes
 a **figure** ("Enchufla · Doble" is a figure), and what it calls a figure
 (a name holding variations) becomes a **move** *(my call for the word;
 "figure group" was avoided because "group" already means a class)*. The
-Moves tab lists moves. The code already works this way (`figures` is a
+Moves tab keeps its two sub-tabs, **Figures | Routines** *(user)*: Figures
+lists figures under each move's name as a heading (as the pickers already
+do), and tapping the name opens the move's page. The code already works this way (`figures` is a
 variation, `figure_groups` the named set), so only screen words, specs and
 CLAUDE.md change. It ships first, on its own.
 
