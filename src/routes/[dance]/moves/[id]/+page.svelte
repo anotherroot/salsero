@@ -20,14 +20,22 @@
 	/** The ⋯ sheet and the two it leads to share one sheet, so Back closes it once. */
 	let view = $state<null | 'menu' | 'rename' | 'new'>(null);
 	let busy = $state(false);
+	/** The refusal the sheet was closed on: reopening starts from the current name. */
+	let dismissed = $state<unknown>(null);
+	const closeSheet = () => {
+		dismissed = form;
+		view = null;
+	};
 
 	// A refusal keeps its sheet open to show it.
 	$effect(() => {
-		if (form && 'message' in form && form.message) {
+		if (form && form !== dismissed && 'message' in form && form.message) {
 			view = form.action === 'createFigure' ? 'new' : 'rename';
 		}
 	});
-	const error = $derived(form && 'message' in form && form.message ? form : null);
+	const error = $derived(
+		form && form !== dismissed && 'message' in form && form.message ? form : null
+	);
 	const fieldError = (action: 'rename' | 'createFigure') =>
 		error && error.action === action ? error.message : undefined;
 
@@ -118,7 +126,7 @@
 </Screen>
 
 {#if view}
-	<Sheet {title} open={true} onclose={() => (view = null)}>
+	<Sheet {title} open={true} onclose={closeSheet} footer={view === 'menu' ? undefined : footer}>
 		{#if view === 'menu'}
 			<div class={GROUP}>
 				<button
@@ -138,7 +146,7 @@
 				method="POST"
 				action="?/rename"
 				class="flex flex-col gap-3.5"
-				use:guarded={{ label: 'Rename move', submit: submit(() => (view = null)) }}
+				use:guarded={{ label: 'Rename move', submit: submit(closeSheet) }}
 			>
 				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				<div>
@@ -169,7 +177,7 @@
 				method="POST"
 				action="?/createFigure"
 				class="flex flex-col gap-3.5"
-				use:guarded={{ label: 'New figure', submit: submit(() => (view = null)) }}
+				use:guarded={{ label: 'New figure', submit: submit(closeSheet) }}
 			>
 				<div>
 					<label class={LABEL} for="figure-name">Figure name</label>
@@ -196,18 +204,16 @@
 				</p>
 			</form>
 		{/if}
-
-		{#snippet footer()}
-			{#if view !== 'menu'}
-				<button
-					type="submit"
-					form={view === 'rename' ? 'rename-move' : 'new-move-figure'}
-					class={button('primary', 'md', true)}
-					aria-busy={busy}
-				>
-					{#if busy}<Spinner />{:else}{view === 'rename' ? 'Save' : 'Add figure'}{/if}
-				</button>
-			{/if}
-		{/snippet}
 	</Sheet>
 {/if}
+
+{#snippet footer()}
+	<button
+		type="submit"
+		form={view === 'rename' ? 'rename-move' : 'new-move-figure'}
+		class={button('primary', 'md', true)}
+		aria-busy={busy}
+	>
+		{#if busy}<Spinner />{:else}{view === 'rename' ? 'Save' : 'Add figure'}{/if}
+	</button>
+{/snippet}
