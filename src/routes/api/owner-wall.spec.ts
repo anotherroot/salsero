@@ -493,7 +493,8 @@ const figureInputU2 = {
 import { figureGroups } from '$lib/server/db/schema';
 
 import { eq } from 'drizzle-orm';
-import { createTeam, joinTeam, setRole } from '$lib/server/teams';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
 import { lessons as lessonsTable, videoDownloads } from '$lib/server/db/schema';
 import { saveVideoFrom } from '$lib/server/link-form';
 import { T1_SALSA } from '$lib/server/test-walls';

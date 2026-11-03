@@ -1,8 +1,10 @@
 /**
  * Groups (teams in code): making, roles, codes, joining. Data functions take `db` first.
  *
- * Owner-only functions that take no actor: renameTeam, remakeCode, setRole, removeMember.
- * The route must check `roleOf(db, userId, teamId) === 'owner'` before calling them.
+ * Owner-only functions that take no actor: renameTeam, remakeCode. The route must
+ * check `roleOf(db, userId, teamId) === 'owner'` before calling them. Changing
+ * who is in a group (setRole, removeMember, leaveTeam) is `membership.ts`; a
+ * deleted group's purge, 30 days on, is `team-purge.ts`.
  */
 import { randomInt } from 'node:crypto';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
@@ -203,52 +205,6 @@ export function remakeCode(db: Db, teamId: number): string {
 
 function isOwner(db: Db, teamId: number, userId: string): boolean {
 	return roleOf(db, userId, teamId) === 'owner';
-}
-
-/** Changes a non-owner member between editor and member. The caller has checked the owner. */
-export function setRole(
-	db: Db,
-	teamId: number,
-	userId: string,
-	role: 'editor' | 'member'
-): boolean {
-	return (
-		db
-			.update(teamMembers)
-			.set({ role })
-			.where(
-				and(
-					eq(teamMembers.teamId, teamId),
-					eq(teamMembers.userId, userId),
-					sql`${teamMembers.role} != 'owner'`
-				)
-			)
-			.run().changes > 0
-	);
-}
-
-/** Removes a member other than the owner. The caller has checked the owner. */
-export function removeMember(db: Db, teamId: number, userId: string): boolean {
-	return (
-		db
-			.delete(teamMembers)
-			.where(
-				and(
-					eq(teamMembers.teamId, teamId),
-					eq(teamMembers.userId, userId),
-					sql`${teamMembers.role} != 'owner'`
-				)
-			)
-			.run().changes > 0
-	);
-}
-
-export function leaveTeam(db: Db, teamId: number, userId: string): 'left' | 'owner' {
-	if (roleOf(db, userId, teamId) === 'owner') return 'owner';
-	db.delete(teamMembers)
-		.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
-		.run();
-	return 'left';
 }
 
 /** The owner gives the group to a member, and becomes an editor. */

@@ -9,7 +9,8 @@ import { teamChanges, teamTrash, users } from './db/schema';
 import { restoreTrash } from './trash';
 import { actorOf, type Space } from './scope';
 import { T1_SALSA, U1_SALSA } from './test-walls';
-import { createTeam, joinTeam, removeMember, setRole } from './teams';
+import { createTeam, joinTeam } from './teams';
+import { removeMember, setRole } from './membership';
 import {
 	archivedTarget,
 	editedBy,

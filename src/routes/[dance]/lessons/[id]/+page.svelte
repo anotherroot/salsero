@@ -589,6 +589,18 @@
 				>
 			</div>
 		{:else}
+			{#if data.notice}
+				{@const notice = data.notice}
+				<!-- Not in the live group any more (left, removed, or it is being deleted): read-only, with a way to keep it. -->
+				<Banner kind={notice.tone}>
+					{notice.text}
+					{#snippet action()}
+						<form method="POST" action="?/copy" use:enhance>
+							<button type="submit" class={button('tertiary', 'sm')}>{notice.action}</button>
+						</form>
+					{/snippet}
+				</Banner>
+			{/if}
 			{#if data.edited}<p class="text-[13px] font-semibold text-muted">{data.edited}</p>{/if}
 			{#if data.add?.added && data.add.offer}
 				<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->

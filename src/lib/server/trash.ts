@@ -44,6 +44,7 @@ import { restoreLesson } from './lessons';
 import { labelFor, restoreVariation } from './figures';
 import { restoreRoutine } from './routines';
 import { restoreDrill } from './exercises';
+import { purgeTeams } from './team-purge';
 import { getTeam, roleOf } from './teams';
 import type { TeamSpace } from './scope';
 import { localDay } from '$lib/day/day';
@@ -461,13 +462,18 @@ const timer = globalThis as { __salsaTrashPurge?: ReturnType<typeof setInterval>
 
 /**
  * Purge now and every hour after, once per process: the dev server's module
- * reloads must not start a second timer. A failure is logged and never
- * reaches a request.
+ * reloads must not start a second timer. The trash first, then the groups
+ * deleted 30 days ago (`purgeTeams`). A failure is logged and never reaches a
+ * request.
  */
 export function startTrashPurge(db: () => Db): void {
 	if (timer.__salsaTrashPurge) return;
 	const run = () => {
-		void purgeTrash(db(), Date.now()).catch((err) => console.warn('[trash] purge failed', err));
+		const now = Date.now();
+		void purgeTrash(db(), now)
+			.catch((err) => console.warn('[trash] purge failed', err))
+			.then(() => purgeTeams(db(), now))
+			.catch((err) => console.warn('[team-purge] purge failed', err));
 	};
 	run();
 	timer.__salsaTrashPurge = setInterval(run, HOUR);

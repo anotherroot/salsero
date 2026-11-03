@@ -20,7 +20,8 @@ vi.mock('$lib/server/files', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { lessonVideos, users } from '$lib/server/db/schema';
-import { createTeam, joinTeam, setRole } from '$lib/server/teams';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
 import { addLessonVideo, archiveLesson, createLesson, getLessonRow } from '$lib/server/lessons';
 import { addSpot, deleteSpot } from '$lib/server/spots';
 import { addRecording, createFigure } from '$lib/server/figures';

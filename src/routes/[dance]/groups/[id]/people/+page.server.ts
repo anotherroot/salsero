@@ -1,7 +1,8 @@
 import { error, fail } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { requireTeam } from '$lib/server/scope';
-import { handOver, peopleOf, removeMember, setRole } from '$lib/server/teams';
+import { handOver, peopleOf } from '$lib/server/teams';
+import { removeMember, setRole } from '$lib/server/membership';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -32,7 +33,7 @@ export const actions: Actions = {
 		const { db, team, userId, form } = await target(event);
 		const role = String(form.get('role') ?? '');
 		if (role !== 'editor' && role !== 'member') return fail(400, { message: 'Pick a role.' });
-		if (!setRole(db, team.id, userId, role)) {
+		if (!setRole(db, team.id, userId, role, Date.now())) {
 			return fail(400, { message: 'The owner keeps the group. Hand it over to change that.' });
 		}
 		return { ok: true };
@@ -50,7 +51,7 @@ export const actions: Actions = {
 
 	remove: async (event) => {
 		const { db, team, userId } = await target(event);
-		if (!removeMember(db, team.id, userId)) {
+		if (!removeMember(db, team.id, userId, Date.now())) {
 			return fail(400, { message: 'The owner cannot be removed. Hand the group over first.' });
 		}
 		return { ok: true };

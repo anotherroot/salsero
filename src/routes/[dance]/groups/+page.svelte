@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
@@ -28,6 +30,26 @@
 		seen = form;
 		creating = true;
 	}
+
+	// Restore, on a deleted group's row: its refusal (a live group has the name) shows above the list.
+	let restoreError = $state<string | null>(null);
+	let restoring = $state<number | null>(null);
+	const restore =
+		(id: number): SubmitFunction =>
+		({ cancel }) => {
+			if (restoring !== null) return cancel();
+			restoring = id;
+			restoreError = null;
+			return async ({ result, update }) => {
+				try {
+					if (result.type === 'failure') {
+						restoreError = String(result.data?.message ?? 'That group could not be restored.');
+					} else await update();
+				} finally {
+					restoring = null;
+				}
+			};
+		};
 </script>
 
 <svelte:head><title>Groups · {data.dance.label}</title></svelte:head>
@@ -51,15 +73,17 @@
 			{/snippet}
 		</EmptyState>
 	{:else}
+		{#if restoreError}<Banner kind="error">{restoreError}</Banner>{/if}
 		<ul class={GROUP} aria-label="Your groups">
 			{#each data.teams as team (team.id)}
-				<li>
+				{@const href = resolve('/[dance]/groups/[id]', {
+					dance: data.dance.slug,
+					id: String(team.id)
+				})}
+				<li class="flex items-center">
 					<a
-						href={resolve('/[dance]/groups/[id]', {
-							dance: data.dance.slug,
-							id: String(team.id)
-						})}
-						class="flex min-h-[72px] items-center gap-3 py-3 pr-3 pl-4 active:bg-step"
+						{href}
+						class="flex min-h-[72px] min-w-0 flex-1 items-center gap-3 py-3 pr-3 pl-4 active:bg-step"
 					>
 						<span
 							aria-hidden="true"
@@ -72,9 +96,32 @@
 								>{peopleLine(team.people)} · {roleLabel(team.role)}</span
 							>
 						</span>
-						{#if team.deletedAt !== null}<Badge>Deleted</Badge>{/if}
-						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+						{#if team.deletedAt !== null}
+							<Badge>Deleted</Badge>
+						{:else}
+							<span class="flex flex-none text-chevron"
+								><Icon name="chevron-right" size={20} /></span
+							>
+						{/if}
 					</a>
+					{#if team.deletedAt !== null}
+						<!-- Only its owner still sees a deleted group: Restore, until it goes for good. -->
+						<form
+							method="POST"
+							action="{href}?/restore"
+							class="flex-none pr-3"
+							use:enhance={restore(team.id)}
+						>
+							<button
+								type="submit"
+								class={button('secondary', 'sm')}
+								aria-label="Restore {team.name}"
+								aria-busy={restoring === team.id}
+								disabled={restoring !== null}
+								>{#if restoring === team.id}<Spinner />{:else}Restore{/if}</button
+							>
+						</form>
+					{/if}
 				</li>
 			{/each}
 		</ul>

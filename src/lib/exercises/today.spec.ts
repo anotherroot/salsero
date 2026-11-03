@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import type { Plan, PlanRow } from '$lib/urgency/urgency';
 import type { DaySet, ExerciseItem } from '$lib/types';
-import { heroFor, pastGroups, rowMeta, shownRows, teamOfRow, tileTone, todayBands } from './today';
+import {
+	deletedGroupName,
+	heroFor,
+	pastGroups,
+	rowMeta,
+	shownRows,
+	teamOfRow,
+	tileTone,
+	todayBands
+} from './today';
 import { nextInSession } from './session';
 
 function row(
@@ -228,5 +237,14 @@ describe('pastGroups', () => {
 		const g = pastGroups([set(3, 1, '20:10'), set(1, 1, '19:42'), set(2, 2, '18:05')]);
 		expect(g.map((x) => x.exerciseId)).toEqual([2, 1]);
 		expect(g[1].sets.map((s) => s.id)).toEqual([1, 3]);
+	});
+});
+
+describe('deletedGroupName', () => {
+	// The spec's words: a log keeps its name once its group is purged.
+	it('names what was practised and its group, marked deleted', () => {
+		expect(deletedGroupName('Tue 3 Nov', 'Salsa nadaljevalna')).toBe(
+			'Tue 3 Nov · Salsa nadaljevalna (deleted)'
+		);
 	});
 });

@@ -29,6 +29,7 @@ import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
+import { deletedGroupName } from '$lib/exercises/today';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
 /**
@@ -344,14 +345,26 @@ export function deleteSet(db: Db, id: number): boolean {
 /**
  * Sets whose instant falls in `[from, to)`, newest first. The caller widens the
  * window around a calendar day and filters with `localDay`, so which day a set
- * belongs to is decided in one place, in the user's zone.
+ * belongs to is decided in one place, in the user's zone. An entry whose
+ * group was purged is named for it (`deletedGroupName`): what it practised is
+ * archived and unreachable, and only the name says where it came from.
  */
 export function listSetsBetween(db: Db, from: number, to: number, wall: Wall): DaySet[] {
 	return db
 		.select({
 			id: sets.id,
 			exerciseId: sets.exerciseId,
-			exerciseName: exercises.name,
+			name: exercises.name,
+			// An entry whose group is purged: the group's name, found through what it practised.
+			purgedTeam: sql<string | null>`(select t.name from teams t where t.purged_at is not null
+				and t.id = coalesce(
+					(select l.team_id from lessons l where l.id = ${exercises.lessonId}),
+					(select r.team_id from routines r where r.id = ${exercises.routineId}),
+					(select f.team_id from figures f where f.id = ${exercises.figureId}),
+					(select d.team_id from exercises d where d.id = ${exercises.drillId})))`,
+			lessonTitle: sql<
+				string | null
+			>`(select l.title from lessons l where l.id = ${exercises.lessonId})`,
 			doneAt: sets.doneAt,
 			durationS: sets.durationS,
 			reps: sets.reps,
@@ -369,7 +382,11 @@ export function listSetsBetween(db: Db, from: number, to: number, wall: Wall): D
 			)
 		)
 		.orderBy(desc(sets.doneAt))
-		.all();
+		.all()
+		.map(({ name, purgedTeam, lessonTitle, ...set }) => ({
+			...set,
+			exerciseName: purgedTeam === null ? name : deletedGroupName(lessonTitle ?? name, purgedTeam)
+		}));
 }
 
 const historyRow = {

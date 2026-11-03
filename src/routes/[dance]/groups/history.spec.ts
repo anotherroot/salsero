@@ -9,7 +9,8 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
-import { createTeam, joinTeam, setRole } from '$lib/server/teams';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
 import { createLesson, getLessonRow, updateLesson } from '$lib/server/lessons';
 import { createCustomExercise } from '$lib/server/exercises';
 import { history } from '$lib/server/changes';

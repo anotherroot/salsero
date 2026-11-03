@@ -19,7 +19,8 @@ vi.mock('$lib/server/files', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { lessonVideos, storageRequests, teamTrash, users } from '$lib/server/db/schema';
-import { createTeam, joinTeam, setRole } from '$lib/server/teams';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
 import { addLessonVideo, createLesson } from '$lib/server/lessons';
 import { askForMore, openRequest } from '$lib/server/storage';
 import { T1_SALSA } from '$lib/server/test-walls';

@@ -1,5 +1,7 @@
 /** What the group screens say. PURE and client-safe. */
-import { byteSize, plural } from '$lib/format';
+import { localDay } from '$lib/day/day';
+import { byteSize, dayMonth, plural } from '$lib/format';
+import { TEAM_PURGE_MS } from '$lib/limits';
 import type { Role } from '$lib/types';
 
 export function roleLabel(role: Role): string {
@@ -18,8 +20,41 @@ export function noAccountLine(adminFirst: string): string {
 	return `This code only adds people who already have an account. Ask ${adminFirst} for an invite.`;
 }
 
+export const MAKE_COPY = 'Make my own copy';
+
+const deletingLead = (name: string, day: string) => `${name} is being deleted on ${day}`;
+
 export function deletingLine(name: string, day: string): string {
-	return `${name} is being deleted on ${day} · Make my own copy`;
+	return `${deletingLead(name, day)} · ${MAKE_COPY}`;
+}
+
+/** A former member's line on a group lesson they had added: still current, never theirs to edit. */
+export function leftLine(team: string): string {
+	return `You left ${team} · read-only`;
+}
+
+/** The day a group deleted at `deletedAt` goes for good, in the person's zone: "2 Dec". */
+export function purgeDay(deletedAt: number, timezone: string): string {
+	return dayMonth(localDay(deletedAt + TEAM_PURGE_MS, timezone));
+}
+
+/**
+ * The banner on a group lesson for someone who is not in the live group: its
+ * group is being deleted (everyone, the owner too, until the purge), or they
+ * left or were removed. Its action is always Make my own copy, so `text` is
+ * the line before it (`deletingLine` is `text · action`). Null for a member
+ * of a live group.
+ */
+export function lessonNotice(
+	team: { name: string; deletedAt: number | null },
+	member: boolean,
+	timezone: string
+): { tone: 'info' | 'warning'; text: string; action: string } | null {
+	if (team.deletedAt !== null) {
+		const text = deletingLead(team.name, purgeDay(team.deletedAt, timezone));
+		return { tone: 'warning', text, action: MAKE_COPY };
+	}
+	return member ? null : { tone: 'info', text: leftLine(team.name), action: MAKE_COPY };
 }
 
 /** The band's line under a group's people count. */

@@ -8,14 +8,8 @@ import { addLesson, addState } from '$lib/server/entries';
 import { localDay } from '$lib/day/day';
 import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { requireTeam } from '$lib/server/scope';
-import {
-	deleteTeam,
-	leaveTeam,
-	peopleOf,
-	remakeCode,
-	renameTeam,
-	restoreTeam
-} from '$lib/server/teams';
+import { deleteTeam, peopleOf, remakeCode, renameTeam, restoreTeam } from '$lib/server/teams';
+import { leaveTeam } from '$lib/server/membership';
 import { codeLink, NAME_REFUSAL } from '$lib/teams/view';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -108,7 +102,7 @@ export const actions: Actions = {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'member');
 		if (team.deletedAt !== null) throw error(404, 'No such group');
-		if (leaveTeam(db, team.id, space.actorId) === 'owner') {
+		if (leaveTeam(db, team.id, space.actorId, Date.now()) === 'owner') {
 			return fail(400, { action: 'leave', message: 'Hand the group over before you leave it.' });
 		}
 		throw redirect(303, `/${team.dance}/groups`);

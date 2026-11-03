@@ -10,7 +10,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises, lessonVideos, recordings, teamTrash, users, videoSpots } from './db/schema';
-import { createTeam, joinTeam, setRole } from './teams';
+import { createTeam, joinTeam } from './teams';
+import { setRole } from './membership';
 import {
 	addLessonVideo,
 	archiveLesson,

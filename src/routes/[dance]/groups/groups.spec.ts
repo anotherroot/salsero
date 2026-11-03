@@ -9,7 +9,8 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
-import { createTeam, joinTeam, roleOf, setRole } from '$lib/server/teams';
+import { createTeam, joinTeam, roleOf } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
 import { requireTeam } from '$lib/server/scope';
 import { actions as listActions, load as listLoad } from './+page.server';
 import { actions as pageActions, load as pageLoad } from './[id]/+page.server';

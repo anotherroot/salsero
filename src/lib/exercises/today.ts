@@ -165,3 +165,12 @@ export function pastGroups(
 	}
 	return groups;
 }
+
+/**
+ * A logged exercise's name once its group is purged: "Tue 3 Nov · Salsa
+ * nadaljevalna (deleted)". `title` is what the entry practised (a lesson's
+ * title, a routine's, a variation's or a drill's name).
+ */
+export function deletedGroupName(title: string, team: string): string {
+	return `${title} · ${team} (deleted)`;
+}

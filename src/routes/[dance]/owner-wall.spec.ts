@@ -1353,7 +1353,8 @@ describe('lessons, sections and their links stand behind a wall', () => {
 
 /* ── Group lessons: drafts, publish, and the reader's pages (groups Task 8) ── */
 
-import { createTeam, joinTeam, leaveTeam } from '$lib/server/teams';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { leaveTeam } from '$lib/server/membership';
 import { linkInSpace } from '$lib/server/spot-links';
 import { lessonAdds, sets as setRows, videoSpots } from '$lib/server/db/schema';
 import type { TeamSpace } from '$lib/server/scope';

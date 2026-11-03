@@ -873,7 +873,8 @@ describe('in a group', () => {
 });
 
 import { listTeamLessons, publishLesson } from './lessons';
-import { createTeam, deleteTeam, joinTeam, setRole } from './teams';
+import { createTeam, deleteTeam, joinTeam } from './teams';
+import { setRole } from './membership';
 import { linkOptionsFor } from './link-popup';
 import { lessons as lessonRows } from './db/schema';
 

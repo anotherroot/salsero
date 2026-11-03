@@ -43,7 +43,8 @@ export function bootstrap(): Promise<void> {
 			// failure here is never worth a 500.
 			void sweepUploads(UPLOAD_PARTIAL_TTL_MS).catch(() => {});
 			// A group's Recently deleted: what has waited 30 days goes for good,
-			// files included. Now, and every hour while the process lives.
+			// files included, and so does a group deleted 30 days ago. Now, and
+			// every hour while the process lives.
 			startTrashPurge(getDb);
 		})
 		.catch((err) => {

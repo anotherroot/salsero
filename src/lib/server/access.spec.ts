@@ -32,7 +32,8 @@ import {
 	requireLessonAccess,
 	requireRoutineAccess
 } from './scope';
-import { createTeam, deleteTeam, joinTeam, leaveTeam, setRole } from './teams';
+import { createTeam, deleteTeam, joinTeam } from './teams';
+import { leaveTeam, setRole } from './membership';
 import { T1_SALSA, U1_SALSA } from './test-walls';
 
 /**

@@ -7,21 +7,19 @@ import {
 	deleteTeam,
 	handOver,
 	joinTeam,
-	leaveTeam,
 	listMyTeams,
 	newTeamCode,
 	peopleOf,
 	remakeCode,
-	removeMember,
 	renameTeam,
 	restoreTeam,
 	roleOf,
-	setRole,
 	teamByCode,
 	teamLimit,
 	teamsMade,
 	getTeam
 } from './teams';
+import { leaveTeam, removeMember, setRole } from './membership';
 import { TEAM_CODE_LENGTH } from '$lib/limits';
 
 function setup() {

@@ -3,9 +3,13 @@ import {
 	codeLink,
 	deletingLine,
 	joinQuestion,
+	leftLine,
+	lessonNotice,
 	limitLine,
+	MAKE_COPY,
 	noAccountLine,
 	peopleLine,
+	purgeDay,
 	roleLabel,
 	youLine
 } from './view';
@@ -47,5 +51,43 @@ describe('the group storage line', () => {
 	it('reads Uses X of Y', async () => {
 		const { groupUsesLine } = await import('./view');
 		expect(groupUsesLine(120 * 1024 ** 2, 600 * 1024 ** 2)).toBe('Uses 120 MB of 600 MB');
+	});
+});
+
+describe('a group lesson after leaving, or while its group is deleted', () => {
+	const DAY = 24 * 60 * 60 * 1000;
+	// 2 Nov 2026, 12:00 UTC.
+	const deletedAt = Date.UTC(2026, 10, 2, 12);
+
+	it('names the day the group goes, 30 days on, in the person’s zone', () => {
+		expect(purgeDay(deletedAt, 'UTC')).toBe('2 Dec');
+		// 23:30 UTC on 2 Nov is already 3 Nov in Ljubljana.
+		expect(purgeDay(Date.UTC(2026, 10, 2, 23, 30), 'Europe/Ljubljana')).toBe('3 Dec');
+		expect(purgeDay(deletedAt - DAY, 'UTC')).toBe('1 Dec');
+	});
+
+	it('says the group is being deleted, with Make my own copy, in the spec words', () => {
+		const notice = lessonNotice({ name: 'Salsa nadaljevalna', deletedAt }, true, 'UTC')!;
+		expect(notice).toEqual({
+			tone: 'warning',
+			text: 'Salsa nadaljevalna is being deleted on 2 Dec',
+			action: MAKE_COPY
+		});
+		expect(`${notice.text} · ${notice.action}`).toBe(deletingLine('Salsa nadaljevalna', '2 Dec'));
+		// A former member of a deleted group hears about the deletion.
+		expect(lessonNotice({ name: 'X', deletedAt }, false, 'UTC')!.tone).toBe('warning');
+	});
+
+	it('tells a former member it is read-only', () => {
+		expect(lessonNotice({ name: 'Salsa nadaljevalna', deletedAt: null }, false, 'UTC')).toEqual({
+			tone: 'info',
+			text: 'You left Salsa nadaljevalna · read-only',
+			action: MAKE_COPY
+		});
+		expect(leftLine('Salsa nadaljevalna')).toBe('You left Salsa nadaljevalna · read-only');
+	});
+
+	it('says nothing to someone still in a live group', () => {
+		expect(lessonNotice({ name: 'X', deletedAt: null }, true, 'UTC')).toBeNull();
 	});
 });
