@@ -251,7 +251,8 @@ src/lib/nav/fresh.ts, fresh.svelte.ts  whether a navigation may become a full lo
                      stale-page state behind the Reload bars (fresh.ts is PURE)
 src/lib/server/releases.ts  reads $DATA_DIR/releases/<dance>/current.json (cached by mtime) and
                      the APKs; app-seen.ts which app version each device last showed (table
-                     `app_installs`); app-gate.ts which API requests from a too-old app get a 426;
+                     `app_installs`); app-gate.ts which native API requests (`x-app-version`, never the
+                     WebView's own calls) from a too-old app get a 426;
                      public-paths.ts PUBLIC_PATHS plus the update check and published APKs
 src/routes/app/      the Get the app page; src/routes/releases/[dance]/ serves APKs;
                      src/routes/api/app-update/[dance]/ is the check (404 until published)

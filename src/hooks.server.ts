@@ -34,11 +34,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
 
 	// Which app asks: its user agent suffix, else the native header.
-	const appAgent =
-		parseAppAgent(event.request.headers.get('user-agent')) ??
-		parseAppVersion(event.request.headers.get('x-app-version'));
+	const native = parseAppVersion(event.request.headers.get('x-app-version'));
+	const appAgent = parseAppAgent(event.request.headers.get('user-agent')) ?? native;
 	event.locals.appAgent = appAgent;
-	if (appAgent && refusesOldApp(path, appAgent, currentRelease(appAgent.dance))) {
+	// Only the native API is refused (426): a page's own `/api/` calls inside the
+	// WebView carry the user agent, not the header, and a page out of date is
+	// the page epoch's job. A take recorded on My count still saves.
+	if (native && refusesOldApp(path, native, currentRelease(native.dance))) {
 		return new Response(JSON.stringify({ message: 'Update the app to keep using it.' }), {
 			status: 426,
 			headers: { 'content-type': 'application/json' }

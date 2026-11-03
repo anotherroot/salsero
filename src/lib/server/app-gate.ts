@@ -1,7 +1,9 @@
 import type { AppAgent, Release } from '$lib/app-update/agent';
 
 /**
- * Whether an API request comes from an app too old to keep using (a 426).
+ * Whether an API request from the native side of an app (its `x-app-version`;
+ * the hook never passes the WebView's user agent here) comes from an app too old
+ * to keep using (a 426).
  * The update check itself and the home worker are never refused: an old app
  * must be able to ask where the new one is.
  */
