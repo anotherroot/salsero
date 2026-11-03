@@ -642,3 +642,12 @@ export interface DeletedItem {
 	/** The day (in the viewer's zone) a trash kind goes for good; null for an archived kind. */
 	purgeOn: string | null;
 }
+
+/** What Make my own copy brings: the bytes it is charged, and how many of each thing. */
+export type CopySummary = {
+	bytes: number;
+	videos: number;
+	variations: number;
+	routines: number;
+	drills: number;
+};

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	codeLink,
+	copyItems,
+	copyLine,
 	deletingLine,
 	joinQuestion,
 	leftLine,
@@ -89,5 +91,23 @@ describe('a group lesson after leaving, or while its group is deleted', () => {
 
 	it('says nothing to someone still in a live group', () => {
 		expect(lessonNotice({ name: 'X', deletedAt: null }, true, 'UTC')).toBeNull();
+	});
+});
+
+describe('make my own copy', () => {
+	it('says what it costs in the spec words', () => {
+		expect(copyLine(380 * 1024 * 1024)).toBe('Make my own copy · uses 380 MB of your space');
+	});
+	it('lists what comes, leaving out what the lesson has none of', () => {
+		expect(copyItems({ bytes: 5, videos: 2, variations: 1, routines: 0, drills: 3 })).toEqual([
+			'The lesson, its notes and links',
+			'2 videos and their sections',
+			'1 variation',
+			'3 drills'
+		]);
+		expect(copyItems({ bytes: 0, videos: 0, variations: 0, routines: 1, drills: 0 })).toEqual([
+			'The lesson, its notes and links',
+			'1 routine'
+		]);
 	});
 });

@@ -2,7 +2,7 @@
 import { localDay } from '$lib/day/day';
 import { byteSize, dayMonth, plural } from '$lib/format';
 import { TEAM_PURGE_MS } from '$lib/limits';
-import type { Role } from '$lib/types';
+import type { CopySummary, Role } from '$lib/types';
 
 export function roleLabel(role: Role): string {
 	return role === 'owner' ? 'Owner' : role === 'editor' ? 'Editor' : 'Member';
@@ -77,3 +77,22 @@ export function codeLink(origin: string, code: string): string {
 export function groupUsesLine(used: number, limit: number): string {
 	return `Uses ${byteSize(used)} of ${byteSize(limit)}`;
 }
+
+/** The lesson menu's line: "Make my own copy · uses 380 MB of your space". */
+export function copyLine(bytes: number): string {
+	return `${MAKE_COPY} · uses ${byteSize(bytes)} of your space`;
+}
+
+/** What a copy brings, a line each; a kind it has none of is left out. */
+export function copyItems(c: CopySummary): string[] {
+	const out = ['The lesson, its notes and links'];
+	if (c.videos > 0) out.push(`${plural(c.videos, 'video', 'videos')} and their sections`);
+	if (c.variations > 0) out.push(plural(c.variations, 'variation', 'variations'));
+	if (c.routines > 0) out.push(plural(c.routines, 'routine', 'routines'));
+	if (c.drills > 0) out.push(plural(c.drills, 'drill', 'drills'));
+	return out;
+}
+
+/** Under the list: what stays behind, and that the copy is the person's for good. */
+export const COPY_NOTE =
+	'Yours to edit, and it stays if the group deletes the lesson. Figure recordings are not copied, and your practice stays on the group’s lesson.';

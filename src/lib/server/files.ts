@@ -1,5 +1,6 @@
-import { createReadStream, createWriteStream, mkdirSync } from 'node:fs';
-import { readdir, stat, truncate, unlink } from 'node:fs/promises';
+import { constants, createReadStream, createWriteStream, mkdirSync } from 'node:fs';
+import { copyFile, link, readdir, stat, truncate, unlink } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -46,6 +47,26 @@ export const LESSON_VIDEO_FILE_RE = RECORDING_FILE_RE;
 
 /** An in-flight upload is named by a bare uuid. No extension, and no traversal. */
 export const UPLOAD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * The file `file` in `dir` under a new name of ours (a uuid, the same
+ * extension), returned. A hard link, so it costs no disk and outlives the old
+ * name being unlinked (a group's purge unlinks the group's names only); a byte
+ * copy where linking fails (another file system, no link support). Make my own
+ * copy uses it. Throws on a name that is not ours, or a missing file.
+ */
+export async function linkCopy(dir: string, file: string): Promise<string> {
+	if (!RECORDING_FILE_RE.test(file)) throw new Error(`not a stored file name: ${file}`);
+	const name = `${randomUUID()}${file.slice(file.lastIndexOf('.'))}`;
+	const from = join(dir, file);
+	const to = join(dir, name);
+	try {
+		await link(from, to);
+	} catch {
+		await copyFile(from, to, constants.COPYFILE_EXCL);
+	}
+	return name;
+}
 
 const EXT_BY_MIME: Record<string, string> = {
 	'video/mp4': 'mp4',

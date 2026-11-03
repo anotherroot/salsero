@@ -32,7 +32,8 @@ import { createRoutine } from '$lib/server/routines';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
-import { lessonVideosDir } from '$lib/server/files';
+import { lessonVideosDir, linkCopy } from '$lib/server/files';
+import { copyCost, copyLesson, copySummary } from '$lib/server/copy-lesson';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { readAdd } from '$lib/server/add-form';
@@ -129,6 +130,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			team && canEdit ? `/${wall.dance}/groups/${team.id}/history/lesson/${found.lesson.id}` : null,
 		/** A group's lesson only its editors see yet. */
 		draft: team !== null && found.lesson.publishedAt === null,
+		/** Make my own copy, for anyone who reads a group's lesson: what it costs and brings. */
+		copy: team ? copySummary(db, wall.userId, found.lesson.id) : null,
 		// A published group lesson: Add, or once added "1 new drill · Add" and
 		// Remove from my lessons. Editors are offered Add like anyone else.
 		add:
@@ -246,6 +249,29 @@ export const actions: Actions = {
 			throw error(404, 'No such lesson');
 		}
 		throw redirect(303, `/${params.dance}/lessons`);
+	},
+
+	/**
+	 * Make my own copy: the group's lesson and what it holds become this
+	 * person's, charged to them, and the copy opens. Reading is enough. A
+	 * person's own lesson has nothing to copy: the missing one's 404. One that
+	 * does not fit says so, with Ask for more when their limit is the reason.
+	 */
+	copy: async ({ params, locals }) => {
+		const { lesson, space } = lessonIn(params, locals, 'read');
+		if (!isTeam(space)) throw error(404, 'No such lesson');
+		const db = getDb();
+		const userId = wallOf(params, locals).userId;
+		const files = { dir: lessonVideosDir(), link: linkCopy };
+		const result = await copyLesson(db, userId, lesson.id, Date.now(), files, await freeDisk());
+		if (!result.ok) {
+			const room = result.room;
+			const overLimit =
+				room.limitBytes !== null &&
+				room.usedBytes + copyCost(db, userId, lesson.id) > room.limitBytes;
+			return fail(413, { action: 'copy' as const, message: room.message, askForMore: overLimit });
+		}
+		throw redirect(303, `/${params.dance}/lessons/${result.lessonId}`);
 	},
 
 	archive: async ({ params, locals }) => {

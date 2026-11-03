@@ -255,6 +255,11 @@ groups, across both dances, and drops into some only now and then.
   members, and editors alike. Refused, like any upload, if it would not fit.
 - The person's practice entries for the group lesson stay pointed at the
   group's lesson. *(My call: moving them onto the copy is left out.)*
+- *(Built:)* the videos are hard links under new names (a byte copy where a
+  link cannot be made), so the group's purge never takes them; the copy gets
+  its own review exercise, and its routines theirs, as any lesson and routine
+  of a person's do. Routines and drills keep their names (neither has a name
+  rule). Copying twice makes two copies. `src/lib/server/copy-lesson.ts`.
 
 ### Storage
 
