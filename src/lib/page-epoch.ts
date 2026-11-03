@@ -45,11 +45,18 @@ export function fillEpoch(html: string): string {
  * stays, with what was typed. As a plain error, SvelteKit would swap the page
  * for its error page. `data` is devalue's encoding of
  * `{ message: STALE_MESSAGE }`, as `deserialize` in `$app/forms` reads it.
- * Anything else gets a plain `Reload`: SvelteKit never sees a page's data
- * refused (`holdsBack`), and API callers show their own failure.
+ * Anything else gets `{ message: STALE_MESSAGE }` as JSON, the shape the API
+ * routes refuse with: SvelteKit never sees a page's data refused
+ * (`holdsBack`), and an API caller that shows the server's message
+ * (`messageFromBody`, the player's `ok`) shows words, not a status number.
  */
 export function staleAnswer(action: boolean): Response {
-	if (!action) return new Response('Reload', { status: 409, headers: { [STALE_HEADER]: '1' } });
+	if (!action) {
+		return new Response(JSON.stringify({ message: STALE_MESSAGE }), {
+			status: 409,
+			headers: { [STALE_HEADER]: '1', 'content-type': 'application/json' }
+		});
+	}
 	const body = {
 		type: 'failure',
 		status: 409,

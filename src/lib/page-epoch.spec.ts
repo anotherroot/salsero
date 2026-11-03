@@ -11,6 +11,8 @@ import {
 	staleFailure,
 	staleMove
 } from './page-epoch';
+import { messageFromBody } from './upload-error';
+import { ok, SpotsApiError } from './video/spots-api';
 
 describe('staleEpoch', () => {
 	it('never refuses a request without the header', () => {
@@ -52,11 +54,21 @@ describe('fillEpoch', () => {
 });
 
 describe('staleAnswer', () => {
-	it('is a 409 with the marker', async () => {
+	it('is a 409 with the marker, saying in words what to do', async () => {
 		const res = staleAnswer(false);
 		expect(res.status).toBe(409);
 		expect(res.headers.get(STALE_HEADER)).toBe('1');
-		expect(await res.text()).toBe('Reload');
+		expect(res.headers.get('content-type')).toContain('application/json');
+		const body = await res.text();
+		expect(JSON.parse(body)).toEqual({ message: STALE_MESSAGE });
+		// What an upload button shows of it.
+		expect(messageFromBody(body)).toBe(STALE_MESSAGE);
+	});
+
+	it('reaches the player as its message, not a status number', async () => {
+		const err = await ok(staleAnswer(false)).catch((e: unknown) => e);
+		expect(err).toBeInstanceOf(SpotsApiError);
+		expect((err as SpotsApiError).message).toBe(STALE_MESSAGE);
 	});
 
 	it('answers a form action as a failure the form shows, so the page and what was typed stay', async () => {
