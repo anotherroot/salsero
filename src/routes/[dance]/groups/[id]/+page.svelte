@@ -127,6 +127,7 @@
 						<LessonRow
 							{lesson}
 							draft={lesson.publishedAt === null}
+							isNew={lesson.isNew}
 							href={resolve('/[dance]/lessons/[id]', {
 								dance: data.dance.slug,
 								id: String(lesson.id)

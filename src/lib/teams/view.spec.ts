@@ -9,6 +9,7 @@ import {
 	lessonNotice,
 	limitLine,
 	MAKE_COPY,
+	newPill,
 	noAccountLine,
 	peopleLine,
 	purgeDay,
@@ -109,5 +110,13 @@ describe('make my own copy', () => {
 			'The lesson, its notes and links',
 			'1 routine'
 		]);
+	});
+});
+
+describe('newPill', () => {
+	it('is empty for none and counts otherwise', () => {
+		expect(newPill(0)).toBeNull();
+		expect(newPill(1)).toBe('1 new');
+		expect(newPill(12)).toBe('12 new');
 	});
 });

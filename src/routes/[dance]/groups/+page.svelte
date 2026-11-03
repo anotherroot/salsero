@@ -13,7 +13,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, button } from '$lib/components/ui/styles';
-	import { peopleLine, roleLabel } from '$lib/teams/view';
+	import { newPill, peopleLine, roleLabel } from '$lib/teams/view';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -102,6 +102,7 @@
 						{:else if team.id === page.data.groupMode?.teamId}
 							<Badge tone="accent">Working in</Badge>
 						{:else}
+							{#if newPill(team.newCount)}<Badge tone="accent">{newPill(team.newCount)}</Badge>{/if}
 							<span class="flex flex-none text-chevron"
 								><Icon name="chevron-right" size={20} /></span
 							>

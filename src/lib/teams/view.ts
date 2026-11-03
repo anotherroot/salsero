@@ -62,6 +62,11 @@ export function youLine(role: Role): string {
 	return role === 'owner' ? 'you own it' : role === 'editor' ? 'you edit it' : 'you are a member';
 }
 
+/** The pill on a group in the list: how many of its lessons and songs are new. */
+export function newPill(n: number): string | null {
+	return n > 0 ? `${n} new` : null;
+}
+
 export function limitLine(n: number): string {
 	return `You can make ${plural(n, 'group', 'groups')}. Ask the admin for more.`;
 }

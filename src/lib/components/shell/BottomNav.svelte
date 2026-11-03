@@ -70,13 +70,20 @@
 						onclick={(e) => tap(e, to === null)}
 						aria-current={here ? 'page' : undefined}
 						aria-label={here ? undefined : tab.label}
-						class="flex h-11 items-center justify-center gap-2 rounded-full {here
+						class="relative flex h-11 items-center justify-center gap-2 rounded-full {here
 							? 'w-full bg-accent/12 px-3 text-accent-text'
 							: 'w-11 text-muted'}"
 					>
 						<Icon name={tab.icon} size={28} filled={here} />
 						{#if here}
 							<span class="text-[14px] font-extrabold whitespace-nowrap">{tab.label}</span>
+						{/if}
+						{#if tab.id === 'groups' && page.data.groupsNew}
+							<span
+								class="absolute top-1 right-1 h-[10px] w-[10px] rounded-full bg-accent ring-2 ring-tab-bg"
+								role="img"
+								aria-label="New in your groups"
+							></span>
 						{/if}
 					</a>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->

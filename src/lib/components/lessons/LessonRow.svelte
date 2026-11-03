@@ -16,12 +16,14 @@
 		href,
 		draft = false,
 		group,
+		isNew = false,
 		aside
 	}: {
 		lesson: LessonItem;
 		href: string;
 		draft?: boolean;
 		group?: string;
+		isNew?: boolean;
 		aside?: Snippet;
 	} = $props();
 
@@ -52,6 +54,7 @@
 					><span class="sr-only">{tile.label}, </span>{lesson.title}</span
 				>
 				{#if draft}<Badge tone="warn">Draft</Badge>{/if}
+				{#if isNew}<Badge tone="accent">New</Badge>{/if}
 			</span>
 			{#if group}
 				<span class="flex items-center gap-1 text-[13px] font-bold text-accent-text"
