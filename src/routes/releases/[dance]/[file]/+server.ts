@@ -13,8 +13,11 @@ export const GET: RequestHandler = async ({ params, request }) => {
 		'application/vnd.android.package-archive',
 		request
 	);
-	if (res.status === 200 || res.status === 206) {
-		res.headers.set('cache-control', 'public, max-age=31536000, immutable');
-	}
+	// A miss is never cached: Cloudflare would keep a 404 asked for just before
+	// a release, and the file would stay "missing" after it is published.
+	res.headers.set(
+		'cache-control',
+		res.status === 200 || res.status === 206 ? 'public, max-age=31536000, immutable' : 'no-store'
+	);
 	return res;
 };

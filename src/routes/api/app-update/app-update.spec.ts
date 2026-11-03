@@ -76,6 +76,10 @@ describe('GET /releases/[dance]/[file]', () => {
 	});
 	it('is 404 when the apk is not on disk', async () =>
 		expect((await callApk('salsa', '3.apk')).status).toBe(404));
+	// Cloudflare kept a 404 asked for just before a release, and the published
+	// file stayed "missing" for minutes.
+	it('tells caches not to keep a 404', async () =>
+		expect((await callApk('salsa', '3.apk')).headers.get('cache-control')).toBe('no-store'));
 	it('is 404 for a traversal name', async () =>
 		expect((await callApk('salsa', '../x.apk')).status).toBe(404));
 	it('is 404 for an unknown dance', async () =>
