@@ -19,7 +19,14 @@
 		step,
 		TENTH_MS
 	} from '$lib/video/spots';
-	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
+	import {
+		fetchSpots,
+		patchSpot,
+		postSpot,
+		removeSpot,
+		restoreTrashEntry,
+		SpotsApiError
+	} from '$lib/video/spots-api';
 	import {
 		doneTarget,
 		editStack,
@@ -450,7 +457,8 @@
 					askClash(id, e.clash);
 					return;
 				}
-				say("Couldn't save", 'failed');
+				// Deleted since by someone else in the group: "Ana deleted this · 2 min ago".
+				say(e instanceof SpotsApiError && e.status === 410 ? e.message : "Couldn't save", 'failed');
 				await fetchSpots(owner).then(loaded, () => {});
 			}
 		});
@@ -591,10 +599,13 @@
 		if (!spot || deleting) return;
 		deleting = true;
 		try {
-			await removeSpot(spot.id);
+			const { trashId } = await removeSpot(spot.id);
 			spots = spots.filter((s) => s.id !== spot.id);
 			nav.jump([FULL]);
-			say(`Deleted ${spotLabel(spot)}`, 'deleted', { label: 'Undo', run: () => undo(spot) });
+			say(`Deleted ${spotLabel(spot)}`, 'deleted', {
+				label: 'Undo',
+				run: () => undo(spot, trashId)
+			});
 		} catch (e) {
 			// A linked section: the server says what to unlink first.
 			sheetMessage = e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save";
@@ -603,10 +614,26 @@
 		}
 	}
 
-	/** A deleted spot comes back as a new one: same times and name, a new id. It was never linked. */
-	async function undo(spot: Spot) {
+	/**
+	 * A group's deleted spot comes back from Recently deleted: the same row,
+	 * its id and its History (risk 18). A person's comes back as a new one:
+	 * same times and name, a new id. It was never linked.
+	 */
+	async function undo(spot: Spot, trashId: number | null) {
 		toast = null;
-		await save({ startMs: spot.startMs, endMs: spot.endMs, label: spot.label });
+		if (trashId === null) {
+			await save({ startMs: spot.startMs, endMs: spot.endMs, label: spot.label });
+			return;
+		}
+		try {
+			await restoreTrashEntry(trashId);
+			await fetchSpots(owner).then(loaded);
+		} catch (e) {
+			say(
+				e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't restore",
+				'failed'
+			);
+		}
 	}
 
 	/* ---------- levels ---------- */

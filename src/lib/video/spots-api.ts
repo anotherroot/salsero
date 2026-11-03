@@ -17,7 +17,9 @@ export class SpotsApiError extends Error {
 		message: string,
 		readonly field?: string,
 		/** A 409 from the clash check: someone else saved the spot since, and theirs. */
-		readonly clash?: ClashInfo
+		readonly clash?: ClashInfo,
+		/** A 410 for a link target archived since ("Archived by Ana"), with whether Restore is offered. */
+		readonly archived?: { restorable: boolean }
 	) {
 		super(message);
 	}
@@ -33,7 +35,11 @@ export async function ok(res: Response): Promise<Response> {
 		res.status === 409 && said.clash && typeof said.clash === 'object'
 			? (said.clash as ClashInfo)
 			: undefined;
-	throw new SpotsApiError(res.status, message, field, clash);
+	const archived =
+		res.status === 410 && said.archived && typeof said.archived === 'object'
+			? { restorable: (said.archived as { restorable?: unknown }).restorable === true }
+			: undefined;
+	throw new SpotsApiError(res.status, message, field, clash, archived);
 }
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
@@ -76,6 +82,21 @@ export async function patchSpot(
 	return (await ok(res)).json();
 }
 
-export async function removeSpot(id: number): Promise<void> {
-	await ok(await fetch(`/api/video-spots/${id}`, { method: 'DELETE' }));
+/**
+ * Delete a spot. A group's goes to Recently deleted: `trashId` is that entry,
+ * which Undo restores (`restoreTrashEntry`) so the same section comes back.
+ */
+export async function removeSpot(id: number): Promise<{ trashId: number | null }> {
+	const res = await ok(await fetch(`/api/video-spots/${id}`, { method: 'DELETE' }));
+	const body: unknown = await res.json().catch(() => null);
+	const trashId =
+		body && typeof body === 'object' && typeof (body as { trashId?: unknown }).trashId === 'number'
+			? (body as { trashId: number }).trashId
+			: null;
+	return { trashId };
+}
+
+/** Put a trash entry back (a group's section, by the id its delete returned). */
+export async function restoreTrashEntry(trashId: number): Promise<void> {
+	await ok(await fetch(`/api/trash/${trashId}`, { method: 'POST' }));
 }

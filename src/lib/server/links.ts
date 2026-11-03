@@ -4,6 +4,8 @@ import { appFlags, exercises, lessons, links, videoDownloads } from './db/schema
 import { extractUrls, parseLink } from '$lib/links';
 import type { LinkRow } from '$lib/types';
 import { actingIn, linkRoot, logChange } from './changes';
+import { isTeam } from './scope';
+import { rootTitle, trashRows } from './trash';
 
 /** Who a link belongs to. Exactly one — the table's CHECK says the same. */
 export type LinkOwner = { lessonId: number } | { figureId: number } | { exerciseId: number };
@@ -105,6 +107,7 @@ function logLink(
 		subjectId: number | null;
 		before?: Record<string, string | number | null>;
 		after?: Record<string, string | number | null>;
+		trashId?: number | null;
 	}
 ): void {
 	const root = linkRoot(tx, owner);
@@ -116,21 +119,54 @@ function logLink(
 /**
  * Delete one link, only if it belongs to `owner` — so a posted id cannot reach
  * another page's link. A save in flight goes with it: the job is deleted first,
- * or its foreign key would refuse the link.
+ * or its foreign key would refuse the link. A group's link goes to Recently
+ * deleted first (the save in flight does not come back with it).
  */
-export function deleteLink(db: Db, owner: LinkOwner, id: number, by?: string): boolean {
+export function deleteLink(
+	db: Db,
+	owner: LinkOwner,
+	id: number,
+	by?: string,
+	now = Date.now()
+): boolean {
 	return db.transaction((tx) => {
 		const mine = tx
-			.select({ id: links.id, url: links.url })
+			.select()
 			.from(links)
 			.where(and(eq(links.id, id), ownedBy(owner)))
 			.get();
 		if (!mine) return false;
 		tx.delete(videoDownloads).where(eq(videoDownloads.linkId, id)).run();
 		const gone = tx.delete(links).where(eq(links.id, id)).run().changes > 0;
-		if (gone) logLink(tx, owner, by, { verb: 'remove', subjectId: id, before: { url: mine.url } });
-		return gone;
+		if (!gone) return false;
+		const root = linkRoot(tx, owner);
+		const space = root ? actingIn(root.row, by) : null;
+		const trashId =
+			root && space && isTeam(space)
+				? trashRows(
+						tx,
+						space,
+						'link',
+						`${mine.title ?? hostOf(mine.url)} · ${rootTitle(tx, root.rootKind, root.rootId)}`,
+						{ rootKind: root.rootKind, rootId: root.rootId },
+						{ links: [mine] },
+						[],
+						0,
+						now
+					)
+				: null;
+		logLink(tx, owner, by, { verb: 'remove', subjectId: id, before: { url: mine.url }, trashId });
+		return true;
 	});
+}
+
+/** A link's host for a label ("youtube.com"), or the URL itself when it does not parse. */
+function hostOf(url: string): string {
+	try {
+		return new URL(url).host.replace(/^www\./, '');
+	} catch {
+		return url;
+	}
 }
 
 export const NOTE_LINKS_FLAG = 'lesson-note-links';

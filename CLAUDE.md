@@ -336,7 +336,13 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   in `src/lib/server/spot-links.ts`). A removed paired phone and a deleted voice
   take come back with Undo for a minute: both are deleted at once and kept in an
   in-memory hold (`src/lib/server/undo-hold.ts`); a take's file is unlinked when
-  its hold expires.
+  its hold expires. In a group, the hard-delete kinds (videos, sections, links,
+  section links, recordings) are still deleted at once, and kept 30 days in
+  `team_trash`, file included (`src/lib/server/trash.ts`): the delete returns a
+  trash id and the route leaves the file for the purge (at boot and hourly).
+  Restore re-inserts the rows with their own ids. The archived kinds (lessons,
+  variations, routines, drills) are restored from Recently deleted too, with
+  exactly the members' entries archived at the same instant (`reviveEntries`).
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
   components and never branch on it.

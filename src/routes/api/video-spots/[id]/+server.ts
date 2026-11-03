@@ -5,7 +5,8 @@ import { eq } from 'drizzle-orm';
 import { videoSpots } from '$lib/server/db/schema';
 import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots';
 import { checkSeen, MISSING_SEEN, seesAll, spotSeen } from '$lib/server/clash';
-import { asSeen, clashTitle } from '$lib/clash/clash';
+import { asSeen, clashTitle, goneTitle } from '$lib/clash/clash';
+import { trashedSpot } from '$lib/server/trash';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import { editedBy, spotRoot } from '$lib/server/changes';
 import type { RequestHandler } from './$types';
@@ -23,7 +24,24 @@ function spotId(raw: string, locals: App.Locals): number {
 	return id;
 }
 
-export const PATCH: RequestHandler = async ({ params, request, locals }) => {
+/**
+ * A save on a group's section that is in Recently deleted now: 410, naming
+ * who deleted it, for that group's editors only (anyone else gets the 404).
+ * Null for a spot that is not in the trash.
+ */
+function trashed(raw: string, locals: App.Locals): Response | null {
+	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
+	const userId = locals.user?.id;
+	if (!userId || !Number.isSafeInteger(id) || id <= 0) return null;
+	const gone = trashedSpot(getDb(), userId, id);
+	if (!gone) return null;
+	return json({ message: goneTitle(gone, Date.now()), gone }, { status: 410 });
+}
+
+export const PATCH: RequestHandler = (event) =>
+	trashed(event.params.id, event.locals) ?? patch(event);
+
+async function patch({ params, request, locals }: Parameters<RequestHandler>[0]) {
 	const id = spotId(params.id, locals);
 	const body: unknown = await request.json().catch(() => null);
 	if (!body || typeof body !== 'object' || Array.isArray(body)) throw error(400, 'Bad JSON.');
@@ -76,12 +94,18 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		if (e instanceof SpotError) throw error(400, e.message);
 		throw e;
 	}
-};
+}
 
-/** A linked section is a 409 whose message names what to unlink — the player shows it. */
+/**
+ * A linked section is a 409 whose message names what to unlink — the player
+ * shows it. A group's section goes to Recently deleted: `trashId` is what the
+ * player's Undo restores, so the same section comes back (risk 18).
+ */
 export const DELETE: RequestHandler = ({ params, locals }) => {
+	const answer = trashed(params.id, locals);
+	if (answer) return answer;
 	const id = spotId(params.id, locals);
-	let gone: boolean;
+	let gone: { trashId: number | null } | null;
 	try {
 		gone = deleteSpot(getDb(), id, locals.user?.id);
 	} catch (e) {
@@ -89,5 +113,5 @@ export const DELETE: RequestHandler = ({ params, locals }) => {
 		throw e;
 	}
 	if (!gone) throw error(404, 'No such spot');
-	return new Response(null, { status: 204 });
+	return json({ trashId: gone.trashId });
 };

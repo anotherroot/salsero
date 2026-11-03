@@ -19,6 +19,18 @@ export interface LinkSubmitHost {
 	added(): void;
 	/** A tap made its link: close the picker. */
 	close(): void;
+	/**
+	 * The refusal said the target was archived since ("Archived by Ana"):
+	 * the picker offers Pick another, and Restore when `restorable`.
+	 */
+	archived?(sent: LinkSent, restorable: boolean): void;
+}
+
+/** A refusal's `archived` (the server's "Archived by Ana"), or null. */
+export function archivedOf(data: unknown): { restorable: boolean } | null {
+	const a = data && typeof data === 'object' ? (data as { archived?: unknown }).archived : null;
+	if (!a || typeof a !== 'object') return null;
+	return { restorable: (a as { restorable?: unknown }).restorable === true };
 }
 
 /**
@@ -37,8 +49,11 @@ export function linkSubmit(h: LinkSubmitHost): SubmitFunction {
 			const here = at === h.opening();
 			if (result.type === 'failure' || result.type === 'error') {
 				const said = result.type === 'failure' ? result.data : undefined;
-				if (here)
+				if (here) {
 					h.setMessage(linkRefusal((said as { message?: unknown } | undefined)?.message, sent));
+					const archived = archivedOf(said);
+					if (archived && sent) h.archived?.(sent, archived.restorable);
+				}
 				return;
 			}
 			await update();

@@ -5,6 +5,7 @@ import { ownerIntegrity } from '../integrity';
 import { importNoteLinks } from '../links';
 import { seedPositions } from '../positions';
 import { backfillSongSizes } from '../storage';
+import { startTrashPurge } from '../trash';
 import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
 import { getDb } from './index';
 
@@ -41,6 +42,9 @@ export function bootstrap(): Promise<void> {
 			// awaited: a slow disk must not hold up the first request, and a
 			// failure here is never worth a 500.
 			void sweepUploads(UPLOAD_PARTIAL_TTL_MS).catch(() => {});
+			// A group's Recently deleted: what has waited 30 days goes for good,
+			// files included. Now, and every hour while the process lives.
+			startTrashPurge(getDb);
 		})
 		.catch((err) => {
 			ready = undefined;

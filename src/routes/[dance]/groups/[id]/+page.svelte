@@ -169,6 +169,18 @@
 			<span class="flex-none text-accent-text"><Icon name="group" size={22} /></span>
 			<span class="text-[16px] font-bold text-ink">People</span>
 		</a>
+		{#if data.canEdit}
+			<a
+				href={resolve('/[dance]/groups/[id]/deleted', {
+					dance: data.dance.slug,
+					id: String(data.team.id)
+				})}
+				class="flex min-h-14 w-full items-center gap-3 px-4 py-2 active:bg-step"
+			>
+				<span class="flex-none text-accent-text"><Icon name="trash" size={22} /></span>
+				<span class="text-[16px] font-bold text-ink">Recently deleted</span>
+			</a>
+		{/if}
 		{#if data.code}{@render row('link', 'Show code', () => pick(() => (code = true)))}{/if}
 		{#if owner}{@render row('edit', 'Rename', openRename)}{/if}
 		{#if !owner}{@render row(

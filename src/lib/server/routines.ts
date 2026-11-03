@@ -23,7 +23,8 @@ import {
 	type Routine
 } from './db/schema';
 import { buildGraph } from './graph';
-import { reconcileEntries } from './entries';
+import { reconcileEntries, reviveEntries } from './entries';
+import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
@@ -197,6 +198,34 @@ export function archiveRoutine(db: Db, id: number, now: number, by?: string): bo
 		reconcileRoutine(tx, id, now);
 		logRoutine(tx, routine, by, { verb: 'archive', subject: 'routine' }, now);
 		return true;
+	});
+}
+
+/**
+ * Bring an archived routine back (Recently deleted), with exactly the entries
+ * its archive took: those archived at its own `archived_at` (risk 6).
+ */
+export function restoreRoutine(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	return db.transaction((tx) => {
+		const routine = getRoutine(tx, id);
+		if (!routine || routine.archivedAt === null || !inSpace(routine, space)) {
+			return { ok: false, reason: 'gone' } as const;
+		}
+		const at = routine.archivedAt;
+		tx.update(routines).set({ archivedAt: null }).where(eq(routines.id, id)).run();
+		tx.update(exercises)
+			.set({ archivedAt: null })
+			.where(and(eq(exercises.routineId, id), eq(exercises.archivedAt, at)))
+			.run();
+		if (isTeam(space)) reviveEntries(tx, space.teamId, at);
+		logRoutine(
+			tx,
+			routine,
+			space,
+			{ verb: 'restore', subject: 'routine', after: { name: routine.name } },
+			now
+		);
+		return { ok: true } as const;
 	});
 }
 
@@ -700,8 +729,18 @@ export function removeOption(
  * the start rule — an undo that cannot undo. It comes back as the newest
  * option, which cannot change the main figure: the main figure is never
  * removed on its own (removing it removes the slot).
+ *
+ * `removedAt` is when the remove happened: in a group, the members' entries
+ * for this figure that the remove took off Today (archived at exactly that
+ * time) come back with it (R10).
  */
-export function restoreOption(db: Db, stepId: number, figureId: number, by?: string): boolean {
+export function restoreOption(
+	db: Db,
+	stepId: number,
+	figureId: number,
+	by?: string,
+	removedAt?: number
+): boolean {
 	const step = db
 		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
 		.from(routineSteps)
@@ -722,6 +761,9 @@ export function restoreOption(db: Db, stepId: number, figureId: number, by?: str
 			.onConflictDoNothing()
 			.run();
 		if (put.changes > 0) {
+			if (routine.teamId !== null && removedAt !== undefined) {
+				reviveEntries(tx, routine.teamId, removedAt, { figureIds: [figureId] });
+			}
 			logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
 		}
 	});
@@ -781,7 +823,8 @@ export function deleteSlots(
 			position: s.position,
 			childId: s.childId,
 			note: s.note,
-			figureIds: options.get(s.id) ?? []
+			figureIds: options.get(s.id) ?? [],
+			deletedAt: now
 		}));
 		// Options first: `routine_step_options.step_id` references the step and
 		// `foreign_keys = ON`, so the step cannot go while its options remain.
@@ -853,9 +896,35 @@ export function restoreSlots(
 			ids.splice(Math.min(s.position, ids.length), 0, step.id);
 			order(tx, ids);
 		}
+		reviveSlotEntries(tx, routine.teamId, snapshot);
 		logRoutine(tx, routine, by, { verb: 'restore', ...slotSubject(back, 'after') });
 		return true;
 	});
+}
+
+/**
+ * In a group, Undo of a slot delete brings back the members' entries that
+ * delete's reconcile took (R10): only those archived at its `deletedAt`, and
+ * only for what the slots held — their figures, their child routines and
+ * those routines' figures. The time came back from the client, so it never
+ * reaches further than the slots themselves.
+ */
+function reviveSlotEntries(tx: Db, teamId: number | null, snapshot: SlotSnapshot[]): void {
+	const at = snapshot.find((s) => s.deletedAt !== undefined)?.deletedAt;
+	if (teamId === null || at === undefined) return;
+	const routineIds = snapshot.flatMap((s) => (s.childId === null ? [] : [s.childId]));
+	const childFigures =
+		routineIds.length === 0
+			? []
+			: tx
+					.select({ id: routineStepOptions.figureId })
+					.from(routineStepOptions)
+					.innerJoin(routineSteps, eq(routineSteps.id, routineStepOptions.stepId))
+					.where(inArray(routineSteps.routineId, routineIds))
+					.all()
+					.map((r) => r.id);
+	const figureIds = [...snapshot.flatMap((s) => s.figureIds), ...childFigures];
+	reviveEntries(tx, teamId, at, { figureIds, routineIds });
 }
 
 /**

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -40,6 +41,15 @@
 							<p class="truncate text-[13px] text-muted">Was: {change.was}</p>
 						{/if}
 						<p class="text-[13px] text-muted">{agoText(change.at, data.now)}</p>
+						{#if change.inDeleted}
+							<a
+								href={resolve('/[dance]/groups/[id]/deleted', {
+									dance: data.dance.slug,
+									id: String(data.team.id)
+								})}
+								class="text-[13px] font-bold text-accent-text underline">In Recently deleted</a
+							>
+						{/if}
 					</div>
 					{#if change.restorable}
 						<form

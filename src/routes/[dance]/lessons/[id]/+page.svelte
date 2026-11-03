@@ -19,6 +19,7 @@
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
 	import { linkSubmit as makeLinkSubmit } from '$lib/picker/link-submit';
+	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -374,6 +375,7 @@
 		opening += 1;
 		added = 0;
 		pickMessage = null;
+		archivedPick = null;
 		picking = kind;
 	}
 
@@ -382,7 +384,19 @@
 		picking = null;
 		added = 0;
 		pickMessage = null;
+		archivedPick = null;
 	}
+
+	/** The last row sent, so a refusal for something archived since can Restore it and link again. */
+	let lastPick: { kind: LinkKind; row: PickRow; keep: boolean } | null = null;
+	/** "Archived by Ana": Restore (and link) or Pick another. */
+	let archivedPick = $state<{
+		kind: LinkKind;
+		row: PickRow;
+		keep: boolean;
+		restorable: boolean;
+	} | null>(null);
+	let restoring = $state(false);
 
 	function link(kind: LinkKind, row: PickRow, keep: boolean) {
 		const f = linkForms[kind];
@@ -391,6 +405,7 @@
 		if (!(input instanceof HTMLInputElement)) return;
 		input.value = String(row.value);
 		sending = { key: row.key, label: row.label, keep };
+		lastPick = { kind, row, keep };
 		f.requestSubmit();
 	}
 
@@ -402,10 +417,49 @@
 		},
 		opening: () => opening,
 		inFlight,
-		setMessage: (m) => (pickMessage = m),
+		setMessage: (m) => {
+			pickMessage = m;
+			if (m === null) archivedPick = null;
+		},
 		added: () => (added += 1),
-		close: closePicker
+		close: closePicker,
+		archived: (sent, restorable) => {
+			const p = lastPick;
+			archivedPick = p && p.row.key === sent.key ? { ...p, restorable } : null;
+		}
 	});
+
+	/** Restore what was archived since, then make the link that was refused. */
+	async function restoreAndLink() {
+		const a = archivedPick;
+		if (!a || restoring) return;
+		restoring = true;
+		const refused = await restoreArchived({
+			[LINK[a.kind].field]: Number(a.row.value)
+		} as ArchivedTarget);
+		restoring = false;
+		archivedPick = null;
+		if (refused) {
+			pickMessage = refused;
+			return;
+		}
+		pickMessage = null;
+		link(a.kind, a.row, a.keep);
+	}
+
+	/** The picker's "Archived by" choices, for the open picker of this kind. */
+	function archivedChoice(kind: LinkKind) {
+		const a = archivedPick;
+		if (!a || a.kind !== kind) return null;
+		return {
+			restoring,
+			onrestore: a.restorable ? restoreAndLink : undefined,
+			onpickanother: () => {
+				archivedPick = null;
+				pickMessage = null;
+			}
+		};
+	}
 
 	/** A create row's button: the page's own sheet, on top of the still-open picker. */
 	function createFrom(kind: LinkKind, key: string, query: string) {
@@ -1164,6 +1218,7 @@
 		]}
 		{added}
 		message={picking === 'figure' ? pickMessage : null}
+		archived={picking === 'figure' ? archivedChoice('figure') : null}
 		onpick={(row) => link('figure', row, false)}
 		onadd={(row) => link('figure', row, true)}
 		oncreate={(key, query) => createFrom('figure', key, query)}
@@ -1182,6 +1237,7 @@
 		create={[{ key: 'routine', label: 'Routine' }]}
 		{added}
 		message={picking === 'routine' ? pickMessage : null}
+		archived={picking === 'routine' ? archivedChoice('routine') : null}
 		onpick={(row) => link('routine', row, false)}
 		onadd={(row) => link('routine', row, true)}
 		oncreate={(key, query) => createFrom('routine', key, query)}
@@ -1200,6 +1256,7 @@
 		create={[{ key: 'exercise', label: 'Exercise' }]}
 		{added}
 		message={picking === 'exercise' ? pickMessage : null}
+		archived={picking === 'exercise' ? archivedChoice('exercise') : null}
 		onpick={(row) => link('exercise', row, false)}
 		onadd={(row) => link('exercise', row, true)}
 		oncreate={(key, query) => createFrom('exercise', key, query)}

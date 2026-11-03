@@ -91,8 +91,8 @@ describe('spots', () => {
 			expect(updateSpot(db, late.id, { label: 'Dip' })?.label).toBe('Dip');
 			expect(updateSpot(db, late.id, { label: '   ' })?.label).toBeNull();
 
-			expect(deleteSpot(db, early.id)).toBe(true);
-			expect(deleteSpot(db, early.id)).toBe(false);
+			expect(deleteSpot(db, early.id)).toEqual({ trashId: null });
+			expect(deleteSpot(db, early.id)).toBeNull();
 			expect(listSpots(db, owner).map((s) => s.id)).toEqual([late.id]);
 		}
 	});

@@ -32,7 +32,8 @@
 		lineGroups,
 		pickerBody,
 		pickerTall,
-		rowTrail
+		rowTrail,
+		type ArchivedChoice
 	} from '$lib/picker/view';
 
 	interface Props {
@@ -61,6 +62,11 @@
 		pending?: ReadonlySet<string>;
 		/** A refused link, shown above the list. */
 		message?: string | null;
+		/**
+		 * The refused link's target was archived since ("Archived by Ana"): the
+		 * banner offers Pick another, and Restore when the person may.
+		 */
+		archived?: ArchivedChoice | null;
 		/** The rows are on their way: a skeleton list, the search disabled. */
 		loading?: boolean;
 		/** The rows could not be loaded: a banner in place of the list. */
@@ -100,6 +106,7 @@
 		added = 0,
 		pending = new Set<string>(),
 		message = null,
+		archived = null,
 		loading = false,
 		failure = null,
 		theme = 'light',
@@ -297,7 +304,9 @@
 		{@render top?.()}
 
 		{#if message}
-			<Banner kind="error" title="That could not be linked.">{message}</Banner>
+			<Banner kind="error" title="That could not be linked." action={archived ? choices : undefined}
+				>{message}</Banner
+			>
 		{/if}
 
 		<!-- Only the list scrolls: the search, the create row and Done stay put. -->
@@ -305,6 +314,27 @@
 			<div class="flex flex-col gap-2">{@render list()}</div>
 		</div>
 	</div>
+{/snippet}
+
+{#snippet choices()}
+	{#if archived}
+		<div class="flex flex-wrap gap-1">
+			{#if archived.onrestore}
+				<button
+					type="button"
+					class={button('tertiary', 'sm')}
+					aria-busy={archived.restoring}
+					disabled={archived.restoring}
+					onclick={archived.onrestore}
+					>{#if archived.restoring}<Spinner /><span class="sr-only">Restoring…</span
+						>{:else}Restore{/if}</button
+				>
+			{/if}
+			<button type="button" class={button('tertiary', 'sm')} onclick={archived.onpickanother}
+				>Pick another</button
+			>
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet footer()}

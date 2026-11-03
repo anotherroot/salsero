@@ -43,8 +43,9 @@ import {
 	type Wall
 } from './scope';
 import { getTeam, roleOf } from './teams';
-import { entryFor, entryJoin, reconcileEntries, type EntryTarget } from './entries';
+import { entryFor, entryJoin, reconcileEntries, reviveEntries, type EntryTarget } from './entries';
 import { actingIn, fieldChange, logChange } from './changes';
+import { rootTitle, trashRows, type ArchiveRestore } from './trash';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -324,6 +325,34 @@ export function archiveLesson(db: Db, id: number, now: number, by?: string): boo
 			now
 		);
 		return true;
+	});
+}
+
+/**
+ * Bring an archived lesson back (Recently deleted), with exactly the entries
+ * its archive took: those archived at the lesson's own `archived_at` (risk 6).
+ * One a member had removed earlier carries an earlier time and stays removed.
+ */
+export function restoreLesson(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	return db.transaction((tx) => {
+		const lesson = getLessonRow(tx, id);
+		if (!lesson || lesson.archivedAt === null || !inSpace(lesson, space)) {
+			return { ok: false, reason: 'gone' } as const;
+		}
+		const at = lesson.archivedAt;
+		tx.update(lessons).set({ archivedAt: null }).where(eq(lessons.id, id)).run();
+		tx.update(exercises)
+			.set({ archivedAt: null })
+			.where(and(eq(exercises.lessonId, id), eq(exercises.archivedAt, at)))
+			.run();
+		if (isTeam(space)) reviveEntries(tx, space.teamId, at);
+		logChange(
+			tx,
+			space,
+			{ ...ofLesson(id), verb: 'restore', subject: 'lesson', after: { title: lesson.title } },
+			now
+		);
+		return { ok: true } as const;
 	});
 }
 
@@ -1048,30 +1077,51 @@ function logVideo(
 	lessonId: number,
 	verb: 'add' | 'remove',
 	videoId: number,
-	now: number
+	now: number,
+	trashId: number | null = null
 ): void {
 	logChange(
 		tx,
 		space,
-		{ rootKind: 'lesson', rootId: lessonId, verb, subject: 'video', subjectId: videoId },
+		{ rootKind: 'lesson', rootId: lessonId, verb, subject: 'video', subjectId: videoId, trashId },
 		now
 	);
 }
 
 /**
- * Delete a video row and return it, so the caller can remove the file. Its
- * spots go first, in the same transaction — the foreign key would refuse the
- * video otherwise. Throws `SpotLinkedError`, deleting nothing, while one of its
- * sections is linked to a figure or drill.
+ * Delete a video row and return it, with `trashId`, so the caller knows
+ * whether to remove the file. Its spots go first, in the same transaction —
+ * the foreign key would refuse the video otherwise. Throws `SpotLinkedError`,
+ * deleting nothing, while one of its sections is linked to a figure or drill.
+ *
+ * A group's video goes to Recently deleted first, with its sections and its
+ * file (`trashRows`): `trashId` is set and the caller must leave the file on
+ * disk for the purge (risk 19). A person's has `trashId` null: the file goes now.
  */
-export function deleteLessonVideo(db: Db, id: number, by?: string) {
+export function deleteLessonVideo(db: Db, id: number, by?: string, now = Date.now()) {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { lessonVideoId: id });
+		const spots = tx.select().from(videoSpots).where(eq(videoSpots.lessonVideoId, id)).all();
 		tx.delete(videoSpots).where(eq(videoSpots.lessonVideoId, id)).run();
 		const video = tx.delete(lessonVideos).where(eq(lessonVideos.id, id)).returning().get() ?? null;
-		const space = video ? lessonSpace(tx, video.lessonId, by) : null;
-		if (video && space) logVideo(tx, space, video.lessonId, 'remove', video.id, Date.now());
-		return video;
+		if (!video) return null;
+		const space = lessonSpace(tx, video.lessonId, by);
+		const trashId =
+			space && isTeam(space)
+				? trashRows(
+						tx,
+						space,
+						'video',
+						rootTitle(tx, 'lesson', video.lessonId),
+						{ rootKind: 'lesson', rootId: video.lessonId },
+						{ lesson_videos: [video], video_spots: spots },
+						[{ dir: 'lessonVideos', file: video.file }],
+						video.sizeBytes,
+						now
+					)
+				: null;
+		if (space) logVideo(tx, space, video.lessonId, 'remove', video.id, now, trashId);
+		return { ...video, trashId };
 	});
 }
 

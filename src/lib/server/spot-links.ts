@@ -34,8 +34,9 @@ import type {
 import { allows, spotAccess, type Reach } from './access';
 import { reconcileEntries } from './entries';
 import { lessonsReaching } from './lesson-links';
-import { inSpace, ownedBy, spaceOfRow, type Space } from './scope';
+import { inSpace, isTeam, ownedBy, spaceOfRow, type Space } from './scope';
 import { actingIn, logChange, spotRoot } from './changes';
+import { spotWords, trashRows, type TrashRows } from './trash';
 
 /**
  * A link that cannot be made. `status` is what the route answers with; `field`,
@@ -232,7 +233,8 @@ function logSectionLink(
 	space: Space,
 	verb: 'add' | 'remove',
 	link: { id: number; spotId: number; target: SectionTarget },
-	now: number
+	now: number,
+	trashId: number | null = null
 ): void {
 	const root = spotRoot(tx, link.spotId);
 	if (!root) return;
@@ -246,7 +248,8 @@ function logSectionLink(
 			verb,
 			subject: 'section-link',
 			subjectId: link.id,
-			...(verb === 'add' ? { after: named } : { before: named })
+			...(verb === 'add' ? { after: named } : { before: named }),
+			trashId
 		},
 		now
 	);
@@ -268,25 +271,38 @@ export function unlinkSpot(
 		const link = tx
 			.delete(spotLinks)
 			.where(and(eq(spotLinks.id, id), targetColumn(target)))
-			.returning({ spotId: spotLinks.spotId })
+			.returning()
 			.get();
 		if (!link) return false;
 		reconcileSpot(tx, link.spotId, now);
-		logUnlinked(tx, { id, spotId: link.spotId, target }, by, now);
+		logUnlinked(tx, { id, spotId: link.spotId, target }, by, now, { spot_links: [link] });
 		return true;
 	});
 }
 
-/** `logSectionLink` for an unlink: the section's space, acted in by `by`. */
+/**
+ * `logSectionLink` for an unlink: the section's space, acted in by `by`. A
+ * group's goes to Recently deleted first, with the rows the unlink removed.
+ */
 function logUnlinked(
 	tx: Db,
 	link: { id: number; spotId: number; target: SectionTarget },
 	by: string | undefined,
-	now: number
+	now: number,
+	rows: TrashRows
 ): void {
 	const video = videoOfSpot(tx, link.spotId);
 	if (!video) return;
-	logSectionLink(tx, actingIn(video, by), 'remove', link, now);
+	const space = actingIn(video, by);
+	let trashId: number | null = null;
+	const root = isTeam(space) ? spotRoot(tx, link.spotId) : null;
+	if (root && isTeam(space)) {
+		const spot = tx.select().from(videoSpots).where(eq(videoSpots.id, link.spotId)).get();
+		const label = `${spot ? spotWords(spot) : 'A section'} · ${targetName(tx, link.target) ?? '?'}`;
+		const at = { rootKind: root.rootKind, rootId: root.rootId };
+		trashId = trashRows(tx, space, 'spot-link', label, at, rows, [], 0, now);
+	}
+	logSectionLink(tx, space, 'remove', link, now, trashId);
 }
 
 /** After a group section loses a link, in the same transaction (risk 25). */
@@ -311,7 +327,9 @@ export function unlinkFromSection(
 	return db.transaction((tx) => {
 		const link = getSpotLink(tx, linkId);
 		if (!link || link.spotId !== spotId) return false;
-		tx.delete(spotLinks).where(eq(spotLinks.id, linkId)).run();
+		const rows: TrashRows = {
+			spot_links: tx.delete(spotLinks).where(eq(spotLinks.id, linkId)).returning().all()
+		};
 		if (alsoLesson) {
 			const lesson = tx
 				.select({ id: lessonVideos.lessonId })
@@ -320,27 +338,31 @@ export function unlinkFromSection(
 				.where(eq(videoSpots.id, spotId))
 				.get();
 			if (lesson && 'figureId' in link.target) {
-				tx.delete(lessonFigures)
+				rows.lesson_figures = tx
+					.delete(lessonFigures)
 					.where(
 						and(
 							eq(lessonFigures.lessonId, lesson.id),
 							eq(lessonFigures.figureId, link.target.figureId)
 						)
 					)
-					.run();
+					.returning()
+					.all();
 			} else if (lesson && 'exerciseId' in link.target) {
-				tx.delete(lessonExercises)
+				rows.lesson_exercises = tx
+					.delete(lessonExercises)
 					.where(
 						and(
 							eq(lessonExercises.lessonId, lesson.id),
 							eq(lessonExercises.exerciseId, link.target.exerciseId)
 						)
 					)
-					.run();
+					.returning()
+					.all();
 			}
 		}
 		reconcileSpot(tx, spotId, now);
-		logUnlinked(tx, link, by, now);
+		logUnlinked(tx, link, by, now, rows);
 		return true;
 	});
 }

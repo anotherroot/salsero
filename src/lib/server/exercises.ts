@@ -24,8 +24,9 @@ import {
 	songs,
 	teams
 } from './db/schema';
-import { ownerValues, type Space, type Wall } from './scope';
-import { reconcileEntries } from './entries';
+import { inSpace, ownerValues, type Space, type Wall } from './scope';
+import { reconcileEntries, reviveEntries } from './entries';
+import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
@@ -276,6 +277,40 @@ export function archiveExercise(db: Db, id: number, now: number, by?: string): b
 			logChange(tx, actingIn(row, by), { ...ofDrill(id), verb: 'archive', subject: 'drill' }, now);
 		}
 		return true;
+	});
+}
+
+/**
+ * Bring an archived drill back (Recently deleted), with exactly the entries
+ * its archive took: those archived at its own `archived_at` (risk 6).
+ */
+export function restoreDrill(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	return db.transaction((tx) => {
+		const drill = tx.select().from(exercises).where(eq(exercises.id, id)).get();
+		if (
+			!drill ||
+			drill.source !== 'custom' ||
+			drill.archivedAt === null ||
+			!inSpace(drill, space)
+		) {
+			return { ok: false, reason: 'gone' } as const;
+		}
+		const at = drill.archivedAt;
+		tx.update(exercises).set({ archivedAt: null }).where(eq(exercises.id, id)).run();
+		if (drill.teamId !== null) {
+			tx.update(exercises)
+				.set({ archivedAt: null })
+				.where(and(eq(exercises.drillId, id), eq(exercises.archivedAt, at)))
+				.run();
+			reviveEntries(tx, drill.teamId, at);
+		}
+		logChange(
+			tx,
+			space,
+			{ ...ofDrill(id), verb: 'restore', subject: 'drill', after: { name: drill.name } },
+			now
+		);
+		return { ok: true } as const;
 	});
 }
 

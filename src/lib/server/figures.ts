@@ -17,9 +17,11 @@ import {
 	type FigureGroup
 } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
-import { inSpace, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
+import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
 import { getTeam } from './teams';
-import { entryFor, reconcileEntries } from './entries';
+import { entryFor, reconcileEntries, reviveEntries } from './entries';
+import { trashRows, type ArchiveRestore } from './trash';
+import { takenLine } from '$lib/teams/deleted';
 import { addedReach, allows, figureAccess } from './access';
 import { actingIn, fieldChange, logChange, variationRoot } from './changes';
 import type { Partner } from '$lib/labels';
@@ -44,7 +46,7 @@ function values(input: FigureInput) {
 const norm = (name: string) => name.trim().toLowerCase();
 
 /** "Enchufla · Doble" — the figure's name and the variation's. */
-const labelFor = (figureName: string, name: string) => `${figureName} · ${name}`;
+export const labelFor = (figureName: string, name: string) => `${figureName} · ${name}`;
 
 /**
  * The space a figure or group row stands in, for a check that reads only its
@@ -457,6 +459,55 @@ export function archiveVariation(
 	});
 }
 
+/**
+ * Bring an archived variation back (Recently deleted), and its figure with it
+ * when that went too, with exactly the entries its archive took: those
+ * archived at the variation's own `archived_at` (risk 6). Refused, changing
+ * nothing, when its name — or its figure's, for a figure that went with it —
+ * was taken since: "Enchufla is taken; rename that one first".
+ */
+export function restoreVariation(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	return db.transaction((tx) => {
+		const row = tx.select().from(figures).where(eq(figures.id, id)).get();
+		const group = row?.groupId ? getGroup(tx, row.groupId) : null;
+		if (!row || !group || row.archivedAt === null || !inSpace(row, space)) {
+			return { ok: false, reason: 'gone' } as const;
+		}
+		if (group.archivedAt !== null && figureNameTaken(tx, space, group.name, group.id)) {
+			return { ok: false, reason: 'taken', message: takenLine(group.name) } as const;
+		}
+		if (variationNameTaken(tx, group.id, row.name, row.id)) {
+			return {
+				ok: false,
+				reason: 'taken',
+				message: takenLine(labelFor(group.name, row.name))
+			} as const;
+		}
+		const at = row.archivedAt;
+		tx.update(figures).set({ archivedAt: null }).where(eq(figures.id, id)).run();
+		if (group.archivedAt !== null) {
+			tx.update(figureGroups).set({ archivedAt: null }).where(eq(figureGroups.id, group.id)).run();
+		}
+		tx.update(exercises)
+			.set({ archivedAt: null })
+			.where(and(eq(exercises.figureId, id), eq(exercises.archivedAt, at)))
+			.run();
+		if (isTeam(space)) reviveEntries(tx, space.teamId, at);
+		logChange(
+			tx,
+			space,
+			{
+				...ofFigure(group.id, id),
+				verb: 'restore',
+				subject: 'variation',
+				after: { name: row.name }
+			},
+			now
+		);
+		return { ok: true } as const;
+	});
+}
+
 /** Whether archiving or moving this variation would leave its figure empty. */
 export function isLastVariation(db: Db, id: number): boolean {
 	const row = db.select().from(figures).where(eq(figures.id, id)).get();
@@ -741,7 +792,8 @@ function logRecording(
 	tx: Db,
 	rec: { id: number; figureId: number },
 	verb: 'add' | 'remove',
-	by: string | undefined
+	by: string | undefined,
+	trashId: number | null = null
 ): void {
 	const root = variationRoot(tx, rec.figureId);
 	if (!root) return;
@@ -749,24 +801,46 @@ function logRecording(
 	logChange(
 		tx,
 		actingIn(row, by),
-		{ ...at, verb, subject: 'recording', subjectId: rec.id },
+		{ ...at, verb, subject: 'recording', subjectId: rec.id, trashId },
 		Date.now()
 	);
 }
 
 /**
- * Delete a recording row and return it, so the caller can remove the file.
- * Its spots go first, in the same transaction — the foreign key would refuse
- * the recording otherwise. Throws `SpotLinkedError`, deleting nothing, while
- * one of its sections is linked to a figure or drill.
+ * Delete a recording row and return it, with `trashId`, so the caller knows
+ * whether to remove the file. Its spots go first, in the same transaction —
+ * the foreign key would refuse the recording otherwise. Throws
+ * `SpotLinkedError`, deleting nothing, while one of its sections is linked to
+ * a figure or drill.
+ *
+ * A group's recording goes to Recently deleted first, with its sections and
+ * its file: `trashId` is set and the caller leaves the file on disk (risk 19).
  */
-export function deleteRecording(db: Db, id: number, by?: string) {
+export function deleteRecording(db: Db, id: number, by?: string, now = Date.now()) {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { recordingId: id });
+		const spots = tx.select().from(videoSpots).where(eq(videoSpots.recordingId, id)).all();
 		tx.delete(videoSpots).where(eq(videoSpots.recordingId, id)).run();
 		const rec = tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
-		if (rec) logRecording(tx, rec, 'remove', by);
-		return rec;
+		if (!rec) return null;
+		const root = variationRoot(tx, rec.figureId);
+		const space = root ? actingIn(root.row, by) : null;
+		const trashId =
+			root && space && isTeam(space)
+				? trashRows(
+						tx,
+						space,
+						'recording',
+						labelOf(tx, rec.figureId) ?? 'Figure',
+						{ rootKind: root.rootKind, rootId: root.rootId },
+						{ recordings: [rec], video_spots: spots },
+						[{ dir: 'recordings', file: rec.file }],
+						rec.sizeBytes,
+						now
+					)
+				: null;
+		logRecording(tx, rec, 'remove', by, trashId);
+		return { ...rec, trashId };
 	});
 }
 

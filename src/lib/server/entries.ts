@@ -453,6 +453,53 @@ export function reconcileEntries(tx: Db, teamId: number, now: number, userId?: s
 		.run();
 }
 
+/**
+ * Restore's half of risk 6: bring back the entries on this group's rows that
+ * one change archived, the ones whose `archived_at` is that change's `at` (a
+ * transaction writes one `now`). An entry a member had removed on their own
+ * carries their own time and stays removed. `only` narrows it to entries for
+ * these targets, for an undo whose `at` came back from the client.
+ *
+ * Then `reconcileEntries` runs at the same `at`, so an entry brought back
+ * whose target is still out of reach (its lesson is archived too) goes back
+ * to exactly the time it had, and a later restore of that lesson finds it.
+ */
+export function reviveEntries(
+	tx: Db,
+	teamId: number,
+	at: number,
+	only?: { figureIds?: number[]; routineIds?: number[] }
+): void {
+	const drills = alias(exercises, 'drills');
+	const ofTeam = <T extends typeof lessons | typeof routines | typeof figures | typeof drills>(
+		t: T
+	) => tx.select({ id: t.id }).from(t).where(eq(t.teamId, teamId));
+	const narrowed = only
+		? or(
+				only.figureIds?.length ? inArray(exercises.figureId, only.figureIds) : undefined,
+				only.routineIds?.length ? inArray(exercises.routineId, only.routineIds) : undefined
+			)
+		: undefined;
+	if (only && !narrowed) return;
+	tx.update(exercises)
+		.set({ archivedAt: null })
+		.where(
+			and(
+				isNotNull(exercises.userId),
+				eq(exercises.archivedAt, at),
+				narrowed,
+				or(
+					inArray(exercises.lessonId, ofTeam(lessons)),
+					inArray(exercises.routineId, ofTeam(routines)),
+					inArray(exercises.figureId, ofTeam(figures)),
+					inArray(exercises.drillId, ofTeam(drills))
+				)
+			)
+		)
+		.run();
+	reconcileEntries(tx, teamId, at);
+}
+
 /** Whether this person added the lesson to their own (the `lesson_adds` row). */
 export function isAdded(db: Db, userId: string, lessonId: number): boolean {
 	return (

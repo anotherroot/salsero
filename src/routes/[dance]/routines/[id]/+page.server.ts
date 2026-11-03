@@ -361,10 +361,12 @@ export const actions: Actions = {
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail('That slot does not belong to this routine.', stepId);
 		}
-		if (!removeOption(db, stepId, figureId, Date.now(), by(params, locals))) {
+		const now = Date.now();
+		if (!removeOption(db, stepId, figureId, now, by(params, locals))) {
 			return slotFail('A slot has to hold something.', stepId);
 		}
-		return done(routine.id);
+		// Handed back so Undo can bring back the entries this remove took (R10).
+		return done(routine.id, { removedAt: now });
 	},
 
 	note: async ({ params, request, locals }) => {
@@ -494,7 +496,8 @@ export const actions: Actions = {
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail('That slot does not belong to this routine.', stepId);
 		}
-		if (!restoreOption(db, stepId, figureId, by(params, locals))) {
+		const removedAt = int(form, 'removedAt');
+		if (!restoreOption(db, stepId, figureId, by(params, locals), removedAt)) {
 			return slotFail('That alternative could not be put back.', stepId);
 		}
 		return done(routine.id);

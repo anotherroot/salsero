@@ -622,3 +622,22 @@ export interface HistoryRow {
 	/** Where a removal can be undone (Recently deleted), once it has a trash entry. */
 	trashId: number | null;
 }
+
+/** What a group's hard delete keeps for 30 days (`team_trash.kind`). */
+export type TrashKind = 'video' | 'section' | 'link' | 'spot-link' | 'recording';
+/** What Recently deleted lists: the trash kinds, and the archived ones. */
+export type DeletedKind = TrashKind | 'lesson' | 'variation' | 'routine' | 'drill';
+
+/** One row of a group's Recently deleted, newest first. */
+export interface DeletedItem {
+	kind: DeletedKind;
+	/** The trash entry's id for a trash kind; the row's own id for an archived one. */
+	id: number;
+	/** What it was: "Enchufla · Doble", "Video · Class 3". */
+	label: string;
+	/** Who deleted or archived it, by short name; null when History does not say. */
+	by: string | null;
+	at: number;
+	/** The day (in the viewer's zone) a trash kind goes for good; null for an archived kind. */
+	purgeOn: string | null;
+}

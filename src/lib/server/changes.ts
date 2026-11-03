@@ -579,5 +579,5 @@ export function archivedRefusal<T extends Record<string, unknown>>(
 	const archived = archivedTarget(db, space, target);
 	if (!archived) return null;
 	const { by, message } = archived;
-	return fail(410, { ...extra, message, archived: { by, restorable: true } });
+	return fail(410, { ...extra, message, archived: { by, restorable: true, target } });
 }

@@ -26,6 +26,7 @@
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { act, type Field } from '$lib/act';
+	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
 	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
 		anchorAfter,
@@ -118,9 +119,15 @@
 			data.slots.map((s) => s.id)
 		)
 	);
+	/** A pick refused because it was archived since: its target, and whether Restore is offered. */
+	const archivedForm = $derived.by(() => {
+		if (!form || dismissed === form || !('archived' in form)) return null;
+		const a = form.archived as { restorable?: boolean; target?: ArchivedTarget } | undefined;
+		return a?.target ? { restorable: a.restorable === true, target: a.target } : null;
+	});
 	/** The routine-level refusal, until it is dismissed. */
 	const bannerMessage = $derived(
-		place?.where === 'banner' && dismissed !== form ? place.message : null
+		place?.where === 'banner' && dismissed !== form && !archivedForm ? place.message : null
 	);
 
 	/** The Edit form's refusals, each under its own field. */
@@ -264,7 +271,10 @@
 					.filter((f) => !goneOptions.includes(`${slot.id}:${f}`))
 					.map((f) => ({ id: f, label: optionName(f), href: figureHref(f) })),
 				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
-				failure: place?.where === 'slot' && place.stepId === slot.id ? place.message : null,
+				failure:
+					place?.where === 'slot' && place.stepId === slot.id && !archivedForm
+						? place.message
+						: null,
 				seam: stale ? null : seamOf(i)
 			};
 		})
@@ -363,7 +373,9 @@
 		const result = await send('removeOption', { stepId, figureId });
 		goneOptions = goneOptions.filter((k) => k !== key);
 		if (result.type === 'success') {
-			showToast(`Removed ${label}`, () => send('restoreOption', { stepId, figureId }));
+			// When it went: in a group, Undo brings back what the remove took off members' Today.
+			const removedAt = typeof result.data?.removedAt === 'number' ? result.data.removedAt : '';
+			showToast(`Removed ${label}`, () => send('restoreOption', { stepId, figureId, removedAt }));
 			await focusAfterRemoval(keys, `alt-${stepId}-${figureId}`, `slot-${stepId}`);
 		}
 	}
@@ -398,10 +410,45 @@
 		picker = { title: `Alternative for ${main.label}`, anchor, insertAt: null, stepId };
 	}
 
+	type PickerState = NonNullable<typeof picker>;
+	/** The last pick sent, so "Archived by Ana" can Restore and put it in, or reopen the picker. */
+	let lastPick: { p: PickerState; c: Candidate } | null = null;
+	let restoring = $state(false);
+
+	async function restoreAndPick() {
+		const a = archivedForm;
+		const last = lastPick;
+		if (!a || restoring) return;
+		restoring = true;
+		const refused = await restoreArchived(a.target);
+		restoring = false;
+		if (refused) {
+			// Stays up, saying why: "Enchufla is taken; rename that one first".
+			restoreRefusal = refused;
+			return;
+		}
+		dismissed = form;
+		if (last) await put(last.p, last.c);
+	}
+
+	function pickAnother() {
+		dismissed = form;
+		picker = lastPick?.p ?? null;
+	}
+	let restoreRefusal = $state<string | null>(null);
+	$effect(() => {
+		if (!archivedForm) restoreRefusal = null;
+	});
+
 	async function pick(c: Candidate) {
 		const p = picker;
 		picker = null;
 		if (!p) return;
+		await put(p, c);
+	}
+
+	async function put(p: PickerState, c: Candidate) {
+		lastPick = { p, c };
 		if (p.stepId !== null) {
 			await send('addOption', { stepId: p.stepId, figureId: c.id });
 			return;
@@ -689,6 +736,30 @@
 			{#if !selecting}
 				{#if bannerMessage}
 					<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
+				{/if}
+				{#if archivedForm && form?.message}
+					<!-- "Archived by Ana": Restore and put it in, or pick another. -->
+					<Banner kind="error" title={form.message} ondismiss={() => (dismissed = form)}>
+						{#if restoreRefusal}{restoreRefusal}{/if}
+						{#snippet action()}
+							<div class="flex flex-wrap gap-1">
+								{#if archivedForm.restorable}
+									<button
+										type="button"
+										class={button('tertiary', 'sm')}
+										aria-busy={restoring}
+										disabled={restoring}
+										onclick={restoreAndPick}
+										>{#if restoring}<Spinner /><span class="sr-only">Restoring…</span
+											>{:else}Restore{/if}</button
+									>
+								{/if}
+								<button type="button" class={button('tertiary', 'sm')} onclick={pickAnother}
+									>Pick another</button
+								>
+							</div>
+						{/snippet}
+					</Banner>
 				{/if}
 				{#if routine.notes}
 					<p class="px-1 text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2">

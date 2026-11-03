@@ -70,7 +70,9 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			at: r.at,
 			was: previousValue(r),
 			restorable: canRestore(r),
-			trashId: r.trashId
+			trashId: r.trashId,
+			// A removal kept in the trash, or an archive: Restore is on Recently deleted.
+			inDeleted: r.trashId !== null || r.verb === 'archive'
 		})),
 		now: Date.now()
 	};

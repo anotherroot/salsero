@@ -75,3 +75,14 @@ export function linkRefusal(message: unknown, sent: { label: string } | null): s
 	if (typeof message === 'string' && message) return message;
 	return sent ? `${sent.label} was not linked. Try it again.` : 'Try it again.';
 }
+
+/**
+ * A link refused because its target was archived since the picker opened
+ * ("Archived by Ana"): Pick another clears it; Restore, for those who may,
+ * brings the target back and makes the link.
+ */
+export interface ArchivedChoice {
+	restoring: boolean;
+	onrestore?: () => void;
+	onpickanother: () => void;
+}

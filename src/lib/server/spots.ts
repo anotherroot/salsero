@@ -13,6 +13,8 @@ import type { Spot, SpotOwner } from '$lib/types';
 import { assertUnlinked, linkChips, videoOfSpot, type Visible } from './spot-links';
 import { ownerOfRow, type Owner } from './storage';
 import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
+import { isTeam } from './scope';
+import { rootTitle, spotWords, trashRows } from './trash';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
 export class SpotError extends Error {}
@@ -178,6 +180,7 @@ function logSpot(
 		spot: { id: number; endMs: number | null };
 		before?: Record<string, string | number | null>;
 		after?: Record<string, string | number | null>;
+		trashId?: number | null;
 	},
 	now = Date.now()
 ): void {
@@ -191,7 +194,8 @@ function logSpot(
 			subject: e.spot.endMs === null ? 'point' : 'section',
 			subjectId: e.spot.id,
 			before: e.before,
-			after: e.after
+			after: e.after,
+			trashId: e.trashId
 		},
 		now
 	);
@@ -245,16 +249,38 @@ export function updateSpot(
 }
 
 /**
- * Whether a row went. Throws `SpotLinkedError`, deleting nothing, while the
- * section is linked. In a group, `by` is who, for History.
+ * Delete a section or point: null when there was none. Throws
+ * `SpotLinkedError`, deleting nothing, while the section is linked. In a
+ * group, `by` is who, for History, and the section goes to Recently deleted
+ * first: `trashId` is that entry, which the player's Undo restores (risk 18).
  */
-export function deleteSpot(db: Db, id: number, by?: string): boolean {
+export function deleteSpot(
+	db: Db,
+	id: number,
+	by?: string,
+	now = Date.now()
+): { trashId: number | null } | null {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { spotId: id });
 		const root = spotRoot(tx, id);
 		const gone = tx.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get();
-		if (!gone) return false;
-		if (root) logSpot(tx, root, by, { verb: 'remove', spot: gone, before: fields(gone) });
-		return true;
+		if (!gone) return null;
+		if (!root) return { trashId: null };
+		const space = actingIn(root.row, by);
+		const trashId = isTeam(space)
+			? trashRows(
+					tx,
+					space,
+					'section',
+					`${spotWords(gone)} · ${rootTitle(tx, root.rootKind, root.rootId)}`,
+					{ rootKind: root.rootKind, rootId: root.rootId },
+					{ video_spots: [gone] },
+					[],
+					0,
+					now
+				)
+			: null;
+		logSpot(tx, root, by, { verb: 'remove', spot: gone, before: fields(gone), trashId }, now);
+		return { trashId };
 	});
 }

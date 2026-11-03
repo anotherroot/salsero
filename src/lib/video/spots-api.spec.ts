@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ok, patchSpot, removeSpot, SpotsApiError } from './spots-api';
+import { ok, patchSpot, removeSpot, restoreTrashEntry, SpotsApiError } from './spots-api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -19,9 +19,31 @@ describe('removeSpot', () => {
 		await expect(removeSpot(3)).rejects.toMatchObject({ status: 500, message: 'video-spots: 500' });
 	});
 
-	it('resolves on a 204', async () => {
+	it('resolves with no trash entry for a person’s spot, even on an empty answer', async () => {
 		vi.stubGlobal('fetch', async () => new Response(null, { status: 204 }));
-		await expect(removeSpot(3)).resolves.toBeUndefined();
+		await expect(removeSpot(3)).resolves.toEqual({ trashId: null });
+		answer(200, { trashId: null });
+		await expect(removeSpot(3)).resolves.toEqual({ trashId: null });
+	});
+
+	it('hands back a group spot’s trash entry, for Undo', async () => {
+		answer(200, { trashId: 12 });
+		await expect(removeSpot(3)).resolves.toEqual({ trashId: 12 });
+	});
+});
+
+describe('restoreTrashEntry', () => {
+	it('posts to the entry, and carries a refusal’s words', async () => {
+		const calls: string[] = [];
+		vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+			calls.push(`${init.method} ${url}`);
+			return Response.json({ message: 'Restore the video first' }, { status: 409 });
+		});
+		await expect(restoreTrashEntry(12)).rejects.toMatchObject({
+			status: 409,
+			message: 'Restore the video first'
+		});
+		expect(calls).toEqual(['POST /api/trash/12']);
 	});
 });
 

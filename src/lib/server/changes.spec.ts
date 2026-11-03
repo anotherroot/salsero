@@ -5,7 +5,8 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { teamChanges, users } from './db/schema';
+import { teamChanges, teamTrash, users } from './db/schema';
+import { restoreTrash } from './trash';
 import { actorOf, type Space } from './scope';
 import { T1_SALSA, U1_SALSA } from './test-walls';
 import { createTeam, joinTeam, removeMember, setRole } from './teams';
@@ -28,6 +29,7 @@ import {
 	linkFigure,
 	linkRoutine,
 	publishLesson,
+	restoreLesson,
 	unlinkExercise,
 	unlinkFigure,
 	unlinkRoutine,
@@ -45,6 +47,7 @@ import {
 	deleteRecording,
 	moveVariation,
 	renameFigure,
+	restoreVariation,
 	updateVariation
 } from './figures';
 import { setFigureShape } from './graph';
@@ -63,11 +66,12 @@ import {
 	moveSlotTo,
 	removeOption,
 	restoreOption,
+	restoreRoutine,
 	restoreSlots,
 	setSlotNote,
 	updateRoutine
 } from './routines';
-import { archiveExercise, createCustomExercise, updateExercise } from './exercises';
+import { archiveExercise, createCustomExercise, restoreDrill, updateExercise } from './exercises';
 import { claimVideoJob, completeVideoJob, requestVideoDownload } from './video-downloads';
 import { HISTORY_MERGE_MS } from '$lib/limits';
 
@@ -604,6 +608,52 @@ const MUTATIONS: {
 		verb: 'archive',
 		rootId: (w) => w.drill2,
 		run: (w) => archiveExercise(db, w.drill2, 5, w.by)
+	},
+	// trash.ts and the restores of archived things (Recently deleted)
+	{
+		name: 'restoreTrash',
+		root: 'lesson',
+		verb: 'restore',
+		rootId: (w) => w.lesson,
+		teamOnly: true,
+		prep: (w) => deleteSpot(db, w.section, w.by),
+		run: (_, s) => {
+			const [entry] = db.select().from(teamTrash).all();
+			const done = restoreTrash(db, s as typeof T1_SALSA, entry.id, T);
+			return done.ok;
+		}
+	},
+	{
+		name: 'restoreLesson',
+		root: 'lesson',
+		verb: 'restore',
+		rootId: (w) => w.lesson,
+		prep: (w) => archiveLesson(db, w.lesson, 5, w.by),
+		run: (w, s) => restoreLesson(db, s, w.lesson, T).ok
+	},
+	{
+		name: 'restoreVariation',
+		root: 'figure',
+		verb: 'restore',
+		rootId: (w) => w.G,
+		prep: (w) => archiveVariation(db, w.V2, 5, w.by),
+		run: (w, s) => restoreVariation(db, s, w.V2, T).ok
+	},
+	{
+		name: 'restoreRoutine',
+		root: 'routine',
+		verb: 'restore',
+		rootId: (w) => w.routine,
+		prep: (w) => archiveRoutine(db, w.routine, 5, w.by),
+		run: (w, s) => restoreRoutine(db, s, w.routine, T).ok
+	},
+	{
+		name: 'restoreDrill',
+		root: 'drill',
+		verb: 'restore',
+		rootId: (w) => w.drill2,
+		prep: (w) => archiveExercise(db, w.drill2, 5, w.by),
+		run: (w, s) => restoreDrill(db, s, w.drill2, T).ok
 	},
 	// video-downloads.ts, on completion
 	{

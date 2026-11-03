@@ -535,7 +535,8 @@ export const actions: Actions = {
 		if (!row) {
 			return fail(404, { action: 'deleteVideo', message: 'That video was already removed.' });
 		}
-		await unlink(join(lessonVideosDir(), row.file)).catch(() => {});
+		// A group's video is in Recently deleted with its file: the purge deletes it (risk 19).
+		if (row.trashId === null) await unlink(join(lessonVideosDir(), row.file)).catch(() => {});
 		return { action: 'deleteVideo', ok: true };
 	},
 

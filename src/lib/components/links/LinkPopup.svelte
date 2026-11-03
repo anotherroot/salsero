@@ -39,6 +39,7 @@
 		type CreateStep
 	} from '$lib/video/link-steps';
 	import { SpotsApiError } from '$lib/video/spots-api';
+	import { restoreArchived } from '$lib/teams/restore-api';
 	import type {
 		LinkCreate,
 		LinkedTarget,
@@ -116,6 +117,9 @@
 	// options its groups were built from (fixed while it is open, rule 5).
 	let added = $state(0);
 	let pickMessage = $state<string | null>(null);
+	/** A picked target someone archived since the picker opened: Restore or Pick another. */
+	let archivedPick = $state<{ row: PickRow; keep: boolean; restorable: boolean } | null>(null);
+	let restoring = $state(false);
 	let pickBase = $state.raw<LinkOptions | null>(null);
 	/** Counts openings, so an answer that lands after a close is not counted in the next one. */
 	let opening = 0;
@@ -158,6 +162,7 @@
 			opening += 1;
 			added = 0;
 			pickMessage = null;
+			archivedPick = null;
 		}
 		if (!now) pickBase = null;
 		else if (!untrack(() => pickBase) && options) pickBase = options;
@@ -254,6 +259,7 @@
 		inFlight.add(row.key);
 		const at = opening;
 		pickMessage = null;
+		archivedPick = null;
 		try {
 			// A late answer still lands: the link was made, the list shows it.
 			changed(await addLink(spotId, rowTarget(row)));
@@ -266,11 +272,44 @@
 					e instanceof SpotsApiError && e.status < 500 ? e.message : undefined,
 					row
 				);
+				// "Archived by Ana": Restore (and link) or Pick another.
+				archivedPick =
+					e instanceof SpotsApiError && e.archived
+						? { row, keep, restorable: e.archived.restorable }
+						: null;
 			}
 		} finally {
 			inFlight.delete(row.key);
 		}
 	}
+
+	/** Restore what was archived since, then make the link that was refused. */
+	async function restoreAndLink() {
+		const a = archivedPick;
+		if (!a || restoring) return;
+		restoring = true;
+		const refused = await restoreArchived(rowTarget(a.row));
+		restoring = false;
+		archivedPick = null;
+		if (refused) {
+			pickMessage = refused;
+			return;
+		}
+		await link(a.row, a.keep);
+	}
+
+	const archivedChoice = $derived(
+		archivedPick
+			? {
+					restoring,
+					onrestore: archivedPick.restorable ? restoreAndLink : undefined,
+					onpickanother: () => {
+						archivedPick = null;
+						pickMessage = null;
+					}
+				}
+			: null
+	);
 
 	/** The picker's create row: the step opens on top of it, the search text in its name. */
 	function startCreate(key: string, typed: string) {
@@ -634,6 +673,7 @@
 	{added}
 	pending={inFlight}
 	message={pickMessage}
+	archived={archivedChoice}
 	onpick={(row) => link(row, false)}
 	onadd={(row) => link(row, true)}
 	oncreate={startCreate}
