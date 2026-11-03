@@ -65,8 +65,10 @@
 	let deleting = $state(false);
 	let copying = $state(false);
 
-	/** What every edit sends back: the song as this page shows it, for the clash check. */
-	const seen = $derived(JSON.stringify(data.seen));
+	/** What every edit of a group's song sends back, for the clash check; nothing for one's own. */
+	const seen = $derived(data.seen ? JSON.stringify(data.seen) : '');
+	/** `seen` as a posted field, for a group's song only. */
+	const withSeen = (): { seen?: string } => (seen ? { seen } : {});
 	const group = $derived(data.group);
 	const canEdit = $derived(data.canEdit);
 	const hasMenu = $derived(group !== null && (data.copy || data.historyHref || canEdit));
@@ -77,11 +79,10 @@
 
 	// Shown, not preloaded: a group's song counts as opened here, and again when
 	// an editor's own Share reloads it with a new sharedAt (so it is never new to them).
+	// Keyed on primitives, so a tap's reload does not report it again.
+	const openKey = $derived(group ? `${data.song.id}:${data.song.sharedAt}` : null);
 	$effect(() => {
-		if (group) {
-			void data.song.sharedAt;
-			reportOpen('song', data.song.id);
-		}
+		if (openKey !== null) reportOpen('song', Number(openKey.split(':')[0]));
 	});
 
 	/*
@@ -169,7 +170,7 @@
 
 	async function setTempo(v: string) {
 		tempoError = null;
-		const r = await act('tempo', { factor: v, seen });
+		const r = await act('tempo', { factor: v, ...withSeen() });
 		if (r.type === 'failure') {
 			tempoError = String(r.data?.message ?? 'Could not change the count speed.');
 			tempo = String(song.tempoFactor);
@@ -194,7 +195,7 @@
 	async function drainTaps() {
 		try {
 			for (let t = queuedTaps.shift(); t !== undefined; t = queuedTaps.shift()) {
-				const r = await act('tap', { t, seen });
+				const r = await act('tap', { t, ...withSeen() });
 				if (r.type === 'success') gotIt();
 				else break;
 			}
@@ -319,11 +320,13 @@
 					}
 					tapping = true;
 					formData.set('t', String(t));
-					formData.set('seen', seen);
+					if (seen) formData.set('seen', seen);
 					return async ({ update, result }) => {
 						try {
 							await update({ reset: false });
 							if (result.type === 'success') gotIt();
+							// A refused tap (a clash) would refuse the waiting ones too.
+							else queuedTaps.length = 0;
 						} finally {
 							await drainTaps();
 						}
@@ -389,14 +392,14 @@
 						return async ({ update }) => update({ reset: false });
 					}}
 				>
-					<input type="hidden" name="seen" value={seen} />
+					{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 					<button type="submit" class={button('secondary', 'md', true)}
 						>Start the sample at {clock(now)}</button
 					>
 				</form>
 				{#if data.sample.custom}
 					<form method="POST" action="?/sampleAuto" use:enhance class="-mt-1 flex justify-center">
-						<input type="hidden" name="seen" value={seen} />
+						{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 						<button type="submit" class={button('tertiary', 'sm')}>Back to automatic</button>
 					</form>
 				{/if}
@@ -426,7 +429,7 @@
 				<div class="flex min-h-5 items-center justify-between pt-3 pr-1 pl-4">
 					<h2 class="text-[13px] font-bold text-muted">Your 1s · {data.anchors.length}</h2>
 					<form method="POST" action="?/resetAnchors" use:enhance class="-my-3">
-						<input type="hidden" name="seen" value={seen} />
+						{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 						<button type="submit" class={button('tertiary', 'sm')}>Clear all</button>
 					</form>
 				</div>
@@ -437,7 +440,7 @@
 							<span class="text-[16px] font-bold text-ink tabular-nums">{time}</span>
 							<form method="POST" action="?/removeAnchor" use:enhance={removeAnchor(beat)}>
 								<input type="hidden" name="beat" value={beat} />
-								<input type="hidden" name="seen" value={seen} />
+								{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 								<button
 									data-focus="anchor-{beat}"
 									type="submit"

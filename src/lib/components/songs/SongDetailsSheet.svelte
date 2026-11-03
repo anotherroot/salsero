@@ -79,7 +79,7 @@
 			}}
 		>
 			{#if otherError}<Banner kind="error" title={otherError} />{/if}
-			<input type="hidden" name="seen" value={seen} />
+			{#if seen}<input type="hidden" name="seen" value={seen} />{/if}
 
 			<div>
 				<label class={LABEL} for="song-title">Title</label>

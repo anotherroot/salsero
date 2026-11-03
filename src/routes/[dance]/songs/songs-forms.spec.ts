@@ -36,6 +36,7 @@ import {
 	storeFetchedAudio,
 	failJob
 } from '$lib/server/songs';
+import { songSeen } from '$lib/server/clash';
 import * as songList from './+page.server';
 import * as songPage from './[id]/+page.server';
 
@@ -265,6 +266,28 @@ describe('A song', () => {
 			ok: true
 		});
 		expect(JSON.parse(getSong(db, id)!.anchorsJson)).toHaveLength(1);
+	});
+
+	it('never clash-checks one’s own song: stale or absent `seen`, every edit lands', async () => {
+		const id = readySong();
+		const stale = JSON.stringify(songSeen(getSong(db, id)!));
+		const tap = (t: string, fields: Record<string, string> = {}) =>
+			call(songPage.actions.tap, post('salsa', { t, ...fields }, String(id)));
+		expect(await tap('12', { seen: stale })).toEqual({ ok: true });
+		expect(await tap('24', { seen: stale })).toEqual({ ok: true });
+		expect(await tap('36')).toEqual({ ok: true });
+		expect(getSong(db, id)!.anchorsJson).not.toBe(JSON.parse(stale).anchorsJson);
+		expect(
+			await call(songPage.actions.sample, post('salsa', { t: '10', seen: stale }, String(id)))
+		).toEqual({ ok: true });
+		expect(
+			await call(
+				songPage.actions.removeAnchor,
+				post('salsa', { beat: '0', seen: stale }, String(id))
+			)
+		).toEqual({ ok: true });
+		const page = songPage.load(post('salsa', {}, String(id)) as never) as { seen: unknown };
+		expect(page.seen).toBeNull();
 	});
 
 	it('will not take a tap on a salsa song from a bachata URL', async () => {

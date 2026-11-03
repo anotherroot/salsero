@@ -180,10 +180,16 @@ export function classSongNote(group: string): string {
 	return `${group}'s song. The count is the teacher's.`;
 }
 
-/** Stop sharing's and Delete's warning, when members' practice uses the song. */
+const usedIn = (n: number) => `Used in ${n === 1 ? '1 person' : `${n} people`}'s practice.`;
+
+/** Stop sharing's warning, when members' practice uses the song. */
 export function songUseWarning(n: number): string {
-	const who = n === 1 ? '1 person' : `${n} people`;
-	return `Used in ${who}'s practice. They'll switch to count only until you share it again.`;
+	return `${usedIn(n)} They'll switch to count only until you share it again.`;
+}
+
+/** Delete's warning, when members' practice uses the song: Restore brings it back. */
+export function songDeleteWarning(n: number): string {
+	return `${usedIn(n)} They'll switch to count only until you restore it.`;
 }
 
 export function stopSharingTitle(name: string): string {
@@ -217,7 +223,7 @@ export function stopSharingBody(users: number): string {
 /** Delete's question under its title; the warning when members use it. */
 export function deleteSongBody(users: number): string {
 	const lead = 'It goes to Recently deleted for 30 days.';
-	return users > 0 ? `${lead} ${songUseWarning(users)}` : lead;
+	return users > 0 ? `${lead} ${songDeleteWarning(users)}` : lead;
 }
 
 /** What Make my own copy of a class song brings. */

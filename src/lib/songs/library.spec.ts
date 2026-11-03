@@ -11,6 +11,7 @@ import {
 	groupSections,
 	libraryView,
 	sharedMeta,
+	songDeleteWarning,
 	songUseWarning,
 	stopSharingBody,
 	stopSharingTitle,
@@ -176,6 +177,15 @@ describe('class songs', () => {
 		);
 	});
 
+	it('warns Delete that Restore brings it back', () => {
+		expect(songDeleteWarning(1)).toBe(
+			"Used in 1 person's practice. They'll switch to count only until you restore it."
+		);
+		expect(songDeleteWarning(4)).toBe(
+			"Used in 4 people's practice. They'll switch to count only until you restore it."
+		);
+	});
+
 	it('lists the group’s songs: Being added, Drafts, then Shared with the class', () => {
 		const songs = [
 			song(5, 'Waiting', { status: 'waiting_download' }),
@@ -198,6 +208,8 @@ describe('class songs', () => {
 	it('is empty only with no song and no upload, and searches like Music', () => {
 		expect(classLibraryView([], '', false).kind).toBe('empty');
 		expect(classLibraryView([], '', true).kind).toBe('class');
+		// A query is always a search, own songs or none, so no match never reads "No songs yet".
+		expect(libraryView([], 'x', false)).toMatchObject({ kind: 'search', hits: [] });
 		const view = classLibraryView(
 			[song(1, 'Chan Chan', { sharedAt: 1 }), song(2, 'Other')],
 			'chan',
@@ -248,7 +260,7 @@ describe('Stop sharing and Delete', () => {
 		);
 		expect(deleteSongBody(0)).toBe('It goes to Recently deleted for 30 days.');
 		expect(deleteSongBody(1)).toBe(
-			"It goes to Recently deleted for 30 days. Used in 1 person's practice. They'll switch to count only until you share it again."
+			"It goes to Recently deleted for 30 days. Used in 1 person's practice. They'll switch to count only until you restore it."
 		);
 	});
 });

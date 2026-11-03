@@ -76,8 +76,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		group: team ? { id: team.id, name: team.name } : null,
 		/** How many people's practice uses it: Stop sharing's and Delete's warning. */
 		users: team && canEdit ? songUsers(db, song.id) : 0,
-		/** What every edit sends back, for the clash check. */
-		seen: songSeen(song),
+		/** What every edit of a group's song sends back, for the clash check. */
+		seen: team ? songSeen(song) : null,
 		/** Make my own copy, of a group's song that is ready. */
 		copy: team && song.status === 'ready' ? { bytes: song.sizeBytes ?? 0 } : null,
 		/** History is its editors'. */
@@ -94,8 +94,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
 /**
  * An edit: the song for one who edits it, the form, and the clash check's
- * refusal (or null). A group's save without `seen` is refused, and one that
- * saw another version than the stored one is a 409 naming who changed it.
+ * refusal (or null). Only a group's song is checked: its save without `seen`
+ * is refused, and one that saw another version than the stored one is a 409
+ * naming who changed it. A person's own song saves as it always did, `seen`
+ * or not: two quick taps of one's own must never clash.
  */
 async function editing<T extends Record<string, unknown>>(
 	event: { params: { dance: string; id: string }; locals: App.Locals; request: Request },
@@ -111,9 +113,11 @@ async function editing<T extends Record<string, unknown>>(
 	);
 	const form = await event.request.formData();
 	const now = Date.now();
-	const refused = seenRefusal(form, isTeam(space), songSeen(song), extra(form), now, () =>
-		editedBy(db, song.teamId, 'song', song.id)
-	);
+	const refused = isTeam(space)
+		? seenRefusal(form, true, songSeen(song), extra(form), now, () =>
+				editedBy(db, song.teamId, 'song', song.id)
+			)
+		: null;
 	return { db, song, space, form, now, refused };
 }
 
