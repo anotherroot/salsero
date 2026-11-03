@@ -8,7 +8,7 @@
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import LessonRow from '$lib/components/lessons/LessonRow.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { diskSubtitle, monthGroups, splitDrafts } from '$lib/lessons/list';
+	import { diskSubtitle, emptyLessonsBody, monthGroups, splitDrafts } from '$lib/lessons/list';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -43,7 +43,7 @@
 		<EmptyState
 			icon="lessons"
 			title="No lessons yet"
-			body="Add one after your next class — the videos, the notes, and something on Today to make you go back over it."
+			body={emptyLessonsBody(data.groupMode !== null)}
 		>
 			{#snippet action()}
 				<button type="button" class={button('primary')} onclick={openSheet}>
@@ -97,4 +97,5 @@
 	action="?/create"
 	refusal={form !== seen ? form : null}
 	today={data.today}
+	frequency={!data.groupMode}
 />

@@ -53,3 +53,10 @@ export function splitDrafts<T extends LessonItem & { publishedAt?: number | null
 		published: lessons.filter((l) => l.publishedAt !== null)
 	};
 }
+
+/** The empty Lessons list's invitation: a group's drafts have no Today review. */
+export function emptyLessonsBody(inGroup: boolean): string {
+	return inGroup
+		? 'Add one after your next class — the videos and the notes. Members see it once you publish it.'
+		: 'Add one after your next class — the videos, the notes, and something on Today to make you go back over it.';
+}

@@ -71,3 +71,11 @@ describe('splitDrafts', () => {
 		expect(splitDrafts([lesson('2026-11-01')]).published).toHaveLength(1);
 	});
 });
+
+describe('emptyLessonsBody', () => {
+	it('promises a Today review only outside a group', async () => {
+		const { emptyLessonsBody } = await import('./list');
+		expect(emptyLessonsBody(false)).toContain('Today');
+		expect(emptyLessonsBody(true)).not.toContain('Today');
+	});
+});

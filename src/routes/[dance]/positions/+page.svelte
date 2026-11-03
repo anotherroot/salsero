@@ -45,7 +45,7 @@
 	let toastSeq = 0;
 
 	const selected = $derived(data.positions.find((p) => p.id === selectedId) ?? null);
-	const title = $derived(gapsTitle(data.positions));
+	const title = $derived(data.groupMode ? null : gapsTitle(data.positions));
 
 	const renameRefusal = $derived(
 		form !== seen && refusal?.action === 'rename' && refusal.id === selectedId ? refusal : null

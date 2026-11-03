@@ -34,6 +34,8 @@ import { actions as figureActions, load as figuresLoad } from './figures/+page.s
 import { actions as routineActions, load as routinesLoad } from './routines/+page.server';
 import { actions as lessonActions, load as lessonsLoad } from './lessons/+page.server';
 import { load as coverageLoad } from './coverage/+page.server';
+import { load as positionsLoad } from './positions/+page.server';
+import { createPosition } from '$lib/server/positions';
 
 let db: Db;
 
@@ -186,5 +188,26 @@ describe('listing in group mode', () => {
 			thrown = e;
 		}
 		expect([thrown?.status, thrown?.location]).toEqual([303, '/salsa/figures']);
+	});
+
+	it('positions: counts the group figures and hides the gap report in group mode', () => {
+		const x = createPosition(db, 'salsa', {
+			slug: 'open',
+			name: 'Open',
+			neutral: false,
+			sortOrder: 9
+		})!;
+		const g = createFigure(db, T1_SALSA, { ...FIGURE, notes: null } as never)!;
+		const own = createFigure(db, U2_SALSA, { ...FIGURE, figureName: 'Own', notes: null } as never)!;
+		db.update(figures).set({ endPositionId: x.id }).where(eq(figures.id, g.figure.id)).run();
+		db.update(figures).set({ endPositionId: x.id }).where(eq(figures.id, own.figure.id)).run();
+		const row = (d: Record<string, any>) => d.positions.find((p: any) => p.id === x.id); // eslint-disable-line
+		const inGroup = loadOf(positionsLoad, 'u2', jar('1').cookies);
+		expect(inGroup.groupMode).toBe(true);
+		expect(row(inGroup)).toMatchObject({ inCount: 1, deadEnd: false, orphan: false });
+		expect(inGroup.tagged.total).toBe(1);
+		const mine = loadOf(positionsLoad, 'u2', jar().cookies);
+		expect(mine.groupMode).toBe(false);
+		expect(row(mine)).toMatchObject({ inCount: 1, deadEnd: true });
 	});
 });
