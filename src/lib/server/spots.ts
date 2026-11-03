@@ -10,10 +10,10 @@ import type { Db } from './db';
 import { figures, lessons, lessonVideos, recordings, videoSpots } from './db/schema';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
-import { assertUnlinked, linkChips, videoOfSpot, type Visible } from './spot-links';
+import { assertUnlinked, linkChips, linkChipsFor, videoOfSpot, type Visible } from './spot-links';
 import { ownerOfRow, type Owner } from './storage';
 import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
-import { isTeam } from './scope';
+import { isTeam, spaceOfRow } from './scope';
 import { rootTitle, spotWords, trashRows } from './trash';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
@@ -118,13 +118,18 @@ function cleanTimes(startMs: unknown, endMs: unknown): { startMs: number; endMs:
 	return { startMs, endMs };
 }
 
-/** Rows straight from the table, plus what each is linked to. */
+/**
+ * Rows straight from the table (spots of one video), plus what each is linked
+ * to, as the video's space lists it (`linkChipsFor`): a person's own video names
+ * a group's row only while they may use it.
+ */
 function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[], visible?: Visible): Spot[] {
-	const chips = linkChips(
-		db,
-		rows.map((r) => r.id),
-		visible
-	);
+	if (rows.length === 0) return [];
+	const video = videoOfSpot(db, rows[0].id);
+	const ids = rows.map((r) => r.id);
+	const chips = video
+		? linkChipsFor(db, ids, spaceOfRow(video, ''), visible)
+		: linkChips(db, ids, visible);
 	return rows.map((r) => ({ ...r, linkedTo: (chips.get(r.id) ?? []).map((c) => c.label) }));
 }
 

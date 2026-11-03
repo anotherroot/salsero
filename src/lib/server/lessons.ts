@@ -17,7 +17,7 @@ import { assertUnlinked } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
 import { listPickRoutines, listUsableRoutines } from './routines';
-import { usableBy, usableDrills, usableVersions } from './usable';
+import { ownedOrUsable, usableBy, usableDrills, usableOf, usableVersions } from './usable';
 import {
 	exercises,
 	figureGroups,
@@ -449,6 +449,15 @@ function lessonRows(
 	db: Db,
 	space: Space
 ): (Omit<LessonItem, 'team'> & { publishedAt: number | null })[] {
+	// A person's lessons may link the group rows they may use (ruling 2): those
+	// count on the card as they show on the page. A group's count its own only.
+	const usable = isTeam(space) ? null : usableOf(db, space);
+	const whoseFigures = usable
+		? ownedOrUsable(figures, space, usable.figures)
+		: ownedBy(figures, space);
+	const whoseRoutines = usable
+		? ownedOrUsable(routines, space, usable.routines)
+		: ownedBy(routines, space);
 	const sections = new Map(
 		db
 			.select({ id: lessonVideos.lessonId, n: count(videoSpots.id) })
@@ -465,7 +474,7 @@ function lessonRows(
 			.select({ id: lessonRoutines.lessonId, n: count(routines.id) })
 			.from(lessonRoutines)
 			.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
-			.where(and(ownedBy(routines, space), isNull(routines.archivedAt)))
+			.where(and(whoseRoutines, isNull(routines.archivedAt)))
 			.groupBy(lessonRoutines.lessonId)
 			.all()
 			.map((r) => [r.id, r.n])
@@ -475,7 +484,7 @@ function lessonRows(
 		.select({ id: lessonFigures.lessonId, group: figures.groupId })
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
-		.where(and(ownedBy(figures, space), isNull(figures.archivedAt)))
+		.where(and(whoseFigures, isNull(figures.archivedAt)))
 		.all();
 	const viaSection = db
 		.select({ id: lessonVideos.lessonId, group: figures.groupId })
@@ -483,7 +492,7 @@ function lessonRows(
 		.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
 		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
 		.innerJoin(figures, eq(figures.id, spotLinks.figureId))
-		.where(and(ownedBy(figures, space), isNull(figures.archivedAt)))
+		.where(and(whoseFigures, isNull(figures.archivedAt)))
 		.all();
 	const figureGroupsOf = new Map<number, Set<number | null>>();
 	for (const { id, group } of [...hand, ...viaSection]) {

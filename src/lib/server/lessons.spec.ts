@@ -867,7 +867,7 @@ describe('in a group', () => {
 
 import { listTeamLessons, publishLesson } from './lessons';
 import { createTeam, deleteTeam, joinTeam } from './teams';
-import { setRole } from './membership';
+import { leaveTeam, setRole } from './membership';
 import { linkOptionsFor } from './link-popup';
 import { lessons as lessonRows } from './db/schema';
 
@@ -1085,5 +1085,32 @@ describe("a person's own lesson and what their groups gave them", () => {
 		expect(groupPick.map((f) => f.id).sort((a, b) => a - b)).toEqual([F, G, H]);
 		expect(groupPick.every((f) => f.team === undefined)).toBe(true);
 		expect(listLinkableExercises(db, L).map((e) => [e.id, e.team])).toEqual([[D, undefined]]);
+	});
+
+	it('the Lessons card counts the group rows it links, as the page shows them', () => {
+		const { F, R, mine, own } = given();
+		const vid = addLessonVideo(db, video(mine, 'c.mp4', 1)).id;
+		const spot = addSpot(db, { lessonVideoId: vid }, { startMs: 0, endMs: 2000, label: null })!;
+		expect(linkFigure(db, mine, own, 'u2')).toBe(true);
+		expect(linkSpot(db, 'u2', spot.id, { figureId: F })).toBeGreaterThan(0);
+		expect(linkRoutine(db, mine, R, 'u2')).toBe(true);
+		const card = listLessons(db, U2_SALSA).find((l) => l.id === mine)!;
+		const page = getLesson(db, mine, 'u2')!;
+		expect([card.figures, card.routines]).toEqual([page.figures.length, page.routines.length]);
+		expect([card.figures, card.routines]).toEqual([2, 1]);
+	});
+
+	it('refuses a figure reached only through a draft lesson, and one of a group they left', () => {
+		const { T, F, mine } = given();
+		const K = createFigure(db, T, { ...figureInput, figureName: 'Vacilala' })!.figure.id;
+		const draft = createLesson(db, T, { ...lessonInput, title: 'Draft' }).lesson.id;
+		expect(linkFigure(db, draft, K, 'u1')).toBe(true);
+		const none = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
+		expect(addLesson(db, 'u2', draft, none, 3)).toBe(false);
+		expect(linkFigure(db, mine, K, 'u2')).toBe(false);
+		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(K);
+		expect(leaveTeam(db, T.teamId, 'u2', 4)).toBe('left');
+		expect(linkFigure(db, mine, F, 'u2')).toBe(false);
+		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(F);
 	});
 });

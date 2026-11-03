@@ -3,21 +3,30 @@ import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises } from './db/schema';
-import { addRecording, archiveVariation, createFigure, createVariationFrom } from './figures';
+import {
+	addRecording,
+	archiveVariation,
+	createFigure,
+	createVariationFrom,
+	listFigures
+} from './figures';
 import {
 	addLessonVideo,
 	archiveLesson,
 	createLesson,
 	linkExercise,
 	linkFigure,
+	linkRoutine,
 	publishLesson
 } from './lessons';
 import { createTeam, joinTeam } from './teams';
+import { leaveTeam } from './membership';
+import { createRoutineFromFigures } from './routines';
 import { addLesson } from './entries';
 import { crossRefs } from './integrity';
 import type { Space } from './scope';
 import { createCustomExercise } from './exercises';
-import { addSpot } from './spots';
+import { addSpot, listSpots } from './spots';
 import {
 	assertUnlinked,
 	getSpotLink,
@@ -492,16 +501,76 @@ describe("a person's own section and what their groups gave them", () => {
 		const chips = () => sectionsFor(db, { figureId: myFigure }).map((c) => c.spot.linkedTo);
 		const lessonChips = () =>
 			videoSections(db, { lessonVideoId: myVideo }).map((s) => s.links.map((l) => l.label));
+		// The full-screen player's spot list (GET /api/video-spots).
+		const playerChips = () =>
+			listSpots(db, { lessonVideoId: myVideo }).find((s) => s.id === mySection)!.linkedTo;
 		expect(chips()).toEqual([['Enchufla · Basic', 'Setenta · Basic']]);
 		expect(lessonChips()).toEqual([['Enchufla · Basic', 'Setenta · Basic']]);
+		expect(playerChips()).toEqual(['Enchufla · Basic', 'Setenta · Basic']);
 		// L archived: u2 reads F no more, so its name leaves u2's own lists (the
 		// link itself is for the rescue to deal with). It still blocks a delete.
 		archiveLesson(db, L, 3, 'u1');
 		expect(chips()).toEqual([['Enchufla · Basic']]);
 		expect(lessonChips()).toEqual([['Enchufla · Basic']]);
+		expect(playerChips()).toEqual(['Enchufla · Basic']);
 		expect(linksBlocking(db, { spotId: mySection })).toEqual([
 			'Enchufla · Basic',
 			'Setenta · Basic'
 		]);
+	});
+
+	it("a member's own links leave the group's Moves list as it was", () => {
+		const { T, L, mySection, myFigure } = given();
+		// G is in the slots of routine R on L: u2 may use it, and no group
+		// section or lesson links it.
+		const G = createFigure(db, T, {
+			figureName: 'Dile que no',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		const R = createRoutineFromFigures(db, T, { name: 'Class routine', notes: null }, [G])!.routine
+			.id;
+		expect(linkRoutine(db, L, R, 'u1')).toBe(true);
+		const flags = () =>
+			listFigures(db, T)
+				.flatMap((m) => m.figures)
+				.filter((v) => v.id === G)
+				.map((v) => [v.hasSection, v.hasLesson]);
+		expect(flags()).toEqual([[false, false]]);
+		// u2 links G from a section of their own lesson video and of their own recording.
+		linkSpot(db, 'u2', mySection, { figureId: G });
+		const rec = addRecording(db, {
+			figureId: myFigure,
+			file: 'r2.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 1,
+			note: null
+		});
+		const onRec = addSpot(db, { recordingId: rec.id }, { startMs: 0, endMs: 900, label: null })!;
+		linkSpot(db, 'u2', onRec.id, { figureId: G });
+		// The teacher's "No section" and Not linked still see G as unlinked.
+		expect(flags()).toEqual([[false, false]]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('refuses a figure reached only through a draft lesson, and one of a group they left', () => {
+		const { T, F, mySection } = given();
+		const K = createFigure(db, T, {
+			figureName: 'Vacilala',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		const draft = createLesson(db, T, { lessonDay: '2026-11-05', title: 'Draft', notes: null })
+			.lesson.id;
+		expect(linkFigure(db, draft, K, 'u1')).toBe(true);
+		expect(addLesson(db, 'u2', draft, NONE, 3)).toBe(false);
+		expect(() => linkSpot(db, 'u2', mySection, { figureId: K })).toThrow('No such figure.');
+		expect(leaveTeam(db, T.teamId, 'u2', 4)).toBe('left');
+		expect(() => linkSpot(db, 'u2', mySection, { figureId: F })).toThrow('No such figure.');
 	});
 });

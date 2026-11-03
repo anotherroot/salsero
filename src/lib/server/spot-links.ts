@@ -403,6 +403,20 @@ export function linkChips(
 	return chipsOf(db, spotIds, visible && keepVisible(visible));
 }
 
+/**
+ * `linkChips` for spots of one video of `space`, as its owner's lists show
+ * them: with `visible` (a reader of a group's video), only what it holds; on
+ * a person's own video, a link to a group's row only while they may use it.
+ */
+export function linkChipsFor(
+	db: Db,
+	spotIds: number[],
+	space: Space,
+	visible?: Visible
+): Map<number, SectionLinkChip[]> {
+	return chipsOf(db, spotIds, keepFor(db, space, visible));
+}
+
 /** A section link's target, by id and owner: what a list's filter decides on. */
 type LinkTargetRow = {
 	figureId: number | null;

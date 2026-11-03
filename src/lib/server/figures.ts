@@ -1,4 +1,5 @@
-import { and, asc, count, eq, inArray, isNotNull, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import {
@@ -620,20 +621,37 @@ export interface FigureFilter {
 }
 
 /**
- * The variation ids in `space` linked to a section anywhere, and those a live
- * lesson reaches — by hand or through a section of one of its videos (the rule
- * `lesson-links.ts` reads per lesson, here in bulk for the whole list).
+ * The variation ids in `space` linked to a section of one of the space's own
+ * videos, and those a live lesson of the space reaches — by hand or through a
+ * section of one of its videos (the rule `lesson-links.ts` reads per lesson,
+ * here in bulk for the whole list). A member's own section or lesson linked
+ * to a group's variation counts for the member, never in the group's list.
  */
 function linkedVariations(db: Db, space: Space): { section: Set<number>; lesson: Set<number> } {
 	const ids = (rows: { id: number | null }[]) =>
 		new Set(rows.flatMap((r) => (r.id === null ? [] : [r.id])));
 	const ofDance = and(ownedBy(figures, space), isNotNull(spotLinks.figureId));
+	// The section's video: a recording's variation or a lesson video's lesson.
+	const recordingOf = alias(figures, 'recording_of');
 	const section = ids(
 		db
 			.selectDistinct({ id: spotLinks.figureId })
 			.from(spotLinks)
 			.innerJoin(figures, eq(figures.id, spotLinks.figureId))
-			.where(ofDance)
+			.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
+			.leftJoin(recordings, eq(recordings.id, videoSpots.recordingId))
+			.leftJoin(recordingOf, eq(recordingOf.id, recordings.figureId))
+			.leftJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+			.leftJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+			.where(
+				and(
+					ofDance,
+					or(
+						and(isNotNull(videoSpots.recordingId), ownedBy(recordingOf, space)),
+						and(isNotNull(videoSpots.lessonVideoId), ownedBy(lessons, space))
+					)
+				)
+			)
 			.all()
 	);
 	const byHand = db
@@ -650,7 +668,7 @@ function linkedVariations(db: Db, space: Space): { section: Set<number>; lesson:
 		.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
 		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
 		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-		.where(and(ofDance, isNull(lessons.archivedAt)))
+		.where(and(ofDance, ownedBy(lessons, space), isNull(lessons.archivedAt)))
 		.all();
 	return { section, lesson: ids([...byHand, ...viaSections]) };
 }
