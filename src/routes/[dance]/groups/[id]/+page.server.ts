@@ -6,6 +6,7 @@ import { readNewLesson } from '$lib/server/lesson-form';
 import { readAdd } from '$lib/server/add-form';
 import { addLesson, addState } from '$lib/server/entries';
 import { localDay } from '$lib/day/day';
+import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { requireTeam } from '$lib/server/scope';
 import {
 	deleteTeam,
@@ -38,6 +39,14 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 					add: l.publishedAt === null ? null : addState(db, space.actorId, l.id)
 				})),
 		canEdit: !deleted && role !== 'member',
+		// "Uses X of Y", for those who may delete files.
+		storage:
+			!deleted && role !== 'member'
+				? {
+						usedBytes: usedBytesOf(db, { teamId: team.id }),
+						limitBytes: teamLimitBytes(db, team.id)
+					}
+				: null,
 		today: localDay(Date.now(), locals.user!.timezone)
 	};
 };

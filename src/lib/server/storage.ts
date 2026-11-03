@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { and, count, eq, isNotNull, isNull, sum } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { byteSize, plural } from '$lib/format';
+import { fullName } from '$lib/names';
 import { DISK_FLOOR_BYTES, TEAM_BYTES_PER_PERSON } from '$lib/limits';
 import type { StorageItem } from '$lib/types';
 import type { Db } from './db';
@@ -42,9 +43,12 @@ function total(value: string | number | null | undefined): number {
 /** Who a file is charged to: a person, or a group. */
 export type Owner = { userId: string } | { teamId: number };
 
-/** The owner of a root row (a lesson, a figure): its group's when it has one. */
+/** The owner of a root row (a lesson, a figure): its group's when it has one. Throws on a row with neither. */
 export function ownerOfRow(row: { userId: string | null; teamId: number | null }): Owner {
-	return row.teamId !== null ? { teamId: row.teamId } : { userId: row.userId ?? '' };
+	if (row.teamId !== null) return { teamId: row.teamId };
+	// A row with neither owner would be charged to nobody and pass every limit.
+	if (row.userId === null) throw new Error('row has no owner');
+	return { userId: row.userId };
 }
 
 /** Who a lesson's or a figure's files are charged to; null when it is gone. */
@@ -370,31 +374,49 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 	return items.sort((a, b) => b.sizeBytes - a.sizeBytes);
 }
 
-/** The person's open request for more room, if any. */
+/** Who asks: a person for their own space (no `teamId`), or a group's owner for the group's. */
+export type Asker = { userId: string; teamId?: number | null };
+
+/**
+ * The open request for more room, if any. Keyed on (person, group): a person's
+ * own request and their group's never block each other.
+ */
 export function openRequest(
 	db: Db,
-	userId: string
+	userId: string,
+	teamId?: number | null
 ): { createdAt: number; note: string | null } | null {
 	return (
 		db
 			.select({ createdAt: storageRequests.createdAt, note: storageRequests.note })
 			.from(storageRequests)
-			.where(and(eq(storageRequests.userId, userId), isNull(storageRequests.resolvedAt)))
+			.where(
+				and(
+					eq(storageRequests.userId, userId),
+					teamId == null ? isNull(storageRequests.teamId) : eq(storageRequests.teamId, teamId),
+					isNull(storageRequests.resolvedAt)
+				)
+			)
 			.get() ?? null
 	);
 }
 
-/** One open request per person: asking again while one waits changes nothing. */
+/** One open request per (person, group): asking again while one waits changes nothing. */
 export function askForMore(
 	db: Db,
-	userId: string,
+	asker: Asker,
 	note: string | null,
 	now: number
 ): 'asked' | 'already-open' {
 	return db.transaction((tx) => {
-		if (openRequest(tx, userId)) return 'already-open';
+		if (openRequest(tx, asker.userId, asker.teamId)) return 'already-open';
 		tx.insert(storageRequests)
-			.values({ userId, note: note?.trim() || null, createdAt: now })
+			.values({
+				userId: asker.userId,
+				teamId: asker.teamId ?? null,
+				note: note?.trim() || null,
+				createdAt: now
+			})
 			.run();
 		return 'asked';
 	});
@@ -437,7 +459,10 @@ export function listPeople(db: Db): {
 		}));
 }
 
-/** Open requests, oldest first, with the asker's numbers. */
+/**
+ * Open requests, oldest first, with the numbers asked about: the person's, or
+ * the group's (with its name) when `teamId` is set. Numbers and names only.
+ */
 export function listOpenRequests(db: Db): {
 	id: number;
 	userId: string;
@@ -446,6 +471,8 @@ export function listOpenRequests(db: Db): {
 	createdAt: number;
 	usedBytes: number;
 	limitBytes: number | null;
+	teamId: number | null;
+	teamName: string | null;
 }[] {
 	return db
 		.select({
@@ -454,22 +481,30 @@ export function listOpenRequests(db: Db): {
 			email: users.email,
 			note: storageRequests.note,
 			createdAt: storageRequests.createdAt,
-			limit: users.storageLimitBytes
+			limit: users.storageLimitBytes,
+			teamId: storageRequests.teamId,
+			teamName: teams.name
 		})
 		.from(storageRequests)
 		.innerJoin(users, eq(users.id, storageRequests.userId))
+		.leftJoin(teams, eq(teams.id, storageRequests.teamId))
 		.where(isNull(storageRequests.resolvedAt))
 		.orderBy(storageRequests.createdAt, storageRequests.id)
 		.all()
-		.map((r) => ({
-			id: r.id,
-			userId: r.userId,
-			email: r.email,
-			note: r.note,
-			createdAt: r.createdAt,
-			usedBytes: usedBytes(db, r.userId),
-			limitBytes: r.limit
-		}));
+		.map((r) => {
+			const owner: Owner = r.teamId === null ? { userId: r.userId } : { teamId: r.teamId };
+			return {
+				id: r.id,
+				userId: r.userId,
+				email: r.email,
+				note: r.note,
+				createdAt: r.createdAt,
+				usedBytes: usedBytesOf(db, owner),
+				limitBytes: r.teamId === null ? r.limit : teamLimitBytes(db, r.teamId),
+				teamId: r.teamId,
+				teamName: r.teamName
+			};
+		});
 }
 
 /** Sets one person's limit (null = no limit). False when nobody has that id or the limit is not valid. */
@@ -482,7 +517,8 @@ export function setStorageLimit(db: Db, userId: string, limitBytes: number | nul
 }
 
 /**
- * Closes an open request. Granted sets the person's limit in the same
+ * Closes an open request. Granted sets the person's (or, for a group's
+ * request, the group's) limit in the same
  * transaction; declined leaves it alone. False when the request is missing,
  * already closed, or the limit is not valid.
  */
@@ -511,8 +547,173 @@ export function resolveRequest(
 			.where(eq(storageRequests.id, id))
 			.run();
 		if (outcome === 'granted') {
-			tx.update(users).set({ storageLimitBytes: limitBytes }).where(eq(users.id, req.userId)).run();
+			if (req.teamId !== null) {
+				tx.update(teams)
+					.set({ storageLimitBytes: limitBytes })
+					.where(eq(teams.id, req.teamId))
+					.run();
+			} else {
+				tx.update(users)
+					.set({ storageLimitBytes: limitBytes })
+					.where(eq(users.id, req.userId))
+					.run();
+			}
 		}
 		return true;
 	});
+}
+
+/** Sets a group's limit (null = back to the computed one). False when no such group or an invalid limit. */
+export function setTeamLimit(db: Db, teamId: number, limitBytes: number | null): boolean {
+	if (!validLimit(limitBytes)) return false;
+	return (
+		db.update(teams).set({ storageLimitBytes: limitBytes }).where(eq(teams.id, teamId)).run()
+			.changes === 1
+	);
+}
+
+/** How many groups a person may make: null = the default. False when no such person or invalid. */
+export function setGroupLimit(db: Db, userId: string, n: number | null): boolean {
+	if (n !== null && !(Number.isSafeInteger(n) && n >= 0 && n <= 1000)) return false;
+	return db.update(users).set({ groupLimit: n }).where(eq(users.id, userId)).run().changes === 1;
+}
+
+/**
+ * What every limit adds up to: each person's limit (none counts as nothing)
+ * and each group's that is not yet purged. Compared with the free disk at the
+ * top of the admin page.
+ */
+export function limitsTotal(db: Db): number {
+	const people = db
+		.select({ t: sum(users.storageLimitBytes) })
+		.from(users)
+		.get();
+	const live = db.select({ id: teams.id }).from(teams).where(isNull(teams.purgedAt)).all();
+	return total(people?.t) + live.reduce((n, t) => n + teamLimitBytes(db, t.id), 0);
+}
+
+/** Groups for the admin: names and numbers, never content. */
+export function listTeamsForAdmin(db: Db): {
+	id: number;
+	name: string;
+	dance: string;
+	owner: string;
+	people: number;
+	usedBytes: number;
+	limitBytes: number;
+	overridden: boolean;
+	deleted: boolean;
+}[] {
+	const rows = db
+		.select({
+			id: teams.id,
+			name: teams.name,
+			dance: teams.dance,
+			override: teams.storageLimitBytes,
+			deletedAt: teams.deletedAt
+		})
+		.from(teams)
+		.where(isNull(teams.purgedAt))
+		.orderBy(teams.name, teams.id)
+		.all();
+	return rows.map((t) => {
+		const owner = db
+			.select({ firstName: users.firstName, lastName: users.lastName, email: users.email })
+			.from(teamMembers)
+			.innerJoin(users, eq(users.id, teamMembers.userId))
+			.where(and(eq(teamMembers.teamId, t.id), eq(teamMembers.role, 'owner')))
+			.get();
+		const n = db.select({ n: count() }).from(teamMembers).where(eq(teamMembers.teamId, t.id)).get();
+		return {
+			id: t.id,
+			name: t.name,
+			dance: t.dance,
+			owner: owner ? fullName(owner) : '',
+			people: n?.n ?? 0,
+			usedBytes: teamUsedBytes(db, t.id),
+			limitBytes: teamLimitBytes(db, t.id),
+			overridden: t.override !== null,
+			deleted: t.deletedAt !== null
+		};
+	});
+}
+
+/**
+ * A group's files, biggest first, for its editors: videos with their lesson's
+ * title, recordings with their figure, and what waits in Recently deleted
+ * (the file stays until the purge, and counts).
+ */
+export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
+	const items: StorageItem[] = [];
+	const recs = db
+		.select({
+			id: recordings.id,
+			size: recordings.sizeBytes,
+			kind: recordings.kind,
+			figureId: figures.id,
+			name: figures.name,
+			figure: figureGroups.name,
+			dance: figures.dance,
+			archived: figures.archivedAt
+		})
+		.from(recordings)
+		.innerJoin(figures, eq(figures.id, recordings.figureId))
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(eq(figures.teamId, teamId))
+		.all();
+	for (const r of recs) {
+		items.push({
+			kind: 'recording',
+			id: r.id,
+			title: r.kind === 'video' ? 'Recording' : 'Audio recording',
+			context: `${r.figure} · ${r.name}`,
+			sizeBytes: r.size,
+			archived: r.archived !== null,
+			href: r.archived !== null ? null : `/${r.dance}/figures/${r.figureId}`
+		});
+	}
+	const vids = db
+		.select({
+			id: lessonVideos.id,
+			size: lessonVideos.sizeBytes,
+			lessonId: lessons.id,
+			title: lessons.title,
+			dance: lessons.dance,
+			archived: lessons.archivedAt
+		})
+		.from(lessonVideos)
+		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+		.where(eq(lessons.teamId, teamId))
+		.all();
+	for (const v of vids) {
+		items.push({
+			kind: 'lessonVideo',
+			id: v.id,
+			title: 'Lesson video',
+			context: `Lesson · ${v.title}`,
+			sizeBytes: v.size,
+			archived: v.archived !== null,
+			href: v.archived !== null ? null : `/${v.dance}/lessons/${v.lessonId}`
+		});
+	}
+	const trash = db
+		.select()
+		.from(teamTrash)
+		.where(
+			and(eq(teamTrash.teamId, teamId), isNull(teamTrash.purgedAt), isNull(teamTrash.restoredAt))
+		)
+		.all();
+	for (const t of trash) {
+		if (t.sizeBytes <= 0) continue;
+		items.push({
+			kind: 'trash',
+			id: t.id,
+			title: t.kind === 'recording' ? 'Recording' : 'Lesson video',
+			context: `${t.label} · in Recently deleted`,
+			sizeBytes: t.sizeBytes,
+			archived: false,
+			href: null
+		});
+	}
+	return items.sort((a, b) => b.sizeBytes - a.sizeBytes);
 }

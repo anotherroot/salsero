@@ -102,7 +102,7 @@ export const actions: Actions = {
 		}
 		const note = optionalText(await request.formData(), 'note', 500);
 		if (note === undefined) return fail(400, { message: 'Keep the note under 500 characters.' });
-		const res = askForMore(getDb(), locals.user.id, note, Date.now());
+		const res = askForMore(getDb(), { userId: locals.user.id }, note, Date.now());
 		return { asked: res === 'asked' };
 	},
 

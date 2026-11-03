@@ -1,5 +1,5 @@
 /** What the group screens say. PURE and client-safe. */
-import { plural } from '$lib/format';
+import { byteSize, plural } from '$lib/format';
 import type { Role } from '$lib/types';
 
 export function roleLabel(role: Role): string {
@@ -36,4 +36,9 @@ export const NAME_REFUSAL = 'Give it a name of up to 60 characters that none of 
 /** The link a group's code makes. */
 export function codeLink(origin: string, code: string): string {
 	return `${origin}/g/${code}`;
+}
+
+/** The group page's storage line: "Uses 120 MB of 600 MB". */
+export function groupUsesLine(used: number, limit: number): string {
+	return `Uses ${byteSize(used)} of ${byteSize(limit)}`;
 }

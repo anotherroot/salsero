@@ -16,7 +16,7 @@
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import type { IconName } from '$lib/icons/icons';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { peopleLine, youLine } from '$lib/teams/view';
+	import { groupUsesLine, peopleLine, youLine } from '$lib/teams/view';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -96,6 +96,20 @@
 		{/if}
 	{:else}
 		{#if form?.action === 'leave' && form.message}<Banner kind="error">{form.message}</Banner>{/if}
+		{#if data.storage}
+			<a
+				href={resolve('/[dance]/groups/[id]/storage', {
+					dance: data.dance.slug,
+					id: String(data.team.id)
+				})}
+				class="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3 active:bg-step"
+			>
+				<span class="text-[15px] font-semibold text-ink"
+					>{groupUsesLine(data.storage.usedBytes, data.storage.limitBytes)}</span
+				>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		{/if}
 		<section class="flex flex-col gap-2">
 			<div class="flex items-center justify-between pr-1">
 				<h2 class={SECTION_LABEL}>Lessons</h2>

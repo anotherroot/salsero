@@ -536,7 +536,8 @@ export interface SetSnapshot {
 
 /** One thing a person has on disk, as the "What uses space" page lists it. */
 export type StorageItem = {
-	kind: 'lessonVideo' | 'recording' | 'song' | 'voice';
+	/** `trash` is a group's deleted file waiting in Recently deleted (a group's page only). */
+	kind: 'lessonVideo' | 'recording' | 'song' | 'voice' | 'trash';
 	/** Null for the count voice, which is one row for all its takes. */
 	id: number | null;
 	title: string;

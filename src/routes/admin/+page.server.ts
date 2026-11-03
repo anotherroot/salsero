@@ -5,7 +5,18 @@ import { getDb } from '$lib/server/db';
 import { int } from '$lib/server/form';
 import { createInvite, inviteQr } from '$lib/server/invites';
 import { requireAdmin } from '$lib/server/scope';
-import { listOpenRequests, listPeople, resolveRequest, setStorageLimit } from '$lib/server/storage';
+import { teamLimit, teamsMade } from '$lib/server/teams';
+import {
+	freeDisk,
+	limitsTotal,
+	listOpenRequests,
+	listPeople,
+	listTeamsForAdmin,
+	resolveRequest,
+	setGroupLimit,
+	setStorageLimit,
+	setTeamLimit
+} from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
@@ -15,8 +26,17 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const db = getDb();
 	return {
 		dance: lastDance,
+		// Numbers and names only: never a lesson title or anything a person made.
+		limitsTotalBytes: limitsTotal(db),
+		freeBytes: await freeDisk(),
+		groups: listTeamsForAdmin(db),
 		requests: listOpenRequests(db).map((r) => ({ ...r, day: localDay(r.createdAt, tz) })),
-		people: listPeople(db).map((p) => ({ ...p, day: localDay(p.createdAt, tz) }))
+		people: listPeople(db).map((p) => ({
+			...p,
+			day: localDay(p.createdAt, tz),
+			groupsMade: teamsMade(db, p.id),
+			groupLimit: teamLimit(db, p.id)
+		}))
 	};
 };
 
@@ -76,6 +96,35 @@ export const actions: Actions = {
 		const limit = form.get('none') !== null ? null : limitFrom(form);
 		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
 		if (!userId || !setStorageLimit(getDb(), userId, limit)) {
+			return fail(404, { message: 'That person is gone.' });
+		}
+		return { ok: true };
+	},
+
+	/** One group's limit: a preset, a typed GB, or back to the computed one. */
+	setTeamLimit: async ({ locals, request }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		const teamId = int(form, 'teamId');
+		const limit = form.get('computed') !== null ? null : limitFrom(form);
+		if (limit === undefined) return fail(400, { message: BAD_LIMIT });
+		if (teamId === undefined || !setTeamLimit(getDb(), teamId, limit)) {
+			return fail(404, { message: 'That group is gone.' });
+		}
+		return { ok: true };
+	},
+
+	/** How many groups one person may make; empty = the default. */
+	setGroupLimit: async ({ locals, request }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		const userId = String(form.get('userId') ?? '');
+		const raw = String(form.get('n') ?? '').trim();
+		const n = form.get('default') !== null || raw === '' ? null : Number(raw);
+		if (n !== null && !(Number.isInteger(n) && n >= 0 && n <= 1000)) {
+			return fail(400, { message: 'Give a whole number of groups, 0 or more.' });
+		}
+		if (!userId || !setGroupLimit(getDb(), userId, n)) {
 			return fail(404, { message: 'That person is gone.' });
 		}
 		return { ok: true };

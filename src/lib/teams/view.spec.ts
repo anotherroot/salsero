@@ -42,3 +42,10 @@ describe('group lines', () => {
 		expect(codeLink('https://x.eu', 'ABC')).toBe('https://x.eu/g/ABC');
 	});
 });
+
+describe('the group storage line', () => {
+	it('reads Uses X of Y', async () => {
+		const { groupUsesLine } = await import('./view');
+		expect(groupUsesLine(120 * 1024 ** 2, 600 * 1024 ** 2)).toBe('Uses 120 MB of 600 MB');
+	});
+});

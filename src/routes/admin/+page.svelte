@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { LIMIT_PRESETS_GB, personMeta, presetLabel, requestUsesLine } from '$lib/admin-view';
+	import {
+		LIMIT_PRESETS_GB,
+		groupMeta,
+		groupsMadeLine,
+		limitsLine,
+		personMeta,
+		presetLabel,
+		requestTitle,
+		requestUsesLine
+	} from '$lib/admin-view';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import type { PageData } from './$types';
 	import InviteQr from '$lib/components/admin/InviteQr.svelte';
@@ -15,6 +24,7 @@
 
 	let { data }: { data: PageData } = $props();
 	let person = $state<PageData['people'][number] | null>(null);
+	let group = $state<PageData['groups'][number] | null>(null);
 	let formError = $state('');
 	let requestErrors = $state<Record<number, string>>({});
 	let sending = $state(false);
@@ -62,12 +72,16 @@
 		<BandButton icon="back" label="Back to Settings" href="/settings" />
 	{/snippet}
 
+	<p class="px-4 text-[13px] text-muted">
+		{limitsLine(data.limitsTotalBytes, data.freeBytes)}
+	</p>
+
 	{#if data.requests.length > 0}
 		<span class={SECTION_LABEL}>Waiting</span>
 		{#each data.requests as r (r.id)}
 			<div class="{GROUP} flex flex-col gap-3 p-4">
 				<div class="flex flex-col">
-					<span class="text-[16px] font-bold break-all text-ink">{r.email}</span>
+					<span class="text-[16px] font-bold break-all text-ink">{requestTitle(r)}</span>
 					<span class="text-[13px] text-muted">{requestUsesLine(r.usedBytes, r.limitBytes)}</span>
 					{#if r.note}<p class="mt-1 text-[14px] break-words whitespace-pre-wrap text-ink-2">
 							{r.note}
@@ -156,6 +170,30 @@
 	</form>
 	{#if error}<Banner kind="error" title={error} />{/if}
 
+	<span class="{SECTION_LABEL} mt-[14px]">Groups</span>
+	{#if data.groups.length === 0}
+		<p class="px-4 text-[14px] text-muted">No groups yet.</p>
+	{:else}
+		<div class={GROUP}>
+			{#each data.groups as g (g.id)}
+				<button
+					type="button"
+					class="{ROW_TALL} w-full text-left"
+					onclick={() => {
+						formError = '';
+						group = g;
+					}}
+				>
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="text-[16px] font-bold break-words text-ink">{g.name}</span>
+						<span class="text-[13px] text-muted">{g.dance} · {groupMeta(g)}</span>
+					</span>
+					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+				</button>
+			{/each}
+		</div>
+	{/if}
+
 	<span class="{SECTION_LABEL} mt-[14px]">People</span>
 	<div class={GROUP}>
 		{#each data.people as p (p.id)}
@@ -170,6 +208,7 @@
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
 					<span class="text-[13px] text-muted">{personMeta(p)}</span>
+					<span class="text-[13px] text-muted">{groupsMadeLine(p.groupsMade, p.groupLimit)}</span>
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</button>
@@ -208,6 +247,76 @@
 			{@render limitFields()}
 			<button type="submit" name="none" value="1" class={button('secondary', 'md', true)}>
 				No limit
+			</button>
+		</form>
+		<form
+			method="POST"
+			action="?/setGroupLimit"
+			class="flex flex-col gap-3.5 pb-4"
+			use:guarded={{
+				label: 'Set group limit',
+				submit: ({ cancel }) => {
+					if (sending) return cancel();
+					sending = true;
+					formError = '';
+					return async ({ result, update }) => {
+						if (result.type === 'failure')
+							formError = String(result.data?.message ?? 'It did not save.');
+						try {
+							await update();
+							if (result.type === 'success') person = null;
+						} finally {
+							sending = false;
+						}
+					};
+				}
+			}}
+		>
+			<input type="hidden" name="userId" value={person.id} />
+			<p class="text-[14px] text-muted">{groupsMadeLine(person.groupsMade, person.groupLimit)}</p>
+			<label class="block">
+				<span class={LABEL}>Groups they may make</span>
+				<input name="n" type="number" inputmode="numeric" min="0" step="1" class={FIELD} />
+			</label>
+			<button type="submit" class={button('primary', 'md', true)}>Set group limit</button>
+			<button type="submit" name="default" value="1" class={button('secondary', 'md', true)}>
+				Use the default
+			</button>
+		</form>
+	{/if}
+</Sheet>
+
+<Sheet title={group?.name ?? 'Limit'} open={group !== null} onclose={() => (group = null)}>
+	{#if group}
+		<form
+			method="POST"
+			action="?/setTeamLimit"
+			class="flex flex-col gap-3.5 pb-4"
+			use:guarded={{
+				label: 'Set limit',
+				submit: ({ cancel }) => {
+					if (sending) return cancel();
+					sending = true;
+					formError = '';
+					return async ({ result, update }) => {
+						if (result.type === 'failure')
+							formError = String(result.data?.message ?? 'It did not save.');
+						try {
+							await update();
+							if (result.type === 'success') group = null;
+						} finally {
+							sending = false;
+						}
+					};
+				}
+			}}
+		>
+			{#if formError}<Banner kind="error" title={formError} />{/if}
+			<input type="hidden" name="teamId" value={group.id} />
+			<p class="text-[14px] text-muted">{groupMeta(group)}</p>
+			{limitFields()}
+			<button type="submit" name="computed" value="1" class={button('secondary', 'md', true)}>
+				Computed
 			</button>
 		</form>
 	{/if}

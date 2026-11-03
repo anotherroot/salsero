@@ -26,3 +26,23 @@ describe('admin view', () => {
 		);
 	});
 });
+
+describe('groups on the admin page', () => {
+	it('words the top line, a group and a person', async () => {
+		const { limitsLine, groupMeta, groupsMadeLine, requestTitle } = await import('./admin-view');
+		const GB = 1024 ** 3;
+		expect(limitsLine(12 * GB, 8 * GB)).toBe('Limits add up to 12.0 GB · 8.0 GB free');
+		expect(
+			groupMeta({
+				owner: 'Ana Kranjc',
+				people: 3,
+				usedBytes: 120 * 1024 ** 2,
+				limitBytes: 600 * 1024 ** 2,
+				deleted: false
+			})
+		).toBe('Ana Kranjc · 3 people · 120 MB of 600 MB');
+		expect(groupsMadeLine(1, 2)).toBe('1 group made · limit 2');
+		expect(requestTitle({ email: 'a@x.si', teamName: null })).toBe('a@x.si');
+		expect(requestTitle({ email: 'a@x.si', teamName: 'Class' })).toBe('Class · a@x.si');
+	});
+});

@@ -6,9 +6,18 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
+vi.mock('$lib/server/storage', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/storage')>('$lib/server/storage');
+	return { ...actual, freeDisk: async () => 8 * 1024 ** 3 };
+});
+
 import { openDb, type Db } from '$lib/server/db';
-import { storageRequests, users } from '$lib/server/db/schema';
+import { storageRequests, teams, users } from '$lib/server/db/schema';
 import { askForMore, storageOf } from '$lib/server/storage';
+import { createLesson } from '$lib/server/lessons';
+import { T1_SALSA } from '$lib/server/test-walls';
+import { createTeam } from '$lib/server/teams';
+import { eq } from 'drizzle-orm';
 import { actions, load } from './+page.server';
 
 const GB = 1024 ** 3;
@@ -37,8 +46,10 @@ function ev(isAdmin: boolean, fields: Record<string, string> = {}) {
 		parent: async () => ({ lastDance: 'salsa' })
 	};
 }
-const act = (name: 'grant' | 'decline' | 'setLimit', e: unknown) =>
-	(actions[name] as unknown as Ev)(e);
+const act = (
+	name: 'grant' | 'decline' | 'setLimit' | 'setTeamLimit' | 'setGroupLimit',
+	e: unknown
+) => (actions[name] as unknown as Ev)(e);
 
 describe('admin page', () => {
 	it('load and every action are a 404 for a non-admin', async () => {
@@ -52,7 +63,7 @@ describe('admin page', () => {
 	});
 
 	it('load lists requests and people with calendar days', async () => {
-		askForMore(db, 'p', 'please', Date.UTC(2026, 10, 2, 12));
+		askForMore(db, { userId: 'p' }, 'please', Date.UTC(2026, 10, 2, 12));
 		const d = (await (load as unknown as Ev)(ev(true))) as {
 			requests: { day: string; email: string }[];
 			people: { email: string }[];
@@ -62,19 +73,19 @@ describe('admin page', () => {
 	});
 
 	it('grant sets the limit from a preset or a typed GB and closes the request', async () => {
-		askForMore(db, 'p', null, 1);
+		askForMore(db, { userId: 'p' }, null, 1);
 		const id = String(db.select().from(storageRequests).all()[0].id);
 		expect(await act('grant', ev(true, { id, preset: '5' }))).toEqual({ ok: true });
 		expect(storageOf(db, 'p').limitBytes).toBe(5 * GB);
 		expect(await act('grant', ev(true, { id, gb: '8' }))).toMatchObject({ status: 404 });
-		askForMore(db, 'p', null, 2);
+		askForMore(db, { userId: 'p' }, null, 2);
 		const id2 = String(db.select().from(storageRequests).all()[1].id);
 		expect(await act('grant', ev(true, { id: id2, gb: '7.5' }))).toEqual({ ok: true });
 		expect(storageOf(db, 'p').limitBytes).toBe(7.5 * GB);
 	});
 
 	it('grant refuses a bad number with a 400 and keeps the request open', async () => {
-		askForMore(db, 'p', null, 1);
+		askForMore(db, { userId: 'p' }, null, 1);
 		const id = String(db.select().from(storageRequests).all()[0].id);
 		for (const gb of ['', '0', '-2', 'abc']) {
 			expect(await act('grant', ev(true, { id, gb }))).toMatchObject({ status: 400 });
@@ -83,7 +94,7 @@ describe('admin page', () => {
 	});
 
 	it('decline closes without changing the limit', async () => {
-		askForMore(db, 'p', null, 1);
+		askForMore(db, { userId: 'p' }, null, 1);
 		const id = String(db.select().from(storageRequests).all()[0].id);
 		expect(await act('decline', ev(true, { id }))).toEqual({ ok: true });
 		expect(storageOf(db, 'p').limitBytes).toBe(GB);
@@ -106,7 +117,7 @@ describe('admin page', () => {
 
 describe('admin page: preset or typed', () => {
 	it('a pressed preset wins over a typed number; Enter (gb alone) uses the number', async () => {
-		askForMore(db, 'p', null, 1);
+		askForMore(db, { userId: 'p' }, null, 1);
 		const id = String(db.select().from(storageRequests).all()[0].id);
 		expect(await act('setLimit', ev(true, { userId: 'p', preset: '2', gb: '8' }))).toEqual({
 			ok: true
@@ -114,5 +125,87 @@ describe('admin page: preset or typed', () => {
 		expect(storageOf(db, 'p').limitBytes).toBe(2 * GB);
 		expect(await act('grant', ev(true, { id, gb: '8' }))).toEqual({ ok: true });
 		expect(storageOf(db, 'p').limitBytes).toBe(8 * GB);
+	});
+});
+
+describe('admin page: groups', () => {
+	function makeTeam() {
+		const made = createTeam(db, 'p', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok) throw new Error('no team');
+		return made.teamId;
+	}
+
+	it('the load shows group names and numbers and no lesson titles', async () => {
+		const teamId = makeTeam();
+		db.update(users).set({ firstName: 'Pia', lastName: 'Novak' }).where(eq(users.id, 'p')).run();
+		createLesson(
+			db,
+			{ ...T1_SALSA, teamId, actorId: 'p' },
+			{
+				title: 'Secret lesson title',
+				lessonDay: '2026-11-01',
+				notes: null
+			}
+		);
+		const d = (await (load as unknown as Ev)(ev(true))) as {
+			groups: Record<string, unknown>[];
+			limitsTotalBytes: number;
+			freeBytes: number;
+			people: { email: string; groupsMade: number; groupLimit: number }[];
+		};
+		expect(d.groups).toMatchObject([
+			{ name: 'Salsa nadaljevalna', dance: 'salsa', owner: 'Pia Novak', people: 1, usedBytes: 0 }
+		]);
+		for (const g of d.groups) expect(g).not.toHaveProperty('title');
+		expect(JSON.stringify(d)).not.toContain('Secret lesson title');
+		expect(d.freeBytes).toBe(8 * GB);
+		expect(d.limitsTotalBytes).toBe(GB + 200 * 1024 ** 2);
+		expect(d.people.find((p) => p.email === 'p@example.com')).toMatchObject({
+			groupsMade: 1,
+			groupLimit: 2
+		});
+	});
+
+	it('setTeamLimit takes a preset and clears with Computed; a non-admin gets a 404', async () => {
+		const teamId = String(makeTeam());
+		await expect(act('setTeamLimit', ev(false, { teamId, preset: '2' }))).rejects.toMatchObject({
+			status: 404
+		});
+		expect(await act('setTeamLimit', ev(true, { teamId, preset: '2' }))).toEqual({ ok: true });
+		expect(db.select().from(teams).get()!.storageLimitBytes).toBe(2 * GB);
+		expect(await act('setTeamLimit', ev(true, { teamId, computed: '1' }))).toEqual({ ok: true });
+		expect(db.select().from(teams).get()!.storageLimitBytes).toBeNull();
+		expect(await act('setTeamLimit', ev(true, { teamId, gb: '0' }))).toMatchObject({ status: 400 });
+		expect(await act('setTeamLimit', ev(true, { teamId: '99', gb: '1' }))).toMatchObject({
+			status: 404
+		});
+	});
+
+	it("granting a group's request sets the group's limit, not the person's", async () => {
+		const teamId = makeTeam();
+		askForMore(db, { userId: 'p', teamId }, 'class', 1);
+		const id = String(db.select().from(storageRequests).all()[0].id);
+		const d = (await (load as unknown as Ev)(ev(true))) as {
+			requests: { teamName: string | null }[];
+		};
+		expect(d.requests[0].teamName).toBe('Salsa nadaljevalna');
+		expect(await act('grant', ev(true, { id, preset: '5' }))).toEqual({ ok: true });
+		expect(db.select().from(teams).get()!.storageLimitBytes).toBe(5 * GB);
+		expect(storageOf(db, 'p').limitBytes).toBe(GB);
+	});
+
+	it('setGroupLimit sets, clears to the default, and refuses a bad number', async () => {
+		expect(await act('setGroupLimit', ev(true, { userId: 'p', n: '5' }))).toEqual({ ok: true });
+		expect(db.select().from(users).where(eq(users.id, 'p')).get()!.groupLimit).toBe(5);
+		expect(await act('setGroupLimit', ev(true, { userId: 'p', default: '1' }))).toEqual({
+			ok: true
+		});
+		expect(db.select().from(users).where(eq(users.id, 'p')).get()!.groupLimit).toBeNull();
+		expect(await act('setGroupLimit', ev(true, { userId: 'p', n: '-1' }))).toMatchObject({
+			status: 400
+		});
+		expect(await act('setGroupLimit', ev(true, { userId: 'ghost', n: '1' }))).toMatchObject({
+			status: 404
+		});
 	});
 });
