@@ -49,3 +49,27 @@ fun progressMessage(done: Long, total: Long): String {
     val percent = if (total <= 0) 0 else (done.coerceAtLeast(0) * 100 / total).coerceAtMost(100)
     return "progress:$percent"
 }
+
+/** What to do with Android's "Update?" screen when the session asks for it. */
+enum class ConfirmStep { LAUNCH, KEEP }
+
+/**
+ * Open it now over a resumed app; otherwise keep it for the next resume:
+ * Android 10+ silently blocks an activity started from the background.
+ */
+fun confirmStep(resumed: Boolean): ConfirmStep = if (resumed) ConfirmStep.LAUNCH else ConfirmStep.KEEP
+
+/** What coming back to the app does with an update that waited for it. */
+enum class ResumeStep { NOTHING, CONFIRM, INSTALL, DROP }
+
+/**
+ * A kept "Update?" screen opens first. A file waiting for "install unknown
+ * apps" installs once that is allowed; coming back without allowing it drops
+ * it (Update asks again), so it never installs by surprise on a later resume.
+ */
+fun resumeStep(confirmWaiting: Boolean, pendingFile: Boolean, canInstall: Boolean): ResumeStep = when {
+    confirmWaiting -> ResumeStep.CONFIRM
+    pendingFile && canInstall -> ResumeStep.INSTALL
+    pendingFile -> ResumeStep.DROP
+    else -> ResumeStep.NOTHING
+}

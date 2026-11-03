@@ -1,7 +1,6 @@
 package eu.anotherroot.salsa
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -10,6 +9,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.webkit.WebView
+import androidx.lifecycle.Lifecycle
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -40,18 +40,25 @@ fun installUpdateBridge(shell: WebShell, web: WebView) {
     }
 }
 
-/** From `WebShell.onResume`: back from the "install unknown apps" setting, install what waited for it. */
+/**
+ * From `WebShell.onResume`: opens Android's "Update?" screen kept while the app
+ * was in the background, or installs what waited for "install unknown apps".
+ */
 fun resumeUpdate(shell: WebShell) = SelfUpdate.resume(shell)
 
 /**
  * One update at a time, for the whole process: it outlives the activity, so a
  * recreated screen's page that asks again is told where the running one is.
  * Every field is read and written on the main thread; the network, the files
- * and the session copy run on [io].
+ * and the session copy run on [io], whose every task catches what it throws
+ * (an exception there would kill the app and leave [running] stuck).
  */
 private object SelfUpdate {
     const val OBJECT = "salsaUpdate"
     private const val TAG = "update"
+
+    /** A downloaded file that passed the check, and what it was checked against. */
+    private class Checked(val apk: File, val size: Long, val sha256: String)
 
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
@@ -59,17 +66,20 @@ private object SelfUpdate {
     /** The page that asked last: replies go there. */
     private var reply: JavaScriptReplyProxy? = null
 
-    /** The screen that asked last, to open the setting from. */
+    /** The screen that asked or resumed last, to open the setting and Android's screen from. */
     private var shell: WeakReference<WebShell>? = null
 
-    /** A check, download or session copy is under way: a second `start` only hears where it is. */
+    /** A check, download or install is under way: a second `start` only hears where it is. */
     private var running = false
 
     /** The last reply of the running update, for a page that asks again mid-way. */
     private var last: String? = null
 
     /** The checked file waiting for "install unknown apps" to be allowed. */
-    private var pending: File? = null
+    private var pending: Checked? = null
+
+    /** Android's "Update?" screen, asked for while the app was in the background ([confirmStep]). */
+    private var waitingConfirm: Intent? = null
 
     fun start(shell: WebShell, reply: JavaScriptReplyProxy) {
         this.reply = reply
@@ -82,20 +92,39 @@ private object SelfUpdate {
         last = null
         pending = null
         val app = shell.applicationContext
-        io.execute { run(app) }
+        io.execute {
+            try {
+                run(app)
+            } catch (e: Exception) {
+                Log.w(TAG, "update", e)
+                send("failed:download")
+            }
+        }
     }
 
     fun resume(shell: WebShell) {
-        val apk = pending ?: return
-        // Asked once: coming back without allowing it ends this try; Update asks again.
-        pending = null
-        val app = shell.applicationContext
-        if (running || !app.packageManager.canRequestPackageInstalls()) return
         this.shell = WeakReference(shell)
-        running = true
-        // The button stops offering Update while the file goes to Android.
-        send(progressMessage(1, 1))
-        io.execute { Updater.install(app, apk, ::send) }
+        val app = shell.applicationContext
+        val canInstall = pending != null && app.packageManager.canRequestPackageInstalls()
+        when (resumeStep(waitingConfirm != null, pending != null, canInstall)) {
+            ResumeStep.CONFIRM -> {
+                val screen = waitingConfirm ?: return
+                waitingConfirm = null
+                launch(shell, screen)
+            }
+            ResumeStep.INSTALL -> {
+                val checked = pending ?: return
+                pending = null
+                if (running) return
+                running = true
+                // The button stops offering Update while the file goes to Android.
+                send(progressMessage(1, 1))
+                installOnIo(app, checked, recheck = true)
+            }
+            // Asked once: coming back without allowing it ends this try; Update asks again.
+            ResumeStep.DROP -> pending = null
+            ResumeStep.NOTHING -> Unit
+        }
     }
 
     /**
@@ -121,7 +150,7 @@ private object SelfUpdate {
         }
     }
 
-    /** On [io]. */
+    /** On [io]; [start] catches what it throws. */
     private fun run(app: Context) {
         if (!UploadQueue.store(app).isEmpty()) return send("busy")
         val published = try {
@@ -149,15 +178,13 @@ private object SelfUpdate {
                 return send("failed:check")
             }
         }
-        main.post { install(app, apk) }
+        val checked = Checked(apk, published.size, published.sha256)
+        main.post { install(app, checked) }
     }
 
     /** On the main thread, with a checked file. */
-    private fun install(app: Context, apk: File) {
-        if (app.packageManager.canRequestPackageInstalls()) {
-            io.execute { Updater.install(app, apk, ::send) }
-            return
-        }
+    private fun install(app: Context, checked: Checked) {
+        if (app.packageManager.canRequestPackageInstalls()) return installOnIo(app, checked, recheck = false)
         val settings = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
         val screen = shell?.get()?.takeUnless { it.isFinishing || it.isDestroyed }
         try {
@@ -166,12 +193,54 @@ private object SelfUpdate {
             } else {
                 app.startActivity(settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-        } catch (e: ActivityNotFoundException) {
+        } catch (e: Exception) {
             Log.w(TAG, "install setting", e)
             return send("failed:install")
         }
-        pending = apk
+        pending = checked
         send("permission")
+    }
+
+    /**
+     * The last step, on [io]. Not while an upload is queued (installing ends
+     * this process, and the upload with it): `busy`, and the page asks again.
+     * A file that waited for the setting is checked again first.
+     */
+    private fun installOnIo(app: Context, checked: Checked, recheck: Boolean) {
+        io.execute {
+            try {
+                if (!UploadQueue.store(app).isEmpty()) return@execute send("busy")
+                if (recheck && !matches(checked.apk, checked.size, checked.sha256)) {
+                    checked.apk.delete()
+                    return@execute send("failed:check")
+                }
+                Updater.install(app, checked.apk, ::confirm, ::send)
+            } catch (e: Exception) {
+                Log.w(TAG, "install", e)
+                send("failed:install")
+            }
+        }
+    }
+
+    /** The session wants Android's "Update?" screen. On the main thread (the install broadcast). */
+    private fun confirm(screen: Intent) {
+        val live = shell?.get()?.takeIf { it.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) }
+        when (confirmStep(live != null)) {
+            ConfirmStep.LAUNCH -> launch(live ?: return, screen)
+            // Android 10+ would silently block it from the background: [resume] opens it.
+            ConfirmStep.KEEP -> waitingConfirm = screen
+        }
+    }
+
+    /** Opens Android's "Update?" screen over [shell]; if it can't, the button comes back. */
+    private fun launch(shell: WebShell, screen: Intent) {
+        try {
+            shell.startActivity(screen)
+            send("confirming")
+        } catch (e: Exception) {
+            Log.w(TAG, "confirm screen", e)
+            send("cancelled")
+        }
     }
 
     /** `GET /api/app-update/<dance>`: null when nothing is published (404). Throws [IOException] otherwise. */
@@ -188,7 +257,10 @@ private object SelfUpdate {
         }
     }
 
-    /** Into `<code>.apk.part`, then renamed to [apk]. Stops past the published size: the check then refuses it. */
+    /**
+     * Into `<code>.apk.part`, then renamed to [apk] once exactly the published
+     * size arrived; short or long is a broken download.
+     */
     private fun download(published: Published, dir: File, apk: File) {
         val url = URL(URL(BuildConfig.SITE), published.url)
         if (!url.toString().startsWith(BuildConfig.SITE + "/")) throw IOException("update not on the site: $url")
@@ -216,15 +288,13 @@ private object SelfUpdate {
                     }
                 }
             }
+            if (done != published.size) throw IOException("got $done of ${published.size} bytes")
+            if (!part.renameTo(apk)) throw IOException("rename ${part.name}")
         } catch (e: IOException) {
             part.delete()
             throw e
         } finally {
             conn.disconnect()
-        }
-        if (!part.renameTo(apk)) {
-            part.delete()
-            throw IOException("rename ${part.name}")
         }
     }
 
