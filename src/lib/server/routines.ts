@@ -15,8 +15,6 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'driz
 import type { Db } from './db';
 import {
 	exercises,
-	lessonAdds,
-	lessons,
 	figures,
 	routineStepOptions,
 	routineSteps,
@@ -25,8 +23,7 @@ import {
 	type Routine
 } from './db/schema';
 import { buildGraph } from './graph';
-import { addedReach } from './access';
-import { getTeam } from './teams';
+import { addedReach, addedTeams } from './access';
 import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
@@ -274,28 +271,9 @@ export function listAddedRoutines(
 	db: Db,
 	wall: Wall
 ): { team: TeamRef; routines: RoutineItem[] }[] {
-	const teamIds = [
-		...new Set(
-			db
-				.select({ teamId: lessons.teamId })
-				.from(lessonAdds)
-				.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
-				.where(
-					and(
-						eq(lessonAdds.userId, wall.userId),
-						eq(lessons.dance, wall.dance),
-						isNotNull(lessons.teamId)
-					)
-				)
-				.all()
-				.map((r) => r.teamId!)
-		)
-	];
 	const out: { team: TeamRef; routines: RoutineItem[] }[] = [];
-	for (const teamId of teamIds) {
-		const team = getTeam(db, teamId);
-		if (!team) continue;
-		const ids = [...addedReach(db, wall.userId, teamId).routines];
+	for (const team of addedTeams(db, wall)) {
+		const ids = [...addedReach(db, wall.userId, team.id).routines];
 		if (ids.length === 0) continue;
 		const rows = db
 			.select({
@@ -311,9 +289,9 @@ export function listAddedRoutines(
 			.groupBy(routines.id)
 			.orderBy(desc(routines.createdAt), desc(routines.id))
 			.all();
-		if (rows.length > 0) out.push({ team: { id: team.id, name: team.name }, routines: rows });
+		if (rows.length > 0) out.push({ team, routines: rows });
 	}
-	return out.sort((a, b) => a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id);
+	return out;
 }
 
 /** Every live routine of the dance as a picker offers it, by name. */

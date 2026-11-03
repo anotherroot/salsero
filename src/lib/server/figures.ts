@@ -6,7 +6,6 @@ import {
 	figureGroups,
 	figureStartPositions,
 	figures,
-	lessonAdds,
 	lessonFigures,
 	lessonVideos,
 	lessons,
@@ -18,11 +17,10 @@ import {
 } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
-import { getTeam } from './teams';
 import { entryFor, reconcileEntries, reviveEntries } from './entries';
 import { trashRows, type ArchiveRestore } from './trash';
 import { takenLine } from '$lib/teams/deleted';
-import { addedReach, allows, figureAccess } from './access';
+import { addedReach, addedTeams, allows, figureAccess } from './access';
 import { actingIn, fieldChange, logChange, variationRoot } from './changes';
 import type { Partner } from '$lib/labels';
 import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget, TeamRef } from '$lib/types';
@@ -694,34 +692,15 @@ export function listAddedFigures(
 	wall: Wall,
 	filter: Omit<FigureFilter, 'only' | 'unlinked'> = {}
 ): { team: TeamRef; figures: FigureListItem[] }[] {
-	const teamIds = [
-		...new Set(
-			db
-				.select({ teamId: lessons.teamId })
-				.from(lessonAdds)
-				.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
-				.where(
-					and(
-						eq(lessonAdds.userId, wall.userId),
-						eq(lessons.dance, wall.dance),
-						isNotNull(lessons.teamId)
-					)
-				)
-				.all()
-				.map((r) => r.teamId!)
-		)
-	];
 	const out: { team: TeamRef; figures: FigureListItem[] }[] = [];
-	for (const teamId of teamIds) {
-		const team = getTeam(db, teamId);
-		if (!team) continue;
-		const only = addedReach(db, wall.userId, teamId).variations;
+	for (const team of addedTeams(db, wall)) {
+		const only = addedReach(db, wall.userId, team.id).variations;
 		if (only.size === 0) continue;
-		const space = { dance: wall.dance, teamId, actorId: wall.userId };
+		const space = { dance: wall.dance, teamId: team.id, actorId: wall.userId };
 		const figures = listFigures(db, space, { ...filter, only });
-		if (figures.length > 0) out.push({ team: { id: team.id, name: team.name }, figures });
+		if (figures.length > 0) out.push({ team, figures });
 	}
-	return out.sort((a, b) => a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id);
+	return out;
 }
 
 /**

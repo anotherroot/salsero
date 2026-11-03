@@ -31,7 +31,8 @@ import {
 	teamMembers,
 	videoSpots
 } from './db/schema';
-import type { SpotOwner } from '$lib/types';
+import type { SpotOwner, TeamRef } from '$lib/types';
+import type { Wall } from './scope';
 import { viaSections } from './lesson-links';
 import { getTeam, roleOf } from './teams';
 
@@ -439,4 +440,34 @@ export function fileAccess(
 		if (rec && allows(recordingAccess(db, userId, rec), 'read')) return rec;
 	}
 	throw error(404, 'Not found');
+}
+
+/**
+ * The groups of this dance whose lessons the person has added (any lesson,
+ * whatever its state now), by name then id. Moves' group sections start here.
+ */
+export function addedTeams(db: Db, wall: Wall): TeamRef[] {
+	const teamIds = [
+		...new Set(
+			db
+				.select({ teamId: lessons.teamId })
+				.from(lessonAdds)
+				.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+				.where(
+					and(
+						eq(lessonAdds.userId, wall.userId),
+						eq(lessons.dance, wall.dance),
+						isNotNull(lessons.teamId)
+					)
+				)
+				.all()
+				.map((r) => r.teamId!)
+		)
+	];
+	const out: TeamRef[] = [];
+	for (const teamId of teamIds) {
+		const team = getTeam(db, teamId);
+		if (team) out.push({ id: team.id, name: team.name });
+	}
+	return out.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 }

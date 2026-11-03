@@ -12,7 +12,8 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
 	import { plural } from '$lib/format';
-	import { groupRoutinesHeading, routineBadges } from '$lib/moves/routines';
+	import { groupHeading } from '$lib/moves/figures';
+	import { routineBadges, type RoutineBadge } from '$lib/moves/routines';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -33,6 +34,29 @@
 
 <svelte:head><title>Routines · {data.dance.label}</title></svelte:head>
 
+{#snippet routineRow(routine: { id: number; name: string; slots: number }, badges: RoutineBadge[])}
+	<a
+		class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
+		href={resolve('/[dance]/routines/[id]', {
+			dance: data.dance.slug,
+			id: String(routine.id)
+		})}
+	>
+		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{routine.name}</span>
+			<span
+				class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
+			>
+				<span>{plural(routine.slots, 'slot', 'slots')}</span>
+				{#each badges as b (b.text)}
+					<Badge tone={b.tone}>{b.text}</Badge>
+				{/each}
+			</span>
+		</span>
+		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+	</a>
+{/snippet}
+
 <MovesScreen segment="routines" dance={data.dance.slug} onnew={() => (creating = true)}>
 	{#if data.routines.length === 0 && data.groups.length === 0}
 		<div class="h-10 flex-none"></div>
@@ -52,28 +76,7 @@
 			<h2 class="{SECTION_LABEL} pt-1">{plural(data.routines.length, 'routine', 'routines')}</h2>
 			<div class={GROUP}>
 				{#each data.routines as routine (routine.id)}
-					<a
-						class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
-						href={resolve('/[dance]/routines/[id]', {
-							dance: data.dance.slug,
-							id: String(routine.id)
-						})}
-					>
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="truncate text-[16px] leading-[1.3] font-bold text-ink"
-								>{routine.name}</span
-							>
-							<span
-								class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
-							>
-								<span>{plural(routine.slots, 'slot', 'slots')}</span>
-								{#each routineBadges(routine) as b (b.text)}
-									<Badge tone={b.tone}>{b.text}</Badge>
-								{/each}
-							</span>
-						</span>
-						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-					</a>
+					{@render routineRow(routine, routineBadges(routine))}
 				{/each}
 			</div>
 		{/if}
@@ -82,29 +85,11 @@
 		{#each data.groups as g (g.team.id)}
 			<section aria-label={g.team.name} class="flex flex-col gap-2">
 				<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
-					<Icon name="people" size={16} />{groupRoutinesHeading(g.team.name, g.routines.length)}
+					<Icon name="people" size={16} />{groupHeading(g.team.name, g.routines.length)}
 				</h2>
 				<div class={GROUP}>
 					{#each g.routines as routine (routine.id)}
-						<a
-							class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
-							href={resolve('/[dance]/routines/[id]', {
-								dance: data.dance.slug,
-								id: String(routine.id)
-							})}
-						>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="truncate text-[16px] leading-[1.3] font-bold text-ink"
-									>{routine.name}</span
-								>
-								<span class="pt-0.5 text-[13px] leading-[1.35] text-muted"
-									>{plural(routine.slots, 'slot', 'slots')}</span
-								>
-							</span>
-							<span class="flex flex-none text-chevron"
-								><Icon name="chevron-right" size={20} /></span
-							>
-						</a>
+						{@render routineRow(routine, [])}
 					{/each}
 				</div>
 			</section>
