@@ -13,8 +13,10 @@
 	import { syncSheets } from '$lib/sheets/history.svelte';
 	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
-	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
+	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
+	import { showsUpdateNeeded } from '$lib/app-update/view';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 
 	let { data, children } = $props();
@@ -92,6 +94,17 @@
 	 * so whatever was typed stays). Registered after `guardNavigation()` so the
 	 * unsaved-changes guard has already had its say on the same navigation.
 	 */
+	// Coming back to the app is when a new release is worth asking about.
+	$effect(() => {
+		if (!data.appUpdate) return;
+		const back = () => {
+			if (document.visibilityState === 'visible') void invalidate('app:update');
+		};
+		document.addEventListener('visibilitychange', back);
+		return () => document.removeEventListener('visibilitychange', back);
+	});
+	const updateNeeded = $derived(showsUpdateNeeded(data.appUpdate, page.route.id));
+
 	let offline = $state<URL | null>(null);
 	let layer = $state<HTMLDialogElement>();
 	// Taken before the layer mounts: its own <title> is already in place by then.
@@ -174,7 +187,9 @@
 	<link rel="icon" href="/icon-{navDance.slug}.svg" type="image/svg+xml" />
 </svelte:head>
 
-{#if nav}
+{#if updateNeeded && data.appUpdate}
+	<UpdateNeeded update={data.appUpdate} />
+{:else if nav}
 	<!--
 		`data-dance` carries the accent (see layout.css) down to everything a
 		dance touches: the page content, the tab bar (`BottomNav`, a sibling of

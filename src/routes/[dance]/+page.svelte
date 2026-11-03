@@ -8,6 +8,7 @@
 	import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
 	import PastDay from '$lib/components/today/PastDay.svelte';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
+	import AppUpdateBar from '$lib/components/system/AppUpdateBar.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
@@ -176,6 +177,10 @@
 			/>
 			<BandButton icon="settings" label="Settings" href={resolve('/settings')} />
 		{/snippet}
+
+		{#if data.appUpdate?.state === 'available'}
+			<div class="pt-3"><AppUpdateBar update={data.appUpdate} /></div>
+		{/if}
 
 		{#if bands.length === 0}
 			<div class="pt-10">

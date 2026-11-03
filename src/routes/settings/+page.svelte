@@ -24,6 +24,7 @@
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import UpdateButton from '$lib/components/system/UpdateButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
@@ -207,6 +208,16 @@
 
 	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
 	<div class={GROUP}>
+		{#if data.appUpdate}
+			<div class="{ROW} min-h-16 pr-3.5">
+				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
+					>Version {data.appUpdate.latest?.versionCode === data.appUpdate.installed
+						? data.appUpdate.latest.versionName
+						: data.appUpdate.installed}</span
+				>
+				{#if data.appUpdate.state !== 'none'}<UpdateButton update={data.appUpdate} />{/if}
+			</div>
+		{/if}
 		<div class="{ROW} pr-1.5">
 			<LeadTile icon="bell" />
 			<span class="flex min-w-0 flex-1 flex-col">
