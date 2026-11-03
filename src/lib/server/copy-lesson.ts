@@ -55,7 +55,7 @@ import { variationNameTaken } from './figures';
 import { createCustomExercise } from './exercises';
 import { createRoutine, routineSlots } from './routines';
 import { entryFor, type EntryTarget } from './entries';
-import { NAME_MAX } from './form';
+import { norm, suffixed } from './clones/names';
 import { addSpot } from './spots';
 import { linkInSpace } from './spot-links';
 import type { DanceSlug } from '$lib/dances/dances';
@@ -71,16 +71,6 @@ export type CopyFiles = {
 
 export type CopyResult =
 	{ ok: true; lessonId: number } | { ok: false; room: Extract<Room, { ok: false }> };
-
-const norm = (name: string) => name.trim().toLowerCase();
-
-/**
- * "Doble (Salsa nadaljevalna)", cut so it still fits a variation name's form
- * field: the base is shortened, the suffix kept whole.
- */
-export function suffixed(base: string, suffix: string): string {
-	return `${base.slice(0, Math.max(0, NAME_MAX - suffix.length)).trimEnd()}${suffix}`;
-}
 
 /**
  * A copy's exercise starts paused when the person already practises its

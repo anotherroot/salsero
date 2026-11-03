@@ -50,7 +50,8 @@ import { setFigureShape } from './graph';
 import { usedBytes } from './storage';
 import { purgeTeams } from './team-purge';
 import { linkCopy } from './files';
-import { copyCost, copyLesson, copySummary, suffixed, type CopyFiles } from './copy-lesson';
+import { copyCost, copyLesson, copySummary, type CopyFiles } from './copy-lesson';
+import { suffixed } from './clones/names';
 import { T1_SALSA, U2_SALSA } from './test-walls';
 
 const DAY = 24 * 60 * 60 * 1000;

@@ -22,7 +22,7 @@ import {
 import { createTeam, joinTeam } from '../teams';
 import { addRecording, createFigure, createVariationIn, deleteRecording } from '../figures';
 import { createCustomExercise } from '../exercises';
-import { createLesson, linkFigure, publishLesson } from '../lessons';
+import { createLesson, linkExercise, linkFigure, publishLesson } from '../lessons';
 import { addLinks } from '../links';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
@@ -34,7 +34,8 @@ import type { Space, Wall } from '../scope';
 import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import { TRASH_MS } from '$lib/limits';
 import { geneOf } from './genes';
-import { pairBase } from './pairs';
+import { hashValue, pairBase } from './pairs';
+import { defaultPicks, diff } from '$lib/clones/diff';
 import { flatOf } from './trees';
 import { cloneInto, planClone, type CloneRequest } from './clone';
 import { cloneFilesIn, type CloneFileKind, type CloneFiles } from './files';
@@ -313,6 +314,19 @@ describe('cloneInto: figures', () => {
 		);
 		expect(linksOf(spots[0].id)).toHaveLength(2);
 		expect(linksOf(spots[1].id)).toEqual([]);
+
+		// The dropped link is not the copy's own change: the source holds it, and
+		// a Send keeps it there.
+		const diffs = diff(
+			pairBase(db, 'figure', own, r.id),
+			flatOf(db, 'figure', r.id),
+			flatOf(db, 'figure', own),
+			hashValue
+		);
+		const key = `rec:${copyRec.geneId}:spot:${spots[1].geneId}:links`;
+		expect(diffs.find((d) => d.key === key)).toMatchObject({ side: 'theirs', removal: false });
+		expect(defaultPicks(diffs, 'send')[key]).toBe('theirs');
+		expect(diffs.map((d) => d.key)).toEqual([key]);
 	});
 
 	it('a taken name is suffixed', async () => {
@@ -381,9 +395,11 @@ describe('cloneInto: figures', () => {
 		db.update(figures).set({ archivedAt: T }).where(eq(figures.id, src.id)).run();
 		const r = await cloneInto(
 			db,
-			{ kind: 'figure', id: src.id, into: U3_SALSA, recordings: false, trusted: true },
+			{ kind: 'figure', id: src.id, into: U3_SALSA, recordings: false },
 			fakeFiles().files,
-			T
+			T,
+			undefined,
+			{ trusted: true }
 		);
 		expect(r).toMatchObject({ ok: true, made: true, archived: false });
 		expect(r.ok && figureRow(r.id).archivedAt).toBeNull();
@@ -440,6 +456,21 @@ describe('cloneInto: refusals leave nothing behind', () => {
 			T
 		);
 		expect(forced.ok).toBe(true);
+	});
+
+	it('a copy with no files is never refused for room', async () => {
+		const src = groupFigure();
+		const own = figure(U2_SALSA, 'Dile', 'Basic').figure.id;
+		recording(own, 'mine.mp4', 100, 'u2');
+		db.update(users).set({ storageLimitBytes: 10 }).where(eq(users.id, 'u2')).run();
+		const r = await cloneInto(
+			db,
+			{ kind: 'figure', id: src.id, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T,
+			0
+		);
+		expect(r).toMatchObject({ ok: true, made: true });
 	});
 
 	it('the disk floor refuses too', async () => {
@@ -625,6 +656,39 @@ describe('cloneInto: drills and songs', () => {
 				T
 			)
 		).toEqual({ ok: false, reason: 'denied' });
+	});
+
+	it('a drill I practise through an entry is copied into my app paused', async () => {
+		const lesson = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'C', notes: null })
+			.lesson.id;
+		const practised = createCustomExercise(db, T1_SALSA, {
+			name: 'Shines',
+			everyDays: 3,
+			notes: null
+		}).id;
+		const other = createCustomExercise(db, T1_SALSA, {
+			name: 'Turns',
+			everyDays: 3,
+			notes: null
+		}).id;
+		linkExercise(db, lesson, practised, 'u1');
+		linkExercise(db, lesson, other, 'u1');
+		publishLesson(db, T1_SALSA, lesson, T);
+		db.insert(exercises)
+			.values({ name: 'Shines', dance: 'salsa', userId: 'u2', source: 'added', drillId: practised })
+			.run();
+		const active = async (id: number) => {
+			const r = await cloneInto(
+				db,
+				{ kind: 'drill', id, into: U2_SALSA, recordings: false },
+				fakeFiles().files,
+				T
+			);
+			if (!r.ok) throw new Error('expected a clone');
+			return db.select().from(exercises).where(eq(exercises.id, r.id)).get()!.active;
+		};
+		expect(await active(practised)).toBe(false);
+		expect(await active(other)).toBe(true);
 	});
 
 	it('an entry is not a drill', async () => {

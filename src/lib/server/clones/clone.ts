@@ -43,7 +43,8 @@ import { getTeam, roleOf } from '../teams';
 import { roomForOwner, type Owner, type Room } from '../storage';
 import { logChange, type ChangeEntry } from '../changes';
 import { figureNameTaken, moveFor, variationNameTaken } from '../figures';
-import { suffixed } from '../copy-lesson';
+import { suffixed } from './names';
+import { entryFor } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
 import { hashValue, writePair } from './pairs';
 import { flatOf } from './trees';
@@ -59,10 +60,17 @@ export type CloneRequest = {
 	draft?: boolean;
 	/** Skip the room check (Keep: losing access must not lose the files). */
 	overLimitOk?: boolean;
-	/** Skip the read check and allow an archived source: the rescue and Keep only. */
-	trusted?: boolean;
 	/** A family's gene → the row to copy for that family (the twin chosen in Copy to…). */
 	use?: Record<string, number>;
+};
+
+/**
+ * What only the server's own flows decide, never a request: kept out of
+ * `CloneRequest` so no route can set it by spreading form data.
+ */
+export type CloneOptions = {
+	/** Skip the read check and allow an archived source: the rescue and Keep only. */
+	trusted?: boolean;
 };
 
 export type CloneResult =
@@ -208,11 +216,11 @@ export function planClone(db: Db, req: CloneRequest): ClonePlan {
  * ready, and they edit `into` (their own app, or a living group they own or
  * edit).
  */
-function mayClone(db: Db, req: CloneRequest, sourceId: number): boolean {
+function mayClone(db: Db, req: CloneRequest, sourceId: number, opts: CloneOptions): boolean {
 	const src = rootRow(db, req.kind, sourceId);
 	if (!src || src.dance !== req.into.dance) return false;
 	const actor = actorOf(req.into);
-	if (!req.trusted) {
+	if (!opts.trusted) {
 		if (src.archivedAt !== null) return false;
 		if (accessTo(db, actor, req.kind, src.id) === null) return false;
 	}
@@ -236,7 +244,8 @@ function mayClone(db: Db, req: CloneRequest, sourceId: number): boolean {
  * Clone a figure, drill or song into `into` for its actor. `denied` unless
  * they may (`mayClone`); the member already there is answered as it is; a
  * clone that does not fit `into`'s room (or the disk floor) is refused before
- * any file is linked, unless `overLimitOk`. Files are linked, then the rows
+ * any file is linked, unless `overLimitOk` (a clone with no files charges
+ * nothing and is never refused for room). Files are linked, then the rows
  * written in one transaction; a refusal, a reuse found only then, or a throw
  * unlinks every name linked here (a throw is rethrown).
  */
@@ -245,12 +254,13 @@ export async function cloneInto(
 	req: CloneRequest,
 	files: CloneFiles,
 	now: number,
-	freeDiskBytes = Number.POSITIVE_INFINITY
+	freeDiskBytes = Number.POSITIVE_INFINITY,
+	opts: CloneOptions = {}
 ): Promise<CloneResult> {
 	const plan = planClone(db, req);
-	if (plan.sourceId === null || !mayClone(db, req, plan.sourceId)) return DENIED;
+	if (plan.sourceId === null || !mayClone(db, req, plan.sourceId, opts)) return DENIED;
 	if (plan.existing) return { ok: true, made: false, ...plan.existing };
-	if (!req.overLimitOk) {
+	if (plan.bytes > 0 && !req.overLimitOk) {
 		const room = roomForOwner(db, ownerOf(req.into), plan.bytes, freeDiskBytes);
 		if (!room.ok) return { ok: false, reason: 'room', room };
 	}
@@ -264,7 +274,7 @@ export async function cloneInto(
 			made.push([f.kind, name]);
 			linked.set(f.key, name);
 		}
-		const result = cloneTx(db, req, linked, now);
+		const result = cloneTx(db, req, linked, now, opts);
 		if (!result.ok || !result.made) await unlinkAll();
 		return result;
 	} catch (err) {
@@ -287,7 +297,8 @@ export function cloneTx(
 	tx: Db,
 	req: CloneRequest,
 	linked: Map<string, string>,
-	now: number
+	now: number,
+	opts: CloneOptions = {}
 ): CloneResult {
 	try {
 		return tx.transaction((inner) => {
@@ -295,7 +306,7 @@ export function cloneTx(
 			if (!src) throw new Refusal(DENIED);
 			const existing = existingIn(inner, req.kind, src, req.into);
 			if (existing) return { ok: true as const, made: false, ...existing };
-			const id = new Mapper(inner as unknown as Db, req, linked, now).clone(req.kind, src.id);
+			const id = new Mapper(inner as unknown as Db, req, linked, now, opts).clone(req.kind, src.id);
 			return { ok: true as const, id, made: true, archived: false };
 		});
 	} catch (err) {
@@ -322,7 +333,8 @@ class Mapper {
 		readonly tx: Db,
 		readonly req: CloneRequest,
 		readonly linked: Map<string, string>,
-		readonly now: number
+		readonly now: number,
+		readonly opts: CloneOptions
 	) {}
 
 	get into(): Space {
@@ -340,6 +352,15 @@ class Mapper {
 		const gene = stampGene(this.tx, kind, sourceId);
 		const made = copier(this, sourceId, gene);
 		const base = initialBase(flatOf(this.tx, kind, sourceId), made.skip, hashValue);
+		// A carried section's links hold what the copy got: a link the engine
+		// dropped (its target has no row here) is not the copy's own change, and
+		// a later Send must not remove it from the source.
+		const copied = flatOf(this.tx, kind, made.id);
+		for (const key of Object.keys(base.fields)) {
+			if (key.endsWith(':links') && Object.hasOwn(copied, key)) {
+				base.fields[key] = hashValue(copied[key].value);
+			}
+		}
 		writePair(this.tx, kind, sourceId, made.id, base, this.now);
 		logChange(this.tx, this.into, made.log, this.now);
 		return made.id;
@@ -356,7 +377,7 @@ class Mapper {
 	 * member there (archived included). Null drops the reference.
 	 *
 	 * Task 10: before giving up, clone it here (`this.clone`) when the actor
-	 * reads it or the request is `trusted`, and honour `req.use`.
+	 * reads it or `opts.trusted`, and honour `req.use`.
 	 */
 	ref(kind: CloneKind, sourceId: number): number | null {
 		const key = `${kind}:${sourceId}`;
@@ -483,6 +504,8 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 		const recGene = stampGene(tx, 'recording', r.id);
 		const file = m.req.recordings ? m.linked.get(fileKey('recording', r.file)) : undefined;
 		if (file === undefined) {
+			// Deliberate: not asked for, or added between the plan and this write
+			// (a race), so it stays behind, in `skip`, for Take to bring.
 			skip.push(`rec:${recGene}`);
 			continue;
 		}
@@ -575,7 +598,11 @@ function mapped<K extends 'figureId' | 'exerciseId'>(
 
 /* ── Drills ─────────────────────────────────────────────────────────────── */
 
-/** A drill: name, notes, frequency, practice settings and links; never a song. */
+/**
+ * A drill: name, notes, frequency, practice settings and links; never a song.
+ * Into a person's own app it starts paused when they practise the source
+ * through a live entry (copy-lesson's rule, R23): Today must not double.
+ */
 function copyDrill(m: Mapper, sourceId: number, gene: string): Copied {
 	const { tx, into, now } = m;
 	const src = tx.select().from(exercises).where(eq(exercises.id, sourceId)).get()!;
@@ -591,6 +618,7 @@ function copyDrill(m: Mapper, sourceId: number, gene: string): Copied {
 			countBpm: src.countBpm,
 			practiceJson: src.practiceJson,
 			songId: null,
+			active: isTeam(into) || entryFor(tx, into.userId, { drillId: src.id })?.archivedAt !== null,
 			createdAt: now,
 			geneId: gene,
 			clonedFrom: src.id
