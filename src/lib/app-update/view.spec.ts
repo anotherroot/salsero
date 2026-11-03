@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	parseBridge,
 	showsUpdateNeeded,
+	updateNeededNow,
 	updateView,
 	type AppUpdate,
 	type BridgeStatus
@@ -56,5 +57,47 @@ describe('showsUpdateNeeded', () => {
 	it('not otherwise', () => {
 		expect(showsUpdateNeeded(update('available'), '/[dance]')).toBe(false);
 		expect(showsUpdateNeeded(null, '/[dance]')).toBe(false);
+	});
+});
+
+describe('updateNeededNow', () => {
+	const quiet = { playerOpen: false, sheetsOpen: false, unsaved: 0, held: 0 };
+	const at = (
+		state: AppUpdate['state'] | null,
+		when: 'load' | 'navigated' | 'refresh',
+		more: Partial<Parameters<typeof updateNeededNow>[1]> = {}
+	) =>
+		updateNeededNow(state ? update(state) : null, {
+			routeId: '/[dance]',
+			shown: false,
+			at: when,
+			...quiet,
+			...more
+		});
+
+	it('takes a page load or a finished navigation', () => {
+		expect(at('required', 'load')).toBe(true);
+		expect(at('required', 'navigated', { unsaved: 1, sheetsOpen: true })).toBe(true);
+	});
+	it('never Practice or My count', () => {
+		expect(at('required', 'load', { routeId: '/[dance]/player' })).toBe(false);
+		expect(at('required', 'navigated', { routeId: '/voice' })).toBe(false);
+		expect(at('required', 'refresh', { routeId: '/voice' })).toBe(false);
+	});
+	it('turning required on an open page takes it only when nothing is cut short', () => {
+		expect(at('required', 'refresh')).toBe(true);
+		expect(at('required', 'refresh', { unsaved: 1 })).toBe(false);
+		expect(at('required', 'refresh', { sheetsOpen: true })).toBe(false);
+		expect(at('required', 'refresh', { playerOpen: true })).toBe(false);
+		expect(at('required', 'refresh', { held: 1 })).toBe(false);
+	});
+	it('once up, it stays while the update is required', () => {
+		expect(at('required', 'refresh', { shown: true, unsaved: 1 })).toBe(true);
+		expect(at('required', 'navigated', { shown: true, routeId: '/voice' })).toBe(true);
+	});
+	it('goes once the update is no longer required', () => {
+		expect(at('available', 'refresh', { shown: true })).toBe(false);
+		expect(at('none', 'navigated', { shown: true })).toBe(false);
+		expect(at(null, 'load', { shown: true })).toBe(false);
 	});
 });

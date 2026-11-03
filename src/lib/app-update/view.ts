@@ -4,6 +4,8 @@
  */
 import type { DanceSlug } from '$lib/dances/dances';
 import type { Channel, UpdateState } from './agent';
+// Type only: fresh.ts reads BUSY_ROUTES from here.
+import type { Quiet } from '$lib/nav/fresh';
 
 export interface AppUpdate {
 	state: UpdateState;
@@ -89,4 +91,26 @@ export function updateView(status: BridgeStatus): {
 export function showsUpdateNeeded(update: AppUpdate | null, routeId: string | null): boolean {
 	if (update?.state !== 'required') return false;
 	return !(BUSY_ROUTES as readonly (string | null)[]).includes(routeId);
+}
+
+/**
+ * Whether the Update needed screen has the page now. It replaces the whole
+ * tree, so it comes at a page load or a finished navigation (`at`: `load`,
+ * `navigated`), never over Practice or My count. When the answer turns
+ * required while a page sits open (`refresh`: coming back to the app), it
+ * takes the page at once only if that cuts nothing short (the same rule as a
+ * reload by itself, `mayReloadNow` in `$lib/nav/fresh.ts`); otherwise the
+ * next navigation does.
+ * Once up it stays while the update is required (`shown`), and goes when it no
+ * longer is.
+ */
+export function updateNeededNow(
+	update: AppUpdate | null,
+	s: { routeId: string | null; shown: boolean; at: 'load' | 'navigated' | 'refresh' } & Quiet
+): boolean {
+	if (update?.state !== 'required') return false;
+	if (s.shown) return true;
+	if (!showsUpdateNeeded(update, s.routeId)) return false;
+	if (s.at !== 'refresh') return true;
+	return !s.playerOpen && !s.sheetsOpen && s.unsaved === 0 && s.held === 0;
 }

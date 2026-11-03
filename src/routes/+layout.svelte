@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import { untrack } from 'svelte';
 	import { navigating, page, updated } from '$app/state';
 	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
@@ -22,7 +23,7 @@
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
-	import { BUSY_ROUTES, showsUpdateNeeded } from '$lib/app-update/view';
+	import { BUSY_ROUTES, updateNeededNow } from '$lib/app-update/view';
 	import { fullLoadFor, mayReloadNow } from '$lib/nav/fresh';
 	import { held } from '$lib/nav/fresh.svelte';
 	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
@@ -98,7 +99,45 @@
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 
-	// Coming back to the app is when a new release is worth asking about.
+	/*
+	 * Update needed replaces the whole tree, so it never lands on a page mid-edit
+	 * (`updateNeededNow`): it comes with a page load or a finished navigation,
+	 * and when the answer turns required on an open page, at once only if that
+	 * page is quiet, else at the next navigation. Coming back to the app and
+	 * every navigation ask again (the root load never re-runs by itself).
+	 */
+	let updateNeeded = $state(
+		untrack(() =>
+			updateNeededNow(data.appUpdate, {
+				routeId: page.route.id,
+				shown: false,
+				at: 'load',
+				playerOpen: false,
+				sheetsOpen: false,
+				unsaved: 0,
+				held: 0
+			})
+		)
+	);
+	const judgeUpdate = (at: 'navigated' | 'refresh') => {
+		updateNeeded = updateNeededNow(data.appUpdate, {
+			routeId: page.route.id,
+			shown: updateNeeded,
+			at,
+			...quietNow()
+		});
+	};
+	$effect(() => {
+		void data.appUpdate;
+		untrack(() => judgeUpdate('refresh'));
+	});
+	afterNavigate((nav) => {
+		if (!data.appUpdate) return;
+		// A hash link stays on the page, with whatever it holds.
+		const samePage = nav.from?.url.pathname === nav.to?.url.pathname;
+		judgeUpdate(nav.type === 'enter' || samePage ? 'refresh' : 'navigated');
+		if (nav.type !== 'enter') void invalidate('app:update');
+	});
 	$effect(() => {
 		if (!data.appUpdate) return;
 		const back = () => {
@@ -107,7 +146,6 @@
 		document.addEventListener('visibilitychange', back);
 		return () => document.removeEventListener('visibilitychange', back);
 	});
-	const updateNeeded = $derived(showsUpdateNeeded(data.appUpdate, page.route.id));
 
 	/*
 	 * Offline. The root layout has a server load, so a client navigation that
