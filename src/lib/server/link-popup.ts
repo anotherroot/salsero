@@ -257,8 +257,9 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 
 /**
  * Make a variation, a figure or a drill in the section's space and link the
- * section to it — both or neither. `userId` is who asks: a section of anyone
- * else's is refused as missing, so nothing is made in another person's space.
+ * section to it — both or neither. `userId` is who asks: a section they may not
+ * edit (another person's, a group's they only read) is refused as missing, so
+ * nothing is made in a space they cannot change.
  */
 export function createAndLink(db: Db, userId: string, spotId: number, create: LinkCreate): number {
 	const space = sectionSpace(db, userId, spotId);
@@ -337,7 +338,8 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 
 /**
  * `linkOptions` with this user's default style for the section's dance. Null
- * for a section that is not this user's — the same answer a missing one gets.
+ * for a section this user may not edit (another person's, a group's they only
+ * read) — the same answer a missing one gets.
  */
 export function linkOptionsFor(db: Db, spotId: number, userId: string): LinkOptions | null {
 	const space = sectionSpace(db, userId, spotId);

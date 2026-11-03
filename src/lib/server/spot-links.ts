@@ -31,8 +31,9 @@ import type {
 	SpotOwner,
 	VideoSection
 } from '$lib/types';
+import { allows, spotAccess } from './access';
 import { lessonsReaching } from './lesson-links';
-import { inSpace, isTeam, ownedBy, spaceOfRow, type Space } from './scope';
+import { inSpace, ownedBy, spaceOfRow, type Space } from './scope';
 
 /**
  * A link that cannot be made. `status` is what the route answers with; `field`,
@@ -135,16 +136,14 @@ function targetDance(db: Db, space: Space, target: SectionTarget): string {
 }
 
 /**
- * The space of a section, for the person asking: theirs, or null — for a
- * missing section, another person's, and for now a group's. Who may edit a
- * group's section is `access.ts`'s to say; until it exists, a group's section
- * answers as a missing one does.
+ * The space of a section, for the person asking, when they may change it:
+ * their own, or a group's they edit. Null for a missing section, another
+ * person's, and a group's they only read or cannot see — all one answer.
  */
 export function sectionSpace(db: Db, userId: string, spotId: number): Space | null {
 	const video = videoOfSpot(db, spotId);
-	if (!video) return null;
-	const space = spaceOfRow(video, userId);
-	return !isTeam(space) && space.userId === userId ? space : null;
+	if (!video || !allows(spotAccess(db, userId, spotId), 'edit')) return null;
+	return spaceOfRow(video, userId);
 }
 
 export const targetColumn = (target: SectionTarget) =>
@@ -153,9 +152,10 @@ export const targetColumn = (target: SectionTarget) =>
 		: eq(spotLinks.exerciseId, target.exerciseId);
 
 /**
- * The new link's id, linking `userId`'s section to `userId`'s target. Throws
- * `SpotLinkError` for a point, another dance, a non-drill, a duplicate — and for
- * a section or target of another person's, with the answer a missing one gets.
+ * The new link's id, linking a section `userId` may edit (their own, or a
+ * group's they edit) to a target of the same owner. Throws `SpotLinkError` for
+ * a point, another dance, a non-drill, a duplicate — and for a section or
+ * target of another owner's, with the answer a missing one gets.
  */
 export function linkSpot(db: Db, userId: string, spotId: number, target: SectionTarget): number {
 	const space = sectionSpace(db, userId, spotId);

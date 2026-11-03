@@ -825,7 +825,7 @@ import {
 	routineShapes,
 	routineSlots
 } from '$lib/server/routines';
-import { requireRoutineInWall } from '$lib/server/scope';
+import { requireRoutineAccess } from '$lib/server/scope';
 import * as routinePage from './routines/[id]/+page.server';
 import * as routineList from './routines/+page.server';
 
@@ -883,12 +883,15 @@ describe('routines: the data functions stand behind a wall', () => {
 		expect(listRoutines(db, U1_SALSA).map((r) => r.name)).toEqual(['Mine']);
 	});
 
-	it("requireRoutineInWall gives another person's routine the missing one's 404", () => {
-		expect(requireRoutineInWall(db, U1_SALSA, mine).id).toBe(mine);
+	it("requireRoutineAccess gives another person's routine the missing one's 404", () => {
+		const as = (dance: string) => [db, { user: U1 } as App.Locals, { dance }] as const;
+		expect(requireRoutineAccess(...as('salsa'), mine, 'edit').routine.id).toBe(mine);
 		for (const id of [theirs, 9999]) {
-			expect(() => requireRoutineInWall(db, U1_SALSA, id)).toThrow(threw404);
+			for (const need of ['read', 'edit'] as const) {
+				expect(() => requireRoutineAccess(...as('salsa'), id, need)).toThrow(threw404);
+			}
 		}
-		expect(() => requireRoutineInWall(db, U1_BACHATA, mine)).toThrow(threw404);
+		expect(() => requireRoutineAccess(...as('bachata'), mine, 'read')).toThrow(threw404);
 	});
 
 	it("will not build a routine from another person's figure, and writes nothing", () => {

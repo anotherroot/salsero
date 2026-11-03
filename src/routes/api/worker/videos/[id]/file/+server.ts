@@ -11,6 +11,7 @@ import {
 	writeChunk
 } from '$lib/server/files';
 import { completeVideoJob, videoJobTarget } from '$lib/server/video-downloads';
+import { freeDisk } from '$lib/server/storage';
 import { MAX_LESSON_VIDEO_BYTES, MAX_LESSON_VIDEO_LABEL } from '$lib/limits';
 import type { RequestHandler } from './$types';
 
@@ -52,11 +53,23 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	const file = `${randomUUID()}.mp4`;
 	const dest = join(target === 'recording' ? recordingsDir() : lessonVideosDir(), file);
 	await rename(partial, dest);
-	const done = completeVideoJob(db, id, { file, mime: 'video/mp4', sizeBytes: chunk.total });
+	// The file is already on the disk: the floor is what is free without it.
+	const done = completeVideoJob(
+		db,
+		id,
+		{ file, mime: 'video/mp4', sizeBytes: chunk.total },
+		(await freeDisk()) + chunk.total
+	);
 	if (!done) {
 		// The link was removed while the last chunk streamed in.
 		await unlink(dest).catch(() => {});
 		return failJson(410, GONE);
+	}
+	if ('refused' in done) {
+		// The owner's room is gone: the job has failed with the reason, which the
+		// worker's report of this 413 cannot overwrite (a failed job ignores it).
+		await unlink(dest).catch(() => {});
+		return failJson(413, done.refused);
 	}
 	return json(done, { status: 201 });
 };

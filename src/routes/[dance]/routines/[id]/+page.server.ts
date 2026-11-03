@@ -38,7 +38,7 @@ import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
-import { requireRoutineInWall, wallOf } from '$lib/server/scope';
+import { requireRoutineAccess, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -49,15 +49,24 @@ import type { Actions, PageServerLoad } from './$types';
  * path, and doing it once by name beats nine copies.
  */
 function routineOf(params: { dance: string; id: string }, locals: App.Locals) {
-	return requireRoutineInWall(getDb(), wallOf(params, locals), Number(params.id));
+	return routineIn(params, locals).routine;
+}
+
+/**
+ * The routine and the space it stands in (a person's or a group's). Edit, the
+ * load included: this page is built from the routine's own space, never from
+ * reach, so it is not a page a reader may open.
+ */
+function routineIn(params: { dance: string; id: string }, locals: App.Locals) {
+	return requireRoutineAccess(getDb(), locals, params, params.id, 'edit');
 }
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const routine = routineOf(params, locals);
-	const graph = buildGraph(db, wall);
-	const shapes = routineShapes(db, wall);
+	const { routine, space } = routineIn(params, locals);
+	const graph = buildGraph(db, space);
+	const shapes = routineShapes(db, space);
 	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, wall.dance);
@@ -73,7 +82,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	// exactly as it is on the server. Archived figures are not candidates; a slot
 	// still holding one names it through `labels`.
 	const candidates: Candidate[] = [
-		...listVersions(db, wall).flatMap((v): Candidate[] => {
+		...listVersions(db, space).flatMap((v): Candidate[] => {
 			const node = figureById(graph, v.id);
 			if (!node) return [];
 			return [
@@ -121,7 +130,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		) as Record<number, number>,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
-		labels: Object.fromEntries(figureLabels(db, wall)),
+		labels: Object.fromEntries(figureLabels(db, space)),
 		positions: positions.map((p) => ({ id: p.id, name: p.name })),
 		starts: routineStarts(graph, shape),
 		end: routineEnd(graph, shape),
@@ -136,7 +145,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// The per-row markers, indexed by `slots` rather than the flat run, so an
 		// archived-only slot or an embedded routine cannot shift them.
 		timingSeams: timingSeams(graph, shape),
-		taughtIn: routineTaughtIn(db, wall, routine.id),
+		taughtIn: routineTaughtIn(db, space, routine.id),
 		candidates,
 		// Per row, parallel to `slots`: where it begins and lands — the picker's
 		// anchors and the seams' labels.

@@ -28,6 +28,7 @@ import {
 import { createCustomExercise } from '$lib/server/exercises';
 import { createRoutine } from '$lib/server/routines';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
+import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
@@ -391,13 +392,13 @@ export const actions: Actions = {
 			request,
 			getDb(),
 			{ lessonId: lessonOf(params, locals).lesson.id },
-			locals.user!.id
+			await freeDisk()
 		),
 	retryVideo: async ({ params, request, locals }) =>
 		retryVideoFrom(
 			request,
 			getDb(),
 			{ lessonId: lessonOf(params, locals).lesson.id },
-			locals.user!.id
+			await freeDisk()
 		)
 };

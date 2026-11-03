@@ -7,8 +7,9 @@ import type { RequestHandler } from './$types';
 /**
  * A section's links, for the Link popup. Flat like `/api/video-spots`: no dance
  * in the URL — the spot's own wall is the wall. `linkOptionsFor` answers null
- * for another person's section (a 404 here), and `linkSpot` refuses a target
- * from another dance or another person.
+ * for another person's section, and for a group's unless this person edits
+ * the group: the options list the group's drafts too (a 404 here). `linkSpot`
+ * refuses a target from another dance or another owner.
  */
 function spotId(raw: string): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;

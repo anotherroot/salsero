@@ -1,18 +1,20 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots';
+import { allows, spotAccess } from '$lib/server/access';
+import { deleteSpot, SpotError, updateSpot } from '$lib/server/spots';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import type { RequestHandler } from './$types';
 
 /**
- * The spot id from the path, if it is the signed-in person's, or a 404 — a bad
- * id, a missing spot and another person's get the same answer.
+ * The spot id from the path, if the signed-in person may change it (their own,
+ * or a group's they edit), or a 404 — a bad id, a missing spot, another
+ * person's and a group's they only read get the same answer.
  */
 function spotId(raw: string, locals: App.Locals): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
 	if (!Number.isSafeInteger(id) || id <= 0) throw error(404, 'No such spot');
-	const userId = spotOwner(getDb(), id);
-	if (userId === null || userId !== locals.user?.id) throw error(404, 'No such spot');
+	const userId = locals.user?.id;
+	if (!userId || !allows(spotAccess(getDb(), userId, id), 'edit')) throw error(404, 'No such spot');
 	return id;
 }
 

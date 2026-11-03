@@ -25,6 +25,22 @@ import { error } from '@sveltejs/kit';
 import { and, eq, isNull, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
+import {
+	allows,
+	drillAccess,
+	figureAccess,
+	lessonAccess,
+	routineAccess,
+	type Access
+} from './access';
+import {
+	figures,
+	lessons,
+	type Exercise,
+	type Figure,
+	type Lesson,
+	type Routine
+} from './db/schema';
 import { getExercise, getSet } from './exercises';
 import { getPosition } from './positions';
 import { getRoutine } from './routines';
@@ -205,8 +221,87 @@ export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
 	return position;
 }
 
+type Need = 'read' | 'edit';
+type Granted = 'edit' | 'read';
+
+/** The row's guard: its dance is the URL's, and this person's access reaches `need`. */
+function guarded<T extends { dance: string; userId: string | null; teamId: number | null }>(
+	params: { dance: string },
+	locals: App.Locals,
+	row: T | null,
+	access: (userId: string, row: T) => Access,
+	need: Need,
+	message: string
+): { row: T; space: Space; access: Granted } {
+	const wall = wallOf(params, locals);
+	if (!row || row.dance !== wall.dance) throw error(404, message);
+	const got = access(wall.userId, row);
+	if (got === null || !allows(got, need)) throw error(404, message);
+	return { row, space: spaceOfRow(row, wall.userId), access: got };
+}
+
+/** A route's id, from the URL or a form: a positive integer, else 0 (which matches nothing). */
+const idOf = (id: number | string) => {
+	const n = typeof id === 'number' ? id : Number(id);
+	return Number.isSafeInteger(n) && n > 0 ? n : 0;
+};
+
 /**
- * The routine, or a 404.
+ * The lesson, or a 404 — for a missing one, another dance's, and one this
+ * person may not `need`: a member asking to edit gets the stranger's answer.
+ * Archived is the page's question, asked after this one.
+ */
+export function requireLessonAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { lesson: Lesson; space: Space; access: Granted } {
+	const lesson =
+		db
+			.select()
+			.from(lessons)
+			.where(eq(lessons.id, idOf(id)))
+			.get() ?? null;
+	const g = guarded(
+		params,
+		locals,
+		lesson,
+		(u, l) => lessonAccess(db, u, l),
+		need,
+		'No such lesson'
+	);
+	return { lesson: g.row, space: g.space, access: g.access };
+}
+
+/** The variation, or a 404, as `requireLessonAccess`. */
+export function requireFigureAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { figure: Figure; space: Space; access: Granted } {
+	const figure =
+		db
+			.select()
+			.from(figures)
+			.where(eq(figures.id, idOf(id)))
+			.get() ?? null;
+	const g = guarded(
+		params,
+		locals,
+		figure,
+		(u, f) => figureAccess(db, u, f),
+		need,
+		'Figure not found'
+	);
+	return { figure: g.row, space: g.space, access: g.access };
+}
+
+/**
+ * The routine, or a 404, as `requireLessonAccess`.
  *
  * Every action on the detail page acts on a routine by id, and a slot id in a
  * form body is just a number — so the routine is resolved here first and the
@@ -216,10 +311,49 @@ export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
  * An archived routine is still a routine: the page shows it and offers to look,
  * the same way an archived position can still be renamed.
  */
-export function requireRoutineInWall(db: Db, wall: Wall, id: number) {
-	const routine = getRoutine(db, id);
-	if (!routine || !inWall(routine, wall)) throw error(404, 'No such routine');
-	return routine;
+export function requireRoutineAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { routine: Routine; space: Space; access: Granted } {
+	const g = guarded(
+		params,
+		locals,
+		getRoutine(db, idOf(id)),
+		(u, r) => routineAccess(db, u, r),
+		need,
+		'No such routine'
+	);
+	return { routine: g.row, space: g.space, access: g.access };
+}
+
+/**
+ * The exercise, or a 404, as `requireLessonAccess`. Read means the person's
+ * own row (an entry is one) or a group drill in reach; edit, their own row or
+ * a drill of a group they edit.
+ *
+ * Never for logging: a set, the practice endpoint, `popupData` and the
+ * player's save stay on `requireExerciseInWall`, so a log only ever lands on
+ * the person's own row, never on a drill everyone shares (risk 22).
+ */
+export function requireExerciseAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { exercise: Exercise; space: Space; access: Granted } {
+	const g = guarded(
+		params,
+		locals,
+		getExercise(db, idOf(id)),
+		(u, e) => drillAccess(db, u, e),
+		need,
+		'No such exercise'
+	);
+	return { exercise: g.row, space: g.space, access: g.access };
 }
 
 const TEAM_RANK = { member: 0, editor: 1, owner: 2 } as const;

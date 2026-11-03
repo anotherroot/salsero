@@ -12,6 +12,7 @@ import type { Db } from './db';
 import { lessonVideos, links, recordings, videoDownloads, videoSpots } from './db/schema';
 import type { LinkOwner } from './links';
 import { LEASE_MS, MAX_ATTEMPTS } from './songs';
+import { ownerOfTarget, roomForOwner } from './storage';
 import { parseLink } from '$lib/links';
 
 /** The link, if it belongs to `owner`. A drill's never does: drills keep their links as links. */
@@ -129,15 +130,37 @@ export function videoJobTarget(db: Db, id: number): 'recording' | 'lesson-video'
  * source, a point spot at the link's start time if it had one, then the job
  * and the link go — the link has become the video. Null when the job is gone
  * (the link was removed while the video was on its way).
+ *
+ * The bytes are charged to the lesson's or the figure's owner — a group's for a
+ * group's — and checked against its room here too (risk 12): the room asked at
+ * Save may be gone by the time the video lands. Without room the job fails
+ * with the room's message, the link stays for a Retry, and `{ refused }` tells
+ * the route to drop the file. `freeDiskBytes` is what the disk has free
+ * without this file.
  */
 export function completeVideoJob(
 	db: Db,
 	id: number,
-	input: { file: string; mime: string; sizeBytes: number }
-): { recordingId: number } | { lessonVideoId: number } | null {
+	input: { file: string; mime: string; sizeBytes: number },
+	freeDiskBytes: number
+): { recordingId: number } | { lessonVideoId: number } | { refused: string } | null {
 	return db.transaction((tx) => {
 		const job = tx.select().from(videoDownloads).where(eq(videoDownloads.id, id)).get();
 		if (!job) return null;
+
+		const charged = ownerOfTarget(
+			tx,
+			job.figureId !== null ? { figureId: job.figureId } : { lessonId: job.lessonId! }
+		);
+		if (!charged) return null;
+		const room = roomForOwner(tx, charged, input.sizeBytes, freeDiskBytes);
+		if (!room.ok) {
+			tx.update(videoDownloads)
+				.set({ status: 'failed', error: room.message.slice(0, 500), claimedAt: null })
+				.where(eq(videoDownloads.id, id))
+				.run();
+			return { refused: room.message };
+		}
 
 		const owner =
 			job.figureId !== null

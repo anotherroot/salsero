@@ -32,6 +32,7 @@ import {
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions, neutralPosition } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
+import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
 import { popupData } from '$lib/server/popup';
@@ -520,13 +521,13 @@ export const actions: Actions = {
 			request,
 			getDb(),
 			{ figureId: variationOf(params, locals).figure.id },
-			locals.user!.id
+			await freeDisk()
 		),
 	retryVideo: async ({ params, request, locals }) =>
 		retryVideoFrom(
 			request,
 			getDb(),
 			{ figureId: variationOf(params, locals).figure.id },
-			locals.user!.id
+			await freeDisk()
 		)
 };

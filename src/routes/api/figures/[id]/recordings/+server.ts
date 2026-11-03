@@ -3,7 +3,8 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { roomFor } from '$lib/server/storage';
+import { freeDisk, ownerOfRow, roomForOwner } from '$lib/server/storage';
+import { allows, figureAccess } from '$lib/server/access';
 import { addRecording, getFigure } from '$lib/server/figures';
 import {
 	MAX_RECORDING_BYTES,
@@ -31,8 +32,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const figureId = Number(params.id);
 	const db = getDb();
 	const found = Number.isInteger(figureId) ? getFigure(db, figureId, locals.user?.id ?? '') : null;
-	if (!found || found.figure.archivedAt !== null || found.figure.userId !== locals.user?.id)
+	// Uploading needs edit: a group's figure for its editors, a person's for them.
+	if (
+		!found ||
+		found.figure.archivedAt !== null ||
+		!locals.user ||
+		!allows(figureAccess(db, locals.user.id, found.figure), 'edit')
+	)
 		throw error(404, 'Figure not found');
+	// The figure's owner pays: a group's figure fills the group's room, not the uploader's.
+	const owner = ownerOfRow(found.figure);
 
 	const mime = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
 	const kind = mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : null;
@@ -41,7 +50,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const declared = Number(request.headers.get('content-length') ?? 0);
 	if (declared > MAX_RECORDING_BYTES)
 		throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
-	const room = roomFor(db, locals.user.id, declared);
+	const room = roomForOwner(db, owner, declared, await freeDisk());
 	if (!room.ok) throw error(413, room.message);
 	if (!request.body) throw error(400, 'Empty upload.');
 
@@ -67,7 +76,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	// The header can be absent or wrong: check the bytes that really arrived.
-	const after = roomFor(db, locals.user!.id, bytes);
+	// The file is already on the disk: the floor is what is free without it.
+	const after = roomForOwner(db, owner, bytes, (await freeDisk()) + bytes);
 	if (!after.ok) {
 		await unlink(path).catch(() => {});
 		throw error(413, after.message);

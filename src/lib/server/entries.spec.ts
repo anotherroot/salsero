@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, lessonExercises } from './db/schema';
+import { exercises, lessonExercises, lessons } from './db/schema';
+import { createTeam, joinTeam } from './teams';
 import { entryFor } from './entries';
 import { addFigureExercise, archiveVariation, createFigure, getFigure } from './figures';
 import {
@@ -105,6 +106,14 @@ describe('getFigure', () => {
 });
 
 describe('addFigureExercise', () => {
+	// T1 for real: u1 owns it, u2 is a member, and the class lesson is published,
+	// so u2 reads what it links (an entry needs read access to its variation).
+	beforeEach(() => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		joinTeam(db, 'u2', 1, 2);
+		db.update(lessons).set({ publishedAt: 3 }).where(eq(lessons.id, lessonId)).run();
+	});
+
 	// Catches: "someone already has one" refusing a second person, or the entry copying figure.userId.
 	it('lets a second person add theirs on a group figure, owned by them', () => {
 		const other = createFigure(db, T1_SALSA, {
@@ -114,6 +123,7 @@ describe('addFigureExercise', () => {
 			style: 'salsa',
 			notes: null
 		})!.figure.id;
+		linkFigure(db, lessonId, other);
 		const first = addFigureExercise(db, 'u1', other)!;
 		const second = addFigureExercise(db, 'u2', other)!;
 		expect(first.userId).toBe('u1');
@@ -132,6 +142,20 @@ describe('addFigureExercise', () => {
 		expect(db.select().from(exercises).where(eq(exercises.figureId, figureId)).all()).toHaveLength(
 			2
 		);
+	});
+
+	// Catches: a posted id handing anyone an entry on a group figure they cannot read (risk 21).
+	it('refuses a group figure in no published lesson, and an outsider any', () => {
+		const unpublished = createFigure(db, T1_SALSA, {
+			figureName: 'Not yet taught',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		expect(addFigureExercise(db, 'u2', unpublished)).toBeNull();
+		expect(addFigureExercise(db, 'u4', figureId)).toBeNull();
+		expect(addFigureExercise(db, 'u1', unpublished)!.userId).toBe('u1');
 	});
 
 	// Catches: handing a person an entry on someone else's personal figure.

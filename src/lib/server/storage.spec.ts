@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { storageRequests, users } from './db/schema';
+import { eq } from 'drizzle-orm';
+import { storageRequests, teams, teamTrash, users } from './db/schema';
+import { createTeam, joinTeam } from './teams';
 import { addRecording, archiveVariation, createFigure } from './figures';
 import { addLessonVideo, createLesson } from './lessons';
 import { createSongFromUpload } from './songs';
 import { putCountTake } from './countTakes';
-import { U1_SALSA, U2_SALSA } from './test-walls';
+import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
+import type { Space } from './scope';
 import {
 	askForMore,
 	listOpenRequests,
@@ -13,13 +16,18 @@ import {
 	listStorageItems,
 	openRequest,
 	resolveRequest,
+	limitOf,
 	roomFor,
+	roomForOwner,
+	teamLimitBytes,
+	usedBytesOf,
 	setStorageLimit,
 	storageOf,
 	usedBytes
 } from './storage';
 
 const MB = 1024 * 1024;
+const GB = 1024 * MB;
 let db: Db;
 
 function user(id: string, limit: number | null) {
@@ -28,7 +36,7 @@ function user(id: string, limit: number | null) {
 		.run();
 }
 
-function recording(wall: typeof U1_SALSA, name: string, bytes: number) {
+function recording(wall: Space, name: string, bytes: number) {
 	const f = createFigure(db, wall, {
 		figureName: name,
 		name: 'Basic',
@@ -137,6 +145,90 @@ describe('roomFor', () => {
 	});
 });
 
+describe("a group's room", () => {
+	/** Team 1 owned by u1 with u2 and u3: three people. */
+	function team() {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok) throw new Error('no team');
+		joinTeam(db, 'u2', made.teamId, 2);
+		joinTeam(db, 'u3', made.teamId, 2);
+		return made.teamId;
+	}
+
+	it("counts its recordings, lesson videos and unpurged trash; a person's usage leaves them out", () => {
+		const teamId = team();
+		recording(T1_SALSA, 'Team', 10 * MB);
+		const lesson = createLesson(db, T1_SALSA, {
+			title: 'L',
+			lessonDay: '2026-11-01',
+			notes: null
+		}).lesson;
+		addLessonVideo(db, {
+			lessonId: lesson.id,
+			file: 'tv.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 20 * MB
+		});
+		const trash = (sizeBytes: number, more: { purgedAt?: number; restoredAt?: number } = {}) =>
+			db
+				.insert(teamTrash)
+				.values({
+					teamId,
+					kind: 'video',
+					label: 'x',
+					rootKind: 'lesson',
+					rootId: lesson.id,
+					rowsJson: '[]',
+					sizeBytes,
+					deletedBy: 'u1',
+					deletedAt: 1,
+					...more
+				})
+				.run();
+		trash(40 * MB);
+		trash(80 * MB, { purgedAt: 2 });
+		trash(160 * MB, { restoredAt: 2 });
+		recording(U1_SALSA, 'Mine', 1 * MB);
+
+		expect(usedBytesOf(db, { teamId })).toBe(70 * MB);
+		expect(usedBytesOf(db, { userId: 'u1' })).toBe(1 * MB);
+		expect(usedBytes(db, 'u1')).toBe(1 * MB);
+	});
+
+	it('a group of three may keep 600 MB; the admin’s override wins', () => {
+		const teamId = team();
+		expect(teamLimitBytes(db, teamId)).toBe(600 * MB);
+		expect(limitOf(db, { teamId })).toBe(600 * MB);
+		db.update(teams)
+			.set({ storageLimitBytes: 50 * MB })
+			.where(eq(teams.id, teamId))
+			.run();
+		expect(teamLimitBytes(db, teamId)).toBe(50 * MB);
+	});
+
+	it("refuses an upload over the group's limit with the group's message", () => {
+		const teamId = team();
+		recording(T1_SALSA, 'Team', 550 * MB);
+		expect(roomForOwner(db, { teamId }, 100 * MB, 100 * GB)).toEqual({
+			ok: false,
+			usedBytes: 550 * MB,
+			limitBytes: 600 * MB,
+			message: 'Not enough room: the group uses 550 MB of 600 MB. The owner can ask for more.'
+		});
+		expect(roomForOwner(db, { teamId }, 50 * MB, 100 * GB)).toEqual({ ok: true });
+	});
+});
+
+describe('the disk floor', () => {
+	it('refuses a 200 MB upload with 2.1 GB free, even with no limit', () => {
+		expect(limitOf(db, { userId: 'u2' })).toBeNull();
+		const r = roomForOwner(db, { userId: 'u2' }, 200 * MB, 2.1 * GB);
+		expect(r.ok).toBe(false);
+		expect(r.ok === false && r.message).toBe('Not enough room on the server. Ask the admin.');
+		expect(roomForOwner(db, { userId: 'u2' }, 50 * MB, 2.1 * GB)).toEqual({ ok: true });
+	});
+});
+
 describe('listStorageItems', () => {
 	it('lists the person’s files biggest first, attributed, with archived marked', () => {
 		const figId = recording(U1_SALSA, 'Enchufla', 3 * MB);
@@ -202,7 +294,6 @@ describe('askForMore', () => {
 });
 
 describe('admin: people, limits and requests', () => {
-	const GB = 1024 ** 3;
 	beforeEach(() => {
 		db = openDb(':memory:');
 		user('a', 1 * GB);

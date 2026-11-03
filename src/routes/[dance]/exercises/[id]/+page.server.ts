@@ -11,20 +11,19 @@ import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { practicePayload } from '$lib/server/practice-content';
-import { requireExerciseInWall, wallOf } from '$lib/server/scope';
+import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { isFrequency } from '$lib/frequency';
 import { localDay } from '$lib/day/day';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
- * The exercise this URL names, or a 404. An archived exercise is gone from
- * every list, so it is gone from its own URL too — the figure page's rule.
+ * The exercise this URL names, to change, or a 404. An archived exercise is
+ * gone from every list, so it is gone from its own URL too — the figure page's
+ * rule.
  */
 function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
-	const id = Number(params.id);
-	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
-	const exercise = requireExerciseInWall(getDb(), wallOf(params, locals), id);
+	const { exercise } = requireExerciseAccess(getDb(), locals, params, params.id, 'edit');
 	if (exercise.archivedAt !== null) throw error(404, 'No such exercise');
 	return exercise;
 }
@@ -32,7 +31,12 @@ function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 export const load: PageServerLoad = ({ params, locals }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
-	const row = exerciseOf(params, locals);
+	// The person's own row only: the page is the log popup's, and a log never
+	// lands on a group's drill (risk 22).
+	const id = Number(params.id);
+	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
+	const row = requireExerciseInWall(db, wallOf(params, locals), id);
+	if (row.archivedAt !== null) throw error(404, 'No such exercise');
 	const now = Date.now();
 	const popup = popupData(db, wallOf(params, locals), row.id, locals.user.timezone, now);
 	if (!popup) throw error(404, 'No such exercise');

@@ -1070,7 +1070,7 @@ describe("the routine detail route refuses the other dance's rows", () => {
 	// `duplicateMany` and `extract`, whose data functions take `routine.id`
 	// natively and scope in SQL. For these three,
 	// `ownsSlot` in the route is the ONLY guard: a same-dance slot from a
-	// SECOND salsa routine passes `requireRoutineInWall` (routine A really is
+	// SECOND salsa routine passes `requireRoutineAccess` (routine A really is
 	// salsa) and would pass the data function's own dance check too, since
 	// both routines are salsa. A bachata slot would prove nothing here — it
 	// would already be caught by a dance check unrelated to `ownsSlot`.

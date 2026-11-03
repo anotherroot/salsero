@@ -18,6 +18,7 @@ import {
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { inSpace, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
 import { entryFor } from './entries';
+import { allows, figureAccess } from './access';
 import type { Partner } from '$lib/labels';
 import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
@@ -272,15 +273,17 @@ export function renameFigure(db: Db, groupId: number, name: string): boolean {
  * named with its label. Null for a missing or archived variation, one the
  * person cannot see, and one this person already has a live exercise for. An
  * archived entry of theirs comes back (the same row, so its sets stay) instead
- * of a second one, keeping its old `everyDays` (the argument is ignored then). The only writer of `source: 'figure'`. The entry is always
+ * of a second one, keeping its old `everyDays` (the argument is ignored then).
+ * The only writer of `source: 'figure'`. The entry is always
  * the caller's, never the figure's owner's.
  */
 export function addFigureExercise(db: Db, userId: string, figureId: number, everyDays = 3) {
 	return db.transaction((tx) => {
 		const figure = tx.select().from(figures).where(eq(figures.id, figureId)).get();
 		if (!figure || figure.archivedAt !== null) return null;
-		// Task 7 tightens this to figureAccess >= read
-		if (figure.teamId === null && figure.userId !== userId) return null;
+		// The person's own variation, or a group's they may read (risk 21): the id
+		// comes from a form, and an entry hands out the variation's content.
+		if (!allows(figureAccess(tx, userId, figure), 'read')) return null;
 		const label = labelOf(tx, figureId);
 		if (label === null) return null;
 		const existing = entryFor(tx, userId, { figureId });
@@ -576,10 +579,6 @@ export function deleteRecording(db: Db, id: number) {
 		tx.delete(videoSpots).where(eq(videoSpots.recordingId, id)).run();
 		return tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
 	});
-}
-
-export function getRecordingByFile(db: Db, file: string) {
-	return db.select().from(recordings).where(eq(recordings.file, file)).get() ?? null;
 }
 
 /**

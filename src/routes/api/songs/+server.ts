@@ -13,7 +13,7 @@ import {
 	saveStream
 } from '$lib/server/files';
 import { createSongFromUpload } from '$lib/server/songs';
-import { roomFor } from '$lib/server/storage';
+import { freeDisk, roomForOwner } from '$lib/server/storage';
 import { DANCES, isDanceSlug } from '$lib/dances/dances';
 import type { RequestHandler } from './$types';
 
@@ -31,7 +31,12 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	if (Number(request.headers.get('content-length') ?? 0) > MAX_RECORDING_BYTES) {
 		throw error(413, `That file is larger than ${MAX_RECORDING_LABEL}.`);
 	}
-	const room = roomFor(getDb(), locals.user.id, Number(request.headers.get('content-length') ?? 0));
+	const room = roomForOwner(
+		getDb(),
+		{ userId: locals.user.id },
+		Number(request.headers.get('content-length') ?? 0),
+		await freeDisk()
+	);
 	if (!room.ok) throw error(413, room.message);
 	if (!request.body) throw error(400, 'Empty upload.');
 
@@ -54,7 +59,13 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		throw error(400, 'Empty upload.');
 	}
 
-	const after = roomFor(getDb(), locals.user.id, bytes);
+	// The file is already on the disk: the floor is what is free without it.
+	const after = roomForOwner(
+		getDb(),
+		{ userId: locals.user.id },
+		bytes,
+		(await freeDisk()) + bytes
+	);
 	if (!after.ok) {
 		await unlink(path).catch(() => {});
 		throw error(413, after.message);

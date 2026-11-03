@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { addSpot, listSpots, ownerFrom, SpotError, videoOwner } from '$lib/server/spots';
+import { allows, videoAccess } from '$lib/server/access';
+import { addSpot, listSpots, ownerFrom, SpotError } from '$lib/server/spots';
 import type { SpotOwner } from '$lib/types';
 import type { RequestHandler } from './$types';
 
@@ -9,12 +10,15 @@ import type { RequestHandler } from './$types';
  *
  * Flat, like the media servers that stream the same videos: there is no dance
  * in the URL to contradict, and a spot is reached only through its video's id.
- * The person is the wall: another person's video and a missing one are the
- * same 404.
+ * The person and their groups are the wall: listing needs read on the video,
+ * adding needs edit, and another person's video, a group's draft and a missing
+ * one are the same 404.
  */
-function requireOwnVideo(owner: SpotOwner, locals: App.Locals) {
-	const userId = videoOwner(getDb(), owner);
-	if (userId === null || userId !== locals.user?.id) throw error(404, 'No such video');
+function requireVideo(video: SpotOwner, locals: App.Locals, need: 'read' | 'edit') {
+	const userId = locals.user?.id;
+	if (!userId || !allows(videoAccess(getDb(), userId, video), need)) {
+		throw error(404, 'No such video');
+	}
 }
 
 export const GET: RequestHandler = ({ url, locals }) => {
@@ -24,7 +28,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		lessonVideoId: q.get('lessonVideo') ?? undefined
 	});
 	if (!owner) throw error(400, 'Name one video: ?recording= or ?lessonVideo=.');
-	requireOwnVideo(owner, locals);
+	requireVideo(owner, locals, 'read');
 	return json(listSpots(getDb(), owner));
 };
 
@@ -34,7 +38,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const b = body as Record<string, unknown>;
 	const owner = ownerFrom({ recordingId: b.recordingId, lessonVideoId: b.lessonVideoId });
 	if (!owner) throw error(400, 'Name one video: recordingId or lessonVideoId.');
-	requireOwnVideo(owner, locals);
+	requireVideo(owner, locals, 'edit');
 	try {
 		const spot = addSpot(getDb(), owner, { startMs: b.startMs, endMs: b.endMs, label: b.label });
 		if (!spot) throw error(404, 'No such video');
