@@ -218,6 +218,8 @@ export const actions: Actions = {
 		// A retry downloads again: refused at or over its owner's limit (the group's for its song).
 		const room = roomForOwner(db, ownerOfRow(song), 1, Number.POSITIVE_INFINITY);
 		if (!room.ok) return fail(413, { action: 'retry' as const, message: room.message });
+		// Not logged in History, on a group song too: a retry only re-queues the
+		// worker (status), like the worker's own writes, and no field changes.
 		if (!retrySong(db, song.id)) {
 			return fail(409, { action: 'retry' as const, message: 'Only a failed song can be retried.' });
 		}

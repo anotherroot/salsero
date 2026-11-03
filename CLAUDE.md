@@ -537,7 +537,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
 - **Every group mutation is logged, in its own transaction.** `logChange`
   (`src/lib/server/changes.ts`) with a real actor, so History is complete. A
   new group mutation is added to `MUTATIONS` in `src/lib/server/changes.spec.ts`,
-  which fails otherwise.
+  which fails otherwise. Worker state is exempt: the worker's own writes
+  (status, audio, beats) and a song's Retry (`retrySong`, which only re-queues
+  a failed download) change no field a person edits, so they are not logged.
 - **A save on a group row carries `seen`.** The clash check
   (`src/lib/server/clash.ts`) compares what the editor saw with the row now;
   `seen` must cover every field the save writes, or a quiet overwrite slips
