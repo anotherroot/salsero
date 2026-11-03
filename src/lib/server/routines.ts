@@ -25,7 +25,7 @@ import {
 	type Routine
 } from './db/schema';
 import { graphFor } from './graph';
-import { ownedOrUsable, usableOf, type Usable } from './usable';
+import { ownedOrUsable, teamRefs, usableOf, type Usable } from './usable';
 import { addedReach, addedTeams } from './access';
 import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
@@ -311,6 +311,54 @@ export function listPickRoutines(db: Db, space: Space): Omit<PickRoutine, 'linke
 				slots: r.slots,
 				loops: shape ? loops(graph, shape) : false
 			};
+		})
+		.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+}
+
+/**
+ * The group routines a person may use (`usableOf`), live, as a picker offers
+ * them (`listPickRoutines`), each tagged with its group: whether it loops is
+ * read on the person's graph, which holds the group figures they may use. By
+ * name.
+ */
+export function listUsableRoutines(
+	db: Db,
+	wall: Wall,
+	usable: Usable = usableOf(db, wall)
+): (Omit<PickRoutine, 'linked'> & { team: TeamRef })[] {
+	const ids = [...usable.routines];
+	if (ids.length === 0) return [];
+	const rows = db
+		.select({
+			id: routines.id,
+			name: routines.name,
+			teamId: routines.teamId,
+			slots: count(routineSteps.id)
+		})
+		.from(routines)
+		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
+		.where(
+			and(
+				inArray(routines.id, ids),
+				eq(routines.dance, wall.dance),
+				isNotNull(routines.teamId),
+				isNull(routines.archivedAt)
+			)
+		)
+		.groupBy(routines.id)
+		.all();
+	if (rows.length === 0) return [];
+	const shapes = routineShapes(db, wall, { usable, extra: ids });
+	const graph = graphFor(db, wall, usable);
+	const teams = teamRefs(
+		db,
+		rows.map((r) => r.teamId!)
+	);
+	return rows
+		.flatMap(({ teamId, ...r }) => {
+			const team = teams.get(teamId!);
+			const shape = shapes.get(r.id);
+			return team ? [{ ...r, loops: shape ? loops(graph, shape) : false, team }] : [];
 		})
 		.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 }

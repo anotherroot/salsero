@@ -3,12 +3,22 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises, figureGroups, figures, lessonFigures, spotLinks } from './db/schema';
 import { addRecording, createFigure, createVariationFrom, getGroup } from './figures';
-import { addLessonVideo, createLesson, getLesson, linkExercise, linkFigure } from './lessons';
+import {
+	addLessonVideo,
+	createLesson,
+	getLesson,
+	linkExercise,
+	linkFigure,
+	publishLesson
+} from './lessons';
 import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import { linkSpot, SpotLinkError, unlinkFromSection } from './spot-links';
-import { createAndLink, createAndLinkIn, linkOptions } from './link-popup';
-import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
+import { createAndLink, createAndLinkIn, linkOptions, linkOptionsFor } from './link-popup';
+import { createTeam, joinTeam } from './teams';
+import { addLesson } from './entries';
+import { crossRefs } from './integrity';
+import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let lessonId: number;
@@ -451,5 +461,102 @@ describe('in a group', () => {
 		expect(() =>
 			createAndLink(db, 'u1', s, { kind: 'drill', name: 'Other', everyDays: 3 })
 		).toThrow('No such section.');
+	});
+});
+
+describe("the Link popup on a person's own video", () => {
+	/**
+	 * Salsa Tuesdays (u1's, u2 a member): F (Setenta) and drill D in published
+	 * lesson L, which u2 added; H only in published L2. u2's own lesson
+	 * "My notes" with a video and a section, and u2's own Enchufla.
+	 */
+	function given() {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		if (!made.ok) throw new Error('team expected');
+		const team = { id: made.teamId, name: 'Salsa Tuesdays' };
+		const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', made.teamId, 1);
+		const input = (figureName: string) => ({
+			figureName,
+			name: 'Basic',
+			partner: 'partner' as const,
+			style: 'salsa',
+			notes: null
+		});
+		const F = createFigure(db, T, input('Setenta'))!.figure.id;
+		const H = createFigure(db, T, input('Sombrero'))!.figure.id;
+		const D = createCustomExercise(db, T, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const L = createLesson(db, T, { lessonDay: '2026-11-03', title: 'Week 1', notes: null }).lesson
+			.id;
+		expect(linkFigure(db, L, F, 'u1')).toBe(true);
+		expect(linkExercise(db, L, D, 'u1')).toBe(true);
+		const L2 = createLesson(db, T, { lessonDay: '2026-11-03', title: 'Week 2', notes: null }).lesson
+			.id;
+		expect(linkFigure(db, L2, H, 'u1')).toBe(true);
+		publishLesson(db, T, L, 1);
+		publishLesson(db, T, L2, 1);
+		expect(
+			addLesson(db, 'u2', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, 2)
+		).toBe(true);
+		const own = createFigure(db, U2_SALSA, input('Enchufla'))!.figure.id;
+		const mine = createLesson(db, U2_SALSA, {
+			lessonDay: '2026-11-04',
+			title: 'My notes',
+			notes: null
+		}).lesson.id;
+		const video = addLessonVideo(db, {
+			lessonId: mine,
+			file: 'm.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		const mySection = addSpot(
+			db,
+			{ lessonVideoId: video },
+			{ startMs: 0, endMs: 3000, label: null }
+		)!.id;
+		return { team, T, F, H, D, L, own, mine, mySection };
+	}
+
+	it('offers the group figures and drills they may use, tagged with the group', () => {
+		const { team, F, H, D, own, mySection } = given();
+		const o = linkOptionsFor(db, mySection, 'u2')!;
+		const all = [...o.near, ...o.figures, ...o.drills];
+		const tagged = (target: object) =>
+			all.find((x) => JSON.stringify(x.target) === JSON.stringify(target));
+		expect(tagged({ figureId: F })).toMatchObject({ label: 'Setenta · Basic', team });
+		expect(tagged({ figureId: own })?.team).toBeUndefined();
+		expect(tagged({ exerciseId: D })).toMatchObject({ label: 'Shines', drill: true, team });
+		expect(tagged({ figureId: H })).toBeUndefined();
+		// New variation / New figure still make the person's own only.
+		expect(o.figureChoices.map((f) => f.name)).toEqual(['Enchufla']);
+	});
+
+	it('links one, shows it as linked with its group, and keeps the walls whole', () => {
+		const { team, F, mySection } = given();
+		const res = linkOptionsFor(db, mySection, 'u2')!;
+		expect(res.figures.find((x) => 'figureId' in x.target && x.target.figureId === F)?.linked).toBe(
+			false
+		);
+		expect(linkSpot(db, 'u2', mySection, { figureId: F })).toBeGreaterThan(0);
+		const o = linkOptionsFor(db, mySection, 'u2')!;
+		expect(o.linked).toMatchObject([{ target: { figureId: F }, label: 'Setenta · Basic', team }]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("a group's section is offered only the group's own, as before", () => {
+		const { T, L, F, own } = given();
+		const gv = addLessonVideo(
+			db,
+			{ lessonId: L, file: 'g.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		const s = addSpot(db, { lessonVideoId: gv }, { startMs: 0, endMs: 9, label: null }, 'u1')!.id;
+		const o = linkOptionsFor(db, s, 'u1')!;
+		const all = [...o.near, ...o.figures, ...o.drills];
+		expect(all.some((x) => 'figureId' in x.target && x.target.figureId === F)).toBe(true);
+		expect(all.some((x) => 'figureId' in x.target && x.target.figureId === own)).toBe(false);
+		expect(all.every((x) => x.team === undefined)).toBe(true);
+		expect(T.teamId).toBe(1);
 	});
 });

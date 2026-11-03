@@ -16,7 +16,8 @@ import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
-import { listPickRoutines } from './routines';
+import { listPickRoutines, listUsableRoutines } from './routines';
+import { usableBy, usableDrills, usableVersions } from './usable';
 import {
 	exercises,
 	figureGroups,
@@ -755,8 +756,12 @@ export function linkFigure(db: Db, lessonId: number, figureId: number, by?: stri
 
 		// A lesson and a figure from different spaces (dances, people or groups) must
 		// never join: the wall is the point, and no CHECK can express it (see `schema.ts`).
+		// The one crossing: a person's own lesson may link a group's variation they
+		// may use (`usableBy`, ruling 2), without a copy. A group's lesson, never another's.
 		const space = lessonSpace(tx, lessonId, by);
-		if (!space || !inSpace(figure, space)) return false;
+		if (!space || !(inSpace(figure, space) || usableBy(tx, space, 'figures', figure))) {
+			return false;
+		}
 
 		const res = tx.insert(lessonFigures).values({ lessonId, figureId }).onConflictDoNothing().run();
 		if (res.changes === 0) return false;
@@ -829,9 +834,12 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number, by?: st
 		if (!routine) return false;
 
 		// The space, as in `linkFigure`: the route checks the lesson's space, and
-		// this is the only check on the routine id posted with it.
+		// this is the only check on the routine id posted with it. A person's own
+		// lesson may link a group's routine they may use.
 		const space = lessonSpace(tx, lessonId, by);
-		if (!space || !inSpace(routine, space)) return false;
+		if (!space || !(inSpace(routine, space) || usableBy(tx, space, 'routines', routine))) {
+			return false;
+		}
 
 		const res = tx
 			.insert(lessonRoutines)
@@ -889,7 +897,8 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number, by?: 
 				figureId: exercises.figureId,
 				routineId: exercises.routineId,
 				drillId: exercises.drillId,
-				lessonId: exercises.lessonId
+				lessonId: exercises.lessonId,
+				source: exercises.source
 			})
 			.from(exercises)
 			.where(and(eq(exercises.id, exerciseId), isNull(exercises.archivedAt)))
@@ -903,10 +912,16 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number, by?: 
 		// is the point, and no CHECK can express it (see `schema.ts`). For an entry
 		// its target counts too: a person's entry for a group's figure is theirs,
 		// but what it shows is the group's, and never belongs on their own lesson.
+		// A person's own lesson may link the group's drill itself, when they may
+		// use it (`usableBy`, ruling 2).
 		const space = lessonSpace(tx, lessonId, by);
-		if (!space || !inSpace(exercise, space)) return false;
-		const owner = ownerRowOf(tx, exercise);
-		if (!owner || !inSpace(owner, space)) return false;
+		if (!space) return false;
+		if (!inSpace(exercise, space)) {
+			if (exercise.source !== 'custom' || !usableBy(tx, space, 'drills', exercise)) return false;
+		} else {
+			const owner = ownerRowOf(tx, exercise);
+			if (!owner || !inSpace(owner, space)) return false;
+		}
 
 		if (exercise.figureId !== null) {
 			const linked = tx
@@ -978,7 +993,11 @@ export function unlinkExercise(
 	});
 }
 
-/** Live variations in the lesson's space, by label; `linked` marks those already on the lesson. */
+/**
+ * Live variations in the lesson's space, by label; `linked` marks those already on the lesson.
+ * A person's own lesson also offers the group variations they may use, after
+ * their own, each tagged with its group (ruling 2).
+ */
 export function listLinkableFigures(
 	db: Db,
 	lessonId: number
@@ -987,16 +1006,25 @@ export function listLinkableFigures(
 	if (!space) return [];
 
 	const linked = new Set(linkedFigureIds(db, lessonId));
-	return listVersions(db, space).map((v) => ({ ...v, linked: linked.has(v.id) }));
+	const theirs = isTeam(space) ? [] : usableVersions(db, space);
+	return [...listVersions(db, space), ...theirs].map((v) => ({ ...v, linked: linked.has(v.id) }));
 }
 
-/** Unarchived routines in the lesson's space, alphabetical; `linked` marks those already on it. */
+/**
+ * Unarchived routines in the lesson's space, alphabetical; `linked` marks those already on it.
+ * A person's own lesson also offers the group routines they may use, after
+ * their own, each tagged with its group.
+ */
 export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
 	const space = lessonSpace(db, lessonId);
 	if (!space) return [];
 
 	const linked = new Set(linkedRoutineIds(db, lessonId));
-	return listPickRoutines(db, space).map((r) => ({ ...r, linked: linked.has(r.id) }));
+	const theirs = isTeam(space) ? [] : listUsableRoutines(db, space);
+	return [...listPickRoutines(db, space), ...theirs].map((r) => ({
+		...r,
+		linked: linked.has(r.id)
+	}));
 }
 
 /**
@@ -1038,46 +1066,56 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 		where.push(or(isNull(exercises.routineId), notInArray(exercises.routineId, linkedRoutines))!);
 	}
 
-	return (
-		db
-			.select({
-				id: exercises.id,
-				name: exercises.name,
-				source: exercises.source,
-				everyDays: exercises.everyDays,
-				figure: figureGroups.name,
-				variation: figures.name,
-				owner: {
-					dance: exercises.dance,
-					userId: exercises.userId,
-					teamId: exercises.teamId,
-					figureId: exercises.figureId,
-					routineId: exercises.routineId,
-					drillId: exercises.drillId
-				}
-			})
-			.from(exercises)
-			.leftJoin(figures, eq(figures.id, exercises.figureId))
-			.leftJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-			.where(and(...where))
-			.orderBy(asc(exercises.name), asc(exercises.id))
-			.all()
-			// An entry whose target is another space's is not this lesson's to link
-			// (`linkExercise` refuses it): its own row is in the space, its content is not.
-			.filter((r) => {
-				const target = ownerRowOf(db, r.owner);
-				return target !== null && inSpace(target, space);
-			})
-			.map(({ id, name, source, everyDays, figure, variation }) => ({
-				id,
-				name,
-				source,
-				everyDays,
-				figure,
-				variation,
-				linked: alreadyLinked.has(id)
-			}))
-	);
+	const own: PickExercise[] = db
+		.select({
+			id: exercises.id,
+			name: exercises.name,
+			source: exercises.source,
+			everyDays: exercises.everyDays,
+			figure: figureGroups.name,
+			variation: figures.name,
+			owner: {
+				dance: exercises.dance,
+				userId: exercises.userId,
+				teamId: exercises.teamId,
+				figureId: exercises.figureId,
+				routineId: exercises.routineId,
+				drillId: exercises.drillId
+			}
+		})
+		.from(exercises)
+		.leftJoin(figures, eq(figures.id, exercises.figureId))
+		.leftJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(and(...where))
+		.orderBy(asc(exercises.name), asc(exercises.id))
+		.all()
+		// An entry whose target is another space's is not this lesson's to link
+		// (`linkExercise` refuses it): its own row is in the space, its content is not.
+		.filter((r) => {
+			const target = ownerRowOf(db, r.owner);
+			return target !== null && inSpace(target, space);
+		})
+		.map(({ id, name, source, everyDays, figure, variation }) => ({
+			id,
+			name,
+			source,
+			everyDays,
+			figure,
+			variation,
+			linked: alreadyLinked.has(id)
+		}));
+	// A person's own lesson: the group drills they may use too, after their own,
+	// each tagged with its group (ruling 2). Never an entry (filtered above).
+	const theirs: PickExercise[] = isTeam(space)
+		? []
+		: usableDrills(db, space).map((d) => ({
+				...d,
+				source: 'custom',
+				figure: null,
+				variation: null,
+				linked: alreadyLinked.has(d.id)
+			}));
+	return [...own, ...theirs];
 }
 
 /** A lesson's new video; in a group, History says who added it (`by`). */

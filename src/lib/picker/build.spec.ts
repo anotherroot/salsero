@@ -271,4 +271,15 @@ describe('linkOptionGroups', () => {
 			linked: false
 		});
 	});
+
+	it("linkOptionGroups: a group's move of the same name is its own heading, not merged into yours", () => {
+		const team = { id: 1, name: 'Salsa Tuesdays' };
+		const groups = linkOptionGroups(
+			linkOpts({
+				figures: [variation(3, 'Enchufla', 'Basic'), { ...variation(7, 'Enchufla', 'Basic'), team }]
+			})
+		);
+		const headings = groups[0].entries as PickHeading[];
+		expect(headings.map((h) => h.rows.map((r) => r.key))).toEqual([['figure:3'], ['figure:7']]);
+	});
 });

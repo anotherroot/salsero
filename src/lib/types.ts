@@ -279,6 +279,8 @@ export interface PickExercise {
 	figure: string | null;
 	variation: string | null;
 	linked: boolean;
+	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
+	team?: TeamRef;
 }
 
 /** A routine as a picker offers it. */
@@ -289,6 +291,8 @@ export interface PickRoutine {
 	slots: number;
 	loops: boolean;
 	linked: boolean;
+	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
+	team?: TeamRef;
 }
 
 /** One variation of a figure, as a picker offers it. */
@@ -302,6 +306,8 @@ export interface FigureVersion {
 	name: string;
 	/** How to show it anywhere else — "Enchufla · Doble". */
 	label: string;
+	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
+	team?: TeamRef;
 }
 
 /** A figure (a `figures` row) as the Figures list shows it, under its move. */
@@ -414,6 +420,8 @@ export interface LinkOption {
 	everyDays: number | null;
 	/** Already linked to this section. */
 	linked: boolean;
+	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
+	team?: TeamRef;
 }
 
 /** One of a section's links, in the Link popup. */

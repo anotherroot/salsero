@@ -166,7 +166,8 @@ export function sectionGroups(gs: SectionGroup[], nearTitle: string): PickGroup[
  * how often. Linked targets stay, flagged.
  */
 export function linkOptionGroups(o: LinkOptions): PickGroup[] {
-	// Figure names are unique per dance, so a name stands in for the figure.
+	// Figure names are unique per dance and space, so a name and its group stand in
+	// for the figure: a group's Enchufla offered beside yours is its own heading.
 	const variations = (os: LinkOption[]) => {
 		const ids = new Map<string, number>();
 		return variationEntries(
@@ -174,10 +175,11 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 				.filter((x) => 'figureId' in x.target)
 				.map((x) => {
 					const figure = x.figure ?? '';
-					if (!ids.has(figure)) ids.set(figure, ids.size);
+					const whose = `${x.team?.id ?? ''}:${figure}`;
+					if (!ids.has(whose)) ids.set(whose, ids.size);
 					return {
 						id: (x.target as { figureId: number }).figureId,
-						groupId: ids.get(figure)!,
+						groupId: ids.get(whose)!,
 						figure,
 						name: x.name,
 						label: x.label,

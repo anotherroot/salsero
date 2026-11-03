@@ -1,10 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises } from './db/schema';
 import { addRecording, archiveVariation, createFigure, createVariationFrom } from './figures';
-import { addLessonVideo, createLesson, linkExercise, linkFigure } from './lessons';
+import {
+	addLessonVideo,
+	archiveLesson,
+	createLesson,
+	linkExercise,
+	linkFigure,
+	publishLesson
+} from './lessons';
+import { createTeam, joinTeam } from './teams';
+import { addLesson } from './entries';
+import { crossRefs } from './integrity';
+import type { Space } from './scope';
 import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import {
@@ -22,6 +33,8 @@ import {
 	unlinkSpot,
 	videoSections
 } from './spot-links';
+
+const NONE = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
 
 let db: Db;
 let lessonId: number;
@@ -356,5 +369,139 @@ describe('in a group', () => {
 	it("answers a group's section as missing to a person, until access says who may edit", () => {
 		const s = teamSection();
 		expect(() => linkSpot(db, 'u1', s, { figureId })).toThrow('No such section.');
+	});
+});
+
+describe("a person's own section and what their groups gave them", () => {
+	/**
+	 * Salsa Tuesdays (u1's): figure F and drill D in published lesson L, which
+	 * u2 added; H in published L2, which u2 did not add. Rueda club (u3's, u2
+	 * not in it): X. u2's own lesson with a video and a section.
+	 */
+	function given() {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		if (!made.ok) throw new Error('team expected');
+		const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', made.teamId, 1);
+		const groupFig = (space: Space, figureName: string) =>
+			createFigure(db, space, {
+				figureName,
+				name: 'Basic',
+				partner: 'partner',
+				style: 'salsa',
+				notes: null
+			})!.figure.id;
+		const F = groupFig(T, 'Setenta');
+		const H = groupFig(T, 'Sombrero');
+		const D = createCustomExercise(db, T, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const L = createLesson(db, T, { lessonDay: '2026-11-03', title: 'Week 1', notes: null }).lesson
+			.id;
+		expect(linkFigure(db, L, F, 'u1')).toBe(true);
+		expect(linkExercise(db, L, D, 'u1')).toBe(true);
+		const L2 = createLesson(db, T, { lessonDay: '2026-11-03', title: 'Week 2', notes: null }).lesson
+			.id;
+		expect(linkFigure(db, L2, H, 'u1')).toBe(true);
+		expect(publishLesson(db, T, L, 1)).toBe(true);
+		expect(publishLesson(db, T, L2, 1)).toBe(true);
+		expect(addLesson(db, 'u2', L, NONE, 2)).toBe(true);
+		const rueda = createTeam(db, 'u3', 'salsa', 'Rueda club', 1);
+		if (!rueda.ok) throw new Error('team expected');
+		const X = groupFig({ dance: 'salsa', teamId: rueda.teamId, actorId: 'u3' }, 'Dile que no');
+
+		// The group's own section on L's video, linked to F.
+		const groupVideo = addLessonVideo(
+			db,
+			{ lessonId: L, file: 'g.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		const groupSection = addSpot(
+			db,
+			{ lessonVideoId: groupVideo },
+			{ startMs: 0, endMs: 2000, label: 'Class' },
+			'u1'
+		)!.id;
+		linkInSpace(db, T, groupSection, { figureId: F });
+
+		const mine = createLesson(db, U2_SALSA, {
+			lessonDay: '2026-11-04',
+			title: 'My notes',
+			notes: null
+		}).lesson.id;
+		const myVideo = addLessonVideo(db, {
+			lessonId: mine,
+			file: 'm.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		const mySection = addSpot(
+			db,
+			{ lessonVideoId: myVideo },
+			{ startMs: 500, endMs: 3000, label: 'Mine' }
+		)!.id;
+		const myFigure = groupFig(U2_SALSA, 'Enchufla');
+		return { T, F, H, D, X, L, groupSection, mine, myVideo, mySection, myFigure };
+	}
+
+	it('links it to a figure or drill they may use, and the link reads back', () => {
+		const { F, D, mySection } = given();
+		const id = linkSpot(db, 'u2', mySection, { figureId: F });
+		expect(id).toBeGreaterThan(0);
+		expect(getSpotLink(db, id)).toEqual({ id, spotId: mySection, target: { figureId: F } });
+		expect(linkSpot(db, 'u2', mySection, { exerciseId: D })).toBeGreaterThan(0);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('refuses a figure of a group they are not in, and one they read but were not given', () => {
+		const { H, X, mySection } = given();
+		expect(() => linkSpot(db, 'u2', mySection, { figureId: X })).toThrow('No such figure.');
+		// H is in a published lesson u2 reads as a member, but u2 never added it.
+		expect(() => linkSpot(db, 'u2', mySection, { figureId: H })).toThrow('No such figure.');
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("still refuses a group's section a person's figure", () => {
+		const { T, groupSection, myFigure } = given();
+		expect(() => linkInSpace(db, T, groupSection, { figureId: myFigure })).toThrow(
+			'No such figure.'
+		);
+	});
+
+	it('sectionsFor a group figure shows the person their own sections, after the group’s', () => {
+		const { F, groupSection, mySection, myVideo } = given();
+		linkSpot(db, 'u2', mySection, { figureId: F });
+		expect(sectionsFor(db, { figureId: F }).map((c) => c.spot.id)).toEqual([groupSection]);
+		const cards = sectionsFor(db, { figureId: F }, undefined, 'u2');
+		expect(cards.map((c) => c.spot.id)).toEqual([groupSection, mySection]);
+		expect(cards[1].video.owner).toEqual({ lessonVideoId: myVideo });
+		expect(cards[1].spot.linkedTo).toEqual(['Setenta · Basic']);
+		// Someone else's own sections never show, and the group's editor sees no one's.
+		expect(sectionsFor(db, { figureId: F }, undefined, 'u1').map((c) => c.spot.id)).toEqual([
+			groupSection
+		]);
+		// linkableSections offers only the target's own space, as before.
+		const offered = linkableSections(db, { figureId: F }).flatMap((g) =>
+			g.sections.map((s) => s.id)
+		);
+		expect(offered).toEqual([groupSection]);
+	});
+
+	it('a chip on the person’s own section names a group target only while they may use it', () => {
+		const { F, L, mySection, myVideo, myFigure } = given();
+		linkSpot(db, 'u2', mySection, { figureId: F });
+		linkSpot(db, 'u2', mySection, { figureId: myFigure });
+		const chips = () => sectionsFor(db, { figureId: myFigure }).map((c) => c.spot.linkedTo);
+		const lessonChips = () =>
+			videoSections(db, { lessonVideoId: myVideo }).map((s) => s.links.map((l) => l.label));
+		expect(chips()).toEqual([['Enchufla · Basic', 'Setenta · Basic']]);
+		expect(lessonChips()).toEqual([['Enchufla · Basic', 'Setenta · Basic']]);
+		// L archived: u2 reads F no more, so its name leaves u2's own lists (the
+		// link itself is for the rescue to deal with). It still blocks a delete.
+		archiveLesson(db, L, 3, 'u1');
+		expect(chips()).toEqual([['Enchufla · Basic']]);
+		expect(lessonChips()).toEqual([['Enchufla · Basic']]);
+		expect(linksBlocking(db, { spotId: mySection })).toEqual([
+			'Enchufla · Basic',
+			'Setenta · Basic'
+		]);
 	});
 });

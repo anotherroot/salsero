@@ -978,3 +978,112 @@ const video_ = (lessonId: number) => ({
 	mime: 'video/mp4',
 	sizeBytes: 1
 });
+
+import { addLesson } from './entries';
+import { crossRefs } from './integrity';
+import { viaSections } from './lesson-links';
+import { createRoutineFromFigures } from './routines';
+import { U2_SALSA } from '$lib/server/test-walls';
+
+describe("a person's own lesson and what their groups gave them", () => {
+	/**
+	 * Salsa Tuesdays (u1's, u2 a member): F, routine R (of G) and drill D in
+	 * published lesson L, which u2 added with D's entry; H only in published
+	 * L2. Rueda club (u3's): X. u2's own lesson `mine` and figure `own`.
+	 */
+	function given() {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		if (!made.ok) throw new Error('team expected');
+		const team = { id: made.teamId, name: 'Salsa Tuesdays' };
+		const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', made.teamId, 1);
+		const F = createFigure(db, T, { ...figureInput, figureName: 'Setenta' })!.figure.id;
+		const G = createFigure(db, T, { ...figureInput, figureName: 'Dile que no' })!.figure.id;
+		const H = createFigure(db, T, { ...figureInput, figureName: 'Sombrero' })!.figure.id;
+		const R = createRoutineFromFigures(db, T, { name: 'Class routine', notes: null }, [G])!.routine
+			.id;
+		const D = createCustomExercise(db, T, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const L = createLesson(db, T, { ...lessonInput, title: 'Week 1' }).lesson.id;
+		expect(linkFigure(db, L, F, 'u1')).toBe(true);
+		expect(linkRoutine(db, L, R, 'u1')).toBe(true);
+		expect(linkExercise(db, L, D, 'u1')).toBe(true);
+		const L2 = createLesson(db, T, { ...lessonInput, title: 'Week 2' }).lesson.id;
+		expect(linkFigure(db, L2, H, 'u1')).toBe(true);
+		expect(publishLesson(db, T, L, 1)).toBe(true);
+		expect(publishLesson(db, T, L2, 1)).toBe(true);
+		const picks = { lesson: false, routineIds: [], drillIds: [D], figureIds: [] };
+		expect(addLesson(db, 'u2', L, picks, 2)).toBe(true);
+		const entry = db.select().from(exercises).where(eq(exercises.drillId, D)).get()!;
+		const rueda = createTeam(db, 'u3', 'salsa', 'Rueda club', 1);
+		if (!rueda.ok) throw new Error('team expected');
+		const X = createFigure(
+			db,
+			{ dance: 'salsa', teamId: rueda.teamId, actorId: 'u3' },
+			{ ...figureInput, figureName: 'Vacilala' }
+		)!.figure.id;
+		const mine = createLesson(db, U2_SALSA, { ...lessonInput, title: 'My notes' }).lesson.id;
+		const own = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Enchufla' })!.figure.id;
+		return { team, T, F, G, H, R, D, L, X, entry, mine, own };
+	}
+
+	it('links a figure, routine and drill they may use, and the lesson page lists them', () => {
+		const { F, R, D, mine } = given();
+		expect(linkFigure(db, mine, F, 'u2')).toBe(true);
+		expect(linkRoutine(db, mine, R, 'u2')).toBe(true);
+		expect(linkExercise(db, mine, D, 'u2')).toBe(true);
+		const page = getLesson(db, mine, 'u2')!;
+		expect(page.figures.map((f) => [f.id, f.name, f.byHand])).toEqual([
+			[F, 'Setenta · Basic', true]
+		]);
+		expect(page.routines.map((r) => r.id)).toEqual([R]);
+		expect(page.exercises.map((e) => e.id)).toEqual([D]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a section of their own lesson video linked to a group figure puts it on the lesson', () => {
+		const { F, mine } = given();
+		const vid = addLessonVideo(db, video(mine, 'm.mp4', 1)).id;
+		const spot = addSpot(db, { lessonVideoId: vid }, { startMs: 0, endMs: 2000, label: 'A' })!;
+		expect(linkSpot(db, 'u2', spot.id, { figureId: F })).toBeGreaterThan(0);
+		expect([...viaSections(db, mine).figures.keys()]).toEqual([F]);
+		const listed = getLesson(db, mine, 'u2')!.figures;
+		expect(listed.map((f) => [f.id, f.byHand, f.viaSections.length])).toEqual([[F, false, 1]]);
+		expect(listLinkableFigures(db, mine).find((f) => f.id === F)?.linked).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('refuses what they were not given, another group’s, and their entry', () => {
+		const { H, X, entry, mine } = given();
+		expect(linkFigure(db, mine, H, 'u2')).toBe(false);
+		expect(linkFigure(db, mine, X, 'u2')).toBe(false);
+		// An entry stays refused: its row is u2's, its content the group's drill.
+		expect(linkExercise(db, mine, entry.id, 'u2')).toBe(false);
+		expect(listLinkableExercises(db, mine).map((e) => e.id)).not.toContain(entry.id);
+	});
+
+	it("a group lesson still refuses a person's own figure", () => {
+		const { L, own } = given();
+		expect(linkFigure(db, L, own, 'u1')).toBe(false);
+	});
+
+	it('the pickers of their own lesson offer what they may use, tagged with its group', () => {
+		const { team, F, G, R, D, H, L, mine, own } = given();
+		expect(listLinkableFigures(db, mine).map((f) => [f.id, f.label, f.team ?? null])).toEqual([
+			[own, 'Enchufla · Basic', null],
+			[G, 'Dile que no · Basic', team],
+			[F, 'Setenta · Basic', team]
+		]);
+		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(H);
+		expect(listLinkableRoutines(db, mine).map((r) => [r.id, r.slots, r.team ?? null])).toEqual([
+			[R, 1, team]
+		]);
+		expect(listLinkableExercises(db, mine).map((e) => [e.id, e.name, e.team ?? null])).toEqual([
+			[D, 'Shines', team]
+		]);
+		// A group lesson's pickers stay its own, untagged.
+		const groupPick = listLinkableFigures(db, L);
+		expect(groupPick.map((f) => f.id).sort((a, b) => a - b)).toEqual([F, G, H]);
+		expect(groupPick.every((f) => f.team === undefined)).toBe(true);
+		expect(listLinkableExercises(db, L).map((e) => [e.id, e.team])).toEqual([[D, undefined]]);
+	});
+});

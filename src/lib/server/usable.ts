@@ -16,12 +16,14 @@
  * The person's own rows are not in it: they are the wall's own. Derived per
  * call, never stored.
  */
-import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { teamMembers } from './db/schema';
+import { exercises, figureGroups, figures, teamMembers } from './db/schema';
 import { addedReach, addedTeams, teamReader, type ReadKind } from './access';
-import { ownedBy, type Space, type Wall } from './scope';
+import { isTeam, ownedBy, type Space, type Wall } from './scope';
+import { getTeam } from './teams';
+import type { FigureVersion, TeamRef } from '$lib/types';
 
 export type Usable = { figures: Set<number>; routines: Set<number>; drills: Set<number> };
 
@@ -206,4 +208,114 @@ export function ownedOrUsable(
 	const list = ids ? [...ids] : [];
 	if (list.length === 0) return own;
 	return or(own, and(inArray(cols.id, list), eq(cols.dance, space.dance)))!;
+}
+
+/**
+ * Whether `space` may point at `row`, a row of another owner, from its own
+ * rows (a slot, a section link, a lesson link): a group's row of the dance
+ * the person may use (`usableOf`). Never for a group's space, which points at
+ * its own rows only. The space's own rows are the caller's check (`inSpace`).
+ * Pass `usable` when the caller has it already.
+ */
+export function usableBy(
+	db: Db,
+	space: Space,
+	kind: keyof Usable,
+	row: { id: number; dance: string; userId: string | null; teamId: number | null },
+	usable?: Usable
+): boolean {
+	if (isTeam(space) || row.dance !== space.dance || row.teamId === null || row.userId !== null) {
+		return false;
+	}
+	return (usable ?? usableOf(db, space))[kind].has(row.id);
+}
+
+/** Each group's name, by id, for tagging the group rows a person's lists offer. */
+export function teamRefs(db: Db, teamIds: Iterable<number>): Map<number, TeamRef> {
+	const out = new Map<number, TeamRef>();
+	for (const id of new Set(teamIds)) {
+		const team = getTeam(db, id);
+		if (team) out.set(id, { id: team.id, name: team.name });
+	}
+	return out;
+}
+
+/**
+ * The group variations a person may use, live and in a live move, as a picker
+ * offers them (`listVersions`' shape), each tagged with its group. By move
+ * name, then id.
+ */
+export function usableVersions(
+	db: Db,
+	wall: Wall,
+	usable: Usable = usableOf(db, wall)
+): (FigureVersion & { team: TeamRef })[] {
+	const ids = [...usable.figures];
+	if (ids.length === 0) return [];
+	const rows = db
+		.select({
+			id: figures.id,
+			groupId: figureGroups.id,
+			figure: figureGroups.name,
+			name: figures.name,
+			teamId: figures.teamId
+		})
+		.from(figures)
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(
+			and(
+				inArray(figures.id, ids),
+				eq(figures.dance, wall.dance),
+				isNotNull(figures.teamId),
+				isNull(figures.archivedAt),
+				isNull(figureGroups.archivedAt)
+			)
+		)
+		.orderBy(asc(figureGroups.name), asc(figures.id))
+		.all();
+	const teams = teamRefs(
+		db,
+		rows.map((r) => r.teamId!)
+	);
+	return rows.flatMap(({ teamId, ...r }) => {
+		const team = teams.get(teamId!);
+		return team ? [{ ...r, label: `${r.figure} · ${r.name}`, team }] : [];
+	});
+}
+
+/** The group drills a person may use, live, by name, each tagged with its group. */
+export function usableDrills(
+	db: Db,
+	wall: Wall,
+	usable: Usable = usableOf(db, wall)
+): { id: number; name: string; everyDays: number; team: TeamRef }[] {
+	const ids = [...usable.drills];
+	if (ids.length === 0) return [];
+	const rows = db
+		.select({
+			id: exercises.id,
+			name: exercises.name,
+			everyDays: exercises.everyDays,
+			teamId: exercises.teamId
+		})
+		.from(exercises)
+		.where(
+			and(
+				inArray(exercises.id, ids),
+				eq(exercises.dance, wall.dance),
+				eq(exercises.source, 'custom'),
+				isNotNull(exercises.teamId),
+				isNull(exercises.archivedAt)
+			)
+		)
+		.orderBy(asc(exercises.name), asc(exercises.id))
+		.all();
+	const teams = teamRefs(
+		db,
+		rows.map((r) => r.teamId!)
+	);
+	return rows.flatMap(({ teamId, ...r }) => {
+		const team = teams.get(teamId!);
+		return team ? [{ ...r, team }] : [];
+	});
 }

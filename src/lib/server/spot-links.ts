@@ -34,7 +34,8 @@ import type {
 import { allows, spotAccess, type Reach } from './access';
 import { reconcileEntries } from './entries';
 import { lessonsReaching } from './lesson-links';
-import { inSpace, isTeam, ownedBy, spaceOfRow, type Space } from './scope';
+import { inSpace, isTeam, ownedBy, spaceOfRow, type Space, type Wall } from './scope';
+import { usableBy, usableOf, type Usable } from './usable';
 import { actingIn, logChange, spotRoot } from './changes';
 import { spotWords, trashRows, type TrashRows } from './trash';
 
@@ -117,22 +118,31 @@ const sameOwner = (row: { userId: string | null; teamId: number | null }, space:
 	inSpace({ ...row, dance: space.dance }, space);
 
 /**
- * The target's dance, if its owner is the space's. Throws for a missing target,
- * another owner's (the same answer: telling them apart would confirm the id
- * exists), or an exercise that is not a drill.
+ * The target's dance, if its owner is the space's, or, for a person's space,
+ * if it is a group's row they may use (`usableBy`). Throws for a missing
+ * target, another owner's (the same answer: telling them apart would confirm
+ * the id exists), or an exercise that is not a drill.
  */
 function targetDance(db: Db, space: Space, target: SectionTarget): string {
 	if ('figureId' in target) {
 		const f = db
-			.select({ dance: figures.dance, userId: figures.userId, teamId: figures.teamId })
+			.select({
+				id: figures.id,
+				dance: figures.dance,
+				userId: figures.userId,
+				teamId: figures.teamId
+			})
 			.from(figures)
 			.where(eq(figures.id, target.figureId))
 			.get();
-		if (!f || !sameOwner(f, space)) throw new SpotLinkError('No such figure.');
+		if (!f || !(sameOwner(f, space) || usableBy(db, space, 'figures', f))) {
+			throw new SpotLinkError('No such figure.');
+		}
 		return f.dance;
 	}
 	const e = db
 		.select({
+			id: exercises.id,
 			dance: exercises.dance,
 			userId: exercises.userId,
 			teamId: exercises.teamId,
@@ -141,7 +151,9 @@ function targetDance(db: Db, space: Space, target: SectionTarget): string {
 		.from(exercises)
 		.where(eq(exercises.id, target.exerciseId))
 		.get();
-	if (!e || !sameOwner(e, space)) throw new SpotLinkError('No such exercise.');
+	if (!e || !(sameOwner(e, space) || usableBy(db, space, 'drills', e))) {
+		throw new SpotLinkError('No such exercise.');
+	}
 	if (e.source !== 'custom') throw new SpotLinkError('Only a drill can have sections of its own.');
 	return e.dance;
 }
@@ -164,7 +176,8 @@ export const targetColumn = (target: SectionTarget) =>
 
 /**
  * The new link's id, linking a section `userId` may edit (their own, or a
- * group's they edit) to a target of the same owner. Throws `SpotLinkError` for
+ * group's they edit) to a target of the same owner, or, on their own section,
+ * to a group's variation or drill they may use. Throws `SpotLinkError` for
  * a point, another dance, a non-drill, a duplicate — and for a section or
  * target of another owner's, with the answer a missing one gets.
  */
@@ -175,9 +188,11 @@ export function linkSpot(db: Db, userId: string, spotId: number, target: Section
 }
 
 /**
- * `linkSpot` within one space: the section and the target must both be its
- * owner's — a person's or a group's, never one of each. The caller has
- * already decided that whoever asks may edit this space.
+ * `linkSpot` within one space: the section must be its owner's, and so must
+ * the target, except that a person's section may link a group's variation or
+ * drill the person may use (`usableOf`, ruling 2: no copy is made). A
+ * group's section links only its group's rows. The caller has already
+ * decided that whoever asks may edit this space.
  */
 export function linkInSpace(db: Db, space: Space, spotId: number, target: SectionTarget): number {
 	const video = videoOfSpot(db, spotId);
@@ -385,6 +400,48 @@ export function linkChips(
 	spotIds: number[],
 	visible?: Visible
 ): Map<number, SectionLinkChip[]> {
+	return chipsOf(db, spotIds, visible && keepVisible(visible));
+}
+
+/** A section link's target, by id and owner: what a list's filter decides on. */
+type LinkTargetRow = {
+	figureId: number | null;
+	exerciseId: number | null;
+	userId: string | null;
+	teamId: number | null;
+};
+
+/** Which links a list shows. Omitted, every one. */
+type Keep = (link: LinkTargetRow) => boolean;
+
+/** A reader's: only what their reach holds. */
+const keepVisible =
+	(visible: Visible): Keep =>
+	(r) =>
+		r.figureId !== null ? visible.variations.has(r.figureId) : visible.drills.has(r.exerciseId!);
+
+/**
+ * A person's own sections, as they are listed to them: a link to their own
+ * row, and to a group's row only while they may use it (`usableOf`, read once
+ * and only if a group's row is asked about). Its name is the group's to show.
+ */
+function keepUsable(db: Db, wall: Wall): Keep {
+	let usable: Usable | null = null;
+	return (r) => {
+		if (r.teamId === null) return r.userId === wall.userId;
+		usable ??= usableOf(db, wall);
+		return r.figureId !== null ? usable.figures.has(r.figureId) : usable.drills.has(r.exerciseId!);
+	};
+}
+
+/** What a list of videos of `space` shows of their links: `visible`'s, else a person's own rule. */
+function keepFor(db: Db, space: Space, visible?: Visible): Keep | undefined {
+	if (visible) return keepVisible(visible);
+	return isTeam(space) ? undefined : keepUsable(db, space);
+}
+
+/** `linkChips` with any filter. */
+function chipsOf(db: Db, spotIds: number[], keep?: Keep): Map<number, SectionLinkChip[]> {
 	const out = new Map<number, SectionLinkChip[]>();
 	if (spotIds.length === 0) return out;
 	const rows = db
@@ -397,8 +454,12 @@ export function linkChips(
 			variation: figures.name,
 			figureArchived: figures.archivedAt,
 			groupArchived: figureGroups.archivedAt,
+			figureUser: figures.userId,
+			figureTeam: figures.teamId,
 			drill: exercises.name,
-			drillArchived: exercises.archivedAt
+			drillArchived: exercises.archivedAt,
+			drillUser: exercises.userId,
+			drillTeam: exercises.teamId
 		})
 		.from(spotLinks)
 		.leftJoin(figures, eq(figures.id, spotLinks.figureId))
@@ -407,13 +468,14 @@ export function linkChips(
 		.where(inArray(spotLinks.spotId, spotIds))
 		.all();
 	for (const r of rows) {
-		if (
-			visible &&
-			!(r.figureId !== null
-				? visible.variations.has(r.figureId)
-				: visible.drills.has(r.exerciseId!))
-		)
-			continue;
+		const onFigure = r.figureId !== null;
+		const target: LinkTargetRow = {
+			figureId: r.figureId,
+			exerciseId: r.exerciseId,
+			userId: onFigure ? r.figureUser : r.drillUser,
+			teamId: onFigure ? r.figureTeam : r.drillTeam
+		};
+		if (keep && !keep(target)) continue;
 		const label = r.figure !== null ? `${r.figure} · ${r.variation}` : r.drill!;
 		const archived =
 			r.figure !== null
@@ -533,6 +595,7 @@ function targetContext(db: Db, target: SectionTarget) {
 			.where(eq(lessonFigures.figureId, target.figureId))
 			.all();
 		return {
+			row: { figureId: target.figureId, exerciseId: null, userId: f.userId, teamId: f.teamId },
 			space: spaceOfRow(f, ''),
 			taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
 		};
@@ -549,6 +612,7 @@ function targetContext(db: Db, target: SectionTarget) {
 		.where(eq(lessonExercises.exerciseId, target.exerciseId))
 		.all();
 	return {
+		row: { figureId: null, exerciseId: target.exerciseId, userId: e.userId, teamId: e.teamId },
 		space: spaceOfRow(e, ''),
 		taught: new Set([...rows.map((r) => r.id), ...lessonsReaching(db, target)])
 	};
@@ -580,11 +644,11 @@ function sectionsByVideo(db: Db, where = isNotNull(videoSpots.endMs)): Map<strin
 	return out;
 }
 
-function labelled(db: Db, spots: BareSpot[], visible?: Visible): Spot[] {
-	const chips = linkChips(
+function labelled(db: Db, spots: BareSpot[], keep?: Keep): Spot[] {
+	const chips = chipsOf(
 		db,
 		spots.map((s) => s.id),
-		visible
+		keep
 	);
 	return spots.map((s) => ({ ...s, linkedTo: (chips.get(s.id) ?? []).map((c) => c.label) }));
 }
@@ -605,11 +669,12 @@ export function linkableSections(db: Db, target: SectionTarget): SectionGroup[] 
 			.map((r) => r.id)
 	);
 	const byVideo = sectionsByVideo(db);
+	const keep = keepFor(db, context.space);
 	const groups = videosOf(db, context.space)
 		.map((video) => ({
 			video,
 			taughtHere: video.from.kind === 'lesson' && context.taught.has(video.from.lessonId),
-			sections: labelled(db, byVideo.get(ownerKey(video.owner)) ?? []).map((s) => ({
+			sections: labelled(db, byVideo.get(ownerKey(video.owner)) ?? [], keep).map((s) => ({
 				...s,
 				linked: linked.has(s.id)
 			}))
@@ -623,8 +688,18 @@ export function linkableSections(db: Db, target: SectionTarget): SectionGroup[] 
  * whose video's lesson or figure is archived drops out with it, and comes back
  * with it; it still blocks a delete meanwhile. With `visible` (a reader's
  * page), only the sections on its videos, and only its links.
+ *
+ * With `viewer`, for a group's variation or drill: the viewer's own sections
+ * linked to it follow the group's (their own videos, in the same order), while
+ * they may use it (`usableOf`). Nobody else's own sections ever show: a
+ * group's editors never see a member's.
  */
-export function sectionsFor(db: Db, target: SectionTarget, visible?: Visible): LinkedSection[] {
+export function sectionsFor(
+	db: Db,
+	target: SectionTarget,
+	visible?: Visible,
+	viewer?: string
+): LinkedSection[] {
 	const context = targetContext(db, target);
 	if (!context) return [];
 	const linkOf = new Map(
@@ -637,20 +712,27 @@ export function sectionsFor(db: Db, target: SectionTarget, visible?: Visible): L
 	);
 	if (linkOf.size === 0) return [];
 	const byVideo = sectionsByVideo(db, inArray(videoSpots.id, [...linkOf.keys()]));
-	// One space per link, so every linked section's video is among these; a
-	// link that crosses spaces (only old data could hold one) shows nothing.
-	return videosOf(db, context.space, visible).flatMap((video) =>
-		labelled(db, byVideo.get(ownerKey(video.owner)) ?? [], visible).map((spot) => ({
-			linkId: linkOf.get(spot.id)!,
-			spot,
-			video
-		}))
-	);
+	const cards = (space: Space, shown: Visible | undefined, keep: Keep | undefined) =>
+		videosOf(db, space, shown).flatMap((video) =>
+			labelled(db, byVideo.get(ownerKey(video.owner)) ?? [], keep).map((spot) => ({
+				linkId: linkOf.get(spot.id)!,
+				spot,
+				video
+			}))
+		);
+	// Only the target's space's videos and, below, the viewer's own: a link
+	// from anyone else's section (a member's own, to a group's row) shows nothing.
+	const out = cards(context.space, visible, keepFor(db, context.space, visible));
+	if (viewer === undefined || !isTeam(context.space)) return out;
+	const mine: Wall = { userId: viewer, dance: context.space.dance };
+	const keep = keepUsable(db, mine);
+	return keep(context.row) ? [...out, ...cards(mine, undefined, keep)] : out;
 }
 
 /**
  * A video's sections with their links — the lesson page's list. With
- * `visible` (a reader's page), only the links to what it holds.
+ * `visible` (a reader's page), only the links to what it holds. A person's
+ * own video shows a link to a group's row only while they may use it.
  */
 export function videoSections(db: Db, owner: SpotOwner, visible?: Visible): VideoSection[] {
 	const where =
@@ -659,10 +741,14 @@ export function videoSections(db: Db, owner: SpotOwner, visible?: Visible): Vide
 			: eq(videoSpots.lessonVideoId, owner.lessonVideoId);
 	const spots = sectionsByVideo(db, and(isNotNull(videoSpots.endMs), where)).get(ownerKey(owner));
 	if (!spots) return [];
-	const chips = linkChips(
+	const video = videoOfSpot(db, spots[0].id);
+	const keep = video
+		? keepFor(db, spaceOfRow(video, ''), visible)
+		: visible && keepVisible(visible);
+	const chips = chipsOf(
 		db,
 		spots.map((s) => s.id),
-		visible
+		keep
 	);
 	return spots.map((s) => ({ ...s, endMs: s.endMs!, links: chips.get(s.id) ?? [] }));
 }
