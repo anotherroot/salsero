@@ -90,6 +90,25 @@ and delete them (and any `links`, `spot_links` or `lesson_exercises` rows that
 name them: `foreign_keys` is on) — or set the others' target column
 (`lesson_id`, `routine_id` or `figure_id`) to null. Then run the queries again.
 
+**Before the groups follow-ups migrations (`0023`–`0025`)**, take the backup
+above, then try the migrations on a copy of it before deploying. `0023`
+(opens) and `0024` (`songs.team_id`, `songs.shared_at`, `songs_team_idx`,
+`song_drops`) are additive. `0025` rebuilds `team_changes` to widen its
+CHECKs; that is safe only because nothing has a foreign key into or out of
+that table. Check it kept its rows and index:
+
+```sh
+scp tilen@49.13.76.224:/var/lib/salsa/backups/salsa-$(date +%F).db /tmp/trial.db
+sqlite3 /tmp/trial.db 'select count(*) from team_changes;'   # note the number
+npm run build
+DATA_DIR=/tmp/trial-data DATABASE_PATH=/tmp/trial.db PORT=3999 timeout 15 node build
+sqlite3 /tmp/trial.db 'select count(*) from team_changes;' '.indexes team_changes'
+```
+
+The boot applies the migrations to the copy (it may exit when `timeout` ends).
+The count must match and `team_changes_root_idx` must be listed. Delete
+`/tmp/trial*` afterwards, and never point this at the live database.
+
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
 existing `build/` rsync carries them. `scripts/make-clips.sh` regenerates them

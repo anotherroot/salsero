@@ -382,6 +382,10 @@ has no Download); a failed one shows the error, Retry and Upload a file instead.
 The ready song page has the app's own timeline with the user's 1s as ticks.
 Song details is a sheet from the pencil, with a refusal under its field; Archive
 song asks in a dialog stacked over it (no browser `confirm()`).
+Music has two sections: the person's own songs, then a section per group with
+the songs it shares (in group mode, only that group's). A group song is
+withdrawn or deleted by its teacher with a warning, not refused; see
+[`2026-11-03-groups-follow-ups-design.md`](2026-11-03-groups-follow-ups-design.md).
 
 **Beat grid** (measured 2026-09-22 on a salsa and a son track): Beat This!'s
 BEATS are good — 96–97% of inter-beat intervals within 8% of the median, tempo

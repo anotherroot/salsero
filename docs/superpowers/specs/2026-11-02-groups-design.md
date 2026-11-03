@@ -176,7 +176,10 @@ groups, across both dances, and drops into some only now and then.
   mockups" 5), and get no practice entry unless the member turns one on, as
   with their own figures today.
 - A drill whose practice plays a song: the member's entry starts with the
-  same practice mode but no song; songs are personal, and they pick their own.
+  same practice mode but no song. They pick one: their own, or a song a
+  group they belong to shares (the class playlist rule in
+  [`2026-11-03-groups-follow-ups-design.md`](2026-11-03-groups-follow-ups-design.md);
+  it replaces "songs are personal").
 - *(My call)* Something added to a lesson after the member added it (a new
   drill, a routine) does not land on Today by itself. The lesson shows
   "1 new drill · Add".

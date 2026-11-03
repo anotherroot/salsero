@@ -42,7 +42,11 @@ designed error pages) and accounts (one-time invites from the admin, a person's 
 `/g/<code>`; lessons are drafts until published; Add copies a published lesson's
 drills into a person's own practice, with per-person entries; a clash check on
 shared edits; History; Recently deleted for 30 days; the group's own storage;
-Make my own copy; names).
+Make my own copy; names) and group follow-ups (group mode: a Mine / group switch that
+shows only that side's Moves, Lessons and Music and makes new rows there, in the
+group's own navy look; notifications: a dot on Groups, "N new" pills and "New"
+markers, cleared by opening; class songs: a teacher shares a song with the group,
+members practise to it, a section per group in Music).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -244,6 +248,17 @@ android/             the Android apps (Kotlin): one per dance as Gradle flavors,
                      and reminder workers. No screens of its own. Pure parts (Links,
                      UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
+src/lib/server/group-mode.ts  group mode: `groupModeOf` (the cookie's group), `groupChoices`, and
+                     `spaceOf`, which every create action calls itself (the layout's copy may be old)
+src/lib/teams/mode.ts  PURE: the cookie name, which paths leave group mode, return path, labels. Client-safe
+src/lib/teams/opens-api.ts  the fetch side of POST /api/opens (`reportOpen`)
+src/routes/[dance]/group-mode  POST: switch between Mine and a group (sets the cookie)
+src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
+src/lib/server/whats-new.ts  what is new to a person in their groups, against their opens
+src/lib/server/song-share.ts  share, stop sharing and restore a group song; `song_drops`
+src/lib/server/copy-song.ts  Make my own copy for a song
+src/lib/theme/tokens.ts  also `GROUP`, the group look's dance tokens; `layout.css` copies it
+                     in `[data-dance][data-group]`
 src/lib/server/teams.ts  groups: make, code, join (`joinTeam`), rename, delete;
                      `membership.ts`: leave, remove, roles
 src/lib/server/access.ts  what a person may do with a row: `reach` (what they reach
@@ -358,8 +373,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
-  (only from Settings → What uses space, `deleteSong`: refused while a live
-  exercise uses it, archived ones lose `song_id`), sets, recordings, links,
+  (a person's own, only from Settings → What uses space, `deleteSong`: refused
+  while a live exercise uses it, archived ones lose `song_id`; a group song's
+  delete is an archive, restored from Recently deleted, see "Songs" below), sets, recordings, links,
   spots (`video_spots`, deleted with their video), section links (`spot_links`,
   deleted on unlink) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes. A
@@ -412,7 +428,12 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   point in the process where it can be turned off. Additive
   `ALTER TABLE ... ADD COLUMN` only; put the invariant in the data function, as
   `exercises.lesson_id` and the song/count pairing both do. Always read the
-  generated SQL before committing it.
+  generated SQL before committing it. The one deliberate exception is migration
+  `0025`, which rebuilds `team_changes` to widen its `root_kind` and `verb`
+  CHECKs (root `song`; verbs share, unshare, delete, edit). It was safe because
+  the columns are identical (no new column to select) and nothing has a foreign
+  key into or out of `team_changes`, so neither failure mode applies. Do not
+  copy it for a table with an incoming foreign key or a new column.
 - **The server runs no Python and no ML.** Song downloads and beat analysis
   happen on the home worker (`worker/`, a systemd timer on backtop), which
   drains `/api/worker/*` over HTTPS with a bearer token. YouTube bot-blocks the
@@ -467,9 +488,10 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   never learn that dances exist. `video_spots`' own API is flat
   (`/api/video-spots`), like the media servers.
 - **A person or a group is the wall inside the dance.** The root tables —
-  `figure_groups`, `figures`, `songs`, `exercises`, `lessons`, `routines`,
-  `count_takes` — carry `user_id` and `team_id`, exactly one set (a group's rows
-  have `user_id` NULL; `ownerIntegrity` checks). Both are set on every insert
+  `figure_groups`, `figures`, `songs`, `exercises`, `lessons`, `routines` —
+  carry `user_id` and `team_id`, exactly one set (a group's rows
+  have `user_id` NULL; `ownerIntegrity` checks). `count_takes` carries
+  `user_id` only: a take is a person's own voice. Both are set on every insert
   from the request's space: `Space = Wall | TeamSpace`, a `Wall` being
   `{ userId, dance }` (`wallOf(params, locals)` in `src/lib/server/scope.ts`) and
   a `TeamSpace` `{ dance, teamId, actorId }`. `ownedBy`, `ownerValues`, `inSpace`
@@ -496,6 +518,20 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `video_downloads.requested_by` is who a saved video is credited to. See
   [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md)
   and [`docs/superpowers/specs/2026-11-02-groups-design.md`](docs/superpowers/specs/2026-11-02-groups-design.md).
+- **Songs: a person's own and a group's differ.** A person's own song keeps
+  the `deleteSong` refusal. A group song (`songs.team_id`, `shared_at` null
+  while a draft) is the teacher's to withdraw: Stop sharing or Delete (an
+  archive, in Recently deleted) asks with a warning, members' entries drop to
+  count only, and `song_drops` remembers them so Share or Restore brings the
+  song back on those entries. Only picking a different song ends that
+  comeback. The clash check (`seen`) applies to group songs only. Every place
+  that serves a song (audio, grid, player, practice settings, the picker) asks
+  `songAccess`. See
+  [`docs/superpowers/specs/2026-11-03-groups-follow-ups-design.md`](docs/superpowers/specs/2026-11-03-groups-follow-ups-design.md).
+- **Opens are recorded from the page, never in a load.** What's new clears by
+  opening a lesson or song, written by `POST /api/opens` (kind `lesson` or
+  `song`). SvelteKit preloads data on hover and touch, so a load that recorded
+  would clear the dot for a page nobody opened.
 - **Every group mutation is logged, in its own transaction.** `logChange`
   (`src/lib/server/changes.ts`) with a real actor, so History is complete. A
   new group mutation is added to `MUTATIONS` in `src/lib/server/changes.spec.ts`,
