@@ -6,6 +6,7 @@ import {
 	figureGroups,
 	figureStartPositions,
 	figures,
+	lessonAdds,
 	lessonFigures,
 	lessonVideos,
 	lessons,
@@ -16,11 +17,12 @@ import {
 	type FigureGroup
 } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
-import { inSpace, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
+import { inSpace, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
+import { getTeam } from './teams';
 import { entryFor, reconcileEntries } from './entries';
-import { allows, figureAccess } from './access';
+import { addedReach, allows, figureAccess } from './access';
 import type { Partner } from '$lib/labels';
-import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget } from '$lib/types';
+import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget, TeamRef } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
 
 export interface FigureInput {
@@ -271,7 +273,10 @@ export function renameFigure(db: Db, groupId: number, name: string): boolean {
 /**
  * Give a person their own exercise for a variation, so it shows on Today;
  * named with its label. Null for a missing or archived variation, one the
- * person cannot see, and one this person already has a live exercise for. An
+ * person cannot see, and one this person already has a live exercise for. A
+ * group's variation also has to be in a lesson the person ADDED (ruling R8,
+ * editors included): an entry lives only while an added lesson holds its
+ * target, which is what `reconcileEntries` keeps. An
  * archived entry of theirs comes back (the same row, so its sets stay) instead
  * of a second one, keeping its old `everyDays` (the argument is ignored then).
  * The only writer of `source: 'figure'`. The entry is always
@@ -284,6 +289,9 @@ export function addFigureExercise(db: Db, userId: string, figureId: number, ever
 		// The person's own variation, or a group's they may read (risk 21): the id
 		// comes from a form, and an entry hands out the variation's content.
 		if (!allows(figureAccess(tx, userId, figure), 'read')) return null;
+		if (figure.teamId !== null && !addedReach(tx, userId, figure.teamId).variations.has(figureId)) {
+			return null;
+		}
 		const label = labelOf(tx, figureId);
 		if (label === null) return null;
 		const existing = entryFor(tx, userId, { figureId });
@@ -419,6 +427,8 @@ export interface FigureFilter {
 	partner?: Partner;
 	/** Only figures with no section, or no lesson, among their variations. */
 	unlinked?: boolean;
+	/** Only these variations count (a group's, as far as the person's added lessons reach). */
+	only?: ReadonlySet<number>;
 }
 
 /**
@@ -488,7 +498,7 @@ export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): Fi
 	const q = filter.q ? filter.q.trim().toLowerCase() : '';
 	const items: FigureListItem[] = [];
 	for (const g of groups) {
-		const vs = rows.filter((r) => r.groupId === g.id);
+		const vs = rows.filter((r) => r.groupId === g.id && (!filter.only || filter.only.has(r.id)));
 		if (vs.length === 0) continue;
 		const matching = vs.filter(
 			(v) =>
@@ -511,6 +521,48 @@ export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): Fi
 		});
 	}
 	return items;
+}
+
+/**
+ * Moves' group sections: for each group of this dance whose lessons the
+ * person added, the figures those lessons reach (only their reached
+ * variations), groups by name. Never in the person's own list, the gap report
+ * or coverage: those read the person's wall. The filter applies as to their
+ * own; Not linked is about their own figures and is not passed here.
+ */
+export function listAddedFigures(
+	db: Db,
+	wall: Wall,
+	filter: Omit<FigureFilter, 'only' | 'unlinked'> = {}
+): { team: TeamRef; figures: FigureListItem[] }[] {
+	const teamIds = [
+		...new Set(
+			db
+				.select({ teamId: lessons.teamId })
+				.from(lessonAdds)
+				.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+				.where(
+					and(
+						eq(lessonAdds.userId, wall.userId),
+						eq(lessons.dance, wall.dance),
+						isNotNull(lessons.teamId)
+					)
+				)
+				.all()
+				.map((r) => r.teamId!)
+		)
+	];
+	const out: { team: TeamRef; figures: FigureListItem[] }[] = [];
+	for (const teamId of teamIds) {
+		const team = getTeam(db, teamId);
+		if (!team) continue;
+		const only = addedReach(db, wall.userId, teamId).variations;
+		if (only.size === 0) continue;
+		const space = { dance: wall.dance, teamId, actorId: wall.userId };
+		const figures = listFigures(db, space, { ...filter, only });
+		if (figures.length > 0) out.push({ team: { id: team.id, name: team.name }, figures });
+	}
+	return out.sort((a, b) => a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id);
 }
 
 /**

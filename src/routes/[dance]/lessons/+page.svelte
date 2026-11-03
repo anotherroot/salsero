@@ -56,6 +56,7 @@
 						{#each group.lessons as lesson (lesson.id)}
 							<LessonRow
 								{lesson}
+								group={lesson.team?.name}
 								href={resolve('/[dance]/lessons/[id]', {
 									dance: data.dance.slug,
 									id: String(lesson.id)

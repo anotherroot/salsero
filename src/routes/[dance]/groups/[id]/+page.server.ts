@@ -1,8 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { inviteQr } from '$lib/server/invites';
-import { createLesson, listTeamLessons } from '$lib/server/lessons';
+import { createLesson, getLessonRow, listTeamLessons } from '$lib/server/lessons';
 import { readNewLesson } from '$lib/server/lesson-form';
+import { readAdd } from '$lib/server/add-form';
+import { addLesson, addState } from '$lib/server/entries';
 import { localDay } from '$lib/day/day';
 import { requireTeam } from '$lib/server/scope';
 import {
@@ -28,7 +30,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		people: peopleOf(db, team.id).length,
 		code: link ? { link, qr: inviteQr(link) } : null,
 		// An editor's list starts with the drafts; a member's holds the published ones only.
-		lessons: deleted ? [] : listTeamLessons(db, space.actorId, team.id, role),
+		lessons: deleted
+			? []
+			: listTeamLessons(db, space.actorId, team.id, role).map((l) => ({
+					...l,
+					// "Added ✓", or Add and its sheet; nothing on a draft.
+					add: l.publishedAt === null ? null : addState(db, space.actorId, l.id)
+				})),
 		canEdit: !deleted && role !== 'member',
 		today: localDay(Date.now(), locals.user!.timezone)
 	};
@@ -48,6 +56,23 @@ export const actions: Actions = {
 		if ('refused' in read) return read.refused;
 		const { lesson } = createLesson(db, space, read.input);
 		throw redirect(303, `/${team.dance}/lessons/${lesson.id}`);
+	},
+
+	/**
+	 * Add one of the group's published lessons to one's own, with the picks
+	 * ticked on its sheet. Any member may; a draft, or a lesson of another
+	 * group, is the stranger's 404.
+	 */
+	add: async ({ params, locals, request }) => {
+		const db = getDb();
+		const { team, space } = requireTeam(db, locals, params, 'member');
+		const { lessonId, picks } = readAdd(await request.formData());
+		const lesson = lessonId === undefined ? null : getLessonRow(db, lessonId);
+		if (!lesson || lesson.teamId !== team.id) throw error(404, 'No such lesson');
+		if (!addLesson(db, space.actorId, lesson.id, picks, Date.now())) {
+			throw error(404, 'No such lesson');
+		}
+		return { action: 'add', ok: true };
 	},
 
 	rename: async ({ params, locals, request }) => {

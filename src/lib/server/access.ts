@@ -213,6 +213,36 @@ export function reachFrom(db: Db, teamId: number, lessonIds: number[]): Reach {
 	return out;
 }
 
+/**
+ * The group's lessons this person has ADDED that still count: published,
+ * live, and the group not purged. Their entries on the group's things are
+ * valid only while one of these holds the target (ruling R8). Sorted by id.
+ */
+export function addedLessonIds(db: Db, userId: string, teamId: number): number[] {
+	const team = getTeam(db, teamId);
+	if (!team || team.purgedAt !== null) return [];
+	return db
+		.select({ id: lessons.id })
+		.from(lessonAdds)
+		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+		.where(
+			and(
+				eq(lessonAdds.userId, userId),
+				eq(lessons.teamId, teamId),
+				isNotNull(lessons.publishedAt),
+				isNull(lessons.archivedAt)
+			)
+		)
+		.all()
+		.map((r) => r.id)
+		.sort((a, b) => a - b);
+}
+
+/** What this person's added lessons of this group hold: what their entries there may practise. */
+export function addedReach(db: Db, userId: string, teamId: number): Reach {
+	return reachFrom(db, teamId, addedLessonIds(db, userId, teamId));
+}
+
 /** What this person reads of this group through its published lessons. */
 export function reach(db: Db, userId: string, teamId: number): Reach {
 	return reachFrom(db, teamId, lessonsReached(db, userId, teamId));

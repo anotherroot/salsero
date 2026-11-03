@@ -21,6 +21,7 @@ import {
 	exercises,
 	figureGroups,
 	figures,
+	lessonAdds,
 	lessonExercises,
 	lessonFigures,
 	lessonRoutines,
@@ -353,15 +354,58 @@ function lessonRows(
 		}));
 }
 
-/** Each lesson's day, by id, for Today's lesson rows: personal, so a wall. */
+/**
+ * Each lesson's day, by id, for Today's lesson rows: the person's own lessons
+ * and the group lessons they added (an entry can review either; risk 26).
+ */
 export function lessonDays(db: Db, wall: Wall): Record<number, string> {
-	return Object.fromEntries(
-		db
-			.select({ id: lessons.id, day: lessons.lessonDay })
-			.from(lessons)
-			.where(ownedBy(lessons, wall))
-			.all()
-			.map((r) => [r.id, r.day])
+	const day = { id: lessons.id, day: lessons.lessonDay };
+	const own = db.select(day).from(lessons).where(ownedBy(lessons, wall)).all();
+	const added = db
+		.select(day)
+		.from(lessonAdds)
+		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+		.where(and(eq(lessonAdds.userId, wall.userId), eq(lessons.dance, wall.dance)))
+		.all();
+	return Object.fromEntries([...own, ...added].map((r) => [r.id, r.day]));
+}
+
+/**
+ * The Lessons tab: the person's own lessons and the group lessons they added
+ * (each marked with its group), newest class first. An added lesson stays
+ * while it is published and live and its group is not purged, after leaving
+ * the group too; a group lesson not added is only on the group's page.
+ */
+export function listMyLessons(db: Db, wall: Wall): LessonItem[] {
+	const added = db
+		.select({ lessonId: lessonAdds.lessonId, teamId: lessons.teamId })
+		.from(lessonAdds)
+		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+		.where(
+			and(
+				eq(lessonAdds.userId, wall.userId),
+				eq(lessons.dance, wall.dance),
+				isNotNull(lessons.teamId),
+				isNotNull(lessons.publishedAt),
+				isNull(lessons.archivedAt)
+			)
+		)
+		.all();
+	const byTeam = new Map<number, Set<number>>();
+	for (const a of added) {
+		byTeam.set(a.teamId!, (byTeam.get(a.teamId!) ?? new Set()).add(a.lessonId));
+	}
+	const theirs: LessonItem[] = [];
+	for (const [teamId, ids] of byTeam) {
+		const team = getTeam(db, teamId);
+		if (!team || team.purgedAt !== null) continue;
+		const space: TeamSpace = { dance: wall.dance, teamId, actorId: wall.userId };
+		for (const r of lessonRows(db, space)) {
+			if (ids.has(r.id)) theirs.push({ ...r, team: { id: team.id, name: team.name } });
+		}
+	}
+	return [...listLessons(db, wall), ...theirs].sort(
+		(a, b) => b.lessonDay.localeCompare(a.lessonDay) || b.id - a.id
 	);
 }
 
@@ -400,6 +444,11 @@ function linkedRoutineIds(db: Db, lessonId: number): number[] {
 		.where(eq(lessonRoutines.lessonId, lessonId))
 		.all()
 		.map((r) => r.id);
+}
+
+/** The lesson row alone, or null: what a route checks a posted id against. */
+export function getLessonRow(db: Db, id: number): Lesson | null {
+	return db.select().from(lessons).where(eq(lessons.id, id)).get() ?? null;
 }
 
 export function getLesson(db: Db, id: number, userId: string) {

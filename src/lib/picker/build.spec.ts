@@ -82,6 +82,16 @@ describe('routineRows', () => {
 });
 
 describe('exerciseGroups', () => {
+	// Catches: a group drill's entry missing from the past-day picker (risk 26).
+	it("lists an 'added' entry under Drills with its drill's name", () => {
+		const groups = exerciseGroups([
+			exercise({ id: 2, name: 'Spot turns', source: 'custom' }),
+			exercise({ id: 7, name: 'Shines', source: 'added' })
+		]);
+		expect(groups.map((g) => g.title)).toEqual(['Drills']);
+		expect(groups[0].entries.map((e) => (e as PickRow).label)).toEqual(['Shines', 'Spot turns']);
+	});
+
 	it('exerciseGroups: groups in the order Figures, Routines, Drills, Lessons, empty ones left out', () => {
 		const all = exerciseGroups([
 			exercise({ id: 1, name: 'Review: Tuesday', source: 'lesson' }),

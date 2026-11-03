@@ -14,7 +14,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
-	import { heroFor, todayBands, type BandKey } from '$lib/exercises/today';
+	import { heroFor, shownRows, teamOfRow, todayBands, type BandKey } from '$lib/exercises/today';
 	import { classDayLabel, dayLabel, lastDoneLabel, longDayLabel } from '$lib/format';
 	import { daysBetween } from '$lib/day/day';
 	import { typeOf } from '$lib/exercises/kinds';
@@ -41,8 +41,13 @@
 	// remounting, but here `openId` does not change, so this bumps the key by
 	// itself: same exercise, fresh popup, old panel torn down by its onDestroy.
 	let bumpKey = $state(0);
-	const firstUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, null));
-	const nextUp = $derived(nextInSession(data.plan.due, data.plan.upcoming, skipped, openId));
+	// Each band holds the person's own rows, then each group's: the session
+	// walks them in that order, as they are shown.
+	const bands = $derived(todayBands(data.plan, teamOfRow));
+	const walkDue = $derived(shownRows(bands, 'due'));
+	const walkUpcoming = $derived(shownRows(bands, 'upcoming'));
+	const firstUp = $derived(nextInSession(walkDue, walkUpcoming, skipped, null));
+	const nextUp = $derived(nextInSession(walkDue, walkUpcoming, skipped, openId));
 
 	function startSession() {
 		skipped = new Set();
@@ -101,7 +106,6 @@
 	);
 	// Only a Resume names a next row, so only then is one tinted "Up next".
 	const upNextId = $derived(hero?.kind === 'resume' ? (firstUp?.exercise.id ?? null) : null);
-	const bands = $derived(todayBands(data.plan));
 
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
@@ -136,6 +140,23 @@
 <svelte:head
 	><title>{data.isToday ? 'Today' : dayLabel(data.day)} · {data.dance.label}</title></svelte:head
 >
+
+{#snippet bandRows(b: (typeof bands)[number])}
+	{#if b.own.length > 0}
+		<ul class={GROUP}>
+			{@render rowsOf(b.key, b.own)}
+		</ul>
+	{/if}
+	{#each b.teams as part (part.team.id)}
+		<!-- A group's rows under its name: what the group's lessons put on Today. -->
+		<h3 class="flex items-center gap-1.5 {SECTION_LABEL}" class:pt-1.5={b.own.length > 0}>
+			<Icon name="people" size={16} />{part.label}
+		</h3>
+		<ul class={GROUP} aria-label={part.team.name}>
+			{@render rowsOf(b.key, part.rows)}
+		</ul>
+	{/each}
+{/snippet}
 
 {#snippet rowsOf(key: BandKey, list: typeof data.plan.due)}
 	{#each list as row (row.exercise.id)}
@@ -216,15 +237,13 @@
 						<span class="text-[13px] font-bold">{b.label}</span>
 						<Icon name={showInactive ? 'chevron-up' : 'chevron-down'} size={20} />
 					</button>
-					<ul id="band-inactive" class={GROUP} hidden={!showInactive}>
-						{@render rowsOf(b.key, b.rows)}
-					</ul>
+					<div id="band-inactive" class="flex flex-col gap-2" hidden={!showInactive}>
+						{@render bandRows(b)}
+					</div>
 				{:else}
 					<section aria-labelledby="band-{b.key}-h" class="flex flex-col gap-2">
 						<h2 id="band-{b.key}-h" class={SECTION_LABEL} class:pt-3.5={i > 0}>{b.label}</h2>
-						<ul class={GROUP}>
-							{@render rowsOf(b.key, b.rows)}
-						</ul>
+						{@render bandRows(b)}
 					</section>
 				{/if}
 			{/each}

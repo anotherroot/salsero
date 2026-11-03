@@ -68,7 +68,8 @@ export function routineRows(rs: (Omit<PickRoutine, 'linked'> & { linked?: boolea
 
 /**
  * Figures (headings by figure, short = variation), Routines, Drills (source
- * 'custom'), Lessons (source 'lesson'); meta frequencyLabel. Headings and
+ * 'custom', and 'added': an entry on a group's drill, named as the drill),
+ * Lessons (source 'lesson'); meta frequencyLabel. Headings and
  * rows alphabetical; a figure's exercises in id order under it.
  */
 export function exerciseGroups(es: PickExercise[]): PickGroup[] {
@@ -80,9 +81,9 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 		meta: frequencyLabel(e.everyDays),
 		linked: e.linked
 	});
-	const flat = (source: PickExercise['source']): PickRow[] =>
+	const flat = (...sources: PickExercise['source'][]): PickRow[] =>
 		es
-			.filter((e) => e.source === source)
+			.filter((e) => sources.includes(e.source))
 			.map((e) => row(e, e.name))
 			.sort((a, b) => byName(a.label, b.label));
 
@@ -111,7 +112,7 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 	const groups: PickGroup[] = [
 		{ title: 'Figures', entries: figures },
 		{ title: 'Routines', entries: flat('routine') },
-		{ title: 'Drills', entries: flat('custom') },
+		{ title: 'Drills', entries: flat('custom', 'added') },
 		{ title: 'Lessons', entries: flat('lesson') }
 	];
 	return groups.filter((g) => g.entries.length > 0);

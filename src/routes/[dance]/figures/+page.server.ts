@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { defaultStyle } from '$lib/server/default-styles';
-import { createFigure, listFigures, listVersions } from '$lib/server/figures';
+import { createFigure, listAddedFigures, listFigures, listVersions } from '$lib/server/figures';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { coverage } from '$lib/routines/coverage';
 import { taggedFigures } from '$lib/server/graph';
@@ -31,6 +31,9 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	const db = getDb();
 	return {
 		figures: listFigures(db, wall, { ...filter, unlinked }),
+		// Each group's figures from the lessons the person added, after their own.
+		// Not linked is about their own figures only.
+		groups: unlinked ? [] : listAddedFigures(db, wall, filter),
 		// The page rebuilds its URL from these strings; `unlinked` rides as '1'.
 		filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
 		// Figures with no section or no lesson, whatever the filter: the header's

@@ -441,6 +441,11 @@
 						</a>
 					</li>
 				</ul>
+			{:else if !data.exercise && !data.practisable}
+				<!-- A group's variation is practised from a lesson the person added (R8). -->
+				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
+					Add a lesson with this figure to practise it.
+				</p>
 			{:else if !data.exercise}
 				<form
 					method="POST"

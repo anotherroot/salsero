@@ -13,9 +13,11 @@
 	import CodeSheet from '$lib/components/teams/CodeSheet.svelte';
 	import LessonRow from '$lib/components/lessons/LessonRow.svelte';
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
+	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import type { IconName } from '$lib/icons/icons';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { peopleLine, youLine } from '$lib/teams/view';
+	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -30,6 +32,11 @@
 	let creating = $state(false);
 	let deleting = $state(false);
 	let busy = $state(false);
+	/**
+	 * The Add sheet's lesson and offer, kept as opened: once the Add lands the
+	 * row's offer is gone, and the sheet closes itself rather than vanishing.
+	 */
+	let adding = $state<{ id: number; title: string; offer: AddOffer } | null>(null);
 
 	let seen: unknown = $state(null);
 	$effect(() => {
@@ -110,7 +117,26 @@
 								dance: data.dance.slug,
 								id: String(lesson.id)
 							})}
+							aside={lesson.add ? addAside : undefined}
 						/>
+						{#snippet addAside()}
+							{#if lesson.add?.added}
+								<span class="flex items-center gap-1 px-1 text-[14px] font-bold text-done"
+									>Added<Icon name="check" size={18} /></span
+								>
+							{:else if lesson.add?.offer}
+								<button
+									type="button"
+									class={button('secondary', 'sm')}
+									aria-label="Add {lesson.title}"
+									aria-haspopup="dialog"
+									onclick={() =>
+										(adding = lesson.add?.offer
+											? { id: lesson.id, title: lesson.title, offer: lesson.add.offer }
+											: null)}>Add</button
+								>
+							{/if}
+						{/snippet}
 					{/each}
 				</ul>
 			{/if}
@@ -168,6 +194,17 @@
 		refusal={fresh?.action === 'create' ? fresh : null}
 		today={data.today}
 		frequency={false}
+	/>
+{/if}
+
+{#if adding}
+	<AddSheet
+		open={true}
+		onclose={() => (adding = null)}
+		title={adding.title}
+		lessonId={adding.id}
+		offer={adding.offer}
+		action="?/add"
 	/>
 {/if}
 

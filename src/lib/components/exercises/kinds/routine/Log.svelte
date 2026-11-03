@@ -16,7 +16,12 @@
 <LogShell {...props} run={null} playing={false}>
 	{#snippet body(payload)}
 		<div class="flex flex-col gap-3">
-			<Content dance={props.dance} content={payload.content} timezone={props.timezone} />
+			<Content
+				dance={props.dance}
+				content={payload.content}
+				timezone={props.timezone}
+				canEdit={props.exercise.team === null}
+			/>
 			{#if payload.content.type === 'routine' && !props.backfillDay}
 				<a
 					href={resolve(

@@ -21,6 +21,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import {
 		FIELD_ERROR,
 		FIELD_ON_CARD,
@@ -33,6 +34,7 @@
 	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { frequencyLabel } from '$lib/frequency';
+	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -43,8 +45,16 @@
 	const Log = $derived(logFor(type));
 	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
 	let logging = $state(page.url.searchParams.get('log') === '1');
-	/** A drill is the only type this page may rename or archive: the others belong to their owner. */
-	const ownsItself = $derived(type === 'drill');
+	/**
+	 * A drill is the only type this page may rename or archive: the others
+	 * belong to their owner. A person's entry on a group's drill (`'added'`) is
+	 * not one either: its name is the drill's, and Remove from my lessons, on
+	 * the lesson, is the way out. On a group drill's own page it is the drill
+	 * that is edited, by its editors.
+	 */
+	const ownsItself = $derived(
+		type === 'drill' && (data.drill !== null || exercise.source !== 'added')
+	);
 	/**
 	 * A group's drill: its name and description are the group's, and how often
 	 * and whether it is on Today are each person's own entry's, never the
@@ -93,6 +103,11 @@
 		const m = (data as { message?: unknown } | undefined)?.message;
 		return typeof m === 'string' ? m : 'It did not save.';
 	};
+
+	// --- Add, on a group drill with no entry of this person's (R7).
+	/** The Add sheet's offer, kept as opened: once the Add lands the page's is gone. */
+	let adding = $state<{ lessonId: number; title: string; offer: AddOffer } | null>(null);
+	let addBusy = $state(false);
 
 	// --- Archive (a drill only), behind a question.
 	let archiving = $state(false);
@@ -251,8 +266,8 @@
 				content={data.practice.content}
 				{timezone}
 				onPage
-				canEdit={data.canEdit}
-				editLinks={data.canEdit
+				canEdit={data.canEditContent}
+				editLinks={data.canEditContent
 					? {
 							message: failure('addLink'),
 							entered: form && 'urls' in form ? String(form.urls) : '',
@@ -261,6 +276,49 @@
 						}
 					: undefined}
 			/>
+
+			{#if data.add}
+				<!-- A group's drill reaches Today through a lesson: one already added takes just this drill. -->
+				<div class="flex items-center gap-3 rounded-2xl bg-surface py-2 pr-2 pl-4">
+					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span class="text-[16px] leading-tight font-bold text-ink">Not on your Today</span>
+						<span class="text-[13px] text-muted">From {data.add.title}</span>
+					</span>
+					{#if data.add.added}
+						<form
+							method="POST"
+							action="?/addDrill"
+							use:enhance={() => {
+								addBusy = true;
+								return async ({ update }) => {
+									try {
+										await update();
+									} finally {
+										addBusy = false;
+									}
+								};
+							}}
+						>
+							<button
+								type="submit"
+								class={button('secondary', 'sm')}
+								aria-busy={addBusy}
+								disabled={addBusy}>Add</button
+							>
+						</form>
+					{:else if data.add.offer}
+						<button
+							type="button"
+							class={button('secondary', 'sm')}
+							aria-haspopup="dialog"
+							onclick={() =>
+								(adding = data.add?.offer
+									? { lessonId: data.add.lessonId, title: data.add.title, offer: data.add.offer }
+									: null)}>Add</button
+						>
+					{/if}
+				</div>
+			{/if}
 
 			<!-- A group's drill without an entry of this person's has nothing of theirs to show. -->
 			{#if data.canLog}
@@ -365,6 +423,17 @@
 		undoSnapshot = null;
 	}}
 />
+
+{#if adding}
+	<AddSheet
+		open={true}
+		onclose={() => (adding = null)}
+		title={adding.title}
+		lessonId={adding.lessonId}
+		offer={adding.offer}
+		action="?/add"
+	/>
+{/if}
 
 {#if ownsItself}
 	<Dialog

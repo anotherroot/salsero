@@ -4,7 +4,7 @@
  * to one's own. Adding copies nothing: it writes a `lesson_adds` row and the
  * entries the person ticked; content is always read from the target.
  */
-import { and, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import {
@@ -21,12 +21,11 @@ import {
 	videoSpots,
 	type Lesson
 } from './db/schema';
-import { allows, lessonAccess, reachFrom, type Reach } from './access';
+import { addedLessonIds, addedReach, allows, lessonAccess, reachFrom, type Reach } from './access';
 import { addFigureExercise, figureLabels } from './figures';
 import { reviewName } from './lessons';
-import { getTeam } from './teams';
 import type { TeamSpace } from './scope';
-import type { AddItem, AddOffer, AddPicks } from '$lib/types';
+import type { AddItem, AddOffer, AddPicks, AddState } from '$lib/types';
 
 type Exercise = typeof exercises.$inferSelect;
 
@@ -298,6 +297,7 @@ export function addLesson(
 					drillId: id,
 					practiceMode: drill.practiceMode,
 					countBpm: drill.countBpm,
+					practiceJson: drill.practiceJson,
 					songId: null,
 					dance
 				}
@@ -377,25 +377,6 @@ export function markSeen(db: Db, userId: string, lessonId: number, now: number):
 	);
 }
 
-/** A person's added lessons of this group that still count: published and live. */
-function addedLessons(db: Db, userId: string, teamId: number): number[] {
-	return db
-		.select({ id: lessons.id })
-		.from(lessonAdds)
-		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
-		.where(
-			and(
-				eq(lessonAdds.userId, userId),
-				eq(lessons.teamId, teamId),
-				isNotNull(lessons.publishedAt),
-				isNull(lessons.archivedAt)
-			)
-		)
-		.all()
-		.map((r) => r.id)
-		.sort((a, b) => a - b);
-}
-
 /**
  * Taken out means off Today (risk 25). Archives, with `now`, each live entry
  * on this group's rows whose target its person's added lessons no longer
@@ -438,14 +419,12 @@ export function reconcileEntries(tx: Db, teamId: number, now: number, userId?: s
 		.all();
 	if (entries.length === 0) return;
 
-	const team = getTeam(tx, teamId);
 	const reachOf = new Map<string, Reach>();
 	const out: number[] = [];
 	for (const e of entries) {
 		let reach = reachOf.get(e.userId!);
 		if (!reach) {
-			const added = team && team.purgedAt === null ? addedLessons(tx, e.userId!, teamId) : [];
-			reach = reachFrom(tx, teamId, added);
+			reach = addedReach(tx, e.userId!, teamId);
 			reachOf.set(e.userId!, reach);
 		}
 		const held =
@@ -463,4 +442,59 @@ export function reconcileEntries(tx: Db, teamId: number, now: number, userId?: s
 		.set({ archivedAt: now })
 		.where(and(inArray(exercises.id, out), isNull(exercises.archivedAt)))
 		.run();
+}
+
+/** Whether this person added the lesson to their own (the `lesson_adds` row). */
+export function isAdded(db: Db, userId: string, lessonId: number): boolean {
+	return (
+		db
+			.select({ id: lessonAdds.lessonId })
+			.from(lessonAdds)
+			.where(and(eq(lessonAdds.userId, userId), eq(lessonAdds.lessonId, lessonId)))
+			.get() !== undefined
+	);
+}
+
+/**
+ * Add, as a group lesson's page and row show it. Not added: the sheet with
+ * everything the lesson holds. Added: the sheet with only what came in since
+ * (`newInLesson`), or none when nothing did. Null for a lesson the person may
+ * not add and has not added (a draft, a personal lesson).
+ */
+export function addState(db: Db, userId: string, lessonId: number): AddState | null {
+	const offer = addOffer(db, userId, lessonId);
+	if (!isAdded(db, userId, lessonId)) return offer ? { added: false, offer } : null;
+	const fresh = newInLesson(db, userId, lessonId);
+	return {
+		added: true,
+		offer: offer && fresh.length > 0 ? { counts: offer.counts, items: fresh } : null
+	};
+}
+
+/**
+ * Where Add on a group drill's page goes, for a person with no entry for it:
+ * a lesson they already added that holds it (Add puts just the drill on
+ * Today), else the newest published lesson they may add that holds it (Add
+ * opens that lesson's sheet). Null when no lesson of theirs reaches it.
+ */
+export function drillAddRoute(
+	db: Db,
+	userId: string,
+	drill: { id: number; teamId: number | null }
+): { lessonId: number; added: boolean } | null {
+	if (drill.teamId === null) return null;
+	const teamId = drill.teamId;
+	const holds = (lessonId: number) => reachFrom(db, teamId, [lessonId]).drills.has(drill.id);
+	const added = addedLessonIds(db, userId, teamId).find(holds);
+	if (added !== undefined) return { lessonId: added, added: true };
+	const candidates = db
+		.select({ id: lessons.id })
+		.from(lessons)
+		.where(
+			and(eq(lessons.teamId, teamId), isNotNull(lessons.publishedAt), isNull(lessons.archivedAt))
+		)
+		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
+		.all();
+	const open = candidates.find((l) => holds(l.id) && addableLesson(db, userId, l.id) !== null);
+	return open ? { lessonId: open.id, added: false } : null;
 }

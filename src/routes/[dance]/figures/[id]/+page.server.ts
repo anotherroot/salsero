@@ -1,7 +1,8 @@
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
+import { getDb, type Db } from '$lib/server/db';
+import { addedReach } from '$lib/server/access';
 import {
 	addFigureExercise,
 	archiveVariation,
@@ -103,6 +104,17 @@ function variationOf(
 	}
 	return { ...found, group, space, access, reach };
 }
+
+/**
+ * Whether this person may turn on their own entry for the variation: always
+ * for their own; for a group's, only while a lesson they added holds it
+ * (ruling R8, editors included), since that is what keeps an entry live.
+ */
+function practisable(db: Db, userId: string, figure: { id: number; teamId: number | null }) {
+	return figure.teamId === null || addedReach(db, userId, figure.teamId).variations.has(figure.id);
+}
+
+const NOT_ADDED = 'Add a lesson with this figure to practise it.';
 
 const taken = (figure: string, name: string) =>
 	`${figure} already has a variation called ${name}. Rename one first.`;
@@ -214,6 +226,8 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		siblings,
 		canEdit,
 		exercise: found.exercise,
+		// Practise on its own: a group's variation only from a lesson the person added.
+		practisable: practisable(db, wall.userId, figure),
 		popup,
 		// Derived per request, never stored — the same rule urgency follows.
 		routines: routinesUsing(
@@ -447,7 +461,11 @@ export const actions: Actions = {
 	 */
 	practise: ({ params, locals }) => {
 		const { figure } = variationOf(params, locals, 'read');
-		if (!addFigureExercise(getDb(), wallOf(params, locals).userId, figure.id)) {
+		const userId = wallOf(params, locals).userId;
+		if (!practisable(getDb(), userId, figure)) {
+			return fail(400, { action: 'practise', message: NOT_ADDED });
+		}
+		if (!addFigureExercise(getDb(), userId, figure.id)) {
 			return fail(400, {
 				action: 'practise',
 				message: 'This variation is already practised on its own.'

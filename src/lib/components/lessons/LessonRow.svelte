@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { dateTile, lessonCounts, videoMeta } from '$lib/lessons/list';
@@ -7,21 +8,34 @@
 	/**
 	 * One lesson in a list: its date tile, title, videos and the three counts.
 	 * The Lessons tab's rows and a group page's; `draft` marks a group's lesson
-	 * only its editors see yet.
+	 * only its editors see yet, `group` names the group of one the person added.
+	 * `aside` sits beside the link, outside it (the group page's Add).
 	 */
 	let {
 		lesson,
 		href,
-		draft = false
-	}: { lesson: LessonItem; href: string; draft?: boolean } = $props();
+		draft = false,
+		group,
+		aside
+	}: {
+		lesson: LessonItem;
+		href: string;
+		draft?: boolean;
+		group?: string;
+		aside?: Snippet;
+	} = $props();
 
 	const tile = $derived(dateTile(lesson.lessonDay));
 	const meta = $derived(videoMeta(lesson));
+	const pad = $derived(aside ? 'pr-2' : 'pr-3');
 </script>
 
-<li>
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller resolves it -->
-	<a {href} class="flex min-h-[84px] items-center gap-3 py-3 pr-3 pl-4 active:bg-step">
+<li class="flex items-center">
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller resolves it -->
+	<a
+		{href}
+		class="flex min-h-[84px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 active:bg-step {pad}"
+	>
 		<span
 			aria-hidden="true"
 			class="flex h-[54px] w-12 flex-none flex-col items-center justify-center gap-[3px] rounded-xl bg-accent-soft"
@@ -39,6 +53,11 @@
 				>
 				{#if draft}<Badge tone="warn">Draft</Badge>{/if}
 			</span>
+			{#if group}
+				<span class="flex items-center gap-1 text-[13px] font-bold text-accent-text"
+					><Icon name="people" size={16} />{group}</span
+				>
+			{/if}
 			{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
 			<!-- Always all three, in the same place: a zero is muted rather than vanishing, so a lesson still missing something shows it. -->
 			<span class="mt-[5px] flex flex-wrap gap-x-3 text-[13px]">
@@ -50,6 +69,9 @@
 				{/each}
 			</span>
 		</span>
-		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		{#if !aside}
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		{/if}
 	</a>
+	{#if aside}<span class="flex flex-none pr-3">{@render aside()}</span>{/if}
 </li>

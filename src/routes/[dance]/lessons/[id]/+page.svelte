@@ -65,9 +65,11 @@
 	} from '$lib/lessons/page';
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
+	import AddSheet from '$lib/components/teams/AddSheet.svelte';
+	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
-	import type { ViaSection } from '$lib/types';
+	import type { AddOffer, ViaSection } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -122,6 +124,16 @@
 
 	// --- Archive, behind a question.
 	let archiving = $state(false);
+	// A group lesson's Add sheet, its menu (Remove from my lessons) and the question before removing.
+	/** The Add sheet's offer, kept as opened: once the Add lands the page's is gone. */
+	let adding = $state<{ offer: AddOffer; fresh: boolean } | null>(null);
+	function openAdd() {
+		if (data.add?.offer) adding = { offer: data.add.offer, fresh: data.add.added };
+	}
+	let lessonMenu = $state(false);
+	let removing = $state(false);
+	let removeBusy = $state(false);
+	let notNowBusy = $state(false);
 	let archiveBusy = $state(false);
 	let archiveError = $state<string | null>(null);
 	const messageOf = (data: unknown, fallback: string) => {
@@ -427,6 +439,18 @@
 	</div>
 {/snippet}
 
+{#snippet addBand()}
+	<!-- A published group lesson not yet in the person's own Lessons. -->
+	<div class="flex items-center gap-3">
+		<span class="min-w-0 flex-1 text-[13px] font-semibold text-band-small"
+			>Not in your lessons yet</span
+		>
+		<button type="button" class={button('secondary', 'sm')} aria-haspopup="dialog" onclick={openAdd}
+			>Add</button
+		>
+	</div>
+{/snippet}
+
 <Screen
 	compact
 	title={lesson.title}
@@ -435,7 +459,13 @@
 		: data.team
 			? `${fullDateLabel(lesson.lessonDay)} · ${data.team.name}`
 			: fullDateLabel(lesson.lessonDay)}
-	extra={data.draft && !editing ? draftBand : undefined}
+	extra={editing
+		? undefined
+		: data.draft
+			? draftBand
+			: data.add && !data.add.added && data.add.offer
+				? addBand
+				: undefined}
 >
 	{#snippet left()}
 		{#if editing}
@@ -450,6 +480,9 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
+		{#if !editing && data.add?.added}
+			<BandButton icon="more" label="Lesson menu" onclick={() => (lessonMenu = true)} />
+		{/if}
 		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader has no pencil. -->
 		{#if !editing && data.canEdit}
 			<BandButton
@@ -497,6 +530,43 @@
 				>
 			</div>
 		{:else}
+			{#if data.add?.added && data.add.offer}
+				<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
+				<div
+					class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-accent-soft py-2 pr-2 pl-4"
+				>
+					<span class="min-w-0 flex-1 text-[15px] font-bold text-accent-text"
+						>{newLine(data.add.offer.items)}</span
+					>
+					<form
+						method="POST"
+						action="?/notNow"
+						use:enhance={() => {
+							notNowBusy = true;
+							return async ({ update }) => {
+								try {
+									await update();
+								} finally {
+									notNowBusy = false;
+								}
+							};
+						}}
+					>
+						<button
+							type="submit"
+							class={button('tertiary', 'sm')}
+							aria-busy={notNowBusy}
+							disabled={notNowBusy}>Not now</button
+						>
+					</form>
+					<button
+						type="button"
+						class={button('primary', 'sm')}
+						aria-haspopup="dialog"
+						onclick={openAdd}>Add</button
+					>
+				</div>
+			{/if}
 			{#if lesson.notes}
 				<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
 					<h2 class="text-[13px] font-bold text-muted">Notes</h2>
@@ -851,6 +921,83 @@
 		</form>
 	{/snippet}
 </Dialog>
+
+{#if adding}
+	<AddSheet
+		open={true}
+		onclose={() => (adding = null)}
+		title={lesson.title}
+		lessonId={lesson.id}
+		offer={adding.offer}
+		action="?/add"
+		fresh={adding.fresh}
+	/>
+{/if}
+
+{#if data.add?.added}
+	<Sheet title={lesson.title} open={lessonMenu} onclose={() => (lessonMenu = false)}>
+		<div class={GROUP}>
+			<button
+				type="button"
+				class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
+				aria-haspopup="dialog"
+				onclick={() => {
+					lessonMenu = false;
+					removing = true;
+				}}
+			>
+				<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
+				<span class="text-[16px] font-bold text-danger">Remove from my lessons</span>
+			</button>
+		</div>
+	</Sheet>
+
+	<Dialog
+		open={removing}
+		title="Remove from your lessons?"
+		body="What it put on Today goes, unless another lesson you have holds it. Your logs are kept."
+		icon="trash"
+		tone="danger"
+		onclose={() => (removing = false)}
+	>
+		{#snippet actions()}
+			<button type="button" class={button('tertiary', 'sm')} onclick={() => (removing = false)}
+				>Cancel</button
+			>
+			<form
+				method="POST"
+				action="?/remove"
+				use:enhance={() => {
+					removeBusy = true;
+					return async ({ update, result }) => {
+						if (result.type === 'redirect') {
+							removing = false;
+							await tick();
+							await leaveRemoved(result.location);
+							removeBusy = false;
+							return;
+						}
+						try {
+							await update();
+						} finally {
+							removeBusy = false;
+							removing = false;
+						}
+					};
+				}}
+			>
+				<button
+					type="submit"
+					class={button('danger', 'sm')}
+					aria-busy={removeBusy}
+					disabled={removeBusy}
+				>
+					{#if removeBusy}<Spinner /><span class="sr-only">Removing…</span>{:else}Remove{/if}
+				</button>
+			</form>
+		{/snippet}
+	</Dialog>
+{/if}
 
 <Dialog
 	open={archiving}

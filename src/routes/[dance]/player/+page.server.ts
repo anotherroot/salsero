@@ -6,11 +6,16 @@ import { listCountTakesFor } from '$lib/server/countTakes';
 import { listFiguresForCall } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { int, optionalInt, optionalText } from '$lib/server/form';
-import { getRoutine, routineShapes } from '$lib/server/routines';
+import { routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
 import { practiceBack } from '$lib/player/view';
 import { practiceStart } from '$lib/exercises/practice';
-import { exerciseInWall, requireExerciseInWall, wallOf, inWall } from '$lib/server/scope';
+import {
+	exerciseInWall,
+	requireExerciseInWall,
+	requireRoutineAccess,
+	wallOf
+} from '$lib/server/scope';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ url, params, locals }) => {
@@ -34,13 +39,16 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	const exercise = exerciseId ? exerciseInWall(db, wall, exerciseId) : null;
 
 	const routineId = Number(url.searchParams.get('routine')) || null;
-	const routine = routineId ? getRoutine(db, routineId) : null;
-	// Same id-scoping as the song and the exercise: a routine from the other
-	// dance is not this player's to walk.
-	if (routineId && (!routine || routine.archivedAt !== null || !inWall(routine, wall))) {
-		throw error(404, 'No such routine');
-	}
-	const shape = routine ? (routineShapes(db, wall).get(routine.id) ?? { slots: [] }) : null;
+	// Same id-scoping as the song and the exercise: a routine of the other
+	// dance, another person's, or a group's out of reach is not this player's
+	// to walk. A group's routine the person reads is (their entry practises it).
+	const found = routineId ? requireRoutineAccess(db, locals, params, routineId, 'read') : null;
+	if (found && found.routine.archivedAt !== null) throw error(404, 'No such routine');
+	const routine = found?.routine ?? null;
+	// The routine's own space draws it: a group's routine names the group's
+	// variations on the group's graph, never the member's own (risk 26).
+	const space = found?.space ?? wall;
+	const shape = routine ? (routineShapes(db, space).get(routine.id) ?? { slots: [] }) : null;
 	// Every figure the routine can call: the run's pool, and what the voice has
 	// a name for.
 	const figureIds = shape
@@ -86,10 +94,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		routine: routine && shape ? { id: routine.id, name: routine.name, shape, figureIds } : null,
 		// Names only, for `sayOf` and the on-screen call. Empty without a routine:
 		// nothing else calls figures.
-		callNames: listFiguresForCall(db, wall, figureIds),
+		callNames: listFiguresForCall(db, space, figureIds),
 		// The position graph, which a routine is flattened and walked on.
 		// Client-safe: `Graph` is plain data from a pure module.
-		graph: buildGraph(db, wall),
+		graph: buildGraph(db, space),
 		exercise,
 		exercises: listPickExercises(db, wall),
 		// Every pattern's takes: which one the run uses is a client-side choice

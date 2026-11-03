@@ -116,6 +116,19 @@ export function figureMeta(f: FigureListItem): { text: string; status: boolean }
 	return parts;
 }
 
+/**
+ * The words under a group's figure: what it holds, never what it lacks (a
+ * section or a lesson is the group's editors' business, not the reader's).
+ */
+export function groupFigureMeta(f: FigureListItem): { text: string; status: boolean }[] {
+	return figureMeta({ ...f, hasSection: true, hasLesson: true });
+}
+
+/** A group's slight heading over its figures in Moves: "Salsa nadaljevalna · 4". */
+export function groupHeading(name: string, count: number): string {
+	return `${name} · ${count}`;
+}
+
 /** The meta lines of the Positions and Coverage tiles. */
 export function tileMetas(
 	tagged: { done: number; total: number },

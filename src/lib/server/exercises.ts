@@ -1,14 +1,42 @@
-import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, sql, sum } from 'drizzle-orm';
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNotNull,
+	isNull,
+	lt,
+	sql,
+	sum
+} from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { exercises, figureGroups, figures, sets, songs } from './db/schema';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessons,
+	routines,
+	sets,
+	songs,
+	teams
+} from './db/schema';
 import { ownerValues, type Space, type Wall } from './scope';
 import { reconcileEntries } from './entries';
 import type { PracticeInput } from '$lib/exercises/practice';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
-/** Every exercise that has not been archived, with its figure's partner flag. */
+/**
+ * Every exercise that has not been archived, with its figure's partner flag
+ * and, for an entry on a group's thing, that group (read through the target:
+ * the entry itself is the person's).
+ */
 export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
-	return db
+	const drills = alias(exercises, 'drills');
+	const rows = db
 		.select({
 			id: exercises.id,
 			name: exercises.name,
@@ -24,10 +52,16 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 			everyDays: exercises.everyDays,
 			active: exercises.active,
 			notes: exercises.notes,
-			createdAt: exercises.createdAt
+			createdAt: exercises.createdAt,
+			teamId: sql<
+				number | null
+			>`coalesce(${lessons.teamId}, ${routines.teamId}, ${figures.teamId}, ${drills.teamId})`
 		})
 		.from(exercises)
 		.leftJoin(figures, eq(figures.id, exercises.figureId))
+		.leftJoin(lessons, eq(lessons.id, exercises.lessonId))
+		.leftJoin(routines, eq(routines.id, exercises.routineId))
+		.leftJoin(drills, eq(drills.id, exercises.drillId))
 		.where(
 			and(
 				isNull(exercises.archivedAt),
@@ -35,8 +69,23 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 				eq(exercises.userId, wall.userId)
 			)
 		)
-		.all()
-		.map((r) => ({ ...r, archived: false }));
+		.all();
+	const ids = [...new Set(rows.flatMap((r) => (r.teamId === null ? [] : [r.teamId])))];
+	const names = new Map(
+		ids.length === 0
+			? []
+			: db
+					.select({ id: teams.id, name: teams.name })
+					.from(teams)
+					.where(inArray(teams.id, ids))
+					.all()
+					.map((t) => [t.id, t.name] as [number, string])
+	);
+	return rows.map(({ teamId, ...r }) => ({
+		...r,
+		archived: false,
+		team: teamId === null ? null : { id: teamId, name: names.get(teamId) ?? '' }
+	}));
 }
 
 /** Every live exercise of the dance as a picker offers it, by name. Nothing is linked. */

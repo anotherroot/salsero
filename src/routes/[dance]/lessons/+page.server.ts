@@ -1,6 +1,6 @@
 import { error, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { createLesson, lessonVideoBytes, listLessons } from '$lib/server/lessons';
+import { createLesson, lessonVideoBytes, listMyLessons } from '$lib/server/lessons';
 import { readNewLesson } from '$lib/server/lesson-form';
 import { localDay } from '$lib/day/day';
 import { wallOf } from '$lib/server/scope';
@@ -15,7 +15,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	return {
-		lessons: listLessons(db, wall),
+		// Their own lessons and the group lessons they added, marked with the group.
+		lessons: listMyLessons(db, wall),
 		storageBytes: lessonVideoBytes(db, wall.userId),
 		today: localDay(Date.now(), zone(locals))
 	};

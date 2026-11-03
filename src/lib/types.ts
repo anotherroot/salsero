@@ -9,6 +9,9 @@ import type {
 } from './labels';
 import type { DanceSlug } from './dances/dances';
 
+/** A group, as a list names it. */
+export type TeamRef = { id: number; name: string };
+
 /** An exercise as the Today page needs it. Satisfies `PlanExercise`. */
 export interface ExerciseItem {
 	id: number;
@@ -30,6 +33,11 @@ export interface ExerciseItem {
 	archived: boolean;
 	notes: string | null;
 	createdAt: number;
+	/**
+	 * The group whose lesson, routine, variation or drill this entry practises,
+	 * through its target; null for a person's own. Today heads its rows by it.
+	 */
+	team: TeamRef | null;
 }
 
 export interface DaySet {
@@ -578,4 +586,15 @@ export interface AddItem {
 export interface AddOffer {
 	counts: { videos: number; sections: number; figures: number; routines: number; drills: number };
 	items: AddItem[];
+}
+
+/** Add on a group lesson's row and page. */
+export interface AddState {
+	/** In the person's own Lessons ("Added ✓"). */
+	added: boolean;
+	/**
+	 * The sheet: everything, before Add; once added, only what came in since
+	 * ("1 new drill · Add"), or null when nothing did.
+	 */
+	offer: AddOffer | null;
 }

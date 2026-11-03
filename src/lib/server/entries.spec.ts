@@ -126,12 +126,16 @@ describe('getFigure', () => {
 });
 
 describe('addFigureExercise', () => {
-	// T1 for real: u1 owns it, u2 is a member, and the class lesson is published,
-	// so u2 reads what it links (an entry needs read access to its variation).
+	// T1 for real: u1 owns it, u2 is a member, and the class lesson is published
+	// and added by both: an entry on a group's variation needs it in a lesson the
+	// person added (ruling R8), not just read access.
 	beforeEach(() => {
 		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
 		joinTeam(db, 'u2', 1, 2);
 		db.update(lessons).set({ publishedAt: 3 }).where(eq(lessons.id, lessonId)).run();
+		for (const userId of ['u1', 'u2']) {
+			db.insert(lessonAdds).values({ userId, lessonId, addedAt: 3, seenAt: 3 }).run();
+		}
 	});
 
 	// Catches: "someone already has one" refusing a second person, or the entry copying figure.userId.
@@ -164,8 +168,9 @@ describe('addFigureExercise', () => {
 		);
 	});
 
-	// Catches: a posted id handing anyone an entry on a group figure they cannot read (risk 21).
-	it('refuses a group figure in no published lesson, and an outsider any', () => {
+	// Catches: a posted id handing anyone an entry on a group figure they cannot read (risk 21),
+	// and an editor's entry on a draft-only figure that reconcile would archive (R8).
+	it('refuses a group figure in no added lesson — the editor’s too — and an outsider any', () => {
 		const unpublished = createFigure(db, T1_SALSA, {
 			figureName: 'Not yet taught',
 			name: 'Basic',
@@ -175,7 +180,26 @@ describe('addFigureExercise', () => {
 		})!.figure.id;
 		expect(addFigureExercise(db, 'u2', unpublished)).toBeNull();
 		expect(addFigureExercise(db, 'u4', figureId)).toBeNull();
-		expect(addFigureExercise(db, 'u1', unpublished)!.userId).toBe('u1');
+		expect(addFigureExercise(db, 'u1', unpublished)).toBeNull();
+	});
+
+	// Catches: read access alone being enough (R8): a published lesson the member
+	// has not added does not let them practise its figure.
+	it('refuses a figure of a published lesson the person has not added', () => {
+		const other = createLesson(db, T1_SALSA, { lessonDay: '2026-09-29', title: 'Two', notes: null })
+			.lesson.id;
+		db.update(lessons).set({ publishedAt: 4 }).where(eq(lessons.id, other)).run();
+		const taught = createFigure(db, T1_SALSA, {
+			figureName: 'Only in two',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		linkFigure(db, other, taught);
+		expect(addFigureExercise(db, 'u2', taught)).toBeNull();
+		db.insert(lessonAdds).values({ userId: 'u2', lessonId: other, addedAt: 5, seenAt: 5 }).run();
+		expect(addFigureExercise(db, 'u2', taught)!.userId).toBe('u2');
 	});
 
 	// Catches: handing a person an entry on someone else's personal figure.
@@ -423,6 +447,14 @@ describe('adding a group lesson', () => {
 				practiceMode: 'count',
 				countBpm: 180
 			});
+		});
+
+		// Catches: the entry's practice panel opening without the drill's pattern, clave and speed (R11).
+		it('copies the drill’s practice settings', () => {
+			const config = JSON.stringify({ pattern: 'son', clave: true, speed: 0.75 });
+			db.update(exercises).set({ practiceJson: config }).where(eq(exercises.id, D)).run();
+			addLesson(db, 'u2', P, { ...none, drillIds: [D] }, 10);
+			expect(entryFor(db, 'u2', { drillId: D })!.practiceJson).toBe(config);
 		});
 
 		// Catches: a posted id handing out a draft lesson or another group's drill (risk 21).

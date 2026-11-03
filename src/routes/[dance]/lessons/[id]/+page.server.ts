@@ -34,6 +34,8 @@ import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
+import { readAdd } from '$lib/server/add-form';
+import { addLesson, addState, markSeen, removeLesson } from '$lib/server/entries';
 import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
@@ -97,6 +99,12 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		team: team ? { id: team.id, name: team.name } : null,
 		/** A group's lesson only its editors see yet. */
 		draft: team !== null && found.lesson.publishedAt === null,
+		// A published group lesson: Add, or once added "1 new drill · Add" and
+		// Remove from my lessons. Editors are offered Add like anyone else.
+		add:
+			team !== null && found.lesson.publishedAt !== null
+				? addState(db, wall.userId, found.lesson.id)
+				: null,
 		sections: Object.fromEntries(
 			found.videos.map((v) => [
 				v.id,
@@ -155,6 +163,42 @@ export const actions: Actions = {
 			return fail(400, { action: 'publish', message: 'That lesson is already published.' });
 		}
 		return { action: 'publish', ok: true };
+	},
+
+	/**
+	 * Add this group lesson to one's own, with the sheet's picks; or, once
+	 * added, what came in since. Reading is enough: the entries are the
+	 * person's. A personal lesson has nothing to add: the missing one's 404.
+	 */
+	add: async ({ params, request, locals }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		const { picks } = readAdd(await request.formData());
+		const userId = wallOf(params, locals).userId;
+		if (!addLesson(getDb(), userId, lesson.id, picks, Date.now())) {
+			throw error(404, 'No such lesson');
+		}
+		return { action: 'add', ok: true };
+	},
+
+	/** "Not now": what came into the added lesson stops being new until something else does. */
+	notNow: ({ params, locals }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		if (!markSeen(getDb(), wallOf(params, locals).userId, lesson.id, Date.now())) {
+			throw error(404, 'No such lesson');
+		}
+		return { action: 'notNow', ok: true };
+	},
+
+	/**
+	 * Remove from my lessons: off the Lessons list and its entries off Today,
+	 * logs kept, except what another added lesson still holds.
+	 */
+	remove: ({ params, locals }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		if (!removeLesson(getDb(), wallOf(params, locals).userId, lesson.id, Date.now())) {
+			throw error(404, 'No such lesson');
+		}
+		throw redirect(303, `/${params.dance}/lessons`);
 	},
 
 	archive: async ({ params, locals }) => {

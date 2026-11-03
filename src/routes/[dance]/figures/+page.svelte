@@ -17,6 +17,8 @@
 	import {
 		figureMeta,
 		figuresEmpty,
+		groupFigureMeta,
+		groupHeading,
 		figuresHeading,
 		filterChips,
 		filterQuery,
@@ -91,8 +93,34 @@
 
 <svelte:head><title>Figures · {data.dance.label}</title></svelte:head>
 
+{#snippet figureRow(f: (typeof data.figures)[number], meta: { text: string; status: boolean }[])}
+	<!-- A figure is its variations: the row opens the first one. -->
+	<a
+		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
+		href={resolve('/[dance]/figures/[id]', {
+			dance: data.dance.slug,
+			id: String(f.firstVariationId)
+		})}
+	>
+		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
+			<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
+			<span class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted">
+				{#each meta as part, i (part.text)}
+					<span class="whitespace-nowrap"
+						>{#if i > 0}<span aria-hidden="true" class="mr-1.5">·</span>{/if}<span
+							class={part.status ? 'font-bold text-status' : undefined}>{part.text}</span
+						></span
+					>
+				{/each}
+			</span>
+		</span>
+		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+	</a>
+{/snippet}
+
 <MovesScreen segment="figures" dance={data.dance.slug} onnew={() => (creating = true)}>
-	{#if empty === 'none'}
+	{#if empty === 'none' && data.groups.length === 0}
 		<div class="h-10 flex-none"></div>
 		<EmptyState icon="moves" title="No figures yet" body="Add the first one you learned.">
 			{#snippet action()}
@@ -164,39 +192,34 @@
 				body="Every figure has a section and a lesson."
 			/>
 		{:else if empty === 'no-match'}
-			<EmptyState icon="search" title="No figures match" />
+			{#if data.groups.length === 0}<EmptyState icon="search" title="No figures match" />{/if}
+		{:else if empty === 'none'}
+			<!-- Only a group's figures so far: the person's own list starts here. -->
+			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
+				No figures of your own yet.
+			</p>
 		{:else}
 			<h2 class="{SECTION_LABEL} pt-0.5">{figuresHeading(count, filter)}</h2>
 			<div class={GROUP}>
 				{#each data.figures as f (f.id)}
-					<!-- A figure is its variations: the row opens the first one. -->
-					<a
-						class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
-						href={resolve('/[dance]/figures/[id]', {
-							dance: data.dance.slug,
-							id: String(f.firstVariationId)
-						})}
-					>
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
-							<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
-							<span
-								class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted"
-							>
-								{#each figureMeta(f) as part, i (part.text)}
-									<span class="whitespace-nowrap"
-										>{#if i > 0}<span aria-hidden="true" class="mr-1.5">·</span>{/if}<span
-											class={part.status ? 'font-bold text-status' : undefined}>{part.text}</span
-										></span
-									>
-								{/each}
-							</span>
-						</span>
-						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-					</a>
+					{@render figureRow(f, figureMeta(f))}
 				{/each}
 			</div>
 		{/if}
+
+		<!-- Each group's figures from the lessons the person added: viewed and practised, under a slight heading. -->
+		{#each data.groups as g (g.team.id)}
+			<section aria-label={g.team.name} class="flex flex-col gap-2">
+				<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
+					<Icon name="people" size={16} />{groupHeading(g.team.name, g.figures.length)}
+				</h2>
+				<div class={GROUP}>
+					{#each g.figures as f (f.id)}
+						{@render figureRow(f, groupFigureMeta(f))}
+					{/each}
+				</div>
+			</section>
+		{/each}
 	{/if}
 </MovesScreen>
 

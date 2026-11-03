@@ -11,7 +11,10 @@ import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
-import { entryFor } from '$lib/server/entries';
+import { addLesson, addOffer, drillAddRoute, entryFor } from '$lib/server/entries';
+import { readAdd } from '$lib/server/add-form';
+import { getLessonRow } from '$lib/server/lessons';
+import { getTeam } from '$lib/server/teams';
 import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { isFrequency } from '$lib/frequency';
@@ -61,8 +64,12 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			// Only a drill's sections are its own; the others show their owner's.
 			linkable: own.source === 'custom' ? linkableSections(db, { exerciseId: own.id }) : [],
 			canEdit: true,
+			// An entry on a group's drill shows the drill's content, which is the
+			// group's editors' to change, never the entry's (risk 26).
+			canEditContent: own.source !== 'added',
 			canLog: true,
-			drill: null
+			drill: null,
+			add: null
 		};
 	}
 
@@ -89,8 +96,13 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		active: row.active,
 		archived: false,
 		notes: row.notes,
-		createdAt: row.createdAt
+		createdAt: row.createdAt,
+		team: { id: row.teamId, name: getTeam(db, row.teamId)?.name ?? '' }
 	};
+	// No entry yet: Add, through a lesson that holds the drill (R7). One the
+	// person already added takes just this drill; otherwise its sheet opens.
+	const route = popup ? null : drillAddRoute(db, wall.userId, row);
+	const offer = route && !route.added ? addOffer(db, wall.userId, route.lessonId) : null;
 	return {
 		exercise: popup?.exercise ?? shown,
 		sets: popup?.sets ?? [],
@@ -111,8 +123,17 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		today,
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
 		canEdit,
+		canEditContent: canEdit,
 		canLog: popup !== null,
-		drill: { id: row.id, name: row.name, notes: row.notes }
+		drill: { id: row.id, name: row.name, notes: row.notes },
+		add: route
+			? {
+					lessonId: route.lessonId,
+					title: getLessonRow(db, route.lessonId)?.title ?? '',
+					added: route.added,
+					offer
+				}
+			: null
 	};
 };
 
@@ -120,6 +141,36 @@ export const actions: Actions = {
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
+
+	/**
+	 * Add on a group drill's page, sheet path: the lesson that holds it, with
+	 * the sheet's picks. Reading the drill is enough: the entries are the person's.
+	 */
+	add: async ({ params, request, locals }) => {
+		const { exercise: row } = requireExerciseAccess(getDb(), locals, params, params.id, 'read');
+		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
+		const { lessonId, picks } = readAdd(await request.formData());
+		const userId = wallOf(params, locals).userId;
+		if (lessonId === undefined || !addLesson(getDb(), userId, lessonId, picks, Date.now())) {
+			throw error(404, 'No such lesson');
+		}
+		return { action: 'add', ok: true };
+	},
+
+	/** Add on a group drill's page when a lesson the person added holds it: just this drill. */
+	addDrill: ({ params, locals }) => {
+		const db = getDb();
+		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
+		if (row.teamId === null || row.archivedAt !== null) throw error(404, 'No such exercise');
+		const userId = wallOf(params, locals).userId;
+		const route = drillAddRoute(db, userId, row);
+		if (!route || !route.added) throw error(404, 'No such exercise');
+		const picks = { lesson: false, routineIds: [], drillIds: [row.id], figureIds: [] };
+		if (!addLesson(db, userId, route.lessonId, picks, Date.now())) {
+			throw error(404, 'No such exercise');
+		}
+		return { action: 'addDrill', ok: true };
+	},
 
 	update: async ({ params, request, locals }) => {
 		const row = exerciseOf(params, locals);

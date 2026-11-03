@@ -7,7 +7,7 @@
  */
 import { frequencyLabel } from '$lib/frequency';
 import { lastDoneLabel, plural } from '$lib/format';
-import type { DaySet, ExerciseItem } from '$lib/types';
+import type { DaySet, ExerciseItem, TeamRef } from '$lib/types';
 import type { Plan, PlanRow } from '$lib/urgency/urgency';
 
 export type BandKey = 'due' | 'upcoming' | 'doneToday' | 'inactive';
@@ -20,17 +20,62 @@ const BAND_LABEL: Record<BandKey, string> = {
 };
 const ORDER: BandKey[] = ['due', 'upcoming', 'doneToday', 'inactive'];
 
-export function todayBands<R>(plan: Record<BandKey, R[]>): {
+/** A group's rows within a band, under a small heading: "Salsa nadaljevalna · 3". */
+export type TeamPart<R> = { team: TeamRef; label: string; rows: R[] };
+
+export type Band<R> = {
 	key: BandKey;
 	label: string;
+	/** Every row in the order shown: the person's own, then each group's. */
 	rows: R[];
-}[] {
-	return ORDER.filter((key) => plan[key].length > 0).map((key) => ({
-		key,
-		label: `${BAND_LABEL[key]} · ${plan[key].length}`,
-		rows: plan[key]
-	}));
+	own: R[];
+	teams: TeamPart<R>[];
+};
+
+/**
+ * The bands in order, each with the person's own rows first and then a part
+ * per group (by the group of the entry's target), groups by name. Within each
+ * part the plan's order stands. `rows` is that order flattened, which is the
+ * order a session walks.
+ */
+export function todayBands<R>(
+	plan: Record<BandKey, R[]>,
+	teamOf: (row: R) => TeamRef | null = () => null
+): Band<R>[] {
+	return ORDER.filter((key) => plan[key].length > 0).map((key) => {
+		const own: R[] = [];
+		const parts = new Map<number, TeamPart<R>>();
+		for (const row of plan[key]) {
+			const team = teamOf(row);
+			if (team === null) {
+				own.push(row);
+				continue;
+			}
+			let part = parts.get(team.id);
+			if (!part) parts.set(team.id, (part = { team, label: '', rows: [] }));
+			part.rows.push(row);
+		}
+		const teams = [...parts.values()]
+			.sort((a, b) => a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id)
+			.map((t) => ({ ...t, label: `${t.team.name} · ${t.rows.length}` }));
+		return {
+			key,
+			label: `${BAND_LABEL[key]} · ${plan[key].length}`,
+			rows: [...own, ...teams.flatMap((t) => t.rows)],
+			own,
+			teams
+		};
+	});
 }
+
+/** The rows of one band as shown, or none: what the session walks. */
+export function shownRows<R>(bands: Band<R>[], key: BandKey): R[] {
+	return bands.find((b) => b.key === key)?.rows ?? [];
+}
+
+/** An exercise row's group, for `todayBands`. */
+export const teamOfRow = (row: { exercise: { team: TeamRef | null } }): TeamRef | null =>
+	row.exercise.team;
 
 export type MetaPart = { text: string; tone: 'status' | 'done' | null };
 
