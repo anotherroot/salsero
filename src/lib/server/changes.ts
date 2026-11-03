@@ -10,12 +10,13 @@
  * The player's 0.1 s nudges would fill History with one line each, so
  * consecutive changes by one person to the same field of the same thing
  * within `HISTORY_MERGE_MS` are one line (risk 11): the first `before`, the
- * last `after`.
+ * last `after`. A song's `edit`s merge the same way (tapping the count is
+ * many saves).
  *
  * Which thing a change is filed under (its root): a lesson for its videos,
  * sections, links and section links; a figure (the `figure_groups` row: the
  * page a person reads as one figure) for its variations and recordings and
- * their sections; a routine for its slots; a drill for itself.
+ * their sections; a routine for its slots; a drill and a song for themselves.
  */
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from './db';
@@ -26,6 +27,7 @@ import {
 	lessons,
 	recordings,
 	routineSteps,
+	songs,
 	teamChanges,
 	teamMembers,
 	users,
@@ -74,7 +76,7 @@ export function logChange(tx: Db, space: Space, e: ChangeEntry, now: number): vo
 	if (!space.actorId)
 		throw new Error(`a group's change needs who made it (${e.rootKind} ${e.subject})`);
 	const subjectId = e.subjectId ?? null;
-	if (e.verb === 'change') {
+	if (e.verb === 'change' || e.verb === 'edit') {
 		const last = tx
 			.select()
 			.from(teamChanges)
@@ -89,7 +91,7 @@ export function logChange(tx: Db, space: Space, e: ChangeEntry, now: number): vo
 			.get();
 		if (
 			last &&
-			last.verb === 'change' &&
+			last.verb === e.verb &&
 			last.actorId === space.actorId &&
 			last.subject === e.subject &&
 			last.subjectId === subjectId &&
@@ -486,6 +488,7 @@ export function restoreChange(
 				return updateVariation(db, variation.id, input, by, now, R) !== null;
 			});
 		}
+		case 'song':
 		case 'team':
 			return { ok: false, reason: 'not-restorable' };
 	}
@@ -518,6 +521,10 @@ export function rootInTeam(
 			const drill = getExercise(db, rootId);
 			return owned(drill) && drill!.source === 'custom';
 		}
+		case 'song':
+			return owned(
+				db.select({ teamId: songs.teamId }).from(songs).where(eq(songs.id, rootId)).get()
+			);
 		case 'team':
 			return false;
 	}

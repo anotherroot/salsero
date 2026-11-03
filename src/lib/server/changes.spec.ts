@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { teamChanges, teamTrash, users } from './db/schema';
+import { songs, teamChanges, teamTrash, users } from './db/schema';
 import { restoreTrash } from './trash';
 import { actorOf, type Space } from './scope';
 import { T1_SALSA, U1_SALSA } from './test-walls';
@@ -74,6 +74,17 @@ import {
 } from './routines';
 import { archiveExercise, createCustomExercise, restoreDrill, updateExercise } from './exercises';
 import { claimVideoJob, completeVideoJob, requestVideoDownload } from './video-downloads';
+import {
+	createSongFromUpload,
+	createSongFromUrl,
+	setAnchors,
+	setSampleStart,
+	setTempoFactor,
+	updateSongMeta
+} from './songs';
+import { deleteGroupSong, shareSong, unshareSong } from './song-share';
+import { restoreDeleted } from './trash';
+import { eq } from 'drizzle-orm';
 import { HISTORY_MERGE_MS } from '$lib/limits';
 
 let db: Db;
@@ -156,6 +167,16 @@ function world(space: Space) {
 	)!.id;
 	const spotLink = linkInSpace(db, space, linked, { exerciseId: drill });
 	const link = addLinks(db, { lessonId: lesson }, ['https://example.org/a'], null, by)![0].id;
+	const song = createSongFromUpload(db, space, {
+		file: 'song.mp3',
+		mime: 'audio/mpeg',
+		title: 'Chan Chan',
+		style: 'salsa'
+	}).id;
+	db.update(songs)
+		.set({ status: 'ready', durationS: 200, beatsJson: '[]' })
+		.where(eq(songs.id, song))
+		.run();
 	return {
 		by,
 		lesson,
@@ -175,7 +196,8 @@ function world(space: Space) {
 		section,
 		linked,
 		spotLink,
-		link
+		link,
+		song
 	};
 }
 type World = ReturnType<typeof world>;
@@ -187,7 +209,7 @@ type World = ReturnType<typeof world>;
  */
 const MUTATIONS: {
 	name: string;
-	root: 'lesson' | 'figure' | 'routine' | 'drill';
+	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song';
 	verb: string;
 	rootId: (w: World) => number;
 	teamOnly?: boolean;
@@ -655,6 +677,92 @@ const MUTATIONS: {
 		rootId: (w) => w.drill2,
 		prep: (w) => archiveExercise(db, w.drill2, 5, w.by),
 		run: (w, s) => restoreDrill(db, s, w.drill2, T).ok
+	},
+	// songs.ts
+	{
+		name: 'createSongFromUrl',
+		root: 'song',
+		verb: 'add',
+		rootId: () => 0,
+		run: (_, s) =>
+			createSongFromUrl(db, s, { url: 'https://youtu.be/x', title: 'New', style: 'salsa' }, T)
+	},
+	{
+		name: 'createSongFromUpload',
+		root: 'song',
+		verb: 'add',
+		rootId: () => 0,
+		run: (_, s) =>
+			createSongFromUpload(
+				db,
+				s,
+				{ file: 'new.mp3', mime: 'audio/mpeg', title: 'New', style: 'salsa' },
+				T
+			)
+	},
+	{
+		name: 'setAnchors',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) => setAnchors(db, w.song, [0, 8], s, T)
+	},
+	{
+		name: 'setTempoFactor',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) => setTempoFactor(db, w.song, 2, s, T)
+	},
+	{
+		name: 'setSampleStart',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) => setSampleStart(db, w.song, 12, s, T)
+	},
+	{
+		name: 'updateSongMeta',
+		root: 'song',
+		verb: 'edit',
+		rootId: (w) => w.song,
+		run: (w, s) =>
+			updateSongMeta(db, w.song, { title: 'Other', artist: null, style: 'salsa' }, s, T)
+	},
+	// song-share.ts
+	{
+		name: 'shareSong',
+		root: 'song',
+		verb: 'share',
+		rootId: (w) => w.song,
+		teamOnly: true,
+		run: (w) => shareSong(db, T1_SALSA, w.song, T)
+	},
+	{
+		name: 'unshareSong',
+		root: 'song',
+		verb: 'unshare',
+		rootId: (w) => w.song,
+		teamOnly: true,
+		prep: (w) => shareSong(db, T1_SALSA, w.song, 5),
+		run: (w) => unshareSong(db, T1_SALSA, w.song, T)
+	},
+	{
+		name: 'deleteGroupSong',
+		root: 'song',
+		verb: 'delete',
+		rootId: (w) => w.song,
+		teamOnly: true,
+		run: (w) => deleteGroupSong(db, T1_SALSA, w.song, T)
+	},
+	{
+		name: 'restoreDeleted (song)',
+		root: 'song',
+		verb: 'restore',
+		rootId: (w) => w.song,
+		teamOnly: true,
+		prep: (w) => deleteGroupSong(db, T1_SALSA, w.song, 5),
+		run: (w) => restoreDeleted(db, T1_SALSA, 'song', w.song, T)
 	},
 	// video-downloads.ts, on completion
 	{

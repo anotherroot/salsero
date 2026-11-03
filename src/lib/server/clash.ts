@@ -143,6 +143,29 @@ export function exerciseSeen(row: {
 		: { ...content, everyDays: row.everyDays, active: row.active ? 'on' : '' };
 }
 
+/**
+ * A song's fields, as its page edits them: the name, the count (its anchors
+ * and tempo) and the sample start. A tap, a tempo or a sample save writes
+ * one or two of them; `seen` holds them all.
+ */
+export function songSeen(song: {
+	title: string;
+	artist: string | null;
+	style: string;
+	anchorsJson: string;
+	tempoFactor: number;
+	sampleStartS: number | null;
+}): Seen {
+	return {
+		title: song.title,
+		artist: song.artist,
+		style: song.style,
+		anchorsJson: song.anchorsJson,
+		tempoFactor: song.tempoFactor,
+		sampleStartS: song.sampleStartS
+	};
+}
+
 /** A section's or a point's fields, as the player edits them. */
 export function spotSeen(spot: {
 	label: string | null;

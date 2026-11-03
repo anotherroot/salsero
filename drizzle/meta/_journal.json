@@ -176,6 +176,13 @@
       "when": 1793718845492,
       "tag": "0024_lethal_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793720443402,
+      "tag": "0025_useful_sheva_callister",
+      "breakpoints": true
     }
   ]
 }

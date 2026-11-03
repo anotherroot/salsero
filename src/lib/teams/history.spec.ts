@@ -91,6 +91,36 @@ describe('historyLine', () => {
 		);
 	});
 
+	it('reads a group song’s lines', () => {
+		const song = (over: Partial<HistoryRow>) =>
+			historyLine(
+				row({
+					rootKind: 'song',
+					subject: 'song',
+					subjectId: null,
+					after: { name: 'Chan Chan' },
+					...over
+				}),
+				names
+			);
+		expect(song({ verb: 'add' })).toBe("Ana · added the song 'Chan Chan'");
+		expect(song({ verb: 'share' })).toBe("Ana · shared the song 'Chan Chan' with the class");
+		expect(song({ verb: 'unshare' })).toBe("Ana · stopped sharing the song 'Chan Chan'");
+		expect(song({ verb: 'delete' })).toBe("Ana · deleted the song 'Chan Chan'");
+		expect(song({ verb: 'restore' })).toBe("Ana · restored the song 'Chan Chan'");
+		expect(song({ verb: 'edit', subject: 'anchors', after: { anchorsJson: '[0]' } })).toBe(
+			'Ana · changed the count'
+		);
+		expect(song({ verb: 'edit', subject: 'tempoFactor' })).toBe('Ana · changed the tempo');
+		expect(song({ verb: 'edit', subject: 'sampleStartS' })).toBe('Ana · changed the sample start');
+		expect(song({ verb: 'edit', subject: 'title' })).toBe('Ana · changed the title');
+		expect(song({ verb: 'edit', subject: 'song' })).toBe('Ana · changed the song');
+		// A song's edit is not History's to put back.
+		expect(
+			canRestore(row({ rootKind: 'song', verb: 'edit', subject: 'title', before: { title: 'a' } }))
+		).toBe(false);
+	});
+
 	it('reads someone with no name as Someone', () => {
 		expect(historyLine(row({ actorId: 'gone' }), names)).toBe('Someone · changed the notes');
 	});

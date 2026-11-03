@@ -15,7 +15,8 @@ export const KIND_NAME: Record<DeletedKind, string> = {
 	lesson: 'Lesson',
 	variation: 'Variation',
 	routine: 'Routine',
-	drill: 'Drill'
+	drill: 'Drill',
+	song: 'Song'
 };
 
 /** The kinds kept in the trash for 30 days; the rest stay archived until restored. */

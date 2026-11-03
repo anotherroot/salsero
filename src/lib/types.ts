@@ -607,8 +607,23 @@ export interface AddState {
 }
 
 /** What a group change is filed under: the thing whose History shows it. */
-export type ChangeRootKind = 'lesson' | 'figure' | 'routine' | 'drill' | 'team';
-export type ChangeVerb = 'add' | 'change' | 'remove' | 'archive' | 'restore' | 'publish';
+export type ChangeRootKind = 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'team';
+/**
+ * What a change did. A group song's own: `share` and `unshare` (Share with the
+ * class, Stop sharing), `delete` (to Recently deleted) and `edit` (its name,
+ * count, tempo or sample start; merged like `change`).
+ */
+export type ChangeVerb =
+	| 'add'
+	| 'change'
+	| 'remove'
+	| 'archive'
+	| 'restore'
+	| 'publish'
+	| 'share'
+	| 'unshare'
+	| 'delete'
+	| 'edit';
 /** A value a change keeps from before and after: text, a number, or nothing. */
 export type ChangeValues = Record<string, string | number | null>;
 
@@ -633,7 +648,7 @@ export interface HistoryRow {
 /** What a group's hard delete keeps for 30 days (`team_trash.kind`). */
 export type TrashKind = 'video' | 'section' | 'link' | 'spot-link' | 'recording';
 /** What Recently deleted lists: the trash kinds, and the archived ones. */
-export type DeletedKind = TrashKind | 'lesson' | 'variation' | 'routine' | 'drill';
+export type DeletedKind = TrashKind | 'lesson' | 'variation' | 'routine' | 'drill' | 'song';
 
 /** One row of a group's Recently deleted, newest first. */
 export interface DeletedItem {

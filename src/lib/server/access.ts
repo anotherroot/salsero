@@ -442,6 +442,25 @@ export function songAccess(
 	return null;
 }
 
+/**
+ * Whether a person's own practice entry may hold this song: one they may
+ * open (`songAccess`), and for a group's song only while it is shared and not
+ * deleted, editors included, so a draft never ends up in anyone's practice.
+ */
+export function practiceSong(
+	db: Db,
+	userId: string,
+	song: {
+		userId: string | null;
+		teamId: number | null;
+		sharedAt: number | null;
+		archivedAt: number | null;
+	}
+): boolean {
+	if (songAccess(db, userId, song) === null) return false;
+	return song.teamId === null || (song.sharedAt !== null && song.archivedAt === null);
+}
+
 /** A video named by its spot owner (a recording or a lesson video); null for a missing one. */
 export function videoAccess(db: Db, userId: string, video: SpotOwner): Access {
 	return judgeVideo(db, userId, video).access;

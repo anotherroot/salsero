@@ -34,7 +34,11 @@ const FIELD: Record<string, string> = {
 	endId: 'end position',
 	startCount: 'start count',
 	lengthCounts: 'length',
-	note: 'slot’s note'
+	note: 'slot’s note',
+	artist: 'artist',
+	anchors: 'count',
+	tempoFactor: 'tempo',
+	sampleStartS: 'sample start'
 };
 
 /**
@@ -86,6 +90,7 @@ function what(row: HistoryRow): string {
 	const name = quoted(after?.name ?? before?.name);
 	switch (verb) {
 		case 'add':
+			if (subject === 'song') return `added the song${name}`;
 			if (subject === rootKind) return `made the ${subject}`;
 			if (subject === 'variation' && text(after?.from) !== null) {
 				return `moved${name} here from '${text(after?.from)}'`;
@@ -106,6 +111,15 @@ function what(row: HistoryRow): string {
 			return subject === rootKind ? `archived the ${subject}` : `archived the ${subject}${name}`;
 		case 'publish':
 			return `published the ${subject}`;
+		case 'share':
+			return `shared the ${subject}${name} with the class`;
+		case 'unshare':
+			return `stopped sharing the ${subject}${name}`;
+		case 'delete':
+			return `deleted the ${subject}${name}`;
+		case 'edit':
+			if (subject in FIELD) return `changed the ${FIELD[subject]}`;
+			return `changed the ${subject}`;
 		case 'restore':
 			if ((subject === 'section' || subject === 'point') && before !== null) {
 				const label = text(after?.label) ?? text(before.label);

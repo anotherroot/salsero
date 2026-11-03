@@ -5,8 +5,9 @@ import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
 import { isTeam, ownedBy, ownerValues, type Space, type Wall } from './scope';
+import { fieldChange, logChange } from './changes';
 import type { TempoFactor } from '$lib/labels';
-import type { PickerSong, SampleSong, SongItem } from '$lib/types';
+import type { ChangeValues, PickerSong, SampleSong, SongItem } from '$lib/types';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
 export const LEASE_MS = 15 * 60_000;
@@ -14,43 +15,112 @@ export const MAX_ATTEMPTS = 5;
 
 const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 
+/** A song in this space, and a group's `add` in its History. */
+function insertSong(db: Db, space: Space, values: typeof songs.$inferInsert, now: number): Song {
+	return db.transaction((tx) => {
+		const song = tx
+			.insert(songs)
+			.values({ ...values, ...ownerValues(space) })
+			.returning()
+			.get();
+		logChange(
+			tx,
+			space,
+			{
+				rootKind: 'song',
+				rootId: song.id,
+				verb: 'add',
+				subject: 'song',
+				after: { name: song.title }
+			},
+			now
+		);
+		return song;
+	});
+}
+
 /** A song in this space: a person's, or a group's draft (`shared_at` null). */
 export function createSongFromUrl(
 	db: Db,
 	space: Space,
-	input: { url: string; title: string; style: string }
+	input: { url: string; title: string; style: string },
+	now = Date.now()
 ): Song {
-	return db
-		.insert(songs)
-		.values({
+	return insertSong(
+		db,
+		space,
+		{
 			sourceUrl: input.url,
 			title: input.title,
 			style: input.style,
-			status: 'waiting_download',
-			...ownerValues(space)
-		})
-		.returning()
-		.get();
+			status: 'waiting_download'
+		},
+		now
+	);
 }
 
 export function createSongFromUpload(
 	db: Db,
 	space: Space,
-	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number }
+	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number },
+	now = Date.now()
 ): Song {
-	return db
-		.insert(songs)
-		.values({
+	return insertSong(
+		db,
+		space,
+		{
 			audioFile: input.file,
 			mime: input.mime,
 			title: input.title,
 			style: input.style,
 			sizeBytes: input.sizeBytes ?? null,
-			status: 'waiting_analysis',
-			...ownerValues(space)
-		})
-		.returning()
-		.get();
+			status: 'waiting_analysis'
+		},
+		now
+	);
+}
+
+/**
+ * Write a song's fields and, for a group's song edited in its space, log
+ * the `edit` (only the fields that changed; nothing when none did).
+ * `subject` names the change (`anchors`, `tempoFactor`) in place of the one
+ * field that changed. Null when there is no such song.
+ */
+function editSong(
+	db: Db,
+	id: number,
+	set: Partial<typeof songs.$inferInsert>,
+	space: Space | undefined,
+	now: number,
+	subject?: string
+): Song | null {
+	return db.transaction((tx) => {
+		const before = tx.select().from(songs).where(eq(songs.id, id)).get();
+		if (!before) return null;
+		const after = tx.update(songs).set(set).where(eq(songs.id, id)).returning().get();
+		if (space && isTeam(space) && before.teamId === space.teamId) {
+			const fields = (s: Song): ChangeValues =>
+				Object.fromEntries(
+					Object.keys(set).map((k) => [k, s[k as keyof Song] as string | number | null])
+				);
+			const change = fieldChange(fields(before), fields(after), 'song');
+			if (change) {
+				logChange(
+					tx,
+					space,
+					{
+						rootKind: 'song',
+						rootId: id,
+						verb: 'edit',
+						...change,
+						subject: subject ?? change.subject
+					},
+					now
+				);
+			}
+		}
+		return after;
+	});
 }
 
 export function songSample(song: Song): SampleSong | null {
@@ -194,16 +264,25 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 	return out;
 }
 
-/** Where the user wants the sample to start, or null for automatic. False, and nothing written, when out of range. */
-export function setSampleStart(db: Db, id: number, startS: number | null): boolean {
+/**
+ * Where the user wants the sample to start, or null for automatic. False, and
+ * nothing written, when out of range. A group's song, edited in its space, is
+ * logged (`editSong`).
+ */
+export function setSampleStart(
+	db: Db,
+	id: number,
+	startS: number | null,
+	space?: Space,
+	now = Date.now()
+): boolean {
 	const song = getSong(db, id);
 	if (!song) return false;
 	if (startS !== null) {
 		if (!Number.isFinite(startS) || startS < 0) return false;
 		if (song.durationS !== null && startS >= song.durationS) return false;
 	}
-	db.update(songs).set({ sampleStartS: startS }).where(eq(songs.id, id)).run();
-	return true;
+	return editSong(db, id, { sampleStartS: startS }, space, now) !== null;
 }
 
 export function getSong(db: Db, id: number): Song | null {
@@ -217,9 +296,11 @@ export function getSongByAudioFile(db: Db, file: string): Song | null {
 export function updateSongMeta(
 	db: Db,
 	id: number,
-	input: { title: string; artist: string | null; style: string }
+	input: { title: string; artist: string | null; style: string },
+	space?: Space,
+	now = Date.now()
 ): Song | null {
-	return db.update(songs).set(input).where(eq(songs.id, id)).returning().get() ?? null;
+	return editSong(db, id, input, space, now);
 }
 
 export function archiveSong(db: Db, id: number, now: number): boolean {
@@ -254,16 +335,28 @@ export function retrySong(db: Db, id: number): Song | null {
 	);
 }
 
-export function setAnchors(db: Db, id: number, anchors: number[]): void {
-	db.update(songs)
-		.set({ anchorsJson: JSON.stringify(anchors) })
-		.where(eq(songs.id, id))
-		.run();
+/** The count's anchors (a tap, a removal, Reset). False when there is no such song. */
+export function setAnchors(
+	db: Db,
+	id: number,
+	anchors: number[],
+	space?: Space,
+	now = Date.now()
+): boolean {
+	const set = { anchorsJson: JSON.stringify(anchors) };
+	return editSong(db, id, set, space, now, 'anchors') !== null;
 }
 
 /** Beat indices mean something different at another tempo factor, so the anchors go too. */
-export function setTempoFactor(db: Db, id: number, factor: TempoFactor): void {
-	db.update(songs).set({ tempoFactor: factor, anchorsJson: '[]' }).where(eq(songs.id, id)).run();
+export function setTempoFactor(
+	db: Db,
+	id: number,
+	factor: TempoFactor,
+	space?: Space,
+	now = Date.now()
+): boolean {
+	const set = { tempoFactor: factor, anchorsJson: '[]' };
+	return editSong(db, id, set, space, now, 'tempoFactor') !== null;
 }
 
 export interface Job {

@@ -17,11 +17,22 @@ import {
 	lessons,
 	lessonVideos,
 	routines,
+	songDrops,
+	songs,
 	spotLinks,
+	teamMembers,
 	videoSpots,
 	type Lesson
 } from './db/schema';
-import { addedLessonIds, addedReach, allows, lessonAccess, reachFrom, type Reach } from './access';
+import {
+	addedLessonIds,
+	addedReach,
+	allows,
+	lessonAccess,
+	practiceSong,
+	reachFrom,
+	type Reach
+} from './access';
 import { addFigureExercise, figureLabels } from './figures';
 import { reviewName } from './lessons';
 import type { TeamSpace } from './scope';
@@ -387,17 +398,115 @@ export function markSeen(db: Db, userId: string, lessonId: number, now: number):
 }
 
 /**
+ * A group song its person can no longer practise to (`practiceSong`: Stop
+ * sharing, Delete, leaving the group, an editor made a member) comes off
+ * every entry of theirs that used it: its song is set to none, and the
+ * practice falls back to the count. While the person is still in the group
+ * the drop is recorded in `song_drops` (a second drop of the same pair keeps
+ * the first), so Share again or Restore puts the song back
+ * (`reviveSongDrops`). Leaving is not undone that way: someone out of the
+ * group gets no drop, and loses the ones they had. With `userId`, only that
+ * person's entries.
+ */
+function dropSongs(tx: Db, teamId: number, now: number, userId?: string): void {
+	const mine = userId === undefined ? undefined : eq(exercises.userId, userId);
+	const using = tx
+		.select({ id: exercises.id, userId: exercises.userId, song: songs })
+		.from(exercises)
+		.innerJoin(songs, eq(songs.id, exercises.songId))
+		.where(and(isNotNull(exercises.userId), eq(songs.teamId, teamId), mine))
+		.all();
+	const members = new Set(
+		tx
+			.select({ userId: teamMembers.userId })
+			.from(teamMembers)
+			.where(eq(teamMembers.teamId, teamId))
+			.all()
+			.map((m) => m.userId)
+	);
+	for (const e of using) {
+		if (practiceSong(tx, e.userId!, e.song)) continue;
+		if (members.has(e.userId!)) {
+			tx.insert(songDrops)
+				.values({ exerciseId: e.id, songId: e.song.id, droppedAt: now })
+				.onConflictDoNothing()
+				.run();
+		}
+		tx.update(exercises).set({ songId: null }).where(eq(exercises.id, e.id)).run();
+	}
+	const outsiders = tx
+		.select({ id: exercises.id, userId: exercises.userId })
+		.from(songDrops)
+		.innerJoin(exercises, eq(exercises.id, songDrops.exerciseId))
+		.innerJoin(songs, eq(songs.id, songDrops.songId))
+		.where(and(eq(songs.teamId, teamId), mine))
+		.all()
+		.filter((e) => e.userId === null || !members.has(e.userId))
+		.map((e) => e.id);
+	if (outsiders.length > 0) {
+		tx.delete(songDrops)
+			.where(
+				and(
+					inArray(songDrops.exerciseId, outsiders),
+					inArray(
+						songDrops.songId,
+						tx.select({ id: songs.id }).from(songs).where(eq(songs.teamId, teamId))
+					)
+				)
+			)
+			.run();
+	}
+}
+
+/**
+ * Share again or Restore: put this song back on each entry its drop took it
+ * from, while that entry still has no song (a person who picked another
+ * since keeps theirs) and its person may practise to it now. A drop that
+ * came back, or whose entry has another song or is gone, is done with; one
+ * whose person still may not (Restore of a song still a draft) waits for the
+ * next Share.
+ */
+export function reviveSongDrops(tx: Db, songId: number): void {
+	const song = tx.select().from(songs).where(eq(songs.id, songId)).get();
+	if (!song) return;
+	const dropped = tx
+		.select({ exerciseId: songDrops.exerciseId, entry: exercises })
+		.from(songDrops)
+		.leftJoin(exercises, eq(exercises.id, songDrops.exerciseId))
+		.where(eq(songDrops.songId, songId))
+		.all();
+	const done: number[] = [];
+	for (const { exerciseId, entry } of dropped) {
+		if (!entry || entry.userId === null || entry.songId !== null) {
+			done.push(exerciseId);
+			continue;
+		}
+		if (!practiceSong(tx, entry.userId, song)) continue;
+		tx.update(exercises).set({ songId }).where(eq(exercises.id, entry.id)).run();
+		done.push(exerciseId);
+	}
+	if (done.length > 0) {
+		tx.delete(songDrops)
+			.where(and(eq(songDrops.songId, songId), inArray(songDrops.exerciseId, done)))
+			.run();
+	}
+}
+
+/**
  * Taken out means off Today (risk 25). Archives, with `now`, each live entry
  * on this group's rows whose target its person's added lessons no longer
  * hold: a lesson they removed or that was archived, and a routine, variation
  * or drill no added lesson reaches any more. Logs stay (archived entries keep
- * their sets). With `userId`, only that person's entries.
+ * their sets). First, any of the group's songs a person may no longer
+ * practise to comes off their entries (`dropSongs`). With `userId`, only
+ * that person's entries.
  *
  * Run inside the transaction of every group change that can shrink reach, so
  * an entry never outlives what it practises. A person's own space never calls
  * it: their entries point at their own rows.
  */
 export function reconcileEntries(tx: Db, teamId: number, now: number, userId?: string): void {
+	dropSongs(tx, teamId, now, userId);
 	const drills = alias(exercises, 'drills');
 	const ofTeam = <T extends typeof lessons | typeof routines | typeof figures | typeof drills>(
 		t: T

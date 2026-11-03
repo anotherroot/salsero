@@ -1067,11 +1067,11 @@ export const teamChanges = sqliteTable(
 	(t) => [
 		check(
 			'team_changes_root_kind_ck',
-			sql`${t.rootKind} in ('lesson', 'figure', 'routine', 'drill', 'team')`
+			sql`${t.rootKind} in ('lesson', 'figure', 'routine', 'drill', 'song', 'team')`
 		),
 		check(
 			'team_changes_verb_ck',
-			sql`${t.verb} in ('add', 'change', 'remove', 'archive', 'restore', 'publish')`
+			sql`${t.verb} in ('add', 'change', 'remove', 'archive', 'restore', 'publish', 'share', 'unshare', 'delete', 'edit')`
 		),
 		index('team_changes_root_idx').on(t.teamId, t.rootKind, t.rootId, t.at)
 	]

@@ -10,10 +10,10 @@
  * `purgeTrash` deletes the file for good. Until then the bytes count against
  * the group (`storage.ts`).
  *
- * The archived kinds (a lesson, a variation, a routine, a drill) are never
- * purged: they are listed here from their own `archived_at` and restored by
- * their module (`restoreLesson`, `restoreVariation`, `restoreRoutine`,
- * `restoreDrill`).
+ * The archived kinds (a lesson, a variation, a routine, a drill, a song) are
+ * never purged: they are listed here from their own `archived_at` and
+ * restored by their module (`restoreLesson`, `restoreVariation`,
+ * `restoreRoutine`, `restoreDrill`, `restoreSong`).
  *
  * A person's own deletes never come here: theirs remove the file at once.
  */
@@ -32,6 +32,7 @@ import {
 	links,
 	recordings,
 	routines,
+	songs,
 	spotLinks,
 	teamChanges,
 	teamTrash,
@@ -44,6 +45,7 @@ import { restoreLesson } from './lessons';
 import { labelFor, restoreVariation } from './figures';
 import { restoreRoutine } from './routines';
 import { restoreDrill } from './exercises';
+import { restoreSong } from './song-share';
 import { purgeTeams } from './team-purge';
 import { getTeam, roleOf } from './teams';
 import type { TeamSpace } from './scope';
@@ -305,7 +307,8 @@ export function trashSpace(
 
 /**
  * Recently deleted: the group's trash entries not yet restored or purged,
- * and its archived lessons, variations, routines and drills, newest first.
+ * and its archived lessons, variations, routines, drills and songs, newest
+ * first.
  * Each says who and when; a trash entry also the day it goes for good, in
  * `timeZone`.
  */
@@ -328,12 +331,13 @@ export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem
 		});
 	}
 
-	// Who archived what: the newest `archive` row per thing (a variation is its figure's subject).
+	// Who archived what: the newest `archive` row per thing (a variation is its figure's
+	// subject); a song's is a `delete`.
 	const archivers = new Map<string, string>();
 	for (const c of db
 		.select()
 		.from(teamChanges)
-		.where(and(eq(teamChanges.teamId, teamId), eq(teamChanges.verb, 'archive')))
+		.where(and(eq(teamChanges.teamId, teamId), inArray(teamChanges.verb, ['archive', 'delete'])))
 		.orderBy(teamChanges.at, teamChanges.id)
 		.all()) {
 		const key =
@@ -386,6 +390,12 @@ export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem
 		)
 		.all())
 		archived('drill', d.id, d.name, d.at!);
+	for (const s of db
+		.select({ id: songs.id, title: songs.title, at: songs.archivedAt })
+		.from(songs)
+		.where(and(eq(songs.teamId, teamId), isNotNull(songs.archivedAt)))
+		.all())
+		archived('song', s.id, s.title || 'Untitled song', s.at!);
 
 	const actors = [...new Set(items.map((i) => i.actorId).filter((a): a is string => a !== null))];
 	const names = teamNames(db, teamId, actors);
@@ -399,7 +409,7 @@ export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem
 
 /**
  * Restore one row of Recently deleted, whichever kind: a trash entry, or an
- * archived lesson, variation, routine or drill of this group. A refusal
+ * archived lesson, variation, routine, drill or song of this group. A refusal
  * comes with its words; null when there is no such thing in the group.
  */
 export function restoreDeleted(
@@ -409,12 +419,19 @@ export function restoreDeleted(
 	id: number,
 	now: number
 ): { ok: true } | { ok: false; message: string } | null {
-	if (kind === 'lesson' || kind === 'variation' || kind === 'routine' || kind === 'drill') {
+	if (
+		kind === 'lesson' ||
+		kind === 'variation' ||
+		kind === 'routine' ||
+		kind === 'drill' ||
+		kind === 'song'
+	) {
 		const restore = {
 			lesson: restoreLesson,
 			variation: restoreVariation,
 			routine: restoreRoutine,
-			drill: restoreDrill
+			drill: restoreDrill,
+			song: restoreSong
 		}[kind];
 		const done = restore(db, space, id, now);
 		if (done.ok) return done;
