@@ -101,6 +101,12 @@
 		 * what a section links to is shown, never changed.
 		 */
 		linking?: boolean;
+		/**
+		 * Marking, editing and deleting spots: off for a reader of a group's
+		 * video, who plays its sections and points but changes none of them. No
+		 * Mark or Section, no editor level, no M or S key.
+		 */
+		canEdit?: boolean;
 	}
 
 	let {
@@ -114,8 +120,11 @@
 		loopSpot,
 		title = 'Video',
 		subtitle = '',
-		linking = false
+		linking: linkingProp = false,
+		canEdit = true
 	}: Props = $props();
+	/** A reader links nothing either. */
+	const linking = $derived(linkingProp && canEdit);
 
 	const FULL: Screen = { kind: 'full' };
 
@@ -496,6 +505,7 @@
 	}
 
 	function toEdit(spot: Spot) {
+		if (!canEdit) return;
 		toast = null;
 		go(editStack(nav.stack, spot.id));
 		video.currentTime = spot.startMs / 1000;
@@ -504,8 +514,9 @@
 
 	/** A card or a chip: a section's view or a point's editor, always right above the full video, so Back returns there. */
 	function fromList(spot: Spot) {
-		if (spot.endMs === null) toEdit(spot);
-		else toSection(spot);
+		if (spot.endMs !== null) toSection(spot);
+		else if (canEdit) toEdit(spot);
+		else seek(spot.startMs);
 	}
 
 	function done() {
@@ -635,9 +646,9 @@
 			case 'tenthFwd':
 				return tenth(1);
 			case 'mark':
-				return void mark();
+				return canEdit ? void mark() : undefined;
 			case 'section':
-				return void section();
+				return canEdit ? void section() : undefined;
 			case 'setStart':
 			case 'setEnd': {
 				if (!spot) return;
@@ -713,6 +724,10 @@
 		['L', 'loop'],
 		['?', 'all keys']
 	];
+	/** A reader has no mark, section or edge keys. */
+	const legend = $derived(
+		canEdit ? LEGEND : LEGEND.filter(([k]) => k !== 'M' && k !== 'S' && k !== 'I O')
+	);
 
 	/** A tap on the picture: brings faded controls back, else plays or pauses. */
 	function tapVideo() {
@@ -818,6 +833,10 @@
 {/snippet}
 
 {#snippet markButtons(overlay: boolean, iconOnly = false)}
+	{#if canEdit}{@render markPair(overlay, iconOnly)}{/if}
+{/snippet}
+
+{#snippet markPair(overlay: boolean, iconOnly: boolean)}
 	<!-- iconOnly: a square 44 px button in place of the labelled pill (narrow landscape). -->
 	{@const markClass = overlay
 		? iconOnly
@@ -884,7 +903,7 @@
 
 {#snippet keyLegend()}
 	<div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-1 pb-3 text-[12px] text-muted">
-		{#each LEGEND as [k, what] (k)}
+		{#each legend as [k, what] (k)}
 			<span><kbd class={KBD}>{k}</kbd> {what}</span>
 		{/each}
 	</div>
@@ -938,7 +957,9 @@
 				spotsCount={spots.length}
 				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
 				onback={phone && level.kind === 'section' ? () => nav.up() : undefined}
-				onedit={phone && level.kind === 'section' ? () => openSpot && toEdit(openSpot) : undefined}
+				onedit={canEdit && phone && level.kind === 'section'
+					? () => openSpot && toEdit(openSpot)
+					: undefined}
 				onclose={() => nav.close()}
 				{onchoose}
 			/>
@@ -1065,7 +1086,7 @@
 							activeId={null}
 							{loadFailed}
 							onopen={fromList}
-							onedit={toEdit}
+							onedit={canEdit ? toEdit : undefined}
 							onclose={() => nav.up()}
 						/>
 					</section>
@@ -1111,20 +1132,22 @@
 						<div class="px-4 pt-0.5 pb-1">
 							<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 						</div>
-						<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
-							<button type="button" class={MARK_FILL} onclick={mark}>
-								<UiIcon name="flag" size={20} />Mark point
-							</button>
-							<button
-								type="button"
-								class={pendingStart === null ? MARK_WIDE : SECTION_WIDE}
-								onclick={section}
-							>
-								<UiIcon name="scissors" size={20} />{pendingStart === null
-									? 'Start section'
-									: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
-							</button>
-						</div>
+						{#if canEdit}
+							<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
+								<button type="button" class={MARK_FILL} onclick={mark}>
+									<UiIcon name="flag" size={20} />Mark point
+								</button>
+								<button
+									type="button"
+									class={pendingStart === null ? MARK_WIDE : SECTION_WIDE}
+									onclick={section}
+								>
+									<UiIcon name="scissors" size={20} />{pendingStart === null
+										? 'Start section'
+										: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+								</button>
+							</div>
+						{/if}
 						{@render sectionRow(null)}
 					</div>
 				{/if}
@@ -1234,7 +1257,7 @@
 						activeId={null}
 						{loadFailed}
 						onopen={fromList}
-						onedit={toEdit}
+						onedit={canEdit ? toEdit : undefined}
 						onclose={() => nav.up()}
 					/>
 				{:else if level.kind === 'edit' && openSpot}
@@ -1249,7 +1272,7 @@
 					{loadFailed}
 					variant="sidebar"
 					onopen={fromList}
-					onedit={toEdit}
+					onedit={canEdit ? toEdit : undefined}
 					expanded={level.kind === 'edit' ? editorCard : undefined}
 				/>
 			</div>

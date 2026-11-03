@@ -44,7 +44,8 @@ import { plan } from '$lib/urgency/urgency';
 import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { wallOf, inWall } from '$lib/server/scope';
+import { readerReach } from '$lib/server/access';
+import { inSpace, requireFigureAccess, wallOf } from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -71,30 +72,31 @@ function zoneOf(locals: App.Locals): string {
 }
 
 /**
- * The VARIATION this URL names, with its figure, or a 404.
+ * The VARIATION this URL names, with its figure, its space and this person's
+ * access, or a 404.
  *
  * `getFigure` is id-scoped, so nothing but this stops `/salsa/figures/7` from
- * rendering a bachata variation — a hole straight through the dance wall. An
- * archived variation, or one whose figure is gone, has no page either: every
- * action goes through here, so none of them can write to one.
+ * rendering a bachata variation, another person's, or a variation only a
+ * group's draft holds. An archived variation, or one whose figure is gone, has
+ * no page either: every action goes through here, so none of them can write to
+ * one. Changing asks for `edit`, so a member who posts gets the stranger's 404.
  */
-function variationOf(params: { dance: string; id: string }, locals: App.Locals) {
-	const wall = wallOf(params, locals);
+function variationOf(
+	params: { dance: string; id: string },
+	locals: App.Locals,
+	need: 'read' | 'edit' = 'edit'
+) {
 	const db = getDb();
-	const found = getFigure(db, variationId(params.id), wall.userId);
-	if (
-		!found ||
-		found.figure.archivedAt !== null ||
-		!inWall(found.figure, wall) ||
-		found.figure.groupId === null
-	) {
+	const { space, access } = requireFigureAccess(db, locals, params, variationId(params.id), need);
+	const found = getFigure(db, variationId(params.id), wallOf(params, locals).userId);
+	if (!found || found.figure.archivedAt !== null || found.figure.groupId === null) {
 		throw error(404, 'Figure not found');
 	}
 	const group = getGroup(db, found.figure.groupId);
-	if (!group || group.archivedAt !== null || !inWall(group, wall)) {
+	if (!group || group.archivedAt !== null || !inSpace(group, space)) {
 		throw error(404, 'Figure not found');
 	}
-	return { ...found, group };
+	return { ...found, group, space, access };
 }
 
 const taken = (figure: string, name: string) =>
@@ -116,16 +118,23 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 	}
 
 	const db = getDb();
-	const found = variationOf(params, locals);
-	const { figure, group } = found;
+	const found = variationOf(params, locals, 'read');
+	const { figure, group, space, access } = found;
 	const id = figure.id;
+	const canEdit = access === 'edit';
+	// A reader's lists hold only what the published lessons reach (risk 20):
+	// a draft's variation, lesson, routine or section never reaches the page.
+	const visible = readerReach(db, wall.userId, figure.teamId, access);
+	const seen = (ids: Set<number> | undefined, of: number) => !ids || ids.has(of);
 
-	const graph = buildGraph(db, wall);
+	const graph = buildGraph(db, space);
 	const node = figureById(graph, id);
-	const labels = figureLabels(db, wall);
+	const labels = figureLabels(db, space);
 	// The graph holds live variations of live figures only, never this one's self.
 	const link = (ids: number[]) =>
-		ids.filter((other) => other !== id).map((other) => ({ id: other, name: labels.get(other)! }));
+		ids
+			.filter((other) => other !== id && seen(visible?.variations, other))
+			.map((other) => ({ id: other, name: labels.get(other)! }));
 
 	const tags = figurePositions(db, id);
 	const live = listPositions(db, dance);
@@ -158,21 +167,23 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		if (!positionName.has(p)) positionName.set(p, getPosition(db, p)?.name ?? 'a removed hold');
 		return positionName.get(p)!;
 	};
-	const siblings: SiblingSummary[] = listGroupVariations(db, group.id).map((s) => {
-		const n = figureById(graph, s.id);
-		const starts = n ? [...startsOf(graph, n)].sort((a, b) => a - b) : [graph.neutral];
-		const end = n ? endOf(graph, n) : graph.neutral;
-		return {
-			id: s.id,
-			name: s.name,
-			holds: `${starts.map(nameOf).join(' / ')} → ${nameOf(end)}`,
-			timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
-			videos:
-				s.id === id
-					? found.recordings.length
-					: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
-		};
-	});
+	const siblings: SiblingSummary[] = listGroupVariations(db, group.id)
+		.filter((s) => seen(visible?.variations, s.id))
+		.map((s) => {
+			const n = figureById(graph, s.id);
+			const starts = n ? [...startsOf(graph, n)].sort((a, b) => a - b) : [graph.neutral];
+			const end = n ? endOf(graph, n) : graph.neutral;
+			return {
+				id: s.id,
+				name: s.name,
+				holds: `${starts.map(nameOf).join(' / ')} → ${nameOf(end)}`,
+				timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
+				videos:
+					s.id === id
+						? found.recordings.length
+						: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
+			};
+		});
 
 	const zone = zoneOf(locals);
 	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
@@ -186,18 +197,27 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			styleTag: figure.styleTag,
 			notes: figure.notes,
 			recordings: found.recordings,
-			sections: sectionsFor(db, { figureId: id }),
+			sections: sectionsFor(db, { figureId: id }, visible ?? undefined),
 			// Each recording's own sections and what they link to, so a link can be
 			// undone even when its target is archived and has no page.
 			recordingSections: Object.fromEntries(
-				found.recordings.map((r) => [r.id, videoSections(db, { recordingId: r.id })])
+				found.recordings.map((r) => [
+					r.id,
+					videoSections(db, { recordingId: r.id }, visible ?? undefined)
+				])
 			)
 		},
 		siblings,
+		canEdit,
 		exercise: found.exercise,
 		popup,
 		// Derived per request, never stored — the same rule urgency follows.
-		routines: routinesUsing(graph, id, routineShapes(db, wall), listRoutines(db, wall)),
+		routines: routinesUsing(
+			graph,
+			id,
+			routineShapes(db, space),
+			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
+		),
 		practice: popup
 			? practiceLine(
 					plan(
@@ -234,9 +254,10 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		leadsTo: link(follows(graph, id)),
 		followsFrom: link(precedes(graph, id)),
 		links: listLinks(db, { figureId: id }),
-		taughtIn: taughtIn(db, wall, id),
-		linkable: linkableSections(db, { figureId: id }),
-		moveTargets: listMoveTargets(db, wall, group.id)
+		taughtIn: taughtIn(db, space, id).filter((l) => seen(visible?.lessons, l.id)),
+		// What linking and Move… offer: an editor's only.
+		linkable: canEdit ? linkableSections(db, { figureId: id }) : [],
+		moveTargets: canEdit ? listMoveTargets(db, space, group.id) : []
 	};
 };
 
@@ -256,7 +277,7 @@ export const actions: Actions = {
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', DANCES[wallOf(params, locals).dance].styles);
+		const style = oneOf(form, 'style', DANCES[found.space.dance].styles);
 		const notes = optionalText(form, 'notes');
 		const startIds = ints(form, 'startIds');
 		const rawEnd = String(form.get('endId') ?? '');
@@ -281,9 +302,8 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const { figure, group } = found;
-		const wall = wallOf(params, locals);
-		if (figureNameTaken(db, wall, figureName, group.id)) {
+		const { figure, group, space } = found;
+		if (figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		if (variationNameTaken(db, group.id, name, figure.id)) {
@@ -416,9 +436,13 @@ export const actions: Actions = {
 		);
 	},
 
-	/** Give this variation its own exercise, so it shows on Today. */
+	/**
+	 * Give this person their own exercise for this variation, so it shows on
+	 * their Today. Reading is enough: the entry is theirs, the variation stays
+	 * the group's.
+	 */
 	practise: ({ params, locals }) => {
-		const { figure } = variationOf(params, locals);
+		const { figure } = variationOf(params, locals, 'read');
 		if (!addFigureExercise(getDb(), wallOf(params, locals).userId, figure.id)) {
 			return fail(400, {
 				action: 'practise',

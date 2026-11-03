@@ -1,6 +1,9 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { inviteQr } from '$lib/server/invites';
+import { createLesson, listTeamLessons } from '$lib/server/lessons';
+import { readNewLesson } from '$lib/server/lesson-form';
+import { localDay } from '$lib/day/day';
 import { requireTeam } from '$lib/server/scope';
 import {
 	deleteTeam,
@@ -15,7 +18,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
-	const { team, role } = requireTeam(db, locals, params, 'member');
+	const { team, role, space } = requireTeam(db, locals, params, 'member');
 	const deleted = team.deletedAt !== null;
 	// The code is for those who may hand it out; a deleted group shows nothing but Restore.
 	const link = !deleted && role !== 'member' ? codeLink(url.origin, team.code) : null;
@@ -23,11 +26,30 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		team: { id: team.id, name: team.name, deletedAt: team.deletedAt },
 		role,
 		people: peopleOf(db, team.id).length,
-		code: link ? { link, qr: inviteQr(link) } : null
+		code: link ? { link, qr: inviteQr(link) } : null,
+		// An editor's list starts with the drafts; a member's holds the published ones only.
+		lessons: deleted ? [] : listTeamLessons(db, space.actorId, team.id, role),
+		canEdit: !deleted && role !== 'member',
+		today: localDay(Date.now(), locals.user!.timezone)
 	};
 };
 
 export const actions: Actions = {
+	/** + New lesson: a draft of the group's, opened at once. Only its editors make one. */
+	createLesson: async ({ params, locals, request }) => {
+		const db = getDb();
+		const { team, space } = requireTeam(db, locals, params, 'editor');
+		if (team.deletedAt !== null) throw error(404, 'No such group');
+		const read = readNewLesson(
+			await request.formData(),
+			localDay(Date.now(), locals.user!.timezone),
+			false
+		);
+		if ('refused' in read) return read.refused;
+		const { lesson } = createLesson(db, space, read.input);
+		throw redirect(303, `/${team.dance}/lessons/${lesson.id}`);
+	},
+
 	rename: async ({ params, locals, request }) => {
 		const db = getDb();
 		const { team } = requireTeam(db, locals, params, 'owner');

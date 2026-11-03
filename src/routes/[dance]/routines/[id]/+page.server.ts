@@ -38,6 +38,7 @@ import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
+import { readerReach } from '$lib/server/access';
 import { requireRoutineAccess, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
 import type { Actions, PageServerLoad } from './$types';
@@ -49,27 +50,40 @@ import type { Actions, PageServerLoad } from './$types';
  * path, and doing it once by name beats nine copies.
  */
 function routineOf(params: { dance: string; id: string }, locals: App.Locals) {
-	return routineIn(params, locals).routine;
+	return routineIn(params, locals, 'edit').routine;
 }
 
 /**
- * The routine and the space it stands in (a person's or a group's). Edit, the
- * load included: this page is built from the routine's own space, never from
- * reach, so it is not a page a reader may open.
+ * The routine, the space it stands in (a person's or a group's) and this
+ * person's access. The load reads; every action edits, so a member who posts
+ * gets the stranger's 404.
  */
-function routineIn(params: { dance: string; id: string }, locals: App.Locals) {
-	return requireRoutineAccess(getDb(), locals, params, params.id, 'edit');
+function routineIn(
+	params: { dance: string; id: string },
+	locals: App.Locals,
+	need: 'read' | 'edit'
+) {
+	return requireRoutineAccess(getDb(), locals, params, params.id, need);
 }
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const { routine, space } = routineIn(params, locals);
+	const { routine, space, access } = routineIn(params, locals, 'read');
+	const canEdit = access === 'edit';
+	// A reader's lists hold only what the published lessons reach (risk 20).
+	const visible = readerReach(db, wall.userId, routine.teamId, access);
 	const graph = buildGraph(db, space);
 	const shapes = routineShapes(db, space);
 	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, wall.dance);
+	// A reader is told the names this routine's own slots use, and no other: its
+	// slots (and its embedded routines') are in their reach by construction.
+	const named = new Set(
+		shape.slots.flatMap((s) => (s.kind === 'options' ? [s] : s.slots).flatMap((o) => o.figureIds))
+	);
+	const labels = [...figureLabels(db, space)].filter(([id]) => !visible || named.has(id));
 
 	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. Only the break count above the
@@ -81,42 +95,45 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	// here, through the graph, so an untagged figure is neutral on the client
 	// exactly as it is on the server. Archived figures are not candidates; a slot
 	// still holding one names it through `labels`.
-	const candidates: Candidate[] = [
-		...listVersions(db, space).flatMap((v): Candidate[] => {
-			const node = figureById(graph, v.id);
-			if (!node) return [];
-			return [
-				{
-					kind: 'figure',
-					id: v.id,
-					groupId: v.groupId,
-					figure: v.figure,
-					label: v.label,
-					starts: startsOf(graph, node),
-					startCounts: [node.start],
-					end: endOf(graph, node),
-					next: nextCountOf(node)
-				}
+	const candidates: Candidate[] = !canEdit
+		? []
+		: [
+				...listVersions(db, space).flatMap((v): Candidate[] => {
+					const node = figureById(graph, v.id);
+					if (!node) return [];
+					return [
+						{
+							kind: 'figure',
+							id: v.id,
+							groupId: v.groupId,
+							figure: v.figure,
+							label: v.label,
+							starts: startsOf(graph, node),
+							startCounts: [node.start],
+							end: endOf(graph, node),
+							next: nextCountOf(node)
+						}
+					];
+				}),
+				...embeddable(db, routine.id).map((r): Candidate => {
+					// An embeddable routine embeds nothing, so its own slots are all options.
+					const own = (shapes.get(r.id)?.slots ?? []).filter(
+						(s): s is OptionsSlot => s.kind === 'options'
+					);
+					return {
+						kind: 'routine',
+						id: r.id,
+						groupId: null,
+						figure: null,
+						label: r.name,
+						...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
+					};
+				})
 			];
-		}),
-		...embeddable(db, routine.id).map((r): Candidate => {
-			// An embeddable routine embeds nothing, so its own slots are all options.
-			const own = (shapes.get(r.id)?.slots ?? []).filter(
-				(s): s is OptionsSlot => s.kind === 'options'
-			);
-			return {
-				kind: 'routine',
-				id: r.id,
-				groupId: null,
-				figure: null,
-				label: r.name,
-				...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
-			};
-		})
-	];
 
 	return {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
+		canEdit,
 		// The routine's own exercise, so "Practise" can hand the player an exercise
 		// id and the save sheet comes up with the right one already chosen.
 		exerciseId: entryFor(db, wall.userId, { routineId: routine.id })?.id ?? null,
@@ -130,7 +147,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		) as Record<number, number>,
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
-		labels: Object.fromEntries(figureLabels(db, space)),
+		labels: Object.fromEntries(labels),
 		positions: positions.map((p) => ({ id: p.id, name: p.name })),
 		starts: routineStarts(graph, shape),
 		end: routineEnd(graph, shape),
@@ -145,14 +162,18 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// The per-row markers, indexed by `slots` rather than the flat run, so an
 		// archived-only slot or an embedded routine cannot shift them.
 		timingSeams: timingSeams(graph, shape),
-		taughtIn: routineTaughtIn(db, space, routine.id),
+		taughtIn: routineTaughtIn(db, space, routine.id).filter(
+			(l) => !visible || visible.lessons.has(l.id)
+		),
 		candidates,
 		// Per row, parallel to `slots`: where it begins and lands — the picker's
 		// anchors and the seams' labels.
 		edges: shape.slots.map((s) => rowEdges(graph, s)),
 		positionSeams: positionSeams(graph, shape),
 		// Why "Make routine" is greyed, named.
-		embeddedIn: embeddedIn(db, routine.id).map((r) => r.name)
+		embeddedIn: embeddedIn(db, routine.id)
+			.filter((r) => !visible || visible.routines.has(r.id))
+			.map((r) => r.name)
 	};
 };
 

@@ -11,6 +11,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import CodeSheet from '$lib/components/teams/CodeSheet.svelte';
+	import LessonRow from '$lib/components/lessons/LessonRow.svelte';
+	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import type { IconName } from '$lib/icons/icons';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { peopleLine, youLine } from '$lib/teams/view';
@@ -25,6 +27,7 @@
 	let code = $state(false);
 	let renaming = $state(false);
 	let leaving = $state(false);
+	let creating = $state(false);
 	let deleting = $state(false);
 	let busy = $state(false);
 
@@ -33,6 +36,15 @@
 		if (form !== seen && form?.action === 'rename' && form.message) renaming = true;
 	});
 	const fresh = $derived(form !== seen ? form : null);
+	// A refused New lesson re-renders with the message; keep the sheet open to show it.
+	$effect(() => {
+		if (form !== seen && form?.action === 'create' && form.message) creating = true;
+	});
+
+	function openNewLesson() {
+		seen = form;
+		creating = true;
+	}
 
 	function openRename() {
 		seen = form;
@@ -78,8 +90,30 @@
 	{:else}
 		{#if form?.action === 'leave' && form.message}<Banner kind="error">{form.message}</Banner>{/if}
 		<section class="flex flex-col gap-2">
-			<h2 class={SECTION_LABEL}>Lessons</h2>
-			<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">No lessons yet</div>
+			<div class="flex items-center justify-between pr-1">
+				<h2 class={SECTION_LABEL}>Lessons</h2>
+				{#if data.canEdit}
+					<button type="button" class={button('tertiary', 'sm')} onclick={openNewLesson}
+						><Icon name="plus" size={18} />New lesson</button
+					>
+				{/if}
+			</div>
+			{#if data.lessons.length === 0}
+				<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">No lessons yet</div>
+			{:else}
+				<ul class={GROUP} aria-label="Lessons">
+					{#each data.lessons as lesson (lesson.id)}
+						<LessonRow
+							{lesson}
+							draft={lesson.publishedAt === null}
+							href={resolve('/[dance]/lessons/[id]', {
+								dance: data.dance.slug,
+								id: String(lesson.id)
+							})}
+						/>
+					{/each}
+				</ul>
+			{/if}
 		</section>
 	{/if}
 </Screen>
@@ -125,6 +159,17 @@
 			)}{/if}
 	</div>
 </Sheet>
+
+{#if data.canEdit}
+	<NewLessonSheet
+		open={creating}
+		onclose={() => (creating = false)}
+		action="?/createLesson"
+		refusal={fresh?.action === 'create' ? fresh : null}
+		today={data.today}
+		frequency={false}
+	/>
+{/if}
 
 {#if data.code}
 	<CodeSheet

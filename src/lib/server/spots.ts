@@ -10,7 +10,7 @@ import type { Db } from './db';
 import { figures, lessons, lessonVideos, recordings, videoSpots } from './db/schema';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
-import { assertUnlinked, linkChips, videoOfSpot } from './spot-links';
+import { assertUnlinked, linkChips, videoOfSpot, type Visible } from './spot-links';
 import { ownerOfRow, type Owner } from './storage';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
@@ -116,22 +116,24 @@ function cleanTimes(startMs: unknown, endMs: unknown): { startMs: number; endMs:
 }
 
 /** Rows straight from the table, plus what each is linked to. */
-function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[]): Spot[] {
+function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[], visible?: Visible): Spot[] {
 	const chips = linkChips(
 		db,
-		rows.map((r) => r.id)
+		rows.map((r) => r.id),
+		visible
 	);
 	return rows.map((r) => ({ ...r, linkedTo: (chips.get(r.id) ?? []).map((c) => c.label) }));
 }
 
-export function listSpots(db: Db, owner: SpotOwner): Spot[] {
+/** A video's spots. With `visible` (a reader of a group's video), only the links to what it holds. */
+export function listSpots(db: Db, owner: SpotOwner, visible?: Visible): Spot[] {
 	const rows = db
 		.select(COLUMNS)
 		.from(videoSpots)
 		.where(ownerColumn(owner))
 		.orderBy(asc(videoSpots.startMs), asc(videoSpots.id))
 		.all();
-	return withLinks(db, rows);
+	return withLinks(db, rows, visible);
 }
 
 /** The new spot, or null when its video does not exist. Throws `SpotError` on a bad value. */

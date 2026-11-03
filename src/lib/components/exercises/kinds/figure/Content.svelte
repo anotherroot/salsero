@@ -12,7 +12,7 @@
 	import { PROSE, SECTION_HEAD } from '../prose';
 	import type { ContentProps } from '../index';
 
-	let { dance, content, timezone, onPage = false }: ContentProps = $props();
+	let { dance, content, timezone, onPage = false, canEdit = true }: ContentProps = $props();
 	let broken = $state<Record<number, MediaProblem>>({});
 </script>
 
@@ -33,6 +33,7 @@
 				{:else}
 					<VideoFrame
 						src="/recordings/{rec.file}"
+						{canEdit}
 						sourceUrl={rec.sourceUrl}
 						kind={rec.kind}
 						owner={{ recordingId: rec.id }}
@@ -43,7 +44,7 @@
 			</div>
 		{/each}
 		{#each content.sections as s (s.linkId)}
-			<SectionCard section={s} />
+			<SectionCard section={s} {canEdit} />
 		{/each}
 		<LinkList links={content.links} />
 		{#if !content.figure.notes && content.recordings.length === 0 && content.sections.length === 0 && content.links.length === 0}

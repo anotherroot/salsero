@@ -547,7 +547,7 @@
 	title={selecting ? selectionTitle(selected.length) : editing ? 'Edit routine' : routine.name}
 	compact={selecting || (!editing && bandCompact(routine.name))}
 	left={back}
-	right={selecting || editing ? undefined : actions}
+	right={selecting || editing || !data.canEdit ? undefined : actions}
 	hero={selecting || editing || !danceable ? undefined : practise}
 >
 	<div
@@ -685,7 +685,43 @@
 				{/if}
 			{/if}
 
-			{#if data.slots.length === 0}
+			{#if !data.canEdit}
+				<!-- A reader sees the slots as they are: no gestures, no picker, no notes to edit. -->
+				{#if rows.length === 0}
+					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">No slots yet.</p>
+				{:else}
+					<section>
+						<h2 class="{SECTION_LABEL} mb-2 pt-1.5">Slots · {rows.length}</h2>
+						<ol class={GROUP}>
+							{#each rows as row, i (row.id)}
+								<li class="flex min-h-16 items-start gap-3 py-3 pr-3.5 pl-4">
+									<span
+										class="w-6 flex-none pt-0.5 text-[15px] font-extrabold text-muted tabular-nums"
+										>{i + 1}</span
+									>
+									<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+										{#if row.href}
+											<a href={row.href} class="text-[16px] leading-tight font-bold text-ink"
+												>{row.title}</a
+											>
+										{:else}
+											<span class="text-[16px] leading-tight font-bold text-muted">{row.title}</span
+											>
+										{/if}
+										{#if row.meta}<span class="text-[13px] text-muted">{row.meta}</span>{/if}
+										{#if row.alternatives.length > 0}
+											<span class="text-[13px] text-ink-2"
+												>or {row.alternatives.map((a) => a.label).join(', ')}</span
+											>
+										{/if}
+										{#if row.note}<span class="text-[13px] text-ink-2 italic">{row.note}</span>{/if}
+									</span>
+								</li>
+							{/each}
+						</ol>
+					</section>
+				{/if}
+			{:else if data.slots.length === 0}
 				<EmptyState
 					icon="route"
 					title="No slots yet"

@@ -30,6 +30,7 @@
 	import LinkSectionSheet from '$lib/components/ui/LinkSectionSheet.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import LinkList from '$lib/components/links/LinkList.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
@@ -279,8 +280,8 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
-		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. -->
-		{#if !editing}
+		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader has no pencil. -->
+		{#if !editing && data.canEdit}
 			<BandButton focusKey="start-editing" icon="pencil" label="Edit" onclick={startEditing} />
 		{/if}
 	{/snippet}
@@ -589,7 +590,8 @@
 									caption={{ title: day, meta: byteSize(rec.sizeBytes) }}
 									onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
 									onclosed={() => void refreshWhenSettled()}
-									linking
+									linking={data.canEdit}
+									canEdit={data.canEdit}
 									action={editing ? recTrash : undefined}
 									sections={variation.recordingSections[rec.id]}
 								/>
@@ -606,7 +608,8 @@
 									sections={variation.recordingSections[rec.id]}
 									src="/recordings/{rec.file}"
 									owner={{ recordingId: rec.id }}
-									linking
+									linking={data.canEdit}
+									canEdit={data.canEdit}
 									unlink={editing}
 								/>
 							{/if}
@@ -617,61 +620,67 @@
 			<!-- Keyed: the buttons hold upload state, and a step to another variation must not carry it over.
 			     One tree whether or not it sits in the empty card (or is hidden while editing), so a
 			     started upload is not remounted. While a file goes up its own card stands alone. -->
-			{#key variation.id}
-				<div
-					class={empty && !uploading
-						? 'flex flex-col gap-3 rounded-2xl bg-surface p-4'
-						: 'flex flex-col'}
-					class:hidden={editing && !uploading}
-				>
-					{#if empty && !uploading}
-						<div class="flex items-center gap-3">
-							<span
-								class="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
-								><Icon name="video" size={22} /></span
-							>
-							<span class="flex flex-col gap-0.5">
-								<span class="text-[16px] font-bold">No recordings yet</span>
-								<span class="text-[13px] text-muted">Film it after class, or add a voice note</span>
-							</span>
-						</div>
-					{/if}
-					{#if data.app}
-						<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
-						<AppUploadLink
-							href={uploadLink(
-								{ figure: variation.id },
-								{
-									back: page.url.pathname + page.url.search,
-									name: `${figure.name} · ${variation.name}`
-								}
-							)}
-							label="Add video"
-							kind={empty ? 'primary' : 'secondary'}
-						/>
-						<div class="mt-3">
+			{#if !data.canEdit}
+				{#if empty}
+					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">No recordings yet</p>
+				{/if}
+			{:else}{#key variation.id}
+					<div
+						class={empty && !uploading
+							? 'flex flex-col gap-3 rounded-2xl bg-surface p-4'
+							: 'flex flex-col'}
+						class:hidden={editing && !uploading}
+					>
+						{#if empty && !uploading}
+							<div class="flex items-center gap-3">
+								<span
+									class="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
+									><Icon name="video" size={22} /></span
+								>
+								<span class="flex flex-col gap-0.5">
+									<span class="text-[16px] font-bold">No recordings yet</span>
+									<span class="text-[13px] text-muted"
+										>Film it after class, or add a voice note</span
+									>
+								</span>
+							</div>
+						{/if}
+						{#if data.app}
+							<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
+							<AppUploadLink
+								href={uploadLink(
+									{ figure: variation.id },
+									{
+										back: page.url.pathname + page.url.search,
+										name: `${figure.name} · ${variation.name}`
+									}
+								)}
+								label="Add video"
+								kind={empty ? 'primary' : 'secondary'}
+							/>
+							<div class="mt-3">
+								<UploadButton
+									url="/api/figures/{variation.id}/recordings"
+									accept="audio/*"
+									icon="mic"
+									label="Add audio"
+									noun="recording"
+									bind:busy={uploading}
+								/>
+							</div>
+						{:else}
 							<UploadButton
 								url="/api/figures/{variation.id}/recordings"
-								accept="audio/*"
-								icon="mic"
-								label="Add audio"
+								accept="video/*,audio/*"
+								label="Add video or audio"
 								noun="recording"
+								kind={empty ? 'primary' : 'secondary'}
+								size={empty ? 'sm' : 'md'}
 								bind:busy={uploading}
 							/>
-						</div>
-					{:else}
-						<UploadButton
-							url="/api/figures/{variation.id}/recordings"
-							accept="video/*,audio/*"
-							label="Add video or audio"
-							noun="recording"
-							kind={empty ? 'primary' : 'secondary'}
-							size={empty ? 'sm' : 'md'}
-							bind:busy={uploading}
-						/>
-					{/if}
-				</div>
-			{/key}
+						{/if}
+					</div>
+				{/key}{/if}
 		</section>
 
 		{#if !editing || variation.sections.length > 0}
@@ -684,13 +693,13 @@
 				<div class="mt-1">
 					{#if variation.sections.length === 0}
 						<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
-							Point at the part of a lesson video that shows this.
+							{data.canEdit ? 'Point at the part of a lesson video that shows this.' : 'None yet.'}
 						</p>
 					{:else}
 						<ul class="flex flex-col gap-2">
 							{#each variation.sections as s (s.linkId)}
 								<li>
-									<SectionCard section={s} focusKey="section-{s.linkId}">
+									<SectionCard section={s} focusKey="section-{s.linkId}" canEdit={data.canEdit}>
 										{#snippet unlink()}
 											<!-- Unlinking is an edit, like deleting a recording. -->
 											{#if editing}
@@ -721,7 +730,7 @@
 						<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
 					{/if}
 					<!-- Links are added while reading; editing only takes them away. -->
-					{#if !editing}
+					{#if !editing && data.canEdit}
 						<div class="mt-2">
 							<PickerOpener label="Link a section…" onclick={() => (linkingSection = true)} />
 						</div>
@@ -736,7 +745,11 @@
 					{data.links.length > 0 ? `Links · ${data.links.length}` : 'Links'}
 				</h2>
 				<div class="mt-1">
-					<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
+					{#if data.canEdit}
+						<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
+					{:else}
+						<LinkList links={data.links} />
+					{/if}
 				</div>
 			</section>
 		{/if}
@@ -762,36 +775,38 @@
 				</ul>
 			{/if}
 
-			<!-- What changes where the variation lives, kept at the end, out of the way. -->
-			<div class="mt-[18px] mb-[10px] h-px bg-hairline"></div>
-			<div class={GROUP}>
+			<!-- What changes where the variation lives, kept at the end, out of the way. An editor's only. -->
+			{#if data.canEdit}
+				<div class="mt-[18px] mb-[10px] h-px bg-hairline"></div>
+				<div class={GROUP}>
+					<button
+						type="button"
+						aria-haspopup="dialog"
+						onclick={() => (moving = true)}
+						class="flex min-h-16 w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+					>
+						<span
+							class="flex size-10 flex-none items-center justify-center rounded-full bg-chip text-ink-2"
+							><Icon name="move-to" size={22} /></span
+						>
+						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+							<span class="text-[16px] leading-tight font-bold text-ink"
+								>Move {variation.name} to…</span
+							>
+							<span class="text-[13px] text-muted">A new figure of its own, or another figure</span>
+						</span>
+						<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</button>
+				</div>
 				<button
 					type="button"
 					aria-haspopup="dialog"
-					onclick={() => (moving = true)}
-					class="flex min-h-16 w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+					onclick={() => (archiving = true)}
+					class={button('danger-text', 'md', true)}
+					><Icon name="trash" size={20} />Archive {variation.name}</button
 				>
-					<span
-						class="flex size-10 flex-none items-center justify-center rounded-full bg-chip text-ink-2"
-						><Icon name="move-to" size={22} /></span
-					>
-					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span class="text-[16px] leading-tight font-bold text-ink"
-							>Move {variation.name} to…</span
-						>
-						<span class="text-[13px] text-muted">A new figure of its own, or another figure</span>
-					</span>
-					<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-				</button>
-			</div>
-			<button
-				type="button"
-				aria-haspopup="dialog"
-				onclick={() => (archiving = true)}
-				class={button('danger-text', 'md', true)}
-				><Icon name="trash" size={20} />Archive {variation.name}</button
-			>
-			<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
+				<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
+			{/if}
 			<!-- The variation bar is pinned over the page's end; this lets the caption clear it. -->
 			<div aria-hidden="true" class="h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))]"></div>
 		{/if}
@@ -805,6 +820,7 @@
 		currentId={variation.id}
 		{slug}
 		failed={failed('createVariation')}
+		canEdit={data.canEdit}
 	/>
 {/if}
 
@@ -825,82 +841,84 @@
 	</BottomBar>
 {/if}
 
-<Dialog
-	open={deleting !== null}
-	title="Delete this recording?"
-	icon="trash"
-	tone="danger"
-	body={deleting?.body}
-	onclose={() => (deleting = null)}
->
-	{#snippet actions()}
-		<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = null)}
-			>Cancel</button
-		>
-		<form method="POST" action="?/deleteRecording" use:enhance={deleteRecording}>
-			<input type="hidden" name="recordingId" value={deleting?.id} />
-			<button
-				type="submit"
-				class={button('danger', 'sm')}
-				aria-busy={deleteBusy}
-				disabled={deleteBusy}
+{#if data.canEdit}
+	<Dialog
+		open={deleting !== null}
+		title="Delete this recording?"
+		icon="trash"
+		tone="danger"
+		body={deleting?.body}
+		onclose={() => (deleting = null)}
+	>
+		{#snippet actions()}
+			<button type="button" class={button('tertiary', 'sm')} onclick={() => (deleting = null)}
+				>Cancel</button
 			>
-				<!-- Both in one cell: the label keeps the width while the spinner shows. -->
-				<span class="grid place-items-center">
-					<span class="col-start-1 row-start-1" class:invisible={deleteBusy}>Delete</span>
-					{#if deleteBusy}<span class="col-start-1 row-start-1"><Spinner size={18} /></span>{/if}
-				</span>
-			</button>
+			<form method="POST" action="?/deleteRecording" use:enhance={deleteRecording}>
+				<input type="hidden" name="recordingId" value={deleting?.id} />
+				<button
+					type="submit"
+					class={button('danger', 'sm')}
+					aria-busy={deleteBusy}
+					disabled={deleteBusy}
+				>
+					<!-- Both in one cell: the label keeps the width while the spinner shows. -->
+					<span class="grid place-items-center">
+						<span class="col-start-1 row-start-1" class:invisible={deleteBusy}>Delete</span>
+						{#if deleteBusy}<span class="col-start-1 row-start-1"><Spinner size={18} /></span>{/if}
+					</span>
+				</button>
+			</form>
+		{/snippet}
+	</Dialog>
+
+	<MoveSheet
+		variation={variation.name}
+		figure={figure.name}
+		targets={data.moveTargets}
+		{last}
+		failed={moveFailed}
+		typedName={form && 'action' in form && form.action === 'move' && 'name' in form
+			? String(form.name)
+			: null}
+		open={moving}
+		onclose={() => (moving = false)}
+	/>
+
+	<Sheet title={archive.title} open={archiving} onclose={() => (archiving = false)}>
+		<form id="archive-form" method="POST" action="?/archive" use:enhance={closeOnArchive}>
+			{#if last}
+				<RemoveWarning figure={figure.name} variation={variation.name} kept />
+			{:else}
+				<p class="text-[15px] font-medium text-ink-2">{archive.caption}</p>
+			{/if}
 		</form>
-	{/snippet}
-</Dialog>
+		{#snippet footer()}
+			<div class="grid grid-cols-[1fr_2fr] gap-2">
+				<button
+					type="button"
+					onclick={() => (archiving = false)}
+					class={button('secondary', 'md', true)}>Cancel</button
+				>
+				<button
+					type="submit"
+					form="archive-form"
+					disabled={archiveBusy}
+					aria-busy={archiveBusy}
+					class={DANGER_SHARED}
+					>{#if archiveBusy}<Spinner size={18} />{/if}{archive.button}</button
+				>
+			</div>
+		{/snippet}
+	</Sheet>
 
-<MoveSheet
-	variation={variation.name}
-	figure={figure.name}
-	targets={data.moveTargets}
-	{last}
-	failed={moveFailed}
-	typedName={form && 'action' in form && form.action === 'move' && 'name' in form
-		? String(form.name)
-		: null}
-	open={moving}
-	onclose={() => (moving = false)}
-/>
-
-<Sheet title={archive.title} open={archiving} onclose={() => (archiving = false)}>
-	<form id="archive-form" method="POST" action="?/archive" use:enhance={closeOnArchive}>
-		{#if last}
-			<RemoveWarning figure={figure.name} variation={variation.name} kept />
-		{:else}
-			<p class="text-[15px] font-medium text-ink-2">{archive.caption}</p>
-		{/if}
-	</form>
-	{#snippet footer()}
-		<div class="grid grid-cols-[1fr_2fr] gap-2">
-			<button
-				type="button"
-				onclick={() => (archiving = false)}
-				class={button('secondary', 'md', true)}>Cancel</button
-			>
-			<button
-				type="submit"
-				form="archive-form"
-				disabled={archiveBusy}
-				aria-busy={archiveBusy}
-				class={DANGER_SHARED}
-				>{#if archiveBusy}<Spinner size={18} />{/if}{archive.button}</button
-			>
-		</div>
-	{/snippet}
-</Sheet>
-
-<LinkSectionSheet
-	open={linkingSection}
-	onclose={() => (linkingSection = false)}
-	groups={data.linkable}
-	hidden={{}}
-/>
+	<LinkSectionSheet
+		open={linkingSection}
+		onclose={() => (linkingSection = false)}
+		groups={data.linkable}
+		hidden={{}}
+	/>
+{/if}
 
 {#if logging && data.popup}
 	<FigureLog

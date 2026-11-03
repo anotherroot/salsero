@@ -10,11 +10,14 @@ import { checkbox, int, optionalText, text } from '$lib/server/form';
 import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
-import { practicePayload } from '$lib/server/practice-content';
+import { drillPayload, practicePayload } from '$lib/server/practice-content';
+import { readerReach } from '$lib/server/access';
+import { entryFor } from '$lib/server/entries';
 import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { isFrequency } from '$lib/frequency';
 import { localDay } from '$lib/day/day';
+import type { ExerciseItem } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -31,24 +34,83 @@ function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 export const load: PageServerLoad = ({ params, locals }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
-	// The person's own row only: the page is the log popup's, and a log never
-	// lands on a group's drill (risk 22).
+	const wall = wallOf(params, locals);
+	const tz = locals.user.timezone;
+	const now = Date.now();
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
-	const row = requireExerciseInWall(db, wallOf(params, locals), id);
+	const { exercise: row, access } = requireExerciseAccess(db, locals, params, id, 'read');
 	if (row.archivedAt !== null) throw error(404, 'No such exercise');
-	const now = Date.now();
-	const popup = popupData(db, wallOf(params, locals), row.id, locals.user.timezone, now);
-	if (!popup) throw error(404, 'No such exercise');
+	// The history's "Today" / "Yesterday": the server's day, so SSR and hydration agree.
+	const today = localDay(now, tz);
+
+	if (row.teamId === null) {
+		// The person's own row: the page is its log popup's.
+		const own = requireExerciseInWall(db, wall, row.id);
+		const popup = popupData(db, wall, own.id, tz, now);
+		if (!popup) throw error(404, 'No such exercise');
+		return {
+			...popup,
+			practice: practicePayload(db, own, tz, now),
+			history: exerciseHistory(db, own.id),
+			summary: exerciseSummary(db, own.id),
+			today,
+			// Only a drill's sections are its own; the others show their owner's.
+			linkable: own.source === 'custom' ? linkableSections(db, { exerciseId: own.id }) : [],
+			canEdit: true,
+			canLog: true,
+			drill: null
+		};
+	}
+
+	// A group's drill: its content, and the log of this person's own entry for
+	// it. `popupData` never runs on the group's row, so a set can only ever land
+	// on the person's entry (risk 22). Without an entry there is nothing to log.
+	const canEdit = access === 'edit';
+	const visible = readerReach(db, wall.userId, row.teamId, access);
+	const found = entryFor(db, wall.userId, { drillId: row.id });
+	const entry = found && found.archivedAt === null ? found : null;
+	const popup = entry ? popupData(db, wall, entry.id, tz, now) : null;
+	const shown: ExerciseItem = {
+		id: row.id,
+		name: row.name,
+		source: row.source,
+		figureId: null,
+		lessonId: null,
+		routineId: null,
+		partner: null,
+		practiceMode: row.practiceMode,
+		songId: null,
+		countBpm: null,
+		practiceJson: null,
+		everyDays: row.everyDays,
+		active: row.active,
+		archived: false,
+		notes: row.notes,
+		createdAt: row.createdAt
+	};
 	return {
-		...popup,
-		practice: practicePayload(db, row, locals.user.timezone, now),
-		history: exerciseHistory(db, row.id),
-		summary: exerciseSummary(db, row.id),
-		// The history's "Today" / "Yesterday": the server's day, so SSR and hydration agree.
-		today: localDay(now, locals.user.timezone),
-		// Only a drill's sections are its own; the others show their owner's.
-		linkable: row.source === 'custom' ? linkableSections(db, { exerciseId: row.id }) : []
+		exercise: popup?.exercise ?? shown,
+		sets: popup?.sets ?? [],
+		songs: popup?.songs ?? [],
+		takes: popup?.takes ?? [],
+		practice: drillPayload(
+			db,
+			row,
+			popup ? popup.exercise.id : null,
+			tz,
+			now,
+			visible ?? undefined
+		),
+		history: popup ? exerciseHistory(db, popup.exercise.id) : [],
+		summary: popup
+			? exerciseSummary(db, popup.exercise.id)
+			: { sets: 0, totalS: 0, recentRating: null },
+		today,
+		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
+		canEdit,
+		canLog: popup !== null,
+		drill: { id: row.id, name: row.name, notes: row.notes }
 	};
 };
 
@@ -58,17 +120,19 @@ export const actions: Actions = {
 	restoreSet: (event) => restoreSetFrom(event),
 
 	update: async ({ params, request, locals }) => {
-		const id = exerciseOf(params, locals).id;
+		const row = exerciseOf(params, locals);
 		const form = await request.formData();
 		const name = text(form, 'name') ?? '';
-		const everyDays = int(form, 'everyDays');
+		// A group's drill is practised through each member's own entry, so how
+		// often and whether it is on Today are theirs: its own stay as they are.
+		const team = row.teamId !== null;
+		const everyDays = team ? row.everyDays : int(form, 'everyDays');
+		const active = team ? row.active : checkbox(form, 'active');
 		const notes = optionalText(form, 'notes');
 		if (everyDays === undefined || !isFrequency(everyDays) || notes === undefined) {
 			return fail(400, { action: 'update', message: 'Check the values and try again.' });
 		}
-		if (
-			!updateExercise(getDb(), id, { name, everyDays, notes, active: checkbox(form, 'active') })
-		) {
+		if (!updateExercise(getDb(), row.id, { name, everyDays, notes, active })) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };

@@ -32,7 +32,17 @@ import {
 	type Exercise,
 	type Lesson
 } from './db/schema';
-import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
+import {
+	inSpace,
+	isTeam,
+	ownedBy,
+	ownerValues,
+	spaceOfRow,
+	type Space,
+	type TeamSpace,
+	type Wall
+} from './scope';
+import { getTeam, roleOf } from './teams';
 import { entryFor, entryJoin, type EntryTarget } from './entries';
 import type {
 	LessonExerciseRow,
@@ -42,7 +52,9 @@ import type {
 	LessonVideoRow,
 	FigureVersion,
 	PickExercise,
-	PickRoutine
+	PickRoutine,
+	Role,
+	TeamLessonItem
 } from '$lib/types';
 
 export interface LessonInput {
@@ -191,12 +203,74 @@ export function archiveLesson(db: Db, id: number, now: number): boolean {
 }
 
 /**
+ * Publish a group's draft: from now on its members see it. Only a live draft
+ * of this group moves, and only for one of its editors (or its owner) while
+ * the group lives; there is no unpublish (taking a lesson away is archiving
+ * it). False when nothing moved.
+ */
+export function publishLesson(db: Db, space: TeamSpace, id: number, now: number): boolean {
+	const team = getTeam(db, space.teamId);
+	if (!team || team.deletedAt !== null || team.dance !== space.dance) return false;
+	const role = roleOf(db, space.actorId, space.teamId);
+	if (role !== 'editor' && role !== 'owner') return false;
+	return (
+		db
+			.update(lessons)
+			.set({ publishedAt: now })
+			.where(
+				and(
+					eq(lessons.id, id),
+					eq(lessons.teamId, space.teamId),
+					isNull(lessons.publishedAt),
+					isNull(lessons.archivedAt)
+				)
+			)
+			.run().changes > 0
+	);
+}
+
+/**
  * The library: newest class first, with what its videos cost on disk and how
- * much is in it — sections, routines, figures. Each count is one grouped query
- * over the whole wall, keyed by lesson, so the list stays a fixed number of
- * queries however many lessons there are.
+ * much is in it — sections, routines, figures. A person's own lessons, or a
+ * group's (every one of them, drafts included: `listTeamLessons` decides who
+ * sees which).
  */
 export function listLessons(db: Db, space: Space): LessonItem[] {
+	const team = isTeam(space) ? getTeam(db, space.teamId) : null;
+	const ref = team ? { id: team.id, name: team.name } : null;
+	return lessonRows(db, space).map((r) => ({ ...r, team: ref }));
+}
+
+/**
+ * A group's lessons, as its page lists them. An editor (or the owner, while
+ * the group lives) sees the drafts first, then the published ones; a member
+ * sees the published ones only. Newest class first within each.
+ */
+export function listTeamLessons(
+	db: Db,
+	userId: string,
+	teamId: number,
+	role: Role
+): TeamLessonItem[] {
+	const team = getTeam(db, teamId);
+	if (!team || team.purgedAt !== null) return [];
+	const space: TeamSpace = { dance: team.dance as TeamSpace['dance'], teamId, actorId: userId };
+	const editor = role !== 'member' && team.deletedAt === null;
+	const rows = lessonRows(db, space)
+		.filter((r) => editor || r.publishedAt !== null)
+		.map((r) => ({ ...r, team: { id: team.id, name: team.name } }));
+	return [...rows.filter((r) => r.publishedAt === null), ...rows.filter((r) => r.publishedAt)];
+}
+
+/**
+ * The rows behind both lists. Each count is one grouped query over the whole
+ * space, keyed by lesson, so the list stays a fixed number of queries however
+ * many lessons there are.
+ */
+function lessonRows(
+	db: Db,
+	space: Space
+): (Omit<LessonItem, 'team'> & { publishedAt: number | null })[] {
 	const sections = new Map(
 		db
 			.select({ id: lessonVideos.lessonId, n: count(videoSpots.id) })
@@ -246,7 +320,8 @@ export function listLessons(db: Db, space: Space): LessonItem[] {
 			videos: count(lessonVideos.id),
 			// `sum` is null when a lesson has no videos; the cast keeps the shape honest.
 			videoBytes: sum(lessonVideos.sizeBytes),
-			createdAt: lessons.createdAt
+			createdAt: lessons.createdAt,
+			publishedAt: lessons.publishedAt
 		})
 		.from(lessons)
 		.leftJoin(lessonVideos, eq(lessonVideos.lessonId, lessons.id))

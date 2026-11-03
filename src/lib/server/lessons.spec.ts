@@ -871,3 +871,111 @@ describe('in a group', () => {
 		expect(listLinkableExercises(db, mineLesson).map((e) => e.id)).not.toContain(entry.id);
 	});
 });
+
+import { listTeamLessons, publishLesson } from './lessons';
+import { createTeam, deleteTeam, joinTeam, setRole } from './teams';
+import { linkOptionsFor } from './link-popup';
+import { lessons as lessonRows } from './db/schema';
+
+describe('a group lesson: draft and publish', () => {
+	let teamId: number;
+	const T = () => ({ dance: 'salsa' as const, teamId, actorId: 'u1' });
+	const row = (id: number) => db.select().from(lessonRows).where(eq(lessonRows.id, id)).get()!;
+
+	beforeEach(() => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok) throw new Error('team expected');
+		teamId = made.teamId;
+		joinTeam(db, 'u2', teamId, 2);
+		joinTeam(db, 'u3', teamId, 2);
+		setRole(db, teamId, 'u3', 'editor');
+	});
+
+	it('starts a draft, and only its editors publish it, once', () => {
+		const { lesson, exercise } = createLesson(db, T(), lessonInput);
+		expect([lesson.publishedAt, exercise]).toEqual([null, null]);
+		expect(publishLesson(db, { ...T(), actorId: 'u2' }, lesson.id, 5)).toBe(false);
+		expect(publishLesson(db, { ...T(), actorId: 'u9' }, lesson.id, 5)).toBe(false);
+		expect(row(lesson.id).publishedAt).toBeNull();
+		expect(publishLesson(db, { ...T(), actorId: 'u3' }, lesson.id, 5)).toBe(true);
+		expect(row(lesson.id).publishedAt).toBe(5);
+		// No unpublish, and no second publish moving the date.
+		expect(publishLesson(db, T(), lesson.id, 9)).toBe(false);
+		expect(row(lesson.id).publishedAt).toBe(5);
+	});
+
+	it("publishes only this group's live drafts", () => {
+		const other = createTeam(db, 'u1', 'salsa', 'Another', 1);
+		if (!other.ok) throw new Error('team expected');
+		const theirs = createLesson(db, { ...T(), teamId: other.teamId }, lessonInput).lesson.id;
+		const mine = createLesson(db, U1_SALSA, lessonInput).lesson.id;
+		const archived = createLesson(db, T(), lessonInput).lesson.id;
+		archiveLesson(db, archived, 3);
+		expect(publishLesson(db, T(), theirs, 5)).toBe(false);
+		expect(publishLesson(db, T(), mine, 5)).toBe(false);
+		expect(publishLesson(db, T(), archived, 5)).toBe(false);
+		expect([row(theirs), row(mine), row(archived)].map((l) => l.publishedAt)).toEqual([
+			null,
+			null,
+			null
+		]);
+	});
+
+	it('a deleted group publishes nothing', () => {
+		const id = createLesson(db, T(), lessonInput).lesson.id;
+		deleteTeam(db, teamId, 'u1', 2);
+		expect(publishLesson(db, T(), id, 5)).toBe(false);
+	});
+
+	it('lists drafts first to its editors, newest first, and only published lessons to members', () => {
+		const older = createLesson(db, T(), { ...lessonInput, lessonDay: '2026-09-01' }).lesson.id;
+		const newer = createLesson(db, T(), { ...lessonInput, lessonDay: '2026-09-20' }).lesson.id;
+		const draft = createLesson(db, T(), { ...lessonInput, lessonDay: '2026-09-10' }).lesson.id;
+		publishLesson(db, T(), older, 1);
+		publishLesson(db, T(), newer, 2);
+		const forEditor = listTeamLessons(db, 'u3', teamId, 'editor');
+		expect(forEditor.map((l) => [l.id, l.publishedAt !== null])).toEqual([
+			[draft, false],
+			[newer, true],
+			[older, true]
+		]);
+		expect(forEditor[0].team).toEqual({ id: teamId, name: 'Salsa nadaljevalna' });
+		expect(listTeamLessons(db, 'u2', teamId, 'member').map((l) => l.id)).toEqual([newer, older]);
+		// A person's own list never shows a group's lesson, and its rows say so.
+		expect(listLessons(db, U1_SALSA)).toEqual([]);
+		createLesson(db, U1_SALSA, lessonInput);
+		expect(listLessons(db, U1_SALSA).map((l) => l.team)).toEqual([null]);
+	});
+
+	it("the Link popup in a group lesson offers only the group's things", () => {
+		createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Mine only' });
+		createCustomExercise(db, U1_SALSA, { name: 'My drill', everyDays: 3, notes: null });
+		const groupFigure = createFigure(db, T(), { ...figureInput, figureName: 'Group figure' })!;
+		const groupDrill = createCustomExercise(db, T(), {
+			name: 'Group drill',
+			everyDays: 3,
+			notes: null
+		});
+		const id = createLesson(db, T(), lessonInput).lesson.id;
+		const video = addLessonVideo(db, video_(id));
+		const section = addSpot(db, { lessonVideoId: video.id }, { startMs: 0, endMs: 9, label: 'S' })!;
+
+		const options = linkOptionsFor(db, section.id, 'u1')!;
+		const offered = [...options.near, ...options.figures, ...options.drills].map((o) => o.label);
+		expect(offered).toContain('Group figure · Basic');
+		expect(offered).toContain('Group drill');
+		expect(offered.join()).not.toContain('Mine only');
+		expect(offered).not.toContain('My drill');
+		expect(options.figureChoices.map((f) => f.name)).toEqual(['Group figure']);
+		expect([groupFigure.figure.teamId, groupDrill.teamId]).toEqual([teamId, teamId]);
+		// A member reads the section but may not link it: no options at all.
+		expect(linkOptionsFor(db, section.id, 'u2')).toBeNull();
+	});
+});
+
+const video_ = (lessonId: number) => ({
+	lessonId,
+	file: '00000000-0000-4000-8000-0000000000f1.mp4',
+	mime: 'video/mp4',
+	sizeBytes: 1
+});

@@ -137,6 +137,14 @@ export interface LessonItem {
 	/** Figures (not variations) it reaches by hand or through a section, live variations only. */
 	figures: number;
 	createdAt: number;
+	/** The group whose lesson this is; null for a person's own. */
+	team: { id: number; name: string } | null;
+}
+
+/** A group's lesson as the group page lists it: a draft until an editor publishes it. */
+export interface TeamLessonItem extends LessonItem {
+	/** Null while it is a draft, which only the group's editors see. */
+	publishedAt: number | null;
 }
 
 /** One video from a lesson, as the page plays it. */

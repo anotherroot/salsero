@@ -343,3 +343,21 @@ export function fileAccess(
 	}
 	throw error(404, 'Not found');
 }
+
+/**
+ * What a reader's page may list of a group's things: their reach, computed
+ * once for the request and handed to every list builder (risk 20). Null when
+ * nothing needs leaving out: a person's own row, an editor's view, and the
+ * owner of a deleted group, who reads all of it.
+ */
+export function readerReach(
+	db: Db,
+	userId: string,
+	teamId: number | null,
+	access: Access
+): Reach | null {
+	if (access !== 'read' || teamId === null) return null;
+	const team = getTeam(db, teamId);
+	if (team && team.deletedAt !== null && roleOf(db, userId, teamId) === 'owner') return null;
+	return reach(db, userId, teamId);
+}

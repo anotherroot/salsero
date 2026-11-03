@@ -31,7 +31,7 @@ import type {
 	SpotOwner,
 	VideoSection
 } from '$lib/types';
-import { allows, spotAccess } from './access';
+import { allows, spotAccess, type Reach } from './access';
 import { lessonsReaching } from './lesson-links';
 import { inSpace, ownedBy, spaceOfRow, type Space } from './scope';
 
@@ -100,6 +100,14 @@ export function videoOfSpot(db: Db, spotId: number) {
 		isSection: row.endMs !== null
 	};
 }
+
+/**
+ * What a reader may see of a group's videos and links: their reach. Lists that
+ * take one leave out every video (a lesson's, a recording's) and every link
+ * target outside it, so a draft's things never reach a member's page (risk 20).
+ * Omitted, a list shows the whole space, as its editors and a person see it.
+ */
+export type Visible = Pick<Reach, 'lessons' | 'recordings' | 'variations' | 'drills'>;
 
 /** Whether a row has this space's owner, whatever its dance. */
 const sameOwner = (row: { userId: string | null; teamId: number | null }, space: Space) =>
@@ -254,15 +262,22 @@ export function getSpotLink(db: Db, id: number) {
 
 /**
  * Every link of these spots, labelled "Enchufla · Doble", alphabetical per
- * spot. A variation counts as archived when its figure is.
+ * spot. A variation counts as archived when its figure is. With `visible`, a
+ * link to anything outside it is left out.
  */
-export function linkChips(db: Db, spotIds: number[]): Map<number, SectionLinkChip[]> {
+export function linkChips(
+	db: Db,
+	spotIds: number[],
+	visible?: Visible
+): Map<number, SectionLinkChip[]> {
 	const out = new Map<number, SectionLinkChip[]>();
 	if (spotIds.length === 0) return out;
 	const rows = db
 		.select({
 			id: spotLinks.id,
 			spotId: spotLinks.spotId,
+			figureId: spotLinks.figureId,
+			exerciseId: spotLinks.exerciseId,
 			figure: figureGroups.name,
 			variation: figures.name,
 			figureArchived: figures.archivedAt,
@@ -277,6 +292,13 @@ export function linkChips(db: Db, spotIds: number[]): Map<number, SectionLinkChi
 		.where(inArray(spotLinks.spotId, spotIds))
 		.all();
 	for (const r of rows) {
+		if (
+			visible &&
+			!(r.figureId !== null
+				? visible.variations.has(r.figureId)
+				: visible.drills.has(r.exerciseId!))
+		)
+			continue;
 		const label = r.figure !== null ? `${r.figure} · ${r.variation}` : r.drill!;
 		const archived =
 			r.figure !== null
@@ -325,9 +347,10 @@ type BareSpot = Omit<Spot, 'linkedTo'>;
 /**
  * Every live video in a space, in the sheet's order: lesson videos newest
  * lesson first, then figure recordings by figure. Archived lessons and figures
- * are gone from every list, so their videos are gone from this one.
+ * are gone from every list, so their videos are gone from this one. With
+ * `visible`, only the videos of its lessons and its recordings.
  */
-function videosOf(db: Db, space: Space): SectionVideo[] {
+function videosOf(db: Db, space: Space, visible?: Visible): SectionVideo[] {
 	const lessonRows = db
 		.select({
 			id: lessonVideos.id,
@@ -354,8 +377,9 @@ function videosOf(db: Db, space: Space): SectionVideo[] {
 		.where(and(ownedBy(figures, space), isNull(figures.archivedAt), eq(recordings.kind, 'video')))
 		.orderBy(asc(figureGroups.name), asc(figures.name), asc(recordings.id))
 		.all();
+	const shown = <T>(rows: T[], keep: (r: T) => boolean) => (visible ? rows.filter(keep) : rows);
 	return [
-		...lessonRows.map((r) => ({
+		...shown(lessonRows, (r) => visible!.lessons.has(r.lessonId)).map((r) => ({
 			owner: { lessonVideoId: r.id },
 			src: `/lesson-videos/${r.file}`,
 			from: {
@@ -365,7 +389,7 @@ function videosOf(db: Db, space: Space): SectionVideo[] {
 				lessonDay: r.lessonDay
 			}
 		})),
-		...recRows.map((r) => ({
+		...shown(recRows, (r) => visible!.recordings.has(r.id)).map((r) => ({
 			owner: { recordingId: r.id },
 			src: `/recordings/${r.file}`,
 			from: {
@@ -441,10 +465,11 @@ function sectionsByVideo(db: Db, where = isNotNull(videoSpots.endMs)): Map<strin
 	return out;
 }
 
-function labelled(db: Db, spots: BareSpot[]): Spot[] {
+function labelled(db: Db, spots: BareSpot[], visible?: Visible): Spot[] {
 	const chips = linkChips(
 		db,
-		spots.map((s) => s.id)
+		spots.map((s) => s.id),
+		visible
 	);
 	return spots.map((s) => ({ ...s, linkedTo: (chips.get(s.id) ?? []).map((c) => c.label) }));
 }
@@ -481,9 +506,10 @@ export function linkableSections(db: Db, target: SectionTarget): SectionGroup[] 
 /**
  * The cards of a figure version or a drill, in the sheet's video order. A link
  * whose video's lesson or figure is archived drops out with it, and comes back
- * with it; it still blocks a delete meanwhile.
+ * with it; it still blocks a delete meanwhile. With `visible` (a reader's
+ * page), only the sections on its videos, and only its links.
  */
-export function sectionsFor(db: Db, target: SectionTarget): LinkedSection[] {
+export function sectionsFor(db: Db, target: SectionTarget, visible?: Visible): LinkedSection[] {
 	const context = targetContext(db, target);
 	if (!context) return [];
 	const linkOf = new Map(
@@ -498,8 +524,8 @@ export function sectionsFor(db: Db, target: SectionTarget): LinkedSection[] {
 	const byVideo = sectionsByVideo(db, inArray(videoSpots.id, [...linkOf.keys()]));
 	// One space per link, so every linked section's video is among these; a
 	// link that crosses spaces (only old data could hold one) shows nothing.
-	return videosOf(db, context.space).flatMap((video) =>
-		labelled(db, byVideo.get(ownerKey(video.owner)) ?? []).map((spot) => ({
+	return videosOf(db, context.space, visible).flatMap((video) =>
+		labelled(db, byVideo.get(ownerKey(video.owner)) ?? [], visible).map((spot) => ({
 			linkId: linkOf.get(spot.id)!,
 			spot,
 			video
@@ -507,8 +533,11 @@ export function sectionsFor(db: Db, target: SectionTarget): LinkedSection[] {
 	);
 }
 
-/** A video's sections with their links — the lesson page's list. */
-export function videoSections(db: Db, owner: SpotOwner): VideoSection[] {
+/**
+ * A video's sections with their links — the lesson page's list. With
+ * `visible` (a reader's page), only the links to what it holds.
+ */
+export function videoSections(db: Db, owner: SpotOwner, visible?: Visible): VideoSection[] {
 	const where =
 		'recordingId' in owner
 			? eq(videoSpots.recordingId, owner.recordingId)
@@ -517,7 +546,8 @@ export function videoSections(db: Db, owner: SpotOwner): VideoSection[] {
 	if (!spots) return [];
 	const chips = linkChips(
 		db,
-		spots.map((s) => s.id)
+		spots.map((s) => s.id),
+		visible
 	);
 	return spots.map((s) => ({ ...s, endMs: s.endMs!, links: chips.get(s.id) ?? [] }));
 }

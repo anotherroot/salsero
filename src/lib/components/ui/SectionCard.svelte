@@ -14,8 +14,15 @@
 	let {
 		section,
 		unlink,
-		focusKey
-	}: { section: LinkedSection; unlink?: Snippet; focusKey?: string } = $props();
+		focusKey,
+		canEdit = true
+	}: {
+		section: LinkedSection;
+		unlink?: Snippet;
+		focusKey?: string;
+		/** Marking and editing spots in its player: off for a reader of a group's video. */
+		canEdit?: boolean;
+	} = $props();
 
 	let open = $state(false);
 
@@ -60,6 +67,7 @@
 		owner={section.video.owner}
 		spot={section.spot}
 		from={section.video.from}
+		{canEdit}
 		onclose={() => (open = false)}
 	/>
 {/if}

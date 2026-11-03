@@ -45,6 +45,13 @@
 	let logging = $state(page.url.searchParams.get('log') === '1');
 	/** A drill is the only type this page may rename or archive: the others belong to their owner. */
 	const ownsItself = $derived(type === 'drill');
+	/**
+	 * A group's drill: its name and description are the group's, and how often
+	 * and whether it is on Today are each person's own entry's, never the
+	 * drill's. Shown with the person's entry when they have one.
+	 */
+	const drill = $derived(data.drill);
+	const title = $derived(drill?.name ?? exercise.name);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const failure = (action: string) =>
 		form && 'action' in form && form.action === action && 'message' in form
@@ -126,9 +133,9 @@
 	}
 </script>
 
-<svelte:head><title>{exercise.name} · {data.dance.label}</title></svelte:head>
+<svelte:head><title>{title} · {data.dance.label}</title></svelte:head>
 
-<Screen compact title={exercise.name} subtitle={TYPES[type].label}>
+<Screen compact {title} subtitle={TYPES[type].label}>
 	{#snippet left()}
 		{#if editing}
 			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
@@ -139,7 +146,7 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
-		{#if !editing}
+		{#if !editing && data.canEdit}
 			<BandButton icon="pencil" label="Edit settings" onclick={startEditing} />
 		{/if}
 	{/snippet}
@@ -178,27 +185,23 @@
 						{#if ownsItself}
 							<label class="block">
 								<span class={LABEL}>Name</span>
-								<input
-									name="name"
-									required
-									maxlength="200"
-									value={exercise.name}
-									class={FIELD_ON_CARD}
-								/>
+								<input name="name" required maxlength="200" value={title} class={FIELD_ON_CARD} />
 							</label>
 						{/if}
-						<FrequencyField name="everyDays" bind:value={everyDays} tone="field" />
-						<div class="flex min-h-[52px] items-center gap-3">
-							<span class="flex min-w-0 flex-1 flex-col gap-px">
-								<span class="text-[16px] font-bold text-ink">Active</span>
-								<span class="text-[13px] text-muted">Show it in the to-do list</span>
-							</span>
-							<Switch name="active" label="Active" bind:checked={active} />
-						</div>
+						{#if !drill}
+							<FrequencyField name="everyDays" bind:value={everyDays} tone="field" />
+							<div class="flex min-h-[52px] items-center gap-3">
+								<span class="flex min-w-0 flex-1 flex-col gap-px">
+									<span class="text-[16px] font-bold text-ink">Active</span>
+									<span class="text-[13px] text-muted">Show it in the to-do list</span>
+								</span>
+								<Switch name="active" label="Active" bind:checked={active} />
+							</div>
+						{/if}
 						<label class="block">
 							<span class={LABEL}>{ownsItself ? 'Description' : 'Practice notes'}</span>
 							<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA_ON_CARD}
-								>{exercise.notes ?? ''}</textarea
+								>{(drill ? drill.notes : exercise.notes) ?? ''}</textarea
 							>
 						</label>
 					</form>
@@ -248,102 +251,110 @@
 				content={data.practice.content}
 				{timezone}
 				onPage
-				editLinks={{
-					message: failure('addLink'),
-					entered: form && 'urls' in form ? String(form.urls) : '',
-					linkable: data.linkable,
-					unlinkMessage: failure('unlinkSection')
-				}}
+				canEdit={data.canEdit}
+				editLinks={data.canEdit
+					? {
+							message: failure('addLink'),
+							entered: form && 'urls' in form ? String(form.urls) : '',
+							linkable: data.linkable,
+							unlinkMessage: failure('unlinkSection')
+						}
+					: undefined}
 			/>
 
-			<section class="flex flex-col gap-2">
-				<h2 class={SECTION_LABEL}>History</h2>
-				{#if data.summary.sets === 0}
-					<div class="rounded-2xl bg-surface">
-						<EmptyState
-							icon="clock"
-							title="Nothing logged yet"
-							body="Log a set after you practise — it shows up here, grouped by day."
-						/>
-					</div>
-				{:else}
-					<div class="flex rounded-2xl bg-surface">
-						{#each tiles as tile, i (tile.label)}
-							{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"
-								></span>{/if}
-							<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
-								<span
-									class="flex items-center gap-1 font-display text-[24px] leading-[1.05] font-extrabold text-ink"
-									>{tile.value}{#if tile.star}<Icon name="star" size={20} filled />{/if}</span
-								>
-								<span class="text-[12px] font-bold text-muted">{tile.label}</span>
-							</div>
+			<!-- A group's drill without an entry of this person's has nothing of theirs to show. -->
+			{#if data.canLog}
+				<section class="flex flex-col gap-2">
+					<h2 class={SECTION_LABEL}>History</h2>
+					{#if data.summary.sets === 0}
+						<div class="rounded-2xl bg-surface">
+							<EmptyState
+								icon="clock"
+								title="Nothing logged yet"
+								body="Log a set after you practise — it shows up here, grouped by day."
+							/>
+						</div>
+					{:else}
+						<div class="flex rounded-2xl bg-surface">
+							{#each tiles as tile, i (tile.label)}
+								{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"
+									></span>{/if}
+								<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
+									<span
+										class="flex items-center gap-1 font-display text-[24px] leading-[1.05] font-extrabold text-ink"
+										>{tile.value}{#if tile.star}<Icon name="star" size={20} filled />{/if}</span
+									>
+									<span class="text-[12px] font-bold text-muted">{tile.label}</span>
+								</div>
+							{/each}
+						</div>
+						{#each days as g (g.day)}
+							<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
+							<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
 						{/each}
-					</div>
-					{#each days as g (g.day)}
-						<h3 class="{SECTION_LABEL} pt-1">{g.label}</h3>
-						<SetList sets={g.sets} {timezone} ondeleted={deleted} onfailed={refused} />
-					{/each}
-					{#if data.history.length < data.summary.sets}
-						<p class="px-4 text-[12px] text-muted">Showing the latest {data.history.length}.</p>
+						{#if data.history.length < data.summary.sets}
+							<p class="px-4 text-[12px] text-muted">Showing the latest {data.history.length}.</p>
+						{/if}
 					{/if}
-				{/if}
-			</section>
+				</section>
 
-			<section class="flex flex-col gap-2">
-				<h2 class={SECTION_LABEL}>Settings</h2>
-				<dl class={GROUP}>
-					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-						<dt class="flex-1 text-[16px] font-bold text-ink">How often</dt>
-						<dd class="text-right text-[15px] font-semibold text-muted">
-							{frequencyLabel(exercise.everyDays)}
-						</dd>
-					</div>
-					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-						<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
-						<dd class="text-right text-[15px] font-semibold text-muted">
-							{exercise.active ? 'Yes' : "No — not on Today's list"}
-						</dd>
-					</div>
-					{#if exercise.notes && !ownsItself}
-						<div class="flex min-h-14 flex-col justify-center gap-1 px-4 py-3">
-							<dt class="text-[16px] font-bold text-ink">Practice notes</dt>
-							<dd>
-								<LinkedText
-									text={exercise.notes}
-									class="text-[15px] leading-[1.45] whitespace-pre-line text-ink-2"
-								/>
+				<section class="flex flex-col gap-2">
+					<h2 class={SECTION_LABEL}>Settings</h2>
+					<dl class={GROUP}>
+						<div class="flex min-h-14 items-center gap-3 px-4 py-2">
+							<dt class="flex-1 text-[16px] font-bold text-ink">How often</dt>
+							<dd class="text-right text-[15px] font-semibold text-muted">
+								{frequencyLabel(exercise.everyDays)}
 							</dd>
 						</div>
-					{/if}
-				</dl>
-			</section>
+						<div class="flex min-h-14 items-center gap-3 px-4 py-2">
+							<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
+							<dd class="text-right text-[15px] font-semibold text-muted">
+								{exercise.active ? 'Yes' : "No — not on Today's list"}
+							</dd>
+						</div>
+						{#if exercise.notes && !ownsItself}
+							<div class="flex min-h-14 flex-col justify-center gap-1 px-4 py-3">
+								<dt class="text-[16px] font-bold text-ink">Practice notes</dt>
+								<dd>
+									<LinkedText
+										text={exercise.notes}
+										class="text-[15px] leading-[1.45] whitespace-pre-line text-ink-2"
+									/>
+								</dd>
+							</div>
+						{/if}
+					</dl>
+				</section>
+			{/if}
 		{/if}
 	</div>
 </Screen>
 
-<BottomBar mode={editing}>
-	{#if editing}
-		<button
-			type="submit"
-			form="exercise-settings"
-			class={button('primary', 'md', true)}
-			aria-busy={saving}
-			disabled={saving}
-		>
-			{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
-		</button>
-	{:else}
-		<button
-			type="button"
-			data-focus="sets-add"
-			class={button('primary', 'md', true)}
-			onclick={() => (logging = true)}
-		>
-			<Icon name="plus" size={20} />Log a set
-		</button>
-	{/if}
-</BottomBar>
+{#if editing || data.canLog}
+	<BottomBar mode={editing}>
+		{#if editing}
+			<button
+				type="submit"
+				form="exercise-settings"
+				class={button('primary', 'md', true)}
+				aria-busy={saving}
+				disabled={saving}
+			>
+				{#if saving}<Spinner /><span class="sr-only">Saving…</span>{:else}Save{/if}
+			</button>
+		{:else}
+			<button
+				type="button"
+				data-focus="sets-add"
+				class={button('primary', 'md', true)}
+				onclick={() => (logging = true)}
+			>
+				<Icon name="plus" size={20} />Log a set
+			</button>
+		{/if}
+	</BottomBar>
+{/if}
 
 <Toast
 	toast={notice}
@@ -405,7 +416,7 @@
 	</Dialog>
 {/if}
 
-{#if logging}
+{#if logging && data.canLog}
 	<Log
 		dance={data.dance}
 		exercise={data.exercise}

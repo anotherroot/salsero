@@ -14,7 +14,7 @@ import { lastSet } from './exercises';
 import { figureLabels, getFigure, getGroup } from './figures';
 import { getLesson } from './lessons';
 import { listLinks } from './links';
-import { sectionsFor } from './spot-links';
+import { sectionsFor, type Visible } from './spot-links';
 import { getRoutine, routineSlots } from './routines';
 import { daysBetween, localDay } from '$lib/day/day';
 import { typeOf } from '$lib/exercises/kinds';
@@ -30,11 +30,37 @@ export function practicePayload(
 	tz: string,
 	now: number
 ): PracticePayload {
-	const set = lastSet(db, exercise.id);
+	return { content: contentOf(db, exercise), last: lastOf(db, exercise.id, tz, now) };
+}
+
+/**
+ * A group drill's page: the drill's own content, with only what this reader
+ * reaches of its sections (`visible`; omitted for an editor), and the last set
+ * of this person's own entry for it. Never the drill row's sets: nobody logs on
+ * a group's row (risk 22).
+ */
+export function drillPayload(
+	db: Db,
+	drill: Exercise,
+	entryId: number | null,
+	tz: string,
+	now: number,
+	visible?: Visible
+): PracticePayload {
 	return {
-		content: contentOf(db, exercise),
-		last: set && { ...set, daysAgo: daysBetween(localDay(set.doneAt, tz), localDay(now, tz)) }
+		content: {
+			type: 'drill',
+			notes: drill.notes,
+			links: listLinks(db, { exerciseId: drill.id }),
+			sections: sectionsFor(db, { exerciseId: drill.id }, visible)
+		},
+		last: entryId === null ? null : lastOf(db, entryId, tz, now)
 	};
+}
+
+function lastOf(db: Db, exerciseId: number, tz: string, now: number): PracticePayload['last'] {
+	const set = lastSet(db, exerciseId);
+	return set && { ...set, daysAgo: daysBetween(localDay(set.doneAt, tz), localDay(now, tz)) };
 }
 
 /** What an owned exercise shows if its owner row has vanished: its own notes, like a drill. */

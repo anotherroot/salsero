@@ -27,9 +27,11 @@
 		slug: string;
 		/** `createVariation`'s refusal, if the last post was one. */
 		failed: string | null;
+		/** New variation is an editor's: a reader only steps through the ones they can see. */
+		canEdit?: boolean;
 	}
 
-	let { figureName, siblings, currentId, slug, failed }: Props = $props();
+	let { figureName, siblings, currentId, slug, failed, canEdit = true }: Props = $props();
 
 	let listing = $state(false);
 	let adding = $state(false);
@@ -147,7 +149,19 @@
 	</div>
 </nav>
 
-<Sheet title="Variations of {figureName}" open={listing} onclose={() => (listing = false)}>
+{#snippet newVariation()}
+	<button type="button" class={button('secondary', 'md', true)} onclick={() => (adding = true)}
+		><Icon name="plus" size={20} />New variation</button
+	>
+{/snippet}
+
+<!-- A reader steps through the variations they can see; New variation is an editor's. -->
+<Sheet
+	title="Variations of {figureName}"
+	open={listing}
+	onclose={() => (listing = false)}
+	footer={canEdit ? newVariation : undefined}
+>
 	<ul class={GROUP} aria-label="Variations">
 		{#each siblings as s (s.id)}
 			{@const here = s.id === currentId}
@@ -172,11 +186,6 @@
 			</li>
 		{/each}
 	</ul>
-	{#snippet footer()}
-		<button type="button" class={button('secondary', 'md', true)} onclick={() => (adding = true)}
-			><Icon name="plus" size={20} />New variation</button
-		>
-	{/snippet}
 </Sheet>
 
 <Sheet

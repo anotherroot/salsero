@@ -7,7 +7,9 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import { GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
+	import type { LessonItem } from '$lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -39,48 +41,61 @@
 <svelte:head><title>Add to a lesson</title></svelte:head>
 
 <Screen title="Add to a lesson" subtitle="Compressed and uploaded in the background">
-	{#if data.lessons.length === 0}
+	{#if data.lessons.length === 0 && data.groups.length === 0}
 		<EmptyState
 			icon="lessons"
 			title="No lessons yet"
 			body="Make one in Lessons first, then share the video again."
 		/>
 	{:else}
-		<h2 class={SECTION_LABEL}>Recent lessons</h2>
-		<ul class={GROUP} aria-label="Lessons">
-			{#each data.lessons as lesson (lesson.id)}
-				<li>
-					<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
-					<a
-						href={uploadLink(
-							{ lesson: lesson.id },
-							{
-								back: `/${data.dance.slug}/lessons/${lesson.id}`,
-								name: lesson.title,
-								share: data.key
-							}
-						)}
-						onclick={() => tap(lesson.id)}
-						class="flex min-h-16 items-center gap-3 pr-3.5 pl-4 {tapped === lesson.id
-							? 'bg-ink/[0.06]'
-							: ''}"
-					>
-						<LeadTile icon="lessons" />
-						<span class="flex min-w-0 flex-1 flex-col">
-							<span class="truncate text-[16px] font-bold text-ink">{lesson.title}</span>
-							<span class="text-[13px] text-muted">{dateLabel(lesson.lessonDay)}</span>
-						</span>
-						{#if tapped === lesson.id}
-							<span class="flex text-muted"><Spinner size={22} label="Opening the app" /></span>
-						{:else}
-							<span class="flex text-chevron" aria-hidden="true"
-								><Icon name="chevron-right" size={20} /></span
-							>
-						{/if}
-					</a>
-					<!-- eslint-enable svelte/no-navigation-without-resolve -->
-				</li>
-			{/each}
-		</ul>
+		{#if data.lessons.length > 0}
+			<h2 class={SECTION_LABEL}>Recent lessons</h2>
+			{@render list('Lessons', data.lessons)}
+		{/if}
+		{#each data.groups as group (group.id)}
+			<h2 class="{SECTION_LABEL} pt-2">{group.name}</h2>
+			{@render list(group.name, group.lessons)}
+		{/each}
 	{/if}
 </Screen>
+
+{#snippet list(label: string, lessons: (LessonItem & { publishedAt?: number | null })[])}
+	<ul class={GROUP} aria-label={label}>
+		{#each lessons as lesson (lesson.id)}
+			<li>
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
+				<a
+					href={uploadLink(
+						{ lesson: lesson.id },
+						{
+							back: `/${data.dance.slug}/lessons/${lesson.id}`,
+							name: lesson.title,
+							share: data.key
+						}
+					)}
+					onclick={() => tap(lesson.id)}
+					class="flex min-h-16 items-center gap-3 pr-3.5 pl-4 {tapped === lesson.id
+						? 'bg-ink/[0.06]'
+						: ''}"
+				>
+					<LeadTile icon="lessons" />
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="flex min-w-0 items-center gap-2">
+							<span class="truncate text-[16px] font-bold text-ink">{lesson.title}</span>
+							{#if lesson.publishedAt === null}<Badge tone="warn">Draft</Badge>{/if}
+						</span>
+						<span class="text-[13px] text-muted">{dateLabel(lesson.lessonDay)}</span>
+					</span>
+					{#if tapped === lesson.id}
+						<span class="flex text-muted"><Spinner size={22} label="Opening the app" /></span>
+					{:else}
+						<span class="flex text-chevron" aria-hidden="true"
+							><Icon name="chevron-right" size={20} /></span
+						>
+					{/if}
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			</li>
+		{/each}
+	</ul>
+{/snippet}

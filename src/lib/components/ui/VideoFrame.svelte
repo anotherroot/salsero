@@ -34,6 +34,8 @@
 		onclosed?: () => void;
 		/** The full-screen player may link sections: only where the page manages them. */
 		linking?: boolean;
+		/** Marking and editing spots in the full-screen player: off for a reader of a group's video. */
+		canEdit?: boolean;
 		/** A title and a line under the picture; Full screen then sits beside it. */
 		caption?: { title: string; meta?: string };
 		/** At the right of the caption row in place of Full screen (which then joins the control row). */
@@ -51,6 +53,7 @@
 		title = 'Video',
 		onclosed,
 		linking = false,
+		canEdit = true,
 		caption,
 		action,
 		sections
@@ -275,6 +278,7 @@
 		startAt={fullAt}
 		{title}
 		{linking}
+		{canEdit}
 		subtitle={'recordingId' in owner ? 'Recording' : 'Lesson video'}
 		{mirror}
 		{rate}

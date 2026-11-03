@@ -13,6 +13,7 @@ import {
 	listLinkableExercises,
 	listLinkableFigures,
 	listLinkableRoutines,
+	publishLesson,
 	unlinkExercise,
 	unlinkFigure,
 	unlinkRoutine,
@@ -38,7 +39,9 @@ import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { inWall, wallOf } from '$lib/server/scope';
+import { readerReach } from '$lib/server/access';
+import { getTeam } from '$lib/server/teams';
+import { inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -47,49 +50,72 @@ function zone(locals: App.Locals): string {
 	return locals.user.timezone;
 }
 
-function lessonId(params: { id: string }): number {
-	const id = Number(params.id);
-	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such lesson');
-	return id;
+/**
+ * The lesson this URL names, the space it stands in and this person's access,
+ * or a 404.
+ *
+ * `getLesson` is id-scoped, so the guard is the only thing stopping
+ * `/salsa/lessons/7` from opening a bachata lesson, another person's, or a
+ * group's draft, while the URL claims otherwise. Archived is gone from every
+ * list, so it is gone from its own URL too — the same answer the figure page
+ * gives. Every action below reaches the row by id, so each one starts here,
+ * asking for `edit`: a member who posts gets the stranger's 404.
+ */
+function lessonIn(
+	params: { dance: string; id: string },
+	locals: App.Locals,
+	need: 'read' | 'edit'
+) {
+	const db = getDb();
+	const { lesson, space, access } = requireLessonAccess(db, locals, params, params.id, need);
+	const found = getLesson(db, lesson.id, wallOf(params, locals).userId);
+	if (!found || found.lesson.archivedAt !== null) throw error(404, 'No such lesson');
+	return { ...found, space, access };
 }
 
-/**
- * The lesson this URL names, or a 404.
- *
- * `getLesson` is id-scoped, so the wall test is the only thing stopping
- * `/salsa/lessons/7` from opening a bachata lesson, or another person's, while
- * the URL claims otherwise. Archived is gone from every list, so it is gone from its own URL
- * too — the same answer the figure page gives. Every action below reaches the
- * row by id, so each one starts here.
- */
+/** The lesson, to change it: its editors' (or its person's) only. */
 function lessonOf(params: { dance: string; id: string }, locals: App.Locals) {
-	const wall = wallOf(params, locals);
-	const found = getLesson(getDb(), lessonId(params), wall.userId);
-	if (!found || found.lesson.archivedAt !== null || !inWall(found.lesson, wall)) {
-		throw error(404, 'No such lesson');
-	}
-	return found;
+	return lessonIn(params, locals, 'edit');
 }
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
-	const found = lessonOf(params, locals);
+	const { space, access, ...found } = lessonIn(params, locals, 'read');
 	const tz = zone(locals);
+	const canEdit = access === 'edit';
+	const team = isTeam(space) ? getTeam(db, space.teamId) : null;
+	// A reader's lists hold only what the published lessons reach (risk 20); an
+	// editor's and a person's are the whole space.
+	const visible = readerReach(db, wall.userId, found.lesson.teamId, access);
+	const shown = <T extends { id: number }>(rows: T[], ids: Set<number> | undefined) =>
+		ids ? rows.filter((r) => ids.has(r.id)) : rows;
 	return {
 		...found,
+		figures: shown(found.figures, visible?.variations),
+		routines: shown(found.routines, visible?.routines),
+		exercises: shown(found.exercises, visible?.drills),
+		canEdit,
+		team: team ? { id: team.id, name: team.name } : null,
+		/** A group's lesson only its editors see yet. */
+		draft: team !== null && found.lesson.publishedAt === null,
 		sections: Object.fromEntries(
-			found.videos.map((v) => [v.id, videoSections(db, { lessonVideoId: v.id })])
+			found.videos.map((v) => [
+				v.id,
+				videoSections(db, { lessonVideoId: v.id }, visible ?? undefined)
+			])
 		),
-		linkableFigures: listLinkableFigures(db, found.lesson.id),
+		// Everything a picker offers is for linking, which a reader never does.
+		linkableFigures: canEdit ? listLinkableFigures(db, found.lesson.id) : [],
 		// The figures "Variation of a figure" can add to, with their variations' names.
-		figureGroups: listMoveTargets(db, wall, null),
-		linkableRoutines: listLinkableRoutines(db, found.lesson.id),
-		linkableExercises: listLinkableExercises(db, found.lesson.id),
+		figureGroups: canEdit ? listMoveTargets(db, space, null) : [],
+		linkableRoutines: canEdit ? listLinkableRoutines(db, found.lesson.id) : [],
+		linkableExercises: canEdit ? listLinkableExercises(db, found.lesson.id) : [],
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), tz),
 		// What "Add figure" pre-selects. Settings picks it.
 		defaultStyle: defaultStyle(db, wall.userId, wall.dance),
+		// This person's own entry for the lesson, never a group's row (risk 22).
 		popup: found.exercise ? popupData(db, wall, found.exercise.id, tz, Date.now()) : null
 	};
 };
@@ -122,6 +148,15 @@ export const actions: Actions = {
 		return { action: 'update', ok: true };
 	},
 
+	/** A group's draft goes to its members. One tap, nothing to undo but archiving. */
+	publish: ({ params, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		if (!isTeam(space) || !publishLesson(getDb(), space, lesson.id, Date.now())) {
+			return fail(400, { action: 'publish', message: 'That lesson is already published.' });
+		}
+		return { action: 'publish', ok: true };
+	},
+
 	archive: async ({ params, locals }) => {
 		if (!archiveLesson(getDb(), lessonOf(params, locals).lesson.id, Date.now())) {
 			return fail(400, { action: 'archive', message: 'That lesson is already archived.' });
@@ -141,9 +176,9 @@ export const actions: Actions = {
 	 * which is a better trade than depending on savepoint nesting.
 	 */
 	newFigure: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
-		const dance = wall.dance;
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
+		const dance = space.dance;
+		const id = lesson.id;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
@@ -171,7 +206,7 @@ export const actions: Actions = {
 		const db = getDb();
 		// With every field valid, a taken figure name is the one thing
 		// `createFigure` still refuses.
-		const made = createFigure(db, wall, { figureName, name, partner, style, notes });
+		const made = createFigure(db, space, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				action: 'newFigure' as const,
@@ -187,15 +222,16 @@ export const actions: Actions = {
 	},
 
 	/*
-	 * "Variation of a figure": a blank variation in an existing figure of this
-	 * wall, linked straight away. Two calls, for the reason `newFigure` gives.
+	 * "Variation of a figure": a blank variation in an existing figure of the
+	 * lesson's space (a person's or a group's), linked straight away. Two
+	 * calls, for the reason `newFigure` gives.
 	 * A posted group id is just a number: one that is missing, archived, of the
-	 * other dance or another person's is the wall's 404, and nothing is written.
+	 * other dance or another space's is the wall's 404, and nothing is written.
 	 */
 	newVariation: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
-		const dance = wall.dance;
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
+		const dance = space.dance;
+		const id = lesson.id;
 		const form = await request.formData();
 		const groupId = int(form, 'groupId');
 		const name = text(form, 'name');
@@ -219,7 +255,7 @@ export const actions: Actions = {
 
 		const db = getDb();
 		const group = getGroup(db, groupId);
-		if (!group || group.archivedAt !== null || !inWall(group, wall)) {
+		if (!group || group.archivedAt !== null || !inSpace(group, space)) {
 			throw error(404, 'Figure not found');
 		}
 		if (variationNameTaken(db, group.id, name, null)) {
@@ -236,7 +272,8 @@ export const actions: Actions = {
 	},
 
 	newExercise: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
+		const id = lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const everyDays = int(form, 'everyDays');
@@ -255,7 +292,7 @@ export const actions: Actions = {
 		}
 
 		const db = getDb();
-		const exercise = createCustomExercise(db, wallOf(params, locals), { name, everyDays, notes });
+		const exercise = createCustomExercise(db, space, { name, everyDays, notes });
 		linkExercise(db, id, exercise.id);
 		return { action: 'newExercise', ok: true };
 	},
@@ -287,9 +324,9 @@ export const actions: Actions = {
 	 * are built, and that page is where they are built.
 	 */
 	newRoutine: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
-		const dance = wall.dance;
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
+		const dance = space.dance;
+		const id = lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
@@ -307,7 +344,7 @@ export const actions: Actions = {
 		if (!isFrequency(everyDays)) return refuse('Pick how often to do it.');
 
 		const db = getDb();
-		const { routine } = createRoutine(db, wall, { name, notes }, everyDays);
+		const { routine } = createRoutine(db, space, { name, notes }, everyDays);
 		linkRoutine(db, id, routine.id);
 		throw redirect(303, `/${dance}/routines/${routine.id}`);
 	},

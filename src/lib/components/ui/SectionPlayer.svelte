@@ -16,6 +16,7 @@
 		spot,
 		from,
 		linking = false,
+		canEdit = true,
 		onclose
 	}: {
 		src: string;
@@ -25,6 +26,8 @@
 		from?: SectionVideo['from'];
 		/** The player may link sections: only where the page manages them. */
 		linking?: boolean;
+		/** Marking and editing spots: off for a reader of a group's video. */
+		canEdit?: boolean;
 		onclose: () => void;
 	} = $props();
 
@@ -37,6 +40,7 @@
 	startAt={spot.startMs / 1000}
 	loopSpot={spot}
 	{linking}
+	{canEdit}
 	mirror={prefs.mirror}
 	rate={prefs.rate}
 	title={from ? (from.kind === 'lesson' ? from.title : from.figure) : 'Video'}

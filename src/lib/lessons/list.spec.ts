@@ -12,6 +12,7 @@ const lesson = (lessonDay: string, over: Partial<LessonItem> = {}): LessonItem =
 	routines: 0,
 	figures: 0,
 	createdAt: 0,
+	team: null,
 	...over
 });
 
