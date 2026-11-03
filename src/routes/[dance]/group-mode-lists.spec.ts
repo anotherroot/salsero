@@ -27,7 +27,7 @@ import { createTeam, joinTeam } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
 import { createLesson, linkRoutine, linkFigure } from '$lib/server/lessons';
 import { createRoutine } from '$lib/server/routines';
-import { createFigure } from '$lib/server/figures';
+import { createFigure, createVariationIn } from '$lib/server/figures';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { actions as figureActions, load as figuresLoad } from './figures/+page.server';
@@ -161,9 +161,16 @@ describe('listing in group mode', () => {
 		expect(data.groups).toEqual([]);
 	});
 	it("lists the group's figures with membersSee, and no coverage or tagged tiles", async () => {
+		// A person's figure with two variations first, so a group's figure id and
+		// its variation's id never coincide: membersSee must be by variation.
+		const own = createFigure(db, U2_SALSA, { ...FIGURE, figureName: 'Own', notes: null } as never)!;
+		createVariationIn(db, own.group.id, { ...FIGURE, name: 'Doble', notes: null } as never, 'u2');
 		const a = createFigure(db, T1_SALSA, { ...FIGURE, notes: null } as never)!;
 		createFigure(db, T1_SALSA, { ...FIGURE, figureName: 'Other', notes: null } as never);
-		createFigure(db, U2_SALSA, { ...FIGURE, figureName: 'Own', notes: null } as never);
+		const other = db.select().from(figures).where(eq(figures.name, 'Basic')).all().at(-1)!;
+		expect(a.figure.id).not.toBe(a.group.id);
+		expect(other.id).not.toBe(other.groupId);
+		expect(other.groupId).toBe(a.figure.id); // the very collision a mix-up would hit
 		const P = createLesson(db, T1_SALSA, { lessonDay: '2026-11-03', title: 'P', notes: null })
 			.lesson.id;
 		linkFigure(db, P, a.figure.id, 'u1');
