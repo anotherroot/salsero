@@ -1,7 +1,12 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { buildGraph } from '$lib/server/graph';
-import { createRoutine, listRoutines, routineShapes } from '$lib/server/routines';
+import {
+	createRoutine,
+	listAddedRoutines,
+	listRoutines,
+	routineShapes
+} from '$lib/server/routines';
 import { breaks, loops, timingBreaks } from '$lib/routines/routines';
 import { optionalText, text } from '$lib/server/form';
 import { wallOf } from '$lib/server/scope';
@@ -15,6 +20,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	// Derived per request, never stored — the same rule urgency follows. A tag
 	// edited on a figure page changes these answers with no routine touched.
 	return {
+		groups: listAddedRoutines(db, wall),
 		routines: listRoutines(db, wall).map((r) => {
 			const shape = shapes.get(r.id) ?? { slots: [] };
 			return {

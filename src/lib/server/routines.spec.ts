@@ -13,6 +13,7 @@ import {
 	getRoutine,
 	insertSlot,
 	listPickRoutines,
+	listAddedRoutines,
 	listRoutines,
 	moveSlotTo,
 	removeOption,
@@ -33,7 +34,11 @@ import { setFigureShape } from './graph';
 import { exercises, routineStepOptions } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
-import { T1_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { createTeam, joinTeam } from './teams';
+import { createLesson, linkRoutine } from './lessons';
+import { addLesson } from './entries';
+import { lessons } from './db/schema';
 
 /**
  * A minimal figure of one dance, with its exercise. `dance` defaults to salsa;
@@ -917,5 +922,45 @@ describe('in a group', () => {
 		const pulled = extractRoutine(db, made.routine.id, [steps[0]], 'Part', 'u1')!;
 		expect(getRoutine(db, pulled.routineId)).toMatchObject({ userId: null, teamId: 1 });
 		expect(db.select().from(exercises).all()).toEqual([]);
+	});
+});
+
+describe('listAddedRoutines', () => {
+	const none = { lesson: true, routineIds: [], drillIds: [], figureIds: [] };
+	function setup() {
+		const db = openDb(':memory:');
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		joinTeam(db, 'u2', 1, 2);
+		const R = createRoutine(db, T1_SALSA, { name: 'Linked', notes: null }).routine;
+		createRoutine(db, T1_SALSA, { name: 'Unlinked', notes: null });
+		const lesson = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-02',
+			title: 'L',
+			notes: null
+		}).lesson;
+		expect(linkRoutine(db, lesson.id, R.id, 'u1')).toBe(true);
+		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, lesson.id)).run();
+		expect(addLesson(db, 'u2', lesson.id, none, 5)).toBe(true);
+		return { db, R };
+	}
+
+	it('lists the routines of lessons the person added, per group', () => {
+		const { db, R } = setup();
+		expect(listAddedRoutines(db, U2_SALSA)).toEqual([
+			{ team: { id: 1, name: 'Salsa Tuesdays' }, routines: [expect.objectContaining({ id: R.id })] }
+		]);
+	});
+
+	it('drops a group whose routines are archived', () => {
+		const { db, R } = setup();
+		archiveRoutine(db, R.id, 9, 'u1');
+		expect(listAddedRoutines(db, U2_SALSA)).toEqual([]);
+	});
+
+	it("never lists the person's own routines", () => {
+		const { db } = setup();
+		createRoutine(db, U2_SALSA, { name: 'Mine', notes: null });
+		const names = listAddedRoutines(db, U2_SALSA).flatMap((g) => g.routines.map((r) => r.name));
+		expect(names).toEqual(['Linked']);
 	});
 });

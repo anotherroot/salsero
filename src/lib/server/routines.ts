@@ -15,6 +15,8 @@ import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'driz
 import type { Db } from './db';
 import {
 	exercises,
+	lessonAdds,
+	lessons,
 	figures,
 	routineStepOptions,
 	routineSteps,
@@ -23,6 +25,8 @@ import {
 	type Routine
 } from './db/schema';
 import { buildGraph } from './graph';
+import { addedReach } from './access';
+import { getTeam } from './teams';
 import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
@@ -30,7 +34,7 @@ import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wal
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
-import type { PickRoutine, RoutineItem, SlotRow } from '$lib/types';
+import type { PickRoutine, RoutineItem, SlotRow, TeamRef } from '$lib/types';
 
 /** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
 function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, number[]> {
@@ -259,6 +263,57 @@ export function listRoutines(db: Db, space: Space): RoutineItem[] {
 		.groupBy(routines.id)
 		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
+}
+
+/**
+ * Moves' group sections for Routines: for each group of this dance whose
+ * lessons the person added, the routines those lessons reach (linked ones and
+ * those embedded in them), by group name. Never the person's own list.
+ */
+export function listAddedRoutines(
+	db: Db,
+	wall: Wall
+): { team: TeamRef; routines: RoutineItem[] }[] {
+	const teamIds = [
+		...new Set(
+			db
+				.select({ teamId: lessons.teamId })
+				.from(lessonAdds)
+				.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+				.where(
+					and(
+						eq(lessonAdds.userId, wall.userId),
+						eq(lessons.dance, wall.dance),
+						isNotNull(lessons.teamId)
+					)
+				)
+				.all()
+				.map((r) => r.teamId!)
+		)
+	];
+	const out: { team: TeamRef; routines: RoutineItem[] }[] = [];
+	for (const teamId of teamIds) {
+		const team = getTeam(db, teamId);
+		if (!team) continue;
+		const ids = [...addedReach(db, wall.userId, teamId).routines];
+		if (ids.length === 0) continue;
+		const rows = db
+			.select({
+				id: routines.id,
+				name: routines.name,
+				notes: routines.notes,
+				slots: count(routineSteps.id),
+				createdAt: routines.createdAt
+			})
+			.from(routines)
+			.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
+			.where(and(inArray(routines.id, ids), isNull(routines.archivedAt)))
+			.groupBy(routines.id)
+			.orderBy(desc(routines.createdAt), desc(routines.id))
+			.all();
+		if (rows.length > 0) out.push({ team: { id: team.id, name: team.name }, routines: rows });
+	}
+	return out.sort((a, b) => a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id);
 }
 
 /** Every live routine of the dance as a picker offers it, by name. */

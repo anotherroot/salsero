@@ -17,3 +17,8 @@ export function routineBadges(r: {
 	if (!r.loops && r.slots > 0) out.push({ tone: 'warn', text: 'does not loop' });
 	return out;
 }
+
+/** A group's slight heading over its routines in Moves: "Salsa Tuesdays · 2". */
+export function groupRoutinesHeading(name: string, count: number): string {
+	return `${name} · ${count}`;
+}
