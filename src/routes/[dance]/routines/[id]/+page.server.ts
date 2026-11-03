@@ -133,6 +133,17 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	);
 	const labels = [...figureLabels(db, space, usable)].filter(([id]) => !visible || named.has(id));
 
+	// The group figures this person's routine uses: each one's group and move,
+	// for the source chip on its slot and the note under the list. Only while
+	// usable (`usableVersions`), so a figure they lost shows no group name.
+	const groupFigures: Record<number, { team: string; name: string }> = usable
+		? Object.fromEntries(
+				usableVersions(db, wall, usable)
+					.filter((v) => named.has(v.id))
+					.map((v) => [v.id, { team: v.team.name, name: v.figure }])
+			)
+		: {};
+
 	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. Only the break count above the
 	// slots reads these; the seams between cards come from `positionSeams` and
@@ -211,6 +222,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// Names for every figure a slot can hold, archived ones included, so a slot
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(labels),
+		groupFigures,
 		positions: positions.map((p) => ({ id: p.id, name: p.name })),
 		starts: routineStarts(graph, shape),
 		end: routineEnd(graph, shape),

@@ -22,7 +22,10 @@ import {
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
-import { buildGraph, figurePositions, setFigureShape } from '$lib/server/graph';
+import { buildGraph, figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
+import { teamRefs } from '$lib/server/usable';
+import { lessonAdds } from '$lib/server/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
@@ -206,6 +209,41 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			};
 		});
 
+	// A group's figure: who owns it, which added lesson brought it, and the
+	// person's OWN routines that use it (their wall, their graph, their shapes).
+	const groupTeam =
+		figure.teamId === null ? null : (teamRefs(db, [figure.teamId]).get(figure.teamId) ?? null);
+	let fromLesson: string | null = null;
+	let myRoutines: ReturnType<typeof routinesUsing> = [];
+	if (groupTeam) {
+		const holding = taughtIn(db, space, id).filter((l) => seen(visible?.lessons, l.id));
+		const added = new Set(
+			holding.length === 0
+				? []
+				: db
+						.select({ lessonId: lessonAdds.lessonId })
+						.from(lessonAdds)
+						.where(
+							and(
+								eq(lessonAdds.userId, wall.userId),
+								inArray(
+									lessonAdds.lessonId,
+									holding.map((l) => l.id)
+								)
+							)
+						)
+						.all()
+						.map((r) => r.lessonId)
+		);
+		fromLesson = holding.find((l) => added.has(l.id))?.title ?? null;
+		myRoutines = routinesUsing(
+			graphFor(db, wall),
+			id,
+			routineShapes(db, wall),
+			listRoutines(db, wall)
+		);
+	}
+
 	const zone = zoneOf(locals);
 	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
 
@@ -218,7 +256,7 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			styleTag: figure.styleTag,
 			notes: figure.notes,
 			recordings: found.recordings,
-			sections: sectionsFor(db, { figureId: id }, visible ?? undefined),
+			sections: sectionsFor(db, { figureId: id }, visible ?? undefined, wall.userId),
 			// Each recording's own sections and what they link to, so a link can be
 			// undone even when its target is archived and has no page.
 			recordingSections: Object.fromEntries(
@@ -230,6 +268,12 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		},
 		siblings,
 		canEdit,
+		/** A group's figure, for a reader: whose it is (the band and the note). */
+		team: groupTeam,
+		/** The newest lesson of this group's the reader added that holds it. */
+		fromLesson,
+		/** The reader's OWN routines that use it, over their own wall. */
+		myRoutines,
 		/** A group figure's History (the whole figure, every variation): its editors'. */
 		historyHref:
 			canEdit && group.teamId !== null

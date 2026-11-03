@@ -3,6 +3,7 @@
  */
 import { frequencyLabel } from '$lib/frequency';
 import { longDayLabel, plural } from '$lib/format';
+import { possessive } from '$lib/clones/view';
 import type { MetaPart } from '$lib/exercises/today';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { RoutineUse } from '$lib/routines/coverage';
@@ -170,10 +171,14 @@ export function deleteRecordingBody(day: string, size: string, sections: number)
 }
 
 /** The figure page's band subtitle: "Figure · starts on 1 · 16 counts", or "Figure". */
-export function figureSubtitle(f: {
-	startCount: number | null;
-	lengthCounts: number | null;
-}): string {
-	if (f.startCount === null || f.lengthCounts === null) return 'Figure';
-	return `Figure · starts on ${f.startCount} · ${f.lengthCounts} counts`;
+export function figureSubtitle(
+	f: {
+		startCount: number | null;
+		lengthCounts: number | null;
+	},
+	team?: string
+): string {
+	const lead = team ? `${possessive(team)} figure` : 'Figure';
+	if (f.startCount === null || f.lengthCounts === null) return lead;
+	return `${lead} · starts on ${f.startCount} · ${f.lengthCounts} counts`;
 }

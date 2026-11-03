@@ -144,6 +144,7 @@ describe('a personal routine that uses a group’s figure and routine', () => {
 	const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
 	type RoutineData = {
 		labels: Record<number, string>;
+		groupFigures: Record<number, { team: string; name: string }>;
 		candidates: { kind: string; id: number }[];
 		childSlots: Record<number, number>;
 		edges: { starts: number[] }[];
@@ -191,6 +192,7 @@ describe('a personal routine that uses a group’s figure and routine', () => {
 		expect(addFigureSlot(db, P, F)).not.toBeNull();
 		const data = loadRoutine(P);
 		expect(data.labels[F]).toBe('Dile que no · Doble');
+		expect(data.groupFigures).toEqual({ [F]: { team: 'Rueda club', name: 'Dile que no' } });
 		expect(data.candidates).toContainEqual(expect.objectContaining({ kind: 'routine', id: R }));
 		// Untagged figures all start and land in neutral: two in a row never break.
 		expect(loadList().routines.find((r) => r.id === P)?.breaks).toBe(0);

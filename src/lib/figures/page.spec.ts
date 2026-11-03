@@ -185,6 +185,11 @@ describe('deleteRecordingBody', () => {
 });
 
 describe('figureSubtitle', () => {
+	it("leads with the group's name for a group's figure", () => {
+		expect(figureSubtitle({ startCount: 1, lengthCounts: 8 }, 'Salsa Tuesdays')).toBe(
+			'Salsa Tuesdays’ figure · starts on 1 · 8 counts'
+		);
+	});
 	it('names the start and the length', () => {
 		expect(figureSubtitle({ startCount: 1, lengthCounts: 16 })).toBe(
 			'Figure · starts on 1 · 16 counts'

@@ -14,6 +14,7 @@
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { groupSlotNotes } from '$lib/clones/view';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -209,6 +210,9 @@
 	const routineHref = (id: number) =>
 		resolve('/[dance]/routines/[id]', { dance: data.dance.slug, id: String(id) });
 
+	/** The group a figure belongs to, when it is a group's and the person may still use it. */
+	const sourceOf = (id: number): string | null => data.groupFigures[id]?.team ?? null;
+
 	function optionName(id: number): string {
 		const name = data.labels[id] ?? 'a figure';
 		return figuresById.has(id) ? name : `${name} (archived)`;
@@ -248,6 +252,7 @@
 			const main = slot.figureIds[0] as number | undefined;
 			return {
 				id: slot.id,
+				source: isRoutine || main === undefined ? null : sourceOf(main),
 				title: isRoutine
 					? (slot.childName ?? 'a routine')
 					: main === undefined
@@ -269,7 +274,12 @@
 				alternatives: slot.figureIds
 					.slice(1)
 					.filter((f) => !goneOptions.includes(`${slot.id}:${f}`))
-					.map((f) => ({ id: f, label: optionName(f), href: figureHref(f) })),
+					.map((f) => ({
+						id: f,
+						label: optionName(f),
+						href: figureHref(f),
+						source: sourceOf(f)
+					})),
 				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
 				failure:
 					place?.where === 'slot' && place.stepId === slot.id && !archivedForm
@@ -278,6 +288,14 @@
 				seam: stale ? null : seamOf(i)
 			};
 		})
+	);
+
+	/** One note per group whose figures the slots use: what leaving the group does. */
+	const groupNotes = $derived(
+		groupSlotNotes(
+			data.groupFigures,
+			data.slots.map((s) => s.figureIds)
+		)
 	);
 
 	const facts = $derived(
@@ -574,6 +592,17 @@
 	}}
 />
 
+{#snippet groupNote()}
+	{#each groupNotes as note (note)}
+		<p
+			class="mt-2 flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
+		>
+			<span class="mt-px flex-none"><Icon name="group" size={18} /></span>
+			<span>{note}</span>
+		</p>
+	{/each}
+{/snippet}
+
 {#snippet back()}
 	{#if selecting}
 		<BandButton
@@ -810,10 +839,18 @@
 											<span class="text-[16px] leading-tight font-bold text-muted">{row.title}</span
 											>
 										{/if}
+										{#if row.source}<span class="self-start"
+												><Badge tone="neutral"><Icon name="group" size={14} />{row.source}</Badge
+												></span
+											>{/if}
 										{#if row.meta}<span class="text-[13px] text-muted">{row.meta}</span>{/if}
 										{#if row.alternatives.length > 0}
 											<span class="text-[13px] text-ink-2"
-												>or {row.alternatives.map((a) => a.label).join(', ')}</span
+												>or {#each row.alternatives as a, k (a.id)}{k > 0
+														? ', '
+														: ''}{a.label}{#if a.source}
+														<Badge tone="neutral"><Icon name="group" size={14} />{a.source}</Badge
+														>{/if}{/each}</span
 											>
 										{/if}
 										{#if row.note}<span class="text-[13px] text-ink-2 italic">{row.note}</span>{/if}
@@ -821,6 +858,7 @@
 								</li>
 							{/each}
 						</ol>
+						{@render groupNote()}
 					</section>
 				{/if}
 			{:else if data.slots.length === 0}
@@ -861,6 +899,7 @@
 						onnote={(id, note) => send('note', { stepId: id, note })}
 						onadd={openPicker}
 					/>
+					{@render groupNote()}
 				</section>
 			{/if}
 

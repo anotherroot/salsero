@@ -38,6 +38,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import { fromLessonNote } from '$lib/clones/view';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		button,
@@ -94,6 +95,8 @@
 
 	const figure = $derived(data.figure);
 	const variation = $derived(data.variation);
+	/** A group's figure read by someone who cannot edit it: the group it is the group's. */
+	const readerTeam = $derived(data.canEdit ? null : data.team);
 	const slug = $derived(data.dance.slug);
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	/** Its figure's only variation: taking it away removes the figure. */
@@ -271,7 +274,9 @@
 <Screen
 	compact
 	title="{figure.name} · {variation.name}"
-	subtitle={editing ? `Editing ${variation.name}` : figureSubtitle(data.effective)}
+	subtitle={editing
+		? `Editing ${variation.name}`
+		: figureSubtitle(data.effective, readerTeam?.name)}
 >
 	{#snippet left()}
 		{#if editing}
@@ -356,6 +361,14 @@
 				</form>
 			{/key}
 		{:else}
+			{#if readerTeam && data.fromLesson}
+				<p
+					class="flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
+				>
+					<span class="mt-px flex-none"><Icon name="group" size={18} /></span>
+					<span>{fromLessonNote(data.fromLesson, readerTeam.name)}</span>
+				</p>
+			{/if}
 			<!-- The variation's own facts: style and partner, timing, handholds, notes. -->
 			<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label="Facts">
 				<div class="flex flex-wrap gap-1.5">
@@ -497,16 +510,43 @@
 				{/if}
 			{/if}
 
-			<h2 class="{SECTION_LABEL} pt-2">
-				{data.routines.length > 0 ? `In routines · ${data.routines.length}` : 'In routines'}
-			</h2>
+			{#if !(readerTeam && data.routines.length === 0)}
+				<h2 class="{SECTION_LABEL} pt-2">
+					{data.routines.length > 0 ? `In routines · ${data.routines.length}` : 'In routines'}
+				</h2>
+			{/if}
 			{#if data.routines.length === 0}
-				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] font-bold text-status">
-					Not in a routine yet
-				</p>
+				{#if !readerTeam}
+					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] font-bold text-status">
+						Not in a routine yet
+					</p>
+				{/if}
 			{:else}
 				<ul class={GROUP}>
 					{#each data.routines as use (use.id)}
+						<li>
+							<a
+								href={routineHref(use.id)}
+								class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
+							>
+								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+									<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
+									<span class="text-[13px] text-muted"
+										>{routineUseMeta(use)}{use.loops ? ' · ' : ''}{#if use.loops}
+											<span class="font-bold text-done">loops</span>{/if}</span
+									>
+								</span>
+								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+
+			{#if data.myRoutines.length > 0}
+				<h2 class="{SECTION_LABEL} pt-2">In your routines · {data.myRoutines.length}</h2>
+				<ul class={GROUP}>
+					{#each data.myRoutines as use (use.id)}
 						<li>
 							<a
 								href={routineHref(use.id)}

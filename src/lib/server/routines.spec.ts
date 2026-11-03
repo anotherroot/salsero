@@ -1061,6 +1061,12 @@ describe('a personal routine and a group’s figures and routines', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
+	it('embeddable tags the usable group routine with its group', () => {
+		const { db, R, P } = setup();
+		const offered = embeddable(db, P).find((r) => r.id === R);
+		expect(offered?.team).toEqual({ id: 1, name: 'Salsa Tuesdays' });
+	});
+
 	it('refuses a usable group routine that embeds, and a group routine the person cannot use', () => {
 		const { db, P } = setup();
 		const stray = createRoutine(db, T1_SALSA, { name: 'Not in a lesson', notes: null }).routine.id;

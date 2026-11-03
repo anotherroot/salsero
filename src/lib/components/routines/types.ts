@@ -11,6 +11,8 @@ export interface AltView {
 	label: string;
 	/** A `resolve()` result, not a bare string — see `RowView.href`. */
 	href: ResolvedPathname;
+	/** The group's name when this option is a group's figure. */
+	source: string | null;
 }
 
 export interface RowView {
@@ -18,6 +20,8 @@ export interface RowView {
 	id: number;
 	/** The main figure's label, or the embedded routine's name. */
 	title: string;
+	/** The group's name when the main figure is a group's: the slot's source chip. */
+	source: string | null;
 	/** "1→1 · Closed → Open", led by "Routine · 3 slots" for a routine. Empty when nothing is danceable. */
 	meta: string;
 	/** No option and no child: the title says so, muted. */
