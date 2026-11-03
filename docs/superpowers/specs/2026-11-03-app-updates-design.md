@@ -307,3 +307,22 @@ hand in a commit; both dances share them. The first release is **versionCode
 - Exact copy and layout of `/app`, the bars and the Update needed screen, in
   the redesign's components and tokens.
 - Whether old APKs on the server are pruned (keep at least the current one).
+
+## What was built, and known gaps
+
+- **Where the bars show.** The "New version · Reload" bar is hidden on
+  Practice and My count, and while an edit's or selection's bar claims the
+  bottom: leaving those pages is already a full load. The "This page is out of
+  date" bar shows everywhere.
+- A `goto(…, { replaceState: true })` that becomes a full load pushes a history
+  entry instead of replacing.
+- The reload when the page becomes visible protects only work the unsaved
+  guard tracks (for example a half-typed login while the password is fetched
+  elsewhere).
+- Once a stale navigation is held, the address bar may show the target URL
+  until Reload.
+- The first self-update always ends on Android's own "Update?" screen: silent
+  installs only work once this app is its own installer of record.
+- If Android kills the app while that confirm screen is waiting, pressing
+  Update again reuses the downloaded file.
+- Releasing: `scripts/release.sh`; see `docs/deployment.md`.

@@ -155,13 +155,12 @@ shares with Firefly, Grafana, muscle and nikaudio.
 
 `android/` builds two APKs, one per dance (Salsa and Bachata): the site in a
 WebView plus background uploads and the daily reminder (design:
-`docs/superpowers/specs/2026-10-14-android-app-design.md`). Sideloaded, like
-Shrink — no Play Store.
+`docs/superpowers/specs/2026-10-14-android-app-design.md`). Sideloaded, no Play Store: friends get it from the site's `/app` page (see "Releasing app updates").
 
 ```sh
 nix develop .#android -c ./android/gradlew -p android test assembleDebug
-adb install -r android/app/build/outputs/apk/salsa/debug/app-salsa-debug.apk
-adb install -r android/app/build/outputs/apk/bachata/debug/app-bachata-debug.apk
+adb install -r android/app/build/outputs/apk/salsaDirect/debug/app-salsa-direct-debug.apk
+adb install -r android/app/build/outputs/apk/bachataDirect/debug/app-bachata-direct-debug.apk
 ```
 
 Salsa keeps the original package (`eu.anotherroot.salsa`), so it installs over
@@ -188,6 +187,47 @@ allows no cleartext).
   lists paired devices ("Salsa app", "Bachata app") and removes them.
 - **Test uploads against `node build` or the host**, never `vite dev`: the same
   CSRF caveat as the worker.
+
+## Releasing app updates
+
+The apps are release-signed and update themselves from the site (design:
+`docs/superpowers/specs/2026-11-03-app-updates-design.md`). From a clean git
+tree:
+
+```sh
+nix develop .#android -c ./scripts/release.sh salsa|bachata|both [--required]
+```
+
+It builds `assemble<Dance>DirectRelease`, checks the APK is signed with the
+release key and that its version code is above the published one, uploads it to
+`/var/lib/salsa/releases/<dance>/<code>.apk` over ssh, and only then replaces
+`current.json` (the server caches it by mtime). `--required` raises the minimum
+version to this one, so older apps must update before they go on; the minimum
+stays for later releases.
+
+- **Bump `versionCode` and `versionName`** in `android/app/build.gradle.kts`
+  first (both dances share them). The script refuses a code that is not above
+  the published one.
+- **The key** is `~/.config/salsa/release.jks` with
+  `~/.config/salsa/key.properties` (`storeFile`, `storePassword`, `keyAlias`,
+  `keyPassword`). Neither is in the repo, and neither is ever overwritten.
+  **Back both up off the laptop**: lose the key and no installed app can be
+  updated again. Its SHA-256 is in `release.sh` (`CERT_RE`). Debug builds are
+  signed with it too, so `adb install -r` of a debug build keeps working.
+- Set **`SALSA_ANDROID_CERT_SHA256`** in `salsa-prod.env` to the key's
+  fingerprint:
+  `38:F4:7B:2E:FD:A2:6D:32:70:EF:C6:F3:37:ED:75:86:5E:A0:E7:AD:FB:E1:95:13:52:E6:81:CD:4F:E9:B8:3A`.
+- **The one-time reinstall.** Apps installed from debug builds carry another
+  key, so a release build cannot update them: uninstall Salsa and Bachata,
+  install the release-signed builds (from `/app` on the phone), sign in and
+  pair again. Nothing on the server is lost.
+- Migration 0020 ships with the site; take the backup before deploying it.
+
+### Moving to the Play Store
+
+Not done. When it is: enrol in Play App Signing with this key ("use my own
+key"), ship the `play` variants (they carry no updater; Play updates them), and
+add Play's in-app update API then.
 
 ## Backups
 
