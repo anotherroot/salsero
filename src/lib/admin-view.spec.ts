@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	gbToBytes,
 	LIMIT_PRESETS_GB,
+	appsLines,
 	personMeta,
 	presetLabel,
 	requestUsesLine
@@ -24,5 +25,18 @@ describe('admin view', () => {
 		expect(personMeta({ day: '2026-11-02', usedBytes: 0, limitBytes: null })).toBe(
 			'Joined 2 Nov 2026 · 0 MB, no limit'
 		);
+	});
+});
+
+describe('appsLines', () => {
+	const today = '2026-11-03';
+	const row = (day: string, channel: 'direct' | 'play' = 'direct') => [
+		{ dance: 'salsa' as const, versionCode: 2, channel, day }
+	];
+	it('says the version and the day, one line per dance', () => {
+		expect(appsLines(row(today), today)).toEqual(['Salsa app 2 · today', 'Bachata: no app']);
+		expect(appsLines(row('2026-11-02'), today)[0]).toBe('Salsa app 2 · yesterday');
+		expect(appsLines(row('2025-10-28'), today)[0]).toBe('Salsa app 2 · Tue 28 Oct');
+		expect(appsLines(row(today, 'play'), today)[0]).toBe('Salsa app 2 (Play) · today');
 	});
 });

@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
-import { gbToBytes } from '$lib/admin-view';
+import { appsLines, gbToBytes } from '$lib/admin-view';
 import { localDay } from '$lib/day/day';
+import { listAppsSeen } from '$lib/server/app-seen';
 import { getDb } from '$lib/server/db';
 import { int } from '$lib/server/form';
 import { createInvite, inviteQr } from '$lib/server/invites';
@@ -13,10 +14,20 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const { lastDance } = await parent();
 	const tz = locals.user!.timezone;
 	const db = getDb();
+	const now = Date.now();
+	const today = localDay(now, tz);
+	const seen = listAppsSeen(db);
 	return {
 		dance: lastDance,
 		requests: listOpenRequests(db).map((r) => ({ ...r, day: localDay(r.createdAt, tz) })),
-		people: listPeople(db).map((p) => ({ ...p, day: localDay(p.createdAt, tz) }))
+		people: listPeople(db).map((p) => ({
+			...p,
+			day: localDay(p.createdAt, tz),
+			apps: appsLines(
+				seen.filter((s) => s.userId === p.id).map((s) => ({ ...s, day: localDay(s.seenAt, tz) })),
+				today
+			)
+		}))
 	};
 };
 
