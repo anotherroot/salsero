@@ -153,9 +153,13 @@ shares with Firefly, Grafana, muscle and nikaudio.
 
 ## Android app
 
-`android/` builds two APKs, one per dance (Salsa and Bachata): the site in a
-WebView plus background uploads and the daily reminder (design:
-`docs/superpowers/specs/2026-10-14-android-app-design.md`). Sideloaded, no Play Store: friends get it from the site's `/app` page (see "Releasing app updates").
+`android/` builds one app per dance (Salsa and Bachata), each in two channels:
+`direct` (the one that ships: it updates itself from the site) and `play`
+(no updater, for the Play Store later; built so it keeps compiling). The site
+in a WebView plus background uploads and the daily reminder (design:
+`docs/superpowers/specs/2026-10-14-android-app-design.md`). Sideloaded, no Play
+Store: friends get the direct build from the site's `/app` page (see
+"Releasing app updates").
 
 ```sh
 nix develop .#android -c ./android/gradlew -p android test assembleDebug
@@ -172,15 +176,11 @@ allows no cleartext).
 
 - **The site half ships with the server.** Migration 0013 (`device_tokens`, two
   `users` columns) applies at boot like any other; take the backup first.
-- **`SALSA_ANDROID_CERT_SHA256`** (optional, in `salsa-prod.env`): the APK
-  signing key's SHA-256 fingerprint, served at `/.well-known/assetlinks.json`.
-  Since the WebView (2026-10-29) the app does not read it. The debug
-  key's fingerprint:
-
-  ```sh
-  nix develop .#android -c keytool -list -v -keystore ~/.android/debug.keystore \
-    -alias androiddebugkey -storepass android | grep SHA256
-  ```
+- **`SALSA_ANDROID_CERT_SHA256`** (optional, in `salsa-prod.env`): the release
+  key's SHA-256 fingerprint (see "Releasing app updates"), served at
+  `/.well-known/assetlinks.json`; since the WebView (2026-10-29) the app does
+  not read it:
+  `38:F4:7B:2E:FD:A2:6D:32:70:EF:C6:F3:37:ED:75:86:5E:A0:E7:AD:FB:E1:95:13:52:E6:81:CD:4F:E9:B8:3A`.
 
 - **Pairing:** the first upload (or reminder) sends the app to `/device/pair`;
   one tap there hands it a token. Each dance's app pairs separately. Settings

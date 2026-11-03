@@ -326,3 +326,17 @@ hand in a commit; both dances share them. The first release is **versionCode
 - If Android kills the app while that confirm screen is waiting, pressing
   Update again reuses the downloaded file.
 - Releasing: `scripts/release.sh`; see `docs/deployment.md`.
+- **The 426 is for the native side only:** requests carrying `x-app-version`.
+  A page's own `/api/` calls inside an old app's WebView (a take saved on My
+  count, a song upload) are never refused by it; a page out of date is the
+  page epoch's job.
+- **Update needed never lands on a page mid-edit** (`updateNeededNow`): it
+  comes with a page load or a finished navigation (every navigation in the app
+  asks the server again); when the answer turns required on an open page, at
+  once only if nothing is unsaved, open or held, otherwise at the next
+  navigation. Once up it stays while the update is required.
+- **"Not while an upload is running" means running:** a job only queued (paused
+  by a 426, backing off, unpaired) does not hold Update back; it survives the
+  reinstall and the next launch carries on with it.
+- Settings shows the installed version number (what the user agent carries),
+  not the release's name.
