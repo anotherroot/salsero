@@ -8,6 +8,7 @@ import {
 	lessonVideos,
 	lessons,
 	opens,
+	songs,
 	spotLinks,
 	teamMembers,
 	teams,
@@ -48,8 +49,8 @@ export function recordOpen(
  * something was linked to it after they last opened or added it. `opening` is
  * the item the current response opens, which must not count itself.
  *
- * Songs: the `songs` columns that say "the group's" and "shared" arrive with
- * the group song library; until then the song set is empty.
+ * A song is new when it is the group's, shared after they joined, not
+ * deleted, and not opened since it was shared.
  */
 export function whatsNew(
 	db: Db,
@@ -185,6 +186,34 @@ export function whatsNew(
 		);
 	}
 
-	// Songs: added with the group song library (the songs columns do not exist yet).
+	// Shared after joining and not opened since being shared.
+	const shared = db
+		.select({
+			id: songs.id,
+			teamId: songs.teamId,
+			sharedAt: songs.sharedAt,
+			openedAt: opens.openedAt
+		})
+		.from(songs)
+		.leftJoin(
+			opens,
+			and(eq(opens.userId, userId), eq(opens.kind, 'song'), eq(opens.itemId, songs.id))
+		)
+		.where(
+			and(
+				inArray(songs.teamId, [...joined.keys()]),
+				eq(songs.dance, dance),
+				isNotNull(songs.sharedAt),
+				isNull(songs.archivedAt)
+			)
+		)
+		.all();
+	for (const s of shared) {
+		const at = s.sharedAt!;
+		if (opening?.kind === 'song' && opening.id === s.id) continue;
+		if (at <= joined.get(s.teamId!)! || (s.openedAt !== null && s.openedAt >= at)) continue;
+		result.songs.add(s.id);
+		result.byTeam.set(s.teamId!, (result.byTeam.get(s.teamId!) ?? 0) + 1);
+	}
 	return result;
 }

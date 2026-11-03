@@ -115,6 +115,8 @@ export interface PickerSong {
 	sample: SampleSong;
 	/** 0 = the song practised with most recently; null = not among the last five. */
 	recentRank: number | null;
+	/** The group whose shared song this is, by name; null for the person's own. */
+	group: string | null;
 }
 
 /**

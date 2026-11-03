@@ -18,16 +18,48 @@ export function searchSongs<S extends { title: string; artist: string | null }>(
 	return hits.sort(byTitle);
 }
 
-/** The recent songs by rank, then everything else A to Z. */
-export function groupSongs<S extends { title: string; recentRank: number | null }>(
+type Groupable = { title: string; recentRank: number | null; group?: string | null };
+
+/**
+ * The recent songs by rank (the person's own and their groups' alike), then
+ * the rest of the person's own A to Z, then each group's shared songs A to Z,
+ * the groups by name.
+ */
+export function groupSongs<S extends Groupable>(
 	songs: S[]
-): { recent: S[]; rest: S[] } {
+): { recent: S[]; rest: S[]; groups: { name: string; songs: S[] }[] } {
 	const recent = songs
 		.filter((s) => s.recentRank !== null)
 		.sort((a, b) => (a.recentRank as number) - (b.recentRank as number));
-	const rest = songs.filter((s) => s.recentRank === null).sort(byTitle);
-	return { recent, rest };
+	const others = songs.filter((s) => s.recentRank === null);
+	const rest = others.filter((s) => !s.group).sort(byTitle);
+	const byGroup = new Map<string, S[]>();
+	for (const s of others) {
+		if (s.group) byGroup.set(s.group, [...(byGroup.get(s.group) ?? []), s]);
+	}
+	const groups = [...byGroup]
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([name, list]) => ({ name, songs: list.sort(byTitle) }));
+	return { recent, rest, groups };
 }
+
+/**
+ * The popup's sections, empty ones left out: Recent, the person's own songs
+ * ("Your songs" beside groups, "All songs A–Z" after Recent alone, no heading
+ * when they are all there is), then a heading per group.
+ */
+export function songSections<S extends Groupable>(
+	songs: S[]
+): { label: string | null; songs: S[] }[] {
+	const { recent, rest, groups } = groupSongs(songs);
+	const own = groups.length > 0 ? 'Your songs' : recent.length > 0 ? 'All songs A–Z' : null;
+	return [
+		{ label: 'Recent', songs: recent },
+		{ label: own, songs: rest },
+		...groups.map((g) => ({ label: g.name, songs: g.songs }))
+	].filter((x) => x.songs.length > 0);
+}
+
 /** The song popup's count line: `8 songs`, or `1 match` while searching. */
 export function pickerCount(n: number, searching: boolean): string {
 	const word = searching ? 'match' : 'song';

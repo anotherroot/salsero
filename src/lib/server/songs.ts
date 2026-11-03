@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, sets, songs, type Song } from './db/schema';
+import { exercises, sets, songs, teamMembers, teams, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
@@ -183,9 +183,10 @@ export function listSongs(db: Db, space: Space): SongItem[] {
  * distinct, ready and unarchived only (so a song the picker will not show
  * cannot eat a slot). The window is the latest 200 sets of the dance, bounded
  * first; song ids are read from their JSON in code, so a malformed row is
- * skipped rather than throwing.
+ * skipped rather than throwing. The person's own songs, or with `among`, the
+ * songs the caller offers (the picker's, a group's shared ones included).
  */
-export function recentSongIds(db: Db, wall: Wall, limit = 5): number[] {
+export function recentSongIds(db: Db, wall: Wall, limit = 5, among?: Set<number>): number[] {
 	const rows = db
 		.select({ playerJson: sets.playerJson })
 		.from(sets)
@@ -200,22 +201,24 @@ export function recentSongIds(db: Db, wall: Wall, limit = 5): number[] {
 		if (id !== null && !seen.includes(id)) seen.push(id);
 	}
 	if (seen.length === 0) return [];
-	const visible = new Set(
-		db
-			.select({ id: songs.id })
-			.from(songs)
-			.where(
-				and(
-					inArray(songs.id, seen),
-					isNull(songs.archivedAt),
-					eq(songs.status, 'ready'),
-					eq(songs.dance, wall.dance),
-					eq(songs.userId, wall.userId)
+	const visible =
+		among ??
+		new Set(
+			db
+				.select({ id: songs.id })
+				.from(songs)
+				.where(
+					and(
+						inArray(songs.id, seen),
+						isNull(songs.archivedAt),
+						eq(songs.status, 'ready'),
+						eq(songs.dance, wall.dance),
+						eq(songs.userId, wall.userId)
+					)
 				)
-			)
-			.all()
-			.map((x) => x.id)
-	);
+				.all()
+				.map((x) => x.id)
+		);
 	return seen.filter((id) => visible.has(id)).slice(0, limit);
 }
 
@@ -229,10 +232,15 @@ function songIdOf(json: string | null): number | null {
 	}
 }
 
-/** Ready, unarchived songs of one wall, for the song popup: by title, with their sample and recency. */
+/**
+ * The song popup's songs, ready and unarchived, with their sample and
+ * recency: the person's own by title, then the shared songs of each group of
+ * this dance they are in now, by group name and title, `group` naming it.
+ * Never a draft, editors included: only a shared song may go in a person's
+ * practice (`practiceSong`), and the player's `?song=` checks this list.
+ */
 export function songChoices(db: Db, wall: Wall): PickerSong[] {
-	const recent = recentSongIds(db, wall);
-	const rows = db
+	const own = db
 		.select()
 		.from(songs)
 		.where(
@@ -244,9 +252,34 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 			)
 		)
 		.orderBy(songs.title)
+		.all()
+		.map((song) => ({ song, group: null as string | null }));
+	const shared = db
+		.select({ song: songs, group: teams.name })
+		.from(songs)
+		.innerJoin(teams, eq(teams.id, songs.teamId))
+		.innerJoin(
+			teamMembers,
+			and(eq(teamMembers.teamId, songs.teamId), eq(teamMembers.userId, wall.userId))
+		)
+		.where(
+			and(
+				isNull(songs.archivedAt),
+				eq(songs.status, 'ready'),
+				eq(songs.dance, wall.dance),
+				isNotNull(songs.sharedAt),
+				isNull(songs.userId),
+				eq(teams.dance, wall.dance),
+				isNull(teams.deletedAt),
+				isNull(teams.purgedAt)
+			)
+		)
+		.orderBy(teams.name, songs.title)
 		.all();
+	const rows = [...own, ...shared];
+	const recent = recentSongIds(db, wall, 5, new Set(rows.map((r) => r.song.id)));
 	const out: PickerSong[] = [];
-	for (const s of rows) {
+	for (const { song: s, group } of rows) {
 		const sample = songSample(s);
 		if (!sample) continue;
 		const rank = recent.indexOf(s.id);
@@ -258,7 +291,8 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 			bpm: s.bpm ? Math.round(s.bpm * s.tempoFactor) : null,
 			durationS: s.durationS,
 			sample,
-			recentRank: rank < 0 ? null : rank
+			recentRank: rank < 0 ? null : rank,
+			group
 		});
 	}
 	return out;

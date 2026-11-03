@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { lessonAdds, lessonRoutines, lessons, opens, spotLinks, teamMembers } from './db/schema';
+import {
+	lessonAdds,
+	lessonRoutines,
+	lessons,
+	opens,
+	songs,
+	spotLinks,
+	teamMembers
+} from './db/schema';
+import { createSongFromUpload } from './songs';
 import { addLessonVideo, createLesson, linkRoutine } from './lessons';
 import { createRoutine } from './routines';
 import { createCustomExercise } from './exercises';
@@ -149,5 +158,72 @@ describe('whatsNew counting', () => {
 		const n = news();
 		expect([...n.lessons]).toEqual([id]);
 		expect(n.byTeam.get(1)).toBe(1);
+	});
+});
+
+describe('whatsNew songs', () => {
+	/** A ready song of team 1, shared at `at` (null = draft). */
+	function song(at: number | null, extra: { archivedAt?: number; teamId?: number } = {}): number {
+		const space = { ...T1_SALSA, teamId: extra.teamId ?? 1 };
+		const id = createSongFromUpload(db, space, {
+			file: `s${Math.random()}.mp3`,
+			mime: 'audio/mpeg',
+			title: 'S',
+			style: 'salsa'
+		}).id;
+		db.update(songs)
+			.set({ status: 'ready', sharedAt: at, archivedAt: extra.archivedAt ?? null })
+			.where(eq(songs.id, id))
+			.run();
+		return id;
+	}
+	const openSong = (id: number, at: number) => recordOpen(db, 'u2', 'song', id, at);
+
+	it('a song shared after joining and not opened is new, and counted', () => {
+		const id = song(200);
+		const n = news();
+		expect([...n.songs]).toEqual([id]);
+		expect(n.byTeam.get(1)).toBe(1);
+	});
+
+	it('opened after sharing is not new; opened before sharing again is', () => {
+		const a = song(200);
+		const b = song(300);
+		openSong(a, 250);
+		openSong(b, 250);
+		expect([...news().songs]).toEqual([b]);
+	});
+
+	it('shared before joining, a draft, or deleted is not new', () => {
+		song(50);
+		song(null);
+		song(200, { archivedAt: 300 });
+		const n = news();
+		expect(n.songs.size).toBe(0);
+		expect(n.byTeam.get(1) ?? 0).toBe(0);
+	});
+
+	it('counts with the lessons per team; the song being opened is left out', () => {
+		lesson(200);
+		const id = song(200);
+		expect(news().byTeam.get(1)).toBe(2);
+		const n = whatsNew(db, 'u2', 'salsa', { kind: 'song', id });
+		expect(n.songs.size).toBe(0);
+		expect(n.lessons.size).toBe(1);
+		expect(n.byTeam.get(1)).toBe(1);
+	});
+
+	it('a lesson opening never hides a song of the same id', () => {
+		const id = song(200);
+		expect([...whatsNew(db, 'u2', 'salsa', { kind: 'lesson', id }).songs]).toEqual([id]);
+	});
+
+	it('nothing after leaving, or from a group the person is not in', () => {
+		createTeam(db, 'u1', 'salsa', 'Other', 1);
+		song(200, { teamId: 2 });
+		expect(news().songs.size).toBe(0);
+		song(200);
+		leaveTeam(db, 1, 'u2', 500);
+		expect(news().songs.size).toBe(0);
 	});
 });

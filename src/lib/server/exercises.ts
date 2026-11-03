@@ -21,11 +21,13 @@ import {
 	lessons,
 	routines,
 	sets,
+	songDrops,
 	songs,
 	teams
 } from './db/schema';
 import { inSpace, ownerValues, type Space, type Wall } from './scope';
 import { reconcileEntries, reviveEntries } from './entries';
+import { practiceSong } from './access';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
@@ -216,14 +218,19 @@ export function updateExercise(
  * the next time. `parsePracticeInput` has already cleared the unused half of
  * the mode's pair.
  *
- * A group's exercise never holds a song: songs are personal (see
- * `createCustomExercise`).
+ * The song is the person's own or a group's they may practise to
+ * (`practiceSong`: shared, in a group they are in). A group's exercise never
+ * holds a song: it would play to everyone (see `createCustomExercise`).
+ *
+ * A changed song or mode is the person's own choice, so the entry's
+ * `song_drops` go in the same write: a later Share again or Restore must not
+ * put a dropped song back over it (count only included).
  */
 export function setPracticeSettings(db: Db, id: number, input: PracticeInput): boolean {
 	const current = db.select().from(exercises).where(eq(exercises.id, id)).get();
 	if (!current) return false;
 	if (input.mode === 'song') {
-		if (current.teamId !== null) return false;
+		if (current.teamId !== null || current.userId === null) return false;
 		const song =
 			input.songId === null
 				? null
@@ -231,22 +238,26 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 		if (
 			!song ||
 			song.dance !== current.dance ||
-			song.userId !== current.userId ||
 			song.status !== 'ready' ||
-			song.archivedAt !== null
+			song.archivedAt !== null ||
+			!practiceSong(db, current.userId, song)
 		) {
 			return false;
 		}
 	}
-	db.update(exercises)
-		.set({
-			practiceMode: input.mode,
-			songId: input.songId,
-			countBpm: input.countBpm,
-			practiceJson: JSON.stringify(input.config)
-		})
-		.where(eq(exercises.id, id))
-		.run();
+	const chosen = input.mode !== current.practiceMode || input.songId !== current.songId;
+	db.transaction((tx) => {
+		tx.update(exercises)
+			.set({
+				practiceMode: input.mode,
+				songId: input.songId,
+				countBpm: input.countBpm,
+				practiceJson: JSON.stringify(input.config)
+			})
+			.where(eq(exercises.id, id))
+			.run();
+		if (chosen) tx.delete(songDrops).where(eq(songDrops.exerciseId, id)).run();
+	});
 	return true;
 }
 

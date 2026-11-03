@@ -53,10 +53,15 @@ export const UPLOAD_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
  * extension), returned. A hard link, so it costs no disk and outlives the old
  * name being unlinked (a group's purge unlinks the group's names only); a byte
  * copy where linking fails (another file system, no link support). Make my own
- * copy uses it. Throws on a name that is not ours, or a missing file.
+ * copy uses it. Throws on a name that is not ours (`pattern`: a recording's or
+ * lesson video's by default, `AUDIO_FILE_RE` for a song), or a missing file.
  */
-export async function linkCopy(dir: string, file: string): Promise<string> {
-	if (!RECORDING_FILE_RE.test(file)) throw new Error(`not a stored file name: ${file}`);
+export async function linkCopy(
+	dir: string,
+	file: string,
+	pattern: RegExp = RECORDING_FILE_RE
+): Promise<string> {
+	if (!pattern.test(file)) throw new Error(`not a stored file name: ${file}`);
 	const name = `${randomUUID()}${file.slice(file.lastIndexOf('.'))}`;
 	const from = join(dir, file);
 	const to = join(dir, name);

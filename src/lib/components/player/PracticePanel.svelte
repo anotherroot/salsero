@@ -34,7 +34,7 @@
 	interface Props {
 		dance: Dance;
 		exercise: ExerciseItem;
-		/** This dance's ready songs. */
+		/** This dance's ready songs: the person's own and their groups' shared ones (`songChoices`). */
 		songs: PickerSong[];
 		takes: CountTakeRow[];
 		/** The figure to call on cue — the figure popup only. */

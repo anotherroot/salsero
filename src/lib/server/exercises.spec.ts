@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { archiveExercise, createCustomExercise, listPickExercises } from './exercises';
+import { exercises, songDrops } from './db/schema';
+import {
+	archiveExercise,
+	createCustomExercise,
+	listPickExercises,
+	setPracticeSettings
+} from './exercises';
+import { createSongFromUpload } from './songs';
+import { shareSong, unshareSong } from './song-share';
+import { CLASS_ED, CLASS_T, makeClass, readyGroupSong, type Class } from './test-class';
 import { addFigureExercise, createFigure } from './figures';
 import { createRoutine } from './routines';
 import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
@@ -57,5 +67,90 @@ describe('listPickExercises', () => {
 		createCustomExercise(db, U1_BACHATA, { name: 'Other', everyDays: 2, notes: null });
 		archiveExercise(db, gone.id, 1000);
 		expect(listPickExercises(db, U1_SALSA).map((r) => r.id)).toEqual([kept.id]);
+	});
+});
+
+describe("a member's entry and the group's songs", () => {
+	let c: Class;
+	const config = {
+		count: 'son' as const,
+		clave: '2-3' as const,
+		speed: 1 as const,
+		callEvery: null
+	};
+	const song = (songId: number) =>
+		setPracticeSettings(db, c.entry, { mode: 'song', songId, countBpm: null, config });
+	const row = () => db.select().from(exercises).where(eq(exercises.id, c.entry)).get()!;
+	const drops = () => db.select().from(songDrops).where(eq(songDrops.exerciseId, c.entry)).all();
+
+	beforeEach(() => {
+		c = makeClass(db);
+	});
+
+	it('takes a shared song of a group the person is in', () => {
+		expect(song(c.shared)).toBe(true);
+		expect(row().songId).toBe(c.shared);
+	});
+
+	it("refuses a draft, and another group's shared song", () => {
+		expect(song(c.draft)).toBe(false);
+		expect(song(c.other)).toBe(false);
+		expect(row().songId).toBeNull();
+	});
+
+	it('refuses a song of the group that is not ready', () => {
+		const waiting = createSongFromUpload(db, CLASS_ED, {
+			file: 'w.mp3',
+			mime: 'audio/mpeg',
+			title: 'Waiting',
+			style: 'salsa'
+		}).id;
+		expect(song(waiting)).toBe(false);
+	});
+
+	it("an editor's own entry never holds the group's draft", () => {
+		const own = createCustomExercise(
+			db,
+			{ userId: 'u2', dance: 'salsa' },
+			{ name: 'Mine', everyDays: 1, notes: null }
+		);
+		const put = (songId: number) =>
+			setPracticeSettings(db, own.id, { mode: 'song', songId, countBpm: null, config });
+		expect(put(c.draft)).toBe(false);
+		expect(put(c.shared)).toBe(true);
+	});
+
+	it('count only, chosen after a drop, stays when the song is shared again', () => {
+		expect(song(c.shared)).toBe(true);
+		unshareSong(db, CLASS_ED, c.shared, CLASS_T + 1);
+		expect(row().songId).toBeNull();
+		expect(drops()).toHaveLength(1);
+		expect(
+			setPracticeSettings(db, c.entry, { mode: 'count', songId: null, countBpm: 150, config })
+		).toBe(true);
+		expect(drops()).toHaveLength(0);
+		shareSong(db, CLASS_ED, c.shared, CLASS_T + 2);
+		expect([row().practiceMode, row().songId, row().countBpm]).toEqual(['count', null, 150]);
+	});
+
+	it('another song, picked after a drop, stays when the first is shared again', () => {
+		const second = readyGroupSong(db, CLASS_ED, 'Second', 'second.mp3');
+		shareSong(db, CLASS_ED, second, CLASS_T);
+		expect(song(c.shared)).toBe(true);
+		unshareSong(db, CLASS_ED, c.shared, CLASS_T + 1);
+		expect(song(second)).toBe(true);
+		expect(
+			db
+				.select()
+				.from(songDrops)
+				.where(and(eq(songDrops.exerciseId, c.entry), eq(songDrops.songId, c.shared)))
+				.all()
+		).toHaveLength(0);
+		// Even once the second one is dropped too, the first does not come back.
+		unshareSong(db, CLASS_ED, second, CLASS_T + 2);
+		shareSong(db, CLASS_ED, c.shared, CLASS_T + 3);
+		expect(row().songId).toBeNull();
+		shareSong(db, CLASS_ED, second, CLASS_T + 4);
+		expect(row().songId).toBe(second);
 	});
 });

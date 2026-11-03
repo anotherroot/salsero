@@ -46,7 +46,7 @@
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 
 	interface Props {
-		/** This dance's ready songs, for the picker. Without any, only the count is offered. */
+		/** This dance's ready songs (own and the groups' shared), for the picker. Without any, only the count is offered. */
 		songs: PickerSong[];
 		/** Owned by the page, which loads the picked song and mounts its `<audio>`. */
 		source: 'song' | 'count';
