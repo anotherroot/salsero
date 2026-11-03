@@ -43,7 +43,7 @@ import {
 	type Wall
 } from './scope';
 import { getTeam, roleOf } from './teams';
-import { entryFor, entryJoin, type EntryTarget } from './entries';
+import { entryFor, entryJoin, reconcileEntries, type EntryTarget } from './entries';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -185,7 +185,21 @@ export function updateLesson(db: Db, id: number, input: LessonInput) {
 	});
 }
 
-/** Archive a lesson and its review exercise together. Videos, links and sets stay. */
+/**
+ * After a change that can shrink a group lesson's reach, its members' entries
+ * follow in the same transaction (risk 25). Nothing for a person's own lesson.
+ */
+function reconcileLesson(tx: Db, lessonId: number, now: number): void {
+	const teamId =
+		tx.select({ teamId: lessons.teamId }).from(lessons).where(eq(lessons.id, lessonId)).get()
+			?.teamId ?? null;
+	if (teamId !== null) reconcileEntries(tx, teamId, now);
+}
+
+/**
+ * Archive a lesson and its review exercise together (in a group, every
+ * person's entry for it). Videos, links and sets stay.
+ */
 export function archiveLesson(db: Db, id: number, now: number): boolean {
 	return db.transaction((tx) => {
 		const res = tx
@@ -198,6 +212,7 @@ export function archiveLesson(db: Db, id: number, now: number): boolean {
 			.set({ archivedAt: now })
 			.where(and(eq(exercises.lessonId, id), isNull(exercises.archivedAt)))
 			.run();
+		reconcileLesson(tx, id, now);
 		return true;
 	});
 }
@@ -551,13 +566,15 @@ export function linkFigure(db: Db, lessonId: number, figureId: number): boolean 
 /**
  * Take a variation off a lesson. With `alsoSections`, the links from this
  * lesson's videos' sections to it go too, in the same transaction — otherwise
- * a variation there through a section would stay on the lesson.
+ * a variation there through a section would stay on the lesson. In a group,
+ * members' entries the lesson no longer holds go off Today (`reconcileEntries`).
  */
 export function unlinkFigure(
 	db: Db,
 	lessonId: number,
 	figureId: number,
-	alsoSections = false
+	alsoSections = false,
+	now = Date.now()
 ): boolean {
 	return db.transaction((tx) => {
 		let changes = tx
@@ -573,6 +590,7 @@ export function unlinkFigure(
 					.run().changes;
 			}
 		}
+		if (changes > 0) reconcileLesson(tx, lessonId, now);
 		return changes > 0;
 	});
 }
@@ -620,13 +638,22 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number): boolea
 	});
 }
 
-export function unlinkRoutine(db: Db, lessonId: number, routineId: number): boolean {
-	return (
-		db
-			.delete(lessonRoutines)
-			.where(and(eq(lessonRoutines.lessonId, lessonId), eq(lessonRoutines.routineId, routineId)))
-			.run().changes > 0
-	);
+/** Take a routine off a lesson; in a group, the entries `unlinkFigure` says go with it. */
+export function unlinkRoutine(
+	db: Db,
+	lessonId: number,
+	routineId: number,
+	now = Date.now()
+): boolean {
+	return db.transaction((tx) => {
+		const gone =
+			tx
+				.delete(lessonRoutines)
+				.where(and(eq(lessonRoutines.lessonId, lessonId), eq(lessonRoutines.routineId, routineId)))
+				.run().changes > 0;
+		if (gone) reconcileLesson(tx, lessonId, now);
+		return gone;
+	});
 }
 
 /**
@@ -700,7 +727,8 @@ export function unlinkExercise(
 	db: Db,
 	lessonId: number,
 	exerciseId: number,
-	alsoSections = false
+	alsoSections = false,
+	now = Date.now()
 ): boolean {
 	return db.transaction((tx) => {
 		let changes = tx
@@ -720,6 +748,7 @@ export function unlinkExercise(
 					.run().changes;
 			}
 		}
+		if (changes > 0) reconcileLesson(tx, lessonId, now);
 		return changes > 0;
 	});
 }

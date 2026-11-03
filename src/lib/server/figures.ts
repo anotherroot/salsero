@@ -17,7 +17,7 @@ import {
 } from './db/schema';
 import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { inSpace, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
-import { entryFor } from './entries';
+import { entryFor, reconcileEntries } from './entries';
 import { allows, figureAccess } from './access';
 import type { Partner } from '$lib/labels';
 import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget } from '$lib/types';
@@ -331,7 +331,8 @@ function archiveGroupIfEmpty(tx: Db, groupId: number, now: number): boolean {
 /**
  * Archive one variation and its exercise; its figure goes too when it was the
  * last live variation. Sets and recordings are kept. Null when the variation
- * is already archived or gone.
+ * is already archived or gone. A group's takes every person's entry for it,
+ * and what only it brought into their added lessons (`reconcileEntries`).
  */
 export function archiveVariation(
 	db: Db,
@@ -346,7 +347,10 @@ export function archiveVariation(
 			.set({ archivedAt: now })
 			.where(and(eq(exercises.figureId, id), isNull(exercises.archivedAt)))
 			.run();
-		return { figureRemoved: archiveGroupIfEmpty(tx, row.groupId, now) };
+		const figureRemoved = archiveGroupIfEmpty(tx, row.groupId, now);
+		// A group's: members' entries follow its shrunken reach (risk 25).
+		if (row.teamId !== null) reconcileEntries(tx, row.teamId, now);
+		return { figureRemoved };
 	});
 }
 

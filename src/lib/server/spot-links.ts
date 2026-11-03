@@ -32,6 +32,7 @@ import type {
 	VideoSection
 } from '$lib/types';
 import { allows, spotAccess, type Reach } from './access';
+import { reconcileEntries } from './entries';
 import { lessonsReaching } from './lesson-links';
 import { inSpace, ownedBy, spaceOfRow, type Space } from './scope';
 
@@ -196,14 +197,28 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
 		.get().id;
 }
 
-/** Whether a row went. Scoped to the target, so another target's link id deletes nothing. */
-export function unlinkSpot(db: Db, id: number, target: SectionTarget): boolean {
-	return (
-		db
+/**
+ * Whether a row went. Scoped to the target, so another target's link id deletes nothing.
+ * A group section's link going can take a drill or variation off its lesson:
+ * members' entries follow (`reconcileEntries`).
+ */
+export function unlinkSpot(db: Db, id: number, target: SectionTarget, now = Date.now()): boolean {
+	return db.transaction((tx) => {
+		const link = tx
 			.delete(spotLinks)
 			.where(and(eq(spotLinks.id, id), targetColumn(target)))
-			.run().changes > 0
-	);
+			.returning({ spotId: spotLinks.spotId })
+			.get();
+		if (!link) return false;
+		reconcileSpot(tx, link.spotId, now);
+		return true;
+	});
+}
+
+/** After a group section loses a link, in the same transaction (risk 25). */
+function reconcileSpot(tx: Db, spotId: number, now: number): void {
+	const teamId = videoOfSpot(tx, spotId)?.teamId ?? null;
+	if (teamId !== null) reconcileEntries(tx, teamId, now);
 }
 
 /**
@@ -215,7 +230,8 @@ export function unlinkFromSection(
 	db: Db,
 	spotId: number,
 	linkId: number,
-	alsoLesson: boolean
+	alsoLesson: boolean,
+	now = Date.now()
 ): boolean {
 	return db.transaction((tx) => {
 		const link = getSpotLink(tx, linkId);
@@ -248,6 +264,7 @@ export function unlinkFromSection(
 					.run();
 			}
 		}
+		reconcileSpot(tx, spotId, now);
 		return true;
 	});
 }

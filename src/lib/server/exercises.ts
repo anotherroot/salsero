@@ -2,6 +2,7 @@ import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, sql, sum } from 
 import type { Db } from './db';
 import { exercises, figureGroups, figures, sets, songs } from './db/schema';
 import { ownerValues, type Space, type Wall } from './scope';
+import { reconcileEntries } from './entries';
 import type { PracticeInput } from '$lib/exercises/practice';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
@@ -105,19 +106,26 @@ export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsI
 
 /**
  * Edit an exercise's settings. An owned exercise takes its NAME from its owner
- * (figure, lesson, routine), so a name passed for one is ignored rather than
- * letting the two drift apart.
+ * (figure, lesson, routine, a group's drill), so a name passed for one is
+ * ignored rather than letting the two drift apart. A drill's rename reaches
+ * every entry that practises it (`drill_id`), the way a figure's does.
  */
 export function updateExercise(db: Db, id: number, input: SettingsInput) {
-	const current = db.select().from(exercises).where(eq(exercises.id, id)).get();
-	if (!current) return null;
-	const name = current.source === 'custom' && input.name ? input.name : current.name;
-	return db
-		.update(exercises)
-		.set({ ...input, name })
-		.where(eq(exercises.id, id))
-		.returning()
-		.get();
+	return db.transaction((tx) => {
+		const current = tx.select().from(exercises).where(eq(exercises.id, id)).get();
+		if (!current) return null;
+		const name = current.source === 'custom' && input.name ? input.name : current.name;
+		const row = tx
+			.update(exercises)
+			.set({ ...input, name })
+			.where(eq(exercises.id, id))
+			.returning()
+			.get();
+		if (current.source === 'custom') {
+			tx.update(exercises).set({ name }).where(eq(exercises.drillId, id)).run();
+		}
+		return row;
+	});
 }
 
 /**
@@ -164,15 +172,31 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 /**
  * Archive a custom exercise. Figure exercises are archived through their
  * variation (`archiveVariation`), which keeps the pair in step; refusing here is
- * what stops a live figure from losing its exercise.
+ * what stops a live figure from losing its exercise. An entry (`'added'`) is
+ * refused too: it leaves with Remove from my lessons, not here.
+ *
+ * A group's drill takes every member's entry for it along, with the same
+ * `now` (one already archived keeps its own time), and whatever else the
+ * group's shrunken reach drops (`reconcileEntries`).
  */
 export function archiveExercise(db: Db, id: number, now: number): boolean {
-	const res = db
-		.update(exercises)
-		.set({ archivedAt: now })
-		.where(and(eq(exercises.id, id), eq(exercises.source, 'custom')))
-		.run();
-	return res.changes > 0;
+	return db.transaction((tx) => {
+		const row = tx
+			.update(exercises)
+			.set({ archivedAt: now })
+			.where(and(eq(exercises.id, id), eq(exercises.source, 'custom')))
+			.returning({ teamId: exercises.teamId })
+			.get();
+		if (!row) return false;
+		if (row.teamId !== null) {
+			tx.update(exercises)
+				.set({ archivedAt: now })
+				.where(and(eq(exercises.drillId, id), isNull(exercises.archivedAt)))
+				.run();
+			reconcileEntries(tx, row.teamId, now);
+		}
+		return true;
+	});
 }
 
 export interface SetInput {

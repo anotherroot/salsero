@@ -23,6 +23,7 @@ import {
 	type Routine
 } from './db/schema';
 import { buildGraph } from './graph';
+import { reconcileEntries } from './entries';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
@@ -128,6 +129,8 @@ export function updateRoutine(db: Db, id: number, input: RoutineInput) {
  * A routine embedded in another is archived all the same: the parent keeps
  * dancing it, the way a figure tagged with an archived position keeps its tag.
  * What archiving removes is the offer — the library list and the embed picker.
+ * In a group, every person's entry for it goes, and so does what only it
+ * brought into their added lessons (`reconcileEntries`).
  */
 export function archiveRoutine(db: Db, id: number, now: number): boolean {
 	return db.transaction((tx) => {
@@ -141,8 +144,19 @@ export function archiveRoutine(db: Db, id: number, now: number): boolean {
 			.set({ archivedAt: now })
 			.where(and(eq(exercises.routineId, id), isNull(exercises.archivedAt)))
 			.run();
+		reconcileRoutine(tx, id, now);
 		return true;
 	});
+}
+
+/**
+ * After a change to a group routine that can shrink what its lessons reach
+ * (a slot or option gone, the routine archived), members' entries follow in
+ * the same transaction (risk 25). Nothing for a person's own routine.
+ */
+function reconcileRoutine(tx: Db, routineId: number, now: number): void {
+	const teamId = getRoutine(tx, routineId)?.teamId ?? null;
+	if (teamId !== null) reconcileEntries(tx, teamId, now);
 }
 
 export function getRoutine(db: Db, id: number) {
@@ -576,7 +590,7 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 }
 
 /** Drop an option. False when it would leave the slot empty. */
-export function removeOption(db: Db, stepId: number, figureId: number): boolean {
+export function removeOption(db: Db, stepId: number, figureId: number, now = Date.now()): boolean {
 	return db.transaction((tx) => {
 		const all = tx
 			.select({ figureId: routineStepOptions.figureId })
@@ -587,6 +601,12 @@ export function removeOption(db: Db, stepId: number, figureId: number): boolean 
 		tx.delete(routineStepOptions)
 			.where(and(eq(routineStepOptions.stepId, stepId), eq(routineStepOptions.figureId, figureId)))
 			.run();
+		const step = tx
+			.select({ routineId: routineSteps.routineId })
+			.from(routineSteps)
+			.where(eq(routineSteps.id, stepId))
+			.get();
+		if (step) reconcileRoutine(tx, step.routineId, now);
 		return true;
 	});
 }
@@ -628,7 +648,12 @@ export function setSlotNote(db: Db, stepId: number, note: string | null): boolea
  * id is not this routine's — a stale tab or a double tap must not delete half
  * of what it asked for.
  */
-export function deleteSlots(db: Db, routineId: number, stepIds: number[]): SlotSnapshot[] | null {
+export function deleteSlots(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	now = Date.now()
+): SlotSnapshot[] | null {
 	const wanted = [...new Set(stepIds)];
 	if (wanted.length === 0) return null;
 	return db.transaction((tx) => {
@@ -656,6 +681,7 @@ export function deleteSlots(db: Db, routineId: number, stepIds: number[]): SlotS
 		tx.delete(routineStepOptions).where(inArray(routineStepOptions.stepId, wanted)).run();
 		tx.delete(routineSteps).where(inArray(routineSteps.id, wanted)).run();
 		order(tx, slotIds(tx, routineId));
+		reconcileRoutine(tx, routineId, now);
 		return snapshot;
 	});
 }

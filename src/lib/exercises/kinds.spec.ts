@@ -7,6 +7,8 @@ describe('exercise types', () => {
 		const types = SOURCES.map(typeOf);
 		expect(new Set(types)).toEqual(new Set(EXERCISE_TYPES));
 		expect(typeOf('custom')).toBe('drill');
+		// A group drill's entry opens the drill popup, like a drill of one's own.
+		expect(typeOf('added')).toBe('drill');
 		expect(typeOf('lesson')).toBe('lesson');
 		expect(typeOf('figure')).toBe('figure');
 		expect(typeOf('routine')).toBe('routine');

@@ -557,3 +557,25 @@ export interface TeamItem {
 	people: number;
 	deletedAt: number | null;
 }
+
+/** What a person ticks in a group lesson's Add sheet: what goes on their Today. */
+export type AddPicks = {
+	lesson: boolean;
+	routineIds: number[];
+	drillIds: number[];
+	figureIds: number[];
+};
+
+/** One row of the Add sheet, or of "1 new drill · Add". */
+export interface AddItem {
+	kind: 'lesson' | 'routine' | 'drill' | 'figure';
+	id: number;
+	name: string;
+	ticked: boolean;
+}
+
+/** The Add sheet: what the lesson holds, and what can go on Today. */
+export interface AddOffer {
+	counts: { videos: number; sections: number; figures: number; routines: number; drills: number };
+	items: AddItem[];
+}
