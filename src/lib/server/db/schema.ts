@@ -242,7 +242,9 @@ export const figures = sqliteTable(
 		/** The figure this is a variation of. */
 		groupId: integer('group_id').references(() => figureGroups.id),
 		archivedAt: integer('archived_at'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
 	(t) => [
 		check('figures_partner_ck', sql`${t.partner} in ('partner', 'solo')`),
@@ -250,7 +252,13 @@ export const figures = sqliteTable(
 		index('figures_parent_idx').on(t.parentId),
 		index('figures_group_idx').on(t.groupId),
 		index('figures_user_idx').on(t.userId, t.dance),
-		index('figures_team_idx').on(t.teamId, t.dance)
+		index('figures_team_idx').on(t.teamId, t.dance),
+		uniqueIndex('figures_gene_user_idx')
+			.on(t.geneId, t.userId)
+			.where(sql`${t.geneId} is not null`),
+		uniqueIndex('figures_gene_team_idx')
+			.on(t.geneId, t.teamId)
+			.where(sql`${t.geneId} is not null`)
 	]
 );
 
@@ -269,9 +277,11 @@ export const recordings = sqliteTable(
 		note: text('note'),
 		/** The YouTube URL this was saved from; null for an upload. */
 		sourceUrl: text('source_url'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
-	(t) => [index('recordings_figure_idx').on(t.figureId)]
+	(t) => [index('recordings_figure_idx').on(t.figureId), index('recordings_gene_idx').on(t.geneId)]
 );
 
 /* ── Positions ──────────────────────────────────────────────────────────── */
@@ -366,12 +376,20 @@ export const routines = sqliteTable(
 		name: text('name').notNull(),
 		notes: text('notes'),
 		archivedAt: integer('archived_at'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
 	(t) => [
 		index('routines_dance_idx').on(t.dance, t.archivedAt),
 		index('routines_user_idx').on(t.userId, t.dance),
-		index('routines_team_idx').on(t.teamId, t.dance)
+		index('routines_team_idx').on(t.teamId, t.dance),
+		uniqueIndex('routines_gene_user_idx')
+			.on(t.geneId, t.userId)
+			.where(sql`${t.geneId} is not null`),
+		uniqueIndex('routines_gene_team_idx')
+			.on(t.geneId, t.teamId)
+			.where(sql`${t.geneId} is not null`)
 	]
 );
 
@@ -485,14 +503,22 @@ export const songs = sqliteTable(
 		/** The audio file's size, for the owner's storage count; null until stored. */
 		sizeBytes: integer('size_bytes'),
 		archivedAt: integer('archived_at'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
 	(t) => [
 		check('songs_tempo_ck', sql`${t.tempoFactor} in (0.5, 1, 2)`),
 		check('songs_source_ck', sql`${t.sourceUrl} is not null or ${t.audioFile} is not null`),
 		index('songs_status_idx').on(t.status, t.createdAt),
 		index('songs_user_idx').on(t.userId, t.dance),
-		index('songs_team_idx').on(t.teamId, t.dance)
+		index('songs_team_idx').on(t.teamId, t.dance),
+		uniqueIndex('songs_gene_user_idx')
+			.on(t.geneId, t.userId)
+			.where(sql`${t.geneId} is not null`),
+		uniqueIndex('songs_gene_team_idx')
+			.on(t.geneId, t.teamId)
+			.where(sql`${t.geneId} is not null`)
 	]
 );
 
@@ -574,7 +600,9 @@ export const exercises = sqliteTable(
 		active: integer('active', { mode: 'boolean' }).notNull().default(true),
 		archivedAt: integer('archived_at'),
 		notes: text('notes'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
 	(t) => [
 		check('exercises_every_days_ck', sql`${t.everyDays} > 0`),
@@ -600,7 +628,13 @@ export const exercises = sqliteTable(
 			.where(sql`${t.figureId} is not null`),
 		uniqueIndex('exercises_entry_drill_idx')
 			.on(t.userId, t.drillId)
-			.where(sql`${t.drillId} is not null`)
+			.where(sql`${t.drillId} is not null`),
+		uniqueIndex('exercises_gene_user_idx')
+			.on(t.geneId, t.userId)
+			.where(sql`${t.geneId} is not null`),
+		uniqueIndex('exercises_gene_team_idx')
+			.on(t.geneId, t.teamId)
+			.where(sql`${t.geneId} is not null`)
 	]
 );
 
@@ -660,13 +694,21 @@ export const lessons = sqliteTable(
 		/** A team lesson is a draft (null) until an editor publishes it; members see it only after. */
 		publishedAt: integer('published_at'),
 		archivedAt: integer('archived_at'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
 	(t) => [
 		check('lessons_day_ck', sql`${t.lessonDay} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'`),
 		index('lessons_day_idx').on(t.lessonDay),
 		index('lessons_user_idx').on(t.userId, t.dance),
-		index('lessons_team_idx').on(t.teamId, t.dance)
+		index('lessons_team_idx').on(t.teamId, t.dance),
+		uniqueIndex('lessons_gene_user_idx')
+			.on(t.geneId, t.userId)
+			.where(sql`${t.geneId} is not null`),
+		uniqueIndex('lessons_gene_team_idx')
+			.on(t.geneId, t.teamId)
+			.where(sql`${t.geneId} is not null`)
 	]
 );
 
@@ -688,9 +730,14 @@ export const lessonVideos = sqliteTable(
 		sizeBytes: integer('size_bytes').notNull(),
 		/** The YouTube URL this was saved from; null for an upload. */
 		sourceUrl: text('source_url'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
-	(t) => [index('lesson_videos_lesson_idx').on(t.lessonId)]
+	(t) => [
+		index('lesson_videos_lesson_idx').on(t.lessonId),
+		index('lesson_videos_gene_idx').on(t.geneId)
+	]
 );
 
 /**
@@ -718,7 +765,9 @@ export const videoSpots = sqliteTable(
 		endMs: integer('end_ms'),
 		/** The user's name for it; null shows the time. */
 		label: text('label'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from')
 	},
 	(t) => [
 		check(
@@ -730,7 +779,8 @@ export const videoSpots = sqliteTable(
 			sql`${t.startMs} >= 0 and (${t.endMs} is null or ${t.endMs} > ${t.startMs})`
 		),
 		index('video_spots_recording_idx').on(t.recordingId),
-		index('video_spots_lesson_video_idx').on(t.lessonVideoId)
+		index('video_spots_lesson_video_idx').on(t.lessonVideoId),
+		index('video_spots_gene_idx').on(t.geneId)
 	]
 );
 
@@ -1119,6 +1169,43 @@ export const teamTrash = sqliteTable(
 			sql`${t.kind} in ('video', 'section', 'link', 'spot-link', 'recording')`
 		),
 		index('team_trash_team_idx').on(t.teamId, t.deletedAt)
+	]
+);
+
+/**
+ * The last agreed state of two members of one family (a_id < b_id), as
+ * field key to hash. The three-way compare reads it; Take and Send write it.
+ */
+export const clonePairs = sqliteTable(
+	'clone_pairs',
+	{
+		kind: text('kind').notNull(),
+		aId: integer('a_id').notNull(),
+		bId: integer('b_id').notNull(),
+		baseJson: text('base_json').notNull(),
+		at: integer('at').notNull()
+	},
+	(t) => [
+		primaryKey({ columns: [t.kind, t.aId, t.bId] }),
+		check('clone_pairs_order_ck', sql`${t.aId} < ${t.bId}`),
+		check('clone_pairs_kind_ck', sql`${t.kind} in ('figure', 'routine', 'drill', 'song', 'lesson')`)
+	]
+);
+
+/** A person's own "same as": items of one kind that they treat as one. */
+export const twins = sqliteTable(
+	'twins',
+	{
+		userId: text('user_id').notNull(),
+		kind: text('kind').notNull(),
+		setId: text('set_id').notNull(),
+		itemId: integer('item_id').notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.userId, t.kind, t.itemId] }),
+		index('twins_set_idx').on(t.userId, t.setId),
+		check('twins_kind_ck', sql`${t.kind} in ('figure', 'routine', 'lesson', 'song')`)
 	]
 );
 

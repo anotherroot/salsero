@@ -4,7 +4,7 @@ import type {
 	Partner,
 	PracticeMode,
 	SongStatus,
-	Source,
+	Source as ExerciseSource,
 	TempoFactor
 } from './labels';
 import type { DanceSlug } from './dances/dances';
@@ -16,7 +16,7 @@ export type TeamRef = { id: number; name: string };
 export interface ExerciseItem {
 	id: number;
 	name: string;
-	source: Source;
+	source: ExerciseSource;
 	figureId: number | null;
 	/** Set iff `source === 'lesson'`: which lesson this reviews. */
 	lessonId: number | null;
@@ -263,7 +263,7 @@ export interface LessonRoutineRow {
 export interface LessonExerciseRow {
 	id: number;
 	name: string;
-	source: Source;
+	source: ExerciseSource;
 	byHand: boolean;
 	viaSections: ViaSection[];
 	everyDays: number;
@@ -273,7 +273,7 @@ export interface LessonExerciseRow {
 export interface PickExercise {
 	id: number;
 	name: string;
-	source: Source;
+	source: ExerciseSource;
 	everyDays: number;
 	/** A figure exercise's figure and variation names; null otherwise. */
 	figure: string | null;
@@ -685,3 +685,44 @@ export type GroupMode = { teamId: number; name: string; role: 'owner' | 'editor'
 
 /** A group a person may switch into: they own or edit it. */
 export type GroupChoice = GroupMode & { people: number };
+
+// Clones and twins: the shapes every clone-engine task shares.
+export type CloneKind = 'figure' | 'routine' | 'drill' | 'song' | 'lesson'; // 'figure' = a `figures` row
+export type TwinKind = 'figure' | 'routine' | 'lesson' | 'song';
+export type PieceKind = 'recording' | 'video' | 'spot';
+export type PlaceRef = { kind: 'mine' } | { kind: 'team'; teamId: number; name: string };
+export type FlatField = {
+	key: string; // see Task 7's key grammar
+	label: string; // "Timing", "Notes", "Recording · Ana, 3 Nov"
+	value: string; // canonical text; equal values mean equal content
+	show: string; // what the compare sheet prints
+};
+export type Flat = Record<string, FlatField>;
+export type PairBase = { fields: Record<string, string>; skip: string[] }; // key → hash
+export type Side = 'mine' | 'theirs' | 'both';
+export type FieldDiff = {
+	key: string;
+	label: string;
+	mine: FlatField | null; // null = absent on that side
+	theirs: FlatField | null;
+	side: Side; // who changed it since the base; 'both' = must pick
+	removal: boolean; // the change on `side` is that the piece/member is gone
+};
+export type Picks = Record<string, 'mine' | 'theirs'>;
+export type Member = {
+	kind: CloneKind;
+	id: number;
+	place: PlaceRef;
+	access: 'edit' | 'read';
+	archived: boolean;
+	clonedFrom: number | null;
+};
+export type Source = {
+	id: number;
+	label: string; // 'Yours' or the group's name
+	relation: 'self' | 'clone' | 'twin';
+	access: 'edit' | 'read';
+	status: 'same' | 'behind' | 'newer' | 'differs' | null; // vs the page's own member; null for self and twins
+	changed: string[]; // labels of what differs, for the banner
+	rejoined?: boolean; // Task 28: last in step before the person's current membership began
+};
