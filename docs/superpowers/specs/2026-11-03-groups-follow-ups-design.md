@@ -60,11 +60,15 @@ like the app's other pickers.
 - The band is navy instead of the dance's colour, with a thin striped top
   edge, and a small line above the title: the group icon and
   "Salsa Tuesdays · group". The tab bar is tinted to match.
-- The Today tab becomes a dark **Mine** button. Today is practice, and
+- The Today tab becomes a plain **Mine** button *(user)*: a back-arrow icon
+  and the word, in the group colour, with no fill, so it does not shout. Today is practice, and
   practice is personal; Mine leaves group mode and opens Today.
 - The group icon in the band stays: it opens the same sheet, to switch to
   another group or back to Mine.
-- The Groups tab stays as it is (the group's page, people, History).
+- The Groups tab stays the usual list of all your groups *(user)*, in every
+  group; the one you are working in is marked "Working in". Opening a group
+  opens its page as today (people, History, storage); it does not switch
+  group mode.
 - Moves (Figures and Routines), Lessons and Music list the group's rows, and
   their create actions make group rows. Editing a group row works as it does
   today from a lesson: the clash check, History and Recently deleted all
