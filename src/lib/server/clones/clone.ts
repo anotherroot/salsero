@@ -71,8 +71,6 @@ export type CloneRequest = {
 	into: Space;
 	/** Bring the figures' recordings (with their sections), nested figures' too. */
 	recordings: boolean;
-	/** Unused: a lesson into a group is always a draft, whatever this says. */
-	draft?: boolean;
 	/** Skip the room check (Keep: losing access must not lose the files). */
 	overLimitOk?: boolean;
 	/** A family's gene → the row to copy for that family (the twin chosen in Copy to…). */

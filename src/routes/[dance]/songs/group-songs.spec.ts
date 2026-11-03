@@ -38,7 +38,8 @@ import { POST as postOpen } from '../../api/opens/+server';
 import type { Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { users } from '$lib/server/db/schema';
-import { getSong } from '$lib/server/songs';
+import { archiveSong, getSong } from '$lib/server/songs';
+import { ARCHIVED_COPY } from '$lib/server/copy-song';
 import { songSeen } from '$lib/server/clash';
 import { history } from '$lib/server/changes';
 import { groupCookie } from '$lib/teams/mode';
@@ -323,6 +324,15 @@ describe('a group song’s page', () => {
 		expect(done.location).toBe(`/salsa/songs/${id}`);
 		expect(getSong(db, id)).toMatchObject({ userId: 'u3', teamId: null, title: 'Chan Chan' });
 		expect(songPageAs('u3', id).canEdit).toBe(true);
+	});
+
+	it('Make my own copy of a song whose copy I archived says what to do', async () => {
+		const done = (await act(songPage.actions.copy, ev('u3', c.shared))) as { location: string };
+		archiveSong(db, Number(done.location.split('/').pop()), 5);
+		expect(await act(songPage.actions.copy, ev('u3', c.shared))).toMatchObject({
+			status: 409,
+			data: { action: 'copy', askForMore: false, message: ARCHIVED_COPY }
+		});
 	});
 
 	it('Make my own copy is refused at the person’s limit, asking for more', async () => {

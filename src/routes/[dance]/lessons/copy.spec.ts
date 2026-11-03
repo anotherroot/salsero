@@ -26,7 +26,7 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { lessons, users } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
-import { addLessonVideo, createLesson, publishLesson } from '$lib/server/lessons';
+import { addLessonVideo, archiveLesson, createLesson, publishLesson } from '$lib/server/lessons';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { actions, load } from './[id]/+page.server';
 
@@ -85,6 +85,17 @@ describe('the lesson page’s Make my own copy', () => {
 		expect(res.status).toBe(303);
 		const copy = db.select().from(lessons).where(eq(lessons.userId, 'u2')).get()!;
 		expect(res.location).toBe(`/salsa/lessons/${copy.id}`);
+	});
+
+	it('copying again after archiving the copy brings it back and opens it', async () => {
+		await run(() => actions.copy!(ev('u2', lesson)));
+		const copy = db.select().from(lessons).where(eq(lessons.userId, 'u2')).get()!;
+		expect(archiveLesson(db, copy.id, 5)).toBe(true);
+		const res = await run(() => actions.copy!(ev('u2', lesson)));
+		expect(res).toMatchObject({ status: 303, location: `/salsa/lessons/${copy.id}` });
+		expect(db.select().from(lessons).where(eq(lessons.id, copy.id)).get()!.archivedAt).toBeNull();
+		// The page it opens loads.
+		expect(await load(ev('u2', copy.id))).toBeTruthy();
 	});
 
 	it('is the missing lesson’s 404 for an outsider and on a person’s own lesson', async () => {

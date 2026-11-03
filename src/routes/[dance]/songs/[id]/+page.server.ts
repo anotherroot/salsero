@@ -281,6 +281,9 @@ export const actions: Actions = {
 			link: (d: string, f: string) => linkCopy(d, f, AUDIO_FILE_RE)
 		};
 		const result = await copySong(db, userId, song.id, Date.now(), files, await freeDisk());
+		if ('archived' in result) {
+			return fail(409, { action: 'copy' as const, message: result.archived, askForMore: false });
+		}
 		if ('refused' in result) {
 			const room = result.refused;
 			if (room.ok) throw error(500, 'Copy refused without a reason');

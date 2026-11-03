@@ -17,13 +17,18 @@ import { cloneFilesOf, type CopyFiles } from './copy-lesson';
 import { cloneInto } from './clones/clone';
 import type { DanceSlug } from '$lib/dances/dances';
 
+/** Why Copy refuses when the person's copy is archived. */
+export const ARCHIVED_COPY =
+	'Your copy of this song is archived. Delete it in Settings → What uses space to copy it again.';
+
 /**
  * A readable group song (shared, or any for its editors) → the person's own
  * song of its family: a new one, or the copy they made before. A personal
  * song, a deleted or unready one, and one they may not read are the missing
  * song's 404. Refused, writing nothing, when it does not fit the person's
  * room or would leave the disk under the floor. When the row cannot be
- * written, the new name is unlinked.
+ * written, the new name is unlinked. A copy they archived is `archived`, with
+ * what to do: a person's song has no restore.
  */
 export async function copySong(
 	db: Db,
@@ -32,7 +37,7 @@ export async function copySong(
 	now: number,
 	files: CopyFiles,
 	freeDiskBytes = Number.POSITIVE_INFINITY
-): Promise<{ song: Song } | { refused: Room }> {
+): Promise<{ song: Song } | { refused: Room } | { archived: string }> {
 	const from = getSong(db, songId);
 	if (
 		!from ||
@@ -56,6 +61,8 @@ export async function copySong(
 		now,
 		freeDiskBytes
 	);
+	// A person's own song has no restore: they delete the archived copy to copy again.
+	if (res.ok && res.archived) return { archived: ARCHIVED_COPY };
 	if (res.ok) return { song: getSong(db, res.id)! };
 	if (res.reason === 'room') return { refused: res.room };
 	throw error(404, 'Song not found');

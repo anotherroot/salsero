@@ -24,6 +24,7 @@ import { eq } from 'drizzle-orm';
 import type { Db } from './db';
 import { lessons, type Lesson } from './db/schema';
 import { allows, lessonAccess } from './access';
+import { restoreLesson } from './lessons';
 import type { Wall } from './scope';
 import type { Room } from './storage';
 import { cloneInto, planClone, type CloneRequest } from './clones/clone';
@@ -114,8 +115,9 @@ export function copySummary(db: Db, userId: string, lessonId: number): CopySumma
  * (a member, a former member who added it, an editor); a refusal is the
  * missing lesson's 404. Refused, writing nothing, when it does not fit the
  * person's room or would leave the disk under the floor. Copying twice
- * answers the first copy. A figure whose name is taken nine times over is a
- * 409 with the engine's words.
+ * answers the first copy, restored (`restoreLesson`) when they had archived
+ * it. A figure whose name is taken nine times over is a 409 with the
+ * engine's words.
  */
 export async function copyLesson(
 	db: Db,
@@ -133,6 +135,12 @@ export async function copyLesson(
 		now,
 		freeDiskBytes
 	);
+	if (res.ok && res.archived) {
+		// The person archived their copy: bring it back, so Copy opens it.
+		const back = restoreLesson(db, requestFor(lesson, userId).into, res.id, now);
+		if (!back.ok) throw error(409, back.reason === 'taken' ? back.message : 'No such lesson');
+		return { ok: true, lessonId: res.id };
+	}
 	if (res.ok) return { ok: true, lessonId: res.id };
 	if (res.reason === 'room' && !res.room.ok) return { ok: false, room: res.room };
 	if (res.reason === 'name') throw error(409, res.message);

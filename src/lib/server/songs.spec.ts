@@ -11,7 +11,7 @@ import { leaveTeam } from './membership';
 import { AUDIO_FILE_RE, linkCopy } from './files';
 import { usedBytesOf } from './storage';
 import type { CopyFiles } from './copy-lesson';
-import { copySong } from './copy-song';
+import { ARCHIVED_COPY, copySong } from './copy-song';
 import { makeClass, SHARED_FILE, type Class } from './test-class';
 import { createCustomExercise, logSet } from './exercises';
 import {
@@ -703,6 +703,15 @@ describe('copySong', () => {
 		expect('song' in again && again.song.id).toBe(first.song.id);
 		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
 		expect(usedBytesOf(db, { userId: 'u3' })).toBe(1000);
+	});
+
+	it('an archived copy is refused with what to do: a person’s song has no restore', async () => {
+		const first = await copySong(db, 'u3', c.shared, T, files);
+		if (!('song' in first)) throw new Error('refused');
+		archiveSong(db, first.song.id, T + 1);
+		expect(await copySong(db, 'u3', c.shared, T + 2, files)).toEqual({ archived: ARCHIVED_COPY });
+		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
+		expect(db.select().from(songs).where(eq(songs.userId, 'u3')).all()).toHaveLength(1);
 	});
 
 	it('refuses over the limit and under the disk floor, leaving no row and no file', async () => {

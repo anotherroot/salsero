@@ -33,6 +33,7 @@ import { createTeam, deleteTeam, joinTeam } from './teams';
 import { leaveTeam, setRole } from './membership';
 import {
 	addLessonVideo,
+	archiveLesson,
 	createLesson,
 	linkExercise,
 	linkFigure,
@@ -312,6 +313,20 @@ describe('copyLesson', () => {
 			routines: 0,
 			drills: 0
 		});
+	});
+
+	it('copying again after archiving the copy brings that copy back', async () => {
+		const first = await copyLesson(db, 'u2', w.lesson, T, files);
+		if (!first.ok) throw new Error('expected a copy');
+		expect(archiveLesson(db, first.lessonId, T + 1)).toBe(true);
+		expect(await copyLesson(db, 'u2', w.lesson, T + 2, files)).toEqual(first);
+		expect(db.select().from(lessons).where(eq(lessons.id, first.lessonId)).get()).toMatchObject({
+			archivedAt: null
+		});
+		expect(
+			db.select().from(exercises).where(eq(exercises.lessonId, first.lessonId)).get()
+		).toMatchObject({ archivedAt: null });
+		expect(db.select().from(lessons).where(eq(lessons.userId, 'u2')).all()).toHaveLength(1);
 	});
 
 	it('two lessons linking one group figure share one copy of it', async () => {
