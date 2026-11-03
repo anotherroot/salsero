@@ -18,12 +18,14 @@
 		const b = (window as unknown as { salsaUpdate?: Bridge }).salsaUpdate ?? null;
 		bridge = b;
 		if (!b) return;
-		b.onmessage = (event) => {
+		const handler = (event: { data: string }) => {
 			const next = parseBridge(String(event.data));
 			if (next) status = next;
 		};
+		b.onmessage = handler;
 		return () => {
-			b.onmessage = null;
+			// A button mounted since (the next page's) may own it by now.
+			if (b.onmessage === handler) b.onmessage = null;
 		};
 	});
 
@@ -39,7 +41,9 @@
 	const link = $derived(
 		update.channel === 'play'
 			? {
-					href: `market://details?id=eu.anotherroot.${update.dance}`,
+					// https, not market://: the app's WebView only lets http(s) leave (Pages.kt),
+					// and Android hands this link to the Play Store app.
+					href: `https://play.google.com/store/apps/details?id=eu.anotherroot.${update.dance}`,
 					label: 'Update from Google Play'
 				}
 			: update.latest
