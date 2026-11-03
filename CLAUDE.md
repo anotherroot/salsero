@@ -241,14 +241,21 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
                      derived, never stored; lessons.ts and spot-links.ts read it
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
-src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, whether an app needs an
-                     update), view.ts (none / available / required, the bars' and the Update
-                     needed screen's words), get-app.ts (the /app page: device from the user
-                     agent, device sort). All PURE, client-safe
+src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, none /
+                     available / required (`updateState`), the device from the user agent
+                     (`deviceOf`)), view.ts (the bridge's messages, the Update button's words,
+                     when Update needed takes the page: `updateNeededNow`), get-app.ts (the
+                     /app page's cards, where a new account lands). All PURE, client-safe.
+                     Drawn by components/system/AppUpdateBar.svelte (Today's "Update
+                     available"), UpdateButton.svelte (the `salsaUpdate` bridge, or a link to
+                     the file or Google Play) and UpdateNeeded.svelte (the full-screen block)
 src/lib/page-epoch.ts  PAGE_EPOCH: raised when older open pages would send what the server no
                      longer takes; they reload instead of failing
-src/lib/nav/fresh.ts, fresh.svelte.ts  whether a navigation may become a full load, and the
-                     stale-page state behind the Reload bars (fresh.ts is PURE)
+src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a deploy, and
+                     whether the page may reload by itself (`mayReloadNow`). fresh.svelte.ts is
+                     the reload-hold counter (`holdReload`, `holdReloadWhile`: an upload, a
+                     run). shell/ReloadBar.svelte is "New version · Reload" and "This page is
+                     out of date"
 src/lib/server/releases.ts  reads $DATA_DIR/releases/<dance>/current.json (cached by mtime) and
                      the APKs; app-seen.ts which app version each device last showed (table
                      `app_installs`); app-gate.ts which native API requests (`x-app-version`, never the
