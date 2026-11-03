@@ -224,10 +224,10 @@
 	<div class={GROUP}>
 		{#if data.appUpdate}
 			<div class="{ROW} min-h-16 pr-3.5">
+				<!-- The installed number, always: the app tells the server only that (its user
+				     agent), and the admin page counts the same way ("Salsa app 2"). -->
 				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
-					>Version {data.appUpdate.latest?.versionCode === data.appUpdate.installed
-						? data.appUpdate.latest.versionName
-						: data.appUpdate.installed}</span
+					>Version {data.appUpdate.installed}</span
 				>
 				{#if data.appUpdate.state !== 'none'}<UpdateButton update={data.appUpdate} />{/if}
 			</div>
