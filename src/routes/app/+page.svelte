@@ -66,7 +66,7 @@
 				<rect x="24" y="26" width="110" height="8" rx="4" fill="currentColor" opacity="0.5" />
 				<rect x="24" y="44" width="80" height="6" rx="3" fill="currentColor" opacity="0.3" />
 				<rect x="150" y="60" width="44" height="24" rx="12" fill="currentColor" />
-				<circle cx="182" cy="72" r="9" fill="Canvas" />
+				<circle cx="182" cy="72" r="9" class="fill-surface" />
 				<rect x="24" y="92" width="50" height="8" rx="4" fill="currentColor" opacity="0.3" />
 			</svg>
 		{:else}
