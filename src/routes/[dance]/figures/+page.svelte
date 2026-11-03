@@ -27,6 +27,7 @@
 		type FigureChip,
 		type FigureFilter
 	} from '$lib/moves/figures';
+	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -51,7 +52,10 @@
 	const chips = $derived(
 		filterChips(filter, data.dance.styles, data.dance.styleLabel, data.unlinked)
 	);
-	const tiles = $derived(tileMetas(data.tagged, data.unrouted));
+	// Group mode has neither: tags and coverage are the person's own.
+	const tiles = $derived(
+		data.tagged && data.unrouted !== null ? tileMetas(data.tagged, data.unrouted) : null
+	);
 	// What is typed; follows the URL when it changes under it.
 	let q = $derived(data.filter.q);
 
@@ -113,6 +117,11 @@
 						></span
 					>
 				{/each}
+				{#if f.membersSee === false}
+					<span class="flex items-center gap-1 whitespace-nowrap"
+						><Icon name="eye-off" size={16} />{HIDDEN_FROM_MEMBERS}</span
+					>
+				{/if}
 			</span>
 		</span>
 		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
@@ -136,16 +145,24 @@
 					href={resolve('/[dance]/positions', { dance: data.dance.slug })}
 					icon="positions"
 					title="Positions"
-					meta={tiles.positions}
+					meta={tiles ? tiles.positions : 'Shared by everyone'}
 				/>
-				<NavTile
-					href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
-					icon="routine"
-					title="Coverage"
-					meta={tiles.coverage.text}
-					status={tiles.coverage.status}
-				/>
+				{#if tiles}
+					<NavTile
+						href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
+						icon="routine"
+						title="Coverage"
+						meta={tiles.coverage.text}
+						status={tiles.coverage.status}
+					/>
+				{/if}
 			</div>
+		{/if}
+
+		{#if anyHidden(data.figures)}
+			<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
+				{MEMBERS_NOTE}
+			</p>
 		{/if}
 
 		<form

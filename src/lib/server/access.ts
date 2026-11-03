@@ -215,6 +215,19 @@ export function reachFrom(db: Db, teamId: number, lessonIds: number[]): Reach {
 	return out;
 }
 
+/** What the group's members reach through its published, live lessons. */
+export function publishedReach(db: Db, teamId: number): Reach {
+	const ids = db
+		.select({ id: lessons.id })
+		.from(lessons)
+		.where(
+			and(eq(lessons.teamId, teamId), isNotNull(lessons.publishedAt), isNull(lessons.archivedAt))
+		)
+		.all()
+		.map((r) => r.id);
+	return reachFrom(db, teamId, ids);
+}
+
 /**
  * The group's lessons this person has ADDED that still count: published,
  * live, and the group not purged. Their entries on the group's things are

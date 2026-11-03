@@ -9,9 +9,11 @@ import { oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, type Partner } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { wallOf } from '$lib/server/scope';
+import { groupModeOf, spaceOf } from '$lib/server/group-mode';
+import { publishedReach } from '$lib/server/access';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ url, params, locals }) => {
+export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
@@ -29,6 +31,25 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	};
 	const unlinked = url.searchParams.get('unlinked') === '1';
 	const db = getDb();
+	const mode = groupModeOf(db, wall.userId, dance, cookies);
+	if (mode) {
+		// Group mode: the group's figures only, each marked with whether members
+		// reach it. Coverage and tags are the person's own; positions are shared.
+		const space = { dance, teamId: mode.teamId, actorId: wall.userId };
+		const reach = publishedReach(db, mode.teamId);
+		return {
+			figures: listFigures(db, space, { ...filter, unlinked }).map((f) => ({
+				...f,
+				membersSee: reach.figures.has(f.id)
+			})),
+			groups: [],
+			filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
+			unlinked: listFigures(db, space, { unlinked: true }).length,
+			tagged: null,
+			unrouted: null,
+			defaultStyle: defaultStyle(db, locals.user.id, dance)
+		};
+	}
 	return {
 		figures: listFigures(db, wall, { ...filter, unlinked }),
 		// Each group's figures from the lessons the person added, after their own.
@@ -55,9 +76,9 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 };
 
 export const actions: Actions = {
-	create: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
-		const dance = wall.dance;
+	create: async ({ params, request, locals, cookies }) => {
+		const space = spaceOf(getDb(), params, locals, cookies);
+		const dance = space.dance;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
@@ -96,7 +117,7 @@ export const actions: Actions = {
 		}
 		// With every field valid, a taken figure name is the one thing
 		// `createFigure` still refuses.
-		const made = createFigure(getDb(), wall, { figureName, name, partner, style, notes });
+		const made = createFigure(getDb(), space, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				field: 'figureName' as const,

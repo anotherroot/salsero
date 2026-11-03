@@ -14,6 +14,7 @@
 	import { plural } from '$lib/format';
 	import { groupHeading } from '$lib/moves/figures';
 	import { routineBadges, type RoutineBadge } from '$lib/moves/routines';
+	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -34,7 +35,10 @@
 
 <svelte:head><title>Routines · {data.dance.label}</title></svelte:head>
 
-{#snippet routineRow(routine: { id: number; name: string; slots: number }, badges: RoutineBadge[])}
+{#snippet routineRow(
+	routine: { id: number; name: string; slots: number; membersSee?: boolean },
+	badges: RoutineBadge[]
+)}
 	<a
 		class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
 		href={resolve('/[dance]/routines/[id]', {
@@ -51,6 +55,11 @@
 				{#each badges as b (b.text)}
 					<Badge tone={b.tone}>{b.text}</Badge>
 				{/each}
+				{#if routine.membersSee === false}
+					<span class="flex items-center gap-1 whitespace-nowrap"
+						><Icon name="eye-off" size={16} />{HIDDEN_FROM_MEMBERS}</span
+					>
+				{/if}
 			</span>
 		</span>
 		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
@@ -73,6 +82,11 @@
 		</EmptyState>
 	{:else}
 		{#if data.routines.length > 0}
+			{#if anyHidden(data.routines)}
+				<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
+					{MEMBERS_NOTE}
+				</p>
+			{/if}
 			<h2 class="{SECTION_LABEL} pt-1">{plural(data.routines.length, 'routine', 'routines')}</h2>
 			<div class={GROUP}>
 				{#each data.routines as routine (routine.id)}

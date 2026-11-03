@@ -91,6 +91,7 @@ function post(dance: string, fields: Record<string, string>, id = '') {
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
 	};
 }
@@ -99,11 +100,17 @@ type Invoke = (event: ReturnType<typeof post>) => Promise<unknown>;
 const call = (action: unknown, event: ReturnType<typeof post>) => (action as Invoke)(event);
 
 /** A page load only reads `params`, `url` and `locals` off its event. */
-type Load = (e: { params: { dance: string; id: string }; url: URL; locals: unknown }) => unknown;
+type Load = (e: {
+	params: { dance: string; id: string };
+	url: URL;
+	locals: unknown;
+	cookies?: unknown;
+}) => unknown;
 const loadAt = (load: unknown, dance: string, id: string) =>
 	(load as Load)({
 		params: { dance, id },
 		url: new URL('http://localhost/'),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
 	});
 

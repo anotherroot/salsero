@@ -32,6 +32,7 @@ function post(dance: string, fields: Record<string, string>, id?: number) {
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
 	};
 }

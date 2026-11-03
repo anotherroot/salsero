@@ -8,6 +8,7 @@ import {
 	figureGroupAccess,
 	fileAccess,
 	lessonAccess,
+	publishedReach,
 	lessonVideoAccess,
 	reach,
 	recordingAccess,
@@ -332,5 +333,39 @@ describe('the guards', () => {
 		expect(() => requireExerciseAccess(...as('u2'), drill, 'edit')).toThrow(threw404);
 		expect(() => requireExerciseAccess(...as('u2'), draftDrill, 'read')).toThrow(threw404);
 		expect(requireExerciseAccess(...as('u3'), draftDrill, 'edit').access).toBe('edit');
+	});
+});
+
+describe('publishedReach', () => {
+	it('reaches what published lessons link, and nothing from drafts or unlinked rows', () => {
+		const db = openDb(':memory:');
+		createTeam(db, 'u1', 'salsa', 'Tuesdays', 1);
+		const fig = createFigure(db, T1_SALSA, {
+			figureName: 'Enchufla',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!;
+		const V = fig.figure.id;
+		const R = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		const D = createRoutine(db, T1_SALSA, { name: 'D', notes: null }).routine.id;
+		const U = createRoutine(db, T1_SALSA, { name: 'U', notes: null }).routine.id;
+		const pub = createLesson(db, T1_SALSA, lessonInput('P')).lesson.id;
+		const draft = createLesson(db, T1_SALSA, lessonInput('Draft')).lesson.id;
+		must(linkRoutine(db, pub, R, 'u1'));
+		must(linkFigure(db, pub, V, 'u1'));
+		must(linkRoutine(db, draft, D, 'u1'));
+		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, pub)).run();
+
+		const got = publishedReach(db, 1);
+		expect([...got.routines]).toEqual([R]);
+		expect(got.routines.has(D) || got.routines.has(U)).toBe(false);
+		expect([...got.variations]).toEqual([V]);
+
+		db.update(lessons).set({ archivedAt: 5 }).where(eq(lessons.id, pub)).run();
+		const none = publishedReach(db, 1);
+		expect(none.routines.size).toBe(0);
+		expect(none.variations.size).toBe(0);
 	});
 });

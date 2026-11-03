@@ -43,3 +43,13 @@ export function lessonCounts(
 export function diskSubtitle(bytes: number): string | undefined {
 	return bytes > 0 ? `Videos on disk: ${byteSize(bytes)}` : undefined;
 }
+
+/** A group's lessons in group mode: the editors' drafts apart, then the published ones. */
+export function splitDrafts<T extends LessonItem & { publishedAt?: number | null }>(
+	lessons: T[]
+): { drafts: T[]; published: T[] } {
+	return {
+		drafts: lessons.filter((l) => l.publishedAt === null),
+		published: lessons.filter((l) => l.publishedAt !== null)
+	};
+}

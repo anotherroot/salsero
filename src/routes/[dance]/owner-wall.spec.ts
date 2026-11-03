@@ -55,18 +55,25 @@ function post(user: User, dance: string, fields: Record<string, string>, id = ''
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user }
 	};
 }
-type Event = ReturnType<typeof post>;
+type Event = Omit<ReturnType<typeof post>, 'cookies'> & { cookies?: unknown };
 type Invoke = (event: Event) => Promise<unknown>;
 const call = (action: unknown, event: Event) => (action as Invoke)(event);
 
-type Load = (e: { params: { dance: string; id: string }; url: URL; locals: unknown }) => unknown;
+type Load = (e: {
+	params: { dance: string; id: string };
+	url: URL;
+	locals: unknown;
+	cookies?: unknown;
+}) => unknown;
 const loadAt = (load: unknown, user: User, dance: string, id = '') =>
 	(load as Load)({
 		params: { dance, id },
 		url: new URL('http://localhost/'),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user }
 	});
 

@@ -5,11 +5,16 @@ import { createRoutineFromFigures, listRoutines, routineShapes } from '$lib/serv
 import { ints, text } from '$lib/server/form';
 import { coverage, coverageGroups } from '$lib/routines/coverage';
 import { wallOf } from '$lib/server/scope';
+import { groupModeOf } from '$lib/server/group-mode';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
+	// Coverage is the person's own; in group mode the Figures page is the way back.
+	if (groupModeOf(db, wall.userId, wall.dance, cookies)) {
+		throw redirect(303, `/${wall.dance}/figures`);
+	}
 	// Derived per request, never stored: a slot edited on a routine page
 	// changes these answers with nothing else touched.
 	return {

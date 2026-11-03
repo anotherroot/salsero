@@ -8,7 +8,7 @@
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import LessonRow from '$lib/components/lessons/LessonRow.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { diskSubtitle, monthGroups } from '$lib/lessons/list';
+	import { diskSubtitle, monthGroups, splitDrafts } from '$lib/lessons/list';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -25,7 +25,9 @@
 		seen = form;
 		creating = true;
 	}
-	const groups = $derived(monthGroups(data.lessons));
+	// In group mode the editors' drafts sit apart, above the published months.
+	const split = $derived(splitDrafts(data.lessons));
+	const groups = $derived(monthGroups(split.published));
 </script>
 
 <svelte:head><title>Lessons · {data.dance.label}</title></svelte:head>
@@ -51,6 +53,23 @@
 		</EmptyState>
 	{:else}
 		<div class="flex flex-col gap-3.5">
+			{#if split.drafts.length > 0}
+				<section class="flex flex-col gap-2">
+					<h2 class={SECTION_LABEL}>Drafts</h2>
+					<ul class={GROUP} aria-label="Drafts">
+						{#each split.drafts as lesson (lesson.id)}
+							<LessonRow
+								{lesson}
+								draft
+								href={resolve('/[dance]/lessons/[id]', {
+									dance: data.dance.slug,
+									id: String(lesson.id)
+								})}
+							/>
+						{/each}
+					</ul>
+				</section>
+			{/if}
 			{#each groups as group (group.key)}
 				<section class="flex flex-col gap-2">
 					<h2 class={SECTION_LABEL}>{group.label}</h2>

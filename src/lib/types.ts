@@ -313,6 +313,8 @@ export interface FigureListItem {
 	hasSection: boolean;
 	/** Some live lesson reaches a live variation, by hand or through a section. */
 	hasLesson: boolean;
+	/** Group mode only: a published lesson reaches it, so members see it. */
+	membersSee?: boolean;
 }
 
 /** A figure a variation can be moved to, with its variations' names. */
@@ -352,6 +354,8 @@ export interface RoutineItem {
 	/** Slots, children counted as one. */
 	slots: number;
 	createdAt: number;
+	/** Group mode only: a published lesson reaches it, so members see it. */
+	membersSee?: boolean;
 }
 
 /**
