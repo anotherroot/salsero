@@ -74,16 +74,23 @@ export function diff(base: PairBase | null, mine: Flat, theirs: Flat, hash: Hash
 			side === 'mine' ? m === null : side === 'theirs' ? t === null : m === null || t === null;
 		found.push({ key, label: (m ?? t)!.label, mine: m, theirs: t, side, removal });
 	}
-	// A piece present on one side only travels or goes whole: its parts are not listed.
+	// A piece or a section present on one side only travels or goes whole: its
+	// parts (a piece's note and sections, a section's links) are not listed.
 	const whole = new Set(
 		found
-			.filter((d) => pieceOf(d.key) === d.key && (d.mine === null || d.theirs === null))
+			.filter((d) => d.mine === null || d.theirs === null)
+			.filter((d) => {
+				const part = pieceParts(d.key)?.part;
+				return part === 'piece' || part === 'spot';
+			})
 			.map((d) => d.key)
 	);
 	return found
 		.filter((d) => {
-			const piece = pieceOf(d.key);
-			return piece === null || piece === d.key || !whole.has(piece);
+			const parts = pieceParts(d.key);
+			if (!parts || parts.part === 'piece') return true;
+			if (whole.has(parts.piece)) return false;
+			return !(parts.part === 'links' && whole.has(d.key.slice(0, -':links'.length)));
 		})
 		.map((d) => ({ d, at: sortKey(d.key, d.label, mine, theirs) }))
 		.sort((a, b) => compareKeys(a.at, b.at))

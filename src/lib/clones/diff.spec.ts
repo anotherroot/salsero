@@ -138,6 +138,37 @@ describe('diff: two members', () => {
 		});
 	});
 
+	it('8b: B adds a section with links under a piece both have: one difference', () => {
+		const B = {
+			...A0,
+			...flat(['rec:g1:spot:s9', '3000|4000|Dip', 'Dip'], ['rec:g1:spot:s9:links', 'fig:g7', 'Dip'])
+		};
+		expect(only(diff(base0, A0, B, hash))).toMatchObject({
+			key: 'rec:g1:spot:s9',
+			side: 'theirs',
+			removal: false
+		});
+		expect(only(diff(null, A0, B, hash)).key).toBe('rec:g1:spot:s9');
+	});
+
+	it('8c: B deletes a section with links: one difference, a removal', () => {
+		const A = { ...A0, ...flat(['rec:g1:spot:s1:links', 'fig:g7', 'Turn']) };
+		const base = initialBase(A, [], hash);
+		const B = edit(A, { 'rec:g1:spot:s1': null, 'rec:g1:spot:s1:links': null });
+		const d = only(diff(base, A, B, hash));
+		expect(d).toMatchObject({ key: 'rec:g1:spot:s1', side: 'theirs', removal: true });
+		expect(defaultPicks([d], 'take')).toEqual({ 'rec:g1:spot:s1': 'mine' });
+	});
+
+	it('8d: a section both have still lists its own links', () => {
+		const A = { ...A0, ...flat(['rec:g1:spot:s1:links', 'fig:g7', 'Turn']) };
+		const B = edit(A, { 'rec:g1:spot:s1:links': 'fig:g7,fig:g8' });
+		expect(only(diff(initialBase(A, [], hash), A, B, hash))).toMatchObject({
+			key: 'rec:g1:spot:s1:links',
+			side: 'theirs'
+		});
+	});
+
 	it('9: B lacks rec:g1 entirely while A has rec:g1 and rec:g1:note', () => {
 		const B = edit(A0, { 'rec:g1': null, 'rec:g1:note': null, 'rec:g1:spot:s1': null });
 		expect(only(diff(null, A0, B, hash)).key).toBe('rec:g1');
@@ -153,6 +184,20 @@ describe('diff: two members', () => {
 		expect(d).toMatchObject({ key: 'notes', side: 'mine' });
 		// and from B's side the same pair reads as B's partner having changed it
 		expect(only(diff(t.base, B, t.after, hash)).side).toBe('theirs');
+	});
+});
+
+describe('nextBase', () => {
+	it('a key the giver lacks stays out: a kept piece reads as mine afterwards', () => {
+		const B = edit(A0, { 'rec:g1': null, 'rec:g1:note': null, 'rec:g1:spot:s1': null });
+		const t = take(A0, B, base0);
+		expect(t.after['rec:g1']).toBeDefined();
+		expect(t.base.fields['rec:g1']).toBeUndefined();
+		expect(only(diff(t.base, t.after, B, hash))).toMatchObject({
+			key: 'rec:g1',
+			side: 'mine',
+			removal: false
+		});
 	});
 });
 
