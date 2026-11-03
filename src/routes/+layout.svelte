@@ -1,6 +1,6 @@
 <script lang="ts">
 	import './layout.css';
-	import { navigating, page } from '$app/state';
+	import { navigating, page, updated } from '$app/state';
 	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
@@ -9,14 +9,17 @@
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
-	import { guardNavigation, prompt } from '$lib/unsaved/guard.svelte';
-	import { syncSheets } from '$lib/sheets/history.svelte';
+	import { guardNavigation, prompt, unsaved } from '$lib/unsaved/guard.svelte';
+	import { entryState, syncSheets } from '$lib/sheets/history.svelte';
 	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
-	import { showsUpdateNeeded } from '$lib/app-update/view';
+	import { BUSY_ROUTES, showsUpdateNeeded } from '$lib/app-update/view';
+	import { fullLoadFor, mayReloadNow } from '$lib/nav/fresh';
+	import { held } from '$lib/nav/fresh.svelte';
+	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 
 	let { data, children } = $props();
@@ -86,14 +89,6 @@
 	const tabs = $derived(showsTabs((navigating.to ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 
-	/*
-	 * Offline. The root layout has a server load, so a client navigation that
-	 * cannot reach the server falls back to a full page load and the browser's
-	 * own error page, never `+error.svelte`. So the navigation is stopped before
-	 * it starts and the Offline screen is laid OVER the page (not instead of it,
-	 * so whatever was typed stays). Registered after `guardNavigation()` so the
-	 * unsaved-changes guard has already had its say on the same navigation.
-	 */
 	// Coming back to the app is when a new release is worth asking about.
 	$effect(() => {
 		if (!data.appUpdate) return;
@@ -105,6 +100,14 @@
 	});
 	const updateNeeded = $derived(showsUpdateNeeded(data.appUpdate, page.route.id));
 
+	/*
+	 * Offline. The root layout has a server load, so a client navigation that
+	 * cannot reach the server falls back to a full page load and the browser's
+	 * own error page, never `+error.svelte`. So the navigation is stopped before
+	 * it starts and the Offline screen is laid OVER the page (not instead of it,
+	 * so whatever was typed stays). Registered after `guardNavigation()` so the
+	 * unsaved-changes guard has already had its say on the same navigation.
+	 */
 	let offline = $state<URL | null>(null);
 	let layer = $state<HTMLDialogElement>();
 	// Taken before the layer mounts: its own <title> is already in place by then.
@@ -181,6 +184,79 @@
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the URL the user tapped
 		if (url) void goto(url, { invalidateAll: true });
 	};
+
+	/*
+	 * A deploy. SvelteKit polls `version.json` (`version.pollInterval` in
+	 * vite.config.ts) and `updated.current` turns true once a new build is out;
+	 * this page's code is then old. See `$lib/nav/fresh.ts` for the rules.
+	 *
+	 * The next navigation to another page becomes a full load, which looks
+	 * like any page change. Registered last, so the unsaved-changes guard and
+	 * the offline handler have had their say on the same navigation: the
+	 * guard's question shows as `prompt.ask`, offline is `navigator.onLine`.
+	 */
+	const quietNow = () => {
+		const entry = entryState();
+		return {
+			playerOpen: (entry.videoPlayer ?? 0) > 0,
+			sheetsOpen: (entry.sheets ?? 0) > 0,
+			// An upload in flight counts: a reload cuts it off.
+			unsaved: unsaved(null, true).length,
+			held: held()
+		};
+	};
+	beforeNavigate((nav) => {
+		const to = nav.to?.url;
+		const full = fullLoadFor(
+			{
+				type: nav.type,
+				willUnload: nav.willUnload,
+				fromPath: page.url.pathname,
+				toPath: to?.pathname ?? null
+			},
+			{
+				updated: updated.current,
+				asking: prompt.ask !== null,
+				online: navigator.onLine,
+				...quietNow()
+			}
+		);
+		if (!full || !to) return;
+		nav.cancel();
+		location.href = to.href;
+	});
+	/*
+	 * Coming back to the page is when a deploy is worth asking about. A quiet
+	 * page reloads by itself; anything open, unsaved or running gets the
+	 * Reload bar instead. `reloading` keeps the bar from flashing up for the
+	 * moment before a reload that is going to happen.
+	 */
+	let reloading = $state(false);
+	$effect(() => {
+		let checking = false;
+		const back = async () => {
+			if (document.visibilityState !== 'visible' || checking) return;
+			checking = true;
+			const quiet = () => mayReloadNow({ routeId: page.route.id, ...quietNow() });
+			reloading = quiet();
+			if ((await updated.check()) && quiet()) {
+				location.reload();
+				return;
+			}
+			reloading = false;
+			checking = false;
+		};
+		document.addEventListener('visibilitychange', back);
+		return () => document.removeEventListener('visibilitychange', back);
+	});
+	// Not on Practice or My count (their own controls sit at the bottom; leaving
+	// them loads the new version), nor over an edit's Save bar.
+	const reloadBar = $derived(
+		updated.current &&
+			!reloading &&
+			!bottom.claimed &&
+			!(BUSY_ROUTES as readonly (string | null)[]).includes(page.route.id)
+	);
 </script>
 
 <svelte:head>
@@ -215,6 +291,9 @@
 		{/if}
 		{#if tabs}
 			<BottomNav dance={navDance.slug} path={shownPath} />
+		{/if}
+		{#if reloadBar}
+			<ReloadBar />
 		{/if}
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
 		<UnsavedDialog />

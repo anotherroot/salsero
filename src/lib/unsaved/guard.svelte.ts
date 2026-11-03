@@ -53,6 +53,27 @@ export function leaveOrAsk(scope: Node | null, onleave: () => void, verb = 'Leav
 let passing = false;
 
 /**
+ * Reload the page, asking first about anything a reload would lose — an
+ * upload in flight too, which an in-app navigation would not lose. Choosing
+ * Reload in the dialog is the answer: the unload is let through rather than
+ * asked about again by the browser.
+ */
+export function reloadOrAsk(): void {
+	const list = unsaved(null, true);
+	if (list.length === 0) location.reload();
+	else
+		prompt.ask = {
+			entries: list,
+			scoped: false,
+			verb: 'Reload',
+			onleave: () => {
+				passing = true;
+				location.reload();
+			}
+		};
+}
+
+/**
  * Ask before any navigation that would lose something. Call once, from the
  * root layout.
  *

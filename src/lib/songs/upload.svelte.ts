@@ -3,6 +3,7 @@ import type { DanceSlug } from '$lib/dances/dances';
 import { MAX_RECORDING_LABEL } from '$lib/limits';
 import { uploadFailure } from '$lib/upload-error';
 import { track } from '$lib/unsaved/guard.svelte';
+import { holdReload } from '$lib/nav/fresh.svelte';
 
 /*
  * The song upload in flight, in a module store rather than inside a button:
@@ -24,10 +25,13 @@ export type SongUpload = {
 export const upload = $state<{ current: SongUpload | null }>({ current: null });
 
 let untrack: (() => void) | null = null;
+let unhold: (() => void) | null = null;
 
 function release() {
 	untrack?.();
 	untrack = null;
+	unhold?.();
+	unhold = null;
 }
 
 function fail(message: string) {
@@ -48,6 +52,8 @@ export function startSongUpload(file: File, dance: DanceSlug, style: string): vo
 
 	upload.current = { dance, name: file.name, loaded: 0, total: file.size, error: null };
 	untrack = track({ label: 'An upload', dirty: () => true, unloadOnly: true });
+	// A deploy waits for it too, rather than reloading the page under it.
+	unhold = holdReload();
 
 	const xhr = new XMLHttpRequest();
 	xhr.open('POST', `/api/songs?dance=${encodeURIComponent(dance)}`);

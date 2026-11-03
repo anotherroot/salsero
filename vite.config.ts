@@ -13,6 +13,10 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
+			// An open page asks for `version.json` this often and `updated.current`
+			// turns true once a new build is out (`$lib/nav/fresh.ts`). The
+			// version's `name` stays SvelteKit's default: the build time.
+			version: { pollInterval: 300_000 },
 			typescript: {
 				config: (config) => {
 					config.include.push('../drizzle.config.ts');
