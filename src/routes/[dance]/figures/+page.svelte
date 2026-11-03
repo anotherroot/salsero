@@ -15,9 +15,7 @@
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import {
-		figureMeta,
 		figuresEmpty,
-		groupFigureMeta,
 		groupHeading,
 		figuresHeading,
 		filterChips,
@@ -27,6 +25,7 @@
 		type FigureChip,
 		type FigureFilter
 	} from '$lib/moves/figures';
+	import { figureRowParts, movesHeading } from '$lib/moves/list';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
 	import type { ActionData, PageData } from './$types';
 
@@ -48,6 +47,18 @@
 
 	const filter = $derived<FigureFilter>(data.filter);
 	const count = $derived(data.figures.length);
+	const figureCount = $derived(data.figures.reduce((n, m) => n + m.figures.length, 0));
+	// Group mode has no tags (null): its heading carries no "Yours".
+	const inGroup = $derived(data.tagged === null);
+	const heading = $derived(
+		inGroup && !filter.unlinked
+			? movesHeading(
+					{ moves: count, figures: figureCount },
+					!!(filter.q || filter.style || filter.partner),
+					null
+				)
+			: figuresHeading({ moves: count, figures: figureCount }, filter)
+	);
 	const empty = $derived(figuresEmpty(count, filter));
 	const chips = $derived(
 		filterChips(filter, data.dance.styles, data.dance.styleLabel, data.unlinked)
@@ -97,20 +108,16 @@
 
 <svelte:head><title>Figures · {data.dance.label}</title></svelte:head>
 
-{#snippet figureRow(f: (typeof data.figures)[number], meta: { text: string; status: boolean }[])}
-	<!-- A figure is its variations: the row opens the first one. -->
+{#snippet figureRow(f: (typeof data.figures)[number]['figures'][number], showLacks: boolean)}
 	<a
 		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
-		href={resolve('/[dance]/figures/[id]', {
-			dance: data.dance.slug,
-			id: String(f.firstVariationId)
-		})}
+		href={resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
 	>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
 			<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
 			<span class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted">
-				{#each meta as part, i (part.text)}
+				{#each figureRowParts(showLacks ? f : { ...f, hasSection: true, hasLesson: true }) as part, i (part.text)}
 					<span class="whitespace-nowrap"
 						>{#if i > 0}<span aria-hidden="true" class="mr-1.5">·</span>{/if}<span
 							class={part.status ? 'font-bold text-status' : undefined}>{part.text}</span
@@ -126,6 +133,25 @@
 		</span>
 		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 	</a>
+{/snippet}
+
+<!-- A move's name over its figures: the heading opens the move's page (/{dance}/moves/{id}, Task 4; the typed route does not exist yet). -->
+{#snippet moveSection(m: (typeof data.figures)[number], showLacks: boolean)}
+	<section aria-label={m.name} class="flex flex-col gap-1.5">
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved; the move page (Task 4) is not a typed route yet -->
+		<a
+			class="flex items-center gap-1 self-start rounded-lg py-1 text-[17px] leading-[1.3] font-bold text-ink focus-visible:outline-2 focus-visible:outline-accent"
+			href={`${resolve('/[dance]', { dance: data.dance.slug })}/moves/${m.id}`}
+		>
+			{m.name}<span class="flex text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		<div class={GROUP}>
+			{#each m.figures as f (f.id)}
+				{@render figureRow(f, showLacks)}
+			{/each}
+		</div>
+	</section>
 {/snippet}
 
 <MovesScreen segment="figures" dance={data.dance.slug} onnew={() => (creating = true)}>
@@ -159,7 +185,7 @@
 			</div>
 		{/if}
 
-		{#if anyHidden(data.figures)}
+		{#if anyHidden(data.figures.flatMap((m) => m.figures))}
 			<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
 				{MEMBERS_NOTE}
 			</p>
@@ -216,25 +242,24 @@
 				No figures of your own yet.
 			</p>
 		{:else}
-			<h2 class="{SECTION_LABEL} pt-0.5">{figuresHeading(count, filter)}</h2>
-			<div class={GROUP}>
-				{#each data.figures as f (f.id)}
-					{@render figureRow(f, figureMeta(f))}
-				{/each}
-			</div>
+			<h2 class="{SECTION_LABEL} pt-0.5">{heading}</h2>
+			{#each data.figures as m (m.id)}
+				{@render moveSection(m, true)}
+			{/each}
 		{/if}
 
-		<!-- Each group's figures from the lessons the person added: viewed and practised, under a slight heading. -->
+		<!-- Each group's moves from the lessons the person added: viewed and practised, under a slight heading. -->
 		{#each data.groups as g (g.team.id)}
 			<section aria-label={g.team.name} class="flex flex-col gap-2">
 				<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
-					<Icon name="people" size={16} />{groupHeading(g.team.name, g.figures.length)}
+					<Icon name="people" size={16} />{groupHeading(
+						g.team.name,
+						g.moves.reduce((n, m) => n + m.figures.length, 0)
+					)}
 				</h2>
-				<div class={GROUP}>
-					{#each g.figures as f (f.id)}
-						{@render figureRow(f, groupFigureMeta(f))}
-					{/each}
-				</div>
+				{#each g.moves as m (m.id)}
+					{@render moveSection(m, false)}
+				{/each}
 			</section>
 		{/each}
 	{/if}

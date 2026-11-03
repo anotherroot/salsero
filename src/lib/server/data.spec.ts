@@ -144,7 +144,7 @@ describe('figures', () => {
 			sizeBytes: 10,
 			note: null
 		});
-		expect(listFigures(db, U1_SALSA).map((f) => [f.name, f.recordings])).toEqual([
+		expect(listFigures(db, U1_SALSA).map((m) => [m.name, m.figures[0].recordings])).toEqual([
 			['Dile que no', 1],
 			['Son basic', 0]
 		]);

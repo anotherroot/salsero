@@ -176,7 +176,12 @@ describe('listing in group mode', () => {
 		linkFigure(db, P, a.figure.id, 'u1');
 		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, P)).run();
 		const data = loadOf(figuresLoad, 'u2', jar('1').cookies);
-		const seen = Object.fromEntries(data.figures.map((f: any) => [f.name, f.membersSee])); // eslint-disable-line @typescript-eslint/no-explicit-any
+		const seen = Object.fromEntries(
+			data.figures.map((m: { name: string; figures: { membersSee: boolean }[] }) => [
+				m.name,
+				m.figures[0].membersSee
+			])
+		);
 		expect(seen).toEqual({ Enchufla: true, Other: false });
 		expect(data.tagged).toBeNull();
 		expect(data.unrouted).toBeNull();

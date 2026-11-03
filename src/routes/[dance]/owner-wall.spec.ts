@@ -2052,7 +2052,7 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 			figures: { name: string }[];
 			groups: {
 				team: { name: string };
-				figures: { name: string; firstVariationId: number; variations: number }[];
+				moves: { name: string; figures: { id: number; label: string }[] }[];
 			}[];
 			unrouted: number;
 			tagged: { total: number };
@@ -2062,8 +2062,11 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		expect(moves.groups).toEqual([
 			{
 				team: { id: T.teamId, name: 'Salsa nadaljevalna' },
-				figures: [
-					expect.objectContaining({ name: 'Enchufla', firstVariationId: V2, variations: 1 })
+				moves: [
+					expect.objectContaining({
+						name: 'Enchufla',
+						figures: [expect.objectContaining({ id: V2 })]
+					})
 				]
 			}
 		]);

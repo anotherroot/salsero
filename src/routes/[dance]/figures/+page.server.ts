@@ -38,9 +38,9 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		const space = { dance, teamId: mode.teamId, actorId: wall.userId };
 		const reach = publishedReach(db, mode.teamId);
 		return {
-			figures: listFigures(db, space, { ...filter, unlinked }).map((f) => ({
-				...f,
-				membersSee: reach.figures.has(f.id)
+			figures: listFigures(db, space, { ...filter, unlinked }).map((m) => ({
+				...m,
+				figures: m.figures.map((f) => ({ ...f, membersSee: reach.variations.has(f.id) }))
 			})),
 			groups: [],
 			filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },

@@ -23,7 +23,14 @@ import { takenLine } from '$lib/teams/deleted';
 import { addedReach, addedTeams, allows, figureAccess } from './access';
 import { actingIn, fieldChange, logChange, variationRoot } from './changes';
 import type { Partner } from '$lib/labels';
-import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget, TeamRef } from '$lib/types';
+import type {
+	CalledFigure,
+	FigureRow,
+	FigureVersion,
+	MoveRow,
+	MoveTarget,
+	TeamRef
+} from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
 
 export interface FigureInput {
@@ -625,11 +632,11 @@ function linkedVariations(db: Db, space: Space): { section: Set<number>; lesson:
 }
 
 /**
- * One row per live figure. A filter matches when any live variation does; `q`
- * also matches the figure's own name. `hasSection`/`hasLesson` look at every
- * live variation, whatever the filter matched.
+ * Moves with the live figures that match the filter (a move with none is left
+ * out). `q` also matches the move's name, which lists all its figures. Not
+ * linked keeps a figure that lacks a section or a lesson.
  */
-export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): FigureListItem[] {
+export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): MoveRow[] {
 	const groups = db
 		.select()
 		.from(figureGroups)
@@ -643,6 +650,8 @@ export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): Fi
 			name: figures.name,
 			partner: figures.partner,
 			style: figures.styleTag,
+			startCount: figures.startCount,
+			lengthCounts: figures.lengthCounts,
 			recordings: count(recordings.id)
 		})
 		.from(figures)
@@ -653,29 +662,34 @@ export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): Fi
 		.all();
 	const linked = linkedVariations(db, space);
 	const q = filter.q ? filter.q.trim().toLowerCase() : '';
-	const items: FigureListItem[] = [];
+	const items: MoveRow[] = [];
 	for (const g of groups) {
 		const vs = rows.filter((r) => r.groupId === g.id && (!filter.only || filter.only.has(r.id)));
-		if (vs.length === 0) continue;
-		const matching = vs.filter(
-			(v) =>
-				(!q || g.name.toLowerCase().includes(q) || v.name.toLowerCase().includes(q)) &&
-				(!filter.style || v.style === filter.style) &&
-				(!filter.partner || v.partner === filter.partner)
-		);
-		if (matching.length === 0) continue;
-		const hasSection = vs.some((v) => linked.section.has(v.id));
-		const hasLesson = vs.some((v) => linked.lesson.has(v.id));
-		if (filter.unlinked && hasSection && hasLesson) continue;
-		items.push({
-			id: g.id,
-			name: g.name,
-			variations: vs.length,
-			recordings: vs.reduce((n, v) => n + v.recordings, 0),
-			firstVariationId: vs[0].id,
-			hasSection,
-			hasLesson
-		});
+		const moveMatches = !q || g.name.toLowerCase().includes(q);
+		const listed: FigureRow[] = [];
+		for (const v of vs) {
+			if (
+				!(moveMatches || v.name.toLowerCase().includes(q)) ||
+				(filter.style && v.style !== filter.style) ||
+				(filter.partner && v.partner !== filter.partner)
+			) {
+				continue;
+			}
+			const hasSection = linked.section.has(v.id);
+			const hasLesson = linked.lesson.has(v.id);
+			if (filter.unlinked && hasSection && hasLesson) continue;
+			listed.push({
+				id: v.id,
+				name: v.name,
+				label: labelFor(g.name, v.name),
+				startCount: v.startCount,
+				lengthCounts: v.lengthCounts,
+				recordings: v.recordings,
+				hasSection,
+				hasLesson
+			});
+		}
+		if (listed.length > 0) items.push({ id: g.id, name: g.name, figures: listed });
 	}
 	return items;
 }
@@ -691,14 +705,14 @@ export function listAddedFigures(
 	db: Db,
 	wall: Wall,
 	filter: Omit<FigureFilter, 'only' | 'unlinked'> = {}
-): { team: TeamRef; figures: FigureListItem[] }[] {
-	const out: { team: TeamRef; figures: FigureListItem[] }[] = [];
+): { team: TeamRef; moves: MoveRow[] }[] {
+	const out: { team: TeamRef; moves: MoveRow[] }[] = [];
 	for (const team of addedTeams(db, wall)) {
 		const only = addedReach(db, wall.userId, team.id).variations;
 		if (only.size === 0) continue;
 		const space = { dance: wall.dance, teamId: team.id, actorId: wall.userId };
-		const figures = listFigures(db, space, { ...filter, only });
-		if (figures.length > 0) out.push({ team, figures });
+		const moves = listFigures(db, space, { ...filter, only });
+		if (moves.length > 0) out.push({ team, moves });
 	}
 	return out;
 }

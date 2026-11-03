@@ -304,24 +304,27 @@ export interface FigureVersion {
 	label: string;
 }
 
-/** A figure as the library list shows it: one row per figure, not per variation. */
-export interface FigureListItem {
-	/** The group's id. */
+/** A figure (a `figures` row) as the Figures list shows it, under its move. */
+export type FigureRow = {
 	id: number;
+	/** The figure's own name — "Doble". */
 	name: string;
-	/** Live variations. */
-	variations: number;
-	/** Recordings across the live variations. */
+	/** "Enchufla · Doble". */
+	label: string;
+	startCount: number | null;
+	lengthCounts: number | null;
+	/** Recordings of this figure. */
 	recordings: number;
-	/** The lowest-id live variation: where a tap on the row lands. */
-	firstVariationId: number;
-	/** Some live variation is linked to a section, on a lesson video or a recording. */
+	/** Linked to a section, on a lesson video or a recording. */
 	hasSection: boolean;
-	/** Some live lesson reaches a live variation, by hand or through a section. */
+	/** A live lesson reaches it, by hand or through a section. */
 	hasLesson: boolean;
 	/** Group mode only: a published lesson reaches it, so members see it. */
 	membersSee?: boolean;
-}
+};
+
+/** A move (a `figure_groups` row) with the figures the list shows under it. */
+export type MoveRow = { id: number; name: string; figures: FigureRow[] };
 
 /** A figure a variation can be moved to, with its variations' names. */
 export interface MoveTarget {

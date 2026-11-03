@@ -248,7 +248,7 @@ describe('labels and lists', () => {
 		expect(figureLabels(db, U1_SALSA).get(figure.id)).toBe('Setenta · Basic');
 	});
 
-	it('listFigures is one row per figure', () => {
+	it('listFigures is one row per move, its figures under it', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
 		const gone = createVariationFrom(db, figure.id, 'Old')!;
@@ -265,11 +265,28 @@ describe('labels and lists', () => {
 			{
 				id: figure.groupId,
 				name: 'Enchufla',
-				variations: 2,
-				recordings: 1,
-				firstVariationId: figure.id,
-				hasSection: false,
-				hasLesson: false
+				figures: [
+					{
+						id: figure.id,
+						name: 'Basic',
+						label: 'Enchufla · Basic',
+						startCount: 1,
+						lengthCounts: 8,
+						recordings: 0,
+						hasSection: false,
+						hasLesson: false
+					},
+					{
+						id: v2.id,
+						name: 'Doble',
+						label: 'Enchufla · Doble',
+						startCount: 1,
+						lengthCounts: 8,
+						recordings: 1,
+						hasSection: false,
+						hasLesson: false
+					}
+				]
 			}
 		]);
 	});
@@ -277,7 +294,10 @@ describe('labels and lists', () => {
 	describe('section and lesson links', () => {
 		const flags = () =>
 			Object.fromEntries(
-				listFigures(db, U1_SALSA, {}).map((f) => [f.name, [f.hasSection, f.hasLesson]])
+				listFigures(db, U1_SALSA, {}).map((m) => [
+					m.name,
+					[m.figures.some((f) => f.hasSection), m.figures.some((f) => f.hasLesson)]
+				])
 			);
 		const lessonVideo = (lessonId: number) =>
 			addLessonVideo(db, { lessonId, file: `${lessonId}.mp4`, mime: 'video/mp4', sizeBytes: 1 }).id;
@@ -345,13 +365,17 @@ describe('labels and lists', () => {
 		});
 	});
 
-	it('listFigures filters by any variation', () => {
+	it('listFigures filters per figure', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
 		fig('Setenta');
 		updateVariation(db, v2.id, input('Doble', { partner: 'solo' }));
-		expect(listFigures(db, U1_SALSA, { q: 'doble' }).map((f) => f.name)).toEqual(['Enchufla']);
-		expect(listFigures(db, U1_SALSA, { partner: 'solo' }).map((f) => f.name)).toEqual(['Enchufla']);
+		const names = (f: Parameters<typeof listFigures>[2]) =>
+			listFigures(db, U1_SALSA, f).map((m) => [m.name, m.figures.map((x) => x.name)]);
+		expect(names({ q: 'doble' })).toEqual([['Enchufla', ['Doble']]]);
+		expect(names({ partner: 'solo' })).toEqual([['Enchufla', ['Doble']]]);
+		// The move's own name lists all its figures.
+		expect(names({ q: 'enchufla' })).toEqual([['Enchufla', ['Basic', 'Doble']]]);
 	});
 
 	it('listVersions lists variations with their figure', () => {
