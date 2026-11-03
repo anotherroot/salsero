@@ -598,3 +598,27 @@ export interface AddState {
 	 */
 	offer: AddOffer | null;
 }
+
+/** What a group change is filed under: the thing whose History shows it. */
+export type ChangeRootKind = 'lesson' | 'figure' | 'routine' | 'drill' | 'team';
+export type ChangeVerb = 'add' | 'change' | 'remove' | 'archive' | 'restore' | 'publish';
+/** A value a change keeps from before and after: text, a number, or nothing. */
+export type ChangeValues = Record<string, string | number | null>;
+
+/** One line of a group's History, newest first. */
+export interface HistoryRow {
+	id: number;
+	rootKind: ChangeRootKind;
+	rootId: number;
+	actorId: string;
+	at: number;
+	verb: ChangeVerb;
+	/** The thing (`section`, `link`, …) or, for a change, the one field changed (`notes`). */
+	subject: string;
+	/** The row the change was to: a section, a link, a variation, a slot. */
+	subjectId: number | null;
+	before: ChangeValues | null;
+	after: ChangeValues | null;
+	/** Where a removal can be undone (Recently deleted), once it has a trash entry. */
+	trashId: number | null;
+}

@@ -856,6 +856,8 @@ export const videoDownloads = sqliteTable(
 		attempts: integer('attempts').notNull().default(0),
 		/** The worker's lease, epoch ms. */
 		claimedAt: integer('claimed_at'),
+		/** Who pressed Save (or Retry): History's actor when the video lands in a group. */
+		requestedBy: text('requested_by'),
 		createdAt: createdAt()
 	},
 	(t) => [

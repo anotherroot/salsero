@@ -21,6 +21,7 @@ import { inSpace, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from
 import { getTeam } from './teams';
 import { entryFor, reconcileEntries } from './entries';
 import { addedReach, allows, figureAccess } from './access';
+import { actingIn, fieldChange, logChange, variationRoot } from './changes';
 import type { Partner } from '$lib/labels';
 import type { CalledFigure, FigureListItem, FigureVersion, MoveTarget, TeamRef } from '$lib/types';
 import { DEFAULT_LENGTH_COUNTS } from '$lib/graph/timing';
@@ -51,6 +52,13 @@ const labelFor = (figureName: string, name: string) => `${figureName} · ${name}
  */
 const ownerSpace = (row: { dance: string; userId: string | null; teamId: number | null }) =>
 	spaceOfRow(row, '');
+
+/** A figure's root in History: the figure (`figure_groups`), a variation its subject. */
+const ofFigure = (groupId: number, subjectId: number | null = null) => ({
+	rootKind: 'figure' as const,
+	rootId: groupId,
+	subjectId
+});
 
 /** The label of one variation, or null when it is gone. */
 function labelOf(tx: Db, figureId: number): string | null {
@@ -157,6 +165,17 @@ export function createFigure(
 			})
 			.returning()
 			.get();
+		logChange(
+			tx,
+			space,
+			{
+				...ofFigure(group.id, group.id),
+				verb: 'add',
+				subject: 'figure',
+				after: { name: figureName }
+			},
+			Date.now()
+		);
 		return { figure, group };
 	});
 }
@@ -167,14 +186,19 @@ export function createFigure(
  * from a sibling, and no exercise. Null when the figure is gone or archived,
  * the style is not of its dance, or the name is empty or taken.
  */
-export function createVariationIn(db: Db, groupId: number, input: FigureInput): Figure | null {
+export function createVariationIn(
+	db: Db,
+	groupId: number,
+	input: FigureInput,
+	by?: string
+): Figure | null {
 	if (!input.name.trim()) return null;
 	return db.transaction((tx) => {
 		const group = getGroup(tx, groupId);
 		if (!group || group.archivedAt !== null) return null;
 		if (!isStyleOf(group.dance as DanceSlug, input.style)) return null;
 		if (variationNameTaken(tx, group.id, input.name, null)) return null;
-		return tx
+		const made = tx
 			.insert(figures)
 			.values({
 				...values(input),
@@ -187,6 +211,8 @@ export function createVariationIn(db: Db, groupId: number, input: FigureInput): 
 			})
 			.returning()
 			.get();
+		logVariation(tx, actingIn(group, by), made, Date.now());
+		return made;
 	});
 }
 
@@ -196,7 +222,12 @@ export function createVariationIn(db: Db, groupId: number, input: FigureInput): 
  * itself — recordings, links, lesson links, its exercise. Null when the source
  * is gone or archived, or the name is empty or taken.
  */
-export function createVariationFrom(db: Db, fromId: number, name: string): Figure | null {
+export function createVariationFrom(
+	db: Db,
+	fromId: number,
+	name: string,
+	by?: string
+): Figure | null {
 	if (!name.trim()) return null;
 	return db.transaction((tx) => {
 		const src = tx.select().from(figures).where(eq(figures.id, fromId)).get();
@@ -229,6 +260,7 @@ export function createVariationFrom(db: Db, fromId: number, name: string): Figur
 				.values(starts.map((s) => ({ figureId: copy.id, positionId: s.positionId })))
 				.run();
 		}
+		logVariation(tx, actingIn(copy, by), copy, Date.now());
 		return copy;
 	});
 }
@@ -236,9 +268,17 @@ export function createVariationFrom(db: Db, fromId: number, name: string): Figur
 /**
  * Edit a variation. Its exercise, if any, is renamed to the label so the two
  * never drift. Null when it is gone or archived, the style is not of its own
- * dance, the name is empty, or a sibling has the name.
+ * dance, the name is empty, or a sibling has the name. In a group, `by` is
+ * who, for History (`verb` is `restore` for History's own Restore).
  */
-export function updateVariation(db: Db, id: number, input: FigureInput): Figure | null {
+export function updateVariation(
+	db: Db,
+	id: number,
+	input: FigureInput,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+): Figure | null {
 	return db.transaction((tx) => {
 		const current = tx.select().from(figures).where(eq(figures.id, id)).get();
 		if (!current || current.archivedAt !== null || current.groupId === null) return null;
@@ -251,23 +291,66 @@ export function updateVariation(db: Db, id: number, input: FigureInput): Figure 
 			.returning()
 			.get();
 		syncExerciseNames(tx, eq(figures.id, id));
+		// The keys are the edit form's, as the clash check's `variationSeen` has them.
+		const fields = (f: Figure) => ({
+			name: f.name,
+			partner: f.partner,
+			style: f.styleTag,
+			notes: f.notes
+		});
+		const change = fieldChange(fields(current), fields(figure), 'variation');
+		if (change) {
+			logChange(
+				tx,
+				actingIn(current, by),
+				{ ...ofFigure(current.groupId, id), verb, ...change },
+				now
+			);
+		}
 		return figure;
 	});
 }
 
 /**
  * Rename a figure. False for an empty name or another figure's; every
- * exercise of its variations follows.
+ * exercise of its variations follows. `by` and `verb` as `updateVariation`.
  */
-export function renameFigure(db: Db, groupId: number, name: string): boolean {
+export function renameFigure(
+	db: Db,
+	groupId: number,
+	name: string,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+): boolean {
 	return db.transaction((tx) => {
 		const group = tx.select().from(figureGroups).where(eq(figureGroups.id, groupId)).get();
 		if (!group || !name.trim()) return false;
 		if (figureNameTaken(tx, ownerSpace(group), name, groupId)) return false;
 		tx.update(figureGroups).set({ name }).where(eq(figureGroups.id, groupId)).run();
 		syncExerciseNames(tx, eq(figures.groupId, groupId));
+		const change = fieldChange({ figureName: group.name }, { figureName: name }, 'figure');
+		if (change) {
+			logChange(tx, actingIn(group, by), { ...ofFigure(groupId, groupId), verb, ...change }, now);
+		}
 		return true;
 	});
+}
+
+/** History's line for a new variation in a figure. */
+function logVariation(tx: Db, space: Space, made: Figure, now: number): void {
+	if (made.groupId === null) return;
+	logChange(
+		tx,
+		space,
+		{
+			...ofFigure(made.groupId, made.id),
+			verb: 'add',
+			subject: 'variation',
+			after: { name: made.name }
+		},
+		now
+	);
 }
 
 /**
@@ -345,7 +428,8 @@ function archiveGroupIfEmpty(tx: Db, groupId: number, now: number): boolean {
 export function archiveVariation(
 	db: Db,
 	id: number,
-	now: number
+	now: number,
+	by?: string
 ): { figureRemoved: boolean } | null {
 	return db.transaction((tx) => {
 		const row = tx.select().from(figures).where(eq(figures.id, id)).get();
@@ -358,6 +442,17 @@ export function archiveVariation(
 		const figureRemoved = archiveGroupIfEmpty(tx, row.groupId, now);
 		// A group's: members' entries follow its shrunken reach (risk 25).
 		if (row.teamId !== null) reconcileEntries(tx, row.teamId, now);
+		logChange(
+			tx,
+			actingIn(row, by),
+			{
+				...ofFigure(row.groupId, id),
+				verb: 'archive',
+				subject: 'variation',
+				before: { name: row.name }
+			},
+			now
+		);
 		return { figureRemoved };
 	});
 }
@@ -386,7 +481,7 @@ export type MoveResult =
  * Joining a figure with a non-blank `name` renames the variation in the same
  * transaction; the target's names are checked against that name.
  */
-export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
+export function moveVariation(db: Db, id: number, to: MoveTo, by?: string): MoveResult {
 	return db.transaction((tx): MoveResult => {
 		const row = tx.select().from(figures).where(eq(figures.id, id)).get();
 		if (!row || row.archivedAt !== null || row.groupId === null) {
@@ -417,7 +512,20 @@ export function moveVariation(db: Db, id: number, to: MoveTo): MoveResult {
 		}
 		tx.update(figures).set({ groupId: target, name }).where(eq(figures.id, id)).run();
 		syncExerciseNames(tx, eq(figures.id, id));
-		return { ok: true, groupId: target, figureRemoved: archiveGroupIfEmpty(tx, from, Date.now()) };
+		const now = Date.now();
+		// Filed under the figure it joined: that is where its page now leads.
+		logChange(
+			tx,
+			actingIn(row, by),
+			{
+				...ofFigure(target, id),
+				verb: 'add',
+				subject: 'variation',
+				after: { name, from: getGroup(tx, from)?.name ?? null }
+			},
+			now
+		);
+		return { ok: true, groupId: target, figureRemoved: archiveGroupIfEmpty(tx, from, now) };
 	});
 }
 
@@ -619,8 +727,31 @@ export interface RecordingInput {
 	note: string | null;
 }
 
-export function addRecording(db: Db, input: RecordingInput) {
-	return db.insert(recordings).values(input).returning().get();
+/** A variation's new recording; in a group, History says who added it (`by`). */
+export function addRecording(db: Db, input: RecordingInput, by?: string) {
+	return db.transaction((tx) => {
+		const rec = tx.insert(recordings).values(input).returning().get();
+		logRecording(tx, rec, 'add', by);
+		return rec;
+	});
+}
+
+/** History's line for a recording added or deleted, filed under its figure. */
+function logRecording(
+	tx: Db,
+	rec: { id: number; figureId: number },
+	verb: 'add' | 'remove',
+	by: string | undefined
+): void {
+	const root = variationRoot(tx, rec.figureId);
+	if (!root) return;
+	const { row, ...at } = root;
+	logChange(
+		tx,
+		actingIn(row, by),
+		{ ...at, verb, subject: 'recording', subjectId: rec.id },
+		Date.now()
+	);
 }
 
 /**
@@ -629,11 +760,13 @@ export function addRecording(db: Db, input: RecordingInput) {
  * the recording otherwise. Throws `SpotLinkedError`, deleting nothing, while
  * one of its sections is linked to a figure or drill.
  */
-export function deleteRecording(db: Db, id: number) {
+export function deleteRecording(db: Db, id: number, by?: string) {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { recordingId: id });
 		tx.delete(videoSpots).where(eq(videoSpots.recordingId, id)).run();
-		return tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
+		const rec = tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
+		if (rec) logRecording(tx, rec, 'remove', by);
+		return rec;
 	});
 }
 

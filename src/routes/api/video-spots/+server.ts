@@ -41,7 +41,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!owner) throw error(400, 'Name one video: recordingId or lessonVideoId.');
 	requireVideo(owner, locals, 'edit');
 	try {
-		const spot = addSpot(getDb(), owner, { startMs: b.startMs, endMs: b.endMs, label: b.label });
+		const spot = addSpot(
+			getDb(),
+			owner,
+			{ startMs: b.startMs, endMs: b.endMs, label: b.label },
+			locals.user?.id
+		);
 		if (!spot) throw error(404, 'No such video');
 		return json(spot, { status: 201 });
 	} catch (e) {

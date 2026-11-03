@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	agoText,
 	byteSize,
 	classDayLabel,
 	clock,
@@ -92,5 +93,18 @@ describe('plural', () => {
 		expect(plural(1, 'slot', 'slots')).toBe('1 slot');
 		expect(plural(4, 'slot', 'slots')).toBe('4 slots');
 		expect(plural(0, 'routine', 'routines')).toBe('0 routines');
+	});
+});
+
+describe('agoText', () => {
+	const now = 10 * 24 * 60 * 60_000;
+	it('reads minutes, hours, yesterday and days', () => {
+		expect(agoText(now - 30_000, now)).toBe('just now');
+		expect(agoText(now - 10 * 60_000, now)).toBe('10 min ago');
+		expect(agoText(now - 3 * 60 * 60_000, now)).toBe('3 h ago');
+		expect(agoText(now - 30 * 60 * 60_000, now)).toBe('yesterday');
+		expect(agoText(now - 4 * 24 * 60 * 60_000, now)).toBe('4 days ago');
+		// A clock a little behind another device's never reads "in the future".
+		expect(agoText(now + 5_000, now)).toBe('just now');
 	});
 });

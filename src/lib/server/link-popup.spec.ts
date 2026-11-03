@@ -395,13 +395,18 @@ describe('in a group', () => {
 			title: 'Group class',
 			notes: null
 		}).lesson.id;
-		const video = addLessonVideo(db, {
-			lessonId: teamLesson,
-			file: 't.mp4',
-			mime: 'video/mp4',
-			sizeBytes: 1
-		}).id;
-		return addSpot(db, { lessonVideoId: video }, { startMs: 0, endMs: 2000, label: null })!.id;
+		const video = addLessonVideo(
+			db,
+			{
+				lessonId: teamLesson,
+				file: 't.mp4',
+				mime: 'video/mp4',
+				sizeBytes: 1
+			},
+			'u1'
+		).id;
+		return addSpot(db, { lessonVideoId: video }, { startMs: 0, endMs: 2000, label: null }, 'u1')!
+			.id;
 	}
 
 	it("offers a group's section only the group's figures and drills", () => {

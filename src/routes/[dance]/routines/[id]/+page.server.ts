@@ -38,10 +38,11 @@ import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
-import { requireRoutineAccess, wallOf } from '$lib/server/scope';
+import { requireRoutineAccess, spaceOfRow, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
 import { MISSING_SEEN, routineSeen, seenRefusal } from '$lib/server/clash';
 import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
+import { archivedRefusal, editedBy } from '$lib/server/changes';
 import type { Routine } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -67,6 +68,9 @@ function fingerprintOf(db: Db, routineId: number): string {
 	);
 }
 
+/** Who acts: History names them on a group's routine. */
+const by = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
+
 /** A slot action's success, with the routine's new fingerprint for the next one. */
 function done<T extends Record<string, unknown>>(routineId: number, extra?: T) {
 	return { ok: true as const, fingerprint: fingerprintOf(getDb(), routineId), ...extra };
@@ -77,12 +81,13 @@ function done<T extends Record<string, unknown>>(routineId: number, extra?: T) {
  * refused, doing nothing (409), so a drag or a delete never lands on a slot
  * someone else just moved. A group's routine needs the fingerprint; a
  * person's own accepts an action without one, from a tab opened before the
- * check. `by` names who once History knows (Task 12).
+ * check. In a group, History names who changed it last.
  */
 function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract') {
 	const named = action ? { action } : {};
+	const who = () => editedBy(db, routine.teamId, 'routine', routine.id);
 	if (routine.archivedAt !== null) {
-		const gone = { by: null, at: null };
+		const gone = who();
 		return fail(410, { ...named, message: goneTitle(gone, Date.now()), gone });
 	}
 	const sent = form.get('fingerprint');
@@ -90,7 +95,7 @@ function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract'
 		return routine.teamId !== null ? fail(400, { ...named, message: MISSING_SEEN }) : null;
 	}
 	if (sent === fingerprintOf(db, routine.id)) return null;
-	return fail(409, { ...named, message: staleRoutine(null), stale: true });
+	return fail(409, { ...named, message: staleRoutine(who().by), stale: true });
 }
 
 /**
@@ -173,6 +178,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	return {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
 		canEdit,
+		/** A group routine's History: its editors'. */
+		historyHref:
+			canEdit && routine.teamId !== null
+				? `/${wall.dance}/groups/${routine.teamId}/history/routine/${routine.id}`
+				: null,
 		// What the Edit form saw, and the slots as one string: what a save and a
 		// slot action carry back (the clash check).
 		seen: routineSeen(routine),
@@ -282,16 +292,18 @@ export const actions: Actions = {
 			form,
 			routine.teamId !== null,
 			routine.archivedAt === null ? routineSeen(routine) : null,
-			{ action: 'rename' as const, ...typed }
+			{ action: 'rename' as const, ...typed },
+			Date.now(),
+			() => editedBy(db, routine.teamId, 'routine', routine.id)
 		);
 		if (clash) return clash;
-		updateRoutine(db, routine.id, { name, notes });
+		updateRoutine(db, routine.id, { name, notes }, by(params, locals));
 		return { ok: true };
 	},
 
 	duplicate: async ({ params, locals }) => {
 		const routine = routineOf(params, locals);
-		const copy = duplicateRoutine(getDb(), routine.id);
+		const copy = duplicateRoutine(getDb(), routine.id, by(params, locals));
 		if (!copy) return fail(400, { message: 'Could not copy that routine.' });
 		// Straight to the copy: you duplicated it in order to change it, and landing
 		// back on the original is how you end up editing the wrong one.
@@ -303,7 +315,7 @@ export const actions: Actions = {
 		// The boolean is deliberately ignored: archiving twice is idempotent — the
 		// row is archived either way and the list omits it — so a second attempt is
 		// a no-op worth redirecting, not an error worth reporting.
-		archiveRoutine(getDb(), routine.id, Date.now());
+		archiveRoutine(getDb(), routine.id, Date.now(), by(params, locals));
 		throw redirect(303, `/${params.dance}/routines`);
 	},
 
@@ -322,7 +334,10 @@ export const actions: Actions = {
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail('That slot does not belong to this routine.', stepId);
 		}
-		if (!addOption(db, stepId, figureId)) {
+		if (!addOption(db, stepId, figureId, by(params, locals))) {
+			const space = spaceOfRow(routine, by(params, locals));
+			const archived = archivedRefusal(db, space, { figureId }, { stepId });
+			if (archived) return archived;
 			return slotFail(
 				'That figure does not start and land like this slot’s figure, so it is not an alternative.',
 				stepId
@@ -346,7 +361,7 @@ export const actions: Actions = {
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail('That slot does not belong to this routine.', stepId);
 		}
-		if (!removeOption(db, stepId, figureId)) {
+		if (!removeOption(db, stepId, figureId, Date.now(), by(params, locals))) {
 			return slotFail('A slot has to hold something.', stepId);
 		}
 		return done(routine.id);
@@ -369,7 +384,7 @@ export const actions: Actions = {
 		if (stepId === undefined || !ownsSlot(db, routine.id, stepId)) {
 			return slotFail('That slot does not belong to this routine.', stepId);
 		}
-		setSlotNote(db, stepId, note);
+		setSlotNote(db, stepId, note, by(params, locals));
 		return done(routine.id);
 	},
 
@@ -389,12 +404,28 @@ export const actions: Actions = {
 		if (childId !== undefined) {
 			// Only what the picker offered: `canEmbed` alone would accept an archived routine.
 			const offered = embeddable(db, routine.id).some((r) => r.id === childId);
-			const stepId = offered ? insertSlot(db, routine.id, at, { childId }) : null;
-			if (stepId === null) return fail(400, { message: 'That routine cannot be embedded here.' });
+			const stepId = offered
+				? insertSlot(db, routine.id, at, { childId }, by(params, locals))
+				: null;
+			if (stepId === null) {
+				const space = spaceOfRow(routine, by(params, locals));
+				const archived = archivedRefusal(db, space, { routineId: childId }, {});
+				return archived ?? fail(400, { message: 'That routine cannot be embedded here.' });
+			}
 			return done(routine.id, { stepId });
 		}
-		const stepId = insertSlot(db, routine.id, at, { figureId: figureId as number });
-		if (stepId === null) return fail(400, { message: 'That figure is not part of this dance.' });
+		const stepId = insertSlot(
+			db,
+			routine.id,
+			at,
+			{ figureId: figureId as number },
+			by(params, locals)
+		);
+		if (stepId === null) {
+			const space = spaceOfRow(routine, by(params, locals));
+			const archived = archivedRefusal(db, space, { figureId: figureId as number }, {});
+			return archived ?? fail(400, { message: 'That figure is not part of this dance.' });
+		}
 		return done(routine.id, { stepId });
 	},
 
@@ -410,7 +441,7 @@ export const actions: Actions = {
 		if (
 			stepId === undefined ||
 			index === undefined ||
-			!moveSlotTo(getDb(), routine.id, stepId, index)
+			!moveSlotTo(getDb(), routine.id, stepId, index, by(params, locals))
 		) {
 			return slotFail('That slot cannot move there.', stepId);
 		}
@@ -425,7 +456,10 @@ export const actions: Actions = {
 		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepIds = ints(form, 'stepIds');
-		const snapshot = stepIds.length === 0 ? null : deleteSlots(getDb(), routine.id, stepIds);
+		const snapshot =
+			stepIds.length === 0
+				? null
+				: deleteSlots(getDb(), routine.id, stepIds, Date.now(), by(params, locals));
 		if (!snapshot) return fail(400, { message: 'Those slots are already gone.' });
 		// Handed back so the page can offer Undo, which posts it to `restore`.
 		return done(routine.id, { snapshot });
@@ -439,7 +473,7 @@ export const actions: Actions = {
 		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const snapshot = parseSnapshots(String(form.get('snapshot') ?? ''));
-		if (!snapshot || !restoreSlots(getDb(), routine.id, snapshot)) {
+		if (!snapshot || !restoreSlots(getDb(), routine.id, snapshot, by(params, locals))) {
 			return fail(400, { message: 'Those slots could not be put back.' });
 		}
 		return done(routine.id);
@@ -460,7 +494,7 @@ export const actions: Actions = {
 		if (!ownsSlot(db, routine.id, stepId)) {
 			return slotFail('That slot does not belong to this routine.', stepId);
 		}
-		if (!restoreOption(db, stepId, figureId)) {
+		if (!restoreOption(db, stepId, figureId, by(params, locals))) {
 			return slotFail('That alternative could not be put back.', stepId);
 		}
 		return done(routine.id);
@@ -474,7 +508,10 @@ export const actions: Actions = {
 		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepIds = ints(form, 'stepIds');
-		if (stepIds.length === 0 || duplicateSlots(getDb(), routine.id, stepIds) === null) {
+		if (
+			stepIds.length === 0 ||
+			duplicateSlots(getDb(), routine.id, stepIds, by(params, locals)) === null
+		) {
 			return fail(400, { message: 'Those slots could not be copied.' });
 		}
 		return done(routine.id);
@@ -497,7 +534,10 @@ export const actions: Actions = {
 				name: String(form.get('name') ?? '')
 			});
 		}
-		const made = stepIds.length === 0 ? null : extractRoutine(getDb(), routine.id, stepIds, name);
+		const made =
+			stepIds.length === 0
+				? null
+				: extractRoutine(getDb(), routine.id, stepIds, name, by(params, locals));
 		if (!made) {
 			return fail(400, {
 				action: 'extract',

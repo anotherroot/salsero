@@ -58,8 +58,12 @@ import {
 	videoSections
 } from '$lib/server/spot-links';
 import { seenRefusal, variationSeen } from '$lib/server/clash';
+import { editedBy } from '$lib/server/changes';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+
+/** Who acts: History names them on a group's figure. */
+const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
 
 function variationId(raw: string): number {
 	const id = Number(raw);
@@ -226,6 +230,11 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		},
 		siblings,
 		canEdit,
+		/** A group figure's History (the whole figure, every variation): its editors'. */
+		historyHref:
+			canEdit && group.teamId !== null
+				? `/${space.dance}/groups/${group.teamId}/history/figure/${group.id}`
+				: null,
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: variationSeen(db, id),
 		exercise: found.exercise,
@@ -333,11 +342,17 @@ export const actions: Actions = {
 
 		// The clash check, before any write: a save that saw another version
 		// of the variation or its figure's name is refused with theirs.
-		const clash = seenRefusal(form, row.teamId !== null, variationSeen(db, row.id), {
-			action: 'update' as const
-		});
+		const clash = seenRefusal(
+			form,
+			row.teamId !== null,
+			variationSeen(db, row.id),
+			{ action: 'update' as const },
+			Date.now(),
+			() => editedBy(db, row.teamId, 'figure', row.groupId ?? 0)
+		);
 		if (clash) return clash;
 		const { figure, group } = variationOf(params, locals);
+		const by = me(params, locals);
 		if (figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
@@ -347,15 +362,15 @@ export const actions: Actions = {
 		// A posted position id is just a number: `setFigureShape` rejects one from
 		// the other dance, and that is a 404 rather than a message, the same answer
 		// every other cross-dance id gets here.
-		if (!setFigureShape(db, figure.id, { startIds, endId, startCount, lengthCounts })) {
+		if (!setFigureShape(db, figure.id, { startIds, endId, startCount, lengthCounts }, by)) {
 			throw error(404, 'Figure not found');
 		}
-		if (!updateVariation(db, figure.id, { name, partner, style, notes })) {
+		if (!updateVariation(db, figure.id, { name, partner, style, notes }, by)) {
 			throw error(404, 'Figure not found');
 		}
 		// A case-only change ("enchufla") is a change: the figure keeps its place,
 		// `figureNameTaken` skipped it above, and the new spelling is saved.
-		if (figureName !== group.name.trim() && !renameFigure(db, group.id, figureName)) {
+		if (figureName !== group.name.trim() && !renameFigure(db, group.id, figureName, by)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		return { action: 'update', ok: true };
@@ -376,7 +391,7 @@ export const actions: Actions = {
 				name: typed
 			});
 		}
-		const made = createVariationFrom(getDb(), figure.id, name);
+		const made = createVariationFrom(getDb(), figure.id, name, me(params, locals));
 		if (!made) {
 			return fail(400, {
 				action: 'createVariation',
@@ -414,13 +429,13 @@ export const actions: Actions = {
 					message: 'Give the new figure a name (up to 200 characters).'
 				});
 			}
-			result = moveVariation(db, figure.id, { newFigure: figureName });
+			result = moveVariation(db, figure.id, { newFigure: figureName }, me(params, locals));
 		} else {
 			groupId = int(form, 'target');
 			if (groupId === undefined) {
 				return fail(400, { action: 'move', message: 'Pick where to move it.' });
 			}
-			result = moveVariation(db, figure.id, { groupId, name });
+			result = moveVariation(db, figure.id, { groupId, name }, me(params, locals));
 		}
 
 		if (!result.ok) {
@@ -462,7 +477,7 @@ export const actions: Actions = {
 	archive: ({ params, locals }) => {
 		const { figure, group } = variationOf(params, locals);
 		const db = getDb();
-		const done = archiveVariation(db, figure.id, Date.now());
+		const done = archiveVariation(db, figure.id, Date.now(), me(params, locals));
 		if (!done) throw error(404, 'Figure not found');
 		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
 		throw redirect(
@@ -511,7 +526,7 @@ export const actions: Actions = {
 		}
 		let rec;
 		try {
-			rec = deleteRecording(getDb(), id);
+			rec = deleteRecording(getDb(), id, me(params, locals));
 		} catch (e) {
 			if (e instanceof SpotLinkedError) {
 				return fail(409, { action: 'deleteRecording', recordingId: id, message: e.message });
@@ -569,28 +584,44 @@ export const actions: Actions = {
 			found.recordings.some(
 				(r) => 'recordingId' in video.owner && r.id === video.owner.recordingId
 			);
-		if (!link || !(ownTarget || onOwnRecording) || !unlinkSpot(getDb(), link.id, link.target)) {
+		if (
+			!link ||
+			!(ownTarget || onOwnRecording) ||
+			!unlinkSpot(getDb(), link.id, link.target, Date.now(), me(params, locals))
+		) {
 			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
 		}
 		return { action: 'unlinkSection', ok: true };
 	},
 
 	addLink: async ({ params, request, locals }) =>
-		addLinkFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+		addLinkFrom(
+			request,
+			getDb(),
+			{ figureId: variationOf(params, locals).figure.id },
+			me(params, locals)
+		),
 	deleteLink: async ({ params, request, locals }) =>
-		deleteLinkFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+		deleteLinkFrom(
+			request,
+			getDb(),
+			{ figureId: variationOf(params, locals).figure.id },
+			me(params, locals)
+		),
 	saveVideo: async ({ params, request, locals }) =>
 		saveVideoFrom(
 			request,
 			getDb(),
 			{ figureId: variationOf(params, locals).figure.id },
-			await freeDisk()
+			await freeDisk(),
+			me(params, locals)
 		),
 	retryVideo: async ({ params, request, locals }) =>
 		retryVideoFrom(
 			request,
 			getDb(),
 			{ figureId: variationOf(params, locals).figure.id },
-			await freeDisk()
+			await freeDisk(),
+			me(params, locals)
 		)
 };

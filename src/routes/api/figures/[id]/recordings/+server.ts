@@ -82,6 +82,10 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		await unlink(path).catch(() => {});
 		throw error(413, after.message);
 	}
-	const recording = addRecording(db, { figureId, file, mime, kind, sizeBytes: bytes, note });
+	const recording = addRecording(
+		db,
+		{ figureId, file, mime, kind, sizeBytes: bytes, note },
+		locals.user?.id
+	);
 	return json(recording, { status: 201 });
 };

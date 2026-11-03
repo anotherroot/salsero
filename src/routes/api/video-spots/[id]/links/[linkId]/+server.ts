@@ -21,7 +21,16 @@ export const DELETE: RequestHandler = ({ params, url, locals }) => {
 	if (!locals.user || !allows(spotAccess(db, locals.user.id, spotId), 'edit')) {
 		throw error(404, 'No such section');
 	}
-	if (!unlinkFromSection(db, spotId, linkId, url.searchParams.get('alsoLesson') === '1')) {
+	if (
+		!unlinkFromSection(
+			db,
+			spotId,
+			linkId,
+			url.searchParams.get('alsoLesson') === '1',
+			Date.now(),
+			locals.user.id
+		)
+	) {
 		throw error(404, 'No such link');
 	}
 	const options = linkOptionsFor(db, spotId, locals.user!.id);

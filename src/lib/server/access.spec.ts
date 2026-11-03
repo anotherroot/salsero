@@ -77,49 +77,71 @@ beforeEach(() => {
 	})!;
 	V2 = fig.figure.id;
 	groupId = fig.figure.groupId!;
-	V3 = createVariationIn(db, groupId, {
-		name: 'Doble-only-in-draft',
-		partner: 'partner',
-		style: 'salsa',
-		notes: null
-	})!.id;
-	recId = addRecording(db, {
-		figureId: V2,
-		file: 'v2.mp4',
-		mime: 'video/mp4',
-		kind: 'video',
-		sizeBytes: 10,
-		note: null
-	}).id;
+	V3 = createVariationIn(
+		db,
+		groupId,
+		{
+			name: 'Doble-only-in-draft',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		},
+		'u1'
+	)!.id;
+	recId = addRecording(
+		db,
+		{
+			figureId: V2,
+			file: 'v2.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 10,
+			note: null
+		},
+		'u1'
+	).id;
 
 	C = createRoutine(db, T1_SALSA, { name: 'Child', notes: null }).routine.id;
-	must(addFigureSlot(db, C, V2));
+	must(addFigureSlot(db, C, V2, 'u1'));
 	R = createRoutine(db, T1_SALSA, { name: 'Parent', notes: null }).routine.id;
-	must(addChildSlot(db, R, C));
+	must(addChildSlot(db, R, C, 'u1'));
 
 	P = createLesson(db, T1_SALSA, lessonInput('Published')).lesson.id;
-	must(linkRoutine(db, P, R));
+	must(linkRoutine(db, P, R, 'u1'));
 	publish(P);
 	drill = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
-	must(linkExercise(db, P, drill));
-	pVideo = addLessonVideo(db, { lessonId: P, file: 'p.mp4', mime: 'video/mp4', sizeBytes: 5 }).id;
+	must(linkExercise(db, P, drill, 'u1'));
+	pVideo = addLessonVideo(
+		db,
+		{ lessonId: P, file: 'p.mp4', mime: 'video/mp4', sizeBytes: 5 },
+		'u1'
+	).id;
 	viaDrill = createCustomExercise(db, T1_SALSA, { name: 'Via', everyDays: 3, notes: null }).id;
-	const section = addSpot(db, { lessonVideoId: pVideo }, { startMs: 0, endMs: 9, label: 'S' })!;
+	const section = addSpot(
+		db,
+		{ lessonVideoId: pVideo },
+		{ startMs: 0, endMs: 9, label: 'S' },
+		'u1'
+	)!;
 	linkInSpace(db, T1_SALSA, section.id, { exerciseId: viaDrill });
 
 	D = createLesson(db, T1_SALSA, lessonInput('Draft')).lesson.id;
-	must(linkFigure(db, D, V3));
+	must(linkFigure(db, D, V3, 'u1'));
 	draftDrill = createCustomExercise(db, T1_SALSA, {
 		name: 'Draft drill',
 		everyDays: 3,
 		notes: null
 	}).id;
-	must(linkExercise(db, D, draftDrill));
-	dVideo = addLessonVideo(db, { lessonId: D, file: 'd.mp4', mime: 'video/mp4', sizeBytes: 5 }).id;
+	must(linkExercise(db, D, draftDrill, 'u1'));
+	dVideo = addLessonVideo(
+		db,
+		{ lessonId: D, file: 'd.mp4', mime: 'video/mp4', sizeBytes: 5 },
+		'u1'
+	).id;
 
 	A = createLesson(db, T1_SALSA, lessonInput('Archived')).lesson.id;
 	publish(A);
-	archiveLesson(db, A, 3);
+	archiveLesson(db, A, 3, 'u1');
 });
 
 describe('reach', () => {
@@ -144,7 +166,7 @@ describe('reach', () => {
 	});
 
 	it('an archived routine takes what only it held with it', () => {
-		archiveRoutine(db, C, 4);
+		archiveRoutine(db, C, 4, 'u1');
 		const r = reach(db, 'u2', 1);
 		expect([...r.routines]).toEqual([R]);
 		expect(r.variations.size).toBe(0);

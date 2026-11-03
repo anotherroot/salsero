@@ -112,7 +112,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	try {
-		const row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size });
+		const row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size }, locals.user?.id);
 		// Remembered for a day (swept with the partials), for a client whose 201 got lost.
 		await writeFile(done, JSON.stringify(row)).catch(() => {});
 		return json(row, { status: 201 });

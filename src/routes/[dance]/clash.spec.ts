@@ -111,9 +111,10 @@ describe.each([
 		expect(r.data?.clash).toMatchObject({
 			changed: ['notes'],
 			current: { notes: 'theirs' },
-			by: null,
-			at: null
+			// In a group, History names who saved (here the same person, on another device).
+			by: isTeam ? 'Ana' : null
 		});
+		expect((r.data?.clash as { at: number | null }).at === null).toBe(!isTeam);
 		expect(notes()).toBe('theirs');
 	});
 
@@ -125,10 +126,10 @@ describe.each([
 
 	it('says gone on a lesson archived since', async () => {
 		const seen = seenOf(load(lessonPage, id));
-		archiveLesson(db, id, 5);
+		archiveLesson(db, id, 5, 'u1');
 		const r = await call(lessonPage.actions.update, post({ ...fields, seen }, id));
 		expect(r.status).toBe(410);
-		expect(r.data?.gone).toEqual({ by: null, at: null });
+		expect(r.data?.gone).toMatchObject({ by: isTeam ? 'Ana' : null });
 		expect(notes()).toBe('first');
 	});
 
@@ -183,13 +184,22 @@ describe('a section in the player', () => {
 				title: 'L',
 				notes: null
 			}).lesson.id;
-			const video = addLessonVideo(db, {
-				lessonId: lesson,
-				file: '00000000-0000-4000-8000-0000000000a1.mp4',
-				mime: 'video/mp4',
-				sizeBytes: 5
-			}).id;
-			spot = addSpot(db, { lessonVideoId: video }, { startMs: 1000, endMs: 5000, label: 'A' })!.id;
+			const video = addLessonVideo(
+				db,
+				{
+					lessonId: lesson,
+					file: '00000000-0000-4000-8000-0000000000a1.mp4',
+					mime: 'video/mp4',
+					sizeBytes: 5
+				},
+				'u1'
+			).id;
+			spot = addSpot(
+				db,
+				{ lessonVideoId: video },
+				{ startMs: 1000, endMs: 5000, label: 'A' },
+				'u1'
+			)!.id;
 		});
 
 		it('takes two nudges in a row, each seeing the last answer', async () => {
@@ -266,8 +276,8 @@ describe.each([
 				notes: null
 			})!.figure.id;
 		id = createRoutine(db, s, { name: 'R', notes: null }).routine.id;
-		a = addFigureSlot(db, id, fig('Enchufla'))!;
-		b = addFigureSlot(db, id, fig('Dile que no'))!;
+		a = addFigureSlot(db, id, fig('Enchufla'), 'u1')!;
+		b = addFigureSlot(db, id, fig('Dile que no'), 'u1')!;
 	});
 
 	it('refuses a slot move with a stale fingerprint, changing nothing', async () => {
@@ -283,7 +293,11 @@ describe.each([
 			post({ stepId: String(a), index: '0', fingerprint: stale }, id)
 		);
 		expect(r.status).toBe(409);
-		expect(r.data?.message).toBe('This routine changed; it now shows the latest');
+		expect(r.data?.message).toBe(
+			isTeam
+				? 'Ana changed this routine; it now shows the latest'
+				: 'This routine changed; it now shows the latest'
+		);
 		expect(order()).toEqual(after);
 	});
 
@@ -323,13 +337,13 @@ describe.each([
 
 	it('says gone on a routine archived since, to a rename and a slot action', async () => {
 		const data = load(routinePage, id);
-		archiveRoutine(db, id, 5);
+		archiveRoutine(db, id, 5, 'u1');
 		const renamed = await call(
 			routinePage.actions.rename,
 			post({ name: 'Mine', notes: '', seen: seenOf(data) }, id)
 		);
 		expect(renamed.status).toBe(410);
-		expect(renamed.data?.gone).toEqual({ by: null, at: null });
+		expect(renamed.data?.gone).toMatchObject({ by: isTeam ? 'Ana' : null });
 		const moved = await call(
 			routinePage.actions.reorder,
 			post({ stepId: String(a), index: '1', fingerprint: data.fingerprint as string }, id)

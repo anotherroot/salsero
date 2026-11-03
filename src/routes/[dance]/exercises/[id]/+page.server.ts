@@ -20,9 +20,13 @@ import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/serve
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { isFrequency } from '$lib/frequency';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
+import { editedBy } from '$lib/server/changes';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+
+/** Who acts: History names them on a group's drill. */
+const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
 
 /**
  * The exercise this URL names, to change, or a 404. An archived exercise is
@@ -74,6 +78,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			canEditContent: popup.exercise.team === null,
 			canLog: true,
 			drill: null,
+			historyHref: null,
 			add: null
 		};
 	}
@@ -129,6 +134,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
 		canEdit,
 		canEditContent: canEdit,
+		/** The drill's History: its editors'. */
+		historyHref: canEdit ? `/${wall.dance}/groups/${row.teamId}/history/drill/${row.id}` : null,
 		seen: exerciseSeen(row),
 		canLog: popup !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
@@ -201,17 +208,19 @@ export const actions: Actions = {
 			form,
 			row.teamId !== null,
 			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
-			{ action: 'update' as const }
+			{ action: 'update' as const },
+			Date.now(),
+			() => editedBy(db, row.teamId, 'drill', row.id)
 		);
 		if (clash) return clash;
-		if (!updateExercise(db, row.id, { name, everyDays, notes, active })) {
+		if (!updateExercise(db, row.id, { name, everyDays, notes, active }, me(params, locals))) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };
 	},
 
 	archive: ({ params, locals }) => {
-		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, Date.now())) {
+		if (!archiveExercise(getDb(), exerciseOf(params, locals).id, Date.now(), me(params, locals))) {
 			return fail(400, {
 				action: 'archive',
 				message: 'Only custom exercises are archived here. Archive a figure from its page.'
@@ -244,14 +253,27 @@ export const actions: Actions = {
 	unlinkSection: async ({ params, request, locals }) => {
 		const exerciseId = exerciseOf(params, locals).id;
 		const id = int(await request.formData(), 'linkId');
-		if (id === undefined || !unlinkSpot(getDb(), id, { exerciseId })) {
+		if (
+			id === undefined ||
+			!unlinkSpot(getDb(), id, { exerciseId }, Date.now(), me(params, locals))
+		) {
 			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
 		}
 		return { action: 'unlinkSection', ok: true };
 	},
 
 	addLink: async ({ params, request, locals }) =>
-		addLinkFrom(request, getDb(), { exerciseId: exerciseOf(params, locals).id }),
+		addLinkFrom(
+			request,
+			getDb(),
+			{ exerciseId: exerciseOf(params, locals).id },
+			me(params, locals)
+		),
 	deleteLink: async ({ params, request, locals }) =>
-		deleteLinkFrom(request, getDb(), { exerciseId: exerciseOf(params, locals).id })
+		deleteLinkFrom(
+			request,
+			getDb(),
+			{ exerciseId: exerciseOf(params, locals).id },
+			me(params, locals)
+		)
 };

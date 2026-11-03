@@ -62,7 +62,7 @@ export const actions: Actions = {
 			locals.user.id,
 			'recording',
 			await request.formData(),
-			(id) => deleteRecording(getDb(), id),
+			(id) => deleteRecording(getDb(), id, locals.user?.id),
 			recordingsDir
 		);
 	},
@@ -74,7 +74,7 @@ export const actions: Actions = {
 			locals.user.id,
 			'lessonVideo',
 			await request.formData(),
-			(id) => deleteLessonVideo(getDb(), id),
+			(id) => deleteLessonVideo(getDb(), id, locals.user?.id),
 			lessonVideosDir
 		);
 	},

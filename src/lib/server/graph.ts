@@ -17,6 +17,7 @@ import {
 	isStartCount
 } from '$lib/graph/timing';
 import { ownedBy, type Space } from './scope';
+import { actingIn, fieldChange, logChange } from './changes';
 
 /**
  * The live variations (of live figures) of one dance as a graph.
@@ -114,20 +115,23 @@ export interface FigureShape {
  * migrate time), so it is enforced here, the same way the figure's style is.
  *
  * The figure page calls this BEFORE `updateFigure`, because this is the half
- * that can refuse: a refusal must leave the name untouched too.
+ * that can refuse: a refusal must leave the name untouched too. In a group,
+ * `by` is who, for History.
  */
-export function setFigureShape(db: Db, figureId: number, shape: FigureShape): boolean {
+export function setFigureShape(db: Db, figureId: number, shape: FigureShape, by?: string): boolean {
 	const { startIds, endId, startCount, lengthCounts } = shape;
 	if (!isStartCount(startCount)) return false;
 	if (!isLengthCounts(lengthCounts)) return false;
 
 	return db.transaction((tx) => {
-		const figure = tx
-			.select({ dance: figures.dance })
-			.from(figures)
-			.where(eq(figures.id, figureId))
-			.get();
+		const figure = tx.select().from(figures).where(eq(figures.id, figureId)).get();
 		if (!figure) return false;
+		const before = shapeFields({
+			startIds: figurePositions(tx, figureId).startIds,
+			endId: figure.endPositionId,
+			startCount: figure.startCount ?? DEFAULT_START_COUNT,
+			lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+		});
 
 		const wanted = [...new Set(endId === null ? startIds : [...startIds, endId])];
 		if (wanted.length > 0) {
@@ -151,8 +155,27 @@ export function setFigureShape(db: Db, figureId: number, shape: FigureShape): bo
 			.set({ endPositionId: endId, startCount, lengthCounts })
 			.where(eq(figures.id, figureId))
 			.run();
+		const change = fieldChange(
+			before,
+			shapeFields({ startIds: [...new Set(startIds)], endId, startCount, lengthCounts }),
+			'variation'
+		);
+		if (change && figure.groupId !== null) {
+			const root = { rootKind: 'figure' as const, rootId: figure.groupId, subjectId: figureId };
+			logChange(tx, actingIn(figure, by), { ...root, verb: 'change', ...change }, Date.now());
+		}
 		return true;
 	});
+}
+
+/** A shape as History and the clash check keep it: the start positions sorted and joined. */
+function shapeFields(s: FigureShape) {
+	return {
+		startIds: [...s.startIds].sort((a, b) => a - b).join(','),
+		endId: s.endId,
+		startCount: s.startCount,
+		lengthCounts: s.lengthCounts
+	};
 }
 
 /**

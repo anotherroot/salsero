@@ -43,9 +43,12 @@ import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
-import { inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
+import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
 import { lessonSeen, seenRefusal } from '$lib/server/clash';
+import { archivedRefusal, editedBy } from '$lib/server/changes';
+import { editedByLine } from '$lib/teams/history';
+import { agoText } from '$lib/format';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -81,6 +84,21 @@ function lessonOf(params: { dance: string; id: string }, locals: App.Locals) {
 	return lessonIn(params, locals, 'edit');
 }
 
+/** The lesson a link action posts to, and who acts (History names them in a group). */
+function linkOwner(
+	params: { dance: string; id: string },
+	locals: App.Locals
+): [{ lessonId: number }, string] {
+	const { lesson, space } = lessonOf(params, locals);
+	return [{ lessonId: lesson.id }, actorOf(space)];
+}
+
+/** "Edited by Ana · 10 min ago", or null before History has a line. */
+function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: number): string | null {
+	const { by, at } = editedBy(db, teamId, 'lesson', lessonId);
+	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
+}
+
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
@@ -101,6 +119,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
+		/** "Edited by Ana · 10 min ago": the last change to the lesson or anything on it. */
+		edited: team ? editedLine(db, team.id, found.lesson.id) : null,
+		/** History is its editors'. */
+		historyHref:
+			team && canEdit ? `/${wall.dance}/groups/${team.id}/history/lesson/${found.lesson.id}` : null,
 		/** A group's lesson only its editors see yet. */
 		draft: team !== null && found.lesson.publishedAt === null,
 		// A published group lesson: Add, or once added "1 new drill · Add" and
@@ -164,10 +187,12 @@ export const actions: Actions = {
 			form,
 			row.teamId !== null,
 			stored && stored.archivedAt === null ? lessonSeen(stored) : null,
-			{ action: 'update' as const, ...entered }
+			{ action: 'update' as const, ...entered },
+			Date.now(),
+			() => editedBy(db, row.teamId, 'lesson', id)
 		);
 		if (clash) return clash;
-		if (!updateLesson(db, id, { lessonDay, title, notes })) {
+		if (!updateLesson(db, id, { lessonDay, title, notes }, wallOf(params, locals).userId)) {
 			return fail(404, { action: 'update', message: 'That lesson no longer exists.' });
 		}
 		return { action: 'update', ok: true };
@@ -221,7 +246,8 @@ export const actions: Actions = {
 	},
 
 	archive: async ({ params, locals }) => {
-		if (!archiveLesson(getDb(), lessonOf(params, locals).lesson.id, Date.now())) {
+		const { lesson, space } = lessonOf(params, locals);
+		if (!archiveLesson(getDb(), lesson.id, Date.now(), actorOf(space))) {
 			return fail(400, { action: 'archive', message: 'That lesson is already archived.' });
 		}
 		throw redirect(303, `/${params.dance}/lessons`);
@@ -280,7 +306,7 @@ export const actions: Actions = {
 				notes: notes ?? ''
 			});
 		}
-		linkFigure(db, id, made.figure.id);
+		linkFigure(db, id, made.figure.id, actorOf(space));
 		return { action: 'newFigure', ok: true };
 	},
 
@@ -327,10 +353,10 @@ export const actions: Actions = {
 				'name'
 			);
 		}
-		const made = createVariationIn(db, group.id, { name, partner, style, notes });
+		const made = createVariationIn(db, group.id, { name, partner, style, notes }, actorOf(space));
 		// Checked above; only a race with another tab gets here.
 		if (!made) throw error(404, 'Figure not found');
-		linkFigure(db, id, made.id);
+		linkFigure(db, id, made.id, actorOf(space));
 		return { action: 'newVariation', ok: true };
 	},
 
@@ -356,26 +382,36 @@ export const actions: Actions = {
 
 		const db = getDb();
 		const exercise = createCustomExercise(db, space, { name, everyDays, notes });
-		linkExercise(db, id, exercise.id);
+		linkExercise(db, id, exercise.id, actorOf(space));
 		return { action: 'newExercise', ok: true };
 	},
 
 	linkFigure: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
 		const figureId = int(await request.formData(), 'figureId');
-		if (figureId === undefined || !linkFigure(getDb(), id, figureId)) {
+		const db = getDb();
+		if (figureId === undefined || !linkFigure(db, lesson.id, figureId, actorOf(space))) {
+			const archived =
+				figureId === undefined
+					? null
+					: archivedRefusal(db, space, { figureId }, { action: 'linkFigure' as const });
+			if (archived) return archived;
 			return fail(400, { action: 'linkFigure', message: 'That figure could not be linked.' });
 		}
 		return { action: 'linkFigure', ok: true };
 	},
 
 	unlinkFigure: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
+		const id = lesson.id;
 		const form = await request.formData();
 		const figureId = int(form, 'figureId');
 		// A row there through a section: its Unlink takes the section links with it.
 		const alsoSections = form.get('alsoSections') === '1';
-		if (figureId === undefined || !unlinkFigure(getDb(), id, figureId, alsoSections)) {
+		if (
+			figureId === undefined ||
+			!unlinkFigure(getDb(), id, figureId, alsoSections, Date.now(), actorOf(space))
+		) {
 			return fail(400, { action: 'unlinkFigure', message: 'That figure was already unlinked.' });
 		}
 		return { action: 'unlinkFigure', ok: true };
@@ -408,32 +444,48 @@ export const actions: Actions = {
 
 		const db = getDb();
 		const { routine } = createRoutine(db, space, { name, notes }, everyDays);
-		linkRoutine(db, id, routine.id);
+		linkRoutine(db, id, routine.id, actorOf(space));
 		throw redirect(303, `/${dance}/routines/${routine.id}`);
 	},
 
 	linkRoutine: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
 		const routineId = int(await request.formData(), 'routineId');
-		if (routineId === undefined || !linkRoutine(getDb(), id, routineId)) {
+		const db = getDb();
+		if (routineId === undefined || !linkRoutine(db, lesson.id, routineId, actorOf(space))) {
+			const archived =
+				routineId === undefined
+					? null
+					: archivedRefusal(db, space, { routineId }, { action: 'linkRoutine' as const });
+			if (archived) return archived;
 			return fail(400, { action: 'linkRoutine', message: 'That routine could not be linked.' });
 		}
 		return { action: 'linkRoutine', ok: true };
 	},
 
 	unlinkRoutine: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
+		const id = lesson.id;
 		const routineId = int(await request.formData(), 'routineId');
-		if (routineId === undefined || !unlinkRoutine(getDb(), id, routineId)) {
+		if (
+			routineId === undefined ||
+			!unlinkRoutine(getDb(), id, routineId, Date.now(), actorOf(space))
+		) {
 			return fail(400, { action: 'unlinkRoutine', message: 'That routine was already unlinked.' });
 		}
 		return { action: 'unlinkRoutine', ok: true };
 	},
 
 	linkExercise: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
 		const exerciseId = int(await request.formData(), 'exerciseId');
-		if (exerciseId === undefined || !linkExercise(getDb(), id, exerciseId)) {
+		const db = getDb();
+		if (exerciseId === undefined || !linkExercise(db, lesson.id, exerciseId, actorOf(space))) {
+			const archived =
+				exerciseId === undefined
+					? null
+					: archivedRefusal(db, space, { exerciseId }, { action: 'linkExercise' as const });
+			if (archived) return archived;
 			return fail(400, {
 				action: 'linkExercise',
 				message:
@@ -444,11 +496,15 @@ export const actions: Actions = {
 	},
 
 	unlinkExercise: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const { lesson, space } = lessonOf(params, locals);
+		const id = lesson.id;
 		const form = await request.formData();
 		const exerciseId = int(form, 'exerciseId');
 		const alsoSections = form.get('alsoSections') === '1';
-		if (exerciseId === undefined || !unlinkExercise(getDb(), id, exerciseId, alsoSections)) {
+		if (
+			exerciseId === undefined ||
+			!unlinkExercise(getDb(), id, exerciseId, alsoSections, Date.now(), actorOf(space))
+		) {
 			return fail(400, {
 				action: 'unlinkExercise',
 				message: 'That exercise was already unlinked.'
@@ -469,7 +525,7 @@ export const actions: Actions = {
 		}
 		let row;
 		try {
-			row = deleteLessonVideo(getDb(), id);
+			row = deleteLessonVideo(getDb(), id, actorOf(found.space));
 		} catch (e) {
 			if (e instanceof SpotLinkedError) {
 				return fail(409, { action: 'deleteVideo', videoId: id, message: e.message });
@@ -484,21 +540,15 @@ export const actions: Actions = {
 	},
 
 	addLink: async ({ params, request, locals }) =>
-		addLinkFrom(request, getDb(), { lessonId: lessonOf(params, locals).lesson.id }),
+		addLinkFrom(request, getDb(), ...linkOwner(params, locals)),
 	deleteLink: async ({ params, request, locals }) =>
-		deleteLinkFrom(request, getDb(), { lessonId: lessonOf(params, locals).lesson.id }),
-	saveVideo: async ({ params, request, locals }) =>
-		saveVideoFrom(
-			request,
-			getDb(),
-			{ lessonId: lessonOf(params, locals).lesson.id },
-			await freeDisk()
-		),
-	retryVideo: async ({ params, request, locals }) =>
-		retryVideoFrom(
-			request,
-			getDb(),
-			{ lessonId: lessonOf(params, locals).lesson.id },
-			await freeDisk()
-		)
+		deleteLinkFrom(request, getDb(), ...linkOwner(params, locals)),
+	saveVideo: async ({ params, request, locals }) => {
+		const [owner, by] = linkOwner(params, locals);
+		return saveVideoFrom(request, getDb(), owner, await freeDisk(), by);
+	},
+	retryVideo: async ({ params, request, locals }) => {
+		const [owner, by] = linkOwner(params, locals);
+		return retryVideoFrom(request, getDb(), owner, await freeDisk(), by);
+	}
 };

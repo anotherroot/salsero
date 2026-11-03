@@ -12,6 +12,7 @@ import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
 import { assertUnlinked, linkChips, videoOfSpot, type Visible } from './spot-links';
 import { ownerOfRow, type Owner } from './storage';
+import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
 export class SpotError extends Error {}
@@ -136,21 +137,64 @@ export function listSpots(db: Db, owner: SpotOwner, visible?: Visible): Spot[] {
 	return withLinks(db, rows, visible);
 }
 
-/** The new spot, or null when its video does not exist. Throws `SpotError` on a bad value. */
+/** The new spot, or null when its video does not exist. Throws `SpotError` on a bad value.
+ * In a group, `by` is who, for History.
+ */
 export function addSpot(
 	db: Db,
 	owner: SpotOwner,
-	input: { startMs: unknown; endMs: unknown; label: unknown }
+	input: { startMs: unknown; endMs: unknown; label: unknown },
+	by?: string
 ): Spot | null {
 	const times = cleanTimes(input.startMs, input.endMs);
 	const label = cleanLabel(input.label);
 	if (!ownerExists(db, owner)) return null;
-	const row = db
-		.insert(videoSpots)
-		.values({ ...owner, ...times, label })
-		.returning(COLUMNS)
-		.get();
-	return { ...row, linkedTo: [] };
+	return db.transaction((tx) => {
+		const row = tx
+			.insert(videoSpots)
+			.values({ ...owner, ...times, label })
+			.returning(COLUMNS)
+			.get();
+		const root = videoRoot(tx, owner);
+		if (root) logSpot(tx, root, by, { verb: 'add', spot: row, after: fields(row) });
+		return { ...row, linkedTo: [] };
+	});
+}
+
+/** A spot as History keeps it: the player's three fields, the clash check's keys. */
+const fields = (s: { label: string | null; startMs: number; endMs: number | null }) => ({
+	label: s.label,
+	startMs: s.startMs,
+	endMs: s.endMs
+});
+
+/** History's line for a section or a point, filed under its video's lesson or figure. */
+function logSpot(
+	tx: Db,
+	root: NonNullable<ReturnType<typeof videoRoot>>,
+	by: string | undefined,
+	e: {
+		verb: 'add' | 'change' | 'remove' | 'restore';
+		spot: { id: number; endMs: number | null };
+		before?: Record<string, string | number | null>;
+		after?: Record<string, string | number | null>;
+	},
+	now = Date.now()
+): void {
+	const { row, ...at } = root;
+	logChange(
+		tx,
+		actingIn(row, by),
+		{
+			...at,
+			verb: e.verb,
+			subject: e.spot.endMs === null ? 'point' : 'section',
+			subjectId: e.spot.id,
+			before: e.before,
+			after: e.after
+		},
+		now
+	);
 }
 
 /**
@@ -158,12 +202,17 @@ export function addSpot(
  * when there is none. The times are checked merged with the stored ones, as
  * `addSpot` checks them — and a point stays a point, a section a section: the
  * player only nudges edges, so a change of kind is a bad client. Throws
- * `SpotError`, changing nothing, on a bad value.
+ * `SpotError`, changing nothing, on a bad value. In a group, `by` is who, for
+ * History (`verb` is `restore` for its Restore); a line about a move names
+ * the section, so its label rides along.
  */
 export function updateSpot(
 	db: Db,
 	id: number,
-	changes: { label?: unknown; startMs?: unknown; endMs?: unknown }
+	changes: { label?: unknown; startMs?: unknown; endMs?: unknown },
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
 ): Spot | null {
 	return db.transaction((tx) => {
 		const current = tx.select(COLUMNS).from(videoSpots).where(eq(videoSpots.id, id)).get();
@@ -184,14 +233,28 @@ export function updateSpot(
 			.where(eq(videoSpots.id, id))
 			.returning(COLUMNS)
 			.get()!;
+		const change = fieldChange(fields(current), fields(row), 'spot');
+		const root = change ? spotRoot(tx, id) : null;
+		if (change && root) {
+			const before = { ...change.before, label: current.label };
+			const after = { ...change.after, label: row.label };
+			logSpot(tx, root, by, { verb, spot: row, before, after }, now);
+		}
 		return withLinks(tx, [row])[0];
 	});
 }
 
-/** Whether a row went. Throws `SpotLinkedError`, deleting nothing, while the section is linked. */
-export function deleteSpot(db: Db, id: number): boolean {
+/**
+ * Whether a row went. Throws `SpotLinkedError`, deleting nothing, while the
+ * section is linked. In a group, `by` is who, for History.
+ */
+export function deleteSpot(db: Db, id: number, by?: string): boolean {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { spotId: id });
-		return tx.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get() !== undefined;
+		const root = spotRoot(tx, id);
+		const gone = tx.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get();
+		if (!gone) return false;
+		if (root) logSpot(tx, root, by, { verb: 'remove', spot: gone, before: fields(gone) });
+		return true;
 	});
 }

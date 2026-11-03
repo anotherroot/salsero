@@ -13,6 +13,8 @@
  * sheet can put a value back into the field it came from.
  */
 
+import { agoText } from '$lib/format';
+
 export type SeenValue = string | number | null;
 export type Seen = Record<string, SeenValue>;
 
@@ -86,16 +88,8 @@ export function routineFingerprint(
 	return hash(`${slots.length}|${canonical}`);
 }
 
-/** "5 min ago", from two epoch-ms instants. */
-export function agoText(at: number, now: number): string {
-	const min = Math.floor(Math.max(0, now - at) / 60_000);
-	if (min < 1) return 'just now';
-	if (min < 60) return `${min} min ago`;
-	const h = Math.floor(min / 60);
-	if (h < 24) return `${h} h ago`;
-	const d = Math.floor(h / 24);
-	return d === 1 ? 'yesterday' : `${d} days ago`;
-}
+/** "5 min ago": `format.ts`'s, shared with "Edited by" and History. */
+export { agoText };
 
 /** The clash sheet's title: who changed it and when, once that is known. */
 export function clashTitle(info: { by: string | null; at: number | null }, now: number): string {
@@ -120,7 +114,7 @@ export function goneTitle(info: { by: string | null; at: number | null }, now: n
 export function staleRoutine(by: string | null): string {
 	return by === null
 		? 'This routine changed; it now shows the latest'
-		: `${by} changed this routine; it now shows their version`;
+		: `${by} changed this routine; it now shows the latest`;
 }
 
 /** What the clash sheet calls a field, by its form name. */

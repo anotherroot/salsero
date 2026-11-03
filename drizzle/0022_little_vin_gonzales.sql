@@ -1,0 +1,1 @@
+ALTER TABLE `video_downloads` ADD `requested_by` text;

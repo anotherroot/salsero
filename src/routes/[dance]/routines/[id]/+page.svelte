@@ -553,6 +553,9 @@
 {/snippet}
 
 {#snippet actions()}
+	{#if data.historyHref}
+		<BandButton icon="clock" label="History" href={data.historyHref} />
+	{/if}
 	<BandButton focusKey="edit" icon="pencil" label="Edit routine" onclick={startEditing} />
 	{#if data.slots.length > 0}
 		<BandButton

@@ -7,6 +7,7 @@ import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots'
 import { checkSeen, MISSING_SEEN, seesAll, spotSeen } from '$lib/server/clash';
 import { asSeen, clashTitle } from '$lib/clash/clash';
 import { SpotLinkedError } from '$lib/server/spot-links';
+import { editedBy, spotRoot } from '$lib/server/changes';
 import type { RequestHandler } from './$types';
 
 /**
@@ -54,7 +55,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 				.filter((k) => k in all)
 				.map((k) => [k, all[k]])
 		);
-	const check = checkSeen(spotSeen(row), sent === null ? null : (pick(sent) as typeof sent));
+	const check = checkSeen(spotSeen(row), sent === null ? null : (pick(sent) as typeof sent), () => {
+		const root = spotRoot(db, id);
+		return root
+			? editedBy(db, root.row.teamId, root.rootKind, root.rootId, id)
+			: { by: null, at: null };
+	});
 	if (!check.ok && 'changed' in check) {
 		const { changed, current, by, at } = check;
 		return json(
@@ -63,7 +69,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		);
 	}
 	try {
-		const spot = updateSpot(db, id, changes);
+		const spot = updateSpot(db, id, changes, locals.user?.id);
 		if (!spot) throw error(404, 'No such spot');
 		return json(spot);
 	} catch (e) {
@@ -77,7 +83,7 @@ export const DELETE: RequestHandler = ({ params, locals }) => {
 	const id = spotId(params.id, locals);
 	let gone: boolean;
 	try {
-		gone = deleteSpot(getDb(), id);
+		gone = deleteSpot(getDb(), id, locals.user?.id);
 	} catch (e) {
 		if (e instanceof SpotLinkedError) throw error(409, e.message);
 		throw e;

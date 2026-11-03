@@ -24,6 +24,7 @@ import {
 } from './db/schema';
 import { buildGraph } from './graph';
 import { reconcileEntries } from './entries';
+import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
@@ -110,15 +111,63 @@ export function createRoutine(
 ): { routine: Routine; exercise: Exercise };
 export function createRoutine(db: Db, space: Space, input: RoutineInput, everyDays?: number): Made;
 export function createRoutine(db: Db, space: Space, input: RoutineInput, everyDays = 3): Made {
-	return db.transaction((tx) => insertRoutine(tx, space, input, everyDays));
+	return db.transaction((tx) => {
+		const made = insertRoutine(tx, space, input, everyDays);
+		logRoutine(tx, made.routine, space, {
+			verb: 'add',
+			subject: 'routine',
+			after: { name: made.routine.name }
+		});
+		return made;
+	});
 }
 
-/** Edit a routine. A rename carries over to its exercise so the two never drift. */
-export function updateRoutine(db: Db, id: number, input: RoutineInput) {
+/**
+ * The subject of a change to several slots: one slot by its id, or how many.
+ * `side` is the half that carries the count (`before` for a removal).
+ */
+function slotSubject(ids: number[], side: 'before' | 'after') {
+	if (ids.length === 1) return { subject: 'slot', subjectId: ids[0] };
+	const count = { count: ids.length };
+	return side === 'before'
+		? { subject: 'slot', subjectId: null, before: count }
+		: { subject: 'slot', subjectId: null, after: count };
+}
+
+/** History's line for a change to a routine, filed under it; `who` is a space, or the person acting. */
+function logRoutine(
+	tx: Db,
+	routine: { id: number; dance: string; userId: string | null; teamId: number | null },
+	who: Space | string | undefined,
+	e: Omit<ChangeEntry, 'rootKind' | 'rootId'>,
+	now = Date.now()
+): void {
+	const space = typeof who === 'object' ? who : actingIn(routine, who);
+	const subjectId = e.subjectId === undefined ? routine.id : e.subjectId;
+	logChange(tx, space, { ...e, rootKind: 'routine', rootId: routine.id, subjectId }, now);
+}
+
+/**
+ * Edit a routine. A rename carries over to its exercise so the two never drift.
+ * In a group, `by` is who, for History (`verb` is `restore` for History's own
+ * Restore).
+ */
+export function updateRoutine(
+	db: Db,
+	id: number,
+	input: RoutineInput,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+) {
 	return db.transaction((tx) => {
-		const routine = tx.update(routines).set(input).where(eq(routines.id, id)).returning().get();
-		if (!routine) return null;
+		const before = getRoutine(tx, id);
+		if (!before) return null;
+		const routine = tx.update(routines).set(input).where(eq(routines.id, id)).returning().get()!;
 		tx.update(exercises).set({ name: routine.name }).where(eq(exercises.routineId, id)).run();
+		const fields = (r: RoutineInput) => ({ name: r.name, notes: r.notes });
+		const change = fieldChange(fields(before), fields(routine), 'routine');
+		if (change) logRoutine(tx, routine, by, { verb, ...change }, now);
 		return routine;
 	});
 }
@@ -132,19 +181,21 @@ export function updateRoutine(db: Db, id: number, input: RoutineInput) {
  * In a group, every person's entry for it goes, and so does what only it
  * brought into their added lessons (`reconcileEntries`).
  */
-export function archiveRoutine(db: Db, id: number, now: number): boolean {
+export function archiveRoutine(db: Db, id: number, now: number, by?: string): boolean {
 	return db.transaction((tx) => {
-		const res = tx
+		const routine = tx
 			.update(routines)
 			.set({ archivedAt: now })
 			.where(and(eq(routines.id, id), isNull(routines.archivedAt)))
-			.run();
-		if (res.changes === 0) return false;
+			.returning()
+			.get();
+		if (!routine) return false;
 		tx.update(exercises)
 			.set({ archivedAt: now })
 			.where(and(eq(exercises.routineId, id), isNull(exercises.archivedAt)))
 			.run();
 		reconcileRoutine(tx, id, now);
+		logRoutine(tx, routine, by, { verb: 'archive', subject: 'routine' }, now);
 		return true;
 	});
 }
@@ -407,7 +458,8 @@ export function insertSlot(
 	db: Db,
 	routineId: number,
 	at: number,
-	content: SlotContent
+	content: SlotContent,
+	by?: string
 ): number | null {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return null;
@@ -435,18 +487,29 @@ export function insertSlot(
 		}
 		ids.splice(Math.min(Math.max(at, 0), ids.length), 0, step.id);
 		order(tx, ids);
+		logRoutine(tx, routine, by, { verb: 'add', subject: 'slot', subjectId: step.id });
 		return step.id;
 	});
 }
 
 /** Append a slot holding one figure. See `insertSlot`. */
-export function addFigureSlot(db: Db, routineId: number, figureId: number): number | null {
-	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { figureId });
+export function addFigureSlot(
+	db: Db,
+	routineId: number,
+	figureId: number,
+	by?: string
+): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { figureId }, by);
 }
 
 /** Append a slot holding an embedded routine. Null when `canEmbed` says no. */
-export function addChildSlot(db: Db, routineId: number, childId: number): number | null {
-	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { childId });
+export function addChildSlot(
+	db: Db,
+	routineId: number,
+	childId: number,
+	by?: string
+): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { childId }, by);
 }
 
 /**
@@ -490,6 +553,11 @@ export function createRoutineFromFigures(
 				.returning({ id: routineSteps.id })
 				.get();
 			tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
+		});
+		logRoutine(tx, made.routine, space, {
+			verb: 'add',
+			subject: 'routine',
+			after: { name: made.routine.name }
 		});
 		return made;
 	});
@@ -549,7 +617,7 @@ export function embeddable(db: Db, routineId: number): { id: number; name: strin
  * slot's main figure, when it begins on another count or from no hold the
  * main figure begins from.
  */
-export function addOption(db: Db, stepId: number, figureId: number): boolean {
+export function addOption(db: Db, stepId: number, figureId: number, by?: string): boolean {
 	const step = db
 		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
 		.from(routineSteps)
@@ -585,12 +653,21 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	) {
 		return false;
 	}
-	db.insert(routineStepOptions).values({ stepId, figureId }).run();
+	db.transaction((tx) => {
+		tx.insert(routineStepOptions).values({ stepId, figureId }).run();
+		logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
+	});
 	return true;
 }
 
 /** Drop an option. False when it would leave the slot empty. */
-export function removeOption(db: Db, stepId: number, figureId: number, now = Date.now()): boolean {
+export function removeOption(
+	db: Db,
+	stepId: number,
+	figureId: number,
+	now = Date.now(),
+	by?: string
+): boolean {
 	return db.transaction((tx) => {
 		const all = tx
 			.select({ figureId: routineStepOptions.figureId })
@@ -606,7 +683,11 @@ export function removeOption(db: Db, stepId: number, figureId: number, now = Dat
 			.from(routineSteps)
 			.where(eq(routineSteps.id, stepId))
 			.get();
-		if (step) reconcileRoutine(tx, step.routineId, now);
+		const routine = step ? getRoutine(tx, step.routineId) : null;
+		if (routine) {
+			reconcileRoutine(tx, routine.id, now);
+			logRoutine(tx, routine, by, { verb: 'remove', subject: 'option', subjectId: stepId }, now);
+		}
 		return true;
 	});
 }
@@ -620,7 +701,7 @@ export function removeOption(db: Db, stepId: number, figureId: number, now = Dat
  * option, which cannot change the main figure: the main figure is never
  * removed on its own (removing it removes the slot).
  */
-export function restoreOption(db: Db, stepId: number, figureId: number): boolean {
+export function restoreOption(db: Db, stepId: number, figureId: number, by?: string): boolean {
 	const step = db
 		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
 		.from(routineSteps)
@@ -634,12 +715,37 @@ export function restoreOption(db: Db, stepId: number, figureId: number): boolean
 		.where(eq(figures.id, figureId))
 		.get();
 	if (!routine || !figure || !inSpace(figure, ownerSpace(routine))) return false;
-	db.insert(routineStepOptions).values({ stepId, figureId }).onConflictDoNothing().run();
+	db.transaction((tx) => {
+		const put = tx
+			.insert(routineStepOptions)
+			.values({ stepId, figureId })
+			.onConflictDoNothing()
+			.run();
+		if (put.changes > 0) {
+			logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
+		}
+	});
 	return true;
 }
 
-export function setSlotNote(db: Db, stepId: number, note: string | null): boolean {
-	return db.update(routineSteps).set({ note }).where(eq(routineSteps.id, stepId)).run().changes > 0;
+/** A slot's note. In a group, `by` is who, for History (`verb` is `restore` for its Restore). */
+export function setSlotNote(
+	db: Db,
+	stepId: number,
+	note: string | null,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+): boolean {
+	return db.transaction((tx) => {
+		const step = tx.select().from(routineSteps).where(eq(routineSteps.id, stepId)).get();
+		const routine = step ? getRoutine(tx, step.routineId) : null;
+		if (!step || !routine) return false;
+		tx.update(routineSteps).set({ note }).where(eq(routineSteps.id, stepId)).run();
+		const change = fieldChange({ note: step.note }, { note }, 'note');
+		if (change) logRoutine(tx, routine, by, { verb, ...change, subjectId: stepId }, now);
+		return true;
+	});
 }
 
 /**
@@ -652,7 +758,8 @@ export function deleteSlots(
 	db: Db,
 	routineId: number,
 	stepIds: number[],
-	now = Date.now()
+	now = Date.now(),
+	by?: string
 ): SlotSnapshot[] | null {
 	const wanted = [...new Set(stepIds)];
 	if (wanted.length === 0) return null;
@@ -682,6 +789,20 @@ export function deleteSlots(
 		tx.delete(routineSteps).where(inArray(routineSteps.id, wanted)).run();
 		order(tx, slotIds(tx, routineId));
 		reconcileRoutine(tx, routineId, now);
+		const routine = getRoutine(tx, routineId)!;
+		logRoutine(
+			tx,
+			routine,
+			by,
+			{
+				verb: 'remove',
+				...slotSubject(
+					steps.map((s) => s.id),
+					'before'
+				)
+			},
+			now
+		);
 		return snapshot;
 	});
 }
@@ -696,7 +817,12 @@ export function deleteSlots(
  * slot. A child must still be embeddable, because the one-level rule is a
  * structural guarantee, not a preference. All or nothing.
  */
-export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]): boolean {
+export function restoreSlots(
+	db: Db,
+	routineId: number,
+	snapshot: SlotSnapshot[],
+	by?: string
+): boolean {
 	const routine = getRoutine(db, routineId);
 	if (!routine || snapshot.length === 0) return false;
 	const figureIds = [...new Set(snapshot.flatMap((s) => s.figureIds))];
@@ -712,6 +838,7 @@ export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]
 		return false;
 	}
 	return db.transaction((tx) => {
+		const back: number[] = [];
 		for (const s of [...snapshot].sort((a, b) => a.position - b.position)) {
 			const ids = slotIds(tx, routineId);
 			const step = tx
@@ -722,9 +849,11 @@ export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]
 			for (const figureId of s.figureIds) {
 				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
 			}
+			back.push(step.id);
 			ids.splice(Math.min(s.position, ids.length), 0, step.id);
 			order(tx, ids);
 		}
+		logRoutine(tx, routine, by, { verb: 'restore', ...slotSubject(back, 'after') });
 		return true;
 	});
 }
@@ -734,7 +863,13 @@ export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]
  * this routine's or the index is off either end; a drop is always inside the
  * list, so an index outside it is a stale or tampered request.
  */
-export function moveSlotTo(db: Db, routineId: number, stepId: number, index: number): boolean {
+export function moveSlotTo(
+	db: Db,
+	routineId: number,
+	stepId: number,
+	index: number,
+	by?: string
+): boolean {
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
 		const from = ids.indexOf(stepId);
@@ -742,6 +877,15 @@ export function moveSlotTo(db: Db, routineId: number, stepId: number, index: num
 		ids.splice(from, 1);
 		ids.splice(index, 0, stepId);
 		order(tx, ids);
+		if (from !== index) {
+			logRoutine(tx, getRoutine(tx, routineId)!, by, {
+				verb: 'change',
+				subject: 'order',
+				subjectId: stepId,
+				before: { index: from },
+				after: { index }
+			});
+		}
 		return true;
 	});
 }
@@ -752,7 +896,12 @@ export function moveSlotTo(db: Db, routineId: number, stepId: number, index: num
  * selected slot: "repeat this bit" belongs right after the bit. The copies'
  * ids, or null (nothing written) when any id is not this routine's.
  */
-export function duplicateSlots(db: Db, routineId: number, stepIds: number[]): number[] | null {
+export function duplicateSlots(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	by?: string
+): number[] | null {
 	const wanted = [...new Set(stepIds)];
 	if (wanted.length === 0) return null;
 	return db.transaction((tx) => {
@@ -783,6 +932,10 @@ export function duplicateSlots(db: Db, routineId: number, stepIds: number[]): nu
 		const last = Math.max(...steps.map((s) => ids.indexOf(s.id)));
 		ids.splice(last + 1, 0, ...copies);
 		order(tx, ids);
+		logRoutine(tx, getRoutine(tx, routineId)!, by, {
+			verb: 'add',
+			...slotSubject(copies, 'after')
+		});
 		return copies;
 	});
 }
@@ -813,12 +966,13 @@ export function extractRoutine(
 	db: Db,
 	routineId: number,
 	stepIds: number[],
-	name: string
+	name: string,
+	by?: string
 ): { routineId: number; stepId: number } | null {
 	const routine = getRoutine(db, routineId);
 	const wanted = [...new Set(stepIds)];
 	if (!routine || wanted.length === 0 || embeddedIn(db, routineId).length > 0) return null;
-	const space = ownerSpace(routine);
+	const space = actingIn(routine, by);
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
 		const run = tx
@@ -850,6 +1004,13 @@ export function extractRoutine(
 			.get();
 		rest.splice(at, 0, step.id);
 		order(tx, rest);
+		// Filed under the routine the slots left: the new one starts from here.
+		logRoutine(tx, routine, space, {
+			verb: 'add',
+			subject: 'extract',
+			subjectId: made.routine.id,
+			after: { name }
+		});
 		return { routineId: made.routine.id, stepId: step.id };
 	});
 }
@@ -863,7 +1024,7 @@ export function extractRoutine(
  * keeps the one-level embedding rule intact without a second check — the copy
  * embeds exactly what the source embedded, and the source was already legal.
  */
-export function duplicateRoutine(db: Db, id: number) {
+export function duplicateRoutine(db: Db, id: number, by?: string) {
 	const source = getRoutine(db, id);
 	if (!source) return null;
 	const { dance, userId, teamId } = source;
@@ -904,6 +1065,7 @@ export function duplicateRoutine(db: Db, id: number) {
 				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
 			}
 		}
+		logRoutine(tx, routine, by, { verb: 'add', subject: 'routine', after: { name: routine.name } });
 		return routine;
 	});
 }

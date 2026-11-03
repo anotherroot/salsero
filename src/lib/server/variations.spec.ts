@@ -616,7 +616,7 @@ describe('in a group', () => {
 		const made = createFigure(db, T1_SALSA, { ...input, figureName: 'Enchufla' })!;
 		expect(made.group).toMatchObject({ userId: null, teamId: 1 });
 		expect(made.figure).toMatchObject({ userId: null, teamId: 1 });
-		const doble = createVariationIn(db, made.group.id, { ...input, name: 'Doble' })!;
+		const doble = createVariationIn(db, made.group.id, { ...input, name: 'Doble' }, 'u1')!;
 		expect(doble).toMatchObject({ userId: null, teamId: 1 });
 		expect(listFigures(db, U1_SALSA)).toEqual([]);
 		expect(listVersions(db, U1_SALSA)).toEqual([]);
@@ -634,7 +634,7 @@ describe('in a group', () => {
 			ok: false,
 			reason: 'gone'
 		});
-		const moved = moveVariation(db, team.figure.id, { newFigure: 'Setenta' });
+		const moved = moveVariation(db, team.figure.id, { newFigure: 'Setenta' }, 'u1');
 		expect(moved).toMatchObject({ ok: true });
 		const g = db
 			.select()

@@ -87,7 +87,7 @@ describe('words', () => {
 		expect(goneTitle({ by: 'Ana', at: now - 2 * 60 * 60_000 }, now)).toBe(
 			'Ana deleted this · 2 h ago'
 		);
-		expect(staleRoutine('Ana')).toBe('Ana changed this routine; it now shows their version');
+		expect(staleRoutine('Ana')).toBe('Ana changed this routine; it now shows the latest');
 	});
 	it('reads an age', () => {
 		expect(agoText(now, now)).toBe('just now');

@@ -9,7 +9,16 @@
  */
 import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { lessonVideos, links, recordings, videoDownloads, videoSpots } from './db/schema';
+import {
+	lessonVideos,
+	links,
+	recordings,
+	teamMembers,
+	videoDownloads,
+	videoSpots
+} from './db/schema';
+import { logChange, videoRoot } from './changes';
+import { spaceOfRow } from './scope';
 import type { LinkOwner } from './links';
 import { LEASE_MS, MAX_ATTEMPTS } from './songs';
 import { ownerOfTarget, roomForOwner } from './storage';
@@ -27,11 +36,16 @@ function linkOf(db: Db, owner: LinkOwner, linkId: number) {
 		.get();
 }
 
-/** Queue a YouTube link. A link that already has a job keeps it as it is — Retry is its own action. */
+/**
+ * Queue a YouTube link. A link that already has a job keeps it as it is —
+ * Retry is its own action. `by` is who asked: History names them when the
+ * video lands in a group's lesson or figure.
+ */
 export function requestVideoDownload(
 	db: Db,
 	owner: LinkOwner,
-	linkId: number
+	linkId: number,
+	by?: string
 ): 'ok' | 'not-found' | 'not-youtube' {
 	const link = linkOf(db, owner, linkId);
 	if (!link) return 'not-found';
@@ -42,7 +56,8 @@ export function requestVideoDownload(
 			figureId: link.figureId,
 			lessonId: link.lessonId,
 			url: link.url,
-			status: 'queued'
+			status: 'queued',
+			requestedBy: by ?? null
 		})
 		.onConflictDoNothing({ target: videoDownloads.linkId })
 		.run();
@@ -50,12 +65,18 @@ export function requestVideoDownload(
 }
 
 /** A failed save, queued again from scratch. False when the link is not `owner`'s or has no job. */
-export function retryVideoDownload(db: Db, owner: LinkOwner, linkId: number): boolean {
+export function retryVideoDownload(db: Db, owner: LinkOwner, linkId: number, by?: string): boolean {
 	if (!linkOf(db, owner, linkId)) return false;
 	return (
 		db
 			.update(videoDownloads)
-			.set({ status: 'queued', attempts: 0, error: null, claimedAt: null })
+			.set({
+				status: 'queued',
+				attempts: 0,
+				error: null,
+				claimedAt: null,
+				...(by ? { requestedBy: by } : {})
+			})
 			.where(eq(videoDownloads.linkId, linkId))
 			.run().changes > 0
 	);
@@ -195,6 +216,34 @@ export function completeVideoJob(
 
 		tx.delete(videoDownloads).where(eq(videoDownloads.id, id)).run();
 		tx.delete(links).where(eq(links.id, job.linkId)).run();
+		logArrived(tx, owner, job.requestedBy);
 		return owner;
 	});
+}
+
+/**
+ * History's line for a saved video that arrived: a video added to its lesson,
+ * or a recording to its figure, by whoever pressed Save. A job from before
+ * that was kept falls back to the group's owner, so the line still names
+ * someone.
+ */
+function logArrived(
+	tx: Db,
+	owner: { recordingId: number } | { lessonVideoId: number },
+	requestedBy: string | null
+): void {
+	const root = videoRoot(tx, owner);
+	if (!root || root.row.teamId === null) return;
+	const by =
+		requestedBy ??
+		tx
+			.select({ userId: teamMembers.userId })
+			.from(teamMembers)
+			.where(and(eq(teamMembers.teamId, root.row.teamId), eq(teamMembers.role, 'owner')))
+			.get()?.userId ??
+		'';
+	const { row, ...at } = root;
+	const [subject, subjectId] =
+		'recordingId' in owner ? ['recording', owner.recordingId] : ['video', owner.lessonVideoId];
+	logChange(tx, spaceOfRow(row, by), { ...at, verb: 'add', subject, subjectId }, Date.now());
 }

@@ -911,10 +911,10 @@ describe('in a group', () => {
 			theirs.id,
 			theirs.id
 		])!;
-		const copy = duplicateRoutine(db, made.routine.id)!;
+		const copy = duplicateRoutine(db, made.routine.id, 'u1')!;
 		expect(copy).toMatchObject({ userId: null, teamId: 1 });
 		const steps = routineSlots(db, made.routine.id).map((s) => s.id);
-		const pulled = extractRoutine(db, made.routine.id, [steps[0]], 'Part')!;
+		const pulled = extractRoutine(db, made.routine.id, [steps[0]], 'Part', 'u1')!;
 		expect(getRoutine(db, pulled.routineId)).toMatchObject({ userId: null, teamId: 1 });
 		expect(db.select().from(exercises).all()).toEqual([]);
 	});

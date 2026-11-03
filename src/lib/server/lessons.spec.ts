@@ -851,8 +851,8 @@ describe('in a group', () => {
 			everyDays: 3,
 			notes: null
 		});
-		expect(linkFigure(db, lessonId, theirs.id)).toBe(true);
-		expect(linkExercise(db, lessonId, teamDrill.id)).toBe(true);
+		expect(linkFigure(db, lessonId, theirs.id, 'u1')).toBe(true);
+		expect(linkExercise(db, lessonId, teamDrill.id, 'u1')).toBe(true);
 	});
 
 	it("judges an entry by its target's owner, not its own", () => {
@@ -910,7 +910,7 @@ describe('a group lesson: draft and publish', () => {
 		const theirs = createLesson(db, { ...T(), teamId: other.teamId }, lessonInput).lesson.id;
 		const mine = createLesson(db, U1_SALSA, lessonInput).lesson.id;
 		const archived = createLesson(db, T(), lessonInput).lesson.id;
-		archiveLesson(db, archived, 3);
+		archiveLesson(db, archived, 3, 'u1');
 		expect(publishLesson(db, T(), theirs, 5)).toBe(false);
 		expect(publishLesson(db, T(), mine, 5)).toBe(false);
 		expect(publishLesson(db, T(), archived, 5)).toBe(false);
@@ -957,8 +957,13 @@ describe('a group lesson: draft and publish', () => {
 			notes: null
 		});
 		const id = createLesson(db, T(), lessonInput).lesson.id;
-		const video = addLessonVideo(db, video_(id));
-		const section = addSpot(db, { lessonVideoId: video.id }, { startMs: 0, endMs: 9, label: 'S' })!;
+		const video = addLessonVideo(db, video_(id), 'u1');
+		const section = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 0, endMs: 9, label: 'S' },
+			'u1'
+		)!;
 
 		const options = linkOptionsFor(db, section.id, 'u1')!;
 		const offered = [...options.near, ...options.figures, ...options.drills].map((o) => o.label);

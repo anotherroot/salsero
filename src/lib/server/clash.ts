@@ -41,15 +41,20 @@ export function seenFrom(form: FormData): Seen | null {
  * allowed (a person's own row) or not (a group's) is the caller's question,
  * asked first (`seenRefusal`, `missingSeen`).
  *
- * `by` and `at` come from History once it exists (Task 12); null until then.
+ * `who` says who changed it last and when: History's `editedBy` for a
+ * group's thing, asked only when the save is refused. Nobody without it.
  */
-export function checkSeen(current: Seen | null, seen: Seen | null): SeenCheck {
-	if (current === null) return { ok: false, gone: true, by: null, at: null };
+export function checkSeen(current: Seen | null, seen: Seen | null, who: Who = nobody): SeenCheck {
+	if (current === null) return { ok: false, gone: true, ...who() };
 	if (seen === null) return { ok: true };
 	const changed = changedFields(seen, current);
 	if (changed.length === 0) return { ok: true };
-	return { ok: false, changed, current, by: null, at: null };
+	return { ok: false, changed, current, ...who() };
 }
+
+/** Who changed a thing last, by name, and when; asked lazily. */
+export type Who = () => { by: string | null; at: number | null };
+const nobody: Who = () => ({ by: null, at: null });
 
 /**
  * Whether a save said what it saw of every field it writes. On a group's row
@@ -67,20 +72,22 @@ export const MISSING_SEEN = 'This page is out of date. Reload it and try again.'
  * A form save's clash check, as the failure to return (or null to go on):
  * 400 for a group's save without `seen`, 409 carrying `clash` (the other
  * version), 410 carrying `gone`. `extra` is the action's own failure fields
- * (its `action`, what was typed), so the page keeps the typed values.
+ * (its `action`, what was typed), so the page keeps the typed values. `who`
+ * names who changed or archived it (History's `editedBy`).
  */
 export function seenRefusal<T extends Record<string, unknown>>(
 	form: FormData,
 	team: boolean,
 	current: Seen | null,
 	extra: T,
-	now = Date.now()
+	now = Date.now(),
+	who: Who = nobody
 ): ActionFailure<T & { message: string; clash?: unknown; gone?: unknown }> | null {
 	const seen = seenFrom(form);
 	if (team && current !== null && !seesAll(seen, Object.keys(current))) {
 		return fail(400, { ...extra, message: MISSING_SEEN });
 	}
-	const check = checkSeen(current, seen);
+	const check = checkSeen(current, seen, who);
 	if (check.ok) return null;
 	if ('gone' in check) {
 		const gone = { by: check.by, at: check.at };

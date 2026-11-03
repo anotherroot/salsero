@@ -26,6 +26,7 @@ import {
 } from './db/schema';
 import { ownerValues, type Space, type Wall } from './scope';
 import { reconcileEntries } from './entries';
+import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
@@ -146,20 +147,41 @@ export interface SettingsInput {
  * editor's song would play it to everyone (see `setPracticeSettings`).
  */
 export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsInput, 'active'>) {
-	return db
-		.insert(exercises)
-		.values({ ...input, source: 'custom', ...ownerValues(space), songId: null })
-		.returning()
-		.get();
+	return db.transaction((tx) => {
+		const drill = tx
+			.insert(exercises)
+			.values({ ...input, source: 'custom', ...ownerValues(space), songId: null })
+			.returning()
+			.get();
+		logChange(
+			tx,
+			space,
+			{ ...ofDrill(drill.id), verb: 'add', subject: 'drill', after: { name: drill.name } },
+			Date.now()
+		);
+		return drill;
+	});
 }
+
+/** A drill's root in History, and the drill as its own subject. */
+const ofDrill = (id: number) => ({ rootKind: 'drill' as const, rootId: id, subjectId: id });
 
 /**
  * Edit an exercise's settings. An owned exercise takes its NAME from its owner
  * (figure, lesson, routine, a group's drill), so a name passed for one is
  * ignored rather than letting the two drift apart. A drill's rename reaches
- * every entry that practises it (`drill_id`), the way a figure's does.
+ * every entry that practises it (`drill_id`), the way a figure's does. In a
+ * group, `by` is who, for History (`verb` is `restore` for its Restore); a
+ * group drill's frequency and Active are no one's, so only name and notes count.
  */
-export function updateExercise(db: Db, id: number, input: SettingsInput) {
+export function updateExercise(
+	db: Db,
+	id: number,
+	input: SettingsInput,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+) {
 	return db.transaction((tx) => {
 		const current = tx.select().from(exercises).where(eq(exercises.id, id)).get();
 		if (!current) return null;
@@ -172,6 +194,14 @@ export function updateExercise(db: Db, id: number, input: SettingsInput) {
 			.get();
 		if (current.source === 'custom') {
 			tx.update(exercises).set({ name }).where(eq(exercises.drillId, id)).run();
+		}
+		if (current.teamId !== null && row) {
+			const fields = (e: { name: string; notes: string | null }) => ({
+				name: e.name,
+				notes: e.notes
+			});
+			const change = fieldChange(fields(current), fields(row), 'drill');
+			if (change) logChange(tx, actingIn(current, by), { ...ofDrill(id), verb, ...change }, now);
 		}
 		return row;
 	});
@@ -228,13 +258,13 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
  * `now` (one already archived keeps its own time), and whatever else the
  * group's shrunken reach drops (`reconcileEntries`).
  */
-export function archiveExercise(db: Db, id: number, now: number): boolean {
+export function archiveExercise(db: Db, id: number, now: number, by?: string): boolean {
 	return db.transaction((tx) => {
 		const row = tx
 			.update(exercises)
 			.set({ archivedAt: now })
 			.where(and(eq(exercises.id, id), eq(exercises.source, 'custom')))
-			.returning({ teamId: exercises.teamId })
+			.returning()
 			.get();
 		if (!row) return false;
 		if (row.teamId !== null) {
@@ -243,6 +273,7 @@ export function archiveExercise(db: Db, id: number, now: number): boolean {
 				.where(and(eq(exercises.drillId, id), isNull(exercises.archivedAt)))
 				.run();
 			reconcileEntries(tx, row.teamId, now);
+			logChange(tx, actingIn(row, by), { ...ofDrill(id), verb: 'archive', subject: 'drill' }, now);
 		}
 		return true;
 	});

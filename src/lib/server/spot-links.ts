@@ -35,6 +35,7 @@ import { allows, spotAccess, type Reach } from './access';
 import { reconcileEntries } from './entries';
 import { lessonsReaching } from './lesson-links';
 import { inSpace, ownedBy, spaceOfRow, type Space } from './scope';
+import { actingIn, logChange, spotRoot } from './changes';
 
 /**
  * A link that cannot be made. `status` is what the route answers with; `field`,
@@ -190,11 +191,65 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
 		.where(and(eq(spotLinks.spotId, spotId), targetColumn(target)))
 		.get();
 	if (taken) throw new SpotLinkError('Already linked.', 409);
-	return db
-		.insert(spotLinks)
-		.values({ spotId, ...target })
-		.returning({ id: spotLinks.id })
-		.get().id;
+	return db.transaction((tx) => {
+		const id = tx
+			.insert(spotLinks)
+			.values({ spotId, ...target })
+			.returning({ id: spotLinks.id })
+			.get().id;
+		logSectionLink(tx, space, 'add', { id, spotId, target }, Date.now());
+		return id;
+	});
+}
+
+/** The name History shows for what a section is linked to ("Enchufla · Doble", a drill's). */
+function targetName(db: Db, target: SectionTarget): string | null {
+	if ('figureId' in target) {
+		const row = db
+			.select({ figure: figureGroups.name, name: figures.name })
+			.from(figures)
+			.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+			.where(eq(figures.id, target.figureId))
+			.get();
+		return row ? `${row.figure} · ${row.name}` : null;
+	}
+	return (
+		db
+			.select({ name: exercises.name })
+			.from(exercises)
+			.where(eq(exercises.id, target.exerciseId))
+			.get()?.name ?? null
+	);
+}
+
+/**
+ * History's line for a section link made or removed, filed under the
+ * section's video's lesson (or its recording's figure). `space` is the
+ * section's, with who acts.
+ */
+function logSectionLink(
+	tx: Db,
+	space: Space,
+	verb: 'add' | 'remove',
+	link: { id: number; spotId: number; target: SectionTarget },
+	now: number
+): void {
+	const root = spotRoot(tx, link.spotId);
+	if (!root) return;
+	const named = { name: targetName(tx, link.target) };
+	logChange(
+		tx,
+		space,
+		{
+			rootKind: root.rootKind,
+			rootId: root.rootId,
+			verb,
+			subject: 'section-link',
+			subjectId: link.id,
+			...(verb === 'add' ? { after: named } : { before: named })
+		},
+		now
+	);
 }
 
 /**
@@ -202,7 +257,13 @@ export function linkInSpace(db: Db, space: Space, spotId: number, target: Sectio
  * A group section's link going can take a drill or variation off its lesson:
  * members' entries follow (`reconcileEntries`).
  */
-export function unlinkSpot(db: Db, id: number, target: SectionTarget, now = Date.now()): boolean {
+export function unlinkSpot(
+	db: Db,
+	id: number,
+	target: SectionTarget,
+	now = Date.now(),
+	by?: string
+): boolean {
 	return db.transaction((tx) => {
 		const link = tx
 			.delete(spotLinks)
@@ -211,8 +272,21 @@ export function unlinkSpot(db: Db, id: number, target: SectionTarget, now = Date
 			.get();
 		if (!link) return false;
 		reconcileSpot(tx, link.spotId, now);
+		logUnlinked(tx, { id, spotId: link.spotId, target }, by, now);
 		return true;
 	});
+}
+
+/** `logSectionLink` for an unlink: the section's space, acted in by `by`. */
+function logUnlinked(
+	tx: Db,
+	link: { id: number; spotId: number; target: SectionTarget },
+	by: string | undefined,
+	now: number
+): void {
+	const video = videoOfSpot(tx, link.spotId);
+	if (!video) return;
+	logSectionLink(tx, actingIn(video, by), 'remove', link, now);
 }
 
 /** After a group section loses a link, in the same transaction (risk 25). */
@@ -231,7 +305,8 @@ export function unlinkFromSection(
 	spotId: number,
 	linkId: number,
 	alsoLesson: boolean,
-	now = Date.now()
+	now = Date.now(),
+	by?: string
 ): boolean {
 	return db.transaction((tx) => {
 		const link = getSpotLink(tx, linkId);
@@ -265,6 +340,7 @@ export function unlinkFromSection(
 			}
 		}
 		reconcileSpot(tx, spotId, now);
+		logUnlinked(tx, link, by, now);
 		return true;
 	});
 }

@@ -292,12 +292,17 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				throw new SpotLinkError(`${group.name} already has a ${name}.`, 400, 'name');
 			}
 			const first = listGroupVariations(tx, group.id)[0];
-			const made = createVariationIn(tx, group.id, {
-				name,
-				partner: first?.partner ?? 'partner',
-				style: first?.styleTag ?? '',
-				notes: null
-			});
+			const made = createVariationIn(
+				tx,
+				group.id,
+				{
+					name,
+					partner: first?.partner ?? 'partner',
+					style: first?.styleTag ?? '',
+					notes: null
+				},
+				actorOf(space)
+			);
 			if (!made) throw new SpotLinkError('That variation could not be made.');
 			target = { figureId: made.id };
 		} else if (create.kind === 'figure') {

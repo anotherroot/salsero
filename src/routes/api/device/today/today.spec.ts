@@ -33,7 +33,7 @@ beforeEach(() => {
 	const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
 	const P = createLesson(db, T, { lessonDay: '2026-11-01', title: 'Class', notes: null }).lesson.id;
 	const drill = createCustomExercise(db, T, { name: 'Group shines', everyDays: 3, notes: null }).id;
-	linkExercise(db, P, drill);
+	linkExercise(db, P, drill, 'u1');
 	db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, P)).run();
 	// Both add the lesson's drill; only u2 adds the review. Each has one of their own.
 	addLesson(db, 'u1', P, { lesson: false, routineIds: [], drillIds: [drill], figureIds: [] }, 2);

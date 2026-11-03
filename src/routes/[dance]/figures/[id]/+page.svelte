@@ -282,6 +282,9 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
+		{#if !editing && data.historyHref}
+			<BandButton icon="clock" label="History" href={data.historyHref} />
+		{/if}
 		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader has no pencil. -->
 		{#if !editing && data.canEdit}
 			<BandButton focusKey="start-editing" icon="pencil" label="Edit" onclick={startEditing} />

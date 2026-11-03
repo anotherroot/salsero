@@ -162,6 +162,9 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
+		{#if !editing && data.historyHref}
+			<BandButton icon="clock" label="History" href={data.historyHref} />
+		{/if}
 		{#if !editing && data.canEdit}
 			<BandButton icon="pencil" label="Edit settings" onclick={startEditing} />
 		{/if}

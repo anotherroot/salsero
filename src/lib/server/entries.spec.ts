@@ -85,7 +85,7 @@ beforeEach(() => {
 		entry(u, 'figure', figureId);
 		entry(u, 'added', drillId);
 	}
-	linkFigure(db, lessonId, figureId);
+	linkFigure(db, lessonId, figureId, 'u1');
 });
 
 describe('entryFor', () => {
@@ -147,7 +147,7 @@ describe('addFigureExercise', () => {
 			style: 'salsa',
 			notes: null
 		})!.figure.id;
-		linkFigure(db, lessonId, other);
+		linkFigure(db, lessonId, other, 'u1');
 		const first = addFigureExercise(db, 'u1', other)!;
 		const second = addFigureExercise(db, 'u2', other)!;
 		expect(first.userId).toBe('u1');
@@ -196,7 +196,7 @@ describe('addFigureExercise', () => {
 			style: 'salsa',
 			notes: null
 		})!.figure.id;
-		linkFigure(db, other, taught);
+		linkFigure(db, other, taught, 'u1');
 		expect(addFigureExercise(db, 'u2', taught)).toBeNull();
 		db.insert(lessonAdds).values({ userId: 'u2', lessonId: other, addedAt: 5, seenAt: 5 }).run();
 		expect(addFigureExercise(db, 'u2', taught)!.userId).toBe('u2');
@@ -221,7 +221,7 @@ describe('archive cascades', () => {
 	it('keeps an earlier archivedAt on an entry removed before the lesson', () => {
 		const u3 = entry('u3', 'lesson', lessonId);
 		db.update(exercises).set({ archivedAt: 1000 }).where(eq(exercises.id, u3.id)).run();
-		expect(archiveLesson(db, lessonId, 2000)).toBe(true);
+		expect(archiveLesson(db, lessonId, 2000, 'u1')).toBe(true);
 		expect(entryFor(db, 'u3', { lessonId })!.archivedAt).toBe(1000);
 		expect(entryFor(db, 'u1', { lessonId })!.archivedAt).toBe(2000);
 	});
@@ -229,7 +229,7 @@ describe('archive cascades', () => {
 	it('does the same for a routine', () => {
 		const u3 = entry('u3', 'routine', routineId);
 		db.update(exercises).set({ archivedAt: 1000 }).where(eq(exercises.id, u3.id)).run();
-		archiveRoutine(db, routineId, 2000);
+		archiveRoutine(db, routineId, 2000, 'u1');
 		expect(entryFor(db, 'u3', { routineId })!.archivedAt).toBe(1000);
 		expect(entryFor(db, 'u2', { routineId })!.archivedAt).toBe(2000);
 	});
@@ -237,7 +237,7 @@ describe('archive cascades', () => {
 	it('does the same for a variation', () => {
 		const u3 = entry('u3', 'figure', figureId);
 		db.update(exercises).set({ archivedAt: 1000 }).where(eq(exercises.id, u3.id)).run();
-		archiveVariation(db, figureId, 2000);
+		archiveVariation(db, figureId, 2000, 'u1');
 		expect(entryFor(db, 'u3', { figureId })!.archivedAt).toBe(1000);
 		expect(entryFor(db, 'u1', { figureId })!.archivedAt).toBe(2000);
 	});
@@ -246,7 +246,7 @@ describe('archive cascades', () => {
 describe('getLesson rows through other joins', () => {
 	// Catches: dropping entryJoin on the routine rows duplicates the routine or shows u1's everyDays.
 	it('holds one routine row, with the viewer’s exerciseId and everyDays', () => {
-		linkRoutine(db, lessonId, routineId);
+		linkRoutine(db, lessonId, routineId, 'u1');
 		const rows = getLesson(db, lessonId, 'u2')!.routines;
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({
@@ -267,11 +267,16 @@ describe('getLesson rows through other joins', () => {
 		})!.figure.id;
 		entry('u1', 'figure', other);
 		const mine = entry('u2', 'figure', other);
-		const video = addLessonVideo(db, { lessonId, file: 'l.mp4', mime: 'video/mp4', sizeBytes: 1 });
+		const video = addLessonVideo(
+			db,
+			{ lessonId, file: 'l.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		);
 		const spot = addSpot(
 			db,
 			{ lessonVideoId: video.id },
-			{ startMs: 1000, endMs: 5000, label: 'X' }
+			{ startMs: 1000, endMs: 5000, label: 'X' },
+			'u1'
 		)!;
 		linkInSpace(db, T1_SALSA, spot.id, { figureId: other });
 		const rows = getLesson(db, lessonId, 'u2')!.figures.filter((f) => f.id === other);
@@ -359,10 +364,10 @@ describe('adding a group lesson', () => {
 		R = createRoutine(db, T1_SALSA, { name: 'Show', notes: null }).routine.id;
 		D = drill('Clave');
 		F = variation('Enchufla');
-		linkRoutine(db, P, R);
-		linkExercise(db, P, D);
-		linkExercise(db, Q, D);
-		linkFigure(db, P, F);
+		linkRoutine(db, P, R, 'u1');
+		linkExercise(db, P, D, 'u1');
+		linkExercise(db, Q, D, 'u1');
+		linkFigure(db, P, F, 'u1');
 	});
 
 	describe('addOffer', () => {
@@ -460,7 +465,7 @@ describe('adding a group lesson', () => {
 		// Catches: a posted id handing out a draft lesson or another group's drill (risk 21).
 		it('refuses a draft and an outsider, and ignores picks outside the lesson', () => {
 			const draftDrill = drill('Draft drill');
-			linkExercise(db, draft, draftDrill);
+			linkExercise(db, draft, draftDrill, 'u1');
 			expect(addLesson(db, 'u2', draft, { ...all(), drillIds: [draftDrill] }, 10)).toBe(false);
 			expect(addLesson(db, 'u4', P, all(), 10)).toBe(false);
 			expect(db.select().from(lessonAdds).all()).toEqual([]);
@@ -509,7 +514,7 @@ describe('adding a group lesson', () => {
 			addLesson(db, 'u2', P, all(), 10);
 			expect(newInLesson(db, 'u2', P)).toEqual([]);
 			const later = drill('Shines');
-			linkExercise(db, P, later);
+			linkExercise(db, P, later, 'u1');
 			expect(newInLesson(db, 'u2', P)).toEqual([
 				{ kind: 'drill', id: later, name: 'Shines', ticked: true }
 			]);
@@ -528,9 +533,9 @@ describe('adding a group lesson', () => {
 		it('touch: false adds one pick and keeps the rest new, the add row as it was', () => {
 			addLesson(db, 'u2', Q, { ...none, drillIds: [D] }, 10);
 			const R2 = createRoutine(db, T1_SALSA, { name: 'Second', notes: null }).routine.id;
-			linkRoutine(db, Q, R2);
+			linkRoutine(db, Q, R2, 'u1');
 			const D2 = drill('Footwork');
-			linkExercise(db, Q, D2);
+			linkExercise(db, Q, D2, 'u1');
 			expect(newInLesson(db, 'u2', Q).map((i) => i.id)).toEqual([R2, D2]);
 			expect(
 				addLesson(db, 'u2', Q, { ...none, drillIds: [D2] }, Date.now() + 1000, { touch: false })
@@ -552,7 +557,7 @@ describe('adding a group lesson', () => {
 		it('leaves out what the person already has live', () => {
 			addLesson(db, 'u2', Q, { ...none, drillIds: [D] }, 10);
 			const R2 = createRoutine(db, T1_SALSA, { name: 'Second', notes: null }).routine.id;
-			linkRoutine(db, Q, R2);
+			linkRoutine(db, Q, R2, 'u1');
 			expect(newInLesson(db, 'u2', Q)).toEqual([
 				{ kind: 'routine', id: R2, name: 'Second', ticked: true }
 			]);
@@ -564,7 +569,7 @@ describe('adding a group lesson', () => {
 	describe('a drill’s rename and archive reach its entries', () => {
 		it('renames u2’s entry with the drill', () => {
 			addLesson(db, 'u2', P, all(), 10);
-			updateExercise(db, D, { name: 'Clave 2-3', everyDays: 3, active: true, notes: null });
+			updateExercise(db, D, { name: 'Clave 2-3', everyDays: 3, active: true, notes: null }, 'u1');
 			expect(entryFor(db, 'u2', { drillId: D })!.name).toBe('Clave 2-3');
 		});
 
@@ -573,7 +578,7 @@ describe('adding a group lesson', () => {
 			addLesson(db, 'u3', P, all(), 10);
 			const u3 = entryFor(db, 'u3', { drillId: D })!;
 			db.update(exercises).set({ archivedAt: 15 }).where(eq(exercises.id, u3.id)).run();
-			expect(archiveExercise(db, D, 40)).toBe(true);
+			expect(archiveExercise(db, D, 40, 'u1')).toBe(true);
 			expect(entryFor(db, 'u2', { drillId: D })!.archivedAt).toBe(40);
 			expect(entryFor(db, 'u3', { drillId: D })!.archivedAt).toBe(15);
 		});
@@ -593,10 +598,10 @@ describe('adding a group lesson', () => {
 		// Catches: an unlinked drill staying on a member's Today.
 		it('an editor unlinking D from P archives u2’s entry; relinking offers it as new', () => {
 			addLesson(db, 'u2', P, all(), 10);
-			unlinkExercise(db, P, D);
+			unlinkExercise(db, P, D, false, Date.now(), 'u1');
 			expect(entryFor(db, 'u2', { drillId: D })!.archivedAt).not.toBeNull();
 			expect(live('u2', { lessonId: P })).toBe(true);
-			linkExercise(db, P, D);
+			linkExercise(db, P, D, 'u1');
 			expect(newInLesson(db, 'u2', P)).toEqual([
 				{ kind: 'drill', id: D, name: 'Clave', ticked: true }
 			]);
@@ -605,26 +610,26 @@ describe('adding a group lesson', () => {
 		it('keeps the entry while another added lesson holds it', () => {
 			addLesson(db, 'u2', P, all(), 10);
 			addLesson(db, 'u2', Q, none, 10);
-			unlinkExercise(db, P, D);
+			unlinkExercise(db, P, D, false, Date.now(), 'u1');
 			expect(live('u2', { drillId: D })).toBe(true);
 		});
 
 		it('follows unlinking a figure and a routine', () => {
 			addLesson(db, 'u2', P, all(), 10);
-			unlinkFigure(db, P, F);
+			unlinkFigure(db, P, F, false, Date.now(), 'u1');
 			expect(live('u2', { figureId: F })).toBe(false);
-			unlinkRoutine(db, P, R);
+			unlinkRoutine(db, P, R, Date.now(), 'u1');
 			expect(live('u2', { routineId: R })).toBe(false);
 		});
 
 		it('follows archiving a lesson, a routine, a variation', () => {
 			addLesson(db, 'u2', P, all(), 10);
 			addLesson(db, 'u3', Q, { ...none, drillIds: [D] }, 10);
-			archiveRoutine(db, R, 50);
+			archiveRoutine(db, R, 50, 'u1');
 			expect(entryFor(db, 'u2', { routineId: R })!.archivedAt).toBe(50);
-			archiveVariation(db, F, 60);
+			archiveVariation(db, F, 60, 'u1');
 			expect(entryFor(db, 'u2', { figureId: F })!.archivedAt).toBe(60);
-			expect(archiveLesson(db, P, 70)).toBe(true);
+			expect(archiveLesson(db, P, 70, 'u1')).toBe(true);
 			expect(entryFor(db, 'u2', { lessonId: P })!.archivedAt).toBe(70);
 			expect(entryFor(db, 'u2', { drillId: D })!.archivedAt).toBe(70);
 			expect(live('u3', { drillId: D })).toBe(true);
@@ -632,41 +637,46 @@ describe('adding a group lesson', () => {
 
 		it('follows removing a section link', () => {
 			const D2 = drill('Footwork');
-			const video = addLessonVideo(db, {
-				lessonId: P,
-				file: 'p.mp4',
-				mime: 'video/mp4',
-				sizeBytes: 1
-			});
+			const video = addLessonVideo(
+				db,
+				{
+					lessonId: P,
+					file: 'p.mp4',
+					mime: 'video/mp4',
+					sizeBytes: 1
+				},
+				'u1'
+			);
 			const spot = addSpot(
 				db,
 				{ lessonVideoId: video.id },
-				{ startMs: 0, endMs: 4000, label: 'A' }
+				{ startMs: 0, endMs: 4000, label: 'A' },
+				'u1'
 			)!;
 			const link = linkInSpace(db, T1_SALSA, spot.id, { exerciseId: D2 });
 			addLesson(db, 'u2', P, { ...none, drillIds: [D2] }, 10);
 			expect(live('u2', { drillId: D2 })).toBe(true);
-			expect(unlinkSpot(db, link, { exerciseId: D2 })).toBe(true);
+			expect(unlinkSpot(db, link, { exerciseId: D2 }, Date.now(), 'u1')).toBe(true);
 			expect(live('u2', { drillId: D2 })).toBe(false);
 
 			const again = linkInSpace(db, T1_SALSA, spot.id, { exerciseId: D2 });
 			addLesson(db, 'u2', P, { ...none, drillIds: [D2] }, 20);
 			expect(live('u2', { drillId: D2 })).toBe(true);
-			expect(unlinkFromSection(db, spot.id, again, false)).toBe(true);
+			expect(unlinkFromSection(db, spot.id, again, false, Date.now(), 'u1')).toBe(true);
 			expect(live('u2', { drillId: D2 })).toBe(false);
 		});
 
 		it('follows removing a slot option and deleting a slot', () => {
 			const F2 = variation('Dile que no');
 			const F3 = variation('Setenta');
-			const step = addFigureSlot(db, R, F2)!;
+			const step = addFigureSlot(db, R, F2, 'u1')!;
 			db.insert(routineStepOptions).values({ stepId: step, figureId: F3 }).run();
 			addLesson(db, 'u2', P, { ...none, figureIds: [F2, F3] }, 10);
 			expect(live('u2', { figureId: F3 })).toBe(true);
-			expect(removeOption(db, step, F3)).toBe(true);
+			expect(removeOption(db, step, F3, Date.now(), 'u1')).toBe(true);
 			expect(live('u2', { figureId: F3 })).toBe(false);
 			expect(live('u2', { figureId: F2 })).toBe(true);
-			expect(deleteSlots(db, R, [step])).not.toBeNull();
+			expect(deleteSlots(db, R, [step], Date.now(), 'u1')).not.toBeNull();
 			expect(live('u2', { figureId: F2 })).toBe(false);
 		});
 

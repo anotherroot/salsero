@@ -210,8 +210,8 @@ describe('practicePayload for an entry of a group', () => {
 	it("reads a group routine's slots in the group's space", () => {
 		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
 		const { routine } = createRoutine(db, T1_SALSA, { name: 'Group', notes: null });
-		addFigureSlot(db, routine.id, figure.id);
-		published((id) => linkRoutine(db, id, routine.id));
+		addFigureSlot(db, routine.id, figure.id, 'u1');
+		published((id) => linkRoutine(db, id, routine.id, 'u1'));
 		const content = practicePayload(
 			db,
 			entry({ source: 'routine', routineId: routine.id }),
@@ -223,8 +223,8 @@ describe('practicePayload for an entry of a group', () => {
 
 	it('names a group figure by its label', () => {
 		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
-		const doble = createVariationFrom(db, figure.id, 'Doble')!;
-		published((id) => linkFigure(db, id, doble.id));
+		const doble = createVariationFrom(db, figure.id, 'Doble', 'u1')!;
+		published((id) => linkFigure(db, id, doble.id, 'u1'));
 		const content = practicePayload(
 			db,
 			entry({ source: 'figure', figureId: doble.id }),
@@ -246,19 +246,28 @@ describe('practicePayload for an entry of a group', () => {
 
 	it("never shows a draft's section to a member", () => {
 		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
-		published((id) => linkFigure(db, id, figure.id));
+		published((id) => linkFigure(db, id, figure.id, 'u1'));
 		const draft = createLesson(db, T1_SALSA, {
 			lessonDay: '2026-11-02',
 			title: 'Draft',
 			notes: null
 		}).lesson.id;
-		const video = addLessonVideo(db, {
-			lessonId: draft,
-			file: 'draft.mp4',
-			mime: 'video/mp4',
-			sizeBytes: 1
-		});
-		const spot = addSpot(db, { lessonVideoId: video.id }, { startMs: 0, endMs: 9, label: 'D' })!;
+		const video = addLessonVideo(
+			db,
+			{
+				lessonId: draft,
+				file: 'draft.mp4',
+				mime: 'video/mp4',
+				sizeBytes: 1
+			},
+			'u1'
+		);
+		const spot = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 0, endMs: 9, label: 'D' },
+			'u1'
+		)!;
 		linkInSpace(db, T1_SALSA, spot.id, { figureId: figure.id });
 		const forMember = practicePayload(db, entry({ source: 'figure', figureId: figure.id }), TZ, 1);
 		expect(JSON.stringify(forMember)).not.toContain('draft.mp4');

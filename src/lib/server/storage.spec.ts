@@ -44,14 +44,18 @@ function recording(wall: Space, name: string, bytes: number) {
 		style: 'salsa',
 		notes: null
 	})!;
-	addRecording(db, {
-		figureId: f.figure.id,
-		file: `${name}.mp4`,
-		mime: 'video/mp4',
-		kind: 'video',
-		sizeBytes: bytes,
-		note: null
-	});
+	addRecording(
+		db,
+		{
+			figureId: f.figure.id,
+			file: `${name}.mp4`,
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: bytes,
+			note: null
+		},
+		'u1'
+	);
 	return f.figure.id;
 }
 
@@ -163,12 +167,16 @@ describe("a group's room", () => {
 			lessonDay: '2026-11-01',
 			notes: null
 		}).lesson;
-		addLessonVideo(db, {
-			lessonId: lesson.id,
-			file: 'tv.mp4',
-			mime: 'video/mp4',
-			sizeBytes: 20 * MB
-		});
+		addLessonVideo(
+			db,
+			{
+				lessonId: lesson.id,
+				file: 'tv.mp4',
+				mime: 'video/mp4',
+				sizeBytes: 20 * MB
+			},
+			'u1'
+		);
 		const trash = (sizeBytes: number, more: { purgedAt?: number; restoredAt?: number } = {}) =>
 			db
 				.insert(teamTrash)

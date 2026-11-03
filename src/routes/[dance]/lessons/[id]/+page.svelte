@@ -483,7 +483,7 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
-		{#if !editing && data.add?.added}
+		{#if !editing && (data.add?.added || data.historyHref)}
 			<BandButton icon="more" label="Lesson menu" onclick={() => (lessonMenu = true)} />
 		{/if}
 		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader has no pencil. -->
@@ -535,6 +535,7 @@
 				>
 			</div>
 		{:else}
+			{#if data.edited}<p class="text-[13px] font-semibold text-muted">{data.edited}</p>{/if}
 			{#if data.add?.added && data.add.offer}
 				<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
 				<div
@@ -939,21 +940,37 @@
 	/>
 {/if}
 
-{#if data.add?.added}
+{#if data.add?.added || data.historyHref}
 	<Sheet title={lesson.title} open={lessonMenu} onclose={() => (lessonMenu = false)}>
 		<div class={GROUP}>
-			<button
-				type="button"
-				class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
-				aria-haspopup="dialog"
-				onclick={() => {
-					lessonMenu = false;
-					removing = true;
-				}}
-			>
-				<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
-				<span class="text-[16px] font-bold text-danger">Remove from my lessons</span>
-			</button>
+			{#if data.historyHref}
+				<a
+					href={resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
+						dance: data.dance.slug,
+						id: String(data.team?.id),
+						kind: 'lesson',
+						rootId: String(lesson.id)
+					})}
+					class="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-step"
+				>
+					<span class="flex-none text-accent-text"><Icon name="clock" size={22} /></span>
+					<span class="text-[16px] font-bold text-ink">History</span>
+				</a>
+			{/if}
+			{#if data.add?.added}
+				<button
+					type="button"
+					class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
+					aria-haspopup="dialog"
+					onclick={() => {
+						lessonMenu = false;
+						removing = true;
+					}}
+				>
+					<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
+					<span class="text-[16px] font-bold text-danger">Remove from my lessons</span>
+				</button>
+			{/if}
 		</div>
 	</Sheet>
 

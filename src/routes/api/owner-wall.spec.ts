@@ -532,8 +532,16 @@ describe("a group's videos, uploads and room on the flat routes", () => {
 		P = lesson('Published');
 		D = lesson('Draft');
 		db.update(lessonsTable).set({ publishedAt: 1 }).where(eq(lessonsTable.id, P)).run();
-		pVideo = addLessonVideo(db, { lessonId: P, file: P_FILE, mime: 'video/mp4', sizeBytes: 10 }).id;
-		dVideo = addLessonVideo(db, { lessonId: D, file: D_FILE, mime: 'video/mp4', sizeBytes: 10 }).id;
+		pVideo = addLessonVideo(
+			db,
+			{ lessonId: P, file: P_FILE, mime: 'video/mp4', sizeBytes: 10 },
+			'u1'
+		).id;
+		dVideo = addLessonVideo(
+			db,
+			{ lessonId: D, file: D_FILE, mime: 'video/mp4', sizeBytes: 10 },
+			'u1'
+		).id;
 		teamFigure = createFigure(db, T1_SALSA, {
 			figureName: 'Group figure',
 			name: 'Basic',
@@ -545,14 +553,18 @@ describe("a group's videos, uploads and room on the flat routes", () => {
 
 	/** Fill the group's 600 MB to the byte, with a row and no file. */
 	function fillTeam() {
-		addRecording(db, {
-			figureId: teamFigure,
-			file: 'filler.mp4',
-			mime: 'video/mp4',
-			kind: 'video',
-			sizeBytes: 600 * 1024 * 1024 - 20,
-			note: null
-		});
+		addRecording(
+			db,
+			{
+				figureId: teamFigure,
+				file: 'filler.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 600 * 1024 * 1024 - 20,
+				note: null
+			},
+			'u1'
+		);
 	}
 
 	const getVideo = (user: typeof U1, file: string) =>
@@ -718,7 +730,7 @@ describe("a group's videos, uploads and room on the flat routes", () => {
 	});
 
 	it('a YouTube save into a full group lesson is refused when asked and when it lands', async () => {
-		const [link] = addLinks(db, { lessonId: D }, ['https://youtu.be/dQw4w9WgXcQ'], null)!;
+		const [link] = addLinks(db, { lessonId: D }, ['https://youtu.be/dQw4w9WgXcQ'], null, 'u1')!;
 		expect(requestVideoDownload(db, { lessonId: D }, link.id)).toBe('ok');
 		fillTeam();
 

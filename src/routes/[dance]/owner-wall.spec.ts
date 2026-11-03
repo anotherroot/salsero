@@ -1408,32 +1408,43 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		V2 = fig.figure.id;
 		tGroup = fig.group.id;
 		V3 = must(
-			createVariationIn(db, tGroup, {
-				name: 'Doble-only-in-draft',
-				partner: 'partner',
-				style: 'salsa',
-				notes: null
-			})
+			createVariationIn(
+				db,
+				tGroup,
+				{
+					name: 'Doble-only-in-draft',
+					partner: 'partner',
+					style: 'salsa',
+					notes: null
+				},
+				'u1'
+			)
 		).id;
-		rec = addRecording(db, {
-			figureId: V2,
-			file: '00000000-0000-4000-8000-0000000000e1.mp4',
-			mime: 'video/mp4',
-			kind: 'video',
-			sizeBytes: 10,
-			note: null
-		}).id;
+		rec = addRecording(
+			db,
+			{
+				figureId: V2,
+				file: '00000000-0000-4000-8000-0000000000e1.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 10,
+				note: null
+			},
+			'u1'
+		).id;
 		// A section of V2's recording, linked to the draft's variation too.
-		recSection = must(addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 9, label: 'R' })).id;
+		recSection = must(
+			addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 9, label: 'R' }, 'u1')
+		).id;
 		linkInSpace(db, T, recSection, { figureId: V2 });
 		linkInSpace(db, T, recSection, { figureId: V3 });
 
 		C = createRoutine(db, T, { name: 'Child routine', notes: null }).routine.id;
-		must(addFigureSlot(db, C, V2));
+		must(addFigureSlot(db, C, V2, 'u1'));
 		R = createRoutine(db, T, { name: 'Published routine', notes: null }).routine.id;
-		must(addChildSlot(db, R, C));
+		must(addChildSlot(db, R, C, 'u1'));
 		RD = createRoutine(db, T, { name: 'Draft routine Zeta', notes: null }).routine.id;
-		must(addFigureSlot(db, RD, V2));
+		must(addFigureSlot(db, RD, V2, 'u1'));
 
 		shines = createCustomExercise(db, T, { name: 'Shines', everyDays: 3, notes: null }).id;
 		draftDrill = createCustomExercise(db, T, {
@@ -1443,36 +1454,49 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		}).id;
 
 		P = createLesson(db, T, lessonInput('Published lesson')).lesson.id;
-		must(linkRoutine(db, P, R));
-		must(linkFigure(db, P, V2));
-		must(linkExercise(db, P, shines));
-		pVideo = addLessonVideo(db, {
-			lessonId: P,
-			file: '00000000-0000-4000-8000-0000000000e2.mp4',
-			mime: 'video/mp4',
-			sizeBytes: 5
-		}).id;
+		must(linkRoutine(db, P, R, 'u1'));
+		must(linkFigure(db, P, V2, 'u1'));
+		must(linkExercise(db, P, shines, 'u1'));
+		pVideo = addLessonVideo(
+			db,
+			{
+				lessonId: P,
+				file: '00000000-0000-4000-8000-0000000000e2.mp4',
+				mime: 'video/mp4',
+				sizeBytes: 5
+			},
+			'u1'
+		).id;
 		pSection = must(
-			addSpot(db, { lessonVideoId: pVideo }, { startMs: 0, endMs: 9, label: 'P' })
+			addSpot(db, { lessonVideoId: pVideo }, { startMs: 0, endMs: 9, label: 'P' }, 'u1')
 		).id;
 		linkInSpace(db, T, pSection, { figureId: V2 });
 		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, P)).run();
 
 		D = createLesson(db, T, lessonInput('Draft lesson Kappa')).lesson.id;
-		must(linkFigure(db, D, V3));
-		must(linkFigure(db, D, V2));
-		must(linkRoutine(db, D, RD));
-		must(linkRoutine(db, D, R));
-		must(linkExercise(db, D, draftDrill));
-		must(linkExercise(db, D, shines));
-		dVideo = addLessonVideo(db, {
-			lessonId: D,
-			file: 'draft-video-kappa.mp4',
-			mime: 'video/mp4',
-			sizeBytes: 5
-		}).id;
+		must(linkFigure(db, D, V3, 'u1'));
+		must(linkFigure(db, D, V2, 'u1'));
+		must(linkRoutine(db, D, RD, 'u1'));
+		must(linkRoutine(db, D, R, 'u1'));
+		must(linkExercise(db, D, draftDrill, 'u1'));
+		must(linkExercise(db, D, shines, 'u1'));
+		dVideo = addLessonVideo(
+			db,
+			{
+				lessonId: D,
+				file: 'draft-video-kappa.mp4',
+				mime: 'video/mp4',
+				sizeBytes: 5
+			},
+			'u1'
+		).id;
 		dSection = must(
-			addSpot(db, { lessonVideoId: dVideo }, { startMs: 0, endMs: 9, label: 'Draft section Sigma' })
+			addSpot(
+				db,
+				{ lessonVideoId: dVideo },
+				{ startMs: 0, endMs: 9, label: 'Draft section Sigma' },
+				'u1'
+			)
 		).id;
 		linkInSpace(db, T, dSection, { figureId: V2 });
 		linkInSpace(db, T, dSection, { exerciseId: shines });
@@ -2084,7 +2108,7 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 			everyDays: 3,
 			notes: null
 		}).id;
-		must(linkExercise(db, P, fresh));
+		must(linkExercise(db, P, fresh, 'u1'));
 		for (const t of [lessonExercises, lessonRoutines, lessonFigures, spotLinks]) {
 			db.update(t).set({ createdAt: 500 }).run();
 		}
