@@ -11,7 +11,7 @@
  * `archived_at`, `published_at`, `shared_at`, the owners, entries and their
  * practice settings, logs. A song's audio is the family's, never a field.
  */
-import { asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import type { CloneKind, Flat } from '$lib/types';
 import { fieldLabel } from '$lib/clones/flat';
 import { getDance } from '$lib/dances/dances';
@@ -54,12 +54,17 @@ class Builder {
 	}
 }
 
-/** The member as flat fields. Throws for a missing row. */
-export function flatOf(db: Db, kind: CloneKind, id: number): Flat {
+/**
+ * The member as flat fields. Throws for a missing row. `tz` (default UTC) is
+ * the zone a recording's day is shown in: it changes `show` and labels only,
+ * never a value, so hashes and digests do not depend on who is looking.
+ */
+export function flatOf(db: Db, kind: CloneKind, id: number, opts: { tz?: string } = {}): Flat {
+	const tz = opts.tz ?? 'UTC';
 	const b = new Builder();
 	switch (kind) {
 		case 'figure':
-			figureFlat(db, id, b);
+			figureFlat(db, id, b, tz);
 			break;
 		case 'drill':
 			drillFlat(db, id, b);
@@ -83,7 +88,7 @@ function missing(kind: string, id: number): never {
 
 /* ── Figures ─────────────────────────────────────────────────────────────── */
 
-function figureFlat(db: Db, id: number, b: Builder): void {
+function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 	const f = db.select().from(figures).where(eq(figures.id, id)).get() ?? missing('figure', id);
 	b.add('name', f.name);
 	b.add('notes', f.notes ?? '');
@@ -104,7 +109,7 @@ function figureFlat(db: Db, id: number, b: Builder): void {
 		.all();
 	for (const r of recs) {
 		const piece = `rec:${ref(r.geneId, r.id)}`;
-		const day = dayMonth(localDay(r.createdAt, 'UTC'));
+		const day = dayMonth(localDay(r.createdAt, tz));
 		const what = r.kind === 'audio' ? 'Audio' : 'Recording';
 		b.add(piece, `${r.mime}|${r.sizeBytes}`, r.note || `${what}, ${day}`, day);
 		b.add(`${piece}:note`, r.note ?? '', r.note ?? '', day);
@@ -229,11 +234,8 @@ function drillFlat(db: Db, id: number, b: Builder): void {
 	const d = db.select().from(exercises).where(eq(exercises.id, id)).get() ?? missing('drill', id);
 	b.add('name', d.name);
 	b.add('notes', d.notes ?? '');
-	const practice = JSON.stringify({
-		mode: d.practiceMode,
-		bpm: d.countBpm,
-		config: d.practiceJson
-	});
+	// `practice_json` is what practising last played: rewritten by every run, so local.
+	const practice = JSON.stringify({ mode: d.practiceMode, bpm: d.countBpm });
 	const show =
 		d.practiceMode === 'count'
 			? `Count · ${d.countBpm ?? '?'} BPM`
@@ -345,7 +347,13 @@ function lessonFlat(db: Db, id: number, b: Builder): void {
 		.select({ id: exercises.id, gene: exercises.geneId, name: exercises.name })
 		.from(lessonExercises)
 		.innerJoin(exercises, eq(exercises.id, lessonExercises.exerciseId))
-		.where(eq(lessonExercises.lessonId, id))
+		.where(
+			and(
+				eq(lessonExercises.lessonId, id),
+				eq(exercises.source, 'custom'),
+				isNull(exercises.archivedAt)
+			)
+		)
 		.all())
 		b.add(`drill:${ref(d.gene, d.id)}`, '1', d.name);
 

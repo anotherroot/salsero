@@ -8,9 +8,15 @@ import { eq } from 'drizzle-orm';
 import type { Flat } from '$lib/types';
 import { fieldLabel } from '$lib/clones/flat';
 import { openDb, type Db } from '../db';
-import { exercises, figures, recordings, songs, users } from '../db/schema';
+import { exercises, figures, lessonExercises, recordings, songs, users } from '../db/schema';
 import { createTeam } from '../teams';
-import { addRecording, createFigure, createVariationIn, moveVariation } from '../figures';
+import {
+	addFigureExercise,
+	addRecording,
+	createFigure,
+	createVariationIn,
+	moveVariation
+} from '../figures';
 import { addLessonVideo, createLesson, linkExercise, linkFigure, linkRoutine } from '../lessons';
 import { addChildSlot, addFigureSlot, addOption, createRoutine, setSlotNote } from '../routines';
 import { createCustomExercise } from '../exercises';
@@ -150,6 +156,30 @@ describe('flatOf', () => {
 		expect(f[`${pt}:links`].value).toBe('');
 	});
 
+	it('a recording’s day is shown in the zone asked for; values do not change', () => {
+		const id = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!
+			.figure.id;
+		const rec = addRecording(db, {
+			figureId: id,
+			file: 'a.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 5,
+			note: null
+		});
+		db.update(recordings)
+			.set({ createdAt: Date.UTC(2026, 10, 3, 23, 30) })
+			.run();
+		const utc = flatOf(db, 'figure', id);
+		const lj = flatOf(db, 'figure', id, { tz: 'Europe/Ljubljana' });
+		const key = `rec:#${rec.id}`;
+		expect(utc[key]).toMatchObject({ show: 'Recording, 3 Nov', label: 'Recording · 3 Nov' });
+		expect(lj[key]).toMatchObject({ show: 'Recording, 4 Nov', label: 'Recording · 4 Nov' });
+		expect(lj[`${key}:note`].label).toBe('Note · 4 Nov');
+		expect(Object.keys(lj)).toEqual(Object.keys(utc));
+		for (const k of Object.keys(utc)) expect(lj[k].value).toBe(utc[k].value);
+	});
+
 	it('flatOf never writes, and an unstamped figure keeps reading as #<id>', () => {
 		const id = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!
 			.figure.id;
@@ -186,7 +216,13 @@ describe('flatOf', () => {
 		const f = flatOf(db, 'drill', id);
 		wellFormed(f);
 		expect(keys(f)).toEqual(['link:https://example.com/drill', 'name', 'notes', 'practice']);
-		expect(f.practice.show).toBe('Count · 90 BPM');
+		expect(f.practice).toMatchObject({
+			value: '{"mode":"count","bpm":90}',
+			show: 'Count · 90 BPM'
+		});
+		// What practising last played is local: it never shows as a difference.
+		db.update(exercises).set({ practiceJson: '{"speed":0.8}' }).where(eq(exercises.id, id)).run();
+		expect(flatOf(db, 'drill', id)).toEqual(f);
 		expect(f['link:https://example.com/drill']).toMatchObject({
 			value: '1',
 			show: 'Video',
@@ -239,6 +275,25 @@ describe('flatOf', () => {
 		]);
 		expect(f.slots.show).toBe('2 slots');
 		expect(f.notes.show).toBe('Twice.');
+	});
+
+	it('a lesson’s drill links are live custom exercises only', () => {
+		const id = createLesson(db, U1_SALSA, { lessonDay: '2026-11-03', title: 'Tue', notes: null })
+			.lesson.id;
+		const fig = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!
+			.figure.id;
+		const own = addFigureExercise(db, 'u1', fig)!.id;
+		const old = drill('Old');
+		db.update(exercises).set({ archivedAt: T }).where(eq(exercises.id, old)).run();
+		// Hand-linked rows the link functions would refuse today: older data.
+		db.insert(lessonExercises)
+			.values([
+				{ lessonId: id, exerciseId: own },
+				{ lessonId: id, exerciseId: old }
+			])
+			.run();
+		const f = flatOf(db, 'lesson', id);
+		expect(Object.keys(f).filter((k) => k.startsWith('drill:'))).toEqual([]);
 	});
 
 	it('a lesson: fields, hand links, links, videos with sections', () => {

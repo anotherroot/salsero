@@ -8,7 +8,7 @@
  * a family: another person's own member never appears in it.
  */
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import type { CloneKind, Member, PieceKind, PlaceRef } from '$lib/types';
 import type { Db } from '../db';
@@ -63,6 +63,14 @@ const PIECES: Record<PieceKind, Cols> = {
 	spot: { table: videoSpots, id: videoSpots.id, geneId: videoSpots.geneId }
 };
 
+/**
+ * The rows a kind covers: a drill is an `exercises` row with source `custom`;
+ * entries and a figure's, routine's or lesson's own exercise are never members.
+ */
+function kindWhere(kind: CloneKind | PieceKind, extra: SQL): SQL {
+	return kind === 'drill' ? and(extra, eq(exercises.source, 'custom'))! : extra;
+}
+
 function colsOf(kind: CloneKind | PieceKind): Cols {
 	return (ROOTS as Record<string, Cols>)[kind] ?? PIECES[kind as PieceKind];
 }
@@ -75,16 +83,25 @@ export function newGene(): string {
 /** A row's gene, or null when it is a family of one (or missing). Never writes. */
 export function geneOf(db: Db, kind: CloneKind | PieceKind, id: number): string | null {
 	const c = colsOf(kind);
-	const row = db.select({ gene: c.geneId }).from(c.table).where(eq(c.id, id)).get() as
-		{ gene: string | null } | undefined;
+	const row = db
+		.select({ gene: c.geneId })
+		.from(c.table)
+		.where(kindWhere(kind, eq(c.id, id)))
+		.get() as { gene: string | null } | undefined;
 	return row?.gene ?? null;
 }
 
-/** The row's gene, giving it a new one first when it has none. Throws for a missing row. */
+/**
+ * The row's gene, giving it a new one first when it has none. Throws for a
+ * missing row, and for an exercise that is not a drill.
+ */
 export function stampGene(tx: Db, kind: CloneKind | PieceKind, id: number): string {
 	const c = colsOf(kind);
-	const row = tx.select({ gene: c.geneId }).from(c.table).where(eq(c.id, id)).get() as
-		{ gene: string | null } | undefined;
+	const row = tx
+		.select({ gene: c.geneId })
+		.from(c.table)
+		.where(kindWhere(kind, eq(c.id, id)))
+		.get() as { gene: string | null } | undefined;
 	if (!row) throw new Error(`No ${kind} ${id} to stamp`);
 	if (row.gene !== null) return row.gene;
 	const gene = newGene();
@@ -106,7 +123,7 @@ export function memberIn(
 	const row = db
 		.select({ id: c.id, archivedAt: c.archivedAt })
 		.from(c.table)
-		.where(and(eq(c.geneId, gene), ownedBy(c, place)))
+		.where(kindWhere(kind, and(eq(c.geneId, gene), ownedBy(c, place))!))
 		.get() as { id: number; archivedAt: number | null } | undefined;
 	return row ? { id: row.id, archived: row.archivedAt !== null } : null;
 }
@@ -131,7 +148,7 @@ export function familyRows(db: Db, kind: CloneKind, gene: string): FamilyRow[] {
 			clonedFrom: c.clonedFrom
 		})
 		.from(c.table)
-		.where(eq(c.geneId, gene))
+		.where(kindWhere(kind, eq(c.geneId, gene)))
 		.orderBy(asc(c.id))
 		.all() as FamilyRow[];
 }
@@ -149,7 +166,7 @@ function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
 		}
 		case 'drill': {
 			const row = db.select().from(exercises).where(eq(exercises.id, id)).get();
-			return row ? drillAccess(db, userId, row) : null;
+			return row && row.source === 'custom' ? drillAccess(db, userId, row) : null;
 		}
 		case 'song': {
 			const row = db.select().from(songs).where(eq(songs.id, id)).get();
@@ -164,10 +181,11 @@ function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
 
 /**
  * The members of this row's family that `userId` can read (just the row
- * itself when it has no gene), by id, each with its place and access. Another
- * person's own member never appears, and a group's appears only as
- * `access.ts` allows: a deleted group's to its editors, read-only; a purged
- * group's to nobody.
+ * itself when it has no gene), by id, each with its place and access. Empty
+ * unless `userId` can read the row itself, so an id is never a way into a
+ * family; empty too for an exercise that is not a drill. Another person's own
+ * member never appears, and a group's appears only as `access.ts` allows: a
+ * deleted group's to its editors, read-only; a purged group's to nobody.
  */
 export function visibleMembers(db: Db, userId: string, kind: CloneKind, id: number): Member[] {
 	const c = ROOTS[kind];
@@ -181,9 +199,9 @@ export function visibleMembers(db: Db, userId: string, kind: CloneKind, id: numb
 			clonedFrom: c.clonedFrom
 		})
 		.from(c.table)
-		.where(eq(c.id, id))
+		.where(kindWhere(kind, eq(c.id, id)))
 		.get() as (FamilyRow & { geneId: string | null }) | undefined;
-	if (!self) return [];
+	if (!self || accessTo(db, userId, kind, id) === null) return [];
 	const rows = self.geneId === null ? [self] : familyRows(db, kind, self.geneId);
 	const out: Member[] = [];
 	for (const row of rows) {

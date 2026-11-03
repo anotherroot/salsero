@@ -4,7 +4,8 @@ import { openDb, type Db } from '../db';
 import { figures, recordings, users } from '../db/schema';
 import { createTeam, deleteTeam, joinTeam } from '../teams';
 import { setRole } from '../membership';
-import { addRecording, createFigure } from '../figures';
+import { addFigureExercise, addRecording, createFigure } from '../figures';
+import { createCustomExercise } from '../exercises';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { seedPositions } from '../positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
@@ -83,6 +84,28 @@ describe('genes', () => {
 	});
 });
 
+describe('drills are custom exercises', () => {
+	it('an entry or a figure’s own exercise is no member of anything', () => {
+		const fig = figure(U1_SALSA, 'Enchufla');
+		const entry = addFigureExercise(db, 'u1', fig)!.id;
+		expect(visibleMembers(db, 'u1', 'drill', entry)).toEqual([]);
+		expect(() => stampGene(db, 'drill', entry)).toThrow();
+		expect(geneOf(db, 'drill', entry)).toBeNull();
+
+		const drill = createCustomExercise(db, U1_SALSA, {
+			name: 'Shines',
+			everyDays: 2,
+			notes: null
+		}).id;
+		const gene = stampGene(db, 'drill', drill);
+		expect(visibleMembers(db, 'u1', 'drill', drill).map((m) => [m.id, m.access])).toEqual([
+			[drill, 'edit']
+		]);
+		expect(memberIn(db, 'drill', gene, U1_SALSA)).toEqual({ id: drill, archived: false });
+		expect(familyRows(db, 'drill', gene).map((r) => r.id)).toEqual([drill]);
+	});
+});
+
 describe('visibleMembers', () => {
 	/** u1's own Enchufla and the group's, one family; the group's in a published lesson. */
 	function family() {
@@ -101,13 +124,13 @@ describe('visibleMembers', () => {
 		return { group, own, lesson };
 	}
 
-	it('never shows another person’s own member', () => {
+	it('never shows another person’s own member, nor a family through one', () => {
 		const { group, own } = family();
 		const team = { kind: 'team', teamId: 1, name: 'Salsa Tuesdays' };
 		const theirs = [
 			{ kind: 'figure', id: group, place: team, access: 'read', archived: false, clonedFrom: null }
 		];
-		expect(visibleMembers(db, 'u2', 'figure', own)).toEqual(theirs);
+		expect(visibleMembers(db, 'u2', 'figure', own)).toEqual([]);
 		expect(visibleMembers(db, 'u2', 'figure', group)).toEqual(theirs);
 	});
 
@@ -132,9 +155,10 @@ describe('visibleMembers', () => {
 			}
 		]);
 		setRole(db, 1, 'u3', 'editor', T);
-		expect(visibleMembers(db, 'u3', 'figure', own).map((m) => [m.id, m.access])).toEqual([
+		expect(visibleMembers(db, 'u3', 'figure', group).map((m) => [m.id, m.access])).toEqual([
 			[group, 'edit']
 		]);
+		expect(visibleMembers(db, 'u3', 'figure', own)).toEqual([]);
 	});
 
 	it('a draft reaches no member; a deleted group only its editors, read-only', () => {
