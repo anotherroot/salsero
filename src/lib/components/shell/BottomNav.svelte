@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TABS, tabFor } from '$lib/nav/tabs';
@@ -12,6 +13,8 @@
 	 */
 	let { dance, path }: { dance: DanceSlug; path: string } = $props();
 
+	// In group mode Today is not a tab: a plain Mine link back to the personal side.
+	const inGroup = $derived(!!page.data.groupMode);
 	const lit = $derived(tabFor(path, dance));
 
 	/*
@@ -42,28 +45,42 @@
 >
 	<ul
 		class="mx-auto grid max-w-[560px] items-center gap-1 px-2 pt-[10px] pb-2"
-		style="grid-template-columns: {TABS.map((t) => (t.id === lit ? '2fr' : '1fr')).join(' ')}"
+		style="grid-template-columns: {TABS.map((t) =>
+			t.id === lit || (inGroup && t.id === 'today') ? '2fr' : '1fr'
+		).join(' ')}"
 	>
 		{#each TABS as tab, i (tab.id)}
 			{@const here = tab.id === lit}
 			{@const to = targets[i]}
 			<li class="flex justify-center">
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- a trail href, built from resolved paths -->
-				<a
-					href={to ?? resolve(tab.path, { dance })}
-					onclick={(e) => tap(e, to === null)}
-					aria-current={here ? 'page' : undefined}
-					aria-label={here ? undefined : tab.label}
-					class="flex h-11 items-center justify-center gap-2 rounded-full {here
-						? 'w-full bg-accent/12 px-3 text-accent-text'
-						: 'w-11 text-muted'}"
-				>
-					<Icon name={tab.icon} size={28} filled={here} />
-					{#if here}
-						<span class="text-[14px] font-extrabold whitespace-nowrap">{tab.label}</span>
-					{/if}
-				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				{#if inGroup && tab.id === 'today'}
+					<!-- Mine: back icon and the word, accent text, no fill. -->
+					<a
+						href={resolve('/[dance]', { dance })}
+						onclick={() => intend('tab')}
+						class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
+					>
+						<Icon name="back" size={28} />
+						<span class="text-[14px] font-extrabold whitespace-nowrap">Mine</span>
+					</a>
+				{:else}
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- a trail href, built from resolved paths -->
+					<a
+						href={to ?? resolve(tab.path, { dance })}
+						onclick={(e) => tap(e, to === null)}
+						aria-current={here ? 'page' : undefined}
+						aria-label={here ? undefined : tab.label}
+						class="flex h-11 items-center justify-center gap-2 rounded-full {here
+							? 'w-full bg-accent/12 px-3 text-accent-text'
+							: 'w-11 text-muted'}"
+					>
+						<Icon name={tab.icon} size={28} filled={here} />
+						{#if here}
+							<span class="text-[14px] font-extrabold whitespace-nowrap">{tab.label}</span>
+						{/if}
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				{/if}
 			</li>
 		{/each}
 	</ul>

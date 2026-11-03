@@ -1,6 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { page } from '$app/state';
 	import { bandMode } from '$lib/nav/band';
+	import { groupLabel } from '$lib/teams/mode';
+	import Icon from './Icon.svelte';
+	import type { GroupMode } from '$lib/types';
 
 	let {
 		title,
@@ -25,6 +29,8 @@
 	let scrollY = $state(0);
 	const mode = $derived(bandMode(scrollY, compact));
 	const slim = $derived(mode === 'slim');
+	/** In group mode the band says whose space this is. */
+	const group = $derived((page.data.groupMode ?? null) as GroupMode | null);
 </script>
 
 <svelte:window bind:scrollY />
@@ -71,12 +77,25 @@
 
 <!-- The big header is inert while the slim band shows: only one Back may take focus. -->
 <header
-	class="flex flex-col gap-[6px] bg-band px-5"
+	class="relative flex flex-col gap-[6px] bg-band px-5"
 	inert={slim}
 	style="--focus-ring: var(--color-band-ink); padding-top: calc({compact
 		? 22
 		: 30}px + var(--safe-top)); padding-bottom: {hero ? 92 : extra ? 50 : 52}px"
 >
+	{#if group}
+		<!-- A thin striped edge from the band's own ink, never a colour of its own. -->
+		<div
+			aria-hidden="true"
+			data-group-edge
+			class="absolute inset-x-0 h-[6px]"
+			style="top: var(--safe-top); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-band-ink) 35%, transparent) 0 6px, transparent 6px 12px)"
+		></div>
+		<div class="flex items-center gap-1.5 text-band-small" data-group-line>
+			<Icon name="people" size={16} />
+			<span class="truncate text-[13px] font-bold">{groupLabel(group.name)}</span>
+		</div>
+	{/if}
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex min-w-0 flex-1 items-center gap-1" class:-ml-[10px]={!!left}>
 			{#if left}{@render left()}{/if}

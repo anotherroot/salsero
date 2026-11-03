@@ -1,6 +1,8 @@
 /** PURE: group mode's cookie name, where it ends, where a switch returns to. */
 import type { DanceSlug } from '$lib/dances/dances';
 import { tabFor } from '$lib/nav/tabs';
+import { plural } from '$lib/format';
+import type { GroupChoice } from '$lib/types';
 
 export const groupCookie = (dance: DanceSlug): string => `group_${dance}`;
 
@@ -16,3 +18,19 @@ export function returnPath(to: string | null, dance: DanceSlug): string {
 }
 
 export const groupLabel = (name: string): string => `${name} · group`;
+
+/** The Work in sheet: Mine first, then each group the person can write in. */
+export function workInRows(
+	choices: GroupChoice[],
+	current: number | null
+): { teamId: number | 'mine'; name: string; meta: string; on: boolean }[] {
+	return [
+		{ teamId: 'mine', name: 'Mine', meta: 'Your own space', on: current === null },
+		...choices.map((c) => ({
+			teamId: c.teamId,
+			name: c.name,
+			meta: `${c.role === 'owner' ? 'Owner' : 'Editor'} · ${plural(c.people, 'person', 'people')}`,
+			on: c.teamId === current
+		}))
+	];
+}

@@ -5,6 +5,7 @@
 	import { rememberedHref } from '$lib/nav/trail.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import { MOVES_SEGMENTS, type MovesSegment } from '$lib/moves/segment';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -37,6 +38,7 @@
 
 <Screen title="Moves">
 	{#snippet right()}
+		<GroupModeButton />
 		<BandButton
 			icon="plus"
 			label={segment === 'figures' ? 'New figure' : 'New routine'}

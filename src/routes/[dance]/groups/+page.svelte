@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -98,6 +99,8 @@
 						</span>
 						{#if team.deletedAt !== null}
 							<Badge>Deleted</Badge>
+						{:else if team.id === page.data.groupMode?.teamId}
+							<Badge tone="accent">Working in</Badge>
 						{:else}
 							<span class="flex flex-none text-chevron"
 								><Icon name="chevron-right" size={20} /></span

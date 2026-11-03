@@ -7,6 +7,7 @@
 	import { entryState } from '$lib/sheets/history.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -137,6 +138,7 @@
 
 <Screen title="Music">
 	{#snippet right()}
+		<GroupModeButton />
 		<BandButton icon="plus" label="Add a song" onclick={() => (adding = true)} />
 	{/snippet}
 

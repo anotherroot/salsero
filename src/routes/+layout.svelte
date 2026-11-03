@@ -185,6 +185,7 @@
 	-->
 	<div
 		data-dance={navDance.slug}
+		data-group={page.data.groupMode ? '' : undefined}
 		style:display="contents"
 		style:--pin-bottom={tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0px'}
 		style:--pin-safe={tabs ? '0px' : 'var(--safe-bottom)'}

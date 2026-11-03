@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
@@ -31,6 +32,7 @@
 
 <Screen title="Lessons" subtitle={diskSubtitle(data.storageBytes)}>
 	{#snippet right()}
+		<GroupModeButton />
 		<BandButton icon="plus" label="New lesson" onclick={openSheet} />
 	{/snippet}
 

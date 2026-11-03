@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DANCE_SLUGS } from '$lib/dances/dances';
-import { BAND_TRACK, MEDIA, SCRIM, THEMES, TOKEN_NAMES } from './tokens';
+import { BAND_TRACK, GROUP, MEDIA, SCRIM, THEMES, TOKEN_NAMES } from './tokens';
 
 const css = readFileSync('src/routes/layout.css', 'utf8').toLowerCase();
 const block = (sel: RegExp) => css.match(sel)?.[1] ?? '';
@@ -103,5 +103,15 @@ describe('layout.css', () => {
 			'status'
 		] as const)
 			expect(bachata, n).toContain(`--color-${n}: ${MEDIA.bachata[n].toLowerCase()};`);
+	});
+	it('carries the group palette', () => {
+		const light = block(/\n\s*\[data-dance\]\[data-group\]\s*\{([^}]*)\}/);
+		const dark = block(/:root\[data-theme='dark'\]\s+\[data-dance\]\[data-group\]\s*\{([^}]*)\}/);
+		const keys = Object.keys(GROUP.light) as (keyof typeof GROUP.light)[];
+		expect(keys.length).toBe(10);
+		for (const n of keys) {
+			expect(light, n).toContain(`--color-${n}: ${GROUP.light[n].toLowerCase()};`);
+			expect(dark, n).toContain(`--color-${n}: ${GROUP.dark[n].toLowerCase()};`);
+		}
 	});
 });
