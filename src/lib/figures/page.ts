@@ -168,3 +168,12 @@ export function deleteRecordingBody(day: string, size: string, sections: number)
 				: `Its ${sections} saved sections go with it. `;
 	return `${day} · ${size}. ${goes}This can’t be undone.`;
 }
+
+/** The figure page's band subtitle: "Figure · starts on 1 · 16 counts", or "Figure". */
+export function figureSubtitle(f: {
+	startCount: number | null;
+	lengthCounts: number | null;
+}): string {
+	if (f.startCount === null || f.lengthCounts === null) return 'Figure';
+	return `Figure · starts on ${f.startCount} · ${f.lengthCounts} counts`;
+}

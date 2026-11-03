@@ -15,9 +15,9 @@ four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
 panel in the popup, an exercise page) and figure timing (a start count and a
-length in counts; routines report timing breaks) and figures as variations (a
-figure is a name holding self-contained variations; Move to… another figure or a
-new one; switcher at the bottom)
+length in counts; routines report timing breaks) and figures and moves (a
+move is a name holding self-contained figures; Move to… another move or a new
+one; switcher at the bottom; a move's page)
 and figure coverage (figures have no exercise by default; a page of figure
 versions by how many routines use them, and a routine made from a selection),
 a full-screen video player (three levels — full video, a section's own
@@ -128,8 +128,9 @@ src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
                      whether clave exists, accent colours). Client-safe
 src/lib/graph/       PURE figure graph: positions → what can follow what, the
                      gap report. Client-safe
-src/lib/moves/       PURE: what the Moves lists show — filter chips, headings, empty states,
-                     meta words, gaps, pick order. Client-safe
+src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
+                     chips, empty states, meta words, gaps, pick order; a move's page lines
+                     (move-page.ts). Client-safe
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
@@ -138,7 +139,7 @@ src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      page's wording and where a refusal shows (page.ts).
                      Client-safe
 src/lib/figures/     PURE: a figure page's lines — timing, the practice line, the
-                     variation switcher's steps, Move and Archive wording, the
+                     figure switcher's steps, Move and Archive wording, the
                      delete question, the length check. Client-safe
 src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
                      page's lines — via-section badges, row metas, the delete and unlink
@@ -315,13 +316,14 @@ src/lib/server/storage.ts  what a person uses (computed from size columns, never
 src/lib/server/invites.ts  one-time invites and joining with one
 src/routes/admin/    the admin page: people, limits, invites, requests for more space
 src/routes/join/     Join: a person creates their account from an invite link (public)
+src/routes/[dance]/moves/[id]  a move's page: its figures, rename, New figure
 src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
                      people, storage, History and Recently deleted
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
 src/routes/welcome/  asks once for a name: a person whose account was made before names
                      (hooks.server.ts sends anyone signed in without one here)
 src/routes/api/trash/[id]  restore a group's trashed row; src/routes/api/archived is the
-                     POST behind a picker's "Archived by … · Restore" (a group's variation,
+                     POST behind a picker's "Archived by … · Restore" (a group's figure,
                      routine or drill); it lists nothing
 src/routes/settings/storage/  What uses space: the person's files biggest first, Delete, Ask for more
 src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe
@@ -408,8 +410,8 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   spots (`video_spots`, deleted with their video), section links (`spot_links`,
   deleted on unlink) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes. A
-  variation's exercise is opt-in (`addFigureExercise`); when one exists it is
-  renamed and archived WITH its variation, in one transaction
+  figure's exercise is opt-in (`addFigureExercise`); when one exists it is
+  renamed and archived WITH its figure, in one transaction
   (`src/lib/server/figures.ts`). A linked spot, and the video it is on, cannot
   be deleted until it is unlinked — archived targets included (`assertUnlinked`
   in `src/lib/server/spot-links.ts`). A removed paired phone and a deleted voice
@@ -584,10 +586,10 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `length_counts` (`eights * 8`) by migration 0010 and read by nothing since.
   Same reason as `style`: dropping it is a rebuild, and `figures` can never be
   rebuilt. Timing arithmetic lives in `src/lib/graph/timing.ts`.
-- **A `figures` row is a variation; a `figure_groups` row is a figure.** Every
-  live variation has a live group of its dance and a name unique within it;
-  figure names are unique per dance; the last variation leaving archives its
-  figure (`figures.ts`). Show a variation with `figureLabels`
+- **A `figures` row is a figure; a `figure_groups` row is a move.** Every
+  live figure has a live move of its dance and a name unique within it;
+  move names are unique per dance; the last figure leaving archives its
+  move (`figures.ts`). Show a figure with `figureLabels`
   ("Enchufla · Doble"), always. `figures.parent_id` is vestigial, read by
   nothing, not dropped.
 - **`figures.callable` and `figures.call_text` are vestigial.** They were the

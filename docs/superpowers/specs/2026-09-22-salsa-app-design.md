@@ -27,7 +27,8 @@ phone. It answers three needs:
 
 | Term             | Meaning                                                                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Figure**       | A specific dance move (_figura_): a right turn, _dile que no_, _enchufla_, a lateral. Partner or solo. A routine's run calls it by voice.                                                                  |
+| **Move**         | A named move (_figura_): _enchufla_, _dile que no_, a right turn. A name that holds its figures (`figure_groups`).                                                                                         |
+| **Figure**       | One self-contained way of dancing a move: "Enchufla · Doble" (a `figures` row, once called a variation). Partner or solo. A routine's run calls it by voice.                                                                  |
 | **Routine**      | An ordered sequence of figures, built from the position graph. See the [routines design](2026-09-24-routines-design.md).                                                            |
 | **Exercise**     | Anything practiced and logged. Created automatically for every routine; for a figure only on request ("Practise on its own"); or by hand (custom: "son basic 5 min"). |
 | **Set**          | One logged bout of an exercise. Many per day allowed.                                                                                                                               |
@@ -337,7 +338,7 @@ The home page. One page serves both "exercises" and "today".
 
 ## Figures
 
-- **List:** search box, filter chips (style, partner/solo, Not linked), tiles to
+- **List:** figures under their move's heading (a move's page at `/[dance]/moves/[id]`); search box, filter chips (style, partner/solo, Not linked), tiles to
   Positions and Coverage with their counts. Archived hidden. See the
   [redesign](2026-10-31-redesign-design.md), Moves.
 - **Positions:** `/[dance]/positions` is the gap report. A position is renamed
@@ -348,12 +349,12 @@ The home page. One page serves both "exercises" and "today".
   ("New figures", one per dance, stored in `default_styles`), else the
   registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored
   style the dance no longer has falls back to the registry's. A lesson's
-  "Variation of a figure" pre-selects it too; a copy keeps its source's.
+  "New figure in a move" pre-selects it too; a copy keeps its source's.
   Songs still start on the dance's first style.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
   position tags, "Follows from" / "Leads to". In routines · N: the live routines that call this
-  variation, by slot (`routinesUsing`), each opening the routine.
+  figure, by slot (`routinesUsing`), each opening the routine.
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many
   routines can call it, and makes a routine from a selection (Select; picks numbered in tap order). See
   [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).
@@ -485,8 +486,8 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 - **The random drill was removed on 2026-09-30.** It called figures at random
   from a picked pool, walking the position graph (`graphFlow`); it went unused.
   With it went the figure's "callable" checkbox and "Say it like" input — the
-  voice now always says the figure's name (a variation is said as its
-  figure). Without a routine the player is count and clave only.
+  voice now always says the figure's name (a figure is said as its
+  move). Without a routine the player is count and clave only.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
   `{ source, songId, bpm, speed, count, clave, callEvery, calls, called }`, where `calls` is the true

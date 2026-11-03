@@ -3,6 +3,7 @@ import { plan, type PlanExercise } from '$lib/urgency/urgency';
 import {
 	archiveCopy,
 	deleteRecordingBody,
+	figureSubtitle,
 	lengthError,
 	moveState,
 	practiceLine,
@@ -181,4 +182,16 @@ describe('deleteRecordingBody', () => {
 		expect(deleteRecordingBody('Wednesday, 28 October', '34 MB', 0)).toBe(
 			'Wednesday, 28 October · 34 MB. This can’t be undone.'
 		));
+});
+
+describe('figureSubtitle', () => {
+	it('names the start and the length', () => {
+		expect(figureSubtitle({ startCount: 1, lengthCounts: 16 })).toBe(
+			'Figure · starts on 1 · 16 counts'
+		);
+	});
+	it('is just Figure without timing', () => {
+		expect(figureSubtitle({ startCount: null, lengthCounts: null })).toBe('Figure');
+		expect(figureSubtitle({ startCount: 1, lengthCounts: null })).toBe('Figure');
+	});
 });

@@ -56,6 +56,7 @@
 	import {
 		archiveCopy,
 		deleteRecordingBody,
+		figureSubtitle,
 		recordingDay,
 		routineUseMeta,
 		timingLine
@@ -269,8 +270,8 @@
 
 <Screen
 	compact
-	title={figure.name}
-	subtitle={editing ? `Editing ${variation.name}` : variation.name}
+	title="{figure.name} · {variation.name}"
+	subtitle={editing ? `Editing ${variation.name}` : figureSubtitle(data.effective)}
 >
 	{#snippet left()}
 		{#if editing}
@@ -828,6 +829,7 @@
 {#if !editing}
 	<VariationBar
 		figureName={figure.name}
+		moveId={data.figure.id}
 		siblings={data.siblings}
 		currentId={variation.id}
 		{slug}

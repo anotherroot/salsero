@@ -21,6 +21,8 @@
 	 */
 	interface Props {
 		figureName: string;
+		/** The move's id: the list sheet's title links to its page. */
+		moveId: number;
 		/** Live variations, id order, the current one included. */
 		siblings: SiblingSummary[];
 		currentId: number;
@@ -31,7 +33,7 @@
 		canEdit?: boolean;
 	}
 
-	let { figureName, siblings, currentId, slug, failed, canEdit = true }: Props = $props();
+	let { figureName, moveId, siblings, currentId, slug, failed, canEdit = true }: Props = $props();
 
 	let listing = $state(false);
 	let adding = $state(false);
@@ -79,6 +81,7 @@
 	const prev = $derived(byId(nav.prev));
 	const next = $derived(byId(nav.next));
 
+	const moveHref = $derived(resolve('/[dance]/moves/[id]', { dance: slug, id: String(moveId) }));
 	const href = (id: number) => resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
 	const recordings = (n: number) =>
 		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
@@ -89,6 +92,14 @@
 	 * from inside the sheet would replace the sheet's entry and leave the old
 	 * variation one Back below.
 	 */
+	/** The move's page: the list closes first, as for a picked row. */
+	function openMove(e: MouseEvent) {
+		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+		e.preventDefault();
+		listing = false;
+		void gotoWhenSettled(moveHref);
+	}
+
 	function pick(e: MouseEvent, id: number) {
 		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 		e.preventDefault();
@@ -156,8 +167,18 @@
 {/snippet}
 
 <!-- A reader steps through the variations they can see; New variation is an editor's. -->
+{#snippet moveLink()}
+	<a
+		href={moveHref}
+		onclick={openMove}
+		class="flex min-h-8 items-center gap-0.5 self-start text-[14px] font-bold text-accent-text"
+		>Open {figureName}<Icon name="chevron-right" size={16} /></a
+	>
+{/snippet}
+
 <Sheet
 	title="Figures of {figureName}"
+	subtitle={moveLink}
 	open={listing}
 	onclose={() => (listing = false)}
 	footer={canEdit ? newVariation : undefined}

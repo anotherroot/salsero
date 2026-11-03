@@ -298,7 +298,7 @@ rules the boards follow that are not obvious from looking at them.
   for the tab shown.
 - Filters are one scrolling chip row: All · Not linked (with its count — the
   old "n not linked →" link) · the dance's styles · With partner · Solo.
-- Figure rows keep today's second line (variations · recordings · No section /
+- Figures are listed under their move's heading; rows keep today's second line (recordings · No section /
   No lesson).
 - Routines rows: "n slots" with a danger "2 breaks" badge and a warn "does not
   loop" badge.
@@ -312,23 +312,23 @@ rules the boards follow that are not obvious from looking at them.
 
 ### A figure
 
-- Compact band: the figure name with the variation name under it.
+- Compact band: the label ("Enchufla · Doble") with "Figure · starts on 1 · 16 counts" under it.
 - A facts card: style and partner badges, the timing as eight counts with the
   start count filled ("Starts on 1 · 16 counts · 2 eights"), handholds, notes.
   Then Practice (frequency with "+", a row to the exercise), Follows from /
   Leads to as two lists, recordings (16:9 player, date · size, mirror, speed,
   full screen) each with its sections, linked sections, links, Taught in,
   "Move Doble to…", "Archive Doble".
-- The variation switcher is pinned directly above the tab bar, on the tab-bar
+- The figure switcher is pinned directly above the tab bar, on the tab-bar
   surface, and hidden while editing. Its sheet lists
-  the variations with New variation in the footer.
+  the move's figures with New figure in the footer, and links to the move's page.
 - Edit: start positions as removable chips, Ends at, a 1–8 "Starts on" grid,
   Counts with 4/8/16 shortcuts; a "Not saved" banner carries the server's
   message.
 - Upload in progress is a card ("Uploading… 42%"). In the app, Add video
   (compressed in the background) and Add audio are separate buttons.
-- Move to… and archiving the last variation warn in danger ("Move and remove
-  figure", "Archive and remove figure").
+- Move to… and archiving the last figure warn in danger ("Move and remove
+  move", "Archive and remove move").
 
 ### A routine
 
@@ -372,8 +372,8 @@ rules the boards follow that are not obvious from looking at them.
 - Figures / Routines / Exercises: "New" on the section label, "Link a …" as
   the group's last row (opens the shared picker), "via section" badges, unlink
   icons. Deleting a linked video is refused in a banner on its card.
-- The New variation sheet from a lesson has a "New figure | Variation of a
-  figure" switch.
+- The New figure sheet from a lesson has a "New move | New figure in a move"
+  switch.
 
 ### Music
 
@@ -440,7 +440,7 @@ rules the boards follow that are not obvious from looking at them.
   page has × only.
 - In the player the same sheets use the media palette — one look, always dark
   there.
-- Figure headings are non-tappable lines inside the group card, variations
+- Move headings are non-tappable lines inside the group card, figures
   indented under them. Archived links show a warn "Archived" badge.
 - Only the list scrolls (with a fade); search, create and Done stay put.
 
