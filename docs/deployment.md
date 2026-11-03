@@ -98,25 +98,41 @@ CHECKs; that is safe only because nothing has a foreign key into or out of
 that table. Check it kept its rows and index:
 
 ```sh
+bash -eu <<'EOF'
+DB=/tmp/trial.db
+fail() { echo "FAIL: $*" >&2; exit 1; }
 # the backup just taken by `systemctl start salsa-backup` (named for today)
-ssh tilen@49.13.76.224 'sudo cat /var/lib/salsa/backups/salsa-'$(date +%F)'.db' > /tmp/trial.db
+ssh tilen@49.13.76.224 "sudo cat /var/lib/salsa/backups/salsa-$(date +%F).db" > "$DB" \
+  || fail "could not copy today's backup"
+[ -s "$DB" ] || fail "the copied backup is empty"
 mkdir -p /tmp/trial-data
-sqlite3 /tmp/trial.db 'select count(*) from team_changes;'   # note the number
+before=$(sqlite3 "$DB" 'select count(*) from team_changes;')
 npm run build
-DATA_DIR=/tmp/trial-data DATABASE_PATH=/tmp/trial.db HOST=127.0.0.1 PORT=3999 node build &
+DATA_DIR=/tmp/trial-data DATABASE_PATH="$DB" HOST=127.0.0.1 PORT=3999 node build &
 PID=$!
-sleep 3
-curl -fsS http://127.0.0.1:3999/health   # migrations run on the first request
-kill $PID
-sqlite3 /tmp/trial.db 'select count(*) from __drizzle_migrations;' '.schema team_changes'
-sqlite3 /tmp/trial.db 'select count(*) from team_changes;' '.indexes team_changes'
+trap 'kill $PID 2>/dev/null || true' EXIT
+# migrations run on the first request; retry while the server boots
+curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:3999/health \
+  || fail "the trial server never answered /health"
+kill $PID; wait $PID 2>/dev/null || true
+[ "$(sqlite3 "$DB" 'select count(*) from __drizzle_migrations;')" -ge 26 ] \
+  || fail "migrations did not run (fewer than 26 applied)"
+sqlite3 "$DB" '.schema team_changes' | grep -q "'song'" \
+  || fail "team_changes was not rebuilt: its CHECK does not name 'song'"
+after=$(sqlite3 "$DB" 'select count(*) from team_changes;')
+[ "$after" -eq "$before" ] || fail "team_changes had $before rows, now $after"
+sqlite3 "$DB" '.indexes team_changes' | grep -qw team_changes_root_idx \
+  || fail "team_changes_root_idx is missing"
+echo "OK: 26+ migrations applied, $after team_changes rows kept, index present"
+EOF
 ```
 
-The migrations run in `openDb`, which only a request reaches, so the `curl`
-is what applies them. The migration count must be at least 26, the
-`team_changes` schema must mention `'song'`, the row count must match the
-one before, and `team_changes_root_idx` must be listed. Delete `/tmp/trial*`
-afterwards, and never point this at the live database.
+It stops at the first thing that is wrong and says what, and prints `OK: …`
+only when all of it holds. The migrations run in `openDb`, which only a
+request reaches, so the `curl` is what applies them: the migration count must
+be at least 26, the `team_changes` schema must mention `'song'`, the row count
+must match the one before, and `team_changes_root_idx` must be listed. Delete
+`/tmp/trial*` afterwards, and never point this at the live database.
 
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
