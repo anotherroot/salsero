@@ -954,10 +954,16 @@
 		class="flex flex-col gap-3.5"
 		use:guarded={{
 			label: 'New routine name',
-			submit: (input) => {
+			submit: async (input) => {
 				// One routine per tap: a second tap while the first is out is dropped.
 				if (making) return input.cancel();
 				making = true;
+				// Behind this page's own slot actions, as `send` goes: aimed at the
+				// routine on screen, following their answers.
+				const aimed = data.fingerprint;
+				const ahead = [...queued];
+				await chain;
+				input.formData.set('fingerprint', fingerprintToSend(aimed, ahead));
 				const done = extracted(input);
 				return async (args) => {
 					try {
@@ -970,7 +976,6 @@
 			}
 		}}
 	>
-		<input type="hidden" name="fingerprint" value={data.fingerprint} />
 		{#each inOrder(rows, selected) as id (id)}
 			<input type="hidden" name="stepIds" value={id} />
 		{/each}

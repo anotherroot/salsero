@@ -7,6 +7,8 @@ import {
 	clashView,
 	fieldLabel,
 	goneTitle,
+	canPutBack,
+	kindOfShape,
 	mineOverTheirs,
 	routineFingerprint,
 	seenAfterSave,
@@ -183,6 +185,18 @@ describe('mineOverTheirs', () => {
 		expect(r.send).toEqual({ startMs: 1100 });
 		expect(r.show).toEqual({ label: 'Theirs', startMs: 1100, endMs: 5000 });
 	});
+	it('also sends your edits that waited behind the clash, and Keep theirs sends only those', () => {
+		const info = { changed: ['startMs'], current: { label: 'A', startMs: 1500, endMs: 5000 } };
+		const screen = { label: 'A', startMs: 1100, endMs: 5200 };
+		expect(mineOverTheirs(info, screen, {}, ['startMs', 'endMs']).send).toEqual({
+			startMs: 1100,
+			endMs: 5200
+		});
+		const theirs = mineOverTheirs({ ...info, changed: [] }, screen, {}, ['endMs']);
+		expect(theirs.send).toEqual({ endMs: 5200 });
+		expect(theirs.show).toEqual({ label: 'A', startMs: 1500, endMs: 5200 });
+	});
+
 	it('takes a box over the screen', () => {
 		const r = mineOverTheirs(
 			{ changed: ['label'], current: { label: 'Theirs', startMs: 1, endMs: 2 } },
@@ -190,5 +204,40 @@ describe('mineOverTheirs', () => {
 			{ label: 'Merged' }
 		);
 		expect(r.send).toEqual({ label: 'Merged' });
+	});
+});
+
+describe('field shapes', () => {
+	it('never puts a value back into a hidden input or a list of them', () => {
+		// One chosen start position renders as ONE hidden input: still not settable.
+		expect(canPutBack({ tag: 'input', type: 'hidden' })).toBe(false);
+		expect(canPutBack({ tag: 'many' })).toBe(false);
+		expect(canPutBack({ tag: 'none' })).toBe(false);
+	});
+	it('puts one back into a typed field, a select and a choice', () => {
+		expect(canPutBack({ tag: 'input', type: 'text' })).toBe(true);
+		expect(canPutBack({ tag: 'input', type: 'checkbox' })).toBe(true);
+		expect(canPutBack({ tag: 'textarea' })).toBe(true);
+		expect(canPutBack({ tag: 'select' })).toBe(true);
+		expect(canPutBack({ tag: 'radios' })).toBe(true);
+	});
+	it('shows text, many lines and dates in boxes, the rest by name', () => {
+		expect(kindOfShape({ tag: 'input', type: 'text' })).toBe('text');
+		expect(kindOfShape({ tag: 'textarea' })).toBe('multiline');
+		expect(kindOfShape({ tag: 'input', type: 'date' })).toBe('date');
+		expect(kindOfShape({ tag: 'input', type: 'hidden' })).toBe('other');
+		expect(kindOfShape({ tag: 'radios' })).toBe('other');
+	});
+	it('names an untouched single start position in Also changed, never adopts it', () => {
+		const v = clashView(
+			{ changed: ['startIds'], current: { startIds: '1,2' } },
+			{ startIds: '1' },
+			{ startIds: '1' },
+			() => 'other',
+			undefined,
+			() => canPutBack({ tag: 'input', type: 'hidden' })
+		);
+		expect(v.adopt).toEqual([]);
+		expect(v.others).toEqual(['Starts from']);
 	});
 });

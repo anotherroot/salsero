@@ -11,7 +11,9 @@ import {
 	fieldLabel,
 	type ClashInfo,
 	type ClashView,
-	type FieldKind,
+	canPutBack,
+	kindOfShape,
+	type FieldShape,
 	type GoneInfo,
 	type Seen
 } from '$lib/clash/clash';
@@ -161,55 +163,48 @@ function seenSent(sent: FormData): Seen | null {
 	}
 }
 
-/** How the clash sheet shows a field: by its control. */
-function kindOf(form: HTMLFormElement, key: string): FieldKind {
+/**
+ * The control under one name, as a `FieldShape`: the clash check's rules
+ * (`kindOfShape`, `canPutBack`) are pure and specced; this only reads the DOM.
+ */
+function shapeOf(form: HTMLFormElement, key: string): FieldShape {
 	const el = form.elements.namedItem(key);
-	if (el instanceof HTMLTextAreaElement) return 'multiline';
-	if (el instanceof HTMLInputElement && (el.type === 'text' || el.type === 'search')) return 'text';
-	if (el instanceof HTMLInputElement && el.type === 'date') return 'date';
-	return 'other';
-}
-
-/** A group of radios under one name (a choice), which takes a value as one field does. */
-function radios(el: unknown): el is RadioNodeList {
-	return (
-		el instanceof RadioNodeList &&
-		[...el].every((r) => r instanceof HTMLInputElement && r.type === 'radio')
-	);
-}
-
-/** Whether `setField` can put a value back into this field (not a list of hidden ids). */
-function settable(form: HTMLFormElement, key: string): boolean {
-	const el = form.elements.namedItem(key);
-	return (
-		radios(el) ||
-		el instanceof HTMLInputElement ||
-		el instanceof HTMLTextAreaElement ||
-		el instanceof HTMLSelectElement
-	);
-}
-
-/** Put a value into a field as if it was typed, so bound state follows. False when it cannot. */
-function setField(form: HTMLFormElement, key: string, value: string): boolean {
-	const el = form.elements.namedItem(key);
-	if (radios(el)) {
-		el.value = value;
-		const on = [...el].find((r) => (r as HTMLInputElement).checked);
-		on?.dispatchEvent(new Event('input', { bubbles: true }));
-		on?.dispatchEvent(new Event('change', { bubbles: true }));
-		return true;
+	if (el instanceof RadioNodeList) {
+		const all = [...el];
+		return all.every((r) => r instanceof HTMLInputElement && r.type === 'radio')
+			? { tag: 'radios' }
+			: { tag: 'many' };
 	}
-	if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+	if (el instanceof HTMLInputElement) return { tag: 'input', type: el.type };
+	if (el instanceof HTMLTextAreaElement) return { tag: 'textarea' };
+	if (el instanceof HTMLSelectElement) return { tag: 'select' };
+	return { tag: 'none' };
+}
+
+/**
+ * Put a value into a field as if it was typed, so bound state follows. False,
+ * changing nothing, for a field a value cannot go back into (`canPutBack`).
+ */
+function setField(form: HTMLFormElement, key: string, value: string): boolean {
+	if (!canPutBack(shapeOf(form, key))) return false;
+	const el = form.elements.namedItem(key);
+	let target: Element | null = null;
+	if (el instanceof RadioNodeList) {
+		el.value = value;
+		target = [...el].find((r) => (r as HTMLInputElement).checked) ?? null;
+	} else if (el instanceof HTMLInputElement && el.type === 'checkbox') {
 		el.checked = value === 'on' || value === 'true';
+		target = el;
 	} else if (
 		el instanceof HTMLInputElement ||
 		el instanceof HTMLTextAreaElement ||
 		el instanceof HTMLSelectElement
 	) {
 		el.value = value;
-	} else return false;
-	el.dispatchEvent(new Event('input', { bubbles: true }));
-	el.dispatchEvent(new Event('change', { bubbles: true }));
+		target = el;
+	}
+	target?.dispatchEvent(new Event('input', { bubbles: true }));
+	target?.dispatchEvent(new Event('change', { bubbles: true }));
 	return true;
 }
 
@@ -325,7 +320,7 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 	/** Open the clash sheet for a refused save, holding what it sent. */
 	function askClash(refused: { clash: ClashInfo } | { gone: GoneInfo }, sent: FormData) {
 		const typedValues = valuesOf(sent);
-		const kind = (key: string) => kindOf(form, key);
+		const kind = (key: string) => kindOfShape(shapeOf(form, key));
 		if ('gone' in refused) {
 			clashPrompt.ask = {
 				kind: 'gone',
@@ -341,7 +336,9 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 		}
 		const info = refused.clash;
 		const seen = seenSent(sent);
-		const view = clashView(info, typedValues, seen, kind, undefined, (key) => settable(form, key));
+		const view = clashView(info, typedValues, seen, kind, undefined, (key) =>
+			canPutBack(shapeOf(form, key))
+		);
 		clashPrompt.ask = {
 			kind: 'clash',
 			by: info.by,

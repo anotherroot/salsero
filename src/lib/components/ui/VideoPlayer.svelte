@@ -197,6 +197,11 @@
 	);
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const clashed = new Set<number>();
+	/** By spot: the fields of this player's own edits that wait behind an open clash. */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const held = new Map<number, Set<string>>();
+	const hold = (id: number, keys: string[]) =>
+		held.set(id, new Set([...(held.get(id) ?? []), ...keys]));
 	let clash = $state<ClashAsk | null>(null);
 	type ToastAction = { label: string; run: () => void };
 	let toast = $state<{ text: string; tone: ToastTone; actions: ToastAction[] } | null>(null);
@@ -427,7 +432,11 @@
 		changes: { label?: string | null; startMs?: number; endMs?: number | null }
 	) {
 		sending = sending.then(async () => {
-			if (clashed.has(id)) return;
+			if (clashed.has(id)) {
+				// Kept for the choice: the screen shows it, so it is still yours to send.
+				hold(id, Object.keys(changes));
+				return;
+			}
 			try {
 				const before = known.get(id);
 				const answer = spotSeen(await patchSpot(id, changes, before));
@@ -436,6 +445,8 @@
 				known.set(id, before ? seenAfterSave(before, Object.keys(changes), answer) : answer);
 			} catch (e) {
 				if (e instanceof SpotsApiError && e.clash) {
+					// Every field this edit wrote waits for the choice, the ones that clashed and not.
+					hold(id, Object.keys(changes));
 					askClash(id, e.clash);
 					return;
 				}
@@ -464,10 +475,23 @@
 		const mine = spots.find((s) => s.id === id);
 		if (!mine) return;
 		clashed.add(id);
+		/** The choice is made: the edits that waited are handed over, and the spot is free again. */
 		const settle = () => {
 			clash = null;
 			clashed.delete(id);
 			known.set(id, info.current);
+			const waited = [...(held.get(id) ?? [])];
+			held.delete(id);
+			return waited;
+		};
+		/** Your values for `out`'s fields, sent over theirs and shown. */
+		const sendOut = (out: Seen, shown: Seen) => {
+			const changes: { label?: string | null; startMs?: number; endMs?: number | null } = {};
+			if ('label' in out) changes.label = out.label ? String(out.label) : null;
+			if ('startMs' in out) changes.startMs = Number(out.startMs);
+			if ('endMs' in out) changes.endMs = out.endMs === null ? null : Number(out.endMs);
+			show(id, { ...shown, ...changes });
+			if (Object.keys(changes).length > 0) send(id, changes);
 		};
 		clash = {
 			kind: 'clash',
@@ -482,23 +506,23 @@
 			),
 			typed: [],
 			mine: (values) => {
-				settle();
+				const waited = settle();
 				const now = spots.find((s) => s.id === id);
 				if (!now) return;
-				// Yours for what clashed, theirs for everything else.
+				// Yours for what clashed and what waited, theirs for everything else.
 				const boxes: Record<string, string> =
 					'label' in values ? { label: values.label.trim() } : {};
-				const { send: out, show: shown } = mineOverTheirs(info, spotSeen(now), boxes);
-				const changes: { label?: string | null; startMs?: number; endMs?: number | null } = {};
-				if ('label' in out) changes.label = out.label ? String(out.label) : null;
-				if ('startMs' in out) changes.startMs = Number(out.startMs);
-				if ('endMs' in out) changes.endMs = out.endMs === null ? null : Number(out.endMs);
-				show(id, { ...shown, ...changes });
-				send(id, changes);
+				const r = mineOverTheirs(info, spotSeen(now), boxes, waited);
+				sendOut(r.send, r.show);
 			},
 			theirs: () => {
-				settle();
-				show(id, info.current);
+				const waited = settle();
+				const now = spots.find((s) => s.id === id);
+				if (!now) return show(id, info.current);
+				// Theirs for what clashed; your waiting edits to other fields still go.
+				const kept = waited.filter((k) => !info.changed.includes(k));
+				const r = mineOverTheirs({ ...info, changed: [] }, spotSeen(now), {}, kept);
+				sendOut(r.send, r.show);
 			}
 		};
 	}

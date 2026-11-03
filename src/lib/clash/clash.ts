@@ -154,6 +154,38 @@ export function fieldLabel(key: string): string {
  */
 export type FieldKind = 'text' | 'multiline' | 'date' | 'time' | 'other';
 
+/**
+ * A form field as the clash check sees it: the control under one name. `many`
+ * is several controls under one name that are not one choice (a hidden input
+ * per start position); `none`, no control at all.
+ */
+export type FieldShape =
+	| { tag: 'input'; type: string }
+	| { tag: 'textarea' }
+	| { tag: 'select' }
+	| { tag: 'radios' }
+	| { tag: 'many' }
+	| { tag: 'none' };
+
+/** How the clash sheet shows a field of this shape. */
+export function kindOfShape(shape: FieldShape): FieldKind {
+	if (shape.tag === 'textarea') return 'multiline';
+	if (shape.tag === 'input' && (shape.type === 'text' || shape.type === 'search')) return 'text';
+	if (shape.tag === 'input' && shape.type === 'date') return 'date';
+	return 'other';
+}
+
+/**
+ * Whether a value from the server can be put back into a field of this shape.
+ * Never a hidden input: one may be a single item of a list (a variation's one
+ * start position), and writing "1,2" into it would save no list at all. Those
+ * stay as they are, and the sheet names them.
+ */
+export function canPutBack(shape: FieldShape): boolean {
+	if (shape.tag === 'input') return shape.type !== 'hidden' && shape.type !== 'file';
+	return shape.tag === 'textarea' || shape.tag === 'select' || shape.tag === 'radios';
+}
+
 export interface ClashField {
 	key: string;
 	label: string;
@@ -229,17 +261,22 @@ export function seenAfterSave(before: Seen, wrote: string[], answer: Seen): Seen
 }
 
 /**
- * Save mine on a record edited field by field (a section in the player): only
- * the changed fields are sent, with yours (a box's value where the sheet had
- * one, else what the screen shows); everything else shows theirs.
+ * Save mine on a record edited field by field (a section in the player): the
+ * changed fields are sent with yours (a box's value where the sheet had one,
+ * else what the screen shows), and so are `held`: your own edits queued
+ * behind the clash. Everything else shows theirs. Keep theirs is the same
+ * with no changed fields: only the held edits go.
  */
 export function mineOverTheirs(
 	info: Pick<ClashInfo, 'changed' | 'current'>,
 	screen: Seen,
-	boxes: Record<string, string>
+	boxes: Record<string, string>,
+	held: string[] = []
 ): { send: Seen; show: Seen } {
 	const send: Seen = {};
 	for (const key of info.changed) send[key] = key in boxes ? boxes[key] : (screen[key] ?? null);
+	// Your own edits that waited behind the clash, to fields that did not clash.
+	for (const key of held) if (!(key in send)) send[key] = screen[key] ?? null;
 	return { send, show: { ...info.current, ...send } };
 }
 
