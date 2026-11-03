@@ -18,7 +18,8 @@ vi.mock('$lib/server/storage', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import { songs, users } from '$lib/server/db/schema';
 import { createSongFromUrl } from '$lib/server/songs';
 import { PUT } from './+server';
 
@@ -68,5 +69,15 @@ describe('PUT /api/worker/songs/[id]/audio', () => {
 	it("refuses with 413 over the song owner's limit", async () => {
 		await expect(put(11 * MB)).rejects.toMatchObject({ status: 413 });
 		expect(await readdir(join(envMock.DATA_DIR, 'audio'))).toEqual([]);
+	});
+});
+
+describe('an owner-less song', () => {
+	it('answers 409 and fails its job once, so the worker stops', async () => {
+		db.update(songs).set({ userId: null }).where(eq(songs.id, songId)).run();
+		await expect(put(1000)).rejects.toMatchObject({ status: 409 });
+		const row = db.select().from(songs).where(eq(songs.id, songId)).get()!;
+		expect(row.status).toBe('failed');
+		expect(row.error).toBe('Song has no owner');
 	});
 });

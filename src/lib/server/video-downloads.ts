@@ -174,6 +174,17 @@ export function completeVideoJob(
 			job.figureId !== null ? { figureId: job.figureId } : { lessonId: job.lessonId! }
 		);
 		if (!charged) return null;
+		// A group's History line needs someone to name: who pressed Save, else the group's owner.
+		// With nobody the job fails once, rather than rolling back on every retry.
+		const actor = 'teamId' in charged ? (job.requestedBy ?? ownerOfTeam(tx, charged.teamId)) : null;
+		if ('teamId' in charged && actor === null) {
+			const message = NO_OWNER;
+			tx.update(videoDownloads)
+				.set({ status: 'failed', error: message, claimedAt: null })
+				.where(eq(videoDownloads.id, id))
+				.run();
+			return { refused: message };
+		}
 		const room = roomForOwner(tx, charged, input.sizeBytes, freeDiskBytes);
 		if (!room.ok) {
 			tx.update(videoDownloads)
@@ -216,32 +227,32 @@ export function completeVideoJob(
 
 		tx.delete(videoDownloads).where(eq(videoDownloads.id, id)).run();
 		tx.delete(links).where(eq(links.id, job.linkId)).run();
-		logArrived(tx, owner, job.requestedBy);
+		if (actor !== null) logArrived(tx, owner, actor);
 		return owner;
 	});
 }
 
-/**
- * History's line for a saved video that arrived: a video added to its lesson,
- * or a recording to its figure, by whoever pressed Save. A job from before
- * that was kept falls back to the group's owner, so the line still names
- * someone.
- */
-function logArrived(
-	tx: Db,
-	owner: { recordingId: number } | { lessonVideoId: number },
-	requestedBy: string | null
-): void {
-	const root = videoRoot(tx, owner);
-	if (!root || root.row.teamId === null) return;
-	const by =
-		requestedBy ??
+/** The group's owner, or null when it has none. */
+function ownerOfTeam(tx: Db, teamId: number): string | null {
+	return (
 		tx
 			.select({ userId: teamMembers.userId })
 			.from(teamMembers)
-			.where(and(eq(teamMembers.teamId, root.row.teamId), eq(teamMembers.role, 'owner')))
-			.get()?.userId ??
-		'';
+			.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, 'owner')))
+			.get()?.userId ?? null
+	);
+}
+
+const NO_OWNER = 'This group has no owner to credit the video to.';
+
+/** History's line for a saved video that arrived in a group, by whoever pressed Save (or the owner). */
+function logArrived(
+	tx: Db,
+	owner: { recordingId: number } | { lessonVideoId: number },
+	by: string
+): void {
+	const root = videoRoot(tx, owner);
+	if (!root || root.row.teamId === null) return;
 	const { row, ...at } = root;
 	const [subject, subjectId] =
 		'recordingId' in owner ? ['recording', owner.recordingId] : ['video', owner.lessonVideoId];

@@ -148,3 +148,28 @@ describe('completeVideoJob', () => {
 		expect(getFigure(db, figureId, 'u1')!.recordings).toEqual([]);
 	});
 });
+
+describe('completeVideoJob into a group with nobody to credit', () => {
+	it('fails the job once with a clear message and adds nothing', () => {
+		// A group's lesson whose owner row is gone, and a job from before requested_by was kept.
+		const lesson = createLesson(
+			db,
+			{ teamId: 1, actorId: 'u1', dance: 'salsa' },
+			{
+				lessonDay: '2026-10-14',
+				title: 'Group class',
+				notes: null
+			}
+		).lesson.id;
+		const id = addLinks(db, { lessonId: lesson }, [YT], null, 'u1')![0].id;
+		requestVideoDownload(db, { lessonId: lesson }, id);
+		const job = claimVideoJob(db, T)!;
+		const done = completeVideoJob(db, job.id, FILE, FREE);
+		expect(done).toEqual({ refused: 'This group has no owner to credit the video to.' });
+		expect(jobs()).toMatchObject([
+			{ status: 'failed', error: 'This group has no owner to credit the video to.' }
+		]);
+		expect(claimVideoJob(db, T + 10 * LEASE_MS)).toBeNull();
+		expect(getLesson(db, lesson, 'u1')?.videos ?? []).toEqual([]);
+	});
+});
