@@ -651,3 +651,9 @@ export type CopySummary = {
 	routines: number;
 	drills: number;
 };
+
+/** The group a person has switched the app into (group mode). */
+export type GroupMode = { teamId: number; name: string; role: 'owner' | 'editor' };
+
+/** A group a person may switch into: they own or edit it. */
+export type GroupChoice = GroupMode & { people: number };
