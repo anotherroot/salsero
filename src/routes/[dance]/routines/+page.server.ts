@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { buildGraph } from '$lib/server/graph';
+import { graphFor } from '$lib/server/graph';
 import {
 	createRoutine,
 	listAddedRoutines,
@@ -21,7 +21,8 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	// In group mode the page reads the group's side; the person's own is not shown.
 	const space = mode ? { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId } : wall;
 	const reach = mode ? publishedReach(db, mode.teamId) : null;
-	const graph = buildGraph(db, space);
+	// A person's routines may hold group figures they may use (`graphFor`).
+	const graph = graphFor(db, space);
 	const shapes = routineShapes(db, space);
 	// Derived per request, never stored — the same rule urgency follows. A tag
 	// edited on a figure page changes these answers with no routine touched.

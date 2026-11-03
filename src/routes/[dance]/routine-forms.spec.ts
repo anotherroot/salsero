@@ -19,10 +19,15 @@ import {
 	addChildSlot,
 	addFigureSlot,
 	createRoutine,
+	createRoutineFromFigures,
 	getRoutine,
 	routineSlots
 } from '$lib/server/routines';
 import * as routinePage from './routines/[id]/+page.server';
+import * as routinesList from './routines/+page.server';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { createLesson, linkFigure, linkRoutine, publishLesson } from '$lib/server/lessons';
+import { addLesson } from '$lib/server/entries';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
@@ -130,5 +135,67 @@ describe('Edit routine', () => {
 			)
 		).toEqual({ ok: true });
 		expect(getRoutine(db, r)?.name).toBe('Saturday');
+	});
+});
+
+describe('a personal routine that uses a group’s figure and routine', () => {
+	const T = 1_790_000_000_000;
+	/** Eva's group; u1 is a member and added the published lesson that links F and R (options G). */
+	const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
+	type RoutineData = {
+		labels: Record<number, string>;
+		candidates: { kind: string; id: number }[];
+		childSlots: Record<number, number>;
+		edges: { starts: number[] }[];
+	};
+	const loadRoutine = (id: number) =>
+		(routinePage.load as unknown as (e: unknown) => RoutineData)({
+			params: { dance: 'salsa', id: String(id) },
+			locals: { user: USER }
+		});
+	const loadList = () =>
+		(
+			routinesList.load as unknown as (e: unknown) => {
+				routines: { id: number; breaks: number }[];
+			}
+		)({
+			params: { dance: 'salsa' },
+			locals: { user: USER },
+			cookies: { get: () => undefined }
+		});
+
+	it('names the group’s figure, offers the group’s routine, and counts no false break', () => {
+		createTeam(db, 'u5', 'salsa', 'Rueda club', T);
+		joinTeam(db, 'u1', 1, T);
+		const fig = (figureName: string) =>
+			createFigure(db, EVA, {
+				figureName,
+				name: 'Doble',
+				partner: 'partner',
+				style: 'salsa',
+				notes: null
+			})!.figure.id;
+		const F = fig('Dile que no');
+		const G = fig('Vacilala');
+		const R = createRoutineFromFigures(db, EVA, { name: 'Club routine', notes: null }, [G])!.routine
+			.id;
+		const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'W1', notes: null }).lesson
+			.id;
+		linkFigure(db, L, F, 'u5');
+		linkRoutine(db, L, R, 'u5');
+		publishLesson(db, EVA, L, T);
+		addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+
+		const P = createRoutine(db, U1_SALSA, { name: 'Mixed', notes: null }).routine.id;
+		expect(addFigureSlot(db, P, F)).not.toBeNull();
+		expect(addFigureSlot(db, P, F)).not.toBeNull();
+		const data = loadRoutine(P);
+		expect(data.labels[F]).toBe('Dile que no · Doble');
+		expect(data.candidates).toContainEqual(expect.objectContaining({ kind: 'routine', id: R }));
+		// Untagged figures all start and land in neutral: two in a row never break.
+		expect(loadList().routines.find((r) => r.id === P)?.breaks).toBe(0);
+
+		expect(addChildSlot(db, P, R)).not.toBeNull();
+		expect(loadRoutine(P).childSlots[R]).toBe(1);
 	});
 });

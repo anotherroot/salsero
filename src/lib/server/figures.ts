@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNotNull, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import {
@@ -22,6 +22,7 @@ import { trashRows, type ArchiveRestore } from './trash';
 import { takenLine } from '$lib/teams/deleted';
 import { addedReach, addedTeams, allows, figureAccess } from './access';
 import { actingIn, fieldChange, logChange, variationRoot } from './changes';
+import { usableOf, type Usable } from './usable';
 import type { Partner } from '$lib/labels';
 import type {
 	CalledFigure,
@@ -743,15 +744,23 @@ export function listAddedFigures(
 /**
  * The variations a routine can call, by id, with what the player shows (the
  * label) and says (the figure's name — a spoken call has three counts to fit
- * in). Archived ones are excluded: the planner will never reach one.
+ * in). Archived ones are excluded: the planner will never reach one. A
+ * person's routine may call the group figures they may use (`usableOf`).
  */
-export function listFiguresForCall(db: Db, space: Space, ids: number[]): CalledFigure[] {
+export function listFiguresForCall(
+	db: Db,
+	space: Space,
+	ids: number[],
+	usable?: Usable
+): CalledFigure[] {
 	if (ids.length === 0) return [];
 	return db
 		.select({ id: figures.id, figure: figureGroups.name, name: figures.name })
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(and(ownedBy(figures, space), isNull(figures.archivedAt), inArray(figures.id, ids)))
+		.where(
+			and(whoseFigures(db, space, usable), isNull(figures.archivedAt), inArray(figures.id, ids))
+		)
 		.orderBy(asc(figureGroups.name), asc(figures.id))
 		.all()
 		.map((r) => ({ id: r.id, name: labelFor(r.figure, r.name), say: r.figure }));
@@ -861,17 +870,31 @@ export function deleteRecording(db: Db, id: number, by?: string, now = Date.now(
 }
 
 /**
+ * The variations a space's routines may hold: its own, and for a person the
+ * group variations they may use, of the same dance. A group's: its own only.
+ */
+function whoseFigures(db: Db, space: Space, usable?: Usable): SQL {
+	const own = ownedBy(figures, space);
+	if (isTeam(space)) return own;
+	const ids = [...(usable ?? usableOf(db, space)).figures];
+	if (ids.length === 0) return own;
+	return or(own, and(inArray(figures.id, ids), eq(figures.dance, space.dance)))!;
+}
+
+/**
  * Every variation of a dance by id, and how to show it — always
  * "Enchufla · Doble", even for a figure with one variation. Archived rows
  * included: a routine slot can still name one, and a name beats "archived".
+ * A person's also names the group figures they may use (`usableOf`): their
+ * routines may hold those.
  */
-export function figureLabels(db: Db, space: Space): Map<number, string> {
+export function figureLabels(db: Db, space: Space, usable?: Usable): Map<number, string> {
 	return new Map(
 		db
 			.select({ id: figures.id, figure: figureGroups.name, name: figures.name })
 			.from(figures)
 			.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-			.where(ownedBy(figures, space))
+			.where(whoseFigures(db, space, usable))
 			.all()
 			.map((r) => [r.id, labelFor(r.figure, r.name)])
 	);

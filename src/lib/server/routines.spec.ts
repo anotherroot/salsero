@@ -28,16 +28,18 @@ import {
 	embeddedIn,
 	extractRoutine
 } from './routines';
-import { archiveVariation, createFigure, createVariationFrom } from './figures';
+import { archiveVariation, createFigure, createVariationFrom, figureLabels } from './figures';
 import { listPositions, seedPositions } from './positions';
-import { setFigureShape } from './graph';
+import { graphFor, setFigureShape } from './graph';
+import { flatten } from '$lib/routines/routines';
 import { exercises, routineStepOptions } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { createTeam, joinTeam } from './teams';
-import { createLesson, linkRoutine } from './lessons';
+import { createLesson, linkFigure, linkRoutine, publishLesson } from './lessons';
 import { addLesson } from './entries';
+import { crossRefs } from './integrity';
 import { lessons } from './db/schema';
 
 /**
@@ -962,5 +964,140 @@ describe('listAddedRoutines', () => {
 		createRoutine(db, U2_SALSA, { name: 'Mine', notes: null });
 		const names = listAddedRoutines(db, U2_SALSA).flatMap((g) => g.routines.map((r) => r.name));
 		expect(names).toEqual(['Linked']);
+	});
+});
+
+describe('a personal routine and a group’s figures and routines', () => {
+	const T = 1_790_000_000_000;
+	const NONE = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
+	const teamFigure = (db: ReturnType<typeof openDb>, figureName: string, teamId = 1) =>
+		createFigure(
+			db,
+			{ ...T1_SALSA, teamId },
+			{ figureName, name: 'Doble', partner: 'partner', style: 'salsa', notes: null }
+		)!.figure.id;
+
+	/** u2 added Salsa Tuesdays' published lesson L, which links F and routine R (options G). */
+	function setup() {
+		const db = openDb(':memory:');
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', T);
+		joinTeam(db, 'u2', 1, T);
+		const F = teamFigure(db, 'Enchufla');
+		const G = teamFigure(db, 'Setenta');
+		const R = createRoutineFromFigures(db, T1_SALSA, { name: 'Class routine', notes: null }, [G])!
+			.routine.id;
+		const L = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-03',
+			title: 'Week 1',
+			notes: null
+		}).lesson.id;
+		linkFigure(db, L, F, 'u1');
+		linkRoutine(db, L, R, 'u1');
+		expect(publishLesson(db, T1_SALSA, L, T)).toBe(true);
+		expect(addLesson(db, 'u2', L, NONE, T)).toBe(true);
+		const mine = createFigure(db, U2_SALSA, {
+			figureName: 'Mine',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+		const P = createRoutine(db, U2_SALSA, { name: 'Friday', notes: null }).routine.id;
+		const slot = addFigureSlot(db, P, mine)!;
+		return { db, F, G, R, L, P, slot, mine };
+	}
+
+	it('a personal routine takes a usable group figure', () => {
+		const { db, F, P, slot, mine } = setup();
+		expect(addOption(db, slot, F)).toBe(true);
+		expect(addFigureSlot(db, P, F)).not.toBeNull();
+		const shape = routineShapes(db, U2_SALSA).get(P)!;
+		// An option the graph does not hold is dropped by `flatten`: F must be in it.
+		const run = flatten(graphFor(db, U2_SALSA), shape);
+		expect(run.map((s) => s.figureIds)).toEqual([[mine, F], [F]]);
+		expect(figureLabels(db, U2_SALSA).get(F)).toBe('Enchufla · Doble');
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('…not a figure of a group the person is not in', () => {
+		const { db, P, slot } = setup();
+		createTeam(db, 'u5', 'salsa', 'Other', T);
+		const X = teamFigure(db, 'Sombrero', 2);
+		expect(addOption(db, slot, X)).toBe(false);
+		expect(addFigureSlot(db, P, X)).toBeNull();
+		expect(createRoutineFromFigures(db, U2_SALSA, { name: 'X', notes: null }, [X])).toBeNull();
+		expect(graphFor(db, U2_SALSA).figures.some((f) => f.id === X)).toBe(false);
+		expect(figureLabels(db, U2_SALSA).has(X)).toBe(false);
+	});
+
+	it('a group routine still refuses a personal figure', () => {
+		const { db, R, mine } = setup();
+		expect(addFigureSlot(db, R, mine)).toBeNull();
+		const step = routineSlots(db, R)[0].id;
+		expect(addOption(db, step, mine)).toBe(false);
+		expect(restoreOption(db, step, mine)).toBe(false);
+		expect(createRoutineFromFigures(db, T1_SALSA, { name: 'X', notes: null }, [mine])).toBeNull();
+		expect(graphFor(db, T1_SALSA).figures.some((f) => f.id === mine)).toBe(false);
+	});
+
+	it('a personal routine builds from a usable group figure', () => {
+		const { db, F } = setup();
+		const made = createRoutineFromFigures(db, U2_SALSA, { name: 'From F', notes: null }, [F]);
+		expect(made).not.toBeNull();
+	});
+
+	it('a personal routine embeds a usable group routine', () => {
+		const { db, G, R, P } = setup();
+		expect(canEmbed(db, P, R)).toBe(true);
+		expect(embeddable(db, P).map((r) => r.id)).toContain(R);
+		expect(addChildSlot(db, P, R)).not.toBeNull();
+		// The child's own slots come along, and its figures are in the person's graph.
+		const child = routineShapes(db, U2_SALSA)
+			.get(P)!
+			.slots.find((s) => s.kind === 'child');
+		expect(child).toMatchObject({ kind: 'child', routineId: R, slots: [{ figureIds: [G] }] });
+		expect(graphFor(db, U2_SALSA).figures.some((f) => f.id === G)).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('refuses a usable group routine that embeds, and a group routine the person cannot use', () => {
+		const { db, P } = setup();
+		const stray = createRoutine(db, T1_SALSA, { name: 'Not in a lesson', notes: null }).routine.id;
+		expect(canEmbed(db, P, stray)).toBe(false);
+		expect(embeddable(db, P).map((r) => r.id)).not.toContain(stray);
+	});
+
+	it('a member’s embed does not stop the group nesting its own routine', () => {
+		const { db, R, P } = setup();
+		expect(addChildSlot(db, P, R)).not.toBeNull();
+		const other = createRoutine(db, T1_SALSA, { name: 'Inner', notes: null }).routine.id;
+		// The group's editor still embeds into R, and never sees the member's routine.
+		expect(embeddedIn(db, R)).toEqual([]);
+		expect(canEmbed(db, R, other)).toBe(true);
+	});
+
+	it('plays a group routine whole after the group nests a routine in it', () => {
+		const { db, G, R, P } = setup();
+		expect(addChildSlot(db, P, R)).not.toBeNull();
+		const H = teamFigure(db, 'Sombrero');
+		const inner = createRoutineFromFigures(db, T1_SALSA, { name: 'Inner', notes: null }, [H])!
+			.routine.id;
+		expect(addChildSlot(db, R, inner, 'u1')).not.toBeNull();
+		const child = routineShapes(db, U2_SALSA)
+			.get(P)!
+			.slots.find((s) => s.kind === 'child');
+		// The nested routine's slots are spliced in flat, in order.
+		expect(child).toMatchObject({ slots: [{ figureIds: [G] }, { figureIds: [H] }] });
+		expect(graphFor(db, U2_SALSA).figures.some((f) => f.id === H)).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('restores options and slots that hold a usable group figure', () => {
+		const { db, F, P, slot } = setup();
+		expect(restoreOption(db, slot, F)).toBe(true);
+		const at = addFigureSlot(db, P, F)!;
+		const snapshot = deleteSlots(db, P, [at])!;
+		expect(snapshot[0].figureIds).toEqual([F]);
+		expect(restoreSlots(db, P, snapshot)).toBe(true);
 	});
 });

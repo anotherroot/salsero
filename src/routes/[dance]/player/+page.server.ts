@@ -4,7 +4,8 @@ import { getDb } from '$lib/server/db';
 import { listPickExercises, logSet } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listFiguresForCall } from '$lib/server/figures';
-import { buildGraph } from '$lib/server/graph';
+import { graphFor } from '$lib/server/graph';
+import { usableOf } from '$lib/server/usable';
 import { int, optionalInt, optionalText } from '$lib/server/form';
 import { routineShapes } from '$lib/server/routines';
 import { songChoices } from '$lib/server/songs';
@@ -13,6 +14,7 @@ import { practiceStart } from '$lib/exercises/practice';
 import {
 	exerciseInWall,
 	requireExerciseInWall,
+	isTeam,
 	requireRoutineAccess,
 	wallOf
 } from '$lib/server/scope';
@@ -51,7 +53,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// A reader's graph holds only what they reach: a draft's variation (its
 	// id, its holds) never reaches a member's player (risk 20).
 	const reached = found?.reach?.variations ?? null;
-	const graph = buildGraph(db, space);
+	// A person's own routine may hold the group figures they may use: those are
+	// on their graph and have names (`usableOf`).
+	const usable = routine && !isTeam(space) ? usableOf(db, space) : undefined;
+	const graph = graphFor(db, space, usable);
 	if (reached) graph.figures = graph.figures.filter((f) => reached.has(f.id));
 	const shape = routine ? (routineShapes(db, space).get(routine.id) ?? { slots: [] }) : null;
 	// Every figure the routine can call: the run's pool, and what the voice has
@@ -99,7 +104,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		routine: routine && shape ? { id: routine.id, name: routine.name, shape, figureIds } : null,
 		// Names only, for `sayOf` and the on-screen call. Empty without a routine:
 		// nothing else calls figures.
-		callNames: listFiguresForCall(db, space, figureIds),
+		callNames: listFiguresForCall(db, space, figureIds, usable),
 		// The position graph, which a routine is flattened and walked on.
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph,

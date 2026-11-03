@@ -3,9 +3,10 @@
  *
  * The dance wall lives here, not in `src/lib/graph/`: that module is pure and
  * never learns what a dance or a person is, so this one scopes first and hands it a graph
- * of one space only (a person's or a group's side of one dance); positions stay shared.
+ * of one space only (a person's or a group's side of one dance), plus, for a person's
+ * routines, the group figures they may use (`graphFor`); positions stay shared.
  */
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { Db } from './db';
 import { figureGroups, figures, figureStartPositions, positions } from './db/schema';
 import { neutralPosition } from './positions';
@@ -16,7 +17,8 @@ import {
 	isLengthCounts,
 	isStartCount
 } from '$lib/graph/timing';
-import { ownedBy, type Space } from './scope';
+import { isTeam, ownedBy, type Space } from './scope';
+import { usableOf, type Usable } from './usable';
 import { actingIn, fieldChange, logChange } from './changes';
 
 /**
@@ -26,8 +28,20 @@ import { actingIn, fieldChange, logChange } from './changes';
  * observe — `bootstrap` seeds before the first request resolves. A 0 there
  * would make every untagged figure share one position anyway, which is the
  * same answer, so it degrades rather than throwing.
+ *
+ * `extra` are other variations of the same dance that join the graph when
+ * live, in a live figure: the group figures a person's routines may use
+ * (`graphFor`). The gap report and coverage pass none: they are about the
+ * space's own figures.
  */
-export function buildGraph(db: Db, space: Space): Graph {
+export function buildGraph(db: Db, space: Space, extra?: Set<number>): Graph {
+	const whose =
+		extra && extra.size > 0
+			? or(
+					ownedBy(figures, space),
+					and(inArray(figures.id, [...extra]), eq(figures.dance, space.dance))
+				)
+			: ownedBy(figures, space);
 	const rows = db
 		.select({
 			id: figures.id,
@@ -37,9 +51,7 @@ export function buildGraph(db: Db, space: Space): Graph {
 		})
 		.from(figures)
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.where(
-			and(ownedBy(figures, space), isNull(figures.archivedAt), isNull(figureGroups.archivedAt))
-		)
+		.where(and(whose, isNull(figures.archivedAt), isNull(figureGroups.archivedAt)))
 		.orderBy(figureGroups.name, figures.name, figures.id)
 		.all();
 
@@ -75,6 +87,17 @@ export function buildGraph(db: Db, space: Space): Graph {
 		neutral: neutralPosition(db, space.dance)?.id ?? 0,
 		figures: nodes
 	};
+}
+
+/**
+ * The graph a space's routines are walked on. A person's: their own figures
+ * and the group figures they may use (`usableOf`), since their routines may
+ * hold those. A group's: its own, as ever — a group's routine only holds its
+ * group's figures. Pass `usable` when the caller has it already.
+ */
+export function graphFor(db: Db, space: Space, usable?: Usable): Graph {
+	if (isTeam(space)) return buildGraph(db, space);
+	return buildGraph(db, space, (usable ?? usableOf(db, space)).figures);
 }
 
 /** A figure's tags as the edit form needs them. */

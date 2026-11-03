@@ -1,7 +1,8 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
 import { figureLabels, listVersions } from '$lib/server/figures';
-import { buildGraph } from '$lib/server/graph';
+import { graphFor } from '$lib/server/graph';
+import { usableOf } from '$lib/server/usable';
 import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
 import {
@@ -38,7 +39,7 @@ import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
-import { requireRoutineAccess, spaceOfRow, wallOf } from '$lib/server/scope';
+import { isTeam, requireRoutineAccess, spaceOfRow, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
 import { MISSING_SEEN, routineSeen, seenRefusal } from '$lib/server/clash';
 import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
@@ -117,8 +118,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const { routine, space, access, reach: visible } = routineIn(params, locals, 'read');
 	const canEdit = access === 'edit';
 	// A reader's lists hold only what the published lessons reach (risk 20).
-	const graph = buildGraph(db, space);
-	const shapes = routineShapes(db, space);
+	// A person's routine may hold the group figures and routines they may use
+	// (`usableOf`): those are on the graph, named, and offered to embed.
+	const usable = isTeam(space) ? undefined : usableOf(db, space);
+	const graph = graphFor(db, space, usable);
+	const shapes = routineShapes(db, space, usable?.routines);
 	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id);
 	const positions = listPositions(db, wall.dance);
@@ -127,7 +131,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const named = new Set(
 		shape.slots.flatMap((s) => (s.kind === 'options' ? [s] : s.slots).flatMap((o) => o.figureIds))
 	);
-	const labels = [...figureLabels(db, space)].filter(([id]) => !visible || named.has(id));
+	const labels = [...figureLabels(db, space, usable)].filter(([id]) => !visible || named.has(id));
 
 	// Flat indices where the routine's walk breaks — a slot's alternatives don't
 	// share a start with the slot before it. Only the break count above the
@@ -159,7 +163,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 						}
 					];
 				}),
-				...embeddable(db, routine.id).map((r): Candidate => {
+				...embeddable(db, routine.id, usable).map((r): Candidate => {
 					// An embeddable routine embeds nothing, so its own slots are all options.
 					const own = (shapes.get(r.id)?.slots ?? []).filter(
 						(s): s is OptionsSlot => s.kind === 'options'
