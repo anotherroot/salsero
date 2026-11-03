@@ -4,34 +4,10 @@ import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
+import { isPublicPath } from '$lib/server/public-paths';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
-
-/**
- * Routes reachable without a session. Everything else redirects to /login.
- *
- * Deny-by-default is deliberate: with no Cloudflare Access in front of this
- * host, forgetting a guard on one route is the whole breach. A new page is
- * private unless someone consciously adds it here.
- */
-const PUBLIC_PATHS = new Set([
-	'/login',
-	// The invite's link carries its code in the query string, so the path is what is public.
-	'/join',
-	'/health',
-	'/manifest-salsa.webmanifest',
-	'/manifest-bachata.webmanifest',
-	'/icon-salsa.svg',
-	'/icon-bachata.svg',
-	'/icons/salsa-192.png',
-	'/icons/salsa-512.png',
-	'/icons/bachata-192.png',
-	'/icons/bachata-512.png',
-	// The APK's signing-key fingerprint (docs/deployment.md). The WebView app (since
-	// 2026-10-29) does not read it; Chrome still may.
-	'/.well-known/assetlinks.json'
-]);
 
 /** The home worker's API: no session, a bearer token instead. */
 const WORKER_PREFIX = '/api/worker/';
@@ -72,7 +48,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
-	const isPublic = PUBLIC_PATHS.has(path) || path.startsWith('/_app/');
+	const isPublic = isPublicPath(path) || path.startsWith('/_app/');
 
 	if (!event.locals.user && !isPublic) {
 		// API calls get a status, not a redirect to an HTML page they cannot use.
