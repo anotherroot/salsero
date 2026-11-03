@@ -2,6 +2,7 @@ import { redirect, type Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
 import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
+import { EPOCH_HEADER, PAGE_EPOCH, fillEpoch, staleAnswer, staleEpoch } from '$lib/page-epoch';
 import { refusesOldApp } from '$lib/server/app-gate';
 import { noteAppSeen } from '$lib/server/app-seen';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
@@ -67,6 +68,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
+	// A page older than a breaking deploy (`$lib/page-epoch.ts`): refused before
+	// anything acts on what it sent, so it reloads instead. Full page loads, the
+	// Android app's own calls and the worker carry no epoch and are never refused.
+	if (staleEpoch(event.request.headers.get(EPOCH_HEADER), PAGE_EPOCH)) {
+		return staleAnswer(event.request.headers.has('x-sveltekit-action'));
+	}
+
 	const isPublic = isPublicPath(path) || path.startsWith('/_app/');
 
 	if (!event.locals.user && !isPublic) {
@@ -78,7 +86,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(303, '/');
 	}
 
-	// Light or dark, as chosen in Settings: written into <html> for app.html's script.
+	// Light or dark, as chosen in Settings, and the page epoch: written into
+	// <html> for app.html's script.
 	const theme = themeChoice(event.cookies.get(THEME_COOKIE));
-	return resolve(event, { transformPageChunk: ({ html }) => fillTheme(html, theme) });
+	return resolve(event, {
+		transformPageChunk: ({ html }) => fillEpoch(fillTheme(html, theme))
+	});
 };

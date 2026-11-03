@@ -193,7 +193,9 @@ src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone devic
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's
                      insets → `--safe-*`. Read the safe area through `--safe-*`, never
-                     `env()` (class-rules.spec.ts): the app draws the page under its bars
+                     `env()` (class-rules.spec.ts): the app draws the page under its bars.
+                     It also wraps `fetch`: every same-origin request carries the page
+                     epoch (`src/lib/page-epoch.ts`), and a stale answer fires `salsa:stale`
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
@@ -406,6 +408,7 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   removed row's focus would fall to `<body>`.
 - **A refresh after a sheet or the player closes goes through `refreshWhenSettled()`.**
   SvelteKit drops a reload that a popstate overtakes, and a close's Back is one.
+- **Raise PAGE_EPOCH (src/lib/page-epoch.ts) in the commit that breaks older open pages** — a changed form field, action or API shape they would still send. Open pages then reload instead of failing.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **A device token signs in on `/api/` only** — never a page, never

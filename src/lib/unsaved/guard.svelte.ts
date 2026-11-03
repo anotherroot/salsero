@@ -74,6 +74,16 @@ export function reloadOrAsk(): void {
 }
 
 /**
+ * Load `href` whole, for a navigation the guard has already let go (the user
+ * answered Leave, or nothing was unsaved): the unload is not asked about again
+ * by the browser. The page epoch uses it (`$lib/page-epoch.ts`).
+ */
+export function loadAgreed(href: string): void {
+	passing = true;
+	location.href = href;
+}
+
+/**
  * Ask before any navigation that would lose something. Call once, from the
  * root layout.
  *

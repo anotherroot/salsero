@@ -9,7 +9,7 @@
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
-	import { guardNavigation, prompt, unsaved } from '$lib/unsaved/guard.svelte';
+	import { guardNavigation, loadAgreed, prompt, unsaved } from '$lib/unsaved/guard.svelte';
 	import { entryState, syncSheets } from '$lib/sheets/history.svelte';
 	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
@@ -20,6 +20,7 @@
 	import { fullLoadFor, mayReloadNow } from '$lib/nav/fresh';
 	import { held } from '$lib/nav/fresh.svelte';
 	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
+	import { holdsBack, staleMove } from '$lib/page-epoch';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 
 	let { data, children } = $props();
@@ -257,6 +258,42 @@
 			!bottom.claimed &&
 			!(BUSY_ROUTES as readonly (string | null)[]).includes(page.route.id)
 	);
+	/*
+	 * The server refused this page: a deploy broke what it sends (the page
+	 * epoch, `$lib/page-epoch.ts`; app.html's fetch wrapper fires `salsa:stale`).
+	 * A navigation under way loads its page whole, a quiet page reloads, and
+	 * anything else keeps the page, with what was typed, and shows the bar.
+	 * Cancelling the event holds the answer back (`holdsBack`).
+	 */
+	let stale = $state(false);
+	let staleLeaving = $state(false);
+	$effect(() => {
+		const onstale = (e: Event) => {
+			const going = navigating.to?.url.href ?? null;
+			const move = staleMove({
+				routeId: page.route.id,
+				navigating: going !== null,
+				...quietNow()
+			});
+			const url = (e as CustomEvent<{ url: string }>).detail.url;
+			if (holdsBack(move, url, location.href)) e.preventDefault();
+			if (move === 'bar') {
+				stale = true;
+				return;
+			}
+			staleLeaving = true;
+			if (move === 'go' && going) loadAgreed(going);
+			else location.reload();
+		};
+		window.addEventListener('salsa:stale', onstale);
+		return () => window.removeEventListener('salsa:stale', onstale);
+	});
+	/*
+	 * Unlike "New version", shown on every page and over a claimed bottom too:
+	 * nothing a stale page sends will save, so Reload is the only way on, and a
+	 * run on Practice or a Save bar would otherwise fail without a word.
+	 */
+	const staleBar = $derived(stale && !staleLeaving);
 </script>
 
 <svelte:head>
@@ -292,7 +329,9 @@
 		{#if tabs}
 			<BottomNav dance={navDance.slug} path={shownPath} />
 		{/if}
-		{#if reloadBar}
+		{#if staleBar}
+			<ReloadBar stale />
+		{:else if reloadBar}
 			<ReloadBar />
 		{/if}
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
