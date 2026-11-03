@@ -3,6 +3,7 @@
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
+	import { isClash } from '$lib/clash/clash';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -324,6 +325,8 @@
 	$effect(() => {
 		if (form?.action !== 'update' || !('message' in form) || typeof form.message !== 'string')
 			return;
+		// Someone else saved it, or it went: the clash sheet's, holding what was typed.
+		if (isClash(form)) return;
 		refusal = {
 			field: (form as { field?: LessonField }).field ?? null,
 			message: form.message,
@@ -507,6 +510,8 @@
 				class="flex flex-col gap-3.5"
 				use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
 			>
+				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				{#if refusal && !refusal.field}<Banner kind="error">{refusal.message}</Banner>{/if}
 				<LessonFields
 					lessonDay={refusal?.entered?.lessonDay ?? lesson.lessonDay}

@@ -103,3 +103,18 @@ describe('routine page derivations', () => {
 		});
 	});
 });
+
+describe('failurePlace and the clash check', () => {
+	it('leaves a clash or gone on the Edit form to the clash sheet', () => {
+		expect(failurePlace({ action: 'rename', message: 'x', clash: {} }, [])).toBeNull();
+		expect(failurePlace({ action: 'rename', message: 'x', gone: {} }, [])).toBeNull();
+	});
+	it('puts a stale slot action in the banner', () => {
+		expect(
+			failurePlace({ message: 'This routine changed since you opened it', stale: true }, [1])
+		).toEqual({
+			where: 'banner',
+			message: 'This routine changed since you opened it'
+		});
+	});
+});

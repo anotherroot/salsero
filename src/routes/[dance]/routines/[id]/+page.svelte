@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
@@ -289,13 +289,45 @@
 
 	/* ── Talking to the server ─────────────────────────────────────────── */
 
+	/*
+	 * Every slot action carries the routine's fingerprint as this page last saw
+	 * it, and one aimed at a routine that changed since is refused (the clash
+	 * check). They go one at a time: an action tapped while this page's own
+	 * previous one was out was aimed at the same routine, so it carries that
+	 * one's answer and never clashes with it.
+	 */
+	type Sent = { sent: string | null; after: string | null };
+	let chain: Promise<Sent> = Promise.resolve({ sent: null, after: null });
 	async function send(name: string, fields: Record<string, Field>) {
 		pending++;
+		const aimed = data.fingerprint;
+		const run = chain.then(async (prev) => {
+			const fingerprint = prev.after !== null && prev.sent === aimed ? prev.after : aimed;
+			const result = await act(name, { ...fields, fingerprint });
+			const after =
+				result.type === 'success' && typeof result.data?.fingerprint === 'string'
+					? result.data.fingerprint
+					: null;
+			return { result, sent: fingerprint, after };
+		});
+		chain = run.then(
+			({ sent, after }) => ({ sent, after }),
+			() => ({ sent: null, after: null })
+		);
 		try {
-			return await act(name, fields);
+			return (await run).result;
 		} finally {
 			pending--;
 		}
+	}
+
+	/** A slot action refused because the routine changed since: the banner's Reload. */
+	const outdated = $derived(
+		!!form && typeof form === 'object' && 'stale' in form && form.stale === true
+	);
+	async function reload() {
+		dismissed = form;
+		await invalidateAll();
 	}
 
 	function showToast(message: string, undo: () => void) {
@@ -491,6 +523,18 @@
 		};
 </script>
 
+{#snippet refusal(message: string)}
+	{#if outdated}
+		<Banner kind="error" title={message} ondismiss={() => (dismissed = form)}>
+			{#snippet action()}
+				<button type="button" class={button('tertiary', 'sm')} onclick={reload}>Reload</button>
+			{/snippet}
+		</Banner>
+	{:else}
+		<Banner kind="error" title={message} ondismiss={() => (dismissed = form)} />
+	{/if}
+{/snippet}
+
 <svelte:head><title>{routine.name} · {data.dance.label}</title></svelte:head>
 
 <svelte:window
@@ -557,7 +601,7 @@
 	>
 		{#if editing}
 			{#if bannerMessage}
-				<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
+				{@render refusal(bannerMessage)}
 			{/if}
 			<form
 				id="edit-form"
@@ -581,6 +625,8 @@
 					}
 				}}
 			>
+				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				<div>
 					<label class={LABEL} for="edit-name">Name</label>
 					<input
@@ -657,7 +703,7 @@
 			<!-- Selecting shows only the slots. -->
 			{#if !selecting}
 				{#if bannerMessage}
-					<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
+					{@render refusal(bannerMessage)}
 				{/if}
 				{#if routine.notes}
 					<p class="px-1 text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2">
@@ -942,6 +988,7 @@
 			}
 		}}
 	>
+		<input type="hidden" name="fingerprint" value={data.fingerprint} />
 		{#each inOrder(rows, selected) as id (id)}
 			<input type="hidden" name="stepIds" value={id} />
 		{/each}

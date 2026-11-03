@@ -57,6 +57,7 @@ import {
 	videoOfSpot,
 	videoSections
 } from '$lib/server/spot-links';
+import { seenRefusal, variationSeen } from '$lib/server/clash';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -225,6 +226,8 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		},
 		siblings,
 		canEdit,
+		// What the edit form saw, sent back with a save (the clash check).
+		seen: variationSeen(db, id),
 		exercise: found.exercise,
 		// Practise on its own: a group's variation only from a lesson the person added.
 		practisable: practisable(db, wall.userId, figure),
@@ -290,12 +293,21 @@ export const actions: Actions = {
 	 * name. A refused save leaves nothing half-done.
 	 */
 	update: async ({ params, request, locals }) => {
-		const found = variationOf(params, locals);
+		const db = getDb();
+		// Not `variationOf` yet: a variation archived since gets its own answer
+		// below (gone, the typed text kept to copy), not the page's 404.
+		const { figure: row, space } = requireFigureAccess(
+			db,
+			locals,
+			params,
+			variationId(params.id),
+			'edit'
+		);
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', DANCES[found.space.dance].styles);
+		const style = oneOf(form, 'style', DANCES[space.dance].styles);
 		const notes = optionalText(form, 'notes');
 		const startIds = ints(form, 'startIds');
 		const rawEnd = String(form.get('endId') ?? '');
@@ -319,8 +331,13 @@ export const actions: Actions = {
 			});
 		}
 
-		const db = getDb();
-		const { figure, group, space } = found;
+		// The clash check, before any write: a save that saw another version
+		// of the variation or its figure's name is refused with theirs.
+		const clash = seenRefusal(form, row.teamId !== null, variationSeen(db, row.id), {
+			action: 'update' as const
+		});
+		if (clash) return clash;
+		const { figure, group } = variationOf(params, locals);
 		if (figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}

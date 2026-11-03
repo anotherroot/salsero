@@ -1753,7 +1753,17 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 			post(
 				U1,
 				'salsa',
-				{ title: 'Draft lesson Kappa', notes: 'n', lessonDay: '2026-10-01' },
+				{
+					title: 'Draft lesson Kappa',
+					notes: 'n',
+					lessonDay: '2026-10-01',
+					// What the form saw: a group's save needs it (the clash check).
+					seen: JSON.stringify({
+						title: 'Draft lesson Kappa',
+						lessonDay: '2026-11-01',
+						notes: null
+					})
+				},
 				String(D)
 			)
 		);

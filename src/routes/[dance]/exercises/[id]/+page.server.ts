@@ -4,6 +4,7 @@ import {
 	archiveExercise,
 	exerciseHistory,
 	exerciseSummary,
+	getExercise,
 	updateExercise
 } from '$lib/server/exercises';
 import { checkbox, int, optionalText, text } from '$lib/server/form';
@@ -18,6 +19,7 @@ import { getTeam } from '$lib/server/teams';
 import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
 import { isFrequency } from '$lib/frequency';
+import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
@@ -64,6 +66,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			// Only a drill's sections are its own; the others show their owner's.
 			linkable: own.source === 'custom' ? linkableSections(db, { exerciseId: own.id }) : [],
 			canEdit: true,
+			// What the settings form saw, sent back with a save (the clash check).
+			seen: exerciseSeen(own),
 			// An entry on a group's thing (its lesson, routine, variation or drill)
 			// shows the group's content, which is the group's editors' to change,
 			// never the entry's (risk 26). The Log popups follow the same rule.
@@ -125,6 +129,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		linkable: canEdit ? linkableSections(db, { exerciseId: row.id }) : [],
 		canEdit,
 		canEditContent: canEdit,
+		seen: exerciseSeen(row),
 		canLog: popup !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
 		add: route
@@ -173,8 +178,13 @@ export const actions: Actions = {
 		return { action: 'addDrill', ok: true };
 	},
 
+	/**
+	 * A save carries what its form saw (`seen`): one that saw another version
+	 * is refused with it (409); one on an exercise archived since says so (410).
+	 */
 	update: async ({ params, request, locals }) => {
-		const row = exerciseOf(params, locals);
+		const db = getDb();
+		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'edit');
 		const form = await request.formData();
 		const name = text(form, 'name') ?? '';
 		// A group's drill is practised through each member's own entry, so how
@@ -186,7 +196,15 @@ export const actions: Actions = {
 		if (everyDays === undefined || !isFrequency(everyDays) || notes === undefined) {
 			return fail(400, { action: 'update', message: 'Check the values and try again.' });
 		}
-		if (!updateExercise(getDb(), row.id, { name, everyDays, notes, active })) {
+		const stored = getExercise(db, row.id);
+		const clash = seenRefusal(
+			form,
+			row.teamId !== null,
+			stored && stored.archivedAt === null ? exerciseSeen(stored) : null,
+			{ action: 'update' as const }
+		);
+		if (clash) return clash;
+		if (!updateExercise(db, row.id, { name, everyDays, notes, active })) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };

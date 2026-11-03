@@ -7,6 +7,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
+	import { isClash } from '$lib/clash/clash';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import StartPositions from '$lib/components/figures/StartPositions.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
@@ -168,7 +169,8 @@
 				saving = false;
 			}
 			if (result.type === 'success') await setEditing(false);
-			else if (result.type === 'failure') {
+			// A clash or gone is the clash sheet's, which holds what was typed.
+			else if (result.type === 'failure' && !isClash(result.data)) {
 				const m = result.data?.message;
 				refusal = { message: typeof m === 'string' ? m : 'It did not save.' };
 			}
@@ -303,6 +305,8 @@
 					bind:this={editForm}
 					use:guarded={{ label: `${variation.name} edits`, submit: closeOnSuccess }}
 				>
+					<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+					<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 					<FigureFields
 						dance={data.dance}
 						figureName={figure.name}

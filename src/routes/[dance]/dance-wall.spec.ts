@@ -554,11 +554,14 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(() => loadWith('salsa', String(v.id))).toThrow(threw404);
 		});
 
-		it('an archived variation is a 404, page and actions alike', async () => {
+		it('an archived variation is a 404; a save on it says it is gone', async () => {
 			const v = doble();
 			archiveVariation(db, v.id, 1_000);
 			expect(() => loadWith('salsa', String(v.id))).toThrow(threw404);
-			await refuses(figurePage.actions.update, post('salsa', edit({}), String(v.id)));
+			// The clash check's answer, so the typed text stays to copy (Task 11).
+			expect(
+				await call(figurePage.actions.update, post('salsa', edit({}), String(v.id)))
+			).toMatchObject({ status: 410, data: { gone: { by: null, at: null } } });
 			expect(getFigure(db, v.id, 'u1')!.figure.name).toBe('Doble');
 		});
 

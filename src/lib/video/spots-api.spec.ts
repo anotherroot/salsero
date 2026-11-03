@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ok, removeSpot, SpotsApiError } from './spots-api';
+import { ok, patchSpot, removeSpot, SpotsApiError } from './spots-api';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -57,5 +57,28 @@ describe('ok', () => {
 	it('resolves with the response on a 2xx', async () => {
 		const res = Response.json({}, { status: 200 });
 		await expect(ok(res)).resolves.toBe(res);
+	});
+});
+
+describe('patchSpot', () => {
+	it('sends what it saw, and a clash comes back with theirs', async () => {
+		let sent: unknown = null;
+		vi.stubGlobal('fetch', async (_: string, init: RequestInit) => {
+			sent = JSON.parse(String(init.body));
+			return Response.json(
+				{
+					message: 'This changed since you opened it',
+					clash: { changed: ['startMs'], current: { startMs: 1500 }, by: null, at: null }
+				},
+				{ status: 409 }
+			);
+		});
+		const seen = { label: null, startMs: 1000, endMs: 5000 };
+		const err = await patchSpot(3, { startMs: 1100 }, seen).catch((e: unknown) => e);
+		expect(sent).toEqual({ startMs: 1100, seen });
+		expect(err).toMatchObject({
+			status: 409,
+			clash: { changed: ['startMs'], current: { startMs: 1500 } }
+		});
 	});
 });

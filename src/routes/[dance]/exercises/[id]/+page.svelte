@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { tick } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
+	import { isClash } from '$lib/clash/clash';
 	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import SetList from '$lib/components/exercises/SetList.svelte';
 	import { restoreSet } from '$lib/components/exercises/restore-set';
@@ -188,12 +189,16 @@
 										saving = false;
 									}
 									if (result.type === 'success') editing = false;
-									else if (result.type === 'failure') updateError = messageOf(result.data);
+									// A clash or gone is the clash sheet's, which holds what was typed.
+									else if (result.type === 'failure' && !isClash(result.data))
+										updateError = messageOf(result.data);
 								};
 							}
 						}}
 						class="flex flex-col gap-3.5"
 					>
+						<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+						<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 						{#if updateError}
 							<Banner kind="error" title={updateError} />
 						{/if}

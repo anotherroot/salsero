@@ -1,7 +1,11 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { allows, spotAccess } from '$lib/server/access';
-import { deleteSpot, SpotError, updateSpot } from '$lib/server/spots';
+import { eq } from 'drizzle-orm';
+import { videoSpots } from '$lib/server/db/schema';
+import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots';
+import { checkSeen, MISSING_SEEN, spotSeen } from '$lib/server/clash';
+import { asSeen, clashTitle } from '$lib/clash/clash';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import type { RequestHandler } from './$types';
 
@@ -29,8 +33,37 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		if (key in body) changes[key] = (body as Record<string, unknown>)[key];
 	}
 	if (Object.keys(changes).length === 0) throw error(400, 'Nothing to change.');
+
+	// The clash check: `seen` is what the player last set or got back for this
+	// spot, so a run of nudges never clashes with its own previous one. Only the
+	// fields this save changes are compared: a nudge to the start does not
+	// write the name someone else just gave it.
+	const db = getDb();
+	const sent = 'seen' in body ? asSeen((body as { seen: unknown }).seen) : null;
+	const team = 'teamId' in (spotOwner(db, id) ?? { userId: '' });
+	if (team && sent === null) throw error(400, MISSING_SEEN);
+	const row = db
+		.select({ label: videoSpots.label, startMs: videoSpots.startMs, endMs: videoSpots.endMs })
+		.from(videoSpots)
+		.where(eq(videoSpots.id, id))
+		.get();
+	if (!row) throw error(404, 'No such spot');
+	const pick = (all: Record<string, unknown>) =>
+		Object.fromEntries(
+			Object.keys(changes)
+				.filter((k) => k in all)
+				.map((k) => [k, all[k]])
+		);
+	const check = checkSeen(spotSeen(row), sent === null ? null : (pick(sent) as typeof sent));
+	if (!check.ok && 'changed' in check) {
+		const { changed, current, by, at } = check;
+		return json(
+			{ message: clashTitle({ by, at }, Date.now()), clash: { changed, current, by, at } },
+			{ status: 409 }
+		);
+	}
 	try {
-		const spot = updateSpot(getDb(), id, changes);
+		const spot = updateSpot(db, id, changes);
 		if (!spot) throw error(404, 'No such spot');
 		return json(spot);
 	} catch (e) {

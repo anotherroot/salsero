@@ -9,7 +9,8 @@
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
-	import { guardNavigation, prompt } from '$lib/unsaved/guard.svelte';
+	import ClashSheet from '$lib/components/ui/ClashSheet.svelte';
+	import { clashPrompt, guardNavigation, prompt } from '$lib/unsaved/guard.svelte';
 	import { syncSheets } from '$lib/sheets/history.svelte';
 	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
@@ -203,10 +204,12 @@
 		{/if}
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
 		<UnsavedDialog />
+		<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
 	</div>
 {:else}
 	{@render children()}
 	<UnsavedDialog />
+	<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
 {/if}
 
 {#if offline}

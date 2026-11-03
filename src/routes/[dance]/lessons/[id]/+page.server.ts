@@ -7,6 +7,7 @@ import {
 	archiveLesson,
 	deleteLessonVideo,
 	getLesson,
+	getLessonRow,
 	linkExercise,
 	linkFigure,
 	linkRoutine,
@@ -44,6 +45,7 @@ import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
 import { inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
+import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -96,6 +98,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		routines: shown(found.routines, visible?.routines),
 		exercises: shown(found.exercises, visible?.drills),
 		canEdit,
+		// What the edit form saw, sent back with a save (the clash check).
+		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
 		/** A group's lesson only its editors see yet. */
 		draft: team !== null && found.lesson.publishedAt === null,
@@ -127,8 +131,15 @@ export const load: PageServerLoad = ({ params, locals }) => {
 };
 
 export const actions: Actions = {
+	/**
+	 * A save carries what its form saw (`seen`): one that saw something else
+	 * since is refused with the other version (409), and one on a lesson
+	 * archived since says so (410), so the typed text stays to copy.
+	 */
 	update: async ({ params, request, locals }) => {
-		const id = lessonOf(params, locals).lesson.id;
+		const db = getDb();
+		const { lesson: row } = requireLessonAccess(db, locals, params, params.id, 'edit');
+		const id = row.id;
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
 		const title = text(form, 'title');
@@ -148,7 +159,15 @@ export const actions: Actions = {
 		if (!isValidDay(lessonDay)) return refuse('Pick the day of the class.', 'lessonDay');
 		if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
 
-		if (!updateLesson(getDb(), id, { lessonDay, title, notes })) {
+		const stored = getLessonRow(db, id);
+		const clash = seenRefusal(
+			form,
+			row.teamId !== null,
+			stored && stored.archivedAt === null ? lessonSeen(stored) : null,
+			{ action: 'update' as const, ...entered }
+		);
+		if (clash) return clash;
+		if (!updateLesson(db, id, { lessonDay, title, notes })) {
 			return fail(404, { action: 'update', message: 'That lesson no longer exists.' });
 		}
 		return { action: 'update', ok: true };

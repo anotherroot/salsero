@@ -629,7 +629,7 @@ describe("a group's videos, uploads and room on the flat routes", () => {
 				locals: { user },
 				request: new Request('http://localhost/', {
 					method: 'PATCH',
-					body: JSON.stringify({ label: 'Mine now' })
+					body: JSON.stringify({ label: 'Mine now', seen: { label: null } })
 				})
 			});
 		expect(await status(patch(U2))).toBe(404);

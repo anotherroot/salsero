@@ -3,6 +3,7 @@
  * a slot's meta line, a seam's wording, and where a refusal is shown. PURE and
  * client-safe.
  */
+import { isClash } from '$lib/clash/clash';
 import { plural } from '$lib/format';
 import type { RowEdges } from './routines';
 
@@ -90,9 +91,13 @@ export type FailurePlace =
 	| { where: 'extract'; field: 'name' | null; message: string }
 	| { where: 'banner'; message: string };
 
-/** Where a form refusal belongs: on its slot, its field, or a banner. */
+/**
+ * Where a form refusal belongs: on its slot, its field, or a banner. A clash
+ * on the Edit form (someone else saved it, or it went) is the clash sheet's,
+ * so it has no place here.
+ */
 export function failurePlace(form: unknown, slotIds: number[]): FailurePlace | null {
-	if (typeof form !== 'object' || form === null) return null;
+	if (typeof form !== 'object' || form === null || isClash(form)) return null;
 	const f = form as Record<string, unknown>;
 	if (typeof f.message !== 'string') return null;
 	const message = f.message;
