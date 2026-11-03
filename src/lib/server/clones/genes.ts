@@ -154,7 +154,7 @@ export function familyRows(db: Db, kind: CloneKind, gene: string): FamilyRow[] {
 }
 
 /** What `userId` may do with one member, by the kind's own access rule. */
-function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
+export function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
 	switch (kind) {
 		case 'figure': {
 			const row = db.select().from(figures).where(eq(figures.id, id)).get();

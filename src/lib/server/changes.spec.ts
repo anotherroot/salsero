@@ -86,6 +86,8 @@ import { deleteGroupSong, shareSong, unshareSong } from './song-share';
 import { restoreDeleted } from './trash';
 import { eq } from 'drizzle-orm';
 import { HISTORY_MERGE_MS } from '$lib/limits';
+import { cloneInto, type CloneResult } from './clones/clone';
+import type { CloneFiles } from './clones/files';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -121,6 +123,11 @@ const variation = (name: string) => ({
 	style: 'salsa',
 	notes: null
 });
+
+/** A fake `CloneFiles`: nothing on disk. */
+const cloneFiles: CloneFiles = { link: async (_, file) => `copy-${file}`, unlink: async () => {} };
+/** A clone's result when it made a row, else null, so a refusal fails the case. */
+const ok = (r: CloneResult) => (r.ok && r.made ? r : null);
 
 /** One of everything in a space, for a mutation to act on. */
 function world(space: Space) {
@@ -764,6 +771,67 @@ const MUTATIONS: {
 		prep: (w) => deleteGroupSong(db, T1_SALSA, w.song, 5),
 		run: (w) => restoreDeleted(db, T1_SALSA, 'song', w.song, T)
 	},
+	// clones/clone.ts: a person's own thing cloned into the group (cloneInto awaits its files)
+	{
+		name: 'cloneInto (figure)',
+		root: 'figure',
+		verb: 'add',
+		rootId: () => 0,
+		teamOnly: true,
+		run: async () => {
+			const own = createFigure(db, U1_SALSA, { figureName: 'Cloned', ...variation('Basic') })!;
+			return ok(
+				await cloneInto(
+					db,
+					{ kind: 'figure', id: own.figure.id, into: T1_SALSA, recordings: false },
+					cloneFiles,
+					T
+				)
+			);
+		}
+	},
+	{
+		name: 'cloneInto (drill)',
+		root: 'drill',
+		verb: 'add',
+		rootId: () => 0,
+		teamOnly: true,
+		run: async () => {
+			const own = createCustomExercise(db, U1_SALSA, { name: 'Mine', everyDays: 3, notes: null });
+			return ok(
+				await cloneInto(
+					db,
+					{ kind: 'drill', id: own.id, into: T1_SALSA, recordings: false },
+					cloneFiles,
+					T
+				)
+			);
+		}
+	},
+	{
+		name: 'cloneInto (song)',
+		root: 'song',
+		verb: 'add',
+		rootId: () => 0,
+		teamOnly: true,
+		run: async () => {
+			const own = createSongFromUpload(db, U1_SALSA, {
+				file: 'mine.mp3',
+				mime: 'audio/mpeg',
+				title: 'Mine',
+				style: 'salsa'
+			}).id;
+			db.update(songs).set({ status: 'ready' }).where(eq(songs.id, own)).run();
+			return ok(
+				await cloneInto(
+					db,
+					{ kind: 'song', id: own, into: T1_SALSA, recordings: false },
+					cloneFiles,
+					T
+				)
+			);
+		}
+	},
 	// video-downloads.ts, on completion
 	{
 		name: 'completeVideoJob',
@@ -793,12 +861,12 @@ const MUTATIONS: {
 ];
 
 describe('every team mutation logs once; a person’s none', () => {
-	it.each(MUTATIONS.map((m) => [m.name, m] as const))('%s', (_, m) => {
+	it.each(MUTATIONS.map((m) => [m.name, m] as const))('%s', async (_, m) => {
 		// A group's: exactly one row, filed under the right root, by who acted.
 		const tw = world(T1_SALSA);
 		m.prep?.(tw, T1_SALSA);
 		const before = rows().map((r) => r.id);
-		expect(m.run(tw, T1_SALSA)).toBeTruthy();
+		expect(await m.run(tw, T1_SALSA)).toBeTruthy();
 		const added = rows().filter((r) => !before.includes(r.id));
 		expect(added).toHaveLength(1);
 		expect(added[0]).toMatchObject({ teamId: 1, rootKind: m.root, verb: m.verb, actorId: 'u1' });
@@ -809,7 +877,7 @@ describe('every team mutation logs once; a person’s none', () => {
 		fresh();
 		const pw = world(U1_SALSA);
 		m.prep?.(pw, U1_SALSA);
-		expect(m.run(pw, U1_SALSA)).toBeTruthy();
+		expect(await m.run(pw, U1_SALSA)).toBeTruthy();
 		expect(count()).toBe(0);
 	});
 

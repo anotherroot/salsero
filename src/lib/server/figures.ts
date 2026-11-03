@@ -114,6 +114,29 @@ export function figureNameTaken(
 		.some((g) => g.id !== exceptGroupId && norm(g.name) === wanted);
 }
 
+/**
+ * The live move in `space` with this name (trimmed, any case: the rule
+ * `figureNameTaken` keeps unique), or a new one of that name. An archived move
+ * of the name is not revived. Where a clone files its figure; inside the
+ * caller's transaction, and logs nothing (the clone logs its own line).
+ */
+export function moveFor(tx: Db, space: Space, name: string): number {
+	const wanted = norm(name);
+	const found = tx
+		.select({ id: figureGroups.id, name: figureGroups.name })
+		.from(figureGroups)
+		.where(and(ownedBy(figureGroups, space), isNull(figureGroups.archivedAt)))
+		.orderBy(asc(figureGroups.id))
+		.all()
+		.find((g) => norm(g.name) === wanted);
+	if (found) return found.id;
+	return tx
+		.insert(figureGroups)
+		.values({ ...ownerValues(space), name: name.trim() })
+		.returning({ id: figureGroups.id })
+		.get().id;
+}
+
 /** A figure's live variations, oldest first — the order of the variation bar and sheet. */
 export function listGroupVariations(db: Db, groupId: number): Figure[] {
 	return db
