@@ -8,6 +8,7 @@ import {
 	holdsBack,
 	staleAnswer,
 	staleEpoch,
+	staleFailure,
 	staleMove
 } from './page-epoch';
 
@@ -55,7 +56,9 @@ describe('staleAnswer', () => {
 		const res = staleAnswer(false);
 		expect(res.status).toBe(409);
 		expect(res.headers.get(STALE_HEADER)).toBe('1');
-		expect(await res.text()).toBe('Reload');
+		// JSON, so SvelteKit's data load carries the words to the error page (`errorView`).
+		expect(res.headers.get('content-type')).toContain('application/json');
+		expect(await res.json()).toBe(STALE_MESSAGE);
 	});
 
 	it('answers a form action as a failure the form shows, so the page and what was typed stay', async () => {
@@ -74,7 +77,7 @@ describe('staleAnswer', () => {
 const QUIET = { playerOpen: false, sheetsOpen: false, unsaved: 0, held: 0 };
 
 describe('staleMove', () => {
-	const here = { routeId: '/[dance]', navigating: false, ...QUIET };
+	const here = { routeId: '/[dance]', navigating: false, sending: 0, ...QUIET };
 
 	it('reloads a quiet page', () => {
 		expect(staleMove(here)).toBe('reload');
@@ -85,6 +88,12 @@ describe('staleMove', () => {
 		expect(staleMove({ ...here, sheetsOpen: true })).toBe('bar');
 		expect(staleMove({ ...here, playerOpen: true })).toBe('bar');
 		expect(staleMove({ ...here, held: 1 })).toBe('bar');
+	});
+
+	it('never reloads over a form whose save is out: the refused save is still to be asked about', () => {
+		// `use:guarded` counts a form as clean while it sends, and the answer
+		// arrives before the form hears it.
+		expect(staleMove({ ...here, sending: 1 })).toBe('bar');
 	});
 
 	it('never reloads Practice or My count by itself', () => {
@@ -129,5 +138,19 @@ describe('holdsBack', () => {
 		expect(holdsBack('bar', 'https://salsa.example/salsa/moves/__data.json', page)).toBe(false);
 		// A form action: its answer is a failure the form shows.
 		expect(holdsBack('bar', 'https://salsa.example/salsa/figures/3?/save', page)).toBe(false);
+	});
+});
+
+describe('staleFailure', () => {
+	it('tells the refusal of a stale page from any other failure', () => {
+		const refused = { type: 'failure', status: 409, data: { message: STALE_MESSAGE } } as const;
+		expect(staleFailure(refused)).toBe(true);
+		expect(staleFailure({ type: 'failure', status: 409, data: { message: 'In use.' } })).toBe(
+			false
+		);
+		expect(staleFailure({ type: 'failure', status: 400, data: { message: STALE_MESSAGE } })).toBe(
+			false
+		);
+		expect(staleFailure({ type: 'success', status: 200 })).toBe(false);
 	});
 });

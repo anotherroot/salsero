@@ -12,6 +12,7 @@ import { applyAction, deserialize } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import type { ActionResult } from '@sveltejs/kit';
 import { markSent } from '$lib/sheets/history.svelte';
+import { STALE_HEADER } from '$lib/page-epoch';
 
 export type Field = string | number | null | (string | number)[];
 
@@ -33,12 +34,14 @@ export async function act(name: string, fields: Record<string, Field>): Promise<
 	}
 	markSent();
 	let result: ActionResult;
+	let stale = false;
 	try {
 		const res = await fetch(`?/${name}`, {
 			method: 'POST',
 			body,
 			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }
 		});
+		stale = res.headers.has(STALE_HEADER);
 		result = deserialize(await res.text());
 	} catch {
 		result = { type: 'failure', status: 0, data: { message: 'Could not reach the server.' } };
@@ -48,8 +51,9 @@ export async function act(name: string, fields: Record<string, Field>): Promise<
 	// from under its slot, as `enhance`'s `update()` does. A refusal reloads
 	// too — the slot may be gone or changed in another tab, and the server's
 	// state wins. Only an unreachable server (status 0) skips it: there is
-	// nothing to reload from.
-	if (result.type === 'success' || (result.type === 'failure' && result.status !== 0)) {
+	// nothing to reload from. Nor a page the server refused as out of date
+	// (`$lib/page-epoch.ts`): the reload would be refused and held back for good.
+	if (!stale && (result.type === 'success' || (result.type === 'failure' && result.status !== 0))) {
 		await invalidateAll();
 	}
 	// `applyAction` focuses <body> after a success (SvelteKit's `reset_focus`,

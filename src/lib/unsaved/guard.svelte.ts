@@ -4,7 +4,7 @@ import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { enhance } from '$app/forms';
 import { beforeNavigate, goto } from '$app/navigation';
 import { fingerprint } from './fingerprint';
-import { pending, type SaveOutcome, type Unsaved } from './pending';
+import { pending, sendingCount, type SaveOutcome, type Unsaved } from './pending';
 
 /*
  * The live list of what leaving would lose, and the one question the app asks
@@ -26,6 +26,11 @@ export function track(entry: Unsaved): () => void {
 /** What is unsaved inside `scope` (anywhere, when null). */
 export function unsaved(scope: Node | null = null, unload = false): Unsaved[] {
 	return pending(entries, { scope, unload });
+}
+
+/** How many `use:guarded` forms have a save out: clean to `unsaved()` until it lands. */
+export function sendingNow(): number {
+	return sendingCount(entries);
 }
 
 export interface Ask {
@@ -237,6 +242,7 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			const changed = read() !== saved;
 			return opts.dirty ? opts.dirty(changed) : changed;
 		},
+		sending: () => sending,
 		blocked: () => opts.blocked?.() ?? null,
 		save: () => {
 			// A `novalidate` form leaves its checks to the server, whose message shows under the field.

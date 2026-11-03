@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { errorBack, errorView } from './error-view';
+import { STALE_MESSAGE } from '$lib/page-epoch';
 
 describe('errorView', () => {
 	it('404', () => {
@@ -51,6 +52,20 @@ describe('errorView', () => {
 			retry: false,
 			today: true
 		});
+	});
+	it('a page the server refused as out of date: the words, no status number', () => {
+		expect(errorView(409, STALE_MESSAGE, false)).toEqual({
+			title: 'Out of date',
+			icon: 'refresh',
+			tone: 'warn',
+			heading: 'This page is out of date',
+			body: 'Reload to continue. Nothing you saved is lost.',
+			code: null,
+			retry: false,
+			today: false
+		});
+		// Any other 409 is an ordinary error.
+		expect(errorView(409, 'That take is in use.', false).code).toBe('ERROR 409');
 	});
 });
 

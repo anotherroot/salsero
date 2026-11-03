@@ -12,6 +12,7 @@
  * the header (a full page load, the Android app's own calls, the home worker)
  * is never refused by this.
  */
+import type { ActionResult } from '@sveltejs/kit';
 import { mayReloadNow, type Quiet } from '$lib/nav/fresh';
 
 export const PAGE_EPOCH = 1;
@@ -38,23 +39,27 @@ export function fillEpoch(html: string): string {
 }
 
 /**
- * The refusal. A form action (`use:enhance` sends `x-sveltekit-action`) gets
- * it as an action failure, which the form shows like any other refused save:
- * the page stays, with what was typed. As a plain error, SvelteKit would swap
- * the page for its error page. `data` is devalue's encoding of
+ * The refusal: 409 with `x-page-stale`.
+ *
+ * A form action (`use:enhance` sends `x-sveltekit-action`) gets it as an
+ * action failure, which the form shows like any other refused save: the page
+ * stays, with what was typed. As a plain error, SvelteKit would swap the page
+ * for its error page. `data` is devalue's encoding of
  * `{ message: STALE_MESSAGE }`, as `deserialize` in `$app/forms` reads it.
+ *
+ * Anything else gets the words as a JSON string: a page's data load
+ * (`__data.json`), when it is let through, hands them to SvelteKit's error
+ * page, and `errorView` shows them without a status number.
  */
 export function staleAnswer(action: boolean): Response {
-	if (!action) return new Response('Reload', { status: 409, headers: { [STALE_HEADER]: '1' } });
+	const headers = { [STALE_HEADER]: '1', 'content-type': 'application/json' };
+	if (!action) return new Response(JSON.stringify(STALE_MESSAGE), { status: 409, headers });
 	const body = {
 		type: 'failure',
 		status: 409,
 		data: JSON.stringify([{ message: 1 }, STALE_MESSAGE])
 	};
-	return new Response(JSON.stringify(body), {
-		status: 409,
-		headers: { [STALE_HEADER]: '1', 'content-type': 'application/json' }
-	});
+	return new Response(JSON.stringify(body), { status: 409, headers });
 }
 
 /**
@@ -67,10 +72,16 @@ export type StaleMove = 'go' | 'reload' | 'bar';
 /**
  * What the page does on a stale answer. A navigation under way becomes a full
  * load unless that would cut an upload or a run short; otherwise the page
- * reloads only when nothing would be lost (`mayReloadNow`, as for a deploy).
+ * reloads only when nothing would be lost (`mayReloadNow`, as for a deploy)
+ * and no form's save is out: `use:guarded` counts a form as clean while it
+ * sends, and the refusal reaches here before the form hears it, so `sending`
+ * (the guard's `sendingNow()`) stands in for what was typed.
  */
-export function staleMove(s: { routeId: string | null; navigating: boolean } & Quiet): StaleMove {
+export function staleMove(
+	s: { routeId: string | null; navigating: boolean; sending: number } & Quiet
+): StaleMove {
 	if (s.navigating) return s.held === 0 ? 'go' : 'bar';
+	if (s.sending > 0) return 'bar';
 	return mayReloadNow(s) ? 'reload' : 'bar';
 }
 
@@ -89,4 +100,14 @@ export function holdsBack(move: StaleMove, requestUrl: string, pageUrl: string):
 	const page = new URL(pageUrl);
 	const base = page.pathname.endsWith('/') ? page.pathname : `${page.pathname}/`;
 	return request.origin === page.origin && request.pathname === `${base}__data.json`;
+}
+
+/**
+ * Whether an action's result is this refusal (`staleAnswer(true)`). Code that
+ * reloads the page's data after a failure skips it then: the reload would be
+ * refused too, and held back (`holdsBack`), so it would never finish.
+ */
+export function staleFailure(result: ActionResult): boolean {
+	if (result.type !== 'failure' || result.status !== 409) return false;
+	return (result.data as { message?: unknown } | undefined)?.message === STALE_MESSAGE;
 }

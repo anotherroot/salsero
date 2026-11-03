@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pending, type Unsaved } from './pending';
+import { pending, sendingCount, type Unsaved } from './pending';
 
 /** A stand-in DOM node: `contains` is the only thing `pending` asks of one. */
 const node = (...kids: object[]) =>
@@ -33,5 +33,15 @@ describe('pending', () => {
 		const form = entry();
 		expect(pending([upload, form], { scope: null, unload: false })).toEqual([form]);
 		expect(pending([upload, form], { scope: null, unload: true })).toEqual([upload, form]);
+	});
+});
+
+describe('sendingCount', () => {
+	it('counts forms whose save is out: not dirty while sending, but not done either', () => {
+		const out = entry({ dirty: () => false, sending: () => true });
+		const idle = entry({ dirty: () => false, sending: () => false });
+		const plain = entry();
+		expect(sendingCount([out, idle, plain])).toBe(1);
+		expect(sendingCount([idle, plain])).toBe(0);
 	});
 });

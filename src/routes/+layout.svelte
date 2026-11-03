@@ -9,7 +9,13 @@
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
-	import { guardNavigation, loadAgreed, prompt, unsaved } from '$lib/unsaved/guard.svelte';
+	import {
+		guardNavigation,
+		loadAgreed,
+		prompt,
+		sendingNow,
+		unsaved
+	} from '$lib/unsaved/guard.svelte';
 	import { entryState, syncSheets } from '$lib/sheets/history.svelte';
 	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
@@ -273,6 +279,7 @@
 			const move = staleMove({
 				routeId: page.route.id,
 				navigating: going !== null,
+				sending: sendingNow(),
 				...quietNow()
 			});
 			const url = (e as CustomEvent<{ url: string }>).detail.url;

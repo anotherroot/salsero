@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { staleFailure } from '$lib/page-epoch';
 	import { focusAfterRemoval } from '$lib/focus';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Stars from '$lib/components/ui/Stars.svelte';
@@ -53,7 +54,8 @@
 							return;
 						}
 						// A refusal ("already removed") reloads: the list shows what the server has.
-						if (result.type === 'failure') await invalidateAll();
+						// Not a stale page's: that reload would be held back for good.
+						if (result.type === 'failure' && !staleFailure(result)) await invalidateAll();
 						hiding = hiding.filter((id) => id !== s.id);
 						const m =
 							result.type === 'failure'
