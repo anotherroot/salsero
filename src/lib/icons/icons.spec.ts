@@ -28,7 +28,7 @@ describe('icons', () => {
 		expect(canonical.length).toBe(new Set(Object.values(ICONS)).size);
 	});
 	it('filled variants cover the four tabs and are real icons', () => {
-		for (const n of ['today', 'moves', 'lessons', 'music'])
+		for (const n of ['today', 'moves', 'lessons', 'group', 'music'])
 			expect(FILLED[n as IconName], n).toBeTruthy();
 		for (const name of Object.keys(FILLED)) expect(name in ICONS, name).toBe(true);
 	});

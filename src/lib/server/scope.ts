@@ -29,7 +29,9 @@ import { getExercise, getSet } from './exercises';
 import { getPosition } from './positions';
 import { getRoutine } from './routines';
 import { getSong } from './songs';
+import { getTeam, roleOf, type Team } from './teams';
 import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
+import type { Role } from '$lib/types';
 
 /**
  * The dance this URL names, or a 404.
@@ -218,4 +220,28 @@ export function requireRoutineInWall(db: Db, wall: Wall, id: number) {
 	const routine = getRoutine(db, id);
 	if (!routine || !inWall(routine, wall)) throw error(404, 'No such routine');
 	return routine;
+}
+
+const TEAM_RANK = { member: 0, editor: 1, owner: 2 } as const;
+
+/**
+ * The group a request stands in, or a 404. `params` is `{ dance, id }`. An
+ * outsider, a missing group, another dance's group, a deleted one (except to
+ * its owner, see `roleOf`) and a role below `need` all get the same 404, so
+ * a member asking to write learns nothing a stranger would not.
+ */
+export function requireTeam(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string; id: string },
+	need: Role
+): { team: Team; role: Role; space: TeamSpace } {
+	const wall = wallOf(params, locals);
+	const id = Number(params.id);
+	const team = Number.isInteger(id) ? getTeam(db, id) : null;
+	const role = team ? roleOf(db, wall.userId, team.id) : null;
+	if (!team || team.dance !== wall.dance || !role || TEAM_RANK[role] < TEAM_RANK[need]) {
+		throw error(404, 'No such group');
+	}
+	return { team, role, space: { dance: wall.dance, teamId: team.id, actorId: wall.userId } };
 }

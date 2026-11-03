@@ -323,3 +323,14 @@ export function peopleOf(db: Db, teamId: number): Person[] {
 		.map((p) => ({ id: p.id, name: fullName(p), role: p.role as Role }))
 		.sort((a, b) => rank[a.role] - rank[b.role] || a.name.localeCompare(b.name));
 }
+
+/** The first name of the first admin, for "Ask … for an invite"; "the admin" when there is none. */
+export function adminFirstName(db: Db): string {
+	const row = db
+		.select({ firstName: users.firstName })
+		.from(users)
+		.where(eq(users.isAdmin, true))
+		.orderBy(asc(users.createdAt), asc(users.id))
+		.get();
+	return row?.firstName?.trim() || 'the admin';
+}

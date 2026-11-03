@@ -10,6 +10,8 @@ describe('tabFor', () => {
 		expect(tabFor('/salsa/positions', 'salsa')).toBe('moves');
 		expect(tabFor('/salsa/coverage', 'salsa')).toBe('moves');
 		expect(tabFor('/salsa/lessons/4', 'salsa')).toBe('lessons');
+		expect(tabFor('/salsa/groups/3', 'salsa')).toBe('groups');
+		expect(tabFor('/salsa/groups/3/people', 'salsa')).toBe('groups');
 		expect(tabFor('/salsa/songs/9', 'salsa')).toBe('music');
 		expect(tabFor('/salsa/player', 'salsa')).toBe('music');
 		expect(tabFor('/salsa/exercises/4', 'salsa')).toBe('today');
@@ -33,6 +35,8 @@ describe('showsTabs', () => {
 			'/[dance]/figures/[id]',
 			'/[dance]/routines/[id]',
 			'/[dance]/lessons/[id]',
+			'/[dance]/groups',
+			'/[dance]/groups/[id]',
 			'/[dance]/songs/[id]',
 			'/[dance]/exercises/[id]',
 			'/[dance]/positions',
@@ -49,7 +53,7 @@ describe('showsTabs', () => {
 
 describe('TABS', () => {
 	it('has four, in order', () => {
-		expect(TABS.map((t) => t.label)).toEqual(['Today', 'Moves', 'Lessons', 'Music']);
+		expect(TABS.map((t) => t.label)).toEqual(['Today', 'Moves', 'Lessons', 'Groups', 'Music']);
 	});
 });
 
@@ -58,6 +62,7 @@ describe('rootsOf', () => {
 		expect(rootsOf('moves', 'bachata')).toEqual(['/bachata/figures', '/bachata/routines']);
 		expect(rootsOf('today', 'salsa')).toEqual(['/salsa']);
 		expect(rootsOf('lessons', 'salsa')).toEqual(['/salsa/lessons']);
+		expect(rootsOf('groups', 'salsa')).toEqual(['/salsa/groups']);
 		expect(rootsOf('music', 'salsa')).toEqual(['/salsa/songs']);
 	});
 });

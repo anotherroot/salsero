@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { deletingLine, joinQuestion, noAccountLine, peopleLine, roleLabel } from './view';
+import {
+	codeLink,
+	deletingLine,
+	joinQuestion,
+	limitLine,
+	noAccountLine,
+	peopleLine,
+	roleLabel,
+	youLine
+} from './view';
 
 describe('group wording', () => {
 	it('labels roles', () => {
@@ -19,5 +28,17 @@ describe('group wording', () => {
 		expect(deletingLine('Class', '3 Dec')).toBe(
 			'Class is being deleted on 3 Dec · Make my own copy'
 		);
+	});
+});
+
+describe('group lines', () => {
+	it('says what you are', () => {
+		expect(youLine('owner')).toBe('you own it');
+		expect(youLine('member')).toBe('you are a member');
+	});
+	it('names the limit and the link', () => {
+		expect(limitLine(2)).toBe('You can make 2 groups. Ask the admin for more.');
+		expect(limitLine(1)).toBe('You can make 1 group. Ask the admin for more.');
+		expect(codeLink('https://x.eu', 'ABC')).toBe('https://x.eu/g/ABC');
 	});
 });

@@ -42,7 +42,7 @@
 >
 	<ul
 		class="mx-auto grid max-w-[560px] items-center gap-1 px-2 pt-[10px] pb-2"
-		style="grid-template-columns: {TABS.map((t) => (t.id === lit ? '1.6fr' : '1fr')).join(' ')}"
+		style="grid-template-columns: {TABS.map((t) => (t.id === lit ? '2fr' : '1fr')).join(' ')}"
 	>
 		{#each TABS as tab, i (tab.id)}
 			{@const here = tab.id === lit}
