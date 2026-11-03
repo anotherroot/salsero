@@ -206,6 +206,20 @@
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">For this browser or phone only.</p>
 
+	{#if !data.app}
+		<div class="{GROUP} mt-[14px]">
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+			<a href="/app" class={ROW_TALL}>
+				<LeadTile icon="phone" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">Get the app</span>
+					<span class="text-[13px] text-muted">For your phone's home screen</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		</div>
+	{/if}
+
 	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
 	<div class={GROUP}>
 		{#if data.appUpdate}
