@@ -50,14 +50,14 @@ describe('restoreTrashEntry', () => {
 describe('ok', () => {
 	it('carries the field a refusal names', async () => {
 		const res = Response.json(
-			{ message: "There's already a figure called Enchufla.", field: 'figureName' },
+			{ message: "There's already a move called Enchufla.", field: 'figureName' },
 			{ status: 400 }
 		);
 		const err = await ok(res).catch((e: unknown) => e);
 		expect(err).toBeInstanceOf(SpotsApiError);
 		expect(err).toMatchObject({
 			status: 400,
-			message: "There's already a figure called Enchufla.",
+			message: "There's already a move called Enchufla.",
 			field: 'figureName'
 		});
 	});

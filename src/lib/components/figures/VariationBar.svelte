@@ -125,12 +125,12 @@
 	its last line clears this.
 -->
 <nav
-	aria-label="Variations of {figureName}"
+	aria-label="Figures of {figureName}"
 	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5"
 	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
 >
 	<div class="mx-auto flex max-w-[560px] items-center gap-2">
-		{@render step(prev, 'Previous variation', 'chevron-left')}
+		{@render step(prev, 'Previous figure', 'chevron-left')}
 		<button
 			type="button"
 			aria-haspopup="dialog"
@@ -145,24 +145,24 @@
 			</span>
 			<span class="flex-none text-accent-text"><Icon name="chevron-up" size={18} /></span>
 		</button>
-		{@render step(next, 'Next variation', 'chevron-right')}
+		{@render step(next, 'Next figure', 'chevron-right')}
 	</div>
 </nav>
 
 {#snippet newVariation()}
 	<button type="button" class={button('secondary', 'md', true)} onclick={() => (adding = true)}
-		><Icon name="plus" size={20} />New variation</button
+		><Icon name="plus" size={20} />New figure</button
 	>
 {/snippet}
 
 <!-- A reader steps through the variations they can see; New variation is an editor's. -->
 <Sheet
-	title="Variations of {figureName}"
+	title="Figures of {figureName}"
 	open={listing}
 	onclose={() => (listing = false)}
 	footer={canEdit ? newVariation : undefined}
 >
-	<ul class={GROUP} aria-label="Variations">
+	<ul class={GROUP} aria-label="Figures">
 		{#each siblings as s (s.id)}
 			{@const here = s.id === currentId}
 			<li>
@@ -188,13 +188,7 @@
 	</ul>
 </Sheet>
 
-<Sheet
-	title="New variation"
-	sub="of {figureName}"
-	back
-	open={adding}
-	onclose={() => (adding = false)}
->
+<Sheet title="New figure" sub="of {figureName}" back open={adding} onclose={() => (adding = false)}>
 	<!-- A success closes the sheets, then replaces this entry with the new variation (below). -->
 	<form
 		id="new-variation"
@@ -202,7 +196,7 @@
 		action="?/createVariation"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'New variation',
+			label: 'New figure',
 			submit: () => {
 				busy = true;
 				return async ({ update, result }) => {
@@ -254,7 +248,7 @@
 			aria-busy={busy}
 			disabled={busy}
 		>
-			{#if busy}<Spinner size={18} />{:else}<Icon name="plus" size={20} />{/if}Add variation
+			{#if busy}<Spinner size={18} />{:else}<Icon name="plus" size={20} />{/if}Add figure
 		</button>
 	{/snippet}
 </Sheet>

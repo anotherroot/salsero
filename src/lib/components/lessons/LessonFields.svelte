@@ -71,7 +71,7 @@
 			{autofocus}
 			maxlength="200"
 			value={title}
-			placeholder="Wednesday rueda — enchufla variations"
+			placeholder="Wednesday rueda — enchufla figures"
 			class={FIELD}
 			aria-invalid={errors.title ? 'true' : undefined}
 			aria-describedby={errors.title ? `${id}-title-error` : undefined}

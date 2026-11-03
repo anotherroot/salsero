@@ -94,14 +94,14 @@ export const actions: Actions = {
 		if (!figureName) {
 			return fail(400, {
 				field: 'figureName' as const,
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the move a name (up to 200 characters).',
 				...typed
 			});
 		}
 		if (!name) {
 			return fail(400, {
 				field: 'name' as const,
-				message: 'Give the variation a name (up to 200 characters).',
+				message: 'Give the figure a name (up to 200 characters).',
 				...typed
 			});
 		}
@@ -121,7 +121,7 @@ export const actions: Actions = {
 		if (!made) {
 			return fail(400, {
 				field: 'figureName' as const,
-				message: `There's already a figure called ${figureName}.`,
+				message: `There's already a move called ${figureName}.`,
 				figureName,
 				name,
 				notes: notes ?? ''

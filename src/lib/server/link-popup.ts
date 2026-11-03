@@ -286,7 +286,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 		if (create.kind === 'variation') {
 			const group = getGroup(tx, create.groupId);
 			if (!group || group.archivedAt !== null || !inSpace(group, space)) {
-				throw new SpotLinkError('No such figure.', 400, 'groupId');
+				throw new SpotLinkError('No such move.', 400, 'groupId');
 			}
 			if (variationNameTaken(tx, group.id, name, null)) {
 				throw new SpotLinkError(`${group.name} already has a ${name}.`, 400, 'name');
@@ -303,7 +303,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				},
 				actorOf(space)
 			);
-			if (!made) throw new SpotLinkError('That variation could not be made.');
+			if (!made) throw new SpotLinkError('That figure could not be made.');
 			target = { figureId: made.id };
 		} else if (create.kind === 'figure') {
 			const figureName = create.figureName.trim();
@@ -312,11 +312,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
 			}
 			if (figureNameTaken(tx, space, figureName, null)) {
-				throw new SpotLinkError(
-					`There's already a figure called ${figureName}.`,
-					400,
-					'figureName'
-				);
+				throw new SpotLinkError(`There's already a move called ${figureName}.`, 400, 'figureName');
 			}
 			const made = createFigure(tx, space, {
 				figureName,
@@ -325,7 +321,7 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				style: create.style,
 				notes: null
 			});
-			if (!made) throw new SpotLinkError('That figure could not be made.');
+			if (!made) throw new SpotLinkError('That move could not be made.');
 			target = { figureId: made.figure.id };
 		} else {
 			if (!isFrequency(create.everyDays))

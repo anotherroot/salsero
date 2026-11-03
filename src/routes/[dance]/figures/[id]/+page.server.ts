@@ -122,8 +122,8 @@ function practisable(db: Db, userId: string, figure: { id: number; teamId: numbe
 const NOT_ADDED = 'Add a lesson with this figure to practise it.';
 
 const taken = (figure: string, name: string) =>
-	`${figure} already has a variation called ${name}. Rename one first.`;
-const figureTaken = (name: string) => `There's already a figure called ${name}.`;
+	`${figure} already has a figure called ${name}. Rename one first.`;
+const figureTaken = (name: string) => `There's already a move called ${name}.`;
 
 export const load: PageServerLoad = ({ params, url, locals }) => {
 	const now = Date.now();
@@ -327,7 +327,7 @@ export const actions: Actions = {
 		if (!figureName || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
-				message: 'Give the figure and the variation a name (up to 200 characters).'
+				message: 'Give the move and the figure a name (up to 200 characters).'
 			});
 		}
 		if (endId !== null && !Number.isInteger(endId)) {
@@ -336,7 +336,7 @@ export const actions: Actions = {
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
 			return fail(400, {
 				action: 'update',
-				message: `A variation starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
+				message: `A figure starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
 			});
 		}
 
@@ -387,7 +387,7 @@ export const actions: Actions = {
 			return fail(400, {
 				action: 'createVariation',
 				field: 'name',
-				message: 'Give the variation a name (up to 200 characters).',
+				message: 'Give the figure a name (up to 200 characters).',
 				name: typed
 			});
 		}
@@ -426,7 +426,7 @@ export const actions: Actions = {
 				return fail(400, {
 					action: 'move',
 					field: 'figureName',
-					message: 'Give the new figure a name (up to 200 characters).'
+					message: 'Give the new move a name (up to 200 characters).'
 				});
 			}
 			result = moveVariation(db, figure.id, { newFigure: figureName }, me(params, locals));
@@ -447,14 +447,14 @@ export const actions: Actions = {
 				case 'same-figure':
 					return fail(400, {
 						action: 'move',
-						message: `${figure.name} is already a variation of ${group.name}.`
+						message: `${figure.name} is already a figure of ${group.name}.`
 					});
 				case 'name-taken': {
 					const target = groupId === undefined ? null : getGroup(db, groupId);
 					return fail(400, {
 						action: 'move',
 						field: 'name',
-						message: taken(target?.name ?? 'That figure', name ?? figure.name),
+						message: taken(target?.name ?? 'That move', name ?? figure.name),
 						name: String(form.get('name') ?? '')
 					});
 				}
@@ -500,7 +500,7 @@ export const actions: Actions = {
 		if (!addFigureExercise(getDb(), userId, figure.id)) {
 			return fail(400, {
 				action: 'practise',
-				message: 'This variation is already practised on its own.'
+				message: 'This figure is already practised on its own.'
 			});
 		}
 		return { action: 'practise', ok: true };

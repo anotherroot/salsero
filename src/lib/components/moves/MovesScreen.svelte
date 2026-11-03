@@ -41,7 +41,7 @@
 		<GroupModeButton />
 		<BandButton
 			icon="plus"
-			label={segment === 'figures' ? 'New figure' : 'New routine'}
+			label={segment === 'figures' ? 'New move' : 'New routine'}
 			onclick={onnew}
 		/>
 	{/snippet}

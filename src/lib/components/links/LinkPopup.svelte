@@ -89,13 +89,13 @@
 
 	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill'];
 	const CREATE_ROW = [
-		{ key: 'variation', label: 'Variation' },
-		{ key: 'figure', label: 'Figure' },
+		{ key: 'variation', label: 'Figure' },
+		{ key: 'figure', label: 'Move' },
 		{ key: 'drill', label: 'Drill' }
 	];
 	const CREATE_TITLE: Record<CreateStep, string> = {
-		variation: 'New variation',
-		figure: 'New figure',
+		variation: 'New figure',
+		figure: 'New move',
 		drill: 'New drill'
 	};
 	const LOAD_FAILED = {
@@ -221,7 +221,7 @@
 						entries: figureRows(options.figureChoices.filter((c) => c.near).map(asTarget))
 					},
 					{
-						title: 'Figures',
+						title: 'Moves',
 						entries: figureRows(options.figureChoices.filter((c) => !c.near).map(asTarget))
 					}
 				]
@@ -381,7 +381,7 @@
 		let body: LinkCreate;
 		if (step === 'variation') {
 			if (groupId === null) {
-				refusal = { message: 'Pick a figure.', at: 'groupId' };
+				refusal = { message: 'Pick a move.', at: 'groupId' };
 				return;
 			}
 			body = { kind: 'variation', groupId, name: variationName };
@@ -497,12 +497,12 @@
 		{#if step === 'variation'}
 			<PickerField
 				name="groupId"
-				label="Figure"
-				placeholder="Choose a figure…"
-				title="Choose a figure"
-				search="Search figures"
+				label="Move"
+				placeholder="Choose a move…"
+				title="Choose a move"
+				search="Search moves"
 				groups={figureGroups}
-				nothingLeft="There are no figures yet."
+				nothingLeft="There are no moves yet."
 				bind:value={groupId}
 				bind:open={() => top === 'variation-figure', setFigurePicking}
 				required
@@ -510,7 +510,7 @@
 				{theme}
 			/>
 			<div>
-				<label for="{uid}-name" class={LABEL}>Variation name</label>
+				<label for="{uid}-name" class={LABEL}>Figure name</label>
 				<input
 					id="{uid}-name"
 					bind:value={variationName}
@@ -524,7 +524,7 @@
 			</div>
 		{:else if step === 'figure'}
 			<div>
-				<label for="{uid}-figureName" class={LABEL}>Figure name</label>
+				<label for="{uid}-figureName" class={LABEL}>Move name</label>
 				<input
 					id="{uid}-figureName"
 					bind:value={figureName}
@@ -537,7 +537,7 @@
 				{@render fieldError('figureName')}
 			</div>
 			<div>
-				<label for="{uid}-name" class={LABEL}>Variation name</label>
+				<label for="{uid}-name" class={LABEL}>Figure name</label>
 				<input
 					id="{uid}-name"
 					bind:value={firstName}

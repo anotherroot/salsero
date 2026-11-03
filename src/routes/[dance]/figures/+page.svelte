@@ -134,7 +134,7 @@
 		<EmptyState icon="moves" title="No figures yet" body="Add the first one you learned.">
 			{#snippet action()}
 				<button type="button" class={button('primary')} onclick={() => (creating = true)}>
-					<Icon name="plus" size={20} /> New figure
+					<Icon name="plus" size={20} /> New move
 				</button>
 			{/snippet}
 		</EmptyState>
@@ -241,14 +241,14 @@
 </MovesScreen>
 
 {#if creating}
-	<Sheet title="New figure" open={true} onclose={() => (creating = false)}>
+	<Sheet title="New move" open={true} onclose={() => (creating = false)}>
 		<form
 			id="new-figure"
 			method="POST"
 			action="?/create"
 			class="flex flex-col gap-3.5"
 			use:guarded={{
-				label: 'New figure',
+				label: 'New move',
 				submit: ({ cancel }) => {
 					// One figure per tap: a second tap while the first is out is dropped.
 					if (busy) return cancel();
@@ -279,9 +279,9 @@
 					form="new-figure"
 					class={button('primary', 'md', true)}
 					aria-busy={busy}
-					aria-label={busy ? 'Adding figure' : undefined}
+					aria-label={busy ? 'Adding move' : undefined}
 				>
-					{#if busy}<Spinner />{:else}Add figure{/if}
+					{#if busy}<Spinner />{:else}Add move{/if}
 				</button>
 				<p class="text-center text-[13px] text-muted">You can add recordings next.</p>
 			</div>

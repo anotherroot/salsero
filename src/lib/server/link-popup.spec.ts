@@ -259,7 +259,7 @@ describe('createAndLink', () => {
 				partner: 'partner',
 				style: 'salsa'
 			},
-			"There's already a figure called enchufla."
+			"There's already a move called enchufla."
 		],
 		[
 			{
@@ -446,7 +446,7 @@ describe('in a group', () => {
 		});
 		expect(() =>
 			createAndLinkIn(db, T1_SALSA, s, { kind: 'variation', groupId: enchufla, name: 'Triple' })
-		).toThrow('No such figure.');
+		).toThrow('No such move.');
 		// A person reaching a group's section by id is answered as missing.
 		expect(() =>
 			createAndLink(db, 'u1', s, { kind: 'drill', name: 'Other', everyDays: 3 })

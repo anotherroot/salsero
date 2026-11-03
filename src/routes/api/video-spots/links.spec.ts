@@ -164,7 +164,7 @@ describe('POST /api/video-spots/[id]/links', () => {
 		);
 		expect(res).toMatchObject({
 			status: 400,
-			body: { message: "There's already a figure called Enchufla.", field: 'figureName' }
+			body: { message: "There's already a move called Enchufla.", field: 'figureName' }
 		});
 	});
 

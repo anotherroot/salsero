@@ -598,7 +598,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			);
 			expect(result).toMatchObject({
 				status: 400,
-				data: { action: 'update', message: "There's already a figure called second salsa figure." }
+				data: { action: 'update', message: "There's already a move called second salsa figure." }
 			});
 			const row = getFigure(db, salsaFigureId, 'u1')!.figure;
 			expect([row.name, row.lengthCounts]).toEqual(['Basic', 8]);
@@ -615,7 +615,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'update',
-					message: 'Dile que no already has a variation called basic. Rename one first.'
+					message: 'Dile que no already has a figure called basic. Rename one first.'
 				}
 			});
 			const row = getFigure(db, v.id, 'u1')!.figure;
@@ -659,7 +659,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 					action: 'createVariation',
 					field: 'name',
 					name: ' basic ',
-					message: 'Dile que no already has a variation called basic. Rename one first.'
+					message: 'Dile que no already has a figure called basic. Rename one first.'
 				}
 			});
 			expect(
@@ -671,7 +671,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					field: 'name',
-					message: 'Give the variation a name (up to 200 characters).'
+					message: 'Give the figure a name (up to 200 characters).'
 				}
 			});
 			expect(listGroupVariations(db, groupOf(salsaFigureId))).toHaveLength(1);
@@ -722,7 +722,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				data: {
 					action: 'move',
 					field: 'name',
-					message: 'Second salsa figure already has a variation called Basic. Rename one first.'
+					message: 'Second salsa figure already has a figure called Basic. Rename one first.'
 				}
 			});
 		});
@@ -739,7 +739,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				data: {
 					action: 'move',
 					field: 'figureName',
-					message: "There's already a figure called second salsa figure."
+					message: "There's already a move called second salsa figure."
 				}
 			});
 			const same = await call(
@@ -808,7 +808,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(await call(figureListActions.create, post('salsa', fields))).toMatchObject({
 				status: 400,
 				data: {
-					message: "There's already a figure called dile que no.",
+					message: "There's already a move called dile que no.",
 					figureName: 'dile que no',
 					name: 'Doble',
 					notes: 'Spin'
@@ -821,7 +821,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				await call(figureListActions.create, post('salsa', { ...fields, name: '' }))
 			).toMatchObject({
 				status: 400,
-				data: { message: 'Give the variation a name (up to 200 characters).' }
+				data: { message: 'Give the figure a name (up to 200 characters).' }
 			});
 		});
 
@@ -852,7 +852,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				)
 			).toMatchObject({
 				status: 400,
-				data: { action: 'newFigure', message: "There's already a figure called basico." }
+				data: { action: 'newFigure', message: "There's already a move called basico." }
 			});
 			expect(
 				await call(
@@ -924,7 +924,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'newVariation',
-					message: 'Basico already has a variation called basic. Rename one first.',
+					message: 'Basico already has a figure called basic. Rename one first.',
 					groupId: String(basico),
 					name: 'basic',
 					notes: 'Spin'
@@ -935,7 +935,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 					lessonPage.actions.newVariation,
 					post('bachata', { ...variationFields(basico), groupId: '' }, String(bachataLessonId))
 				)
-			).toMatchObject({ status: 400, data: { action: 'newVariation', message: 'Pick a figure.' } });
+			).toMatchObject({ status: 400, data: { action: 'newVariation', message: 'Pick a move.' } });
 			expect(
 				await call(
 					lessonPage.actions.newVariation,
@@ -945,7 +945,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'newVariation',
-					message: 'Give the variation a name (up to 200 characters).'
+					message: 'Give the figure a name (up to 200 characters).'
 				}
 			});
 			expect(listGroupVariations(db, basico)).toHaveLength(1);
@@ -988,7 +988,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				data: {
 					action: 'move',
 					field: 'name',
-					message: 'Second salsa figure already has a variation called doble. Rename one first.',
+					message: 'Second salsa figure already has a figure called doble. Rename one first.',
 					name: 'doble'
 				}
 			});

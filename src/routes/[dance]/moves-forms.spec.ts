@@ -108,7 +108,7 @@ describe('New figure', () => {
 			status: 400,
 			data: {
 				field: 'figureName',
-				message: "There's already a figure called Hammerlock.",
+				message: "There's already a move called Hammerlock.",
 				figureName: 'Hammerlock',
 				name: 'From closed',
 				notes: 'Lead the turn early, on 1.'
@@ -123,7 +123,7 @@ describe('New figure', () => {
 			status: 400,
 			data: {
 				field: 'name',
-				message: 'Give the variation a name (up to 200 characters).',
+				message: 'Give the figure a name (up to 200 characters).',
 				figureName: 'Hammerlock'
 			}
 		});
@@ -136,7 +136,7 @@ describe('New figure', () => {
 			status: 400,
 			data: {
 				field: 'figureName',
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the move a name (up to 200 characters).',
 				name: 'From closed'
 			}
 		});

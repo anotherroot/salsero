@@ -43,7 +43,7 @@ function thing(db: Db, dance: string, kind: Kind, id: number): { title: string; 
 		case 'figure': {
 			const first = listGroupVariations(db, id)[0];
 			return {
-				title: getGroup(db, id)?.name ?? 'Figure',
+				title: getGroup(db, id)?.name ?? 'Move',
 				href: first ? `/${dance}/figures/${first.id}` : `/${dance}/figures`
 			};
 		}

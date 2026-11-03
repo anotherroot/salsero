@@ -212,10 +212,10 @@
 	const LessonLog = logFor('lesson');
 	const failure = (action: string) => (form?.action === action ? form.message : null);
 
-	/** The "+ New figure" sheet's switch: a figure of its own, or a variation of one. */
+	/** The "+ New figure" sheet's switch: a move of its own, or a figure of one. */
 	const FIGURE_MODES = [
-		{ value: 'figure', label: 'New figure' },
-		{ value: 'variation', label: 'Variation of a figure' }
+		{ value: 'figure', label: 'New move' },
+		{ value: 'variation', label: 'New figure in a move' }
 	];
 	let figureMode = $state<string>('figure');
 	/** Which of the three create sheets is posting: its footer button spins. */
@@ -262,14 +262,14 @@
 			};
 		};
 	}
-	/** The figure "Variation of a figure" adds to: a `figure_groups` id, as its field posts it. */
+	/** The move "New figure in a move" adds to: a `figure_groups` id, as its field posts it. */
 	let variationOf = $state<number | null>(null);
 	// What a refused `newVariation` posted, so the sheet reopens holding it.
 	const variationTyped = $derived(form && 'groupId' in form ? form : null);
 	/** What a create sheet's name field starts with: the picker's search, or a refused post. */
 	let typed = $state({ figureName: '', name: '', notes: '' });
 
-	/** The figures this lesson teaches, by hand or through a section: "Variation of a figure" offers them first. */
+	/** The moves this lesson teaches, by hand or through a section: "New figure in a move" offers them first. */
 	const taughtGroups = $derived.by(() => {
 		const linked = new Set(data.figures.map((f) => f.id));
 		return new Set(data.linkableFigures.filter((f) => linked.has(f.id)).map((f) => f.groupId));
@@ -280,7 +280,7 @@
 			entries: figureRows(data.figureGroups.filter((g) => taughtGroups.has(g.id)))
 		},
 		{
-			title: 'Figures',
+			title: 'Moves',
 			entries: figureRows(data.figureGroups.filter((g) => !taughtGroups.has(g.id)))
 		}
 	]);
@@ -1268,8 +1268,8 @@
 		groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
 		nothingLeft="There are no figures yet."
 		create={[
-			{ key: 'figure', label: 'Figure' },
-			{ key: 'variation', label: 'Variation' }
+			{ key: 'figure', label: 'Move' },
+			{ key: 'variation', label: 'Figure' }
 		]}
 		{added}
 		message={picking === 'figure' ? pickMessage : null}
@@ -1337,11 +1337,7 @@
 {/if}
 
 {#if data.canEdit}
-	<Sheet
-		title={figureMode === 'figure' ? 'New figure' : 'New variation'}
-		open={addingFigure}
-		onclose={() => (addingFigure = false)}
-	>
+	<Sheet title="New figure" open={addingFigure} onclose={() => (addingFigure = false)}>
 		<div class="flex flex-col gap-3">
 			<Segmented name="make" label="Make" items={FIGURE_MODES} bind:value={figureMode} />
 			<!-- One form per mode: each is guarded against its own first paint, so the switch alone is never "unsaved".
@@ -1373,26 +1369,26 @@
 					action="?/newVariation"
 					novalidate
 					class="flex flex-col gap-3"
-					use:guarded={{ label: 'New variation', submit: closeFigureSheet }}
+					use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
 				>
 					{#if bannerOf('newVariation')}<Banner kind="error">{bannerOf('newVariation')}</Banner
 						>{/if}
 					{#if data.figureGroups.length === 0}
-						<p class="text-[13px] text-muted">There are no figures yet.</p>
+						<p class="text-[13px] text-muted">There are no moves yet.</p>
 					{:else}
 						<div>
 							<PickerField
 								name="groupId"
-								label="Figure"
-								placeholder="Choose a figure…"
-								title="Choose a figure"
-								search="Search figures"
+								label="Move"
+								placeholder="Choose a move…"
+								title="Choose a move"
+								search="Search moves"
 								groups={variationGroups}
-								nothingLeft="There are no figures yet."
+								nothingLeft="There are no moves yet."
 								bind:value={variationOf}
 								required
 							/>
-							<p class="mt-1.5 pl-1 text-[13px] text-muted">Figures in this lesson come first</p>
+							<p class="mt-1.5 pl-1 text-[13px] text-muted">Moves in this lesson come first</p>
 							{#if groupError}<FieldError
 									id="lesson-variation-group-error"
 									message={groupError}
@@ -1421,7 +1417,7 @@
 				aria-busy={busy}
 				aria-label={busy ? 'Adding' : undefined}
 			>
-				{#if busy}<Spinner />{:else}{figureMode === 'figure' ? 'Add figure' : 'Add variation'}{/if}
+				{#if busy}<Spinner />{:else}Add figure{/if}
 			</button>
 		{/snippet}
 	</Sheet>

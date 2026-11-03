@@ -314,8 +314,8 @@ export const actions: Actions = {
 		const refuse = (message: string, field?: 'figureName' | 'name' | 'notes') =>
 			fail(400, { action: 'newFigure' as const, ...(field && { field }), message, ...typed });
 
-		if (!figureName) return refuse('Give the figure a name (up to 200 characters).', 'figureName');
-		if (!name) return refuse('Give the variation a name (up to 200 characters).', 'name');
+		if (!figureName) return refuse('Give the move a name (up to 200 characters).', 'figureName');
+		if (!name) return refuse('Give the figure a name (up to 200 characters).', 'name');
 		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
 		if (partner === undefined || style === undefined) {
 			return refuse('Pick how it is danced and its style.');
@@ -329,7 +329,7 @@ export const actions: Actions = {
 			return fail(400, {
 				action: 'newFigure' as const,
 				field: 'figureName' as const,
-				message: `There's already a figure called ${figureName}.`,
+				message: `There's already a move called ${figureName}.`,
 				figureName,
 				name,
 				notes: notes ?? ''
@@ -364,8 +364,8 @@ export const actions: Actions = {
 		const refuse = (message: string, field?: 'groupId' | 'name' | 'notes') =>
 			fail(400, { action: 'newVariation' as const, ...(field && { field }), message, ...typed });
 
-		if (groupId === undefined) return refuse('Pick a figure.', 'groupId');
-		if (!name) return refuse('Give the variation a name (up to 200 characters).', 'name');
+		if (groupId === undefined) return refuse('Pick a move.', 'groupId');
+		if (!name) return refuse('Give the figure a name (up to 200 characters).', 'name');
 		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
 		if (partner === undefined || style === undefined) {
 			return refuse('Pick how it is danced and its style.');
@@ -377,10 +377,7 @@ export const actions: Actions = {
 			throw error(404, 'Figure not found');
 		}
 		if (variationNameTaken(db, group.id, name, null)) {
-			return refuse(
-				`${group.name} already has a variation called ${name}. Rename one first.`,
-				'name'
-			);
+			return refuse(`${group.name} already has a figure called ${name}. Rename one first.`, 'name');
 		}
 		const made = createVariationIn(db, group.id, { name, partner, style, notes }, actorOf(space));
 		// Checked above; only a race with another tab gets here.

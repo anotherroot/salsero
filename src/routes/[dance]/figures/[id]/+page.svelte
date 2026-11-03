@@ -314,7 +314,7 @@
 						dance={data.dance}
 						figureName={figure.name}
 						figureHelp={data.siblings.length > 1
-							? `Shared by its ${plural(data.siblings.length, 'variation', 'variations')}`
+							? `Shared by its ${plural(data.siblings.length, 'figure', 'figures')}`
 							: undefined}
 						name={variation.name}
 						partner={variation.partner}
@@ -805,7 +805,7 @@
 							<span class="text-[16px] leading-tight font-bold text-ink"
 								>Move {variation.name} to…</span
 							>
-							<span class="text-[13px] text-muted">A new figure of its own, or another figure</span>
+							<span class="text-[13px] text-muted">A new move of its own, or another move</span>
 						</span>
 						<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
 					</button>
