@@ -1861,4 +1861,41 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		]);
 		expect((await share(U2)).groups).toEqual([]);
 	});
+	it("a member's own entry for a group figure shows nothing of the draft", async () => {
+		// V3 only the draft holds: no entry for it.
+		await refuses(figurePage.actions.practise, post(U2, 'salsa', {}, String(V3)));
+		expect(
+			await call(figurePage.actions.practise, post(U2, 'salsa', {}, String(V2)))
+		).toMatchObject({ action: 'practise', ok: true });
+		const entry = db
+			.select()
+			.from(exercises)
+			.where(eq(exercises.figureId, V2))
+			.all()
+			.find((e) => e.userId === 'u2')!;
+		const page = open('exercise', U2, entry.id) as {
+			practice: { content: { sections: { spot: { id: number } }[] } };
+		};
+		holdsNothingOfTheDraft(page);
+		expect(page.practice.content.sections.map((s) => s.spot.id)).toEqual([pSection, recSection]);
+		const res = (practiceEndpoint.GET as unknown as (e: unknown) => Response)({
+			params: { dance: 'salsa', id: String(entry.id) },
+			locals: { user: U2 }
+		});
+		holdsNothingOfTheDraft(await res.json());
+		// The editor's own entry sees the whole group, the draft's section included.
+		await call(figurePage.actions.practise, post(U1, 'salsa', {}, String(V2)));
+		const editors = db
+			.select()
+			.from(exercises)
+			.where(eq(exercises.figureId, V2))
+			.all()
+			.find((e) => e.userId === 'u1')!;
+		expect(JSON.stringify(open('exercise', U1, editors.id))).toContain('Draft section Sigma');
+	});
+
+	it('publish on a personal lesson is a 404, as for a missing one', async () => {
+		const own = createLesson(db, U1_SALSA, lessonInput('Mine')).lesson.id;
+		await refuses(lessonPage.actions.publish, post(U1, 'salsa', {}, String(own)));
+	});
 });

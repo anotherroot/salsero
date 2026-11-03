@@ -38,7 +38,6 @@ import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
-import { readerReach } from '$lib/server/access';
 import { requireRoutineAccess, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
 import type { Actions, PageServerLoad } from './$types';
@@ -69,10 +68,9 @@ function routineIn(
 export const load: PageServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const { routine, space, access } = routineIn(params, locals, 'read');
+	const { routine, space, access, reach: visible } = routineIn(params, locals, 'read');
 	const canEdit = access === 'edit';
 	// A reader's lists hold only what the published lessons reach (risk 20).
-	const visible = readerReach(db, wall.userId, routine.teamId, access);
 	const graph = buildGraph(db, space);
 	const shapes = routineShapes(db, space);
 	const shape = shapes.get(routine.id) ?? { slots: [] };

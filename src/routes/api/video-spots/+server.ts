@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { allows, readerReach, videoAccess } from '$lib/server/access';
-import { addSpot, listSpots, ownerFrom, SpotError, videoOwner } from '$lib/server/spots';
+import { allows, judgeVideo } from '$lib/server/access';
+import { addSpot, listSpots, ownerFrom, SpotError } from '$lib/server/spots';
 import type { SpotOwner } from '$lib/types';
 import type { RequestHandler } from './$types';
 
@@ -16,9 +16,9 @@ import type { RequestHandler } from './$types';
  */
 function requireVideo(video: SpotOwner, locals: App.Locals, need: 'read' | 'edit') {
 	const userId = locals.user?.id;
-	const access = userId ? videoAccess(getDb(), userId, video) : null;
-	if (!userId || !allows(access, need)) throw error(404, 'No such video');
-	return { userId, access };
+	const judged = userId ? judgeVideo(getDb(), userId, video) : null;
+	if (!judged || !allows(judged.access, need)) throw error(404, 'No such video');
+	return judged;
 }
 
 export const GET: RequestHandler = ({ url, locals }) => {
@@ -28,12 +28,9 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		lessonVideoId: q.get('lessonVideo') ?? undefined
 	});
 	if (!owner) throw error(400, 'Name one video: ?recording= or ?lessonVideo=.');
-	const { userId, access } = requireVideo(owner, locals, 'read');
 	// A reader of a group's video sees only the links to what they can reach (risk 20).
-	const db = getDb();
-	const whose = videoOwner(db, owner);
-	const teamId = whose && 'teamId' in whose ? whose.teamId : null;
-	return json(listSpots(db, owner, readerReach(db, userId, teamId, access) ?? undefined));
+	const { reach } = requireVideo(owner, locals, 'read');
+	return json(listSpots(getDb(), owner, reach ?? undefined));
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {

@@ -27,11 +27,12 @@ import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import {
 	allows,
-	drillAccess,
-	figureAccess,
-	lessonAccess,
-	routineAccess,
-	type Access
+	judgeDrill,
+	judgeFigure,
+	judgeLesson,
+	judgeRoutine,
+	type Judged,
+	type Reach
 } from './access';
 import {
 	figures,
@@ -224,20 +225,24 @@ export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
 type Need = 'read' | 'edit';
 type Granted = 'edit' | 'read';
 
-/** The row's guard: its dance is the URL's, and this person's access reaches `need`. */
+/**
+ * The row's guard: its dance is the URL's, and this person's access reaches
+ * `need`. `reach` is what a reader's page may list (null: nothing to leave
+ * out), from the same check, so the page never computes it again.
+ */
 function guarded<T extends { dance: string; userId: string | null; teamId: number | null }>(
 	params: { dance: string },
 	locals: App.Locals,
 	row: T | null,
-	access: (userId: string, row: T) => Access,
+	judge: (userId: string, row: T) => Judged,
 	need: Need,
 	message: string
-): { row: T; space: Space; access: Granted } {
+): { row: T; space: Space; access: Granted; reach: Reach | null } {
 	const wall = wallOf(params, locals);
 	if (!row || row.dance !== wall.dance) throw error(404, message);
-	const got = access(wall.userId, row);
-	if (got === null || !allows(got, need)) throw error(404, message);
-	return { row, space: spaceOfRow(row, wall.userId), access: got };
+	const got = judge(wall.userId, row);
+	if (got.access === null || !allows(got.access, need)) throw error(404, message);
+	return { row, space: spaceOfRow(row, wall.userId), access: got.access, reach: got.reach };
 }
 
 /** A route's id, from the URL or a form: a positive integer, else 0 (which matches nothing). */
@@ -257,7 +262,7 @@ export function requireLessonAccess(
 	params: { dance: string },
 	id: number | string,
 	need: Need
-): { lesson: Lesson; space: Space; access: Granted } {
+): { lesson: Lesson; space: Space; access: Granted; reach: Reach | null } {
 	const lesson =
 		db
 			.select()
@@ -268,11 +273,11 @@ export function requireLessonAccess(
 		params,
 		locals,
 		lesson,
-		(u, l) => lessonAccess(db, u, l),
+		(u, l) => judgeLesson(db, u, l),
 		need,
 		'No such lesson'
 	);
-	return { lesson: g.row, space: g.space, access: g.access };
+	return { lesson: g.row, space: g.space, access: g.access, reach: g.reach };
 }
 
 /** The variation, or a 404, as `requireLessonAccess`. */
@@ -282,7 +287,7 @@ export function requireFigureAccess(
 	params: { dance: string },
 	id: number | string,
 	need: Need
-): { figure: Figure; space: Space; access: Granted } {
+): { figure: Figure; space: Space; access: Granted; reach: Reach | null } {
 	const figure =
 		db
 			.select()
@@ -293,11 +298,11 @@ export function requireFigureAccess(
 		params,
 		locals,
 		figure,
-		(u, f) => figureAccess(db, u, f),
+		(u, f) => judgeFigure(db, u, f),
 		need,
 		'Figure not found'
 	);
-	return { figure: g.row, space: g.space, access: g.access };
+	return { figure: g.row, space: g.space, access: g.access, reach: g.reach };
 }
 
 /**
@@ -317,16 +322,16 @@ export function requireRoutineAccess(
 	params: { dance: string },
 	id: number | string,
 	need: Need
-): { routine: Routine; space: Space; access: Granted } {
+): { routine: Routine; space: Space; access: Granted; reach: Reach | null } {
 	const g = guarded(
 		params,
 		locals,
 		getRoutine(db, idOf(id)),
-		(u, r) => routineAccess(db, u, r),
+		(u, r) => judgeRoutine(db, u, r),
 		need,
 		'No such routine'
 	);
-	return { routine: g.row, space: g.space, access: g.access };
+	return { routine: g.row, space: g.space, access: g.access, reach: g.reach };
 }
 
 /**
@@ -344,16 +349,16 @@ export function requireExerciseAccess(
 	params: { dance: string },
 	id: number | string,
 	need: Need
-): { exercise: Exercise; space: Space; access: Granted } {
+): { exercise: Exercise; space: Space; access: Granted; reach: Reach | null } {
 	const g = guarded(
 		params,
 		locals,
 		getExercise(db, idOf(id)),
-		(u, e) => drillAccess(db, u, e),
+		(u, e) => judgeDrill(db, u, e),
 		need,
 		'No such exercise'
 	);
-	return { exercise: g.row, space: g.space, access: g.access };
+	return { exercise: g.row, space: g.space, access: g.access, reach: g.reach };
 }
 
 const TEAM_RANK = { member: 0, editor: 1, owner: 2 } as const;

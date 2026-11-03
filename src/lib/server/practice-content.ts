@@ -9,8 +9,9 @@
  * the registry for the type's popup.
  */
 import type { Db } from './db';
+import { judgeDrill, judgeFigure, judgeLesson, judgeRoutine, type Judged } from './access';
 import { exercises } from './db/schema';
-import { lastSet } from './exercises';
+import { getExercise, lastSet } from './exercises';
 import { figureLabels, getFigure, getGroup } from './figures';
 import { getLesson } from './lessons';
 import { listLinks } from './links';
@@ -71,12 +72,36 @@ const bare = (exercise: Exercise): PracticeContent => ({
 	sections: []
 });
 
+type Owned = { id: number; userId: string | null; teamId: number | null };
+
+/**
+ * What the exercise's person may see of its target. A person's own target is
+ * shown whole, as before. A group's is read through their reach (risk 20): an
+ * editor's whole, a reader's only what the published lessons hold, so no
+ * section, chip or video of a draft reaches their popup. Null when the group's
+ * target is out of their reach altogether (risk 21): the entry then shows its
+ * own notes only.
+ */
+function seenBy(
+	db: Db,
+	exercise: Exercise,
+	target: Owned,
+	judge: (db: Db, userId: string, row: Owned) => Judged
+): { visible: Visible | undefined } | null {
+	if (target.teamId === null) return { visible: undefined };
+	const judged = judge(db, exercise.userId ?? '', target);
+	if (judged.access === null) return null;
+	return { visible: judged.reach ?? undefined };
+}
+
 function contentOf(db: Db, exercise: Exercise): PracticeContent {
 	switch (typeOf(exercise.source)) {
 		case 'lesson': {
 			const found =
 				exercise.lessonId === null ? null : getLesson(db, exercise.lessonId, exercise.userId ?? '');
 			if (!found) return bare(exercise);
+			const seen = seenBy(db, exercise, found.lesson, judgeLesson);
+			if (!seen) return bare(exercise);
 			const { lesson } = found;
 			return {
 				type: 'lesson',
@@ -88,13 +113,17 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 				},
 				links: listLinks(db, { lessonId: lesson.id }),
 				videos: found.videos,
-				figures: found.figures.map((f) => ({ id: f.id, name: f.name }))
+				figures: found.figures
+					.filter((f) => !seen.visible || seen.visible.variations.has(f.id))
+					.map((f) => ({ id: f.id, name: f.name }))
 			};
 		}
 		case 'figure': {
 			const found =
 				exercise.figureId === null ? null : getFigure(db, exercise.figureId, exercise.userId ?? '');
 			if (!found) return bare(exercise);
+			const seen = seenBy(db, exercise, found.figure, judgeFigure);
+			if (!seen) return bare(exercise);
 			const { figure } = found;
 			// Read in the figure's own space: an entry's figure may be a group's.
 			const label = figureLabels(db, targetSpace(figure, exercise)).get(figure.id) ?? figure.name;
@@ -118,13 +147,13 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 					sourceUrl: r.sourceUrl,
 					createdAt: r.createdAt
 				})),
-				sections: sectionsFor(db, { figureId: figure.id })
+				sections: sectionsFor(db, { figureId: figure.id }, seen.visible)
 			};
 		}
 		case 'routine': {
 			if (exercise.routineId === null) return bare(exercise);
 			const routine = getRoutine(db, exercise.routineId);
-			if (!routine) return bare(exercise);
+			if (!routine || !seenBy(db, exercise, routine, judgeRoutine)) return bare(exercise);
 			// Every figure of the routine's space, archived included: a slot can still
 			// name one. A variation reads "Enchufla · Doble". The routine's space, not
 			// the exercise's: an entry's routine may be a group's.
@@ -141,13 +170,20 @@ function contentOf(db: Db, exercise: Exercise): PracticeContent {
 				}))
 			};
 		}
-		case 'drill':
+		case 'drill': {
+			// An entry for a group's drill shows the drill's content, read through
+			// the person's reach; a drill of one's own is its own content.
+			const drill = exercise.drillId === null ? exercise : getExercise(db, exercise.drillId);
+			if (!drill) return bare(exercise);
+			const seen = seenBy(db, exercise, drill, judgeDrill);
+			if (!seen) return bare(exercise);
 			return {
 				type: 'drill',
-				notes: exercise.notes,
-				links: listLinks(db, { exerciseId: exercise.id }),
-				sections: sectionsFor(db, { exerciseId: exercise.id })
+				notes: drill.notes,
+				links: listLinks(db, { exerciseId: drill.id }),
+				sections: sectionsFor(db, { exerciseId: drill.id }, seen.visible)
 			};
+		}
 	}
 }
 

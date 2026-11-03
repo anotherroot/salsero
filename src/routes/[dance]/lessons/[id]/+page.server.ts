@@ -39,7 +39,6 @@ import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { readerReach } from '$lib/server/access';
 import { getTeam } from '$lib/server/teams';
 import { inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
@@ -67,10 +66,10 @@ function lessonIn(
 	need: 'read' | 'edit'
 ) {
 	const db = getDb();
-	const { lesson, space, access } = requireLessonAccess(db, locals, params, params.id, need);
+	const { lesson, space, access, reach } = requireLessonAccess(db, locals, params, params.id, need);
 	const found = getLesson(db, lesson.id, wallOf(params, locals).userId);
 	if (!found || found.lesson.archivedAt !== null) throw error(404, 'No such lesson');
-	return { ...found, space, access };
+	return { ...found, space, access, reach };
 }
 
 /** The lesson, to change it: its editors' (or its person's) only. */
@@ -81,13 +80,12 @@ function lessonOf(params: { dance: string; id: string }, locals: App.Locals) {
 export const load: PageServerLoad = ({ params, locals }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
-	const { space, access, ...found } = lessonIn(params, locals, 'read');
+	const { space, access, reach: visible, ...found } = lessonIn(params, locals, 'read');
 	const tz = zone(locals);
 	const canEdit = access === 'edit';
 	const team = isTeam(space) ? getTeam(db, space.teamId) : null;
 	// A reader's lists hold only what the published lessons reach (risk 20); an
 	// editor's and a person's are the whole space.
-	const visible = readerReach(db, wall.userId, found.lesson.teamId, access);
 	const shown = <T extends { id: number }>(rows: T[], ids: Set<number> | undefined) =>
 		ids ? rows.filter((r) => ids.has(r.id)) : rows;
 	return {
@@ -151,7 +149,9 @@ export const actions: Actions = {
 	/** A group's draft goes to its members. One tap, nothing to undo but archiving. */
 	publish: ({ params, locals }) => {
 		const { lesson, space } = lessonOf(params, locals);
-		if (!isTeam(space) || !publishLesson(getDb(), space, lesson.id, Date.now())) {
+		// A person's own lesson has nothing to publish: the answer a missing one gets.
+		if (!isTeam(space)) throw error(404, 'No such lesson');
+		if (!publishLesson(getDb(), space, lesson.id, Date.now())) {
 			return fail(400, { action: 'publish', message: 'That lesson is already published.' });
 		}
 		return { action: 'publish', ok: true };

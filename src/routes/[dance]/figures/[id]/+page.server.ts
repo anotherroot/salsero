@@ -44,7 +44,6 @@ import { plan } from '$lib/urgency/urgency';
 import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { readerReach } from '$lib/server/access';
 import { inSpace, requireFigureAccess, wallOf } from '$lib/server/scope';
 import {
 	getSpotLink,
@@ -87,7 +86,13 @@ function variationOf(
 	need: 'read' | 'edit' = 'edit'
 ) {
 	const db = getDb();
-	const { space, access } = requireFigureAccess(db, locals, params, variationId(params.id), need);
+	const { space, access, reach } = requireFigureAccess(
+		db,
+		locals,
+		params,
+		variationId(params.id),
+		need
+	);
 	const found = getFigure(db, variationId(params.id), wallOf(params, locals).userId);
 	if (!found || found.figure.archivedAt !== null || found.figure.groupId === null) {
 		throw error(404, 'Figure not found');
@@ -96,7 +101,7 @@ function variationOf(
 	if (!group || group.archivedAt !== null || !inSpace(group, space)) {
 		throw error(404, 'Figure not found');
 	}
-	return { ...found, group, space, access };
+	return { ...found, group, space, access, reach };
 }
 
 const taken = (figure: string, name: string) =>
@@ -119,12 +124,11 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 
 	const db = getDb();
 	const found = variationOf(params, locals, 'read');
-	const { figure, group, space, access } = found;
+	const { figure, group, space, access, reach: visible } = found;
 	const id = figure.id;
 	const canEdit = access === 'edit';
 	// A reader's lists hold only what the published lessons reach (risk 20):
 	// a draft's variation, lesson, routine or section never reaches the page.
-	const visible = readerReach(db, wall.userId, figure.teamId, access);
 	const seen = (ids: Set<number> | undefined, of: number) => !ids || ids.has(of);
 
 	const graph = buildGraph(db, space);

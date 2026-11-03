@@ -227,15 +227,72 @@ type Owned = { userId: string | null; teamId: number | null };
  * nothing to anyone. A row with two owners is no one's (`ownerIntegrity`
  * reports it).
  */
-function rowAccess(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Access {
-	if (row.teamId === null) return row.userId !== null && row.userId === userId ? 'edit' : null;
-	if (row.userId !== null) return null;
+function judgeRow(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Judged {
+	const none: Judged = { access: null, reach: null };
+	if (row.teamId === null) {
+		return row.userId !== null && row.userId === userId ? { access: 'edit', reach: null } : none;
+	}
+	if (row.userId !== null) return none;
 	const team = getTeam(db, row.teamId);
-	if (!team || team.purgedAt !== null) return null;
+	if (!team || team.purgedAt !== null) return none;
 	const role = roleOf(db, userId, row.teamId);
-	if (team.deletedAt === null && (role === 'editor' || role === 'owner')) return 'edit';
-	if (team.deletedAt !== null && role === 'owner') return 'read';
-	return inReach(reach(db, userId, row.teamId)) ? 'read' : null;
+	if (team.deletedAt === null && (role === 'editor' || role === 'owner')) {
+		return { access: 'edit', reach: null };
+	}
+	if (team.deletedAt !== null && role === 'owner') return { access: 'read', reach: null };
+	const r = reach(db, userId, row.teamId);
+	return inReach(r) ? { access: 'read', reach: r } : none;
+}
+
+function rowAccess(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Access {
+	return judgeRow(db, userId, row, inReach).access;
+}
+
+/**
+ * A row's access, with the reach that decided it. `reach` is what a reader's
+ * page may list of the group's things (risk 20), computed once on the way to
+ * the answer so a page never computes it twice; null when nothing needs
+ * leaving out — a person's own row, an editor, the owner of a deleted group,
+ * who reads all of it — and when there is no access at all.
+ */
+export type Judged = { access: Access; reach: Reach | null };
+
+export function judgeLesson(db: Db, userId: string, lesson: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, lesson, (r) => r.lessons.has(lesson.id));
+}
+
+export function judgeFigure(db: Db, userId: string, figure: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, figure, (r) => r.variations.has(figure.id));
+}
+
+export function judgeRoutine(db: Db, userId: string, routine: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, routine, (r) => r.routines.has(routine.id));
+}
+
+export function judgeDrill(db: Db, userId: string, exercise: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, exercise, (r) => r.drills.has(exercise.id));
+}
+
+/** A video named by its spot owner, judged as its recording's variation or its lesson. */
+export function judgeVideo(db: Db, userId: string, video: SpotOwner): Judged {
+	if ('recordingId' in video) {
+		const row = db
+			.select({ userId: figures.userId, teamId: figures.teamId })
+			.from(recordings)
+			.innerJoin(figures, eq(figures.id, recordings.figureId))
+			.where(eq(recordings.id, video.recordingId))
+			.get();
+		return row
+			? judgeRow(db, userId, row, (r) => r.recordings.has(video.recordingId))
+			: { access: null, reach: null };
+	}
+	const lesson = db
+		.select({ id: lessons.id, userId: lessons.userId, teamId: lessons.teamId })
+		.from(lessonVideos)
+		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+		.where(eq(lessonVideos.id, video.lessonVideoId))
+		.get();
+	return lesson ? judgeLesson(db, userId, lesson) : { access: null, reach: null };
 }
 
 /** A lesson: an editor's drafts included; a member's only once published and in reach. */
@@ -292,20 +349,7 @@ export function lessonVideoAccess(db: Db, userId: string, video: { lessonId: num
 
 /** A video named by its spot owner (a recording or a lesson video); null for a missing one. */
 export function videoAccess(db: Db, userId: string, video: SpotOwner): Access {
-	if ('recordingId' in video) {
-		const rec = db
-			.select({ id: recordings.id, figureId: recordings.figureId })
-			.from(recordings)
-			.where(eq(recordings.id, video.recordingId))
-			.get();
-		return rec ? recordingAccess(db, userId, rec) : null;
-	}
-	const lv = db
-		.select({ lessonId: lessonVideos.lessonId })
-		.from(lessonVideos)
-		.where(eq(lessonVideos.id, video.lessonVideoId))
-		.get();
-	return lv ? lessonVideoAccess(db, userId, lv) : null;
+	return judgeVideo(db, userId, video).access;
 }
 
 /** A spot (a point or a section): exactly its video's access. Null for a missing one. */
@@ -342,22 +386,4 @@ export function fileAccess(
 		if (rec && allows(recordingAccess(db, userId, rec), 'read')) return rec;
 	}
 	throw error(404, 'Not found');
-}
-
-/**
- * What a reader's page may list of a group's things: their reach, computed
- * once for the request and handed to every list builder (risk 20). Null when
- * nothing needs leaving out: a person's own row, an editor's view, and the
- * owner of a deleted group, who reads all of it.
- */
-export function readerReach(
-	db: Db,
-	userId: string,
-	teamId: number | null,
-	access: Access
-): Reach | null {
-	if (access !== 'read' || teamId === null) return null;
-	const team = getTeam(db, teamId);
-	if (team && team.deletedAt !== null && roleOf(db, userId, teamId) === 'owner') return null;
-	return reach(db, userId, teamId);
 }

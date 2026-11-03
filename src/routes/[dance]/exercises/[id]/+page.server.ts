@@ -11,7 +11,6 @@ import { addLinkFrom, deleteLinkFrom } from '$lib/server/link-form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { popupData } from '$lib/server/popup';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
-import { readerReach } from '$lib/server/access';
 import { entryFor } from '$lib/server/entries';
 import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
@@ -39,7 +38,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const now = Date.now();
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id < 1) throw error(404, 'No such exercise');
-	const { exercise: row, access } = requireExerciseAccess(db, locals, params, id, 'read');
+	const {
+		exercise: row,
+		access,
+		reach: visible
+	} = requireExerciseAccess(db, locals, params, id, 'read');
 	if (row.archivedAt !== null) throw error(404, 'No such exercise');
 	// The history's "Today" / "Yesterday": the server's day, so SSR and hydration agree.
 	const today = localDay(now, tz);
@@ -67,7 +70,6 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	// it. `popupData` never runs on the group's row, so a set can only ever land
 	// on the person's entry (risk 22). Without an entry there is nothing to log.
 	const canEdit = access === 'edit';
-	const visible = readerReach(db, wall.userId, row.teamId, access);
 	const found = entryFor(db, wall.userId, { drillId: row.id });
 	const entry = found && found.archivedAt === null ? found : null;
 	const popup = entry ? popupData(db, wall, entry.id, tz, now) : null;

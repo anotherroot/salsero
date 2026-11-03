@@ -4,9 +4,10 @@ import { openDb, type Db } from './db';
 import { exercises, figures } from './db/schema';
 import { createCustomExercise, getExercise, logSet } from './exercises';
 import { addFigureExercise, createFigure, createVariationFrom } from './figures';
-import { addLessonVideo, createLesson, linkFigure } from './lessons';
+import { addLessonVideo, createLesson, linkFigure, linkRoutine, publishLesson } from './lessons';
+import { linkInSpace, linkSpot } from './spot-links';
+import { createTeam, joinTeam } from './teams';
 import { addSpot } from './spots';
-import { linkSpot } from './spot-links';
 import { addLinks } from './links';
 import { addFigureSlot, createRoutine } from './routines';
 import { practicePayload } from './practice-content';
@@ -184,6 +185,20 @@ describe('practicePayload sections', () => {
 });
 
 describe('practicePayload for an entry of a group', () => {
+	// Team 1, owned by u1; u2 a member. What a member reaches is what the
+	// published lessons hold.
+	beforeEach(() => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok || made.teamId !== T1_SALSA.teamId) throw new Error('team 1 expected');
+		joinTeam(db, 'u2', 1, 2);
+	});
+	const published = (link: (lessonId: number) => unknown) => {
+		const id = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'P', notes: null })
+			.lesson.id;
+		link(id);
+		publishLesson(db, T1_SALSA, id, 1);
+		return id;
+	};
 	// u2's own exercise row, pointing at the group's routine or figure.
 	const entry = (values: { source: 'routine' | 'figure'; routineId?: number; figureId?: number }) =>
 		db
@@ -196,6 +211,7 @@ describe('practicePayload for an entry of a group', () => {
 		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
 		const { routine } = createRoutine(db, T1_SALSA, { name: 'Group', notes: null });
 		addFigureSlot(db, routine.id, figure.id);
+		published((id) => linkRoutine(db, id, routine.id));
 		const content = practicePayload(
 			db,
 			entry({ source: 'routine', routineId: routine.id }),
@@ -208,6 +224,7 @@ describe('practicePayload for an entry of a group', () => {
 	it('names a group figure by its label', () => {
 		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
 		const doble = createVariationFrom(db, figure.id, 'Doble')!;
+		published((id) => linkFigure(db, id, doble.id));
 		const content = practicePayload(
 			db,
 			entry({ source: 'figure', figureId: doble.id }),
@@ -215,5 +232,42 @@ describe('practicePayload for an entry of a group', () => {
 			Date.now()
 		).content;
 		expect(content.type === 'figure' && content.figure.name).toBe('Enchufla · Doble');
+	});
+	it("shows only the entry's own notes once its target is out of reach", () => {
+		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
+		const content = practicePayload(
+			db,
+			entry({ source: 'figure', figureId: figure.id }),
+			TZ,
+			1
+		).content;
+		expect(content).toEqual({ type: 'drill', notes: null, links: [], sections: [] });
+	});
+
+	it("never shows a draft's section to a member", () => {
+		const { figure } = createFigure(db, T1_SALSA, figureInput)!;
+		published((id) => linkFigure(db, id, figure.id));
+		const draft = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-02',
+			title: 'Draft',
+			notes: null
+		}).lesson.id;
+		const video = addLessonVideo(db, {
+			lessonId: draft,
+			file: 'draft.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		});
+		const spot = addSpot(db, { lessonVideoId: video.id }, { startMs: 0, endMs: 9, label: 'D' })!;
+		linkInSpace(db, T1_SALSA, spot.id, { figureId: figure.id });
+		const forMember = practicePayload(db, entry({ source: 'figure', figureId: figure.id }), TZ, 1);
+		expect(JSON.stringify(forMember)).not.toContain('draft.mp4');
+		// The owner, an editor, sees it.
+		const own = db
+			.insert(exercises)
+			.values({ name: 'e', userId: 'u1', dance: 'salsa', source: 'figure', figureId: figure.id })
+			.returning()
+			.get();
+		expect(JSON.stringify(practicePayload(db, own, TZ, 1))).toContain('draft.mp4');
 	});
 });
