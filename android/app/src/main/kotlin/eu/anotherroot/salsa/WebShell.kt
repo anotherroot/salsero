@@ -189,6 +189,7 @@ abstract class WebShell : ComponentActivity() {
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
             allowContentAccess = false
+            userAgentString = appUserAgent(userAgentString, BuildConfig.VERSION_CODE, BuildConfig.DANCE, BuildConfig.CHANNEL)
         }
         CookieManager.getInstance().setAcceptCookie(true)
         web.webViewClient = Client()

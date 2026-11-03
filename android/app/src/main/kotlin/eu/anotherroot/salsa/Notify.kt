@@ -49,6 +49,10 @@ object Notify {
         "The server no longer knows this phone. Tap to pair it.", PAIR_PATH,
     )
 
+    /** One per video (same id as its result), replaced when the retry posts it again. */
+    fun updateNeeded(context: Context, id: Int, appName: String, videoName: String, path: String) =
+        post(context, 100 + id, RESULTS, "Update the $appName app", "Update the $appName app to finish uploading $videoName.", path)
+
     fun reminder(context: Context, title: String, text: String, path: String) =
         post(context, REMINDER_ID, REMINDERS, title, text, path)
 
