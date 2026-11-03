@@ -183,7 +183,8 @@ Members keep adding their own private songs as now.
 - Edits (name, count anchors, sample start), share and unshare, and delete
   are group mutations: logged in History with the actor, checked for
   clashes (`seen` covers the fields a save writes), and a delete goes to
-  Recently deleted for 30 days with its file.
+  Recently deleted for 30 days with its file; then `purgeTrash` deletes the
+  row and the file for good (entries that still picked it drop to count only).
 
 **Members (and editors outside group mode):**
 

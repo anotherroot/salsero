@@ -9,7 +9,17 @@ import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, lessonVideos, recordings, teamTrash, users, videoSpots } from './db/schema';
+import {
+	exercises,
+	lessonVideos,
+	opens,
+	recordings,
+	songDrops,
+	songs,
+	teamTrash,
+	users,
+	videoSpots
+} from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { setRole } from './membership';
 import {
@@ -59,7 +69,9 @@ import {
 	trashedSpot,
 	trashSpace
 } from './trash';
-import { T1_SALSA, U1_SALSA } from './test-walls';
+import { archiveSong, createSongFromUpload } from './songs';
+import { deleteGroupSong } from './song-share';
+import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
 import { TRASH_MS } from '$lib/limits';
 
@@ -506,5 +518,61 @@ describe('a lesson unlink in a group', () => {
 		linkFigure(db, L, F, 'u1');
 		unlinkFigure(db, L, F, false, T, 'u1');
 		expect(db.select().from(teamTrash).all()).toEqual([]);
+	});
+});
+
+describe('purgeTrash: deleted group songs', () => {
+	const GROUP = '6b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp3';
+	const YOUNG = '7b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp3';
+	const MINE = '8b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp3';
+	const upload = (file: string) => ({
+		file,
+		mime: 'audio/mpeg',
+		title: 'S',
+		style: 'salsa',
+		sizeBytes: 5
+	});
+	const songIds = () =>
+		db
+			.select({ id: songs.id })
+			.from(songs)
+			.all()
+			.map((r) => r.id)
+			.sort((a, b) => a - b);
+
+	it('a group song deleted 30 days ago goes with its file; a younger one and a person’s stay', async () => {
+		const dirs = { lessonVideos: scratch, recordings: scratch, audio: scratch };
+		for (const f of [GROUP, YOUNG, MINE]) writeFileSync(join(scratch, f), 'bytes');
+		const old = createSongFromUpload(db, T1_SALSA, upload(GROUP)).id;
+		const young = createSongFromUpload(db, T1_SALSA, upload(YOUNG)).id;
+		const mine = createSongFromUpload(db, U2_SALSA, upload(MINE)).id;
+		expect(deleteGroupSong(db, T1_SALSA, old, T)).toBe(true);
+		expect(deleteGroupSong(db, T1_SALSA, young, T + 10 * DAY)).toBe(true);
+		expect(archiveSong(db, mine, T)).toBe(true);
+		// What still points at the old song: an entry's pick, a drop, an open.
+		const entry = db
+			.insert(exercises)
+			.values({ name: 'E', source: 'custom', dance: 'salsa', userId: 'u3', songId: old })
+			.returning()
+			.get().id;
+		db.insert(songDrops).values({ exerciseId: entry, songId: old, droppedAt: T }).run();
+		db.insert(opens).values({ userId: 'u3', kind: 'song', itemId: old, openedAt: T }).run();
+
+		// A day short of 30 keeps it.
+		expect(await purgeTrash(db, T + TRASH_MS - DAY, dirs)).toBe(0);
+		expect(songIds()).toEqual([old, young, mine]);
+
+		expect(await purgeTrash(db, T + TRASH_MS, dirs)).toBe(1);
+		expect(songIds()).toEqual([young, mine]);
+		expect(existsSync(join(scratch, GROUP))).toBe(false);
+		expect(existsSync(join(scratch, YOUNG))).toBe(true);
+		expect(existsSync(join(scratch, MINE))).toBe(true);
+		expect(
+			db.select({ s: exercises.songId }).from(exercises).where(eq(exercises.id, entry)).get()!.s
+		).toBeNull();
+		expect(db.select().from(songDrops).all()).toEqual([]);
+		expect(db.select().from(opens).all()).toEqual([]);
+		// Once only.
+		expect(await purgeTrash(db, T + TRASH_MS + DAY, dirs)).toBe(0);
 	});
 });

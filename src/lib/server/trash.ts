@@ -11,9 +11,11 @@
  * the group (`storage.ts`).
  *
  * The archived kinds (a lesson, a variation, a routine, a drill, a song) are
- * never purged: they are listed here from their own `archived_at` and
- * restored by their module (`restoreLesson`, `restoreVariation`,
- * `restoreRoutine`, `restoreDrill`, `restoreSong`).
+ * listed here from their own `archived_at` and restored by their module
+ * (`restoreLesson`, `restoreVariation`, `restoreRoutine`, `restoreDrill`,
+ * `restoreSong`). Of those only a song is purged: `TRASH_MS` after its
+ * delete, its row and its audio file go for good ("Recently deleted for 30
+ * days with its file"). The others hold no file and stay archived.
  *
  * A person's own deletes never come here: theirs remove the file at once.
  */
@@ -30,8 +32,10 @@ import {
 	lessons,
 	lessonVideos,
 	links,
+	opens,
 	recordings,
 	routines,
+	songDrops,
 	songs,
 	spotLinks,
 	teamChanges,
@@ -455,7 +459,8 @@ function dataDirs(): TrashDirs {
  * marked purged first, in one statement, so a Restore that arrives while its
  * file is being deleted is refused (`purged`) rather than bringing back a row
  * with no file; then the files go. The rows' snapshot stays (History links
- * to it). Returns how many entries were purged. `dirs` is injected so specs
+ * to it). Group songs deleted as long ago go too (`purgeSongs`). Returns how
+ * many entries and songs were purged. `dirs` is injected so specs
  * never touch `$DATA_DIR`.
  */
 export async function purgeTrash(db: Db, now: number, dirs?: TrashDirs): Promise<number> {
@@ -472,6 +477,8 @@ export async function purgeTrash(db: Db, now: number, dirs?: TrashDirs): Promise
 		.returning({ filesJson: teamTrash.filesJson })
 		.all();
 	const files = due.flatMap((r) => JSON.parse(r.filesJson) as TrashFile[]);
+	const songFiles = purgeSongs(db, now);
+	files.push(...songFiles.files);
 	if (files.length > 0) {
 		const where = dirs ?? dataDirs();
 		for (const f of files) {
@@ -480,7 +487,42 @@ export async function purgeTrash(db: Db, now: number, dirs?: TrashDirs): Promise
 			await unlink(join(where[f.dir], f.file)).catch(() => {});
 		}
 	}
-	return due.length;
+	return due.length + songFiles.count;
+}
+
+/**
+ * A group song deleted (archived) `TRASH_MS` ago goes for good, in one
+ * transaction: every entry that still picks it drops to count only, its drops
+ * and opens go, then the row. Returns the files to unlink once the transaction
+ * has landed. A person's own archived song is never touched here: its delete
+ * is `deleteSong`'s and carries no Recently deleted.
+ */
+function purgeSongs(db: Db, now: number): { count: number; files: TrashFile[] } {
+	return db.transaction((tx) => {
+		const due = tx
+			.select({ id: songs.id, file: songs.audioFile })
+			.from(songs)
+			.where(
+				and(
+					isNotNull(songs.teamId),
+					isNotNull(songs.archivedAt),
+					lte(songs.archivedAt, now - TRASH_MS)
+				)
+			)
+			.all();
+		if (due.length === 0) return { count: 0, files: [] };
+		const ids = due.map((s) => s.id);
+		tx.update(exercises).set({ songId: null }).where(inArray(exercises.songId, ids)).run();
+		tx.delete(songDrops).where(inArray(songDrops.songId, ids)).run();
+		tx.delete(opens)
+			.where(and(eq(opens.kind, 'song'), inArray(opens.itemId, ids)))
+			.run();
+		tx.delete(songs).where(inArray(songs.id, ids)).run();
+		return {
+			count: due.length,
+			files: due.flatMap((s) => (s.file ? [{ dir: 'audio' as const, file: s.file }] : []))
+		};
+	});
 }
 
 const HOUR = 60 * 60 * 1000;
