@@ -98,16 +98,25 @@ CHECKs; that is safe only because nothing has a foreign key into or out of
 that table. Check it kept its rows and index:
 
 ```sh
-scp tilen@49.13.76.224:/var/lib/salsa/backups/salsa-$(date +%F).db /tmp/trial.db
+# the backup just taken by `systemctl start salsa-backup` (named for today)
+ssh tilen@49.13.76.224 'sudo cat /var/lib/salsa/backups/salsa-'$(date +%F)'.db' > /tmp/trial.db
+mkdir -p /tmp/trial-data
 sqlite3 /tmp/trial.db 'select count(*) from team_changes;'   # note the number
 npm run build
-DATA_DIR=/tmp/trial-data DATABASE_PATH=/tmp/trial.db PORT=3999 timeout 15 node build
+DATA_DIR=/tmp/trial-data DATABASE_PATH=/tmp/trial.db HOST=127.0.0.1 PORT=3999 node build &
+PID=$!
+sleep 3
+curl -fsS http://127.0.0.1:3999/health   # migrations run on the first request
+kill $PID
+sqlite3 /tmp/trial.db 'select count(*) from __drizzle_migrations;' '.schema team_changes'
 sqlite3 /tmp/trial.db 'select count(*) from team_changes;' '.indexes team_changes'
 ```
 
-The boot applies the migrations to the copy (it may exit when `timeout` ends).
-The count must match and `team_changes_root_idx` must be listed. Delete
-`/tmp/trial*` afterwards, and never point this at the live database.
+The migrations run in `openDb`, which only a request reaches, so the `curl`
+is what applies them. The migration count must be at least 26, the
+`team_changes` schema must mention `'song'`, the row count must match the
+one before, and `team_changes_root_idx` must be listed. Delete `/tmp/trial*`
+afterwards, and never point this at the live database.
 
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
