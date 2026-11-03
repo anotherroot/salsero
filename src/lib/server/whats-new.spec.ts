@@ -227,3 +227,81 @@ describe('whatsNew songs', () => {
 		expect(news().songs.size).toBe(0);
 	});
 });
+
+describe('whatsNew at size', () => {
+	/**
+	 * The spec's measure: a person in two groups with fifty lessons each. Every
+	 * branch runs (published, added with links, songs), and the query count is
+	 * fixed: it does not grow with the lessons.
+	 */
+	function build(perGroup: number): void {
+		createTeam(db, 'u1', 'salsa', 'Second', 1);
+		joinTeam(db, 'u2', 2, 2);
+		db.update(teamMembers).set({ joinedAt: 100 }).where(eq(teamMembers.userId, 'u2')).run();
+		for (const space of [T1_SALSA, { ...T1_SALSA, teamId: 2 }]) {
+			const r = createRoutine(db, space, { name: 'R', notes: null }).routine.id;
+			for (let i = 0; i < perGroup; i++) {
+				const id = createLesson(db, space, input(`L${i}`)).lesson.id;
+				db.update(lessons)
+					.set({ publishedAt: 200 + i })
+					.where(eq(lessons.id, id))
+					.run();
+				if (i % 3 === 0) recordOpen(db, 'u2', 'lesson', id, 1000 + i);
+				if (i % 5 === 0) {
+					add('u2', id, 300);
+					linkRoutine(db, id, r, 'u1');
+				}
+			}
+			for (let i = 0; i < 5; i++) {
+				const s = createSongFromUpload(db, space, {
+					file: `s${space.teamId}-${i}.mp3`,
+					mime: 'audio/mpeg',
+					title: `S${i}`,
+					style: 'salsa'
+				}).id;
+				db.update(songs).set({ status: 'ready', sharedAt: 200 }).where(eq(songs.id, s)).run();
+			}
+		}
+	}
+
+	/** Statements prepared during `fn` (drizzle prepares each query it runs). */
+	function queries(fn: () => void): number {
+		const client = (db as unknown as { $client: { prepare: (s: string) => unknown } }).$client;
+		const prepare = client.prepare.bind(client);
+		let n = 0;
+		client.prepare = (s: string) => {
+			n++;
+			return prepare(s);
+		};
+		try {
+			fn();
+		} finally {
+			client.prepare = prepare;
+		}
+		return n;
+	}
+
+	it('two groups of fifty lessons: well under 200 ms, in a fixed number of queries', () => {
+		build(2);
+		const few = queries(() => news());
+		db = openDb(':memory:');
+		createTeam(db, 'u1', 'salsa', 'Class', 1);
+		joinTeam(db, 'u2', 1, 2);
+		build(50);
+		const many = queries(() => news());
+		expect(many).toBe(few);
+		// Memberships, published, added, four kinds of link, songs: eight, at any size.
+		expect(many).toBe(8);
+
+		// Measured 2026-11-03: about 2-3 ms a call on the dev machine.
+		news(); // warm
+		const runs = Array.from({ length: 5 }, () => {
+			const t = performance.now();
+			const n = news();
+			const ms = performance.now() - t;
+			expect(n.byTeam.size).toBe(2);
+			return ms;
+		}).sort((a, b) => a - b);
+		expect(runs.at(-1)!).toBeLessThan(200);
+	});
+});
