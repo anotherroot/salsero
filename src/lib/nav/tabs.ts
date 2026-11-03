@@ -21,6 +21,7 @@ const SECTION: Record<string, TabId> = {
 	exercises: 'today',
 	figures: 'moves',
 	routines: 'moves',
+	moves: 'moves',
 	positions: 'moves',
 	coverage: 'moves',
 	lessons: 'lessons',

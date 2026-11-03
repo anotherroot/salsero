@@ -30,16 +30,19 @@ import {
 	judgeDrill,
 	judgeFigure,
 	judgeLesson,
+	judgeMove,
 	judgeRoutine,
 	songAccess,
 	type Judged,
 	type Reach
 } from './access';
 import {
+	figureGroups,
 	figures,
 	lessons,
 	type Exercise,
 	type Figure,
+	type FigureGroup,
 	type Lesson,
 	type Routine,
 	type Song
@@ -305,6 +308,34 @@ export function requireFigureAccess(
 		'Figure not found'
 	);
 	return { figure: g.row, space: g.space, access: g.access, reach: g.reach };
+}
+
+/**
+ * The move (a `figure_groups` row), or a 404, as `requireLessonAccess`. An
+ * archived move has no page, so it is the same 404.
+ */
+export function requireMoveAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { move: FigureGroup; space: Space; access: Granted; reach: Reach | null } {
+	const move =
+		db
+			.select()
+			.from(figureGroups)
+			.where(eq(figureGroups.id, idOf(id)))
+			.get() ?? null;
+	const g = guarded(
+		params,
+		locals,
+		move && move.archivedAt === null ? move : null,
+		(u, m) => judgeMove(db, u, m),
+		need,
+		'Move not found'
+	);
+	return { move: g.row, space: g.space, access: g.access, reach: g.reach };
 }
 
 /**

@@ -205,3 +205,10 @@ export function variationSeen(db: Db, figureId: number): Seen | null {
 		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
 	};
 }
+
+/** A move's rename form (the move's page): its name, or null when archived or gone. */
+export function moveSeen(db: Db, groupId: number): Seen | null {
+	const row = db.select().from(figureGroups).where(eq(figureGroups.id, groupId)).get();
+	if (!row || row.archivedAt !== null) return null;
+	return { figureName: row.name };
+}

@@ -18,7 +18,7 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { listRoutines } from '$lib/server/routines';
-import { createFigure } from '$lib/server/figures';
+import { createFigure, createVariationIn } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
 import { actions as figureListActions, load as figureListLoad } from './figures/+page.server';
 import { actions as coverageActions } from './coverage/+page.server';
@@ -307,5 +307,30 @@ describe('the Figures load', () => {
 		});
 		expect(data.figures[0].name).toBe('Enchufla');
 		expect(data.figures[0].figures[0].label).toBe('Enchufla · Doble');
+	});
+});
+
+describe('the Figures list, Not linked chip', () => {
+	it('counts figures, not the moves holding them', async () => {
+		const made = createFigure(db, U1_SALSA, {
+			figureName: 'Enchufla',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!;
+		createVariationIn(db, made.group.id, {
+			name: 'Doble',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		});
+		const data = (await (figureListLoad as (e: unknown) => unknown)({
+			params: { dance: 'salsa' },
+			url: new URL('http://localhost/salsa/figures'),
+			cookies: { get: () => undefined, delete: () => {} },
+			locals: { user: USER }
+		})) as { unlinked: number };
+		expect(data.unlinked).toBe(2);
 	});
 });

@@ -135,17 +135,15 @@
 	</a>
 {/snippet}
 
-<!-- A move's name over its figures: the heading opens the move's page (/{dance}/moves/{id}, Task 4; the typed route does not exist yet). -->
+<!-- A move's name over its figures: the heading opens the move's page. -->
 {#snippet moveSection(m: (typeof data.figures)[number], showLacks: boolean)}
 	<section aria-label={m.name} class="flex flex-col gap-1.5">
-		<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved; the move page (Task 4) is not a typed route yet -->
 		<a
 			class="flex items-center gap-1 self-start rounded-lg py-1 text-[17px] leading-[1.3] font-bold text-ink focus-visible:outline-2 focus-visible:outline-accent"
-			href={`${resolve('/[dance]', { dance: data.dance.slug })}/moves/${m.id}`}
+			href={resolve('/[dance]/moves/[id]', { dance: data.dance.slug, id: String(m.id) })}
 		>
 			{m.name}<span class="flex text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</a>
-		<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		<div class={GROUP}>
 			{#each m.figures as f (f.id)}
 				{@render figureRow(f, showLacks)}

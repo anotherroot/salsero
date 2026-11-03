@@ -6,6 +6,7 @@ describe('tabFor', () => {
 		expect(tabFor('/salsa', 'salsa')).toBe('today');
 		expect(tabFor('/salsa/figures', 'salsa')).toBe('moves');
 		expect(tabFor('/salsa/figures/12', 'salsa')).toBe('moves');
+		expect(tabFor('/salsa/moves/12', 'salsa')).toBe('moves');
 		expect(tabFor('/salsa/routines/3', 'salsa')).toBe('moves');
 		expect(tabFor('/salsa/positions', 'salsa')).toBe('moves');
 		expect(tabFor('/salsa/coverage', 'salsa')).toBe('moves');

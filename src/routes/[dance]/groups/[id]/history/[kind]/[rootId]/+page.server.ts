@@ -3,7 +3,7 @@ import { getDb, type Db } from '$lib/server/db';
 import { requireTeam } from '$lib/server/scope';
 import { history, restoreChange, rootInTeam, teamNames } from '$lib/server/changes';
 import { getLessonRow } from '$lib/server/lessons';
-import { getGroup, listGroupVariations } from '$lib/server/figures';
+import { getGroup } from '$lib/server/figures';
 import { getRoutine } from '$lib/server/routines';
 import { getExercise } from '$lib/server/exercises';
 import { getSong } from '$lib/server/songs';
@@ -40,13 +40,11 @@ function thing(db: Db, dance: string, kind: Kind, id: number): { title: string; 
 	switch (kind) {
 		case 'lesson':
 			return { title: getLessonRow(db, id)?.title ?? 'Lesson', href: `/${dance}/lessons/${id}` };
-		case 'figure': {
-			const first = listGroupVariations(db, id)[0];
+		case 'figure':
 			return {
 				title: getGroup(db, id)?.name ?? 'Move',
-				href: first ? `/${dance}/figures/${first.id}` : `/${dance}/figures`
+				href: `/${dance}/moves/${id}`
 			};
-		}
 		case 'routine':
 			return { title: getRoutine(db, id)?.name ?? 'Routine', href: `/${dance}/routines/${id}` };
 		case 'drill':

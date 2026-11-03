@@ -13,6 +13,10 @@ import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import { publishedReach } from '$lib/server/access';
 import type { Actions, PageServerLoad } from './$types';
 
+/** The Not linked chip counts figures, as the heading does, not the moves holding them. */
+const figureCount = (moves: { figures: unknown[] }[]) =>
+	moves.reduce((n, m) => n + m.figures.length, 0);
+
 export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
@@ -44,7 +48,7 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 			})),
 			groups: [],
 			filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
-			unlinked: listFigures(db, space, { unlinked: true }).length,
+			unlinked: figureCount(listFigures(db, space, { unlinked: true })),
 			tagged: null,
 			unrouted: null,
 			defaultStyle: defaultStyle(db, locals.user.id, dance)
@@ -59,7 +63,7 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
 		// Figures with no section or no lesson, whatever the filter: the header's
 		// way into the "Not linked" filter, as `unrouted` is into coverage.
-		unlinked: listFigures(db, wall, { unlinked: true }).length,
+		unlinked: figureCount(listFigures(db, wall, { unlinked: true })),
 		// How much of the repertoire carries handhold tags. An untagged figure
 		// reads as neutral, which is right for most of casino but worth surfacing:
 		// the graph is only as good as this fraction.

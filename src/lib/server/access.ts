@@ -325,6 +325,11 @@ export function judgeFigure(db: Db, userId: string, figure: Owned & { id: number
 	return judgeRow(db, userId, figure, (r) => r.variations.has(figure.id));
 }
 
+/** A move (a `figure_groups` row), judged as `figureGroupAccess` but with the reach that decided it. */
+export function judgeMove(db: Db, userId: string, group: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, group, (r) => r.figures.has(group.id));
+}
+
 export function judgeRoutine(db: Db, userId: string, routine: Owned & { id: number }): Judged {
 	return judgeRow(db, userId, routine, (r) => r.routines.has(routine.id));
 }
