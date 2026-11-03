@@ -170,6 +170,9 @@
 				<span class="flex min-w-0 flex-1 flex-col">
 					<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
 					<span class="text-[13px] text-muted">{personMeta(p)}</span>
+					{#each p.apps as line (line)}
+						<span class="text-[13px] text-muted">{line}</span>
+					{/each}
 				</span>
 				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</button>

@@ -43,6 +43,8 @@ sealed interface Step {
     data object Retry : Step
     data class Fail(val reason: String) : Step
     data object Unpaired : Step
+    /** The server refused (426): this app is below the minimum. Keep the job; wait for an update. */
+    data object UpdateNeeded : Step
 }
 
 fun firstChunk(offset: Long, total: Long): Step.Send = Step.Send(offset, min(offset + PROBE_BYTES, total) - 1)
@@ -66,6 +68,7 @@ fun nextStep(status: Int, received: Long?, sent: Step.Send, total: Long, message
             if (received >= total) Step.Fail("The server has the whole video but did not finish it. Try again later.")
             else chunkFrom(received, total)
         status == 401 -> Step.Unpaired
+        status == 426 -> Step.UpdateNeeded
         status in listOf(404, 413, 415) -> Step.Fail(message.ifBlank { "The server refused it ($status)." })
         else -> Step.Retry
     }

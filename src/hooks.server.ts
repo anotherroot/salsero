@@ -1,37 +1,18 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
 import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
+import { EPOCH_HEADER, PAGE_EPOCH, fillEpoch, staleAnswer, staleEpoch } from '$lib/page-epoch';
+import { refusesOldApp } from '$lib/server/app-gate';
+import { noteAppSeen } from '$lib/server/app-seen';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
+import { currentRelease } from '$lib/server/releases';
+import { isPublicPath } from '$lib/server/public-paths';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
 import { THEME_COOKIE, fillTheme, themeChoice } from '$lib/theme/scheme';
-
-/**
- * Routes reachable without a session. Everything else redirects to /login.
- *
- * Deny-by-default is deliberate: with no Cloudflare Access in front of this
- * host, forgetting a guard on one route is the whole breach. A new page is
- * private unless someone consciously adds it here.
- */
-const PUBLIC_PATHS = new Set([
-	'/login',
-	// The invite's link carries its code in the query string, so the path is what is public.
-	'/join',
-	'/health',
-	'/manifest-salsa.webmanifest',
-	'/manifest-bachata.webmanifest',
-	'/icon-salsa.svg',
-	'/icon-bachata.svg',
-	'/icons/salsa-192.png',
-	'/icons/salsa-512.png',
-	'/icons/bachata-192.png',
-	'/icons/bachata-512.png',
-	// The APK's signing-key fingerprint (docs/deployment.md). The WebView app (since
-	// 2026-10-29) does not read it; Chrome still may.
-	'/.well-known/assetlinks.json'
-]);
 
 /** The home worker's API: no session, a bearer token instead. */
 const WORKER_PREFIX = '/api/worker/';
@@ -51,6 +32,23 @@ export const handle: Handle = async ({ event, resolve }) => {
 				isAdmin: session.isAdmin
 			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
+
+	// Which app asks: its user agent suffix, else the native header.
+	const native = parseAppVersion(event.request.headers.get('x-app-version'));
+	const appAgent = parseAppAgent(event.request.headers.get('user-agent')) ?? native;
+	event.locals.appAgent = appAgent;
+	// Only the native API is refused (426): a page's own `/api/` calls inside the
+	// WebView carry the user agent, not the header, and a page out of date is
+	// the page epoch's job. A take recorded on My count still saves.
+	if (native && refusesOldApp(path, native, currentRelease(native.dance))) {
+		return new Response(JSON.stringify({ message: 'Update the app to keep using it.' }), {
+			status: 426,
+			headers: { 'content-type': 'application/json' }
+		});
+	}
+	if (event.locals.user && appAgent) {
+		noteAppSeen(getDb(), event.locals.user.id, appAgent, Date.now());
+	}
 
 	// The Android app's launchers open with ?app=android. Remember it per
 	// browser, so every page after the first knows to offer native links.
@@ -72,7 +70,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return resolve(event);
 	}
 
-	const isPublic = PUBLIC_PATHS.has(path) || path.startsWith('/_app/');
+	// A page older than a breaking deploy (`$lib/page-epoch.ts`): refused before
+	// anything acts on what it sent, so it reloads instead. Full page loads, the
+	// Android app's own calls and the worker carry no epoch and are never refused.
+	if (staleEpoch(event.request.headers.get(EPOCH_HEADER), PAGE_EPOCH)) {
+		return staleAnswer(event.request.headers.has('x-sveltekit-action'));
+	}
+
+	const isPublic = isPublicPath(path) || path.startsWith('/_app/');
 
 	if (!event.locals.user && !isPublic) {
 		// API calls get a status, not a redirect to an HTML page they cannot use.
@@ -83,7 +88,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(303, '/');
 	}
 
-	// Light or dark, as chosen in Settings: written into <html> for app.html's script.
+	// Light or dark, as chosen in Settings, and the page epoch: written into
+	// <html> for app.html's script.
 	const theme = themeChoice(event.cookies.get(THEME_COOKIE));
-	return resolve(event, { transformPageChunk: ({ html }) => fillTheme(html, theme) });
+	return resolve(event, {
+		transformPageChunk: ({ html }) => fillEpoch(fillTheme(html, theme))
+	});
 };

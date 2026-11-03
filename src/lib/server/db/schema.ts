@@ -85,6 +85,24 @@ export const deviceTokens = sqliteTable('device_tokens', {
 	lastUsedAt: integer('last_used_at')
 });
 
+/**
+ * The newest app version each person has opened, per dance. Written by the
+ * request hook (`app-seen.ts`), read by the admin's list of who needs an update.
+ */
+export const appInstalls = sqliteTable(
+	'app_installs',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		dance: text('dance').notNull(),
+		versionCode: integer('version_code').notNull(),
+		channel: text('channel').notNull(),
+		seenAt: integer('seen_at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.dance] })]
+);
+
 export const sessions = sqliteTable('sessions', {
 	id: text('id').primaryKey(),
 	userId: text('user_id')

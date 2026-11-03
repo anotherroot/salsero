@@ -2,6 +2,7 @@
 	import { uploadFailure } from '$lib/upload-error';
 	import { invalidateAll } from '$app/navigation';
 	import { track } from '$lib/unsaved/guard.svelte';
+	import { holdReload } from '$lib/nav/fresh.svelte';
 	import { MAX_RECORDING_LABEL } from '$lib/limits';
 	import { uploadProblem } from '$lib/media';
 	import type { IconName } from '$lib/icons/icons';
@@ -94,6 +95,8 @@
 			progress = null;
 			message = { title: 'Upload failed — check the connection and try again.' };
 		};
+		// A deploy does not reload the page under the upload: it waits for loadend.
+		xhr.onloadend = holdReload();
 		progress = 0;
 		xhr.send(file);
 	}

@@ -631,6 +631,13 @@ you left it, a removed page and a finished Practice run going back to the page
 that opened them) is specified in
 [`2026-11-01-pages-keep-state-design.md`](2026-11-01-pages-keep-state-design.md).
 
+## Get the app and fresh pages
+
+A Get the app page (`/app`) hands friends the Android apps, and open pages and
+the apps keep themselves current: a page epoch older pages are checked
+against, a Reload bar, and the app's own updater. See
+[`2026-11-03-app-updates-design.md`](2026-11-03-app-updates-design.md).
+
 ## Pending navigation
 
 Every page has a server `load`, and SvelteKit keeps the old page on screen

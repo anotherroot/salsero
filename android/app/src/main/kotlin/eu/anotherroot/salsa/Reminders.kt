@@ -71,6 +71,8 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
             Notify.reminder(ctx, title, body, "/${BuildConfig.DANCE}")
         } catch (e: Unpaired) {
             Notify.unpaired(ctx)
+        } catch (e: UpdateNeeded) {
+            // The site wants a newer app: skip quietly, as offline.
         } catch (e: Exception) {
             // Offline or the server is down: no list is better than a stale one.
         }

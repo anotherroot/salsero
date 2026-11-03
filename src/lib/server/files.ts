@@ -346,3 +346,11 @@ export async function saveStream(
 	}
 	return bytes;
 }
+
+/** `$DATA_DIR/releases`, created on first use — each dance's current APK lives in `<dance>/`. */
+export function releasesDir(): string {
+	if (!env.DATA_DIR) throw new Error('DATA_DIR is not set');
+	const dir = join(env.DATA_DIR, 'releases');
+	mkdirSync(dir, { recursive: true });
+	return dir;
+}

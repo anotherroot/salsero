@@ -53,7 +53,7 @@ export function danceOf(params: { dance: string }): DanceSlug {
 export type Wall = { userId: string; dance: DanceSlug };
 
 /** The wall this request stands behind: its dance and its signed-in user. */
-export function wallOf(params: { dance: string }, locals: App.Locals): Wall {
+export function wallOf(params: { dance: string }, locals: Pick<App.Locals, 'user'>): Wall {
 	const dance = danceOf(params);
 	if (!locals.user) throw error(401, 'Sign in');
 	return { userId: locals.user.id, dance };
@@ -65,7 +65,7 @@ export function inWall(row: { dance: string; userId: string | null }, wall: Wall
 }
 
 /** A 404 unless the signed-in user is the admin. */
-export function requireAdmin(locals: App.Locals): void {
+export function requireAdmin(locals: Pick<App.Locals, 'user'>): void {
 	if (!locals.user?.isAdmin) throw error(404, 'Not found');
 }
 
