@@ -1,7 +1,6 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
 import { TABS, tabFor } from '$lib/nav/tabs';
-import { STALE_MESSAGE } from '$lib/page-epoch';
 
 export interface ErrorView {
 	title: string;
@@ -32,20 +31,6 @@ export function errorView(
 			body: 'This page needs the server. Check the connection and try again; nothing you saved is lost.',
 			code: null,
 			retry: true,
-			today: false
-		};
-	}
-	// The server refused this page as older than its last deploy (`$lib/page-epoch.ts`).
-	// The stale bar's Reload is the way on: Try again and Today would be refused too.
-	if (status === 409 && message === STALE_MESSAGE) {
-		return {
-			title: 'Out of date',
-			icon: 'refresh',
-			tone: 'warn',
-			heading: 'This page is out of date',
-			body: 'Reload to continue. Nothing you saved is lost.',
-			code: null,
-			retry: false,
 			today: false
 		};
 	}

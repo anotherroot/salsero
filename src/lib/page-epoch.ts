@@ -37,7 +37,6 @@ export function staleEpoch(header: string | null, current: number): boolean {
 export function fillEpoch(html: string): string {
 	return html.replace(EPOCH_PLACEHOLDER, String(PAGE_EPOCH));
 }
-
 /**
  * The refusal: 409 with `x-page-stale`.
  *
@@ -46,20 +45,20 @@ export function fillEpoch(html: string): string {
  * stays, with what was typed. As a plain error, SvelteKit would swap the page
  * for its error page. `data` is devalue's encoding of
  * `{ message: STALE_MESSAGE }`, as `deserialize` in `$app/forms` reads it.
- *
- * Anything else gets the words as a JSON string: a page's data load
- * (`__data.json`), when it is let through, hands them to SvelteKit's error
- * page, and `errorView` shows them without a status number.
+ * Anything else gets a plain `Reload`: SvelteKit never sees a page's data
+ * refused (`holdsBack`), and API callers show their own failure.
  */
 export function staleAnswer(action: boolean): Response {
-	const headers = { [STALE_HEADER]: '1', 'content-type': 'application/json' };
-	if (!action) return new Response(JSON.stringify(STALE_MESSAGE), { status: 409, headers });
+	if (!action) return new Response('Reload', { status: 409, headers: { [STALE_HEADER]: '1' } });
 	const body = {
 		type: 'failure',
 		status: 409,
 		data: JSON.stringify([{ message: 1 }, STALE_MESSAGE])
 	};
-	return new Response(JSON.stringify(body), { status: 409, headers });
+	return new Response(JSON.stringify(body), {
+		status: 409,
+		headers: { [STALE_HEADER]: '1', 'content-type': 'application/json' }
+	});
 }
 
 /**
@@ -70,36 +69,56 @@ export function staleAnswer(action: boolean): Response {
 export type StaleMove = 'go' | 'reload' | 'bar';
 
 /**
- * What the page does on a stale answer. A navigation under way becomes a full
- * load unless that would cut an upload or a run short; otherwise the page
- * reloads only when nothing would be lost (`mayReloadNow`, as for a deploy)
- * and no form's save is out: `use:guarded` counts a form as clean while it
- * sends, and the refusal reaches here before the form hears it, so `sending`
- * (the guard's `sendingNow()`) stands in for what was typed.
+ * What the page does on a stale answer.
+ *
+ * A navigation under way becomes a full load, unless that would cut an upload
+ * or a run short, or a navigation is already `stuck` (held back, see
+ * `holdsBack`): while one is pending SvelteKit runs no `beforeNavigate` for the
+ * next, so the unsaved-changes guard never had its say about it.
+ *
+ * Otherwise the page reloads only when nothing would be lost (`mayReloadNow`,
+ * as for a deploy) and no form's save is out: `use:guarded` counts a form as
+ * clean while it sends, and the refusal reaches here before the form hears
+ * it, so `sending` (the guard's `sendingNow()`) stands in for what was typed.
  */
 export function staleMove(
-	s: { routeId: string | null; navigating: boolean; sending: number } & Quiet
+	s: { routeId: string | null; navigating: boolean; stuck: boolean; sending: number } & Quiet
 ): StaleMove {
-	if (s.navigating) return s.held === 0 ? 'go' : 'bar';
+	if (s.navigating) return s.held === 0 && !s.stuck ? 'go' : 'bar';
 	if (s.sending > 0) return 'bar';
 	return mayReloadNow(s) ? 'reload' : 'bar';
 }
 
 /**
  * Whether the fetch wrapper keeps a stale answer from its caller (the promise
- * never settles). Always while the page is going away, so no error flashes up
- * first. While it stays, only a data reload of this very page (an
- * invalidation): SvelteKit would put its error page in place of the page and
- * what was typed in it. A preload of another page is handed back, or the tap
- * that uses it would wait forever; so are API calls (they show their own
- * failure) and form actions (`staleAnswer` made theirs a failure).
+ * never settles). SvelteKit must never see a page's data refused: its error
+ * path refetches the root layout's data, is refused again, and falls back to
+ * a full load of the URL without asking anyone (an upload is cut off).
+ *
+ * - The page is going away (`go`, `reload`): everything, so nothing flashes.
+ * - `bar` while navigating: the navigation's data. The navigation then stays
+ *   pending until Reload; the root layout hides its progress and skeleton.
+ * - `bar` otherwise: a data reload of this very page (an invalidation), which
+ *   would put the error page in place of the page and what was typed in it.
+ *
+ * Handed back: a preload of another page (SvelteKit does not cache a failed
+ * preload, so the tap that follows asks again, as a navigation), API calls
+ * (they show their own failure) and form actions (`staleAnswer` made theirs
+ * a failure).
  */
-export function holdsBack(move: StaleMove, requestUrl: string, pageUrl: string): boolean {
+export function holdsBack(
+	move: StaleMove,
+	requestUrl: string,
+	pageUrl: string,
+	navigating: boolean
+): boolean {
 	if (move !== 'bar') return true;
 	const request = new URL(requestUrl);
 	const page = new URL(pageUrl);
+	if (request.origin !== page.origin || !request.pathname.endsWith('/__data.json')) return false;
+	if (navigating) return true;
 	const base = page.pathname.endsWith('/') ? page.pathname : `${page.pathname}/`;
-	return request.origin === page.origin && request.pathname === `${base}__data.json`;
+	return request.pathname === `${base}__data.json`;
 }
 
 /**

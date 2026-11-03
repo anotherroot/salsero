@@ -54,11 +54,13 @@
 	 * follow it at once, so a tap shows before the page does; what the page
 	 * itself renders still follows `page`.
 	 */
-	const shownPath = $derived(navigating.to?.url.pathname ?? page.url.pathname);
+	// A navigation held back by the page epoch (`stuck`, below) is not under way:
+	// it waits for Reload, so no tab, skeleton or progress bar says otherwise.
+	let stuck = $state(false);
+	const ahead = $derived(stuck ? null : navigating.to);
+	const shownPath = $derived(ahead?.url.pathname ?? page.url.pathname);
 	const shownDance = $derived(danceOf(shownPath));
-	const leaving = $derived(
-		navigating.to != null && leavesPage(page.url.pathname, navigating.to.url.pathname)
-	);
+	const leaving = $derived(ahead != null && leavesPage(page.url.pathname, ahead.url.pathname));
 	/*
 	 * The skeleton waits SKELETON_DELAY_MS so a fast load swaps straight to
 	 * the page. `leaving` is a boolean, so a redirect mid-flight (a new
@@ -74,7 +76,7 @@
 		const timer = setTimeout(() => (late = true), SKELETON_DELAY_MS);
 		return () => clearTimeout(timer);
 	});
-	const skeleton = $derived(late && navigating.to ? skeletonFor(navigating.to.route.id) : null);
+	const skeleton = $derived(late && ahead ? skeletonFor(ahead.route.id) : null);
 	/*
 	 * The tabs show inside a dance except Practice and share (`showsTabs`), judged
 	 * on where the app is going so the bar comes or goes with the tap, and step
@@ -93,7 +95,7 @@
 		if (dance) seen = dance.slug;
 	});
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
-	const tabs = $derived(showsTabs((navigating.to ?? page).route.id) && !bottom.claimed);
+	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 
 	// Coming back to the app is when a new release is worth asking about.
@@ -269,7 +271,9 @@
 	 * epoch, `$lib/page-epoch.ts`; app.html's fetch wrapper fires `salsa:stale`).
 	 * A navigation under way loads its page whole, a quiet page reloads, and
 	 * anything else keeps the page, with what was typed, and shows the bar.
-	 * Cancelling the event holds the answer back (`holdsBack`).
+	 * Cancelling the event holds the answer back (`holdsBack`). A navigation
+	 * whose data is held back stays pending until Reload (`stuck`): SvelteKit
+	 * would otherwise fall back to a full load of it, unasked.
 	 */
 	let stale = $state(false);
 	let staleLeaving = $state(false);
@@ -279,13 +283,16 @@
 			const move = staleMove({
 				routeId: page.route.id,
 				navigating: going !== null,
+				stuck,
 				sending: sendingNow(),
 				...quietNow()
 			});
 			const url = (e as CustomEvent<{ url: string }>).detail.url;
-			if (holdsBack(move, url, location.href)) e.preventDefault();
+			const hold = holdsBack(move, url, location.href, going !== null);
+			if (hold) e.preventDefault();
 			if (move === 'bar') {
 				stale = true;
+				if (hold && going !== null) stuck = true;
 				return;
 			}
 			staleLeaving = true;
@@ -375,6 +382,6 @@
 {/if}
 
 <!-- Outside the shell's {#if}: signing in is a navigation too. -->
-{#if navigating.to}
+{#if ahead}
 	<NavProgress />
 {/if}

@@ -56,9 +56,7 @@ describe('staleAnswer', () => {
 		const res = staleAnswer(false);
 		expect(res.status).toBe(409);
 		expect(res.headers.get(STALE_HEADER)).toBe('1');
-		// JSON, so SvelteKit's data load carries the words to the error page (`errorView`).
-		expect(res.headers.get('content-type')).toContain('application/json');
-		expect(await res.json()).toBe(STALE_MESSAGE);
+		expect(await res.text()).toBe('Reload');
 	});
 
 	it('answers a form action as a failure the form shows, so the page and what was typed stay', async () => {
@@ -77,7 +75,7 @@ describe('staleAnswer', () => {
 const QUIET = { playerOpen: false, sheetsOpen: false, unsaved: 0, held: 0 };
 
 describe('staleMove', () => {
-	const here = { routeId: '/[dance]', navigating: false, sending: 0, ...QUIET };
+	const here = { routeId: '/[dance]', navigating: false, stuck: false, sending: 0, ...QUIET };
 
 	it('reloads a quiet page', () => {
 		expect(staleMove(here)).toBe('reload');
@@ -109,14 +107,21 @@ describe('staleMove', () => {
 	it('does not cut an upload or a run short for a navigation either', () => {
 		expect(staleMove({ ...here, navigating: true, held: 1 })).toBe('bar');
 	});
+
+	it('never loads a navigation whole once one is stuck: SvelteKit asked nobody about it', () => {
+		// While a held-back navigation is pending, SvelteKit runs no `beforeNavigate`
+		// for the next one, so the unsaved-changes guard never had its say.
+		expect(staleMove({ ...here, navigating: true, stuck: true })).toBe('bar');
+	});
 });
 
 describe('holdsBack', () => {
 	const page = 'https://salsa.example/salsa/figures/3';
+	const other = 'https://salsa.example/salsa/moves/__data.json?x-sveltekit-invalidated=11';
 
 	it('holds every answer back while the page is going away, so nothing flashes', () => {
-		expect(holdsBack('reload', 'https://salsa.example/api/video-spots', page)).toBe(true);
-		expect(holdsBack('go', 'https://salsa.example/salsa/moves/__data.json', page)).toBe(true);
+		expect(holdsBack('reload', 'https://salsa.example/api/video-spots', page, false)).toBe(true);
+		expect(holdsBack('go', other, page, true)).toBe(true);
 	});
 
 	it('holds back a data reload of this page: its error would replace the page', () => {
@@ -124,20 +129,34 @@ describe('holdsBack', () => {
 			holdsBack(
 				'bar',
 				'https://salsa.example/salsa/figures/3/__data.json?x-sveltekit-invalidated=01',
-				page
+				page,
+				false
 			)
 		).toBe(true);
-		expect(holdsBack('bar', 'https://salsa.example/__data.json', 'https://salsa.example/')).toBe(
-			true
-		);
+		expect(
+			holdsBack('bar', 'https://salsa.example/__data.json', 'https://salsa.example/', false)
+		).toBe(true);
+	});
+
+	it('holds back the data of a navigation the page must not leave for', () => {
+		// Handed back, SvelteKit's error path would refetch the root data, be
+		// refused again and fall back to a full load of the target, unasked,
+		// cutting an upload short.
+		expect(holdsBack('bar', other, page, true)).toBe(true);
+		expect(
+			holdsBack('bar', 'https://salsa.example/__data.json?x-sveltekit-invalidated=1', page, true)
+		).toBe(true);
 	});
 
 	it('hands back the rest while the page stays: API callers show their own failure', () => {
-		expect(holdsBack('bar', 'https://salsa.example/api/video-spots', page)).toBe(false);
-		// A preload of another page: held back, the tap that follows would wait forever on it.
-		expect(holdsBack('bar', 'https://salsa.example/salsa/moves/__data.json', page)).toBe(false);
+		expect(holdsBack('bar', 'https://salsa.example/api/video-spots', page, false)).toBe(false);
+		expect(holdsBack('bar', 'https://salsa.example/api/video-spots', page, true)).toBe(false);
+		// A preload of another page: errors are not cached, so the tap that follows fetches again.
+		expect(holdsBack('bar', other, page, false)).toBe(false);
 		// A form action: its answer is a failure the form shows.
-		expect(holdsBack('bar', 'https://salsa.example/salsa/figures/3?/save', page)).toBe(false);
+		expect(holdsBack('bar', 'https://salsa.example/salsa/figures/3?/save', page, false)).toBe(
+			false
+		);
 	});
 });
 
