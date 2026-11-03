@@ -43,7 +43,6 @@ import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { recordOpen } from '$lib/server/whats-new';
 import { getTeam, roleOf } from '$lib/server/teams';
 import { lessonNotice } from '$lib/teams/view';
 import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
@@ -109,8 +108,6 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const tz = zone(locals);
 	const canEdit = access === 'edit';
 	const team = isTeam(space) ? getTeam(db, space.teamId) : null;
-	// Opening a group's lesson is what clears "new" (derived in whats-new.ts).
-	if (isTeam(space)) recordOpen(db, wall.userId, 'lesson', found.lesson.id, Date.now());
 	// A reader's lists hold only what the published lessons reach (risk 20); an
 	// editor's and a person's are the whole space.
 	const shown = <T extends { id: number }>(rows: T[], ids: Set<number> | undefined) =>

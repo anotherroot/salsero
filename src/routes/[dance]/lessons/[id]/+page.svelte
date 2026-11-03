@@ -73,6 +73,7 @@
 	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
+	import { reportOpen } from '$lib/teams/opens-api';
 	import type { AddOffer, ViaSection } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -198,6 +199,14 @@
 	} | null>(null);
 
 	const lesson = $derived(data.lesson);
+	// Shown, not preloaded: a group's lesson counts as opened here, and again after
+	// the editor's own Publish reloads the data with a new publishedAt.
+	$effect(() => {
+		if (data.team) {
+			void lesson.publishedAt;
+			reportOpen('lesson', lesson.id);
+		}
+	});
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const LessonLog = logFor('lesson');
 	const failure = (action: string) => (form?.action === action ? form.message : null);

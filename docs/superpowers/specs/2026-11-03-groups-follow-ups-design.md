@@ -152,7 +152,10 @@ bubble.
 
 **Data** *(my call)*: one new table of when a person last opened a lesson
 or a group song, `(user_id, kind, item_id, opened_at)`, unique per person
-and item; written when the lesson or song page loads for that person. "New"
+and item; written from the page once it is shown (`POST /api/opens`), never in
+the load, because SvelteKit preloads a page's data on hover and touch. The page
+records again after its data reloads (an editor's own Publish clears itself:
+`opened_at` ends up at or after `published_at`). "New"
 is derived per request from it, `published_at`, `shared_at`, `joined_at`
 and the link rows' creation times, never stored as a flag (the urgency
 rule). The count for the tab dot runs on every page of a dance, so it must

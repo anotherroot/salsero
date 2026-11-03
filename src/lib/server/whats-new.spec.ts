@@ -105,7 +105,7 @@ describe('whatsNew lessons', () => {
 		expect(n.byTeam.get(1) ?? 0).toBe(0);
 	});
 
-	it('nothing once the person left, or the group is deleted', () => {
+	it('nothing once the group is deleted', () => {
 		lesson(200);
 		expect(news().lessons.size).toBe(1);
 		deleteTeam(db, 1, 'u1', 500);
@@ -136,5 +136,18 @@ describe('whatsNew lessons', () => {
 		const rows = db.select().from(opens).all();
 		expect(rows).toHaveLength(1);
 		expect(rows[0].openedAt).toBe(20);
+	});
+});
+
+describe('whatsNew counting', () => {
+	it('a lesson both published-new and changed after being added counts once', () => {
+		const id = lesson(200);
+		add('u2', id, 250);
+		const r = createRoutine(db, T1_SALSA, { name: 'R', notes: null }).routine.id;
+		linkRoutine(db, id, r, 'u1');
+		db.update(lessonRoutines).set({ createdAt: 400 }).where(eq(lessonRoutines.lessonId, id)).run();
+		const n = news();
+		expect([...n.lessons]).toEqual([id]);
+		expect(n.byTeam.get(1)).toBe(1);
 	});
 });
