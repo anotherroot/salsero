@@ -26,6 +26,7 @@
 	import { barFraction, usageLine } from '$lib/storage-view';
 	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import UpdateButton from '$lib/components/system/UpdateButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
@@ -209,8 +210,32 @@
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">For this browser or phone only.</p>
 
+	{#if !data.app}
+		<div class="{GROUP} mt-[14px]">
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+			<a href="/app" class={ROW_TALL}>
+				<LeadTile icon="phone" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">Get the app</span>
+					<span class="text-[13px] text-muted">For your phone's home screen</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		</div>
+	{/if}
+
 	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
 	<div class={GROUP}>
+		{#if data.appUpdate}
+			<div class="{ROW} min-h-16 pr-3.5">
+				<!-- The installed number, always: the app tells the server only that (its user
+				     agent), and the admin page counts the same way ("Salsa app 2"). -->
+				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
+					>Version {data.appUpdate.installed}</span
+				>
+				{#if data.appUpdate.state !== 'none'}<UpdateButton update={data.appUpdate} />{/if}
+			</div>
+		{/if}
 		<div class="{ROW} pr-1.5">
 			<LeadTile icon="bell" />
 			<span class="flex min-w-0 flex-1 flex-col">

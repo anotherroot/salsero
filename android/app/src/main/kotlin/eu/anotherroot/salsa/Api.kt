@@ -29,6 +29,9 @@ fun parseToday(json: String): Map<String, List<String>> {
 /** No token, or the server no longer accepts it: the app must be paired (again). */
 class Unpaired : Exception("not paired")
 
+/** The site wants a newer app (426): nothing native works until it is updated. */
+class UpdateNeeded : Exception("update needed")
+
 /** Any other non-2xx answer. */
 class HttpError(val status: Int, message: String) : IOException("HTTP $status: $message")
 
@@ -43,6 +46,7 @@ object Api {
             readTimeout = 60_000
             setRequestProperty("authorization", "Bearer $token")
             setRequestProperty("accept", "application/json")
+            setRequestProperty("x-app-version", appVersionHeader(BuildConfig.VERSION_CODE, BuildConfig.DANCE, BuildConfig.CHANNEL))
         }
     }
 
@@ -57,6 +61,7 @@ object Api {
         try {
             val status = conn.responseCode
             if (status == 401) throw Unpaired()
+            if (status == 426) throw UpdateNeeded()
             if (status !in 200..299) throw HttpError(status, errorBody(conn))
             return conn.inputStream.bufferedReader().use { it.readText() }
         } finally {

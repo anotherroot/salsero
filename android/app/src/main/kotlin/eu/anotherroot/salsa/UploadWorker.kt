@@ -39,7 +39,17 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
     override suspend fun getForegroundInfo(): ForegroundInfo = Notify.progress(ctx, "Uploading", "Preparing", null)
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): Result {
+        // The updater waits while this is up (UploadRun); a job left queued does not hold it.
+        UploadRun.begin()
+        try {
+            return drain()
+        } finally {
+            UploadRun.end()
+        }
+    }
+
+    private suspend fun drain(): Result = withContext(Dispatchers.IO) {
         try {
             setForeground(getForegroundInfo())
         } catch (e: Exception) {
@@ -56,6 +66,8 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 run(job)
             } catch (e: Unpaired) {
                 Step.Unpaired
+            } catch (e: UpdateNeeded) {
+                Step.UpdateNeeded
             } catch (e: IOException) {
                 Step.Retry
             }
@@ -71,6 +83,11 @@ class UploadWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 Step.Retry -> {
                     if (!givesUp(store.addStall(job.id))) return@withContext Result.retry()
                     finish(job, "Couldn't add ${videoName} to ${job.name}", "The upload kept failing.")
+                }
+                Step.UpdateNeeded -> {
+                    // Kept, not stalled: an update (or the site relaxing its minimum) lets it carry on.
+                    Notify.updateNeeded(ctx, job.id.hashCode() and 0xffff, ctx.getString(R.string.app_name), videoName, job.back)
+                    return@withContext Result.retry()
                 }
                 is Step.Send -> error("unreachable")
             }

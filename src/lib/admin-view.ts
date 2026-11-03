@@ -1,5 +1,8 @@
 /** PURE: the admin page's wording and the limit presets. Client-safe. */
-import { byteSize, dateLabel, plural } from './format';
+import type { Channel } from './app-update/agent';
+import { daysBetween } from './day/day';
+import { DANCES, DANCE_SLUGS, type DanceSlug } from './dances/dances';
+import { byteSize, dateLabel, dayLabel, plural } from './format';
 
 const GIB = 1024 ** 3;
 
@@ -67,4 +70,20 @@ export function groupsMadeLine(made: number, limit: number): string {
 /** A request's heading: the person's email, or the group's name with its owner. */
 export function requestTitle(r: { email: string; teamName: string | null }): string {
 	return r.teamName === null ? r.email : `${r.teamName} · ${r.email}`;
+}
+
+/** A person's app versions, one line per dance: "Salsa app 2 · today", "Bachata: no app". */
+export function appsLines(
+	seen: { dance: DanceSlug; versionCode: number; channel: Channel; day: string }[],
+	today: string
+): string[] {
+	return DANCE_SLUGS.map((dance) => {
+		const label = DANCES[dance].label;
+		const s = seen.find((x) => x.dance === dance);
+		if (!s) return `${label}: no app`;
+		const age = daysBetween(s.day, today);
+		const when = age <= 0 ? 'today' : age === 1 ? 'yesterday' : dayLabel(s.day);
+		const play = s.channel === 'play' ? ' (Play)' : '';
+		return `${label} app ${s.versionCode}${play} · ${when}`;
+	});
 }

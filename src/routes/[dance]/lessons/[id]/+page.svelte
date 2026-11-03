@@ -7,6 +7,7 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { staleFailure } from '$lib/page-epoch';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
@@ -984,7 +985,8 @@
 								...videoRefused,
 								[id]: messageOf(result.data, 'That video could not be deleted.')
 							};
-							await invalidateAll();
+							// Not on a stale page's refusal: the reload would be held back for good.
+							if (!staleFailure(result)) await invalidateAll();
 						} else {
 							await update();
 						}

@@ -23,7 +23,7 @@ beforeEach(() => {
 
 const parent = async () => ({ lastDance: 'salsa' });
 
-function post(fields: Record<string, string>) {
+function post(fields: Record<string, string>, cookie?: string) {
 	const set = vi.fn();
 	return {
 		set,
@@ -33,7 +33,7 @@ function post(fields: Record<string, string>) {
 				headers: { 'content-type': 'application/x-www-form-urlencoded' },
 				body: new URLSearchParams(fields)
 			}),
-			cookies: { set },
+			cookies: { set, get: (n: string) => (n === 'salsa_app' ? cookie : undefined) },
 			getClientAddress: () => '1.2.3.4',
 			url: new URL('http://localhost/join')
 		}
@@ -51,7 +51,7 @@ describe('join', () => {
 		expect(live).toMatchObject({ valid: true });
 	});
 
-	it('the action signs the new person in and redirects to /', async () => {
+	it('the action signs the new person in and redirects to /app', async () => {
 		const { code } = createInvite(db, 'admin', Date.now());
 		const { event, set } = post({
 			code,
@@ -61,7 +61,7 @@ describe('join', () => {
 			password: 'Correct-Horse-9',
 			timezone: 'UTC'
 		});
-		await expect(run(event)).rejects.toMatchObject({ status: 303, location: '/' });
+		await expect(run(event)).rejects.toMatchObject({ status: 303, location: '/app' });
 		expect(set).toHaveBeenCalledWith('salsa_session', expect.any(String), expect.anything());
 		expect(db.select().from(sessions).all()).toHaveLength(1);
 	});
@@ -80,6 +80,22 @@ describe('join', () => {
 		};
 		expect(noLast.data.field).toBe('lastName');
 		expect(db.select().from(users).all()).toHaveLength(1);
+	});
+
+	it('inside the app the new person goes on to /', async () => {
+		const { code } = createInvite(db, 'admin', Date.now());
+		const { event } = post(
+			{
+				code,
+				email: 'in@example.com',
+				firstName: 'Ana',
+				lastName: 'Kranjc',
+				password: 'Correct-Horse-9',
+				timezone: 'UTC'
+			},
+			'android'
+		);
+		await expect(run(event)).rejects.toMatchObject({ status: 303, location: '/' });
 	});
 
 	it('a dead code gets the refusal and no account', async () => {

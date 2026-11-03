@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme-choice="%salsa.theme%">
+<html lang="en" data-theme-choice="%salsa.theme%" data-page-epoch="%salsa.epoch%">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -37,6 +37,47 @@
 					for (var side in insets) root.style.setProperty('--safe-' + side, insets[side] + 'px');
 				};
 				window.applyAppInsets();
+
+				/*
+				 * The page epoch (`$lib/page-epoch.ts`): every same-origin fetch says
+				 * which page sent it, in `x-page-epoch`. Wrapped here, before any
+				 * module loads, because SvelteKit keeps its own reference to `fetch`.
+				 * A server that refuses an older page answers 409 with `x-page-stale`;
+				 * that becomes `salsa:stale` on window, which the root layout hears.
+				 * A listener that cancels it holds the answer back from the caller,
+				 * which then never hears it (the page is going away, or SvelteKit
+				 * would swap the page for its error page).
+				 */
+				var epoch = root.dataset.pageEpoch;
+				var send = window.fetch;
+				if (!send || !/^\d+$/.test(epoch || '')) return;
+				window.fetch = function (input, init) {
+					var url;
+					try {
+						url = new URL(input instanceof Request ? input.url : String(input), location.href);
+					} catch (e) {
+						return send.call(window, input, init);
+					}
+					if (url.origin !== location.origin) return send.call(window, input, init);
+					var headers = new Headers(
+						init && init.headers
+							? init.headers
+							: input instanceof Request
+								? input.headers
+								: undefined
+					);
+					headers.set('x-page-epoch', epoch);
+					return send
+						.call(window, input, Object.assign({}, init, { headers: headers }))
+						.then(function (res) {
+							if (!res.headers.has('x-page-stale')) return res;
+							var told = new CustomEvent('salsa:stale', {
+								cancelable: true,
+								detail: { url: url.href }
+							});
+							return window.dispatchEvent(told) ? res : new Promise(function () {});
+						});
+				};
 			})();
 		</script>
 		%sveltekit.head%

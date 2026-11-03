@@ -13,6 +13,7 @@ vi.mock('$lib/server/storage', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { storageRequests, teams, users } from '$lib/server/db/schema';
+import { noteAppSeen } from '$lib/server/app-seen';
 import { askForMore, storageOf } from '$lib/server/storage';
 import { createLesson } from '$lib/server/lessons';
 import { T1_SALSA } from '$lib/server/test-walls';
@@ -112,6 +113,19 @@ describe('admin page', () => {
 		expect(await act('setLimit', ev(true, { userId: 'ghost', gb: '2' }))).toMatchObject({
 			status: 404
 		});
+	});
+});
+
+describe('admin page: apps', () => {
+	it('load gives each person their app lines', async () => {
+		noteAppSeen(db, 'p', { versionCode: 2, dance: 'salsa', channel: 'direct' }, Date.now());
+		const d = (await (load as unknown as Ev)(ev(true))) as {
+			people: { email: string; apps: string[] }[];
+		};
+		expect(d.people.find((x) => x.email === 'p@example.com')!.apps).toEqual([
+			'Salsa app 2 · today',
+			'Bachata: no app'
+		]);
 	});
 });
 

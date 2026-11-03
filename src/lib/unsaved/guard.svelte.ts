@@ -18,7 +18,7 @@ import {
 	type Seen
 } from '$lib/clash/clash';
 import { fingerprint } from './fingerprint';
-import { pending, type SaveOutcome, type Unsaved } from './pending';
+import { pending, sendingCount, type SaveOutcome, type Unsaved } from './pending';
 
 /*
  * The live list of what leaving would lose, and the one question the app asks
@@ -40,6 +40,11 @@ export function track(entry: Unsaved): () => void {
 /** What is unsaved inside `scope` (anywhere, when null). */
 export function unsaved(scope: Node | null = null, unload = false): Unsaved[] {
 	return pending(entries, { scope, unload });
+}
+
+/** How many `use:guarded` forms have a save out: clean to `unsaved()` until it lands. */
+export function sendingNow(): number {
+	return sendingCount(entries);
 }
 
 export interface Ask {
@@ -65,6 +70,37 @@ export function leaveOrAsk(scope: Node | null, onleave: () => void, verb = 'Leav
 }
 
 let passing = false;
+
+/**
+ * Reload the page, asking first about anything a reload would lose — an
+ * upload in flight too, which an in-app navigation would not lose. Choosing
+ * Reload in the dialog is the answer: the unload is let through rather than
+ * asked about again by the browser.
+ */
+export function reloadOrAsk(): void {
+	const list = unsaved(null, true);
+	if (list.length === 0) location.reload();
+	else
+		prompt.ask = {
+			entries: list,
+			scoped: false,
+			verb: 'Reload',
+			onleave: () => {
+				passing = true;
+				location.reload();
+			}
+		};
+}
+
+/**
+ * Load `href` whole, for a navigation the guard has already let go (the user
+ * answered Leave, or nothing was unsaved): the unload is not asked about again
+ * by the browser. The page epoch uses it (`$lib/page-epoch.ts`).
+ */
+export function loadAgreed(href: string): void {
+	passing = true;
+	location.href = href;
+}
 
 /**
  * Ask before any navigation that would lose something. Call once, from the
@@ -378,6 +414,7 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			const changed = read() !== saved;
 			return opts.dirty ? opts.dirty(changed) : changed;
 		},
+		sending: () => sending,
 		blocked: () => opts.blocked?.() ?? null,
 		save: () => {
 			// A `novalidate` form leaves its checks to the server, whose message shows under the field.

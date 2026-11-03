@@ -46,7 +46,7 @@ Make my own copy; names) and group follow-ups (group mode: a Mine / group switch
 shows only that side's Moves, Lessons and Music and makes new rows there, in the
 group's own navy look; notifications: a dot on Groups, "N new" pills and "New"
 markers, cleared by opening; class songs: a teacher shares a song with the group,
-members practise to it, a section per group in Music).
+members practise to it, a section per group in Music) and app updates (a Get the app page for friends, release-signed apps that update themselves, open pages that reload when the site changes).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -206,7 +206,9 @@ src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone devic
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's
                      insets → `--safe-*`. Read the safe area through `--safe-*`, never
-                     `env()` (class-rules.spec.ts): the app draws the page under its bars
+                     `env()` (class-rules.spec.ts): the app draws the page under its bars.
+                     It also wraps `fetch`: every same-origin request carries the page
+                     epoch (`src/lib/page-epoch.ts`), and a stale answer fires `salsa:stale`
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
@@ -282,6 +284,28 @@ src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sectio
                      derived, never stored; lessons.ts and spot-links.ts read it
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
+src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, none /
+                     available / required (`updateState`), the device from the user agent
+                     (`deviceOf`)), view.ts (the bridge's messages, the Update button's words,
+                     when Update needed takes the page: `updateNeededNow`), get-app.ts (the
+                     /app page's cards, where a new account lands). All PURE, client-safe.
+                     Drawn by components/system/AppUpdateBar.svelte (Today's "Update
+                     available"), UpdateButton.svelte (the `salsaUpdate` bridge, or a link to
+                     the file or Google Play) and UpdateNeeded.svelte (the full-screen block)
+src/lib/page-epoch.ts  PAGE_EPOCH: raised when older open pages would send what the server no
+                     longer takes; they reload instead of failing
+src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a deploy, and
+                     whether the page may reload by itself (`mayReloadNow`). fresh.svelte.ts is
+                     the reload-hold counter (`holdReload`, `holdReloadWhile`: an upload, a
+                     run). shell/ReloadBar.svelte is "New version · Reload" and "This page is
+                     out of date"
+src/lib/server/releases.ts  reads $DATA_DIR/releases/<dance>/current.json (cached by mtime) and
+                     the APKs; app-seen.ts which app version each device last showed (table
+                     `app_installs`); app-gate.ts which native API requests (`x-app-version`, never the
+                     WebView's own calls) from a too-old app get a 426;
+                     public-paths.ts PUBLIC_PATHS plus the update check and published APKs
+src/routes/app/      the Get the app page; src/routes/releases/[dance]/ serves APKs;
+                     src/routes/api/app-update/[dance]/ is the check (404 until published)
 src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByDance
 src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed paired phone, a
                      deleted voice take); a take's wav is unlinked when its hold expires
@@ -353,6 +377,9 @@ static/icons/        per-dance home-screen icons, committed. The manifests are
                      served FLAT (/manifest-<dance>.webmanifest) so PUBLIC_PATHS
                      stays an exact-match Set
 drizzle/             generated migrations — applied at boot, shipped by deploy.sh
+android/app/src/     main (shared), direct (the updater: Updater.kt, UpdateBridge.kt; downloads,
+                     checks, installs) and play (no updater) — the two channels
+scripts/release.sh   build, sign-check and publish an app update (see docs/deployment.md)
 scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-check
 .tmux-project/       tmux_project (nixos-config): C-1…C-9 in tmux make a slot — a worktree
                      ../salsaapp-wt/<name> on its own branch, vite on a devports port at
@@ -469,6 +496,7 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   removed row's focus would fall to `<body>`.
 - **A refresh after a sheet or the player closes goes through `refreshWhenSettled()`.**
   SvelteKit drops a reload that a popstate overtakes, and a close's Back is one.
+- **Raise PAGE_EPOCH (src/lib/page-epoch.ts) in the commit that breaks older open pages** — a changed form field, action or API shape they would still send. Open pages then reload instead of failing.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **A device token signs in on `/api/` only** — never a page, never

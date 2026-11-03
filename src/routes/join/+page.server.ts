@@ -1,4 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
+import { APP_COOKIE, APP_VALUE } from '$lib/app-mode';
+import { joinLanding } from '$lib/app-update/get-app';
 import { getDb } from '$lib/server/db';
 import {
 	SESSION_COOKIE,
@@ -85,6 +87,6 @@ export const actions: Actions = {
 			secure: url.protocol === 'https:',
 			expires: session.expiresAt
 		});
-		throw redirect(303, '/');
+		throw redirect(303, joinLanding(cookies.get(APP_COOKIE) === APP_VALUE));
 	}
 };
