@@ -884,19 +884,28 @@ export function embeddable(
 	db: Db,
 	routineId: number,
 	given?: Usable
-): { id: number; name: string }[] {
+): { id: number; name: string; team?: TeamRef }[] {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return [];
 	const space = ownerSpace(routine);
 	const usable = isTeam(space) ? undefined : (given ?? usableOf(db, space));
 	const whose = ownedOrUsable(routines, space, usable?.routines);
-	return db
-		.select({ id: routines.id, name: routines.name })
+	const rows = db
+		.select({ id: routines.id, name: routines.name, teamId: routines.teamId })
 		.from(routines)
 		.where(and(whose, isNull(routines.archivedAt)))
 		.orderBy(asc(routines.name), asc(routines.id))
 		.all()
 		.filter((r) => canEmbed(db, routineId, r.id, usable));
+	// A group's routine the person may use carries its group, for the picker's heading.
+	const teams = teamRefs(
+		db,
+		rows.flatMap((r) => (r.teamId === null || isTeam(space) ? [] : [r.teamId]))
+	);
+	return rows.map(({ teamId, ...r }) => {
+		const team = teamId === null ? undefined : teams.get(teamId);
+		return team ? { ...r, team } : r;
+	});
 }
 
 /**

@@ -249,3 +249,18 @@ describe('fold', () => {
 		expect(fold('Dile Qué Nó')).toBe('dile que no');
 	});
 });
+
+describe('a group move of the same name', () => {
+	it('is its own group, keyed by move id, and carries its group', () => {
+		const team = { id: 1, name: 'Salsa Tuesdays' };
+		const list = pickList(
+			[fig(1, 'Enchufla · Basic', {}, 3), fig(2, 'Enchufla · Basic', { team }, 9)],
+			{ kind: 'none' },
+			{ count: true, hold: true, query: '' }
+		);
+		expect(list.figures.map((g) => [g.groupId, g.team?.name])).toEqual([
+			[3, undefined],
+			[9, 'Salsa Tuesdays']
+		]);
+	});
+});

@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
 import { figureLabels, listVersions } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
-import { usableOf } from '$lib/server/usable';
+import { usableOf, usableVersions } from '$lib/server/usable';
 import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
 import {
@@ -146,7 +146,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const candidates: Candidate[] = !canEdit
 		? []
 		: [
-				...listVersions(db, space).flatMap((v): Candidate[] => {
+				...[
+					...listVersions(db, space),
+					// A person's routine may use the group figures they reach, each under its group.
+					...(usable ? usableVersions(db, wall, usable) : [])
+				].flatMap((v): Candidate[] => {
 					const node = figureById(graph, v.id);
 					if (!node) return [];
 					return [
@@ -159,7 +163,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 							starts: startsOf(graph, node),
 							startCounts: [node.start],
 							end: endOf(graph, node),
-							next: nextCountOf(node)
+							next: nextCountOf(node),
+							...(v.team ? { team: v.team } : {})
 						}
 					];
 				}),
@@ -174,6 +179,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 						groupId: null,
 						figure: null,
 						label: r.name,
+						...(r.team ? { team: r.team } : {}),
 						...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
 					};
 				})

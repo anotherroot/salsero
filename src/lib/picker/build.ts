@@ -7,6 +7,7 @@
  */
 import { frequencyLabel } from '$lib/frequency';
 import { dateLabel } from '$lib/format';
+import { moveHeading, usedAsIs } from '$lib/clones/view';
 import { spotLabel } from '$lib/video/spots';
 import type {
 	FigureVersion,
@@ -30,11 +31,20 @@ export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): 
 	for (const v of vs) {
 		let heading = byGroup.get(v.groupId);
 		if (!heading) {
-			heading = { heading: v.figure, rows: [], collapse: true };
+			heading = { heading: moveHeading(v.figure, v.team), rows: [], collapse: true };
 			byGroup.set(v.groupId, heading);
 		}
 		heading.rows.push(
-			withLinked({ key: `figure:${v.id}`, value: v.id, label: v.label, short: v.name }, v.linked)
+			withLinked(
+				{
+					key: `figure:${v.id}`,
+					value: v.id,
+					label: v.label,
+					short: v.name,
+					...(v.team ? { meta: usedAsIs(v.team.name) } : {})
+				},
+				v.linked
+			)
 		);
 	}
 	for (const h of byGroup.values()) h.rows.sort((a, b) => a.value - b.value);
@@ -60,7 +70,12 @@ function routineMeta(slots: number, loops: boolean): string {
 export function routineRows(rs: (Omit<PickRoutine, 'linked'> & { linked?: boolean })[]): PickRow[] {
 	return rs.map((r) =>
 		withLinked(
-			{ key: `routine:${r.id}`, value: r.id, label: r.name, meta: routineMeta(r.slots, r.loops) },
+			{
+				key: `routine:${r.id}`,
+				value: r.id,
+				label: r.name,
+				meta: r.team ? usedAsIs(r.team.name) : routineMeta(r.slots, r.loops)
+			},
 			r.linked
 		)
 	);
@@ -78,7 +93,7 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 		value: e.id,
 		label,
 		...(short === undefined ? {} : { short }),
-		meta: frequencyLabel(e.everyDays),
+		meta: e.team ? usedAsIs(e.team.name) : frequencyLabel(e.everyDays),
 		linked: e.linked
 	});
 	const flat = (...sources: PickExercise['source'][]): PickRow[] =>
@@ -183,6 +198,7 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 						figure,
 						name: x.name,
 						label: x.label,
+						...(x.team ? { team: x.team } : {}),
 						linked: x.linked
 					};
 				})
@@ -195,7 +211,7 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 				key: `exercise:${(x.target as { exerciseId: number }).exerciseId}`,
 				value: (x.target as { exerciseId: number }).exerciseId,
 				label: x.label,
-				meta: frequencyLabel(x.everyDays ?? 0),
+				meta: x.team ? usedAsIs(x.team.name) : frequencyLabel(x.everyDays ?? 0),
 				linked: x.linked
 			}));
 	const groups: PickGroup[] = [

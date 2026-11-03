@@ -281,5 +281,38 @@ describe('linkOptionGroups', () => {
 		);
 		const headings = groups[0].entries as PickHeading[];
 		expect(headings.map((h) => h.rows.map((r) => r.key))).toEqual([['figure:3'], ['figure:7']]);
+		expect(headings.map((h) => h.heading)).toEqual(['Enchufla', 'Enchufla · Salsa Tuesdays']);
+		expect(headings[1].rows[0].meta).toBe('Salsa Tuesdays’ · used as it is');
+	});
+
+	it("variationEntries: a group's move is its own heading, labelled with the group", () => {
+		const team = { id: 1, name: 'Salsa Tuesdays' };
+		const entries = variationEntries([
+			version(3, 1, 'Enchufla', 'Basic'),
+			{ ...version(7, 2, 'Enchufla', 'Basic'), team }
+		]);
+		expect(entries.map((e) => e.heading)).toEqual(['Enchufla', 'Enchufla · Salsa Tuesdays']);
+		expect(entries[0].rows[0].meta).toBeUndefined();
+		expect(entries[1].rows[0].meta).toBe('Salsa Tuesdays’ · used as it is');
+	});
+
+	it("routineRows and exerciseGroups: a group's row says it is used as it is", () => {
+		const team = { id: 1, name: 'Rueda club' };
+		expect(
+			routineRows([{ id: 1, name: 'Rueda', slots: 2, loops: false, linked: false, team }])[0].meta
+		).toBe('Rueda club’s · used as it is');
+		const g = exerciseGroups([
+			{
+				id: 5,
+				name: 'Pasos',
+				source: 'custom',
+				everyDays: 7,
+				figure: null,
+				variation: null,
+				linked: false,
+				team
+			}
+		]);
+		expect((g[0].entries[0] as PickRow).meta).toBe('Rueda club’s · used as it is');
 	});
 });
