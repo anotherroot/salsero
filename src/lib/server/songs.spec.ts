@@ -696,6 +696,15 @@ describe('copySong', () => {
 		expect(db.select().from(teamChanges).where(eq(teamChanges.rootId, copy.id)).all()).toEqual([]);
 	});
 
+	it('copying a song twice reuses the first copy', async () => {
+		const first = await copySong(db, 'u3', c.shared, T, files);
+		if (!('song' in first)) throw new Error('refused');
+		const again = await copySong(db, 'u3', c.shared, T, files);
+		expect('song' in again && again.song.id).toBe(first.song.id);
+		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
+		expect(usedBytesOf(db, { userId: 'u3' })).toBe(1000);
+	});
+
 	it('refuses over the limit and under the disk floor, leaving no row and no file', async () => {
 		db.update(users).set({ storageLimitBytes: 999 }).where(eq(users.id, 'u3')).run();
 		const before = db.select().from(songs).all().length;

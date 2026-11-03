@@ -1,8 +1,9 @@
 /**
- * Make my own copy: a group lesson becomes a member's own, its variations
- * merged into their figures by name, its sections linked to the copies, its
- * files linked under new names and charged to them. Files live in a temp
- * folder, never `$DATA_DIR`.
+ * Make my own copy: a group lesson becomes a member's own (a member of its
+ * family, through the clone engine), its figures filed under their moves by
+ * name, each family copied once, its sections linked to the copies, its files
+ * linked under new names and charged to them. Files live in a temp folder,
+ * never `$DATA_DIR`.
  */
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -292,15 +293,43 @@ describe('copyLesson', () => {
 			'Basic',
 			'Doble (Salsa nadaljevalna)'
 		]);
-		// Copying the same lesson twice makes two copies; every name stays unique.
+	});
+
+	it('copying a lesson twice reuses the first copy', async () => {
+		const first = await copyLesson(db, 'u2', w.lesson, T, files);
+		if (!first.ok) throw new Error('expected a copy');
+		const before = snapshot();
+		const filesBefore = readdirSync(dir).sort();
+		expect(await copyLesson(db, 'u2', w.lesson, T, files)).toEqual(first);
+		expect(snapshot()).toEqual(before);
+		expect(readdirSync(dir).sort()).toEqual(filesBefore);
+		expect(db.select().from(lessons).where(eq(lessons.userId, 'u2')).all()).toHaveLength(1);
+		// Nothing more to bring: the summary says so.
+		expect(copySummary(db, 'u2', w.lesson)).toEqual({
+			bytes: 0,
+			videos: 0,
+			variations: 0,
+			routines: 0,
+			drills: 0
+		});
+	});
+
+	it('two lessons linking one group figure share one copy of it', async () => {
+		const other = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-10',
+			title: 'Tue 10 Nov',
+			notes: null
+		}).lesson.id;
+		linkFigure(db, other, w.doble, 'u1');
+		publishLesson(db, T1_SALSA, other, 3);
 		await copyLesson(db, 'u2', w.lesson, T, files);
-		expect(mineIn('Enchufla').map((v) => v.name)).toEqual([
-			'Doble',
-			'Basic',
-			'Doble (Salsa nadaljevalna)',
-			'Basic (Salsa nadaljevalna)',
-			'Doble (Salsa nadaljevalna 2)'
-		]);
+		const id = ((await copyLesson(db, 'u2', other, T, files)) as { lessonId: number }).lessonId;
+		// One move "Enchufla", one Doble in it, and the second lesson links that Doble.
+		const [, doble] = mineIn('Enchufla');
+		expect(mineIn('Enchufla').map((v) => v.name)).toEqual(['Basic', 'Doble']);
+		expect(
+			db.select().from(lessonFigures).where(eq(lessonFigures.lessonId, id)).all()
+		).toMatchObject([{ figureId: doble.id }]);
 		expect(db.select().from(lessons).where(eq(lessons.userId, 'u2')).all()).toHaveLength(2);
 	});
 

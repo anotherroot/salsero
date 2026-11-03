@@ -72,13 +72,14 @@ type Made = { routine: Routine; exercise: Exercise | null };
 /**
  * The routine row and, in a person's space, its exercise, inside a caller's
  * transaction. A group's routine gets no exercise of its own: nobody would
- * practise it, and each member's Add makes theirs.
+ * practise it, and each member's Add makes theirs. Logs nothing: `createRoutine`
+ * adds History's line, and the clone engine writes its own.
  *
  * `source: 'routine'` and `routineId` are set as a pair. There is no CHECK
  * pairing them (see `schema.ts`); this function is the enforcement, and it is
  * the only thing that ever writes `exercises.routine_id`.
  */
-function insertRoutine(tx: Tx, space: Space, input: RoutineInput, everyDays: number): Made {
+export function insertRoutine(tx: Db, space: Space, input: RoutineInput, everyDays = 3): Made {
 	const routine = tx
 		.insert(routines)
 		.values({ ...input, ...ownerValues(space) })

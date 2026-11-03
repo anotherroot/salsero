@@ -224,32 +224,52 @@ export function createLesson(
 	everyDays = 3
 ): { lesson: Lesson; exercise: Exercise | null } {
 	return db.transaction((tx) => {
-		const lesson = tx
-			.insert(lessons)
-			.values({ ...input, ...ownerValues(space) })
-			.returning()
-			.get();
+		const made = insertLesson(tx, space, input, everyDays);
 		logChange(
 			tx,
 			space,
-			{ ...ofLesson(lesson.id), verb: 'add', subject: 'lesson', after: { title: lesson.title } },
+			{
+				...ofLesson(made.lesson.id),
+				verb: 'add',
+				subject: 'lesson',
+				after: { title: made.lesson.title }
+			},
 			Date.now()
 		);
-		if (isTeam(space)) return { lesson, exercise: null };
-		const exercise = tx
-			.insert(exercises)
-			.values({
-				name: reviewName(lesson.title),
-				source: 'lesson',
-				lessonId: lesson.id,
-				dance: space.dance,
-				userId: space.userId,
-				everyDays
-			})
-			.returning()
-			.get();
-		return { lesson, exercise };
+		return made;
 	});
+}
+
+/**
+ * The lesson row and, in a person's space, its review exercise, inside a
+ * caller's transaction; logs nothing. `createLesson` is this plus History's
+ * line; the clone engine writes its own line.
+ */
+export function insertLesson(
+	tx: Db,
+	space: Space,
+	input: LessonInput,
+	everyDays = 3
+): { lesson: Lesson; exercise: Exercise | null } {
+	const lesson = tx
+		.insert(lessons)
+		.values({ ...input, ...ownerValues(space) })
+		.returning()
+		.get();
+	if (isTeam(space)) return { lesson, exercise: null };
+	const exercise = tx
+		.insert(exercises)
+		.values({
+			name: reviewName(lesson.title),
+			source: 'lesson',
+			lessonId: lesson.id,
+			dance: space.dance,
+			userId: space.userId,
+			everyDays
+		})
+		.returning()
+		.get();
+	return { lesson, exercise };
 }
 
 /** A lesson's root in History, and the lesson as its own subject. */

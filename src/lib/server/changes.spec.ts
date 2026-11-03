@@ -832,6 +832,46 @@ const MUTATIONS: {
 			);
 		}
 	},
+	{
+		name: 'cloneInto (routine)',
+		root: 'routine',
+		verb: 'add',
+		rootId: () => 0,
+		teamOnly: true,
+		run: async () => {
+			const own = createRoutine(db, U1_SALSA, { name: 'Mine', notes: null }).routine.id;
+			return ok(
+				await cloneInto(
+					db,
+					{ kind: 'routine', id: own, into: T1_SALSA, recordings: false },
+					cloneFiles,
+					T
+				)
+			);
+		}
+	},
+	{
+		name: 'cloneInto (lesson)',
+		root: 'lesson',
+		verb: 'add',
+		rootId: () => 0,
+		teamOnly: true,
+		run: async () => {
+			const own = createLesson(db, U1_SALSA, {
+				lessonDay: '2026-11-02',
+				title: 'Mine',
+				notes: null
+			}).lesson.id;
+			return ok(
+				await cloneInto(
+					db,
+					{ kind: 'lesson', id: own, into: T1_SALSA, recordings: false },
+					cloneFiles,
+					T
+				)
+			);
+		}
+	},
 	// video-downloads.ts, on completion
 	{
 		name: 'completeVideoJob',
