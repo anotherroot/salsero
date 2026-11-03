@@ -7,6 +7,7 @@ import { readAdd } from '$lib/server/add-form';
 import { addLesson, addState } from '$lib/server/entries';
 import { localDay } from '$lib/day/day';
 import { whatsNew } from '$lib/server/whats-new';
+import { listSongs } from '$lib/server/songs';
 import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { requireTeam } from '$lib/server/scope';
 import { deleteTeam, peopleOf, remakeCode, renameTeam, restoreTeam } from '$lib/server/teams';
@@ -18,7 +19,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const { team, role, space } = requireTeam(db, locals, params, 'member');
 	const deleted = team.deletedAt !== null;
-	const fresh = whatsNew(db, space.actorId, space.dance).lessons;
+	const news = whatsNew(db, space.actorId, space.dance);
+	const fresh = news.lessons;
 	// The code is for those who may hand it out; a deleted group shows nothing but Restore.
 	const link = !deleted && role !== 'member' ? codeLink(url.origin, team.code) : null;
 	return {
@@ -35,6 +37,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 					// "Added ✓", or Add and its sheet; nothing on a draft.
 					add: l.publishedAt === null ? null : addState(db, space.actorId, l.id)
 				})),
+		// Class songs: the shared ones; an editor's list starts with the drafts.
+		songs: deleted
+			? []
+			: listSongs(db, space)
+					.filter((s) => role !== 'member' || (s.sharedAt !== null && s.status === 'ready'))
+					.map((s) => ({ ...s, draft: s.sharedAt === null, isNew: news.songs.has(s.id) })),
 		canEdit: !deleted && role !== 'member',
 		// "Uses X of Y", for those who may delete files.
 		storage:

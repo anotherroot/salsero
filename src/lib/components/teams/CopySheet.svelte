@@ -6,23 +6,30 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { COPY_NOTE, MAKE_COPY, copyItems, copyLine } from '$lib/teams/view';
-	import type { CopySummary } from '$lib/types';
+	import { MAKE_COPY, copyLine } from '$lib/teams/view';
 
 	/**
 	 * Make my own copy: what it costs, what becomes the person's, and one
 	 * button. A copy that does not fit says so here, with the person's use and
-	 * limit and a way to Ask for more; one that lands opens the new lesson.
+	 * limit and a way to Ask for more; one that lands opens the copy (a
+	 * lesson's, or a class song's).
 	 */
 	let {
 		open,
 		onclose,
-		summary,
+		bytes,
+		items,
+		note,
 		action
 	}: {
 		open: boolean;
 		onclose: () => void;
-		summary: CopySummary;
+		/** What the copy charges to the person. */
+		bytes: number;
+		/** What becomes theirs, a line each. */
+		items: string[];
+		/** Under the list: what stays behind. */
+		note: string;
 		/** Where the form posts, e.g. `?/copy`. */
 		action: string;
 	} = $props();
@@ -34,11 +41,9 @@
 		refused = null;
 		onclose();
 	}
-
-	const items = $derived(copyItems(summary));
 </script>
 
-<Sheet title={MAKE_COPY} sub={copyLine(summary.bytes)} {open} onclose={close}>
+<Sheet title={MAKE_COPY} sub={copyLine(bytes)} {open} onclose={close}>
 	<div class="flex flex-col gap-2">
 		{#if refused}
 			{@const r = refused}
@@ -59,7 +64,7 @@
 				<li class="flex min-h-12 items-center px-4 py-2 text-[16px] font-bold text-ink">{line}</li>
 			{/each}
 		</ul>
-		<p class="px-4 text-[13px] text-muted">{COPY_NOTE}</p>
+		<p class="px-4 text-[13px] text-muted">{note}</p>
 	</div>
 
 	{#snippet footer()}

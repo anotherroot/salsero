@@ -14,6 +14,8 @@ import { setRole } from '$lib/server/membership';
 import { createLesson, getLessonRow, updateLesson } from '$lib/server/lessons';
 import { createCustomExercise } from '$lib/server/exercises';
 import { history } from '$lib/server/changes';
+import { createSongFromUpload, storeAnalysis } from '$lib/server/songs';
+import { deleteGroupSong, shareSong } from '$lib/server/song-share';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import { actions, load } from './[id]/history/[kind]/[rootId]/+page.server';
 import { load as lessonLoad } from '../lessons/[id]/+page.server';
@@ -144,5 +146,38 @@ describe('Edited by', () => {
 		lesson = createLesson(db, U1_SALSA, { lessonDay: '2026-11-01', title: 'Mine', notes: null })
 			.lesson.id;
 		expect(page('u1')).toMatchObject({ edited: null, historyHref: null });
+	});
+});
+
+describe('a class song’s History', () => {
+	type SongHistory = {
+		root: { kind: string; title: string; href: string };
+		changes: { line: string; inDeleted: boolean }[];
+	};
+
+	it('lists its changes for an editor, and a delete is on Recently deleted', async () => {
+		const song = createSongFromUpload(
+			db,
+			T1_SALSA,
+			{
+				file: '00000000-0000-4000-8000-0000000000d1.mp3',
+				mime: 'audio/mpeg',
+				title: 'Chan Chan',
+				style: 'salsa'
+			},
+			Date.now()
+		).id;
+		storeAnalysis(db, song, { beats: [0.5, 1, 1.5], downbeats: [0.5], durationS: 90 });
+		shareSong(db, T1_SALSA, song, Date.now() + 1_000);
+		deleteGroupSong(db, T1_SALSA, song, Date.now() + 2_000);
+		const { value } = await run(() => load(ev('u2', 'song', song)));
+		const data = value as SongHistory;
+		expect(data.root).toMatchObject({
+			kind: 'song',
+			title: 'Chan Chan',
+			href: `/salsa/songs/${song}`
+		});
+		expect(data.changes.map((c) => c.inDeleted)).toEqual([true, false, false]);
+		expect(await run(() => load(ev('u3', 'song', song)))).toEqual({ status: 404 });
 	});
 });

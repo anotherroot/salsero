@@ -23,6 +23,7 @@
 		song,
 		dance,
 		form: given,
+		seen,
 		onarchive
 	}: {
 		open: boolean;
@@ -30,7 +31,10 @@
 		song: { title: string; artist: string | null; style: string; sourceUrl: string | null };
 		dance: Dance;
 		form: DetailsForm | null | undefined;
-		onarchive: () => void;
+		/** What the page showed, for the clash check (JSON). */
+		seen: string;
+		/** A person's own song is archived from here; a group's is deleted from its menu. */
+		onarchive?: () => void;
 	} = $props();
 
 	let busy = $state(false);
@@ -75,6 +79,7 @@
 			}}
 		>
 			{#if otherError}<Banner kind="error" title={otherError} />{/if}
+			<input type="hidden" name="seen" value={seen} />
 
 			<div>
 				<label class={LABEL} for="song-title">Title</label>
@@ -135,10 +140,12 @@
 			<p class="text-center text-[13px] break-all text-muted">From {song.sourceUrl}</p>
 		{/if}
 
-		<div class="flex justify-center border-t border-hairline pt-2">
-			<button type="button" class={button('danger-text', 'sm')} onclick={onarchive}>
-				<Icon name="trash" size={18} />Archive song
-			</button>
-		</div>
+		{#if onarchive}
+			<div class="flex justify-center border-t border-hairline pt-2">
+				<button type="button" class={button('danger-text', 'sm')} onclick={onarchive}>
+					<Icon name="trash" size={18} />Archive song
+				</button>
+			</div>
+		{/if}
 	</div>
 </Sheet>

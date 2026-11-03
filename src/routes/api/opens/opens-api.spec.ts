@@ -12,6 +12,9 @@ import { lessons, opens } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { createLesson } from '$lib/server/lessons';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { createSongFromUpload, storeAnalysis } from '$lib/server/songs';
+import { deleteGroupSong, shareSong } from '$lib/server/song-share';
+import type { Space } from '$lib/server/scope';
 import { POST } from './+server';
 
 let db: Db;
@@ -73,8 +76,49 @@ describe('POST /api/opens', () => {
 
 	it('a bad body is 400, no session is 401', async () => {
 		expect(await post('u2', 'nope')).toBe(400);
-		expect(await post('u2', { kind: 'song', id: 1 })).toBe(400);
+		expect(await post('u2', { kind: 'routine', id: 1 })).toBe(400);
 		expect(await post('u2', { kind: 'lesson', id: 'x' })).toBe(400);
 		expect(await post(null, { kind: 'lesson', id: 1 })).toBe(401);
+	});
+
+	describe('a song', () => {
+		let n = 0;
+		const song = (shared: boolean, space: Space = T1_SALSA) => {
+			n += 1;
+			const id = createSongFromUpload(db, space, {
+				file: `00000000-0000-4000-8000-0000000000e${n}.mp3`,
+				mime: 'audio/mpeg',
+				title: 'S',
+				style: 'salsa'
+			}).id;
+			storeAnalysis(db, id, { beats: [0.5, 1, 1.5], downbeats: [0.5], durationS: 90 });
+			if (shared) shareSong(db, T1_SALSA, id, 5);
+			return id;
+		};
+
+		it('a member opening a shared group song is recorded', async () => {
+			const id = song(true);
+			expect(await post('u2', { kind: 'song', id })).toBe(204);
+			expect(rows()).toEqual([expect.objectContaining({ userId: 'u2', kind: 'song', itemId: id })]);
+		});
+
+		it('an editor opening a draft is recorded', async () => {
+			const id = song(false);
+			expect(await post('u1', { kind: 'song', id })).toBe(204);
+			expect(rows()).toHaveLength(1);
+		});
+
+		it('a draft for a member, an outsider, a deleted song and a person’s own are 404', async () => {
+			const draft = song(false);
+			expect(await post('u2', { kind: 'song', id: draft })).toBe(404);
+			const shared = song(true);
+			expect(await post('u3', { kind: 'song', id: shared })).toBe(404);
+			deleteGroupSong(db, T1_SALSA, shared, 6);
+			expect(await post('u2', { kind: 'song', id: shared })).toBe(404);
+			const own = song(false, U2_SALSA);
+			expect(await post('u2', { kind: 'song', id: own })).toBe(404);
+			expect(await post('u2', { kind: 'song', id: 999 })).toBe(404);
+			expect(rows()).toHaveLength(0);
+		});
 	});
 });

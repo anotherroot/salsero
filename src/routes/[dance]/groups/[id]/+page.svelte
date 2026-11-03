@@ -12,11 +12,13 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import CodeSheet from '$lib/components/teams/CodeSheet.svelte';
 	import LessonRow from '$lib/components/lessons/LessonRow.svelte';
+	import SongRow from '$lib/components/songs/SongRow.svelte';
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import type { IconName } from '$lib/icons/icons';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { groupUsesLine, peopleLine, youLine } from '$lib/teams/view';
+	import { classSongsHeading, groupUsesLine, peopleLine, youLine } from '$lib/teams/view';
+	import { readyMeta, songName, songState } from '$lib/songs/library';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -156,6 +158,30 @@
 				</ul>
 			{/if}
 		</section>
+		<!-- The class playlist: the shared songs, and for its editors the drafts too. -->
+		{#if data.songs.length > 0}
+			<section class="flex flex-col gap-2">
+				<h2 class={SECTION_LABEL}>{classSongsHeading(data.songs.length)}</h2>
+				<ul class={GROUP} aria-label="Class songs">
+					{#each data.songs as s (s.id)}
+						<SongRow
+							href={resolve('/[dance]/songs/[id]', {
+								dance: data.dance.slug,
+								id: String(s.id)
+							})}
+							name={songName(s)}
+							meta={s.status === 'ready'
+								? readyMeta(s, data.dance.styleLabel)
+								: songState(s, data.dance.styleLabel).meta}
+							tone={s.status === 'failed' ? 'danger' : null}
+							sample={s.sample}
+							draft={s.draft}
+							isNew={s.isNew}
+						/>
+					{/each}
+				</ul>
+			</section>
+		{/if}
 	{/if}
 </Screen>
 

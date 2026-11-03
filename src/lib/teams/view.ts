@@ -106,3 +106,8 @@ export function copyItems(c: CopySummary): string[] {
 /** Under the list: what stays behind, and that the copy is the person's for good. */
 export const COPY_NOTE =
 	'Yours to edit, and it stays if the group deletes the lesson. Figure recordings are not copied, and your practice stays on the group’s lesson.';
+
+/** The group page's songs heading: "Class songs · 3". */
+export function classSongsHeading(n: number): string {
+	return n > 0 ? `Class songs · ${n}` : 'Class songs';
+}

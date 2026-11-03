@@ -7,7 +7,7 @@ import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
 import { isTeam, ownedBy, ownerValues, type Space, type Wall } from './scope';
 import { fieldChange, logChange } from './changes';
 import type { TempoFactor } from '$lib/labels';
-import type { ChangeValues, PickerSong, SampleSong, SongItem } from '$lib/types';
+import type { ChangeValues, PickerSong, SampleSong, SongItem, TeamRef } from '$lib/types';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
 export const LEASE_MS = 15 * 60_000;
@@ -157,25 +157,71 @@ export function listSongs(db: Db, space: Space): SongItem[] {
 			desc(songs.id)
 		)
 		.all()
-		.map((s) => {
-			const r = recent.indexOf(s.id);
-			return {
-				id: s.id,
-				title: s.title,
-				artist: s.artist,
-				style: s.style,
-				sourceUrl: s.sourceUrl,
-				status: s.status,
-				error: s.error,
-				durationS: s.durationS,
-				bpm: s.bpm,
-				tempoFactor: s.tempoFactor as TempoFactor,
-				createdAt: s.createdAt,
-				sample: s.status === 'ready' ? songSample(s) : null,
-				recentRank: s.status === 'ready' && r >= 0 ? r : null,
-				sharedAt: s.sharedAt
-			};
-		});
+		.map((s) => songItem(s, recent));
+}
+
+/** A song as Music lists it; `recent` ranks a person's own (none for a group's). */
+function songItem(s: Song, recent: number[]): SongItem {
+	const r = recent.indexOf(s.id);
+	return {
+		id: s.id,
+		title: s.title,
+		artist: s.artist,
+		style: s.style,
+		sourceUrl: s.sourceUrl,
+		status: s.status,
+		error: s.error,
+		durationS: s.durationS,
+		bpm: s.bpm,
+		tempoFactor: s.tempoFactor as TempoFactor,
+		createdAt: s.createdAt,
+		sample: s.status === 'ready' ? songSample(s) : null,
+		recentRank: s.status === 'ready' && r >= 0 ? r : null,
+		sharedAt: s.sharedAt
+	};
+}
+
+/**
+ * The class playlists in a person's Music: the shared, live songs of each
+ * live group of this dance they belong to now, a section per group by name,
+ * each A–Z. Never a draft, editors included: drafts show only in group mode.
+ */
+export function listSharedSongs(
+	db: Db,
+	userId: string,
+	dance: Space['dance']
+): { team: TeamRef; songs: SongItem[] }[] {
+	const rows = db
+		.select({ song: songs, teamId: teams.id, teamName: teams.name })
+		.from(songs)
+		.innerJoin(teams, eq(teams.id, songs.teamId))
+		.innerJoin(
+			teamMembers,
+			and(eq(teamMembers.teamId, songs.teamId), eq(teamMembers.userId, userId))
+		)
+		.where(
+			and(
+				isNull(songs.archivedAt),
+				isNotNull(songs.sharedAt),
+				isNull(songs.userId),
+				eq(songs.dance, dance),
+				eq(teams.dance, dance),
+				isNull(teams.deletedAt),
+				isNull(teams.purgedAt)
+			)
+		)
+		.orderBy(teams.name, teams.id, songs.title, songs.id)
+		.all();
+	const out: { team: TeamRef; songs: SongItem[] }[] = [];
+	for (const r of rows) {
+		let section = out.at(-1);
+		if (section?.team.id !== r.teamId) {
+			section = { team: { id: r.teamId, name: r.teamName }, songs: [] };
+			out.push(section);
+		}
+		section.songs.push(songItem(r.song, []));
+	}
+	return out;
 }
 
 /**

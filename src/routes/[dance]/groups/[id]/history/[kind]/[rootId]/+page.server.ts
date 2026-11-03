@@ -6,13 +6,14 @@ import { getLessonRow } from '$lib/server/lessons';
 import { getGroup, listGroupVariations } from '$lib/server/figures';
 import { getRoutine } from '$lib/server/routines';
 import { getExercise } from '$lib/server/exercises';
+import { getSong } from '$lib/server/songs';
 import { int } from '$lib/server/form';
 import { canRestore, historyLine, previousValue } from '$lib/teams/history';
 import { clashTitle } from '$lib/clash/clash';
 import type { ChangeRootKind } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
-const KINDS = ['lesson', 'figure', 'routine', 'drill'] as const;
+const KINDS = ['lesson', 'figure', 'routine', 'drill', 'song'] as const;
 type Kind = (typeof KINDS)[number];
 
 /**
@@ -50,6 +51,8 @@ function thing(db: Db, dance: string, kind: Kind, id: number): { title: string; 
 			return { title: getRoutine(db, id)?.name ?? 'Routine', href: `/${dance}/routines/${id}` };
 		case 'drill':
 			return { title: getExercise(db, id)?.name ?? 'Drill', href: `/${dance}/exercises/${id}` };
+		case 'song':
+			return { title: getSong(db, id)?.title || 'Song', href: `/${dance}/songs/${id}` };
 	}
 }
 
@@ -71,8 +74,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			was: previousValue(r),
 			restorable: canRestore(r),
 			trashId: r.trashId,
-			// A removal kept in the trash, or an archive: Restore is on Recently deleted.
-			inDeleted: r.trashId !== null || r.verb === 'archive'
+			// A removal kept in the trash, an archive, or a song's delete (archived
+			// too): Restore is on Recently deleted.
+			inDeleted:
+				r.trashId !== null || r.verb === 'archive' || (kind === 'song' && r.verb === 'delete')
 		})),
 		now: Date.now()
 	};

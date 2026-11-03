@@ -4,7 +4,8 @@
  */
 import { fold } from '$lib/fold';
 
-const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title);
+export const byTitle = (a: { title: string }, b: { title: string }) =>
+	a.title.localeCompare(b.title);
 
 /** Songs whose title or artist holds the query, accents and case aside; A to Z. */
 export function searchSongs<S extends { title: string; artist: string | null }>(

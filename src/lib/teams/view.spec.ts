@@ -10,6 +10,7 @@ import {
 	limitLine,
 	MAKE_COPY,
 	groupsTabLabel,
+	classSongsHeading,
 	newPill,
 	noAccountLine,
 	peopleLine,
@@ -126,5 +127,12 @@ describe('groupsTabLabel', () => {
 	it('mentions what is new', () => {
 		expect(groupsTabLabel(false)).toBe('Groups');
 		expect(groupsTabLabel(true)).toBe('Groups, new in your groups');
+	});
+});
+
+describe('classSongsHeading', () => {
+	it('counts the songs the group page lists', () => {
+		expect(classSongsHeading(0)).toBe('Class songs');
+		expect(classSongsHeading(3)).toBe('Class songs · 3');
 	});
 });

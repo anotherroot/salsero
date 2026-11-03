@@ -1,16 +1,44 @@
 import { fail } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { oneOf, optionalText } from '$lib/server/form';
-import { createSongFromUrl, listSongs, retrySong } from '$lib/server/songs';
+import { createSongFromUrl, listSharedSongs, listSongs, retrySong } from '$lib/server/songs';
+import { songUsers } from '$lib/server/song-share';
+import { whatsNew } from '$lib/server/whats-new';
 import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { DANCES } from '$lib/dances/dances';
 import { ownerValues, requireSongAccess, wallOf, type Space } from '$lib/server/scope';
-import { spaceOf } from '$lib/server/group-mode';
+import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ params, locals }) => ({
-	songs: listSongs(getDb(), wallOf(params, locals))
-});
+/**
+ * Group mode: the group's songs, drafts first, and how many people practise
+ * with each shared one. Otherwise the person's own songs, then a section per
+ * group with its shared songs, each marked when it is new to them.
+ */
+export const load: PageServerLoad = ({ params, locals, cookies }) => {
+	const db = getDb();
+	const wall = wallOf(params, locals);
+	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
+	if (mode) {
+		const list = listSongs(db, { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId });
+		return {
+			songs: list,
+			groups: [],
+			users: Object.fromEntries(
+				list.filter((s) => s.sharedAt !== null).map((s) => [s.id, songUsers(db, s.id)])
+			) as Record<number, number>
+		};
+	}
+	const fresh = whatsNew(db, wall.userId, wall.dance).songs;
+	return {
+		songs: listSongs(db, wall),
+		groups: listSharedSongs(db, wall.userId, wall.dance).map((g) => ({
+			team: g.team,
+			songs: g.songs.map((s) => ({ ...s, isNew: fresh.has(s.id) }))
+		})),
+		users: {} as Record<number, number>
+	};
+};
 
 /**
  * Room for a download into this space, charged to its owner (the person, or

@@ -24,12 +24,15 @@
 		open,
 		onclose,
 		dance,
-		form: given
+		form: given,
+		team = null
 	}: {
 		open: boolean;
 		onclose: () => void;
 		dance: Dance;
 		form: AddForm | null | undefined;
+		/** Group mode's group: an upload names it, as the flat endpoint has no cookie to read. */
+		team?: number | null;
 	} = $props();
 
 	let busy = $state(false);
@@ -78,7 +81,7 @@
 			return;
 		}
 		fileProblem = null;
-		startSongUpload(file, dance.slug, style);
+		startSongUpload(file, dance.slug, style, team);
 		close();
 	}
 </script>

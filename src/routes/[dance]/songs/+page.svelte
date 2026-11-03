@@ -17,7 +17,16 @@
 	import UploadRow from '$lib/components/songs/UploadRow.svelte';
 	import AddSongSheet from '$lib/components/songs/AddSongSheet.svelte';
 	import { GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { countOnlyMeta, libraryView, readyMeta, songName, songState } from '$lib/songs/library';
+	import {
+		classLibraryView,
+		countOnlyMeta,
+		groupSections,
+		libraryView,
+		readyMeta,
+		sharedMeta,
+		songName,
+		songState
+	} from '$lib/songs/library';
 	import { upload } from '$lib/songs/upload.svelte';
 	import type { SongItem } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
@@ -84,7 +93,15 @@
 	beforeNavigate(() => clearTimeout(pending));
 	// The upload in flight shows in the Music of the dance it is filed under.
 	const uploadHere = $derived(upload.current?.dance === data.dance.slug);
-	const view = $derived(libraryView(data.songs, query, uploadHere));
+	/** Group mode: the group's songs, drafts and shared; otherwise the person's own. */
+	const team = $derived(data.groupMode?.teamId ?? null);
+	const view = $derived(
+		team !== null
+			? classLibraryView(data.songs, query, uploadHere)
+			: libraryView(data.songs, query, uploadHere)
+	);
+	/** Below the person's own: each group's shared songs (none in group mode). */
+	const groups = $derived(groupSections(data.groups, query));
 
 	/*
 	 * The worker runs at home once a minute, so a waiting song changes state on
@@ -126,14 +143,37 @@
 	</li>
 {/snippet}
 
-{#snippet readyRow(s: SongItem, q: string)}
+{#snippet readyRow(s: SongItem, q: string, isNew = false)}
 	<SongRow
 		href={songHref(s)}
 		name={songName(s)}
 		query={q}
-		meta={readyMeta(s, data.dance.styleLabel)}
+		meta={s.sharedAt !== null && team !== null
+			? sharedMeta(s, data.dance.styleLabel, data.users[s.id] ?? 0)
+			: readyMeta(s, data.dance.styleLabel)}
 		sample={s.sample}
+		draft={team !== null && s.sharedAt === null}
+		{isNew}
 	/>
+{/snippet}
+
+{#snippet addingGroup(adding: SongItem[], heading: string)}
+	<h2 class="{SECTION_LABEL} pt-2.5">{heading}</h2>
+	<ul class={GROUP}>
+		<UploadRow dance={data.dance.slug} />
+		{#each adding as s (s.id)}
+			{@render addingRow(s, '')}
+			{#if s.status === 'failed'}
+				{@render retryStrip(s)}
+			{/if}
+		{/each}
+	</ul>
+{/snippet}
+
+{#snippet workerNote()}
+	<Banner kind="info" title="Runs on the laptop at home">
+		Downloads and beat analysis happen about once a minute while it is on.
+	</Banner>
 {/snippet}
 
 <Screen title="Music">
@@ -144,7 +184,7 @@
 
 	<div class="h-0.5 flex-none"></div>
 
-	{#if view.kind !== 'empty'}
+	{#if view.kind !== 'empty' || data.groups.length > 0}
 		<form role="search" onsubmit={(e) => e.preventDefault()}>
 			<SearchField
 				name="q"
@@ -185,24 +225,30 @@
 		</div>
 	{/if}
 
-	{#if view.kind === 'list'}
-		{#if view.adding.length || uploadHere}
-			<h2 class="{SECTION_LABEL} pt-2.5">{view.addingHeading}</h2>
+	{#if view.kind === 'class'}
+		{#if view.adding.length || uploadHere}{@render addingGroup(
+				view.adding,
+				view.addingHeading
+			)}{/if}
+		{#if view.worker}{@render workerNote()}{/if}
+		{#if view.drafts.length}
+			<h2 class="{SECTION_LABEL} pt-2.5">{view.draftsHeading}</h2>
 			<ul class={GROUP}>
-				<UploadRow dance={data.dance.slug} />
-				{#each view.adding as s (s.id)}
-					{@render addingRow(s, '')}
-					{#if s.status === 'failed'}
-						{@render retryStrip(s)}
-					{/if}
-				{/each}
+				{#each view.drafts as s (s.id)}{@render readyRow(s, '')}{/each}
 			</ul>
 		{/if}
-		{#if view.worker}
-			<Banner kind="info" title="Runs on the laptop at home">
-				Downloads and beat analysis happen about once a minute while it is on.
-			</Banner>
+		{#if view.shared.length}
+			<h2 class="{SECTION_LABEL} pt-2.5">{view.sharedHeading}</h2>
+			<ul class={GROUP}>
+				{#each view.shared as s (s.id)}{@render readyRow(s, '')}{/each}
+			</ul>
 		{/if}
+	{:else if view.kind === 'list'}
+		{#if view.adding.length || uploadHere}{@render addingGroup(
+				view.adding,
+				view.addingHeading
+			)}{/if}
+		{#if view.worker}{@render workerNote()}{/if}
 		{#if view.recent.length}
 			<h2 class="{SECTION_LABEL} pt-2.5">Recent</h2>
 			<ul class={GROUP}>
@@ -228,7 +274,7 @@
 					{/if}
 				{/each}
 			</ul>
-		{:else}
+		{:else if groups.length === 0}
 			<EmptyState
 				icon="search"
 				title={`No song matches “${query.trim()}”`}
@@ -241,7 +287,20 @@
 				{/snippet}
 			</EmptyState>
 		{/if}
-	{:else}
+	{:else if team !== null}
+		<div class="h-10 flex-none"></div>
+		<EmptyState
+			icon="music"
+			title="No class songs yet"
+			body="Add one from YouTube or upload an audio file. It stays a draft, seen only by the group's editors, until you share it with the class."
+		>
+			{#snippet action()}
+				<button type="button" class={button('primary', 'md')} onclick={() => (adding = true)}>
+					<Icon name="plus" size={20} /> Add a song
+				</button>
+			{/snippet}
+		</EmptyState>
+	{:else if groups.length === 0}
 		<div class="h-10 flex-none"></div>
 		<EmptyState
 			icon="music"
@@ -255,6 +314,24 @@
 			{/snippet}
 		</EmptyState>
 	{/if}
+
+	<!-- Each group's class songs, after the person's own (a search keeps the matches). -->
+	{#each groups as g (g.team.id)}
+		<h2 class="{SECTION_LABEL} pt-2.5">{g.heading}</h2>
+		<ul class={GROUP} aria-label={g.team.name}>
+			{#each g.songs as s (s.id)}{@render readyRow(
+					s,
+					view.kind === 'search' ? query : '',
+					s.isNew
+				)}{/each}
+		</ul>
+	{/each}
 </Screen>
 
-<AddSongSheet open={adding} onclose={() => (adding = false)} dance={data.dance} form={addForm} />
+<AddSongSheet
+	open={adding}
+	onclose={() => (adding = false)}
+	dance={data.dance}
+	form={addForm}
+	{team}
+/>

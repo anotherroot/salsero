@@ -69,7 +69,7 @@
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import CopySheet from '$lib/components/teams/CopySheet.svelte';
-	import { copyLine } from '$lib/teams/view';
+	import { COPY_NOTE, copyItems, copyLine } from '$lib/teams/view';
 	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
@@ -1023,7 +1023,14 @@
 {/if}
 
 {#if data.copy}
-	<CopySheet open={copying} onclose={() => (copying = false)} summary={data.copy} action="?/copy" />
+	<CopySheet
+		open={copying}
+		onclose={() => (copying = false)}
+		bytes={data.copy.bytes}
+		items={copyItems(data.copy)}
+		note={COPY_NOTE}
+		action="?/copy"
+	/>
 {/if}
 
 {#if data.add?.added || data.historyHref || data.copy}
