@@ -3,6 +3,8 @@
 > **Status:** approved in brainstorming, 2026-09-22. Hosted at
 > `salsa.anotherroot.eu`. Several people since 2026-11-02, each behind their
 > own wall — see [`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md).
+> A class can share lessons through a group, a wall beside the person — see
+> [`2026-11-02-groups-design.md`](2026-11-02-groups-design.md).
 > Multi-dance since 2026-09-24 — see
 > [`2026-09-24-multi-dance-design.md`](2026-09-24-multi-dance-design.md) for
 > the dance dimension, the registry, and the URL scheme.
@@ -622,7 +624,7 @@ unsaved.
   an edit, and is not guarded. Edit mode still has no Cancel; leaving is the
   way to discard.
 
-The look (colours, type, icons, shared components) and the four tabs (Today, Moves, Lessons, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
+The look (colours, type, icons, shared components) and the five tabs (Today, Moves, Lessons, Groups, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
 
 ## Where you are
 
@@ -698,7 +700,9 @@ password and unknown user, admin seeded from env (`ADMIN_EMAIL`,
 
 Single user until 2026-11-02. Accounts — the admin's one-time invites, the
 owner wall inside each dance, storage limits — are in
-[`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md).
+[`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md). The owner
+wall is a person or a group since step 2: see
+[`2026-11-02-groups-design.md`](2026-11-02-groups-design.md).
 
 ## Testing
 

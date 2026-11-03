@@ -68,6 +68,20 @@ costing the history:
 ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'
 ```
 
+**Before the groups migrations (`0020`–`0022`)**, check the data on a fresh
+backup copy (never the live database). `0021` adds unique indexes on an
+entry's person and target, and fails at boot if a person already has two
+exercises for the same target. Run each query; every one must print nothing:
+
+```sql
+select user_id, lesson_id, count(*) from exercises where lesson_id is not null group by 1,2 having count(*) > 1;
+select user_id, routine_id, count(*) from exercises where routine_id is not null group by 1,2 having count(*) > 1;
+select user_id, figure_id, count(*) from exercises where figure_id is not null group by 1,2 having count(*) > 1;
+select user_id, drill_id, count(*) from exercises where drill_id is not null group by 1,2 having count(*) > 1;
+```
+
+Merge or archive the duplicates by hand first if any prints a row.
+
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
 existing `build/` rsync carries them. `scripts/make-clips.sh` regenerates them

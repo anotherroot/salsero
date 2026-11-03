@@ -25,7 +25,7 @@ bachata."
 
 Success: the two apps have icons that say salsa and bachata at a glance; every
 screen in both apps reads as the same, modern app, in light and dark; the
-bottom bar has four tabs with icons; nothing the app does today is lost.
+bottom bar has five tabs with icons (four until groups); nothing the app does today is lost.
 
 ## Goals, non-goals, anti-goals
 
@@ -82,9 +82,9 @@ bottom bar has four tabs with icons; nothing the app does today is lost.
 - **Segmented control:** a cream pill switch on the band (track cream at 16 %,
   selected segment solid cream with band-coloured text); on a sheet it uses
   the neutral form from the design system.
-- **Tab bar:** four tabs; inactive tabs are 28 px outline icons only; the
+- **Tab bar:** five tabs (Groups added by [groups](2026-11-02-groups-design.md)); inactive tabs are 28 px outline icons only; the
   current tab is a tinted pill (accent at 12 %) with its filled icon and its
-  label beside it, and takes a wider column. No bar on the top edge.
+  label beside it, and takes a wider column (active 2fr, the others 1fr). No bar on the top edge.
 - **Icons:** one family on a 24 px grid, 2 px rounded strokes; filled variants
   for the current tab and a few states (play, pause, star…). The set is on the
   design system board (section 04).
@@ -176,7 +176,7 @@ Every component exists in the states on the design system board (sections
 
 ## Navigation
 
-- **Four tabs: Today · Moves · Lessons · Music.** The tab bar shows on every
+- **Five tabs: Today · Moves · Lessons · Groups · Music.** The tab bar shows on every
   screen of a dance except Practice and share; a pushed screen has a back
   chevron on the band and the bar too (an edit's Save bar or a selection bar
   takes the bottom and the tab bar steps aside). See
