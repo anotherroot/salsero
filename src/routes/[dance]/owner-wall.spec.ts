@@ -2050,6 +2050,9 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		expect(data.routine!.shape.slots).toHaveLength(1);
 		expect(data.callNames).toEqual([expect.objectContaining({ id: V2, name: 'Enchufla · Basic' })]);
 		expect(data.graph.figures.map((f) => f.id)).toContain(V2);
+		// The draft's variation is not on a member's graph, not even as an id.
+		expect(data.graph.figures.map((f) => f.id)).not.toContain(V3);
+		expect(player(U1, `routine=${R}`).graph.figures.map((f) => f.id)).toContain(V3);
 		expect(data.exercise?.id).toBe(entry.id);
 		holdsNothingOfTheDraft(data);
 		expect(() => player(U3, `routine=${R}`)).toThrow(threw404);
@@ -2118,6 +2121,21 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		expect(drill()).toMatchObject({ add: null, canLog: true });
 		// The entry's own page: settings are the person's, the content is the group's.
 		expect(open('exercise', U2, entry.id)).toMatchObject({ canEdit: true, canEditContent: false });
+	});
+
+	// Catches: a member's figure, lesson or routine entry offering edits on the group's sections.
+	it('every entry on a group’s thing shows its content read-only; one’s own stays editable', () => {
+		addLesson(db, 'u2', P, { lesson: true, routineIds: [R], drillIds: [], figureIds: [V2] }, 5);
+		for (const target of [{ figureId: V2 }, { lessonId: P }, { routineId: R }]) {
+			const entry = entryFor(db, 'u2', target)!;
+			expect(open('exercise', U2, entry.id)).toMatchObject({
+				canEdit: true,
+				canEditContent: false
+			});
+		}
+		const mine = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Mine' })!.figure.id;
+		const own = addFigureExercise(db, 'u2', mine)!;
+		expect(open('exercise', U2, own.id)).toMatchObject({ canEditContent: true });
 	});
 
 	it('Practise on a group figure waits for a lesson the person added', async () => {

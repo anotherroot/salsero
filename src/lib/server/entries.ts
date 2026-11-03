@@ -236,25 +236,34 @@ function ensureEntry(db: Db, userId: string, target: EntryTarget, values: EntryV
  * False, with nothing written, unless the lesson is a published group lesson
  * the person reads. Picks outside the lesson's reach are ignored (risk 21).
  * Running it again with the same picks changes nothing.
+ *
+ * `touch: false` (Add on a drill's page, one pick from a lesson already
+ * added) leaves an existing `lesson_adds` row as it is: only confirming the
+ * sheet or Not now moves `seen_at`, so the lesson's other new items stay new.
  */
 export function addLesson(
 	db: Db,
 	userId: string,
 	lessonId: number,
 	picks: AddPicks,
-	now: number
+	now: number,
+	{ touch = true }: { touch?: boolean } = {}
 ): boolean {
 	return db.transaction((tx) => {
 		const lesson = addableLesson(tx, userId, lessonId);
 		if (!lesson) return false;
 		const reach = reachFrom(tx, lesson.teamId!, [lesson.id]);
-		tx.insert(lessonAdds)
-			.values({ userId, lessonId, addedAt: now, seenAt: now })
-			.onConflictDoUpdate({
-				target: [lessonAdds.userId, lessonAdds.lessonId],
-				set: { addedAt: now, seenAt: now }
-			})
-			.run();
+		const add = tx.insert(lessonAdds).values({ userId, lessonId, addedAt: now, seenAt: now });
+		if (touch) {
+			add
+				.onConflictDoUpdate({
+					target: [lessonAdds.userId, lessonAdds.lessonId],
+					set: { addedAt: now, seenAt: now }
+				})
+				.run();
+		} else {
+			add.onConflictDoNothing().run();
+		}
 		const dance = lesson.dance;
 		if (picks.lesson) {
 			ensureEntry(

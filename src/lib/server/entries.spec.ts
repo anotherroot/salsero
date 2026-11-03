@@ -524,6 +524,30 @@ describe('adding a group lesson', () => {
 			expect(newInLesson(db, 'u3', P)).toEqual([]);
 		});
 
+		// Catches: Add on a drill's page (one pick) clearing the lesson's other new items.
+		it('touch: false adds one pick and keeps the rest new, the add row as it was', () => {
+			addLesson(db, 'u2', Q, { ...none, drillIds: [D] }, 10);
+			const R2 = createRoutine(db, T1_SALSA, { name: 'Second', notes: null }).routine.id;
+			linkRoutine(db, Q, R2);
+			const D2 = drill('Footwork');
+			linkExercise(db, Q, D2);
+			expect(newInLesson(db, 'u2', Q).map((i) => i.id)).toEqual([R2, D2]);
+			expect(
+				addLesson(db, 'u2', Q, { ...none, drillIds: [D2] }, Date.now() + 1000, { touch: false })
+			).toBe(true);
+			expect(entryFor(db, 'u2', { drillId: D2 })!.archivedAt).toBeNull();
+			expect(newInLesson(db, 'u2', Q)).toEqual([
+				{ kind: 'routine', id: R2, name: 'Second', ticked: true }
+			]);
+			expect(
+				db
+					.select()
+					.from(lessonAdds)
+					.where(and(eq(lessonAdds.userId, 'u2'), eq(lessonAdds.lessonId, Q)))
+					.get()
+			).toMatchObject({ addedAt: 10, seenAt: 10 });
+		});
+
 		// Catches: offering a routine or drill the person already practises.
 		it('leaves out what the person already has live', () => {
 			addLesson(db, 'u2', Q, { ...none, drillIds: [D] }, 10);

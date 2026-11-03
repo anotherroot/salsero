@@ -64,9 +64,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			// Only a drill's sections are its own; the others show their owner's.
 			linkable: own.source === 'custom' ? linkableSections(db, { exerciseId: own.id }) : [],
 			canEdit: true,
-			// An entry on a group's drill shows the drill's content, which is the
-			// group's editors' to change, never the entry's (risk 26).
-			canEditContent: own.source !== 'added',
+			// An entry on a group's thing (its lesson, routine, variation or drill)
+			// shows the group's content, which is the group's editors' to change,
+			// never the entry's (risk 26). The Log popups follow the same rule.
+			canEditContent: popup.exercise.team === null,
 			canLog: true,
 			drill: null,
 			add: null
@@ -166,7 +167,7 @@ export const actions: Actions = {
 		const route = drillAddRoute(db, userId, row);
 		if (!route || !route.added) throw error(404, 'No such exercise');
 		const picks = { lesson: false, routineIds: [], drillIds: [row.id], figureIds: [] };
-		if (!addLesson(db, userId, route.lessonId, picks, Date.now())) {
+		if (!addLesson(db, userId, route.lessonId, picks, Date.now(), { touch: false })) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'addDrill', ok: true };

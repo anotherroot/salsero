@@ -48,6 +48,11 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// The routine's own space draws it: a group's routine names the group's
 	// variations on the group's graph, never the member's own (risk 26).
 	const space = found?.space ?? wall;
+	// A reader's graph holds only what they reach: a draft's variation (its
+	// id, its holds) never reaches a member's player (risk 20).
+	const reached = found?.reach?.variations ?? null;
+	const graph = buildGraph(db, space);
+	if (reached) graph.figures = graph.figures.filter((f) => reached.has(f.id));
 	const shape = routine ? (routineShapes(db, space).get(routine.id) ?? { slots: [] }) : null;
 	// Every figure the routine can call: the run's pool, and what the voice has
 	// a name for.
@@ -97,7 +102,7 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		callNames: listFiguresForCall(db, space, figureIds),
 		// The position graph, which a routine is flattened and walked on.
 		// Client-safe: `Graph` is plain data from a pure module.
-		graph: buildGraph(db, space),
+		graph,
 		exercise,
 		exercises: listPickExercises(db, wall),
 		// Every pattern's takes: which one the run uses is a client-side choice
