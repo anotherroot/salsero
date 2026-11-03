@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
 import {
 	exercises,
@@ -21,12 +21,14 @@ import {
 import { createTeam, joinTeam } from '../teams';
 import { createFigure } from '../figures';
 import { createRoutine } from '../routines';
-import { createLesson } from '../lessons';
+import { createLesson, publishLesson } from '../lessons';
 import { createSongFromUrl } from '../songs';
 import { seedPositions } from '../positions';
 import type { Space, Wall } from '../scope';
 import { T1_SALSA, U2_SALSA } from '../test-walls';
 import { repoint, repointPreview } from './repoint';
+import { cloneInto } from './clone';
+import type { CloneFiles } from './files';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const NOW = T + 1000;
@@ -518,6 +520,7 @@ describe('repoint: a song', () => {
 describe('repoint: a lesson', () => {
 	it('merges the entry into the target’s and adds the target once with addLesson', () => {
 		const g = lesson(T1_SALSA, 'Class');
+		publishLesson(db, T1_SALSA, g, T);
 		const p = lesson(U2_SALSA, 'My notes');
 		const own = ownExercise('lessonId', 'u2', p)!;
 		logSets(own.id, 2);
@@ -557,6 +560,115 @@ describe('repoint: a lesson', () => {
 				.where(and(eq(exercises.lessonId, g), eq(exercises.userId, 'u2')))
 				.all()
 		).toHaveLength(1);
+	});
+
+	it('addLesson goes through Add: a draft group lesson is not added', () => {
+		const g = lesson(T1_SALSA, 'Draft');
+		const p = lesson(U2_SALSA, 'My notes');
+		repoint(db, 'u2', 'salsa', 'lesson', p, g, { entries: true, addLesson: true }, NOW);
+		expect(db.select().from(lessonAdds).all()).toEqual([]);
+	});
+});
+
+describe('repoint: what the review ruled', () => {
+	const mainFirst = (stepId: number) =>
+		db
+			.select({ f: routineStepOptions.figureId })
+			.from(routineStepOptions)
+			.where(eq(routineStepOptions.stepId, stepId))
+			.orderBy(asc(routineStepOptions.createdAt), sql`routine_step_options.rowid`)
+			.all()
+			.map((r) => r.f);
+
+	it("an option clash keeps the slot's main figure", () => {
+		const g = figure(T1_SALSA, 'Enchufla', 'Doble');
+		const p = figure(U2_SALSA, 'Enchufla', 'Doble');
+		const x = figure(U2_SALSA, 'Setenta', 'Basic');
+		const r = routine(U2_SALSA, 'Warm-up');
+		const gMain = slot(r, 0, [g, x, p]);
+		const pMain = slot(r, 1, [p, x, g]);
+		repoint(db, 'u2', 'salsa', 'figure', g, p, ALL, NOW);
+		expect(mainFirst(gMain)).toEqual([p, x]);
+		expect(mainFirst(pMain)).toEqual([p, x]);
+	});
+
+	it('an embed that would put the target in itself is skipped (the target then nests)', () => {
+		const g = routine(T1_SALSA, 'Class routine');
+		const p = routine(U2_SALSA, 'My routine');
+		const other = routine(U2_SALSA, 'Social');
+		const inP = embed(p, 0, g);
+		const inOther = embed(other, 0, g);
+		const report = repoint(db, 'u2', 'salsa', 'routine', g, p, ALL, NOW);
+		expect(childOf(inP)).toBe(g);
+		expect(childOf(inOther)).toBe(g);
+		expect(report.routines).toEqual([]);
+	});
+
+	it('no embed moves onto a target that embeds a routine itself', () => {
+		const g = routine(T1_SALSA, 'Class routine');
+		const p = routine(U2_SALSA, 'My routine');
+		embed(p, 0, routine(U2_SALSA, 'Inner'));
+		const step = embed(routine(U2_SALSA, 'Social'), 0, g);
+		const report = repoint(db, 'u2', 'salsa', 'routine', g, p, ALL, NOW);
+		expect(childOf(step)).toBe(g);
+		expect(report.routines).toEqual([]);
+	});
+
+	it('a group drill onto an archived personal drill is refused, nothing written', () => {
+		const g = drill({ teamId: 1 }, 'Spins');
+		const p = drill({ userId: 'u2' }, 'Spins');
+		db.update(exercises).set({ archivedAt: T }).where(eq(exercises.id, p)).run();
+		const onG = entry('u2', { source: 'added', drillId: g });
+		logSets(onG, 1);
+		expect(() => repoint(db, 'u2', 'salsa', 'drill', g, p, ALL, NOW)).toThrow();
+		expect(exerciseOf(onG).archivedAt).toBeNull();
+		expect(setCount(onG)).toBe(1);
+	});
+
+	describe('copy, then re-point: the live practice wins', () => {
+		const files: CloneFiles = {
+			async link(_kind, file) {
+				return `copy-${file}`;
+			},
+			async unlink() {}
+		};
+		const copy = async (kind: 'routine' | 'drill', id: number) => {
+			const made = await cloneInto(
+				db,
+				{ kind, id, into: U2_SALSA, recordings: false },
+				files,
+				NOW,
+				Number.POSITIVE_INFINITY,
+				{ trusted: true }
+			);
+			if (!made.ok) throw new Error('no copy');
+			return made.id;
+		};
+
+		it('a group routine: the paused copy takes over the live entry', async () => {
+			const g = routine(T1_SALSA, 'Class routine');
+			const onG = entry('u2', { source: 'routine', routineId: g, everyDays: 2 });
+			logSets(onG, 3);
+			const c = await copy('routine', g);
+			const own = ownExercise('routineId', 'u2', c)!;
+			expect(own.active).toBe(false);
+			repoint(db, 'u2', 'salsa', 'routine', g, c, ALL, NOW);
+			expect(exerciseOf(own.id)).toMatchObject({ active: true, everyDays: 2, archivedAt: null });
+			expect(setCount(own.id)).toBe(3);
+			expect(exerciseOf(onG).archivedAt).toBe(NOW);
+		});
+
+		it('a group drill: the paused copy takes over the live entry', async () => {
+			const g = drill({ teamId: 1 }, 'Spins');
+			const onG = entry('u2', { source: 'added', drillId: g, everyDays: 2 });
+			logSets(onG, 3);
+			const c = await copy('drill', g);
+			expect(exerciseOf(c).active).toBe(false);
+			repoint(db, 'u2', 'salsa', 'drill', g, c, ALL, NOW);
+			expect(exerciseOf(c)).toMatchObject({ active: true, everyDays: 2, archivedAt: null });
+			expect(setCount(c)).toBe(3);
+			expect(exerciseOf(onG).archivedAt).toBe(NOW);
+		});
 	});
 });
 

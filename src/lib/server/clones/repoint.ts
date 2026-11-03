@@ -15,15 +15,14 @@
  * the caller does, when its flow says so. It does archive an entry that was
  * merged into another, since one person has one entry per target.
  */
-import { and, eq, inArray, or } from 'drizzle-orm';
-import type { CloneKind, TwinKind } from '$lib/types';
+import { and, asc, eq, inArray, isNotNull, or, sql } from 'drizzle-orm';
+import type { AddPicks, CloneKind, TwinKind } from '$lib/types';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { Db } from '../db';
 import {
 	exercises,
 	figureGroups,
 	figures,
-	lessonAdds,
 	lessonExercises,
 	lessonFigures,
 	lessonRoutines,
@@ -43,6 +42,7 @@ import {
 import { inSpace, ownedBy, type Wall } from '../scope';
 import { labelFor } from '../figures';
 import { reviewName } from '../lessons';
+import { addLesson } from '../entries';
 
 export type RepointReport = {
 	/** The person's routines whose slots or embeds moved, archived included, by name. */
@@ -322,10 +322,11 @@ export function repointPreview(
 
 /**
  * Practice carried from one exercise onto another: the sets move. When `from`
- * is live and `into` archived, `revive` brings `into` back with `from`'s
- * schedule and practice settings (the live practice wins); `archiveFrom`
- * archives a live `from` at `now`, so one person never has two live
- * exercises on one target.
+ * is live (not archived) and `into` is archived, or `into` is paused while
+ * `from` is active (a copy starts paused while its source is practised, R23),
+ * `revive` gives `into` `from`'s schedule, practice settings and active state,
+ * unarchived: the live practice wins. `archiveFrom` archives a live `from` at
+ * `now`, so one person never has two live exercises on one target.
  */
 function carry(
 	tx: Db,
@@ -336,7 +337,9 @@ function carry(
 ): void {
 	tx.update(sets).set({ exerciseId: into.id }).where(eq(sets.exerciseId, from.id)).run();
 	const patch: Partial<Exercise> = opts.name === null ? {} : { name: opts.name };
-	if (from.archivedAt === null && into.archivedAt !== null && opts.revive) {
+	const wins =
+		from.archivedAt === null && (into.archivedAt !== null || (!into.active && from.active));
+	if (wins && opts.revive) {
 		Object.assign(patch, {
 			archivedAt: null,
 			everyDays: from.everyDays,
@@ -390,8 +393,9 @@ function moveEntry(
 
 /**
  * A drill's practice. From a group drill the person's `added` entry goes: onto
- * a personal drill (sets moved, the entry archived) or a group drill (moved or
- * merged). From a personal drill its own sets go: onto a personal drill, or
+ * a personal drill (sets moved, the entry archived, its settings taken when the
+ * drill is paused: `carry`; never an archived drill, `repoint` refuses one) or
+ * a group drill (moved or merged). From a personal drill its own sets go: onto a personal drill, or
  * onto the person's entry for a group drill, made or brought back with the
  * personal drill's settings.
  */
@@ -406,7 +410,7 @@ function moveDrillPractice(
 	const toRow = tx.select().from(exercises).where(eq(exercises.id, to.id)).get()!;
 	const toMine = inSpace(to, wall);
 	if (!inSpace(from, wall)) {
-		if (toMine) carry(tx, practice, toRow, { archiveFrom: true, revive: false, name: null }, now);
+		if (toMine) carry(tx, practice, toRow, { archiveFrom: true, revive: true, name: null }, now);
 		else moveEntry(tx, wall, practice, 'drillId', to, now);
 		return;
 	}
@@ -483,6 +487,29 @@ function moveTwin(tx: Db, userId: string, kind: TwinKind, fromId: number, toId: 
 	}
 }
 
+const NO_PICKS: AddPicks = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
+
+/**
+ * The embedding slots that may take `toId`: none when `toId` embeds a routine
+ * itself (one level of embedding). That covers a slot of `toId` itself, which
+ * would make it embed itself: such a slot already makes `toId` a nesting
+ * routine. A skipped slot stays on `fromId` and is in no report, so here a
+ * `repointPreview` (which cannot know the target) counts what `repoint` skips.
+ */
+function embeddable(
+	db: Db,
+	toId: number,
+	embeds: { stepId: number; routineId: number }[]
+): { stepId: number; routineId: number }[] {
+	if (embeds.length === 0) return embeds;
+	const nests = db
+		.select({ id: routineSteps.id })
+		.from(routineSteps)
+		.where(and(eq(routineSteps.routineId, toId), isNotNull(routineSteps.childRoutineId)))
+		.get();
+	return nests ? [] : embeds;
+}
+
 /**
  * Move the person's own rows from `fromId` to `toId` (see the module comment
  * for which), in one transaction. A row that would duplicate one already on
@@ -505,21 +532,32 @@ export function repoint(
 	return tx.transaction((db) => {
 		const from = rootOrThrow(db, wall, kind, fromId);
 		const to = rootOrThrow(db, wall, kind, toId);
+		if (kind === 'drill' && !inSpace(from, wall) && inSpace(to, wall)) {
+			const drill = db.select().from(exercises).where(eq(exercises.id, toId)).get()!;
+			if (drill.archivedAt !== null) throw new Error(`repoint: drill ${toId} is archived`);
+		}
 		const found = find(db, wall, kind, from);
+		if (kind === 'routine') found.embeds = embeddable(db, toId, found.embeds);
 		const report = reportOf(db, kind, found, opts.entries);
 
 		for (const { stepId } of found.options) {
-			const held = db
-				.select()
+			// Main figure first (routines.ts' MAIN_FIRST): on a clash the earlier row keeps its place.
+			const order = db
+				.select({ figureId: routineStepOptions.figureId })
 				.from(routineStepOptions)
-				.where(and(eq(routineStepOptions.stepId, stepId), eq(routineStepOptions.figureId, toId)))
-				.get();
-			const at = and(
-				eq(routineStepOptions.stepId, stepId),
-				eq(routineStepOptions.figureId, fromId)
-			);
-			if (held) db.delete(routineStepOptions).where(at).run();
-			else db.update(routineStepOptions).set({ figureId: toId }).where(at).run();
+				.where(eq(routineStepOptions.stepId, stepId))
+				.orderBy(asc(routineStepOptions.createdAt), sql`routine_step_options.rowid`)
+				.all()
+				.map((o) => o.figureId);
+			const at = (id: number) =>
+				and(eq(routineStepOptions.stepId, stepId), eq(routineStepOptions.figureId, id));
+			const held = order.indexOf(toId);
+			if (held !== -1 && held < order.indexOf(fromId)) {
+				db.delete(routineStepOptions).where(at(fromId)).run();
+				continue;
+			}
+			if (held !== -1) db.delete(routineStepOptions).where(at(toId)).run();
+			db.update(routineStepOptions).set({ figureId: toId }).where(at(fromId)).run();
 		}
 
 		if (found.embeds.length > 0) {
@@ -599,11 +637,8 @@ export function repoint(
 		const twinKind = TWIN_KINDS[kind];
 		if (twinKind) moveTwin(db, userId, twinKind, fromId, toId);
 
-		if (kind === 'lesson' && opts.addLesson && to.teamId !== null) {
-			db.insert(lessonAdds)
-				.values({ userId, lessonId: toId, addedAt: now, seenAt: now })
-				.onConflictDoNothing()
-				.run();
+		if (kind === 'lesson' && opts.addLesson) {
+			addLesson(db, userId, toId, NO_PICKS, now, { touch: false });
 		}
 		return report;
 	});
