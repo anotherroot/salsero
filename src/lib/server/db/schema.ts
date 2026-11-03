@@ -1010,6 +1010,22 @@ export const lessonAdds = sqliteTable(
 	(t) => [primaryKey({ columns: [t.userId, t.lessonId] })]
 );
 
+/**
+ * When a person last opened a group's lesson or song. "What's new" is derived
+ * from it (`whats-new.ts`); no unread flag is ever stored.
+ */
+export const opens = sqliteTable(
+	'opens',
+	{
+		userId: text('user_id').notNull(),
+		/** 'lesson' | 'song'. */
+		kind: text('kind').notNull(),
+		itemId: integer('item_id').notNull(),
+		openedAt: integer('opened_at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.kind, t.itemId] })]
+);
+
 /** The change log of a team: one row per edit, under the root it belongs to. */
 export const teamChanges = sqliteTable(
 	'team_changes',
