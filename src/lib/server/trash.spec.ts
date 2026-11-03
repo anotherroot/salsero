@@ -74,6 +74,7 @@ import { deleteGroupSong } from './song-share';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
 import { TRASH_MS } from '$lib/limits';
+import { stampGene } from './clones/genes';
 
 const DAY = 24 * 60 * 60 * 1000;
 const MB = 1024 ** 2;
@@ -333,6 +334,95 @@ describe('a group link and recording', () => {
 		expect(trashRow(gone.trashId!)).toMatchObject({ kind: 'recording', sizeBytes: 3 * MB });
 		expect(restoreTrash(db, T1_SALSA, gone.trashId!, T + 1)).toEqual({ ok: true });
 		expect(db.select({ id: recordings.id }).from(recordings).all()).toEqual([{ id: rec.id }]);
+	});
+
+	it('restoring a recording the family has here again is refused', () => {
+		const F = variation().figure.id;
+		const rec = addRecording(
+			db,
+			{ figureId: F, file: REC, mime: 'video/mp4', kind: 'video', sizeBytes: 3 * MB, note: null },
+			'u1'
+		);
+		const gene = stampGene(db, 'recording', rec.id);
+		const gone = deleteRecording(db, rec.id, 'u1', T)!;
+		// A Send put the family's recording back on the same figure since.
+		const again = db
+			.insert(recordings)
+			.values({
+				figureId: F,
+				file: FILE,
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 3 * MB,
+				geneId: gene
+			})
+			.returning()
+			.get();
+		expect(restoreTrash(db, T1_SALSA, gone.trashId!, T + 1)).toEqual({
+			ok: false,
+			reason: 'family'
+		});
+		expect(db.select({ id: recordings.id }).from(recordings).all()).toEqual([{ id: again.id }]);
+		expect(trashRow(gone.trashId!).restoredAt).toBeNull();
+		expect(restoreDeleted(db, T1_SALSA, 'recording', gone.trashId!, T + 1)).toEqual({
+			ok: false,
+			message: 'A copy of this is here already.'
+		});
+
+		// Once that one is gone, the trashed one comes back.
+		db.delete(recordings).where(eq(recordings.id, again.id)).run();
+		expect(restoreTrash(db, T1_SALSA, gone.trashId!, T + 2)).toEqual({ ok: true });
+	});
+
+	it('a family member on another figure is no reason to refuse', () => {
+		const F = variation().figure.id;
+		const G = variation(T1_SALSA, 'Setenta').figure.id;
+		const rec = addRecording(
+			db,
+			{ figureId: F, file: REC, mime: 'video/mp4', kind: 'video', sizeBytes: 3 * MB, note: null },
+			'u1'
+		);
+		const gene = stampGene(db, 'recording', rec.id);
+		db.insert(recordings)
+			.values({
+				figureId: G,
+				file: FILE,
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 3 * MB,
+				geneId: gene
+			})
+			.run();
+		const gone = deleteRecording(db, rec.id, 'u1', T)!;
+		expect(restoreTrash(db, T1_SALSA, gone.trashId!, T + 1)).toEqual({ ok: true });
+	});
+
+	it('restoring a section the family has on its video again is refused', () => {
+		const V = video(lesson());
+		const S = section(V, 'Turn');
+		const gene = stampGene(db, 'spot', S);
+		const gone = deleteSpot(db, S, 'u1', T)!;
+		db.insert(videoSpots)
+			.values({ lessonVideoId: V, startMs: 0, endMs: 4000, label: 'Turn', geneId: gene })
+			.run();
+		expect(restoreTrash(db, T1_SALSA, gone.trashId!, T + 1)).toEqual({
+			ok: false,
+			reason: 'family'
+		});
+	});
+
+	it('restoring a video the family has in its lesson again is refused', () => {
+		const L = lesson();
+		const V = video(L);
+		const gene = stampGene(db, 'video', V);
+		const gone = deleteLessonVideo(db, V, 'u1', T)!;
+		db.insert(lessonVideos)
+			.values({ lessonId: L, file: REC, mime: 'video/mp4', sizeBytes: MB, geneId: gene })
+			.run();
+		expect(restoreTrash(db, T1_SALSA, gone.trashId!, T + 1)).toEqual({
+			ok: false,
+			reason: 'family'
+		});
 	});
 });
 

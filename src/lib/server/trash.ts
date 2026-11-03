@@ -21,7 +21,7 @@
  */
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, desc, eq, inArray, isNotNull, isNull, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, lte, ne, sql, type SQL } from 'drizzle-orm';
 import type { Db } from './db';
 import {
 	exercises,
@@ -188,6 +188,43 @@ function constraintReason(e: unknown): TrashRefusal | null {
 export type TrashRestore = { ok: true } | { ok: false; reason: TrashRefusal };
 
 /**
+ * Whether a snapshot's recording, video or section would give its parent a
+ * second member of its family: another row there (a recording on the same
+ * figure, a video in the same lesson, a section on the same video) with its
+ * gene, put there since by a Send. Pieces are matched inside their parent
+ * only. A snapshot from before genes has none: a family of one, never a clash.
+ */
+function familyThere(db: Db, rows: TrashRows): boolean {
+	const gene = (r: Record<string, unknown>) => (typeof r.geneId === 'string' ? r.geneId : null);
+	const other = (
+		table: typeof recordings | typeof lessonVideos | typeof videoSpots,
+		r: Record<string, unknown>,
+		inParent: SQL
+	) =>
+		db
+			.select({ id: table.id })
+			.from(table)
+			.where(and(inParent, eq(table.geneId, gene(r)!), ne(table.id, r.id as number)))
+			.get() !== undefined;
+	for (const r of rows.recordings ?? []) {
+		if (gene(r) && other(recordings, r, eq(recordings.figureId, r.figureId as number))) return true;
+	}
+	for (const r of rows.lesson_videos ?? []) {
+		if (gene(r) && other(lessonVideos, r, eq(lessonVideos.lessonId, r.lessonId as number)))
+			return true;
+	}
+	for (const r of rows.video_spots ?? []) {
+		if (!gene(r)) continue;
+		const inParent =
+			typeof r.recordingId === 'number'
+				? eq(videoSpots.recordingId, r.recordingId)
+				: eq(videoSpots.lessonVideoId, r.lessonVideoId as number);
+		if (other(videoSpots, r, inParent)) return true;
+	}
+	return false;
+}
+
+/**
  * An archived lesson, variation, routine or drill brought back: refused when
  * it is not archived in this space (`gone`), or its name is another's now.
  */
@@ -199,8 +236,10 @@ export type ArchiveRestore =
  * transaction, and the members' entries its delete took off Today (those
  * archived at the delete's time; `reviveEntries`). Refused, changing nothing,
  * when what it lived in is gone (a section whose video is in the trash:
- * `parent-gone`), its file was purged, it is back already, or the same
- * section link was made again since (`exists`). Logged as a `restore`.
+ * `parent-gone`), its file was purged, it is back already, the same
+ * section link was made again since (`exists`), or a recording, video or
+ * section of the same family is in its parent again (`family`: a Send put
+ * one back). Logged as a `restore`.
  */
 export function restoreTrash(db: Db, space: TeamSpace, trashId: number, now: number): TrashRestore {
 	const row = db.select().from(teamTrash).where(eq(teamTrash.id, trashId)).get();
@@ -210,6 +249,7 @@ export function restoreTrash(db: Db, space: TeamSpace, trashId: number, now: num
 	const kind = row.kind as TrashKind;
 	const rows = JSON.parse(row.rowsJson) as TrashRows;
 	const main = rows[MAIN[kind]]?.[0];
+	if (familyThere(db, rows)) return { ok: false, reason: 'family' };
 	try {
 		db.transaction((tx) => {
 			for (const table of ORDER) {

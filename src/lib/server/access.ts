@@ -338,6 +338,35 @@ export function judgeDrill(db: Db, userId: string, exercise: Owned & { id: numbe
 	return judgeRow(db, userId, exercise, (r) => r.drills.has(exercise.id));
 }
 
+/** The kinds `teamReader` answers for: a variation, a routine, a drill, a lesson. */
+export type ReadKind = 'figure' | 'routine' | 'drill' | 'lesson';
+
+/**
+ * Whether a person reads a row of one group, for every row of it at once:
+ * `figureAccess`, `routineAccess`, `drillAccess` and `lessonAccess` answer
+ * the same for each, but this decides the owner part and computes the reach
+ * once, so a check over many rows (`crossRefs`) is not one reach per row.
+ */
+export function teamReader(
+	db: Db,
+	userId: string,
+	teamId: number
+): (kind: ReadKind, id: number) => boolean {
+	const owned = byOwner(db, userId, { userId: null, teamId });
+	if (owned !== 'reach') {
+		const reads = owned !== null;
+		return () => reads;
+	}
+	const r = reach(db, userId, teamId);
+	const sets: Record<ReadKind, Set<number>> = {
+		figure: r.variations,
+		routine: r.routines,
+		drill: r.drills,
+		lesson: r.lessons
+	};
+	return (kind, id) => sets[kind].has(id);
+}
+
 /** A video named by its spot owner, judged as its recording's variation or its lesson. */
 export function judgeVideo(db: Db, userId: string, video: SpotOwner): Judged {
 	if ('recordingId' in video) {

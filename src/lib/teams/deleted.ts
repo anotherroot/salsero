@@ -44,7 +44,8 @@ export function takenLine(name: string): string {
 }
 
 /** What the restore of a trash entry was refused for. */
-export type TrashRefusal = 'parent-gone' | 'purged' | 'restored' | 'exists' | 'not-found';
+export type TrashRefusal =
+	'parent-gone' | 'purged' | 'restored' | 'exists' | 'family' | 'not-found';
 
 /** Where a trash kind lives, for "Restore the video first". */
 const PARENT: Partial<Record<DeletedKind, string>> = {
@@ -65,6 +66,8 @@ export function trashRefusalLine(kind: DeletedKind, reason: TrashRefusal): strin
 			return kind === 'spot-link'
 				? 'That section was linked to it again since.'
 				: 'This is back already.';
+		case 'family':
+			return 'A copy of this is here already.';
 		case 'not-found':
 			return 'That is no longer there to restore.';
 	}

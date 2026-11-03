@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 import { seedAdmin } from '../admin';
 import { sweepUploads } from '../files';
-import { ownerIntegrity } from '../integrity';
+import { crossRefs, familyIntegrity, ownerIntegrity } from '../integrity';
 import { importNoteLinks } from '../links';
 import { seedPositions } from '../positions';
 import { backfillSongSizes } from '../storage';
@@ -28,12 +28,19 @@ export function bootstrap(): Promise<void> {
 		})
 		.then(() => backfillSongSizes(getDb(), Date.now()))
 		.then(() => {
-			// Who owns what, checked once per process. Only logged: a bad row is for a
-			// person to look at, never a reason to refuse requests.
-			try {
-				for (const line of ownerIntegrity(getDb())) console.warn(`[integrity] ${line}`);
-			} catch (err) {
-				console.warn('[integrity] check failed', err);
+			// Who owns what, one member of a family per parent, and nobody's row
+			// pointing where it must not: checked once per process. Only logged, with
+			// a count each: a bad row is for a person to look at, never a reason to
+			// refuse requests.
+			const checks = { owners: ownerIntegrity, families: familyIntegrity, 'cross-refs': crossRefs };
+			for (const [name, check] of Object.entries(checks)) {
+				try {
+					const lines = check(getDb());
+					for (const line of lines) console.warn(`[integrity] ${line}`);
+					console.info(`[integrity] ${name}: ${lines.length} found`);
+				} catch (err) {
+					console.warn(`[integrity] ${name} check failed`, err);
+				}
 			}
 		})
 		.then(() => {
