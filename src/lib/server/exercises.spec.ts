@@ -8,7 +8,7 @@ import {
 	listPickExercises,
 	setPracticeSettings
 } from './exercises';
-import { createSongFromUpload } from './songs';
+import { createSongFromUpload, storeAnalysis } from './songs';
 import { shareSong, unshareSong } from './song-share';
 import { CLASS_ED, CLASS_T, makeClass, readyGroupSong, type Class } from './test-class';
 import { addFigureExercise, createFigure } from './figures';
@@ -120,7 +120,7 @@ describe("a member's entry and the group's songs", () => {
 		expect(put(c.shared)).toBe(true);
 	});
 
-	it('count only, chosen after a drop, stays when the song is shared again', () => {
+	it('practising on count after a drop keeps the class song coming back', () => {
 		expect(song(c.shared)).toBe(true);
 		unshareSong(db, CLASS_ED, c.shared, CLASS_T + 1);
 		expect(row().songId).toBeNull();
@@ -128,9 +128,11 @@ describe("a member's entry and the group's songs", () => {
 		expect(
 			setPracticeSettings(db, c.entry, { mode: 'count', songId: null, countBpm: 150, config })
 		).toBe(true);
-		expect(drops()).toHaveLength(0);
+		// The app fell back to the count: not the person's choice, so the drop stays.
+		expect(drops()).toHaveLength(1);
 		shareSong(db, CLASS_ED, c.shared, CLASS_T + 2);
-		expect([row().practiceMode, row().songId, row().countBpm]).toEqual(['count', null, 150]);
+		expect([row().practiceMode, row().songId]).toEqual(['song', c.shared]);
+		expect(drops()).toHaveLength(0);
 	});
 
 	it('another song, picked after a drop, stays when the first is shared again', () => {
@@ -152,5 +154,43 @@ describe("a member's entry and the group's songs", () => {
 		expect(row().songId).toBeNull();
 		shareSong(db, CLASS_ED, second, CLASS_T + 4);
 		expect(row().songId).toBe(second);
+	});
+});
+
+describe('a song of their own, picked after a drop', () => {
+	it('stays when the class song is shared again', () => {
+		const c = makeClass(db);
+		const config = {
+			count: 'son' as const,
+			clave: '2-3' as const,
+			speed: 1 as const,
+			callEvery: null
+		};
+		const put = (mode: 'song' | 'count', songId: number | null) =>
+			setPracticeSettings(db, c.entry, {
+				mode,
+				songId,
+				countBpm: mode === 'count' ? 150 : null,
+				config
+			});
+		const own = createSongFromUpload(
+			db,
+			{ userId: 'u3', dance: 'salsa' },
+			{
+				file: 'own.mp3',
+				mime: 'audio/mpeg',
+				title: 'Own',
+				style: 'salsa'
+			}
+		).id;
+		storeAnalysis(db, own, { beats: [0.5, 1, 1.5], downbeats: [], durationS: 90 });
+		expect(put('song', c.shared)).toBe(true);
+		unshareSong(db, CLASS_ED, c.shared, CLASS_T + 1);
+		expect(put('count', null)).toBe(true);
+		expect(put('song', own)).toBe(true);
+		expect(db.select().from(songDrops).where(eq(songDrops.exerciseId, c.entry)).all()).toEqual([]);
+		shareSong(db, CLASS_ED, c.shared, CLASS_T + 2);
+		const row = db.select().from(exercises).where(eq(exercises.id, c.entry)).get()!;
+		expect([row.practiceMode, row.songId]).toEqual(['song', own]);
 	});
 });

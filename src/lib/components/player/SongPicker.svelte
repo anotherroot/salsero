@@ -279,7 +279,7 @@
 							<h3 class="{SECTION_LABEL} {i > 0 ? 'mt-2' : ''}">{section.label}</h3>
 						{/if}
 						<!-- Under a group's own heading its rows need not name it again. -->
-						{@render card(section.songs, section.label !== 'Recent')}
+						{@render card(section.songs, section.kind === 'group')}
 					{/each}
 				{/if}
 			</div>

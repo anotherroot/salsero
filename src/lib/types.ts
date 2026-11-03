@@ -117,6 +117,8 @@ export interface PickerSong {
 	recentRank: number | null;
 	/** The group whose shared song this is, by name; null for the person's own. */
 	group: string | null;
+	/** That group's id, which tells two groups of one name apart; null for the person's own. */
+	groupId: number | null;
 }
 
 /**

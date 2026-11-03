@@ -13,6 +13,7 @@ function song(id: number, title: string, over: Partial<PickerSong> = {}): Picker
 		sample: { id, audioFile: `${id}.mp3`, startS: 0 },
 		recentRank: null,
 		group: null,
+		groupId: null,
 		...over
 	};
 }
@@ -70,11 +71,11 @@ describe('pickerCount', () => {
 describe("the groups' songs", () => {
 	const mixed = [
 		song(1, 'Mine B'),
-		song(2, 'Chan Chan', { group: 'Salsa Tuesdays' }),
+		song(2, 'Chan Chan', { group: 'Salsa Tuesdays', groupId: 1 }),
 		song(3, 'Mine A'),
-		song(4, 'Zeta', { group: 'Advanced' }),
-		song(5, 'Abre', { group: 'Salsa Tuesdays' }),
-		song(6, 'Played', { group: 'Advanced', recentRank: 0 })
+		song(4, 'Zeta', { group: 'Advanced', groupId: 2 }),
+		song(5, 'Abre', { group: 'Salsa Tuesdays', groupId: 1 }),
+		song(6, 'Played', { group: 'Advanced', groupId: 2, recentRank: 0 })
 	];
 
 	it('groupSongs keeps the own songs in rest and gives each group its own list', () => {
@@ -88,22 +89,38 @@ describe("the groups' songs", () => {
 	});
 
 	it('sections: Recent, the own songs, then a heading per group', () => {
-		expect(songSections(mixed).map((x) => [x.label, x.songs.map((s) => s.id)])).toEqual([
-			['Recent', [6]],
-			['Your songs', [3, 1]],
-			['Advanced', [4]],
-			['Salsa Tuesdays', [5, 2]]
+		expect(songSections(mixed).map((x) => [x.kind, x.label, x.songs.map((s) => s.id)])).toEqual([
+			['recent', 'Recent', [6]],
+			['yours', 'Your songs', [3, 1]],
+			['group', 'Advanced', [4]],
+			['group', 'Salsa Tuesdays', [5, 2]]
 		]);
 	});
 
 	it('sections without groups keep the old headings', () => {
-		expect(songSections(songs).map((x) => x.label)).toEqual([null]);
+		expect(songSections(songs).map((x) => [x.kind, x.label])).toEqual([['yours', null]]);
 		const played = [song(1, 'A', { recentRank: 0 }), song(2, 'B')];
 		expect(songSections(played).map((x) => x.label)).toEqual(['Recent', 'All songs A–Z']);
 	});
 
 	it('sections leave out what is empty', () => {
-		const onlyGroup = [song(2, 'Chan Chan', { group: 'Salsa Tuesdays' })];
+		const onlyGroup = [song(2, 'Chan Chan', { group: 'Salsa Tuesdays', groupId: 1 })];
 		expect(songSections(onlyGroup).map((x) => x.label)).toEqual(['Salsa Tuesdays']);
+	});
+
+	it('two groups of the same name stay apart, each under its own heading', () => {
+		const twins = [
+			song(1, 'B', { group: 'Class', groupId: 7 }),
+			song(2, 'A', { group: 'Class', groupId: 3 }),
+			song(3, 'C', { group: 'Class', groupId: 7 })
+		];
+		expect(groupSongs(twins).groups.map((g) => [g.id, g.name, g.songs.map((s) => s.id)])).toEqual([
+			[3, 'Class', [2]],
+			[7, 'Class', [1, 3]]
+		]);
+		expect(songSections(twins).map((x) => [x.kind, x.label])).toEqual([
+			['group', 'Class'],
+			['group', 'Class']
+		]);
 	});
 });

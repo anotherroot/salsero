@@ -599,6 +599,10 @@ describe("the picker lists the shared songs of the person's groups", () => {
 			['Zeta', null],
 			['Chan Chan', 'Salsa Tuesdays']
 		]);
+		expect(songChoices(db, { userId: 'u3', dance: 'salsa' }).map((s) => s.groupId)).toEqual([
+			null,
+			1
+		]);
 	});
 
 	it('an editor sees the shared list too, never a draft', () => {

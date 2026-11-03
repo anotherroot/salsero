@@ -222,9 +222,11 @@ export function updateExercise(
  * (`practiceSong`: shared, in a group they are in). A group's exercise never
  * holds a song: it would play to everyone (see `createCustomExercise`).
  *
- * A changed song or mode is the person's own choice, so the entry's
- * `song_drops` go in the same write: a later Share again or Restore must not
- * put a dropped song back over it (count only included).
+ * A new song picked is the person's own choice, so the entry's `song_drops`
+ * go in the same write: a later Share again or Restore must not put a dropped
+ * song back over it. Count only, or no song, is not: after a drop the app
+ * itself falls back to the count, so a remembered Play on it keeps the drop
+ * and the class song still comes back.
  */
 export function setPracticeSettings(db: Db, id: number, input: PracticeInput): boolean {
 	const current = db.select().from(exercises).where(eq(exercises.id, id)).get();
@@ -245,7 +247,7 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 			return false;
 		}
 	}
-	const chosen = input.mode !== current.practiceMode || input.songId !== current.songId;
+	const chosen = input.songId !== null && input.songId !== current.songId;
 	db.transaction((tx) => {
 		tx.update(exercises)
 			.set({

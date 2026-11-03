@@ -253,9 +253,9 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 		)
 		.orderBy(songs.title)
 		.all()
-		.map((song) => ({ song, group: null as string | null }));
+		.map((song) => ({ song, group: null as string | null, groupId: null as number | null }));
 	const shared = db
-		.select({ song: songs, group: teams.name })
+		.select({ song: songs, group: teams.name, groupId: teams.id })
 		.from(songs)
 		.innerJoin(teams, eq(teams.id, songs.teamId))
 		.innerJoin(
@@ -274,12 +274,12 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 				isNull(teams.purgedAt)
 			)
 		)
-		.orderBy(teams.name, songs.title)
+		.orderBy(teams.name, teams.id, songs.title)
 		.all();
 	const rows = [...own, ...shared];
 	const recent = recentSongIds(db, wall, 5, new Set(rows.map((r) => r.song.id)));
 	const out: PickerSong[] = [];
-	for (const { song: s, group } of rows) {
+	for (const { song: s, group, groupId } of rows) {
 		const sample = songSample(s);
 		if (!sample) continue;
 		const rank = recent.indexOf(s.id);
@@ -292,7 +292,8 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 			durationS: s.durationS,
 			sample,
 			recentRank: rank < 0 ? null : rank,
-			group
+			group,
+			groupId
 		});
 	}
 	return out;

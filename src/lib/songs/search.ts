@@ -18,30 +18,41 @@ export function searchSongs<S extends { title: string; artist: string | null }>(
 	return hits.sort(byTitle);
 }
 
-type Groupable = { title: string; recentRank: number | null; group?: string | null };
+type Groupable = {
+	title: string;
+	recentRank: number | null;
+	group?: string | null;
+	groupId?: number | null;
+};
 
 /**
  * The recent songs by rank (the person's own and their groups' alike), then
  * the rest of the person's own A to Z, then each group's shared songs A to Z,
- * the groups by name.
+ * the groups by name. A group is its id: two groups may share a name.
  */
 export function groupSongs<S extends Groupable>(
 	songs: S[]
-): { recent: S[]; rest: S[]; groups: { name: string; songs: S[] }[] } {
+): { recent: S[]; rest: S[]; groups: { id: number; name: string; songs: S[] }[] } {
 	const recent = songs
 		.filter((s) => s.recentRank !== null)
 		.sort((a, b) => (a.recentRank as number) - (b.recentRank as number));
 	const others = songs.filter((s) => s.recentRank === null);
-	const rest = others.filter((s) => !s.group).sort(byTitle);
-	const byGroup = new Map<string, S[]>();
+	const rest = others.filter((s) => s.groupId == null).sort(byTitle);
+	const byGroup = new Map<number, { id: number; name: string; songs: S[] }>();
 	for (const s of others) {
-		if (s.group) byGroup.set(s.group, [...(byGroup.get(s.group) ?? []), s]);
+		if (s.groupId == null) continue;
+		const g = byGroup.get(s.groupId) ?? { id: s.groupId, name: s.group ?? '', songs: [] };
+		g.songs.push(s);
+		byGroup.set(s.groupId, g);
 	}
-	const groups = [...byGroup]
-		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([name, list]) => ({ name, songs: list.sort(byTitle) }));
+	const groups = [...byGroup.values()]
+		.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id)
+		.map((g) => ({ ...g, songs: g.songs.sort(byTitle) }));
 	return { recent, rest, groups };
 }
+
+/** Which list a section of the popup is: rows outside a group's own say which group they are. */
+export type SongSectionKind = 'recent' | 'yours' | 'group';
 
 /**
  * The popup's sections, empty ones left out: Recent, the person's own songs
@@ -50,13 +61,13 @@ export function groupSongs<S extends Groupable>(
  */
 export function songSections<S extends Groupable>(
 	songs: S[]
-): { label: string | null; songs: S[] }[] {
+): { kind: SongSectionKind; label: string | null; songs: S[] }[] {
 	const { recent, rest, groups } = groupSongs(songs);
 	const own = groups.length > 0 ? 'Your songs' : recent.length > 0 ? 'All songs A–Z' : null;
 	return [
-		{ label: 'Recent', songs: recent },
-		{ label: own, songs: rest },
-		...groups.map((g) => ({ label: g.name, songs: g.songs }))
+		{ kind: 'recent' as const, label: 'Recent', songs: recent },
+		{ kind: 'yours' as const, label: own, songs: rest },
+		...groups.map((g) => ({ kind: 'group' as const, label: g.name, songs: g.songs }))
 	].filter((x) => x.songs.length > 0);
 }
 

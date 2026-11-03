@@ -460,11 +460,12 @@ function dropSongs(tx: Db, teamId: number, now: number, userId?: string): void {
 
 /**
  * Share again or Restore: put this song back on each entry its drop took it
- * from, while that entry still has no song (a person who picked another
- * since keeps theirs) and its person may practise to it now. A drop that
- * came back, or whose entry has another song or is gone, is done with; one
- * whose person still may not (Restore of a song still a draft) waits for the
- * next Share.
+ * from, as the entry's practice (song mode again: the person may have played
+ * on the count it fell back to), while that entry still has no song (a person
+ * who picked another since keeps theirs) and its person may practise to it
+ * now. A drop that came back, or whose entry has another song or is gone,
+ * is done with; one whose person still may not (Restore of a song still a
+ * draft) waits for the next Share.
  */
 export function reviveSongDrops(tx: Db, songId: number): void {
 	const song = tx.select().from(songs).where(eq(songs.id, songId)).get();
@@ -482,7 +483,10 @@ export function reviveSongDrops(tx: Db, songId: number): void {
 			continue;
 		}
 		if (!practiceSong(tx, entry.userId, song)) continue;
-		tx.update(exercises).set({ songId }).where(eq(exercises.id, entry.id)).run();
+		tx.update(exercises)
+			.set({ songId, practiceMode: 'song' })
+			.where(eq(exercises.id, entry.id))
+			.run();
 		done.push(exerciseId);
 	}
 	if (done.length > 0) {
