@@ -71,16 +71,24 @@ ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'
 **Before the groups migrations (`0020`–`0022`)**, check the data on a fresh
 backup copy (never the live database). `0021` adds unique indexes on an
 entry's person and target, and fails at boot if a person already has two
-exercises for the same target. Run each query; every one must print nothing:
+exercises for the same target — archived ones included: the indexes cover
+every row, so archiving a duplicate does not help. Run each query; every one
+must print nothing:
 
 ```sql
 select user_id, lesson_id, count(*) from exercises where lesson_id is not null group by 1,2 having count(*) > 1;
 select user_id, routine_id, count(*) from exercises where routine_id is not null group by 1,2 having count(*) > 1;
 select user_id, figure_id, count(*) from exercises where figure_id is not null group by 1,2 having count(*) > 1;
-select user_id, drill_id, count(*) from exercises where drill_id is not null group by 1,2 having count(*) > 1;
 ```
 
-Merge or archive the duplicates by hand first if any prints a row.
+(There is no `drill_id` to check yet: `0021` adds that column, empty.)
+
+If any prints a row, fix the live database before the deploy, after the
+snapshot and with the app stopped: keep one of the duplicates, merge the others into it — move their
+sets over (`update sets set exercise_id = <kept> where exercise_id = <other>`)
+and delete them (and any `links`, `spot_links` or `lesson_exercises` rows that
+name them: `foreign_keys` is on) — or set the others' target column
+(`lesson_id`, `routine_id` or `figure_id`) to null. Then run the queries again.
 
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the

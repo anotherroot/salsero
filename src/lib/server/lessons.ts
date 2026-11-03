@@ -1125,17 +1125,6 @@ export function deleteLessonVideo(db: Db, id: number, by?: string, now = Date.no
 	});
 }
 
-/** A lesson video by its file name, with whose it is: its lesson's owner, for the media server. */
-export function getLessonVideoByFile(db: Db, file: string) {
-	const row = db
-		.select({ video: lessonVideos, userId: lessons.userId })
-		.from(lessonVideos)
-		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-		.where(eq(lessonVideos.file, file))
-		.get();
-	return row ? { ...row.video, userId: row.userId } : null;
-}
-
 /**
  * The lessons that taught a figure — the lesson→figure link read from the
  * figure's side, which until now only the lesson page could show. Archived

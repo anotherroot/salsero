@@ -241,19 +241,28 @@ export function restoreTrash(db: Db, space: TeamSpace, trashId: number, now: num
  * The trash entry a section went into, by the section's id: its own delete,
  * or its video's or recording's. Only for someone who edits that group (a
  * save from anyone else stays the stranger's 404). Who deleted it and when,
- * for a save that arrives afterwards (410 gone).
+ * for a save that arrives afterwards (410 gone). A spot that is there is in
+ * no live trash entry, so the scan runs only for a missing one; a purged
+ * entry is gone for good, and its save is the plain 404.
  */
 export function trashedSpot(
 	db: Db,
 	userId: string,
 	spotId: number
 ): { by: string | null; at: number } | null {
+	const live = db
+		.select({ id: videoSpots.id })
+		.from(videoSpots)
+		.where(eq(videoSpots.id, spotId))
+		.get();
+	if (live) return null;
 	const row = db
 		.select({ teamId: teamTrash.teamId, by: teamTrash.deletedBy, at: teamTrash.deletedAt })
 		.from(teamTrash)
 		.where(
 			and(
 				isNull(teamTrash.restoredAt),
+				isNull(teamTrash.purgedAt),
 				inArray(teamTrash.kind, ['section', 'video', 'recording']),
 				sql`exists (select 1 from json_each(${teamTrash.rowsJson}, '$.video_spots') where json_extract(value, '$.id') = ${spotId})`
 			)

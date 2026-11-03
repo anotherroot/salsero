@@ -227,6 +227,36 @@ describe('purgeTeams', () => {
 		expect(warn).not.toHaveBeenCalled();
 	});
 
+	it('deletes an earlier group’s files when a later group’s purge throws, and goes on', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		createTeam(db, 'u1', 'salsa', 'Other', 1);
+		deleteTeam(db, 1, 'u1', T);
+		deleteTeam(db, 2, 'u1', T);
+		const real = db.transaction.bind(db);
+		let calls = 0;
+		vi.spyOn(db, 'transaction').mockImplementation(((fn: Parameters<Db['transaction']>[0]) => {
+			if (++calls === 2) throw new Error('disk I/O error');
+			return real(fn);
+		}) as Db['transaction']);
+		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(1);
+		expect(getTeam(db, 1)!.purgedAt).toBe(T + 31 * DAY);
+		for (const f of [VIDEO, REC, TRASHED]) expect(existsSync(join(dir, f))).toBe(false);
+		expect(getTeam(db, 2)!.purgedAt).toBeNull();
+		expect(warn).toHaveBeenCalledWith('[team-purge] could not purge group 2', expect.any(Error));
+	});
+
+	it('leaves a group restored after it was listed, before its claim', async () => {
+		deleteTeam(db, 1, 'u1', T);
+		const real = db.transaction.bind(db);
+		vi.spyOn(db, 'transaction').mockImplementation(((fn: Parameters<Db['transaction']>[0]) => {
+			expect(restoreTeam(db, 1, 'u1', T + 30 * DAY)).toBe('restored');
+			return real(fn);
+		}) as Db['transaction']);
+		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(0);
+		expect(getTeam(db, 1)!.purgedAt).toBeNull();
+		expect(existsSync(join(dir, VIDEO))).toBe(true);
+	});
+
 	it('leaves another group’s rows and files alone', async () => {
 		createTeam(db, 'u1', 'salsa', 'Other', 1);
 		const other = createLesson(

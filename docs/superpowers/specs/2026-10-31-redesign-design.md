@@ -31,7 +31,7 @@ bottom bar has five tabs with icons (four until groups); nothing the app does to
 
 - **Goals:** new icons; one visual system (colour, type, spacing, icons,
   components with every state) applied to every screen and popup; a designed
-  dark theme; four tabs; no dance switch.
+  dark theme; five tabs (four until groups); no dance switch.
 - **Non-goals:** no new features beyond the few the user chose (see
   "Additions"), no data-model change, no change to what a screen can do. Routes may move (see "Navigation"), behaviour does not. The
   split of the web app into one site per dance is planned but is a separate

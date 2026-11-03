@@ -243,6 +243,17 @@ describe('a group section', () => {
 		expect(trashedSpot(db, 'u9', S)).toBeNull();
 	});
 
+	it('a section that is there, or whose trash entry was purged, is not trashed', () => {
+		const S = section(video(lesson()), 'Enchufla doble');
+		expect(trashedSpot(db, 'u1', S)).toBeNull();
+		const { trashId } = deleteSpot(db, S, 'u2', T)!;
+		db.update(teamTrash)
+			.set({ purgedAt: T + 1 })
+			.where(eq(teamTrash.id, trashId!))
+			.run();
+		expect(trashedSpot(db, 'u1', S)).toBeNull();
+	});
+
 	it('Undo from the player goes through the entry the delete returned (risk 18)', () => {
 		const S = section(video(lesson()), 'Enchufla doble');
 		const { trashId } = deleteSpot(db, S, 'u1', T)!;

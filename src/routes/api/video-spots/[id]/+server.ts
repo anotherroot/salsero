@@ -27,7 +27,8 @@ function spotId(raw: string, locals: App.Locals): number {
 /**
  * A save on a group's section that is in Recently deleted now: 410, naming
  * who deleted it, for that group's editors only (anyone else gets the 404).
- * Null for a spot that is not in the trash.
+ * Null for a spot that is not in the trash, and at once for one that is there
+ * (`trashedSpot` scans the trash only for a missing spot).
  */
 function trashed(raw: string, locals: App.Locals): Response | null {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;

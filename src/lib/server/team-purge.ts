@@ -33,6 +33,10 @@ import { lessonVideosDir, recordingsDir, RECORDING_FILE_RE } from './files';
 import type { TrashDirs, TrashFile } from './trash';
 import { TEAM_PURGE_MS } from '$lib/limits';
 
+/** A group deleted at least `TEAM_PURGE_MS` before `now`. */
+const dueToPurge = (now: number) =>
+	and(isNotNull(teams.deletedAt), lte(teams.deletedAt, now - TEAM_PURGE_MS));
+
 /**
  * One group's rows, in one transaction with one `now`: the media rows go
  * (videos, recordings, their spots and section links, links and saves in
@@ -40,14 +44,15 @@ import { TEAM_PURGE_MS } from '$lib/limits';
  * archived, and so is every live entry pointing at them; its trash is marked
  * purged; `purged_at` is set; its members and the lessons people added go.
  * People's sets are never touched. Returns the files to delete, or null when
- * another run got there first.
+ * another run got there first or the group was restored since it was listed.
  */
 function purgeRows(db: Db, teamId: number, now: number): TrashFile[] | null {
 	return db.transaction((tx) => {
 		const claimed = tx
 			.update(teams)
 			.set({ purgedAt: now })
-			.where(and(eq(teams.id, teamId), isNull(teams.purgedAt)))
+			// Still deleted, long enough ago: a restore since the list was read wins.
+			.where(and(eq(teams.id, teamId), isNull(teams.purgedAt), dueToPurge(now)))
 			.run().changes;
 		if (claimed === 0) return null;
 
@@ -152,41 +157,45 @@ function purgeRows(db: Db, teamId: number, now: number): TrashFile[] | null {
 	});
 }
 
+/** Delete these files; a file already gone is fine, any other failure is logged. */
+async function unlinkFiles(files: TrashFile[], where: TrashDirs): Promise<void> {
+	for (const f of files) {
+		// Only our own names, in our own folders: never a path from a row.
+		if (!RECORDING_FILE_RE.test(f.file) || !(f.dir in where)) continue;
+		await unlink(join(where[f.dir], f.file)).catch((err: NodeJS.ErrnoException) => {
+			if (err.code !== 'ENOENT') console.warn(`[team-purge] could not delete ${f.file}`, err);
+		});
+	}
+}
+
 /**
- * Purge every group deleted at least `TEAM_PURGE_MS` ago and not purged yet:
- * the rows first, in one transaction per group, then the files. Running it
- * twice changes nothing; a file already gone is fine, any other failure to
- * delete one is logged and the purge goes on. Returns how many groups were
- * purged. `dirs` is injected so specs never touch `$DATA_DIR`.
+ * Purge every group deleted at least `TEAM_PURGE_MS` ago and not purged yet,
+ * one group at a time: its rows in one transaction, then its files. A group
+ * that fails is logged and the purge goes on to the next, so the groups
+ * already marked purged never keep their files. Running it twice changes
+ * nothing; a file already gone is fine, any other failure to delete one is
+ * logged and the purge goes on. Returns how many groups were purged. `dirs`
+ * is injected so specs never touch `$DATA_DIR`.
  */
 export async function purgeTeams(db: Db, now: number, dirs?: TrashDirs): Promise<number> {
 	const due = db
 		.select({ id: teams.id })
 		.from(teams)
-		.where(
-			and(
-				isNotNull(teams.deletedAt),
-				isNull(teams.purgedAt),
-				lte(teams.deletedAt, now - TEAM_PURGE_MS)
-			)
-		)
+		.where(and(isNull(teams.purgedAt), dueToPurge(now)))
 		.all();
 	let purged = 0;
-	const files: TrashFile[] = [];
 	for (const { id } of due) {
-		const mine = purgeRows(db, id, now);
-		if (mine === null) continue;
-		purged++;
-		files.push(...mine);
-	}
-	if (files.length > 0) {
-		const where = dirs ?? { lessonVideos: lessonVideosDir(), recordings: recordingsDir() };
-		for (const f of files) {
-			// Only our own names, in our own folders: never a path from a row.
-			if (!RECORDING_FILE_RE.test(f.file) || !(f.dir in where)) continue;
-			await unlink(join(where[f.dir], f.file)).catch((err: NodeJS.ErrnoException) => {
-				if (err.code !== 'ENOENT') console.warn(`[team-purge] could not delete ${f.file}`, err);
-			});
+		try {
+			const files = purgeRows(db, id, now);
+			if (files === null) continue;
+			purged++;
+			if (files.length === 0) continue;
+			await unlinkFiles(
+				files,
+				dirs ?? { lessonVideos: lessonVideosDir(), recordings: recordingsDir() }
+			);
+		} catch (err) {
+			console.warn(`[team-purge] could not purge group ${id}`, err);
 		}
 	}
 	return purged;

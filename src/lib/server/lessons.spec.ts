@@ -6,7 +6,6 @@ import {
 	createLesson,
 	deleteLessonVideo,
 	getLesson,
-	getLessonVideoByFile,
 	lessonVideoBytes,
 	linkExercise,
 	linkFigure,
@@ -33,7 +32,7 @@ import {
 import { addFigureExercise, archiveVariation, createFigure, createVariationFrom } from './figures';
 import { addSpot } from './spots';
 import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
-import { exercises, spotLinks } from './db/schema';
+import { exercises, lessonVideos, spotLinks } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { archiveRoutine, createRoutine } from './routines';
 import { T1_SALSA, U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
@@ -420,13 +419,7 @@ describe('videos', () => {
 		const row = addLessonVideo(db, video(lesson.id, 'a.mp4', 100));
 		expect(deleteLessonVideo(db, row.id)?.file).toBe('a.mp4');
 		expect(deleteLessonVideo(db, row.id)).toBeNull();
-		expect(getLessonVideoByFile(db, 'a.mp4')).toBeNull();
-	});
-
-	it('finds a video by its file name, for the range-served route', () => {
-		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
-		addLessonVideo(db, video(lesson.id, 'a.mp4', 100));
-		expect(getLessonVideoByFile(db, 'a.mp4')?.lessonId).toBe(lesson.id);
+		expect(db.select().from(lessonVideos).all()).toEqual([]);
 	});
 });
 

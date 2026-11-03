@@ -28,6 +28,7 @@ import {
 	routines,
 	routineStepOptions,
 	routineSteps,
+	teamMembers,
 	videoSpots
 } from './db/schema';
 import type { SpotOwner } from '$lib/types';
@@ -251,27 +252,42 @@ export function reach(db: Db, userId: string, teamId: number): Reach {
 type Owned = { userId: string | null; teamId: number | null };
 
 /**
- * A row's access, given how to find it in a reach. Editors and the owner edit
- * everything the group owns while it lives; once it is deleted the owner only
- * reads; anyone else reads what is in their reach. A purged group gives
- * nothing to anyone. A row with two owners is no one's (`ownerIntegrity`
- * reports it).
+ * The role a person holds in a group, deleted or not: `roleOf` answers null
+ * for an editor of a deleted group, and access needs the role they held.
  */
-function judgeRow(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Judged {
-	const none: Judged = { access: null, reach: null };
-	if (row.teamId === null) {
-		return row.userId !== null && row.userId === userId ? { access: 'edit', reach: null } : none;
-	}
-	if (row.userId !== null) return none;
+function heldRole(db: Db, userId: string, teamId: number): string | null {
+	const row = db
+		.select({ role: teamMembers.role })
+		.from(teamMembers)
+		.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+		.get();
+	return row?.role ?? null;
+}
+
+/**
+ * A row's access as far as owning it decides, or 'reach' when it rests on
+ * what the person's lessons of the group reach. Editors and the owner edit
+ * everything the group owns while it lives; once it is deleted, until the
+ * purge, they only read it, drafts included, so they can make their own copy
+ * of their work (ruling R25); anyone else reads what is in their reach. A
+ * purged group gives nothing to anyone. A row with two owners is no one's
+ * (`ownerIntegrity` reports it).
+ */
+function byOwner(db: Db, userId: string, row: Owned): Access | 'reach' {
+	if (row.teamId === null) return row.userId !== null && row.userId === userId ? 'edit' : null;
+	if (row.userId !== null) return null;
 	const team = getTeam(db, row.teamId);
-	if (!team || team.purgedAt !== null) return none;
-	const role = roleOf(db, userId, row.teamId);
-	if (team.deletedAt === null && (role === 'editor' || role === 'owner')) {
-		return { access: 'edit', reach: null };
-	}
-	if (team.deletedAt !== null && role === 'owner') return { access: 'read', reach: null };
-	const r = reach(db, userId, row.teamId);
-	return inReach(r) ? { access: 'read', reach: r } : none;
+	if (!team || team.purgedAt !== null) return null;
+	const role = heldRole(db, userId, row.teamId);
+	if (role === 'editor' || role === 'owner') return team.deletedAt === null ? 'edit' : 'read';
+	return 'reach';
+}
+
+function judgeRow(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Judged {
+	const owned = byOwner(db, userId, row);
+	if (owned !== 'reach') return { access: owned, reach: null };
+	const r = reach(db, userId, row.teamId!);
+	return inReach(r) ? { access: 'read', reach: r } : { access: null, reach: null };
 }
 
 function rowAccess(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Access {
@@ -282,8 +298,8 @@ function rowAccess(db: Db, userId: string, row: Owned, inReach: (r: Reach) => bo
  * A row's access, with the reach that decided it. `reach` is what a reader's
  * page may list of the group's things (risk 20), computed once on the way to
  * the answer so a page never computes it twice; null when nothing needs
- * leaving out — a person's own row, an editor, the owner of a deleted group,
- * who reads all of it — and when there is no access at all.
+ * leaving out — a person's own row, an editor or the owner (of a deleted
+ * group too, who reads all of it) — and when there is no access at all.
  */
 export type Judged = { access: Access; reach: Reach | null };
 
@@ -325,9 +341,16 @@ export function judgeVideo(db: Db, userId: string, video: SpotOwner): Judged {
 	return lesson ? judgeLesson(db, userId, lesson) : { access: null, reach: null };
 }
 
-/** A lesson: an editor's drafts included; a member's only once published and in reach. */
+/**
+ * A lesson: an editor's drafts included; a member's only once published and in
+ * reach. A lesson is in reach exactly when it is one of the lessons reached
+ * (`reachFrom` adds them as they are), so this skips the closure: the media
+ * servers ask it on every Range request.
+ */
 export function lessonAccess(db: Db, userId: string, lesson: Owned & { id: number }): Access {
-	return rowAccess(db, userId, lesson, (r) => r.lessons.has(lesson.id));
+	const owned = byOwner(db, userId, lesson);
+	if (owned !== 'reach') return owned;
+	return lessonsReached(db, userId, lesson.teamId!).includes(lesson.id) ? 'read' : null;
 }
 
 /** A variation (a `figures` row). */

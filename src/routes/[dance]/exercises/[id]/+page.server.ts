@@ -39,6 +39,17 @@ function exerciseOf(params: { dance: string; id: string }, locals: App.Locals) {
 	return exercise;
 }
 
+/**
+ * The exercise this URL names, to link a section or a link to: a person's
+ * entry (`'added'`) has none of its own, its group's thing holds them, so it
+ * is the missing exercise's 404.
+ */
+function linkableOf(params: { dance: string; id: string }, locals: App.Locals) {
+	const exercise = exerciseOf(params, locals);
+	if (exercise.source === 'added') throw error(404, 'No such exercise');
+	return exercise;
+}
+
 export const load: PageServerLoad = ({ params, locals }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
@@ -234,7 +245,7 @@ export const actions: Actions = {
 	 * other dance, and another person's section as if it were missing.
 	 */
 	linkSection: async ({ params, request, locals }) => {
-		const exerciseId = exerciseOf(params, locals).id;
+		const exerciseId = linkableOf(params, locals).id;
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
 			return fail(400, { action: 'linkSection', message: 'Pick a section.' });
@@ -266,7 +277,7 @@ export const actions: Actions = {
 		addLinkFrom(
 			request,
 			getDb(),
-			{ exerciseId: exerciseOf(params, locals).id },
+			{ exerciseId: linkableOf(params, locals).id },
 			me(params, locals)
 		),
 	deleteLink: async ({ params, request, locals }) =>

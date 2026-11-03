@@ -29,7 +29,7 @@ import {
 	videoSpots
 } from './db/schema';
 import { createTeam, deleteTeam, joinTeam } from './teams';
-import { leaveTeam } from './membership';
+import { leaveTeam, setRole } from './membership';
 import {
 	addLessonVideo,
 	createLesson,
@@ -522,6 +522,23 @@ describe('copyLesson', () => {
 		expect((await copyLesson(db, 'u2', w.lesson, T, files)).ok).toBe(true);
 		expect((await copyLesson(db, 'u1', w.lesson, T, files)).ok).toBe(true);
 		expect(db.select().from(lessons).where(eq(lessons.userId, 'u1')).all()).toHaveLength(1);
+	});
+
+	it('lets an editor copy their draft while the group is being deleted, but not a member (R25)', async () => {
+		joinTeam(db, 'u3', 1, 2);
+		setRole(db, 1, 'u3', 'editor');
+		const draft = createLesson(db, T1_SALSA, { lessonDay: '2026-11-04', title: 'D', notes: null })
+			.lesson.id;
+		expect(deleteTeam(db, 1, 'u1', T)).toBe(true);
+		const res = await copyLesson(db, 'u3', draft, T, files);
+		expect(res.ok).toBe(true);
+		const copy = db
+			.select()
+			.from(lessons)
+			.where(eq(lessons.id, (res as { lessonId: number }).lessonId))
+			.get()!;
+		expect(copy).toMatchObject({ userId: 'u3', teamId: null, title: 'D' });
+		await expect(copyLesson(db, 'u2', draft, T, files)).rejects.toMatchObject({ status: 404 });
 	});
 
 	it('is the missing lesson’s 404 for an outsider, a member’s draft, and a person’s own lesson', async () => {

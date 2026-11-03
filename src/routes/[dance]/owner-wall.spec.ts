@@ -1356,7 +1356,7 @@ describe('lessons, sections and their links stand behind a wall', () => {
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { leaveTeam } from '$lib/server/membership';
 import { linkInSpace } from '$lib/server/spot-links';
-import { lessonAdds, sets as setRows, videoSpots } from '$lib/server/db/schema';
+import { lessonAdds, links as linkRows, sets as setRows, videoSpots } from '$lib/server/db/schema';
 import type { TeamSpace } from '$lib/server/scope';
 import * as groupPage from './groups/[id]/+page.server';
 import * as linksEndpoint from '../api/video-spots/[id]/links/+server';
@@ -2159,6 +2159,36 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 	});
 
 	// Catches: a member's figure, lesson or routine entry offering edits on the group's sections.
+	// Catches: a person's own entry taking links or a section, which belong to the group's drill.
+	it('an entry takes no link and no section of its own', async () => {
+		addLesson(db, 'u2', P, { lesson: true, routineIds: [], drillIds: [shines], figureIds: [] }, 5);
+		const entry = entryFor(db, 'u2', { drillId: shines })!;
+		expect(entry).toMatchObject({ userId: 'u2', source: 'added' });
+		const mine = createLesson(db, U2_SALSA, lessonInput('Mine')).lesson.id;
+		const video = addLessonVideo(db, {
+			lessonId: mine,
+			file: '00000000-0000-4000-8000-0000000000e1.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 100
+		});
+		const section = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 0, endMs: 1000, label: 'My bit' }
+		)!.id;
+		const before = db.select().from(linkRows).all();
+		await refuses(
+			exercisePage.actions.addLink,
+			postForm(U2, { urls: 'https://example.com/a' }, String(entry.id))
+		);
+		await refuses(
+			exercisePage.actions.linkSection,
+			postForm(U2, { spotId: String(section) }, String(entry.id))
+		);
+		expect(db.select().from(linkRows).all()).toEqual(before);
+		expect(sectionsFor(db, { exerciseId: entry.id })).toEqual([]);
+	});
+
 	it('every entry on a group’s thing shows its content read-only; one’s own stays editable', () => {
 		addLesson(db, 'u2', P, { lesson: true, routineIds: [R], drillIds: [], figureIds: [V2] }, 5);
 		for (const target of [{ figureId: V2 }, { lessonId: P }, { routineId: R }]) {

@@ -244,8 +244,8 @@ android/             the Android apps (Kotlin): one per dance as Gradle flavors,
                      and reminder workers. No screens of its own. Pure parts (Links,
                      UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
-src/lib/server/teams.ts  groups: make, code, rename, delete; `membership.ts`: join, leave,
-                     remove, roles
+src/lib/server/teams.ts  groups: make, code, join (`joinTeam`), rename, delete;
+                     `membership.ts`: leave, remove, roles
 src/lib/server/access.ts  what a person may do with a row: `reach` (what they reach
                      through published lessons, plus their added lessons after leaving),
                      `lessonAccess`/`figureAccess`/…, and `fileAccess`/`videoAccess`/`spotAccess`
@@ -277,9 +277,11 @@ src/routes/join/     Join: a person creates their account from an invite link (p
 src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
                      people, storage, History and Recently deleted
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
-src/routes/welcome/  where a new person lands after Join
-src/routes/api/trash/[id]  restore a group's trashed row; src/routes/api/archived lists
-                     what Recently deleted can restore
+src/routes/welcome/  asks once for a name: a person whose account was made before names
+                     (hooks.server.ts sends anyone signed in without one here)
+src/routes/api/trash/[id]  restore a group's trashed row; src/routes/api/archived is the
+                     POST behind a picker's "Archived by … · Restore" (a group's variation,
+                     routine or drill); it lists nothing
 src/routes/settings/storage/  What uses space: the person's files biggest first, Delete, Ask for more
 src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe

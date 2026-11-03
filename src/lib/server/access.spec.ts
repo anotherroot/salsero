@@ -259,8 +259,22 @@ describe('access', () => {
 		expect(lessonAccess(db, 'u5', lessonRow(P))).toBeNull();
 		expect(lessonAccess(db, 'u1', lessonRow(P))).toBe('read');
 		expect(lessonAccess(db, 'u1', lessonRow(D))).toBe('read');
-		expect(lessonAccess(db, 'u3', lessonRow(D))).toBeNull();
 		expect(figureAccess(db, 'u1', variation(V3))).toBe('read');
+	});
+
+	it('after the group is deleted, an editor reads everything, drafts included, and edits nothing (R25)', () => {
+		add('u2', P);
+		add('u2', D);
+		expect(deleteTeam(db, 1, 'u1', 5)).toBe(true);
+		expect(lessonAccess(db, 'u3', lessonRow(D))).toBe('read');
+		expect(lessonAccess(db, 'u3', lessonRow(P))).toBe('read');
+		expect(figureAccess(db, 'u3', variation(V3))).toBe('read');
+		expect(drillAccess(db, 'u3', getExercise(db, draftDrill)!)).toBe('read');
+		expect(lessonVideoAccess(db, 'u3', { lessonId: D })).toBe('read');
+		// A member, even one who added the draft, still does not.
+		expect(lessonAccess(db, 'u2', lessonRow(D))).toBeNull();
+		expect(figureAccess(db, 'u2', variation(V3))).toBeNull();
+		expect(lessonAccess(db, 'u5', lessonRow(D))).toBeNull();
 	});
 });
 
@@ -283,6 +297,14 @@ describe('the guards', () => {
 		expect(() => requireLessonAccess(...as('u2', 'bachata'), P, 'read')).toThrow(threw404);
 		expect(() => requireLessonAccess(...as('u4'), P, 'read')).toThrow(threw404);
 		expect(requireLessonAccess(...as('u3'), D, 'edit').access).toBe('edit');
+	});
+
+	it('once the group is deleted, its editor reads the draft D and may not edit it (R25)', () => {
+		expect(deleteTeam(db, 1, 'u1', 5)).toBe(true);
+		expect(requireLessonAccess(...as('u3'), D, 'read').access).toBe('read');
+		expect(() => requireLessonAccess(...as('u3'), D, 'edit')).toThrow(threw404);
+		expect(() => requireFigureAccess(...as('u3'), V3, 'edit')).toThrow(threw404);
+		expect(() => requireLessonAccess(...as('u2'), D, 'read')).toThrow(threw404);
 	});
 
 	it('figures and routines follow reach the same way', () => {
