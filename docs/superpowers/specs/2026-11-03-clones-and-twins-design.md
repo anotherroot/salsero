@@ -41,9 +41,19 @@ edit a class figure into their own). A teacher uses both.
 
 ## Seeing, editing, cloning *(user)*
 
-1. **Seeing.** A group's Enchufla shows in your Moves because you added a
-   lesson that has it. It is the group's: read-only, marked as theirs. It is
-   not a copy.
+1. **Seeing and using.** A group's Enchufla shows in your Moves because you
+   added a lesson that has it. It is the group's: read-only, marked as
+   theirs. It is not a copy. **You can use it without copying it** *(user)*:
+   your own routines can call it and your own sections can link to it, while
+   it stays the group's. Nothing is copied until you edit it or lose access
+   to it (Leaving, below). This changes the wall: a person's own row may now
+   point at a group row the person reaches. `addOption`, `restoreOption`,
+   `canEmbed` (routines) and `linkInSpace` (section links) accept a target
+   the person reaches instead of only their own; reading such a link always
+   goes through `access.ts`.
+   **Lessons stay live** *(user)*: Add does not clone a lesson. While you
+   are a member you read the group's lesson as it is, and an editor's fix
+   shows at once.
 2. **Editing makes a clone.** Edit on the group's Enchufla makes your own
    clone of it. From then on your app shows yours in its place: in Moves, in
    pickers, and in that group's lessons where they link the group's version.
@@ -56,6 +66,9 @@ edit a class figure into their own). A teacher uses both.
      if you had one, moves to your clone with its sets. If your clone already
      has an entry, the two merge (sets moved, one entry kept), since one
      person has at most one entry per target.
+   - **Your own rows follow** *(my call)*: your routines' slots and your
+     section links that used the group's version are re-pointed to your
+     clone, in the same transaction.
    - **Editors** *(my call)*: inside group mode, Edit changes the group's row
      as today. Outside group mode, an editor sees the group's things like a
      member does, and Edit makes their own clone. Group mode is where you
@@ -82,7 +95,39 @@ edit a class figure into their own). A teacher uses both.
    it becomes your twin of what it was cloned from, so it keeps being shown
    together. In a group, where there are no twins, it just becomes an
    ordinary group row *(my call)*.
-7. **Copying into a place that already has a member** *(my call)* leaves
+7. **Drop my copy** *(user)* removes your clone and puts you back on a
+   version you can still read. Your example: you start editing a class
+   lesson (which makes your clone), change your mind, Drop my copy, and you
+   are on the class's read-only lesson again.
+   - **Which version** *(user)*: with one other version you can read, the
+     sheet just names it ("Your routines and practice will use Salsa
+     Tuesdays' Enchufla"). With several, you pick; the one you cloned from is
+     preselected while you can still read it. Never random, never "most
+     recent": two groups' Enchuflas can differ for real.
+   - **What moves**: everything of yours that pointed at your clone (your
+     routines' slots, your section links, your practice entries with their
+     sets, your lesson adds) is re-pointed to the chosen version in the same
+     transaction, found through the gene id. Nothing is left pointing at a
+     dropped copy.
+   - **Practice may not be able to follow** *(my call)*: practice on a
+     group's variation needs a lesson you added that holds it (R8 of the
+     groups build). If the chosen version is in no lesson you added, the
+     sheet says so and offers to Add that lesson; otherwise your practice
+     stays with your archived copy, history intact.
+   - **What would be lost**: the sheet lists what exists only in yours
+     ("Your notes and 1 recording aren't in Salsa Tuesdays' version") and,
+     if you edit that group, offers Send mine first.
+   - Your copy is **archived**, not deleted (the archive rule).
+   - **Not offered** when no other version is readable (say you left the
+     group): Archive is the only way out, as for anything of yours.
+8. **Move to…** a group *(user)* is Copy to… plus Drop my copy in one step:
+   the lesson lives in the group and you use it there as its editor. Its
+   figures, routines and drills are listed in the Move sheet, each with
+   "Use the group's from now on" (your copy dropped, your other lessons and
+   routines re-pointed) or "Keep mine as well". Default *(my call, the user
+   agreed)*: "Keep mine" for anything your other lessons or routines use,
+   "Use the group's" for anything only this lesson used.
+9. **Copying into a place that already has a member** *(my call)* leaves
    that member as it is and opens the comparison, so you choose what to
    take. An archived member still holds its place: the copy offers to
    restore it rather than make a second. A restore (Recently deleted, or
@@ -146,6 +191,35 @@ Rules:
   in the family, but you never learn it exists. You can take from a member
   you can only read; you can send only to members you can edit.
 
+## Leaving, and losing access *(user)*
+
+This replaces the groups spec's rule that a former member keeps reading the
+lessons they added (`reach` through `lesson_adds` after leaving): after
+leaving you read nothing of the group; you have your own copies instead. A
+cleaner wall. CLAUDE.md's wall rule and `access.ts` change with it.
+
+- **Leaving asks what to keep**: Keep everything, choose item by item, or
+  delete everything. What you keep becomes clones in your app: lessons with
+  their videos and sections, figures, routines, drills, songs. The files are
+  hard-linked under new names (no extra disk) and charged to you; keeping
+  may take you over your limit, which is allowed, and uploads are refused
+  until you are under it again *(my call)*.
+- **Your own rows follow**: your routines and section links that used the
+  group's things now point at your new clones; your practice entries move
+  to them with their sets.
+- **Rejoining reconnects**: your clones keep the gene id, so after rejoining
+  they show "From Salsa Tuesdays" again, with what changed while you were
+  away, and the group's lessons show yours in their place.
+- **Removed by the owner** *(my call)*: as Keep everything, with no
+  question; you can delete what you don't want afterwards.
+- **The group is deleted** *(my call)*: nothing changes for members during
+  the 30 days it can be restored; when the delete becomes final
+  (`purgeTeams`), every member gets Keep everything.
+- **An editor unpublishes or deletes something your own rows use**
+  *(my call)*: just that thing is cloned into your app, so your routine or
+  link does not break. Things you only read (not used by your own rows)
+  simply leave your view, as today.
+
 ## Twins *(user)*
 
 - **Same as…** on something in your app marks it a twin of another thing in
@@ -156,6 +230,12 @@ Rules:
   once where the app counts moves.
 - Twins are **personal** *(my call; the user agreed)*: your grouping is
   yours; other members don't see it.
+- **Per variation** *(user)* (a figure, in the new names below), not per
+  move: your Enchufla · Doble can be the twin of Tuesdays' Enchufla ·
+  Basic. In Moves *(my call)*, a group's move whose figures are all twinned
+  with yours folds into your move's row ("also in Salsa Tuesdays");
+  otherwise it stays under the group's heading. Pickers list figures, so
+  twins are one row there.
 - **Groups have no twins** *(my call)*. A group that ends up with two
   Enchuflas is for its editors to tidy.
 - **Not twin-able across kinds.** A variation twins with variations, a
@@ -188,7 +268,16 @@ Variations, routines, drills, songs and lessons, plus the pieces inside them
 
 ## Data *(my call)*
 
-- A **family id** and a **cloned-from** id on every cloneable table
+- **Links stay concrete** *(user agreed)*. Each row keeps its own id (the
+  id of that one clone), and every link (routine slots, section links,
+  lesson links, practice entries, lesson adds) points at a row id, never at
+  a gene. A gene can have two members in one person's view (theirs and
+  yours), so a link to the gene could not say which; practice history needs
+  one fixed target; History and Recently deleted restore rows by id. The
+  gene id only matches: on copy, Drop my copy, Move, leaving and rejoining
+  it finds the right member, and links are re-pointed on purpose, in the
+  same transaction.
+- A **gene id** (the family's id) and a **cloned-from** id on every cloneable table
   (figures, routines, songs, lessons, recordings, lesson videos, video
   spots; on `exercises` for drills only, never on entries, whose own
   uniqueness index would collide). Cloned-from is what "From Salsa
@@ -217,14 +306,16 @@ member taking from one sibling and sending to another.
 After the groups follow-ups: song families need group songs (`songs.team_id`)
 to exist.
 
-## Open, for the user
+## Names *(user)*
 
-- **Names.** A lesson links variations, not figures, and the user is
-  considering calling variations "figures" and today's figures something
-  else (a figure's name and its list of variations). The code already works
-  that way: its `figures` table is a variation and `figure_groups` is what
-  the app calls a figure. Only screen words would change. Decide before the
-  clone and twin screens are drawn, since they name these things everywhere.
+A lesson links variations, not figures, so the words change before the
+clone and twin screens are drawn: what the app calls a **variation** becomes
+a **figure** ("Enchufla · Doble" is a figure), and what it calls a figure
+(a name holding variations) becomes a **move** *(my call for the word;
+"figure group" was avoided because "group" already means a class)*. The
+Moves tab lists moves. The code already works this way (`figures` is a
+variation, `figure_groups` the named set), so only screen words, specs and
+CLAUDE.md change. It ships first, on its own.
 
 ## Not in this design
 
