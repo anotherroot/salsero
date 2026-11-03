@@ -34,17 +34,19 @@ type Data = {
 	routines: { id: number; name: string }[];
 	variation: { sections: { spot: { id: number } }[] };
 };
-const loadAs = (id: string, figure: number) =>
+const loadAs = (id: string, figure: number, cookie?: string) =>
 	(figurePage.load as unknown as (e: unknown) => Data)({
 		params: { dance: 'salsa', id: String(figure) },
 		url: new URL('http://localhost/'),
-		locals: { user: user(id) }
+		locals: { user: user(id) },
+		cookies: { get: (n: string) => (n === 'group_salsa' ? cookie : undefined), delete: () => {} }
 	});
 
 let db: Db;
 let F: number;
 let mine: number;
 let section: number;
+let L: number;
 
 beforeEach(() => {
 	db = openDb(':memory:');
@@ -58,8 +60,7 @@ beforeEach(() => {
 		style: 'salsa',
 		notes: null
 	})!.figure.id;
-	const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'Week 6', notes: null }).lesson
-		.id;
+	L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'Week 6', notes: null }).lesson.id;
 	linkFigure(db, L, F, 'u5');
 	publishLesson(db, EVA, L, T);
 	addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
@@ -96,5 +97,30 @@ describe('a group’s figure page', () => {
 		expect(data.fromLesson).toBeNull();
 		expect(data.myRoutines).toEqual([]);
 		expect(data.variation.sections.map((s) => s.spot.id)).not.toContain(section);
+	});
+
+	it('shows an editor their own section and routine outside group mode, not in the group’s mode', () => {
+		const E = { id: 'u5', dance: 'salsa' as const };
+		const wall = { userId: E.id, dance: E.dance };
+		const routine = createRoutine(db, wall, { name: 'Eva’s own', notes: null }).routine.id;
+		addLesson(db, 'u5', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+		addFigureSlot(db, routine, F);
+		const own = createLesson(db, wall, { lessonDay: '2026-11-04', title: 'Mine', notes: null })
+			.lesson.id;
+		const video = addLessonVideo(db, {
+			lessonId: own,
+			file: 'e.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		const spot = addSpot(db, { lessonVideoId: video }, { startMs: 0, endMs: 1000, label: 'E' })!.id;
+		linkSpot(db, 'u5', spot, { figureId: F });
+		const ids = (d: Data) => d.variation.sections.map((x) => x.spot.id);
+		const outside = loadAs('u5', F);
+		expect(ids(outside)).toContain(spot);
+		expect(outside.myRoutines.map((r) => r.id)).toEqual([routine]);
+		const inMode = loadAs('u5', F, '1');
+		expect(ids(inMode)).not.toContain(spot);
+		expect(inMode.myRoutines).toEqual([]);
 	});
 });

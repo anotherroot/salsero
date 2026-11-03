@@ -24,6 +24,8 @@ import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
 import { teamRefs } from '$lib/server/usable';
+import { groupModeOf } from '$lib/server/group-mode';
+import type { Cookies } from '@sveltejs/kit';
 import { lessonAdds } from '$lib/server/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -128,7 +130,7 @@ const taken = (figure: string, name: string) =>
 	`${figure} already has a figure called ${name}. Rename one first.`;
 const figureTaken = (name: string) => `There's already a move called ${name}.`;
 
-export const load: PageServerLoad = ({ params, url, locals }) => {
+export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const now = Date.now();
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
@@ -213,9 +215,17 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 	// person's OWN routines that use it (their wall, their graph, their shapes).
 	const groupTeam =
 		figure.teamId === null ? null : (teamRefs(db, [figure.teamId]).get(figure.teamId) ?? null);
+	// In this group's own workspace the page is the group's alone: no one's own
+	// sections or routines. Read-only on the cookie: a load never sets or deletes it.
+	const inGroupMode =
+		figure.teamId !== null &&
+		groupModeOf(db, wall.userId, wall.dance, {
+			get: (name: string) => cookies?.get(name),
+			delete: () => {}
+		} as unknown as Cookies)?.teamId === figure.teamId;
 	let fromLesson: string | null = null;
 	let myRoutines: ReturnType<typeof routinesUsing> = [];
-	if (groupTeam) {
+	if (groupTeam && !inGroupMode) {
 		const holding = taughtIn(db, space, id).filter((l) => seen(visible?.lessons, l.id));
 		const added = new Set(
 			holding.length === 0
@@ -256,7 +266,12 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			styleTag: figure.styleTag,
 			notes: figure.notes,
 			recordings: found.recordings,
-			sections: sectionsFor(db, { figureId: id }, visible ?? undefined, wall.userId),
+			sections: sectionsFor(
+				db,
+				{ figureId: id },
+				visible ?? undefined,
+				inGroupMode ? undefined : wall.userId
+			),
 			// Each recording's own sections and what they link to, so a link can be
 			// undone even when its target is archived and has no page.
 			recordingSections: Object.fromEntries(
