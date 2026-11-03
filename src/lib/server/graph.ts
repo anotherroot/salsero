@@ -6,7 +6,7 @@
  * of one space only (a person's or a group's side of one dance), plus, for a person's
  * routines, the group figures they may use (`graphFor`); positions stay shared.
  */
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import { figureGroups, figures, figureStartPositions, positions } from './db/schema';
 import { neutralPosition } from './positions';
@@ -18,7 +18,7 @@ import {
 	isStartCount
 } from '$lib/graph/timing';
 import { isTeam, ownedBy, type Space } from './scope';
-import { usableOf, type Usable } from './usable';
+import { ownedOrUsable, usableOf, type Usable } from './usable';
 import { actingIn, fieldChange, logChange } from './changes';
 
 /**
@@ -35,13 +35,7 @@ import { actingIn, fieldChange, logChange } from './changes';
  * space's own figures.
  */
 export function buildGraph(db: Db, space: Space, extra?: Set<number>): Graph {
-	const whose =
-		extra && extra.size > 0
-			? or(
-					ownedBy(figures, space),
-					and(inArray(figures.id, [...extra]), eq(figures.dance, space.dance))
-				)
-			: ownedBy(figures, space);
+	const whose = ownedOrUsable(figures, space, extra);
 	const rows = db
 		.select({
 			id: figures.id,

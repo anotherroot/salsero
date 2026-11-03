@@ -2,7 +2,8 @@
  * What of the groups a person may USE from their own rows: put in their
  * routines' slots, embed, link from their lessons and sections.
  *
- * Two sources, both read through `access.ts`:
+ * Only groups the person still holds a place in (a `team_members` row, ruling
+ * 4), and only rows they read (`teamReader`, once per group). Two sources:
  * - what the lessons they added reach (what Moves shows them), per group of
  *   the dance: `addedReach`;
  * - what their own rows already point at (slot options, embeds, section
@@ -15,10 +16,12 @@
  * The person's own rows are not in it: they are the wall's own. Derived per
  * call, never stored.
  */
-import { sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
+import { teamMembers } from './db/schema';
 import { addedReach, addedTeams, teamReader, type ReadKind } from './access';
-import type { Wall } from './scope';
+import { ownedBy, type Space, type Wall } from './scope';
 
 export type Usable = { figures: Set<number>; routines: Set<number>; drills: Set<number> };
 
@@ -121,14 +124,50 @@ function inside(
 	return { routines: children, figures };
 }
 
+/**
+ * Whether the person still holds a place in the group: a `team_members` row,
+ * whatever the group's state. Someone who left or was removed uses nothing of
+ * it from their own rows (ruling 4): what they kept is a copy (Task 19).
+ */
+function inTeam(db: Db, userId: string, teamId: number): boolean {
+	return (
+		db
+			.select({ teamId: teamMembers.teamId })
+			.from(teamMembers)
+			.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+			.get() !== undefined
+	);
+}
+
 /** What the person may use of the groups of this dance. See the module comment. */
 export function usableOf(db: Db, wall: Wall): Usable {
 	const out: Usable = { figures: new Set(), routines: new Set(), drills: new Set() };
+	const sets: Record<Pointer['kind'], Set<number>> = {
+		figure: out.figures,
+		routine: out.routines,
+		drill: out.drills
+	};
+	// One reader per group: everything below is kept only if the person reads it.
+	const readers = new Map<number, ((kind: ReadKind, id: number) => boolean) | null>();
+	const readerOf = (teamId: number) => {
+		if (!readers.has(teamId)) {
+			readers.set(
+				teamId,
+				inTeam(db, wall.userId, teamId) ? teamReader(db, wall.userId, teamId) : null
+			);
+		}
+		return readers.get(teamId)!;
+	};
+	const take = (teamId: number, kind: Pointer['kind'], id: number) => {
+		if (readerOf(teamId)?.(kind, id)) sets[kind].add(id);
+	};
+
 	for (const team of addedTeams(db, wall)) {
+		if (!readerOf(team.id)) continue;
 		const r = addedReach(db, wall.userId, team.id);
-		for (const id of r.variations) out.figures.add(id);
-		for (const id of r.routines) out.routines.add(id);
-		for (const id of r.drills) out.drills.add(id);
+		for (const id of r.variations) take(team.id, 'figure', id);
+		for (const id of r.routines) take(team.id, 'routine', id);
+		for (const id of r.drills) take(team.id, 'drill', id);
 	}
 
 	const byTeam = new Map<number, Pointer[]>();
@@ -137,25 +176,34 @@ export function usableOf(db: Db, wall: Wall): Usable {
 		if (list) list.push(p);
 		else byTeam.set(p.teamId, [p]);
 	}
-	const sets: Record<Pointer['kind'], Set<number>> = {
-		figure: out.figures,
-		routine: out.routines,
-		drill: out.drills
-	};
 	for (const [teamId, list] of byTeam) {
-		const reads = teamReader(db, wall.userId, teamId);
-		const take = (kind: ReadKind & Pointer['kind'], id: number) => {
-			if (reads(kind, id)) sets[kind].add(id);
-		};
-		for (const p of list) take(p.kind, p.id);
+		const reads = readerOf(teamId);
+		if (!reads) continue;
+		for (const p of list) take(teamId, p.kind, p.id);
 		const routines = list.filter((p) => p.kind === 'routine' && reads('routine', p.id));
 		const held = inside(
 			db,
 			teamId,
 			routines.map((p) => p.id)
 		);
-		for (const id of held.routines) take('routine', id);
-		for (const id of held.figures) take('figure', id);
+		for (const id of held.routines) take(teamId, 'routine', id);
+		for (const id of held.figures) take(teamId, 'figure', id);
 	}
 	return out;
+}
+
+/**
+ * A content query's owner filter for a space and what it may use: the
+ * space's own rows (`ownedBy`), or one of `ids` of the same dance (a person's
+ * usable group rows, `usableOf`). With no ids, `ownedBy` alone.
+ */
+export function ownedOrUsable(
+	cols: { id: SQLiteColumn; userId: SQLiteColumn; teamId: SQLiteColumn; dance: SQLiteColumn },
+	space: Space,
+	ids?: Iterable<number>
+): SQL {
+	const own = ownedBy(cols, space);
+	const list = ids ? [...ids] : [];
+	if (list.length === 0) return own;
+	return or(own, and(inArray(cols.id, list), eq(cols.dance, space.dance)))!;
 }

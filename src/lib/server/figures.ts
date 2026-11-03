@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, isNull, type SQL } from 'drizzle-orm';
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import {
@@ -22,7 +22,7 @@ import { trashRows, type ArchiveRestore } from './trash';
 import { takenLine } from '$lib/teams/deleted';
 import { addedReach, addedTeams, allows, figureAccess } from './access';
 import { actingIn, fieldChange, logChange, variationRoot } from './changes';
-import { usableOf, type Usable } from './usable';
+import { ownedOrUsable, usableOf, type Usable } from './usable';
 import type { Partner } from '$lib/labels';
 import type {
 	CalledFigure,
@@ -874,11 +874,8 @@ export function deleteRecording(db: Db, id: number, by?: string, now = Date.now(
  * group variations they may use, of the same dance. A group's: its own only.
  */
 function whoseFigures(db: Db, space: Space, usable?: Usable): SQL {
-	const own = ownedBy(figures, space);
-	if (isTeam(space)) return own;
-	const ids = [...(usable ?? usableOf(db, space)).figures];
-	if (ids.length === 0) return own;
-	return or(own, and(inArray(figures.id, ids), eq(figures.dance, space.dance)))!;
+	if (isTeam(space)) return ownedBy(figures, space);
+	return ownedOrUsable(figures, space, (usable ?? usableOf(db, space)).figures);
 }
 
 /**

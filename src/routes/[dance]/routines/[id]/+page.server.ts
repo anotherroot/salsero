@@ -122,9 +122,9 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	// (`usableOf`): those are on the graph, named, and offered to embed.
 	const usable = isTeam(space) ? undefined : usableOf(db, space);
 	const graph = graphFor(db, space, usable);
-	const shapes = routineShapes(db, space, usable?.routines);
+	const shapes = routineShapes(db, space, { usable, extra: usable?.routines });
 	const shape = shapes.get(routine.id) ?? { slots: [] };
-	const slots = routineSlots(db, routine.id);
+	const slots = routineSlots(db, routine.id, usable);
 	const positions = listPositions(db, wall.dance);
 	// A reader is told the names this routine's own slots use, and no other: its
 	// slots (and its embedded routines') are in their reach by construction.

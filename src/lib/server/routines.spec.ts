@@ -37,6 +37,7 @@ import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { createTeam, joinTeam } from './teams';
+import { leaveTeam } from './membership';
 import { createLesson, linkFigure, linkRoutine, publishLesson } from './lessons';
 import { addLesson } from './entries';
 import { crossRefs } from './integrity';
@@ -1090,6 +1091,30 @@ describe('a personal routine and a group’s figures and routines', () => {
 		expect(child).toMatchObject({ slots: [{ figureIds: [G] }, { figureIds: [H] }] });
 		expect(graphFor(db, U2_SALSA).figures.some((f) => f.id === H)).toBe(true);
 		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('refuses to put back what the person may not use', () => {
+		const { db, R, P, slot } = setup();
+		createTeam(db, 'u5', 'salsa', 'Other', T);
+		const X = teamFigure(db, 'Sombrero', 2);
+		const stray = createRoutine(db, T1_SALSA, { name: 'Not in a lesson', notes: null }).routine.id;
+		const at = (s: Partial<SlotSnapshot>): SlotSnapshot[] => [
+			{ position: 0, childId: null, note: null, figureIds: [], ...s }
+		];
+		expect(restoreSlots(db, P, at({ figureIds: [X] }))).toBe(false);
+		expect(restoreSlots(db, P, at({ childId: stray }))).toBe(false);
+		expect(restoreOption(db, slot, X)).toBe(false);
+		// A group’s routine never embeds a person’s.
+		expect(canEmbed(db, R, P)).toBe(false);
+		expect(routineSlots(db, P)).toHaveLength(1);
+	});
+
+	it('a former member cannot put that group’s figure in a slot', () => {
+		const { db, F, P, slot } = setup();
+		expect(leaveTeam(db, 1, 'u2', T + 1)).toBe('left');
+		expect(addOption(db, slot, F)).toBe(false);
+		expect(addFigureSlot(db, P, F)).toBeNull();
+		expect(graphFor(db, U2_SALSA).figures.some((f) => f.id === F)).toBe(false);
 	});
 
 	it('restores options and slots that hold a usable group figure', () => {

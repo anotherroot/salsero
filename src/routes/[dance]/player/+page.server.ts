@@ -58,7 +58,9 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	const usable = routine && !isTeam(space) ? usableOf(db, space) : undefined;
 	const graph = graphFor(db, space, usable);
 	if (reached) graph.figures = graph.figures.filter((f) => reached.has(f.id));
-	const shape = routine ? (routineShapes(db, space).get(routine.id) ?? { slots: [] }) : null;
+	const shape = routine
+		? (routineShapes(db, space, { usable }).get(routine.id) ?? { slots: [] })
+		: null;
 	// Every figure the routine can call: the run's pool, and what the voice has
 	// a name for.
 	const figureIds = shape

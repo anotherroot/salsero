@@ -13,7 +13,7 @@
  * `src/lib/routines/` does the thinking about shapes; this module only feeds it
  * and writes the answers back.
  */
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Db } from './db';
 import {
 	exercises,
@@ -25,7 +25,7 @@ import {
 	type Routine
 } from './db/schema';
 import { graphFor } from './graph';
-import { usableOf, type Usable } from './usable';
+import { ownedOrUsable, usableOf, type Usable } from './usable';
 import { addedReach, addedTeams } from './access';
 import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
@@ -329,14 +329,16 @@ export function listPickRoutines(db: Db, space: Space): Omit<PickRoutine, 'linke
  * A person's routine may embed a group's routine (`canEmbed`): that child's
  * slots are read from the group's rows, and if the group has since made it
  * embed a routine of its own, that one's slots are spliced in flat, so it
- * still plays whole. `extra` are other routines of the dance whose shapes the
+ * still plays whole. Only what the person may use is read (`usableOf`, or
+ * `opts.usable` when the caller has it): a child they no longer read has no
+ * slots. `opts.extra` are other routines of the dance whose shapes the
  * caller also wants as keys (the group routines a person may embed, for the
  * embed picker); the space's own keys never change.
  */
 export function routineShapes(
 	db: Db,
 	space: Space,
-	extra: Iterable<number> = []
+	opts: { usable?: Usable; extra?: Iterable<number> } = {}
 ): Map<number, RoutineShape> {
 	// Three dance filters follow, and only one of them can change the result today.
 	//
@@ -391,14 +393,25 @@ export function routineShapes(
 		.all()) {
 		out.set(r.id, { slots: [] });
 	}
-	// Routines of another owner: the group's children of a person's slots, and `extra`.
-	const more = [...extra];
-	const others = shapesOf(db, space.dance, [
-		...steps.flatMap((s) =>
-			s.childRoutineId !== null && !out.has(s.childRoutineId) ? [s.childRoutineId] : []
-		),
-		...more.filter((id) => !out.has(id))
-	]);
+	// Routines of another owner: the group's children of a person's slots, and
+	// `extra`. Read only when the person may use them (`usableOf`, worked out only
+	// when there is one): a group routine they no longer read stays closed, its
+	// slots empty. A group's routine reads no other owner's.
+	let usable = opts.usable;
+	const readable = (id: number) =>
+		!isTeam(space) && (usable ??= usableOf(db, space)).routines.has(id);
+	const more = [...(opts.extra ?? [])];
+	const others = shapesOf(
+		db,
+		space.dance,
+		[
+			...steps.flatMap((s) =>
+				s.childRoutineId !== null && !out.has(s.childRoutineId) ? [s.childRoutineId] : []
+			),
+			...more.filter((id) => !out.has(id))
+		].filter(readable),
+		readable
+	);
 	for (const s of steps) {
 		const other = s.childRoutineId === null ? undefined : others.get(s.childRoutineId);
 		const slot: Slot =
@@ -428,9 +441,16 @@ function flatSlots(shape: RoutineShape): OptionsSlot[] {
 
 /**
  * These routines of the dance, whoever owns them, as shapes: their slots, and
- * an embedded routine's own option slots. Ids of another dance are left out.
+ * an embedded routine's own option slots when `readable` says it may be read
+ * (else that child has none). Ids of another dance are left out; the caller has
+ * checked `ids` themselves.
  */
-function shapesOf(db: Db, dance: string, ids: number[]): Map<number, RoutineShape> {
+function shapesOf(
+	db: Db,
+	dance: string,
+	ids: number[],
+	readable: (id: number) => boolean
+): Map<number, RoutineShape> {
 	const out = new Map<number, RoutineShape>();
 	const wanted = [...new Set(ids)];
 	if (wanted.length === 0) return out;
@@ -456,9 +476,11 @@ function shapesOf(db: Db, dance: string, ids: number[]): Map<number, RoutineShap
 					.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
 					.all();
 	const top = stepsIn(live);
-	const nested = stepsIn([
-		...new Set(top.flatMap((s) => (s.childRoutineId === null ? [] : [s.childRoutineId])))
-	]).filter((s) => s.childRoutineId === null);
+	const nested = stepsIn(
+		[...new Set(top.flatMap((s) => (s.childRoutineId === null ? [] : [s.childRoutineId])))].filter(
+			readable
+		)
+	).filter((s) => s.childRoutineId === null);
 	const stepIds = [...top, ...nested].map((s) => s.id);
 	const byStep = groupByStep(
 		stepIds.length === 0
@@ -493,14 +515,13 @@ function shapesOf(db: Db, dance: string, ids: number[]): Map<number, RoutineShap
 	return out;
 }
 
-/** One routine's slots as the editor needs them: ids, notes, and the child's name. */
-export function routineSlots(db: Db, routineId: number): SlotRow[] {
-	const child = db
-		.select({ id: routines.id, name: routines.name })
-		.from(routines)
-		.all()
-		.reduce((m, r) => m.set(r.id, r.name), new Map<number, string>());
-
+/**
+ * One routine's slots as the editor needs them: ids, notes, and the child's
+ * name. A child of another owner (a group's routine in a person's slot) is
+ * named only while the person may use it (`holder`); otherwise `childName` is
+ * null and the page says "A routine". Pass `usable` when the caller has it.
+ */
+export function routineSlots(db: Db, routineId: number, usable?: Usable): SlotRow[] {
 	const steps = db
 		.select({
 			id: routineSteps.id,
@@ -512,6 +533,16 @@ export function routineSlots(db: Db, routineId: number): SlotRow[] {
 		.where(eq(routineSteps.routineId, routineId))
 		.orderBy(asc(routineSteps.position))
 		.all();
+
+	const childIds = [...new Set(steps.flatMap((s) => (s.childId === null ? [] : [s.childId])))];
+	const routine = childIds.length === 0 ? null : getRoutine(db, routineId);
+	const child = new Map<number, string>();
+	if (routine) {
+		const holds = holder(db, routine, usable);
+		for (const c of db.select().from(routines).where(inArray(routines.id, childIds)).all()) {
+			if (holds('routines', c)) child.set(c.id, c.name);
+		}
+	}
 
 	const ids = steps.map((s) => s.id);
 	const options =
@@ -727,25 +758,42 @@ export function createRoutineFromFigures(
 	});
 }
 
+/** A row a routine's slot can hold or name: a variation or a routine. */
+type HeldRow = { id: number; dance: string; userId: string | null; teamId: number | null };
+
 /**
  * Whether a routine's slot may hold `row` (a variation or a routine) as far as
  * owners go: a row of the routine's own space; for a person's routine, also a
  * group's row of the dance they may use (`usableOf`). A group's routine holds
- * only its group's rows. Pass `usable` when the caller has it already.
+ * only its group's rows. The same rule decides what a slot may show of a row it
+ * already holds. `usableOf` is worked out once, and only for a group's row;
+ * pass `usable` when the caller has it already.
  */
+function holder(
+	db: Db,
+	routine: Routine,
+	usable?: Usable
+): (kind: 'figures' | 'routines', row: HeldRow) => boolean {
+	const space = ownerSpace(routine);
+	let known = usable;
+	return (kind, row) => {
+		if (inSpace(row, space)) return true;
+		if (isTeam(space) || row.dance !== space.dance || row.teamId === null || row.userId !== null) {
+			return false;
+		}
+		return (known ??= usableOf(db, space))[kind].has(row.id);
+	};
+}
+
+/** `holder` for one row. */
 function mayHold(
 	db: Db,
 	routine: Routine,
 	kind: 'figures' | 'routines',
-	row: { id: number; dance: string; userId: string | null; teamId: number | null },
+	row: HeldRow,
 	usable?: Usable
 ): boolean {
-	const space = ownerSpace(routine);
-	if (inSpace(row, space)) return true;
-	if (isTeam(space) || row.dance !== space.dance || row.teamId === null || row.userId !== null) {
-		return false;
-	}
-	return (usable ?? usableOf(db, space))[kind].has(row.id);
+	return holder(db, routine, usable)(kind, row);
 }
 
 /**
@@ -793,14 +841,7 @@ export function embeddable(
 	if (!routine) return [];
 	const space = ownerSpace(routine);
 	const usable = isTeam(space) ? undefined : (given ?? usableOf(db, space));
-	const ids = usable ? [...usable.routines] : [];
-	const whose =
-		ids.length === 0
-			? ownedBy(routines, space)
-			: or(
-					ownedBy(routines, space),
-					and(inArray(routines.id, ids), eq(routines.dance, space.dance))
-				);
+	const whose = ownedOrUsable(routines, space, usable?.routines);
 	return db
 		.select({ id: routines.id, name: routines.name })
 		.from(routines)
