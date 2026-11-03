@@ -1,4 +1,9 @@
-/** Groups (teams in code): making, roles, codes, joining. Data functions take `db` first. */
+/**
+ * Groups (teams in code): making, roles, codes, joining. Data functions take `db` first.
+ *
+ * Owner-only functions that take no actor: renameTeam, remakeCode, setRole, removeMember.
+ * The route must check `roleOf(db, userId, teamId) === 'owner'` before calling them.
+ */
 import { randomInt } from 'node:crypto';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { fold } from '$lib/fold';
@@ -158,7 +163,9 @@ export function joinTeam(
 	userId: string,
 	teamId: number,
 	now: number
-): 'joined' | 'already' {
+): 'joined' | 'already' | 'refused' {
+	const team = getTeam(db, teamId);
+	if (!team || team.deletedAt !== null || team.purgedAt !== null) return 'refused';
 	const r = db
 		.insert(teamMembers)
 		.values({ teamId, userId, role: 'member', joinedAt: now })
@@ -253,6 +260,7 @@ export function handOver(
 ): 'ok' | 'not-member' | 'limit' {
 	return db.transaction((tx) => {
 		const t = tx as unknown as Db;
+		if (getTeam(t, teamId)?.deletedAt != null) return 'not-member';
 		if (!isOwner(t, teamId, fromId)) return 'not-member';
 		const to = t
 			.select({ role: teamMembers.role })
@@ -282,13 +290,19 @@ export function deleteTeam(db: Db, teamId: number, userId: string, now: number):
 }
 
 /** Brings a deleted group back, only before it is purged. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- `now` is part of the agreed signature
-export function restoreTeam(db: Db, teamId: number, userId: string, _now: number): boolean {
+export function restoreTeam(
+	db: Db,
+	teamId: number,
+	userId: string,
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars -- part of the agreed signature
+	_now: number
+): 'restored' | 'name' | 'refused' {
 	const team = getTeam(db, teamId);
 	if (!team || team.deletedAt === null || team.purgedAt !== null || !isOwner(db, teamId, userId))
-		return false;
+		return 'refused';
+	if (nameTaken(db, userId, team.dance, team.name, teamId)) return 'name';
 	db.update(teams).set({ deletedAt: null, deletedBy: null }).where(eq(teams.id, teamId)).run();
-	return true;
+	return 'restored';
 }
 
 /** Everyone in the group by full name: owner, editors, then members. */

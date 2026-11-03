@@ -182,12 +182,39 @@ describe('deleting', () => {
 		expect(listMyTeams(db, 'u2', 'salsa')).toEqual([]);
 		expect(listMyTeams(db, 'u1', 'salsa')[0]).toMatchObject({ deletedAt: 9, people: 2 });
 		expect(getTeam(db, id)?.deletedBy).toBe('u1');
-		expect(restoreTeam(db, id, 'u1', 10)).toBe(true);
+		expect(restoreTeam(db, id, 'u1', 10)).toBe('restored');
 		expect(roleOf(db, 'u2', id)).toBe('member');
 		deleteTeam(db, id, 'u1', 11);
 		db.update(teams).set({ purgedAt: 12 }).where(eq(teams.id, id)).run();
-		expect(restoreTeam(db, id, 'u1', 13)).toBe(false);
+		expect(restoreTeam(db, id, 'u1', 13)).toBe('refused');
 		expect(listMyTeams(db, 'u1', 'salsa')).toEqual([]);
+	});
+});
+
+describe('guards on team state', () => {
+	it('restore refuses a name that is live again', () => {
+		const db = setup();
+		const a = make(db, 'u1', 'A');
+		deleteTeam(db, a, 'u1', 5);
+		make(db, 'u1', 'a');
+		expect(restoreTeam(db, a, 'u1', 6)).toBe('name');
+		expect(getTeam(db, a)?.deletedAt).toBe(5);
+	});
+	it('join refuses a deleted team and adds no one', () => {
+		const db = setup();
+		const a = make(db, 'u1', 'A');
+		deleteTeam(db, a, 'u1', 5);
+		expect(joinTeam(db, 'u2', a, 6)).toBe('refused');
+		expect(peopleOf(db, a)).toHaveLength(1);
+	});
+	it('hand over on a deleted team changes nothing', () => {
+		const db = setup();
+		const a = make(db, 'u1', 'A');
+		joinTeam(db, 'u2', a, 5);
+		deleteTeam(db, a, 'u1', 6);
+		expect(handOver(db, a, 'u1', 'u2')).toBe('not-member');
+		expect(roleOf(db, 'u1', a)).toBe('owner');
+		expect(peopleOf(db, a).map((p) => p.role)).toEqual(['owner', 'member']);
 	});
 });
 
