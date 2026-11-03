@@ -62,7 +62,11 @@ like the app's other pickers.
   "Salsa Tuesdays · group". The tab bar is tinted to match.
 - The Today tab becomes a plain **Mine** button *(user)*: a back-arrow icon
   and the word, in the group colour, with no fill, so it does not shout. Today is practice, and
-  practice is personal; Mine leaves group mode and opens Today.
+  practice is personal; Mine leaves group mode and opens Today. Mine is a
+  one-tap form to the switch, not a link: reaching a Today page any other way
+  shows it without group mode but leaves the choice alone, because no load
+  ever changes group mode (SvelteKit runs loads on hover and touch preload,
+  so brushing a tab would switch modes).
 - The group icon in the band stays: it opens the same sheet, to switch to
   another group or back to Mine.
 - The Groups tab stays the usual list of all your groups *(user)*, in every

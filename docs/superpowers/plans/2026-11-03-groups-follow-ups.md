@@ -40,7 +40,7 @@
 
 - Create `src/lib/server/group-mode.ts`: reading, checking and clearing the group mode cookie; `spaceOf`; the person's group choices.
 - Create `src/lib/teams/mode.ts`: PURE. Cookie name, which paths leave group mode, the safe return path, the band label.
-- Create `src/routes/[dance]/group-mode/+server.ts`: POST to switch group mode.
+- Create `src/routes/[dance]/group-mode/+server.ts`: POST to switch group mode. (Final review: it became a page action, `+page.server.ts` with a `default` action and a load that redirects to Moves, since `use:enhance` cannot read an endpoint's 303.)
 - Create `src/lib/components/shell/GroupModeButton.svelte`: the band's group icon and the "Work in" sheet.
 - Create `src/lib/server/whats-new.ts`: `recordOpen`, `whatsNew`.
 - Create `src/lib/server/song-share.ts`: share, stop sharing, delete and restore a group song; song drops.
@@ -81,15 +81,15 @@
 - Consumes: `roleOf(db,userId,teamId)`, `getTeam`, `wallOf`, `Space`, `TeamSpace`, `tabFor(path,dance)` (nav/tabs.ts:41).
 - Produces:
   - `src/lib/types.ts`: `type GroupMode = { teamId: number; name: string; role: 'owner' | 'editor' }`; `type GroupChoice = { teamId: number; name: string; role: 'owner' | 'editor'; people: number }`.
-  - `src/lib/teams/mode.ts`: `groupCookie(dance: DanceSlug): string` → `'group_' + dance`; `leavesGroupMode(path: string, dance: DanceSlug): boolean` (true when `tabFor(path, dance) === 'today'`); `returnPath(to: string | null, dance: DanceSlug): string` (a same-dance path beginning `/${dance}` and not `//`, else `/${dance}/figures`); `groupLabel(name: string): string` → `` `${name} · group` ``.
+  - `src/lib/teams/mode.ts`: `groupCookie(dance: DanceSlug): string` → `'group_' + dance`; `outsideGroupMode(path: string, dance: DanceSlug): boolean` (true when `tabFor(path, dance) === 'today'`; named `leavesGroupMode` until the final review); `returnPath(to: string | null, dance: DanceSlug): string` (a same-dance path beginning `/${dance}` and not `//`, else `/${dance}/figures`); `groupLabel(name: string): string` → `` `${name} · group` ``.
   - `src/lib/server/group-mode.ts`:
     - `groupChoices(db: Db, userId: string, dance: DanceSlug): GroupChoice[]` — live groups (not deleted, not purged) of this dance where the person is owner or editor, by name then id.
     - `groupModeOf(db: Db, userId: string, dance: DanceSlug, cookies: Cookies): GroupMode | null` — parses the cookie; returns null **and deletes the cookie** unless it names a live group of this dance where `roleOf` is owner or editor.
     - `spaceOf(db: Db, params: { dance: string }, locals: App.Locals, cookies: Cookies): Space` — the `TeamSpace` (`actorId` = the person) when `groupModeOf` gives a group, else `wallOf(params, locals)`.
-  - `[dance]/+layout.server.ts` load additionally returns `groupMode: GroupMode | null` and `groupChoices: GroupChoice[]` (empty for a person with none). When `leavesGroupMode(url.pathname, dance)` the load deletes the cookie and returns `groupMode: null`.
-  - `POST /[dance]/group-mode` form fields `team` (`'mine'` or a team id) and `to`: sets the cookie (path `/`, httpOnly, sameSite lax, one year) only if `groupChoices` contains the team; `'mine'` deletes it; anything else → 404. Answers `303` to `returnPath(to, dance)`.
+  - `[dance]/+layout.server.ts` load additionally returns `groupMode: GroupMode | null` and `groupChoices: GroupChoice[]` (empty for a person with none). When `outsideGroupMode(url.pathname, dance)` the load returns `groupMode: null` and leaves the cookie alone (final review: a load never sets or deletes it, preload runs loads).
+  - `POST /[dance]/group-mode` form fields `team` (`'mine'` or a team id) and `to`: sets the cookie (path `/`, httpOnly, sameSite lax, one year) only if `groupChoices` contains the team; `'mine'` deletes it; anything else → 404. Answers `303` to `returnPath(to, dance)`. (Final review: the `default` action of `+page.server.ts`, same fields and answers.)
 
-- [ ] **Step 1: Pure tests** (`mode.spec.ts`): `groupCookie('salsa') === 'group_salsa'`; `leavesGroupMode('/salsa', 'salsa') === true`, `('/salsa/exercises/3','salsa') === true`, `('/salsa/figures','salsa') === false`, `('/salsa/groups/1','salsa') === false`; `returnPath('/salsa/routines','salsa') === '/salsa/routines'`, `returnPath('//evil.example','salsa') === '/salsa/figures'`, `returnPath('/bachata/figures','salsa') === '/salsa/figures'`, `returnPath(null,'salsa') === '/salsa/figures'`; `groupLabel('Salsa Tuesdays') === 'Salsa Tuesdays · group'`.
+- [ ] **Step 1: Pure tests** (`mode.spec.ts`): `groupCookie('salsa') === 'group_salsa'`; `outsideGroupMode('/salsa', 'salsa') === true`, `('/salsa/exercises/3','salsa') === true`, `('/salsa/figures','salsa') === false`, `('/salsa/groups/1','salsa') === false`; `returnPath('/salsa/routines','salsa') === '/salsa/routines'`, `returnPath('//evil.example','salsa') === '/salsa/figures'`, `returnPath('/bachata/figures','salsa') === '/salsa/figures'`, `returnPath(null,'salsa') === '/salsa/figures'`; `groupLabel('Salsa Tuesdays') === 'Salsa Tuesdays · group'`.
 - [ ] **Step 2: Server tests** (`group-mode.spec.ts`, a fake `Cookies` with `get/set/delete` recording calls). Cases, each asserting the return and whether `delete` was called:
   - owner and editor of a live salsa group → `GroupMode` with that role, no delete;
   - a member of the group → null, deleted;
@@ -371,4 +371,4 @@
 - **R4 Songs reached five ways.** Audio, grid, player, practice settings and the picker each decided "is this song yours" on their own. Task 9 routes all five through `songAccess`; Review Focus 1 pins them.
 - **R5 Purge and storage.** `teamUsedBytes` and `team-purge.ts` knew nothing of songs; a deleted group would leave its songs' files behind forever. Task 7.
 - **R6 `linkCopy` refuses audio names.** It checks the recording pattern; Task 9 passes the pattern in.
-- **R7 Today in group mode.** Practice is personal, so any page under Today (`tabFor === 'today'`, including exercise pages) leaves group mode in the layout load, not only the Mine tap.
+- **R7 Today in group mode.** Practice is personal, so any page under Today (`tabFor === 'today'`, including exercise pages) shows no group mode: the layout returns `groupMode: null` there. It does NOT clear the cookie (final review): layout loads also run on hover and touch preload, so a load that cleared it would end group mode when a finger brushed the Mine tab while the band stayed navy. Leaving is the Mine button, a one-tap form posting `team=mine` to the switch action.

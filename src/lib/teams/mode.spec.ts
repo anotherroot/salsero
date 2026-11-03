@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { groupCookie, groupLabel, leavesGroupMode, returnPath, workInRows } from './mode';
+import { groupCookie, groupLabel, outsideGroupMode, returnPath, workInRows } from './mode';
 
 describe('group mode, pure', () => {
 	it('names the cookie per dance', () => expect(groupCookie('salsa')).toBe('group_salsa'));
 	it('leaves group mode on Today and its pages', () => {
-		expect(leavesGroupMode('/salsa', 'salsa')).toBe(true);
-		expect(leavesGroupMode('/salsa/exercises/3', 'salsa')).toBe(true);
-		expect(leavesGroupMode('/salsa/figures', 'salsa')).toBe(false);
-		expect(leavesGroupMode('/salsa/groups/1', 'salsa')).toBe(false);
+		expect(outsideGroupMode('/salsa', 'salsa')).toBe(true);
+		expect(outsideGroupMode('/salsa/exercises/3', 'salsa')).toBe(true);
+		expect(outsideGroupMode('/salsa/figures', 'salsa')).toBe(false);
+		expect(outsideGroupMode('/salsa/groups/1', 'salsa')).toBe(false);
 	});
 	it('returns only to a path in the same dance', () => {
 		expect(returnPath('/salsa/routines', 'salsa')).toBe('/salsa/routines');

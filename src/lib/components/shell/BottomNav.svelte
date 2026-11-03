@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -14,7 +15,7 @@
 	 */
 	let { dance, path }: { dance: DanceSlug; path: string } = $props();
 
-	// In group mode Today is not a tab: a plain Mine link back to the personal side.
+	// In group mode Today is not a tab: a plain Mine button back to the personal side.
 	const inGroup = $derived(!!page.data.groupMode);
 	const lit = $derived(tabFor(path, dance));
 
@@ -55,15 +56,30 @@
 			{@const to = targets[i]}
 			<li class="flex justify-center">
 				{#if inGroup && tab.id === 'today'}
-					<!-- Mine: back icon and the word, accent text, no fill. -->
-					<a
-						href={resolve('/[dance]', { dance })}
-						onclick={() => intend('tab')}
-						class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
+					<!--
+						Mine: back icon and the word, accent text, no fill. A one-tap form to the
+						switch action (team=mine), never a plain link: leaving group mode is the
+						switch's, and a load never clears it (preload would).
+					-->
+					<form
+						method="POST"
+						action="/{dance}/group-mode"
+						class="flex w-full"
+						use:enhance={() => {
+							intend('tab');
+							return async ({ update }) => update({ reset: false });
+						}}
 					>
-						<Icon name="back" size={28} />
-						<span class="text-[14px] font-extrabold whitespace-nowrap">Mine</span>
-					</a>
+						<input type="hidden" name="team" value="mine" />
+						<input type="hidden" name="to" value="/{dance}" />
+						<button
+							type="submit"
+							class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"
+						>
+							<Icon name="back" size={28} />
+							<span class="text-[14px] font-extrabold whitespace-nowrap">Mine</span>
+						</button>
+					</form>
 				{:else}
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- a trail href, built from resolved paths -->
 					<a

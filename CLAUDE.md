@@ -250,9 +250,11 @@ android/             the Android apps (Kotlin): one per dance as Gradle flavors,
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
 src/lib/server/group-mode.ts  group mode: `groupModeOf` (the cookie's group), `groupChoices`, and
                      `spaceOf`, which every create action calls itself (the layout's copy may be old)
-src/lib/teams/mode.ts  PURE: the cookie name, which paths leave group mode, return path, labels. Client-safe
+src/lib/teams/mode.ts  PURE: the cookie name, which paths show no group mode (Today), return path, labels. Client-safe
 src/lib/teams/opens-api.ts  the fetch side of POST /api/opens (`reportOpen`)
-src/routes/[dance]/group-mode  POST: switch between Mine and a group (sets the cookie)
+src/routes/[dance]/group-mode  the switch: a page action (default) between Mine and a group, the only
+                     thing that switches the cookie (never a load: preload runs loads; `groupModeOf`
+                     only drops an invalid one). Its GET goes to Moves
 src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
 src/lib/server/whats-new.ts  what is new to a person in their groups, against their opens
 src/lib/server/song-share.ts  share, stop sharing and restore a group song; `song_drops`

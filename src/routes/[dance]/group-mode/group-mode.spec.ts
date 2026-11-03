@@ -10,7 +10,9 @@ import { openDb } from '$lib/server/db';
 import { users } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
-import { POST } from './+server';
+import { readFileSync } from 'node:fs';
+import { actions, load } from './+page.server';
+import { load as layoutLoad } from '../+layout.server';
 
 function call(uid: string, fields: Record<string, string>) {
 	const sets: unknown[][] = [];
@@ -31,7 +33,7 @@ function call(uid: string, fields: Record<string, string>) {
 		cookies,
 		url: new URL('http://localhost/salsa/group-mode')
 	} as never;
-	return Promise.resolve(POST(event)).then(
+	return Promise.resolve(actions.default(event)).then(
 		() => ({ sets, deletes, status: 0, location: '' }),
 		(e: { status: number; location?: string }) => ({
 			sets,
@@ -55,7 +57,7 @@ beforeEach(() => {
 	handle.db = db;
 });
 
-describe('POST /[dance]/group-mode', () => {
+describe('the /[dance]/group-mode action', () => {
 	it('an editor switches in and returns', async () => {
 		const r = await call('u2', { team: '1', to: '/salsa/routines' });
 		expect(r.status).toBe(303);
@@ -79,5 +81,75 @@ describe('POST /[dance]/group-mode', () => {
 	});
 	it('junk is 404', async () => {
 		expect((await call('u2', { team: 'abc' })).status).toBe(404);
+	});
+});
+
+describe('GET /[dance]/group-mode', () => {
+	it('is no page: it lands on Moves', () => {
+		let thrown: { status?: number; location?: string } = {};
+		try {
+			load({ params: { dance: 'salsa' } } as never);
+		} catch (e) {
+			thrown = e as typeof thrown;
+		}
+		expect(thrown).toMatchObject({ status: 303, location: '/salsa/figures' });
+	});
+});
+
+/** The [dance] layout reads group mode; it never switches it (preload runs it too). */
+function layoutAt(uid: string, path: string, cookie: string | undefined) {
+	const sets: unknown[][] = [];
+	const deletes: unknown[][] = [];
+	const cookies = {
+		set: (...a: unknown[]) => sets.push(a),
+		delete: (...a: unknown[]) => deletes.push(a),
+		get: (name: string) => (name === 'group_salsa' ? cookie : undefined)
+	};
+	const data = layoutLoad({
+		params: { dance: 'salsa' },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		cookies,
+		url: new URL(`http://localhost${path}`)
+	} as never) as { groupMode: { teamId: number } | null };
+	return {
+		groupMode: data.groupMode,
+		deletes,
+		groupSets: sets.filter((a) => a[0] === 'group_salsa')
+	};
+}
+
+describe('the [dance] layout and the group cookie', () => {
+	it('outside Today it reads group mode and leaves the cookie alone', () => {
+		const r = layoutAt('u2', '/salsa/figures', '1');
+		expect(r.groupMode?.teamId).toBe(1);
+		expect(r.deletes).toEqual([]);
+		expect(r.groupSets).toEqual([]);
+	});
+	it('on Today’s pages it shows no group mode and does NOT delete the cookie', () => {
+		for (const path of ['/salsa', '/salsa/exercises/3']) {
+			const r = layoutAt('u2', path, '1');
+			expect(r.groupMode).toBeNull();
+			expect(r.deletes).toEqual([]);
+			expect(r.groupSets).toEqual([]);
+		}
+	});
+	it('an invalid cookie is dropped (a validity check, not navigation)', () => {
+		const r = layoutAt('u3', '/salsa/figures', '1');
+		expect(r.groupMode).toBeNull();
+		expect(r.deletes.map((d) => d[0])).toEqual(['group_salsa']);
+	});
+});
+
+describe('Mine in the tab bar', () => {
+	it('posts team=mine to the switch action, back to Today', () => {
+		const src = readFileSync('src/lib/components/shell/BottomNav.svelte', 'utf8');
+		const form = /<form[\s\S]*?action="\/\{dance\}\/group-mode"[\s\S]*?<\/form>/.exec(src)?.[0];
+		expect(form).toBeDefined();
+		expect(form).toMatch(/method="POST"/);
+		expect(form).toMatch(/name="team" value="mine"/);
+		expect(form).toMatch(/name="to" value="\/\{dance\}"/);
+		expect(form).toMatch(/>Mine</);
+		// No link may lead to Today in its place.
+		expect(src).not.toMatch(/href=\{resolve\('\/\[dance\]', \{ dance \}\)\}/);
 	});
 });

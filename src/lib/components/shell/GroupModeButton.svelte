@@ -4,6 +4,7 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { workInRows } from '$lib/teams/mode';
 	import type { GroupChoice, GroupMode } from '$lib/types';
 
@@ -26,9 +27,16 @@
 	const cls =
 		'flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15';
 
+	// The switch is a page action that redirects. Close-then-go: the sheet's
+	// Back lands first, then the switch's page loads with fresh layout data
+	// (a plain update() would race that Back and could be dropped).
 	const pick: SubmitFunction = () => {
-		return async ({ update }) => {
+		return async ({ result, update }) => {
 			open = false;
+			if (result.type === 'redirect') {
+				await gotoWhenSettled(result.location, { invalidateAll: true });
+				return;
+			}
 			await update({ reset: false });
 		};
 	};

@@ -6,8 +6,12 @@ import type { GroupChoice } from '$lib/types';
 
 export const groupCookie = (dance: DanceSlug): string => `group_${dance}`;
 
-/** Today and its pages are always personal. */
-export const leavesGroupMode = (path: string, dance: DanceSlug): boolean =>
+/**
+ * Today and its pages are always personal: they show no group mode. They do
+ * not end it either (the cookie stays; only Mine or a switch changes it),
+ * since a load runs on hover preload too.
+ */
+export const outsideGroupMode = (path: string, dance: DanceSlug): boolean =>
 	tabFor(path, dance) === 'today';
 
 /** A same-dance path, else Moves. */
