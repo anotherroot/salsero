@@ -1,9 +1,13 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { parseAppAgent, parseAppVersion } from '$lib/app-update/agent';
 import { APP_COOKIE, APP_PARAM, APP_VALUE } from '$lib/app-mode';
+import { refusesOldApp } from '$lib/server/app-gate';
+import { noteAppSeen } from '$lib/server/app-seen';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
+import { currentRelease } from '$lib/server/releases';
 import { isPublicPath } from '$lib/server/public-paths';
 import { apiDeviceUser } from '$lib/server/request-user';
 import { workerTokenOk } from '$lib/server/worker-auth';
@@ -27,6 +31,21 @@ export const handle: Handle = async ({ event, resolve }) => {
 				isAdmin: session.isAdmin
 			}
 		: apiDeviceUser(getDb(), path, event.request.headers.get('authorization'), Date.now());
+
+	// Which app asks: its user agent suffix, else the native header.
+	const appAgent =
+		parseAppAgent(event.request.headers.get('user-agent')) ??
+		parseAppVersion(event.request.headers.get('x-app-version'));
+	event.locals.appAgent = appAgent;
+	if (appAgent && refusesOldApp(path, appAgent, currentRelease(appAgent.dance))) {
+		return new Response(JSON.stringify({ message: 'Update the app to keep using it.' }), {
+			status: 426,
+			headers: { 'content-type': 'application/json' }
+		});
+	}
+	if (event.locals.user && appAgent) {
+		noteAppSeen(getDb(), event.locals.user.id, appAgent, Date.now());
+	}
 
 	// The Android app's launchers open with ?app=android. Remember it per
 	// browser, so every page after the first knows to offer native links.

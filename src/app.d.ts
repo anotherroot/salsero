@@ -1,3 +1,5 @@
+import type { AppAgent } from '$lib/app-update/agent';
+
 /** The signed-in user, as carried on `locals` and echoed to the client. */
 interface SessionUser {
 	id: string;
@@ -12,6 +14,8 @@ declare global {
 	namespace App {
 		interface Locals {
 			user: SessionUser | null;
+			/** The Android app asking, from its user agent or `x-app-version`; null for a browser. */
+			appAgent: AppAgent | null;
 		}
 		interface PageData {
 			user?: SessionUser | null;
