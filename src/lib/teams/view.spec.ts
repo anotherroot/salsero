@@ -9,6 +9,7 @@ import {
 	lessonNotice,
 	limitLine,
 	MAKE_COPY,
+	groupsTabLabel,
 	newPill,
 	noAccountLine,
 	peopleLine,
@@ -118,5 +119,12 @@ describe('newPill', () => {
 		expect(newPill(0)).toBeNull();
 		expect(newPill(1)).toBe('1 new');
 		expect(newPill(12)).toBe('12 new');
+	});
+});
+
+describe('groupsTabLabel', () => {
+	it('mentions what is new', () => {
+		expect(groupsTabLabel(false)).toBe('Groups');
+		expect(groupsTabLabel(true)).toBe('Groups, new in your groups');
 	});
 });

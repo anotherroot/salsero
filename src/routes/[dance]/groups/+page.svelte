@@ -99,13 +99,15 @@
 						</span>
 						{#if team.deletedAt !== null}
 							<Badge>Deleted</Badge>
-						{:else if team.id === page.data.groupMode?.teamId}
-							<Badge tone="accent">Working in</Badge>
 						{:else}
+							{#if team.id === page.data.groupMode?.teamId}<Badge tone="accent">Working in</Badge
+								>{/if}
 							{#if newPill(team.newCount)}<Badge tone="accent">{newPill(team.newCount)}</Badge>{/if}
-							<span class="flex flex-none text-chevron"
-								><Icon name="chevron-right" size={20} /></span
-							>
+							{#if team.id !== page.data.groupMode?.teamId}
+								<span class="flex flex-none text-chevron"
+									><Icon name="chevron-right" size={20} /></span
+								>
+							{/if}
 						{/if}
 					</a>
 					{#if team.deletedAt !== null}

@@ -4,6 +4,7 @@
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TABS, tabFor } from '$lib/nav/tabs';
+	import { groupsTabLabel } from '$lib/teams/view';
 	import { intend, tabHref } from '$lib/nav/trail.svelte';
 
 	/**
@@ -69,7 +70,11 @@
 						href={to ?? resolve(tab.path, { dance })}
 						onclick={(e) => tap(e, to === null)}
 						aria-current={here ? 'page' : undefined}
-						aria-label={here ? undefined : tab.label}
+						aria-label={tab.id === 'groups' && page.data.groupsNew
+							? groupsTabLabel(true)
+							: here
+								? undefined
+								: tab.label}
 						class="relative flex h-11 items-center justify-center gap-2 rounded-full {here
 							? 'w-full bg-accent/12 px-3 text-accent-text'
 							: 'w-11 text-muted'}"
@@ -81,8 +86,7 @@
 						{#if tab.id === 'groups' && page.data.groupsNew}
 							<span
 								class="absolute top-1 right-1 h-[10px] w-[10px] rounded-full bg-accent ring-2 ring-tab-bg"
-								role="img"
-								aria-label="New in your groups"
+								aria-hidden="true"
 							></span>
 						{/if}
 					</a>

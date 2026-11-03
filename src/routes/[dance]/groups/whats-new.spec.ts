@@ -25,10 +25,10 @@ const locals = {
 	user: { id: 'u2', timezone: 'Europe/Ljubljana', role: 'user' }
 } as unknown as App.Locals;
 const cookies = { get: () => undefined, set: () => {}, delete: () => {} } as unknown as Cookies;
-const run = (fn: unknown, params: Record<string, string>, path = '/salsa/groups') =>
+const run = (fn: unknown, params: Record<string, string>, path = '/salsa/groups', who = locals) =>
 	(fn as (e: unknown) => unknown)({
 		params,
-		locals,
+		locals: who,
 		cookies,
 		url: new URL(`http://x${path}`)
 	}) as Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -57,5 +57,18 @@ describe('new in a person’s groups', () => {
 		expect((await run(layoutLoad, { dance: 'salsa' }, path)).groupsNew).toBe(false);
 		db.insert(opens).values({ userId: 'u2', kind: 'lesson', itemId: lessonId, openedAt: 9 }).run();
 		expect((await run(listLoad, { dance: 'salsa' })).teams[0].newCount).toBe(0);
+	});
+	it('never marks a draft new for an editor', async () => {
+		const draft = createLesson(db, T1_SALSA, { lessonDay: '2026-11-02', title: 'D', notes: null })
+			.lesson.id;
+		const owner = {
+			user: { id: 'u1', timezone: 'Europe/Ljubljana', role: 'user' }
+		} as unknown as App.Locals;
+		const page = await run(pageLoad, { dance: 'salsa', id: '1' }, '/salsa/groups/1', owner);
+		expect(page.lessons.find((l: { id: number }) => l.id === draft).isNew).toBe(false);
+	});
+
+	it('a non-numeric lesson path excludes nothing', async () => {
+		expect((await run(layoutLoad, { dance: 'salsa' }, '/salsa/lessons/new')).groupsNew).toBe(true);
 	});
 });
