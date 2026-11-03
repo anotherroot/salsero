@@ -7,7 +7,9 @@ import {
 	clashView,
 	fieldLabel,
 	goneTitle,
+	mineOverTheirs,
 	routineFingerprint,
+	seenAfterSave,
 	staleRoutine,
 	type FieldKind
 } from './clash';
@@ -74,7 +76,7 @@ describe('words', () => {
 	it('says nothing of who before History knows', () => {
 		expect(clashTitle({ by: null, at: null }, now)).toBe('This changed since you opened it');
 		expect(goneTitle({ by: null, at: null }, now)).toBe('This was deleted since you opened it');
-		expect(staleRoutine(null)).toBe('This routine changed since you opened it');
+		expect(staleRoutine(null)).toBe('This routine changed; it now shows the latest');
 	});
 	it('names who and when once known', () => {
 		expect(clashTitle({ by: 'Ana', at: now - 10 * 60_000 }, now)).toBe(
@@ -83,7 +85,7 @@ describe('words', () => {
 		expect(goneTitle({ by: 'Ana', at: now - 2 * 60 * 60_000 }, now)).toBe(
 			'Ana deleted this · 2 h ago'
 		);
-		expect(staleRoutine('Ana')).toBe('Ana changed this routine');
+		expect(staleRoutine('Ana')).toBe('Ana changed this routine; it now shows their version');
 	});
 	it('reads an age', () => {
 		expect(agoText(now, now)).toBe('just now');
@@ -116,6 +118,25 @@ describe('clashView', () => {
 			{ key: 'notes', label: 'Notes', kind: 'multiline', theirs: 'theirs', mine: 'mine' }
 		]);
 		expect(v.others).toEqual(['Starts from']);
+		expect(v.adopt).toEqual([]);
+	});
+
+	it('takes theirs for a choice you did not touch, and names one you changed', () => {
+		const v = clashView(
+			{
+				changed: ['partner', 'style', 'startIds'],
+				current: { partner: 'solo', style: 'la', startIds: '2' }
+			},
+			{ partner: 'partner', style: 'cuban', startIds: '1' },
+			{ partner: 'partner', style: 'ny', startIds: '1' },
+			() => 'other',
+			undefined,
+			(key) => key !== 'startIds'
+		);
+		// partner: untouched, so theirs goes back in; style: yours, kept and named;
+		// startIds: untouched but cannot be put back, so named.
+		expect(v.adopt).toEqual(['partner']);
+		expect(v.others).toEqual(['Style', 'Starts from']);
 	});
 
 	it('starts your box with theirs on a field you did not touch', () => {
@@ -137,5 +158,37 @@ describe('clashView', () => {
 			(_, ms) => `${Number(ms) / 1000} s`
 		);
 		expect(v.fields[0]).toMatchObject({ theirs: '1.5 s', mine: '1.4 s', kind: 'time' });
+	});
+});
+
+describe('seenAfterSave', () => {
+	it('takes the answer only for the fields the save wrote', () => {
+		expect(
+			seenAfterSave({ label: 'A', startMs: 1000, endMs: 5000 }, ['startMs'], {
+				label: 'Theirs',
+				startMs: 1100,
+				endMs: 5000
+			})
+		).toEqual({ label: 'A', startMs: 1100, endMs: 5000 });
+	});
+});
+
+describe('mineOverTheirs', () => {
+	it('sends only the changed fields, yours, and shows theirs for the rest', () => {
+		const r = mineOverTheirs(
+			{ changed: ['startMs'], current: { label: 'Theirs', startMs: 1500, endMs: 5000 } },
+			{ label: 'A', startMs: 1100, endMs: 5000 },
+			{}
+		);
+		expect(r.send).toEqual({ startMs: 1100 });
+		expect(r.show).toEqual({ label: 'Theirs', startMs: 1100, endMs: 5000 });
+	});
+	it('takes a box over the screen', () => {
+		const r = mineOverTheirs(
+			{ changed: ['label'], current: { label: 'Theirs', startMs: 1, endMs: 2 } },
+			{ label: 'A', startMs: 1, endMs: 2 },
+			{ label: 'Merged' }
+		);
+		expect(r.send).toEqual({ label: 'Merged' });
 	});
 });

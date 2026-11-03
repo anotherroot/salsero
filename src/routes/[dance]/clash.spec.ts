@@ -18,6 +18,7 @@ import {
 	exercises,
 	figures,
 	lessons,
+	routines,
 	routineSteps,
 	users,
 	videoSpots
@@ -25,7 +26,7 @@ import {
 import { createTeam } from '$lib/server/teams';
 import { createLesson, archiveLesson, addLessonVideo } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
-import { addFigureSlot, createRoutine } from '$lib/server/routines';
+import { addFigureSlot, archiveRoutine, createRoutine } from '$lib/server/routines';
 import { createCustomExercise } from '$lib/server/exercises';
 import { addSpot } from '$lib/server/spots';
 import { seedPositions } from '$lib/server/positions';
@@ -144,6 +145,18 @@ describe.each([
 			}
 		}
 	);
+
+	it(
+		isTeam
+			? 'refuses a save whose seen leaves out a field it writes'
+			: 'accepts a partial seen on its own lesson',
+		async () => {
+			const seen = JSON.stringify({ title: 'Rueda', lessonDay: '2026-11-01' });
+			const r = await call(lessonPage.actions.update, post({ ...fields, seen }, id));
+			expect(r.status ?? 200).toBe(isTeam ? 400 : 200);
+			expect(notes()).toBe(isTeam ? 'first' : 'mine');
+		}
+	);
 });
 
 describe('a section in the player', () => {
@@ -212,6 +225,17 @@ describe('a section in the player', () => {
 			expect(res.status).toBe(isTeam ? 400 : 200);
 			expect(row().startMs).toBe(isTeam ? 1000 : 1100);
 		});
+
+		it(
+			isTeam ? 'refuses a nudge whose seen leaves out what it writes' : 'accepts one on its own',
+			async () => {
+				const res = await patch({ startMs: 1100, seen: { label: 'A' } }).catch(
+					(e: { status: number }) => e
+				);
+				expect(res.status).toBe(isTeam ? 400 : 200);
+				expect(row().startMs).toBe(isTeam ? 1000 : 1100);
+			}
+		);
 	});
 });
 
@@ -259,7 +283,7 @@ describe.each([
 			post({ stepId: String(a), index: '0', fingerprint: stale }, id)
 		);
 		expect(r.status).toBe(409);
-		expect(r.data?.message).toBe('This routine changed since you opened it');
+		expect(r.data?.message).toBe('This routine changed; it now shows the latest');
 		expect(order()).toEqual(after);
 	});
 
@@ -295,6 +319,24 @@ describe.each([
 		const r = await call(routinePage.actions.rename, post({ name: 'Mine', notes: '', seen }, id));
 		expect(r.status).toBe(409);
 		expect(r.data?.clash).toMatchObject({ changed: ['notes'] });
+	});
+
+	it('says gone on a routine archived since, to a rename and a slot action', async () => {
+		const data = load(routinePage, id);
+		archiveRoutine(db, id, 5);
+		const renamed = await call(
+			routinePage.actions.rename,
+			post({ name: 'Mine', notes: '', seen: seenOf(data) }, id)
+		);
+		expect(renamed.status).toBe(410);
+		expect(renamed.data?.gone).toEqual({ by: null, at: null });
+		const moved = await call(
+			routinePage.actions.reorder,
+			post({ stepId: String(a), index: '1', fingerprint: data.fingerprint as string }, id)
+		);
+		expect(moved.status).toBe(410);
+		expect(order()).toEqual([a, b]);
+		expect(db.select().from(routines).where(eq(routines.id, id)).get()!.name).toBe('R');
 	});
 });
 

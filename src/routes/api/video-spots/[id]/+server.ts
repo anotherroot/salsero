@@ -4,7 +4,7 @@ import { allows, spotAccess } from '$lib/server/access';
 import { eq } from 'drizzle-orm';
 import { videoSpots } from '$lib/server/db/schema';
 import { deleteSpot, SpotError, spotOwner, updateSpot } from '$lib/server/spots';
-import { checkSeen, MISSING_SEEN, spotSeen } from '$lib/server/clash';
+import { checkSeen, MISSING_SEEN, seesAll, spotSeen } from '$lib/server/clash';
 import { asSeen, clashTitle } from '$lib/clash/clash';
 import { SpotLinkedError } from '$lib/server/spot-links';
 import type { RequestHandler } from './$types';
@@ -41,7 +41,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const db = getDb();
 	const sent = 'seen' in body ? asSeen((body as { seen: unknown }).seen) : null;
 	const team = 'teamId' in (spotOwner(db, id) ?? { userId: '' });
-	if (team && sent === null) throw error(400, MISSING_SEEN);
+	if (team && !seesAll(sent, Object.keys(changes))) throw error(400, MISSING_SEEN);
 	const row = db
 		.select({ label: videoSpots.label, startMs: videoSpots.startMs, endMs: videoSpots.endMs })
 		.from(videoSpots)

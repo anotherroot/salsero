@@ -78,7 +78,13 @@
 	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
 	import ClashSheet from './ClashSheet.svelte';
 	import type { ClashAsk } from '$lib/unsaved/guard.svelte';
-	import { clashView, type ClashInfo, type Seen } from '$lib/clash/clash';
+	import {
+		clashView,
+		mineOverTheirs,
+		seenAfterSave,
+		type ClashInfo,
+		type Seen
+	} from '$lib/clash/clash';
 	import { openingSteps, suggestedName, type LinkStep } from '$lib/video/link-steps';
 	import type { Spot, SpotOwner } from '$lib/types';
 
@@ -423,7 +429,11 @@
 		sending = sending.then(async () => {
 			if (clashed.has(id)) return;
 			try {
-				known.set(id, spotSeen(await patchSpot(id, changes, known.get(id))));
+				const before = known.get(id);
+				const answer = spotSeen(await patchSpot(id, changes, before));
+				// Only what this edit wrote is seen anew: the screen still shows the
+				// rest as it was, and the next edit must not claim to have seen more.
+				known.set(id, before ? seenAfterSave(before, Object.keys(changes), answer) : answer);
 			} catch (e) {
 				if (e instanceof SpotsApiError && e.clash) {
 					askClash(id, e.clash);
@@ -475,9 +485,16 @@
 				settle();
 				const now = spots.find((s) => s.id === id);
 				if (!now) return;
-				const label = 'label' in values ? values.label.trim() || null : now.label;
-				show(id, { ...spotSeen(now), label });
-				send(id, { label, startMs: now.startMs, endMs: now.endMs });
+				// Yours for what clashed, theirs for everything else.
+				const boxes: Record<string, string> =
+					'label' in values ? { label: values.label.trim() } : {};
+				const { send: out, show: shown } = mineOverTheirs(info, spotSeen(now), boxes);
+				const changes: { label?: string | null; startMs?: number; endMs?: number | null } = {};
+				if ('label' in out) changes.label = out.label ? String(out.label) : null;
+				if ('startMs' in out) changes.startMs = Number(out.startMs);
+				if ('endMs' in out) changes.endMs = out.endMs === null ? null : Number(out.endMs);
+				show(id, { ...shown, ...changes });
+				send(id, changes);
 			},
 			theirs: () => {
 				settle();

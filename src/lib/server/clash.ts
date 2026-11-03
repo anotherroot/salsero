@@ -51,6 +51,15 @@ export function checkSeen(current: Seen | null, seen: Seen | null): SeenCheck {
 	return { ok: false, changed, current, by: null, at: null };
 }
 
+/**
+ * Whether a save said what it saw of every field it writes. On a group's row
+ * one that did not is refused (risk 27): `seen: {}` must not pass where no
+ * `seen` would not.
+ */
+export function seesAll(seen: Seen | null, keys: string[]): boolean {
+	return seen !== null && keys.every((k) => k in seen);
+}
+
 /** The refusal for a group's save that carried no `seen`. */
 export const MISSING_SEEN = 'This page is out of date. Reload it and try again.';
 
@@ -68,7 +77,7 @@ export function seenRefusal<T extends Record<string, unknown>>(
 	now = Date.now()
 ): ActionFailure<T & { message: string; clash?: unknown; gone?: unknown }> | null {
 	const seen = seenFrom(form);
-	if (team && seen === null && current !== null) {
+	if (team && current !== null && !seesAll(seen, Object.keys(current))) {
 		return fail(400, { ...extra, message: MISSING_SEEN });
 	}
 	const check = checkSeen(current, seen);

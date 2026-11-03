@@ -13,7 +13,6 @@ import {
 	embeddable,
 	embeddedIn,
 	extractRoutine,
-	getRoutine,
 	insertSlot,
 	moveSlotTo,
 	removeOption,
@@ -42,7 +41,7 @@ import type { Candidate } from '$lib/routines/fit';
 import { requireRoutineAccess, wallOf } from '$lib/server/scope';
 import { entryFor } from '$lib/server/entries';
 import { MISSING_SEEN, routineSeen, seenRefusal } from '$lib/server/clash';
-import { routineFingerprint, staleRoutine } from '$lib/clash/clash';
+import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import type { Routine } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -82,6 +81,10 @@ function done<T extends Record<string, unknown>>(routineId: number, extra?: T) {
  */
 function staleSlots(db: Db, routine: Routine, form: FormData, action?: 'extract') {
 	const named = action ? { action } : {};
+	if (routine.archivedAt !== null) {
+		const gone = { by: null, at: null };
+		return fail(410, { ...named, message: goneTitle(gone, Date.now()), gone });
+	}
 	const sent = form.get('fingerprint');
 	if (typeof sent !== 'string' || sent === '') {
 		return routine.teamId !== null ? fail(400, { ...named, message: MISSING_SEEN }) : null;
@@ -251,9 +254,10 @@ function slotFail(message: string, stepId: number | undefined) {
 
 export const actions: Actions = {
 	rename: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
 		// What was typed comes back, so a refused Save does not empty the form.
@@ -277,7 +281,7 @@ export const actions: Actions = {
 		const clash = seenRefusal(
 			form,
 			routine.teamId !== null,
-			routineSeen(getRoutine(db, routine.id) ?? routine),
+			routine.archivedAt === null ? routineSeen(routine) : null,
 			{ action: 'rename' as const, ...typed }
 		);
 		if (clash) return clash;
@@ -304,10 +308,11 @@ export const actions: Actions = {
 	},
 
 	addOption: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
@@ -327,10 +332,11 @@ export const actions: Actions = {
 	},
 
 	removeOption: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
@@ -347,10 +353,11 @@ export const actions: Actions = {
 	},
 
 	note: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepId = int(form, 'stepId');
 		const note = optionalText(form, 'note', 200);
@@ -367,10 +374,11 @@ export const actions: Actions = {
 	},
 
 	insert: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const at = int(form, 'at');
 		const figureId = int(form, 'figureId');
@@ -391,9 +399,11 @@ export const actions: Actions = {
 	},
 
 	reorder: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
+		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepId = int(form, 'stepId');
 		const index = int(form, 'index');
@@ -408,9 +418,11 @@ export const actions: Actions = {
 	},
 
 	deleteMany: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
+		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepIds = ints(form, 'stepIds');
 		const snapshot = stepIds.length === 0 ? null : deleteSlots(getDb(), routine.id, stepIds);
@@ -420,9 +432,11 @@ export const actions: Actions = {
 	},
 
 	restore: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
+		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const snapshot = parseSnapshots(String(form.get('snapshot') ?? ''));
 		if (!snapshot || !restoreSlots(getDb(), routine.id, snapshot)) {
@@ -432,10 +446,11 @@ export const actions: Actions = {
 	},
 
 	restoreOption: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
 		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepId = int(form, 'stepId');
 		const figureId = int(form, 'figureId');
@@ -452,9 +467,11 @@ export const actions: Actions = {
 	},
 
 	duplicateMany: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
+		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form);
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form);
 		if (stale) return stale;
 		const stepIds = ints(form, 'stepIds');
 		if (stepIds.length === 0 || duplicateSlots(getDb(), routine.id, stepIds) === null) {
@@ -464,9 +481,11 @@ export const actions: Actions = {
 	},
 
 	extract: async ({ params, request, locals }) => {
-		const routine = routineOf(params, locals);
+		const db = getDb();
 		const form = await request.formData();
-		const stale = staleSlots(getDb(), routine, form, 'extract');
+		// Read after the body: the routine as it is now, not before the wait.
+		const routine = routineOf(params, locals);
+		const stale = staleSlots(db, routine, form, 'extract');
 		if (stale) return stale;
 		const stepIds = ints(form, 'stepIds');
 		const name = text(form, 'name');

@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
-	import { afterNavigate, invalidateAll } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
@@ -45,9 +45,11 @@
 		factsOf,
 		makeRoutineCaption,
 		failurePlace,
+		fingerprintToSend,
 		seamLabel,
 		selectionTitle,
-		slotMeta
+		slotMeta,
+		type OwnSend
 	} from '$lib/routines/page';
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
@@ -292,42 +294,34 @@
 	/*
 	 * Every slot action carries the routine's fingerprint as this page last saw
 	 * it, and one aimed at a routine that changed since is refused (the clash
-	 * check). They go one at a time: an action tapped while this page's own
-	 * previous one was out was aimed at the same routine, so it carries that
-	 * one's answer and never clashes with it.
+	 * check). They go one at a time, and one tapped while this page's own were
+	 * still out follows their answers (`fingerprintToSend`), so the page never
+	 * clashes with itself.
 	 */
-	type Sent = { sent: string | null; after: string | null };
-	let chain: Promise<Sent> = Promise.resolve({ sent: null, after: null });
+	let chain: Promise<unknown> = Promise.resolve();
+	/** This page's own actions not yet answered, in the order they were sent. */
+	let queued: OwnSend[] = [];
 	async function send(name: string, fields: Record<string, Field>) {
 		pending++;
 		const aimed = data.fingerprint;
-		const run = chain.then(async (prev) => {
-			const fingerprint = prev.after !== null && prev.sent === aimed ? prev.after : aimed;
-			const result = await act(name, { ...fields, fingerprint });
-			const after =
-				result.type === 'success' && typeof result.data?.fingerprint === 'string'
-					? result.data.fingerprint
-					: null;
-			return { result, sent: fingerprint, after };
+		const ahead = [...queued];
+		const mine: OwnSend = { sent: null, after: null };
+		queued.push(mine);
+		const run = chain.then(async () => {
+			mine.sent = fingerprintToSend(aimed, ahead);
+			const result = await act(name, { ...fields, fingerprint: mine.sent });
+			if (result.type === 'success' && typeof result.data?.fingerprint === 'string') {
+				mine.after = result.data.fingerprint;
+			}
+			return result;
 		});
-		chain = run.then(
-			({ sent, after }) => ({ sent, after }),
-			() => ({ sent: null, after: null })
-		);
+		chain = run.catch(() => {});
 		try {
-			return (await run).result;
+			return await run;
 		} finally {
+			queued = queued.filter((q) => q !== mine);
 			pending--;
 		}
-	}
-
-	/** A slot action refused because the routine changed since: the banner's Reload. */
-	const outdated = $derived(
-		!!form && typeof form === 'object' && 'stale' in form && form.stale === true
-	);
-	async function reload() {
-		dismissed = form;
-		await invalidateAll();
 	}
 
 	function showToast(message: string, undo: () => void) {
@@ -523,18 +517,6 @@
 		};
 </script>
 
-{#snippet refusal(message: string)}
-	{#if outdated}
-		<Banner kind="error" title={message} ondismiss={() => (dismissed = form)}>
-			{#snippet action()}
-				<button type="button" class={button('tertiary', 'sm')} onclick={reload}>Reload</button>
-			{/snippet}
-		</Banner>
-	{:else}
-		<Banner kind="error" title={message} ondismiss={() => (dismissed = form)} />
-	{/if}
-{/snippet}
-
 <svelte:head><title>{routine.name} · {data.dance.label}</title></svelte:head>
 
 <svelte:window
@@ -601,7 +583,7 @@
 	>
 		{#if editing}
 			{#if bannerMessage}
-				{@render refusal(bannerMessage)}
+				<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
 			{/if}
 			<form
 				id="edit-form"
@@ -703,7 +685,7 @@
 			<!-- Selecting shows only the slots. -->
 			{#if !selecting}
 				{#if bannerMessage}
-					{@render refusal(bannerMessage)}
+					<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
 				{/if}
 				{#if routine.notes}
 					<p class="px-1 text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2">

@@ -109,3 +109,19 @@ export function failurePlace(form: unknown, slotIds: number[]): FailurePlace | n
 		return { where: 'slot', stepId: f.stepId, message };
 	return { where: 'banner', message };
 }
+
+/** One of this page's own slot actions: the fingerprint it sent, and the one it got back (null: refused). */
+export type OwnSend = { sent: string | null; after: string | null };
+
+/**
+ * The fingerprint a queued slot action sends. It was aimed at `aimed`, the
+ * routine as the page showed it when tapped; the page's own actions queued
+ * ahead of it have changed the routine since, each turning the fingerprint it
+ * sent into the one it got back. Walk them in order from `aimed`: what is left
+ * is the routine this action would have seen. A refused one changed nothing.
+ */
+export function fingerprintToSend(aimed: string, ahead: OwnSend[]): string {
+	let fp = aimed;
+	for (const r of ahead) if (r.sent === fp && r.after !== null) fp = r.after;
+	return fp;
+}

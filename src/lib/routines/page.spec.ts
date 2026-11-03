@@ -4,6 +4,7 @@ import {
 	factBadges,
 	factsOf,
 	failurePlace,
+	fingerprintToSend,
 	makeRoutineCaption,
 	seamLabel,
 	selectionTitle,
@@ -111,10 +112,32 @@ describe('failurePlace and the clash check', () => {
 	});
 	it('puts a stale slot action in the banner', () => {
 		expect(
-			failurePlace({ message: 'This routine changed since you opened it', stale: true }, [1])
+			failurePlace({ message: 'This routine changed; it now shows the latest', stale: true }, [1])
 		).toEqual({
 			where: 'banner',
-			message: 'This routine changed since you opened it'
+			message: 'This routine changed; it now shows the latest'
 		});
+	});
+});
+
+describe('fingerprintToSend', () => {
+	it('lets three quick actions aimed at one routine follow each other', () => {
+		const a = { sent: 'fp0', after: 'fp1' };
+		const b = { sent: fingerprintToSend('fp0', [a]), after: 'fp2' };
+		expect(b.sent).toBe('fp1');
+		expect(fingerprintToSend('fp0', [a, b])).toBe('fp2');
+	});
+	it('skips a refused one in the middle', () => {
+		const a = { sent: 'fp0', after: 'fp1' };
+		const b = { sent: 'fp1', after: null };
+		expect(fingerprintToSend('fp0', [a, b])).toBe('fp1');
+	});
+	it('follows a move and its move back without going round', () => {
+		const a = { sent: 'fp0', after: 'fp1' };
+		const b = { sent: 'fp1', after: 'fp0' };
+		expect(fingerprintToSend('fp0', [a, b])).toBe('fp0');
+	});
+	it('leaves one aimed after the others landed as it is', () => {
+		expect(fingerprintToSend('fp2', [{ sent: 'fp0', after: 'fp1' }])).toBe('fp2');
 	});
 });

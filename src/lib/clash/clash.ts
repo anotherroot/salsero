@@ -113,9 +113,14 @@ export function goneTitle(info: { by: string | null; at: number | null }, now: n
 		: `${info.by} deleted this · ${agoText(info.at, now)}`;
 }
 
-/** A slot action aimed at a routine that changed since: "Ana changed this routine". */
+/**
+ * A slot action aimed at a routine that changed since. The page has already
+ * reloaded by the time this shows, so it says so.
+ */
 export function staleRoutine(by: string | null): string {
-	return by === null ? 'This routine changed since you opened it' : `${by} changed this routine`;
+	return by === null
+		? 'This routine changed; it now shows the latest'
+		: `${by} changed this routine; it now shows their version`;
 }
 
 /** What the clash sheet calls a field, by its form name. */
@@ -164,8 +169,17 @@ export interface ClashField {
 
 export interface ClashView {
 	fields: ClashField[];
-	/** The labels of changed fields the sheet cannot show side by side. */
+	/**
+	 * The labels of changed fields the sheet cannot show side by side whose
+	 * value Save mine keeps as yours: ones you edited, and ones that cannot be
+	 * put back (a list of positions).
+	 */
 	others: string[];
+	/**
+	 * Changed fields you left as you found them, whose value is not in a box:
+	 * Save mine puts theirs there first, so it never undoes their change.
+	 */
+	adopt: string[];
 }
 
 const shown = (v: SeenValue | undefined) => (v === null || v === undefined ? '' : String(v));
@@ -180,23 +194,53 @@ export function clashView(
 	sent: Seen,
 	seen: Seen | null,
 	kindOf: (key: string) => FieldKind,
-	format: (key: string, v: SeenValue) => string = (_, v) => shown(v)
+	format: (key: string, v: SeenValue) => string = (_, v) => shown(v),
+	settable: (key: string) => boolean = () => true
 ): ClashView {
 	const fields: ClashField[] = [];
 	const others: string[] = [];
+	const adopt: string[] = [];
 	for (const key of info.changed) {
 		const kind = kindOf(key);
+		const edited = seen === null || !same(sent[key], seen[key]);
 		if (kind === 'other') {
-			others.push(fieldLabel(key));
+			if (!edited && settable(key)) adopt.push(key);
+			else others.push(fieldLabel(key));
 			continue;
 		}
 		const theirs = info.current[key] ?? null;
-		const edited = seen === null || !same(sent[key], seen[key]);
 		const mine = edited ? (sent[key] ?? null) : theirs;
 		const text = (v: SeenValue) => (kind === 'time' ? format(key, v) : shown(v));
 		fields.push({ key, label: fieldLabel(key), kind, theirs: text(theirs), mine: text(mine) });
 	}
-	return { fields, others };
+	return { fields, others, adopt };
+}
+
+/**
+ * What a save that went through leaves "seen" for the next one: the fields it
+ * wrote, as the server answered them, and every other field as it was — the
+ * screen still shows those, so the next save must not claim to have seen a
+ * value it never showed.
+ */
+export function seenAfterSave(before: Seen, wrote: string[], answer: Seen): Seen {
+	const out = { ...before };
+	for (const key of wrote) out[key] = answer[key] ?? null;
+	return out;
+}
+
+/**
+ * Save mine on a record edited field by field (a section in the player): only
+ * the changed fields are sent, with yours (a box's value where the sheet had
+ * one, else what the screen shows); everything else shows theirs.
+ */
+export function mineOverTheirs(
+	info: Pick<ClashInfo, 'changed' | 'current'>,
+	screen: Seen,
+	boxes: Record<string, string>
+): { send: Seen; show: Seen } {
+	const send: Seen = {};
+	for (const key of info.changed) send[key] = key in boxes ? boxes[key] : (screen[key] ?? null);
+	return { send, show: { ...info.current, ...send } };
 }
 
 /** Whether a refused save's data is the clash sheet's (a clash or gone), not the form's own message. */

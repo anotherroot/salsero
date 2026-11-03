@@ -3,7 +3,7 @@ import type { Action } from 'svelte/action';
 import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 import { enhance } from '$app/forms';
 import { beforeNavigate, goto } from '$app/navigation';
-import { refreshWhenSettled } from '$lib/sheets/history.svelte';
+import { refreshWhenSettled, sheetStack } from '$lib/sheets/history.svelte';
 import {
 	asSeen,
 	changedFields,
@@ -170,9 +170,35 @@ function kindOf(form: HTMLFormElement, key: string): FieldKind {
 	return 'other';
 }
 
+/** A group of radios under one name (a choice), which takes a value as one field does. */
+function radios(el: unknown): el is RadioNodeList {
+	return (
+		el instanceof RadioNodeList &&
+		[...el].every((r) => r instanceof HTMLInputElement && r.type === 'radio')
+	);
+}
+
+/** Whether `setField` can put a value back into this field (not a list of hidden ids). */
+function settable(form: HTMLFormElement, key: string): boolean {
+	const el = form.elements.namedItem(key);
+	return (
+		radios(el) ||
+		el instanceof HTMLInputElement ||
+		el instanceof HTMLTextAreaElement ||
+		el instanceof HTMLSelectElement
+	);
+}
+
 /** Put a value into a field as if it was typed, so bound state follows. False when it cannot. */
 function setField(form: HTMLFormElement, key: string, value: string): boolean {
 	const el = form.elements.namedItem(key);
+	if (radios(el)) {
+		el.value = value;
+		const on = [...el].find((r) => (r as HTMLInputElement).checked);
+		on?.dispatchEvent(new Event('input', { bubbles: true }));
+		on?.dispatchEvent(new Event('change', { bubbles: true }));
+		return true;
+	}
 	if (el instanceof HTMLInputElement && el.type === 'checkbox') {
 		el.checked = value === 'on' || value === 'true';
 	} else if (
@@ -304,7 +330,7 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 			clashPrompt.ask = {
 				kind: 'gone',
 				...refused.gone,
-				view: { fields: [], others: [] },
+				view: { fields: [], others: [], adopt: [] },
 				typed: Object.entries(typedValues)
 					.filter(([key, v]) => kind(key) !== 'other' && v)
 					.map(([key, v]) => ({ label: fieldLabel(key), text: String(v) })),
@@ -315,17 +341,22 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 		}
 		const info = refused.clash;
 		const seen = seenSent(sent);
+		const view = clashView(info, typedValues, seen, kind, undefined, (key) => settable(form, key));
 		clashPrompt.ask = {
 			kind: 'clash',
 			by: info.by,
 			at: info.at,
-			view: clashView(info, typedValues, seen, kind),
+			view,
 			typed: [],
 			mine: (values) => {
 				clashPrompt.ask = null;
+				// A changed field you never touched takes theirs, so Save mine
+				// does not undo it; the boxes are yours.
+				for (const key of view.adopt) setField(form, key, String(info.current[key] ?? ''));
 				for (const [key, v] of Object.entries(values)) setField(form, key, v);
 				setSeen(form, info.current);
-				form.requestSubmit();
+				// Once the sheet's own Back has landed: a refresh it overtakes is dropped.
+				void tick().then(() => sheetStack.settled(() => form.requestSubmit()));
 			},
 			theirs: () => {
 				clashPrompt.ask = null;
@@ -334,7 +365,7 @@ export const guarded: Action<HTMLFormElement, GuardOptions> = (form, initial) =>
 				// Nothing of yours left to lose: the form is theirs again.
 				const now = valuesOf(new FormData(form));
 				if (changedFields(info.current, now).length === 0) saved = read();
-				void refreshWhenSettled();
+				void tick().then(() => refreshWhenSettled());
 			}
 		};
 	}
