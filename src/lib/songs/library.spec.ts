@@ -29,6 +29,7 @@ function song(id: number, title: string, over: Partial<SongItem> = {}): SongItem
 		createdAt: id,
 		sample: null,
 		recentRank: null,
+		sharedAt: null,
 		...over
 	};
 }

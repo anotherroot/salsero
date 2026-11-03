@@ -19,7 +19,10 @@ vi.mock('$lib/server/storage', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { eq } from 'drizzle-orm';
-import { songs, users } from '$lib/server/db/schema';
+import { songs, teams, users } from '$lib/server/db/schema';
+import { createTeam } from '$lib/server/teams';
+import { usedBytesOf } from '$lib/server/storage';
+import { T1_SALSA } from '$lib/server/test-walls';
 import { createSongFromUrl } from '$lib/server/songs';
 import { PUT } from './+server';
 
@@ -79,5 +82,31 @@ describe('an owner-less song', () => {
 		const row = db.select().from(songs).where(eq(songs.id, songId)).get()!;
 		expect(row.status).toBe('failed');
 		expect(row.error).toBe('Song has no owner');
+	});
+});
+
+describe("a group's song", () => {
+	beforeEach(() => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		songId = createSongFromUrl(db, T1_SALSA, {
+			url: 'https://youtu.be/g',
+			title: 'G',
+			style: 'salsa'
+		}).id;
+	});
+
+	it('is stored and charged to the group, not to anyone in it', async () => {
+		expect((await put(1000)).status).toBe(204);
+		expect(usedBytesOf(db, { teamId: 1 })).toBe(1000);
+		expect(usedBytesOf(db, { userId: 'u1' })).toBe(0);
+		expect(db.select().from(songs).where(eq(songs.id, songId)).get()!.status).toBe(
+			'waiting_analysis'
+		);
+	});
+
+	it("is refused with 413 over the group's limit", async () => {
+		db.update(teams).set({ storageLimitBytes: 500 }).where(eq(teams.id, 1)).run();
+		await expect(put(1000)).rejects.toMatchObject({ status: 413 });
+		expect(await readdir(join(envMock.DATA_DIR, 'audio'))).toEqual([]);
 	});
 });

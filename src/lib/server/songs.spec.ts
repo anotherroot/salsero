@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, T2_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { exercises, songs } from './db/schema';
 import { openDb, type Db } from './db';
+import { createTeam } from './teams';
 import { createCustomExercise, logSet } from './exercises';
 import {
 	LEASE_MS,
@@ -274,6 +275,47 @@ describe('songs are walled off by dance', () => {
 			style: 'sensual'
 		});
 		expect(claimJob(db, 1_000)).not.toBeNull();
+	});
+});
+
+describe("a group's songs", () => {
+	const add = (space: typeof T1_SALSA | typeof U1_SALSA, title: string) =>
+		createSongFromUrl(db, space, { url: URL, title, style: 'salsa' });
+	beforeEach(() => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+	});
+
+	it('are owned by the group alone and listed in its space only', () => {
+		const g = add(T1_SALSA, 'Group');
+		expect(g).toMatchObject({ userId: null, teamId: 1, sharedAt: null, dance: 'salsa' });
+		const u = createSongFromUpload(db, T1_SALSA, {
+			file: 'g.mp3',
+			mime: 'audio/mpeg',
+			title: 'Uploaded',
+			style: 'salsa'
+		});
+		expect(u).toMatchObject({ userId: null, teamId: 1 });
+		add(U1_SALSA, 'Mine');
+		expect(listSongs(db, U1_SALSA).map((s) => s.title)).toEqual(['Mine']);
+		expect(listSongs(db, T1_SALSA).map((s) => s.title)).toEqual(['Uploaded', 'Group']);
+		expect(listSongs(db, T2_SALSA)).toEqual([]);
+		expect(listSongs(db, U1_SALSA)[0].sharedAt).toBeNull();
+	});
+
+	it('lists drafts first, then the shared ones, newest first in each', () => {
+		const a = add(T1_SALSA, 'A').id;
+		add(T1_SALSA, 'B');
+		const c = add(T1_SALSA, 'C').id;
+		add(T1_SALSA, 'D');
+		db.update(songs).set({ sharedAt: 5 }).where(eq(songs.id, a)).run();
+		db.update(songs).set({ sharedAt: 6 }).where(eq(songs.id, c)).run();
+		const list = listSongs(db, T1_SALSA);
+		expect(list.map((s) => [s.title, s.sharedAt])).toEqual([
+			['D', null],
+			['B', null],
+			['C', 6],
+			['A', 5]
+		]);
 	});
 });
 

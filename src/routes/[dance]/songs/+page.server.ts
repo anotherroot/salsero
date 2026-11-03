@@ -2,14 +2,23 @@ import { fail } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { oneOf, optionalText } from '$lib/server/form';
 import { createSongFromUrl, listSongs, retrySong } from '$lib/server/songs';
-import { roomFor } from '$lib/server/storage';
+import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { DANCES } from '$lib/dances/dances';
-import { requireSongInWall, wallOf } from '$lib/server/scope';
+import { ownerValues, requireSongAccess, wallOf, type Space } from '$lib/server/scope';
+import { spaceOf } from '$lib/server/group-mode';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals }) => ({
 	songs: listSongs(getDb(), wallOf(params, locals))
 });
+
+/**
+ * Room for a download into this space, charged to its owner (the person, or
+ * the group in group mode). No disk floor: the bytes are not here yet, and the
+ * worker checks the floor when they come.
+ */
+const roomIn = (space: Space) =>
+	roomForOwner(getDb(), ownerOfRow(ownerValues(space)), 1, Number.POSITIVE_INFINITY);
 
 function httpUrl(raw: string): string | null {
 	try {
@@ -21,9 +30,10 @@ function httpUrl(raw: string): string | null {
 }
 
 export const actions: Actions = {
-	addUrl: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
-		const dance = wall.dance;
+	addUrl: async ({ params, request, locals, cookies }) => {
+		// Group mode files the song as the group's draft; the cookie is re-checked.
+		const space = spaceOf(getDb(), params, locals, cookies);
+		const dance = space.dance;
 		const form = await request.formData();
 		const raw = String(form.get('url') ?? '');
 		const url = httpUrl(raw);
@@ -47,23 +57,22 @@ export const actions: Actions = {
 				...kept
 			});
 		}
-		// The size is unknown until the worker has it: refuse only a person already
+		// The size is unknown until the worker has it: refuse only an owner already
 		// at or over the limit (one byte more would not fit); it is accepted when it lands.
-		const room = roomFor(getDb(), wall.userId, 1);
+		const room = roomIn(space);
 		if (!room.ok) return fail(413, { field: 'url' as const, message: room.message, ...kept });
-		createSongFromUrl(getDb(), wall, { url, title: title ?? '', style });
+		createSongFromUrl(getDb(), space, { url, title: title ?? '', style });
 		return { ok: true };
 	},
 
 	retry: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
 		const id = Number((await request.formData()).get('id'));
-		// The same guard the song's own page uses. Without it this action would
-		// re-queue — and, through its 409, confirm the existence of — a song on
-		// the other side of the wall.
-		requireSongInWall(getDb(), wall, id);
-		// A retry downloads again: refused at or over the limit, as addUrl is.
-		const room = roomFor(getDb(), wall.userId, 1);
+		// Only someone who edits the song retries it. Without the guard this
+		// action would re-queue — and, through its 409, confirm the existence
+		// of — a song on the other side of the wall, or a group's to a member.
+		const { space } = requireSongAccess(getDb(), locals, params, id, 'edit');
+		// A retry downloads again: refused at or over its owner's limit, as addUrl is.
+		const room = roomIn(space);
 		if (!room.ok) return fail(413, { message: room.message });
 		if (!retrySong(getDb(), id))
 			return fail(409, { message: 'Only a failed song can be retried.' });

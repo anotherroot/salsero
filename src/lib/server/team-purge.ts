@@ -22,6 +22,8 @@ import {
 	links,
 	recordings,
 	routines,
+	songDrops,
+	songs,
 	spotLinks,
 	teamMembers,
 	teams,
@@ -29,7 +31,7 @@ import {
 	videoDownloads,
 	videoSpots
 } from './db/schema';
-import { lessonVideosDir, recordingsDir, RECORDING_FILE_RE } from './files';
+import { audioDir, lessonVideosDir, recordingsDir, RECORDING_FILE_RE } from './files';
 import type { TrashDirs, TrashFile } from './trash';
 import { TEAM_PURGE_MS } from '$lib/limits';
 
@@ -40,7 +42,8 @@ const dueToPurge = (now: number) =>
 /**
  * One group's rows, in one transaction with one `now`: the media rows go
  * (videos, recordings, their spots and section links, links and saves in
- * flight); the group's lessons, figures, variations, routines and drills are
+ * flight; songs, their drops, and every entry's pick of one, which falls back
+ * to count-only); the group's lessons, figures, variations, routines and drills are
  * archived, and so is every live entry pointing at them; its trash is marked
  * purged; `purged_at` is set; its members and the lessons people added go.
  * People's sets are never touched. Returns the files to delete, or null when
@@ -117,6 +120,18 @@ function purgeRows(db: Db, teamId: number, now: number): TrashFile[] | null {
 			.run();
 		tx.delete(links).where(ownLinks).run();
 
+		// Songs: anyone's entry that picked one goes to count-only, and the file goes.
+		const groupSongs = tx
+			.select({ id: songs.id, file: songs.audioFile })
+			.from(songs)
+			.where(eq(songs.teamId, teamId))
+			.all();
+		const songIds = groupSongs.map((s) => s.id);
+		tx.update(exercises).set({ songId: null }).where(inArray(exercises.songId, songIds)).run();
+		tx.delete(songDrops).where(inArray(songDrops.songId, songIds)).run();
+		tx.delete(songs).where(inArray(songs.id, songIds)).run();
+		for (const s of groupSongs) if (s.file) files.push({ dir: 'audio', file: s.file });
+
 		// Entries first: their targets are found by the group's ids, archived or not.
 		tx.update(exercises)
 			.set({ archivedAt: now })
@@ -192,7 +207,7 @@ export async function purgeTeams(db: Db, now: number, dirs?: TrashDirs): Promise
 			if (files.length === 0) continue;
 			await unlinkFiles(
 				files,
-				dirs ?? { lessonVideos: lessonVideosDir(), recordings: recordingsDir() }
+				dirs ?? { lessonVideos: lessonVideosDir(), recordings: recordingsDir(), audio: audioDir() }
 			);
 		} catch (err) {
 			console.warn(`[team-purge] could not purge group ${id}`, err);

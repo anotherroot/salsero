@@ -39,7 +39,7 @@ import {
 } from './db/schema';
 import { logChange, teamNames } from './changes';
 import { reviveEntries } from './entries';
-import { lessonVideosDir, recordingsDir, RECORDING_FILE_RE } from './files';
+import { audioDir, lessonVideosDir, recordingsDir, RECORDING_FILE_RE } from './files';
 import { restoreLesson } from './lessons';
 import { labelFor, restoreVariation } from './figures';
 import { restoreRoutine } from './routines';
@@ -53,8 +53,8 @@ import { TRASH_MS } from '$lib/limits';
 import { trashRefusalLine, type TrashRefusal } from '$lib/teams/deleted';
 import type { ChangeRootKind, DeletedItem, DeletedKind, TrashKind } from '$lib/types';
 
-/** Where a trashed file lives: a lesson video's folder or a recording's. */
-export type TrashDir = 'lessonVideos' | 'recordings';
+/** Where a trashed or purged file lives: a lesson video's folder, a recording's, or a song's. */
+export type TrashDir = 'lessonVideos' | 'recordings' | 'audio';
 export type TrashDirs = Record<TrashDir, string>;
 export type TrashFile = { dir: TrashDir; file: string };
 
@@ -430,7 +430,7 @@ export function restoreDeleted(
 
 /** The real folders, read from `$DATA_DIR` only when a purge has a file to delete. */
 function dataDirs(): TrashDirs {
-	return { lessonVideos: lessonVideosDir(), recordings: recordingsDir() };
+	return { lessonVideos: lessonVideosDir(), recordings: recordingsDir(), audio: audioDir() };
 }
 
 /**

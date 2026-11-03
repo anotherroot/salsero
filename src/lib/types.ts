@@ -92,6 +92,8 @@ export interface SongItem {
 	sample: SampleSong | null;
 	/** 0 = practised most recently; null otherwise. Ready songs only. */
 	recentRank: number | null;
+	/** A group song's Share with the class; null for a draft, and for a person's own song. */
+	sharedAt: number | null;
 }
 
 /** What a play button needs to play a song's sample. */

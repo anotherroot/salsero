@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { lessonAdds, lessons } from './db/schema';
+import { lessonAdds, lessons, songs } from './db/schema';
 import {
 	drillAccess,
 	figureAccess,
@@ -12,7 +12,8 @@ import {
 	lessonVideoAccess,
 	reach,
 	recordingAccess,
-	routineAccess
+	routineAccess,
+	songAccess
 } from './access';
 import { createCustomExercise, getExercise } from './exercises';
 import { addRecording, createFigure, createVariationIn, listGroupVariations } from './figures';
@@ -25,13 +26,15 @@ import {
 	linkRoutine
 } from './lessons';
 import { addChildSlot, addFigureSlot, archiveRoutine, createRoutine, getRoutine } from './routines';
+import { createSongFromUrl } from './songs';
 import { addSpot } from './spots';
 import { linkInSpace } from './spot-links';
 import {
 	requireExerciseAccess,
 	requireFigureAccess,
 	requireLessonAccess,
-	requireRoutineAccess
+	requireRoutineAccess,
+	requireSongAccess
 } from './scope';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { leaveTeam, setRole } from './membership';
@@ -367,5 +370,95 @@ describe('publishedReach', () => {
 		const none = publishedReach(db, 1);
 		expect(none.routines.size).toBe(0);
 		expect(none.variations.size).toBe(0);
+	});
+});
+
+describe('song access', () => {
+	/**
+	 * Its own team: u1 owns it, u2 edits, u3 is a member, u4 an outsider, u5 a
+	 * former member (joined, then left).
+	 */
+	let sdb: Db;
+	let draft: number, shared: number;
+	const row = (id: number) => sdb.select().from(songs).where(eq(songs.id, id)).get()!;
+	const as = (id: string, dance = 'salsa') =>
+		[
+			sdb,
+			{ user: { id, email: `${id}@example.com`, timezone: 'UTC', isAdmin: false } } as App.Locals,
+			{ dance }
+		] as const;
+	const threw404 = expect.objectContaining({ status: 404 });
+
+	beforeEach(() => {
+		sdb = openDb(':memory:');
+		createTeam(sdb, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		for (const u of ['u2', 'u3', 'u5']) joinTeam(sdb, u, 1, 2);
+		setRole(sdb, 1, 'u2', 'editor');
+		expect(leaveTeam(sdb, 1, 'u5')).toBe('left');
+		const input = { url: 'https://youtu.be/x', title: 'S', style: 'salsa' };
+		draft = createSongFromUrl(sdb, T1_SALSA, input).id;
+		shared = createSongFromUrl(sdb, T1_SALSA, input).id;
+		sdb.update(songs).set({ sharedAt: 7 }).where(eq(songs.id, shared)).run();
+	});
+
+	it('a draft: the owner and an editor edit it, nobody else sees it', () => {
+		expect(row(draft)).toMatchObject({ userId: null, teamId: 1, sharedAt: null });
+		expect(songAccess(sdb, 'u1', row(draft))).toBe('edit');
+		expect(songAccess(sdb, 'u2', row(draft))).toBe('edit');
+		for (const u of ['u3', 'u4', 'u5']) expect(songAccess(sdb, u, row(draft))).toBeNull();
+	});
+
+	it('a shared song: a member reads it, an outsider and a former member do not', () => {
+		expect(songAccess(sdb, 'u1', row(shared))).toBe('edit');
+		expect(songAccess(sdb, 'u2', row(shared))).toBe('edit');
+		expect(songAccess(sdb, 'u3', row(shared))).toBe('read');
+		expect(songAccess(sdb, 'u4', row(shared))).toBeNull();
+		expect(songAccess(sdb, 'u5', row(shared))).toBeNull();
+	});
+
+	it('an archived shared song reaches no member', () => {
+		sdb.update(songs).set({ archivedAt: 9 }).where(eq(songs.id, shared)).run();
+		expect(songAccess(sdb, 'u3', row(shared))).toBeNull();
+	});
+
+	it('a deleted group reaches nobody, its owner included', () => {
+		expect(deleteTeam(sdb, 1, 'u1', 5)).toBe(true);
+		for (const u of ['u1', 'u2', 'u3']) expect(songAccess(sdb, u, row(shared))).toBeNull();
+	});
+
+	it("a person's own song is theirs to edit and nobody else's", () => {
+		const own = createSongFromUrl(sdb, U1_SALSA, {
+			url: 'https://youtu.be/y',
+			title: 'Mine',
+			style: 'salsa'
+		}).id;
+		expect(songAccess(sdb, 'u1', row(own))).toBe('edit');
+		for (const u of ['u2', 'u3', 'u4']) expect(songAccess(sdb, u, row(own))).toBeNull();
+	});
+
+	it('requireSongAccess: 404 for too little access, another dance, an archived song', () => {
+		expect(requireSongAccess(...as('u3'), shared, 'read')).toMatchObject({
+			access: 'read',
+			song: { id: shared },
+			space: { teamId: 1, dance: 'salsa', actorId: 'u3' }
+		});
+		expect(requireSongAccess(...as('u2'), draft, 'edit').access).toBe('edit');
+		expect(() => requireSongAccess(...as('u3'), shared, 'edit')).toThrow(threw404);
+		expect(() => requireSongAccess(...as('u3'), draft, 'read')).toThrow(threw404);
+		expect(() => requireSongAccess(...as('u4'), shared, 'read')).toThrow(threw404);
+		expect(() => requireSongAccess(...as('u2', 'bachata'), draft, 'read')).toThrow(threw404);
+		expect(() => requireSongAccess(...as('u2'), 'nope', 'read')).toThrow(threw404);
+		sdb.update(songs).set({ archivedAt: 9 }).where(eq(songs.id, draft)).run();
+		expect(() => requireSongAccess(...as('u2'), draft, 'edit')).toThrow(threw404);
+		const own = createSongFromUrl(sdb, U1_SALSA, {
+			url: 'https://youtu.be/y',
+			title: 'Mine',
+			style: 'salsa'
+		}).id;
+		expect(requireSongAccess(...as('u1'), own, 'edit')).toMatchObject({
+			access: 'edit',
+			space: { userId: 'u1', dance: 'salsa' }
+		});
+		expect(() => requireSongAccess(...as('u2'), own, 'read')).toThrow(threw404);
 	});
 });

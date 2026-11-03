@@ -21,9 +21,14 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
-import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
+import type { Cookies } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { songs, teams, users } from '$lib/server/db/schema';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { groupCookie } from '$lib/teams/mode';
+import { T1_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import {
+	createSongFromUpload,
 	createSongFromUrl,
 	getSong,
 	listSongs,
@@ -37,7 +42,12 @@ import * as songPage from './[id]/+page.server';
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
-function post(dance: string, fields: Record<string, string>, id = '') {
+function post(
+	dance: string,
+	fields: Record<string, string>,
+	id = '',
+	as: { user?: string; group?: string } = {}
+) {
 	return {
 		params: { dance, id },
 		request: new Request('http://localhost/', {
@@ -45,7 +55,12 @@ function post(dance: string, fields: Record<string, string>, id = '') {
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
-		locals: { user: USER }
+		locals: { user: as.user ? { ...USER, id: as.user } : USER },
+		cookies: {
+			get: (n: string) => (n === groupCookie(dance as 'salsa' | 'bachata') ? as.group : undefined),
+			set: () => {},
+			delete: () => {}
+		} as unknown as Cookies
 	};
 }
 
@@ -143,6 +158,52 @@ describe('Add a song', () => {
 			)
 		).toEqual({ ok: true });
 		expect(listSongs(db, U1_BACHATA)[0].style).toBe('dominican');
+	});
+});
+
+describe('Music in group mode', () => {
+	const link = { url: 'https://www.youtube.com/watch?v=7hdQ', title: 'Clase', style: 'salsa' };
+	beforeEach(() => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		joinTeam(db, 'u2', 1, 2);
+	});
+
+	it("adds a link as the group's draft, never the person's", async () => {
+		expect(await call(songList.actions.addUrl, post('salsa', link, '', { group: '1' }))).toEqual({
+			ok: true
+		});
+		expect(listSongs(db, U1_SALSA)).toHaveLength(0);
+		expect(listSongs(db, T1_SALSA)).toMatchObject([{ title: 'Clase', sharedAt: null }]);
+	});
+
+	it("is refused at the group's limit, with the group's message", async () => {
+		db.update(teams).set({ storageLimitBytes: 1 }).where(eq(teams.id, 1)).run();
+		createSongFromUpload(db, T1_SALSA, {
+			file: 'g.mp3',
+			mime: 'audio/mpeg',
+			title: 'G',
+			style: 'salsa',
+			sizeBytes: 1
+		});
+		expect(
+			await call(songList.actions.addUrl, post('salsa', link, '', { group: '1' }))
+		).toMatchObject({ status: 413, data: { field: 'url', message: /the group uses/ } });
+		// The person's own room is untouched by the group's.
+		expect(await call(songList.actions.addUrl, post('salsa', link))).toEqual({ ok: true });
+	});
+
+	it("retries a failed group song for its editor; a member's retry is a 404", async () => {
+		const { id } = createSongFromUrl(db, T1_SALSA, link);
+		failJob(db, id, 'gone', true);
+		db.update(songs).set({ sharedAt: 1 }).where(eq(songs.id, id)).run();
+		expect(
+			await call(songList.actions.retry, post('salsa', { id: String(id) }, '', { user: 'u2' }))
+		).toMatchObject({ status: 404 });
+		expect(getSong(db, id)!.status).toBe('failed');
+		expect(await call(songList.actions.retry, post('salsa', { id: String(id) }))).toEqual({
+			ok: true
+		});
+		expect(getSong(db, id)!.status).toBe('waiting_download');
 	});
 });
 

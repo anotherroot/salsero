@@ -414,6 +414,34 @@ export function lessonVideoAccess(db: Db, userId: string, video: { lessonId: num
 	return lesson ? lessonAccess(db, userId, lesson) : null;
 }
 
+/**
+ * A song. A person's own is theirs to edit. A group's: its owner and editors
+ * edit it, drafts included, while the group lives; a current member reads it
+ * once it is shared and not archived. A song is not reached through lessons,
+ * so leaving the group ends it; and a deleted group's songs reach nobody, its
+ * owner and editors included (unlike its lessons and figures, R25). A row with
+ * two owners is no one's.
+ */
+export function songAccess(
+	db: Db,
+	userId: string,
+	song: {
+		userId: string | null;
+		teamId: number | null;
+		sharedAt: number | null;
+		archivedAt: number | null;
+	}
+): Access {
+	if (song.teamId === null) return song.userId !== null && song.userId === userId ? 'edit' : null;
+	if (song.userId !== null) return null;
+	const team = getTeam(db, song.teamId);
+	if (!team || team.deletedAt !== null || team.purgedAt !== null) return null;
+	const role = roleOf(db, userId, song.teamId);
+	if (role === 'owner' || role === 'editor') return 'edit';
+	if (role === 'member' && song.sharedAt !== null && song.archivedAt === null) return 'read';
+	return null;
+}
+
 /** A video named by its spot owner (a recording or a lesson video); null for a missing one. */
 export function videoAccess(db: Db, userId: string, video: SpotOwner): Access {
 	return judgeVideo(db, userId, video).access;

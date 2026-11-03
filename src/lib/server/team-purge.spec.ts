@@ -20,6 +20,8 @@ import {
 	recordings,
 	routines,
 	sets,
+	songDrops,
+	songs,
 	spotLinks,
 	teamMembers,
 	teamTrash,
@@ -40,6 +42,7 @@ import {
 import { addRecording, createFigure } from './figures';
 import { createRoutine } from './routines';
 import { createCustomExercise } from './exercises';
+import { createSongFromUpload } from './songs';
 import { addSpot } from './spots';
 import { linkInSpace } from './spot-links';
 import { addLinks } from './links';
@@ -58,7 +61,7 @@ const TRASHED = '2b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';
 
 let db: Db;
 let dir: string;
-let dirs: { lessonVideos: string; recordings: string };
+let dirs: { lessonVideos: string; recordings: string; audio: string };
 let w: ReturnType<typeof world>;
 
 function world() {
@@ -143,7 +146,7 @@ const archivedAt = (id: number) =>
 beforeEach(() => {
 	db = openDb(':memory:');
 	dir = mkdtempSync(join(tmpdir(), 'salsa-team-purge-'));
-	dirs = { lessonVideos: dir, recordings: dir };
+	dirs = { lessonVideos: dir, recordings: dir, audio: dir };
 	for (const [id, firstName] of [
 		['u1', 'Ana'],
 		['u2', 'Luka']
@@ -255,6 +258,35 @@ describe('purgeTeams', () => {
 		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(0);
 		expect(getTeam(db, 1)!.purgedAt).toBeNull();
 		expect(existsSync(join(dir, VIDEO))).toBe(true);
+	});
+
+	it('deletes the group’s songs and their audio, and takes them off the entries that used them', async () => {
+		const AUDIO = '4b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp3';
+		const MINE = '5b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp3';
+		for (const f of [AUDIO, MINE]) writeFileSync(join(dir, f), 'bytes');
+		const upload = (file: string) => ({
+			file,
+			mime: 'audio/mpeg',
+			title: 'S',
+			style: 'salsa',
+			sizeBytes: 5
+		});
+		const song = createSongFromUpload(db, T1_SALSA, upload(AUDIO)).id;
+		const mine = createSongFromUpload(db, U2_SALSA, upload(MINE)).id;
+		db.update(exercises).set({ songId: song }).where(eq(exercises.id, w.entries.drill)).run();
+		db.update(exercises).set({ songId: mine }).where(eq(exercises.id, w.own)).run();
+		db.insert(songDrops).values({ exerciseId: w.entries.lesson, songId: song, droppedAt: 1 }).run();
+		deleteTeam(db, 1, 'u1', T);
+		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(1);
+
+		expect(db.select({ id: songs.id }).from(songs).all()).toEqual([{ id: mine }]);
+		const songOf = (id: number) =>
+			db.select({ s: exercises.songId }).from(exercises).where(eq(exercises.id, id)).get()!.s;
+		expect(songOf(w.entries.drill)).toBeNull();
+		expect(songOf(w.own)).toBe(mine);
+		expect(db.select().from(songDrops).all()).toEqual([]);
+		expect(existsSync(join(dir, AUDIO))).toBe(false);
+		expect(existsSync(join(dir, MINE))).toBe(true);
 	});
 
 	it('leaves another group’s rows and files alone', async () => {

@@ -408,7 +408,9 @@ describe('copyLesson', () => {
 		const id = ((await copyLesson(db, 'u2', w.lesson, T, files)) as { lessonId: number }).lessonId;
 		const copy = db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, id)).get()!;
 		deleteTeam(db, 1, 'u1', T);
-		expect(await purgeTeams(db, T + 31 * DAY, { lessonVideos: dir, recordings: dir })).toBe(1);
+		expect(
+			await purgeTeams(db, T + 31 * DAY, { lessonVideos: dir, recordings: dir, audio: dir })
+		).toBe(1);
 		expect(existsSync(join(dir, VIDEO))).toBe(false);
 		expect(readFileSync(join(dir, copy.file), 'utf8')).toBe('bytes');
 		expect(db.select().from(lessons).where(eq(lessons.id, id)).get()!.archivedAt).toBeNull();

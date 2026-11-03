@@ -22,13 +22,16 @@ import {
 	lessonVideos,
 	recordings,
 	songs,
+	teams,
 	users
 } from '$lib/server/db/schema';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { addRecording, createFigure } from '$lib/server/figures';
 import { createLesson } from '$lib/server/lessons';
 import { createSongFromUpload } from '$lib/server/songs';
-import { backfillSongSizes, usedBytes } from '$lib/server/storage';
+import { backfillSongSizes, usedBytes, usedBytesOf } from '$lib/server/storage';
+import { createTeam, deleteTeam, joinTeam } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
 import { uploadsDir } from '$lib/server/files';
 import { PUT as putChunk } from './lessons/[id]/videos/[uploadId]/+server';
 import { POST as postRecording } from './figures/[id]/recordings/+server';
@@ -146,6 +149,44 @@ describe('the other uploads', () => {
 		fill(10 * MB);
 		expect(await status(post(100))).toBe(413);
 		expect(await readdir(join(envMock.DATA_DIR, 'audio'))).toHaveLength(1);
+	});
+
+	it("a song upload names its group: an editor's lands in it, charged to it; anyone else's is a 404", async () => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		createTeam(db, 'u1', 'salsa', 'Gone', 1);
+		deleteTeam(db, 2, 'u1', 5);
+		joinTeam(db, 'u2', 1, 2);
+		const post = (user: typeof U1, query: string) =>
+			run(postSong, {
+				url: new URL(`http://localhost/api/songs?${query}`),
+				locals: { user },
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					headers: { 'content-type': 'audio/mpeg', 'x-filename': 's.mp3' },
+					body: new Uint8Array(100)
+				})
+			});
+		const U2 = { ...U1, id: 'u2', email: 'u2@example.com' };
+		for (const [user, query] of [
+			[U2, 'dance=salsa&team=1'],
+			[U1, 'dance=bachata&team=1'],
+			[U1, 'dance=salsa&team=2'],
+			[U1, 'dance=salsa&team=9'],
+			[U1, 'dance=salsa&team=x']
+		] as const) {
+			expect(await status(post(user, query))).toBe(404);
+		}
+		expect(await readdir(join(envMock.DATA_DIR, 'audio')).catch(() => [])).toEqual([]);
+
+		expect(await status(post(U1, 'dance=salsa&team=1'))).toBe(201);
+		expect(db.select().from(songs).get()).toMatchObject({ userId: null, teamId: 1 });
+		expect(usedBytesOf(db, { teamId: 1 })).toBe(100);
+		expect(usedBytes(db, 'u1')).toBe(0);
+
+		setRole(db, 1, 'u2', 'editor');
+		expect(await status(post(U2, 'dance=salsa&team=1'))).toBe(201);
+		db.update(teams).set({ storageLimitBytes: 150 }).run();
+		expect(await status(post(U1, 'dance=salsa&team=1'))).toBe(413);
 	});
 
 	it('a take replacing one in its slot counts only the growth', async () => {

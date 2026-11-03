@@ -31,6 +31,7 @@ import {
 	judgeFigure,
 	judgeLesson,
 	judgeRoutine,
+	songAccess,
 	type Judged,
 	type Reach
 } from './access';
@@ -40,7 +41,8 @@ import {
 	type Exercise,
 	type Figure,
 	type Lesson,
-	type Routine
+	type Routine,
+	type Song
 } from './db/schema';
 import { getExercise, getSet } from './exercises';
 import { getPosition } from './positions';
@@ -359,6 +361,28 @@ export function requireExerciseAccess(
 		'No such exercise'
 	);
 	return { exercise: g.row, space: g.space, access: g.access, reach: g.reach };
+}
+
+/**
+ * The song, or a 404 — for a missing one, another dance's, an archived one,
+ * and one this person may not `need` (a member asking to edit, a draft they
+ * cannot see). Personal-only callers may keep `requireSongInWall`.
+ */
+export function requireSongAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { song: Song; space: Space; access: Granted } {
+	const wall = wallOf(params, locals);
+	const song = getSong(db, idOf(id));
+	if (!song || song.dance !== wall.dance || song.archivedAt !== null) {
+		throw error(404, 'Song not found');
+	}
+	const access = songAccess(db, wall.userId, song);
+	if (access === null || !allows(access, need)) throw error(404, 'Song not found');
+	return { song, space: spaceOfRow(song, wall.userId), access };
 }
 
 const TEAM_RANK = { member: 0, editor: 1, owner: 2 } as const;

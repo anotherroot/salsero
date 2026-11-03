@@ -158,19 +158,25 @@ describe('a group video', () => {
 		const L = lesson();
 		const gone = deleteLessonVideo(db, video(L), 'u1', T)!;
 		expect(usedBytesOf(db, { teamId: 1 })).toBe(50 * MB);
-		return purgeTrash(db, T + TRASH_MS, { lessonVideos: scratch, recordings: scratch }).then(
-			(n) => {
-				expect(n).toBe(1);
-				expect(usedBytesOf(db, { teamId: 1 })).toBe(0);
-				expect(trashRow(gone.trashId!).purgedAt).toBe(T + TRASH_MS);
-			}
-		);
+		return purgeTrash(db, T + TRASH_MS, {
+			lessonVideos: scratch,
+			recordings: scratch,
+			audio: scratch
+		}).then((n) => {
+			expect(n).toBe(1);
+			expect(usedBytesOf(db, { teamId: 1 })).toBe(0);
+			expect(trashRow(gone.trashId!).purgedAt).toBe(T + TRASH_MS);
+		});
 	});
 });
 
 describe('purgeTrash', () => {
 	it('at +31 days deletes the file; Restore is then refused as purged', async () => {
-		const dirs = { lessonVideos: join(scratch, 'v'), recordings: join(scratch, 'r') };
+		const dirs = {
+			lessonVideos: join(scratch, 'v'),
+			recordings: join(scratch, 'r'),
+			audio: join(scratch, 'a')
+		};
 		mkdirSync(dirs.lessonVideos);
 		mkdirSync(dirs.recordings);
 		writeFileSync(join(dirs.lessonVideos, FILE), 'video');
@@ -197,9 +203,13 @@ describe('purgeTrash', () => {
 		writeFileSync(join(scratch, FILE), 'video');
 		const gone = deleteLessonVideo(db, video(lesson()), 'u1', T)!;
 		restoreTrash(db, T1_SALSA, gone.trashId!, T + DAY);
-		expect(await purgeTrash(db, T + 40 * DAY, { lessonVideos: scratch, recordings: scratch })).toBe(
-			0
-		);
+		expect(
+			await purgeTrash(db, T + 40 * DAY, {
+				lessonVideos: scratch,
+				recordings: scratch,
+				audio: scratch
+			})
+		).toBe(0);
 		expect(existsSync(join(scratch, FILE))).toBe(true);
 	});
 });

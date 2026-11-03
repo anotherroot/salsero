@@ -440,6 +440,10 @@ export const songs = sqliteTable(
 		artist: text('artist'),
 		/** The owner. Nullable and without a foreign key on purpose: specs make rows without a user; the data functions keep it whole. */
 		userId: text('user_id'),
+		/** The group that owns this, instead of a person; exactly one of the two is set (see `integrity.ts`). */
+		teamId: integer('team_id').references((): AnySQLiteColumn => teams.id),
+		/** A group song's Share with the class; null is a draft only its editors see. Null on a person's own. */
+		sharedAt: integer('shared_at'),
 		style: text('style').notNull().default('salsa'),
 		sourceUrl: text('source_url'),
 		status: text('status', { enum: SONG_STATUSES }).notNull(),
@@ -469,11 +473,28 @@ export const songs = sqliteTable(
 		check('songs_tempo_ck', sql`${t.tempoFactor} in (0.5, 1, 2)`),
 		check('songs_source_ck', sql`${t.sourceUrl} is not null or ${t.audioFile} is not null`),
 		index('songs_status_idx').on(t.status, t.createdAt),
-		index('songs_user_idx').on(t.userId, t.dance)
+		index('songs_user_idx').on(t.userId, t.dance),
+		index('songs_team_idx').on(t.teamId, t.dance)
 	]
 );
 
 export type Song = typeof songs.$inferSelect;
+
+/**
+ * Which entries lost which group song, and when: a song unshared or deleted
+ * falls back to count-only on its members' entries, and Share again or
+ * Restore puts it back on exactly these (unless the person picked another
+ * song since). No foreign keys: a purge deletes these with their song.
+ */
+export const songDrops = sqliteTable(
+	'song_drops',
+	{
+		exerciseId: integer('exercise_id').notNull(),
+		songId: integer('song_id').notNull(),
+		droppedAt: integer('dropped_at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.exerciseId, t.songId] })]
+);
 
 /* ── Exercises & sets ───────────────────────────────────────────────────── */
 

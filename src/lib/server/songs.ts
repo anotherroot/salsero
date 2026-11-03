@@ -4,7 +4,7 @@ import { exercises, sets, songs, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
-import type { Wall } from './scope';
+import { isTeam, ownedBy, ownerValues, type Space, type Wall } from './scope';
 import type { TempoFactor } from '$lib/labels';
 import type { PickerSong, SampleSong, SongItem } from '$lib/types';
 
@@ -14,9 +14,10 @@ export const MAX_ATTEMPTS = 5;
 
 const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 
+/** A song in this space: a person's, or a group's draft (`shared_at` null). */
 export function createSongFromUrl(
 	db: Db,
-	wall: Wall,
+	space: Space,
 	input: { url: string; title: string; style: string }
 ): Song {
 	return db
@@ -26,8 +27,7 @@ export function createSongFromUrl(
 			title: input.title,
 			style: input.style,
 			status: 'waiting_download',
-			dance: wall.dance,
-			userId: wall.userId
+			...ownerValues(space)
 		})
 		.returning()
 		.get();
@@ -35,7 +35,7 @@ export function createSongFromUrl(
 
 export function createSongFromUpload(
 	db: Db,
-	wall: Wall,
+	space: Space,
 	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number }
 ): Song {
 	return db
@@ -47,8 +47,7 @@ export function createSongFromUpload(
 			style: input.style,
 			sizeBytes: input.sizeBytes ?? null,
 			status: 'waiting_analysis',
-			dance: wall.dance,
-			userId: wall.userId
+			...ownerValues(space)
 		})
 		.returning()
 		.get();
@@ -71,15 +70,22 @@ export function songSample(song: Song): SampleSong | null {
 	};
 }
 
-export function listSongs(db: Db, wall: Wall): SongItem[] {
-	const recent = recentSongIds(db, wall);
+/**
+ * The live songs of one space, newest first. A group's: its drafts first, then
+ * the shared ones. Recency is a person's own practice, so a group's list has none.
+ */
+export function listSongs(db: Db, space: Space): SongItem[] {
+	const recent = isTeam(space) ? [] : recentSongIds(db, space);
 	return db
 		.select()
 		.from(songs)
-		.where(
-			and(isNull(songs.archivedAt), eq(songs.dance, wall.dance), eq(songs.userId, wall.userId))
+		.where(and(isNull(songs.archivedAt), ownedBy(songs, space)))
+		.orderBy(
+			// Drafts (no shared_at) first; a person's songs are all drafts by this rule.
+			sql`${songs.sharedAt} is not null`,
+			desc(songs.createdAt),
+			desc(songs.id)
 		)
-		.orderBy(desc(songs.createdAt), desc(songs.id))
 		.all()
 		.map((s) => {
 			const r = recent.indexOf(s.id);
@@ -96,7 +102,8 @@ export function listSongs(db: Db, wall: Wall): SongItem[] {
 				tempoFactor: s.tempoFactor as TempoFactor,
 				createdAt: s.createdAt,
 				sample: s.status === 'ready' ? songSample(s) : null,
-				recentRank: s.status === 'ready' && r >= 0 ? r : null
+				recentRank: s.status === 'ready' && r >= 0 ? r : null,
+				sharedAt: s.sharedAt
 			};
 		});
 }

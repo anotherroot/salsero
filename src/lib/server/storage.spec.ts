@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import { eq } from 'drizzle-orm';
-import { storageRequests, teams, teamTrash, users } from './db/schema';
+import { songs, storageRequests, teams, teamTrash, users } from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { addRecording, archiveVariation, createFigure } from './figures';
 import { addLessonVideo, createLesson } from './lessons';
@@ -230,6 +230,38 @@ describe("a group's room", () => {
 			message: 'Not enough room: the group uses 550 MB of 600 MB. The owner can ask for more.'
 		});
 		expect(roomForOwner(db, { teamId }, 50 * MB, 100 * GB)).toEqual({ ok: true });
+	});
+});
+
+describe("a group's songs", () => {
+	beforeEach(() => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+	});
+	const song = (file: string, sizeBytes: number) =>
+		createSongFromUpload(db, T1_SALSA, {
+			file,
+			mime: 'audio/mpeg',
+			title: file,
+			style: 'salsa',
+			sizeBytes
+		});
+
+	it("count against the group, archived too, and never the person's", () => {
+		const before = usedBytes(db, 'u1');
+		song('a.mp3', 10);
+		expect(usedBytesOf(db, { teamId: 1 })).toBe(10);
+		const b = song('b.mp3', 5);
+		db.update(songs).set({ archivedAt: 3 }).where(eq(songs.id, b.id)).run();
+		expect(usedBytesOf(db, { teamId: 1 })).toBe(15);
+		expect(usedBytes(db, 'u1')).toBe(before);
+		expect(listStorageItems(db, 'u1')).toEqual([]);
+	});
+
+	it("show in the group's storage items", () => {
+		const s = song('a.mp3', 10);
+		expect(listTeamStorageItems(db, 1)).toEqual([
+			expect.objectContaining({ kind: 'song', id: s.id, sizeBytes: 10, archived: false })
+		]);
 	});
 });
 

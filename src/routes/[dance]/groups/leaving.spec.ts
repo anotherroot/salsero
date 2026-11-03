@@ -164,7 +164,11 @@ describe('a deleted group', () => {
 			.run();
 		deleteTeam(db, 1, 'u1', T);
 		expect(
-			await purgeTeams(db, T + 31 * DAY, { lessonVideos: '/nowhere', recordings: '/nowhere' })
+			await purgeTeams(db, T + 31 * DAY, {
+				lessonVideos: '/nowhere',
+				recordings: '/nowhere',
+				audio: '/nowhere'
+			})
 		).toBe(1);
 		expect((await lessonPage('u2', lesson)).status).toBe(404);
 

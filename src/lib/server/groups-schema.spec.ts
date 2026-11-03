@@ -2,7 +2,16 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
-import { exercises, figureGroups, figures, lessons, teamMembers, teams, users } from './db/schema';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessons,
+	songs,
+	teamMembers,
+	teams,
+	users
+} from './db/schema';
 import { ownerIntegrity } from './integrity';
 
 function setup() {
@@ -71,6 +80,29 @@ describe('ownerIntegrity', () => {
 			.returning()
 			.get();
 		expect(ownerIntegrity(db).join('\n')).toContain(`lessons ${l.id}`);
+	});
+
+	it('reports a song with both owners, and one with neither', () => {
+		const db = setup();
+		const t = team(db, 'SSS');
+		const both = db
+			.insert(songs)
+			.values({ status: 'ready', sourceUrl: 'https://youtu.be/x', userId: 'u1', teamId: t.id })
+			.returning()
+			.get();
+		const neither = db
+			.insert(songs)
+			.values({ status: 'ready', sourceUrl: 'https://youtu.be/y' })
+			.returning()
+			.get();
+		db.insert(songs)
+			.values({ status: 'ready', sourceUrl: 'https://youtu.be/z', teamId: t.id })
+			.run();
+		const lines = ownerIntegrity(db);
+		expect(lines).toEqual([
+			`songs ${both.id}: needs exactly one of user_id and team_id`,
+			`songs ${neither.id}: needs exactly one of user_id and team_id`
+		]);
 	});
 
 	it('reports a group figure whose figure group belongs to another team', () => {

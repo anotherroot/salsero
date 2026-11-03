@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { Db } from './db';
 
 /** Root tables owned by exactly one of a person (`user_id`) or a team (`team_id`). */
-const ROOTS = ['figure_groups', 'figures', 'routines', 'exercises', 'lessons'] as const;
+const ROOTS = ['figure_groups', 'figures', 'routines', 'exercises', 'lessons', 'songs'] as const;
 
 /**
  * What is wrong with who owns what, one line each. Empty when whole. Called at

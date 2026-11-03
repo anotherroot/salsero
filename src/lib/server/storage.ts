@@ -12,7 +12,7 @@
  */
 import { stat, statfs } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, count, eq, isNotNull, isNull, sum } from 'drizzle-orm';
+import { and, count, eq, isNotNull, isNull, sum, type SQL } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { byteSize, plural } from '$lib/format';
 import { fullName } from '$lib/names';
@@ -88,7 +88,7 @@ export function usedBytes(db: Db, userId: string): number {
 	const sg = db
 		.select({ t: sum(songs.sizeBytes) })
 		.from(songs)
-		.where(eq(songs.userId, userId))
+		.where(and(eq(songs.userId, userId), isNull(songs.teamId)))
 		.get();
 	const tk = db
 		.select({ t: sum(countTakes.sizeBytes) })
@@ -99,9 +99,10 @@ export function usedBytes(db: Db, userId: string): number {
 }
 
 /**
- * A group's files: its recordings and lesson videos, and what waits in its
- * Recently deleted (the files are kept until purged). A restored entry's file
- * is a live row again, so it counts once, there.
+ * A group's files: its recordings, lesson videos and songs (archived ones
+ * too, as for a person), and what waits in its Recently deleted (the files are
+ * kept until purged). A restored entry's file is a live row again, so it
+ * counts once, there.
  */
 function teamUsedBytes(db: Db, teamId: number): number {
 	const recs = db
@@ -116,6 +117,11 @@ function teamUsedBytes(db: Db, teamId: number): number {
 		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
 		.where(eq(lessons.teamId, teamId))
 		.get();
+	const sg = db
+		.select({ t: sum(songs.sizeBytes) })
+		.from(songs)
+		.where(eq(songs.teamId, teamId))
+		.get();
 	const trash = db
 		.select({ t: sum(teamTrash.sizeBytes) })
 		.from(teamTrash)
@@ -123,7 +129,7 @@ function teamUsedBytes(db: Db, teamId: number): number {
 			and(eq(teamTrash.teamId, teamId), isNull(teamTrash.purgedAt), isNull(teamTrash.restoredAt))
 		)
 		.get();
-	return total(recs?.t) + total(vids?.t) + total(trash?.t);
+	return total(recs?.t) + total(vids?.t) + total(sg?.t) + total(trash?.t);
 }
 
 export function usedBytesOf(db: Db, owner: Owner): number {
@@ -273,6 +279,24 @@ export async function backfillSongSizes(db: Db, now: number): Promise<void> {
 	}
 }
 
+/** The songs with audio that `owner` picks out, as storage items. */
+function songItems(db: Db, owner: SQL): StorageItem[] {
+	return db
+		.select()
+		.from(songs)
+		.where(and(owner, isNotNull(songs.audioFile)))
+		.all()
+		.map((s) => ({
+			kind: 'song' as const,
+			id: s.id,
+			title: s.title || 'Untitled song',
+			context: s.artist ? `Song · ${s.artist}` : 'Song',
+			sizeBytes: s.sizeBytes ?? 0,
+			archived: s.archivedAt !== null,
+			href: s.archivedAt !== null ? null : `/${s.dance}/songs/${s.id}`
+		}));
+}
+
 /**
  * Everything a person has on disk, biggest first. The count voice is one row
  * for all its takes. Archived parents are marked: their files still count.
@@ -337,22 +361,7 @@ export function listStorageItems(db: Db, userId: string): StorageItem[] {
 		});
 	}
 
-	const sg = db
-		.select()
-		.from(songs)
-		.where(and(eq(songs.userId, userId), isNotNull(songs.audioFile)))
-		.all();
-	for (const s of sg) {
-		items.push({
-			kind: 'song',
-			id: s.id,
-			title: s.title || 'Untitled song',
-			context: s.artist ? `Song · ${s.artist}` : 'Song',
-			sizeBytes: s.sizeBytes ?? 0,
-			archived: s.archivedAt !== null,
-			href: s.archivedAt !== null ? null : `/${s.dance}/songs/${s.id}`
-		});
-	}
+	items.push(...songItems(db, and(eq(songs.userId, userId), isNull(songs.teamId))!));
 
 	const takes = db
 		.select({ n: count(), t: sum(countTakes.sizeBytes) })
@@ -640,8 +649,8 @@ export function listTeamsForAdmin(db: Db): {
 
 /**
  * A group's files, biggest first, for its editors: videos with their lesson's
- * title, recordings with their figure, and what waits in Recently deleted
- * (the file stays until the purge, and counts).
+ * title, recordings with their figure, its songs, and what waits in Recently
+ * deleted (the file stays until the purge, and counts).
  */
 export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
 	const items: StorageItem[] = [];
@@ -696,6 +705,7 @@ export function listTeamStorageItems(db: Db, teamId: number): StorageItem[] {
 			href: v.archived !== null ? null : `/${v.dance}/lessons/${v.lessonId}`
 		});
 	}
+	items.push(...songItems(db, eq(songs.teamId, teamId)));
 	const trash = db
 		.select()
 		.from(teamTrash)
