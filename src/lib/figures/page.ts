@@ -80,8 +80,8 @@ export function archiveCopy(
 	return last
 		? {
 				title: `Archive ${variation}?`,
-				button: 'Archive and remove figure',
-				caption: `${figure} goes with it: ${variation} is its last variation. ${kept}`
+				button: 'Archive and remove move',
+				caption: `${figure} goes with it: ${variation} is its last figure. ${kept}`
 			}
 		: {
 				title: `Archive ${variation}?`,
@@ -115,7 +115,7 @@ export function variationNav(
 		count,
 		prev: step(-1),
 		next: step(1),
-		position: `${index + 1} of ${count} ${count === 1 ? 'variation' : 'variations'}`
+		position: `${index + 1} of ${count} ${count === 1 ? 'figure' : 'figures'}`
 	};
 }
 
@@ -134,10 +134,10 @@ export function moveState(i: {
 		i.chosen !== null && i.chosen.variations.some((v) => v.trim().toLowerCase() === wanted);
 	return {
 		cta: i.last
-			? 'Move and remove figure'
+			? 'Move and remove move'
 			: i.chosen
 				? `Move to ${i.chosen.name}`
-				: 'Make it its own figure',
+				: 'Make it its own move',
 		danger: i.last,
 		clash:
 			clashes && i.chosen

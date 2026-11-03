@@ -97,7 +97,7 @@ export function copyLine(bytes: number): string {
 export function copyItems(c: CopySummary): string[] {
 	const out = ['The lesson, its notes and links'];
 	if (c.videos > 0) out.push(`${plural(c.videos, 'video', 'videos')} and their sections`);
-	if (c.variations > 0) out.push(plural(c.variations, 'variation', 'variations'));
+	if (c.variations > 0) out.push(plural(c.variations, 'figure', 'figures'));
 	if (c.routines > 0) out.push(plural(c.routines, 'routine', 'routines'));
 	if (c.drills > 0) out.push(plural(c.drills, 'drill', 'drills'));
 	return out;

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { archivedByLine, canRestore, editedByLine, historyLine, previousValue } from './history';
+import {
+	archivedByLine,
+	canRestore,
+	editedByLine,
+	historyLine,
+	historySubject,
+	previousValue
+} from './history';
 import type { HistoryRow } from '$lib/types';
 
 const names = new Map([
@@ -73,13 +80,23 @@ describe('historyLine', () => {
 				}),
 				names
 			)
-		).toBe("Ana · archived the variation 'Doble'");
+		).toBe("Ana · archived the figure 'Doble'");
 		expect(
 			historyLine(
 				row({ verb: 'add', subject: 'figure', after: { name: 'Enchufla · Doble' } }),
 				names
 			)
 		).toBe("Ana · added the figure 'Enchufla · Doble'");
+		expect(
+			historyLine(
+				row({ rootKind: 'figure', verb: 'add', subject: 'figure', after: { name: 'Enchufla' } }),
+				names
+			)
+		).toBe('Ana · made the move');
+		expect(historySubject('figure', 'figure')).toBe('move');
+		expect(historySubject('lesson', 'figure')).toBe('figure');
+		expect(historySubject('lesson', 'variation')).toBe('figure');
+		expect(historySubject('lesson', 'notes')).toBe('notes');
 		expect(
 			historyLine(
 				row({ rootKind: 'routine', verb: 'remove', subject: 'slot', before: { count: 3 } }),

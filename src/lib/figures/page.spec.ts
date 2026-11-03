@@ -78,18 +78,18 @@ describe('timingLine', () => {
 });
 
 describe('archiveCopy', () => {
-	it('a variation among others', () =>
+	it('a figure among others', () =>
 		expect(archiveCopy('Enchufla', 'Doble', false)).toEqual({
 			title: 'Archive Doble?',
 			button: 'Archive Doble',
 			caption: 'Doble leaves Enchufla. Its recordings and practice history are kept.'
 		}));
-	it('the last variation takes its figure', () =>
+	it('the last figure takes its move', () =>
 		expect(archiveCopy('Setenta', 'Basic', true)).toEqual({
 			title: 'Archive Basic?',
-			button: 'Archive and remove figure',
+			button: 'Archive and remove move',
 			caption:
-				'Setenta goes with it: Basic is its last variation. Its recordings and practice history are kept.'
+				'Setenta goes with it: Basic is its last figure. Its recordings and practice history are kept.'
 		}));
 });
 
@@ -108,18 +108,18 @@ describe('variationNav', () => {
 			count: 3,
 			prev: 4,
 			next: 12,
-			position: '2 of 3 variations'
+			position: '2 of 3 figures'
 		});
 		expect(variationNav(three, 12).next).toBe(4);
 		expect(variationNav(three, 4).prev).toBe(12);
 	});
-	it('has nowhere to step with one variation', () => {
+	it('has nowhere to step with one figure', () => {
 		expect(variationNav([{ id: 4 }], 4)).toEqual({
 			index: 0,
 			count: 1,
 			prev: null,
 			next: null,
-			position: '1 of 1 variation'
+			position: '1 of 1 figure'
 		});
 	});
 	it('counts an unknown id as the first', () => {
@@ -143,16 +143,16 @@ describe('moveState', () => {
 		}));
 	it('a free name goes', () =>
 		expect(moveState({ last: false, chosen: dile, joinName: 'Cuddle entry' }).blocked).toBe(false));
-	it('the last variation removes its figure', () =>
+	it('the last figure removes its move', () =>
 		expect(moveState({ last: true, chosen: null, joinName: 'Basic' })).toEqual({
-			cta: 'Move and remove figure',
+			cta: 'Move and remove move',
 			danger: true,
 			clash: null,
 			blocked: false
 		}));
-	it('no figure chosen: its own figure', () =>
+	it('no move chosen: its own move', () =>
 		expect(moveState({ last: false, chosen: null, joinName: 'x' }).cta).toBe(
-			'Make it its own figure'
+			'Make it its own move'
 		));
 });
 

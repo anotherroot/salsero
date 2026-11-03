@@ -99,12 +99,12 @@ describe('filterQuery', () => {
 });
 
 describe('figuresHeading', () => {
-	it('counts figures, matches, or the unlinked', () => {
-		expect(figuresHeading(41, none)).toBe('41 figures');
-		expect(figuresHeading(1, none)).toBe('1 figure');
-		expect(figuresHeading(1, { q: 'dile' })).toBe('1 figure matches');
-		expect(figuresHeading(3, { q: 'en' })).toBe('3 figures match');
-		expect(figuresHeading(5, { q: '', style: 'son' })).toBe('5 figures match');
+	it('counts moves, matches, or the unlinked', () => {
+		expect(figuresHeading(41, none)).toBe('41 moves');
+		expect(figuresHeading(1, none)).toBe('1 move');
+		expect(figuresHeading(1, { q: 'dile' })).toBe('1 move matches');
+		expect(figuresHeading(3, { q: 'en' })).toBe('3 moves match');
+		expect(figuresHeading(5, { q: '', style: 'son' })).toBe('5 moves match');
 		expect(figuresHeading(4, { q: '', unlinked: '1' })).toBe('4 with no section or no lesson');
 	});
 });
@@ -139,7 +139,7 @@ describe('figureMeta', () => {
 				hasLesson: false
 			} as FigureListItem)
 		).toEqual([
-			{ text: '1 variation', status: false },
+			{ text: '1 figure', status: false },
 			{ text: 'No section', status: true },
 			{ text: 'No lesson', status: true }
 		]);
@@ -153,7 +153,7 @@ describe('figureMeta', () => {
 				hasSection: true,
 				hasLesson: true
 			} as FigureListItem).map((p) => p.text)
-		).toEqual(['4 variations', '3 recordings']);
+		).toEqual(['4 figures', '3 recordings']);
 		expect(
 			figureMeta({
 				variations: 2,
@@ -161,7 +161,7 @@ describe('figureMeta', () => {
 				hasSection: true,
 				hasLesson: false
 			} as FigureListItem).map((p) => p.text)
-		).toEqual(['2 variations', '1 recording', 'No lesson']);
+		).toEqual(['2 figures', '1 recording', 'No lesson']);
 	});
 });
 

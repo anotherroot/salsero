@@ -105,7 +105,7 @@ describe('make my own copy', () => {
 		expect(copyItems({ bytes: 5, videos: 2, variations: 1, routines: 0, drills: 3 })).toEqual([
 			'The lesson, its notes and links',
 			'2 videos and their sections',
-			'1 variation',
+			'1 figure',
 			'3 drills'
 		]);
 		expect(copyItems({ bytes: 0, videos: 0, variations: 0, routines: 1, drills: 0 })).toEqual([

@@ -7,7 +7,7 @@
  * for a change of one field, that field (`notes`); a change of several fields
  * at once names the thing (`lesson`, `variation`).
  */
-import type { ChangeValues, HistoryRow } from '$lib/types';
+import type { ChangeRootKind, ChangeValues, HistoryRow } from '$lib/types';
 
 /** "a section": what an add or a remove of a thing reads as. */
 const A_THING: Record<string, string> = {
@@ -27,7 +27,7 @@ const FIELD: Record<string, string> = {
 	lessonDay: 'day',
 	notes: 'notes',
 	name: 'name',
-	figureName: 'figure’s name',
+	figureName: 'move’s name',
 	partner: 'partner',
 	style: 'style',
 	startIds: 'start positions',
@@ -85,13 +85,25 @@ function spotChange(row: HistoryRow): string {
 		: `named a ${row.subject} '${label}'`;
 }
 
+/**
+ * The word a subject is shown as. Stored subjects stay as written: a group's
+ * own figure_groups row is `figure` (shown "move"), a figures row `variation`
+ * (shown "figure"); under any other root `figure` is already a figure.
+ */
+export function historySubject(rootKind: ChangeRootKind, subject: string): string {
+	if (subject === 'variation') return 'figure';
+	if (subject === 'figure' && rootKind === 'figure') return 'move';
+	return subject;
+}
+
 function what(row: HistoryRow): string {
 	const { verb, subject, before, after, rootKind } = row;
 	const name = quoted(after?.name ?? before?.name);
+	const shown = historySubject(rootKind, subject);
 	switch (verb) {
 		case 'add':
 			if (subject === 'song') return `added the song${name}`;
-			if (subject === rootKind) return `made the ${subject}`;
+			if (subject === rootKind) return `made the ${shown}`;
 			if (subject === 'variation' && text(after?.from) !== null) {
 				return `moved${name} here from '${text(after?.from)}'`;
 			}
@@ -100,41 +112,41 @@ function what(row: HistoryRow): string {
 			if (subject === 'section-link')
 				return name ? `linked a section to${name}` : 'linked a section';
 			if (subject in A_THING) return `added ${A_THING[subject]}`;
-			return `added the ${subject}${name}`;
+			return `added the ${shown}${name}`;
 		case 'remove':
 			if (subject === 'slot' && count(before) > 1) return `removed ${count(before)} slots`;
 			if (subject === 'section-link')
 				return name ? `unlinked a section from${name}` : 'unlinked a section';
 			if (subject in A_THING) return `removed ${A_THING[subject]}`;
-			return `removed the ${subject}${name}`;
+			return `removed the ${shown}${name}`;
 		case 'archive':
-			return subject === rootKind ? `archived the ${subject}` : `archived the ${subject}${name}`;
+			return subject === rootKind ? `archived the ${shown}` : `archived the ${shown}${name}`;
 		case 'publish':
-			return `published the ${subject}`;
+			return `published the ${shown}`;
 		case 'share':
-			return `shared the ${subject}${name} with the class`;
+			return `shared the ${shown}${name} with the class`;
 		case 'unshare':
-			return `stopped sharing the ${subject}${name}`;
+			return `stopped sharing the ${shown}${name}`;
 		case 'delete':
-			return `deleted the ${subject}${name}`;
+			return `deleted the ${shown}${name}`;
 		case 'edit':
 			if (subject in FIELD) return `changed the ${FIELD[subject]}`;
-			return `changed the ${subject}`;
+			return `changed the ${shown}`;
 		case 'restore':
 			if ((subject === 'section' || subject === 'point') && before !== null) {
 				const label = text(after?.label) ?? text(before.label);
-				return label === null ? `put a ${subject} back` : `put '${label}' back`;
+				return label === null ? `put a ${shown} back` : `put '${label}' back`;
 			}
 			if (subject === 'slot')
 				return count(after) > 1 ? `put back ${count(after)} slots` : 'put back a slot';
 			if (subject in FIELD) return `restored the ${FIELD[subject]}`;
 			if (subject in A_THING) return `restored ${A_THING[subject]}`;
-			return `restored the ${subject}${name}`;
+			return `restored the ${shown}${name}`;
 		case 'change':
 			if (subject === 'section' || subject === 'point') return spotChange(row);
 			if (subject === 'order') return 'moved a slot';
 			if (subject in FIELD) return `changed the ${FIELD[subject]}`;
-			return `changed the ${subject}${subject === rootKind ? '' : name}`;
+			return `changed the ${shown}${subject === rootKind ? '' : name}`;
 	}
 }
 

@@ -123,7 +123,7 @@ const FIELD_LABELS: Record<string, string> = {
 	lessonDay: 'Day of the class',
 	notes: 'Notes',
 	name: 'Name',
-	figureName: 'Figure name',
+	figureName: 'Move name',
 	partner: 'Partner',
 	style: 'Style',
 	startIds: 'Starts from',

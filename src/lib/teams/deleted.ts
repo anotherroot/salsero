@@ -13,7 +13,7 @@ export const KIND_NAME: Record<DeletedKind, string> = {
 	'spot-link': 'Section link',
 	recording: 'Recording',
 	lesson: 'Lesson',
-	variation: 'Variation',
+	variation: 'Figure',
 	routine: 'Routine',
 	drill: 'Drill',
 	song: 'Song'

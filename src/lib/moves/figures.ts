@@ -81,9 +81,9 @@ export function filterChips(
 export function figuresHeading(count: number, filter: FigureFilter): string {
 	if (filter.unlinked) return `${count} with no section or no lesson`;
 	if (filter.q || filter.style || filter.partner) {
-		return plural(count, 'figure matches', 'figures match');
+		return plural(count, 'move matches', 'moves match');
 	}
-	return plural(count, 'figure', 'figures');
+	return plural(count, 'move', 'moves');
 }
 
 /**
@@ -107,7 +107,7 @@ export function showTiles(count: number, filter: FigureFilter): boolean {
 
 /** The words under a figure's name; `status` ones are what it still lacks. */
 export function figureMeta(f: FigureListItem): { text: string; status: boolean }[] {
-	const parts = [{ text: plural(f.variations, 'variation', 'variations'), status: false }];
+	const parts = [{ text: plural(f.variations, 'figure', 'figures'), status: false }];
 	if (f.recordings > 0) {
 		parts.push({ text: plural(f.recordings, 'recording', 'recordings'), status: false });
 	}
