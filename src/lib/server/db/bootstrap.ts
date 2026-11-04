@@ -3,6 +3,7 @@ import { seedAdmin } from '../admin';
 import { sweepUploads } from '../files';
 import { crossRefs, familyIntegrity, ownerIntegrity } from '../integrity';
 import { importNoteLinks } from '../links';
+import { movePositionsToOwners } from '../positions-move';
 import { backfillSongSizes } from '../storage';
 import { startTrashPurge } from '../trash';
 import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
@@ -35,6 +36,15 @@ function checkIntegrity(db: Db): void {
  */
 export function bootstrap(): Promise<void> {
 	ready ??= seedAdmin(getDb(), env.ADMIN_EMAIL, env.ADMIN_PASSWORD)
+		.then(() => {
+			// Today's shared positions become the admin's, and every other person
+			// or group using one gets its own copy. Once EVER (`app_flags`).
+			const moved = movePositionsToOwners(getDb(), Date.now());
+			if (moved.ran)
+				console.info(
+					`[positions] moved: ${moved.copies} copies, ${moved.figures} figures, ${moved.ends} ends`
+				);
+		})
 		.then(() => {
 			// Lesson notes carried their YouTube links as plain text before links
 			// existed. Copied out once EVER — `app_flags` remembers — so a link the

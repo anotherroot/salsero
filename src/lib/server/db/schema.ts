@@ -210,9 +210,10 @@ export const figures = sqliteTable(
 		 */
 		callText: text('call_text'),
 		/**
-		 * Where the figure LEAVES the hands. Null means the dance's neutral
-		 * position — see `src/lib/graph/`. Null rather than a backfill so no
-		 * migration has to touch existing rows.
+		 * VESTIGIAL: the figure's one end, before a figure had any number. Copied
+		 * into `figure_end_positions` by the boot move
+		 * (`src/lib/server/positions-move.ts`); read by nothing. Not dropped, for
+		 * the same reason `style` is not.
 		 */
 		endPositionId: integer('end_position_id').references(() => positions.id),
 		/**
@@ -292,7 +293,7 @@ export const recordings = sqliteTable(
  * Rows rather than a registry entry, unlike `DANCES`. Count and clave positions
  * are code-shaped, so a database row could not carry them; a handhold
  * vocabulary is the opposite — it grows the week a new hold is learned and it
- * differs between schools. Seeded at boot per dance, idempotently.
+ * differs between schools.
  *
  * Positions are owned like figures: `user_id` or `team_id`, exactly one set
  * (`ownerIntegrity` checks), a `gene_id` and `cloned_from` for the clone
@@ -311,12 +312,13 @@ export const positions = sqliteTable(
 		id: integer('id').primaryKey({ autoIncrement: true }),
 		/** Which dance this belongs to. See `src/lib/dances/dances.ts`. */
 		dance: text('dance').notNull().default('salsa'),
-		/** Stable identifier for the seed; never shown. */
+		/** VESTIGIAL: read by nothing since the positions move; not dropped, see `figures.style`. New rows get `'p-' + uuid`. */
 		slug: text('slug').notNull(),
-		/** What the user sees. Renameable without breaking the seed. */
+		/** What the user sees. */
 		name: text('name').notNull(),
-		/** The assumed position of an untagged figure. Exactly one per dance. */
+		/** VESTIGIAL: read by nothing since the positions move; not dropped, see `figures.style`. */
 		neutral: integer('neutral', { mode: 'boolean' }).notNull().default(false),
+		/** VESTIGIAL: read by nothing since the positions move; not dropped, see `figures.style`. */
 		sortOrder: integer('sort_order').notNull().default(0),
 		archivedAt: integer('archived_at'),
 		createdAt: createdAt(),
@@ -353,9 +355,8 @@ export const positions = sqliteTable(
  * The handholds a figure can START from. Many, because entry is genuinely
  * plural — enchufla works from open or from a cross-hand hold.
  *
- * The END is a single column on `figures` instead: the walk has to know where
- * it landed, so if a figure ends differently depending on how it is finished,
- * that is two figures.
+ * The ends live in `figure_end_positions`, any number of them, like the
+ * starts (`figures.end_position_id`, the old single end, is vestigial).
  *
  * A join table rather than a JSON column because "which figures start here" is
  * the graph's main query — unlike `anchors_json`, something reads inside it.
