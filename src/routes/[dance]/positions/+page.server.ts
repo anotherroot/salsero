@@ -124,7 +124,8 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		defaultStyle: defaultStyle(db, wall.userId, dance),
 		/** The space's own names, folded: Templates marks them "You have it". */
 		owned: own.map((p) => fold(p.name)),
-		groupMode: mode !== null,
+		/** In a group's own workspace (not `groupMode`: the layout's, which the shell reads). */
+		inGroupMode: mode !== null,
 		filter
 	};
 };

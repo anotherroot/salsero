@@ -213,11 +213,11 @@ describe('listing in group mode', () => {
 		db.insert(figureEndPositions).values({ figureId: own.figure.id, positionId: yours }).run();
 		const row = (d: Record<string, any>, id: number) => d.rows.find((p: any) => p.id === id); // eslint-disable-line
 		const inGroup = loadOf(positionsLoad, 'u2', jar('1').cookies);
-		expect(inGroup.groupMode).toBe(true);
+		expect(inGroup.inGroupMode).toBe(true);
 		expect(row(inGroup, ours)).toMatchObject({ inCount: 1, deadEnd: false, orphan: false });
 		expect(inGroup.tagged.total).toBe(1);
 		const mine = loadOf(positionsLoad, 'u2', jar().cookies);
-		expect(mine.groupMode).toBe(false);
+		expect(mine.inGroupMode).toBe(false);
 		expect(row(mine, yours)).toMatchObject({ inCount: 1, deadEnd: true });
 	});
 });

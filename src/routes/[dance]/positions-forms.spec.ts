@@ -262,7 +262,9 @@ describe('the list', () => {
 		expect(d.none).toEqual({ none: 2, onlyStart: 0, onlyEnd: 0 });
 		expect(d.gaps).toBe(0);
 		expect(d.owned).toEqual([]);
-		expect(d.groupMode).toBe(false);
+		expect(d.inGroupMode).toBe(false);
+		// The layout's `groupMode` (an object the shell reads) must not be shadowed by the page's flag.
+		expect(d).not.toHaveProperty('groupMode');
 		expect(d.types).toEqual(['salsa', 'son', 'timba', 'other']);
 	});
 
@@ -349,7 +351,8 @@ describe('the list', () => {
 		const f = figure(T1_SALSA, 'Setenta');
 		tag('end', f, ours);
 		const d = loadOf('u2', jar('1').cookies, '?gaps=1');
-		expect(d.groupMode).toBe(true);
+		expect(d.inGroupMode).toBe(true);
+		expect(d).not.toHaveProperty('groupMode');
 		expect(d.rows).toMatchObject([
 			{ id: ours, name: 'Abierta', inCount: 1, deadEnd: false, orphan: false, island: false }
 		]);
