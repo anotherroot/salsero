@@ -5,12 +5,15 @@ import {
 	edgeWidth,
 	labelBox,
 	layoutMap,
+	MAX_PASSES,
 	mapInputOf,
+	mapLabel,
 	mapSize,
 	nodeRadius,
 	type MapInput,
 	type MapLayout,
-	type MapNode
+	type MapNode,
+	type MapStats
 } from './map';
 
 const pos = (id: number, name: string, figures = 1, styleTag: string | null = null) => ({
@@ -286,7 +289,7 @@ describe('layoutMap', () => {
 		]);
 	});
 
-	it('lays out 60 positions quickly, inside the frame and apart', () => {
+	it('settles 60 positions in few passes, inside the frame and apart', () => {
 		const positions = Array.from({ length: 60 }, (_, i) =>
 			pos(i + 1, `Position number ${i + 1}`, 1 + (i % 9))
 		);
@@ -296,16 +299,62 @@ describe('layoutMap', () => {
 			edges.push(edge(i, ((i * 7) % 60) + 1, 1));
 		}
 		const input = { positions, edges };
-		const out = layoutMap(input);
+		let stats: MapStats | null = null;
+		const t0 = performance.now();
+		const out = layoutMap(input, { onStats: (s) => (stats = s) });
+		const ms = performance.now() - t0;
 		expect(out.nodes).toHaveLength(60);
 		expectClean(input, out);
-		// the best of three, so a busy machine's one stall does not decide it
-		const times = [0, 1, 2].map(() => {
-			const t0 = performance.now();
-			layoutMap(input);
-			return performance.now() - t0;
-		});
-		expect(Math.min(...times)).toBeLessThan(50);
+		// The work is counted, not timed: the pushing settles well under the cap.
+		expect(stats).toEqual({ passes: expect.any(Number), settled: true });
+		expect(stats!.passes).toBeLessThan(MAX_PASSES / 3);
+		// Only a blow-up fails this; it is a few ms on a quiet machine.
+		expect(ms).toBeLessThan(1000);
+	});
+
+	it('says when the pushing settled, and how many passes it took', () => {
+		const seen: MapStats[] = [];
+		layoutMap(fifteen(), { onStats: (s) => seen.push(s) });
+		expect(seen).toHaveLength(1);
+		expect(seen[0].settled).toBe(true);
+		expect(seen[0].passes).toBeGreaterThanOrEqual(1);
+		expect(seen[0].passes).toBeLessThan(MAX_PASSES);
+	});
+
+	it('keeps a crowd of big circles round a hub apart', () => {
+		// 40 positions at the biggest circle, every one joined to a hub, and a ring
+		const positions = Array.from({ length: 40 }, (_, i) =>
+			pos(i + 1, `Big position ${i + 1}`, 100)
+		);
+		positions.push(pos(41, 'Hub', 400));
+		const edges = [];
+		for (let i = 1; i <= 40; i++) {
+			edges.push(edge(41, i, 6), edge(i, 41, 6), edge(i, (i % 40) + 1, 3));
+		}
+		const input = { positions, edges };
+		let stats: MapStats | null = null;
+		const out = layoutMap(input, { onStats: (s) => (stats = s) });
+		expect(out.nodes).toHaveLength(41);
+		expect(out.nodes.every((n) => n.r === 34)).toBe(true);
+		expect(stats!.settled).toBe(true);
+		expectClean(input, out);
+	});
+
+	it('cuts a long name at 40 characters, so its label still fits the frame', () => {
+		const long = 'A very long position name of sixty characters, really long!!';
+		expect([...long]).toHaveLength(60);
+		expect(mapLabel(long)).toBe(long.slice(0, 39) + '…');
+		expect([...mapLabel(long)]).toHaveLength(40);
+		expect(mapLabel('Cuddle')).toBe('Cuddle');
+		expect(labelBox(long, 0, 0).x1 - labelBox(long, 0, 0).x0).toBe(280);
+
+		const input = {
+			positions: [pos(1, long, 3), pos(2, 'Cuddle', 3), pos(3, long + ' too', 1)],
+			edges: [edge(1, 2, 2), edge(2, 3, 1), edge(3, 1, 1)]
+		};
+		const out = layoutMap(input);
+		expect(out.width).toBe(360);
+		expectClean(input, out);
 	});
 });
 

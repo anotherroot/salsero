@@ -15,8 +15,11 @@
  * steps from a circle in folded-name order (ideal spacing half the classic
  * √(area/n): names need the frame's room more than the springs do), then
  * passes that push circles and label boxes apart until nothing touches —
- * usually well under the brief's 60; the cap is 600. Every node, circle and
- * label, stays inside the frame.
+ * usually well under the brief's 60; the cap is 600 (`MAX_PASSES`), and
+ * `onStats` says how many it took and whether it settled. Every node, circle
+ * and label stays inside the frame: a label is at most `LABEL_MAX` characters
+ * (280 px, the page cuts a longer name with `mapLabel`), and the smallest frame
+ * is 360 px.
  */
 import { fold } from '$lib/fold';
 import { positionCounts, type Graph, type GraphFigure } from '$lib/graph/graph';
@@ -73,9 +76,25 @@ export interface MapLayout {
 	tray: { islands: number[]; unused: number[] };
 }
 
+/**
+ * How the push passes went: how many ran (the last one found nothing to push
+ * when `settled`), or `MAX_PASSES` and not settled, when something may still
+ * overlap. For specs and debugging; the page ignores it.
+ */
+export interface MapStats {
+	passes: number;
+	settled: boolean;
+}
+
 /** The label estimate: 7 px a character, 14 px high. */
 export const LABEL_CHAR = 7;
 export const LABEL_HEIGHT = 14;
+/**
+ * The longest name the map shows whole: past it the page cuts the name to
+ * `LABEL_MAX - 1` characters and an ellipsis (`mapLabel`), so no label is wider
+ * than 280 px and every one fits the smallest frame.
+ */
+export const LABEL_MAX = 40;
 /** Between a circle's bottom and its label's top. */
 const LABEL_GAP = 4;
 /** Kept clear inside the frame's edge. */
@@ -87,7 +106,12 @@ const PAD = 4;
  */
 const TOUCH = 1;
 const AIR = 4;
-const MAX_PASSES = 600;
+export const MAX_PASSES = 600;
+
+/** 7 px a character of what `mapLabel` writes: at most 280 px. */
+function labelWidth(name: string): number {
+	return Math.min([...name].length, LABEL_MAX) * LABEL_CHAR;
+}
 
 /** 14 + 4·√figures, capped at 34. */
 export function nodeRadius(figures: number): number {
@@ -99,13 +123,19 @@ export function edgeWidth(figures: number): number {
 	return Math.min(6, 1 + figures);
 }
 
-/** The box a name is estimated to take, centred on (x, y). */
+/** The name as the map writes it: whole up to `LABEL_MAX` characters, else cut with an ellipsis. */
+export function mapLabel(name: string): string {
+	const chars = [...name];
+	return chars.length <= LABEL_MAX ? name : chars.slice(0, LABEL_MAX - 1).join('') + '…';
+}
+
+/** The box a name is estimated to take on the map (`mapLabel`), centred on (x, y). */
 export function labelBox(
 	name: string,
 	x: number,
 	y: number
 ): { x0: number; y0: number; x1: number; y1: number } {
-	const w = name.length * LABEL_CHAR;
+	const w = labelWidth(name);
 	return { x0: x - w / 2, y0: y - LABEL_HEIGHT / 2, x1: x + w / 2, y1: y + LABEL_HEIGHT / 2 };
 }
 
@@ -299,7 +329,7 @@ function touch(b: Bodies, i: number, j: number): boolean {
  * outlines: parting circles and labels each their own way ping-pongs when one
  * body's circle sits on another's label. Until nothing touches, or the cap.
  */
-function pushApart(b: Bodies) {
+function pushApart(b: Bodies): MapStats {
 	const { n, x, y } = b;
 	for (let pass = 0; pass < MAX_PASSES; pass++) {
 		let pushed = false;
@@ -320,11 +350,15 @@ function pushApart(b: Bodies) {
 				}
 			}
 		for (let i = 0; i < n; i++) clamp(b, i);
-		if (!pushed) return;
+		if (!pushed) return { passes: pass + 1, settled: true };
 	}
+	return { passes: MAX_PASSES, settled: false };
 }
 
-export function layoutMap(input: MapInput, opts: { steps?: number } = {}): MapLayout {
+export function layoutMap(
+	input: MapInput,
+	opts: { steps?: number; onStats?: (stats: MapStats) => void } = {}
+): MapLayout {
 	const steps = opts.steps ?? 400;
 	const positions = byName(input.positions);
 
@@ -357,7 +391,7 @@ export function layoutMap(input: MapInput, opts: { steps?: number } = {}): MapLa
 
 	const index = new Map(drawn.map((p, i) => [p.id, i]));
 	const r = Float64Array.from(drawn, (p) => nodeRadius(p.figures));
-	const w = Float64Array.from(drawn, (p) => p.name.length * LABEL_CHAR);
+	const w = Float64Array.from(drawn, (p) => labelWidth(p.name));
 	const b: Bodies = {
 		n,
 		width,
@@ -393,7 +427,8 @@ export function layoutMap(input: MapInput, opts: { steps?: number } = {}): MapLa
 	}
 
 	settle(b, Int32Array.from(pairs), steps);
-	pushApart(b);
+	const stats = pushApart(b);
+	opts.onStats?.(stats);
 
 	const nodes: MapNode[] = drawn.map((p, i) => {
 		const g = gapsOf(p);
