@@ -13,6 +13,14 @@ export function bandCompact(name: string): boolean {
 }
 
 /**
+ * Whether the routine has anything to dance, so Practise is offered: a row
+ * with a start count. Never its positions: `starts: []` means "anywhere".
+ */
+export function danceable(edges: RowEdges[]): boolean {
+	return edges.some((e) => e.startCounts.length > 0);
+}
+
+/**
  * "Starts from Open or Closed, ends in Closed": the two halves. A side with no
  * position has no fact (null); with neither, there is nothing to say.
  */
@@ -53,6 +61,19 @@ export function factBadges(r: {
 }
 
 /**
+ * Where the hands start and end, each side joined " or " as the figure page's
+ * Handholds are: "Open or Closed → Hammerlock". A side with no position (or
+ * only names `name` does not know) shows nothing ("Open →", "→ Closed"); with
+ * neither, the empty string. The slot cards and the picker's rows share it.
+ */
+export function handsLine(starts: number[], ends: number[], name: (id: number) => string): string {
+	const side = (ids: number[]) => ids.map(name).filter(Boolean).join(' or ');
+	const from = side(starts);
+	const to = side(ends);
+	return from === '' && to === '' ? '' : [from, '→', to].filter((p) => p !== '').join(' ');
+}
+
+/**
  * A slot card's second line: "1→1 · Open → Closed", led by "Routine · 3 slots"
  * for a routine. A side with no position shows nothing ("1→1 · Open →"), and
  * so do ends the options disagree on: never a "?" for a hold.
@@ -62,9 +83,7 @@ export function slotMeta(
 	name: (id: number) => string,
 	childSlots: number | null
 ): string {
-	const from = e.starts.map(name).join(' / ');
-	const to = (e.ends ?? []).map(name).join(' / ');
-	const hands = from === '' && to === '' ? '' : [from, '→', to].filter((p) => p !== '').join(' ');
+	const hands = handsLine(e.starts, e.ends ?? [], name);
 	const core =
 		e.startCounts.length === 0
 			? ''

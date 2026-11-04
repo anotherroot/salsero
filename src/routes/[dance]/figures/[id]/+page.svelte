@@ -64,6 +64,7 @@
 		routineUseMeta,
 		timingLine
 	} from '$lib/figures/page';
+	import { tagsEmpty } from '$lib/positions/view';
 	import { localDay } from '$lib/day/day';
 	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
@@ -121,14 +122,12 @@
 	const styleLabel = $derived(
 		variation.styleTag ? data.dance.styleLabel[variation.styleTag] : undefined
 	);
-	const positionName = (id: number) => data.positions.find((p) => p.id === id)?.name ?? '';
-	const names = (ids: number[]) => ids.map(positionName).filter(Boolean).join(' / ');
-
-	/** "Open two hands / Cross-hand" → "Hammerlock"; an untagged side shows nothing. */
-	const handholds = $derived({
-		from: names(data.effective.starts),
-		to: names(data.effective.ends)
-	});
+	/** Handholds: the figure's own live tags; both sides empty, it fits anywhere. */
+	const holds = $derived(data.handholds);
+	const untagged = $derived(holds.starts.length === 0 && holds.ends.length === 0);
+	// A position's own page. Built from a path, not the route id: `/[dance]/positions/[id]`
+	// lands with the position page.
+	const positionHref = (id: number) => resolve(`/${slug}/positions/${id}`);
 	const timing = $derived(timingLine(data.effective.startCount, data.effective.lengthCounts));
 	const archive = $derived(archiveCopy(figure.name, variation.name, last));
 	let practising = $state(false);
@@ -468,14 +467,24 @@
 				<div class="-mx-4 h-px bg-hairline"></div>
 				<div class="flex flex-col gap-[3px]">
 					<span class="text-[13px] font-bold text-muted">Handholds</span>
-					{#if handholds.from === '' && handholds.to === ''}
-						<span class="text-[15px] leading-[1.35] font-bold text-ink"
-							>No position · fits anywhere</span
-						>
+					{#if untagged}
+						<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty}</span>
 					{:else}
+						<!-- Each position links to its page; an empty side reads "No position". -->
+						{#snippet side(refs: { id: number; name: string }[])}
+							{#if refs.length === 0}
+								<span class="font-semibold text-muted">No position</span>
+							{:else}
+								{#each refs as p, i (p.id)}{#if i > 0}<span class="mx-1 font-semibold text-muted"
+											>or</span
+										>{/if}<a href={positionHref(p.id)} class="underline-offset-2 hover:underline"
+										>{p.name}</a
+									>{/each}
+							{/if}
+						{/snippet}
 						<span class="text-[15px] leading-[1.35] font-bold text-ink"
-							>{handholds.from} <span class="font-semibold text-muted">→</span>
-							{handholds.to}</span
+							>{@render side(holds.starts)}<span class="mx-1 font-semibold text-muted">→</span
+							>{@render side(holds.ends)}</span
 						>
 					{/if}
 				</div>

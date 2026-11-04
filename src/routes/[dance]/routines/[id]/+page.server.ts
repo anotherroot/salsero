@@ -280,7 +280,17 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(labels),
 		groupFigures,
-		positions: graph.positions.map((p) => ({ id: p.id, name: p.name })),
+		// Names for the facts, the slots' meta and the seams. A reader is told only
+		// those this routine's own figures are tagged with, as with `labels`.
+		positions: graph.positions
+			.filter(
+				(p) =>
+					!visible ||
+					graph.figures.some(
+						(f) => named.has(f.id) && (f.starts.includes(p.id) || f.ends.includes(p.id))
+					)
+			)
+			.map((p) => ({ id: p.id, name: p.name })),
 		starts: routineStarts(graph, shape),
 		ends: routineEnds(graph, shape) ?? [],
 		loops: loops(graph, shape),

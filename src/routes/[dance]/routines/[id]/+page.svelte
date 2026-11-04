@@ -43,6 +43,7 @@
 	import { longPress } from '$lib/longpress';
 	import {
 		bandCompact,
+		danceable as hasCounts,
 		factBadges,
 		factsOf,
 		makeRoutineCaption,
@@ -320,7 +321,8 @@
 			loops: data.loops
 		})
 	);
-	const danceable = $derived(data.starts.length > 0);
+	// By its counts: an untagged routine starts anywhere and is still danced.
+	const danceable = $derived(hasCounts(data.edges));
 
 	const practiseHref = $derived(
 		data.exerciseId === null
@@ -832,15 +834,18 @@
 						{routine.notes}
 					</p>
 				{/if}
-				{#if facts}
+				<!-- With no position anywhere there is no hand fact, but the badges (loops, breaks) still show. -->
+				{#if facts || badges.length > 0}
 					<div class="flex flex-col gap-2 px-1 pt-0.5 pb-1">
-						<p class="text-[14px] font-semibold text-ink-2">
-							{#if facts.from !== null}Starts from <b class="font-extrabold text-ink"
-									>{facts.from}</b
-								>{#if facts.to !== null}&nbsp;· ends at <b class="font-extrabold text-ink"
-										>{facts.to}</b
-									>{/if}{:else}Ends at <b class="font-extrabold text-ink">{facts.to}</b>{/if}
-						</p>
+						{#if facts}
+							<p class="text-[14px] font-semibold text-ink-2">
+								{#if facts.from !== null}Starts from <b class="font-extrabold text-ink"
+										>{facts.from}</b
+									>{#if facts.to !== null}&nbsp;· ends at <b class="font-extrabold text-ink"
+											>{facts.to}</b
+										>{/if}{:else}Ends at <b class="font-extrabold text-ink">{facts.to}</b>{/if}
+							</p>
+						{/if}
 						{#if badges.length > 0}
 							<div class="flex flex-wrap gap-1.5">
 								{#each badges as b (b.text)}
