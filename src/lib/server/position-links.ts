@@ -20,7 +20,7 @@ import {
 	teams,
 	videoSpots
 } from './db/schema';
-import type { LinkedSpot, SectionGroup } from '$lib/types';
+import type { ChangeValues, LinkedSpot, SectionGroup } from '$lib/types';
 import { reconcileEntries } from './entries';
 import { lessonsReaching } from './lesson-links';
 import { inSpace, isTeam, ownedBy, spaceOfRow, type Space, type Wall } from './scope';
@@ -129,7 +129,16 @@ function logPositionLink(
 ): void {
 	const root = spotRoot(tx, link.spotId);
 	if (!root) return;
-	const named = { name: positionName(tx, link.positionId) };
+	const spot = tx
+		.select({ endMs: videoSpots.endMs })
+		.from(videoSpots)
+		.where(eq(videoSpots.id, link.spotId))
+		.get();
+	// `point: 1` makes History say "a point" (a spot with no end).
+	const named: ChangeValues = {
+		name: positionName(tx, link.positionId),
+		...(spot?.endMs === null ? { point: 1 } : {})
+	};
 	logChange(
 		tx,
 		space,

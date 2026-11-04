@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
 import {
 	figures,
+	positions as positionsTable,
 	songs,
 	spotPositionLinks,
 	teamChanges,
@@ -27,6 +28,7 @@ import {
 	lastEdit,
 	logChange,
 	restoreChange,
+	rootInTeam,
 	teamNames
 } from './changes';
 import {
@@ -1342,5 +1344,94 @@ describe('archivedTarget', () => {
 		expect(archivedTarget(db, T1_SALSA, { routineId: live })).toBeNull();
 		// A person's own things keep their own refusal.
 		expect(archivedTarget(db, U1_SALSA, { exerciseId: drill })).toBeNull();
+	});
+});
+
+describe('a position’s History', () => {
+	it('belongs to its own group only', () => {
+		const mine = createPosition(db, T1_SALSA, newPosition('Cerrada'), 1) as PositionRow;
+		const own = createPosition(db, U1_SALSA, newPosition('Own'), 1) as PositionRow;
+		createTeam(db, 'u1', 'salsa', 'Other', 2);
+		const other = createPosition(db, T2_SALSA, newPosition('Other'), 1) as PositionRow;
+		expect(rootInTeam(db, 1, 'position', mine.id)).toBe(true);
+		expect(rootInTeam(db, 1, 'position', own.id)).toBe(false);
+		expect(rootInTeam(db, 1, 'position', other.id)).toBe(false);
+		expect(rootInTeam(db, 1, 'position', 9999)).toBe(false);
+		// An archived position still has its History (Recently deleted links to it).
+		archivePosition(db, mine.id, 5, { actorId: 'u1' });
+		expect(rootInTeam(db, 1, 'position', mine.id)).toBe(true);
+		// A lesson's id is not a position's.
+		expect(rootInTeam(db, 2, 'position', mine.id)).toBe(false);
+	});
+
+	it('puts a name or notes back, as the clash check allows, and logs a restore', () => {
+		const p = createPosition(db, T1_SALSA, newPosition('Cerrada'), 1) as PositionRow;
+		updatePosition(db, p.id, newPosition('Closed'), {
+			actorId: 'u2',
+			now: T + 100
+		});
+		const change = history(db, 1, 'position', p.id).find((r) => r.verb === 'change')!;
+		expect(change.subject).toBe('name');
+		expect(restoreChange(db, T1_SALSA, change.id, T + 200)).toEqual({ ok: true });
+		expect(db.select().from(positionsTable).where(eq(positionsTable.id, p.id)).get()!.name).toBe(
+			'Cerrada'
+		);
+		expect(history(db, 1, 'position', p.id)[0]).toMatchObject({ verb: 'restore', subject: 'name' });
+		// Changed since: a clash, nothing written.
+		updatePosition(db, p.id, newPosition('Third'), { actorId: 'u1', now: T + 300 });
+		const again = history(db, 1, 'position', p.id).find(
+			(r) => r.verb === 'change' && r.subject === 'name' && r.after?.name === 'Third'
+		)!;
+		updatePosition(db, p.id, newPosition('Fourth'), { actorId: 'u2', now: T + 400 });
+		expect(restoreChange(db, T1_SALSA, again.id, T + 500)).toMatchObject({
+			ok: false,
+			reason: 'clash'
+		});
+		expect(db.select().from(positionsTable).where(eq(positionsTable.id, p.id)).get()!.name).toBe(
+			'Fourth'
+		);
+	});
+
+	it('does not restore a hold change or another group’s position', () => {
+		const p = createPosition(db, T1_SALSA, newPosition('Cerrada'), 1) as PositionRow;
+		updatePosition(
+			db,
+			p.id,
+			{
+				...newPosition('Cerrada'),
+				hold: { hands: 'one', crossed: null, facing: 'face', frame: 'closed' }
+			},
+			{ actorId: 'u1', now: T + 100 }
+		);
+		const change = history(db, 1, 'position', p.id).find((r) => r.verb === 'change')!;
+		expect(change.subject).toBe('hands');
+		expect(restoreChange(db, T1_SALSA, change.id, T + 200)).toEqual({
+			ok: false,
+			reason: 'not-restorable'
+		});
+		expect(restoreChange(db, T2_SALSA, change.id, T + 200)).toEqual({
+			ok: false,
+			reason: 'not-found'
+		});
+	});
+});
+
+describe('a position link’s History', () => {
+	it('names a point as a point, a section as a section, and the position as the target', () => {
+		const w = world(T1_SALSA);
+		const point = addSpot(
+			db,
+			{ lessonVideoId: w.video },
+			{ startMs: 9000, endMs: null, label: null },
+			'u1'
+		)!.id;
+		linkSpotToPosition(db, 'u1', point, w.position, 5);
+		linkSpotToPosition(db, 'u1', w.section, w.position, 6);
+		const links = history(db, 1, 'lesson', w.lesson).filter(
+			(r) => r.subject === 'section-link' && r.verb === 'add'
+		);
+		const byTime = links.sort((a, b) => a.at - b.at);
+		expect(byTime[0].after).toMatchObject({ name: 'Cerrada', point: 1 });
+		expect(byTime[1].after?.point ?? null).toBeNull();
 	});
 });

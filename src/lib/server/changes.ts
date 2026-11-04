@@ -34,6 +34,7 @@ import {
 	videoSpots
 } from './db/schema';
 import { isTeam, spaceOfRow, type Space, type TeamSpace } from './scope';
+import type { Hold } from '$lib/types';
 import { HISTORY_MERGE_MS } from '$lib/limits';
 import { shortNames } from '$lib/names';
 import { changedFields, type Seen } from '$lib/clash/clash';
@@ -43,6 +44,7 @@ import { fail } from '@sveltejs/kit';
 import type { ChangeRootKind, ChangeValues, ChangeVerb, HistoryRow, SpotOwner } from '$lib/types';
 import { getLessonRow, updateLesson } from './lessons';
 import { getGroup, renameFigure, updateVariation } from './figures';
+import { getPosition, updatePosition } from './positions';
 import { getRoutine, setSlotNote, updateRoutine } from './routines';
 import { getExercise, updateExercise } from './exercises';
 import { updateSpot } from './spots';
@@ -488,6 +490,27 @@ export function restoreChange(
 				return updateVariation(db, variation.id, input, by, now, R) !== null;
 			});
 		}
+		case 'position': {
+			// Only the name and notes come back (`canRestore`); a hold change shows without Restore.
+			const p = getPosition(db, row.rootId);
+			if (!p || p.archivedAt !== null || p.teamId !== space.teamId)
+				return { ok: false, reason: 'gone' };
+			return run({ name: p.name, notes: p.notes }, () => {
+				const done = updatePosition(
+					db,
+					p.id,
+					{
+						name: text('name', p.name) ?? p.name,
+						styleTag: p.styleTag,
+						hold: { hands: p.hands, crossed: p.crossed, facing: p.facing, frame: p.frame } as Hold,
+						notes: text('notes', p.notes),
+						pictureSpotId: p.pictureSpotId
+					},
+					{ actorId: by, now, verb: R }
+				);
+				return done !== null && !('field' in done);
+			});
+		}
 		case 'song':
 		case 'team':
 			return { ok: false, reason: 'not-restorable' };
@@ -528,7 +551,7 @@ export function rootInTeam(
 		case 'team':
 			return false;
 		case 'position':
-			return false; // positions: a later task
+			return owned(getPosition(db, rootId));
 	}
 }
 

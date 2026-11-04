@@ -26,7 +26,8 @@ import { figures, lessons, positions, routines, songs, twins } from './db/schema
 import { isTeam, type Space, type Wall } from './scope';
 import { accessTo, newGene, visibleMembers } from './clones/genes';
 import { listVersions } from './figures';
-import { usableVersions } from './usable';
+import { usablePositions, usableVersions } from './usable';
+import { listPositions } from './positions';
 import { listAddedRoutines, listRoutines } from './routines';
 import { listMyLessons } from './lessons';
 import { listSharedSongs, listSongs } from './songs';
@@ -223,7 +224,14 @@ export function twinCandidates(db: Db, wall: Wall, kind: TwinKind, id: number): 
 			];
 			break;
 		case 'position':
-			rows = []; // positions: a later task
+			rows = [
+				...listPositions(db, wall).map((p) => ({ id: p.id, label: p.name, place: mine })),
+				...usablePositions(db, wall).map((p) => ({
+					id: p.id,
+					label: p.name,
+					place: placeOf(p.team)
+				}))
+			];
 			break;
 	}
 	return rows

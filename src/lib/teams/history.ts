@@ -34,6 +34,13 @@ const FIELD: Record<string, string> = {
 	endIds: 'end positions',
 	// Older History rows wrote a single end.
 	endId: 'end position',
+	// A position's hold and type.
+	styleTag: 'type',
+	hands: 'hands',
+	crossed: 'crossed',
+	facing: 'facing',
+	frame: 'frame',
+	pictureSpotId: 'picture',
 	startCount: 'start count',
 	lengthCounts: 'length',
 	note: 'slot’s note',
@@ -65,6 +72,9 @@ const RESTORABLE = new Set([
 const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : null);
 const quoted = (v: unknown) => (text(v) === null ? '' : ` '${text(v)}'`);
 const count = (v: ChangeValues | null) => (typeof v?.count === 'number' ? v.count : 1);
+
+/** A spot link's row marks a point (a spot with no end) with `point: 1`; older rows are sections. */
+const linkedSpot = (v: ChangeValues | null) => (v?.point ? 'a point' : 'a section');
 
 /** "1.2", "2": seconds from milliseconds, to one decimal, no trailing ".0". */
 function seconds(ms: number): string {
@@ -114,14 +124,18 @@ function what(row: HistoryRow): string {
 			}
 			if (subject === 'extract') return `made the routine${name} from its slots`;
 			if (subject === 'slot' && count(after) > 1) return `added ${count(after)} slots`;
-			if (subject === 'section-link')
-				return name ? `linked a section to${name}` : 'linked a section';
+			if (subject === 'section-link') {
+				const it = linkedSpot(after);
+				return name ? `linked ${it} to${name}` : `linked ${it}`;
+			}
 			if (subject in A_THING) return `added ${A_THING[subject]}`;
 			return `added the ${shown}${name}`;
 		case 'remove':
 			if (subject === 'slot' && count(before) > 1) return `removed ${count(before)} slots`;
-			if (subject === 'section-link')
-				return name ? `unlinked a section from${name}` : 'unlinked a section';
+			if (subject === 'section-link') {
+				const it = linkedSpot(before);
+				return name ? `unlinked ${it} from${name}` : `unlinked ${it}`;
+			}
 			if (subject in A_THING) return `removed ${A_THING[subject]}`;
 			return `removed the ${shown}${name}`;
 		case 'archive':

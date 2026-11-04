@@ -13,4 +13,11 @@ describe('Recently deleted wording', () => {
 		expect(trashRefusalLine('recording', 'family')).toBe('A copy of this is here already.');
 		expect(trashRefusalLine('section', 'family')).toBe('A copy of this is here already.');
 	});
+
+	it('names a position (archived, not trash) and its link (trash)', () => {
+		expect(KIND_NAME.position).toBe('Position');
+		expect(KIND_NAME['position-link']).toBe('Position link');
+		expect(TRASH_KINDS.has('position')).toBe(false);
+		expect(TRASH_KINDS.has('position-link')).toBe(true);
+	});
 });

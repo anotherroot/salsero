@@ -161,12 +161,15 @@ export function createPosition(
 	});
 }
 
-/** Edit a position. Null when gone. A group's row needs `by` (History names the actor). */
+/**
+ * Edit a position. Null when gone. A group's row needs `by` (History names the actor;
+ * `verb` is 'restore' when History's Restore puts a field back).
+ */
 export function updatePosition(
 	db: Db,
 	id: number,
 	input: PositionInput,
-	by?: { actorId: string; now: number }
+	by?: { actorId: string; now: number; verb?: 'change' | 'restore' }
 ): PositionRow | NameRefusal | null {
 	return db.transaction((tx) => {
 		const current = getPosition(tx, id);
@@ -186,7 +189,7 @@ export function updatePosition(
 			logChange(
 				tx,
 				space,
-				{ rootKind: 'position', rootId: id, verb: 'change', ...change },
+				{ rootKind: 'position', rootId: id, verb: by?.verb ?? 'change', ...change },
 				by?.now ?? Date.now()
 			);
 		}

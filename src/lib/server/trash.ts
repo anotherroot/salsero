@@ -32,6 +32,7 @@ import {
 	lessons,
 	lessonVideos,
 	links,
+	positions,
 	opens,
 	recordings,
 	routines,
@@ -51,6 +52,7 @@ import { labelFor, restoreVariation } from './figures';
 import { restoreRoutine } from './routines';
 import { restoreDrill } from './exercises';
 import { restoreSong } from './song-share';
+import { restorePositionIn } from './positions';
 import { purgeTeams } from './team-purge';
 import { realCloneFiles } from './clones/files';
 import { settleFormerMembers } from './clones/settle';
@@ -167,6 +169,11 @@ export function rootTitle(tx: Db, rootKind: ChangeRootKind, rootId: number): str
 			return (
 				tx.select({ t: exercises.name }).from(exercises).where(eq(exercises.id, rootId)).get()?.t ??
 				'Drill'
+			);
+		case 'position':
+			return (
+				tx.select({ t: positions.name }).from(positions).where(eq(positions.id, rootId)).get()?.t ??
+				'Position'
 			);
 		default:
 			return '';
@@ -447,6 +454,13 @@ export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem
 		.all())
 		archived('song', s.id, s.title || 'Untitled song', s.at!);
 
+	for (const p of db
+		.select({ id: positions.id, name: positions.name, at: positions.archivedAt })
+		.from(positions)
+		.where(and(eq(positions.teamId, teamId), isNotNull(positions.archivedAt)))
+		.all())
+		archived('position', p.id, p.name, p.at!);
+
 	const actors = [...new Set(items.map((i) => i.actorId).filter((a): a is string => a !== null))];
 	const names = teamNames(db, teamId, actors);
 	return items
@@ -474,14 +488,17 @@ export function restoreDeleted(
 		kind === 'variation' ||
 		kind === 'routine' ||
 		kind === 'drill' ||
-		kind === 'song'
+		kind === 'song' ||
+		kind === 'position'
 	) {
+		// Positions have no entries, so there is nothing for `reviveEntries` to bring back.
 		const restore = {
 			lesson: restoreLesson,
 			variation: restoreVariation,
 			routine: restoreRoutine,
 			drill: restoreDrill,
-			song: restoreSong
+			song: restoreSong,
+			position: restorePositionIn
 		}[kind];
 		const done = restore(db, space, id, now);
 		if (done.ok) return done;

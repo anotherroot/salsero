@@ -14,6 +14,8 @@ import { setRole } from '$lib/server/membership';
 import { createLesson, getLessonRow, updateLesson } from '$lib/server/lessons';
 import { createCustomExercise } from '$lib/server/exercises';
 import { history } from '$lib/server/changes';
+import { createPosition, updatePosition } from '$lib/server/positions';
+import type { PositionInput } from '$lib/types';
 import { createSongFromUpload, storeAnalysis } from '$lib/server/songs';
 import { deleteGroupSong, shareSong } from '$lib/server/song-share';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
@@ -180,5 +182,38 @@ describe('a class song’s History', () => {
 		});
 		expect(data.changes.map((c) => c.inDeleted)).toEqual([true, false, false]);
 		expect(await run(() => load(ev('u3', 'song', song)))).toEqual({ status: 404 });
+	});
+});
+
+describe('History of a position', () => {
+	const input = (name: string, notes: string | null = null): PositionInput => ({
+		name,
+		styleTag: 'salsa',
+		hold: { hands: 'two', crossed: true, facing: 'face', frame: 'closed' },
+		notes,
+		pictureSpotId: null
+	});
+
+	it('serves a group position to an editor, names it, and 404s for others', async () => {
+		const id = (createPosition(db, T1_SALSA, input('Cerrada'), 1) as { id: number }).id;
+		updatePosition(db, id, input('Cerrada', 'closed hold'), { actorId: 'u2', now: Date.now() + 5 });
+		const { value } = await run(() => load(ev('u2', 'position', id)));
+		const data = value as Loaded & { root: { title: string; href: string } };
+		expect(data.root).toMatchObject({ title: 'Cerrada', href: `/salsa/positions/${id}` });
+		expect(data.changes.map((c) => c.line)).toEqual([
+			'Luka · changed the notes',
+			'Ana · made the position'
+		]);
+		expect(await run(() => load(ev('u3', 'position', id)))).toEqual({ status: 404 });
+		const own = (createPosition(db, U1_SALSA, input('Mine'), 1) as { id: number }).id;
+		expect(await run(() => load(ev('u1', 'position', own)))).toEqual({ status: 404 });
+		createTeam(db, 'u3', 'salsa', 'Other', 2);
+		const theirs = (
+			createPosition(db, { dance: 'salsa', teamId: 2, actorId: 'u3' }, input('Theirs'), 1) as {
+				id: number;
+			}
+		).id;
+		expect(await run(() => load(ev('u1', 'position', theirs)))).toEqual({ status: 404 });
+		expect(await run(() => load(ev('u1', 'routine', id)))).toEqual({ status: 404 });
 	});
 });

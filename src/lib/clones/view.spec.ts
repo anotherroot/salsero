@@ -835,6 +835,11 @@ describe('Same as… (board C7)', () => {
 		expect(v.twinsNote('song')).toContain('one song.');
 		expect(v.sameAsSearch('routine')).toBe('Search your routines');
 		expect(v.sameAsSearch('song')).toBe('Search your songs');
+		expect(v.sameAsSearch('position')).toBe('Search your positions');
+		expect(v.sameAsEmpty('position')).toBe('No other positions match.');
+		expect(v.twinsNote('position')).toBe(
+			'Twins show as one position. They never sync, and only you see the grouping.'
+		);
 		expect(v.sameAsEmpty('lesson')).toBe('No other lessons match.');
 		expect(v.SAME_AS_SEARCH).toBe('Search your figures');
 		expect(v.SAME_AS_EMPTY).toBe('No other figures match.');
