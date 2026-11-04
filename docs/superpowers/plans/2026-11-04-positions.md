@@ -212,7 +212,7 @@ export interface PositionInput {
 ### Task 5: The server graph, figure tags, slots
 
 **Files:**
-- Modify: `src/lib/server/graph.ts`, `src/lib/server/routines.ts` (`landingIn`, `addOption`), `src/lib/server/figures.ts` (`createVariationFrom` copies `figure_end_positions`), `src/lib/server/clash.ts` (`variationSeen`: `endIds` joined, replaces `endId`), `src/lib/clash/clash.ts` (`endIds: 'Ends in'`; keep `endId` label for old rows), `src/lib/teams/history.ts` (`endIds: 'end positions'`, keep `endId`), every route that read `neutral`, `startsOf`, `endOf` (figure page load, routine page load, routines list, player) — compile-level changes only; their screens change in Tasks 20–21
+- Modify: `src/lib/server/graph.ts`, `src/lib/server/routines.ts` (`landingIn`, `addOption`), `src/lib/server/figures.ts` (`createVariationFrom` copies `figure_end_positions`), `src/lib/server/clash.ts` (`variationSeen`: `endIds` joined, replaces `endId`), `src/lib/clash/clash.ts` (`endIds: 'Ends in'`; keep `endId` label for old rows), `src/lib/teams/history.ts` (`endIds: 'end positions'`, keep `endId`), every route that read `neutral`, `startsOf`, `endOf` (figure page load, routine page load, routines list, player) — compile-level changes only; their screens change in Tasks 19–20
 - Test: `src/lib/server/graph.spec.ts`, `src/lib/server/routines.spec.ts`, `src/lib/server/variations.spec.ts`, the route specs listed by `grep -rln "neutral\|endId\|endPositionId" src --include=*.spec.ts`
 
 **Interfaces:**
@@ -224,7 +224,7 @@ export interface PositionInput {
 
 - [ ] **Step 1: Tests (server/graph.spec.ts):** an untagged figure has `starts: []`, `ends: []` (replaces 'uses the dance neutral…'); a figure with two end rows has two ends; a person's figure ending in their Cerrada (gene g) and a group figure they may use starting in the group's Cerrada (gene g) — `follows` includes the group figure; with different genes it does not; an archived position's tag is dropped from the graph; `setFigureShape` with `endIds: [a, b]` stores two rows; saving with only live ids keeps an archived tag row; a position of another person is refused; a group figure tagged with a person's position is refused. routines.spec: 'refuses a figure that ends somewhere else' now uses sets ([A,B] vs [A]); an option with ends [B,A] beside main [A,B] is accepted; two untagged options are accepted.
 - [ ] **Step 2: Run** — FAIL.
-- [ ] **Step 3: Implement.** `figure_end_positions` replaces every read of `figures.end_position_id` (grep: zero readers of `endPositionId` left outside `schema.ts`, the boot move and the migration spec). The figure form's action keeps working on `endId` until Task 21: map a single `endId` to `endIds: [endId]` there for now.
+- [ ] **Step 3: Implement.** `figure_end_positions` replaces every read of `figures.end_position_id` (grep: zero readers of `endPositionId` left outside `schema.ts`, the boot move and the migration spec). The figure form's action keeps working on `endId` until Task 19: map a single `endId` to `endIds: [endId]` there for now.
 - [ ] **Step 4: Run** the specs, then `npm run check` — PASS.
 - [ ] **Step 5: Commit** `feat(graph): any number of ends, compared by family`.
 
