@@ -233,3 +233,102 @@ describe('positions view', () => {
 		expect(v.handholds([], [])).toEqual({ from: 'No position', to: 'No position' });
 	});
 });
+
+describe('the list’s heading, rows and chips', () => {
+	it('heads the person’s own as Yours, a group’s by count', () => {
+		expect(v.listHeading(15, false)).toBe('Yours · 15');
+		expect(v.listHeading(5, true)).toBe('5 positions');
+		expect(v.listHeading(1, true)).toBe('1 position');
+		expect(v.MAP_ROW).toBe('The map');
+		expect(v.NO_MATCH).toBe('No positions match');
+		expect(v.NONE_OWN).toBe('No positions of your own yet.');
+		expect(v.HOW_EXAMPLE_LABEL).toBe('A position, a figure, the next position');
+	});
+	it('labels a type, an untyped one as Other', () => {
+		const l = v.styleLabelOf({ salsa: 'Salsa', dominican: 'Dominican' });
+		expect([l('salsa'), l('dominican'), l(null), l('gone')]).toEqual([
+			'Salsa',
+			'Dominican',
+			'Other',
+			'gone'
+		]);
+	});
+
+	const types = ['salsa', 'son', 'other'];
+	const labels: Record<string, string> = { salsa: 'Salsa', son: 'Son', other: 'Other' };
+	it('is All, a chip per type, then Gaps with its count', () => {
+		const chips = v.positionChips({ q: '' }, types, labels, 4, false);
+		expect(chips.map((c) => [c.label, c.count, c.on])).toEqual([
+			['All', undefined, true],
+			['Salsa', undefined, false],
+			['Son', undefined, false],
+			['Other', undefined, false],
+			['Gaps', 4, false]
+		]);
+	});
+	it('has no Gaps in group mode', () => {
+		expect(v.positionChips({ q: '' }, types, labels, 0, true).map((c) => c.label)).toEqual([
+			'All',
+			'Salsa',
+			'Son',
+			'Other'
+		]);
+	});
+	it('lights the type on, toggles it off, and keeps the search', () => {
+		const f = { q: 'ca', type: 'son', gaps: '1' as const };
+		const chips = v.positionChips(f, types, labels, 2, false);
+		const son = chips.find((c) => c.label === 'Son')!;
+		expect([son.on, chips[0].on, chips.at(-1)!.on]).toEqual([true, false, true]);
+		expect(v.positionQuery(f, son.change)).toBe('q=ca&gaps=1');
+		expect(v.positionQuery(f, chips[1].change)).toBe('q=ca&type=salsa&gaps=1');
+		expect(v.positionQuery(f, chips[0].change)).toBe('q=ca');
+		expect(v.positionQuery(f, chips.at(-1)!.change)).toBe('q=ca&type=son');
+		expect(v.positionQuery({ q: '' }, { q: 'Cerrada ab' })).toBe('q=Cerrada%20ab');
+		expect(v.positionQuery({ q: '' }, {})).toBe('');
+	});
+});
+
+describe('the position sheet’s words', () => {
+	it('names New and Edit, their footers and the archive note', () => {
+		expect(v.SHEET.newTitle).toBe('New position');
+		expect(v.SHEET.newSub).toBe('Type starts as your “New figures” type (Settings)');
+		expect(v.SHEET.add).toBe('Add position');
+		expect(v.SHEET.save).toBe('Save');
+		expect(v.editTitle('Manos cruzadas')).toBe('Edit Manos cruzadas');
+		expect(v.SHEET.typeHelp).toBe('One, the same list as a figure’s type.');
+		expect(v.SHEET.crossed).toBe('Right hands on top');
+		expect(v.SHEET.archive).toBe('Archive position');
+		expect([v.SHEET.picture, v.SHEET.change, v.SHEET.pictureLegend]).toEqual([
+			'Picture',
+			'Change',
+			'Its points'
+		]);
+		expect(v.SHEET.archiveBody).toBe(
+			'Archived like a figure: Restore brings it back. Its figures lose it and, with no other, have no position.'
+		);
+		expect(v.pictureLine('Week 6 · Setenta into Sombrero, video 1', 72_400)).toBe(
+			'From Week 6 · Setenta into Sombrero, video 1 at 1:12'
+		);
+		const lesson = { kind: 'lesson', lessonId: 1, title: 'Week 6', lessonDay: '2026-11-03' };
+		expect(v.spotVideoLabel({ owner: { lessonVideoId: 1 }, src: '', from: lesson } as never)).toBe(
+			'Week 6'
+		);
+		expect(
+			v.spotVideoLabel({
+				owner: { recordingId: 1 },
+				src: '',
+				from: { kind: 'recording', figure: 'Kentucky · Doble' }
+			})
+		).toBe('Recording · Kentucky · Doble');
+	});
+	it('names the empty state’s buttons and the template sheet', () => {
+		expect(v.EMPTY_ACTIONS).toEqual({
+			templates: 'Start from a template',
+			create: 'New position',
+			how: 'How positions work'
+		});
+		expect(v.TEMPLATES_TITLE).toBe('Start from a template');
+		expect(v.YOU_HAVE_IT).toBe('You have it');
+		expect(v.TEMPLATES_BUTTON).toBe('Templates');
+	});
+});

@@ -161,7 +161,7 @@ describe('listing in group mode', () => {
 		expect(seen).toEqual({ R: true, U: false });
 		expect(data.groups).toEqual([]);
 	});
-	it("lists the group's figures with membersSee, and no coverage or tagged tiles", async () => {
+	it("lists the group's figures with membersSee, and no coverage tile", async () => {
 		// A person's figure with two variations first, so a group's figure id and
 		// its variation's id never coincide: membersSee must be by variation.
 		const own = createFigure(db, U2_SALSA, { ...FIGURE, figureName: 'Own', notes: null } as never)!;
@@ -184,7 +184,7 @@ describe('listing in group mode', () => {
 			])
 		);
 		expect(seen).toEqual({ Enchufla: true, Other: false });
-		expect(data.tagged).toBeNull();
+		expect(data).not.toHaveProperty('tagged');
 		expect(data.unrouted).toBeNull();
 		expect(data.groups).toEqual([]);
 	});
@@ -211,7 +211,7 @@ describe('listing in group mode', () => {
 		const own = createFigure(db, U2_SALSA, { ...FIGURE, figureName: 'Own', notes: null } as never)!;
 		db.insert(figureEndPositions).values({ figureId: g.figure.id, positionId: ours }).run();
 		db.insert(figureEndPositions).values({ figureId: own.figure.id, positionId: yours }).run();
-		const row = (d: Record<string, any>, id: number) => d.positions.find((p: any) => p.id === id); // eslint-disable-line
+		const row = (d: Record<string, any>, id: number) => d.rows.find((p: any) => p.id === id); // eslint-disable-line
 		const inGroup = loadOf(positionsLoad, 'u2', jar('1').cookies);
 		expect(inGroup.groupMode).toBe(true);
 		expect(row(inGroup, ours)).toMatchObject({ inCount: 1, deadEnd: false, orphan: false });

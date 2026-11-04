@@ -1,6 +1,6 @@
 /** Every positions screen's words: PURE, client-safe. Strings come from the design boards. */
 import { plural } from '$lib/format';
-import type { PositionListRow, PositionSummary } from '$lib/types';
+import type { PositionListRow, PositionSummary, SectionVideo } from '$lib/types';
 
 export { holdChips } from './hold';
 
@@ -105,6 +105,131 @@ export function firstRunBody(figures: number): string {
 
 export const GROUP_NOTE = 'The group’s own positions. Its figures can only be tagged with these.';
 
+/** The empty state's three buttons. */
+export const EMPTY_ACTIONS = {
+	templates: 'Start from a template',
+	create: 'New position',
+	how: 'How positions work'
+} as const;
+
+/** The label over the list: the person's own as "Yours · 15"; a group's (group mode) by count. */
+export function listHeading(n: number, groupMode: boolean): string {
+	return groupMode ? plural(n, 'position', 'positions') : `Yours · ${n}`;
+}
+
+/** The row into the map, under No position. */
+export const MAP_ROW = 'The map';
+
+/** A search or a chip that leaves nothing. */
+export const NO_MATCH = 'No positions match';
+
+/** Only a group's positions so far: the person's own list starts here. */
+export const NONE_OWN = 'No positions of your own yet.';
+
+/** A type's label; an untyped position reads as "Other". */
+export function styleLabelOf(labels: Record<string, string>): StyleLabel {
+	return (tag) => (tag === null ? 'Other' : (labels[tag] ?? tag));
+}
+
+/** The list's filter, as the URL carries it: the search is always a string, the rest only when set. */
+export type PositionFilter = { q: string; type?: string; gaps?: '1' };
+
+export type PositionChip = {
+	key: string;
+	label: string;
+	count?: number;
+	on: boolean;
+	/** What tapping it does to the filter. Never touches `q`. */
+	change: Partial<PositionFilter>;
+};
+
+const FILTER_KEYS = ['q', 'type', 'gaps'] as const;
+
+/** The query string for `filter` with `change` applied, without the `?`; `''` when nothing is set. */
+export function positionQuery(filter: PositionFilter, change: Partial<PositionFilter>): string {
+	const next: Partial<PositionFilter> = { ...filter, ...change };
+	return FILTER_KEYS.filter((k) => next[k])
+		.map((k) => `${k}=${encodeURIComponent(next[k] as string)}`)
+		.join('&');
+}
+
+/**
+ * The chip row: All · a chip per type · Gaps N (the person's own report: not
+ * in group mode). A type is single-valued: the on one clears, another
+ * replaces. All clears both; no chip drops the search.
+ */
+export function positionChips(
+	filter: PositionFilter,
+	types: readonly string[],
+	typeLabel: Record<string, string>,
+	gaps: number,
+	groupMode: boolean
+): PositionChip[] {
+	const chips: PositionChip[] = [
+		{
+			key: 'all',
+			label: 'All',
+			on: !filter.type && !filter.gaps,
+			change: { type: undefined, gaps: undefined }
+		},
+		...types.map((t) => ({
+			key: `type:${t}`,
+			label: typeLabel[t] ?? t,
+			on: filter.type === t,
+			change: { type: filter.type === t ? undefined : t }
+		}))
+	];
+	if (!groupMode) {
+		chips.push({
+			key: 'gaps',
+			label: 'Gaps',
+			count: gaps,
+			on: !!filter.gaps,
+			change: { gaps: filter.gaps ? undefined : '1' }
+		});
+	}
+	return chips;
+}
+
+// ---- New position / Edit ----
+
+export const SHEET = {
+	newTitle: 'New position',
+	newSub: 'Type starts as your “New figures” type (Settings)',
+	add: 'Add position',
+	save: 'Save',
+	typeHelp: 'One, the same list as a figure’s type.',
+	crossed: 'Right hands on top',
+	archive: 'Archive position',
+	archiveBody:
+		'Archived like a figure: Restore brings it back. Its figures lose it and, with no other, have no position.',
+	picture: 'Picture',
+	change: 'Change',
+	pictureLegend: 'Its points'
+} as const;
+
+export function editTitle(name: string): string {
+	return `Edit ${name}`;
+}
+
+/** A spot's video as the picture line names it: the lesson's title, or the recording's figure. */
+export function spotVideoLabel(v: SectionVideo): string {
+	return v.from.kind === 'lesson' ? v.from.title : `Recording · ${v.from.figure}`;
+}
+
+/** "From Week 6 · Setenta into Sombrero, video 1 at 1:12" (whole seconds, floored). */
+export function pictureLine(videoLabel: string, ms: number): string {
+	const s = Math.floor(ms / 1000);
+	return `From ${videoLabel} at ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// ---- Templates ----
+
+export const TEMPLATES_TITLE = 'Start from a template';
+/** The list's button into Templates, beside How positions work. */
+export const TEMPLATES_BUTTON = 'Templates';
+export const YOU_HAVE_IT = 'You have it';
+
 // ---- a position's page ----
 
 /**
@@ -205,6 +330,9 @@ export const HOW: {
 	],
 	done: 'Got it'
 };
+
+/** The example strip, for a screen reader. */
+export const HOW_EXAMPLE_LABEL = 'A position, a figure, the next position';
 
 // ---- templates ----
 

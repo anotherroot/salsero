@@ -6,6 +6,7 @@ const NO_BAND: Record<string, string> = {
 	'src/routes/dev/kit/+page.svelte': 'dev gallery',
 	'src/routes/[dance]/figures/+page.svelte': 'MovesScreen draws the band',
 	'src/routes/[dance]/routines/+page.svelte': 'MovesScreen draws the band',
+	'src/routes/[dance]/positions/+page.svelte': 'MovesScreen draws the band',
 	'src/routes/[dance]/player/+page.svelte': 'Setup draws the band, Running draws the stage'
 };
 

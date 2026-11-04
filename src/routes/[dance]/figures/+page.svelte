@@ -52,8 +52,8 @@
 	const twinned = $derived(new Set(data.twinned));
 	const count = $derived(data.figures.length);
 	const figureCount = $derived(data.figures.reduce((n, m) => n + m.figures.length, 0));
-	// Group mode has no tags (null): its heading carries no "Yours".
-	const inGroup = $derived(data.tagged === null);
+	// Group mode has no coverage (null): its heading carries no "Yours".
+	const inGroup = $derived(data.unrouted === null);
 	const heading = $derived(
 		inGroup && !filter.unlinked
 			? movesHeading(
@@ -67,10 +67,8 @@
 	const chips = $derived(
 		filterChips(filter, data.dance.styles, data.dance.styleLabel, data.unlinked)
 	);
-	// Group mode has neither: tags and coverage are the person's own.
-	const tiles = $derived(
-		data.tagged && data.unrouted !== null ? tileMetas(data.tagged, data.unrouted) : null
-	);
+	// Group mode has no Coverage tile: coverage is the person's own.
+	const tiles = $derived(data.unrouted !== null ? tileMetas(data.unrouted) : null);
 	// What is typed; follows the URL when it changes under it.
 	let q = $derived(data.filter.q);
 
@@ -179,23 +177,15 @@
 			{/snippet}
 		</EmptyState>
 	{:else}
-		{#if showTiles(count, filter)}
+		{#if tiles && showTiles(count, filter)}
 			<div class="flex flex-none gap-2">
 				<NavTile
-					href={resolve('/[dance]/positions', { dance: data.dance.slug })}
-					icon="positions"
-					title="Positions"
-					meta={tiles ? tiles.positions : 'Shared by everyone'}
+					href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
+					icon="routine"
+					title="Coverage"
+					meta={tiles.coverage.text}
+					status={tiles.coverage.status}
 				/>
-				{#if tiles}
-					<NavTile
-						href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
-						icon="routine"
-						title="Coverage"
-						meta={tiles.coverage.text}
-						status={tiles.coverage.status}
-					/>
-				{/if}
 			</div>
 		{/if}
 

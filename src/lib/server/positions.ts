@@ -4,10 +4,18 @@
  * same transaction (`logChange`); the clash check's side is `positionSeen`
  * (`clash.ts`).
  */
-import { and, asc, eq, isNull, isNotNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, isNotNull } from 'drizzle-orm';
 import type { Db } from './db';
 import { fold } from '$lib/fold';
-import { positions, spotPositionLinks, teams, videoSpots, type PositionRow } from './db/schema';
+import {
+	lessons,
+	positions,
+	spotPositionLinks,
+	teams,
+	videoSpots,
+	type PositionRow
+} from './db/schema';
+import { addedLessonIds, reachFrom } from './access';
 import { DANCES, isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { TEMPLATES } from '$lib/positions/templates';
 import type { ChangeValues, PositionInput, PositionSummary } from '$lib/types';
@@ -279,6 +287,38 @@ export function addTemplates(
 		}
 		return made;
 	});
+}
+
+/**
+ * Which of the person's added lessons of a group brought each of these
+ * positions (their figures' tags, hand links, or links on their videos): the
+ * list's "from Week 6". The earliest lesson by day wins; a position no added
+ * lesson reaches (the person's own rows use it) is left out.
+ */
+export function positionsFrom(
+	db: Db,
+	userId: string,
+	teamId: number,
+	ids: number[]
+): Map<number, string> {
+	const out = new Map<number, string>();
+	if (ids.length === 0) return out;
+	const want = new Set(ids);
+	const added = addedLessonIds(db, userId, teamId);
+	if (added.length === 0) return out;
+	const byDay = db
+		.select({ id: lessons.id, title: lessons.title })
+		.from(lessons)
+		.where(inArray(lessons.id, added))
+		.orderBy(asc(lessons.lessonDay), asc(lessons.id))
+		.all();
+	for (const l of byDay) {
+		for (const id of reachFrom(db, teamId, [l.id]).positions) {
+			if (want.has(id) && !out.has(id)) out.set(id, l.title);
+		}
+		if (out.size === want.size) break;
+	}
+	return out;
 }
 
 /** A row as lists and pickers see it; `teamId` is null for the viewer's own space's rows. */

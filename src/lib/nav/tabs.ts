@@ -47,9 +47,9 @@ export function tabFor(path: string, dance: DanceSlug): TabId | null {
 	return SECTION[first] ?? null;
 }
 
-/** The main lists a tab opens on. Moves has two: figures and routines. */
+/** The main lists a tab opens on. Moves has three: figures, routines and positions. */
 export function rootsOf(tab: TabId, dance: DanceSlug): string[] {
-	if (tab === 'moves') return [`/${dance}/figures`, `/${dance}/routines`];
+	if (tab === 'moves') return [`/${dance}/figures`, `/${dance}/routines`, `/${dance}/positions`];
 	const path = { today: '', lessons: '/lessons', groups: '/groups', music: '/songs' }[tab];
 	return [`/${dance}${path}`];
 }
