@@ -19,6 +19,7 @@ import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
 import { listPickRoutines, listUsableRoutines } from './routines';
 import { ownedOrUsable, usableBy, usableDrills, usableOf, usableVersions } from './usable';
+import { foldVersions } from './twins';
 import { mineIdsFor, withoutShadowed } from './clones/shadow';
 import {
 	exercises,
@@ -1047,7 +1048,8 @@ export function unlinkExercise(
 /**
  * Live variations in the lesson's space, by label; `linked` marks those already on the lesson.
  * A person's own lesson also offers the group variations they may use, after
- * their own, each tagged with its group (ruling 2).
+ * their own, each tagged with its group (ruling 2). Their twins show as one
+ * (board C7): a set is one row, linked when any of it is.
  */
 export function listLinkableFigures(
 	db: Db,
@@ -1058,7 +1060,10 @@ export function listLinkableFigures(
 
 	const linked = new Set(linkedFigureIds(db, lessonId));
 	const theirs = isTeam(space) ? [] : usableVersions(db, space);
-	return [...listVersions(db, space), ...theirs].map((v) => ({ ...v, linked: linked.has(v.id) }));
+	return foldVersions(db, space, [...listVersions(db, space), ...theirs]).map((v) => ({
+		...v,
+		linked: [v.id, ...(v.twins ?? []).map((t) => t.id)].some((id) => linked.has(id))
+	}));
 }
 
 /**

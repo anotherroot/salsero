@@ -14,7 +14,7 @@
  */
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
-import type { TeamRef } from '$lib/types';
+import type { TeamRef, TwinNote } from '$lib/types';
 
 export interface Candidate {
 	kind: 'figure' | 'routine';
@@ -32,6 +32,8 @@ export interface Candidate {
 	next: number | null;
 	/** A group's row a person may use: whose it is. */
 	team?: TeamRef;
+	/** The person's twins of it that this candidate stands for (`clones/twins.ts`). */
+	twins?: TwinNote[];
 }
 
 type After = { kind: 'after'; end: number | null; next: number | null };

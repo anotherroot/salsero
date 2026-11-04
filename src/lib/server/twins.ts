@@ -11,10 +11,11 @@
  * merge, and a set left with one row is gone.
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import type { PlaceRef, TwinCandidate, TwinKind } from '$lib/types';
+import type { FigureVersion, PlaceRef, TwinCandidate, TwinKind, TwinNote } from '$lib/types';
+import { twinRows } from '$lib/clones/twins';
 import type { Db } from './db';
 import { figures, lessons, routines, songs, twins } from './db/schema';
-import type { Wall } from './scope';
+import { isTeam, type Space, type Wall } from './scope';
 import { accessTo, newGene, visibleMembers } from './clones/genes';
 import { listVersions } from './figures';
 import { usableVersions } from './usable';
@@ -99,6 +100,21 @@ export function separate(db: Db, wall: Wall, kind: TwinKind, id: number): boolea
 	});
 }
 
+/**
+ * Not the same? Separate (board C7 p2), from a page that shows a whole
+ * family: a twin mark may sit on any member the person sees, so every one of
+ * them leaves its set (`separate` each, sets of one going with them). False
+ * when none of them was in a set.
+ */
+export function separateFamily(db: Db, wall: Wall, kind: TwinKind, id: number): boolean {
+	const ids = new Set([id, ...visibleMembers(db, wall.userId, kind, id).map((m) => m.id)]);
+	return db.transaction((tx) => {
+		let any = false;
+		for (const m of ids) any = separate(tx as unknown as Db, wall, kind, m) || any;
+		return any;
+	});
+}
+
 /** The other rows of this row's set that the person still reads and are live, by id. */
 export function twinsOf(db: Db, userId: string, kind: TwinKind, id: number): number[] {
 	const where = mine(userId, kind);
@@ -140,13 +156,15 @@ export function twinSets(db: Db, wall: Wall, kind: TwinKind): number[][] {
  * Same as…: every live row of the kind that the person sees in their app (their
  * own, and the usable rows of the groups they added, minus the ones their own
  * copy shadows) except the row itself and its family, which are shown together
- * already. `ticked` marks its current twins. Figures only for now.
+ * already. `ticked` marks its current twins: those of any member of the
+ * family the person sees, as the page's tabs show them. Figures only for now.
  */
 export function twinCandidates(db: Db, wall: Wall, kind: TwinKind, id: number): TwinCandidate[] {
 	if (kind !== 'figure') return [];
 	const family = new Set(visibleMembers(db, wall.userId, 'figure', id).map((m) => m.id));
 	family.add(id);
-	const ticked = new Set(twinsOf(db, wall.userId, 'figure', id));
+	// The page's tabs show the twins of every member of the family: so do the ticks.
+	const ticked = new Set([...family].flatMap((m) => twinsOf(db, wall.userId, 'figure', m)));
 	const mine: PlaceRef = { kind: 'mine' };
 	const rows = [
 		...listVersions(db, wall).map((v) => ({ id: v.id, label: v.label, place: mine })),
@@ -184,5 +202,47 @@ export function setTwins(
 		}
 		if (want.length > 0) return markTwins(tx as unknown as Db, wall, kind, [id, ...want]);
 		return true;
+	});
+}
+
+/**
+ * The person's sets of this kind as stored, every dance and reach alike: for
+ * folding a list that already holds only what they see (the Moves list, a
+ * picker), where a member not in the list simply folds nothing. Reads no
+ * access: the list is the visibility, computed once for it.
+ */
+export function storedTwinSets(db: Db, userId: string, kind: TwinKind): number[][] {
+	const bySet = new Map<string, number[]>();
+	for (const r of db
+		.select({ setId: twins.setId, itemId: twins.itemId })
+		.from(twins)
+		.where(mine(userId, kind))
+		.orderBy(asc(twins.itemId))
+		.all()) {
+		bySet.set(r.setId, [...(bySet.get(r.setId) ?? []), r.itemId]);
+	}
+	return [...bySet.values()].filter((s) => s.length >= 2);
+}
+
+/**
+ * A person's picker variations with their twins folded (board C7): one row
+ * per set, theirs if they have one, else the first by group name, carrying
+ * the twins behind it (`twins`, for the meta). A group's space folds nothing:
+ * groups have no twins.
+ */
+export function foldVersions<T extends FigureVersion>(db: Db, space: Space, versions: T[]): T[] {
+	if (isTeam(space)) return versions;
+	const sets = storedTwinSets(db, space.userId, 'figure');
+	if (sets.length === 0) return versions;
+	const byId = new Map(versions.map((v) => [v.id, v]));
+	const mineIds = new Set(versions.filter((v) => !v.team).map((v) => v.id));
+	const note = (id: number): TwinNote => {
+		const t = byId.get(id)!;
+		return { id, figure: t.figure, name: t.name, team: t.team ?? null };
+	};
+	const rows = versions.map((v) => ({ id: v.id, team: v.team }));
+	return twinRows(rows, sets, mineIds).map(({ id, twins: behind }) => {
+		const v = byId.get(id)!;
+		return behind.length === 0 ? v : { ...v, twins: behind.map(note) };
 	});
 }

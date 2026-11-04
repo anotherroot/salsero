@@ -72,7 +72,7 @@ import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
-import { separate, setTwins, twinCandidates } from '$lib/server/twins';
+import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
 import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
 import type { SiblingSummary } from '$lib/types';
@@ -267,7 +267,15 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 
 	// A tab per source; opened from the person's copy (`?vs=`), the source's
 	// recordings say which are already in it, and Take brings the others.
-	const versions = sourcesView(db, wall.userId, 'figure', id, url.searchParams.get('vs'));
+	// Group mode has no twins: no twin tab, no subtitle counting them.
+	const versions = sourcesView(
+		db,
+		wall.userId,
+		'figure',
+		id,
+		url.searchParams.get('vs'),
+		!inGroupMode
+	);
 	const held = versions.vs === null ? null : genesHeld(db, versions.vs);
 
 	const candidates = inGroupMode ? [] : twinCandidates(db, wall, 'figure', id);
@@ -658,10 +666,10 @@ export const actions: Actions = {
 		return { action: 'sameAs' };
 	},
 
-	/** Not the same? Separate (board C7 p2): the row leaves its twins. */
+	/** Not the same? Separate (board C7 p2): the row and the rest of its family leave their twins. */
 	separate: ({ params, locals }) => {
 		const { figure } = variationOf(params, locals, 'read');
-		separate(getDb(), wallOf(params, locals), 'figure', figure.id);
+		separateFamily(getDb(), wallOf(params, locals), 'figure', figure.id);
 		return { action: 'separate' };
 	},
 

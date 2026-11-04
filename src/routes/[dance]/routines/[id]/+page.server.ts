@@ -3,6 +3,7 @@ import { getDb, type Db } from '$lib/server/db';
 import { figureLabels, listVersions } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
+import { foldVersions } from '$lib/server/twins';
 import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
 import {
@@ -165,11 +166,12 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	const candidates: Candidate[] = !canEdit
 		? []
 		: [
-				...[
+				// Twins show as one (board C7): a set is one candidate; a group's routine folds nothing.
+				...foldVersions(db, space, [
 					...listVersions(db, space),
 					// A person's routine may use the group figures they reach, each under its group.
 					...(usable ? usableVersions(db, wall, usable) : [])
-				].flatMap((v): Candidate[] => {
+				]).flatMap((v): Candidate[] => {
 					const node = figureById(graph, v.id);
 					if (!node) return [];
 					return [
@@ -183,7 +185,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 							startCounts: [node.start],
 							end: endOf(graph, node),
 							next: nextCountOf(node),
-							...(v.team ? { team: v.team } : {})
+							...(v.team ? { team: v.team } : {}),
+							...(v.twins ? { twins: v.twins } : {})
 						}
 					];
 				}),

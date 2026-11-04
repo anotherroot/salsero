@@ -31,7 +31,8 @@ export function figureRowMeta(f: Parameters<typeof figureRowParts>[0]): string {
 
 /**
  * The label above the list: "Yours · 14 figures", or "3 figures match" while a
- * search or a chip narrows it. `lead` is the owner word ("Yours"); null drops it.
+ * search or a chip narrows it. Counted after twins fold (`clones/twins.ts`), so a
+ * folded twin is not counted twice. `lead` is the owner word ("Yours"); null drops it.
  */
 export function movesHeading(
 	n: { moves: number; figures: number },
@@ -41,4 +42,13 @@ export function movesHeading(
 	if (matching) return plural(n.figures, 'figure matches', 'figures match');
 	const count = plural(n.figures, 'figure', 'figures');
 	return lead ? `${lead} · ${count}` : count;
+}
+
+/**
+ * Under a move's heading, when groups' twins folded into it (board C7 p3):
+ * "3 figures · also in Salsa Tuesdays, Rueda club". The figures are the ones
+ * the list shows, so a folded twin is counted once.
+ */
+export function moveMeta(figures: number, also: string[]): string {
+	return `${plural(figures, 'figure', 'figures')} · also in ${also.join(', ')}`;
 }

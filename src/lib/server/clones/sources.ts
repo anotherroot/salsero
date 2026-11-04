@@ -78,16 +78,17 @@ function byPlace(a: { place: PlaceRef }, b: { place: PlaceRef }): number {
 /**
  * The page's family as the person sees it: the page's row (archived or not),
  * the other live members, and the live twins of any of them that are not
- * family. Null when the person cannot read the row.
+ * family (none with `twins` false: a group's own workspace, which has none).
+ * Null when the person cannot read the row.
  */
-function familyOf(db: Db, userId: string, kind: CloneKind, id: number) {
+function familyOf(db: Db, userId: string, kind: CloneKind, id: number, withTwins = true) {
 	const all = visibleMembers(db, userId, kind, id);
 	const page = all.find((m) => m.id === id);
 	if (!page) return null;
 	const members = all.filter((m) => m.id === id || !m.archived).sort(byPlace);
 	const family = new Set(all.map((m) => m.id));
 	const twins: Twin[] = [];
-	if (kind !== 'drill') {
+	if (kind !== 'drill' && withTwins) {
 		for (const m of members) {
 			for (const t of twinsOf(db, userId, kind as TwinKind, m.id)) {
 				if (family.has(t)) continue;
@@ -132,16 +133,18 @@ function rejoinedWith(db: Db, userId: string, kind: CloneKind, pageId: number, m
 
 /**
  * The page's tabs, its subtitle's facts, the person's own member and the
- * validated `vs` (the raw `?vs=` value).
+ * validated `vs` (the raw `?vs=` value). `withTwins` false leaves twins out: a
+ * group's own workspace (group mode) has none.
  */
 export function sourcesView(
 	db: Db,
 	userId: string,
 	kind: CloneKind,
 	id: number,
-	vs: string | null = null
+	vs: string | null = null,
+	withTwins = true
 ): SourcesView {
-	const fam = familyOf(db, userId, kind, id);
+	const fam = familyOf(db, userId, kind, id, withTwins);
 	if (!fam) {
 		return {
 			sources: [],

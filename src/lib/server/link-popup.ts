@@ -30,6 +30,7 @@ import {
 import { createCustomExercise } from './exercises';
 import { actorOf, inSpace, isTeam, ownedBy, spaceOfRow, type Space } from './scope';
 import { teamRefs, usableDrills, usableOf, usableVersions } from './usable';
+import { foldVersions } from './twins';
 import { linkInSpace, sectionSpace, SpotLinkError, videoOfSpot } from './spot-links';
 import { viaSections } from './lesson-links';
 import { defaultStyle } from './default-styles';
@@ -215,19 +216,28 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		.sort(byLabel);
 	const taken = new Set(linked.map((l) => key(l.target)));
 
-	const variations = versions.map((v) => ({
-		option: {
-			target: { figureId: v.id },
-			label: v.label,
-			drill: false,
-			figure: v.figure,
-			name: v.name,
-			everyDays: null,
-			linked: taken.has(key({ figureId: v.id })),
-			...(v.team ? { team: v.team } : {})
-		} as LinkOption,
-		groupId: v.groupId as number | null
-	}));
+	// Twins show as one (board C7): a set is one row, linked when any of it is,
+	// near when any of it is. A group's section folds nothing.
+	const groupOf = new Map(versions.map((v) => [v.id, v.groupId]));
+	const variations = foldVersions(db, space, versions).map((v) => {
+		const behind = v.twins ?? [];
+		const ids = [v.id, ...behind.map((t) => t.id)];
+		return {
+			option: {
+				target: { figureId: v.id },
+				label: v.label,
+				drill: false,
+				figure: v.figure,
+				name: v.name,
+				everyDays: null,
+				linked: ids.some((id) => taken.has(key({ figureId: id }))),
+				...(v.team ? { team: v.team } : {}),
+				...(behind.length > 0 ? { twins: behind } : {})
+			} as LinkOption,
+			groupId: v.groupId as number | null,
+			groups: ids.map((id) => groupOf.get(id) ?? null)
+		};
+	});
 	const ownDrills: { id: number; name: string; everyDays: number; team?: TeamRef }[] = db
 		.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
 		.from(exercises)
@@ -250,20 +260,22 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			linked: taken.has(key({ exerciseId: d.id })),
 			...(d.team ? { team: d.team } : {})
 		} as LinkOption,
-		groupId: null as number | null
+		groupId: null as number | null,
+		groups: [null] as (number | null)[]
 	}));
-	const nearOf = (cs: typeof variations) =>
-		cs.filter((c) => isNear(c.option, c.groupId)).map((c) => c.option);
+	const near = (c: (typeof variations)[number]) => c.groups.some((g) => isNear(c.option, g));
+	const nearOf = (cs: typeof variations) => cs.filter(near).map((c) => c.option);
 	const restOf = (cs: typeof variations) =>
 		cs
-			.filter((c) => !isNear(c.option, c.groupId))
+			.filter((c) => !near(c))
 			.map((c) => c.option)
 			.sort(byLabel);
 
 	// The figures New variation offers first: those of the lesson's variations
-	// (linked or not), or the recording's own.
+	// (linked or not), or the recording's own; a row near through its twin
+	// brings its own figure too.
 	const nearGroups = new Set(
-		variations.filter((v) => isNear(v.option, v.groupId)).map((v) => v.groupId)
+		variations.filter(near).flatMap((v) => v.groups.filter((g) => g !== null))
 	);
 	const figureChoices = listMoveTargets(db, space, null).map((g) => ({
 		groupId: g.id,

@@ -7,6 +7,7 @@
 	 */
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { moveHeading, usedAsIs } from '$lib/clones/view';
+	import { twinPickMeta } from '$lib/clones/twins';
 	import { CHIP } from '$lib/components/ui/styles';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import type { PickGroup as Group, PickHeading, PickRow } from '$lib/picker/model';
@@ -66,6 +67,7 @@
 		const from = c.starts.length > 0 ? c.starts.map(positionName).join(' / ') : '?';
 		const to = c.end === null ? '?' : positionName(c.end);
 		const where = `${timing} · ${from} → ${to}`;
+		if (c.twins && c.twins.length > 0) return `${twinPickMeta(c, c.twins)} · ${where}`;
 		return c.team ? `${usedAsIs(c.team.name)} · ${where}` : where;
 	}
 

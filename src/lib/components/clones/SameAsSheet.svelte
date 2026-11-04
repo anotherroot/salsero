@@ -24,7 +24,8 @@
 	 * Same as… (board C7 p1): the page's figure is the same move as some
 	 * others in your app. A folded search over them, each with its place as
 	 * meta and a box; the note says twins never sync and only you see them.
-	 * Mark as the same saves exactly the ticked set (unticking separates).
+	 * Mark as the same saves exactly the ticked set (unticking separates), and
+	 * waits until the ticks change.
 	 * The twin icon is the kit's `link`: the kit has no twin icon of its own.
 	 */
 	let {
@@ -49,6 +50,12 @@
 	const shown = $derived.by(() => {
 		const q = fold(query.trim());
 		return q === '' ? offer.candidates : offer.candidates.filter((c) => fold(c.label).includes(q));
+	});
+
+	// Nothing to save until the ticks differ from the twins it opened with.
+	const changed = $derived.by(() => {
+		const was = offer.candidates.filter((c) => c.ticked).map((c) => c.id);
+		return was.length !== ticked.length || !was.every((id) => ticked.includes(id));
 	});
 
 	const toggle = (id: number) =>
@@ -119,7 +126,12 @@
 			<button type="button" class={button('tertiary', 'md', true)} onclick={onclose}
 				>{CANCEL}</button
 			>
-			<button type="submit" class={button('primary', 'md', true)} disabled={busy} aria-busy={busy}>
+			<button
+				type="submit"
+				class={button('primary', 'md', true)}
+				disabled={busy || !changed}
+				aria-busy={busy}
+			>
 				{#if busy}<Spinner />{:else}<Icon name="check" size={20} />{MARK_SAME}{/if}
 			</button>
 		</form>

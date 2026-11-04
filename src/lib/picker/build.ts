@@ -8,6 +8,7 @@
 import { frequencyLabel } from '$lib/frequency';
 import { dateLabel } from '$lib/format';
 import { moveHeading, usedAsIs } from '$lib/clones/view';
+import { twinPickMeta } from '$lib/clones/twins';
 import { spotLabel } from '$lib/video/spots';
 import type {
 	FigureVersion,
@@ -25,7 +26,10 @@ const withLinked = (row: PickRow, linked: boolean | undefined): PickRow =>
 
 const byName = (a: string, b: string) => a.localeCompare(b);
 
-/** One heading per figure (collapse; headings alphabetical, rows in id order), rows key `figure:{id}`, label v.label, short v.name, linked when given. */
+/**
+ * One heading per figure (collapse; headings alphabetical, rows in id order), rows key `figure:{id}`, label v.label, short v.name, linked when given.
+ * A row that stands for its twins (`twins`, folded on the server) says which is used.
+ */
 export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): PickHeading[] {
 	const byGroup = new Map<number, PickHeading>();
 	for (const v of vs) {
@@ -41,7 +45,11 @@ export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): 
 					value: v.id,
 					label: v.label,
 					short: v.name,
-					...(v.team ? { meta: usedAsIs(v.team.name) } : {})
+					...(v.twins && v.twins.length > 0
+						? { meta: twinPickMeta(v, v.twins) }
+						: v.team
+							? { meta: usedAsIs(v.team.name) }
+							: {})
 				},
 				v.linked
 			)
@@ -199,6 +207,7 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 						name: x.name,
 						label: x.label,
 						...(x.team ? { team: x.team } : {}),
+						...(x.twins ? { twins: x.twins } : {}),
 						linked: x.linked
 					};
 				})

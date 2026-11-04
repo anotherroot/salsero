@@ -11,6 +11,7 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
@@ -25,7 +26,8 @@
 		type FigureChip,
 		type FigureFilter
 	} from '$lib/moves/figures';
-	import { figureRowParts, movesHeading } from '$lib/moves/list';
+	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
+	import { TWINS_CHIP } from '$lib/clones/twins';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
 	import type { ActionData, PageData } from './$types';
 
@@ -46,6 +48,8 @@
 	);
 
 	const filter = $derived<FigureFilter>(data.filter);
+	// The figures that stand for their twins (board C7 p3): a "Twins" chip.
+	const twinned = $derived(new Set(data.twinned));
 	const count = $derived(data.figures.length);
 	const figureCount = $derived(data.figures.reduce((n, m) => n + m.figures.length, 0));
 	// Group mode has no tags (null): its heading carries no "Yours".
@@ -114,7 +118,11 @@
 		href={resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
 	>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-			<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
+			<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+				<span class="text-[16px] leading-[1.3] font-bold break-words text-ink">{f.name}</span>
+				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
+				{#if twinned.has(f.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
+			</span>
 			<!-- Each part carries the dot before it, so a wrapped line never ends on "·". -->
 			<span class="flex flex-wrap items-center gap-x-1.5 text-[13px] leading-[1.35] text-muted">
 				{#each figureRowParts(showLacks ? f : { ...f, hasSection: true, hasLesson: true }) as part, i (part.text)}
@@ -135,15 +143,23 @@
 	</a>
 {/snippet}
 
-<!-- A move's name over its figures: the heading opens the move's page. -->
+<!-- A move's name over its figures: the heading opens the move's page. A move
+     that groups' twins folded into says where else it is (board C7 p3). -->
 {#snippet moveSection(m: (typeof data.figures)[number], showLacks: boolean)}
 	<section aria-label={m.name} class="flex flex-col gap-1.5">
-		<a
-			class="flex items-center gap-1 self-start rounded-lg py-1 text-[17px] leading-[1.3] font-bold text-ink focus-visible:outline-2 focus-visible:outline-accent"
-			href={resolve('/[dance]/moves/[id]', { dance: data.dance.slug, id: String(m.id) })}
-		>
-			{m.name}<span class="flex text-chevron"><Icon name="chevron-right" size={20} /></span>
-		</a>
+		<div class="flex flex-col">
+			<a
+				class="flex items-center gap-1 self-start rounded-lg py-1 text-[17px] leading-[1.3] font-bold text-ink focus-visible:outline-2 focus-visible:outline-accent"
+				href={resolve('/[dance]/moves/[id]', { dance: data.dance.slug, id: String(m.id) })}
+			>
+				{m.name}<span class="flex text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+			{#if m.also.length > 0}
+				<span class="text-[13px] leading-[1.35] text-muted"
+					>{moveMeta(m.figures.length, m.also)}</span
+				>
+			{/if}
+		</div>
 		<div class={GROUP}>
 			{#each m.figures as f (f.id)}
 				{@render figureRow(f, showLacks)}

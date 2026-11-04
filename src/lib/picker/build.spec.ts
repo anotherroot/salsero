@@ -316,3 +316,52 @@ describe('linkOptionGroups', () => {
 		expect((g[0].entries[0] as PickRow).meta).toBe('Rueda club’s · used as it is');
 	});
 });
+
+describe('twins in pickers', () => {
+	const TUE = { id: 1, name: 'Salsa Tuesdays' };
+	const RUEDA = { id: 2, name: 'Rueda club' };
+	it('a row standing for its twins says which is used', () => {
+		const [h] = variationEntries([
+			{
+				id: 1,
+				groupId: 10,
+				figure: 'Enchufla',
+				name: 'Básica',
+				label: 'Enchufla · Básica',
+				twins: [{ id: 11, figure: 'Enchufla', name: 'Básica', team: TUE }]
+			}
+		]);
+		expect(h.rows[0].meta).toBe('Yours, twin of Salsa Tuesdays’ Básica · yours is used');
+	});
+
+	it('the Link popup passes the twins through', () => {
+		const groups = linkOptionGroups({
+			dance: 'salsa',
+			spot: { id: 1, startMs: 0, endMs: 1000, label: null },
+			context: { kind: 'recording', groupId: 1, figure: 'Enchufla' },
+			linked: [],
+			nearTitle: 'This figure',
+			near: [],
+			figures: [
+				{
+					target: { figureId: 11 },
+					label: 'Enchufla · Doble',
+					drill: false,
+					figure: 'Enchufla',
+					name: 'Doble',
+					everyDays: null,
+					linked: false,
+					team: TUE,
+					twins: [{ id: 21, figure: 'Enchufla', name: 'Doble', team: RUEDA }]
+				}
+			],
+			drills: [],
+			figureChoices: [],
+			defaults: { partner: 'partner', style: 'salsa' }
+		} as never);
+		const heading = groups[0].entries[0] as { rows: { meta?: string }[] };
+		expect(heading.rows[0].meta).toBe(
+			'Salsa Tuesdays’, twin of Rueda club’s Doble · Salsa Tuesdays’ is used'
+		);
+	});
+});

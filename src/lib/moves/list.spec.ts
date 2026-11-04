@@ -41,3 +41,13 @@ describe('movesHeading', () => {
 		expect(movesHeading({ moves: 1, figures: 2 }, false, null)).toBe('2 figures');
 	});
 });
+
+describe('moveMeta', () => {
+	it('says where else a move is, its figures counted once (board C7 p3)', async () => {
+		const { moveMeta } = await import('./list');
+		expect(moveMeta(3, ['Salsa Tuesdays', 'Rueda club'])).toBe(
+			'3 figures · also in Salsa Tuesdays, Rueda club'
+		);
+		expect(moveMeta(1, ['Salsa Tuesdays'])).toBe('1 figure · also in Salsa Tuesdays');
+	});
+});

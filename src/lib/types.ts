@@ -316,7 +316,12 @@ export interface FigureVersion {
 	label: string;
 	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
 	team?: TeamRef;
+	/** The person's twins of it that this row stands for in a picker (`clones/twins.ts`). */
+	twins?: TwinNote[];
 }
+
+/** A twin folded behind a picker row: named by its place and its own name. */
+export type TwinNote = { id: number; figure: string; name: string; team: TeamRef | null };
 
 /** A figure (a `figures` row) as the Figures list shows it, under its move. */
 export type FigureRow = {
@@ -430,6 +435,8 @@ export interface LinkOption {
 	linked: boolean;
 	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
 	team?: TeamRef;
+	/** A variation's twins folded behind it (`clones/twins.ts`). */
+	twins?: TwinNote[];
 }
 
 /** One of a section's links, in the Link popup. */
