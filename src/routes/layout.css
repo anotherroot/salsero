@@ -2,6 +2,9 @@
 @import '@fontsource-variable/bricolage-grotesque/opsz.css';
 @import 'tailwindcss';
 
+/* `desk:` is the desktop width: from 1024 px. */
+@custom-variant desk (@media (width >= 1024px));
+
 /*
  * Design tokens (the redesign). The values are `src/lib/theme/tokens.ts`
  * written out, and a spec (`stylesheet.spec.ts`) checks every one is here: a
@@ -334,6 +337,18 @@ body {
 	--safe-bottom: env(safe-area-inset-bottom, 0px);
 	--safe-left: env(safe-area-inset-left, 0px);
 	--safe-right: env(safe-area-inset-right, 0px);
+	/* The desktop frame (desktop spec): zero below 1024, so nothing on the phone moves. */
+	--side-w: 0px;
+	--band-row-h: 0px;
+	--pane-left: 0px;
+}
+
+@media (width >= 1024px) {
+	:root {
+		--side-w: 188px;
+		--band-row-h: 88px;
+		--pane-left: var(--side-w);
+	}
 }
 
 /*
