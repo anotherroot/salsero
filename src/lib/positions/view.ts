@@ -93,6 +93,26 @@ export function noPositionGroups(ids: {
 		.map((g) => ({ title: `${g.title} · ${g.ids.length}`, ids: g.ids }));
 }
 
+/** The tag a half-tagged figure row shows: "ends in A, B" / "starts in A". */
+export function noPositionTag(side: 'start' | 'end', names: string[]): string {
+	return `${side === 'end' ? 'ends in' : 'starts in'} ${names.join(', ')}`;
+}
+
+/** "Salsa · starts on 1 · 8 counts · 1 recording": the type, then what the figure row says. */
+export function noPositionMeta(
+	type: string,
+	f: { startCount: number | null; lengthCounts: number | null; recordings: number }
+): string {
+	const parts = [type];
+	if (f.startCount !== null) parts.push(`starts on ${f.startCount}`);
+	if (f.lengthCounts !== null) parts.push(plural(f.lengthCounts, 'count', 'counts'));
+	if (f.recordings > 0) parts.push(plural(f.recordings, 'recording', 'recordings'));
+	return parts.join(' · ');
+}
+
+/** The line under the Fits anywhere card when no figure is missing a position. */
+export const NO_POSITION_EMPTY = 'Every figure has a position on both sides.';
+
 export const EMPTY = {
 	title: 'No positions yet',
 	body: 'Start from a template’s rough positions, or make your own.'

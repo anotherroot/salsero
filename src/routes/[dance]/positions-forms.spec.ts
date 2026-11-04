@@ -39,6 +39,7 @@ import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
 import { actions, load } from './positions/+page.server';
+import { load as noneLoadFn } from './positions/none/+page.server';
 
 let db: Db;
 
@@ -364,5 +365,60 @@ describe('the list', () => {
 				.where(and(eq(positions.teamId, 1)))
 				.all()
 		).toHaveLength(1);
+	});
+});
+
+describe('No position', () => {
+	const noneLoad = (user: string, cookies: Cookies = jar().cookies) =>
+		(noneLoadFn as (e: unknown) => unknown)({
+			params: { dance: 'salsa' },
+			locals: locals(user),
+			cookies,
+			url: new URL('http://x/salsa/positions/none')
+		}) as any;
+
+	it('groups the figures missing a side, with the tag on the side they have', () => {
+		const cerrada = addPosition(db, U2_SALSA, 'Cerrada');
+		const caida = addPosition(db, U2_SALSA, 'Caída');
+		const both = figure(U2_SALSA, 'Both');
+		tag('start', both, cerrada);
+		tag('end', both, cerrada);
+		const bare = figure(U2_SALSA, 'Bare');
+		const onlyEnd = figure(U2_SALSA, 'Ends');
+		tag('end', onlyEnd, caida);
+		const onlyStart = figure(U2_SALSA, 'Starts');
+		tag('start', onlyStart, cerrada);
+		const d = noneLoad('u2');
+		expect(d.head).toBe('3 figures · 1 with none, 2 with only a start or an end');
+		expect(d.groups.map((g: any) => g.title)).toEqual([
+			'No start and no end · 1',
+			'Only an end · 1',
+			'Only a start · 1'
+		]);
+		expect(d.groups[0].rows).toMatchObject([
+			{ id: bare, label: 'Bare · Basic', tag: null, canEdit: true }
+		]);
+		expect(d.groups[1].rows).toMatchObject([{ id: onlyEnd, tag: 'ends in Caída', canEdit: true }]);
+		expect(d.groups[2].rows[0].tag).toBe('starts in Cerrada');
+		expect(d.groups[2].rows[0].meta).toMatch(/^Salsa/);
+	});
+
+	it('hides empty groups and says so when every figure is tagged', () => {
+		const p = addPosition(db, U2_SALSA, 'Cerrada');
+		const f = figure(U2_SALSA, 'Both');
+		tag('start', f, p);
+		tag('end', f, p);
+		const d = noneLoad('u2');
+		expect(d.groups).toEqual([]);
+		expect(d.empty).toBe(true);
+	});
+
+	it("reads the group's figures in group mode; a plain member falls back to their own side", () => {
+		const gf = figure(T1_SALSA, 'Setenta');
+		figure(U2_SALSA, 'Mine');
+		const editor = noneLoad('u2', jar('1').cookies);
+		expect(editor.groups[0].rows).toMatchObject([{ id: gf, canEdit: true }]);
+		const member = noneLoad('u3', jar('1').cookies);
+		expect(member.groups).toEqual([]);
 	});
 });

@@ -88,6 +88,17 @@ describe('positions view', () => {
 			{ title: 'Only an end · 1', ids: [9] }
 		]);
 	});
+	it('noPositionTag, noPositionMeta and NO_POSITION_EMPTY', () => {
+		expect(v.noPositionTag('end', ['Manos cruzadas'])).toBe('ends in Manos cruzadas');
+		expect(v.noPositionTag('start', ['Sombrero', 'Cerrada'])).toBe('starts in Sombrero, Cerrada');
+		expect(v.noPositionMeta('Salsa', { startCount: 1, lengthCounts: 8, recordings: 1 })).toBe(
+			'Salsa · starts on 1 · 8 counts · 1 recording'
+		);
+		expect(v.noPositionMeta('Son', { startCount: null, lengthCounts: null, recordings: 0 })).toBe(
+			'Son'
+		);
+		expect(v.NO_POSITION_EMPTY).toBe('Every figure has a position on both sides.');
+	});
 	it('EMPTY and firstRunBody', () => {
 		expect(v.EMPTY).toEqual({
 			title: 'No positions yet',
