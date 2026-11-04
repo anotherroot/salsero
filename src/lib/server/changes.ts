@@ -560,8 +560,8 @@ export type LinkTarget = { figureId: number } | { routineId: number } | { exerci
 
 /**
  * Who archived a group's thing a picker offered, when it is archived now:
- * a link to it is refused with "Archived by Ana", and the editor is offered
- * Restore and Pick another. Null when the target is live, missing, or not
+ * a variation, routine, drill or position. A link to it is refused with
+ * "Archived by Ana", and the editor is offered Restore and Pick another. Null when the target is live, missing, or not
  * this group's (those keep their own refusal).
  */
 export function archivedTarget(
@@ -591,6 +591,11 @@ function whoArchived(db: Db, space: Space, target: LinkTarget): string | null | 
 		const row = getRoutine(db, target.routineId);
 		if (!row || row.teamId !== space.teamId || row.archivedAt === null) return undefined;
 		return archivedBy(db, space, 'routine', row.id);
+	}
+	if ('positionId' in target) {
+		const row = getPosition(db, target.positionId);
+		if (!row || row.teamId !== space.teamId || row.archivedAt === null) return undefined;
+		return archivedBy(db, space, 'position', row.id);
 	}
 	const row = getExercise(db, target.exerciseId);
 	if (!row || row.teamId !== space.teamId || row.archivedAt === null) return undefined;

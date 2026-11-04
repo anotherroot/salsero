@@ -1344,6 +1344,17 @@ describe('archivedTarget', () => {
 		expect(archivedTarget(db, T1_SALSA, { routineId: live })).toBeNull();
 		// A person's own things keep their own refusal.
 		expect(archivedTarget(db, U1_SALSA, { exerciseId: drill })).toBeNull();
+		// A position: who archived it; a live one and a person's own name nobody.
+		const p = (createPosition(db, T1_SALSA, newPosition('Hammerlock'), 1) as PositionRow).id;
+		expect(archivedTarget(db, T1_SALSA, { positionId: p })).toBeNull();
+		archivePosition(db, p, 5, { actorId: 'u2' });
+		expect(archivedTarget(db, T1_SALSA, { positionId: p })).toEqual({
+			by: 'Luka',
+			message: 'Archived by Luka'
+		});
+		const own = (createPosition(db, U1_SALSA, newPosition('Own'), 1) as PositionRow).id;
+		archivePosition(db, own, 5);
+		expect(archivedTarget(db, U1_SALSA, { positionId: own })).toBeNull();
 	});
 });
 

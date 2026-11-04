@@ -71,7 +71,7 @@ const positionIn = (
  * An archived position's links stay as they are until Restore: every link and
  * unlink from its page is refused before anything is read or written.
  */
-const archivedRefusal = (
+const archivedLinks = (
 	position: { archivedAt: number | null },
 	action: 'linkSpot' | 'unlinkSpot' | 'linkLesson' | 'unlinkLesson'
 ) => (position.archivedAt === null ? null : fail(400, { action, message: ARCHIVED_LINKS }));
@@ -413,7 +413,7 @@ export const actions: Actions = {
 	 */
 	linkSpot: async ({ params, request, locals }) => {
 		const { position } = positionIn(params, locals, 'read');
-		const archived = archivedRefusal(position, 'linkSpot');
+		const archived = archivedLinks(position, 'linkSpot');
 		if (archived) return archived;
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
@@ -440,7 +440,7 @@ export const actions: Actions = {
 	unlinkSpot: async ({ params, request, locals }) => {
 		const db = getDb();
 		const { position } = positionIn(params, locals, 'read');
-		const archived = archivedRefusal(position, 'unlinkSpot');
+		const archived = archivedLinks(position, 'unlinkSpot');
 		if (archived) return archived;
 		const userId = wallOf(params, locals).userId;
 		const linkId = int(await request.formData(), 'linkId');
@@ -472,7 +472,7 @@ export const actions: Actions = {
 	linkLesson: async ({ params, request, locals }) => {
 		const db = getDb();
 		const { position } = positionIn(params, locals, 'read');
-		const archived = archivedRefusal(position, 'linkLesson');
+		const archived = archivedLinks(position, 'linkLesson');
 		if (archived) return archived;
 		const lessonId = int(await request.formData(), 'lessonId');
 		if (lessonId === undefined) {
@@ -506,7 +506,7 @@ export const actions: Actions = {
 	unlinkLesson: async ({ params, request, locals }) => {
 		const db = getDb();
 		const { position } = positionIn(params, locals, 'read');
-		const archived = archivedRefusal(position, 'unlinkLesson');
+		const archived = archivedLinks(position, 'unlinkLesson');
 		if (archived) return archived;
 		const form = await request.formData();
 		const lessonId = int(form, 'lessonId');

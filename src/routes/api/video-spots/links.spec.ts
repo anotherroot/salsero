@@ -4,7 +4,7 @@
  * `src/routes/[dance]/dance-wall.spec.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -20,11 +20,13 @@ import {
 	positions,
 	spotLinks,
 	spotPositionLinks,
+	users,
 	type PositionRow
 } from '$lib/server/db/schema';
 import { createFigure } from '$lib/server/figures';
 import { addLessonVideo, createLesson, linkFigure, linkPosition } from '$lib/server/lessons';
-import { createPosition } from '$lib/server/positions';
+import { archivePosition, createPosition } from '$lib/server/positions';
+import { createTeam } from '$lib/server/teams';
 import { linkSpotToPosition } from '$lib/server/position-links';
 import { EMPTY_HOLD } from '$lib/positions/hold';
 import type { Space } from '$lib/server/scope';
@@ -207,6 +209,35 @@ describe('POST /api/video-spots/[id]/links', () => {
 			status: 400,
 			message: 'No such position.'
 		});
+	});
+
+	it('a group position archived since: 410 "Archived by …" with Restore, nothing linked', async () => {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' })
+			.run();
+		createTeam(db, 'u1', 'salsa', 'Tuesdays', 1);
+		const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'W', notes: null })
+			.lesson.id;
+		const v = addLessonVideo(
+			db,
+			{ lessonId: L, file: 'g.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		const gp = addSpot(
+			db,
+			{ lessonVideoId: v },
+			{ startMs: 0, endMs: null, label: null },
+			'u1'
+		)!.id;
+		const hammer = pos('Hammerlock', T1_SALSA);
+		archivePosition(db, hammer, 2, { actorId: 'u1' });
+		const res = await post(gp, { target: { positionId: hammer } });
+		expect(res.status).toBe(410);
+		expect(await res.json()).toEqual({
+			message: 'Archived by Ana',
+			archived: { by: 'Ana', restorable: true }
+		});
+		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
 	});
 
 	it('refuses a variation for a point', async () => {

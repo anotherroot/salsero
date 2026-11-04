@@ -316,8 +316,7 @@
 	async function restoreAndLink() {
 		const a = archivedPick;
 		const target = a ? rowTarget(a.row) : null;
-		// Only a variation or a drill comes back "Archived by …" (a position is refused as missing).
-		if (!a || !target || 'positionId' in target || restoring) return;
+		if (!a || !target || restoring) return;
 		restoring = true;
 		const refused = await restoreArchived(target);
 		restoring = false;

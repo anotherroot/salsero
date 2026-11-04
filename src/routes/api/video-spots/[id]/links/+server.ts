@@ -42,10 +42,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	if (!body) throw error(400, 'Send a target or something to create.');
 	try {
 		if ('create' in body) createAndLink(getDb(), userId, id, body.create);
-		else if ('positionId' in body.target) {
-			// An archived position is refused as missing ("No such position.").
-			linkSpotToPosition(getDb(), userId, id, body.target.positionId);
-		} else {
+		else {
 			const target = body.target;
 			// One archived since the popup opened: "Archived by Ana", Restore or pick another.
 			const space = sectionSpace(getDb(), userId, id);
@@ -54,7 +51,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				const { by, message } = archived;
 				return json({ message, archived: { by, restorable: true } }, { status: 410 });
 			}
-			linkSpot(getDb(), userId, id, target);
+			if ('positionId' in target) linkSpotToPosition(getDb(), userId, id, target.positionId);
+			else linkSpot(getDb(), userId, id, target);
 		}
 	} catch (e) {
 		if (e instanceof SpotLinkError) {

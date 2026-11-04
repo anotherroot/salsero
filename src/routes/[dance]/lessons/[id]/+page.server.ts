@@ -602,7 +602,14 @@ export const actions: Actions = {
 	linkPosition: async ({ params, request, locals }) => {
 		const { lesson, space } = lessonOf(params, locals);
 		const positionId = int(await request.formData(), 'positionId');
-		if (positionId === undefined || !linkPosition(getDb(), lesson.id, positionId, actorOf(space))) {
+		const db = getDb();
+		if (positionId === undefined || !linkPosition(db, lesson.id, positionId, actorOf(space))) {
+			// A group's position archived since the picker opened: "Archived by Ana", Restore.
+			const archived =
+				positionId === undefined
+					? null
+					: archivedRefusal(db, space, { positionId }, { action: 'linkPosition' as const });
+			if (archived) return archived;
 			return fail(400, { action: 'linkPosition', message: 'That position could not be linked.' });
 		}
 		return { action: 'linkPosition', ok: true };

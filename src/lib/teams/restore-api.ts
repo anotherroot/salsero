@@ -1,10 +1,11 @@
 /**
  * The fetch side of "Archived by Ana · Restore": bring back a group's
- * variation, routine or drill that a picker offered and someone archived
+ * variation, routine, drill or position that a picker offered and someone archived
  * since. Resolves to null when it is back, or to the words of a refusal
  * ("Enchufla is taken; rename that one first").
  */
-export type ArchivedTarget = { figureId: number } | { routineId: number } | { exerciseId: number };
+export type ArchivedTarget =
+	{ figureId: number } | { routineId: number } | { exerciseId: number } | { positionId: number };
 
 export async function restoreArchived(target: ArchivedTarget): Promise<string | null> {
 	try {

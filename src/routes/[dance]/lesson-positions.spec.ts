@@ -21,6 +21,7 @@ import { addLessonVideo, createLesson, publishLesson } from '$lib/server/lessons
 import { addSpot } from '$lib/server/spots';
 import { linkSpotToPosition } from '$lib/server/position-links';
 import { addPosition } from '$lib/server/test-positions';
+import { archivePosition } from '$lib/server/positions';
 import type { Space } from '$lib/server/scope';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import * as lessonPage from './lessons/[id]/+page.server';
@@ -187,5 +188,30 @@ describe('a lesson’s positions', () => {
 			['add', P, 'u1'],
 			['remove', P, 'u1']
 		]);
+	});
+});
+
+describe('a group position archived since the picker opened', () => {
+	it('is refused "Archived by …" with Restore; a person’s own archived one keeps its 400', async () => {
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', T);
+		const P = addPosition(db, T1_SALSA, 'Hammerlock');
+		archivePosition(db, P, T, { actorId: 'u1' });
+		const G = lessonFor(T1_SALSA);
+		const res = await run(lessonPage.actions.linkPosition, ev('u1', G, { positionId: String(P) }));
+		expect(res).toMatchObject({
+			status: 410,
+			data: {
+				action: 'linkPosition',
+				message: 'Archived by u1',
+				archived: { by: 'u1', restorable: true, target: { positionId: P } }
+			}
+		});
+
+		const L = lessonFor();
+		const own = addPosition(db, U1_SALSA, 'Own');
+		archivePosition(db, own, T);
+		expect(
+			await run(lessonPage.actions.linkPosition, ev('u1', L, { positionId: String(own) }))
+		).toMatchObject({ status: 400 });
 	});
 });
