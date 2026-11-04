@@ -282,6 +282,15 @@ describe('sources', () => {
 				d('fig:g9', 'Figure · Enchufla')
 			])
 		).toEqual(['Notes', '2 recordings', '1 video', '2 sections', '1 link', '1 figure']);
+		// A figure's positions are counted by side, a lesson's hand-linked ones as positions.
+		expect(
+			changedLabels([
+				d('start:g1', 'Starts in · Cerrada'),
+				d('end:g1', 'Ends in · Cerrada'),
+				d('end:#4', 'Ends in · Sombra'),
+				d('pos:g2', 'Position · Setenta')
+			])
+		).toEqual(['1 start position', '2 end positions', '1 position']);
 		expect(changedLabels([])).toEqual([]);
 	});
 

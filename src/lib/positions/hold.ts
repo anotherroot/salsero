@@ -18,6 +18,8 @@ export const FACING_LABEL: Record<Facing, string> = {
 };
 export const FRAME_LABEL: Record<Frame, string> = { open: 'Open', closed: 'Closed' };
 export const CROSSED_LABEL = 'Crossed, right on top';
+/** A hold known not to be crossed: shown only where two holds are compared. */
+export const NOT_CROSSED = 'Not crossed';
 
 export const EMPTY_HOLD: Hold = { hands: null, crossed: null, facing: null, frame: null };
 

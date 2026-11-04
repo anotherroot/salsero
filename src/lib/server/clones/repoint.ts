@@ -317,9 +317,23 @@ export function repointPreview(
 	kind: CloneKind,
 	fromId: number
 ): RepointReport {
+	if (kind === 'position') return nothingMoved(); // positions: a later task
 	const wall: Wall = { userId, dance };
 	return reportOf(db, kind, find(db, wall, kind, rootOrThrow(db, wall, kind, fromId)), true);
 }
+
+/**
+ * positions: a later task re-points a person's tags and links. Until then a
+ * position the engine copied (with a figure, a lesson) moves nothing, and
+ * writes nothing, rather than failing the copy it came with.
+ */
+const nothingMoved = (): RepointReport => ({
+	routines: [],
+	lessons: [],
+	sections: 0,
+	entries: 0,
+	twins: 0
+});
 
 /**
  * Practice carried from one exercise onto another: the sets move. When `from`
@@ -529,6 +543,7 @@ export function repoint(
 	now: number
 ): RepointReport {
 	if (fromId === toId) throw new Error('repoint: a row onto itself');
+	if (kind === 'position') return nothingMoved(); // positions: a later task
 	const wall: Wall = { userId, dance };
 	return tx.transaction((db) => {
 		const from = rootOrThrow(db, wall, kind, fromId);

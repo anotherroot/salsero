@@ -624,7 +624,25 @@ describe('purgeTeams with positions', () => {
 		deleteTeam(db, 1, 'u1', T);
 		const now = T + 31 * DAY;
 		expect(await purgeTeams(db, now, dirs)).toBe(1);
-		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
+		// The group's spots go with their links. What a member kept (Keep, before
+		// the purge) carries its links with its spots, onto the member's own
+		// copy of each position: nothing points at the group's any more.
+		const left = db
+			.select({
+				spotId: spotPositionLinks.spotId,
+				userId: positions.userId,
+				team: positions.teamId
+			})
+			.from(spotPositionLinks)
+			.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+			.all();
+		expect(left.map((l) => l.spotId)).not.toContain(point);
+		expect(left.map((l) => l.spotId)).not.toContain(recPoint);
+		expect(left.map((l) => [l.userId, l.team])).toEqual([
+			['u2', null],
+			['u2', null]
+		]);
+		expect(crossRefs(db)).toEqual([]);
 		expect(
 			db
 				.select({ id: videoSpots.id })

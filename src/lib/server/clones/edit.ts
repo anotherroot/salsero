@@ -24,7 +24,15 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { CloneKind } from '$lib/types';
 import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
 import type { Db } from '../db';
-import { exercises, figureGroups, figures, lessons, routines, songs } from '../db/schema';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessons,
+	positions,
+	routines,
+	songs
+} from '../db/schema';
 import { labelFor, restoreVariation } from '../figures';
 import { restoreRoutine } from '../routines';
 import { restoreDrill } from '../exercises';
@@ -64,8 +72,9 @@ export type Row = {
 
 /** The root row Make it mine works on, with its label, or null. A drill is a `custom` exercise. */
 export function rowOf(db: Db, kind: CloneKind, id: number): Row | null {
-	if (kind === 'position') return null; // positions: a later task
-	const base = (t: typeof routines | typeof exercises | typeof songs | typeof lessons) => ({
+	const base = (
+		t: typeof routines | typeof exercises | typeof songs | typeof lessons | typeof positions
+	) => ({
 		id: t.id,
 		dance: t.dance,
 		teamId: t.teamId,
@@ -118,6 +127,14 @@ export function rowOf(db: Db, kind: CloneKind, id: number): Row | null {
 					.select({ ...base(lessons), title: lessons.title })
 					.from(lessons)
 					.where(eq(lessons.id, id))
+					.get() ?? null
+			);
+		case 'position':
+			return (
+				db
+					.select({ ...base(positions), title: positions.name })
+					.from(positions)
+					.where(eq(positions.id, id))
 					.get() ?? null
 			);
 	}

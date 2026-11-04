@@ -65,7 +65,8 @@ export function nameTaken(db: Db, space: Space, name: string, exceptId?: number)
 	return listPositions(db, space).some((p) => p.id !== exceptId && fold(p.name) === want);
 }
 
-function refusal(db: Db, space: Space, name: string): NameRefusal {
+/** What a taken name says: "You already have a position called …", or the group's. */
+export function nameRefusal(db: Db, space: Space, name: string): NameRefusal {
 	if (isTeam(space)) {
 		const team = db
 			.select({ name: teams.name })
@@ -153,7 +154,7 @@ export function createPosition(
 	const name = input.name.trim();
 	if (!name) return { field: 'name', message: 'Give it a name.' };
 	return db.transaction((tx) => {
-		if (nameTaken(tx, space, name)) return refusal(tx, space, name);
+		if (nameTaken(tx, space, name)) return nameRefusal(tx, space, name);
 		return insert(tx, space, input, name, now);
 	});
 }
@@ -171,7 +172,7 @@ export function updatePosition(
 		const space = spaceOfRow(current, by?.actorId ?? '');
 		const name = input.name.trim();
 		if (!name) return { field: 'name', message: 'Give it a name.' } as NameRefusal;
-		if (nameTaken(tx, space, name, id)) return refusal(tx, space, name);
+		if (nameTaken(tx, space, name, id)) return nameRefusal(tx, space, name);
 		const row = tx
 			.update(positions)
 			.set(columns(current.dance, input, name, validPicture(tx, id, input.pictureSpotId)))

@@ -4,19 +4,23 @@
  * PURE and client-safe.
  *
  * Key grammar:
- * - Root fields, one key each: `name`, `notes`, `partner`, `style`, `timing`,
- *   `positions` (figure); `practice` (drill); `title`, `artist`, `count`,
- *   `sample` (song); `title`, `day` (lesson); `slots` (routine: the whole slot
- *   list is one field, since slots have no identity of their own).
+ * - Root fields, one key each: `name`, `notes`, `partner`, `style`, `timing`
+ *   (figure); `practice` (drill); `title`, `artist`, `count`, `sample`
+ *   (song); `title`, `day` (lesson); `slots` (routine: the whole slot list is
+ *   one field, since slots have no identity of their own); `name`, `notes`,
+ *   `type`, `hands`, `crossed`, `facing`, `frame` (position).
  * - Set members, one key each, value `'1'`: `link:<url>` (a row's URL links),
- *   `fig:<ref>`, `routine:<ref>`, `drill:<ref>` (a lesson's hand links).
+ *   `start:<ref>`, `end:<ref>` (a figure's start and end positions),
+ *   `fig:<ref>`, `routine:<ref>`, `drill:<ref>`, `pos:<ref>` (a lesson's hand
+ *   links).
  * - Pieces: `rec:<g>` and `video:<g>` (presence; the value is the piece's media
  *   kind and size), `rec:<g>:note`, `<piece>:spot:<s>` (value
- *   `start|end|label`), `<piece>:spot:<s>:links` (the section's links, sorted
- *   refs). A piece travels or goes whole: its parts are compared only while
- *   both sides have it.
+ *   `start|end|label`), `<piece>:spot:<s>:links` (the section's or point's
+ *   links, sorted refs: `fig:`, `drill:`, `pos:`). A piece travels or goes
+ *   whole: its parts are compared only while both sides have it.
  * - `<ref>`, `<g>` and `<s>` are the row's gene, or `#<id>` when it has none.
- *   Neither contains a colon.
+ *   Neither contains a colon. A position is referred to by its family, so each
+ *   owner's member of one family reads as the same key.
  */
 
 /** The root fields, in the order a comparison lists them. */
@@ -26,14 +30,18 @@ export const ROOT_KEYS = [
 	'partner',
 	'style',
 	'timing',
-	'positions',
 	'practice',
 	'title',
 	'day',
 	'artist',
 	'count',
 	'sample',
-	'slots'
+	'slots',
+	'type',
+	'hands',
+	'crossed',
+	'facing',
+	'frame'
 ] as const;
 
 const ROOT_LABELS: Record<string, string> = {
@@ -42,26 +50,32 @@ const ROOT_LABELS: Record<string, string> = {
 	partner: 'Partner',
 	style: 'Style',
 	timing: 'Timing',
-	positions: 'Positions',
 	practice: 'Practice',
 	title: 'Title',
 	day: 'Day',
 	artist: 'Artist',
 	count: 'Count',
 	sample: 'Sample',
-	slots: 'Slots'
+	slots: 'Slots',
+	type: 'Type',
+	hands: 'Hands',
+	crossed: 'Right hands on top',
+	facing: 'Facing',
+	frame: 'Frame'
 };
 
 /** The set members' prefixes, in the order a comparison lists them. */
-export const SET_PREFIXES = ['link', 'fig', 'routine', 'drill'] as const;
+export const SET_PREFIXES = ['start', 'end', 'link', 'fig', 'routine', 'drill', 'pos'] as const;
 
 const SET_LABELS: Record<string, string> = {
+	start: 'Starts in',
+	end: 'Ends in',
 	link: 'Link',
 	fig: 'Figure',
 	routine: 'Routine',
-	drill: 'Drill'
+	drill: 'Drill',
+	pos: 'Position'
 };
-
 const PIECE_LABELS: Record<string, string> = { rec: 'Recording', video: 'Video' };
 
 const PIECE = /^((rec|video):[^:]+)(?::(.*))?$/;
@@ -87,7 +101,7 @@ export function pieceOf(key: string): string | null {
 	return pieceParts(key)?.piece ?? null;
 }
 
-/** The set prefix of a key (`link`, `fig`, `routine`, `drill`), else null. */
+/** The set prefix of a key (`start`, `end`, `link`, `fig`, `routine`, `drill`, `pos`), else null. */
 export function setPrefixOf(key: string): string | null {
 	const i = key.indexOf(':');
 	if (i < 1) return null;

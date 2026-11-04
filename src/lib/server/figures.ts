@@ -251,8 +251,8 @@ export function createVariationIn(
 }
 
 /**
- * Copy a variation within its figure: partner, style, notes, start positions,
- * end position, start count and length. Nothing that belongs to the source
+ * Copy a variation within its figure: partner, style, notes, start and end
+ * positions, start count and length. Nothing that belongs to the source
  * itself — recordings, links, lesson links, its exercise. Null when the source
  * is gone or archived, or the name is empty or taken.
  */
@@ -284,6 +284,10 @@ export function createVariationFrom(
 			.returning()
 			.get();
 		// Both sides' tags, archived ones too: the copy is danced as the source is.
+		// Raw ids are right here: the copy has the source's owner, so every tag
+		// the source may hold (its owner's, or a group's it may use) the copy may
+		// hold too. The clone engine, which copies across places, maps them
+		// (`copyFigure`, `Mapper.ref`).
 		for (const table of [figureStartPositions, figureEndPositions]) {
 			const tags = tx
 				.select({ positionId: table.positionId })

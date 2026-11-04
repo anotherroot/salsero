@@ -22,6 +22,7 @@ import {
 	lessons,
 	lessonVideos,
 	links,
+	positions,
 	recordings,
 	routines,
 	routineSteps,
@@ -55,6 +56,8 @@ import { usedBytes } from '../storage';
 import { purgeTeams } from '../team-purge';
 import { cloneFilesIn, type CloneFiles } from './files';
 import { makeMine, makeMinePreview } from './edit';
+import { geneOf, memberIn } from './genes';
+import { crossRefs } from '../integrity';
 import { suffixed } from './names';
 import { T1_SALSA, U2_SALSA } from '../test-walls';
 
@@ -270,11 +273,21 @@ describe('Make it mine on a lesson', () => {
 			lengthCounts: 16,
 			styleTag: 'salsa'
 		});
-		// positions: Task 10 tags the copy with u2's own member of each family.
+		// The copy is tagged with u2's own member of each family, copied with it.
+		const own = (groupsId: number) =>
+			memberIn(db, 'position', geneOf(db, 'position', groupsId)!, U2_SALSA)!.id;
+		const [open, closed] = [own(w.open.id), own(w.closed.id)];
 		expect(figurePositions(db, doble.id)).toEqual({
-			startIds: [w.open.id, w.closed.id].sort((a, b) => a - b),
-			endIds: [w.closed.id]
+			startIds: [open, closed].sort((a, b) => a - b),
+			endIds: [closed]
 		});
+		expect(db.select().from(positions).where(eq(positions.id, closed)).get()).toMatchObject({
+			userId: 'u2',
+			teamId: null,
+			name: w.closed.name,
+			clonedFrom: w.closed.id
+		});
+		expect(crossRefs(db)).toEqual([]);
 		expect(db.select().from(links).where(eq(links.figureId, doble.id)).all()).toMatchObject([
 			{ url: 'https://example.com/doble' }
 		]);

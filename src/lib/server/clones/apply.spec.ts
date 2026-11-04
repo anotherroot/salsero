@@ -14,14 +14,19 @@ import {
 	figures,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessons,
+	lessonVideos,
 	links,
 	figureEndPositions,
+	figureStartPositions,
 	positions,
 	recordings,
 	routines,
 	songs,
 	spotLinks,
+	spotPositionLinks,
+	teamChanges,
 	teamTrash,
 	users,
 	videoSpots
@@ -35,25 +40,36 @@ import {
 	updateVariation
 } from '../figures';
 import { createCustomExercise } from '../exercises';
-import { createLesson, linkExercise, linkFigure, publishLesson, unlinkFigure } from '../lessons';
+import {
+	addLessonVideo,
+	createLesson,
+	linkExercise,
+	linkFigure,
+	linkPosition,
+	publishLesson,
+	unlinkFigure,
+	unlinkPosition
+} from '../lessons';
 import { addChildSlot, addFigureSlot, createRoutine, routineSlots } from '../routines';
 import { addLesson, entryFor } from '../entries';
 import { addLinks, deleteLink } from '../links';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
+import { linkPositionInSpace } from '../position-links';
+import { crossRefs } from '../integrity';
 import { createSongFromUpload } from '../songs';
 import { seedPositions } from '../test-positions';
 import { figurePositions } from '../graph';
-import type { Space } from '../scope';
+import { ownerValues, type Space } from '../scope';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import type { CloneKind } from '$lib/types';
 import { diff } from '$lib/clones/diff';
 import { geneOf, memberIn } from './genes';
-import { hashValue, pairBase } from './pairs';
+import { digest, hashValue, pairBase } from './pairs';
 import { flatOf } from './trees';
 import { cloneInto, fileKey } from './clone';
 import type { CloneFiles } from './files';
-import { applyInto } from './apply';
+import { applyInto, syncFrom } from './apply';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const NOW = T + 1000;
@@ -153,13 +169,12 @@ describe('root fields', () => {
 			})
 			.where(eq(figures.id, M))
 			.run();
-		// M ends in the group's Open: a group position u1 may use. Sending it is
-		// accepted on the group's figure. (positions: Task 10 maps a giver's tags
-		// to the target place's member of each family.)
+		// M ends in the group's Open: a group position u1 may use. Sent, it is
+		// the group's own row there (the target place's member of its family).
 		db.insert(figureEndPositions).values({ figureId: M, positionId: open.id }).run();
 		const entry = entryFor(db, 'u2', { figureId: F })!;
 
-		const keys = ['notes', 'partner', 'style', 'timing', 'positions'];
+		const keys = ['notes', 'partner', 'style', 'timing', `end:#${open.id}`];
 		expect(differing('figure', F, M)).toEqual(keys);
 		expect(apply('figure', F, M, keys)).toMatchObject({ ok: true, removals: false });
 
@@ -450,5 +465,237 @@ describe('a lesson’s hand link, never in both places', () => {
 		expect(
 			db.select().from(lessonExercises).where(eq(lessonExercises.lessonId, mine)).all()
 		).toEqual([]);
+	});
+});
+
+describe('positions', () => {
+	const groupPosition = (name: string) =>
+		db
+			.select()
+			.from(positions)
+			.where(and(eq(positions.teamId, 1), eq(positions.name, name)))
+			.get()!.id;
+	const ownerOf = (id: number) => {
+		const p = db.select().from(positions).where(eq(positions.id, id)).get()!;
+		return p.teamId === null ? p.userId : `team ${p.teamId}`;
+	};
+	const tag = (figureId: number, side: 'start' | 'end', positionId: number) =>
+		db
+			.insert(side === 'start' ? figureStartPositions : figureEndPositions)
+			.values({ figureId, positionId })
+			.run();
+	const mine = (positionId: number) =>
+		memberIn(db, 'position', geneOf(db, 'position', positionId)!, U1_SALSA)?.id ?? null;
+
+	/** The group's F starting in its Cerrada, and u1's copy M (Cerrada copied with it). */
+	async function tagged() {
+		const F = figure(T1_SALSA, 'Enchufla', 'Doble').figure.id;
+		const cerrada = groupPosition('Cerrada');
+		tag(F, 'start', cerrada);
+		const M = await copy('figure', F, U1_SALSA);
+		return { F, M, cerrada };
+	}
+
+	it('each owner’s member of one family reads as the same tag: no difference', async () => {
+		const { F, M, cerrada } = await tagged();
+		const own = mine(cerrada)!;
+		expect(own).not.toBe(cerrada);
+		expect(ownerOf(own)).toBe('u1');
+		expect(figurePositions(db, M)).toEqual({ startIds: [own], endIds: [] });
+		expect(differing('figure', M, F)).toEqual([]);
+		// Never in step as a pair either: still the same.
+		expect(differing('figure', M, F, true)).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('Take theirs on an end writes your own member: the one you have, or a copy made now', async () => {
+		const { F, M } = await tagged();
+		const sombra = groupPosition('Sombra');
+		const caida = groupPosition('Caída');
+		const ownSombra = await copy('position', sombra, U1_SALSA);
+		tag(F, 'end', sombra);
+		tag(F, 'end', caida);
+		const gs = geneOf(db, 'position', sombra)!;
+		const keys = differing('figure', M, F);
+		expect(keys.sort()).toEqual([`end:#${caida}`, `end:${gs}`].sort());
+
+		expect(apply('figure', M, F, keys)).toMatchObject({ ok: true, removals: false });
+		const ownCaida = mine(caida)!;
+		expect(ownerOf(ownCaida)).toBe('u1');
+		expect(figurePositions(db, M).endIds).toEqual([ownSombra, ownCaida].sort((a, b) => a - b));
+		expect(differing('figure', M, F)).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a side the giver dropped goes; a tag of an archived position stays', async () => {
+		const { F, M, cerrada } = await tagged();
+		const old = await copy('position', groupPosition('Sombra'), U1_SALSA);
+		tag(M, 'start', old);
+		db.update(positions).set({ archivedAt: T }).where(eq(positions.id, old)).run();
+		db.delete(figureStartPositions).where(eq(figureStartPositions.figureId, F)).run();
+		const key = `start:${geneOf(db, 'position', cerrada)}`;
+		expect(differing('figure', M, F)).toEqual([key]);
+		expect(apply('figure', M, F, [key])).toMatchObject({ ok: true });
+		expect(figurePositions(db, M)).toEqual({ startIds: [old], endIds: [] });
+		expect(differing('figure', M, F)).toEqual([]);
+	});
+
+	it('Send a tag of your own position to the group: the group gets its own copy of it', async () => {
+		const { F, M } = await tagged();
+		const own = db
+			.insert(positions)
+			.values({ ...ownerValues(U1_SALSA), slug: 'p-own', name: 'Mi posición', hands: 'one' })
+			.returning()
+			.get().id;
+		tag(M, 'end', own);
+		expect(differing('figure', F, M)).toEqual([`end:#${own}`]);
+		expect(apply('figure', F, M, [`end:#${own}`])).toMatchObject({ ok: true });
+		const theirs = memberIn(db, 'position', geneOf(db, 'position', own)!, T1_SALSA)!.id;
+		expect(db.select().from(positions).where(eq(positions.id, theirs)).get()).toMatchObject({
+			teamId: 1,
+			name: 'Mi posición',
+			hands: 'one',
+			clonedFrom: own
+		});
+		expect(figurePositions(db, F).endIds).toEqual([theirs]);
+		expect(differing('figure', F, M)).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a position’s name, type, hold and notes land in place; a taken name is refused', async () => {
+		const P = groupPosition('Cerrada');
+		const mineP = await copy('position', P, U1_SALSA);
+		db.update(positions)
+			.set({
+				name: 'Cerrada baja',
+				styleTag: 'son',
+				hands: 'two',
+				crossed: true,
+				facing: 'face',
+				frame: 'closed',
+				notes: 'Low'
+			})
+			.where(eq(positions.id, P))
+			.run();
+		const keys = differing('position', mineP, P);
+		expect(keys).toEqual(['name', 'notes', 'type', 'hands', 'crossed', 'facing', 'frame']);
+
+		db.insert(positions)
+			.values({ ...ownerValues(U1_SALSA), slug: 'p-taken', name: 'cerrada BAJA' })
+			.run();
+		expect(apply('position', mineP, P, ['notes', 'name'])).toEqual({
+			ok: false,
+			reason: 'name',
+			message: 'You already have a position called Cerrada baja.'
+		});
+		expect(db.select().from(positions).where(eq(positions.id, mineP)).get()!.notes).toBeNull();
+
+		const out = apply('position', mineP, P, keys.slice(1));
+		expect(out).toMatchObject({ ok: true, removals: false });
+		expect(db.select().from(positions).where(eq(positions.id, mineP)).get()).toMatchObject({
+			name: 'Cerrada',
+			styleTag: 'son',
+			hands: 'two',
+			crossed: true,
+			facing: 'face',
+			frame: 'closed',
+			notes: 'Low'
+		});
+		expect(differing('position', mineP, P)).toEqual(['name']);
+	});
+
+	it('Send a position’s fields to the group: one History change line', async () => {
+		const P = groupPosition('Cerrada');
+		const mineP = await copy('position', P, U1_SALSA);
+		db.update(positions).set({ hands: 'one' }).where(eq(positions.id, mineP)).run();
+		const seen = digest(flatOf(db, 'position', P));
+		const out = await syncFrom(
+			db,
+			'u1',
+			'position',
+			P,
+			mineP,
+			{ hands: 'theirs' },
+			seen,
+			files,
+			NOW,
+			Infinity
+		);
+		expect(out).toEqual({ ok: true });
+		expect(db.select().from(positions).where(eq(positions.id, P)).get()!.hands).toBe('one');
+		const [line] = db
+			.select()
+			.from(teamChanges)
+			.where(and(eq(teamChanges.rootKind, 'position'), eq(teamChanges.verb, 'change')))
+			.all();
+		expect(line).toMatchObject({ rootId: P, actorId: 'u1' });
+	});
+
+	it('a lesson’s hand-linked position and a section’s position link: added as your member, removed', async () => {
+		const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'C', notes: null })
+			.lesson.id;
+		const video = addLessonVideo(
+			db,
+			{ lessonId: L, file: 'v.mp4', mime: 'video/mp4', sizeBytes: 9 },
+			'u1'
+		).id;
+		const spot = addSpot(
+			db,
+			{ lessonVideoId: video },
+			{ startMs: 0, endMs: 900, label: 'Turn' },
+			'u1'
+		)!.id;
+		const r = await cloneInto(
+			db,
+			{ kind: 'lesson', id: L, into: U1_SALSA, recordings: false },
+			files,
+			T
+		);
+		if (!r.ok) throw new Error('expected a copy');
+		const myL = r.id;
+		const cerrada = groupPosition('Cerrada');
+		expect(linkPosition(db, L, cerrada, 'u1')).toBe(true);
+		linkPositionInSpace(db, T1_SALSA, spot, cerrada);
+
+		const keys = differing('lesson', myL, L);
+		expect(keys).toHaveLength(2);
+		expect(apply('lesson', myL, L, keys)).toMatchObject({ ok: true, removals: false });
+		const own = mine(cerrada)!;
+		expect(ownerOf(own)).toBe('u1');
+		expect(
+			db
+				.select({ id: lessonPositions.positionId })
+				.from(lessonPositions)
+				.where(eq(lessonPositions.lessonId, myL))
+				.all()
+		).toEqual([{ id: own }]);
+		const myVideo = db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, myL)).get()!;
+		const mySpot = db
+			.select()
+			.from(videoSpots)
+			.where(eq(videoSpots.lessonVideoId, myVideo.id))
+			.get()!;
+		expect(
+			db
+				.select({ id: spotPositionLinks.positionId })
+				.from(spotPositionLinks)
+				.where(eq(spotPositionLinks.spotId, mySpot.id))
+				.all()
+		).toEqual([{ id: own }]);
+		expect(differing('lesson', myL, L)).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+
+		// The group takes both off: so does the person's copy, on Take.
+		unlinkPosition(db, L, cerrada, true, T, 'u1');
+		const gone = differing('lesson', myL, L);
+		expect(gone).toHaveLength(2);
+		expect(apply('lesson', myL, L, gone)).toMatchObject({ ok: true, removals: true });
+		expect(
+			db.select().from(lessonPositions).where(eq(lessonPositions.lessonId, myL)).all()
+		).toEqual([]);
+		expect(
+			db.select().from(spotPositionLinks).where(eq(spotPositionLinks.spotId, mySpot.id)).all()
+		).toEqual([]);
+		expect(differing('lesson', myL, L)).toEqual([]);
 	});
 });

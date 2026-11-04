@@ -197,10 +197,17 @@ const COUNTED: { of: (key: string) => string | null; one: string; many: string }
 	{ of: (k) => pieceCounted(k, 'rec'), one: 'recording', many: 'recordings' },
 	{ of: (k) => pieceCounted(k, 'video'), one: 'video', many: 'videos' },
 	{ of: (k) => pieceCounted(k, 'spot'), one: 'section', many: 'sections' },
+	{
+		of: (k) => (setPrefixOf(k) === 'start' ? k : null),
+		one: 'start position',
+		many: 'start positions'
+	},
+	{ of: (k) => (setPrefixOf(k) === 'end' ? k : null), one: 'end position', many: 'end positions' },
 	{ of: (k) => (setPrefixOf(k) === 'link' ? k : null), one: 'link', many: 'links' },
 	{ of: (k) => (setPrefixOf(k) === 'fig' ? k : null), one: 'figure', many: 'figures' },
 	{ of: (k) => (setPrefixOf(k) === 'routine' ? k : null), one: 'routine', many: 'routines' },
-	{ of: (k) => (setPrefixOf(k) === 'drill' ? k : null), one: 'drill', many: 'drills' }
+	{ of: (k) => (setPrefixOf(k) === 'drill' ? k : null), one: 'drill', many: 'drills' },
+	{ of: (k) => (setPrefixOf(k) === 'pos' ? k : null), one: 'position', many: 'positions' }
 ];
 
 /**

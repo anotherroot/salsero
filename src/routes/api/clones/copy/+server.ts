@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
  * `/api/clones/compare`: a row the person cannot read, or a place that is not
  * one of its targets, is a 404.
  */
-const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson'];
+const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson', 'position'];
 
 export const GET: RequestHandler = ({ url, locals }) => {
 	const kind = url.searchParams.get('kind') as CloneKind | null;

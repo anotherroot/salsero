@@ -7,13 +7,17 @@
  * By key family (`$lib/clones/flat.ts`):
  * - root fields: the columns the kind's own save writes, with its side
  *   effects (an exercise renamed with its figure, routine, drill or lesson);
- *   timing and positions through `writeFigureShape`. A figure's name is
- *   refused when another figure of the target's move has it;
+ *   a figure's timing through `writeFigureShape`. A figure's name is refused
+ *   when another figure of the target's move has it, a position's when a
+ *   live position of the target's place has it;
+ * - `start:`, `end:` (a figure's positions): through `writeFigureShape`
+ *   with its timing, an added one mapped into the target's place
+ *   (`Mapper.ref`), a removed one taken off; an archived tag stays;
  * - `link:<url>`: the URL link added, or deleted through `deleteLink`;
- * - `fig:`, `routine:`, `drill:` (a lesson's hand links): added, the row
- *   mapped into the target's place (`Mapper.ref`: the place's member of
- *   that family, or a copy of it made now), or taken off through the
- *   lesson's own unlink;
+ * - `fig:`, `routine:`, `drill:`, `pos:` (a lesson's hand links): added,
+ *   the row mapped into the target's place (`Mapper.ref`: the place's
+ *   member of that family, or a copy of it made now), or taken off through
+ *   the lesson's own unlink;
  * - a piece (`rec:<g>`, `video:<g>`): copied in with its sections (its file
  *   linked beforehand), or deleted through its own delete function, which
  *   refuses a linked section and, in a group, puts it in Recently deleted;
@@ -39,17 +43,22 @@ import {
 	figureGroups,
 	figures,
 	lessonExercises,
+	figureEndPositions,
+	figureStartPositions,
 	lessonFigures,
+	lessonPositions,
 	lessonRoutines,
 	lessons,
 	lessonVideos,
 	links,
+	positions,
 	recordings,
 	routines,
 	routineStepOptions,
 	routineSteps,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	videoSpots
 } from '../db/schema';
 import { isTeam, spaceOfRow } from '../scope';
@@ -63,8 +72,11 @@ import {
 	reviewName,
 	unlinkExercise,
 	unlinkFigure,
+	unlinkPosition,
 	unlinkRoutine
 } from '../lessons';
+import { nameRefusal as positionNameRefusal, nameTaken as positionNameTaken } from '../positions';
+import { unlinkSpotFromPosition } from '../position-links';
 import { routineSlots } from '../routines';
 import { deleteLink, type LinkOwner } from '../links';
 import { deleteSpot } from '../spots';
@@ -122,6 +134,8 @@ function rootOf(db: Db, kind: CloneKind, id: number) {
 			return db.select().from(routines).where(eq(routines.id, id)).get() ?? null;
 		case 'lesson':
 			return db.select().from(lessons).where(eq(lessons.id, id)).get() ?? null;
+		case 'position':
+			return db.select().from(positions).where(eq(positions.id, id)).get() ?? null;
 	}
 }
 
@@ -195,8 +209,11 @@ class Applier {
 
 	run(keys: string[]): ApplyOutcome {
 		const roots = keys.filter((k) => (ROOT_KEYS as readonly string[]).includes(k));
-		this.roots(roots);
+		// A figure's sides are written with its timing, in one shape.
+		const tags = keys.filter((k) => TAG_PREFIXES.has(setPrefixOf(k) ?? ''));
+		this.roots(roots, this.kind === 'figure' ? tags : []);
 		for (const key of keys) {
+			if (tags.includes(key)) continue;
 			if (setPrefixOf(key)) this.member(key);
 			else if (pieceParts(key)) this.piece(key);
 		}
@@ -217,12 +234,12 @@ class Applier {
 
 	/* ── Root fields ───────────────────────────────────────────────────── */
 
-	private roots(keys: string[]): void {
-		if (keys.length === 0) return;
+	private roots(keys: string[], tags: string[]): void {
+		if (keys.length === 0 && tags.length === 0) return;
 		const has = (k: string) => keys.includes(k);
 		switch (this.kind) {
 			case 'figure':
-				return this.figureRoots(has);
+				return this.figureRoots(has, tags);
 			case 'drill':
 				return this.drillRoots(has);
 			case 'song':
@@ -231,10 +248,12 @@ class Applier {
 				return this.routineRoots(has);
 			case 'lesson':
 				return this.lessonRoots(has);
+			case 'position':
+				return this.positionRoots(has);
 		}
 	}
 
-	private figureRoots(has: (k: string) => boolean): void {
+	private figureRoots(has: (k: string) => boolean, tags: string[]): void {
 		const { tx, targetId } = this;
 		const t = tx.select().from(figures).where(eq(figures.id, targetId)).get()!;
 		const g = tx.select().from(figures).where(eq(figures.id, this.giverId)).get()!;
@@ -264,13 +283,13 @@ class Applier {
 			tx.update(figures).set(set).where(eq(figures.id, targetId)).run();
 			if (set.name !== undefined) syncExerciseNames(tx, eq(figures.id, targetId));
 		}
-		if (has('timing') || has('positions')) {
+		if (has('timing') || tags.length > 0) {
 			const timing = (f: typeof t) => ({
 				startCount: f.startCount ?? DEFAULT_START_COUNT,
 				lengthCounts: f.lengthCounts ?? DEFAULT_LENGTH_COUNTS
 			});
 			const written = writeFigureShape(tx, targetId, {
-				...figurePositions(tx, has('positions') ? g.id : t.id),
+				...this.sidesAfter(tags),
 				...timing(has('timing') ? g : t)
 			});
 			if (!written) throw new Error(`apply: figure ${targetId} refused its shape`);
@@ -279,6 +298,83 @@ class Applier {
 					this.changed(k, written.before[k], written.after[k]);
 			}
 		}
+	}
+
+	/**
+	 * The target's start and end positions once the picked `start:`/`end:`
+	 * keys land: one the giver has is added as the target place's member of its
+	 * family (`Mapper.ref`: a copy made now when the place has none; an archived
+	 * member is not written, being invisible); one only the target has goes. A
+	 * tag of an archived position is in neither flat and stays as it is
+	 * (`writeFigureShape` keeps it).
+	 */
+	private sidesAfter(keys: string[]): { startIds: number[]; endIds: number[] } {
+		const { tx, targetId, giverId, m } = this;
+		const current = figurePositions(tx, targetId);
+		const sides = { start: new Set(current.startIds), end: new Set(current.endIds) };
+		for (const key of keys) {
+			const side = setPrefixOf(key) as 'start' | 'end';
+			const ref = key.slice(side.length + 1);
+			const adds = Object.hasOwn(this.giverFlat, key);
+			if (Object.hasOwn(this.targetFlat, key) === adds) continue;
+			if (adds) {
+				for (const id of taggedWith(tx, side, giverId, ref)) {
+					const to = m.ref('position', id);
+					if (to !== null && rootOf(tx, 'position', to)?.archivedAt === null) sides[side].add(to);
+				}
+			} else {
+				// A tag off a group's figure may shrink what its members reach.
+				for (const id of taggedWith(tx, side, targetId, ref))
+					if (sides[side].delete(id)) this.removals = true;
+			}
+		}
+		return { startIds: [...sides.start], endIds: [...sides.end] };
+	}
+
+	/** A position's own fields, as `updatePosition` writes them; a name a live position of the target's place has is refused. */
+	private positionRoots(has: (k: string) => boolean): void {
+		const { tx, targetId } = this;
+		const t = tx.select().from(positions).where(eq(positions.id, targetId)).get()!;
+		const g = tx.select().from(positions).where(eq(positions.id, this.giverId)).get()!;
+		const set: Partial<typeof positions.$inferInsert> = {};
+		if (has('name') && t.name !== g.name) {
+			const space = spaceOfRow(t, this.actorId);
+			if (positionNameTaken(tx, space, g.name, targetId))
+				throw new Refused({
+					ok: false,
+					reason: 'name',
+					message: positionNameRefusal(tx, space, g.name).message
+				});
+			set.name = g.name;
+			this.changed('name', t.name, g.name);
+		}
+		if (has('notes')) {
+			set.notes = g.notes;
+			this.changed('notes', t.notes, g.notes);
+		}
+		if (has('type')) {
+			set.styleTag = g.styleTag;
+			this.changed('styleTag', t.styleTag, g.styleTag);
+		}
+		if (has('hands')) {
+			set.hands = g.hands;
+			this.changed('hands', t.hands, g.hands);
+		}
+		if (has('crossed')) {
+			set.crossed = g.crossed;
+			const n = (v: boolean | null) => (v === null ? null : v ? 1 : 0);
+			this.changed('crossed', n(t.crossed), n(g.crossed));
+		}
+		if (has('facing')) {
+			set.facing = g.facing;
+			this.changed('facing', t.facing, g.facing);
+		}
+		if (has('frame')) {
+			set.frame = g.frame;
+			this.changed('frame', t.frame, g.frame);
+		}
+		if (Object.keys(set).length > 0)
+			tx.update(positions).set(set).where(eq(positions.id, targetId)).run();
 	}
 
 	private drillRoots(has: (k: string) => boolean): void {
@@ -518,6 +614,21 @@ class Applier {
 					.where(and(eq(lessonRoutines.lessonId, lessonId), byRef(routines, ref)))
 					.get()?.id ?? null
 			);
+		if (prefix === 'pos')
+			return (
+				tx
+					.select({ id: positions.id })
+					.from(lessonPositions)
+					.innerJoin(positions, eq(positions.id, lessonPositions.positionId))
+					.where(
+						and(
+							eq(lessonPositions.lessonId, lessonId),
+							isNull(positions.archivedAt),
+							byRef(positions, ref)
+						)
+					)
+					.get()?.id ?? null
+			);
 		return (
 			tx
 				.select({ id: exercises.id })
@@ -539,9 +650,16 @@ class Applier {
 		const { tx, targetId, now, m } = this;
 		const from = this.handLinked(this.giverId, prefix, ref);
 		if (from === null) return;
-		const kind = prefix === 'fig' ? 'figure' : prefix === 'routine' ? 'routine' : 'drill';
+		const kind = HAND_KINDS[prefix];
 		const to = m.ref(kind, from);
 		if (to === null) return;
+		if (kind === 'position') {
+			tx.insert(lessonPositions)
+				.values({ lessonId: targetId, positionId: to, createdAt: now })
+				.onConflictDoNothing()
+				.run();
+			return;
+		}
 		if (kind === 'figure')
 			tx.insert(lessonFigures)
 				.values({ lessonId: targetId, figureId: to, createdAt: now })
@@ -579,6 +697,7 @@ class Applier {
 		if (id === null) return;
 		if (prefix === 'fig') unlinkFigure(tx, targetId, id, false, now, actorId);
 		else if (prefix === 'routine') unlinkRoutine(tx, targetId, id, now, actorId);
+		else if (prefix === 'pos') unlinkPosition(tx, targetId, id, false, now, actorId);
 		else unlinkExercise(tx, targetId, id, false, now, actorId);
 		this.removals = true;
 	}
@@ -690,10 +809,18 @@ class Applier {
 		if (gone.trashId === null) this.unlink.push([isRec ? 'recording' : 'lesson-video', gone.file]);
 	}
 
-	/** The target section's links become the giver's, each mapped into the target's place. */
+	/**
+	 * The target section's (or point's) links become the giver's, each mapped
+	 * into the target's place: figures and drills, and positions. A link to an
+	 * archived position is in neither flat and stays.
+	 */
 	private sectionLinks(targetSpot: number, giverSpot: number): void {
 		const { tx, now, actorId } = this;
-		const want = mappedLinks(this.m, giverSpot);
+		const all = mappedLinks(this.m, giverSpot);
+		const wantPositions = all.flatMap((w) => ('positionId' in w ? [w.positionId] : []));
+		const want = all.filter(
+			(w): w is { figureId: number } | { exerciseId: number } => !('positionId' in w)
+		);
 		const has = tx.select().from(spotLinks).where(eq(spotLinks.spotId, targetSpot)).all();
 		const same = (
 			a: { figureId: number | null; exerciseId: number | null },
@@ -712,7 +839,49 @@ class Applier {
 				.onConflictDoNothing()
 				.run();
 		}
+
+		const hasPositions = tx
+			.select({ id: spotPositionLinks.id, positionId: spotPositionLinks.positionId })
+			.from(spotPositionLinks)
+			.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+			.where(and(eq(spotPositionLinks.spotId, targetSpot), isNull(positions.archivedAt)))
+			.all();
+		for (const l of hasPositions) {
+			if (wantPositions.includes(l.positionId)) continue;
+			unlinkSpotFromPosition(tx, l.id, now, actorId);
+			this.removals = true;
+		}
+		for (const positionId of wantPositions) {
+			if (hasPositions.some((l) => l.positionId === positionId)) continue;
+			tx.insert(spotPositionLinks)
+				.values({ spotId: targetSpot, positionId, createdAt: now })
+				.onConflictDoNothing()
+				.run();
+		}
 	}
+}
+
+/** The set prefixes that are a figure's sides. */
+const TAG_PREFIXES = new Set(['start', 'end']);
+
+/** The kind a lesson's hand link of each prefix is. */
+const HAND_KINDS: Record<string, CloneKind> = {
+	fig: 'figure',
+	routine: 'routine',
+	drill: 'drill',
+	pos: 'position'
+};
+
+/** The live positions on one side of a figure whose family is `ref` (one, or two of one family). */
+function taggedWith(tx: Db, side: 'start' | 'end', figureId: number, ref: string): number[] {
+	const table = side === 'start' ? figureStartPositions : figureEndPositions;
+	return tx
+		.select({ id: positions.id })
+		.from(table)
+		.innerJoin(positions, eq(positions.id, table.positionId))
+		.where(and(eq(table.figureId, figureId), isNull(positions.archivedAt), byRef(positions, ref)))
+		.all()
+		.map((r) => r.id);
 }
 
 /** Whether a routine embeds another: such a routine is never embedded itself (depth ≤ 2). */
@@ -788,9 +957,12 @@ export function filesFor(
 }
 
 const REF_TABLES = {
+	start: positions,
+	end: positions,
 	fig: figures,
 	routine: routines,
 	drill: exercises,
+	pos: positions,
 	rec: recordings,
 	video: lessonVideos,
 	spot: videoSpots
@@ -819,7 +991,7 @@ function currentKey(db: Db, key: string): string {
 	const prefix = setPrefixOf(key);
 	if (prefix === 'link') return key;
 	if (prefix) {
-		const of = prefix as 'fig' | 'routine' | 'drill';
+		const of = prefix as 'start' | 'end' | 'fig' | 'routine' | 'drill' | 'pos';
 		return `${prefix}:${refNow(db, of, key.slice(prefix.length + 1))}`;
 	}
 	const parts = pieceParts(key);
