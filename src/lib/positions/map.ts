@@ -19,7 +19,8 @@
  * `onStats` says how many it took and whether it settled. Every node, circle
  * and label stays inside the frame: a label is at most `LABEL_MAX` characters
  * (280 px, the page cuts a longer name with `mapLabel`), and the smallest frame
- * is 360 px.
+ * is 360 px. A dead end's or orphan's label is two lines, its name and then its
+ * word (`markBox` at `markY`), and the layout keeps both clear.
  */
 import { fold } from '$lib/fold';
 import { positionCounts, type Graph, type GraphFigure } from '$lib/graph/graph';
@@ -62,6 +63,11 @@ export interface MapNode {
 	labelX: number;
 	labelY: number;
 	mark: 'dead end' | 'orphan' | null;
+	/**
+	 * The centre of the mark word's line (`markBox`), right under the name's:
+	 * `labelY + LABEL_HEIGHT`. Null without a mark.
+	 */
+	markY: number | null;
 	twins: boolean;
 }
 
@@ -95,6 +101,11 @@ export const LABEL_HEIGHT = 14;
  * than 280 px and every one fits the smallest frame.
  */
 export const LABEL_MAX = 40;
+/**
+ * A dead end's or orphan's word, in capitals on a second line under its name
+ * (the page's 10.5 px with tracking): about 8 px a character.
+ */
+export const MARK_CHAR = 8;
 /** Between a circle's bottom and its label's top. */
 const LABEL_GAP = 4;
 /** Kept clear inside the frame's edge. */
@@ -136,6 +147,21 @@ export function labelBox(
 	y: number
 ): { x0: number; y0: number; x1: number; y1: number } {
 	const w = labelWidth(name);
+	return { x0: x - w / 2, y0: y - LABEL_HEIGHT / 2, x1: x + w / 2, y1: y + LABEL_HEIGHT / 2 };
+}
+
+/** The width a mark word takes: `MARK_CHAR` a character. */
+function markWidth(mark: 'dead end' | 'orphan' | null): number {
+	return mark ? mark.length * MARK_CHAR : 0;
+}
+
+/** The box a mark word takes on its own line (`MapNode.markY`), centred on (x, y). */
+export function markBox(
+	mark: 'dead end' | 'orphan',
+	x: number,
+	y: number
+): { x0: number; y0: number; x1: number; y1: number } {
+	const w = markWidth(mark);
 	return { x0: x - w / 2, y0: y - LABEL_HEIGHT / 2, x1: x + w / 2, y1: y + LABEL_HEIGHT / 2 };
 }
 
@@ -227,11 +253,13 @@ interface Bodies {
 	x: Float64Array;
 	y: Float64Array;
 	r: Float64Array;
-	/** The label's width. */
+	/** The label's width: the name's, or its mark word's when that is wider. */
 	w: Float64Array;
+	/** The label's height: one line, or two for a dead end or orphan (the name, then the word). */
+	lh: Float64Array;
 	/** Half the outline's width: the circle or the label, whichever is wider. */
 	half: Float64Array;
-	/** The outline's height: circle, gap and label. */
+	/** The outline's height: circle, gap and label (one line or two). */
 	tall: Float64Array;
 }
 
@@ -301,7 +329,7 @@ function settle(b: Bodies, springs: Int32Array, steps: number) {
 function circleOnLabel(b: Bodies, c: number, l: number): boolean {
 	const top = b.y[l] + b.r[l] + LABEL_GAP;
 	const px = Math.max(b.x[l] - b.w[l] / 2, Math.min(b.x[c], b.x[l] + b.w[l] / 2));
-	const py = Math.max(top, Math.min(b.y[c], top + LABEL_HEIGHT));
+	const py = Math.max(top, Math.min(b.y[c], top + b.lh[l]));
 	const ux = b.x[c] - px;
 	const uy = b.y[c] - py;
 	const reach = b.r[c] + TOUCH;
@@ -317,9 +345,11 @@ function touch(b: Bodies, i: number, j: number): boolean {
 	if (uy >= (b.tall[i] + b.tall[j]) / 2 + TOUCH) return false;
 	const reach = b.r[i] + b.r[j] + TOUCH;
 	if (ux * ux + uy * uy < reach * reach) return true;
-	// labels: same height, each below its circle
-	const ly = Math.abs(b.y[i] + b.r[i] - b.y[j] - b.r[j]);
-	if (ux < (b.w[i] + b.w[j]) / 2 + TOUCH && ly < LABEL_HEIGHT + TOUCH) return true;
+	// labels: each below its circle, one line high or two
+	const ti = b.y[i] + b.r[i];
+	const tj = b.y[j] + b.r[j];
+	if (ux < (b.w[i] + b.w[j]) / 2 + TOUCH && ti < tj + b.lh[j] + TOUCH && tj < ti + b.lh[i] + TOUCH)
+		return true;
 	return circleOnLabel(b, i, j) || circleOnLabel(b, j, i);
 }
 
@@ -391,7 +421,13 @@ export function layoutMap(
 
 	const index = new Map(drawn.map((p, i) => [p.id, i]));
 	const r = Float64Array.from(drawn, (p) => nodeRadius(p.figures));
-	const w = Float64Array.from(drawn, (p) => labelWidth(p.name));
+	// A dead end or orphan writes its word on a second line, under its name.
+	const marks = drawn.map((p) => {
+		const g = gapsOf(p);
+		return g.deadEnd ? ('dead end' as const) : g.orphan ? ('orphan' as const) : null;
+	});
+	const w = Float64Array.from(drawn, (p, i) => Math.max(labelWidth(p.name), markWidth(marks[i])));
+	const lh = Float64Array.from(marks, (m) => (m ? 2 : 1) * LABEL_HEIGHT);
 	const b: Bodies = {
 		n,
 		width,
@@ -400,8 +436,9 @@ export function layoutMap(
 		y: new Float64Array(n),
 		r,
 		w,
+		lh,
 		half: r.map((ri, i) => Math.max(ri, w[i] / 2)),
-		tall: r.map((ri) => 2 * ri + LABEL_GAP + LABEL_HEIGHT)
+		tall: r.map((ri, i) => 2 * ri + LABEL_GAP + lh[i])
 	};
 
 	// Start: a circle in folded-name order, from the top, clockwise.
@@ -431,15 +468,16 @@ export function layoutMap(
 	opts.onStats?.(stats);
 
 	const nodes: MapNode[] = drawn.map((p, i) => {
-		const g = gapsOf(p);
+		const labelY = round(b.y[i] + r[i] + LABEL_GAP + LABEL_HEIGHT / 2);
 		return {
 			id: p.id,
 			x: round(b.x[i]),
 			y: round(b.y[i]),
 			r: r[i],
 			labelX: round(b.x[i]),
-			labelY: round(b.y[i] + r[i] + LABEL_GAP + LABEL_HEIGHT / 2),
-			mark: g.deadEnd ? 'dead end' : g.orphan ? 'orphan' : null,
+			labelY,
+			mark: marks[i],
+			markY: marks[i] ? round(labelY + LABEL_HEIGHT) : null,
 			twins: p.twins ?? false
 		};
 	});

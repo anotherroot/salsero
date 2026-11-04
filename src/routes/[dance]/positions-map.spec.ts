@@ -153,7 +153,7 @@ describe('the map', () => {
 			].sort((a, b) => a.from - b.from || a.to - b.to)
 		);
 		expect(d.noPosition).toBe(2);
-		expect(d.summary).toBe('6 positions · 6 figures between them · 1 with none · 3 stranded');
+		expect(d.summary).toBe('6 positions · 6 figures between them · 2 with none · 3 stranded');
 		expect(d.types.map((t: any) => [t.label, t.tone])).toEqual([
 			['Salsa', 'accent'],
 			['Son', 'done'],

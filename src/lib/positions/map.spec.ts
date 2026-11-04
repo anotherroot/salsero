@@ -3,8 +3,10 @@ import type { Graph, GraphFigure } from '$lib/graph/graph';
 import { positionCounts } from '$lib/graph/graph';
 import {
 	edgeWidth,
+	LABEL_HEIGHT,
 	labelBox,
 	layoutMap,
+	markBox,
 	MAX_PASSES,
 	mapInputOf,
 	mapLabel,
@@ -72,6 +74,29 @@ function circleHitsBox(n: MapNode, b: Box): boolean {
 
 function expectClean(input: MapInput, out: MapLayout) {
 	const boxes = out.nodes.map((n) => labelBox(nameOf(input, n.id), n.labelX, n.labelY));
+	// A dead end or orphan says so on a second line, under its name: a box of its own.
+	const marks = out.nodes.map((n) =>
+		n.mark === null ? null : markBox(n.mark, n.labelX, n.markY!)
+	);
+	for (let i = 0; i < out.nodes.length; i++) {
+		const m = marks[i];
+		if (!m) {
+			expect(out.nodes[i].markY).toBe(null);
+			continue;
+		}
+		expect(m.y0).toBeGreaterThanOrEqual(boxes[i].y1);
+		expect(m.x0).toBeGreaterThanOrEqual(0);
+		expect(m.y0).toBeGreaterThanOrEqual(0);
+		expect(m.x1).toBeLessThanOrEqual(out.width);
+		expect(m.y1).toBeLessThanOrEqual(out.height);
+		for (let j = 0; j < out.nodes.length; j++) {
+			expect(circleHitsBox(out.nodes[j], m)).toBe(false);
+			if (j === i) continue;
+			expect(boxesOverlap(m, boxes[j])).toBe(false);
+			const o = marks[j];
+			if (o) expect(boxesOverlap(m, o)).toBe(false);
+		}
+	}
 	for (let i = 0; i < out.nodes.length; i++) {
 		const a = out.nodes[i];
 		// inside the frame, label included
@@ -215,6 +240,33 @@ describe('layoutMap', () => {
 		});
 		const mark = Object.fromEntries(out.nodes.map((n) => [n.id, n.mark]));
 		expect(mark).toEqual({ 1: 'orphan', 2: null, 3: 'dead end' });
+	});
+
+	it('gives a dead end or orphan room for its word under its name', () => {
+		// A hub that leads into twelve dead ends and is reached from twelve orphans:
+		// short names, so the word is wider than the name, and the marked ones crowd the edges.
+		const positions = [pos(1, 'Hub', 24)];
+		const edges = [];
+		for (let i = 2; i <= 13; i++) {
+			positions.push(pos(i, `D${i}`));
+			edges.push(edge(1, i));
+		}
+		for (let i = 14; i <= 25; i++) {
+			positions.push(pos(i, `O${i}`));
+			edges.push(edge(i, 1));
+		}
+		const input = { positions, edges };
+		const out = layoutMap(input);
+		const marked = out.nodes.filter((n) => n.mark !== null);
+		expect(marked).toHaveLength(24);
+		const d = out.nodes.find((n) => n.id === 2)!;
+		expect(d.mark).toBe('dead end');
+		// The word's line sits right under the name's.
+		expect(d.markY).toBe(d.labelY + LABEL_HEIGHT);
+		const word = markBox('dead end', 0, 0);
+		expect(word.x1 - word.x0).toBeGreaterThan(labelBox('D2', 0, 0).x1 - labelBox('D2', 0, 0).x0);
+		expectClean(input, out);
+		expectClean(input, layoutMap(input, { steps: 0 }));
 	});
 
 	it('puts islands and unused positions in the tray, by name, and draws only the main part', () => {

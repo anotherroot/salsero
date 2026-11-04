@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	edgeGeometry,
 	edgeKey,
+	TWINS_HEIGHT,
+	TWINS_WIDTH,
+	twinsSpot,
 	legendTypes,
 	litOf,
 	styleTone,
@@ -130,5 +133,25 @@ describe('edgeGeometry', () => {
 	it('survives two circles at one spot', () => {
 		const g = edgeGeometry({ x: 50, y: 50, r: 10 }, { x: 50, y: 50, r: 10 }, false);
 		expect(nums(g.d).every(Number.isFinite)).toBe(true);
+	});
+});
+
+describe('twinsSpot', () => {
+	it('sits left of the circle, level with its top', () => {
+		expect(twinsSpot({ x: 200, y: 100, r: 20 })).toEqual({ x: 177, y: 80, anchor: 'end' });
+	});
+	it('moves to the right side when the left would leave the frame', () => {
+		const s = twinsSpot({ x: 30, y: 100, r: 20 });
+		expect(s).toEqual({ x: 53, y: 80, anchor: 'start' });
+	});
+	it('stays below the frame’s top', () => {
+		expect(twinsSpot({ x: 200, y: 18, r: 14 }).y).toBeGreaterThanOrEqual(TWINS_HEIGHT / 2 + 1);
+	});
+	it('keeps the word inside the frame on the left', () => {
+		for (const x of [18, 25, 40, 55, 60, 80]) {
+			const s = twinsSpot({ x, y: 100, r: 14 });
+			const left = s.anchor === 'end' ? s.x - TWINS_WIDTH : s.x;
+			expect(left).toBeGreaterThanOrEqual(0);
+		}
 	});
 });

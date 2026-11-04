@@ -123,3 +123,21 @@ export function edgeGeometry(
 		labelY: r1(0.25 * s.y + 0.5 * c.y + 0.25 * e.y)
 	};
 }
+
+/** The Twins marker's estimated size: five characters at 10.5 px bold, and its halo. */
+export const TWINS_WIDTH = 36;
+export const TWINS_HEIGHT = 14;
+const TWINS_GAP = 3;
+
+/**
+ * Where a twinned position's "Twins" marker goes: left of its circle, level
+ * with its top, or right of it when the left would leave the frame; never
+ * above the frame's top. Task 27 draws twins as one node and redraws this.
+ */
+export function twinsSpot(n: Circle): { x: number; y: number; anchor: 'start' | 'end' } {
+	const y = Math.max(n.y - n.r, TWINS_HEIGHT / 2 + 1);
+	const left = n.x - n.r - TWINS_GAP;
+	return left - TWINS_WIDTH >= 0
+		? { x: left, y, anchor: 'end' }
+		: { x: n.x + n.r + TWINS_GAP, y, anchor: 'start' };
+}

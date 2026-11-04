@@ -425,7 +425,7 @@ describe('a position’s page', () => {
 });
 
 describe('the map', () => {
-	it('mapSummary: the board’s line, leaving out what is zero', () => {
+	it('mapSummary: the board’s line (with none: every figure drawn as no arrow, the load’s count), leaving out what is zero', () => {
 		expect(v.mapSummary({ positions: 15, between: 32, none: 10, stranded: 4 })).toBe(
 			'15 positions · 32 figures between them · 10 with none · 4 stranded'
 		);

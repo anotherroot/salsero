@@ -73,6 +73,9 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const edges = layout.edges.map((e) => ({ ...e, figures: figuresOf.get(`${e.from}:${e.to}`)! }));
 
 	const none = noPosition(graph);
+	// One count everywhere: what is not drawn as an arrow (no start, no end, or only one),
+	// as the list's No position row and /positions/none count it.
+	const missing = none.none.length + none.onlyStart.length + none.onlyEnd.length;
 	const stranded = mode
 		? 0
 		: input.positions.filter((p) => p.gaps && (p.gaps.deadEnd || p.gaps.orphan || p.gaps.island))
@@ -82,11 +85,11 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 		layout,
 		positions,
 		edges,
-		noPosition: none.none.length + none.onlyStart.length + none.onlyEnd.length,
+		noPosition: missing,
 		summary: mapSummary({
 			positions: positions.length,
 			between: graph.figures.filter((f) => f.starts.length > 0 && f.ends.length > 0).length,
-			none: none.none.length,
+			none: missing,
 			stranded
 		}),
 		types: legendTypes(

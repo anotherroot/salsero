@@ -2,7 +2,14 @@
 	import { resolve } from '$app/paths';
 	import { button } from '$lib/components/ui/styles';
 	import type { MapLayout } from '$lib/positions/map';
-	import { edgeGeometry, edgeKey, litOf, TONE_VAR, type MapTone } from '$lib/positions/map-view';
+	import {
+		edgeGeometry,
+		edgeKey,
+		litOf,
+		TONE_VAR,
+		twinsSpot,
+		type MapTone
+	} from '$lib/positions/map-view';
 	import { MAP, mapLitLine } from '$lib/positions/view';
 	import {
 		clampView,
@@ -338,10 +345,11 @@
 							style:fill="var(--color-ink)"
 							style:stroke="var(--color-surface)">{p?.label}</text
 						>
-						{#if n.mark}
+						{#if n.mark && n.markY !== null}
+							<!-- The label's second line, which the layout keeps clear (`markBox`). -->
 							<text
 								x={n.labelX}
-								y={n.labelY + 14}
+								y={n.markY}
 								text-anchor="middle"
 								dominant-baseline="central"
 								class="text-[10.5px] font-extrabold tracking-[0.04em] uppercase"
@@ -352,10 +360,11 @@
 							>
 						{/if}
 						{#if n.twins}
+							{@const spot = twinsSpot(n)}
 							<text
-								x={n.x - n.r - 3}
-								y={n.y - n.r}
-								text-anchor="end"
+								x={spot.x}
+								y={spot.y}
+								text-anchor={spot.anchor}
 								dominant-baseline="central"
 								class="text-[10.5px] font-extrabold"
 								stroke-width="4"

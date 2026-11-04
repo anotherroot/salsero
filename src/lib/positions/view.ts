@@ -611,8 +611,11 @@ export function mapLabelFor(groupMode: boolean): string {
 
 /**
  * "15 positions · 32 figures between them · 10 with none · 4 stranded": figures
- * between them have a start and an end, with none have neither, stranded
- * positions are dead ends, orphans and islands. Zero parts after the first are left out.
+ * between them have a start and an end; with none counts every figure the map
+ * draws no arrow for (no position, or only a start or only an end), the same
+ * count as the tray's No position chip, the list's No position row and
+ * /positions/none; stranded positions are dead ends, orphans and islands. Zero
+ * parts after the first are left out.
  */
 export function mapSummary(n: {
 	positions: number;

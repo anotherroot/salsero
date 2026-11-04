@@ -24,6 +24,30 @@
 
 <svelte:head><title>{MAP.title} · {data.dance.label}</title></svelte:head>
 
+<!-- Figures with no arrow, and positions with no figures: shown even before any position exists. -->
+{#snippet notOnMap()}
+	{#if data.noPosition > 0 || unused.length > 0}
+		<section class="flex flex-col gap-2.5 rounded-2xl bg-surface p-4">
+			<h2 class="{TRAY_HEAD} text-muted">{MAP.notOnMap}</h2>
+			<div class="flex flex-wrap gap-2">
+				{#if data.noPosition > 0}
+					<a
+						class="{TRAY_CHIP} border-dashed border-field-line"
+						href={resolve('/[dance]/positions/none', { dance })}
+						>{noPositionChip(data.noPosition)}</a
+					>
+				{/if}
+				{#each unused as p (p.id)}
+					<a class="{TRAY_CHIP} border-danger" href={hrefOf(p.id)}>{unusedChip(p.name)}</a>
+				{/each}
+			</div>
+			{#if data.noPosition > 0}
+				<p class="text-[12px] font-semibold text-muted">{MAP.fitsAnywhere}</p>
+			{/if}
+		</section>
+	{/if}
+{/snippet}
+
 <Screen title={MAP.title} subtitle={data.summary}>
 	{#snippet left()}
 		<BackButton fallback={{ href: list, label: MAP.back }} />
@@ -33,6 +57,9 @@
 		<div class="flex flex-col items-start gap-3 px-1 pt-2">
 			<p class="text-[14px] leading-[1.45] text-ink-2">{MAP.empty}</p>
 			<a class={button('secondary', 'sm')} href={list}>{MAP.back}</a>
+		</div>
+		<div class="flex flex-col gap-3 pt-3 pb-4">
+			{@render notOnMap()}
 		</div>
 	{:else}
 		<div class="flex flex-col gap-3 pb-4">
@@ -48,30 +75,11 @@
 				<p class="px-1 text-[14px] leading-[1.45] text-ink-2">{MAP.unjoined}</p>
 			{/if}
 
-			{#if data.noPosition > 0 || unused.length > 0}
-				<section class="flex flex-col gap-2.5 rounded-2xl bg-surface p-4">
-					<h2 class="{TRAY_HEAD} text-muted">{MAP.notOnMap}</h2>
-					<div class="flex flex-wrap gap-2">
-						{#if data.noPosition > 0}
-							<a
-								class="{TRAY_CHIP} border-dashed border-field-line"
-								href={resolve('/[dance]/positions/none', { dance })}
-								>{noPositionChip(data.noPosition)}</a
-							>
-						{/if}
-						{#each unused as p (p.id)}
-							<a class="{TRAY_CHIP} border-danger" href={hrefOf(p.id)}>{unusedChip(p.name)}</a>
-						{/each}
-					</div>
-					{#if data.noPosition > 0}
-						<p class="text-[12px] font-semibold text-muted">{MAP.fitsAnywhere}</p>
-					{/if}
-				</section>
-			{/if}
+			{@render notOnMap()}
 
 			{#if islands.length > 0}
 				<section class="flex flex-col gap-2.5 rounded-2xl bg-surface p-4">
-					<h2 class="{TRAY_HEAD} text-warn">{MAP.islands}</h2>
+					<h2 class="{TRAY_HEAD} text-muted">{MAP.islands}</h2>
 					<div class="flex flex-wrap gap-2">
 						{#each islands as p (p.id)}
 							<a class="{TRAY_CHIP} border-field-line" href={hrefOf(p.id)} aria-label={p.ariaLabel}>
@@ -111,7 +119,7 @@
 					</span>
 				{/if}
 				<span class="inline-flex items-center gap-1.5">
-					<span aria-hidden="true" class="size-3.5 rounded-full border-2 border-dotted border-warn"
+					<span aria-hidden="true" class="size-3.5 rounded-full border-2 border-dotted border-muted"
 					></span>{MAP.legend.island}
 				</span>
 				<span>{MAP.legend.size}</span>
