@@ -774,6 +774,49 @@ export type CompareOffer = {
 	changed: string[];
 };
 
+/** One row of "Copies you can see" (board C3 p1): a member of the page's family. */
+export type FamilyEntry = {
+	member: Member;
+	/** The person's role in the member's group; null for their own. */
+	role: 'owner' | 'editor' | 'member' | null;
+	/** Against the page's row; null for the page itself. */
+	status: Source['status'];
+	/**
+	 * What differs (`changedLabels`); for the page itself, what it changed
+	 * that some copy lacks (`ownChanges`: "Notes", "+1 recording").
+	 */
+	changed: string[];
+	/** What the copy changed that the page lacks: the differs banner's words. */
+	theirs: string[];
+	/** The person edits it: Send can reach it. */
+	editable: boolean;
+};
+
+/** The page's family as the list and the banners draw it; null when no other member is editable. */
+export type FamilyView = {
+	entries: FamilyEntry[];
+	/** The person edits the page's row and some other live member: Send mine… is offered. */
+	canSend: boolean;
+	/** "Rueda club’s copy differs: timing · Compare", one per copy that moved. */
+	banners: CompareOffer[];
+};
+
+/** One target of Send mine (`sendPreview`), compared from the target's side. */
+export type SendTarget = {
+	target: Member;
+	/** `mine` = the target, `theirs` = your member; `picks` say what lands (`sendPicks`). */
+	comparison: Comparison;
+	/** Your deletes it still has: a box each, unticked. */
+	removals: FieldDiff[];
+	/** Fields both changed: picked on the second level. */
+	both: FieldDiff[];
+	/** The files the default picks bring, charged to the target's owner. */
+	bytes: number;
+};
+
+/** One target's answer to Send mine. */
+export type SendResult = { id: number; result: SyncResult };
+
 /** One thing a person could keep of a group when they leave (Keep, `keepPreview`). */
 export type KeepItem = {
 	kind: CloneKind;

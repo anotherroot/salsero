@@ -417,6 +417,7 @@
 				current={variation.id}
 				mineId={data.mineId}
 				compare={data.compare}
+				family={data.family}
 				taking={data.taking ? sourcePlace : null}
 			/>
 			{#if readerTeam && data.fromLesson && !data.taking}

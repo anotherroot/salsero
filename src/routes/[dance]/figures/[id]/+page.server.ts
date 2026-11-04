@@ -65,7 +65,8 @@ import {
 import { seenRefusal, variationSeen } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { takeFrom } from '$lib/server/take-form';
+import { sendFrom, takeFrom } from '$lib/server/take-form';
+import { familyView } from '$lib/server/clones/send';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
 import { ALREADY_IN_YOURS, RECORDING_GONE } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
@@ -300,6 +301,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		mineId: versions.mineId,
 		/** The banner over your copy when its group's source moved: "… changed it since you took it · Compare". */
 		compare: versions.compare,
+		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		family: familyView(db, wall.userId, 'figure', id),
 		/**
 		 * Opened from the person's copy: Take brings a recording into it (`into`),
 		 * and `held` marks the recordings already there.
@@ -609,6 +612,12 @@ export const actions: Actions = {
 	take: ({ params, locals, request }) => {
 		const { figure } = variationOf(params, locals, 'read');
 		return takeFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
+	},
+
+	/** Send mine (board C3 p2): this figure's changes into each copy the person edits. */
+	send: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return sendFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
 	},
 
 	/**

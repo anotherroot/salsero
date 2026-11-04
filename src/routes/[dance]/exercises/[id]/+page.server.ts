@@ -22,7 +22,8 @@ import { isFrequency } from '$lib/frequency';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { takeFrom } from '$lib/server/take-form';
+import { sendFrom, takeFrom } from '$lib/server/take-form';
+import { familyView } from '$lib/server/clones/send';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
@@ -93,6 +94,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			canLog: true,
 			/** A drill's tabs per source (none for an entry: it is no family's). */
 			...pageSources(db, wall.userId, 'drill', own.id, url),
+			family: familyView(db, wall.userId, 'drill', own.id),
 			makeMine: null,
 			drill: null,
 			historyHref: null,
@@ -157,6 +159,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		canLog: popup !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
 		...pageSources(db, wall.userId, 'drill', row.id, url),
+		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		family: familyView(db, wall.userId, 'drill', row.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
 		add: route
@@ -202,6 +206,13 @@ export const actions: Actions = {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
 		return takeFrom(db, locals.user!.id, 'drill', row.id, request);
+	},
+
+	/** Send mine (board C3 p2): this drill's changes into each copy the person edits. */
+	send: ({ params, locals, request }) => {
+		const db = getDb();
+		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
+		return sendFrom(db, locals.user!.id, 'drill', row.id, request);
 	},
 
 	/** Add on a group drill's page when a lesson the person added holds it: just this drill. */

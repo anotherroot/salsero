@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, Flat, PairBase, Picks } from '$lib/types';
-import { defaultPicks, diff, initialBase, nextBase, standing, unpicked } from './diff';
+import { defaultPicks, diff, initialBase, nextBase, sendPicks, standing, unpicked } from './diff';
 import { fieldLabel, pieceOf } from './flat';
 
 const hash = (v: string) => v;
@@ -354,5 +354,29 @@ describe('standing', () => {
 		expect(standing([d('theirs')])).toBe('newer');
 		expect(standing([d('mine'), d('theirs')])).toBe('differs');
 		expect(standing([d('both')])).toBe('differs');
+	});
+});
+
+describe('sendPicks', () => {
+	it('is defaultPicks(…, send) on the giver’s side, read from the target’s', () => {
+		// The target's side: mine = the target, theirs = the giver (your member).
+		const BASE = flat(['name', 'Doble'], ['notes', 'a'], ['timing', '1|8'], ['rec:g1', 'v']);
+		const target = edit(BASE, { name: 'Doble (Rueda club)', timing: '3|8' });
+		const giver = edit(BASE, { notes: 'b', 'rec:g1': null, 'rec:g2': 'v' });
+		const base: PairBase = initialBase(BASE, [], hash);
+		const onTarget = diff(base, target, giver, hash);
+		const onGiver = diff(base, giver, target, hash);
+		const sent = defaultPicks(onGiver, 'send');
+		const turned: Picks = Object.fromEntries(
+			Object.entries(sent).map(([k, side]) => [k, side === 'mine' ? 'theirs' : 'mine'])
+		);
+		expect(sendPicks(onTarget)).toEqual(turned);
+		expect(sendPicks(onTarget)).toEqual({
+			name: 'mine', // the target keeps its own name
+			notes: 'theirs', // your change lands
+			timing: 'mine', // theirs alone changed it: kept
+			'rec:g1': 'mine', // you deleted it: not unless ticked
+			'rec:g2': 'theirs' // you added it: lands
+		});
 	});
 });

@@ -584,6 +584,7 @@
 				current={lesson.id}
 				mineId={data.mineId}
 				compare={data.compare}
+				family={data.family}
 				taking={sourcePlace}
 			/>
 		{/if}

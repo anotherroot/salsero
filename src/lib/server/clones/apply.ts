@@ -743,7 +743,7 @@ function logRoot(
 }
 
 /** The giver's pieces the picks bring in whole: their files to link, and what they charge. */
-function filesFor(
+export function filesFor(
 	db: Db,
 	kind: CloneKind,
 	giverId: number,
@@ -784,6 +784,59 @@ function filesFor(
 				});
 		}
 	}
+	return out;
+}
+
+const REF_TABLES = {
+	fig: figures,
+	routine: routines,
+	drill: exercises,
+	rec: recordings,
+	video: lessonVideos,
+	spot: videoSpots
+} as const;
+
+/** A `<ref>` as the row reads now: `#<id>` becomes the row's gene once something stamped it. */
+function refNow(db: Db, of: keyof typeof REF_TABLES, ref: string): string {
+	if (!ref.startsWith('#')) return ref;
+	const table = REF_TABLES[of] as typeof figures;
+	const row = db
+		.select({ gene: table.geneId })
+		.from(table)
+		.where(eq(table.id, Number(ref.slice(1))))
+		.get();
+	return row?.gene ?? ref;
+}
+
+/**
+ * A pick's key as the current diff names it. A row without a gene is keyed
+ * `#<id>`, and copying it stamps one, so a sheet opened before a copy (Send's
+ * first target copies your new recording into it, stamping the recording)
+ * names the same row differently: read that way, the pick still lands
+ * rather than being dropped as a key outside the diff.
+ */
+function currentKey(db: Db, key: string): string {
+	const prefix = setPrefixOf(key);
+	if (prefix === 'link') return key;
+	if (prefix) {
+		const of = prefix as 'fig' | 'routine' | 'drill';
+		return `${prefix}:${refNow(db, of, key.slice(prefix.length + 1))}`;
+	}
+	const parts = pieceParts(key);
+	if (!parts) return key;
+	const [tag, g, ...rest] = key.split(':');
+	let out = `${tag}:${refNow(db, tag === 'rec' ? 'rec' : 'video', g)}`;
+	if (rest[0] === 'note') out += ':note';
+	else if (rest[0] === 'spot') {
+		out += `:spot:${refNow(db, 'spot', rest[1])}`;
+		if (rest[2] === 'links') out += ':links';
+	}
+	return out;
+}
+
+function currentPicks(db: Db, picks: Picks): Picks {
+	const out: Picks = {};
+	for (const [key, side] of Object.entries(picks)) out[currentKey(db, key)] = side;
 	return out;
 }
 
@@ -828,8 +881,9 @@ export async function syncFrom(
 	const fromFlat = flatOf(db, kind, fromId);
 	const base = pairBase(db, kind, intoId, fromId);
 	const diffs = diff(base, intoFlat, fromFlat, hashValue);
-	if (unpicked(diffs, picks).length > 0) return { ok: false, reason: 'pick', message: PICK_BOTH };
-	const keys = diffs.filter((d) => picks[d.key] === 'theirs').map((d) => d.key);
+	const picked = currentPicks(db, picks);
+	if (unpicked(diffs, picked).length > 0) return { ok: false, reason: 'pick', message: PICK_BOTH };
+	const keys = diffs.filter((d) => picked[d.key] === 'theirs').map((d) => d.key);
 	// Nothing taken: nothing written, not even the snapshot (the pair stays as it was).
 	if (keys.length === 0) return { ok: true };
 

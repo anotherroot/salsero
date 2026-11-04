@@ -46,7 +46,8 @@ import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { takeFrom } from '$lib/server/take-form';
+import { sendFrom, takeFrom } from '$lib/server/take-form';
+import { familyView } from '$lib/server/clones/send';
 import type { Routine } from '$lib/server/db/schema';
 import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
@@ -205,6 +206,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'routine', routine.id, url),
+		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		family: familyView(db, wall.userId, 'routine', routine.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine:
 			canEdit || routine.teamId === null
@@ -353,6 +356,12 @@ export const actions: Actions = {
 	take: ({ params, locals, request }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return takeFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
+	},
+
+	/** Send mine (board C3 p2): this routine's changes into each copy the person edits. */
+	send: ({ params, locals, request }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return sendFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

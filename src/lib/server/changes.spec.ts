@@ -89,6 +89,7 @@ import { HISTORY_MERGE_MS } from '$lib/limits';
 import { cloneInto, type CloneResult } from './clones/clone';
 import type { CloneFiles } from './clones/files';
 import { compareWith, takeTheirs } from './clones/compare';
+import { sendMine, sendPreview } from './clones/send';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -903,6 +904,40 @@ const MUTATIONS: {
 				GB
 			);
 			return r.ok ? r : null;
+		}
+	},
+	// clones/send.ts: Send mine from u1's own copy into the group's figure: one line per landed target
+	{
+		name: 'sendMine',
+		root: 'figure',
+		verb: 'change',
+		rootId: (w) => w.G,
+		teamOnly: true,
+		run: async (w) => {
+			const mine = await cloneInto(
+				db,
+				{ kind: 'figure', id: w.V, into: U1_SALSA, recordings: false },
+				cloneFiles,
+				T
+			);
+			if (!mine.ok) return null;
+			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Sent' });
+			const targets = sendPreview(db, 'u1', 'figure', mine.id);
+			const [res] = await sendMine(
+				db,
+				'u1',
+				'figure',
+				mine.id,
+				targets.map((t) => ({
+					id: t.target.id,
+					picks: t.comparison.picks,
+					seen: t.comparison.seen
+				})),
+				cloneFiles,
+				T,
+				GB
+			);
+			return targets.length === 1 && res?.result.ok ? res : null;
 		}
 	},
 	// video-downloads.ts, on completion

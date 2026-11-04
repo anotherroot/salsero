@@ -34,7 +34,8 @@ import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { takeFrom } from '$lib/server/take-form';
+import { sendFrom, takeFrom } from '$lib/server/take-form';
+import { familyView } from '$lib/server/clones/send';
 import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
@@ -141,6 +142,8 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'lesson', found.lesson.id, url),
+		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		family: familyView(db, wall.userId, 'lesson', found.lesson.id),
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
@@ -289,6 +292,12 @@ export const actions: Actions = {
 	take: ({ params, locals, request }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		return takeFrom(getDb(), locals.user!.id, 'lesson', lesson.id, request);
+	},
+
+	/** Send mine (board C3 p2): this lesson's changes into each copy the person edits. */
+	send: ({ params, locals, request }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return sendFrom(getDb(), locals.user!.id, 'lesson', lesson.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

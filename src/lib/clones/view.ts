@@ -2,9 +2,10 @@
  * The words of the clone and twin screens. PURE and client-safe: every
  * sentence a screen prints comes from here, so a spec can pin it.
  */
-import type { CloneKind, FieldDiff, PlaceRef, SwitchReport } from '$lib/types';
+import type { CloneKind, FieldDiff, PlaceRef, Source, SwitchReport } from '$lib/types';
 import { byteSize, plural } from '$lib/format';
-import { pieceParts, setPrefixOf } from './flat';
+import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
+import { sendPicks, unpicked } from './diff';
 
 /** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s". */
 export function possessive(name: string): string {
@@ -325,3 +326,180 @@ export const COMPARE_FAILED = 'That comparison could not be loaded. Try again.';
 
 /** A Take that failed without a refusal's words. */
 export const TAKE_FAILED = 'That could not be taken. Try again.';
+
+/* ── Copies you can see, and Send mine (board C3) ───────────────────────── */
+
+/** The family list's heading. */
+export const FAMILY_TITLE = 'Copies you can see';
+
+/** The button that opens the send sheet. */
+export const SEND_MINE = 'Send mine…';
+
+/** The page's own row in the family list. */
+export const THIS_ONE = 'This one';
+
+/** A copy's chip against the page's row; none when in step (or for the page itself). */
+export function statusChip(
+	s: Source['status']
+): { text: string; tone: 'neutral' | 'accent' | 'warn' } | null {
+	switch (s) {
+		case 'behind':
+			return { text: 'Behind', tone: 'neutral' };
+		case 'newer':
+			return { text: 'Newer', tone: 'accent' };
+		case 'differs':
+			return { text: 'Differs', tone: 'warn' };
+		default:
+			return null;
+	}
+}
+
+const ROLE_WORD = { owner: 'Owner', editor: 'Editor', member: 'Member' } as const;
+
+const lower = (labels: string[]) => labels.map((l) => l.toLowerCase());
+
+/** "Notes, timing": the first capitalised, the rest as they read in a sentence. */
+function sentence(labels: string[]): string {
+	const text = lower(labels).join(', ');
+	return text === '' ? '' : `${text[0].toUpperCase()}${text.slice(1)}`;
+}
+
+/**
+ * A copy's line in the family list: the person's role in its group, then
+ * where it stands against the page's row ("Owner · behind yours: notes, 1
+ * recording", "Editor · differs both ways"). `page` is what the page's row
+ * is called: "yours", or "this one" when the page is a group's.
+ */
+export function memberMeta(
+	role: 'owner' | 'editor' | 'member' | null,
+	status: Source['status'],
+	changed: string[],
+	page: 'yours' | 'this one' = 'yours'
+): string {
+	const parts: string[] = role ? [ROLE_WORD[role]] : [];
+	const what = changed.length > 0 ? `: ${lower(changed).join(', ')}` : '';
+	if (status === 'behind') parts.push(`behind ${page}${what}`);
+	else if (status === 'newer') parts.push(`newer than ${page}${what}`);
+	else if (status === 'differs') parts.push('differs both ways');
+	else if (status === 'same') parts.push('in step');
+	return parts.join(' · ');
+}
+
+/** The page's own row: "This one · you changed notes, +1 recording". */
+export function selfMeta(changed: string[]): string {
+	return changed.length > 0 ? `${THIS_ONE} · you changed ${lower(changed).join(', ')}` : THIS_ONE;
+}
+
+const counted = (label: string) => /^\d/.test(label);
+
+/**
+ * What the page's row changed that a copy lacks (diffs from the page's side,
+ * `mine` the page): root fields by label, then pieces and set members it
+ * added ("+1 recording"), took away ("−1 recording"), or changed inside.
+ */
+export function ownChanges(diffs: FieldDiff[]): string[] {
+	const isRoot = (d: FieldDiff) => (ROOT_KEYS as readonly string[]).includes(d.key);
+	const added = diffs.filter((d) => !isRoot(d) && d.theirs === null && d.mine !== null);
+	const gone = diffs.filter((d) => !isRoot(d) && d.mine === null);
+	const rest = changedLabels(diffs.filter((d) => !added.includes(d) && !gone.includes(d)));
+	return [
+		...rest.filter((l) => !counted(l)),
+		...changedLabels(added).map((l) => `+${l}`),
+		...changedLabels(gone).map((l) => `−${l}`),
+		...rest.filter(counted)
+	];
+}
+
+/**
+ * The banner over a row the person edits when another copy changed since
+ * they were in step: "Rueda club’s copy differs: timing" (ruling 10: the
+ * place, not the person).
+ */
+export function differsBanner(place: string, changed: string[]): string {
+	const whose = place === 'Yours' ? 'Your' : possessive(place);
+	return `${whose} copy differs: ${lower(changed).join(', ')}`;
+}
+
+export const SEND_TITLE = 'Send your changes';
+
+export const SEND_SUB = 'Adds and changes travel. Deletes only if you tick them.';
+
+/** A target with nothing of yours to bring. */
+export const NOTHING_TO_SEND = 'Nothing to send';
+
+/**
+ * A target's line in the send sheet, from its diffs (the target's side:
+ * `mine` the target, `theirs` yours): what lands by default, the files'
+ * charge, and what both changed ("Notes · 1 new recording (charged to the
+ * group) · timing: they changed it too, you’ll pick"). Your deletes have
+ * boxes of their own and are not counted here.
+ */
+export function sendTargetMeta(diffs: FieldDiff[], bytes: number, team: boolean): string {
+	const picks = sendPicks(diffs);
+	const lands = diffs.filter((d) => picks[d.key] === 'theirs');
+	const both = diffs.filter((d) => unpicked(diffs, picks).includes(d.key));
+	const isNew = (d: FieldDiff) => d.mine === null && pieceParts(d.key)?.part === 'piece';
+	const fresh = lands.filter(isNew);
+	const labels = changedLabels(lands.filter((d) => !isNew(d)));
+	const parts: string[] = [];
+	const fields = labels.filter((l) => !counted(l));
+	if (fields.length > 0) parts.push(sentence(fields));
+	if (fresh.length > 0) {
+		const news = changedLabels(fresh).map((l) => l.replace(/^(\d+) /, '$1 new '));
+		const charge = bytes > 0 ? ` (charged to ${team ? 'the group' : 'you'})` : '';
+		parts.push(`${news.join(', ')}${charge}`);
+	}
+	parts.push(...labels.filter(counted));
+	if (both.length > 0)
+		parts.push(`${listed(lower(changedLabels(both)))}: they changed it too, you’ll pick`);
+	if (parts.length === 0) return NOTHING_TO_SEND;
+	const line = parts.join(' · ');
+	return `${line[0].toUpperCase()}${line.slice(1)}`;
+}
+
+/** A box for one of your deletes: unticked; ticking deletes it in each target that has it. */
+export function deleteRow(name: string): { text: string; meta: string } {
+	return {
+		text: `Also delete “${name}” there`,
+		meta: 'You deleted it from yours. Refused where a lesson links its section.'
+	};
+}
+
+/**
+ * Under the targets, when any is a group's: "Changes land on the groups’
+ * own figure: members’ practice and lesson links stay." Null with no group.
+ */
+export function sendNote(kind: CloneKind, groups: number): string | null {
+	if (groups === 0) return null;
+	const whose = groups === 1 ? 'group’s' : 'groups’';
+	return `Changes land on the ${whose} own ${KIND_WORD[kind]}: members’ practice and lesson links stay.`;
+}
+
+/** The send sheet's button: "Send to 2 groups", "Send to Salsa Tuesdays", "Send to yours". */
+export function sendButton(n: number, name: string, groups = true): string {
+	if (n === 0) return SEND;
+	if (n === 1) return `Send to ${name === 'Yours' ? 'yours' : name}`;
+	return `Send to ${n} ${groups ? 'groups' : 'places'}`;
+}
+
+/** The second level's title: "Rueda club: both changed the timing". */
+export function bothTitle(place: string, fields: string[]): string {
+	return `${place}: both changed the ${listed(lower(fields))}`;
+}
+
+/** Under the second level's cards. */
+export function bothNote(place: string): string {
+	return `Pick yours and theirs is replaced in ${place}. Pick theirs and you send only the rest.`;
+}
+
+/** The second level's button, and its step to the next target with a pick. */
+export const SEND = 'Send';
+export const NEXT = 'Next';
+
+/** One target refused while the others landed. */
+export function notSent(place: string, message: string): string {
+	return `Not sent to ${place}: ${message}`;
+}
+
+/** A send that failed without a refusal's words. */
+export const SEND_FAILED = 'That could not be sent. Try again.';

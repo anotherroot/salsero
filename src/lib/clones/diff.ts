@@ -123,6 +123,29 @@ export function defaultPicks(diffs: FieldDiff[], mode: 'take' | 'send'): Picks {
 	return picks;
 }
 
+const turned = (side: 'mine' | 'theirs'): 'mine' | 'theirs' =>
+	side === 'mine' ? 'theirs' : 'mine';
+
+/**
+ * Send's preselection for one target, read from the target's side (`mine`
+ * the target, `theirs` your member, as `syncFrom` takes it): exactly
+ * `defaultPicks(…, 'send')` on your member's side, turned round. So
+ * `'theirs'` is what lands; your deletes, the target's own changes and its
+ * name stay; a field both changed has no pick.
+ */
+export function sendPicks(targetDiffs: FieldDiff[]): Picks {
+	const giverSide = targetDiffs.map((d) => ({
+		...d,
+		mine: d.theirs,
+		theirs: d.mine,
+		side: d.side === 'both' ? d.side : turned(d.side)
+	}));
+	const picks: Picks = {};
+	for (const [key, side] of Object.entries(defaultPicks(giverSide, 'send')))
+		picks[key] = turned(side);
+	return picks;
+}
+
 /** The `'both'` keys still without a pick. */
 export function unpicked(diffs: FieldDiff[], picks: Picks): string[] {
 	return diffs.filter((d) => d.side === 'both' && !picks[d.key]).map((d) => d.key);

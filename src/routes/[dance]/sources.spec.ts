@@ -41,6 +41,7 @@ import type { Wall } from '$lib/server/scope';
 import * as figurePage from './figures/[id]/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
 import * as compareApi from '../api/clones/compare/+server';
+import * as sendApi from '../api/clones/send/+server';
 import { figures } from '$lib/server/db/schema';
 
 const T = Date.UTC(2026, 10, 3, 20);
@@ -251,6 +252,68 @@ describe('Compare and Take theirs', () => {
 		const page = await run(figurePage.load, ev('u3', F, { search: `?vs=${mine}` }));
 		expect(page.vs).toBeUndefined();
 		expect(page.taking).toBeNull();
+	});
+});
+
+describe('Copies you can see, and Send mine', () => {
+	const preview = (uid: string, from: number, kind = 'figure') =>
+		run(sendApi.GET, {
+			url: new URL(`http://localhost/api/clones/send?kind=${kind}&from=${from}`),
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+		});
+
+	it('an editor’s own copy lists the group’s, behind it, and sends into it', async () => {
+		const { F } = await setenta();
+		const mine = await copyInto('figure', F, { userId: 'u3', dance: 'salsa' });
+		db.update(figures).set({ notes: 'Hips first' }).where(eq(figures.id, mine)).run();
+		const page = await run(figurePage.load, ev('u3', mine));
+		expect(page.family).toMatchObject({ canSend: true, banners: [] });
+		expect(
+			page.family.entries.map((e: Answer) => [e.member.id, e.role, e.status, e.changed])
+		).toEqual([
+			[mine, null, null, ['Notes']],
+			[F, 'editor', 'behind', ['Notes']]
+		]);
+
+		const targets = await (await preview('u3', mine)).json();
+		expect(targets.map((t: Answer) => [t.target.id, t.comparison.picks])).toEqual([
+			[F, { notes: 'theirs' }]
+		]);
+		const form = {
+			targets: JSON.stringify(
+				targets.map((t: Answer) => ({
+					id: t.target.id,
+					picks: t.comparison.picks,
+					seen: t.comparison.seen
+				}))
+			)
+		};
+		expect(await run(figurePage.actions.send, ev('u3', mine, { form }))).toEqual({
+			action: 'send',
+			results: [{ id: F, result: { ok: true } }]
+		});
+		expect(db.select().from(figures).where(eq(figures.id, F)).get()!.notes).toBe('Hips first');
+		// The same sheet again: the group's changed since.
+		expect(await run(figurePage.actions.send, ev('u3', mine, { form }))).toMatchObject({
+			results: [{ id: F, result: { ok: false, reason: 'stale' } }]
+		});
+	});
+
+	it('a reader sends nothing from the group’s: no targets, 404; an outsider 404', async () => {
+		const { F, C } = await setenta();
+		const page = await run(figurePage.load, ev('u2', F));
+		// u2 edits their own copy: the list shows, but Send is not offered from the group’s.
+		expect(page.family).toMatchObject({ canSend: false, banners: [] });
+		expect(await preview('u2', F)).toMatchObject({ status: 404 });
+		expect(await preview('u4', C)).toMatchObject({ status: 404 });
+		expect(await preview('u2', C, 'nonsense')).toMatchObject({ status: 404 });
+		const form = { targets: JSON.stringify([{ id: C, picks: {}, seen: 'x' }]) };
+		expect(await run(figurePage.actions.send, ev('u2', F, { form }))).toMatchObject({
+			status: 404
+		});
+		expect(
+			await run(figurePage.actions.send, ev('u2', C, { form: { targets: '[]' } }))
+		).toMatchObject({ status: 400 });
 	});
 });
 

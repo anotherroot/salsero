@@ -208,6 +208,22 @@ Take). A take into a group logs one `change` (deletes keep their own
 once the take has landed. The banner shows on a row you edit whose group
 source (the row it was copied from) is `newer` or `differs`.
 
+*(Built, Task 26:)* Copies you can see and Send mine (`clones/send.ts`). The
+list shows on a member page when you edit some other live member of its
+family: this one first, then the rest (Yours, then groups by name), each with
+your role there and its tab's status as a chip. Send mine… is offered from a
+row you edit, and only to members you edit; a member you only read is never
+a target. Each target is `syncFrom` with the roles swapped (the target
+receives), in its own transaction, so one refusal leaves the others landed.
+A target is ticked when something would land; your deletes are boxes of
+their own, unticked, ticking one deletes it in each chosen target that still
+has it. A field both changed is asked on a second level, a target at a time.
+A pick names a piece by its gene, or `#<id>` before it has one; a copy into
+an earlier target stamps it, so the write reads `#<id>` as the row's gene
+now, and the pick lands rather than being dropped. Other copies that moved
+since they were in step with the page get a "… copy differs" banner with
+Compare (not the group source, which has Take's own banner).
+
 ## Leaving, and losing access *(user)*
 
 This replaces the groups spec's rule that a former member keeps reading the

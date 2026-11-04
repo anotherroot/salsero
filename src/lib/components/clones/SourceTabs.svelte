@@ -4,10 +4,11 @@
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CompareSheet from './CompareSheet.svelte';
+	import FamilyList from './FamilyList.svelte';
 	import { button } from '$lib/components/ui/styles';
-	import { COMPARE, VERSIONS, changedLine, sourceNote } from '$lib/clones/view';
+	import { COMPARE, VERSIONS, changedLine, differsBanner, sourceNote } from '$lib/clones/view';
 	import type { DanceSlug } from '$lib/dances/dances';
-	import type { CloneKind, CompareOffer, Source } from '$lib/types';
+	import type { CloneKind, CompareOffer, FamilyView, Source } from '$lib/types';
 
 	/**
 	 * A tab per source at the top of a member page's body (board C2 p2):
@@ -17,7 +18,10 @@
 	 * replaces the history entry: one place in the trail, whichever tab.
 	 * Opened that way (`taking`), a source's page says so under the tabs.
 	 * On a row the person edits whose group source moved since they took it
-	 * (`compare`), a line says what, with Compare (board C2 p2).
+	 * (`compare`), a line says what, with Compare (board C2 p2). Under it, when
+	 * the person edits another copy (`family`, board C3 p1): "Rueda club’s copy
+	 * differs: timing · Compare" per copy that moved, the copies they can see,
+	 * and Send mine….
 	 */
 	let {
 		sources,
@@ -26,7 +30,8 @@
 		current,
 		mineId,
 		taking = null,
-		compare = null
+		compare = null,
+		family = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -39,9 +44,14 @@
 		taking?: string | null;
 		/** "Salsa Tuesdays changed it since you took it: timing · Compare". */
 		compare?: CompareOffer | null;
+		/** Copies you can see, the differs banners and Send mine…; null when the person edits no other copy. */
+		family?: FamilyView | null;
 	} = $props();
 
 	let comparing = $state(false);
+	/** The copy a differs banner's Compare opened. */
+	let against = $state<CompareOffer | null>(null);
+	let againstOpen = $state(false);
 
 	// Follows the page; a tap moves it at once, before the next page lands.
 	let value = $derived(String(current));
@@ -102,4 +112,33 @@
 		theirsId={compare.id}
 		place={compare.place}
 	/>
+{/if}
+{#if family}
+	{#each family.banners as b (b.id)}
+		<div
+			class="flex items-center gap-2.5 rounded-2xl bg-accent-soft py-2 pr-2 pl-4 text-[14px] leading-snug text-accent-text"
+		>
+			<span class="flex-none"><Icon name="refresh" size={18} /></span>
+			<span class="min-w-0 flex-1 py-1">{differsBanner(b.place, b.changed)}</span>
+			<button
+				type="button"
+				class={button('tertiary', 'sm')}
+				onclick={() => {
+					against = b;
+					againstOpen = true;
+				}}>{COMPARE}</button
+			>
+		</div>
+	{/each}
+	{#if against}
+		<CompareSheet
+			open={againstOpen}
+			onclose={() => (againstOpen = false)}
+			{kind}
+			mineId={current}
+			theirsId={against.id}
+			place={against.place}
+		/>
+	{/if}
+	<FamilyList {family} {kind} {dance} {current} />
 {/if}

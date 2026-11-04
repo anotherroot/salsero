@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, SwitchReport } from '$lib/types';
 import {
+	FAMILY_TITLE,
+	NEXT,
+	NOTHING_TO_SEND,
+	SEND,
+	SEND_FAILED,
+	SEND_MINE,
+	SEND_SUB,
+	SEND_TITLE,
+	THIS_ONE,
+	bothNote,
+	bothTitle,
+	deleteRow,
+	differsBanner,
+	memberMeta,
+	notSent,
+	ownChanges,
+	selfMeta,
+	sendButton,
+	sendNote,
+	sendTargetMeta,
+	statusChip,
 	ALREADY_IN_YOURS,
 	CANCEL,
 	COMPARE_FAILED,
@@ -298,5 +319,122 @@ describe('the compare sheet’s options and states', () => {
 describe('the compare sheet’s Cancel', () => {
 	it('is the kit’s word', () => {
 		expect(CANCEL).toBe('Cancel');
+	});
+});
+
+describe('copies you can see, and Send mine (board C3)', () => {
+	const fd = (
+		key: string,
+		label: string,
+		side: FieldDiff['side'],
+		mine: string | null,
+		theirs: string | null,
+		removal = false
+	): FieldDiff => ({
+		key,
+		label,
+		side,
+		removal,
+		mine: mine === null ? null : { key, label, value: mine, show: mine },
+		theirs: theirs === null ? null : { key, label, value: theirs, show: theirs }
+	});
+
+	it('a copy’s chip and meta, and the page’s own line', () => {
+		expect(statusChip('behind')).toEqual({ text: 'Behind', tone: 'neutral' });
+		expect(statusChip('newer')).toEqual({ text: 'Newer', tone: 'accent' });
+		expect(statusChip('differs')).toEqual({ text: 'Differs', tone: 'warn' });
+		expect(statusChip('same')).toBeNull();
+		expect(statusChip(null)).toBeNull();
+		expect(memberMeta('owner', 'behind', ['Notes', '1 recording'])).toBe(
+			'Owner · behind yours: notes, 1 recording'
+		);
+		expect(memberMeta('editor', 'differs', ['Timing', 'Notes'])).toBe('Editor · differs both ways');
+		expect(memberMeta('editor', 'newer', ['Timing'])).toBe('Editor · newer than yours: timing');
+		expect(memberMeta('member', 'same', [])).toBe('Member · in step');
+		expect(memberMeta(null, 'behind', ['Notes'], 'this one')).toBe('behind this one: notes');
+		expect(selfMeta(['Notes', '+1 recording'])).toBe('This one · you changed notes, +1 recording');
+		expect(selfMeta([])).toBe('This one');
+		expect([FAMILY_TITLE, SEND_MINE, THIS_ONE]).toEqual([
+			'Copies you can see',
+			'Send mine…',
+			'This one'
+		]);
+	});
+
+	it('what the page changed: fields, then what it added (+) and took away (−)', () => {
+		expect(
+			ownChanges([
+				fd('notes', 'Notes', 'mine', 'a', 'b'),
+				fd('rec:g1', 'Recording · new', 'mine', 'v', null),
+				fd('rec:g2', 'Recording · old', 'mine', null, 'v', true),
+				fd('rec:g3:note', 'Note · x', 'mine', 'x', 'y')
+			])
+		).toEqual(['Notes', '+1 recording', '−1 recording', '1 recording']);
+	});
+
+	it('the banner names the place (ruling 10)', () => {
+		expect(differsBanner('Rueda club', ['Timing'])).toBe('Rueda club’s copy differs: timing');
+		expect(differsBanner('Yours', ['Notes', '1 recording'])).toBe(
+			'Your copy differs: notes, 1 recording'
+		);
+	});
+
+	it('the send sheet’s words', () => {
+		expect(SEND_TITLE).toBe('Send your changes');
+		expect(SEND_SUB).toBe('Adds and changes travel. Deletes only if you tick them.');
+		const lands = [
+			fd('notes', 'Notes', 'theirs', 'a', 'b'),
+			fd('rec:g1', 'Recording · new', 'theirs', null, 'v')
+		];
+		expect(sendTargetMeta(lands, 50, true)).toBe('Notes · 1 new recording (charged to the group)');
+		expect(sendTargetMeta(lands, 50, false)).toBe('Notes · 1 new recording (charged to you)');
+		expect(sendTargetMeta(lands, 0, true)).toBe('Notes · 1 new recording');
+		expect(sendTargetMeta([...lands, fd('timing', 'Timing', 'both', '1', '3')], 50, true)).toBe(
+			'Notes · 1 new recording (charged to the group) · timing: they changed it too, you’ll pick'
+		);
+		// Only the target's own changes, a removal, or a name: nothing goes by default.
+		expect(
+			sendTargetMeta(
+				[
+					fd('timing', 'Timing', 'mine', '3', '1'),
+					fd('rec:g2', 'Recording · old', 'theirs', 'v', null, true),
+					fd('name', 'Name', 'theirs', 'Doble (Salsa Tuesdays)', 'Doble')
+				],
+				0,
+				true
+			)
+		).toBe(NOTHING_TO_SEND);
+		expect(NOTHING_TO_SEND).toBe('Nothing to send');
+		expect(deleteRow('old take')).toEqual({
+			text: 'Also delete “old take” there',
+			meta: 'You deleted it from yours. Refused where a lesson links its section.'
+		});
+		expect(sendNote('figure', 2)).toBe(
+			'Changes land on the groups’ own figure: members’ practice and lesson links stay.'
+		);
+		expect(sendNote('routine', 1)).toBe(
+			'Changes land on the group’s own routine: members’ practice and lesson links stay.'
+		);
+		expect(sendNote('figure', 0)).toBeNull();
+		expect(sendButton(2, 'Rueda club')).toBe('Send to 2 groups');
+		expect(sendButton(1, 'Salsa Tuesdays')).toBe('Send to Salsa Tuesdays');
+		expect(sendButton(1, 'Yours')).toBe('Send to yours');
+		expect(sendButton(2, 'Yours', false)).toBe('Send to 2 places');
+		expect(sendButton(0, '')).toBe('Send');
+	});
+
+	it('the second level: both changed, per target', () => {
+		expect(bothTitle('Rueda club', ['Timing'])).toBe('Rueda club: both changed the timing');
+		expect(bothTitle('Rueda club', ['Timing', 'Notes'])).toBe(
+			'Rueda club: both changed the timing and notes'
+		);
+		expect(bothNote('Rueda club')).toBe(
+			'Pick yours and theirs is replaced in Rueda club. Pick theirs and you send only the rest.'
+		);
+		expect([SEND, NEXT]).toEqual(['Send', 'Next']);
+		expect(notSent('Salsa Tuesdays', 'Linked to Shines — unlink it first.')).toBe(
+			'Not sent to Salsa Tuesdays: Linked to Shines — unlink it first.'
+		);
+		expect(SEND_FAILED).toBe('That could not be sent. Try again.');
 	});
 });
