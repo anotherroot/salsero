@@ -38,7 +38,8 @@ phone. It answers three needs:
 
 Each phase is independently deployable and useful. Phases 1 and 2 are **live**
 (2a on 2026-09-22, 2b on 2026-09-23), as is phase 4; phase 3 is live in both
-slices, 3a since 2026-09-24 and 3b since 2026-09-26.
+slices, 3a since 2026-09-24 and 3b since 2026-09-26. Phase 5's accounts and
+groups are live; its clones and twins are built, not yet deployed.
 
 1. **Exercises & figures** — Today page, exercises, sets, frequency/priority,
    active/inactive, past-day navigation, figures with recordings (auto-creating
@@ -72,6 +73,18 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    A full-screen video player with saved spots and looped sections, for
    figure recordings and lesson videos: live since 2026-10-01, see
    [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md).
+5. **People and groups** — accounts (one-time invites, a storage limit; see
+   [`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md)), groups (a
+   class shares its lessons, figures, routines and drills with its members; see
+   [`2026-11-02-groups-design.md`](2026-11-02-groups-design.md)) and their
+   follow-ups (group mode, notifications, class songs; see
+   [`2026-11-03-groups-follow-ups-design.md`](2026-11-03-groups-follow-ups-design.md)),
+   all live by 2026-11-03. Then clones and twins: copies across places that
+   remember where they came from (Copy to…, Make it mine, Compare, Take, Send,
+   Drop my copy, Detach, Move to… a group), a group's things used in your own
+   routines, lessons and sections without copying, leaving that keeps copies,
+   and Same as… showing twins as one. Built 2026-11-04 (migration `0027`); see
+   [`2026-11-03-clones-and-twins-design.md`](2026-11-03-clones-and-twins-design.md).
 
 Deferred beyond phase 3: stats/charts, ear-training quizzes (e.g. "2-3 or 3-2
 clave?"), offline mode.

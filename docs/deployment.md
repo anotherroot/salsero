@@ -90,16 +90,24 @@ and delete them (and any `links`, `spot_links` or `lesson_exercises` rows that
 name them: `foreign_keys` is on) — or set the others' target column
 (`lesson_id`, `routine_id` or `figure_id`) to null. Then run the queries again.
 
-**Before the groups follow-ups migrations (`0023`–`0025`)**, take the backup
-above, then try the migrations on a copy of it before deploying. `0023`
-(opens) and `0024` (`songs.team_id`, `songs.shared_at`, `songs_team_idx`,
-`song_drops`) are additive. `0025` rebuilds `team_changes` to widen its
-CHECKs; that is safe only because nothing has a foreign key into or out of
-that table. Check it kept its rows and index:
+**Before the groups follow-ups and clones migrations (`0023`–`0027`)**, take
+the backup above, then try the migrations on a copy of it before deploying.
+`0023` (opens) and `0024` (`songs.team_id`, `songs.shared_at`,
+`songs_team_idx`, `song_drops`) are additive. `0025` rebuilds `team_changes`
+to widen its CHECKs; that is safe only because nothing has a foreign key into
+or out of that table. `0027` (clones and twins) is additive: `gene_id` and
+`cloned_from` on `figures`, `routines`, `songs`, `lessons`, `exercises`,
+`recordings`, `lesson_videos` and `video_spots`, their indexes (unique per
+owner on the root tables, over non-null genes only, so every existing row,
+whose gene is null, passes), and the new tables `clone_pairs` and `twins`. No
+table may be rebuilt by it. The script boots the trial twice: the first boot
+migrates and settles the people who left a group before Keep, the second must
+report every integrity check at 0:
 
 ```sh
 bash -eu <<'EOF'
 DB=/tmp/trial.db
+LOG=/tmp/trial.log
 fail() { echo "FAIL: $*" >&2; exit 1; }
 # the backup just taken by `systemctl start salsa-backup` (named for today)
 ssh tilen@49.13.76.224 "sudo cat /var/lib/salsa/backups/salsa-$(date +%F).db" > "$DB" \
@@ -108,31 +116,76 @@ ssh tilen@49.13.76.224 "sudo cat /var/lib/salsa/backups/salsa-$(date +%F).db" > 
 mkdir -p /tmp/trial-data
 before=$(sqlite3 "$DB" 'select count(*) from team_changes;')
 npm run build
-DATA_DIR=/tmp/trial-data DATABASE_PATH="$DB" HOST=127.0.0.1 PORT=3999 node build &
-PID=$!
-trap 'kill $PID 2>/dev/null || true' EXIT
-# migrations run on the first request; retry while the server boots
-curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:3999/health \
-  || fail "the trial server never answered /health"
-kill $PID; wait $PID 2>/dev/null || true
-[ "$(sqlite3 "$DB" 'select count(*) from __drizzle_migrations;')" -ge 26 ] \
-  || fail "migrations did not run (fewer than 26 applied)"
+PID=
+trap '[ -n "$PID" ] && kill $PID 2>/dev/null || true' EXIT
+boot() {
+  DATA_DIR=/tmp/trial-data DATABASE_PATH="$DB" HOST=127.0.0.1 PORT=3999 node build > "$LOG" 2>&1 &
+  PID=$!
+  # migrations run on the first request; retry while the server boots
+  curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:3999/health \
+    || fail "the trial server never answered /health"
+  # then wait (30 s at most) for the boot's last line: the settled former members
+  for _ in $(seq 30); do grep -q '\[clones\] settled' "$LOG" && break; sleep 1; done
+  kill $PID 2>/dev/null || true; wait $PID 2>/dev/null || true; PID=
+  grep '\[clones\] settled' "$LOG" || fail "no '[clones] settled N former group members' line"
+}
+boot
+[ "$(sqlite3 "$DB" 'select count(*) from __drizzle_migrations;')" -ge 27 ] \
+  || fail "migrations did not run (fewer than 27 applied)"
 sqlite3 "$DB" '.schema team_changes' | grep -q "'song'" \
   || fail "team_changes was not rebuilt: its CHECK does not name 'song'"
 after=$(sqlite3 "$DB" 'select count(*) from team_changes;')
 [ "$after" -eq "$before" ] || fail "team_changes had $before rows, now $after"
 sqlite3 "$DB" '.indexes team_changes' | grep -qw team_changes_root_idx \
   || fail "team_changes_root_idx is missing"
-echo "OK: 26+ migrations applied, $after team_changes rows kept, index present"
+for t in figures routines songs lessons exercises recordings lesson_videos video_spots; do
+  for c in gene_id cloned_from; do
+    sqlite3 "$DB" "select $c from $t limit 0;" > /dev/null 2>&1 || fail "$t.$c is missing"
+  done
+done
+for t in clone_pairs twins; do
+  [ "$(sqlite3 "$DB" "select count(*) from sqlite_master where type = 'table' and name = '$t';")" -eq 1 ] \
+    || fail "table $t is missing"
+done
+[ "$(sqlite3 "$DB" "select count(*) from sqlite_master where instr(name, '__new_') > 0;")" -eq 0 ] \
+  || fail "a table was rebuilt: sqlite_master still names a __new_ table"
+boot
+grep '\[integrity\]' "$LOG"
+for c in owners families cross-refs; do
+  grep -q "\[integrity\] $c: 0 found" "$LOG" || fail "integrity $c is not 0 (its lines are above)"
+done
+echo "OK: 27+ migrations applied, $after team_changes rows kept, clones columns and tables present, integrity clean"
 EOF
 ```
 
 It stops at the first thing that is wrong and says what, and prints `OK: …`
 only when all of it holds. The migrations run in `openDb`, which only a
 request reaches, so the `curl` is what applies them: the migration count must
-be at least 26, the `team_changes` schema must mention `'song'`, the row count
-must match the one before, and `team_changes_root_idx` must be listed. Delete
-`/tmp/trial*` afterwards, and never point this at the live database.
+be at least 27, the `team_changes` schema must mention `'song'`, the row count
+must match the one before, `team_changes_root_idx` must be listed, every
+`gene_id` and `cloned_from` column must exist, `clone_pairs` and `twins` must
+exist, and `sqlite_master` must name no `__new_` table (what a drizzle rebuild
+leaves behind, and what `0027` must never do). Delete `/tmp/trial*`
+afterwards, and never point this at the live database.
+
+**What the boot logs, and what to look at.** Every boot logs one count per
+integrity check, after the migrations: `[integrity] owners: N found`
+(`ownerIntegrity`: a root row whose owner is not exactly one person or group),
+`[integrity] families: N found` (`familyIntegrity`: a recording, lesson video
+or section parent holding two pieces of one family) and
+`[integrity] cross-refs: N found` (`crossRefs`: a group's row pointing outside
+its group, or a person's routine slot, embed, section link, lesson link or
+live practice entry pointing at a group row they do not read, or at another
+person's row), each finding on its own `[integrity]` line above its count.
+Then `[clones] settled N former group members`: the people who left a group
+before Keep shipped get Keep everything, once (`settleFormerMembers`); N is 0
+from the second boot on. The checks run before the settling, so on the first
+boot after `0027` a cross-refs line naming a former member's practice entry
+(`exercises N: entry's figure …, which u… does not read`) is expected, and is
+gone at the next boot. Any other cross-refs line, any cross-refs line on a
+later boot, and any owners or families line is a bug: look at it before using
+the app. The app still serves (the checks only log), but a person's row is
+pointing where it must not, and the next change of reach may act on it.
 
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
@@ -287,7 +340,7 @@ stays for later releases.
   key, so a release build cannot update them: uninstall Salsa and Bachata,
   install the release-signed builds (from `/app` on the phone), sign in and
   pair again. Nothing on the server is lost.
-- Migration 0026 (`app_installs`; numbered after the groups migrations) ships with the site; take the backup before deploying it.
+- Migration 0026 (`app_installs`; numbered after the groups migrations) ships with the site; take the backup before deploying it. 0027 (clones and twins) has its dry run with the groups follow-ups above.
 
 ### Moving to the Play Store
 

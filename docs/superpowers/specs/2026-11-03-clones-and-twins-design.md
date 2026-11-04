@@ -1,6 +1,8 @@
 # Clones and twins — design
 
-**Status:** design, 2026-11-03. Comes after the groups follow-ups
+**Status:** built, 2026-11-04 (designed 2026-11-03; migration `0027`). What the
+build decided where this design was open, or the code disagreed, is under
+"Decided while planning" and "Decided while building" at the end. Comes after the groups follow-ups
 ([`2026-11-03-groups-follow-ups-design.md`](2026-11-03-groups-follow-ups-design.md))
 and builds on groups
 ([`2026-11-02-groups-design.md`](2026-11-02-groups-design.md)). It replaces the
@@ -73,6 +75,8 @@ edit a class figure into their own). A teacher uses both.
      as today. Outside group mode, an editor sees the group's things like a
      member does, and Edit makes their own clone. Group mode is where you
      work on the group.
+     *(Reversed while planning, ruling 1: editors keep editing the group's
+     rows wherever they open them; their own copy is Copy to… → Your app.)*
    - **Recordings** *(my call)*: a clone made in your own app does not copy
      the source's recordings (the groups spec's rule for Make my own copy);
      the source's recordings show inside your clone's page, under "From
@@ -386,6 +390,10 @@ snapshots answer it for any two members that were ever in step directly, and
 fall back to "pick" for the rest. The plan must test three members of one
 family, edits on two of them, and Take and Send in every order, including a
 member taking from one sibling and sending to another.
+*(Built:)* pinned in `src/lib/clones/diff.spec.ts` (a table of orders),
+`src/lib/server/clones/send.spec.ts` (three places) and
+`src/lib/server/clones/story.spec.ts` (the whole story, with `crossRefs` and
+`familyIntegrity` empty after every step).
 
 ## Order
 
@@ -404,6 +412,129 @@ lists figures under each move's name as a heading (as the pickers already
 do), and tapping the name opens the move's page. The code already works this way (`figures` is a
 variation, `figure_groups` the named set), so only screen words, specs and
 CLAUDE.md change. It ships first, on its own.
+
+## Decided while planning
+
+The plan (`docs/superpowers/plans/2026-11-03-clones-and-twins.md`) settled
+what this design left open, or where the code disagreed with it. Built as
+follows.
+
+1. **Editors keep editing the group's rows wherever they open them.** This
+   reverses "Editors *(my call)*" above: outside group mode a teacher reaches
+   drafts from the Groups tab, and turning their Edit into a copy there would
+   strand publishing. Edit makes a copy only for someone who can only read
+   the row; an editor who wants their own copy uses Copy to… → Your app.
+2. **A person's own lessons may link a group's figure, routine or drill they
+   reach**, like their routines and section links: Move to… and Drop my copy
+   re-point lessons too.
+3. **"Make it mine" promises the name, timing, positions and notes**, not
+   sections: sections sit on recordings, and recordings stay the group's (the
+   source's tab shows them, with Take).
+4. **Members of a deleted group keep exactly what they have** for the 30
+   days: the lessons they added. People who left or were removed read
+   nothing. At the purge, members get Keep everything.
+5. **Losing access keeps recordings; choosing to copy doesn't.** A copy into
+   your own app made by Edit, Copy to… → Your app or Make it mine has no
+   recordings. One made by Keep (leaving, removal, the purge) brings them,
+   hard-linked and charged to you. One made by the rescue (an editor archived
+   or unlinked something your own rows use) has none: it runs inside the
+   editor's change and touches no files.
+6. **Practice moves with everything else**, the rescue included: an entry on
+   something your routine uses moves to the rescued copy.
+7. **History uses the verbs it has.** A copy into a group logs `add`; Take,
+   Send and Detach in a group log `change`; Move to… logs `add` in the group.
+   No new CHECK values on `team_changes`.
+8. **The figure page keeps its switcher at the bottom** ("Figures of
+   Enchufla", with a link to the move's page); the source tabs sit at the top.
+9. **The Moves list is figures under move headings.** A group's move whose
+   figures are all your twins gets no heading; your move's heading says "also
+   in Salsa Tuesdays"; a twinned figure is one row with a "Twins" chip.
+10. **The banner names the place, not the person** ("Rueda club changed the
+    timing"): who edited a field is not stored.
+11. **Move to… leaves lesson practice with the archived copy**, and defaults
+    to "Keep mine as well" for anything your other lessons or routines use,
+    or that you practise: the group's copy is a draft, which practice cannot
+    follow.
+12. **Make my own copy and a reader's Edit on a group lesson are one action,
+    "Make it mine".** The lesson page has one Edit; the old button is gone.
+13. **Recordings, videos and sections match by family only inside their
+    parent**, never across parents. Moving a figure to another move never
+    changes its family.
+
+## Decided while building
+
+- **Names never travel by default.** A name or title difference is never
+  preselected, in Compare, Take or Send: a copy renamed on arrival
+  ("Doble (Salsa Tuesdays)") must not be pushed back, and taking the source's
+  name would clash in the receiving move. It travels only when ticked.
+- **New practice starts paused.** Whatever a copy brings to practise that the
+  person did not practise (a drill, a routine's or lesson's own exercise)
+  waits off Today, after Make it mine, the rescue, Keep and a copy of a drill
+  the person already practises. A live entry moved onto the copy carries its
+  schedule and stays on Today ("the live practice wins" when two merge).
+- **An archived copy holds its place and comes back.** Make it mine on a row
+  whose copy you archived restores that copy. A person's archived song copy
+  cannot be restored (a person's song has no restore): it is refused with
+  what to do ("Delete it in Settings → What uses space"). The rescue and Keep
+  bring an archived copy back, paused, to hold the person's rows.
+- **Archived own rows are re-pointed too**, and `crossRefs` checks a person's
+  archived routines and lessons: restoring one must not bring back a pointer
+  they may not follow.
+- **A copy that charges no bytes needs no room.** Over the storage limit,
+  only uploads and copies that bring files wait.
+- **One History line per root a copy makes**, nested copies included; a Take
+  logs one `change`, and the deletes it ticks keep their own `remove` lines
+  (Recently deleted needs them).
+- **References taken in land in the receiving place**: a lesson's link, a
+  section's link, a slot's figure or embedded routine becomes that place's
+  member of its family, copied there without recordings when missing.
+- **Keep and the rescue copy what the person saw.** A nested reference to an
+  archived row (or a figure under an archived move) is dropped, as in any
+  copy; an archived row that is itself kept is copied. When Keep reuses a
+  copy the person already has, it adds the recordings and videos that copy
+  lacks (ruling 5), never overwriting a field.
+- **Keep runs before the membership goes**, on leaving and on removal, so the
+  rescue does not copy first without recordings.
+- **A file already missing on disk is skipped** by Keep (logged): its
+  recording or video stays behind, and a class song without its audio is not
+  kept (its picks drop to the count). Edit and Copy to… still refuse.
+- **The person who deleted a group keeps only what their own rows use** at
+  the purge, so nothing of theirs dangles; every other member keeps
+  everything. A Keep that fails during a purge holds that group's purge to
+  the next hourly run, files and all, logged loudly.
+- **People who left before Keep shipped are settled at boot**
+  (`settleFormerMembers`): Keep everything, once. The short window between
+  boot and that run is accepted.
+- **A lesson listed in Keep only because it is practised cannot be ticked**
+  on its own: it is not an added lesson.
+- **A group's own workspace shows no personal layer.** In a group's group
+  mode, a figure page shows none of the viewer's own sections or routines,
+  link cards point at the group's rows (not the viewer's copies), and there
+  are no twins. Outside it, an editor sees their own items on a group figure
+  like anyone.
+- **A person's routine embedding a group routine is not the group's embed**:
+  editors may still nest into it; the person's routine reads the nested
+  slots flattened.
+- **Tabs keep one order on every member's page**: Yours, groups by name,
+  twins. A recording row shows its size where the board shows a duration
+  (none is stored).
+- **Send mine… sits at the foot of the family list**; each target is its own
+  transaction, a throw is that target's refusal, and a post holds at most 50
+  targets.
+- **Drop my copy archives only the root copy**: nested copies stay the
+  person's. A song copy is archived with the song page's Archive.
+- **Detach is offered only while another live member is readable.**
+- **Copy to…'s "Last changed"** is the newest of the row's creation, its
+  History lines, its pair snapshots and its pieces: a person's own edits are
+  not stamped.
+- **Move to…'s "You practise it"** is a live entry on Today or one with sets.
+  Your archived lesson keeps its links to your own copies, so restoring it
+  brings yours back.
+- **Twins:** the kit's `link` icon stands for them; a group figure is a
+  candidate for Same as… only through a lesson you added (what Moves shows);
+  "also in" lists groups by name; drill picker rows (practice entries) and
+  the song popup are not folded; Music folds only ready songs, so a twin
+  still being added never hides a ready one.
 
 ## Not in this design
 

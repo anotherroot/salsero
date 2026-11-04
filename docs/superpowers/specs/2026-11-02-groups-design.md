@@ -54,6 +54,8 @@ groups, across both dances, and drops into some only now and then.
 - Moving an existing personal lesson into a group.
 - Using a group's figures, variations or routines in your own routines,
   figures or lessons: that is "your moves across groups", the next step.
+  *(Both built as clones and twins: Copy to… and Move to… a group; your own
+  routines, lessons and sections use a group's things without copying.)*
 - Shared songs. Songs stay personal.
 - Live updates while two people have the same page open. A change shows on
   the next open or refresh.
@@ -234,6 +236,16 @@ groups, across both dances, and drops into some only now and then.
 
 ### Leaving, being removed, a deleted group
 
+> **Replaced by clones and twins**
+> ([`2026-11-03-clones-and-twins-design.md`](2026-11-03-clones-and-twins-design.md),
+> "Leaving, and losing access"): after leaving or being removed a person reads
+> nothing of the group. Leaving asks what to keep (Keep everything, choose,
+> or Keep only what my routines use); removal keeps everything; what is kept
+> becomes their own copies, files hard-linked and charged to them, with their
+> routines, sections and practice moved onto them. Members of a deleted group
+> keep what they have for the 30 days and get Keep everything at the purge.
+> The read-only, still-current lessons below are how it was first built.
+
 - **Logs are always the member's own** and are never touched.
 - After **leaving**, the lessons the person had added stay in their Lessons,
   **read-only and still current**, at no storage cost. They lose the group
@@ -250,8 +262,8 @@ groups, across both dances, and drops into some only now and then.
 
 ### Make my own copy
 
-> **Superseded** by Make it mine (clones and twins spec, ruling 12): a
-> reader's Edit on a group lesson or song makes it theirs, and moves their
+> **Replaced by clones and twins**: Make it mine (clones and twins spec,
+> ruling 12). A reader's Edit on a group lesson or song makes it theirs, and moves their
 > practice onto the copy; the menu item, the `copy` actions and
 > `copy-lesson.ts`/`copy-song.ts` are gone. What follows is how it was built.
 
@@ -326,12 +338,13 @@ groups, across both dances, and drops into some only now and then.
    row); a link to one archived meanwhile is refused, "Archived by Ana",
    with Restore or pick another.
 4. **A removed member:** *(my call)* keeps their added lessons read-only,
-   like one who left (option A).
+   like one who left (option A). *(Replaced by clones and twins: a removed
+   member gets Keep everything and reads nothing of the group.)*
 5. **Moves:** no Group / Mine toggle. Your figures, then each group's
    figures from the lessons you added, under a slight group heading
    (option A's content, the user's wish for no toggle). In this step group
    figures are viewed and practised only; using them in your own routines
-   comes with "your moves across groups" (below).
+   comes with "your moves across groups" (below). *(Built as clones and twins.)*
 6. **Today:** a heading per group (option B).
 
 ## Settled while planning (2026-11-02)
@@ -355,7 +368,8 @@ groups, across both dances, and drops into some only now and then.
 - **Make my own copy** puts the copied variations under your figure of the
   same name, if you have one; a variation name you already use there gets
   the group's name added ("Doble (Salsa nadaljevalna)"). Figure recordings
-  are not copied.
+  are not copied. *(Replaced by clones and twins: a copy is matched by
+  its family, not its name; copying again reuses the first copy.)*
 - **A group drill never holds a song;** a member picks their own.
 - **Taken out means off Today.** When an editor unlinks a drill, routine or
   figure from a lesson (or archives it), members whose added lessons no
@@ -374,6 +388,12 @@ groups, across both dances, and drops into some only now and then.
   means a figure there (`figure_groups`). People only ever read "group".
 
 ## Next step: your moves across groups
+
+> **Replaced by clones and twins**
+> ([`2026-11-03-clones-and-twins-design.md`](2026-11-03-clones-and-twins-design.md)):
+> Same as… became personal twins per figure, shown as one; copies became
+> families with Compare, Take and Send; leaving keeps copies instead of
+> freezing. What follows is the brainstorm it came from.
 
 Not in this step; its own design right after. Agreed in the brainstorm:
 
