@@ -12,15 +12,20 @@ import {
 	or,
 	sum
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
-import { listPickRoutines } from './routines';
+import { listPickRoutines, listUsableRoutines } from './routines';
+import { ownedOrUsable, usableBy, usableDrills, usableOf, usableVersions } from './usable';
+import { foldNamed, foldVersions } from './twins';
+import { mineIdsFor, withoutShadowed } from './clones/shadow';
 import {
 	exercises,
 	figureGroups,
 	figures,
+	lessonAdds,
 	lessonExercises,
 	lessonFigures,
 	lessonRoutines,
@@ -28,10 +33,25 @@ import {
 	lessons,
 	routines,
 	spotLinks,
-	videoSpots
+	teams,
+	videoSpots,
+	type Exercise,
+	type Lesson
 } from './db/schema';
-import type { DanceSlug } from '$lib/dances/dances';
-import { inWall, type Wall } from './scope';
+import {
+	inSpace,
+	isTeam,
+	ownedBy,
+	ownerValues,
+	type Space,
+	type TeamSpace,
+	type Wall
+} from './scope';
+import { getTeam, roleOf } from './teams';
+import { addedLessonIds, addedTeams } from './access';
+import { entryFor, entryJoin, reconcileEntries, reviveEntries, type EntryTarget } from './entries';
+import { actingIn, fieldChange, logChange } from './changes';
+import { rootTitle, trashRows, type ArchiveRestore } from './trash';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
@@ -40,7 +60,9 @@ import type {
 	LessonVideoRow,
 	FigureVersion,
 	PickExercise,
-	PickRoutine
+	PickRoutine,
+	Role,
+	TeamLessonItem
 } from '$lib/types';
 
 export interface LessonInput {
@@ -65,95 +87,389 @@ export function reviewName(title: string): string {
 	return `Review: ${title}`;
 }
 
-/** The wall, as a filter on each root table a lesson reaches. */
-const lessonsIn = (wall: Wall) =>
-	and(eq(lessons.dance, wall.dance), eq(lessons.userId, wall.userId));
-const routinesIn = (wall: Wall) =>
-	and(eq(routines.dance, wall.dance), eq(routines.userId, wall.userId));
-const figuresIn = (wall: Wall) =>
-	and(eq(figures.dance, wall.dance), eq(figures.userId, wall.userId));
-
-/** A lesson's wall, for comparing a linked row with it. Null for a missing lesson. */
-function lessonWall(db: Db, lessonId: number): Wall | null {
+/**
+ * A lesson's space, for comparing a linked row with it, acted in by `by` (a
+ * write names who, for History; a read leaves it out). Null for a missing
+ * lesson.
+ */
+function lessonSpace(db: Db, lessonId: number, by?: string): Space | null {
 	const lesson = db
-		.select({ dance: lessons.dance, userId: lessons.userId })
+		.select({ dance: lessons.dance, userId: lessons.userId, teamId: lessons.teamId })
 		.from(lessons)
 		.where(eq(lessons.id, lessonId))
 		.get();
-	if (!lesson || lesson.userId === null) return null;
-	return { dance: lesson.dance as DanceSlug, userId: lesson.userId };
+	return lesson ? actingIn(lesson, by) : null;
+}
+
+/** What a lesson links by hand: a variation, a routine or an exercise (a drill, in a group). */
+type Linked = { figureId: number } | { routineId: number } | { exerciseId: number };
+
+/** The name History shows for a linked thing ("Enchufla · Doble"); null when it is gone. */
+function linkedName(tx: Db, t: Linked): string | null {
+	if ('figureId' in t) {
+		const row = tx
+			.select({ figure: figureGroups.name, name: figures.name })
+			.from(figures)
+			.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+			.where(eq(figures.id, t.figureId))
+			.get();
+		return row ? `${row.figure} · ${row.name}` : null;
+	}
+	if ('routineId' in t) {
+		return (
+			tx.select({ name: routines.name }).from(routines).where(eq(routines.id, t.routineId)).get()
+				?.name ?? null
+		);
+	}
+	return (
+		tx.select({ name: exercises.name }).from(exercises).where(eq(exercises.id, t.exerciseId)).get()
+			?.name ?? null
+	);
+}
+
+/** History's line for a thing linked to or taken off a group's lesson. */
+function logLinked(
+	tx: Db,
+	space: Space,
+	lessonId: number,
+	verb: 'add' | 'remove',
+	t: Linked,
+	name: string | null,
+	now: number
+): void {
+	const [subject, subjectId] =
+		'figureId' in t
+			? ['figure', t.figureId]
+			: 'routineId' in t
+				? ['routine', t.routineId]
+				: ['drill', t.exerciseId];
+	const named = name === null ? null : { name };
+	logChange(
+		tx,
+		space,
+		{
+			rootKind: 'lesson',
+			rootId: lessonId,
+			verb,
+			subject,
+			subjectId,
+			...(verb === 'add' ? { after: named } : { before: named })
+		},
+		now
+	);
+}
+
+/** `logLinked` for an unlink, which reads the lesson's space itself. */
+function logUnlinked(
+	tx: Db,
+	lessonId: number,
+	t: Linked,
+	name: string | null,
+	by: string | undefined,
+	now: number
+): void {
+	const space = lessonSpace(tx, lessonId, by);
+	if (space) logLinked(tx, space, lessonId, 'remove', t, name, now);
+}
+
+/**
+ * The row whose owner counts for an exercise a lesson links: a drill's own,
+ * and an entry's target's (its figure, routine or drill). An entry is its
+ * person's row pointing at another row, so its own owner says nothing about
+ * where its content lives. Null when the target is gone.
+ */
+function ownerRowOf(
+	db: Db,
+	e: Pick<Exercise, 'dance' | 'userId' | 'teamId' | 'figureId' | 'routineId' | 'drillId'>
+): { dance: string; userId: string | null; teamId: number | null } | null {
+	const cols = (t: typeof figures | typeof routines | typeof exercises) => ({
+		dance: t.dance,
+		userId: t.userId,
+		teamId: t.teamId
+	});
+	if (e.figureId !== null) {
+		return db.select(cols(figures)).from(figures).where(eq(figures.id, e.figureId)).get() ?? null;
+	}
+	if (e.routineId !== null) {
+		return (
+			db.select(cols(routines)).from(routines).where(eq(routines.id, e.routineId)).get() ?? null
+		);
+	}
+	if (e.drillId !== null) {
+		return (
+			db.select(cols(exercises)).from(exercises).where(eq(exercises.id, e.drillId)).get() ?? null
+		);
+	}
+	return e;
 }
 
 /**
  * Create a lesson AND its review exercise, in one transaction — the same rule
  * `createFigure` follows. A lesson with nothing on Today is a lesson you never
  * go back to, which is the one thing this feature exists to prevent.
+ *
+ * A group's lesson gets no exercise: nobody would practise it, and each
+ * member's Add makes their own.
  */
-export function createLesson(db: Db, wall: Wall, input: LessonInput, everyDays = 3) {
-	const { dance, userId } = wall;
+export function createLesson(
+	db: Db,
+	wall: Wall,
+	input: LessonInput,
+	everyDays?: number
+): { lesson: Lesson; exercise: Exercise };
+export function createLesson(
+	db: Db,
+	space: Space,
+	input: LessonInput,
+	everyDays?: number
+): { lesson: Lesson; exercise: Exercise | null };
+export function createLesson(
+	db: Db,
+	space: Space,
+	input: LessonInput,
+	everyDays = 3
+): { lesson: Lesson; exercise: Exercise | null } {
 	return db.transaction((tx) => {
-		const lesson = tx
-			.insert(lessons)
-			.values({ ...input, dance, userId })
-			.returning()
-			.get();
-		const exercise = tx
-			.insert(exercises)
-			.values({
-				name: reviewName(lesson.title),
-				source: 'lesson',
-				lessonId: lesson.id,
-				dance,
-				userId,
-				everyDays
-			})
-			.returning()
-			.get();
-		return { lesson, exercise };
+		const made = insertLesson(tx, space, input, everyDays);
+		logChange(
+			tx,
+			space,
+			{
+				...ofLesson(made.lesson.id),
+				verb: 'add',
+				subject: 'lesson',
+				after: { title: made.lesson.title }
+			},
+			Date.now()
+		);
+		return made;
 	});
 }
 
-/** Edit a lesson. A retitle carries over to its exercise so the two never drift. */
-export function updateLesson(db: Db, id: number, input: LessonInput) {
+/**
+ * The lesson row and, in a person's space, its review exercise, inside a
+ * caller's transaction; logs nothing. `createLesson` is this plus History's
+ * line; the clone engine writes its own line.
+ */
+export function insertLesson(
+	tx: Db,
+	space: Space,
+	input: LessonInput,
+	everyDays = 3
+): { lesson: Lesson; exercise: Exercise | null } {
+	const lesson = tx
+		.insert(lessons)
+		.values({ ...input, ...ownerValues(space) })
+		.returning()
+		.get();
+	if (isTeam(space)) return { lesson, exercise: null };
+	const exercise = tx
+		.insert(exercises)
+		.values({
+			name: reviewName(lesson.title),
+			source: 'lesson',
+			lessonId: lesson.id,
+			dance: space.dance,
+			userId: space.userId,
+			everyDays
+		})
+		.returning()
+		.get();
+	return { lesson, exercise };
+}
+
+/** A lesson's root in History, and the lesson as its own subject. */
+const ofLesson = (id: number) => ({ rootKind: 'lesson' as const, rootId: id, subjectId: id });
+
+/** The fields a lesson's edit form writes, as History keeps them. */
+const lessonFields = (l: LessonInput) => ({
+	title: l.title,
+	lessonDay: l.lessonDay,
+	notes: l.notes
+});
+
+/**
+ * Edit a lesson. A retitle carries over to its exercise so the two never drift.
+ * In a group, `by` is who, for History (`verb` is `restore` for History's own
+ * Restore).
+ */
+export function updateLesson(
+	db: Db,
+	id: number,
+	input: LessonInput,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+) {
 	return db.transaction((tx) => {
-		const lesson = tx.update(lessons).set(input).where(eq(lessons.id, id)).returning().get();
-		if (!lesson) return null;
+		const before = getLessonRow(tx, id);
+		if (!before) return null;
+		const lesson = tx.update(lessons).set(input).where(eq(lessons.id, id)).returning().get()!;
 		tx.update(exercises)
 			.set({ name: reviewName(lesson.title) })
 			.where(eq(exercises.lessonId, id))
 			.run();
+		const change = fieldChange(lessonFields(before), lessonFields(lesson), 'lesson');
+		if (change) logChange(tx, actingIn(lesson, by), { ...ofLesson(id), verb, ...change }, now);
 		return lesson;
 	});
 }
 
-/** Archive a lesson and its review exercise together. Videos, links and sets stay. */
-export function archiveLesson(db: Db, id: number, now: number): boolean {
+/**
+ * After a change that can shrink a group lesson's reach, its members' entries
+ * follow in the same transaction (risk 25). Nothing for a person's own lesson.
+ */
+function reconcileLesson(tx: Db, lessonId: number, now: number): void {
+	const teamId =
+		tx.select({ teamId: lessons.teamId }).from(lessons).where(eq(lessons.id, lessonId)).get()
+			?.teamId ?? null;
+	if (teamId !== null) reconcileEntries(tx, teamId, now);
+}
+
+/**
+ * Archive a lesson and its review exercise together (in a group, every
+ * person's entry for it). Videos, links and sets stay.
+ */
+export function archiveLesson(db: Db, id: number, now: number, by?: string): boolean {
 	return db.transaction((tx) => {
-		const res = tx
+		const lesson = tx
 			.update(lessons)
 			.set({ archivedAt: now })
 			.where(and(eq(lessons.id, id), isNull(lessons.archivedAt)))
+			.returning()
+			.get();
+		if (!lesson) return false;
+		tx.update(exercises)
+			.set({ archivedAt: now })
+			.where(and(eq(exercises.lessonId, id), isNull(exercises.archivedAt)))
 			.run();
-		if (res.changes === 0) return false;
-		tx.update(exercises).set({ archivedAt: now }).where(eq(exercises.lessonId, id)).run();
+		reconcileLesson(tx, id, now);
+		logChange(
+			tx,
+			actingIn(lesson, by),
+			{ ...ofLesson(id), verb: 'archive', subject: 'lesson' },
+			now
+		);
 		return true;
 	});
 }
 
 /**
- * The library: newest class first, with what its videos cost on disk and how
- * much is in it — sections, routines, figures. Each count is one grouped query
- * over the whole wall, keyed by lesson, so the list stays a fixed number of
- * queries however many lessons there are.
+ * Bring an archived lesson back (Recently deleted), with exactly the entries
+ * its archive took: those archived at the lesson's own `archived_at` (risk 6).
+ * One a member had removed earlier carries an earlier time and stays removed.
  */
-export function listLessons(db: Db, wall: Wall): LessonItem[] {
+export function restoreLesson(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	return db.transaction((tx) => {
+		const lesson = getLessonRow(tx, id);
+		if (!lesson || lesson.archivedAt === null || !inSpace(lesson, space)) {
+			return { ok: false, reason: 'gone' } as const;
+		}
+		const at = lesson.archivedAt;
+		tx.update(lessons).set({ archivedAt: null }).where(eq(lessons.id, id)).run();
+		tx.update(exercises)
+			.set({ archivedAt: null })
+			.where(and(eq(exercises.lessonId, id), eq(exercises.archivedAt, at)))
+			.run();
+		if (isTeam(space)) reviveEntries(tx, space.teamId, at);
+		logChange(
+			tx,
+			space,
+			{ ...ofLesson(id), verb: 'restore', subject: 'lesson', after: { title: lesson.title } },
+			now
+		);
+		return { ok: true } as const;
+	});
+}
+
+/**
+ * Publish a group's draft: from now on its members see it. Only a live draft
+ * of this group moves, and only for one of its editors (or its owner) while
+ * the group lives; there is no unpublish (taking a lesson away is archiving
+ * it). False when nothing moved.
+ */
+export function publishLesson(db: Db, space: TeamSpace, id: number, now: number): boolean {
+	const team = getTeam(db, space.teamId);
+	if (!team || team.deletedAt !== null || team.dance !== space.dance) return false;
+	const role = roleOf(db, space.actorId, space.teamId);
+	if (role !== 'editor' && role !== 'owner') return false;
+	return db.transaction((tx) => {
+		const moved =
+			tx
+				.update(lessons)
+				.set({ publishedAt: now })
+				.where(
+					and(
+						eq(lessons.id, id),
+						eq(lessons.teamId, space.teamId),
+						isNull(lessons.publishedAt),
+						isNull(lessons.archivedAt)
+					)
+				)
+				.run().changes > 0;
+		if (moved) logChange(tx, space, { ...ofLesson(id), verb: 'publish', subject: 'lesson' }, now);
+		return moved;
+	});
+}
+
+/**
+ * The library: newest class first, with what its videos cost on disk and how
+ * much is in it — sections, routines, figures. A person's own lessons, or a
+ * group's (every one of them, drafts included: `listTeamLessons` decides who
+ * sees which).
+ */
+export function listLessons(db: Db, space: Space): LessonItem[] {
+	const team = isTeam(space) ? getTeam(db, space.teamId) : null;
+	const ref = team ? { id: team.id, name: team.name } : null;
+	return lessonRows(db, space).map((r) => ({ ...r, team: ref }));
+}
+
+/**
+ * A group's lessons, as its page lists them. An editor (or the owner, while
+ * the group lives) sees the drafts first, then the published ones; a member
+ * sees the published ones only. Newest class first within each.
+ */
+export function listTeamLessons(
+	db: Db,
+	userId: string,
+	teamId: number,
+	role: Role
+): TeamLessonItem[] {
+	const team = getTeam(db, teamId);
+	if (!team || team.purgedAt !== null) return [];
+	const space: TeamSpace = { dance: team.dance as TeamSpace['dance'], teamId, actorId: userId };
+	const editor = role !== 'member' && team.deletedAt === null;
+	const rows = lessonRows(db, space)
+		.filter((r) => editor || r.publishedAt !== null)
+		.map((r) => ({ ...r, team: { id: team.id, name: team.name } }));
+	return [...rows.filter((r) => r.publishedAt === null), ...rows.filter((r) => r.publishedAt)];
+}
+
+/**
+ * The rows behind both lists. Each count is one grouped query over the whole
+ * space, keyed by lesson, so the list stays a fixed number of queries however
+ * many lessons there are.
+ */
+function lessonRows(
+	db: Db,
+	space: Space
+): (Omit<LessonItem, 'team'> & { publishedAt: number | null })[] {
+	// A person's lessons may link the group rows they may use (ruling 2): those
+	// count on the card as they show on the page. A group's count its own only.
+	const usable = isTeam(space) ? null : usableOf(db, space);
+	const whoseFigures = usable
+		? ownedOrUsable(figures, space, usable.figures)
+		: ownedBy(figures, space);
+	const whoseRoutines = usable
+		? ownedOrUsable(routines, space, usable.routines)
+		: ownedBy(routines, space);
 	const sections = new Map(
 		db
 			.select({ id: lessonVideos.lessonId, n: count(videoSpots.id) })
 			.from(videoSpots)
 			.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
 			.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-			.where(and(lessonsIn(wall), isNotNull(videoSpots.endMs)))
+			.where(and(ownedBy(lessons, space), isNotNull(videoSpots.endMs)))
 			.groupBy(lessonVideos.lessonId)
 			.all()
 			.map((r) => [r.id, r.n])
@@ -163,7 +479,7 @@ export function listLessons(db: Db, wall: Wall): LessonItem[] {
 			.select({ id: lessonRoutines.lessonId, n: count(routines.id) })
 			.from(lessonRoutines)
 			.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
-			.where(and(routinesIn(wall), isNull(routines.archivedAt)))
+			.where(and(whoseRoutines, isNull(routines.archivedAt)))
 			.groupBy(lessonRoutines.lessonId)
 			.all()
 			.map((r) => [r.id, r.n])
@@ -173,7 +489,7 @@ export function listLessons(db: Db, wall: Wall): LessonItem[] {
 		.select({ id: lessonFigures.lessonId, group: figures.groupId })
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
-		.where(and(figuresIn(wall), isNull(figures.archivedAt)))
+		.where(and(whoseFigures, isNull(figures.archivedAt)))
 		.all();
 	const viaSection = db
 		.select({ id: lessonVideos.lessonId, group: figures.groupId })
@@ -181,12 +497,31 @@ export function listLessons(db: Db, wall: Wall): LessonItem[] {
 		.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
 		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
 		.innerJoin(figures, eq(figures.id, spotLinks.figureId))
-		.where(and(figuresIn(wall), isNull(figures.archivedAt)))
+		.where(and(whoseFigures, isNull(figures.archivedAt)))
 		.all();
 	const figureGroupsOf = new Map<number, Set<number | null>>();
 	for (const { id, group } of [...hand, ...viaSection]) {
 		figureGroupsOf.set(id, (figureGroupsOf.get(id) ?? new Set()).add(group));
 	}
+
+	// A copy's group lesson, while that lesson is still in the copy's family: one
+	// detached since (its gene gone) is no longer what the copy follows.
+	const parent = alias(lessons, 'parent');
+	const copyOf = new Map(
+		isTeam(space)
+			? []
+			: db
+					.select({ id: lessons.id, name: teams.name })
+					.from(lessons)
+					.innerJoin(
+						parent,
+						and(eq(parent.id, lessons.clonedFrom), eq(parent.geneId, lessons.geneId))
+					)
+					.innerJoin(teams, eq(teams.id, parent.teamId))
+					.where(and(ownedBy(lessons, space), isNotNull(lessons.clonedFrom)))
+					.all()
+					.map((r) => [r.id, r.name] as const)
+	);
 
 	return db
 		.select({
@@ -196,16 +531,19 @@ export function listLessons(db: Db, wall: Wall): LessonItem[] {
 			videos: count(lessonVideos.id),
 			// `sum` is null when a lesson has no videos; the cast keeps the shape honest.
 			videoBytes: sum(lessonVideos.sizeBytes),
-			createdAt: lessons.createdAt
+			createdAt: lessons.createdAt,
+			publishedAt: lessons.publishedAt
 		})
 		.from(lessons)
 		.leftJoin(lessonVideos, eq(lessonVideos.lessonId, lessons.id))
-		.where(and(isNull(lessons.archivedAt), lessonsIn(wall)))
+		.where(and(isNull(lessons.archivedAt), ownedBy(lessons, space)))
 		.groupBy(lessons.id)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all()
 		.map((r) => ({
 			...r,
+			// A person's copy of a group's lesson says whose it was (the group's name stays).
+			copyOf: copyOf.get(r.id) ?? null,
 			videoBytes: Number(r.videoBytes ?? 0),
 			sections: sections.get(r.id) ?? 0,
 			routines: routineCounts.get(r.id) ?? 0,
@@ -213,15 +551,49 @@ export function listLessons(db: Db, wall: Wall): LessonItem[] {
 		}));
 }
 
-/** Each lesson's day, by id, for Today's lesson rows. */
+/**
+ * Each lesson's day, by id, for Today's lesson rows: the person's own lessons
+ * and the group lessons they added (an entry can review either; risk 26), of
+ * the groups they are still in (`addedTeams`): someone who left reads
+ * nothing of the group, Today included.
+ */
 export function lessonDays(db: Db, wall: Wall): Record<number, string> {
-	return Object.fromEntries(
-		db
-			.select({ id: lessons.id, day: lessons.lessonDay })
-			.from(lessons)
-			.where(lessonsIn(wall))
-			.all()
-			.map((r) => [r.id, r.day])
+	const day = { id: lessons.id, day: lessons.lessonDay };
+	const own = db.select(day).from(lessons).where(ownedBy(lessons, wall)).all();
+	const teamIds = addedTeams(db, wall).map((t) => t.id);
+	const added =
+		teamIds.length === 0
+			? []
+			: db
+					.select(day)
+					.from(lessonAdds)
+					.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+					.where(and(eq(lessonAdds.userId, wall.userId), inArray(lessons.teamId, teamIds)))
+					.all();
+	return Object.fromEntries([...own, ...added].map((r) => [r.id, r.day]));
+}
+
+/**
+ * The Lessons tab: the person's own lessons and the group lessons they added
+ * (each marked with its group), newest class first. An added lesson stays
+ * while it is published and live, the person is in its group (a deleted one
+ * too) and the group is not purged (`addedLessonIds`); a group lesson not
+ * added is only on the group's page.
+ */
+export function listMyLessons(db: Db, wall: Wall): LessonItem[] {
+	const theirs: LessonItem[] = [];
+	for (const team of addedTeams(db, wall)) {
+		const ids = new Set(addedLessonIds(db, wall.userId, team.id));
+		if (ids.size === 0) continue;
+		const space: TeamSpace = { dance: wall.dance, teamId: team.id, actorId: wall.userId };
+		for (const r of lessonRows(db, space)) {
+			if (ids.has(r.id)) theirs.push({ ...r, team });
+		}
+	}
+	// Yours replaces theirs: a group lesson you made your own copy of shows once.
+	const shown = withoutShadowed(db, wall, 'lesson', theirs);
+	return [...listLessons(db, wall), ...shown].sort(
+		(a, b) => b.lessonDay.localeCompare(a.lessonDay) || b.id - a.id
 	);
 }
 
@@ -262,11 +634,21 @@ function linkedRoutineIds(db: Db, lessonId: number): number[] {
 		.map((r) => r.id);
 }
 
-export function getLesson(db: Db, id: number) {
+/** The lesson row alone, or null: what a route checks a posted id against. */
+export function getLessonRow(db: Db, id: number): Lesson | null {
+	return db.select().from(lessons).where(eq(lessons.id, id)).get() ?? null;
+}
+
+/**
+ * A lesson with its videos and links, as its page shows it to `userId`. A
+ * group lesson's link cards carry the person's own copy (`mineId`), unless
+ * `copies` is false: in that group's own group mode the page is the group's.
+ */
+export function getLesson(db: Db, id: number, userId: string, opts: { copies?: boolean } = {}) {
 	const lesson = db.select().from(lessons).where(eq(lessons.id, id)).get();
 	if (!lesson) return null;
 
-	const exercise = db.select().from(exercises).where(eq(exercises.lessonId, id)).get() ?? null;
+	const exercise = entryFor(db, userId, { lessonId: id });
 
 	const videos: LessonVideoRow[] = db
 		.select({
@@ -297,7 +679,7 @@ export function getLesson(db: Db, id: number) {
 		.from(lessonFigures)
 		.innerJoin(figures, eq(figures.id, lessonFigures.figureId))
 		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-		.leftJoin(exercises, eq(exercises.figureId, figures.id))
+		.leftJoin(exercises, entryJoin(userId, eq(exercises.figureId, figures.id)))
 		.where(eq(lessonFigures.lessonId, id))
 		.all();
 	const handFigureIds = new Set(handFigures.map((r) => r.id));
@@ -309,12 +691,22 @@ export function getLesson(db: Db, id: number) {
 					.select(figureColumns)
 					.from(figures)
 					.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
-					.leftJoin(exercises, eq(exercises.figureId, figures.id))
+					.leftJoin(exercises, entryJoin(userId, eq(exercises.figureId, figures.id)))
 					.where(inArray(figures.id, sectionFigureIds))
 					.all();
+	// A group lesson's link cards open the person's own copy when they have one.
+	const copies = (kind: 'figure' | 'routine' | 'drill', ids: number[]) =>
+		lesson.teamId === null || opts.copies === false
+			? new Map<number, number>()
+			: mineIdsFor(db, { userId, dance: lesson.dance as Wall['dance'] }, kind, ids);
+	const mineFigure = copies(
+		'figure',
+		[...handFigures, ...sectionFigures].map((r) => r.id)
+	);
 	const linkedFigures: LessonFigureRow[] = [...handFigures, ...sectionFigures]
 		.map(({ figure, variation, ...r }) => ({
 			...r,
+			mineId: mineFigure.get(r.id) ?? null,
 			name: `${figure} · ${variation}`,
 			byHand: handFigureIds.has(r.id),
 			viaSections: via.figures.get(r.id) ?? []
@@ -330,10 +722,16 @@ export function getLesson(db: Db, id: number) {
 		})
 		.from(lessonRoutines)
 		.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
-		.leftJoin(exercises, eq(exercises.routineId, routines.id))
+		.leftJoin(exercises, entryJoin(userId, eq(exercises.routineId, routines.id)))
 		.where(eq(lessonRoutines.lessonId, id))
 		.orderBy(asc(routines.name))
-		.all();
+		.all()
+		.map((r) => ({ ...r, mineId: null as number | null }));
+	const mineRoutine = copies(
+		'routine',
+		linkedRoutines.map((r) => r.id)
+	);
+	for (const r of linkedRoutines) r.mineId = mineRoutine.get(r.id) ?? null;
 
 	const exerciseColumns = {
 		id: exercises.id,
@@ -357,9 +755,14 @@ export function getLesson(db: Db, id: number) {
 					.from(exercises)
 					.where(and(inArray(exercises.id, sectionExerciseIds), isNull(exercises.archivedAt)))
 					.all();
+	const mineDrill = copies(
+		'drill',
+		[...handExercises, ...sectionExercises].map((r) => r.id)
+	);
 	const linkedExercises: LessonExerciseRow[] = [...handExercises, ...sectionExercises]
 		.map((r) => ({
 			...r,
+			mineId: mineDrill.get(r.id) ?? null,
 			byHand: handExerciseIds.has(r.id),
 			viaSections: via.exercises.get(r.id) ?? []
 		}))
@@ -389,29 +792,33 @@ export function getLesson(db: Db, id: number) {
  * transaction — a figure's exercise is shown under the figure, and showing it
  * in both places is the thing this feature was asked not to do.
  */
-export function linkFigure(db: Db, lessonId: number, figureId: number): boolean {
+export function linkFigure(db: Db, lessonId: number, figureId: number, by?: string): boolean {
 	return db.transaction((tx) => {
 		const figure = tx
-			.select({ id: figures.id, dance: figures.dance, userId: figures.userId })
+			.select({
+				id: figures.id,
+				dance: figures.dance,
+				userId: figures.userId,
+				teamId: figures.teamId
+			})
 			.from(figures)
 			.where(and(eq(figures.id, figureId), isNull(figures.archivedAt)))
 			.get();
 		if (!figure) return false;
 
-		// A lesson and a figure from different walls (dances or people) must never
-		// join: the wall is the point, and no CHECK can express it (see `schema.ts`).
-		const wall = lessonWall(tx, lessonId);
-		if (!wall || !inWall(figure, wall)) return false;
+		// A lesson and a figure from different spaces (dances, people or groups) must
+		// never join: the wall is the point, and no CHECK can express it (see `schema.ts`).
+		// The one crossing: a person's own lesson may link a group's variation they
+		// may use (`usableBy`, ruling 2), without a copy. A group's lesson, never another's.
+		const space = lessonSpace(tx, lessonId, by);
+		if (!space || !(inSpace(figure, space) || usableBy(tx, space, 'figures', figure))) {
+			return false;
+		}
 
 		const res = tx.insert(lessonFigures).values({ lessonId, figureId }).onConflictDoNothing().run();
 		if (res.changes === 0) return false;
 
-		const owned = tx
-			.select({ id: exercises.id })
-			.from(exercises)
-			.where(eq(exercises.figureId, figureId))
-			.all()
-			.map((r) => r.id);
+		const owned = ownEntryIds(tx, space, { figureId });
 		if (owned.length > 0) {
 			tx.delete(lessonExercises)
 				.where(
@@ -419,6 +826,7 @@ export function linkFigure(db: Db, lessonId: number, figureId: number): boolean 
 				)
 				.run();
 		}
+		logLinked(tx, space, lessonId, 'add', { figureId }, linkedName(tx, { figureId }), Date.now());
 		return true;
 	});
 }
@@ -426,15 +834,19 @@ export function linkFigure(db: Db, lessonId: number, figureId: number): boolean 
 /**
  * Take a variation off a lesson. With `alsoSections`, the links from this
  * lesson's videos' sections to it go too, in the same transaction — otherwise
- * a variation there through a section would stay on the lesson.
+ * a variation there through a section would stay on the lesson. In a group,
+ * members' entries the lesson no longer holds go off Today (`reconcileEntries`).
  */
 export function unlinkFigure(
 	db: Db,
 	lessonId: number,
 	figureId: number,
-	alsoSections = false
+	alsoSections = false,
+	now = Date.now(),
+	by?: string
 ): boolean {
 	return db.transaction((tx) => {
+		const name = linkedName(tx, { figureId });
 		let changes = tx
 			.delete(lessonFigures)
 			.where(and(eq(lessonFigures.lessonId, lessonId), eq(lessonFigures.figureId, figureId)))
@@ -448,6 +860,8 @@ export function unlinkFigure(
 					.run().changes;
 			}
 		}
+		if (changes > 0) reconcileLesson(tx, lessonId, now);
+		if (changes > 0) logUnlinked(tx, lessonId, { figureId }, name, by, now);
 		return changes > 0;
 	});
 }
@@ -457,19 +871,27 @@ export function unlinkFigure(
  * figure does, so linking one sweeps that exercise out of the hand-linked list
  * in the same transaction.
  */
-export function linkRoutine(db: Db, lessonId: number, routineId: number): boolean {
+export function linkRoutine(db: Db, lessonId: number, routineId: number, by?: string): boolean {
 	return db.transaction((tx) => {
 		const routine = tx
-			.select({ id: routines.id, dance: routines.dance, userId: routines.userId })
+			.select({
+				id: routines.id,
+				dance: routines.dance,
+				userId: routines.userId,
+				teamId: routines.teamId
+			})
 			.from(routines)
 			.where(and(eq(routines.id, routineId), isNull(routines.archivedAt)))
 			.get();
 		if (!routine) return false;
 
-		// The wall, as in `linkFigure`: the route checks the lesson's wall, and
-		// this is the only check on the routine id posted with it.
-		const wall = lessonWall(tx, lessonId);
-		if (!wall || !inWall(routine, wall)) return false;
+		// The space, as in `linkFigure`: the route checks the lesson's space, and
+		// this is the only check on the routine id posted with it. A person's own
+		// lesson may link a group's routine they may use.
+		const space = lessonSpace(tx, lessonId, by);
+		if (!space || !(inSpace(routine, space) || usableBy(tx, space, 'routines', routine))) {
+			return false;
+		}
 
 		const res = tx
 			.insert(lessonRoutines)
@@ -478,12 +900,7 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number): boolea
 			.run();
 		if (res.changes === 0) return false;
 
-		const owned = tx
-			.select({ id: exercises.id })
-			.from(exercises)
-			.where(eq(exercises.routineId, routineId))
-			.all()
-			.map((r) => r.id);
+		const owned = ownEntryIds(tx, space, { routineId });
 		if (owned.length > 0) {
 			tx.delete(lessonExercises)
 				.where(
@@ -491,33 +908,49 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number): boolea
 				)
 				.run();
 		}
+		logLinked(tx, space, lessonId, 'add', { routineId }, linkedName(tx, { routineId }), Date.now());
 		return true;
 	});
 }
 
-export function unlinkRoutine(db: Db, lessonId: number, routineId: number): boolean {
-	return (
-		db
-			.delete(lessonRoutines)
-			.where(and(eq(lessonRoutines.lessonId, lessonId), eq(lessonRoutines.routineId, routineId)))
-			.run().changes > 0
-	);
+/** Take a routine off a lesson; in a group, the entries `unlinkFigure` says go with it. */
+export function unlinkRoutine(
+	db: Db,
+	lessonId: number,
+	routineId: number,
+	now = Date.now(),
+	by?: string
+): boolean {
+	return db.transaction((tx) => {
+		const name = linkedName(tx, { routineId });
+		const gone =
+			tx
+				.delete(lessonRoutines)
+				.where(and(eq(lessonRoutines.lessonId, lessonId), eq(lessonRoutines.routineId, routineId)))
+				.run().changes > 0;
+		if (gone) reconcileLesson(tx, lessonId, now);
+		if (gone) logUnlinked(tx, lessonId, { routineId }, name, by, now);
+		return gone;
+	});
 }
 
 /**
  * Attach an existing exercise by hand. Refuses one owned by a figure or routine
  * this lesson already links — the other half of the "never in both places" rule.
  */
-export function linkExercise(db: Db, lessonId: number, exerciseId: number): boolean {
+export function linkExercise(db: Db, lessonId: number, exerciseId: number, by?: string): boolean {
 	return db.transaction((tx) => {
 		const exercise = tx
 			.select({
 				id: exercises.id,
 				dance: exercises.dance,
 				userId: exercises.userId,
+				teamId: exercises.teamId,
 				figureId: exercises.figureId,
 				routineId: exercises.routineId,
-				lessonId: exercises.lessonId
+				drillId: exercises.drillId,
+				lessonId: exercises.lessonId,
+				source: exercises.source
 			})
 			.from(exercises)
 			.where(and(eq(exercises.id, exerciseId), isNull(exercises.archivedAt)))
@@ -527,10 +960,20 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 		// included; it is never something a lesson "links".
 		if (exercise.lessonId !== null) return false;
 
-		// A lesson and an exercise from different walls must never join: the wall
-		// is the point, and no CHECK can express it (see `schema.ts`).
-		const wall = lessonWall(tx, lessonId);
-		if (!wall || !inWall(exercise, wall)) return false;
+		// A lesson and an exercise from different spaces must never join: the wall
+		// is the point, and no CHECK can express it (see `schema.ts`). For an entry
+		// its target counts too: a person's entry for a group's figure is theirs,
+		// but what it shows is the group's, and never belongs on their own lesson.
+		// A person's own lesson may link the group's drill itself, when they may
+		// use it (`usableBy`, ruling 2).
+		const space = lessonSpace(tx, lessonId, by);
+		if (!space) return false;
+		if (!inSpace(exercise, space)) {
+			if (exercise.source !== 'custom' || !usableBy(tx, space, 'drills', exercise)) return false;
+		} else {
+			const owner = ownerRowOf(tx, exercise);
+			if (!owner || !inSpace(owner, space)) return false;
+		}
 
 		if (exercise.figureId !== null) {
 			const linked = tx
@@ -557,10 +1000,14 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number): bool
 				.get();
 			if (linked) return false;
 		}
-		return (
+		const added =
 			tx.insert(lessonExercises).values({ lessonId, exerciseId }).onConflictDoNothing().run()
-				.changes > 0
-		);
+				.changes > 0;
+		if (added) {
+			const name = linkedName(tx, { exerciseId });
+			logLinked(tx, space, lessonId, 'add', { exerciseId }, name, Date.now());
+		}
+		return added;
 	});
 }
 
@@ -569,9 +1016,12 @@ export function unlinkExercise(
 	db: Db,
 	lessonId: number,
 	exerciseId: number,
-	alsoSections = false
+	alsoSections = false,
+	now = Date.now(),
+	by?: string
 ): boolean {
 	return db.transaction((tx) => {
+		const name = linkedName(tx, { exerciseId });
 		let changes = tx
 			.delete(lessonExercises)
 			.where(
@@ -589,29 +1039,49 @@ export function unlinkExercise(
 					.run().changes;
 			}
 		}
+		if (changes > 0) reconcileLesson(tx, lessonId, now);
+		if (changes > 0) logUnlinked(tx, lessonId, { exerciseId }, name, by, now);
 		return changes > 0;
 	});
 }
 
-/** Live variations in the lesson's wall, by label; `linked` marks those already on the lesson. */
+/**
+ * Live variations in the lesson's space, by label; `linked` marks those already on the lesson.
+ * A person's own lesson also offers the group variations they may use, after
+ * their own, each tagged with its group (ruling 2). Their twins show as one
+ * (board C7): a set is one row, linked when any of it is.
+ */
 export function listLinkableFigures(
 	db: Db,
 	lessonId: number
 ): (FigureVersion & { linked: boolean })[] {
-	const wall = lessonWall(db, lessonId);
-	if (!wall) return [];
+	const space = lessonSpace(db, lessonId);
+	if (!space) return [];
 
 	const linked = new Set(linkedFigureIds(db, lessonId));
-	return listVersions(db, wall).map((v) => ({ ...v, linked: linked.has(v.id) }));
+	const theirs = isTeam(space) ? [] : usableVersions(db, space);
+	return foldVersions(db, space, [...listVersions(db, space), ...theirs]).map((v) => ({
+		...v,
+		linked: [v.id, ...(v.twins ?? []).map((t) => t.id)].some((id) => linked.has(id))
+	}));
 }
 
-/** Unarchived routines in the lesson's wall, alphabetical; `linked` marks those already on it. */
+/**
+ * Unarchived routines in the lesson's space, alphabetical; `linked` marks those already on it.
+ * A person's own lesson also offers the group routines they may use, after
+ * their own, each tagged with its group; their twins show as one.
+ */
 export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
-	const wall = lessonWall(db, lessonId);
-	if (!wall) return [];
+	const space = lessonSpace(db, lessonId);
+	if (!space) return [];
 
 	const linked = new Set(linkedRoutineIds(db, lessonId));
-	return listPickRoutines(db, wall).map((r) => ({ ...r, linked: linked.has(r.id) }));
+	const theirs = isTeam(space) ? [] : listUsableRoutines(db, space);
+	// Twins show as one (board C7): a set is one row, linked when any of it is.
+	return foldNamed(db, space, 'routine', [...listPickRoutines(db, space), ...theirs]).map((r) => ({
+		...r,
+		linked: [r.id, ...(r.twins ?? []).map((t) => t.id)].some((id) => linked.has(id))
+	}));
 }
 
 /**
@@ -621,8 +1091,8 @@ export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
  * into a second lesson makes "whose is this?" unanswerable on screen.
  */
 export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] {
-	const wall = lessonWall(db, lessonId);
-	if (!wall) return [];
+	const space = lessonSpace(db, lessonId);
+	if (!space) return [];
 
 	const alreadyLinked = new Set([
 		...db
@@ -639,8 +1109,7 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 	const where = [
 		isNull(exercises.archivedAt),
 		ne(exercises.source, 'lesson'),
-		eq(exercises.dance, wall.dance),
-		eq(exercises.userId, wall.userId)
+		ownedBy(exercises, space)
 	];
 	if (linkedFigures.length > 0) {
 		// `NOT IN` is null-propagating: a custom exercise has a null `figure_id`,
@@ -654,14 +1123,22 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 		where.push(or(isNull(exercises.routineId), notInArray(exercises.routineId, linkedRoutines))!);
 	}
 
-	return db
+	const own: PickExercise[] = db
 		.select({
 			id: exercises.id,
 			name: exercises.name,
 			source: exercises.source,
 			everyDays: exercises.everyDays,
 			figure: figureGroups.name,
-			variation: figures.name
+			variation: figures.name,
+			owner: {
+				dance: exercises.dance,
+				userId: exercises.userId,
+				teamId: exercises.teamId,
+				figureId: exercises.figureId,
+				routineId: exercises.routineId,
+				drillId: exercises.drillId
+			}
 		})
 		.from(exercises)
 		.leftJoin(figures, eq(figures.id, exercises.figureId))
@@ -669,45 +1146,107 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 		.where(and(...where))
 		.orderBy(asc(exercises.name), asc(exercises.id))
 		.all()
-		.map((r) => ({ ...r, linked: alreadyLinked.has(r.id) }));
+		// An entry whose target is another space's is not this lesson's to link
+		// (`linkExercise` refuses it): its own row is in the space, its content is not.
+		.filter((r) => {
+			const target = ownerRowOf(db, r.owner);
+			return target !== null && inSpace(target, space);
+		})
+		.map(({ id, name, source, everyDays, figure, variation }) => ({
+			id,
+			name,
+			source,
+			everyDays,
+			figure,
+			variation,
+			linked: alreadyLinked.has(id)
+		}));
+	// A person's own lesson: the group drills they may use too, after their own,
+	// each tagged with its group (ruling 2). Never an entry (filtered above).
+	const theirs: PickExercise[] = isTeam(space)
+		? []
+		: usableDrills(db, space).map((d) => ({
+				...d,
+				source: 'custom',
+				figure: null,
+				variation: null,
+				linked: alreadyLinked.has(d.id)
+			}));
+	return [...own, ...theirs];
 }
 
-export function addLessonVideo(db: Db, input: LessonVideoInput) {
-	return db.insert(lessonVideos).values(input).returning().get();
-}
-
-/**
- * Delete a video row and return it, so the caller can remove the file. Its
- * spots go first, in the same transaction — the foreign key would refuse the
- * video otherwise. Throws `SpotLinkedError`, deleting nothing, while one of its
- * sections is linked to a figure or drill.
- */
-export function deleteLessonVideo(db: Db, id: number) {
+/** A lesson's new video; in a group, History says who added it (`by`). */
+export function addLessonVideo(db: Db, input: LessonVideoInput, by?: string) {
 	return db.transaction((tx) => {
-		assertUnlinked(tx, { lessonVideoId: id });
-		tx.delete(videoSpots).where(eq(videoSpots.lessonVideoId, id)).run();
-		return tx.delete(lessonVideos).where(eq(lessonVideos.id, id)).returning().get() ?? null;
+		const video = tx.insert(lessonVideos).values(input).returning().get();
+		const space = lessonSpace(tx, input.lessonId, by);
+		if (space) logVideo(tx, space, input.lessonId, 'add', video.id, Date.now());
+		return video;
 	});
 }
 
-/** A lesson video by its file name, with whose it is: its lesson's owner, for the media server. */
-export function getLessonVideoByFile(db: Db, file: string) {
-	const row = db
-		.select({ video: lessonVideos, userId: lessons.userId })
-		.from(lessonVideos)
-		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
-		.where(eq(lessonVideos.file, file))
-		.get();
-	return row ? { ...row.video, userId: row.userId } : null;
+/** History's line for a lesson video added or deleted. */
+function logVideo(
+	tx: Db,
+	space: Space,
+	lessonId: number,
+	verb: 'add' | 'remove',
+	videoId: number,
+	now: number,
+	trashId: number | null = null
+): void {
+	logChange(
+		tx,
+		space,
+		{ rootKind: 'lesson', rootId: lessonId, verb, subject: 'video', subjectId: videoId, trashId },
+		now
+	);
+}
+
+/**
+ * Delete a video row and return it, with `trashId`, so the caller knows
+ * whether to remove the file. Its spots go first, in the same transaction —
+ * the foreign key would refuse the video otherwise. Throws `SpotLinkedError`,
+ * deleting nothing, while one of its sections is linked to a figure or drill.
+ *
+ * A group's video goes to Recently deleted first, with its sections and its
+ * file (`trashRows`): `trashId` is set and the caller must leave the file on
+ * disk for the purge (risk 19). A person's has `trashId` null: the file goes now.
+ */
+export function deleteLessonVideo(db: Db, id: number, by?: string, now = Date.now()) {
+	return db.transaction((tx) => {
+		assertUnlinked(tx, { lessonVideoId: id });
+		const spots = tx.select().from(videoSpots).where(eq(videoSpots.lessonVideoId, id)).all();
+		tx.delete(videoSpots).where(eq(videoSpots.lessonVideoId, id)).run();
+		const video = tx.delete(lessonVideos).where(eq(lessonVideos.id, id)).returning().get() ?? null;
+		if (!video) return null;
+		const space = lessonSpace(tx, video.lessonId, by);
+		const trashId =
+			space && isTeam(space)
+				? trashRows(
+						tx,
+						space,
+						'video',
+						rootTitle(tx, 'lesson', video.lessonId),
+						{ rootKind: 'lesson', rootId: video.lessonId },
+						{ lesson_videos: [video], video_spots: spots },
+						[{ dir: 'lessonVideos', file: video.file }],
+						video.sizeBytes,
+						now
+					)
+				: null;
+		if (space) logVideo(tx, space, video.lessonId, 'remove', video.id, now, trashId);
+		return { ...video, trashId };
+	});
 }
 
 /**
  * The lessons that taught a figure — the lesson→figure link read from the
  * figure's side, which until now only the lesson page could show. Archived
  * lessons are gone from every list, so they are gone from this one. Only the
- * wall's lessons: a lesson of someone else's never reaches this figure's page.
+ * space's lessons: a lesson of someone else's never reaches this figure's page.
  */
-export function taughtIn(db: Db, wall: Wall, figureId: number) {
+export function taughtIn(db: Db, space: Space, figureId: number) {
 	const ids = [
 		...db
 			.select({ id: lessonFigures.lessonId })
@@ -722,20 +1261,35 @@ export function taughtIn(db: Db, wall: Wall, figureId: number) {
 	return db
 		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })
 		.from(lessons)
-		.where(and(inArray(lessons.id, ids), lessonsIn(wall), isNull(lessons.archivedAt)))
+		.where(and(inArray(lessons.id, ids), ownedBy(lessons, space), isNull(lessons.archivedAt)))
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all();
 }
 
 /** `taughtIn`, for a routine: the lessons that link it, newest class first. */
-export function routineTaughtIn(db: Db, wall: Wall, routineId: number) {
+export function routineTaughtIn(db: Db, space: Space, routineId: number) {
 	return db
 		.select({ id: lessons.id, title: lessons.title, lessonDay: lessons.lessonDay })
 		.from(lessonRoutines)
 		.innerJoin(lessons, eq(lessons.id, lessonRoutines.lessonId))
 		.where(
-			and(eq(lessonRoutines.routineId, routineId), lessonsIn(wall), isNull(lessons.archivedAt))
+			and(
+				eq(lessonRoutines.routineId, routineId),
+				ownedBy(lessons, space),
+				isNull(lessons.archivedAt)
+			)
 		)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all();
+}
+
+/**
+ * The entry ids a link would sweep out of the lesson's hand-linked list: the
+ * lesson's own person's entry for the target. A group's lesson hand-links no
+ * entries (`linkExercise` refuses another person's), so it sweeps none.
+ */
+export function ownEntryIds(db: Db, space: Space, target: EntryTarget): number[] {
+	if (isTeam(space)) return [];
+	const entry = entryFor(db, space.userId, target);
+	return entry ? [entry.id] : [];
 }

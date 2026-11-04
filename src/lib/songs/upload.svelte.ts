@@ -3,6 +3,7 @@ import type { DanceSlug } from '$lib/dances/dances';
 import { MAX_RECORDING_LABEL } from '$lib/limits';
 import { uploadFailure } from '$lib/upload-error';
 import { track } from '$lib/unsaved/guard.svelte';
+import { holdReload } from '$lib/nav/fresh.svelte';
 
 /*
  * The song upload in flight, in a module store rather than inside a button:
@@ -24,10 +25,13 @@ export type SongUpload = {
 export const upload = $state<{ current: SongUpload | null }>({ current: null });
 
 let untrack: (() => void) | null = null;
+let unhold: (() => void) | null = null;
 
 function release() {
 	untrack?.();
 	untrack = null;
+	unhold?.();
+	unhold = null;
 }
 
 function fail(message: string) {
@@ -36,21 +40,30 @@ function fail(message: string) {
 }
 
 /**
- * Send `file` to `/api/songs` for `dance`, filed under `style`. A no-op while
+ * Send `file` to `/api/songs` for `dance`, filed under `style`, as `team`'s
+ * draft in group mode (the endpoint checks they edit it). A no-op while
  * another upload is moving: one at a time. The file is assumed checked
  * (`audioFileProblem`); the server checks again.
  *
  * XHR rather than fetch for upload progress: a phone upload over mobile data
  * can take a minute, and a spinner with no number reads as hung.
  */
-export function startSongUpload(file: File, dance: DanceSlug, style: string): void {
+export function startSongUpload(
+	file: File,
+	dance: DanceSlug,
+	style: string,
+	team: number | null = null
+): void {
 	if (upload.current && upload.current.error === null) return;
 
 	upload.current = { dance, name: file.name, loaded: 0, total: file.size, error: null };
 	untrack = track({ label: 'An upload', dirty: () => true, unloadOnly: true });
+	// A deploy waits for it too, rather than reloading the page under it.
+	unhold = holdReload();
 
 	const xhr = new XMLHttpRequest();
-	xhr.open('POST', `/api/songs?dance=${encodeURIComponent(dance)}`);
+	const into = team === null ? '' : `&team=${team}`;
+	xhr.open('POST', `/api/songs?dance=${encodeURIComponent(dance)}${into}`);
 	xhr.setRequestHeader('content-type', file.type);
 	xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
 	xhr.setRequestHeader('x-style', style);

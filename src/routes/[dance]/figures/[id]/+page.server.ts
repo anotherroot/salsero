@@ -1,13 +1,15 @@
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
+import { getDb, type Db } from '$lib/server/db';
+import { addedReach } from '$lib/server/access';
 import {
 	addFigureExercise,
 	archiveVariation,
 	createVariationFrom,
 	deleteRecording,
 	figureLabels,
+	labelFor,
 	figureNameTaken,
 	getFigure,
 	getGroup,
@@ -21,7 +23,12 @@ import {
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
-import { buildGraph, figurePositions, setFigureShape } from '$lib/server/graph';
+import { buildGraph, figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
+import { teamRefs } from '$lib/server/usable';
+import { groupModeOf } from '$lib/server/group-mode';
+import type { Cookies } from '@sveltejs/kit';
+import { lessonAdds } from '$lib/server/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
@@ -32,6 +39,7 @@ import {
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { getPosition, listPositions, neutralPosition } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
+import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
 import { popupData } from '$lib/server/popup';
@@ -43,7 +51,7 @@ import { plan } from '$lib/urgency/urgency';
 import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { wallOf, inWall } from '$lib/server/scope';
+import { inSpace, requireFigureAccess, wallOf } from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -55,8 +63,23 @@ import {
 	videoOfSpot,
 	videoSections
 } from '$lib/server/spot-links';
+import { seenRefusal, variationSeen } from '$lib/server/clash';
+import { editedBy } from '$lib/server/changes';
+import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { copyOffer } from '$lib/server/clones/copy-to';
+import { detachOffer } from '$lib/server/clones/detach';
+import { familyView } from '$lib/server/clones/send';
+import { dropOptions } from '$lib/server/clones/drop';
+import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
+import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
+import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/view';
+import { realCloneFiles } from '$lib/server/clones/files';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+
+/** Who acts: History names them on a group's figure. */
+const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
 
 function variationId(raw: string): number {
 	const id = Number(raw);
@@ -70,37 +93,55 @@ function zoneOf(locals: App.Locals): string {
 }
 
 /**
- * The VARIATION this URL names, with its figure, or a 404.
+ * The VARIATION this URL names, with its figure, its space and this person's
+ * access, or a 404.
  *
  * `getFigure` is id-scoped, so nothing but this stops `/salsa/figures/7` from
- * rendering a bachata variation — a hole straight through the dance wall. An
- * archived variation, or one whose figure is gone, has no page either: every
- * action goes through here, so none of them can write to one.
+ * rendering a bachata variation, another person's, or a variation only a
+ * group's draft holds. An archived variation, or one whose figure is gone, has
+ * no page either: every action goes through here, so none of them can write to
+ * one. Changing asks for `edit`, so a member who posts gets the stranger's 404.
  */
-function variationOf(params: { dance: string; id: string }, locals: App.Locals) {
-	const wall = wallOf(params, locals);
+function variationOf(
+	params: { dance: string; id: string },
+	locals: App.Locals,
+	need: 'read' | 'edit' = 'edit'
+) {
 	const db = getDb();
-	const found = getFigure(db, variationId(params.id));
-	if (
-		!found ||
-		found.figure.archivedAt !== null ||
-		!inWall(found.figure, wall) ||
-		found.figure.groupId === null
-	) {
+	const { space, access, reach } = requireFigureAccess(
+		db,
+		locals,
+		params,
+		variationId(params.id),
+		need
+	);
+	const found = getFigure(db, variationId(params.id), wallOf(params, locals).userId);
+	if (!found || found.figure.archivedAt !== null || found.figure.groupId === null) {
 		throw error(404, 'Figure not found');
 	}
 	const group = getGroup(db, found.figure.groupId);
-	if (!group || group.archivedAt !== null || !inWall(group, wall)) {
+	if (!group || group.archivedAt !== null || !inSpace(group, space)) {
 		throw error(404, 'Figure not found');
 	}
-	return { ...found, group };
+	return { ...found, group, space, access, reach };
 }
 
-const taken = (figure: string, name: string) =>
-	`${figure} already has a variation called ${name}. Rename one first.`;
-const figureTaken = (name: string) => `There's already a figure called ${name}.`;
+/**
+ * Whether this person may turn on their own entry for the variation: always
+ * for their own; for a group's, only while a lesson they added holds it
+ * (ruling R8, editors included), since that is what keeps an entry live.
+ */
+function practisable(db: Db, userId: string, figure: { id: number; teamId: number | null }) {
+	return figure.teamId === null || addedReach(db, userId, figure.teamId).variations.has(figure.id);
+}
 
-export const load: PageServerLoad = ({ params, url, locals }) => {
+const NOT_ADDED = 'Add a lesson with this figure to practise it.';
+
+const taken = (figure: string, name: string) =>
+	`${figure} already has a figure called ${name}. Rename one first.`;
+const figureTaken = (name: string) => `There's already a move called ${name}.`;
+
+export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const now = Date.now();
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
@@ -115,16 +156,22 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 	}
 
 	const db = getDb();
-	const found = variationOf(params, locals);
-	const { figure, group } = found;
+	const found = variationOf(params, locals, 'read');
+	const { figure, group, space, access, reach: visible } = found;
 	const id = figure.id;
+	const canEdit = access === 'edit';
+	// A reader's lists hold only what the published lessons reach (risk 20):
+	// a draft's variation, lesson, routine or section never reaches the page.
+	const seen = (ids: Set<number> | undefined, of: number) => !ids || ids.has(of);
 
-	const graph = buildGraph(db, wall);
+	const graph = buildGraph(db, space);
 	const node = figureById(graph, id);
-	const labels = figureLabels(db, wall);
+	const labels = figureLabels(db, space);
 	// The graph holds live variations of live figures only, never this one's self.
 	const link = (ids: number[]) =>
-		ids.filter((other) => other !== id).map((other) => ({ id: other, name: labels.get(other)! }));
+		ids
+			.filter((other) => other !== id && seen(visible?.variations, other))
+			.map((other) => ({ id: other, name: labels.get(other)! }));
 
 	const tags = figurePositions(db, id);
 	const live = listPositions(db, dance);
@@ -157,19 +204,85 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		if (!positionName.has(p)) positionName.set(p, getPosition(db, p)?.name ?? 'a removed hold');
 		return positionName.get(p)!;
 	};
-	const siblings: SiblingSummary[] = listGroupVariations(db, group.id).map((s) => {
-		const n = figureById(graph, s.id);
-		const starts = n ? [...startsOf(graph, n)].sort((a, b) => a - b) : [graph.neutral];
-		const end = n ? endOf(graph, n) : graph.neutral;
-		return {
-			id: s.id,
-			name: s.name,
-			holds: `${starts.map(nameOf).join(' / ')} → ${nameOf(end)}`,
-			timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
-			videos: s.id === id ? found.recordings.length : (getFigure(db, s.id)?.recordings.length ?? 0)
-		};
-	});
+	const siblings: SiblingSummary[] = listGroupVariations(db, group.id)
+		.filter((s) => seen(visible?.variations, s.id))
+		.map((s) => {
+			const n = figureById(graph, s.id);
+			const starts = n ? [...startsOf(graph, n)].sort((a, b) => a - b) : [graph.neutral];
+			const end = n ? endOf(graph, n) : graph.neutral;
+			return {
+				id: s.id,
+				name: s.name,
+				holds: `${starts.map(nameOf).join(' / ')} → ${nameOf(end)}`,
+				timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
+				videos:
+					s.id === id
+						? found.recordings.length
+						: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
+			};
+		});
 
+	// A group's figure: who owns it, which added lesson brought it, and the
+	// person's OWN routines that use it (their wall, their graph, their shapes).
+	const groupTeam =
+		figure.teamId === null ? null : (teamRefs(db, [figure.teamId]).get(figure.teamId) ?? null);
+	// In this group's own workspace the page is the group's alone: no one's own
+	// sections or routines. Read-only on the cookie: a load never sets or deletes it.
+	const inGroupMode =
+		figure.teamId !== null &&
+		groupModeOf(db, wall.userId, wall.dance, {
+			get: (name: string) => cookies?.get(name),
+			delete: () => {}
+		} as unknown as Cookies)?.teamId === figure.teamId;
+	let fromLesson: string | null = null;
+	let myRoutines: ReturnType<typeof routinesUsing> = [];
+	if (groupTeam && !inGroupMode) {
+		const holding = taughtIn(db, space, id).filter((l) => seen(visible?.lessons, l.id));
+		const added = new Set(
+			holding.length === 0
+				? []
+				: db
+						.select({ lessonId: lessonAdds.lessonId })
+						.from(lessonAdds)
+						.where(
+							and(
+								eq(lessonAdds.userId, wall.userId),
+								inArray(
+									lessonAdds.lessonId,
+									holding.map((l) => l.id)
+								)
+							)
+						)
+						.all()
+						.map((r) => r.lessonId)
+		);
+		fromLesson = holding.find((l) => added.has(l.id))?.title ?? null;
+		myRoutines = routinesUsing(
+			graphFor(db, wall),
+			id,
+			routineShapes(db, wall),
+			listRoutines(db, wall)
+		);
+	}
+
+	// A tab per source; opened from the person's copy (`?vs=`), the source's
+	// recordings say which are already in it, and Take brings the others.
+	// Group mode has no twins: no twin tab, no subtitle counting them.
+	const versions = sourcesView(
+		db,
+		wall.userId,
+		'figure',
+		id,
+		url.searchParams.get('vs'),
+		!inGroupMode
+	);
+	const held = versions.vs === null ? null : genesHeld(db, versions.vs);
+
+	const candidates = inGroupMode ? [] : twinCandidates(db, wall, 'figure', id);
+	const sameAs =
+		candidates.length === 0
+			? null
+			: { kind: 'figure' as const, title: labelFor(group.name, figure.name), candidates };
 	const zone = zoneOf(locals);
 	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
 
@@ -182,18 +295,77 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 			styleTag: figure.styleTag,
 			notes: figure.notes,
 			recordings: found.recordings,
-			sections: sectionsFor(db, { figureId: id }),
+			sections: sectionsFor(
+				db,
+				{ figureId: id },
+				visible ?? undefined,
+				inGroupMode ? undefined : wall.userId
+			),
 			// Each recording's own sections and what they link to, so a link can be
 			// undone even when its target is archived and has no page.
 			recordingSections: Object.fromEntries(
-				found.recordings.map((r) => [r.id, videoSections(db, { recordingId: r.id })])
+				found.recordings.map((r) => [
+					r.id,
+					videoSections(db, { recordingId: r.id }, visible ?? undefined)
+				])
 			)
 		},
 		siblings,
+		canEdit,
+		/** The family and twins the person reads, as tabs; empty for fewer than two. */
+		sources: versions.sources,
+		/** What the band's subtitle says of where this row comes from (`cloneSubtitle`). */
+		cloneLine: versions.line,
+		mineId: versions.mineId,
+		/** The banner over your copy when its group's source moved: "… changed it since you took it · Compare". */
+		compare: versions.compare,
+		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
+		family: familyView(db, wall.userId, 'figure', id),
+		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
+		drop: dropOptions(db, wall, 'figure', id),
+		detach: detachOffer(db, wall.userId, 'figure', id),
+		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
+		copyTo: copyOffer(db, wall.userId, 'figure', id),
+		/** Same as… (board C7): the other figures in your app; none in a group's workspace, which has no twins. */
+		sameAs,
+		/**
+		 * Opened from the person's copy: Take brings a recording into it (`into`),
+		 * and `held` marks the recordings already there.
+		 */
+		taking: held
+			? {
+					into: versions.vs!,
+					held: Object.fromEntries(
+						found.recordings.map((r) => [r.id, r.geneId !== null && held.has(r.geneId)])
+					) as Record<number, boolean>
+				}
+			: null,
+		/** A group's figure, for a reader: whose it is (the band and the note). */
+		team: groupTeam,
+		/** The newest lesson of this group's the reader added that holds it. */
+		fromLesson,
+		/** The reader's OWN routines that use it, over their own wall. */
+		myRoutines,
+		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
+		makeMine: canEdit ? null : makeMineOffer(db, wall, 'figure', id, groupTeam),
+		/** A group figure's History (the whole figure, every variation): its editors'. */
+		historyHref:
+			canEdit && group.teamId !== null
+				? `/${space.dance}/groups/${group.teamId}/history/figure/${group.id}`
+				: null,
+		// What the edit form saw, sent back with a save (the clash check).
+		seen: variationSeen(db, id),
 		exercise: found.exercise,
+		// Practise on its own: a group's variation only from a lesson the person added.
+		practisable: practisable(db, wall.userId, figure),
 		popup,
 		// Derived per request, never stored — the same rule urgency follows.
-		routines: routinesUsing(graph, id, routineShapes(db, wall), listRoutines(db, wall)),
+		routines: routinesUsing(
+			graph,
+			id,
+			routineShapes(db, space),
+			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
+		),
 		practice: popup
 			? practiceLine(
 					plan(
@@ -230,9 +402,10 @@ export const load: PageServerLoad = ({ params, url, locals }) => {
 		leadsTo: link(follows(graph, id)),
 		followsFrom: link(precedes(graph, id)),
 		links: listLinks(db, { figureId: id }),
-		taughtIn: taughtIn(db, wall, id),
-		linkable: linkableSections(db, { figureId: id }),
-		moveTargets: listMoveTargets(db, wall, group.id)
+		taughtIn: taughtIn(db, space, id).filter((l) => seen(visible?.lessons, l.id)),
+		// What linking and Move… offer: an editor's only.
+		linkable: canEdit ? linkableSections(db, { figureId: id }) : [],
+		moveTargets: canEdit ? listMoveTargets(db, space, group.id) : []
 	};
 };
 
@@ -247,12 +420,21 @@ export const actions: Actions = {
 	 * name. A refused save leaves nothing half-done.
 	 */
 	update: async ({ params, request, locals }) => {
-		const found = variationOf(params, locals);
+		const db = getDb();
+		// Not `variationOf` yet: a variation archived since gets its own answer
+		// below (gone, the typed text kept to copy), not the page's 404.
+		const { figure: row, space } = requireFigureAccess(
+			db,
+			locals,
+			params,
+			variationId(params.id),
+			'edit'
+		);
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
 		const partner = oneOf(form, 'partner', PARTNER);
-		const style = oneOf(form, 'style', DANCES[wallOf(params, locals).dance].styles);
+		const style = oneOf(form, 'style', DANCES[space.dance].styles);
 		const notes = optionalText(form, 'notes');
 		const startIds = ints(form, 'startIds');
 		const rawEnd = String(form.get('endId') ?? '');
@@ -263,7 +445,7 @@ export const actions: Actions = {
 		if (!figureName || !name || !partner || !style || notes === undefined) {
 			return fail(400, {
 				action: 'update',
-				message: 'Give the figure and the variation a name (up to 200 characters).'
+				message: 'Give the move and the figure a name (up to 200 characters).'
 			});
 		}
 		if (endId !== null && !Number.isInteger(endId)) {
@@ -272,14 +454,24 @@ export const actions: Actions = {
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
 			return fail(400, {
 				action: 'update',
-				message: `A variation starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
+				message: `A figure starts on a count from 1 to 8 and takes 1 to ${MAX_LENGTH_COUNTS} counts.`
 			});
 		}
 
-		const db = getDb();
-		const { figure, group } = found;
-		const wall = wallOf(params, locals);
-		if (figureNameTaken(db, wall, figureName, group.id)) {
+		// The clash check, before any write: a save that saw another version
+		// of the variation or its figure's name is refused with theirs.
+		const clash = seenRefusal(
+			form,
+			row.teamId !== null,
+			variationSeen(db, row.id),
+			{ action: 'update' as const },
+			Date.now(),
+			() => editedBy(db, row.teamId, 'figure', row.groupId ?? 0)
+		);
+		if (clash) return clash;
+		const { figure, group } = variationOf(params, locals);
+		const by = me(params, locals);
+		if (figureNameTaken(db, space, figureName, group.id)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		if (variationNameTaken(db, group.id, name, figure.id)) {
@@ -288,15 +480,15 @@ export const actions: Actions = {
 		// A posted position id is just a number: `setFigureShape` rejects one from
 		// the other dance, and that is a 404 rather than a message, the same answer
 		// every other cross-dance id gets here.
-		if (!setFigureShape(db, figure.id, { startIds, endId, startCount, lengthCounts })) {
+		if (!setFigureShape(db, figure.id, { startIds, endId, startCount, lengthCounts }, by)) {
 			throw error(404, 'Figure not found');
 		}
-		if (!updateVariation(db, figure.id, { name, partner, style, notes })) {
+		if (!updateVariation(db, figure.id, { name, partner, style, notes }, by)) {
 			throw error(404, 'Figure not found');
 		}
 		// A case-only change ("enchufla") is a change: the figure keeps its place,
 		// `figureNameTaken` skipped it above, and the new spelling is saved.
-		if (figureName !== group.name.trim() && !renameFigure(db, group.id, figureName)) {
+		if (figureName !== group.name.trim() && !renameFigure(db, group.id, figureName, by)) {
 			return fail(400, { action: 'update', message: figureTaken(figureName) });
 		}
 		return { action: 'update', ok: true };
@@ -313,11 +505,11 @@ export const actions: Actions = {
 			return fail(400, {
 				action: 'createVariation',
 				field: 'name',
-				message: 'Give the variation a name (up to 200 characters).',
+				message: 'Give the figure a name (up to 200 characters).',
 				name: typed
 			});
 		}
-		const made = createVariationFrom(getDb(), figure.id, name);
+		const made = createVariationFrom(getDb(), figure.id, name, me(params, locals));
 		if (!made) {
 			return fail(400, {
 				action: 'createVariation',
@@ -352,16 +544,16 @@ export const actions: Actions = {
 				return fail(400, {
 					action: 'move',
 					field: 'figureName',
-					message: 'Give the new figure a name (up to 200 characters).'
+					message: 'Give the new move a name (up to 200 characters).'
 				});
 			}
-			result = moveVariation(db, figure.id, { newFigure: figureName });
+			result = moveVariation(db, figure.id, { newFigure: figureName }, me(params, locals));
 		} else {
 			groupId = int(form, 'target');
 			if (groupId === undefined) {
 				return fail(400, { action: 'move', message: 'Pick where to move it.' });
 			}
-			result = moveVariation(db, figure.id, { groupId, name });
+			result = moveVariation(db, figure.id, { groupId, name }, me(params, locals));
 		}
 
 		if (!result.ok) {
@@ -373,14 +565,14 @@ export const actions: Actions = {
 				case 'same-figure':
 					return fail(400, {
 						action: 'move',
-						message: `${figure.name} is already a variation of ${group.name}.`
+						message: `${figure.name} is already a figure of ${group.name}.`
 					});
 				case 'name-taken': {
 					const target = groupId === undefined ? null : getGroup(db, groupId);
 					return fail(400, {
 						action: 'move',
 						field: 'name',
-						message: taken(target?.name ?? 'That figure', name ?? figure.name),
+						message: taken(target?.name ?? 'That move', name ?? figure.name),
 						name: String(form.get('name') ?? '')
 					});
 				}
@@ -403,7 +595,7 @@ export const actions: Actions = {
 	archive: ({ params, locals }) => {
 		const { figure, group } = variationOf(params, locals);
 		const db = getDb();
-		const done = archiveVariation(db, figure.id, Date.now());
+		const done = archiveVariation(db, figure.id, Date.now(), me(params, locals));
 		if (!done) throw error(404, 'Figure not found');
 		const [first] = done.figureRemoved ? [] : listGroupVariations(db, group.id);
 		throw redirect(
@@ -412,16 +604,127 @@ export const actions: Actions = {
 		);
 	},
 
-	/** Give this variation its own exercise, so it shows on Today. */
+	/**
+	 * Give this person their own exercise for this variation, so it shows on
+	 * their Today. Reading is enough: the entry is theirs, the variation stays
+	 * the group's.
+	 */
 	practise: ({ params, locals }) => {
-		const { figure } = variationOf(params, locals);
-		if (!addFigureExercise(getDb(), figure.id)) {
+		const { figure } = variationOf(params, locals, 'read');
+		const userId = wallOf(params, locals).userId;
+		if (!practisable(getDb(), userId, figure)) {
+			return fail(400, { action: 'practise', message: NOT_ADDED });
+		}
+		if (!addFigureExercise(getDb(), userId, figure.id)) {
 			return fail(400, {
 				action: 'practise',
-				message: 'This variation is already practised on its own.'
+				message: 'This figure is already practised on its own.'
 			});
 		}
 		return { action: 'practise', ok: true };
+	},
+
+	/**
+	 * Make it mine: a reader's own copy of this group figure, their routines and
+	 * practice moved onto it, and its page opens. See `clones/edit.ts`.
+	 */
+	makeMine: ({ params, locals }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return makeMineFrom(getDb(), wallOf(params, locals), 'figure', figure.id);
+	},
+
+	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
+	take: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return takeFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
+	},
+
+	/** Send mine (board C3 p2): this figure's changes into each copy the person edits. */
+	send: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return sendFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
+	},
+
+	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */
+	drop: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return dropFrom(getDb(), wallOf(params, locals), 'figure', figure.id, request);
+	},
+
+	/** Detach (board C8): this copy stops following its source. */
+	detach: ({ params, locals }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return detachFrom(getDb(), wallOf(params, locals).userId, 'figure', figure.id);
+	},
+
+	/** Same as… (board C7): the row's twins become exactly the ticked ones. */
+	sameAs: async ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		const form = await request.formData();
+		if (!setTwins(getDb(), wallOf(params, locals), 'figure', figure.id, ints(form, 'twin')))
+			return fail(400, { action: 'sameAs', message: SAME_AS_FAILED });
+		return { action: 'sameAs' };
+	},
+
+	/** Not the same? Separate (board C7 p2): the row and the rest of its family leave their twins. */
+	separate: ({ params, locals }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		separateFamily(getDb(), wallOf(params, locals), 'figure', figure.id);
+		return { action: 'separate' };
+	},
+
+	/** Copy to… (board C4): this row into your app or a group you own or edit. */
+	copyTo: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return copyToFrom(getDb(), wallOf(params, locals), 'figure', figure.id, request);
+	},
+
+	/**
+	 * Take one of this figure's recordings into the person's own copy of it
+	 * (`into`), with its sections; charged to them. See `clones/sources.ts`.
+	 */
+	takeRecording: async ({ params, request, locals }) => {
+		const found = variationOf(params, locals, 'read');
+		const form = await request.formData();
+		const recordingId = int(form, 'recordingId');
+		const into = int(form, 'into');
+		if (recordingId === undefined || !found.recordings.some((r) => r.id === recordingId)) {
+			return fail(404, { action: 'takeRecording', message: RECORDING_GONE });
+		}
+		if (into === undefined) throw error(404, 'Figure not found');
+		const size = found.recordings.find((r) => r.id === recordingId)!.sizeBytes;
+		const res = await takeRecording(
+			getDb(),
+			wallOf(params, locals),
+			into,
+			recordingId,
+			realCloneFiles(),
+			Date.now(),
+			await freeDisk()
+		);
+		if (res.ok) return { action: 'takeRecording', taken: recordingId };
+		switch (res.reason) {
+			case 'room': {
+				const room = res.room;
+				if (room.ok) throw error(500, 'Refused without a reason');
+				return fail(413, {
+					action: 'takeRecording',
+					recordingId,
+					message: room.message,
+					// The person's limit is the reason, not the server's disk.
+					askForMore: room.limitBytes !== null && room.usedBytes + size > room.limitBytes
+				});
+			}
+			case 'held':
+				return fail(409, {
+					action: 'takeRecording',
+					recordingId,
+					message: ALREADY_IN_YOURS,
+					askForMore: false
+				});
+			default:
+				throw error(404, 'Figure not found');
+		}
 	},
 
 	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */
@@ -444,7 +747,7 @@ export const actions: Actions = {
 		}
 		let rec;
 		try {
-			rec = deleteRecording(getDb(), id);
+			rec = deleteRecording(getDb(), id, me(params, locals));
 		} catch (e) {
 			if (e instanceof SpotLinkedError) {
 				return fail(409, { action: 'deleteRecording', recordingId: id, message: e.message });
@@ -458,8 +761,9 @@ export const actions: Actions = {
 			});
 		}
 		// Row first, then file: a crash between the two leaves an orphan file,
-		// which is harmless, rather than a row pointing at nothing.
-		await unlink(join(recordingsDir(), rec.file)).catch(() => {});
+		// which is harmless, rather than a row pointing at nothing. A group's
+		// recording is in Recently deleted with its file: the purge deletes it.
+		if (rec.trashId === null) await unlink(join(recordingsDir(), rec.file)).catch(() => {});
 		return { action: 'deleteRecording', ok: true };
 	},
 
@@ -502,28 +806,44 @@ export const actions: Actions = {
 			found.recordings.some(
 				(r) => 'recordingId' in video.owner && r.id === video.owner.recordingId
 			);
-		if (!link || !(ownTarget || onOwnRecording) || !unlinkSpot(getDb(), link.id, link.target)) {
+		if (
+			!link ||
+			!(ownTarget || onOwnRecording) ||
+			!unlinkSpot(getDb(), link.id, link.target, Date.now(), me(params, locals))
+		) {
 			return fail(404, { action: 'unlinkSection', message: 'That link was already removed.' });
 		}
 		return { action: 'unlinkSection', ok: true };
 	},
 
 	addLink: async ({ params, request, locals }) =>
-		addLinkFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+		addLinkFrom(
+			request,
+			getDb(),
+			{ figureId: variationOf(params, locals).figure.id },
+			me(params, locals)
+		),
 	deleteLink: async ({ params, request, locals }) =>
-		deleteLinkFrom(request, getDb(), { figureId: variationOf(params, locals).figure.id }),
+		deleteLinkFrom(
+			request,
+			getDb(),
+			{ figureId: variationOf(params, locals).figure.id },
+			me(params, locals)
+		),
 	saveVideo: async ({ params, request, locals }) =>
 		saveVideoFrom(
 			request,
 			getDb(),
 			{ figureId: variationOf(params, locals).figure.id },
-			locals.user!.id
+			await freeDisk(),
+			me(params, locals)
 		),
 	retryVideo: async ({ params, request, locals }) =>
 		retryVideoFrom(
 			request,
 			getDb(),
 			{ figureId: variationOf(params, locals).figure.id },
-			locals.user!.id
+			await freeDisk(),
+			me(params, locals)
 		)
 };

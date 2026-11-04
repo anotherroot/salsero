@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FigureListItem } from '$lib/types';
 import {
-	figureMeta,
 	figuresEmpty,
 	figuresHeading,
 	filterChips,
@@ -100,12 +98,13 @@ describe('filterQuery', () => {
 
 describe('figuresHeading', () => {
 	it('counts figures, matches, or the unlinked', () => {
-		expect(figuresHeading(41, none)).toBe('41 figures');
-		expect(figuresHeading(1, none)).toBe('1 figure');
-		expect(figuresHeading(1, { q: 'dile' })).toBe('1 figure matches');
-		expect(figuresHeading(3, { q: 'en' })).toBe('3 figures match');
-		expect(figuresHeading(5, { q: '', style: 'son' })).toBe('5 figures match');
-		expect(figuresHeading(4, { q: '', unlinked: '1' })).toBe('4 with no section or no lesson');
+		const n = (figures: number) => ({ moves: 2, figures });
+		expect(figuresHeading(n(41), none)).toBe('Yours · 41 figures');
+		expect(figuresHeading(n(1), none)).toBe('Yours · 1 figure');
+		expect(figuresHeading(n(1), { q: 'dile' })).toBe('1 figure matches');
+		expect(figuresHeading(n(3), { q: 'en' })).toBe('3 figures match');
+		expect(figuresHeading(n(5), { q: '', style: 'son' })).toBe('5 figures match');
+		expect(figuresHeading(n(4), { q: '', unlinked: '1' })).toBe('4 with no section or no lesson');
 	});
 });
 
@@ -126,42 +125,6 @@ describe('showTiles', () => {
 		expect(showTiles(4, { q: '', unlinked: '1' })).toBe(true);
 		expect(showTiles(3, { q: 'en' })).toBe(false);
 		expect(showTiles(0, none)).toBe(false);
-	});
-});
-
-describe('figureMeta', () => {
-	it('names what a figure lacks as status words', () => {
-		expect(
-			figureMeta({
-				variations: 1,
-				recordings: 0,
-				hasSection: false,
-				hasLesson: false
-			} as FigureListItem)
-		).toEqual([
-			{ text: '1 variation', status: false },
-			{ text: 'No section', status: true },
-			{ text: 'No lesson', status: true }
-		]);
-	});
-
-	it('counts recordings only when there are some', () => {
-		expect(
-			figureMeta({
-				variations: 4,
-				recordings: 3,
-				hasSection: true,
-				hasLesson: true
-			} as FigureListItem).map((p) => p.text)
-		).toEqual(['4 variations', '3 recordings']);
-		expect(
-			figureMeta({
-				variations: 2,
-				recordings: 1,
-				hasSection: true,
-				hasLesson: false
-			} as FigureListItem).map((p) => p.text)
-		).toEqual(['2 variations', '1 recording', 'No lesson']);
 	});
 });
 

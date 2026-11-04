@@ -19,7 +19,14 @@
 		step,
 		TENTH_MS
 	} from '$lib/video/spots';
-	import { fetchSpots, patchSpot, postSpot, removeSpot, SpotsApiError } from '$lib/video/spots-api';
+	import {
+		fetchSpots,
+		patchSpot,
+		postSpot,
+		removeSpot,
+		restoreTrashEntry,
+		SpotsApiError
+	} from '$lib/video/spots-api';
 	import {
 		doneTarget,
 		editStack,
@@ -76,6 +83,15 @@
 	import SpotEditor, { type MoveHow, type Times } from '$lib/components/video/SpotEditor.svelte';
 	import PlayerSheet from '$lib/components/video/PlayerSheet.svelte';
 	import LinkPopup from '$lib/components/links/LinkPopup.svelte';
+	import ClashSheet from './ClashSheet.svelte';
+	import type { ClashAsk } from '$lib/unsaved/guard.svelte';
+	import {
+		clashView,
+		mineOverTheirs,
+		seenAfterSave,
+		type ClashInfo,
+		type Seen
+	} from '$lib/clash/clash';
 	import { openingSteps, suggestedName, type LinkStep } from '$lib/video/link-steps';
 	import type { Spot, SpotOwner } from '$lib/types';
 
@@ -101,6 +117,12 @@
 		 * what a section links to is shown, never changed.
 		 */
 		linking?: boolean;
+		/**
+		 * Marking, editing and deleting spots: off for a reader of a group's
+		 * video, who plays its sections and points but changes none of them. No
+		 * Mark or Section, no editor level, no M or S key.
+		 */
+		canEdit?: boolean;
 	}
 
 	let {
@@ -114,8 +136,11 @@
 		loopSpot,
 		title = 'Video',
 		subtitle = '',
-		linking = false
+		linking: linkingProp = false,
+		canEdit = true
 	}: Props = $props();
+	/** A reader links nothing either. */
+	const linking = $derived(linkingProp && canEdit);
 
 	const FULL: Screen = { kind: 'full' };
 
@@ -160,6 +185,31 @@
 	/** Milliseconds: the start of a section whose end has not been tapped yet. */
 	let pendingStart = $state<number | null>(null);
 	let sheetMessage = $state<string | null>(null);
+
+	/*
+	 * The clash check. Each edit says what it saw: the values this player last
+	 * set or got back for the spot, so a run of 0.1 s nudges never clashes with
+	 * its own previous one however slow the answers. A spot someone else saved
+	 * since opens the clash sheet; its queued edits wait for the choice.
+	 */
+	const spotSeen = (s: Pick<Spot, 'label' | 'startMs' | 'endMs'>): Seen => ({
+		label: s.label,
+		startMs: s.startMs,
+		endMs: s.endMs
+	});
+	// Not reactive: nothing renders from it.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const known = new Map<number, Seen>(
+		untrack(() => (loopSpot ? [[loopSpot.id, spotSeen(loopSpot)]] : []))
+	);
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const clashed = new Set<number>();
+	/** By spot: the fields of this player's own edits that wait behind an open clash. */
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const held = new Map<number, Set<string>>();
+	const hold = (id: number, keys: string[]) =>
+		held.set(id, new Set([...(held.get(id) ?? []), ...keys]));
+	let clash = $state<ClashAsk | null>(null);
 	type ToastAction = { label: string; run: () => void };
 	let toast = $state<{ text: string; tone: ToastTone; actions: ToastAction[] } | null>(null);
 	type LinkCreateStep = 'variation' | 'figure' | 'drill';
@@ -308,6 +358,8 @@
 
 	function loaded(list: Spot[]) {
 		spots = list;
+		known.clear();
+		for (const s of list) known.set(s.id, spotSeen(s));
 		const pruned = prune(nav.stack, list);
 		if (pruned !== nav.stack) nav.jump(pruned);
 	}
@@ -328,6 +380,7 @@
 		try {
 			const spot = await postSpot(owner, input);
 			spots = [...spots, spot];
+			known.set(spot.id, spotSeen(spot));
 			return spot;
 		} catch {
 			say("Couldn't save", 'failed');
@@ -386,13 +439,100 @@
 		changes: { label?: string | null; startMs?: number; endMs?: number | null }
 	) {
 		sending = sending.then(async () => {
+			if (clashed.has(id)) {
+				// Kept for the choice: the screen shows it, so it is still yours to send.
+				hold(id, Object.keys(changes));
+				return;
+			}
 			try {
-				await patchSpot(id, changes);
-			} catch {
-				say("Couldn't save", 'failed');
+				const before = known.get(id);
+				const answer = spotSeen(await patchSpot(id, changes, before));
+				// Only what this edit wrote is seen anew: the screen still shows the
+				// rest as it was, and the next edit must not claim to have seen more.
+				known.set(id, before ? seenAfterSave(before, Object.keys(changes), answer) : answer);
+			} catch (e) {
+				if (e instanceof SpotsApiError && e.clash) {
+					// Every field this edit wrote waits for the choice, the ones that clashed and not.
+					hold(id, Object.keys(changes));
+					askClash(id, e.clash);
+					return;
+				}
+				// Deleted since by someone else in the group: "Ana deleted this · 2 min ago".
+				say(e instanceof SpotsApiError && e.status === 410 ? e.message : "Couldn't save", 'failed');
 				await fetchSpots(owner).then(loaded, () => {});
 			}
 		});
+	}
+
+	/** Put a spot's values on screen as given (theirs, or what was chosen). */
+	function show(id: number, values: Seen) {
+		spots = spots.map((s) =>
+			s.id === id
+				? {
+						...s,
+						label: values.label === null ? null : String(values.label),
+						startMs: Number(values.startMs),
+						endMs: values.endMs === null ? null : Number(values.endMs)
+					}
+				: s
+		);
+	}
+
+	/** Someone else saved this spot since: theirs above, yours below, the player's sheet. */
+	function askClash(id: number, info: ClashInfo) {
+		const mine = spots.find((s) => s.id === id);
+		if (!mine) return;
+		clashed.add(id);
+		/** The choice is made: the edits that waited are handed over, and the spot is free again. */
+		const settle = () => {
+			clash = null;
+			clashed.delete(id);
+			known.set(id, info.current);
+			const waited = [...(held.get(id) ?? [])];
+			held.delete(id);
+			return waited;
+		};
+		/** Your values for `out`'s fields, sent over theirs and shown. */
+		const sendOut = (out: Seen, shown: Seen) => {
+			const changes: { label?: string | null; startMs?: number; endMs?: number | null } = {};
+			if ('label' in out) changes.label = out.label ? String(out.label) : null;
+			if ('startMs' in out) changes.startMs = Number(out.startMs);
+			if ('endMs' in out) changes.endMs = out.endMs === null ? null : Number(out.endMs);
+			show(id, { ...shown, ...changes });
+			if (Object.keys(changes).length > 0) send(id, changes);
+		};
+		clash = {
+			kind: 'clash',
+			by: info.by,
+			at: info.at,
+			view: clashView(
+				info,
+				spotSeen(mine),
+				known.get(id) ?? null,
+				(key) => (key === 'label' ? 'text' : 'time'),
+				(_, ms) => (ms === null ? '' : preciseTime(Number(ms)))
+			),
+			typed: [],
+			mine: (values) => {
+				const waited = settle();
+				const now = spots.find((s) => s.id === id);
+				if (!now) return;
+				// Yours for what clashed and what waited, theirs for everything else.
+				const boxes: Record<string, string> =
+					'label' in values ? { label: values.label.trim() } : {};
+				const r = mineOverTheirs(info, spotSeen(now), boxes, waited);
+				sendOut(r.send, r.show);
+			},
+			theirs: () => {
+				const waited = settle();
+				const now = spots.find((s) => s.id === id);
+				if (!now) return show(id, info.current);
+				// Theirs for what clashed; your waiting edits to other fields still go.
+				const kept = waited.filter((k) => !info.changed.includes(k));
+				const r = mineOverTheirs({ ...info, changed: [] }, spotSeen(now), {}, kept);
+				sendOut(r.send, r.show);
+			}
+		};
 	}
 
 	function change(
@@ -459,10 +599,13 @@
 		if (!spot || deleting) return;
 		deleting = true;
 		try {
-			await removeSpot(spot.id);
+			const { trashId } = await removeSpot(spot.id);
 			spots = spots.filter((s) => s.id !== spot.id);
 			nav.jump([FULL]);
-			say(`Deleted ${spotLabel(spot)}`, 'deleted', { label: 'Undo', run: () => undo(spot) });
+			say(`Deleted ${spotLabel(spot)}`, 'deleted', {
+				label: 'Undo',
+				run: () => undo(spot, trashId)
+			});
 		} catch (e) {
 			// A linked section: the server says what to unlink first.
 			sheetMessage = e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't save";
@@ -471,10 +614,26 @@
 		}
 	}
 
-	/** A deleted spot comes back as a new one: same times and name, a new id. It was never linked. */
-	async function undo(spot: Spot) {
+	/**
+	 * A group's deleted spot comes back from Recently deleted: the same row,
+	 * its id and its History (risk 18). A person's comes back as a new one:
+	 * same times and name, a new id. It was never linked.
+	 */
+	async function undo(spot: Spot, trashId: number | null) {
 		toast = null;
-		await save({ startMs: spot.startMs, endMs: spot.endMs, label: spot.label });
+		if (trashId === null) {
+			await save({ startMs: spot.startMs, endMs: spot.endMs, label: spot.label });
+			return;
+		}
+		try {
+			await restoreTrashEntry(trashId);
+			await fetchSpots(owner).then(loaded);
+		} catch (e) {
+			say(
+				e instanceof SpotsApiError && e.status === 409 ? e.message : "Couldn't restore",
+				'failed'
+			);
+		}
 	}
 
 	/* ---------- levels ---------- */
@@ -496,6 +655,7 @@
 	}
 
 	function toEdit(spot: Spot) {
+		if (!canEdit) return;
 		toast = null;
 		go(editStack(nav.stack, spot.id));
 		video.currentTime = spot.startMs / 1000;
@@ -504,8 +664,9 @@
 
 	/** A card or a chip: a section's view or a point's editor, always right above the full video, so Back returns there. */
 	function fromList(spot: Spot) {
-		if (spot.endMs === null) toEdit(spot);
-		else toSection(spot);
+		if (spot.endMs !== null) toSection(spot);
+		else if (canEdit) toEdit(spot);
+		else seek(spot.startMs);
 	}
 
 	function done() {
@@ -635,9 +796,9 @@
 			case 'tenthFwd':
 				return tenth(1);
 			case 'mark':
-				return void mark();
+				return canEdit ? void mark() : undefined;
 			case 'section':
-				return void section();
+				return canEdit ? void section() : undefined;
 			case 'setStart':
 			case 'setEnd': {
 				if (!spot) return;
@@ -713,6 +874,10 @@
 		['L', 'loop'],
 		['?', 'all keys']
 	];
+	/** A reader has no mark, section or edge keys. */
+	const legend = $derived(
+		canEdit ? LEGEND : LEGEND.filter(([k]) => k !== 'M' && k !== 'S' && k !== 'I O')
+	);
 
 	/** A tap on the picture: brings faded controls back, else plays or pauses. */
 	function tapVideo() {
@@ -818,6 +983,10 @@
 {/snippet}
 
 {#snippet markButtons(overlay: boolean, iconOnly = false)}
+	{#if canEdit}{@render markPair(overlay, iconOnly)}{/if}
+{/snippet}
+
+{#snippet markPair(overlay: boolean, iconOnly: boolean)}
 	<!-- iconOnly: a square 44 px button in place of the labelled pill (narrow landscape). -->
 	{@const markClass = overlay
 		? iconOnly
@@ -884,7 +1053,7 @@
 
 {#snippet keyLegend()}
 	<div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 pt-1 pb-3 text-[12px] text-muted">
-		{#each LEGEND as [k, what] (k)}
+		{#each legend as [k, what] (k)}
 			<span><kbd class={KBD}>{k}</kbd> {what}</span>
 		{/each}
 	</div>
@@ -938,7 +1107,9 @@
 				spotsCount={spots.length}
 				onspots={mode === 'overlay' && level.kind === 'full' ? () => openSheet('list') : undefined}
 				onback={phone && level.kind === 'section' ? () => nav.up() : undefined}
-				onedit={phone && level.kind === 'section' ? () => openSpot && toEdit(openSpot) : undefined}
+				onedit={canEdit && phone && level.kind === 'section'
+					? () => openSpot && toEdit(openSpot)
+					: undefined}
 				onclose={() => nav.close()}
 				{onchoose}
 			/>
@@ -1065,7 +1236,7 @@
 							activeId={null}
 							{loadFailed}
 							onopen={fromList}
-							onedit={toEdit}
+							onedit={canEdit ? toEdit : undefined}
 							onclose={() => nav.up()}
 						/>
 					</section>
@@ -1111,20 +1282,22 @@
 						<div class="px-4 pt-0.5 pb-1">
 							<Transport {paused} ontoggle={toggle} onstep={nudge} ontenth={tenth} />
 						</div>
-						<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
-							<button type="button" class={MARK_FILL} onclick={mark}>
-								<UiIcon name="flag" size={20} />Mark point
-							</button>
-							<button
-								type="button"
-								class={pendingStart === null ? MARK_WIDE : SECTION_WIDE}
-								onclick={section}
-							>
-								<UiIcon name="scissors" size={20} />{pendingStart === null
-									? 'Start section'
-									: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
-							</button>
-						</div>
+						{#if canEdit}
+							<div class="flex gap-2 px-4 pt-0.5 pb-1.5">
+								<button type="button" class={MARK_FILL} onclick={mark}>
+									<UiIcon name="flag" size={20} />Mark point
+								</button>
+								<button
+									type="button"
+									class={pendingStart === null ? MARK_WIDE : SECTION_WIDE}
+									onclick={section}
+								>
+									<UiIcon name="scissors" size={20} />{pendingStart === null
+										? 'Start section'
+										: `End section · ${lengthText(Math.max(0, currentMs - pendingStart))}`}
+								</button>
+							</div>
+						{/if}
 						{@render sectionRow(null)}
 					</div>
 				{/if}
@@ -1234,7 +1407,7 @@
 						activeId={null}
 						{loadFailed}
 						onopen={fromList}
-						onedit={toEdit}
+						onedit={canEdit ? toEdit : undefined}
 						onclose={() => nav.up()}
 					/>
 				{:else if level.kind === 'edit' && openSpot}
@@ -1249,7 +1422,7 @@
 					{loadFailed}
 					variant="sidebar"
 					onopen={fromList}
-					onedit={toEdit}
+					onedit={canEdit ? toEdit : undefined}
 					expanded={level.kind === 'edit' ? editorCard : undefined}
 				/>
 			</div>
@@ -1283,6 +1456,8 @@
 				ondelete={remove}
 			/>
 		{/if}
+		<!-- Above every other layer: an edit someone else's save refused. Closing keeps theirs. -->
+		<ClashSheet layer ask={clash} onclose={() => clash?.theirs()} />
 	</div>
 </dialog>
 

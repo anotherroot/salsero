@@ -81,6 +81,8 @@ const CANONICAL = {
 		'<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.2 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"></path>',
 	people:
 		'<circle cx="8.5" cy="8" r="3"></circle><circle cx="16.5" cy="9" r="2.5"></circle><path d="M3 19.5a5.5 5.5 0 0 1 11 0"></path><path d="M15 14.6a4.5 4.5 0 0 1 6 4.9"></path>',
+	group:
+		'<circle cx="12" cy="7.5" r="3"></circle><circle cx="5.5" cy="10" r="2.2"></circle><circle cx="18.5" cy="10" r="2.2"></circle><path d="M6.5 20a5.5 5.5 0 0 1 11 0"></path><path d="M2.5 17.5a3.2 3.2 0 0 1 3.2-3.2M21.5 17.5a3.2 3.2 0 0 0-3.2-3.2"></path>',
 	solo: '<circle cx="12" cy="7.5" r="3.5"></circle><path d="M5 20.5a7 7 0 0 1 14 0"></path>',
 	metronome:
 		'<path d="M9.2 3.5h5.6L19 20.5H5z"></path><path d="M12 16L16.5 7"></path><path d="M7 16h10"></path>',
@@ -168,6 +170,8 @@ const CANONICAL_FILLED: Partial<Record<CanonicalIconName, string>> = {
 		'<rect x="2.5" y="4.5" width="19" height="15" rx="4" fill="currentColor"></rect><path d="M10 9v6l5-3z" fill="var(--icon-knockout, Canvas)"></path>',
 	music:
 		'<path d="M9 18V7" stroke="currentColor" stroke-width="2.4"></path><path d="M20 16V5" stroke="currentColor" stroke-width="2.4"></path><path d="M7.8 5.2l13.4-2.4v4.2L7.8 9.4z" fill="currentColor"></path><circle cx="6.5" cy="18" r="3" fill="currentColor"></circle><circle cx="17.5" cy="16" r="3" fill="currentColor"></circle>',
+	group:
+		'<circle cx="12" cy="7.5" r="3.6" fill="currentColor"></circle><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path><circle cx="5.5" cy="10" r="2.6" fill="currentColor"></circle><circle cx="18.5" cy="10" r="2.6" fill="currentColor"></circle>',
 	play: '<path d="M8 5.5v13l11-6.5z" fill="currentColor"></path>',
 	pause:
 		'<rect x="6" y="5" width="4.5" height="14" rx="1.5" fill="currentColor"></rect><rect x="13.5" y="5" width="4.5" height="14" rx="1.5" fill="currentColor"></rect>',

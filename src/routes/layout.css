@@ -98,6 +98,24 @@
 	}
 
 	/*
+	 * Group mode: navy in place of the dance's colour (`GROUP` in tokens.ts).
+	 * `[data-dance][data-group]` outranks `[data-dance='bachata']`, so it wins in
+	 * both dances; the dark block outranks the dark bachata one the same way.
+	 */
+	[data-dance][data-group] {
+		--color-band: #26345e;
+		--color-band-ink: #eaf0ff;
+		--color-on-cream: #26345e;
+		--color-band-small: #eaf0ff;
+		--color-accent: #3a55a8;
+		--color-accent-text: #3a55a8;
+		--color-accent-soft: #e7ebf5;
+		--color-on-accent: #ffffff;
+		--color-status: #3a55a8;
+		--color-inverse-accent: #9db4ff;
+	}
+
+	/*
 	 * Dark mode. `data-theme` on <html> is set before the first paint by the
 	 * script in `src/app.html`: from the Settings choice (`$lib/theme/scheme.ts`),
 	 * or from `prefers-color-scheme` when the choice is System. An attribute
@@ -176,6 +194,19 @@
 		--color-on-accent: #2a0716;
 		--color-status: #f07aae;
 		--color-inverse-accent: #8e2a66;
+	}
+
+	:root[data-theme='dark'] [data-dance][data-group] {
+		--color-band: #26345e;
+		--color-band-ink: #eaf0ff;
+		--color-on-cream: #26345e;
+		--color-band-small: #eaf0ff;
+		--color-accent: #8fa8ff;
+		--color-accent-text: #8fa8ff;
+		--color-accent-soft: #313547;
+		--color-on-accent: #0b0b0d;
+		--color-status: #8fa8ff;
+		--color-inverse-accent: #3a55a8;
 	}
 
 	/*

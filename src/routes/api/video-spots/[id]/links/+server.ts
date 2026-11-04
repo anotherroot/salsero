@@ -1,14 +1,16 @@
 import { error, json } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { createAndLink, linkOptionsFor, parseLinkBody } from '$lib/server/link-popup';
-import { linkSpot, SpotLinkError } from '$lib/server/spot-links';
+import { linkSpot, sectionSpace, SpotLinkError } from '$lib/server/spot-links';
+import { archivedTarget } from '$lib/server/changes';
 import type { RequestHandler } from './$types';
 
 /**
  * A section's links, for the Link popup. Flat like `/api/video-spots`: no dance
  * in the URL — the spot's own wall is the wall. `linkOptionsFor` answers null
- * for another person's section (a 404 here), and `linkSpot` refuses a target
- * from another dance or another person.
+ * for another person's section, and for a group's unless this person edits
+ * the group: the options list the group's drafts too (a 404 here). `linkSpot`
+ * refuses a target from another dance or another owner.
  */
 function spotId(raw: string): number {
 	const id = /^\d+$/.test(raw) ? Number(raw) : 0;
@@ -36,8 +38,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const body = parseLinkBody(await request.json().catch(() => null));
 	if (!body) throw error(400, 'Send a target or something to create.');
 	try {
-		if ('target' in body) linkSpot(getDb(), userId, id, body.target);
-		else createAndLink(getDb(), userId, id, body.create);
+		if ('target' in body) {
+			// One archived since the popup opened: "Archived by Ana", Restore or pick another.
+			const space = sectionSpace(getDb(), userId, id);
+			const archived = space ? archivedTarget(getDb(), space, body.target) : null;
+			if (archived) {
+				const { by, message } = archived;
+				return json({ message, archived: { by, restorable: true } }, { status: 410 });
+			}
+			linkSpot(getDb(), userId, id, body.target);
+		} else createAndLink(getDb(), userId, id, body.create);
 	} catch (e) {
 		if (e instanceof SpotLinkError) {
 			// A refusal that names its field answers it, so the popup shows it there.

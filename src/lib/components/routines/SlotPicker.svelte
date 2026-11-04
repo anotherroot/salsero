@@ -6,6 +6,8 @@
 	 * fits (and the Count / Hold chips) stays here, in fit.ts.
 	 */
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { moveHeading, usedAsIs } from '$lib/clones/view';
+	import { twinPickMeta } from '$lib/clones/twins';
 	import { CHIP } from '$lib/components/ui/styles';
 	import Picker from '$lib/components/picker/Picker.svelte';
 	import type { PickGroup as Group, PickHeading, PickRow } from '$lib/picker/model';
@@ -64,7 +66,9 @@
 		const timing = `${c.startCounts.join('/') || '?'}→${c.next ?? '?'}`;
 		const from = c.starts.length > 0 ? c.starts.map(positionName).join(' / ') : '?';
 		const to = c.end === null ? '?' : positionName(c.end);
-		return `${timing} · ${from} → ${to}`;
+		const where = `${timing} · ${from} → ${to}`;
+		if (c.twins && c.twins.length > 0) return `${twinPickMeta(c, c.twins)} · ${where}`;
+		return c.team ? `${usedAsIs(c.team.name)} · ${where}` : where;
 	}
 
 	const row = (c: Candidate, short?: string): PickRow => ({
@@ -82,7 +86,7 @@
 			out.push({
 				title: 'Figures',
 				entries: list.figures.map((g): PickHeading => ({
-					heading: g.name,
+					heading: moveHeading(g.name, g.team),
 					collapse: g.single,
 					rows: g.variations.map((v) => row(v, variationName(v)))
 				}))

@@ -1,21 +1,22 @@
 /**
  * The "Links" editor's two actions, shared by the lesson, figure and exercise
  * pages. Each page resolves its owner through its own wall-guarded lookup
- * (`variationOf`, `lessonOf`, `requireExerciseInWall`) and hands it in — so a
+ * (`variationOf`, `lessonOf`, `exerciseOf`) and hands it in — so a
  * link can only ever be added to, or removed from, the page it was posted on.
+ * `by` is the person posting: History names them on a group's page.
  */
 import { fail } from '@sveltejs/kit';
 import type { Db } from './db';
 import { int, optionalText } from './form';
 import { addLinks, deleteLink, type LinkOwner } from './links';
-import { roomFor } from './storage';
+import { ownerOfTarget, roomForOwner } from './storage';
 import { requestVideoDownload, retryVideoDownload } from './video-downloads';
 import { splitLinkLines } from '$lib/links';
 
 /** A URL longer than this is not a link someone pasted on purpose. */
 const MAX_URL = 2000;
 
-export async function addLinkFrom(request: Request, db: Db, owner: LinkOwner) {
+export async function addLinkFrom(request: Request, db: Db, owner: LinkOwner, by?: string) {
 	const form = await request.formData();
 	const typed = String(form.get('urls') ?? '');
 	const title = optionalText(form, 'title', 200);
@@ -30,25 +31,45 @@ export async function addLinkFrom(request: Request, db: Db, owner: LinkOwner) {
 	if (urls.some((u) => u.length > MAX_URL)) return refuse('That link is too long.');
 	if (title === undefined) return refuse('Keep the title under 200 characters.');
 
-	const added = addLinks(db, owner, urls, title);
+	const added = addLinks(db, owner, urls, title, by);
 	if (added === null) return refuse('Links live on the figure or lesson this exercise belongs to.');
 	return { action: 'addLink' as const, ok: true, added: added.length };
 }
 
-export async function deleteLinkFrom(request: Request, db: Db, owner: LinkOwner) {
+export async function deleteLinkFrom(request: Request, db: Db, owner: LinkOwner, by?: string) {
 	const id = int(await request.formData(), 'linkId');
-	if (id === undefined || !deleteLink(db, owner, id)) {
+	if (id === undefined || !deleteLink(db, owner, id, by)) {
 		return fail(404, { action: 'deleteLink' as const, message: 'That link was already removed.' });
 	}
 	return { action: 'deleteLink' as const, ok: true };
 }
 
-/** Save a YouTube link as a video — on the figure and lesson pages only. See `video-downloads.ts`. */
-export async function saveVideoFrom(request: Request, db: Db, owner: LinkOwner, userId: string) {
+/** The refusal when the video's owner has no room left, else null. */
+function noRoom(db: Db, owner: LinkOwner, freeDiskBytes: number): string | null {
+	// The lesson's or the figure's owner pays — a group's, never the person asking
+	// (risk 12). A drill keeps its links as links: nothing to charge.
+	const charged = 'exerciseId' in owner ? null : ownerOfTarget(db, owner);
+	if (!charged) return null;
+	const room = roomForOwner(db, charged, 1, freeDiskBytes);
+	return room.ok ? null : room.message;
+}
+
+/**
+ * Save a YouTube link as a video — on the figure and lesson pages only. See
+ * `video-downloads.ts`. Refused up front when the lesson's or figure's owner
+ * is already out of room; checked again when the video arrives.
+ */
+export async function saveVideoFrom(
+	request: Request,
+	db: Db,
+	owner: LinkOwner,
+	freeDiskBytes: number,
+	by?: string
+) {
 	const id = int(await request.formData(), 'linkId');
-	const room = roomFor(db, userId, 1);
-	if (!room.ok) return fail(413, { action: 'saveVideo' as const, message: room.message });
-	const result = id === undefined ? 'not-found' : requestVideoDownload(db, owner, id);
+	const full = noRoom(db, owner, freeDiskBytes);
+	if (full) return fail(413, { action: 'saveVideo' as const, message: full });
+	const result = id === undefined ? 'not-found' : requestVideoDownload(db, owner, id, by);
 	if (result === 'not-found') {
 		return fail(404, { action: 'saveVideo' as const, message: 'That link was already removed.' });
 	}
@@ -61,11 +82,17 @@ export async function saveVideoFrom(request: Request, db: Db, owner: LinkOwner, 
 	return { action: 'saveVideo' as const, ok: true };
 }
 
-export async function retryVideoFrom(request: Request, db: Db, owner: LinkOwner, userId: string) {
+export async function retryVideoFrom(
+	request: Request,
+	db: Db,
+	owner: LinkOwner,
+	freeDiskBytes: number,
+	by?: string
+) {
 	const id = int(await request.formData(), 'linkId');
-	const room = roomFor(db, userId, 1);
-	if (!room.ok) return fail(413, { action: 'retryVideo' as const, message: room.message });
-	if (id === undefined || !retryVideoDownload(db, owner, id)) {
+	const full = noRoom(db, owner, freeDiskBytes);
+	if (full) return fail(413, { action: 'retryVideo' as const, message: full });
+	if (id === undefined || !retryVideoDownload(db, owner, id, by)) {
 		return fail(404, { action: 'retryVideo' as const, message: 'That link was already removed.' });
 	}
 	return { action: 'retryVideo' as const, ok: true };

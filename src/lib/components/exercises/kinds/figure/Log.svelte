@@ -44,7 +44,12 @@
 			</div>
 			<div id={contentId} class="contents">
 				{#if showReference}
-					<Content dance={props.dance} content={payload.content} timezone={props.timezone} />
+					<Content
+						dance={props.dance}
+						content={payload.content}
+						timezone={props.timezone}
+						canEdit={props.exercise.team === null}
+					/>
 				{/if}
 			</div>
 			{#if !props.backfillDay}

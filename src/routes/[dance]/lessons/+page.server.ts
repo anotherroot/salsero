@@ -1,10 +1,17 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { createLesson, lessonVideoBytes, listLessons } from '$lib/server/lessons';
-import { int, optionalText, text } from '$lib/server/form';
-import { isValidDay, localDay } from '$lib/day/day';
-import { isFrequency } from '$lib/frequency';
+import {
+	createLesson,
+	lessonVideoBytes,
+	listMyLessons,
+	listTeamLessons
+} from '$lib/server/lessons';
+import { readNewLesson } from '$lib/server/lesson-form';
+import { localDay } from '$lib/day/day';
 import { wallOf } from '$lib/server/scope';
+import { storedTwinSets } from '$lib/server/twins';
+import { foldRows } from '$lib/clones/twins';
+import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -12,45 +19,62 @@ function zone(locals: App.Locals): string {
 	return locals.user.timezone;
 }
 
-export const load: PageServerLoad = ({ params, locals }) => {
+/**
+ * Twins show as one (board C7): each set is one row, yours if you have one,
+ * else the first group by name, dated by the newest member's day, with the
+ * "Twins" chip. Newest class first.
+ */
+function foldedLessons(db: ReturnType<typeof getDb>, wall: ReturnType<typeof wallOf>) {
+	const all = listMyLessons(db, wall);
+	const sets = storedTwinSets(db, wall.userId, 'lesson');
+	if (sets.length === 0) return all;
+	const byId = new Map(all.map((l) => [l.id, l]));
+	const mineIds = new Set(all.filter((l) => !l.team).map((l) => l.id));
+	return foldRows(all, sets, mineIds)
+		.map(({ twins, ...l }) => {
+			if (twins.length === 0) return l;
+			const newest = [l.lessonDay, ...twins.map((t) => byId.get(t)!.lessonDay)].sort().at(-1)!;
+			return { ...l, lessonDay: newest, twinned: true };
+		})
+		.sort((a, b) => b.lessonDay.localeCompare(a.lessonDay) || b.id - a.id);
+}
+
+export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
+	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
+	if (mode) {
+		// The group's lessons, drafts first; the person's own are in Mine.
+		return {
+			lessons: listTeamLessons(db, wall.userId, mode.teamId, mode.role),
+			storageBytes: 0,
+			today: localDay(Date.now(), zone(locals))
+		};
+	}
 	return {
-		lessons: listLessons(db, wall),
+		// Their own lessons and the group lessons they added, marked with the group.
+		lessons: foldedLessons(db, wall),
 		storageBytes: lessonVideoBytes(db, wall.userId),
 		today: localDay(Date.now(), zone(locals))
 	};
 };
 
 export const actions: Actions = {
-	create: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
+	create: async ({ params, request, locals, cookies }) => {
+		const db = getDb();
+		const space = spaceOf(db, params, locals, cookies);
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
-		const title = text(form, 'title');
-		const notes = optionalText(form, 'notes');
-		const everyDays = int(form, 'everyDays');
-		const lessonDay = String(form.get('lessonDay') ?? '');
-		const entered = {
-			title: String(form.get('title') ?? ''),
-			notes: String(form.get('notes') ?? ''),
-			lessonDay
-		};
-
-		const refuse = (message: string, field?: 'lessonDay' | 'title' | 'notes') =>
-			fail(400, { action: 'create', ...(field ? { field } : {}), message, ...entered });
-
-		if (!title) return refuse('Give it a title (up to 200 characters).', 'title');
-		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
-		if (everyDays === undefined || !isFrequency(everyDays)) {
-			return refuse('Pick how often to go over it.');
+		if ('teamId' in space) {
+			// A draft of the group's: no drill, no frequency.
+			const read = readNewLesson(form, today, false);
+			if ('refused' in read) return read.refused;
+			const { lesson } = createLesson(db, space, read.input);
+			throw redirect(303, `/${space.dance}/lessons/${lesson.id}`);
 		}
-		if (!isValidDay(lessonDay)) return refuse('Pick the day of the class.', 'lessonDay');
-		// A class you have not attended yet is not a lesson — the same instinct the
-		// Today page has about future days.
-		if (lessonDay > today) return refuse('That day is in the future.', 'lessonDay');
-
-		const { lesson } = createLesson(getDb(), wall, { lessonDay, title, notes }, everyDays);
-		throw redirect(303, `/${wall.dance}/lessons/${lesson.id}`);
+		const read = readNewLesson(form, today, true);
+		if ('refused' in read) return read.refused;
+		const { lesson } = createLesson(db, space, read.input, read.everyDays);
+		throw redirect(303, `/${space.dance}/lessons/${lesson.id}`);
 	}
 };

@@ -1,5 +1,29 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
+}
+
+// Release signing: ~/.config/salsa/key.properties (outside the repo) points at
+// the keystore. Every build is signed with it, debug included, so an update
+// installs over any earlier build. Without it, debug builds keep the debug key
+// and a release build fails rather than signing with the wrong one.
+val keyFile = File(System.getProperty("user.home"), ".config/salsa/key.properties")
+val keyProperties = Properties().apply {
+    if (keyFile.exists()) keyFile.inputStream().use { load(it) }
+}
+val hasKey = keyProperties.containsKey("storeFile")
+
+gradle.taskGraph.whenReady {
+    val release = allTasks.any {
+        it.project == project && Regex("^(assemble|package|bundle).*Release$").matches(it.name)
+    }
+    if (release && !hasKey) {
+        throw GradleException(
+            "Release signing: ${keyFile.path} (storeFile, storePassword, keyAlias, keyPassword) " +
+                "is missing. See docs/deployment.md.",
+        )
+    }
 }
 
 android {
@@ -10,8 +34,8 @@ android {
     defaultConfig {
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 5
+        versionName = "1.4"
         // The site the app shows and talks to: scheme and host, no path or
         // trailing slash. Override with -Psite=https://… (plain http is
         // refused: the app allows no cleartext traffic).
@@ -19,14 +43,35 @@ android {
         buildConfigField("String", "SITE", "\"$site\"")
     }
 
+    signingConfigs {
+        if (hasKey) {
+            create("release") {
+                storeFile = File(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("debug") {
+            if (hasKey) signingConfig = signingConfigs.getByName("release")
+        }
+        getByName("release") {
+            if (hasKey) signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
+    }
+
     /*
      * One app per dance, from one codebase: each its own package, name, icon,
      * launcher and share-sheet entry, and so its own login, pairing, upload
      * queue and notifications. Salsa keeps the original id, so the app
-     * already installed becomes it. Two APKs: app-salsa-debug.apk and
-     * app-bachata-debug.apk.
+     * already installed becomes it. A second dimension, the channel (direct: installed from the site, updates itself; play: the Play Store). Four APKs, e.g.
+     * app-salsa-direct-debug.apk.
      */
-    flavorDimensions += "dance"
+    flavorDimensions += listOf("dance", "channel")
     productFlavors {
         create("salsa") {
             dimension = "dance"
@@ -45,6 +90,14 @@ android {
             resValue("string", "share_label", "Bachata lesson")
             manifestPlaceholders["appIcon"] = "@mipmap/ic_bachata"
             manifestPlaceholders["launcher"] = ".BachataLauncher"
+        }
+        create("direct") {
+            dimension = "channel"
+            buildConfigField("String", "CHANNEL", "\"direct\"")
+        }
+        create("play") {
+            dimension = "channel"
+            buildConfigField("String", "CHANNEL", "\"play\"")
         }
     }
 

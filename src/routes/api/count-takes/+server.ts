@@ -7,7 +7,7 @@ import { MAX_PRE_ROLL_S, MAX_TAKE_BYTES, MAX_TAKE_LABEL } from '$lib/limits';
 import { putCountTake } from '$lib/server/countTakes';
 import { getDb } from '$lib/server/db';
 import { TooLargeError, countDir, saveStream } from '$lib/server/files';
-import { roomFor, takeSlotBytes } from '$lib/server/storage';
+import { freeDisk, roomForOwner, takeSlotBytes } from '$lib/server/storage';
 import type { RequestHandler } from './$types';
 
 /** A header that must be a finite number in a sane range, or the upload is refused. */
@@ -58,10 +58,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 	// A take replacing one in the same slot only adds the difference.
 	const replacedBytes = takeSlotBytes(getDb(), locals.user.id, { pattern: pattern!, bpm, phrase });
-	const room = roomFor(
+	const room = roomForOwner(
 		getDb(),
-		locals.user.id,
-		Math.max(0, Number(h.get('content-length') ?? 0) - replacedBytes)
+		{ userId: locals.user.id },
+		Math.max(0, Number(h.get('content-length') ?? 0) - replacedBytes),
+		await freeDisk()
 	);
 	if (!room.ok) throw error(413, room.message);
 	if (!request.body) throw error(400, 'Empty upload.');
@@ -76,7 +77,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw e;
 	}
 
-	const after = roomFor(getDb(), locals.user.id, Math.max(0, sizeBytes - replacedBytes));
+	// The file is already on the disk: the floor is what is free without it.
+	const after = roomForOwner(
+		getDb(),
+		{ userId: locals.user.id },
+		Math.max(0, sizeBytes - replacedBytes),
+		(await freeDisk()) + sizeBytes
+	);
 	if (!after.ok) {
 		await unlink(path).catch(() => {});
 		throw error(413, after.message);

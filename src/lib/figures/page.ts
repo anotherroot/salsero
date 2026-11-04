@@ -3,6 +3,7 @@
  */
 import { frequencyLabel } from '$lib/frequency';
 import { longDayLabel, plural } from '$lib/format';
+import { possessive } from '$lib/clones/view';
 import type { MetaPart } from '$lib/exercises/today';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { RoutineUse } from '$lib/routines/coverage';
@@ -80,8 +81,8 @@ export function archiveCopy(
 	return last
 		? {
 				title: `Archive ${variation}?`,
-				button: 'Archive and remove figure',
-				caption: `${figure} goes with it: ${variation} is its last variation. ${kept}`
+				button: 'Archive and remove move',
+				caption: `${figure} goes with it: ${variation} is its last figure. ${kept}`
 			}
 		: {
 				title: `Archive ${variation}?`,
@@ -115,7 +116,7 @@ export function variationNav(
 		count,
 		prev: step(-1),
 		next: step(1),
-		position: `${index + 1} of ${count} ${count === 1 ? 'variation' : 'variations'}`
+		position: `${index + 1} of ${count} ${count === 1 ? 'figure' : 'figures'}`
 	};
 }
 
@@ -134,10 +135,10 @@ export function moveState(i: {
 		i.chosen !== null && i.chosen.variations.some((v) => v.trim().toLowerCase() === wanted);
 	return {
 		cta: i.last
-			? 'Move and remove figure'
+			? 'Move and remove move'
 			: i.chosen
 				? `Move to ${i.chosen.name}`
-				: 'Make it its own figure',
+				: 'Make it its own move',
 		danger: i.last,
 		clash:
 			clashes && i.chosen
@@ -167,4 +168,17 @@ export function deleteRecordingBody(day: string, size: string, sections: number)
 				? 'Its 1 saved section goes with it. '
 				: `Its ${sections} saved sections go with it. `;
 	return `${day} · ${size}. ${goes}This can’t be undone.`;
+}
+
+/** The figure page's band subtitle: "Figure · starts on 1 · 16 counts", or "Figure". */
+export function figureSubtitle(
+	f: {
+		startCount: number | null;
+		lengthCounts: number | null;
+	},
+	team?: string
+): string {
+	const lead = team ? `${possessive(team)} figure` : 'Figure';
+	if (f.startCount === null || f.lengthCounts === null) return lead;
+	return `${lead} · starts on ${f.startCount} · ${f.lengthCounts} counts`;
 }

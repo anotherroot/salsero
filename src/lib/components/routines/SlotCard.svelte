@@ -10,6 +10,7 @@
 	import Swipeable from './Swipeable.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
 	import { resettingFocus } from '$lib/act';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import type { RowView, Swiped } from './types';
@@ -188,6 +189,11 @@
 							><Icon name="route" size={18} /></span
 						>{/if}{row.title}
 				</p>
+				{#if row.source}
+					<p class="mt-1">
+						<Badge tone="neutral"><Icon name="group" size={14} />{row.source}</Badge>
+					</p>
+				{/if}
 				{#if row.meta}
 					<p
 						class="mt-0.5 truncate text-[13px] leading-[1.35] {selected
@@ -296,6 +302,11 @@
 							class="h-11 truncate rounded-xl bg-accent-soft px-3.5 text-[15px] leading-[44px] font-bold text-ink"
 						>
 							{alt.label}
+							{#if alt.source}
+								<span class="ml-1.5 align-middle"
+									><Badge tone="neutral"><Icon name="group" size={14} />{alt.source}</Badge></span
+								>
+							{/if}
 						</p>
 					</Swipeable>
 				</div>

@@ -68,6 +68,121 @@ costing the history:
 ssh tilen@49.13.76.224 'sudo systemctl start salsa-backup'
 ```
 
+**Before the groups migrations (`0020`–`0022`)**, check the data on a fresh
+backup copy (never the live database). `0021` adds unique indexes on an
+entry's person and target, and fails at boot if a person already has two
+exercises for the same target — archived ones included: the indexes cover
+every row, so archiving a duplicate does not help. Run each query; every one
+must print nothing:
+
+```sql
+select user_id, lesson_id, count(*) from exercises where lesson_id is not null group by 1,2 having count(*) > 1;
+select user_id, routine_id, count(*) from exercises where routine_id is not null group by 1,2 having count(*) > 1;
+select user_id, figure_id, count(*) from exercises where figure_id is not null group by 1,2 having count(*) > 1;
+```
+
+(There is no `drill_id` to check yet: `0021` adds that column, empty.)
+
+If any prints a row, fix the live database before the deploy, after the
+snapshot and with the app stopped: keep one of the duplicates, merge the others into it — move their
+sets over (`update sets set exercise_id = <kept> where exercise_id = <other>`)
+and delete them (and any `links`, `spot_links` or `lesson_exercises` rows that
+name them: `foreign_keys` is on) — or set the others' target column
+(`lesson_id`, `routine_id` or `figure_id`) to null. Then run the queries again.
+
+**Before the groups follow-ups and clones migrations (`0023`–`0027`)**, take
+the backup above, then try the migrations on a copy of it before deploying.
+`0023` (opens) and `0024` (`songs.team_id`, `songs.shared_at`,
+`songs_team_idx`, `song_drops`) are additive. `0025` rebuilds `team_changes`
+to widen its CHECKs; that is safe only because nothing has a foreign key into
+or out of that table. `0027` (clones and twins) is additive: `gene_id` and
+`cloned_from` on `figures`, `routines`, `songs`, `lessons`, `exercises`,
+`recordings`, `lesson_videos` and `video_spots`, their indexes (unique per
+owner on the root tables, over non-null genes only, so every existing row,
+whose gene is null, passes), and the new tables `clone_pairs` and `twins`. No
+table may be rebuilt by it. The script boots the trial once: the boot
+migrates, settles the people who left a group before Keep, and only then runs
+the integrity checks, which must all report 0:
+
+```sh
+bash -eu <<'EOF'
+DB=/tmp/trial.db
+LOG=/tmp/trial.log
+fail() { echo "FAIL: $*" >&2; exit 1; }
+# the backup just taken by `systemctl start salsa-backup` (named for today)
+ssh tilen@49.13.76.224 "sudo cat /var/lib/salsa/backups/salsa-$(date +%F).db" > "$DB" \
+  || fail "could not copy today's backup"
+[ -s "$DB" ] || fail "the copied backup is empty"
+mkdir -p /tmp/trial-data
+before=$(sqlite3 "$DB" 'select count(*) from team_changes;')
+npm run build
+PID=
+trap '[ -n "$PID" ] && kill $PID 2>/dev/null || true' EXIT
+DATA_DIR=/tmp/trial-data DATABASE_PATH="$DB" HOST=127.0.0.1 PORT=3999 node build > "$LOG" 2>&1 &
+PID=$!
+# migrations run on the first request; retry while the server boots
+curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:3999/health \
+  || fail "the trial server never answered /health"
+# then wait (30 s at most) for the boot's last line: the cross-refs count, which
+# comes after the settled former members
+for _ in $(seq 30); do grep -q '\[integrity\] cross-refs' "$LOG" && break; sleep 1; done
+kill $PID 2>/dev/null || true; wait $PID 2>/dev/null || true; PID=
+grep '\[clones\] settled' "$LOG" || fail "no '[clones] settled N former group members' line"
+[ "$(sqlite3 "$DB" 'select count(*) from __drizzle_migrations;')" -ge 27 ] \
+  || fail "migrations did not run (fewer than 27 applied)"
+sqlite3 "$DB" '.schema team_changes' | grep -q "'song'" \
+  || fail "team_changes was not rebuilt: its CHECK does not name 'song'"
+after=$(sqlite3 "$DB" 'select count(*) from team_changes;')
+[ "$after" -eq "$before" ] || fail "team_changes had $before rows, now $after"
+sqlite3 "$DB" '.indexes team_changes' | grep -qw team_changes_root_idx \
+  || fail "team_changes_root_idx is missing"
+for t in figures routines songs lessons exercises recordings lesson_videos video_spots; do
+  for c in gene_id cloned_from; do
+    sqlite3 "$DB" "select $c from $t limit 0;" > /dev/null 2>&1 || fail "$t.$c is missing"
+  done
+done
+for t in clone_pairs twins; do
+  [ "$(sqlite3 "$DB" "select count(*) from sqlite_master where type = 'table' and name = '$t';")" -eq 1 ] \
+    || fail "table $t is missing"
+done
+[ "$(sqlite3 "$DB" "select count(*) from sqlite_master where instr(name, '__new_') > 0;")" -eq 0 ] \
+  || fail "a table was rebuilt: sqlite_master still names a __new_ table"
+grep '\[integrity\]' "$LOG"
+for c in owners families cross-refs; do
+  grep -q "\[integrity\] $c: 0 found" "$LOG" || fail "integrity $c is not 0 (its lines are above)"
+done
+echo "OK: 27+ migrations applied, $after team_changes rows kept, clones columns and tables present, integrity clean"
+EOF
+```
+
+It stops at the first thing that is wrong and says what, and prints `OK: …`
+only when all of it holds. The migrations run in `openDb`, which only a
+request reaches, so the `curl` is what applies them: the migration count must
+be at least 27, the `team_changes` schema must mention `'song'`, the row count
+must match the one before, `team_changes_root_idx` must be listed, every
+`gene_id` and `cloned_from` column must exist, `clone_pairs` and `twins` must
+exist, and `sqlite_master` must name no `__new_` table (what a drizzle rebuild
+leaves behind, and what `0027` must never do). Delete `/tmp/trial*`
+afterwards, and never point this at the live database.
+
+**What the boot logs, and what to look at.** Every boot first logs
+`[clones] settled N former group members`: the people who left a group before
+Keep shipped get Keep everything, once (`settleFormerMembers`); N is 0 from
+the second boot on. A failed settling logs
+`[clones] settling former members failed` instead, and the checks still run.
+Then one count per integrity check: `[integrity] owners: N found`
+(`ownerIntegrity`: a root row whose owner is not exactly one person or group),
+`[integrity] families: N found` (`familyIntegrity`: a recording, lesson video
+or section parent holding two pieces of one family) and
+`[integrity] cross-refs: N found` (`crossRefs`: a group's row pointing outside
+its group, or a person's routine slot, embed, section link, lesson link or
+live practice entry pointing at a group row they do not read, or at another
+person's row), each finding on its own `[integrity]` line above its count.
+The checks run after the settling, so even the first boot after `0027` must
+report 0 for each. Any finding is a bug: look at it before using the app. The
+app still serves (the checks only log), but a person's row is pointing where
+it must not, and the next change of reach may act on it.
+
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
 existing `build/` rsync carries them. `scripts/make-clips.sh` regenerates them
@@ -153,15 +268,18 @@ shares with Firefly, Grafana, muscle and nikaudio.
 
 ## Android app
 
-`android/` builds two APKs, one per dance (Salsa and Bachata): the site in a
-WebView plus background uploads and the daily reminder (design:
-`docs/superpowers/specs/2026-10-14-android-app-design.md`). Sideloaded, like
-Shrink — no Play Store.
+`android/` builds one app per dance (Salsa and Bachata), each in two channels:
+`direct` (the one that ships: it updates itself from the site) and `play`
+(no updater, for the Play Store later; built so it keeps compiling). The site
+in a WebView plus background uploads and the daily reminder (design:
+`docs/superpowers/specs/2026-10-14-android-app-design.md`). Sideloaded, no Play
+Store: friends get the direct build from the site's `/app` page (see
+"Releasing app updates").
 
 ```sh
 nix develop .#android -c ./android/gradlew -p android test assembleDebug
-adb install -r android/app/build/outputs/apk/salsa/debug/app-salsa-debug.apk
-adb install -r android/app/build/outputs/apk/bachata/debug/app-bachata-debug.apk
+adb install -r android/app/build/outputs/apk/salsaDirect/debug/app-salsa-direct-debug.apk
+adb install -r android/app/build/outputs/apk/bachataDirect/debug/app-bachata-direct-debug.apk
 ```
 
 Salsa keeps the original package (`eu.anotherroot.salsa`), so it installs over
@@ -173,21 +291,58 @@ allows no cleartext).
 
 - **The site half ships with the server.** Migration 0013 (`device_tokens`, two
   `users` columns) applies at boot like any other; take the backup first.
-- **`SALSA_ANDROID_CERT_SHA256`** (optional, in `salsa-prod.env`): the APK
-  signing key's SHA-256 fingerprint, served at `/.well-known/assetlinks.json`.
-  Since the WebView (2026-10-29) the app does not read it. The debug
-  key's fingerprint:
-
-  ```sh
-  nix develop .#android -c keytool -list -v -keystore ~/.android/debug.keystore \
-    -alias androiddebugkey -storepass android | grep SHA256
-  ```
+- **`SALSA_ANDROID_CERT_SHA256`** (optional, in `salsa-prod.env`): the release
+  key's SHA-256 fingerprint (see "Releasing app updates"), served at
+  `/.well-known/assetlinks.json`; since the WebView (2026-10-29) the app does
+  not read it:
+  `38:F4:7B:2E:FD:A2:6D:32:70:EF:C6:F3:37:ED:75:86:5E:A0:E7:AD:FB:E1:95:13:52:E6:81:CD:4F:E9:B8:3A`.
 
 - **Pairing:** the first upload (or reminder) sends the app to `/device/pair`;
   one tap there hands it a token. Each dance's app pairs separately. Settings
   lists paired devices ("Salsa app", "Bachata app") and removes them.
 - **Test uploads against `node build` or the host**, never `vite dev`: the same
   CSRF caveat as the worker.
+
+## Releasing app updates
+
+The apps are release-signed and update themselves from the site (design:
+`docs/superpowers/specs/2026-11-03-app-updates-design.md`). From a clean git
+tree:
+
+```sh
+nix develop .#android -c ./scripts/release.sh salsa|bachata|both [--required]
+```
+
+It builds `assemble<Dance>DirectRelease`, checks the APK is signed with the
+release key and that its version code is above the published one, uploads it to
+`/var/lib/salsa/releases/<dance>/<code>.apk` over ssh, and only then replaces
+`current.json` (the server caches it by mtime). `--required` raises the minimum
+version to this one, so older apps must update before they go on; the minimum
+stays for later releases.
+
+- **Bump `versionCode` and `versionName`** in `android/app/build.gradle.kts`
+  first (both dances share them). The script refuses a code that is not above
+  the published one.
+- **The key** is `~/.config/salsa/release.jks` with
+  `~/.config/salsa/key.properties` (`storeFile`, `storePassword`, `keyAlias`,
+  `keyPassword`). Neither is in the repo, and neither is ever overwritten.
+  **Back both up off the laptop**: lose the key and no installed app can be
+  updated again. Its SHA-256 is in `release.sh` (`CERT_RE`). Debug builds are
+  signed with it too, so `adb install -r` of a debug build keeps working.
+- Set **`SALSA_ANDROID_CERT_SHA256`** in `salsa-prod.env` to the key's
+  fingerprint:
+  `38:F4:7B:2E:FD:A2:6D:32:70:EF:C6:F3:37:ED:75:86:5E:A0:E7:AD:FB:E1:95:13:52:E6:81:CD:4F:E9:B8:3A`.
+- **The one-time reinstall.** Apps installed from debug builds carry another
+  key, so a release build cannot update them: uninstall Salsa and Bachata,
+  install the release-signed builds (from `/app` on the phone), sign in and
+  pair again. Nothing on the server is lost.
+- Migration 0026 (`app_installs`; numbered after the groups migrations) ships with the site; take the backup before deploying it. 0027 (clones and twins) has its dry run with the groups follow-ups above.
+
+### Moving to the Play Store
+
+Not done. When it is: enrol in Play App Signing with this key ("use my own
+key"), ship the `play` variants (they carry no updater; Play updates them), and
+add Play's in-app update API then.
 
 ## Backups
 

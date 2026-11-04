@@ -58,7 +58,7 @@
 
 {#if asksFigureName}
 	<div>
-		<label class={LABEL} for="{uid}-figureName">Figure name</label>
+		<label class={LABEL} for="{uid}-figureName">Move name</label>
 		<!-- svelte-ignore a11y_autofocus -->
 		<input
 			id="{uid}-figureName"
@@ -86,7 +86,7 @@
 {/if}
 
 <div>
-	<label class={LABEL} for="{uid}-name">Variation name</label>
+	<label class={LABEL} for="{uid}-name">Figure name</label>
 	<input
 		id="{uid}-name"
 		name="name"

@@ -10,7 +10,11 @@ import type { Db } from './db';
 import { figures, lessons, lessonVideos, recordings, videoSpots } from './db/schema';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
-import { assertUnlinked, linkChips, videoOfSpot } from './spot-links';
+import { assertUnlinked, linkChips, linkChipsFor, videoOfSpot, type Visible } from './spot-links';
+import { ownerOfRow, type Owner } from './storage';
+import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
+import { isTeam, spaceOfRow } from './scope';
+import { rootTitle, spotWords, trashRows } from './trash';
 
 /** A value the user (or a bad client) sent that a spot cannot hold. */
 export class SpotError extends Error {}
@@ -49,30 +53,31 @@ function ownerColumn(owner: SpotOwner) {
 
 /**
  * Whose video this is — its figure's owner for a recording, its lesson's for a
- * lesson video — or null when there is no such video. The flat routes compare
- * it with the signed-in person: no dance in the URL, so the person is the wall.
+ * lesson video, a person or a group — or null when there is no such video.
+ * Who may read or change it is `access.ts`'s (`videoAccess`) to say.
  */
-export function videoOwner(db: Db, owner: SpotOwner): string | null {
+export function videoOwner(db: Db, owner: SpotOwner): Owner | null {
 	const row =
 		'recordingId' in owner
 			? db
-					.select({ userId: figures.userId })
+					.select({ userId: figures.userId, teamId: figures.teamId })
 					.from(recordings)
 					.innerJoin(figures, eq(figures.id, recordings.figureId))
 					.where(eq(recordings.id, owner.recordingId))
 					.get()
 			: db
-					.select({ userId: lessons.userId })
+					.select({ userId: lessons.userId, teamId: lessons.teamId })
 					.from(lessonVideos)
 					.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
 					.where(eq(lessonVideos.id, owner.lessonVideoId))
 					.get();
-	return row?.userId ?? null;
+	return row ? ownerOfRow(row) : null;
 }
 
 /** Whose spot this is: its video's owner. Null for a missing spot. */
-export function spotOwner(db: Db, spotId: number): string | null {
-	return videoOfSpot(db, spotId)?.userId ?? null;
+export function spotOwner(db: Db, spotId: number): Owner | null {
+	const video = videoOfSpot(db, spotId);
+	return video ? ownerOfRow(video) : null;
 }
 
 export function ownerExists(db: Db, owner: SpotOwner): boolean {
@@ -113,40 +118,92 @@ function cleanTimes(startMs: unknown, endMs: unknown): { startMs: number; endMs:
 	return { startMs, endMs };
 }
 
-/** Rows straight from the table, plus what each is linked to. */
-function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[]): Spot[] {
-	const chips = linkChips(
-		db,
-		rows.map((r) => r.id)
-	);
+/**
+ * Rows straight from the table (spots of one video), plus what each is linked
+ * to, as the video's space lists it (`linkChipsFor`): a person's own video names
+ * a group's row only while they may use it.
+ */
+function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[], visible?: Visible): Spot[] {
+	if (rows.length === 0) return [];
+	const video = videoOfSpot(db, rows[0].id);
+	const ids = rows.map((r) => r.id);
+	const chips = video
+		? linkChipsFor(db, ids, spaceOfRow(video, ''), visible)
+		: linkChips(db, ids, visible);
 	return rows.map((r) => ({ ...r, linkedTo: (chips.get(r.id) ?? []).map((c) => c.label) }));
 }
 
-export function listSpots(db: Db, owner: SpotOwner): Spot[] {
+/** A video's spots. With `visible` (a reader of a group's video), only the links to what it holds. */
+export function listSpots(db: Db, owner: SpotOwner, visible?: Visible): Spot[] {
 	const rows = db
 		.select(COLUMNS)
 		.from(videoSpots)
 		.where(ownerColumn(owner))
 		.orderBy(asc(videoSpots.startMs), asc(videoSpots.id))
 		.all();
-	return withLinks(db, rows);
+	return withLinks(db, rows, visible);
 }
 
-/** The new spot, or null when its video does not exist. Throws `SpotError` on a bad value. */
+/** The new spot, or null when its video does not exist. Throws `SpotError` on a bad value.
+ * In a group, `by` is who, for History.
+ */
 export function addSpot(
 	db: Db,
 	owner: SpotOwner,
-	input: { startMs: unknown; endMs: unknown; label: unknown }
+	input: { startMs: unknown; endMs: unknown; label: unknown },
+	by?: string
 ): Spot | null {
 	const times = cleanTimes(input.startMs, input.endMs);
 	const label = cleanLabel(input.label);
 	if (!ownerExists(db, owner)) return null;
-	const row = db
-		.insert(videoSpots)
-		.values({ ...owner, ...times, label })
-		.returning(COLUMNS)
-		.get();
-	return { ...row, linkedTo: [] };
+	return db.transaction((tx) => {
+		const row = tx
+			.insert(videoSpots)
+			.values({ ...owner, ...times, label })
+			.returning(COLUMNS)
+			.get();
+		const root = videoRoot(tx, owner);
+		if (root) logSpot(tx, root, by, { verb: 'add', spot: row, after: fields(row) });
+		return { ...row, linkedTo: [] };
+	});
+}
+
+/** A spot as History keeps it: the player's three fields, the clash check's keys. */
+const fields = (s: { label: string | null; startMs: number; endMs: number | null }) => ({
+	label: s.label,
+	startMs: s.startMs,
+	endMs: s.endMs
+});
+
+/** History's line for a section or a point, filed under its video's lesson or figure. */
+function logSpot(
+	tx: Db,
+	root: NonNullable<ReturnType<typeof videoRoot>>,
+	by: string | undefined,
+	e: {
+		verb: 'add' | 'change' | 'remove' | 'restore';
+		spot: { id: number; endMs: number | null };
+		before?: Record<string, string | number | null>;
+		after?: Record<string, string | number | null>;
+		trashId?: number | null;
+	},
+	now = Date.now()
+): void {
+	const { row, ...at } = root;
+	logChange(
+		tx,
+		actingIn(row, by),
+		{
+			...at,
+			verb: e.verb,
+			subject: e.spot.endMs === null ? 'point' : 'section',
+			subjectId: e.spot.id,
+			before: e.before,
+			after: e.after,
+			trashId: e.trashId
+		},
+		now
+	);
 }
 
 /**
@@ -154,12 +211,17 @@ export function addSpot(
  * when there is none. The times are checked merged with the stored ones, as
  * `addSpot` checks them — and a point stays a point, a section a section: the
  * player only nudges edges, so a change of kind is a bad client. Throws
- * `SpotError`, changing nothing, on a bad value.
+ * `SpotError`, changing nothing, on a bad value. In a group, `by` is who, for
+ * History (`verb` is `restore` for its Restore); a line about a move names
+ * the section, so its label rides along.
  */
 export function updateSpot(
 	db: Db,
 	id: number,
-	changes: { label?: unknown; startMs?: unknown; endMs?: unknown }
+	changes: { label?: unknown; startMs?: unknown; endMs?: unknown },
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
 ): Spot | null {
 	return db.transaction((tx) => {
 		const current = tx.select(COLUMNS).from(videoSpots).where(eq(videoSpots.id, id)).get();
@@ -180,14 +242,50 @@ export function updateSpot(
 			.where(eq(videoSpots.id, id))
 			.returning(COLUMNS)
 			.get()!;
+		const change = fieldChange(fields(current), fields(row), 'spot');
+		const root = change ? spotRoot(tx, id) : null;
+		if (change && root) {
+			const before = { ...change.before, label: current.label };
+			const after = { ...change.after, label: row.label };
+			logSpot(tx, root, by, { verb, spot: row, before, after }, now);
+		}
 		return withLinks(tx, [row])[0];
 	});
 }
 
-/** Whether a row went. Throws `SpotLinkedError`, deleting nothing, while the section is linked. */
-export function deleteSpot(db: Db, id: number): boolean {
+/**
+ * Delete a section or point: null when there was none. Throws
+ * `SpotLinkedError`, deleting nothing, while the section is linked. In a
+ * group, `by` is who, for History, and the section goes to Recently deleted
+ * first: `trashId` is that entry, which the player's Undo restores (risk 18).
+ */
+export function deleteSpot(
+	db: Db,
+	id: number,
+	by?: string,
+	now = Date.now()
+): { trashId: number | null } | null {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { spotId: id });
-		return tx.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get() !== undefined;
+		const root = spotRoot(tx, id);
+		const gone = tx.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get();
+		if (!gone) return null;
+		if (!root) return { trashId: null };
+		const space = actingIn(root.row, by);
+		const trashId = isTeam(space)
+			? trashRows(
+					tx,
+					space,
+					'section',
+					`${spotWords(gone)} · ${rootTitle(tx, root.rootKind, root.rootId)}`,
+					{ rootKind: root.rootKind, rootId: root.rootId },
+					{ video_spots: [gone] },
+					[],
+					0,
+					now
+				)
+			: null;
+		logSpot(tx, root, by, { verb: 'remove', spot: gone, before: fields(gone), trashId }, now);
+		return { trashId };
 	});
 }

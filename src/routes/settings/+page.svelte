@@ -19,11 +19,14 @@
 	} from '$lib/components/ui/styles';
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import LeadTile from '$lib/components/system/LeadTile.svelte';
+	import { fullName } from '$lib/names';
 	import { clockLabel } from '$lib/clock';
 	import { DANCES } from '$lib/dances/dances';
 	import { DEFAULT_REMINDER, reminderToSave } from '$lib/settings/view';
 	import { barFraction, usageLine } from '$lib/storage-view';
+	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import UpdateButton from '$lib/components/system/UpdateButton.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { VIDEO_SHORT_SIDES } from '$lib/video-sizes';
@@ -49,7 +52,9 @@
 	let time = $state(seed().time);
 	$effect(reseed);
 
-	let sheet = $state<'style' | 'size' | 'theme' | 'ask' | null>(null);
+	let sheet = $state<'style' | 'size' | 'theme' | 'ask' | 'name' | null>(null);
+	let naming = $state(false);
+	let nameError = $state<{ field?: 'firstName' | 'lastName'; message: string } | null>(null);
 	let asking = $state(false);
 	let askError = $state('');
 
@@ -205,8 +210,32 @@
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">For this browser or phone only.</p>
 
+	{#if !data.app}
+		<div class="{GROUP} mt-[14px]">
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
+			<a href="/app" class={ROW_TALL}>
+				<LeadTile icon="phone" />
+				<span class="flex min-w-0 flex-1 flex-col">
+					<span class="text-[16px] font-bold text-ink">Get the app</span>
+					<span class="text-[13px] text-muted">For your phone's home screen</span>
+				</span>
+				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</a>
+		</div>
+	{/if}
+
 	<span class="{SECTION_LABEL} mt-[14px]">Android app</span>
 	<div class={GROUP}>
+		{#if data.appUpdate}
+			<div class="{ROW} min-h-16 pr-3.5">
+				<!-- The installed number, always: the app tells the server only that (its user
+				     agent), and the admin page counts the same way ("Salsa app 2"). -->
+				<span class="min-w-0 flex-1 text-[16px] font-bold text-ink"
+					>Version {data.appUpdate.installed}</span
+				>
+				{#if data.appUpdate.state !== 'none'}<UpdateButton update={data.appUpdate} />{/if}
+			</div>
+		{/if}
 		<div class="{ROW} pr-1.5">
 			<LeadTile icon="bell" />
 			<span class="flex min-w-0 flex-1 flex-col">
@@ -287,6 +316,20 @@
 
 	<span class="{SECTION_LABEL} mt-[14px]">Account</span>
 	<div class={GROUP}>
+		<button
+			type="button"
+			class="flex min-h-[58px] w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			onclick={() => {
+				nameError = null;
+				sheet = 'name';
+			}}
+		>
+			<span class="min-w-0 flex-1 text-[16px] font-bold text-ink">Name</span>
+			<span class="truncate text-[15px] font-semibold text-muted">
+				{fullName({ ...data.name, email: data.user?.email ?? '' })}
+			</span>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</button>
 		<div class="{ROW} min-h-16 pr-1.5">
 			<LeadTile icon="solo" />
 			<span class="flex min-w-0 flex-1 flex-col">
@@ -378,6 +421,50 @@
 	{#snippet footer()}
 		<button type="submit" form="ask-more" class={button('primary', 'md', true)} aria-busy={asking}>
 			Ask for more
+		</button>
+	{/snippet}
+</Sheet>
+
+<Sheet title="Name" open={sheet === 'name'} onclose={() => (sheet = null)}>
+	<form
+		id="edit-name"
+		method="POST"
+		action="?/name"
+		class="flex flex-col gap-3.5"
+		use:guarded={{
+			label: 'Your name',
+			submit: ({ cancel }) => {
+				if (naming) return cancel();
+				nameError = null;
+				naming = true;
+				return async ({ result, update }) => {
+					if (result.type === 'failure') {
+						nameError = {
+							field: result.data?.field as 'firstName' | 'lastName' | undefined,
+							message: String(result.data?.message ?? 'Could not save.')
+						};
+					}
+					try {
+						await update({ reset: false });
+						if (result.type === 'success') sheet = null;
+					} finally {
+						naming = false;
+					}
+				};
+			}
+		}}
+	>
+		<NameFields
+			idPrefix="settings-name"
+			firstName={data.name.firstName}
+			lastName={data.name.lastName}
+			field={nameError?.field}
+			message={nameError?.message}
+		/>
+	</form>
+	{#snippet footer()}
+		<button type="submit" form="edit-name" class={button('primary', 'md', true)} aria-busy={naming}>
+			Save
 		</button>
 	{/snippet}
 </Sheet>

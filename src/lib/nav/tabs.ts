@@ -1,17 +1,18 @@
 import type { DanceSlug } from '$lib/dances/dances';
 import type { IconName } from '$lib/icons/icons';
 
-export type TabId = 'today' | 'moves' | 'lessons' | 'music';
+export type TabId = 'today' | 'moves' | 'lessons' | 'groups' | 'music';
 
 export const TABS: readonly {
 	id: TabId;
 	label: string;
 	icon: IconName;
-	path: '/[dance]' | '/[dance]/figures' | '/[dance]/lessons' | '/[dance]/songs';
+	path: '/[dance]' | '/[dance]/figures' | '/[dance]/lessons' | '/[dance]/groups' | '/[dance]/songs';
 }[] = [
 	{ id: 'today', label: 'Today', icon: 'today', path: '/[dance]' },
 	{ id: 'moves', label: 'Moves', icon: 'moves', path: '/[dance]/figures' },
 	{ id: 'lessons', label: 'Lessons', icon: 'lessons', path: '/[dance]/lessons' },
+	{ id: 'groups', label: 'Groups', icon: 'group', path: '/[dance]/groups' },
 	{ id: 'music', label: 'Music', icon: 'music', path: '/[dance]/songs' }
 ];
 
@@ -20,9 +21,11 @@ const SECTION: Record<string, TabId> = {
 	exercises: 'today',
 	figures: 'moves',
 	routines: 'moves',
+	moves: 'moves',
 	positions: 'moves',
 	coverage: 'moves',
 	lessons: 'lessons',
+	groups: 'groups',
 	songs: 'music',
 	player: 'music'
 };
@@ -47,7 +50,7 @@ export function tabFor(path: string, dance: DanceSlug): TabId | null {
 /** The main lists a tab opens on. Moves has two: figures and routines. */
 export function rootsOf(tab: TabId, dance: DanceSlug): string[] {
 	if (tab === 'moves') return [`/${dance}/figures`, `/${dance}/routines`];
-	const path = { today: '', lessons: '/lessons', music: '/songs' }[tab];
+	const path = { today: '', lessons: '/lessons', groups: '/groups', music: '/songs' }[tab];
 	return [`/${dance}${path}`];
 }
 

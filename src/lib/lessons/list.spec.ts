@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LessonItem } from '$lib/types';
-import { dateTile, diskSubtitle, lessonCounts, monthGroups, videoMeta } from './list';
+import { dateTile, diskSubtitle, lessonCounts, monthGroups, splitDrafts, videoMeta } from './list';
 
 const lesson = (lessonDay: string, over: Partial<LessonItem> = {}): LessonItem => ({
 	id: 1,
@@ -12,6 +12,8 @@ const lesson = (lessonDay: string, over: Partial<LessonItem> = {}): LessonItem =
 	routines: 0,
 	figures: 0,
 	createdAt: 0,
+	team: null,
+	copyOf: null,
 	...over
 });
 
@@ -54,5 +56,27 @@ describe('diskSubtitle', () => {
 	it('names the size, or nothing at zero', () => {
 		expect(diskSubtitle(3.4 * 1024 ** 3)).toBe('Videos on disk: 3.4 GB');
 		expect(diskSubtitle(0)).toBeUndefined();
+	});
+});
+
+describe('splitDrafts', () => {
+	it('sets the drafts apart and keeps order', () => {
+		const a = { ...lesson('2026-11-02', { id: 1 }), publishedAt: null };
+		const b = { ...lesson('2026-11-01', { id: 2 }), publishedAt: 5 };
+		const c = { ...lesson('2026-10-01', { id: 3 }), publishedAt: null };
+		const got = splitDrafts([a, b, c]);
+		expect(got.drafts.map((l) => l.id)).toEqual([1, 3]);
+		expect(got.published.map((l) => l.id)).toEqual([2]);
+	});
+	it('treats a lesson without publishedAt as published (the personal list)', () => {
+		expect(splitDrafts([lesson('2026-11-01')]).published).toHaveLength(1);
+	});
+});
+
+describe('emptyLessonsBody', () => {
+	it('promises a Today review only outside a group', async () => {
+		const { emptyLessonsBody } = await import('./list');
+		expect(emptyLessonsBody(false)).toContain('Today');
+		expect(emptyLessonsBody(true)).not.toContain('Today');
 	});
 });

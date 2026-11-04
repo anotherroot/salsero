@@ -15,7 +15,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import {
@@ -55,18 +55,25 @@ function post(user: User, dance: string, fields: Record<string, string>, id = ''
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user }
 	};
 }
-type Event = ReturnType<typeof post>;
+type Event = Omit<ReturnType<typeof post>, 'cookies'> & { cookies?: unknown };
 type Invoke = (event: Event) => Promise<unknown>;
 const call = (action: unknown, event: Event) => (action as Invoke)(event);
 
-type Load = (e: { params: { dance: string; id: string }; url: URL; locals: unknown }) => unknown;
+type Load = (e: {
+	params: { dance: string; id: string };
+	url: URL;
+	locals: unknown;
+	cookies?: unknown;
+}) => unknown;
 const loadAt = (load: unknown, user: User, dance: string, id = '') =>
 	(load as Load)({
 		params: { dance, id },
 		url: new URL('http://localhost/'),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user }
 	});
 
@@ -163,7 +170,7 @@ describe('figures: the data functions stand behind a wall', () => {
 		})!;
 		expect(into.userId).toBe('u1');
 		expect(createVariationFrom(db, into.id, 'Triple')!.userId).toBe('u1');
-		expect(addFigureExercise(db, into.id)!.userId).toBe('u1');
+		expect(addFigureExercise(db, 'u1', into.id)!.userId).toBe('u1');
 		const moved = moveVariation(db, into.id, { newFigure: 'Elsewhere' });
 		expect(moved.ok).toBe(true);
 		const groups = db.select().from(figureGroups).all();
@@ -173,7 +180,7 @@ describe('figures: the data functions stand behind a wall', () => {
 	it("a variation cannot be moved into another person's figure", () => {
 		const theirs = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Theirs' })!;
 		expect(moveVariation(db, theirs.figure.id, { groupId })).toEqual({ ok: false, reason: 'gone' });
-		expect(getFigure(db, theirs.figure.id)!.figure.groupId).toBe(theirs.group.id);
+		expect(getFigure(db, theirs.figure.id, 'u1')!.figure.groupId).toBe(theirs.group.id);
 	});
 });
 
@@ -825,7 +832,7 @@ import {
 	routineShapes,
 	routineSlots
 } from '$lib/server/routines';
-import { requireRoutineInWall } from '$lib/server/scope';
+import { requireRoutineAccess } from '$lib/server/scope';
 import * as routinePage from './routines/[id]/+page.server';
 import * as routineList from './routines/+page.server';
 
@@ -883,12 +890,15 @@ describe('routines: the data functions stand behind a wall', () => {
 		expect(listRoutines(db, U1_SALSA).map((r) => r.name)).toEqual(['Mine']);
 	});
 
-	it("requireRoutineInWall gives another person's routine the missing one's 404", () => {
-		expect(requireRoutineInWall(db, U1_SALSA, mine).id).toBe(mine);
+	it("requireRoutineAccess gives another person's routine the missing one's 404", () => {
+		const as = (dance: string) => [db, { user: U1 } as App.Locals, { dance }] as const;
+		expect(requireRoutineAccess(...as('salsa'), mine, 'edit').routine.id).toBe(mine);
 		for (const id of [theirs, 9999]) {
-			expect(() => requireRoutineInWall(db, U1_SALSA, id)).toThrow(threw404);
+			for (const need of ['read', 'edit'] as const) {
+				expect(() => requireRoutineAccess(...as('salsa'), id, need)).toThrow(threw404);
+			}
 		}
-		expect(() => requireRoutineInWall(db, U1_BACHATA, mine)).toThrow(threw404);
+		expect(() => requireRoutineAccess(...as('bachata'), mine, 'read')).toThrow(threw404);
 	});
 
 	it("will not build a routine from another person's figure, and writes nothing", () => {
@@ -1174,7 +1184,7 @@ describe('lessons, sections and their links stand behind a wall', () => {
 	});
 
 	it('a lesson and its review exercise carry the wall owner', () => {
-		const { lesson, exercise } = getLesson(db, mine)! as ReturnType<typeof getLesson> & {};
+		const { lesson, exercise } = getLesson(db, mine, 'u1')! as ReturnType<typeof getLesson> & {};
 		expect([lesson.userId, lesson.dance]).toEqual(['u1', 'salsa']);
 		expect([exercise!.userId, exercise!.dance]).toEqual(['u1', 'salsa']);
 	});
@@ -1283,7 +1293,7 @@ describe('lessons, sections and their links stand behind a wall', () => {
 			post(U2, 'salsa', { title: 'Theirs', notes: '', everyDays: '3', lessonDay: '2026-10-01' })
 		);
 		const id = Number(made.location.split('/').pop());
-		const { lesson, exercise } = getLesson(db, id)!;
+		const { lesson, exercise } = getLesson(db, id, 'u2')!;
 		expect([lesson.userId, exercise!.userId]).toEqual(['u2', 'u2']);
 	});
 
@@ -1345,5 +1355,882 @@ describe('lessons, sections and their links stand behind a wall', () => {
 			)
 		);
 		expect(snapshot()).toEqual(before);
+	});
+});
+
+/* ── Group lessons: drafts, publish, and the reader's pages (groups Task 8) ── */
+
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { linkInSpace } from '$lib/server/spot-links';
+import {
+	lessonAdds,
+	links as linkRows,
+	sets as setRows,
+	teamMembers,
+	videoSpots
+} from '$lib/server/db/schema';
+import type { TeamSpace } from '$lib/server/scope';
+import * as groupPage from './groups/[id]/+page.server';
+import * as linksEndpoint from '../api/video-spots/[id]/links/+server';
+import * as spotsEndpoint from '../api/video-spots/+server';
+import { addLesson, entryFor } from '$lib/server/entries';
+
+describe('a group lesson: its draft, its publish, and what each person may open', () => {
+	const U3 = { id: 'u3', email: 'u3@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+	const U4 = { id: 'u4', email: 'u4@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+	let T: TeamSpace;
+	let P: number, D: number;
+	let V2: number, V3: number, tGroup: number;
+	let R: number, C: number, RD: number;
+	let shines: number, draftDrill: number;
+	let pVideo: number, dVideo: number, rec: number;
+	let pSection: number, dSection: number, recSection: number;
+
+	/** Strings and ids only the draft holds: none may reach a member's page. */
+	const DRAFT_ONLY = [
+		'Draft lesson Kappa',
+		'Doble-only-in-draft',
+		'Draft routine Zeta',
+		'Draft drill Omega',
+		'draft-video-kappa.mp4',
+		'Draft section Sigma'
+	];
+
+	const lessonInput = (title: string) => ({ lessonDay: '2026-11-01', title, notes: null });
+	const must = <T>(made: T | null | undefined | false): T => {
+		if (!made) throw new Error('setup step refused');
+		return made;
+	};
+
+	beforeEach(async () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok) throw new Error('team expected');
+		T = { dance: 'salsa', teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', T.teamId, 2);
+		joinTeam(db, 'u4', T.teamId, 2);
+
+		const fig = must(
+			createFigure(db, T, {
+				figureName: 'Enchufla',
+				name: 'Basic',
+				partner: 'partner',
+				style: 'salsa',
+				notes: null
+			})
+		);
+		V2 = fig.figure.id;
+		tGroup = fig.group.id;
+		V3 = must(
+			createVariationIn(
+				db,
+				tGroup,
+				{
+					name: 'Doble-only-in-draft',
+					partner: 'partner',
+					style: 'salsa',
+					notes: null
+				},
+				'u1'
+			)
+		).id;
+		rec = addRecording(
+			db,
+			{
+				figureId: V2,
+				file: '00000000-0000-4000-8000-0000000000e1.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 10,
+				note: null
+			},
+			'u1'
+		).id;
+		// A section of V2's recording, linked to the draft's variation too.
+		recSection = must(
+			addSpot(db, { recordingId: rec }, { startMs: 0, endMs: 9, label: 'R' }, 'u1')
+		).id;
+		linkInSpace(db, T, recSection, { figureId: V2 });
+		linkInSpace(db, T, recSection, { figureId: V3 });
+
+		C = createRoutine(db, T, { name: 'Child routine', notes: null }).routine.id;
+		must(addFigureSlot(db, C, V2, 'u1'));
+		R = createRoutine(db, T, { name: 'Published routine', notes: null }).routine.id;
+		must(addChildSlot(db, R, C, 'u1'));
+		RD = createRoutine(db, T, { name: 'Draft routine Zeta', notes: null }).routine.id;
+		must(addFigureSlot(db, RD, V2, 'u1'));
+
+		shines = createCustomExercise(db, T, { name: 'Shines', everyDays: 3, notes: null }).id;
+		draftDrill = createCustomExercise(db, T, {
+			name: 'Draft drill Omega',
+			everyDays: 3,
+			notes: null
+		}).id;
+
+		P = createLesson(db, T, lessonInput('Published lesson')).lesson.id;
+		must(linkRoutine(db, P, R, 'u1'));
+		must(linkFigure(db, P, V2, 'u1'));
+		must(linkExercise(db, P, shines, 'u1'));
+		pVideo = addLessonVideo(
+			db,
+			{
+				lessonId: P,
+				file: '00000000-0000-4000-8000-0000000000e2.mp4',
+				mime: 'video/mp4',
+				sizeBytes: 5
+			},
+			'u1'
+		).id;
+		pSection = must(
+			addSpot(db, { lessonVideoId: pVideo }, { startMs: 0, endMs: 9, label: 'P' }, 'u1')
+		).id;
+		linkInSpace(db, T, pSection, { figureId: V2 });
+		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, P)).run();
+
+		D = createLesson(db, T, lessonInput('Draft lesson Kappa')).lesson.id;
+		must(linkFigure(db, D, V3, 'u1'));
+		must(linkFigure(db, D, V2, 'u1'));
+		must(linkRoutine(db, D, RD, 'u1'));
+		must(linkRoutine(db, D, R, 'u1'));
+		must(linkExercise(db, D, draftDrill, 'u1'));
+		must(linkExercise(db, D, shines, 'u1'));
+		dVideo = addLessonVideo(
+			db,
+			{
+				lessonId: D,
+				file: 'draft-video-kappa.mp4',
+				mime: 'video/mp4',
+				sizeBytes: 5
+			},
+			'u1'
+		).id;
+		dSection = must(
+			addSpot(
+				db,
+				{ lessonVideoId: dVideo },
+				{ startMs: 0, endMs: 9, label: 'Draft section Sigma' },
+				'u1'
+			)
+		).id;
+		linkInSpace(db, T, dSection, { figureId: V2 });
+		linkInSpace(db, T, dSection, { exerciseId: shines });
+
+		// u4 added P, then left before Keep: the row went, the add stayed; they read nothing.
+		db.insert(lessonAdds).values({ userId: 'u4', lessonId: P, addedAt: 1, seenAt: 1 }).run();
+		db.delete(teamMembers)
+			.where(and(eq(teamMembers.teamId, T.teamId), eq(teamMembers.userId, 'u4')))
+			.run();
+	});
+
+	const snapshot = () => ({
+		lessons: db.select().from(lessons).all(),
+		exercises: db.select().from(exercises).all(),
+		figures: db.select().from(figures).all(),
+		groups: db.select().from(figureGroups).all(),
+		routines: db.select().from(routines).all(),
+		lessonFigures: db.select().from(lessonFigures).all(),
+		lessonRoutines: db.select().from(lessonRoutines).all(),
+		lessonExercises: db.select().from(lessonExercises).all(),
+		lessonVideos: db.select().from(lessonVideos).all(),
+		recordings: db.select().from(recordings).all(),
+		links: db.select().from(linksTable).all(),
+		spotLinks: db.select().from(spotLinks).all(),
+		spots: db.select().from(videoSpots).all(),
+		sets: db.select().from(setRows).all()
+	});
+
+	/** The page's data holds nothing only the draft has: no title, name or file. */
+	function holdsNothingOfTheDraft(data: unknown) {
+		const json = JSON.stringify(data);
+		for (const s of DRAFT_ONLY) expect(json).not.toContain(s);
+	}
+
+	type Pages = 'lesson' | 'figure' | 'routine' | 'exercise';
+	const LOADS: Record<Pages, unknown> = {
+		lesson: lessonPage.load,
+		figure: figurePage.load,
+		routine: routinePage.load,
+		exercise: exercisePage.load
+	};
+	const open = (page: Pages, user: User, id: number) =>
+		loadAt(LOADS[page], user, 'salsa', String(id));
+
+	it('an outsider gets 404 on every page of the group, published or not', () => {
+		const pages: [Pages, number][] = [
+			['lesson', P],
+			['lesson', D],
+			['figure', V2],
+			['figure', V3],
+			['routine', R],
+			['routine', C],
+			['routine', RD],
+			['exercise', shines],
+			['exercise', draftDrill]
+		];
+		for (const [page, id] of pages) expect(() => open(page, U3, id)).toThrow(threw404);
+	});
+
+	it('a member opens P and what it holds, read-only, and nothing of the draft', () => {
+		const pages: [Pages, number][] = [
+			['lesson', P],
+			['figure', V2],
+			['routine', R],
+			['routine', C],
+			['exercise', shines]
+		];
+		for (const [page, id] of pages) {
+			const data = open(page, U2, id) as { canEdit: boolean };
+			expect(data.canEdit).toBe(false);
+			holdsNothingOfTheDraft(data);
+		}
+		const drafts: [Pages, number][] = [
+			['lesson', D],
+			['figure', V3],
+			['routine', RD],
+			['exercise', draftDrill]
+		];
+		for (const [page, id] of drafts) expect(() => open(page, U2, id)).toThrow(threw404);
+	});
+
+	it("a member's pages are built from what they reach, not from the group's whole space", () => {
+		const lesson = open('lesson', U2, P) as {
+			linkableFigures: unknown[];
+			linkableRoutines: unknown[];
+			linkableExercises: unknown[];
+			figureGroups: unknown[];
+			draft: boolean;
+			team: { name: string };
+		};
+		expect([
+			lesson.linkableFigures,
+			lesson.linkableRoutines,
+			lesson.linkableExercises,
+			lesson.figureGroups
+		]).toEqual([[], [], [], []]);
+		expect([lesson.draft, lesson.team.name]).toEqual([false, 'Salsa nadaljevalna']);
+
+		const figure = open('figure', U2, V2) as {
+			siblings: { id: number }[];
+			leadsTo: { id: number }[];
+			followsFrom: { id: number }[];
+			routines: { id: number }[];
+			taughtIn: { id: number }[];
+			linkable: unknown[];
+			moveTargets: unknown[];
+			variation: { sections: { spot: { id: number } }[] };
+		};
+		expect(figure.siblings.map((s) => s.id)).toEqual([V2]);
+		expect([...figure.leadsTo, ...figure.followsFrom].map((f) => f.id)).not.toContain(V3);
+		expect(figure.routines.map((r) => r.id)).not.toContain(RD);
+		expect(figure.taughtIn.map((l) => l.id)).toEqual([P]);
+		// P's section and the recording's, never the draft video's.
+		expect(figure.variation.sections.map((s) => s.spot.id)).toEqual([pSection, recSection]);
+		expect([figure.linkable, figure.moveTargets]).toEqual([[], []]);
+
+		const routine = open('routine', U2, R) as {
+			taughtIn: { id: number }[];
+			candidates: unknown[];
+			labels: Record<string, string>;
+		};
+		expect(routine.taughtIn.map((l) => l.id)).toEqual([P]);
+		expect(routine.candidates).toEqual([]);
+		expect(Object.keys(routine.labels).map(Number)).toEqual([V2]);
+		const child = open('routine', U2, C) as { embeddedIn: string[] };
+		expect(child.embeddedIn).toEqual(['Published routine']);
+
+		const drill = open('exercise', U2, shines) as {
+			canLog: boolean;
+			linkable: unknown[];
+			practice: { content: { sections: { spot: { id: number } }[] } };
+		};
+		expect(drill.canLog).toBe(false);
+		expect(drill.linkable).toEqual([]);
+		expect(drill.practice.content.sections).toEqual([]);
+	});
+
+	it('the editor sees the whole group, drafts included, and may change it', () => {
+		const draft = open('lesson', U1, D) as { canEdit: boolean; draft: boolean };
+		expect([draft.canEdit, draft.draft]).toEqual([true, true]);
+		const figure = open('figure', U1, V2) as { canEdit: boolean; siblings: { id: number }[] };
+		expect(figure.canEdit).toBe(true);
+		expect(figure.siblings.map((s) => s.id)).toEqual([V2, V3]);
+		expect((open('routine', U1, RD) as { canEdit: boolean }).canEdit).toBe(true);
+		expect((open('exercise', U1, draftDrill) as { canEdit: boolean }).canEdit).toBe(true);
+	});
+
+	it('a former member who had added P reads nothing of the group: P, the draft, what P holds', () => {
+		const pages: [Pages, number][] = [
+			['lesson', P],
+			['lesson', D],
+			['figure', V2],
+			['routine', R],
+			['routine', C],
+			['exercise', shines]
+		];
+		for (const [page, id] of pages) expect(() => open(page, U4, id)).toThrow(threw404);
+	});
+
+	const LESSON_ACTIONS: [
+		string,
+		(ids: { v: number; r: number; e: number }) => Record<string, string>
+	][] = [
+		['update', () => ({ title: 'Hijacked', notes: '', lessonDay: '2026-10-01' })],
+		['publish', () => ({})],
+		['archive', () => ({})],
+		[
+			'newFigure',
+			() => ({ figureName: 'X', name: 'Y', partner: 'partner', style: 'salsa', notes: '' })
+		],
+		[
+			'newVariation',
+			() => ({ groupId: String(tGroup), name: 'Y', partner: 'partner', style: 'salsa', notes: '' })
+		],
+		['newExercise', () => ({ name: 'X', everyDays: '3', notes: '' })],
+		['newRoutine', () => ({ name: 'X', notes: '', everyDays: '3' })],
+		['linkFigure', ({ v }) => ({ figureId: String(v) })],
+		['unlinkFigure', ({ v }) => ({ figureId: String(v) })],
+		['linkRoutine', ({ r }) => ({ routineId: String(r) })],
+		['unlinkRoutine', ({ r }) => ({ routineId: String(r) })],
+		['linkExercise', ({ e }) => ({ exerciseId: String(e) })],
+		['unlinkExercise', ({ e }) => ({ exerciseId: String(e) })],
+		['deleteVideo', () => ({ videoId: String(pVideo) })],
+		['addLink', () => ({ urls: 'https://example.com/a' })],
+		['deleteLink', () => ({ linkId: '1' })],
+		['saveVideo', () => ({ linkId: '1' })],
+		['retryVideo', () => ({ linkId: '1' })],
+		['log', ({ e }) => ({ exerciseId: String(e), durationS: '60' })]
+	];
+
+	it.each(LESSON_ACTIONS)(
+		'%s on a group lesson is a 404 for a member and an outsider, and changes nothing',
+		async (action, fields) => {
+			const before = snapshot();
+			for (const [user, lessonId] of [
+				[U2, P],
+				[U2, D],
+				[U3, P],
+				[U4, P]
+			] as const) {
+				await refuses(
+					lessonPage.actions[action as keyof typeof lessonPage.actions],
+					post(user, 'salsa', fields({ v: V2, r: R, e: shines }), String(lessonId))
+				);
+			}
+			expect(snapshot()).toEqual(before);
+		}
+	);
+
+	it.each([
+		['update', {}],
+		['createVariation', { name: 'Mine now' }],
+		['move', { target: 'new', figureName: 'Elsewhere' }],
+		['archive', {}],
+		['deleteRecording', { recordingId: '0' }],
+		['linkSection', { spotId: '0' }],
+		['unlinkSection', { linkId: '0' }],
+		['addLink', { urls: 'https://example.com/a' }],
+		['deleteLink', { linkId: '1' }],
+		['saveVideo', { linkId: '1' }],
+		['retryVideo', { linkId: '1' }]
+	])('%s on a group figure is a 404 for a member, and changes nothing', async (action, fields) => {
+		const before = snapshot();
+		const body = {
+			...fields,
+			...(action === 'deleteRecording' ? { recordingId: String(rec) } : {}),
+			...(action === 'linkSection' ? { spotId: String(pSection) } : {})
+		};
+		for (const id of [V2, V3]) {
+			await refuses(
+				figurePage.actions[action as keyof typeof figurePage.actions],
+				post(U2, 'salsa', body, String(id))
+			);
+		}
+		expect(snapshot()).toEqual(before);
+	});
+
+	it.each([
+		['rename', { name: 'Hijacked', notes: '' }],
+		['duplicate', {}],
+		['archive', {}],
+		['addOption', { stepId: '1', figureId: '1' }],
+		['removeOption', { stepId: '1', figureId: '1' }],
+		['note', { stepId: '1', note: 'x' }],
+		['insert', { at: '0', figureId: '1' }],
+		['reorder', { stepId: '1', index: '0' }],
+		['deleteMany', { stepIds: '1' }],
+		['restore', { snapshot: '[]' }],
+		['restoreOption', { stepId: '1', figureId: '1' }],
+		['duplicateMany', { stepIds: '1' }],
+		['extract', { stepIds: '1', name: 'X' }]
+	])('%s on a group routine is a 404 for a member, and changes nothing', async (action, fields) => {
+		const before = snapshot();
+		for (const id of [R, RD]) {
+			await refuses(
+				routinePage.actions[action as keyof typeof routinePage.actions],
+				post(U2, 'salsa', fields, String(id))
+			);
+		}
+		expect(snapshot()).toEqual(before);
+	});
+
+	it.each([
+		['update', { name: 'Hijacked', notes: '' }],
+		['archive', {}],
+		['linkSection', { spotId: '1' }],
+		['unlinkSection', { linkId: '1' }],
+		['addLink', { urls: 'https://example.com/a' }],
+		['deleteLink', { linkId: '1' }],
+		['log', { exerciseId: '0', durationS: '60' }]
+	])('%s on a group drill is a 404 for a member, and changes nothing', async (action, fields) => {
+		const before = snapshot();
+		for (const id of [shines, draftDrill]) {
+			const body = action === 'log' ? { ...fields, exerciseId: String(id) } : fields;
+			await refuses(
+				exercisePage.actions[action as keyof typeof exercisePage.actions],
+				post(U2, 'salsa', body, String(id))
+			);
+		}
+		expect(snapshot()).toEqual(before);
+	});
+
+	it('the editor edits the draft, publishes it, and then a member opens it', async () => {
+		await call(
+			lessonPage.actions.update,
+			post(
+				U1,
+				'salsa',
+				{
+					title: 'Draft lesson Kappa',
+					notes: 'n',
+					lessonDay: '2026-10-01',
+					// What the form saw: a group's save needs it (the clash check).
+					seen: JSON.stringify({
+						title: 'Draft lesson Kappa',
+						lessonDay: '2026-11-01',
+						notes: null
+					})
+				},
+				String(D)
+			)
+		);
+		expect(db.select().from(lessons).where(eq(lessons.id, D)).get()!.notes).toBe('n');
+		// A member's Publish is the stranger's 404; the editor's moves the draft.
+		await refuses(lessonPage.actions.publish, post(U2, 'salsa', {}, String(D)));
+		expect(await call(lessonPage.actions.publish, post(U1, 'salsa', {}, String(D)))).toMatchObject({
+			ok: true
+		});
+		// Once only: there is nothing left to publish.
+		expect(await call(lessonPage.actions.publish, post(U1, 'salsa', {}, String(D)))).toMatchObject({
+			status: 400
+		});
+		const data = open('lesson', U2, D) as { canEdit: boolean; draft: boolean };
+		expect([data.canEdit, data.draft]).toEqual([false, false]);
+		expect(() => open('figure', U2, V3)).not.toThrow();
+	});
+
+	it("an editor's things made in a group lesson are the group's", async () => {
+		await call(
+			lessonPage.actions.newExercise,
+			post(U1, 'salsa', { name: 'Group drill', everyDays: '3', notes: '' }, String(D))
+		);
+		const made = db.select().from(exercises).where(eq(exercises.name, 'Group drill')).get()!;
+		expect([made.userId, made.teamId]).toEqual([null, T.teamId]);
+		const routine = await redirectOf(
+			lessonPage.actions.newRoutine,
+			post(U1, 'salsa', { name: 'Group routine', notes: '', everyDays: '3' }, String(D))
+		);
+		const routineId = Number(routine.location.split('/').pop());
+		expect(getRoutineRow(routineId)).toMatchObject({ userId: null, teamId: T.teamId });
+		// No exercise of the group's own: each member's Add makes theirs.
+		expect(db.select().from(exercises).where(eq(exercises.routineId, routineId)).all()).toEqual([]);
+	});
+
+	it("the Link popup's options are an editor's only", async () => {
+		const get = (user: User, spot: number) =>
+			(linksEndpoint.GET as unknown as (e: unknown) => Response)({
+				params: { id: String(spot) },
+				locals: { user }
+			});
+		await expect(async () => get(U2, pSection)).rejects.toMatchObject({ status: 404 });
+		await expect(async () => get(U3, pSection)).rejects.toMatchObject({ status: 404 });
+		expect(get(U1, pSection).status).toBe(200);
+	});
+
+	it("a member's spot list names only what they reach", async () => {
+		const res = (spotsEndpoint.GET as unknown as (e: unknown) => Response)({
+			url: new URL(`http://localhost/api/video-spots?recording=${rec}`),
+			locals: { user: U2 }
+		});
+		const body = await res.json();
+		expect(JSON.stringify(body)).not.toContain('Doble-only-in-draft');
+		expect(JSON.stringify(body)).toContain('Enchufla · Basic');
+	});
+
+	it('the group page lists drafts to its editors and only published lessons to members', async () => {
+		const forEditor = (await loadAt(groupPage.load, U1, 'salsa', String(T.teamId))) as {
+			lessons: { id: number; publishedAt: number | null }[];
+			canEdit: boolean;
+		};
+		expect(forEditor.lessons.map((l) => l.id)).toEqual([D, P]);
+		expect(forEditor.canEdit).toBe(true);
+		const forMember = (await loadAt(groupPage.load, U2, 'salsa', String(T.teamId))) as {
+			lessons: { id: number }[];
+			canEdit: boolean;
+		};
+		expect(forMember.lessons.map((l) => l.id)).toEqual([P]);
+		expect(forMember.canEdit).toBe(false);
+		holdsNothingOfTheDraft(forMember);
+	});
+
+	it("+ New lesson makes a group's draft, an editor's only", async () => {
+		const fields = { title: 'Week 3', notes: '', lessonDay: '2026-10-01' };
+		await refuses(groupPage.actions.createLesson, post(U2, 'salsa', fields, String(T.teamId)));
+		const made = await redirectOf(
+			groupPage.actions.createLesson,
+			post(U1, 'salsa', fields, String(T.teamId))
+		);
+		const id = Number(made.location.split('/').pop());
+		const row = db.select().from(lessons).where(eq(lessons.id, id)).get()!;
+		expect([row.userId, row.teamId, row.publishedAt]).toEqual([null, T.teamId, null]);
+		// No review exercise: a group's lesson is practised through each member's Add.
+		expect(db.select().from(exercises).where(eq(exercises.lessonId, id)).all()).toEqual([]);
+		// Not in the editor's own Lessons.
+		expect(listLessons(db, U1_SALSA).map((l) => l.id)).not.toContain(id);
+		// A refusal comes back with what was typed.
+		expect(
+			await call(
+				groupPage.actions.createLesson,
+				post(U1, 'salsa', { ...fields, title: '' }, String(T.teamId))
+			)
+		).toMatchObject({ status: 400, data: { action: 'create', field: 'title' } });
+	});
+
+	it('the share page lists the draft to its editor and not to a member', async () => {
+		const share = async (user: User) =>
+			(await (sharePage.load as unknown as Load)({
+				params: { dance: 'salsa', id: '' },
+				url: new URL('http://localhost/?key=0f8fad5b-d9cb-469f-a165-70867728950e'),
+				locals: { user }
+			})) as { groups: { name: string; lessons: { id: number }[] }[] };
+		const mine = await share(U1);
+		expect(mine.groups.map((g) => [g.name, g.lessons.map((l) => l.id)])).toEqual([
+			['Salsa nadaljevalna', [D, P]]
+		]);
+		expect((await share(U2)).groups).toEqual([]);
+	});
+	it("a member's own entry for a group figure shows nothing of the draft", async () => {
+		// V3 only the draft holds: no entry for it.
+		await refuses(figurePage.actions.practise, post(U2, 'salsa', {}, String(V3)));
+		// Reading V2 is not enough: practising it needs a lesson holding it added (R8).
+		expect(
+			await call(figurePage.actions.practise, post(U2, 'salsa', {}, String(V2)))
+		).toMatchObject({
+			status: 400,
+			data: { message: 'Add a lesson with this figure to practise it.' }
+		});
+		for (const userId of ['u1', 'u2']) {
+			db.insert(lessonAdds).values({ userId, lessonId: P, addedAt: 2, seenAt: 2 }).run();
+		}
+		expect(
+			await call(figurePage.actions.practise, post(U2, 'salsa', {}, String(V2)))
+		).toMatchObject({ action: 'practise', ok: true });
+		const entry = db
+			.select()
+			.from(exercises)
+			.where(eq(exercises.figureId, V2))
+			.all()
+			.find((e) => e.userId === 'u2')!;
+		const page = open('exercise', U2, entry.id) as {
+			practice: { content: { sections: { spot: { id: number } }[] } };
+		};
+		holdsNothingOfTheDraft(page);
+		expect(page.practice.content.sections.map((s) => s.spot.id)).toEqual([pSection, recSection]);
+		const res = (practiceEndpoint.GET as unknown as (e: unknown) => Response)({
+			params: { dance: 'salsa', id: String(entry.id) },
+			locals: { user: U2 }
+		});
+		holdsNothingOfTheDraft(await res.json());
+		// The editor's own entry sees the whole group, the draft's section included.
+		await call(figurePage.actions.practise, post(U1, 'salsa', {}, String(V2)));
+		const editors = db
+			.select()
+			.from(exercises)
+			.where(eq(exercises.figureId, V2))
+			.all()
+			.find((e) => e.userId === 'u1')!;
+		expect(JSON.stringify(open('exercise', U1, editors.id))).toContain('Draft section Sigma');
+	});
+
+	it('publish on a personal lesson is a 404, as for a missing one', async () => {
+		const own = createLesson(db, U1_SALSA, lessonInput('Mine')).lesson.id;
+		await refuses(lessonPage.actions.publish, post(U1, 'salsa', {}, String(own)));
+	});
+
+	/* ── Add (groups Task 10): the sheet, Lessons, Today, Moves, the player ── */
+
+	type AddRow = {
+		id: number;
+		add: { added: boolean; offer: { items: { kind: string; id: number }[] } | null } | null;
+	};
+
+	const addForm = (fields: Record<string, string | string[]>) => {
+		const body = new URLSearchParams();
+		for (const [k, v] of Object.entries(fields)) for (const x of [v].flat()) body.append(k, x);
+		return body;
+	};
+	const postForm = (user: User, fields: Record<string, string | string[]>, id = '') => ({
+		params: { dance: 'salsa', id },
+		request: new Request('http://localhost/', {
+			method: 'POST',
+			headers: { 'content-type': 'application/x-www-form-urlencoded' },
+			body: addForm(fields)
+		}),
+		locals: { user }
+	});
+	const groupRows = (user: User) =>
+		(loadAt(groupPage.load, user, 'salsa', String(T.teamId)) as { lessons: AddRow[] }).lessons;
+
+	it('Add on the group page puts P on a member’s Lessons, Today and Moves, and nobody else’s', async () => {
+		// Before: P offers Add (to the editor too, after publishing); a draft offers nothing.
+		const before = groupRows(U2);
+		expect(before.map((l) => l.id)).toEqual([P]);
+		expect(before[0].add?.added).toBe(false);
+		expect(before[0].add?.offer?.items.map((i) => `${i.kind}:${i.id}`)).toEqual([
+			`lesson:${P}`,
+			`routine:${R}`,
+			`drill:${shines}`,
+			`figure:${V2}`
+		]);
+		const editor = groupRows(U1);
+		expect(editor.find((l) => l.id === D)!.add).toBeNull();
+		expect(editor.find((l) => l.id === P)!.add?.added).toBe(false);
+		const lessonsOf = (user: User) =>
+			(loadAt(lessonList.load, user, 'salsa') as { lessons: { id: number; team: unknown }[] })
+				.lessons;
+		expect(lessonsOf(U2).map((l) => l.id)).toEqual([]);
+
+		// An outsider, a draft and another group's lesson id are the stranger's 404.
+		await refuses(
+			groupPage.actions.add,
+			postForm(U3, { lessonId: String(P), lesson: 'on' }, String(T.teamId))
+		);
+		await refuses(
+			groupPage.actions.add,
+			postForm(U2, { lessonId: String(D), lesson: 'on' }, String(T.teamId))
+		);
+		expect(
+			db
+				.select()
+				.from(lessonAdds)
+				.all()
+				.map((a) => a.userId)
+		).toEqual(['u4']);
+
+		expect(
+			await call(
+				groupPage.actions.add,
+				postForm(
+					U2,
+					{ lessonId: String(P), lesson: 'on', routineIds: String(R), drillIds: String(shines) },
+					String(T.teamId)
+				)
+			)
+		).toMatchObject({ action: 'add', ok: true });
+		expect(groupRows(U2)[0].add).toEqual({ added: true, offer: null });
+
+		// Lessons: P, marked with the group; never the draft.
+		expect(lessonsOf(U2)).toEqual([
+			expect.objectContaining({ id: P, team: { id: T.teamId, name: 'Salsa nadaljevalna' } })
+		]);
+		expect(lessonsOf(U1).map((l) => l.id)).toEqual([]);
+
+		// Today: the review, the routine and the drill, each under the group, P's day known.
+		type TodayData = {
+			plan: Record<string, { exercise: { name: string; team: unknown } }[]>;
+			lessonDays: Record<number, string>;
+		};
+		const today = loadAt(todayPage.load, U2, 'salsa') as TodayData;
+		const rows = Object.values(today.plan).flat();
+		expect(rows.map((r) => r.exercise.name).sort()).toEqual(
+			['Published routine', 'Review: Published lesson', 'Shines'].sort()
+		);
+		for (const r of rows)
+			expect(r.exercise.team).toEqual({ id: T.teamId, name: 'Salsa nadaljevalna' });
+		expect(today.lessonDays[P]).toBe('2026-11-01');
+		expect(Object.values((loadAt(todayPage.load, U1, 'salsa') as TodayData).plan).flat()).toEqual(
+			[]
+		);
+
+		// Moves: the group's figure only under the group, only the variation P reaches.
+		type Moves = {
+			figures: { name: string }[];
+			groups: {
+				team: { name: string };
+				moves: { name: string; figures: { id: number; label: string }[] }[];
+			}[];
+			unrouted: number;
+			tagged: { total: number };
+		};
+		const moves = loadAt(figureList.load, U2, 'salsa') as Moves;
+		expect(moves.figures).toEqual([]);
+		expect(moves.groups).toEqual([
+			{
+				team: { id: T.teamId, name: 'Salsa nadaljevalna' },
+				moves: [
+					expect.objectContaining({
+						name: 'Enchufla',
+						figures: [expect.objectContaining({ id: V2 })]
+					})
+				]
+			}
+		]);
+		expect(moves.unrouted).toBe(0);
+		expect(moves.tagged.total).toBe(0);
+		// The editor added nothing: no group section, whatever they can edit.
+		expect((loadAt(figureList.load, U1, 'salsa') as Moves).groups).toEqual([]);
+	});
+
+	it('the player walks a group routine for a member who added it, and 404s an outsider', () => {
+		addLesson(db, 'u2', P, { lesson: false, routineIds: [R], drillIds: [], figureIds: [] }, 5);
+		const entry = entryFor(db, 'u2', { routineId: R })!;
+		const player = (user: User, query: string) =>
+			(playerPage.load as unknown as Load)({
+				params: { dance: 'salsa', id: '' },
+				url: new URL(`http://localhost/salsa/player?${query}`),
+				locals: { user }
+			}) as {
+				routine: { id: number; shape: { slots: unknown[] }; figureIds: number[] } | null;
+				callNames: { id: number; name: string }[];
+				graph: { figures: { id: number }[] };
+				exercise: { id: number } | null;
+			};
+		const data = player(U2, `routine=${R}&exercise=${entry.id}`);
+		expect(data.routine).toMatchObject({ id: R, figureIds: [V2] });
+		expect(data.routine!.shape.slots).toHaveLength(1);
+		expect(data.callNames).toEqual([expect.objectContaining({ id: V2, name: 'Enchufla · Basic' })]);
+		expect(data.graph.figures.map((f) => f.id)).toContain(V2);
+		// The draft's variation is not on a member's graph, not even as an id.
+		expect(data.graph.figures.map((f) => f.id)).not.toContain(V3);
+		expect(player(U1, `routine=${R}`).graph.figures.map((f) => f.id)).toContain(V3);
+		expect(data.exercise?.id).toBe(entry.id);
+		holdsNothingOfTheDraft(data);
+		expect(() => player(U3, `routine=${R}`)).toThrow(threw404);
+		expect(() => player(U2, `routine=${RD}`)).toThrow(threw404);
+	});
+
+	it('an added lesson shows what came in since, with Add and Not now, and Remove takes it off', async () => {
+		type LessonData = { add: AddRow['add'] };
+		const page = (user: User) => open('lesson', user, P) as LessonData;
+		expect(page(U2).add?.added).toBe(false);
+		expect(open('lesson', U1, D)).toMatchObject({ add: null });
+
+		await call(lessonPage.actions.add, postForm(U2, { lesson: 'on' }, String(P)));
+		expect(page(U2).add).toEqual({ added: true, offer: null });
+		// An editor links a drill after the Add: the clock is set by hand, as
+		// everything here happens within one millisecond or two.
+		const fresh = createCustomExercise(db, T, {
+			name: 'Fresh drill',
+			everyDays: 3,
+			notes: null
+		}).id;
+		must(linkExercise(db, P, fresh, 'u1'));
+		for (const t of [lessonExercises, lessonRoutines, lessonFigures, spotLinks]) {
+			db.update(t).set({ createdAt: 500 }).run();
+		}
+		db.update(lessonExercises)
+			.set({ createdAt: 2000 })
+			.where(eq(lessonExercises.exerciseId, fresh))
+			.run();
+		db.update(lessonAdds).set({ seenAt: 1000 }).where(eq(lessonAdds.userId, 'u2')).run();
+		expect(page(U2).add?.offer?.items.map((i) => i.id)).toEqual([fresh]);
+		await refuses(lessonPage.actions.notNow, post(U3, 'salsa', {}, String(P)));
+		await call(lessonPage.actions.notNow, post(U2, 'salsa', {}, String(P)));
+		expect(page(U2).add).toEqual({ added: true, offer: null });
+
+		await refuses(lessonPage.actions.remove, post(U3, 'salsa', {}, String(P)));
+		const review = entryFor(db, 'u2', { lessonId: P })!;
+		expect(review.archivedAt).toBeNull();
+		expect(
+			await redirectOf(lessonPage.actions.remove, post(U2, 'salsa', {}, String(P)))
+		).toMatchObject({ location: '/salsa/lessons' });
+		expect(entryFor(db, 'u2', { lessonId: P })!.archivedAt).not.toBeNull();
+		expect(page(U2).add?.added).toBe(false);
+		// A personal lesson has nothing to add or remove.
+		const own = createLesson(db, U1_SALSA, lessonInput('Mine')).lesson.id;
+		await refuses(lessonPage.actions.add, postForm(U1, { lesson: 'on' }, String(own)));
+		await refuses(lessonPage.actions.remove, post(U1, 'salsa', {}, String(own)));
+	});
+
+	it('a group drill’s page offers Add: P’s sheet, then just the drill once P is added', async () => {
+		type DrillData = {
+			add: { lessonId: number; title: string; added: boolean; offer: unknown } | null;
+			canLog: boolean;
+		};
+		const drill = () => open('exercise', U2, shines) as DrillData;
+		expect(drill().add).toMatchObject({ lessonId: P, title: 'Published lesson', added: false });
+		expect(drill().add!.offer).not.toBeNull();
+		await refuses(exercisePage.actions.addDrill, post(U2, 'salsa', {}, String(shines)));
+
+		addLesson(db, 'u2', P, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, 5);
+		expect(drill().add).toMatchObject({ lessonId: P, added: true, offer: null });
+		await refuses(exercisePage.actions.addDrill, post(U3, 'salsa', {}, String(shines)));
+		await call(exercisePage.actions.addDrill, post(U2, 'salsa', {}, String(shines)));
+		const entry = entryFor(db, 'u2', { drillId: shines })!;
+		expect(entry.archivedAt).toBeNull();
+		expect(drill()).toMatchObject({ add: null, canLog: true });
+		// The entry's own page: settings are the person's, the content is the group's.
+		expect(open('exercise', U2, entry.id)).toMatchObject({ canEdit: true, canEditContent: false });
+	});
+
+	// Catches: a member's figure, lesson or routine entry offering edits on the group's sections.
+	// Catches: a person's own entry taking links or a section, which belong to the group's drill.
+	it('an entry takes no link and no section of its own', async () => {
+		addLesson(db, 'u2', P, { lesson: true, routineIds: [], drillIds: [shines], figureIds: [] }, 5);
+		const entry = entryFor(db, 'u2', { drillId: shines })!;
+		expect(entry).toMatchObject({ userId: 'u2', source: 'added' });
+		const mine = createLesson(db, U2_SALSA, lessonInput('Mine')).lesson.id;
+		const video = addLessonVideo(db, {
+			lessonId: mine,
+			file: '00000000-0000-4000-8000-0000000000e1.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 100
+		});
+		const section = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 0, endMs: 1000, label: 'My bit' }
+		)!.id;
+		const before = db.select().from(linkRows).all();
+		await refuses(
+			exercisePage.actions.addLink,
+			postForm(U2, { urls: 'https://example.com/a' }, String(entry.id))
+		);
+		await refuses(
+			exercisePage.actions.linkSection,
+			postForm(U2, { spotId: String(section) }, String(entry.id))
+		);
+		expect(db.select().from(linkRows).all()).toEqual(before);
+		expect(sectionsFor(db, { exerciseId: entry.id })).toEqual([]);
+	});
+
+	it('every entry on a group’s thing shows its content read-only; one’s own stays editable', () => {
+		addLesson(db, 'u2', P, { lesson: true, routineIds: [R], drillIds: [], figureIds: [V2] }, 5);
+		for (const target of [{ figureId: V2 }, { lessonId: P }, { routineId: R }]) {
+			const entry = entryFor(db, 'u2', target)!;
+			expect(open('exercise', U2, entry.id)).toMatchObject({
+				canEdit: true,
+				canEditContent: false
+			});
+		}
+		const mine = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Mine' })!.figure.id;
+		const own = addFigureExercise(db, 'u2', mine)!;
+		expect(open('exercise', U2, own.id)).toMatchObject({ canEditContent: true });
+	});
+
+	it('Practise on a group figure waits for a lesson the person added', async () => {
+		expect(open('figure', U2, V2)).toMatchObject({ practisable: false });
+		addLesson(db, 'u2', P, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, 5);
+		expect(open('figure', U2, V2)).toMatchObject({ practisable: true });
+		// The editor too: editing is not adding (R8).
+		expect(open('figure', U1, V2)).toMatchObject({ practisable: false });
 	});
 });

@@ -37,7 +37,7 @@ import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
 import { listPositions, seedPositions } from './positions';
 import { setFigureShape } from './graph';
-import { U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -114,7 +114,7 @@ describe('createVariationFrom', () => {
 			notes: null
 		});
 		expect(linkFigure(db, lesson.id, src.id)).toBe(true);
-		addFigureExercise(db, src.id);
+		addFigureExercise(db, 'u1', src.id);
 
 		const before = db.select().from(figures).where(eq(figures.id, src.id)).get()!;
 		const copy = createVariationFrom(db, src.id, 'Doble')!;
@@ -201,7 +201,7 @@ describe('createVariationIn', () => {
 describe('updateVariation', () => {
 	it('renames its exercise to the label', () => {
 		const { figure } = fig();
-		const ex = addFigureExercise(db, figure.id)!;
+		const ex = addFigureExercise(db, 'u1', figure.id)!;
 		expect(updateVariation(db, figure.id, input('Doble'))!.name).toBe('Doble');
 		expect(db.select().from(exercises).where(eq(exercises.id, ex.id)).get()!.name).toBe(
 			'Enchufla · Doble'
@@ -221,8 +221,8 @@ describe('renameFigure', () => {
 	it('renames every exercise of the figure', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
-		const e1 = addFigureExercise(db, figure.id)!;
-		const e2 = addFigureExercise(db, v2.id)!;
+		const e1 = addFigureExercise(db, 'u1', figure.id)!;
+		const e2 = addFigureExercise(db, 'u1', v2.id)!;
 		expect(renameFigure(db, figure.groupId!, 'Setenta')).toBe(true);
 		const name = (id: number) =>
 			db.select().from(exercises).where(eq(exercises.id, id)).get()!.name;
@@ -248,7 +248,7 @@ describe('labels and lists', () => {
 		expect(figureLabels(db, U1_SALSA).get(figure.id)).toBe('Setenta · Basic');
 	});
 
-	it('listFigures is one row per figure', () => {
+	it('listFigures is one row per move, its figures under it', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
 		const gone = createVariationFrom(db, figure.id, 'Old')!;
@@ -265,11 +265,28 @@ describe('labels and lists', () => {
 			{
 				id: figure.groupId,
 				name: 'Enchufla',
-				variations: 2,
-				recordings: 1,
-				firstVariationId: figure.id,
-				hasSection: false,
-				hasLesson: false
+				figures: [
+					{
+						id: figure.id,
+						name: 'Basic',
+						label: 'Enchufla · Basic',
+						startCount: 1,
+						lengthCounts: 8,
+						recordings: 0,
+						hasSection: false,
+						hasLesson: false
+					},
+					{
+						id: v2.id,
+						name: 'Doble',
+						label: 'Enchufla · Doble',
+						startCount: 1,
+						lengthCounts: 8,
+						recordings: 1,
+						hasSection: false,
+						hasLesson: false
+					}
+				]
 			}
 		]);
 	});
@@ -277,7 +294,10 @@ describe('labels and lists', () => {
 	describe('section and lesson links', () => {
 		const flags = () =>
 			Object.fromEntries(
-				listFigures(db, U1_SALSA, {}).map((f) => [f.name, [f.hasSection, f.hasLesson]])
+				listFigures(db, U1_SALSA, {}).map((m) => [
+					m.name,
+					[m.figures.some((f) => f.hasSection), m.figures.some((f) => f.hasLesson)]
+				])
 			);
 		const lessonVideo = (lessonId: number) =>
 			addLessonVideo(db, { lessonId, file: `${lessonId}.mp4`, mime: 'video/mp4', sizeBytes: 1 }).id;
@@ -345,13 +365,17 @@ describe('labels and lists', () => {
 		});
 	});
 
-	it('listFigures filters by any variation', () => {
+	it('listFigures filters per figure', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
 		fig('Setenta');
 		updateVariation(db, v2.id, input('Doble', { partner: 'solo' }));
-		expect(listFigures(db, U1_SALSA, { q: 'doble' }).map((f) => f.name)).toEqual(['Enchufla']);
-		expect(listFigures(db, U1_SALSA, { partner: 'solo' }).map((f) => f.name)).toEqual(['Enchufla']);
+		const names = (f: Parameters<typeof listFigures>[2]) =>
+			listFigures(db, U1_SALSA, f).map((m) => [m.name, m.figures.map((x) => x.name)]);
+		expect(names({ q: 'doble' })).toEqual([['Enchufla', ['Doble']]]);
+		expect(names({ partner: 'solo' })).toEqual([['Enchufla', ['Doble']]]);
+		// The move's own name lists all its figures.
+		expect(names({ q: 'enchufla' })).toEqual([['Enchufla', ['Basic', 'Doble']]]);
 	});
 
 	it('listVersions lists variations with their figure', () => {
@@ -388,7 +412,7 @@ describe('addFigureExercise', () => {
 	it('works on any variation and names it with the label', () => {
 		const { figure } = fig();
 		const v2 = createVariationFrom(db, figure.id, 'Doble')!;
-		expect(addFigureExercise(db, v2.id)!.name).toBe('Enchufla · Doble');
+		expect(addFigureExercise(db, 'u1', v2.id)!.name).toBe('Enchufla · Doble');
 	});
 });
 
@@ -420,7 +444,7 @@ describe('moveVariation', () => {
 			.returning()
 			.get();
 		db.insert(lessonFigures).values({ lessonId: lesson, figureId: id }).run();
-		const ex = addFigureExercise(db, id)!;
+		const ex = addFigureExercise(db, 'u1', id)!;
 		db.insert(sets).values({ exerciseId: ex.id, doneAt: 1 }).run();
 		const r = db.insert(routines).values({ name: 'R' }).returning().get();
 		const step = db.insert(routineSteps).values({ routineId: r.id, position: 0 }).returning().get();
@@ -498,7 +522,7 @@ describe('moveVariation', () => {
 		const a = fig('Enchufla', 'Doble');
 		createVariationFrom(db, a.figure.id, 'Simple');
 		const b = fig('Setenta', 'doble');
-		const ex = addFigureExercise(db, a.figure.id)!;
+		const ex = addFigureExercise(db, 'u1', a.figure.id)!;
 		expect(moveVariation(db, a.figure.id, { groupId: b.group.id })).toEqual({
 			ok: false,
 			reason: 'name-taken'
@@ -564,7 +588,7 @@ describe('moveVariation', () => {
 describe('archiveVariation', () => {
 	it('archives its exercise and, when last, its figure', () => {
 		const a = fig();
-		const ex = addFigureExercise(db, a.figure.id)!;
+		const ex = addFigureExercise(db, 'u1', a.figure.id)!;
 		expect(isLastVariation(db, a.figure.id)).toBe(true);
 		expect(archiveVariation(db, a.figure.id, 5)).toEqual({ figureRemoved: true });
 		expect(db.select().from(exercises).where(eq(exercises.id, ex.id)).get()!.archivedAt).toBe(5);
@@ -607,3 +631,40 @@ describe('figure groups stay consistent', () => {
 function getGroupRow(id: number) {
 	return db.select().from(figureGroups).where(eq(figureGroups.id, id)).get()!;
 }
+
+describe('in a group', () => {
+	const input = { name: 'Basic', partner: 'partner' as const, style: 'salsa', notes: null };
+
+	it('creates a figure owned by the team alone, out of the person’s lists', () => {
+		const db = openDb(':memory:');
+		const made = createFigure(db, T1_SALSA, { ...input, figureName: 'Enchufla' })!;
+		expect(made.group).toMatchObject({ userId: null, teamId: 1 });
+		expect(made.figure).toMatchObject({ userId: null, teamId: 1 });
+		const doble = createVariationIn(db, made.group.id, { ...input, name: 'Doble' }, 'u1')!;
+		expect(doble).toMatchObject({ userId: null, teamId: 1 });
+		expect(listFigures(db, U1_SALSA)).toEqual([]);
+		expect(listVersions(db, U1_SALSA)).toEqual([]);
+		expect(listFigures(db, T1_SALSA).map((f) => f.name)).toEqual(['Enchufla']);
+		// The name is the team's: the person may use it too.
+		expect(createFigure(db, U1_SALSA, { ...input, figureName: 'Enchufla' })).not.toBeNull();
+		expect(createFigure(db, T1_SALSA, { ...input, figureName: 'enchufla' })).toBeNull();
+	});
+
+	it('moves a variation only within its own space', () => {
+		const db = openDb(':memory:');
+		const team = createFigure(db, T1_SALSA, { ...input, figureName: 'Enchufla' })!;
+		const mine = createFigure(db, U1_SALSA, { ...input, figureName: 'Setenta' })!;
+		expect(moveVariation(db, team.figure.id, { groupId: mine.group.id })).toEqual({
+			ok: false,
+			reason: 'gone'
+		});
+		const moved = moveVariation(db, team.figure.id, { newFigure: 'Setenta' }, 'u1');
+		expect(moved).toMatchObject({ ok: true });
+		const g = db
+			.select()
+			.from(figureGroups)
+			.where(eq(figureGroups.id, (moved as { groupId: number }).groupId))
+			.get();
+		expect(g).toMatchObject({ userId: null, teamId: 1 });
+	});
+});

@@ -25,13 +25,13 @@ bachata."
 
 Success: the two apps have icons that say salsa and bachata at a glance; every
 screen in both apps reads as the same, modern app, in light and dark; the
-bottom bar has four tabs with icons; nothing the app does today is lost.
+bottom bar has five tabs with icons (four until groups); nothing the app does today is lost.
 
 ## Goals, non-goals, anti-goals
 
 - **Goals:** new icons; one visual system (colour, type, spacing, icons,
   components with every state) applied to every screen and popup; a designed
-  dark theme; four tabs; no dance switch.
+  dark theme; five tabs (four until groups); no dance switch.
 - **Non-goals:** no new features beyond the few the user chose (see
   "Additions"), no data-model change, no change to what a screen can do. Routes may move (see "Navigation"), behaviour does not. The
   split of the web app into one site per dance is planned but is a separate
@@ -82,9 +82,9 @@ bottom bar has four tabs with icons; nothing the app does today is lost.
 - **Segmented control:** a cream pill switch on the band (track cream at 16 %,
   selected segment solid cream with band-coloured text); on a sheet it uses
   the neutral form from the design system.
-- **Tab bar:** four tabs; inactive tabs are 28 px outline icons only; the
+- **Tab bar:** five tabs (Groups added by [groups](2026-11-02-groups-design.md)); inactive tabs are 28 px outline icons only; the
   current tab is a tinted pill (accent at 12 %) with its filled icon and its
-  label beside it, and takes a wider column. No bar on the top edge.
+  label beside it, and takes a wider column (active 2fr, the others 1fr). No bar on the top edge.
 - **Icons:** one family on a 24 px grid, 2 px rounded strokes; filled variants
   for the current tab and a few states (play, pause, star…). The set is on the
   design system board (section 04).
@@ -176,7 +176,7 @@ Every component exists in the states on the design system board (sections
 
 ## Navigation
 
-- **Four tabs: Today · Moves · Lessons · Music.** The tab bar shows on every
+- **Five tabs: Today · Moves · Lessons · Groups · Music.** The tab bar shows on every
   screen of a dance except Practice and share; a pushed screen has a back
   chevron on the band and the bar too (an edit's Save bar or a selection bar
   takes the bottom and the tab bar steps aside). See
@@ -298,7 +298,7 @@ rules the boards follow that are not obvious from looking at them.
   for the tab shown.
 - Filters are one scrolling chip row: All · Not linked (with its count — the
   old "n not linked →" link) · the dance's styles · With partner · Solo.
-- Figure rows keep today's second line (variations · recordings · No section /
+- Figures are listed under their move's heading; rows keep today's second line (recordings · No section /
   No lesson).
 - Routines rows: "n slots" with a danger "2 breaks" badge and a warn "does not
   loop" badge.
@@ -312,23 +312,23 @@ rules the boards follow that are not obvious from looking at them.
 
 ### A figure
 
-- Compact band: the figure name with the variation name under it.
+- Compact band: the label ("Enchufla · Doble") with "Figure · starts on 1 · 16 counts" under it.
 - A facts card: style and partner badges, the timing as eight counts with the
   start count filled ("Starts on 1 · 16 counts · 2 eights"), handholds, notes.
   Then Practice (frequency with "+", a row to the exercise), Follows from /
   Leads to as two lists, recordings (16:9 player, date · size, mirror, speed,
   full screen) each with its sections, linked sections, links, Taught in,
   "Move Doble to…", "Archive Doble".
-- The variation switcher is pinned directly above the tab bar, on the tab-bar
+- The figure switcher is pinned directly above the tab bar, on the tab-bar
   surface, and hidden while editing. Its sheet lists
-  the variations with New variation in the footer.
+  the move's figures with New figure in the footer, and links to the move's page.
 - Edit: start positions as removable chips, Ends at, a 1–8 "Starts on" grid,
   Counts with 4/8/16 shortcuts; a "Not saved" banner carries the server's
   message.
 - Upload in progress is a card ("Uploading… 42%"). In the app, Add video
   (compressed in the background) and Add audio are separate buttons.
-- Move to… and archiving the last variation warn in danger ("Move and remove
-  figure", "Archive and remove figure").
+- Move to… and archiving the last figure warn in danger ("Move and remove
+  move", "Archive and remove move").
 
 ### A routine
 
@@ -372,8 +372,8 @@ rules the boards follow that are not obvious from looking at them.
 - Figures / Routines / Exercises: "New" on the section label, "Link a …" as
   the group's last row (opens the shared picker), "via section" badges, unlink
   icons. Deleting a linked video is refused in a banner on its card.
-- The New variation sheet from a lesson has a "New figure | Variation of a
-  figure" switch.
+- The New figure sheet from a lesson has a "New move | New figure in a move"
+  switch.
 
 ### Music
 
@@ -440,7 +440,7 @@ rules the boards follow that are not obvious from looking at them.
   page has × only.
 - In the player the same sheets use the media palette — one look, always dark
   there.
-- Figure headings are non-tappable lines inside the group card, variations
+- Move headings are non-tappable lines inside the group card, figures
   indented under them. Archived links show a warn "Archived" badge.
 - Only the list scrolls (with a fade); search, create and Done stay put.
 

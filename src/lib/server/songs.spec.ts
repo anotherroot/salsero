@@ -1,8 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { NO_FILES, T1_SALSA, T2_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
-import { exercises, songs } from './db/schema';
+import { exercises, songs, teamChanges, teams, users } from './db/schema';
 import { openDb, type Db } from './db';
+import { createTeam } from './teams';
+import { leaveTeam } from './membership';
+import { usedBytesOf } from './storage';
+import { cloneFilesIn, type CloneFiles } from './clones/files';
+import { makeMine } from './clones/edit';
+import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
+import { makeClass, SHARED_FILE, type Class } from './test-class';
 import { createCustomExercise, logSet } from './exercises';
 import {
 	LEASE_MS,
@@ -277,6 +287,47 @@ describe('songs are walled off by dance', () => {
 	});
 });
 
+describe("a group's songs", () => {
+	const add = (space: typeof T1_SALSA | typeof U1_SALSA, title: string) =>
+		createSongFromUrl(db, space, { url: URL, title, style: 'salsa' });
+	beforeEach(() => {
+		createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+	});
+
+	it('are owned by the group alone and listed in its space only', () => {
+		const g = add(T1_SALSA, 'Group');
+		expect(g).toMatchObject({ userId: null, teamId: 1, sharedAt: null, dance: 'salsa' });
+		const u = createSongFromUpload(db, T1_SALSA, {
+			file: 'g.mp3',
+			mime: 'audio/mpeg',
+			title: 'Uploaded',
+			style: 'salsa'
+		});
+		expect(u).toMatchObject({ userId: null, teamId: 1 });
+		add(U1_SALSA, 'Mine');
+		expect(listSongs(db, U1_SALSA).map((s) => s.title)).toEqual(['Mine']);
+		expect(listSongs(db, T1_SALSA).map((s) => s.title)).toEqual(['Uploaded', 'Group']);
+		expect(listSongs(db, T2_SALSA)).toEqual([]);
+		expect(listSongs(db, U1_SALSA)[0].sharedAt).toBeNull();
+	});
+
+	it('lists drafts first, then the shared ones, newest first in each', () => {
+		const a = add(T1_SALSA, 'A').id;
+		add(T1_SALSA, 'B');
+		const c = add(T1_SALSA, 'C').id;
+		add(T1_SALSA, 'D');
+		db.update(songs).set({ sharedAt: 5 }).where(eq(songs.id, a)).run();
+		db.update(songs).set({ sharedAt: 6 }).where(eq(songs.id, c)).run();
+		const list = listSongs(db, T1_SALSA);
+		expect(list.map((s) => [s.title, s.sharedAt])).toEqual([
+			['D', null],
+			['B', null],
+			['C', 6],
+			['A', 5]
+		]);
+	});
+});
+
 describe('song samples and the picker', () => {
 	// 120 BPM: a beat every 0.5 s from 0, 90 s long. With no anchors the count
 	// starts at beat 0, so a 1 falls every 4 s; a third of 90 s is 30, which
@@ -522,5 +573,183 @@ describe('deleteSong', () => {
 		const e = exercise(s.id, 'Old', 5);
 		expect(deleteSong(db, 'u1', s.id)).toMatchObject({ ok: true });
 		expect(db.select().from(exercises).where(eq(exercises.id, e.id)).get()!.songId).toBeNull();
+	});
+});
+
+describe("the picker lists the shared songs of the person's groups", () => {
+	let c: Class;
+	beforeEach(() => {
+		c = makeClass(db);
+	});
+	const mine = (userId: string, title: string) => {
+		const s = createSongFromUpload(
+			db,
+			{ userId, dance: 'salsa' },
+			{ file: `${userId}-${title}.mp3`, mime: 'audio/mpeg', title, style: 'salsa' }
+		);
+		storeAnalysis(db, s.id, { beats: [0.5, 1, 1.5, 2], downbeats: [], durationS: 90 });
+		return s.id;
+	};
+	const choices = (userId: string) =>
+		songChoices(db, { userId, dance: 'salsa' }).map((s) => [s.title, s.group]);
+
+	it('a member: their own songs, then the shared ones with the group named', () => {
+		mine('u3', 'Zeta');
+		expect(choices('u3')).toEqual([
+			['Zeta', null],
+			['Chan Chan', 'Salsa Tuesdays']
+		]);
+		expect(songChoices(db, { userId: 'u3', dance: 'salsa' }).map((s) => s.groupId)).toEqual([
+			null,
+			1
+		]);
+	});
+
+	it('an editor sees the shared list too, never a draft', () => {
+		expect(choices('u2')).toEqual([['Chan Chan', 'Salsa Tuesdays']]);
+	});
+
+	it('an outsider, a former member and the other dance see none of the group’s', async () => {
+		expect(choices('u4')).toEqual([]);
+		await leaveTeam(db, 1, 'u3', { mode: 'all' }, NO_FILES, T);
+		// A former member who kept everything has their own copy, not the group's.
+		expect(choices('u3')).toEqual([['Chan Chan', null]]);
+		expect(songChoices(db, { userId: 'u2', dance: 'bachata' })).toEqual([]);
+	});
+
+	it('a deleted song or group is gone from the list', () => {
+		db.update(songs).set({ archivedAt: T }).where(eq(songs.id, c.shared)).run();
+		expect(choices('u3')).toEqual([]);
+		db.update(songs).set({ archivedAt: null }).where(eq(songs.id, c.shared)).run();
+		db.update(teams).set({ deletedAt: T }).where(eq(teams.id, 1)).run();
+		expect(choices('u3')).toEqual([]);
+	});
+
+	it('a shared song practised to is Recent; one no longer shared is not', () => {
+		const own = mine('u3', 'Own');
+		const log = (doneAt: number, songId: number) =>
+			logSet(db, {
+				exerciseId: c.entry,
+				doneAt,
+				durationS: null,
+				reps: null,
+				rating: null,
+				note: null,
+				playerJson: JSON.stringify({ songId })
+			});
+		log(100, own);
+		log(200, c.shared);
+		const ranks = () =>
+			songChoices(db, { userId: 'u3', dance: 'salsa' }).map((s) => [s.title, s.recentRank]);
+		expect(ranks()).toEqual([
+			['Own', 1],
+			['Chan Chan', 0]
+		]);
+		db.update(songs).set({ sharedAt: null }).where(eq(songs.id, c.shared)).run();
+		expect(ranks()).toEqual([['Own', 0]]);
+	});
+});
+
+describe('Make it mine on a class song', () => {
+	let c: Class;
+	let dir: string;
+	let files: CloneFiles;
+	const U3 = { userId: 'u3', dance: 'salsa' } as const;
+	const ROOMY = 1024 ** 4;
+	/** u3's Make it mine: the copy's song row, or the refusal. */
+	const copySong = async (id: number, as = 'u3', now = T, free = ROOMY) => {
+		const res = await makeMine(db, { ...U3, userId: as }, 'song', id, files, now, free);
+		return res.ok ? { song: getSong(db, res.id)! } : res;
+	};
+	beforeEach(() => {
+		c = makeClass(db);
+		dir = mkdtempSync(join(tmpdir(), 'salsa-song-copy-'));
+		writeFileSync(join(dir, SHARED_FILE), 'bytes');
+		files = cloneFilesIn({ recording: dir, 'lesson-video': dir, audio: dir });
+		setTempoFactor(db, c.shared, 2);
+		setAnchors(db, c.shared, [4, 12]);
+		setSampleStart(db, c.shared, 12);
+	});
+	afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+	it("makes a personal song with the teacher's count and a new file, charged to the member", async () => {
+		const res = await copySong(c.shared);
+		if (!('song' in res)) throw new Error('refused');
+		const from = getSong(db, c.shared)!;
+		const copy = res.song;
+		expect(copy).toMatchObject({
+			userId: 'u3',
+			teamId: null,
+			sharedAt: null,
+			dance: 'salsa',
+			status: 'ready',
+			title: from.title,
+			artist: from.artist,
+			style: from.style,
+			beatsJson: from.beatsJson,
+			downbeatsJson: from.downbeatsJson,
+			anchorsJson: from.anchorsJson,
+			tempoFactor: 2,
+			sampleStartS: 12,
+			mime: from.mime,
+			durationS: from.durationS,
+			bpm: from.bpm,
+			sizeBytes: 1000
+		});
+		expect(copy.id).not.toBe(from.id);
+		expect(copy.audioFile).not.toBe(SHARED_FILE);
+		expect(readFileSync(join(dir, copy.audioFile!), 'utf8')).toBe('bytes');
+		expect(usedBytesOf(db, { userId: 'u3' })).toBe(1000);
+		// Nothing logged: the copy is the member's, not a change to the group.
+		expect(db.select().from(teamChanges).where(eq(teamChanges.rootId, copy.id)).all()).toEqual([]);
+	});
+
+	it('copying a song twice reuses the first copy', async () => {
+		const first = await copySong(c.shared);
+		if (!('song' in first)) throw new Error('refused');
+		const again = await copySong(c.shared);
+		expect('song' in again && again.song.id).toBe(first.song.id);
+		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
+		expect(usedBytesOf(db, { userId: 'u3' })).toBe(1000);
+	});
+
+	it('an archived copy is refused with what to do: a person’s song has no restore', async () => {
+		const first = await copySong(c.shared);
+		if (!('song' in first)) throw new Error('refused');
+		archiveSong(db, first.song.id, T + 1);
+		expect(await copySong(c.shared, 'u3', T + 2)).toEqual({
+			ok: false,
+			reason: 'archived',
+			message: ARCHIVED_SONG_COPY
+		});
+		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
+		expect(db.select().from(songs).where(eq(songs.userId, 'u3')).all()).toHaveLength(1);
+	});
+
+	it('refuses over the limit and under the disk floor, leaving no row and no file', async () => {
+		db.update(users).set({ storageLimitBytes: 999 }).where(eq(users.id, 'u3')).run();
+		const before = db.select().from(songs).all().length;
+		const res = await copySong(c.shared);
+		expect(res).toMatchObject({ reason: 'room', room: { ok: false, limitBytes: 999 } });
+		db.update(users).set({ storageLimitBytes: null }).where(eq(users.id, 'u3')).run();
+		expect(await copySong(c.shared, 'u3', T, 0)).toMatchObject({
+			reason: 'room',
+			room: { ok: false }
+		});
+		expect(db.select().from(songs).all()).toHaveLength(before);
+		expect(readdirSync(dir)).toEqual([SHARED_FILE]);
+	});
+
+	it('a draft, a personal song, an outsider and an editor are denied', async () => {
+		const denied = { ok: false, reason: 'denied' };
+		expect(await copySong(c.draft)).toEqual(denied);
+		expect(await copySong(c.shared, 'u4')).toEqual(denied);
+		expect(await copySong(c.shared, 'u2')).toEqual(denied);
+		const own = createSongFromUpload(
+			db,
+			{ userId: 'u3', dance: 'salsa' },
+			{ file: SHARED_FILE.replace('c1', 'd1'), mime: 'audio/mpeg', title: 'Own', style: 'salsa' }
+		);
+		expect(await copySong(own.id)).toEqual(denied);
 	});
 });

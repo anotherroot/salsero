@@ -129,3 +129,17 @@ export function weekdayShort(day: string): string {
 export function plural(n: number, one: string, many: string): string {
 	return `${n} ${n === 1 ? one : many}`;
 }
+
+/**
+ * "5 min ago", from two epoch-ms instants: how long since someone changed
+ * something ("Edited by Ana · 10 min ago", History, the clash sheet).
+ */
+export function agoText(at: number, now: number): string {
+	const min = Math.floor(Math.max(0, now - at) / 60_000);
+	if (min < 1) return 'just now';
+	if (min < 60) return `${min} min ago`;
+	const h = Math.floor(min / 60);
+	if (h < 24) return `${h} h ago`;
+	const d = Math.floor(h / 24);
+	return d === 1 ? 'yesterday' : `${d} days ago`;
+}

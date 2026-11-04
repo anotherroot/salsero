@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { defaultStyle } from '$lib/server/default-styles';
-import { createFigure, listFigures, listVersions } from '$lib/server/figures';
+import { createFigure, listAddedFigures, listFigures, listVersions } from '$lib/server/figures';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { coverage } from '$lib/routines/coverage';
 import { taggedFigures } from '$lib/server/graph';
@@ -9,9 +9,17 @@ import { oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, type Partner } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { wallOf } from '$lib/server/scope';
+import { groupModeOf, spaceOf } from '$lib/server/group-mode';
+import { publishedReach } from '$lib/server/access';
+import { storedTwinSets } from '$lib/server/twins';
+import { foldMoves } from '$lib/clones/twins';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ url, params, locals }) => {
+/** The Not linked chip counts figures, as the heading does, not the moves holding them. */
+const figureCount = (moves: { figures: unknown[] }[]) =>
+	moves.reduce((n, m) => n + m.figures.length, 0);
+
+export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
@@ -29,13 +37,47 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	};
 	const unlinked = url.searchParams.get('unlinked') === '1';
 	const db = getDb();
+	const mode = groupModeOf(db, wall.userId, dance, cookies);
+	if (mode) {
+		// Group mode: the group's figures only, each marked with whether members
+		// reach it. Coverage and tags are the person's own; positions are shared.
+		const space = { dance, teamId: mode.teamId, actorId: wall.userId };
+		const reach = publishedReach(db, mode.teamId);
+		return {
+			// Groups have no twins: nothing folds, no move says "also in".
+			figures: listFigures(db, space, { ...filter, unlinked }).map((m) => ({
+				...m,
+				figures: m.figures.map((f) => ({ ...f, membersSee: reach.variations.has(f.id) })),
+				also: [] as string[]
+			})),
+			groups: [],
+			twinned: [] as number[],
+			filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
+			unlinked: figureCount(listFigures(db, space, { unlinked: true })),
+			tagged: null,
+			unrouted: null,
+			defaultStyle: defaultStyle(db, locals.user.id, dance)
+		};
+	}
+	// Twins show as one (board C7 p3): each set once, a group's move left
+	// empty folds into the move that shows it ("also in Salsa Tuesdays").
+	const folded = foldMoves(
+		listFigures(db, wall, { ...filter, unlinked }),
+		// Each group's figures from the lessons the person added, after their own.
+		// Not linked is about their own figures only.
+		unlinked ? [] : listAddedFigures(db, wall, filter),
+		storedTwinSets(db, wall.userId, 'figure')
+	);
 	return {
-		figures: listFigures(db, wall, { ...filter, unlinked }),
+		figures: folded.mine,
+		groups: folded.groups,
+		/** The figures that stand for their twins: the "Twins" chip. */
+		twinned: [...folded.twinOf.keys()],
 		// The page rebuilds its URL from these strings; `unlinked` rides as '1'.
 		filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
 		// Figures with no section or no lesson, whatever the filter: the header's
 		// way into the "Not linked" filter, as `unrouted` is into coverage.
-		unlinked: listFigures(db, wall, { unlinked: true }).length,
+		unlinked: figureCount(listFigures(db, wall, { unlinked: true })),
 		// How much of the repertoire carries handhold tags. An untagged figure
 		// reads as neutral, which is right for most of casino but worth surfacing:
 		// the graph is only as good as this fraction.
@@ -52,9 +94,9 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 };
 
 export const actions: Actions = {
-	create: async ({ params, request, locals }) => {
-		const wall = wallOf(params, locals);
-		const dance = wall.dance;
+	create: async ({ params, request, locals, cookies }) => {
+		const space = spaceOf(getDb(), params, locals, cookies);
+		const dance = space.dance;
 		const form = await request.formData();
 		const figureName = text(form, 'figureName');
 		const name = text(form, 'name');
@@ -70,14 +112,14 @@ export const actions: Actions = {
 		if (!figureName) {
 			return fail(400, {
 				field: 'figureName' as const,
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the move a name (up to 200 characters).',
 				...typed
 			});
 		}
 		if (!name) {
 			return fail(400, {
 				field: 'name' as const,
-				message: 'Give the variation a name (up to 200 characters).',
+				message: 'Give the figure a name (up to 200 characters).',
 				...typed
 			});
 		}
@@ -93,11 +135,11 @@ export const actions: Actions = {
 		}
 		// With every field valid, a taken figure name is the one thing
 		// `createFigure` still refuses.
-		const made = createFigure(getDb(), wall, { figureName, name, partner, style, notes });
+		const made = createFigure(getDb(), space, { figureName, name, partner, style, notes });
 		if (!made) {
 			return fail(400, {
 				field: 'figureName' as const,
-				message: `There's already a figure called ${figureName}.`,
+				message: `There's already a move called ${figureName}.`,
 				figureName,
 				name,
 				notes: notes ?? ''

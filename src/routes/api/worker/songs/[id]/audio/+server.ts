@@ -12,7 +12,8 @@ import {
 	saveStream,
 	serveFile
 } from '$lib/server/files';
-import { getSong, storeFetchedAudio } from '$lib/server/songs';
+import { failJob, getSong, storeFetchedAudio } from '$lib/server/songs';
+import { freeDisk, ownerOfRow, roomForOwner, type Owner } from '$lib/server/storage';
 import type { RequestHandler } from './$types';
 
 // The worker token is checked in hooks.server.ts for all of /api/worker/.
@@ -41,6 +42,19 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	if (!request.body) throw error(400, 'Empty upload');
 	const mime = (request.headers.get('content-type') ?? 'audio/mp4').split(';')[0].trim();
 	if (!mime.startsWith('audio/')) throw error(415, 'Audio only');
+	// The song's owner pays (its person, or its group), and the disk floor
+	// holds, like every other upload. A song with no owner can never be
+	// charged: fail its job once, not forever.
+	let owner: Owner;
+	try {
+		owner = ownerOfRow(s);
+	} catch {
+		failJob(getDb(), s.id, 'Song has no owner', true);
+		throw error(409, 'Song has no owner');
+	}
+	const declared = Number(request.headers.get('content-length') ?? 0);
+	const room = roomForOwner(getDb(), owner, declared, await freeDisk());
+	if (!room.ok) throw error(413, room.message);
 
 	const title = safeDecodeHeader(request.headers.get('x-title')) || null;
 	const file = `${randomUUID()}.${extensionFor(mime, '')}`;
@@ -51,6 +65,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	} catch (err) {
 		if (err instanceof TooLargeError) throw error(413, 'Audio too large');
 		throw error(400, 'Upload interrupted');
+	}
+	// The bytes are already on the disk: the floor is what is free without them.
+	const after = roomForOwner(getDb(), owner, sizeBytes, (await freeDisk()) + sizeBytes);
+	if (!after.ok) {
+		await unlink(path).catch(() => {});
+		throw error(413, after.message);
 	}
 	const duration = Number(request.headers.get('x-duration'));
 	const stored = storeFetchedAudio(getDb(), s.id, {

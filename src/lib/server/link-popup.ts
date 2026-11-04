@@ -28,12 +28,14 @@ import {
 	variationNameTaken
 } from './figures';
 import { createCustomExercise } from './exercises';
-import { inWall, type Wall } from './scope';
-import { linkSpot, SpotLinkError, videoOfSpot } from './spot-links';
+import { actorOf, inSpace, isTeam, ownedBy, spaceOfRow, type Space } from './scope';
+import { teamRefs, usableDrills, usableOf, usableVersions } from './usable';
+import { foldVersions } from './twins';
+import { linkInSpace, sectionSpace, SpotLinkError, videoOfSpot } from './spot-links';
 import { viaSections } from './lesson-links';
 import { defaultStyle } from './default-styles';
 import { PARTNER, type Partner } from '$lib/labels';
-import { isStyleOf, type DanceSlug } from '$lib/dances/dances';
+import { isStyleOf } from '$lib/dances/dances';
 import { isFrequency } from '$lib/frequency';
 import type {
 	LinkContext,
@@ -41,13 +43,16 @@ import type {
 	LinkedTarget,
 	LinkOption,
 	LinkOptions,
-	SectionTarget
+	SectionTarget,
+	TeamRef
 } from '$lib/types';
 
 const key = (t: SectionTarget) => ('figureId' in t ? `f${t.figureId}` : `e${t.exerciseId}`);
 const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label);
+/** A target's row id, a variation's or a drill's. */
+const idOf = (t: SectionTarget) => ('figureId' in t ? t.figureId : t.exerciseId);
 
-/** The section's links, labelled, archived ones marked. */
+/** The section's links, labelled, archived ones marked, with the group a target is of. */
 function linksOf(db: Db, spotId: number) {
 	return db
 		.select({
@@ -58,9 +63,11 @@ function linksOf(db: Db, spotId: number) {
 			variation: figures.name,
 			figureArchived: figures.archivedAt,
 			groupArchived: figureGroups.archivedAt,
+			figureTeam: figures.teamId,
 			drill: exercises.name,
 			everyDays: exercises.everyDays,
-			drillArchived: exercises.archivedAt
+			drillArchived: exercises.archivedAt,
+			drillTeam: exercises.teamId
 		})
 		.from(spotLinks)
 		.leftJoin(figures, eq(figures.id, spotLinks.figureId))
@@ -79,7 +86,8 @@ function linksOf(db: Db, spotId: number) {
 						name: r.variation!,
 						everyDays: null,
 						linked: true,
-						archived: r.figureArchived !== null || r.groupArchived !== null
+						archived: r.figureArchived !== null || r.groupArchived !== null,
+						teamId: r.figureTeam
 					}
 				: {
 						linkId: r.linkId,
@@ -90,7 +98,8 @@ function linksOf(db: Db, spotId: number) {
 						name: r.drill!,
 						everyDays: r.everyDays,
 						linked: true,
-						archived: r.drillArchived !== null
+						archived: r.drillArchived !== null,
+						teamId: r.drillTeam
 					}
 		);
 }
@@ -129,10 +138,18 @@ function lessonSide(db: Db, lessonId: number) {
  */
 export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkOptions | null {
 	const video = videoOfSpot(db, spotId);
-	if (!video || !video.isSection || video.userId === null) return null;
-	// The section's own wall: everything offered is its owner's, of its dance.
-	const dance = video.dance as DanceSlug;
-	const wall: Wall = { dance, userId: video.userId };
+	if (!video || !video.isSection || (video.userId === null && video.teamId === null)) return null;
+	// The section's own space: everything offered is its owner's, of its dance.
+	// Only the owner is read here: no one acts. A person's section is also offered
+	// the group variations and drills they may use (`usableOf`), each tagged with
+	// its group; a group's section, its group's rows only.
+	const space = spaceOfRow(video, '');
+	const dance = space.dance;
+	const usable = isTeam(space) ? null : usableOf(db, space);
+	const versions = [
+		...listVersions(db, space),
+		...(usable && !isTeam(space) ? usableVersions(db, space, usable) : [])
+	];
 	const spot = db
 		.select({
 			id: videoSpots.id,
@@ -161,9 +178,7 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		byHand = side.byHand;
 		// Every variation of a figure the lesson teaches is near, not just the taught one.
 		const taughtGroups = new Set(
-			listVersions(db, wall)
-				.filter((v) => side.on.has(key({ figureId: v.id })))
-				.map((v) => v.groupId)
+			versions.filter((v) => side.on.has(key({ figureId: v.id }))).map((v) => v.groupId)
 		);
 		isNear = (o, groupId) =>
 			groupId !== null ? taughtGroups.has(groupId) : side.on.has(key(o.target));
@@ -180,62 +195,89 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		isNear = (_o, groupId) => groupId === own.groupId;
 	}
 
-	const linked: LinkedTarget[] = linksOf(db, spotId)
-		.map((l) => ({ ...l, alsoByHand: byHand.has(key(l.target)) }))
+	// On a person's section, a link to a group's row shows while they may use it,
+	// tagged with its group, as `sectionsFor` lists it.
+	const links = linksOf(db, spotId);
+	const teams = teamRefs(
+		db,
+		usable ? links.flatMap((l) => (l.teamId === null ? [] : [l.teamId])) : []
+	);
+	const linked: LinkedTarget[] = links
+		.filter(
+			(l) =>
+				!usable ||
+				l.teamId === null ||
+				(l.drill ? usable.drills : usable.figures).has(idOf(l.target))
+		)
+		.map(({ teamId, ...l }) => {
+			const team = usable && teamId !== null ? teams.get(teamId) : undefined;
+			return { ...l, ...(team ? { team } : {}), alsoByHand: byHand.has(key(l.target)) };
+		})
 		.sort(byLabel);
 	const taken = new Set(linked.map((l) => key(l.target)));
 
-	const variations = listVersions(db, wall).map((v) => ({
-		option: {
-			target: { figureId: v.id },
-			label: v.label,
-			drill: false,
-			figure: v.figure,
-			name: v.name,
-			everyDays: null,
-			linked: taken.has(key({ figureId: v.id }))
-		} as LinkOption,
-		groupId: v.groupId as number | null
-	}));
-	const drills = db
+	// Twins show as one (board C7): a set is one row, linked when any of it is,
+	// near when any of it is. A group's section folds nothing.
+	const groupOf = new Map(versions.map((v) => [v.id, v.groupId]));
+	const variations = foldVersions(db, space, versions).map((v) => {
+		const behind = v.twins ?? [];
+		const ids = [v.id, ...behind.map((t) => t.id)];
+		return {
+			option: {
+				target: { figureId: v.id },
+				label: v.label,
+				drill: false,
+				figure: v.figure,
+				name: v.name,
+				everyDays: null,
+				linked: ids.some((id) => taken.has(key({ figureId: id }))),
+				...(v.team ? { team: v.team } : {}),
+				...(behind.length > 0 ? { twins: behind } : {})
+			} as LinkOption,
+			groupId: v.groupId as number | null,
+			groups: ids.map((id) => groupOf.get(id) ?? null)
+		};
+	});
+	const ownDrills: { id: number; name: string; everyDays: number; team?: TeamRef }[] = db
 		.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
 		.from(exercises)
 		.where(
-			and(
-				eq(exercises.dance, wall.dance),
-				eq(exercises.userId, wall.userId),
-				eq(exercises.source, 'custom'),
-				isNull(exercises.archivedAt)
-			)
+			and(ownedBy(exercises, space), eq(exercises.source, 'custom'), isNull(exercises.archivedAt))
 		)
 		.orderBy(asc(exercises.name))
-		.all()
-		.map((d) => ({
-			option: {
-				target: { exerciseId: d.id },
-				label: d.name,
-				drill: true,
-				figure: null,
-				name: d.name,
-				everyDays: d.everyDays,
-				linked: taken.has(key({ exerciseId: d.id }))
-			} as LinkOption,
-			groupId: null as number | null
-		}));
-	const nearOf = (cs: typeof variations) =>
-		cs.filter((c) => isNear(c.option, c.groupId)).map((c) => c.option);
+		.all();
+	const drills = [
+		...ownDrills,
+		...(usable && !isTeam(space) ? usableDrills(db, space, usable) : [])
+	].map((d) => ({
+		option: {
+			target: { exerciseId: d.id },
+			label: d.name,
+			drill: true,
+			figure: null,
+			name: d.name,
+			everyDays: d.everyDays,
+			linked: taken.has(key({ exerciseId: d.id })),
+			...(d.team ? { team: d.team } : {})
+		} as LinkOption,
+		groupId: null as number | null,
+		groups: [null] as (number | null)[]
+	}));
+	const near = (c: (typeof variations)[number]) => c.groups.some((g) => isNear(c.option, g));
+	const nearOf = (cs: typeof variations) => cs.filter(near).map((c) => c.option);
 	const restOf = (cs: typeof variations) =>
 		cs
-			.filter((c) => !isNear(c.option, c.groupId))
+			.filter((c) => !near(c))
 			.map((c) => c.option)
 			.sort(byLabel);
 
 	// The figures New variation offers first: those of the lesson's variations
-	// (linked or not), or the recording's own.
+	// (linked or not), or the recording's own; a row near through its twin
+	// brings its own figure too.
 	const nearGroups = new Set(
-		variations.filter((v) => isNear(v.option, v.groupId)).map((v) => v.groupId)
+		variations.filter(near).flatMap((v) => v.groups.filter((g) => g !== null))
 	);
-	const figureChoices = listMoveTargets(db, wall, null).map((g) => ({
+	const figureChoices = listMoveTargets(db, space, null).map((g) => ({
 		groupId: g.id,
 		name: g.name,
 		variations: g.variations,
@@ -260,39 +302,54 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 }
 
 /**
- * Make a variation, a figure or a drill in the section's wall and link the
- * section to it — both or neither. `userId` is who asks: a section of anyone
- * else's is refused as missing, so nothing is made in another person's wall. The creators run inside this transaction (drizzle nests them as
- * savepoints), so a link that fails takes the new row with it. Returns the
- * link's id; throws `SpotLinkError` with what to tell the user and, when a
- * field is the reason, which one (the popup shows it under that field).
+ * Make a variation, a figure or a drill in the section's space and link the
+ * section to it — both or neither. `userId` is who asks: a section they may not
+ * edit (another person's, a group's they only read) is refused as missing, so
+ * nothing is made in a space they cannot change.
  */
 export function createAndLink(db: Db, userId: string, spotId: number, create: LinkCreate): number {
+	const space = sectionSpace(db, userId, spotId);
+	if (!space) throw new SpotLinkError('No such section.');
+	return createAndLinkIn(db, space, spotId, create);
+}
+
+/**
+ * `createAndLink` in one space: the section must be its owner's, and what is
+ * made is the space's too. The creators run inside this transaction (drizzle
+ * nests them as savepoints), so a link that fails takes the new row with it.
+ * Returns the link's id; throws `SpotLinkError` with what to tell the user and,
+ * when a field is the reason, which one (the popup shows it under that field).
+ */
+export function createAndLinkIn(db: Db, space: Space, spotId: number, create: LinkCreate): number {
 	return db.transaction((tx) => {
 		const video = videoOfSpot(tx, spotId);
-		if (!video || video.userId !== userId) throw new SpotLinkError('No such section.');
-		const dance = video.dance as DanceSlug;
-		const wall: Wall = { dance, userId };
+		if (!video || !inSpace(video, space)) throw new SpotLinkError('No such section.');
+		const dance = space.dance;
 		const name = create.name.trim();
 		if (!name) throw new SpotLinkError('Give it a name.', 400, 'name');
 
 		let target: SectionTarget;
 		if (create.kind === 'variation') {
 			const group = getGroup(tx, create.groupId);
-			if (!group || group.archivedAt !== null || !inWall(group, wall)) {
-				throw new SpotLinkError('No such figure.', 400, 'groupId');
+			if (!group || group.archivedAt !== null || !inSpace(group, space)) {
+				throw new SpotLinkError('No such move.', 400, 'groupId');
 			}
 			if (variationNameTaken(tx, group.id, name, null)) {
 				throw new SpotLinkError(`${group.name} already has a ${name}.`, 400, 'name');
 			}
 			const first = listGroupVariations(tx, group.id)[0];
-			const made = createVariationIn(tx, group.id, {
-				name,
-				partner: first?.partner ?? 'partner',
-				style: first?.styleTag ?? '',
-				notes: null
-			});
-			if (!made) throw new SpotLinkError('That variation could not be made.');
+			const made = createVariationIn(
+				tx,
+				group.id,
+				{
+					name,
+					partner: first?.partner ?? 'partner',
+					style: first?.styleTag ?? '',
+					notes: null
+				},
+				actorOf(space)
+			);
+			if (!made) throw new SpotLinkError('That figure could not be made.');
 			target = { figureId: made.id };
 		} else if (create.kind === 'figure') {
 			const figureName = create.figureName.trim();
@@ -300,44 +357,41 @@ export function createAndLink(db: Db, userId: string, spotId: number, create: Li
 			if (!isStyleOf(dance, create.style)) {
 				throw new SpotLinkError('That style does not belong to this dance.', 400, 'style');
 			}
-			if (figureNameTaken(tx, wall, figureName, null)) {
-				throw new SpotLinkError(
-					`There's already a figure called ${figureName}.`,
-					400,
-					'figureName'
-				);
+			if (figureNameTaken(tx, space, figureName, null)) {
+				throw new SpotLinkError(`There's already a move called ${figureName}.`, 400, 'figureName');
 			}
-			const made = createFigure(tx, wall, {
+			const made = createFigure(tx, space, {
 				figureName,
 				name,
 				partner: create.partner,
 				style: create.style,
 				notes: null
 			});
-			if (!made) throw new SpotLinkError('That figure could not be made.');
+			if (!made) throw new SpotLinkError('That move could not be made.');
 			target = { figureId: made.figure.id };
 		} else {
 			if (!isFrequency(create.everyDays))
 				throw new SpotLinkError('Pick how often.', 400, 'everyDays');
-			const made = createCustomExercise(tx, wall, {
+			const made = createCustomExercise(tx, space, {
 				name,
 				everyDays: create.everyDays,
 				notes: null
 			});
 			target = { exerciseId: made.id };
 		}
-		return linkSpot(tx, userId, spotId, target);
+		return linkInSpace(tx, space, spotId, target);
 	});
 }
 
 /**
  * `linkOptions` with this user's default style for the section's dance. Null
- * for a section that is not this user's — the same answer a missing one gets.
+ * for a section this user may not edit (another person's, a group's they only
+ * read) — the same answer a missing one gets.
  */
 export function linkOptionsFor(db: Db, spotId: number, userId: string): LinkOptions | null {
-	const video = videoOfSpot(db, spotId);
-	if (!video || video.userId !== userId) return null;
-	return linkOptions(db, spotId, defaultStyle(db, userId, video.dance as DanceSlug));
+	const space = sectionSpace(db, userId, spotId);
+	if (!space) return null;
+	return linkOptions(db, spotId, defaultStyle(db, actorOf(space), space.dance));
 }
 
 const isId = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v > 0;

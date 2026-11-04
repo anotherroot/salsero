@@ -57,6 +57,8 @@
 				/>
 			</label>
 
+			{#if data.noAccount}<Banner kind="info" title={data.noAccount} />{/if}
+
 			{#if form?.message}
 				<Banner kind="error" title={form.message} />
 			{/if}

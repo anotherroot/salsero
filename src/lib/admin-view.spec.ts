@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	gbToBytes,
 	LIMIT_PRESETS_GB,
+	appsLines,
 	personMeta,
 	presetLabel,
 	requestUsesLine
@@ -24,5 +25,38 @@ describe('admin view', () => {
 		expect(personMeta({ day: '2026-11-02', usedBytes: 0, limitBytes: null })).toBe(
 			'Joined 2 Nov 2026 · 0 MB, no limit'
 		);
+	});
+});
+
+describe('groups on the admin page', () => {
+	it('words the top line, a group and a person', async () => {
+		const { limitsLine, groupMeta, groupsMadeLine, requestTitle } = await import('./admin-view');
+		const GB = 1024 ** 3;
+		expect(limitsLine(12 * GB, 8 * GB)).toBe('Limits add up to 12.0 GB · 8.0 GB free');
+		expect(
+			groupMeta({
+				owner: 'Ana Kranjc',
+				people: 3,
+				usedBytes: 120 * 1024 ** 2,
+				limitBytes: 600 * 1024 ** 2,
+				deleted: false
+			})
+		).toBe('Ana Kranjc · 3 people · 120 MB of 600 MB');
+		expect(groupsMadeLine(1, 2)).toBe('1 group made · limit 2');
+		expect(requestTitle({ email: 'a@x.si', teamName: null })).toBe('a@x.si');
+		expect(requestTitle({ email: 'a@x.si', teamName: 'Class' })).toBe('Class · a@x.si');
+	});
+});
+
+describe('appsLines', () => {
+	const today = '2026-11-03';
+	const row = (day: string, channel: 'direct' | 'play' = 'direct') => [
+		{ dance: 'salsa' as const, versionCode: 2, channel, day }
+	];
+	it('says the version and the day, one line per dance', () => {
+		expect(appsLines(row(today), today)).toEqual(['Salsa app 2 · today', 'Bachata: no app']);
+		expect(appsLines(row('2026-11-02'), today)[0]).toBe('Salsa app 2 · yesterday');
+		expect(appsLines(row('2025-10-28'), today)[0]).toBe('Salsa app 2 · Tue 28 Oct');
+		expect(appsLines(row(today, 'play'), today)[0]).toBe('Salsa app 2 (Play) · today');
 	});
 });

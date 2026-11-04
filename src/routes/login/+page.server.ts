@@ -12,6 +12,8 @@ import {
 } from '$lib/server/auth';
 import { danceInPath, type DanceSlug } from '$lib/dances/dances';
 import { safeNext } from '$lib/safe-next';
+import { adminFirstName } from '$lib/server/teams';
+import { noAccountLine } from '$lib/teams/view';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -27,7 +29,9 @@ const DUMMY_HASH =
 export const load: PageServerLoad = async ({ url, parent }) => {
 	const next = safeNext(url.searchParams.get('next'));
 	const dance: DanceSlug = danceInPath(next) ?? (await parent()).lastDance;
-	return { next, dance };
+	// A group link: someone without an account is told who can invite them.
+	const noAccount = next.startsWith('/g/') ? noAccountLine(adminFirstName(getDb())) : null;
+	return { next, dance, noAccount };
 };
 
 export const actions: Actions = {

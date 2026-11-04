@@ -16,6 +16,13 @@ vi.mock('$lib/server/db', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
 	return { ...actual, getDb: () => handle.db };
 });
+// The disk is what the test says: these specs are about owners and limits, and one
+// test lowers it to check the floor.
+const disk = vi.hoisted(() => ({ free: 100 * 1024 ** 3 }));
+vi.mock('$lib/server/storage', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/storage')>('$lib/server/storage');
+	return { ...actual, freeDisk: async () => disk.free };
+});
 
 import { openDb, type Db } from '$lib/server/db';
 import { U1_SALSA } from '$lib/server/test-walls';
@@ -33,6 +40,7 @@ let figureId: number;
 
 beforeEach(async () => {
 	envMock.DATA_DIR = await mkdtemp(join(tmpdir(), 'salsa-owner-'));
+	disk.free = 100 * 1024 ** 3;
 	await mkdir(join(envMock.DATA_DIR, 'recordings'), { recursive: true });
 	await writeFile(join(envMock.DATA_DIR, 'recordings', FILE), Buffer.alloc(10, 1));
 	db = openDb(':memory:');
@@ -295,9 +303,9 @@ describe('lessons, videos, spots and links stand behind their owner on the flat 
 				})
 			});
 		expect(await status(put(U2))).toBe(404);
-		expect(getLesson(db, lessonId)!.videos).toHaveLength(1);
+		expect(getLesson(db, lessonId, 'u1')!.videos).toHaveLength(1);
 		expect(await status(put(U1))).toBe(201);
-		expect(getLesson(db, lessonId)!.videos).toHaveLength(2);
+		expect(getLesson(db, lessonId, 'u1')!.videos).toHaveLength(2);
 	});
 
 	it("another person's video has no spots to list or add to", async () => {
@@ -444,8 +452,18 @@ describe('lessons, videos, spots and links stand behind their owner on the flat 
 
 		const first = claimVideoJob(db, 1)!;
 		const second = claimVideoJob(db, 2)!;
-		const a = completeVideoJob(db, first.id, { file: 'a.mp4', mime: 'video/mp4', sizeBytes: 5 })!;
-		const b = completeVideoJob(db, second.id, { file: 'b.mp4', mime: 'video/mp4', sizeBytes: 5 })!;
+		const a = completeVideoJob(
+			db,
+			first.id,
+			{ file: 'a.mp4', mime: 'video/mp4', sizeBytes: 5 },
+			disk.free
+		)!;
+		const b = completeVideoJob(
+			db,
+			second.id,
+			{ file: 'b.mp4', mime: 'video/mp4', sizeBytes: 5 },
+			disk.free
+		)!;
 		const landed = [a, b];
 		const video = landed.find((o) => 'lessonVideoId' in o) as { lessonVideoId: number };
 		const rec = landed.find((o) => 'recordingId' in o) as { recordingId: number };
@@ -454,7 +472,7 @@ describe('lessons, videos, spots and links stand behind their owner on the flat 
 			.from(lessonVideos)
 			.all()
 			.find((v) => v.id === video.lessonVideoId)!;
-		expect(getLesson(db, lv.lessonId)!.lesson.userId).toBe('u1');
+		expect(getLesson(db, lv.lessonId, 'u1')!.lesson.userId).toBe('u1');
 		const r = db
 			.select()
 			.from(recordings)
@@ -473,3 +491,275 @@ const figureInputU2 = {
 };
 
 import { figureGroups } from '$lib/server/db/schema';
+
+import { eq } from 'drizzle-orm';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
+import { lessons as lessonsTable, videoDownloads } from '$lib/server/db/schema';
+import { saveVideoFrom } from '$lib/server/link-form';
+import { T1_SALSA } from '$lib/server/test-walls';
+import { PUT as putSavedVideo } from './worker/videos/[id]/file/+server';
+
+/**
+ * A group's things on the flat routes: u1 owns T1, u3 edits it, u2 is a member
+ * and u4 an outsider. P is published, D a draft; each has a video. The group's
+ * room is three people's, 600 MB; the editor has no limit of their own, so a
+ * refusal can only be the group's.
+ */
+describe("a group's videos, uploads and room on the flat routes", () => {
+	const U3 = { ...U2, id: 'u3', email: 'u3@example.com' };
+	const U4 = { ...U2, id: 'u4', email: 'u4@example.com' };
+	const P_FILE = '00000000-0000-4000-8000-0000000000d1.mp4';
+	const D_FILE = '00000000-0000-4000-8000-0000000000d2.mp4';
+	const TEAM_FULL = 'Not enough room: the group uses 600 MB of 600 MB. The owner can ask for more.';
+	let P: number;
+	let D: number;
+	let pVideo: number;
+	let dVideo: number;
+	let teamFigure: number;
+
+	beforeEach(async () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok || made.teamId !== T1_SALSA.teamId) throw new Error('team 1 expected');
+		joinTeam(db, 'u2', 1, 2);
+		joinTeam(db, 'u3', 1, 2);
+		setRole(db, 1, 'u3', 'editor');
+		await mkdir(join(envMock.DATA_DIR, 'lesson-videos'), { recursive: true });
+		for (const f of [P_FILE, D_FILE]) {
+			await writeFile(join(envMock.DATA_DIR, 'lesson-videos', f), Buffer.alloc(10, 1));
+		}
+		const lesson = (title: string) =>
+			createLesson(db, T1_SALSA, { lessonDay: '2026-11-02', title, notes: null }).lesson.id;
+		P = lesson('Published');
+		D = lesson('Draft');
+		db.update(lessonsTable).set({ publishedAt: 1 }).where(eq(lessonsTable.id, P)).run();
+		pVideo = addLessonVideo(
+			db,
+			{ lessonId: P, file: P_FILE, mime: 'video/mp4', sizeBytes: 10 },
+			'u1'
+		).id;
+		dVideo = addLessonVideo(
+			db,
+			{ lessonId: D, file: D_FILE, mime: 'video/mp4', sizeBytes: 10 },
+			'u1'
+		).id;
+		teamFigure = createFigure(db, T1_SALSA, {
+			figureName: 'Group figure',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!.figure.id;
+	});
+
+	/** Fill the group's 600 MB to the byte, with a row and no file. */
+	function fillTeam() {
+		addRecording(
+			db,
+			{
+				figureId: teamFigure,
+				file: 'filler.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 600 * 1024 * 1024 - 20,
+				note: null
+			},
+			'u1'
+		);
+	}
+
+	const getVideo = (user: typeof U1, file: string) =>
+		run(getLessonVideo, {
+			params: { file },
+			locals: { user },
+			request: new Request('http://localhost/')
+		});
+
+	const chunk = (user: typeof U1, lessonId: number) =>
+		run(putChunk, {
+			params: { id: String(lessonId), uploadId: '1f8fad5b-d9cb-469f-a165-70867728950e' },
+			locals: { user },
+			request: new Request('http://localhost/', {
+				method: 'PUT',
+				headers: {
+					'content-type': 'video/mp4',
+					'content-range': 'bytes 0-3/4',
+					'x-filename': 'a.mp4'
+				},
+				body: new Blob([new Uint8Array(4).fill(7)])
+			})
+		});
+
+	const recordingUpload = (user: typeof U1) =>
+		run(uploadRecording, {
+			params: { id: String(teamFigure) },
+			locals: { user },
+			request: new Request('http://localhost/', {
+				method: 'POST',
+				headers: { 'content-type': 'video/mp4', 'x-filename': 'a.mp4' },
+				body: new Uint8Array(5).fill(3)
+			})
+		});
+
+	const videosOf = (lessonId: number) =>
+		db
+			.select()
+			.from(lessonVideos)
+			.all()
+			.filter((v) => v.lessonId === lessonId);
+
+	it("a member gets P's video file, D's is a 404, and an outsider gets neither", async () => {
+		expect(await status(getVideo(U2, P_FILE))).toBe(200);
+		expect(await status(getVideo(U2, D_FILE))).toBe(404);
+		expect(await status(getVideo(U3, D_FILE))).toBe(200);
+		expect(await status(getVideo(U4, P_FILE))).toBe(404);
+	});
+
+	it("a member lists P's sections but not D's, and changes neither", async () => {
+		const list = (user: typeof U1, id: number) =>
+			run(listSpotsApi, {
+				url: new URL(`http://localhost/api/video-spots?lessonVideo=${id}`),
+				locals: { user }
+			});
+		expect(await status(list(U2, pVideo))).toBe(200);
+		expect(await status(list(U2, dVideo))).toBe(404);
+		expect(await status(list(U4, pVideo))).toBe(404);
+
+		const add = (user: typeof U1) =>
+			run(addSpotApi, {
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					body: JSON.stringify({ lessonVideoId: pVideo, startMs: 5, endMs: 50, label: null })
+				}),
+				locals: { user }
+			});
+		expect(await status(add(U2))).toBe(404);
+		expect(await status(add(U3))).toBe(201);
+		const spotId = db.select().from(videoSpots).all()[0].id;
+		const patch = (user: typeof U1) =>
+			run(patchSpot, {
+				params: { id: String(spotId) },
+				locals: { user },
+				request: new Request('http://localhost/', {
+					method: 'PATCH',
+					body: JSON.stringify({ label: 'Mine now', seen: { label: null } })
+				})
+			});
+		expect(await status(patch(U2))).toBe(404);
+		expect(await status(patch(U3))).toBe(200);
+		// The Link popup lists the group's drafts' things too: editors only (risk 20).
+		const options = (user: typeof U1) =>
+			run(linkOptionsApi, { params: { id: String(spotId) }, locals: { user } });
+		expect(await status(options(U2))).toBe(404);
+		expect(await status(options(U3))).toBe(200);
+
+		// Linking a group's section, and making something on it, is the group's editors'.
+		const link = (user: typeof U1, body: unknown) =>
+			run(linkApi, {
+				params: { id: String(spotId) },
+				locals: { user },
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					body: JSON.stringify(body)
+				})
+			});
+		expect(await status(link(U2, { target: { figureId: teamFigure } }))).toBe(404);
+		expect(await status(link(U3, { target: { figureId: teamFigure } }))).toBe(200);
+		expect(
+			await status(link(U3, { create: { kind: 'drill', name: 'Group drill', everyDays: 3 } }))
+		).toBe(200);
+		const made = db
+			.select()
+			.from(exercisesTable)
+			.all()
+			.find((e) => e.name === 'Group drill')!;
+		expect([made.userId, made.teamId]).toEqual([null, 1]);
+		expect(db.select().from(spotLinks).all()).toHaveLength(2);
+	});
+
+	it("an editor's chunk into a full group lesson is refused by the group's room", async () => {
+		fillTeam();
+		const res = await chunk(U3, D);
+		expect(res.status).toBe(413);
+		expect(((await res.json()) as { message: string }).message).toBe(TEAM_FULL);
+		expect(videosOf(D)).toHaveLength(1);
+	});
+
+	it("an editor's upload lands in the group lesson and counts against the group", async () => {
+		expect(await status(chunk(U3, D))).toBe(201);
+		expect(videosOf(D)).toHaveLength(2);
+		expect(usedBytes(db, 'u3')).toBe(0);
+	});
+
+	it("a member's or an outsider's upload into a group lesson or figure is a 404", async () => {
+		for (const user of [U2, U4]) {
+			expect(await status(chunk(user, P))).toBe(404);
+			expect(await status(recordingUpload(user))).toBe(404);
+		}
+		expect(videosOf(P)).toHaveLength(1);
+		expect(db.select().from(recordings).all()).toHaveLength(1);
+	});
+
+	it("a recording into a full group figure is refused by the group's room", async () => {
+		fillTeam();
+		const before = db.select().from(recordings).all().length;
+		expect(await status(recordingUpload(U3))).toBe(413);
+		expect(db.select().from(recordings).all()).toHaveLength(before);
+	});
+
+	it('the disk floor refuses an upload whatever the limits say', async () => {
+		// Two bytes above the floor: the 4-byte video would cross it.
+		disk.free = 2 * 1024 ** 3 + 2;
+		expect(await status(chunk(U3, D))).toBe(413);
+		expect(videosOf(D)).toHaveLength(1);
+		// Already under it: a recording, a song and a take, the person's own, are refused too.
+		disk.free = 2 * 1024 ** 3 - 1;
+		expect(await status(recordingUpload(U3))).toBe(413);
+		const song = await status(
+			run(uploadSong, {
+				locals: { user: U3 },
+				url: new URL('http://localhost/api/songs?dance=salsa'),
+				request: new Request('http://localhost/', {
+					method: 'POST',
+					headers: { 'content-type': 'audio/mp4', 'x-filename': 'b.m4a' },
+					body: new Uint8Array(5).fill(3)
+				})
+			})
+		);
+		expect(song).toBe(413);
+		expect(db.select().from(songs).all()).toHaveLength(0);
+	});
+
+	it('a YouTube save into a full group lesson is refused when asked and when it lands', async () => {
+		const [link] = addLinks(db, { lessonId: D }, ['https://youtu.be/dQw4w9WgXcQ'], null, 'u1')!;
+		expect(requestVideoDownload(db, { lessonId: D }, link.id)).toBe('ok');
+		fillTeam();
+
+		const form = new Request('http://localhost/', {
+			method: 'POST',
+			body: new URLSearchParams({ linkId: String(link.id) })
+		});
+		expect(await saveVideoFrom(form, db, { lessonId: D }, disk.free)).toMatchObject({
+			status: 413,
+			data: { message: TEAM_FULL }
+		});
+
+		const job = claimVideoJob(db, Date.now())!;
+		const res = await (putSavedVideo as unknown as (e: unknown) => Promise<Response>)({
+			params: { id: String(job.id) },
+			request: new Request('http://localhost/', {
+				method: 'PUT',
+				headers: { 'content-type': 'video/mp4', 'content-range': 'bytes 0-3/4' },
+				body: new Uint8Array(4).fill(7)
+			})
+		});
+		expect(res.status).toBe(413);
+		const failed = db.select().from(videoDownloads).where(eq(videoDownloads.id, job.id)).get()!;
+		expect([failed.status, failed.error]).toEqual(['failed', TEAM_FULL]);
+		expect(videosOf(D)).toHaveLength(1);
+		expect(await readdir(join(envMock.DATA_DIR, 'lesson-videos'))).toHaveLength(2);
+	});
+});
+
+import { readdir } from 'node:fs/promises';
+import { usedBytes } from '$lib/server/storage';

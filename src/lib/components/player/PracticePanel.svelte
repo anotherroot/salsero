@@ -7,6 +7,7 @@
 	import SourcePicker from './SourcePicker.svelte';
 	import { loadSongGrid } from './songGrid.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
+	import { holdReloadWhile } from '$lib/nav/fresh.svelte';
 	import LiveCount from '$lib/components/songs/LiveCount.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -34,7 +35,7 @@
 	interface Props {
 		dance: Dance;
 		exercise: ExerciseItem;
-		/** This dance's ready songs. */
+		/** This dance's ready songs: the person's own and their groups' shared ones (`songChoices`). */
 		songs: PickerSong[];
 		takes: CountTakeRow[];
 		/** The figure to call on cue — the figure popup only. */
@@ -116,6 +117,8 @@
 	// moment, and the Sheet must stay guarded for that whole stretch, not just
 	// once a player exists.
 	$effect(() => onactive(starting || player !== null));
+	// A deploy does not reload the page under a run either (`$lib/nav/fresh.ts`).
+	holdReloadWhile(() => starting || player !== null);
 
 	/**
 	 * Runs inside the Play tap. Everything up to `handle.start()` is synchronous

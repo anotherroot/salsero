@@ -26,9 +26,11 @@
 		linking?: boolean;
 		/** A section with exactly one link shows Unlink in place of the link button (the figure page). */
 		unlink?: boolean;
+		/** Marking and editing spots in its player: off for a reader of a group's video. */
+		canEdit?: boolean;
 	}
 
-	let { sections, src, owner, linking = false, unlink = false }: Props = $props();
+	let { sections, src, owner, linking = false, unlink = false, canEdit = true }: Props = $props();
 
 	let playing = $state<Spot | null>(null);
 	let linkingSpot = $state<number | null>(null);
@@ -62,7 +64,7 @@
 	</h3>
 	{#if sections.length === 0}
 		<p class="px-4 pt-1 pb-3 text-[13px] text-muted">
-			None yet. Open the video full screen and tap Section to mark one.
+			{canEdit ? 'None yet. Open the video full screen and tap Section to mark one.' : 'None yet.'}
 		</p>
 	{:else}
 		<ul>
@@ -145,6 +147,7 @@
 		{owner}
 		spot={playing}
 		{linking}
+		{canEdit}
 		onclose={() => {
 			playing = null;
 			// The player can rename or delete sections, and link them; the list shows them.

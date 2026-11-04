@@ -137,13 +137,13 @@
 					aria-hidden="true"
 				></span>
 				<span class="flex min-w-0 flex-1 flex-col py-1.5">
-					<span class="text-[16px] font-semibold text-ink">A new figure of its own</span>
-					<span class="text-[13px] text-muted">{variation} becomes its first variation</span>
+					<span class="text-[16px] font-semibold text-ink">A new move of its own</span>
+					<span class="text-[13px] text-muted">{variation} becomes its first figure</span>
 				</span>
 			</label>
 			{#if target === 'new'}
 				<div class="pt-1.5 pb-3">
-					<label for="move-figure-name" class={LABEL}>New figure's name</label>
+					<label for="move-figure-name" class={LABEL}>New move’s name</label>
 					<input
 						id="move-figure-name"
 						name="figureName"
@@ -164,18 +164,18 @@
 		</div>
 
 		<div class="flex flex-col gap-2">
-			<h3 class={SECTION_LABEL}>Or join a figure</h3>
+			<h3 class={SECTION_LABEL}>Or join a move</h3>
 			{#if targets.length === 0}
-				<p class="px-4 text-[14px] text-muted">There are no other figures yet.</p>
+				<p class="px-4 text-[14px] text-muted">There are no other moves yet.</p>
 			{:else}
 				<PickerField
 					name="targetPick"
-					label="Figure"
-					placeholder="Choose a figure…"
-					title="Join a figure"
-					search="Search figures"
-					groups={[{ title: 'Figures', entries: figureRows(targets) }]}
-					nothingLeft="There are no other figures yet."
+					label="Move"
+					placeholder="Choose a move…"
+					title="Join a move"
+					search="Search moves"
+					groups={[{ title: 'Moves', entries: figureRows(targets) }]}
+					nothingLeft="There are no other moves yet."
 					bind:value={picked}
 				/>
 			{/if}

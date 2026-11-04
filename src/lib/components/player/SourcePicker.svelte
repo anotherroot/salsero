@@ -19,7 +19,7 @@
 	interface Props {
 		/** Prefix for the radio groups' names, so two pickers never share a group. */
 		name: string;
-		/** This dance's ready songs. Without any, only the tempo is offered. */
+		/** This dance's ready songs (own and the groups' shared). Without any, only the tempo is offered. */
 		songs: PickerSong[];
 		source: 'count' | 'song';
 		songId: number | null;

@@ -32,6 +32,7 @@ function post(dance: string, fields: Record<string, string>, id?: number) {
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
 	};
 }
@@ -155,7 +156,10 @@ describe('Edit lesson', () => {
 				lessonDay: '2026-01-06'
 			}
 		});
-		expect(getLesson(db, id)?.lesson).toMatchObject({ title: 'Rueda', lessonDay: '2026-01-05' });
+		expect(getLesson(db, id, 'u1')?.lesson).toMatchObject({
+			title: 'Rueda',
+			lessonDay: '2026-01-05'
+		});
 	});
 
 	it('puts a day after today under Day of the class', async () => {
@@ -201,7 +205,7 @@ describe('Edit lesson', () => {
 			lessonDay: '2026-01-04'
 		});
 		expect(result).toEqual({ action: 'update', ok: true });
-		expect(getLesson(db, id)?.lesson).toMatchObject({
+		expect(getLesson(db, id, 'u1')?.lesson).toMatchObject({
 			title: 'Rueda · enchufla',
 			notes: 'Left hand low on 3',
 			lessonDay: '2026-01-04'
@@ -233,7 +237,7 @@ describe('From this lesson', () => {
 			data: {
 				action: 'newFigure',
 				field: 'figureName',
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the move a name (up to 200 characters).',
 				name: 'Doble',
 				notes: 'Turn her on 5.'
 			}
@@ -249,7 +253,7 @@ describe('From this lesson', () => {
 			status: 400,
 			data: {
 				field: 'name',
-				message: 'Give the variation a name (up to 200 characters).',
+				message: 'Give the figure a name (up to 200 characters).',
 				figureName: 'Enchufla'
 			}
 		});
@@ -284,7 +288,7 @@ describe('From this lesson', () => {
 			status: 400,
 			data: {
 				field: 'figureName',
-				message: "There's already a figure called Enchufla.",
+				message: "There's already a move called Enchufla.",
 				figureName: 'Enchufla',
 				name: 'Doble',
 				notes: 'Turn her on 5.'
@@ -299,7 +303,7 @@ describe('From this lesson', () => {
 		);
 		expect(result).toMatchObject({
 			status: 400,
-			data: { action: 'newVariation', field: 'groupId', message: 'Pick a figure.', name: 'Doble' }
+			data: { action: 'newVariation', field: 'groupId', message: 'Pick a move.', name: 'Doble' }
 		});
 	});
 
@@ -314,7 +318,7 @@ describe('From this lesson', () => {
 		);
 		expect(result).toMatchObject({
 			status: 400,
-			data: { field: 'name', message: 'Give the variation a name (up to 200 characters).' }
+			data: { field: 'name', message: 'Give the figure a name (up to 200 characters).' }
 		});
 	});
 
@@ -332,7 +336,7 @@ describe('From this lesson', () => {
 			status: 400,
 			data: {
 				field: 'name',
-				message: 'Enchufla already has a variation called Doble. Rename one first.',
+				message: 'Enchufla already has a figure called Doble. Rename one first.',
 				groupId,
 				notes: 'Hold'
 			}

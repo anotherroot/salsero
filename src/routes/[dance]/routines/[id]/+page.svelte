@@ -14,6 +14,7 @@
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { groupSlotNotes } from '$lib/clones/view';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -26,6 +27,7 @@
 	import SelectionBar from '$lib/components/routines/SelectionBar.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { act, type Field } from '$lib/act';
+	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
 	import type { PickFrom, RowView, Swiped } from '$lib/components/routines/types';
 	import {
 		anchorAfter,
@@ -45,12 +47,17 @@
 		factsOf,
 		makeRoutineCaption,
 		failurePlace,
+		fingerprintToSend,
 		seamLabel,
 		selectionTitle,
-		slotMeta
+		slotMeta,
+		type OwnSend
 	} from '$lib/routines/page';
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
+	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
+	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import { cloneSubtitle } from '$lib/clones/view';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -65,6 +72,8 @@
 	/** The slot tapped open, by id. One at a time. */
 	let expanded = $state<number | null>(null);
 	let selecting = $state(false);
+	/** A reader's Edit: the Make it mine sheet (ruling 1). */
+	let makingMine = $state(false);
 	/** Selected slot ids, in tap order. */
 	let selected = $state<number[]>([]);
 	let swiped = $state<Swiped>(null);
@@ -116,9 +125,15 @@
 			data.slots.map((s) => s.id)
 		)
 	);
+	/** A pick refused because it was archived since: its target, and whether Restore is offered. */
+	const archivedForm = $derived.by(() => {
+		if (!form || dismissed === form || !('archived' in form)) return null;
+		const a = form.archived as { restorable?: boolean; target?: ArchivedTarget } | undefined;
+		return a?.target ? { restorable: a.restorable === true, target: a.target } : null;
+	});
 	/** The routine-level refusal, until it is dismissed. */
 	const bannerMessage = $derived(
-		place?.where === 'banner' && dismissed !== form ? place.message : null
+		place?.where === 'banner' && dismissed !== form && !archivedForm ? place.message : null
 	);
 
 	/** The Edit form's refusals, each under its own field. */
@@ -200,6 +215,13 @@
 	const routineHref = (id: number) =>
 		resolve('/[dance]/routines/[id]', { dance: data.dance.slug, id: String(id) });
 
+	/** The group a figure belongs to, when it is a group's and the person may still use it. */
+	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
+	const sourcePlace = $derived(
+		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
+	);
+	const sourceOf = (id: number): string | null => data.groupFigures[id]?.team ?? null;
+
 	function optionName(id: number): string {
 		const name = data.labels[id] ?? 'a figure';
 		return figuresById.has(id) ? name : `${name} (archived)`;
@@ -239,6 +261,7 @@
 			const main = slot.figureIds[0] as number | undefined;
 			return {
 				id: slot.id,
+				source: isRoutine || main === undefined ? null : sourceOf(main),
 				title: isRoutine
 					? (slot.childName ?? 'a routine')
 					: main === undefined
@@ -260,12 +283,28 @@
 				alternatives: slot.figureIds
 					.slice(1)
 					.filter((f) => !goneOptions.includes(`${slot.id}:${f}`))
-					.map((f) => ({ id: f, label: optionName(f), href: figureHref(f) })),
+					.map((f) => ({
+						id: f,
+						label: optionName(f),
+						href: figureHref(f),
+						source: sourceOf(f)
+					})),
 				canAddAlternative: !isRoutine && main !== undefined && figuresById.has(main),
-				failure: place?.where === 'slot' && place.stepId === slot.id ? place.message : null,
+				failure:
+					place?.where === 'slot' && place.stepId === slot.id && !archivedForm
+						? place.message
+						: null,
 				seam: stale ? null : seamOf(i)
 			};
 		})
+	);
+
+	/** One note per group whose figures the slots use: what leaving the group does. */
+	const groupNotes = $derived(
+		groupSlotNotes(
+			data.groupFigures,
+			data.slots.map((s) => s.figureIds)
+		)
 	);
 
 	const facts = $derived(
@@ -289,11 +328,35 @@
 
 	/* ── Talking to the server ─────────────────────────────────────────── */
 
+	/*
+	 * Every slot action carries the routine's fingerprint as this page last saw
+	 * it, and one aimed at a routine that changed since is refused (the clash
+	 * check). They go one at a time, and one tapped while this page's own were
+	 * still out follows their answers (`fingerprintToSend`), so the page never
+	 * clashes with itself.
+	 */
+	let chain: Promise<unknown> = Promise.resolve();
+	/** This page's own actions not yet answered, in the order they were sent. */
+	let queued: OwnSend[] = [];
 	async function send(name: string, fields: Record<string, Field>) {
 		pending++;
+		const aimed = data.fingerprint;
+		const ahead = [...queued];
+		const mine: OwnSend = { sent: null, after: null };
+		queued.push(mine);
+		const run = chain.then(async () => {
+			mine.sent = fingerprintToSend(aimed, ahead);
+			const result = await act(name, { ...fields, fingerprint: mine.sent });
+			if (result.type === 'success' && typeof result.data?.fingerprint === 'string') {
+				mine.after = result.data.fingerprint;
+			}
+			return result;
+		});
+		chain = run.catch(() => {});
 		try {
-			return await act(name, fields);
+			return await run;
 		} finally {
+			queued = queued.filter((q) => q !== mine);
 			pending--;
 		}
 	}
@@ -337,7 +400,9 @@
 		const result = await send('removeOption', { stepId, figureId });
 		goneOptions = goneOptions.filter((k) => k !== key);
 		if (result.type === 'success') {
-			showToast(`Removed ${label}`, () => send('restoreOption', { stepId, figureId }));
+			// When it went: in a group, Undo brings back what the remove took off members' Today.
+			const removedAt = typeof result.data?.removedAt === 'number' ? result.data.removedAt : '';
+			showToast(`Removed ${label}`, () => send('restoreOption', { stepId, figureId, removedAt }));
 			await focusAfterRemoval(keys, `alt-${stepId}-${figureId}`, `slot-${stepId}`);
 		}
 	}
@@ -372,10 +437,45 @@
 		picker = { title: `Alternative for ${main.label}`, anchor, insertAt: null, stepId };
 	}
 
+	type PickerState = NonNullable<typeof picker>;
+	/** The last pick sent, so "Archived by Ana" can Restore and put it in, or reopen the picker. */
+	let lastPick: { p: PickerState; c: Candidate } | null = null;
+	let restoring = $state(false);
+
+	async function restoreAndPick() {
+		const a = archivedForm;
+		const last = lastPick;
+		if (!a || restoring) return;
+		restoring = true;
+		const refused = await restoreArchived(a.target);
+		restoring = false;
+		if (refused) {
+			// Stays up, saying why: "Enchufla is taken; rename that one first".
+			restoreRefusal = refused;
+			return;
+		}
+		dismissed = form;
+		if (last) await put(last.p, last.c);
+	}
+
+	function pickAnother() {
+		dismissed = form;
+		picker = lastPick?.p ?? null;
+	}
+	let restoreRefusal = $state<string | null>(null);
+	$effect(() => {
+		if (!archivedForm) restoreRefusal = null;
+	});
+
 	async function pick(c: Candidate) {
 		const p = picker;
 		picker = null;
 		if (!p) return;
+		await put(p, c);
+	}
+
+	async function put(p: PickerState, c: Candidate) {
+		lastPick = { p, c };
 		if (p.stepId !== null) {
 			await send('addOption', { stepId: p.stepId, figureId: c.id });
 			return;
@@ -501,6 +601,17 @@
 	}}
 />
 
+{#snippet groupNote()}
+	{#each groupNotes as note (note)}
+		<p
+			class="mt-2 flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
+		>
+			<span class="mt-px flex-none"><Icon name="group" size={18} /></span>
+			<span>{note}</span>
+		</p>
+	{/each}
+{/snippet}
+
 {#snippet back()}
 	{#if selecting}
 		<BandButton
@@ -527,6 +638,9 @@
 {/snippet}
 
 {#snippet actions()}
+	{#if data.historyHref}
+		<BandButton icon="clock" label="History" href={data.historyHref} />
+	{/if}
 	<BandButton focusKey="edit" icon="pencil" label="Edit routine" onclick={startEditing} />
 	{#if data.slots.length > 0}
 		<BandButton
@@ -538,6 +652,11 @@
 	{/if}
 {/snippet}
 
+<!-- A reader's Edit makes the routine theirs (ruling 1). -->
+{#snippet readerActions()}
+	<BandButton icon="pencil" label="Edit routine" onclick={() => (makingMine = true)} />
+{/snippet}
+
 {#snippet practise()}
 	<!-- The player picks the song: count only, or any of this dance's ready ones. -->
 	<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
@@ -546,8 +665,15 @@
 <Screen
 	title={selecting ? selectionTitle(selected.length) : editing ? 'Edit routine' : routine.name}
 	compact={selecting || (!editing && bandCompact(routine.name))}
+	subtitle={selecting || editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
 	left={back}
-	right={selecting || editing ? undefined : actions}
+	right={selecting || editing
+		? undefined
+		: data.canEdit
+			? actions
+			: data.makeMine
+				? readerActions
+				: undefined}
 	hero={selecting || editing || !danceable ? undefined : practise}
 >
 	<div
@@ -581,6 +707,8 @@
 					}
 				}}
 			>
+				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				<div>
 					<label class={LABEL} for="edit-name">Name</label>
 					<input
@@ -656,8 +784,46 @@
 		{:else}
 			<!-- Selecting shows only the slots. -->
 			{#if !selecting}
+				<SourceTabs
+					sources={data.sources}
+					kind="routine"
+					dance={data.dance.slug}
+					current={routine.id}
+					mineId={data.mineId}
+					compare={data.compare}
+					family={data.family}
+					drop={data.drop}
+					detach={data.detach}
+					copy={data.copyTo}
+					sameAs={data.sameAs}
+					taking={sourcePlace}
+				/>
 				{#if bannerMessage}
 					<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
+				{/if}
+				{#if archivedForm && form?.message}
+					<!-- "Archived by Ana": Restore and put it in, or pick another. -->
+					<Banner kind="error" title={form.message} ondismiss={() => (dismissed = form)}>
+						{#if restoreRefusal}{restoreRefusal}{/if}
+						{#snippet action()}
+							<div class="flex flex-wrap gap-1">
+								{#if archivedForm.restorable}
+									<button
+										type="button"
+										class={button('tertiary', 'sm')}
+										aria-busy={restoring}
+										disabled={restoring}
+										onclick={restoreAndPick}
+										>{#if restoring}<Spinner /><span class="sr-only">Restoring…</span
+											>{:else}Restore{/if}</button
+									>
+								{/if}
+								<button type="button" class={button('tertiary', 'sm')} onclick={pickAnother}
+									>Pick another</button
+								>
+							</div>
+						{/snippet}
+					</Banner>
 				{/if}
 				{#if routine.notes}
 					<p class="px-1 text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2">
@@ -685,7 +851,52 @@
 				{/if}
 			{/if}
 
-			{#if data.slots.length === 0}
+			{#if !data.canEdit}
+				<!-- A reader sees the slots as they are: no gestures, no picker, no notes to edit. -->
+				{#if rows.length === 0}
+					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">No slots yet.</p>
+				{:else}
+					<section>
+						<h2 class="{SECTION_LABEL} mb-2 pt-1.5">Slots · {rows.length}</h2>
+						<ol class={GROUP}>
+							{#each rows as row, i (row.id)}
+								<li class="flex min-h-16 items-start gap-3 py-3 pr-3.5 pl-4">
+									<span
+										class="w-6 flex-none pt-0.5 text-[15px] font-extrabold text-muted tabular-nums"
+										>{i + 1}</span
+									>
+									<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+										{#if row.href}
+											<a href={row.href} class="text-[16px] leading-tight font-bold text-ink"
+												>{row.title}</a
+											>
+										{:else}
+											<span class="text-[16px] leading-tight font-bold text-muted">{row.title}</span
+											>
+										{/if}
+										{#if row.source}<span class="self-start"
+												><Badge tone="neutral"><Icon name="group" size={14} />{row.source}</Badge
+												></span
+											>{/if}
+										{#if row.meta}<span class="text-[13px] text-muted">{row.meta}</span>{/if}
+										{#if row.alternatives.length > 0}
+											<span class="text-[13px] text-ink-2"
+												>or {#each row.alternatives as a, k (a.id)}{k > 0
+														? ', '
+														: ''}{a.label}{#if a.source}
+														<Badge tone="neutral"><Icon name="group" size={14} />{a.source}</Badge
+														>{/if}{/each}</span
+											>
+										{/if}
+										{#if row.note}<span class="text-[13px] text-ink-2 italic">{row.note}</span>{/if}
+									</span>
+								</li>
+							{/each}
+						</ol>
+						{@render groupNote()}
+					</section>
+				{/if}
+			{:else if data.slots.length === 0}
 				<EmptyState
 					icon="route"
 					title="No slots yet"
@@ -723,6 +934,7 @@
 						onnote={(id, note) => send('note', { stepId: id, note })}
 						onadd={openPicker}
 					/>
+					{@render groupNote()}
 				</section>
 			{/if}
 
@@ -890,10 +1102,16 @@
 		class="flex flex-col gap-3.5"
 		use:guarded={{
 			label: 'New routine name',
-			submit: (input) => {
+			submit: async (input) => {
 				// One routine per tap: a second tap while the first is out is dropped.
 				if (making) return input.cancel();
 				making = true;
+				// Behind this page's own slot actions, as `send` goes: aimed at the
+				// routine on screen, following their answers.
+				const aimed = data.fingerprint;
+				const ahead = [...queued];
+				await chain;
+				input.formData.set('fingerprint', fingerprintToSend(aimed, ahead));
 				const done = extracted(input);
 				return async (args) => {
 					try {
@@ -978,3 +1196,7 @@
 	}}
 	ondismiss={() => (toast = null)}
 />
+
+{#if data.makeMine}
+	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
+{/if}

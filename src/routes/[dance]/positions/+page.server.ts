@@ -13,7 +13,8 @@ import {
 } from '$lib/server/positions';
 import { taggedFigures } from '$lib/server/graph';
 import { positionCounts } from '$lib/graph/graph';
-import { danceOf, requireAdmin, requirePositionInDance, wallOf } from '$lib/server/scope';
+import { danceOf, requireAdmin, requirePositionInDance } from '$lib/server/scope';
+import { spaceOf } from '$lib/server/group-mode';
 import type { Actions, PageServerLoad } from './$types';
 
 /** A slug from a name: stable, lowercase, no spaces. */
@@ -23,13 +24,15 @@ const slugify = (name: string) =>
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-|-$/g, '') || 'position';
 
-export const load: PageServerLoad = ({ params, locals }) => {
-	const wall = wallOf(params, locals);
-	const dance = wall.dance;
+export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const db = getDb();
+	// The graph of whose figures: the switched-into group's, else the person's own.
+	const space = spaceOf(db, params, locals, cookies);
+	const dance = space.dance;
+	const inGroup = 'teamId' in space;
 	const rows = listPositions(db, dance);
 	const counts = positionCounts(
-		buildGraph(db, wall),
+		buildGraph(db, space),
 		rows.map((p) => p.id)
 	);
 	const byId = new Map(counts.map((c) => [c.id, c]));
@@ -45,10 +48,13 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			// spread is the only place `id` appears; listing it explicitly too
 			// would just be overwritten by the spread, which `tsc` refuses to do
 			// silently.
-			...byId.get(p.id)!
+			...byId.get(p.id)!,
+			// The gap report is hidden in group mode: nothing is flagged a dead end or orphan.
+			...(inGroup ? { deadEnd: false, orphan: false } : {})
 		})),
+		groupMode: inGroup,
 		// How much of the repertoire carries tags: the intro's first sentence.
-		tagged: taggedFigures(db, wall)
+		tagged: taggedFigures(db, space)
 	};
 };
 

@@ -82,6 +82,16 @@ describe('routineRows', () => {
 });
 
 describe('exerciseGroups', () => {
+	// Catches: a group drill's entry missing from the past-day picker (risk 26).
+	it("lists an 'added' entry under Drills with its drill's name", () => {
+		const groups = exerciseGroups([
+			exercise({ id: 2, name: 'Spot turns', source: 'custom' }),
+			exercise({ id: 7, name: 'Shines', source: 'added' })
+		]);
+		expect(groups.map((g) => g.title)).toEqual(['Drills']);
+		expect(groups[0].entries.map((e) => (e as PickRow).label)).toEqual(['Shines', 'Spot turns']);
+	});
+
 	it('exerciseGroups: groups in the order Figures, Routines, Drills, Lessons, empty ones left out', () => {
 		const all = exerciseGroups([
 			exercise({ id: 1, name: 'Review: Tuesday', source: 'lesson' }),
@@ -260,5 +270,98 @@ describe('linkOptionGroups', () => {
 			meta: frequencyLabel(7),
 			linked: false
 		});
+	});
+
+	it("linkOptionGroups: a group's move of the same name is its own heading, not merged into yours", () => {
+		const team = { id: 1, name: 'Salsa Tuesdays' };
+		const groups = linkOptionGroups(
+			linkOpts({
+				figures: [variation(3, 'Enchufla', 'Basic'), { ...variation(7, 'Enchufla', 'Basic'), team }]
+			})
+		);
+		const headings = groups[0].entries as PickHeading[];
+		expect(headings.map((h) => h.rows.map((r) => r.key))).toEqual([['figure:3'], ['figure:7']]);
+		expect(headings.map((h) => h.heading)).toEqual(['Enchufla', 'Enchufla · Salsa Tuesdays']);
+		expect(headings[1].rows[0].meta).toBe('Salsa Tuesdays’ · used as it is');
+	});
+
+	it("variationEntries: a group's move is its own heading, labelled with the group", () => {
+		const team = { id: 1, name: 'Salsa Tuesdays' };
+		const entries = variationEntries([
+			version(3, 1, 'Enchufla', 'Basic'),
+			{ ...version(7, 2, 'Enchufla', 'Basic'), team }
+		]);
+		expect(entries.map((e) => e.heading)).toEqual(['Enchufla', 'Enchufla · Salsa Tuesdays']);
+		expect(entries[0].rows[0].meta).toBeUndefined();
+		expect(entries[1].rows[0].meta).toBe('Salsa Tuesdays’ · used as it is');
+	});
+
+	it("routineRows and exerciseGroups: a group's row says it is used as it is", () => {
+		const team = { id: 1, name: 'Rueda club' };
+		expect(
+			routineRows([{ id: 1, name: 'Rueda', slots: 2, loops: false, linked: false, team }])[0].meta
+		).toBe('Rueda club’s · used as it is');
+		const g = exerciseGroups([
+			{
+				id: 5,
+				name: 'Pasos',
+				source: 'custom',
+				everyDays: 7,
+				figure: null,
+				variation: null,
+				linked: false,
+				team
+			}
+		]);
+		expect((g[0].entries[0] as PickRow).meta).toBe('Rueda club’s · used as it is');
+	});
+});
+
+describe('twins in pickers', () => {
+	const TUE = { id: 1, name: 'Salsa Tuesdays' };
+	const RUEDA = { id: 2, name: 'Rueda club' };
+	it('a row standing for its twins says which is used', () => {
+		const [h] = variationEntries([
+			{
+				id: 1,
+				groupId: 10,
+				figure: 'Enchufla',
+				name: 'Básica',
+				label: 'Enchufla · Básica',
+				twins: [{ id: 11, figure: 'Enchufla', name: 'Básica', team: TUE }]
+			}
+		]);
+		expect(h.rows[0].meta).toBe('Yours, twin of Salsa Tuesdays’ Básica · yours is used');
+	});
+
+	it('the Link popup passes the twins through', () => {
+		const groups = linkOptionGroups({
+			dance: 'salsa',
+			spot: { id: 1, startMs: 0, endMs: 1000, label: null },
+			context: { kind: 'recording', groupId: 1, figure: 'Enchufla' },
+			linked: [],
+			nearTitle: 'This figure',
+			near: [],
+			figures: [
+				{
+					target: { figureId: 11 },
+					label: 'Enchufla · Doble',
+					drill: false,
+					figure: 'Enchufla',
+					name: 'Doble',
+					everyDays: null,
+					linked: false,
+					team: TUE,
+					twins: [{ id: 21, figure: 'Enchufla', name: 'Doble', team: RUEDA }]
+				}
+			],
+			drills: [],
+			figureChoices: [],
+			defaults: { partner: 'partner', style: 'salsa' }
+		} as never);
+		const heading = groups[0].entries[0] as { rows: { meta?: string }[] };
+		expect(heading.rows[0].meta).toBe(
+			'Salsa Tuesdays’, twin of Rueda club’s Doble · Salsa Tuesdays’ is used'
+		);
 	});
 });

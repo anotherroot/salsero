@@ -25,7 +25,12 @@
 >
 	{#snippet body(payload)}
 		<div class="flex flex-col gap-3">
-			<Content dance={props.dance} content={payload.content} timezone={props.timezone} />
+			<Content
+				dance={props.dance}
+				content={payload.content}
+				timezone={props.timezone}
+				canEdit={props.exercise.team === null}
+			/>
 			{#if !props.backfillDay}
 				{#key logged}
 					<PracticePanel

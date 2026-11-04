@@ -3,6 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { tick } from 'svelte';
 	import { track } from '$lib/unsaved/guard.svelte';
+	import { holdReload } from '$lib/nav/fresh.svelte';
 	import { UPLOAD_CHUNK_BYTES } from '$lib/limits';
 	import {
 		screenFiles,
@@ -166,16 +167,22 @@
 		await tick();
 		card?.focus();
 
-		for (const [i, file] of accepted.entries()) {
-			position = accepted.length > 1 ? { index: i + 1, count: accepted.length } : null;
-			const reason = await uploadOne(file, (sent) => {
-				progress = total === 0 ? 1 : (done + sent) / total;
-			});
-			retrying = false;
-			if (reason === null) added += 1;
-			else failed.push({ name: file.name, reason });
-			done += file.size;
-			progress = total === 0 ? 1 : done / total;
+		// A deploy does not reload the page under the batch: it waits for the last chunk.
+		const release = holdReload();
+		try {
+			for (const [i, file] of accepted.entries()) {
+				position = accepted.length > 1 ? { index: i + 1, count: accepted.length } : null;
+				const reason = await uploadOne(file, (sent) => {
+					progress = total === 0 ? 1 : (done + sent) / total;
+				});
+				retrying = false;
+				if (reason === null) added += 1;
+				else failed.push({ name: file.name, reason });
+				done += file.size;
+				progress = total === 0 ? 1 : done / total;
+			}
+		} finally {
+			release();
 		}
 
 		const hadFocus = !!card?.contains(document.activeElement);

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
-	import { navigating, page } from '$app/state';
+	import { untrack } from 'svelte';
+	import { navigating, page, updated } from '$app/state';
 	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
 	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
@@ -9,12 +10,26 @@
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
-	import { guardNavigation, prompt } from '$lib/unsaved/guard.svelte';
-	import { syncSheets } from '$lib/sheets/history.svelte';
+	import ClashSheet from '$lib/components/ui/ClashSheet.svelte';
+	import {
+		clashPrompt,
+		guardNavigation,
+		loadAgreed,
+		prompt,
+		sendingNow,
+		unsaved
+	} from '$lib/unsaved/guard.svelte';
+	import { entryState, syncSheets } from '$lib/sheets/history.svelte';
 	import { syncTrail } from '$lib/nav/trail.svelte';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
-	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
+	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
+	import { BUSY_ROUTES, updateNeededNow } from '$lib/app-update/view';
+	import { fullLoadFor, mayReloadNow, typedFields, type FieldState } from '$lib/nav/fresh';
+	import { held } from '$lib/nav/fresh.svelte';
+	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
+	import { holdsBack, staleMove } from '$lib/page-epoch';
 	import { errorBack, errorView } from '$lib/nav/error-view';
 
 	let { data, children } = $props();
@@ -42,11 +57,13 @@
 	 * follow it at once, so a tap shows before the page does; what the page
 	 * itself renders still follows `page`.
 	 */
-	const shownPath = $derived(navigating.to?.url.pathname ?? page.url.pathname);
+	// A navigation held back by the page epoch (`stuck`, below) is not under way:
+	// it waits for Reload, so no tab, skeleton or progress bar says otherwise.
+	let stuck = $state(false);
+	const ahead = $derived(stuck ? null : navigating.to);
+	const shownPath = $derived(ahead?.url.pathname ?? page.url.pathname);
 	const shownDance = $derived(danceOf(shownPath));
-	const leaving = $derived(
-		navigating.to != null && leavesPage(page.url.pathname, navigating.to.url.pathname)
-	);
+	const leaving = $derived(ahead != null && leavesPage(page.url.pathname, ahead.url.pathname));
 	/*
 	 * The skeleton waits SKELETON_DELAY_MS so a fast load swaps straight to
 	 * the page. `leaving` is a boolean, so a redirect mid-flight (a new
@@ -62,7 +79,7 @@
 		const timer = setTimeout(() => (late = true), SKELETON_DELAY_MS);
 		return () => clearTimeout(timer);
 	});
-	const skeleton = $derived(late && navigating.to ? skeletonFor(navigating.to.route.id) : null);
+	const skeleton = $derived(late && ahead ? skeletonFor(ahead.route.id) : null);
 	/*
 	 * The tabs show inside a dance except Practice and share (`showsTabs`), judged
 	 * on where the app is going so the bar comes or goes with the tap, and step
@@ -81,8 +98,56 @@
 		if (dance) seen = dance.slug;
 	});
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
-	const tabs = $derived(showsTabs((navigating.to ?? page).route.id) && !bottom.claimed);
+	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
+
+	/*
+	 * Update needed replaces the whole tree, so it never lands on a page mid-edit
+	 * (`updateNeededNow`): it comes with a page load or a finished navigation,
+	 * and when the answer turns required on an open page, at once only if that
+	 * page is quiet, else at the next navigation. Coming back to the app and
+	 * every navigation ask again (the root load never re-runs by itself).
+	 */
+	let updateNeeded = $state(
+		untrack(() =>
+			updateNeededNow(data.appUpdate, {
+				routeId: page.route.id,
+				shown: false,
+				at: 'load',
+				playerOpen: false,
+				sheetsOpen: false,
+				unsaved: 0,
+				held: 0
+			})
+		)
+	);
+	const judgeUpdate = (at: 'navigated' | 'refresh') => {
+		updateNeeded = updateNeededNow(data.appUpdate, {
+			routeId: page.route.id,
+			shown: updateNeeded,
+			at,
+			...quietNow()
+		});
+	};
+	$effect(() => {
+		void data.appUpdate;
+		untrack(() => judgeUpdate('refresh'));
+	});
+	afterNavigate((nav) => {
+		if (!data.appUpdate) return;
+		// A hash link stays on the page, with whatever it holds.
+		const samePage = nav.from?.url.pathname === nav.to?.url.pathname;
+		judgeUpdate(nav.type === 'enter' || samePage ? 'refresh' : 'navigated');
+		if (nav.type !== 'enter') void invalidate('app:update');
+	});
+	$effect(() => {
+		if (!data.appUpdate) return;
+		const back = () => {
+			if (document.visibilityState === 'visible') void invalidate('app:update');
+		};
+		document.addEventListener('visibilitychange', back);
+		return () => document.removeEventListener('visibilitychange', back);
+	});
 
 	/*
 	 * Offline. The root layout has a server load, so a client navigation that
@@ -168,13 +233,141 @@
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the URL the user tapped
 		if (url) void goto(url, { invalidateAll: true });
 	};
+
+	/*
+	 * A deploy. SvelteKit polls `version.json` (`version.pollInterval` in
+	 * vite.config.ts) and `updated.current` turns true once a new build is out;
+	 * this page's code is then old. See `$lib/nav/fresh.ts` for the rules.
+	 *
+	 * The next navigation to another page becomes a full load, which looks
+	 * like any page change. Registered last, so the unsaved-changes guard and
+	 * the offline handler have had their say on the same navigation: the
+	 * guard's question shows as `prompt.ask`, offline is `navigator.onLine`.
+	 */
+	const fieldsNow = (): FieldState[] =>
+		[...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')].map(
+			(f) => ({
+				tag: f.tagName.toLowerCase(),
+				type: f.type.toLowerCase(),
+				focused: f === document.activeElement,
+				value: f.value,
+				defaultValue: f.defaultValue
+			})
+		);
+	const quietNow = () => {
+		const entry = entryState();
+		return {
+			playerOpen: (entry.videoPlayer ?? 0) > 0,
+			sheetsOpen: (entry.sheets ?? 0) > 0,
+			// An upload in flight counts: a reload cuts it off. So does a field
+			// someone is typing in, tracked by the guard or not (signing in).
+			unsaved: unsaved(null, true).length + typedFields(fieldsNow()),
+			held: held()
+		};
+	};
+	beforeNavigate((nav) => {
+		const to = nav.to?.url;
+		const full = fullLoadFor(
+			{
+				type: nav.type,
+				willUnload: nav.willUnload,
+				fromPath: page.url.pathname,
+				toPath: to?.pathname ?? null
+			},
+			{
+				updated: updated.current,
+				asking: prompt.ask !== null,
+				online: navigator.onLine,
+				...quietNow()
+			}
+		);
+		if (!full || !to) return;
+		nav.cancel();
+		location.href = to.href;
+	});
+	/*
+	 * Coming back to the page is when a deploy is worth asking about. A quiet
+	 * page reloads by itself; anything open, unsaved or running gets the
+	 * Reload bar instead. `reloading` keeps the bar from flashing up for the
+	 * moment before a reload that is going to happen.
+	 */
+	let reloading = $state(false);
+	$effect(() => {
+		let checking = false;
+		const back = async () => {
+			if (document.visibilityState !== 'visible' || checking) return;
+			checking = true;
+			const quiet = () => mayReloadNow({ routeId: page.route.id, ...quietNow() });
+			reloading = quiet();
+			if ((await updated.check()) && quiet()) {
+				location.reload();
+				return;
+			}
+			reloading = false;
+			checking = false;
+		};
+		document.addEventListener('visibilitychange', back);
+		return () => document.removeEventListener('visibilitychange', back);
+	});
+	// Not on Practice or My count (their own controls sit at the bottom; leaving
+	// them loads the new version), nor over an edit's Save bar.
+	const reloadBar = $derived(
+		updated.current &&
+			!reloading &&
+			!bottom.claimed &&
+			!(BUSY_ROUTES as readonly (string | null)[]).includes(page.route.id)
+	);
+	/*
+	 * The server refused this page: a deploy broke what it sends (the page
+	 * epoch, `$lib/page-epoch.ts`; app.html's fetch wrapper fires `salsa:stale`).
+	 * A navigation under way loads its page whole, a quiet page reloads, and
+	 * anything else keeps the page, with what was typed, and shows the bar.
+	 * Cancelling the event holds the answer back (`holdsBack`). A navigation
+	 * whose data is held back stays pending until Reload (`stuck`): SvelteKit
+	 * would otherwise fall back to a full load of it, unasked.
+	 */
+	let stale = $state(false);
+	let staleLeaving = $state(false);
+	$effect(() => {
+		const onstale = (e: Event) => {
+			const going = navigating.to?.url.href ?? null;
+			const move = staleMove({
+				routeId: page.route.id,
+				navigating: going !== null,
+				stuck,
+				sending: sendingNow(),
+				...quietNow()
+			});
+			const url = (e as CustomEvent<{ url: string }>).detail.url;
+			const hold = holdsBack(move, url, location.href, going !== null);
+			if (hold) e.preventDefault();
+			if (move === 'bar') {
+				stale = true;
+				if (hold && going !== null) stuck = true;
+				return;
+			}
+			staleLeaving = true;
+			if (move === 'go' && going) loadAgreed(going);
+			else location.reload();
+		};
+		window.addEventListener('salsa:stale', onstale);
+		return () => window.removeEventListener('salsa:stale', onstale);
+	});
+	/*
+	 * Unlike "New version", shown on every page and over a claimed bottom too:
+	 * nothing a stale page sends will save, so Reload is the only way on, and a
+	 * run on Practice or a Save bar would otherwise fail without a word.
+	 */
+	const staleBar = $derived(stale && !staleLeaving);
 </script>
 
 <svelte:head>
 	<link rel="icon" href="/icon-{navDance.slug}.svg" type="image/svg+xml" />
 </svelte:head>
 
-{#if nav}
+{#if updateNeeded && data.appUpdate}
+	<UpdateNeeded update={data.appUpdate} />
+{:else if nav}
 	<!--
 		`data-dance` carries the accent (see layout.css) down to everything a
 		dance touches: the page content, the tab bar (`BottomNav`, a sibling of
@@ -184,6 +377,7 @@
 	-->
 	<div
 		data-dance={navDance.slug}
+		data-group={page.data.groupMode ? '' : undefined}
 		style:display="contents"
 		style:--pin-bottom={tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0px'}
 		style:--pin-safe={tabs ? '0px' : 'var(--safe-bottom)'}
@@ -201,12 +395,19 @@
 		{#if tabs}
 			<BottomNav dance={navDance.slug} path={shownPath} />
 		{/if}
+		{#if staleBar}
+			<ReloadBar stale />
+		{:else if reloadBar}
+			<ReloadBar />
+		{/if}
 		<!-- In here, not after the {#if}: its Save button takes the dance's accent too. -->
 		<UnsavedDialog />
+		<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
 	</div>
 {:else}
 	{@render children()}
 	<UnsavedDialog />
+	<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
 {/if}
 
 {#if offline}
@@ -235,6 +436,6 @@
 {/if}
 
 <!-- Outside the shell's {#if}: signing in is a navigation too. -->
-{#if navigating.to}
+{#if ahead}
 	<NavProgress />
 {/if}

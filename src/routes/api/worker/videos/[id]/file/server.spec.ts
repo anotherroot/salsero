@@ -78,7 +78,7 @@ describe('a saved video arriving in chunks', () => {
 
 		const last = await put(jobId, 4, 6, 10);
 		expect(last.status).toBe(201);
-		const [rec] = getFigure(db, figureId)!.recordings;
+		const [rec] = getFigure(db, figureId, 'u1')!.recordings;
 		expect(rec).toMatchObject({ kind: 'video', mime: 'video/mp4', sizeBytes: 10, sourceUrl: YT });
 		expect(existsSync(join(envMock.DATA_DIR, 'recordings', rec.file))).toBe(true);
 		expect(listLinks(db, { figureId })).toEqual([]);
@@ -89,7 +89,7 @@ describe('a saved video arriving in chunks', () => {
 		const { jobId } = queue({ figureId });
 		expect((await put(jobId, 0, 10, 10)).status).toBe(201);
 		expect((await put(jobId, 0, 10, 10)).status).toBe(410);
-		expect(getFigure(db, figureId)!.recordings).toHaveLength(1);
+		expect(getFigure(db, figureId, 'u1')!.recordings).toHaveLength(1);
 	});
 
 	it('answers 410 and drops the partial when the link was removed mid-upload', async () => {
@@ -98,7 +98,7 @@ describe('a saved video arriving in chunks', () => {
 		deleteLink(db, { figureId }, linkId);
 		expect((await put(jobId, 4, 6, 10)).status).toBe(410);
 		expect(await uploads()).toEqual([]);
-		expect(getFigure(db, figureId)!.recordings).toEqual([]);
+		expect(getFigure(db, figureId, 'u1')!.recordings).toEqual([]);
 	});
 
 	it('puts a lesson’s video among the lesson videos', async () => {
@@ -109,7 +109,7 @@ describe('a saved video arriving in chunks', () => {
 		}).lesson.id;
 		const { jobId } = queue({ lessonId });
 		expect((await put(jobId, 0, 10, 10)).status).toBe(201);
-		const [video] = getLesson(db, lessonId)!.videos;
+		const [video] = getLesson(db, lessonId, 'u1')!.videos;
 		expect(video).toMatchObject({ sourceUrl: YT, sizeBytes: 10 });
 		expect(existsSync(join(envMock.DATA_DIR, 'lesson-videos', video.file))).toBe(true);
 	});

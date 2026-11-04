@@ -18,6 +18,25 @@ describe('fingerprint', () => {
 		);
 	});
 
+	it('ignores what the form saw (the clash check), which nobody typed', () => {
+		expect(
+			fingerprint(
+				fd([
+					['name', 'A'],
+					['seen', '{"name":"A"}']
+				])
+			)
+		).toBe(
+			fingerprint(
+				fd([
+					['name', 'A'],
+					['seen', '{"name":"B"}'],
+					['fingerprint', 'x']
+				])
+			)
+		);
+	});
+
 	it('sees a repeated field added or removed', () => {
 		const one = fd([['startIds', '1']]);
 		const two = fd([

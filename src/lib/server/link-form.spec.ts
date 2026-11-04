@@ -7,6 +7,8 @@ import { addLinks, listLinks } from './links';
 import { claimVideoJob, failVideoJob } from './video-downloads';
 import { U1_SALSA } from '$lib/server/test-walls';
 
+/** Free disk far above the floor: these tests are about limits, not the disk. */
+const FREE = 100 * 1024 ** 3;
 let db: Db;
 let figureId: number;
 let figureExerciseId: number;
@@ -20,7 +22,7 @@ beforeEach(() => {
 		notes: null
 	})!;
 	figureId = made.figure.id;
-	figureExerciseId = addFigureExercise(db, made.figure.id)!.id;
+	figureExerciseId = addFigureExercise(db, 'u1', made.figure.id)!.id;
 });
 
 const form = (fields: Record<string, string>) =>
@@ -109,7 +111,7 @@ describe('saveVideoFrom and retryVideoFrom', () => {
 			sizeBytes: 1,
 			note: null
 		});
-		expect(await saveVideoFrom(form({ linkId: String(id) }), db, { figureId }, 'u1')).toMatchObject(
+		expect(await saveVideoFrom(form({ linkId: String(id) }), db, { figureId }, FREE)).toMatchObject(
 			{
 				status: 413,
 				data: { action: 'saveVideo' }
@@ -139,13 +141,13 @@ describe('saveVideoFrom and retryVideoFrom', () => {
 			note: null
 		});
 		expect(
-			await retryVideoFrom(form({ linkId: String(id) }), db, { figureId }, 'u1')
+			await retryVideoFrom(form({ linkId: String(id) }), db, { figureId }, FREE)
 		).toMatchObject({ status: 413, data: { action: 'retryVideo' } });
 	});
 
 	it('queues a YouTube link, and retries it once it failed', async () => {
 		const id = linkOf('https://youtu.be/dQw4w9WgXcQ');
-		expect(await saveVideoFrom(form({ linkId: String(id) }), db, { figureId }, 'u1')).toMatchObject(
+		expect(await saveVideoFrom(form({ linkId: String(id) }), db, { figureId }, FREE)).toMatchObject(
 			{
 				action: 'saveVideo',
 				ok: true
@@ -155,7 +157,7 @@ describe('saveVideoFrom and retryVideoFrom', () => {
 
 		failVideoJob(db, claimVideoJob(db, Date.now())!.id, 'Private video', true);
 		expect(
-			await retryVideoFrom(form({ linkId: String(id) }), db, { figureId }, 'u1')
+			await retryVideoFrom(form({ linkId: String(id) }), db, { figureId }, FREE)
 		).toMatchObject({
 			action: 'retryVideo',
 			ok: true
@@ -166,16 +168,16 @@ describe('saveVideoFrom and retryVideoFrom', () => {
 	it('refuses a web link and a link that is gone', async () => {
 		const web = linkOf('https://a.org/x');
 		expect(
-			await saveVideoFrom(form({ linkId: String(web) }), db, { figureId }, 'u1')
+			await saveVideoFrom(form({ linkId: String(web) }), db, { figureId }, FREE)
 		).toMatchObject({
 			status: 400,
 			data: { action: 'saveVideo', message: 'Only a YouTube link can be saved as a video.' }
 		});
-		expect(await saveVideoFrom(form({ linkId: '999' }), db, { figureId }, 'u1')).toMatchObject({
+		expect(await saveVideoFrom(form({ linkId: '999' }), db, { figureId }, FREE)).toMatchObject({
 			status: 404,
 			data: { action: 'saveVideo', message: 'That link was already removed.' }
 		});
-		expect(await retryVideoFrom(form({ linkId: '999' }), db, { figureId }, 'u1')).toMatchObject({
+		expect(await retryVideoFrom(form({ linkId: '999' }), db, { figureId }, FREE)).toMatchObject({
 			status: 404,
 			data: { action: 'retryVideo' }
 		});

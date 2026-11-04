@@ -91,3 +91,24 @@ export const DEFAULT_STORAGE_LIMIT_BYTES = 1024 ** 3;
 
 /** How long an invite works: 24 hours. */
 export const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** How many groups a person may make unless the admin says otherwise. */
+export const TEAMS_MADE_DEFAULT = 2;
+
+/** Bytes a group may keep per member, when its limit is computed: 200 MiB. */
+export const TEAM_BYTES_PER_PERSON = 200 * 1024 ** 2;
+
+/** How long a removed thing stays restorable in a group's trash: 30 days. */
+export const TRASH_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** How long a deleted group is kept before it is purged: as long as the trash. */
+export const TEAM_PURGE_MS = TRASH_MS;
+
+/** Edits by one person to one root within this window merge into one history line: 10 minutes. */
+export const HISTORY_MERGE_MS = 10 * 60 * 1000;
+
+/** Free disk the server keeps back when groups' limits are added up: 2 GiB. */
+export const DISK_FLOOR_BYTES = 2 * 1024 ** 3;
+
+/** Characters in a group's join code (Crockford base32, no I L O U). */
+export const TEAM_CODE_LENGTH = 10;

@@ -18,9 +18,9 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { listRoutines } from '$lib/server/routines';
-import { createFigure } from '$lib/server/figures';
+import { createFigure, createVariationIn } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
-import { actions as figureListActions } from './figures/+page.server';
+import { actions as figureListActions, load as figureListLoad } from './figures/+page.server';
 import { actions as coverageActions } from './coverage/+page.server';
 import { actions as positionActions } from './positions/+page.server';
 import { archivePosition, getPosition, listPositions, seedPositions } from '$lib/server/positions';
@@ -36,6 +36,7 @@ function post(dance: string, fields: Record<string, string>, id = '') {
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
 	};
 }
@@ -107,7 +108,7 @@ describe('New figure', () => {
 			status: 400,
 			data: {
 				field: 'figureName',
-				message: "There's already a figure called Hammerlock.",
+				message: "There's already a move called Hammerlock.",
 				figureName: 'Hammerlock',
 				name: 'From closed',
 				notes: 'Lead the turn early, on 1.'
@@ -122,7 +123,7 @@ describe('New figure', () => {
 			status: 400,
 			data: {
 				field: 'name',
-				message: 'Give the variation a name (up to 200 characters).',
+				message: 'Give the figure a name (up to 200 characters).',
 				figureName: 'Hammerlock'
 			}
 		});
@@ -135,7 +136,7 @@ describe('New figure', () => {
 			status: 400,
 			data: {
 				field: 'figureName',
-				message: 'Give the figure a name (up to 200 characters).',
+				message: 'Give the move a name (up to 200 characters).',
 				name: 'From closed'
 			}
 		});
@@ -285,5 +286,51 @@ describe('Positions: names are unique among the live ones', () => {
 			status: 400,
 			data: { action: 'archive', id: n.id }
 		});
+	});
+});
+
+describe('the Figures load', () => {
+	it('returns moves with their figures', () => {
+		createFigure(db, U1_SALSA, {
+			figureName: 'Enchufla',
+			name: 'Doble',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		});
+		type Data = { figures: { name: string; figures: { label: string }[] }[] };
+		const data = (figureListLoad as unknown as (e: unknown) => Data)({
+			params: { dance: 'salsa' },
+			url: new URL('http://localhost/salsa/figures'),
+			cookies: { get: () => undefined, delete: () => {} },
+			locals: { user: USER }
+		});
+		expect(data.figures[0].name).toBe('Enchufla');
+		expect(data.figures[0].figures[0].label).toBe('Enchufla · Doble');
+	});
+});
+
+describe('the Figures list, Not linked chip', () => {
+	it('counts figures, not the moves holding them', async () => {
+		const made = createFigure(db, U1_SALSA, {
+			figureName: 'Enchufla',
+			name: 'Basic',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		})!;
+		createVariationIn(db, made.group.id, {
+			name: 'Doble',
+			partner: 'partner',
+			style: 'salsa',
+			notes: null
+		});
+		const data = (await (figureListLoad as (e: unknown) => unknown)({
+			params: { dance: 'salsa' },
+			url: new URL('http://localhost/salsa/figures'),
+			cookies: { get: () => undefined, delete: () => {} },
+			locals: { user: USER }
+		})) as { unlinked: number };
+		expect(data.unlinked).toBe(2);
 	});
 });

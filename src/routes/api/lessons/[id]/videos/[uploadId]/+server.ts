@@ -14,7 +14,8 @@ import {
 	UPLOAD_ID_RE,
 	writeChunk
 } from '$lib/server/files';
-import { roomFor } from '$lib/server/storage';
+import { freeDisk, ownerOfRow, roomForOwner } from '$lib/server/storage';
+import { allows, lessonAccess } from '$lib/server/access';
 import { MAX_LESSON_VIDEO_BYTES, MAX_LESSON_VIDEO_LABEL } from '$lib/limits';
 import type { RequestHandler } from './$types';
 
@@ -36,11 +37,17 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	if (!UPLOAD_ID_RE.test(params.uploadId)) return fail(404, 'Bad upload id.');
 
 	const db = getDb();
-	const found = getLesson(db, lessonId);
-	// Flat: no dance in the URL, so the person is the wall. Another person's
-	// lesson and a missing one get the same 404.
-	const mine = found !== null && !!locals.user && found.lesson.userId === locals.user.id;
-	if (!found || !mine || found.lesson.archivedAt !== null) return fail(404, 'No such lesson.');
+	const found = getLesson(db, lessonId, locals.user?.id ?? '');
+	// Flat: no dance in the URL, so the person and their groups are the wall.
+	// Uploading needs edit: a member's lesson, another person's and a missing
+	// one get the same 404.
+	const mayEdit =
+		found !== null &&
+		!!locals.user &&
+		allows(lessonAccess(db, locals.user.id, found.lesson), 'edit');
+	if (!found || !mayEdit || found.lesson.archivedAt !== null) return fail(404, 'No such lesson.');
+	// The lesson's owner pays: a group's lesson fills the group's room, not the uploader's.
+	const owner = ownerOfRow(found.lesson);
 
 	// Already finished: the client lost our 201 and is asking again. Answer the
 	// same row, or it would upload the whole video a second time as a new one.
@@ -61,7 +68,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	// any byte of the chunk is written.
 	const range = parseContentRange(request.headers.get('content-range'));
 	if (range) {
-		const room = roomFor(db, found.lesson.userId!, range.total);
+		// The chunks so far are already on the disk: the floor is what is free without them.
+		const room = roomForOwner(db, owner, range.total, (await freeDisk()) + range.start);
 		if (!room.ok) return fail(413, room.message);
 	}
 
@@ -92,7 +100,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		() => 0
 	);
 	// The real size, whatever the chunks declared along the way.
-	const after = roomFor(db, found.lesson.userId!, size);
+	// The file is already on the disk: the floor is what is free without it.
+	const after = roomForOwner(db, owner, size, (await freeDisk()) + size);
 	if (!after.ok) {
 		await unlink(target).catch(() => {});
 		return fail(413, after.message);
@@ -103,7 +112,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	try {
-		const row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size });
+		const row = addLessonVideo(db, { lessonId, file, mime, sizeBytes: size }, locals.user?.id);
 		// Remembered for a day (swept with the partials), for a client whose 201 got lost.
 		await writeFile(done, JSON.stringify(row)).catch(() => {});
 		return json(row, { status: 201 });

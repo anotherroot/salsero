@@ -6,6 +6,15 @@
 > [`2026-09-23-lessons-design.md`](2026-09-23-lessons-design.md)'s and is not
 > changed; this document adds a second client for it.
 
+## Updates and channels (2026-11-03)
+
+The apps are release-signed with one key and come in two channels: `direct`
+(downloaded from the site's `/app` page; updates itself) and `play` (no
+updater). The direct build downloads, checks and installs its own update, and
+names itself to the server in its user agent and `x-app-version` header. This
+is specified in [`2026-11-03-app-updates-design.md`](2026-11-03-app-updates-design.md);
+how to release is in `docs/deployment.md`.
+
 ## Two apps, one per dance (2026-10-30)
 
 Overrides "one APK, two launcher icons" below. The two launchers shared one

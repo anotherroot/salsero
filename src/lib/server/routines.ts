@@ -7,20 +7,35 @@
  * cannot express live here: exactly one of those two per slot, one shared end
  * and next count across a slot's options, one level of embedding, and the three cross-dance
  * invariants (a slot's figures, a child routine, and a routine's own dance).
+ * A person's routine may also hold the group figures and routines they may use
+ * (`usableOf`, `mayHold`); a group's routine holds only its group's rows.
  *
  * `src/lib/routines/` does the thinking about shapes; this module only feeds it
  * and writes the answers back.
  */
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, figures, routineStepOptions, routineSteps, routines } from './db/schema';
-import { buildGraph } from './graph';
-import { inWall, type Wall } from './scope';
+import {
+	exercises,
+	figures,
+	routineStepOptions,
+	routineSteps,
+	routines,
+	type Exercise,
+	type Routine
+} from './db/schema';
+import { graphFor } from './graph';
+import { ownedOrUsable, teamRefs, usableOf, type Usable } from './usable';
+import { withoutShadowed } from './clones/shadow';
+import { addedReach, addedTeams } from './access';
+import { reconcileEntries, reviveEntries } from './entries';
+import type { ArchiveRestore } from './trash';
+import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
+import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
 import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
-import type { DanceSlug } from '$lib/dances/dances';
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
-import type { PickRoutine, RoutineItem, SlotRow } from '$lib/types';
+import type { PickRoutine, RoutineItem, SlotRow, TeamRef } from '$lib/types';
 
 /** `{stepId, figureId}` rows grouped by step, preserving the query's order. */
 function groupByStep(rows: { stepId: number; figureId: number }[]): Map<number, number[]> {
@@ -48,38 +63,41 @@ export interface RoutineInput {
 	name: string;
 	notes: string | null;
 }
-/** The routines of this wall, as a where clause. */
-function inWallOf(wall: Wall) {
-	return and(eq(routines.dance, wall.dance), eq(routines.userId, wall.userId));
-}
+/**
+ * The space a routine row stands in, for the figure graph and the routines it
+ * is read against. Only its owner is read: no one acts through it.
+ */
+const ownerSpace = (routine: { dance: string; userId: string | null; teamId: number | null }) =>
+	spaceOfRow(routine, '');
 
-/** The wall a routine row stands in, for the figure graph it is read against. */
-function routineWall(routine: { dance: string; userId: string | null }): Wall {
-	return { dance: routine.dance as DanceSlug, userId: routine.userId ?? '' };
-}
+/** A new routine, and the exercise a person's comes with; a group's has none. */
+type Made = { routine: Routine; exercise: Exercise | null };
 
 /**
- * The routine row and its exercise, inside a caller's transaction.
+ * The routine row and, in a person's space, its exercise, inside a caller's
+ * transaction. A group's routine gets no exercise of its own: nobody would
+ * practise it, and each member's Add makes theirs. Logs nothing: `createRoutine`
+ * adds History's line, and the clone engine writes its own.
  *
  * `source: 'routine'` and `routineId` are set as a pair. There is no CHECK
  * pairing them (see `schema.ts`); this function is the enforcement, and it is
  * the only thing that ever writes `exercises.routine_id`.
  */
-function insertRoutine(tx: Tx, wall: Wall, input: RoutineInput, everyDays: number) {
-	const { dance, userId } = wall;
+export function insertRoutine(tx: Db, space: Space, input: RoutineInput, everyDays = 3): Made {
 	const routine = tx
 		.insert(routines)
-		.values({ ...input, dance, userId })
+		.values({ ...input, ...ownerValues(space) })
 		.returning()
 		.get();
+	if (isTeam(space)) return { routine, exercise: null };
 	const exercise = tx
 		.insert(exercises)
 		.values({
 			name: routine.name,
 			source: 'routine',
 			routineId: routine.id,
-			dance,
-			userId,
+			dance: space.dance,
+			userId: space.userId,
 			everyDays
 		})
 		.returning()
@@ -89,18 +107,74 @@ function insertRoutine(tx: Tx, wall: Wall, input: RoutineInput, everyDays: numbe
 
 /**
  * Create a routine and its exercise together — the rule lessons follow too —
- * so a routine appears in Today without a second step.
+ * so a routine appears in Today without a second step. In a group, the
+ * routine alone (see `insertRoutine`).
  */
-export function createRoutine(db: Db, wall: Wall, input: RoutineInput, everyDays = 3) {
-	return db.transaction((tx) => insertRoutine(tx, wall, input, everyDays));
+export function createRoutine(
+	db: Db,
+	wall: Wall,
+	input: RoutineInput,
+	everyDays?: number
+): { routine: Routine; exercise: Exercise };
+export function createRoutine(db: Db, space: Space, input: RoutineInput, everyDays?: number): Made;
+export function createRoutine(db: Db, space: Space, input: RoutineInput, everyDays = 3): Made {
+	return db.transaction((tx) => {
+		const made = insertRoutine(tx, space, input, everyDays);
+		logRoutine(tx, made.routine, space, {
+			verb: 'add',
+			subject: 'routine',
+			after: { name: made.routine.name }
+		});
+		return made;
+	});
 }
 
-/** Edit a routine. A rename carries over to its exercise so the two never drift. */
-export function updateRoutine(db: Db, id: number, input: RoutineInput) {
+/**
+ * The subject of a change to several slots: one slot by its id, or how many.
+ * `side` is the half that carries the count (`before` for a removal).
+ */
+function slotSubject(ids: number[], side: 'before' | 'after') {
+	if (ids.length === 1) return { subject: 'slot', subjectId: ids[0] };
+	const count = { count: ids.length };
+	return side === 'before'
+		? { subject: 'slot', subjectId: null, before: count }
+		: { subject: 'slot', subjectId: null, after: count };
+}
+
+/** History's line for a change to a routine, filed under it; `who` is a space, or the person acting. */
+function logRoutine(
+	tx: Db,
+	routine: { id: number; dance: string; userId: string | null; teamId: number | null },
+	who: Space | string | undefined,
+	e: Omit<ChangeEntry, 'rootKind' | 'rootId'>,
+	now = Date.now()
+): void {
+	const space = typeof who === 'object' ? who : actingIn(routine, who);
+	const subjectId = e.subjectId === undefined ? routine.id : e.subjectId;
+	logChange(tx, space, { ...e, rootKind: 'routine', rootId: routine.id, subjectId }, now);
+}
+
+/**
+ * Edit a routine. A rename carries over to its exercise so the two never drift.
+ * In a group, `by` is who, for History (`verb` is `restore` for History's own
+ * Restore).
+ */
+export function updateRoutine(
+	db: Db,
+	id: number,
+	input: RoutineInput,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+) {
 	return db.transaction((tx) => {
-		const routine = tx.update(routines).set(input).where(eq(routines.id, id)).returning().get();
-		if (!routine) return null;
+		const before = getRoutine(tx, id);
+		if (!before) return null;
+		const routine = tx.update(routines).set(input).where(eq(routines.id, id)).returning().get()!;
 		tx.update(exercises).set({ name: routine.name }).where(eq(exercises.routineId, id)).run();
+		const fields = (r: RoutineInput) => ({ name: r.name, notes: r.notes });
+		const change = fieldChange(fields(before), fields(routine), 'routine');
+		if (change) logRoutine(tx, routine, by, { verb, ...change }, now);
 		return routine;
 	});
 }
@@ -111,18 +185,64 @@ export function updateRoutine(db: Db, id: number, input: RoutineInput) {
  * A routine embedded in another is archived all the same: the parent keeps
  * dancing it, the way a figure tagged with an archived position keeps its tag.
  * What archiving removes is the offer — the library list and the embed picker.
+ * In a group, every person's entry for it goes, and so does what only it
+ * brought into their added lessons (`reconcileEntries`).
  */
-export function archiveRoutine(db: Db, id: number, now: number): boolean {
+export function archiveRoutine(db: Db, id: number, now: number, by?: string): boolean {
 	return db.transaction((tx) => {
-		const res = tx
+		const routine = tx
 			.update(routines)
 			.set({ archivedAt: now })
 			.where(and(eq(routines.id, id), isNull(routines.archivedAt)))
+			.returning()
+			.get();
+		if (!routine) return false;
+		tx.update(exercises)
+			.set({ archivedAt: now })
+			.where(and(eq(exercises.routineId, id), isNull(exercises.archivedAt)))
 			.run();
-		if (res.changes === 0) return false;
-		tx.update(exercises).set({ archivedAt: now }).where(eq(exercises.routineId, id)).run();
+		reconcileRoutine(tx, id, now);
+		logRoutine(tx, routine, by, { verb: 'archive', subject: 'routine' }, now);
 		return true;
 	});
+}
+
+/**
+ * Bring an archived routine back (Recently deleted), with exactly the entries
+ * its archive took: those archived at its own `archived_at` (risk 6).
+ */
+export function restoreRoutine(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	return db.transaction((tx) => {
+		const routine = getRoutine(tx, id);
+		if (!routine || routine.archivedAt === null || !inSpace(routine, space)) {
+			return { ok: false, reason: 'gone' } as const;
+		}
+		const at = routine.archivedAt;
+		tx.update(routines).set({ archivedAt: null }).where(eq(routines.id, id)).run();
+		tx.update(exercises)
+			.set({ archivedAt: null })
+			.where(and(eq(exercises.routineId, id), eq(exercises.archivedAt, at)))
+			.run();
+		if (isTeam(space)) reviveEntries(tx, space.teamId, at);
+		logRoutine(
+			tx,
+			routine,
+			space,
+			{ verb: 'restore', subject: 'routine', after: { name: routine.name } },
+			now
+		);
+		return { ok: true } as const;
+	});
+}
+
+/**
+ * After a change to a group routine that can shrink what its lessons reach
+ * (a slot or option gone, the routine archived), members' entries follow in
+ * the same transaction (risk 25). Nothing for a person's own routine.
+ */
+function reconcileRoutine(tx: Db, routineId: number, now: number): void {
+	const teamId = getRoutine(tx, routineId)?.teamId ?? null;
+	if (teamId !== null) reconcileEntries(tx, teamId, now);
 }
 
 export function getRoutine(db: Db, id: number) {
@@ -130,7 +250,7 @@ export function getRoutine(db: Db, id: number) {
 }
 
 /** The library: newest first, with how many slots each holds. */
-export function listRoutines(db: Db, wall: Wall): RoutineItem[] {
+export function listRoutines(db: Db, space: Space): RoutineItem[] {
 	return db
 		.select({
 			id: routines.id,
@@ -141,17 +261,50 @@ export function listRoutines(db: Db, wall: Wall): RoutineItem[] {
 		})
 		.from(routines)
 		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
-		.where(and(inWallOf(wall), isNull(routines.archivedAt)))
+		.where(and(ownedBy(routines, space), isNull(routines.archivedAt)))
 		.groupBy(routines.id)
 		.orderBy(desc(routines.createdAt), desc(routines.id))
 		.all();
 }
 
+/**
+ * Moves' group sections for Routines: for each group of this dance whose
+ * lessons the person added, the routines those lessons reach (linked ones and
+ * those embedded in them), by group name. Never the person's own list.
+ */
+export function listAddedRoutines(
+	db: Db,
+	wall: Wall
+): { team: TeamRef; routines: RoutineItem[] }[] {
+	const out: { team: TeamRef; routines: RoutineItem[] }[] = [];
+	for (const team of addedTeams(db, wall)) {
+		const ids = [...addedReach(db, wall.userId, team.id).routines];
+		if (ids.length === 0) continue;
+		const rows = db
+			.select({
+				id: routines.id,
+				name: routines.name,
+				notes: routines.notes,
+				slots: count(routineSteps.id),
+				createdAt: routines.createdAt
+			})
+			.from(routines)
+			.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
+			.where(and(inArray(routines.id, ids), isNull(routines.archivedAt)))
+			.groupBy(routines.id)
+			.orderBy(desc(routines.createdAt), desc(routines.id))
+			.all();
+		const shown = withoutShadowed(db, wall, 'routine', rows);
+		if (shown.length > 0) out.push({ team, routines: shown });
+	}
+	return out;
+}
+
 /** Every live routine of the dance as a picker offers it, by name. */
-export function listPickRoutines(db: Db, wall: Wall): Omit<PickRoutine, 'linked'>[] {
-	const shapes = routineShapes(db, wall);
-	const graph = buildGraph(db, wall);
-	return listRoutines(db, wall)
+export function listPickRoutines(db: Db, space: Space): Omit<PickRoutine, 'linked'>[] {
+	const shapes = routineShapes(db, space);
+	const graph = graphFor(db, space);
+	return listRoutines(db, space)
 		.map((r) => {
 			const shape = shapes.get(r.id);
 			return {
@@ -160,6 +313,54 @@ export function listPickRoutines(db: Db, wall: Wall): Omit<PickRoutine, 'linked'
 				slots: r.slots,
 				loops: shape ? loops(graph, shape) : false
 			};
+		})
+		.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+}
+
+/**
+ * The group routines a person may use (`usableOf`), live, as a picker offers
+ * them (`listPickRoutines`), each tagged with its group: whether it loops is
+ * read on the person's graph, which holds the group figures they may use. By
+ * name.
+ */
+export function listUsableRoutines(
+	db: Db,
+	wall: Wall,
+	usable: Usable = usableOf(db, wall)
+): (Omit<PickRoutine, 'linked'> & { team: TeamRef })[] {
+	const ids = [...usable.routines];
+	if (ids.length === 0) return [];
+	const rows = db
+		.select({
+			id: routines.id,
+			name: routines.name,
+			teamId: routines.teamId,
+			slots: count(routineSteps.id)
+		})
+		.from(routines)
+		.leftJoin(routineSteps, eq(routineSteps.routineId, routines.id))
+		.where(
+			and(
+				inArray(routines.id, ids),
+				eq(routines.dance, wall.dance),
+				isNotNull(routines.teamId),
+				isNull(routines.archivedAt)
+			)
+		)
+		.groupBy(routines.id)
+		.all();
+	if (rows.length === 0) return [];
+	const shapes = routineShapes(db, wall, { usable, extra: ids });
+	const graph = graphFor(db, wall, usable);
+	const teams = teamRefs(
+		db,
+		rows.map((r) => r.teamId!)
+	);
+	return withoutShadowed(db, wall, 'routine', rows)
+		.flatMap(({ teamId, ...r }) => {
+			const team = teams.get(teamId!);
+			const shape = shapes.get(r.id);
+			return team ? [{ ...r, loops: shape ? loops(graph, shape) : false, team }] : [];
 		})
 		.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 }
@@ -174,8 +375,21 @@ export function listPickRoutines(db: Db, wall: Wall): Omit<PickRoutine, 'linked'
  *
  * Archived routines are included. A shape is a reading, and the list decides
  * separately what it offers.
+ *
+ * A person's routine may embed a group's routine (`canEmbed`): that child's
+ * slots are read from the group's rows, and if the group has since made it
+ * embed a routine of its own, that one's slots are spliced in flat, so it
+ * still plays whole. Only what the person may use is read (`usableOf`, or
+ * `opts.usable` when the caller has it): a child they no longer read has no
+ * slots. `opts.extra` are other routines of the dance whose shapes the
+ * caller also wants as keys (the group routines a person may embed, for the
+ * embed picker); the space's own keys never change.
  */
-export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
+export function routineShapes(
+	db: Db,
+	space: Space,
+	opts: { usable?: Usable; extra?: Iterable<number> } = {}
+): Map<number, RoutineShape> {
 	// Three dance filters follow, and only one of them can change the result today.
 	//
 	// The one on the routines query below decides which ids become keys, so it is
@@ -195,7 +409,7 @@ export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
 		})
 		.from(routineSteps)
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
-		.where(inWallOf(wall))
+		.where(ownedBy(routines, space))
 		.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
 		.all();
 
@@ -204,7 +418,7 @@ export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
 		.from(routineStepOptions)
 		.innerJoin(routineSteps, eq(routineSteps.id, routineStepOptions.stepId))
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
-		.where(inWallOf(wall))
+		.where(ownedBy(routines, space))
 		.orderBy(...MAIN_FIRST)
 		.all();
 
@@ -222,32 +436,142 @@ export function routineShapes(db: Db, wall: Wall): Map<number, RoutineShape> {
 	}
 
 	const out = new Map<number, RoutineShape>();
-	for (const r of db.select({ id: routines.id }).from(routines).where(inWallOf(wall)).all()) {
+	for (const r of db
+		.select({ id: routines.id })
+		.from(routines)
+		.where(ownedBy(routines, space))
+		.all()) {
 		out.set(r.id, { slots: [] });
 	}
+	// Routines of another owner: the group's children of a person's slots, and
+	// `extra`. Read only when the person may use them (`usableOf`, worked out only
+	// when there is one): a group routine they no longer read stays closed, its
+	// slots empty. A group's routine reads no other owner's.
+	let usable = opts.usable;
+	const readable = (id: number) =>
+		!isTeam(space) && (usable ??= usableOf(db, space)).routines.has(id);
+	const more = [...(opts.extra ?? [])];
+	const others = shapesOf(
+		db,
+		space.dance,
+		[
+			...steps.flatMap((s) =>
+				s.childRoutineId !== null && !out.has(s.childRoutineId) ? [s.childRoutineId] : []
+			),
+			...more.filter((id) => !out.has(id))
+		].filter(readable),
+		readable
+	);
 	for (const s of steps) {
+		const other = s.childRoutineId === null ? undefined : others.get(s.childRoutineId);
 		const slot: Slot =
 			s.childRoutineId === null
 				? { kind: 'options', figureIds: byStep.get(s.id) ?? [], note: s.note }
 				: {
 						kind: 'child',
 						routineId: s.childRoutineId,
-						slots: own.get(s.childRoutineId) ?? [],
+						slots: other ? flatSlots(other) : (own.get(s.childRoutineId) ?? []),
 						note: s.note
 					};
 		out.get(s.routineId)?.slots.push(slot);
 	}
+	for (const id of more) {
+		const shape = others.get(id);
+		if (shape && !out.has(id)) out.set(id, shape);
+	}
 	return out;
 }
 
-/** One routine's slots as the editor needs them: ids, notes, and the child's name. */
-export function routineSlots(db: Db, routineId: number): SlotRow[] {
-	const child = db
-		.select({ id: routines.id, name: routines.name })
-		.from(routines)
-		.all()
-		.reduce((m, r) => m.set(r.id, r.name), new Map<number, string>());
+/** A shape's slots as one run of option slots: an embedded routine's spliced in, its note standing in. */
+function flatSlots(shape: RoutineShape): OptionsSlot[] {
+	return shape.slots.flatMap((s) =>
+		s.kind === 'options' ? [s] : s.slots.map((c) => ({ ...c, note: c.note ?? s.note ?? null }))
+	);
+}
 
+/**
+ * These routines of the dance, whoever owns them, as shapes: their slots, and
+ * an embedded routine's own option slots when `readable` says it may be read
+ * (else that child has none). Ids of another dance are left out; the caller has
+ * checked `ids` themselves.
+ */
+function shapesOf(
+	db: Db,
+	dance: string,
+	ids: number[],
+	readable: (id: number) => boolean
+): Map<number, RoutineShape> {
+	const out = new Map<number, RoutineShape>();
+	const wanted = [...new Set(ids)];
+	if (wanted.length === 0) return out;
+	const live = db
+		.select({ id: routines.id })
+		.from(routines)
+		.where(and(inArray(routines.id, wanted), eq(routines.dance, dance)))
+		.all()
+		.map((r) => r.id);
+	if (live.length === 0) return out;
+	const stepsIn = (routineIds: number[]) =>
+		routineIds.length === 0
+			? []
+			: db
+					.select({
+						id: routineSteps.id,
+						routineId: routineSteps.routineId,
+						childRoutineId: routineSteps.childRoutineId,
+						note: routineSteps.note
+					})
+					.from(routineSteps)
+					.where(inArray(routineSteps.routineId, routineIds))
+					.orderBy(asc(routineSteps.routineId), asc(routineSteps.position))
+					.all();
+	const top = stepsIn(live);
+	const nested = stepsIn(
+		[...new Set(top.flatMap((s) => (s.childRoutineId === null ? [] : [s.childRoutineId])))].filter(
+			readable
+		)
+	).filter((s) => s.childRoutineId === null);
+	const stepIds = [...top, ...nested].map((s) => s.id);
+	const byStep = groupByStep(
+		stepIds.length === 0
+			? []
+			: db
+					.select({ stepId: routineStepOptions.stepId, figureId: routineStepOptions.figureId })
+					.from(routineStepOptions)
+					.where(inArray(routineStepOptions.stepId, stepIds))
+					.orderBy(...MAIN_FIRST)
+					.all()
+	);
+	const optionsOf = (s: { id: number; note: string | null }): OptionsSlot => ({
+		kind: 'options',
+		figureIds: byStep.get(s.id) ?? [],
+		note: s.note
+	});
+	const inner = new Map<number, OptionsSlot[]>();
+	for (const s of nested) inner.set(s.routineId, [...(inner.get(s.routineId) ?? []), optionsOf(s)]);
+	for (const id of live) out.set(id, { slots: [] });
+	for (const s of top) {
+		out.get(s.routineId)!.slots.push(
+			s.childRoutineId === null
+				? optionsOf(s)
+				: {
+						kind: 'child',
+						routineId: s.childRoutineId,
+						slots: inner.get(s.childRoutineId) ?? [],
+						note: s.note
+					}
+		);
+	}
+	return out;
+}
+
+/**
+ * One routine's slots as the editor needs them: ids, notes, and the child's
+ * name. A child of another owner (a group's routine in a person's slot) is
+ * named only while the person may use it (`holder`); otherwise `childName` is
+ * null and the page says "A routine". Pass `usable` when the caller has it.
+ */
+export function routineSlots(db: Db, routineId: number, usable?: Usable): SlotRow[] {
 	const steps = db
 		.select({
 			id: routineSteps.id,
@@ -259,6 +583,16 @@ export function routineSlots(db: Db, routineId: number): SlotRow[] {
 		.where(eq(routineSteps.routineId, routineId))
 		.orderBy(asc(routineSteps.position))
 		.all();
+
+	const childIds = [...new Set(steps.flatMap((s) => (s.childId === null ? [] : [s.childId])))];
+	const routine = childIds.length === 0 ? null : getRoutine(db, routineId);
+	const child = new Map<number, string>();
+	if (routine) {
+		const holds = holder(db, routine, usable);
+		for (const c of db.select().from(routines).where(inArray(routines.id, childIds)).all()) {
+			if (holds('routines', c)) child.set(c.id, c.name);
+		}
+	}
 
 	const ids = steps.map((s) => s.id);
 	const options =
@@ -369,13 +703,14 @@ export function insertSlot(
 	db: Db,
 	routineId: number,
 	at: number,
-	content: SlotContent
+	content: SlotContent,
+	by?: string
 ): number | null {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return null;
 	if ('childId' in content) {
 		if (!canEmbed(db, routineId, content.childId)) return null;
-	} else if (landingIn(buildGraph(db, routineWall(routine)), content.figureId) === null) {
+	} else if (landingIn(graphFor(db, ownerSpace(routine)), content.figureId) === null) {
 		return null;
 	}
 	return db.transaction((tx) => {
@@ -397,18 +732,29 @@ export function insertSlot(
 		}
 		ids.splice(Math.min(Math.max(at, 0), ids.length), 0, step.id);
 		order(tx, ids);
+		logRoutine(tx, routine, by, { verb: 'add', subject: 'slot', subjectId: step.id });
 		return step.id;
 	});
 }
 
 /** Append a slot holding one figure. See `insertSlot`. */
-export function addFigureSlot(db: Db, routineId: number, figureId: number): number | null {
-	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { figureId });
+export function addFigureSlot(
+	db: Db,
+	routineId: number,
+	figureId: number,
+	by?: string
+): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { figureId }, by);
 }
 
 /** Append a slot holding an embedded routine. Null when `canEmbed` says no. */
-export function addChildSlot(db: Db, routineId: number, childId: number): number | null {
-	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { childId });
+export function addChildSlot(
+	db: Db,
+	routineId: number,
+	childId: number,
+	by?: string
+): number | null {
+	return insertSlot(db, routineId, Number.MAX_SAFE_INTEGER, { childId }, by);
 }
 
 /**
@@ -417,20 +763,34 @@ export function addChildSlot(db: Db, routineId: number, childId: number): number
  * the routine page afterwards.
  *
  * All or nothing: null, with nothing written, for an empty list or any id
- * that is not an unarchived figure or variation of this dance.
+ * that is not an unarchived figure or variation of this space.
  */
 export function createRoutineFromFigures(
 	db: Db,
 	wall: Wall,
 	input: RoutineInput,
 	figureIds: number[],
+	everyDays?: number
+): { routine: Routine; exercise: Exercise } | null;
+export function createRoutineFromFigures(
+	db: Db,
+	space: Space,
+	input: RoutineInput,
+	figureIds: number[],
+	everyDays?: number
+): Made | null;
+export function createRoutineFromFigures(
+	db: Db,
+	space: Space,
+	input: RoutineInput,
+	figureIds: number[],
 	everyDays = 3
-) {
+): Made | null {
 	if (figureIds.length === 0) return null;
-	const graph = buildGraph(db, wall);
+	const graph = graphFor(db, space);
 	if (figureIds.some((id) => landingIn(graph, id) === null)) return null;
 	return db.transaction((tx) => {
-		const made = insertRoutine(tx, wall, input, everyDays);
+		const made = insertRoutine(tx, space, input, everyDays);
 		figureIds.forEach((figureId, position) => {
 			const step = tx
 				.insert(routineSteps)
@@ -439,8 +799,51 @@ export function createRoutineFromFigures(
 				.get();
 			tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
 		});
+		logRoutine(tx, made.routine, space, {
+			verb: 'add',
+			subject: 'routine',
+			after: { name: made.routine.name }
+		});
 		return made;
 	});
+}
+
+/** A row a routine's slot can hold or name: a variation or a routine. */
+type HeldRow = { id: number; dance: string; userId: string | null; teamId: number | null };
+
+/**
+ * Whether a routine's slot may hold `row` (a variation or a routine) as far as
+ * owners go: a row of the routine's own space; for a person's routine, also a
+ * group's row of the dance they may use (`usableOf`). A group's routine holds
+ * only its group's rows. The same rule decides what a slot may show of a row it
+ * already holds. `usableOf` is worked out once, and only for a group's row;
+ * pass `usable` when the caller has it already.
+ */
+function holder(
+	db: Db,
+	routine: Routine,
+	usable?: Usable
+): (kind: 'figures' | 'routines', row: HeldRow) => boolean {
+	const space = ownerSpace(routine);
+	let known = usable;
+	return (kind, row) => {
+		if (inSpace(row, space)) return true;
+		if (isTeam(space) || row.dance !== space.dance || row.teamId === null || row.userId !== null) {
+			return false;
+		}
+		return (known ??= usableOf(db, space))[kind].has(row.id);
+	};
+}
+
+/** `holder` for one row. */
+function mayHold(
+	db: Db,
+	routine: Routine,
+	kind: 'figures' | 'routines',
+	row: HeldRow,
+	usable?: Usable
+): boolean {
+	return holder(db, routine, usable)(kind, row);
 }
 
 /**
@@ -450,41 +853,61 @@ export function createRoutineFromFigures(
  * parent must be embedded nowhere. With both, a cycle is impossible by
  * construction, which is why there is no cycle check anywhere in this module.
  *
+ * The child is the parent's space's, or, in a person's routine, a group's
+ * routine they may use (`mayHold`). "Embedded nowhere" counts only routines of
+ * the parent's own space: a member's routine embedding a group's routine never
+ * stops the group's editors from nesting it (`embeddedIn`).
+ *
  * Archival is deliberately not consulted. Archiving removes the OFFER —
  * `embeddable()` filters it out — not the ability of a parent that already
  * embeds a routine to keep dancing it. A route that takes a raw child id
  * should offer only what `embeddable()` returned.
  */
-export function canEmbed(db: Db, parentId: number, childId: number): boolean {
+export function canEmbed(db: Db, parentId: number, childId: number, usable?: Usable): boolean {
 	if (parentId === childId) return false;
 	const parent = getRoutine(db, parentId);
 	const child = getRoutine(db, childId);
-	if (!parent || !child || !inWall(child, routineWall(parent))) return false;
+	if (!parent || !child || !mayHold(db, parent, 'routines', child, usable)) return false;
 	const childEmbeds = db
 		.select({ id: routineSteps.id })
 		.from(routineSteps)
 		.where(and(eq(routineSteps.routineId, childId), isNotNull(routineSteps.childRoutineId)))
 		.get();
 	if (childEmbeds) return false;
-	const parentEmbedded = db
-		.select({ id: routineSteps.id })
-		.from(routineSteps)
-		.where(eq(routineSteps.childRoutineId, parentId))
-		.get();
-	return !parentEmbedded;
+	return embeddedIn(db, parentId).length === 0;
 }
 
-/** The routines this one may embed: same dance, unarchived, and `canEmbed`. */
-export function embeddable(db: Db, routineId: number): { id: number; name: string }[] {
+/**
+ * The routines this one may embed: its space's and, for a person's, the
+ * group routines they may use; unarchived, and `canEmbed`. Pass `given` when
+ * the caller has the person's `usableOf` already.
+ */
+export function embeddable(
+	db: Db,
+	routineId: number,
+	given?: Usable
+): { id: number; name: string; team?: TeamRef }[] {
 	const routine = getRoutine(db, routineId);
 	if (!routine) return [];
-	return db
-		.select({ id: routines.id, name: routines.name })
+	const space = ownerSpace(routine);
+	const usable = isTeam(space) ? undefined : (given ?? usableOf(db, space));
+	const whose = ownedOrUsable(routines, space, usable?.routines);
+	const rows = db
+		.select({ id: routines.id, name: routines.name, teamId: routines.teamId })
 		.from(routines)
-		.where(and(inWallOf(routineWall(routine)), isNull(routines.archivedAt)))
-		.orderBy(asc(routines.name))
+		.where(and(whose, isNull(routines.archivedAt)))
+		.orderBy(asc(routines.name), asc(routines.id))
 		.all()
-		.filter((r) => canEmbed(db, routineId, r.id));
+		.filter((r) => canEmbed(db, routineId, r.id, usable));
+	// A group's routine the person may use carries its group, for the picker's heading.
+	const teams = teamRefs(
+		db,
+		rows.flatMap((r) => (r.teamId === null || isTeam(space) ? [] : [r.teamId]))
+	);
+	return rows.map(({ teamId, ...r }) => {
+		const team = teamId === null ? undefined : teams.get(teamId);
+		return team ? { ...r, team } : r;
+	});
 }
 
 /**
@@ -497,7 +920,7 @@ export function embeddable(db: Db, routineId: number): { id: number; name: strin
  * slot's main figure, when it begins on another count or from no hold the
  * main figure begins from.
  */
-export function addOption(db: Db, stepId: number, figureId: number): boolean {
+export function addOption(db: Db, stepId: number, figureId: number, by?: string): boolean {
 	const step = db
 		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
 		.from(routineSteps)
@@ -506,7 +929,7 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	if (!step || step.childId !== null) return false;
 	const routine = getRoutine(db, step.routineId);
 	if (!routine) return false;
-	const g = buildGraph(db, routineWall(routine));
+	const g = graphFor(db, ownerSpace(routine));
 	const landing = landingIn(g, figureId);
 	if (landing === null) return false;
 	const existing = db
@@ -533,12 +956,21 @@ export function addOption(db: Db, stepId: number, figureId: number): boolean {
 	) {
 		return false;
 	}
-	db.insert(routineStepOptions).values({ stepId, figureId }).run();
+	db.transaction((tx) => {
+		tx.insert(routineStepOptions).values({ stepId, figureId }).run();
+		logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
+	});
 	return true;
 }
 
 /** Drop an option. False when it would leave the slot empty. */
-export function removeOption(db: Db, stepId: number, figureId: number): boolean {
+export function removeOption(
+	db: Db,
+	stepId: number,
+	figureId: number,
+	now = Date.now(),
+	by?: string
+): boolean {
 	return db.transaction((tx) => {
 		const all = tx
 			.select({ figureId: routineStepOptions.figureId })
@@ -549,6 +981,16 @@ export function removeOption(db: Db, stepId: number, figureId: number): boolean 
 		tx.delete(routineStepOptions)
 			.where(and(eq(routineStepOptions.stepId, stepId), eq(routineStepOptions.figureId, figureId)))
 			.run();
+		const step = tx
+			.select({ routineId: routineSteps.routineId })
+			.from(routineSteps)
+			.where(eq(routineSteps.id, stepId))
+			.get();
+		const routine = step ? getRoutine(tx, step.routineId) : null;
+		if (routine) {
+			reconcileRoutine(tx, routine.id, now);
+			logRoutine(tx, routine, by, { verb: 'remove', subject: 'option', subjectId: stepId }, now);
+		}
 		return true;
 	});
 }
@@ -556,13 +998,23 @@ export function removeOption(db: Db, stepId: number, figureId: number): boolean 
 /**
  * Undo for a removed alternative: put it straight back.
  *
- * Checks the dance only, not the alternative rules. It was in the slot a
+ * Checks whose it is only (`mayHold`), not the alternative rules. It was in the slot a
  * moment ago, and `addOption` would refuse an older alternative that predates
  * the start rule — an undo that cannot undo. It comes back as the newest
  * option, which cannot change the main figure: the main figure is never
  * removed on its own (removing it removes the slot).
+ *
+ * `removedAt` is when the remove happened: in a group, the members' entries
+ * for this figure that the remove took off Today (archived at exactly that
+ * time) come back with it (R10).
  */
-export function restoreOption(db: Db, stepId: number, figureId: number): boolean {
+export function restoreOption(
+	db: Db,
+	stepId: number,
+	figureId: number,
+	by?: string,
+	removedAt?: number
+): boolean {
 	const step = db
 		.select({ routineId: routineSteps.routineId, childId: routineSteps.childRoutineId })
 		.from(routineSteps)
@@ -571,17 +1023,50 @@ export function restoreOption(db: Db, stepId: number, figureId: number): boolean
 	if (!step || step.childId !== null) return false;
 	const routine = getRoutine(db, step.routineId);
 	const figure = db
-		.select({ dance: figures.dance, userId: figures.userId })
+		.select({
+			id: figures.id,
+			dance: figures.dance,
+			userId: figures.userId,
+			teamId: figures.teamId
+		})
 		.from(figures)
 		.where(eq(figures.id, figureId))
 		.get();
-	if (!routine || !figure || !inWall(figure, routineWall(routine))) return false;
-	db.insert(routineStepOptions).values({ stepId, figureId }).onConflictDoNothing().run();
+	if (!routine || !figure || !mayHold(db, routine, 'figures', figure)) return false;
+	db.transaction((tx) => {
+		const put = tx
+			.insert(routineStepOptions)
+			.values({ stepId, figureId })
+			.onConflictDoNothing()
+			.run();
+		if (put.changes > 0) {
+			if (routine.teamId !== null && removedAt !== undefined) {
+				reviveEntries(tx, routine.teamId, removedAt, { figureIds: [figureId] });
+			}
+			logRoutine(tx, routine, by, { verb: 'add', subject: 'option', subjectId: stepId });
+		}
+	});
 	return true;
 }
 
-export function setSlotNote(db: Db, stepId: number, note: string | null): boolean {
-	return db.update(routineSteps).set({ note }).where(eq(routineSteps.id, stepId)).run().changes > 0;
+/** A slot's note. In a group, `by` is who, for History (`verb` is `restore` for its Restore). */
+export function setSlotNote(
+	db: Db,
+	stepId: number,
+	note: string | null,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+): boolean {
+	return db.transaction((tx) => {
+		const step = tx.select().from(routineSteps).where(eq(routineSteps.id, stepId)).get();
+		const routine = step ? getRoutine(tx, step.routineId) : null;
+		if (!step || !routine) return false;
+		tx.update(routineSteps).set({ note }).where(eq(routineSteps.id, stepId)).run();
+		const change = fieldChange({ note: step.note }, { note }, 'note');
+		if (change) logRoutine(tx, routine, by, { verb, ...change, subjectId: stepId }, now);
+		return true;
+	});
 }
 
 /**
@@ -590,7 +1075,13 @@ export function setSlotNote(db: Db, stepId: number, note: string | null): boolea
  * id is not this routine's — a stale tab or a double tap must not delete half
  * of what it asked for.
  */
-export function deleteSlots(db: Db, routineId: number, stepIds: number[]): SlotSnapshot[] | null {
+export function deleteSlots(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	now = Date.now(),
+	by?: string
+): SlotSnapshot[] | null {
 	const wanted = [...new Set(stepIds)];
 	if (wanted.length === 0) return null;
 	return db.transaction((tx) => {
@@ -611,13 +1102,29 @@ export function deleteSlots(db: Db, routineId: number, stepIds: number[]): SlotS
 			position: s.position,
 			childId: s.childId,
 			note: s.note,
-			figureIds: options.get(s.id) ?? []
+			figureIds: options.get(s.id) ?? [],
+			deletedAt: now
 		}));
 		// Options first: `routine_step_options.step_id` references the step and
 		// `foreign_keys = ON`, so the step cannot go while its options remain.
 		tx.delete(routineStepOptions).where(inArray(routineStepOptions.stepId, wanted)).run();
 		tx.delete(routineSteps).where(inArray(routineSteps.id, wanted)).run();
 		order(tx, slotIds(tx, routineId));
+		reconcileRoutine(tx, routineId, now);
+		const routine = getRoutine(tx, routineId)!;
+		logRoutine(
+			tx,
+			routine,
+			by,
+			{
+				verb: 'remove',
+				...slotSubject(
+					steps.map((s) => s.id),
+					'before'
+				)
+			},
+			now
+		);
 		return snapshot;
 	});
 }
@@ -627,33 +1134,41 @@ export function deleteSlots(db: Db, routineId: number, stepIds: number[]): SlotS
  * from, lowest first — which is what makes a multi-slot undo land exactly where
  * the slots were. A position past the end (the routine shrank since) appends.
  *
- * A figure only has to still be this dance's, archived or not: the slot held it
+ * A figure only has to still be one the routine may hold (`mayHold`), archived or not: the slot held it
  * a moment ago, and an undo that refused an archived figure would lose the
  * slot. A child must still be embeddable, because the one-level rule is a
  * structural guarantee, not a preference. All or nothing.
  */
-export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]): boolean {
+export function restoreSlots(
+	db: Db,
+	routineId: number,
+	snapshot: SlotSnapshot[],
+	by?: string
+): boolean {
 	const routine = getRoutine(db, routineId);
 	if (!routine || snapshot.length === 0) return false;
+	const space = ownerSpace(routine);
+	const usable = isTeam(space) ? undefined : usableOf(db, space);
 	const figureIds = [...new Set(snapshot.flatMap((s) => s.figureIds))];
 	if (figureIds.length > 0) {
-		const ours = db
-			.select({ id: figures.id })
+		const found = db
+			.select({
+				id: figures.id,
+				dance: figures.dance,
+				userId: figures.userId,
+				teamId: figures.teamId
+			})
 			.from(figures)
-			.where(
-				and(
-					inArray(figures.id, figureIds),
-					eq(figures.dance, routine.dance),
-					eq(figures.userId, routine.userId ?? '')
-				)
-			)
+			.where(inArray(figures.id, figureIds))
 			.all();
-		if (ours.length !== figureIds.length) return false;
+		const held = found.filter((f) => mayHold(db, routine, 'figures', f, usable));
+		if (held.length !== figureIds.length) return false;
 	}
-	if (snapshot.some((s) => s.childId !== null && !canEmbed(db, routineId, s.childId))) {
+	if (snapshot.some((s) => s.childId !== null && !canEmbed(db, routineId, s.childId, usable))) {
 		return false;
 	}
 	return db.transaction((tx) => {
+		const back: number[] = [];
 		for (const s of [...snapshot].sort((a, b) => a.position - b.position)) {
 			const ids = slotIds(tx, routineId);
 			const step = tx
@@ -664,11 +1179,39 @@ export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]
 			for (const figureId of s.figureIds) {
 				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
 			}
+			back.push(step.id);
 			ids.splice(Math.min(s.position, ids.length), 0, step.id);
 			order(tx, ids);
 		}
+		reviveSlotEntries(tx, routine.teamId, snapshot);
+		logRoutine(tx, routine, by, { verb: 'restore', ...slotSubject(back, 'after') });
 		return true;
 	});
+}
+
+/**
+ * In a group, Undo of a slot delete brings back the members' entries that
+ * delete's reconcile took (R10): only those archived at its `deletedAt`, and
+ * only for what the slots held — their figures, their child routines and
+ * those routines' figures. The time came back from the client, so it never
+ * reaches further than the slots themselves.
+ */
+function reviveSlotEntries(tx: Db, teamId: number | null, snapshot: SlotSnapshot[]): void {
+	const at = snapshot.find((s) => s.deletedAt !== undefined)?.deletedAt;
+	if (teamId === null || at === undefined) return;
+	const routineIds = snapshot.flatMap((s) => (s.childId === null ? [] : [s.childId]));
+	const childFigures =
+		routineIds.length === 0
+			? []
+			: tx
+					.select({ id: routineStepOptions.figureId })
+					.from(routineStepOptions)
+					.innerJoin(routineSteps, eq(routineSteps.id, routineStepOptions.stepId))
+					.where(inArray(routineSteps.routineId, routineIds))
+					.all()
+					.map((r) => r.id);
+	const figureIds = [...snapshot.flatMap((s) => s.figureIds), ...childFigures];
+	reviveEntries(tx, teamId, at, { figureIds, routineIds });
 }
 
 /**
@@ -676,7 +1219,13 @@ export function restoreSlots(db: Db, routineId: number, snapshot: SlotSnapshot[]
  * this routine's or the index is off either end; a drop is always inside the
  * list, so an index outside it is a stale or tampered request.
  */
-export function moveSlotTo(db: Db, routineId: number, stepId: number, index: number): boolean {
+export function moveSlotTo(
+	db: Db,
+	routineId: number,
+	stepId: number,
+	index: number,
+	by?: string
+): boolean {
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
 		const from = ids.indexOf(stepId);
@@ -684,6 +1233,15 @@ export function moveSlotTo(db: Db, routineId: number, stepId: number, index: num
 		ids.splice(from, 1);
 		ids.splice(index, 0, stepId);
 		order(tx, ids);
+		if (from !== index) {
+			logRoutine(tx, getRoutine(tx, routineId)!, by, {
+				verb: 'change',
+				subject: 'order',
+				subjectId: stepId,
+				before: { index: from },
+				after: { index }
+			});
+		}
 		return true;
 	});
 }
@@ -694,7 +1252,12 @@ export function moveSlotTo(db: Db, routineId: number, stepId: number, index: num
  * selected slot: "repeat this bit" belongs right after the bit. The copies'
  * ids, or null (nothing written) when any id is not this routine's.
  */
-export function duplicateSlots(db: Db, routineId: number, stepIds: number[]): number[] | null {
+export function duplicateSlots(
+	db: Db,
+	routineId: number,
+	stepIds: number[],
+	by?: string
+): number[] | null {
 	const wanted = [...new Set(stepIds)];
 	if (wanted.length === 0) return null;
 	return db.transaction((tx) => {
@@ -725,17 +1288,28 @@ export function duplicateSlots(db: Db, routineId: number, stepIds: number[]): nu
 		const last = Math.max(...steps.map((s) => ids.indexOf(s.id)));
 		ids.splice(last + 1, 0, ...copies);
 		order(tx, ids);
+		logRoutine(tx, getRoutine(tx, routineId)!, by, {
+			verb: 'add',
+			...slotSubject(copies, 'after')
+		});
 		return copies;
 	});
 }
 
-/** The routines that embed this one — why it cannot embed anything itself. */
+/**
+ * The routines of this one's own space that embed it — why it cannot embed
+ * anything itself. A person's routine embedding a group's routine is not
+ * counted for the group: it never limits the group's editors, nor shows them
+ * the person's routine.
+ */
 export function embeddedIn(db: Db, routineId: number): { id: number; name: string }[] {
+	const routine = getRoutine(db, routineId);
+	if (!routine) return [];
 	return db
 		.selectDistinct({ id: routines.id, name: routines.name })
 		.from(routineSteps)
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
-		.where(eq(routineSteps.childRoutineId, routineId))
+		.where(and(eq(routineSteps.childRoutineId, routineId), ownedBy(routines, ownerSpace(routine))))
 		.orderBy(asc(routines.name))
 		.all();
 }
@@ -755,12 +1329,13 @@ export function extractRoutine(
 	db: Db,
 	routineId: number,
 	stepIds: number[],
-	name: string
+	name: string,
+	by?: string
 ): { routineId: number; stepId: number } | null {
 	const routine = getRoutine(db, routineId);
 	const wanted = [...new Set(stepIds)];
 	if (!routine || wanted.length === 0 || embeddedIn(db, routineId).length > 0) return null;
-	const wall = routineWall(routine);
+	const space = actingIn(routine, by);
 	return db.transaction((tx) => {
 		const ids = slotIds(tx, routineId);
 		const run = tx
@@ -773,7 +1348,7 @@ export function extractRoutine(
 		const at = ids.indexOf(run[0].id);
 		if (ids.indexOf(run[run.length - 1].id) - at !== run.length - 1) return null;
 
-		const made = insertRoutine(tx, wall, { name, notes: null }, 3);
+		const made = insertRoutine(tx, space, { name, notes: null }, 3);
 		run.forEach((s, k) =>
 			tx
 				.update(routineSteps)
@@ -792,6 +1367,13 @@ export function extractRoutine(
 			.get();
 		rest.splice(at, 0, step.id);
 		order(tx, rest);
+		// Filed under the routine the slots left: the new one starts from here.
+		logRoutine(tx, routine, space, {
+			verb: 'add',
+			subject: 'extract',
+			subjectId: made.routine.id,
+			after: { name }
+		});
 		return { routineId: made.routine.id, stepId: step.id };
 	});
 }
@@ -805,29 +1387,31 @@ export function extractRoutine(
  * keeps the one-level embedding rule intact without a second check — the copy
  * embeds exactly what the source embedded, and the source was already legal.
  */
-export function duplicateRoutine(db: Db, id: number) {
+export function duplicateRoutine(db: Db, id: number, by?: string) {
 	const source = getRoutine(db, id);
 	if (!source) return null;
-	const dance = source.dance as DanceSlug;
-	const userId = source.userId;
+	const { dance, userId, teamId } = source;
 	const slots = routineSlots(db, id);
 
 	return db.transaction((tx) => {
 		const routine = tx
 			.insert(routines)
-			.values({ dance, userId, name: `${source.name} (copy)`, notes: source.notes })
+			.values({ dance, userId, teamId, name: `${source.name} (copy)`, notes: source.notes })
 			.returning()
 			.get();
-		tx.insert(exercises)
-			.values({
-				name: routine.name,
-				source: 'routine',
-				routineId: routine.id,
-				dance,
-				userId,
-				everyDays: 3
-			})
-			.run();
+		// A group's routine has no exercise of its own: see `insertRoutine`.
+		if (teamId === null) {
+			tx.insert(exercises)
+				.values({
+					name: routine.name,
+					source: 'routine',
+					routineId: routine.id,
+					dance,
+					userId,
+					everyDays: 3
+				})
+				.run();
+		}
 
 		for (const slot of slots) {
 			const step = tx
@@ -844,6 +1428,7 @@ export function duplicateRoutine(db: Db, id: number) {
 				tx.insert(routineStepOptions).values({ stepId: step.id, figureId }).run();
 			}
 		}
+		logRoutine(tx, routine, by, { verb: 'add', subject: 'routine', after: { name: routine.name } });
 		return routine;
 	});
 }

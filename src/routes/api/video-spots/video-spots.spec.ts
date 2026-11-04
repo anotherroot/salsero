@@ -125,7 +125,9 @@ describe('PATCH and DELETE /api/video-spots/[id]', () => {
 		expect(await renamed.json()).toMatchObject({ id: spot.id, label: 'Dip' });
 
 		const gone = await run(one.DELETE, { params: { id } });
-		expect(gone.status).toBe(204);
+		expect(gone.status).toBe(200);
+		// A person's section keeps no trash entry: Undo makes a new one.
+		expect(await gone.json()).toEqual({ trashId: null });
 		expect(listSpots(db, { recordingId })).toEqual([]);
 	});
 

@@ -44,6 +44,7 @@ class UploadPlanTest {
         assertTrue(givesUp(MAX_STALLS))
     }
 
+    @Test fun `426 means the app must update`() = assertEquals(Step.UpdateNeeded, nextStep(426, null, Step.Send(0, 9), 10, ""))
     @Test fun `401 means pair again`() = assertEquals(Step.Unpaired, nextStep(401, null, sent, total, ""))
 
     @Test fun `a gone target or a refused file fails for good`() {

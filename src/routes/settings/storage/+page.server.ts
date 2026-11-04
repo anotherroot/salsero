@@ -37,7 +37,7 @@ async function remove(
 	userId: string,
 	kind: StorageItem['kind'],
 	form: FormData,
-	del: (id: number) => { file: string } | null,
+	del: (id: number) => { file: string; trashId: number | null } | null,
 	dir: () => string
 ) {
 	const id = own(userId, kind, int(form, 'id'));
@@ -50,7 +50,8 @@ async function remove(
 		throw e;
 	}
 	if (!row) return gone(action);
-	await unlink(join(dir(), row.file)).catch(() => {});
+	// A group's file stays for Recently deleted; its purge deletes it (risk 19).
+	if (row.trashId === null) await unlink(join(dir(), row.file)).catch(() => {});
 	return { action, ok: true, id };
 }
 
@@ -62,7 +63,7 @@ export const actions: Actions = {
 			locals.user.id,
 			'recording',
 			await request.formData(),
-			(id) => deleteRecording(getDb(), id),
+			(id) => deleteRecording(getDb(), id, locals.user?.id),
 			recordingsDir
 		);
 	},
@@ -74,7 +75,7 @@ export const actions: Actions = {
 			locals.user.id,
 			'lessonVideo',
 			await request.formData(),
-			(id) => deleteLessonVideo(getDb(), id),
+			(id) => deleteLessonVideo(getDb(), id, locals.user?.id),
 			lessonVideosDir
 		);
 	},

@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Plan, PlanRow } from '$lib/urgency/urgency';
 import type { DaySet, ExerciseItem } from '$lib/types';
-import { heroFor, pastGroups, rowMeta, tileTone, todayBands } from './today';
+import {
+	deletedGroupName,
+	heroFor,
+	pastGroups,
+	rowMeta,
+	shownRows,
+	teamOfRow,
+	tileTone,
+	todayBands
+} from './today';
+import { nextInSession } from './session';
 
 function row(
 	id: number,
@@ -26,7 +36,8 @@ function row(
 			active: true,
 			archived: false,
 			notes: null,
-			createdAt: 0
+			createdAt: 0,
+			team: null
 		} as ExerciseItem,
 		urgency: null,
 		overdue: false,
@@ -65,6 +76,56 @@ describe('todayBands', () => {
 		const [a, b] = many(2);
 		const r = todayBands({ doneToday: [a], due: [], upcoming: [b], inactive: [] });
 		expect(r.map((x) => x.label)).toEqual(['Not yet due · 1', 'Done today · 1']);
+	});
+
+	describe('with group rows', () => {
+		const salsa = { id: 2, name: 'Salsa nadaljevalna' };
+		const bachata = { id: 1, name: 'Bachata team' };
+		const inTeam = (r: ReturnType<typeof row>, team: typeof salsa) => ({
+			...r,
+			exercise: { ...r.exercise, team }
+		});
+		// The plan's own order mixes them; urgency knows nothing of groups.
+		const g1 = inTeam(row(1, 'Group drill'), salsa);
+		const own1 = row(2, 'Mine');
+		const g2 = inTeam(row(3, 'Other group'), bachata);
+		const g3 = inTeam(row(4, 'Group routine'), salsa);
+		const own2 = row(5, 'Also mine');
+		const due = [g1, own1, g2, g3, own2];
+
+		// Catches: group rows mixed in with the person's own, or groups in id order.
+		it('gives each band its own rows first, then a part per group by name', () => {
+			const [b] = todayBands({ due, upcoming: [], doneToday: [], inactive: [] }, teamOfRow);
+			expect(b.label).toBe('Due · 5');
+			expect(b.own.map((r) => r.exercise.id)).toEqual([2, 5]);
+			expect(b.teams.map((t) => t.label)).toEqual(['Bachata team · 1', 'Salsa nadaljevalna · 2']);
+			expect(b.teams[1].rows.map((r) => r.exercise.id)).toEqual([1, 4]);
+			expect(b.rows.map((r) => r.exercise.id)).toEqual([2, 5, 3, 1, 4]);
+		});
+
+		// Catches: the session walking the plan's order instead of what is on screen.
+		it('lets the session walk the rows in the order shown', () => {
+			const bands = todayBands(
+				{ due, upcoming: [row(6, 'Later')], doneToday: [], inactive: [] },
+				teamOfRow
+			);
+			const walk: number[] = [];
+			let current: number | null = null;
+			const skipped = new Set<number>();
+			for (;;) {
+				const next: PlanRow<ExerciseItem> | null = nextInSession(
+					shownRows(bands, 'due'),
+					shownRows(bands, 'upcoming'),
+					skipped,
+					current
+				);
+				if (!next) break;
+				walk.push(next.exercise.id);
+				skipped.add(next.exercise.id);
+				current = next.exercise.id;
+			}
+			expect(walk).toEqual([2, 5, 3, 1, 4, 6]);
+		});
 	});
 });
 
@@ -176,5 +237,14 @@ describe('pastGroups', () => {
 		const g = pastGroups([set(3, 1, '20:10'), set(1, 1, '19:42'), set(2, 2, '18:05')]);
 		expect(g.map((x) => x.exerciseId)).toEqual([2, 1]);
 		expect(g[1].sets.map((s) => s.id)).toEqual([1, 3]);
+	});
+});
+
+describe('deletedGroupName', () => {
+	// The spec's words: a log keeps its name once its group is purged.
+	it('names what was practised and its group, marked deleted', () => {
+		expect(deletedGroupName('Tue 3 Nov', 'Salsa nadaljevalna')).toBe(
+			'Tue 3 Nov · Salsa nadaljevalna (deleted)'
+		);
 	});
 });

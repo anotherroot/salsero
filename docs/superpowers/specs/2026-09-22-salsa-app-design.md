@@ -3,6 +3,8 @@
 > **Status:** approved in brainstorming, 2026-09-22. Hosted at
 > `salsa.anotherroot.eu`. Several people since 2026-11-02, each behind their
 > own wall — see [`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md).
+> A class can share lessons through a group, a wall beside the person — see
+> [`2026-11-02-groups-design.md`](2026-11-02-groups-design.md).
 > Multi-dance since 2026-09-24 — see
 > [`2026-09-24-multi-dance-design.md`](2026-09-24-multi-dance-design.md) for
 > the dance dimension, the registry, and the URL scheme.
@@ -25,7 +27,8 @@ phone. It answers three needs:
 
 | Term             | Meaning                                                                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Figure**       | A specific dance move (_figura_): a right turn, _dile que no_, _enchufla_, a lateral. Partner or solo. A routine's run calls it by voice.                                                                  |
+| **Move**         | A named move (_figura_): _enchufla_, _dile que no_, a right turn. A name that holds its figures (`figure_groups`).                                                                                         |
+| **Figure**       | One self-contained way of dancing a move: "Enchufla · Doble" (a `figures` row, once called a variation). Partner or solo. A routine's run calls it by voice.                                                                  |
 | **Routine**      | An ordered sequence of figures, built from the position graph. See the [routines design](2026-09-24-routines-design.md).                                                            |
 | **Exercise**     | Anything practiced and logged. Created automatically for every routine; for a figure only on request ("Practise on its own"); or by hand (custom: "son basic 5 min"). |
 | **Set**          | One logged bout of an exercise. Many per day allowed.                                                                                                                               |
@@ -35,7 +38,8 @@ phone. It answers three needs:
 
 Each phase is independently deployable and useful. Phases 1 and 2 are **live**
 (2a on 2026-09-22, 2b on 2026-09-23), as is phase 4; phase 3 is live in both
-slices, 3a since 2026-09-24 and 3b since 2026-09-26.
+slices, 3a since 2026-09-24 and 3b since 2026-09-26. Phase 5's accounts and
+groups are live; its clones and twins are built, not yet deployed.
 
 1. **Exercises & figures** — Today page, exercises, sets, frequency/priority,
    active/inactive, past-day navigation, figures with recordings (auto-creating
@@ -69,6 +73,18 @@ slices, 3a since 2026-09-24 and 3b since 2026-09-26.
    A full-screen video player with saved spots and looped sections, for
    figure recordings and lesson videos: live since 2026-10-01, see
    [`2026-10-01-video-player-design.md`](2026-10-01-video-player-design.md).
+5. **People and groups** — accounts (one-time invites, a storage limit; see
+   [`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md)), groups (a
+   class shares its lessons, figures, routines and drills with its members; see
+   [`2026-11-02-groups-design.md`](2026-11-02-groups-design.md)) and their
+   follow-ups (group mode, notifications, class songs; see
+   [`2026-11-03-groups-follow-ups-design.md`](2026-11-03-groups-follow-ups-design.md)),
+   all live by 2026-11-03. Then clones and twins: copies across places that
+   remember where they came from (Copy to…, Make it mine, Compare, Take, Send,
+   Drop my copy, Detach, Move to… a group), a group's things used in your own
+   routines, lessons and sections without copying, leaving that keeps copies,
+   and Same as… showing twins as one. Built 2026-11-04 (migration `0027`); see
+   [`2026-11-03-clones-and-twins-design.md`](2026-11-03-clones-and-twins-design.md).
 
 Deferred beyond phase 3: stats/charts, ear-training quizzes (e.g. "2-3 or 3-2
 clave?"), offline mode.
@@ -335,7 +351,7 @@ The home page. One page serves both "exercises" and "today".
 
 ## Figures
 
-- **List:** search box, filter chips (style, partner/solo, Not linked), tiles to
+- **List:** figures under their move's heading (a move's page at `/[dance]/moves/[id]`); search box, filter chips (style, partner/solo, Not linked), tiles to
   Positions and Coverage with their counts. Archived hidden. See the
   [redesign](2026-10-31-redesign-design.md), Moves.
 - **Positions:** `/[dance]/positions` is the gap report. A position is renamed
@@ -346,12 +362,12 @@ The home page. One page serves both "exercises" and "today".
   ("New figures", one per dance, stored in `default_styles`), else the
   registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored
   style the dance no longer has falls back to the registry's. A lesson's
-  "Variation of a figure" pre-selects it too; a copy keeps its source's.
+  "New figure in a move" pre-selects it too; a copy keeps its source's.
   Songs still start on the dance's first style.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
   players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
   position tags, "Follows from" / "Leads to". In routines · N: the live routines that call this
-  variation, by slot (`routinesUsing`), each opening the routine.
+  figure, by slot (`routinesUsing`), each opening the routine.
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many
   routines can call it, and makes a routine from a selection (Select; picks numbered in tap order). See
   [`2026-10-01-figure-coverage-design.md`](2026-10-01-figure-coverage-design.md).
@@ -380,6 +396,10 @@ has no Download); a failed one shows the error, Retry and Upload a file instead.
 The ready song page has the app's own timeline with the user's 1s as ticks.
 Song details is a sheet from the pencil, with a refusal under its field; Archive
 song asks in a dialog stacked over it (no browser `confirm()`).
+Music has two sections: the person's own songs, then a section per group with
+the songs it shares (in group mode, only that group's). A group song is
+withdrawn or deleted by its teacher with a warning, not refused; see
+[`2026-11-03-groups-follow-ups-design.md`](2026-11-03-groups-follow-ups-design.md).
 
 **Beat grid** (measured 2026-09-22 on a salsa and a son track): Beat This!'s
 BEATS are good — 96–97% of inter-beat intervals within 8% of the median, tempo
@@ -481,8 +501,8 @@ constant-tempo fit drifts 100+ ms at breaks. So:
 - **The random drill was removed on 2026-09-30.** It called figures at random
   from a picked pool, walking the position graph (`graphFlow`); it went unused.
   With it went the figure's "callable" checkbox and "Say it like" input — the
-  voice now always says the figure's name (a variation is said as its
-  figure). Without a routine the player is count and clave only.
+  voice now always says the figure's name (a figure is said as its
+  move). Without a routine the player is count and clave only.
 - **Ending a run** offers "Save as set" on the exercise it was opened from, or a
   choice of exercise when opened from a song. `player_json` holds
   `{ source, songId, bpm, speed, count, clave, callEvery, calls, called }`, where `calls` is the true
@@ -624,7 +644,7 @@ unsaved.
   an edit, and is not guarded. Edit mode still has no Cancel; leaving is the
   way to discard.
 
-The look (colours, type, icons, shared components) and the four tabs (Today, Moves, Lessons, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
+The look (colours, type, icons, shared components) and the five tabs (Today, Moves, Lessons, Groups, Music) are in [`2026-10-31-redesign-design.md`](2026-10-31-redesign-design.md).
 
 ## Where you are
 
@@ -632,6 +652,13 @@ Where Back and the tabs lead (a pure trail of pages, each tab reopening where
 you left it, a removed page and a finished Practice run going back to the page
 that opened them) is specified in
 [`2026-11-01-pages-keep-state-design.md`](2026-11-01-pages-keep-state-design.md).
+
+## Get the app and fresh pages
+
+A Get the app page (`/app`) hands friends the Android apps, and open pages and
+the apps keep themselves current: a page epoch older pages are checked
+against, a Reload bar, and the app's own updater. See
+[`2026-11-03-app-updates-design.md`](2026-11-03-app-updates-design.md).
 
 ## Pending navigation
 
@@ -700,7 +727,9 @@ password and unknown user, admin seeded from env (`ADMIN_EMAIL`,
 
 Single user until 2026-11-02. Accounts — the admin's one-time invites, the
 owner wall inside each dance, storage limits — are in
-[`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md).
+[`2026-11-02-accounts-design.md`](2026-11-02-accounts-design.md). The owner
+wall is a person or a group since step 2: see
+[`2026-11-02-groups-design.md`](2026-11-02-groups-design.md).
 
 ## Testing
 

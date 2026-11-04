@@ -14,6 +14,7 @@
  */
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
+import type { TeamRef, TwinNote } from '$lib/types';
 
 export interface Candidate {
 	kind: 'figure' | 'routine';
@@ -29,6 +30,10 @@ export interface Candidate {
 	startCounts: number[];
 	end: number | null;
 	next: number | null;
+	/** A group's row a person may use: whose it is. */
+	team?: TeamRef;
+	/** The person's twins of it that this candidate stands for (`clones/twins.ts`). */
+	twins?: TwinNote[];
 }
 
 type After = { kind: 'after'; end: number | null; next: number | null };
@@ -70,6 +75,8 @@ export interface PickGroup {
 	single: boolean;
 	/** Only the fitting ones; a group with none is left out. */
 	variations: Candidate[];
+	/** A group's move: the group it is labelled with. */
+	team?: TeamRef;
 }
 
 /** The variation's own name: the part of "Enchufla · Doble" after the figure. */
@@ -150,18 +157,31 @@ export function pickList(candidates: Candidate[], anchor: Anchor, filters: Filte
 			(anchor.kind === 'alternative'
 				? standsIn(c, anchor)
 				: (!on.count || fitsCount(c, anchor)) && (!on.hold || fitsHold(c, anchor)));
-		const groups = new Map<number, { name: string; total: number; fitting: Candidate[] }>();
+		const groups = new Map<
+			number,
+			{ name: string; team?: TeamRef; total: number; fitting: Candidate[] }
+		>();
 		for (const c of candidates) {
 			if (c.kind !== 'figure' || c.groupId === null) continue;
 			let g = groups.get(c.groupId);
-			if (!g) groups.set(c.groupId, (g = { name: c.figure ?? c.label, total: 0, fitting: [] }));
+			if (!g)
+				groups.set(
+					c.groupId,
+					(g = { name: c.figure ?? c.label, team: c.team, total: 0, fitting: [] })
+				);
 			g.total++;
 			if (ok(c)) g.fitting.push(c);
 		}
 		const figures: PickGroup[] = [];
 		for (const [groupId, g] of groups) {
 			if (g.fitting.length > 0) {
-				figures.push({ groupId, name: g.name, single: g.total === 1, variations: g.fitting });
+				figures.push({
+					groupId,
+					name: g.name,
+					single: g.total === 1,
+					variations: g.fitting,
+					...(g.team ? { team: g.team } : {})
+				});
 			}
 		}
 		const routines =

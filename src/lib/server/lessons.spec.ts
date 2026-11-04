@@ -6,7 +6,6 @@ import {
 	createLesson,
 	deleteLessonVideo,
 	getLesson,
-	getLessonVideoByFile,
 	lessonVideoBytes,
 	linkExercise,
 	linkFigure,
@@ -33,10 +32,10 @@ import {
 import { addFigureExercise, archiveVariation, createFigure, createVariationFrom } from './figures';
 import { addSpot } from './spots';
 import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
-import { exercises, spotLinks } from './db/schema';
+import { exercises, lessonVideos, spotLinks } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { archiveRoutine, createRoutine } from './routines';
-import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { NO_FILES, T1_SALSA, U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -88,7 +87,7 @@ describe('updateLesson', () => {
 	it('carries a retitle over to the review exercise', () => {
 		const { lesson, exercise } = createLesson(db, U1_SALSA, lessonInput);
 		updateLesson(db, lesson.id, { ...lessonInput, title: 'Rueda, week 2' });
-		const after = getLesson(db, lesson.id);
+		const after = getLesson(db, lesson.id, 'u1');
 		expect(after?.exercise?.name).toBe(reviewName('Rueda, week 2'));
 		expect(after?.exercise?.id).toBe(exercise.id);
 	});
@@ -106,7 +105,7 @@ describe('archiveLesson', () => {
 		expect(archiveLesson(db, lesson.id, 1000)).toBe(true);
 		expect(listLessons(db, U1_SALSA)).toHaveLength(0);
 		expect(listExercises(db, U1_SALSA).some((e) => e.id === exercise.id)).toBe(false);
-		expect(getLesson(db, lesson.id)?.videos).toHaveLength(1);
+		expect(getLesson(db, lesson.id, 'u1')?.videos).toHaveLength(1);
 	});
 
 	it('refuses to archive twice', () => {
@@ -139,10 +138,10 @@ describe('linking figures', () => {
 	it('links a figure and lists it with the exercise that came with it', () => {
 		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const exercise = addFigureExercise(db, figure.id)!;
+		const exercise = addFigureExercise(db, 'u1', figure.id)!;
 
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
-		const [linked] = getLesson(db, lesson.id)!.figures;
+		const [linked] = getLesson(db, lesson.id, 'u1')!.figures;
 		expect(linked.name).toBe('Enchufla · Basic');
 		expect(linked.exerciseId).toBe(exercise.id);
 	});
@@ -151,7 +150,9 @@ describe('linking figures', () => {
 		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
-		expect(getLesson(db, lesson.id)!.figures).toMatchObject([{ id: figure.id, exerciseId: null }]);
+		expect(getLesson(db, lesson.id, 'u1')!.figures).toMatchObject([
+			{ id: figure.id, exerciseId: null }
+		]);
 	});
 
 	it('refuses a second link of the same figure', () => {
@@ -159,7 +160,7 @@ describe('linking figures', () => {
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(true);
 		expect(linkFigure(db, lesson.id, figure.id)).toBe(false);
-		expect(getLesson(db, lesson.id)!.figures).toHaveLength(1);
+		expect(getLesson(db, lesson.id, 'u1')!.figures).toHaveLength(1);
 	});
 
 	it('links a variation', () => {
@@ -198,13 +199,13 @@ describe('a figure exercise never shows up in both places', () => {
 	it('drops it from the linked list when its figure is linked afterwards', () => {
 		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const exercise = addFigureExercise(db, figure.id)!;
+		const exercise = addFigureExercise(db, 'u1', figure.id)!;
 
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(true);
-		expect(getLesson(db, lesson.id)!.exercises.map((e) => e.id)).toEqual([exercise.id]);
+		expect(getLesson(db, lesson.id, 'u1')!.exercises.map((e) => e.id)).toEqual([exercise.id]);
 
 		linkFigure(db, lesson.id, figure.id);
-		const after = getLesson(db, lesson.id)!;
+		const after = getLesson(db, lesson.id, 'u1')!;
 		expect(after.exercises).toHaveLength(0);
 		expect(after.figures[0].exerciseId).toBe(exercise.id);
 	});
@@ -212,7 +213,7 @@ describe('a figure exercise never shows up in both places', () => {
 	it('refuses to link it once its figure is already linked', () => {
 		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const exercise = addFigureExercise(db, figure.id)!;
+		const exercise = addFigureExercise(db, 'u1', figure.id)!;
 		linkFigure(db, lesson.id, figure.id);
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(false);
 	});
@@ -227,7 +228,7 @@ describe('frequencies on the lesson page', () => {
 		linkRoutine(db, lesson.id, routine.id);
 		linkExercise(db, lesson.id, custom.id);
 
-		const got = getLesson(db, lesson.id)!;
+		const got = getLesson(db, lesson.id, 'u1')!;
 		expect(got.routines[0].everyDays).toBe(7);
 		expect(got.exercises[0].everyDays).toBe(1);
 	});
@@ -243,9 +244,9 @@ describe('linking exercises', () => {
 		});
 
 		expect(linkExercise(db, lesson.id, custom.id)).toBe(true);
-		expect(getLesson(db, lesson.id)!.exercises.map((e) => e.name)).toEqual(['Son basic']);
+		expect(getLesson(db, lesson.id, 'u1')!.exercises.map((e) => e.name)).toEqual(['Son basic']);
 		expect(unlinkExercise(db, lesson.id, custom.id)).toBe(true);
-		expect(getLesson(db, lesson.id)!.exercises).toHaveLength(0);
+		expect(getLesson(db, lesson.id, 'u1')!.exercises).toHaveLength(0);
 	});
 
 	it('refuses a review exercise, including its own', () => {
@@ -332,7 +333,7 @@ describe('the link pickers', () => {
 	it('listLinkableExercises: a figure exercise carries figure and variation names', () => {
 		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		const own = addFigureExercise(db, figure.id)!;
+		const own = addFigureExercise(db, 'u1', figure.id)!;
 		expect(listLinkableExercises(db, lesson.id)).toEqual([
 			expect.objectContaining({
 				id: own.id,
@@ -348,7 +349,7 @@ describe('the link pickers', () => {
 		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
 		createLesson(db, U1_SALSA, { ...lessonInput, title: 'Other' });
 		const { figure } = createFigure(db, U1_SALSA, figureInput)!;
-		addFigureExercise(db, figure.id);
+		addFigureExercise(db, 'u1', figure.id);
 		linkFigure(db, lesson.id, figure.id);
 		const gone = createCustomExercise(db, U1_SALSA, {
 			name: 'Archived',
@@ -418,13 +419,7 @@ describe('videos', () => {
 		const row = addLessonVideo(db, video(lesson.id, 'a.mp4', 100));
 		expect(deleteLessonVideo(db, row.id)?.file).toBe('a.mp4');
 		expect(deleteLessonVideo(db, row.id)).toBeNull();
-		expect(getLessonVideoByFile(db, 'a.mp4')).toBeNull();
-	});
-
-	it('finds a video by its file name, for the range-served route', () => {
-		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
-		addLessonVideo(db, video(lesson.id, 'a.mp4', 100));
-		expect(getLessonVideoByFile(db, 'a.mp4')?.lessonId).toBe(lesson.id);
+		expect(db.select().from(lessonVideos).all()).toEqual([]);
 	});
 });
 
@@ -551,12 +546,13 @@ describe('linking routines', () => {
 		const { routine, exercise } = createRoutine(db, U1_SALSA, routineInput);
 
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(true);
-		expect(getLesson(db, lesson.id)!.routines).toEqual([
+		expect(getLesson(db, lesson.id, 'u1')!.routines).toEqual([
 			{
 				id: routine.id,
 				name: 'Rueda combo',
 				exerciseId: exercise.id,
-				everyDays: exercise.everyDays
+				everyDays: exercise.everyDays,
+				mineId: null
 			}
 		]);
 	});
@@ -566,7 +562,7 @@ describe('linking routines', () => {
 		const { routine } = createRoutine(db, U1_SALSA, routineInput);
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(true);
 		expect(linkRoutine(db, lesson.id, routine.id)).toBe(false);
-		expect(getLesson(db, lesson.id)!.routines).toHaveLength(1);
+		expect(getLesson(db, lesson.id, 'u1')!.routines).toHaveLength(1);
 	});
 
 	it('refuses an archived routine, and one that does not exist', () => {
@@ -590,7 +586,7 @@ describe('linking routines', () => {
 		linkRoutine(db, lesson.id, routine.id);
 		expect(unlinkRoutine(db, lesson.id, routine.id)).toBe(true);
 		expect(unlinkRoutine(db, lesson.id, routine.id)).toBe(false);
-		expect(getLesson(db, lesson.id)!.routines).toHaveLength(0);
+		expect(getLesson(db, lesson.id, 'u1')!.routines).toHaveLength(0);
 	});
 
 	it('listLinkableRoutines: a linked routine is present with linked true and carries slots and loops', () => {
@@ -627,7 +623,7 @@ describe('a routine exercise never shows up in both places', () => {
 		expect(linkExercise(db, lesson.id, exercise.id)).toBe(true);
 		linkRoutine(db, lesson.id, routine.id);
 
-		const after = getLesson(db, lesson.id)!;
+		const after = getLesson(db, lesson.id, 'u1')!;
 		expect(after.exercises).toHaveLength(0);
 		expect(after.routines[0].exerciseId).toBe(exercise.id);
 	});
@@ -646,7 +642,7 @@ describe('a routine exercise never shows up in both places', () => {
 		db.run(
 			`insert into lesson_exercises (lesson_id, exercise_id, created_at) values (${lesson.id}, ${exercise.id}, 0)`
 		);
-		expect(getLesson(db, lesson.id)!.exercises).toHaveLength(0);
+		expect(getLesson(db, lesson.id, 'u1')!.exercises).toHaveLength(0);
 	});
 
 	it('leaves its exercise out of the picker once its routine is linked', () => {
@@ -699,8 +695,8 @@ describe('through sections', () => {
 		b = addSpot(db, { lessonVideoId: videoId }, { startMs: 6000, endMs: 9000, label: 'B' })!.id;
 	});
 
-	const figuresOf = () => getLesson(db, lessonId)!.figures;
-	const exercisesOf = () => getLesson(db, lessonId)!.exercises;
+	const figuresOf = () => getLesson(db, lessonId, 'u1')!.figures;
+	const exercisesOf = () => getLesson(db, lessonId, 'u1')!.exercises;
 	const spotLinkCount = () => db.select().from(spotLinks).all().length;
 
 	it('lists a variation linked only through a section, and drops it with the link', () => {
@@ -747,14 +743,14 @@ describe('through sections', () => {
 	});
 
 	it("never shows a variation's own exercise beside it when the variation came through a section", () => {
-		const own = addFigureExercise(db, doble)!.id;
+		const own = addFigureExercise(db, 'u1', doble)!.id;
 		expect(linkExercise(db, lessonId, own)).toBe(true);
 		linkSpot(db, 'u1', a, { figureId: doble });
 		expect(exercisesOf().map((e) => e.id)).not.toContain(own);
 	});
 
 	it("refuses to hand-link a variation's exercise while the variation is there through a section", () => {
-		const own = addFigureExercise(db, doble)!.id;
+		const own = addFigureExercise(db, 'u1', doble)!.id;
 		linkSpot(db, 'u1', a, { figureId: doble });
 		expect(linkExercise(db, lessonId, own)).toBe(false);
 		expect(listLinkableExercises(db, lessonId).map((e) => e.id)).not.toContain(own);
@@ -816,5 +812,306 @@ describe('through sections', () => {
 		expect(unlinkExercise(db, lessonId, drill, true)).toBe(true);
 		expect(exercisesOf()).toEqual([]);
 		expect(spotLinkCount()).toBe(0);
+	});
+});
+
+describe('in a group', () => {
+	const figureInput = { name: 'Basic', partner: 'partner' as const, style: 'salsa', notes: null };
+
+	it('creates a lesson owned by the team, with no exercise', () => {
+		const made = createLesson(db, T1_SALSA, lessonInput);
+		expect(made.lesson).toMatchObject({ userId: null, teamId: 1 });
+		expect(made.exercise).toBeNull();
+		expect(db.select().from(exercises).all()).toEqual([]);
+		expect(listLessons(db, U1_SALSA)).toEqual([]);
+		expect(listLessons(db, T1_SALSA).map((l) => l.title)).toEqual(['Rueda basics']);
+	});
+
+	it('refuses a figure, routine or drill of another owner', () => {
+		const lessonId = createLesson(db, T1_SALSA, lessonInput).lesson.id;
+		const mine = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Enchufla' })!.figure;
+		const routine = createRoutine(db, U1_SALSA, { name: 'R', notes: null }).routine;
+		const drill = createCustomExercise(db, U1_SALSA, { name: 'Clave', everyDays: 3, notes: null });
+		expect(linkFigure(db, lessonId, mine.id)).toBe(false);
+		expect(linkRoutine(db, lessonId, routine.id)).toBe(false);
+		expect(linkExercise(db, lessonId, drill.id)).toBe(false);
+		expect(listLinkableFigures(db, lessonId)).toEqual([]);
+		expect(listLinkableRoutines(db, lessonId)).toEqual([]);
+		expect(listLinkableExercises(db, lessonId)).toEqual([]);
+
+		const theirs = createFigure(db, T1_SALSA, { ...figureInput, figureName: 'Enchufla' })!.figure;
+		const teamDrill = createCustomExercise(db, T1_SALSA, {
+			name: 'Clave',
+			everyDays: 3,
+			notes: null
+		});
+		expect(linkFigure(db, lessonId, theirs.id, 'u1')).toBe(true);
+		expect(linkExercise(db, lessonId, teamDrill.id, 'u1')).toBe(true);
+	});
+
+	it("judges an entry by its target's owner, not its own", () => {
+		const mineLesson = createLesson(db, U1_SALSA, lessonInput).lesson.id;
+		const teamFigure = createFigure(db, T1_SALSA, {
+			...figureInput,
+			figureName: 'Enchufla'
+		})!.figure;
+		// u1's own entry for the group's figure: u1's row, the group's target.
+		const entry = db
+			.insert(exercises)
+			.values({ name: 'Enchufla · Basic', source: 'figure', figureId: teamFigure.id, userId: 'u1' })
+			.returning()
+			.get();
+		expect(linkExercise(db, mineLesson, entry.id)).toBe(false);
+		expect(listLinkableExercises(db, mineLesson).map((e) => e.id)).not.toContain(entry.id);
+	});
+});
+
+import { listTeamLessons, publishLesson } from './lessons';
+import { createTeam, deleteTeam, joinTeam } from './teams';
+import { leaveTeam, setRole } from './membership';
+import { linkOptionsFor } from './link-popup';
+import { lessons as lessonRows } from './db/schema';
+
+describe('a group lesson: draft and publish', () => {
+	let teamId: number;
+	const T = () => ({ dance: 'salsa' as const, teamId, actorId: 'u1' });
+	const row = (id: number) => db.select().from(lessonRows).where(eq(lessonRows.id, id)).get()!;
+
+	beforeEach(() => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok) throw new Error('team expected');
+		teamId = made.teamId;
+		joinTeam(db, 'u2', teamId, 2);
+		joinTeam(db, 'u3', teamId, 2);
+		setRole(db, teamId, 'u3', 'editor');
+	});
+
+	it('starts a draft, and only its editors publish it, once', () => {
+		const { lesson, exercise } = createLesson(db, T(), lessonInput);
+		expect([lesson.publishedAt, exercise]).toEqual([null, null]);
+		expect(publishLesson(db, { ...T(), actorId: 'u2' }, lesson.id, 5)).toBe(false);
+		expect(publishLesson(db, { ...T(), actorId: 'u9' }, lesson.id, 5)).toBe(false);
+		expect(row(lesson.id).publishedAt).toBeNull();
+		expect(publishLesson(db, { ...T(), actorId: 'u3' }, lesson.id, 5)).toBe(true);
+		expect(row(lesson.id).publishedAt).toBe(5);
+		// No unpublish, and no second publish moving the date.
+		expect(publishLesson(db, T(), lesson.id, 9)).toBe(false);
+		expect(row(lesson.id).publishedAt).toBe(5);
+	});
+
+	it("publishes only this group's live drafts", () => {
+		const other = createTeam(db, 'u1', 'salsa', 'Another', 1);
+		if (!other.ok) throw new Error('team expected');
+		const theirs = createLesson(db, { ...T(), teamId: other.teamId }, lessonInput).lesson.id;
+		const mine = createLesson(db, U1_SALSA, lessonInput).lesson.id;
+		const archived = createLesson(db, T(), lessonInput).lesson.id;
+		archiveLesson(db, archived, 3, 'u1');
+		expect(publishLesson(db, T(), theirs, 5)).toBe(false);
+		expect(publishLesson(db, T(), mine, 5)).toBe(false);
+		expect(publishLesson(db, T(), archived, 5)).toBe(false);
+		expect([row(theirs), row(mine), row(archived)].map((l) => l.publishedAt)).toEqual([
+			null,
+			null,
+			null
+		]);
+	});
+
+	it('a deleted group publishes nothing', () => {
+		const id = createLesson(db, T(), lessonInput).lesson.id;
+		deleteTeam(db, teamId, 'u1', 2);
+		expect(publishLesson(db, T(), id, 5)).toBe(false);
+	});
+
+	it('lists drafts first to its editors, newest first, and only published lessons to members', () => {
+		const older = createLesson(db, T(), { ...lessonInput, lessonDay: '2026-09-01' }).lesson.id;
+		const newer = createLesson(db, T(), { ...lessonInput, lessonDay: '2026-09-20' }).lesson.id;
+		const draft = createLesson(db, T(), { ...lessonInput, lessonDay: '2026-09-10' }).lesson.id;
+		publishLesson(db, T(), older, 1);
+		publishLesson(db, T(), newer, 2);
+		const forEditor = listTeamLessons(db, 'u3', teamId, 'editor');
+		expect(forEditor.map((l) => [l.id, l.publishedAt !== null])).toEqual([
+			[draft, false],
+			[newer, true],
+			[older, true]
+		]);
+		expect(forEditor[0].team).toEqual({ id: teamId, name: 'Salsa nadaljevalna' });
+		expect(listTeamLessons(db, 'u2', teamId, 'member').map((l) => l.id)).toEqual([newer, older]);
+		// A person's own list never shows a group's lesson, and its rows say so.
+		expect(listLessons(db, U1_SALSA)).toEqual([]);
+		createLesson(db, U1_SALSA, lessonInput);
+		expect(listLessons(db, U1_SALSA).map((l) => l.team)).toEqual([null]);
+	});
+
+	it("the Link popup in a group lesson offers only the group's things", () => {
+		createFigure(db, U1_SALSA, { ...figureInput, figureName: 'Mine only' });
+		createCustomExercise(db, U1_SALSA, { name: 'My drill', everyDays: 3, notes: null });
+		const groupFigure = createFigure(db, T(), { ...figureInput, figureName: 'Group figure' })!;
+		const groupDrill = createCustomExercise(db, T(), {
+			name: 'Group drill',
+			everyDays: 3,
+			notes: null
+		});
+		const id = createLesson(db, T(), lessonInput).lesson.id;
+		const video = addLessonVideo(db, video_(id), 'u1');
+		const section = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 0, endMs: 9, label: 'S' },
+			'u1'
+		)!;
+
+		const options = linkOptionsFor(db, section.id, 'u1')!;
+		const offered = [...options.near, ...options.figures, ...options.drills].map((o) => o.label);
+		expect(offered).toContain('Group figure · Basic');
+		expect(offered).toContain('Group drill');
+		expect(offered.join()).not.toContain('Mine only');
+		expect(offered).not.toContain('My drill');
+		expect(options.figureChoices.map((f) => f.name)).toEqual(['Group figure']);
+		expect([groupFigure.figure.teamId, groupDrill.teamId]).toEqual([teamId, teamId]);
+		// A member reads the section but may not link it: no options at all.
+		expect(linkOptionsFor(db, section.id, 'u2')).toBeNull();
+	});
+});
+
+const video_ = (lessonId: number) => ({
+	lessonId,
+	file: '00000000-0000-4000-8000-0000000000f1.mp4',
+	mime: 'video/mp4',
+	sizeBytes: 1
+});
+
+import { addLesson } from './entries';
+import { crossRefs } from './integrity';
+import { viaSections } from './lesson-links';
+import { createRoutineFromFigures } from './routines';
+import { U2_SALSA } from '$lib/server/test-walls';
+
+describe("a person's own lesson and what their groups gave them", () => {
+	/**
+	 * Salsa Tuesdays (u1's, u2 a member): F, routine R (of G) and drill D in
+	 * published lesson L, which u2 added with D's entry; H only in published
+	 * L2. Rueda club (u3's): X. u2's own lesson `mine` and figure `own`.
+	 */
+	function given() {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		if (!made.ok) throw new Error('team expected');
+		const team = { id: made.teamId, name: 'Salsa Tuesdays' };
+		const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', made.teamId, 1);
+		const F = createFigure(db, T, { ...figureInput, figureName: 'Setenta' })!.figure.id;
+		const G = createFigure(db, T, { ...figureInput, figureName: 'Dile que no' })!.figure.id;
+		const H = createFigure(db, T, { ...figureInput, figureName: 'Sombrero' })!.figure.id;
+		const R = createRoutineFromFigures(db, T, { name: 'Class routine', notes: null }, [G])!.routine
+			.id;
+		const D = createCustomExercise(db, T, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const L = createLesson(db, T, { ...lessonInput, title: 'Week 1' }).lesson.id;
+		expect(linkFigure(db, L, F, 'u1')).toBe(true);
+		expect(linkRoutine(db, L, R, 'u1')).toBe(true);
+		expect(linkExercise(db, L, D, 'u1')).toBe(true);
+		const L2 = createLesson(db, T, { ...lessonInput, title: 'Week 2' }).lesson.id;
+		expect(linkFigure(db, L2, H, 'u1')).toBe(true);
+		expect(publishLesson(db, T, L, 1)).toBe(true);
+		expect(publishLesson(db, T, L2, 1)).toBe(true);
+		const picks = { lesson: false, routineIds: [], drillIds: [D], figureIds: [] };
+		expect(addLesson(db, 'u2', L, picks, 2)).toBe(true);
+		const entry = db.select().from(exercises).where(eq(exercises.drillId, D)).get()!;
+		const rueda = createTeam(db, 'u3', 'salsa', 'Rueda club', 1);
+		if (!rueda.ok) throw new Error('team expected');
+		const X = createFigure(
+			db,
+			{ dance: 'salsa', teamId: rueda.teamId, actorId: 'u3' },
+			{ ...figureInput, figureName: 'Vacilala' }
+		)!.figure.id;
+		const mine = createLesson(db, U2_SALSA, { ...lessonInput, title: 'My notes' }).lesson.id;
+		const own = createFigure(db, U2_SALSA, { ...figureInput, figureName: 'Enchufla' })!.figure.id;
+		return { team, T, F, G, H, R, D, L, X, entry, mine, own };
+	}
+
+	it('links a figure, routine and drill they may use, and the lesson page lists them', () => {
+		const { F, R, D, mine } = given();
+		expect(linkFigure(db, mine, F, 'u2')).toBe(true);
+		expect(linkRoutine(db, mine, R, 'u2')).toBe(true);
+		expect(linkExercise(db, mine, D, 'u2')).toBe(true);
+		const page = getLesson(db, mine, 'u2')!;
+		expect(page.figures.map((f) => [f.id, f.name, f.byHand])).toEqual([
+			[F, 'Setenta · Basic', true]
+		]);
+		expect(page.routines.map((r) => r.id)).toEqual([R]);
+		expect(page.exercises.map((e) => e.id)).toEqual([D]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a section of their own lesson video linked to a group figure puts it on the lesson', () => {
+		const { F, mine } = given();
+		const vid = addLessonVideo(db, video(mine, 'm.mp4', 1)).id;
+		const spot = addSpot(db, { lessonVideoId: vid }, { startMs: 0, endMs: 2000, label: 'A' })!;
+		expect(linkSpot(db, 'u2', spot.id, { figureId: F })).toBeGreaterThan(0);
+		expect([...viaSections(db, mine).figures.keys()]).toEqual([F]);
+		const listed = getLesson(db, mine, 'u2')!.figures;
+		expect(listed.map((f) => [f.id, f.byHand, f.viaSections.length])).toEqual([[F, false, 1]]);
+		expect(listLinkableFigures(db, mine).find((f) => f.id === F)?.linked).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('refuses what they were not given, another group’s, and their entry', () => {
+		const { H, X, entry, mine } = given();
+		expect(linkFigure(db, mine, H, 'u2')).toBe(false);
+		expect(linkFigure(db, mine, X, 'u2')).toBe(false);
+		// An entry stays refused: its row is u2's, its content the group's drill.
+		expect(linkExercise(db, mine, entry.id, 'u2')).toBe(false);
+		expect(listLinkableExercises(db, mine).map((e) => e.id)).not.toContain(entry.id);
+	});
+
+	it("a group lesson still refuses a person's own figure", () => {
+		const { L, own } = given();
+		expect(linkFigure(db, L, own, 'u1')).toBe(false);
+	});
+
+	it('the pickers of their own lesson offer what they may use, tagged with its group', () => {
+		const { team, F, G, R, D, H, L, mine, own } = given();
+		expect(listLinkableFigures(db, mine).map((f) => [f.id, f.label, f.team ?? null])).toEqual([
+			[own, 'Enchufla · Basic', null],
+			[G, 'Dile que no · Basic', team],
+			[F, 'Setenta · Basic', team]
+		]);
+		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(H);
+		expect(listLinkableRoutines(db, mine).map((r) => [r.id, r.slots, r.team ?? null])).toEqual([
+			[R, 1, team]
+		]);
+		expect(listLinkableExercises(db, mine).map((e) => [e.id, e.name, e.team ?? null])).toEqual([
+			[D, 'Shines', team]
+		]);
+		// A group lesson's pickers stay its own, untagged.
+		const groupPick = listLinkableFigures(db, L);
+		expect(groupPick.map((f) => f.id).sort((a, b) => a - b)).toEqual([F, G, H]);
+		expect(groupPick.every((f) => f.team === undefined)).toBe(true);
+		expect(listLinkableExercises(db, L).map((e) => [e.id, e.team])).toEqual([[D, undefined]]);
+	});
+
+	it('the Lessons card counts the group rows it links, as the page shows them', () => {
+		const { F, R, mine, own } = given();
+		const vid = addLessonVideo(db, video(mine, 'c.mp4', 1)).id;
+		const spot = addSpot(db, { lessonVideoId: vid }, { startMs: 0, endMs: 2000, label: null })!;
+		expect(linkFigure(db, mine, own, 'u2')).toBe(true);
+		expect(linkSpot(db, 'u2', spot.id, { figureId: F })).toBeGreaterThan(0);
+		expect(linkRoutine(db, mine, R, 'u2')).toBe(true);
+		const card = listLessons(db, U2_SALSA).find((l) => l.id === mine)!;
+		const page = getLesson(db, mine, 'u2')!;
+		expect([card.figures, card.routines]).toEqual([page.figures.length, page.routines.length]);
+		expect([card.figures, card.routines]).toEqual([2, 1]);
+	});
+
+	it('refuses a figure reached only through a draft lesson, and one of a group they left', async () => {
+		const { T, F, mine } = given();
+		const K = createFigure(db, T, { ...figureInput, figureName: 'Vacilala' })!.figure.id;
+		const draft = createLesson(db, T, { ...lessonInput, title: 'Draft' }).lesson.id;
+		expect(linkFigure(db, draft, K, 'u1')).toBe(true);
+		const none = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
+		expect(addLesson(db, 'u2', draft, none, 3)).toBe(false);
+		expect(linkFigure(db, mine, K, 'u2')).toBe(false);
+		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(K);
+		expect(await leaveTeam(db, T.teamId, 'u2', { mode: 'all' }, NO_FILES, 4)).toBe('left');
+		expect(linkFigure(db, mine, F, 'u2')).toBe(false);
+		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(F);
 	});
 });

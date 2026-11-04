@@ -67,7 +67,11 @@ describe('links', () => {
 	});
 
 	it('refuses links on an exercise a figure, lesson or routine owns', () => {
-		const exercise = addFigureExercise(db, createFigure(db, U1_SALSA, figureInput)!.figure.id)!;
+		const exercise = addFigureExercise(
+			db,
+			'u1',
+			createFigure(db, U1_SALSA, figureInput)!.figure.id
+		)!;
 		expect(addLinks(db, { exerciseId: exercise.id }, ['https://a.org'], null)).toBeNull();
 		expect(db.select().from(links).all()).toHaveLength(0);
 	});

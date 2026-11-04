@@ -30,6 +30,12 @@ export function figureMeta(f: Pick<LessonFigureRow, 'partner' | 'viaSections'>):
 	return f.viaSections.length > 0 ? viaRanges(f.viaSections) : PARTNER_LABEL[f.partner];
 }
 
+/** A link card on a group's lesson that opens the person's own copy says so. */
+export function yoursMeta(meta: string | null, mineId: number | null): string | null {
+	if (mineId === null) return meta;
+	return meta === null || meta === '' ? 'Yours' : `Yours · ${meta}`;
+}
+
 export function routineMeta(r: Pick<LessonRoutineRow, 'everyDays'>): string | null {
 	return r.everyDays === null ? null : frequencyLabel(r.everyDays);
 }

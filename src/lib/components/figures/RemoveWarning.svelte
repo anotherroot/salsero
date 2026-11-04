@@ -2,7 +2,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 
 	/**
-	 * What taking a figure's last variation away does: the figure goes with it.
+	 * What taking a figure's last figure away does: the move goes with it.
 	 * Shown in a move or an archive that would empty a figure; `kept` adds that
 	 * the history stays (archive only).
 	 */
@@ -14,7 +14,7 @@
 </script>
 
 <Banner kind="error" title="{figure} will be removed">
-	{variation} is its last variation, and a figure with no variations is gone. It leaves the figures list.{kept
+	{variation} is its last figure, and a move with no figures is gone. It leaves the Figures list.{kept
 		? ' Its recordings and practice history are kept.'
 		: ''}
 </Banner>

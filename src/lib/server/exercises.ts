@@ -1,13 +1,47 @@
-import { and, asc, count, desc, eq, gte, isNotNull, isNull, lt, sql, sum } from 'drizzle-orm';
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNotNull,
+	isNull,
+	lt,
+	sql,
+	sum
+} from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { exercises, figureGroups, figures, sets, songs } from './db/schema';
-import type { Wall } from './scope';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessons,
+	routines,
+	sets,
+	songDrops,
+	songs,
+	teams
+} from './db/schema';
+import { inSpace, ownerValues, type Space, type Wall } from './scope';
+import { reconcileEntries, reviveEntries } from './entries';
+import { practiceSong } from './access';
+import type { ArchiveRestore } from './trash';
+import { actingIn, fieldChange, logChange } from './changes';
 import type { PracticeInput } from '$lib/exercises/practice';
+import { deletedGroupName } from '$lib/exercises/today';
 import type { DaySet, ExerciseItem, ExerciseSummary, HistorySet, PickExercise } from '$lib/types';
 
-/** Every exercise that has not been archived, with its figure's partner flag. */
+/**
+ * Every exercise that has not been archived, with its figure's partner flag
+ * and, for an entry on a group's thing, that group (read through the target:
+ * the entry itself is the person's).
+ */
 export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
-	return db
+	const drills = alias(exercises, 'drills');
+	const rows = db
 		.select({
 			id: exercises.id,
 			name: exercises.name,
@@ -23,10 +57,16 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 			everyDays: exercises.everyDays,
 			active: exercises.active,
 			notes: exercises.notes,
-			createdAt: exercises.createdAt
+			createdAt: exercises.createdAt,
+			teamId: sql<
+				number | null
+			>`coalesce(${lessons.teamId}, ${routines.teamId}, ${figures.teamId}, ${drills.teamId})`
 		})
 		.from(exercises)
 		.leftJoin(figures, eq(figures.id, exercises.figureId))
+		.leftJoin(lessons, eq(lessons.id, exercises.lessonId))
+		.leftJoin(routines, eq(routines.id, exercises.routineId))
+		.leftJoin(drills, eq(drills.id, exercises.drillId))
 		.where(
 			and(
 				isNull(exercises.archivedAt),
@@ -34,8 +74,23 @@ export function listExercises(db: Db, wall: Wall): ExerciseItem[] {
 				eq(exercises.userId, wall.userId)
 			)
 		)
-		.all()
-		.map((r) => ({ ...r, archived: false }));
+		.all();
+	const ids = [...new Set(rows.flatMap((r) => (r.teamId === null ? [] : [r.teamId])))];
+	const names = new Map(
+		ids.length === 0
+			? []
+			: db
+					.select({ id: teams.id, name: teams.name })
+					.from(teams)
+					.where(inArray(teams.id, ids))
+					.all()
+					.map((t) => [t.id, t.name] as [number, string])
+	);
+	return rows.map(({ teamId, ...r }) => ({
+		...r,
+		archived: false,
+		team: teamId === null ? null : { id: teamId, name: names.get(teamId) ?? '' }
+	}));
 }
 
 /** Every live exercise of the dance as a picker offers it, by name. Nothing is linked. */
@@ -90,29 +145,70 @@ export interface SettingsInput {
 	notes: string | null;
 }
 
-export function createCustomExercise(db: Db, wall: Wall, input: Omit<SettingsInput, 'active'>) {
-	return db
-		.insert(exercises)
-		.values({ ...input, source: 'custom', dance: wall.dance, userId: wall.userId })
-		.returning()
-		.get();
+/**
+ * A drill in a person's or a group's space. It starts with no song, and a
+ * group's never gets one: songs are personal, and a group drill holding its
+ * editor's song would play it to everyone (see `setPracticeSettings`).
+ */
+export function createCustomExercise(db: Db, space: Space, input: Omit<SettingsInput, 'active'>) {
+	return db.transaction((tx) => {
+		const drill = tx
+			.insert(exercises)
+			.values({ ...input, source: 'custom', ...ownerValues(space), songId: null })
+			.returning()
+			.get();
+		logChange(
+			tx,
+			space,
+			{ ...ofDrill(drill.id), verb: 'add', subject: 'drill', after: { name: drill.name } },
+			Date.now()
+		);
+		return drill;
+	});
 }
+
+/** A drill's root in History, and the drill as its own subject. */
+const ofDrill = (id: number) => ({ rootKind: 'drill' as const, rootId: id, subjectId: id });
 
 /**
  * Edit an exercise's settings. An owned exercise takes its NAME from its owner
- * (figure, lesson, routine), so a name passed for one is ignored rather than
- * letting the two drift apart.
+ * (figure, lesson, routine, a group's drill), so a name passed for one is
+ * ignored rather than letting the two drift apart. A drill's rename reaches
+ * every entry that practises it (`drill_id`), the way a figure's does. In a
+ * group, `by` is who, for History (`verb` is `restore` for its Restore); a
+ * group drill's frequency and Active are no one's, so only name and notes count.
  */
-export function updateExercise(db: Db, id: number, input: SettingsInput) {
-	const current = db.select().from(exercises).where(eq(exercises.id, id)).get();
-	if (!current) return null;
-	const name = current.source === 'custom' && input.name ? input.name : current.name;
-	return db
-		.update(exercises)
-		.set({ ...input, name })
-		.where(eq(exercises.id, id))
-		.returning()
-		.get();
+export function updateExercise(
+	db: Db,
+	id: number,
+	input: SettingsInput,
+	by?: string,
+	now = Date.now(),
+	verb: 'change' | 'restore' = 'change'
+) {
+	return db.transaction((tx) => {
+		const current = tx.select().from(exercises).where(eq(exercises.id, id)).get();
+		if (!current) return null;
+		const name = current.source === 'custom' && input.name ? input.name : current.name;
+		const row = tx
+			.update(exercises)
+			.set({ ...input, name })
+			.where(eq(exercises.id, id))
+			.returning()
+			.get();
+		if (current.source === 'custom') {
+			tx.update(exercises).set({ name }).where(eq(exercises.drillId, id)).run();
+		}
+		if (current.teamId !== null && row) {
+			const fields = (e: { name: string; notes: string | null }) => ({
+				name: e.name,
+				notes: e.notes
+			});
+			const change = fieldChange(fields(current), fields(row), 'drill');
+			if (change) logChange(tx, actingIn(current, by), { ...ofDrill(id), verb, ...change }, now);
+		}
+		return row;
+	});
 }
 
 /**
@@ -121,11 +217,22 @@ export function updateExercise(db: Db, id: number, input: SettingsInput) {
  * and a stored song the panel cannot open would greet the user with an error
  * the next time. `parsePracticeInput` has already cleared the unused half of
  * the mode's pair.
+ *
+ * The song is the person's own or a group's they may practise to
+ * (`practiceSong`: shared, in a group they are in). A group's exercise never
+ * holds a song: it would play to everyone (see `createCustomExercise`).
+ *
+ * A new song picked is the person's own choice, so the entry's `song_drops`
+ * go in the same write: a later Share again or Restore must not put a dropped
+ * song back over it. Count only, or no song, is not: after a drop the app
+ * itself falls back to the count, so a remembered Play on it keeps the drop
+ * and the class song still comes back.
  */
 export function setPracticeSettings(db: Db, id: number, input: PracticeInput): boolean {
 	const current = db.select().from(exercises).where(eq(exercises.id, id)).get();
 	if (!current) return false;
 	if (input.mode === 'song') {
+		if (current.teamId !== null || current.userId === null) return false;
 		const song =
 			input.songId === null
 				? null
@@ -133,37 +240,92 @@ export function setPracticeSettings(db: Db, id: number, input: PracticeInput): b
 		if (
 			!song ||
 			song.dance !== current.dance ||
-			song.userId !== current.userId ||
 			song.status !== 'ready' ||
-			song.archivedAt !== null
+			song.archivedAt !== null ||
+			!practiceSong(db, current.userId, song)
 		) {
 			return false;
 		}
 	}
-	db.update(exercises)
-		.set({
-			practiceMode: input.mode,
-			songId: input.songId,
-			countBpm: input.countBpm,
-			practiceJson: JSON.stringify(input.config)
-		})
-		.where(eq(exercises.id, id))
-		.run();
+	const chosen = input.songId !== null && input.songId !== current.songId;
+	db.transaction((tx) => {
+		tx.update(exercises)
+			.set({
+				practiceMode: input.mode,
+				songId: input.songId,
+				countBpm: input.countBpm,
+				practiceJson: JSON.stringify(input.config)
+			})
+			.where(eq(exercises.id, id))
+			.run();
+		if (chosen) tx.delete(songDrops).where(eq(songDrops.exerciseId, id)).run();
+	});
 	return true;
 }
 
 /**
  * Archive a custom exercise. Figure exercises are archived through their
  * variation (`archiveVariation`), which keeps the pair in step; refusing here is
- * what stops a live figure from losing its exercise.
+ * what stops a live figure from losing its exercise. An entry (`'added'`) is
+ * refused too: it leaves with Remove from my lessons, not here.
+ *
+ * A group's drill takes every member's entry for it along, with the same
+ * `now` (one already archived keeps its own time), and whatever else the
+ * group's shrunken reach drops (`reconcileEntries`).
  */
-export function archiveExercise(db: Db, id: number, now: number): boolean {
-	const res = db
-		.update(exercises)
-		.set({ archivedAt: now })
-		.where(and(eq(exercises.id, id), eq(exercises.source, 'custom')))
-		.run();
-	return res.changes > 0;
+export function archiveExercise(db: Db, id: number, now: number, by?: string): boolean {
+	return db.transaction((tx) => {
+		const row = tx
+			.update(exercises)
+			.set({ archivedAt: now })
+			.where(and(eq(exercises.id, id), eq(exercises.source, 'custom')))
+			.returning()
+			.get();
+		if (!row) return false;
+		if (row.teamId !== null) {
+			tx.update(exercises)
+				.set({ archivedAt: now })
+				.where(and(eq(exercises.drillId, id), isNull(exercises.archivedAt)))
+				.run();
+			reconcileEntries(tx, row.teamId, now);
+			logChange(tx, actingIn(row, by), { ...ofDrill(id), verb: 'archive', subject: 'drill' }, now);
+		}
+		return true;
+	});
+}
+
+/**
+ * Bring an archived drill back (Recently deleted), with exactly the entries
+ * its archive took: those archived at its own `archived_at` (risk 6).
+ */
+export function restoreDrill(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	return db.transaction((tx) => {
+		const drill = tx.select().from(exercises).where(eq(exercises.id, id)).get();
+		if (
+			!drill ||
+			drill.source !== 'custom' ||
+			drill.archivedAt === null ||
+			!inSpace(drill, space)
+		) {
+			return { ok: false, reason: 'gone' } as const;
+		}
+		const at = drill.archivedAt;
+		tx.update(exercises).set({ archivedAt: null }).where(eq(exercises.id, id)).run();
+		if (drill.teamId !== null) {
+			tx.update(exercises)
+				.set({ archivedAt: null })
+				.where(and(eq(exercises.drillId, id), eq(exercises.archivedAt, at)))
+				.run();
+			reviveEntries(tx, drill.teamId, at);
+		}
+		logChange(
+			tx,
+			space,
+			{ ...ofDrill(id), verb: 'restore', subject: 'drill', after: { name: drill.name } },
+			now
+		);
+		return { ok: true } as const;
+	});
 }
 
 export interface SetInput {
@@ -196,14 +358,26 @@ export function deleteSet(db: Db, id: number): boolean {
 /**
  * Sets whose instant falls in `[from, to)`, newest first. The caller widens the
  * window around a calendar day and filters with `localDay`, so which day a set
- * belongs to is decided in one place, in the user's zone.
+ * belongs to is decided in one place, in the user's zone. An entry whose
+ * group was purged is named for it (`deletedGroupName`): what it practised is
+ * archived and unreachable, and only the name says where it came from.
  */
 export function listSetsBetween(db: Db, from: number, to: number, wall: Wall): DaySet[] {
 	return db
 		.select({
 			id: sets.id,
 			exerciseId: sets.exerciseId,
-			exerciseName: exercises.name,
+			name: exercises.name,
+			// An entry whose group is purged: the group's name, found through what it practised.
+			purgedTeam: sql<string | null>`(select t.name from teams t where t.purged_at is not null
+				and t.id = coalesce(
+					(select l.team_id from lessons l where l.id = ${exercises.lessonId}),
+					(select r.team_id from routines r where r.id = ${exercises.routineId}),
+					(select f.team_id from figures f where f.id = ${exercises.figureId}),
+					(select d.team_id from exercises d where d.id = ${exercises.drillId})))`,
+			lessonTitle: sql<
+				string | null
+			>`(select l.title from lessons l where l.id = ${exercises.lessonId})`,
 			doneAt: sets.doneAt,
 			durationS: sets.durationS,
 			reps: sets.reps,
@@ -221,7 +395,11 @@ export function listSetsBetween(db: Db, from: number, to: number, wall: Wall): D
 			)
 		)
 		.orderBy(desc(sets.doneAt))
-		.all();
+		.all()
+		.map(({ name, purgedTeam, lessonTitle, ...set }) => ({
+			...set,
+			exerciseName: purgedTeam === null ? name : deletedGroupName(lessonTitle ?? name, purgedTeam)
+		}));
 }
 
 const historyRow = {

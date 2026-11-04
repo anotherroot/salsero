@@ -7,6 +7,8 @@
  */
 import { frequencyLabel } from '$lib/frequency';
 import { dateLabel } from '$lib/format';
+import { moveHeading, usedAsIs } from '$lib/clones/view';
+import { twinPickMeta } from '$lib/clones/twins';
 import { spotLabel } from '$lib/video/spots';
 import type {
 	FigureVersion,
@@ -24,17 +26,33 @@ const withLinked = (row: PickRow, linked: boolean | undefined): PickRow =>
 
 const byName = (a: string, b: string) => a.localeCompare(b);
 
-/** One heading per figure (collapse; headings alphabetical, rows in id order), rows key `figure:{id}`, label v.label, short v.name, linked when given. */
+/**
+ * One heading per figure (collapse; headings alphabetical, rows in id order), rows key `figure:{id}`, label v.label, short v.name, linked when given.
+ * A row that stands for its twins (`twins`, folded on the server) says which is used.
+ */
 export function variationEntries(vs: (FigureVersion & { linked?: boolean })[]): PickHeading[] {
 	const byGroup = new Map<number, PickHeading>();
 	for (const v of vs) {
 		let heading = byGroup.get(v.groupId);
 		if (!heading) {
-			heading = { heading: v.figure, rows: [], collapse: true };
+			heading = { heading: moveHeading(v.figure, v.team), rows: [], collapse: true };
 			byGroup.set(v.groupId, heading);
 		}
 		heading.rows.push(
-			withLinked({ key: `figure:${v.id}`, value: v.id, label: v.label, short: v.name }, v.linked)
+			withLinked(
+				{
+					key: `figure:${v.id}`,
+					value: v.id,
+					label: v.label,
+					short: v.name,
+					...(v.twins && v.twins.length > 0
+						? { meta: twinPickMeta(v, v.twins) }
+						: v.team
+							? { meta: usedAsIs(v.team.name) }
+							: {})
+				},
+				v.linked
+			)
 		);
 	}
 	for (const h of byGroup.values()) h.rows.sort((a, b) => a.value - b.value);
@@ -60,7 +78,17 @@ function routineMeta(slots: number, loops: boolean): string {
 export function routineRows(rs: (Omit<PickRoutine, 'linked'> & { linked?: boolean })[]): PickRow[] {
 	return rs.map((r) =>
 		withLinked(
-			{ key: `routine:${r.id}`, value: r.id, label: r.name, meta: routineMeta(r.slots, r.loops) },
+			{
+				key: `routine:${r.id}`,
+				value: r.id,
+				label: r.name,
+				meta:
+					r.twins && r.twins.length > 0
+						? twinPickMeta({ figure: null, team: r.team }, r.twins)
+						: r.team
+							? usedAsIs(r.team.name)
+							: routineMeta(r.slots, r.loops)
+			},
 			r.linked
 		)
 	);
@@ -68,7 +96,8 @@ export function routineRows(rs: (Omit<PickRoutine, 'linked'> & { linked?: boolea
 
 /**
  * Figures (headings by figure, short = variation), Routines, Drills (source
- * 'custom'), Lessons (source 'lesson'); meta frequencyLabel. Headings and
+ * 'custom', and 'added': an entry on a group's drill, named as the drill),
+ * Lessons (source 'lesson'); meta frequencyLabel. Headings and
  * rows alphabetical; a figure's exercises in id order under it.
  */
 export function exerciseGroups(es: PickExercise[]): PickGroup[] {
@@ -77,12 +106,12 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 		value: e.id,
 		label,
 		...(short === undefined ? {} : { short }),
-		meta: frequencyLabel(e.everyDays),
+		meta: e.team ? usedAsIs(e.team.name) : frequencyLabel(e.everyDays),
 		linked: e.linked
 	});
-	const flat = (source: PickExercise['source']): PickRow[] =>
+	const flat = (...sources: PickExercise['source'][]): PickRow[] =>
 		es
-			.filter((e) => e.source === source)
+			.filter((e) => sources.includes(e.source))
 			.map((e) => row(e, e.name))
 			.sort((a, b) => byName(a.label, b.label));
 
@@ -111,7 +140,7 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 	const groups: PickGroup[] = [
 		{ title: 'Figures', entries: figures },
 		{ title: 'Routines', entries: flat('routine') },
-		{ title: 'Drills', entries: flat('custom') },
+		{ title: 'Drills', entries: flat('custom', 'added') },
 		{ title: 'Lessons', entries: flat('lesson') }
 	];
 	return groups.filter((g) => g.entries.length > 0);
@@ -165,7 +194,8 @@ export function sectionGroups(gs: SectionGroup[], nearTitle: string): PickGroup[
  * how often. Linked targets stay, flagged.
  */
 export function linkOptionGroups(o: LinkOptions): PickGroup[] {
-	// Figure names are unique per dance, so a name stands in for the figure.
+	// Figure names are unique per dance and space, so a name and its group stand in
+	// for the figure: a group's Enchufla offered beside yours is its own heading.
 	const variations = (os: LinkOption[]) => {
 		const ids = new Map<string, number>();
 		return variationEntries(
@@ -173,13 +203,16 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 				.filter((x) => 'figureId' in x.target)
 				.map((x) => {
 					const figure = x.figure ?? '';
-					if (!ids.has(figure)) ids.set(figure, ids.size);
+					const whose = `${x.team?.id ?? ''}:${figure}`;
+					if (!ids.has(whose)) ids.set(whose, ids.size);
 					return {
 						id: (x.target as { figureId: number }).figureId,
-						groupId: ids.get(figure)!,
+						groupId: ids.get(whose)!,
 						figure,
 						name: x.name,
 						label: x.label,
+						...(x.team ? { team: x.team } : {}),
+						...(x.twins ? { twins: x.twins } : {}),
 						linked: x.linked
 					};
 				})
@@ -192,7 +225,7 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 				key: `exercise:${(x.target as { exerciseId: number }).exerciseId}`,
 				value: (x.target as { exerciseId: number }).exerciseId,
 				label: x.label,
-				meta: frequencyLabel(x.everyDays ?? 0),
+				meta: x.team ? usedAsIs(x.team.name) : frequencyLabel(x.everyDays ?? 0),
 				linked: x.linked
 			}));
 	const groups: PickGroup[] = [

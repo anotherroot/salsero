@@ -27,6 +27,11 @@ export interface Unsaved {
 	 * reload or a closed tab needs to ask.
 	 */
 	unloadOnly?: boolean;
+	/**
+	 * A form whose save is out: not dirty while it sends (a save that redirects
+	 * must not be stopped by its own navigation), but not settled either.
+	 */
+	sending?: () => boolean;
 }
 
 export function pending(
@@ -40,4 +45,11 @@ export function pending(
 		if (e.dirty()) out.push(e);
 	}
 	return out;
+}
+
+/** How many forms have a save out (`Unsaved.sending`). */
+export function sendingCount(entries: Iterable<Unsaved>): number {
+	let n = 0;
+	for (const e of entries) if (e.sending?.()) n++;
+	return n;
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { gotoWhenSettled, releaseClick } from '$lib/sheets/history.svelte';
@@ -21,15 +21,30 @@
 	 */
 	interface Props {
 		figureName: string;
+		/** The move's id: the list sheet's title links to its page. */
+		moveId: number;
 		/** Live variations, id order, the current one included. */
 		siblings: SiblingSummary[];
 		currentId: number;
 		slug: string;
 		/** `createVariation`'s refusal, if the last post was one. */
 		failed: string | null;
+		/** New variation is an editor's: a reader only steps through the ones they can see. */
+		canEdit?: boolean;
+		/** A row pinned above the switcher: a reader's Edit and Practise (board C1 p1). */
+		actions?: Snippet;
 	}
 
-	let { figureName, siblings, currentId, slug, failed }: Props = $props();
+	let {
+		figureName,
+		moveId,
+		siblings,
+		currentId,
+		slug,
+		failed,
+		canEdit = true,
+		actions
+	}: Props = $props();
 
 	let listing = $state(false);
 	let adding = $state(false);
@@ -77,6 +92,7 @@
 	const prev = $derived(byId(nav.prev));
 	const next = $derived(byId(nav.next));
 
+	const moveHref = $derived(resolve('/[dance]/moves/[id]', { dance: slug, id: String(moveId) }));
 	const href = (id: number) => resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
 	const recordings = (n: number) =>
 		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
@@ -87,6 +103,14 @@
 	 * from inside the sheet would replace the sheet's entry and leave the old
 	 * variation one Back below.
 	 */
+	/** The move's page: the list closes first, as for a picked row. */
+	function openMove(e: MouseEvent) {
+		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+		e.preventDefault();
+		listing = false;
+		void gotoWhenSettled(moveHref);
+	}
+
 	function pick(e: MouseEvent, id: number) {
 		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 		e.preventDefault();
@@ -123,12 +147,15 @@
 	its last line clears this.
 -->
 <nav
-	aria-label="Variations of {figureName}"
+	aria-label="Figures of {figureName}"
 	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5"
 	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
 >
+	{#if actions}
+		<div class="mx-auto mb-2.5 grid max-w-[560px] grid-cols-2 gap-2">{@render actions()}</div>
+	{/if}
 	<div class="mx-auto flex max-w-[560px] items-center gap-2">
-		{@render step(prev, 'Previous variation', 'chevron-left')}
+		{@render step(prev, 'Previous figure', 'chevron-left')}
 		<button
 			type="button"
 			aria-haspopup="dialog"
@@ -143,12 +170,34 @@
 			</span>
 			<span class="flex-none text-accent-text"><Icon name="chevron-up" size={18} /></span>
 		</button>
-		{@render step(next, 'Next variation', 'chevron-right')}
+		{@render step(next, 'Next figure', 'chevron-right')}
 	</div>
 </nav>
 
-<Sheet title="Variations of {figureName}" open={listing} onclose={() => (listing = false)}>
-	<ul class={GROUP} aria-label="Variations">
+{#snippet newVariation()}
+	<button type="button" class={button('secondary', 'md', true)} onclick={() => (adding = true)}
+		><Icon name="plus" size={20} />New figure</button
+	>
+{/snippet}
+
+<!-- A reader steps through the variations they can see; New variation is an editor's. -->
+{#snippet moveLink()}
+	<a
+		href={moveHref}
+		onclick={openMove}
+		class="flex min-h-8 items-center gap-0.5 self-start text-[14px] font-bold text-accent-text"
+		>Open {figureName}<Icon name="chevron-right" size={16} /></a
+	>
+{/snippet}
+
+<Sheet
+	title="Figures of {figureName}"
+	subtitle={moveLink}
+	open={listing}
+	onclose={() => (listing = false)}
+	footer={canEdit ? newVariation : undefined}
+>
+	<ul class={GROUP} aria-label="Figures">
 		{#each siblings as s (s.id)}
 			{@const here = s.id === currentId}
 			<li>
@@ -172,20 +221,9 @@
 			</li>
 		{/each}
 	</ul>
-	{#snippet footer()}
-		<button type="button" class={button('secondary', 'md', true)} onclick={() => (adding = true)}
-			><Icon name="plus" size={20} />New variation</button
-		>
-	{/snippet}
 </Sheet>
 
-<Sheet
-	title="New variation"
-	sub="of {figureName}"
-	back
-	open={adding}
-	onclose={() => (adding = false)}
->
+<Sheet title="New figure" sub="of {figureName}" back open={adding} onclose={() => (adding = false)}>
 	<!-- A success closes the sheets, then replaces this entry with the new variation (below). -->
 	<form
 		id="new-variation"
@@ -193,7 +231,7 @@
 		action="?/createVariation"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
-			label: 'New variation',
+			label: 'New figure',
 			submit: () => {
 				busy = true;
 				return async ({ update, result }) => {
@@ -245,7 +283,7 @@
 			aria-busy={busy}
 			disabled={busy}
 		>
-			{#if busy}<Spinner size={18} />{:else}<Icon name="plus" size={20} />{/if}Add variation
+			{#if busy}<Spinner size={18} />{:else}<Icon name="plus" size={20} />{/if}Add figure
 		</button>
 	{/snippet}
 </Sheet>

@@ -1,12 +1,14 @@
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { exercises, sets, songs, type Song } from './db/schema';
+import { exercises, sets, songs, teamMembers, teams, type Song } from './db/schema';
 import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
-import type { Wall } from './scope';
+import { isTeam, ownedBy, ownerValues, type Space, type Wall } from './scope';
+import { shadowedIds } from './clones/shadow';
+import { fieldChange, logChange } from './changes';
 import type { TempoFactor } from '$lib/labels';
-import type { PickerSong, SampleSong, SongItem } from '$lib/types';
+import type { ChangeValues, PickerSong, SampleSong, SongItem, TeamRef } from '$lib/types';
 
 /** A claim older than this is presumed dead (laptop slept, worker crashed) and can be retaken. */
 export const LEASE_MS = 15 * 60_000;
@@ -14,44 +16,112 @@ export const MAX_ATTEMPTS = 5;
 
 const WAITING = ['waiting_download', 'waiting_analysis'] as const;
 
+/** A song in this space, and a group's `add` in its History. */
+function insertSong(db: Db, space: Space, values: typeof songs.$inferInsert, now: number): Song {
+	return db.transaction((tx) => {
+		const song = tx
+			.insert(songs)
+			.values({ ...values, ...ownerValues(space) })
+			.returning()
+			.get();
+		logChange(
+			tx,
+			space,
+			{
+				rootKind: 'song',
+				rootId: song.id,
+				verb: 'add',
+				subject: 'song',
+				after: { name: song.title }
+			},
+			now
+		);
+		return song;
+	});
+}
+
+/** A song in this space: a person's, or a group's draft (`shared_at` null). */
 export function createSongFromUrl(
 	db: Db,
-	wall: Wall,
-	input: { url: string; title: string; style: string }
+	space: Space,
+	input: { url: string; title: string; style: string },
+	now = Date.now()
 ): Song {
-	return db
-		.insert(songs)
-		.values({
+	return insertSong(
+		db,
+		space,
+		{
 			sourceUrl: input.url,
 			title: input.title,
 			style: input.style,
-			status: 'waiting_download',
-			dance: wall.dance,
-			userId: wall.userId
-		})
-		.returning()
-		.get();
+			status: 'waiting_download'
+		},
+		now
+	);
 }
 
 export function createSongFromUpload(
 	db: Db,
-	wall: Wall,
-	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number }
+	space: Space,
+	input: { file: string; mime: string; title: string; style: string; sizeBytes?: number },
+	now = Date.now()
 ): Song {
-	return db
-		.insert(songs)
-		.values({
+	return insertSong(
+		db,
+		space,
+		{
 			audioFile: input.file,
 			mime: input.mime,
 			title: input.title,
 			style: input.style,
 			sizeBytes: input.sizeBytes ?? null,
-			status: 'waiting_analysis',
-			dance: wall.dance,
-			userId: wall.userId
-		})
-		.returning()
-		.get();
+			status: 'waiting_analysis'
+		},
+		now
+	);
+}
+
+/**
+ * Write a song's fields and, for a group's song edited in its space, log
+ * the `edit` (only the fields that changed; nothing when none did).
+ * `subject` names the change (`anchors`, `tempoFactor`) in place of the one
+ * field that changed. Null when there is no such song.
+ */
+function editSong(
+	db: Db,
+	id: number,
+	set: Partial<typeof songs.$inferInsert>,
+	space: Space | undefined,
+	now: number,
+	subject?: string
+): Song | null {
+	return db.transaction((tx) => {
+		const before = tx.select().from(songs).where(eq(songs.id, id)).get();
+		if (!before) return null;
+		const after = tx.update(songs).set(set).where(eq(songs.id, id)).returning().get();
+		if (space && isTeam(space) && before.teamId === space.teamId) {
+			const fields = (s: Song): ChangeValues =>
+				Object.fromEntries(
+					Object.keys(set).map((k) => [k, s[k as keyof Song] as string | number | null])
+				);
+			const change = fieldChange(fields(before), fields(after), 'song');
+			if (change) {
+				logChange(
+					tx,
+					space,
+					{
+						rootKind: 'song',
+						rootId: id,
+						verb: 'edit',
+						...change,
+						subject: subject ?? change.subject
+					},
+					now
+				);
+			}
+		}
+		return after;
+	});
 }
 
 export function songSample(song: Song): SampleSong | null {
@@ -71,34 +141,96 @@ export function songSample(song: Song): SampleSong | null {
 	};
 }
 
-export function listSongs(db: Db, wall: Wall): SongItem[] {
-	const recent = recentSongIds(db, wall);
+/**
+ * The live songs of one space, newest first. A group's: its drafts first, then
+ * the shared ones. Recency is a person's own practice, so a group's list has none.
+ */
+export function listSongs(db: Db, space: Space): SongItem[] {
+	const recent = isTeam(space) ? [] : recentSongIds(db, space);
 	return db
 		.select()
 		.from(songs)
-		.where(
-			and(isNull(songs.archivedAt), eq(songs.dance, wall.dance), eq(songs.userId, wall.userId))
+		.where(and(isNull(songs.archivedAt), ownedBy(songs, space)))
+		.orderBy(
+			// Drafts (no shared_at) first; a person's songs are all drafts by this rule.
+			sql`${songs.sharedAt} is not null`,
+			desc(songs.createdAt),
+			desc(songs.id)
 		)
-		.orderBy(desc(songs.createdAt), desc(songs.id))
 		.all()
-		.map((s) => {
-			const r = recent.indexOf(s.id);
-			return {
-				id: s.id,
-				title: s.title,
-				artist: s.artist,
-				style: s.style,
-				sourceUrl: s.sourceUrl,
-				status: s.status,
-				error: s.error,
-				durationS: s.durationS,
-				bpm: s.bpm,
-				tempoFactor: s.tempoFactor as TempoFactor,
-				createdAt: s.createdAt,
-				sample: s.status === 'ready' ? songSample(s) : null,
-				recentRank: s.status === 'ready' && r >= 0 ? r : null
-			};
-		});
+		.map((s) => songItem(s, recent));
+}
+
+/** A song as Music lists it; `recent` ranks a person's own (none for a group's). */
+function songItem(s: Song, recent: number[]): SongItem {
+	const r = recent.indexOf(s.id);
+	return {
+		id: s.id,
+		title: s.title,
+		artist: s.artist,
+		style: s.style,
+		sourceUrl: s.sourceUrl,
+		status: s.status,
+		error: s.error,
+		durationS: s.durationS,
+		bpm: s.bpm,
+		tempoFactor: s.tempoFactor as TempoFactor,
+		createdAt: s.createdAt,
+		sample: s.status === 'ready' ? songSample(s) : null,
+		recentRank: s.status === 'ready' && r >= 0 ? r : null,
+		sharedAt: s.sharedAt
+	};
+}
+
+/**
+ * The class playlists in a person's Music: the shared, live songs of each
+ * live group of this dance they belong to now, a section per group by name,
+ * each A–Z. Never a draft, editors included: drafts show only in group mode.
+ */
+export function listSharedSongs(
+	db: Db,
+	userId: string,
+	dance: Space['dance']
+): { team: TeamRef; songs: SongItem[] }[] {
+	const rows = db
+		.select({ song: songs, teamId: teams.id, teamName: teams.name })
+		.from(songs)
+		.innerJoin(teams, eq(teams.id, songs.teamId))
+		.innerJoin(
+			teamMembers,
+			and(eq(teamMembers.teamId, songs.teamId), eq(teamMembers.userId, userId))
+		)
+		.where(
+			and(
+				isNull(songs.archivedAt),
+				isNotNull(songs.sharedAt),
+				isNull(songs.userId),
+				eq(songs.dance, dance),
+				eq(teams.dance, dance),
+				isNull(teams.deletedAt),
+				isNull(teams.purgedAt)
+			)
+		)
+		.orderBy(teams.name, teams.id, songs.title, songs.id)
+		.all();
+	const out: { team: TeamRef; songs: SongItem[] }[] = [];
+	// Yours replaces theirs: a class song you made your own copy of shows in your list.
+	const hidden = shadowedIds(
+		db,
+		{ userId, dance },
+		'song',
+		rows.map((r) => r.song.id)
+	);
+	for (const r of rows) {
+		if (hidden.has(r.song.id)) continue;
+		let section = out.at(-1);
+		if (section?.team.id !== r.teamId) {
+			section = { team: { id: r.teamId, name: r.teamName }, songs: [] };
+			out.push(section);
+		}
+		section.songs.push(songItem(r.song, []));
+	}
+	return out;
 }
 
 /**
@@ -106,9 +238,10 @@ export function listSongs(db: Db, wall: Wall): SongItem[] {
  * distinct, ready and unarchived only (so a song the picker will not show
  * cannot eat a slot). The window is the latest 200 sets of the dance, bounded
  * first; song ids are read from their JSON in code, so a malformed row is
- * skipped rather than throwing.
+ * skipped rather than throwing. The person's own songs, or with `among`, the
+ * songs the caller offers (the picker's, a group's shared ones included).
  */
-export function recentSongIds(db: Db, wall: Wall, limit = 5): number[] {
+export function recentSongIds(db: Db, wall: Wall, limit = 5, among?: Set<number>): number[] {
 	const rows = db
 		.select({ playerJson: sets.playerJson })
 		.from(sets)
@@ -123,22 +256,24 @@ export function recentSongIds(db: Db, wall: Wall, limit = 5): number[] {
 		if (id !== null && !seen.includes(id)) seen.push(id);
 	}
 	if (seen.length === 0) return [];
-	const visible = new Set(
-		db
-			.select({ id: songs.id })
-			.from(songs)
-			.where(
-				and(
-					inArray(songs.id, seen),
-					isNull(songs.archivedAt),
-					eq(songs.status, 'ready'),
-					eq(songs.dance, wall.dance),
-					eq(songs.userId, wall.userId)
+	const visible =
+		among ??
+		new Set(
+			db
+				.select({ id: songs.id })
+				.from(songs)
+				.where(
+					and(
+						inArray(songs.id, seen),
+						isNull(songs.archivedAt),
+						eq(songs.status, 'ready'),
+						eq(songs.dance, wall.dance),
+						eq(songs.userId, wall.userId)
+					)
 				)
-			)
-			.all()
-			.map((x) => x.id)
-	);
+				.all()
+				.map((x) => x.id)
+		);
 	return seen.filter((id) => visible.has(id)).slice(0, limit);
 }
 
@@ -152,10 +287,15 @@ function songIdOf(json: string | null): number | null {
 	}
 }
 
-/** Ready, unarchived songs of one wall, for the song popup: by title, with their sample and recency. */
+/**
+ * The song popup's songs, ready and unarchived, with their sample and
+ * recency: the person's own by title, then the shared songs of each group of
+ * this dance they are in now, by group name and title, `group` naming it.
+ * Never a draft, editors included: only a shared song may go in a person's
+ * practice (`practiceSong`), and the player's `?song=` checks this list.
+ */
 export function songChoices(db: Db, wall: Wall): PickerSong[] {
-	const recent = recentSongIds(db, wall);
-	const rows = db
+	const own = db
 		.select()
 		.from(songs)
 		.where(
@@ -167,9 +307,34 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 			)
 		)
 		.orderBy(songs.title)
+		.all()
+		.map((song) => ({ song, group: null as string | null, groupId: null as number | null }));
+	const shared = db
+		.select({ song: songs, group: teams.name, groupId: teams.id })
+		.from(songs)
+		.innerJoin(teams, eq(teams.id, songs.teamId))
+		.innerJoin(
+			teamMembers,
+			and(eq(teamMembers.teamId, songs.teamId), eq(teamMembers.userId, wall.userId))
+		)
+		.where(
+			and(
+				isNull(songs.archivedAt),
+				eq(songs.status, 'ready'),
+				eq(songs.dance, wall.dance),
+				isNotNull(songs.sharedAt),
+				isNull(songs.userId),
+				eq(teams.dance, wall.dance),
+				isNull(teams.deletedAt),
+				isNull(teams.purgedAt)
+			)
+		)
+		.orderBy(teams.name, teams.id, songs.title)
 		.all();
+	const rows = [...own, ...shared];
+	const recent = recentSongIds(db, wall, 5, new Set(rows.map((r) => r.song.id)));
 	const out: PickerSong[] = [];
-	for (const s of rows) {
+	for (const { song: s, group, groupId } of rows) {
 		const sample = songSample(s);
 		if (!sample) continue;
 		const rank = recent.indexOf(s.id);
@@ -181,22 +346,33 @@ export function songChoices(db: Db, wall: Wall): PickerSong[] {
 			bpm: s.bpm ? Math.round(s.bpm * s.tempoFactor) : null,
 			durationS: s.durationS,
 			sample,
-			recentRank: rank < 0 ? null : rank
+			recentRank: rank < 0 ? null : rank,
+			group,
+			groupId
 		});
 	}
 	return out;
 }
 
-/** Where the user wants the sample to start, or null for automatic. False, and nothing written, when out of range. */
-export function setSampleStart(db: Db, id: number, startS: number | null): boolean {
+/**
+ * Where the user wants the sample to start, or null for automatic. False, and
+ * nothing written, when out of range. A group's song, edited in its space, is
+ * logged (`editSong`).
+ */
+export function setSampleStart(
+	db: Db,
+	id: number,
+	startS: number | null,
+	space?: Space,
+	now = Date.now()
+): boolean {
 	const song = getSong(db, id);
 	if (!song) return false;
 	if (startS !== null) {
 		if (!Number.isFinite(startS) || startS < 0) return false;
 		if (song.durationS !== null && startS >= song.durationS) return false;
 	}
-	db.update(songs).set({ sampleStartS: startS }).where(eq(songs.id, id)).run();
-	return true;
+	return editSong(db, id, { sampleStartS: startS }, space, now) !== null;
 }
 
 export function getSong(db: Db, id: number): Song | null {
@@ -210,9 +386,11 @@ export function getSongByAudioFile(db: Db, file: string): Song | null {
 export function updateSongMeta(
 	db: Db,
 	id: number,
-	input: { title: string; artist: string | null; style: string }
+	input: { title: string; artist: string | null; style: string },
+	space?: Space,
+	now = Date.now()
 ): Song | null {
-	return db.update(songs).set(input).where(eq(songs.id, id)).returning().get() ?? null;
+	return editSong(db, id, input, space, now);
 }
 
 export function archiveSong(db: Db, id: number, now: number): boolean {
@@ -247,16 +425,28 @@ export function retrySong(db: Db, id: number): Song | null {
 	);
 }
 
-export function setAnchors(db: Db, id: number, anchors: number[]): void {
-	db.update(songs)
-		.set({ anchorsJson: JSON.stringify(anchors) })
-		.where(eq(songs.id, id))
-		.run();
+/** The count's anchors (a tap, a removal, Reset). False when there is no such song. */
+export function setAnchors(
+	db: Db,
+	id: number,
+	anchors: number[],
+	space?: Space,
+	now = Date.now()
+): boolean {
+	const set = { anchorsJson: JSON.stringify(anchors) };
+	return editSong(db, id, set, space, now, 'anchors') !== null;
 }
 
 /** Beat indices mean something different at another tempo factor, so the anchors go too. */
-export function setTempoFactor(db: Db, id: number, factor: TempoFactor): void {
-	db.update(songs).set({ tempoFactor: factor, anchorsJson: '[]' }).where(eq(songs.id, id)).run();
+export function setTempoFactor(
+	db: Db,
+	id: number,
+	factor: TempoFactor,
+	space?: Space,
+	now = Date.now()
+): boolean {
+	const set = { tempoFactor: factor, anchorsJson: '[]' };
+	return editSong(db, id, set, space, now, 'tempoFactor') !== null;
 }
 
 export interface Job {

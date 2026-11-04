@@ -3,9 +3,11 @@
 	import { tick } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
+	import { isClash } from '$lib/clash/clash';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { staleFailure } from '$lib/page-epoch';
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import LessonFields from '$lib/components/lessons/LessonFields.svelte';
@@ -18,6 +20,7 @@
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
 	import { linkSubmit as makeLinkSubmit } from '$lib/picker/link-submit';
+	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
 	import AppUploadLink from '$lib/components/ui/AppUploadLink.svelte';
@@ -27,6 +30,7 @@
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
+	import LinkList from '$lib/components/links/LinkList.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
@@ -57,6 +61,7 @@
 		deleteVideoBody,
 		exerciseMeta,
 		figureMeta,
+		yoursMeta,
 		reviewMeta,
 		routineMeta,
 		sectionHeading,
@@ -64,9 +69,15 @@
 	} from '$lib/lessons/page';
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
+	import AddSheet from '$lib/components/teams/AddSheet.svelte';
+	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
+	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import { cloneSubtitle } from '$lib/clones/view';
+	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
-	import type { ViaSection } from '$lib/types';
+	import { reportOpen } from '$lib/teams/opens-api';
+	import type { AddOffer, ViaSection } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -121,6 +132,18 @@
 
 	// --- Archive, behind a question.
 	let archiving = $state(false);
+	// A group lesson's Add sheet, its menu (Remove from my lessons) and the question before removing.
+	/** The Add sheet's offer, kept as opened: once the Add lands the page's is gone. */
+	let adding = $state<{ offer: AddOffer; fresh: boolean } | null>(null);
+	function openAdd() {
+		if (data.add?.offer) adding = { offer: data.add.offer, fresh: data.add.added };
+	}
+	let lessonMenu = $state(false);
+	/** A reader's Edit, or the deleted group's banner: the Make it mine sheet (ruling 12). */
+	let makingMine = $state(false);
+	let removing = $state(false);
+	let removeBusy = $state(false);
+	let notNowBusy = $state(false);
 	let archiveBusy = $state(false);
 	let archiveError = $state<string | null>(null);
 	const messageOf = (data: unknown, fallback: string) => {
@@ -179,14 +202,26 @@
 	} | null>(null);
 
 	const lesson = $derived(data.lesson);
+	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
+	const sourcePlace = $derived(
+		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
+	);
+	// Shown, not preloaded: a group's lesson counts as opened here, and again after
+	// the editor's own Publish reloads the data with a new publishedAt.
+	$effect(() => {
+		if (data.team) {
+			void lesson.publishedAt;
+			reportOpen('lesson', lesson.id);
+		}
+	});
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const LessonLog = logFor('lesson');
 	const failure = (action: string) => (form?.action === action ? form.message : null);
 
-	/** The "+ New figure" sheet's switch: a figure of its own, or a variation of one. */
+	/** The "+ New figure" sheet's switch: a move of its own, or a figure of one. */
 	const FIGURE_MODES = [
-		{ value: 'figure', label: 'New figure' },
-		{ value: 'variation', label: 'Variation of a figure' }
+		{ value: 'figure', label: 'New move' },
+		{ value: 'variation', label: 'New figure in a move' }
 	];
 	let figureMode = $state<string>('figure');
 	/** Which of the three create sheets is posting: its footer button spins. */
@@ -233,14 +268,14 @@
 			};
 		};
 	}
-	/** The figure "Variation of a figure" adds to: a `figure_groups` id, as its field posts it. */
+	/** The move "New figure in a move" adds to: a `figure_groups` id, as its field posts it. */
 	let variationOf = $state<number | null>(null);
 	// What a refused `newVariation` posted, so the sheet reopens holding it.
 	const variationTyped = $derived(form && 'groupId' in form ? form : null);
 	/** What a create sheet's name field starts with: the picker's search, or a refused post. */
 	let typed = $state({ figureName: '', name: '', notes: '' });
 
-	/** The figures this lesson teaches, by hand or through a section: "Variation of a figure" offers them first. */
+	/** The moves this lesson teaches, by hand or through a section: "New figure in a move" offers them first. */
 	const taughtGroups = $derived.by(() => {
 		const linked = new Set(data.figures.map((f) => f.id));
 		return new Set(data.linkableFigures.filter((f) => linked.has(f.id)).map((f) => f.groupId));
@@ -251,7 +286,7 @@
 			entries: figureRows(data.figureGroups.filter((g) => taughtGroups.has(g.id)))
 		},
 		{
-			title: 'Figures',
+			title: 'Moves',
 			entries: figureRows(data.figureGroups.filter((g) => !taughtGroups.has(g.id)))
 		}
 	]);
@@ -311,6 +346,8 @@
 	$effect(() => {
 		if (form?.action !== 'update' || !('message' in form) || typeof form.message !== 'string')
 			return;
+		// Someone else saved it, or it went: the clash sheet's, holding what was typed.
+		if (isClash(form)) return;
 		refusal = {
 			field: (form as { field?: LessonField }).field ?? null,
 			message: form.message,
@@ -358,6 +395,7 @@
 		opening += 1;
 		added = 0;
 		pickMessage = null;
+		archivedPick = null;
 		picking = kind;
 	}
 
@@ -366,7 +404,19 @@
 		picking = null;
 		added = 0;
 		pickMessage = null;
+		archivedPick = null;
 	}
+
+	/** The last row sent, so a refusal for something archived since can Restore it and link again. */
+	let lastPick: { kind: LinkKind; row: PickRow; keep: boolean } | null = null;
+	/** "Archived by Ana": Restore (and link) or Pick another. */
+	let archivedPick = $state<{
+		kind: LinkKind;
+		row: PickRow;
+		keep: boolean;
+		restorable: boolean;
+	} | null>(null);
+	let restoring = $state(false);
 
 	function link(kind: LinkKind, row: PickRow, keep: boolean) {
 		const f = linkForms[kind];
@@ -375,6 +425,7 @@
 		if (!(input instanceof HTMLInputElement)) return;
 		input.value = String(row.value);
 		sending = { key: row.key, label: row.label, keep };
+		lastPick = { kind, row, keep };
 		f.requestSubmit();
 	}
 
@@ -386,10 +437,49 @@
 		},
 		opening: () => opening,
 		inFlight,
-		setMessage: (m) => (pickMessage = m),
+		setMessage: (m) => {
+			pickMessage = m;
+			if (m === null) archivedPick = null;
+		},
 		added: () => (added += 1),
-		close: closePicker
+		close: closePicker,
+		archived: (sent, restorable) => {
+			const p = lastPick;
+			archivedPick = p && p.row.key === sent.key ? { ...p, restorable } : null;
+		}
 	});
+
+	/** Restore what was archived since, then make the link that was refused. */
+	async function restoreAndLink() {
+		const a = archivedPick;
+		if (!a || restoring) return;
+		restoring = true;
+		const refused = await restoreArchived({
+			[LINK[a.kind].field]: Number(a.row.value)
+		} as ArchivedTarget);
+		restoring = false;
+		archivedPick = null;
+		if (refused) {
+			pickMessage = refused;
+			return;
+		}
+		pickMessage = null;
+		link(a.kind, a.row, a.keep);
+	}
+
+	/** The picker's "Archived by" choices, for the open picker of this kind. */
+	function archivedChoice(kind: LinkKind) {
+		const a = archivedPick;
+		if (!a || a.kind !== kind) return null;
+		return {
+			restoring,
+			onrestore: a.restorable ? restoreAndLink : undefined,
+			onpickanother: () => {
+				archivedPick = null;
+				pickMessage = null;
+			}
+		};
+	}
 
 	/** A create row's button: the page's own sheet, on top of the still-open picker. */
 	function createFrom(kind: LinkKind, key: string, query: string) {
@@ -411,10 +501,50 @@
 
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
 
+{#snippet draftBand()}
+	<!-- A group's draft: only its editors see it, until one of them publishes it. -->
+	<div class="flex items-center gap-3">
+		<Badge tone="warn" solid>Draft</Badge>
+		<span class="min-w-0 flex-1 text-[13px] font-semibold text-band-small"
+			>Only the group's editors see it</span
+		>
+		{#if data.canEdit}
+			<form method="POST" action="?/publish" use:enhance>
+				<button type="submit" class={button('secondary', 'sm')}>Publish</button>
+			</form>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet addBand()}
+	<!-- A published group lesson not yet in the person's own Lessons. -->
+	<div class="flex items-center gap-3">
+		<span class="min-w-0 flex-1 text-[13px] font-semibold text-band-small"
+			>Not in your lessons yet</span
+		>
+		<button type="button" class={button('secondary', 'sm')} aria-haspopup="dialog" onclick={openAdd}
+			>Add</button
+		>
+	</div>
+{/snippet}
+
 <Screen
 	compact
 	title={lesson.title}
-	subtitle={editing ? 'Editing' : fullDateLabel(lesson.lessonDay)}
+	subtitle={editing
+		? 'Editing'
+		: data.team
+			? `${fullDateLabel(lesson.lessonDay)} · ${data.team.name}`
+			: [fullDateLabel(lesson.lessonDay), cloneSubtitle(data.cloneLine)]
+					.filter((x) => x !== null)
+					.join(' · ')}
+	extra={editing
+		? undefined
+		: data.draft
+			? draftBand
+			: data.add && !data.add.added && data.add.offer
+				? addBand
+				: undefined}
 >
 	{#snippet left()}
 		{#if editing}
@@ -429,18 +559,41 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
-		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. -->
-		{#if !editing}
+		{#if !editing && (data.add?.added || data.historyHref)}
+			<BandButton icon="more" label="Lesson menu" onclick={() => (lessonMenu = true)} />
+		{/if}
+		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader's pencil makes it theirs. -->
+		{#if !editing && data.canEdit}
 			<BandButton
 				focusKey="start-editing"
 				icon="pencil"
 				label="Edit lesson"
 				onclick={startEditing}
 			/>
+		{:else if !editing && data.makeMine}
+			<!-- A reader's Edit makes the lesson theirs (ruling 12: once Make my own copy). -->
+			<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
 		{/if}
 	{/snippet}
-
 	<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
+		{#if !editing}
+			<SourceTabs
+				sources={data.sources}
+				kind="lesson"
+				dance={data.dance.slug}
+				current={lesson.id}
+				mineId={data.mineId}
+				compare={data.compare}
+				family={data.family}
+				drop={data.drop}
+				detach={data.detach}
+				copy={data.copyTo}
+				sameAs={data.sameAs}
+				move={data.move}
+				taking={sourcePlace}
+			/>
+		{/if}
+		{#if failure('publish')}<Banner kind="error">{failure('publish')}</Banner>{/if}
 		{#if editing}
 			{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}
 			<!-- `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
@@ -453,6 +606,8 @@
 				class="flex flex-col gap-3.5"
 				use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
 			>
+				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
 				{#if refusal && !refusal.field}<Banner kind="error">{refusal.message}</Banner>{/if}
 				<LessonFields
 					lessonDay={refusal?.entered?.lessonDay ?? lesson.lessonDay}
@@ -476,6 +631,61 @@
 				>
 			</div>
 		{:else}
+			{#if data.notice}
+				{@const notice = data.notice}
+				<!-- The group is being deleted: read-only until the purge, with a way to keep it. -->
+				<Banner kind={notice.tone}>
+					{notice.text}
+					{#snippet action()}
+						{#if data.makeMine}
+							<button
+								type="button"
+								class={button('tertiary', 'sm')}
+								aria-haspopup="dialog"
+								onclick={() => (makingMine = true)}>{notice.action}</button
+							>
+						{/if}
+					{/snippet}
+				</Banner>
+			{/if}
+			{#if data.edited}<p class="text-[13px] font-semibold text-muted">{data.edited}</p>{/if}
+			{#if data.add?.added && data.add.offer}
+				<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
+				<div
+					class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-accent-soft py-2 pr-2 pl-4"
+				>
+					<span class="min-w-0 flex-1 text-[15px] font-bold text-accent-text"
+						>{newLine(data.add.offer.items)}</span
+					>
+					<form
+						method="POST"
+						action="?/notNow"
+						use:enhance={() => {
+							notNowBusy = true;
+							return async ({ update }) => {
+								try {
+									await update();
+								} finally {
+									notNowBusy = false;
+								}
+							};
+						}}
+					>
+						<button
+							type="submit"
+							class={button('tertiary', 'sm')}
+							aria-busy={notNowBusy}
+							disabled={notNowBusy}>Not now</button
+						>
+					</form>
+					<button
+						type="button"
+						class={button('primary', 'sm')}
+						aria-haspopup="dialog"
+						onclick={openAdd}>Add</button
+					>
+				</div>
+			{/if}
 			{#if lesson.notes}
 				<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
 					<h2 class="text-[13px] font-bold text-muted">Notes</h2>
@@ -534,15 +744,15 @@
 						{#each data.videos as video, i (video.id)}
 							{@const videoSections = data.sections[video.id] ?? []}
 							{#snippet videoTrash()}
-								<button
-									data-focus="video-{video.id}"
-									type="button"
-									aria-label="Delete video {i + 1}"
-									aria-haspopup="dialog"
-									class={iconButton('bare', 'danger')}
-									onclick={() => askDeleteVideo(video.id, videoSections)}
-									><Icon name="trash" size={22} /></button
-								>
+								{#if data.canEdit}<button
+										data-focus="video-{video.id}"
+										type="button"
+										aria-label="Delete video {i + 1}"
+										aria-haspopup="dialog"
+										class={iconButton('bare', 'danger')}
+										onclick={() => askDeleteVideo(video.id, videoSections)}
+										><Icon name="trash" size={22} /></button
+									>{/if}
 							{/snippet}
 							<li class="{CLIP} rounded-[22px] bg-surface">
 								{#if broken[video.id] === 'missing'}
@@ -580,8 +790,9 @@
 										caption={lessonVideoCaption(i, video)}
 										onproblem={(p) => (broken = { ...broken, [video.id]: p })}
 										onclosed={() => void refreshWhenSettled()}
-										linking
-										action={videoTrash}
+										linking={data.canEdit}
+										canEdit={data.canEdit}
+										action={data.canEdit ? videoTrash : undefined}
 										sections={videoSections}
 									/>
 								{/if}
@@ -596,41 +807,50 @@
 									sections={videoSections}
 									src="/lesson-videos/{video.file}"
 									owner={{ lessonVideoId: video.id }}
-									linking
+									linking={data.canEdit}
+									canEdit={data.canEdit}
 								/>
 							</li>
 						{/each}
 					</ul>
 				{/if}
-				<div class={data.videos.length ? 'mt-3' : ''}>
-					{#if data.app}
-						<AppUploadLink
-							kind="dashed"
-							href={uploadLink(
-								{ lesson: lesson.id },
-								{ back: page.url.pathname, name: lesson.title }
-							)}
-							label="Add videos"
-						/>
-					{:else}
-						<ChunkedUploadButton
-							uploadUrl="/api/lessons/{lesson.id}/videos"
-							accept="video/*"
-							label="Add videos"
-							maxBytes={MAX_LESSON_VIDEO_BYTES}
-						/>
+				{#if !data.canEdit}
+					{#if data.videos.length === 0}
+						<p class="px-1 text-[15px] text-muted">No videos yet.</p>
 					{/if}
-				</div>
+				{:else}<div class={data.videos.length ? 'mt-3' : ''}>
+						{#if data.app}
+							<AppUploadLink
+								kind="dashed"
+								href={uploadLink(
+									{ lesson: lesson.id },
+									{ back: page.url.pathname, name: lesson.title }
+								)}
+								label="Add videos"
+							/>
+						{:else}
+							<ChunkedUploadButton
+								uploadUrl="/api/lessons/{lesson.id}/videos"
+								accept="video/*"
+								label="Add videos"
+								maxBytes={MAX_LESSON_VIDEO_BYTES}
+							/>
+						{/if}
+					</div>{/if}
 			</section>
 			<section class="flex flex-col gap-2 pt-2.5">
 				<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
-				<LinksEditor
-					compact
-					links={data.links}
-					canSave
-					message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
-					entered={form && 'urls' in form ? String(form.urls) : ''}
-				/>
+				{#if data.canEdit}
+					<LinksEditor
+						compact
+						links={data.links}
+						canSave
+						message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
+						entered={form && 'urls' in form ? String(form.urls) : ''}
+					/>
+				{:else}
+					<LinkList compact links={data.links} />
+				{/if}
 			</section>
 			<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
 			<div class="flex flex-col gap-2.5 pt-2.5">
@@ -646,14 +866,14 @@
 										data-focus="figure-{figure.id}"
 										href={resolve('/[dance]/figures/[id]', {
 											dance: data.dance.slug,
-											id: String(figure.id)
+											id: String(figure.mineId ?? figure.id)
 										})}
 										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 									>
 										{@render itemText(
 											figure.name,
 											viaBadge(figure.viaSections),
-											figureMeta(figure)
+											yoursMeta(figureMeta(figure), figure.mineId)
 										)}
 									</a>
 									{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
@@ -661,11 +881,13 @@
 							{/each}
 						</ul>
 					{/if}
-					<PickerOpener
-						data-focus="figure-add"
-						label="Link an existing figure…"
-						onclick={() => openPicker('figure')}
-					/>
+					{#if data.canEdit}
+						<PickerOpener
+							data-focus="figure-add"
+							label="Link an existing figure…"
+							onclick={() => openPicker('figure')}
+						/>
+					{/if}
 				</section>
 				<section class="flex flex-col gap-2">
 					{@render labelRow(sectionHeading('Routines', data.routines.length), 'routine', () =>
@@ -679,11 +901,15 @@
 										data-focus="routine-{routine.id}"
 										href={resolve('/[dance]/routines/[id]', {
 											dance: data.dance.slug,
-											id: String(routine.id)
+											id: String(routine.mineId ?? routine.id)
 										})}
 										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 									>
-										{@render itemText(routine.name, null, routineMeta(routine))}
+										{@render itemText(
+											routine.name,
+											null,
+											yoursMeta(routineMeta(routine), routine.mineId)
+										)}
 									</a>
 									<!-- A routine never reaches a lesson through a section. -->
 									{@render unlinkButton('routine', routine.id, routine.name, [])}
@@ -691,11 +917,13 @@
 							{/each}
 						</ul>
 					{/if}
-					<PickerOpener
-						data-focus="routine-add"
-						label="Link an existing routine…"
-						onclick={() => openPicker('routine')}
-					/>
+					{#if data.canEdit}
+						<PickerOpener
+							data-focus="routine-add"
+							label="Link an existing routine…"
+							onclick={() => openPicker('routine')}
+						/>
+					{/if}
 				</section>
 				<section class="flex flex-col gap-2">
 					{@render labelRow(sectionHeading('Exercises', data.exercises.length), 'exercise', () =>
@@ -709,22 +937,25 @@
 										data-focus="exercise-{exercise.id}"
 										href={resolve('/[dance]/exercises/[id]', {
 											dance: data.dance.slug,
-											id: String(exercise.id)
+											id: String(exercise.mineId ?? exercise.id)
 										})}
 										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 									>
 										{@render itemText(
 											exercise.name,
 											viaBadge(exercise.viaSections),
-											exerciseMeta(exercise)
+											yoursMeta(exerciseMeta(exercise), exercise.mineId)
 										)}
 									</a>
-									<!-- The "+" is an icon, so bare accent is allowed. -->
-									<a
-										href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
-										class={iconButton('bare', 'accent')}
-										aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
-									>
+									<!-- The "+" is an icon, so bare accent is allowed. A group's drill is
+									     logged through each person's own entry, never from here. -->
+									{#if !data.team}
+										<a
+											href={resolve(`/${data.dance.slug}/exercises/${exercise.id}?log=1`)}
+											class={iconButton('bare', 'accent')}
+											aria-label="Log a set of {exercise.name}"><Icon name="plus" size={24} /></a
+										>
+									{/if}
 									{@render unlinkButton(
 										'exercise',
 										exercise.id,
@@ -735,11 +966,13 @@
 							{/each}
 						</ul>
 					{/if}
-					<PickerOpener
-						data-focus="exercise-add"
-						label="Link an existing exercise…"
-						onclick={() => openPicker('exercise')}
-					/>
+					{#if data.canEdit}
+						<PickerOpener
+							data-focus="exercise-add"
+							label="Link an existing exercise…"
+							onclick={() => openPicker('exercise')}
+						/>
+					{/if}
 				</section>
 			</div>
 		{/if}
@@ -786,7 +1019,8 @@
 								...videoRefused,
 								[id]: messageOf(result.data, 'That video could not be deleted.')
 							};
-							await invalidateAll();
+							// Not on a stale page's refusal: the reload would be held back for good.
+							if (!staleFailure(result)) await invalidateAll();
 						} else {
 							await update();
 						}
@@ -812,10 +1046,109 @@
 	{/snippet}
 </Dialog>
 
+{#if adding}
+	<AddSheet
+		open={true}
+		onclose={() => (adding = null)}
+		title={lesson.title}
+		lessonId={lesson.id}
+		offer={adding.offer}
+		action="?/add"
+		fresh={adding.fresh}
+	/>
+{/if}
+
+{#if data.makeMine}
+	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
+{/if}
+
+{#if data.add?.added || data.historyHref}
+	<Sheet title={lesson.title} open={lessonMenu} onclose={() => (lessonMenu = false)}>
+		<div class={GROUP}>
+			{#if data.historyHref}
+				<a
+					href={resolve('/[dance]/groups/[id]/history/[kind]/[rootId]', {
+						dance: data.dance.slug,
+						id: String(data.team?.id),
+						kind: 'lesson',
+						rootId: String(lesson.id)
+					})}
+					class="flex min-h-14 w-full items-center gap-3 px-4 py-2 text-left active:bg-step"
+				>
+					<span class="flex-none text-accent-text"><Icon name="clock" size={22} /></span>
+					<span class="text-[16px] font-bold text-ink">History</span>
+				</a>
+			{/if}
+			{#if data.add?.added}
+				<button
+					type="button"
+					class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
+					aria-haspopup="dialog"
+					onclick={() => {
+						lessonMenu = false;
+						removing = true;
+					}}
+				>
+					<span class="flex-none text-danger"><Icon name="trash" size={22} /></span>
+					<span class="text-[16px] font-bold text-danger">Remove from my lessons</span>
+				</button>
+			{/if}
+		</div>
+	</Sheet>
+
+	<Dialog
+		open={removing}
+		title="Remove from your lessons?"
+		body="What it put on Today goes, unless another lesson you have holds it. Your logs are kept."
+		icon="trash"
+		tone="danger"
+		onclose={() => (removing = false)}
+	>
+		{#snippet actions()}
+			<button type="button" class={button('tertiary', 'sm')} onclick={() => (removing = false)}
+				>Cancel</button
+			>
+			<form
+				method="POST"
+				action="?/remove"
+				use:enhance={() => {
+					removeBusy = true;
+					return async ({ update, result }) => {
+						if (result.type === 'redirect') {
+							removing = false;
+							await tick();
+							await leaveRemoved(result.location);
+							removeBusy = false;
+							return;
+						}
+						try {
+							await update();
+						} finally {
+							removeBusy = false;
+							removing = false;
+						}
+					};
+				}}
+			>
+				<button
+					type="submit"
+					class={button('danger', 'sm')}
+					aria-busy={removeBusy}
+					disabled={removeBusy}
+				>
+					{#if removeBusy}<Spinner /><span class="sr-only">Removing…</span>{:else}Remove{/if}
+				</button>
+			</form>
+		{/snippet}
+	</Dialog>
+{/if}
+
 <Dialog
 	open={archiving}
 	title="Archive this lesson?"
-	body="Its review exercise goes too. The videos, links and sets are kept."
+	body={data.team
+		? 'The videos and links are kept.'
+		: 'Its review exercise goes too. The videos, links and sets are kept.'}
 	icon="warning"
 	tone="danger"
 	onclose={() => (archiving = false)}
@@ -875,9 +1208,11 @@
 {#snippet labelRow(heading: string, what: LinkKind, onclick: () => void)}
 	<div class="flex items-center justify-between pr-1">
 		<h2 class={SECTION_LABEL}>{heading}</h2>
-		<button type="button" class={button('tertiary', 'sm')} aria-label="New {what}" {onclick}
-			><Icon name="plus" size={18} />New</button
-		>
+		{#if data.canEdit}
+			<button type="button" class={button('tertiary', 'sm')} aria-label="New {what}" {onclick}
+				><Icon name="plus" size={18} />New</button
+			>
+		{/if}
 	</div>
 {/snippet}
 
@@ -893,7 +1228,9 @@
 
 <!-- A row there by hand unlinks at once; one there through a section asks first, and takes the section links too. -->
 {#snippet unlinkButton(kind: LinkKind, id: number, name: string, via: ViaSection[])}
-	{#if via.length > 0}
+	{#if !data.canEdit}
+		<!-- A reader unlinks nothing. -->
+	{:else if via.length > 0}
 		<button
 			type="button"
 			aria-haspopup="dialog"
@@ -920,75 +1257,81 @@
 	{/if}
 {/snippet}
 
-<!-- What a picker's tap and + post: one-tap link actions, filled in by `link()`. -->
-{#each LINK_KINDS as kind (kind)}
-	<form
-		bind:this={linkForms[kind]}
-		method="POST"
-		action={LINK[kind].action}
-		hidden
-		use:enhance={linkSubmit}
-	>
-		<input type="hidden" name={LINK[kind].field} />
-	</form>
-{/each}
+<!-- Linking and making things are an editor's: a reader gets none of the pickers or sheets. -->
+{#if data.canEdit}
+	<!-- What a picker's tap and + post: one-tap link actions, filled in by `link()`. -->
+	{#each LINK_KINDS as kind (kind)}
+		<form
+			bind:this={linkForms[kind]}
+			method="POST"
+			action={LINK[kind].action}
+			hidden
+			use:enhance={linkSubmit}
+		>
+			<input type="hidden" name={LINK[kind].field} />
+		</form>
+	{/each}
 
-<Picker
-	open={picking === 'figure'}
-	title="Link a figure"
-	placeholder="Search figures"
-	kind="link"
-	pending={inFlight}
-	groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
-	nothingLeft="There are no figures yet."
-	create={[
-		{ key: 'figure', label: 'Figure' },
-		{ key: 'variation', label: 'Variation' }
-	]}
-	{added}
-	message={picking === 'figure' ? pickMessage : null}
-	onpick={(row) => link('figure', row, false)}
-	onadd={(row) => link('figure', row, true)}
-	oncreate={(key, query) => createFrom('figure', key, query)}
-	ondone={closePicker}
-	onclose={closePicker}
-/>
+	<Picker
+		open={picking === 'figure'}
+		title="Link a figure"
+		placeholder="Search figures"
+		kind="link"
+		pending={inFlight}
+		groups={[{ title: 'Figures', entries: variationEntries(data.linkableFigures) }]}
+		nothingLeft="There are no figures yet."
+		create={[
+			{ key: 'figure', label: 'Move' },
+			{ key: 'variation', label: 'Figure' }
+		]}
+		{added}
+		message={picking === 'figure' ? pickMessage : null}
+		archived={picking === 'figure' ? archivedChoice('figure') : null}
+		onpick={(row) => link('figure', row, false)}
+		onadd={(row) => link('figure', row, true)}
+		oncreate={(key, query) => createFrom('figure', key, query)}
+		ondone={closePicker}
+		onclose={closePicker}
+	/>
 
-<Picker
-	open={picking === 'routine'}
-	title="Link a routine"
-	placeholder="Search routines"
-	kind="link"
-	pending={inFlight}
-	groups={[{ title: 'Routines', entries: routineRows(data.linkableRoutines) }]}
-	nothingLeft="There are no routines yet."
-	create={[{ key: 'routine', label: 'Routine' }]}
-	{added}
-	message={picking === 'routine' ? pickMessage : null}
-	onpick={(row) => link('routine', row, false)}
-	onadd={(row) => link('routine', row, true)}
-	oncreate={(key, query) => createFrom('routine', key, query)}
-	ondone={closePicker}
-	onclose={closePicker}
-/>
+	<Picker
+		open={picking === 'routine'}
+		title="Link a routine"
+		placeholder="Search routines"
+		kind="link"
+		pending={inFlight}
+		groups={[{ title: 'Routines', entries: routineRows(data.linkableRoutines) }]}
+		nothingLeft="There are no routines yet."
+		create={[{ key: 'routine', label: 'Routine' }]}
+		{added}
+		message={picking === 'routine' ? pickMessage : null}
+		archived={picking === 'routine' ? archivedChoice('routine') : null}
+		onpick={(row) => link('routine', row, false)}
+		onadd={(row) => link('routine', row, true)}
+		oncreate={(key, query) => createFrom('routine', key, query)}
+		ondone={closePicker}
+		onclose={closePicker}
+	/>
 
-<Picker
-	open={picking === 'exercise'}
-	title="Link an exercise"
-	placeholder="Search exercises"
-	kind="link"
-	pending={inFlight}
-	groups={exerciseGroups(data.linkableExercises)}
-	nothingLeft="Nothing left to link. A figure’s or routine’s exercise lives under it."
-	create={[{ key: 'exercise', label: 'Exercise' }]}
-	{added}
-	message={picking === 'exercise' ? pickMessage : null}
-	onpick={(row) => link('exercise', row, false)}
-	onadd={(row) => link('exercise', row, true)}
-	oncreate={(key, query) => createFrom('exercise', key, query)}
-	ondone={closePicker}
-	onclose={closePicker}
-/>
+	<Picker
+		open={picking === 'exercise'}
+		title="Link an exercise"
+		placeholder="Search exercises"
+		kind="link"
+		pending={inFlight}
+		groups={exerciseGroups(data.linkableExercises)}
+		nothingLeft="Nothing left to link. A figure’s or routine’s exercise lives under it."
+		create={[{ key: 'exercise', label: 'Exercise' }]}
+		{added}
+		message={picking === 'exercise' ? pickMessage : null}
+		archived={picking === 'exercise' ? archivedChoice('exercise') : null}
+		onpick={(row) => link('exercise', row, false)}
+		onadd={(row) => link('exercise', row, true)}
+		oncreate={(key, query) => createFrom('exercise', key, query)}
+		ondone={closePicker}
+		onclose={closePicker}
+	/>
+{/if}
 
 {#if logging && data.popup}
 	<LessonLog
@@ -1006,134 +1349,133 @@
 	/>
 {/if}
 
-<Sheet
-	title={figureMode === 'figure' ? 'New figure' : 'New variation'}
-	open={addingFigure}
-	onclose={() => (addingFigure = false)}
->
-	<div class="flex flex-col gap-3">
-		<Segmented name="make" label="Make" items={FIGURE_MODES} bind:value={figureMode} />
-		<!-- One form per mode: each is guarded against its own first paint, so the switch alone is never "unsaved".
+{#if data.canEdit}
+	<Sheet title="New figure" open={addingFigure} onclose={() => (addingFigure = false)}>
+		<div class="flex flex-col gap-3">
+			<Segmented name="make" label="Make" items={FIGURE_MODES} bind:value={figureMode} />
+			<!-- One form per mode: each is guarded against its own first paint, so the switch alone is never "unsaved".
 		     `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
-		{#if figureMode === 'figure'}
-			<form
-				id="lesson-new-figure"
-				method="POST"
-				action="?/newFigure"
-				novalidate
-				class="flex flex-col gap-3"
-				use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
+			{#if figureMode === 'figure'}
+				<form
+					id="lesson-new-figure"
+					method="POST"
+					action="?/newFigure"
+					novalidate
+					class="flex flex-col gap-3"
+					use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
+				>
+					{#if bannerOf('newFigure')}<Banner kind="error">{bannerOf('newFigure')}</Banner>{/if}
+					<FigureFields
+						dance={data.dance}
+						figureName={typed.figureName}
+						name={typed.name}
+						notes={typed.notes}
+						style={data.defaultStyle}
+						errors={errorsOf('newFigure')}
+					/>
+				</form>
+			{:else}
+				{@const groupError = errorsOf('newVariation').groupId}
+				<form
+					id="lesson-new-variation"
+					method="POST"
+					action="?/newVariation"
+					novalidate
+					class="flex flex-col gap-3"
+					use:guarded={{ label: 'New figure', submit: closeFigureSheet }}
+				>
+					{#if bannerOf('newVariation')}<Banner kind="error">{bannerOf('newVariation')}</Banner
+						>{/if}
+					{#if data.figureGroups.length === 0}
+						<p class="text-[13px] text-muted">There are no moves yet.</p>
+					{:else}
+						<div>
+							<PickerField
+								name="groupId"
+								label="Move"
+								placeholder="Choose a move…"
+								title="Choose a move"
+								search="Search moves"
+								groups={variationGroups}
+								nothingLeft="There are no moves yet."
+								bind:value={variationOf}
+								required
+							/>
+							<p class="mt-1.5 pl-1 text-[13px] text-muted">Moves in this lesson come first</p>
+							{#if groupError}<FieldError
+									id="lesson-variation-group-error"
+									message={groupError}
+								/>{/if}
+						</div>
+					{/if}
+					<FigureFields
+						dance={data.dance}
+						asksFigureName={false}
+						name={typed.name}
+						style={data.defaultStyle}
+						notes={typed.notes}
+						errors={errorsOf('newVariation')}
+					/>
+				</form>
+			{/if}
+		</div>
+
+		{#snippet footer()}
+			{@const busy = creatingBusy === 'figure'}
+			<button
+				type="submit"
+				form={figureMode === 'figure' ? 'lesson-new-figure' : 'lesson-new-variation'}
+				class={button('primary', 'md', true)}
+				disabled={figureMode === 'variation' && data.figureGroups.length === 0}
+				aria-busy={busy}
+				aria-label={busy ? 'Adding' : undefined}
 			>
-				{#if bannerOf('newFigure')}<Banner kind="error">{bannerOf('newFigure')}</Banner>{/if}
-				<FigureFields
-					dance={data.dance}
-					figureName={typed.figureName}
-					name={typed.name}
-					notes={typed.notes}
-					style={data.defaultStyle}
-					errors={errorsOf('newFigure')}
-				/>
-			</form>
-		{:else}
-			{@const groupError = errorsOf('newVariation').groupId}
-			<form
-				id="lesson-new-variation"
-				method="POST"
-				action="?/newVariation"
-				novalidate
-				class="flex flex-col gap-3"
-				use:guarded={{ label: 'New variation', submit: closeFigureSheet }}
+				{#if busy}<Spinner />{:else}Add figure{/if}
+			</button>
+		{/snippet}
+	</Sheet>
+
+	<Sheet
+		title="New routine from this lesson"
+		sub="Linked here, then opened to build its slots"
+		open={addingRoutine}
+		onclose={() => (addingRoutine = false)}
+	>
+		{@render createFields('lesson-new-routine', '?/newRoutine', 'New routine', 'newRoutine')}
+		{#snippet footer()}
+			{@const busy = creatingBusy === 'routine'}
+			<button
+				type="submit"
+				form="lesson-new-routine"
+				class={button('primary', 'md', true)}
+				aria-busy={busy}
+				aria-label={busy ? 'Adding routine' : undefined}
 			>
-				{#if bannerOf('newVariation')}<Banner kind="error">{bannerOf('newVariation')}</Banner>{/if}
-				{#if data.figureGroups.length === 0}
-					<p class="text-[13px] text-muted">There are no figures yet.</p>
-				{:else}
-					<div>
-						<PickerField
-							name="groupId"
-							label="Figure"
-							placeholder="Choose a figure…"
-							title="Choose a figure"
-							search="Search figures"
-							groups={variationGroups}
-							nothingLeft="There are no figures yet."
-							bind:value={variationOf}
-							required
-						/>
-						<p class="mt-1.5 pl-1 text-[13px] text-muted">Figures in this lesson come first</p>
-						{#if groupError}<FieldError
-								id="lesson-variation-group-error"
-								message={groupError}
-							/>{/if}
-					</div>
-				{/if}
-				<FigureFields
-					dance={data.dance}
-					asksFigureName={false}
-					name={typed.name}
-					style={data.defaultStyle}
-					notes={typed.notes}
-					errors={errorsOf('newVariation')}
-				/>
-			</form>
-		{/if}
-	</div>
+				{#if busy}<Spinner />{:else}Add routine and build it{/if}
+			</button>
+		{/snippet}
+	</Sheet>
 
-	{#snippet footer()}
-		{@const busy = creatingBusy === 'figure'}
-		<button
-			type="submit"
-			form={figureMode === 'figure' ? 'lesson-new-figure' : 'lesson-new-variation'}
-			class={button('primary', 'md', true)}
-			disabled={figureMode === 'variation' && data.figureGroups.length === 0}
-			aria-busy={busy}
-			aria-label={busy ? 'Adding' : undefined}
-		>
-			{#if busy}<Spinner />{:else}{figureMode === 'figure' ? 'Add figure' : 'Add variation'}{/if}
-		</button>
-	{/snippet}
-</Sheet>
-
-<Sheet
-	title="New routine from this lesson"
-	sub="Linked here, then opened to build its slots"
-	open={addingRoutine}
-	onclose={() => (addingRoutine = false)}
->
-	{@render createFields('lesson-new-routine', '?/newRoutine', 'New routine', 'newRoutine')}
-	{#snippet footer()}
-		{@const busy = creatingBusy === 'routine'}
-		<button
-			type="submit"
-			form="lesson-new-routine"
-			class={button('primary', 'md', true)}
-			aria-busy={busy}
-			aria-label={busy ? 'Adding routine' : undefined}
-		>
-			{#if busy}<Spinner />{:else}Add routine and build it{/if}
-		</button>
-	{/snippet}
-</Sheet>
-
-<Sheet
-	title="New exercise from this lesson"
-	open={addingExercise}
-	onclose={() => (addingExercise = false)}
->
-	{@render createFields('lesson-new-exercise', '?/newExercise', 'New exercise', 'newExercise')}
-	{#snippet footer()}
-		{@const busy = creatingBusy === 'exercise'}
-		<button
-			type="submit"
-			form="lesson-new-exercise"
-			class={button('primary', 'md', true)}
-			aria-busy={busy}
-			aria-label={busy ? 'Adding exercise' : undefined}
-		>
-			{#if busy}<Spinner />{:else}Add exercise{/if}
-		</button>
-	{/snippet}
-</Sheet>
+	<Sheet
+		title="New exercise from this lesson"
+		open={addingExercise}
+		onclose={() => (addingExercise = false)}
+	>
+		{@render createFields('lesson-new-exercise', '?/newExercise', 'New exercise', 'newExercise')}
+		{#snippet footer()}
+			{@const busy = creatingBusy === 'exercise'}
+			<button
+				type="submit"
+				form="lesson-new-exercise"
+				class={button('primary', 'md', true)}
+				aria-busy={busy}
+				aria-label={busy ? 'Adding exercise' : undefined}
+			>
+				{#if busy}<Spinner />{:else}Add exercise{/if}
+			</button>
+		{/snippet}
+	</Sheet>
+{/if}
 
 <!-- The routine and exercise sheets' form: Name, How often, Notes. A success of
      the routine's redirects to its page, where its slots are built. -->

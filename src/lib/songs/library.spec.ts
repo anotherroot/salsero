@@ -2,8 +2,19 @@ import { describe, expect, it } from 'vitest';
 import type { SongItem } from '$lib/types';
 import {
 	audioFileProblem,
+	classLibraryView,
+	classSongNote,
 	countOnlyMeta,
+	deleteSongBody,
+	deleteSongTitle,
+	groupSectionHeading,
+	groupSections,
 	libraryView,
+	sharedMeta,
+	songDeleteWarning,
+	songUseWarning,
+	stopSharingBody,
+	stopSharingTitle,
 	megabytes,
 	readyMeta,
 	songName,
@@ -29,6 +40,7 @@ function song(id: number, title: string, over: Partial<SongItem> = {}): SongItem
 		createdAt: id,
 		sample: null,
 		recentRank: null,
+		sharedAt: null,
 		...over
 	};
 }
@@ -152,5 +164,103 @@ describe('words', () => {
 		expect(megabytes(62.4 * MiB)).toBe('62');
 		expect(megabytes(0.4 * MiB)).toBe('0.4');
 		expect(uploadMeta(6 * MiB, 9.7 * MiB)).toBe('Uploading · 6 of 9.7 MB · keep the app open');
+	});
+});
+
+describe('class songs', () => {
+	it('warns how many people practise with the song', () => {
+		expect(songUseWarning(1)).toBe(
+			"Used in 1 person's practice. They'll switch to count only until you share it again."
+		);
+		expect(songUseWarning(4)).toBe(
+			"Used in 4 people's practice. They'll switch to count only until you share it again."
+		);
+	});
+
+	it('warns Delete that Restore brings it back', () => {
+		expect(songDeleteWarning(1)).toBe(
+			"Used in 1 person's practice. They'll switch to count only until you restore it."
+		);
+		expect(songDeleteWarning(4)).toBe(
+			"Used in 4 people's practice. They'll switch to count only until you restore it."
+		);
+	});
+
+	it('lists the group’s songs: Being added, Drafts, then Shared with the class', () => {
+		const songs = [
+			song(5, 'Waiting', { status: 'waiting_download' }),
+			song(4, 'Zeta', { sharedAt: 9 }),
+			song(3, 'Beta'),
+			song(2, 'Alpha', { sharedAt: 8 }),
+			song(1, 'Gamma')
+		];
+		const view = classLibraryView(songs, '', false);
+		if (view.kind !== 'class') throw new Error(view.kind);
+		expect(ids(view.adding)).toEqual([5]);
+		expect(ids(view.drafts)).toEqual([3, 1]);
+		expect(ids(view.shared)).toEqual([2, 4]);
+		expect(view.addingHeading).toBe('Being added · 1');
+		expect(view.draftsHeading).toBe('Drafts · 2');
+		expect(view.sharedHeading).toBe('Shared with the class · 2');
+		expect(view.worker).toBe(true);
+	});
+
+	it('is empty only with no song and no upload, and searches like Music', () => {
+		expect(classLibraryView([], '', false).kind).toBe('empty');
+		expect(classLibraryView([], '', true).kind).toBe('class');
+		// A query is always a search, own songs or none, so no match never reads "No songs yet".
+		expect(libraryView([], 'x', false)).toMatchObject({ kind: 'search', hits: [] });
+		const view = classLibraryView(
+			[song(1, 'Chan Chan', { sharedAt: 1 }), song(2, 'Other')],
+			'chan',
+			false
+		);
+		expect(view.kind === 'search' && ids(view.hits)).toEqual([1]);
+	});
+
+	it('words a shared song’s meta with how many use it', () => {
+		const s = song(1, 'x', { tempoFactor: 1, bpm: 180, durationS: 200 });
+		expect(sharedMeta(s, L, 0)).toBe('Salsa · 180 BPM · 3:20');
+		expect(sharedMeta(s, L, 3)).toBe('Salsa · 180 BPM · 3:20 · used by 3');
+	});
+
+	it('words a group’s section, the read-only note and the sheets', () => {
+		expect(groupSectionHeading('Salsa Tuesdays', 6)).toBe('Salsa Tuesdays · 6');
+		expect(classSongNote('Salsa Tuesdays')).toBe(
+			"Salsa Tuesdays's song. The count is the teacher's."
+		);
+		expect(stopSharingTitle('Chan Chan')).toBe('Stop sharing Chan Chan?');
+		expect(deleteSongTitle('Chan Chan')).toBe('Delete Chan Chan?');
+	});
+});
+
+describe('groupSections', () => {
+	const groups = [
+		{ team: { id: 1, name: 'Salsa Tuesdays' }, songs: [song(2, 'Zeta'), song(1, 'Chan Chan')] },
+		{ team: { id: 2, name: 'Other' }, songs: [song(3, 'Elsewhere')] }
+	];
+
+	it('heads each group with its count, its songs A–Z', () => {
+		const out = groupSections(groups, '');
+		expect(out.map((g) => g.heading)).toEqual(['Salsa Tuesdays · 2', 'Other · 1']);
+		expect(ids(out[0].songs)).toEqual([1, 2]);
+	});
+
+	it('keeps only the matches, and drops a group with none', () => {
+		const out = groupSections(groups, 'chan');
+		expect(out.map((g) => [g.heading, ids(g.songs)])).toEqual([['Salsa Tuesdays · 1', [1]]]);
+	});
+});
+
+describe('Stop sharing and Delete', () => {
+	it('warn only when members practise with the song', () => {
+		expect(stopSharingBody(0)).toBe('Members no longer see it, and it is a draft again.');
+		expect(stopSharingBody(2)).toBe(
+			"Members no longer see it, and it is a draft again. Used in 2 people's practice. They'll switch to count only until you share it again."
+		);
+		expect(deleteSongBody(0)).toBe('It goes to Recently deleted for 30 days.');
+		expect(deleteSongBody(1)).toBe(
+			"It goes to Recently deleted for 30 days. Used in 1 person's practice. They'll switch to count only until you restore it."
+		);
 	});
 });

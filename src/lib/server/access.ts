@@ -1,0 +1,597 @@
+/**
+ * Who may see or change a group's rows. One module, built on one derived set:
+ * what a person reaches through the group's published lessons (`reach`).
+ *
+ * A person's own row is theirs to edit and nobody else's to see. A group's row
+ * is editable by its editors and owner while the group lives; readable when it
+ * is in the person's reach; otherwise it is not there at all (the routes answer
+ * a missing row's 404). Reach is computed per call, never stored: like urgency,
+ * it is a function of the rows.
+ *
+ * Imports only the schema, `teams.ts` and `lesson-links.ts`, so `scope.ts` and
+ * the content modules can use it without an import cycle.
+ */
+import { error } from '@sveltejs/kit';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import type { Db } from './db';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessonAdds,
+	lessonExercises,
+	lessonFigures,
+	lessonRoutines,
+	lessons,
+	lessonVideos,
+	recordings,
+	routines,
+	routineStepOptions,
+	routineSteps,
+	teamMembers,
+	videoSpots
+} from './db/schema';
+import type { SpotOwner, TeamRef } from '$lib/types';
+import type { Wall } from './scope';
+import { viaSections } from './lesson-links';
+import { getTeam, roleOf } from './teams';
+
+/** What a person can read of one group: ids, archived rows left out. */
+export type Reach = {
+	lessons: Set<number>;
+	variations: Set<number>;
+	figures: Set<number>;
+	routines: Set<number>;
+	drills: Set<number>;
+	recordings: Set<number>;
+};
+
+export type Access = 'edit' | 'read' | null;
+
+const RANK = { read: 1, edit: 2 } as const;
+
+/** Whether `access` is at least `need`. */
+export function allows(access: Access, need: 'read' | 'edit'): boolean {
+	return access !== null && RANK[access] >= RANK[need];
+}
+
+const empty = (): Reach => ({
+	lessons: new Set(),
+	variations: new Set(),
+	figures: new Set(),
+	routines: new Set(),
+	drills: new Set(),
+	recordings: new Set()
+});
+
+/**
+ * The group's lessons this person reads through membership: every published,
+ * unarchived one for a member of the living group; once it is deleted, until
+ * the purge, the ones a member added (ruling 4); nothing for anyone else.
+ * Someone who left or was removed reads nothing of the group: Keep gave them
+ * their own copies instead.
+ */
+function lessonsReached(db: Db, userId: string, teamId: number): number[] {
+	const team = getTeam(db, teamId);
+	if (!team || team.purgedAt !== null) return [];
+	if (team.deletedAt === null && roleOf(db, userId, teamId) !== null) {
+		return db
+			.select({ id: lessons.id })
+			.from(lessons)
+			.where(
+				and(eq(lessons.teamId, teamId), isNotNull(lessons.publishedAt), isNull(lessons.archivedAt))
+			)
+			.all()
+			.map((r) => r.id);
+	}
+	// Not a member of the living group: a member of the deleted one keeps their
+	// added lessons; anyone without a membership row gets none (`addedLessonIds`).
+	return team.deletedAt !== null ? addedLessonIds(db, userId, teamId) : [];
+}
+
+/**
+ * Everything these lessons contain, closed under "contains" (risk 7): the
+ * variations linked by hand or through a section, and their figures and
+ * recordings; the routines linked by hand, the routines embedded in those, and
+ * every variation in their slots; the drills, by hand or through a section.
+ * Only the group's own rows count, and archived ones drop out — an archived
+ * routine takes what only it held with it.
+ */
+export function reachFrom(db: Db, teamId: number, lessonIds: number[]): Reach {
+	const out = empty();
+	if (lessonIds.length === 0) return out;
+	for (const id of lessonIds) out.lessons.add(id);
+
+	const variationIds = new Set<number>();
+	const drillIds = new Set<number>();
+	for (const r of db
+		.select({ id: lessonFigures.figureId })
+		.from(lessonFigures)
+		.where(inArray(lessonFigures.lessonId, lessonIds))
+		.all())
+		variationIds.add(r.id);
+	for (const r of db
+		.select({ id: lessonExercises.exerciseId })
+		.from(lessonExercises)
+		.where(inArray(lessonExercises.lessonId, lessonIds))
+		.all())
+		drillIds.add(r.id);
+	for (const id of lessonIds) {
+		const via = viaSections(db, id);
+		for (const f of via.figures.keys()) variationIds.add(f);
+		for (const e of via.exercises.keys()) drillIds.add(e);
+	}
+
+	// Routines: the hand-linked ones, then whatever their slots embed, until
+	// nothing new turns up (embedding is one level today; the loop does not care).
+	const liveRoutines = (ids: number[]) =>
+		ids.length === 0
+			? []
+			: db
+					.select({ id: routines.id })
+					.from(routines)
+					.where(
+						and(inArray(routines.id, ids), eq(routines.teamId, teamId), isNull(routines.archivedAt))
+					)
+					.all()
+					.map((r) => r.id);
+	let frontier = liveRoutines(
+		db
+			.select({ id: lessonRoutines.routineId })
+			.from(lessonRoutines)
+			.where(inArray(lessonRoutines.lessonId, lessonIds))
+			.all()
+			.map((r) => r.id)
+	);
+	while (frontier.length > 0) {
+		for (const id of frontier) out.routines.add(id);
+		const children = db
+			.select({ id: routineSteps.childRoutineId })
+			.from(routineSteps)
+			.where(and(inArray(routineSteps.routineId, frontier), isNotNull(routineSteps.childRoutineId)))
+			.all()
+			.map((r) => r.id!)
+			.filter((id) => !out.routines.has(id));
+		frontier = liveRoutines([...new Set(children)]);
+	}
+	if (out.routines.size > 0) {
+		for (const r of db
+			.select({ id: routineStepOptions.figureId })
+			.from(routineStepOptions)
+			.innerJoin(routineSteps, eq(routineSteps.id, routineStepOptions.stepId))
+			.where(inArray(routineSteps.routineId, [...out.routines]))
+			.all())
+			variationIds.add(r.id);
+	}
+
+	if (variationIds.size > 0) {
+		const live = db
+			.select({ id: figures.id, groupId: figures.groupId })
+			.from(figures)
+			.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+			.where(
+				and(
+					inArray(figures.id, [...variationIds]),
+					eq(figures.teamId, teamId),
+					isNull(figures.archivedAt),
+					isNull(figureGroups.archivedAt)
+				)
+			)
+			.all();
+		for (const v of live) {
+			out.variations.add(v.id);
+			out.figures.add(v.groupId!);
+		}
+	}
+	if (out.variations.size > 0) {
+		for (const r of db
+			.select({ id: recordings.id })
+			.from(recordings)
+			.where(inArray(recordings.figureId, [...out.variations]))
+			.all())
+			out.recordings.add(r.id);
+	}
+	if (drillIds.size > 0) {
+		for (const r of db
+			.select({ id: exercises.id })
+			.from(exercises)
+			.where(
+				and(
+					inArray(exercises.id, [...drillIds]),
+					eq(exercises.teamId, teamId),
+					eq(exercises.source, 'custom'),
+					isNull(exercises.archivedAt)
+				)
+			)
+			.all())
+			out.drills.add(r.id);
+	}
+	return out;
+}
+
+/** What the group's members reach through its published, live lessons. */
+export function publishedReach(db: Db, teamId: number): Reach {
+	const ids = db
+		.select({ id: lessons.id })
+		.from(lessons)
+		.where(
+			and(eq(lessons.teamId, teamId), isNotNull(lessons.publishedAt), isNull(lessons.archivedAt))
+		)
+		.all()
+		.map((r) => r.id);
+	return reachFrom(db, teamId, ids);
+}
+
+/**
+ * The group's lessons this person has ADDED that still count: published,
+ * live, the group not purged, and the person still in it (a deleted group's
+ * members included, until the purge). Someone who left or was removed has
+ * none, whatever `lesson_adds` still holds (Keep removes those; people who
+ * left before Keep are settled at boot). Their entries on the group's things
+ * are valid only while one of these holds the target (ruling R8). Sorted by id.
+ */
+export function addedLessonIds(db: Db, userId: string, teamId: number): number[] {
+	const team = getTeam(db, teamId);
+	if (!team || team.purgedAt !== null || heldRole(db, userId, teamId) === null) return [];
+	return db
+		.select({ id: lessons.id })
+		.from(lessonAdds)
+		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+		.where(
+			and(
+				eq(lessonAdds.userId, userId),
+				eq(lessons.teamId, teamId),
+				isNotNull(lessons.publishedAt),
+				isNull(lessons.archivedAt)
+			)
+		)
+		.all()
+		.map((r) => r.id)
+		.sort((a, b) => a - b);
+}
+
+/** What this person's added lessons of this group hold: what their entries there may practise. */
+export function addedReach(db: Db, userId: string, teamId: number): Reach {
+	return reachFrom(db, teamId, addedLessonIds(db, userId, teamId));
+}
+
+/** What this person reads of this group through its published lessons. */
+export function reach(db: Db, userId: string, teamId: number): Reach {
+	return reachFrom(db, teamId, lessonsReached(db, userId, teamId));
+}
+
+type Owned = { userId: string | null; teamId: number | null };
+
+/**
+ * The role a person holds in a group, deleted or not: `roleOf` answers null
+ * for an editor of a deleted group, and access needs the role they held.
+ */
+function heldRole(db: Db, userId: string, teamId: number): string | null {
+	const row = db
+		.select({ role: teamMembers.role })
+		.from(teamMembers)
+		.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+		.get();
+	return row?.role ?? null;
+}
+
+/**
+ * A row's access as far as owning it decides, or 'reach' when it rests on
+ * what the person's lessons of the group reach. Editors and the owner edit
+ * everything the group owns while it lives; once it is deleted, until the
+ * purge, they only read it, drafts included, so they can make their own copy
+ * of their work (ruling R25); anyone else reads what is in their reach. A
+ * purged group gives nothing to anyone. A row with two owners is no one's
+ * (`ownerIntegrity` reports it).
+ */
+function byOwner(db: Db, userId: string, row: Owned): Access | 'reach' {
+	if (row.teamId === null) return row.userId !== null && row.userId === userId ? 'edit' : null;
+	if (row.userId !== null) return null;
+	const team = getTeam(db, row.teamId);
+	if (!team || team.purgedAt !== null) return null;
+	const role = heldRole(db, userId, row.teamId);
+	if (role === 'editor' || role === 'owner') return team.deletedAt === null ? 'edit' : 'read';
+	return 'reach';
+}
+
+function judgeRow(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Judged {
+	const owned = byOwner(db, userId, row);
+	if (owned !== 'reach') return { access: owned, reach: null };
+	const r = reach(db, userId, row.teamId!);
+	return inReach(r) ? { access: 'read', reach: r } : { access: null, reach: null };
+}
+
+function rowAccess(db: Db, userId: string, row: Owned, inReach: (r: Reach) => boolean): Access {
+	return judgeRow(db, userId, row, inReach).access;
+}
+
+/**
+ * A row's access, with the reach that decided it. `reach` is what a reader's
+ * page may list of the group's things (risk 20), computed once on the way to
+ * the answer so a page never computes it twice; null when nothing needs
+ * leaving out — a person's own row, an editor or the owner (of a deleted
+ * group too, who reads all of it) — and when there is no access at all.
+ */
+export type Judged = { access: Access; reach: Reach | null };
+
+export function judgeLesson(db: Db, userId: string, lesson: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, lesson, (r) => r.lessons.has(lesson.id));
+}
+
+export function judgeFigure(db: Db, userId: string, figure: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, figure, (r) => r.variations.has(figure.id));
+}
+
+/** A move (a `figure_groups` row), judged as `figureGroupAccess` but with the reach that decided it. */
+export function judgeMove(db: Db, userId: string, group: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, group, (r) => r.figures.has(group.id));
+}
+
+export function judgeRoutine(db: Db, userId: string, routine: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, routine, (r) => r.routines.has(routine.id));
+}
+
+export function judgeDrill(db: Db, userId: string, exercise: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, exercise, (r) => r.drills.has(exercise.id));
+}
+
+/** The kinds `teamReader` answers for: a variation, a routine, a drill, a lesson. */
+export type ReadKind = 'figure' | 'routine' | 'drill' | 'lesson';
+
+/**
+ * Whether a person reads a row of one group, for every row of it at once:
+ * `figureAccess`, `routineAccess`, `drillAccess` and `lessonAccess` answer
+ * the same for each, but this decides the owner part and computes the reach
+ * once, so a check over many rows (`crossRefs`) is not one reach per row.
+ */
+export function teamReader(
+	db: Db,
+	userId: string,
+	teamId: number
+): (kind: ReadKind, id: number) => boolean {
+	const owned = byOwner(db, userId, { userId: null, teamId });
+	if (owned !== 'reach') {
+		const reads = owned !== null;
+		return () => reads;
+	}
+	return readerOf(reach(db, userId, teamId));
+}
+
+function readerOf(r: Reach): (kind: ReadKind, id: number) => boolean {
+	const sets: Record<ReadKind, Set<number>> = {
+		figure: r.variations,
+		routine: r.routines,
+		drill: r.drills,
+		lesson: r.lessons
+	};
+	return (kind, id) => sets[kind].has(id);
+}
+
+/**
+ * `teamReader` for many people of one group, each decided once: every plain
+ * member of a living group reads exactly the published reach, so it is
+ * computed once for all of them (`lessonsReached`' member branch); anyone
+ * else (an editor, someone out of the group, a deleted group's members) is
+ * `teamReader`'s own answer. For checks over many people (the rescue).
+ */
+export function teamReaders(
+	db: Db,
+	teamId: number
+): (userId: string) => (kind: ReadKind, id: number) => boolean {
+	const team = getTeam(db, teamId);
+	const plain = team !== null && team.deletedAt === null && team.purgedAt === null;
+	let shared: ((kind: ReadKind, id: number) => boolean) | null = null;
+	const cache = new Map<string, (kind: ReadKind, id: number) => boolean>();
+	return (userId) => {
+		let reader = cache.get(userId);
+		if (reader) return reader;
+		if (plain && heldRole(db, userId, teamId) === 'member') {
+			reader = shared ??= readerOf(publishedReach(db, teamId));
+		} else {
+			reader = teamReader(db, userId, teamId);
+		}
+		cache.set(userId, reader);
+		return reader;
+	};
+}
+
+/** A video named by its spot owner, judged as its recording's variation or its lesson. */
+export function judgeVideo(db: Db, userId: string, video: SpotOwner): Judged {
+	if ('recordingId' in video) {
+		const row = db
+			.select({ userId: figures.userId, teamId: figures.teamId })
+			.from(recordings)
+			.innerJoin(figures, eq(figures.id, recordings.figureId))
+			.where(eq(recordings.id, video.recordingId))
+			.get();
+		return row
+			? judgeRow(db, userId, row, (r) => r.recordings.has(video.recordingId))
+			: { access: null, reach: null };
+	}
+	const lesson = db
+		.select({ id: lessons.id, userId: lessons.userId, teamId: lessons.teamId })
+		.from(lessonVideos)
+		.innerJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+		.where(eq(lessonVideos.id, video.lessonVideoId))
+		.get();
+	return lesson ? judgeLesson(db, userId, lesson) : { access: null, reach: null };
+}
+
+/**
+ * A lesson: an editor's drafts included; a member's only once published and in
+ * reach. A lesson is in reach exactly when it is one of the lessons reached
+ * (`reachFrom` adds them as they are), so this skips the closure: the media
+ * servers ask it on every Range request.
+ */
+export function lessonAccess(db: Db, userId: string, lesson: Owned & { id: number }): Access {
+	const owned = byOwner(db, userId, lesson);
+	if (owned !== 'reach') return owned;
+	return lessonsReached(db, userId, lesson.teamId!).includes(lesson.id) ? 'read' : null;
+}
+
+/** A variation (a `figures` row). */
+export function figureAccess(db: Db, userId: string, figure: Owned & { id: number }): Access {
+	return rowAccess(db, userId, figure, (r) => r.variations.has(figure.id));
+}
+
+/** A figure (a `figure_groups` row): in reach when one of its variations is. */
+export function figureGroupAccess(db: Db, userId: string, group: Owned & { id: number }): Access {
+	return rowAccess(db, userId, group, (r) => r.figures.has(group.id));
+}
+
+export function routineAccess(db: Db, userId: string, routine: Owned & { id: number }): Access {
+	return rowAccess(db, userId, routine, (r) => r.routines.has(routine.id));
+}
+
+/**
+ * An exercise row. A person's own (a drill, an entry, any source) is theirs to
+ * edit; a group's (only ever a drill) follows the group's rules.
+ */
+export function drillAccess(db: Db, userId: string, exercise: Owned & { id: number }): Access {
+	return rowAccess(db, userId, exercise, (r) => r.drills.has(exercise.id));
+}
+
+/** A recording: its variation's owner, and in reach when its variation is. */
+export function recordingAccess(
+	db: Db,
+	userId: string,
+	recording: { id: number; figureId: number }
+): Access {
+	const figure = db
+		.select({ userId: figures.userId, teamId: figures.teamId })
+		.from(figures)
+		.where(eq(figures.id, recording.figureId))
+		.get();
+	if (!figure) return null;
+	return rowAccess(db, userId, figure, (r) => r.recordings.has(recording.id));
+}
+
+/** A lesson video: exactly its lesson's access. */
+export function lessonVideoAccess(db: Db, userId: string, video: { lessonId: number }): Access {
+	const lesson = db
+		.select({ id: lessons.id, userId: lessons.userId, teamId: lessons.teamId })
+		.from(lessons)
+		.where(eq(lessons.id, video.lessonId))
+		.get();
+	return lesson ? lessonAccess(db, userId, lesson) : null;
+}
+
+/**
+ * A song. A person's own is theirs to edit. A group's: its owner and editors
+ * edit it, drafts included, while the group lives; a current member reads it
+ * once it is shared and not archived. A song is not reached through lessons,
+ * so leaving the group ends it; and a deleted group's songs reach nobody, its
+ * owner and editors included (unlike its lessons and figures, R25). A row with
+ * two owners is no one's.
+ */
+export function songAccess(
+	db: Db,
+	userId: string,
+	song: {
+		userId: string | null;
+		teamId: number | null;
+		sharedAt: number | null;
+		archivedAt: number | null;
+	}
+): Access {
+	if (song.teamId === null) return song.userId !== null && song.userId === userId ? 'edit' : null;
+	if (song.userId !== null) return null;
+	const team = getTeam(db, song.teamId);
+	if (!team || team.deletedAt !== null || team.purgedAt !== null) return null;
+	const role = roleOf(db, userId, song.teamId);
+	if (role === 'owner' || role === 'editor') return 'edit';
+	if (role === 'member' && song.sharedAt !== null && song.archivedAt === null) return 'read';
+	return null;
+}
+
+/**
+ * Whether a person's own practice entry may hold this song: one they may
+ * open (`songAccess`), and for a group's song only while it is shared and not
+ * deleted, editors included, so a draft never ends up in anyone's practice.
+ */
+export function practiceSong(
+	db: Db,
+	userId: string,
+	song: {
+		userId: string | null;
+		teamId: number | null;
+		sharedAt: number | null;
+		archivedAt: number | null;
+	}
+): boolean {
+	if (songAccess(db, userId, song) === null) return false;
+	return song.teamId === null || (song.sharedAt !== null && song.archivedAt === null);
+}
+
+/** A video named by its spot owner (a recording or a lesson video); null for a missing one. */
+export function videoAccess(db: Db, userId: string, video: SpotOwner): Access {
+	return judgeVideo(db, userId, video).access;
+}
+
+/** A spot (a point or a section): exactly its video's access. Null for a missing one. */
+export function spotAccess(db: Db, userId: string, spotId: number): Access {
+	const spot = db
+		.select({ recordingId: videoSpots.recordingId, lessonVideoId: videoSpots.lessonVideoId })
+		.from(videoSpots)
+		.where(eq(videoSpots.id, spotId))
+		.get();
+	if (!spot) return null;
+	return videoAccess(
+		db,
+		userId,
+		spot.lessonVideoId !== null
+			? { lessonVideoId: spot.lessonVideoId }
+			: { recordingId: spot.recordingId! }
+	);
+}
+/**
+ * A media file this person may read, or a 404 — a missing file and a
+ * forbidden one get the same answer. Used by the two media servers.
+ */
+export function fileAccess(
+	db: Db,
+	userId: string,
+	kind: 'lesson-video' | 'recording',
+	file: string
+): { file: string; mime: string } {
+	if (kind === 'lesson-video') {
+		const video = db.select().from(lessonVideos).where(eq(lessonVideos.file, file)).get();
+		if (video && allows(lessonVideoAccess(db, userId, video), 'read')) return video;
+	} else {
+		const rec = db.select().from(recordings).where(eq(recordings.file, file)).get();
+		if (rec && allows(recordingAccess(db, userId, rec), 'read')) return rec;
+	}
+	throw error(404, 'Not found');
+}
+
+/**
+ * The groups of this dance whose lessons the person has added (any lesson,
+ * whatever its state now), by name then id, while they are in the group (a
+ * deleted one too) and it is not purged. Moves' group sections start here.
+ */
+export function addedTeams(db: Db, wall: Wall): TeamRef[] {
+	const teamIds = [
+		...new Set(
+			db
+				.select({ teamId: lessons.teamId })
+				.from(lessonAdds)
+				.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+				.where(
+					and(
+						eq(lessonAdds.userId, wall.userId),
+						eq(lessons.dance, wall.dance),
+						isNotNull(lessons.teamId)
+					)
+				)
+				.all()
+				.map((r) => r.teamId!)
+		)
+	];
+	const out: TeamRef[] = [];
+	for (const teamId of teamIds) {
+		const team = getTeam(db, teamId);
+		if (!team || team.purgedAt !== null || heldRole(db, wall.userId, teamId) === null) continue;
+		out.push({ id: team.id, name: team.name });
+	}
+	return out.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+}

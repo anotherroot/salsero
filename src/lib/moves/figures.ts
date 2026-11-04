@@ -4,8 +4,7 @@
  * The page only lays these out. PURE.
  */
 import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
-import type { FigureListItem } from '$lib/types';
-import { plural } from '$lib/format';
+import { movesHeading } from './list';
 
 /** The load's `filter`: the search is always a string, the rest only when set. */
 export type FigureFilter = { q: string; style?: string; partner?: Partner; unlinked?: '1' };
@@ -76,14 +75,14 @@ export function filterChips(
 
 /**
  * The label above the list. Not linked names what is missing; a search or a
- * style or partner chip makes it a count of matches.
+ * style or partner chip makes it a count of matching figures.
  */
-export function figuresHeading(count: number, filter: FigureFilter): string {
-	if (filter.unlinked) return `${count} with no section or no lesson`;
-	if (filter.q || filter.style || filter.partner) {
-		return plural(count, 'figure matches', 'figures match');
-	}
-	return plural(count, 'figure', 'figures');
+export function figuresHeading(
+	n: { moves: number; figures: number },
+	filter: FigureFilter
+): string {
+	if (filter.unlinked) return `${n.figures} with no section or no lesson`;
+	return movesHeading(n, !!(filter.q || filter.style || filter.partner));
 }
 
 /**
@@ -105,15 +104,9 @@ export function showTiles(count: number, filter: FigureFilter): boolean {
 	return count > 0 && !filter.q;
 }
 
-/** The words under a figure's name; `status` ones are what it still lacks. */
-export function figureMeta(f: FigureListItem): { text: string; status: boolean }[] {
-	const parts = [{ text: plural(f.variations, 'variation', 'variations'), status: false }];
-	if (f.recordings > 0) {
-		parts.push({ text: plural(f.recordings, 'recording', 'recordings'), status: false });
-	}
-	if (!f.hasSection) parts.push({ text: 'No section', status: true });
-	if (!f.hasLesson) parts.push({ text: 'No lesson', status: true });
-	return parts;
+/** A group's slight heading over its figures in Moves: "Salsa nadaljevalna · 4". */
+export function groupHeading(name: string, count: number): string {
+	return `${name} · ${count}`;
 }
 
 /** The meta lines of the Positions and Coverage tiles. */

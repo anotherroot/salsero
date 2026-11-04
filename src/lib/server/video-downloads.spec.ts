@@ -20,6 +20,8 @@ import { U1_SALSA } from '$lib/server/test-walls';
 const YT = 'https://youtu.be/dQw4w9WgXcQ';
 const T = 1_800_000_000_000;
 const FILE = { file: 'a.mp4', mime: 'video/mp4', sizeBytes: 1234 };
+/** Free disk far above the floor: these tests are about the queue, not the disk. */
+const FREE = 100 * 1024 ** 3;
 let db: Db;
 let figureId: number;
 let lessonId: number;
@@ -113,8 +115,8 @@ describe('completeVideoJob', () => {
 		const id = linkOn({ figureId }, url);
 		requestVideoDownload(db, { figureId }, id);
 		const job = claimVideoJob(db, T)!;
-		expect(completeVideoJob(db, job.id, FILE)).toEqual({ recordingId: expect.any(Number) });
-		const [rec] = getFigure(db, figureId)!.recordings;
+		expect(completeVideoJob(db, job.id, FILE, FREE)).toEqual({ recordingId: expect.any(Number) });
+		const [rec] = getFigure(db, figureId, 'u1')!.recordings;
 		expect(rec).toMatchObject({ file: 'a.mp4', kind: 'video', sourceUrl: url, sizeBytes: 1234 });
 		expect(listLinks(db, { figureId })).toEqual([]);
 		expect(jobs()).toEqual([]);
@@ -127,8 +129,8 @@ describe('completeVideoJob', () => {
 		const id = linkOn({ lessonId });
 		requestVideoDownload(db, { lessonId }, id);
 		const job = claimVideoJob(db, T)!;
-		const done = completeVideoJob(db, job.id, FILE) as { lessonVideoId: number };
-		expect(getLesson(db, lessonId)!.videos[0]).toMatchObject({
+		const done = completeVideoJob(db, job.id, FILE, FREE) as { lessonVideoId: number };
+		expect(getLesson(db, lessonId, 'u1')!.videos[0]).toMatchObject({
 			id: done.lessonVideoId,
 			sourceUrl: YT
 		});
@@ -142,7 +144,32 @@ describe('completeVideoJob', () => {
 		expect(deleteLink(db, { lessonId }, id)).toBe(false);
 		expect(deleteLink(db, { figureId }, id)).toBe(true);
 		expect(db.select().from(videoDownloads).where(eq(videoDownloads.id, job.id)).all()).toEqual([]);
-		expect(completeVideoJob(db, job.id, FILE)).toBeNull();
-		expect(getFigure(db, figureId)!.recordings).toEqual([]);
+		expect(completeVideoJob(db, job.id, FILE, FREE)).toBeNull();
+		expect(getFigure(db, figureId, 'u1')!.recordings).toEqual([]);
+	});
+});
+
+describe('completeVideoJob into a group with nobody to credit', () => {
+	it('fails the job once with a clear message and adds nothing', () => {
+		// A group's lesson whose owner row is gone, and a job from before requested_by was kept.
+		const lesson = createLesson(
+			db,
+			{ teamId: 1, actorId: 'u1', dance: 'salsa' },
+			{
+				lessonDay: '2026-10-14',
+				title: 'Group class',
+				notes: null
+			}
+		).lesson.id;
+		const id = addLinks(db, { lessonId: lesson }, [YT], null, 'u1')![0].id;
+		requestVideoDownload(db, { lessonId: lesson }, id);
+		const job = claimVideoJob(db, T)!;
+		const done = completeVideoJob(db, job.id, FILE, FREE);
+		expect(done).toEqual({ refused: 'This group has no owner to credit the video to.' });
+		expect(jobs()).toMatchObject([
+			{ status: 'failed', error: 'This group has no owner to credit the video to.' }
+		]);
+		expect(claimVideoJob(db, T + 10 * LEASE_MS)).toBeNull();
+		expect(getLesson(db, lesson, 'u1')?.videos ?? []).toEqual([]);
 	});
 });

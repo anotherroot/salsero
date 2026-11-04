@@ -11,11 +11,25 @@ let db: Db;
 
 const join = (
 	code: string,
-	over: Partial<{ email: string; password: string; timezone: string }> = {}
+	over: Partial<{
+		email: string;
+		password: string;
+		timezone: string;
+		firstName: string;
+		lastName: string;
+	}> = {}
 ) =>
 	redeemInvite(
 		db,
-		{ code, email: 'new@example.com', password: PW, timezone: 'Europe/Berlin', ...over },
+		{
+			code,
+			email: 'new@example.com',
+			password: PW,
+			timezone: 'Europe/Berlin',
+			firstName: 'Ana',
+			lastName: 'Kranjc',
+			...over
+		},
 		T0
 	);
 
@@ -43,6 +57,20 @@ describe('invites', () => {
 		expect(again).toMatchObject({ ok: false, reason: 'invite' });
 	});
 
+	it('saves the names, and refuses a missing one without using the invite', async () => {
+		const { code } = createInvite(db, 'admin', T0);
+		expect(await join(code, { firstName: ' ' })).toMatchObject({ ok: false, reason: 'first-name' });
+		expect(await join(code, { lastName: 'x'.repeat(61) })).toMatchObject({
+			ok: false,
+			reason: 'last-name'
+		});
+		expect(inviteValid(db, code, T0)).toBe(true);
+		const r = await join(code, { firstName: ' Ana ' });
+		if (!r.ok) throw new Error('should join');
+		const u = db.select().from(users).where(eq(users.id, r.userId)).get()!;
+		expect([u.firstName, u.lastName]).toEqual(['Ana', 'Kranjc']);
+	});
+
 	it('stores only the hash', () => {
 		const { code } = createInvite(db, 'admin', T0);
 		const row = db.select().from(invites).get()!;
@@ -55,7 +83,14 @@ describe('invites', () => {
 		expect(inviteValid(db, code, expiresAt)).toBe(false);
 		const r = await redeemInvite(
 			db,
-			{ code, email: 'n@example.com', password: PW, timezone: 'UTC' },
+			{
+				code,
+				email: 'n@example.com',
+				password: PW,
+				timezone: 'UTC',
+				firstName: 'Ana',
+				lastName: 'K'
+			},
 			expiresAt
 		);
 		expect(r).toMatchObject({ ok: false, reason: 'invite' });

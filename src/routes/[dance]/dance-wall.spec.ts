@@ -91,6 +91,7 @@ function post(dance: string, fields: Record<string, string>, id = '') {
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
 			body: new URLSearchParams(fields)
 		}),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
 	};
 }
@@ -99,11 +100,17 @@ type Invoke = (event: ReturnType<typeof post>) => Promise<unknown>;
 const call = (action: unknown, event: ReturnType<typeof post>) => (action as Invoke)(event);
 
 /** A page load only reads `params`, `url` and `locals` off its event. */
-type Load = (e: { params: { dance: string; id: string }; url: URL; locals: unknown }) => unknown;
+type Load = (e: {
+	params: { dance: string; id: string };
+	url: URL;
+	locals: unknown;
+	cookies?: unknown;
+}) => unknown;
 const loadAt = (load: unknown, dance: string, id: string) =>
 	(load as Load)({
 		params: { dance, id },
 		url: new URL('http://localhost/'),
+		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
 	});
 
@@ -151,7 +158,7 @@ beforeEach(() => {
 	seedPositions(db);
 
 	const salsaFigure = createFigure(db, U1_SALSA, { ...figureInput, style: 'salsa' })!;
-	salsaExerciseId = addFigureExercise(db, salsaFigure.figure.id)!.id;
+	salsaExerciseId = addFigureExercise(db, 'u1', salsaFigure.figure.id)!.id;
 	salsaFigureId = salsaFigure.figure.id;
 	salsaFigureId2 = createFigure(db, U1_SALSA, {
 		...figureInput,
@@ -168,7 +175,7 @@ beforeEach(() => {
 		style: 'sensual'
 	})!;
 	bachataFigureId = bachata.figure.id;
-	bachataExerciseId = addFigureExercise(db, bachata.figure.id)!.id;
+	bachataExerciseId = addFigureExercise(db, 'u1', bachata.figure.id)!.id;
 	bachataCustomId = createCustomExercise(db, U1_BACHATA, {
 		name: 'Hip drills',
 		everyDays: 3,
@@ -364,7 +371,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			style: 'sensual'
 		})!;
 		await refuses(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
-		expect(getFigure(db, bare.figure.id)?.exercise).toBeNull();
+		expect(getFigure(db, bare.figure.id, 'u1')?.exercise).toBeNull();
 	});
 
 	it('gives a figure its exercise from its own dance', async () => {
@@ -374,7 +381,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			style: 'salsa'
 		})!;
 		await call(figurePage.actions.practise, post('salsa', {}, String(bare.figure.id)));
-		expect(getFigure(db, bare.figure.id)?.exercise?.source).toBe('figure');
+		expect(getFigure(db, bare.figure.id, 'u1')?.exercise?.source).toBe('figure');
 	});
 
 	it('will not open a bachata figure from a salsa URL', () => {
@@ -386,7 +393,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 
 	it('will not archive a bachata figure from a salsa URL', async () => {
 		await refuses(figurePage.actions.archive, post('salsa', {}, String(bachataFigureId)));
-		expect(getFigure(db, bachataFigureId)?.figure.archivedAt).toBeNull();
+		expect(getFigure(db, bachataFigureId, 'u1')?.figure.archivedAt).toBeNull();
 	});
 
 	it("will not delete a bachata figure's set from a salsa URL", async () => {
@@ -405,7 +412,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 		...fields
 	});
 
-	const groupOf = (id: number) => getFigure(db, id)!.figure.groupId!;
+	const groupOf = (id: number) => getFigure(db, id, 'u1')!.figure.groupId!;
 
 	it('refuses an edit of a variation from the other dance, writing nothing', async () => {
 		// A BACHATA position on a BACHATA variation: `setFigureShape`'s own
@@ -421,7 +428,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			)
 		);
 		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
-		expect(getFigure(db, bachataFigureId)!.figure.name).toBe('Basic');
+		expect(getFigure(db, bachataFigureId, 'u1')!.figure.name).toBe('Basic');
 	});
 
 	it('refuses a position from the other dance on a variation of this one — names included', async () => {
@@ -435,12 +442,12 @@ describe("the detail pages refuse the other dance's rows", () => {
 			)
 		);
 		// The shape half refused, so neither name may have been written either.
-		expect(getFigure(db, salsaFigureId)!.figure.name).toBe('Basic');
+		expect(getFigure(db, salsaFigureId, 'u1')!.figure.name).toBe('Basic');
 		expect(getGroup(db, groupOf(salsaFigureId))!.name).toBe('Dile que no');
 	});
 
 	it('refuses out-of-range timing with a message, writing nothing', async () => {
-		const before = getFigure(db, salsaFigureId)!.figure;
+		const before = getFigure(db, salsaFigureId, 'u1')!.figure;
 		const bads: Record<string, string>[] = [
 			{ startCount: '0' },
 			{ startCount: '9' },
@@ -457,7 +464,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			);
 			expect(result).toMatchObject({ status: 400 });
 		}
-		const after = getFigure(db, salsaFigureId)!.figure;
+		const after = getFigure(db, salsaFigureId, 'u1')!.figure;
 		expect(after.name).toBe(before.name);
 		expect(after.lengthCounts).toBe(before.lengthCounts);
 	});
@@ -554,12 +561,15 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(() => loadWith('salsa', String(v.id))).toThrow(threw404);
 		});
 
-		it('an archived variation is a 404, page and actions alike', async () => {
+		it('an archived variation is a 404; a save on it says it is gone', async () => {
 			const v = doble();
 			archiveVariation(db, v.id, 1_000);
 			expect(() => loadWith('salsa', String(v.id))).toThrow(threw404);
-			await refuses(figurePage.actions.update, post('salsa', edit({}), String(v.id)));
-			expect(getFigure(db, v.id)!.figure.name).toBe('Doble');
+			// The clash check's answer, so the typed text stays to copy (Task 11).
+			expect(
+				await call(figurePage.actions.update, post('salsa', edit({}), String(v.id)))
+			).toMatchObject({ status: 410, data: { gone: { by: null, at: null } } });
+			expect(getFigure(db, v.id, 'u1')!.figure.name).toBe('Doble');
 		});
 
 		it('update saves both names and the timing — a case-only figure rename included', async () => {
@@ -572,7 +582,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				)
 			);
 			expect(result).toEqual({ action: 'update', ok: true });
-			const row = getFigure(db, salsaFigureId)!.figure;
+			const row = getFigure(db, salsaFigureId, 'u1')!.figure;
 			expect([row.name, row.startCount, row.lengthCounts]).toEqual(['Renamed', 5, 4]);
 			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
 		});
@@ -588,9 +598,9 @@ describe("the detail pages refuse the other dance's rows", () => {
 			);
 			expect(result).toMatchObject({
 				status: 400,
-				data: { action: 'update', message: "There's already a figure called second salsa figure." }
+				data: { action: 'update', message: "There's already a move called second salsa figure." }
 			});
-			const row = getFigure(db, salsaFigureId)!.figure;
+			const row = getFigure(db, salsaFigureId, 'u1')!.figure;
 			expect([row.name, row.lengthCounts]).toEqual(['Basic', 8]);
 			expect(getGroup(db, row.groupId!)!.name).toBe('Dile que no');
 		});
@@ -605,10 +615,10 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'update',
-					message: 'Dile que no already has a variation called basic. Rename one first.'
+					message: 'Dile que no already has a figure called basic. Rename one first.'
 				}
 			});
-			const row = getFigure(db, v.id)!.figure;
+			const row = getFigure(db, v.id, 'u1')!.figure;
 			expect([row.name, row.lengthCounts]).toEqual(['Doble', 8]);
 		});
 
@@ -649,7 +659,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 					action: 'createVariation',
 					field: 'name',
 					name: ' basic ',
-					message: 'Dile que no already has a variation called basic. Rename one first.'
+					message: 'Dile que no already has a figure called basic. Rename one first.'
 				}
 			});
 			expect(
@@ -661,7 +671,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					field: 'name',
-					message: 'Give the variation a name (up to 200 characters).'
+					message: 'Give the figure a name (up to 200 characters).'
 				}
 			});
 			expect(listGroupVariations(db, groupOf(salsaFigureId))).toHaveLength(1);
@@ -712,7 +722,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				data: {
 					action: 'move',
 					field: 'name',
-					message: 'Second salsa figure already has a variation called Basic. Rename one first.'
+					message: 'Second salsa figure already has a figure called Basic. Rename one first.'
 				}
 			});
 		});
@@ -729,7 +739,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				data: {
 					action: 'move',
 					field: 'figureName',
-					message: "There's already a figure called second salsa figure."
+					message: "There's already a move called second salsa figure."
 				}
 			});
 			const same = await call(
@@ -754,7 +764,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				call(figurePage.actions.archive, post('salsa', {}, String(salsaFigureId)))
 			);
 			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${v.id}` });
-			expect(getFigure(db, salsaFigureId)!.figure.archivedAt).not.toBeNull();
+			expect(getFigure(db, salsaFigureId, 'u1')!.figure.archivedAt).not.toBeNull();
 			expect(getGroup(db, groupOf(v.id))!.archivedAt).toBeNull();
 		});
 
@@ -781,7 +791,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				post('salsa', { recordingId: String(rec.id) }, String(salsaFigureId))
 			);
 			expect(result).toMatchObject({ status: 404 });
-			expect(getFigure(db, v.id)!.recordings.map((r) => r.id)).toEqual([rec.id]);
+			expect(getFigure(db, v.id, 'u1')!.recordings.map((r) => r.id)).toEqual([rec.id]);
 		});
 	});
 
@@ -798,7 +808,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(await call(figureListActions.create, post('salsa', fields))).toMatchObject({
 				status: 400,
 				data: {
-					message: "There's already a figure called dile que no.",
+					message: "There's already a move called dile que no.",
 					figureName: 'dile que no',
 					name: 'Doble',
 					notes: 'Spin'
@@ -811,7 +821,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				await call(figureListActions.create, post('salsa', { ...fields, name: '' }))
 			).toMatchObject({
 				status: 400,
-				data: { message: 'Give the variation a name (up to 200 characters).' }
+				data: { message: 'Give the figure a name (up to 200 characters).' }
 			});
 		});
 
@@ -829,7 +839,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			})();
 			const id = Number(thrown!.location.split('/').pop());
 			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${id}` });
-			const row = getFigure(db, id)!.figure;
+			const row = getFigure(db, id, 'u1')!.figure;
 			expect([row.name, getGroup(db, row.groupId!)!.name]).toEqual(['Doble', 'Enchufla']);
 		});
 
@@ -842,7 +852,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				)
 			).toMatchObject({
 				status: 400,
-				data: { action: 'newFigure', message: "There's already a figure called basico." }
+				data: { action: 'newFigure', message: "There's already a move called basico." }
 			});
 			expect(
 				await call(
@@ -850,7 +860,9 @@ describe("the detail pages refuse the other dance's rows", () => {
 					post('bachata', { ...lesson, figureName: 'Paseo' }, String(bachataLessonId))
 				)
 			).toEqual({ action: 'newFigure', ok: true });
-			expect(getLesson(db, bachataLessonId)!.figures.map((f) => f.name)).toEqual(['Paseo · Doble']);
+			expect(getLesson(db, bachataLessonId, 'u1')!.figures.map((f) => f.name)).toEqual([
+				'Paseo · Doble'
+			]);
 		});
 
 		const variationFields = (groupId: number, name = 'Doble') => ({
@@ -886,7 +898,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				endPositionId: null
 			});
 			expect(figurePositions(db, made.id).startIds).toEqual([]);
-			expect(getLesson(db, bachataLessonId)!.figures.map((f) => [f.id, f.name])).toEqual([
+			expect(getLesson(db, bachataLessonId, 'u1')!.figures.map((f) => [f.id, f.name])).toEqual([
 				[made.id, 'Basico · Doble']
 			]);
 		});
@@ -898,7 +910,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				post('bachata', variationFields(salsa), String(bachataLessonId))
 			);
 			expect(listGroupVariations(db, salsa)).toHaveLength(1);
-			expect(getLesson(db, bachataLessonId)!.figures).toEqual([]);
+			expect(getLesson(db, bachataLessonId, 'u1')!.figures).toEqual([]);
 		});
 
 		it('newVariation refuses a taken name', async () => {
@@ -912,7 +924,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'newVariation',
-					message: 'Basico already has a variation called basic. Rename one first.',
+					message: 'Basico already has a figure called basic. Rename one first.',
 					groupId: String(basico),
 					name: 'basic',
 					notes: 'Spin'
@@ -923,7 +935,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 					lessonPage.actions.newVariation,
 					post('bachata', { ...variationFields(basico), groupId: '' }, String(bachataLessonId))
 				)
-			).toMatchObject({ status: 400, data: { action: 'newVariation', message: 'Pick a figure.' } });
+			).toMatchObject({ status: 400, data: { action: 'newVariation', message: 'Pick a move.' } });
 			expect(
 				await call(
 					lessonPage.actions.newVariation,
@@ -933,11 +945,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 				status: 400,
 				data: {
 					action: 'newVariation',
-					message: 'Give the variation a name (up to 200 characters).'
+					message: 'Give the figure a name (up to 200 characters).'
 				}
 			});
 			expect(listGroupVariations(db, basico)).toHaveLength(1);
-			expect(getLesson(db, bachataLessonId)!.figures).toEqual([]);
+			expect(getLesson(db, bachataLessonId, 'u1')!.figures).toEqual([]);
 		});
 
 		it('figure page: move with a name renames into the target', async () => {
@@ -953,7 +965,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				thrown = e;
 			}
 			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${salsaFigureId}` });
-			const row = getFigure(db, salsaFigureId)!.figure;
+			const row = getFigure(db, salsaFigureId, 'u1')!.figure;
 			expect([row.groupId, row.name]).toEqual([target, 'Basic 2']);
 			expect(getExercise(db, ex.id)!.name).toBe('Second salsa figure · Basic 2');
 
@@ -976,11 +988,11 @@ describe("the detail pages refuse the other dance's rows", () => {
 				data: {
 					action: 'move',
 					field: 'name',
-					message: 'Second salsa figure already has a variation called doble. Rename one first.',
+					message: 'Second salsa figure already has a figure called doble. Rename one first.',
 					name: 'doble'
 				}
 			});
-			expect(getFigure(db, other.figure.id)!.figure.name).toBe('Solo');
+			expect(getFigure(db, other.figure.id, 'u1')!.figure.name).toBe('Solo');
 		});
 	});
 
@@ -1005,7 +1017,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 
 	it('will not archive a bachata lesson from a salsa URL', async () => {
 		await refuses(lessonPage.actions.archive, post('salsa', {}, String(bachataLessonId)));
-		expect(getLesson(db, bachataLessonId)?.lesson.archivedAt).toBeNull();
+		expect(getLesson(db, bachataLessonId, 'u1')?.lesson.archivedAt).toBeNull();
 	});
 
 	it('will not retry a bachata song from the salsa list', async () => {
@@ -1068,7 +1080,7 @@ describe("the routine detail route refuses the other dance's rows", () => {
 	// `duplicateMany` and `extract`, whose data functions take `routine.id`
 	// natively and scope in SQL. For these three,
 	// `ownsSlot` in the route is the ONLY guard: a same-dance slot from a
-	// SECOND salsa routine passes `requireRoutineInWall` (routine A really is
+	// SECOND salsa routine passes `requireRoutineAccess` (routine A really is
 	// salsa) and would pass the data function's own dance check too, since
 	// both routines are salsa. A bachata slot would prove nothing here — it
 	// would already be caught by a dance check unrelated to `ownsSlot`.

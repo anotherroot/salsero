@@ -15,9 +15,9 @@ four-band Today), multi-dance (bachata beside salsa: the
 registry, the `dance` column, `/[dance]/` routes, two home-screen apps) and
 exercise types (a log popup per type, links with YouTube embeds, a practice
 panel in the popup, an exercise page) and figure timing (a start count and a
-length in counts; routines report timing breaks) and figures as variations (a
-figure is a name holding self-contained variations; Move to… another figure or a
-new one; switcher at the bottom)
+length in counts; routines report timing breaks) and figures and moves (a
+move is a name holding self-contained figures; Move to… another move or a new
+one; switcher at the bottom; a move's page)
 and figure coverage (figures have no exercise by default; a page of figure
 versions by how many routines use them, and a routine made from a selection),
 a full-screen video player (three levels — full video, a section's own
@@ -36,9 +36,22 @@ version or a drill, shown as a card that loops it; a linked section and its
 video refuse to delete) and one picker for every list (search, figure headings, tap to pick, + to
 keep going) and the Link popup (link a section, or create the
 variation, figure or drill it shows, from the lesson page or the player; a
-lesson includes what its videos' sections link to) and the redesign (the band and four tabs: Today, Moves, Lessons,
-Music; one look in four themes from `tokens.ts`; the shared components in `components/ui/`;
-designed error pages) and accounts (one-time invites from the admin, a person's own private app, a storage limit with What uses space and Ask for more, an admin page).
+lesson includes what its videos' sections link to) and the redesign (the band and five tabs: Today, Moves, Lessons,
+Groups, Music; one look in four themes from `tokens.ts`; the shared components in `components/ui/`;
+designed error pages) and accounts (one-time invites from the admin, a person's own private app, a storage limit with What uses space and Ask for more, an admin page) and groups (a Groups tab; a class makes a group and people join by its code or
+`/g/<code>`; lessons are drafts until published; Add copies a published lesson's
+drills into a person's own practice, with per-person entries; a clash check on
+shared edits; History; Recently deleted for 30 days; the group's own storage;
+Make my own copy, since Make it mine; names) and group follow-ups (group mode: a Mine / group switch that
+shows only that side's Moves, Lessons and Music and makes new rows there, in the
+group's own navy look; notifications: a dot on Groups, "N new" pills and "New"
+markers, cleared by opening; class songs: a teacher shares a song with the group,
+members practise to it, a section per group in Music) and app updates (a Get the app page for friends, release-signed apps that update themselves, open pages that reload when the site changes)
+and clones and twins (a gene id and cloned-from on every copyable row; Copy
+to…, Edit makes your copy, Compare, Take, Send, Drop my copy, Detach, Move to…
+a group; your own routines, lessons and sections use a group's things without
+copying; leaving keeps copies; Same as… shows twins as one; see
+[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -90,15 +103,27 @@ Song samples and the song popup have theirs,
 where a 15 s sample starts (stored raw, snapped to a 1 on read), one sample at
 a time, the searchable popup in place of the song `<select>`, and Back closing
 the top sheet.
-The look and the four tabs have theirs,
+The look and the five tabs have theirs,
 [`docs/superpowers/specs/2026-10-31-redesign-design.md`](docs/superpowers/specs/2026-10-31-redesign-design.md):
 the colour tokens in four themes, type, icons, the shared components, the band,
-and the Today / Moves / Lessons / Music tab bar. The design board it comes from
+and the Today / Moves / Lessons / Groups / Music tab bar. The design board it comes from
 is in `docs/superpowers/design-kit/`.
 Accounts have theirs,
 [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md):
 the owner wall, one-time invites and Join, the storage limit and what counts
 against it, What uses space, Ask for more, and the admin page.
+Groups have theirs,
+[`docs/superpowers/specs/2026-11-02-groups-design.md`](docs/superpowers/specs/2026-11-02-groups-design.md):
+the group as a wall beside the person, draft and publish, what a member
+reaches, Add and entries, the clash check, the safety net (History, Recently
+deleted), leaving and deleted groups, Make my own copy (now Make it mine), the group's storage.
+Clones and twins have theirs,
+[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md):
+families of copies (one member per place), Compare, Take and Send with pair
+snapshots, Drop my copy, Detach, Copy to… and Move to…, using a group's things
+from your own rows, leaving and Keep, the rescue, twins, and what was decided
+while planning and building. It replaces the groups spec's reading after
+leaving and its Make my own copy.
 The desktop has its own (agreed, not built yet),
 [`docs/superpowers/specs/2026-11-03-desktop-design.md`](docs/superpowers/specs/2026-11-03-desktop-design.md):
 from 1024 px, one short band row and a band-coloured side with the tabs, a
@@ -120,8 +145,9 @@ src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
                      whether clave exists, accent colours). Client-safe
 src/lib/graph/       PURE figure graph: positions → what can follow what, the
                      gap report. Client-safe
-src/lib/moves/       PURE: what the Moves lists show — filter chips, headings, empty states,
-                     meta words, gaps, pick order. Client-safe
+src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
+                     chips, empty states, meta words, gaps, pick order; a move's page lines
+                     (move-page.ts). Client-safe
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
@@ -130,7 +156,7 @@ src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      page's wording and where a refusal shows (page.ts).
                      Client-safe
 src/lib/figures/     PURE: a figure page's lines — timing, the practice line, the
-                     variation switcher's steps, Move and Archive wording, the
+                     figure switcher's steps, Move and Archive wording, the
                      delete question, the length check. Client-safe
 src/lib/lessons/     PURE: the Lessons list's month groups, date tiles and counts; a lesson
                      page's lines — via-section badges, row metas, the delete and unlink
@@ -181,7 +207,7 @@ src/lib/theme/       tokens.ts is the colour source (four themes); layout.css co
 src/lib/icons/       icons.ts: the icon set (24 px, 2 px round strokes, filled tab
                      variants), drawn by components/ui/Icon.svelte (`stroke` for
                      the heavier checks)
-src/lib/nav/         tabs.ts: the four tabs, which one a path lights, where the bar
+src/lib/nav/         tabs.ts: the five tabs, which one a path lights, where the bar
                      shows. band.ts: the big or slim band by scroll. pending.ts: what a tap shows
                      while data is on the way (skeleton, leaving). error-view.ts: the error
                      pages' words and where their back goes. bands.spec.ts: every page draws
@@ -198,7 +224,9 @@ src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone devic
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's
                      insets → `--safe-*`. Read the safe area through `--safe-*`, never
-                     `env()` (class-rules.spec.ts): the app draws the page under its bars
+                     `env()` (class-rules.spec.ts): the app draws the page under its bars.
+                     It also wraps `fetch`: every same-origin request carries the page
+                     epoch (`src/lib/page-epoch.ts`), and a stale answer fires `salsa:stale`
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
@@ -240,10 +268,94 @@ android/             the Android apps (Kotlin): one per dance as Gradle flavors,
                      and reminder workers. No screens of its own. Pure parts (Links,
                      UploadPlan, Reminder, Api parsing) have JVM tests. `nix develop .#android`
 src/lib/app-mode.ts  client-safe: the ?app=android cookie and the salsa:// link builders
+src/lib/server/group-mode.ts  group mode: `groupModeOf` (the cookie's group), `groupChoices`, and
+                     `spaceOf`, which every create action calls itself (the layout's copy may be old)
+src/lib/teams/mode.ts  PURE: the cookie name, which paths show no group mode (Today), return path, labels. Client-safe
+src/lib/teams/opens-api.ts  the fetch side of POST /api/opens (`reportOpen`)
+src/routes/[dance]/group-mode  the switch: a page action (default) between Mine and a group, the only
+                     thing that switches the cookie (never a load: preload runs loads; `groupModeOf`
+                     only drops an invalid one). Its GET goes to Moves
+src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
+src/lib/server/whats-new.ts  what is new to a person in their groups, against their opens
+src/lib/server/song-share.ts  share, stop sharing and restore a group song; `song_drops`
+src/lib/theme/tokens.ts  also `GROUP`, the group look's dance tokens; `layout.css` copies it
+                     in `[data-dance][data-group]`
+src/lib/server/teams.ts  groups: make, code, join (`joinTeam`), rename, delete;
+                     `membership.ts`: leave, remove, roles
+src/lib/server/access.ts  what a person may do with a row: `reach` (what they reach
+                     through published lessons; a deleted group's members, until its purge,
+                     through the lessons they added; someone who left, nothing),
+                     `lessonAccess`/`figureAccess`/…, and `fileAccess`/`videoAccess`/`spotAccess`
+                     for the flat routes
+src/lib/server/entries.ts  per-person entries (Add, Remove, `reconcileEntries`, which runs the
+                     rescue: `clones/rescue.ts`)
+src/lib/server/changes.ts  `logChange`: History, one line per group mutation, in its transaction
+src/lib/server/clash.ts  the clash check: `seen` against the current row
+src/lib/server/trash.ts  `team_trash` (30 days, files kept) and `purgeTrash`;
+                     `team-purge.ts` (`purgeTeams`) finishes deleted groups
+src/lib/clones/      PURE, client-safe: a member as fields (flat.ts: keys and labels per kind),
+                     the three-way compare, default picks and the next snapshot (diff.ts),
+                     yours in place of theirs in a view (shadow.ts), twins folded into one
+                     row (twins.ts), and every clone and twin screen's words (view.ts)
+src/lib/server/clones/  families: genes.ts (stamping, `memberIn`, `familyRows`, `accessTo`,
+                     `visibleMembers`), trees.ts (`flatOf`), pairs.ts (pair snapshots, `digest`
+                     for `seen`), clone.ts (the copy engine: `planClone`, `cloneInto`/`cloneTx`,
+                     files linked before the write, unlinked when it throws), files.ts
+                     (`CloneFiles`: hard links under new names, injected; specs pass fakes),
+                     names.ts (`suffixed`), repoint.ts (a person's rows and practice from one
+                     row to another). Using and leaving: rescue.ts (`rescueUsed`: what an
+                     editor's change takes from a person's own rows is copied to them),
+                     keep.ts (`keepFromTeam`, `keepPreview`), settle.ts (`settleFormerMembers`,
+                     at boot). The actions: edit.ts (Make it mine: a reader's Edit copies the
+                     group's row into their app and moves their rows and practice onto it;
+                     editors' Edit edits the group's row, ruling 1), sources.ts (the source
+                     tabs, the banner, Take a recording), compare.ts and apply.ts (Compare,
+                     Take: `syncFrom`, shared with Send), send.ts, drop.ts, detach.ts,
+                     copy-to.ts, move.ts (Move to… a group), shadow.ts (the person's members
+                     for views). The routes' side: `take-form.ts`, `make-mine-form.ts`,
+                     `keep-form.ts`; the sheets are components/clones/
+src/lib/server/usable.ts  what of the groups a person may USE from their own rows (slots,
+                     embeds, lesson and section links): `usableOf` (their added lessons'
+                     reach, plus what their rows already point at and still read, in groups
+                     they are still a member of), `ownedOrUsable`, `usableVersions`. The
+                     graph a person's routines walk is `graphFor` (graph.ts)
+src/lib/server/twins.ts  a person's twins: `markTwins`, `separate`, `setTwins`, `twinCandidates`,
+                     `twinSets`, and the folds for pickers (`foldNamed`, `foldVersions`)
+src/lib/server/integrity.ts  `ownerIntegrity` (rows whose owner is not exactly one of person or
+                     group), `familyIntegrity` (a parent holding two pieces of one family) and
+                     `crossRefs` (a row pointing where its owner may not: outside its group, or
+                     at a group row the person does not read). Boot logs a count of each
+src/lib/teams/       PURE: the Groups pages' lines (view.ts), Add (add.ts), History
+                     (history.ts), Recently deleted (deleted.ts, restore-api.ts), the leave
+                     sheet's and Keep's words (leave-view.ts). Client-safe
+src/lib/clash/       PURE: what a clash shows and how a field merges. Client-safe
+src/lib/names.ts     PURE: first names and how a person is shown. Client-safe
 src/lib/server/lesson-links.ts  what reaches a lesson through its videos' sections —
                      derived, never stored; lessons.ts and spot-links.ts read it
 src/lib/server/link-popup.ts  the Link popup's data and create-and-link (one
                      transaction); served by /api/video-spots/[id]/links
+src/lib/app-update/  agent.ts (user agent / `x-app-version` parsing, `current.json`, none /
+                     available / required (`updateState`), the device from the user agent
+                     (`deviceOf`)), view.ts (the bridge's messages, the Update button's words,
+                     when Update needed takes the page: `updateNeededNow`), get-app.ts (the
+                     /app page's cards, where a new account lands). All PURE, client-safe.
+                     Drawn by components/system/AppUpdateBar.svelte (Today's "Update
+                     available"), UpdateButton.svelte (the `salsaUpdate` bridge, or a link to
+                     the file or Google Play) and UpdateNeeded.svelte (the full-screen block)
+src/lib/page-epoch.ts  PAGE_EPOCH: raised when older open pages would send what the server no
+                     longer takes; they reload instead of failing
+src/lib/nav/fresh.ts  PURE: whether a navigation may become a full load after a deploy, and
+                     whether the page may reload by itself (`mayReloadNow`). fresh.svelte.ts is
+                     the reload-hold counter (`holdReload`, `holdReloadWhile`: an upload, a
+                     run). shell/ReloadBar.svelte is "New version · Reload" and "This page is
+                     out of date"
+src/lib/server/releases.ts  reads $DATA_DIR/releases/<dance>/current.json (cached by mtime) and
+                     the APKs; app-seen.ts which app version each device last showed (table
+                     `app_installs`); app-gate.ts which native API requests (`x-app-version`, never the
+                     WebView's own calls) from a too-old app get a 426;
+                     public-paths.ts PUBLIC_PATHS plus the update check and published APKs
+src/routes/app/      the Get the app page; src/routes/releases/[dance]/ serves APKs;
+                     src/routes/api/app-update/[dance]/ is the check (404 until published)
 src/lib/server/devices.ts  device tokens (hash only), the app's settings, dueByDance
 src/lib/server/undo-hold.ts  what Undo needs, held 60 s in memory (a removed paired phone, a
                      deleted voice take); a take's wav is unlinked when its hold expires
@@ -253,6 +365,15 @@ src/lib/server/storage.ts  what a person uses (computed from size columns, never
 src/lib/server/invites.ts  one-time invites and joining with one
 src/routes/admin/    the admin page: people, limits, invites, requests for more space
 src/routes/join/     Join: a person creates their account from an invite link (public)
+src/routes/[dance]/moves/[id]  a move's page: its figures, rename, New figure
+src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
+                     people, storage, History and Recently deleted
+src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
+src/routes/welcome/  asks once for a name: a person whose account was made before names
+                     (hooks.server.ts sends anyone signed in without one here)
+src/routes/api/trash/[id]  restore a group's trashed row; src/routes/api/archived is the
+                     POST behind a picker's "Archived by … · Restore" (a group's figure,
+                     routine or drill); it lists nothing
 src/routes/settings/storage/  What uses space: the person's files biggest first, Delete, Ask for more
 src/lib/admin-view.ts  PURE: the admin page's wording and limit presets. Client-safe
 src/lib/storage-view.ts  PURE: the storage lines and the usage bar. Client-safe
@@ -272,7 +393,8 @@ src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dat
                      focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
                      exercises/ links/ routines/ moves/ (the Moves band and its tiles) system/
-                     (error, offline, choice sheet, status block, lead tile).
+                     (error, offline, choice sheet, status block, lead tile) clones/ (the source
+                     tabs and the clone and twin sheets) teams/ (Add, the code, Leave).
                      ui/styles.ts holds the class builders: `button(kind, size, full)`,
                      `iconButton(variant, tone)`, `FIELD`/`TEXTAREA`/`SELECT` and their
                      `_INVALID` twins, `CHIP`, `GROUP` and `CLIP` (`focus-inset`: a card that
@@ -307,6 +429,9 @@ static/icons/        per-dance home-screen icons, committed. The manifests are
                      served FLAT (/manifest-<dance>.webmanifest) so PUBLIC_PATHS
                      stays an exact-match Set
 drizzle/             generated migrations — applied at boot, shipped by deploy.sh
+android/app/src/     main (shared), direct (the updater: Updater.kt, UpdateBridge.kt; downloads,
+                     checks, installs) and play (no updater) — the two channels
+scripts/release.sh   build, sign-check and publish an app update (see docs/deployment.md)
 scripts/deploy.sh    build locally, rsync, npm ci on the box, restart, health-check
 .tmux-project/       tmux_project (nixos-config): C-1…C-9 in tmux make a slot — a worktree
                      ../salsaapp-wt/<name> on its own branch, vite on a devports port at
@@ -329,19 +454,28 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
-  (only from Settings → What uses space, `deleteSong`: refused while a live
-  exercise uses it, archived ones lose `song_id`), sets, recordings, links,
+  (a person's own, only from Settings → What uses space, `deleteSong`: refused
+  while a live exercise uses it, archived ones lose `song_id`; a group song's
+  delete is an archive, restored from Recently deleted, see "Songs" below), sets, recordings, links,
   spots (`video_spots`, deleted with their video), section links (`spot_links`,
   deleted on unlink) and saves in flight (`video_downloads`, deleted with their
-  link, or when the link becomes a video) are the only hard deletes. A
-  variation's exercise is opt-in (`addFigureExercise`); when one exists it is
-  renamed and archived WITH its variation, in one transaction
+  link, or when the link becomes a video) are the only hard deletes of content;
+  `twins` rows (Separate) and `clone_pairs` (Detach) are bookkeeping, deleted
+  too. Drop my copy and Move to… archive the copy, never delete it. A
+  figure's exercise is opt-in (`addFigureExercise`); when one exists it is
+  renamed and archived WITH its figure, in one transaction
   (`src/lib/server/figures.ts`). A linked spot, and the video it is on, cannot
   be deleted until it is unlinked — archived targets included (`assertUnlinked`
   in `src/lib/server/spot-links.ts`). A removed paired phone and a deleted voice
   take come back with Undo for a minute: both are deleted at once and kept in an
   in-memory hold (`src/lib/server/undo-hold.ts`); a take's file is unlinked when
-  its hold expires.
+  its hold expires. In a group, the hard-delete kinds (videos, sections, links,
+  section links, recordings) are still deleted at once, and kept 30 days in
+  `team_trash`, file included (`src/lib/server/trash.ts`): the delete returns a
+  trash id and the route must not unlink the file; `purgeTrash` and `purgeTeams` do, at boot and hourly.
+  Restore re-inserts the rows with their own ids. The archived kinds (lessons,
+  variations, routines, drills) are restored from Recently deleted too, with
+  exactly the members' entries archived at the same instant (`reviveEntries`: an entry a member had removed earlier stays removed).
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
   components and never branch on it.
@@ -377,7 +511,12 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   point in the process where it can be turned off. Additive
   `ALTER TABLE ... ADD COLUMN` only; put the invariant in the data function, as
   `exercises.lesson_id` and the song/count pairing both do. Always read the
-  generated SQL before committing it.
+  generated SQL before committing it. The one deliberate exception is migration
+  `0025`, which rebuilds `team_changes` to widen its `root_kind` and `verb`
+  CHECKs (root `song`; verbs share, unshare, delete, edit). It was safe because
+  the columns are identical (no new column to select) and nothing has a foreign
+  key into or out of `team_changes`, so neither failure mode applies. Do not
+  copy it for a table with an incoming foreign key or a new column.
 - **The server runs no Python and no ML.** Song downloads and beat analysis
   happen on the home worker (`worker/`, a systemd timer on backtop), which
   drains `/api/worker/*` over HTTPS with a bearer token. YouTube bot-blocks the
@@ -411,6 +550,7 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   removed row's focus would fall to `<body>`.
 - **A refresh after a sheet or the player closes goes through `refreshWhenSettled()`.**
   SvelteKit drops a reload that a popstate overtakes, and a close's Back is one.
+- **Raise PAGE_EPOCH (src/lib/page-epoch.ts) in the commit that breaks older open pages** — a changed form field, action or API shape they would still send. Open pages then reload instead of failing.
 - **Deny-by-default auth** in `hooks.server.ts`: a new route is private unless
   added to `PUBLIC_PATHS`.
 - **A device token signs in on `/api/` only** — never a page, never
@@ -431,24 +571,104 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   happens in the data-access layer — `src/lib/urgency/` and `src/lib/day/`
   never learn that dances exist. `video_spots`' own API is flat
   (`/api/video-spots`), like the media servers.
-- **A person is the wall inside the dance.** The root tables — `figure_groups`,
-  `figures`, `songs`, `exercises`, `lessons`, `routines`, `count_takes` —
-  carry `user_id`, set on every insert from the request's `Wall`
-  (`{ userId, dance }`, `wallOf(params, locals)` in `src/lib/server/scope.ts`).
-  Everything else (sets, recordings, lesson videos, spots, spot links, the
-  lesson join tables, links, video downloads, routine steps) derives its owner
-  through its parent, as it derives its dance. Data functions take a `Wall`
-  where they once took a dance, and filter by both; a comparison of two rows is
-  `inWall(row, wall)`, never `.dance` alone. Another person's id and a missing
-  one get the same 404 (in a form body inside one's own row, the same refusal a
-  missing id gets). Flat routes — `/api/video-spots*`, the uploads, and the
-  four media servers (`recordings`, `audio`, `count`, `lesson-videos`) — have
-  no dance in the URL, so they check the row's owner against `locals.user.id`
-  (`spotOwner`/`videoOwner` in `spots.ts` for spots). Positions are the one
-  exception: one shared list per dance, edited only by the admin. The worker's
-  queue (`/api/worker/*`) is global; a job's result lands on its own row, so
-  it belongs to whoever owns that row. See
-  [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md).
+- **A person or a group is the wall inside the dance.** The root tables —
+  `figure_groups`, `figures`, `songs`, `exercises`, `lessons`, `routines` —
+  carry `user_id` and `team_id`, exactly one set (a group's rows
+  have `user_id` NULL; `ownerIntegrity` checks). `count_takes` carries
+  `user_id` only: a take is a person's own voice. Both are set on every insert
+  from the request's space: `Space = Wall | TeamSpace`, a `Wall` being
+  `{ userId, dance }` (`wallOf(params, locals)` in `src/lib/server/scope.ts`) and
+  a `TeamSpace` `{ dance, teamId, actorId }`. `ownedBy`, `ownerValues`, `inSpace`
+  and `spaceOfRow` in `scope.ts` filter, write and compare by either. Everything
+  else (sets, recordings, lesson videos, spots, spot links, the lesson join
+  tables, links, video downloads, routine steps) derives its owner through its
+  parent, as it derives its dance. Data functions take a `Wall` or a `Space`
+  where they once took a dance; a comparison of two rows is `inWall(row, wall)`
+  or `inSpace`, never `.dance` alone. Another person's id and a missing one get
+  the same 404, and so does a member asking to write: a member only reads a
+  group's published lessons, and `access.ts` decides (`reach` is what a person
+  reaches through published lessons, and a member of a deleted group, until
+  its purge, through the lessons they added; someone who left or was removed
+  reaches nothing of the group, their kept copies are their own; a draft
+  reaches nobody but its editors). The `require*Access` guards
+  in `scope.ts` (lesson, figure, routine, exercise) are how a route asks.
+  Entries are per person: Add makes an ordinary `exercises` row of the person
+  (`entries.ts`, unique per person and target), and every "my entry" lookup is
+  by that person only, so another member's settings and logs never show.
+  A person's own rows may point at a group row they may use, not only at
+  their own: their routines' slots and embeds, their lessons' hand links and
+  their section links take a group's figure, routine or drill from `usableOf`
+  (`src/lib/server/usable.ts`: what their added lessons reach, and what their
+  rows already use and still read, in a group they are still a member of),
+  and reading such a link always goes through `access.ts`. A group's row
+  only ever points at rows of its own group. `crossRefs`
+  (`src/lib/server/integrity.ts`) checks both, archived routines and lessons
+  included; every spec that changes reach asserts it is `[]`, and boot logs it.
+  Flat routes — `/api/video-spots*`, the uploads, and the four media servers
+  (`recordings`, `audio`, `count`, `lesson-videos`) — have no dance in the URL,
+  so they ask `access.ts` (`fileAccess`, `videoAccess`, `spotAccess`) about
+  `locals.user.id`. Positions are the one exception: one shared list per dance,
+  edited only by the admin. The worker's queue (`/api/worker/*`) is global; a
+  job's result lands on its own row, so it belongs to whoever owns that row;
+  `video_downloads.requested_by` is who a saved video is credited to. See
+  [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md),
+  [`docs/superpowers/specs/2026-11-02-groups-design.md`](docs/superpowers/specs/2026-11-02-groups-design.md)
+  and [`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md).
+- **Songs: a person's own and a group's differ.** A person's own song keeps
+  the `deleteSong` refusal. A group song (`songs.team_id`, `shared_at` null
+  while a draft) is the teacher's to withdraw: Stop sharing or Delete (an
+  archive, in Recently deleted) asks with a warning, members' entries drop to
+  count only, and `song_drops` remembers them so Share or Restore brings the
+  song back on those entries. Only picking a different song ends that
+  comeback. The clash check (`seen`) applies to group songs only. Every place
+  that serves a song (audio, grid, player, practice settings, the picker) asks
+  `songAccess`. See
+  [`docs/superpowers/specs/2026-11-03-groups-follow-ups-design.md`](docs/superpowers/specs/2026-11-03-groups-follow-ups-design.md).
+- **Opens are recorded from the page, never in a load.** What's new clears by
+  opening a lesson or song, written by `POST /api/opens` (kind `lesson` or
+  `song`). SvelteKit preloads data on hover and touch, so a load that recorded
+  would clear the dot for a page nobody opened.
+- **Every group mutation is logged, in its own transaction.** `logChange`
+  (`src/lib/server/changes.ts`) with a real actor, so History is complete. A
+  new group mutation is added to `MUTATIONS` in `src/lib/server/changes.spec.ts`,
+  which fails otherwise. Worker state is exempt: the worker's own writes
+  (status, audio, beats) and a song's Retry (`retrySong`, which only re-queues
+  a failed download) change no field a person edits, so they are not logged.
+- **A save on a group row carries `seen`.** The clash check
+  (`src/lib/server/clash.ts`) compares what the editor saw with the row now;
+  `seen` must cover every field the save writes, or a quiet overwrite slips
+  through.
+- **Reach shrinks, entries follow.** `reconcileEntries` runs in every group
+  change that can shrink someone's reach (unpublish, delete, an unlinked
+  section) and on membership changes, so no entry points at what its person can
+  no longer reach. It also runs the rescue (`rescueUsed`,
+  `src/lib/server/clones/rescue.ts`): what a person's own rows use (a slot, an
+  embed, a lesson or section link) and they can no longer read is copied into
+  their app, no recordings, inside the same transaction, and their rows and
+  practice are re-pointed onto the copy, which starts paused unless a live
+  entry carries it. Leaving and removal run Keep (`keepFromTeam`) BEFORE the
+  membership goes, so the rescue never copies first without recordings; the
+  purge keeps for every member (the deleter: only what their own rows use).
+- **Clones: links are row ids, genes only match.** A family (`gene_id`, with
+  `cloned_from` for "From …" and Detach) has at most one member per place: a
+  person's app or a group for the root tables (unique indexes per owner; an
+  archived member holds its place, and a copy there offers to restore it), the
+  parent row for recordings, lesson videos and sections (checked in the data
+  function and in `restoreTrash`; `familyIntegrity` reports a breach). Every
+  link (slots, section links, lesson links, entries, lesson adds) stays a
+  concrete row id: a gene is read only to find a member (`memberIn`,
+  `familyRows`), and every re-point is an explicit update in the same
+  transaction (`repoint`). `clone_pairs` (a hash per field of what two members
+  held when last in step) is written only by a copy, Take and Send, never by
+  an ordinary save, so no save path learns of clones. A clone's file is a
+  hard link under a new name (`CloneFiles`), linked before the write and
+  unlinked when the write throws.
+- **Twins are views.** The `twins` table is a person's own "same move", read
+  only by the lists, pickers and pages that fold or tab them
+  (`src/lib/clones/twins.ts`, `src/lib/server/twins.ts`); `repoint` keeps a
+  person's sets on the row that replaces one. Nothing else learns of it:
+  twins never sync, never travel, and plans, coverage, Today and the graph
+  read rows as they are. Groups have none.
 - **`figures.style` is vestigial; `style_tag` is real.** Read by nothing,
   backfilled into `style_tag` by migration 0005. Do not drop it or widen
   `figures_style_ck` — see the CHECK rule above for why a rebuild here can't
@@ -457,10 +677,10 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `length_counts` (`eights * 8`) by migration 0010 and read by nothing since.
   Same reason as `style`: dropping it is a rebuild, and `figures` can never be
   rebuilt. Timing arithmetic lives in `src/lib/graph/timing.ts`.
-- **A `figures` row is a variation; a `figure_groups` row is a figure.** Every
-  live variation has a live group of its dance and a name unique within it;
-  figure names are unique per dance; the last variation leaving archives its
-  figure (`figures.ts`). Show a variation with `figureLabels`
+- **A `figures` row is a figure; a `figure_groups` row is a move.** Every
+  live figure has a live move of its dance and a name unique within it;
+  move names are unique per dance; the last figure leaving archives its
+  move (`figures.ts`). Show a figure with `figureLabels`
   ("Enchufla · Doble"), always. `figures.parent_id` is vestigial, read by
   nothing, not dropped.
 - **`figures.callable` and `figures.call_text` are vestigial.** They were the

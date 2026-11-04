@@ -9,9 +9,19 @@
  */
 import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from './db';
-import { lessonVideos, links, recordings, videoDownloads, videoSpots } from './db/schema';
+import {
+	lessonVideos,
+	links,
+	recordings,
+	teamMembers,
+	videoDownloads,
+	videoSpots
+} from './db/schema';
+import { logChange, videoRoot } from './changes';
+import { spaceOfRow } from './scope';
 import type { LinkOwner } from './links';
 import { LEASE_MS, MAX_ATTEMPTS } from './songs';
+import { ownerOfTarget, roomForOwner } from './storage';
 import { parseLink } from '$lib/links';
 
 /** The link, if it belongs to `owner`. A drill's never does: drills keep their links as links. */
@@ -26,11 +36,16 @@ function linkOf(db: Db, owner: LinkOwner, linkId: number) {
 		.get();
 }
 
-/** Queue a YouTube link. A link that already has a job keeps it as it is — Retry is its own action. */
+/**
+ * Queue a YouTube link. A link that already has a job keeps it as it is —
+ * Retry is its own action. `by` is who asked: History names them when the
+ * video lands in a group's lesson or figure.
+ */
 export function requestVideoDownload(
 	db: Db,
 	owner: LinkOwner,
-	linkId: number
+	linkId: number,
+	by?: string
 ): 'ok' | 'not-found' | 'not-youtube' {
 	const link = linkOf(db, owner, linkId);
 	if (!link) return 'not-found';
@@ -41,7 +56,8 @@ export function requestVideoDownload(
 			figureId: link.figureId,
 			lessonId: link.lessonId,
 			url: link.url,
-			status: 'queued'
+			status: 'queued',
+			requestedBy: by ?? null
 		})
 		.onConflictDoNothing({ target: videoDownloads.linkId })
 		.run();
@@ -49,12 +65,18 @@ export function requestVideoDownload(
 }
 
 /** A failed save, queued again from scratch. False when the link is not `owner`'s or has no job. */
-export function retryVideoDownload(db: Db, owner: LinkOwner, linkId: number): boolean {
+export function retryVideoDownload(db: Db, owner: LinkOwner, linkId: number, by?: string): boolean {
 	if (!linkOf(db, owner, linkId)) return false;
 	return (
 		db
 			.update(videoDownloads)
-			.set({ status: 'queued', attempts: 0, error: null, claimedAt: null })
+			.set({
+				status: 'queued',
+				attempts: 0,
+				error: null,
+				claimedAt: null,
+				...(by ? { requestedBy: by } : {})
+			})
 			.where(eq(videoDownloads.linkId, linkId))
 			.run().changes > 0
 	);
@@ -129,15 +151,48 @@ export function videoJobTarget(db: Db, id: number): 'recording' | 'lesson-video'
  * source, a point spot at the link's start time if it had one, then the job
  * and the link go — the link has become the video. Null when the job is gone
  * (the link was removed while the video was on its way).
+ *
+ * The bytes are charged to the lesson's or the figure's owner — a group's for a
+ * group's — and checked against its room here too (risk 12): the room asked at
+ * Save may be gone by the time the video lands. Without room the job fails
+ * with the room's message, the link stays for a Retry, and `{ refused }` tells
+ * the route to drop the file. `freeDiskBytes` is what the disk has free
+ * without this file.
  */
 export function completeVideoJob(
 	db: Db,
 	id: number,
-	input: { file: string; mime: string; sizeBytes: number }
-): { recordingId: number } | { lessonVideoId: number } | null {
+	input: { file: string; mime: string; sizeBytes: number },
+	freeDiskBytes: number
+): { recordingId: number } | { lessonVideoId: number } | { refused: string } | null {
 	return db.transaction((tx) => {
 		const job = tx.select().from(videoDownloads).where(eq(videoDownloads.id, id)).get();
 		if (!job) return null;
+
+		const charged = ownerOfTarget(
+			tx,
+			job.figureId !== null ? { figureId: job.figureId } : { lessonId: job.lessonId! }
+		);
+		if (!charged) return null;
+		// A group's History line needs someone to name: who pressed Save, else the group's owner.
+		// With nobody the job fails once, rather than rolling back on every retry.
+		const actor = 'teamId' in charged ? (job.requestedBy ?? ownerOfTeam(tx, charged.teamId)) : null;
+		if ('teamId' in charged && actor === null) {
+			const message = NO_OWNER;
+			tx.update(videoDownloads)
+				.set({ status: 'failed', error: message, claimedAt: null })
+				.where(eq(videoDownloads.id, id))
+				.run();
+			return { refused: message };
+		}
+		const room = roomForOwner(tx, charged, input.sizeBytes, freeDiskBytes);
+		if (!room.ok) {
+			tx.update(videoDownloads)
+				.set({ status: 'failed', error: room.message.slice(0, 500), claimedAt: null })
+				.where(eq(videoDownloads.id, id))
+				.run();
+			return { refused: room.message };
+		}
 
 		const owner =
 			job.figureId !== null
@@ -172,6 +227,34 @@ export function completeVideoJob(
 
 		tx.delete(videoDownloads).where(eq(videoDownloads.id, id)).run();
 		tx.delete(links).where(eq(links.id, job.linkId)).run();
+		if (actor !== null) logArrived(tx, owner, actor);
 		return owner;
 	});
+}
+
+/** The group's owner, or null when it has none. */
+function ownerOfTeam(tx: Db, teamId: number): string | null {
+	return (
+		tx
+			.select({ userId: teamMembers.userId })
+			.from(teamMembers)
+			.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, 'owner')))
+			.get()?.userId ?? null
+	);
+}
+
+const NO_OWNER = 'This group has no owner to credit the video to.';
+
+/** History's line for a saved video that arrived in a group, by whoever pressed Save (or the owner). */
+function logArrived(
+	tx: Db,
+	owner: { recordingId: number } | { lessonVideoId: number },
+	by: string
+): void {
+	const root = videoRoot(tx, owner);
+	if (!root || root.row.teamId === null) return;
+	const { row, ...at } = root;
+	const [subject, subjectId] =
+		'recordingId' in owner ? ['recording', owner.recordingId] : ['video', owner.lessonVideoId];
+	logChange(tx, spaceOfRow(row, by), { ...at, verb: 'add', subject, subjectId }, Date.now());
 }

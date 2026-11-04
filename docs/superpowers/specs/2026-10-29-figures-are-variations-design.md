@@ -1,5 +1,8 @@
 # A figure is its variations — design
 
+> **Renamed 2026-11:** a variation is now called a figure, and a figure a move. This
+> document keeps the old words; the code (`figures`, `figure_groups`) keeps its names.
+
 > **Status:** approved in brainstorming, 2026-10-29. Changes
 > [`2026-09-29-figure-variations-design.md`](2026-09-29-figure-variations-design.md),
 > which stays the design for figure timing; its "Data model", "A variation's

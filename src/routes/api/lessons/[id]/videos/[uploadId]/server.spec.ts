@@ -68,6 +68,6 @@ describe('a finished upload asked about again', () => {
 		const again = await put(0, bytes.slice(0, 4), 10);
 		expect(again.status).toBe(201);
 		expect((await again.json()).id).toBe(row.id);
-		expect(getLesson(db, lessonId)!.videos).toHaveLength(1);
+		expect(getLesson(db, lessonId, 'u1')!.videos).toHaveLength(1);
 	});
 });

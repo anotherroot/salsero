@@ -15,6 +15,11 @@ export interface SlotSnapshot {
 	note: string | null;
 	/** Main figure first. Empty for a child slot. */
 	figureIds: number[];
+	/**
+	 * When the delete happened: in a group, Undo brings back the members'
+	 * entries that delete took off Today (archived at exactly this time).
+	 */
+	deletedAt?: number;
 }
 
 /** More than any routine anyone dances; a bound so a tampered body cannot loop the server. */
@@ -34,7 +39,8 @@ export function parseSnapshots(raw: string): SlotSnapshot[] | null {
 	const out: SlotSnapshot[] = [];
 	for (const entry of value) {
 		if (typeof entry !== 'object' || entry === null) return null;
-		const { position, childId, note, figureIds } = entry as Record<string, unknown>;
+		const { position, childId, note, figureIds, deletedAt } = entry as Record<string, unknown>;
+		if (deletedAt !== undefined && !isId(deletedAt)) return null;
 		if (!isIndex(position)) return null;
 		if (childId !== null && !isId(childId)) return null;
 		if (note !== null && (typeof note !== 'string' || note.length > 200)) return null;
@@ -42,7 +48,7 @@ export function parseSnapshots(raw: string): SlotSnapshot[] | null {
 		if (new Set(figureIds).size !== figureIds.length) return null;
 		// Exactly one of the two: a slot of figures, or a slot holding a routine.
 		if ((childId === null) === (figureIds.length === 0)) return null;
-		out.push({ position, childId, note, figureIds });
+		out.push({ position, childId, note, figureIds, ...(isId(deletedAt) ? { deletedAt } : {}) });
 	}
 	if (new Set(out.map((s) => s.position)).size !== out.length) return null;
 	return out;

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +20,7 @@ vi.mock('$env/dynamic/private', () => ({ env: envMock }));
 import {
 	appendStream,
 	extensionFor,
+	linkCopy,
 	OffsetError,
 	parseContentRange,
 	parseRange,
@@ -246,5 +247,34 @@ describe('writeChunk', () => {
 			message: 'Videos only.'
 		});
 		expect(existsSync(partial)).toBe(false);
+	});
+});
+
+describe('linkCopy', () => {
+	const FILE = '0b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';
+	let dir: string;
+	beforeEach(async () => {
+		dir = await mkdtemp(join(tmpdir(), 'salsa-link-'));
+	});
+	afterEach(async () => {
+		await rm(dir, { recursive: true, force: true });
+	});
+
+	it('links the file under a new name of ours that outlives the old one', async () => {
+		await writeFile(join(dir, FILE), 'bytes');
+		const name = await linkCopy(dir, FILE);
+		expect(name).not.toBe(FILE);
+		expect(name).toMatch(RECORDING_FILE_RE);
+		expect(name.endsWith('.mp4')).toBe(true);
+		const [a, b] = await Promise.all([stat(join(dir, FILE)), stat(join(dir, name))]);
+		expect(b.ino).toBe(a.ino);
+		await rm(join(dir, FILE));
+		expect(await readFile(join(dir, name), 'utf8')).toBe('bytes');
+	});
+
+	it('refuses a name that is not ours, and a missing file', async () => {
+		await expect(linkCopy(dir, '../x.mp4')).rejects.toThrow();
+		await expect(linkCopy(dir, FILE)).rejects.toThrow();
+		expect(await readdir(dir)).toEqual([]);
 	});
 });

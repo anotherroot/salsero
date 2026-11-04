@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
+	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
 	import { guarded } from '$lib/unsaved/guard.svelte';
@@ -40,6 +41,13 @@
 				<input type="hidden" name="code" value={data.code} />
 				<input type="hidden" name="timezone" value={timezone} />
 
+				<NameFields
+					firstName={form?.firstName ?? ''}
+					lastName={form?.lastName ?? ''}
+					field={form?.field}
+					message={form?.message}
+				/>
+
 				<label class="block">
 					<span class={LABEL}>Email</span>
 					<input
@@ -64,7 +72,7 @@
 					/>
 				</label>
 
-				{#if form?.message}
+				{#if form?.message && !form.field}
 					<Banner kind="error" title={form.message} />
 				{/if}
 

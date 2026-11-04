@@ -24,6 +24,11 @@ export interface ContentProps {
 	timezone: string;
 	/** Rendered on the exercise page, not in the popup: section labels, the figure's "Edit links" link. */
 	onPage?: boolean;
+	/**
+	 * Whether the person may mark and edit spots in the videos it plays: off for
+	 * a reader of a group's things. Defaults to on.
+	 */
+	canEdit?: boolean;
 	/** Offer the links editor — only the drill's content, whose links are its own, honours it. */
 	editLinks?: {
 		message: string | null;

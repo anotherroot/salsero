@@ -1,7 +1,10 @@
+import { eq } from 'drizzle-orm';
 import { error, fail } from '@sveltejs/kit';
 import { minuteOfDay } from '$lib/clock';
 import { localDay } from '$lib/day/day';
 import { getDb } from '$lib/server/db';
+import { users } from '$lib/server/db/schema';
+import { cleanName } from '$lib/names';
 import {
 	deviceSettings,
 	listDevices,
@@ -44,6 +47,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	return {
 		dance,
 		isAdmin: locals.user.isAdmin,
+		name: { firstName: locals.user.firstName ?? '', lastName: locals.user.lastName ?? '' },
 		defaultStyle: defaultStyle(db, locals.user.id, dance),
 		device: deviceSettings(db, locals.user.id),
 		devices: listDevices(db, locals.user.id).map((d) => ({
@@ -62,6 +66,34 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 };
 
 export const actions: Actions = {
+	/** First and last name; both are required, as at Join. */
+	name: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		const form = await request.formData();
+		const firstName = cleanName(form.get('firstName'));
+		const lastName = cleanName(form.get('lastName'));
+		const raw = {
+			firstName: String(form.get('firstName') ?? '').trim(),
+			lastName: String(form.get('lastName') ?? '').trim()
+		};
+		if (!firstName) {
+			return fail(400, {
+				...raw,
+				field: 'firstName' as const,
+				message: 'Enter your first name (up to 60 letters).'
+			});
+		}
+		if (!lastName) {
+			return fail(400, {
+				...raw,
+				field: 'lastName' as const,
+				message: 'Enter your last name (up to 60 letters).'
+			});
+		}
+		getDb().update(users).set({ firstName, lastName }).where(eq(users.id, locals.user.id)).run();
+		return { named: true };
+	},
+
 	/** An optional note to the admin; one open request per person. */
 	ask: async ({ locals, request }) => {
 		if (!locals.user) throw error(401);
@@ -70,7 +102,7 @@ export const actions: Actions = {
 		}
 		const note = optionalText(await request.formData(), 'note', 500);
 		if (note === undefined) return fail(400, { message: 'Keep the note under 500 characters.' });
-		const res = askForMore(getDb(), locals.user.id, note, Date.now());
+		const res = askForMore(getDb(), { userId: locals.user.id }, note, Date.now());
 		return { asked: res === 'asked' };
 	},
 

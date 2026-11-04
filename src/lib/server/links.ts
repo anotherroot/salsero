@@ -3,6 +3,9 @@ import type { Db } from './db';
 import { appFlags, exercises, lessons, links, videoDownloads } from './db/schema';
 import { extractUrls, parseLink } from '$lib/links';
 import type { LinkRow } from '$lib/types';
+import { actingIn, linkRoot, logChange } from './changes';
+import { isTeam } from './scope';
+import { rootTitle, trashRows } from './trash';
 
 /** Who a link belongs to. Exactly one — the table's CHECK says the same. */
 export type LinkOwner = { lessonId: number } | { figureId: number } | { exerciseId: number };
@@ -63,13 +66,15 @@ function insertLinks(tx: Tx, owner: LinkOwner, urls: string[], title: string | n
  * exercise that a figure, lesson or routine owns: that exercise shows its
  * OWNER's links, and a second place to attach one would make "where does this
  * link live?" unanswerable — the rule `lesson_exercises` follows for a figure's
- * exercise.
+ * exercise. In a group, `by` is who, for History: one line for the links one
+ * Add brought.
  */
 export function addLinks(
 	db: Db,
 	owner: LinkOwner,
 	urls: string[],
-	title: string | null
+	title: string | null,
+	by?: string
 ): LinkRow[] | null {
 	if ('exerciseId' in owner) {
 		const ex = db
@@ -79,25 +84,89 @@ export function addLinks(
 			.get();
 		if (ex?.source !== 'custom') return null;
 	}
-	return db.transaction((tx) => insertLinks(tx, owner, urls, title));
+	return db.transaction((tx) => {
+		const added = insertLinks(tx, owner, urls, title);
+		if (added.length > 0) {
+			logLink(tx, owner, by, {
+				verb: 'add',
+				subjectId: added.length === 1 ? added[0].id : null,
+				after: added.length === 1 ? { url: added[0].url } : { count: added.length }
+			});
+		}
+		return added;
+	});
+}
+
+/** History's line for links added to or taken off a lesson, a variation or a drill. */
+function logLink(
+	tx: Tx,
+	owner: LinkOwner,
+	by: string | undefined,
+	e: {
+		verb: 'add' | 'remove';
+		subjectId: number | null;
+		before?: Record<string, string | number | null>;
+		after?: Record<string, string | number | null>;
+		trashId?: number | null;
+	}
+): void {
+	const root = linkRoot(tx, owner);
+	if (!root) return;
+	const { row, ...at } = root;
+	logChange(tx, actingIn(row, by), { ...at, ...e, subject: 'link' }, Date.now());
 }
 
 /**
  * Delete one link, only if it belongs to `owner` — so a posted id cannot reach
  * another page's link. A save in flight goes with it: the job is deleted first,
- * or its foreign key would refuse the link.
+ * or its foreign key would refuse the link. A group's link goes to Recently
+ * deleted first (the save in flight does not come back with it).
  */
-export function deleteLink(db: Db, owner: LinkOwner, id: number): boolean {
+export function deleteLink(
+	db: Db,
+	owner: LinkOwner,
+	id: number,
+	by?: string,
+	now = Date.now()
+): boolean {
 	return db.transaction((tx) => {
 		const mine = tx
-			.select({ id: links.id })
+			.select()
 			.from(links)
 			.where(and(eq(links.id, id), ownedBy(owner)))
 			.get();
 		if (!mine) return false;
 		tx.delete(videoDownloads).where(eq(videoDownloads.linkId, id)).run();
-		return tx.delete(links).where(eq(links.id, id)).run().changes > 0;
+		const gone = tx.delete(links).where(eq(links.id, id)).run().changes > 0;
+		if (!gone) return false;
+		const root = linkRoot(tx, owner);
+		const space = root ? actingIn(root.row, by) : null;
+		const trashId =
+			root && space && isTeam(space)
+				? trashRows(
+						tx,
+						space,
+						'link',
+						`${mine.title ?? hostOf(mine.url)} · ${rootTitle(tx, root.rootKind, root.rootId)}`,
+						{ rootKind: root.rootKind, rootId: root.rootId },
+						{ links: [mine] },
+						[],
+						0,
+						now
+					)
+				: null;
+		logLink(tx, owner, by, { verb: 'remove', subjectId: id, before: { url: mine.url }, trashId });
+		return true;
 	});
+}
+
+/** A link's host for a label ("youtube.com"), or the URL itself when it does not parse. */
+function hostOf(url: string): string {
+	try {
+		return new URL(url).host.replace(/^www\./, '');
+	} catch {
+		return url;
+	}
 }
 
 export const NOTE_LINKS_FLAG = 'lesson-note-links';

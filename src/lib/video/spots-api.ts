@@ -4,6 +4,7 @@
  * catch and never shows a spot the server did not keep.
  */
 import type { Spot, SpotOwner } from '$lib/types';
+import type { ClashInfo, Seen } from '$lib/clash/clash';
 
 /**
  * A non-2xx answer, carrying the server's message — the player shows a 409's —
@@ -14,7 +15,11 @@ export class SpotsApiError extends Error {
 	constructor(
 		readonly status: number,
 		message: string,
-		readonly field?: string
+		readonly field?: string,
+		/** A 409 from the clash check: someone else saved the spot since, and theirs. */
+		readonly clash?: ClashInfo,
+		/** A 410 for a link target archived since ("Archived by Ana"), with whether Restore is offered. */
+		readonly archived?: { restorable: boolean }
 	) {
 		super(message);
 	}
@@ -26,7 +31,15 @@ export async function ok(res: Response): Promise<Response> {
 	const said = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 	const message = typeof said.message === 'string' ? said.message : `video-spots: ${res.status}`;
 	const field = typeof said.field === 'string' ? said.field : undefined;
-	throw new SpotsApiError(res.status, message, field);
+	const clash =
+		res.status === 409 && said.clash && typeof said.clash === 'object'
+			? (said.clash as ClashInfo)
+			: undefined;
+	const archived =
+		res.status === 410 && said.archived && typeof said.archived === 'object'
+			? { restorable: (said.archived as { restorable?: unknown }).restorable === true }
+			: undefined;
+	throw new SpotsApiError(res.status, message, field, clash, archived);
 }
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
@@ -51,19 +64,39 @@ export async function postSpot(
 	return (await ok(res)).json();
 }
 
-/** Only the fields given change. */
+/**
+ * Only the fields given change. `seen` is what the player last set or got
+ * back for this spot: a save that saw something else since is a 409 carrying
+ * theirs (`SpotsApiError.clash`), and nothing is written.
+ */
 export async function patchSpot(
 	id: number,
-	changes: { label?: string | null; startMs?: number; endMs?: number | null }
+	changes: { label?: string | null; startMs?: number; endMs?: number | null },
+	seen?: Seen
 ): Promise<Spot> {
 	const res = await fetch(`/api/video-spots/${id}`, {
 		method: 'PATCH',
 		headers: JSON_HEADERS,
-		body: JSON.stringify(changes)
+		body: JSON.stringify(seen ? { ...changes, seen } : changes)
 	});
 	return (await ok(res)).json();
 }
 
-export async function removeSpot(id: number): Promise<void> {
-	await ok(await fetch(`/api/video-spots/${id}`, { method: 'DELETE' }));
+/**
+ * Delete a spot. A group's goes to Recently deleted: `trashId` is that entry,
+ * which Undo restores (`restoreTrashEntry`) so the same section comes back.
+ */
+export async function removeSpot(id: number): Promise<{ trashId: number | null }> {
+	const res = await ok(await fetch(`/api/video-spots/${id}`, { method: 'DELETE' }));
+	const body: unknown = await res.json().catch(() => null);
+	const trashId =
+		body && typeof body === 'object' && typeof (body as { trashId?: unknown }).trashId === 'number'
+			? (body as { trashId: number }).trashId
+			: null;
+	return { trashId };
+}
+
+/** Put a trash entry back (a group's section, by the id its delete returned). */
+export async function restoreTrashEntry(trashId: number): Promise<void> {
+	await ok(await fetch(`/api/trash/${trashId}`, { method: 'POST' }));
 }

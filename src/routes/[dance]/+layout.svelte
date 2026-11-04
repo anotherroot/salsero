@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { GROUP } from '$lib/theme/tokens';
 	let { data, children } = $props();
 </script>
 
@@ -10,8 +11,8 @@
   needs and sets `data-dance` around all of it.
 -->
 <svelte:head>
-	<!-- The band is the same colour in light and dark. -->
-	<meta name="theme-color" content={data.dance.band} />
+	<!-- The band is the same colour in light and dark; group mode's is navy. -->
+	<meta name="theme-color" content={data.groupMode ? GROUP.light.band : data.dance.band} />
 	<meta name="apple-mobile-web-app-title" content={data.dance.label} />
 	<link rel="manifest" href="/manifest-{data.dance.slug}.webmanifest" />
 	<link rel="apple-touch-icon" href="/icons/{data.dance.slug}-192.png" />

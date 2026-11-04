@@ -1,8 +1,9 @@
 <!--
 	The Song field and its popup, in place of a `<select>`: a native dropdown
 	cannot hold a play button. The field shows the pick with a ▶ that samples
-	it; the rest of the field opens "Pick a song" — a search, then Recent and
-	A to Z, every row with its own ▶. Sampling never changes the pick; tapping
+	it; the rest of the field opens "Pick a song" — a search, then Recent, the
+	person's own A to Z and a heading per group with its shared songs, every row
+	with its own ▶. Sampling never changes the pick; tapping
 	a row picks it and closes. Every way of closing stops the sample.
 -->
 <script lang="ts">
@@ -16,14 +17,14 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import { CLIP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import { getDance, isDanceSlug } from '$lib/dances/dances';
-	import { groupSongs, pickerCount, searchSongs } from '$lib/songs/search';
+	import { pickerCount, searchSongs, songSections } from '$lib/songs/search';
 	import { segments } from '$lib/picker/model';
 	import { sampling, stopSample } from '$lib/songs/sample-player.svelte';
 	import { clock } from '$lib/format';
 	import type { PickerSong } from '$lib/types';
 
 	interface Props {
-		/** This dance's ready songs. */
+		/** This dance's ready songs: the person's own and their groups' shared ones (`songChoices`). */
 		songs: PickerSong[];
 		songId: number | null;
 		/** The id of the visible "Song" text, which names the field's button. */
@@ -61,7 +62,7 @@
 
 	const searching = $derived(query.trim() !== '');
 	const hits = $derived(searchSongs(songs, query));
-	const groups = $derived(groupSongs(songs));
+	const sections = $derived(songSections(songs));
 	const countText = $derived(pickerCount(searching ? hits.length : songs.length, searching));
 
 	// Focus the search only with a mouse: on a phone the keyboard would cover
@@ -77,9 +78,13 @@
 		if (open && searching && id !== null && !hits.some((s) => s.id === id)) stopSample();
 	});
 
-	/** `Style · 98 BPM · 4:12`, leaving out what is not known. */
-	function meta(s: PickerSong): string {
+	/**
+	 * `Style · 98 BPM · 4:12`, leaving out what is not known; a group's song
+	 * names its group first where no heading does (a search, Recent, the pick).
+	 */
+	function meta(s: PickerSong, named = false): string {
 		return [
+			named ? null : s.group,
 			styleLabels[s.style] ?? s.style,
 			s.bpm ? `${s.bpm} BPM` : null,
 			s.durationS ? clock(s.durationS) : null
@@ -107,7 +112,7 @@
 	});
 </script>
 
-{#snippet row(s: PickerSong, last: boolean)}
+{#snippet row(s: PickerSong, last: boolean, named: boolean)}
 	{@const on = s.id === songId}
 	{@const segs = searching ? segments(s.title, query) : [{ text: s.title, hit: false }]}
 	<li class="pl-4 {on ? 'bg-accent-soft' : ''}">
@@ -144,7 +149,7 @@
 					{:else}
 						<span
 							class="block truncate text-[13px] leading-[1.35] {on ? 'text-ink-2' : 'text-muted'}"
-							>{meta(s)}</span
+							>{meta(s, named)}</span
 						>
 					{/if}
 				</span>
@@ -154,9 +159,9 @@
 	</li>
 {/snippet}
 
-{#snippet card(list: PickerSong[])}
+{#snippet card(list: PickerSong[], named = false)}
 	<ul class="{CLIP} rounded-2xl bg-surface">
-		{#each list as s, i (s.id)}{@render row(s, i === list.length - 1)}{/each}
+		{#each list as s, i (s.id)}{@render row(s, i === list.length - 1, named)}{/each}
 	</ul>
 {/snippet}
 
@@ -268,15 +273,14 @@
 							{/snippet}
 						</EmptyState>
 					{/if}
-				{:else if groups.recent.length > 0}
-					<h3 class={SECTION_LABEL}>Recent</h3>
-					{@render card(groups.recent)}
-					{#if groups.rest.length > 0}
-						<h3 class="{SECTION_LABEL} mt-2">All songs A–Z</h3>
-						{@render card(groups.rest)}
-					{/if}
 				{:else}
-					{@render card(groups.rest)}
+					{#each sections as section, i (i)}
+						{#if section.label}
+							<h3 class="{SECTION_LABEL} {i > 0 ? 'mt-2' : ''}">{section.label}</h3>
+						{/if}
+						<!-- Under a group's own heading its rows need not name it again. -->
+						{@render card(section.songs, section.kind === 'group')}
+					{/each}
 				{/if}
 			</div>
 		</div>

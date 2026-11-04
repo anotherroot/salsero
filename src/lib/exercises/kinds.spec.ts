@@ -7,13 +7,15 @@ describe('exercise types', () => {
 		const types = SOURCES.map(typeOf);
 		expect(new Set(types)).toEqual(new Set(EXERCISE_TYPES));
 		expect(typeOf('custom')).toBe('drill');
+		// A group drill's entry opens the drill popup, like a drill of one's own.
+		expect(typeOf('added')).toBe('drill');
 		expect(typeOf('lesson')).toBe('lesson');
 		expect(typeOf('figure')).toBe('figure');
 		expect(typeOf('routine')).toBe('routine');
 	});
 
-	it('gives reps to a drill only', () => {
-		expect(SOURCES.filter((s) => hasField(s, 'reps'))).toEqual(['custom']);
+	it('gives reps to a drill and its group entry only', () => {
+		expect(SOURCES.filter((s) => hasField(s, 'reps'))).toEqual(['custom', 'added']);
 	});
 
 	it('gives every type minutes, a rating and a note', () => {

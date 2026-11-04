@@ -189,6 +189,7 @@ abstract class WebShell : ComponentActivity() {
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = false
             allowContentAccess = false
+            userAgentString = appUserAgent(userAgentString, BuildConfig.VERSION_CODE, BuildConfig.DANCE, BuildConfig.CHANNEL)
         }
         CookieManager.getInstance().setAcceptCookie(true)
         web.webViewClient = Client()
@@ -198,6 +199,8 @@ abstract class WebShell : ComponentActivity() {
         speechBridge(web)
         barsBridge(web)
         turnBridge(web)
+        // The Update button (direct build; the Play build's does nothing).
+        installUpdateBridge(this, web)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -211,6 +214,8 @@ abstract class WebShell : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (alive) web.onResume()
+        // Back from allowing "install unknown apps": the update that waited for it installs.
+        resumeUpdate(this)
     }
 
     override fun onPause() {
