@@ -13,7 +13,7 @@ import {
 } from './fit';
 import { fold } from '$lib/fold';
 
-/** Positions: 1 open (neutral), 2 closed, 3 hammerlock. */
+/** Positions: 1 open, 2 closed, 3 hammerlock. None is special. */
 const fig = (
 	id: number,
 	label: string,
@@ -27,14 +27,14 @@ const fig = (
 	label,
 	starts: [1],
 	startCounts: [1],
-	end: 1,
+	ends: [1],
 	next: 1,
 	...o
 });
 
 const candidates: Candidate[] = [
-	fig(1, 'Cross body lead', { end: 2 }),
-	fig(2, 'Dile que no', { end: 2 }),
+	fig(1, 'Cross body lead', { ends: [2] }),
+	fig(2, 'Dile que no', { ends: [2] }),
 	fig(3, 'Enchufla · Basic', { starts: [2] }, 3),
 	fig(4, 'Enchufla · Doble', {}, 3),
 	fig(5, 'Sombrero', { starts: [3] }),
@@ -43,7 +43,7 @@ const candidates: Candidate[] = [
 ];
 
 const all = { count: true, hold: true, query: '' };
-const after: Anchor = { kind: 'after', end: 1, next: 1 }; // starts on 1 from open
+const after: Anchor = { kind: 'after', ends: [1], next: 1 }; // starts on 1 from open
 const ids = (l: ReturnType<typeof pickList>) => ({
 	figures: l.figures.map((g) => [g.groupId, g.single, g.variations.map((v) => v.id)]),
 	routines: l.routines.map((r) => r.id)
@@ -132,17 +132,44 @@ describe('pickList', () => {
 	});
 
 	it('says which filter emptied the list', () => {
-		const shadow: Anchor = { kind: 'after', end: 9, next: 1 };
+		const shadow: Anchor = { kind: 'after', ends: [9], next: 1 };
 		const l = pickList(candidates, shadow, all);
 		expect(l.figures).toEqual([]);
 		expect(l.emptiedBy).toEqual(['hold']);
 	});
 
 	it('hides a chip the anchor cannot use', () => {
-		expect(pickList(candidates, { kind: 'after', end: null, next: 1 }, all).toggles).toEqual({
+		expect(pickList(candidates, { kind: 'after', ends: null, next: 1 }, all).toggles).toEqual({
 			count: true,
 			hold: false
 		});
+	});
+
+	it('hides the hold chip when the anchor has no position on its side', () => {
+		expect(pickList(candidates, { kind: 'after', ends: [], next: 1 }, all).toggles).toEqual({
+			count: true,
+			hold: false
+		});
+		expect(
+			pickList(candidates, { kind: 'before', starts: [], startCounts: [1] }, all).toggles
+		).toEqual({ count: true, hold: false });
+	});
+
+	it('after a slot with two ends: what starts in either fits', () => {
+		const two: Anchor = { kind: 'after', ends: [2, 3], next: 1 };
+		// Basic starts from closed, Sombrero from hammerlock; the rest start from open.
+		expect(ids(pickList(candidates, two, all)).figures).toEqual([
+			[3, false, [3]],
+			[5, true, [5]]
+		]);
+	});
+
+	it('a candidate with no starts fits after anything; one with no ends before anything', () => {
+		const free = fig(8, 'Free', { starts: [], ends: [] });
+		const shadow: Anchor = { kind: 'after', ends: [9], next: 1 };
+		const intoShadow: Anchor = { kind: 'before', starts: [9], startCounts: [1] };
+		expect(ids(pickList([free], shadow, all)).figures).toEqual([[8, true, [8]]]);
+		expect(ids(pickList([free], intoShadow, all)).figures).toEqual([[8, true, [8]]]);
 	});
 
 	it('in alternative mode: same starts, count and landing; no routines; filters ignored', () => {
@@ -150,35 +177,90 @@ describe('pickList', () => {
 			kind: 'alternative',
 			starts: [1],
 			startCount: 1,
-			end: 2,
+			ends: [2],
 			next: 1,
 			exclude: [1]
 		};
 		const l = pickList(candidates, alt, { count: false, hold: false, query: '' });
 		expect(ids(l)).toEqual({ figures: [[2, true, [2]]], routines: [] });
 	});
+
+	it('in alternative mode: the same set of ends, in any order, and starts that meet', () => {
+		const main = fig(1, 'Main', { ends: [2, 3] });
+		const pool = [
+			main,
+			fig(2, 'Same ends, other order', { ends: [3, 2] }),
+			fig(3, 'Fewer ends', { ends: [2] }),
+			fig(4, 'No starts', { starts: [], ends: [2, 3] }),
+			fig(5, 'Other start', { starts: [2], ends: [2, 3] })
+		];
+		const alt = anchorAlternative(main, [1])!;
+		expect(ids(pickList(pool, alt, all)).figures.map((g) => g[0])).toEqual([2, 4]);
+	});
+});
+
+describe('a repertoire with no positions', () => {
+	const free = (id: number, label: string, groupId: number | null = id) =>
+		fig(id, label, { starts: [], ends: [] }, groupId);
+	const pool: Candidate[] = [
+		free(1, 'Cross body lead'),
+		free(2, 'Enchufla · Basic', 2),
+		free(3, 'Enchufla · Doble', 2),
+		{ ...free(4, 'Shine combo', null), kind: 'routine', figure: null }
+	];
+	const row = { starts: [], startCounts: [1], ends: [], next: 1 };
+	const count = (l: ReturnType<typeof pickList>) =>
+		l.figures.flatMap((g) => g.variations).length + l.routines.length;
+
+	it('keeps every candidate after, before and between', () => {
+		expect(count(pickList(pool, anchorAfter(row), all))).toBe(4);
+		expect(count(pickList(pool, anchorBefore(row), all))).toBe(4);
+		expect(count(pickList(pool, anchorBetween(row, row)!, all))).toBe(4);
+	});
+
+	it('keeps every other figure as an alternative', () => {
+		const alt = anchorAlternative(pool[0], [1])!;
+		expect(ids(pickList(pool, alt, all)).figures.map((g) => g[0])).toEqual([2]);
+		expect(pickList(pool, alt, all).figures[0].variations.map((v) => v.id)).toEqual([2, 3]);
+	});
+
+	it('offers no hold chip', () => {
+		expect(pickList(pool, anchorAfter(row), all).toggles.hold).toBe(false);
+		expect(pickList(pool, anchorBefore(row), all).toggles.hold).toBe(false);
+	});
 });
 
 describe('anchors', () => {
 	it('builds from a row’s edges', () => {
-		const e = { starts: [2], startCounts: [1], end: 3, next: 5 };
-		expect(anchorAfter(e)).toEqual({ kind: 'after', end: 3, next: 5 });
+		const e = { starts: [2], startCounts: [1], ends: [3], next: 5 };
+		expect(anchorAfter(e)).toEqual({ kind: 'after', ends: [3], next: 5 });
 		expect(anchorBefore(e)).toEqual({ kind: 'before', starts: [2], startCounts: [1] });
 	});
 
 	it('falls back to no anchor for a row with nothing danceable', () => {
-		const empty = { starts: [], startCounts: [], end: null, next: null };
+		const empty = { starts: [], startCounts: [], ends: null, next: null };
 		expect(anchorAfter(empty)).toEqual({ kind: 'none' });
 		expect(anchorBefore(empty)).toEqual({ kind: 'none' });
 	});
 
 	it('has no alternative anchor when the main figure is gone', () => {
 		expect(anchorAlternative(undefined, [1])).toBeNull();
-		expect(anchorAlternative(fig(1, 'A', { end: 2 }), [1])).toEqual({
+		expect(anchorAlternative(fig(1, 'A', { ends: [2] }), [1])).toEqual({
 			kind: 'alternative',
 			starts: [1],
 			startCount: 1,
-			end: 2,
+			ends: [2],
+			next: 1,
+			exclude: [1]
+		});
+	});
+
+	it('has an alternative anchor for a main figure with no position', () => {
+		expect(anchorAlternative(fig(1, 'A', { starts: [], ends: [] }), [1])).toEqual({
+			kind: 'alternative',
+			starts: [],
+			startCount: 1,
+			ends: [],
 			next: 1,
 			exclude: [1]
 		});
@@ -186,9 +268,9 @@ describe('anchors', () => {
 });
 
 describe('between two slots', () => {
-	const above = { starts: [1], startCounts: [1], end: 1, next: 1 }; // lands in open, ready for 1
-	const intoClosed = { starts: [2], startCounts: [1], end: 1, next: 1 }; // starts from closed on 1
-	const intoHammerlock = { starts: [3], startCounts: [1], end: 1, next: 1 };
+	const above = { starts: [1], startCounts: [1], ends: [1], next: 1 }; // lands in open, ready for 1
+	const intoClosed = { starts: [2], startCounts: [1], ends: [1], next: 1 }; // starts from closed on 1
+	const intoHammerlock = { starts: [3], startCounts: [1], ends: [1], next: 1 };
 
 	it('offers only what fits both the slot above and the slot below', () => {
 		const anchor = anchorBetween(above, intoClosed)!;
@@ -210,7 +292,7 @@ describe('between two slots', () => {
 	});
 
 	it('has no anchor when either side has nothing danceable', () => {
-		const empty = { starts: [], startCounts: [], end: null, next: null };
+		const empty = { starts: [], startCounts: [], ends: null, next: null };
 		expect(anchorBetween(empty, intoClosed)).toBeNull();
 		expect(anchorBetween(above, empty)).toBeNull();
 		expect(canBridge(candidates, null)).toBe(false);
@@ -227,7 +309,11 @@ describe('between two slots', () => {
 describe('anchorText', () => {
 	const name = (id: number) => ['', 'Open', 'Closed', 'Hammerlock'][id];
 	it('says it the way a dancer does', () => {
-		expect(anchorText({ kind: 'after', end: 2, next: 1 }, name)).toBe('Starts on 1 from Closed');
+		expect(anchorText({ kind: 'after', ends: [2], next: 1 }, name)).toBe('Starts on 1 from Closed');
+		expect(anchorText({ kind: 'after', ends: [1, 2], next: 1 }, name)).toBe(
+			'Starts on 1 from Open or Closed'
+		);
+		expect(anchorText({ kind: 'after', ends: [], next: 1 }, name)).toBe('Starts on 1');
 		expect(anchorText({ kind: 'before', starts: [3], startCounts: [1] }, name)).toBe(
 			'Ends on 8 at Hammerlock'
 		);
@@ -236,10 +322,34 @@ describe('anchorText', () => {
 		);
 		expect(
 			anchorText(
-				{ kind: 'alternative', starts: [2], startCount: 1, end: 1, next: 1, exclude: [] },
+				{ kind: 'alternative', starts: [2], startCount: 1, ends: [1], next: 1, exclude: [] },
 				name
 			)
 		).toBe('Closed → Open, 1→1');
+		expect(
+			anchorText(
+				{ kind: 'alternative', starts: [2], startCount: 1, ends: [1, 3], next: 1, exclude: [] },
+				name
+			)
+		).toBe('Closed → Open or Hammerlock, 1→1');
+		expect(
+			anchorText(
+				{ kind: 'alternative', starts: [], startCount: 1, ends: [3], next: 1, exclude: [] },
+				name
+			)
+		).toBe('Anywhere → Hammerlock, 1→1');
+		expect(
+			anchorText(
+				{ kind: 'alternative', starts: [2], startCount: 1, ends: [], next: 1, exclude: [] },
+				name
+			)
+		).toBe('Closed → anywhere, 1→1');
+		expect(
+			anchorText(
+				{ kind: 'alternative', starts: [], startCount: 5, ends: [], next: 1, exclude: [] },
+				name
+			)
+		).toBe('5→1');
 		expect(anchorText({ kind: 'none' }, name)).toBeNull();
 	});
 });

@@ -11,7 +11,7 @@
  * so `plan.length` says which slot comes next and where the hands are, and no
  * state has to survive between ticks.
  */
-import { endOf, figureById, startsOf, type Graph } from '$lib/graph/graph';
+import { figureById, fitsAfter, type Graph } from '$lib/graph/graph';
 import { eightsSpan } from '$lib/graph/timing';
 import type { CallEvery } from '$lib/labels';
 import { LEAD_IN_8S, type PlanStep } from '$lib/scheduler/scheduler';
@@ -65,7 +65,9 @@ export function routinePlan(
  * Which of a slot's options to dance, given the figure just called.
  *
  * An option that cannot be entered from where the hands are is skipped — the
- * slot is permissive by design. If NONE fit, the whole list is eligible again:
+ * slot is permissive by design. "Can be entered" is `fitsAfter`: its starts
+ * meet the last figure's ends, so an option with no starts, or a last figure
+ * with no ends, always fits. If NONE fit, the whole list is eligible again:
  * that is the break the routine page already warns about, and calling nothing
  * would stop the run dead over a tag somebody has not got round to.
  *
@@ -75,13 +77,12 @@ export function routinePlan(
 function choose(g: Graph, slot: OptionsSlot, last: number | null, r: number): number | null {
 	if (slot.figureIds.length === 0) return null;
 	const lastFigure = last === null ? null : figureById(g, last);
-	const here = lastFigure === null ? null : endOf(g, lastFigure);
 	const fits =
-		here === null
+		lastFigure === null
 			? slot.figureIds
 			: slot.figureIds.filter((id) => {
 					const f = figureById(g, id);
-					return f !== null && startsOf(g, f).includes(here);
+					return f !== null && fitsAfter(lastFigure, f);
 				});
 	const choices = fits.length > 0 ? fits : slot.figureIds;
 	return choices[Math.min(choices.length - 1, Math.floor(r * choices.length))];

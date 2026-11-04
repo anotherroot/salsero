@@ -4,15 +4,19 @@ import { LEAD_IN_8S, type PlanStep } from '$lib/scheduler/scheduler';
 import { routinePlan } from './plan';
 import type { RoutineShape } from './routines';
 
-/** Same graph as routines.spec.ts: 1 open (neutral), 2 closed, 3 hammerlock. */
+/**
+ * Same graph as routines.spec.ts: 1 open, 2 closed, 3 hammerlock. 10 has no
+ * position; 15 ends in closed or hammerlock.
+ */
 const g: Graph = {
-	neutral: 1,
+	positions: [],
 	figures: [
-		{ id: 10, starts: [], end: null, start: 1, length: 8 },
-		{ id: 11, starts: [1], end: 2, start: 1, length: 8 },
-		{ id: 12, starts: [2], end: 1, start: 1, length: 8 },
-		{ id: 13, starts: [1, 2], end: 3, start: 1, length: 16 },
-		{ id: 14, starts: [3], end: 1, start: 1, length: 8 }
+		{ id: 10, starts: [], ends: [], start: 1, length: 8 },
+		{ id: 11, starts: [1], ends: [2], start: 1, length: 8 },
+		{ id: 12, starts: [2], ends: [1], start: 1, length: 8 },
+		{ id: 13, starts: [1, 2], ends: [3], start: 1, length: 16 },
+		{ id: 14, starts: [3], ends: [1], start: 1, length: 8 },
+		{ id: 15, starts: [1], ends: [2, 3], start: 1, length: 8 }
 	]
 };
 
@@ -90,6 +94,31 @@ describe('routinePlan', () => {
 			// right answer even if the position filter is skipped entirely. Do not trim it.
 			expect(routinePlan([], shape, g, 1, 3, seeded([r])).map((s) => s.figureId)).toEqual([11, 12]);
 		}
+	});
+
+	it('from a figure with two ends, picks an option starting in one of them', () => {
+		// 15 ends closed or hammerlock. Slot 2 offers 11 (needs open) and 12 (needs closed).
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [15] },
+				{ kind: 'options', figureIds: [11, 12] }
+			]
+		};
+		for (const r of [0, 0.5, 0.99]) {
+			expect(routinePlan([], shape, g, 1, 3, seeded([r])).map((s) => s.figureId)).toEqual([15, 12]);
+		}
+	});
+
+	it('always counts an option with no starts as one that fits', () => {
+		// 11 ends closed. Slot 2 offers 14 (needs hammerlock) and 10 (fits anywhere).
+		// r = 0 would pick 14 if 10 were not eligible.
+		const shape: RoutineShape = {
+			slots: [
+				{ kind: 'options', figureIds: [11] },
+				{ kind: 'options', figureIds: [14, 10] }
+			]
+		};
+		expect(routinePlan([], shape, g, 1, 3, seeded([0])).map((s) => s.figureId)).toEqual([11, 10]);
 	});
 
 	it('spreads across the options that fit, driven by rand', () => {

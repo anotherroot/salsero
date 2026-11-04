@@ -12,13 +12,19 @@ export function bandCompact(name: string): boolean {
 	return name.length > 18 || name.split(/\s+/).some((w) => w.length > 10);
 }
 
-/** "Starts from Open or Closed, ends in Closed": the two halves, or null with no start. */
+/**
+ * "Starts from Open or Closed, ends in Closed": the two halves. A side with no
+ * position has no fact (null); with neither, there is nothing to say.
+ */
 export function factsOf(
 	starts: string[],
-	end: string | null
-): { from: string; to: string | null } | null {
-	if (starts.length === 0) return null;
-	return { from: starts.join(' or '), to: end };
+	ends: string[]
+): { from: string | null; to: string | null } | null {
+	if (starts.length === 0 && ends.length === 0) return null;
+	return {
+		from: starts.length > 0 ? starts.join(' or ') : null,
+		to: ends.length > 0 ? ends.join(' or ') : null
+	};
 }
 
 export type FactBadge = { tone: 'done' | 'warn' | 'danger'; text: string; loop: boolean };
@@ -46,29 +52,35 @@ export function factBadges(r: {
 	return out;
 }
 
-/** A slot card's second line: "1→1 · Open → Closed", led by "Routine · 3 slots" for a routine. */
+/**
+ * A slot card's second line: "1→1 · Open → Closed", led by "Routine · 3 slots"
+ * for a routine. A side with no position shows nothing ("1→1 · Open →"), and
+ * so do ends the options disagree on: never a "?" for a hold.
+ */
 export function slotMeta(
 	e: RowEdges,
 	name: (id: number) => string,
 	childSlots: number | null
 ): string {
+	const from = e.starts.map(name).join(' / ');
+	const to = (e.ends ?? []).map(name).join(' / ');
+	const hands = from === '' && to === '' ? '' : [from, '→', to].filter((p) => p !== '').join(' ');
 	const core =
-		e.starts.length === 0
+		e.startCounts.length === 0
 			? ''
-			: `${e.startCounts.join('/')}→${e.next ?? '?'} · ${e.starts.map(name).join(' / ')} → ${
-					e.end === null ? '?' : name(e.end)
-				}`;
+			: [`${e.startCounts.join('/')}→${e.next ?? '?'}`, hands].filter((p) => p !== '').join(' · ');
 	if (childSlots === null) return core;
 	return ['Routine', plural(childSlots, 'slot', 'slots'), core].filter((p) => p !== '').join(' · ');
 }
 
 /** The text on a seam: how the hands and the count meet the next slot. */
 export function seamLabel(
-	hands: { end: string; next: string[] } | null,
+	hands: { ends: string[]; next: string[] } | null,
 	count: { ready: number | null; next: number[] } | null
 ): string {
 	const parts: string[] = [];
-	if (hands) parts.push(`Ends in ${hands.end}, next starts from ${hands.next.join(' or ')}`);
+	if (hands)
+		parts.push(`Ends in ${hands.ends.join(' or ')}, next starts from ${hands.next.join(' or ')}`);
 	if (count)
 		parts.push(`ready for ${count.ready ?? '?'}, next starts on ${count.next.join(' or ')}`);
 	const s = parts.join(' · ');
