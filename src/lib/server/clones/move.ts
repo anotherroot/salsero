@@ -91,15 +91,19 @@ export function moveOffer(db: Db, wall: Wall, lessonId: number): MoveOffer | nul
 	return { title: ownLesson(db, wall, lessonId)!.title, targets };
 }
 
-/** Whether the row of the kind is the person's own, in the wall's dance. */
-function isMine(db: Db, wall: Wall, kind: ItemKind, id: number): boolean {
+/**
+ * Whether the row of the kind is the person's own and live, in the wall's
+ * dance. One they archived already has nothing to drop: the moved lesson
+ * keeps its link to it as it is, archived with it.
+ */
+function liveMine(db: Db, wall: Wall, kind: ItemKind, id: number): boolean {
 	const t = OWNER[kind];
 	const row = db
-		.select({ userId: t.userId, teamId: t.teamId, dance: t.dance })
+		.select({ userId: t.userId, teamId: t.teamId, dance: t.dance, archivedAt: t.archivedAt })
 		.from(t)
 		.where(eq(t.id, id))
 		.get();
-	return !!row && inSpace(row, wall);
+	return !!row && row.archivedAt === null && inSpace(row, wall);
 }
 
 /** The person's other live lessons that link it: by hand, or through a section on their videos. */
@@ -189,7 +193,7 @@ function practised(db: Db, wall: Wall, kind: ItemKind, id: number): boolean {
 }
 
 /**
- * The person's own figures, routines and drills the copy would bring into
+ * The person's own live figures, routines and drills the copy would bring into
  * the group (copied, or reused from a live member there), in the copy's
  * order, each with why it is kept by default. Kept: what the person's other
  * live lessons or routines use, or what they practise; a routine the lesson
@@ -203,7 +207,7 @@ function itemsOf(db: Db, wall: Wall, lessonId: number, into: TeamSpace): MoveIte
 	const push = (kind: CloneKind | string, id: number) => {
 		if (!ITEM_KINDS.has(kind)) return;
 		const k = moveKey(kind as ItemKind, id);
-		if (seen.has(k) || !isMine(db, wall, kind as ItemKind, id)) return;
+		if (seen.has(k) || !liveMine(db, wall, kind as ItemKind, id)) return;
 		seen.add(k);
 		found.push({ kind: kind as ItemKind, id });
 	};

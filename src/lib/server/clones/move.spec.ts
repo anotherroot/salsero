@@ -23,7 +23,16 @@ import {
 	users
 } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
-import { addFigureExercise, createFigure } from '../figures';
+import {
+	addRecording,
+	addFigureExercise,
+	archiveVariation,
+	createFigure,
+	createVariationIn
+} from '../figures';
+import { archiveExercise } from '../exercises';
+import { setTeamLimit } from '../storage';
+import type { CloneFileKind, CloneFiles } from './files';
 import { createLesson, linkExercise, linkFigure, linkRoutine } from '../lessons';
 import { archiveRoutine, createRoutine } from '../routines';
 import { figureAccess, lessonAccess } from '../access';
@@ -319,5 +328,114 @@ describe('moving (moveLesson)', () => {
 		).toMatchObject({ ok: false });
 		expect(db.select().from(lessons).all()).toHaveLength(before);
 		expect(db.select().from(lessons).where(eq(lessons.id, L)).get()!.archivedAt).toBeNull();
+	});
+});
+
+describe('what you archived already', () => {
+	it('is not listed (nothing to drop), and the move lands with the defaults', async () => {
+		const L = lesson('Week 3');
+		const enchufla = figure(U1_SALSA, 'Enchufla');
+		const setenta = figure(U1_SALSA, 'Setenta');
+		const drill = db
+			.insert(exercises)
+			.values({ name: 'Spins', dance: 'salsa', source: 'custom', userId: 'u1' })
+			.returning()
+			.get().id;
+		for (const f of [enchufla, setenta]) linkFigure(db, L, f);
+		linkExercise(db, L, drill);
+		// Both copied into T1 earlier (their families live there), then archived in Ana's app.
+		for (const [kind, id] of [
+			['figure', setenta],
+			['drill', drill]
+		] as const) {
+			const r = await cloneInto(db, { kind, id, into: T1_SALSA, recordings: true }, NO_FILES, T);
+			if (!r.ok) throw new Error('copy refused');
+		}
+		archiveVariation(db, setenta, T);
+		archiveExercise(db, drill, T);
+
+		const p = movePreview(db, U1_SALSA, L, 1)!;
+		expect(p.items.map((i) => [i.kind, i.id])).toEqual([['figure', enchufla]]);
+		const res = await moveLesson(db, U1_SALSA, L, 1, defaults(p), {}, NO_FILES, NOW, ROOMY);
+		if (!res.ok || !res.made) throw new Error('move refused');
+		expect(db.select().from(lessons).where(eq(lessons.id, L)).get()!.archivedAt).toBe(NOW);
+		// Archived as they were, not stamped again.
+		expect(fig(setenta).archivedAt).toBe(T);
+		expect(db.select().from(exercises).where(eq(exercises.id, drill)).get()!.archivedAt).toBe(T);
+		expect(linkedIn(res.id)).toContain(groupCopy(setenta));
+		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('a refused move leaves everything as it was', () => {
+	function fakeFiles() {
+		const linked: [CloneFileKind, string][] = [];
+		const unlinked: [CloneFileKind, string][] = [];
+		const files: CloneFiles = {
+			async link(kind, file) {
+				linked.push([kind, `copy-${file}`]);
+				return `copy-${file}`;
+			},
+			async unlink(kind, file) {
+				unlinked.push([kind, file]);
+			}
+		};
+		return { files, linked, unlinked };
+	}
+	const recording = (figureId: number, file: string, sizeBytes: number) =>
+		addRecording(
+			db,
+			{ figureId, file, mime: 'video/mp4', kind: 'video', sizeBytes, note: null },
+			'u1'
+		);
+	/** Week 3 with Enchufla · Básico (two recordings) and Setenta (only this lesson). */
+	function week3WithFiles() {
+		const L = lesson('Week 3');
+		const enchufla = figure(U1_SALSA, 'Enchufla');
+		recording(enchufla, 'a.mp4', 100);
+		recording(enchufla, 'b.mp4', 100);
+		const setenta = figure(U1_SALSA, 'Setenta');
+		linkFigure(db, L, enchufla);
+		linkFigure(db, L, setenta);
+		return { L, enchufla, setenta };
+	}
+	function untouched(L: number, items: number[], before: number) {
+		expect(db.select().from(lessons).where(eq(lessons.id, L)).get()!.archivedAt).toBeNull();
+		expect(db.select().from(lessons).where(eq(lessons.teamId, 1)).all()).toEqual([]);
+		expect(db.select().from(teamChanges).all()).toHaveLength(before);
+		for (const id of items) expect(fig(id).archivedAt).toBeNull();
+	}
+
+	it('no room in the group: refused before any file is linked', async () => {
+		const { L, enchufla, setenta } = week3WithFiles();
+		setTeamLimit(db, 1, 150);
+		const p = movePreview(db, U1_SALSA, L, 1)!;
+		expect(p.items.find((i) => i.id === setenta)!.keepByDefault).toBe(false);
+		const before = db.select().from(teamChanges).all().length;
+		const f = fakeFiles();
+		const res = await moveLesson(db, U1_SALSA, L, 1, defaults(p), {}, f.files, NOW, ROOMY);
+		expect(res).toMatchObject({ ok: false, reason: 'room' });
+		expect(f.linked).toEqual([]);
+		untouched(L, [enchufla, setenta], before);
+	});
+
+	it('a name refused inside the write: rolled back, every linked file unlinked', async () => {
+		const { L, enchufla, setenta } = week3WithFiles();
+		// T1's Enchufla holds Básico and every name a copy of Ana's could take.
+		const theirs = createFigure(db, T1_SALSA, { figureName: 'Enchufla', name: 'Básico', ...shape })!
+			.group.id;
+		createVariationIn(db, theirs, { name: 'Básico (Ana)', ...shape }, 'u1');
+		for (let n = 2; n <= 9; n++)
+			createVariationIn(db, theirs, { name: `Básico (Ana ${n})`, ...shape }, 'u1');
+		const p = movePreview(db, U1_SALSA, L, 1)!;
+		const before = db.select().from(teamChanges).all().length;
+		const figuresBefore = db.select().from(figures).all().length;
+		const f = fakeFiles();
+		const res = await moveLesson(db, U1_SALSA, L, 1, defaults(p), {}, f.files, NOW, ROOMY);
+		expect(res).toMatchObject({ ok: false, reason: 'name' });
+		expect(f.linked).toHaveLength(2);
+		expect(f.unlinked).toEqual(f.linked);
+		untouched(L, [enchufla, setenta], before);
+		expect(db.select().from(figures).all()).toHaveLength(figuresBefore);
 	});
 });
