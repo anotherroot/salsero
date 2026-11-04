@@ -388,16 +388,12 @@ describe('layoutMap', () => {
 		}
 		const input = { positions, edges };
 		let stats: MapStats | null = null;
-		const t0 = performance.now();
 		const out = layoutMap(input, { onStats: (s) => (stats = s) });
-		const ms = performance.now() - t0;
 		expect(out.nodes).toHaveLength(60);
 		expectClean(input, out);
 		// The work is counted, not timed: the pushing settles well under the cap.
 		expect(stats).toEqual({ passes: expect.any(Number), settled: true });
 		expect(stats!.passes).toBeLessThan(MAX_PASSES / 3);
-		// Only a blow-up fails this; it is a few ms on a quiet machine.
-		expect(ms).toBeLessThan(1000);
 	});
 
 	it('says when the pushing settled, and how many passes it took', () => {

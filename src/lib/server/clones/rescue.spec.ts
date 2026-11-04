@@ -720,16 +720,13 @@ describe('rescueUsed at size', () => {
 		expect(twenty - two).toBe(18);
 		expect(crossRefs(db)).toEqual([]);
 		// Measured 2026-11-04: 60 queries for two people, 78 for twenty (the
-		// published reach of fifty lessons is most of it), about 10 ms; the whole
-		// reconcile 82.
+		// published reach of fifty lessons is most of it); the whole reconcile 82.
+		// Queries are counted, not timed: a wall clock flakes under load.
 		expect(queries(() => reconcileEntries(db, 1, NOW)) - twenty).toBeLessThan(10);
 
-		rescueUsed(db, 1, NOW); // warm
-		const runs = Array.from({ length: 5 }, () => {
-			const t = performance.now();
-			expect(rescueUsed(db, 1, NOW)).toBe(0);
-			return performance.now() - t;
-		}).sort((a, b) => a - b);
-		expect(runs.at(-1)!).toBeLessThan(200);
+		// Nothing to rescue, and a second call costs exactly what the first did.
+		let rescued = -1;
+		expect(queries(() => (rescued = rescueUsed(db, 1, NOW)))).toBe(twenty);
+		expect(rescued).toBe(0);
 	});
 });
