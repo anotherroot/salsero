@@ -23,7 +23,7 @@ import { createFigure } from '../figures';
 import { createRoutine } from '../routines';
 import { createLesson, publishLesson } from '../lessons';
 import { createSongFromUrl } from '../songs';
-import { seedPositions } from '../positions';
+import { seedPositions } from '../test-positions';
 import type { Space, Wall } from '../scope';
 import { T1_SALSA, U2_SALSA } from '../test-walls';
 import { repoint, repointPreview } from './repoint';

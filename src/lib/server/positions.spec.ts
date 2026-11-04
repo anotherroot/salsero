@@ -10,9 +10,9 @@ import {
 	liveNameTaken,
 	neutralPosition,
 	restorePosition,
-	seedPositions,
 	updatePosition
 } from './positions';
+import { seedPositions } from './test-positions';
 
 describe('positions schema', () => {
 	it('stores a position and a figure tagged with start and end', () => {
@@ -33,35 +33,6 @@ describe('positions schema', () => {
 		expect(fig.endPositionId).toBe(open.id);
 		// Defaults: every existing figure keeps behaving as it does today.
 		expect(fig.eights).toBe(1);
-	});
-});
-
-describe('seedPositions', () => {
-	it('seeds each dance once and is idempotent', () => {
-		const db = openDb(':memory:');
-		seedPositions(db);
-		const first = listPositions(db, 'salsa');
-		expect(first.length).toBeGreaterThan(5);
-		expect(listPositions(db, 'bachata').length).toBeGreaterThan(5);
-
-		seedPositions(db);
-		expect(listPositions(db, 'salsa')).toHaveLength(first.length);
-	});
-
-	it('gives each dance its own neutral, and they differ', () => {
-		const db = openDb(':memory:');
-		seedPositions(db);
-		expect(neutralPosition(db, 'salsa')?.slug).toBe('open-two');
-		expect(neutralPosition(db, 'bachata')?.slug).toBe('closed');
-	});
-
-	it('leaves a dance alone once it has positions of its own', () => {
-		const db = openDb(':memory:');
-		createPosition(db, 'salsa', { slug: 'mine', name: 'Mine', neutral: true, sortOrder: 0 });
-		seedPositions(db);
-		expect(listPositions(db, 'salsa').map((p) => p.slug)).toEqual(['mine']);
-		// The other dance is seeded independently.
-		expect(listPositions(db, 'bachata').length).toBeGreaterThan(5);
 	});
 });
 

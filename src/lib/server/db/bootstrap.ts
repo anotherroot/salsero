@@ -3,7 +3,6 @@ import { seedAdmin } from '../admin';
 import { sweepUploads } from '../files';
 import { crossRefs, familyIntegrity, ownerIntegrity } from '../integrity';
 import { importNoteLinks } from '../links';
-import { seedPositions } from '../positions';
 import { backfillSongSizes } from '../storage';
 import { startTrashPurge } from '../trash';
 import { UPLOAD_PARTIAL_TTL_MS } from '$lib/limits';
@@ -37,9 +36,6 @@ function checkIntegrity(db: Db): void {
 export function bootstrap(): Promise<void> {
 	ready ??= seedAdmin(getDb(), env.ADMIN_EMAIL, env.ADMIN_PASSWORD)
 		.then(() => {
-			// The handhold vocabulary, per dance, if that dance has none. Cheap and
-			// idempotent, and the figure pickers are empty without it.
-			seedPositions(getDb());
 			// Lesson notes carried their YouTube links as plain text before links
 			// existed. Copied out once EVER — `app_flags` remembers — so a link the
 			// user deletes afterwards is never brought back by a restart.

@@ -41,7 +41,7 @@ import { addLinks, deleteLink } from '../links';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { createSongFromUpload } from '../songs';
-import { seedPositions } from '../positions';
+import { seedPositions } from '../test-positions';
 import type { Space } from '../scope';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import type { CloneKind } from '$lib/types';

@@ -53,7 +53,8 @@ import {
 } from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions, setFigureShape } from '$lib/server/graph';
-import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
+import { getPosition, listPositions } from '$lib/server/positions';
+import { seedPositions } from '$lib/server/test-positions';
 import {
 	addFigureSlot,
 	addOption,

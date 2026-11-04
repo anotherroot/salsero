@@ -29,7 +29,8 @@ import {
 	extractRoutine
 } from './routines';
 import { archiveVariation, createFigure, createVariationFrom, figureLabels } from './figures';
-import { listPositions, seedPositions } from './positions';
+import { listPositions } from './positions';
+import { seedPositions } from './test-positions';
 import { graphFor, setFigureShape } from './graph';
 import { flatten } from '$lib/routines/routines';
 import { exercises, routineStepOptions } from './db/schema';

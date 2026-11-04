@@ -34,7 +34,8 @@ import {
 	moveVariation
 } from '$lib/server/figures';
 import { buildGraph, taggedFigures } from '$lib/server/graph';
-import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
+import { getPosition, listPositions } from '$lib/server/positions';
+import { seedPositions } from '$lib/server/test-positions';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { exercises, figureGroups, figures, recordings, routines } from '$lib/server/db/schema';
 import * as figurePage from './figures/[id]/+page.server';

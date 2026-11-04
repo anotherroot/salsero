@@ -2,7 +2,7 @@ import { and, asc, eq, isNull, ne } from 'drizzle-orm';
 import type { Db } from './db';
 import { fold } from '$lib/fold';
 import { positions } from './db/schema';
-import { DANCE_SLUGS, DANCES, type DanceSlug } from '$lib/dances/dances';
+import { type DanceSlug } from '$lib/dances/dances';
 
 export interface PositionInput {
 	slug: string;
@@ -135,37 +135,6 @@ export function archivePosition(db: Db, id: number, now: number): boolean {
 	if (!row || row.archivedAt !== null || row.neutral) return false;
 	db.update(positions).set({ archivedAt: now }).where(eq(positions.id, id)).run();
 	return true;
-}
-
-/**
- * Seed each dance's vocabulary if it has none, at boot, idempotently — the same
- * reasoning as `seedAdmin`: a deploy that has to remember a seed step forgets.
- *
- * Per dance, not globally: adding a dance to the registry later seeds only the
- * new one and never touches an edited vocabulary.
- */
-export function seedPositions(db: Db) {
-	for (const dance of DANCE_SLUGS) {
-		const existing = db
-			.select({ id: positions.id })
-			.from(positions)
-			.where(eq(positions.dance, dance))
-			.limit(1)
-			.get();
-		if (existing) continue;
-		db.insert(positions)
-			.values(
-				DANCES[dance].seedPositions.map((p, i) => ({
-					dance,
-					slug: p.slug,
-					name: p.name,
-					// The registry's first entry is the neutral one.
-					neutral: i === 0,
-					sortOrder: i
-				}))
-			)
-			.run();
-	}
 }
 
 /**

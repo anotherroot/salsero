@@ -22,7 +22,6 @@ vi.mock('../integrity', () => ({
 	crossRefs: m.crossRefs
 }));
 vi.mock('../links', () => ({ importNoteLinks: () => {} }));
-vi.mock('../positions', () => ({ seedPositions: () => {} }));
 vi.mock('../storage', () => ({ backfillSongSizes: () => {} }));
 vi.mock('../trash', () => ({ startTrashPurge: m.startTrashPurge }));
 vi.mock('./index', () => ({ getDb: () => ({}) }));

@@ -17,7 +17,7 @@ import { createCustomExercise } from '../exercises';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
 import { addSpot, deleteSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
-import { seedPositions } from '../positions';
+import { seedPositions } from '../test-positions';
 import type { Space, TeamSpace } from '../scope';
 import { T1_SALSA, T2_SALSA, U1_SALSA } from '../test-walls';
 import type { Picks } from '$lib/types';

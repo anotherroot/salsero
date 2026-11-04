@@ -23,7 +23,8 @@ import { actions as routineListActions } from './routines/+page.server';
 import { actions as figureListActions, load as figureListLoad } from './figures/+page.server';
 import { actions as coverageActions } from './coverage/+page.server';
 import { actions as positionActions } from './positions/+page.server';
-import { archivePosition, getPosition, listPositions, seedPositions } from '$lib/server/positions';
+import { archivePosition, getPosition, listPositions } from '$lib/server/positions';
+import { seedPositions } from '$lib/server/test-positions';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 

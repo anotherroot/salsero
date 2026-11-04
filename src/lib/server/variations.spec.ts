@@ -35,7 +35,8 @@ import {
 import { addLessonVideo, archiveLesson, createLesson, linkFigure } from './lessons';
 import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
-import { listPositions, seedPositions } from './positions';
+import { listPositions } from './positions';
+import { seedPositions } from './test-positions';
 import { setFigureShape } from './graph';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 

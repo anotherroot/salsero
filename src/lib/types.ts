@@ -995,3 +995,14 @@ export type DropOptions = {
 /** Same as… on an item page: the sheet's title and what it offers (`twinCandidates`). */
 export type TwinCandidate = { id: number; label: string; place: PlaceRef; ticked: boolean };
 export type TwinOffer = { kind: TwinKind; title: string; candidates: TwinCandidate[] };
+
+export type Hands = 'two' | 'one' | 'none';
+export type Facing = 'face' | 'side' | 'shadow' | 'back';
+export type Frame = 'open' | 'closed';
+/** How two dancers hold each other at a position; every part may be unknown (null). */
+export interface Hold {
+	hands: Hands | null;
+	crossed: boolean | null;
+	facing: Facing | null;
+	frame: Frame | null;
+}

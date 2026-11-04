@@ -24,7 +24,8 @@ import { createSongFromUpload, setAnchors, setSampleStart, setTempoFactor } from
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { addLinks } from '../links';
-import { listPositions, seedPositions } from '../positions';
+import { listPositions } from '../positions';
+import { seedPositions } from '../test-positions';
 import { setFigureShape } from '../graph';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import { stampGene } from './genes';

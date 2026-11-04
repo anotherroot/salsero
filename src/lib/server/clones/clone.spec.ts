@@ -43,7 +43,7 @@ import { addLinks } from '../links';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { createSongFromUpload, createSongFromUrl } from '../songs';
-import { seedPositions } from '../positions';
+import { seedPositions } from '../test-positions';
 import { setTeamLimit, usedBytesOf } from '../storage';
 import { purgeTrash } from '../trash';
 import type { Space, Wall } from '../scope';

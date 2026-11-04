@@ -5,7 +5,8 @@ import { eq } from 'drizzle-orm';
 import { figureGroups, figures, figureStartPositions } from './db/schema';
 import { archiveVariation, createFigure, createVariationFrom } from './figures';
 import { buildGraph, figurePositions, setFigureShape, taggedFigures } from './graph';
-import { archivePosition, listPositions, seedPositions } from './positions';
+import { archivePosition, listPositions } from './positions';
+import { seedPositions } from './test-positions';
 import { U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 const figureInput = (name: string) => ({

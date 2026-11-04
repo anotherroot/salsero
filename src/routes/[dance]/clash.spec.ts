@@ -29,7 +29,7 @@ import { createFigure } from '$lib/server/figures';
 import { addFigureSlot, archiveRoutine, createRoutine } from '$lib/server/routines';
 import { createCustomExercise } from '$lib/server/exercises';
 import { addSpot } from '$lib/server/spots';
-import { seedPositions } from '$lib/server/positions';
+import { seedPositions } from '$lib/server/test-positions';
 import type { Space } from '$lib/server/scope';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as figurePage from './figures/[id]/+page.server';

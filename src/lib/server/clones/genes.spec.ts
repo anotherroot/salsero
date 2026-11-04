@@ -7,7 +7,7 @@ import { setRole } from '../membership';
 import { addFigureExercise, addRecording, createFigure } from '../figures';
 import { createCustomExercise } from '../exercises';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
-import { seedPositions } from '../positions';
+import { seedPositions } from '../test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import { familyRows, geneOf, memberIn, newGene, stampGene, visibleMembers } from './genes';
 
