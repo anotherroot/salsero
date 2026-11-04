@@ -13,7 +13,8 @@ vi.mock('$lib/server/db', async () => {
 
 import type { Cookies } from '@sveltejs/kit';
 import { openDb, type Db } from '$lib/server/db';
-import { users } from '$lib/server/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { teamChanges, users } from '$lib/server/db/schema';
 import { addLesson } from '$lib/server/entries';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { addLessonVideo, createLesson, publishLesson } from '$lib/server/lessons';
@@ -155,5 +156,36 @@ describe('a lesson’s positions', () => {
 		const reader = await run(lessonPage.load, ev('u2', L));
 		expect(reader.positions.map((p: Answer) => p.name)).toEqual(['Cerrada']);
 		expect(reader.linkablePositions).toEqual([]);
+		// What blocks a video's delete is an editor's: a reader gets no position names.
+		expect(reader.videoPositions).toEqual({});
+	});
+
+	it('refuses the person’s own position on a group lesson', async () => {
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', T);
+		const L = lessonFor(T1_SALSA);
+		const own = addPosition(db, U1_SALSA, 'Mine');
+		const res = await run(
+			lessonPage.actions.linkPosition,
+			ev('u1', L, { positionId: String(own) })
+		);
+		expect(res).toMatchObject({ status: 400 });
+	});
+
+	it('writes a History line for a group link and unlink', async () => {
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', T);
+		const L = lessonFor(T1_SALSA);
+		const P = addPosition(db, T1_SALSA, 'Cerrada');
+		await run(lessonPage.actions.linkPosition, ev('u1', L, { positionId: String(P) }));
+		await run(lessonPage.actions.unlinkPosition, ev('u1', L, { positionId: String(P) }));
+		const lines = db
+			.select()
+			.from(teamChanges)
+			.where(and(eq(teamChanges.rootKind, 'lesson'), eq(teamChanges.rootId, L)))
+			.all()
+			.filter((c) => c.subject === 'position');
+		expect(lines.map((c) => [c.verb, c.subjectId, c.actorId])).toEqual([
+			['add', P, 'u1'],
+			['remove', P, 'u1']
+		]);
 	});
 });

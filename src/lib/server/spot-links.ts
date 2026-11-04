@@ -543,6 +543,35 @@ export function linksBlocking(db: Db, scope: { spotId: number } | SpotOwner): st
 	return [...new Set(labels)].sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * The positions each lesson video's sections and points link, archived ones
+ * too: the part of `linksBlocking` the lesson page cannot read from its
+ * sections (points are not among them). By video id.
+ */
+export function blockingPositionsByVideo(
+	db: Db,
+	videoIds: number[]
+): Record<number, { name: string; archived: boolean }[]> {
+	const out: Record<number, { name: string; archived: boolean }[]> = {};
+	if (videoIds.length === 0) return out;
+	const rows = db
+		.select({
+			videoId: videoSpots.lessonVideoId,
+			name: positions.name,
+			archivedAt: positions.archivedAt
+		})
+		.from(spotPositionLinks)
+		.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
+		.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+		.where(inArray(videoSpots.lessonVideoId, videoIds))
+		.all();
+	for (const r of rows) {
+		if (r.videoId === null) continue;
+		(out[r.videoId] ??= []).push({ name: r.name, archived: r.archivedAt !== null });
+	}
+	return out;
+}
+
 /** Throws `SpotLinkedError` while any section of the scope is linked. */
 export function assertUnlinked(db: Db, scope: { spotId: number } | SpotOwner): void {
 	const labels = linksBlocking(db, scope);

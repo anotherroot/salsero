@@ -1,9 +1,7 @@
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
-import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
-import { positions, spotPositionLinks, videoSpots } from '$lib/server/db/schema';
 import { defaultStyle } from '$lib/server/default-styles';
 import {
 	archiveLesson,
@@ -67,7 +65,7 @@ import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
 import { lessonNotice } from '$lib/teams/view';
 import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
-import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
+import { SpotLinkedError, blockingPositionsByVideo, videoSections } from '$lib/server/spot-links';
 import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { editedByLine } from '$lib/teams/history';
@@ -124,31 +122,6 @@ function linkOwner(
 function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: number): string | null {
 	const { by, at } = editedBy(db, teamId, 'lesson', lessonId);
 	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
-}
-
-/**
- * The positions each video's sections and points link, archived ones too: what
- * blocks its delete (as `linksBlocking` says it), so the page can refuse at once.
- */
-function videoPositions(db: ReturnType<typeof getDb>, videoIds: number[]) {
-	const out: Record<number, { name: string; archived: boolean }[]> = {};
-	if (videoIds.length === 0) return out;
-	const rows = db
-		.select({
-			videoId: videoSpots.lessonVideoId,
-			name: positions.name,
-			archivedAt: positions.archivedAt
-		})
-		.from(spotPositionLinks)
-		.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
-		.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
-		.where(inArray(videoSpots.lessonVideoId, videoIds))
-		.all();
-	for (const r of rows) {
-		if (r.videoId === null) continue;
-		(out[r.videoId] ??= []).push({ name: r.name, archived: r.archivedAt !== null });
-	}
-	return out;
 }
 
 export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
@@ -224,11 +197,13 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 				videoSections(db, { lessonVideoId: v.id }, visible ?? undefined)
 			])
 		),
-		/** Per video: the positions its sections and points link (they block its delete). */
-		videoPositions: videoPositions(
-			db,
-			found.videos.map((v) => v.id)
-		),
+		/** Per video: the positions its sections and points link (they block its delete). An editor's. */
+		videoPositions: canEdit
+			? blockingPositionsByVideo(
+					db,
+					found.videos.map((v) => v.id)
+				)
+			: {},
 		// Everything a picker offers is for linking, which a reader never does.
 		linkableFigures: canEdit ? listLinkableFigures(db, found.lesson.id) : [],
 		// The figures "Variation of a figure" can add to, with their variations' names.
