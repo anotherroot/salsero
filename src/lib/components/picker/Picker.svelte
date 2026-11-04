@@ -7,6 +7,9 @@
 	 *   while it is in flight, "✓ Linked" once the owner's data says so) and
 	 *   Done closes.
 	 * - 'field': a tap fills a field; the current value carries an accent ✓.
+	 *   With `multi` (a field that takes any number): `chosen` is a Set, a tap
+	 *   toggles (the owner's `onpick`) and the sheet stays open, an optional
+	 *   `clear` row clears all, and Done · N closes.
 	 * - 'act': a tap does something; plain rows.
 	 *
 	 * Every button is type="button" and the search has no name: a field picker
@@ -49,7 +52,14 @@
 		/** 'link': rows get + and ✓ Linked; 'field': `chosen` gets ✓; 'act': plain rows. */
 		kind: 'link' | 'field' | 'act';
 		/** 'field': the current value's `key`. */
-		chosen?: string | null;
+		chosen?: string | ReadonlySet<string> | null;
+		/** 'field': takes any number: a tap keeps the sheet open and Done · N closes it. */
+		multi?: boolean;
+		/** 'field' + `multi`: a row above the groups that clears every value ("No position"); ✓ while none is chosen. */
+		clear?: { label: string; meta: string };
+		onclear?: () => void;
+		/** A create is in flight (`oncreate` is pending): the create buttons show busy and ignore taps. */
+		creating?: boolean;
 		/** The empty box without a query (rule 7). */
 		nothingLeft: string;
 		/** The empty box's icon when nothing was typed. */
@@ -100,6 +110,10 @@
 		groups,
 		kind,
 		chosen = null,
+		multi = false,
+		clear,
+		onclear,
+		creating = false,
 		nothingLeft,
 		emptyIcon = 'search',
 		create,
@@ -148,7 +162,10 @@
 	});
 	const tall = $derived(loading ? true : tallOpen);
 	const hasCreate = $derived(!!create && create.length > 0);
-	const hasDone = $derived(kind === 'link' && added > 0);
+	const many = $derived(kind === 'field' && multi);
+	const chosenCount = $derived(typeof chosen === 'object' && chosen ? chosen.size : 0);
+	const hasDone = $derived(many || (kind === 'link' && added > 0));
+	const showClear = $derived(many && !!clear && !typed && shows === 'list');
 
 	/** Board "Loading" rows: the two bars' widths, in %. */
 	const SKELETON = [
@@ -193,7 +210,8 @@
 					? 'pr-3.5'
 					: ''}"
 				disabled={linked}
-				aria-current={isChosen ? 'true' : undefined}
+				aria-current={!many && isChosen ? 'true' : undefined}
+				aria-pressed={many ? isChosen : undefined}
 				onclick={() => onpick(r)}
 			>
 				<span
@@ -230,6 +248,37 @@
 					><Icon name="check" size={16} />Linked</span
 				>
 			{:else if isChosen}
+				<span class="flex flex-none pr-3.5 text-accent-text" aria-hidden="true"
+					><Icon name="check" size={22} /></span
+				>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet clearRow(c: { label: string; meta: string })}
+	{@const none = chosenCount === 0}
+	<div class="{CLIP} flex-none rounded-2xl bg-surface">
+		<div
+			class="flex items-center pl-4 has-[[data-pick]:active]:bg-step {none ? 'bg-accent-soft' : ''}"
+		>
+			<button
+				type="button"
+				data-pick
+				class="flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 rounded-xl py-[9px] text-left"
+				aria-pressed={none}
+				onclick={() => onclear?.()}
+			>
+				<span class="block max-w-full truncate text-[16px] leading-[1.3] font-bold text-ink"
+					>{c.label}</span
+				>
+				<span
+					class="block max-w-full truncate text-[13px] leading-[1.35] {none
+						? 'text-ink-2'
+						: 'text-muted'}">{c.meta}</span
+				>
+			</button>
+			{#if none}
 				<span class="flex flex-none pr-3.5 text-accent-text" aria-hidden="true"
 					><Icon name="check" size={22} /></span
 				>
@@ -303,6 +352,8 @@
 
 		{@render top?.()}
 
+		{#if showClear && clear}{@render clearRow(clear)}{/if}
+
 		{#if message}
 			<Banner kind="error" title="That could not be linked." action={archived ? choices : undefined}
 				>{message}</Banner
@@ -344,8 +395,14 @@
 			{#each create as m (m.key)}
 				<button
 					type="button"
-					class="flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full bg-accent-soft px-2 text-[15px] font-extrabold whitespace-nowrap text-accent-text active:brightness-95"
-					onclick={() => oncreate?.(m.key, typed)}><Icon name="plus" size={18} />{m.label}</button
+					class="flex h-11 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full bg-accent-soft px-2 text-[15px] font-extrabold whitespace-nowrap text-accent-text active:brightness-95 disabled:cursor-default"
+					disabled={creating}
+					aria-busy={creating}
+					onclick={() => oncreate?.(m.key, typed)}
+					>{#if creating}<Spinner size={18} /><span class="sr-only">Creating…</span>{:else}<Icon
+							name="plus"
+							size={18}
+						/>{m.label}{/if}</button
 				>
 			{/each}
 		</div>
@@ -354,7 +411,8 @@
 		<button
 			type="button"
 			class={button('primary', 'md', true)}
-			onclick={() => (ondone ?? onclose)()}>{doneLabel(added)}</button
+			onclick={() => (ondone ?? onclose)()}
+			>{many ? doneLabel(chosenCount, 'field') : doneLabel(added)}</button
 		>
 	{/if}
 {/snippet}

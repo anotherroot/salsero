@@ -20,6 +20,8 @@
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
+	import PickerMultiField from '$lib/components/picker/PickerMultiField.svelte';
+	import type { PickGroup, PickRow } from '$lib/picker/model';
 	import type { LinkRow, LinkedSection } from '$lib/types';
 	import {
 		button,
@@ -86,6 +88,32 @@
 		},
 		{ id: 3, url: 'https://example.org/notes', title: null, createdAt: 0, saving: null }
 	];
+
+	let manyValues = $state<number[]>([]);
+	let manyMade = $state(0);
+	let manyGroups = $state<PickGroup[]>([
+		{
+			title: 'Positions',
+			entries: [
+				{ key: 'position:1', value: 1, label: 'Open break', meta: 'open · facing' },
+				{ key: 'position:2', value: 2, label: 'Cross-body lead', meta: 'closed' },
+				{ key: 'position:3', value: 3, label: 'Hammerlock', meta: 'crossed' }
+			]
+		}
+	]);
+	// Every second create is refused, to see the button re-enable and the banner.
+	async function kitCreate(query: string): Promise<PickRow | { message: string } | null> {
+		await new Promise((r) => setTimeout(r, 800));
+		if (++manyMade % 2 === 0)
+			return { message: `You already have a position called ${query || 'Caída'}.` };
+		const row: PickRow = {
+			key: `position:${10 + manyMade}`,
+			value: 10 + manyMade,
+			label: query || `New position ${manyMade}`
+		};
+		manyGroups[0].entries.push(row);
+		return row;
+	}
 
 	const tileTones = ['accent', 'quiet', 'done'] as const;
 	const tileExercises = [
@@ -254,6 +282,24 @@
 					<label class={LABEL} for="k5">Notes</label>
 					<textarea id="k5" class={TEXTAREA} rows="3" placeholder="A longer note"></textarea>
 				</div>
+			</section>
+
+			<section class="flex flex-col gap-3">
+				<h2 class={SECTION_LABEL}>Many-value field</h2>
+				<PickerMultiField
+					name="kit-many"
+					label="Starts in"
+					title="Starts in"
+					sub="Pick any number"
+					placeholder="Search positions"
+					empty="No position · fits anywhere"
+					groups={manyGroups}
+					clear={{ label: 'No position', meta: 'Fits anywhere · the default' }}
+					bind:values={manyValues}
+					create={{ label: 'Position', key: 'position' }}
+					oncreate={kitCreate}
+					nothingLeft="There are no positions yet."
+				/>
 			</section>
 
 			<section class="flex flex-col gap-3">

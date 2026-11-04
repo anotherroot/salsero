@@ -31,12 +31,26 @@ describe('picker view rules', () => {
 		expect(rowTrail('field', row('group:5'), 'group:4', none)).toBe('none');
 		expect(rowTrail('act', row('exercise:3'), null, new Set(['exercise:3']))).toBe('none');
 	});
+	it('ticks every chosen row of a many-value field', () => {
+		const none = new Set<string>();
+		const chosen = new Set(['position:1', 'position:3']);
+		expect(rowTrail('field', row('position:1'), chosen, none)).toBe('chosen');
+		expect(rowTrail('field', row('position:3'), chosen, none)).toBe('chosen');
+		expect(rowTrail('field', row('position:2'), chosen, none)).toBe('none');
+		expect(rowTrail('field', row('position:1'), new Set(), none)).toBe('none');
+		expect(rowTrail('act', row('position:1'), chosen, none)).toBe('none');
+	});
 	it('leads the create row with the typed text', () => {
 		expect(createLead('')).toBe('Not in the list?');
 		expect(createLead('dob')).toBe('Not in the list? Create “dob” as');
 		expect(createLead('Montaña')).toBe('Not in the list? Create “Montaña” as');
 	});
 	it('counts what + linked', () => expect(doneLabel(2)).toBe('Done · 2 linked'));
+	it('counts what a field picker holds', () => {
+		expect(doneLabel(3, 'field')).toBe('Done · 3');
+		expect(doneLabel(0, 'field')).toBe('Done · 0');
+		expect(doneLabel(2, 'link')).toBe('Done · 2 linked');
+	});
 	it('says nothing matches, or the picker’s own sentence', () => {
 		expect(emptyText('Montaña', 'There are no figures yet.')).toBe('Nothing matches “Montaña”.');
 		expect(emptyText('', 'There are no figures yet.')).toBe('There are no figures yet.');

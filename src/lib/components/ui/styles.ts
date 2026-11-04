@@ -108,6 +108,9 @@ const INVALID = 'border-danger shadow-[inset_0_0_0_1px_var(--color-danger)]';
 /** FIELD / SELECT marked invalid by their owner, for a control that cannot carry `aria-invalid` (a button). Still a 1 px border, so nothing moves. */
 export const FIELD_INVALID = swap(FIELD, 'border-field-line', INVALID);
 export const SELECT_INVALID = swap(SELECT, 'border-field-line', INVALID);
+/** SELECT that grows with wrapping chips (a many-value field's opener). */
+export const SELECT_WRAP = swap(SELECT, 'h-[52px]', 'h-auto min-h-[52px] py-2');
+export const SELECT_WRAP_INVALID = swap(SELECT_WRAP, 'border-field-line', INVALID);
 
 /** A dashed "add" control: a label (or link) that opens the file picker. */
 export const DASHED_ADD =
