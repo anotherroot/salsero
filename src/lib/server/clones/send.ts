@@ -26,8 +26,8 @@ import type {
 	SendResult,
 	SendTarget
 } from '$lib/types';
-import { diff, sendPicks } from '$lib/clones/diff';
-import { ownChanges, changedLabels } from '$lib/clones/view';
+import { diff, sendPicks, unpicked } from '$lib/clones/diff';
+import { ownChanges, changedLabels, SEND_FAILED } from '$lib/clones/view';
 import type { Db } from '../db';
 import { roleOf } from '../teams';
 import { accessTo, visibleMembers } from './genes';
@@ -151,7 +151,8 @@ export function sendPreview(
 			target,
 			comparison: { ...c, picks },
 			removals: c.diffs.filter((d) => d.removal && d.side === 'theirs'),
-			both: c.diffs.filter((d) => d.side === 'both'),
+			// A name both changed keeps the target's (sendPicks): not asked.
+			both: c.diffs.filter((d) => unpicked(c.diffs, picks).includes(d.key)),
 			bytes: files.reduce((n, f) => n + f.bytes, 0)
 		});
 	}
@@ -167,7 +168,8 @@ const DENIED = { ok: false, reason: 'denied', message: 'Not found.' } as const;
  * write), the both-changed picks, the files and room, then in the target's
  * own transaction the apply, the pair's next snapshot, and in a group one
  * History `change` by the actor and the reconcile after a delete. One
- * target's refusal leaves the others as they landed. Every target is denied
+ * target's refusal, or a throw (a missing file: `failed`, logged), leaves the
+ * others as they landed and the rest still tried. Every target is denied
  * unless the actor edits `fromId`; a target they only read is denied.
  */
 export async function sendMine(
@@ -186,10 +188,30 @@ export async function sendMine(
 	for (const t of targets) {
 		if (done.has(t.id)) continue;
 		done.add(t.id);
-		const result = gives
-			? await syncFrom(db, actorId, kind, t.id, fromId, t.picks, t.seen, files, now, freeDiskBytes)
-			: DENIED;
-		out.push({ id: t.id, result });
+		if (!gives) {
+			out.push({ id: t.id, result: DENIED });
+			continue;
+		}
+		try {
+			const result = await syncFrom(
+				db,
+				actorId,
+				kind,
+				t.id,
+				fromId,
+				t.picks,
+				t.seen,
+				files,
+				now,
+				freeDiskBytes
+			);
+			out.push({ id: t.id, result });
+		} catch (err) {
+			// syncFrom has unlinked what it linked and its transaction rolled back:
+			// this target is refused, the next is still tried.
+			console.error(`Send mine: ${kind} ${fromId} → ${t.id} failed`, err);
+			out.push({ id: t.id, result: { ok: false, reason: 'failed', message: SEND_FAILED } });
+		}
 	}
 	return out;
 }

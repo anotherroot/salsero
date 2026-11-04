@@ -75,6 +75,9 @@ export async function takeFrom(
 	});
 }
 
+/** At most this many targets in one send: a person edits far fewer places. */
+export const MAX_SEND_TARGETS = 50;
+
 /** The send sheet's targets (`[{ id, picks, seen }]`, as JSON), or null when malformed. */
 export function targetsFrom(
 	raw: FormDataEntryValue | null
@@ -86,7 +89,8 @@ export function targetsFrom(
 	} catch {
 		return null;
 	}
-	if (!Array.isArray(parsed) || parsed.length === 0) return null;
+	if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > MAX_SEND_TARGETS)
+		return null;
 	const out: { id: number; picks: Picks; seen: string }[] = [];
 	for (const t of parsed) {
 		if (!t || typeof t !== 'object') return null;

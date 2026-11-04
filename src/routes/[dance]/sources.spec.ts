@@ -314,6 +314,10 @@ describe('Copies you can see, and Send mine', () => {
 		expect(
 			await run(figurePage.actions.send, ev('u2', C, { form: { targets: '[]' } }))
 		).toMatchObject({ status: 400 });
+		const many = Array.from({ length: 51 }, (_, i) => ({ id: i + 1, picks: {}, seen: 'x' }));
+		expect(
+			await run(figurePage.actions.send, ev('u2', C, { form: { targets: JSON.stringify(many) } }))
+		).toMatchObject({ status: 400 });
 	});
 });
 

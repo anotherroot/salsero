@@ -351,7 +351,7 @@ describe('copies you can see, and Send mine (board C3)', () => {
 		expect(memberMeta('editor', 'differs', ['Timing', 'Notes'])).toBe('Editor · differs both ways');
 		expect(memberMeta('editor', 'newer', ['Timing'])).toBe('Editor · newer than yours: timing');
 		expect(memberMeta('member', 'same', [])).toBe('Member · in step');
-		expect(memberMeta(null, 'behind', ['Notes'], 'this one')).toBe('behind this one: notes');
+		expect(memberMeta(null, 'behind', ['Notes'], 'this one')).toBe('Behind this one: notes');
 		expect(selfMeta(['Notes', '+1 recording'])).toBe('This one · you changed notes, +1 recording');
 		expect(selfMeta([])).toBe('This one');
 		expect([FAMILY_TITLE, SEND_MINE, THIS_ONE]).toEqual([
@@ -407,7 +407,7 @@ describe('copies you can see, and Send mine (board C3)', () => {
 		expect(NOTHING_TO_SEND).toBe('Nothing to send');
 		expect(deleteRow('old take')).toEqual({
 			text: 'Also delete “old take” there',
-			meta: 'You deleted it from yours. Refused where a lesson links its section.'
+			meta: 'Gone from the copy you’re sending. Refused where a lesson links its section.'
 		});
 		expect(sendNote('figure', 2)).toBe(
 			'Changes land on the groups’ own figure: members’ practice and lesson links stay.'

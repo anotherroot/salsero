@@ -160,9 +160,10 @@
 			refused = [];
 			return async ({ result }) => {
 				try {
+					// Whatever came back, some target may have landed: closing refreshes the page.
+					sent = true;
 					if (result.type === 'success') {
 						const results = (result.data as { results?: SendResult[] } | undefined)?.results ?? [];
-						sent = true;
 						const out = results.filter((r) => !r.result.ok);
 						if (out.length === 0) {
 							asking = false;
@@ -179,6 +180,8 @@
 						load();
 					} else {
 						refused = [SEND_FAILED];
+						asking = false;
+						load();
 					}
 				} finally {
 					busy = false;

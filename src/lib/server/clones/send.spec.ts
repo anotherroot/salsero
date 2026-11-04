@@ -244,6 +244,60 @@ describe('three places (Review Focus 1)', () => {
 	});
 });
 
+describe('one target’s failure', () => {
+	it('a throw in one target is its own refusal: the next still lands, with its History line', async () => {
+		const { H, T1f, T2f } = await threePlaces();
+		const targets = sendPreview(db, 'u1', 'figure', H);
+		expect(targets.map((t) => t.target.id)).toEqual([T2f, T1f]);
+		const before = changesIn(1).length;
+		let calls = 0;
+		const files: CloneFiles = {
+			async link(_kind, file) {
+				// The first target's link fails, as a missing giver file would.
+				if (++calls === 1) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+				return `copy-${++named}-${file}`;
+			},
+			async unlink() {}
+		};
+		const res = await sendMine(db, 'u1', 'figure', H, asSent(targets), files, NOW, ROOMY);
+		expect(res).toEqual([
+			{
+				id: T2f,
+				result: { ok: false, reason: 'failed', message: 'That could not be sent. Try again.' }
+			},
+			{ id: T1f, result: { ok: true } }
+		]);
+		expect(row(T2f).notes).toBeNull();
+		expect(row(T1f).notes).toBe('Hips first');
+		expect(recsOn(T1f)).toHaveLength(1);
+		expect(changesIn(1).slice(before)).toMatchObject([{ verb: 'change', actorId: 'u1' }]);
+	});
+});
+
+describe('names', () => {
+	it('a name both sides changed keeps the target’s and is not asked', async () => {
+		const { H, T1f } = await threePlaces();
+		db.update(figures).set({ name: 'Doble (Salsa Tuesdays)' }).where(eq(figures.id, T1f)).run();
+		updateVariation(db, H, { name: 'Doble larga', ...shape, notes: 'Hips first' });
+		const t1 = sendPreview(db, 'u1', 'figure', H).find((t) => t.target.id === T1f)!;
+		expect(t1.comparison.diffs.find((d) => d.key === 'name')).toMatchObject({ side: 'both' });
+		expect(t1.comparison.picks.name).toBe('mine');
+		expect(t1.both).toEqual([]);
+		const [res] = await sendMine(
+			db,
+			'u1',
+			'figure',
+			H,
+			[{ id: T1f, picks: t1.comparison.picks, seen: t1.comparison.seen }],
+			fakeFiles().files,
+			NOW,
+			ROOMY
+		);
+		expect(res.result).toEqual({ ok: true });
+		expect(row(T1f)).toMatchObject({ name: 'Doble (Salsa Tuesdays)', notes: 'Hips first' });
+	});
+});
+
 describe('removals', () => {
 	it('a ticked delete of a section T1 links is refused for T1 only; T2’s send still lands', async () => {
 		const H = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Doble', ...shape })!

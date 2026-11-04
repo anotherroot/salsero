@@ -756,7 +756,7 @@ export type SyncResult =
 	| { ok: true }
 	| {
 			ok: false;
-			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room';
+			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room' | 'failed';
 			message: string;
 	  };
 

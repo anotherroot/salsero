@@ -382,7 +382,9 @@ export function memberMeta(
 	else if (status === 'newer') parts.push(`newer than ${page}${what}`);
 	else if (status === 'differs') parts.push('differs both ways');
 	else if (status === 'same') parts.push('in step');
-	return parts.join(' · ');
+	const line = parts.join(' · ');
+	// The line's first word starts with a capital ("Behind this one: notes").
+	return line === '' ? line : `${line[0].toUpperCase()}${line.slice(1)}`;
 }
 
 /** The page's own row: "This one · you changed notes, +1 recording". */
@@ -461,7 +463,7 @@ export function sendTargetMeta(diffs: FieldDiff[], bytes: number, team: boolean)
 export function deleteRow(name: string): { text: string; meta: string } {
 	return {
 		text: `Also delete “${name}” there`,
-		meta: 'You deleted it from yours. Refused where a lesson links its section.'
+		meta: 'Gone from the copy you’re sending. Refused where a lesson links its section.'
 	};
 }
 
