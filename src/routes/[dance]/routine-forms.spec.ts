@@ -152,7 +152,8 @@ describe('a personal routine that uses a group’s figure and routine', () => {
 	const loadRoutine = (id: number) =>
 		(routinePage.load as unknown as (e: unknown) => RoutineData)({
 			params: { dance: 'salsa', id: String(id) },
-			locals: { user: USER }
+			locals: { user: USER },
+			url: new URL(`http://localhost/salsa/routines/${id}`)
 		});
 	const loadList = () =>
 		(

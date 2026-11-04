@@ -47,6 +47,7 @@ import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import type { Routine } from '$lib/server/db/schema';
+import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -114,7 +115,7 @@ function routineIn(
 	return requireRoutineAccess(getDb(), locals, params, params.id, need);
 }
 
-export const load: PageServerLoad = ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
 	const { routine, space, access, reach: visible } = routineIn(params, locals, 'read');
@@ -201,6 +202,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	return {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
 		canEdit,
+		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
+		...pageSources(db, wall.userId, 'routine', routine.id, url),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine:
 			canEdit || routine.teamId === null

@@ -24,6 +24,7 @@ import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
+import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
 
 /** Who acts: History names them on a group's drill. */
@@ -51,7 +52,7 @@ function linkableOf(params: { dance: string; id: string }, locals: App.Locals) {
 	return exercise;
 }
 
-export const load: PageServerLoad = ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
 	const wall = wallOf(params, locals);
@@ -89,6 +90,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			// never the entry's (risk 26). The Log popups follow the same rule.
 			canEditContent: popup.exercise.team === null,
 			canLog: true,
+			/** A drill's tabs per source (none for an entry: it is no family's). */
+			...pageSources(db, wall.userId, 'drill', own.id, url),
 			makeMine: null,
 			drill: null,
 			historyHref: null,
@@ -152,6 +155,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		seen: exerciseSeen(row),
 		canLog: popup !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
+		...pageSources(db, wall.userId, 'drill', row.id, url),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
 		add: route

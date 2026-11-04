@@ -38,7 +38,8 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { fromLessonNote } from '$lib/clones/view';
+	import { cloneSubtitle, fromLessonNote, recordingMeta, TAKE } from '$lib/clones/view';
+	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import {
@@ -230,12 +231,38 @@
 					await focusAfterRemoval(keys, `section-${linkId}`, 'stop-editing');
 			};
 		};
-	const deleteRefusal = (id: number) =>
-		form && 'action' in form && form.action === 'deleteRecording' && 'recordingId' in form
-			? form.recordingId === id
-				? String(form.message)
-				: null
-			: null;
+	/** An action's refusal about one recording (a delete's, a take's), shown in its card. */
+	const recordingRefusal = (action: string, id: number) => {
+		if (!form || !('action' in form) || form.action !== action) return null;
+		const answer = form as { recordingId?: unknown; message?: unknown };
+		return answer.recordingId === id && typeof answer.message === 'string' ? answer.message : null;
+	};
+	const deleteRefusal = (id: number) => recordingRefusal('deleteRecording', id);
+	// --- Take: one of a source's recordings into the person's copy (board C2 p2b).
+	let takingId = $state<number | null>(null);
+	const take: SubmitFunction = ({ formData, cancel }) => {
+		// One take at a time: a second tap while the first is out is dropped.
+		if (takingId !== null) return cancel();
+		takingId = Number(formData.get('recordingId'));
+		return async ({ update }) => {
+			try {
+				await update();
+			} finally {
+				takingId = null;
+			}
+		};
+	};
+	const takeRefusal = (id: number) => recordingRefusal('takeRecording', id);
+	/** The page's own place, named on a source's tab: "Salsa Tuesdays’ version, read-only…". */
+	const sourcePlace = $derived(
+		data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
+	);
+	/** The band's subtitle: where a row of yours came from, else the usual one. */
+	const subtitle = $derived(
+		(data.cloneLine.self.kind === 'mine' ? cloneSubtitle(data.cloneLine) : null) ??
+			figureSubtitle(data.effective, readerTeam?.name)
+	);
+
 	/** Archive lands on a sibling (the same route, so the sheet would stay) or the figures list. */
 	let archiveBusy = $state(false);
 	const closeOnArchive: SubmitFunction = () => {
@@ -274,12 +301,31 @@
 	>
 {/snippet}
 
+<!-- A source's recording not yet in the person's copy: Take brings it (board C2 p2b). -->
+{#snippet takeButton(rec: { id: number })}
+	<form method="POST" action="?/takeRecording" use:enhance={take}>
+		<input type="hidden" name="recordingId" value={rec.id} />
+		<input type="hidden" name="into" value={data.taking?.into} />
+		<button
+			type="submit"
+			class={button('secondary', 'sm')}
+			aria-busy={takingId === rec.id}
+			disabled={takingId !== null}
+		>
+			<!-- Both in one cell: the label keeps the width while the spinner shows. -->
+			<span class="grid place-items-center">
+				<span class="col-start-1 row-start-1" class:invisible={takingId === rec.id}>{TAKE}</span>
+				{#if takingId === rec.id}<span class="col-start-1 row-start-1"><Spinner size={18} /></span
+					>{/if}
+			</span>
+		</button>
+	</form>
+{/snippet}
+
 <Screen
 	compact
 	title="{figure.name} · {variation.name}"
-	subtitle={editing
-		? `Editing ${variation.name}`
-		: figureSubtitle(data.effective, readerTeam?.name)}
+	subtitle={editing ? `Editing ${variation.name}` : subtitle}
 >
 	{#snippet left()}
 		{#if editing}
@@ -364,7 +410,15 @@
 				</form>
 			{/key}
 		{:else}
-			{#if readerTeam && data.fromLesson}
+			<SourceTabs
+				sources={data.sources}
+				kind="figure"
+				dance={slug}
+				current={variation.id}
+				mineId={data.mineId}
+				taking={data.taking ? sourcePlace : null}
+			/>
+			{#if readerTeam && data.fromLesson && !data.taking}
 				<p
 					class="flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
 				>
@@ -606,7 +660,10 @@
 					{#each variation.recordings as rec (rec.id)}
 						{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
 						{@const refused = deleteRefusal(rec.id)}
+						{@const held = data.taking?.held[rec.id] ?? false}
+						{@const taken = takeRefusal(rec.id)}
 						{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
+						{#snippet recTake()}{@render takeButton(rec)}{/snippet}
 						<li class="{CLIP} rounded-2xl bg-surface">
 							{#if broken[rec.id] === 'missing'}
 								<VideoProblem
@@ -644,18 +701,28 @@
 									kind={rec.kind}
 									owner={{ recordingId: rec.id }}
 									title="{figure.name} · {variation.name}"
-									caption={{ title: day, meta: byteSize(rec.sizeBytes) }}
+									caption={{
+										title: day,
+										meta: data.taking
+											? recordingMeta(held, byteSize(rec.sizeBytes))
+											: byteSize(rec.sizeBytes)
+									}}
 									onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
 									onclosed={() => void refreshWhenSettled()}
 									linking={data.canEdit}
 									canEdit={data.canEdit}
-									action={editing ? recTrash : undefined}
+									action={editing ? recTrash : data.taking && !held ? recTake : undefined}
 									sections={variation.recordingSections[rec.id]}
 								/>
 							{/if}
 							{#if refused}
 								<div class="px-4 pb-3">
 									<Banner kind="error" title="Not deleted">{refused}</Banner>
+								</div>
+							{/if}
+							{#if taken}
+								<div class="px-4 pb-3">
+									<Banner kind="error" title="Not taken">{taken}</Banner>
 								</div>
 							{/if}
 							<!-- Linking is done from the figure or drill a section shows; here a link
@@ -890,15 +957,36 @@
 			aria-haspopup="dialog"
 			onclick={() => (logging = true)}><Icon name="play" size={20} />Practise</button
 		>
+	{:else if data.exercise}
+		<!-- Practised already, without a log here: its exercise page has the rest. -->
+		<a
+			href={resolve('/[dance]/exercises/[id]', { dance: slug, id: String(data.exercise.id) })}
+			class={button('primary', 'md', true)}><Icon name="play" size={20} />Practise</a
+		>
 	{:else}
 		<!-- Practise on its own; a group's figure only from a lesson the person added (R8). -->
-		<button
-			type="submit"
-			form="practise-form"
-			class={button('primary', 'md', true)}
-			disabled={!data.practisable || practising}
-			aria-busy={practising}><Icon name="play" size={20} />Practise</button
+		<form
+			method="POST"
+			action="?/practise"
+			class="contents"
+			use:enhance={() => {
+				practising = true;
+				return async ({ update }) => {
+					try {
+						await update();
+					} finally {
+						practising = false;
+					}
+				};
+			}}
 		>
+			<button
+				type="submit"
+				class={button('primary', 'md', true)}
+				disabled={!data.practisable || practising}
+				aria-busy={practising}><Icon name="play" size={20} />Practise</button
+			>
+		</form>
 	{/if}
 {/snippet}
 

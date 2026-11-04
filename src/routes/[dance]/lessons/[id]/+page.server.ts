@@ -53,6 +53,7 @@ import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { editedByLine } from '$lib/teams/history';
 import { agoText } from '$lib/format';
 import type { Cookies } from '@sveltejs/kit';
+import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -104,7 +105,7 @@ function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: numb
 	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
 }
 
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
+export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	// In this group's own group mode the page is the group's: its link cards open
@@ -137,6 +138,8 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 		routines: shown(found.routines, visible?.routines),
 		exercises: shown(found.exercises, visible?.drills),
 		canEdit,
+		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
+		...pageSources(db, wall.userId, 'lesson', found.lesson.id, url),
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,

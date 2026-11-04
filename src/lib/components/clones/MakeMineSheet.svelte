@@ -12,6 +12,7 @@
 		MAKE_MINE,
 		MAKE_MINE_SUB,
 		YOU_GET,
+		makeMineSize,
 		makeMineTitle,
 		restoreLine,
 		staysTheirs,
@@ -44,6 +45,8 @@
 	let refused = $state<{ message: string; askForMore: boolean } | null>(null);
 	const stays = $derived(staysTheirs(offer.kind, offer.team));
 	const note = $derived(switchNote(offer.repoint, offer.practised));
+	/** "Uses 380 MB of your space": a lesson's videos, a song's audio. Nothing for a reuse. */
+	const size = $derived(makeMineSize(offer.bytes));
 	/** The person's song copy is archived: a person's song has no restore. */
 	const blocked = $derived(offer.kind === 'song' && offer.existing?.archived === true);
 	const restoring = $derived(offer.existing?.archived === true && !blocked);
@@ -87,6 +90,9 @@
 					<h3 class={SECTION_LABEL}>{stays.title}</h3>
 					<p class="px-4 text-[15px] leading-[1.4] text-ink">{stays.body}</p>
 				</div>
+			{/if}
+			{#if size}
+				<p class="px-4 text-[14px] font-semibold text-muted">{size}</p>
 			{/if}
 		</div>
 		{#if note}

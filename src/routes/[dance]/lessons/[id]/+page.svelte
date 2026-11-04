@@ -71,6 +71,8 @@
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
+	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import { cloneSubtitle } from '$lib/clones/view';
 	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
@@ -200,6 +202,10 @@
 	} | null>(null);
 
 	const lesson = $derived(data.lesson);
+	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
+	const sourcePlace = $derived(
+		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
+	);
 	// Shown, not preloaded: a group's lesson counts as opened here, and again after
 	// the editor's own Publish reloads the data with a new publishedAt.
 	$effect(() => {
@@ -529,7 +535,9 @@
 		? 'Editing'
 		: data.team
 			? `${fullDateLabel(lesson.lessonDay)} · ${data.team.name}`
-			: fullDateLabel(lesson.lessonDay)}
+			: [fullDateLabel(lesson.lessonDay), cloneSubtitle(data.cloneLine)]
+					.filter((x) => x !== null)
+					.join(' · ')}
 	extra={editing
 		? undefined
 		: data.draft
@@ -568,6 +576,16 @@
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
+		{#if !editing}
+			<SourceTabs
+				sources={data.sources}
+				kind="lesson"
+				dance={data.dance.slug}
+				current={lesson.id}
+				mineId={data.mineId}
+				taking={sourcePlace}
+			/>
+		{/if}
 		{#if failure('publish')}<Banner kind="error">{failure('publish')}</Banner>{/if}
 		{#if editing}
 			{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}

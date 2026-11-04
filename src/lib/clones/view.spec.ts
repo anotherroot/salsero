@@ -14,7 +14,13 @@ import {
 	groupSlotNotes,
 	moveHeading,
 	possessive,
-	usedAsIs
+	usedAsIs,
+	changedLabels,
+	cloneSubtitle,
+	makeMineSize,
+	recordingMeta,
+	sourceNote,
+	TAKE
 } from './view';
 
 describe('clone words', () => {
@@ -136,5 +142,67 @@ describe('Make it mine', () => {
 		expect(ARCHIVED_SONG_COPY).toBe(
 			'Your copy of this song is archived. Delete it in Settings → What uses space to make it yours again.'
 		);
+	});
+});
+
+describe('sources', () => {
+	const team = { kind: 'team' as const, teamId: 1, name: 'Salsa Tuesdays' };
+	const mine = { kind: 'mine' as const };
+	const none = { clonedFrom: null, groups: 0, twins: 0 };
+
+	it('cloneSubtitle: a copy, a group’s, yours in groups, twins (boards C2, C3, C7)', () => {
+		expect(
+			cloneSubtitle({ ...none, self: mine, clonedFrom: 'Salsa Tuesdays', kind: 'figure' })
+		).toBe('Your copy · from Salsa Tuesdays');
+		expect(cloneSubtitle({ ...none, self: team, kind: 'figure' })).toBe('Salsa Tuesdays’ figure');
+		expect(cloneSubtitle({ ...none, self: team, kind: 'routine' })).toBe('Salsa Tuesdays’ routine');
+		expect(cloneSubtitle({ ...none, self: { ...team, name: 'Rueda club' }, kind: 'lesson' })).toBe(
+			'Rueda club’s lesson'
+		);
+		expect(cloneSubtitle({ ...none, self: mine, groups: 2, kind: 'figure' })).toBe(
+			'Yours · in 2 groups'
+		);
+		expect(cloneSubtitle({ ...none, self: mine, groups: 1, kind: 'drill' })).toBe(
+			'Yours · in 1 group'
+		);
+		expect(cloneSubtitle({ ...none, self: mine, twins: 2, kind: 'figure' })).toBe(
+			'Twins · 3 versions'
+		);
+		expect(cloneSubtitle({ ...none, self: mine, kind: 'song' })).toBeNull();
+	});
+
+	it('changedLabels: fields by name, pieces counted', () => {
+		const d = (key: string, label: string) => ({ key, label });
+		expect(changedLabels([d('timing', 'Timing'), d('rec:g1', 'Recording · Ana, 3 Nov')])).toEqual([
+			'Timing',
+			'1 recording'
+		]);
+		expect(
+			changedLabels([
+				d('notes', 'Notes'),
+				d('rec:g1', 'Recording · a'),
+				d('rec:g2:note', 'Note · b'),
+				d('rec:g3:spot:s1', 'Section · 0:01'),
+				d('rec:g3:spot:s2:links', 'Section links · 0:05'),
+				d('video:v1', 'Video · c'),
+				d('link:https://x.si', 'Link · https://x.si'),
+				d('fig:g9', 'Figure · Enchufla')
+			])
+		).toEqual(['Notes', '2 recordings', '1 video', '2 sections', '1 link', '1 figure']);
+		expect(changedLabels([])).toEqual([]);
+	});
+
+	it('the source’s tab: its note, and each recording’s line', () => {
+		expect(sourceNote('Salsa Tuesdays')).toBe(
+			'Salsa Tuesdays’ version, read-only. Take what you want into yours.'
+		);
+		expect(recordingMeta(true, '12 MB')).toBe('12 MB · already in yours');
+		expect(recordingMeta(false, '12 MB')).toBe('New · 12 MB');
+		expect(TAKE).toBe('Take');
+	});
+
+	it('makeMineSize: what the copy uses of the person’s space', () => {
+		expect(makeMineSize(380 * 1024 * 1024)).toBe('Uses 380 MB of your space');
+		expect(makeMineSize(0)).toBeNull();
 	});
 });

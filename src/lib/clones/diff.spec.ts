@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, Flat, PairBase, Picks } from '$lib/types';
-import { defaultPicks, diff, initialBase, nextBase, unpicked } from './diff';
+import { defaultPicks, diff, initialBase, nextBase, standing, unpicked } from './diff';
 import { fieldLabel, pieceOf } from './flat';
 
 const hash = (v: string) => v;
@@ -318,5 +318,23 @@ describe('diff: order and skip', () => {
 		expect(b.fields.notes).toBe('h(n0)');
 		expect(b.fields['rec:g1:note']).toBe('h(lead early)');
 		expect(b.skip).toEqual(['rec:g1']);
+	});
+});
+
+describe('standing', () => {
+	const d = (side: FieldDiff['side']): FieldDiff => ({
+		key: 'notes',
+		label: 'Notes',
+		mine: null,
+		theirs: null,
+		side,
+		removal: false
+	});
+	it('same, behind (only the page changed), newer (only the other), or differs', () => {
+		expect(standing([])).toBe('same');
+		expect(standing([d('mine'), d('mine')])).toBe('behind');
+		expect(standing([d('theirs')])).toBe('newer');
+		expect(standing([d('mine'), d('theirs')])).toBe('differs');
+		expect(standing([d('both')])).toBe('differs');
 	});
 });

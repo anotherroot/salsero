@@ -36,6 +36,8 @@
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { frequencyLabel } from '$lib/frequency';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
+	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import { cloneSubtitle } from '$lib/clones/view';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -43,6 +45,10 @@
 
 	const exercise = $derived(data.exercise);
 	const type = $derived(typeOf(exercise.source));
+	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
+	const sourcePlace = $derived(
+		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
+	);
 	const Content = $derived(contentFor(type));
 	const Log = $derived(logFor(type));
 	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
@@ -154,7 +160,11 @@
 
 <svelte:head><title>{title} · {data.dance.label}</title></svelte:head>
 
-<Screen compact {title} subtitle={TYPES[type].label}>
+<Screen
+	compact
+	{title}
+	subtitle={editing ? TYPES[type].label : (cloneSubtitle(data.cloneLine) ?? TYPES[type].label)}
+>
 	{#snippet left()}
 		{#if editing}
 			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
@@ -176,6 +186,16 @@
 	{/snippet}
 
 	<div class="flex flex-col gap-3.5 pb-28">
+		{#if !editing}
+			<SourceTabs
+				sources={data.sources}
+				kind="drill"
+				dance={data.dance.slug}
+				current={data.drill?.id ?? exercise.id}
+				mineId={data.mineId}
+				taking={sourcePlace}
+			/>
+		{/if}
 		{#if editing}
 			<section class="flex flex-col gap-2">
 				<h2 class={SECTION_LABEL}>Settings</h2>

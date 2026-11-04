@@ -1,0 +1,211 @@
+/**
+ * A tab per source, through the item pages: each load sends the family the
+ * person reads as tabs, its subtitle's facts and a checked `?vs=`; the figure
+ * page opened from the person's copy marks the recordings already in it, and
+ * `takeRecording` brings one over. Group mode keeps the tabs. The database is
+ * in memory and the files are fakes: nothing touches `$DATA_DIR`.
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const handle = vi.hoisted(() => ({ db: undefined as unknown }));
+vi.mock('$lib/server/db', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
+	return { ...actual, getDb: () => handle.db };
+});
+vi.mock('$lib/server/clones/files', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/clones/files')>(
+		'$lib/server/clones/files'
+	);
+	const { NO_FILES } =
+		await vi.importActual<typeof import('$lib/server/test-walls')>('$lib/server/test-walls');
+	return { ...actual, realCloneFiles: () => NO_FILES };
+});
+vi.mock('$lib/server/storage', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/storage')>('$lib/server/storage');
+	return { ...actual, freeDisk: async () => 1024 ** 4 };
+});
+
+import type { Cookies } from '@sveltejs/kit';
+import { eq } from 'drizzle-orm';
+import { openDb, type Db } from '$lib/server/db';
+import { recordings, users } from '$lib/server/db/schema';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { setRole } from '$lib/server/membership';
+import { addRecording, createFigure } from '$lib/server/figures';
+import { createRoutine } from '$lib/server/routines';
+import { createLesson, linkFigure, linkRoutine, publishLesson } from '$lib/server/lessons';
+import { cloneInto } from '$lib/server/clones/clone';
+import { NO_FILES, T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { groupCookie } from '$lib/teams/mode';
+import type { Wall } from '$lib/server/scope';
+import * as figurePage from './figures/[id]/+page.server';
+import * as routinePage from './routines/[id]/+page.server';
+
+const T = Date.UTC(2026, 10, 3, 20);
+const shape = { partner: 'partner' as const, style: 'salsa', notes: null };
+let db: Db;
+
+function jar(group?: number): Cookies {
+	return {
+		get: (n: string) => (n === groupCookie('salsa') && group ? String(group) : undefined),
+		set: () => {},
+		delete: () => {}
+	} as unknown as Cookies;
+}
+const ev = (
+	uid: string,
+	id: number,
+	opts: { search?: string; group?: number; form?: object } = {}
+) =>
+	({
+		params: { dance: 'salsa', id: String(id) },
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } },
+		cookies: jar(opts.group),
+		url: new URL(`http://localhost/salsa/x/${id}${opts.search ?? ''}`),
+		request: new Request('http://localhost/x', {
+			method: 'POST',
+			body: new URLSearchParams(
+				Object.entries(opts.form ?? {}).map(([k, v]) => [k, String(v)] as [string, string])
+			)
+		})
+	}) as never;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Answer = Record<string, any>;
+async function run(fn: unknown, e: unknown): Promise<Answer> {
+	try {
+		return (await (fn as (e: unknown) => unknown)(e)) as Answer;
+	} catch (thrown) {
+		return thrown as Answer;
+	}
+}
+
+beforeEach(() => {
+	db = openDb(':memory:');
+	handle.db = db;
+	for (const id of ['u1', 'u2', 'u3', 'u4'])
+		db.insert(users)
+			.values({ id, email: `${id}@x.si`, passwordHash: 'x', firstName: id })
+			.run();
+	createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', T);
+	joinTeam(db, 'u2', 1, T);
+	joinTeam(db, 'u3', 1, T);
+	setRole(db, 1, 'u3', 'editor');
+});
+
+function published(link: (id: number) => void) {
+	const id = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'Week 4', notes: null })
+		.lesson.id;
+	link(id);
+	publishLesson(db, T1_SALSA, id, T);
+	return id;
+}
+const recording = (figureId: number, file: string) =>
+	addRecording(
+		db,
+		{ figureId, file, mime: 'video/mp4', kind: 'video', sizeBytes: 40, note: null },
+		'u1'
+	).id;
+async function copyInto(kind: 'figure' | 'routine', id: number, wall: Wall) {
+	const r = await cloneInto(db, { kind, id, into: wall, recordings: false }, NO_FILES, T);
+	if (!r.ok) throw new Error('copy refused');
+	return r.id;
+}
+
+/** Salsa Tuesdays' Setenta · Básico (F) with two recordings, published; u2's copy (C). */
+async function setenta() {
+	const F = createFigure(db, T1_SALSA, { figureName: 'Setenta', name: 'Básico', ...shape })!.figure
+		.id;
+	const first = recording(F, 'first.mp4');
+	const second = recording(F, 'second.mp4');
+	published((id) => linkFigure(db, id, F, 'u1'));
+	const C = await copyInto('figure', F, U2_SALSA);
+	return { F, C, first, second };
+}
+
+describe('the figure page', () => {
+	it('your copy: tabs Yours | Salsa Tuesdays, from Salsa Tuesdays, nothing to take', async () => {
+		const { F, C } = await setenta();
+		const page = await run(figurePage.load, ev('u2', C));
+		expect(page.sources.map((s: Answer) => [s.id, s.label, s.relation])).toEqual([
+			[C, 'Yours', 'self'],
+			[F, 'Salsa Tuesdays', 'clone']
+		]);
+		expect(page.cloneLine).toMatchObject({ self: { kind: 'mine' }, clonedFrom: 'Salsa Tuesdays' });
+		expect(page.mineId).toBe(C);
+		expect(page.taking).toBeNull();
+	});
+
+	it('the source’s tab opened from your copy: what is in yours, and Take', async () => {
+		const { F, C, first, second } = await setenta();
+		const page = await run(figurePage.load, ev('u2', F, { search: `?vs=${C}` }));
+		expect(page.taking).toEqual({ into: C, held: { [first]: false, [second]: false } });
+		// Without vs, or a vs that is not yours, it is the group's page as before.
+		expect((await run(figurePage.load, ev('u2', F))).taking).toBeNull();
+		expect((await run(figurePage.load, ev('u2', F, { search: `?vs=${F}` }))).taking).toBeNull();
+
+		const took = await run(
+			figurePage.actions.takeRecording,
+			ev('u2', F, { form: { recordingId: first, into: C } })
+		);
+		expect(took).toEqual({ action: 'takeRecording', taken: first });
+		expect(db.select().from(recordings).where(eq(recordings.figureId, C)).all()).toHaveLength(1);
+		const after = await run(figurePage.load, ev('u2', F, { search: `?vs=${C}` }));
+		expect(after.taking.held).toEqual({ [first]: true, [second]: false });
+
+		const again = await run(
+			figurePage.actions.takeRecording,
+			ev('u2', F, { form: { recordingId: first, into: C } })
+		);
+		expect(again).toMatchObject({
+			status: 409,
+			data: { action: 'takeRecording', recordingId: first }
+		});
+	});
+
+	it('Take refuses a recording of another figure, and into a figure not yours', async () => {
+		const { F, C, first } = await setenta();
+		const other = createFigure(db, U2_SALSA, { figureName: 'Enchufla', name: 'Doble', ...shape })!
+			.figure.id;
+		const stray = await run(
+			figurePage.actions.takeRecording,
+			ev('u2', C, { form: { recordingId: first, into: C } })
+		);
+		expect(stray).toMatchObject({ status: 404 });
+		const wrong = await run(
+			figurePage.actions.takeRecording,
+			ev('u2', F, { form: { recordingId: first, into: other } })
+		);
+		expect(wrong).toMatchObject({ status: 404 });
+		// An outsider never reaches the action.
+		const outsider = await run(
+			figurePage.actions.takeRecording,
+			ev('u4', F, { form: { recordingId: first, into: C } })
+		);
+		expect(outsider).toMatchObject({ status: 404 });
+		expect(db.select().from(recordings).where(eq(recordings.figureId, C)).all()).toEqual([]);
+	});
+
+	it('keeps its tabs in group mode, from the editor’s own view', async () => {
+		const { F } = await setenta();
+		const mine = await copyInto('figure', F, { userId: 'u3', dance: 'salsa' });
+		const page = await run(figurePage.load, ev('u3', F, { group: 1 }));
+		expect(page.sources.map((s: Answer) => [s.id, s.label, s.access])).toEqual([
+			[mine, 'Yours', 'edit'],
+			[F, 'Salsa Tuesdays', 'edit']
+		]);
+		// u2's own copy is u2's: the editor never sees it.
+		expect(page.sources).toHaveLength(2);
+	});
+});
+
+describe('the other pages', () => {
+	it('a routine copy has its tabs too; a lone routine none', async () => {
+		const R = createRoutine(db, T1_SALSA, { name: 'Class routine', notes: null }).routine.id;
+		published((id) => linkRoutine(db, id, R, 'u1'));
+		expect((await run(routinePage.load, ev('u2', R))).sources).toEqual([]);
+		const mine = await copyInto('routine', R, U2_SALSA);
+		const page = await run(routinePage.load, ev('u2', mine));
+		expect(page.sources.map((s: Answer) => s.label)).toEqual(['Yours', 'Salsa Tuesdays']);
+		expect((await run(routinePage.load, ev('u2', R, { search: `?vs=${mine}` }))).vs).toBe(mine);
+	});
+});

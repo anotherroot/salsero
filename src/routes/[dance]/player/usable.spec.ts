@@ -114,7 +114,8 @@ describe('a group routine the person no longer reads stays closed', () => {
 
 		const page = (routinePage.load as unknown as (e: unknown) => RoutineData)({
 			params: { dance: 'salsa', id: String(P) },
-			locals: { user: U2 }
+			locals: { user: U2 },
+			url: new URL(`http://localhost/salsa/routines/${P}`)
 		});
 		expect(page.slots).toEqual([expect.objectContaining({ childId: R, childName: null })]);
 		expect(page.childSlots[R]).toBe(0);

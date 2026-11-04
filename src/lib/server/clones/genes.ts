@@ -179,6 +179,24 @@ export function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
 	}
 }
 
+/** Where a root row lives: the person's own side, or its group (null when the group is gone). */
+function placeOf(db: Db, row: { teamId: number | null }): PlaceRef | null {
+	if (row.teamId === null) return { kind: 'mine' };
+	const team = getTeam(db, row.teamId);
+	return team ? { kind: 'team', teamId: team.id, name: team.name } : null;
+}
+
+/** Where one root row of the kind lives, or null for a missing row (or an exercise that is no drill). */
+export function placeOfRow(db: Db, kind: CloneKind, id: number): PlaceRef | null {
+	const c = ROOTS[kind];
+	const row = db
+		.select({ teamId: c.teamId })
+		.from(c.table)
+		.where(kindWhere(kind, eq(c.id, id)))
+		.get() as { teamId: number | null } | undefined;
+	return row ? placeOf(db, row) : null;
+}
+
 /**
  * The members of this row's family that `userId` can read (just the row
  * itself when it has no gene), by id, each with its place and access. Empty
@@ -207,14 +225,8 @@ export function visibleMembers(db: Db, userId: string, kind: CloneKind, id: numb
 	for (const row of rows) {
 		const access = accessTo(db, userId, kind, row.id);
 		if (access === null) continue;
-		let place: PlaceRef;
-		if (row.teamId === null) {
-			place = { kind: 'mine' };
-		} else {
-			const team = getTeam(db, row.teamId);
-			if (!team) continue;
-			place = { kind: 'team', teamId: team.id, name: team.name };
-		}
+		const place = placeOf(db, row);
+		if (!place) continue;
 		out.push({
 			kind,
 			id: row.id,

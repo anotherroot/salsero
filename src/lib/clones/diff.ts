@@ -142,3 +142,15 @@ export function initialBase(source: Flat, skip: string[], hash: Hash): PairBase 
 	for (const key of Object.keys(source)) fields[key] = hash(source[key].value);
 	return { fields, skip: [...skip] };
 }
+
+/**
+ * Where another member stands against the page's row (`mine`): in step, only
+ * the page changed since the pair was in step (the other is behind it), only
+ * the other changed (newer), or anything else.
+ */
+export function standing(diffs: FieldDiff[]): 'same' | 'behind' | 'newer' | 'differs' {
+	if (diffs.length === 0) return 'same';
+	if (diffs.every((d) => d.side === 'mine')) return 'behind';
+	if (diffs.every((d) => d.side === 'theirs')) return 'newer';
+	return 'differs';
+}

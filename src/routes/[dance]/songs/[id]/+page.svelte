@@ -18,6 +18,8 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
+	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import { cloneSubtitle } from '$lib/clones/view';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SongDetailsSheet from '$lib/components/songs/SongDetailsSheet.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
@@ -104,12 +106,20 @@
 	const song = $derived(data.song);
 	const grid = $derived(data.grid);
 	const name = $derived(songName(song));
-	const subtitle = $derived(
+	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
+	const sourcePlace = $derived(
+		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
+	);
+	const usual = $derived(
 		songSubtitle({
 			artist: song.artist,
 			style: data.dance.styleLabel[song.style] ?? song.style,
 			bpm: grid?.bpm ?? null
 		})
+	);
+	/** Where a song of yours came from, else artist, style and tempo. */
+	const subtitle = $derived(
+		(data.cloneLine.self.kind === 'mine' ? cloneSubtitle(data.cloneLine) : null) ?? usual
 	);
 	const duration = $derived(
 		Number.isFinite(audioDuration) && audioDuration > 0 ? audioDuration : (song.durationS ?? 0)
@@ -238,6 +248,14 @@
 		{/if}
 	{/snippet}
 
+	<SourceTabs
+		sources={data.sources}
+		kind="song"
+		dance={data.dance.slug}
+		current={song.id}
+		mineId={data.mineId}
+		taking={sourcePlace}
+	/>
 	{#if group && !canEdit}
 		<Banner kind="info" title={classSongNote(group.name)} />
 	{/if}

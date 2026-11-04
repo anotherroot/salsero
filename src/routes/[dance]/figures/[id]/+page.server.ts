@@ -65,6 +65,8 @@ import {
 import { seenRefusal, variationSeen } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
+import { realCloneFiles } from '$lib/server/clones/files';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -255,6 +257,11 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		);
 	}
 
+	// A tab per source; opened from the person's copy (`?vs=`), the source's
+	// recordings say which are already in it, and Take brings the others.
+	const versions = sourcesView(db, wall.userId, 'figure', id, url.searchParams.get('vs'));
+	const held = versions.vs === null ? null : genesHeld(db, versions.vs);
+
 	const zone = zoneOf(locals);
 	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
 
@@ -284,6 +291,23 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		},
 		siblings,
 		canEdit,
+		/** The family and twins the person reads, as tabs; empty for fewer than two. */
+		sources: versions.sources,
+		/** What the band's subtitle says of where this row comes from (`cloneSubtitle`). */
+		cloneLine: versions.line,
+		mineId: versions.mineId,
+		/**
+		 * Opened from the person's copy: Take brings a recording into it (`into`),
+		 * and `held` marks the recordings already there.
+		 */
+		taking: held
+			? {
+					into: versions.vs!,
+					held: Object.fromEntries(
+						found.recordings.map((r) => [r.id, r.geneId !== null && held.has(r.geneId)])
+					) as Record<number, boolean>
+				}
+			: null,
 		/** A group's figure, for a reader: whose it is (the band and the note). */
 		team: groupTeam,
 		/** The newest lesson of this group's the reader added that holds it. */
@@ -575,6 +599,54 @@ export const actions: Actions = {
 	makeMine: ({ params, locals }) => {
 		const { figure } = variationOf(params, locals, 'read');
 		return makeMineFrom(getDb(), wallOf(params, locals), 'figure', figure.id);
+	},
+
+	/**
+	 * Take one of this figure's recordings into the person's own copy of it
+	 * (`into`), with its sections; charged to them. See `clones/sources.ts`.
+	 */
+	takeRecording: async ({ params, request, locals }) => {
+		const found = variationOf(params, locals, 'read');
+		const form = await request.formData();
+		const recordingId = int(form, 'recordingId');
+		const into = int(form, 'into');
+		if (recordingId === undefined || !found.recordings.some((r) => r.id === recordingId)) {
+			return fail(404, { action: 'takeRecording', message: 'That recording is gone.' });
+		}
+		if (into === undefined) throw error(404, 'Figure not found');
+		const size = found.recordings.find((r) => r.id === recordingId)!.sizeBytes;
+		const res = await takeRecording(
+			getDb(),
+			wallOf(params, locals),
+			into,
+			recordingId,
+			realCloneFiles(),
+			Date.now(),
+			await freeDisk()
+		);
+		if (res.ok) return { action: 'takeRecording', taken: recordingId };
+		switch (res.reason) {
+			case 'room': {
+				const room = res.room;
+				if (room.ok) throw error(500, 'Refused without a reason');
+				return fail(413, {
+					action: 'takeRecording',
+					recordingId,
+					message: room.message,
+					// The person's limit is the reason, not the server's disk.
+					askForMore: room.limitBytes !== null && room.usedBytes + size > room.limitBytes
+				});
+			}
+			case 'held':
+				return fail(409, {
+					action: 'takeRecording',
+					recordingId,
+					message: 'It is already in yours.',
+					askForMore: false
+				});
+			default:
+				throw error(404, 'Figure not found');
+		}
 	},
 
 	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */

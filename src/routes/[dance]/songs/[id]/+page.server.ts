@@ -27,6 +27,7 @@ import { TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { isTeam, requireSongAccess, wallOf } from '$lib/server/scope';
 import { ownerOfRow, roomForOwner } from '$lib/server/storage';
+import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
 
 /*
@@ -39,7 +40,7 @@ import type { Actions, PageServerLoad } from './$types';
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
-export const load: PageServerLoad = ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const { song, access } = requireSongAccess(db, locals, params, params.id, 'read');
 	const canEdit = access === 'edit';
@@ -71,6 +72,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		},
 		/** Taps, the count speed, the sample and the details: the owner's or an editor's. */
 		canEdit,
+		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
+		...pageSources(db, wallOf(params, locals).userId, 'song', song.id, url),
 		/** A group's song: whose it is. */
 		group: team ? { id: team.id, name: team.name } : null,
 		/** How many people's practice uses it: Stop sharing's and Delete's warning. */

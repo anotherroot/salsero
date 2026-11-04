@@ -94,6 +94,12 @@ export type CloneOptions = {
 	 * inside the parent, with their sections; no field of the member changes.
 	 */
 	fill?: boolean;
+	/**
+	 * Take: of the figures' recordings (with `recordings`), only these travel,
+	 * by the source's recording id; every other one stays behind, in `skip`,
+	 * nested copies' included.
+	 */
+	only?: number[];
 	/** Collects every root this call copied (the request's and nested ones), once it lands. */
 	made?: ClonePair[];
 	/**
@@ -325,8 +331,9 @@ class Planner {
 	/** A figure's recordings (when asked for) or a lesson's videos: all, or those `memberId` lacks. */
 	private pieces(kind: CloneKind, sourceId: number, memberId: number | null): void {
 		if (kind === 'figure' && this.req.recordings) {
-			for (const r of missing(recordingsOf(this.db, sourceId), memberId, (id) =>
-				recordingsOf(this.db, id)
+			for (const r of travelling(
+				missing(recordingsOf(this.db, sourceId), memberId, (id) => recordingsOf(this.db, id)),
+				this.opts
 			)) {
 				this.plan.rows.push({ kind: 'recording', from: r.id });
 				this.file('recording', r.file, r.sizeBytes);
@@ -565,7 +572,10 @@ class Mapper {
 		this.started(kind, sourceId, memberId);
 		const added: string[] = [];
 		if (kind === 'figure' && this.req.recordings) {
-			for (const r of missing(recordingsOf(tx, sourceId), memberId, (id) => recordingsOf(tx, id))) {
+			for (const r of travelling(
+				missing(recordingsOf(tx, sourceId), memberId, (id) => recordingsOf(tx, id)),
+				this.opts
+			)) {
 				const gene = stampGene(tx, 'recording', r.id);
 				const file = this.linked.get(fileKey('recording', r.file));
 				if (file === undefined) continue;
@@ -772,7 +782,8 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 	const skip: string[] = [];
 	for (const r of recordingsOf(tx, src.id)) {
 		const recGene = stampGene(tx, 'recording', r.id);
-		const file = m.req.recordings ? m.linked.get(fileKey('recording', r.file)) : undefined;
+		const travels = m.req.recordings && travelling([r], m.opts).length > 0;
+		const file = travels ? m.linked.get(fileKey('recording', r.file)) : undefined;
 		if (file === undefined) {
 			// Deliberate: not asked for, or added between the plan and this write
 			// (a race), so it stays behind, in `skip`, for Take to bring.
@@ -811,6 +822,12 @@ function missing<P extends { geneId: string | null }>(
 	if (memberId === null) return pieces;
 	const have = new Set(of(memberId).map((p) => p.geneId));
 	return pieces.filter((p) => p.geneId === null || !have.has(p.geneId));
+}
+
+/** The recordings that may travel: all, or only those `only` names. */
+function travelling<R extends { id: number }>(rows: R[], opts: CloneOptions): R[] {
+	const { only } = opts;
+	return only ? rows.filter((r) => only.includes(r.id)) : rows;
 }
 
 /** The bytes `fill` would bring a member: the files of the source's pieces it lacks. */

@@ -133,7 +133,8 @@ describe('Edited by', () => {
 	const page = (uid: string) =>
 		lessonLoad({
 			params: { dance: 'salsa', id: String(lesson) },
-			locals: { user: user(uid) }
+			locals: { user: user(uid) },
+			url: new URL(`http://localhost/salsa/lessons/${lesson}`)
 		} as never) as unknown as { edited: string | null; historyHref: string | null };
 
 	it('names the last change to the lesson, and links History for its editors only', () => {

@@ -56,6 +56,8 @@
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
+	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
+	import { cloneSubtitle } from '$lib/clones/view';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -214,6 +216,10 @@
 		resolve('/[dance]/routines/[id]', { dance: data.dance.slug, id: String(id) });
 
 	/** The group a figure belongs to, when it is a group's and the person may still use it. */
+	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
+	const sourcePlace = $derived(
+		data.vs !== null && data.cloneLine.self.kind === 'team' ? data.cloneLine.self.name : null
+	);
 	const sourceOf = (id: number): string | null => data.groupFigures[id]?.team ?? null;
 
 	function optionName(id: number): string {
@@ -659,6 +665,7 @@
 <Screen
 	title={selecting ? selectionTitle(selected.length) : editing ? 'Edit routine' : routine.name}
 	compact={selecting || (!editing && bandCompact(routine.name))}
+	subtitle={selecting || editing ? undefined : (cloneSubtitle(data.cloneLine) ?? undefined)}
 	left={back}
 	right={selecting || editing
 		? undefined
@@ -777,6 +784,14 @@
 		{:else}
 			<!-- Selecting shows only the slots. -->
 			{#if !selecting}
+				<SourceTabs
+					sources={data.sources}
+					kind="routine"
+					dance={data.dance.slug}
+					current={routine.id}
+					mineId={data.mineId}
+					taking={sourcePlace}
+				/>
 				{#if bannerMessage}
 					<Banner kind="error" title={bannerMessage} ondismiss={() => (dismissed = form)} />
 				{/if}

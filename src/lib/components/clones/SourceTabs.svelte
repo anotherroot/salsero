@@ -1,0 +1,77 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import Segmented from '$lib/components/ui/Segmented.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { sourceNote } from '$lib/clones/view';
+	import type { DanceSlug } from '$lib/dances/dances';
+	import type { CloneKind, Source } from '$lib/types';
+
+	/**
+	 * A tab per source at the top of a member page's body (board C2 p2):
+	 * "Yours | Salsa Tuesdays | …". Each tab is that member's own page; a
+	 * copy's tab, opened while the person has a member of their own, carries
+	 * `?vs=<their member>`, so its page offers Take into it. The switch
+	 * replaces the history entry: one place in the trail, whichever tab.
+	 * Opened that way (`taking`), a source's page says so under the tabs.
+	 */
+	let {
+		sources,
+		kind,
+		dance,
+		current,
+		mineId,
+		taking = null
+	}: {
+		sources: Source[];
+		kind: CloneKind;
+		dance: DanceSlug;
+		/** The page's own row. */
+		current: number;
+		/** The person's own member of the family, or null. */
+		mineId: number | null;
+		/** The page's place, when it was opened from the person's copy: "Salsa Tuesdays’ version, read-only…". */
+		taking?: string | null;
+	} = $props();
+
+	// Follows the page; a tap moves it at once, before the next page lands.
+	let value = $derived(String(current));
+	const items = $derived(sources.map((s) => ({ value: String(s.id), label: s.label })));
+
+	function pageOf(id: number): string {
+		const p = { dance, id: String(id) };
+		switch (kind) {
+			case 'figure':
+				return resolve('/[dance]/figures/[id]', p);
+			case 'routine':
+				return resolve('/[dance]/routines/[id]', p);
+			case 'drill':
+				return resolve('/[dance]/exercises/[id]', p);
+			case 'song':
+				return resolve('/[dance]/songs/[id]', p);
+			case 'lesson':
+				return resolve('/[dance]/lessons/[id]', p);
+		}
+	}
+
+	function open(to: string) {
+		const s = sources.find((x) => String(x.id) === to);
+		if (!s || s.id === current) return;
+		// A twin is another family: nothing of it is taken into yours.
+		const vs = s.relation !== 'twin' && mineId !== null && s.id !== mineId ? `?vs=${mineId}` : '';
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; `vs` is its search
+		goto(`${pageOf(s.id)}${vs}`, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+</script>
+
+{#if sources.length > 1}
+	<Segmented name="sources" label="Versions" {items} bind:value onchange={open} />
+{/if}
+{#if taking}
+	<p
+		class="flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
+	>
+		<span class="mt-px flex-none"><Icon name="group" size={18} /></span>
+		<span>{sourceNote(taking)}</span>
+	</p>
+{/if}
