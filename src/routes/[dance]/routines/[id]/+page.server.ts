@@ -46,8 +46,9 @@ import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { sendFrom, takeFrom } from '$lib/server/take-form';
+import { dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
 import { familyView } from '$lib/server/clones/send';
+import { dropOptions } from '$lib/server/clones/drop';
 import type { Routine } from '$lib/server/db/schema';
 import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
@@ -208,6 +209,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		...pageSources(db, wall.userId, 'routine', routine.id, url),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'routine', routine.id),
+		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
+		drop: dropOptions(db, wall, 'routine', routine.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine:
 			canEdit || routine.teamId === null
@@ -362,6 +365,12 @@ export const actions: Actions = {
 	send: ({ params, locals, request }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return sendFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
+	},
+
+	/** Drop my copy (board C5): this copy goes for another version, whose page opens. */
+	drop: ({ params, locals, request }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return dropFrom(getDb(), wallOf(params, locals), 'routine', routine.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

@@ -505,3 +505,85 @@ export function notSent(place: string, message: string): string {
 
 /** A send that failed without a refusal's words. */
 export const SEND_FAILED = 'That could not be sent. Try again.';
+
+/* ── Drop my copy (board C5) ────────────────────────────────────────────── */
+
+export const DROP_TITLE = 'Drop your copy?';
+
+/**
+ * Under the title: where the person goes back to. `access` is the one
+ * version's ('read': the class's, read-only); null when they pick among several.
+ */
+export function dropSub(access: 'read' | 'edit' | null): string {
+	if (access === 'read')
+		return 'You go back to the class’s version, read-only. Your copy is archived.';
+	if (access === 'edit')
+		return 'You go back to the group’s version, which you edit. Your copy is archived.';
+	return 'You go back to the version you pick. Your copy is archived.';
+}
+
+/**
+ * One version to go back to, named: "Your routines and practice will use
+ * Salsa Tuesdays’ Setenta · Básico." Without practice when it cannot follow (R8).
+ */
+export function dropOne(place: string, label: string, follows = true): string {
+	return `Your ${follows ? 'routines and practice' : 'routines'} will use ${possessive(place)} ${label}.`;
+}
+
+/**
+ * What only the person's copy has (`changedLabels`): "Only in yours: your
+ * notes and 1 recording. They go with your copy." When they edit the place
+ * they go back to, it says so instead, beside Send mine first. Null for nothing.
+ */
+export function onlyInYours(labels: string[], sendable: string | null = null): string | null {
+	if (labels.length === 0) return null;
+	const fields = lower(labels.filter((l) => !counted(l)));
+	const what = listed([...fields, ...labels.filter(counted)]);
+	const tail = sendable === null ? 'They go with your copy.' : `You edit ${sendable}.`;
+	return `Only in yours: ${fields.length > 0 ? 'your ' : ''}${what}. ${tail}`;
+}
+
+/** Over the radios when there are several versions. */
+export const USE_INSTEAD = 'Use instead';
+
+/** The version the person's copy was made from. */
+export const copiedHere = 'You copied it from here';
+
+/** A version no lesson the person added holds (R8), with the lesson Drop can add. */
+export function cantFollow(lesson: string | null): string {
+	const line = 'Not in a lesson you added: your practice can’t follow';
+	return lesson === null ? line : `${line} · ${addToo(lesson)}`;
+}
+
+/** The box under that version: ticked, Drop adds the lesson and practice follows. */
+export function addToo(lesson: string): string {
+	return `Add ${lesson} too`;
+}
+
+/**
+ * A radio's line: copied from here, and whether practice can follow. With
+ * the Add box showing under it (`boxShown`), the box names the lesson.
+ */
+export function dropChoiceMeta(
+	c: { clonedFrom: boolean; practiceFollows: boolean; addLesson: { title: string } | null },
+	boxShown: boolean
+): string | null {
+	const parts: string[] = [];
+	if (c.clonedFrom) parts.push(copiedHere);
+	if (!c.practiceFollows) parts.push(cantFollow(boxShown ? null : (c.addLesson?.title ?? null)));
+	return parts.length === 0 ? null : parts.join(' · ');
+}
+
+export const DROP_BUTTON = 'Drop my copy';
+export const SEND_FIRST = 'Send mine first';
+
+/** On the version's page once the copy is dropped. */
+export function droppedToast(place: string): string {
+	return `Back on ${possessive(place)}. Your copy is archived.`;
+}
+
+/** A drop that failed without a refusal's words. */
+export const DROP_FAILED = 'That could not be dropped. Try again.';
+
+/** The version picked is no longer one the person can go back to. */
+export const DROP_GONE = 'That version can’t be used any more. Reload and pick again.';

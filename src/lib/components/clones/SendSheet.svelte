@@ -41,7 +41,9 @@
 		onclose,
 		kind,
 		fromId,
-		action = '?/send'
+		action = '?/send',
+		only = null,
+		onsent
 	}: {
 		open: boolean;
 		onclose: () => void;
@@ -49,6 +51,10 @@
 		/** The page's row: what gives. */
 		fromId: number;
 		action?: string;
+		/** Only this target (Drop my copy's Send mine first). */
+		only?: number | null;
+		/** Everything landed: called in place of closing and refreshing (Drop sends next). */
+		onsent?: () => void;
 	} = $props();
 
 	const uid = $props.id();
@@ -78,7 +84,8 @@
 		fetch(`/api/clones/send?${q}`, { signal: ask.signal })
 			.then(async (res) => {
 				if (!res.ok) throw new Error(String(res.status));
-				const list = (await res.json()) as SendTarget[];
+				const all = (await res.json()) as SendTarget[];
+				const list = only === null ? all : all.filter((t) => t.target.id === only);
 				targets = list;
 				ticked = Object.fromEntries(list.map((t) => [t.target.id, sendsAny(t)]));
 				deletes = {};
@@ -167,6 +174,11 @@
 						const out = results.filter((r) => !r.result.ok);
 						if (out.length === 0) {
 							asking = false;
+							if (onsent) {
+								sent = false;
+								onsent();
+								return;
+							}
 							onclose();
 							await refreshWhenSettled();
 							return;

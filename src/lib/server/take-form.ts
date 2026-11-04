@@ -1,18 +1,22 @@
 /**
  * Take theirs and Send mine on an item page (figure, routine, drill, song,
- * lesson): the `take` action the compare sheet posts and the `send` action the
- * send sheet posts. The data side is `clones/compare.ts` and `clones/send.ts`;
+ * lesson): the `take` action the compare sheet posts, the `send` action the
+ * send sheet posts and the `drop` action of Drop my copy. The data side is
+ * `clones/compare.ts`, `clones/send.ts` and `clones/drop.ts`;
  * this is the route's share: reading the form, the real files and the free
  * disk, and the refusals' answers. Whoever may not take into the row gets the
  * missing row's 404.
  */
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import type { CloneKind, Picks } from '$lib/types';
 import type { Db } from './db';
 import { freeDisk } from './storage';
 import { realCloneFiles } from './clones/files';
 import { takeTheirs } from './clones/compare';
 import { sendMine } from './clones/send';
+import { dropCopy, dropOptions } from './clones/drop';
+import { itemHref } from './make-mine-form';
+import type { Wall } from './scope';
 
 const int = (v: FormDataEntryValue | null) =>
 	typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : null;
@@ -133,4 +137,24 @@ export async function sendFrom(
 	if (results.every((r) => !r.result.ok && r.result.reason === 'denied'))
 		throw error(404, 'Not found');
 	return { action: 'send' as const, results };
+}
+
+/**
+ * The `drop` action (board C5): the person's own row `id` goes for the
+ * version `to`, with `addLesson` when they ticked "Add Week 2 too"
+ * (`clones/drop.ts`). Lands on that version's page (303), whose toast says
+ * so. A version no longer offered is a 409 with its words; a row not theirs
+ * (or one with nothing to go back to) is the missing row's 404.
+ */
+export async function dropFrom(db: Db, wall: Wall, kind: CloneKind, id: number, request: Request) {
+	const form = await request.formData();
+	const to = int(form.get('to'));
+	const rawLesson = form.get('addLesson');
+	const addLessonId = rawLesson === null || rawLesson === '' ? undefined : int(rawLesson);
+	if (to === null || addLessonId === null)
+		throw error(400, 'This page is out of date. Reload it and try again.');
+	if (!dropOptions(db, wall, kind, id)) throw error(404, 'Not found');
+	const res = dropCopy(db, wall, kind, id, to, { addLessonId }, Date.now());
+	if (!res.ok) return fail(409, { action: 'drop' as const, message: res.message });
+	throw redirect(303, itemHref(wall, kind, res.toId));
 }

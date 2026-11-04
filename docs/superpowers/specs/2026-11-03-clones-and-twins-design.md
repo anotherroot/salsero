@@ -126,6 +126,20 @@ edit a class figure into their own). A teacher uses both.
    - Your copy is **archived**, not deleted (the archive rule).
    - **Not offered** when no other version is readable (say you left the
      group): Archive is the only way out, as for anything of yours.
+   - *(Built, Task 27:)* `clones/drop.ts`. The versions offered are the
+     family's live group members you read, in a group that is not deleted;
+     the one you copied from first, then by group name. Practice follows a
+     group's figure, routine or drill only when an added lesson's reach holds
+     it; otherwise the choice offers that group's newest published lesson
+     holding it ("Add Week 2 too", ticked), which Drop adds in its
+     transaction. A group lesson is always added by the drop, so a published
+     one always takes the practice; a song takes your picks while you may
+     practise to it. An entry merged into your practice on the version is
+     archived one instant before the copy, so restoring the copy never brings
+     a second practice. A song copy is archived with the song page's Archive:
+     a person's song has no restore, so Edit on the class's song afterwards
+     is refused with what to do. The trigger sits under the tabs (the item
+     pages have no ⋯), and the toast shows on the version's page.
 8. **Move to…** a group *(user)* is Copy to… plus Drop my copy in one step:
    the lesson lives in the group and you use it there as its editor. Its
    figures, routines and drills are listed in the Move sheet, each with

@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, SwitchReport } from '$lib/types';
 import {
+	DROP_BUTTON,
+	DROP_FAILED,
+	DROP_TITLE,
+	SEND_FIRST,
+	USE_INSTEAD,
+	addToo,
+	cantFollow,
+	copiedHere,
+	dropChoiceMeta,
+	dropOne,
+	dropSub,
+	droppedToast,
+	onlyInYours,
 	FAMILY_TITLE,
 	NEXT,
 	NOTHING_TO_SEND,
@@ -436,5 +449,76 @@ describe('copies you can see, and Send mine (board C3)', () => {
 			'Not sent to Salsa Tuesdays: Linked to Shines — unlink it first.'
 		);
 		expect(SEND_FAILED).toBe('That could not be sent. Try again.');
+	});
+});
+
+describe('Drop my copy (board C5)', () => {
+	it('the sheet’s title and line, by what the person goes back to', () => {
+		expect(DROP_TITLE).toBe('Drop your copy?');
+		expect(dropSub('read')).toBe(
+			'You go back to the class’s version, read-only. Your copy is archived.'
+		);
+		expect(dropSub('edit')).toBe(
+			'You go back to the group’s version, which you edit. Your copy is archived.'
+		);
+		expect(dropSub(null)).toBe('You go back to the version you pick. Your copy is archived.');
+	});
+
+	it('one choice: names the version, and says when practice cannot follow', () => {
+		expect(dropOne('Salsa Tuesdays', 'Setenta · Básico')).toBe(
+			'Your routines and practice will use Salsa Tuesdays’ Setenta · Básico.'
+		);
+		expect(dropOne('Rueda club', 'Setenta · Básico', false)).toBe(
+			'Your routines will use Rueda club’s Setenta · Básico.'
+		);
+	});
+
+	it('what only yours has: it goes with your copy, or you edit the place', () => {
+		expect(onlyInYours(['Notes', '1 recording'])).toBe(
+			'Only in yours: your notes and 1 recording. They go with your copy.'
+		);
+		expect(onlyInYours(['Notes'], 'Salsa Tuesdays')).toBe(
+			'Only in yours: your notes. You edit Salsa Tuesdays.'
+		);
+		expect(onlyInYours(['Notes', 'Timing', '2 recordings'])).toBe(
+			'Only in yours: your notes, timing and 2 recordings. They go with your copy.'
+		);
+		expect(onlyInYours(['1 recording'])).toBe(
+			'Only in yours: 1 recording. They go with your copy.'
+		);
+		expect(onlyInYours([])).toBeNull();
+	});
+
+	it('several choices: the radios’ lines', () => {
+		expect(USE_INSTEAD).toBe('Use instead');
+		expect(copiedHere).toBe('You copied it from here');
+		expect(cantFollow('Week 2')).toBe(
+			'Not in a lesson you added: your practice can’t follow · Add Week 2 too'
+		);
+		expect(cantFollow(null)).toBe('Not in a lesson you added: your practice can’t follow');
+		expect(addToo('Week 2')).toBe('Add Week 2 too');
+		const from = { clonedFrom: true, practiceFollows: true, addLesson: null };
+		const off = {
+			clonedFrom: false,
+			practiceFollows: false,
+			addLesson: { id: 9, title: 'Week 2' }
+		};
+		expect(dropChoiceMeta(from, false)).toBe('You copied it from here');
+		expect(dropChoiceMeta(off, false)).toBe(
+			'Not in a lesson you added: your practice can’t follow · Add Week 2 too'
+		);
+		// With the box under it, the box says Add.
+		expect(dropChoiceMeta(off, true)).toBe('Not in a lesson you added: your practice can’t follow');
+		expect(dropChoiceMeta({ ...from, practiceFollows: false }, false)).toBe(
+			'You copied it from here · Not in a lesson you added: your practice can’t follow'
+		);
+		expect(dropChoiceMeta({ ...from, clonedFrom: false }, false)).toBeNull();
+	});
+
+	it('the buttons and the toast', () => {
+		expect([DROP_BUTTON, SEND_FIRST]).toEqual(['Drop my copy', 'Send mine first']);
+		expect(droppedToast('Salsa Tuesdays')).toBe('Back on Salsa Tuesdays’. Your copy is archived.');
+		expect(droppedToast('Rueda club')).toBe('Back on Rueda club’s. Your copy is archived.');
+		expect(DROP_FAILED).toBe('That could not be dropped. Try again.');
 	});
 });

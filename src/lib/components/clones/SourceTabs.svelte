@@ -5,10 +5,20 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CompareSheet from './CompareSheet.svelte';
 	import FamilyList from './FamilyList.svelte';
+	import DropSheet from './DropSheet.svelte';
+	import Toast from '$lib/components/ui/Toast.svelte';
+	import { dropped } from './dropped.svelte';
 	import { button } from '$lib/components/ui/styles';
-	import { COMPARE, VERSIONS, changedLine, differsBanner, sourceNote } from '$lib/clones/view';
+	import {
+		COMPARE,
+		DROP_BUTTON,
+		VERSIONS,
+		changedLine,
+		differsBanner,
+		sourceNote
+	} from '$lib/clones/view';
 	import type { DanceSlug } from '$lib/dances/dances';
-	import type { CloneKind, CompareOffer, FamilyView, Source } from '$lib/types';
+	import type { CloneKind, CompareOffer, DropOptions, FamilyView, Source } from '$lib/types';
 
 	/**
 	 * A tab per source at the top of a member page's body (board C2 p2):
@@ -31,7 +41,8 @@
 		mineId,
 		taking = null,
 		compare = null,
-		family = null
+		family = null,
+		drop = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -46,12 +57,24 @@
 		compare?: CompareOffer | null;
 		/** Copies you can see, the differs banners and Send mine…; null when the person edits no other copy. */
 		family?: FamilyView | null;
+		/** Drop my copy (board C5), on the person's own copy while another version is readable. */
+		drop?: DropOptions | null;
 	} = $props();
 
 	let comparing = $state(false);
 	/** The copy a differs banner's Compare opened. */
 	let against = $state<CompareOffer | null>(null);
 	let againstOpen = $state(false);
+	let dropping = $state(false);
+
+	/** "Back on Salsa Tuesdays’. Your copy is archived.": left by a drop for the page it opened. */
+	let toast = $state<{ id: number; message: string } | null>(null);
+	let toastSeq = 0;
+	$effect(() => {
+		if (dropped.message === null) return;
+		const message = dropped.take();
+		if (message) toast = { id: ++toastSeq, message };
+	});
 
 	// Follows the page; a tap moves it at once, before the next page lands.
 	let value = $derived(String(current));
@@ -142,3 +165,19 @@
 	{/if}
 	<FamilyList {family} {kind} {dance} {current} />
 {/if}
+{#if drop}
+	<div class="flex justify-end">
+		<button
+			type="button"
+			class={button('danger-text', 'sm')}
+			aria-haspopup="dialog"
+			onclick={() => (dropping = true)}><Icon name="undo" size={20} />{DROP_BUTTON}</button
+		>
+	</div>
+	<DropSheet open={dropping} onclose={() => (dropping = false)} {drop} fromId={current} />
+{/if}
+
+<Toast
+	toast={toast && { ...toast, icon: 'check', tone: 'done' }}
+	ondismiss={() => (toast = null)}
+/>

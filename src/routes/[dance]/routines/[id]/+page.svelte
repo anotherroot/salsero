@@ -792,6 +792,7 @@
 					mineId={data.mineId}
 					compare={data.compare}
 					family={data.family}
+					drop={data.drop}
 					taking={sourcePlace}
 				/>
 				{#if bannerMessage}

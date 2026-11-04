@@ -54,7 +54,7 @@ export type MakeMinePreview = {
 	existing: { id: number; archived: boolean } | null;
 };
 
-type Row = {
+export type Row = {
 	id: number;
 	dance: string;
 	teamId: number | null;
@@ -63,7 +63,7 @@ type Row = {
 };
 
 /** The root row Make it mine works on, with its label, or null. A drill is a `custom` exercise. */
-function rowOf(db: Db, kind: CloneKind, id: number): Row | null {
+export function rowOf(db: Db, kind: CloneKind, id: number): Row | null {
 	const base = (t: typeof routines | typeof exercises | typeof songs | typeof lessons) => ({
 		id: t.id,
 		dance: t.dance,

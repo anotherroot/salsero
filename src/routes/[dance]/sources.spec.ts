@@ -332,3 +332,57 @@ describe('the other pages', () => {
 		expect((await run(routinePage.load, ev('u2', R, { search: `?vs=${mine}` }))).vs).toBe(mine);
 	});
 });
+
+describe('Drop my copy', () => {
+	it('your copy offers it; the drop lands on the class’s page; Edit then brings the copy back', async () => {
+		const { F, C } = await setenta();
+		const page = await run(figurePage.load, ev('u2', C));
+		expect(page.drop).toMatchObject({
+			kind: 'figure',
+			preselected: F,
+			choices: [
+				{
+					id: F,
+					label: 'Setenta · Básico',
+					clonedFrom: true,
+					// u2 never added Week 4: practice could follow only by adding it.
+					practiceFollows: false,
+					addLesson: { title: 'Week 4' }
+				}
+			]
+		});
+		// The group's page offers nothing to drop.
+		expect((await run(figurePage.load, ev('u2', F))).drop).toBeNull();
+
+		const res = await run(figurePage.actions.drop, ev('u2', C, { form: { to: F } }));
+		expect(res).toMatchObject({ status: 303, location: `/salsa/figures/${F}` });
+		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.archivedAt).not.toBeNull();
+		// Dropped already: nothing to drop any more.
+		expect(await run(figurePage.actions.drop, ev('u2', C, { form: { to: F } }))).toMatchObject({
+			status: 404
+		});
+
+		// Review Focus 4: Edit on the class's figure restores the same copy.
+		const again = await run(figurePage.actions.makeMine, ev('u2', F));
+		expect(again).toMatchObject({ status: 303, location: `/salsa/figures/${C}` });
+		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.archivedAt).toBeNull();
+	});
+
+	it('a version not offered is a 409; a malformed form 400; someone else’s copy 404', async () => {
+		const { F, C } = await setenta();
+		expect(await run(figurePage.actions.drop, ev('u2', C, { form: { to: C } }))).toMatchObject({
+			status: 409,
+			data: { action: 'drop' }
+		});
+		expect(await run(figurePage.actions.drop, ev('u2', C, { form: {} }))).toMatchObject({
+			status: 400
+		});
+		expect(
+			await run(figurePage.actions.drop, ev('u2', C, { form: { to: F, addLesson: 'x' } }))
+		).toMatchObject({ status: 400 });
+		expect(await run(figurePage.actions.drop, ev('u3', C, { form: { to: F } }))).toMatchObject({
+			status: 404
+		});
+		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.archivedAt).toBeNull();
+	});
+});

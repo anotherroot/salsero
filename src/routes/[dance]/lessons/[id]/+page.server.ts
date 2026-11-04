@@ -34,8 +34,9 @@ import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { sendFrom, takeFrom } from '$lib/server/take-form';
+import { dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
 import { familyView } from '$lib/server/clones/send';
+import { dropOptions } from '$lib/server/clones/drop';
 import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
@@ -144,6 +145,8 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		...pageSources(db, wall.userId, 'lesson', found.lesson.id, url),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'lesson', found.lesson.id),
+		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
+		drop: dropOptions(db, wall, 'lesson', found.lesson.id),
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
@@ -298,6 +301,12 @@ export const actions: Actions = {
 	send: ({ params, locals, request }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		return sendFrom(getDb(), locals.user!.id, 'lesson', lesson.id, request);
+	},
+
+	/** Drop my copy (board C5): this lesson goes for the class’s, whose page opens. */
+	drop: ({ params, locals, request }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return dropFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

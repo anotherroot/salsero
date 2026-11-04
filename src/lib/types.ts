@@ -877,3 +877,36 @@ export type MakeMineOffer = {
 	bytes: number;
 	existing: { id: number; archived: boolean } | null;
 };
+
+/**
+ * One version Drop my copy can go back to (board C5): a group's member of the
+ * family the person reads. `practiceFollows` is false for a group's figure,
+ * routine or drill no lesson they added holds (R8); `addLesson` is then the
+ * group's newest published lesson that holds it, which Drop can add so
+ * practice follows. `onlyInMine` is what the person's copy has that this one
+ * lacks (`changedLabels`); `label` is this version's own name.
+ */
+export type DropChoice = {
+	id: number;
+	place: PlaceRef;
+	label: string;
+	access: 'edit' | 'read';
+	clonedFrom: boolean;
+	practiceFollows: boolean;
+	addLesson: { id: number; title: string } | null;
+	onlyInMine: string[];
+};
+
+/**
+ * Drop my copy on the person's own member (`dropOptions`): the versions they
+ * can go back to, the one preselected (the one they copied from, while they
+ * read it), what only theirs has against it, and the choices they edit (Send
+ * mine first).
+ */
+export type DropOptions = {
+	kind: CloneKind;
+	choices: DropChoice[];
+	preselected: number;
+	onlyInMine: string[];
+	sendable: number[];
+};
