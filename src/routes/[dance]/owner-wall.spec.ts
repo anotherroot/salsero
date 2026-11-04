@@ -42,6 +42,7 @@ import * as figurePage from './figures/[id]/+page.server';
 import * as figureList from './figures/+page.server';
 import * as coveragePage from './coverage/+page.server';
 import * as positionsPage from './positions/+page.server';
+import * as positionPage from './positions/[id]/+page.server';
 
 const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
@@ -372,6 +373,19 @@ describe('positions are each owner’s', () => {
 			space: { teamId: T.teamId, actorId: 'u3' }
 		});
 		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("a position's page and its actions refuse another person's position", async () => {
+		const id = listPositions(db, U1_SALSA)[0].id;
+		expect(() => loadAt(positionPage.load, U2, 'salsa', String(id))).toThrow(threw404);
+		expect(() => loadAt(positionPage.load, U1, 'bachata', String(id))).toThrow(threw404);
+		for (const action of ['update', 'archive', 'restore', 'makeMine', 'detach'] as const) {
+			await refuses(positionPage.actions[action], post(U2, 'salsa', { name: 'Mine' }, String(id)));
+		}
+		expect(listPositions(db, U1_SALSA)[0]).toMatchObject({ id, archivedAt: null });
+		expect(
+			(loadAt(positionPage.load, U1, 'salsa', String(id)) as { canEdit: boolean }).canEdit
+		).toBe(true);
 	});
 
 	it('the load lists only the space’s own positions', () => {
