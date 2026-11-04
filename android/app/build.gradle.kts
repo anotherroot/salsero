@@ -34,8 +34,8 @@ android {
     defaultConfig {
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 4
+        versionName = "1.3"
         // The site the app shows and talks to: scheme and host, no path or
         // trailing slash. Override with -Psite=https://… (plain http is
         // refused: the app allows no cleartext traffic).

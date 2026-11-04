@@ -17,6 +17,43 @@ export interface Quiet {
 	held: number;
 }
 
+/** A form field as the page sees it now (`tag` and `type` lower case). */
+export interface FieldState {
+	tag: string;
+	type: string;
+	focused: boolean;
+	value: string;
+	defaultValue: string;
+}
+
+const NOT_TYPED = new Set([
+	'hidden',
+	'checkbox',
+	'radio',
+	'submit',
+	'button',
+	'reset',
+	'file',
+	'range',
+	'color',
+	'image'
+]);
+
+/**
+ * Fields someone is typing in: one with focus, or one whose value is not what
+ * the page drew (typed or autofilled). Counted with the unsaved work, so a
+ * page never reloads by itself under someone signing in — the login and join
+ * forms are not tracked by the unsaved guard, and an autofill popup is enough
+ * to send the page out of view and back.
+ */
+export function typedFields(fields: FieldState[]): number {
+	return fields.filter(
+		(f) =>
+			(f.tag === 'textarea' || (f.tag === 'input' && !NOT_TYPED.has(f.type))) &&
+			(f.focused || f.value !== f.defaultValue)
+	).length;
+}
+
 function quiet(s: Quiet): boolean {
 	return !s.playerOpen && !s.sheetsOpen && s.unsaved === 0 && s.held === 0;
 }

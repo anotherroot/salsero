@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fullLoadFor, mayReloadNow } from './fresh';
+import { fullLoadFor, mayReloadNow, typedFields } from './fresh';
 
 const QUIET = { playerOpen: false, sheetsOpen: false, unsaved: 0, held: 0 };
 
@@ -89,4 +89,34 @@ describe('mayReloadNow', () => {
 	it('reloads a page outside any route (an error page)', () => {
 		expect(mayReloadNow({ ...clear, routeId: null })).toBe(true);
 	});
+});
+
+describe('typedFields', () => {
+	const field = (o: Partial<Parameters<typeof typedFields>[0][number]> = {}) => ({
+		tag: 'input',
+		type: 'email',
+		focused: false,
+		value: '',
+		defaultValue: '',
+		...o
+	});
+	it('counts nothing on an untouched form', () =>
+		expect(typedFields([field(), field({ type: 'password' })])).toBe(0));
+	// Signing in: the keyboard is up on the email field, nothing typed yet.
+	it('counts a field with focus', () => expect(typedFields([field({ focused: true })])).toBe(1));
+	// Typed or autofilled, then the page went out of view (an autofill popup).
+	it('counts a field whose value is not the one the page drew', () =>
+		expect(typedFields([field({ value: 'a@b.c' })])).toBe(1));
+	it('counts a textarea', () =>
+		expect(typedFields([field({ tag: 'textarea', type: 'textarea', value: 'x' })])).toBe(1));
+	it('does not count a value the page drew itself', () =>
+		expect(typedFields([field({ value: 'a@b.c', defaultValue: 'a@b.c' })])).toBe(0));
+	it('ignores hidden fields, checkboxes and buttons', () =>
+		expect(
+			typedFields([
+				field({ type: 'hidden', value: 'x' }),
+				field({ type: 'checkbox', focused: true }),
+				field({ type: 'submit', focused: true })
+			])
+		).toBe(0));
 });

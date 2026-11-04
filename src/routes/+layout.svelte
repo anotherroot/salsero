@@ -26,7 +26,7 @@
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import UpdateNeeded from '$lib/components/system/UpdateNeeded.svelte';
 	import { BUSY_ROUTES, updateNeededNow } from '$lib/app-update/view';
-	import { fullLoadFor, mayReloadNow } from '$lib/nav/fresh';
+	import { fullLoadFor, mayReloadNow, typedFields, type FieldState } from '$lib/nav/fresh';
 	import { held } from '$lib/nav/fresh.svelte';
 	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
 	import { holdsBack, staleMove } from '$lib/page-epoch';
@@ -244,13 +244,24 @@
 	 * the offline handler have had their say on the same navigation: the
 	 * guard's question shows as `prompt.ask`, offline is `navigator.onLine`.
 	 */
+	const fieldsNow = (): FieldState[] =>
+		[...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')].map(
+			(f) => ({
+				tag: f.tagName.toLowerCase(),
+				type: f.type.toLowerCase(),
+				focused: f === document.activeElement,
+				value: f.value,
+				defaultValue: f.defaultValue
+			})
+		);
 	const quietNow = () => {
 		const entry = entryState();
 		return {
 			playerOpen: (entry.videoPlayer ?? 0) > 0,
 			sheetsOpen: (entry.sheets ?? 0) > 0,
-			// An upload in flight counts: a reload cuts it off.
-			unsaved: unsaved(null, true).length,
+			// An upload in flight counts: a reload cuts it off. So does a field
+			// someone is typing in, tracked by the guard or not (signing in).
+			unsaved: unsaved(null, true).length + typedFields(fieldsNow()),
 			held: held()
 		};
 	};
