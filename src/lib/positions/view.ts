@@ -1,5 +1,5 @@
 /** Every positions screen's words: PURE, client-safe. Strings come from the design boards. */
-import { dayLabel, dayMonth, longDayLabel, monthLabel, plural } from '$lib/format';
+import { classDayLabel, dayMonth, monthHeading, plural, weekdayDayMonth } from '$lib/format';
 import { spotLabel } from '$lib/video/spots';
 import type { PickGroup, PickRow } from '$lib/picker/model';
 import type {
@@ -434,15 +434,43 @@ export const LINK_SPOTS = {
 } as const;
 
 /**
- * The spot picker's groups: one per video (its lesson, or "Recording · <figure>"),
- * its spots in the order the server gives. A section reads "The cross on 7 /
- * Section · 1:12.0–1:31.0" (an unnamed one is its range, "Section, no name")
- * and previews looping; a point reads "Point at 1:12 / Point" (a named one,
+ * Where a video sits, for the spot picker's titles: a lesson video's number
+ * among its lesson's videos (1-based), or the day a recording was made (in
+ * the person's zone, `YYYY-MM-DD`).
+ */
+export type VideoPlace = { n: number } | { day: string };
+
+/** A video's key in a `VideoPlace` map: `v<lessonVideoId>` or `r<recordingId>`. */
+export function videoKey(owner: SectionVideo['owner']): string {
+	return 'lessonVideoId' in owner ? `v${owner.lessonVideoId}` : `r${owner.recordingId}`;
+}
+
+/**
+ * A spot picker group's title (the board): "Week 6 · Setenta into Sombrero ·
+ * video 1", "Kentucky · Doble · recording 26 Oct". Without its place, the
+ * picture line's words ("Week 6", "Recording · Kentucky · Doble").
+ */
+export function spotGroupTitle(v: SectionVideo, place: VideoPlace | undefined): string {
+	if (v.from.kind === 'lesson')
+		return place && 'n' in place ? `${v.from.title} · video ${place.n}` : v.from.title;
+	return place && 'day' in place
+		? `${v.from.figure} · recording ${dayMonth(place.day)}`
+		: spotVideoLabel(v);
+}
+
+/**
+ * The spot picker's groups: one per video (`spotGroupTitle`), its spots in
+ * the order the server gives. A section reads "The cross on 7 / Section ·
+ * 1:12.0–1:31.0" (an unnamed one is its range, "Section, no name") and
+ * previews looping; a point reads "Point at 1:12 / Point" (a named one,
  * "Hands meet / Point at 0:15"). The search also matches the time and the video.
  */
-export function spotPickGroups(groups: SectionGroup[]): PickGroup[] {
+export function spotPickGroups(
+	groups: SectionGroup[],
+	places: Record<string, VideoPlace> = {}
+): PickGroup[] {
 	return groups.map((g) => {
-		const title = spotVideoLabel(g.video);
+		const title = spotGroupTitle(g.video, places[videoKey(g.video.owner)]);
 		return {
 			title,
 			entries: g.sections.map((s): PickRow => {
@@ -469,9 +497,12 @@ export function spotPickGroups(groups: SectionGroup[]): PickGroup[] {
 	});
 }
 
-/** A lesson row's line on the page: "Salsa Tuesdays · 3 Nov" for a group's, the full day for a person's. */
+/**
+ * A lesson row's line on the page: "Salsa Tuesdays · 3 Nov" for a group's, the
+ * full day for a person's ("Tuesday 13 October", the board's, no comma).
+ */
 export function lessonMeta(l: { teamName: string | null; lessonDay: string }): string {
-	return l.teamName ? `${l.teamName} · ${dayMonth(l.lessonDay)}` : longDayLabel(l.lessonDay);
+	return l.teamName ? `${l.teamName} · ${dayMonth(l.lessonDay)}` : weekdayDayMonth(l.lessonDay);
 }
 
 /** "Lessons with Manos cruzadas": the picker over the owner's lessons. */
@@ -498,22 +529,24 @@ export interface LessonPick {
 }
 
 /**
- * The lesson picker's month groups, newest first as given. A row's meta is its
- * group, its day, then "through a section" for one that reaches the position
- * through its videos (and so shows linked), else "2 videos" when it has more than one.
+ * The lesson picker's month groups, newest first as given: "November", with
+ * the year only when it is not `today`'s. A row's meta is its group, its day
+ * ("Tue 3 Nov", its year when not this one), then "through a section" for one
+ * that reaches the position through its videos (and so shows linked), else
+ * "2 videos" when it has more than one.
  */
-export function lessonPickGroups(lessons: LessonPick[]): PickGroup[] {
+export function lessonPickGroups(lessons: LessonPick[], today: string): PickGroup[] {
 	const groups: PickGroup[] = [];
 	let month = '';
 	for (const l of lessons) {
 		const key = l.lessonDay.slice(0, 7);
 		if (key !== month || groups.length === 0) {
 			month = key;
-			groups.push({ title: monthLabel(l.lessonDay), entries: [] });
+			groups.push({ title: monthHeading(l.lessonDay, today), entries: [] });
 		}
 		const meta = [
 			l.team,
-			dayLabel(l.lessonDay),
+			classDayLabel(l.lessonDay, today),
 			l.via ? 'through a section' : l.videos > 1 ? plural(l.videos, 'video', 'videos') : null
 		]
 			.filter(Boolean)

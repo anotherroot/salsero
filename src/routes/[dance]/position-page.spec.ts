@@ -29,10 +29,12 @@ import {
 	lessonPositions,
 	lessons,
 	positions,
+	recordings,
 	spotPositionLinks,
 	teamChanges,
 	teamTrash,
-	users
+	users,
+	videoSpots
 } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
@@ -694,6 +696,36 @@ describe('Video and Lessons: links from the page', () => {
 				via: false
 			}
 		]);
+	});
+
+	it("names the picker's videos by their place: a lesson's video by number, a recording by its day", () => {
+		const o = own();
+		const week6 = taped(U2_SALSA, 'Week 6');
+		const second = pointOn(week6.lesson);
+		const kentucky = figure(U2_SALSA, 'Rumba', 'Uno');
+		// 23:30 UTC on 25 Oct is 00:30 on 26 Oct in Ljubljana: the person's day.
+		const rec = db
+			.insert(recordings)
+			.values({
+				figureId: kentucky,
+				file: 'k.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 1,
+				createdAt: Date.UTC(2026, 9, 25, 23, 30)
+			})
+			.returning()
+			.get().id;
+		db.insert(videoSpots).values({ recordingId: rec, startMs: 8_000, endMs: 20_000 }).run();
+		const d = loadOf('u2', o.p);
+		const secondVideo = d.linkable.find((g: any) => g.sections.some((s: any) => s.id === second))
+			.video.owner.lessonVideoId;
+		expect(d.videoPlaces).toEqual({
+			[`v${week6.video}`]: { n: 1 },
+			[`v${secondVideo}`]: { n: 2 },
+			[`r${rec}`]: { day: '2026-10-26' }
+		});
+		expect(d.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 	});
 
 	it("offers a reader of a group's position nothing to link and nothing to unlink", () => {

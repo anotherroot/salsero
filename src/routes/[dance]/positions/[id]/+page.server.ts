@@ -1,7 +1,15 @@
 import { error, fail } from '@sveltejs/kit';
-import { and, eq, inArray } from 'drizzle-orm';
-import { getDb } from '$lib/server/db';
-import { figures, lessonPositions, spotPositionLinks } from '$lib/server/db/schema';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import { getDb, type Db } from '$lib/server/db';
+import {
+	figures,
+	lessonPositions,
+	lessonVideos,
+	recordings,
+	spotPositionLinks
+} from '$lib/server/db/schema';
+import { localDay } from '$lib/day/day';
+import type { SectionGroup } from '$lib/types';
 import { buildGraph, canonicalOf } from '$lib/server/graph';
 import { figureById, figuresFrom, figuresTo, positionCounts } from '$lib/graph/graph';
 import { through } from '$lib/routines/routines';
@@ -57,8 +65,48 @@ import { dropOptions } from '$lib/server/clones/drop';
 import { sameAsOffer } from '$lib/server/twins';
 import { DANCES } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
-import { styleLabelOf } from '$lib/positions/view';
+import { styleLabelOf, videoKey, type VideoPlace } from '$lib/positions/view';
 import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * Where each video of the spot picker sits (its group's title): a lesson
+ * video's number among its lesson's videos, in the lesson page's order
+ * (oldest first), and a recording's day in the person's zone.
+ */
+function videoPlaces(db: Db, groups: SectionGroup[], zone: string): Record<string, VideoPlace> {
+	const lessonIds = [
+		...new Set(
+			groups.flatMap((g) => (g.video.from.kind === 'lesson' ? [g.video.from.lessonId] : []))
+		)
+	];
+	const recordingIds = groups.flatMap((g) =>
+		'recordingId' in g.video.owner ? [g.video.owner.recordingId] : []
+	);
+	const places: Record<string, VideoPlace> = {};
+	if (lessonIds.length > 0) {
+		const seen = new Map<number, number>();
+		for (const v of db
+			.select({ id: lessonVideos.id, lessonId: lessonVideos.lessonId })
+			.from(lessonVideos)
+			.where(inArray(lessonVideos.lessonId, lessonIds))
+			.orderBy(asc(lessonVideos.createdAt), asc(lessonVideos.id))
+			.all()) {
+			const n = (seen.get(v.lessonId) ?? 0) + 1;
+			seen.set(v.lessonId, n);
+			places[videoKey({ lessonVideoId: v.id })] = { n };
+		}
+	}
+	if (recordingIds.length > 0) {
+		for (const r of db
+			.select({ id: recordings.id, createdAt: recordings.createdAt })
+			.from(recordings)
+			.where(inArray(recordings.id, recordingIds))
+			.all()) {
+			places[videoKey({ recordingId: r.id })] = { day: localDay(r.createdAt, zone) };
+		}
+	}
+	return places;
+}
 
 /** The position this URL names, or a 404: another person's, another dance's, a draft's. */
 const positionIn = (
@@ -197,6 +245,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// What an editor may link: the owner's sections and points, and the owner's lessons.
 	const linking = canEdit && !position.archivedAt;
 	const taught = new Map(owners.map((l) => [l.id, l]));
+	const linkable = linking ? linkableSpots(db, id) : [];
+	const zone = locals.user!.timezone;
 
 	return {
 		position: {
@@ -219,7 +269,11 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			...theirs.map((l) => lessonRow(l, true))
 		],
 		/** Link a section or point…: every section and point of the owner's videos. */
-		linkable: linking ? linkableSpots(db, id) : [],
+		linkable,
+		/** Where each of those videos sits: "video 2", "recording 26 Oct" in the picker's titles. */
+		videoPlaces: videoPlaces(db, linkable, zone),
+		/** The person's today: the lesson picker leaves this year out of its months and days. */
+		today: localDay(Date.now(), zone),
 		/** Link a lesson…: the owner's lessons, newest class first; `linked` by hand or through a spot. */
 		linkableLessons: linking
 			? listLessons(db, space).map((l) => ({

@@ -34,7 +34,9 @@
 		destination,
 		linkHeading,
 		linkRowId,
+		linkTitles,
 		linkWords,
+		loadFailed as loadFailedWords,
 		momentAt,
 		MOMENT_LABEL,
 		refusalAt,
@@ -97,10 +99,25 @@
 		 * null. Absent: no such button (a page has no playhead).
 		 */
 		onmoment?: () => Promise<string | null>;
+		/**
+		 * Whether the spot is a point, when the host knows: the words are right
+		 * before the options come. Absent: neutral words until they do.
+		 */
+		point?: boolean;
 	}
 
-	let { spotId, theme, steps, onpush, onback, onclose, onchange, onopen, onmoment }: Props =
-		$props();
+	let {
+		spotId,
+		theme,
+		steps,
+		onpush,
+		onback,
+		onclose,
+		onchange,
+		onopen,
+		onmoment,
+		point: pointHint
+	}: Props = $props();
 
 	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill', 'position'];
 	const CREATE_TITLE: Record<CreateStep, string> = {
@@ -109,11 +126,6 @@
 		drill: 'New drill',
 		position: 'New position'
 	};
-	const LOAD_FAILED = {
-		title: 'Couldn’t load this section’s links.',
-		body: 'Close and tap the link button again.'
-	};
-
 	let options = $state<LinkOptions | null>(null);
 	let loadFailed = $state(false);
 	let busy = $state(false);
@@ -171,11 +183,20 @@
 	const picking = $derived(steps.includes('pick'));
 	const createStep = $derived(steps.find((s): s is CreateStep => CREATE_STEPS.includes(s)) ?? null);
 	const heading = $derived(options ? linkHeading(options.spot) : null);
-	/** A point links positions only; until the options come, a section's words. */
-	const point = $derived(options?.spot.endMs === null);
+	/**
+	 * A point links positions only. Until the options come: the host's word for
+	 * it, else not known (null), and the words stay neutral.
+	 */
+	const point = $derived<boolean | null>(
+		options ? options.spot.endMs === null : (pointHint ?? null)
+	);
 	const words = $derived(linkWords(point));
+	const titles = $derived(linkTitles(heading, point));
+	const failedWords = $derived(loadFailedWords(point));
 	/** Only once the options say it is a section: a point never offers it. */
-	const momentWhere = $derived(options ? momentAt(steps, point, onmoment !== undefined) : null);
+	const momentWhere = $derived(
+		options ? momentAt(steps, point === true, onmoment !== undefined) : null
+	);
 
 	// Every opening of the picker starts clean, and fences off late answers.
 	let wasPicking = false;
@@ -465,7 +486,7 @@
 		{#if unlinkMessage}<Banner kind="error" title={unlinkMessage} />{/if}
 		{#if momentMessage && momentWhere === 'links'}<Banner kind="error" title={momentMessage} />{/if}
 		{#if loadFailed}
-			<Banner kind="error" title={LOAD_FAILED.title}>{LOAD_FAILED.body}</Banner>
+			<Banner kind="error" title={failedWords.title}>{failedWords.body}</Banner>
 		{:else if !options}
 			<h3 class={SECTION_LABEL}>Linked</h3>
 			<div class="rounded-2xl bg-surface" aria-busy="true">
@@ -746,7 +767,7 @@
 {#if steps.includes('links')}
 	<LinkLevel
 		{theme}
-		title={heading ? `Link ${heading.range}` : 'Link a section'}
+		title={titles.links}
 		sub={heading?.sub}
 		back={stacked(steps, 'links')}
 		{onback}
@@ -759,13 +780,13 @@
 	open={picking}
 	{theme}
 	kind="link"
-	title={heading ? `Link ${heading.range} to…` : 'Link a section to…'}
+	title={titles.pick}
 	sub={heading && !stacked(steps, 'pick') ? heading.sub : undefined}
 	back={stacked(steps, 'pick')}
 	placeholder={words.placeholder}
 	{groups}
 	loading={!options && !loadFailed}
-	failure={loadFailed ? LOAD_FAILED : null}
+	failure={loadFailed ? failedWords : null}
 	nothingLeft="Nothing else to link."
 	create={options ? words.create : undefined}
 	top={momentWhere === 'pick' ? pickTop : undefined}

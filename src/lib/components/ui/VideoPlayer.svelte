@@ -227,6 +227,11 @@
 	const LINK_SHEETS: readonly SheetKind[] = Object.values(LINK_SHEET);
 	/** The section or point the Link popup is on, and the create step its 'link-new' sheet stands for. */
 	let linkSpotId = $state<number | null>(null);
+	/** Whether that spot is a point, for the popup's words before its options come; unknown: undefined. */
+	const linkPoint = $derived.by(() => {
+		const s = spots.find((x) => x.id === linkSpotId);
+		return s ? s.endMs === null : undefined;
+	});
 	let linkCreate = $state<LinkCreateStep>('variation');
 	/** How many links the section had when the popup opened: the rename offer is for its first. */
 	let linkedBefore = 0;
@@ -1479,6 +1484,7 @@
 					onclose={closeLink}
 					onopen={openLinked}
 					onmoment={useMoment}
+					point={linkPoint}
 				/>
 			{/key}
 		{:else if sheet && sheet !== 'list'}

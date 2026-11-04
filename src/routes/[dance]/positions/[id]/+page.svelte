@@ -547,7 +547,7 @@
 		title={linkSpotsTitle(position.name)}
 		sub={linkSpotsSub(data.team?.name ?? null)}
 		placeholder={LINK_SPOTS.search}
-		groups={spotPickGroups(data.linkable)}
+		groups={spotPickGroups(data.linkable, data.videoPlaces)}
 		nothingLeft={LINK_SPOTS.none}
 		emptyIcon="bookmark"
 		action="?/linkSpot"
@@ -564,7 +564,7 @@
 		title={lessonPickTitle(position.name)}
 		sub={LESSON_PICK.sub}
 		placeholder={LESSON_PICK.search}
-		groups={lessonPickGroups(data.linkableLessons)}
+		groups={lessonPickGroups(data.linkableLessons, data.today)}
 		nothingLeft={LESSON_PICK.none}
 		emptyIcon="lessons"
 		action="?/linkLesson"
@@ -588,6 +588,7 @@
 		name="lessonId"
 		id={unlinkingVia.id}
 		label={position.name}
+		lesson={unlinkingVia.title}
 		via={unlinkingVia.via}
 		onclose={() => (unlinkingVia = null)}
 		onunlinked={() => void focusAfterRemoval(viaKeys, viaGone, lessonFallback())}

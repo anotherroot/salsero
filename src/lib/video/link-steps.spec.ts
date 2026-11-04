@@ -4,7 +4,9 @@ import {
 	destination,
 	linkHeading,
 	linkRowId,
+	linkTitles,
 	linkWords,
+	loadFailed,
 	momentAt,
 	openingSteps,
 	refusalAt,
@@ -91,6 +93,26 @@ describe('positions and points (ruling 10)', () => {
 			placeholder: 'Search positions',
 			create: [{ key: 'position', label: 'Position' }]
 		});
+		// Not known yet (the options are on their way, no hint from the host): neutral, nothing to make.
+		expect(linkWords(null)).toEqual({ opener: 'Link…', placeholder: 'Search', create: [] });
+	});
+	it('titles the levels by the range once known, else by what the spot is', () => {
+		const heading = { range: '1:12', sub: 'Point' };
+		expect(linkTitles(heading, true)).toEqual({ links: 'Link 1:12', pick: 'Link 1:12 to…' });
+		expect(linkTitles(null, true)).toEqual({ links: 'Link a point', pick: 'Link a point to…' });
+		expect(linkTitles(null, false)).toEqual({
+			links: 'Link a section',
+			pick: 'Link a section to…'
+		});
+		expect(linkTitles(null, null)).toEqual({ links: 'Link', pick: 'Link to…' });
+	});
+	it('says which links did not load: a section’s, a point’s, or just these', () => {
+		expect(loadFailed(false)).toEqual({
+			title: 'Couldn’t load this section’s links.',
+			body: 'Close and tap the link button again.'
+		});
+		expect(loadFailed(true).title).toBe('Couldn’t load this point’s links.');
+		expect(loadFailed(null).title).toBe('Couldn’t load these links.');
 	});
 	it('keys a target by its kind, so a position and a variation of one id differ', () => {
 		expect(targetKey({ figureId: 3 })).toBe('figure:3');
