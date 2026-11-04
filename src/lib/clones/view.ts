@@ -304,6 +304,9 @@ export function nameTaken(name: string, move: string): string {
 	return `${name} is taken in ${move}; rename one first.`;
 }
 
+/** Closes a clone sheet without doing anything. */
+export const CANCEL = 'Cancel';
+
 /** A compare card's two options. */
 export const YOURS = 'Yours';
 export const THEIRS = 'Theirs';

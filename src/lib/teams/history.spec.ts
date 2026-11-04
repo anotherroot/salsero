@@ -179,3 +179,15 @@ describe('copy', () => {
 		expect(archivedByLine('Ana')).toBe('Archived by Ana');
 	});
 });
+
+describe('a take’s fields, in plain words', () => {
+	it('names the practice, its tempo and the slots', () => {
+		const one = (subject: string) =>
+			historyLine(row({ rootKind: 'drill', subject, before: {}, after: {} }), names);
+		expect(one('practiceMode')).toBe('Ana · changed the practice');
+		expect(one('countBpm')).toBe('Ana · changed the practice tempo');
+		expect(historyLine(row({ rootKind: 'routine', subject: 'slots' }), names)).toBe(
+			'Ana · changed the slots'
+		);
+	});
+});

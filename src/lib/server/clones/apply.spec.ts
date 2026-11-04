@@ -12,6 +12,7 @@ import { openDb, type Db } from '../db';
 import {
 	exercises,
 	figures,
+	lessonExercises,
 	lessonFigures,
 	lessons,
 	links,
@@ -25,10 +26,16 @@ import {
 	videoSpots
 } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
-import { addRecording, createFigure, createVariationIn, updateVariation } from '../figures';
+import {
+	addFigureExercise,
+	addRecording,
+	createFigure,
+	createVariationIn,
+	updateVariation
+} from '../figures';
 import { createCustomExercise } from '../exercises';
-import { createLesson, linkFigure, publishLesson, unlinkFigure } from '../lessons';
-import { addFigureSlot, createRoutine, routineSlots } from '../routines';
+import { createLesson, linkExercise, linkFigure, publishLesson, unlinkFigure } from '../lessons';
+import { addChildSlot, addFigureSlot, createRoutine, routineSlots } from '../routines';
 import { addLesson, entryFor } from '../entries';
 import { addLinks, deleteLink } from '../links';
 import { addSpot } from '../spots';
@@ -389,5 +396,53 @@ describe('slots', () => {
 				.where(and(eq(figures.id, myW.id), eq(figures.userId, 'u1')))
 				.get()
 		).toBeDefined();
+	});
+
+	it('never clones an embedded routine it would drop: this routine is embedded elsewhere', async () => {
+		const { F } = await world();
+		const R = createRoutine(db, T1_SALSA, { name: 'Show', notes: null }).routine.id;
+		addFigureSlot(db, R, F, 'u1');
+		const mine = await copy('routine', R, U1_SALSA);
+		const P = createRoutine(db, U1_SALSA, { name: 'Long', notes: null }).routine.id;
+		expect(addChildSlot(db, P, mine, 'u1')).not.toBeNull();
+		const K = createRoutine(db, T1_SALSA, { name: 'Shine break', notes: null }).routine.id;
+		addFigureSlot(db, K, F, 'u1');
+		expect(addChildSlot(db, R, K, 'u1')).not.toBeNull();
+
+		expect(apply('routine', mine, R, ['slots']).ok).toBe(true);
+		expect(routineSlots(db, mine).map((s) => s.childId)).toEqual([null]);
+		expect(
+			db
+				.select()
+				.from(routines)
+				.where(and(eq(routines.userId, 'u1'), eq(routines.name, 'Shine break')))
+				.all()
+		).toEqual([]);
+	});
+});
+
+describe('a lesson’s hand link, never in both places', () => {
+	it('a figure taken in drops the person’s own entry for it from the hand-linked list', async () => {
+		const { lesson } = await world();
+		const mine = await copy('lesson', lesson, U1_SALSA);
+		const W = figure(T1_SALSA, 'Setenta', 'Básico').figure.id;
+		const myW = await copy('figure', W, U1_SALSA);
+		const entry = addFigureExercise(db, 'u1', myW)!;
+		expect(linkExercise(db, mine, entry.id, 'u1')).toBe(true);
+		linkFigure(db, lesson, W, 'u1');
+
+		const keys = differing('lesson', mine, lesson);
+		expect(apply('lesson', mine, lesson, keys).ok).toBe(true);
+		expect(
+			db
+				.select()
+				.from(lessonFigures)
+				.where(eq(lessonFigures.lessonId, mine))
+				.all()
+				.map((r) => r.figureId)
+		).toContain(myW);
+		expect(
+			db.select().from(lessonExercises).where(eq(lessonExercises.lessonId, mine)).all()
+		).toEqual([]);
 	});
 });

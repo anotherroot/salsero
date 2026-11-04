@@ -38,7 +38,10 @@ const FIELD: Record<string, string> = {
 	artist: 'artist',
 	anchors: 'count',
 	tempoFactor: 'tempo',
-	sampleStartS: 'sample start'
+	sampleStartS: 'sample start',
+	practiceMode: 'practice',
+	countBpm: 'practice tempo',
+	slots: 'slots'
 };
 
 /**

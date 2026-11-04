@@ -19,6 +19,7 @@ import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import type { CloneKind, Picks } from '$lib/types';
 import { diffTag } from '$lib/clones/view';
 import { geneOf } from './genes';
+import { pairAt } from './pairs';
 import { cloneInto } from './clone';
 import type { CloneFileKind, CloneFiles } from './files';
 import { compareWith, takeTheirs } from './compare';
@@ -267,5 +268,70 @@ describe('takeTheirs', () => {
 		);
 		expect(res).toEqual({ ok: true });
 		expect(unlinked).toEqual([['recording', 'own.mp4']]);
+	});
+
+	it('re-checks what you saw inside the write: a save landing while files link makes it stale', async () => {
+		const { F, C, recKey } = await boardCase();
+		const c = compareWith(db, 'u2', 'figure', C, F)!;
+		const unlinked: [CloneFileKind, string][] = [];
+		const files: CloneFiles = {
+			async link(_kind, file) {
+				// Another tab saves the copy meanwhile.
+				db.update(figures).set({ notes: 'Saved meanwhile' }).where(eq(figures.id, C)).run();
+				return `copy-${file}`;
+			},
+			async unlink(kind, file) {
+				unlinked.push([kind, file]);
+			}
+		};
+		const res = await takeTheirs(
+			db,
+			'u2',
+			'figure',
+			C,
+			F,
+			{ ...c.picks, notes: 'mine' },
+			c.seen,
+			files,
+			NOW,
+			ROOMY
+		);
+		expect(res).toEqual({
+			ok: false,
+			reason: 'stale',
+			message: 'Changed since you opened this. Compare again.'
+		});
+		expect(c.picks[recKey]).toBe('theirs');
+		expect(db.select().from(figures).where(eq(figures.id, C)).get()).toMatchObject({
+			startCount: 1,
+			notes: 'Saved meanwhile'
+		});
+		expect(db.select().from(recordings).where(eq(recordings.figureId, C)).all()).toEqual([]);
+		expect(unlinked).toEqual([['recording', 'copy-second.mp4']]);
+	});
+
+	it('a take with nothing picked theirs does nothing: no History line, the snapshot as it was', async () => {
+		const { F } = await setenta();
+		const mine = await copy('figure', F, U1_SALSA);
+		updateVariation(db, mine, { name: 'Básico', ...shape, notes: 'Hips first' });
+		const c = compareWith(db, 'u1', 'figure', F, mine)!;
+		const lines = db.select().from(teamChanges).all().length;
+		const at = pairAt(db, 'figure', F, mine);
+		const res = await takeTheirs(
+			db,
+			'u1',
+			'figure',
+			F,
+			mine,
+			{ notes: 'mine' },
+			c.seen,
+			fakeFiles().files,
+			NOW,
+			ROOMY
+		);
+		expect(res).toEqual({ ok: true });
+		expect(db.select().from(teamChanges).all()).toHaveLength(lines);
+		expect(pairAt(db, 'figure', F, mine)).toBe(at);
+		expect(compareWith(db, 'u1', 'figure', F, mine)!.diffs.map((d) => d.side)).toEqual(['theirs']);
 	});
 });

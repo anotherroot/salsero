@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FieldDiff, SwitchReport } from '$lib/types';
 import {
 	ALREADY_IN_YOURS,
+	CANCEL,
 	COMPARE_FAILED,
 	IN_STEP,
 	TAKE_FAILED,
@@ -291,5 +292,11 @@ describe('the compare sheet’s options and states', () => {
 		expect(IN_STEP).toBe('Nothing differs any more.');
 		expect(COMPARE_FAILED).toBe('That comparison could not be loaded. Try again.');
 		expect(TAKE_FAILED).toBe('That could not be taken. Try again.');
+	});
+});
+
+describe('the compare sheet’s Cancel', () => {
+	it('is the kit’s word', () => {
+		expect(CANCEL).toBe('Cancel');
 	});
 });

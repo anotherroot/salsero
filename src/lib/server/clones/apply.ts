@@ -27,7 +27,7 @@
  * check, the picks, the files and room, then in one transaction the apply,
  * the pair's next snapshot, History and the reconcile.
  */
-import { and, eq, isNotNull, isNull, type Column } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, type Column } from 'drizzle-orm';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import type { ChangeValues, CloneKind, Flat, Picks, SyncResult } from '$lib/types';
 import { diff, nextBase, unpicked } from '$lib/clones/diff';
@@ -58,6 +58,7 @@ import { fieldChange, logChange, type ChangeEntry } from '../changes';
 import { deleteRecording, syncExerciseNames, variationNameTaken } from '../figures';
 import { figurePositions, writeFigureShape } from '../graph';
 import {
+	ownEntryIds,
 	deleteLessonVideo,
 	reviewName,
 	unlinkExercise,
@@ -416,8 +417,10 @@ class Applier {
 			let child: number | null = null;
 			let options: number[] = [];
 			if (slot.childId !== null) {
+				// Checked before the mapper runs, so a child that would drop is never copied here.
+				if (embedded || embeds(tx, slot.childId)) continue;
 				child = m.ref('routine', slot.childId);
-				if (child === null || child === targetId || embedded || embeds(tx, child)) continue;
+				if (child === null || child === targetId || embeds(tx, child)) continue;
 				newIds.add(`r${child}`);
 			} else {
 				const ids = slot.figureIds.map((f) => m.ref('figure', f));
@@ -549,11 +552,25 @@ class Applier {
 				.values({ lessonId: targetId, routineId: to, createdAt: now })
 				.onConflictDoNothing()
 				.run();
-		else
-			tx.insert(lessonExercises)
-				.values({ lessonId: targetId, exerciseId: to, createdAt: now })
-				.onConflictDoNothing()
-				.run();
+		if (kind !== 'drill') {
+			// Never in both places (`linkFigure`): the person's own entry for it leaves the hand-linked list.
+			const owned = ownEntryIds(
+				tx,
+				this.m.into,
+				kind === 'figure' ? { figureId: to } : { routineId: to }
+			);
+			if (owned.length > 0)
+				tx.delete(lessonExercises)
+					.where(
+						and(eq(lessonExercises.lessonId, targetId), inArray(lessonExercises.exerciseId, owned))
+					)
+					.run();
+			return;
+		}
+		tx.insert(lessonExercises)
+			.values({ lessonId: targetId, exerciseId: to, createdAt: now })
+			.onConflictDoNothing()
+			.run();
 	}
 
 	private removeHandLink(prefix: string, ref: string): void {
@@ -813,6 +830,8 @@ export async function syncFrom(
 	const diffs = diff(base, intoFlat, fromFlat, hashValue);
 	if (unpicked(diffs, picks).length > 0) return { ok: false, reason: 'pick', message: PICK_BOTH };
 	const keys = diffs.filter((d) => picks[d.key] === 'theirs').map((d) => d.key);
+	// Nothing taken: nothing written, not even the snapshot (the pair stays as it was).
+	if (keys.length === 0) return { ok: true };
 
 	const plan = filesFor(db, kind, fromId, keys, intoFlat, fromFlat);
 	const bytes = plan.reduce((n, f) => n + f.bytes, 0);
@@ -824,14 +843,18 @@ export async function syncFrom(
 	const made: [CloneFileKind, string][] = [];
 	const unlinkAll = () => Promise.all(made.map(([k, file]) => files.unlink(k, file)));
 	const linked = new Map<string, string>();
+	let out: ApplyOutcome | { ok: false; reason: 'stale'; message: string };
 	try {
 		for (const f of plan) {
 			const name = await files.link(f.kind, f.file);
 			made.push([f.kind, name]);
 			linked.set(f.key, name);
 		}
-		const out = db.transaction((t) => {
+		out = db.transaction((t) => {
 			const tx = t as unknown as Db;
+			// Again inside the write: a save may have landed while the files were linking.
+			if (digest(flatOf(tx, kind, intoId)) !== seen)
+				return { ok: false as const, reason: 'stale' as const, message: STALE };
 			const applied = applyInto(tx, kind, intoId, fromId, keys, linked, actorId, now);
 			if (!applied.ok) return applied;
 			const next = nextBase(
@@ -850,14 +873,15 @@ export async function syncFrom(
 			}
 			return applied;
 		});
-		if (!out.ok) {
-			await unlinkAll();
-			return { ok: false, reason: out.reason, message: out.message };
-		}
-		await Promise.all(out.unlink.map(([k, file]) => files.unlink(k, file)));
-		return { ok: true };
 	} catch (err) {
 		await unlinkAll();
 		throw err;
 	}
+	if (!out.ok) {
+		await unlinkAll();
+		return { ok: false, reason: out.reason, message: out.message };
+	}
+	// It has landed: removing the deleted pieces' files can no longer undo it, nor fail it.
+	await Promise.all(out.unlink.map(([k, file]) => files.unlink(k, file).catch(() => {})));
+	return { ok: true };
 }

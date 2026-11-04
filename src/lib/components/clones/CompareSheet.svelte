@@ -9,6 +9,7 @@
 	import { button } from '$lib/components/ui/styles';
 	import { unpicked } from '$lib/clones/diff';
 	import {
+		CANCEL,
 		COMPARE_FAILED,
 		IN_STEP,
 		TAKE_BUTTON,
@@ -83,6 +84,9 @@
 	});
 
 	const waiting = $derived(comparison ? unpicked(comparison.diffs, picks).length > 0 : true);
+
+	/** Something is picked theirs: a take with nothing to bring is not offered. */
+	const takesAny = $derived(Object.values(picks).some((side) => side === 'theirs'));
 
 	function pick(d: FieldDiff, side: 'mine' | 'theirs') {
 		picks = { ...picks, [d.key]: side };
@@ -179,11 +183,13 @@
 			<input type="hidden" name="from" value={theirsId} />
 			<input type="hidden" name="picks" value={JSON.stringify(picks)} />
 			<input type="hidden" name="seen" value={comparison?.seen ?? ''} />
-			<button type="button" class={button('tertiary', 'md', true)} onclick={onclose}>Cancel</button>
+			<button type="button" class={button('tertiary', 'md', true)} onclick={onclose}
+				>{CANCEL}</button
+			>
 			<button
 				type="submit"
 				class={button('primary', 'md', true)}
-				disabled={!comparison?.canTake || comparison.diffs.length === 0 || waiting}
+				disabled={!comparison?.canTake || !takesAny || waiting}
 				aria-busy={busy}
 			>
 				{#if busy}<Spinner />{:else}<Icon name="download" size={20} />{TAKE_BUTTON}{/if}

@@ -1283,7 +1283,7 @@ export function routineTaughtIn(db: Db, space: Space, routineId: number) {
  * lesson's own person's entry for the target. A group's lesson hand-links no
  * entries (`linkExercise` refuses another person's), so it sweeps none.
  */
-function ownEntryIds(db: Db, space: Space, target: EntryTarget): number[] {
+export function ownEntryIds(db: Db, space: Space, target: EntryTarget): number[] {
 	if (isTeam(space)) return [];
 	const entry = entryFor(db, space.userId, target);
 	return entry ? [entry.id] : [];
