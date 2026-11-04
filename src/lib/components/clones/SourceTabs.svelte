@@ -9,12 +9,14 @@
 	import DropSheet from './DropSheet.svelte';
 	import DetachSheet from './DetachSheet.svelte';
 	import CopyToSheet from './CopyToSheet.svelte';
+	import MoveToSheet from './MoveToSheet.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { dropped } from './dropped.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import {
 		COMPARE,
 		COPY_TO,
+		MOVE_TO,
 		DETACH_BUTTON,
 		OPEN,
 		DROP_BUTTON,
@@ -32,6 +34,7 @@
 		DetachOffer,
 		DropOptions,
 		FamilyView,
+		MoveOffer,
 		Source
 	} from '$lib/types';
 
@@ -46,7 +49,8 @@
 	 * (`compare`), a line says what, with Compare (board C2 p2). Under it, when
 	 * the person edits another copy (`family`, board C3 p1): "Rueda club’s copy
 	 * differs: timing · Compare" per copy that moved, the copies they can see,
-	 * and Send mine…. Under them, Copy to… (board C4), Detach and Drop my copy.
+	 * and Send mine…. Under them, Copy to… (board C4), Move to… (your own lesson,
+	 * board C4 p3), Detach and Drop my copy.
 	 */
 	let {
 		sources,
@@ -59,7 +63,8 @@
 		family = null,
 		drop = null,
 		detach = null,
-		copy = null
+		copy = null,
+		move = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -80,6 +85,8 @@
 		detach?: DetachOffer | null;
 		/** Copy to… (board C4): into your app or a group you own or edit; null when there is nowhere. */
 		copy?: CopyOffer | null;
+		/** Move to… (board C4 p3): the person's own lesson into a group they own or edit. */
+		move?: MoveOffer | null;
 	} = $props();
 
 	let comparing = $state(false);
@@ -89,6 +96,7 @@
 	let dropping = $state(false);
 	let detaching = $state(false);
 	let copying = $state(false);
+	let moving = $state(false);
 
 	/**
 	 * "Back on Salsa Tuesdays’. Your copy is archived.": left by a drop for the
@@ -197,7 +205,7 @@
 	{/if}
 	<FamilyList {family} {kind} {dance} {current} />
 {/if}
-{#if drop || detach || copy}
+{#if drop || detach || copy || move}
 	<div class="flex flex-wrap justify-end gap-x-2">
 		{#if copy}
 			<button
@@ -205,6 +213,14 @@
 				class={button('tertiary', 'sm')}
 				aria-haspopup="dialog"
 				onclick={() => (copying = true)}><Icon name="copy" size={20} />{COPY_TO}</button
+			>
+		{/if}
+		{#if move}
+			<button
+				type="button"
+				class={button('tertiary', 'sm')}
+				aria-haspopup="dialog"
+				onclick={() => (moving = true)}><Icon name="move-to" size={20} />{MOVE_TO}</button
 			>
 		{/if}
 		{#if detach}
@@ -239,6 +255,9 @@
 		{current}
 		ondone={(message, href) => (toast = { id: ++toastSeq, message, href })}
 	/>
+{/if}
+{#if move}
+	<MoveToSheet open={moving} onclose={() => (moving = false)} offer={move} {current} />
 {/if}
 
 <Toast

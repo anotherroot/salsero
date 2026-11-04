@@ -588,6 +588,7 @@
 				drop={data.drop}
 				detach={data.detach}
 				copy={data.copyTo}
+				move={data.move}
 				taking={sourcePlace}
 			/>
 		{/if}

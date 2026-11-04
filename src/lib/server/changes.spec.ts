@@ -92,6 +92,7 @@ import { compareWith, takeTheirs } from './clones/compare';
 import { sendMine, sendPreview } from './clones/send';
 import { detach } from './clones/detach';
 import { copyTo } from './clones/copy-to';
+import { moveLesson } from './clones/move';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -977,6 +978,22 @@ const MUTATIONS: {
 		run: async () => {
 			const from = db.select().from(figures).where(eq(figures.teamId, 2)).get()!.id;
 			return ok(await copyTo(db, 'u1', 'figure', from, T1_SALSA, {}, cloneFiles, T, 100 * GB));
+		}
+	},
+	// clones/move.ts: Move to… a lesson of Ana's own with nothing linked (one add, in T1)
+	{
+		name: 'moveLesson',
+		root: 'lesson',
+		verb: 'add',
+		rootId: () => 0,
+		teamOnly: true,
+		run: async () => {
+			const own = createLesson(db, U1_SALSA, {
+				lessonDay: '2026-11-02',
+				title: 'Mine',
+				notes: null
+			}).lesson.id;
+			return ok(await moveLesson(db, U1_SALSA, own, 1, {}, {}, cloneFiles, T, 100 * GB));
 		}
 	},
 	// video-downloads.ts, on completion

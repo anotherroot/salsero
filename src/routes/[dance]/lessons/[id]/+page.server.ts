@@ -34,7 +34,15 @@ import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import {
+	copyToFrom,
+	detachFrom,
+	dropFrom,
+	moveToFrom,
+	sendFrom,
+	takeFrom
+} from '$lib/server/take-form';
+import { moveOffer } from '$lib/server/clones/move';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
@@ -152,6 +160,8 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		detach: detachOffer(db, wall.userId, 'lesson', found.lesson.id),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'lesson', found.lesson.id),
+		/** Move to… (board C4 p3): your own lesson into a group you own or edit, as a draft. */
+		move: moveOffer(db, wall, found.lesson.id),
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
@@ -324,6 +334,12 @@ export const actions: Actions = {
 	copyTo: ({ params, locals, request }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		return copyToFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id, request);
+	},
+
+	/** Move to… (board C4 p3): this lesson into a group as a draft; the group's lesson opens. */
+	moveTo: ({ params, locals, request }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return moveToFrom(getDb(), wallOf(params, locals), lesson.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

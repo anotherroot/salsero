@@ -1,7 +1,7 @@
 /**
  * Take theirs and Send mine on an item page (figure, routine, drill, song,
  * lesson): the `take` action the compare sheet posts, the `send` action the
- * send sheet posts, the `drop` action of Drop my copy and Copy to…'s `copyTo`. The data side is
+ * send sheet posts, the `drop` action of Drop my copy, Copy to…'s `copyTo` and Move to…'s `moveTo`. The data side is
  * `clones/compare.ts`, `clones/send.ts`, `clones/drop.ts` and `clones/copy-to.ts`;
  * this is the route's share: reading the form, the real files and the free
  * disk, and the refusals' answers. Whoever may not take into the row gets the
@@ -17,6 +17,8 @@ import { sendMine } from './clones/send';
 import { dropCopy, dropOptions } from './clones/drop';
 import { detach, detachOffer } from './clones/detach';
 import { chosenSource, copyTo, intoOf, restoreMember } from './clones/copy-to';
+import { moveLesson, movePreview } from './clones/move';
+import { MOVE_GONE } from '$lib/clones/view';
 import { placeOfRow } from './clones/genes';
 import { itemHref } from './make-mine-form';
 import type { Wall } from './scope';
@@ -265,5 +267,63 @@ export async function copyToFrom(
 			return fail(409, { action: 'copy' as const, message: res.message });
 		case 'denied':
 			throw error(404, 'Not found');
+	}
+}
+
+/** The Move sheet's choices (`{ 'figure:12': 'keep' | 'group' }`, as JSON), or null when malformed. */
+function moveChoicesFrom(raw: FormDataEntryValue | null): Record<string, 'keep' | 'group'> | null {
+	if (raw === null || raw === '') return {};
+	if (typeof raw !== 'string') return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+	const choices: Record<string, 'keep' | 'group'> = {};
+	for (const [key, choice] of Object.entries(parsed)) {
+		if (choice !== 'keep' && choice !== 'group') return null;
+		choices[key] = choice;
+	}
+	return choices;
+}
+
+/**
+ * The `moveTo` action (board C4 p3): the person's own lesson moved into the
+ * group `into` names as a draft (`clones/move.ts`), with `choices` per thing
+ * it brings and the twins' answers in `use`. Lands on the group's lesson
+ * (303). A group the lesson cannot move to is the missing row's 404; a
+ * choice no longer offered (the lesson changed since the sheet opened) a 409,
+ * as a name clash; no room a 413; a malformed form a 400.
+ */
+export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: Request) {
+	const form = await request.formData();
+	const teamId = int(form.get('into'));
+	const choices = moveChoicesFrom(form.get('choices'));
+	const use = useFrom(form.get('use'));
+	if (teamId === null || choices === null || use === null)
+		throw error(400, 'This page is out of date. Reload it and try again.');
+	if (!movePreview(db, wall, lessonId, teamId)) throw error(404, 'Not found');
+	const res = await moveLesson(
+		db,
+		wall,
+		lessonId,
+		teamId,
+		choices,
+		use,
+		realCloneFiles(),
+		Date.now(),
+		await freeDisk()
+	);
+	if (res.ok) throw redirect(303, itemHref(wall, 'lesson', res.id));
+	switch (res.reason) {
+		case 'room':
+			if (res.room.ok) throw error(500, 'Refused without a reason');
+			return fail(413, { action: 'move' as const, message: res.room.message });
+		case 'name':
+			return fail(409, { action: 'move' as const, message: res.message });
+		case 'denied':
+			return fail(409, { action: 'move' as const, message: MOVE_GONE });
 	}
 }

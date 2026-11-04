@@ -302,7 +302,7 @@
 {#if question && plan}
 	<Sheet
 		title={whichTitle(question.label)}
-		sub={whichSub(offer.kind, question.choices.length, placeLabel(target.place))}
+		sub={whichSub(question.kind, question.choices.length, placeLabel(target.place))}
 		open={open && asking}
 		onclose={() => (asking = false)}
 	>

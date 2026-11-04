@@ -103,7 +103,17 @@ import {
 	makeMineSize,
 	recordingMeta,
 	sourceNote,
-	TAKE
+	TAKE,
+	KEEP_MINE,
+	MOVE_BUTTON,
+	MOVE_NOTE,
+	MOVE_SUB,
+	MOVE_TO,
+	PRACTICE_STAYS,
+	USE_GROUPS,
+	movedToast,
+	moveTitle,
+	moveWhy
 } from './view';
 
 describe('clone words', () => {
@@ -703,5 +713,34 @@ describe('Copy to… (board C4)', () => {
 			'They’re twins in your app. Only one goes; the group never gets twins.'
 		);
 		expect(CONTINUE).toBe('Continue');
+	});
+});
+
+describe('Move to… (board C4 p3)', () => {
+	it('names the sheet, the two choices and the note', () => {
+		expect(MOVE_TO).toBe('Move to…');
+		expect(moveTitle('Week 3', { kind: 'team', teamId: 1, name: 'Salsa Tuesdays' })).toBe(
+			'Move Week 3 to Salsa Tuesdays'
+		);
+		expect(MOVE_SUB).toBe('The lesson lives in the group and leaves your lessons. What it brings:');
+		expect(KEEP_MINE).toBe('Keep mine as well');
+		expect(USE_GROUPS).toBe('Use the group’s');
+		expect(MOVE_NOTE).toBe(
+			'“Use the group’s”: your copy is dropped, and your other lessons and routines use the group’s.'
+		);
+		expect(PRACTICE_STAYS).toBe('Your practice of what you drop stays with your archived copy.');
+		expect(MOVE_BUTTON).toBe('Move as a draft');
+		expect(movedToast('Salsa Tuesdays')).toBe('Moved to Salsa Tuesdays as a draft.');
+	});
+
+	it('says why a thing is kept: lessons, then routines, then practice, else only this lesson', () => {
+		const why = (lessons: number, routines: string[], practised: boolean) =>
+			moveWhy({ lessons, routines, practised });
+		expect(why(2, ['Week 4 loop'], true)).toBe('Used by 2 other lessons');
+		expect(why(1, [], false)).toBe('Used by 1 other lesson');
+		expect(why(0, ['Week 4 loop'], true)).toBe('Used by Week 4 loop');
+		expect(why(0, ['A', 'B'], false)).toBe('Used by 2 routines');
+		expect(why(0, [], true)).toBe('You practise it');
+		expect(why(0, [], false)).toBe('Only this lesson');
 	});
 });

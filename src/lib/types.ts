@@ -811,8 +811,35 @@ export type CopyPlanView = {
 	/** One line per thing the place holds already, reused. */
 	already: string[];
 	/** Per family with twins: which one goes (`gene` is the `use` key; `from` goes unless another is picked). */
-	twins: { gene: string; label: string; from: number; choices: TwinChoice[] }[];
+	twins: {
+		gene: string;
+		/** The family's kind: "You see two versions of this routine." */
+		kind: TwinKind;
+		label: string;
+		from: number;
+		choices: TwinChoice[];
+	}[];
 };
+
+/** One thing a moved lesson brings (board C4 p3): keep yours as well, or use the group's. */
+export type MoveItem = {
+	kind: 'figure' | 'routine' | 'drill';
+	id: number;
+	/** "Enchufla · Doble", "Week 4 loop". */
+	label: string;
+	/** "Used by 2 other lessons", "Used by Week 4 loop", "You practise it", "Only this lesson". */
+	why: string;
+	/** "Keep mine as well" preselected: all but "Only this lesson" (ruling 11). */
+	keepByDefault: boolean;
+	/** Live practice on it, which stays with the archived copy when it is dropped. */
+	practised: boolean;
+};
+
+/** What moving a lesson into one group would do: Copy to…'s plan, and what it brings. */
+export type MovePreview = CopyPlanView & { items: MoveItem[] };
+
+/** Move to… on the person's own lesson: its title and the groups it can go to. */
+export type MoveOffer = { title: string; targets: CopyTarget[] };
 
 /** One row of "Copies you can see" (board C3 p1): a member of the page's family. */
 export type FamilyEntry = {

@@ -43,8 +43,10 @@ import * as routinePage from './routines/[id]/+page.server';
 import * as compareApi from '../api/clones/compare/+server';
 import * as sendApi from '../api/clones/send/+server';
 import * as copyApi from '../api/clones/copy/+server';
+import * as moveApi from '../api/clones/move/+server';
+import * as lessonPage from './lessons/[id]/+page.server';
 import { archiveVariation } from '$lib/server/figures';
-import { figures } from '$lib/server/db/schema';
+import { figures, lessons } from '$lib/server/db/schema';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const shape = { partner: 'partner' as const, style: 'salsa', notes: null };
@@ -488,5 +490,77 @@ describe('Copy to…', () => {
 		expect(await run(figurePage.actions.copyTo, ev('u3', F, { form: {} }))).toMatchObject({
 			status: 400
 		});
+	});
+});
+
+describe('Move to…', () => {
+	const preview = async (uid: string, id: number, into: string) =>
+		run(moveApi.GET, {
+			url: new URL(`http://localhost/api/clones/move?id=${id}&into=${into}`),
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+		});
+	/** A lesson of the person's own, Week 3, with their own Setenta · Básico. */
+	function week3(uid: string) {
+		const wall = { userId: uid, dance: 'salsa' as const };
+		const F = createFigure(db, wall, { figureName: 'Setenta', name: 'Básico', ...shape })!.figure
+			.id;
+		const L = createLesson(db, wall, { lessonDay: '2026-11-01', title: 'Week 3', notes: null })
+			.lesson.id;
+		linkFigure(db, L, F);
+		return { F, L };
+	}
+
+	it('an editor moves their own lesson into the group: a draft opens, theirs is archived', async () => {
+		const { F, L } = week3('u3');
+		const page = await run(lessonPage.load, ev('u3', L));
+		expect(page.move).toMatchObject({ title: 'Week 3' });
+		expect(page.move.targets.map((t: Answer) => t.place)).toEqual([
+			{ kind: 'team', teamId: 1, name: 'Salsa Tuesdays' }
+		]);
+		expect((await (await preview('u3', L, '1')).json()).items).toEqual([
+			{
+				kind: 'figure',
+				id: F,
+				label: 'Setenta · Básico',
+				why: 'Only this lesson',
+				keepByDefault: false,
+				practised: false
+			}
+		]);
+
+		const moved = await run(
+			lessonPage.actions.moveTo,
+			ev('u3', L, { form: { into: '1', choices: JSON.stringify({ [`figure:${F}`]: 'group' }) } })
+		);
+		expect(moved).toMatchObject({ status: 303 });
+		const id = Number(/\/salsa\/lessons\/(\d+)$/.exec(moved.location)![1]);
+		expect(db.select().from(lessons).where(eq(lessons.id, id)).get()).toMatchObject({
+			teamId: 1,
+			publishedAt: null
+		});
+		expect(db.select().from(lessons).where(eq(lessons.id, L)).get()!.archivedAt).not.toBeNull();
+		expect(db.select().from(figures).where(eq(figures.id, F)).get()!.archivedAt).not.toBeNull();
+	});
+
+	it('a member has nowhere to move to: no offer, 404; a malformed form 400', async () => {
+		const { L } = week3('u2');
+		expect((await run(lessonPage.load, ev('u2', L))).move).toBeNull();
+		expect(await preview('u2', L, '1')).toMatchObject({ status: 404 });
+		expect(
+			await run(lessonPage.actions.moveTo, ev('u2', L, { form: { into: '1' } }))
+		).toMatchObject({ status: 404 });
+		// Someone else's lesson: the same 404.
+		expect(await preview('u3', L, '1')).toMatchObject({ status: 404 });
+		const mine = week3('u3').L;
+		expect(
+			await run(lessonPage.actions.moveTo, ev('u3', mine, { form: { into: '1', choices: '[1]' } }))
+		).toMatchObject({ status: 400 });
+		expect(
+			await run(
+				lessonPage.actions.moveTo,
+				ev('u3', mine, { form: { into: '1', choices: JSON.stringify({ 'figure:999': 'group' }) } })
+			)
+		).toMatchObject({ status: 409 });
+		expect(db.select().from(lessons).where(eq(lessons.id, mine)).get()!.archivedAt).toBeNull();
 	});
 });

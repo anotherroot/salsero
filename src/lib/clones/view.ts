@@ -795,3 +795,47 @@ export const CONTINUE = 'Continue';
 
 /** The copied toast's action: the copy's page. */
 export const OPEN = 'Open';
+
+/* ── Move to… (board C4 p3) ─────────────────────────────────────────────── */
+
+/** The trigger beside Copy to…, on the person's own lesson. */
+export const MOVE_TO = 'Move to…';
+
+/** The sheet's title: "Move Week 3 to Salsa Tuesdays". */
+export function moveTitle(lesson: string, place: PlaceRef): string {
+	return `Move ${lesson} to ${placeLabel(place)}`;
+}
+
+export const MOVE_SUB = 'The lesson lives in the group and leaves your lessons. What it brings:';
+export const KEEP_MINE = 'Keep mine as well';
+export const USE_GROUPS = 'Use the group’s';
+export const MOVE_NOTE =
+	'“Use the group’s”: your copy is dropped, and your other lessons and routines use the group’s.';
+/** Under the note, when something dropped is practised (ruling 11: a draft can't be added). */
+export const PRACTICE_STAYS = 'Your practice of what you drop stays with your archived copy.';
+export const MOVE_BUTTON = 'Move as a draft';
+export const ONLY_THIS_LESSON = 'Only this lesson';
+export const YOU_PRACTISE = 'You practise it';
+
+/**
+ * Why a thing the lesson brings is kept by default, the first that applies:
+ * "Used by 2 other lessons", "Used by Week 4 loop" (or "Used by 2 routines"),
+ * "You practise it", else "Only this lesson".
+ */
+export function moveWhy(u: { lessons: number; routines: string[]; practised: boolean }): string {
+	if (u.lessons > 0) return `Used by ${plural(u.lessons, 'other lesson', 'other lessons')}`;
+	if (u.routines.length === 1) return `Used by ${u.routines[0]}`;
+	if (u.routines.length > 1) return `Used by ${plural(u.routines.length, 'routine', 'routines')}`;
+	return u.practised ? YOU_PRACTISE : ONLY_THIS_LESSON;
+}
+
+/** Once the move has landed, on the group's lesson. */
+export function movedToast(place: string): string {
+	return `Moved to ${place} as a draft.`;
+}
+
+/** A move that failed without a refusal's words. */
+export const MOVE_FAILED = 'That could not be moved. Try again.';
+
+/** The lesson changed since the Move sheet opened: what it offered is gone. */
+export const MOVE_GONE = 'What the lesson brings has changed. Reload and choose again.';

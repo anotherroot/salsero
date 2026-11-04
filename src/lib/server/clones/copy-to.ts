@@ -51,7 +51,14 @@ import { restoreDrill } from '../exercises';
 import { restoreLesson } from '../lessons';
 import { restoreDeleted } from '../trash';
 import { twinsOf } from '../twins';
-import { cloneInto, planClone, useKey, type CloneRequest, type CloneResult } from './clone';
+import {
+	cloneInto,
+	planClone,
+	useKey,
+	type CloneOptions,
+	type CloneRequest,
+	type CloneResult
+} from './clone';
 import { accessTo, geneOf, memberIn, placeOfRow } from './genes';
 import { logRoot } from './apply';
 import { makeMine, rowOf } from './edit';
@@ -294,6 +301,7 @@ function twinQuestions(
 		);
 		out.push({
 			gene: useKey(kind, { id: r.from, geneId: geneOf(db, kind, r.from) }),
+			kind,
 			label: rowOf(db, kind, r.from)?.title ?? '',
 			from: r.from,
 			choices
@@ -425,7 +433,9 @@ export async function copyTo(
 	use: Record<string, number>,
 	files: CloneFiles,
 	now: number,
-	freeDiskBytes: number
+	freeDiskBytes: number,
+	/** Move to…: what follows a new copy, in its transaction (`cloneInto`'s `after`). */
+	opts: Pick<CloneOptions, 'after'> = {}
 ): Promise<CloneResult> {
 	if (!targetOf(db, actorId, kind, id, into)) return DENIED;
 	const own = planClone(db, requestOf(kind, id, into));
@@ -442,7 +452,7 @@ export async function copyTo(
 		// An archived song copy is a member there, answered above; only a race gets here.
 		return !res.ok && res.reason === 'archived' ? DENIED : (res as CloneResult);
 	}
-	return cloneInto(db, req, files, now, freeDiskBytes);
+	return cloneInto(db, req, files, now, freeDiskBytes, opts);
 }
 
 /**

@@ -159,6 +159,20 @@ edit a class figure into their own). A teacher uses both.
    routines re-pointed) or "Keep mine as well". Default *(my call, the user
    agreed)*: "Keep mine" for anything your other lessons or routines use,
    "Use the group's" for anything only this lesson used.
+   *(Built, Task 30:)* `clones/move.ts`. Offered on your own live lesson for
+   each live group of its dance you own or edit that holds no copy of it
+   yet (there, Copy to… compares). The rows are your own figures, routines
+   and drills the copy brings (copied, or reused from a live member there),
+   each with the first reason that applies: "Used by 2 other lessons" (your
+   live lessons, by hand or a section), "Used by Week 4 loop" (your live
+   routines; a routine this lesson brings counts only while it is kept),
+   "You practise it" (a live entry on Today or with sets; a drill itself),
+   else "Only this lesson", the one default that is "Use the group’s"
+   (ruling 11). The copy, the drops and the lesson's archive are one
+   transaction; practice never follows (the copy is a draft) and stays on
+   your archived rows. Your archived lesson keeps its own links on your
+   copies, so restoring it brings back yours. The lesson's own twins
+   question is not asked: the lesson that moves is this one.
 9. **Copying into a place that already has a member** *(my call)* leaves
    that member as it is and opens the comparison, so you choose what to
    take. An archived member still holds its place: the copy offers to
