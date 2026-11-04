@@ -43,7 +43,7 @@
 		/** New's type: Settings' "New figures" type. */
 		defaultStyle: string;
 		/** A group's position: what the editor saw, for the clash check. */
-		seen?: Record<string, string>;
+		seen?: Record<string, string | number | null>;
 	} = $props();
 
 	const formId = $props.id();

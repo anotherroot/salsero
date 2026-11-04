@@ -234,28 +234,84 @@ export const YOU_HAVE_IT = 'You have it';
 
 /**
  * The page's subtitle: "Position · 4 in · 3 out", or "<Group>’ position · …" in a group.
+ * `lead` replaces the first part (a copy's "Your copy · from Salsa Tuesdays").
  * The type is drawn on its own line; `styleLabel` is accepted for callers but not used.
  */
 export function positionSubtitle(
 	_p: PositionSummary,
-	opts: { teamName?: string; ins: number; outs: number; styleLabel?: StyleLabel }
+	opts: { teamName?: string; lead?: string; ins: number; outs: number; styleLabel?: StyleLabel }
 ): string {
-	const lead = opts.teamName
-		? `${opts.teamName}${opts.teamName.endsWith('s') ? '’' : '’s'} position`
-		: 'Position';
+	const lead =
+		opts.lead ??
+		(opts.teamName
+			? `${opts.teamName}${opts.teamName.endsWith('s') ? '’' : '’s'} position`
+			: 'Position');
 	return `${lead} · ${opts.ins} in · ${opts.outs} out`;
 }
 
-/** "Son → ends in Abierta (dos manos), Salsa": `ends` are the positions as named (with their type if it differs). */
-export function figureFromRow(f: { label: string; style: string; ends: string[] }): string {
-	return f.ends.length === 0 ? f.style : `${f.style} → ends in ${f.ends.join(' or ')}`;
+const possessive = (team: string) => (team.endsWith('s') ? `${team}’` : `${team}’s`);
+
+/**
+ * "Son → ends in Abierta (dos manos), Salsa": `ends` are the positions as named
+ * (with their type if it differs). A group's figure in a person's app is led by
+ * its group ("Salsa Tuesdays’ · ends in …"); an empty `style` leads with nothing.
+ */
+export function figureFromRow(f: {
+	label: string;
+	style: string;
+	ends: string[];
+	team?: string | null;
+}): string {
+	const lead = f.team ? possessive(f.team) : f.style;
+	if (f.ends.length === 0) return lead;
+	const ends = `ends in ${f.ends.join(' or ')}`;
+	if (!lead) return ends;
+	return f.team ? `${lead} · ${ends}` : `${lead} → ${ends}`;
 }
 
-/** "from Cerrada, Salsa"; an empty `style` leaves the type out. */
-export function figureIntoRow(f: { label: string; starts: string[]; style: string }): string {
+/** "from Cerrada, Salsa"; an empty `style` leaves the type out; a group's figure is led by its group. */
+export function figureIntoRow(f: {
+	label: string;
+	starts: string[];
+	style: string;
+	team?: string | null;
+}): string {
 	const from = `from ${f.starts.join(' or ')}`;
-	return f.style ? `${from}, ${f.style}` : from;
+	const row = f.style ? `${from}, ${f.style}` : from;
+	return f.team ? `${possessive(f.team)} · ${row}` : row;
 }
+
+/** The note at the top of a group's position, for a reader: where it came from, and what that means. */
+export function positionFromLessonNote(lesson: string, team: string): string {
+	return `From ${lesson}. Tag your figures with it as it is; it stays ${possessive(team)}.`;
+}
+
+/** Under a reader's Edit. */
+export const MAKE_MINE_NOTE =
+	'Edit makes it yours (Make it mine); your figures tagged with it move over.';
+
+export const fromTitle = (n: number) => `Figures from here · ${n}`;
+export const intoTitle = (n: number) => `Figures into here · ${n}`;
+export const routinesTitle = (n: number) => `In routines · ${n}`;
+export const NONE_YET = 'None yet.';
+/** "+ New" beside Figures from here. */
+export const NEW_FIGURE = 'New';
+
+/** An archived position's page: what it says, and its way back. */
+export const ARCHIVED = {
+	title: 'Archived',
+	body: 'Its figures no longer show it. Restore brings it back.',
+	restore: 'Restore'
+} as const;
+
+/** New move from a position: the line in the sheet that says which tag it gets. */
+export function presetLine(p: { side: 'start' | 'end'; name: string }): string {
+	return `${p.side === 'start' ? 'Starts in' : 'Ends in'} ${p.name}`;
+}
+
+/** New move from a position whose position is gone (or no longer theirs) since the link was opened. */
+export const PRESET_GONE =
+	'That position can no longer tag a figure here. Add the move without it.';
 
 export function deadEnd(
 	name: string,
@@ -286,6 +342,11 @@ export function throughMeta(pairs: [number, number][]): string {
 
 export function moreLine(n: number): string {
 	return `and ${n} more`;
+}
+
+/** A point card's second line: its video, and "the picture" when it is the position's. */
+export function pointMeta(videoLabel: string, picture: boolean): string {
+	return picture ? `${videoLabel} · the picture` : videoLabel;
 }
 
 /** "Point at 1:12" (whole seconds, floored). */

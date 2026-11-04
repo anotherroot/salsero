@@ -29,12 +29,16 @@
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
 	import { TWINS_CHIP } from '$lib/clones/twins';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
+	import { presetLine } from '$lib/positions/view';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	// `?new=1` (from the empty Today page) opens the sheet straight away.
+	// `?new=1` (from the empty Today page, or a position's New figure) opens the sheet straight away.
 	let creating = $state(page.url.searchParams.get('new') === '1');
+	// New figure from a position (`&start=` / `&end=`, ruling 8): the tag the new
+	// figure gets. Refused because the position went since, it is dropped.
+	const preset = $derived(form && 'presetGone' in form ? null : data.preset);
 	// A failed create re-renders with the message; keep the sheet open to show it.
 	$effect(() => {
 		if (form?.message) creating = true;
@@ -290,6 +294,14 @@
 			}}
 		>
 			{#if otherError}<Banner kind="error">{otherError}</Banner>{/if}
+			{#if preset}
+				<input type="hidden" name={preset.side} value={preset.id} />
+				<p
+					class="flex items-center gap-2 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] font-bold text-accent-text"
+				>
+					<span class="flex-none"><Icon name="positions" size={18} /></span>{presetLine(preset)}
+				</p>
+			{/if}
 			<FigureFields
 				dance={data.dance}
 				figureName={form?.figureName}

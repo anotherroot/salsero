@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
@@ -75,9 +75,10 @@
 	// not on every refresh of `data` (an action, an upload, a closed player).
 	const variationId = $derived(data.variation.id);
 	// Stepping to another variation keeps this page: leave edit mode for it.
+	// `?edit=1` (a position's "+ Positions", ruling 8) opens in edit mode for an editor.
 	$effect(() => {
 		void variationId;
-		editing = false;
+		editing = untrack(() => data.canEdit && page.url.searchParams.get('edit') === '1');
 	});
 	let logging = $state(false);
 	let linkingSection = $state(false);

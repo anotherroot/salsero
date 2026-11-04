@@ -332,3 +332,75 @@ describe('the position sheet’s words', () => {
 		expect(v.TEMPLATES_BUTTON).toBe('Templates');
 	});
 });
+
+describe('a position’s page', () => {
+	it('names a group’s figure by its group, and drops the lead in the group’s own workspace', () => {
+		expect(
+			v.figureFromRow({
+				label: 'Setenta · Básico',
+				style: 'Salsa',
+				team: 'Salsa Tuesdays',
+				ends: ['Abierta (dos manos)']
+			})
+		).toBe('Salsa Tuesdays’ · ends in Abierta (dos manos)');
+		expect(v.figureFromRow({ label: 'k', style: 'Salsa', team: 'Club', ends: [] })).toBe('Club’s');
+		expect(v.figureFromRow({ label: 'k', style: '', ends: ['Abierta'] })).toBe('ends in Abierta');
+		expect(v.figureFromRow({ label: 'k', style: '', ends: [] })).toBe('');
+		expect(
+			v.figureIntoRow({ label: 'k', starts: ['Cerrada'], style: '', team: 'Salsa Tuesdays' })
+		).toBe('Salsa Tuesdays’ · from Cerrada');
+	});
+
+	it('leads the subtitle with where a copy came from', () => {
+		const p = {
+			id: 1,
+			name: 'Manos cruzadas',
+			styleTag: 'son',
+			hold: EMPTY_HOLD,
+			teamId: null,
+			archived: false
+		};
+		expect(
+			v.positionSubtitle(p, { lead: 'Your copy · from Salsa Tuesdays', ins: 4, outs: 3 })
+		).toBe('Your copy · from Salsa Tuesdays · 4 in · 3 out');
+	});
+
+	it('says where a group’s position came from, and what Edit does', () => {
+		expect(v.positionFromLessonNote('Week 6', 'Salsa Tuesdays')).toBe(
+			'From Week 6. Tag your figures with it as it is; it stays Salsa Tuesdays’.'
+		);
+		expect(v.MAKE_MINE_NOTE).toBe(
+			'Edit makes it yours (Make it mine); your figures tagged with it move over.'
+		);
+	});
+
+	it('titles the sections with their counts', () => {
+		expect(v.fromTitle(3)).toBe('Figures from here · 3');
+		expect(v.intoTitle(0)).toBe('Figures into here · 0');
+		expect(v.routinesTitle(4)).toBe('In routines · 4');
+		expect(v.NONE_YET).toBe('None yet.');
+	});
+
+	it('names a point card’s video, and says when it is the picture', () => {
+		expect(v.pointMeta('Week 6 · Setenta into Sombrero', true)).toBe(
+			'Week 6 · Setenta into Sombrero · the picture'
+		);
+		expect(v.pointMeta('Recording · Kentucky · Doble', false)).toBe('Recording · Kentucky · Doble');
+	});
+
+	it('words the archived banner', () => {
+		expect(v.ARCHIVED).toEqual({
+			title: 'Archived',
+			body: 'Its figures no longer show it. Restore brings it back.',
+			restore: 'Restore'
+		});
+	});
+
+	it('words New move from a position', () => {
+		expect(v.presetLine({ side: 'start', name: 'Caída' })).toBe('Starts in Caída');
+		expect(v.presetLine({ side: 'end', name: 'Caída' })).toBe('Ends in Caída');
+		expect(v.PRESET_GONE).toBe(
+			'That position can no longer tag a figure here. Add the move without it.'
+		);
+	});
+});
