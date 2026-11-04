@@ -5,7 +5,7 @@ import { createSongFromUrl, listSharedSongs, listSongs, retrySong } from '$lib/s
 import { songUsers } from '$lib/server/song-share';
 import { whatsNew } from '$lib/server/whats-new';
 import { storedTwinSets } from '$lib/server/twins';
-import { foldSections } from '$lib/clones/twins';
+import { foldSongs } from '$lib/clones/twins';
 import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { DANCES } from '$lib/dances/dances';
 import { ownerValues, requireSongAccess, wallOf, type Space } from '$lib/server/scope';
@@ -34,8 +34,9 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	}
 	const fresh = whatsNew(db, wall.userId, wall.dance).songs;
 	// Twins show as one (board C7): each set once, yours if you have one, else the
-	// first group by name. Group mode (above) folds nothing.
-	const folded = foldSections(
+	// first group by name; only ready songs fold, so one being added never hides a
+	// ready twin. Group mode (above) folds nothing.
+	const folded = foldSongs(
 		listSongs(db, wall),
 		listSharedSongs(db, wall.userId, wall.dance).map((g) => ({ team: g.team, rows: g.songs })),
 		storedTwinSets(db, wall.userId, 'song')

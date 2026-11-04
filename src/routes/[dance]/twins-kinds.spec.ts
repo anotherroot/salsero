@@ -153,6 +153,31 @@ describe('Routines', () => {
 		expect((await run(routinesLoad, 'u2')).groups).toHaveLength(1);
 	});
 
+	it('Same as… refuses an id it did not offer, changing nothing', async () => {
+		// Another person's private routine, and the group's draft-only routine: neither is a candidate.
+		const private1 = createRoutine(
+			db,
+			{ userId: 'u1', dance: 'salsa' },
+			{ name: 'Ana’s', notes: null }
+		).routine.id;
+		const draft = createRoutine(db, TUE, { name: 'Unpublished', notes: null }).routine.id;
+		for (const twin of [private1, draft]) {
+			const form = new FormData();
+			form.append('twin', String(twin));
+			const res = await run(routineActions.sameAs, 'u2', {
+				id: r.mine,
+				request: new Request('http://localhost/', { method: 'POST', body: form })
+			});
+			expect(res.status).toBe(400);
+			expect(res.data.action).toBe('sameAs');
+		}
+		const page = await run(routineLoad, 'u2', { id: r.mine });
+		expect(page.sources.map((x: Loose) => [x.id, x.relation])).toEqual([
+			[r.mine, 'self'],
+			[r.theirs, 'twin']
+		]);
+	});
+
 	it('the embed picker offers a set once, saying which is used', async () => {
 		const page = await run(routineLoad, 'u2', { id: r.other });
 		const rows = page.candidates.filter((c: Loose) => c.kind === 'routine');

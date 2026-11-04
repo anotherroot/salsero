@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { FigureRow, MoveRow, TeamRef } from '$lib/types';
-import { foldMoves, foldRows, foldSections, twinPickMeta, twinRows, twinUseMeta } from './twins';
+import {
+	foldMoves,
+	foldRows,
+	foldSections,
+	foldSongs,
+	twinPickMeta,
+	twinRows,
+	twinUseMeta
+} from './twins';
 
 const fig = (id: number, name: string): FigureRow => ({
 	id,
@@ -193,6 +201,34 @@ describe('foldRows and foldSections (routines, lessons, songs)', () => {
 			[1, [11]],
 			[21, [12]]
 		]);
+	});
+
+	it('foldSongs: your twin still downloading never hides the class’s ready one', () => {
+		const song = (id: number, status: string) => ({ id, status });
+		const out = foldSongs(
+			[song(1, 'waiting_download'), song(2, 'ready')],
+			[{ team: TUE, rows: [song(11, 'ready'), song(12, 'ready')] }],
+			[
+				[1, 11],
+				[2, 12]
+			]
+		);
+		// 1 sits under "Being added" as itself; 11 stays in its group, unfolded.
+		expect(out.mine.map((r) => r.id)).toEqual([1, 2]);
+		expect(out.groups.map((g) => g.rows.map((r) => r.id))).toEqual([[11]]);
+		expect([...out.twinOf]).toEqual([[2, [12]]]);
+	});
+
+	it('foldSongs folds a set once your twin is ready', () => {
+		const song = (id: number, status: string) => ({ id, status });
+		const out = foldSongs(
+			[song(1, 'ready')],
+			[{ team: TUE, rows: [song(11, 'ready')] }],
+			[[1, 11]]
+		);
+		expect(out.mine.map((r) => r.id)).toEqual([1]);
+		expect(out.groups).toEqual([]);
+		expect([...out.twinOf]).toEqual([[1, [11]]]);
 	});
 });
 

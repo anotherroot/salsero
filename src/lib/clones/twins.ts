@@ -180,6 +180,26 @@ export function foldSections<R extends { id: number }>(
 }
 
 /**
+ * Music's `foldSections`: only ready songs fold. A song still downloading
+ * (or failed) sits under "Being added" and cannot stand for its twins, so it
+ * never hides a ready twin; it shows as its own row until it is ready.
+ */
+export function foldSongs<R extends { id: number; status: string }>(
+	mine: R[],
+	groups: { team: TeamRef; rows: R[] }[],
+	sets: number[][]
+): { mine: R[]; groups: { team: TeamRef; rows: R[] }[]; twinOf: Map<number, number[]> } {
+	const ready = new Set(
+		[...mine, ...groups.flatMap((g) => g.rows)].filter((r) => r.status === 'ready').map((r) => r.id)
+	);
+	return foldSections(
+		mine,
+		groups,
+		sets.map((set) => set.filter((id) => ready.has(id)))
+	);
+}
+
+/**
  * A twinned picker row's meta: "Yours, twin of Salsa Tuesdays’ Básica · yours
  * is used"; without the person's own member, "Salsa Tuesdays’, twin of Rueda
  * club’s Doble · Salsa Tuesdays’ is used". `theirs` names the twins behind the

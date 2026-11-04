@@ -324,8 +324,10 @@ export interface FigureVersion {
 	twins?: TwinNote[];
 }
 
-/** A twin folded behind a picker row: named by its place and its own name. */
-/** `figure` is null for kinds with no move above them (routines, lessons, songs). */
+/**
+ * A twin folded behind a picker row: named by its place and its own name.
+ * `figure` is null for kinds with no move above them (routines, lessons, songs).
+ */
 export type TwinNote = { id: number; figure: string | null; name: string; team: TeamRef | null };
 
 /** A figure (a `figures` row) as the Figures list shows it, under its move. */

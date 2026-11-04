@@ -59,15 +59,10 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	const db = getDb();
 	const { song, access } = requireSongAccess(db, locals, params, params.id, 'read');
 	const canEdit = access === 'edit';
+	const wall = wallOf(params, locals);
 	const team = song.teamId !== null ? getTeam(db, song.teamId) : null;
 	// Group mode has no twins: no twin tab, no Same as….
-	const inGroupMode = inGroupModeOn(
-		db,
-		wallOf(params, locals).userId,
-		wallOf(params, locals).dance,
-		song.teamId,
-		cookies
-	);
+	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, song.teamId, cookies);
 	const anchors = parse(song.anchorsJson);
 	const grid =
 		song.status === 'ready'
@@ -96,16 +91,16 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		/** Taps, the count speed, the sample and the details: the owner's or an editor's. */
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
-		...pageSources(db, wallOf(params, locals).userId, 'song', song.id, url, !inGroupMode),
+		...pageSources(db, wall.userId, 'song', song.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
-		family: familyView(db, wallOf(params, locals).userId, 'song', song.id),
+		family: familyView(db, wall.userId, 'song', song.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
-		drop: dropOptions(db, wallOf(params, locals), 'song', song.id),
-		detach: detachOffer(db, wallOf(params, locals).userId, 'song', song.id),
+		drop: dropOptions(db, wall, 'song', song.id),
+		detach: detachOffer(db, wall.userId, 'song', song.id),
 		/** Same as… (board C7): the other songs in your Music; none in a group's workspace. */
-		sameAs: sameAsOffer(db, wallOf(params, locals), 'song', song.id, song.title, inGroupMode),
+		sameAs: sameAsOffer(db, wall, 'song', song.id, song.title, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
-		copyTo: copyOffer(db, wallOf(params, locals).userId, 'song', song.id),
+		copyTo: copyOffer(db, wall.userId, 'song', song.id),
 		/** A group's song: whose it is. */
 		group: team ? { id: team.id, name: team.name } : null,
 		/** How many people's practice uses it: Stop sharing's and Delete's warning. */
@@ -114,9 +109,7 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		seen: team ? songSeen(song) : null,
 		/** A reader's Edit: Make it mine, of a group's song that is ready (ruling 12). */
 		makeMine:
-			canEdit || song.status !== 'ready'
-				? null
-				: makeMineOffer(db, wallOf(params, locals), 'song', song.id, team),
+			canEdit || song.status !== 'ready' ? null : makeMineOffer(db, wall, 'song', song.id, team),
 		/** History is its editors'. */
 		historyHref:
 			team && canEdit ? `/${params.dance}/groups/${team.id}/history/song/${song.id}` : null,
@@ -342,7 +335,6 @@ export const actions: Actions = {
 		return detachFrom(getDb(), wallOf(params, locals).userId, 'song', song.id);
 	},
 
-	/** Copy to… (board C4): this song into your app or a group you own or edit. */
 	/** Same as… (board C7): the row's twins become exactly the ticked ones. */
 	sameAs: ({ params, locals, request }) => {
 		const { song } = requireSongAccess(getDb(), locals, params, params.id, 'read');
@@ -355,6 +347,7 @@ export const actions: Actions = {
 		return separateFrom(getDb(), wallOf(params, locals), 'song', song.id);
 	},
 
+	/** Copy to… (board C4): this song into your app or a group you own or edit. */
 	copyTo: ({ params, locals, request }) => {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
