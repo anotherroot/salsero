@@ -14,6 +14,7 @@
 	import LessonRow from '$lib/components/lessons/LessonRow.svelte';
 	import SongRow from '$lib/components/songs/SongRow.svelte';
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
+	import LeaveSheet from '$lib/components/teams/LeaveSheet.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import type { IconName } from '$lib/icons/icons';
 	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
@@ -323,23 +324,7 @@
 	{/snippet}
 </Sheet>
 
-<Dialog
-	open={leaving}
-	title="Leave {data.team.name}?"
-	body="Its lessons leave your lists. You can join again with the code."
-	icon="logout"
-	tone="danger"
-	onclose={() => (leaving = false)}
->
-	{#snippet actions()}
-		<button type="button" class={button('tertiary', 'sm')} onclick={() => (leaving = false)}
-			>Cancel</button
-		>
-		<form method="POST" action="?/leave" use:enhance>
-			<button type="submit" class={button('danger', 'sm')}>Leave group</button>
-		</form>
-	{/snippet}
-</Dialog>
+<LeaveSheet open={leaving} onclose={() => (leaving = false)} team={data.team} />
 
 <Dialog
 	open={deleting}

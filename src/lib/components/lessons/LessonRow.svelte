@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { copyMeta, COPY_CHIP } from '$lib/teams/leave-view';
 	import { dateTile, lessonCounts, videoMeta } from '$lib/lessons/list';
 	import type { LessonItem } from '$lib/types';
 
@@ -55,12 +56,14 @@
 				>
 				{#if draft}<Badge tone="warn">Draft</Badge>{/if}
 				{#if isNew}<Badge tone="accent">New</Badge>{/if}
+				{#if lesson.copyOf}<Badge>{COPY_CHIP}</Badge>{/if}
 			</span>
 			{#if group}
 				<span class="flex items-center gap-1 text-[13px] font-bold text-accent-text"
 					><Icon name="people" size={16} />{group}</span
 				>
 			{/if}
+			{#if lesson.copyOf}<span class="text-[13px] text-muted">{copyMeta(lesson.copyOf)}</span>{/if}
 			{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
 			<!-- Always all three, in the same place: a zero is muted rather than vanishing, so a lesson still missing something shows it. -->
 			<span class="mt-[5px] flex flex-wrap gap-x-3 text-[13px]">

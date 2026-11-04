@@ -553,7 +553,8 @@ export function keepPreview(db: Db, userId: string, teamId: number): KeepPreview
 			bytes: member ? missingBytes(db, item.kind, item.id, member.id) : d.bytes,
 			used: use?.byName ?? null,
 			usedBy: use?.by ?? null,
-			inLesson
+			inLesson,
+			choosable: item.kind !== 'lesson' || scope.lessons.has(item.id)
 		};
 		names.set(keyOf(item.kind, item.id), d.name);
 		lists[LIST[item.kind]].push(row);

@@ -30,6 +30,7 @@ import {
 	lessons,
 	routines,
 	spotLinks,
+	teams,
 	videoSpots,
 	type Exercise,
 	type Lesson
@@ -500,6 +501,26 @@ function lessonRows(
 		figureGroupsOf.set(id, (figureGroupsOf.get(id) ?? new Set()).add(group));
 	}
 
+	const copyOf = new Map(
+		isTeam(space)
+			? []
+			: db
+					.select({ id: lessons.id, name: teams.name })
+					.from(lessons)
+					.innerJoin(teams, eq(teams.id, lessons.teamId))
+					.where(
+						inArray(
+							lessons.id,
+							db
+								.select({ from: lessons.clonedFrom })
+								.from(lessons)
+								.where(and(ownedBy(lessons, space), isNotNull(lessons.clonedFrom)))
+						)
+					)
+					.all()
+					.map((r) => [r.id, r.name] as const)
+	);
+
 	return db
 		.select({
 			id: lessons.id,
@@ -509,7 +530,8 @@ function lessonRows(
 			// `sum` is null when a lesson has no videos; the cast keeps the shape honest.
 			videoBytes: sum(lessonVideos.sizeBytes),
 			createdAt: lessons.createdAt,
-			publishedAt: lessons.publishedAt
+			publishedAt: lessons.publishedAt,
+			clonedFrom: lessons.clonedFrom
 		})
 		.from(lessons)
 		.leftJoin(lessonVideos, eq(lessonVideos.lessonId, lessons.id))
@@ -517,8 +539,10 @@ function lessonRows(
 		.groupBy(lessons.id)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all()
-		.map((r) => ({
+		.map(({ clonedFrom, ...r }) => ({
 			...r,
+			// A person's copy of a group's lesson says whose it was (the group's name stays).
+			copyOf: !isTeam(space) ? (copyOf.get(clonedFrom ?? 0) ?? null) : null,
 			videoBytes: Number(r.videoBytes ?? 0),
 			sections: sections.get(r.id) ?? 0,
 			routines: routineCounts.get(r.id) ?? 0,

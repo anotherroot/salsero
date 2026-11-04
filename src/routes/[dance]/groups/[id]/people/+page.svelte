@@ -10,6 +10,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { peopleLine, roleLabel } from '$lib/teams/view';
+	import { REMOVE_BODY } from '$lib/teams/leave-view';
 	import type { Person } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -114,7 +115,7 @@
 		: `Remove ${asking?.person.name ?? ''}?`}
 	body={asking?.kind === 'handOver'
 		? 'They become the owner and you become an editor. Only they can take it back.'
-		: 'They leave the group and lose its lessons.'}
+		: REMOVE_BODY}
 	icon={asking?.kind === 'handOver' ? 'key' : 'trash'}
 	tone="danger"
 	onclose={() => (asking = null)}

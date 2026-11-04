@@ -12,6 +12,7 @@ import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { requireTeam } from '$lib/server/scope';
 import { deleteTeam, peopleOf, remakeCode, renameTeam, restoreTeam } from '$lib/server/teams';
 import { leaveTeam } from '$lib/server/membership';
+import { readKeepChoice } from '$lib/server/keep-form';
 import { realCloneFiles } from '$lib/server/clones/files';
 import { codeLink, NAME_REFUSAL } from '$lib/teams/view';
 import type { Actions, PageServerLoad } from './$types';
@@ -110,21 +111,16 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	leave: async ({ params, locals }) => {
+	leave: async ({ params, locals, request }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'member');
 		if (team.deletedAt !== null) throw error(404, 'No such group');
-		// Keep everything, until the leave sheet offers the choice.
+		// What to keep comes from the leave sheet; no choice is no leaving.
+		const choice = readKeepChoice(await request.formData());
+		if (!choice) return fail(400, { action: 'leave', message: 'Choose what to keep.' });
 		let left: 'left' | 'owner';
 		try {
-			left = await leaveTeam(
-				db,
-				team.id,
-				space.actorId,
-				{ mode: 'all' },
-				realCloneFiles(),
-				Date.now()
-			);
+			left = await leaveTeam(db, team.id, space.actorId, choice, realCloneFiles(), Date.now());
 		} catch (err) {
 			console.error(`[groups] leaving group ${team.id} failed for ${space.actorId}`, err);
 			return fail(500, { action: 'leave', message: 'Could not keep your copies. Try again.' });

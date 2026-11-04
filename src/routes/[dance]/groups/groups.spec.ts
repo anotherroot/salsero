@@ -111,10 +111,10 @@ describe('the group page', () => {
 		expect((await run(() => pageActions.delete!(ev('member')))).status).toBe(404);
 	});
 	it('leaving sends a member to the list; the owner cannot leave', async () => {
-		const r = await run(() => pageActions.leave!(ev('member')));
+		const r = await run(() => pageActions.leave!(ev('member', { request: post({ mode: 'all' }) })));
 		expect(r.location).toBe('/salsa/groups');
 		expect(roleOf(db, 'member', teamId)).toBeNull();
-		const o = await run(() => pageActions.leave!(ev('owner')));
+		const o = await run(() => pageActions.leave!(ev('owner', { request: post({ mode: 'all' }) })));
 		expect((o.value as { status: number }).status).toBe(400);
 	});
 	it('delete then restore by the owner; a deleted group takes no other action', async () => {

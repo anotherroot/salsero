@@ -153,6 +153,8 @@ export interface LessonItem {
 	createdAt: number;
 	/** The group whose lesson this is; null for a person's own. */
 	team: { id: number; name: string } | null;
+	/** The group a person's own lesson was kept or copied from; null otherwise. */
+	copyOf: string | null;
 }
 
 /** A group's lesson as the group page lists it: a draft until an editor publishes it. */
@@ -749,6 +751,8 @@ export type KeepItem = {
 	usedBy: 'routine' | 'lesson' | 'figure' | null;
 	/** The kept lesson that brings it. */
 	inLesson: number | null;
+	/** Whether the person may tick it: a lesson only if they added it (a practised one is not choosable). */
+	choosable: boolean;
 };
 export type KeepPreview = {
 	lessons: KeepItem[];

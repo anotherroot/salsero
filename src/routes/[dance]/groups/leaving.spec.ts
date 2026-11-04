@@ -1,6 +1,6 @@
 /**
  * Leaving, being removed, a deleted group, through the routes: a former
- * member keeps copies of what they had (Keep everything, until the leave
+ * member keeps copies of what they had (Keep everything (mode=all), as the leave
  * sheet offers the choice), theirs to edit, and reads nothing of the group:
  * its lesson, figure and routine pages, its media files, the player, Moves'
  * and Routines' group sections, the Lessons tab, Today's lesson days and
@@ -321,7 +321,9 @@ async function copiesOf(uid: string) {
 
 describe('after leaving', () => {
 	beforeEach(async () => {
-		const left = await run(() => groupActions.leave!(ev('u2', { id: '1' })));
+		const left = await run(() =>
+			groupActions.leave!(ev('u2', { id: '1' }, { request: post({ mode: 'all' }) }))
+		);
 		expect(left.status).toBe(303);
 	});
 
@@ -407,7 +409,9 @@ describe('when Keep fails', () => {
 
 	it('leaving says so, and the leaver is still in the group', async () => {
 		failWrites();
-		const left = await run(() => groupActions.leave!(ev('u2', { id: '1' })));
+		const left = await run(() =>
+			groupActions.leave!(ev('u2', { id: '1' }, { request: post({ mode: 'all' }) }))
+		);
 		vi.restoreAllMocks();
 		expect(left.value).toMatchObject({
 			status: 500,
