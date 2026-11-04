@@ -2,7 +2,7 @@
  * The words of the clone and twin screens. PURE and client-safe: every
  * sentence a screen prints comes from here, so a spec can pin it.
  */
-import type { CloneKind, FieldDiff, PlaceRef, Source, SwitchReport } from '$lib/types';
+import type { CloneKind, FieldDiff, PlaceRef, Source, SwitchReport, TwinKind } from '$lib/types';
 import { byteSize, dayMonth, plural } from '$lib/format';
 import { localDay } from '$lib/day/day';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
@@ -839,3 +839,24 @@ export const MOVE_FAILED = 'That could not be moved. Try again.';
 
 /** The lesson changed since the Move sheet opened: what it offered is gone. */
 export const MOVE_GONE = 'What the lesson brings has changed. Reload and choose again.';
+
+/* ── Same as… (board C7 p1, p2) ─────────────────────────────────────────── */
+
+export const SAME_AS = 'Same as…';
+
+/** The sheet's title: "Enchufla · Doble is the same as…" */
+export function sameAsTitle(label: string): string {
+	return `${label} is the same as…`;
+}
+
+/** The note under the list: what twins are and are not. */
+export function twinsNote(kind: TwinKind): string {
+	return `Twins show as one ${KIND_WORD[kind]}. They never sync, and only you see the grouping.`;
+}
+
+export const TWINS_NOTE = twinsNote('figure');
+export const MARK_SAME = 'Mark as the same';
+export const SEPARATE = 'Not the same? Separate';
+export const SAME_AS_SEARCH = 'Search your figures';
+export const SAME_AS_EMPTY = 'No other figures match.';
+export const SAME_AS_FAILED = 'That could not be saved. Try again.';

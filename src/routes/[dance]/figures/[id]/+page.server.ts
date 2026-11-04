@@ -9,6 +9,7 @@ import {
 	createVariationFrom,
 	deleteRecording,
 	figureLabels,
+	labelFor,
 	figureNameTaken,
 	getFigure,
 	getGroup,
@@ -71,7 +72,8 @@ import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
-import { ALREADY_IN_YOURS, RECORDING_GONE } from '$lib/clones/view';
+import { separate, setTwins, twinCandidates } from '$lib/server/twins';
+import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
@@ -268,6 +270,11 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const versions = sourcesView(db, wall.userId, 'figure', id, url.searchParams.get('vs'));
 	const held = versions.vs === null ? null : genesHeld(db, versions.vs);
 
+	const candidates = inGroupMode ? [] : twinCandidates(db, wall, 'figure', id);
+	const sameAs =
+		candidates.length === 0
+			? null
+			: { kind: 'figure' as const, title: labelFor(group.name, figure.name), candidates };
 	const zone = zoneOf(locals);
 	const popup = found.exercise ? popupData(db, wall, found.exercise.id, zone, now) : null;
 
@@ -311,6 +318,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		detach: detachOffer(db, wall.userId, 'figure', id),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'figure', id),
+		/** Same as… (board C7): the other figures in your app; none in a group's workspace, which has no twins. */
+		sameAs,
 		/**
 		 * Opened from the person's copy: Take brings a recording into it (`into`),
 		 * and `held` marks the recordings already there.
@@ -638,6 +647,22 @@ export const actions: Actions = {
 	detach: ({ params, locals }) => {
 		const { figure } = variationOf(params, locals, 'read');
 		return detachFrom(getDb(), wallOf(params, locals).userId, 'figure', figure.id);
+	},
+
+	/** Same as… (board C7): the row's twins become exactly the ticked ones. */
+	sameAs: async ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		const form = await request.formData();
+		if (!setTwins(getDb(), wallOf(params, locals), 'figure', figure.id, ints(form, 'twin')))
+			return fail(400, { action: 'sameAs', message: SAME_AS_FAILED });
+		return { action: 'sameAs' };
+	},
+
+	/** Not the same? Separate (board C7 p2): the row leaves its twins. */
+	separate: ({ params, locals }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		separate(getDb(), wallOf(params, locals), 'figure', figure.id);
+		return { action: 'separate' };
 	},
 
 	/** Copy to… (board C4): this row into your app or a group you own or edit. */

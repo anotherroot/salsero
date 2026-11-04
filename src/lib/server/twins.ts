@@ -11,11 +11,13 @@
  * merge, and a set left with one row is gone.
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import type { TwinKind } from '$lib/types';
+import type { PlaceRef, TwinCandidate, TwinKind } from '$lib/types';
 import type { Db } from './db';
 import { figures, lessons, routines, songs, twins } from './db/schema';
 import type { Wall } from './scope';
-import { accessTo, newGene } from './clones/genes';
+import { accessTo, newGene, visibleMembers } from './clones/genes';
+import { listVersions } from './figures';
+import { usableVersions } from './usable';
 
 const TABLES = { figure: figures, routine: routines, lesson: lessons, song: songs } as const;
 
@@ -132,4 +134,55 @@ export function twinSets(db: Db, wall: Wall, kind: TwinKind): number[][] {
 		bySet.set(r.setId, [...(bySet.get(r.setId) ?? []), r.itemId]);
 	}
 	return [...bySet.values()].filter((s) => s.length >= 2).sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * Same as…: every live row of the kind that the person sees in their app (their
+ * own, and the usable rows of the groups they added, minus the ones their own
+ * copy shadows) except the row itself and its family, which are shown together
+ * already. `ticked` marks its current twins. Figures only for now.
+ */
+export function twinCandidates(db: Db, wall: Wall, kind: TwinKind, id: number): TwinCandidate[] {
+	if (kind !== 'figure') return [];
+	const family = new Set(visibleMembers(db, wall.userId, 'figure', id).map((m) => m.id));
+	family.add(id);
+	const ticked = new Set(twinsOf(db, wall.userId, 'figure', id));
+	const mine: PlaceRef = { kind: 'mine' };
+	const rows = [
+		...listVersions(db, wall).map((v) => ({ id: v.id, label: v.label, place: mine })),
+		...usableVersions(db, wall).map((v) => ({
+			id: v.id,
+			label: v.label,
+			place: { kind: 'team', teamId: v.team.id, name: v.team.name } as PlaceRef
+		}))
+	];
+	return rows
+		.filter((r) => !family.has(r.id))
+		.map((r) => ({ ...r, ticked: ticked.has(r.id) }))
+		.sort((a, b) => a.label.localeCompare(b.label) || a.id - b.id);
+}
+
+/**
+ * Save the Same as… sheet: the row's twins become exactly `ticked`. Each must
+ * be a candidate, or nothing changes (false). Unticked former twins separate
+ * from the row; ticked ones are marked with it. Group mode has no twins: the
+ * caller never asks.
+ */
+export function setTwins(
+	db: Db,
+	wall: Wall,
+	kind: TwinKind,
+	id: number,
+	ticked: number[]
+): boolean {
+	const offered = new Map(twinCandidates(db, wall, kind, id).map((c) => [c.id, c.ticked]));
+	const want = [...new Set(ticked)];
+	if (!want.every((t) => offered.has(t))) return false;
+	return db.transaction((tx) => {
+		for (const [other, was] of offered) {
+			if (was && !want.includes(other)) separate(tx as unknown as Db, wall, kind, other);
+		}
+		if (want.length > 0) return markTwins(tx as unknown as Db, wall, kind, [id, ...want]);
+		return true;
+	});
 }

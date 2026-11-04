@@ -421,6 +421,7 @@
 				drop={data.drop}
 				detach={data.detach}
 				copy={data.copyTo}
+				sameAs={data.sameAs}
 				taking={data.taking ? sourcePlace : null}
 			/>
 			{#if readerTeam && data.fromLesson && !data.taking}

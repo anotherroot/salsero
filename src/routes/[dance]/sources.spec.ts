@@ -564,3 +564,35 @@ describe('Move to…', () => {
 		expect(db.select().from(lessons).where(eq(lessons.id, mine)).get()!.archivedAt).toBeNull();
 	});
 });
+
+describe('Same as… and Separate on the figure page', () => {
+	it('offers the other figures, saves the ticked set, and Separate undoes it', async () => {
+		const a = createFigure(db, U2_SALSA, { figureName: 'Enchufla', name: 'Doble', ...shape })!
+			.figure.id;
+		const b = createFigure(db, U2_SALSA, { figureName: 'Setenta', name: 'Basic', ...shape })!.figure
+			.id;
+		const before = await run(figurePage.load, ev('u2', a));
+		expect(before.sameAs.title).toBe('Enchufla · Doble');
+		expect(before.sameAs.candidates).toEqual([
+			{ id: b, label: 'Setenta · Basic', place: { kind: 'mine' }, ticked: false }
+		]);
+		expect(before.sources).toEqual([]);
+
+		expect(await run(figurePage.actions.sameAs, ev('u2', a, { form: { twin: b } }))).toEqual({
+			action: 'sameAs'
+		});
+		const twinned = await run(figurePage.load, ev('u2', a));
+		expect(twinned.sources.map((s: Answer) => [s.id, s.relation])).toEqual([
+			[a, 'self'],
+			[b, 'twin']
+		]);
+		expect(twinned.sameAs.candidates[0].ticked).toBe(true);
+		// A stranger's figure is no candidate: refused.
+		expect(
+			await run(figurePage.actions.sameAs, ev('u2', a, { form: { twin: 99999 } }))
+		).toMatchObject({ status: 400 });
+
+		await run(figurePage.actions.separate, ev('u2', a));
+		expect((await run(figurePage.load, ev('u2', a))).sources).toEqual([]);
+	});
+});

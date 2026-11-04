@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { enhance } from '$app/forms';
+	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
@@ -10,6 +12,7 @@
 	import DetachSheet from './DetachSheet.svelte';
 	import CopyToSheet from './CopyToSheet.svelte';
 	import MoveToSheet from './MoveToSheet.svelte';
+	import SameAsSheet from './SameAsSheet.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { dropped } from './dropped.svelte';
 	import { button } from '$lib/components/ui/styles';
@@ -17,6 +20,8 @@
 		COMPARE,
 		COPY_TO,
 		MOVE_TO,
+		SAME_AS,
+		SEPARATE,
 		DETACH_BUTTON,
 		OPEN,
 		DROP_BUTTON,
@@ -35,6 +40,7 @@
 		DropOptions,
 		FamilyView,
 		MoveOffer,
+		TwinOffer,
 		Source
 	} from '$lib/types';
 
@@ -64,7 +70,8 @@
 		drop = null,
 		detach = null,
 		copy = null,
-		move = null
+		move = null,
+		sameAs = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -87,6 +94,8 @@
 		copy?: CopyOffer | null;
 		/** Move to… (board C4 p3): the person's own lesson into a group they own or edit. */
 		move?: MoveOffer | null;
+		/** Same as… (board C7 p1): the other figures in your app, to tick as twins; null in a group's workspace or with none. */
+		sameAs?: TwinOffer | null;
 	} = $props();
 
 	let comparing = $state(false);
@@ -97,6 +106,7 @@
 	let detaching = $state(false);
 	let copying = $state(false);
 	let moving = $state(false);
+	let marking = $state(false);
 
 	/**
 	 * "Back on Salsa Tuesdays’. Your copy is archived.": left by a drop for the
@@ -144,6 +154,18 @@
 
 {#if sources.length > 1}
 	<Segmented name="sources" label={VERSIONS} {items} bind:value onchange={open} />
+{/if}
+{#if sources.some((s) => s.relation === 'twin')}
+	<form
+		method="POST"
+		action="?/separate"
+		class="text-center"
+		use:enhance={() => async () => {
+			await refreshWhenSettled();
+		}}
+	>
+		<button type="submit" class={button('tertiary', 'sm')}>{SEPARATE}</button>
+	</form>
 {/if}
 {#if taking}
 	<p
@@ -205,7 +227,7 @@
 	{/if}
 	<FamilyList {family} {kind} {dance} {current} />
 {/if}
-{#if drop || detach || copy || move}
+{#if drop || detach || copy || move || sameAs}
 	<div class="flex flex-wrap justify-end gap-x-2">
 		{#if copy}
 			<button
@@ -213,6 +235,14 @@
 				class={button('tertiary', 'sm')}
 				aria-haspopup="dialog"
 				onclick={() => (copying = true)}><Icon name="copy" size={20} />{COPY_TO}</button
+			>
+		{/if}
+		{#if sameAs}
+			<button
+				type="button"
+				class={button('tertiary', 'sm')}
+				aria-haspopup="dialog"
+				onclick={() => (marking = true)}><Icon name="link" size={20} />{SAME_AS}</button
 			>
 		{/if}
 		{#if move}
@@ -255,6 +285,9 @@
 		{current}
 		ondone={(message, href) => (toast = { id: ++toastSeq, message, href })}
 	/>
+{/if}
+{#if sameAs}
+	<SameAsSheet open={marking} onclose={() => (marking = false)} offer={sameAs} />
 {/if}
 {#if move}
 	<MoveToSheet open={moving} onclose={() => (moving = false)} offer={move} {current} />

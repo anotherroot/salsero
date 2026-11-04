@@ -977,3 +977,7 @@ export type DropOptions = {
 	onlyInMine: string[];
 	sendable: number[];
 };
+
+/** Same as… on an item page: the sheet's title and what it offers (`twinCandidates`). */
+export type TwinCandidate = { id: number; label: string; place: PlaceRef; ticked: boolean };
+export type TwinOffer = { kind: TwinKind; title: string; candidates: TwinCandidate[] };

@@ -744,3 +744,17 @@ describe('Move to… (board C4 p3)', () => {
 		expect(why(0, [], false)).toBe('Only this lesson');
 	});
 });
+
+describe('Same as… (board C7)', () => {
+	it('words the sheet and the page', async () => {
+		const v = await import('./view');
+		expect(v.sameAsTitle('Enchufla · Doble')).toBe('Enchufla · Doble is the same as…');
+		expect(v.twinsNote('figure')).toBe(
+			'Twins show as one figure. They never sync, and only you see the grouping.'
+		);
+		expect(v.TWINS_NOTE).toBe(v.twinsNote('figure'));
+		expect(v.MARK_SAME).toBe('Mark as the same');
+		expect(v.SEPARATE).toBe('Not the same? Separate');
+		expect(v.SAME_AS).toBe('Same as…');
+	});
+});

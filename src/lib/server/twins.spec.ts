@@ -165,3 +165,60 @@ describe('separate', () => {
 		expect(twinSets(db, U2_SALSA, 'figure')).toEqual([[a, c]]);
 	});
 });
+
+describe('Same as… candidates', () => {
+	it('lists the group’s figures and your own, not the family of the page’s row', async () => {
+		const { twinCandidates, setTwins } = await import('./twins');
+		const { cloneInto } = await import('./clones/clone');
+		const { NO_FILES } = await import('./test-walls');
+		const basic = groupFigure('Basica');
+		const doble = groupFigure('Enchufla');
+		const { addLesson } = await import('./entries');
+		// u2 added the class lesson: its figures are in their app
+		addLesson(db, 'u2', lessonId, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, T);
+		const mine = figure(U2_SALSA, 'Enchufla', 'Doble');
+		const r = await cloneInto(
+			db,
+			{ kind: 'figure', id: basic, into: U2_SALSA, recordings: false },
+			NO_FILES,
+			T
+		);
+		if (!r.ok) throw new Error('setup');
+		const copy = { id: r.id };
+		const list = twinCandidates(db, U2_SALSA, 'figure', mine);
+		const ids = list.map((c) => c.id);
+		expect(ids).toContain(copy.id);
+		expect(ids).not.toContain(basic);
+		expect(ids).toContain(doble);
+		expect(list.find((c) => c.id === doble)!.place).toEqual({
+			kind: 'team',
+			teamId: 1,
+			name: 'Class'
+		});
+		expect(ids).not.toContain(mine);
+		// the copy's own family: the group's Basica is shown with the copy, never offered next to it
+		expect(twinCandidates(db, U2_SALSA, 'figure', copy.id).map((c) => c.id)).not.toContain(basic);
+		expect(twinCandidates(db, U2_SALSA, 'figure', copy.id).map((c) => c.id)).not.toContain(copy.id);
+		expect(setTwins(db, U2_SALSA, 'figure', mine, [doble, copy.id])).toBe(true);
+		expect(twinCandidates(db, U2_SALSA, 'figure', mine).filter((c) => c.ticked)).toHaveLength(2);
+		expect(setTwins(db, U2_SALSA, 'figure', mine, [doble])).toBe(true);
+		expect(twinsOf(db, 'u2', 'figure', mine)).toEqual([doble]);
+		expect(setTwins(db, U2_SALSA, 'figure', mine, [])).toBe(true);
+		expect(twinSets(db, U2_SALSA, 'figure')).toEqual([]);
+		// not a candidate: refused, nothing changes
+		expect(setTwins(db, U2_SALSA, 'figure', mine, [mine, 99999])).toBe(false);
+	});
+
+	it('separating one of three leaves a set of two; a stranger sees no twins', () => {
+		const a = figure(U2_SALSA, 'A');
+		const b = figure(U2_SALSA, 'B');
+		const c = figure(U2_SALSA, 'C');
+		markTwins(db, U2_SALSA, 'figure', [a, b, c]);
+		expect(separate(db, U2_SALSA, 'figure', c)).toBe(true);
+		expect(twinSets(db, U2_SALSA, 'figure')).toEqual([[a, b]]);
+		const g = groupFigure('Enchufla');
+		markTwins(db, U2_SALSA, 'figure', [a, g]);
+		expect(twinsOf(db, 'u1', 'figure', g)).toEqual([]);
+		expect(twinsOf(db, 'u3', 'figure', g)).toEqual([]);
+	});
+});
