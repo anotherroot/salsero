@@ -68,9 +68,10 @@ has a foreign key into it):
 - `picture_spot_id`: a video spot that is a point (`end_ms` null) used as its
   picture. Null: the first linked point, else no picture.
 
-`neutral` and `slug` become vestigial (read by nothing, not dropped, like
-`figures.style`). Drop the unique `positions_dance_slug_idx` (a DROP INDEX, not
-a rebuild) and give new rows a unique slug of the builder's choosing. Names are
+`neutral`, `slug` and `sort_order` become vestigial (read by nothing, not
+dropped, like `figures.style`). Drop the unique `positions_dance_slug_idx` (a
+DROP INDEX, not a rebuild) and give new rows a unique slug of the builder's
+choosing (*built:* `'p-' + uuid`). Names are
 unique per owner among live positions, compared folded (`fold.ts`), as figure
 names are.
 
@@ -82,8 +83,9 @@ but they stop showing; a figure left with none has no position.
 
 - `figure_start_positions` stays.
 - New `figure_end_positions` (figure_id, position_id, primary key on both,
-  indexed by position), filled from `figures.end_position_id` by the migration;
-  `end_position_id` becomes vestigial.
+  indexed by position), filled from `figures.end_position_id` by the boot
+  move (below; the migration `0028` only creates it); `end_position_id`
+  becomes vestigial.
 - A figure's tags only point at positions of its own owner, or at a group's
   position the person may use (`usableOf`), as slots may use a group's figure.
   `crossRefs` checks it.
@@ -105,6 +107,12 @@ share one end position; now they must share the same **set** of ends (compared
 by family, below). A routine "starts in" the first slot's starts and "ends in"
 the last slot's ends; it loops when the last slot's ends fit the first slot.
 
+A slot whose alternatives disagree on ends (refused on write, so only from
+older rows, or after Separate below) has ends **unknown**: no break is shown
+after it, the seam goes quiet, and a routine ending in it does not loop. The
+routine picker reads the union of the ends of a routine whose last slot is
+such a slot, so it may offer one that breaks on one of those options.
+
 ### Comparing positions across owners
 
 A person's routine can mix their own figures with a group's (`usableOf`), each
@@ -120,6 +128,15 @@ canonical id (the person's own member, else the lowest id); a group's space
 has no twins. The map draws the node with a "Twins" line under its name (and
 under its dead end or orphan word), which the layout keeps clear, and names who
 it stands for in its tooltip: "Twins: your Cerrada, Salsa Tuesdays’ Closed".
+*Built:* `buildGraph` reads the `twins` table itself, and every reader of a
+person's graph reads twin positions as one: the routine picker's fit, breaks
+and seams, loops, coverage, the player's plan, the figure page's Leads to /
+Follows from, the gap report and the list's counts, and the map.
+
+**Separate** can leave a slot whose alternatives disagree on ends: two
+alternatives may end in two twinned positions, which share one set of ends
+while the twins are one. Separated, the slot's ends are unknown (above): the
+seam after it goes quiet rather than showing a break nobody chose.
 
 ### Types
 
@@ -132,7 +149,10 @@ figures and positions. Bachata's stay as they are.
   position_id, unique on both). Not a column on `spot_links`: its target CHECK
   would need a rebuild with a new column, which the CHECK rule forbids. A
   linked spot refuses to delete until unlinked, as `assertUnlinked` does for
-  figure links.
+  figure links. A section links figures, drills and positions; a **point**
+  links positions only. Unlinking is a hard delete; in a group it goes to
+  Recently deleted (`team_trash` kind `'position-link'`, with the lesson's
+  hand link to the same position when the unlink took that too).
 - Lessons: a new `lesson_positions` join table for hand links, like
   `lesson_figures`. A lesson also reaches the positions its sections link to,
   derived as `lesson-links.ts` derives figures (the "via section" badge).
@@ -183,12 +203,16 @@ Once, at boot, idempotent (an `app_flags` marker), in one transaction:
 1. The shared positions become the admin's own (`user_id` = the admin). The
    admin's figures keep their tags.
 2. Every other owner (person or group) whose figures use a shared position gets
-   their own copy of each one they use (its own gene, no `cloned_from`), and
-   their figures' start and end tags are repointed to the copies.
+   their own copy of each one they use (the **same gene** as the admin's row,
+   no `cloned_from`: ruling 1 below), and their figures' start and end tags
+   are repointed to the copies.
 3. `figures.end_position_id` is copied into `figure_end_positions`.
 4. Untagged figures stay untagged and now have no position.
 
-Report counts in the boot log, as the integrity checks do.
+Report counts in the boot log, as the integrity checks do. *Built:*
+`src/lib/server/positions-move.ts`, logged as
+`[positions] moved: N copies, N figures, N ends` on the one boot that runs it
+(see `docs/deployment.md`).
 
 ## Screens (phone; the desktop boards show the same at 1440)
 
@@ -230,7 +254,9 @@ Report counts in the boot log, as the integrity checks do.
   only the group's. Every chosen live tag is offered, so it can be removed.
 - **Lessons:** a Positions group after Figures, Routines and Exercises (linked
   by hand or via a section). The Link popup offers positions with figures and
-  drills, and Use this moment as a point.
+  drills (a point: positions only), and, in the full-screen player, Use this
+  moment as a point (see the
+  [Link popup spec](2026-10-29-section-link-popup-design.md)).
 - **The map** (Positions' nothing-open view on desktop, a page from the list on
   the phone): a force layout computed in the browser, a small pure module
   (no new dependency): Fruchterman–Reingold over the main connected part,
@@ -250,3 +276,88 @@ template registry lives, and the order of the work. Keep the hard rules in
 CLAUDE.md: additive migrations, archive don't delete, data functions take `db`
 first, raise `PAGE_EPOCH` when a form changes, and keep this spec and the main
 design spec current.
+
+*Built:* new slugs are `'p-' + uuid`; the template registry is
+`src/lib/positions/templates.ts`; the map is `src/lib/positions/map.ts` (layout)
+and `map-view.ts` (colours, lighting, arrows). The Timba set and all of
+bachata's templates are still drafts for the user to review.
+
+## Decided while planning and building
+
+From the plan (rulings 1–16, `docs/superpowers/plans/2026-11-04-positions.md`):
+
+1. **One gene per shared position in the boot move** (not a gene per copy):
+   a routine mixing a person's figures with a group's keeps meeting where it
+   met. No `cloned_from`, so no "From …". *Confirmed by the user.*
+2. **"Empty means anywhere" is one helper**, `meet` in `src/lib/graph/graph.ts`,
+   for every "can these hands meet": the picker, breaks, seams, loops, the
+   player's choice, the alternatives' start rule, Leads to / Follows from. A
+   slot's starts are anywhere when one of its options has none, else the union.
+3. **A slot's alternatives share the same set of ends**, compared as sorted
+   family ids (`[]` equals `[]`); their starts must `meet` the main option's.
+4. **Archived positions are invisible but kept**: the graph reads live ones
+   only, and saving a figure never drops a tag to an archived position (the
+   form cannot show it).
+5. **The hold's words:** Two hands / One hand / No hands; Crossed, right on
+   top ("Right hands on top" in the form); Face to face / Side by side /
+   Shadow / Back to back; Open / Closed. The picker's second line joins them
+   with " · ", all but the first lower-cased; an empty hold has none.
+6. **A template's description becomes the new position's notes.** Salsa's
+   sets are Salsa, Son and Timba; bachata's Dominican, Sensual and Traditional.
+7. **Lists sort by type** (the dance's style order, untyped last), then folded
+   name. `sort_order` and `slug` are vestigial.
+8. **"New figure from it"** opens New move with the position as its start
+   ("New figure into it", the end, on an orphan); **+ Positions** opens the
+   figure page in edit mode.
+9. **The figure picker's New position posts JSON to `POST /api/positions`**,
+   in the figure's owner's space after an edit check: the picker sits inside
+   the figure's form, where a page action would submit the form.
+10. **Points link positions only.** "Use this moment as a point" is in the
+    full-screen player's Link popup only (it needs a playhead). Position links
+    count for "via section" whether the spot is a section or a point.
+11. **Unlinking a position from a group's section or point goes to Recently
+    deleted** (`team_trash` kind `'position-link'`); hand links on lessons do
+    exactly what `lesson_figures` does.
+12. **What a member reads of a group's positions:** live ones a reached figure
+    is tagged with, a reached lesson links by hand, or a spot on a reached
+    lesson's video links. **What a person may use:** that, plus what their own
+    figures, lessons and spots already point at, in groups they are still in.
+13. **Islands:** positions are joined by figures (each start to each end); the
+    main part has the most figures through it (then more positions, then the
+    lowest id). Gaps are dead ends, orphans and islands.
+14. **The graph is the viewer's:** a position's page, the list's counts and the
+    map read the person's graph (their own figures and the group figures they
+    may use), or the group's in group mode.
+15. **A group's figures are tagged only with that group's positions**; a
+    person's with their own or usable group positions. Anything else is
+    refused.
+16. **Twins are one in the graph and on the map** (Same as… on positions),
+    the one exception to "Twins are views". *Confirmed by the user.*
+
+While building:
+
+- **An island is a part of two or more positions** outside the main part. A
+  lone cut-off position reads only as a dead end, an orphan or unused, never
+  as two words at once.
+- **A slot whose alternatives disagree on ends** (older rows, or after
+  Separate) has unknown ends: no break after it, a routine ending in it does
+  not loop, and the picker reads the union of its ends when it ends a
+  routine on offer (see "Any number of ends").
+- **A spot on a reached figure's recording that links a position reaches it
+  too:** the member sees that spot on the figure page, so the link must read.
+- **A position's Compare has no video links:** spot links travel with their
+  videos, never with the position.
+- **Make it mine on a position promises** "Its name, type, hold and notes, to
+  change as you like." The copy carries no video links; what stays the
+  group's names its videos and lessons.
+- **Templates and How positions work are text buttons, and the gap words
+  coloured text**, as the boards draw them.
+- **History on a group's position** shows in the band for an editor in Mine
+  too, as on a figure's page.
+- **"Use this moment as a point" also shows on the picker's top level** when a
+  section with no links opens straight into the picker; otherwise an
+  unlinked section could never reach it.
+- **A lesson's Unlink that also takes its sections' links** (`alsoSections`)
+  is not trashed in a group, for figures and positions alike. Positions
+  match figures; whether both should go to Recently deleted is the user's
+  call, to make once for both.

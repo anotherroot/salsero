@@ -69,8 +69,8 @@ import type { Role } from '$lib/types';
  * It also replaces the `params.dance as DanceSlug` cast, which was the thing
  * silencing the compiler about exactly this.
  *
- * Everything else goes through `wallOf`; only the positions page, whose list
- * is shared by everyone in a dance, needs the dance with no person.
+ * Routes go through `wallOf`, which calls this; nothing needs the dance with
+ * no person any more (positions are owned, like figures).
  */
 export function danceOf(params: { dance: string }): DanceSlug {
 	if (!isDanceSlug(params.dance)) throw error(404, 'No such dance');

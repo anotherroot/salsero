@@ -183,6 +183,29 @@ report 0 for each. Any finding is a bug: look at it before using the app. The
 app still serves (the checks only log), but a person's row is pointing where
 it must not, and the next change of reach may act on it.
 
+**Before the positions deploy (`0028`, `0029`), back up the database**
+(`/var/lib/salsa/salsa.db`: `sudo systemctl start salsa-backup`, above) **before the first boot.** That
+boot runs the one-time positions move (`src/lib/server/positions-move.ts`, in
+one transaction): the old shared positions become the admin's, every other
+person or group whose figures used one gets a copy of the same gene with
+their figures re-tagged, and `figures.end_position_id` is copied into
+`figure_end_positions`. It runs once ever (the `app_flags` key
+`positions-owned`), so the backup is the only way back to before it. `0028`
+is additive: the tables `figure_end_positions`, `lesson_positions` and
+`spot_position_links`, the owner, family, type, hold, notes and picture
+columns on `positions`, their indexes, and a `DROP INDEX` of
+`positions_dance_slug_idx` (an index, not a rebuild). `0029` rebuilds
+`team_changes`, `twins`, `clone_pairs` and `team_trash` to widen their CHECKs
+(`'position'`, and `'position-link'` in the trash), with unchanged columns and
+no foreign key in or out, as `0025` did. The trial script above serves for it
+with `-ge 29` in place of `-ge 27`. The first boot logs, once,
+`[positions] moved: N copies, N figures, N ends` (copies made for other
+places, their figures now tagged with one, end rows written); later boots log
+no such line. The `[integrity]` counts that follow now cover positions too
+(an owner per position, families, and the cross-refs of figure tags, lesson
+hand links and section and point links) and must all be 0. `PAGE_EPOCH` is
+raised, so open pages reload instead of posting the old figure form.
+
 The player's voice clips need no deploy step of their own: they live in
 `static/clips/`, so SvelteKit copies them into `build/client/clips/` and the
 existing `build/` rsync carries them. `scripts/make-clips.sh` regenerates them

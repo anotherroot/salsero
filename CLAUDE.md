@@ -51,7 +51,12 @@ and clones and twins (a gene id and cloned-from on every copyable row; Copy
 to…, Edit makes your copy, Compare, Take, Send, Drop my copy, Detach, Move to…
 a group; your own routines, lessons and sections use a group's things without
 copying; leaving keeps copies; Same as… shows twins as one; see
-[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md)).
+[`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md))
+and positions as their own things (owned like figures, with copies and twins;
+optional: nobody starts with any and a figure without one fits anywhere; any
+number of starts and ends; a type and a hold; a page, Templates, How positions
+work, Gaps and a map; links from sections, points and lessons; see
+[`docs/superpowers/specs/2026-11-04-positions-design.md`](docs/superpowers/specs/2026-11-04-positions-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -124,6 +129,13 @@ snapshots, Drop my copy, Detach, Copy to… and Move to…, using a group's thin
 from your own rows, leaving and Keep, the rescue, twins, and what was decided
 while planning and building. It replaces the groups spec's reading after
 leaving and its Make my own copy.
+Positions have theirs,
+[`docs/superpowers/specs/2026-11-04-positions-design.md`](docs/superpowers/specs/2026-11-04-positions-design.md):
+owned positions, no position fits anywhere, any number of ends, comparing by
+family (and twins as one in the graph), the hold, templates, the links, the
+screens and the map, the one-time move at boot, and what was decided while
+planning and building. It replaces the routines spec's neutral position and
+single end.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -138,8 +150,28 @@ src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo
 src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
 src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
                      whether clave exists, accent colours). Client-safe
-src/lib/graph/       PURE figure graph: positions → what can follow what, the
-                     gap report. Client-safe
+src/lib/graph/       PURE figure graph: positions → what can follow what (`meet`: an
+                     empty side fits anything), the gap report (`positionCounts`: dead
+                     ends, orphans, islands, unused), No position. Client-safe
+src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates per dance
+                     and type (templates.ts), every positions screen's words and rows
+                     (view.ts), the map's layout (map.ts: a force layout from a fixed
+                     start, the label pass, the tray) and how the page draws it
+                     (map-view.ts: type colours, what a tap lights, the arrows). Client-safe
+src/lib/server/positions.ts  owned positions: list (by type, then name), create, edit,
+                     archive, restore, Templates (`addTemplates`), "from Week 6" (`positionsFrom`)
+src/lib/server/positions-move.ts  the one-time boot move: the old shared positions become
+                     the admin's, every other place using one gets a copy of the same
+                     gene, `end_position_id` → `figure_end_positions` (an `app_flags` marker)
+src/lib/server/position-links.ts  sections and points linked to positions
+                     (`spot_position_links`): link, unlink (a group's to Recently deleted),
+                     and what a position's page lists (its spots, linkable spots, its lessons)
+src/routes/[dance]/positions/  the list (Moves' third segment); [id] a position's page;
+                     none the figures with no position; map the map.
+                     src/routes/api/positions is the figure picker's New position (JSON)
+src/lib/components/positions/  the New / Edit position sheet and its fields, Templates,
+                     How positions work, a list row, a point's still and card, the map,
+                     a position page's link picker
 src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
                      chips, empty states, meta words, gaps, pick order; a move's page lines
                      (move-page.ts). Client-safe
@@ -176,7 +208,10 @@ src/lib/picker/      PURE picker model and builders: word search, figure
                      row's lead, the body's state and the height. Client-safe
 src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
                      PickerField.svelte (a form field that opens it) and
-                     PickerOpener.svelte (the full-width tonal button that opens one)
+                     PickerMultiField.svelte (a form field that takes any number: a
+                     figure's Starts in) and
+                     PickerOpener.svelte (the full-width tonal button that opens one).
+                     components/figures/PositionTags.svelte is a figure's Starts in / Ends in
 src/lib/components/ui/PlayerLayer.svelte  a Sheet or Dialog as an overlay inside the
                      full-screen player (`.theme-media`), not a second top-layer dialog
 src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
@@ -400,8 +435,8 @@ src/lib/server/      db (SQLite via Drizzle), auth, data access, form parsing, f
 src/lib/server/scope.ts  the wall at the route level: `Wall` ({ userId, dance }),
                      `wallOf(params, locals)`, `inWall(row, wall)` and the
                      `require*InWall` guards on ids, so a request only ever reaches
-                     its own person's side of its own dance. `danceOf` and
-                     `requirePositionInDance` are for the shared positions only
+                     its own person's side of its own dance. `requirePositionAccess`
+                     guards a position as `requireFigureAccess` guards a figure
 src/lib/server/test-walls.ts  specs only: `U1_SALSA`, `U1_BACHATA`, `U2_SALSA`.
                      `[dance]/owner-wall.spec.ts` and `api/owner-wall.spec.ts`
                      act as u2 on u1's rows, area by area
@@ -453,23 +488,35 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   while a live exercise uses it, archived ones lose `song_id`; a group song's
   delete is an archive, restored from Recently deleted, see "Songs" below), sets, recordings, links,
   spots (`video_spots`, deleted with their video), section links (`spot_links`,
-  deleted on unlink) and saves in flight (`video_downloads`, deleted with their
+  deleted on unlink), position links on sections and points
+  (`spot_position_links`, deleted on unlink, and with their video when a
+  group is purged) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes of content;
   `twins` rows (Separate) and `clone_pairs` (Detach) are bookkeeping, deleted
   too. Drop my copy and Move to… archive the copy, never delete it. A
   figure's exercise is opt-in (`addFigureExercise`); when one exists it is
   renamed and archived WITH its figure, in one transaction
-  (`src/lib/server/figures.ts`). A linked spot, and the video it is on, cannot
+  (`src/lib/server/figures.ts`). A linked spot (to a figure, a drill or a
+  position), and the video it is on, cannot
   be deleted until it is unlinked — archived targets included (`assertUnlinked`
   in `src/lib/server/spot-links.ts`). A removed paired phone and a deleted voice
   take come back with Undo for a minute: both are deleted at once and kept in an
   in-memory hold (`src/lib/server/undo-hold.ts`); a take's file is unlinked when
   its hold expires. In a group, the hard-delete kinds (videos, sections, links,
-  section links, recordings) are still deleted at once, and kept 30 days in
+  section links, position links, recordings) are still deleted at once, and kept 30 days in
   `team_trash`, file included (`src/lib/server/trash.ts`): the delete returns a
   trash id and the route must not unlink the file; `purgeTrash` and `purgeTeams` do, at boot and hourly.
-  Restore re-inserts the rows with their own ids. The archived kinds (lessons,
-  variations, routines, drills) are restored from Recently deleted too, with
+  A position link is kind `'position-link'`, its entry holding the
+  `spot_position_links` row and, when the unlink also took the lesson's hand
+  link to the same position, that `lesson_positions` row
+  (`unlinkSpotFromPosition` in `position-links.ts`). One unlink is not
+  trashed, for figures and positions alike: a lesson's Unlink that also takes
+  its sections' links (`alsoSections`); whether it should be is the user's call.
+  Restore re-inserts the rows with their own ids. Positions are archived,
+  never deleted (their tags and links stay; an archived one stops showing, and
+  a figure left with none has no position), and a group's purge archives its
+  positions with its other root rows. The archived kinds (lessons,
+  variations, routines, drills, positions) are restored from Recently deleted too, with
   exactly the members' entries archived at the same instant (`reviveEntries`: an entry a member had removed earlier stays removed).
 - **The type owns its popup.** An exercise's type is derived from `source`
   (`src/lib/exercises/kinds.ts`); pages ask `logFor`/`contentFor` for its
@@ -562,24 +609,25 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `src/lib/scheduler/scheduler.ts` decides WHAT sounds and WHEN in song time and
   never touches audio. Figure names go through `speechSynthesis`, which cannot be
   scheduled and does not need to be.
-- **A dance is the wall through the content.** `figures`, `songs`, `exercises`
-  and `lessons` carry `dance`; `sets`, `recordings`, the lesson join tables
-  and `video_spots` derive it through their parent (a recording or a lesson
-  video), and `count_takes` is shared by both dances on purpose. Scoping
+- **A dance is the wall through the content.** `figures`, `songs`, `exercises`,
+  `lessons` and `positions` carry `dance`; `sets`, `recordings`, the lesson join tables,
+  a figure's position tags and `video_spots` derive it through their parent (a
+  figure, a recording or a lesson video), and `count_takes` is shared by both dances on purpose. Scoping
   happens in the data-access layer — `src/lib/urgency/` and `src/lib/day/`
   never learn that dances exist. `video_spots`' own API is flat
   (`/api/video-spots`), like the media servers.
 - **A person or a group is the wall inside the dance.** The root tables —
-  `figure_groups`, `figures`, `songs`, `exercises`, `lessons`, `routines` —
-  carry `user_id` and `team_id`, exactly one set (a group's rows
+  `figure_groups`, `figures`, `songs`, `exercises`, `lessons`, `routines`,
+  `positions` — carry `user_id` and `team_id`, exactly one set (a group's rows
   have `user_id` NULL; `ownerIntegrity` checks). `count_takes` carries
   `user_id` only: a take is a person's own voice. Both are set on every insert
   from the request's space: `Space = Wall | TeamSpace`, a `Wall` being
   `{ userId, dance }` (`wallOf(params, locals)` in `src/lib/server/scope.ts`) and
   a `TeamSpace` `{ dance, teamId, actorId }`. `ownedBy`, `ownerValues`, `inSpace`
   and `spaceOfRow` in `scope.ts` filter, write and compare by either. Everything
-  else (sets, recordings, lesson videos, spots, spot links, the lesson join
-  tables, links, video downloads, routine steps) derives its owner through its
+  else (sets, recordings, lesson videos, spots, spot links and spot position
+  links, the lesson join tables, a figure's start and end position tags, links,
+  video downloads, routine steps) derives its owner through its
   parent, as it derives its dance. Data functions take a `Wall` or a `Space`
   where they once took a dance; a comparison of two rows is `inWall(row, wall)`
   or `inSpace`, never `.dance` alone. Another person's id and a missing one get
@@ -589,13 +637,17 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   its purge, through the lessons they added; someone who left or was removed
   reaches nothing of the group, their kept copies are their own; a draft
   reaches nobody but its editors). The `require*Access` guards
-  in `scope.ts` (lesson, figure, routine, exercise) are how a route asks.
+  in `scope.ts` (lesson, figure, routine, exercise, position) are how a route asks.
+  What a member reads of a group's positions is what a reached figure is
+  tagged with, a reached lesson links by hand, or a spot on a reached lesson's
+  video or figure's recording links.
   Entries are per person: Add makes an ordinary `exercises` row of the person
   (`entries.ts`, unique per person and target), and every "my entry" lookup is
   by that person only, so another member's settings and logs never show.
   A person's own rows may point at a group row they may use, not only at
-  their own: their routines' slots and embeds, their lessons' hand links and
-  their section links take a group's figure, routine or drill from `usableOf`
+  their own: their routines' slots and embeds, their lessons' hand links,
+  their section links and their figures' position tags take a group's figure,
+  routine, drill or position from `usableOf`
   (`src/lib/server/usable.ts`: what their added lessons reach, and what their
   rows already use and still read, in a group they are still a member of),
   and reading such a link always goes through `access.ts`. A group's row
@@ -605,13 +657,13 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   Flat routes — `/api/video-spots*`, the uploads, and the four media servers
   (`recordings`, `audio`, `count`, `lesson-videos`) — have no dance in the URL,
   so they ask `access.ts` (`fileAccess`, `videoAccess`, `spotAccess`) about
-  `locals.user.id`. Positions are the one exception: one shared list per dance,
-  edited only by the admin. The worker's queue (`/api/worker/*`) is global; a
+  `locals.user.id`. The worker's queue (`/api/worker/*`) is global; a
   job's result lands on its own row, so it belongs to whoever owns that row;
   `video_downloads.requested_by` is who a saved video is credited to. See
   [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md),
-  [`docs/superpowers/specs/2026-11-02-groups-design.md`](docs/superpowers/specs/2026-11-02-groups-design.md)
-  and [`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md).
+  [`docs/superpowers/specs/2026-11-02-groups-design.md`](docs/superpowers/specs/2026-11-02-groups-design.md),
+  [`docs/superpowers/specs/2026-11-03-clones-and-twins-design.md`](docs/superpowers/specs/2026-11-03-clones-and-twins-design.md),
+  and [`docs/superpowers/specs/2026-11-04-positions-design.md`](docs/superpowers/specs/2026-11-04-positions-design.md).
 - **Songs: a person's own and a group's differ.** A person's own song keeps
   the `deleteSong` refusal. A group song (`songs.team_id`, `shared_at` null
   while a draft) is the teacher's to withdraw: Stop sharing or Delete (an
@@ -653,10 +705,13 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   archived member holds its place, and a copy there offers to restore it), the
   parent row for recordings, lesson videos and sections (checked in the data
   function and in `restoreTrash`; `familyIntegrity` reports a breach). Every
-  link (slots, section links, lesson links, entries, lesson adds) stays a
-  concrete row id: a gene is read only to find a member (`memberIn`,
+  link (slots, section links, lesson links, entries, lesson adds, a figure's
+  position tags) stays a concrete row id: a gene is read only to find a member (`memberIn`,
   `familyRows`), and every re-point is an explicit update in the same
-  transaction (`repoint`). `clone_pairs` (a hash per field of what two members
+  transaction (`repoint`). A figure copied into a place (Copy to…, Make it
+  mine, the rescue, Keep) is tagged with that place's member of each
+  position's family, the position copied there when the place has none.
+  `clone_pairs` (a hash per field of what two members
   held when last in step) is written only by a copy, Take and Send, never by
   an ordinary save, so no save path learns of clones. A clone's file is a
   hard link under a new name (`CloneFiles`), linked before the write and
@@ -665,15 +720,40 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   only by the lists, pickers and pages that fold or tab them
   (`src/lib/clones/twins.ts`, `src/lib/server/twins.ts`); `repoint` keeps a
   person's sets on the row that replaces one. Nothing else learns of it:
-  twins never sync, never travel, and plans, coverage, Today and the graph
-  read rows as they are. Groups have none. The one exception: twinned
-  POSITIONS are one hold in a person's graph (`buildGraph` merges them, see
-  the positions spec), so fit, breaks and the map read them as one; everything
-  else reads rows as they are.
+  twins never sync, never travel, and plans, coverage and Today read rows as
+  they are. Groups have none. The one exception is a person's graph: twinned
+  POSITIONS are one hold in it. `buildGraph` (`src/lib/server/graph.ts`)
+  reads the `twins` table itself and folds each of the person's twin sets of
+  positions, families and all, into one canonical id (their own member, else
+  the lowest id), so every reader of that graph reads them as one: the
+  routine picker's fit, breaks and seams, whether a routine loops, coverage,
+  the player's plan, the figure page's Leads to / Follows from, the gap
+  report and the list's counts, and the map (one node, marked Twins).
+  Everything else — the lists, pickers and pages that fold or tab twins
+  aside — reads position rows as they are. A group's space reads no twins.
+- **Positions are optional: an empty side fits anything** (`meet` in
+  `src/lib/graph/graph.ts`, the one rule for "can these hands meet"). A
+  figure with no start can follow anything, one with no end can be followed
+  by anything, and a slot's starts are anywhere when one of its options has
+  none. A person who never adds a position sees no break, no gap and no nag.
+  Nobody starts with any (no seeding); Templates add them on request. The
+  graph compares positions by family (`gene_id`, else the row id), never by
+  row id, so a person's figure ending in their Cerrada meets a group figure
+  starting in the group's copy of it; a slot's alternatives must share the
+  same set of ends, compared by family. A figure is tagged only with its
+  owner's positions or, a person's, a group's they may use; a group's
+  figure only with its group's (`writeFigureShape`).
 - **`figures.style` is vestigial; `style_tag` is real.** Read by nothing,
   backfilled into `style_tag` by migration 0005. Do not drop it or widen
   `figures_style_ck` — see the CHECK rule above for why a rebuild here can't
   be done safely.
+- **`positions.neutral`, `positions.slug`, `positions.sort_order` and
+  `figures.end_position_id` are vestigial.** The neutral position went
+  (an untagged side fits anything), lists sort by type then name, and a
+  figure's ends are `figure_end_positions` (filled from `end_position_id` by
+  the boot move, `positions-move.ts`, its one reader). Otherwise read by
+  nothing, not dropped, for the same reason as `style`. New positions get `slug = 'p-' + uuid`; slugs are no
+  longer unique (`positions_dance_slug_idx` was dropped, an index, not a rebuild).
 - **`figures.eights` is vestigial; `length_counts` is real.** Copied into
   `length_counts` (`eights * 8`) by migration 0010 and read by nothing since.
   Same reason as `style`: dropping it is a rebuild, and `figures` can never be
