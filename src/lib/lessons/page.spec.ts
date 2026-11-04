@@ -3,6 +3,7 @@ import type { SectionLinkChip, ViaSection } from '$lib/types';
 import {
 	deleteBlock,
 	deleteVideoBody,
+	positionLinkLabel,
 	exerciseMeta,
 	figureMeta,
 	reviewMeta,
@@ -76,5 +77,30 @@ describe('lesson page lines', () => {
 				{ links: [chip('Enchufla · Doble'), chip('Old drill', true)] }
 			])
 		).toBe('Linked to Enchufla · Doble, Footwork drill, Old drill (archived) — unlink it first.');
+	});
+
+	it('deleteBlock names the positions its sections and points link, as linksBlocking does', () => {
+		expect(deleteBlock([{ links: [] }], [{ name: 'Cerrada', archived: false }])).toBe(
+			'Linked to Position · Cerrada — unlink it first.'
+		);
+		expect(
+			deleteBlock(
+				[{ links: [chip('Enchufla · Doble')] }],
+				[
+					{ name: 'Vieja', archived: true },
+					{ name: 'Cerrada', archived: false },
+					{ name: 'Cerrada', archived: false }
+				]
+			)
+		).toBe(
+			'Linked to Enchufla · Doble, Position · Cerrada, Position · Vieja (archived) — unlink it first.'
+		);
+		expect(positionLinkLabel('Cerrada')).toBe('Position · Cerrada');
+	});
+
+	it('a point in a via list is its moment alone', () => {
+		expect(
+			viaRanges([{ spotId: 1, startMs: 72_000, endMs: null, label: null }, via(1000, 2000)])
+		).toBe('1:12.0, 0:01.0–0:02.0');
 	});
 });

@@ -469,6 +469,19 @@ describe('positions (ruling 12)', () => {
 		for (const id of [draft, gone, loose]) expect(r.positions.has(id)).toBe(false);
 	});
 
+	it("a point on a reached figure's recording reaches the position it links", () => {
+		const onRec = addPosition(db, T1_SALSA, 'Hammerlock');
+		const p = db
+			.insert(videoSpots)
+			.values({ recordingId: recId, startMs: 5, endMs: null })
+			.returning()
+			.get().id;
+		db.insert(spotPositionLinks).values({ spotId: p, positionId: onRec }).run();
+		expect(reach(db, 'u2', 1).positions.has(onRec)).toBe(true);
+		expect(positionAccess(db, 'u2', row(onRec))).toBe('read');
+		expect(crossRefs(db)).toEqual([]);
+	});
+
 	it('positionAccess: editors edit, a member reads what is in reach, nobody else gets anything', () => {
 		for (const u of ['u1', 'u3']) {
 			for (const id of [tagStart, draft, gone, loose]) {

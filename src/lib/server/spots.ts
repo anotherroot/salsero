@@ -10,7 +10,14 @@ import type { Db } from './db';
 import { figures, lessons, lessonVideos, recordings, videoSpots } from './db/schema';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import type { Spot, SpotOwner } from '$lib/types';
-import { assertUnlinked, linkChips, linkChipsFor, videoOfSpot, type Visible } from './spot-links';
+import {
+	assertUnlinked,
+	clearPictures,
+	linkChips,
+	linkChipsFor,
+	videoOfSpot,
+	type Visible
+} from './spot-links';
 import { ownerOfRow, type Owner } from './storage';
 import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
 import { isTeam, spaceOfRow } from './scope';
@@ -267,6 +274,7 @@ export function deleteSpot(
 ): { trashId: number | null } | null {
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { spotId: id });
+		clearPictures(tx, [id]);
 		const root = spotRoot(tx, id);
 		const gone = tx.delete(videoSpots).where(eq(videoSpots.id, id)).returning().get();
 		if (!gone) return null;

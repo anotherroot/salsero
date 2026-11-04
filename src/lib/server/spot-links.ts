@@ -6,7 +6,7 @@
  * space (a person's or a group's side of one dance), drills only. Imported BY `spots.ts`, `figures.ts` and `lessons.ts` —
  * their deletes ask `assertUnlinked` first — so it imports none of them.
  */
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, type SQL } from 'drizzle-orm';
 import type { Db } from './db';
 import {
 	exercises,
@@ -16,10 +16,13 @@ import {
 	lessonFigures,
 	lessons,
 	lessonVideos,
+	positions,
 	recordings,
 	spotLinks,
+	spotPositionLinks,
 	videoSpots
 } from './db/schema';
+import { positionLinkLabel } from '$lib/lessons/page';
 import type {
 	LinkCreateField,
 	LinkedSection,
@@ -114,7 +117,7 @@ export function videoOfSpot(db: Db, spotId: number) {
 export type Visible = Pick<Reach, 'lessons' | 'recordings' | 'variations' | 'drills'>;
 
 /** Whether a row has this space's owner, whatever its dance. */
-const sameOwner = (row: { userId: string | null; teamId: number | null }, space: Space) =>
+export const sameOwner = (row: { userId: string | null; teamId: number | null }, space: Space) =>
 	inSpace({ ...row, dance: space.dance }, space);
 
 /**
@@ -418,7 +421,7 @@ export function linkChipsFor(
 }
 
 /** A section link's target, by id and owner: what a list's filter decides on. */
-type LinkTargetRow = {
+export type LinkTargetRow = {
 	figureId: number | null;
 	exerciseId: number | null;
 	userId: string | null;
@@ -426,7 +429,7 @@ type LinkTargetRow = {
 };
 
 /** Which links a list shows. Omitted, every one. */
-type Keep = (link: LinkTargetRow) => boolean;
+export type Keep = (link: LinkTargetRow) => boolean;
 
 /** A reader's: only what their reach holds. */
 const keepVisible =
@@ -439,7 +442,7 @@ const keepVisible =
  * row, and to a group's row only while they may use it (`usableOf`, read once
  * and only if a group's row is asked about). Its name is the group's to show.
  */
-function keepUsable(db: Db, wall: Wall): Keep {
+export function keepUsable(db: Db, wall: Wall): Keep {
 	let usable: Usable | null = null;
 	return (r) => {
 		if (r.teamId === null) return r.userId === wall.userId;
@@ -449,7 +452,7 @@ function keepUsable(db: Db, wall: Wall): Keep {
 }
 
 /** What a list of videos of `space` shows of their links: `visible`'s, else a person's own rule. */
-function keepFor(db: Db, space: Space, visible?: Visible): Keep | undefined {
+export function keepFor(db: Db, space: Space, visible?: Visible): Keep | undefined {
 	if (visible) return keepVisible(visible);
 	return isTeam(space) ? undefined : keepUsable(db, space);
 }
@@ -517,11 +520,26 @@ function spotIdsOf(db: Db, scope: { spotId: number } | SpotOwner): number[] {
 		.map((r) => r.id);
 }
 
-/** What stops this spot, or this video, from being deleted. Empty when nothing does. */
+/**
+ * What stops this spot, or this video, from being deleted: its sections' links
+ * and the positions its sections and points link ("Position · Cerrada").
+ * Empty when nothing does. `deleteBlock` (`$lib/lessons/page.ts`) mirrors it.
+ */
 export function linksBlocking(db: Db, scope: { spotId: number } | SpotOwner): string[] {
-	const labels = [...linkChips(db, spotIdsOf(db, scope)).values()]
-		.flat()
-		.map((c) => (c.archived ? `${c.label} (archived)` : c.label));
+	const spotIds = spotIdsOf(db, scope);
+	const positionChips =
+		spotIds.length === 0
+			? []
+			: db
+					.select({ name: positions.name, archivedAt: positions.archivedAt })
+					.from(spotPositionLinks)
+					.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+					.where(inArray(spotPositionLinks.spotId, spotIds))
+					.all()
+					.map((p) => ({ label: positionLinkLabel(p.name), archived: p.archivedAt !== null }));
+	const labels = [...[...linkChips(db, spotIds).values()].flat(), ...positionChips].map((c) =>
+		c.archived ? `${c.label} (archived)` : c.label
+	);
 	return [...new Set(labels)].sort((a, b) => a.localeCompare(b));
 }
 
@@ -531,9 +549,21 @@ export function assertUnlinked(db: Db, scope: { spotId: number } | SpotOwner): v
 	if (labels.length > 0) throw new SpotLinkedError(labels);
 }
 
+/**
+ * A spot about to be deleted stops being any position's picture, in the
+ * delete's transaction (`positions.picture_spot_id` has no foreign key).
+ */
+export function clearPictures(tx: Db, spotIds: number[]): void {
+	if (spotIds.length === 0) return;
+	tx.update(positions)
+		.set({ pictureSpotId: null })
+		.where(inArray(positions.pictureSpotId, spotIds))
+		.run();
+}
+
 /* ── Reads: the cards, the link sheet, a video's list ──────────────────── */
 
-type BareSpot = Omit<Spot, 'linkedTo'>;
+export type BareSpot = Omit<Spot, 'linkedTo'>;
 
 /**
  * Every live video in a space, in the sheet's order: lesson videos newest
@@ -541,7 +571,7 @@ type BareSpot = Omit<Spot, 'linkedTo'>;
  * are gone from every list, so their videos are gone from this one. With
  * `visible`, only the videos of its lessons and its recordings.
  */
-function videosOf(db: Db, space: Space, visible?: Visible): SectionVideo[] {
+export function videosOf(db: Db, space: Space, visible?: Visible): SectionVideo[] {
 	const lessonRows = db
 		.select({
 			id: lessonVideos.id,
@@ -632,7 +662,7 @@ function targetContext(db: Db, target: SectionTarget) {
 	};
 }
 
-const ownerKey = (o: SpotOwner) =>
+export const ownerKey = (o: SpotOwner) =>
 	'recordingId' in o ? `r${o.recordingId}` : `l${o.lessonVideoId}`;
 
 /** Sections — never points — keyed by their video, each list by start time. */
@@ -658,7 +688,12 @@ function sectionsByVideo(db: Db, where = isNotNull(videoSpots.endMs)): Map<strin
 	return out;
 }
 
-function labelled(db: Db, spots: BareSpot[], keep?: Keep): Spot[] {
+/** Any spots — sections and points — matching `where`, keyed by their video, each list by start time. */
+export function spotsByVideo(db: Db, where: SQL): Map<string, BareSpot[]> {
+	return sectionsByVideo(db, where);
+}
+
+export function labelled(db: Db, spots: BareSpot[], keep?: Keep): Spot[] {
 	const chips = chipsOf(
 		db,
 		spots.map((s) => s.id),

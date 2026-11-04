@@ -218,7 +218,13 @@ export function reachFrom(db: Db, teamId: number, lessonIds: number[]): Reach {
 			.all())
 			out.drills.add(r.id);
 	}
-	for (const id of positionsReached(db, teamId, lessonIds, [...out.variations])) {
+	for (const id of positionsReached(
+		db,
+		teamId,
+		lessonIds,
+		[...out.variations],
+		[...out.recordings]
+	)) {
 		out.positions.add(id);
 	}
 	return out;
@@ -227,13 +233,15 @@ export function reachFrom(db: Db, teamId: number, lessonIds: number[]): Reach {
 /**
  * The group's live positions these lessons reach (ruling 12): the tags of
  * the reached variations, the lessons' hand links, and the links of the
- * sections and points on the lessons' own videos.
+ * sections and points on the lessons' own videos and on the reached
+ * variations' recordings.
  */
 function positionsReached(
 	db: Db,
 	teamId: number,
 	lessonIds: number[],
-	variationIds: number[]
+	variationIds: number[],
+	recordingIds: number[]
 ): number[] {
 	const ids = new Set<number>();
 	if (variationIds.length > 0) {
@@ -260,6 +268,15 @@ function positionsReached(
 		.where(inArray(lessonVideos.lessonId, lessonIds))
 		.all())
 		ids.add(r.id);
+	if (recordingIds.length > 0) {
+		for (const r of db
+			.select({ id: spotPositionLinks.positionId })
+			.from(spotPositionLinks)
+			.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
+			.where(inArray(videoSpots.recordingId, recordingIds))
+			.all())
+			ids.add(r.id);
+	}
 	if (ids.size === 0) return [];
 	return db
 		.select({ id: positions.id })

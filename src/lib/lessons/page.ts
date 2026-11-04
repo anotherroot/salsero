@@ -21,9 +21,13 @@ export function viaBadge(via: ViaSection[]): string | null {
 	return via.length === 1 ? 'via section' : `via ${via.length} sections`;
 }
 
-/** `1:12.0–1:30.4, 3:05.0–3:22.8`. */
+/** `1:12.0–1:30.4, 3:05.0–3:22.8`; a point is its moment alone, `1:12.0`. */
 export function viaRanges(via: ViaSection[]): string {
-	return via.map((v) => `${spotTime(v.startMs)}–${spotTime(v.endMs)}`).join(', ');
+	return via
+		.map((v) =>
+			v.endMs === null ? spotTime(v.startMs) : `${spotTime(v.startMs)}–${spotTime(v.endMs)}`
+		)
+		.join(', ');
 }
 
 export function figureMeta(f: Pick<LessonFigureRow, 'partner' | 'viaSections'>): string {
@@ -66,15 +70,25 @@ export function deleteVideoBody(sections: number): string {
 	return `Its ${sections} ${sections === 1 ? 'section goes' : 'sections go'} with it. ${tail}`;
 }
 
+/** What a spot linked to a position is blocked by: "Position · Cerrada". */
+export function positionLinkLabel(name: string): string {
+	return `Position · ${name}`;
+}
+
 /**
  * What blocks deleting a video, worded as the server's `SpotLinkedError` says
  * it. Mirrors `linksBlocking` in `src/lib/server/spot-links.ts`: every link's
- * label, ` (archived)` when archived, de-duplicated, sorted with `localeCompare`.
+ * label, and every position its sections and points link (`positionLinkLabel`),
+ * ` (archived)` when archived, de-duplicated, sorted with `localeCompare`.
  */
-export function deleteBlock(sections: Pick<VideoSection, 'links'>[]): string | null {
-	const labels = sections
-		.flatMap((s) => s.links)
-		.map((c) => (c.archived ? `${c.label} (archived)` : c.label));
+export function deleteBlock(
+	sections: Pick<VideoSection, 'links'>[],
+	positions: { name: string; archived: boolean }[] = []
+): string | null {
+	const labels = [
+		...sections.flatMap((s) => s.links),
+		...positions.map((p) => ({ label: positionLinkLabel(p.name), archived: p.archived }))
+	].map((c) => (c.archived ? `${c.label} (archived)` : c.label));
 	if (labels.length === 0) return null;
 	const sorted = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
 	return `Linked to ${sorted.join(', ')} — unlink it first.`;

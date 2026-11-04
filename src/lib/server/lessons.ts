@@ -14,11 +14,19 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { assertUnlinked } from './spot-links';
+import { assertUnlinked, clearPictures } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
 import { listPickRoutines, listUsableRoutines } from './routines';
-import { ownedOrUsable, usableBy, usableDrills, usableOf, usableVersions } from './usable';
+import {
+	ownedOrUsable,
+	usableBy,
+	usableDrills,
+	usableOf,
+	usablePositions,
+	usableVersions
+} from './usable';
+import { listPositions, positionSummary } from './positions';
 import { foldNamed, foldVersions } from './twins';
 import { mineIdsFor, withoutShadowed } from './clones/shadow';
 import {
@@ -28,10 +36,13 @@ import {
 	lessonAdds,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessonRoutines,
 	lessonVideos,
 	lessons,
+	positions,
 	routines,
+	spotPositionLinks,
 	spotLinks,
 	teams,
 	videoSpots,
@@ -56,12 +67,15 @@ import type {
 	LessonExerciseRow,
 	LessonFigureRow,
 	LessonItem,
+	LessonPositionRow,
 	LessonRoutineRow,
 	LessonVideoRow,
 	FigureVersion,
 	PickExercise,
 	PickRoutine,
+	PositionSummary,
 	Role,
+	TeamRef,
 	TeamLessonItem
 } from '$lib/types';
 
@@ -101,8 +115,9 @@ function lessonSpace(db: Db, lessonId: number, by?: string): Space | null {
 	return lesson ? actingIn(lesson, by) : null;
 }
 
-/** What a lesson links by hand: a variation, a routine or an exercise (a drill, in a group). */
-type Linked = { figureId: number } | { routineId: number } | { exerciseId: number };
+/** What a lesson links by hand: a variation, a routine, an exercise (a drill, in a group) or a position. */
+type Linked =
+	{ figureId: number } | { routineId: number } | { exerciseId: number } | { positionId: number };
 
 /** The name History shows for a linked thing ("Enchufla · Doble"); null when it is gone. */
 function linkedName(tx: Db, t: Linked): string | null {
@@ -119,6 +134,15 @@ function linkedName(tx: Db, t: Linked): string | null {
 		return (
 			tx.select({ name: routines.name }).from(routines).where(eq(routines.id, t.routineId)).get()
 				?.name ?? null
+		);
+	}
+	if ('positionId' in t) {
+		return (
+			tx
+				.select({ name: positions.name })
+				.from(positions)
+				.where(eq(positions.id, t.positionId))
+				.get()?.name ?? null
 		);
 	}
 	return (
@@ -142,7 +166,9 @@ function logLinked(
 			? ['figure', t.figureId]
 			: 'routineId' in t
 				? ['routine', t.routineId]
-				: ['drill', t.exerciseId];
+				: 'positionId' in t
+					? ['position', t.positionId]
+					: ['drill', t.exerciseId];
 	const named = name === null ? null : { name };
 	logChange(
 		tx,
@@ -768,6 +794,51 @@ export function getLesson(db: Db, id: number, userId: string, opts: { copies?: b
 		}))
 		.sort((a, b) => a.name.localeCompare(b.name));
 
+	// Positions: by hand and through a section or point (ruling 10), merged as
+	// figures are. Archived positions are invisible (ruling 4).
+	const handPositionIds = new Set(
+		db
+			.select({ id: lessonPositions.positionId })
+			.from(lessonPositions)
+			.where(eq(lessonPositions.lessonId, id))
+			.all()
+			.map((r) => r.id)
+	);
+	const positionIds = [...new Set([...handPositionIds, ...via.positions.keys()])];
+	const positionRows =
+		positionIds.length === 0
+			? []
+			: db
+					.select({
+						id: positions.id,
+						name: positions.name,
+						styleTag: positions.styleTag,
+						teamId: positions.teamId
+					})
+					.from(positions)
+					.where(and(inArray(positions.id, positionIds), isNull(positions.archivedAt)))
+					.all();
+	const minePosition =
+		lesson.teamId === null || opts.copies === false
+			? new Map<number, number>()
+			: mineIdsFor(
+					db,
+					{ userId, dance: lesson.dance as Wall['dance'] },
+					'position',
+					positionRows.map((r) => r.id)
+				);
+	const linkedPositions: LessonPositionRow[] = positionRows
+		.map((r) => ({
+			id: r.id,
+			name: r.name,
+			styleTag: r.styleTag,
+			byHand: handPositionIds.has(r.id),
+			viaSections: via.positions.get(r.id) ?? [],
+			mineId: minePosition.get(r.id) ?? null,
+			teamId: lesson.teamId === null ? r.teamId : null
+		}))
+		.sort((a, b) => a.name.localeCompare(b.name));
+
 	// A linked figure's or routine's exercise belongs under it, never in this
 	// list. `linkFigure` and `linkRoutine` already sweep it out on write;
 	// filtering here too means a row that slipped in before the link cannot show
@@ -783,7 +854,8 @@ export function getLesson(db: Db, id: number, userId: string, opts: { copies?: b
 		videos,
 		figures: linkedFigures,
 		routines: linkedRoutines,
-		exercises: linkedExercises.filter((e) => !ownedByLinked.has(e.id))
+		exercises: linkedExercises.filter((e) => !ownedByLinked.has(e.id)),
+		positions: linkedPositions
 	};
 }
 
@@ -1046,6 +1118,84 @@ export function unlinkExercise(
 }
 
 /**
+ * Link a position by hand — `linkFigure`'s twin (ruling 11): a live position
+ * of the lesson's space, or, on a person's own lesson, a group's position
+ * they may use. A group's lesson, only its own group's. A position has no
+ * exercise, so there is nothing to sweep.
+ */
+export function linkPosition(db: Db, lessonId: number, positionId: number, by?: string): boolean {
+	return db.transaction((tx) => {
+		const position = tx
+			.select({
+				id: positions.id,
+				dance: positions.dance,
+				userId: positions.userId,
+				teamId: positions.teamId
+			})
+			.from(positions)
+			.where(and(eq(positions.id, positionId), isNull(positions.archivedAt)))
+			.get();
+		if (!position) return false;
+		const space = lessonSpace(tx, lessonId, by);
+		if (!space || !(inSpace(position, space) || usableBy(tx, space, 'positions', position))) {
+			return false;
+		}
+		const res = tx
+			.insert(lessonPositions)
+			.values({ lessonId, positionId })
+			.onConflictDoNothing()
+			.run();
+		if (res.changes === 0) return false;
+		const name = linkedName(tx, { positionId });
+		logLinked(tx, space, lessonId, 'add', { positionId }, name, Date.now());
+		return true;
+	});
+}
+
+/**
+ * Take a position off a lesson — `unlinkFigure`'s twin. With `alsoSections`,
+ * the links from this lesson's videos' sections and points to it go too, in
+ * the same transaction. In a group, members' entries follow (`reconcileEntries`).
+ */
+export function unlinkPosition(
+	db: Db,
+	lessonId: number,
+	positionId: number,
+	alsoSections = false,
+	now = Date.now(),
+	by?: string
+): boolean {
+	return db.transaction((tx) => {
+		const name = linkedName(tx, { positionId });
+		let changes = tx
+			.delete(lessonPositions)
+			.where(
+				and(eq(lessonPositions.lessonId, lessonId), eq(lessonPositions.positionId, positionId))
+			)
+			.run().changes;
+		if (alsoSections) {
+			const spots = (viaSections(tx, lessonId).positions.get(positionId) ?? []).map(
+				(s) => s.spotId
+			);
+			if (spots.length > 0) {
+				changes += tx
+					.delete(spotPositionLinks)
+					.where(
+						and(
+							eq(spotPositionLinks.positionId, positionId),
+							inArray(spotPositionLinks.spotId, spots)
+						)
+					)
+					.run().changes;
+			}
+		}
+		if (changes > 0) reconcileLesson(tx, lessonId, now);
+		if (changes > 0) logUnlinked(tx, lessonId, { positionId }, name, by, now);
+		return changes > 0;
+	});
+}
+
+/**
  * Live variations in the lesson's space, by label; `linked` marks those already on the lesson.
  * A person's own lesson also offers the group variations they may use, after
  * their own, each tagged with its group (ruling 2). Their twins show as one
@@ -1175,6 +1325,36 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 	return [...own, ...theirs];
 }
 
+/**
+ * Live positions in the lesson's space, in list order (ruling 7); `linked`
+ * marks those on the lesson, by hand or through a section or point. A
+ * person's own lesson also offers the group positions they may use, after
+ * their own, each with its group (`team`; `teamId` set).
+ */
+export function listLinkablePositions(
+	db: Db,
+	lessonId: number
+): (PositionSummary & { linked: boolean; team: TeamRef | null })[] {
+	const space = lessonSpace(db, lessonId);
+	if (!space) return [];
+	const linked = new Set([
+		...db
+			.select({ id: lessonPositions.positionId })
+			.from(lessonPositions)
+			.where(eq(lessonPositions.lessonId, lessonId))
+			.all()
+			.map((r) => r.id),
+		...viaSections(db, lessonId).positions.keys()
+	]);
+	const own = listPositions(db, space).map((p) => ({ ...p, team: null as TeamRef | null }));
+	const theirs = isTeam(space) ? [] : usablePositions(db, space);
+	return [...own, ...theirs].map((p) => ({
+		...positionSummary(p, space),
+		linked: linked.has(p.id),
+		team: p.team
+	}));
+}
+
 /** A lesson's new video; in a group, History says who added it (`by`). */
 export function addLessonVideo(db: Db, input: LessonVideoInput, by?: string) {
 	return db.transaction((tx) => {
@@ -1217,6 +1397,10 @@ export function deleteLessonVideo(db: Db, id: number, by?: string, now = Date.no
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { lessonVideoId: id });
 		const spots = tx.select().from(videoSpots).where(eq(videoSpots.lessonVideoId, id)).all();
+		clearPictures(
+			tx,
+			spots.map((s) => s.id)
+		);
 		tx.delete(videoSpots).where(eq(videoSpots.lessonVideoId, id)).run();
 		const video = tx.delete(lessonVideos).where(eq(lessonVideos.id, id)).returning().get() ?? null;
 		if (!video) return null;

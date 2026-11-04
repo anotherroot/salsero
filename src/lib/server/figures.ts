@@ -1,7 +1,7 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { assertUnlinked } from './spot-links';
+import { assertUnlinked, clearPictures } from './spot-links';
 import {
 	exercises,
 	figureGroups,
@@ -872,6 +872,10 @@ export function deleteRecording(db: Db, id: number, by?: string, now = Date.now(
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { recordingId: id });
 		const spots = tx.select().from(videoSpots).where(eq(videoSpots.recordingId, id)).all();
+		clearPictures(
+			tx,
+			spots.map((s) => s.id)
+		);
 		tx.delete(videoSpots).where(eq(videoSpots.recordingId, id)).run();
 		const rec = tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
 		if (!rec) return null;

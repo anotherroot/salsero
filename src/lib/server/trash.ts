@@ -2,7 +2,7 @@
  * A group's Recently deleted (risk 10).
  *
  * The hard-delete kinds (a video, a section, a link, a section link, a
- * recording) stay real deletes: no reader of those tables learns about a
+ * recording, a position link) stay real deletes: no reader of those tables learns about a
  * `deleted_at`. A group's delete first writes a snapshot of the rows it is
  * about to remove into `team_trash`, and the file stays on disk. For 30 days
  * (`TRASH_MS`) Restore re-inserts the rows with their own ids, parents first,
@@ -38,6 +38,7 @@ import {
 	songDrops,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	teamChanges,
 	teamTrash,
 	videoSpots
@@ -72,6 +73,7 @@ const TABLES = {
 	recordings,
 	video_spots: videoSpots,
 	spot_links: spotLinks,
+	spot_position_links: spotPositionLinks,
 	links,
 	lesson_figures: lessonFigures,
 	lesson_exercises: lessonExercises
@@ -85,6 +87,7 @@ const ORDER: TrashTable[] = [
 	'recordings',
 	'video_spots',
 	'spot_links',
+	'spot_position_links',
 	'links',
 	'lesson_figures',
 	'lesson_exercises'
@@ -94,18 +97,19 @@ const ORDER: TrashTable[] = [
 const JOINS = new Set<TrashTable>(['lesson_figures', 'lesson_exercises']);
 
 /** The row a kind is about: its History line names it. */
-const MAIN: Record<Exclude<TrashKind, 'position-link'>, TrashTable> = {
+const MAIN: Record<TrashKind, TrashTable> = {
 	video: 'lesson_videos',
 	recording: 'recordings',
 	section: 'video_spots',
 	link: 'links',
-	'spot-link': 'spot_links'
+	'spot-link': 'spot_links',
+	'position-link': 'spot_position_links'
 };
 
 /** The History subject a restore of each kind logs, as its delete did. */
 function subjectOf(kind: TrashKind, main: Record<string, unknown> | undefined): string {
 	if (kind === 'section') return main?.endMs === null ? 'point' : 'section';
-	return kind === 'spot-link' ? 'section-link' : kind;
+	return kind === 'spot-link' || kind === 'position-link' ? 'section-link' : kind;
 }
 
 /**
@@ -250,7 +254,7 @@ export function restoreTrash(db: Db, space: TeamSpace, trashId: number, now: num
 	if (row.restoredAt !== null) return { ok: false, reason: 'restored' };
 	const kind = row.kind as TrashKind;
 	const rows = JSON.parse(row.rowsJson) as TrashRows;
-	const main = rows[MAIN[kind as Exclude<TrashKind, 'position-link'>]]?.[0];
+	const main = rows[MAIN[kind]]?.[0];
 	if (familyThere(db, rows)) return { ok: false, reason: 'family' };
 	try {
 		db.transaction((tx) => {

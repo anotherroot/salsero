@@ -5,7 +5,16 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { figures, songs, teamChanges, teamTrash, users } from './db/schema';
+import {
+	figures,
+	songs,
+	spotPositionLinks,
+	teamChanges,
+	teamTrash,
+	users,
+	videoSpots
+} from './db/schema';
+import { linkSpotToPosition, unlinkSpotFromPosition } from './position-links';
 import { restoreTrash } from './trash';
 import { actorOf, type Space } from './scope';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
@@ -28,11 +37,13 @@ import {
 	getLessonRow,
 	linkExercise,
 	linkFigure,
+	linkPosition,
 	linkRoutine,
 	publishLesson,
 	restoreLesson,
 	unlinkExercise,
 	unlinkFigure,
+	unlinkPosition,
 	unlinkRoutine,
 	updateLesson
 } from './lessons';
@@ -393,6 +404,49 @@ const MUTATIONS: {
 		verb: 'remove',
 		rootId: (w) => w.lesson,
 		run: (w) => unlinkSpot(db, w.spotLink, { exerciseId: w.drill }, 5, w.by)
+	},
+	// position-links.ts
+	{
+		name: 'linkSpotToPosition',
+		root: 'lesson',
+		verb: 'add',
+		rootId: (w) => w.lesson,
+		run: (w) => linkSpotToPosition(db, w.by, w.section, w.position, 5)
+	},
+	{
+		name: 'linkSpotToPosition (recording point)',
+		root: 'figure',
+		verb: 'add',
+		rootId: (w) => w.G,
+		prep: (w) =>
+			addSpot(db, { recordingId: w.rec }, { startMs: 1, endMs: null, label: null }, w.by),
+		run: (w) => {
+			const p = db.select().from(videoSpots).where(eq(videoSpots.recordingId, w.rec)).get()!;
+			return linkSpotToPosition(db, w.by, p.id, w.position, 5);
+		}
+	},
+	{
+		name: 'unlinkSpotFromPosition',
+		root: 'lesson',
+		verb: 'remove',
+		rootId: (w) => w.lesson,
+		prep: (w) => linkSpotToPosition(db, w.by, w.section, w.position, 5),
+		run: (w) => unlinkSpotFromPosition(db, db.select().from(spotPositionLinks).get()!.id, 5, w.by)
+	},
+	{
+		name: 'linkPosition',
+		root: 'lesson',
+		verb: 'add',
+		rootId: (w) => w.lesson,
+		run: (w) => linkPosition(db, w.lesson, w.position, w.by)
+	},
+	{
+		name: 'unlinkPosition',
+		root: 'lesson',
+		verb: 'remove',
+		rootId: (w) => w.lesson,
+		prep: (w) => linkPosition(db, w.lesson, w.position, w.by),
+		run: (w) => unlinkPosition(db, w.lesson, w.position, true, 5, w.by)
 	},
 	{
 		name: 'unlinkFromSection',

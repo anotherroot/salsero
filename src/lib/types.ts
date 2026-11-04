@@ -279,6 +279,22 @@ export interface LessonExerciseRow {
 	mineId: number | null;
 }
 
+/**
+ * A position on a lesson: linked by hand, or through a section or point of
+ * the lesson's videos (ruling 10: a point counts as "via section").
+ */
+export interface LessonPositionRow {
+	id: number;
+	name: string;
+	styleTag: string | null;
+	byHand: boolean;
+	viaSections: ViaSection[];
+	/** On a group's lesson: the person's own copy of it, which the card opens; else null. */
+	mineId: number | null;
+	/** On a person's own lesson, a group's position they may use: its group; else null. */
+	teamId: number | null;
+}
+
 /** An exercise as a picker offers it. */
 export interface PickExercise {
 	id: number;
@@ -495,11 +511,14 @@ export type LinkCreate =
 	| { kind: 'figure'; figureName: string; name: string; partner: Partner; style: string }
 	| { kind: 'drill'; name: string; everyDays: number };
 
-/** A section of a lesson's video through which a variation or drill is on that lesson. */
+/**
+ * A section of a lesson's video through which a variation or drill is on that
+ * lesson; for a position, a point too (`endMs` null).
+ */
 export interface ViaSection {
 	spotId: number;
 	startMs: number;
-	endMs: number;
+	endMs: number | null;
 	label: string | null;
 }
 
@@ -535,6 +554,9 @@ export interface LinkedSection {
 	spot: Spot;
 	video: SectionVideo;
 }
+
+/** A section or a point linked to a position: one card. */
+export type LinkedSpot = LinkedSection & { point: boolean };
 
 /** A figure version or drill in the lesson page's Link… picker; `value` is `figure:<id>` or `exercise:<id>`. */
 export interface SectionOption {
