@@ -423,3 +423,49 @@ describe('a position’s page', () => {
 		);
 	});
 });
+
+describe('the map', () => {
+	it('mapSummary: the board’s line, leaving out what is zero', () => {
+		expect(v.mapSummary({ positions: 15, between: 32, none: 10, stranded: 4 })).toBe(
+			'15 positions · 32 figures between them · 10 with none · 4 stranded'
+		);
+		expect(v.mapSummary({ positions: 1, between: 1, none: 0, stranded: 0 })).toBe(
+			'1 position · 1 figure between them'
+		);
+		expect(v.mapSummary({ positions: 3, between: 0, none: 2, stranded: 0 })).toBe(
+			'3 positions · 2 with none'
+		);
+	});
+	it('mapNodeName: what a screen reader hears for a position', () => {
+		expect(v.mapNodeName({ name: 'Cerrada', ins: 6, outs: 8, mark: null, twins: false })).toBe(
+			'Cerrada · 6 in · 8 out'
+		);
+		expect(v.mapNodeName({ name: 'Caída', ins: 2, outs: 0, mark: 'dead end', twins: true })).toBe(
+			'Caída · 2 in · 0 out · dead end · twins'
+		);
+	});
+	it('the tray’s chips', () => {
+		expect(v.noPositionChip(10)).toBe('No position · 10 figures');
+		expect(v.noPositionChip(1)).toBe('No position · 1 figure');
+		expect(v.unusedChip('Sombra')).toBe('Sombra · no figures');
+	});
+	it('mapLitLine: what a lit position says under the map', () => {
+		expect(v.mapLitLine('Cerrada')).toBe('Cerrada · tap again to open');
+	});
+	it('the fixed words', () => {
+		expect(v.MAP.title).toBe('The map');
+		expect(v.MAP.hint).toBe('Pinch to zoom, tap a position to light its figures.');
+		expect(v.MAP.legend).toEqual({
+			deadEnd: 'dead end: nothing leaves',
+			orphan: 'orphan: nothing gets there',
+			island: 'island: cut off from the rest',
+			size: 'Bigger: more figures · arrows: how many'
+		});
+		expect(v.MAP.notOnMap).toBe('Not on the map');
+		expect(v.MAP.fitsAnywhere).toBe('Figures without a position fit anywhere.');
+		expect(v.MAP.islands).toBe('Islands · cut off from the rest');
+		expect(v.MAP.twins).toBe('Twins');
+		expect(v.mapLabelFor(false)).toBe('The map of your positions');
+		expect(v.mapLabelFor(true)).toBe('The map of the group’s positions');
+	});
+});

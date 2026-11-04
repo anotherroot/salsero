@@ -444,3 +444,79 @@ export function holdsLine(starts: string[], ends: string[]): string {
 	const h = handholds(starts, ends);
 	return `${h.from} → ${h.to}`;
 }
+
+// ---- the map ----
+
+export const MAP = {
+	title: 'The map',
+	hint: 'Pinch to zoom, tap a position to light its figures.',
+	back: 'Back to Positions',
+	legend: {
+		deadEnd: 'dead end: nothing leaves',
+		orphan: 'orphan: nothing gets there',
+		island: 'island: cut off from the rest',
+		size: 'Bigger: more figures · arrows: how many'
+	},
+	notOnMap: 'Not on the map',
+	fitsAnywhere: 'Figures without a position fit anywhere.',
+	islands: 'Islands · cut off from the rest',
+	/** No positions at all. */
+	empty: 'No positions yet. Add some on Positions and tag your figures’ starts and ends.',
+	/** Positions, but no figure joins any of them. */
+	unjoined: 'Nothing joins your positions yet: tag a figure’s start and end.',
+	reset: 'Reset zoom',
+	/** Beside a position twinned with another (Same as…). */
+	twins: 'Twins'
+} as const;
+
+/** The SVG's name for a screen reader. */
+export function mapLabelFor(groupMode: boolean): string {
+	return groupMode ? 'The map of the group’s positions' : 'The map of your positions';
+}
+
+/**
+ * "15 positions · 32 figures between them · 10 with none · 4 stranded": figures
+ * between them have a start and an end, with none have neither, stranded
+ * positions are dead ends, orphans and islands. Zero parts after the first are left out.
+ */
+export function mapSummary(n: {
+	positions: number;
+	between: number;
+	none: number;
+	stranded: number;
+}): string {
+	const parts = [plural(n.positions, 'position', 'positions')];
+	if (n.between > 0) parts.push(`${plural(n.between, 'figure', 'figures')} between them`);
+	if (n.none > 0) parts.push(`${n.none} with none`);
+	if (n.stranded > 0) parts.push(`${n.stranded} stranded`);
+	return parts.join(' · ');
+}
+
+/** A position's accessible name on the map: "Cerrada · 6 in · 8 out", then its mark and twins. */
+export function mapNodeName(n: {
+	name: string;
+	ins: number;
+	outs: number;
+	mark: 'dead end' | 'orphan' | null;
+	twins: boolean;
+}): string {
+	const parts = [n.name, `${n.ins} in`, `${n.outs} out`];
+	if (n.mark) parts.push(n.mark);
+	if (n.twins) parts.push('twins');
+	return parts.join(' · ');
+}
+
+/** The tray's way into No position. */
+export function noPositionChip(n: number): string {
+	return `No position · ${plural(n, 'figure', 'figures')}`;
+}
+
+/** An unused position in the tray. */
+export function unusedChip(name: string): string {
+	return `${name} · no figures`;
+}
+
+/** Under the map while a position is lit. */
+export function mapLitLine(name: string): string {
+	return `${name} · tap again to open`;
+}
