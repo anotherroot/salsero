@@ -44,6 +44,7 @@ import { labelFor } from '../figures';
 import { restoreLesson } from '../lessons';
 import {
 	cloneTx,
+	fileKey,
 	missingBytes,
 	planClone,
 	type CloneOptions,
@@ -249,10 +250,12 @@ export function keepBytes(db: Db, userId: string, teamId: number, choice: KeepCh
  * practice from every group row copied (the items and what they brought)
  * onto its copy (the live practice wins); the person's exercises on the
  * group's songs that were not kept drop to the count; their `lesson_adds` for
- * the group's lessons go. A throw unlinks every name linked here; after the
- * write, a name no row took (a reuse found only then) is unlinked too.
- * `kept` is how many items the person now has a copy of; `skipped` names the
- * items the engine refused (no free name in the move).
+ * the group's lessons go. A file already gone from disk is skipped, logged:
+ * its recording or video stays behind, and a song without its audio is not
+ * kept. A throw unlinks every name linked here; after the write, a name no
+ * row took (a reuse found only then) is unlinked too. `kept` is how many
+ * items the person now has a copy of; `skipped` names the items not kept
+ * (the engine refused a name in the move, or a song's audio is missing).
  */
 export async function keepFromTeam(
 	db: Db,
@@ -268,20 +271,38 @@ export async function keepFromTeam(
 
 	const made: [CloneFileKind, string][] = [];
 	const linked = new Map<string, string>();
+	const lost = new Set<string>();
 	let result: { kept: number; skipped: string[] };
 	try {
 		for (const f of plan.files) {
-			const name = await files.link(f.kind, f.file);
+			let name: string;
+			try {
+				name = await files.link(f.kind, f.file);
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+				// Already gone from disk: that piece stays behind (the engine leaves
+				// a recording or video whose key is absent), never a row without a file.
+				console.warn(`[clones] keep: ${f.kind} ${f.file} missing on disk, skipped`);
+				lost.add(f.key);
+				continue;
+			}
 			made.push([f.kind, name]);
 			linked.set(f.key, name);
 		}
-		result = db.transaction((tx) => keepTx(tx, scope, items, linked, now));
+		result = db.transaction((tx) => keepTx(tx, scope, items, linked, lost, now));
 	} catch (err) {
 		await Promise.all(made.map(([kind, file]) => files.unlink(kind, file)));
 		throw err;
 	}
 	await unlinkUnused(db, files, made);
 	return result;
+}
+
+/** Whether this song's audio was planned and found missing on disk. */
+function songLost(tx: Db, songId: number, lost: Set<string>): boolean {
+	if (lost.size === 0) return false;
+	const file = tx.select({ f: songs.audioFile }).from(songs).where(eq(songs.id, songId)).get()?.f;
+	return file != null && lost.has(fileKey('audio', file));
 }
 
 /** A group row and the person's row that now stands for it. */
@@ -292,6 +313,7 @@ function keepTx(
 	scope: Scope,
 	items: Item[],
 	linked: Map<string, string>,
+	lost: Set<string>,
 	now: number
 ): { kept: number; skipped: string[] } {
 	const { wall, teamId } = scope;
@@ -301,6 +323,11 @@ function keepTx(
 	const skipped: string[] = [];
 	let kept = 0;
 	for (const item of items) {
+		if (item.kind === 'song' && songLost(tx, item.id, lost)) {
+			// Its audio is gone from disk: no copy; its picks drop to the count below.
+			skipped.push(describe(tx, item).name);
+			continue;
+		}
 		const res = cloneTx(tx, requestOf(wall, item), linked, now, { ...KEEP, made: pairs });
 		if (!res.ok) {
 			// A clone the engine refuses (no free name) is skipped, as the rescue does.

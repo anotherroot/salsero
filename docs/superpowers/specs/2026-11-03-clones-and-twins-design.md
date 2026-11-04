@@ -221,7 +221,14 @@ cleaner wall. CLAUDE.md's wall rule and `access.ts` change with it.
   question; you can delete what you don't want afterwards.
 - **The group is deleted** *(my call)*: nothing changes for members during
   the 30 days it can be restored; when the delete becomes final
-  (`purgeTeams`), every member gets Keep everything.
+  (`purgeTeams`), every member, and every former member who still has an
+  added lesson, gets Keep everything, before the group's files are
+  deleted. The person who deleted the group keeps only what their own rows
+  use, so nothing of theirs dangles. A file already missing on disk is
+  skipped (logged): its recording or video stays behind, and a class song
+  without its audio is not kept (its picks drop to the count). If a
+  member's Keep fails, the group's purge waits for the next hourly run,
+  files and all.
 - **An editor unpublishes or deletes something your own rows use**
   *(my call)*: just that thing is cloned into your app, so your routine or
   link does not break. Things you only read (not used by your own rows)

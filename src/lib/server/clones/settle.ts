@@ -8,12 +8,14 @@
  */
 import { sql } from 'drizzle-orm';
 import type { Db } from '../db';
-import { missingOk, type CloneFiles } from './files';
+import { reconcileEntries } from '../entries';
+import type { CloneFiles } from './files';
 import { keepFromTeam } from './keep';
 
 /**
  * Keep everything for every person with an add on a group's lesson, no
- * membership in that group, and the group not purged; one person and group at
+ * membership in that group, and the group not purged, then reconcile their
+ * entries (what Keep did not move goes off Today); one person and group at
  * a time. Idempotent: Keep removes their adds, so a second run finds no one.
  * A failure is logged and the others go on; that person is tried again at the
  * next boot. Returns how many were settled.
@@ -33,7 +35,9 @@ export async function settleFormerMembers(db: Db, files: CloneFiles, now: number
 	let settled = 0;
 	for (const { userId, teamId } of former) {
 		try {
-			await keepFromTeam(db, userId, teamId, { mode: 'all' }, missingOk(files), now);
+			await keepFromTeam(db, userId, teamId, { mode: 'all' }, files, now);
+			// Whatever of theirs Keep did not move goes off Today, as on leaving.
+			db.transaction((tx) => reconcileEntries(tx, teamId, now, userId));
 			settled++;
 		} catch (err) {
 			console.warn(`[clones] could not settle ${userId} in group ${teamId}`, err);

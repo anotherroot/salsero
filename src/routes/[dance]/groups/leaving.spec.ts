@@ -14,6 +14,20 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
+// The routes' files are a fake: a route spec never reaches $DATA_DIR.
+vi.mock('$lib/server/clones/files', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/clones/files')>(
+		'$lib/server/clones/files'
+	);
+	return {
+		...actual,
+		realCloneFiles: () => ({
+			link: async (_kind: string, file: string) => `copy-${file}`,
+			unlink: async () => {}
+		})
+	};
+});
+
 import { openDb, type Db } from '$lib/server/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import { exercises, lessons, sets, teamMembers, users } from '$lib/server/db/schema';
@@ -90,7 +104,10 @@ beforeEach(() => {
 	}
 });
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+	vi.useRealTimers();
+	vi.restoreAllMocks();
+});
 
 describe('a member reading a lesson of a live group', () => {
 	it('has no banner', async () => {
@@ -155,6 +172,40 @@ describe('after being removed', () => {
 		const onGroup = entryFor(db, 'u3', { drillId: drill });
 		expect(!onGroup || onGroup.archivedAt !== null).toBe(true);
 		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('when Keep fails', () => {
+	/** Every write fails: Keep's transaction throws before anything changes. */
+	function failWrites() {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		vi.spyOn(db, 'transaction').mockImplementation((() => {
+			throw new Error('disk I/O error');
+		}) as Db['transaction']);
+	}
+
+	it('leaving says so, and the leaver is still in the group', async () => {
+		failWrites();
+		const left = await run(() => groupActions.leave!(ev('u2', { id: '1' })));
+		vi.restoreAllMocks();
+		expect(left.value).toMatchObject({
+			status: 500,
+			data: { action: 'leave', message: 'Could not keep your copies. Try again.' }
+		});
+		expect(db.select().from(teamMembers).where(eq(teamMembers.userId, 'u2')).all()).toHaveLength(1);
+	});
+
+	it('removing says so, and the person is still in the group', async () => {
+		failWrites();
+		const removed = await run(() =>
+			peopleActions.remove!(ev('u1', { id: '1' }, { request: post({ userId: 'u3' }) }))
+		);
+		vi.restoreAllMocks();
+		expect(removed.value).toMatchObject({
+			status: 500,
+			data: { action: 'remove', message: 'Could not keep their copies. Try again.' }
+		});
+		expect(db.select().from(teamMembers).where(eq(teamMembers.userId, 'u3')).all()).toHaveLength(1);
 	});
 });
 

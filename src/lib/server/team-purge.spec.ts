@@ -7,7 +7,7 @@ import { existsSync, mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import {
 	exercises,
@@ -26,6 +26,7 @@ import {
 	songs,
 	spotLinks,
 	teamMembers,
+	teams,
 	teamTrash,
 	users,
 	videoDownloads,
@@ -54,6 +55,7 @@ import { lessonAccess } from './access';
 import { purgeTeams } from './team-purge';
 import { TEAM_PURGE_MS } from '$lib/limits';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
+import type { Wall } from './scope';
 import { crossRefs } from './integrity';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -167,6 +169,37 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
+/** A person's own rows: what Keep gave them. */
+const own = (userId: string) => {
+	const mine = <T extends typeof lessons | typeof figures | typeof routines>(t: T) =>
+		db
+			.select()
+			.from(t)
+			.where(and(eq(t.userId, userId), isNull(t.teamId)))
+			.all();
+	return { lessons: mine(lessons), figures: mine(figures), routines: mine(routines) };
+};
+/** The person's own routine 'Mine' with one slot of this figure; the slot's step id. */
+function routineUsing(wall: Wall, figureId: number): number {
+	const routineId = createRoutine(db, wall, { name: 'Mine', notes: null }).routine.id;
+	const step = db.insert(routineSteps).values({ routineId, position: 0 }).returning().get().id;
+	db.insert(routineStepOptions).values({ stepId: step, figureId }).run();
+	return step;
+}
+const optionOf = (stepId: number) =>
+	db
+		.select({ f: routineStepOptions.figureId })
+		.from(routineStepOptions)
+		.where(eq(routineStepOptions.stepId, stepId))
+		.get()!.f;
+/** An entry by hand on a group routine. */
+const practise = (userId: string, routineId: number) =>
+	db
+		.insert(exercises)
+		.values({ name: 'Show', source: 'routine', routineId, dance: 'salsa', userId })
+		.returning()
+		.get().id;
+
 describe('purgeTeams', () => {
 	it('leaves a group alone until 30 days have passed, and a live one always', async () => {
 		expect(await purgeTeams(db, T + 40 * DAY, dirs)).toBe(0);
@@ -261,15 +294,11 @@ describe('purgeTeams', () => {
 		expect(lessonAccess(db, 'u1', lesson)).toBeNull();
 	});
 
-	it('every member, the owner too, keeps everything first: the copies’ files stay', async () => {
-		// The owner's own routine has a slot of the group's figure.
-		const ownersRoutine = createRoutine(db, U1_SALSA, { name: 'Mine', notes: null }).routine.id;
-		const step = db
-			.insert(routineSteps)
-			.values({ routineId: ownersRoutine, position: 0 })
-			.returning()
-			.get().id;
-		db.insert(routineStepOptions).values({ stepId: step, figureId: w.figure }).run();
+	it('every member keeps everything first, the deleter only what their rows use: the copies’ files stay', async () => {
+		// The owner, who deletes the group: their routine uses the group's
+		// figure, and they practise the group's routine.
+		const step = routineUsing(U1_SALSA, w.figure);
+		const ownersEntry = practise('u1', w.routine);
 		deleteTeam(db, 1, 'u1', T);
 		const now = T + 31 * DAY;
 		expect(await purgeTeams(db, now, dirs)).toBe(1);
@@ -277,19 +306,7 @@ describe('purgeTeams', () => {
 		// The group's own names are gone.
 		for (const f of [VIDEO, REC, TRASHED]) expect(existsSync(join(dir, f))).toBe(false);
 
-		// u2's copies: the lesson with its video, the figure with its recording.
-		const own = (userId: string) => ({
-			lessons: db
-				.select()
-				.from(lessons)
-				.where(and(eq(lessons.userId, userId), isNull(lessons.teamId)))
-				.all(),
-			figures: db
-				.select()
-				.from(figures)
-				.where(and(eq(figures.userId, userId), isNull(figures.teamId)))
-				.all()
-		});
+		// u2 keeps everything: the lesson with its video, the figure with its recording.
 		const u2 = own('u2');
 		expect(u2.lessons.map((l) => l.title)).toEqual(['Tue 3 Nov']);
 		expect(u2.lessons[0].archivedAt).toBeNull();
@@ -316,9 +333,11 @@ describe('purgeTeams', () => {
 		expect(practice).toHaveLength(1);
 		expect(practice[0].userId).toBe('u2');
 
-		// The owner keeps what their routine uses, with its own recording file.
+		// The deleter keeps only what their routine uses, with its own recording
+		// file: not the routine they only practised, whose entry goes.
 		const u1 = own('u1');
 		expect(u1.figures).toHaveLength(1);
+		expect(u1.routines.map((r) => r.name)).toEqual(['Mine']);
 		const ownersRec = db
 			.select()
 			.from(recordings)
@@ -326,13 +345,59 @@ describe('purgeTeams', () => {
 			.get()!;
 		expect(ownersRec.file).not.toBe(rec.file);
 		expect(existsSync(join(dir, ownersRec.file))).toBe(true);
+		expect(optionOf(step)).toBe(u1.figures[0].id);
+		expect(archivedAt(ownersEntry)).toBe(now);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('when the owner is not the deleter, the owner keeps everything and the deleter what they use', async () => {
+		const step = routineUsing(U2_SALSA, w.figure);
+		practise('u1', w.routine);
+		deleteTeam(db, 1, 'u1', T);
+		// deleteTeam lets only the owner delete; here the delete is u2's.
+		db.update(teams).set({ deletedBy: 'u2' }).where(eq(teams.id, 1)).run();
+		const now = T + 31 * DAY;
+		expect(await purgeTeams(db, now, dirs)).toBe(1);
+
+		// u2, the deleter: only the figure their routine uses, not the lesson they added.
+		const u2 = own('u2');
+		expect(u2.figures).toHaveLength(1);
+		expect(u2.lessons).toEqual([]);
+		expect(optionOf(step)).toBe(u2.figures[0].id);
+		expect(archivedAt(w.entries.lesson)).toBe(now);
+		// u1, the owner: everything they had, the routine they practise.
+		const u1 = own('u1');
+		expect(u1.routines.map((r) => r.name)).toEqual(['Show']);
 		expect(
 			db
-				.select({ f: routineStepOptions.figureId })
-				.from(routineStepOptions)
-				.where(eq(routineStepOptions.stepId, step))
-				.get()!.f
-		).toBe(u1.figures[0].id);
+				.select()
+				.from(exercises)
+				.where(
+					and(
+						eq(exercises.userId, 'u1'),
+						eq(exercises.routineId, u1.routines[0].id),
+						isNull(exercises.archivedAt)
+					)
+				)
+				.all()
+		).toHaveLength(1);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('someone who left before Keep, with an added lesson, keeps everything too', async () => {
+		db.delete(teamMembers)
+			.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
+			.run();
+		deleteTeam(db, 1, 'u1', T);
+		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(1);
+		const u2 = own('u2');
+		expect(u2.lessons.map((l) => l.title)).toEqual(['Tue 3 Nov']);
+		const video = db
+			.select()
+			.from(lessonVideos)
+			.where(eq(lessonVideos.lessonId, u2.lessons[0].id))
+			.get()!;
+		expect(existsSync(join(dir, video.file))).toBe(true);
 		expect(crossRefs(db)).toEqual([]);
 	});
 
@@ -346,26 +411,61 @@ describe('purgeTeams', () => {
 		expect(tables.map((t) => db.select().from(t).all())).toEqual(before);
 	});
 
-	it('goes on past a file that is already gone, quietly', async () => {
+	it('goes on past a file that is already gone: Keep skips it, logged, and nothing else complains', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		unlinkSync(join(dir, VIDEO));
 		deleteTeam(db, 1, 'u1', T);
 		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(1);
 		expect(existsSync(join(dir, REC))).toBe(false);
-		expect(warn).not.toHaveBeenCalled();
-		// u2 still keeps the lesson; its video's file was already gone, as the group's was.
-		const [copy] = db
+		expect(warn.mock.calls).toEqual([
+			[`[clones] keep: lesson-video ${VIDEO} missing on disk, skipped`]
+		]);
+		// u2 still keeps the lesson, without the video whose file was gone.
+		const u2 = own('u2');
+		expect(u2.lessons).toHaveLength(1);
+		expect(
+			db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, u2.lessons[0].id)).all()
+		).toEqual([]);
+		const rec = db
 			.select()
-			.from(lessons)
-			.where(and(eq(lessons.userId, 'u2'), isNull(lessons.teamId)))
-			.all();
-		const video = db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, copy.id)).get()!;
-		expect(video.file).not.toBe(VIDEO);
-		expect(existsSync(join(dir, video.file))).toBe(false);
+			.from(recordings)
+			.where(eq(recordings.figureId, u2.figures[0].id))
+			.get()!;
+		expect(existsSync(join(dir, rec.file))).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
 	});
 
-	it('deletes an earlier group’s files when a later group’s purge throws, and goes on', async () => {
+	it('a class song whose audio is already gone is not kept: its picks drop to the count', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const AUDIO = '6b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp3'; // never written
+		const song = createSongFromUpload(db, T1_SALSA, {
+			file: AUDIO,
+			mime: 'audio/mpeg',
+			title: 'Chan Chan',
+			style: 'salsa',
+			sizeBytes: 5
+		}).id;
+		db.update(songs).set({ status: 'ready', sharedAt: T }).where(eq(songs.id, song)).run();
+		db.update(exercises).set({ songId: song }).where(eq(exercises.id, w.entries.drill)).run();
+		deleteTeam(db, 1, 'u1', T);
+		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(1);
+
+		expect(warn).toHaveBeenCalledWith(`[clones] keep: audio ${AUDIO} missing on disk, skipped`);
+		expect(db.select().from(songs).all()).toEqual([]);
+		expect(
+			db
+				.select()
+				.from(exercises)
+				.where(and(eq(exercises.userId, 'u2'), isNotNull(exercises.songId)))
+				.all()
+		).toEqual([]);
+		// The rest is kept as ever.
+		expect(own('u2').lessons).toHaveLength(1);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('deletes an earlier group’s files when a later group’s Keep throws, and goes on', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 		createTeam(db, 'u1', 'salsa', 'Other', 1);
 		deleteTeam(db, 1, 'u1', T);
 		deleteTeam(db, 2, 'u1', T);
@@ -379,11 +479,14 @@ describe('purgeTeams', () => {
 		expect(getTeam(db, 1)!.purgedAt).toBe(T + 31 * DAY);
 		for (const f of [VIDEO, REC, TRASHED]) expect(existsSync(join(dir, f))).toBe(false);
 		expect(getTeam(db, 2)!.purgedAt).toBeNull();
-		expect(warn).toHaveBeenCalledWith('[team-purge] could not purge group 2', expect.any(Error));
+		expect(error).toHaveBeenCalledWith(
+			'[team-purge] Keep failed for u1 in group 2; group kept for the next run',
+			expect.any(Error)
+		);
 	});
 
-	it('a member’s Keep that fails leaves the group, files and all, for the next run', async () => {
-		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	it('a member’s Keep that fails is an error, and leaves the group, files and all, for the next run', async () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 		deleteTeam(db, 1, 'u1', T);
 		const real = db.transaction.bind(db);
 		let calls = 0;
@@ -395,16 +498,13 @@ describe('purgeTeams', () => {
 		expect(await purgeTeams(db, T + 31 * DAY, dirs)).toBe(0);
 		expect(getTeam(db, 1)!.purgedAt).toBeNull();
 		for (const f of [VIDEO, REC]) expect(existsSync(join(dir, f))).toBe(true);
-		expect(warn).toHaveBeenCalledWith('[team-purge] could not purge group 1', expect.any(Error));
+		expect(error).toHaveBeenCalledWith(
+			'[team-purge] Keep failed for u2 in group 1; group kept for the next run',
+			expect.any(Error)
+		);
 		vi.restoreAllMocks();
 		expect(await purgeTeams(db, T + 32 * DAY, dirs)).toBe(1);
-		expect(
-			db
-				.select()
-				.from(lessons)
-				.where(and(eq(lessons.userId, 'u2'), isNull(lessons.teamId)))
-				.all()
-		).toHaveLength(1);
+		expect(own('u2').lessons).toHaveLength(1);
 	});
 
 	it('leaves a group restored after it was listed, before its claim', async () => {

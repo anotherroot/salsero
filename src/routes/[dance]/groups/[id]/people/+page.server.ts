@@ -52,7 +52,14 @@ export const actions: Actions = {
 
 	remove: async (event) => {
 		const { db, team, userId } = await target(event);
-		if (!(await removeMember(db, team.id, userId, realCloneFiles(), Date.now()))) {
+		let removed: boolean;
+		try {
+			removed = await removeMember(db, team.id, userId, realCloneFiles(), Date.now());
+		} catch (err) {
+			console.error(`[groups] removing ${userId} from group ${team.id} failed`, err);
+			return fail(500, { action: 'remove', message: 'Could not keep their copies. Try again.' });
+		}
+		if (!removed) {
 			return fail(400, { message: 'The owner cannot be removed. Hand the group over first.' });
 		}
 		return { ok: true };

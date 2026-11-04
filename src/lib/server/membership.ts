@@ -19,7 +19,7 @@ import type { Db } from './db';
 import { teamMembers } from './db/schema';
 import { reconcileEntries } from './entries';
 import { roleOf } from './teams';
-import { missingOk, type CloneFiles } from './clones/files';
+import type { CloneFiles } from './clones/files';
 import { keepFromTeam } from './clones/keep';
 
 /** Changes a non-owner member between editor and member. The caller has checked the owner. */
@@ -98,7 +98,7 @@ export async function removeMember(
 ): Promise<boolean> {
 	const role = memberRole(db, teamId, userId);
 	if (role === null || role === 'owner') return false;
-	await keepFromTeam(db, userId, teamId, { mode: 'all' }, missingOk(files), now);
+	await keepFromTeam(db, userId, teamId, { mode: 'all' }, files, now);
 	return dropMember(db, teamId, userId, now);
 }
 
@@ -117,7 +117,7 @@ export async function leaveTeam(
 ): Promise<'left' | 'owner'> {
 	if (roleOf(db, userId, teamId) === 'owner') return 'owner';
 	if (memberRole(db, teamId, userId) === null) return 'left';
-	await keepFromTeam(db, userId, teamId, choice, missingOk(files), now);
+	await keepFromTeam(db, userId, teamId, choice, files, now);
 	dropMember(db, teamId, userId, now);
 	return 'left';
 }

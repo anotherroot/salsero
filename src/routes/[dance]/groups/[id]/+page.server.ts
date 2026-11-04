@@ -115,14 +115,20 @@ export const actions: Actions = {
 		const { team, space } = requireTeam(db, locals, params, 'member');
 		if (team.deletedAt !== null) throw error(404, 'No such group');
 		// Keep everything, until the leave sheet offers the choice.
-		const left = await leaveTeam(
-			db,
-			team.id,
-			space.actorId,
-			{ mode: 'all' },
-			realCloneFiles(),
-			Date.now()
-		);
+		let left: 'left' | 'owner';
+		try {
+			left = await leaveTeam(
+				db,
+				team.id,
+				space.actorId,
+				{ mode: 'all' },
+				realCloneFiles(),
+				Date.now()
+			);
+		} catch (err) {
+			console.error(`[groups] leaving group ${team.id} failed for ${space.actorId}`, err);
+			return fail(500, { action: 'leave', message: 'Could not keep your copies. Try again.' });
+		}
 		if (left === 'owner') {
 			return fail(400, { action: 'leave', message: 'Hand the group over before you leave it.' });
 		}
