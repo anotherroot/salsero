@@ -294,14 +294,16 @@ export const recordings = sqliteTable(
  * vocabulary is the opposite — it grows the week a new hold is learned and it
  * differs between schools. Seeded at boot per dance, idempotently.
  *
- * `neutral` is the position an UNTAGGED figure is assumed to start and end at,
- * which is why it is a column and not a constant: salsa's neutral is open with
- * two hands, bachata's is closed. "Exactly one per dance" is cross-row and so
- * cannot be a CHECK — `positions.ts` enforces it.
+ * Positions are owned like figures: `user_id` or `team_id`, exactly one set
+ * (`ownerIntegrity` checks), a `gene_id` and `cloned_from` for the clone
+ * families. `neutral`, `slug` and `sort_order` are VESTIGIAL: read by nothing
+ * after the positions rewrite, and not dropped, because a rebuild of this table
+ * is impossible for the reasons on `figures.style`. So is
+ * `figures.end_position_id`, replaced by `figure_end_positions`. New rows get
+ * `slug = 'p-' + uuid`; slugs are no longer unique.
  *
- * No CHECK constraints at all here, deliberately: this table gains a foreign
- * key from `figures.end_position_id`, so a future drizzle-kit rebuild would
- * fail twice over. See the `figures.style` note above.
+ * No CHECK constraints, ever: this table has incoming foreign keys, so a
+ * drizzle-kit rebuild would fail twice over. See the `figures.style` note above.
  */
 export const positions = sqliteTable(
 	'positions',
@@ -317,9 +319,34 @@ export const positions = sqliteTable(
 		neutral: integer('neutral', { mode: 'boolean' }).notNull().default(false),
 		sortOrder: integer('sort_order').notNull().default(0),
 		archivedAt: integer('archived_at'),
-		createdAt: createdAt()
+		createdAt: createdAt(),
+		userId: text('user_id'),
+		teamId: integer('team_id'),
+		geneId: text('gene_id'),
+		clonedFrom: integer('cloned_from'),
+		/** The figure type (a dance's style tag), or null. */
+		styleTag: text('style_tag'),
+		/** The hold: 'two' | 'one' | 'none', or null for unknown. */
+		hands: text('hands'),
+		crossed: integer('crossed', { mode: 'boolean' }),
+		/** 'face' | 'side' | 'shadow' | 'back', or null. */
+		facing: text('facing'),
+		/** 'open' | 'closed', or null. */
+		frame: text('frame'),
+		notes: text('notes'),
+		/** A point (video_spots.id) that pictures it. No foreign key: a spot is hard-deleted and the delete clears this. */
+		pictureSpotId: integer('picture_spot_id')
 	},
-	(t) => [uniqueIndex('positions_dance_slug_idx').on(t.dance, t.slug)]
+	(t) => [
+		index('positions_user_idx').on(t.userId, t.dance),
+		index('positions_team_idx').on(t.teamId, t.dance),
+		uniqueIndex('positions_gene_user_idx')
+			.on(t.geneId, t.userId)
+			.where(sql`${t.geneId} is not null`),
+		uniqueIndex('positions_gene_team_idx')
+			.on(t.geneId, t.teamId)
+			.where(sql`${t.geneId} is not null`)
+	]
 );
 
 /**
@@ -350,7 +377,63 @@ export const figureStartPositions = sqliteTable(
 	]
 );
 
+/** The handholds a figure can END at. Many, like the starts. */
+export const figureEndPositions = sqliteTable(
+	'figure_end_positions',
+	{
+		figureId: integer('figure_id')
+			.notNull()
+			.references(() => figures.id),
+		positionId: integer('position_id')
+			.notNull()
+			.references(() => positions.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.figureId, t.positionId] }),
+		index('figure_end_positions_position_idx').on(t.positionId)
+	]
+);
+
+/** A section or point of a video linked to a position. */
+export const spotPositionLinks = sqliteTable(
+	'spot_position_links',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		spotId: integer('spot_id')
+			.notNull()
+			.references(() => videoSpots.id),
+		positionId: integer('position_id')
+			.notNull()
+			.references(() => positions.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		uniqueIndex('spot_position_links_unique_idx').on(t.spotId, t.positionId),
+		index('spot_position_links_position_idx').on(t.positionId)
+	]
+);
+
+/** Positions taught in a lesson, by hand: the `lesson_figures` shape. */
+export const lessonPositions = sqliteTable(
+	'lesson_positions',
+	{
+		lessonId: integer('lesson_id')
+			.notNull()
+			.references(() => lessons.id),
+		positionId: integer('position_id')
+			.notNull()
+			.references(() => positions.id),
+		createdAt: createdAt()
+	},
+	(t) => [
+		primaryKey({ columns: [t.lessonId, t.positionId] }),
+		index('lesson_positions_position_idx').on(t.positionId)
+	]
+);
+
 export type Position = typeof positions.$inferSelect;
+export type PositionRow = Position;
 
 /* ── Routines ───────────────────────────────────────────────────────────── */
 

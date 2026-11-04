@@ -1006,3 +1006,33 @@ export interface Hold {
 	facing: Facing | null;
 	frame: Frame | null;
 }
+
+/** A position as lists, pickers and pages see it. */
+export interface PositionSummary {
+	id: number;
+	name: string;
+	styleTag: string | null;
+	hold: Hold;
+	teamId: number | null; // null: the viewer's own (or the group's own in group mode)
+	archived: boolean;
+}
+
+/** One row of the Positions list. */
+export interface PositionListRow extends PositionSummary {
+	inCount: number;
+	outCount: number;
+	deadEnd: boolean;
+	orphan: boolean;
+	island: boolean;
+	unused: boolean;
+	from: string | null; // a group's: the lesson it came from ("from Week 6")
+	twins: boolean;
+}
+
+export interface PositionInput {
+	name: string;
+	styleTag: string | null;
+	hold: Hold;
+	notes: string | null;
+	pictureSpotId: number | null;
+}

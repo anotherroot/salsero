@@ -234,3 +234,36 @@ it('keeps live figure names unique per dance and base variation names unique per
 	).map((r) => r.name);
 	expect(inGroup).toEqual(['Basic (5)', 'Basic', 'original ']);
 });
+
+it('has owned positions, many ends and the position links (0028)', () => {
+	const db = openDb(':memory:');
+	const r = raw(db);
+	r.prepare(
+		`insert into positions (dance, slug, name, user_id, team_id, gene_id, style_tag, hands, crossed, facing, frame, notes, picture_spot_id, created_at)
+		 values ('salsa', 'p-1', 'Open', 'u1', null, 'g1', 'son', 'two', 1, 'face', 'open', 'n', null, 1)`
+	).run();
+	// two positions of one dance may share a slug
+	r.prepare(
+		`insert into positions (dance, slug, name, created_at) values ('salsa', 'p-1', 'Closed', 1)`
+	).run();
+	for (const t of ['figure_end_positions', 'spot_position_links', 'lesson_positions']) {
+		expect(
+			r.prepare(`select name from sqlite_master where type='table' and name=?`).get(t),
+			t
+		).toBeTruthy();
+	}
+	r.prepare(
+		`insert into lessons (id, lesson_day, title, dance, created_at) values (1, '2026-01-01', 'L', 'salsa', 1)`
+	).run();
+	r.prepare(
+		`insert into lesson_videos (id, lesson_id, file, mime, size_bytes, created_at) values (1, 1, 'f', 'video/mp4', 1, 1)`
+	).run();
+	r.prepare(
+		`insert into video_spots (id, lesson_video_id, start_ms, created_at) values (1, 1, 0, 1)`
+	).run();
+	r.prepare(
+		`insert into spot_position_links (spot_id, position_id, created_at) values (1, 1, 1)`
+	).run();
+	expect(() => r.prepare(`delete from video_spots where id = 1`).run()).toThrow(/FOREIGN KEY/i);
+	raw(db).close();
+});
