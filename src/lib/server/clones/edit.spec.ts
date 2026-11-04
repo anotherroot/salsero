@@ -5,7 +5,7 @@
  * (`NO_FILES`); the database is in memory.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
 import {
 	exercises,
@@ -21,7 +21,7 @@ import {
 	users
 } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
-import { setRole } from '../membership';
+import { leaveTeam, setRole } from '../membership';
 import { archiveVariation, createFigure } from '../figures';
 import { archiveRoutine, createRoutine } from '../routines';
 import {
@@ -34,7 +34,7 @@ import {
 	publishLesson
 } from '../lessons';
 import { archiveExercise, createCustomExercise } from '../exercises';
-import { addLesson } from '../entries';
+import { addLesson, addOffer, newInLesson } from '../entries';
 import { archiveSong, createSongFromUpload, storeAnalysis } from '../songs';
 import { shareSong } from '../song-share';
 import { crossRefs } from '../integrity';
@@ -448,5 +448,107 @@ describe('makeMine: a lesson', () => {
 			id: first.id
 		});
 		expect(db.select().from(lessons).where(eq(lessons.id, first.id)).get()!.archivedAt).toBeNull();
+	});
+});
+
+/**
+ * Add after Make it mine: a later lesson holding the group's row must not put
+ * a second practice of the family on Today. The lesson page's card already
+ * opens the person's copy; the Add sheet leaves the group's row out, and Add
+ * ignores it even if it is posted.
+ */
+describe('Add after Make it mine', () => {
+	const ALL = (routineIds: number[], drillIds: number[], figureIds: number[]) => ({
+		lesson: true,
+		routineIds,
+		drillIds,
+		figureIds
+	});
+	const live = (col: 'figureId' | 'routineId' | 'drillId', ids: number[]) =>
+		db
+			.select()
+			.from(exercises)
+			.where(
+				and(eq(exercises.userId, 'u2'), inArray(exercises[col], ids), isNull(exercises.archivedAt))
+			)
+			.all();
+	const offered = (lessonId: number) =>
+		addOffer(db, 'u2', lessonId)!.items.map((i) => `${i.kind}:${i.id}`);
+
+	// Catches: Week 2's Add sheet offering R ticked, and Add making a second practice on Today.
+	it('a routine: Week 2 does not offer R, and Add leaves one practice, on R′', async () => {
+		const R = routine(T1_SALSA, 'Class routine');
+		slot(R, 1, [figure(T1_SALSA, 'Enchufla')]);
+		const W1 = published('Week 1', (id) => linkRoutine(db, id, R, 'u1'));
+		expect(addLesson(db, 'u2', W1, { ...NONE, routineIds: [R] }, T)).toBe(true);
+		const res = (await mine('routine', R)) as { ok: true; id: number };
+		expect(res.ok).toBe(true);
+		const W2 = published('Week 2', (id) => linkRoutine(db, id, R, 'u1'));
+
+		expect(offered(W2)).not.toContain(`routine:${R}`);
+		expect(offered(W2)).toContain(`lesson:${W2}`);
+		expect(addLesson(db, 'u2', W2, ALL([R], [], []), NOW + 10)).toBe(true);
+		const practice = live('routineId', [R, res.id]);
+		expect(practice.map((e) => e.routineId)).toEqual([res.id]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	// Catches: "new in this lesson" nagging about a routine the person practises as their own.
+	it('a routine linked into an added lesson later is not new', async () => {
+		const R = routine(T1_SALSA, 'Class routine');
+		const W1 = published('Week 1', (id) => linkRoutine(db, id, R, 'u1'));
+		expect(addLesson(db, 'u2', W1, { ...NONE, routineIds: [R] }, T)).toBe(true);
+		await mine('routine', R);
+		const W2 = published('Week 2');
+		expect(addLesson(db, 'u2', W2, NONE, 10)).toBe(true);
+		expect(linkRoutine(db, W2, R, 'u1')).toBe(true);
+		expect(newInLesson(db, 'u2', W2)).toEqual([]);
+	});
+
+	it('a drill: Week 2 does not offer D, and Add brings back no entry on it', async () => {
+		const D = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const W1 = published('Week 1', (id) => linkExercise(db, id, D, 'u1'));
+		expect(addLesson(db, 'u2', W1, { ...NONE, drillIds: [D] }, T)).toBe(true);
+		const res = (await mine('drill', D)) as { ok: true; id: number };
+		const W2 = published('Week 2', (id) => linkExercise(db, id, D, 'u1'));
+
+		expect(offered(W2)).not.toContain(`drill:${D}`);
+		expect(addLesson(db, 'u2', W2, ALL([], [D], []), NOW + 10)).toBe(true);
+		expect(live('drillId', [D])).toEqual([]);
+		expect(exerciseRow(res.id).archivedAt).toBeNull();
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a figure: Week 2 does not list F, and a posted F makes no entry on it', async () => {
+		const F = figure(T1_SALSA, 'Setenta');
+		const W1 = published('Week 1', (id) => linkFigure(db, id, F, 'u1'));
+		expect(addLesson(db, 'u2', W1, { ...NONE, figureIds: [F] }, T)).toBe(true);
+		const res = (await mine('figure', F)) as { ok: true; id: number };
+		const W2 = published('Week 2', (id) => linkFigure(db, id, F, 'u1'));
+
+		expect(offered(W2)).not.toContain(`figure:${F}`);
+		expect(addLesson(db, 'u2', W2, ALL([], [], [F]), NOW + 10)).toBe(true);
+		expect(live('figureId', [F, res.id]).map((e) => e.figureId)).toEqual([res.id]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	// Catches: the same double after Keep everything, leaving, and coming back.
+	it('after Keep and rejoining: a later lesson holding R adds no second practice', async () => {
+		const R = routine(T1_SALSA, 'Class routine');
+		const W1 = published('Week 1', (id) => linkRoutine(db, id, R, 'u1'));
+		expect(addLesson(db, 'u2', W1, { ...NONE, routineIds: [R] }, T)).toBe(true);
+		expect(await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, NOW)).toBe('left');
+		expect(joinTeam(db, 'u2', 1, NOW + 1)).toBe('joined');
+		const kept = db
+			.select()
+			.from(routines)
+			.where(and(eq(routines.userId, 'u2'), eq(routines.clonedFrom, R)))
+			.get()!;
+		const W2 = published('Week 2', (id) => linkRoutine(db, id, R, 'u1'));
+
+		expect(offered(W2)).not.toContain(`routine:${R}`);
+		expect(addLesson(db, 'u2', W2, ALL([R], [], []), NOW + 10)).toBe(true);
+		expect(live('routineId', [R, kept.id]).map((e) => e.routineId)).toEqual([kept.id]);
+		expect(crossRefs(db)).toEqual([]);
 	});
 });

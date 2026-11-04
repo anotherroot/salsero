@@ -36,7 +36,8 @@ import {
 } from './access';
 import { addFigureExercise, figureLabels } from './figures';
 import { reviewName } from './lessons';
-import type { TeamSpace } from './scope';
+import type { TeamSpace, Wall } from './scope';
+import { shadowedIds } from './clones/shadow';
 import { rescueUsed } from './clones/rescue';
 import type { AddItem, AddOffer, AddPicks, AddState } from '$lib/types';
 
@@ -139,6 +140,34 @@ function heldBy(db: Db, lessonId: number, reach: Reach) {
 	return { routineAt, drillAt, figureAt };
 }
 
+/**
+ * Of what a lesson holds, what the person practises as their own copy: the
+ * routines, drills and figures with a live member of theirs in the family
+ * (`shadowedIds`). The lesson page's cards open that copy, so Add neither
+ * offers nor makes an entry on the group's row: it would be a second
+ * practice of the same thing on Today (after Make it mine, or Keep and
+ * rejoining).
+ */
+function practisedAsMine(
+	db: Db,
+	userId: string,
+	lesson: Lesson,
+	ids: { routines: Iterable<number>; drills: Iterable<number>; figures: Iterable<number> }
+) {
+	const wall: Wall = { userId, dance: lesson.dance as Wall['dance'] };
+	return {
+		routines: shadowedIds(db, wall, 'routine', [...ids.routines]),
+		drills: shadowedIds(db, wall, 'drill', [...ids.drills]),
+		figures: shadowedIds(db, wall, 'figure', [...ids.figures])
+	};
+}
+
+const heldIds = (held: ReturnType<typeof heldBy>) => ({
+	routines: held.routineAt.keys(),
+	drills: held.drillAt.keys(),
+	figures: held.figureAt.keys()
+});
+
 const byName = (a: AddItem, b: AddItem) => a.name.localeCompare(b.name) || a.id - b.id;
 
 function routineItems(db: Db, ids: number[]): AddItem[] {
@@ -180,11 +209,14 @@ export function addOffer(db: Db, userId: string, lessonId: number): AddOffer | n
 		actorId: userId
 	};
 	const labels = figureLabels(db, space);
+	const mine = practisedAsMine(db, userId, lesson, heldIds(held));
+	const not = (own: Set<number>) => (id: number) => !own.has(id);
 	const figureItems: AddItem[] = [...held.figureAt.keys()]
+		.filter(not(mine.figures))
 		.map((id) => ({ kind: 'figure' as const, id, name: labels.get(id) ?? '', ticked: false }))
 		.sort(byName);
-	const routineRows = routineItems(db, [...held.routineAt.keys()]);
-	const drillRows = drillItems(db, [...held.drillAt.keys()]);
+	const routineRows = routineItems(db, [...held.routineAt.keys()].filter(not(mine.routines)));
+	const drillRows = drillItems(db, [...held.drillAt.keys()].filter(not(mine.drills)));
 
 	const videoIds = db
 		.select({ id: lessonVideos.id })
@@ -204,9 +236,9 @@ export function addOffer(db: Db, userId: string, lessonId: number): AddOffer | n
 		counts: {
 			videos: videoIds.length,
 			sections,
-			figures: figureItems.length,
-			routines: routineRows.length,
-			drills: drillRows.length
+			figures: held.figureAt.size,
+			routines: held.routineAt.size,
+			drills: held.drillAt.size
 		},
 		items: [
 			{ kind: 'lesson', id: lesson.id, name: lesson.title, ticked: true },
@@ -247,7 +279,8 @@ function ensureEntry(db: Db, userId: string, target: EntryTarget, values: EntryV
  * songs are personal (risk 8). Entries never copy notes.
  *
  * False, with nothing written, unless the lesson is a published group lesson
- * the person reads. Picks outside the lesson's reach are ignored (risk 21).
+ * the person reads. Picks outside the lesson's reach are ignored (risk 21),
+ * and so are those the person practises as their own copy (`practisedAsMine`).
  * Running it again with the same picks changes nothing.
  *
  * `touch: false` (Add on a drill's page, one pick from a lesson already
@@ -266,6 +299,12 @@ export function addLesson(
 		const lesson = addableLesson(tx, userId, lessonId);
 		if (!lesson) return false;
 		const reach = reachFrom(tx, lesson.teamId!, [lesson.id]);
+		// What the person practises as their own copy is skipped even when posted.
+		const mine = practisedAsMine(tx, userId, lesson, {
+			routines: picks.routineIds,
+			drills: picks.drillIds,
+			figures: picks.figureIds
+		});
 		const add = tx.insert(lessonAdds).values({ userId, lessonId, addedAt: now, seenAt: now });
 		if (touch) {
 			add
@@ -292,7 +331,7 @@ export function addLesson(
 			);
 		}
 		for (const id of new Set(picks.routineIds)) {
-			if (!reach.routines.has(id)) continue;
+			if (!reach.routines.has(id) || mine.routines.has(id)) continue;
 			const routine = tx.select().from(routines).where(eq(routines.id, id)).get()!;
 			ensureEntry(
 				tx,
@@ -307,7 +346,7 @@ export function addLesson(
 			);
 		}
 		for (const id of new Set(picks.drillIds)) {
-			if (!reach.drills.has(id)) continue;
+			if (!reach.drills.has(id) || mine.drills.has(id)) continue;
 			const drill = tx.select().from(exercises).where(eq(exercises.id, id)).get()!;
 			ensureEntry(
 				tx,
@@ -326,7 +365,7 @@ export function addLesson(
 			);
 		}
 		for (const id of new Set(picks.figureIds)) {
-			if (reach.variations.has(id)) addFigureExercise(tx, userId, id);
+			if (reach.variations.has(id) && !mine.figures.has(id)) addFigureExercise(tx, userId, id);
 		}
 		return true;
 	});
@@ -379,9 +418,9 @@ function liveAdd(db: Db, userId: string, lessonId: number): { seenAt: number } |
 
 /**
  * What came into a lesson after the person last saw it (`seen_at`) that they
- * do not practise: its routines and drills, never its figures (those are
- * opt-in from Moves). Empty for a lesson they have not added (`liveAdd`) or
- * can no longer add.
+ * do not practise, as an entry or as their own copy (`practisedAsMine`): its
+ * routines and drills, never its figures (those are opt-in from Moves).
+ * Empty for a lesson they have not added (`liveAdd`) or can no longer add.
  */
 export function newInLesson(db: Db, userId: string, lessonId: number): AddItem[] {
 	const add = liveAdd(db, userId, lessonId);
@@ -389,18 +428,19 @@ export function newInLesson(db: Db, userId: string, lessonId: number): AddItem[]
 	const lesson = addableLesson(db, userId, lessonId);
 	if (!lesson) return [];
 	const held = heldBy(db, lesson.id, reachFrom(db, lesson.teamId!, [lesson.id]));
-	const fresh = (map: Map<number, number>, target: (id: number) => EntryTarget) =>
+	const mine = practisedAsMine(db, userId, lesson, heldIds(held));
+	const fresh = (map: Map<number, number>, own: Set<number>, target: (id: number) => EntryTarget) =>
 		[...map]
-			.filter(([id, at]) => at > add.seenAt && !liveEntry(db, userId, target(id)))
+			.filter(([id, at]) => at > add.seenAt && !own.has(id) && !liveEntry(db, userId, target(id)))
 			.map(([id]) => id);
 	return [
 		...routineItems(
 			db,
-			fresh(held.routineAt, (routineId) => ({ routineId }))
+			fresh(held.routineAt, mine.routines, (routineId) => ({ routineId }))
 		),
 		...drillItems(
 			db,
-			fresh(held.drillAt, (drillId) => ({ drillId }))
+			fresh(held.drillAt, mine.drills, (drillId) => ({ drillId }))
 		)
 	];
 }
