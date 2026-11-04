@@ -32,15 +32,21 @@ export function focusWasLost(): boolean {
 	return !a || a === document.body || !a.isConnected;
 }
 
-/** After a row is removed: if focus was lost, focus the next row's key, else the one before, else `fallback`. */
+/**
+ * After a row is removed: if focus was lost, focus the next row's key, else the
+ * one before, else `fallback`. Several fallbacks are tried in order, the first
+ * one on the page taking it.
+ */
 export async function focusAfterRemoval(
 	keys: readonly string[],
 	gone: string,
-	fallback: string
+	fallback: string | readonly string[]
 ): Promise<void> {
 	await tick();
 	if (!focusWasLost()) return;
-	if (!focusKeyed(nextFocusKey(keys, gone, fallback))) focusKeyed(fallback);
+	const fallbacks = typeof fallback === 'string' ? [fallback] : fallback;
+	if (focusKeyed(nextFocusKey(keys, gone, fallbacks[0] ?? ''))) return;
+	for (const f of fallbacks) if (focusKeyed(f)) return;
 }
 
 const FOCUSABLE =

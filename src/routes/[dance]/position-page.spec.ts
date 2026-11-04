@@ -746,6 +746,23 @@ describe('Video and Lessons: links from the page', () => {
 		]);
 	});
 
+	it("lets a reader edit their own spot on a group's position, not the group's", () => {
+		const g = group();
+		const point = pointOn(g.lesson);
+		linkSpotToPosition(db, 'u1', point, g.hammer);
+		const mine = taped(U3, 'My notes');
+		linkSpotToPosition(db, 'u3', mine.section, g.hammer);
+		const d = loadOf('u3', g.hammer);
+		expect(d.canEdit).toBe(false);
+		expect(d.spots.map((s: any) => [s.spot.id, s.canEdit, s.canUnlink])).toEqual(
+			expect.arrayContaining([
+				[point, false, false],
+				[mine.section, true, true]
+			])
+		);
+		expect(d.spots).toHaveLength(2);
+	});
+
 	it('links a point and a section; refuses a duplicate and a spot of another owner', async () => {
 		const o = own();
 		const t = taped(U2_SALSA, 'Week 6');

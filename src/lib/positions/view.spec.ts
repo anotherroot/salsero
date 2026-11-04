@@ -752,6 +752,37 @@ describe("a position's Video and Lessons", () => {
 		]);
 	});
 
+	it('withoutPreset: the figures list with New move’s params gone, the filter kept', () => {
+		const at = (s: string) => new URL(`http://x/salsa/figures${s}`);
+		expect(v.withoutPreset(at('?new=1&start=4'))).toBe('/salsa/figures');
+		expect(v.withoutPreset(at('?q=en&new=1&end=4&style=son'))).toBe(
+			'/salsa/figures?q=en&style=son'
+		);
+		expect(v.withoutPreset(at('?new=1'))).toBe('/salsa/figures');
+		// Nothing to strip: no navigation at all.
+		expect(v.withoutPreset(at('?q=en'))).toBeNull();
+		expect(v.withoutPreset(at(''))).toBeNull();
+	});
+
+	it('unlinkFocus: where focus goes when the list has no row left to take it', () => {
+		// An editor: the list's own opener, then Edit.
+		expect(v.unlinkFocus('spot', { canLink: true, canEditPosition: true })).toEqual([
+			'link-spot',
+			'edit-position',
+			'video-heading',
+			'from-heading'
+		]);
+		// A reader unlinking their own: no opener, no Edit; the list's heading, else the page's first.
+		expect(v.unlinkFocus('lesson', { canLink: false, canEditPosition: false })).toEqual([
+			'lessons-heading',
+			'from-heading'
+		]);
+		expect(v.unlinkFocus('spot', { canLink: false, canEditPosition: false })).toEqual([
+			'video-heading',
+			'from-heading'
+		]);
+	});
+
 	it('a point card that cannot play says why', () => {
 		expect(v.POINT_PROBLEM.missing).toEqual({
 			title: 'This file is missing',

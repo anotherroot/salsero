@@ -29,7 +29,8 @@
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
 	import { TWINS_CHIP } from '$lib/clones/twins';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
-	import { presetLine } from '$lib/positions/view';
+	import { presetLine, withoutPreset } from '$lib/positions/view';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -39,6 +40,15 @@
 	// New figure from a position (`&start=` / `&end=`, ruling 8): the tag the new
 	// figure gets. Refused because the position went since, it is dropped.
 	const preset = $derived(form && 'presetGone' in form ? null : data.preset);
+	/**
+	 * New move closed: the URL's `?new=1&start=…` goes (a replace, once the
+	 * sheet's Back has landed), so the next + and a reload are untagged.
+	 */
+	function closeNew() {
+		creating = false;
+		const href = withoutPreset(page.url);
+		if (href) void gotoWhenSettled(href, { replaceState: true, keepFocus: true, noScroll: true });
+	}
 	// A failed create re-renders with the message; keep the sheet open to show it.
 	$effect(() => {
 		if (form?.message) creating = true;
@@ -274,7 +284,7 @@
 </MovesScreen>
 
 {#if creating}
-	<Sheet title="New move" open={true} onclose={() => (creating = false)}>
+	<Sheet title="New move" open={true} onclose={closeNew}>
 		<form
 			id="new-figure"
 			method="POST"

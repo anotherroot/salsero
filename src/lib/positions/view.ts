@@ -364,6 +364,22 @@ export function presetLine(p: { side: 'start' | 'end'; name: string }): string {
 	return `${p.side === 'start' ? 'Starts in' : 'Ends in'} ${p.name}`;
 }
 
+/** The figures list's params that open New move and preset its tag (ruling 8). */
+const PRESET_PARAMS = ['new', 'start', 'end'];
+
+/**
+ * The figures list's URL once New move closes: `?new=1&start=…` / `&end=…`
+ * gone, so the next + (or a reload) is not tagged; the filter stays. Null
+ * when there is nothing to strip.
+ */
+export function withoutPreset(url: URL): string | null {
+	if (!PRESET_PARAMS.some((k) => url.searchParams.has(k))) return null;
+	const next = new URLSearchParams(url.searchParams);
+	for (const k of PRESET_PARAMS) next.delete(k);
+	const qs = next.toString();
+	return qs ? `${url.pathname}?${qs}` : url.pathname;
+}
+
 /** New move from a position whose position is gone (or no longer theirs) since the link was opened. */
 export const PRESET_GONE =
 	'That position can no longer tag a figure here. Add the move without it.';
@@ -416,6 +432,24 @@ export const videoTitle = (n: number) => `Video · ${n}`;
 export const lessonsTitle = (n: number) => `Lessons · ${n}`;
 export const LINK_SPOT = 'Link a section or point…';
 export const LINK_LESSON = 'Link a lesson…';
+
+/**
+ * Where focus goes after an Unlink on the page when no row of that list is left
+ * to take it, in order: the list's Link… opener (an editor's), Edit (while the
+ * position is live and theirs to edit), the list's heading, then Figures from
+ * here (always drawn): a reader who unlinked their own has neither of the first two.
+ */
+export function unlinkFocus(
+	list: 'spot' | 'lesson',
+	o: { canLink: boolean; canEditPosition: boolean }
+): string[] {
+	return [
+		...(o.canLink ? [list === 'spot' ? 'link-spot' : 'link-lesson'] : []),
+		...(o.canEditPosition ? ['edit-position'] : []),
+		list === 'spot' ? 'video-heading' : 'lessons-heading',
+		'from-heading'
+	];
+}
 
 /** "Link to Manos cruzadas": the picker over the owner's sections and points. */
 export function linkSpotsTitle(name: string): string {

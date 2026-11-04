@@ -213,17 +213,18 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 
 	// Video: the owner's sections and points (a reader's only what lessons reach),
 	// and on a group's position the viewer's own.
-	// Each says whether this person may unlink it: a spot they may edit (the
-	// owner's, for an editor; their own, on a group's position).
+	// Each says whether this person may edit it (its video's section editor, the
+	// full-screen player's Edit: the owner's, for an editor; their own, on a
+	// group's position) and so unlink it while the position is live.
 	const spots = spotsOfPosition(
 		db,
 		id,
 		reach ?? undefined,
 		inGroupMode || position.teamId === null ? undefined : wall.userId
-	).map((s) => ({
-		...s,
-		canUnlink: !position.archivedAt && sectionSpace(db, wall.userId, s.spot.id) !== null
-	}));
+	).map((s) => {
+		const canEdit = sectionSpace(db, wall.userId, s.spot.id) !== null;
+		return { ...s, canEdit, canUnlink: !position.archivedAt && canEdit };
+	});
 	const picture =
 		spots.find((s) => s.point && s.spot.id === position.pictureSpotId) ??
 		spots.find((s) => s.point) ??
