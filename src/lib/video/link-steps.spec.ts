@@ -3,10 +3,15 @@ import { MAX_SPOT_LABEL } from '$lib/limits';
 import {
 	destination,
 	linkHeading,
+	linkRowId,
+	linkWords,
+	momentAt,
 	openingSteps,
 	refusalAt,
 	stacked,
-	suggestedName
+	suggestedName,
+	targetKey,
+	unlinkKind
 } from './link-steps';
 
 describe('openingSteps', () => {
@@ -32,6 +37,20 @@ describe('the popup’s view rules', () => {
 		});
 		expect(linkHeading({ startMs: 42000, endMs: 55000, label: null }).sub).toBe('13.0 s');
 	});
+	it('heads a point with its moment, and says it is a point', () => {
+		expect(linkHeading({ startMs: 72000, endMs: null, label: 'Hand change' })).toEqual({
+			range: '1:12',
+			sub: 'Hand change · point'
+		});
+		expect(linkHeading({ startMs: 72500, endMs: null, label: null })).toEqual({
+			range: '1:12.5',
+			sub: 'Point'
+		});
+		const spot = { id: 1, startMs: 72000, endMs: null, label: null };
+		expect(destination({ spot, context: { kind: 'recording', groupId: 3, figure: 'X' } })).toBe(
+			'Linked to 1:12'
+		);
+	});
 	it('says where a created thing is linked', () => {
 		const spot = { id: 1, startMs: 42000, endMs: 55000, label: null };
 		expect(
@@ -49,6 +68,53 @@ describe('the popup’s view rules', () => {
 		expect(refusalAt('drill', 'everyDays')).toBe('everyDays');
 		expect(refusalAt('drill', 'figureName')).toBe('banner');
 		expect(refusalAt('figure', undefined)).toBe('banner');
+		expect(refusalAt('position', 'name')).toBe('name');
+		expect(refusalAt('position', 'style')).toBe('style');
+		expect(refusalAt('position', 'everyDays')).toBe('banner');
+	});
+});
+
+describe('positions and points (ruling 10)', () => {
+	it('words a section’s popup for figures, drills and positions, a point’s for positions only', () => {
+		expect(linkWords(false)).toEqual({
+			opener: 'Link a figure, drill or position…',
+			placeholder: 'Search figures, drills and positions',
+			create: [
+				{ key: 'variation', label: 'Figure' },
+				{ key: 'figure', label: 'Move' },
+				{ key: 'drill', label: 'Drill' },
+				{ key: 'position', label: 'Position' }
+			]
+		});
+		expect(linkWords(true)).toEqual({
+			opener: 'Link a position…',
+			placeholder: 'Search positions',
+			create: [{ key: 'position', label: 'Position' }]
+		});
+	});
+	it('keys a target by its kind, so a position and a variation of one id differ', () => {
+		expect(targetKey({ figureId: 3 })).toBe('figure:3');
+		expect(targetKey({ exerciseId: 3 })).toBe('exercise:3');
+		expect(targetKey({ positionId: 3 })).toBe('position:3');
+		const f = { linkId: 1, target: { figureId: 3 } };
+		const p = { linkId: 1, target: { positionId: 3 } };
+		expect(linkRowId(f)).not.toBe(linkRowId(p));
+		expect(linkRowId(p)).toBe('position-link-1');
+		expect(linkRowId(f)).toBe('link-1');
+	});
+	it('unlinks a position link by its kind; the others need none', () => {
+		expect(unlinkKind({ positionId: 3 })).toBe('position');
+		expect(unlinkKind({ figureId: 3 })).toBeUndefined();
+		expect(unlinkKind({ exerciseId: 3 })).toBeUndefined();
+	});
+	it('offers “Use this moment as a point” on a section’s bottom level, only where there is a playhead', () => {
+		expect(momentAt(['links'], false, true)).toBe('links');
+		expect(momentAt(['links', 'pick'], false, true)).toBe('links');
+		expect(momentAt(['pick'], false, true)).toBe('pick');
+		expect(momentAt(['pick', 'drill'], false, true)).toBe('pick');
+		expect(momentAt(['links'], false, false)).toBeNull();
+		expect(momentAt(['links'], true, true)).toBeNull();
+		expect(momentAt([], false, true)).toBeNull();
 	});
 });
 

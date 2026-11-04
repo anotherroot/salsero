@@ -6,16 +6,17 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { positions, spotPositionLinks, teamTrash, videoSpots } from './db/schema';
+import { lessonPositions, positions, spotPositionLinks, teamTrash, videoSpots } from './db/schema';
 import {
 	addLessonVideo,
 	createLesson,
 	deleteLessonVideo,
 	getLesson,
+	linkPosition,
 	publishLesson
 } from './lessons';
 import { addRecording, createFigure, deleteRecording } from './figures';
-import { addSpot, deleteSpot } from './spots';
+import { addSpot, deleteSpot, listSpots } from './spots';
 import { createPosition, archivePosition } from './positions';
 import { createTeam, joinTeam } from './teams';
 import { addLesson } from './entries';
@@ -72,6 +73,16 @@ beforeEach(() => {
 	)!.id;
 	point = addSpot(db, { lessonVideoId: video }, { startMs: 72_000, endMs: null, label: null })!.id;
 	cerrada = position(U1_SALSA, 'Cerrada');
+});
+
+describe('a person’s spots list their positions', () => {
+	it('names a linked position in linkedTo, sorted with the rest', () => {
+		linkSpotToPosition(db, 'u1', point, cerrada, T);
+		expect(listSpots(db, { lessonVideoId: video }).map((s) => [s.id, s.linkedTo])).toEqual([
+			[section, []],
+			[point, ['Cerrada']]
+		]);
+	});
 });
 
 describe('linkSpotToPosition', () => {
@@ -291,6 +302,49 @@ describe('in a group', () => {
 			{ id: link, spotId: groupPoint, positionId: groupPos }
 		]);
 		expect(listTrash(db, G.teamId)).toEqual([]);
+	});
+
+	it('from the spot’s side: another spot’s link is refused; alsoLesson takes the hand link into the same trash entry', () => {
+		expect(linkPosition(db, groupLesson, groupPos, 'u1')).toBe(true);
+		const link = linkSpotToPosition(db, 'u1', groupPoint, groupPos, T);
+		expect(unlinkSpotFromPosition(db, link, T, 'u1', { spotId: section })).toBe(false);
+		expect(db.select().from(spotPositionLinks).all()).toHaveLength(1);
+		expect(
+			unlinkSpotFromPosition(db, link, T + 1, 'u1', { spotId: groupPoint, alsoLesson: true })
+		).toBe(true);
+		expect(db.select().from(lessonPositions).all()).toEqual([]);
+		const [item] = listTrash(db, G.teamId);
+		expect(item).toMatchObject({ kind: 'position-link' });
+		expect(restoreTrash(db, G, item.id, T + 2)).toEqual({ ok: true });
+		expect(db.select().from(spotPositionLinks).all()).toMatchObject([
+			{ id: link, spotId: groupPoint, positionId: groupPos }
+		]);
+		expect(db.select().from(lessonPositions).all()).toMatchObject([
+			{ lessonId: groupLesson, positionId: groupPos }
+		]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a spot’s list names its positions beside its other links: a reader only what they reach', () => {
+		const link = linkSpotToPosition(db, 'u1', groupPoint, groupPos, T);
+		expect(link).toBeGreaterThan(0);
+		const owner = {
+			lessonVideoId: db.select().from(videoSpots).where(eq(videoSpots.id, groupPoint)).get()!
+				.lessonVideoId!
+		};
+		expect(listSpots(db, owner).find((s) => s.id === groupPoint)?.linkedTo).toEqual(['Hammerlock']);
+		const none = {
+			lessons: new Set<number>(),
+			recordings: new Set<number>(),
+			variations: new Set<number>(),
+			drills: new Set<number>()
+		};
+		expect(listSpots(db, owner, none).find((s) => s.id === groupPoint)?.linkedTo).toEqual([]);
+		expect(
+			listSpots(db, owner, { ...none, positions: new Set([groupPos]) }).find(
+				(s) => s.id === groupPoint
+			)?.linkedTo
+		).toEqual(['Hammerlock']);
 	});
 
 	it('a restore is refused when the point is gone or linked again', () => {

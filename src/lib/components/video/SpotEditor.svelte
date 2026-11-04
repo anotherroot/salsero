@@ -108,7 +108,7 @@
 	]);
 
 	const sub = $derived(editorSub(spot));
-	const entry = $derived(linkEntry(spot.linkedTo, !!onlink, 'editor'));
+	const entry = $derived(linkEntry(spot.linkedTo, !!onlink, 'editor', spot.endMs === null));
 
 	// The 36 px Loop pill sits in a 44 px button. The builders' own sizes, with
 	// the flex and gap they set swapped out by .replace, never a class appended.

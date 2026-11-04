@@ -443,9 +443,17 @@ export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
 /** What a section can be linked to: a figure version or a drill. */
 export type SectionTarget = { figureId: number } | { exerciseId: number };
 
-/** Something a section can be linked to, as the Link popup lists it. */
+/**
+ * What the Link popup links a spot to: a section links a variation, a drill
+ * or a position; a point, a position only (ruling 10). Position links live in
+ * their own table (`spot_position_links`), so a link id means nothing without
+ * its kind.
+ */
+export type LinkTarget = SectionTarget | { positionId: number };
+
+/** Something a section or point can be linked to, as the Link popup lists it. */
 export interface LinkOption {
-	target: SectionTarget;
+	target: LinkTarget;
 	/** "Enchufla · Doble", or a drill's name. */
 	label: string;
 	drill: boolean;
@@ -460,9 +468,11 @@ export interface LinkOption {
 	team?: TeamRef;
 	/** A variation's twins folded behind it (`clones/twins.ts`). */
 	twins?: TwinNote[];
+	/** A position's hold: its picker row's second line. Absent for a variation or a drill. */
+	hold?: Hold;
 }
 
-/** One of a section's links, in the Link popup. */
+/** One of a section's or point's links, in the Link popup. */
 export interface LinkedTarget extends LinkOption {
 	linkId: number;
 	archived: boolean;
@@ -483,20 +493,25 @@ export type LinkContext =
 	| { kind: 'lesson'; lessonId: number; title: string }
 	| { kind: 'recording'; groupId: number; figure: string };
 
-/** Everything the Link popup shows for one section. */
+/** Everything the Link popup shows for one section, or one point (`endMs` null: positions only). */
 export interface LinkOptions {
 	dance: DanceSlug;
-	spot: { id: number; startMs: number; endMs: number; label: string | null };
+	spot: { id: number; startMs: number; endMs: number | null; label: string | null };
 	context: LinkContext;
 	linked: LinkedTarget[];
 	/** 'In this lesson' or 'This figure'. */
 	nearTitle: string;
-	/** Variations then drills of this lesson, or the recording's own figure. */
+	/**
+	 * Variations, drills, then positions of this lesson, or the recording's own
+	 * figure and the positions it is tagged with. A point's: positions only.
+	 */
 	near: LinkOption[];
 	/** Every other live variation. */
 	figures: LinkOption[];
 	/** Every other live drill. */
 	drills: LinkOption[];
+	/** Every other live position (own first, then a group's a person may use). */
+	positions: LinkOption[];
 	figureChoices: LinkFigureChoice[];
 	/** What "New figure" starts on. */
 	defaults: { partner: Partner; style: string };
@@ -509,7 +524,9 @@ export type LinkCreateField = 'name' | 'figureName' | 'groupId' | 'style' | 'eve
 export type LinkCreate =
 	| { kind: 'variation'; groupId: number; name: string }
 	| { kind: 'figure'; figureName: string; name: string; partner: Partner; style: string }
-	| { kind: 'drill'; name: string; everyDays: number };
+	| { kind: 'drill'; name: string; everyDays: number }
+	/** `styleTag` null: no type. Refused for its type under 'style'. */
+	| { kind: 'position'; name: string; styleTag: string | null };
 
 /**
  * A section of a lesson's video through which a variation or drill is on that

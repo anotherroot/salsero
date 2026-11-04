@@ -1,15 +1,15 @@
 /**
  * The Link popup's levels. PURE and client-safe.
  */
-import type { LinkCreateField, LinkOptions } from '$lib/types';
+import type { LinkCreateField, LinkOptions, LinkTarget } from '$lib/types';
 import { MAX_SPOT_LABEL } from '$lib/limits';
 import { lengthText, spotTime } from '$lib/video/spots';
 
 /** The popup's levels, bottom first. 'links': linked list + the Link button. 'pick': the picker.
- *  'variation' | 'figure' | 'drill': create steps. 'variation-figure': the variation step's Figure picker.
+ *  'variation' | 'figure' | 'drill' | 'position': create steps. 'variation-figure': the variation step's Figure picker.
  *  'unlink': the "Unlink …?" question, a level of its own only in the player (Back closes just it). */
 export type LinkStep =
-	'links' | 'pick' | 'variation' | 'figure' | 'drill' | 'variation-figure' | 'unlink';
+	'links' | 'pick' | 'variation' | 'figure' | 'drill' | 'position' | 'variation-figure' | 'unlink';
 
 /** Where a host opens the popup: straight into the picker when the section has no links. */
 export function openingSteps(linkedCount: number): LinkStep[] {
@@ -26,11 +26,24 @@ function rangeTime(ms: number): string {
 	return spotTime(ms).replace(/\.0$/, '');
 }
 
-/** The popup's heading: the range, and the name and length under it. */
-export function linkHeading(spot: { startMs: number; endMs: number; label: string | null }): {
+/**
+ * The popup's heading: the range, and the name and length under it. A point
+ * (`endMs` null) is its moment, and says it is a point.
+ */
+export function linkHeading(spot: {
+	startMs: number;
+	endMs: number | null;
+	label: string | null;
+}): {
 	range: string;
 	sub: string;
 } {
+	if (spot.endMs === null) {
+		return {
+			range: rangeTime(spot.startMs),
+			sub: spot.label ? `${spot.label} · point` : 'Point'
+		};
+	}
 	return {
 		range: `${rangeTime(spot.startMs)}–${rangeTime(spot.endMs)}`,
 		sub: [spot.label, lengthText(spot.endMs - spot.startMs)].filter(Boolean).join(' · ')
@@ -45,14 +58,84 @@ export function destination(o: Pick<LinkOptions, 'spot' | 'context'>): string {
 		: `Linked to ${range}`;
 }
 
-export type CreateStep = 'variation' | 'figure' | 'drill';
+export type CreateStep = 'variation' | 'figure' | 'drill' | 'position';
 export type CreateSpot = LinkCreateField | 'banner';
 
 const SHOWN: Record<CreateStep, CreateSpot[]> = {
 	variation: ['groupId', 'name'],
 	figure: ['figureName', 'name', 'style'],
-	drill: ['name', 'everyDays']
+	drill: ['name', 'everyDays'],
+	position: ['name', 'style']
 };
+
+/** The create row's buttons, bare nouns: the picker draws the +. */
+const CREATE_ROW: { key: CreateStep; label: string }[] = [
+	{ key: 'variation', label: 'Figure' },
+	{ key: 'figure', label: 'Move' },
+	{ key: 'drill', label: 'Drill' },
+	{ key: 'position', label: 'Position' }
+];
+
+/**
+ * The popup's words for what it links: a section links figures, drills and
+ * positions; a point, positions only (ruling 10), and makes nothing else.
+ */
+export function linkWords(point: boolean): {
+	opener: string;
+	placeholder: string;
+	create: { key: CreateStep; label: string }[];
+} {
+	return point
+		? {
+				opener: 'Link a position…',
+				placeholder: 'Search positions',
+				create: CREATE_ROW.filter((c) => c.key === 'position')
+			}
+		: {
+				opener: 'Link a figure, drill or position…',
+				placeholder: 'Search figures, drills and positions',
+				create: CREATE_ROW
+			};
+}
+
+/** A target's picker key: `figure:3`, `exercise:3`, `position:3` (the builders' keys). */
+export function targetKey(t: LinkTarget): string {
+	if ('figureId' in t) return `figure:${t.figureId}`;
+	if ('exerciseId' in t) return `exercise:${t.exerciseId}`;
+	return `position:${t.positionId}`;
+}
+
+/**
+ * A linked row's id for keys and focus. A position link's id is of its own
+ * table, so the same number may be a variation's link too: the kind tells them apart.
+ */
+export function linkRowId(l: { linkId: number; target: LinkTarget }): string {
+	return 'positionId' in l.target ? `position-link-${l.linkId}` : `link-${l.linkId}`;
+}
+
+/** What the unlink names besides the id: 'position' for a position link, nothing else. */
+export function unlinkKind(t: LinkTarget): 'position' | undefined {
+	return 'positionId' in t ? 'position' : undefined;
+}
+
+/** "Use this moment as a point": the full-screen player's, under a section's popup. */
+export const MOMENT_LABEL = 'Use this moment as a point';
+
+/**
+ * Where "Use this moment as a point" shows: on the popup's bottom level (the
+ * links list, or the picker when the section opened straight into it), only
+ * on a section, and only where a playhead is known (`hasMoment`: the
+ * full-screen player). Null: nowhere.
+ */
+export function momentAt(
+	steps: LinkStep[],
+	point: boolean,
+	hasMoment: boolean
+): 'links' | 'pick' | null {
+	if (!hasMoment || point) return null;
+	const bottom = steps[0];
+	return bottom === 'links' || bottom === 'pick' ? bottom : null;
+}
 
 /** Where a refusal shows: under the field it names, if the step shows that field, else the banner. */
 export function refusalAt(step: CreateStep, field: string | undefined): CreateSpot {

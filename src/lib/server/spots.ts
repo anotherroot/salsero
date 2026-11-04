@@ -19,6 +19,7 @@ import {
 	type Visible
 } from './spot-links';
 import { ownerOfRow, type Owner } from './storage';
+import { positionNamesOf } from './position-links';
 import { actingIn, fieldChange, logChange, spotRoot, videoRoot } from './changes';
 import { isTeam, spaceOfRow } from './scope';
 import { rootTitle, spotWords, trashRows } from './trash';
@@ -125,23 +126,35 @@ function cleanTimes(startMs: unknown, endMs: unknown): { startMs: number; endMs:
 	return { startMs, endMs };
 }
 
+/** What a reader of a group's video sees of its links: their reach, positions included. */
+type Shown = Visible & { positions?: ReadonlySet<number> };
+
 /**
  * Rows straight from the table (spots of one video), plus what each is linked
  * to, as the video's space lists it (`linkChipsFor`): a person's own video names
- * a group's row only while they may use it.
+ * a group's row only while they may use it. Positions follow (`positionNamesOf`),
+ * one list sorted by name.
  */
-function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[], visible?: Visible): Spot[] {
+function withLinks(db: Db, rows: Omit<Spot, 'linkedTo'>[], visible?: Shown): Spot[] {
 	if (rows.length === 0) return [];
 	const video = videoOfSpot(db, rows[0].id);
 	const ids = rows.map((r) => r.id);
-	const chips = video
-		? linkChipsFor(db, ids, spaceOfRow(video, ''), visible)
-		: linkChips(db, ids, visible);
-	return rows.map((r) => ({ ...r, linkedTo: (chips.get(r.id) ?? []).map((c) => c.label) }));
+	const space = video ? spaceOfRow(video, '') : null;
+	const chips = space ? linkChipsFor(db, ids, space, visible) : linkChips(db, ids, visible);
+	// A reader without positions in their reach sees none: fail closed.
+	const names = space
+		? positionNamesOf(db, ids, space, visible ? (visible.positions ?? new Set()) : undefined)
+		: new Map<number, string[]>();
+	return rows.map((r) => ({
+		...r,
+		linkedTo: [...(chips.get(r.id) ?? []).map((c) => c.label), ...(names.get(r.id) ?? [])].sort(
+			(a, b) => a.localeCompare(b)
+		)
+	}));
 }
 
 /** A video's spots. With `visible` (a reader of a group's video), only the links to what it holds. */
-export function listSpots(db: Db, owner: SpotOwner, visible?: Visible): Spot[] {
+export function listSpots(db: Db, owner: SpotOwner, visible?: Shown): Spot[] {
 	const rows = db
 		.select(COLUMNS)
 		.from(videoSpots)

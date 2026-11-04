@@ -10,6 +10,7 @@ import { dateLabel } from '$lib/format';
 import { moveHeading, usedAsIs } from '$lib/clones/view';
 import { twinPickMeta } from '$lib/clones/twins';
 import { spotLabel } from '$lib/video/spots';
+import { holdLine } from '$lib/positions/hold';
 import type {
 	FigureVersion,
 	LinkOption,
@@ -189,9 +190,11 @@ export function sectionGroups(gs: SectionGroup[], nearTitle: string): PickGroup[
 }
 
 /**
- * The Link popup: the near group (variations as headings, then drills),
- * Figures, Drills. Rows key `figure:{id}` / `exercise:{id}`; a drill's meta is
- * how often. Linked targets stay, flagged.
+ * The Link popup: the near group (variations as headings, then drills, then
+ * positions), Figures, Drills, Positions. Rows key `figure:{id}` /
+ * `exercise:{id}` / `position:{id}`; a drill's meta is how often, a
+ * position's its hold (a group's: whose it is). Linked targets stay, flagged.
+ * A point's options hold positions only, so only those groups show.
  */
 export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 	// Figure names are unique per dance and space, so a name and its group stand in
@@ -228,10 +231,28 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 				meta: x.team ? usedAsIs(x.team.name) : frequencyLabel(x.everyDays ?? 0),
 				linked: x.linked
 			}));
+	const positions = (os: LinkOption[]): PickRow[] =>
+		os.flatMap((x) => {
+			if (!('positionId' in x.target)) return [];
+			const meta = x.team ? usedAsIs(x.team.name) : x.hold ? holdLine(x.hold) : null;
+			return [
+				{
+					key: `position:${x.target.positionId}`,
+					value: x.target.positionId,
+					label: x.label,
+					...(meta ? { meta } : {}),
+					linked: x.linked
+				}
+			];
+		});
 	const groups: PickGroup[] = [
-		{ title: o.nearTitle, entries: [...variations(o.near), ...drills(o.near)] },
+		{
+			title: o.nearTitle,
+			entries: [...variations(o.near), ...drills(o.near), ...positions(o.near)]
+		},
 		{ title: 'Figures', entries: variations(o.figures) },
-		{ title: 'Drills', entries: drills(o.drills) }
+		{ title: 'Drills', entries: drills(o.drills) },
+		{ title: 'Positions', entries: positions(o.positions) }
 	];
 	return groups.filter((g) => g.entries.length > 0);
 }

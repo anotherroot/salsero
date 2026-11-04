@@ -29,6 +29,7 @@ import {
 	figures,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessons,
 	lessonVideos,
 	links,
@@ -78,7 +79,8 @@ const TABLES = {
 	spot_position_links: spotPositionLinks,
 	links,
 	lesson_figures: lessonFigures,
-	lesson_exercises: lessonExercises
+	lesson_exercises: lessonExercises,
+	lesson_positions: lessonPositions
 } as const;
 export type TrashTable = keyof typeof TABLES;
 export type TrashRows = Partial<Record<TrashTable, Record<string, unknown>[]>>;
@@ -92,11 +94,12 @@ const ORDER: TrashTable[] = [
 	'spot_position_links',
 	'links',
 	'lesson_figures',
-	'lesson_exercises'
+	'lesson_exercises',
+	'lesson_positions'
 ];
 
 /** A lesson's hand link made again since is no reason to refuse; it is left as it is. */
-const JOINS = new Set<TrashTable>(['lesson_figures', 'lesson_exercises']);
+const JOINS = new Set<TrashTable>(['lesson_figures', 'lesson_exercises', 'lesson_positions']);
 
 /** The row a kind is about: its History line names it. */
 const MAIN: Record<TrashKind, TrashTable> = {

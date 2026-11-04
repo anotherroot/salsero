@@ -33,8 +33,14 @@
 	import {
 		destination,
 		linkHeading,
+		linkRowId,
+		linkWords,
+		momentAt,
+		MOMENT_LABEL,
 		refusalAt,
 		stacked,
+		targetKey,
+		unlinkKind,
 		type CreateSpot,
 		type CreateStep
 	} from '$lib/video/link-steps';
@@ -45,18 +51,19 @@
 		LinkedTarget,
 		LinkFigureChoice,
 		LinkOptions,
-		SectionTarget
+		LinkTarget
 	} from '$lib/types';
 
 	/**
-	 * One section's links, as levels the host stacks (`steps`, the top one
-	 * shows): the links list (a row opens its figure page or drill, × unlinks)
-	 * with one "Link a figure or drill…" opener; the shared picker over it (a
-	 * tap links and closes everything, + links and stays, Done closes); and the
-	 * create steps, opened from the
-	 * picker's create row on top of it, which make a variation, a figure or a
-	 * drill and link it. A section with no links opens straight into the
-	 * picker (`openingSteps`). See
+	 * One section's or point's links, as levels the host stacks (`steps`, the
+	 * top one shows): the links list (a row opens its figure, drill or position
+	 * page, × unlinks) with one "Link a figure, drill or position…" opener; the
+	 * shared picker over it (a tap links and closes everything, + links and
+	 * stays, Done closes); and the create steps, opened from the picker's create
+	 * row on top of it, which make a variation, a figure, a drill or a position
+	 * and link it. A point links positions only (ruling 10 of the positions
+	 * plan): "Link a position…", and Position its only create. A spot with no
+	 * links opens straight into the picker (`openingSteps`). See
 	 * `docs/superpowers/specs/2026-10-30-unified-pickers-design.md`, "The Link popup".
 	 *
 	 * `light`: each level is a `Sheet` with a history entry of its own, the
@@ -83,20 +90,24 @@
 		 * itself first, so its history entries are gone before the page changes.
 		 */
 		onopen?: (href: string) => void;
+		/**
+		 * "Use this moment as a point": the full-screen player's, which knows the
+		 * playhead. It saves a point there and opens the popup on it; it answers
+		 * what to say when that failed (shown here, the popup still usable), or
+		 * null. Absent: no such button (a page has no playhead).
+		 */
+		onmoment?: () => Promise<string | null>;
 	}
 
-	let { spotId, theme, steps, onpush, onback, onclose, onchange, onopen }: Props = $props();
+	let { spotId, theme, steps, onpush, onback, onclose, onchange, onopen, onmoment }: Props =
+		$props();
 
-	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill'];
-	const CREATE_ROW = [
-		{ key: 'variation', label: 'Figure' },
-		{ key: 'figure', label: 'Move' },
-		{ key: 'drill', label: 'Drill' }
-	];
+	const CREATE_STEPS: readonly LinkStep[] = ['variation', 'figure', 'drill', 'position'];
 	const CREATE_TITLE: Record<CreateStep, string> = {
 		variation: 'New figure',
 		figure: 'New move',
-		drill: 'New drill'
+		drill: 'New drill',
+		position: 'New position'
 	};
 	const LOAD_FAILED = {
 		title: 'Couldn’t load this section’s links.',
@@ -135,6 +146,13 @@
 	let style = $state('');
 	let drillName = $state('');
 	let everyDays = $state<number>(DEFAULT_EVERY_DAYS);
+	let positionName = $state('');
+	/** The new position's type; null: none. Starts on the user's style. */
+	let positionStyle = $state<string | null>(null);
+
+	/** "Use this moment as a point" in flight, and its refusal. */
+	let momentBusy = $state(false);
+	let momentMessage = $state<string | null>(null);
 
 	onMount(() => {
 		fetchLinkOptions(spotId).then(
@@ -142,6 +160,7 @@
 				options = o;
 				partner = o.defaults.partner;
 				style = o.defaults.style;
+				positionStyle = o.defaults.style;
 				groupId = o.figureChoices.find((f) => f.near)?.groupId ?? null;
 			},
 			() => (loadFailed = true)
@@ -152,6 +171,11 @@
 	const picking = $derived(steps.includes('pick'));
 	const createStep = $derived(steps.find((s): s is CreateStep => CREATE_STEPS.includes(s)) ?? null);
 	const heading = $derived(options ? linkHeading(options.spot) : null);
+	/** A point links positions only; until the options come, a section's words. */
+	const point = $derived(options?.spot.endMs === null);
+	const words = $derived(linkWords(point));
+	/** Only once the options say it is a section: a point never offers it. */
+	const momentWhere = $derived(options ? momentAt(steps, point, onmoment !== undefined) : null);
 
 	// Every opening of the picker starts clean, and fences off late answers.
 	let wasPicking = false;
@@ -186,16 +210,21 @@
 		}
 	});
 
-	/** A linked row's page: the variation's figure page, or the drill's exercise page. */
-	const targetHref = (dance: string, t: SectionTarget) =>
+	/** A linked row's page: the variation's figure page, the drill's exercise page, or the position's. */
+	const targetHref = (dance: string, t: LinkTarget) =>
 		'figureId' in t
 			? resolve('/[dance]/figures/[id]', { dance, id: String(t.figureId) })
-			: resolve('/[dance]/exercises/[id]', { dance, id: String(t.exerciseId) });
+			: 'exerciseId' in t
+				? resolve('/[dance]/exercises/[id]', { dance, id: String(t.exerciseId) })
+				: // A position's page, /[dance]/positions/[id] (built beside this, ruling 10).
+					`${resolve('/[dance]/positions', { dance })}/${t.positionId}`;
 
-	const targetKey = (t: SectionTarget) =>
-		'figureId' in t ? `figure:${t.figureId}` : `exercise:${t.exerciseId}`;
-	const rowTarget = (r: PickRow): SectionTarget =>
-		r.key.startsWith('figure:') ? { figureId: r.value } : { exerciseId: r.value };
+	const rowTarget = (r: PickRow): LinkTarget =>
+		r.key.startsWith('figure:')
+			? { figureId: r.value }
+			: r.key.startsWith('position:')
+				? { positionId: r.value }
+				: { exerciseId: r.value };
 
 	/** The opening's groups, with "✓ Linked" from the latest answer. */
 	const groups = $derived.by((): PickGroup[] => {
@@ -286,9 +315,11 @@
 	/** Restore what was archived since, then make the link that was refused. */
 	async function restoreAndLink() {
 		const a = archivedPick;
-		if (!a || restoring) return;
+		const target = a ? rowTarget(a.row) : null;
+		// Only a variation or a drill comes back "Archived by …" (a position is refused as missing).
+		if (!a || !target || 'positionId' in target || restoring) return;
 		restoring = true;
-		const refused = await restoreArchived(rowTarget(a.row));
+		const refused = await restoreArchived(target);
 		restoring = false;
 		archivedPick = null;
 		if (refused) {
@@ -319,14 +350,29 @@
 			if (key === 'variation') variationName = typed;
 			if (key === 'figure') figureName = typed;
 			if (key === 'drill') drillName = typed;
+			if (key === 'position') positionName = typed;
 		}
 		onpush(key as CreateStep);
 	}
 
 	/** Once a link is gone: focus goes to the next link's ×, else the opener. */
 	function afterUnlink(l: LinkedTarget) {
-		const keys = (options?.linked ?? []).map((x) => `linked-${x.linkId}`);
-		return () => void focusAfterRemoval(keys, `linked-${l.linkId}`, 'linked-add');
+		const keys = (options?.linked ?? []).map((x) => `linked-${linkRowId(x)}`);
+		return () => void focusAfterRemoval(keys, `linked-${linkRowId(l)}`, 'linked-add');
+	}
+
+	/** "Use this moment as a point": the host saves it and reopens the popup on it. */
+	async function useMoment() {
+		if (!onmoment || momentBusy) return;
+		momentBusy = true;
+		momentMessage = null;
+		try {
+			momentMessage = await onmoment();
+		} catch {
+			momentMessage = 'Couldn’t save the point. Try it again.';
+		} finally {
+			momentBusy = false;
+		}
 	}
 
 	function unlink(l: LinkedTarget) {
@@ -338,7 +384,7 @@
 			return;
 		}
 		void run(
-			() => removeLink(spotId, l.linkId, false),
+			() => removeLink(spotId, l.linkId, false, unlinkKind(l.target)),
 			(m) => (unlinkMessage = m),
 			afterUnlink(l)
 		);
@@ -362,7 +408,7 @@
 		unlinkMessage = null;
 		const focus = afterUnlink(l);
 		void run(
-			() => removeLink(spotId, l.linkId, alsoLesson),
+			() => removeLink(spotId, l.linkId, alsoLesson, unlinkKind(l.target)),
 			(m) => {
 				closeQuestion();
 				unlinkMessage = m;
@@ -387,6 +433,8 @@
 			body = { kind: 'variation', groupId, name: variationName };
 		} else if (step === 'figure') {
 			body = { kind: 'figure', figureName, name: firstName, partner, style };
+		} else if (step === 'position') {
+			body = { kind: 'position', name: positionName, styleTag: positionStyle };
 		} else {
 			body = { kind: 'drill', name: drillName, everyDays };
 		}
@@ -415,6 +463,7 @@
 {#snippet links()}
 	<div class="flex flex-col gap-2">
 		{#if unlinkMessage}<Banner kind="error" title={unlinkMessage} />{/if}
+		{#if momentMessage && momentWhere === 'links'}<Banner kind="error" title={momentMessage} />{/if}
 		{#if loadFailed}
 			<Banner kind="error" title={LOAD_FAILED.title}>{LOAD_FAILED.body}</Banner>
 		{:else if !options}
@@ -433,7 +482,7 @@
 			{#if options.linked.length > 0}
 				<h3 class={SECTION_LABEL}>Linked</h3>
 				<ul class="rounded-2xl bg-surface">
-					{#each options.linked as l, i (l.linkId)}
+					{#each options.linked as l, i (linkRowId(l))}
 						{@const href = targetHref(options.dance, l.target)}
 						<li class="pl-4">
 							<div
@@ -441,6 +490,7 @@
 									? 'border-b border-hairline'
 									: ''}"
 							>
+								<!-- eslint-disable svelte/no-navigation-without-resolve -- targetHref resolves; a position's page is joined to /[dance]/positions until its route lands -->
 								<a
 									{href}
 									class="flex min-h-14 min-w-0 flex-1 items-center gap-2 self-stretch py-2 text-[16px] leading-[1.3] font-bold {l.archived
@@ -454,13 +504,15 @@
 									><span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1"
 										><span class="min-w-0 break-words">{l.label}</span>{#if l.drill}<Badge
 												tone="neutral">Drill</Badge
+											>{:else if 'positionId' in l.target}<Badge tone="accent">Position</Badge
 											>{/if}{#if l.archived}<Badge tone="warn">Archived</Badge>{/if}</span
 									><span class="flex flex-none text-chevron" aria-hidden="true"
 										><Icon name="chevron-right" size={20} /></span
 									></a
 								>
+								<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								<button
-									data-focus="linked-{l.linkId}"
+									data-focus="linked-{linkRowId(l)}"
 									type="button"
 									class={iconButton('bare', 'muted')}
 									aria-label="Unlink {l.label}"
@@ -475,14 +527,30 @@
 				<p class="px-1 text-[14px] text-muted">Not linked to anything yet.</p>
 			{/if}
 			<div class="mt-1">
-				<PickerOpener
-					data-focus="linked-add"
-					label="Link a figure or drill…"
-					onclick={() => onpush('pick')}
-				/>
+				<PickerOpener data-focus="linked-add" label={words.opener} onclick={() => onpush('pick')} />
 			</div>
+			{#if momentWhere === 'links'}{@render momentButton()}{/if}
 		{/if}
 	</div>
+{/snippet}
+
+{#snippet momentButton()}
+	<button
+		type="button"
+		class={button('tertiary', 'md', true)}
+		aria-busy={momentBusy ? 'true' : undefined}
+		aria-disabled={momentBusy ? 'true' : undefined}
+		onclick={useMoment}
+		>{#if momentBusy}<Spinner size={20} />{:else}<Icon
+				name="bookmark"
+				size={20}
+			/>{/if}{MOMENT_LABEL}</button
+	>
+{/snippet}
+
+{#snippet pickTop()}
+	{#if momentMessage}<Banner kind="error" title={momentMessage} />{/if}
+	{@render momentButton()}
 {/snippet}
 
 {#snippet fieldError(at: CreateSpot)}
@@ -569,6 +637,36 @@
 						label: DANCES[o.dance].styleLabel[s]
 					}))}
 					bind:value={style}
+				/>
+				{@render fieldError('style')}
+			</div>
+		{:else if step === 'position'}
+			<div>
+				<label for="{uid}-name" class={LABEL}>Name</label>
+				<input
+					id="{uid}-name"
+					bind:value={positionName}
+					required
+					maxlength="200"
+					placeholder="e.g. Cerrada, Manos cruzadas"
+					class={FIELD}
+					aria-invalid={errorAt('name') ? 'true' : undefined}
+					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
+				/>
+				{@render fieldError('name')}
+			</div>
+			<div>
+				<span class={LABEL}>Type</span>
+				<!-- A tap on the picked type clears it: a position may have none. -->
+				<Segmented
+					name="{formId}-styleTag"
+					label="Type"
+					items={DANCES[o.dance].styles.map((s) => ({
+						value: s,
+						label: DANCES[o.dance].styleLabel[s]
+					}))}
+					bind:value={positionStyle}
+					clearable
 				/>
 				{@render fieldError('style')}
 			</div>
@@ -664,12 +762,13 @@
 	title={heading ? `Link ${heading.range} to…` : 'Link a section to…'}
 	sub={heading && !stacked(steps, 'pick') ? heading.sub : undefined}
 	back={stacked(steps, 'pick')}
-	placeholder="Search figures and drills"
+	placeholder={words.placeholder}
 	{groups}
 	loading={!options && !loadFailed}
 	failure={loadFailed ? LOAD_FAILED : null}
 	nothingLeft="Nothing else to link."
-	create={options ? CREATE_ROW : undefined}
+	create={options ? words.create : undefined}
+	top={momentWhere === 'pick' ? pickTop : undefined}
 	{added}
 	pending={inFlight}
 	message={pickMessage}

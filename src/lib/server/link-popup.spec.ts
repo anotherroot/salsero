@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, figureGroups, figures, lessonFigures, spotLinks } from './db/schema';
+import {
+	exercises,
+	figureEndPositions,
+	figureGroups,
+	figureStartPositions,
+	figures,
+	lessonFigures,
+	lessonPositions,
+	positions,
+	spotLinks,
+	spotPositionLinks,
+	type PositionRow
+} from './db/schema';
 import { addRecording, createFigure, createVariationFrom, getGroup } from './figures';
 import {
 	addLessonVideo,
@@ -9,16 +21,28 @@ import {
 	getLesson,
 	linkExercise,
 	linkFigure,
+	linkPosition,
 	publishLesson
 } from './lessons';
 import { createCustomExercise } from './exercises';
 import { addSpot } from './spots';
 import { linkSpot, SpotLinkError, unlinkFromSection } from './spot-links';
-import { createAndLink, createAndLinkIn, linkOptions, linkOptionsFor } from './link-popup';
+import {
+	createAndLink,
+	createAndLinkIn,
+	linkOptions,
+	linkOptionsFor,
+	parseLinkBody
+} from './link-popup';
+import { archivePosition, createPosition } from './positions';
+import { linkSpotToPosition, unlinkSpotFromPosition } from './position-links';
+import { history } from './changes';
+import type { Space } from './scope';
+import type { LinkOptions } from '$lib/types';
 import { createTeam, joinTeam } from './teams';
 import { addLesson } from './entries';
 import { crossRefs } from './integrity';
-import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
 let lessonId: number;
@@ -212,8 +236,7 @@ describe('linkOptions', () => {
 		]);
 	});
 
-	it('is null for a point or a missing spot', () => {
-		expect(linkOptions(db, point, 'salsa')).toBeNull();
+	it('is null for a missing spot', () => {
 		expect(linkOptions(db, 9999, 'salsa')).toBeNull();
 	});
 });
@@ -558,5 +581,274 @@ describe("the Link popup on a person's own video", () => {
 		expect(all.some((x) => 'figureId' in x.target && x.target.figureId === own)).toBe(false);
 		expect(all.every((x) => x.team === undefined)).toBe(true);
 		expect(T.teamId).toBe(1);
+	});
+});
+
+describe('positions in the Link popup (ruling 10)', () => {
+	const hold = { hands: 'two', crossed: true, facing: 'face', frame: null } as const;
+	const make = (space: Space, name: string, styleTag: string | null = 'salsa') =>
+		(
+			createPosition(
+				db,
+				space,
+				{ name, styleTag, hold, notes: null, pictureSpotId: null },
+				1
+			) as PositionRow
+		).id;
+	const position = (o: LinkOptions, id: number) =>
+		[...o.near, ...o.positions].find((x) => 'positionId' in x.target && x.target.positionId === id);
+
+	it("offers a point the space's live positions of its dance, and nothing else", () => {
+		const cerrada = make(U1_SALSA, 'Cerrada');
+		const abierta = make(U1_SALSA, 'Abierta', null);
+		const gone = make(U1_SALSA, 'Gone');
+		archivePosition(db, gone, 2);
+		make(U1_BACHATA, 'Close');
+		make(U2_SALSA, 'Theirs');
+		const o = linkOptions(db, point, 'salsa')!;
+		expect(o.spot).toEqual({ id: point, startMs: 1000, endMs: null, label: null });
+		expect(o.figures).toEqual([]);
+		expect(o.drills).toEqual([]);
+		expect(o.figureChoices).toEqual([]);
+		expect(o.near).toEqual([]);
+		expect(o.positions).toEqual([
+			{
+				target: { positionId: cerrada },
+				label: 'Cerrada',
+				drill: false,
+				figure: null,
+				name: 'Cerrada',
+				everyDays: null,
+				linked: false,
+				hold: { hands: 'two', crossed: true, facing: 'face', frame: null }
+			},
+			expect.objectContaining({ target: { positionId: abierta }, label: 'Abierta' })
+		]);
+	});
+
+	it("offers a section figures, drills and positions, the lesson's positions near", () => {
+		const cerrada = make(U1_SALSA, 'Cerrada');
+		const hammer = make(U1_SALSA, 'Hammerlock');
+		const cross = make(U1_SALSA, 'Cross');
+		expect(linkPosition(db, lessonId, hammer)).toBe(true);
+		linkSpotToPosition(db, 'u1', other, cross);
+		const o = linkOptions(db, section, 'salsa')!;
+		expect(labels(o.figures)).toEqual(['Enchufla · Basic', 'Enchufla · Doble', 'Setenta · Basic']);
+		expect(labels(o.drills)).toEqual(['Clave']);
+		expect(labels(o.near)).toEqual(['Cross', 'Hammerlock']);
+		expect(labels(o.positions)).toEqual(['Cerrada']);
+		expect(position(o, cerrada)?.linked).toBe(false);
+	});
+
+	it("puts a recording's figure's own positions near", () => {
+		const start = make(U1_SALSA, 'Cerrada');
+		const end = make(U1_SALSA, 'Hammerlock');
+		make(U1_SALSA, 'Abierta');
+		db.insert(figureStartPositions)
+			.values({ figureId: basic, positionId: start, createdAt: 1 })
+			.run();
+		db.insert(figureEndPositions).values({ figureId: basic, positionId: end, createdAt: 1 }).run();
+		const o = linkOptions(db, recSection, 'salsa')!;
+		expect(labels(o.near)).toEqual([
+			'Enchufla · Basic',
+			'Enchufla · Doble',
+			'Cerrada',
+			'Hammerlock'
+		]);
+		expect(labels(o.positions)).toEqual(['Abierta']);
+	});
+
+	it('lists a linked position with its kind, flagged when the lesson has it by hand', () => {
+		const cerrada = make(U1_SALSA, 'Cerrada');
+		linkPosition(db, lessonId, cerrada);
+		const linkId = linkSpotToPosition(db, 'u1', point, cerrada);
+		const o = linkOptions(db, point, 'salsa')!;
+		expect(o.linked).toEqual([
+			{
+				linkId,
+				target: { positionId: cerrada },
+				label: 'Cerrada',
+				drill: false,
+				figure: null,
+				name: 'Cerrada',
+				everyDays: null,
+				linked: true,
+				hold: { hands: 'two', crossed: true, facing: 'face', frame: null },
+				archived: false,
+				alsoByHand: true
+			}
+		]);
+		expect(position(o, cerrada)?.linked).toBe(true);
+		archivePosition(db, cerrada, 5);
+		expect(linkOptions(db, point, 'salsa')!.linked[0]).toMatchObject({ archived: true });
+	});
+
+	it('creates a position in the spot’s space and links it, on a point or a section', () => {
+		createAndLink(db, 'u1', point, { kind: 'position', name: ' Cerrada ', styleTag: 'son' });
+		const made = db.select().from(positions).get()!;
+		expect(made).toMatchObject({
+			name: 'Cerrada',
+			styleTag: 'son',
+			userId: 'u1',
+			teamId: null,
+			dance: 'salsa'
+		});
+		expect(db.select().from(spotPositionLinks).all()).toMatchObject([
+			{ spotId: point, positionId: made.id }
+		]);
+		createAndLink(db, 'u1', section, { kind: 'position', name: 'Abierta', styleTag: null });
+		expect(linkOptions(db, section, 'salsa')!.linked.map((l) => l.label)).toEqual(['Abierta']);
+	});
+
+	it('refuses a taken name under Name and leaves nothing behind', () => {
+		make(U1_SALSA, 'Cerrada');
+		let thrown: unknown;
+		try {
+			createAndLink(db, 'u1', point, { kind: 'position', name: 'cerrada', styleTag: null });
+		} catch (e) {
+			thrown = e;
+		}
+		expect(thrown).toBeInstanceOf(SpotLinkError);
+		expect(thrown).toMatchObject({
+			message: 'You already have a position called cerrada.',
+			field: 'name',
+			status: 400
+		});
+		expect(db.select().from(positions).all()).toHaveLength(1);
+		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
+	});
+
+	it('refuses a type of another dance under Style, making nothing', () => {
+		expect(() =>
+			createAndLink(db, 'u1', point, { kind: 'position', name: 'X', styleTag: 'sensual' })
+		).toThrow(expect.objectContaining({ field: 'style' }));
+		expect(db.select().from(positions).all()).toEqual([]);
+	});
+
+	it('refuses to make a figure, move or drill for a point, before writing anything', () => {
+		const before = db.select().from(figures).all().length;
+		const drillsBefore = db.select().from(exercises).all().length;
+		expect(() =>
+			createAndLink(db, 'u1', point, { kind: 'drill', name: 'Clave 2', everyDays: 3 })
+		).toThrow('A point links positions only.');
+		expect(() =>
+			createAndLink(db, 'u1', point, {
+				kind: 'figure',
+				figureName: 'Sombrero',
+				name: 'Basic',
+				partner: 'partner',
+				style: 'salsa'
+			})
+		).toThrow('A point links positions only.');
+		expect(db.select().from(exercises).all()).toHaveLength(drillsBefore);
+		expect(db.select().from(figures).all()).toHaveLength(before);
+	});
+
+	it("a group's spot: only the group's positions, and a create makes the group's, logged", () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		if (!made.ok) throw new Error('team expected');
+		const Ts = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		make(U1_SALSA, 'Mine');
+		const theirs = make(Ts, 'Group hold');
+		const L = createLesson(db, Ts, { lessonDay: '2026-11-03', title: 'Week 1', notes: null }).lesson
+			.id;
+		const v = addLessonVideo(
+			db,
+			{ lessonId: L, file: 'g.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		const p = addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: null, label: null }, 'u1')!.id;
+		const o = linkOptionsFor(db, p, 'u1')!;
+		expect(o.positions.map((x) => x.target)).toEqual([{ positionId: theirs }]);
+		expect(o.positions[0].team).toBeUndefined();
+		createAndLink(db, 'u1', p, { kind: 'position', name: 'Cerrada', styleTag: null });
+		const row = db.select().from(positions).where(eq(positions.name, 'Cerrada')).get()!;
+		expect(row).toMatchObject({ teamId: made.teamId, userId: null });
+		expect(history(db, made.teamId, 'position', row.id).map((h) => h.verb)).toEqual(['add']);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("a person's own spot: a group's position they may use, tagged with its group", () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		if (!made.ok) throw new Error('team expected');
+		const Ts = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', made.teamId, 1);
+		const used = make(Ts, 'Hammerlock');
+		make(Ts, 'Draft only');
+		const L = createLesson(db, Ts, { lessonDay: '2026-11-03', title: 'Week 1', notes: null }).lesson
+			.id;
+		expect(linkPosition(db, L, used, 'u1')).toBe(true);
+		publishLesson(db, Ts, L, 1);
+		addLesson(db, 'u2', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, 2);
+		const mine = createLesson(db, U2_SALSA, { lessonDay: '2026-11-04', title: 'Mine', notes: null })
+			.lesson.id;
+		const v = addLessonVideo(db, {
+			lessonId: mine,
+			file: 'm.mp4',
+			mime: 'video/mp4',
+			sizeBytes: 1
+		}).id;
+		const p = addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: null, label: null })!.id;
+		const o = linkOptionsFor(db, p, 'u2')!;
+		expect(o.positions).toMatchObject([
+			{
+				target: { positionId: used },
+				label: 'Hammerlock',
+				team: { id: made.teamId, name: 'Salsa Tuesdays' }
+			}
+		]);
+		linkSpotToPosition(db, 'u2', p, used);
+		expect(linkOptionsFor(db, p, 'u2')!.linked).toMatchObject([
+			{ target: { positionId: used }, team: { name: 'Salsa Tuesdays' } }
+		]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('unlinks a position link by its own id, never a figure link with the same number', () => {
+		const cerrada = make(U1_SALSA, 'Cerrada');
+		const fLink = linkSpot(db, 'u1', section, { figureId: basic });
+		const pLink = linkSpotToPosition(db, 'u1', section, cerrada);
+		expect(pLink).toBe(fLink); // both tables start at 1
+		expect(unlinkSpotFromPosition(db, pLink, 3, undefined, { spotId: section })).toBe(true);
+		expect(db.select().from(spotLinks).all()).toHaveLength(1);
+		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
+	});
+
+	it("refuses another spot's position link, and takes the lesson's hand link only when asked", () => {
+		const cerrada = make(U1_SALSA, 'Cerrada');
+		linkPosition(db, lessonId, cerrada);
+		const elsewhere = linkSpotToPosition(db, 'u1', other, cerrada);
+		expect(unlinkSpotFromPosition(db, elsewhere, 3, undefined, { spotId: section })).toBe(false);
+		expect(db.select().from(spotPositionLinks).all()).toHaveLength(1);
+		const here = linkSpotToPosition(db, 'u1', point, cerrada);
+		expect(unlinkSpotFromPosition(db, here, 3, undefined, { spotId: point })).toBe(true);
+		expect(db.select().from(lessonPositions).all()).toHaveLength(1);
+		const again = linkSpotToPosition(db, 'u1', point, cerrada);
+		expect(
+			unlinkSpotFromPosition(db, again, 4, undefined, { spotId: point, alsoLesson: true })
+		).toBe(true);
+		expect(db.select().from(lessonPositions).all()).toEqual([]);
+		expect(db.select().from(spotPositionLinks).all()).toHaveLength(1);
+	});
+});
+
+describe('parseLinkBody', () => {
+	it('reads a position target and a position create', () => {
+		expect(parseLinkBody({ target: { positionId: 4 } })).toEqual({ target: { positionId: 4 } });
+		expect(
+			parseLinkBody({ create: { kind: 'position', name: 'Cerrada', styleTag: 'son' } })
+		).toEqual({ create: { kind: 'position', name: 'Cerrada', styleTag: 'son' } });
+		expect(
+			parseLinkBody({ create: { kind: 'position', name: 'Cerrada', styleTag: null } })
+		).toEqual({ create: { kind: 'position', name: 'Cerrada', styleTag: null } });
+	});
+	it.each([
+		{ target: { positionId: 0 } },
+		{ target: { positionId: 'x' } },
+		{ create: { kind: 'position', name: 5, styleTag: null } },
+		{ create: { kind: 'position', name: 'X', styleTag: 3 } },
+		{ create: { kind: 'position', name: 'X' } }
+	])('refuses %o', (body) => {
+		expect(parseLinkBody(body)).toBeNull();
 	});
 });

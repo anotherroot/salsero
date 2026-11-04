@@ -239,10 +239,67 @@ const variation = (id: number, figure: string, name: string, linked = false): Li
 	lopt({ target: { figureId: id }, label: `${figure} · ${name}`, figure, name, linked });
 const drillOpt = (id: number, name: string, everyDays = 3): LinkOption =>
 	lopt({ target: { exerciseId: id }, label: name, drill: true, name, everyDays });
+const positionOpt = (id: number, name: string, over: Partial<LinkOption> = {}): LinkOption =>
+	lopt({
+		target: { positionId: id },
+		label: name,
+		name,
+		hold: { hands: 'two', crossed: true, facing: 'face', frame: null },
+		...over
+	});
 const linkOpts = (over: Partial<LinkOptions>): LinkOptions =>
-	({ nearTitle: 'In this lesson', near: [], figures: [], drills: [], ...over }) as LinkOptions;
+	({
+		nearTitle: 'In this lesson',
+		near: [],
+		figures: [],
+		drills: [],
+		positions: [],
+		...over
+	}) as LinkOptions;
 
 describe('linkOptionGroups', () => {
+	it('linkOptionGroups: Positions after Drills, near positions after near drills; a row is position:{id} with its hold', () => {
+		const groups = linkOptionGroups(
+			linkOpts({
+				near: [drillOpt(9, 'Clave'), positionOpt(5, 'Hammerlock', { linked: true })],
+				drills: [drillOpt(8, 'Pasos')],
+				positions: [positionOpt(6, 'Cerrada'), positionOpt(7, 'Open', { hold: undefined })]
+			})
+		);
+		expect(groups.map((g) => g.title)).toEqual(['In this lesson', 'Drills', 'Positions']);
+		expect((groups[0].entries as PickRow[]).map((r) => r.key)).toEqual([
+			'exercise:9',
+			'position:5'
+		]);
+		expect(groups[0].entries[1]).toMatchObject({ value: 5, linked: true });
+		expect(groups[2].entries).toEqual([
+			{
+				key: 'position:6',
+				value: 6,
+				label: 'Cerrada',
+				meta: 'Two hands · crossed, right on top · face to face',
+				linked: false
+			},
+			{ key: 'position:7', value: 7, label: 'Open', linked: false }
+		]);
+	});
+
+	it("linkOptionGroups: a group's position says whose it is", () => {
+		const team = { id: 1, name: 'Salsa Tuesdays' };
+		const groups = linkOptionGroups(linkOpts({ positions: [positionOpt(6, 'Cerrada', { team })] }));
+		expect(groups[0].entries[0]).toMatchObject({
+			key: 'position:6',
+			meta: 'Salsa Tuesdays’ · used as it is'
+		});
+	});
+
+	it("linkOptionGroups: a point's options are Positions only", () => {
+		const groups = linkOptionGroups(
+			linkOpts({ nearTitle: 'This figure', positions: [positionOpt(6, 'Cerrada')] })
+		);
+		expect(groups.map((g) => g.title)).toEqual(['Positions']);
+	});
+
 	it('linkOptionGroups: near, Figures, Drills in that order, near titled from nearTitle', () => {
 		const groups = linkOptionGroups(
 			linkOpts({
@@ -356,6 +413,7 @@ describe('twins in pickers', () => {
 				}
 			],
 			drills: [],
+			positions: [],
 			figureChoices: [],
 			defaults: { partner: 'partner', style: 'salsa' }
 		} as never);
