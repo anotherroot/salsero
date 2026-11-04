@@ -275,8 +275,17 @@ describe('the list’s heading, rows and chips', () => {
 
 	const types = ['salsa', 'son', 'other'];
 	const labels: Record<string, string> = { salsa: 'Salsa', son: 'Son', other: 'Other' };
+	const opts = (o: Partial<v.PositionChipsOf> = {}): v.PositionChipsOf => ({
+		types,
+		typeLabel: labels,
+		gaps: 4,
+		groupMode: false,
+		hasOwn: true,
+		untyped: false,
+		...o
+	});
 	it('is All, a chip per type, then Gaps with its count', () => {
-		const chips = v.positionChips({ q: '' }, types, labels, 4, false);
+		const chips = v.positionChips({ q: '' }, opts());
 		expect(chips.map((c) => [c.label, c.count, c.on])).toEqual([
 			['All', undefined, true],
 			['Salsa', undefined, false],
@@ -286,16 +295,65 @@ describe('the list’s heading, rows and chips', () => {
 		]);
 	});
 	it('has no Gaps in group mode', () => {
-		expect(v.positionChips({ q: '' }, types, labels, 0, true).map((c) => c.label)).toEqual([
-			'All',
-			'Salsa',
-			'Son',
-			'Other'
+		expect(
+			v.positionChips({ q: '' }, opts({ gaps: 0, groupMode: true })).map((c) => c.label)
+		).toEqual(['All', 'Salsa', 'Son', 'Other']);
+	});
+	it('has no Gaps without positions of your own (only a group’s), unless it is on', () => {
+		expect(
+			v.positionChips({ q: '' }, opts({ gaps: 0, hasOwn: false })).map((c) => c.label)
+		).toEqual(['All', 'Salsa', 'Son', 'Other']);
+		expect(
+			v
+				.positionChips({ q: '', gaps: '1' }, opts({ gaps: 0, hasOwn: false }))
+				.map((c) => [c.label, c.on])
+		).toEqual([
+			['All', false],
+			['Salsa', false],
+			['Son', false],
+			['Other', false],
+			['Gaps', true]
 		]);
+	});
+	it('adds Other for untyped rows when the dance has no such type (bachata)', () => {
+		const bachata = {
+			types: ['dominican', 'sensual'],
+			typeLabel: { dominican: 'Dominican', sensual: 'Sensual' }
+		};
+		expect(v.positionChips({ q: '' }, opts(bachata)).map((c) => c.label)).toEqual([
+			'All',
+			'Dominican',
+			'Sensual',
+			'Gaps'
+		]);
+		const chips = v.positionChips({ q: '' }, opts({ ...bachata, untyped: true }));
+		expect(chips.map((c) => [c.key, c.label])).toEqual([
+			['all', 'All'],
+			['type:dominican', 'Dominican'],
+			['type:sensual', 'Sensual'],
+			['type:other', 'Other'],
+			['gaps', 'Gaps']
+		]);
+		expect(v.positionQuery({ q: '' }, chips[3].change)).toBe('type=other');
+		// On, it stays even when nothing untyped is left to show.
+		const on = v.positionChips({ q: '', type: 'other' }, opts(bachata));
+		expect(on.find((c) => c.key === 'type:other')?.on).toBe(true);
+		// Salsa has a type of its own called Other: never a second chip.
+		expect(
+			v.positionChips({ q: '' }, opts({ untyped: true })).filter((c) => c.label === 'Other')
+		).toHaveLength(1);
+	});
+	it('orders group sections by group name, then id', () => {
+		const g = (id: number, name: string) => ({ team: { id, name }, rows: [] });
+		expect(
+			[g(3, 'Rueda club'), g(1, 'Salsa Tuesdays'), g(2, 'Cubana'), g(0, 'Rueda club')]
+				.sort(v.byGroupName)
+				.map((x) => x.team.id)
+		).toEqual([2, 0, 3, 1]);
 	});
 	it('lights the type on, toggles it off, and keeps the search', () => {
 		const f = { q: 'ca', type: 'son', gaps: '1' as const };
-		const chips = v.positionChips(f, types, labels, 2, false);
+		const chips = v.positionChips(f, opts({ gaps: 2 }));
 		const son = chips.find((c) => c.label === 'Son')!;
 		expect([son.on, chips[0].on, chips.at(-1)!.on]).toEqual([true, false, true]);
 		expect(v.positionQuery(f, son.change)).toBe('q=ca&gaps=1');

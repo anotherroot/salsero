@@ -45,7 +45,14 @@
 	const filtered = $derived(!!(filter.q || filter.type || filter.gaps));
 	const styleLabel = $derived(styleLabelOf(data.styleLabel));
 	const chips = $derived(
-		positionChips(filter, data.types, data.styleLabel, data.gaps, data.inGroupMode)
+		positionChips(filter, {
+			types: data.types,
+			typeLabel: data.styleLabel,
+			gaps: data.gaps,
+			groupMode: data.inGroupMode,
+			hasOwn: data.hasOwn,
+			untyped: data.untyped
+		})
 	);
 	const noneCount = $derived(data.none.none + data.none.onlyStart + data.none.onlyEnd);
 	// Nobody has any: no positions of the space's own or of a group, and nothing narrows the list.
@@ -244,7 +251,13 @@
 {/if}
 
 {#if templating}
-	<TemplatesSheet open={true} onclose={() => (templating = false)} {dance} owned={data.owned} />
+	<TemplatesSheet
+		open={true}
+		onclose={() => (templating = false)}
+		{dance}
+		owned={data.owned}
+		defaultStyle={data.defaultStyle}
+	/>
 {/if}
 
 <HowSheet open={explaining} onclose={() => (explaining = false)} />

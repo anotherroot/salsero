@@ -157,3 +157,9 @@ export const TEMPLATES: Record<DanceSlug, Record<string, Template[]>> = {
 export function templateTypes(dance: DanceSlug): string[] {
 	return Object.keys(TEMPLATES[dance]);
 }
+
+/** The type Templates opens on: the person's "New figures" type when it has templates, else the first. */
+export function firstTemplateType(dance: DanceSlug, defaultStyle: string | null): string | null {
+	const types = templateTypes(dance);
+	return defaultStyle !== null && types.includes(defaultStyle) ? defaultStyle : (types[0] ?? null);
+}

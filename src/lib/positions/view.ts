@@ -182,18 +182,35 @@ export function positionQuery(filter: PositionFilter, change: Partial<PositionFi
 		.join('&');
 }
 
+/** What the chip row is built from. */
+export interface PositionChipsOf {
+	/** The dance's types, in its order. */
+	types: readonly string[];
+	typeLabel: Record<string, string>;
+	/** The Gaps chip's count. */
+	gaps: number;
+	groupMode: boolean;
+	/** Whether the space has positions of its own (not only a group's). */
+	hasOwn: boolean;
+	/** Whether any row shown (own or a group's) has no type. */
+	untyped: boolean;
+}
+
+/** The filter's key for untyped rows, where the dance has no type of that name. */
+export const OTHER_TYPE = 'other';
+
 /**
- * The chip row: All · a chip per type · Gaps N (the person's own report: not
- * in group mode). A type is single-valued: the on one clears, another
- * replaces. All clears both; no chip drops the search.
+ * The chip row: All · a chip per type · Other (untyped rows, where the dance
+ * has no Other type: bachata) · Gaps N (the person's own report: not in
+ * group mode, and not without positions of their own). A chip that is on
+ * always shows, so it can be turned off. A type is single-valued: the on one
+ * clears, another replaces. All clears both; no chip drops the search.
  */
-export function positionChips(
-	filter: PositionFilter,
-	types: readonly string[],
-	typeLabel: Record<string, string>,
-	gaps: number,
-	groupMode: boolean
-): PositionChip[] {
+export function positionChips(filter: PositionFilter, o: PositionChipsOf): PositionChip[] {
+	const types =
+		!o.types.includes(OTHER_TYPE) && (o.untyped || filter.type === OTHER_TYPE)
+			? [...o.types, OTHER_TYPE]
+			: o.types;
 	const chips: PositionChip[] = [
 		{
 			key: 'all',
@@ -203,12 +220,13 @@ export function positionChips(
 		},
 		...types.map((t) => ({
 			key: `type:${t}`,
-			label: typeLabel[t] ?? t,
+			label: o.typeLabel[t] ?? (t === OTHER_TYPE ? 'Other' : t),
 			on: filter.type === t,
 			change: { type: filter.type === t ? undefined : t }
 		}))
 	];
-	if (!groupMode) {
+	const { gaps, groupMode } = o;
+	if (!groupMode && (o.hasOwn || filter.gaps)) {
 		chips.push({
 			key: 'gaps',
 			label: 'Gaps',
@@ -218,6 +236,14 @@ export function positionChips(
 		});
 	}
 	return chips;
+}
+
+/** The order of the list's group sections: by group name, then by id. A `sort` comparator. */
+export function byGroupName(
+	a: { team: { id: number; name: string } },
+	b: { team: { id: number; name: string } }
+): number {
+	return a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id;
 }
 
 // ---- New position / Edit ----

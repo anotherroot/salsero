@@ -456,3 +456,55 @@ describe('No position', () => {
 		expect(d.groups[0].rows.map((r: any) => r.id)).toEqual([mine]);
 	});
 });
+
+describe('the list’s chips and group order', () => {
+	/** A group position reaching u2 through a published lesson u2 added. */
+	const reach = (teamId: number, name: string) => {
+		const space = { teamId, actorId: teamId === 1 ? 'u1' : 'u3', dance: 'salsa' as const };
+		const p = addPosition(db, space, name);
+		const lesson = createLesson(db, space, {
+			lessonDay: '2026-11-03',
+			title: `Week of ${name}`,
+			notes: null
+		}).lesson.id;
+		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, lesson)).run();
+		db.insert(lessonPositions).values({ lessonId: lesson, positionId: p }).run();
+		db.insert(lessonAdds).values({ userId: 'u2', lessonId: lesson, addedAt: 1, seenAt: 1 }).run();
+		return p;
+	};
+
+	it('orders the group sections by group name, and says when nothing is your own', () => {
+		createTeam(db, 'u3', 'salsa', 'Abacus', 1);
+		joinTeam(db, 'u2', 2, 2);
+		reach(1, 'Hammerlock');
+		reach(2, 'Cuddle');
+		const d = loadOf('u2');
+		expect(d.rows).toEqual([]);
+		expect(d.groups.map((g: any) => g.team.name)).toEqual(['Abacus', 'Tuesdays']);
+		// Only a group's positions: no Gaps chip to show "Gaps 0".
+		expect(d.hasOwn).toBe(false);
+		expect(d.untyped).toBe(true);
+		addPosition(db, U2_SALSA, 'Mine');
+		expect(loadOf('u2').hasOwn).toBe(true);
+	});
+
+	it('takes Other where the dance has no such type, for untyped rows (bachata)', () => {
+		const bachata = { userId: 'u2', dance: 'bachata' as const };
+		const p = addPosition(db, bachata, 'Closed');
+		const typed = addPosition(db, bachata, 'Open');
+		db.update(positions).set({ styleTag: 'sensual' }).where(eq(positions.id, typed)).run();
+		const loadBachata = (search: string) =>
+			(load as (e: unknown) => unknown)({
+				params: { dance: 'bachata' },
+				locals: locals('u2'),
+				cookies: jar().cookies,
+				url: new URL(`http://x/bachata/positions${search}`)
+			}) as any;
+		const d = loadBachata('?type=other');
+		expect(d.types).not.toContain('other');
+		expect(d.untyped).toBe(true);
+		expect(d.filter).toEqual({ q: '', type: 'other' });
+		expect(d.rows.map((r: any) => r.id)).toEqual([p]);
+		expect(loadBachata('?type=sensual').rows.map((r: any) => r.id)).toEqual([typed]);
+	});
+});
