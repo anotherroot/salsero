@@ -42,6 +42,8 @@ import * as figurePage from './figures/[id]/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
 import * as compareApi from '../api/clones/compare/+server';
 import * as sendApi from '../api/clones/send/+server';
+import * as copyApi from '../api/clones/copy/+server';
+import { archiveVariation } from '$lib/server/figures';
 import { figures } from '$lib/server/db/schema';
 
 const T = Date.UTC(2026, 10, 3, 20);
@@ -384,5 +386,87 @@ describe('Drop my copy', () => {
 			status: 404
 		});
 		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.archivedAt).toBeNull();
+	});
+});
+
+describe('Copy to…', () => {
+	/** Rueda club (T2, u4's), which u3 edits too; Salsa Tuesdays' Setenta · Básico (F). */
+	function rueda() {
+		createTeam(db, 'u4', 'salsa', 'Rueda club', T);
+		joinTeam(db, 'u3', 2, T);
+		setRole(db, 2, 'u3', 'editor');
+		const F = createFigure(db, T1_SALSA, { figureName: 'Setenta', name: 'Básico', ...shape })!
+			.figure.id;
+		recording(F, 'first.mp4');
+		return F;
+	}
+	const plan = async (uid: string, id: number, into: string) =>
+		run(copyApi.GET, {
+			url: new URL(`http://localhost/api/clones/copy?kind=figure&id=${id}&into=${into}`),
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+		});
+
+	it('an editor copies a group’s figure into another group; again opens Compare; archived offers Restore', async () => {
+		const F = rueda();
+		const page = await run(figurePage.load, ev('u3', F));
+		expect(page.copyTo).toMatchObject({
+			kind: 'figure',
+			title: 'Setenta · Básico',
+			fromMine: false
+		});
+		expect(page.copyTo.targets.map((t: Answer) => [t.place, t.role])).toEqual([
+			[{ kind: 'mine' }, null],
+			[{ kind: 'team', teamId: 2, name: 'Rueda club' }, 'editor']
+		]);
+		expect(await (await plan('u3', F, '2')).json()).toMatchObject({
+			goes: '1 recording (<1 MB, charged to the group)',
+			already: [],
+			twins: []
+		});
+
+		const made = await run(figurePage.actions.copyTo, ev('u3', F, { form: { into: '2' } }));
+		expect(made).toMatchObject({ action: 'copy', href: `/salsa/figures/${made.copied}` });
+		const copy = db.select().from(figures).where(eq(figures.id, made.copied)).get()!;
+		expect(copy).toMatchObject({ teamId: 2, clonedFrom: F });
+
+		expect(await run(figurePage.actions.copyTo, ev('u3', F, { form: { into: '2' } }))).toEqual({
+			action: 'copy',
+			existing: made.copied,
+			href: `/salsa/figures/${made.copied}`,
+			from: F,
+			place: 'Salsa Tuesdays'
+		});
+
+		archiveVariation(db, made.copied, T + 1, 'u3');
+		expect(await run(figurePage.actions.copyTo, ev('u3', F, { form: { into: '2' } }))).toEqual({
+			action: 'copy',
+			restore: made.copied
+		});
+		const back = await run(
+			figurePage.actions.copyTo,
+			ev('u3', F, { form: { into: '2', restore: made.copied } })
+		);
+		expect(back).toMatchObject({ action: 'copy', existing: made.copied, from: F });
+		expect(
+			db.select().from(figures).where(eq(figures.id, made.copied)).get()!.archivedAt
+		).toBeNull();
+	});
+
+	it('nowhere to go is no offer and 404; a malformed form 400', async () => {
+		const F = rueda();
+		// u2 only reads T1 (through no lesson): nothing to read, nothing offered.
+		expect((await run(figurePage.load, ev('u2', F))).copyTo ?? null).toBeNull();
+		// u3 edits T1, the figure's own place: not a target.
+		expect(
+			await run(figurePage.actions.copyTo, ev('u3', F, { form: { into: '1' } }))
+		).toMatchObject({ status: 404 });
+		expect(await plan('u3', F, '1')).toMatchObject({ status: 404 });
+		expect(await plan('u4', F, 'mine')).toMatchObject({ status: 404 });
+		expect(
+			await run(figurePage.actions.copyTo, ev('u3', F, { form: { into: '2', use: '[1]' } }))
+		).toMatchObject({ status: 400 });
+		expect(await run(figurePage.actions.copyTo, ev('u3', F, { form: {} }))).toMatchObject({
+			status: 400
+		});
 	});
 });

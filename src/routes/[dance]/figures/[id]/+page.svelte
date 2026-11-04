@@ -420,6 +420,7 @@
 				family={data.family}
 				drop={data.drop}
 				detach={data.detach}
+				copy={data.copyTo}
 				taking={data.taking ? sourcePlace : null}
 			/>
 			{#if readerTeam && data.fromLesson && !data.taking}

@@ -5,10 +5,10 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { songs, teamChanges, teamTrash, users } from './db/schema';
+import { figures, songs, teamChanges, teamTrash, users } from './db/schema';
 import { restoreTrash } from './trash';
 import { actorOf, type Space } from './scope';
-import { NO_FILES, T1_SALSA, U1_SALSA } from './test-walls';
+import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
 import { createTeam, joinTeam } from './teams';
 import { removeMember, setRole } from './membership';
 import {
@@ -91,6 +91,7 @@ import type { CloneFiles } from './clones/files';
 import { compareWith, takeTheirs } from './clones/compare';
 import { sendMine, sendPreview } from './clones/send';
 import { detach } from './clones/detach';
+import { copyTo } from './clones/copy-to';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -957,6 +958,25 @@ const MUTATIONS: {
 			);
 			if (!mine.ok) return null;
 			return detach(db, 'u1', 'figure', w.V, T) || null;
+		}
+	},
+	// clones/copy-to.ts: Copy to… group to group, a figure with no references (one add, in T1)
+	{
+		name: 'copyTo (group to group)',
+		root: 'figure',
+		verb: 'add',
+		rootId: () => 0,
+		teamOnly: true,
+		prep: () => {
+			// Rueda club (Maja's, T2), which Ana edits, holds the figure she copies into T1.
+			createTeam(db, 'u3', 'salsa', 'Rueda club', 1);
+			joinTeam(db, 'u1', 2, 1);
+			setRole(db, 2, 'u1', 'editor');
+			createFigure(db, T2_SALSA, { figureName: 'Rueda', ...variation('Dile que no') });
+		},
+		run: async () => {
+			const from = db.select().from(figures).where(eq(figures.teamId, 2)).get()!.id;
+			return ok(await copyTo(db, 'u1', 'figure', from, T1_SALSA, {}, cloneFiles, T, 100 * GB));
 		}
 	},
 	// video-downloads.ts, on completion

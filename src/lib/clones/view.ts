@@ -3,7 +3,8 @@
  * sentence a screen prints comes from here, so a spec can pin it.
  */
 import type { CloneKind, FieldDiff, PlaceRef, Source, SwitchReport } from '$lib/types';
-import { byteSize, plural } from '$lib/format';
+import { byteSize, dayMonth, plural } from '$lib/format';
+import { localDay } from '$lib/day/day';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
 import { sendPicks, unpicked } from './diff';
 
@@ -600,9 +601,12 @@ export const DROP_GONE = 'That version can’t be used any more. Reload and pick
 
 export const DETACH_BUTTON = 'Detach';
 
-/** The sheet's title: "Stop following Salsa Tuesdays?" */
-export function detachTitle(place: string): string {
-	return `Stop following ${place}?`;
+/**
+ * The sheet's title: "Stop following Salsa Tuesdays?" for your own copy; a
+ * group's row follows nobody (the others are its copies), so it is neutral.
+ */
+export function detachTitle(place: string, group = false): string {
+	return group ? 'Detach from its copies?' : `Stop following ${place}?`;
 }
 
 /** What Detach does to your own copy. */
@@ -627,3 +631,167 @@ export const DETACH_FAILED = 'That could not be detached. Try again.';
 export function reconnectedLine(place: string, changes: number): string {
 	return `Reconnected with ${place}: ${plural(changes, 'change', 'changes')} while you were away`;
 }
+
+/* ── Copy to… (board C4) ────────────────────────────────────────────────── */
+
+/** The trigger under the tabs. */
+export const COPY_TO = 'Copy to…';
+
+/** The sheet's title: "Copy Week 3 to…". */
+export function copyTitle(name: string): string {
+	return `Copy ${name} to…`;
+}
+
+/** A lesson or song into a group, from your own: it lands as a draft. */
+export const COPY_SUB_GROUP = 'The group gets a draft. You keep yours.';
+
+/** Lands as a draft: a lesson or a song into a group. */
+const asDraft = (kind: CloneKind, into: PlaceRef) =>
+	into.kind === 'team' && (kind === 'lesson' || kind === 'song');
+
+/**
+ * Under the title, for the place picked: what the place gets, and that the
+ * page's row stays (`fromMine`: it is yours).
+ */
+export function copySub(kind: CloneKind, into: PlaceRef, fromMine: boolean): string {
+	const stays = fromMine ? 'You keep yours.' : 'This one stays as it is.';
+	if (into.kind === 'mine') return `You get your own copy. ${stays}`;
+	return `The group gets ${asDraft(kind, into) ? 'a draft' : 'a copy'}. ${stays}`;
+}
+
+/** A radio's name: the group's, or "Your app". */
+export function placeLabel(place: PlaceRef): string {
+	return place.kind === 'team' ? place.name : 'Your app';
+}
+
+/** "1 GB", not "1.0 GB": a limit is a round number. */
+const size = (bytes: number) => byteSize(bytes).replace(/\.0 GB$/, ' GB');
+
+/** A radio's line: "Owner · 412 MB of 1 GB used"; your app has no role. */
+export function placeMeta(
+	role: 'owner' | 'editor' | null,
+	used: number,
+	limit: number | null
+): string {
+	const space = limit === null ? `${size(used)} used` : `${size(used)} of ${size(limit)} used`;
+	return role ? `${ROLE_WORD[role]} · ${space}` : space;
+}
+
+export const WHAT_GOES = 'WHAT GOES';
+export const ALREADY_THERE = 'ALREADY THERE';
+
+/** What a copy brings, counted: the copies it makes, the files and their charge. */
+export type GoesCounts = {
+	kind: CloneKind;
+	figures: number;
+	routines: number;
+	drills: number;
+	recordings: number;
+	videos: number;
+	/** A song's audio. */
+	audio: boolean;
+	bytes: number;
+	/** The copied row has notes. */
+	notes: boolean;
+	into: PlaceRef;
+};
+
+/**
+ * The grey card's line: "3 figures · 2 videos (420 MB, charged to the group)
+ * · notes". The files' size rides on the last part that has files.
+ */
+export function whatGoes(g: GoesCounts): string {
+	const parts: string[] = [];
+	const count = (n: number, one: string, many: string) => {
+		if (n > 0) parts.push(plural(n, one, many));
+	};
+	count(g.figures, 'figure', 'figures');
+	count(g.routines, 'routine', 'routines');
+	count(g.drills, 'drill', 'drills');
+	count(g.recordings, 'recording', 'recordings');
+	count(g.videos, 'video', 'videos');
+	if (g.audio) parts.push('the audio');
+	if (g.bytes > 0 && (g.recordings > 0 || g.videos > 0 || g.audio)) {
+		const charge = g.into.kind === 'team' ? 'the group' : 'you';
+		parts[parts.length - 1] += ` (${byteSize(g.bytes)}, charged to ${charge})`;
+	}
+	if (g.notes) parts.push('notes');
+	if (parts.length === 0) return `Just the ${KIND_WORD[g.kind]}`;
+	const line = parts.join(' · ');
+	return `${line[0].toUpperCase()}${line.slice(1)}`;
+}
+
+/**
+ * Something the copy uses that the place has already (`day` is when that
+ * member was made, in the person's zone): "Enchufla · Doble: Salsa Tuesdays
+ * has your copy from 3 Oct. It’s reused, not doubled." `yours` when the
+ * person made that copy.
+ */
+export function alreadyLine(label: string, place: PlaceRef, day: string, yours: boolean): string {
+	const when = dayMonth(day);
+	const has =
+		place.kind === 'mine'
+			? `you have it already, from ${when}`
+			: yours
+				? `${place.name} has your copy from ${when}`
+				: `${place.name} has it already, from ${when}`;
+	return `${label}: ${has}. It’s reused, not doubled.`;
+}
+
+/** The sheet's button: "Copy as a draft" for a lesson or song into a group. */
+export function copyButton(kind: CloneKind, into: PlaceRef): string {
+	return asDraft(kind, into) ? 'Copy as a draft' : 'Copy';
+}
+
+/**
+ * The place picked holds a member of the family already (spec point 9): it
+ * stays as it is and the comparison opens; an archived one is restored first.
+ */
+export function existingNote(place: PlaceRef, archived: boolean): string {
+	const who = place.kind === 'team' ? `${place.name} has` : 'You have';
+	return archived
+		? `${who} an archived copy. Restore it, then compare.`
+		: `${who} it already. Compare the two and take what you want.`;
+}
+
+export const RESTORE = 'Restore';
+
+/** Once the copy has landed. */
+export function copiedToast(into: PlaceRef, draft: boolean): string {
+	if (into.kind === 'mine') return 'Copied to your app.';
+	return `Copied to ${into.name}${draft ? ' as a draft' : ''}.`;
+}
+
+/** A copy that failed without a refusal's words. */
+export const COPY_FAILED = 'That could not be copied. Try again.';
+
+/** Which twin goes (board C4 p4): "Which Enchufla · Doble?" */
+export function whichTitle(label: string): string {
+	return `Which ${label}?`;
+}
+
+const NUMBER_WORDS = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+
+/** "You see two versions of this figure. Which one goes to Salsa Tuesdays?" */
+export function whichSub(kind: CloneKind, versions: number, place: string): string {
+	const n = NUMBER_WORDS[versions] || String(versions);
+	return `You see ${n} versions of this ${KIND_WORD[kind]}. Which one goes to ${place}?`;
+}
+
+/** A twin's radio: "Yours", "Rueda club’s". */
+export function twinChoiceLabel(place: PlaceRef): string {
+	return place.kind === 'team' ? possessive(place.name) : 'Yours';
+}
+
+/** A twin's line: "Last changed 30 Oct", the day in the person's zone. */
+export function twinChoiceMeta(changedAt: number, tz: string): string {
+	return `Last changed ${dayMonth(localDay(changedAt, tz))}`;
+}
+
+export const TWINS_ONE_GOES =
+	'They’re twins in your app. Only one goes; the group never gets twins.';
+
+export const CONTINUE = 'Continue';
+
+/** The copied toast's action: the copy's page. */
+export const OPEN = 'Open';

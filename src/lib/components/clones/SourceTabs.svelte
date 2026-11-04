@@ -8,12 +8,15 @@
 	import FamilyList from './FamilyList.svelte';
 	import DropSheet from './DropSheet.svelte';
 	import DetachSheet from './DetachSheet.svelte';
+	import CopyToSheet from './CopyToSheet.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { dropped } from './dropped.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import {
 		COMPARE,
+		COPY_TO,
 		DETACH_BUTTON,
+		OPEN,
 		DROP_BUTTON,
 		VERSIONS,
 		changedLine,
@@ -25,6 +28,7 @@
 	import type {
 		CloneKind,
 		CompareOffer,
+		CopyOffer,
 		DetachOffer,
 		DropOptions,
 		FamilyView,
@@ -42,7 +46,7 @@
 	 * (`compare`), a line says what, with Compare (board C2 p2). Under it, when
 	 * the person edits another copy (`family`, board C3 p1): "Rueda club’s copy
 	 * differs: timing · Compare" per copy that moved, the copies they can see,
-	 * and Send mine….
+	 * and Send mine…. Under them, Copy to… (board C4), Detach and Drop my copy.
 	 */
 	let {
 		sources,
@@ -54,7 +58,8 @@
 		compare = null,
 		family = null,
 		drop = null,
-		detach = null
+		detach = null,
+		copy = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -73,6 +78,8 @@
 		drop?: DropOptions | null;
 		/** Detach (board C8), beside Drop my copy: the copy stops following its source. */
 		detach?: DetachOffer | null;
+		/** Copy to… (board C4): into your app or a group you own or edit; null when there is nowhere. */
+		copy?: CopyOffer | null;
 	} = $props();
 
 	let comparing = $state(false);
@@ -81,9 +88,13 @@
 	let againstOpen = $state(false);
 	let dropping = $state(false);
 	let detaching = $state(false);
+	let copying = $state(false);
 
-	/** "Back on Salsa Tuesdays’. Your copy is archived.": left by a drop for the page it opened. */
-	let toast = $state<{ id: number; message: string } | null>(null);
+	/**
+	 * "Back on Salsa Tuesdays’. Your copy is archived.": left by a drop for the
+	 * page it opened; or "Copied to Salsa Tuesdays as a draft.", with Open (`href`).
+	 */
+	let toast = $state<{ id: number; message: string; href?: string } | null>(null);
 	let toastSeq = 0;
 	// Only on the version's own page (`dropped.take`): a landing that failed never shows it later.
 	$effect(() => {
@@ -186,8 +197,16 @@
 	{/if}
 	<FamilyList {family} {kind} {dance} {current} />
 {/if}
-{#if drop || detach}
+{#if drop || detach || copy}
 	<div class="flex flex-wrap justify-end gap-x-2">
+		{#if copy}
+			<button
+				type="button"
+				class={button('tertiary', 'sm')}
+				aria-haspopup="dialog"
+				onclick={() => (copying = true)}><Icon name="copy" size={20} />{COPY_TO}</button
+			>
+		{/if}
 		{#if detach}
 			<button
 				type="button"
@@ -212,8 +231,29 @@
 {#if detach}
 	<DetachSheet open={detaching} onclose={() => (detaching = false)} {kind} {detach} />
 {/if}
+{#if copy}
+	<CopyToSheet
+		open={copying}
+		onclose={() => (copying = false)}
+		offer={copy}
+		{current}
+		ondone={(message, href) => (toast = { id: ++toastSeq, message, href })}
+	/>
+{/if}
 
 <Toast
-	toast={toast && { ...toast, icon: 'check', tone: 'done' }}
+	toast={toast && {
+		id: toast.id,
+		message: toast.message,
+		action: toast.href ? OPEN : undefined,
+		icon: 'check',
+		tone: 'done'
+	}}
+	onaction={() => {
+		const href = toast?.href;
+		toast = null;
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the server built the copy's path
+		if (href) goto(href);
+	}}
 	ondismiss={() => (toast = null)}
 />

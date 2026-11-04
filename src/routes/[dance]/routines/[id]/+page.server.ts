@@ -46,7 +46,8 @@ import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
@@ -213,6 +214,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'routine', routine.id),
 		detach: detachOffer(db, wall.userId, 'routine', routine.id),
+		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
+		copyTo: copyOffer(db, wall.userId, 'routine', routine.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine:
 			canEdit || routine.teamId === null
@@ -379,6 +382,12 @@ export const actions: Actions = {
 	detach: ({ params, locals }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return detachFrom(getDb(), wallOf(params, locals).userId, 'routine', routine.id);
+	},
+
+	/** Copy to… (board C4): this row into your app or a group you own or edit. */
+	copyTo: ({ params, locals, request }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return copyToFrom(getDb(), wallOf(params, locals), 'routine', routine.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

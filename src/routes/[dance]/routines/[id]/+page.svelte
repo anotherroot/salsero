@@ -794,6 +794,7 @@
 					family={data.family}
 					drop={data.drop}
 					detach={data.detach}
+					copy={data.copyTo}
 					taking={sourcePlace}
 				/>
 				{#if bannerMessage}

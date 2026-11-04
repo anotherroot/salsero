@@ -1,8 +1,8 @@
 /**
  * Take theirs and Send mine on an item page (figure, routine, drill, song,
  * lesson): the `take` action the compare sheet posts, the `send` action the
- * send sheet posts and the `drop` action of Drop my copy. The data side is
- * `clones/compare.ts`, `clones/send.ts` and `clones/drop.ts`;
+ * send sheet posts, the `drop` action of Drop my copy and Copy to…'s `copyTo`. The data side is
+ * `clones/compare.ts`, `clones/send.ts`, `clones/drop.ts` and `clones/copy-to.ts`;
  * this is the route's share: reading the form, the real files and the free
  * disk, and the refusals' answers. Whoever may not take into the row gets the
  * missing row's 404.
@@ -16,6 +16,8 @@ import { takeTheirs } from './clones/compare';
 import { sendMine } from './clones/send';
 import { dropCopy, dropOptions } from './clones/drop';
 import { detach, detachOffer } from './clones/detach';
+import { chosenSource, copyTo, intoOf, restoreMember } from './clones/copy-to';
+import { placeOfRow } from './clones/genes';
 import { itemHref } from './make-mine-form';
 import type { Wall } from './scope';
 
@@ -170,4 +172,97 @@ export function detachFrom(db: Db, userId: string, kind: CloneKind, id: number) 
 	if (!detachOffer(db, userId, kind, id) || !detach(db, userId, kind, id, Date.now()))
 		throw error(404, 'Not found');
 	return { action: 'detach' as const, detached: true };
+}
+
+/** The twins' answers (`{ use key: row id }`, as JSON; absent is none), or null when malformed. */
+export function useFrom(raw: FormDataEntryValue | null): Record<string, number> | null {
+	if (raw === null || raw === '') return {};
+	if (typeof raw !== 'string') return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+	const use: Record<string, number> = {};
+	for (const [key, id] of Object.entries(parsed)) {
+		if (!Number.isSafeInteger(id) || (id as number) <= 0) return null;
+		use[key] = id as number;
+	}
+	return use;
+}
+
+/**
+ * The `copyTo` action (board C4): the page's row copied into `into` (`mine`
+ * or a group's id), with the twins' answers in `use`; with `restore`, the
+ * family's archived member there is restored instead. Answers, for the sheet:
+ * `{ copied, href }` for a new copy; `{ existing, href, from, place }` when
+ * the place holds a member (after a restore too), for Compare between the
+ * member there and the row it would have copied, taking into the member's
+ * page; `{ restore }` when that member is archived. 413 for room, 409 for a
+ * name or a refused restore; a place that is not a target is the missing
+ * row's 404.
+ */
+export async function copyToFrom(
+	db: Db,
+	wall: Wall,
+	kind: CloneKind,
+	id: number,
+	request: Request
+) {
+	const form = await request.formData();
+	const raw = form.get('into');
+	const use = useFrom(form.get('use'));
+	const rawRestore = form.get('restore');
+	const restore = rawRestore === null || rawRestore === '' ? undefined : int(rawRestore);
+	if (typeof raw !== 'string' || use === null || restore === null)
+		throw error(400, 'This page is out of date. Reload it and try again.');
+	const into = intoOf(db, wall.userId, kind, id, raw);
+	if (!into) throw error(404, 'Not found');
+
+	const existing = (memberId: number) => {
+		const from = chosenSource(db, kind, id, into, use);
+		const place = placeOfRow(db, kind, from);
+		return {
+			action: 'copy' as const,
+			existing: memberId,
+			href: itemHref(wall, kind, memberId),
+			from,
+			place: place?.kind === 'team' ? place.name : 'Yours'
+		};
+	};
+
+	if (restore !== undefined) {
+		const done = restoreMember(db, wall.userId, kind, id, into, restore, Date.now());
+		if (done === null) throw error(404, 'Not found');
+		if (!done.ok) return fail(409, { action: 'copy' as const, message: done.message });
+		return existing(restore);
+	}
+
+	const res = await copyTo(
+		db,
+		wall.userId,
+		kind,
+		id,
+		into,
+		use,
+		realCloneFiles(),
+		Date.now(),
+		await freeDisk()
+	);
+	if (res.ok) {
+		if (res.made)
+			return { action: 'copy' as const, copied: res.id, href: itemHref(wall, kind, res.id) };
+		return res.archived ? { action: 'copy' as const, restore: res.id } : existing(res.id);
+	}
+	switch (res.reason) {
+		case 'room':
+			if (res.room.ok) throw error(500, 'Refused without a reason');
+			return fail(413, { action: 'copy' as const, message: res.room.message });
+		case 'name':
+			return fail(409, { action: 'copy' as const, message: res.message });
+		case 'denied':
+			throw error(404, 'Not found');
+	}
 }

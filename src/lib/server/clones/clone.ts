@@ -75,7 +75,10 @@ export type CloneRequest = {
 	recordings: boolean;
 	/** Skip the room check (Keep: losing access must not lose the files). */
 	overLimitOk?: boolean;
-	/** A family's gene → the row to copy for that family (the twin chosen in Copy to…). */
+	/**
+	 * A family's gene → the row to copy for that family (the twin chosen in Copy
+	 * to…); a row with no gene yet is keyed `<kind>#<id>` (`useKey`).
+	 */
 	use?: Record<string, number>;
 };
 
@@ -131,6 +134,8 @@ export type ClonePlan = {
 	existing: { id: number; archived: boolean } | null;
 	/** The rows a clone would make, by the row each is copied from. */
 	rows: { kind: CloneKind | PieceKind; from: number }[];
+	/** The references (not the root) that link the member already in `into`: `from` → `at`. */
+	reused: { kind: CloneKind; from: number; at: number }[];
 	files: PlanFile[];
 	/** What `into` is charged: the files' bytes. */
 	bytes: number;
@@ -181,11 +186,15 @@ function rootRow(db: Db, kind: CloneKind, id: number): RootRow | null {
 	}
 }
 
+/** The key `use` names a row's family by: its gene, or `<kind>#<id>` while it has none. */
+export const useKey = (kind: CloneKind, row: { id: number; geneId: string | null }) =>
+	row.geneId ?? `${kind}#${row.id}`;
+
 /** The row to copy for a reference to `id`: itself, or the one `use` names for its family. */
 function chosenRow(db: Db, kind: CloneKind, id: number, use: CloneRequest['use']): RootRow | null {
 	const row = rootRow(db, kind, id);
-	if (!row || row.geneId === null || !use) return row;
-	const chosen = use[row.geneId];
+	if (!row || !use) return row;
+	const chosen = use[useKey(kind, row)];
 	return chosen === undefined || chosen === row.id ? row : rootRow(db, kind, chosen);
 }
 
@@ -258,6 +267,7 @@ export function planClone(db: Db, req: CloneRequest, opts: CloneOptions = {}): C
 		sourceId: null,
 		existing: null,
 		rows: [],
+		reused: [],
 		files: [],
 		bytes: 0
 	};
@@ -369,6 +379,7 @@ class Planner {
 		if (this.seen.has(`${kind}:${id}`)) return;
 		this.seen.add(`${kind}:${id}`);
 		const to = refTarget(this.db, kind, id, this.req, this.opts);
+		if (to && 'at' in to) this.plan.reused.push({ kind, from: id, at: to.at });
 		if (!to || 'at' in to) return;
 		const row = to.clone;
 		// `use` chose another row of the family, or a twin of it is planned already.

@@ -92,6 +92,18 @@ edit a class figure into their own). A teacher uses both.
    **draft** *(user)*, like any new group lesson. This includes group to group *(user)*: you may put
    a class's Enchufla straight into a group you teach. Only people who can
    see both places ever see that one came from the other.
+   *(Built, Task 29:)* `clones/copy-to.ts`. The targets are your app (unless
+   the row is yours) and every live group of the dance you own or edit, never
+   the row's own place. Into a group the copy brings recordings; a song lands
+   as a draft too. A reader's copy into their own app is Make it mine itself
+   (their routines and practice follow it); an editor's is a plain copy, with
+   no recordings. Twins are asked about only for a group target, one question
+   per family in what goes, and a twin already in that group is no choice. A
+   "Last changed" day is the newest of the row's creation, its History lines,
+   its pair snapshots and its recordings or videos: a person's own edits are
+   not stamped. "Has your copy" needs a copy (`cloned_from`) the person added;
+   otherwise "has it already". The trigger sits under the source tabs, beside
+   Detach and Drop my copy.
 5. **Sending to a group sends exactly one version** *(user)*. If what you
    picked has twins, the app asks which one ("Yours · Salsa Tuesdays' ·
    Rueda club's"); with no twins it asks nothing. The group gets a clone in

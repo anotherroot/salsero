@@ -779,6 +779,41 @@ export type CompareOffer = {
 /** Detach on a member page (`detachOffer`): the place it stops following, and whether the row is a group's. */
 export type DetachOffer = { place: string; group: boolean };
 
+/** A place Copy to… can copy into (`copyTargets`): the person's app or a group they own or edit. */
+export type CopyTarget = {
+	place: PlaceRef;
+	/** The person's role in the group; null for their own app. */
+	role: 'owner' | 'editor' | null;
+	usedBytes: number;
+	limitBytes: number | null;
+	/** The family's member already there (archived included), and when it was made. */
+	existing: { id: number; archived: boolean; at: number } | null;
+};
+
+/** Copy to… on an item page: what the sheet names, and where it can go. */
+export type CopyOffer = {
+	kind: CloneKind;
+	/** "Week 3", "Enchufla · Doble". */
+	title: string;
+	/** The page's row is the person's own. */
+	fromMine: boolean;
+	targets: CopyTarget[];
+};
+
+/** One version a twins question offers: "Rueda club’s", "Last changed 2 Nov". */
+export type TwinChoice = { id: number; place: PlaceRef; changedAt: number; meta: string };
+
+/** What a copy into one place would do (`copyPlan`): the sheet's grey cards and its questions. */
+export type CopyPlanView = {
+	/** "3 figures · 2 videos (420 MB, charged to the group) · notes". */
+	goes: string;
+	bytes: number;
+	/** One line per thing the place holds already, reused. */
+	already: string[];
+	/** Per family with twins: which one goes (`gene` is the `use` key; `from` goes unless another is picked). */
+	twins: { gene: string; label: string; from: number; choices: TwinChoice[] }[];
+};
+
 /** One row of "Copies you can see" (board C3 p1): a member of the page's family. */
 export type FamilyEntry = {
 	member: Member;

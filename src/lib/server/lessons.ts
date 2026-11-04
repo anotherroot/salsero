@@ -12,6 +12,7 @@ import {
 	or,
 	sum
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import { assertUnlinked } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
@@ -502,22 +503,21 @@ function lessonRows(
 		figureGroupsOf.set(id, (figureGroupsOf.get(id) ?? new Set()).add(group));
 	}
 
+	// A copy's group lesson, while that lesson is still in the copy's family: one
+	// detached since (its gene gone) is no longer what the copy follows.
+	const parent = alias(lessons, 'parent');
 	const copyOf = new Map(
 		isTeam(space)
 			? []
 			: db
 					.select({ id: lessons.id, name: teams.name })
 					.from(lessons)
-					.innerJoin(teams, eq(teams.id, lessons.teamId))
-					.where(
-						inArray(
-							lessons.id,
-							db
-								.select({ from: lessons.clonedFrom })
-								.from(lessons)
-								.where(and(ownedBy(lessons, space), isNotNull(lessons.clonedFrom)))
-						)
+					.innerJoin(
+						parent,
+						and(eq(parent.id, lessons.clonedFrom), eq(parent.geneId, lessons.geneId))
 					)
+					.innerJoin(teams, eq(teams.id, parent.teamId))
+					.where(and(ownedBy(lessons, space), isNotNull(lessons.clonedFrom)))
 					.all()
 					.map((r) => [r.id, r.name] as const)
 	);
@@ -531,8 +531,7 @@ function lessonRows(
 			// `sum` is null when a lesson has no videos; the cast keeps the shape honest.
 			videoBytes: sum(lessonVideos.sizeBytes),
 			createdAt: lessons.createdAt,
-			publishedAt: lessons.publishedAt,
-			clonedFrom: lessons.clonedFrom
+			publishedAt: lessons.publishedAt
 		})
 		.from(lessons)
 		.leftJoin(lessonVideos, eq(lessonVideos.lessonId, lessons.id))
@@ -540,10 +539,10 @@ function lessonRows(
 		.groupBy(lessons.id)
 		.orderBy(desc(lessons.lessonDay), desc(lessons.id))
 		.all()
-		.map(({ clonedFrom, ...r }) => ({
+		.map((r) => ({
 			...r,
 			// A person's copy of a group's lesson says whose it was (the group's name stays).
-			copyOf: !isTeam(space) ? (copyOf.get(clonedFrom ?? 0) ?? null) : null,
+			copyOf: copyOf.get(r.id) ?? null,
 			videoBytes: Number(r.videoBytes ?? 0),
 			sections: sections.get(r.id) ?? 0,
 			routines: routineCounts.get(r.id) ?? 0,

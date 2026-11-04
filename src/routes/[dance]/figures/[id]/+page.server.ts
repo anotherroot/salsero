@@ -65,7 +65,8 @@ import {
 import { seenRefusal, variationSeen } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
@@ -308,6 +309,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'figure', id),
 		detach: detachOffer(db, wall.userId, 'figure', id),
+		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
+		copyTo: copyOffer(db, wall.userId, 'figure', id),
 		/**
 		 * Opened from the person's copy: Take brings a recording into it (`into`),
 		 * and `held` marks the recordings already there.
@@ -635,6 +638,12 @@ export const actions: Actions = {
 	detach: ({ params, locals }) => {
 		const { figure } = variationOf(params, locals, 'read');
 		return detachFrom(getDb(), wallOf(params, locals).userId, 'figure', figure.id);
+	},
+
+	/** Copy to… (board C4): this row into your app or a group you own or edit. */
+	copyTo: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return copyToFrom(getDb(), wallOf(params, locals), 'figure', figure.id, request);
 	},
 
 	/**

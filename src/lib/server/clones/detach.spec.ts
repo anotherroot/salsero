@@ -11,7 +11,7 @@ import { figures, teamChanges, users } from '../db/schema';
 import { createTeam, joinTeam } from '../teams';
 import { leaveTeam } from '../membership';
 import { createFigure, updateVariation } from '../figures';
-import { createLesson, linkFigure, publishLesson } from '../lessons';
+import { createLesson, linkFigure, listMyLessons, publishLesson } from '../lessons';
 import { twinsOf } from '../twins';
 import type { Space, TeamSpace } from '../scope';
 import { NO_FILES, T1_SALSA, U2_SALSA } from '../test-walls';
@@ -136,6 +136,18 @@ describe('detach on a group’s row', () => {
 		});
 		expect(row(F)).toMatchObject({ geneId: null, clonedFrom: null });
 		expect(twinsOf(db, 'u1', 'figure', F)).toEqual([]);
+	});
+
+	it('stops a copy of a detached group lesson saying whose copy it is (Task 28’s review)', async () => {
+		const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'Week 1', notes: null })
+			.lesson.id;
+		expect(publishLesson(db, T1_SALSA, L, T)).toBe(true);
+		const res = await makeMine(db, U2_SALSA, 'lesson', L, NO_FILES, NOW, ROOMY);
+		if (!res.ok) throw new Error('make it mine refused');
+		const copyOf = () => listMyLessons(db, U2_SALSA).find((l) => l.id === res.id)?.copyOf;
+		expect(copyOf()).toBe('Salsa Tuesdays');
+		expect(detach(db, 'u1', 'lesson', L, LATER)).toBe(true);
+		expect(copyOf()).toBeNull();
 	});
 });
 

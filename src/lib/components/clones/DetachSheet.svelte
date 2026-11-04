@@ -46,7 +46,7 @@
 	});
 </script>
 
-<Sheet title={detachTitle(detach.place)} sub={detachGroup(kind)} {open} {onclose}>
+<Sheet title={detachTitle(detach.place, detach.group)} sub={detachGroup(kind)} {open} {onclose}>
 	<div class="flex flex-col gap-3">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
 		<ul class="flex flex-col gap-2 rounded-2xl bg-step p-3.5 text-[14px] leading-[1.4] text-ink-2">

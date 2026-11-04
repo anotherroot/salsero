@@ -1,6 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, SwitchReport } from '$lib/types';
 import {
+	ALREADY_THERE,
+	CONTINUE,
+	COPY_FAILED,
+	COPY_SUB_GROUP,
+	COPY_TO,
+	OPEN,
+	RESTORE,
+	TWINS_ONE_GOES,
+	WHAT_GOES,
+	alreadyLine,
+	copiedToast,
+	copyButton,
+	copySub,
+	copyTitle,
+	existingNote,
+	placeLabel,
+	placeMeta,
+	twinChoiceLabel,
+	twinChoiceMeta,
+	whatGoes,
+	whichSub,
+	whichTitle,
 	DETACH_BUTTON,
 	DETACH_MINE,
 	DETACH_NO_MORE,
@@ -543,6 +565,8 @@ describe('Drop my copy (board C5)', () => {
 describe('Detach and reconnecting (board C8)', () => {
 	it('the sheet', () => {
 		expect(detachTitle('Salsa Tuesdays')).toBe('Stop following Salsa Tuesdays?');
+		// A group's row follows nobody: its copies are the others' (Task 28's review).
+		expect(detachTitle('Rueda club', true)).toBe('Detach from its copies?');
 		expect(detachGroup('figure')).toBe(
 			'In a group, Detach just makes it an ordinary group figure.'
 		);
@@ -563,5 +587,121 @@ describe('Detach and reconnecting (board C8)', () => {
 		expect(reconnectedLine('Rueda club', 1)).toBe(
 			'Reconnected with Rueda club: 1 change while you were away'
 		);
+	});
+});
+
+describe('Copy to… (board C4)', () => {
+	const T1 = { kind: 'team' as const, teamId: 1, name: 'Salsa Tuesdays' };
+	const MINE = { kind: 'mine' as const };
+	const MB = 1024 ** 2;
+	const GB = 1024 ** 3;
+	const none = { figures: 0, routines: 0, drills: 0, recordings: 0, videos: 0, audio: false };
+
+	it('the sheet’s title, sub and places', () => {
+		expect(COPY_TO).toBe('Copy to…');
+		expect(copyTitle('Week 3')).toBe('Copy Week 3 to…');
+		expect(COPY_SUB_GROUP).toBe('The group gets a draft. You keep yours.');
+		expect(copySub('lesson', T1, true)).toBe(COPY_SUB_GROUP);
+		expect(copySub('song', T1, true)).toBe(COPY_SUB_GROUP);
+		expect(copySub('figure', T1, true)).toBe('The group gets a copy. You keep yours.');
+		expect(copySub('lesson', T1, false)).toBe('The group gets a draft. This one stays as it is.');
+		expect(copySub('routine', T1, false)).toBe('The group gets a copy. This one stays as it is.');
+		expect(copySub('figure', MINE, false)).toBe('You get your own copy. This one stays as it is.');
+		expect(placeLabel(T1)).toBe('Salsa Tuesdays');
+		expect(placeLabel(MINE)).toBe('Your app');
+		expect(placeMeta('owner', 412 * MB, GB)).toBe('Owner · 412 MB of 1 GB used');
+		expect(placeMeta('editor', 80 * MB, GB)).toBe('Editor · 80 MB of 1 GB used');
+		expect(placeMeta(null, 1.5 * GB, 2 * GB)).toBe('1.5 GB of 2 GB used');
+		expect(placeMeta(null, 3 * MB, null)).toBe('3 MB used');
+	});
+
+	it('what goes', () => {
+		expect(WHAT_GOES).toBe('WHAT GOES');
+		const lesson = { ...none, kind: 'lesson' as const, figures: 3, videos: 2 };
+		expect(whatGoes({ ...lesson, bytes: 420 * MB, notes: true, into: T1 })).toBe(
+			'3 figures · 2 videos (420 MB, charged to the group) · notes'
+		);
+		const figure = { ...none, kind: 'figure' as const, recordings: 1 };
+		expect(whatGoes({ ...figure, bytes: 12 * MB, notes: false, into: T1 })).toBe(
+			'1 recording (12 MB, charged to the group)'
+		);
+		const routine = { ...none, kind: 'routine' as const, figures: 1, routines: 1, drills: 2 };
+		expect(whatGoes({ ...routine, bytes: 0, notes: false, into: MINE })).toBe(
+			'1 figure · 1 routine · 2 drills'
+		);
+		const video = { ...none, kind: 'lesson' as const, videos: 1 };
+		expect(whatGoes({ ...video, bytes: 5 * MB, notes: false, into: MINE })).toBe(
+			'1 video (5 MB, charged to you)'
+		);
+		const song = { ...none, kind: 'song' as const, audio: true };
+		expect(whatGoes({ ...song, bytes: 4 * MB, notes: false, into: T1 })).toBe(
+			'The audio (4 MB, charged to the group)'
+		);
+		expect(whatGoes({ ...none, kind: 'figure', bytes: 0, notes: true, into: T1 })).toBe('Notes');
+		expect(whatGoes({ ...none, kind: 'drill', bytes: 0, notes: false, into: T1 })).toBe(
+			'Just the drill'
+		);
+	});
+
+	it('already there', () => {
+		expect(ALREADY_THERE).toBe('ALREADY THERE');
+		expect(alreadyLine('Enchufla · Doble', T1, '2026-10-03', true)).toBe(
+			'Enchufla · Doble: Salsa Tuesdays has your copy from 3 Oct. It’s reused, not doubled.'
+		);
+		expect(alreadyLine('Enchufla · Doble', T1, '2026-10-03', false)).toBe(
+			'Enchufla · Doble: Salsa Tuesdays has it already, from 3 Oct. It’s reused, not doubled.'
+		);
+		expect(alreadyLine('Setenta · Básico', MINE, '2026-11-01', true)).toBe(
+			'Setenta · Básico: you have it already, from 1 Nov. It’s reused, not doubled.'
+		);
+	});
+
+	it('the button, the existing member and the toast', () => {
+		expect(copyButton('lesson', T1)).toBe('Copy as a draft');
+		expect(copyButton('song', T1)).toBe('Copy as a draft');
+		expect(copyButton('figure', T1)).toBe('Copy');
+		expect(copyButton('lesson', MINE)).toBe('Copy');
+		expect(existingNote(T1, false)).toBe(
+			'Salsa Tuesdays has it already. Compare the two and take what you want.'
+		);
+		expect(existingNote(T1, true)).toBe(
+			'Salsa Tuesdays has an archived copy. Restore it, then compare.'
+		);
+		expect(existingNote(MINE, false)).toBe(
+			'You have it already. Compare the two and take what you want.'
+		);
+		expect(existingNote(MINE, true)).toBe('You have an archived copy. Restore it, then compare.');
+		expect(RESTORE).toBe('Restore');
+		expect(copiedToast(T1, true)).toBe('Copied to Salsa Tuesdays as a draft.');
+		expect(copiedToast(T1, false)).toBe('Copied to Salsa Tuesdays.');
+		expect(copiedToast(MINE, false)).toBe('Copied to your app.');
+		expect(COPY_FAILED).toBe('That could not be copied. Try again.');
+		expect(OPEN).toBe('Open');
+	});
+
+	it('which version goes (board C4 p4)', () => {
+		expect(whichTitle('Enchufla · Doble')).toBe('Which Enchufla · Doble?');
+		expect(whichSub('figure', 2, 'Salsa Tuesdays')).toBe(
+			'You see two versions of this figure. Which one goes to Salsa Tuesdays?'
+		);
+		expect(whichSub('routine', 3, 'Rueda club')).toBe(
+			'You see three versions of this routine. Which one goes to Rueda club?'
+		);
+		expect(whichSub('song', 12, 'Rueda club')).toBe(
+			'You see 12 versions of this song. Which one goes to Rueda club?'
+		);
+		expect(twinChoiceLabel(MINE)).toBe('Yours');
+		expect(twinChoiceLabel({ kind: 'team', teamId: 2, name: 'Rueda club' })).toBe('Rueda club’s');
+		expect(twinChoiceMeta(Date.UTC(2026, 9, 30, 12), 'Europe/Ljubljana')).toBe(
+			'Last changed 30 Oct'
+		);
+		// The day is the person's: late on 1 Nov in UTC is 2 Nov in Ljubljana.
+		expect(twinChoiceMeta(Date.UTC(2026, 10, 1, 23, 30), 'Europe/Ljubljana')).toBe(
+			'Last changed 2 Nov'
+		);
+		expect(TWINS_ONE_GOES).toBe(
+			'They’re twins in your app. Only one goes; the group never gets twins.'
+		);
+		expect(CONTINUE).toBe('Continue');
 	});
 });
