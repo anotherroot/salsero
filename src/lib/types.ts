@@ -364,7 +364,7 @@ export interface SiblingSummary {
 	id: number;
 	/** The variation's own name — "Doble". */
 	name: string;
-	/** "Cross-hand → Open two hands": starts joined with " / ", neutral named. */
+	/** "Cross-hand → Open two hands": each side joined with " / ", an untagged side empty; "No position" when both are. */
 	holds: string;
 	/** "Starts on 5 · 4 counts". */
 	timing: string;

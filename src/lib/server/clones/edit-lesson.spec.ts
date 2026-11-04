@@ -15,7 +15,6 @@ import { openDb, type Db } from '../db';
 import {
 	exercises,
 	figureGroups,
-	figureStartPositions,
 	figures,
 	lessonExercises,
 	lessonFigures,
@@ -51,7 +50,7 @@ import { addLinks } from '../links';
 import { addLesson } from '../entries';
 import { listPositions } from '../positions';
 import { seedPositions } from '../test-positions';
-import { setFigureShape } from '../graph';
+import { figurePositions, setFigureShape } from '../graph';
 import { usedBytes } from '../storage';
 import { purgeTeams } from '../team-purge';
 import { cloneFilesIn, type CloneFiles } from './files';
@@ -145,7 +144,7 @@ function world() {
 		setFigureShape(
 			db,
 			doble,
-			{ startIds: [open.id, closed.id], endId: closed.id, startCount: 5, lengthCounts: 16 },
+			{ startIds: [open.id, closed.id], endIds: [closed.id], startCount: 5, lengthCounts: 16 },
 			'u1'
 		)
 	).toBe(true);
@@ -193,7 +192,8 @@ function mineIn(figureName: string) {
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	// The group's own positions: a group's figure is tagged only with those.
+	seedPositions(db, { teamId: 1 });
 	dir = mkdtempSync(join(tmpdir(), 'salsa-copy-'));
 	files = cloneFilesIn({ recording: dir, 'lesson-video': dir, audio: dir });
 	for (const [id, firstName] of [
@@ -268,18 +268,13 @@ describe('Make it mine on a lesson', () => {
 			notes: 'Turn twice.',
 			startCount: 5,
 			lengthCounts: 16,
-			endPositionId: w.closed.id,
 			styleTag: 'salsa'
 		});
-		expect(
-			db
-				.select({ p: figureStartPositions.positionId })
-				.from(figureStartPositions)
-				.where(eq(figureStartPositions.figureId, doble.id))
-				.all()
-				.map((r) => r.p)
-				.sort()
-		).toEqual([w.open.id, w.closed.id].sort());
+		// positions: Task 10 tags the copy with u2's own member of each family.
+		expect(figurePositions(db, doble.id)).toEqual({
+			startIds: [w.open.id, w.closed.id].sort((a, b) => a - b),
+			endIds: [w.closed.id]
+		});
 		expect(db.select().from(links).where(eq(links.figureId, doble.id)).all()).toMatchObject([
 			{ url: 'https://example.com/doble' }
 		]);

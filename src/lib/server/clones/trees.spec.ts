@@ -71,7 +71,7 @@ describe('flatOf', () => {
 		expect(
 			setFigureShape(db, id, {
 				startIds: [closed.id, open.id],
-				endId: closed.id,
+				endIds: [closed.id],
 				startCount: 5,
 				lengthCounts: 16
 			})

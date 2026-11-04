@@ -46,7 +46,7 @@ const ROOMY = 1024 ** 4;
 const shape = { partner: 'partner' as const, style: 'salsa', notes: null };
 const timing = (startCount: number, lengthCounts = 8) => ({
 	startIds: [],
-	endId: null,
+	endIds: [],
 	startCount,
 	lengthCounts
 });

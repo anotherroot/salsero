@@ -31,6 +31,8 @@ const FIELD: Record<string, string> = {
 	partner: 'partner',
 	style: 'style',
 	startIds: 'start positions',
+	endIds: 'end positions',
+	// Older History rows wrote a single end.
 	endId: 'end position',
 	startCount: 'start count',
 	lengthCounts: 'length',

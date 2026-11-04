@@ -446,7 +446,7 @@ const MUTATIONS: {
 		verb: 'change',
 		rootId: (w) => w.G,
 		run: (w) =>
-			setFigureShape(db, w.V, { startIds: [], endId: null, startCount: 5, lengthCounts: 8 }, w.by)
+			setFigureShape(db, w.V, { startIds: [], endIds: [], startCount: 5, lengthCounts: 8 }, w.by)
 	},
 	{
 		name: 'renameFigure',

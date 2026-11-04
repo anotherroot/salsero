@@ -5,6 +5,7 @@ import { assertUnlinked } from './spot-links';
 import {
 	exercises,
 	figureGroups,
+	figureEndPositions,
 	figureStartPositions,
 	figures,
 	lessonFigures,
@@ -215,7 +216,7 @@ export function createFigure(
 
 /**
  * A blank variation in an existing figure — the shape `createFigure` gives a
- * first one (starts on 1, 8 counts, neutral start and end), nothing copied
+ * first one (starts on 1, 8 counts, no positions), nothing copied
  * from a sibling, and no exercise. Null when the figure is gone or archived,
  * the style is not of its dance, or the name is empty or taken.
  */
@@ -277,21 +278,23 @@ export function createVariationFrom(
 				teamId: src.teamId,
 				styleTag: src.styleTag,
 				groupId: src.groupId,
-				endPositionId: src.endPositionId,
 				startCount: src.startCount,
 				lengthCounts: src.lengthCounts
 			})
 			.returning()
 			.get();
-		const starts = tx
-			.select({ positionId: figureStartPositions.positionId })
-			.from(figureStartPositions)
-			.where(eq(figureStartPositions.figureId, fromId))
-			.all();
-		if (starts.length > 0) {
-			tx.insert(figureStartPositions)
-				.values(starts.map((s) => ({ figureId: copy.id, positionId: s.positionId })))
-				.run();
+		// Both sides' tags, archived ones too: the copy is danced as the source is.
+		for (const table of [figureStartPositions, figureEndPositions]) {
+			const tags = tx
+				.select({ positionId: table.positionId })
+				.from(table)
+				.where(eq(table.figureId, fromId))
+				.all();
+			if (tags.length > 0) {
+				tx.insert(table)
+					.values(tags.map((t) => ({ figureId: copy.id, positionId: t.positionId })))
+					.run();
+			}
 		}
 		logVariation(tx, actingIn(copy, by), copy, Date.now());
 		return copy;

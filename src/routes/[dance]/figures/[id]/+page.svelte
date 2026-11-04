@@ -120,14 +120,13 @@
 	const styleLabel = $derived(
 		variation.styleTag ? data.dance.styleLabel[variation.styleTag] : undefined
 	);
-	const neutralName = $derived(data.positions.find((p) => p.neutral)?.name ?? 'the neutral hold');
-	const positionName = (id: number) =>
-		data.positions.find((p) => p.id === id)?.name ?? 'an untagged position';
+	const positionName = (id: number) => data.positions.find((p) => p.id === id)?.name ?? '';
+	const names = (ids: number[]) => ids.map(positionName).filter(Boolean).join(' / ');
 
-	/** "Open two hands / Cross-hand" → "Hammerlock", neutral already resolved by the graph. */
+	/** "Open two hands / Cross-hand" → "Hammerlock"; an untagged side shows nothing. */
 	const handholds = $derived({
-		from: data.effective.starts.map(positionName).join(' / ') || neutralName,
-		to: data.effective.end === null ? neutralName : positionName(data.effective.end)
+		from: names(data.effective.starts),
+		to: names(data.effective.ends)
 	});
 	const timing = $derived(timingLine(data.effective.startCount, data.effective.lengthCounts));
 	const archive = $derived(archiveCopy(figure.name, variation.name, last));
@@ -376,7 +375,7 @@
 						style={variation.styleTag ?? undefined}
 						notes={variation.notes}
 					/>
-					<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
+					<StartPositions positions={data.positions} initial={data.tags.startIds} />
 					<div>
 						<label class={LABEL} for="edit-end">Ends at</label>
 						<div class="relative">
@@ -385,7 +384,7 @@
 								name="endId"
 								class="own-arrow {FIELD} cursor-pointer appearance-none pr-10"
 							>
-								<option value="" selected={data.tags.endId === null}>{neutralName}</option>
+								<option value="" selected={data.tags.endId === null}>No position</option>
 								{#each data.positions as position (position.id)}
 									<option value={position.id} selected={data.tags.endId === position.id}>
 										{position.name}{position.archived ? ' (archived)' : ''}
@@ -468,10 +467,16 @@
 				<div class="-mx-4 h-px bg-hairline"></div>
 				<div class="flex flex-col gap-[3px]">
 					<span class="text-[13px] font-bold text-muted">Handholds</span>
-					<span class="text-[15px] leading-[1.35] font-bold text-ink"
-						>{handholds.from} <span class="font-semibold text-muted">→</span>
-						{handholds.to}</span
-					>
+					{#if handholds.from === '' && handholds.to === ''}
+						<span class="text-[15px] leading-[1.35] font-bold text-ink"
+							>No position · fits anywhere</span
+						>
+					{:else}
+						<span class="text-[15px] leading-[1.35] font-bold text-ink"
+							>{handholds.from} <span class="font-semibold text-muted">→</span>
+							{handholds.to}</span
+						>
+					{/if}
 				</div>
 				{#if variation.notes}
 					<div class="-mx-4 h-px bg-hairline"></div>

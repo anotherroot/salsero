@@ -16,6 +16,7 @@ vi.mock('$lib/server/db', async () => {
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import {
+	figureEndPositions,
 	figureGroups,
 	figures,
 	lessons,
@@ -35,7 +36,7 @@ import { actions as routineActions, load as routinesLoad } from './routines/+pag
 import { actions as lessonActions, load as lessonsLoad } from './lessons/+page.server';
 import { load as coverageLoad } from './coverage/+page.server';
 import { load as positionsLoad } from './positions/+page.server';
-import { createPosition } from '$lib/server/positions';
+import { addPosition } from '$lib/server/test-positions';
 
 let db: Db;
 
@@ -203,23 +204,20 @@ describe('listing in group mode', () => {
 	});
 
 	it('positions: counts the group figures and hides the gap report in group mode', () => {
-		const x = createPosition(db, 'salsa', {
-			slug: 'open',
-			name: 'Open',
-			neutral: false,
-			sortOrder: 9
-		})!;
+		// Positions are owned: the group's Open and u2's own, one family.
+		const ours = addPosition(db, T1_SALSA, 'Open', { geneId: 'open' });
+		const yours = addPosition(db, U2_SALSA, 'Open', { geneId: 'open' });
 		const g = createFigure(db, T1_SALSA, { ...FIGURE, notes: null } as never)!;
 		const own = createFigure(db, U2_SALSA, { ...FIGURE, figureName: 'Own', notes: null } as never)!;
-		db.update(figures).set({ endPositionId: x.id }).where(eq(figures.id, g.figure.id)).run();
-		db.update(figures).set({ endPositionId: x.id }).where(eq(figures.id, own.figure.id)).run();
-		const row = (d: Record<string, any>) => d.positions.find((p: any) => p.id === x.id); // eslint-disable-line
+		db.insert(figureEndPositions).values({ figureId: g.figure.id, positionId: ours }).run();
+		db.insert(figureEndPositions).values({ figureId: own.figure.id, positionId: yours }).run();
+		const row = (d: Record<string, any>, id: number) => d.positions.find((p: any) => p.id === id); // eslint-disable-line
 		const inGroup = loadOf(positionsLoad, 'u2', jar('1').cookies);
 		expect(inGroup.groupMode).toBe(true);
-		expect(row(inGroup)).toMatchObject({ inCount: 1, deadEnd: false, orphan: false });
+		expect(row(inGroup, ours)).toMatchObject({ inCount: 1, deadEnd: false, orphan: false });
 		expect(inGroup.tagged.total).toBe(1);
 		const mine = loadOf(positionsLoad, 'u2', jar().cookies);
 		expect(mine.groupMode).toBe(false);
-		expect(row(mine)).toMatchObject({ inCount: 1, deadEnd: true });
+		expect(row(mine, yours)).toMatchObject({ inCount: 1, deadEnd: true });
 	});
 });

@@ -316,7 +316,8 @@ describe("the figures list and coverage show only the person's own", () => {
 });
 
 describe('positions are shared, and only the admin changes them', () => {
-	const neutralId = () => listPositions(db, 'salsa').find((p) => p.neutral)!.id;
+	// The old page's rules until the positions rewrite (Task 8 rewrites this block).
+	const firstId = () => listPositions(db, 'salsa')[0].id;
 
 	it('the load is open to everyone and says who may change them', () => {
 		const theirs = loadAt(positionsPage.load, U2, 'salsa') as {
@@ -333,9 +334,9 @@ describe('positions are shared, and only the admin changes them', () => {
 
 	const actions: [string, () => Record<string, string>][] = [
 		['create', () => ({ name: 'Brand new hold' })],
-		['rename', () => ({ id: String(neutralId()), name: 'Renamed' })],
-		['archive', () => ({ id: String(listPositions(db, 'salsa').find((p) => !p.neutral)!.id) })],
-		['restore', () => ({ id: String(neutralId()) })]
+		['rename', () => ({ id: String(firstId()), name: 'Renamed' })],
+		['archive', () => ({ id: String(listPositions(db, 'salsa')[1].id) })],
+		['restore', () => ({ id: String(firstId()) })]
 	];
 	for (const [name, fields] of actions) {
 		it(`${name} is a 404 for someone who is not the admin, and changes nothing`, async () => {
@@ -345,7 +346,7 @@ describe('positions are shared, and only the admin changes them', () => {
 				post(U2, 'salsa', fields())
 			);
 			expect(JSON.stringify(listPositions(db, 'salsa'))).toBe(before);
-			expect(getPosition(db, neutralId())!.name).not.toBe('Renamed');
+			expect(getPosition(db, firstId())!.name).not.toBe('Renamed');
 		});
 	}
 
@@ -355,7 +356,7 @@ describe('positions are shared, and only the admin changes them', () => {
 	});
 
 	it("tagging a figure with positions stays the figure owner's action", async () => {
-		const id = listPositions(db, 'salsa').find((p) => !p.neutral)!.id;
+		const id = listPositions(db, 'salsa')[1].id;
 		await refuses(
 			figurePage.actions.update,
 			post(

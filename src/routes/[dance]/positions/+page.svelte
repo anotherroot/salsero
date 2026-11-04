@@ -109,7 +109,7 @@
 
 	<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
 		<b class="font-bold text-ink">{data.tagged.done} of {data.tagged.total} figures tagged.</b>
-		A figure with none tagged starts and ends at the neutral hold.
+		Positions are optional: a figure without one fits anywhere in a routine.
 	</p>
 
 	{#if title}
@@ -145,7 +145,6 @@
 						>{meta.text}</span
 					>
 				</span>
-				{#if p.neutral}<Badge tone="accent">neutral</Badge>{/if}
 				{#if data.isAdmin}
 					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 				{/if}
@@ -207,42 +206,40 @@
 			<button type="submit" form="rename-position" class={button('primary', 'md', true)}
 				>Save</button
 			>
-			{#if !selected.neutral}
-				<form
-					method="POST"
-					action="?/archive"
-					use:enhance={({ cancel }) => {
-						// One removal per tap: a second tap while the first is out is dropped.
-						if (removing) return cancel();
-						removing = true;
-						const { id, name } = selected;
-						const keys = data.positions.map((p) => `position-${p.id}`);
-						return async ({ result, update }) => {
-							if (result.type !== 'success') {
-								removing = false;
-								return update();
-							}
-							// Reload the list BEFORE the sheet goes: closing it pops its history
-							// entry, and that navigation can land over a reload still in flight.
-							await invalidateAll();
-							selectedId = null;
-							removed(name, id);
+			<form
+				method="POST"
+				action="?/archive"
+				use:enhance={({ cancel }) => {
+					// One removal per tap: a second tap while the first is out is dropped.
+					if (removing) return cancel();
+					removing = true;
+					const { id, name } = selected;
+					const keys = data.positions.map((p) => `position-${p.id}`);
+					return async ({ result, update }) => {
+						if (result.type !== 'success') {
 							removing = false;
-							await focusAfterRemoval(keys, `position-${id}`, 'new-position');
-						};
-					}}
+							return update();
+						}
+						// Reload the list BEFORE the sheet goes: closing it pops its history
+						// entry, and that navigation can land over a reload still in flight.
+						await invalidateAll();
+						selectedId = null;
+						removed(name, id);
+						removing = false;
+						await focusAfterRemoval(keys, `position-${id}`, 'new-position');
+					};
+				}}
+			>
+				<input type="hidden" name="id" value={selected.id} />
+				<button
+					type="submit"
+					class={button('danger-text', 'md', true)}
+					aria-busy={removing}
+					aria-label={removing ? 'Removing position' : undefined}
 				>
-					<input type="hidden" name="id" value={selected.id} />
-					<button
-						type="submit"
-						class={button('danger-text', 'md', true)}
-						aria-busy={removing}
-						aria-label={removing ? 'Removing position' : undefined}
-					>
-						{#if removing}<Spinner />{:else}<Icon name="trash" size={20} /> Remove position{/if}
-					</button>
-				</form>
-			{/if}
+					{#if removing}<Spinner />{:else}<Icon name="trash" size={20} /> Remove position{/if}
+				</button>
+			</form>
 		{/snippet}
 	</Sheet>
 {/if}

@@ -200,7 +200,7 @@ export function variationSeen(db: Db, figureId: number): Seen | null {
 		style: figure.styleTag,
 		notes: figure.notes,
 		startIds: tags.startIds.join(','),
-		endId: tags.endId,
+		endIds: tags.endIds.join(','),
 		startCount: figure.startCount ?? DEFAULT_START_COUNT,
 		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
 	};

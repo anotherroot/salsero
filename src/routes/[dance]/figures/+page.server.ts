@@ -79,7 +79,7 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		// way into the "Not linked" filter, as `unrouted` is into coverage.
 		unlinked: figureCount(listFigures(db, wall, { unlinked: true })),
 		// How much of the repertoire carries handhold tags. An untagged figure
-		// reads as neutral, which is right for most of casino but worth surfacing:
+		// fits anywhere, which is right for most of casino but worth surfacing:
 		// the graph is only as good as this fraction.
 		tagged: taggedFigures(db, wall),
 		// Versions no routine can call: the Figures header's way into coverage.

@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
-import { figures, positions } from './db/schema';
+import { figureEndPositions, figures, figureStartPositions, positions } from './db/schema';
+import { figurePositions } from './graph';
 import {
 	archivePosition,
 	createPosition,
@@ -25,12 +26,10 @@ describe('positions schema', () => {
 		expect(open.neutral).toBe(true);
 		expect(open.sortOrder).toBe(0);
 
-		const fig = db
-			.insert(figures)
-			.values({ name: 'enchufla', dance: 'salsa', endPositionId: open.id })
-			.returning()
-			.get();
-		expect(fig.endPositionId).toBe(open.id);
+		const fig = db.insert(figures).values({ name: 'enchufla', dance: 'salsa' }).returning().get();
+		db.insert(figureStartPositions).values({ figureId: fig.id, positionId: open.id }).run();
+		db.insert(figureEndPositions).values({ figureId: fig.id, positionId: open.id }).run();
+		expect(figurePositions(db, fig.id)).toEqual({ startIds: [open.id], endIds: [open.id] });
 		// Defaults: every existing figure keeps behaving as it does today.
 		expect(fig.eights).toBe(1);
 	});
@@ -93,10 +92,21 @@ describe('createPosition', () => {
 	});
 });
 
+/**
+ * The fixture with salsa's first position marked neutral: the vestigial flag
+ * these data functions still keep until the positions rewrite drops them. The
+ * graph reads nothing of it.
+ */
+function seedWithNeutral(db: ReturnType<typeof openDb>) {
+	seedPositions(db);
+	const first = listPositions(db, 'salsa').find((p) => p.slug === 'open-two')!;
+	db.update(positions).set({ neutral: true }).where(eq(positions.id, first.id)).run();
+}
+
 describe('updatePosition', () => {
 	it('renames without disturbing the neutral', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		seedWithNeutral(db);
 		const open = neutralPosition(db, 'salsa')!;
 		const row = updatePosition(db, open.id, {
 			slug: open.slug,
@@ -110,7 +120,7 @@ describe('updatePosition', () => {
 
 	it('moves the neutral, leaving exactly one', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		seedWithNeutral(db);
 		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
 		updatePosition(db, closed.id, { ...closed, neutral: true });
 		expect(neutralPosition(db, 'salsa')!.id).toBe(closed.id);
@@ -119,7 +129,7 @@ describe('updatePosition', () => {
 
 	it('refuses to demote the last neutral, leaving the dance with one', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		seedWithNeutral(db);
 		const open = neutralPosition(db, 'salsa')!;
 		// Nothing else is neutral, so clearing this one would leave none — and an
 		// untagged figure would have no position to resolve to.
@@ -129,7 +139,7 @@ describe('updatePosition', () => {
 
 	it('refuses to promote an archived position to neutral', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		seedWithNeutral(db);
 		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
 		expect(archivePosition(db, closed.id, Date.now())).toBe(true);
 		// No route sends `neutral: true` for an archived row today, but the data
@@ -162,20 +172,15 @@ describe('restorePosition', () => {
 
 	it('brings a removed position back with its name and its figures still tagged', () => {
 		const { db, row } = setup();
-		const fig = db
-			.insert(figures)
-			.values({ name: 'enchufla', dance: 'salsa', endPositionId: row.id })
-			.returning()
-			.get();
+		const fig = db.insert(figures).values({ name: 'enchufla', dance: 'salsa' }).returning().get();
+		db.insert(figureEndPositions).values({ figureId: fig.id, positionId: row.id }).run();
 		archivePosition(db, row.id, 5);
 		expect(restorePosition(db, row.id)).toBe(true);
 		const back = getPosition(db, row.id)!;
 		expect(back.archivedAt).toBeNull();
 		expect(back.name).toBe(row.name);
 		expect(listPositions(db, 'salsa').map((p) => p.id)).toContain(row.id);
-		expect(db.select().from(figures).where(eq(figures.id, fig.id)).get()!.endPositionId).toBe(
-			row.id
-		);
+		expect(figurePositions(db, fig.id).endIds).toEqual([row.id]);
 	});
 
 	it('does nothing to a live position, or one that does not exist', () => {

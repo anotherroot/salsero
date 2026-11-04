@@ -428,7 +428,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 				String(bachataFigureId)
 			)
 		);
-		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
+		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endIds: [] });
 		expect(getFigure(db, bachataFigureId, 'u1')!.figure.name).toBe('Basic');
 	});
 
@@ -496,7 +496,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			const v = doble();
 			setFigureShape(db, v.id, {
 				startIds: [salsaPosition('cross-hand').id, salsaPosition('closed').id],
-				endId: salsaPosition('caida').id,
+				endIds: [salsaPosition('caida').id],
 				startCount: 5,
 				lengthCounts: 4
 			});
@@ -508,7 +508,6 @@ describe("the detail pages refuse the other dance's rows", () => {
 				sizeBytes: 1,
 				note: null
 			});
-			const neutral = 'Abierta (dos manos)';
 			expect(loadWith('salsa', String(v.id))).toMatchObject({
 				figure: { id: groupOf(salsaFigureId), name: 'Dile que no' },
 				variation: { id: v.id, name: 'Doble', partner: 'partner', styleTag: 'salsa' },
@@ -517,7 +516,8 @@ describe("the detail pages refuse the other dance's rows", () => {
 					{
 						id: salsaFigureId,
 						name: 'Basic',
-						holds: `${neutral} → ${neutral}`,
+						// Untagged: no position, which fits anywhere.
+						holds: 'No position',
 						timing: 'Starts on 1 · 8 counts',
 						videos: 0
 					},
@@ -588,6 +588,32 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
 		});
 
+		it('update with the one "Ends at" select keeps the ends it does not show (until Task 19)', async () => {
+			const [a, b] = [salsaPosition('closed').id, salsaPosition('caida').id].sort((x, y) => x - y);
+			const c = salsaPosition('cross-hand').id;
+			const id = String(salsaFigureId);
+			const sorted = (ids: number[]) => [...ids].sort((x, y) => x - y);
+			setFigureShape(db, salsaFigureId, {
+				startIds: [],
+				endIds: [a, b],
+				startCount: 1,
+				lengthCounts: 8
+			});
+			// The select shows the first end.
+			expect(loadWith('salsa', id)).toMatchObject({ tags: { endId: a } });
+			// Saved as shown: both ends stay.
+			expect(
+				await call(figurePage.actions.update, post('salsa', edit({ endId: String(a) }), id))
+			).toEqual({ action: 'update', ok: true });
+			expect(figurePositions(db, salsaFigureId).endIds).toEqual([a, b]);
+			// Changed: only the shown end is replaced.
+			await call(figurePage.actions.update, post('salsa', edit({ endId: String(c) }), id));
+			expect(figurePositions(db, salsaFigureId).endIds).toEqual(sorted([c, b]));
+			// No position: the shown end (the lower id) goes, the hidden one stays.
+			await call(figurePage.actions.update, post('salsa', edit({ endId: '' }), id));
+			expect(figurePositions(db, salsaFigureId).endIds).toEqual([Math.max(c, b)]);
+		});
+
 		it('update refuses a taken figure name', async () => {
 			const result = await call(
 				figurePage.actions.update,
@@ -628,7 +654,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			const caida = salsaPosition('caida').id;
 			setFigureShape(db, salsaFigureId, {
 				startIds: [cross],
-				endId: caida,
+				endIds: [caida],
 				startCount: 5,
 				lengthCounts: 4
 			});
@@ -640,13 +666,8 @@ describe("the detail pages refuse the other dance's rows", () => {
 			);
 			const [, made] = listGroupVariations(db, groupOf(salsaFigureId));
 			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${made.id}` });
-			expect([made.name, made.startCount, made.lengthCounts, made.endPositionId]).toEqual([
-				'Doble',
-				5,
-				4,
-				caida
-			]);
-			expect(figurePositions(db, made.id).startIds).toEqual([cross]);
+			expect([made.name, made.startCount, made.lengthCounts]).toEqual(['Doble', 5, 4]);
+			expect(figurePositions(db, made.id)).toEqual({ startIds: [cross], endIds: [caida] });
 		});
 
 		it('createVariation refuses a taken name', async () => {
@@ -878,7 +899,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			const basico = groupOf(bachataFigureId);
 			setFigureShape(db, bachataFigureId, {
 				startIds: [listPositions(db, 'bachata')[0].id],
-				endId: listPositions(db, 'bachata')[1].id,
+				endIds: [listPositions(db, 'bachata')[1].id],
 				startCount: 5,
 				lengthCounts: 4
 			});
@@ -895,10 +916,9 @@ describe("the detail pages refuse the other dance's rows", () => {
 				styleTag: 'sensual',
 				notes: 'Spin',
 				startCount: 1,
-				lengthCounts: 8,
-				endPositionId: null
+				lengthCounts: 8
 			});
-			expect(figurePositions(db, made.id).startIds).toEqual([]);
+			expect(figurePositions(db, made.id)).toEqual({ startIds: [], endIds: [] });
 			expect(getLesson(db, bachataLessonId, 'u1')!.figures.map((f) => [f.id, f.name])).toEqual([
 				[made.id, 'Basico · Doble']
 			]);
@@ -1052,22 +1072,15 @@ describe("the positions page refuses the other dance's rows", () => {
 		expect(getPosition(db, shadow.id)?.archivedAt).toBeNull();
 	});
 
-	// Same-dance, unlike the two tests above: this guard is `archivePosition`'s
-	// own refusal of the neutral row (src/lib/server/positions.ts), not the
-	// dance wall — so it returns a `fail(400)` rather than throwing a 404, and
-	// is asserted by calling the action directly, the way the "guard leaves the
-	// friendly failures alone" block below does for `archiveExercise`.
-	it('refuses to archive the neutral position, with the message that explains why', async () => {
-		const neutral = listPositions(db, 'salsa').find((p) => p.neutral)!;
-		const res = (await call(
-			positionsPage.actions.archive,
-			post('salsa', { id: String(neutral.id) })
-		)) as { status: number; data: { message: string } };
-		expect(res.status).toBe(400);
-		expect(res.data.message).toContain('The neutral position cannot be removed');
-		const row = getPosition(db, neutral.id);
-		expect(row?.archivedAt).toBeNull();
-		expect(row?.neutral).toBe(true);
+	// Same-dance, unlike the two tests above. There is no neutral any more: an
+	// untagged side fits anywhere, so no position is special and any of them,
+	// the first one included, can be removed.
+	it('archives the first position too: none is the neutral', async () => {
+		const first = listPositions(db, 'salsa')[0];
+		expect(
+			await call(positionsPage.actions.archive, post('salsa', { id: String(first.id) }))
+		).toEqual({ action: 'archive', ok: true });
+		expect(getPosition(db, first.id)?.archivedAt).not.toBeNull();
 	});
 });
 

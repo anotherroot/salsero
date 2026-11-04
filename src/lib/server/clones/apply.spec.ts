@@ -16,6 +16,7 @@ import {
 	lessonFigures,
 	lessons,
 	links,
+	figureEndPositions,
 	positions,
 	recordings,
 	routines,
@@ -42,6 +43,7 @@ import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { createSongFromUpload } from '../songs';
 import { seedPositions } from '../test-positions';
+import { figurePositions } from '../graph';
 import type { Space } from '../scope';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import type { CloneKind } from '$lib/types';
@@ -62,7 +64,8 @@ let db: Db;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	// The group's positions: a group's figure is tagged only with its own (ruling 15).
+	seedPositions(db, { teamId: 1 });
 	db.insert(users)
 		.values([
 			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' },
@@ -146,11 +149,14 @@ describe('root fields', () => {
 				partner: 'solo',
 				styleTag: 'son',
 				startCount: 5,
-				lengthCounts: 8,
-				endPositionId: open.id
+				lengthCounts: 8
 			})
 			.where(eq(figures.id, M))
 			.run();
+		// M ends in the group's Open: a group position u1 may use. Sending it is
+		// accepted on the group's figure. (positions: Task 10 maps a giver's tags
+		// to the target place's member of each family.)
+		db.insert(figureEndPositions).values({ figureId: M, positionId: open.id }).run();
 		const entry = entryFor(db, 'u2', { figureId: F })!;
 
 		const keys = ['notes', 'partner', 'style', 'timing', 'positions'];
@@ -163,9 +169,9 @@ describe('root fields', () => {
 			partner: 'solo',
 			styleTag: 'son',
 			startCount: 5,
-			lengthCounts: 8,
-			endPositionId: open.id
+			lengthCounts: 8
 		});
+		expect(figurePositions(db, F)).toEqual({ startIds: [], endIds: [open.id] });
 		expect(differing('figure', F, M)).toEqual([]);
 		// In place: the entry and the section's link still hold.
 		expect(entryFor(db, 'u2', { figureId: F })!.id).toBe(entry.id);

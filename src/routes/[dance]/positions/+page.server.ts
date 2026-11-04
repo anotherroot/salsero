@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { buildGraph } from '$lib/server/graph';
-import { checkbox, int, text } from '$lib/server/form';
+import { int, text } from '$lib/server/form';
 import {
 	archivePosition,
 	createPosition,
@@ -42,7 +42,6 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 		isAdmin: locals.user?.isAdmin === true,
 		positions: rows.map((p) => ({
 			name: p.name,
-			neutral: p.neutral,
 			// `byId.get(p.id)` always carries this same row's `id` alongside its
 			// counts — `counts` was built from these rows' own ids above — so the
 			// spread is the only place `id` appears; listing it explicitly too
@@ -116,7 +115,8 @@ export const actions: Actions = {
 		const row = updatePosition(getDb(), found.id, {
 			slug: found.slug,
 			name,
-			neutral: checkbox(form, 'neutral') || found.neutral,
+			// Vestigial: nothing reads it since positions became optional.
+			neutral: found.neutral,
 			sortOrder: found.sortOrder
 		});
 		if (!row)
@@ -133,15 +133,9 @@ export const actions: Actions = {
 	archive: async ({ params, request, locals }) => {
 		requireAdmin(locals);
 		const found = positionOf(params, int(await request.formData(), 'id'));
-		// Already removed (a double tap, another tab): nothing to do, and not the neutral's refusal.
-		if (found.archivedAt !== null) return { action: 'archive', ok: true };
-		if (!archivePosition(getDb(), found.id, Date.now())) {
-			return fail(400, {
-				action: 'archive',
-				id: found.id,
-				message: 'The neutral position cannot be removed.'
-			});
-		}
+		// Already removed (a double tap, another tab): nothing to do. A figure tagged
+		// with it keeps its tag; that side reads as no position (fits anywhere).
+		if (found.archivedAt === null) archivePosition(getDb(), found.id, Date.now());
 		return { action: 'archive', ok: true };
 	},
 

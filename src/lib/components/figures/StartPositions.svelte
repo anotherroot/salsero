@@ -19,12 +19,10 @@
 	 */
 	let {
 		positions,
-		initial,
-		neutralName
+		initial
 	}: {
-		positions: { id: number; name: string; neutral: boolean; archived: boolean }[];
+		positions: { id: number; name: string; archived: boolean }[];
 		initial: number[];
-		neutralName: string;
 	} = $props();
 
 	let chosen = $state<number[]>(untrack(() => [...initial]));
@@ -67,7 +65,9 @@
 				>
 			</button>
 		{:else}
-			<span class="flex min-h-11 items-center pl-1 text-[14px] text-muted">{neutralName}</span>
+			<span class="flex min-h-11 items-center pl-1 text-[14px] text-muted"
+				>No position · fits anywhere</span
+			>
 		{/each}
 	</div>
 

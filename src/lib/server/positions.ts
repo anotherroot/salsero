@@ -127,12 +127,12 @@ export function updatePosition(db: Db, id: number, input: PositionInput) {
 /**
  * Archive a position. The figures tagged with it keep their tags, so an
  * archived position still reads correctly in history — it just stops being
- * offered. Refuses the neutral one: removing it would silently move every
- * untagged figure.
+ * offered, and the graph reads that side as no position. False when it is
+ * gone or already archived.
  */
 export function archivePosition(db: Db, id: number, now: number): boolean {
 	const row = db.select().from(positions).where(eq(positions.id, id)).get();
-	if (!row || row.archivedAt !== null || row.neutral) return false;
+	if (!row || row.archivedAt !== null) return false;
 	db.update(positions).set({ archivedAt: now }).where(eq(positions.id, id)).run();
 	return true;
 }

@@ -167,7 +167,7 @@ describe('Positions', () => {
 	beforeEach(() => seedPositions(db));
 
 	it('restores a removed position', async () => {
-		const row = listPositions(db, 'salsa').find((p) => !p.neutral)!;
+		const row = listPositions(db, 'salsa')[1];
 		archivePosition(db, row.id, 1);
 		expect(await call(positionActions.restore, post('salsa', { id: String(row.id) }))).toEqual({
 			action: 'restore',
@@ -185,7 +185,7 @@ describe('Positions', () => {
 	});
 
 	it("refuses to restore the other dance's position", async () => {
-		const row = listPositions(db, 'bachata').find((p) => !p.neutral)!;
+		const row = listPositions(db, 'bachata')[1];
 		archivePosition(db, row.id, 1);
 		await expect(
 			call(positionActions.restore, post('salsa', { id: String(row.id) }))
@@ -281,12 +281,13 @@ describe('Positions: names are unique among the live ones', () => {
 		});
 	});
 
-	it('refuses the neutral position, naming its id', async () => {
-		const n = listPositions(db, 'salsa').find((p) => p.neutral)!;
-		expect(await call(positionActions.archive, post('salsa', { id: String(n.id) }))).toMatchObject({
-			status: 400,
-			data: { action: 'archive', id: n.id }
+	it('removes the first position too: there is no neutral any more', async () => {
+		const first = listPositions(db, 'salsa')[0];
+		expect(await call(positionActions.archive, post('salsa', { id: String(first.id) }))).toEqual({
+			action: 'archive',
+			ok: true
 		});
+		expect(getPosition(db, first.id)!.archivedAt).not.toBeNull();
 	});
 });
 

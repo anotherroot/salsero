@@ -26,6 +26,7 @@ import {
 	exercises,
 	figureGroups,
 	figures,
+	figureEndPositions,
 	figureStartPositions,
 	lessonExercises,
 	lessonFigures,
@@ -127,27 +128,34 @@ function styleShow(dance: string, style: string): string {
 }
 
 /**
- * Start positions (sorted ids) and the end id, as stored: an untagged figure
- * reads as empty, shown as the dance's neutral position.
+ * Start and end positions (sorted ids each), as stored. An untagged side
+ * reads as empty and shows nothing: it fits anywhere; both empty show
+ * "No position".
+ *
+ * positions: Task 10 splits this into `starts`/`ends` sets compared by family.
  */
-function positionsField(
-	db: Db,
-	f: { id: number; dance: string; endPositionId: number | null },
-	b: Builder
-): void {
-	const starts = db
-		.select({ id: figureStartPositions.positionId })
-		.from(figureStartPositions)
-		.where(eq(figureStartPositions.figureId, f.id))
-		.all()
-		.map((r) => r.id)
-		.sort((x, y) => x - y);
+function positionsField(db: Db, f: { id: number; dance: string }, b: Builder): void {
+	const read = (table: typeof figureStartPositions | typeof figureEndPositions) =>
+		db
+			.select({ id: table.positionId })
+			.from(table)
+			.where(eq(table.figureId, f.id))
+			.all()
+			.map((r) => r.id)
+			.sort((x, y) => x - y);
+	const starts = read(figureStartPositions);
+	const ends = read(figureEndPositions);
 	const all = db.select().from(positions).where(eq(positions.dance, f.dance)).all();
 	const name = new Map(all.map((p) => [p.id, p.name]));
-	const neutral = all.find((p) => p.neutral)?.name ?? '';
-	const startShow = starts.length > 0 ? starts.map((s) => name.get(s) ?? '?').join(', ') : neutral;
-	const endShow = f.endPositionId !== null ? (name.get(f.endPositionId) ?? '?') : neutral;
-	b.add('positions', `${starts.join(',')}>${f.endPositionId ?? ''}`, `${startShow} → ${endShow}`);
+	const show = (ids: number[]) =>
+		ids.flatMap((id) => (name.has(id) ? [name.get(id)!] : [])).join(', ');
+	const startShow = show(starts);
+	const endShow = show(ends);
+	b.add(
+		'positions',
+		`${starts.join(',')}>${ends.join(',')}`,
+		startShow === '' && endShow === '' ? 'No position' : `${startShow} → ${endShow}`.trim()
+	);
 }
 
 /* ── Links, pieces, sections ────────────────────────────────────────────── */

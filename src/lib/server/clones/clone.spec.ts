@@ -9,6 +9,7 @@ import {
 	exercises,
 	figureGroups,
 	figures,
+	figureEndPositions,
 	figureStartPositions,
 	lessonExercises,
 	lessons,
@@ -110,10 +111,11 @@ function groupFigure() {
 	const id = made.figure.id;
 	const [open, closed] = db.select().from(positions).where(eq(positions.dance, 'salsa')).all();
 	db.update(figures)
-		.set({ notes: 'Lead early', startCount: 3, lengthCounts: 16, endPositionId: closed.id })
+		.set({ notes: 'Lead early', startCount: 3, lengthCounts: 16 })
 		.where(eq(figures.id, id))
 		.run();
 	db.insert(figureStartPositions).values({ figureId: id, positionId: open.id }).run();
+	db.insert(figureEndPositions).values({ figureId: id, positionId: closed.id }).run();
 	addLinks(db, { figureId: id }, ['https://example.org/doble'], 'Doble', 'u1');
 	const rec = recording(id, 'g.mp4');
 	const lesson = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'C', notes: null })

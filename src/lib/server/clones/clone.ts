@@ -36,6 +36,7 @@ import type { Db } from '../db';
 import {
 	exercises,
 	figureGroups,
+	figureEndPositions,
 	figureStartPositions,
 	figures,
 	lessonExercises,
@@ -771,7 +772,6 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 			notes: src.notes,
 			partner: src.partner,
 			styleTag: src.styleTag,
-			endPositionId: src.endPositionId,
 			startCount: src.startCount,
 			lengthCounts: src.lengthCounts,
 			createdAt: now,
@@ -782,15 +782,18 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 		.get();
 	m.started('figure', src.id, copy.id);
 
-	const starts = tx
-		.select({ positionId: figureStartPositions.positionId })
-		.from(figureStartPositions)
-		.where(eq(figureStartPositions.figureId, src.id))
-		.all();
-	if (starts.length > 0) {
-		tx.insert(figureStartPositions)
-			.values(starts.map((s) => ({ figureId: copy.id, positionId: s.positionId })))
-			.run();
+	// positions: Task 10 tags the copy with its place's member of each family (`m.ref`).
+	for (const table of [figureStartPositions, figureEndPositions]) {
+		const tags = tx
+			.select({ positionId: table.positionId })
+			.from(table)
+			.where(eq(table.figureId, src.id))
+			.all();
+		if (tags.length > 0) {
+			tx.insert(table)
+				.values(tags.map((t) => ({ figureId: copy.id, positionId: t.positionId })))
+				.run();
+		}
 	}
 	copyLinks(tx, { figureId: src.id }, { figureId: copy.id }, now);
 

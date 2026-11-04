@@ -195,7 +195,7 @@ describe('a personal routine that uses a group’s figure and routine', () => {
 		expect(data.labels[F]).toBe('Dile que no · Doble');
 		expect(data.groupFigures).toEqual({ [F]: { team: 'Rueda club', name: 'Dile que no' } });
 		expect(data.candidates).toContainEqual(expect.objectContaining({ kind: 'routine', id: R }));
-		// Untagged figures all start and land in neutral: two in a row never break.
+		// Untagged figures fit anywhere: two in a row never break.
 		expect(loadList().routines.find((r) => r.id === P)?.breaks).toBe(0);
 
 		expect(addChildSlot(db, P, R)).not.toBeNull();

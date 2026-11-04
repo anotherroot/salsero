@@ -60,13 +60,15 @@
 	 * "1→1 · Closed → Open": the counts it starts and ends on, then where the
 	 * hands start and where they end. Both ends, because a figure is chosen as
 	 * much for where it begins as for where it lands — and the count filter can
-	 * be off.
+	 * be off. An untagged side shows nothing (it fits anywhere); both untagged,
+	 * just the counts.
 	 */
 	function meta(c: Candidate): string {
 		const timing = `${c.startCounts.join('/') || '?'}→${c.next ?? '?'}`;
-		const from = c.starts.length > 0 ? c.starts.map(positionName).join(' / ') : '?';
-		const to = c.end === null ? '?' : positionName(c.end);
-		const where = `${timing} · ${from} → ${to}`;
+		const names = (ids: number[]) => ids.map(positionName).filter(Boolean).join(' / ');
+		const from = names(c.starts);
+		const to = names(c.ends);
+		const where = from === '' && to === '' ? timing : `${timing} · ${`${from} → ${to}`.trim()}`;
 		if (c.twins && c.twins.length > 0) return `${twinPickMeta(c, c.twins)} · ${where}`;
 		return c.team ? `${usedAsIs(c.team.name)} · ${where}` : where;
 	}
