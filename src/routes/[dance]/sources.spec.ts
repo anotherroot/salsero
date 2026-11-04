@@ -442,11 +442,31 @@ describe('Copy to…', () => {
 			action: 'copy',
 			restore: made.copied
 		});
+		// A forged `use` naming a row of a group u3 is not in steers nothing and names no place.
+		createTeam(db, 'u2', 'salsa', 'Secret club', T);
+		const X = createFigure(
+			db,
+			{ teamId: 3, actorId: 'u2', dance: 'salsa' },
+			{
+				figureName: 'Secret',
+				name: 'Básico',
+				...shape
+			}
+		)!.figure.id;
+		const gene = db.select().from(figures).where(eq(figures.id, F)).get()!.geneId!;
 		const back = await run(
 			figurePage.actions.copyTo,
-			ev('u3', F, { form: { into: '2', restore: made.copied } })
+			ev('u3', F, {
+				form: { into: '2', restore: made.copied, use: JSON.stringify({ [gene]: X }) }
+			})
 		);
-		expect(back).toMatchObject({ action: 'copy', existing: made.copied, from: F });
+		expect(back).toEqual({
+			action: 'copy',
+			existing: made.copied,
+			href: `/salsa/figures/${made.copied}`,
+			from: F,
+			place: 'Salsa Tuesdays'
+		});
 		expect(
 			db.select().from(figures).where(eq(figures.id, made.copied)).get()!.archivedAt
 		).toBeNull();

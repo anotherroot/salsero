@@ -374,12 +374,47 @@ function teamPlace(db: Db, userId: string, into: TeamSpace): PlaceRef {
 }
 
 /**
+ * `use` as `copyPlan` would accept it for this place: every key one of its
+ * twins questions, every answer a choice it offers. `{}` into your own app
+ * (nothing is asked there, so answers are dropped); null when any answer is
+ * not one the plan asked for, so a forged `use` never steers a copy or names
+ * a row's place.
+ */
+export function validUse(
+	db: Db,
+	actorId: string,
+	kind: CloneKind,
+	id: number,
+	into: Space,
+	use: Record<string, number>
+): Record<string, number> | null {
+	if (!isTeam(into)) return {};
+	const entries = Object.entries(use);
+	if (entries.length === 0) return {};
+	const asked = twinQuestions(
+		db,
+		actorId,
+		planClone(db, requestOf(kind, id, into)).rows,
+		into,
+		'UTC'
+	);
+	for (const [gene, chosen] of entries) {
+		const q = asked.find((a) => a.gene === gene);
+		if (!q || !q.choices.some((c) => c.id === chosen)) return null;
+	}
+	return use;
+}
+
+/**
  * Copy the row into `into` for `actorId` (`cloneInto`, with recordings into a
- * group; a reader's copy into their own app is `makeMine`). `use` answers
- * `copyPlan`'s twins questions, family by family; a choice it did not offer,
- * or a place that is not one of the row's targets, is `denied`. The member
- * already in `into` is answered as it is (`made: false`, `archived` when it
- * is), for Compare or Restore. `room` and `name` refusals as the engine's.
+ * group; a reader's copy into their own app is `makeMine`). The member of the
+ * row's own family already in `into` is answered as it is (`made: false`,
+ * `archived` when it is), for Compare or Restore, whatever `use` says: an
+ * answer left over from another place is ignored there. Otherwise `use`
+ * answers `copyPlan`'s twins questions (`validUse`): a choice it did not
+ * offer, or a place that is not one of the row's targets, is `denied`; the
+ * chosen twin's member there is answered the same way. `room` and `name`
+ * refusals as the engine's.
  */
 export async function copyTo(
 	db: Db,
@@ -393,18 +428,12 @@ export async function copyTo(
 	freeDiskBytes: number
 ): Promise<CloneResult> {
 	if (!targetOf(db, actorId, kind, id, into)) return DENIED;
-	const asked = twinQuestions(
-		db,
-		actorId,
-		planClone(db, requestOf(kind, id, into)).rows,
-		into,
-		'UTC'
-	);
-	for (const [gene, chosen] of Object.entries(use)) {
-		const q = asked.find((a) => a.gene === gene);
-		if (!q || !q.choices.some((c) => c.id === chosen)) return DENIED;
-	}
-	const req = requestOf(kind, id, into, isTeam(into) ? use : undefined);
+	const own = planClone(db, requestOf(kind, id, into));
+	if (own.sourceId === null) return DENIED;
+	if (own.existing) return { ok: true, made: false, ...own.existing };
+	const answers = validUse(db, actorId, kind, id, into, use);
+	if (answers === null) return DENIED;
+	const req = requestOf(kind, id, into, isTeam(into) ? answers : undefined);
 	const plan = planClone(db, req);
 	if (plan.sourceId === null) return DENIED;
 	if (plan.existing) return { ok: true, made: false, ...plan.existing };
@@ -416,22 +445,32 @@ export async function copyTo(
 	return cloneInto(db, req, files, now, freeDiskBytes);
 }
 
-/** The row a copy with these choices would copy: the page's own, or the twin `use` chose. */
+/**
+ * The row a copy with these choices would copy: the page's own, or the twin
+ * `use` chose. A `use` that `validUse` refuses counts as none, so it never
+ * names a row the plan did not offer.
+ */
 export function chosenSource(
 	db: Db,
+	actorId: string,
 	kind: CloneKind,
 	id: number,
 	into: Space,
 	use: Record<string, number>
 ): number {
-	return planClone(db, requestOf(kind, id, into, isTeam(into) ? use : undefined)).sourceId ?? id;
+	const answers = validUse(db, actorId, kind, id, into, use) ?? {};
+	return (
+		planClone(db, requestOf(kind, id, into, isTeam(into) ? answers : undefined)).sourceId ?? id
+	);
 }
 
 /**
  * Restore the family's archived member in `into` (Copy to… offers it before
- * Compare): Recently deleted's restore in a group, the kind's own restore in
- * the person's app (a person's song has none). Null when `memberId` is not
- * that archived member of one of the row's targets.
+ * Compare): the row's own family's, or the archived member of the twin `use`
+ * chose (`validUse`), so a copy answered `archived` for a twin can be
+ * restored. Recently deleted's restore in a group, the kind's own restore in
+ * the person's app (a person's song has none). Null when `memberId` is
+ * neither.
  */
 export function restoreMember(
 	db: Db,
@@ -440,10 +479,18 @@ export function restoreMember(
 	id: number,
 	into: Space,
 	memberId: number,
-	now: number
+	now: number,
+	use: Record<string, number> = {}
 ): { ok: true } | { ok: false; message: string } | null {
 	const target = targetOf(db, actorId, kind, id, into);
-	if (!target?.existing?.archived || target.existing.id !== memberId) return null;
+	if (!target) return null;
+	const archivedHere = (m: { id: number; archived: boolean } | null) =>
+		m !== null && m.archived && m.id === memberId;
+	if (!archivedHere(target.existing)) {
+		const answers = validUse(db, actorId, kind, id, into, use);
+		if (!answers || Object.keys(answers).length === 0) return null;
+		if (!archivedHere(planClone(db, requestOf(kind, id, into, answers)).existing)) return null;
+	}
 	if (isTeam(into))
 		return restoreDeleted(db, into, kind === 'figure' ? 'variation' : kind, memberId, now);
 	if (kind === 'song') return { ok: false, message: ARCHIVED_SONG_COPY };

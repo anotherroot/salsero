@@ -222,7 +222,8 @@ export async function copyToFrom(
 	if (!into) throw error(404, 'Not found');
 
 	const existing = (memberId: number) => {
-		const from = chosenSource(db, kind, id, into, use);
+		// Only answers the plan asked for: a forged `use` names no row (or its place) here.
+		const from = chosenSource(db, wall.userId, kind, id, into, use);
 		const place = placeOfRow(db, kind, from);
 		return {
 			action: 'copy' as const,
@@ -234,7 +235,7 @@ export async function copyToFrom(
 	};
 
 	if (restore !== undefined) {
-		const done = restoreMember(db, wall.userId, kind, id, into, restore, Date.now());
+		const done = restoreMember(db, wall.userId, kind, id, into, restore, Date.now(), use);
 		if (done === null) throw error(404, 'Not found');
 		if (!done.ok) return fail(409, { action: 'copy' as const, message: done.message });
 		return existing(restore);

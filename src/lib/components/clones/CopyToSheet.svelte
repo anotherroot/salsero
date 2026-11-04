@@ -70,6 +70,8 @@
 	let asking = $state(false);
 	let step = $state(0);
 	let use = $state<Record<string, number>>({});
+	/** The chosen twin's archived member in the place, as the copy answered it: Restore applies to it. */
+	let archivedTwin = $state<number | null>(null);
 	/** The member already there, compared with the row it would have copied. */
 	let comparing = $state<{
 		mineId: number;
@@ -85,6 +87,10 @@
 	const draft = $derived(
 		target.place.kind === 'team' && (offer.kind === 'lesson' || offer.kind === 'song')
 	);
+	/** The member the place holds: of this row's family, or of the twin chosen (archived). */
+	const here = $derived(
+		target.existing ?? (archivedTwin === null ? null : { id: archivedTwin, archived: true })
+	);
 
 	$effect(() => {
 		if (!open) return;
@@ -93,17 +99,24 @@
 		asking = false;
 	});
 
-	/** The cards for the place picked; none while it holds a member already. */
+	/**
+	 * The cards for the place picked; none while it holds a member already.
+	 * Each open and each place starts with no answers: another place's twins
+	 * answers never travel with this one.
+	 */
 	$effect(() => {
-		if (!open || target.existing) return;
-		const ask = new AbortController();
+		if (!open) return;
+		const t = target;
 		plan = null;
 		failed = false;
 		use = {};
+		archivedTwin = null;
+		if (t.existing) return;
+		const ask = new AbortController();
 		const q = new URLSearchParams({
 			kind: offer.kind,
 			id: String(current),
-			into: intoValue(target)
+			into: intoValue(t)
 		});
 		fetch(`/api/clones/copy?${q}`, { signal: ask.signal })
 			.then(async (res) => {
@@ -127,7 +140,7 @@
 
 	/** Copy: through the twins questions first, when there are any. */
 	function go() {
-		if (target.existing) return form?.requestSubmit();
+		if (here) return form?.requestSubmit();
 		if (plan && plan.twins.length > 0) {
 			step = 0;
 			asking = true;
@@ -188,8 +201,8 @@
 			</div>
 		</fieldset>
 
-		{#if target.existing}
-			<Banner kind="info">{existingNote(target.place, target.existing.archived)}</Banner>
+		{#if here}
+			<Banner kind="info">{existingNote(target.place, here.archived)}</Banner>
 		{:else if failed}
 			<Banner kind="error">{COMPARE_FAILED}</Banner>
 		{:else if !plan}
@@ -242,9 +255,9 @@
 								};
 								compareOpen = true;
 							} else if (typeof data.restore === 'number') {
-								// Archived since the page was loaded: its Restore shows once refreshed.
-								refused = existingNote(place, true);
-								await refreshWhenSettled();
+								// The chosen twin's member there is archived (or this row's, archived since
+								// the page loaded): Restore applies to it, with the same answers.
+								archivedTwin = data.restore;
 							}
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown } | undefined;
@@ -259,23 +272,24 @@
 			}}
 		>
 			<input type="hidden" name="into" value={intoValue(target)} />
-			<input type="hidden" name="use" value={JSON.stringify(use)} />
-			{#if target.existing?.archived}
-				<input type="hidden" name="restore" value={target.existing.id} />
+			<!-- A member of this row's own family there: no twins answers apply. -->
+			<input type="hidden" name="use" value={target.existing ? '' : JSON.stringify(use)} />
+			{#if here?.archived}
+				<input type="hidden" name="restore" value={here.id} />
 			{/if}
 			<button type="button" class={button('tertiary', 'md', true)} onclick={close}>{CANCEL}</button>
 			<button
 				type="button"
 				class={button('primary', 'md', true)}
-				disabled={busy || (!target.existing && !plan)}
+				disabled={busy || (!here && !plan)}
 				aria-busy={busy}
 				onclick={go}
 			>
 				{#if busy}
 					<Spinner />
-				{:else if target.existing?.archived}
+				{:else if here?.archived}
 					<Icon name="undo" size={20} />{RESTORE}
-				{:else if target.existing}
+				{:else if here}
 					<Icon name="refresh" size={20} />{COMPARE}
 				{:else}
 					<Icon name="copy" size={20} />{copyButton(offer.kind, target.place)}

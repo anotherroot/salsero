@@ -7,7 +7,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
-import { figures, lessonFigures, lessons, recordings, teamChanges, users } from '../db/schema';
+import {
+	figures,
+	lessonFigures,
+	lessons,
+	recordings,
+	songs,
+	teamChanges,
+	users
+} from '../db/schema';
+import { createSongFromUpload, storeAnalysis } from '../songs';
 import { createTeam, deleteTeam, joinTeam } from '../teams';
 import { setRole } from '../membership';
 import { addRecording, archiveVariation, createFigure } from '../figures';
@@ -20,7 +29,7 @@ import type { Space, TeamSpace } from '../scope';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import { cloneInto } from './clone';
 import { geneOf, memberIn } from './genes';
-import { copyPlan, copyTargets, copyTo, restoreMember } from './copy-to';
+import { copyPlan, copyTargets, copyTo, restoreMember, validUse } from './copy-to';
 
 const OCT_3 = Date.UTC(2026, 9, 3, 10);
 const T = Date.UTC(2026, 10, 3, 20);
@@ -328,5 +337,74 @@ describe('into your own app', () => {
 		if (!res.ok || !res.made) throw new Error('copy refused');
 		expect(row(res.id)).toMatchObject({ userId: 'u1', teamId: null });
 		expect(recsOf(res.id)).toEqual([]);
+	});
+});
+
+describe('another place’s answers (review fixes)', () => {
+	function twinned() {
+		const mine = figure(U1_SALSA, 'Enchufla', 'Doble');
+		const theirs = figure(T2_SALSA, 'Enchufla', 'Doble');
+		expect(markTwins(db, U1_SALSA, 'figure', [mine, theirs])).toBe(true);
+		const [ask] = copyPlan(db, 'u1', 'figure', mine, T1_SALSA, TZ).twins;
+		return { mine, theirs, gene: ask.gene };
+	}
+
+	it('a stale `use` into a place holding a member answers that member, not denied', async () => {
+		const { mine, theirs, gene } = twinned();
+		const first = await copyTo(db, 'u1', 'figure', mine, T1_SALSA, {}, NO_FILES, NOW, ROOMY);
+		if (!first.ok) throw new Error('copy refused');
+		// T1 now holds Yours: nothing is asked any more, and the old answer is ignored.
+		expect(copyPlan(db, 'u1', 'figure', mine, T1_SALSA, TZ).twins).toEqual([]);
+		expect(
+			await copyTo(db, 'u1', 'figure', mine, T1_SALSA, { [gene]: theirs }, NO_FILES, NOW, ROOMY)
+		).toEqual({ ok: true, made: false, id: first.id, archived: false });
+	});
+
+	it('validUse keeps only answers to questions asked, with choices offered', () => {
+		const { mine, theirs, gene } = twinned();
+		const other = figure(T2_SALSA, 'Setenta');
+		expect(validUse(db, 'u1', 'figure', mine, T1_SALSA, { [gene]: theirs })).toEqual({
+			[gene]: theirs
+		});
+		expect(validUse(db, 'u1', 'figure', mine, T1_SALSA, { [gene]: other })).toBeNull();
+		expect(validUse(db, 'u1', 'figure', mine, T1_SALSA, { [`figure#${other}`]: other })).toBeNull();
+		// Into your own app nothing is asked: answers are dropped.
+		const own = figure(T1_SALSA, 'Dile que no');
+		expect(validUse(db, 'u1', 'figure', own, U1_SALSA, { x: 1 })).toEqual({});
+	});
+
+	it('Restore applies to the chosen twin’s archived member there', async () => {
+		const { mine, theirs, gene } = twinned();
+		const use = { [gene]: theirs };
+		const made = await copyTo(db, 'u1', 'figure', mine, T1_SALSA, use, NO_FILES, NOW, ROOMY);
+		if (!made.ok || !made.made) throw new Error('copy refused');
+		archiveVariation(db, made.id, NOW + 1, 'u1');
+		expect(await copyTo(db, 'u1', 'figure', mine, T1_SALSA, use, NO_FILES, NOW + 2, ROOMY)).toEqual(
+			{ ok: true, made: false, id: made.id, archived: true }
+		);
+		// Without the answer it is no member of this row's family: nothing to restore.
+		expect(restoreMember(db, 'u1', 'figure', mine, T1_SALSA, made.id, NOW + 3)).toBeNull();
+		expect(restoreMember(db, 'u1', 'figure', mine, T1_SALSA, made.id, NOW + 3, use)).toEqual({
+			ok: true
+		});
+		expect(row(made.id).archivedAt).toBeNull();
+	});
+
+	it('a song copied into a group lands as a draft', async () => {
+		const S = createSongFromUpload(db, U1_SALSA, {
+			file: '00000000-0000-4000-8000-0000000000c1.mp3',
+			mime: 'audio/mpeg',
+			title: 'Chan Chan',
+			style: 'salsa',
+			sizeBytes: 1000
+		}).id;
+		storeAnalysis(db, S, { beats: [0.5, 1, 1.5, 2], downbeats: [0.5], durationS: 90 });
+		const res = await copyTo(db, 'u1', 'song', S, T1_SALSA, {}, NO_FILES, NOW, ROOMY);
+		if (!res.ok || !res.made) throw new Error('copy refused');
+		expect(db.select().from(songs).where(eq(songs.id, res.id)).get()).toMatchObject({
+			teamId: 1,
+			sharedAt: null,
+			status: 'ready'
+		});
 	});
 });
