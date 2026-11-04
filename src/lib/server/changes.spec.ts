@@ -8,7 +8,7 @@ import { openDb, type Db } from './db';
 import { songs, teamChanges, teamTrash, users } from './db/schema';
 import { restoreTrash } from './trash';
 import { actorOf, type Space } from './scope';
-import { T1_SALSA, U1_SALSA } from './test-walls';
+import { NO_FILES, T1_SALSA, U1_SALSA } from './test-walls';
 import { createTeam, joinTeam } from './teams';
 import { removeMember, setRole } from './membership';
 import {
@@ -1012,8 +1012,8 @@ describe('history, lastEdit and names', () => {
 		expect(editedBy(db, null, 'drill', 9)).toEqual({ by: null, at: null });
 	});
 
-	it('names a former member from the users table, initials telling two Anas apart', () => {
-		removeMember(db, 1, 'u2');
+	it('names a former member from the users table, initials telling two Anas apart', async () => {
+		await removeMember(db, 1, 'u2', NO_FILES, Date.now());
 		const names = teamNames(db, 1, ['u2', 'u3']);
 		expect(names.get('u2')).toBe('Luka');
 		expect(names.get('u1')).toBe('Ana K.');

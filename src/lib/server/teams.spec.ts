@@ -20,6 +20,7 @@ import {
 	getTeam
 } from './teams';
 import { leaveTeam, removeMember, setRole } from './membership';
+import { NO_FILES } from './test-walls';
 import { TEAM_CODE_LENGTH } from '$lib/limits';
 
 function setup() {
@@ -127,23 +128,23 @@ describe('codes and joining', () => {
 });
 
 describe('roles', () => {
-	it('sets roles, never on the owner, removes members, never the owner', () => {
+	it('sets roles, never on the owner, removes members, never the owner', async () => {
 		const db = setup();
 		const id = make(db, 'u1', 'A');
 		joinTeam(db, 'u2', id, 5);
 		expect(setRole(db, id, 'u2', 'editor')).toBe(true);
 		expect(roleOf(db, 'u2', id)).toBe('editor');
 		expect(setRole(db, id, 'u1', 'member')).toBe(false);
-		expect(removeMember(db, id, 'u1')).toBe(false);
-		expect(removeMember(db, id, 'u2')).toBe(true);
+		expect(await removeMember(db, id, 'u1', NO_FILES, Date.now())).toBe(false);
+		expect(await removeMember(db, id, 'u2', NO_FILES, Date.now())).toBe(true);
 		expect(roleOf(db, 'u2', id)).toBeNull();
 	});
-	it('leaving: members go, the owner cannot', () => {
+	it('leaving: members go, the owner cannot', async () => {
 		const db = setup();
 		const id = make(db, 'u1', 'A');
 		joinTeam(db, 'u2', id, 5);
-		expect(leaveTeam(db, id, 'u1')).toBe('owner');
-		expect(leaveTeam(db, id, 'u2')).toBe('left');
+		expect(await leaveTeam(db, id, 'u1', { mode: 'all' }, NO_FILES, Date.now())).toBe('owner');
+		expect(await leaveTeam(db, id, 'u2', { mode: 'all' }, NO_FILES, Date.now())).toBe('left');
 		expect(roleOf(db, 'u2', id)).toBeNull();
 	});
 	it('hands over, the old owner becoming editor', () => {

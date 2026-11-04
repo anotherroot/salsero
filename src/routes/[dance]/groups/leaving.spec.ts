@@ -1,8 +1,10 @@
 /**
  * Leaving, being removed, a deleted group, through the routes: a former
- * member's added lesson stays, read-only, with its banner; the group page is
- * gone for them; a deleted group's lessons say when it goes; once purged,
- * Today's past days still name what was logged.
+ * member keeps copies of what they had (Keep everything, until the leave
+ * sheet offers the choice), theirs to edit, and the group's rows are gone for
+ * them; someone who left before Keep still reads their added lesson, with its
+ * banner, until the boot pass settles them; a deleted group's lessons say
+ * when it goes; once purged, Today's past days name the kept copies.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,7 +15,9 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { sets, users } from '$lib/server/db/schema';
+import { and, eq, isNull } from 'drizzle-orm';
+import { exercises, lessons, sets, teamMembers, users } from '$lib/server/db/schema';
+import { crossRefs } from '$lib/server/integrity';
 import { createTeam, deleteTeam, joinTeam } from '$lib/server/teams';
 import { createLesson, linkExercise, publishLesson } from '$lib/server/lessons';
 import { createCustomExercise } from '$lib/server/exercises';
@@ -95,13 +99,71 @@ describe('a member reading a lesson of a live group', () => {
 	});
 });
 
+/** u's own lessons: what Keep gave them. */
+const ownLessons = (uid: string) =>
+	db
+		.select()
+		.from(lessons)
+		.where(and(eq(lessons.userId, uid), isNull(lessons.teamId)))
+		.all();
+
 describe('after leaving', () => {
 	beforeEach(async () => {
 		const left = await run(() => groupActions.leave!(ev('u2', { id: '1' })));
 		expect(left.status).toBe(303);
 	});
 
-	it('the added lesson loads read-only, with the banner and Make my own copy', async () => {
+	it('they keep a copy of the added lesson, theirs to edit; the group’s is gone for them', async () => {
+		const [copy] = ownLessons('u2');
+		expect(copy.title).toBe('Tue 3 Nov');
+		expect((await lessonPage('u2', copy.id)).value).toMatchObject({ canEdit: true, notice: null });
+		expect((await lessonPage('u2', lesson)).status).toBe(404);
+	});
+
+	it('the group page is gone, and a lesson they had not added is too', async () => {
+		expect((await run(() => groupLoad(ev('u2', { id: '1' })))).status).toBe(404);
+		expect((await lessonPage('u2', draft)).status).toBe(404);
+	});
+
+	it('their practice stays on Today, on the copies', () => {
+		const live = db
+			.select()
+			.from(exercises)
+			.where(and(eq(exercises.userId, 'u2'), isNull(exercises.archivedAt)))
+			.all();
+		expect(live.some((x) => x.lessonId === lesson)).toBe(false);
+		expect(live.some((x) => x.lessonId === ownLessons('u2')[0].id)).toBe(true);
+		expect(live.some((x) => x.drillId === drill)).toBe(false);
+		expect(live.some((x) => x.source === 'custom' && x.name === 'Drill' && x.teamId === null)).toBe(
+			true
+		);
+		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('after being removed', () => {
+	it('is the same as leaving with everything kept', async () => {
+		const removed = await run(() =>
+			peopleActions.remove!(ev('u1', { id: '1' }, { request: post({ userId: 'u3' }) }))
+		);
+		expect(removed.value).toMatchObject({ ok: true });
+		const [copy] = ownLessons('u3');
+		expect((await lessonPage('u3', copy.id)).value).toMatchObject({ canEdit: true });
+		expect((await lessonPage('u3', lesson)).status).toBe(404);
+		expect((await run(() => groupLoad(ev('u3', { id: '1' })))).status).toBe(404);
+		// Nothing of u3's practice is left live on the group's drill.
+		const onGroup = entryFor(db, 'u3', { drillId: drill });
+		expect(!onGroup || onGroup.archivedAt !== null).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('someone who left before Keep', () => {
+	it('reads the added lesson read-only, with the banner and Make my own copy, until settled', async () => {
+		// The row went, the add stayed: how leaving worked before Keep.
+		db.delete(teamMembers)
+			.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
+			.run();
 		const page = await lessonPage('u2', lesson);
 		expect(page.value).toMatchObject({
 			canEdit: false,
@@ -111,31 +173,6 @@ describe('after leaving', () => {
 				action: 'Make my own copy'
 			}
 		});
-	});
-
-	it('the group page is gone, and a lesson they had not added is too', async () => {
-		expect((await run(() => groupLoad(ev('u2', { id: '1' })))).status).toBe(404);
-		expect((await lessonPage('u2', draft)).status).toBe(404);
-	});
-
-	it('their entries for the added lesson stay on Today', () => {
-		expect(entryFor(db, 'u2', { lessonId: lesson })!.archivedAt).toBeNull();
-		expect(entryFor(db, 'u2', { drillId: drill })!.archivedAt).toBeNull();
-	});
-});
-
-describe('after being removed', () => {
-	it('is the same as leaving', async () => {
-		const removed = await run(() =>
-			peopleActions.remove!(ev('u1', { id: '1' }, { request: post({ userId: 'u3' }) }))
-		);
-		expect(removed.value).toMatchObject({ ok: true });
-		expect((await lessonPage('u3', lesson)).value).toMatchObject({
-			canEdit: false,
-			notice: { text: 'You left Salsa nadaljevalna · read-only' }
-		});
-		expect((await run(() => groupLoad(ev('u3', { id: '1' })))).status).toBe(404);
-		expect(entryFor(db, 'u3', { drillId: drill })!.archivedAt).toBeNull();
 	});
 });
 
@@ -153,7 +190,7 @@ describe('a deleted group', () => {
 		}
 	});
 
-	it('once purged, Today’s past day still names what was logged', async () => {
+	it('once purged, Today’s past day names what was logged: the copies the purge kept', async () => {
 		const entry = entryFor(db, 'u2', { lessonId: lesson })!.id;
 		const drillEntry = entryFor(db, 'u2', { drillId: drill })!.id;
 		db.insert(sets)
@@ -177,9 +214,6 @@ describe('a deleted group', () => {
 		const today = (await todayLoad(
 			ev('u2', {}, { url: new URL('http://localhost/salsa?day=2026-11-03') })
 		)) as { daySets: Parameters<typeof pastGroups>[0] };
-		expect(pastGroups(today.daySets).map((g) => g.name)).toEqual([
-			'Tue 3 Nov · Salsa nadaljevalna (deleted)',
-			'Drill · Salsa nadaljevalna (deleted)'
-		]);
+		expect(pastGroups(today.daySets).map((g) => g.name)).toEqual(['Review: Tue 3 Nov', 'Drill']);
 	});
 });

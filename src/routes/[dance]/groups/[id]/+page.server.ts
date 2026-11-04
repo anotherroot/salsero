@@ -12,6 +12,7 @@ import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { requireTeam } from '$lib/server/scope';
 import { deleteTeam, peopleOf, remakeCode, renameTeam, restoreTeam } from '$lib/server/teams';
 import { leaveTeam } from '$lib/server/membership';
+import { realCloneFiles } from '$lib/server/clones/files';
 import { codeLink, NAME_REFUSAL } from '$lib/teams/view';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -109,11 +110,20 @@ export const actions: Actions = {
 		return { ok: true };
 	},
 
-	leave: ({ params, locals }) => {
+	leave: async ({ params, locals }) => {
 		const db = getDb();
 		const { team, space } = requireTeam(db, locals, params, 'member');
 		if (team.deletedAt !== null) throw error(404, 'No such group');
-		if (leaveTeam(db, team.id, space.actorId, Date.now()) === 'owner') {
+		// Keep everything, until the leave sheet offers the choice.
+		const left = await leaveTeam(
+			db,
+			team.id,
+			space.actorId,
+			{ mode: 'all' },
+			realCloneFiles(),
+			Date.now()
+		);
+		if (left === 'owner') {
 			return fail(400, { action: 'leave', message: 'Hand the group over before you leave it.' });
 		}
 		throw redirect(303, `/${team.dance}/groups`);

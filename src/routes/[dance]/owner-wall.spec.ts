@@ -15,7 +15,7 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import {
@@ -1361,9 +1361,14 @@ describe('lessons, sections and their links stand behind a wall', () => {
 /* ── Group lessons: drafts, publish, and the reader's pages (groups Task 8) ── */
 
 import { createTeam, joinTeam } from '$lib/server/teams';
-import { leaveTeam } from '$lib/server/membership';
 import { linkInSpace } from '$lib/server/spot-links';
-import { lessonAdds, links as linkRows, sets as setRows, videoSpots } from '$lib/server/db/schema';
+import {
+	lessonAdds,
+	links as linkRows,
+	sets as setRows,
+	teamMembers,
+	videoSpots
+} from '$lib/server/db/schema';
 import type { TeamSpace } from '$lib/server/scope';
 import * as groupPage from './groups/[id]/+page.server';
 import * as linksEndpoint from '../api/video-spots/[id]/links/+server';
@@ -1397,7 +1402,7 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		return made;
 	};
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
 		if (!made.ok) throw new Error('team expected');
 		T = { dance: 'salsa', teamId: made.teamId, actorId: 'u1' };
@@ -1509,9 +1514,11 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		linkInSpace(db, T, dSection, { figureId: V2 });
 		linkInSpace(db, T, dSection, { exerciseId: shines });
 
-		// u4 added P, then left: they keep it, read-only.
+		// u4 added P, then left before Keep: the row went, the add stayed; they read P.
 		db.insert(lessonAdds).values({ userId: 'u4', lessonId: P, addedAt: 1, seenAt: 1 }).run();
-		leaveTeam(db, T.teamId, 'u4');
+		db.delete(teamMembers)
+			.where(and(eq(teamMembers.teamId, T.teamId), eq(teamMembers.userId, 'u4')))
+			.run();
 	});
 
 	const snapshot = () => ({

@@ -19,6 +19,7 @@ vi.mock('$lib/server/db', async () => {
 
 import { openDb, type Db } from '$lib/server/db';
 import { leaveTeam } from '$lib/server/membership';
+import { NO_FILES } from '$lib/server/test-walls';
 import {
 	CLASS_T,
 	DRAFT_FILE,
@@ -122,7 +123,7 @@ describe('the audio of a group song', () => {
 
 	it('an outsider and a former member get a 404', async () => {
 		expect(await audio(SHARED_FILE, 'u4')).toBe(404);
-		leaveTeam(db, 1, 'u3', CLASS_T + 1);
+		await leaveTeam(db, 1, 'u3', { mode: 'all' }, NO_FILES, CLASS_T + 1);
 		expect(await audio(SHARED_FILE, 'u3')).toBe(404);
 	});
 });
@@ -136,7 +137,7 @@ describe('the grid of a group song', () => {
 
 	it('an outsider and a former member get a 404', async () => {
 		expect(await grid(c.shared, 'u4')).toBe(404);
-		leaveTeam(db, 1, 'u3', CLASS_T + 1);
+		await leaveTeam(db, 1, 'u3', { mode: 'all' }, NO_FILES, CLASS_T + 1);
 		expect(await grid(c.shared, 'u3')).toBe(404);
 	});
 
@@ -167,7 +168,7 @@ describe('the player and a group song', () => {
 		expect(await playerStatus(`song=${c.draft}`, 'u3')).toBe(404);
 		expect(await playerStatus(`song=${c.draft}`, 'u2')).toBe(404);
 		expect(await playerStatus(`song=${c.other}`, 'u3')).toBe(404);
-		leaveTeam(db, 1, 'u3', CLASS_T + 1);
+		await leaveTeam(db, 1, 'u3', { mode: 'all' }, NO_FILES, CLASS_T + 1);
 		expect(await playerStatus(`song=${c.shared}`, 'u3')).toBe(404);
 	});
 });
@@ -360,8 +361,8 @@ describe('Music', () => {
 		expect(music.users[c.shared]).toBe(0);
 	});
 
-	it('leaves a former member’s Music', () => {
-		leaveTeam(db, 1, 'u3', CLASS_T + 1);
+	it('leaves a former member’s Music', async () => {
+		await leaveTeam(db, 1, 'u3', { mode: 'all' }, NO_FILES, CLASS_T + 1);
 		expect(musicAs('u3').groups).toEqual([]);
 	});
 });

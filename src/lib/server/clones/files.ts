@@ -7,6 +7,7 @@
  */
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import {
 	AUDIO_FILE_RE,
 	audioDir,
@@ -44,11 +45,41 @@ export function cloneFilesIn(dirs: Record<CloneFileKind, string>): CloneFiles {
 	};
 }
 
-/** The real folders under `$DATA_DIR`, as the copy routes use them. */
+/**
+ * The real folders under `$DATA_DIR`, as the routes use them. Read on each
+ * call, not here: making one touches nothing, so a route spec whose leaver
+ * has no files never reaches `$DATA_DIR` (the folder helpers create it).
+ */
 export function realCloneFiles(): CloneFiles {
-	return cloneFilesIn({
-		recording: recordingsDir(),
-		'lesson-video': lessonVideosDir(),
-		audio: audioDir()
-	});
+	const real = () =>
+		cloneFilesIn({
+			recording: recordingsDir(),
+			'lesson-video': lessonVideosDir(),
+			audio: audioDir()
+		});
+	return {
+		link: (kind, file) => real().link(kind, file),
+		unlink: (kind, file) => real().unlink(kind, file)
+	};
+}
+
+/**
+ * The same `CloneFiles`, except that a source already gone from disk gets a
+ * fresh name with nothing behind it instead of a throw: the copy is no more
+ * broken than the group's row was, and one lost file must not stop a person
+ * leaving, or a deleted group's purge. Keep uses it (leaving, removal, the
+ * purge, settling former members); a copy someone asks for still refuses.
+ */
+export function missingOk(files: CloneFiles): CloneFiles {
+	return {
+		async link(kind, file) {
+			try {
+				return await files.link(kind, file);
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+				return `${randomUUID()}${file.slice(file.lastIndexOf('.'))}`;
+			}
+		},
+		unlink: (kind, file) => files.unlink(kind, file)
+	};
 }

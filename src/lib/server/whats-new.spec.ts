@@ -18,7 +18,7 @@ import { addSpot } from './spots';
 import { linkInSpace } from './spot-links';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { leaveTeam } from './membership';
-import { T1_SALSA } from './test-walls';
+import { NO_FILES, T1_SALSA } from './test-walls';
 import { recordOpen, whatsNew } from './whats-new';
 
 let db: Db;
@@ -121,9 +121,9 @@ describe('whatsNew lessons', () => {
 		expect(news().lessons.size).toBe(0);
 	});
 
-	it('nothing after leaving', () => {
+	it('nothing after leaving', async () => {
 		lesson(200);
-		leaveTeam(db, 1, 'u2', 500);
+		await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, 500);
 		expect(news().lessons.size).toBe(0);
 	});
 
@@ -218,12 +218,12 @@ describe('whatsNew songs', () => {
 		expect([...whatsNew(db, 'u2', 'salsa', { kind: 'lesson', id }).songs]).toEqual([id]);
 	});
 
-	it('nothing after leaving, or from a group the person is not in', () => {
+	it('nothing after leaving, or from a group the person is not in', async () => {
 		createTeam(db, 'u1', 'salsa', 'Other', 1);
 		song(200, { teamId: 2 });
 		expect(news().songs.size).toBe(0);
 		song(200);
-		leaveTeam(db, 1, 'u2', 500);
+		await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, 500);
 		expect(news().songs.size).toBe(0);
 	});
 });

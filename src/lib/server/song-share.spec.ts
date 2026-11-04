@@ -5,11 +5,12 @@
  * Restore unless the person picked another song since).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises, songDrops, songs, teamChanges, users } from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { leaveTeam, setRole } from './membership';
+import { NO_FILES } from './test-walls';
 import { createCustomExercise, setPracticeSettings } from './exercises';
 import { createLesson, linkExercise, publishLesson } from './lessons';
 import { addLesson, entryFor, reconcileEntries } from './entries';
@@ -170,14 +171,38 @@ describe('group songs', () => {
 		expect(drops()).toHaveLength(0);
 	});
 
-	it('leaving drops it from the leaver’s entry for good: Share does not give it back', () => {
-		expect(leaveTeam(db, 1, 'u3', T + 1)).toBe('left');
+	it('leaving without keeping it drops it from the leaver’s entry for good: Share does not give it back', async () => {
+		expect(await leaveTeam(db, 1, 'u3', { mode: 'used' }, NO_FILES, T + 1)).toBe('left');
 		expect(songOf('u3')).toBeNull();
 		expect(songOf('u4')).toBe(S);
 		expect(drops()).toHaveLength(0);
 		unshareSong(db, ED, S, T + 2);
 		shareSong(db, ED, S, T + 3);
 		expect(songOf('u3')).toBeNull();
+		expect(songOf('u4')).toBe(S);
+	});
+
+	it('leaving with everything puts the leaver’s own copy on their practice, out of Share’s reach', async () => {
+		expect(await leaveTeam(db, 1, 'u3', { mode: 'all' }, NO_FILES, T + 1)).toBe('left');
+		const [copy] = db
+			.select()
+			.from(songs)
+			.where(and(eq(songs.userId, 'u3'), isNull(songs.teamId)))
+			.all();
+		expect(copy.audioFile).toBe(`copy-${getSong(db, S)!.audioFile}`);
+		const playing = () =>
+			db
+				.select({ song: exercises.songId })
+				.from(exercises)
+				.where(and(eq(exercises.userId, 'u3'), isNull(exercises.archivedAt)))
+				.all()
+				.map((r) => r.song)
+				.filter((s) => s !== null);
+		expect(playing()).toEqual([copy.id]);
+		expect(drops()).toHaveLength(0);
+		unshareSong(db, ED, S, T + 2);
+		shareSong(db, ED, S, T + 3);
+		expect(playing()).toEqual([copy.id]);
 		expect(songOf('u4')).toBe(S);
 	});
 

@@ -35,7 +35,7 @@ import { linkableSections, linkSpot, unlinkSpot } from './spot-links';
 import { exercises, lessonVideos, spotLinks } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { archiveRoutine, createRoutine } from './routines';
-import { T1_SALSA, U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
+import { NO_FILES, T1_SALSA, U1_SALSA, U1_BACHATA } from '$lib/server/test-walls';
 
 let db: Db;
 beforeEach(() => {
@@ -1100,7 +1100,7 @@ describe("a person's own lesson and what their groups gave them", () => {
 		expect([card.figures, card.routines]).toEqual([2, 1]);
 	});
 
-	it('refuses a figure reached only through a draft lesson, and one of a group they left', () => {
+	it('refuses a figure reached only through a draft lesson, and one of a group they left', async () => {
 		const { T, F, mine } = given();
 		const K = createFigure(db, T, { ...figureInput, figureName: 'Vacilala' })!.figure.id;
 		const draft = createLesson(db, T, { ...lessonInput, title: 'Draft' }).lesson.id;
@@ -1109,7 +1109,7 @@ describe("a person's own lesson and what their groups gave them", () => {
 		expect(addLesson(db, 'u2', draft, none, 3)).toBe(false);
 		expect(linkFigure(db, mine, K, 'u2')).toBe(false);
 		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(K);
-		expect(leaveTeam(db, T.teamId, 'u2', 4)).toBe('left');
+		expect(await leaveTeam(db, T.teamId, 'u2', { mode: 'all' }, NO_FILES, 4)).toBe('left');
 		expect(linkFigure(db, mine, F, 'u2')).toBe(false);
 		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(F);
 	});

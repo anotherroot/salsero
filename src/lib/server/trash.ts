@@ -51,6 +51,8 @@ import { restoreRoutine } from './routines';
 import { restoreDrill } from './exercises';
 import { restoreSong } from './song-share';
 import { purgeTeams } from './team-purge';
+import { realCloneFiles } from './clones/files';
+import { settleFormerMembers } from './clones/settle';
 import { getTeam, roleOf } from './teams';
 import type { TeamSpace } from './scope';
 import { localDay } from '$lib/day/day';
@@ -570,9 +572,11 @@ const timer = globalThis as { __salsaTrashPurge?: ReturnType<typeof setInterval>
 
 /**
  * Purge now and every hour after, once per process: the dev server's module
- * reloads must not start a second timer. The trash first, then the groups
- * deleted 30 days ago (`purgeTeams`). A failure is logged and never reaches a
- * request.
+ * reloads must not start a second timer. At boot, before the first purge,
+ * the people who left a group before Keep shipped get their copies
+ * (`settleFormerMembers`). Then the trash, then the groups deleted 30 days
+ * ago (`purgeTeams`). A failure is logged and never reaches a request or
+ * stops the boot.
  */
 export function startTrashPurge(db: () => Db): void {
 	if (timer.__salsaTrashPurge) return;
@@ -583,7 +587,13 @@ export function startTrashPurge(db: () => Db): void {
 			.then(() => purgeTeams(db(), now))
 			.catch((err) => console.warn('[team-purge] purge failed', err));
 	};
-	run();
+	const settle = async () => {
+		const n = await settleFormerMembers(db(), realCloneFiles(), Date.now());
+		console.log(`[clones] settled ${n} former group members`);
+	};
+	void settle()
+		.catch((err) => console.warn('[clones] settling former members failed', err))
+		.then(run);
 	timer.__salsaTrashPurge = setInterval(run, HOUR);
 	timer.__salsaTrashPurge.unref?.();
 }

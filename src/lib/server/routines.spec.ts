@@ -35,7 +35,7 @@ import { flatten } from '$lib/routines/routines';
 import { exercises, routineStepOptions } from './db/schema';
 import { eq } from 'drizzle-orm';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
-import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { NO_FILES, T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { createTeam, joinTeam } from './teams';
 import { leaveTeam } from './membership';
 import { createLesson, linkFigure, linkRoutine, publishLesson } from './lessons';
@@ -1115,9 +1115,9 @@ describe('a personal routine and a group’s figures and routines', () => {
 		expect(routineSlots(db, P)).toHaveLength(1);
 	});
 
-	it('a former member cannot put that group’s figure in a slot', () => {
+	it('a former member cannot put that group’s figure in a slot', async () => {
 		const { db, F, P, slot } = setup();
-		expect(leaveTeam(db, 1, 'u2', T + 1)).toBe('left');
+		expect(await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, T + 1)).toBe('left');
 		expect(addOption(db, slot, F)).toBe(false);
 		expect(addFigureSlot(db, P, F)).toBeNull();
 		expect(graphFor(db, U2_SALSA).figures.some((f) => f.id === F)).toBe(false);

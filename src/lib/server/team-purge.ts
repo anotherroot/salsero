@@ -1,7 +1,9 @@
 /**
- * A deleted group, gone for good once `TEAM_PURGE_MS` has passed: its files
- * are deleted and its rows stay, archived and unreachable, so its members'
- * logs keep their names ("Tue 3 Nov · Salsa nadaljevalna (deleted)").
+ * A deleted group, gone for good once `TEAM_PURGE_MS` has passed: every
+ * member, the owner included, first keeps everything in their own app
+ * (`keepFromTeam`, ruling 4), then its files are deleted and its rows stay,
+ * archived and unreachable, so its members' logs keep their names ("Tue 3 Nov
+ * · Salsa nadaljevalna (deleted)").
  *
  * Runs beside `purgeTrash`: at boot and every hour (`startTrashPurge`). A
  * system action, so nothing is written to History: the group it would be
@@ -9,7 +11,7 @@
  */
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, eq, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
 import { alias, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
 import {
@@ -34,6 +36,8 @@ import {
 import { audioDir, lessonVideosDir, recordingsDir, RECORDING_FILE_RE } from './files';
 import type { TrashDirs, TrashFile } from './trash';
 import { TEAM_PURGE_MS } from '$lib/limits';
+import { cloneFilesIn, missingOk, realCloneFiles, type CloneFiles } from './clones/files';
+import { keepFromTeam } from './clones/keep';
 
 /** A group deleted at least `TEAM_PURGE_MS` before `now`. */
 const dueToPurge = (now: number) =>
@@ -183,14 +187,53 @@ async function unlinkFiles(files: TrashFile[], where: TrashDirs): Promise<void> 
 	}
 }
 
+/** Whether this group is still waiting for its purge (a restore since the list was read wins). */
+function stillDue(db: Db, teamId: number, now: number): boolean {
+	return (
+		db
+			.select({ id: teams.id })
+			.from(teams)
+			.where(and(eq(teams.id, teamId), isNull(teams.purgedAt), dueToPurge(now)))
+			.get() !== undefined
+	);
+}
+
+/**
+ * Every member of the group, the owner included, keeps everything
+ * (`keepFromTeam`) while the group's files are still there: the copies' files
+ * are hard links under new names, so the purge's unlinks never reach them.
+ * False when the group was restored meanwhile. A failure throws, and the
+ * group waits for the next run with its files.
+ */
+async function keepForMembers(
+	db: Db,
+	teamId: number,
+	files: CloneFiles,
+	now: number
+): Promise<boolean> {
+	const members = db
+		.select({ userId: teamMembers.userId })
+		.from(teamMembers)
+		.where(eq(teamMembers.teamId, teamId))
+		.orderBy(asc(teamMembers.userId))
+		.all();
+	for (const { userId } of members) {
+		if (!stillDue(db, teamId, now)) return false;
+		await keepFromTeam(db, userId, teamId, { mode: 'all' }, files, now);
+	}
+	return true;
+}
+
 /**
  * Purge every group deleted at least `TEAM_PURGE_MS` ago and not purged yet,
- * one group at a time: its rows in one transaction, then its files. A group
- * that fails is logged and the purge goes on to the next, so the groups
- * already marked purged never keep their files. Running it twice changes
- * nothing; a file already gone is fine, any other failure to delete one is
- * logged and the purge goes on. Returns how many groups were purged. `dirs`
- * is injected so specs never touch `$DATA_DIR`.
+ * one group at a time: first every member keeps everything, then its rows go
+ * in one transaction, then its files. A group that fails is logged and the
+ * purge goes on to the next, so the groups already marked purged never keep
+ * their files, and a group whose Keep failed keeps its files for the next
+ * run. Running it twice changes nothing; a file already gone is fine, any
+ * other failure to delete one is logged and the purge goes on. Returns how
+ * many groups were purged. `dirs` is injected so specs never touch
+ * `$DATA_DIR`; the kept copies are linked in the same folders.
  */
 export async function purgeTeams(db: Db, now: number, dirs?: TrashDirs): Promise<number> {
 	const due = db
@@ -199,16 +242,25 @@ export async function purgeTeams(db: Db, now: number, dirs?: TrashDirs): Promise
 		.where(and(isNull(teams.purgedAt), dueToPurge(now)))
 		.all();
 	let purged = 0;
+	const where = () =>
+		dirs ?? { lessonVideos: lessonVideosDir(), recordings: recordingsDir(), audio: audioDir() };
+	const copies = missingOk(
+		dirs
+			? cloneFilesIn({
+					recording: dirs.recordings,
+					'lesson-video': dirs.lessonVideos,
+					audio: dirs.audio
+				})
+			: realCloneFiles()
+	);
 	for (const { id } of due) {
 		try {
+			if (!(await keepForMembers(db, id, copies, now))) continue;
 			const files = purgeRows(db, id, now);
 			if (files === null) continue;
 			purged++;
 			if (files.length === 0) continue;
-			await unlinkFiles(
-				files,
-				dirs ?? { lessonVideos: lessonVideosDir(), recordings: recordingsDir(), audio: audioDir() }
-			);
+			await unlinkFiles(files, where());
 		} catch (err) {
 			console.warn(`[team-purge] could not purge group ${id}`, err);
 		}

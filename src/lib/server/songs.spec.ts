@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { T1_SALSA, T2_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
+import { NO_FILES, T1_SALSA, T2_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { exercises, songs, teamChanges, teams, users } from './db/schema';
 import { openDb, type Db } from './db';
@@ -609,10 +609,11 @@ describe("the picker lists the shared songs of the person's groups", () => {
 		expect(choices('u2')).toEqual([['Chan Chan', 'Salsa Tuesdays']]);
 	});
 
-	it('an outsider, a former member and the other dance see none of them', () => {
+	it('an outsider, a former member and the other dance see none of the group’s', async () => {
 		expect(choices('u4')).toEqual([]);
-		leaveTeam(db, 1, 'u3', T);
-		expect(choices('u3')).toEqual([]);
+		await leaveTeam(db, 1, 'u3', { mode: 'all' }, NO_FILES, T);
+		// A former member who kept everything has their own copy, not the group's.
+		expect(choices('u3')).toEqual([['Chan Chan', null]]);
 		expect(songChoices(db, { userId: 'u2', dance: 'bachata' })).toEqual([]);
 	});
 

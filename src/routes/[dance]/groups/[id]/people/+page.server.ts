@@ -3,6 +3,7 @@ import { getDb } from '$lib/server/db';
 import { requireTeam } from '$lib/server/scope';
 import { handOver, peopleOf } from '$lib/server/teams';
 import { removeMember, setRole } from '$lib/server/membership';
+import { realCloneFiles } from '$lib/server/clones/files';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -51,7 +52,7 @@ export const actions: Actions = {
 
 	remove: async (event) => {
 		const { db, team, userId } = await target(event);
-		if (!removeMember(db, team.id, userId, Date.now())) {
+		if (!(await removeMember(db, team.id, userId, realCloneFiles(), Date.now()))) {
 			return fail(400, { message: 'The owner cannot be removed. Hand the group over first.' });
 		}
 		return { ok: true };

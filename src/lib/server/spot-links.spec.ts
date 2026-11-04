@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { NO_FILES, T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import { exercises, lessons } from './db/schema';
@@ -556,7 +556,7 @@ describe("a person's own section and what their groups gave them", () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
-	it('refuses a figure reached only through a draft lesson, and one of a group they left', () => {
+	it('refuses a figure reached only through a draft lesson, and one of a group they left', async () => {
 		const { T, F, mySection } = given();
 		const K = createFigure(db, T, {
 			figureName: 'Vacilala',
@@ -570,7 +570,7 @@ describe("a person's own section and what their groups gave them", () => {
 		expect(linkFigure(db, draft, K, 'u1')).toBe(true);
 		expect(addLesson(db, 'u2', draft, NONE, 3)).toBe(false);
 		expect(() => linkSpot(db, 'u2', mySection, { figureId: K })).toThrow('No such figure.');
-		expect(leaveTeam(db, T.teamId, 'u2', 4)).toBe('left');
+		expect(await leaveTeam(db, T.teamId, 'u2', { mode: 'all' }, NO_FILES, 4)).toBe('left');
 		expect(() => linkSpot(db, 'u2', mySection, { figureId: F })).toThrow('No such figure.');
 	});
 });

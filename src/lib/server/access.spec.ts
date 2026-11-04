@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { lessonAdds, lessons, songs } from './db/schema';
+import { lessonAdds, lessons, songs, teamMembers } from './db/schema';
 import {
 	drillAccess,
 	figureAccess,
@@ -38,7 +38,7 @@ import {
 } from './scope';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { leaveTeam, setRole } from './membership';
-import { T1_SALSA, U1_SALSA } from './test-walls';
+import { NO_FILES, T1_SALSA, U1_SALSA } from './test-walls';
 
 /**
  * Team T1, owned by u1 (an editor too, as owners are). u2 and u5 are members,
@@ -243,17 +243,28 @@ describe('access', () => {
 		expect(dVideo).toBeGreaterThan(0);
 	});
 
-	it('after leaving, a former member reaches P only if they had added it', () => {
+	it('someone who left before Keep reaches P only if they had added it, until settled', () => {
 		add('u2', P);
 		add('u2', D); // a draft never reaches anyone, added or not
-		expect(leaveTeam(db, 1, 'u2')).toBe('left');
-		expect(leaveTeam(db, 1, 'u5')).toBe('left');
+		// Out of the group the way people left before Keep: the row goes, the adds stay.
+		for (const u of ['u2', 'u5'])
+			db.delete(teamMembers)
+				.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, u)))
+				.run();
 		expect(lessonAccess(db, 'u2', lessonRow(P))).toBe('read');
 		expect([...reach(db, 'u2', 1).lessons]).toEqual([P]);
 		expect(figureAccess(db, 'u2', variation(V2))).toBe('read');
 		expect(lessonAccess(db, 'u2', lessonRow(D))).toBeNull();
 		expect(lessonAccess(db, 'u5', lessonRow(P))).toBeNull();
 		expect(reach(db, 'u5', 1).lessons.size).toBe(0);
+	});
+
+	it('after leaving, a former member reaches nothing: Keep took their adds', async () => {
+		add('u2', P);
+		expect(await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, 10)).toBe('left');
+		expect(lessonAccess(db, 'u2', lessonRow(P))).toBeNull();
+		expect(reach(db, 'u2', 1).lessons.size).toBe(0);
+		expect(figureAccess(db, 'u2', variation(V2))).toBeNull();
 	});
 
 	it('after the group is deleted, a member with P added reads P; the owner reads but does not edit', () => {
@@ -389,12 +400,12 @@ describe('song access', () => {
 		] as const;
 	const threw404 = expect.objectContaining({ status: 404 });
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		sdb = openDb(':memory:');
 		createTeam(sdb, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
 		for (const u of ['u2', 'u3', 'u5']) joinTeam(sdb, u, 1, 2);
 		setRole(sdb, 1, 'u2', 'editor');
-		expect(leaveTeam(sdb, 1, 'u5')).toBe('left');
+		expect(await leaveTeam(sdb, 1, 'u5', { mode: 'all' }, NO_FILES, Date.now())).toBe('left');
 		const input = { url: 'https://youtu.be/x', title: 'S', style: 'salsa' };
 		draft = createSongFromUrl(sdb, T1_SALSA, input).id;
 		shared = createSongFromUrl(sdb, T1_SALSA, input).id;

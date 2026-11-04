@@ -26,11 +26,12 @@ import {
 	routines,
 	routineSteps,
 	spotLinks,
+	teamMembers,
 	users,
 	videoSpots
 } from './db/schema';
 import { createTeam, deleteTeam, joinTeam } from './teams';
-import { leaveTeam, setRole } from './membership';
+import { setRole } from './membership';
 import {
 	addLessonVideo,
 	archiveLesson,
@@ -563,9 +564,12 @@ describe('copyLesson', () => {
 		expect(copied).toHaveLength(200);
 	});
 
-	it('works for a former member who had added the lesson, and an editor', async () => {
+	it('works for someone who left before Keep with the lesson added, and an editor', async () => {
 		addLesson(db, 'u2', w.lesson, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, T);
-		expect(leaveTeam(db, 1, 'u2', T)).toBe('left');
+		// Out of the group the way people left before Keep: the row goes, the add stays.
+		db.delete(teamMembers)
+			.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
+			.run();
 		expect((await copyLesson(db, 'u2', w.lesson, T, files)).ok).toBe(true);
 		expect((await copyLesson(db, 'u1', w.lesson, T, files)).ok).toBe(true);
 		expect(db.select().from(lessons).where(eq(lessons.userId, 'u1')).all()).toHaveLength(1);
