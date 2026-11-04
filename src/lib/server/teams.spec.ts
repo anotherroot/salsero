@@ -82,14 +82,25 @@ describe('making', () => {
 		const a = make(db, 'u1', 'A');
 		make(db, 'u1', 'B');
 		deleteTeam(db, a, 'u1', 5);
-		expect(teamsMade(db, 'u1')).toBe(2);
+		expect(teamsMade(db, 'u1', 'salsa')).toBe(2);
 		expect(createTeam(db, 'u1', 'salsa', 'A', 1)).toEqual({ ok: false, reason: 'limit' });
+	});
+	it('the limit is per dance: two salsa groups leave room for two bachata ones', () => {
+		const db = setup();
+		make(db, 'u1', 'A');
+		make(db, 'u1', 'B');
+		expect(teamsMade(db, 'u1', 'salsa')).toBe(2);
+		expect(teamsMade(db, 'u1', 'bachata')).toBe(0);
+		expect(createTeam(db, 'u1', 'bachata', 'C', 1).ok).toBe(true);
+		expect(createTeam(db, 'u1', 'bachata', 'D', 1).ok).toBe(true);
+		expect(createTeam(db, 'u1', 'bachata', 'E', 1)).toEqual({ ok: false, reason: 'limit' });
+		expect(createTeam(db, 'u1', 'salsa', 'E', 1)).toEqual({ ok: false, reason: 'limit' });
 	});
 	it('a purged team does not count', () => {
 		const db = setup();
 		const a = make(db, 'u1', 'A');
 		db.update(teams).set({ deletedAt: 1, purgedAt: 2 }).where(eq(teams.id, a)).run();
-		expect(teamsMade(db, 'u1')).toBe(0);
+		expect(teamsMade(db, 'u1', 'salsa')).toBe(0);
 	});
 });
 
@@ -165,6 +176,15 @@ describe('roles', () => {
 		expect(handOver(db, id, 'u1', 'u2')).toBe('limit');
 		expect(roleOf(db, 'u1', id)).toBe('owner');
 		expect(roleOf(db, 'u2', id)).toBe('member');
+	});
+	it('hand over counts only the group’s own dance', () => {
+		const db = setup();
+		const id = make(db, 'u1', 'A', 'bachata');
+		make(db, 'u2', 'X');
+		make(db, 'u2', 'Y');
+		joinTeam(db, 'u2', id, 5);
+		expect(handOver(db, id, 'u1', 'u2')).toBe('ok');
+		expect(roleOf(db, 'u2', id)).toBe('owner');
 	});
 });
 

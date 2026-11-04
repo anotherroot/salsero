@@ -62,9 +62,10 @@ export function groupMeta(g: {
 		.join(' · ');
 }
 
-/** A person row's group line: "2 groups made · limit 2". */
-export function groupsMadeLine(made: number, limit: number): string {
-	return `${plural(made, 'group', 'groups')} made · limit ${limit}`;
+/** A person row's group line, per dance: "Groups made: Salsa 2, Bachata 0 · limit 2 per dance". */
+export function groupsMadeLine(made: Record<DanceSlug, number>, limit: number): string {
+	const counts = DANCE_SLUGS.map((d) => `${DANCES[d].label} ${made[d]}`).join(', ');
+	return `Groups made: ${counts} · limit ${limit} per dance`;
 }
 
 /** A request's heading: the person's email, or the group's name with its owner. */
