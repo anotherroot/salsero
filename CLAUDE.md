@@ -267,7 +267,8 @@ src/lib/theme/tokens.ts  also `GROUP`, the group look's dance tokens; `layout.cs
 src/lib/server/teams.ts  groups: make, code, join (`joinTeam`), rename, delete;
                      `membership.ts`: leave, remove, roles
 src/lib/server/access.ts  what a person may do with a row: `reach` (what they reach
-                     through published lessons, plus their added lessons after leaving),
+                     through published lessons; a deleted group's members, until its purge,
+                     through the lessons they added; someone who left, nothing),
                      `lessonAccess`/`figureAccess`/…, and `fileAccess`/`videoAccess`/`spotAccess`
                      for the flat routes
 src/lib/server/entries.ts  per-person entries (Add, Remove, `reconcileEntries`)
@@ -535,8 +536,10 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   or `inSpace`, never `.dance` alone. Another person's id and a missing one get
   the same 404, and so does a member asking to write: a member only reads a
   group's published lessons, and `access.ts` decides (`reach` is what a person
-  reaches through published lessons, and through lessons they added after
-  leaving; a draft reaches nobody but its editors). The `require*Access` guards
+  reaches through published lessons, and a member of a deleted group, until
+  its purge, through the lessons they added; someone who left or was removed
+  reaches nothing of the group, their kept copies are their own; a draft
+  reaches nobody but its editors). The `require*Access` guards
   in `scope.ts` (lesson, figure, routine, exercise) are how a route asks.
   Entries are per person: Add makes an ordinary `exercises` row of the person
   (`entries.ts`, unique per person and target), and every "my entry" lookup is

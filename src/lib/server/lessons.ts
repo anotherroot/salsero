@@ -44,6 +44,7 @@ import {
 	type Wall
 } from './scope';
 import { getTeam, roleOf } from './teams';
+import { addedLessonIds, addedTeams } from './access';
 import { entryFor, entryJoin, reconcileEntries, reviveEntries, type EntryTarget } from './entries';
 import { actingIn, fieldChange, logChange } from './changes';
 import { rootTitle, trashRows, type ArchiveRestore } from './trash';
@@ -527,52 +528,41 @@ function lessonRows(
 
 /**
  * Each lesson's day, by id, for Today's lesson rows: the person's own lessons
- * and the group lessons they added (an entry can review either; risk 26).
+ * and the group lessons they added (an entry can review either; risk 26), of
+ * the groups they are still in (`addedTeams`): someone who left reads
+ * nothing of the group, Today included.
  */
 export function lessonDays(db: Db, wall: Wall): Record<number, string> {
 	const day = { id: lessons.id, day: lessons.lessonDay };
 	const own = db.select(day).from(lessons).where(ownedBy(lessons, wall)).all();
-	const added = db
-		.select(day)
-		.from(lessonAdds)
-		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
-		.where(and(eq(lessonAdds.userId, wall.userId), eq(lessons.dance, wall.dance)))
-		.all();
+	const teamIds = addedTeams(db, wall).map((t) => t.id);
+	const added =
+		teamIds.length === 0
+			? []
+			: db
+					.select(day)
+					.from(lessonAdds)
+					.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+					.where(and(eq(lessonAdds.userId, wall.userId), inArray(lessons.teamId, teamIds)))
+					.all();
 	return Object.fromEntries([...own, ...added].map((r) => [r.id, r.day]));
 }
 
 /**
  * The Lessons tab: the person's own lessons and the group lessons they added
  * (each marked with its group), newest class first. An added lesson stays
- * while it is published and live and its group is not purged, after leaving
- * the group too; a group lesson not added is only on the group's page.
+ * while it is published and live, the person is in its group (a deleted one
+ * too) and the group is not purged (`addedLessonIds`); a group lesson not
+ * added is only on the group's page.
  */
 export function listMyLessons(db: Db, wall: Wall): LessonItem[] {
-	const added = db
-		.select({ lessonId: lessonAdds.lessonId, teamId: lessons.teamId })
-		.from(lessonAdds)
-		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
-		.where(
-			and(
-				eq(lessonAdds.userId, wall.userId),
-				eq(lessons.dance, wall.dance),
-				isNotNull(lessons.teamId),
-				isNotNull(lessons.publishedAt),
-				isNull(lessons.archivedAt)
-			)
-		)
-		.all();
-	const byTeam = new Map<number, Set<number>>();
-	for (const a of added) {
-		byTeam.set(a.teamId!, (byTeam.get(a.teamId!) ?? new Set()).add(a.lessonId));
-	}
 	const theirs: LessonItem[] = [];
-	for (const [teamId, ids] of byTeam) {
-		const team = getTeam(db, teamId);
-		if (!team || team.purgedAt !== null) continue;
-		const space: TeamSpace = { dance: wall.dance, teamId, actorId: wall.userId };
+	for (const team of addedTeams(db, wall)) {
+		const ids = new Set(addedLessonIds(db, wall.userId, team.id));
+		if (ids.size === 0) continue;
+		const space: TeamSpace = { dance: wall.dance, teamId: team.id, actorId: wall.userId };
 		for (const r of lessonRows(db, space)) {
-			if (ids.has(r.id)) theirs.push({ ...r, team: { id: team.id, name: team.name } });
+			if (ids.has(r.id)) theirs.push({ ...r, team });
 		}
 	}
 	return [...listLessons(db, wall), ...theirs].sort(

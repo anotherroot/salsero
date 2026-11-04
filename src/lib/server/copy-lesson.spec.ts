@@ -564,15 +564,24 @@ describe('copyLesson', () => {
 		expect(copied).toHaveLength(200);
 	});
 
-	it('works for someone who left before Keep with the lesson added, and an editor', async () => {
+	it('is the missing lesson’s 404 for someone who left, their add still there; an editor copies', async () => {
 		addLesson(db, 'u2', w.lesson, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, T);
 		// Out of the group the way people left before Keep: the row goes, the add stays.
 		db.delete(teamMembers)
 			.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
 			.run();
-		expect((await copyLesson(db, 'u2', w.lesson, T, files)).ok).toBe(true);
+		const before = snapshot();
+		await expect(copyLesson(db, 'u2', w.lesson, T, files)).rejects.toMatchObject({ status: 404 });
+		expect(() => copySummary(db, 'u2', w.lesson)).toThrow(expect.objectContaining({ status: 404 }));
+		expect(snapshot()).toEqual(before);
 		expect((await copyLesson(db, 'u1', w.lesson, T, files)).ok).toBe(true);
 		expect(db.select().from(lessons).where(eq(lessons.userId, 'u1')).all()).toHaveLength(1);
+	});
+
+	it('works for a member of a deleted group who added the lesson, until the purge (ruling 4)', async () => {
+		addLesson(db, 'u2', w.lesson, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, T);
+		expect(deleteTeam(db, 1, 'u1', T)).toBe(true);
+		expect((await copyLesson(db, 'u2', w.lesson, T, files)).ok).toBe(true);
 	});
 
 	it('lets an editor copy their draft while the group is being deleted, but not a member (R25)', async () => {

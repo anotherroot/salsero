@@ -43,7 +43,7 @@ import { isValidDay, localDay } from '$lib/day/day';
 import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { getTeam, roleOf } from '$lib/server/teams';
+import { getTeam } from '$lib/server/teams';
 import { lessonNotice } from '$lib/teams/view';
 import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
@@ -121,8 +121,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
-		/** "You left Salsa nadaljevalna · read-only", or "… is being deleted on 2 Dec": with Make my own copy. */
-		notice: team ? lessonNotice(team, roleOf(db, wall.userId, team.id) !== null, tz) : null,
+		/** "Salsa nadaljevalna is being deleted on 2 Dec", with Make my own copy, while the group is deleted. */
+		notice: team ? lessonNotice(team, tz) : null,
 		/** "Edited by Ana · 10 min ago": the last change to the lesson or anything on it. */
 		edited: team ? editedLine(db, team.id, found.lesson.id) : null,
 		/** History is its editors'. */

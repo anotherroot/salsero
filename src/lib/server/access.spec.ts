@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { lessonAdds, lessons, songs, teamMembers } from './db/schema';
+import { lessonAdds, lessons, songs, teamMembers, teams } from './db/schema';
 import {
+	addedLessonIds,
+	addedTeams,
 	drillAccess,
 	figureAccess,
 	figureGroupAccess,
@@ -38,7 +40,7 @@ import {
 } from './scope';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { leaveTeam, setRole } from './membership';
-import { NO_FILES, T1_SALSA, U1_SALSA } from './test-walls';
+import { NO_FILES, T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 
 /**
  * Team T1, owned by u1 (an editor too, as owners are). u2 and u5 are members,
@@ -243,20 +245,35 @@ describe('access', () => {
 		expect(dVideo).toBeGreaterThan(0);
 	});
 
-	it('someone who left before Keep reaches P only if they had added it, until settled', () => {
+	it('someone who left before Keep reads nothing of the group, their adds left for settling', () => {
 		add('u2', P);
-		add('u2', D); // a draft never reaches anyone, added or not
+		add('u2', D);
 		// Out of the group the way people left before Keep: the row goes, the adds stay.
 		for (const u of ['u2', 'u5'])
 			db.delete(teamMembers)
 				.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, u)))
 				.run();
-		expect(lessonAccess(db, 'u2', lessonRow(P))).toBe('read');
-		expect([...reach(db, 'u2', 1).lessons]).toEqual([P]);
-		expect(figureAccess(db, 'u2', variation(V2))).toBe('read');
-		expect(lessonAccess(db, 'u2', lessonRow(D))).toBeNull();
+		expect(lessonAccess(db, 'u2', lessonRow(P))).toBeNull();
+		expect(reach(db, 'u2', 1).lessons.size).toBe(0);
+		expect(figureAccess(db, 'u2', variation(V2))).toBeNull();
+		expect(routineAccess(db, 'u2', getRoutine(db, C)!)).toBeNull();
+		expect(drillAccess(db, 'u2', getExercise(db, drill)!)).toBeNull();
+		expect(lessonVideoAccess(db, 'u2', { lessonId: P })).toBeNull();
+		expect(() => fileAccess(db, 'u2', 'lesson-video', 'p.mp4')).toThrow(
+			expect.objectContaining({ status: 404 })
+		);
+		expect(() => fileAccess(db, 'u2', 'recording', 'v2.mp4')).toThrow(
+			expect.objectContaining({ status: 404 })
+		);
+		expect(addedLessonIds(db, 'u2', 1)).toEqual([]);
+		expect(addedTeams(db, U2_SALSA)).toEqual([]);
 		expect(lessonAccess(db, 'u5', lessonRow(P))).toBeNull();
-		expect(reach(db, 'u5', 1).lessons.size).toBe(0);
+	});
+
+	it('a member of a live group: their added lessons, and the group as one they added from', () => {
+		add('u2', P);
+		expect(addedLessonIds(db, 'u2', 1)).toEqual([P]);
+		expect(addedTeams(db, U2_SALSA)).toEqual([{ id: 1, name: 'Salsa nadaljevalna' }]);
 	});
 
 	it('after leaving, a former member reaches nothing: Keep took their adds', async () => {
@@ -275,6 +292,29 @@ describe('access', () => {
 		expect(lessonAccess(db, 'u1', lessonRow(P))).toBe('read');
 		expect(lessonAccess(db, 'u1', lessonRow(D))).toBe('read');
 		expect(figureAccess(db, 'u1', variation(V3))).toBe('read');
+		expect(addedLessonIds(db, 'u2', 1)).toEqual([P]);
+		expect(addedTeams(db, U2_SALSA)).toEqual([{ id: 1, name: 'Salsa nadaljevalna' }]);
+	});
+
+	it('after the group is deleted, someone who had left before reads nothing, added or not (ruling 4)', () => {
+		add('u2', P);
+		db.delete(teamMembers)
+			.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
+			.run();
+		expect(deleteTeam(db, 1, 'u1', 5)).toBe(true);
+		expect(lessonAccess(db, 'u2', lessonRow(P))).toBeNull();
+		expect(figureAccess(db, 'u2', variation(V2))).toBeNull();
+		expect(addedLessonIds(db, 'u2', 1)).toEqual([]);
+		expect(addedTeams(db, U2_SALSA)).toEqual([]);
+	});
+
+	it('once the group is purged, nobody reads it or counts it as added', () => {
+		add('u2', P);
+		expect(deleteTeam(db, 1, 'u1', 5)).toBe(true);
+		db.update(teams).set({ purgedAt: 6 }).where(eq(teams.id, 1)).run();
+		expect(lessonAccess(db, 'u2', lessonRow(P))).toBeNull();
+		expect(addedLessonIds(db, 'u2', 1)).toEqual([]);
+		expect(addedTeams(db, U2_SALSA)).toEqual([]);
 	});
 
 	it('after the group is deleted, an editor reads everything, drafts included, and edits nothing (R25)', () => {

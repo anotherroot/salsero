@@ -66,33 +66,27 @@ const empty = (): Reach => ({
 
 /**
  * The group's lessons this person reads through membership: every published,
- * unarchived one for a member; the ones they added, for a former member or
- * once the group is deleted; nothing once it is purged.
+ * unarchived one for a member of the living group; once it is deleted, until
+ * the purge, the ones a member added (ruling 4); nothing for anyone else.
+ * Someone who left or was removed reads nothing of the group: Keep gave them
+ * their own copies instead.
  */
 function lessonsReached(db: Db, userId: string, teamId: number): number[] {
 	const team = getTeam(db, teamId);
 	if (!team || team.purgedAt !== null) return [];
-	const live = and(
-		eq(lessons.teamId, teamId),
-		isNotNull(lessons.publishedAt),
-		isNull(lessons.archivedAt)
-	);
-	const member = team.deletedAt === null && roleOf(db, userId, teamId) !== null;
-	if (member) {
+	if (team.deletedAt === null && roleOf(db, userId, teamId) !== null) {
 		return db
 			.select({ id: lessons.id })
 			.from(lessons)
-			.where(live)
+			.where(
+				and(eq(lessons.teamId, teamId), isNotNull(lessons.publishedAt), isNull(lessons.archivedAt))
+			)
 			.all()
 			.map((r) => r.id);
 	}
-	return db
-		.select({ id: lessons.id })
-		.from(lessonAdds)
-		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
-		.where(and(eq(lessonAdds.userId, userId), live))
-		.all()
-		.map((r) => r.id);
+	// Not a member of the living group: a member of the deleted one keeps their
+	// added lessons; anyone without a membership row gets none (`addedLessonIds`).
+	return team.deletedAt !== null ? addedLessonIds(db, userId, teamId) : [];
 }
 
 /**
@@ -230,12 +224,15 @@ export function publishedReach(db: Db, teamId: number): Reach {
 
 /**
  * The group's lessons this person has ADDED that still count: published,
- * live, and the group not purged. Their entries on the group's things are
- * valid only while one of these holds the target (ruling R8). Sorted by id.
+ * live, the group not purged, and the person still in it (a deleted group's
+ * members included, until the purge). Someone who left or was removed has
+ * none, whatever `lesson_adds` still holds (Keep removes those; people who
+ * left before Keep are settled at boot). Their entries on the group's things
+ * are valid only while one of these holds the target (ruling R8). Sorted by id.
  */
 export function addedLessonIds(db: Db, userId: string, teamId: number): number[] {
 	const team = getTeam(db, teamId);
-	if (!team || team.purgedAt !== null) return [];
+	if (!team || team.purgedAt !== null || heldRole(db, userId, teamId) === null) return [];
 	return db
 		.select({ id: lessons.id })
 		.from(lessonAdds)
@@ -374,7 +371,7 @@ function readerOf(r: Reach): (kind: ReadKind, id: number) => boolean {
  * `teamReader` for many people of one group, each decided once: every plain
  * member of a living group reads exactly the published reach, so it is
  * computed once for all of them (`lessonsReached`' member branch); anyone
- * else (an editor, a former member, a deleted group's members) is
+ * else (an editor, someone out of the group, a deleted group's members) is
  * `teamReader`'s own answer. For checks over many people (the rescue).
  */
 export function teamReaders(
@@ -569,7 +566,8 @@ export function fileAccess(
 
 /**
  * The groups of this dance whose lessons the person has added (any lesson,
- * whatever its state now), by name then id. Moves' group sections start here.
+ * whatever its state now), by name then id, while they are in the group (a
+ * deleted one too) and it is not purged. Moves' group sections start here.
  */
 export function addedTeams(db: Db, wall: Wall): TeamRef[] {
 	const teamIds = [
@@ -592,7 +590,8 @@ export function addedTeams(db: Db, wall: Wall): TeamRef[] {
 	const out: TeamRef[] = [];
 	for (const teamId of teamIds) {
 		const team = getTeam(db, teamId);
-		if (team) out.push({ id: team.id, name: team.name });
+		if (!team || team.purgedAt !== null || heldRole(db, wall.userId, teamId) === null) continue;
+		out.push({ id: team.id, name: team.name });
 	}
 	return out.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 }

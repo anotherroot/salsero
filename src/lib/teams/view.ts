@@ -28,33 +28,25 @@ export function deletingLine(name: string, day: string): string {
 	return `${deletingLead(name, day)} · ${MAKE_COPY}`;
 }
 
-/** A former member's line on a group lesson they had added: still current, never theirs to edit. */
-export function leftLine(team: string): string {
-	return `You left ${team} · read-only`;
-}
-
 /** The day a group deleted at `deletedAt` goes for good, in the person's zone: "2 Dec". */
 export function purgeDay(deletedAt: number, timezone: string): string {
 	return dayMonth(localDay(deletedAt + TEAM_PURGE_MS, timezone));
 }
 
 /**
- * The banner on a group lesson for someone who is not in the live group: its
- * group is being deleted (everyone, the owner too, until the purge), or they
- * left or were removed. Its action is always Make my own copy, so `text` is
- * the line before it (`deletingLine` is `text · action`). Null for a member
- * of a live group.
+ * The banner on a group lesson whose group is being deleted, for everyone
+ * who still reads it (the owner too) until the purge. Its action is always
+ * Make my own copy, so `text` is the line before it (`deletingLine` is
+ * `text · action`). Null while the group lives. Someone who left never sees
+ * the lesson at all: they read nothing of the group.
  */
 export function lessonNotice(
 	team: { name: string; deletedAt: number | null },
-	member: boolean,
 	timezone: string
-): { tone: 'info' | 'warning'; text: string; action: string } | null {
-	if (team.deletedAt !== null) {
-		const text = deletingLead(team.name, purgeDay(team.deletedAt, timezone));
-		return { tone: 'warning', text, action: MAKE_COPY };
-	}
-	return member ? null : { tone: 'info', text: leftLine(team.name), action: MAKE_COPY };
+): { tone: 'warning'; text: string; action: string } | null {
+	if (team.deletedAt === null) return null;
+	const text = deletingLead(team.name, purgeDay(team.deletedAt, timezone));
+	return { tone: 'warning', text, action: MAKE_COPY };
 }
 
 /** The band's line under a group's people count. */

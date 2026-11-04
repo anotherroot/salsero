@@ -21,6 +21,7 @@ import {
 	songs,
 	spotLinks,
 	teamMembers,
+	teams,
 	videoSpots,
 	type Lesson
 } from './db/schema';
@@ -356,17 +357,34 @@ export function removeLesson(db: Db, userId: string, lessonId: number, now: numb
 }
 
 /**
- * What came into a lesson after the person last saw it (`seen_at`) that they
- * do not practise: its routines and drills, never its figures (those are
- * opt-in from Moves). Empty for a lesson they have not added or can no
- * longer add.
+ * This person's add of a group lesson, while it counts: they are still in
+ * the lesson's group (a deleted one too) and it is not purged. An add left
+ * behind by someone who left before Keep is no add (it waits for settling).
  */
-export function newInLesson(db: Db, userId: string, lessonId: number): AddItem[] {
-	const add = db
+function liveAdd(db: Db, userId: string, lessonId: number): { seenAt: number } | undefined {
+	return db
 		.select({ seenAt: lessonAdds.seenAt })
 		.from(lessonAdds)
-		.where(and(eq(lessonAdds.userId, userId), eq(lessonAdds.lessonId, lessonId)))
+		.innerJoin(lessons, eq(lessons.id, lessonAdds.lessonId))
+		.innerJoin(teams, eq(teams.id, lessons.teamId))
+		.innerJoin(
+			teamMembers,
+			and(eq(teamMembers.teamId, lessons.teamId), eq(teamMembers.userId, lessonAdds.userId))
+		)
+		.where(
+			and(eq(lessonAdds.userId, userId), eq(lessonAdds.lessonId, lessonId), isNull(teams.purgedAt))
+		)
 		.get();
+}
+
+/**
+ * What came into a lesson after the person last saw it (`seen_at`) that they
+ * do not practise: its routines and drills, never its figures (those are
+ * opt-in from Moves). Empty for a lesson they have not added (`liveAdd`) or
+ * can no longer add.
+ */
+export function newInLesson(db: Db, userId: string, lessonId: number): AddItem[] {
+	const add = liveAdd(db, userId, lessonId);
 	if (!add) return [];
 	const lesson = addableLesson(db, userId, lessonId);
 	if (!lesson) return [];
@@ -617,22 +635,20 @@ export function reviveEntries(
 	reconcileEntries(tx, teamId, at);
 }
 
-/** Whether this person added the lesson to their own (the `lesson_adds` row). */
+/**
+ * Whether this person added the lesson to their own (the `lesson_adds` row)
+ * and it still counts: they are in its group and it is not purged (`liveAdd`).
+ */
 export function isAdded(db: Db, userId: string, lessonId: number): boolean {
-	return (
-		db
-			.select({ id: lessonAdds.lessonId })
-			.from(lessonAdds)
-			.where(and(eq(lessonAdds.userId, userId), eq(lessonAdds.lessonId, lessonId)))
-			.get() !== undefined
-	);
+	return liveAdd(db, userId, lessonId) !== undefined;
 }
 
 /**
  * Add, as a group lesson's page and row show it. Not added: the sheet with
  * everything the lesson holds. Added: the sheet with only what came in since
  * (`newInLesson`), or none when nothing did. Null for a lesson the person may
- * not add and has not added (a draft, a personal lesson).
+ * not add and has not added (a draft, a personal lesson), and for anyone out
+ * of the group (the add of someone who left does not count).
  */
 export function addState(db: Db, userId: string, lessonId: number): AddState | null {
 	const offer = addOffer(db, userId, lessonId);

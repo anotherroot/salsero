@@ -1514,7 +1514,7 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		linkInSpace(db, T, dSection, { figureId: V2 });
 		linkInSpace(db, T, dSection, { exerciseId: shines });
 
-		// u4 added P, then left before Keep: the row went, the add stayed; they read P.
+		// u4 added P, then left before Keep: the row went, the add stayed; they read nothing.
 		db.insert(lessonAdds).values({ userId: 'u4', lessonId: P, addedAt: 1, seenAt: 1 }).run();
 		db.delete(teamMembers)
 			.where(and(eq(teamMembers.teamId, T.teamId), eq(teamMembers.userId, 'u4')))
@@ -1657,10 +1657,16 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		expect((open('exercise', U1, draftDrill) as { canEdit: boolean }).canEdit).toBe(true);
 	});
 
-	it('a former member who had added P opens it read-only, and not the draft', () => {
-		expect((open('lesson', U4, P) as { canEdit: boolean }).canEdit).toBe(false);
-		holdsNothingOfTheDraft(open('lesson', U4, P));
-		expect(() => open('lesson', U4, D)).toThrow(threw404);
+	it('a former member who had added P reads nothing of the group: P, the draft, what P holds', () => {
+		const pages: [Pages, number][] = [
+			['lesson', P],
+			['lesson', D],
+			['figure', V2],
+			['routine', R],
+			['routine', C],
+			['exercise', shines]
+		];
+		for (const [page, id] of pages) expect(() => open(page, U4, id)).toThrow(threw404);
 	});
 
 	const LESSON_ACTIONS: [

@@ -605,7 +605,7 @@
 		{:else}
 			{#if data.notice}
 				{@const notice = data.notice}
-				<!-- Not in the live group any more (left, removed, or it is being deleted): read-only, with a way to keep it. -->
+				<!-- The group is being deleted: read-only until the purge, with a way to keep it. -->
 				<Banner kind={notice.tone}>
 					{notice.text}
 					{#snippet action()}

@@ -112,12 +112,12 @@ export function copySummary(db: Db, userId: string, lessonId: number): CopySumma
 
 /**
  * Copy a group lesson into this person's own space of its dance. Needs `read`
- * (a member, a former member who added it, an editor); a refusal is the
- * missing lesson's 404. Refused, writing nothing, when it does not fit the
- * person's room or would leave the disk under the floor. Copying twice
- * answers the first copy, restored (`restoreLesson`) when they had archived
- * it. A figure whose name is taken nine times over is a 409 with the
- * engine's words.
+ * (a member, a deleted group's member who added it, an editor); anyone else,
+ * someone who left included, gets the missing lesson's 404. Refused, writing
+ * nothing, when it does not fit the person's room or would leave the disk
+ * under the floor. Copying twice answers the first copy, restored
+ * (`restoreLesson`) when they had archived it. A figure whose name is taken
+ * nine times over is a 409 with the engine's words.
  */
 export async function copyLesson(
 	db: Db,

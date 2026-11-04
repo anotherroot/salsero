@@ -5,7 +5,6 @@ import {
 	copyLine,
 	deletingLine,
 	joinQuestion,
-	leftLine,
 	lessonNotice,
 	limitLine,
 	MAKE_COPY,
@@ -72,28 +71,17 @@ describe('a group lesson after leaving, or while its group is deleted', () => {
 	});
 
 	it('says the group is being deleted, with Make my own copy, in the spec words', () => {
-		const notice = lessonNotice({ name: 'Salsa nadaljevalna', deletedAt }, true, 'UTC')!;
+		const notice = lessonNotice({ name: 'Salsa nadaljevalna', deletedAt }, 'UTC')!;
 		expect(notice).toEqual({
 			tone: 'warning',
 			text: 'Salsa nadaljevalna is being deleted on 2 Dec',
 			action: MAKE_COPY
 		});
 		expect(`${notice.text} · ${notice.action}`).toBe(deletingLine('Salsa nadaljevalna', '2 Dec'));
-		// A former member of a deleted group hears about the deletion.
-		expect(lessonNotice({ name: 'X', deletedAt }, false, 'UTC')!.tone).toBe('warning');
 	});
 
-	it('tells a former member it is read-only', () => {
-		expect(lessonNotice({ name: 'Salsa nadaljevalna', deletedAt: null }, false, 'UTC')).toEqual({
-			tone: 'info',
-			text: 'You left Salsa nadaljevalna · read-only',
-			action: MAKE_COPY
-		});
-		expect(leftLine('Salsa nadaljevalna')).toBe('You left Salsa nadaljevalna · read-only');
-	});
-
-	it('says nothing to someone still in a live group', () => {
-		expect(lessonNotice({ name: 'X', deletedAt: null }, true, 'UTC')).toBeNull();
+	it('says nothing while the group lives: someone who left never reaches the lesson', () => {
+		expect(lessonNotice({ name: 'X', deletedAt: null }, 'UTC')).toBeNull();
 	});
 });
 

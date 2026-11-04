@@ -1,12 +1,22 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, lessonAdds, lessonExercises, lessons, routineStepOptions } from './db/schema';
-import { createTeam, joinTeam } from './teams';
+import {
+	exercises,
+	lessonAdds,
+	lessonExercises,
+	lessons,
+	routineStepOptions,
+	teamMembers,
+	teams
+} from './db/schema';
+import { createTeam, deleteTeam, joinTeam } from './teams';
 import {
 	addLesson,
 	addOffer,
+	addState,
 	entryFor,
+	isAdded,
 	markSeen,
 	newInLesson,
 	removeLesson,
@@ -527,6 +537,27 @@ describe('adding a group lesson', () => {
 			addLesson(db, 'u2', P, none, Date.now() + 1000);
 			expect(newInLesson(db, 'u2', P)).toEqual([]);
 			expect(newInLesson(db, 'u3', P)).toEqual([]);
+		});
+
+		// Catches: someone who left before Keep still told what is new, or shown as added.
+		it('an add left behind by someone out of the group counts for nothing, until a deleted group’s purge', () => {
+			addLesson(db, 'u2', P, none, 10);
+			addLesson(db, 'u3', P, none, 10);
+			linkExercise(db, P, drill('Shines'), 'u1');
+			db.delete(teamMembers)
+				.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
+				.run();
+			expect(newInLesson(db, 'u2', P)).toEqual([]);
+			expect(isAdded(db, 'u2', P)).toBe(false);
+			expect(addState(db, 'u2', P)).toBeNull();
+			// A member of the deleted group keeps theirs until the purge (ruling 4).
+			expect(deleteTeam(db, 1, 'u1', 20)).toBe(true);
+			expect(isAdded(db, 'u3', P)).toBe(true);
+			expect(newInLesson(db, 'u3', P).map((i) => i.name)).toContain('Shines');
+			db.update(teams).set({ purgedAt: 30 }).where(eq(teams.id, 1)).run();
+			expect(isAdded(db, 'u3', P)).toBe(false);
+			expect(newInLesson(db, 'u3', P)).toEqual([]);
+			expect(addState(db, 'u3', P)).toBeNull();
 		});
 
 		// Catches: Add on a drill's page (one pick) clearing the lesson's other new items.
