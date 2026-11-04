@@ -734,3 +734,35 @@ export type Source = {
 	changed: string[]; // labels of what differs, for the banner
 	rejoined?: boolean; // Task 28: last in step before the person's current membership began
 };
+
+/** One thing a person could keep of a group when they leave (Keep, `keepPreview`). */
+export type KeepItem = {
+	kind: CloneKind;
+	id: number;
+	name: string;
+	meta: string;
+	/** What keeping it charges the person: its own files, 0 when they have a copy already. */
+	bytes: number;
+	/** The person's routine or lesson (or figure, for a section on its recording) that uses it. */
+	used: string | null;
+	/** What `used` is, for the locked row's words. */
+	usedBy: 'routine' | 'lesson' | 'figure' | null;
+	/** The kept lesson that brings it. */
+	inLesson: number | null;
+};
+export type KeepPreview = {
+	lessons: KeepItem[];
+	figures: KeepItem[];
+	routines: KeepItem[];
+	songs: KeepItem[];
+	drills: KeepItem[];
+	allBytes: number;
+	usedBytes: number;
+	usedNames: string[];
+	limitBytes: number | null;
+	nowBytes: number;
+};
+export type KeepChoice =
+	| { mode: 'all' }
+	| { mode: 'used' }
+	| { mode: 'chosen'; lessons: number[]; figures: number[]; routines: number[]; songs: number[] };

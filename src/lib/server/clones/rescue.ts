@@ -33,26 +33,30 @@ type Kind = 'figure' | 'routine' | 'drill';
 /** A person's own row pointing at one of the group's rows (the person and the target). */
 type Used = { userId: string; dance: DanceSlug; kind: Kind; id: number };
 
+/** One of the person's rows that uses a group row: a routine, a lesson, or a figure (a section on its recording). */
+export type Use = Used & { by: 'routine' | 'lesson' | 'figure'; byId: number; byName: string };
+
 /**
- * Every group row of `teamId` a person's own rows point at, one row per
- * person and target, in one query: the slot options and embeds of their
- * routines, the section links on their own videos (a recording of their
- * figure, a video of their lesson) and their lessons' hand links, archived
- * owners included (`crossRefs` checks those too). Routines first, so a
- * routine's copy brings the figures it holds and a later figure reuses them.
+ * Every use of a group row of `teamId` by a person's own rows, in one query:
+ * the slot options and embeds of their routines, the section links on their
+ * own videos (a recording of their figure, a video of their lesson) and their
+ * lessons' hand links, archived owners included (`crossRefs` checks those
+ * too). One row per person, target and using row, sorted by person, then
+ * routines first, then kind, target and the using row's name.
  */
-function usedOf(tx: Db, teamId: number, userId?: string): Used[] {
+export function usesOf(tx: Db, teamId: number, userId?: string): Use[] {
 	const who = (col: string) =>
 		userId === undefined ? sql`` : sql` and ${sql.raw(col)} = ${userId}`;
-	const rows = tx.all<Used>(sql`
-		select r.user_id as userId, t.dance as dance, 'figure' as kind, t.id as id
+	const rows = tx.all<Use>(sql`
+		select r.user_id as userId, t.dance as dance, 'figure' as kind, t.id as id,
+		       'routine' as "by", r.id as byId, r.name as byName
 		  from routine_step_options x
 		  join routine_steps s on s.id = x.step_id
 		  join routines r on r.id = s.routine_id
 		  join figures t on t.id = x.figure_id
 		 where r.team_id is null and r.user_id is not null and t.team_id = ${teamId}${who('r.user_id')}
 		union
-		select r.user_id, t.dance, 'routine', t.id
+		select r.user_id, t.dance, 'routine', t.id, 'routine', r.id, r.name
 		  from routine_steps x
 		  join routines r on r.id = x.routine_id
 		  join routines t on t.id = x.child_routine_id
@@ -60,11 +64,15 @@ function usedOf(tx: Db, teamId: number, userId?: string): Used[] {
 		union
 		select coalesce(rf.user_id, vl.user_id), coalesce(tf.dance, te.dance),
 		       case when x.figure_id is not null then 'figure' else 'drill' end,
-		       coalesce(tf.id, te.id)
+		       coalesce(tf.id, te.id),
+		       case when rf.id is not null then 'figure' else 'lesson' end,
+		       coalesce(rf.id, vl.id),
+		       coalesce(fg.name || ' · ' || rf.name, rf.name, vl.title)
 		  from spot_links x
 		  join video_spots v on v.id = x.spot_id
 		  left join recordings rec on rec.id = v.recording_id
 		  left join figures rf on rf.id = rec.figure_id
+		  left join figure_groups fg on fg.id = rf.group_id
 		  left join lesson_videos lv on lv.id = v.lesson_video_id
 		  left join lessons vl on vl.id = lv.lesson_id
 		  left join figures tf on tf.id = x.figure_id
@@ -73,32 +81,52 @@ function usedOf(tx: Db, teamId: number, userId?: string): Used[] {
 		   and coalesce(rf.user_id, vl.user_id) is not null
 		   and coalesce(tf.team_id, te.team_id) = ${teamId}${who('coalesce(rf.user_id, vl.user_id)')}
 		union
-		select l.user_id, t.dance, 'figure', t.id
+		select l.user_id, t.dance, 'figure', t.id, 'lesson', l.id, l.title
 		  from lesson_figures x
 		  join lessons l on l.id = x.lesson_id
 		  join figures t on t.id = x.figure_id
 		 where l.team_id is null and l.user_id is not null and t.team_id = ${teamId}${who('l.user_id')}
 		union
-		select l.user_id, t.dance, 'routine', t.id
+		select l.user_id, t.dance, 'routine', t.id, 'lesson', l.id, l.title
 		  from lesson_routines x
 		  join lessons l on l.id = x.lesson_id
 		  join routines t on t.id = x.routine_id
 		 where l.team_id is null and l.user_id is not null and t.team_id = ${teamId}${who('l.user_id')}
 		union
-		select l.user_id, t.dance, 'drill', t.id
+		select l.user_id, t.dance, 'drill', t.id, 'lesson', l.id, l.title
 		  from lesson_exercises x
 		  join lessons l on l.id = x.lesson_id
 		  join exercises t on t.id = x.exercise_id
 		 where l.team_id is null and l.user_id is not null and t.team_id = ${teamId}${who('l.user_id')}
 	`);
-	const rank = (k: Kind) => (k === 'routine' ? 0 : 1);
+	const rank = (k: Kind | Use['by']) => (k === 'routine' ? 0 : 1);
 	return rows.sort(
 		(a, b) =>
 			a.userId.localeCompare(b.userId) ||
 			rank(a.kind) - rank(b.kind) ||
 			a.kind.localeCompare(b.kind) ||
-			a.id - b.id
+			a.id - b.id ||
+			rank(a.by) - rank(b.by) ||
+			a.byName.localeCompare(b.byName) ||
+			a.byId - b.byId
 	);
+}
+
+/**
+ * Every group row of `teamId` a person's own rows point at, one row per
+ * person and target (`usesOf`, whoever uses it). Routines first, so a
+ * routine's copy brings the figures it holds and a later figure reuses them.
+ */
+function usedOf(tx: Db, teamId: number, userId?: string): Used[] {
+	const seen = new Set<string>();
+	const out: Used[] = [];
+	for (const { userId: u, dance, kind, id } of usesOf(tx, teamId, userId)) {
+		const key = `${u}\t${kind}\t${id}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		out.push({ userId: u, dance, kind, id });
+	}
+	return out;
 }
 
 const ENTRY = {
@@ -201,7 +229,7 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
  * practise (the drill, a routine's or variation's own exercise) is paused.
  * Whether it came back, so practice may move onto it.
  */
-function revive(tx: Db, wall: Wall, kind: Kind, id: number, now: number): boolean {
+export function revive(tx: Db, wall: Wall, kind: Kind, id: number, now: number): boolean {
 	if (kind === 'drill') {
 		tx.update(exercises).set({ archivedAt: null, active: false }).where(eq(exercises.id, id)).run();
 		return true;
@@ -223,7 +251,7 @@ function revive(tx: Db, wall: Wall, kind: Kind, id: number, now: number): boolea
  * flattened (ruling of Task 13). The copy has the same shape, so the slot
  * follows it rather than keep pointing at a row the person no longer reads.
  */
-function keepNestedEmbeds(tx: Db, wall: Wall, fromId: number, toId: number): void {
+export function keepNestedEmbeds(tx: Db, wall: Wall, fromId: number, toId: number): void {
 	const left = tx
 		.select({ id: routineSteps.id })
 		.from(routineSteps)
