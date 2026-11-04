@@ -644,7 +644,8 @@ export interface AddState {
 }
 
 /** What a group change is filed under: the thing whose History shows it. */
-export type ChangeRootKind = 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'team';
+export type ChangeRootKind =
+	'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'team' | 'position';
 /**
  * What a change did. A group song's own: `share` and `unshare` (Share with the
  * class, Stop sharing), `delete` (to Recently deleted) and `edit` (its name,
@@ -683,9 +684,10 @@ export interface HistoryRow {
 }
 
 /** What a group's hard delete keeps for 30 days (`team_trash.kind`). */
-export type TrashKind = 'video' | 'section' | 'link' | 'spot-link' | 'recording';
+export type TrashKind = 'video' | 'section' | 'link' | 'spot-link' | 'recording' | 'position-link';
 /** What Recently deleted lists: the trash kinds, and the archived ones. */
-export type DeletedKind = TrashKind | 'lesson' | 'variation' | 'routine' | 'drill' | 'song';
+export type DeletedKind =
+	TrashKind | 'lesson' | 'variation' | 'routine' | 'drill' | 'song' | 'position';
 
 /** One row of a group's Recently deleted, newest first. */
 export interface DeletedItem {
@@ -708,8 +710,8 @@ export type GroupMode = { teamId: number; name: string; role: 'owner' | 'editor'
 export type GroupChoice = GroupMode & { people: number };
 
 // Clones and twins: the shapes every clone-engine task shares.
-export type CloneKind = 'figure' | 'routine' | 'drill' | 'song' | 'lesson'; // 'figure' = a `figures` row
-export type TwinKind = 'figure' | 'routine' | 'lesson' | 'song';
+export type CloneKind = 'figure' | 'routine' | 'drill' | 'song' | 'lesson' | 'position'; // 'figure' = a `figures` row
+export type TwinKind = 'figure' | 'routine' | 'lesson' | 'song' | 'position';
 export type PieceKind = 'recording' | 'video' | 'spot';
 export type PlaceRef = { kind: 'mine' } | { kind: 'team'; teamId: number; name: string };
 export type FlatField = {

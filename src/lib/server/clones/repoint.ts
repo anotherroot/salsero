@@ -77,6 +77,7 @@ const TWIN_KINDS: Partial<Record<CloneKind, TwinKind>> = {
 
 /** A root row of the kind with the name its entries carry, or null. Drills are `custom` exercises. */
 function rootOf(db: Db, kind: CloneKind, id: number): Root | null {
+	if (kind === 'position') return null; // positions: a later task
 	const owner = (
 		t: typeof figures | typeof routines | typeof exercises | typeof songs | typeof lessons
 	) => ({ id: t.id, dance: t.dance, userId: t.userId, teamId: t.teamId }) as const;

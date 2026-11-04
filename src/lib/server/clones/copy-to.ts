@@ -37,6 +37,7 @@ import {
 	figures,
 	lessons,
 	lessonVideos,
+	positions,
 	recordings,
 	routines,
 	songs,
@@ -71,7 +72,8 @@ const TABLES = {
 	routine: routines,
 	drill: exercises,
 	song: songs,
-	lesson: lessons
+	lesson: lessons,
+	position: positions
 } as const;
 
 const TWIN_KINDS = new Set<string>(['figure', 'routine', 'lesson', 'song']);
@@ -504,6 +506,7 @@ export function restoreMember(
 	if (isTeam(into))
 		return restoreDeleted(db, into, kind === 'figure' ? 'variation' : kind, memberId, now);
 	if (kind === 'song') return { ok: false, message: ARCHIVED_SONG_COPY };
+	if (kind === 'position') return null; // positions: a later task
 	const restore = {
 		figure: restoreVariation,
 		routine: restoreRoutine,

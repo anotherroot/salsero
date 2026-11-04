@@ -64,6 +64,7 @@ export type Row = {
 
 /** The root row Make it mine works on, with its label, or null. A drill is a `custom` exercise. */
 export function rowOf(db: Db, kind: CloneKind, id: number): Row | null {
+	if (kind === 'position') return null; // positions: a later task
 	const base = (t: typeof routines | typeof exercises | typeof songs | typeof lessons) => ({
 		id: t.id,
 		dance: t.dance,
@@ -208,6 +209,8 @@ function bringBack(tx: Db, wall: Wall, kind: CloneKind, id: number, now: number)
 			return restoreDrill(tx, wall, id, now);
 		case 'lesson':
 			return restoreLesson(tx, wall, id, now);
+		case 'position':
+			return { ok: false, reason: 'gone' }; // positions: a later task
 		case 'song':
 			// A person's own song has no restore (Task 10's ruling).
 			return { ok: false, reason: 'gone' };
@@ -279,7 +282,7 @@ export async function makeMine(
 				for (const m of moves.values()) {
 					if (m.from === m.to) continue;
 					repoint(tx, wall.userId, wall.dance, m.kind, m.from, m.to, { entries: true }, now);
-					if (m.kind !== 'song') {
+					if (m.kind !== 'song' && m.kind !== 'position') {
 						// An entry merged into the copy's practice is archived at `now`;
 						// one instant earlier keeps a restore of the group's row (its own
 						// `archived_at`) from bringing back a second practice (rescue.ts).

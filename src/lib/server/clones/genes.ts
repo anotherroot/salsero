@@ -17,6 +17,7 @@ import {
 	figures,
 	lessons,
 	lessonVideos,
+	positions,
 	recordings,
 	routines,
 	songs,
@@ -36,7 +37,13 @@ type RootCols = Cols & {
 };
 
 const root = (
-	t: typeof figures | typeof routines | typeof exercises | typeof songs | typeof lessons
+	t:
+		| typeof figures
+		| typeof routines
+		| typeof exercises
+		| typeof songs
+		| typeof lessons
+		| typeof positions
 ) =>
 	({
 		table: t,
@@ -54,7 +61,8 @@ const ROOTS: Record<CloneKind, RootCols> = {
 	routine: root(routines),
 	drill: root(exercises),
 	song: root(songs),
-	lesson: root(lessons)
+	lesson: root(lessons),
+	position: root(positions)
 };
 
 const PIECES: Record<PieceKind, Cols> = {
@@ -176,6 +184,8 @@ export function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
 			const row = db.select().from(lessons).where(eq(lessons.id, id)).get();
 			return row ? lessonAccess(db, userId, row) : null;
 		}
+		case 'position':
+			return null; // positions: a later task adds positionAccess
 	}
 }
 

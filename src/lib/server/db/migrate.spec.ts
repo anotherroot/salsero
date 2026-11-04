@@ -267,3 +267,57 @@ it('has owned positions, many ends and the position links (0028)', () => {
 	expect(() => r.prepare(`delete from video_spots where id = 1`).run()).toThrow(/FOREIGN KEY/i);
 	raw(db).close();
 });
+
+it('widens four CHECKs to learn positions and keeps the rows written before (0029)', () => {
+	const file = join(temp('salsa-db-'), 'old.db');
+	const old = oldDb(file);
+	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0028_orange_doctor_faustus') });
+	old
+		.prepare(
+			`insert into team_changes (team_id, root_kind, root_id, actor_id, at, verb, subject) values (1, 'figure', 1, 'u', 1, 'add', 's')`
+		)
+		.run();
+	old
+		.prepare(
+			`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'figure', 's', 1, 1)`
+		)
+		.run();
+	old
+		.prepare(
+			`insert into clone_pairs (kind, a_id, b_id, base_json, at) values ('figure', 1, 2, '{}', 1)`
+		)
+		.run();
+	old
+		.prepare(
+			`insert into team_trash (team_id, kind, label, root_kind, root_id, rows_json, deleted_by, deleted_at) values (1, 'link', 'l', 'lesson', 1, '{}', 'u', 1)`
+		)
+		.run();
+	old.close();
+
+	const db = openDb(file);
+	const r = raw(db);
+	for (const t of ['team_changes', 'twins', 'clone_pairs', 'team_trash']) {
+		expect((r.prepare(`select count(*) n from ${t}`).get() as { n: number }).n, t).toBe(1);
+	}
+	r.prepare(
+		`insert into team_changes (team_id, root_kind, root_id, actor_id, at, verb, subject) values (1, 'position', 1, 'u', 1, 'add', 's')`
+	).run();
+	r.prepare(
+		`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'position', 's', 2, 1)`
+	).run();
+	r.prepare(
+		`insert into clone_pairs (kind, a_id, b_id, base_json, at) values ('position', 1, 2, '{}', 1)`
+	).run();
+	r.prepare(
+		`insert into team_trash (team_id, kind, label, root_kind, root_id, rows_json, deleted_by, deleted_at) values (1, 'position-link', 'l', 'lesson', 1, '{}', 'u', 1)`
+	).run();
+	// still refuses what it never knew
+	expect(() =>
+		r
+			.prepare(
+				`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'nope', 's', 3, 1)`
+			)
+			.run()
+	).toThrow(/CHECK/i);
+	raw(db).close();
+});

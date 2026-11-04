@@ -506,11 +506,14 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   point in the process where it can be turned off. Additive
   `ALTER TABLE ... ADD COLUMN` only; put the invariant in the data function, as
   `exercises.lesson_id` and the song/count pairing both do. Always read the
-  generated SQL before committing it. The one deliberate exception is migration
+  generated SQL before committing it. The deliberate exceptions are migration
   `0025`, which rebuilds `team_changes` to widen its `root_kind` and `verb`
   CHECKs (root `song`; verbs share, unshare, delete, edit). It was safe because
   the columns are identical (no new column to select) and nothing has a foreign
-  key into or out of `team_changes`, so neither failure mode applies. Do not
+  key into or out of `team_changes`, so neither failure mode applies. Migration
+  `0029` did the same for four more tables, adding positions: `team_changes`
+  (`root_kind`), `twins`, `clone_pairs` (`kind`) and `team_trash` (`position-link`),
+  all with unchanged columns and no foreign key in or out. Do not
   copy it for a table with an incoming foreign key or a new column.
 - **The server runs no Python and no ML.** Song downloads and beat analysis
   happen on the home worker (`worker/`, a systemd timer on backtop), which

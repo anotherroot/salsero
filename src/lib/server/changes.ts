@@ -527,6 +527,8 @@ export function rootInTeam(
 			);
 		case 'team':
 			return false;
+		case 'position':
+			return false; // positions: a later task
 	}
 }
 

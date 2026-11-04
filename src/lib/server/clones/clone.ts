@@ -42,6 +42,7 @@ import {
 	lessonFigures,
 	lessonRoutines,
 	lessons,
+	positions,
 	lessonVideos,
 	links,
 	recordings,
@@ -183,6 +184,8 @@ function rootRow(db: Db, kind: CloneKind, id: number): RootRow | null {
 			return db.select().from(routines).where(eq(routines.id, id)).get() ?? null;
 		case 'lesson':
 			return db.select().from(lessons).where(eq(lessons.id, id)).get() ?? null;
+		case 'position':
+			return db.select().from(positions).where(eq(positions.id, id)).get() ?? null;
 	}
 }
 
@@ -548,6 +551,7 @@ export class Mapper {
 	 * so `skip` names the real genes) and its History line. Returns the copy's id.
 	 */
 	clone(kind: CloneKind, sourceId: number): number {
+		if (kind === 'position') throw new Error('positions have no copier yet');
 		const copier = COPIERS[kind];
 		const gene = stampGene(this.tx, kind, sourceId);
 		const made = copier(this, sourceId, gene);
@@ -1237,7 +1241,8 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 }
 
 /** Each kind's copier. */
-const COPIERS: Record<CloneKind, Copier> = {
+/** Each kind's copier. Positions have none yet: Task 8 of the positions plan adds it. */
+const COPIERS: Record<Exclude<CloneKind, 'position'>, Copier> = {
 	figure: copyFigure,
 	drill: copyDrill,
 	song: copySong,

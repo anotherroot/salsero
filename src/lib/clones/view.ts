@@ -82,7 +82,8 @@ const GETS: Record<CloneKind, string> = {
 	drill: 'Its name, notes and practice, to change as you like.',
 	song: 'Its title, artist and count, to change as you like.',
 	lesson:
-		'Its title, notes, links, videos and sections, to change as you like. The videos count against your space.'
+		'Its title, notes, links, videos and sections, to change as you like. The videos count against your space.',
+	position: 'Its name, hold and notes, to change as you like.'
 };
 
 /** What the copy gives the person, per kind. */
@@ -154,7 +155,8 @@ const KIND_WORD: Record<CloneKind, string> = {
 	routine: 'routine',
 	drill: 'drill',
 	song: 'song',
-	lesson: 'lesson'
+	lesson: 'lesson',
+	position: 'position'
 };
 
 /**

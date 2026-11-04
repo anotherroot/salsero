@@ -22,7 +22,7 @@ import type {
 } from '$lib/types';
 import { twinRows } from '$lib/clones/twins';
 import type { Db } from './db';
-import { figures, lessons, routines, songs, twins } from './db/schema';
+import { figures, lessons, positions, routines, songs, twins } from './db/schema';
 import { isTeam, type Space, type Wall } from './scope';
 import { accessTo, newGene, visibleMembers } from './clones/genes';
 import { listVersions } from './figures';
@@ -31,7 +31,13 @@ import { listAddedRoutines, listRoutines } from './routines';
 import { listMyLessons } from './lessons';
 import { listSharedSongs, listSongs } from './songs';
 
-const TABLES = { figure: figures, routine: routines, lesson: lessons, song: songs } as const;
+const TABLES = {
+	figure: figures,
+	routine: routines,
+	lesson: lessons,
+	song: songs,
+	position: positions
+} as const;
 
 /** Whether the person sees this row in their app: live, of `dance` when given, and readable. */
 function shows(db: Db, userId: string, kind: TwinKind, id: number, dance?: string): boolean {
@@ -215,6 +221,9 @@ export function twinCandidates(db: Db, wall: Wall, kind: TwinKind, id: number): 
 					g.songs.map((s) => ({ id: s.id, label: s.title, place: placeOf(g.team) }))
 				)
 			];
+			break;
+		case 'position':
+			rows = []; // positions: a later task
 			break;
 	}
 	return rows

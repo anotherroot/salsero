@@ -94,7 +94,7 @@ const ORDER: TrashTable[] = [
 const JOINS = new Set<TrashTable>(['lesson_figures', 'lesson_exercises']);
 
 /** The row a kind is about: its History line names it. */
-const MAIN: Record<TrashKind, TrashTable> = {
+const MAIN: Record<Exclude<TrashKind, 'position-link'>, TrashTable> = {
 	video: 'lesson_videos',
 	recording: 'recordings',
 	section: 'video_spots',
@@ -250,7 +250,7 @@ export function restoreTrash(db: Db, space: TeamSpace, trashId: number, now: num
 	if (row.restoredAt !== null) return { ok: false, reason: 'restored' };
 	const kind = row.kind as TrashKind;
 	const rows = JSON.parse(row.rowsJson) as TrashRows;
-	const main = rows[MAIN[kind]]?.[0];
+	const main = rows[MAIN[kind as Exclude<TrashKind, 'position-link'>]]?.[0];
 	if (familyThere(db, rows)) return { ok: false, reason: 'family' };
 	try {
 		db.transaction((tx) => {

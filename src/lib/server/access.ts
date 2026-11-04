@@ -336,7 +336,7 @@ export function judgeDrill(db: Db, userId: string, exercise: Owned & { id: numbe
 }
 
 /** The kinds `teamReader` answers for: a variation, a routine, a drill, a lesson. */
-export type ReadKind = 'figure' | 'routine' | 'drill' | 'lesson';
+export type ReadKind = 'figure' | 'routine' | 'drill' | 'lesson' | 'position';
 
 /**
  * Whether a person reads a row of one group, for every row of it at once:
@@ -362,7 +362,8 @@ function readerOf(r: Reach): (kind: ReadKind, id: number) => boolean {
 		figure: r.variations,
 		routine: r.routines,
 		drill: r.drills,
-		lesson: r.lessons
+		lesson: r.lessons,
+		position: new Set<number>() // Reach.positions comes with the positions rewrite
 	};
 	return (kind, id) => sets[kind].has(id);
 }

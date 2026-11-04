@@ -66,7 +66,8 @@ const none = (): Ids => ({
 	routine: new Set(),
 	figure: new Set(),
 	drill: new Set(),
-	song: new Set()
+	song: new Set(),
+	position: new Set()
 });
 
 /** What one person could keep of one group, and why. */
@@ -358,7 +359,7 @@ function keepTx(
 	for (const { kind, from, id, archived } of moves.values()) {
 		const practice = archived ? bringBack(tx, wall, kind, id, now) : true;
 		repoint(tx, wall.userId, wall.dance, kind, from, id, { entries: practice }, now);
-		if (kind !== 'song') {
+		if (kind !== 'song' && kind !== 'position') {
 			// An entry merged into the copy's practice is archived at `now`; one
 			// instant earlier keeps a restore of the group's row (its own
 			// `archived_at`) from bringing back a second practice.
@@ -448,6 +449,7 @@ async function unlinkUnused(db: Db, files: CloneFiles, made: [CloneFileKind, str
 
 /** An item's name, meta and own files' bytes. */
 function describe(db: Db, item: Item): { name: string; meta: string; bytes: number } {
+	if (item.kind === 'position') return { name: '', meta: '', bytes: 0 }; // positions: a later task
 	switch (item.kind) {
 		case 'figure': {
 			const row = db
@@ -502,7 +504,10 @@ function describe(db: Db, item: Item): { name: string; meta: string; bytes: numb
 	}
 }
 
-const LIST: Record<CloneKind, 'lessons' | 'figures' | 'routines' | 'songs' | 'drills'> = {
+const LIST: Record<
+	Exclude<CloneKind, 'position'>,
+	'lessons' | 'figures' | 'routines' | 'songs' | 'drills'
+> = {
 	lesson: 'lessons',
 	figure: 'figures',
 	routine: 'routines',
@@ -557,6 +562,7 @@ export function keepPreview(db: Db, userId: string, teamId: number): KeepPreview
 			choosable: item.kind !== 'lesson' || scope.lessons.has(item.id)
 		};
 		names.set(keyOf(item.kind, item.id), d.name);
+		if (item.kind === 'position') continue; // positions: a later task
 		lists[LIST[item.kind]].push(row);
 	}
 	const byName = (a: KeepItem, b: KeepItem) => a.name.localeCompare(b.name) || a.id - b.id;

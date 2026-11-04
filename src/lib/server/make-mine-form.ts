@@ -17,7 +17,8 @@ const PAGE: Record<CloneKind, string> = {
 	routine: 'routines',
 	drill: 'exercises',
 	song: 'songs',
-	lesson: 'lessons'
+	lesson: 'lessons',
+	position: 'positions'
 };
 
 /** The page of a person's row of the kind. */

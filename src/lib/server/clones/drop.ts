@@ -116,6 +116,7 @@ function practiceMayFollow(
  * always has: it is its own exercise.
  */
 function hasPractice(db: Db, wall: Wall, kind: CloneKind, id: number): boolean {
+	if (kind === 'position') return false; // positions: a later task
 	if (kind === 'drill') return true;
 	const col = kind === 'song' ? exercises.songId : ENTRY[kind];
 	return (
@@ -216,6 +217,8 @@ function archiveMine(tx: Db, kind: CloneKind, id: number, now: number): boolean 
 			return archiveLesson(tx, id, now);
 		case 'song':
 			return archiveSong(tx, id, now);
+		case 'position':
+			return false; // positions: a later task
 	}
 }
 
@@ -259,7 +262,7 @@ export function dropCopy(
 				{ entries: choice.practiceFollows || added, addLesson: kind === 'lesson' },
 				now
 			);
-			if (kind !== 'song') {
+			if (kind !== 'song' && kind !== 'position') {
 				// An entry merged into the person's practice on `toId` is archived
 				// at `now`; one instant earlier keeps a restore of the copy (its
 				// own `archived_at`) from bringing back a second practice.

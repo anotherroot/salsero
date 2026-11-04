@@ -105,7 +105,8 @@ const TARGET: Record<ReadKind, string> = {
 	figure: 'figures',
 	routine: 'routines',
 	drill: 'exercises',
-	lesson: 'lessons'
+	lesson: 'lessons',
+	position: 'positions'
 };
 
 const ROUTINE_OWNER = { oid: 'r.id', ou: 'r.user_id', oteam: 'r.team_id' };

@@ -1218,7 +1218,7 @@ export const teamChanges = sqliteTable(
 	(t) => [
 		check(
 			'team_changes_root_kind_ck',
-			sql`${t.rootKind} in ('lesson', 'figure', 'routine', 'drill', 'song', 'team')`
+			sql`${t.rootKind} in ('lesson', 'figure', 'routine', 'drill', 'song', 'team', 'position')`
 		),
 		check(
 			'team_changes_verb_ck',
@@ -1249,7 +1249,7 @@ export const teamTrash = sqliteTable(
 	(t) => [
 		check(
 			'team_trash_kind_ck',
-			sql`${t.kind} in ('video', 'section', 'link', 'spot-link', 'recording')`
+			sql`${t.kind} in ('video', 'section', 'link', 'spot-link', 'recording', 'position-link')`
 		),
 		index('team_trash_team_idx').on(t.teamId, t.deletedAt)
 	]
@@ -1271,7 +1271,10 @@ export const clonePairs = sqliteTable(
 	(t) => [
 		primaryKey({ columns: [t.kind, t.aId, t.bId] }),
 		check('clone_pairs_order_ck', sql`${t.aId} < ${t.bId}`),
-		check('clone_pairs_kind_ck', sql`${t.kind} in ('figure', 'routine', 'drill', 'song', 'lesson')`)
+		check(
+			'clone_pairs_kind_ck',
+			sql`${t.kind} in ('figure', 'routine', 'drill', 'song', 'lesson', 'position')`
+		)
 	]
 );
 
@@ -1288,7 +1291,7 @@ export const twins = sqliteTable(
 	(t) => [
 		primaryKey({ columns: [t.userId, t.kind, t.itemId] }),
 		index('twins_set_idx').on(t.userId, t.setId),
-		check('twins_kind_ck', sql`${t.kind} in ('figure', 'routine', 'lesson', 'song')`)
+		check('twins_kind_ck', sql`${t.kind} in ('figure', 'routine', 'lesson', 'song', 'position')`)
 	]
 );
 
