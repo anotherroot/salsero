@@ -16,10 +16,12 @@
  * Restoring the group's row afterwards does not undo a copy: it is the
  * person's own from then on, a member of the same family ("From …").
  */
-import { and, eq, gt, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, ne, sql } from 'drizzle-orm';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { Db } from '../db';
 import { exercises, routines, routineSteps } from '../db/schema';
+import { restoreVariation } from '../figures';
+import { restoreRoutine } from '../routines';
 import { teamReaders } from '../access';
 import { ownedBy, type Wall } from '../scope';
 import { cloneTx } from './clone';
@@ -146,16 +148,16 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 		const gene = geneOf(tx, u.kind, u.id);
 		const member = gene === null ? null : memberIn(tx, u.kind, gene, wall);
 		let toId: number;
+		let practice = true;
 		if (member) {
 			toId = member.id;
-			// `repoint` never moves practice onto an archived drill; one that a
-			// link of theirs needs comes back, paused, and a live entry wakes it.
-			if (u.kind === 'drill' && member.archived) {
-				tx.update(exercises)
-					.set({ archivedAt: null, active: false })
-					.where(eq(exercises.id, toId))
-					.run();
-			}
+			// An archived member of theirs holds the rows again: it comes back,
+			// with what it brings to practise paused, so a moved entry sits on a
+			// live root (a live entry wakes it: `repoint`'s carry). `repoint`
+			// never moves practice onto an archived drill. A figure or routine
+			// that cannot come back (its name taken since) takes the rows but no
+			// practice: the entry stays on the group's row and goes off Today.
+			if (member.archived) practice = revive(tx, wall, u.kind, toId, now);
 		} else {
 			const before = lastExercise(tx);
 			const made = cloneTx(
@@ -178,10 +180,40 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 					.run();
 			}
 		}
-		repoint(tx, u.userId, u.dance, u.kind, u.id, toId, { entries: true }, now);
+		repoint(tx, u.userId, u.dance, u.kind, u.id, toId, { entries: practice }, now);
+		// Every entry of theirs on the group's row archived at `now` was revived
+		// above, so one archived at `now` again was merged into the copy's. A
+		// restore of the group's row revives exactly its own `archived_at`: one
+		// instant earlier keeps it from bringing back a second practice.
+		tx.update(exercises)
+			.set({ archivedAt: now - 1 })
+			.where(and(ownedBy(exercises, wall), eq(ENTRY[u.kind], u.id), eq(exercises.archivedAt, now)))
+			.run();
 		if (u.kind === 'routine') keepNestedEmbeds(tx, wall, u.id, toId);
 	}
 	return cloned;
+}
+
+/**
+ * Bring the person's archived member back to hold their rows: a drill
+ * unarchived as it is; a figure or a routine through its own restore (which
+ * brings back its move, or refuses a name taken since). What it brings to
+ * practise (the drill, a routine's or variation's own exercise) is paused.
+ * Whether it came back, so practice may move onto it.
+ */
+function revive(tx: Db, wall: Wall, kind: Kind, id: number, now: number): boolean {
+	if (kind === 'drill') {
+		tx.update(exercises).set({ archivedAt: null, active: false }).where(eq(exercises.id, id)).run();
+		return true;
+	}
+	const restored =
+		kind === 'figure' ? restoreVariation(tx, wall, id, now) : restoreRoutine(tx, wall, id, now);
+	if (!restored.ok) return false;
+	tx.update(exercises)
+		.set({ active: false })
+		.where(and(ownedBy(exercises, wall), eq(ENTRY[kind], id)))
+		.run();
+	return true;
 }
 
 /**
@@ -198,8 +230,9 @@ function keepNestedEmbeds(tx: Db, wall: Wall, fromId: number, toId: number): voi
 		.innerJoin(routines, eq(routines.id, routineSteps.routineId))
 		.where(
 			and(
-				isNotNull(routineSteps.childRoutineId),
 				eq(routineSteps.childRoutineId, fromId),
+				// Never a routine embedding itself: such a slot stays as it is.
+				ne(routineSteps.routineId, toId),
 				ownedBy(routines, wall)
 			)
 		)

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import { openDb, type Db } from '../db';
 import {
 	exercises,
@@ -23,6 +23,7 @@ import {
 	createRoutine,
 	deleteSlots,
 	duplicateRoutine,
+	restoreRoutine,
 	removeOption
 } from '../routines';
 import {
@@ -35,7 +36,7 @@ import {
 	publishLesson,
 	unlinkFigure
 } from '../lessons';
-import { archiveExercise } from '../exercises';
+import { archiveExercise, restoreDrill } from '../exercises';
 import { unlinkSpot } from '../spot-links';
 import { addLesson, reconcileEntries } from '../entries';
 import { crossRefs } from '../integrity';
@@ -507,6 +508,125 @@ describe('rescueUsed: what it leaves alone, and what it reuses', () => {
 		expect(optionsOf(step)).toEqual([copyOf('figure', F).id]);
 		expect(routineRow(P).archivedAt).toBe(T);
 		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('rescueUsed and a later restore: one practice per family', () => {
+	/** u2's live exercises on any of these figures, routines or drills (a drill counts itself). */
+	const live = (col: 'figureId' | 'routineId' | 'drillId', ids: number[]) =>
+		db
+			.select({ id: exercises.id })
+			.from(exercises)
+			.where(
+				and(
+					eq(exercises.userId, 'u2'),
+					isNull(exercises.archivedAt),
+					col === 'drillId'
+						? or(inArray(exercises.drillId, ids), inArray(exercises.id, ids))
+						: inArray(exercises[col], ids)
+				)
+			)
+			.all().length;
+
+	it('archiveRoutine, then restoreRoutine: the practice is on the copy only', () => {
+		const G = figure(T1_SALSA, 'Setenta');
+		const R = routine(T1_SALSA, 'Class routine');
+		slot(R, 1, [G]);
+		const L = published('Week 1', (id) => linkRoutine(db, id, R, 'u1'));
+		expect(addLesson(db, 'u2', L, { ...NONE, routineIds: [R] }, T)).toBe(true);
+		embed(routine(U2_SALSA, 'Embeds'), 1, R);
+
+		archiveRoutine(db, R, NOW, 'u1');
+		const copy = copyOf('routine', R);
+		expect(live('routineId', [R, copy.id])).toBe(1);
+		expect(restoreRoutine(db, T1_SALSA, R, NOW + 1)).toEqual({ ok: true });
+		expect(live('routineId', [R, copy.id])).toBe(1);
+		expect(live('routineId', [copy.id])).toBe(1);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('archiveExercise, then restoreDrill: the practice is on the copy only', () => {
+		const D = drill({ teamId: 1 }, 'Spins');
+		const L = published('Week 1', (id) => linkExercise(db, id, D, 'u1'));
+		expect(addLesson(db, 'u2', L, { ...NONE, drillIds: [D] }, T)).toBe(true);
+		link(section({ figureId: figure(U2_SALSA, 'Mine') }), { exerciseId: D });
+
+		archiveExercise(db, D, NOW, 'u1');
+		const copy = copyOf('drill', D);
+		expect(live('drillId', [D, copy.id])).toBe(1);
+		expect(restoreDrill(db, T1_SALSA, D, NOW + 1)).toEqual({ ok: true });
+		expect(live('drillId', [D, copy.id])).toBe(1);
+		expect(live('drillId', [copy.id])).toBe(1);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('an archived own copy of a practised figure comes back to hold the routine and the entry', () => {
+		const { F, L, step } = figureInRoutine();
+		expect(addLesson(db, 'u2', L, { ...NONE, figureIds: [F] }, T)).toBe(true);
+		const mine = (
+			cloneTx(db, { kind: 'figure', id: F, into: U2_SALSA, recordings: false }, new Map(), T) as {
+				id: number;
+			}
+		).id;
+		expect(archiveVariation(db, mine, T + 1, 'u2')).not.toBeNull();
+
+		archiveVariation(db, F, NOW, 'u1');
+
+		expect(optionsOf(step)).toEqual([mine]);
+		expect(figureRow(mine).archivedAt).toBeNull();
+		expect(live('figureId', [F, mine])).toBe(1);
+		expect(live('figureId', [mine])).toBe(1);
+		expect(u2Figures()).toBe(1);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('an archived own copy of a routine comes back paused when nobody practises it', () => {
+		const G = figure(T1_SALSA, 'Setenta');
+		const R = routine(T1_SALSA, 'Class routine');
+		slot(R, 1, [G]);
+		const L = published('Week 1', (id) => linkRoutine(db, id, R, 'u1'));
+		const step = embed(routine(U2_SALSA, 'Embeds'), 1, R);
+		const mine = (
+			cloneTx(db, { kind: 'routine', id: R, into: U2_SALSA, recordings: false }, new Map(), T) as {
+				id: number;
+			}
+		).id;
+		expect(archiveRoutine(db, mine, T + 1)).toBe(true);
+
+		archiveLesson(db, L, NOW, 'u1');
+
+		expect(childOf(step)).toBe(mine);
+		expect(routineRow(mine).archivedAt).toBeNull();
+		const own = db.select().from(exercises).where(eq(exercises.routineId, mine)).get()!;
+		expect(own.archivedAt).toBeNull();
+		expect(own.active).toBe(false);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('a copy that embeds its own source never comes to embed itself', () => {
+		const G = figure(T1_SALSA, 'Setenta');
+		const R = routine(T1_SALSA, 'Class routine');
+		slot(R, 1, [G]);
+		const L = published('Week 1', (id) => linkRoutine(db, id, R, 'u1'));
+		const mine = (
+			cloneTx(db, { kind: 'routine', id: R, into: U2_SALSA, recordings: false }, new Map(), T) as {
+				id: number;
+			}
+		).id;
+		const step = embed(mine, 5, R);
+		const other = embed(routine(U2_SALSA, 'Embeds'), 1, R);
+
+		archiveLesson(db, L, NOW, 'u1');
+
+		// u2's other routine follows the copy; the copy's own slot is left as it was.
+		expect(childOf(other)).toBe(mine);
+		expect(childOf(step)).toBe(R);
+		const selfEmbeds = db
+			.select()
+			.from(routineSteps)
+			.where(and(eq(routineSteps.routineId, mine), eq(routineSteps.childRoutineId, mine)))
+			.all();
+		expect(selfEmbeds).toEqual([]);
 	});
 });
 
