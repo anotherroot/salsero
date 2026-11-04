@@ -942,6 +942,7 @@ export type KeepItem = {
 export type KeepPreview = {
 	lessons: KeepItem[];
 	figures: KeepItem[];
+	positions: KeepItem[];
 	routines: KeepItem[];
 	songs: KeepItem[];
 	drills: KeepItem[];
@@ -962,6 +963,8 @@ export type SwitchReport = {
 	lessons: { id: number; title: string }[];
 	sections: number;
 	entries: number;
+	/** A position's: the person's figures tagged with it (start or end), by label. */
+	figures: { id: number; label: string }[];
 };
 
 /**

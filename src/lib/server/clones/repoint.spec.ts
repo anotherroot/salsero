@@ -303,7 +303,14 @@ describe('repoint: a figure', () => {
 		expect(
 			db.select().from(lessonFigures).where(eq(lessonFigures.lessonId, groupLesson)).all()
 		).toHaveLength(1);
-		expect(report).toEqual({ routines: [], lessons: [], sections: 0, entries: 0, twins: 0 });
+		expect(report).toEqual({
+			routines: [],
+			lessons: [],
+			sections: 0,
+			entries: 0,
+			twins: 0,
+			figures: []
+		});
 	});
 
 	it("leaves u3's routine, lesson, section, entry and twins on the source untouched", () => {
@@ -403,7 +410,8 @@ describe('repoint: a routine', () => {
 			lessons: [{ id: l, title: 'Monday' }],
 			sections: 0,
 			entries: 1,
-			twins: 0
+			twins: 0,
+			figures: []
 		});
 	});
 });
@@ -430,7 +438,8 @@ describe('repoint: a drill', () => {
 			lessons: [{ id: l, title: 'Monday' }],
 			sections: 1,
 			entries: 1,
-			twins: 0
+			twins: 0,
+			figures: []
 		});
 	});
 
@@ -546,7 +555,14 @@ describe('repoint: a lesson', () => {
 		expect(db.select().from(lessonAdds).all()).toEqual([
 			{ userId: 'u2', lessonId: g, addedAt: NOW, seenAt: NOW }
 		]);
-		expect(report).toEqual({ routines: [], lessons: [], sections: 0, entries: 1, twins: 1 });
+		expect(report).toEqual({
+			routines: [],
+			lessons: [],
+			sections: 0,
+			entries: 1,
+			twins: 1,
+			figures: []
+		});
 
 		const again = lesson(U2_SALSA, 'More notes');
 		repoint(db, 'u2', 'salsa', 'lesson', again, g, { entries: true, addLesson: true }, NOW + 5);
@@ -698,7 +714,8 @@ describe('repointPreview', () => {
 			lessons: [{ id: l, title: 'Monday' }],
 			sections: 2,
 			entries: 1,
-			twins: 1
+			twins: 1,
+			figures: []
 		});
 		expect(repoint(db, 'u2', 'salsa', 'figure', g, p, ALL, NOW)).toEqual(preview);
 		expect(repointPreview(db, 'u2', 'salsa', 'figure', g)).toEqual({
@@ -706,7 +723,8 @@ describe('repointPreview', () => {
 			lessons: [],
 			sections: 0,
 			entries: 0,
-			twins: 0
+			twins: 0,
+			figures: []
 		});
 	});
 

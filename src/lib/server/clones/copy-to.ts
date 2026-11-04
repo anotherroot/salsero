@@ -1,8 +1,8 @@
 /**
- * Copy to… (spec points 4, 5 and 9; board C4): a figure, routine, drill, song
- * or lesson copied into another place the person can edit — their own app
- * (when it is not theirs already), or any live group of its dance they own or
- * edit, group to group too — as a member of the same family.
+ * Copy to… (spec points 4, 5 and 9; board C4): a figure, routine, drill, song,
+ * lesson or position copied into another place the person can edit — their
+ * own app (when it is not theirs already), or any live group of its dance
+ * they own or edit, group to group too — as a member of the same family.
  *
  * Into a group the copy brings its recordings, charged to the group (ruling
  * 5); a lesson or a song lands there as a draft. Into the person's own app it
@@ -50,6 +50,7 @@ import { restoreVariation } from '../figures';
 import { restoreRoutine } from '../routines';
 import { restoreDrill } from '../exercises';
 import { restoreLesson } from '../lessons';
+import { restorePositionIn } from '../positions';
 import { restoreDeleted } from '../trash';
 import { twinsOf } from '../twins';
 import {
@@ -76,7 +77,7 @@ const TABLES = {
 	position: positions
 } as const;
 
-const TWIN_KINDS = new Set<string>(['figure', 'routine', 'lesson', 'song']);
+const TWIN_KINDS = new Set<string>(['figure', 'routine', 'lesson', 'song', 'position']);
 
 /** When a root row was made, or 0 for a missing one. */
 function createdOf(db: Db, kind: CloneKind, id: number): number {
@@ -346,6 +347,7 @@ export function copyPlan(
 	const goes = whatGoes({
 		kind,
 		figures: n('figure'),
+		positions: n('position'),
 		routines: n('routine'),
 		drills: n('drill'),
 		recordings: n('recording'),
@@ -503,10 +505,15 @@ export function restoreMember(
 		if (!answers || Object.keys(answers).length === 0) return null;
 		if (!archivedHere(planClone(db, requestOf(kind, id, into, answers)).existing)) return null;
 	}
+	if (kind === 'position') {
+		// An archived position, a person's or a group's (logged as the actor's restore).
+		const done = restorePositionIn(db, into, memberId, now);
+		if (done.ok) return done;
+		return done.reason === 'gone' ? null : { ok: false, message: done.message };
+	}
 	if (isTeam(into))
 		return restoreDeleted(db, into, kind === 'figure' ? 'variation' : kind, memberId, now);
 	if (kind === 'song') return { ok: false, message: ARCHIVED_SONG_COPY };
-	if (kind === 'position') return null; // positions: a later task
 	const restore = {
 		figure: restoreVariation,
 		routine: restoreRoutine,

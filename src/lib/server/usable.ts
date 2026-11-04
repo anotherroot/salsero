@@ -377,13 +377,15 @@ export function usableVersions(
 
 /**
  * The group positions a person may use (`usableOf`), live and of the wall's
- * dance, each tagged with its group, in list order (`sortPositions`). The
- * person's own copies do not hide them: lists fold twins, not clones.
+ * dance, each tagged with its group, in list order (`sortPositions`). A
+ * picker hides the ones the person has their own copy of (`shadowed:
+ * 'hide'`, the default, as `usableVersions`); `'keep'` lists them all.
  */
 export function usablePositions(
 	db: Db,
 	wall: Wall,
-	usable: Usable = usableOf(db, wall)
+	usable: Usable = usableOf(db, wall),
+	shadowed: 'hide' | 'keep' = 'hide'
 ): (PositionRow & { team: TeamRef })[] {
 	const ids = [...usable.positions];
 	if (ids.length === 0) return [];
@@ -403,7 +405,8 @@ export function usablePositions(
 		db,
 		rows.map((r) => r.teamId!)
 	);
-	return sortPositions(rows, wall.dance).flatMap((r) => {
+	const shown = shadowed === 'hide' ? withoutShadowed(db, wall, 'position', rows) : rows;
+	return sortPositions(shown, wall.dance).flatMap((r) => {
 		const team = teams.get(r.teamId!);
 		return team ? [{ ...r, team }] : [];
 	});

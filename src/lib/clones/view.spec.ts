@@ -165,6 +165,7 @@ describe('Make it mine', () => {
 		lessons: [],
 		sections: 0,
 		entries,
+		figures: [],
 		...extra
 	});
 
@@ -183,6 +184,7 @@ describe('Make it mine', () => {
 		expect(youGet('lesson')).toBe(
 			'Its title, notes, links, videos and sections, to change as you like. The videos count against your space.'
 		);
+		expect(youGet('position')).toBe('Its name, type, hold and notes, to change as you like.');
 	});
 
 	it('staysTheirs: a figure’s recordings stay the group’s; nothing else says so', () => {
@@ -193,6 +195,45 @@ describe('Make it mine', () => {
 		expect(staysTheirs('figure', 'Rueda club')!.title).toBe('STAYS RUEDA CLUB’S');
 		for (const kind of ['routine', 'drill', 'song', 'lesson'] as const)
 			expect(staysTheirs(kind, 'Salsa Tuesdays')).toBeNull();
+	});
+
+	it('staysTheirs: a position’s links from the group’s lessons and videos', () => {
+		expect(staysTheirs('position', 'Rueda club')).toEqual({
+			title: 'STAYS RUEDA CLUB’S',
+			body: 'The lessons and videos it was linked from. You see them in Rueda club’s tab.'
+		});
+		expect(staysTheirs('position', 'Salsa Tuesdays')!.body).toBe(
+			'The lessons and videos it was linked from. You see them in Salsa Tuesdays’ tab.'
+		);
+	});
+
+	it('switchNote: a position’s figures, then the rest', () => {
+		const one = [{ id: 7, label: 'Setenta · Con giro' }];
+		const three = [
+			{ id: 7, label: 'Setenta · Con giro' },
+			{ id: 8, label: 'Vuelta · Simple' },
+			{ id: 9, label: 'Enchufla · Doble' }
+		];
+		expect(switchNote(report([], 0, { figures: one }), false)).toBe(
+			'Your Setenta · Con giro, tagged with it, switches to your copy.'
+		);
+		expect(switchNote(report([], 0, { figures: three }), false)).toBe(
+			'Your 3 figures tagged with it switch to your copy.'
+		);
+		const lessons = [{ id: 4, title: 'Mi clase' }];
+		expect(switchNote(report([], 0, { figures: one, lessons }), false)).toBe(
+			'Your Setenta · Con giro, tagged with it, and your lesson Mi clase switch to your copy.'
+		);
+		expect(switchNote(report([], 0, { figures: one, lessons, sections: 1 }), false)).toBe(
+			'Your Setenta · Con giro, tagged with it, your lesson Mi clase and your section switch to your copy.'
+		);
+		const two = [...lessons, { id: 5, title: 'Week 6' }];
+		expect(switchNote(report([], 0, { figures: one, lessons: two }), false)).toBe(
+			'Your Setenta · Con giro, tagged with it, and your lessons Mi clase and Week 6, switch to your copy.'
+		);
+		expect(switchNote(report([], 0, { figures: three, lessons }), false)).toBe(
+			'Your 3 figures tagged with it and your lesson Mi clase switch to your copy.'
+		);
 	});
 
 	it('switchNote: the board’s line, and its variants', () => {
@@ -614,7 +655,15 @@ describe('Copy to… (board C4)', () => {
 	const MINE = { kind: 'mine' as const };
 	const MB = 1024 ** 2;
 	const GB = 1024 ** 3;
-	const none = { figures: 0, routines: 0, drills: 0, recordings: 0, videos: 0, audio: false };
+	const none = {
+		figures: 0,
+		positions: 0,
+		routines: 0,
+		drills: 0,
+		recordings: 0,
+		videos: 0,
+		audio: false
+	};
 
 	it('the sheet’s title, sub and places', () => {
 		expect(COPY_TO).toBe('Copy to…');
@@ -659,6 +708,16 @@ describe('Copy to… (board C4)', () => {
 		expect(whatGoes({ ...none, kind: 'figure', bytes: 0, notes: true, into: T1 })).toBe('Notes');
 		expect(whatGoes({ ...none, kind: 'drill', bytes: 0, notes: false, into: T1 })).toBe(
 			'Just the drill'
+		);
+		const tagged = { ...none, kind: 'lesson' as const, figures: 2, positions: 3 };
+		expect(whatGoes({ ...tagged, bytes: 0, notes: false, into: T1 })).toBe(
+			'2 figures · 3 positions'
+		);
+		expect(
+			whatGoes({ ...none, kind: 'figure', positions: 1, bytes: 0, notes: false, into: T1 })
+		).toBe('1 position');
+		expect(whatGoes({ ...none, kind: 'position', bytes: 0, notes: false, into: T1 })).toBe(
+			'Just the position'
 		);
 	});
 

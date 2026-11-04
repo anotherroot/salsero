@@ -92,6 +92,7 @@ import {
 	fileKey,
 	mappedLinks,
 	Mapper,
+	Refusal as CopyRefusal,
 	type SpotOwner
 } from './clone';
 import type { CloneFileKind, CloneFiles } from './files';
@@ -146,8 +147,9 @@ function byRef(table: { id: Column; geneId: Column }, ref: string) {
 
 /**
  * Write the giver's value of each of `keys` into the target, in place (see the
- * module's comment). Runs in a savepoint of `tx`: a refusal (`name`, or
- * `linked` when a delete meets a linked section) leaves nothing of it. Files
+ * module's comment). Runs in a savepoint of `tx`: a refusal (`name`, its own
+ * or a copy's made on the way, or `linked` when a delete meets a linked
+ * section) leaves nothing of it. Files
  * of pieces copied in must be in `linked` (`fileKey` → the new name); `actorId`
  * is who acts, for the group's History lines of deletes and for what the
  * mapper may read. Writes no snapshot and no History line of its own.
@@ -168,6 +170,9 @@ export function applyInto(
 		);
 	} catch (err) {
 		if (err instanceof Refused) return err.outcome;
+		// A copy made on the way (a position a tag brings into the target's place) refused its name.
+		if (err instanceof CopyRefusal && err.result.reason === 'name')
+			return { ok: false, reason: 'name', message: err.result.message };
 		if (err instanceof SpotLinkedError)
 			return { ok: false, reason: 'linked', message: err.message };
 		throw err;

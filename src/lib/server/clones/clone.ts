@@ -149,8 +149,8 @@ export type ClonePlan = {
 /** The key a linked file is found by in `cloneTx`'s `linked` map. */
 export const fileKey = (kind: CloneFileKind, file: string) => `${kind}:${file}`;
 
-/** A refusal raised inside the write, so the savepoint rolls back. */
-class Refusal extends Error {
+/** A refusal raised inside the write, so the savepoint rolls back (an apply maps a nested copy's: `applyInto`). */
+export class Refusal extends Error {
 	constructor(readonly result: Extract<CloneResult, { ok: false }>) {
 		super(result.reason);
 	}

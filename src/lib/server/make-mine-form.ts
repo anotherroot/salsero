@@ -48,7 +48,8 @@ export function makeMineOffer(
 			routines: p.repoint.routines,
 			lessons: p.repoint.lessons,
 			sections: p.repoint.sections,
-			entries: p.repoint.entries
+			entries: p.repoint.entries,
+			figures: p.repoint.figures
 		},
 		practised: p.practised,
 		bytes: p.bytes,

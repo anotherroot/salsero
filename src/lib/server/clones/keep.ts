@@ -2,9 +2,10 @@
  * Keep: what a person takes with them when they leave a group, are removed
  * from it, or it is purged. What they keep becomes clones in their own app
  * (lessons with their videos and sections, figures with their recordings,
- * routines, drills, songs), the files hard-linked under new names and charged
- * to them, over their limit if need be (ruling 5: losing access keeps
- * recordings). Their own rows and their practice follow onto the copies.
+ * routines, drills, songs, positions), the files hard-linked under new names
+ * and charged to them, over their limit if need be (ruling 5: losing access
+ * keeps recordings). Their own rows and their practice follow onto the
+ * copies (their figures' position tags too).
  *
  * "Everything" is what the person had of the group: the lessons they added
  * (published and live) with what those lessons reach, every group row they
@@ -19,7 +20,8 @@
  * any entry left on what was not kept.
  */
 import { and, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
-import type { CloneKind, KeepChoice, KeepItem, KeepPreview } from '$lib/types';
+import type { CloneKind, Hold, KeepChoice, KeepItem, KeepPreview } from '$lib/types';
+import { holdLine } from '$lib/positions/hold';
 import type { DanceSlug } from '$lib/dances/dances';
 import { dayMonth, plural } from '$lib/format';
 import type { Db } from '../db';
@@ -30,6 +32,7 @@ import {
 	lessonAdds,
 	lessons,
 	lessonVideos,
+	positions,
 	recordings,
 	routines,
 	routineSteps,
@@ -60,7 +63,8 @@ import { ENTRY, keepNestedEmbeds, lastExercise, revive, usesOf, type Use } from 
 type Ids = Record<CloneKind, Set<number>>;
 type Item = { kind: CloneKind; id: number };
 
-const KINDS: CloneKind[] = ['lesson', 'routine', 'figure', 'drill', 'song'];
+// Positions before figures: a kept figure's copy finds the person's copy of its positions.
+const KINDS: CloneKind[] = ['lesson', 'routine', 'position', 'figure', 'drill', 'song'];
 const none = (): Ids => ({
 	lesson: new Set(),
 	routine: new Set(),
@@ -86,12 +90,13 @@ type Scope = {
 
 const keyOf = (kind: CloneKind, id: number) => `${kind}:${id}`;
 
-/** A reach's rows as ids by kind (its figures are moves, which are not kept as such). */
+/** A reach's rows as ids by kind, positions included (its figures are moves, which are not kept as such). */
 function addReach(ids: Ids, r: Reach): void {
 	for (const id of r.lessons) ids.lesson.add(id);
 	for (const id of r.variations) ids.figure.add(id);
 	for (const id of r.routines) ids.routine.add(id);
 	for (const id of r.drills) ids.drill.add(id);
+	for (const id of r.positions) ids.position.add(id);
 }
 
 function scopeOf(db: Db, userId: string, teamId: number): Scope {
@@ -175,9 +180,10 @@ function scopeOf(db: Db, userId: string, teamId: number): Scope {
 
 /**
  * What a choice keeps, in the order it is copied: lessons first (they bring
- * what they hold), then routines (they bring their figures), figures, drills
- * and songs, each by id. Only rows in "everything" count: an id from a form
- * that the person never had is ignored.
+ * what they hold), then routines (they bring their figures), positions (so a
+ * figure copied next finds them), figures, drills and songs, each by id. Only
+ * rows in "everything" count: an id from a form that the person never had is
+ * ignored.
  */
 function itemsOf(scope: Scope, choice: KeepChoice): Item[] {
 	let ids: Ids;
@@ -404,7 +410,7 @@ function keepTx(
  * so practice may move onto it.
  */
 function bringBack(tx: Db, wall: Wall, kind: CloneKind, id: number, now: number): boolean {
-	if (kind === 'figure' || kind === 'routine' || kind === 'drill')
+	if (kind === 'figure' || kind === 'routine' || kind === 'drill' || kind === 'position')
 		return revive(tx, wall, kind, id, now);
 	if (kind === 'song') {
 		tx.update(songs).set({ archivedAt: null }).where(eq(songs.id, id)).run();
@@ -449,7 +455,6 @@ async function unlinkUnused(db: Db, files: CloneFiles, made: [CloneFileKind, str
 
 /** An item's name, meta and own files' bytes. */
 function describe(db: Db, item: Item): { name: string; meta: string; bytes: number } {
-	if (item.kind === 'position') return { name: '', meta: '', bytes: 0 }; // positions: a later task
 	switch (item.kind) {
 		case 'figure': {
 			const row = db
@@ -501,15 +506,26 @@ function describe(db: Db, item: Item): { name: string; meta: string; bytes: numb
 			const row = db.select().from(exercises).where(eq(exercises.id, item.id)).get()!;
 			return { name: row.name, meta: '', bytes: 0 };
 		}
+		case 'position': {
+			const row = db.select().from(positions).where(eq(positions.id, item.id)).get()!;
+			const hold = {
+				hands: row.hands as Hold['hands'],
+				crossed: row.crossed,
+				facing: row.facing as Hold['facing'],
+				frame: row.frame as Hold['frame']
+			};
+			return { name: row.name, meta: holdLine(hold) ?? '', bytes: 0 };
+		}
 	}
 }
 
 const LIST: Record<
-	Exclude<CloneKind, 'position'>,
-	'lessons' | 'figures' | 'routines' | 'songs' | 'drills'
+	CloneKind,
+	'lessons' | 'figures' | 'routines' | 'songs' | 'drills' | 'positions'
 > = {
 	lesson: 'lessons',
 	figure: 'figures',
+	position: 'positions',
 	routine: 'routines',
 	song: 'songs',
 	drill: 'drills'
@@ -526,9 +542,13 @@ export function keepPreview(db: Db, userId: string, teamId: number): KeepPreview
 	const scope = scopeOf(db, userId, teamId);
 	const all = itemsOf(scope, { mode: 'all' });
 	const used = itemsOf(scope, { mode: 'used' });
-	const lists: Pick<KeepPreview, 'lessons' | 'figures' | 'routines' | 'songs' | 'drills'> = {
+	const lists: Pick<
+		KeepPreview,
+		'lessons' | 'figures' | 'routines' | 'songs' | 'drills' | 'positions'
+	> = {
 		lessons: [],
 		figures: [],
+		positions: [],
 		routines: [],
 		songs: [],
 		drills: []
@@ -543,7 +563,13 @@ export function keepPreview(db: Db, userId: string, teamId: number): KeepPreview
 		if (item.kind !== 'lesson' && item.kind !== 'song') {
 			for (const [lessonId, r] of scope.lessons) {
 				const set =
-					item.kind === 'figure' ? r.variations : item.kind === 'routine' ? r.routines : r.drills;
+					item.kind === 'figure'
+						? r.variations
+						: item.kind === 'routine'
+							? r.routines
+							: item.kind === 'position'
+								? r.positions
+								: r.drills;
 				if (set.has(item.id)) {
 					inLesson = lessonId;
 					break;
@@ -559,10 +585,11 @@ export function keepPreview(db: Db, userId: string, teamId: number): KeepPreview
 			used: use?.byName ?? null,
 			usedBy: use?.by ?? null,
 			inLesson,
-			choosable: item.kind !== 'lesson' || scope.lessons.has(item.id)
+			// A position goes with the figures and lessons that use it: there is no ticking it alone.
+			choosable:
+				item.kind === 'position' ? false : item.kind !== 'lesson' || scope.lessons.has(item.id)
 		};
 		names.set(keyOf(item.kind, item.id), d.name);
-		if (item.kind === 'position') continue; // positions: a later task
 		lists[LIST[item.kind]].push(row);
 	}
 	const byName = (a: KeepItem, b: KeepItem) => a.name.localeCompare(b.name) || a.id - b.id;

@@ -31,6 +31,7 @@ import {
 import { inSpace, isTeam, spaceOfRow, type Space, type Wall } from './scope';
 import { ownedOrUsable, usableBy, usableOf, type Usable } from './usable';
 import { actingIn, fieldChange, logChange } from './changes';
+import { reconcileEntries } from './entries';
 
 /** A graph as `buildGraph` makes it: plus each real position id's canonical id. */
 export type SpaceGraph = Graph & { canon: Map<number, number> };
@@ -212,10 +213,22 @@ export function setFigureShape(db: Db, figureId: number, shape: FigureShape, by?
 		if (!written) return false;
 		const { figure, before, after } = written;
 		const change = fieldChange(before, after, 'variation');
+		const now = Date.now();
 		if (change && figure.groupId !== null) {
 			const root = { rootKind: 'figure' as const, rootId: figure.groupId, subjectId: figureId };
-			logChange(tx, actingIn(figure, by), { ...root, verb: 'change', ...change }, Date.now());
+			logChange(tx, actingIn(figure, by), { ...root, verb: 'change', ...change }, now);
 		}
+		// A tag off a group's figure can take its position out of members' reach:
+		// what their own rows use of it is rescued, after the write.
+		const dropped = (was: string, is: string) => {
+			const kept = new Set(is.split(','));
+			return was !== '' && was.split(',').some((id) => !kept.has(id));
+		};
+		if (
+			figure.teamId !== null &&
+			(dropped(before.startIds, after.startIds) || dropped(before.endIds, after.endIds))
+		)
+			reconcileEntries(tx, figure.teamId, now);
 		return true;
 	});
 }

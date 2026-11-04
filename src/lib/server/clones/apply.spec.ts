@@ -562,6 +562,43 @@ describe('positions', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
+	it('Send a tag whose position cannot be copied (every name taken): refused, nothing written', async () => {
+		const { F, M } = await tagged();
+		const own = db
+			.insert(positions)
+			.values({ ...ownerValues(U1_SALSA), slug: 'p-own', name: 'Mi posición' })
+			.returning()
+			.get().id;
+		tag(M, 'end', own);
+		const taken = ['Mi posición', 'Mi posición (Ana)'];
+		for (let n = 2; n <= 9; n++) taken.push(`Mi posición (Ana ${n})`);
+		for (const name of taken)
+			db.insert(positions)
+				.values({ ...ownerValues(T1_SALSA), slug: `p-${name}`, name })
+				.run();
+		const before = db.select().from(positions).all().length;
+		const out = await syncFrom(
+			db,
+			'u1',
+			'figure',
+			F,
+			M,
+			{ [`end:#${own}`]: 'theirs' },
+			digest(flatOf(db, 'figure', F)),
+			files,
+			NOW,
+			Infinity
+		);
+		expect(out).toEqual({
+			ok: false,
+			reason: 'name',
+			message: 'Salsa Tuesdays already has a position called Mi posición.'
+		});
+		expect(db.select().from(positions).all()).toHaveLength(before);
+		expect(figurePositions(db, F).endIds).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
 	it('a position’s name, type, hold and notes land in place; a taken name is refused', async () => {
 		const P = groupPosition('Cerrada');
 		const mineP = await copy('position', P, U1_SALSA);

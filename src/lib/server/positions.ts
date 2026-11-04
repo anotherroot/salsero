@@ -11,8 +11,10 @@ import { positions, spotPositionLinks, teams, videoSpots, type PositionRow } fro
 import { DANCES, isStyleOf, type DanceSlug } from '$lib/dances/dances';
 import { TEMPLATES } from '$lib/positions/templates';
 import type { ChangeValues, PositionInput, PositionSummary } from '$lib/types';
-import { isTeam, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
+import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space } from './scope';
 import { fieldChange, logChange } from './changes';
+import { reconcileEntries } from './entries';
+import type { ArchiveRestore } from './trash';
 
 export type NameRefusal = { field: 'name'; message: string };
 
@@ -192,7 +194,12 @@ export function updatePosition(
 	});
 }
 
-/** Archive a position (its tags and links stay). False when gone or already archived. */
+/**
+ * Archive a position (its tags and links stay). False when gone or already
+ * archived. A group's leaves its members' reach (ruling 12 reads live ones
+ * only): what their own figures, lessons and sections used of it is rescued
+ * into their app (`reconcileEntries`), after the archive, in its transaction.
+ */
 export function archivePosition(
 	db: Db,
 	id: number,
@@ -203,6 +210,7 @@ export function archivePosition(
 		const row = getPosition(tx, id);
 		if (!row || row.archivedAt !== null) return false;
 		tx.update(positions).set({ archivedAt: now }).where(eq(positions.id, id)).run();
+		if (row.teamId !== null) reconcileEntries(tx, row.teamId, now);
 		logChange(
 			tx,
 			spaceOfRow(row, by?.actorId ?? ''),
@@ -246,6 +254,23 @@ export function restorePosition(
 		);
 		return true;
 	});
+}
+
+/**
+ * `restorePosition` of a position of `space`, answered as the other kinds'
+ * restores are: `taken` (with what a taken name says) when a live position
+ * of the space has its name, `gone` when it is not the space's or not
+ * archived.
+ */
+export function restorePositionIn(db: Db, space: Space, id: number, now: number): ArchiveRestore {
+	const row = getPosition(db, id);
+	if (!row || row.archivedAt === null || !inSpace(row, space)) return { ok: false, reason: 'gone' };
+	if (nameTaken(db, space, row.name, id))
+		return { ok: false, reason: 'taken', message: nameRefusal(db, space, row.name).message };
+	const actorId = isTeam(space) ? space.actorId : undefined;
+	return restorePosition(db, id, now, actorId === undefined ? undefined : { actorId })
+		? { ok: true }
+		: { ok: false, reason: 'gone' };
 }
 
 /**

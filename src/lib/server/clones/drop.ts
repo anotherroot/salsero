@@ -2,10 +2,10 @@
  * Drop my copy (board C5, the spec's point 7): the person's own member of a
  * family goes, and they are back on a version they can still read: a group's
  * member of the same family. Everything of theirs that used their copy (their
- * routines' slots and embeds, their lessons' links, their section links,
- * their practice, their twin row, the group lesson's add) is re-pointed onto
- * it in the same transaction (`repoint`), and the copy is archived with its
- * kind's own archive, never deleted.
+ * routines' slots and embeds, their figures' position tags, their lessons'
+ * links, their section links, their practice, their twin row, the group
+ * lesson's add) is re-pointed onto it in the same transaction (`repoint`),
+ * and the copy is archived with its kind's own archive, never deleted.
  *
  * Practice follows only where it may (R8): an entry on a group's figure,
  * routine or drill needs a lesson the person added that holds it. Where none
@@ -39,6 +39,7 @@ import { archiveRoutine } from '../routines';
 import { archiveExercise } from '../exercises';
 import { archiveLesson } from '../lessons';
 import { archiveSong } from '../songs';
+import { archivePosition } from '../positions';
 import { getTeam } from '../teams';
 import { ownedBy, type Wall } from '../scope';
 import { visibleMembers } from './genes';
@@ -55,7 +56,8 @@ const NO_PICKS = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
 const REACH: Partial<Record<CloneKind, keyof Reach>> = {
 	figure: 'variations',
 	routine: 'routines',
-	drill: 'drills'
+	drill: 'drills',
+	position: 'positions'
 };
 
 /**
@@ -105,6 +107,9 @@ function practiceMayFollow(
 			const song = db.select().from(songs).where(eq(songs.id, id)).get();
 			return !!song && practiceSong(db, userId, song);
 		}
+		case 'position':
+			// A position has no practice to carry.
+			return false;
 		default:
 			return addedReach(db, userId, teamId)[REACH[kind]!].has(id);
 	}
@@ -116,7 +121,7 @@ function practiceMayFollow(
  * always has: it is its own exercise.
  */
 function hasPractice(db: Db, wall: Wall, kind: CloneKind, id: number): boolean {
-	if (kind === 'position') return false; // positions: a later task
+	if (kind === 'position') return false; // A position is practised through its figures, never itself.
 	if (kind === 'drill') return true;
 	const col = kind === 'song' ? exercises.songId : ENTRY[kind];
 	return (
@@ -218,7 +223,7 @@ function archiveMine(tx: Db, kind: CloneKind, id: number, now: number): boolean 
 		case 'song':
 			return archiveSong(tx, id, now);
 		case 'position':
-			return false; // positions: a later task
+			return archivePosition(tx, id, now);
 	}
 }
 
