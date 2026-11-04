@@ -141,13 +141,13 @@ describe('the [dance] layout and the group cookie', () => {
 });
 
 describe('Mine in the tab bar', () => {
-	it('posts team=mine to the switch action, back to Today', () => {
+	it('posts team=mine to the switch action, back to the same tab’s own list', () => {
 		const src = readFileSync('src/lib/components/shell/BottomNav.svelte', 'utf8');
 		const form = /<form[\s\S]*?action="\/\{dance\}\/group-mode"[\s\S]*?<\/form>/.exec(src)?.[0];
 		expect(form).toBeDefined();
 		expect(form).toMatch(/method="POST"/);
 		expect(form).toMatch(/name="team" value="mine"/);
-		expect(form).toMatch(/name="to" value="\/\{dance\}"/);
+		expect(form).toMatch(/name="to" value=\{minePath\(path, dance\)\}/);
 		expect(form).toMatch(/>Mine</);
 		// No link may lead to Today in its place.
 		expect(src).not.toMatch(/href=\{resolve\('\/\[dance\]', \{ dance \}\)\}/);
