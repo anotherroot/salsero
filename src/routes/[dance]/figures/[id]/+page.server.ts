@@ -24,7 +24,7 @@ import {
 import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
 import { buildGraph, figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
-import { teamRefs } from '$lib/server/usable';
+import { teamRefs, usableOf } from '$lib/server/usable';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
 import { lessonAdds, positions as positionRows } from '$lib/server/db/schema';
@@ -51,7 +51,7 @@ import { plan } from '$lib/urgency/urgency';
 import { figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { inSpace, requireFigureAccess, wallOf } from '$lib/server/scope';
+import { inSpace, isTeam, requireFigureAccess, wallOf } from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -197,9 +197,13 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// a draft's variation, lesson, routine or section never reaches the page.
 	const seen = (ids: Set<number> | undefined, of: number) => !ids || ids.has(of);
 
-	const graph = buildGraph(db, space);
+	// The viewer's graph (ruling 14): a person's own figures plus the group figures
+	// and positions they may use, so a tag to a group's position counts in Leads to
+	// and Follows from; a group's figure reads the group's graph.
+	const usable = isTeam(space) ? undefined : usableOf(db, space);
+	const graph = graphFor(db, space, usable);
 	const node = figureById(graph, id);
-	const labels = figureLabels(db, space);
+	const labels = figureLabels(db, space, usable);
 	// The graph holds live variations of live figures only, never this one's self.
 	const link = (ids: number[]) =>
 		ids
@@ -208,8 +212,9 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 
 	// What the form offers: the figure's own owner's live positions, the only
 	// ones `setFigureShape` takes (ruling 15). A tag to an archived position is
-	// neither shown nor posted: `setFigureShape` keeps it (ruling 4).
-	const offered = graph.positions;
+	// neither shown nor posted: `setFigureShape` keeps it (ruling 4). The owner's
+	// own graph, as the update action reads it (Task 19 revisits the form).
+	const offered = buildGraph(db, space).positions;
 	const tags = formTags(figurePositions(db, id), offered);
 
 	const shape = {
@@ -379,7 +384,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		routines: routinesUsing(
 			graph,
 			id,
-			routineShapes(db, space),
+			routineShapes(db, space, { usable }),
 			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
 		),
 		practice: popup

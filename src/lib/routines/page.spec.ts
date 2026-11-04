@@ -6,6 +6,7 @@ import {
 	factsOf,
 	failurePlace,
 	fingerprintToSend,
+	handsLine,
 	makeRoutineCaption,
 	seamLabel,
 	selectionTitle,
@@ -32,6 +33,16 @@ describe('routine page derivations', () => {
 		expect(factsOf(['Open', 'Closed'], [])).toEqual({ from: 'Open or Closed', to: null });
 		expect(factsOf([], ['Closed'])).toEqual({ from: null, to: 'Closed' });
 		expect(factsOf([], [])).toBeNull();
+	});
+	it('words the hands: each side joined “or”, an empty or unknown side shows nothing', () => {
+		const known = (id: number) => ({ 1: 'Open', 2: 'Closed', 3: 'Hammerlock' })[id] ?? '';
+		expect(handsLine([1, 2], [3], known)).toBe('Open or Closed → Hammerlock');
+		expect(handsLine([1], [2, 3], known)).toBe('Open → Closed or Hammerlock');
+		expect(handsLine([1], [], known)).toBe('Open →');
+		expect(handsLine([], [2], known)).toBe('→ Closed');
+		expect(handsLine([], [], known)).toBe('');
+		// An id the page has no name for (out of reach) is left out, never a dangling "or".
+		expect(handsLine([1, 99], [99], known)).toBe('Open →');
 	});
 	it('is danceable by its counts, not its positions', () => {
 		// An untagged routine starts anywhere (`starts: []`) and is still danced.
@@ -64,7 +75,7 @@ describe('routine page derivations', () => {
 			'Routine · 3 slots · 1→1 · Open → Open'
 		);
 		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: [2, 3], next: 1 }, name, null)).toBe(
-			'1→1 · Open / Closed → Closed / Hammerlock'
+			'1→1 · Open or Closed → Closed or Hammerlock'
 		);
 		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, null)).toBe('');
 		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, 1)).toBe(

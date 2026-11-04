@@ -610,6 +610,59 @@ describe("the detail pages refuse the other dance's rows", () => {
 			).toEqual({ starts: [], ends: [] });
 		});
 
+		it('Leads to and Follows from walk the viewer’s graph: a group’s position they use counts', () => {
+			const T = 1_790_000_000_000;
+			const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
+			createTeam(db, 'u5', 'salsa', 'Rueda club', T);
+			joinTeam(db, 'u1', 1, T);
+			// u1 has no member of the Abierta family: only the group's.
+			const theirOpen = addPosition(db, EVA, 'Abierta', { geneId: 'g-open' });
+			const F = createFigure(db, EVA, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(
+				db,
+				F,
+				{ startIds: [theirOpen], endIds: [], startCount: 1, lengthCounts: 8 },
+				'u5'
+			);
+			const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'W1', notes: null }).lesson
+				.id;
+			linkFigure(db, L, F, 'u5');
+			publishLesson(db, EVA, L, T);
+			addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+
+			const A = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'A', style: 'salsa' })!
+				.figure.id;
+			expect(
+				setFigureShape(db, A, {
+					startIds: [],
+					endIds: [theirOpen],
+					startCount: 1,
+					lengthCounts: 8
+				})
+			).toBe(true);
+			const B = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'B', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(db, B, {
+				startIds: [salsaPosition('closed').id],
+				endIds: [],
+				startCount: 1,
+				lengthCounts: 8
+			});
+
+			type Linked = { leadsTo: { id: number; name: string }[]; followsFrom: { id: number }[] };
+			const a = loadWith('salsa', String(A)) as Linked;
+			const leads = a.leadsTo.map((x) => x.id);
+			// A ends in the group's Abierta: B (from Cerrada) cannot follow it…
+			expect(leads).not.toContain(B);
+			// …the group's figure starting there can, named; an untagged figure fits anywhere.
+			expect(a.leadsTo).toContainEqual({ id: F, name: 'Vacilala · Basic' });
+			expect(leads).toContain(salsaFigureId);
+			// The other way round: B's Follows from leaves A out.
+			const b = loadWith('salsa', String(B)) as Linked;
+			expect(b.followsFrom.map((x) => x.id)).not.toContain(A);
+		});
+
 		it('load lists the routines that use the variation', () => {
 			createRoutineFromFigures(db, U1_SALSA, { name: 'Set A', notes: null }, [
 				salsaFigureId2,

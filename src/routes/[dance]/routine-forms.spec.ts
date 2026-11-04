@@ -25,6 +25,7 @@ import {
 } from '$lib/server/routines';
 import * as routinePage from './routines/[id]/+page.server';
 import * as routinesList from './routines/+page.server';
+import * as playerPage from './player/+page.server';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { createLesson, linkFigure, linkRoutine, publishLesson } from '$lib/server/lessons';
 import { addLesson } from '$lib/server/entries';
@@ -397,5 +398,19 @@ describe('positions are optional in routines', () => {
 		const d = loadRoutine(R);
 		expect(d.positions.map((p) => p.name).sort()).toEqual(['Abierta', 'Cerrada']);
 		expect(factsLine(d)).toEqual({ from: 'Cerrada', to: 'Abierta' });
+
+		// The member's player walks the same routine: its graph names no draft's hold either.
+		const opened = (
+			playerPage.load as unknown as (e: unknown) => {
+				graph: { figures: { id: number }[]; positions: { name: string }[] };
+			}
+		)({
+			params: { dance: 'salsa' },
+			url: new URL(`http://localhost/salsa/player?routine=${R}`),
+			locals: { user: USER }
+		});
+		expect(opened.graph.figures.map((f) => f.id)).toEqual([G]);
+		expect(opened.graph.positions.map((p) => p.name).sort()).toEqual(['Abierta', 'Cerrada']);
+		expect(opened.graph).not.toHaveProperty('canon');
 	});
 });
