@@ -7,6 +7,7 @@ import {
 	figureGroups,
 	figures,
 	figureStartPositions,
+	lessonPositions,
 	positions
 } from './db/schema';
 import { archiveVariation, createFigure, createVariationFrom } from './figures';
@@ -24,6 +25,7 @@ import { T1_SALSA, U1_SALSA, U1_BACHATA, U2_SALSA } from '$lib/server/test-walls
 import { createTeam, joinTeam } from './teams';
 import { createLesson, linkFigure, publishLesson } from './lessons';
 import { addLesson } from './entries';
+import { crossRefs } from './integrity';
 
 const figureInput = (name: string) => ({
 	figureName: name,
@@ -340,6 +342,71 @@ describe('setFigureShape', () => {
 			startIds: [crossHand],
 			endIds: [crossHand]
 		});
+	});
+});
+
+describe('a person tags with the group positions they may use (ruling 15)', () => {
+	const T = 1_790_000_000_000;
+	const NONE = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
+
+	/**
+	 * Salsa Tuesdays: F starts in the group's Open and is in published lesson L,
+	 * which u2 added; L links Sombra by hand. Draft is a group position only an
+	 * unpublished lesson links. M is u2's own figure.
+	 */
+	function usable() {
+		const db = openDb(':memory:');
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', T);
+		joinTeam(db, 'u2', 1, T);
+		const open = addPosition(db, T1_SALSA, 'Open');
+		const sombra = addPosition(db, T1_SALSA, 'Sombra');
+		const draft = addPosition(db, T1_SALSA, 'Draft');
+		const F = createFigure(db, T1_SALSA, figureInput('Enchufla'))!.figure.id;
+		expect(setFigureShape(db, F, shape([open], []), 'u1')).toBe(true);
+		const lesson = (title: string) =>
+			createLesson(db, T1_SALSA, { lessonDay: '2026-11-03', title, notes: null }).lesson.id;
+		const L = lesson('W1');
+		linkFigure(db, L, F, 'u1');
+		db.insert(lessonPositions).values({ lessonId: L, positionId: sombra }).run();
+		expect(publishLesson(db, T1_SALSA, L, T)).toBe(true);
+		expect(addLesson(db, 'u2', L, NONE, T)).toBe(true);
+		db.insert(lessonPositions)
+			.values({ lessonId: lesson('Draft'), positionId: draft })
+			.run();
+		const M = createFigure(db, U2_SALSA, figureInput('Mine'))!.figure.id;
+		return { db, F, M, open, sombra, draft };
+	}
+
+	it('accepts a usable group position on a person’s figure, and the graph reads it', () => {
+		const { db, F, M, open } = usable();
+		expect(setFigureShape(db, M, shape([], [open]))).toBe(true);
+		expect(figurePositions(db, M)).toEqual({ startIds: [], endIds: [open] });
+		expect(follows(graphFor(db, U2_SALSA), M)).toContain(F);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('replaces a usable group tag like an own one', () => {
+		const { db, M, open, sombra } = usable();
+		expect(setFigureShape(db, M, shape([open], [open]))).toBe(true);
+		expect(setFigureShape(db, M, shape([sombra], []))).toBe(true);
+		expect(figurePositions(db, M)).toEqual({ startIds: [sombra], endIds: [] });
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('refuses a group position the person may not use, writing nothing', () => {
+		const { db, M, open, draft } = usable();
+		expect(setFigureShape(db, M, shape([open], [draft]))).toBe(false);
+		expect(figurePositions(db, M)).toEqual({ startIds: [], endIds: [] });
+		const outsider = createFigure(db, { userId: 'u3', dance: 'salsa' }, figureInput('X'))!.figure
+			.id;
+		expect(setFigureShape(db, outsider, shape([open], []))).toBe(false);
+	});
+
+	it('graphFor holds every usable group position, a hand-linked one too', () => {
+		const { db, open, sombra, draft } = usable();
+		const ids = graphFor(db, U2_SALSA).positions.map((p) => p.id);
+		expect(ids).toEqual(expect.arrayContaining([open, sombra]));
+		expect(ids).not.toContain(draft);
 	});
 });
 

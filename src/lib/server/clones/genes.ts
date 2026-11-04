@@ -25,7 +25,14 @@ import {
 } from '../db/schema';
 import { ownedBy, type Space } from '../scope';
 import { getTeam } from '../teams';
-import { drillAccess, figureAccess, lessonAccess, routineAccess, songAccess } from '../access';
+import {
+	drillAccess,
+	figureAccess,
+	lessonAccess,
+	positionAccess,
+	routineAccess,
+	songAccess
+} from '../access';
 
 type Cols = { table: SQLiteTable; id: SQLiteColumn; geneId: SQLiteColumn };
 type RootCols = Cols & {
@@ -184,8 +191,10 @@ export function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
 			const row = db.select().from(lessons).where(eq(lessons.id, id)).get();
 			return row ? lessonAccess(db, userId, row) : null;
 		}
-		case 'position':
-			return null; // positions: a later task adds positionAccess
+		case 'position': {
+			const row = db.select().from(positions).where(eq(positions.id, id)).get();
+			return row ? positionAccess(db, userId, row) : null;
+		}
 	}
 }
 

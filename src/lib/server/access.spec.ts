@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { lessonAdds, lessons, songs, teamMembers, teams } from './db/schema';
+import {
+	figureEndPositions,
+	figureStartPositions,
+	lessonAdds,
+	lessonPositions,
+	lessons,
+	positions,
+	songs,
+	spotPositionLinks,
+	teamMembers,
+	teams,
+	videoSpots
+} from './db/schema';
 import {
 	addedLessonIds,
 	addedTeams,
@@ -12,10 +24,12 @@ import {
 	lessonAccess,
 	publishedReach,
 	lessonVideoAccess,
+	positionAccess,
 	reach,
 	recordingAccess,
 	routineAccess,
-	songAccess
+	songAccess,
+	teamReader
 } from './access';
 import { createCustomExercise, getExercise } from './exercises';
 import { addRecording, createFigure, createVariationIn, listGroupVariations } from './figures';
@@ -35,9 +49,12 @@ import {
 	requireExerciseAccess,
 	requireFigureAccess,
 	requireLessonAccess,
+	requirePositionAccess,
 	requireRoutineAccess,
 	requireSongAccess
 } from './scope';
+import { addPosition } from './test-positions';
+import { crossRefs } from './integrity';
 import { createTeam, deleteTeam, joinTeam } from './teams';
 import { leaveTeam, setRole } from './membership';
 import { NO_FILES, T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
@@ -387,6 +404,128 @@ describe('the guards', () => {
 		expect(() => requireExerciseAccess(...as('u2'), drill, 'edit')).toThrow(threw404);
 		expect(() => requireExerciseAccess(...as('u2'), draftDrill, 'read')).toThrow(threw404);
 		expect(requireExerciseAccess(...as('u3'), draftDrill, 'edit').access).toBe('edit');
+	});
+});
+
+describe('positions (ruling 12)', () => {
+	/**
+	 * Group positions: `tagStart` and `tagEnd` tag V2 (reached through R → C);
+	 * `hand` is linked by hand from P; `spot` from a point on P's video;
+	 * `draft` only from D (by hand, on V3 and from a point on D's video);
+	 * `gone` tags V2 but is archived; `loose` nothing reaches. `own` is u1's own.
+	 */
+	let tagStart: number, tagEnd: number, hand: number, spot: number;
+	let draft: number, gone: number, loose: number, own: number;
+	const row = (id: number) => db.select().from(positions).where(eq(positions.id, id)).get()!;
+	const as = (id: string, dance = 'salsa') =>
+		[
+			db,
+			{ user: { id, email: `${id}@example.com`, timezone: 'UTC', isAdmin: false } } as App.Locals,
+			{ dance }
+		] as const;
+	const threw404 = expect.objectContaining({ status: 404 });
+	const sorted = (ids: Iterable<number>) => [...ids].sort((a, b) => a - b);
+
+	beforeEach(() => {
+		tagStart = addPosition(db, T1_SALSA, 'Abierta');
+		tagEnd = addPosition(db, T1_SALSA, 'Cerrada');
+		hand = addPosition(db, T1_SALSA, 'Sombra');
+		spot = addPosition(db, T1_SALSA, 'Caída');
+		draft = addPosition(db, T1_SALSA, 'Setenta');
+		gone = addPosition(db, T1_SALSA, 'Vieja', { archivedAt: 2 });
+		loose = addPosition(db, T1_SALSA, 'Suelta');
+		own = addPosition(db, U1_SALSA, 'Mía');
+		db.insert(figureStartPositions)
+			.values([
+				{ figureId: V2, positionId: tagStart },
+				{ figureId: V2, positionId: gone },
+				{ figureId: V3, positionId: draft }
+			])
+			.run();
+		db.insert(figureEndPositions).values({ figureId: V2, positionId: tagEnd }).run();
+		db.insert(lessonPositions)
+			.values([
+				{ lessonId: P, positionId: hand },
+				{ lessonId: D, positionId: draft }
+			])
+			.run();
+		const point = (lessonVideoId: number) =>
+			db.insert(videoSpots).values({ lessonVideoId, startMs: 5, endMs: null }).returning().get().id;
+		db.insert(spotPositionLinks)
+			.values({ spotId: point(pVideo), positionId: spot })
+			.run();
+		db.insert(spotPositionLinks)
+			.values({ spotId: point(dVideo), positionId: draft })
+			.run();
+	});
+
+	it("a member reaches what P's figures are tagged with, what P links by hand and from a point", () => {
+		expect(sorted(reach(db, 'u2', 1).positions)).toEqual(sorted([tagStart, tagEnd, hand, spot]));
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('nothing only a draft reaches, nothing archived, nothing unlinked', () => {
+		const r = reach(db, 'u2', 1);
+		for (const id of [draft, gone, loose]) expect(r.positions.has(id)).toBe(false);
+	});
+
+	it('positionAccess: editors edit, a member reads what is in reach, nobody else gets anything', () => {
+		for (const u of ['u1', 'u3']) {
+			for (const id of [tagStart, draft, gone, loose]) {
+				expect(positionAccess(db, u, row(id))).toBe('edit');
+			}
+		}
+		for (const id of [tagStart, tagEnd, hand, spot]) {
+			expect(positionAccess(db, 'u2', row(id))).toBe('read');
+		}
+		for (const id of [draft, gone, loose]) expect(positionAccess(db, 'u2', row(id))).toBeNull();
+		expect(positionAccess(db, 'u4', row(tagStart))).toBeNull();
+		expect(positionAccess(db, 'u1', row(own))).toBe('edit');
+		expect(positionAccess(db, 'u2', row(own))).toBeNull();
+	});
+
+	it('teamReader answers as positionAccess does', () => {
+		for (const u of ['u1', 'u2', 'u3', 'u4']) {
+			const reader = teamReader(db, u, 1);
+			for (const id of [tagStart, tagEnd, hand, spot, draft, gone, loose]) {
+				expect([u, id, reader('position', id)]).toEqual([
+					u,
+					id,
+					positionAccess(db, u, row(id)) !== null
+				]);
+			}
+		}
+	});
+
+	it('after leaving, a former member reaches none of them', async () => {
+		expect(await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, 10)).toBe('left');
+		expect(reach(db, 'u2', 1).positions.size).toBe(0);
+		expect(positionAccess(db, 'u2', row(tagStart))).toBeNull();
+	});
+
+	it('unpublishing P takes its positions with it', () => {
+		db.update(lessons).set({ publishedAt: null }).where(eq(lessons.id, P)).run();
+		expect(reach(db, 'u2', 1).positions.size).toBe(0);
+	});
+
+	it('requirePositionAccess: a member reads and may not edit; a draft, a stranger, another dance are 404s', () => {
+		expect(requirePositionAccess(...as('u2'), tagStart, 'read')).toMatchObject({
+			access: 'read',
+			position: { id: tagStart },
+			space: { teamId: 1, dance: 'salsa', actorId: 'u2' }
+		});
+		expect(() => requirePositionAccess(...as('u2'), tagStart, 'edit')).toThrow(threw404);
+		expect(() => requirePositionAccess(...as('u2'), draft, 'read')).toThrow(threw404);
+		expect(() => requirePositionAccess(...as('u4'), tagStart, 'read')).toThrow(threw404);
+		expect(() => requirePositionAccess(...as('u3', 'bachata'), tagStart, 'read')).toThrow(threw404);
+		expect(requirePositionAccess(...as('u3'), draft, 'edit').access).toBe('edit');
+		expect(requirePositionAccess(...as('u1'), own, 'edit')).toMatchObject({
+			access: 'edit',
+			reach: null,
+			space: { userId: 'u1', dance: 'salsa' }
+		});
+		expect(() => requirePositionAccess(...as('u2'), own, 'read')).toThrow(threw404);
+		expect(() => requirePositionAccess(...as('u1'), 'nope', 'read')).toThrow(threw404);
 	});
 });
 

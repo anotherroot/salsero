@@ -12,6 +12,9 @@
  *   make a routine that already uses it unplayable while the person still
  *   reads it. A pointed-at routine brings what they read of its slots and
  *   its embedded routine's slots, so it plays whole.
+ * Positions (ruling 12) come the same two ways — their figures' tags, their
+ * lessons' and sections' position links — plus what every usable figure is
+ * tagged with, so a routine holding it walks the graph it was built on.
  *
  * The person's own rows are not in it: they are the wall's own. Derived per
  * call, never stored.
@@ -19,16 +22,36 @@
 import { and, asc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { exercises, figureGroups, figures, teamMembers } from './db/schema';
+import {
+	exercises,
+	figureEndPositions,
+	figureGroups,
+	figures,
+	figureStartPositions,
+	positions,
+	teamMembers,
+	type PositionRow
+} from './db/schema';
 import { addedReach, addedTeams, teamReader, type ReadKind } from './access';
 import { isTeam, ownedBy, type Space, type Wall } from './scope';
 import { getTeam } from './teams';
 import { withoutShadowed } from './clones/shadow';
+import { sortPositions } from './positions';
 import type { FigureVersion, TeamRef } from '$lib/types';
 
-export type Usable = { figures: Set<number>; routines: Set<number>; drills: Set<number> };
+export type Usable = {
+	figures: Set<number>;
+	routines: Set<number>;
+	drills: Set<number>;
+	/**
+	 * Group positions (ruling 12): what the added lessons reach, what the
+	 * person's own figures, lessons and spots already point at, and what the
+	 * usable figures are tagged with, so the routines using those play whole.
+	 */
+	positions: Set<number>;
+};
 
-type Pointer = { kind: 'figure' | 'routine' | 'drill'; id: number; teamId: number };
+type Pointer = { kind: 'figure' | 'routine' | 'drill' | 'position'; id: number; teamId: number };
 
 /**
  * The group rows of this dance the person's own rows point at, archived
@@ -89,6 +112,40 @@ function pointers(db: Db, wall: Wall): Pointer[] {
 		  join exercises t on t.id = x.exercise_id
 		 where l.user_id = ${userId} and l.team_id is null and l.dance = ${dance}
 		   and t.team_id is not null and t.dance = ${dance}
+		union
+		select 'position', t.id, t.team_id
+		  from figure_start_positions x
+		  join figures f on f.id = x.figure_id
+		  join positions t on t.id = x.position_id
+		 where f.user_id = ${userId} and f.team_id is null and f.dance = ${dance}
+		   and t.team_id is not null and t.dance = ${dance}
+		union
+		select 'position', t.id, t.team_id
+		  from figure_end_positions x
+		  join figures f on f.id = x.figure_id
+		  join positions t on t.id = x.position_id
+		 where f.user_id = ${userId} and f.team_id is null and f.dance = ${dance}
+		   and t.team_id is not null and t.dance = ${dance}
+		union
+		select 'position', t.id, t.team_id
+		  from lesson_positions x
+		  join lessons l on l.id = x.lesson_id
+		  join positions t on t.id = x.position_id
+		 where l.user_id = ${userId} and l.team_id is null and l.dance = ${dance}
+		   and t.team_id is not null and t.dance = ${dance}
+		union
+		select 'position', t.id, t.team_id
+		  from spot_position_links x
+		  join video_spots v on v.id = x.spot_id
+		  left join recordings rec on rec.id = v.recording_id
+		  left join figures rf on rf.id = rec.figure_id
+		  left join lesson_videos lv on lv.id = v.lesson_video_id
+		  left join lessons vl on vl.id = lv.lesson_id
+		  join positions t on t.id = x.position_id
+		 where coalesce(rf.user_id, vl.user_id) = ${userId}
+		   and coalesce(rf.team_id, vl.team_id) is null
+		   and coalesce(rf.dance, vl.dance) = ${dance}
+		   and t.team_id is not null and t.dance = ${dance}
 	`);
 	return rows;
 }
@@ -144,11 +201,17 @@ function inTeam(db: Db, userId: string, teamId: number): boolean {
 
 /** What the person may use of the groups of this dance. See the module comment. */
 export function usableOf(db: Db, wall: Wall): Usable {
-	const out: Usable = { figures: new Set(), routines: new Set(), drills: new Set() };
+	const out: Usable = {
+		figures: new Set(),
+		routines: new Set(),
+		drills: new Set(),
+		positions: new Set()
+	};
 	const sets: Record<Pointer['kind'], Set<number>> = {
 		figure: out.figures,
 		routine: out.routines,
-		drill: out.drills
+		drill: out.drills,
+		position: out.positions
 	};
 	// One reader per group: everything below is kept only if the person reads it.
 	const readers = new Map<number, ((kind: ReadKind, id: number) => boolean) | null>();
@@ -171,6 +234,7 @@ export function usableOf(db: Db, wall: Wall): Usable {
 		for (const id of r.variations) take(team.id, 'figure', id);
 		for (const id of r.routines) take(team.id, 'routine', id);
 		for (const id of r.drills) take(team.id, 'drill', id);
+		for (const id of r.positions) take(team.id, 'position', id);
 	}
 
 	const byTeam = new Map<number, Pointer[]>();
@@ -191,6 +255,29 @@ export function usableOf(db: Db, wall: Wall): Usable {
 		);
 		for (const id of held.routines) take(teamId, 'routine', id);
 		for (const id of held.figures) take(teamId, 'figure', id);
+	}
+	// What the usable figures are tagged with: a group's figure only ever with
+	// its group's positions (ruling 15), and what a reader reads of them.
+	for (const tag of groupTags(db, out.figures)) take(tag.teamId, 'position', tag.id);
+	return out;
+}
+
+/** The group positions these figures are tagged with (start or end), each in its figure's group. */
+function groupTags(db: Db, figureIds: Set<number>): { id: number; teamId: number }[] {
+	if (figureIds.size === 0) return [];
+	const ids = [...figureIds];
+	const out: { id: number; teamId: number }[] = [];
+	for (const table of [figureStartPositions, figureEndPositions]) {
+		out.push(
+			...db
+				.select({ id: positions.id, teamId: figures.teamId })
+				.from(table)
+				.innerJoin(figures, eq(figures.id, table.figureId))
+				.innerJoin(positions, eq(positions.id, table.positionId))
+				.where(and(inArray(table.figureId, ids), eq(positions.teamId, figures.teamId)))
+				.all()
+				.map((r) => ({ id: r.id, teamId: r.teamId! }))
+		);
 	}
 	return out;
 }
@@ -213,7 +300,7 @@ export function ownedOrUsable(
 
 /**
  * Whether `space` may point at `row`, a row of another owner, from its own
- * rows (a slot, a section link, a lesson link): a group's row of the dance
+ * rows (a slot, a section link, a lesson link, a figure's position tag): a group's row of the dance
  * the person may use (`usableOf`). Never for a group's space, which points at
  * its own rows only. The space's own rows are the caller's check (`inSpace`).
  * Pass `usable` when the caller has it already.
@@ -285,6 +372,40 @@ export function usableVersions(
 	return shown.flatMap(({ teamId, ...r }) => {
 		const team = teams.get(teamId!);
 		return team ? [{ ...r, label: `${r.figure} · ${r.name}`, team }] : [];
+	});
+}
+
+/**
+ * The group positions a person may use (`usableOf`), live and of the wall's
+ * dance, each tagged with its group, in list order (`sortPositions`). The
+ * person's own copies do not hide them: lists fold twins, not clones.
+ */
+export function usablePositions(
+	db: Db,
+	wall: Wall,
+	usable: Usable = usableOf(db, wall)
+): (PositionRow & { team: TeamRef })[] {
+	const ids = [...usable.positions];
+	if (ids.length === 0) return [];
+	const rows = db
+		.select()
+		.from(positions)
+		.where(
+			and(
+				inArray(positions.id, ids),
+				eq(positions.dance, wall.dance),
+				isNotNull(positions.teamId),
+				isNull(positions.archivedAt)
+			)
+		)
+		.all();
+	const teams = teamRefs(
+		db,
+		rows.map((r) => r.teamId!)
+	);
+	return sortPositions(rows, wall.dance).flatMap((r) => {
+		const team = teams.get(r.teamId!);
+		return team ? [{ ...r, team }] : [];
 	});
 }
 

@@ -33,8 +33,16 @@ export function listPositions(
 		)
 		.orderBy(asc(positions.id))
 		.all();
-	const order = DANCES[space.dance].styles;
-	const rank = (r: PositionRow) => {
+	return sortPositions(rows, space.dance);
+}
+
+/** Positions in list order (ruling 7): by type in the dance's order, untyped last, then folded name, then id. */
+export function sortPositions<T extends { id: number; name: string; styleTag: string | null }>(
+	rows: T[],
+	dance: DanceSlug
+): T[] {
+	const order = DANCES[dance].styles;
+	const rank = (r: T) => {
 		const i = r.styleTag === null ? -1 : order.indexOf(r.styleTag);
 		return i < 0 ? order.length : i;
 	};

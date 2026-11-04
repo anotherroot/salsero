@@ -9,16 +9,21 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import {
 	exercises,
+	figureEndPositions,
 	figures,
+	figureStartPositions,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessonRoutines,
 	lessonVideos,
+	positions,
 	recordings,
 	routines,
 	routineStepOptions,
 	routineSteps,
 	spotLinks,
+	spotPositionLinks,
 	teamMembers,
 	users,
 	videoSpots
@@ -27,7 +32,8 @@ import { createTeam, joinTeam } from './teams';
 import { setRole } from './membership';
 import { createFigure } from './figures';
 import { createLesson, linkFigure, publishLesson } from './lessons';
-import { crossRefs, familyIntegrity } from './integrity';
+import { crossRefs, familyIntegrity, ownerIntegrity } from './integrity';
+import { addPosition } from './test-positions';
 import { figureAccess, teamReader } from './access';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
@@ -279,5 +285,85 @@ describe('familyIntegrity', () => {
 			`lessons ${L}: videos ${v1}, ${v2} are one family`,
 			`lesson_videos ${v1}: sections ${s1}, ${s2} are one family`
 		]);
+	});
+});
+
+describe('positions', () => {
+	it('ownerIntegrity reports a position with both owners, and one with neither', () => {
+		expect(ownerIntegrity(db)).toEqual([]);
+		const both = db
+			.insert(positions)
+			.values({ dance: 'salsa', slug: 'p-a', name: 'A', userId: 'u1', teamId: 1 })
+			.returning()
+			.get().id;
+		const neither = db
+			.insert(positions)
+			.values({ dance: 'salsa', slug: 'p-b', name: 'B' })
+			.returning()
+			.get().id;
+		expect(ownerIntegrity(db)).toEqual([
+			`positions ${both}: needs exactly one of user_id and team_id`,
+			`positions ${neither}: needs exactly one of user_id and team_id`
+		]);
+	});
+
+	it('crossRefs covers tags, lesson links and section links to positions', () => {
+		const groupFig = figure(T1_SALSA);
+		const mineU1 = addPosition(db, U1_SALSA, 'Mine');
+		const groupPos = addPosition(db, T1_SALSA, 'Ours');
+		const groupLesson = lessonOf(T1_SALSA);
+		const V = db
+			.insert(lessonVideos)
+			.values({ lessonId: groupLesson, file: 'a.mp4', mime: 'video/mp4', sizeBytes: 1 })
+			.returning()
+			.get().id;
+		const point = db
+			.insert(videoSpots)
+			.values({ lessonVideoId: V, startMs: 0 })
+			.returning()
+			.get().id;
+		// The group's rows pointing at u1's own position.
+		db.insert(figureStartPositions).values({ figureId: groupFig, positionId: mineU1 }).run();
+		db.insert(figureEndPositions).values({ figureId: groupFig, positionId: mineU1 }).run();
+		db.insert(lessonPositions).values({ lessonId: groupLesson, positionId: mineU1 }).run();
+		const SPL = db
+			.insert(spotPositionLinks)
+			.values({ spotId: point, positionId: mineU1 })
+			.returning()
+			.get().id;
+		// And the group's own: no line.
+		db.insert(figureEndPositions).values({ figureId: groupFig, positionId: groupPos }).run();
+
+		// u2, no member, pointing at the group's position from their own figure and lesson.
+		const mineU2 = figure(U2_SALSA);
+		db.insert(figureStartPositions).values({ figureId: mineU2, positionId: groupPos }).run();
+		const theirLesson = lessonOf(U2_SALSA);
+		db.insert(lessonPositions).values({ lessonId: theirLesson, positionId: groupPos }).run();
+		// …and at u1's own position.
+		db.insert(figureEndPositions).values({ figureId: mineU2, positionId: mineU1 }).run();
+
+		expect(crossRefs(db).sort()).toEqual(
+			[
+				`figures ${groupFig}: start position ${mineU1} is outside group 1`,
+				`figures ${groupFig}: end position ${mineU1} is outside group 1`,
+				`lessons ${groupLesson}: linked position ${mineU1} is outside group 1`,
+				`spot_position_links ${SPL}: linked position ${mineU1} is outside group 1`,
+				`figures ${mineU2}: start position ${groupPos} is group 1's, which u2 does not read`,
+				`lessons ${theirLesson}: linked position ${groupPos} is group 1's, which u2 does not read`,
+				`figures ${mineU2}: end position ${mineU1} is another person's`
+			].sort()
+		);
+	});
+
+	it('crossRefs is quiet once a member reads the position through a published lesson', () => {
+		joinTeam(db, 'u2', 1, T);
+		const groupPos = addPosition(db, T1_SALSA, 'Ours');
+		const mineU2 = figure(U2_SALSA);
+		db.insert(figureStartPositions).values({ figureId: mineU2, positionId: groupPos }).run();
+		expect(crossRefs(db)).toHaveLength(1);
+		const L = lessonOf(T1_SALSA);
+		db.insert(lessonPositions).values({ lessonId: L, positionId: groupPos }).run();
+		publishLesson(db, T1_SALSA, L, T);
+		expect(crossRefs(db)).toEqual([]);
 	});
 });

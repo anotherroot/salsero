@@ -28,8 +28,8 @@ import {
 	isLengthCounts,
 	isStartCount
 } from '$lib/graph/timing';
-import { inSpace, isTeam, spaceOfRow, type Space } from './scope';
-import { ownedOrUsable, usableOf, type Usable } from './usable';
+import { inSpace, isTeam, spaceOfRow, type Space, type Wall } from './scope';
+import { ownedOrUsable, usableBy, usableOf, type Usable } from './usable';
 import { actingIn, fieldChange, logChange } from './changes';
 
 /** A graph as `buildGraph` makes it: plus each real position id's canonical id. */
@@ -157,45 +157,17 @@ export function canonicalOf(g: Graph & { canon: Map<number, number> }, positionI
 }
 
 /**
- * The group positions the figures `figureIds` are tagged with, each in its
- * figure's own group: a group's figure is tagged only with its group's
- * positions (ruling 15), so these are what a person reaches through the
- * figures they may use.
- *
- * positions: Task 8 adds `Usable.positions` (ruling 12), which covers these;
- * `graphFor` reads it then.
- */
-function taggedGroupPositions(db: Db, figureIds: Set<number>): Set<number> {
-	const ids = [...figureIds];
-	if (ids.length === 0) return new Set();
-	const found = new Set<number>();
-	for (const table of [figureStartPositions, figureEndPositions]) {
-		const rows = db
-			.select({ id: positions.id })
-			.from(table)
-			.innerJoin(figures, eq(figures.id, table.figureId))
-			.innerJoin(positions, eq(positions.id, table.positionId))
-			.where(and(inArray(table.figureId, ids), eq(positions.teamId, figures.teamId)))
-			.all();
-		for (const r of rows) found.add(r.id);
-	}
-	return found;
-}
-
-/**
  * The graph a space's routines are walked on. A person's: their own figures
- * and positions, and the group figures they may use (`usableOf`) with the
- * group positions those are tagged with, since their routines may hold those.
- * A group's: its own, as ever — a group's routine only holds its group's
- * figures. Pass `usable` when the caller has it already.
+ * and positions, and the group figures and positions they may use
+ * (`usableOf`; its positions hold what the usable figures are tagged with),
+ * since their routines may hold those. A group's: its own, as ever — a
+ * group's routine only holds its group's figures. Pass `usable` when the
+ * caller has it already.
  */
 export function graphFor(db: Db, space: Space, usable?: Usable): SpaceGraph {
 	if (isTeam(space)) return buildGraph(db, space);
-	const figureIds = (usable ?? usableOf(db, space)).figures;
-	return buildGraph(db, space, {
-		figures: figureIds,
-		positions: taggedGroupPositions(db, figureIds)
-	});
+	const u = usable ?? usableOf(db, space);
+	return buildGraph(db, space, { figures: u.figures, positions: u.positions });
 }
 
 /** A figure's tags, live and archived, each side sorted: what the edit form and History read. */
@@ -256,9 +228,9 @@ export function setFigureShape(db: Db, figureId: number, shape: FigureShape, by?
  * History keeps it.
  *
  * A wanted position must be live, of the figure's dance, and the figure's own
- * owner's (ruling 15: a group's figure only with its group's positions).
- * positions: Task 8 widens a person's figure to the group positions they may
- * use (`usableBy(…, 'positions', …)`).
+ * owner's, or, on a person's figure, a group position they may use
+ * (`usableBy(…, 'positions', …)`). Ruling 15: a group's figure only with its
+ * group's positions.
  * `positions.dance` has no CHECK pairing it to `figures.dance` (a new CHECK
  * on `figures` would force a rebuild and fail at migrate time), so the wall is
  * enforced here, the same way the figure's style is.
@@ -290,10 +262,17 @@ export function writeFigureShape(tx: Db, figureId: number, shape: FigureShape) {
 	const rows =
 		all.length === 0 ? [] : tx.select().from(positions).where(inArray(positions.id, all)).all();
 	const byId = new Map(rows.map((p) => [p.id, p]));
-	/** A position this save may write or replace: live, and the figure's owner's. */
+	// What the figure's owner may use of the groups, read once and only when a
+	// group's position is in play (never for a group's figure: `usableBy`).
+	let usable: Usable | undefined;
+	const usableFor = () => (usable ??= usableOf(tx, owner as Wall));
+	/** A position this save may write or replace: live, and the figure's owner's or usable by them. */
 	const ours = (id: number) => {
 		const p = byId.get(id);
-		return p !== undefined && p.archivedAt === null && inSpace(p, owner);
+		if (p === undefined || p.archivedAt !== null) return false;
+		if (inSpace(p, owner)) return true;
+		if (isTeam(owner) || p.teamId === null) return false;
+		return usableBy(tx, owner, 'positions', p, usableFor());
 	};
 
 	const side = (wanted: number[], had: number[]) => {

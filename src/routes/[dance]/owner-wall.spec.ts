@@ -315,8 +315,61 @@ describe("the figures list and coverage show only the person's own", () => {
 	});
 });
 
-describe('positions belong to their owner', () => {
-	// Task 8 rewrites this block for owned positions.
+import { requirePositionAccess } from '$lib/server/scope';
+import { addPosition } from '$lib/server/test-positions';
+import { lessonPositions } from '$lib/server/db/schema';
+import { setRole } from '$lib/server/membership';
+import { publishLesson } from '$lib/server/lessons';
+import { crossRefs } from '$lib/server/integrity';
+
+describe('positions are each owner’s', () => {
+	const U3 = { id: 'u3', email: 'u3@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+	const as = (user: User, dance = 'salsa') => [db, { user } as App.Locals, { dance }] as const;
+
+	it("u2 gets the missing one's 404 reading or editing u1's position", () => {
+		const id = listPositions(db, U1_SALSA)[0].id;
+		expect(requirePositionAccess(...as(U1), id, 'edit').position.id).toBe(id);
+		for (const target of [id, 9999]) {
+			for (const need of ['read', 'edit'] as const) {
+				expect(() => requirePositionAccess(...as(U2), target, need)).toThrow(threw404);
+			}
+		}
+	});
+
+	it('another dance’s position is a 404, its owner included', () => {
+		const bachata = listPositions(db, U1_BACHATA)[0].id;
+		expect(() => requirePositionAccess(...as(U1), bachata, 'read')).toThrow(threw404);
+		const salsa = listPositions(db, U1_SALSA)[0].id;
+		expect(() => requirePositionAccess(...as(U1, 'bachata'), salsa, 'read')).toThrow(threw404);
+	});
+
+	it('a member reads a group position a published lesson reaches, read-only; an editor edits it', () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok) throw new Error('team expected');
+		const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', T.teamId, 2);
+		joinTeam(db, 'u3', T.teamId, 2);
+		setRole(db, T.teamId, 'u3', 'editor');
+		const ours = addPosition(db, T, 'Cerrada');
+		const L = createLesson(db, T, { lessonDay: '2026-11-04', title: 'W1', notes: null }).lesson.id;
+		db.insert(lessonPositions).values({ lessonId: L, positionId: ours }).run();
+
+		// A draft reaches nobody.
+		expect(() => requirePositionAccess(...as(U2), ours, 'read')).toThrow(threw404);
+		expect(publishLesson(db, T, L, 3)).toBe(true);
+
+		expect(requirePositionAccess(...as(U2), ours, 'read')).toMatchObject({
+			access: 'read',
+			space: { teamId: T.teamId, dance: 'salsa', actorId: 'u2' }
+		});
+		expect(() => requirePositionAccess(...as(U2), ours, 'edit')).toThrow(threw404);
+		expect(requirePositionAccess(...as(U3), ours, 'edit')).toMatchObject({
+			access: 'edit',
+			reach: null,
+			space: { teamId: T.teamId, actorId: 'u3' }
+		});
+		expect(crossRefs(db)).toEqual([]);
+	});
 
 	it('the load lists only the space’s own positions', () => {
 		const theirs = loadAt(positionsPage.load, U2, 'salsa') as { positions: unknown[] };

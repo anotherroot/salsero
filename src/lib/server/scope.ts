@@ -31,6 +31,7 @@ import {
 	judgeFigure,
 	judgeLesson,
 	judgeMove,
+	judgePosition,
 	judgeRoutine,
 	songAccess,
 	type Judged,
@@ -40,10 +41,12 @@ import {
 	figureGroups,
 	figures,
 	lessons,
+	positions,
 	type Exercise,
 	type Figure,
 	type FigureGroup,
 	type Lesson,
+	type PositionRow,
 	type Routine,
 	type Song
 } from './db/schema';
@@ -376,6 +379,36 @@ export function requireExerciseAccess(
 		'No such exercise'
 	);
 	return { exercise: g.row, space: g.space, access: g.access, reach: g.reach };
+}
+
+/**
+ * The position, or a 404, as `requireLessonAccess`: a person's own, or a
+ * group's that they edit or reach (ruling 12). An archived position is still
+ * its owner's, to look at and restore; archived is the page's question. A
+ * group's archived position reaches no member, so a member gets the 404.
+ */
+export function requirePositionAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { position: PositionRow; space: Space; access: Granted; reach: Reach | null } {
+	const position =
+		db
+			.select()
+			.from(positions)
+			.where(eq(positions.id, idOf(id)))
+			.get() ?? null;
+	const g = guarded(
+		params,
+		locals,
+		position,
+		(u, p) => judgePosition(db, u, p),
+		need,
+		'Position not found'
+	);
+	return { position: g.row, space: g.space, access: g.access, reach: g.reach };
 }
 
 /**
