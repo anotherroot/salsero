@@ -45,7 +45,7 @@
 	const filtered = $derived(!!(filter.q || filter.type || filter.gaps));
 	const styleLabel = $derived(styleLabelOf(data.styleLabel));
 	const chips = $derived(
-		positionChips(filter, data.types, data.styleLabel, data.gaps, data.groupMode)
+		positionChips(filter, data.types, data.styleLabel, data.gaps, data.inGroupMode)
 	);
 	const noneCount = $derived(data.none.none + data.none.onlyStart + data.none.onlyEnd);
 	// Nobody has any: no positions of the space's own or of a group, and nothing narrows the list.
@@ -107,12 +107,12 @@
 				</div>
 			{/snippet}
 		</EmptyState>
-		{#if data.groupMode}
+		{#if data.inGroupMode}
 			<p class="px-1 text-center text-[14px] leading-[1.45] text-muted">{GROUP_NOTE}</p>
 		{/if}
 	{:else}
 		<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
-			{#if data.groupMode}
+			{#if data.inGroupMode}
 				{GROUP_NOTE}
 			{:else}
 				<b class="text-ink">{taggedLine(data.tagged)}</b>
@@ -167,7 +167,7 @@
 
 		{#if !filtered && (noneCount > 0 || data.rows.length + data.groups.length > 0)}
 			<div class={GROUP}>
-				{#if !data.groupMode && noneCount > 0}
+				{#if !data.inGroupMode && noneCount > 0}
 					{@const r = noPositionRow(noneCount)}
 					<a
 						class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
@@ -203,7 +203,7 @@
 		{/if}
 
 		{#if data.rows.length > 0}
-			<h2 class="{SECTION_LABEL} pt-1">{listHeading(data.rows.length, data.groupMode)}</h2>
+			<h2 class="{SECTION_LABEL} pt-1">{listHeading(data.rows.length, data.inGroupMode)}</h2>
 			<div class={GROUP}>
 				{#each data.rows as r (r.id)}
 					<PositionRow row={r} href={positionHref(r.id)} {styleLabel} />

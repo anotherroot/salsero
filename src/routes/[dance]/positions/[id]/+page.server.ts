@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
-import { figures } from '$lib/server/db/schema';
+import { figures, lessonPositions, spotPositionLinks } from '$lib/server/db/schema';
 import { buildGraph, canonicalOf } from '$lib/server/graph';
 import { figureById, figuresFrom, figuresTo, positionCounts } from '$lib/graph/graph';
 import { through } from '$lib/routines/routines';
@@ -14,12 +14,29 @@ import {
 } from '$lib/server/positions';
 import { figureLabels } from '$lib/server/figures';
 import { listRoutines, routineShapes } from '$lib/server/routines';
-import { spotsOfPosition, positionTaughtIn } from '$lib/server/position-links';
+import {
+	linkableSpots,
+	linkSpotToPosition,
+	positionTaughtIn,
+	spotsOfPosition,
+	unlinkSpotFromPosition
+} from '$lib/server/position-links';
+import { sectionSpace, SpotLinkError } from '$lib/server/spot-links';
+import { viaSections } from '$lib/server/lesson-links';
+import { linkPosition, listLessons, unlinkPosition } from '$lib/server/lessons';
 import { teamRefs, usableOf } from '$lib/server/usable';
 import { getTeam } from '$lib/server/teams';
 import { inGroupModeOn } from '$lib/server/group-mode';
-import { inSpace, isTeam, requirePositionAccess, wallOf, type Space } from '$lib/server/scope';
-import { int, optionalText } from '$lib/server/form';
+import {
+	actorOf,
+	inSpace,
+	isTeam,
+	requireLessonAccess,
+	requirePositionAccess,
+	wallOf,
+	type Space
+} from '$lib/server/scope';
+import { int, optionalText, refusalText } from '$lib/server/form';
 import { positionSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
@@ -148,23 +165,38 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 
 	// Video: the owner's sections and points (a reader's only what lessons reach),
 	// and on a group's position the viewer's own.
+	// Each says whether this person may unlink it: a spot they may edit (the
+	// owner's, for an editor; their own, on a group's position).
 	const spots = spotsOfPosition(
 		db,
 		id,
 		reach ?? undefined,
 		inGroupMode || position.teamId === null ? undefined : wall.userId
-	);
+	).map((s) => ({
+		...s,
+		canUnlink: !position.archivedAt && sectionSpace(db, wall.userId, s.spot.id) !== null
+	}));
 	const picture =
 		spots.find((s) => s.point && s.spot.id === position.pictureSpotId) ??
 		spots.find((s) => s.point) ??
 		null;
 	// Lessons: the owner's (a reader's only what reaches them), then, on a group's
-	// position seen from a person's app, their own lessons that link it.
+	// position seen from a person's app, their own lessons that link it. Each
+	// with the sections and points that bring it (Unlink takes those too), and
+	// whether this person may unlink it: the owner's are an editor's, their own are theirs.
 	const owners = positionTaughtIn(db, space, id).filter((l) => !reach || reach.lessons.has(l.id));
 	const theirs =
 		position.teamId === null || inGroupMode
 			? []
 			: positionTaughtIn(db, wall, id).filter((l) => !owners.some((o) => o.id === l.id));
+	const lessonRow = (l: (typeof owners)[number], canUnlink: boolean) => ({
+		...l,
+		viaSections: l.via ? (viaSections(db, l.id).positions.get(id) ?? []) : [],
+		canUnlink: canUnlink && !position.archivedAt
+	});
+	// What an editor may link: the owner's sections and points, and the owner's lessons.
+	const linking = canEdit && !position.archivedAt;
+	const taught = new Map(owners.map((l) => [l.id, l]));
 
 	return {
 		position: {
@@ -182,7 +214,24 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		from,
 		into,
 		spots,
-		lessons: [...owners, ...theirs],
+		lessons: [
+			...owners.map((l) => lessonRow(l, canEdit)),
+			...theirs.map((l) => lessonRow(l, true))
+		],
+		/** Link a section or point…: every section and point of the owner's videos. */
+		linkable: linking ? linkableSpots(db, id) : [],
+		/** Link a lesson…: the owner's lessons, newest class first; `linked` by hand or through a spot. */
+		linkableLessons: linking
+			? listLessons(db, space).map((l) => ({
+					id: l.id,
+					title: l.title,
+					lessonDay: l.lessonDay,
+					videos: l.videos,
+					team: inGroupMode ? null : (l.team?.name ?? null),
+					linked: taught.has(l.id),
+					via: taught.get(l.id)?.via ?? false
+				}))
+			: [],
 		routines,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'position', id, url, !inGroupMode),
@@ -346,7 +395,115 @@ export const actions: Actions = {
 	copyTo: ({ params, locals, request }) => {
 		const { position } = positionIn(params, locals, 'read');
 		return copyToFrom(getDb(), wallOf(params, locals), 'position', position.id, request);
-	}
+	},
 
-	// Task 17: linkSpot, unlinkSpot, linkLesson and unlinkLesson.
+	/**
+	 * Link a section or point: one the person may edit, to this position when
+	 * it is the spot's owner's or (on their own spot) a group's they may use.
+	 * `linkSpotToPosition` refuses everything else before it writes.
+	 */
+	linkSpot: async ({ params, request, locals }) => {
+		const { position } = positionIn(params, locals, 'read');
+		const spotId = int(await request.formData(), 'spotId');
+		if (spotId === undefined) {
+			return fail(400, { action: 'linkSpot' as const, message: 'Pick a section or point.' });
+		}
+		try {
+			linkSpotToPosition(getDb(), wallOf(params, locals).userId, spotId, position.id);
+		} catch (e) {
+			if (e instanceof SpotLinkError) {
+				return fail(e.status, {
+					action: 'linkSpot' as const,
+					message: refusalText(e.status, e.message)
+				});
+			}
+			throw e;
+		}
+		return { action: 'linkSpot' as const, ok: true };
+	},
+
+	/**
+	 * Unlink a section or point: a link of this position on a spot the person may
+	 * edit. A group's goes to Recently deleted (`unlinkSpotFromPosition`).
+	 */
+	unlinkSpot: async ({ params, request, locals }) => {
+		const db = getDb();
+		const { position } = positionIn(params, locals, 'read');
+		const userId = wallOf(params, locals).userId;
+		const linkId = int(await request.formData(), 'linkId');
+		const link =
+			linkId === undefined
+				? null
+				: db.select().from(spotPositionLinks).where(eq(spotPositionLinks.id, linkId)).get();
+		if (
+			!link ||
+			link.positionId !== position.id ||
+			!sectionSpace(db, userId, link.spotId) ||
+			!unlinkSpotFromPosition(db, link.id, Date.now(), userId)
+		) {
+			return fail(404, {
+				action: 'unlinkSpot' as const,
+				message: 'That link was already removed.'
+			});
+		}
+		return { action: 'unlinkSpot' as const, ok: true };
+	},
+
+	/**
+	 * Link a lesson by hand. The lesson is the row that changes, so it must be one
+	 * the person edits (a reader's or a stranger's is a 404); the position must
+	 * be one they read. `linkPosition` then holds the owner rule: a group's
+	 * lesson links only its group's positions, a person's lesson their own or a
+	 * group's they may use.
+	 */
+	linkLesson: async ({ params, request, locals }) => {
+		const db = getDb();
+		const { position } = positionIn(params, locals, 'read');
+		const lessonId = int(await request.formData(), 'lessonId');
+		if (lessonId === undefined) {
+			return fail(400, { action: 'linkLesson' as const, message: 'Pick a lesson.' });
+		}
+		const { lesson, space } = requireLessonAccess(db, locals, params, lessonId, 'edit');
+		const refuse = (status: number, message: string) =>
+			fail(status, { action: 'linkLesson' as const, message });
+		if (lesson.archivedAt !== null) return refuse(400, 'That lesson is archived.');
+		if (
+			db
+				.select({ id: lessonPositions.lessonId })
+				.from(lessonPositions)
+				.where(
+					and(eq(lessonPositions.lessonId, lesson.id), eq(lessonPositions.positionId, position.id))
+				)
+				.get()
+		) {
+			return refuse(409, 'Already linked.');
+		}
+		if (!linkPosition(db, lesson.id, position.id, actorOf(space))) {
+			return refuse(400, `${lesson.title} could not be linked.`);
+		}
+		return { action: 'linkLesson' as const, ok: true };
+	},
+
+	/**
+	 * Take this position off a lesson the person edits. A lesson there through
+	 * its sections or points posts `alsoSections` (after asking): those links go too.
+	 */
+	unlinkLesson: async ({ params, request, locals }) => {
+		const db = getDb();
+		const { position } = positionIn(params, locals, 'read');
+		const form = await request.formData();
+		const lessonId = int(form, 'lessonId');
+		if (lessonId === undefined) {
+			return fail(400, { action: 'unlinkLesson' as const, message: 'Pick a lesson.' });
+		}
+		const { lesson, space } = requireLessonAccess(db, locals, params, lessonId, 'edit');
+		const alsoSections = form.get('alsoSections') === '1';
+		if (!unlinkPosition(db, lesson.id, position.id, alsoSections, Date.now(), actorOf(space))) {
+			return fail(400, {
+				action: 'unlinkLesson' as const,
+				message: 'That lesson was already unlinked.'
+			});
+		}
+		return { action: 'unlinkLesson' as const, ok: true };
+	}
 };

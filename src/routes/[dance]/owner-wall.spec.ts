@@ -379,7 +379,17 @@ describe('positions are each owner’s', () => {
 		const id = listPositions(db, U1_SALSA)[0].id;
 		expect(() => loadAt(positionPage.load, U2, 'salsa', String(id))).toThrow(threw404);
 		expect(() => loadAt(positionPage.load, U1, 'bachata', String(id))).toThrow(threw404);
-		for (const action of ['update', 'archive', 'restore', 'makeMine', 'detach'] as const) {
+		for (const action of [
+			'update',
+			'archive',
+			'restore',
+			'makeMine',
+			'detach',
+			'linkSpot',
+			'unlinkSpot',
+			'linkLesson',
+			'unlinkLesson'
+		] as const) {
 			await refuses(positionPage.actions[action], post(U2, 'salsa', { name: 'Mine' }, String(id)));
 		}
 		expect(listPositions(db, U1_SALSA)[0]).toMatchObject({ id, archivedAt: null });
