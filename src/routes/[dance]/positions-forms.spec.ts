@@ -23,6 +23,7 @@ import {
 	figureEndPositions,
 	figureStartPositions,
 	lessonAdds,
+	lessonFigures,
 	lessonPositions,
 	lessons,
 	positions,
@@ -35,7 +36,7 @@ import { setRole } from '$lib/server/membership';
 import { createLesson } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
 import { addPosition } from '$lib/server/test-positions';
-import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
 import { actions, load } from './positions/+page.server';
@@ -413,12 +414,42 @@ describe('No position', () => {
 		expect(d.empty).toBe(true);
 	});
 
-	it("reads the group's figures in group mode; a plain member falls back to their own side", () => {
+	it("reads the group's figures in group mode for an editor", () => {
 		const gf = figure(T1_SALSA, 'Setenta');
 		figure(U2_SALSA, 'Mine');
 		const editor = noneLoad('u2', jar('1').cookies);
 		expect(editor.groups[0].rows).toMatchObject([{ id: gf, canEdit: true }]);
+	});
+
+	it('a member sees only the group figures a published lesson they added reaches', () => {
+		const draftFig = figure(T1_SALSA, 'Draft one');
+		const publishedFig = figure(T1_SALSA, 'Published one');
+		figure(T1_SALSA, 'Unlinked');
+		const lessonOf = (title: string, figureId: number, published: boolean) => {
+			const id = createLesson(db, T1_SALSA, { lessonDay: '2026-11-03', title, notes: null }).lesson
+				.id;
+			if (published) db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, id)).run();
+			db.insert(lessonFigures).values({ lessonId: id, figureId }).run();
+			return id;
+		};
+		lessonOf('Draft', draftFig, false);
+		const pub = lessonOf('Published', publishedFig, true);
+		db.insert(lessonAdds).values({ userId: 'u3', lessonId: pub, addedAt: 1, seenAt: 1 }).run();
+
 		const member = noneLoad('u3', jar('1').cookies);
-		expect(member.groups).toEqual([]);
+		const ids = member.groups.flatMap((g: any) => g.rows.map((r: any) => r.id));
+		expect(ids).toEqual([publishedFig]);
+		expect(member.groups[0].rows[0].canEdit).toBe(false);
+		expect(member.head).toBe('1 figure · 1 with none, 0 with only a start or an end');
+		// The editor still sees all three.
+		const editor = noneLoad('u2', jar('1').cookies);
+		expect(editor.groups[0].rows).toHaveLength(3);
+	});
+
+	it("Mine mode never shows another person's figure", () => {
+		figure(U1_SALSA, "u1's");
+		const mine = figure(U2_SALSA, "u2's");
+		const d = noneLoad('u2');
+		expect(d.groups[0].rows.map((r: any) => r.id)).toEqual([mine]);
 	});
 });

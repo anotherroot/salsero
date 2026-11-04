@@ -58,7 +58,8 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 		const a = row ? figureAccess(db, wall.userId, { ...row, id: f.id }) : null;
 		if (a) access.set(f.id, a);
 	}
-	// A member sees only the figures they reach; the graph may hold more (drafts).
+	// Defence in depth: the graph is already the viewer's (a non-editor's group cookie
+	// is refused, and `usableOf` holds only what they reach), so this drops nothing today.
 	const shown = noPosition({
 		...graph,
 		figures: graph.figures.filter((f) => access.has(f.id))
