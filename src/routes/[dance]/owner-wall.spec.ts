@@ -33,7 +33,7 @@ import {
 	listVersions,
 	moveVariation
 } from '$lib/server/figures';
-import { buildGraph, taggedFigures } from '$lib/server/graph';
+import { buildGraph } from '$lib/server/graph';
 import { listPositions } from '$lib/server/positions';
 import { seedPositions } from '$lib/server/test-positions';
 import { createRoutineFromFigures } from '$lib/server/routines';
@@ -146,7 +146,6 @@ describe('figures: the data functions stand behind a wall', () => {
 		expect(listMoveTargets(db, U2_SALSA, null)).toEqual([]);
 		expect(listFiguresForCall(db, U2_SALSA, [figureId])).toEqual([]);
 		expect(buildGraph(db, U2_SALSA).figures).toEqual([]);
-		expect(taggedFigures(db, U2_SALSA)).toEqual({ done: 0, total: 0 });
 		// …and none of the same person's other dance.
 		expect(listFigures(db, U1_BACHATA)).toEqual([]);
 	});

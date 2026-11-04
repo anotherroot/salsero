@@ -29,7 +29,7 @@ import {
 	positions,
 	twins
 } from './db/schema';
-import { taggedCount, type Graph } from '$lib/graph/graph';
+import type { Graph } from '$lib/graph/graph';
 import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
@@ -85,7 +85,8 @@ function canonicalIds(
  * that share a family merge whole. A twin out of reach (archived, another
  * dance, not usable) is left out, so a set with one family left merges nothing.
  *
- * Returns each merged canonical id with the twinned real ids it stands for.
+ * Returns each merged canonical id with every real id it stands for: the
+ * ticked twins and the rest of their families.
  */
 function mergeTwins(
 	canon: Map<number, number>,
@@ -121,17 +122,19 @@ function mergeTwins(
 	}
 	for (const [id, family] of canon) if (parent.has(family)) canon.set(id, best.get(find(family))!);
 
+	// Every live id now under a merged node, not only the ticked ones: a family
+	// member the person never ticked is still one of the node's positions.
+	const merging = new Set(best.values());
 	const twinned = new Map<number, number[]>();
-	for (const ids of merged)
-		for (const id of ids) {
-			const c = canon.get(id)!;
-			twinned.set(c, [...(twinned.get(c) ?? []), id]);
-		}
+	for (const [id, c] of canon) if (merging.has(c)) twinned.set(c, [...(twinned.get(c) ?? []), id]);
 	for (const ids of twinned.values()) ids.sort((a, b) => a - b);
 	return twinned;
 }
 
-/** A person's twin sets of positions, as stored (the graph drops what is out of its reach). */
+/**
+ * A person's twin sets of positions, as stored (the graph drops what is out of its reach).
+ * The same read as `storedTwinSets(db, userId, 'position')` (twins.ts), which imports the graph's callers.
+ */
 function positionTwinSets(db: Db, userId: string): number[][] {
 	const bySet = new Map<string, number[]>();
 	for (const r of db
@@ -423,13 +426,4 @@ function shapeFields(s: FigureShape) {
 		startCount: s.startCount,
 		lengthCounts: s.lengthCounts
 	};
-}
-
-/**
- * How much of the repertoire carries handhold tags, counted per live
- * variation of a live figure: a figure with either side tagged, to a live
- * position, is done.
- */
-export function taggedFigures(db: Db, space: Space): { done: number; total: number } {
-	return taggedCount(buildGraph(db, space));
 }

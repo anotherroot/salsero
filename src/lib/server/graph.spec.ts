@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { follows } from '$lib/graph/graph';
+import { follows, taggedCount } from '$lib/graph/graph';
 import { openDb, type Db } from './db';
 import { eq } from 'drizzle-orm';
 import {
@@ -12,14 +12,7 @@ import {
 	twins
 } from './db/schema';
 import { archiveVariation, createFigure, createVariationFrom } from './figures';
-import {
-	buildGraph,
-	canonicalOf,
-	figurePositions,
-	graphFor,
-	setFigureShape,
-	taggedFigures
-} from './graph';
+import { buildGraph, canonicalOf, figurePositions, graphFor, setFigureShape } from './graph';
 import { listPositions } from './positions';
 import { addPosition, seedPositions } from './test-positions';
 import { T1_SALSA, U1_SALSA, U1_BACHATA, U2_SALSA } from '$lib/server/test-walls';
@@ -229,6 +222,18 @@ describe('positions compared by family', () => {
 		expect(g.positions).toEqual([{ id: a, name: 'A', styleTag: null, twins: true }]);
 		// u1's own graph never reads u2's twins.
 		expect(buildGraph(db, U1_SALSA).positions.every((p) => !p.twins)).toBe(true);
+	});
+
+	it('a twinned node stands for every member of its families, ticked or not', () => {
+		const db = openDb(':memory:');
+		const a = addPosition(db, U1_SALSA, 'A');
+		const b = addPosition(db, U1_SALSA, 'B', { geneId: 'gb' });
+		// b's family member in another place: never ticked in Same as…, still one with b.
+		const b2 = addPosition(db, { userId: 'u3', dance: 'salsa' }, 'B too', { geneId: 'gb' });
+		twinRaw(db, 'u2', [a, b], 's1');
+		const g = buildGraph(db, U2_SALSA, { positions: new Set([a, b, b2]) });
+		expect([a, b, b2].map((id) => canonicalOf(g, id))).toEqual([a, a, a]);
+		expect(g.twinned.get(a)).toEqual([a, b, b2]);
 	});
 
 	it("a group's space ignores twins", () => {
@@ -516,7 +521,7 @@ describe('a variation stands on its own', () => {
 		expect(buildGraph(db, U1_SALSA).figures).toEqual([]);
 	});
 
-	it('taggedFigures counts variations, either side tagged', () => {
+	it('taggedCount over a space graph counts variations, either side tagged', () => {
 		const { db, pos } = setup();
 		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
 		const other = createVariationFrom(db, made.figure.id, 'Doble')!;
@@ -524,15 +529,7 @@ describe('a variation stands on its own', () => {
 		setFigureShape(db, other.id, shape([], []));
 		setFigureShape(db, made.figure.id, shape([pos('closed')], []));
 		setFigureShape(db, third.id, shape([], [pos('closed')]));
-		expect(taggedFigures(db, U1_SALSA)).toEqual({ done: 2, total: 3 });
-	});
-
-	it('taggedFigures leaves out a live variation whose group is archived', () => {
-		const { db } = setup();
-		const made = createFigure(db, U1_SALSA, figureInput('enchufla'))!;
-		createFigure(db, U1_SALSA, figureInput('sombrero'));
-		db.update(figureGroups).set({ archivedAt: 1 }).where(eq(figureGroups.id, made.group.id)).run();
-		expect(taggedFigures(db, U1_SALSA)).toEqual({ done: 0, total: 1 });
+		expect(taggedCount(buildGraph(db, U1_SALSA))).toEqual({ done: 2, total: 3 });
 	});
 
 	it('orders nodes by figure name, then variation name', () => {
