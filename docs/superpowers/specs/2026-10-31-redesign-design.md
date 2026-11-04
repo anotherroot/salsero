@@ -485,7 +485,9 @@ rules the boards follow that are not obvious from looking at them.
 - Exact animation and transition timings (keep them short; respect
   `prefers-reduced-motion`).
 - Tablet/desktop width: the phone layout centred with a max width, as today,
-  unless a screen board says otherwise.
+  unless a screen board says otherwise. Superseded by the desktop design,
+  [`2026-11-03-desktop-design.md`](2026-11-03-desktop-design.md) (agreed
+  2026-11-03, not built yet).
 
 ## Additions (agreed with the user)
 
@@ -527,13 +529,15 @@ in the routine picker, search on Routines.
 - **My count's back control** returns to where it was opened from (Settings or
   Practice).
 - **The picker** stays a bottom sheet in landscape and on desktop (centred
-  with a max width there).
+  with a max width there). The desktop design makes it, and every other
+  sheet, a centred dialog from 1024 px.
 - **No on-screen hints** for the screen staying on or the iPhone silent switch
   (the silent switch stays in the player's Known gaps).
 - **The routine's Exercise row** shows only what the page already has (no
   invented "done yesterday" line).
 - **Desktop layouts** (the video player's desktop layout, its "?" key list)
-  are restyled with the same tokens, their layout unchanged.
+  are restyled with the same tokens, their layout unchanged. The rest of the
+  app's desktop is [`2026-11-03-desktop-design.md`](2026-11-03-desktop-design.md).
 - **Cleanup, inset rings:** a clipping card draws the ring inside (`focus-inset`)
   instead of dropping `overflow-hidden`, which would need every row rounded.
 - **Cleanup, focus after a removal:** next row, else previous, else the add

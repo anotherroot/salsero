@@ -99,6 +99,11 @@ Accounts have theirs,
 [`docs/superpowers/specs/2026-11-02-accounts-design.md`](docs/superpowers/specs/2026-11-02-accounts-design.md):
 the owner wall, one-time invites and Join, the storage limit and what counts
 against it, What uses space, Ask for more, and the admin page.
+The desktop has its own (agreed, not built yet),
+[`docs/superpowers/specs/2026-11-03-desktop-design.md`](docs/superpowers/specs/2026-11-03-desktop-design.md):
+from 1024 px, one short band row and a band-coloured side with the tabs, a
+list and the opened item side by side, two-column figure and lesson pages, and
+every bottom sheet as a centred dialog.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.

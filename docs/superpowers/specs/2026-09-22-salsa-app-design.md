@@ -457,7 +457,9 @@ constant-tempo fit drifts 100+ ms at breaks. So:
   parameters). The running screen is the stage on the band (count disc, dots,
   the figure called, the time), a sheet under it and Stop and Pause pinned; it
   does not scroll the page. A landscape phone puts the stage left and the sheet
-  right; a desktop keeps the 560 px column.
+  right; a desktop keeps the 560 px column (until the desktop design is
+  built: [`2026-11-03-desktop-design.md`](2026-11-03-desktop-design.md) puts
+  the stage left and the sheet right there too).
 - **Song samples and the song popup** (since 2026-10-30) have their own
   spec, [`2026-10-30-song-samples-design.md`](2026-10-30-song-samples-design.md).
   `SourcePicker`'s song `<select>` is now `player/SongPicker.svelte`: a field
