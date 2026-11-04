@@ -26,6 +26,10 @@ export default defineConfig({
 	],
 	test: {
 		expect: { requireAssertions: true },
+		// Each `openDb(':memory:')` replays every migration; under load the full
+		// suite crossed the 5 s default (src/lib/server/db/timeout.spec.ts).
+		testTimeout: 15_000,
+		hookTimeout: 15_000,
 		projects: [
 			{
 				extends: './vite.config.ts',
