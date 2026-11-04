@@ -26,14 +26,20 @@ import {
 	figures,
 	lessonAdds,
 	lessonFigures,
+	lessonPositions,
 	lessons,
 	positions,
+	spotPositionLinks,
 	teamChanges,
+	teamTrash,
 	users
 } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
-import { createLesson } from '$lib/server/lessons';
+import { addLessonVideo, createLesson } from '$lib/server/lessons';
+import { addSpot } from '$lib/server/spots';
+import { linkSpotToPosition } from '$lib/server/position-links';
+import type { Space } from '$lib/server/scope';
 import { createFigure } from '$lib/server/figures';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { positionSeen } from '$lib/server/clash';
@@ -66,7 +72,15 @@ function body(fields: Record<string, string>): Request {
 	});
 }
 
-type Name = 'update' | 'archive' | 'restore' | 'makeMine';
+type Name =
+	| 'update'
+	| 'archive'
+	| 'restore'
+	| 'makeMine'
+	| 'linkSpot'
+	| 'unlinkSpot'
+	| 'linkLesson'
+	| 'unlinkLesson';
 async function act(
 	name: Name,
 	user: string,
@@ -567,5 +581,300 @@ describe('New move from a position (ruling 8)', () => {
 			db.select().from(figureStartPositions).where(eq(figureStartPositions.figureId, f.id)).all()
 		).toMatchObject([{ figureId: f.id, positionId: g.hammer }]);
 		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+describe('Video and Lessons: links from the page', () => {
+	/** A lesson in `space` with one video, a named section and an unnamed point on it. */
+	// `by` is who History names in a group (u1 owns it); a person's own ignore it.
+	function taped(space: Space, title: string, day = '2026-11-03') {
+		const lesson = createLesson(db, space, { lessonDay: day, title, notes: null }).lesson.id;
+		const video = addLessonVideo(
+			db,
+			{ lessonId: lesson, file: `${title}.mp4`, mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		const section = addSpot(
+			db,
+			{ lessonVideoId: video },
+			{ startMs: 72_000, endMs: 91_000, label: 'The cross on 7' },
+			'u1'
+		)!.id;
+		const point = addSpot(
+			db,
+			{ lessonVideoId: video },
+			{ startMs: 72_000, endMs: null, label: null },
+			'u1'
+		)!.id;
+		return { lesson, video, section, point };
+	}
+	/** A point on a new video of an existing lesson. */
+	function pointOn(lessonId: number, startMs = 48_000) {
+		const video = addLessonVideo(
+			db,
+			{ lessonId, file: `v${lessonId}-${startMs}.mp4`, mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		return addSpot(db, { lessonVideoId: video }, { startMs, endMs: null, label: null }, 'u1')!.id;
+	}
+	const links = () => db.select().from(spotPositionLinks).all();
+	const handLinks = () =>
+		db
+			.select({ lessonId: lessonPositions.lessonId, positionId: lessonPositions.positionId })
+			.from(lessonPositions)
+			.all();
+	const U1: Space = { userId: 'u1', dance: 'salsa' };
+	const U3: Space = { userId: 'u3', dance: 'salsa' };
+
+	it('reads the cards, the lessons (by hand and through a point) and what an editor may link', () => {
+		const o = own();
+		const week6 = taped(U2_SALSA, 'Week 6');
+		const cubana = taped(U2_SALSA, 'Cubana class', '2026-10-13');
+		linkSpotToPosition(db, 'u2', week6.section, o.p);
+		const pointLink = linkSpotToPosition(db, 'u2', week6.point, o.p);
+		db.insert(lessonPositions).values({ lessonId: cubana.lesson, positionId: o.p }).run();
+		const d = loadOf('u2', o.p);
+		expect(d.spots.map((s: any) => [s.spot.id, s.point, s.canUnlink])).toEqual([
+			[week6.section, false, true],
+			[week6.point, true, true]
+		]);
+		expect(d.picture).toMatchObject({ linkId: pointLink, point: true });
+		// Week 6 through its section and point, Cubana by hand: newest class first.
+		expect(d.lessons).toEqual([
+			{
+				id: week6.lesson,
+				title: 'Week 6',
+				lessonDay: '2026-11-03',
+				teamName: null,
+				byHand: false,
+				via: true,
+				viaSections: [
+					{ spotId: week6.section, startMs: 72_000, endMs: 91_000, label: 'The cross on 7' },
+					{ spotId: week6.point, startMs: 72_000, endMs: null, label: null }
+				],
+				canUnlink: true
+			},
+			{
+				id: cubana.lesson,
+				title: 'Cubana class',
+				lessonDay: '2026-10-13',
+				teamName: null,
+				byHand: true,
+				via: false,
+				viaSections: [],
+				canUnlink: true
+			}
+		]);
+		// The picker: every section and point of u2's videos, the linked ones marked.
+		expect(d.linkable.flatMap((g: any) => g.sections.map((s: any) => [s.id, s.linked]))).toEqual(
+			expect.arrayContaining([
+				[week6.section, true],
+				[week6.point, true],
+				[cubana.section, false],
+				[cubana.point, false]
+			])
+		);
+		expect(d.linkableLessons).toEqual([
+			{
+				id: week6.lesson,
+				title: 'Week 6',
+				lessonDay: '2026-11-03',
+				videos: 1,
+				team: null,
+				linked: true,
+				via: true
+			},
+			{
+				id: cubana.lesson,
+				title: 'Cubana class',
+				lessonDay: '2026-10-13',
+				videos: 1,
+				team: null,
+				linked: true,
+				via: false
+			}
+		]);
+	});
+
+	it("offers a reader of a group's position nothing to link and nothing to unlink", () => {
+		const g = group();
+		const point = pointOn(g.lesson);
+		linkSpotToPosition(db, 'u1', point, g.hammer);
+		const d = loadOf('u3', g.hammer);
+		expect(d.spots.map((s: any) => [s.spot.id, s.canUnlink])).toEqual([[point, false]]);
+		expect(loadOf('u2', g.hammer).spots.map((s: any) => s.canUnlink)).toEqual([true]);
+		expect(d.lessons).toMatchObject([
+			{ id: g.lesson, teamName: 'Tuesdays', via: true, canUnlink: false }
+		]);
+		expect(d.linkable).toEqual([]);
+		expect(d.linkableLessons).toEqual([]);
+		// Its editor gets the group's lessons to link, named with the group.
+		expect(loadOf('u2', g.hammer).linkableLessons).toMatchObject([
+			{ id: g.lesson, team: 'Tuesdays', linked: true, via: true }
+		]);
+	});
+
+	it('links a point and a section; refuses a duplicate and a spot of another owner', async () => {
+		const o = own();
+		const t = taped(U2_SALSA, 'Week 6');
+		expect(await act('linkSpot', 'u2', o.p, { spotId: String(t.point) })).toEqual({
+			action: 'linkSpot',
+			ok: true
+		});
+		expect(await act('linkSpot', 'u2', o.p, { spotId: String(t.section) })).toEqual({
+			action: 'linkSpot',
+			ok: true
+		});
+		expect(links().map((l) => [l.spotId, l.positionId])).toEqual([
+			[t.point, o.p],
+			[t.section, o.p]
+		]);
+		expect(await act('linkSpot', 'u2', o.p, { spotId: String(t.point) })).toMatchObject({
+			status: 409,
+			data: { action: 'linkSpot', message: 'Already linked.' }
+		});
+		// The group's point (u2 edits it) may not link u2's own position.
+		const theirs = taped(T1_SALSA, 'Week 7');
+		expect(await act('linkSpot', 'u2', o.p, { spotId: String(theirs.point) })).toMatchObject({
+			status: 400,
+			data: { action: 'linkSpot', message: 'No such position.' }
+		});
+		// u1's own point: not u2's to change.
+		const strangers = taped(U1, 'Elsewhere');
+		expect(await act('linkSpot', 'u2', o.p, { spotId: String(strangers.point) })).toMatchObject({
+			status: 400,
+			data: { message: 'No such section.' }
+		});
+		// u3 cannot read u2's position at all.
+		expect(await act('linkSpot', 'u3', o.p, { spotId: String(t.point) })).toMatchObject({
+			status: 404
+		});
+		expect(links()).toHaveLength(2);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("unlinks; a group's unlink lands in Recently deleted; nobody unlinks what they cannot edit", async () => {
+		const o = own();
+		const t = taped(U2_SALSA, 'Week 6');
+		const mine = linkSpotToPosition(db, 'u2', t.point, o.p);
+		expect(await act('unlinkSpot', 'u2', o.p, { linkId: String(mine) })).toEqual({
+			action: 'unlinkSpot',
+			ok: true
+		});
+		expect(links()).toEqual([]);
+		expect(db.select().from(teamTrash).all()).toEqual([]);
+
+		// The group's Hammerlock and a point on its Week 6: u2 edits, u3 only reads.
+		const g = group();
+		const theirs = linkSpotToPosition(db, 'u1', pointOn(g.lesson), g.hammer);
+		expect(await act('unlinkSpot', 'u3', g.hammer, { linkId: String(theirs) })).toMatchObject({
+			status: 404
+		});
+		// Another position's link, posted to this page: refused too.
+		const other = addPosition(db, U2_SALSA, 'Abrazo');
+		const elsewhere = linkSpotToPosition(db, 'u2', t.point, other);
+		expect(await act('unlinkSpot', 'u2', o.p, { linkId: String(elsewhere) })).toMatchObject({
+			status: 404,
+			data: { action: 'unlinkSpot' }
+		});
+		expect(links()).toHaveLength(2);
+
+		expect(await act('unlinkSpot', 'u2', g.hammer, { linkId: String(theirs) })).toEqual({
+			action: 'unlinkSpot',
+			ok: true
+		});
+		expect(links().map((l) => l.id)).toEqual([elsewhere]);
+		expect(db.select().from(teamTrash).all()).toMatchObject([
+			{ teamId: 1, kind: 'position-link', deletedBy: 'u2' }
+		]);
+	});
+
+	it("links a lesson the person edits; refuses another person's lesson and a reader's", async () => {
+		const o = own();
+		const t = taped(U2_SALSA, 'Week 6');
+		expect(await act('linkLesson', 'u2', o.p, { lessonId: String(t.lesson) })).toEqual({
+			action: 'linkLesson',
+			ok: true
+		});
+		expect(handLinks()).toEqual([{ lessonId: t.lesson, positionId: o.p }]);
+		expect(await act('linkLesson', 'u2', o.p, { lessonId: String(t.lesson) })).toMatchObject({
+			status: 409,
+			data: { action: 'linkLesson', message: 'Already linked.' }
+		});
+
+		// u1's own lesson: the stranger's 404, nothing written.
+		const strangers = createLesson(db, U1, {
+			lessonDay: '2026-11-01',
+			title: 'Not yours',
+			notes: null
+		}).lesson.id;
+		expect(await act('linkLesson', 'u2', o.p, { lessonId: String(strangers) })).toMatchObject({
+			status: 404
+		});
+		// The group's published lesson: u3 reads it, so it is not theirs to change.
+		const g = group();
+		expect(await act('linkLesson', 'u3', g.hammer, { lessonId: String(g.lesson) })).toMatchObject({
+			status: 404
+		});
+		// The group's lesson, which u2 edits, may not link u2's own position.
+		expect(await act('linkLesson', 'u2', o.p, { lessonId: String(g.lesson) })).toMatchObject({
+			status: 400,
+			data: { action: 'linkLesson' }
+		});
+		expect(handLinks()).toEqual([{ lessonId: t.lesson, positionId: o.p }]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("links a person's own lesson to a group position they may use, and the group's lesson as its editor", async () => {
+		const g = group();
+		const mine = createLesson(db, U3, {
+			lessonDay: '2026-11-04',
+			title: 'My notes',
+			notes: null
+		}).lesson.id;
+		expect(await act('linkLesson', 'u3', g.hammer, { lessonId: String(mine) })).toEqual({
+			action: 'linkLesson',
+			ok: true
+		});
+		expect(await act('linkLesson', 'u2', g.hammer, { lessonId: String(g.lesson) })).toEqual({
+			action: 'linkLesson',
+			ok: true
+		});
+		expect(handLinks()).toEqual(
+			expect.arrayContaining([
+				{ lessonId: mine, positionId: g.hammer },
+				{ lessonId: g.lesson, positionId: g.hammer }
+			])
+		);
+		expect(handLinks()).toHaveLength(2);
+		expect(db.select().from(teamChanges).all().at(-1)).toMatchObject({
+			actorId: 'u2',
+			verb: 'add'
+		});
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('unlinks a lesson by hand, and one there through a point with its links', async () => {
+		const o = own();
+		const t = taped(U2_SALSA, 'Week 6');
+		db.insert(lessonPositions).values({ lessonId: t.lesson, positionId: o.p }).run();
+		expect(await act('unlinkLesson', 'u2', o.p, { lessonId: String(t.lesson) })).toEqual({
+			action: 'unlinkLesson',
+			ok: true
+		});
+		expect(handLinks()).toEqual([]);
+		linkSpotToPosition(db, 'u2', t.point, o.p);
+		const via = { lessonId: String(t.lesson), alsoSections: '1' };
+		expect(await act('unlinkLesson', 'u3', o.p, via)).toMatchObject({ status: 404 });
+		expect(links()).toHaveLength(1);
+		expect(await act('unlinkLesson', 'u2', o.p, via)).toEqual({
+			action: 'unlinkLesson',
+			ok: true
+		});
+		expect(links()).toEqual([]);
+		expect(await act('unlinkLesson', 'u2', o.p, via)).toMatchObject({
+			status: 400,
+			data: { action: 'unlinkLesson' }
+		});
 	});
 });
