@@ -13,7 +13,7 @@ import { createTeam, joinTeam } from '../teams';
 import { addRecording, createFigure, updateVariation } from '../figures';
 import { createLesson, linkFigure, publishLesson, unlinkFigure } from '../lessons';
 import { addLesson, entryFor } from '../entries';
-import { seedPositions } from '../test-positions';
+import { insertFixturePositions } from '../test-positions';
 import type { Space } from '../scope';
 import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import type { CloneKind, Picks } from '$lib/types';
@@ -33,7 +33,7 @@ let db: Db;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	insertFixturePositions(db);
 	db.insert(users)
 		.values([
 			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' },

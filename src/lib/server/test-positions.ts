@@ -43,7 +43,7 @@ export type FixtureOwner = { userId: string } | { teamId: number };
  * Insert the fixture positions, owned by `owner` (u1 by default), for each
  * dance where that owner has none yet.
  */
-export function seedPositions(db: Db, owner: FixtureOwner = { userId: 'u1' }) {
+export function insertFixturePositions(db: Db, owner: FixtureOwner = { userId: 'u1' }) {
 	const userId = 'userId' in owner ? owner.userId : null;
 	const teamId = 'teamId' in owner ? owner.teamId : null;
 	for (const dance of DANCE_SLUGS) {
@@ -57,6 +57,7 @@ export function seedPositions(db: Db, owner: FixtureOwner = { userId: 'u1' }) {
 					teamId === null ? isNull(positions.teamId) : eq(positions.teamId, teamId)
 				)
 			)
+			.limit(1)
 			.get();
 		if (has) continue;
 		db.insert(positions)

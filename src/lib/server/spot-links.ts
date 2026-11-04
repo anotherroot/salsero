@@ -706,7 +706,10 @@ function targetContext(db: Db, target: SectionTarget) {
 export const ownerKey = (o: SpotOwner) =>
 	'recordingId' in o ? `r${o.recordingId}` : `l${o.lessonVideoId}`;
 
-/** Sections — never points — keyed by their video, each list by start time. */
+/**
+ * Spots keyed by their video, each list by start time: sections only by
+ * default; `spotsByVideo` passes its own `where`, points included.
+ */
 function sectionsByVideo(db: Db, where = isNotNull(videoSpots.endMs)): Map<string, BareSpot[]> {
 	const rows = db
 		.select({

@@ -35,7 +35,7 @@ import {
 } from '$lib/server/figures';
 import { buildGraph } from '$lib/server/graph';
 import { listPositions } from '$lib/server/positions';
-import { seedPositions } from '$lib/server/test-positions';
+import { insertFixturePositions } from '$lib/server/test-positions';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { exercises, figureGroups, figures, recordings, routines } from '$lib/server/db/schema';
 import * as figurePage from './figures/[id]/+page.server';
@@ -121,7 +121,7 @@ let recordingId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
-	seedPositions(db);
+	insertFixturePositions(db);
 	const made = createFigure(db, U1_SALSA, figureInput)!;
 	figureId = made.figure.id;
 	groupId = made.group.id;

@@ -60,7 +60,7 @@ import {
 } from '$lib/server/lessons';
 import { figurePositions, setFigureShape } from '$lib/server/graph';
 import { listPositions } from '$lib/server/positions';
-import { addPosition, seedPositions } from '$lib/server/test-positions';
+import { addPosition, insertFixturePositions } from '$lib/server/test-positions';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { addLesson } from '$lib/server/entries';
 import {
@@ -168,7 +168,7 @@ let bachataRoutineId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
-	seedPositions(db);
+	insertFixturePositions(db);
 
 	const salsaFigure = createFigure(db, U1_SALSA, { ...figureInput, style: 'salsa' })!;
 	salsaExerciseId = addFigureExercise(db, 'u1', salsaFigure.figure.id)!.id;

@@ -866,8 +866,8 @@ function logRecording(
  * Delete a recording row and return it, with `trashId`, so the caller knows
  * whether to remove the file. Its spots go first, in the same transaction —
  * the foreign key would refuse the recording otherwise. Throws
- * `SpotLinkedError`, deleting nothing, while one of its sections is linked to
- * a figure or drill.
+ * `SpotLinkedError`, deleting nothing, while one of its sections or points is
+ * linked: to a figure, a drill or a position.
  *
  * A group's recording goes to Recently deleted first, with its sections and
  * its file: `trashId` is set and the caller leaves the file on disk (risk 19).

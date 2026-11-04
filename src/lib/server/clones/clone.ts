@@ -429,7 +429,7 @@ function mayClone(db: Db, req: CloneRequest, sourceId: number, opts: CloneOption
 /* ── The whole flow ─────────────────────────────────────────────────────── */
 
 /**
- * Clone a figure, drill, song, routine or lesson into `into` for its actor. `denied` unless
+ * Clone a figure, drill, song, routine, lesson or position into `into` for its actor. `denied` unless
  * they may (`mayClone`); the member already there is answered as it is; a
  * clone that does not fit `into`'s room (or the disk floor) is refused before
  * any file is linked, unless `overLimitOk` (a clone with no files charges

@@ -41,7 +41,7 @@ import { linkInSpace } from '../spot-links';
 import { linkPositionInSpace } from '../position-links';
 import { addLinks } from '../links';
 import { listPositions } from '../positions';
-import { seedPositions } from '../test-positions';
+import { insertFixturePositions } from '../test-positions';
 import { setFigureShape } from '../graph';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import { stampGene } from './genes';
@@ -54,7 +54,7 @@ let db: Db;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	insertFixturePositions(db);
 	db.insert(users)
 		.values({ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' })
 		.run();
@@ -404,7 +404,7 @@ describe('flatOf', () => {
 			'u1'
 		)!;
 		linkInSpace(db, T1_SALSA, spot.id, { figureId: made.figure.id });
-		seedPositions(db, { teamId: 1 });
+		insertFixturePositions(db, { teamId: 1 });
 		const [cerrada, sombra] = listPositions(db, T1_SALSA);
 		expect(linkPosition(db, id, cerrada.id, 'u1')).toBe(true);
 		expect(linkPosition(db, id, sombra.id, 'u1')).toBe(true);

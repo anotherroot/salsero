@@ -50,7 +50,7 @@ import { linkInSpace } from '../spot-links';
 import { addLinks } from '../links';
 import { addLesson } from '../entries';
 import { listPositions } from '../positions';
-import { seedPositions } from '../test-positions';
+import { insertFixturePositions } from '../test-positions';
 import { figurePositions, setFigureShape } from '../graph';
 import { usedBytes } from '../storage';
 import { purgeTeams } from '../team-purge';
@@ -196,7 +196,7 @@ function mineIn(figureName: string) {
 beforeEach(() => {
 	db = openDb(':memory:');
 	// The group's own positions: a group's figure is tagged only with those.
-	seedPositions(db, { teamId: 1 });
+	insertFixturePositions(db, { teamId: 1 });
 	dir = mkdtempSync(join(tmpdir(), 'salsa-copy-'));
 	files = cloneFilesIn({ recording: dir, 'lesson-video': dir, audio: dir });
 	for (const [id, firstName] of [

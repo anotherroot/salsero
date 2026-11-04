@@ -14,7 +14,7 @@ import {
 import { archiveVariation, createFigure, createVariationFrom } from './figures';
 import { buildGraph, canonicalOf, figurePositions, graphFor, setFigureShape } from './graph';
 import { listPositions } from './positions';
-import { addPosition, seedPositions } from './test-positions';
+import { addPosition, insertFixturePositions } from './test-positions';
 import { T1_SALSA, U1_SALSA, U1_BACHATA, U2_SALSA } from '$lib/server/test-walls';
 import { createTeam, joinTeam } from './teams';
 import { createLesson, linkFigure, publishLesson } from './lessons';
@@ -34,7 +34,7 @@ const figureInput = (name: string) => ({
 
 function setup(): { db: Db; pos: (slug: string) => number } {
 	const db = openDb(':memory:');
-	seedPositions(db);
+	insertFixturePositions(db);
 	const all = listPositions(db, U1_SALSA);
 	return {
 		db,

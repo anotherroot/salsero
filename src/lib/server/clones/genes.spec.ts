@@ -7,7 +7,7 @@ import { setRole } from '../membership';
 import { addFigureExercise, addRecording, createFigure } from '../figures';
 import { createCustomExercise } from '../exercises';
 import { createLesson, linkFigure, publishLesson } from '../lessons';
-import { seedPositions } from '../test-positions';
+import { insertFixturePositions } from '../test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import { familyRows, geneOf, memberIn, newGene, stampGene, visibleMembers } from './genes';
 
@@ -25,7 +25,7 @@ const setGene = (id: number, gene: string) =>
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	insertFixturePositions(db);
 	for (const id of ['u1', 'u2', 'u3'])
 		db.insert(users)
 			.values({ id, email: `${id}@x.si`, passwordHash: 'x', firstName: id })

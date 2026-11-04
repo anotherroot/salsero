@@ -23,7 +23,7 @@ import { createFigure } from '../figures';
 import { createRoutine } from '../routines';
 import { createLesson, publishLesson } from '../lessons';
 import { createSongFromUrl } from '../songs';
-import { seedPositions } from '../test-positions';
+import { insertFixturePositions } from '../test-positions';
 import type { Space, Wall } from '../scope';
 import { T1_SALSA, U2_SALSA } from '../test-walls';
 import { repoint, repointPreview } from './repoint';
@@ -40,7 +40,7 @@ let db: Db;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	insertFixturePositions(db);
 	db.insert(users)
 		.values([
 			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' },

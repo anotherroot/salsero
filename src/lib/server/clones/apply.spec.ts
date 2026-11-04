@@ -58,7 +58,7 @@ import { linkInSpace } from '../spot-links';
 import { linkPositionInSpace } from '../position-links';
 import { crossRefs } from '../integrity';
 import { createSongFromUpload } from '../songs';
-import { seedPositions } from '../test-positions';
+import { insertFixturePositions } from '../test-positions';
 import { figurePositions } from '../graph';
 import { ownerValues, type Space } from '../scope';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
@@ -81,7 +81,7 @@ let db: Db;
 beforeEach(() => {
 	db = openDb(':memory:');
 	// The group's positions: a group's figure is tagged only with its own (ruling 15).
-	seedPositions(db, { teamId: 1 });
+	insertFixturePositions(db, { teamId: 1 });
 	db.insert(users)
 		.values([
 			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' },

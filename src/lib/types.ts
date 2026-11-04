@@ -433,7 +433,10 @@ export interface Spot {
 	startMs: number;
 	endMs: number | null;
 	label: string | null;
-	/** What this section is linked to, "Enchufla · Doble". Empty for a point. */
+	/**
+	 * What this section or point is linked to: variations and drills
+	 * ("Enchufla · Doble") and positions by name. A point links positions only.
+	 */
 	linkedTo: string[];
 }
 

@@ -30,7 +30,7 @@ import {
 } from './routines';
 import { archiveVariation, createFigure, createVariationFrom, figureLabels } from './figures';
 import { listPositions } from './positions';
-import { seedPositions } from './test-positions';
+import { insertFixturePositions } from './test-positions';
 import { graphFor, setFigureShape } from './graph';
 import { flatten } from '$lib/routines/routines';
 import { exercises, routineStepOptions } from './db/schema';
@@ -198,7 +198,7 @@ describe('addOption and removeOption', () => {
 
 	it('refuses a figure that ends somewhere else: the sets of ends must match', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
@@ -217,7 +217,7 @@ describe('addOption and removeOption', () => {
 
 	it('accepts one whose ends are the same set in another order', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
@@ -240,7 +240,7 @@ describe('addOption and removeOption', () => {
 
 	it('refuses a tagged end beside an untagged one: [A] is not []', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
@@ -252,7 +252,7 @@ describe('addOption and removeOption', () => {
 
 	it('refuses an alternative that leaves the next figure on a different count', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A'); // 1 → 1
 		const b = figure(db, 'B');
@@ -264,7 +264,7 @@ describe('addOption and removeOption', () => {
 
 	it('accepts one of a different length that lands on the same count', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A'); // 1 → 1, 8 counts
 		const b = figure(db, 'B');
@@ -275,7 +275,7 @@ describe('addOption and removeOption', () => {
 
 	it('accepts two untagged figures: both fit anywhere', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
@@ -623,7 +623,7 @@ describe('the main figure', () => {
 describe('addOption: the start rule', () => {
 	const setup = () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
 		const [p1, p2] = listPositions(db, U1_SALSA);
 		return { db, routine, p1, p2 };
@@ -893,7 +893,7 @@ describe('extractRoutine', () => {
 describe('listPickRoutines', () => {
 	it('slots counts children as one; loops follows loops()', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const empty = createRoutine(db, U1_SALSA, { name: 'Empty', notes: null }).routine;
 		const loopy = createRoutine(db, U1_SALSA, { name: 'Around', notes: null }).routine;
 		const open = createRoutine(db, U1_SALSA, { name: 'Open', notes: null }).routine;

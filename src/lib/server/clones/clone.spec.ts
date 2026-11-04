@@ -47,7 +47,7 @@ import { addLinks } from '../links';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { createSongFromUpload, createSongFromUrl } from '../songs';
-import { seedPositions } from '../test-positions';
+import { insertFixturePositions } from '../test-positions';
 import { setTeamLimit, usedBytesOf } from '../storage';
 import { purgeTrash } from '../trash';
 import { ownerValues, type Space, type Wall } from '../scope';
@@ -88,7 +88,7 @@ function fakeFiles(name = (file: string) => `copy-${file}`) {
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	insertFixturePositions(db);
 	db.insert(users)
 		.values([
 			{ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana', lastName: 'Kranjc' },
@@ -117,7 +117,7 @@ function groupFigure() {
 	const made = figure(T1_SALSA, 'Enchufla', 'Doble');
 	const id = made.figure.id;
 	// The group's own positions: a group's figure is tagged only with them (ruling 15).
-	seedPositions(db, { teamId: 1 });
+	insertFixturePositions(db, { teamId: 1 });
 	const [open, closed] = db
 		.select()
 		.from(positions)

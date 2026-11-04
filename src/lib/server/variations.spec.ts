@@ -35,7 +35,7 @@ import { addLessonVideo, archiveLesson, createLesson, linkFigure } from './lesso
 import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
 import { listPositions } from './positions';
-import { seedPositions } from './test-positions';
+import { insertFixturePositions } from './test-positions';
 import { figurePositions, setFigureShape } from './graph';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 
@@ -86,7 +86,7 @@ describe('createFigure', () => {
 
 describe('createVariationFrom', () => {
 	it('copies the shape and nothing else', () => {
-		seedPositions(db);
+		insertFixturePositions(db);
 		const pos = listPositions(db, U1_SALSA);
 		const src = fig().figure;
 		db.update(figures)
@@ -149,7 +149,7 @@ describe('createVariationFrom', () => {
 
 describe('createVariationIn', () => {
 	it('makes a blank variation in an existing figure', () => {
-		seedPositions(db);
+		insertFixturePositions(db);
 		const pos = listPositions(db, U1_SALSA);
 		const { figure: sibling, group } = fig();
 		setFigureShape(db, sibling.id, {
