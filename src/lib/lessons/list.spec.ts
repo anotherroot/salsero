@@ -61,12 +61,23 @@ describe('diskSubtitle', () => {
 
 describe('splitDrafts', () => {
 	it('sets the drafts apart and keeps order', () => {
-		const a = { ...lesson('2026-11-02', { id: 1 }), publishedAt: null };
-		const b = { ...lesson('2026-11-01', { id: 2 }), publishedAt: 5 };
-		const c = { ...lesson('2026-10-01', { id: 3 }), publishedAt: null };
+		const team = { id: 7, name: 'Class' };
+		const a = { ...lesson('2026-11-02', { id: 1, team }), publishedAt: null };
+		const b = { ...lesson('2026-11-01', { id: 2, team }), publishedAt: 5 };
+		const c = { ...lesson('2026-10-01', { id: 3, team }), publishedAt: null };
 		const got = splitDrafts([a, b, c]);
 		expect(got.drafts.map((l) => l.id)).toEqual([1, 3]);
 		expect(got.published.map((l) => l.id)).toEqual([2]);
+	});
+	it('a person’s own lesson is never a draft: only a group publishes', () => {
+		const own = { ...lesson('2026-11-02', { id: 1 }), publishedAt: null };
+		const added = {
+			...lesson('2026-11-01', { id: 2, team: { id: 7, name: 'C' } }),
+			publishedAt: 5
+		};
+		const got = splitDrafts([own, added]);
+		expect(got.drafts).toEqual([]);
+		expect(got.published.map((l) => l.id)).toEqual([1, 2]);
 	});
 	it('treats a lesson without publishedAt as published (the personal list)', () => {
 		expect(splitDrafts([lesson('2026-11-01')]).published).toHaveLength(1);
