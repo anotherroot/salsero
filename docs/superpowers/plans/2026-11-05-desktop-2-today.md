@@ -1,0 +1,211 @@
+# Desktop plan 2 — Today (Option A) Implementation Plan
+
+**Runs after:** plan 1, then plan 3 (lane A: plan 3 → plan 2, same branch, plan 3 merged and green first). Plan 4 may run alongside it on lane B.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** From 1024 px, Today is a 400 px list beside the open exercise: the log form (Log set pinned under it) on the left, the reference, history and settings on the right, one exercise always open, the session walking the pane, while the phone stays exactly as it is.
+
+**Architecture:** Today's two routes move into a route group, `src/routes/[dance]/(today)/` (`/[dance]` and `/[dance]/exercises/[id]`; URLs unchanged), whose layout loads the list and renders it once through plan 1's `ListPane`; the list's session state lives in that layout and reaches the exercise page through a context. The exercise page is the pane: on desk it adds a left column holding `LogShell` in a new `frame="pane"` (the same component, form and footer as the popup, without the sheet) and keeps its own reference, history and settings on the right. With no exercise in the URL, the desk layout replaces the URL with the first due exercise's (`replaceState`, no history entry; settled, Task 5); with nothing to open it shows the day so far.
+
+**Tech Stack:** SvelteKit 2.70 (route groups, `$app/paths` `resolve`, which drops `(group)` segments), Svelte 5 runes, Tailwind 4, Vitest; plan 1's `scripts/shots/` (Playwright) for screenshots.
+
+**Spec:** `docs/superpowers/specs/2026-11-03-desktop-design.md` — "Today: the list and the open exercise (Option A)", "The frame", "A list and the item beside it", "Keyboard and focus", "Building it". Boards: `docs/superpowers/design-kit/desktop/gen/desk/pages/today.py` (`a-today`, `a-session`, `a-logged`, `a-session-done`, `a-all-done`, `a-upcoming`, `a-lesson`, `a-edit`, `a-loading`, `first-run`, `past-day`); render with the README's `book.py boards today --theme salsa-light` and compare `out/boards/<theme>/today--<id>.html` at 1440×900.
+
+Plan 2 of 5. It runs after plan 1 (`docs/superpowers/plans/2026-11-05-desktop-1-frame.md`) and consumes its Interfaces by name: the `desk:` variant, `--side-w`, `--band-row-h`, `--pane-left`, `--pane-max`, `frameOf`, `sideLit`, `desk` (`MediaQuery`), `Screen`'s `width`, `ListPane`, `setPane`/`inPane`, `listOf`/`ListId`, `paneBack`, the `two:` variant, `BandHeader`, `scripts/shots/`. From plan 3 (already on this branch), by name: the `(moves)` route ids and `src/lib/nav/route-ids.spec.ts`; `pane.ts`'s `LIST_HOME`, `inList` and `paneBack(opener, list, dance, under = false)`; `PaneColumns`; `ListPane`'s `solo`, `data-list-column` and keep-focus; `Screen`'s `below` row; `BackButton`'s pane gate. This plan adds to them (a `LIST_HOME` row, `ListPane`'s `hero`) and redefines none.
+
+## Global Constraints
+
+- The desktop applies from **1024 px**; below it nothing changes, ever. The phone at 390 px must match plan 1's baseline and this plan's scene baseline (Task 1): `shots.py diff` exits 0.
+- Measures (spec and boards): Today's list column **400 px** (`ListPane width={400}`; its `--pane-left` is `calc(var(--side-w) + 401px)`); the pane's two columns are plan 3's `<PaneColumns ratio="1:1">` (two from a 780 px pane, plan 1's `two:` on its own `cols` container, never on the pane), **1fr 1fr, 32 px gap**, top-aligned; one column below it (left above right); the pane's content width is `Screen width="two"` (1140) when the exercise can be logged, `"one"` (720) when it cannot. Pinned foot of the left column: `sticky bottom-0`, `bg-ground`, `border-t border-hairline`, padding 14 top / 20 bottom, buttons in one row **10 px** apart. Open row: `bg-accent-soft`, a **4 px** inset accent bar on its left edge, `aria-current="page"`. The hero (Start session, Resume, All done) is the list column's first card, not straddling.
+- **Where a board's words or order differ from the built app, the built app wins** (spec). The list keeps the phone's band order (Due, Not yet due, Done today, Inactive: `todayBands`), not the boards' and the spec section's (Done today before Not yet due). The new strings this plan adds, exactly: `Log a set` (the left column's section label), `Session · {i} of {n}` and ` · {k} logged so far`, `Next: {name}` outside a session (the session's existing wording), `Today so far`, `Logged today · {n}`, `Nothing logged today`, the day's totals (`7 exercises · 9 sets · 1 h 05`), `Cancel` (settings, desk). The boards' grey asides beside the pinned foot ("Logged at 12:42…", "Not due yet…") are not built.
+- `MediaQuery` (`desk`) is for behaviour, never layout (plan 1). **This plan's one exception:** a part that must not exist twice (the pane's log form beside the popup, a figure's video in both columns) is mounted by `desk.current`, and the server render holds its place with a CSS-only placeholder (`hidden desk:block`), so the desk paint has no jump and the phone renders nothing extra.
+- Forms rendered by the `(today)` layout post to an explicit `/{dance}?/x` (never a bare `?/x`: on `/[dance]/exercises/[id]` it would post to the exercise's actions) and show a refusal from `result.data`, since a failure from another route never reaches `page.form`. Forms inside the exercise page (the pane) stay relative: they are on their own route.
+- Today's route ids are now **`/[dance]/(today)`** and **`/[dance]/(today)/exercises/[id]`** everywhere a route id is written (tables in `src/lib/nav/`, `resolve(...)` calls, specs). Plan 3's `(moves)` ids are already in place, including the `resolve` calls it renamed inside Today's pages (the move keeps them); plan 3's `route-ids.spec.ts` must keep passing, and it is what finds a Today literal left behind. Plans 4 and 5 name no Today route id.
+- No new feature beyond the spec's, no data-model change, no migration, no URL change, no action or API shape change: PAGE_EPOCH stays.
+- Colours only from tokens and the builders in `ui/styles.ts` (never a colour appended to a builder's output; `swap()` only in `.ts`). A display class (`desk:hidden`) on a built control is not a colour.
+- `npm run check` passes at the end of every task (`nix develop --command npm run check`).
+- **Builder checklist (read before every task; reviewers keep finding these):**
+  - Error paths: a button that goes busy must come back on failure; a refused action shows its message.
+  - Tests must fail without the change. For each new test, name the mutation that would make it fail (remove the class, swap the branch) and check it does.
+  - The browser and the tests can disagree: CSS, media queries and layout are not in vitest. Every task that changes what is drawn ends with a screenshot check (Task 1's rig) at 1440 and at 390.
+  - Order: nothing is marked done/open/saved before the work it stands for has happened.
+  - Forms in a layout's list column post to the list route's explicit action URL (`action="/{dance}/songs?/retry"`), never a bare `?/x`: on an item route a bare `?/x` posts to the item's actions.
+  - (In this plan, "Task 1's rig" is plan 1's `scripts/shots/` plus this plan's Task 1 scenes.)
+
+## Review Focus
+
+1. **An exercise that is not a row of the list** (a group's drill with no entry of yours, opened from its lesson; an inactive one): the pane shows it with no row lit, Today lit in the side, one column and no log form when it cannot be logged, ‹ back to the lesson. (Task 4, Step 6.)
+2. **A reload in the middle of a desk session** (`/salsa/exercises/12?session=1`): the hero reads Resume, the header reads `Session · 1 of {remaining}` (the tally is page state and starts over, as on the phone), Skip, Next and Finish still work, nothing is logged twice. (Task 6, Step 5.)
+3. **Nothing due, nothing not-yet-due, nothing logged today** (only Inactive rows): no redirect, the pane says `Nothing logged today`, the list shows Inactive folded. (Task 2 test on `defaultOpen`; Task 5, Step 5.)
+4. **Archiving the open drill from the pane:** it leaves to `/salsa`, which opens the next one (or the day so far); no unsaved-changes question for the closed settings form; the row is gone from the list. (Task 4, Step 6.)
+5. **The window crossing 1024 with an exercise open:** the open exercise stays open (its URL), there is never more than one `form[id^="log-"]` in the page, the phone popup never opens on desk. Typed but unlogged fields in the pane's form are not carried across (accepted: the form changes place). (Task 4, Step 6.)
+
+---
+
+### Task 1: Today's scenes for the rig, and their phone baseline
+
+Today's popups, a session and editing only exist after clicks; plan 1's static pages do not cover them.
+
+**Files:**
+- Create if missing, else keep: `scripts/shots/scenes.py` (with the `shots.py`, `shots.sh` and README changes below: the rig's scene machinery, shared with plan 5)
+- Create: `scripts/shots/ext_today.py` (this plan's scenes and placeholders)
+
+**Interfaces:**
+- Consumes: plan 1's `shots.py` (`placeholders(db)`, the session cookie, `STYLE`, `MASK_JS`, `--group`).
+- Produces — **the rig's scenes, one shape shared with plan 5 Task 1 (word for word the same there):**
+  - `scenes.py`: `class Scene(NamedTuple): path: str; act: Callable[[Page], None] = lambda p: None; masks: Callable[[Page], list[Locator]] = lambda p: []; desk: bool = False` (`desk`: shot only at widths ≥ 1024, never part of a phone baseline). `load_ext() -> tuple[dict[str, Scene], list[Callable]]` imports every `scripts/shots/ext_*.py` by file path (`importlib.util`; `python3 -I` puts no script directory on `sys.path`), merges their `SCENES: dict[str, Scene]` (a name twice is an error) and collects their optional `placeholders(db, admin: str, dance: str) -> dict[str, object]`.
+  - `shots.py`: `placeholders(db)` also merges every extension's placeholders (a name already taken is an error), so page lines can use them too; a new subcommand `scene --db --base --out --size [--theme] [--group ID] --scenes NAMES`, NAMES a comma list or `all` (every scene, less the `desk` ones under 1024 wide). Chromium is launched with `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream --autoplay-policy=no-user-gesture-required` and the context granted `microphone`. Per scene: open its path (filled as page lines are), `act(page)`, network idle + 300 ms, `STYLE` and `MASK_JS` as for pages, `screenshot(path=<out>/scene-<name>.png, full_page=True, mask=masks(page))`. A placeholder that is `None` prints `skip <name>` and is not a failure; an exception in `act` is.
+  - `shots.sh <db> <out> <W>x<H> [--theme light|dark] [--group ID] [--scenes NAMES]`: with `--scenes` it runs `shots.py scene` in place of `shoot`. README: a short "Scenes" paragraph.
+  - **Who builds it:** first run `git log --all --oneline --grep='the rig shoots scenes'`. If that commit exists (plan 5 on lane B built it), `git cherry-pick` it and go on to this plan's scenes; otherwise build the machinery exactly as above (no scenes in it) and commit it alone as `chore(desktop): the rig shoots scenes`, so plan 5 can cherry-pick it and the lanes' merge sees one change.
+  - Each plan's scenes and placeholders live in its own `ext_<name>.py`, so the lanes never edit one scene list.
+- This plan's `ext_today.py`: placeholders `figex`, `drillex`, `routineex`, `lessonex` — the admin's first live, active salsa exercise with `source` `figure`, `custom`, `routine`, `lesson`; the scenes below (the desk-only ones with `desk=True`).
+
+- [ ] **Step 1: Write the scenes** (each waits for network idle + 300 ms after `act`):
+  - `today-popup` `/{dance}`: click the first `button[aria-label^="Log a set of "]`.
+  - `today-session` `/{dance}`: click the hero's Start session.
+  - `today-new` `/{dance}`: click the list's Custom exercise button.
+  - `exercise-popup-figure|drill|routine|lesson` `/{dance}/exercises/{figex|drillex|routineex|lessonex}?log=1`.
+  - `exercise-edit` `/{dance}/exercises/{drillex}`: click `Edit settings`.
+  - Desk-only (`desk=True`; shot from Task 4 on, never in the phone baseline): `pane-edit` (`/{dance}/exercises/{figex}`, click `Edit settings`); `pane-logged` (`/{dance}/exercises/{drillex}`, type 5 in Minutes, click Log set — it writes to the throwaway copy only); `pane-session` (`/{dance}`, click Start session); `pane-skip` (`pane-session`, then click Skip).
+- [ ] **Step 2: Check stability:** shoot the phone scenes twice at 390×844; `shots.py diff` of the two runs exits 0.
+- [ ] **Step 3: Take the scene baseline before any change in this plan:** the phone scenes at 390×844, light and dark, into `<scratch>/today-390`.
+- [ ] **Step 4: Commit** `scripts/shots/ext_today.py` (`chore(desktop): Today's scenes for the screenshot rig`), after the machinery's own commit.
+
+### Task 2: The pure parts
+
+**Files:**
+- Create: `src/lib/exercises/today-pane.ts`, `src/lib/exercises/today-pane.spec.ts`
+- Modify: `src/lib/exercises/log-view.ts` (+ `log-view.spec.ts`), `src/lib/exercises/kinds.ts` (+ `kinds.spec.ts`)
+
+**Interfaces:**
+- Produces:
+  - `defaultOpen<R extends { exercise: { id: number } }>(bands: Band<R>[]): number | null` — the first row of `shownRows(bands, 'due')`, else of `'upcoming'`, else null.
+  - `sessionLine(walked: readonly number[], remaining: readonly number[], open: number, logged: number): string | null` — `walked`: ids logged or skipped this session, in order, no repeats; `remaining`: the walk's ids still to do (shown due then upcoming, skipped ones out). `n = walked.length + remaining.filter(id => !walked.includes(id)).length`; `i` = `walked.indexOf(open) + 1` when walked, `walked.length + 1` when in `remaining`, else the function returns null. Text: `Session · {i} of {n}`, plus ` · {logged} logged so far` when `logged > 0`.
+  - `dayTotals(sets: DaySet[]): string` — `{plural(exercises)} · {plural(sets)}`, plus ` · {practisedLabel(totalS)}` when the summed `durationS` is over 0 (`practisedLabel` from `exercise-page.ts`; distinct `exerciseId`s are the exercises).
+  - `log-view.ts`: `FooterInput` gains `follow?: string | null` (outside a session, the name Next goes to). `next` = the session rule as now; else `justLogged && follow ? \`Next: ${follow}\` : null`.
+  - `kinds.ts`: `TypeInfo.paneContent: 'left' | 'right'` — `figure` and `drill` `'left'` (practised along with: recordings, links, sections sit by the form), `routine` and `lesson` `'right'` (walked or reviewed: beside the history).
+
+- [ ] **Step 1: Failing tests.** `today-pane.spec.ts`, with rows `{ exercise: { id } }` built by `todayBands`:
+  - `defaultOpen` — own due `[3, 4]` and a group's due `[7]` → `3`; due empty, upcoming `[9]` → `9`; a group's due only `[7]` → `7`; only `doneToday` and `inactive` rows → `null`; no rows → `null`.
+  - `sessionLine([1], [2, 3, 4, 5], 2, 1) === 'Session · 2 of 5 · 1 logged so far'`; `sessionLine([1, 2], [3, 4, 5], 2, 2) === 'Session · 2 of 5 · 2 logged so far'`; `sessionLine([], [1, 2, 3], 1, 0) === 'Session · 1 of 3'`; skipped then still due: `sessionLine([4], [4, 5], 5, 0) === 'Session · 2 of 2'`; `sessionLine([1], [2], 9, 1) === null`.
+  - `dayTotals` — 9 sets over 7 exercises, 3900 s → `'7 exercises · 9 sets · 1 h 05'`; one set, no duration → `'1 exercise · 1 set'`; `[]` → `'0 exercises · 0 sets'`.
+  - `log-view.spec.ts`: no session, `follow: 'Clave clapping'`, `justLogged: true` → `next === 'Next: Clave clapping'`, `main.state === 'logged'`; the same with `justLogged: false` → `next === null`; a session with `next: 'A'` and `follow: 'B'`, just logged → `'Next: A'`; `follow` omitted → every existing case unchanged.
+  - `kinds.spec.ts`: `paneContent` of each of the four types as above.
+- [ ] **Step 2: Run** `nix develop --command npx vitest run src/lib/exercises` — FAIL.
+- [ ] **Step 3: Implement** the three files' additions.
+- [ ] **Step 4: Run** — PASS; `npm run check` passes.
+- [ ] **Step 5: Commit** (`feat(desktop): Today's pure parts — what opens, the session line, Next after a log`).
+
+### Task 3: Today's route group and its list column
+
+**Files:**
+- Move: `src/routes/[dance]/+page.svelte`, `src/routes/[dance]/+page.server.ts` and the whole `src/routes/[dance]/exercises/` into `src/routes/[dance]/(today)/` (`git mv`)
+- Create: `src/routes/[dance]/(today)/+layout.server.ts`, `src/routes/[dance]/(today)/+layout.svelte`, `src/lib/components/today/TodayList.svelte`, `src/lib/components/today/today-forms.spec.ts`
+- Modify: `src/lib/components/shell/ListPane.svelte` (`hero` only), `src/lib/components/today/ExerciseRow.svelte`, `src/lib/components/today/NewExerciseSheet.svelte`, `src/lib/components/today/PastDay.svelte`, `src/lib/nav/pane.ts` (+ spec), `src/lib/nav/tabs.ts` (+ spec), `src/lib/nav/pending.ts` (+ spec), `src/lib/nav/frame.ts` (its `routeId === '/[dance]'` arm: no longer a route id, so `route-ids.spec.ts` flags it; plan 5 edits this file on the other lane) and `frame.spec.ts`, `src/lib/nav/bands.spec.ts` and `src/lib/nav/route-ids.spec.ts` (plan 3's; only if a table in them names Today), the route specs that import the moved modules (`dance-wall`, `owner-wall`, `clash`, `make-mine`, `section-links`), every `resolve('/[dance]', …)` and `resolve('/[dance]/exercises/[id]', …)` (svelte-check lists them; today in `LinkPopup`, `SourceTabs`, `FamilyList`, `LogShell`, `ExerciseRow`, the figure, routine and lesson pages — plan 4 restructures the lesson page on the other lane, so keep that page's rename to its two `resolve` lines), and the specs that pass Today's ids (`fresh.spec.ts`, `page-epoch.spec.ts`, `app-update/view.spec.ts`, if their cases need it)
+
+**Interfaces:**
+- Consumes: `ListPane`, `listOf`, `paneBack`, `desk`; `dayTotals` (Task 2).
+- Produces:
+  - Layout load returns `{ today, yesterday, plan, todaySets: DaySet[], lessonDays, lastRatings, songs, takes }` (moved from the page's load; `todaySets` is the old `daySets` for today). The page load keeps the `day` redirect rule and returns `{ past: null | { day, prevDay, nextDay, daySets, exercises } }` (`exercises` = `listPickExercises`, now only for a past day). Actions unchanged.
+  - `pane.ts`: `ListId` gains `'today'`; `listOf('/[dance]/(today)')` → `{ list: 'today', open: false }`, `listOf('/[dance]/(today)/exercises/[id]')` → `{ list: 'today', open: true }`. Plan 3's `LIST_HOME` gains `today: { root: '', items: '/exercises' }`: **today's root is `/{dance}` exactly and its items are under `/{dance}/exercises/`** (everything is "under" `/salsa`, which is why plan 3's table has a root and an items prefix). `paneBack`'s signature is plan 3's, unchanged.
+  - `ListPane` gains `hero?: Snippet` (phone: passed to `Screen`'s `hero`; desk: the list column's first card, no negative margin). Its `solo` (desk: no list column, the `list` snippet fills the sheet as one column, `soloWidth` default `'one'`, 720) is plan 3's: use it, do not add another.
+  - `<TodayList bands dance lastRatings lessonDays today upNextId currentId rowSearch appUpdate onlog oncreate />` — the phone list's body moved verbatim from `+page.svelte` (the app-update bar, the bands with their group parts, Inactive folded (its `showInactive` state inside), Custom exercise, the first-run empty state); the Custom exercise button gets `desk:hidden`.
+  - `ExerciseRow` gains `current: boolean` (tint, inset bar, `aria-current="page"` on its link, `text-ink-2` meta and `onTint` tile as for Up next) and `search: string` (appended to its href); its + gets `desk:hidden`. Focus stays on the clicked row through plan 3's keep-focus on `ListPane`'s column (spec "Keyboard and focus"); nothing on the row.
+  - `NewExerciseSheet` gains `dance: DanceSlug`; posts to `/{dance}?/createExercise`; a failure's `result.data.message` shows when `message` is null.
+  - `PastDay` gains `today?: boolean`: label `Logged today · {n}`, empty `Nothing logged today`, no per-exercise +, no Forgot picker (`onlog`, `exercises`, `day` become optional).
+
+- [ ] **Step 1: Failing tests.** `pane.spec.ts`: the two `listOf` cases; `paneBack('/salsa', 'today', 'salsa') === false`; `paneBack('/salsa/exercises/4', 'today', 'salsa') === false` (another exercise was open beside the list); `paneBack('/salsa/figures/3', 'today', 'salsa') === true`; `paneBack('/salsa/lessons/2', 'today', 'salsa') === true`; `paneBack(null, 'today', 'salsa') === false`; the songs cases unchanged. `pending.spec.ts`: `skeletonFor('/[dance]/(today)')` is `kind: 'today'`; `skeletonFor('/[dance]')` is `null`. `tabs.spec.ts`: the route-id list uses the new ids. Plan 3's `route-ids.spec.ts` fails once the folders move, until every Today literal under `src/lib` is renamed. `frame.spec.ts`: `frameOf('/[dance]/(today)', true) === 'side'`, `frameOf('/[dance]/(today)/exercises/[id]', true) === 'side'`. `today-forms.spec.ts` (files read as text, as `class-rules.spec.ts` does): `NewExerciseSheet.svelte` has `action="/{dance}?/createExercise"`, and neither it nor `TodayList.svelte` nor `(today)/+layout.svelte` has a bare `action="?/`.
+- [ ] **Step 2: Run** — FAIL.
+- [ ] **Step 3: Move and split.** `git mv` the files; split the load as above; update every route id (grep `"'/\[dance\]'"` and `"/\[dance\]/exercises"` in `src/`, plus svelte-check and `route-ids.spec.ts`); the `(moves)` ids plan 3 wrote stay as they are. Repoint the specs' imports (`./(today)/+page.server`, `./(today)/exercises/[id]/+page.server`); where `owner-wall.spec.ts` reads `plan` or `daySets` from `todayPage.load`, read it from the layout's load (`todaySets`) with the same assertions, never weaker.
+- [ ] **Step 4: The layout.** Past day (`page.url.searchParams.has('day')`, valid by then: the page load redirects the rest): `{@render children()}` only. Otherwise, with `isList = listOf(page.route.id)?.open === false` and `list` a snippet rendering `<TodayList …/>`: `<ListPane {list} hero={heroCard} {isList} width={400} solo={isList && bands.length === 0} title="Today" subtitle={longDayLabel(data.today)} right={bandRight} empty={daySoFar}>{children}</ListPane>`. Moved from the page into the layout, logic unchanged: `bands`, `walkDue`/`walkUpcoming`, `firstUp`/`nextUp`, the session state and `SessionControls`, the hero, `openId`, the phone popup (`{#key}<Log …/>`, `failure()` reading `page.form`), `NewExerciseSheet`, the `onMount` session pick-up. `bandRight`: ‹ Previous day (`?day={yesterday}`), then Settings in `<span class="contents desk:hidden">`, then + Custom exercise in `<span class="hidden desk:contents">` (opens `NewExerciseSheet`). `currentId` = `Number(page.params.id)` on the item route, else null. `daySoFar` = `<Screen title="Today so far" subtitle={dayTotals(data.todaySets)}><PastDay today …/></Screen>`. The page (`+page.svelte`) keeps only the past day: its `Screen`, `PastDay` and its own back-fill popup (`kinds` from `data.plan`, songs and takes from the layout's data).
+- [ ] **Step 5: Run** the specs and `npm run check` — PASS.
+- [ ] **Step 6: Screenshot check.** 1440: `/salsa/exercises/{figex}` shows the list (rows without +, the row lit with its bar) beside the existing exercise page as the pane (one column, pane header, plan 1); `/salsa` shows the list beside Today so far; a first-run db (a copy with the admin's exercises archived) shows the empty state across the sheet, + on the band opens New exercise as a dialog, and creating one from `/salsa/exercises/{figex}` with an empty name shows the refusal in the dialog. `?day=` is one 720 column (board `today--past-day`). 390: plan 1's pages and Task 1's scenes diff 0.
+- [ ] **Step 7: Commit** (`feat(desktop): Today's list in a layout beside the open exercise`).
+
+### Task 4: The pane — the log form on the left, the exercise on the right
+
+**Files:**
+- Modify: `src/lib/components/exercises/LogShell.svelte`, `src/lib/components/exercises/kinds/{figure,drill,routine,lesson}/Log.svelte`, `src/lib/components/exercises/kinds/index.ts`, `src/routes/[dance]/(today)/exercises/[id]/+page.svelte`
+
+**Interfaces:**
+- Consumes: `paneContent`, `footerFor`'s `follow` (Task 2), `inPane`, `desk`; plan 3's `PaneColumns`, `Screen`'s `below` row and `BackButton`'s pane gate.
+- Produces:
+  - `LogProps` gains `frame?: 'sheet' | 'pane'` (default `'sheet'`), `follow?: { name: string; onnext: () => void } | null`, `contentProps?: Pick<ContentProps, 'onPage' | 'canEdit' | 'editLinks'>` (spread onto `Content` after the wrapper's own `canEdit`).
+  - `LogShell`'s `body` snippet becomes `reference: Snippet<[PracticePayload]>` (the type's `Content`, with the figure's Hide/Show fold) and `panel?: Snippet<[PracticePayload]>` (the practice panel, or the routine's Practise in player and its line; the lesson has none). In `'sheet'` the two render exactly as `body` did (the phone's DOM unchanged; Task 1's scenes prove it). The form, the main button, the Next and Finish buttons and the Session done card are snippets inside `LogShell`, rendered by both frames: nothing is copied.
+  - `'pane'`: no `Sheet`; a `section aria-label="Log a set"`: the Session done card (when `view.done`), `Log a set` (`SECTION_LABEL`), `panel`, the form (id `log-pane-{id}`), then `reference` only when `typeInfo(source).paneContent === 'left'`; the pinned foot (Global Constraints) holds, in one row: Skip (secondary, when `view.skip`), the main button (flex 1), Next (**primary**, flex 1, from `view.next`, calling `session.onnext` or `follow.onnext`), Finish (when `view.done`, primary unless the main button shows); the hint under the row. No subtitle, no Details link, no "Sets today", no toast (the page's History has them). "Logged" fades back after 2.5 s only when there is neither a session nor a `follow`.
+  - (`Screen`'s `below?: Snippet` is plan 3's: inside a pane on desk, the row under the title and subtitle, `hidden desk:block`, never on the phone. This plan passes it; it does not change `Screen`.)
+
+- [ ] **Step 1: The wrappers and `LogShell`.** Split each wrapper's `body` into `reference` and `panel`; add `frame` and `follow` as above. Pass `footerFor` the `follow` name.
+- [ ] **Step 2: Phone check first.** Task 1's scenes and plan 1's pages at 390, light and dark: diff 0. (The refactor must not move a pixel before the pane is drawn.)
+- [ ] **Step 3: The exercise page's two columns.** Inside its `Screen` (`width={data.canLog ? 'two' : 'one'}`, `below` = `<LastTime last={data.practice.last} />` when `canLog`):
+  - The content in plan 3's `<PaneColumns ratio="1:1">` (its wrappers are `contents` below `two:`, so the phone's flow, order and gaps are untouched). `top` = SourceTabs, as now, full width. When `!data.canLog` everything goes in `top` (one column at any width, as plan 3's figure does while editing); otherwise `left` and `right` as below.
+  - The left column (`left`), only when `data.canLog`: `{#if desk.current}` `<Log frame="pane" … initial={data.practice} from="exercise" message={failure('log')} contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks: … }} />` keyed by `exercise.id` `{:else}` a `hidden desk:flex` placeholder of three `bg-skeleton` blocks (70, 56, 52 px tall, radius 16/14/14) `{/if}`.
+  - The right column (`right`; its items also `desk:min-w-0`, gap 3.5), in this order: owner row; the settings form (editing); `Content` (not editing; mounted only when `!desk.current || !contentLeft`, and `desk:hidden` when `contentLeft`, where `contentLeft = data.canLog && paneContent === 'left'`); the Add strip (not editing); History (`canLog`); the read-only Settings (`canLog`, not editing). While editing, the owner row and History are `hidden desk:flex` (the phone hides them as now; desk keeps them, board `a-edit`).
+  - Editing in place on desk: Save (primary, `aria-busy` while saving) and Cancel (secondary, `stopEditing`) in a `hidden desk:flex gap-2.5` row at the end of the settings form; the band's × moves to the pane header's actions on desk (`left`: `<span class="contents desk:hidden">`×`</span>` or `BackButton`; `right`: `<span class="hidden desk:contents">`× when editing`</span>`, History, pencil); the `BottomBar` gets `class="desk:hidden"`.
+  - The popup: `{#if logging && data.canLog && !desk.current}`.
+- [ ] **Step 4: Run** `npm run check` — PASS (existing exercise specs unchanged).
+- [ ] **Step 5: Screenshot check** at 1440 against `today--a-today` (`figex`), `today--a-upcoming` (`routineex`), `today--a-lesson` (`lessonex`), `today--a-edit` (scene `pane-edit`), and `pane-logged` (Logged, the set under History · Today, the row in Done today and still lit). At 1280: one column, the form first, Log set pinned under it. 390: diff 0.
+- [ ] **Step 6: Review Focus checks:** (1) open a group drill with no entry from its lesson at 1440: no left column, 720 wide, no row lit, ‹ back to the lesson; (4) archive `drillex` from the pane: lands on `/salsa`, no unsaved question, the row gone; (5) with `figex` open, resize 1440 → 800 → 1440 in Playwright: `document.querySelectorAll('form[id^="log-"]').length` is 1 at 1440 and 0 at 800 (no popup open), the URL unchanged.
+- [ ] **Step 7: Commit** (`feat(desktop): the open exercise in two columns, the log form beside it`).
+
+### Task 5: One always open, and the day so far
+
+**Files:**
+- Create: `src/lib/components/today/TodayPaneSkeleton.svelte`
+- Modify: `src/routes/[dance]/(today)/+layout.svelte`, `src/lib/nav/trail.ts` (+ `trail.spec.ts`), `src/lib/nav/trail.svelte.ts`, `scripts/shots/shots.py` (one landing allowed, Step 4)
+
+**Interfaces:**
+- Consumes: `defaultOpen` (Task 2), `desk`, `PaneColumns` (plan 3).
+- Produces: `withoutOpener(t: Trail, key: PageKey): Trail` (PURE: the page's opener becomes null; a page not in the trail is returned unchanged) and `dropOpener(key: string): void` in `trail.svelte.ts` (named apart from plan 3's `listOpener`, which reads an opener; these clear one). `<TodayPaneSkeleton />` — the board `a-loading` pane: a 260×26 and a 200×12 bone, then two columns (`PaneColumns ratio="1:1"`) of bones (70/56/52 left, 60/70/120 right), `aria-busy="true"`, a `sr-only` "Loading".
+- **Settled:** on desk, arriving at Today **swaps the URL** to `/{dance}/exercises/<first due>` with `replaceState` (no history entry), rather than showing it under `/{dance}`: every form in the pane posts a relative `?/x` to the exercise's own route, and a refusal from another route never reaches `page.form`. Task 8 updates the spec, which says the URL is not changed.
+
+- [ ] **Step 1: Failing test** in `trail.spec.ts`: a trail where `/salsa/exercises/12` has opener `/salsa/figures/3`; `withoutOpener(t, '/salsa/exercises/12')` gives it opener `null`; then `arrive(…, { kind: 'replace', from: '/salsa', to: '/salsa/exercises/12', … })` keeps `null` (so the pane has no ‹). `withoutOpener(t, '/salsa/exercises/99') === t`.
+- [ ] **Step 2: Run** — FAIL. **Step 3: Implement** `withoutOpener` and `dropOpener`.
+- [ ] **Step 4: The layout.** `target = isList && !sessionOn ? defaultOpen(bands) : null`. An `$effect`: when `desk.current`, on the list route, no phone popup open (`openId === null`): with a session flag, `openRow(firstUp, 'replace')` (Task 6 defines `openRow`; until then `goto` its href with `?session=1`); else when `target !== null`, `dropOpener(href)` then `goto(href, { replaceState: true })`. `empty`: `<TodayPaneSkeleton />` while a target exists, else the day so far (Task 3). The rig: at ≥ 1024 the `/{dance}` page line now lands on `/{dance}/exercises/<id>`; `shots.py`'s same-path check accepts that one landing for that line (no other), so a desk run stays `ok`.
+- [ ] **Step 5: Screenshot check** at 1440: `/salsa` lands on the first due exercise's URL with no new history entry (`history.length` unchanged in Playwright) and no ‹ in the pane (board `today--a-today`); on a copy where every due row is logged and nothing is not-yet-due: the day so far (board `today--a-all-done`); on a copy with only inactive rows: `Nothing logged today` (Review Focus 3). Tapping Today in the side while it is lit goes to `/salsa` and opens the default again. 390: `/salsa` never redirects; diff 0.
+- [ ] **Step 6: Commit** (`feat(desktop): Today always has one open`).
+
+### Task 6: The session and Next in the pane
+
+**Files:**
+- Create: `src/lib/components/today/today-context.ts`
+- Modify: `src/routes/[dance]/(today)/+layout.svelte`, `src/routes/[dance]/(today)/exercises/[id]/+page.svelte`
+
+**Interfaces:**
+- Consumes: `sessionLine`, `nextInSession`, `footerFor`'s `follow`, `LogProps.follow`/`frame`, `Screen`'s `below`.
+- Produces:
+  - `today-context.ts`: `interface TodayPane { readonly session: SessionControls | null; readonly follow: { name: string; onnext: () => void } | null; readonly line: string | null; readonly key: string; logged(durationS: number | null): void }`, `setTodayPane(p: TodayPane): void`, `todayPane(): TodayPane | null` (Svelte context, module-private key). The layout builds it with getters over its `$derived` values.
+  - In the layout: `walked: number[]` beside `skipped` and `tally` (pushed on a log and on Skip, no repeats; cleared where `skipped` is). `openRow(id: number, how: 'push' | 'replace')`: on desk, `goto` the exercise's href plus `?session=1` while a session is on (`replaceState` for `'replace'`); on the phone, `openId = id` as now. Start session and Resume use `openRow(firstUp, 'push')`; the session's `onnext` and `onskip` use `'replace'` (one history entry per session, as the phone's popup has none); `onfinish` is `endSession` as now (to `/salsa`, where Task 5 opens the next default or the day so far). Rows pass `search="?session=1"` while a session is on and `desk.current`.
+  - `follow` (no session): `nextInSession(walkDue, [], new Set(), current)` → `{ name, onnext: () => goto(href) }` (a push, like a row click), or null. `line`: `sessionLine(walked, remaining, current, tally.count)` while a session is on. `key`: `` `${current}:${bumpKey}` ``. `logged(d)`: the tally and `walked`, as the phone popup's `onlogged`.
+  - The exercise page, when `todayPane()` is not null: passes `session`, `follow`, `onlogged={today.logged}` to the pane's `Log`, keys it by `today.key`, and renders `today.line` (13/800 `text-accent-text`) above `LastTime` in `below`.
+
+- [ ] **Step 1: Implement** the context, the layout's `openRow`/`walked`/`follow`/`line`, and the page's use of them. The phone's popup keeps receiving the same `SessionControls` (its handlers now call `openRow`, which is `openId = …` on the phone).
+- [ ] **Step 2: Run** `npm run check` and the Task 2 specs — PASS.
+- [ ] **Step 3: Screenshot check (session)** at 1440, scenes `pane-session` and `pane-skip`: Start session opens the first due one at `…/exercises/{id}?session=1`, the header line reads `Session · 1 of {n}`, Skip and Log set pinned, the Up next row is the open one (board `today--a-session`); Skip replaces the URL (history length unchanged); log a set: Logged + `Next: {name}` primary, the line reads `· 1 logged so far` (board `today--a-logged`); the last one: the Session done card at the top of the form, Finish pinned (board `today--a-session-done`); Finish lands on `/salsa`.
+- [ ] **Step 4: Screenshot check (no session):** `pane-logged`: Logged stays, `Next: {first due}` beside it; clicking Next opens that exercise (a push: Back returns).
+- [ ] **Step 5: Review Focus 2:** reload in the middle of a session at 1440: Resume in the hero, `Session · 1 of {remaining}`, Skip and Next work, the db holds one set per Log set pressed (count the rows in the copy before and after).
+- [ ] **Step 6:** 390: Task 1's scenes (`today-session` included) diff 0. **Commit** (`feat(desktop): the session walks the pane, Next after a log`).
+
+### Task 7: Loading
+
+**Files:**
+- Modify: `src/lib/nav/pending.ts` (+ spec), `src/lib/components/shell/PageSkeleton.svelte`
+
+**Interfaces:**
+- Consumes: plan 1's `skeletonFor(routeId)` with `pane`, `listOf`; `TodayPaneSkeleton` (Task 5).
+- Produces: `skeletonFor(routeId: string | null | undefined, search?: string)` — `search` is optional, so plan 3's and plan 4's one-argument calls stay valid (plan 4 runs on the other lane: on the merge, its cases compare with `toMatchObject`, and any `toEqual` of a whole result gains `list`); results gain `list: ListId | null` (from `listOf`); Today's route with `day=` in `search` is `pane: false, list: null` (a past day is one column). `PageSkeleton` on desk with `list === 'today'`: the 400 list column (a hero bone 84 tall, radius 22; a label; four leading rows; a label; three rows) beside `<TodayPaneSkeleton />`; the band's ‹ and + drawn disabled (board `today--a-loading`).
+
+- [ ] **Step 1: Failing tests:** `skeletonFor('/[dance]/(today)')` → `{ kind: 'today', pane: true, list: 'today' }`; `skeletonFor('/[dance]/(today)', '?day=2026-11-01').pane === false`; `skeletonFor('/[dance]/(today)/exercises/[id]').list === 'today'`; `skeletonFor('/[dance]/songs').list === 'songs'`.
+- [ ] **Step 2: Run** — FAIL. **Step 3: Implement**; pass `navigating.to.url.search` from the root layout.
+- [ ] **Step 4: Run** — PASS. **Screenshot** the skeleton with a 2 s delay on `__data.json` (plan 1 Task 10's way) at 1440 against `today--a-loading`; 390 unchanged.
+- [ ] **Step 5: Commit** (`feat(desktop): Today's loading draws the list and the pane`).
+
+### Task 8: Today, checked, and the docs
+
+**Files:**
+- Modify: `CLAUDE.md` (Layout: the `(today)` group and its layout, `src/lib/exercises/today-pane.ts`, `components/today/TodayList.svelte`, `today-context.ts`, `TodayPaneSkeleton.svelte`, `LogShell`'s `frame`, `TypeInfo.paneContent`); the spec (`docs/superpowers/specs/2026-11-03-desktop-design.md`): the "Calls made while writing this" line "Today's first open exercise is shown without changing the URL" and the Today section's "without changing the URL" both become: on desktop, arriving at Today replaces the URL with `/{dance}/exercises/<first due>` (`replaceState`, no history entry, no ‹); and its "Decided while building" section, in its own `### Plan 2 — Today` subsection (create `## Decided while building` at the end if no plan has; each plan writes only its own subsection): the default open replaces the URL and why (the pane's forms post to the exercise's route), Next after a log outside a session goes to the first due one, the content's side per type, the `Log a set` label, the boards' asides not built, crossing 1024 drops unlogged typed fields.
+
+- [ ] **Step 1:** Shoot `/salsa`, `/salsa?day={yesterday}` and `/salsa/exercises/{figex|drillex|routineex|lessonex}` plus the desk scenes at 1440×900, 1280×800 and 1024×768, light and dark, salsa and bachata; and plan 1's pages plus Task 1's scenes at 390, light and dark: all 390 diffs 0. Nothing overflows horizontally; the list column scrolls on its own while the pane stays; the open row stays lit while the list scrolls.
+- [ ] **Step 2:** `npm run check` passes.
+- [ ] **Step 3: Commit** (`docs(desktop): Today in CLAUDE.md and the spec`).

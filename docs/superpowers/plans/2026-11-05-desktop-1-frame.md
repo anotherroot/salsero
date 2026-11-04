@@ -92,7 +92,7 @@ This is plan 1 of 5. Later plans (drafted separately): 2 Today, 3 Moves and Posi
 - Modify: `src/lib/components/ui/Screen.svelte`, `src/lib/components/ui/BandButton.svelte` (only if its hit area differs), `src/lib/nav/band.ts` (+ spec)
 
 **Interfaces:**
-- Produces: `Screen` gains `width?: 'one' | 'two' | 'song' | 'narrow'` (default `'one'`: 720; `'two'` 1140; `'song'` 640; `'narrow'` 560), applied on desk only as the content's max width, centred, padded 28 top / 40 sides. On desk the header is the band row: `fixed` top 0, full window width, height 88, a three-column grid from `var(--side-w)` to the right edge (title column reaching back to x 30, `extra` centred over the sheet, `right` 30 px from the edge). `bandMode(scrollY, compact, desk: boolean)` returns `'full'` or `'compact'` on desk, never `'slim'`.
+- Produces: `export const PAGE_WIDTH = { one: 720, two: 1140, song: 640, narrow: 560 } as const` and `export type PageWidth = keyof typeof PAGE_WIDTH` in `src/lib/nav/frame.ts`; `Screen` gains `width?: PageWidth` (default `'one'`), applied on desk only as the content's max width, centred, padded 28 top / 40 sides. On desk the header is the band row: `fixed` top 0, full window width, height 88, a three-column grid from `var(--side-w)` to the right edge (title column reaching back to x 30, `extra` centred over the sheet, `right` 30 px from the edge). `bandMode(scrollY, compact, desk: boolean)` returns `'full'` or `'compact'` on desk, never `'slim'`.
 
 - [ ] **Step 1: Failing test** in `band.spec.ts`: `bandMode(400, false, true) === 'full'`, `bandMode(400, true, true) === 'compact'`, `bandMode(400, false, false) === 'slim'` (unchanged phone rule).
 - [ ] **Step 2: Run** — FAIL.
@@ -120,9 +120,9 @@ This is plan 1 of 5. Later plans (drafted separately): 2 Today, 3 Moves and Posi
 - Modify: `src/lib/components/ui/BottomBar.svelte`, `src/lib/components/ui/Toast.svelte`, `src/lib/components/shell/ReloadBar.svelte`, `src/lib/components/figures/VariationBar.svelte` (position only, like the other bars; plan 3 replaces it on desk with the figure tabs)
 
 **Interfaces:**
-- Consumes: `--pane-left` (Task 2). Produces: on desk every pinned bar is `left: var(--pane-left)`, `right: 0`, `bottom: 0`, its inner max width `var(--pane-max, 720px)`; a `ListPane` (Task 9) sets `--pane-left` to `calc(var(--side-w) + 361px)` and pages set `--pane-max` from their `Screen` width. Toasts centre in the same box above a bar.
+- Consumes: `--pane-left` (Task 2). Produces: on desk every pinned bar is `left: var(--pane-left)`, `right: 0`, `bottom: 0`, its inner max width from its `width` prop (below); a `ListPane` (Task 9) sets `--pane-left` to `calc(var(--side-w) + 361px)`. Toasts centre in the same box above a bar.
 
-- [ ] **Step 1: Implement** the CSS (no JS). `Screen` sets `--pane-max` (its width's pixel value) on its own root element; `BottomBar` is rendered inside the page, so it inherits it. `ReloadBar` is rendered by the root layout, outside any Screen: it uses `--pane-left` and a fixed 720 max.
+- [ ] **Step 1: Implement.** `BottomBar` gains `width?: PageWidth` (Task 4; default `'one'`): on desk its inner max width is `PAGE_WIDTH[width]` — the one way a bar gets its page's width, because nearly every page renders its `BottomBar` after `</Screen>` (lesson, figure, song, position, routine, Setup), outside any variable `Screen` could set. Pages whose `Screen` is not `'one'` pass the same `width` to their bar (in this plan: the song page, `'song'`). `ReloadBar` is rendered by the root layout: it uses `--pane-left` and a fixed 720 max. The rest is CSS.
 - [ ] **Step 2: Screenshot check:** a routine in Edit (Save pinned), the exercise page (Log a set), Practice setup (Play). The reload bars: render `ReloadBar` in `/dev/kit` at desk width and shoot that. 390: diff 0.
 - [ ] **Step 3: Commit** (`feat(desktop): pinned bars sit in their pane`).
 

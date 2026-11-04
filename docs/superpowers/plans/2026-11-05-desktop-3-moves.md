@@ -1,0 +1,240 @@
+# Desktop plan 3 — Moves and Positions Implementation Plan
+
+**Runs after:** plan 1. Lane A, before plan 2 (same branch); plan 5 runs alongside it on lane B, and lane B merges this branch before plan 4.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** From 1024 px, the Moves tab is one list column (Figures, Routines or Positions) beside the open item: a figure and a position in two columns, a routine, a move, Coverage, No position and the map in the pane, while the phone stays pixel-for-pixel as it is.
+
+**Architecture:** The Moves routes move into a route group `src/routes/[dance]/(moves)/` (URLs unchanged) whose `+layout.svelte` renders plan 1's `ListPane` once, so the list survives opening an item. The three lists load in `(moves)/+layout.server.ts`, unfiltered; their filter rules become pure functions (`src/lib/moves/filter.ts`, `src/lib/positions/filter.ts`) applied in the list component, from the URL on a list route and from the trail's kept filter on an item route. Which list sits beside an item, and which row is lit, is a pure function of the route, the path and the trail's opener (`src/lib/nav/moves-pane.ts`). Two columns are a CSS container query on the page's own content, never a width read in script.
+
+**Tech Stack:** SvelteKit 2 (2.70), Svelte 5 runes, Tailwind 4 (container queries built in), Vitest; plan 1's `scripts/shots/` (Playwright) for screenshots.
+
+**Spec:** `docs/superpowers/specs/2026-11-03-desktop-design.md` ("A list and the item beside it (2A)", "Two columns (3A)", "Positions on desktop", "Page by page" → Moves, "Pointer and hover" for the slot's trash button, "Building it"). Positions as built: `docs/superpowers/specs/2026-11-04-positions-design.md`. Boards: `cd docs/superpowers/design-kit/desktop/gen/desk/pages && nix shell nixpkgs#python3 -c python3 -I book.py boards moves pos --theme salsa-light` → `out/boards/salsa-light/moves--<id>.html` and `positions--<id>.html`.
+
+This is plan 3 of 5 and runs after plan 1 (`docs/superpowers/plans/2026-11-05-desktop-1-frame.md`). It consumes plan 1's Interfaces by name: the `desk:` variant, `--side-w`, `--band-row-h`, `--pane-left`, `--pane-max`, `frameOf`, `sideLit`, `desk` (MediaQuery, behaviour only), `Screen`'s `width`, `ListPane`, `setPane`/`inPane`, `listOf`/`ListId`, `paneBack`, `keptFilter`/`keepFilter`, `BandHeader`, `scripts/shots/`. Music (plan 1 Task 9) is the pattern: read its diff before Task 4.
+
+Plans 2 and 4 both run after this one, on different lanes, so this plan **defines the extensions of plan 1's parts that both need**, and they consume them by these names: `pane.ts`'s list table, `inList` and `paneBack`'s `under` (Task 3); `ListPane`'s `solo`, `soloWidth`, `deskSubtitle`, `data-list-column` and keep-focus (Task 4); `PaneColumns`, `Screen`'s `below` row and `BackButton`'s pane gate (Task 5). Some have no user in this plan; they are small, and owning them here keeps the two lanes from building them twice.
+
+## Global Constraints
+
+- The desktop applies from **1024 px**; below it nothing changes. Every task that changes what is drawn ends with `scripts/shots/shots.sh <db> <out> 390x844` (light and dark) and `shots.py diff base-390 <out>` = 0 for every page, and a 1440×900 shot compared with the named boards.
+- Measures (spec): list column **360 px**; a figure and a position are `Screen width="two"` (1140), two columns **from a 780 px pane**, with plan 1's `two:` variant (`@container cols (width >= 700px)`, already in `layout.css`), the `cols` container being `PaneColumns`' own wrapper (the content box: the pane less its 2 × 40 px padding, so 700 = a 780 px pane); figure columns **5 : 7**, position **1 : 1**, **32 px** between them, top-aligned, each in the phone's order. A routine, a move, Coverage and No position are one column (`width` default, 720). The map's body is at most **800 px**. Figure tabs: pills **36 px** tall, radius 18, 16 px side padding, 14 px type (800 on the selected one, 700 otherwise), 8 px apart, wrapping.
+- No URL changes (the route group adds a segment to route ids only), no new feature, no data-model change, no migration. Form fields and actions keep their shapes: PAGE_EPOCH stays.
+- A desk-only or phone-only control is wrapped (`<span class="contents desk:hidden">` / `<span class="hidden desk:contents">`), never made so by appending a display class to a builder's output (CLAUDE.md: a built control's classes are the builder's).
+- Nothing `position: fixed` lives inside an `@container` element: `container-type` applies layout containment, which makes that element the containing block of fixed descendants. So the container is the columns' wrapper, **never `ListPane`'s pane** (every pinned bar is inside the pane), and bars, toasts and sheets stay outside the columns.
+- Layout never reads `desk.current`; only behaviour does (Task 6: where a position's edit opens). SSR and hydration must draw the same thing.
+- Every pinned bar here sits outside its page's `Screen`, so on desk it gets plan 1's default inner width (`--pane-max` falls back to 720), which is what this plan wants. Plan 5's `BottomBar` `width` is on the other lane and not used here.
+- Components import nothing from `$lib/server`; data functions take `db` first.
+- `nix develop --command npm run check` passes at the end of every task.
+- **Builder checklist (read before every task; reviewers keep finding these):**
+  - Error paths: a button that goes busy must come back on failure; a refused action shows its message.
+  - Tests must fail without the change. For each new test, name the mutation that would make it fail (remove the class, swap the branch) and check it does.
+  - The browser and the tests can disagree: CSS, media queries and layout are not in vitest. Every task that changes what is drawn ends with a screenshot check (Task 1's rig) at 1440 and at 390.
+  - Order: nothing is marked done/open/saved before the work it stands for has happened.
+  - Forms in a layout's list column post to the list route's explicit action URL (`action="/{dance}/songs?/retry"`), never a bare `?/x`: on an item route a bare `?/x` posts to the item's actions.
+
+## Review Focus
+
+1. **A reload on a figure that was opened from a routine** shows the Figures list (the spec: a reload or an outside link shows Figures); a later step to a sibling figure must not flip it to Routines (Task 3: `enteredAfter` tests; Task 4: screenshot after a reload).
+2. **A New move / New routine / New position refused from an item route** shows its message in the dialog, and an item's own refused action never opens the list's sheet (Task 4: the sheets read their failure from the enhance result, a spec forbids `form?.` and `page.form` in the list components).
+3. **Dragging a slot on desk**: the slim band and the tab bar are `display: none`, so their rects are all zeros; auto-scroll must use the band row's bottom and the window's bottom (Task 9: `dragEdges` tests).
+4. **A filter typed in the list column while an item is open**, then the band's segment, Back, or opening another row: the filter stays and `rememberedHref` of the list returns it (Task 4: trail test).
+5. **Resizing across 1024 while editing a position**: the edit stays where it opened (pane or sheet) until saved or stopped; nothing typed is lost (Task 6: a resize step in the screenshot check).
+
+---
+
+### Task 1: The `(moves)` route group
+
+A mechanical move with no change on screen. Every route id that names a Moves route gains `(moves)`.
+
+**Files:**
+- Move (`git mv`): `src/routes/[dance]/{figures,routines,positions,moves,coverage}` → `src/routes/[dance]/(moves)/…` (specs inside them included)
+- Modify: `src/lib/moves/segment.ts` (+ spec), `src/lib/nav/pending.ts` (+ spec), `src/lib/nav/tabs.ts` (+ spec: `TABS` moves path), `src/lib/nav/error-view.ts` (+ spec), `src/lib/nav/bands.spec.ts`, plan 1's `src/lib/nav/frame.spec.ts` and `src/lib/nav/pane.spec.ts` (the ids they name), every `resolve('/[dance]/(figures|routines|positions|moves|coverage)…')` call (21 files today; `npm run check` lists any missed), the relative route imports in `src/routes/[dance]/*.spec.ts`, `groups/*.spec.ts`, `player/usable.spec.ts`
+- Create: `src/lib/nav/route-ids.spec.ts`
+
+**Interfaces:**
+- Produces: route ids `/[dance]/(moves)/figures`, `…/figures/[id]`, `…/moves/[id]`, `…/coverage`, `…/routines`, `…/routines/[id]`, `…/positions`, `…/positions/[id]`, `…/positions/none`, `…/positions/map`. `TABS[moves].path` is `'/[dance]/(moves)/figures'`; `errorBack` builds hrefs with `resolveRoute` from `$app/paths` (or strips `/(…)` segments), never a raw `replace('[dance]', …)`.
+
+- [ ] **Step 1: Write the failing tests.** `route-ids.spec.ts`: glob `src/routes/**/+{page.svelte,server.ts}` into route ids (as `bands.spec.ts` globs); scan every non-spec `.ts` under `src/lib` for string literals `'/[dance]…'`; each must equal a route id, or end in `/` and prefix one. `error-view.spec.ts`: `errorBack('/salsa/figures/3', 'salsa')` → `{ href: '/salsa/figures', label: 'Back to Moves' }`. `segment.spec.ts`, `pending.spec.ts`, `tabs.spec.ts`: the same cases as now with the `(moves)` ids (`segmentOf('/[dance]/(moves)/positions/map') === 'positions'`, `skeletonFor('/[dance]/(moves)/figures/[id]')` matches `{ kind: 'figure' }`, …). Compare `skeletonFor` results with `toMatchObject`, never `toEqual`: plan 2 adds a `list` field. Plan 2 later moves Today into `(today)` and keeps `route-ids.spec.ts` passing; this task touches Today's pages only to rename their `resolve` calls to Moves routes.
+- [ ] **Step 2: Run** `nix develop --command npx vitest run src/lib/nav src/lib/moves/segment.spec.ts` — FAIL (route-ids finds the old literals once the folders move; the updated cases fail on the old code).
+- [ ] **Step 3: Move and rename.** `git mv` the five folders; update the literals, `resolve` calls, spec imports (`'./(moves)/figures/[id]/+page.server'`) and the specs inside the moved folders (their `../` imports gain a level). `bands.spec.ts` keys gain `(moves)`.
+- [ ] **Step 4: Run** the specs and `npm run check` — PASS. Every existing route spec passes unchanged in its assertions.
+- [ ] **Step 5: Screenshot check:** 390 diff 0; 1440 shots identical to the ones taken at the end of plan 1 (`shots.py diff`).
+- [ ] **Step 6: Commit** (`refactor(desktop): the Moves routes in one route group`).
+
+### Task 2: The lists load in the layout; their filters are pure
+
+The phone still draws each list from its own page, now from the layout's data through the pure filters. Same pixels, same behaviour; a search no longer asks the server.
+
+**Files:**
+- Create: `src/lib/moves/filter.ts` (+ `filter.spec.ts`), `src/lib/positions/filter.ts` (+ `filter.spec.ts`), `src/lib/server/moves-lists.ts`, `src/routes/[dance]/(moves)/+layout.server.ts`
+- Modify: `src/lib/types.ts` (`FigureRow` gains `partner: Partner; style: string | null`), `src/lib/server/figures.ts` (`listFigures` fills them and tests each figure with `figureMatches`), `(moves)/figures/+page.server.ts` (load returns `{ preset }` only), `(moves)/routines/+page.server.ts` (no load), `(moves)/positions/+page.server.ts` (no load yet; Task 7 gives it one), the three list `+page.svelte` (read `data.lists.*` through the view functions), and the specs that call a list load: `moves-forms`, `routine-forms`, `group-mode-lists`, `owner-wall`, `twins-kinds`, `position-page`, `positions-forms`, `groups/leaving`
+
+**Interfaces:**
+- Produces (`src/lib/moves/filter.ts`, PURE):
+  - `parseFigureFilter(params: URLSearchParams, styles: readonly string[]): FigureFilter` — the server's rules today: `q` trimmed, `style` only if in `styles`, `partner` only if in `PARTNER`, `unlinked: '1'` only for `'1'`. (`FigureFilter` is the existing one in `$lib/moves/figures`.)
+  - `figureMatches(moveName: string, f: Pick<FigureRow, 'name' | 'style' | 'partner' | 'hasSection' | 'hasLesson'>, filter: FigureFilter): boolean` — `q` (lower-cased `includes`) matches the move's name or the figure's; style, partner; Not linked keeps a figure lacking a section or a lesson.
+  - `interface FiguresLists { mine: MoveRow[]; groups: { team: TeamRef; moves: MoveRow[] }[]; sets: number[][]; groupMode: boolean; unlinked: number; unrouted: number | null; defaultStyle: string }` — unfiltered and unfolded; group mode: the group's figures with `membersSee`, `groups: []`, `sets: []`.
+  - `figuresView(l: FiguresLists, filter: FigureFilter): { figures: (MoveRow & { also: string[] })[]; groups: { team: TeamRef; moves: (MoveRow & { also: string[] })[] }[]; twinned: number[] }` — filter each list, drop empty moves, groups `[]` under Not linked, then `foldMoves` (group mode: no fold, `also: []`). Filter before fold, as the server does today.
+- Produces (`src/lib/positions/filter.ts`, PURE): `parsePositionFilter(params: URLSearchParams, types: readonly string[], groupMode: boolean): PositionFilter` (a type only if in `types` or `OTHER_TYPE`; `gaps` never in group mode); `positionMatches(r: PositionListRow, f: PositionFilter): boolean` (the `matches` in today's load: folded name, type with untyped as Other, gaps = dead end, orphan or island); `interface PositionsLists` = today's load result without `filter`, `rows` and `groups` unfiltered; `positionsView(l: PositionsLists, f: PositionFilter): { rows: PositionListRow[]; groups: { team: TeamRef; rows: PositionListRow[] }[] }` (groups `[]` under gaps).
+- Produces (`src/lib/server/moves-lists.ts`): `figuresLists(db: Db, wall: Wall, mode: GroupMode | null): FiguresLists`, `routinesList(db: Db, wall: Wall, mode: GroupMode | null)` (today's routines load result, unchanged in shape), `positionsLists(db: Db, wall: Wall, mode: GroupMode | null): PositionsLists`. Bodies are today's loads minus the URL.
+- Produces (`(moves)/+layout.server.ts`): `load` → `{ lists: { figures: FiguresLists; routines: ReturnType<typeof routinesList>; positions: PositionsLists } }`. It reads `params`, `locals`, `cookies` and never `url`, so a search or opening an item does not rerun it.
+
+- [ ] **Step 1: Write the failing tests.** `moves/filter.spec.ts`: a move "Enchufla" with Doble and Básico: `q: 'ench'` keeps both, `q: 'DOB'` keeps Doble only, `q: 'x'` drops the move; `style: 'On2'` and `partner: 'solo'` filter; `unlinked: '1'` drops a figure with both a section and a lesson and empties `groups`; twins `[[1, 2]]` with your 1 "Cerrada" and a group's 2 "Closed": `q: 'closed'` shows 2 under its group and `twinned` is `[]`, `q: ''` shows 1 with `twinned: [1]`; group mode keeps `membersSee` and never folds. `parseFigureFilter(new URLSearchParams('style=Nope&partner=solo&unlinked=2'), ['On1'])` → `{ q: '', partner: 'solo' }`. `positions/filter.spec.ts`: `q: 'cruzadas'` matches "Manos Cruzadas" and `q: 'cafe'` matches "Café"; `type: OTHER_TYPE` matches `styleTag: null`; `gaps: '1'` keeps dead ends, orphans and islands and empties groups; `parsePositionFilter(new URLSearchParams('gaps=1&type=Son'), ['Salsa'], true)` → `{ q: '' }`.
+- [ ] **Step 2: Run** `nix develop --command npx vitest run src/lib/moves/filter.spec.ts src/lib/positions/filter.spec.ts` — FAIL (modules missing).
+- [ ] **Step 3: Implement** the pure modules, `moves-lists.ts`, the layout load, the slimmer page loads; each list page derives its view from `data.lists` and `parse…Filter(page.url.searchParams, …)`. The phone's search and chips keep their `goto(…, { replaceState, keepFocus })`.
+- [ ] **Step 4: Repoint the route specs** at the layout's `load` (`.lists.figures` …) and, where they asserted a filtered list, at `figuresView`/`positionsView` with the same query. No assertion is dropped or loosened.
+- [ ] **Step 5: Run** the two specs, the repointed route specs and `npm run check` — PASS.
+- [ ] **Step 6: Screenshot check:** 390 diff 0, including `/salsa/figures?q=<a move>&style=<a style>` and `/salsa/positions?gaps=1` (add both lines to `pages.txt`).
+- [ ] **Step 7: Commit** (`refactor(desktop): Moves lists load in their layout, filtered by pure rules`).
+
+### Task 3: Which list sits beside an item, and which row is lit
+
+**Files:**
+- Create: `src/lib/nav/moves-pane.ts` (+ `moves-pane.spec.ts`)
+- Modify: plan 1's `src/lib/nav/pane.ts` (+ spec), `src/lib/nav/pending.spec.ts`, `src/lib/nav/trail.ts` (+ spec), `src/lib/nav/trail.svelte.ts`
+
+**Interfaces:**
+- Produces (`moves-pane.ts`, PURE):
+  - `type MovesList = 'figures' | 'routines' | 'positions'`
+  - `type OpenRow = { kind: 'figure' | 'move' | 'routine' | 'position'; id: number } | { kind: 'coverage' } | { kind: 'no-position' } | { kind: 'map' } | null`
+  - `besideOf(routeId: string | null, path: string, opener: string | null): { list: MovesList; open: OpenRow } | null` — `figures` → figures, null; `figures/[id]` → **routines with that routine open when `opener` is `/<dance>/routines/<n>`**, else figures with the figure; `moves/[id]` → figures, the move; `coverage` → figures, coverage; `routines` → routines, null; `routines/[id]` → routines, the routine; `positions` → positions, null; `positions/map` → positions, map (its row in the list, kept on desk, is lit); `positions/none` → positions, no-position; `positions/[id]` → **figures with the opener's figure open when `opener` is `/<dance>/figures/<n>`**, else positions with the position; any other route → null. Ids come from `path`.
+- Produces (`trail.ts`, PURE): `enteredAfter(entered: readonly PageKey[], a: Pick<Arrival, 'kind' | 'from' | 'to'>): PageKey[]` — `enter` → `[to]`; `replace` from a page in `entered` adds `to`; `push` → `[]`; `pop` and other replaces leave it.
+- Produces (`trail.svelte.ts`): `listOpener(path: PageKey): PageKey | null` — the trail's opener for `path`, or null while `path` is in the entered set (kept in module state, not in sessionStorage, updated in `syncTrail`'s `afterNavigate` with the arrival it already computes). So the page the app was (re)loaded on, and the figure steps replaced into it, show the route's own list.
+- Widens plan 1's `ListId` with `'figures' | 'routines' | 'positions'`; `listOf`: `(moves)/figures`, `/routines`, `/positions` → `{ open: false }` of their list; `figures/[id]`, `moves/[id]`, `coverage` → figures open; `routines/[id]` → routines open; `positions/[id]`, `positions/none`, `positions/map` → positions open. (`listOf` names the route's own list, for `paneBack` and the skeleton; `besideOf` is what the column shows.)
+- **The one shape of `pane.ts` that plans 2 and 4 extend** (they add rows and cases, never change a signature):
+  - `listOf(routeId: string | null): { list: ListId; open: boolean; under?: true } | null` — `under` (a page under an item, such as a group's People) is plan 4's; no Moves route sets it, and it is left out rather than `false`, so `toEqual` cases stay valid.
+  - `const LIST_HOME: Record<ListId, { root: string; items: string }>`, paths after `/${dance}`: `songs: { root: '/songs', items: '/songs' }`, `figures`, `routines`, `positions` likewise. Plan 2 adds `today: { root: '', items: '/exercises' }` (Today's root is `/{dance}` exactly: everything is under it); plan 4 adds `lessons` and `groups`.
+  - `inList(path: string, list: ListId, dance: DanceSlug): boolean` — `path` is the list's root exactly, or starts with its items prefix plus `/` (by segment: `/salsa/songsx` is not under `/salsa/songs`).
+  - `paneBack(opener: string | null, list: ListId, dance: DanceSlug, under = false): boolean` — `under || (opener !== null && !inList(opener, list, dance))`. Plan 1's three-argument calls and cases keep their meaning.
+
+- [ ] **Step 1: Write the failing tests.** `moves-pane.spec.ts`: each line above, with these exact cases: `besideOf('/[dance]/(moves)/figures/[id]', '/salsa/figures/12', '/salsa/routines/5')` → `{ list: 'routines', open: { kind: 'routine', id: 5 } }`; the same with `opener: null` → `{ list: 'figures', open: { kind: 'figure', id: 12 } }`; with `'/salsa/moves/3'` → figures, figure 12; `besideOf('/[dance]/(moves)/positions/[id]', '/salsa/positions/7', '/salsa/figures/12')` → `{ list: 'figures', open: { kind: 'figure', id: 12 } }`; `besideOf('/[dance]/(moves)/positions/map', '/salsa/positions/map', null)` → `{ list: 'positions', open: { kind: 'map' } }`; `besideOf('/[dance]/lessons/[id]', '/salsa/lessons/1', null)` → null. `trail.spec.ts`: the five `enteredAfter` rules, including `enteredAfter(['/s/figures/12'], { kind: 'replace', from: '/s/figures/12', to: '/s/figures/13' })` → both. `pane.spec.ts`: the `listOf` cases; `paneBack('/salsa/figures', 'figures', 'salsa') === false`, `paneBack('/salsa/routines/5', 'figures', 'salsa') === true`, `paneBack('/salsa/positions', 'positions', 'salsa') === false`, `paneBack('/salsa/positions/map', 'positions', 'salsa') === false`, `paneBack('/salsa/figuresx', 'figures', 'salsa') === true`, `paneBack(null, 'figures', 'salsa', true) === true` (`under`); plan 1's songs cases unchanged. `pending.spec.ts`: `skeletonFor('/[dance]/(moves)/figures/[id]').pane === true`, `skeletonFor('/[dance]/(moves)/routines').pane === true`.
+- [ ] **Step 2: Run** `nix develop --command npx vitest run src/lib/nav` — FAIL.
+- [ ] **Step 3: Implement.** Move plan 1's songs rule into `LIST_HOME`/`inList` (same results), add the three lists and `under`.
+- [ ] **Step 4: Run** — PASS; `npm run check` passes.
+- [ ] **Step 5: Commit** (`feat(desktop): which Moves list sits beside an item`).
+
+### Task 4: The Moves list column
+
+**Files:**
+- Create: `src/routes/[dance]/(moves)/+layout.svelte`, `src/lib/components/moves/FiguresList.svelte`, `RoutinesList.svelte`, `PositionsList.svelte`, `moves-context.ts`, `src/lib/moves/pane.ts` (+ spec), `src/lib/components/moves/list-forms.spec.ts`
+- Modify: the three list `+page.svelte` (become the nothing-open pane), `NavTile.svelte` and `PositionRow.svelte` (`current?: boolean`), `TemplatesSheet.svelte` (`action` prop, default `'?/templates'`), `src/lib/nav/bands.spec.ts`
+- Delete: `src/lib/components/moves/MovesScreen.svelte` (its band moves into the layout)
+
+**Interfaces:**
+- Consumes: `ListPane`, `listOf`, `besideOf`, `listOpener`, `keptFilter(listPath: string): string`, `keepFilter(listPath: string, value: string): void`, `rememberedHref`, the view functions of Task 2.
+- Produces:
+  - The layout: `<ListPane title="Moves" isList={!listOf(id).open} list={…} extra={segments} right={groupAndPlus} empty={…}>{children}</ListPane>`. `extra` is the `Segmented` MovesScreen drew, its value `besideOf(…).list`; a change goes to `rememberedHref(<list root>)` with `replaceState` only from a list route (from an item it pushes: an item is a place). `right` is `GroupModeButton` and + labelled New move / New routine / New position by that list. The list snippet renders exactly one of the three components with `open={beside.open}`. Focus stays on the clicked row through `ListPane`'s keep-focus (below).
+  - `moves-context.ts`: `setMoves(ctx: MovesContext)`, `getMoves(): MovesContext`, `interface MovesContext { openNew(): void; pick: { value: number | null } }` (pick: the map's picked position, Task 7).
+  - `<FiguresList lists={FiguresLists} dance={data.dance} open={OpenRow} isList={boolean} bind:creating />`, likewise `RoutinesList` (routines data) and `PositionsList` (`PositionsLists`). Each holds the list page's markup today, unchanged on the phone, plus its create sheet(s). Their forms post to `/${dance}/figures?/create`, `/${dance}/routines?/create`, `/${dance}/positions?/create`, `/${dance}/positions?/templates`. A refusal is read from the `use:guarded` callback's `result` (`result.type === 'failure'` → local state; anything else → `update()`), never from `form` or `page.form`; New move's preset is `page.data.preset ?? null`.
+  - The filter: on a list route, parsed from `page.url.searchParams` and changed with `goto` as now; on an item route, held in the component (which the layout keeps alive), seeded once from `keptFilter(listPath)`, and every change written with `keepFilter(listPath, filterQuery(filter, {}))` (Positions: `positionQuery`). `rememberedHref(listPath)` must then return the list with that query: if plan 1's `keepFilter` keeps the filter apart from the list page's kept search, make it also write `searched(trail, listPath, '?' + value)`.
+  - The lit row: `aria-current="page"` and `bg-accent-soft` on the open figure row, the move heading (its link), the Coverage `NavTile`, a routine row, a `PositionRow`, the No position row, and (Task 7) the picked position. After an `open` change the lit row is scrolled into view **inside the column only** (set the column's `scrollTop`, found by `closest('[data-list-column]')`; never `scrollIntoView`, which scrolls the window too).
+  - Desk-only list look: the chip rows wrap (`desk:flex-wrap desk:overflow-visible desk:mr-0 desk:pr-0`).
+  - **`ListPane` additions** (defined here; plans 2 and 4 consume them and add nothing else to `ListPane` but plan 2's `hero`):
+    - The list column element carries `data-list-column`, and `data-sveltekit-keepfocus` while `desk.current` (behaviour, not layout: a click on a row leaves focus on it; the phone's focus handling is unchanged).
+    - `solo?: boolean` (default false) and `soloWidth?: 'one' | 'narrow'` (default `'one'`): on desk, no list column; the `list` snippet fills the sheet as one column of that `Screen` width under the band row (an empty list's state: Today's first run, no lessons, no groups). The phone ignores both.
+    - `deskSubtitle?: string`: the band row's subtitle on desk in place of `subtitle`; the phone's list page keeps `subtitle` (if the header is one element for both, the two are `desk:hidden` / `hidden desk:inline` spans). Plan 4's group-mode Lessons uses it.
+  - `src/lib/moves/pane.ts` (PURE): `EMPTY_PANE` = figures `{ icon: 'moves', title: 'Pick a figure', body: 'Its timing, recordings and routines open here, beside the list. A move’s name opens the move.', group: 'The group’s figures open here.', action: 'New move' }`, routines `{ icon: 'routine', title: 'Pick a routine', body: 'Its slots, where it breaks and whether it loops open here, beside the list.', group: 'Sketch a routine first, link it from a lesson later. The editor is the same as for your own.', action: 'New routine' }`; `emptyPane(list: 'figures' | 'routines', groupMode: boolean): { icon; title; body; action: string | null }` — group mode's figures pane has no button.
+  - `(moves)/figures/+page.svelte` and `routines/+page.svelte`: their `<svelte:head>` title and the centred `EmptyState` from `emptyPane`, its button calling `getMoves().openNew()`. `positions/+page.svelte`: its title and, until Task 7, nothing.
+
+- [ ] **Step 1: Write the failing tests.** `src/lib/moves/pane.spec.ts`: `emptyPane('figures', true).action === null`, `emptyPane('routines', true).action === 'New routine'`, the titles. `list-forms.spec.ts` (reads the three component files and `TemplatesSheet.svelte` as text, as `class-rules.spec.ts` does): no `action="?/`, every `action=` in the three lists starts `` {`/${ ``; no `form?.` and no `page.form` in the three lists. A trail test: after the list page is visited and `searched(t, '/salsa/figures', '?q=enc&style=On1')`, `hrefOf(t, '/salsa/figures') === '/salsa/figures?q=enc&style=On1'`.
+- [ ] **Step 2: Run** them — FAIL.
+- [ ] **Step 3: Implement.** Move each list page's body into its component without changing its markup on the phone; `bands.spec.ts`: `(moves)/figures`, `routines` and `positions` `+page.svelte` draw no band ("the (moves) layout draws the band").
+- [ ] **Step 4: Run** the specs and `npm run check` — PASS.
+- [ ] **Step 5: Screenshot check** against `moves--figures`, `moves--routines`, `moves--figure-filtered` (type a search and tick a chip, open a figure: both stay; switch to Routines and back: they are still there), `moves--group-mode`, `moves--group-mode-routines` (group mode: navy, no Coverage tile), `moves--new-figure` (+ from an item route: the dialog; submit an empty move name: the refusal shows in it, the item stays). The list column scrolls on its own. Opened from a lesson's figure, a figure has the Figures list with its row lit and in view. 390: diff 0 for every Moves page.
+- [ ] **Step 6: Commit** (`feat(desktop): the Moves list beside the open item`).
+
+### Task 5: A figure in its pane
+
+**Files:**
+- Create: `src/lib/components/figures/FigureTabs.svelte`, `src/lib/components/ui/PaneColumns.svelte`
+- Modify: `src/routes/[dance]/(moves)/figures/[id]/+page.svelte`, `src/lib/components/figures/VariationBar.svelte`, `src/lib/components/shell/BackButton.svelte`, `src/lib/components/ui/Screen.svelte`
+
+**Interfaces:**
+- Produces:
+  - `<PaneColumns ratio={'5:7' | '1:1'} class={string} top?={Snippet} left={Snippet} right={Snippet} leftEnd?={Snippet} />` — an `@container/cols` div holding a `flex flex-col` box (the caller's `class`: its gap and bottom padding); each snippet in a wrapper that is `contents` below the breakpoint, so the phone's flex children, order and gaps are untouched. From `two:`: a grid `grid-cols-[5fr_7fr]` (or `1fr_1fr`), `gap-x-8`, rows `auto auto 1fr`; `top` spans both columns in row 1; `left` col 1 row 2; `right` col 2 rows 2–3; `leftEnd` col 1 row 3 (so it follows `left` directly whatever `right`'s height: an item spanning a flexible track does not size the auto row). Columns are `flex flex-col` with the caller's gap. This is the one two-column component: plan 2 uses it for the open exercise (`'1:1'`), plan 4 for a lesson (`'5:7'`) and extends it for a group (`'7:5'` and a `lead` snippet).
+  - `<FigureTabs moveName={string} moveId={number} siblings={SiblingSummary[]} currentId={number} slug={DanceSlug} canEdit={boolean} onnew={() => void} />` — `<nav aria-label="Figures of {moveName}" class="hidden desk:flex flex-wrap items-center gap-2">`: a pill per sibling (a link with `data-sveltekit-replacestate`, as VariationBar's steps; selected: `bg-accent text-on-accent` and `aria-current="page"`; others `bg-chip text-chip-ink`), "+ Figure" (`canEdit` only: 1.5 px dashed `border-accent-text`, `text-accent-text`, plus icon 18) calling `onnew`, and "Open {moveName} ›" pushed right (`ml-auto`, `text-accent-text`, 800) to the move's page.
+  - `VariationBar`: `adding` becomes `$bindable(false)`; on desk the stepper row is `desk:hidden`, and the whole `<nav>` is `desk:hidden` unless `actions` is given (a reader's Edit and Practise stay pinned at the pane's foot, as the spec's group figure). Its New figure sheet stays the one sheet for both.
+  - `VideoFrame` needs no change: it is a 16:9 box, at most about 360 px tall in a 640 px column, under the spec's 70 % cap.
+- The page: content in `<PaneColumns ratio="5:7">`: `top` = FigureTabs (not while editing), SourceTabs, the from-lesson note; `left` = Facts, Practice, the routine lists, Follows from / Leads to; `right` = Recordings with their sections, Linked sections, Links; `leftEnd` = Taught in, Move to…, Archive. `Screen width="two"`. The bottom spacer for the bar is `desk:hidden` unless `data.makeMine`. Editing: everything goes in `top` (PaneColumns stays the `cols` container); the edit `<form>` is its own 1 : 1 grid from `two:` (FigureFields left; PositionTags, FigureTiming and the refusal right, each side in a `contents`-below-the-breakpoint wrapper), and the Recordings and Linked sections that follow get `two:ml-[calc(50%+16px)]`, under the right column.
+- Header: in a pane, the Stop editing × in `left` must show; Back only when `paneBack` says so. **The pane's Back gate is `BackButton`'s** (this plan owns it; plans 2 and 4 consume it): it renders nothing when `inPane()` and `!paneBack(opener, l.list, dance, l.under ?? false)`, with `l = listOf(page.route.id)` and `opener` the trail's as plan 1 passes it; `Screen` renders `left` as given. If plan 1 put the gate in `Screen`, move it here.
+- **`Screen`'s `below` row** (this plan defines it; plans 2 and 4 use it): inside a pane on desk, one full-width row under the title and subtitle, 12 px below them. It holds `extra` (the phone's band middle, moved there by CSS: the same element, no copy; a lesson's strip, plan 4), then `below?: Snippet` (desk-only content, `hidden desk:block`, never on the phone; Today's session line, plan 2). Outside a pane `extra` stays plan 1's middle of the band row. No Moves page passes either.
+
+- [ ] **Step 1: Implement** PaneColumns, FigureTabs, the VariationBar change, the `BackButton` gate and `Screen`'s `below` row, then the page. Before running it, grep the PaneColumns subtree of the page for `fixed` (none allowed; the bars are outside `</Screen>`).
+- [ ] **Step 2: Run** `npm run check` — PASS (the figure route specs pass unchanged).
+- [ ] **Step 3: Screenshot check** at 1440 against `moves--figure`, `moves--figure-edit`, `moves--new-variation` (+ Figure: the New figure dialog, a copy of the open one), `moves--figure-from-routine` (open a slot's figure from a routine: Routines lit, the routine's row lit, ‹ back to it; reload: Figures; step to a sibling tab: still Figures), `moves--group-figure` (Edit and Practise pinned at the pane's foot), `moves--your-copy`, `moves--source-tab`, `moves--twins`, `positions--figure-tags`; at 1280 the figure is one column in the phone's order; at 1366 two. 390: diff 0 for `/salsa/figures/{figure}` (and with `?edit=1`).
+- [ ] **Step 4: Commit** (`feat(desktop): a figure in two columns beside the list`).
+
+### Task 6: A position in its pane
+
+**Files:**
+- Create: `src/lib/components/positions/PositionForm.svelte`
+- Modify: `src/lib/components/positions/PositionSheet.svelte` (wraps PositionForm in its Sheet), `src/routes/[dance]/(moves)/positions/[id]/+page.svelte`
+
+**Interfaces:**
+- Consumes: `PaneColumns` (Task 5), `desk` (plan 1).
+- Produces: `<PositionForm {…PositionSheet's props but open/onclose} oncancel={() => void} onsaved={() => void} formId={string} />` — PositionSheet's form and its enhance handling, unchanged, without the Sheet; PositionSheet renders `<Sheet>` + PositionForm + its footer as today (the phone's DOM unchanged).
+- The page: `Screen width="two"`; content in `<PaneColumns ratio="1:1">`: `top` = SourceTabs, Copy to… / Same as…, a dead end's or orphan's line; `left` = the picture, the hold, notes, Figures from here (+ New figure from it), Figures into here; `right` = linked video, lessons, routines. In `right` (the header's actions), before History and Edit, a desk-only "Show on the map" (`graph` icon, `BandButton`, wrapped `hidden desk:contents`) linking `/${dance}/positions/map?pick=${id}`.
+- Edit in place: `startEditing()` sets `editing = desk.current ? 'pane' : 'sheet'` once; `'pane'` swaps the content for PositionForm in a 1 : 1 grid (name, type, the hold left; notes, the picture, Archive right), the header's `left` becomes × (Stop editing, through `leaveOrAsk`), its Save pinned in a `BottomBar`; `'sheet'` is today's sheet. The mode never changes while editing (a resize keeps it).
+
+- [ ] **Step 1: Implement** PositionForm (move, don't rewrite), then the page.
+- [ ] **Step 2: Run** `npm run check` — PASS; `position-page.spec.ts` and `positions-forms.spec.ts` unchanged.
+- [ ] **Step 3: Screenshot check** against `positions--open`, `positions--edit`, `positions--dead-end`, `positions--group`, `positions--make-mine`, `positions--your-copy`, `positions--same-as`, `positions--group-mode` (History and Edit in the header), `positions--link-video` and `positions--link-lesson` (dialogs). Open a position from a figure's Starts in: Figures lit, the figure's row lit, ‹ back to it. Start editing at 1440, type a name, resize to 800 and back: still editing in the pane, the name kept. 390: diff 0 for `/salsa/positions/{position}`; Edit on the phone is still the sheet.
+- [ ] **Step 4: Commit** (`feat(desktop): a position in two columns, edited in place`).
+
+### Task 7: The map is Positions' nothing-open pane
+
+**Files:**
+- Create: `src/lib/server/positions-map.ts`, `src/lib/components/positions/MapPane.svelte`, `src/lib/components/positions/HowBody.svelte`, `src/lib/positions/pick.ts` (+ spec)
+- Modify: `(moves)/positions/map/+page.server.ts` and `+page.svelte`, `(moves)/positions/+page.server.ts` (load: the map's data) and `+page.svelte`, `PositionMap.svelte` (`selected` becomes `$bindable(null)`; also takes `initial?: number | null`), `HowSheet.svelte` (renders HowBody), `PositionsList.svelte` (lights `getMoves().pick.value`), `src/lib/nav/bands.spec.ts` (positions list page draws no band)
+
+**Interfaces:**
+- Produces: `mapData(db: Db, wall: Wall, mode: GroupMode | null)` in `positions-map.ts` — today's map load body; both loads return it. `pickOf(params: URLSearchParams, ids: readonly number[]): number | null` in `pick.ts` (PURE: `?pick=<id>` when `id` is on the map, else null). `<MapPane map={…mapData} heading={boolean} />` — the map page's body today (the map, Not on the map, islands, the legend), at most 800 px wide on desk, `PositionMap` bound to `getMoves().pick.value` and seeded from `pickOf`; `heading` draws "The map" (`MAP.title`) and the summary as the pane header looks (30/800 ink, the subtitle 15/600 muted) for the list route, which has no Screen of its own. `<HowBody />` is HowSheet's content.
+- `/positions` (list route): its page renders `MapPane heading` — or, when the list has nothing at all (`nothing`: no positions anywhere and no filter), `HowBody` under a "How positions work" heading (board `first-run`). `/positions/map`: `<Screen title={MAP.title} subtitle={summary}>` around `MapPane`; on desk it sits in the pane with Positions lit and no back from the list.
+- The list's Map row stays on desk (settled board): it opens `/positions/map` in the pane and is lit there (`besideOf`'s `{ kind: 'map' }`).
+- Picking (`PositionMap` already does it): a click picks and lights in and out, a second click on the lit one opens it, a click on empty space or Esc clears. The picked position's row is lit in the list while the map shows; `pick.value` resets to null when the map leaves the pane.
+
+- [ ] **Step 1: Write the failing test** `pick.spec.ts`: `pickOf(new URLSearchParams('pick=3'), [1, 3]) === 3`; `pick=9` → null; `pick=abc` → null; none → null.
+- [ ] **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** — PASS; `positions-map.spec.ts` passes against `mapData` (repoint it if it calls the page load); `npm run check` passes.
+- [ ] **Step 5: Screenshot check** against `positions--list`, `positions--map-web`, `positions--map-selected` (click Manos cruzadas: lit, its row lit; Esc: cleared; the position page's Show on the map: picked on arrival), `positions--no-position` (No position lit), `positions--first-run` (no positions: the empty state's three buttons in the column, How positions work in the pane), `positions--templates`, `positions--how`, `positions--new` (dialogs), `positions--group-mode`. 390: diff 0 for `/salsa/positions`, `/salsa/positions/map`, `/salsa/positions/none`.
+- [ ] **Step 6: Commit** (`feat(desktop): the map beside the positions list`).
+
+### Task 8: A move's page and Coverage in the pane
+
+**Files:**
+- Modify: `(moves)/moves/[id]/+page.svelte`, `(moves)/coverage/+page.svelte`
+
+**Interfaces:**
+- The move page: on desk Rename is a pencil in the header opening the rename sheet directly (`view = 'rename'`, wrapped `hidden desk:contents`); the ⋯ (`contents desk:hidden`) stays the phone's. Its heading is lit in the list (Task 4).
+- Coverage: its tile is lit. "Select" in a pane is `button('tertiary', 'sm')` (wrapped `hidden desk:contents`; the phone's band-coloured one wrapped `contents desk:hidden`). The selection bar takes the desk position plan 1 Task 6 gave `BottomBar` (`left: var(--pane-left)`, `right: 0`, inner max width `var(--pane-max)`), its 560 cap below 1024 only.
+
+- [ ] **Step 1: Implement.** **Step 2:** `npm run check` — PASS.
+- [ ] **Step 3: Screenshot check** against `moves--move`, `moves--move-rename`, `moves--coverage-select` (Select, tap three: numbered discs, the bar at the pane's foot, as wide as the 720 content). 390: diff 0 for `/salsa/moves/{move}` and `/salsa/coverage`.
+- [ ] **Step 4: Commit** (`feat(desktop): a move and Coverage beside the list`).
+
+### Task 9: A routine in its pane
+
+**Files:**
+- Modify: `src/lib/components/routines/SlotCard.svelte`, `src/lib/components/routines/SelectionBar.svelte`, `src/lib/components/routines/SlotList.svelte`, `src/routes/[dance]/(moves)/routines/[id]/+page.svelte` (a group's routine only)
+- Create: `src/lib/gestures/edges.ts` (+ `edges.spec.ts`)
+
+**Interfaces:**
+- Produces (`src/lib/gestures/edges.ts`): `dragEdges(slim: { top: number; bottom: number; height: number } | null, tabBar: { top: number; height: number } | null, bandRowPx: number, innerHeight: number): { top: number; bottom: number }` (PURE) — a rect of height 0 counts as absent; top = the slim band's bottom, else `bandRowPx`; bottom = the tab bar's top, else `innerHeight`. SlotList passes the rects and `parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--band-row-h')) || 0`.
+- SlotCard: on desk a trash button (`iconButton('bare', 'danger')`, `aria-label="Delete slot {index + 1}"`, `title="Delete"`) as the last item of the card's top row, shown on the card's hover and on keyboard focus within it (`hidden desk:group-hover:grid desk:group-focus-within:grid`, the card `group`), never while selecting or lifted, and only where the swipe's Delete exists. It calls `ondelete`, so the Undo toast and focus after removal are the swipe's.
+- SelectionBar: the same desk position as Coverage's bar (Task 8), centred at 720.
+- The page: Edit and ⋯ already sit in `right`, which a pane draws as tonal buttons; the routine is `width` default (720). **A group's routine** (a reader, `data.makeMine`), as the settled board draws and as a group's figure does: on desk, Edit (makes it yours: opens `MakeMineSheet`) and Practise (`practiseHref`) are pinned at the pane's foot in a `BottomBar` wrapped `hidden desk:contents`, two equal buttons as VariationBar's `actions`; for a reader the band's pencil (`readerActions`) and the Practise hero are wrapped `contents desk:hidden`. The phone is unchanged.
+
+- [ ] **Step 1: Write the failing test** `edges.spec.ts`: `dragEdges({ top: 0, bottom: 0, height: 0 }, { top: 0, height: 0 }, 88, 900)` → `{ top: 88, bottom: 900 }`; `dragEdges({ top: 0, bottom: 64, height: 64 }, { top: 780, height: 64 }, 0, 844)` → `{ top: 64, bottom: 780 }`; `dragEdges(null, null, 0, 844)` → `{ top: 0, bottom: 844 }`.
+- [ ] **Step 2: Run** — FAIL. **Step 3: Implement.** **Step 4: Run** — PASS; `routine-forms.spec.ts` unchanged; `npm run check` passes.
+- [ ] **Step 5: Screenshot check** against `moves--routine`, `moves--routine-edit` (hover slot 3: the tint and the trash; Tab into slot 3: the trash shows; click it: deleted, Undo toast at the pane's foot, Undo brings it back, focus on the next slot), `moves--routine-picker` (dialog, search focused), `moves--routine-select` (the five actions centred at 720 at the pane's foot), `moves--group-routine` (Edit and Practise pinned at the pane's foot, no pencil in the header, no hero), `moves--routine-group-slot`. Drag a slot at 1440 past the window's bottom: the window scrolls. 390: diff 0 for `/salsa/routines/{routine}`.
+- [ ] **Step 6: Commit** (`feat(desktop): a routine beside the list, a trash button for a slot`).
+
+### Task 10: Moves, checked whole
+
+**Files:**
+- Modify: `CLAUDE.md` (Layout: the `(moves)` group and its layout, `src/lib/moves/filter.ts`, `src/lib/positions/filter.ts`, `src/lib/positions/pick.ts`, `src/lib/nav/moves-pane.ts`, `src/lib/server/moves-lists.ts`, `src/lib/server/positions-map.ts`, `ui/PaneColumns.svelte`, `figures/FigureTabs.svelte`, `positions/PositionForm.svelte`, `MapPane`, `HowBody`; MovesScreen gone), the spec's "Decided while building" section, in its own `### Plan 3 — Moves` subsection (create `## Decided while building` at the spec's end if no plan has; each plan writes only its own subsection, so the lanes merge cleanly): the `two:` variant on `PaneColumns`' `cols` container, not the pane, the entered set, the Map row kept in the list and lit, the position's edit mode fixed at its start, a group's routine pinning Edit and Practise
+
+- [ ] **Step 1:** Shoot every Moves page of `pages.txt` at 1440×900, 1280×800 and 1024×768, light and dark, salsa and bachata, and in group mode; 390 light and dark against the baseline: all 0. Nothing overflows horizontally; at 1024 the 360 column leaves the pane one column; the toggle stays centred over the sheet.
+- [ ] **Step 2:** `npm run check` passes.
+- [ ] **Step 3: Commit** (`docs(desktop): Moves on the desktop in CLAUDE.md and the spec`).
