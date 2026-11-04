@@ -469,3 +469,183 @@ describe('the map', () => {
 		expect(v.mapLabelFor(true)).toBe('The map of the group’s positions');
 	});
 });
+
+describe("a position's Video and Lessons", () => {
+	const lessonVideo = {
+		owner: { lessonVideoId: 3 },
+		src: '/lesson-videos/w6.mp4',
+		from: { kind: 'lesson' as const, lessonId: 7, title: 'Week 6', lessonDay: '2026-11-03' }
+	};
+	const recording = {
+		owner: { recordingId: 4 },
+		src: '/recordings/k.mp4',
+		from: { kind: 'recording' as const, figure: 'Kentucky · Doble' }
+	};
+	const spot = (id: number, startMs: number, endMs: number | null, label: string | null) => ({
+		id,
+		startMs,
+		endMs,
+		label,
+		linkedTo: [],
+		linked: false
+	});
+
+	it('titles and openers', () => {
+		expect(v.videoTitle(3)).toBe('Video · 3');
+		expect(v.lessonsTitle(2)).toBe('Lessons · 2');
+		expect(v.LINK_SPOT).toBe('Link a section or point…');
+		expect(v.LINK_LESSON).toBe('Link a lesson…');
+		expect(v.linkSpotsTitle('Manos cruzadas')).toBe('Link to Manos cruzadas');
+		expect(v.linkSpotsSub(null)).toBe('Sections and points of your lessons and recordings');
+		expect(v.linkSpotsSub('Salsa Tuesdays')).toBe(
+			'Sections and points of Salsa Tuesdays’ lessons and recordings'
+		);
+		expect(v.LINK_SPOTS.search).toBe('Search lessons, recordings, sections');
+		expect(v.LINK_SPOTS.note).toBe(
+			'A section loops; a point is one moment, and can be the picture.'
+		);
+		expect(v.lessonPickTitle('Manos cruzadas')).toBe('Lessons with Manos cruzadas');
+		expect(v.LESSON_PICK.sub).toBe('A lesson linked here shows the position on its page too');
+		expect(v.LESSON_PICK.search).toBe('Search lessons');
+	});
+
+	it('spotPickGroups: a group per video, sections and points worded apart', () => {
+		const groups = v.spotPickGroups([
+			{
+				video: lessonVideo,
+				taughtHere: true,
+				sections: [
+					{ ...spot(1, 72_000, 91_000, 'The cross on 7'), linked: true },
+					spot(2, 72_000, null, null),
+					spot(3, 42_000, 65_500, null),
+					spot(4, 15_000, null, 'Hands meet')
+				]
+			},
+			{ video: recording, taughtHere: false, sections: [spot(5, 8_000, 20_000, 'Into the cross')] }
+		]);
+		expect(groups.map((g) => g.title)).toEqual(['Week 6', 'Recording · Kentucky · Doble']);
+		expect(groups[0].entries).toEqual([
+			{
+				key: 'spot:1',
+				value: 1,
+				label: 'The cross on 7',
+				meta: 'Section · 1:12.0–1:31.0',
+				keywords: '1:12.0–1:31.0 Week 6',
+				linked: true,
+				preview: true
+			},
+			{
+				key: 'spot:2',
+				value: 2,
+				label: 'Point at 1:12',
+				meta: 'Point',
+				keywords: '1:12.0 Week 6',
+				linked: false,
+				preview: false
+			},
+			{
+				key: 'spot:3',
+				value: 3,
+				label: '0:42.0–1:05.5',
+				meta: 'Section, no name',
+				keywords: '0:42.0–1:05.5 Week 6',
+				linked: false,
+				preview: true
+			},
+			{
+				key: 'spot:4',
+				value: 4,
+				label: 'Hands meet',
+				meta: 'Point at 0:15',
+				keywords: '0:15.0 Week 6',
+				linked: false,
+				preview: false
+			}
+		]);
+		expect(groups[1].entries).toMatchObject([
+			{
+				key: 'spot:5',
+				label: 'Into the cross',
+				keywords: '0:08.0–0:20.0 Recording · Kentucky · Doble'
+			}
+		]);
+	});
+
+	it("lessonMeta: a group's lesson by its group and day; a person's by its full day", () => {
+		expect(v.lessonMeta({ teamName: 'Salsa Tuesdays', lessonDay: '2026-11-03' })).toBe(
+			'Salsa Tuesdays · 3 Nov'
+		);
+		expect(v.lessonMeta({ teamName: null, lessonDay: '2026-10-13' })).toBe('Tuesday, 13 October');
+	});
+
+	it('lessonPickGroups: month groups, a reaching lesson linked and said so', () => {
+		const groups = v.lessonPickGroups([
+			{
+				id: 1,
+				title: 'Week 6 · Setenta into Sombrero',
+				lessonDay: '2026-11-03',
+				videos: 1,
+				team: 'Salsa Tuesdays',
+				linked: true,
+				via: true
+			},
+			{
+				id: 2,
+				title: 'Week 3 · Enchufla',
+				lessonDay: '2026-11-04',
+				videos: 0,
+				team: null,
+				linked: false,
+				via: false
+			},
+			{
+				id: 3,
+				title: 'Wednesday class',
+				lessonDay: '2026-10-28',
+				videos: 2,
+				team: null,
+				linked: false,
+				via: false
+			},
+			{
+				id: 4,
+				title: 'Cubana class',
+				lessonDay: '2026-10-13',
+				videos: 1,
+				team: null,
+				linked: true,
+				via: false
+			}
+		]);
+		expect(groups.map((g) => g.title)).toEqual(['November 2026', 'October 2026']);
+		expect(groups[0].entries).toEqual([
+			{
+				key: 'lesson:1',
+				value: 1,
+				label: 'Week 6 · Setenta into Sombrero',
+				meta: 'Salsa Tuesdays · Tue 3 Nov · through a section',
+				linked: true
+			},
+			{ key: 'lesson:2', value: 2, label: 'Week 3 · Enchufla', meta: 'Wed 4 Nov', linked: false }
+		]);
+		expect(groups[1].entries).toEqual([
+			{
+				key: 'lesson:3',
+				value: 3,
+				label: 'Wednesday class',
+				meta: 'Wed 28 Oct · 2 videos',
+				linked: false
+			},
+			{ key: 'lesson:4', value: 4, label: 'Cubana class', meta: 'Tue 13 Oct', linked: true }
+		]);
+	});
+
+	it('a point card that cannot play says why', () => {
+		expect(v.POINT_PROBLEM.missing).toEqual({
+			title: 'This file is missing',
+			body: 'The server has no file for this video.'
+		});
+		expect(v.POINT_PROBLEM.unplayable.title).toBe('Can’t play here');
+		expect(v.playFrom(72_400)).toBe('Play from 1:12');
+	});
+});

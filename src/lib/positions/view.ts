@@ -1,6 +1,8 @@
 /** Every positions screen's words: PURE, client-safe. Strings come from the design boards. */
-import { plural } from '$lib/format';
-import type { PositionListRow, PositionSummary, SectionVideo } from '$lib/types';
+import { dayLabel, dayMonth, longDayLabel, monthLabel, plural } from '$lib/format';
+import { spotLabel } from '$lib/video/spots';
+import type { PickGroup, PickRow } from '$lib/picker/model';
+import type { PositionListRow, PositionSummary, SectionGroup, SectionVideo } from '$lib/types';
 
 export { holdChips } from './hold';
 
@@ -373,6 +375,139 @@ export function pointMeta(videoLabel: string, picture: boolean): string {
 export function pointLabel(ms: number): string {
 	const s = Math.floor(ms / 1000);
 	return `Point at ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// ---- a position's Video and Lessons ----
+
+export const videoTitle = (n: number) => `Video · ${n}`;
+export const lessonsTitle = (n: number) => `Lessons · ${n}`;
+export const LINK_SPOT = 'Link a section or point…';
+export const LINK_LESSON = 'Link a lesson…';
+
+/** "Link to Manos cruzadas": the picker over the owner's sections and points. */
+export function linkSpotsTitle(name: string): string {
+	return `Link to ${name}`;
+}
+
+/** The picker's line under its title: whose videos it offers. */
+export function linkSpotsSub(team: string | null): string {
+	return `Sections and points of ${team ? possessive(team) : 'your'} lessons and recordings`;
+}
+
+export const LINK_SPOTS = {
+	search: 'Search lessons, recordings, sections',
+	note: 'A section loops; a point is one moment, and can be the picture.',
+	none: 'No sections or points yet. Open a lesson video or a recording full screen and mark one.'
+} as const;
+
+/**
+ * The spot picker's groups: one per video (its lesson, or "Recording · <figure>"),
+ * its spots in the order the server gives. A section reads "The cross on 7 /
+ * Section · 1:12.0–1:31.0" (an unnamed one is its range, "Section, no name")
+ * and previews looping; a point reads "Point at 1:12 / Point" (a named one,
+ * "Hands meet / Point at 0:15"). The search also matches the time and the video.
+ */
+export function spotPickGroups(groups: SectionGroup[]): PickGroup[] {
+	return groups.map((g) => {
+		const title = spotVideoLabel(g.video);
+		return {
+			title,
+			entries: g.sections.map((s): PickRow => {
+				const range = spotLabel({ ...s, label: null });
+				const point = s.endMs === null;
+				const [label, meta] = point
+					? s.label
+						? [s.label, pointLabel(s.startMs)]
+						: [pointLabel(s.startMs), 'Point']
+					: s.label
+						? [s.label, `Section · ${range}`]
+						: [range, 'Section, no name'];
+				return {
+					key: `spot:${s.id}`,
+					value: s.id,
+					label,
+					meta,
+					keywords: `${range} ${title}`,
+					linked: s.linked,
+					preview: !point
+				};
+			})
+		};
+	});
+}
+
+/** A lesson row's line on the page: "Salsa Tuesdays · 3 Nov" for a group's, the full day for a person's. */
+export function lessonMeta(l: { teamName: string | null; lessonDay: string }): string {
+	return l.teamName ? `${l.teamName} · ${dayMonth(l.lessonDay)}` : longDayLabel(l.lessonDay);
+}
+
+/** "Lessons with Manos cruzadas": the picker over the owner's lessons. */
+export function lessonPickTitle(name: string): string {
+	return `Lessons with ${name}`;
+}
+
+export const LESSON_PICK = {
+	sub: 'A lesson linked here shows the position on its page too',
+	search: 'Search lessons',
+	none: 'No lessons yet. Add one from Lessons.'
+} as const;
+
+/** A lesson the picker offers: `linked` by hand or through a section or point (`via`). */
+export interface LessonPick {
+	id: number;
+	title: string;
+	lessonDay: string;
+	videos: number;
+	/** Its group's name, when the page names groups; else null. */
+	team: string | null;
+	linked: boolean;
+	via: boolean;
+}
+
+/**
+ * The lesson picker's month groups, newest first as given. A row's meta is its
+ * group, its day, then "through a section" for one that reaches the position
+ * through its videos (and so shows linked), else "2 videos" when it has more than one.
+ */
+export function lessonPickGroups(lessons: LessonPick[]): PickGroup[] {
+	const groups: PickGroup[] = [];
+	let month = '';
+	for (const l of lessons) {
+		const key = l.lessonDay.slice(0, 7);
+		if (key !== month || groups.length === 0) {
+			month = key;
+			groups.push({ title: monthLabel(l.lessonDay), entries: [] });
+		}
+		const meta = [
+			l.team,
+			dayLabel(l.lessonDay),
+			l.via ? 'through a section' : l.videos > 1 ? plural(l.videos, 'video', 'videos') : null
+		]
+			.filter(Boolean)
+			.join(' · ');
+		groups[groups.length - 1].entries.push({
+			key: `lesson:${l.id}`,
+			value: l.id,
+			label: l.title,
+			meta,
+			linked: l.linked
+		});
+	}
+	return groups;
+}
+
+/** A point card whose video cannot play: what happened. */
+export const POINT_PROBLEM = {
+	missing: { title: 'This file is missing', body: 'The server has no file for this video.' },
+	unplayable: {
+		title: 'Can’t play here',
+		body: 'This browser can’t play this file. Open it on your phone.'
+	}
+} as const;
+
+/** A point card's play button, for a screen reader: "Play from 1:12". */
+export function playFrom(ms: number): string {
+	return pointLabel(ms).replace('Point at', 'Play from');
 }
 
 // ---- How positions work ----
