@@ -10,13 +10,16 @@ import {
 	getLessonRow,
 	linkExercise,
 	linkFigure,
+	linkPosition,
 	linkRoutine,
 	listLinkableExercises,
 	listLinkableFigures,
+	listLinkablePositions,
 	listLinkableRoutines,
 	publishLesson,
 	unlinkExercise,
 	unlinkFigure,
+	unlinkPosition,
 	unlinkRoutine,
 	updateLesson
 } from '$lib/server/lessons';
@@ -62,7 +65,7 @@ import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
 import { lessonNotice } from '$lib/teams/view';
 import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
-import { SpotLinkedError, videoSections } from '$lib/server/spot-links';
+import { SpotLinkedError, blockingPositionsByVideo, videoSections } from '$lib/server/spot-links';
 import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { editedByLine } from '$lib/teams/history';
@@ -153,6 +156,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		figures: shown(found.figures, visible?.variations),
 		routines: shown(found.routines, visible?.routines),
 		exercises: shown(found.exercises, visible?.drills),
+		positions: shown(found.positions, visible?.positions),
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
 		...pageSources(db, wall.userId, 'lesson', found.lesson.id, url, !inGroupMode),
@@ -193,12 +197,20 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 				videoSections(db, { lessonVideoId: v.id }, visible ?? undefined)
 			])
 		),
+		/** Per video: the positions its sections and points link (they block its delete). An editor's. */
+		videoPositions: canEdit
+			? blockingPositionsByVideo(
+					db,
+					found.videos.map((v) => v.id)
+				)
+			: {},
 		// Everything a picker offers is for linking, which a reader never does.
 		linkableFigures: canEdit ? listLinkableFigures(db, found.lesson.id) : [],
 		// The figures "Variation of a figure" can add to, with their variations' names.
 		figureGroups: canEdit ? listMoveTargets(db, space, null) : [],
 		linkableRoutines: canEdit ? listLinkableRoutines(db, found.lesson.id) : [],
 		linkableExercises: canEdit ? listLinkableExercises(db, found.lesson.id) : [],
+		linkablePositions: canEdit ? listLinkablePositions(db, found.lesson.id) : [],
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), tz),
 		// What "Add figure" pre-selects. Settings picks it.
@@ -585,6 +597,33 @@ export const actions: Actions = {
 			return fail(400, { action: 'unlinkRoutine', message: 'That routine was already unlinked.' });
 		}
 		return { action: 'unlinkRoutine', ok: true };
+	},
+
+	linkPosition: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		const positionId = int(await request.formData(), 'positionId');
+		if (positionId === undefined || !linkPosition(getDb(), lesson.id, positionId, actorOf(space))) {
+			return fail(400, { action: 'linkPosition', message: 'That position could not be linked.' });
+		}
+		return { action: 'linkPosition', ok: true };
+	},
+
+	unlinkPosition: async ({ params, request, locals }) => {
+		const { lesson, space } = lessonOf(params, locals);
+		const form = await request.formData();
+		const positionId = int(form, 'positionId');
+		// A row there through a section: its Unlink takes the section links with it.
+		const alsoSections = form.get('alsoSections') === '1';
+		if (
+			positionId === undefined ||
+			!unlinkPosition(getDb(), lesson.id, positionId, alsoSections, Date.now(), actorOf(space))
+		) {
+			return fail(400, {
+				action: 'unlinkPosition',
+				message: 'That position was already unlinked.'
+			});
+		}
+		return { action: 'unlinkPosition', ok: true };
 	},
 
 	linkExercise: async ({ params, request, locals }) => {

@@ -4,11 +4,17 @@ import { PARTNER_LABEL } from '$lib/labels';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
+	LessonPositionRow,
 	LessonRoutineRow,
+	PositionSummary,
+	TeamRef,
 	ViaSection,
 	VideoSection
 } from '$lib/types';
 import { spotTime } from '$lib/video/spots';
+import { positionGroups } from '$lib/picker/build';
+import type { PickEntry, PickGroup } from '$lib/picker/model';
+import type { StyleLabel } from '$lib/positions/view';
 
 /** `Figures · 3`, bare at zero. */
 export function sectionHeading(label: string, n: number): string {
@@ -32,6 +38,21 @@ export function viaRanges(via: ViaSection[]): string {
 
 export function figureMeta(f: Pick<LessonFigureRow, 'partner' | 'viaSections'>): string {
 	return f.viaSections.length > 0 ? viaRanges(f.viaSections) : PARTNER_LABEL[f.partner];
+}
+
+/**
+ * A position row's line: where it is taught (the sections, for a row there through
+ * them) and its type, "1:12.0–1:31.0 · Son"; the type alone by hand; null for neither.
+ */
+export function positionMeta(
+	p: Pick<LessonPositionRow, 'styleTag' | 'viaSections'>,
+	styleLabel: (tag: string | null) => string
+): string | null {
+	const parts = [
+		p.viaSections.length > 0 ? viaRanges(p.viaSections) : null,
+		p.styleTag === null ? null : styleLabel(p.styleTag)
+	].filter((x): x is string => x !== null);
+	return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /** A link card on a group's lesson that opens the person's own copy says so. */
@@ -92,4 +113,33 @@ export function deleteBlock(
 	if (labels.length === 0) return null;
 	const sorted = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
 	return `Linked to ${sorted.join(', ')} — unlink it first.`;
+}
+
+/**
+ * The "Link a position" picker's groups: the lesson's own positions by type, then a
+ * section per group whose positions the person may use (`positionGroups`); every
+ * row carries whether the lesson already links it, which the picker draws as "Linked".
+ */
+export function positionPickGroups(
+	rows: (PositionSummary & { linked: boolean; team: TeamRef | null })[],
+	styleLabel: StyleLabel
+): PickGroup[] {
+	const linked = new Set(rows.filter((r) => r.linked).map((r) => r.id));
+	const teams = new Map<number, { team: TeamRef; rows: PositionSummary[] }>();
+	for (const r of rows) {
+		if (!r.team) continue;
+		const g = teams.get(r.team.id) ?? { team: r.team, rows: [] };
+		g.rows.push(r);
+		teams.set(r.team.id, g);
+	}
+	const mark = (e: PickEntry): PickEntry =>
+		'rows' in e
+			? { ...e, rows: e.rows.map((x) => ({ ...x, linked: linked.has(x.value) })) }
+			: { ...e, linked: linked.has(e.value) };
+	return positionGroups(
+		rows.filter((r) => !r.team),
+		null,
+		styleLabel,
+		[...teams.values()]
+	).map((g) => ({ ...g, entries: g.entries.map(mark) }));
 }

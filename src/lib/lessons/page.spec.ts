@@ -4,6 +4,8 @@ import {
 	deleteBlock,
 	deleteVideoBody,
 	positionLinkLabel,
+	positionMeta,
+	positionPickGroups,
 	exerciseMeta,
 	figureMeta,
 	reviewMeta,
@@ -42,6 +44,12 @@ describe('lesson page lines', () => {
 		expect(routineMeta({ everyDays: null })).toBeNull();
 		expect(exerciseMeta({ viaSections: [], everyDays: 1 })).toBe('Daily');
 		expect(exerciseMeta({ viaSections: two, everyDays: 1 })).toBe('1:12.0–1:30.4, 3:05.0–3:22.8');
+		const label = (t: string | null) => (t === 'son' ? 'Son' : 'Salsa');
+		expect(positionMeta({ styleTag: 'son', viaSections: [via(72000, 91000)] }, label)).toBe(
+			'1:12.0–1:31.0 · Son'
+		);
+		expect(positionMeta({ styleTag: 'son', viaSections: [] }, label)).toBe('Son');
+		expect(positionMeta({ styleTag: null, viaSections: [] }, label)).toBeNull();
 		expect(reviewMeta({ everyDays: 3, active: true })).toEqual([
 			{ text: 'Every 3 days', strong: false },
 			{ text: 'review exercise', strong: false }
@@ -67,6 +75,42 @@ describe('lesson page lines', () => {
 			'Its 1 section goes with it. Lesson videos aren’t backed up, so this can’t be undone.'
 		);
 		expect(deleteVideoBody(0)).toBe('Lesson videos aren’t backed up, so this can’t be undone.');
+	});
+
+	it('positionPickGroups marks the linked rows, own types first and a group after', () => {
+		const hold = { hands: null, crossed: null, facing: null, frame: null };
+		const row = (
+			id: number,
+			name: string,
+			linked: boolean,
+			team: { id: number; name: string } | null
+		) => ({
+			id,
+			name,
+			styleTag: 'salsa',
+			hold,
+			teamId: team?.id ?? null,
+			archived: false,
+			linked,
+			team
+		});
+		const groups = positionPickGroups(
+			[
+				row(1, 'Cerrada', true, null),
+				row(2, 'Abierta', false, null),
+				row(3, 'Sombra', true, { id: 9, name: 'Ana' })
+			],
+			(t) => (t === null ? 'Other' : 'Salsa')
+		);
+		expect(groups.map((g) => g.title)).toEqual(['Salsa', 'Ana’s']);
+		const flat = groups
+			.flatMap((g) => g.entries)
+			.map((e) => ('rows' in e ? null : [e.label, e.linked]));
+		expect(flat).toEqual([
+			['Cerrada', true],
+			['Abierta', false],
+			['Sombra', true]
+		]);
 	});
 
 	it('deleteBlock mirrors the server wording', () => {
