@@ -16,13 +16,9 @@ import { openDb, type Db } from '$lib/server/db';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { createFigure } from '$lib/server/figures';
 import { createTeam, joinTeam } from '$lib/server/teams';
-import {
-	archiveLesson,
-	createLesson,
-	linkFigure,
-	linkRoutine,
-	publishLesson
-} from '$lib/server/lessons';
+import { createLesson, linkFigure, linkRoutine, publishLesson } from '$lib/server/lessons';
+import { lessons } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
 import { addLesson } from '$lib/server/entries';
 import {
 	addChildSlot,
@@ -109,7 +105,12 @@ describe('a group routine the person no longer reads stays closed', () => {
 		const P = createRoutine(db, U2_SALSA, { name: 'Friday', notes: null }).routine.id;
 		expect(addChildSlot(db, P, R)).not.toBeNull();
 		// The only published lesson that reached R goes: u2 reads R no more.
-		expect(archiveLesson(db, L, T + 1, 'u1')).toBe(true);
+		// Straight in the table: `archiveLesson` would rescue R into u2's own
+		// app (clones/rescue.spec.ts); this is the case it leaves no more.
+		db.update(lessons)
+			.set({ archivedAt: T + 1 })
+			.where(eq(lessons.id, L))
+			.run();
 
 		const page = (routinePage.load as unknown as (e: unknown) => RoutineData)({
 			params: { dance: 'salsa', id: String(P) },

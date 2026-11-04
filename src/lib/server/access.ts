@@ -357,7 +357,10 @@ export function teamReader(
 		const reads = owned !== null;
 		return () => reads;
 	}
-	const r = reach(db, userId, teamId);
+	return readerOf(reach(db, userId, teamId));
+}
+
+function readerOf(r: Reach): (kind: ReadKind, id: number) => boolean {
 	const sets: Record<ReadKind, Set<number>> = {
 		figure: r.variations,
 		routine: r.routines,
@@ -365,6 +368,34 @@ export function teamReader(
 		lesson: r.lessons
 	};
 	return (kind, id) => sets[kind].has(id);
+}
+
+/**
+ * `teamReader` for many people of one group, each decided once: every plain
+ * member of a living group reads exactly the published reach, so it is
+ * computed once for all of them (`lessonsReached`' member branch); anyone
+ * else (an editor, a former member, a deleted group's members) is
+ * `teamReader`'s own answer. For checks over many people (the rescue).
+ */
+export function teamReaders(
+	db: Db,
+	teamId: number
+): (userId: string) => (kind: ReadKind, id: number) => boolean {
+	const team = getTeam(db, teamId);
+	const plain = team !== null && team.deletedAt === null && team.purgedAt === null;
+	let shared: ((kind: ReadKind, id: number) => boolean) | null = null;
+	const cache = new Map<string, (kind: ReadKind, id: number) => boolean>();
+	return (userId) => {
+		let reader = cache.get(userId);
+		if (reader) return reader;
+		if (plain && heldRole(db, userId, teamId) === 'member') {
+			reader = shared ??= readerOf(publishedReach(db, teamId));
+		} else {
+			reader = teamReader(db, userId, teamId);
+		}
+		cache.set(userId, reader);
+		return reader;
+	};
 }
 
 /** A video named by its spot owner, judged as its recording's variation or its lesson. */

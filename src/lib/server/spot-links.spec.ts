@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises } from './db/schema';
+import { exercises, lessons } from './db/schema';
 import {
 	addRecording,
 	archiveVariation,
@@ -12,7 +12,6 @@ import {
 } from './figures';
 import {
 	addLessonVideo,
-	archiveLesson,
 	createLesson,
 	linkExercise,
 	linkFigure,
@@ -507,9 +506,10 @@ describe("a person's own section and what their groups gave them", () => {
 		expect(chips()).toEqual([['Enchufla · Basic', 'Setenta · Basic']]);
 		expect(lessonChips()).toEqual([['Enchufla · Basic', 'Setenta · Basic']]);
 		expect(playerChips()).toEqual(['Enchufla · Basic', 'Setenta · Basic']);
-		// L archived: u2 reads F no more, so its name leaves u2's own lists (the
-		// link itself is for the rescue to deal with). It still blocks a delete.
-		archiveLesson(db, L, 3, 'u1');
+		// L archived: u2 reads F no more, so its name leaves u2's own lists. It
+		// still blocks a delete. Straight in the table: `archiveLesson` would rescue
+		// the link onto u2's own copy (rescue.spec.ts).
+		db.update(lessons).set({ archivedAt: 3 }).where(eq(lessons.id, L)).run();
 		expect(chips()).toEqual([['Enchufla · Basic']]);
 		expect(lessonChips()).toEqual([['Enchufla · Basic']]);
 		expect(playerChips()).toEqual(['Enchufla · Basic']);

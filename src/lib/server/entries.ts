@@ -36,6 +36,7 @@ import {
 import { addFigureExercise, figureLabels } from './figures';
 import { reviewName } from './lessons';
 import type { TeamSpace } from './scope';
+import { rescueUsed } from './clones/rescue';
 import type { AddItem, AddOffer, AddPicks, AddState } from '$lib/types';
 
 type Exercise = typeof exercises.$inferSelect;
@@ -501,7 +502,9 @@ export function reviveSongDrops(tx: Db, songId: number): void {
  * on this group's rows whose target its person's added lessons no longer
  * hold: a lesson they removed or that was archived, and a routine, variation
  * or drill no added lesson reaches any more. Logs stay (archived entries keep
- * their sets). First, any of the group's songs a person may no longer
+ * their sets). Before anything, the rescue: what the change took that a person's own
+ * rows use becomes their own copy, their rows and practice moving onto it
+ * (`rescueUsed`), so an entry moved there is not archived here. Then any of the group's songs a person may no longer
  * practise to comes off their entries (`dropSongs`). With `userId`, only
  * that person's entries.
  *
@@ -510,6 +513,7 @@ export function reviveSongDrops(tx: Db, songId: number): void {
  * it: their entries point at their own rows.
  */
 export function reconcileEntries(tx: Db, teamId: number, now: number, userId?: string): void {
+	rescueUsed(tx, teamId, now, userId);
 	dropSongs(tx, teamId, now, userId);
 	const drills = alias(exercises, 'drills');
 	const ofTeam = <T extends typeof lessons | typeof routines | typeof figures | typeof drills>(

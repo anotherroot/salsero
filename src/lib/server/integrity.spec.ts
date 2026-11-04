@@ -19,6 +19,7 @@ import {
 	routineStepOptions,
 	routineSteps,
 	spotLinks,
+	teamMembers,
 	users,
 	videoSpots
 } from './db/schema';
@@ -120,7 +121,8 @@ describe('crossRefs', () => {
 		joinTeam(db, 'u2', 1, T);
 		setRole(db, 1, 'u2', 'editor');
 		expect(crossRefs(db)).toEqual([]);
-		setRole(db, 1, 'u2', 'member');
+		// Straight in the table: `setRole` would rescue the option (rescue.spec.ts).
+		db.update(teamMembers).set({ role: 'member' }).where(eq(teamMembers.userId, 'u2')).run();
 		expect(crossRefs(db)).toHaveLength(1);
 	});
 

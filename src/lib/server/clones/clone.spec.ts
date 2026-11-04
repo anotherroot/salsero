@@ -22,6 +22,7 @@ import {
 	songs,
 	spotLinks,
 	teamChanges,
+	teamMembers,
 	users,
 	videoSpots
 } from '../db/schema';
@@ -37,7 +38,6 @@ import {
 	publishLesson
 } from '../lessons';
 import { addChildSlot, addFigureSlot, addOption, createRoutine, routineSlots } from '../routines';
-import { leaveTeam } from '../membership';
 import { addLesson } from '../entries';
 import { addLinks } from '../links';
 import { addSpot } from '../spots';
@@ -882,7 +882,11 @@ describe('cloneInto: routines and lessons', () => {
 			.returning()
 			.get().id;
 		db.insert(routineStepOptions).values({ stepId: only, figureId: theirs, createdAt: T }).run();
-		expect(leaveTeam(db, 2, 'u1', T)).toBe('left');
+		// Out of the group straight in the table: `leaveTeam` would rescue `theirs`
+		// into u1's own app first (rescue.spec.ts), and nothing would be dropped.
+		db.delete(teamMembers)
+			.where(and(eq(teamMembers.teamId, 2), eq(teamMembers.userId, 'u1')))
+			.run();
 
 		const res = await cloneInto(
 			db,
