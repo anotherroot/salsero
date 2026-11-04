@@ -14,7 +14,7 @@
 import { fail, type ActionFailure } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Db } from './db';
-import { figureGroups, figures } from './db/schema';
+import { figureGroups, figures, positions } from './db/schema';
 import { figurePositions } from './graph';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { asSeen, changedFields, clashTitle, goneTitle, type Seen } from '$lib/clash/clash';
@@ -200,7 +200,7 @@ export function variationSeen(db: Db, figureId: number): Seen | null {
 		style: figure.styleTag,
 		notes: figure.notes,
 		startIds: tags.startIds.join(','),
-		endId: tags.endId,
+		endIds: tags.endIds.join(','),
 		startCount: figure.startCount ?? DEFAULT_START_COUNT,
 		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
 	};
@@ -211,4 +211,20 @@ export function moveSeen(db: Db, groupId: number): Seen | null {
 	const row = db.select().from(figureGroups).where(eq(figureGroups.id, groupId)).get();
 	if (!row || row.archivedAt !== null) return null;
 	return { figureName: row.name };
+}
+
+/** A position's edit form, or null when it is archived or gone. */
+export function positionSeen(db: Db, id: number): Seen | null {
+	const row = db.select().from(positions).where(eq(positions.id, id)).get();
+	if (!row || row.archivedAt !== null) return null;
+	return {
+		name: row.name,
+		styleTag: row.styleTag,
+		hands: row.hands,
+		crossed: row.crossed === null ? null : row.crossed ? 1 : 0,
+		facing: row.facing,
+		frame: row.frame,
+		notes: row.notes,
+		pictureSpotId: row.pictureSpotId
+	};
 }

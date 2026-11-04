@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	bandCompact,
+	danceable,
 	factBadges,
 	factsOf,
 	failurePlace,
 	fingerprintToSend,
+	handsLine,
 	makeRoutineCaption,
 	seamLabel,
 	selectionTitle,
@@ -21,9 +23,39 @@ describe('routine page derivations', () => {
 		expect(bandCompact('Hammerlockcombo')).toBe(true);
 	});
 	it('states where it starts and ends', () => {
-		expect(factsOf(['Open'], 'Closed')).toEqual({ from: 'Open', to: 'Closed' });
-		expect(factsOf(['Open', 'Closed'], null)).toEqual({ from: 'Open or Closed', to: null });
-		expect(factsOf([], null)).toBeNull();
+		expect(factsOf(['Open'], ['Closed'])).toEqual({ from: 'Open', to: 'Closed' });
+		expect(factsOf(['Open'], ['Closed', 'Hammerlock'])).toEqual({
+			from: 'Open',
+			to: 'Closed or Hammerlock'
+		});
+	});
+	it('has no fact for a side with no position', () => {
+		expect(factsOf(['Open', 'Closed'], [])).toEqual({ from: 'Open or Closed', to: null });
+		expect(factsOf([], ['Closed'])).toEqual({ from: null, to: 'Closed' });
+		expect(factsOf([], [])).toBeNull();
+	});
+	it('words the hands: each side joined “or”, an empty or unknown side shows nothing', () => {
+		const known = (id: number) => ({ 1: 'Open', 2: 'Closed', 3: 'Hammerlock' })[id] ?? '';
+		expect(handsLine([1, 2], [3], known)).toBe('Open or Closed → Hammerlock');
+		expect(handsLine([1], [2, 3], known)).toBe('Open → Closed or Hammerlock');
+		expect(handsLine([1], [], known)).toBe('Open →');
+		expect(handsLine([], [2], known)).toBe('→ Closed');
+		expect(handsLine([], [], known)).toBe('');
+		// An id the page has no name for (out of reach) is left out, never a dangling "or".
+		expect(handsLine([1, 99], [99], known)).toBe('Open →');
+	});
+	it('is danceable by its counts, not its positions', () => {
+		// An untagged routine starts anywhere (`starts: []`) and is still danced.
+		expect(danceable([{ starts: [], startCounts: [1], ends: [], next: 1 }])).toBe(true);
+		expect(
+			danceable([
+				{ starts: [], startCounts: [], ends: null, next: null },
+				{ starts: [2], startCounts: [5], ends: [1], next: 1 }
+			])
+		).toBe(true);
+		// Only empty or archived-only slots: nothing to dance.
+		expect(danceable([{ starts: [], startCounts: [], ends: null, next: null }])).toBe(false);
+		expect(danceable([])).toBe(false);
 	});
 	it('badges loops, breaks and timing breaks', () => {
 		expect(factBadges({ slots: 0, breaks: 0, timingBreaks: 0, loops: false })).toEqual([]);
@@ -37,23 +69,53 @@ describe('routine page derivations', () => {
 		]);
 	});
 	it('writes a slot’s meta line', () => {
-		const e = { starts: [1], startCounts: [1], end: 2, next: 1 };
+		const e = { starts: [1], startCounts: [1], ends: [2], next: 1 };
 		expect(slotMeta(e, name, null)).toBe('1→1 · Open → Closed');
-		expect(slotMeta({ starts: [1], startCounts: [1], end: 1, next: 1 }, name, 3)).toBe(
+		expect(slotMeta({ starts: [1], startCounts: [1], ends: [1], next: 1 }, name, 3)).toBe(
 			'Routine · 3 slots · 1→1 · Open → Open'
 		);
-		expect(slotMeta({ starts: [], startCounts: [], end: null, next: null }, name, null)).toBe('');
-		expect(slotMeta({ starts: [], startCounts: [], end: null, next: null }, name, 1)).toBe(
+		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: [2, 3], next: 1 }, name, null)).toBe(
+			'1→1 · Open or Closed → Closed or Hammerlock'
+		);
+		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, null)).toBe('');
+		expect(slotMeta({ starts: [], startCounts: [], ends: null, next: null }, name, 1)).toBe(
 			'Routine · 1 slot'
 		);
 	});
+	it('shows nothing for a side with no position, and never a “?” for an end', () => {
+		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, null)).toBe('1→1');
+		expect(slotMeta({ starts: [], startCounts: [1], ends: [], next: 1 }, name, 2)).toBe(
+			'Routine · 2 slots · 1→1'
+		);
+		expect(slotMeta({ starts: [1], startCounts: [1], ends: [], next: 1 }, name, null)).toBe(
+			'1→1 · Open →'
+		);
+		expect(slotMeta({ starts: [], startCounts: [1], ends: [2], next: 1 }, name, null)).toBe(
+			'1→1 · → Closed'
+		);
+		// Options that disagree on their ends: said so, never read as "anything follows".
+		expect(slotMeta({ starts: [1], startCounts: [1], ends: null, next: 1 }, name, null)).toBe(
+			'1→1 · Open → ends differ'
+		);
+		expect(slotMeta({ starts: [], startCounts: [1], ends: null, next: 1 }, name, null)).toBe(
+			'1→1 · ends differ'
+		);
+		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: null, next: 1 }, name, 2)).toBe(
+			'Routine · 2 slots · 1→1 · Open or Closed → ends differ'
+		);
+	});
 	it('words a seam', () => {
-		expect(seamLabel({ end: 'Hammerlock', next: ['Open'] }, null)).toBe(
+		expect(seamLabel({ ends: ['Hammerlock'], next: ['Open'] }, null)).toBe(
 			'Ends in Hammerlock, next starts from Open'
 		);
 		expect(seamLabel(null, { ready: 5, next: [1] })).toBe('Ready for 5, next starts on 1');
-		expect(seamLabel({ end: 'Shadow', next: ['Open', 'Closed'] }, { ready: 5, next: [1, 3] })).toBe(
-			'Ends in Shadow, next starts from Open or Closed · ready for 5, next starts on 1 or 3'
+		expect(
+			seamLabel({ ends: ['Shadow'], next: ['Open', 'Closed'] }, { ready: 5, next: [1, 3] })
+		).toBe('Ends in Shadow, next starts from Open or Closed · ready for 5, next starts on 1 or 3');
+	});
+	it('words a seam out of a slot with two ends', () => {
+		expect(seamLabel({ ends: ['Shadow', 'Hammerlock'], next: ['Open'] }, null)).toBe(
+			'Ends in Shadow or Hammerlock, next starts from Open'
 		);
 	});
 	it('titles the selection and captions Make routine', () => {

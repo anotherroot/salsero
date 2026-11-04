@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fieldLabel, pieceOf } from './flat';
+import { fieldLabel, pieceOf, setPrefixOf } from './flat';
 
 describe('fieldLabel', () => {
 	it('names each root field', () => {
@@ -10,14 +10,18 @@ describe('fieldLabel', () => {
 				'partner',
 				'style',
 				'timing',
-				'positions',
 				'practice',
 				'title',
 				'day',
 				'artist',
 				'count',
 				'sample',
-				'slots'
+				'slots',
+				'type',
+				'hands',
+				'crossed',
+				'facing',
+				'frame'
 			].map((k) => fieldLabel(k, 'whatever'))
 		).toEqual([
 			'Name',
@@ -25,14 +29,18 @@ describe('fieldLabel', () => {
 			'Partner',
 			'Style',
 			'Timing',
-			'Positions',
 			'Practice',
 			'Title',
 			'Day',
 			'Artist',
 			'Count',
 			'Sample',
-			'Slots'
+			'Slots',
+			'Type',
+			'Hands',
+			'Right hands on top',
+			'Facing',
+			'Frame'
 		]);
 	});
 
@@ -41,6 +49,16 @@ describe('fieldLabel', () => {
 		expect(fieldLabel('fig:g7', 'Enchufla · Doble')).toBe('Figure · Enchufla · Doble');
 		expect(fieldLabel('routine:#12', 'Rueda 1')).toBe('Routine · Rueda 1');
 		expect(fieldLabel('drill:g3', 'Shines')).toBe('Drill · Shines');
+		expect(fieldLabel('start:g4', 'Cerrada')).toBe('Starts in · Cerrada');
+		expect(fieldLabel('end:#5', 'Sombra')).toBe('Ends in · Sombra');
+		expect(fieldLabel('pos:g6', 'Cerrada')).toBe('Position · Cerrada');
+	});
+
+	it('a figure’s positions are no root field: each side is a set', () => {
+		expect(() => fieldLabel('positions', 'x')).toThrow();
+		expect(setPrefixOf('start:g4')).toBe('start');
+		expect(setPrefixOf('end:#5')).toBe('end');
+		expect(setPrefixOf('pos:g6')).toBe('pos');
 	});
 
 	it('names a piece and its parts', () => {
@@ -70,5 +88,6 @@ describe('pieceOf', () => {
 		expect(pieceOf('notes')).toBeNull();
 		expect(pieceOf('link:https://example.com/rec:g1')).toBeNull();
 		expect(pieceOf('fig:g1')).toBeNull();
+		expect(pieceOf('start:g1')).toBeNull();
 	});
 });

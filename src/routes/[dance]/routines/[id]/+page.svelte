@@ -43,6 +43,7 @@
 	import { longPress } from '$lib/longpress';
 	import {
 		bandCompact,
+		danceable as hasCounts,
 		factBadges,
 		factsOf,
 		makeRoutineCaption,
@@ -204,7 +205,9 @@
 	);
 
 	const positionNames = $derived(new Map(data.positions.map((p) => [p.id, p.name])));
-	const posName = (id: number) => positionNames.get(id) ?? 'an untagged position';
+	/** A position's name from the graph; an unknown id names nothing. */
+	const posName = (id: number) => positionNames.get(id) ?? '';
+	const posNames = (ids: number[]) => ids.map(posName).filter(Boolean);
 	/** Live figures and variations, by id. A slot's figure missing here is archived. */
 	const figuresById = $derived(
 		new Map(data.candidates.filter((c) => c.kind === 'figure').map((c) => [c.id, c]))
@@ -237,7 +240,9 @@
 		const b = data.edges[next];
 		return {
 			label: seamLabel(
-				p && a.end !== null ? { end: posName(a.end), next: b.starts.map(posName) } : null,
+				p && a.ends !== null && a.ends.length > 0
+					? { ends: posNames(a.ends), next: posNames(b.starts) }
+					: null,
 				t ? { ready: a.next, next: b.startCounts } : null
 			),
 			next,
@@ -307,9 +312,7 @@
 		)
 	);
 
-	const facts = $derived(
-		factsOf(data.starts.map(posName), data.end === null ? null : posName(data.end))
-	);
+	const facts = $derived(factsOf(posNames(data.starts), posNames(data.ends)));
 	const badges = $derived(
 		factBadges({
 			slots: data.slots.length,
@@ -318,7 +321,8 @@
 			loops: data.loops
 		})
 	);
-	const danceable = $derived(data.starts.length > 0);
+	// By its counts: an untagged routine starts anywhere and is still danced.
+	const danceable = $derived(hasCounts(data.edges));
 
 	const practiseHref = $derived(
 		data.exerciseId === null
@@ -830,14 +834,18 @@
 						{routine.notes}
 					</p>
 				{/if}
-				{#if facts}
+				<!-- With no position anywhere there is no hand fact, but the badges (loops, breaks) still show. -->
+				{#if facts || badges.length > 0}
 					<div class="flex flex-col gap-2 px-1 pt-0.5 pb-1">
-						<p class="text-[14px] font-semibold text-ink-2">
-							Starts from <b class="font-extrabold text-ink">{facts.from}</b
-							>{#if facts.to !== null}&nbsp;· ends at <b class="font-extrabold text-ink"
-									>{facts.to}</b
-								>{/if}
-						</p>
+						{#if facts}
+							<p class="text-[14px] font-semibold text-ink-2">
+								{#if facts.from !== null}Starts from <b class="font-extrabold text-ink"
+										>{facts.from}</b
+									>{#if facts.to !== null}&nbsp;· ends at <b class="font-extrabold text-ink"
+											>{facts.to}</b
+										>{/if}{:else}Ends at <b class="font-extrabold text-ink">{facts.to}</b>{/if}
+							</p>
+						{/if}
 						{#if badges.length > 0}
 							<div class="flex flex-wrap gap-1.5">
 								{#each badges as b (b.text)}

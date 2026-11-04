@@ -1,315 +1,263 @@
 <script lang="ts">
-	import { guarded } from '$lib/unsaved/guard.svelte';
-	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import Screen from '$lib/components/ui/Screen.svelte';
-	import BandButton from '$lib/components/ui/BandButton.svelte';
-	import BackButton from '$lib/components/shell/BackButton.svelte';
-	import { focusAfterRemoval } from '$lib/focus';
-	import Sheet from '$lib/components/ui/Sheet.svelte';
-	import Banner from '$lib/components/ui/Banner.svelte';
-	import Badge from '$lib/components/ui/Badge.svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { onMount } from 'svelte';
+	import MovesScreen from '$lib/components/moves/MovesScreen.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Toast from '$lib/components/ui/Toast.svelte';
-	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { act } from '$lib/act';
-	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { plural } from '$lib/format';
-	import { gapsTitle, positionBadges, positionMeta } from '$lib/moves/positions';
-	import type { ActionData, PageData } from './$types';
+	import SearchField from '$lib/components/ui/SearchField.svelte';
+	import PositionRow from '$lib/components/positions/PositionRow.svelte';
+	import PositionSheet from '$lib/components/positions/PositionSheet.svelte';
+	import TemplatesSheet from '$lib/components/positions/TemplatesSheet.svelte';
+	import HowSheet from '$lib/components/positions/HowSheet.svelte';
+	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { groupHeading } from '$lib/moves/figures';
+	import {
+		EMPTY,
+		EMPTY_ACTIONS,
+		GROUP_NOTE,
+		MAP_ROW,
+		NONE_OWN,
+		NO_MATCH,
+		OPTIONAL_LINE,
+		TEMPLATES_BUTTON,
+		listHeading,
+		noPositionRow,
+		positionChips,
+		positionQuery,
+		styleLabelOf,
+		taggedLine,
+		type PositionChip,
+		type PositionFilter
+	} from '$lib/positions/view';
+	import type { PageData } from './$types';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { data }: { data: PageData } = $props();
 
-	// What a refusal carries, whichever action it came from.
-	const refusal = $derived(
-		(form ?? null) as {
-			action?: string;
-			field?: string;
-			message?: string;
-			id?: number;
-			name?: string;
-		} | null
+	// `?new=1` opens New position straight away.
+	let creating = $state(page.url.searchParams.get('new') === '1');
+	let templating = $state(false);
+	let explaining = $state(false);
+
+	const dance = $derived(data.dance.slug);
+	const filter = $derived<PositionFilter>(data.filter);
+	const filtered = $derived(!!(filter.q || filter.type || filter.gaps));
+	const styleLabel = $derived(styleLabelOf(data.styleLabel));
+	const chips = $derived(
+		positionChips(filter, {
+			types: data.types,
+			typeLabel: data.styleLabel,
+			gaps: data.gaps,
+			groupMode: data.inGroupMode,
+			hasOwn: data.hasOwn,
+			untyped: data.untyped
+		})
 	);
+	const noneCount = $derived(data.none.none + data.none.onlyStart + data.none.onlyEnd);
+	// Nobody has any: no positions of the space's own or of a group, and nothing narrows the list.
+	const nothing = $derived(!filtered && data.rows.length === 0 && data.groups.length === 0);
+	const list = $derived(resolve('/[dance]/positions', { dance }));
+	// The pages under Positions come with their own tasks: their paths are built on the list's.
+	const positionHref = (id: number) => `${list}/${id}`;
 
-	/** The position whose sheet is open, by id, so a reload does not close it. */
-	// The `form` that was there when a sheet opened: an older refusal is not this sheet's.
-	let seen: unknown = $state(null);
-	let selectedId = $state<number | null>(null);
-	let creating = $state(false);
-	let busy = $state(false);
-	let removing = $state(false);
-	// `undo` is there only while there is something to undo; a failed Undo leaves a plain message.
-	let toast = $state<{ id: number; message: string; undo?: () => Promise<unknown> } | null>(null);
-	let toastSeq = 0;
+	// What is typed; follows the URL when it changes under it.
+	let q = $derived(data.filter.q);
+	let chipRow = $state<HTMLElement>();
 
-	const selected = $derived(data.positions.find((p) => p.id === selectedId) ?? null);
-	const title = $derived(data.groupMode ? null : gapsTitle(data.positions));
-
-	const renameRefusal = $derived(
-		form !== seen && refusal?.action === 'rename' && refusal.id === selectedId ? refusal : null
-	);
-	const archiveRefusal = $derived(
-		form !== seen && refusal?.action === 'archive' && refusal.id === selectedId && refusal.message
-			? refusal.message
-			: null
-	);
-	const createRefusal = $derived(form !== seen && refusal?.action === 'create' ? refusal : null);
-
-	// A failed create re-renders with the message; keep its sheet open to show it.
-	$effect(() => {
-		if (form !== seen && refusal?.action === 'create' && refusal.message) creating = true;
+	// A chip that is on but off to the right scrolls into view on arrival.
+	onMount(() => {
+		const row = chipRow;
+		const on = [...(row?.querySelectorAll<HTMLElement>('label:has(input:checked)') ?? [])];
+		if (!row || on.length === 0) return;
+		const right = row.getBoundingClientRect().right - 16;
+		const last = on[on.length - 1].getBoundingClientRect().right;
+		if (last > right) row.scrollLeft += last - right;
 	});
 
-	function removed(name: string, id: number) {
-		toast = {
-			id: ++toastSeq,
-			message: `${name} removed`,
-			undo: () => act('restore', { id })
-		};
+	/** Swap the filter in place: no history entry, and the search keeps its focus. */
+	function refilter(change: Partial<PositionFilter>, noScroll = false) {
+		const qs = positionQuery(filter, change);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
+		goto(qs ? `${list}?${qs}` : list, { keepFocus: true, replaceState: true, noScroll });
 	}
 
-	/** Undo a removal; when that fails, say why instead of losing it. */
-	async function undoRemoval() {
-		const t = toast;
-		toast = null;
-		if (!t?.undo) return;
-		const result = (await t.undo()) as { type: string; data?: { message?: string } };
-		if (result.type !== 'success') {
-			toast = { id: ++toastSeq, message: result.data?.message ?? 'Could not undo.' };
+	function toggle(e: Event & { currentTarget: HTMLInputElement }, chip: PositionChip) {
+		const change = { ...chip.change, q };
+		if (positionQuery(filter, change) === positionQuery(filter, {})) {
+			// Nothing would change (All while it is on): the box goes back as it was.
+			e.currentTarget.checked = chip.on;
+			return;
 		}
+		refilter(change, true);
 	}
 </script>
 
 <svelte:head><title>Positions · {data.dance.label}</title></svelte:head>
 
-<Screen title="Positions" subtitle="Hands before and after a figure">
-	{#snippet left()}
-		<BackButton
-			fallback={{
-				href: resolve('/[dance]/figures', { dance: data.dance.slug }),
-				label: 'Back to Moves'
-			}}
-		/>
-	{/snippet}
-	{#snippet right()}
-		{#if data.isAdmin}
-			<BandButton
-				icon="plus"
-				focusKey="new-position"
-				label="New position"
-				onclick={() => {
-					seen = form;
-					creating = true;
-				}}
-			/>
+<!-- eslint-disable svelte/no-navigation-without-resolve -- the hrefs below are built on the resolved list path -->
+<MovesScreen segment="positions" {dance} onnew={() => (creating = true)}>
+	{#if nothing}
+		<div class="h-10 flex-none"></div>
+		<EmptyState icon="positions" title={EMPTY.title} body={EMPTY.body}>
+			{#snippet action()}
+				<div class="flex flex-col items-center gap-2">
+					<button type="button" class={button('primary')} onclick={() => (templating = true)}>
+						<Icon name="copy" size={20} />{EMPTY_ACTIONS.templates}
+					</button>
+					<button type="button" class={button('secondary')} onclick={() => (creating = true)}>
+						<Icon name="plus" size={20} />{EMPTY_ACTIONS.create}
+					</button>
+					<button type="button" class={button('tertiary')} onclick={() => (explaining = true)}>
+						<Icon name="info" size={20} />{EMPTY_ACTIONS.how}
+					</button>
+				</div>
+			{/snippet}
+		</EmptyState>
+		{#if data.inGroupMode}
+			<p class="px-1 text-center text-[14px] leading-[1.45] text-muted">{GROUP_NOTE}</p>
 		{/if}
-	{/snippet}
-
-	<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
-		<b class="font-bold text-ink">{data.tagged.done} of {data.tagged.total} figures tagged.</b>
-		A figure with none tagged starts and ends at the neutral hold.
-	</p>
-
-	{#if title}
-		<Banner kind="warning" {title}>
-			Dead end: nothing you know leaves it. Orphan: nothing you know gets you there.
-		</Banner>
-	{/if}
-
-	<h2 class="{SECTION_LABEL} pt-1.5">{plural(data.positions.length, 'position', 'positions')}</h2>
-	<div class={GROUP}>
-		{#each data.positions as p (p.id)}
-			{@const meta = positionMeta(p)}
-			<button
-				data-focus="position-{p.id}"
-				type="button"
-				disabled={!data.isAdmin}
-				class="flex min-h-16 w-full items-center gap-2.5 py-[9px] pr-3.5 pl-4 text-left {data.isAdmin
-					? 'cursor-pointer active:bg-step'
-					: 'cursor-default'}"
-				onclick={() => {
-					seen = form;
-					selectedId = p.id;
-				}}
-			>
-				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-					<span
-						class="text-[16px] leading-[1.3] font-bold break-words {meta.mutedTitle
-							? 'text-muted'
-							: 'text-ink'}">{p.name}</span
-					>
-					<span
-						class="text-[13px] leading-[1.35] {meta.tone ? 'font-bold text-danger' : 'text-muted'}"
-						>{meta.text}</span
-					>
-				</span>
-				{#if p.neutral}<Badge tone="accent">neutral</Badge>{/if}
-				{#if data.isAdmin}
-					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-				{/if}
+	{:else}
+		<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
+			{#if data.inGroupMode}
+				{GROUP_NOTE}
+			{:else}
+				<b class="text-ink">{taggedLine(data.tagged)}</b>
+				{OPTIONAL_LINE}
+			{/if}
+		</p>
+		<div class="-my-1 -ml-2.5 flex flex-none">
+			<button type="button" class={button('tertiary', 'sm')} onclick={() => (templating = true)}>
+				<Icon name="copy" size={20} />{TEMPLATES_BUTTON}
 			</button>
-		{/each}
-	</div>
-</Screen>
+			<button type="button" class={button('tertiary', 'sm')} onclick={() => (explaining = true)}>
+				<Icon name="info" size={20} />{EMPTY_ACTIONS.how}
+			</button>
+		</div>
 
-{#if data.isAdmin && selected}
-	<Sheet title={selected.name} sub="Position" open={true} onclose={() => (selectedId = null)}>
-		{#if archiveRefusal}<div class="mb-3.5">
-				<Banner kind="error">{archiveRefusal}</Banner>
-			</div>{/if}
 		<form
-			id="rename-position"
-			method="POST"
-			action="?/rename"
-			class="flex flex-col gap-3.5"
-			use:guarded={{
-				label: 'Position name',
-				submit: () => {
-					return async ({ result, update }) => {
-						await update();
-						if (result.type === 'success') selectedId = null;
-					};
-				}
+			role="search"
+			onsubmit={(e) => {
+				e.preventDefault();
+				refilter({ q });
 			}}
 		>
-			<input type="hidden" name="id" value={selected.id} />
-			<div>
-				<label class={LABEL} for="position-name">Name</label>
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					id="position-name"
-					name="name"
-					required
-					autofocus
-					maxlength="80"
-					value={renameRefusal?.name ?? selected.name}
-					class={FIELD}
-					aria-invalid={renameRefusal?.message ? 'true' : undefined}
-					aria-describedby={renameRefusal?.message ? 'position-name-error' : undefined}
-				/>
-				{#if renameRefusal?.message}<FieldError
-						id="position-name-error"
-						message={renameRefusal.message}
-					/>{/if}
-			</div>
-			<div class="flex flex-wrap gap-2">
-				{#each positionBadges(selected) as b (b.text)}
-					<Badge tone={b.tone}
-						>{#if b.icon}<Icon name={b.icon} size={14} filled />{/if}{b.text}</Badge
+			<SearchField
+				name="q"
+				bind:value={q}
+				placeholder="Search positions"
+				label="Search positions"
+				onclear={() => refilter({ q: '' })}
+			/>
+		</form>
+
+		<!-- One line running off the right edge; the 4 px on the left keeps the first chip's ring. -->
+		<div
+			role="group"
+			aria-label="Filter positions"
+			bind:this={chipRow}
+			class="-mr-4 -ml-1 flex flex-none [scrollbar-width:none] gap-2 overflow-x-auto pr-4 pl-1 [&::-webkit-scrollbar]:hidden"
+		>
+			{#each chips as chip (chip.key)}
+				<label class="{CHIP} group gap-1.5">
+					<input
+						type="checkbox"
+						class="sr-only"
+						checked={chip.on}
+						onchange={(e) => toggle(e, chip)}
+					/>{chip.label}{#if chip.count !== undefined}<!-- 75 % only on the plain chip: on accent it would fall below 4.5:1. -->
+						<span class="font-bold opacity-75 group-has-checked:opacity-100">{chip.count}</span
+						>{/if}
+				</label>
+			{/each}
+		</div>
+
+		{#if !filtered && (noneCount > 0 || data.rows.length + data.groups.length > 0)}
+			<div class={GROUP}>
+				{#if !data.inGroupMode && noneCount > 0}
+					{@const r = noPositionRow(noneCount)}
+					<a
+						class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
+						href="{list}/none"
 					>
+						<span
+							class="flex size-10 flex-none items-center justify-center rounded-xl border-2 border-dashed border-field-line text-muted"
+							><Icon name="footprints" size={20} /></span
+						>
+						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+							<span class="text-[16px] leading-[1.3] font-bold text-ink">{r.title}</span>
+							<span class="text-[13px] leading-[1.35] text-muted">{r.meta}</span>
+						</span>
+						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</a>
+				{/if}
+				{#if data.rows.length + data.groups.length > 0}
+					<a
+						class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
+						href="{list}/map"
+					>
+						<span
+							class="flex size-10 flex-none items-center justify-center rounded-xl bg-accent-soft text-accent-text"
+							><Icon name="positions" size={20} /></span
+						>
+						<span class="min-w-0 flex-1 text-[16px] leading-[1.3] font-bold text-ink"
+							>{MAP_ROW}</span
+						>
+						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</a>
+				{/if}
+			</div>
+		{/if}
+
+		{#if data.rows.length > 0}
+			<h2 class="{SECTION_LABEL} pt-1">{listHeading(data.rows.length, data.inGroupMode)}</h2>
+			<div class={GROUP}>
+				{#each data.rows as r (r.id)}
+					<PositionRow row={r} href={positionHref(r.id)} {styleLabel} />
 				{/each}
 			</div>
-		</form>
+		{:else if filtered}
+			{#if data.groups.length === 0}<EmptyState icon="search" title={NO_MATCH} />{/if}
+		{:else}
+			<!-- Only a group's positions so far: the person's own list starts here. -->
+			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">{NONE_OWN}</p>
+		{/if}
 
-		{#snippet footer()}
-			<button type="submit" form="rename-position" class={button('primary', 'md', true)}
-				>Save</button
-			>
-			{#if !selected.neutral}
-				<form
-					method="POST"
-					action="?/archive"
-					use:enhance={({ cancel }) => {
-						// One removal per tap: a second tap while the first is out is dropped.
-						if (removing) return cancel();
-						removing = true;
-						const { id, name } = selected;
-						const keys = data.positions.map((p) => `position-${p.id}`);
-						return async ({ result, update }) => {
-							if (result.type !== 'success') {
-								removing = false;
-								return update();
-							}
-							// Reload the list BEFORE the sheet goes: closing it pops its history
-							// entry, and that navigation can land over a reload still in flight.
-							await invalidateAll();
-							selectedId = null;
-							removed(name, id);
-							removing = false;
-							await focusAfterRemoval(keys, `position-${id}`, 'new-position');
-						};
-					}}
-				>
-					<input type="hidden" name="id" value={selected.id} />
-					<button
-						type="submit"
-						class={button('danger-text', 'md', true)}
-						aria-busy={removing}
-						aria-label={removing ? 'Removing position' : undefined}
-					>
-						{#if removing}<Spinner />{:else}<Icon name="trash" size={20} /> Remove position{/if}
-					</button>
-				</form>
-			{/if}
-		{/snippet}
-	</Sheet>
+		<!-- Each group's positions the person may use, under a slight heading. -->
+		{#each data.groups as g (g.team.id)}
+			<section aria-label={g.team.name} class="flex flex-col gap-2">
+				<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
+					<Icon name="people" size={16} />{groupHeading(g.team.name, g.rows.length)}
+				</h2>
+				<div class={GROUP}>
+					{#each g.rows as r (r.id)}
+						<PositionRow row={r} href={positionHref(r.id)} {styleLabel} group />
+					{/each}
+				</div>
+			</section>
+		{/each}
+	{/if}
+</MovesScreen>
+
+{#if creating}
+	<PositionSheet
+		open={true}
+		onclose={() => (creating = false)}
+		mode="new"
+		action="?/create"
+		{dance}
+		defaultStyle={data.defaultStyle}
+	/>
 {/if}
 
-{#if data.isAdmin && creating}
-	<Sheet title="New position" open={true} onclose={() => (creating = false)}>
-		<form
-			id="new-position"
-			method="POST"
-			action="?/create"
-			class="flex flex-col gap-3.5"
-			use:guarded={{
-				label: 'New position',
-				submit: ({ cancel }) => {
-					// One position per tap: a second tap while the first is out is dropped.
-					if (busy) return cancel();
-					busy = true;
-					return async ({ result, update }) => {
-						await update();
-						busy = false;
-						if (result.type === 'success') creating = false;
-					};
-				}
-			}}
-		>
-			<div>
-				<label class={LABEL} for="new-position-name">Name</label>
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					id="new-position-name"
-					name="name"
-					required
-					autofocus
-					maxlength="80"
-					value={createRefusal?.name ?? ''}
-					class={FIELD}
-					aria-invalid={createRefusal?.message ? 'true' : undefined}
-					aria-describedby={createRefusal?.message ? 'new-position-name-error' : undefined}
-				/>
-				{#if createRefusal?.message}<FieldError
-						id="new-position-name-error"
-						message={createRefusal.message}
-					/>{/if}
-			</div>
-		</form>
-
-		{#snippet footer()}
-			<button
-				type="submit"
-				form="new-position"
-				class={button('primary', 'md', true)}
-				aria-busy={busy}
-				aria-label={busy ? 'Adding position' : undefined}
-			>
-				{#if busy}<Spinner />{:else}Add position{/if}
-			</button>
-		{/snippet}
-	</Sheet>
+{#if templating}
+	<TemplatesSheet
+		open={true}
+		onclose={() => (templating = false)}
+		{dance}
+		owned={data.owned}
+		defaultStyle={data.defaultStyle}
+	/>
 {/if}
 
-<Toast
-	toast={toast && {
-		id: toast.id,
-		message: toast.message,
-		action: toast.undo ? 'Undo' : undefined
-	}}
-	bottom="calc(1rem + var(--pin-bottom, 0px) + var(--pin-safe, var(--safe-bottom)))"
-	onaction={undoRemoval}
-	ondismiss={() => (toast = null)}
-/>
+<HowSheet open={explaining} onclose={() => (explaining = false)} />

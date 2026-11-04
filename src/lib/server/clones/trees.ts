@@ -12,7 +12,7 @@
  * practice settings, logs. A song's audio is the family's, never a field.
  */
 import { and, asc, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
-import type { CloneKind, Flat } from '$lib/types';
+import type { CloneKind, Facing, Flat, Frame, Hands } from '$lib/types';
 import { fieldLabel } from '$lib/clones/flat';
 import { getDance } from '$lib/dances/dances';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
@@ -21,14 +21,23 @@ import { localDay } from '$lib/day/day';
 import { clock, dateLabel, dayMonth, plural } from '$lib/format';
 import { PARTNER_LABEL, TEMPO_LABEL, type Partner, type TempoFactor } from '$lib/labels';
 import { spotLabel } from '$lib/video/spots';
+import {
+	CROSSED_LABEL,
+	FACING_LABEL,
+	FRAME_LABEL,
+	HANDS_LABEL,
+	NOT_CROSSED
+} from '$lib/positions/hold';
 import type { Db } from '../db';
 import {
 	exercises,
 	figureGroups,
 	figures,
+	figureEndPositions,
 	figureStartPositions,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessonRoutines,
 	lessons,
 	lessonVideos,
@@ -40,6 +49,7 @@ import {
 	routineSteps,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	videoSpots
 } from '../db/schema';
 
@@ -78,6 +88,9 @@ export function flatOf(db: Db, kind: CloneKind, id: number, opts: { tz?: string 
 		case 'lesson':
 			lessonFlat(db, id, b);
 			break;
+		case 'position':
+			positionFlat(db, id, b);
+			break;
 	}
 	return b.flat;
 }
@@ -98,7 +111,7 @@ function figureFlat(db: Db, id: number, b: Builder, tz: string): void {
 	const start = f.startCount ?? DEFAULT_START_COUNT;
 	const length = f.lengthCounts ?? DEFAULT_LENGTH_COUNTS;
 	b.add('timing', `${start}|${length}`, timingLine(start, length).main);
-	positionsField(db, f, b);
+	tagFields(db, id, b);
 	linkFields(db, eq(links.figureId, id), b);
 
 	const recs = db
@@ -127,27 +140,50 @@ function styleShow(dance: string, style: string): string {
 }
 
 /**
- * Start positions (sorted ids) and the end id, as stored: an untagged figure
- * reads as empty, shown as the dance's neutral position.
+ * Start and end positions, one set member each (`start:<ref>`, `end:<ref>`),
+ * by family: a figure tagged with its own copy of a group's Cerrada and the
+ * group's figure tagged with the group's read the same. An untagged side has
+ * no member: it fits anywhere. Archived positions are invisible (ruling 4):
+ * their tags stay, and are left out here.
  */
-function positionsField(
-	db: Db,
-	f: { id: number; dance: string; endPositionId: number | null },
-	b: Builder
-): void {
-	const starts = db
-		.select({ id: figureStartPositions.positionId })
-		.from(figureStartPositions)
-		.where(eq(figureStartPositions.figureId, f.id))
-		.all()
-		.map((r) => r.id)
-		.sort((x, y) => x - y);
-	const all = db.select().from(positions).where(eq(positions.dance, f.dance)).all();
-	const name = new Map(all.map((p) => [p.id, p.name]));
-	const neutral = all.find((p) => p.neutral)?.name ?? '';
-	const startShow = starts.length > 0 ? starts.map((s) => name.get(s) ?? '?').join(', ') : neutral;
-	const endShow = f.endPositionId !== null ? (name.get(f.endPositionId) ?? '?') : neutral;
-	b.add('positions', `${starts.join(',')}>${f.endPositionId ?? ''}`, `${startShow} → ${endShow}`);
+function tagFields(db: Db, figureId: number, b: Builder): void {
+	for (const [side, table] of [
+		['start', figureStartPositions],
+		['end', figureEndPositions]
+	] as const) {
+		for (const p of db
+			.select({ id: positions.id, gene: positions.geneId, name: positions.name })
+			.from(table)
+			.innerJoin(positions, eq(positions.id, table.positionId))
+			.where(and(eq(table.figureId, figureId), isNull(positions.archivedAt)))
+			.orderBy(asc(positions.id))
+			.all())
+			b.add(`${side}:${ref(p.gene, p.id)}`, '1', p.name);
+	}
+}
+
+/* ── Positions ──────────────────────────────────────────────────────────── */
+
+/**
+ * A position: its name, type, hold and notes. Its links (sections and points,
+ * lessons) are the linking side's fields, and travel with those: never here.
+ * The picture is local to each place, like the slug.
+ */
+function positionFlat(db: Db, id: number, b: Builder): void {
+	const p =
+		db.select().from(positions).where(eq(positions.id, id)).get() ?? missing('position', id);
+	b.add('name', p.name);
+	b.add('notes', p.notes ?? '');
+	const type = p.styleTag ?? '';
+	b.add('type', type, styleShow(p.dance, type));
+	b.add('hands', p.hands ?? '', p.hands ? (HANDS_LABEL[p.hands as Hands] ?? p.hands) : '');
+	b.add(
+		'crossed',
+		p.crossed === null ? '' : p.crossed ? '1' : '0',
+		p.crossed === null ? '' : p.crossed ? CROSSED_LABEL : NOT_CROSSED
+	);
+	b.add('facing', p.facing ?? '', p.facing ? (FACING_LABEL[p.facing as Facing] ?? p.facing) : '');
+	b.add('frame', p.frame ?? '', p.frame ? (FRAME_LABEL[p.frame as Frame] ?? p.frame) : '');
 }
 
 /* ── Links, pieces, sections ────────────────────────────────────────────── */
@@ -188,7 +224,7 @@ function spotFields(db: Db, piece: string, owner: SQL, b: Builder): void {
 
 type Target = { ref: string; show: string };
 
-/** Each spot's link targets, as `fig:<ref>` / `drill:<ref>` with a name to show. */
+/** Each spot's link targets, as `fig:<ref>` / `drill:<ref>` / `pos:<ref>` with a name to show. */
 function spotTargets(db: Db, spotIds: number[]): Map<number, Target[]> {
 	const out = new Map<number, Target[]>();
 	if (spotIds.length === 0) return out;
@@ -223,6 +259,19 @@ function spotTargets(db: Db, spotIds: number[]): Map<number, Target[]> {
 		.where(inArray(spotLinks.spotId, spotIds))
 		.all())
 		push(r.spotId, { ref: `drill:${ref(r.gene, r.id)}`, show: r.name });
+	// A section's or point's positions, live ones only (archived ones are invisible, ruling 4).
+	for (const r of db
+		.select({
+			spotId: spotPositionLinks.spotId,
+			id: positions.id,
+			gene: positions.geneId,
+			name: positions.name
+		})
+		.from(spotPositionLinks)
+		.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+		.where(and(inArray(spotPositionLinks.spotId, spotIds), isNull(positions.archivedAt)))
+		.all())
+		push(r.spotId, { ref: `pos:${ref(r.gene, r.id)}`, show: r.name });
 	return out;
 }
 
@@ -356,6 +405,13 @@ function lessonFlat(db: Db, id: number, b: Builder): void {
 		)
 		.all())
 		b.add(`drill:${ref(d.gene, d.id)}`, '1', d.name);
+	for (const p of db
+		.select({ id: positions.id, gene: positions.geneId, name: positions.name })
+		.from(lessonPositions)
+		.innerJoin(positions, eq(positions.id, lessonPositions.positionId))
+		.where(and(eq(lessonPositions.lessonId, id), isNull(positions.archivedAt)))
+		.all())
+		b.add(`pos:${ref(p.gene, p.id)}`, '1', p.name);
 
 	const videos = db
 		.select()

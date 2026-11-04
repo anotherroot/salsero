@@ -95,12 +95,13 @@
 					Moves
 				</h1>
 				<div
-					class="mt-[22px] grid h-[50px] grid-cols-2 rounded-full bg-band-track p-[3px]"
+					class="mt-[22px] grid h-[50px] grid-cols-3 rounded-full bg-band-track p-[3px]"
 					aria-hidden="true"
 				>
 					<span
 						class="h-11 rounded-full bg-band-ink"
 						class:col-start-2={skeleton.segment === 'routines'}
+						class:col-start-3={skeleton.segment === 'positions'}
 					></span>
 				</div>
 			{:else if skeleton.kind === 'figure'}
@@ -220,17 +221,28 @@
 		{:else if skeleton.kind === 'moves'}
 			<div class="relative -mt-7 flex flex-col gap-2 rounded-t-[28px] bg-ground px-4 pt-5">
 				{#if skeleton.segment === 'figures'}
+					<!-- The Coverage tile. -->
 					<div class="flex gap-2" aria-hidden="true">
-						{#each [0, 1] as i (i)}
-							<div class="flex h-16 flex-1 items-center gap-2.5 rounded-2xl bg-surface px-3">
-								<span class="bone size-[38px] flex-none rounded-full"></span>
-								<div class="flex flex-1 flex-col gap-[7px]">
-									<span class="bone h-[11px] w-[70%] rounded-md"></span>
-									<span class="bone h-[9px] w-1/2 rounded-[5px]"></span>
-								</div>
+						<div class="flex h-16 flex-1 items-center gap-2.5 rounded-2xl bg-surface px-3">
+							<span class="bone size-[38px] flex-none rounded-full"></span>
+							<div class="flex flex-1 flex-col gap-[7px]">
+								<span class="bone h-[11px] w-[40%] rounded-md"></span>
+								<span class="bone h-[9px] w-[30%] rounded-[5px]"></span>
 							</div>
-						{/each}
+						</div>
 					</div>
+				{:else if skeleton.segment === 'positions'}
+					<!-- The two lines, then Templates and How positions work. -->
+					<div class="flex flex-col gap-2 px-1 pb-1" aria-hidden="true">
+						<span class="bone block h-3 w-[62%] rounded-md"></span>
+						<span class="bone block h-2.5 w-[86%] rounded-[5px] opacity-80"></span>
+					</div>
+					<div class="flex gap-2" aria-hidden="true">
+						<span class="bone h-11 flex-1 rounded-full"></span>
+						<span class="bone h-11 flex-1 rounded-full"></span>
+					</div>
+				{/if}
+				{#if skeleton.segment !== 'routines'}
 					<span class="bone block h-11 rounded-full" aria-hidden="true"></span>
 					<div class="-mr-4 flex gap-2 overflow-hidden py-1" aria-hidden="true">
 						{#each [52, 112, 66, 54, 70] as w, i (i)}

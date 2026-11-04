@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { appsLines, gbToBytes } from '$lib/admin-view';
+import { DANCE_SLUGS, type DanceSlug } from '$lib/dances/dances';
 import { localDay } from '$lib/day/day';
 import { listAppsSeen } from '$lib/server/app-seen';
 import { getDb } from '$lib/server/db';
@@ -38,7 +39,10 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		people: listPeople(db).map((p) => ({
 			...p,
 			day: localDay(p.createdAt, tz),
-			groupsMade: teamsMade(db, p.id),
+			groupsMade: Object.fromEntries(DANCE_SLUGS.map((d) => [d, teamsMade(db, p.id, d)])) as Record<
+				DanceSlug,
+				number
+			>,
 			groupLimit: teamLimit(db, p.id),
 			apps: appsLines(
 				seen.filter((s) => s.userId === p.id).map((s) => ({ ...s, day: localDay(s.seenAt, tz) })),

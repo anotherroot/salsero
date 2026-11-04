@@ -131,6 +131,7 @@
 	<LinkPopup
 		spotId={linkingSpot}
 		theme="light"
+		point={false}
 		{steps}
 		onpush={(s) => (steps = [...steps, s])}
 		onback={() => {

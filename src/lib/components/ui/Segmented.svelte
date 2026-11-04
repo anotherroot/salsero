@@ -5,17 +5,28 @@
 		onBand = false,
 		name,
 		label,
-		onchange
+		onchange,
+		clearable = false
 	}: {
 		items: readonly { value: T; label: string }[];
-		value: T;
+		/** Null (only with `clearable`): none is picked, and the form sends nothing. */
+		value: T | null;
 		onBand?: boolean;
 		name: string;
 		/** Names the group for a screen reader. */
 		label: string;
 		/** Called with the picked value, after the bound value has changed. */
 		onchange?: (value: T) => void;
+		/** A tap on the picked one clears it: a form field that may stay unknown (a position's hold). */
+		clearable?: boolean;
 	} = $props();
+
+	/** A click on the radio already picked: no change event fires, so clear it here. */
+	function clear(e: MouseEvent & { currentTarget: HTMLInputElement }, v: T) {
+		if (!clearable || value !== v) return;
+		value = null;
+		e.currentTarget.checked = false;
+	}
 
 	const track = $derived(onBand ? 'bg-band-track' : 'bg-chip');
 	const ring = $derived(
@@ -45,6 +56,7 @@
 				{name}
 				value={item.value}
 				bind:group={value}
+				onclick={(e) => clear(e, item.value)}
 				onchange={() => onchange?.(item.value)}
 			/>
 			{item.label}

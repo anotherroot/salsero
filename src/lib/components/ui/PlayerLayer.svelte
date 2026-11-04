@@ -146,7 +146,7 @@
 			aria-modal="true"
 			aria-label={title}
 			tabindex="-1"
-			class="panel sheet-panel mx-auto flex max-h-[88%] w-full max-w-[560px] flex-col overflow-hidden rounded-t-[28px] bg-sheet pt-2 pb-[max(var(--safe-bottom),16px)] text-ink sm:my-auto sm:rounded-[28px] {tall
+			class="panel sheet-panel mx-auto flex max-h-[88%] w-full max-w-[560px] flex-col overflow-clip rounded-t-[28px] bg-sheet pt-2 pb-[max(var(--safe-bottom),16px)] text-ink sm:my-auto sm:rounded-[28px] {tall
 				? 'h-[88%]'
 				: ''}"
 		>

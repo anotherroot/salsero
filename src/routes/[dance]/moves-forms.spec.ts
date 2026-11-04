@@ -22,8 +22,6 @@ import { createFigure, createVariationIn } from '$lib/server/figures';
 import { actions as routineListActions } from './routines/+page.server';
 import { actions as figureListActions, load as figureListLoad } from './figures/+page.server';
 import { actions as coverageActions } from './coverage/+page.server';
-import { actions as positionActions } from './positions/+page.server';
-import { archivePosition, getPosition, listPositions, seedPositions } from '$lib/server/positions';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 
@@ -162,55 +160,6 @@ describe('New figure', () => {
 	});
 });
 
-describe('Positions', () => {
-	beforeEach(() => seedPositions(db));
-
-	it('restores a removed position', async () => {
-		const row = listPositions(db, 'salsa').find((p) => !p.neutral)!;
-		archivePosition(db, row.id, 1);
-		expect(await call(positionActions.restore, post('salsa', { id: String(row.id) }))).toEqual({
-			action: 'restore',
-			ok: true
-		});
-		expect(getPosition(db, row.id)!.archivedAt).toBeNull();
-	});
-
-	it('answers ok when there was nothing to restore', async () => {
-		const row = listPositions(db, 'salsa')[0];
-		expect(await call(positionActions.restore, post('salsa', { id: String(row.id) }))).toEqual({
-			action: 'restore',
-			ok: true
-		});
-	});
-
-	it("refuses to restore the other dance's position", async () => {
-		const row = listPositions(db, 'bachata').find((p) => !p.neutral)!;
-		archivePosition(db, row.id, 1);
-		await expect(
-			call(positionActions.restore, post('salsa', { id: String(row.id) }))
-		).rejects.toMatchObject({ status: 404 });
-		expect(getPosition(db, row.id)!.archivedAt).toBe(1);
-	});
-
-	it('puts a taken position name under Name', async () => {
-		expect(await call(positionActions.create, post('bachata', { name: 'Shadow' }))).toMatchObject({
-			status: 400,
-			data: { field: 'name', message: 'That position already exists.' }
-		});
-	});
-
-	it('puts a missing name under Name on create and on rename', async () => {
-		expect(await call(positionActions.create, post('salsa', { name: ' ' }))).toMatchObject({
-			status: 400,
-			data: { field: 'name', message: 'Give the position a name.' }
-		});
-		const row = listPositions(db, 'salsa')[0];
-		expect(
-			await call(positionActions.rename, post('salsa', { id: String(row.id), name: '' }))
-		).toMatchObject({ status: 400, data: { field: 'name', message: 'Give the position a name.' } });
-	});
-});
-
 describe('Coverage: make routine', () => {
 	it('puts a missing routine name under Name, keeping the picks to resubmit', async () => {
 		const result = await call(coverageActions.create, post('salsa', { name: ' ', figureIds: '1' }));
@@ -226,66 +175,6 @@ describe('Coverage: make routine', () => {
 		};
 		expect(result.data.message).toBe('Pick at least one figure.');
 		expect(result.data.field).toBeUndefined();
-	});
-});
-
-describe('Positions: names are unique among the live ones', () => {
-	beforeEach(() => seedPositions(db));
-	const caida = () => listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
-	const liveCaidas = () => listPositions(db, 'salsa').filter((p) => p.name === 'Caída');
-
-	it('Undo after the name was added again leaves exactly one live Caída and says so', async () => {
-		const id = caida().id;
-		await call(positionActions.archive, post('salsa', { id: String(id) }));
-		expect(liveCaidas()).toHaveLength(0);
-		expect(await call(positionActions.create, post('salsa', { name: 'Caída' }))).toEqual({
-			action: 'create',
-			ok: true
-		});
-		expect(await call(positionActions.restore, post('salsa', { id: String(id) }))).toMatchObject({
-			status: 409,
-			data: { action: 'restore', message: "Can't undo — a position called Caída exists again." }
-		});
-		expect(liveCaidas()).toHaveLength(1);
-		expect(getPosition(db, id)!.archivedAt).not.toBeNull();
-	});
-
-	it('refuses a create that differs only in case or accents', async () => {
-		for (const name of ['caida', 'CAÍDA']) {
-			expect(await call(positionActions.create, post('salsa', { name }))).toMatchObject({
-				status: 400,
-				data: { field: 'name', name }
-			});
-		}
-		expect(liveCaidas()).toHaveLength(1);
-	});
-
-	it('refuses a rename to another live name, but keeps a rename to its own', async () => {
-		const id = String(caida().id);
-		expect(
-			await call(positionActions.rename, post('salsa', { id, name: 'cerrada' }))
-		).toMatchObject({ status: 400, data: { field: 'name', message: 'That name is taken.' } });
-		expect(await call(positionActions.rename, post('salsa', { id, name: 'CAIDA' }))).toMatchObject({
-			action: 'rename',
-			ok: true
-		});
-	});
-
-	it('answers ok to removing a position that is already removed', async () => {
-		const id = String(caida().id);
-		await call(positionActions.archive, post('salsa', { id }));
-		expect(await call(positionActions.archive, post('salsa', { id }))).toEqual({
-			action: 'archive',
-			ok: true
-		});
-	});
-
-	it('refuses the neutral position, naming its id', async () => {
-		const n = listPositions(db, 'salsa').find((p) => p.neutral)!;
-		expect(await call(positionActions.archive, post('salsa', { id: String(n.id) }))).toMatchObject({
-			status: 400,
-			data: { action: 'archive', id: n.id }
-		});
 	});
 });
 

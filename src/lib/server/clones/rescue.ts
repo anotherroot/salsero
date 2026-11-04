@@ -3,8 +3,9 @@
  * reach (an editor archives or unlinks it, a slot option or a section link
  * goes, a person is made a member), every person whose OWN rows use that row
  * (their routines' slot options and embeds, the section links on their own
- * videos, their lessons' hand links, archived routines and lessons too) gets
- * their own copy of it, and those rows, with their practice, move onto it.
+ * videos, their lessons' hand links, their figures' position tags, archived
+ * routines, lessons and figures too) gets their own copy of it, and those
+ * rows, with their practice, move onto it.
  * The spec's "an editor unpublishes or deletes something your own rows use:
  * just that thing is cloned into your app". Things a person only reads, and
  * no row of theirs uses, simply leave their view.
@@ -22,26 +23,31 @@ import type { Db } from '../db';
 import { exercises, routines, routineSteps } from '../db/schema';
 import { restoreVariation } from '../figures';
 import { restoreRoutine } from '../routines';
+import { restorePositionIn } from '../positions';
 import { teamReaders } from '../access';
 import { ownedBy, type Wall } from '../scope';
 import { cloneTx, type ClonePair } from './clone';
 import { geneOf, memberIn } from './genes';
 import { repoint } from './repoint';
 
-type Kind = 'figure' | 'routine' | 'drill';
+type Kind = 'figure' | 'routine' | 'drill' | 'position';
 
 /** A person's own row pointing at one of the group's rows (the person and the target). */
 type Used = { userId: string; dance: DanceSlug; kind: Kind; id: number };
 
-/** One of the person's rows that uses a group row: a routine, a lesson, or a figure (a section on its recording). */
+/**
+ * One of the person's rows that uses a group row: a routine, a lesson, or a
+ * figure (a section on its recording, or a position its start or end tag).
+ */
 export type Use = Used & { by: 'routine' | 'lesson' | 'figure'; byId: number; byName: string };
 
 /**
  * Every use of a group row of `teamId` by a person's own rows, in one query:
  * the slot options and embeds of their routines, the section links on their
  * own videos (a recording of their figure, a video of their lesson) and their
- * lessons' hand links, archived owners included (`crossRefs` checks those
- * too). One row per person, target and using row, sorted by person, then
+ * lessons' hand links; for a position, their figures' start and end tags,
+ * their lessons' hand links and their sections' and points' links. Archived
+ * owners included (`crossRefs` checks those too). One row per person, target and using row, sorted by person, then
  * routines first, then kind, target and the using row's name.
  */
 export function usesOf(tx: Db, teamId: number, userId?: string): Use[] {
@@ -98,6 +104,44 @@ export function usesOf(tx: Db, teamId: number, userId?: string): Use[] {
 		  join lessons l on l.id = x.lesson_id
 		  join exercises t on t.id = x.exercise_id
 		 where l.team_id is null and l.user_id is not null and t.team_id = ${teamId}${who('l.user_id')}
+		union
+		select f.user_id, t.dance, 'position', t.id, 'figure', f.id,
+		       coalesce(fg.name || ' · ' || f.name, f.name)
+		  from figure_start_positions x
+		  join figures f on f.id = x.figure_id
+		  left join figure_groups fg on fg.id = f.group_id
+		  join positions t on t.id = x.position_id
+		 where f.team_id is null and f.user_id is not null and t.team_id = ${teamId}${who('f.user_id')}
+		union
+		select f.user_id, t.dance, 'position', t.id, 'figure', f.id,
+		       coalesce(fg.name || ' · ' || f.name, f.name)
+		  from figure_end_positions x
+		  join figures f on f.id = x.figure_id
+		  left join figure_groups fg on fg.id = f.group_id
+		  join positions t on t.id = x.position_id
+		 where f.team_id is null and f.user_id is not null and t.team_id = ${teamId}${who('f.user_id')}
+		union
+		select l.user_id, t.dance, 'position', t.id, 'lesson', l.id, l.title
+		  from lesson_positions x
+		  join lessons l on l.id = x.lesson_id
+		  join positions t on t.id = x.position_id
+		 where l.team_id is null and l.user_id is not null and t.team_id = ${teamId}${who('l.user_id')}
+		union
+		select coalesce(rf.user_id, vl.user_id), t.dance, 'position', t.id,
+		       case when rf.id is not null then 'figure' else 'lesson' end,
+		       coalesce(rf.id, vl.id),
+		       coalesce(fg.name || ' · ' || rf.name, rf.name, vl.title)
+		  from spot_position_links x
+		  join video_spots v on v.id = x.spot_id
+		  left join recordings rec on rec.id = v.recording_id
+		  left join figures rf on rf.id = rec.figure_id
+		  left join figure_groups fg on fg.id = rf.group_id
+		  left join lesson_videos lv on lv.id = v.lesson_video_id
+		  left join lessons vl on vl.id = lv.lesson_id
+		  join positions t on t.id = x.position_id
+		 where coalesce(rf.team_id, vl.team_id) is null
+		   and coalesce(rf.user_id, vl.user_id) is not null
+		   and t.team_id = ${teamId}${who('coalesce(rf.user_id, vl.user_id)')}
 	`);
 	const rank = (k: Kind | Use['by']) => (k === 'routine' ? 0 : 1);
 	return rows.sort(
@@ -173,10 +217,7 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 		if (readerOf(u.userId)(u.kind, u.id)) continue;
 		const wall: Wall = { userId: u.userId, dance: u.dance };
 
-		tx.update(exercises)
-			.set({ archivedAt: null })
-			.where(and(ownedBy(exercises, wall), eq(ENTRY[u.kind], u.id), eq(exercises.archivedAt, now)))
-			.run();
+		wakeEntries(tx, wall, u.kind, u.id, now);
 
 		const gene = geneOf(tx, u.kind, u.id);
 		const member = gene === null ? null : memberIn(tx, u.kind, gene, wall);
@@ -219,20 +260,35 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 		moveOnto(tx, wall, u.kind, u.id, toId, practice, now);
 		// What the copy brought moves too, as Keep does: the person's practice
 		// on a figure inside a rescued routine (or a routine nested in it)
-		// continues on the copy, rather than going off Today with the reach.
+		// continues on the copy, rather than going off Today with the reach;
+		// their figures tagged with a position the copy brought follow it.
 		for (const p of pairs) {
 			if (p.kind === u.kind && p.from === u.id) continue;
-			if (p.kind !== 'figure' && p.kind !== 'routine' && p.kind !== 'drill') continue;
-			tx.update(exercises)
-				.set({ archivedAt: null })
-				.where(
-					and(ownedBy(exercises, wall), eq(ENTRY[p.kind], p.from), eq(exercises.archivedAt, now))
-				)
-				.run();
+			if (
+				p.kind !== 'figure' &&
+				p.kind !== 'routine' &&
+				p.kind !== 'drill' &&
+				p.kind !== 'position'
+			)
+				continue;
+			wakeEntries(tx, wall, p.kind, p.from, now);
 			moveOnto(tx, wall, p.kind, p.from, p.id, true, now);
 		}
 	}
 	return cloned;
+}
+
+/**
+ * The person's entries on a group row that this very change archived (their
+ * `archived_at` is `now`) are live again, to move with the rows. A position
+ * has no entries.
+ */
+function wakeEntries(tx: Db, wall: Wall, kind: Kind, id: number, now: number): void {
+	if (kind === 'position') return;
+	tx.update(exercises)
+		.set({ archivedAt: null })
+		.where(and(ownedBy(exercises, wall), eq(ENTRY[kind], id), eq(exercises.archivedAt, now)))
+		.run();
 }
 
 /**
@@ -252,10 +308,12 @@ function moveOnto(
 	now: number
 ): void {
 	repoint(tx, wall.userId, wall.dance, kind, fromId, toId, { entries: practice }, now);
-	tx.update(exercises)
-		.set({ archivedAt: now - 1 })
-		.where(and(ownedBy(exercises, wall), eq(ENTRY[kind], fromId), eq(exercises.archivedAt, now)))
-		.run();
+	if (kind !== 'position') {
+		tx.update(exercises)
+			.set({ archivedAt: now - 1 })
+			.where(and(ownedBy(exercises, wall), eq(ENTRY[kind], fromId), eq(exercises.archivedAt, now)))
+			.run();
+	}
 	if (kind === 'routine') keepNestedEmbeds(tx, wall, fromId, toId);
 }
 
@@ -264,9 +322,11 @@ function moveOnto(
  * unarchived as it is; a figure or a routine through its own restore (which
  * brings back its move, or refuses a name taken since). What it brings to
  * practise (the drill, a routine's or variation's own exercise) is paused.
- * Whether it came back, so practice may move onto it.
+ * A position through its restore (refused for a name taken since). Whether
+ * it came back, so practice may move onto it.
  */
 export function revive(tx: Db, wall: Wall, kind: Kind, id: number, now: number): boolean {
+	if (kind === 'position') return restorePositionIn(tx, wall, id, now).ok;
 	if (kind === 'drill') {
 		tx.update(exercises).set({ archivedAt: null, active: false }).where(eq(exercises.id, id)).run();
 		return true;

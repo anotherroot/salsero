@@ -34,6 +34,7 @@ import {
 	videoSpots
 } from './db/schema';
 import { isTeam, spaceOfRow, type Space, type TeamSpace } from './scope';
+import type { Hold } from '$lib/types';
 import { HISTORY_MERGE_MS } from '$lib/limits';
 import { shortNames } from '$lib/names';
 import { changedFields, type Seen } from '$lib/clash/clash';
@@ -43,6 +44,7 @@ import { fail } from '@sveltejs/kit';
 import type { ChangeRootKind, ChangeValues, ChangeVerb, HistoryRow, SpotOwner } from '$lib/types';
 import { getLessonRow, updateLesson } from './lessons';
 import { getGroup, renameFigure, updateVariation } from './figures';
+import { getPosition, updatePosition } from './positions';
 import { getRoutine, setSlotNote, updateRoutine } from './routines';
 import { getExercise, updateExercise } from './exercises';
 import { updateSpot } from './spots';
@@ -488,6 +490,27 @@ export function restoreChange(
 				return updateVariation(db, variation.id, input, by, now, R) !== null;
 			});
 		}
+		case 'position': {
+			// Only the name and notes come back (`canRestore`); a hold change shows without Restore.
+			const p = getPosition(db, row.rootId);
+			if (!p || p.archivedAt !== null || p.teamId !== space.teamId)
+				return { ok: false, reason: 'gone' };
+			return run({ name: p.name, notes: p.notes }, () => {
+				const done = updatePosition(
+					db,
+					p.id,
+					{
+						name: text('name', p.name) ?? p.name,
+						styleTag: p.styleTag,
+						hold: { hands: p.hands, crossed: p.crossed, facing: p.facing, frame: p.frame } as Hold,
+						notes: text('notes', p.notes),
+						pictureSpotId: p.pictureSpotId
+					},
+					{ actorId: by, now, verb: R }
+				);
+				return done !== null && !('field' in done);
+			});
+		}
 		case 'song':
 		case 'team':
 			return { ok: false, reason: 'not-restorable' };
@@ -527,16 +550,19 @@ export function rootInTeam(
 			);
 		case 'team':
 			return false;
+		case 'position':
+			return owned(getPosition(db, rootId));
 	}
 }
 
-/** What a picker links: a variation, a routine or a drill. */
-export type LinkTarget = { figureId: number } | { routineId: number } | { exerciseId: number };
+/** What a picker links: a variation, a routine, a drill or a position. */
+export type LinkTarget =
+	{ figureId: number } | { routineId: number } | { exerciseId: number } | { positionId: number };
 
 /**
  * Who archived a group's thing a picker offered, when it is archived now:
- * a link to it is refused with "Archived by Ana", and the editor is offered
- * Restore and Pick another. Null when the target is live, missing, or not
+ * a variation, routine, drill or position. A link to it is refused with
+ * "Archived by Ana", and the editor is offered Restore and Pick another. Null when the target is live, missing, or not
  * this group's (those keep their own refusal).
  */
 export function archivedTarget(
@@ -566,6 +592,11 @@ function whoArchived(db: Db, space: Space, target: LinkTarget): string | null | 
 		const row = getRoutine(db, target.routineId);
 		if (!row || row.teamId !== space.teamId || row.archivedAt === null) return undefined;
 		return archivedBy(db, space, 'routine', row.id);
+	}
+	if ('positionId' in target) {
+		const row = getPosition(db, target.positionId);
+		if (!row || row.teamId !== space.teamId || row.archivedAt === null) return undefined;
+		return archivedBy(db, space, 'position', row.id);
 	}
 	const row = getExercise(db, target.exerciseId);
 	if (!row || row.teamId !== space.teamId || row.archivedAt === null) return undefined;

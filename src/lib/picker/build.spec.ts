@@ -3,9 +3,11 @@ import {
 	exerciseGroups,
 	figureRows,
 	linkOptionGroups,
+	positionGroups,
 	routineRows,
 	sectionGroups,
-	variationEntries
+	variationEntries,
+	withPositionRow
 } from './build';
 import { frequencyLabel } from '$lib/frequency';
 import { isHeading, shown, type PickGroup, type PickHeading, type PickRow } from './model';
@@ -14,6 +16,7 @@ import type {
 	LinkOption,
 	LinkOptions,
 	PickExercise,
+	PositionSummary,
 	SectionGroup
 } from '$lib/types';
 
@@ -239,10 +242,67 @@ const variation = (id: number, figure: string, name: string, linked = false): Li
 	lopt({ target: { figureId: id }, label: `${figure} · ${name}`, figure, name, linked });
 const drillOpt = (id: number, name: string, everyDays = 3): LinkOption =>
 	lopt({ target: { exerciseId: id }, label: name, drill: true, name, everyDays });
+const positionOpt = (id: number, name: string, over: Partial<LinkOption> = {}): LinkOption =>
+	lopt({
+		target: { positionId: id },
+		label: name,
+		name,
+		hold: { hands: 'two', crossed: true, facing: 'face', frame: null },
+		...over
+	});
 const linkOpts = (over: Partial<LinkOptions>): LinkOptions =>
-	({ nearTitle: 'In this lesson', near: [], figures: [], drills: [], ...over }) as LinkOptions;
+	({
+		nearTitle: 'In this lesson',
+		near: [],
+		figures: [],
+		drills: [],
+		positions: [],
+		...over
+	}) as LinkOptions;
 
 describe('linkOptionGroups', () => {
+	it('linkOptionGroups: Positions after Drills, near positions after near drills; a row is position:{id} with its hold', () => {
+		const groups = linkOptionGroups(
+			linkOpts({
+				near: [drillOpt(9, 'Clave'), positionOpt(5, 'Hammerlock', { linked: true })],
+				drills: [drillOpt(8, 'Pasos')],
+				positions: [positionOpt(6, 'Cerrada'), positionOpt(7, 'Open', { hold: undefined })]
+			})
+		);
+		expect(groups.map((g) => g.title)).toEqual(['In this lesson', 'Drills', 'Positions']);
+		expect((groups[0].entries as PickRow[]).map((r) => r.key)).toEqual([
+			'exercise:9',
+			'position:5'
+		]);
+		expect(groups[0].entries[1]).toMatchObject({ value: 5, linked: true });
+		expect(groups[2].entries).toEqual([
+			{
+				key: 'position:6',
+				value: 6,
+				label: 'Cerrada',
+				meta: 'Two hands · crossed, right on top · face to face',
+				linked: false
+			},
+			{ key: 'position:7', value: 7, label: 'Open', linked: false }
+		]);
+	});
+
+	it("linkOptionGroups: a group's position says whose it is", () => {
+		const team = { id: 1, name: 'Salsa Tuesdays' };
+		const groups = linkOptionGroups(linkOpts({ positions: [positionOpt(6, 'Cerrada', { team })] }));
+		expect(groups[0].entries[0]).toMatchObject({
+			key: 'position:6',
+			meta: 'Salsa Tuesdays’ · used as it is'
+		});
+	});
+
+	it("linkOptionGroups: a point's options are Positions only", () => {
+		const groups = linkOptionGroups(
+			linkOpts({ nearTitle: 'This figure', positions: [positionOpt(6, 'Cerrada')] })
+		);
+		expect(groups.map((g) => g.title)).toEqual(['Positions']);
+	});
+
 	it('linkOptionGroups: near, Figures, Drills in that order, near titled from nearTitle', () => {
 		const groups = linkOptionGroups(
 			linkOpts({
@@ -356,6 +416,7 @@ describe('twins in pickers', () => {
 				}
 			],
 			drills: [],
+			positions: [],
 			figureChoices: [],
 			defaults: { partner: 'partner', style: 'salsa' }
 		} as never);
@@ -363,5 +424,121 @@ describe('twins in pickers', () => {
 		expect(heading.rows[0].meta).toBe(
 			'Salsa Tuesdays’, twin of Rueda club’s Doble · Salsa Tuesdays’ is used'
 		);
+	});
+});
+
+describe('positionGroups', () => {
+	const NO_HOLD = { hands: null, crossed: null, facing: null, frame: null };
+	const pos = (
+		id: number,
+		name: string,
+		styleTag: string | null,
+		hold: Partial<PositionSummary['hold']> = {},
+		teamId: number | null = null
+	): PositionSummary => ({
+		id,
+		name,
+		styleTag,
+		hold: { ...NO_HOLD, ...hold },
+		teamId,
+		archived: false
+	});
+	const LABELS: Record<string, string> = { salsa: 'Salsa', son: 'Son', timba: 'Timba' };
+	const styleLabel = (tag: string | null) => (tag === null ? 'Other' : (LABELS[tag] ?? tag));
+	// In list order: by type in the dance's order (salsa, son, timba), untyped last.
+	const own = [
+		pos(1, 'Abierta (dos manos)', 'salsa', { hands: 'two', facing: 'face' }),
+		pos(2, 'Cerrada', 'salsa', { frame: 'closed' }),
+		pos(3, 'Manos cruzadas', 'son', { hands: 'two', crossed: true }),
+		pos(4, 'Caída', 'timba'),
+		pos(5, 'Rueda: centro', null)
+	];
+	const team = { id: 7, name: 'Salsa Tuesdays' };
+	const theirs = [pos(20, 'Hammerlock', 'salsa', {}, 7), pos(21, 'Cuddle', null, {}, 7)];
+
+	it('puts the figure’s type first, then the other types in list order, then each group', () => {
+		const groups = positionGroups(own, 'son', styleLabel, [{ team, rows: theirs }]);
+		expect(groups.map((g) => g.title)).toEqual([
+			'Son · this figure’s type',
+			'Salsa',
+			'Timba',
+			'Other',
+			'Salsa Tuesdays’'
+		]);
+		expect(groups[0].entries).toEqual([
+			{
+				key: 'position:3',
+				value: 3,
+				label: 'Manos cruzadas',
+				meta: 'Two hands · crossed, right on top'
+			}
+		]);
+		// The hold is the second line; an empty hold has none.
+		expect(groups[1].entries).toEqual([
+			{
+				key: 'position:1',
+				value: 1,
+				label: 'Abierta (dos manos)',
+				meta: 'Two hands · face to face'
+			},
+			{ key: 'position:2', value: 2, label: 'Cerrada', meta: 'Closed' }
+		]);
+		expect(groups[2].entries).toEqual([{ key: 'position:4', value: 4, label: 'Caída' }]);
+		// A group’s position: its type, and that it is tagged as it is.
+		expect(groups[4].entries).toEqual([
+			{
+				key: 'position:20',
+				value: 20,
+				label: 'Hammerlock',
+				meta: 'Salsa · tag with it as it is'
+			},
+			{ key: 'position:21', value: 21, label: 'Cuddle', meta: 'Other · tag with it as it is' }
+		]);
+	});
+
+	it('the figure’s type is first even when it comes later in the list; empty groups are left out', () => {
+		const groups = positionGroups(own, 'timba', styleLabel, [{ team, rows: [] }]);
+		expect(groups.map((g) => g.title)).toEqual([
+			'Timba · this figure’s type',
+			'Salsa',
+			'Son',
+			'Other'
+		]);
+	});
+
+	it('a figure type with no positions of its own has no group; no type, no first group', () => {
+		expect(positionGroups(own.slice(0, 2), 'son', styleLabel, []).map((g) => g.title)).toEqual([
+			'Salsa'
+		]);
+		expect(positionGroups(own, null, styleLabel, []).map((g) => g.title)).toEqual([
+			'Salsa',
+			'Son',
+			'Timba',
+			'Other'
+		]);
+		expect(positionGroups([], 'salsa', styleLabel, [])).toEqual([]);
+	});
+
+	it('withPositionRow adds a made position under its type, once, making the group when missing', () => {
+		const groups = positionGroups(own.slice(0, 2), 'salsa', styleLabel, [{ team, rows: theirs }]);
+		const made = pos(9, 'Tornillo', 'salsa', { hands: 'one' });
+		const once = withPositionRow(groups, made, 'salsa', styleLabel);
+		expect(once[0].title).toBe('Salsa · this figure’s type');
+		expect(once[0].entries.at(-1)).toEqual({
+			key: 'position:9',
+			value: 9,
+			label: 'Tornillo',
+			meta: 'One hand'
+		});
+		expect(withPositionRow(once, made, 'salsa', styleLabel)).toEqual(once);
+		// A type the list does not have yet: its group goes before the groups’ sections.
+		const timba = withPositionRow(groups, pos(10, 'Pegao', 'timba'), 'salsa', styleLabel);
+		expect(timba.map((g) => g.title)).toEqual([
+			'Salsa · this figure’s type',
+			'Timba',
+			'Salsa Tuesdays’'
+		]);
+		// The input is left as it was.
+		expect(groups[0].entries).toHaveLength(2);
 	});
 });

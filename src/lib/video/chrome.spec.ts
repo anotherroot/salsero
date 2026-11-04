@@ -94,8 +94,8 @@ describe('chrome', () => {
 		expect(linkEntry([], false, 'badge')).toEqual({ kind: 'none' });
 		expect(linkEntry([], true, 'editor')).toEqual({
 			kind: 'open',
-			text: 'Link to a figure or drill',
-			label: 'Link to a figure or drill',
+			text: 'Link to a figure, drill or position',
+			label: 'Link to a figure, drill or position',
 			invite: true
 		});
 		expect(linkEntry(['A', 'B'], true, 'editor')).toEqual({
@@ -107,6 +107,21 @@ describe('chrome', () => {
 		expect(linkEntry(['A', 'B'], false, 'editor')).toEqual({
 			kind: 'show',
 			text: 'Linked to A, B'
+		});
+	});
+	it('words a point’s link entry for positions (ruling 10)', () => {
+		expect(linkEntry([], true, 'editor', true)).toEqual({
+			kind: 'open',
+			text: 'Link to a position',
+			label: 'Link to a position',
+			invite: true
+		});
+		expect(linkEntry([], true, 'badge', true)).toMatchObject({ label: 'Link this point' });
+		expect(linkEntry(['Cerrada'], true, 'editor', true)).toEqual({
+			kind: 'open',
+			text: 'Linked to Cerrada',
+			label: 'Links: Cerrada',
+			invite: false
 		});
 	});
 	it('keeps the second lines', () => {

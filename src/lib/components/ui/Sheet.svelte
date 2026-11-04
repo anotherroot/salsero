@@ -195,7 +195,9 @@
 		background: var(--color-sheet);
 		color: var(--color-ink);
 		box-shadow: 0 -8px 30px rgb(0 0 0 / 0.18);
-		overflow: hidden;
+		/* clip, not hidden: a hidden overflow can still be scrolled by focus, and a
+		   focused control would slide the whole sheet off screen. Only .body scrolls. */
+		overflow: clip;
 	}
 
 	dialog.tall {

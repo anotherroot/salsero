@@ -29,7 +29,7 @@ import { createFigure } from '$lib/server/figures';
 import { addFigureSlot, archiveRoutine, createRoutine } from '$lib/server/routines';
 import { createCustomExercise } from '$lib/server/exercises';
 import { addSpot } from '$lib/server/spots';
-import { seedPositions } from '$lib/server/positions';
+import { insertFixturePositions } from '$lib/server/test-positions';
 import type { Space } from '$lib/server/scope';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as figurePage from './figures/[id]/+page.server';
@@ -72,7 +72,7 @@ const seenOf = (data: Record<string, unknown>) => JSON.stringify(data.seen);
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
-	seedPositions(db);
+	insertFixturePositions(db);
 	db.insert(users)
 		.values({ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana', lastName: 'K' })
 		.run();
@@ -375,7 +375,6 @@ describe.each([
 			partner: 'partner',
 			style: 'salsa',
 			notes: 'mine',
-			endId: '',
 			startCount: '1',
 			lengthCounts: '8'
 		};

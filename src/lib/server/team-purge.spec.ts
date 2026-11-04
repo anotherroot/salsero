@@ -11,12 +11,16 @@ import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import { openDb, type Db } from './db';
 import {
 	exercises,
+	figureEndPositions,
 	figureGroups,
+	figureStartPositions,
 	figures,
 	lessonAdds,
+	lessonPositions,
 	lessons,
 	lessonVideos,
 	links,
+	positions,
 	recordings,
 	routineStepOptions,
 	routineSteps,
@@ -25,6 +29,7 @@ import {
 	songDrops,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	teamMembers,
 	teams,
 	teamTrash,
@@ -584,5 +589,82 @@ describe('restoreTeam before the purge', () => {
 		expect(archivedAt(w.entries.routine)).toBe(7);
 		expect(db.select().from(teamMembers).all()).toHaveLength(2);
 		expect(lessonAccess(db, 'u2', db.select().from(lessons).get()!)).toBe('read');
+	});
+});
+
+describe('purgeTeams with positions', () => {
+	it('unlinks its spots and archives its positions; tags and hand links stay, as a figure’s do', async () => {
+		const pos = (name: string, picture: number | null = null) =>
+			db
+				.insert(positions)
+				.values({ teamId: 1, dance: 'salsa', slug: `p-${name}`, name, pictureSpotId: picture })
+				.returning()
+				.get().id;
+		const point = db
+			.insert(videoSpots)
+			.values({ lessonVideoId: w.video, startMs: 5, endMs: null })
+			.returning()
+			.get().id;
+		const recPoint = db
+			.insert(videoSpots)
+			.values({ recordingId: w.rec, startMs: 5, endMs: null })
+			.returning()
+			.get().id;
+		const cerrada = pos('Cerrada', point);
+		const abierta = pos('Abierta');
+		db.insert(figureStartPositions).values({ figureId: w.figure, positionId: abierta }).run();
+		db.insert(figureEndPositions).values({ figureId: w.figure, positionId: cerrada }).run();
+		db.insert(lessonPositions).values({ lessonId: w.lesson, positionId: cerrada }).run();
+		db.insert(spotPositionLinks)
+			.values([
+				{ spotId: point, positionId: cerrada },
+				{ spotId: recPoint, positionId: abierta }
+			])
+			.run();
+		deleteTeam(db, 1, 'u1', T);
+		const now = T + 31 * DAY;
+		expect(await purgeTeams(db, now, dirs)).toBe(1);
+		// The group's spots go with their links. What a member kept (Keep, before
+		// the purge) carries its links with its spots, onto the member's own
+		// copy of each position: nothing points at the group's any more.
+		const left = db
+			.select({
+				spotId: spotPositionLinks.spotId,
+				userId: positions.userId,
+				team: positions.teamId
+			})
+			.from(spotPositionLinks)
+			.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+			.all();
+		expect(left.map((l) => l.spotId)).not.toContain(point);
+		expect(left.map((l) => l.spotId)).not.toContain(recPoint);
+		expect(left.map((l) => [l.userId, l.team])).toEqual([
+			['u2', null],
+			['u2', null]
+		]);
+		expect(crossRefs(db)).toEqual([]);
+		expect(
+			db
+				.select({ id: videoSpots.id })
+				.from(videoSpots)
+				.where(inArray(videoSpots.id, [point, recPoint]))
+				.all()
+		).toEqual([]);
+		const group = db.select().from(positions).where(eq(positions.teamId, 1)).all();
+		expect(group.map((p) => [p.name, p.archivedAt, p.pictureSpotId])).toEqual([
+			['Cerrada', now, null],
+			['Abierta', now, null]
+		]);
+		expect(
+			db.select().from(lessonPositions).where(eq(lessonPositions.lessonId, w.lesson)).all()
+		).toHaveLength(1);
+		expect(
+			db
+				.select()
+				.from(figureStartPositions)
+				.where(eq(figureStartPositions.figureId, w.figure))
+				.all()
+		).toHaveLength(1);
+		for (const f of [VIDEO, REC]) expect(existsSync(join(dir, f))).toBe(false);
 	});
 });

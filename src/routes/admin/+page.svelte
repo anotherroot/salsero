@@ -278,7 +278,7 @@
 			<input type="hidden" name="userId" value={person.id} />
 			<p class="text-[14px] text-muted">{groupsMadeLine(person.groupsMade, person.groupLimit)}</p>
 			<label class="block">
-				<span class={LABEL}>Groups they may make</span>
+				<span class={LABEL}>Groups they may make in each dance</span>
 				<input name="n" type="number" inputmode="numeric" min="0" step="1" class={FIELD} />
 			</label>
 			<button type="submit" class={button('primary', 'md', true)}>Set group limit</button>

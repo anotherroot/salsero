@@ -16,18 +16,23 @@ import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import {
 	exercises,
+	figureEndPositions,
 	figureGroups,
 	figures,
+	figureStartPositions,
 	lessonAdds,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessonRoutines,
 	lessons,
 	lessonVideos,
+	positions,
 	recordings,
 	routines,
 	routineStepOptions,
 	routineSteps,
+	spotPositionLinks,
 	teamMembers,
 	videoSpots
 } from './db/schema';
@@ -44,6 +49,12 @@ export type Reach = {
 	routines: Set<number>;
 	drills: Set<number>;
 	recordings: Set<number>;
+	/**
+	 * The group's live positions that a reached variation is tagged with
+	 * (start or end), that a reached lesson links by hand, or that a section
+	 * or point on a reached lesson's video links (ruling 12).
+	 */
+	positions: Set<number>;
 };
 
 export type Access = 'edit' | 'read' | null;
@@ -61,7 +72,8 @@ const empty = (): Reach => ({
 	figures: new Set(),
 	routines: new Set(),
 	drills: new Set(),
-	recordings: new Set()
+	recordings: new Set(),
+	positions: new Set()
 });
 
 /**
@@ -206,7 +218,78 @@ export function reachFrom(db: Db, teamId: number, lessonIds: number[]): Reach {
 			.all())
 			out.drills.add(r.id);
 	}
+	for (const id of positionsReached(
+		db,
+		teamId,
+		lessonIds,
+		[...out.variations],
+		[...out.recordings]
+	)) {
+		out.positions.add(id);
+	}
 	return out;
+}
+
+/**
+ * The group's live positions these lessons reach (ruling 12): the tags of
+ * the reached variations, the lessons' hand links, and the links of the
+ * sections and points on the lessons' own videos and on the reached
+ * variations' recordings.
+ */
+function positionsReached(
+	db: Db,
+	teamId: number,
+	lessonIds: number[],
+	variationIds: number[],
+	recordingIds: number[]
+): number[] {
+	const ids = new Set<number>();
+	if (variationIds.length > 0) {
+		for (const table of [figureStartPositions, figureEndPositions]) {
+			for (const r of db
+				.select({ id: table.positionId })
+				.from(table)
+				.where(inArray(table.figureId, variationIds))
+				.all())
+				ids.add(r.id);
+		}
+	}
+	for (const r of db
+		.select({ id: lessonPositions.positionId })
+		.from(lessonPositions)
+		.where(inArray(lessonPositions.lessonId, lessonIds))
+		.all())
+		ids.add(r.id);
+	for (const r of db
+		.select({ id: spotPositionLinks.positionId })
+		.from(spotPositionLinks)
+		.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
+		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+		.where(inArray(lessonVideos.lessonId, lessonIds))
+		.all())
+		ids.add(r.id);
+	if (recordingIds.length > 0) {
+		for (const r of db
+			.select({ id: spotPositionLinks.positionId })
+			.from(spotPositionLinks)
+			.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
+			.where(inArray(videoSpots.recordingId, recordingIds))
+			.all())
+			ids.add(r.id);
+	}
+	if (ids.size === 0) return [];
+	return db
+		.select({ id: positions.id })
+		.from(positions)
+		.where(
+			and(
+				inArray(positions.id, [...ids]),
+				eq(positions.teamId, teamId),
+				isNull(positions.archivedAt)
+			)
+		)
+		.all()
+		.map((r) => r.id);
 }
 
 /** What the group's members reach through its published, live lessons. */
@@ -335,8 +418,13 @@ export function judgeDrill(db: Db, userId: string, exercise: Owned & { id: numbe
 	return judgeRow(db, userId, exercise, (r) => r.drills.has(exercise.id));
 }
 
-/** The kinds `teamReader` answers for: a variation, a routine, a drill, a lesson. */
-export type ReadKind = 'figure' | 'routine' | 'drill' | 'lesson';
+/** A position, judged as `positionAccess` but with the reach that decided it. */
+export function judgePosition(db: Db, userId: string, position: Owned & { id: number }): Judged {
+	return judgeRow(db, userId, position, (r) => r.positions.has(position.id));
+}
+
+/** The kinds `teamReader` answers for: a variation, a routine, a drill, a lesson, a position. */
+export type ReadKind = 'figure' | 'routine' | 'drill' | 'lesson' | 'position';
 
 /**
  * Whether a person reads a row of one group, for every row of it at once:
@@ -362,7 +450,8 @@ function readerOf(r: Reach): (kind: ReadKind, id: number) => boolean {
 		figure: r.variations,
 		routine: r.routines,
 		drill: r.drills,
-		lesson: r.lessons
+		lesson: r.lessons,
+		position: r.positions
 	};
 	return (kind, id) => sets[kind].has(id);
 }
@@ -449,6 +538,15 @@ export function routineAccess(db: Db, userId: string, routine: Owned & { id: num
  */
 export function drillAccess(db: Db, userId: string, exercise: Owned & { id: number }): Access {
 	return rowAccess(db, userId, exercise, (r) => r.drills.has(exercise.id));
+}
+
+/**
+ * A position. A person's own is theirs to edit; a group's follows the group's
+ * rules, in reach as `Reach.positions` says (ruling 12). An archived group
+ * position reaches no member; its editors still edit it (to restore it).
+ */
+export function positionAccess(db: Db, userId: string, position: Owned & { id: number }): Access {
+	return rowAccess(db, userId, position, (r) => r.positions.has(position.id));
 }
 
 /** A recording: its variation's owner, and in reach when its variation is. */

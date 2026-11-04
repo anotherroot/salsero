@@ -4,9 +4,11 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * A clipping element cuts off the outside focus ring of the controls in it, so
- * every `overflow-hidden` is a `CLIP` card (`focus-inset`) unless nothing
+ * every `overflow-hidden` (or `overflow-clip`) is a `CLIP` card (`focus-inset`) unless nothing
  * focusable sits against its edge. The list below says why, line by line.
  */
+const CLIPS = /\boverflow-(hidden|clip)\b/;
+
 const ALLOWED: [file: string, line: string, why: string][] = [
 	['src/lib/components/shell/NavProgress.svelte', 'overflow-hidden', 'a bar, nothing inside'],
 	['src/lib/components/ui/UploadCard.svelte', 'h-1.5 overflow-hidden', 'progress track'],
@@ -55,7 +57,7 @@ function svelteFiles(dir: string): string[] {
 }
 
 describe('clipping cards', () => {
-	it('every overflow-hidden is a focus-inset card or allowed with a reason', () => {
+	it('every overflow-hidden or overflow-clip is a focus-inset card or allowed with a reason', () => {
 		const bad: string[] = [];
 		const all = svelteFiles('src');
 		expect(all.length).toBeGreaterThan(100);
@@ -63,7 +65,7 @@ describe('clipping cards', () => {
 			readFileSync(file, 'utf8')
 				.split('\n')
 				.forEach((text, i) => {
-					if (!text.includes('overflow-hidden') || text.includes('focus-inset')) return;
+					if (!CLIPS.test(text) || text.includes('focus-inset')) return;
 					const ok = ALLOWED.some(([f, sub]) => file === f && text.includes(sub));
 					if (!ok) bad.push(`${file}:${i + 1}: ${text.trim()}`);
 				});
@@ -75,7 +77,7 @@ describe('clipping cards', () => {
 		for (const [file, sub] of ALLOWED) {
 			const lines = readFileSync(file, 'utf8').split('\n');
 			expect(
-				lines.some((l) => l.includes('overflow-hidden') && l.includes(sub)),
+				lines.some((l) => CLIPS.test(l) && l.includes(sub)),
 				`${file} ${sub}`
 			).toBe(true);
 		}

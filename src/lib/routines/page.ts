@@ -12,13 +12,27 @@ export function bandCompact(name: string): boolean {
 	return name.length > 18 || name.split(/\s+/).some((w) => w.length > 10);
 }
 
-/** "Starts from Open or Closed, ends in Closed": the two halves, or null with no start. */
+/**
+ * Whether the routine has anything to dance, so Practise is offered: a row
+ * with a start count. Never its positions: `starts: []` means "anywhere".
+ */
+export function danceable(edges: RowEdges[]): boolean {
+	return edges.some((e) => e.startCounts.length > 0);
+}
+
+/**
+ * "Starts from Open or Closed, ends in Closed": the two halves. A side with no
+ * position has no fact (null); with neither, there is nothing to say.
+ */
 export function factsOf(
 	starts: string[],
-	end: string | null
-): { from: string; to: string | null } | null {
-	if (starts.length === 0) return null;
-	return { from: starts.join(' or '), to: end };
+	ends: string[]
+): { from: string | null; to: string | null } | null {
+	if (starts.length === 0 && ends.length === 0) return null;
+	return {
+		from: starts.length > 0 ? starts.join(' or ') : null,
+		to: ends.length > 0 ? ends.join(' or ') : null
+	};
 }
 
 export type FactBadge = { tone: 'done' | 'warn' | 'danger'; text: string; loop: boolean };
@@ -46,29 +60,56 @@ export function factBadges(r: {
 	return out;
 }
 
-/** A slot card's second line: "1→1 · Open → Closed", led by "Routine · 3 slots" for a routine. */
+/**
+ * Where the hands start and end, each side joined " or " as the figure page's
+ * Handholds are: "Open or Closed → Hammerlock". A side with no position (or
+ * only names `name` does not know) shows nothing ("Open →", "→ Closed"); with
+ * neither, the empty string. The slot cards and the picker's rows share it.
+ */
+export function handsLine(starts: number[], ends: number[], name: (id: number) => string): string {
+	const side = (ids: number[]) => ids.map(name).filter(Boolean).join(' or ');
+	const from = side(starts);
+	const to = side(ends);
+	return from === '' && to === '' ? '' : [from, '→', to].filter((p) => p !== '').join(' ');
+}
+
+/** A slot whose options disagree on their ends, where its hold's end would show. */
+export const ENDS_DIFFER = 'ends differ';
+
+/**
+ * A slot card's second line: "1→1 · Open → Closed", led by "Routine · 3 slots"
+ * for a routine. A side with no position shows nothing ("1→1 · Open →"): it
+ * fits anywhere. Ends the options disagree on (`ends` null) say so ("Open →
+ * ends differ"), so they never read as "anything follows"; never a "?" for a hold.
+ */
 export function slotMeta(
 	e: RowEdges,
 	name: (id: number) => string,
 	childSlots: number | null
 ): string {
+	const from = handsLine(e.starts, [], name);
+	const hands =
+		e.ends !== null
+			? handsLine(e.starts, e.ends, name)
+			: from === ''
+				? ENDS_DIFFER
+				: `${from} ${ENDS_DIFFER}`;
 	const core =
-		e.starts.length === 0
+		e.startCounts.length === 0
 			? ''
-			: `${e.startCounts.join('/')}→${e.next ?? '?'} · ${e.starts.map(name).join(' / ')} → ${
-					e.end === null ? '?' : name(e.end)
-				}`;
+			: [`${e.startCounts.join('/')}→${e.next ?? '?'}`, hands].filter((p) => p !== '').join(' · ');
 	if (childSlots === null) return core;
 	return ['Routine', plural(childSlots, 'slot', 'slots'), core].filter((p) => p !== '').join(' · ');
 }
 
 /** The text on a seam: how the hands and the count meet the next slot. */
 export function seamLabel(
-	hands: { end: string; next: string[] } | null,
+	hands: { ends: string[]; next: string[] } | null,
 	count: { ready: number | null; next: number[] } | null
 ): string {
 	const parts: string[] = [];
-	if (hands) parts.push(`Ends in ${hands.end}, next starts from ${hands.next.join(' or ')}`);
+	if (hands)
+		parts.push(`Ends in ${hands.ends.join(' or ')}, next starts from ${hands.next.join(' or ')}`);
 	if (count)
 		parts.push(`ready for ${count.ready ?? '?'}, next starts on ${count.next.join(' or ')}`);
 	const s = parts.join(' · ');

@@ -11,7 +11,7 @@ import type { RequestHandler } from './$types';
  * like `/api/clones/compare`: a row the person does not edit is a 404, and so
  * is one they do not read at all.
  */
-const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson'];
+const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson', 'position'];
 
 function id(raw: string | null): number {
 	const n = raw !== null && /^\d+$/.test(raw) ? Number(raw) : 0;

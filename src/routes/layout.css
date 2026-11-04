@@ -374,3 +374,16 @@ select.own-arrow {
 a[href]:active {
 	opacity: 0.6;
 }
+
+/*
+ * A control drawn over a visually hidden input (`sr-only`, a segmented choice, a
+ * chip) holds its input. Without this the input is placed against the nearest
+ * positioned ancestor, often outside the list that scrolls, so focusing it
+ * scrolls the wrong box: in a sheet, the whole sheet slid off screen. In base, so
+ * a utility such as `absolute` on the label still wins.
+ */
+@layer base {
+	label:has(input.sr-only) {
+		position: relative;
+	}
+}

@@ -7,7 +7,9 @@
  * embeds, their personal lessons' hand links, the section links on their own
  * videos (a recording of their figure, a video of their lesson), their own
  * exercises (practice entries with their sets, song picks), their twin rows,
- * and a lesson add. A group's rows and another person's rows are never read
+ * and a lesson add. For a position: their figures' start and end tags, their
+ * lessons' hand links and the position links on their own sections and
+ * points (a position has no practice; their positions' pictures stay). A group's rows and another person's rows are never read
  * for writing. Archived rows of the person's move too, so restoring one never
  * brings back a pointer at a dropped copy.
  *
@@ -21,13 +23,17 @@ import type { DanceSlug } from '$lib/dances/dances';
 import type { Db } from '../db';
 import {
 	exercises,
+	figureEndPositions,
 	figureGroups,
 	figures,
+	figureStartPositions,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessonRoutines,
 	lessons,
 	lessonVideos,
+	positions,
 	recordings,
 	routines,
 	routineStepOptions,
@@ -36,6 +42,7 @@ import {
 	songDrops,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	twins,
 	videoSpots
 } from '../db/schema';
@@ -55,6 +62,8 @@ export type RepointReport = {
 	entries: number;
 	/** The person's twin row for the source: 0 or 1. */
 	twins: number;
+	/** A position: the person's figures whose start or end tags moved, archived included, by label. */
+	figures: { id: number; label: string }[];
 };
 
 export type RepointOptions = {
@@ -72,13 +81,20 @@ const TWIN_KINDS: Partial<Record<CloneKind, TwinKind>> = {
 	figure: 'figure',
 	routine: 'routine',
 	lesson: 'lesson',
-	song: 'song'
+	song: 'song',
+	position: 'position'
 };
 
 /** A root row of the kind with the name its entries carry, or null. Drills are `custom` exercises. */
 function rootOf(db: Db, kind: CloneKind, id: number): Root | null {
 	const owner = (
-		t: typeof figures | typeof routines | typeof exercises | typeof songs | typeof lessons
+		t:
+			| typeof figures
+			| typeof routines
+			| typeof exercises
+			| typeof songs
+			| typeof lessons
+			| typeof positions
 	) => ({ id: t.id, dance: t.dance, userId: t.userId, teamId: t.teamId }) as const;
 	switch (kind) {
 		case 'figure': {
@@ -122,6 +138,14 @@ function rootOf(db: Db, kind: CloneKind, id: number): Root | null {
 				.get();
 			return row ? { ...row, name: reviewName(row.title) } : null;
 		}
+		case 'position':
+			return (
+				db
+					.select({ ...owner(positions), name: positions.name })
+					.from(positions)
+					.where(eq(positions.id, id))
+					.get() ?? null
+			);
 	}
 }
 
@@ -141,6 +165,11 @@ type Found = {
 	songPicks: number[];
 	songDropIds: number[];
 	twin: { setId: string } | null;
+	/** Position: the person's figures starting in it, and ending in it. */
+	starts: number[];
+	ends: number[];
+	/** Position: its links on the person's sections and points. */
+	spotPositionLinkIds: number[];
 };
 
 function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
@@ -153,7 +182,10 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 		entries: [],
 		songPicks: [],
 		songDropIds: [],
-		twin: null
+		twin: null,
+		starts: [],
+		ends: [],
+		spotPositionLinkIds: []
 	};
 	const mine = ownedBy(exercises, wall);
 
@@ -175,6 +207,37 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 			.all();
 	}
 
+	if (kind === 'position') {
+		for (const [table, list] of [
+			[figureStartPositions, found.starts],
+			[figureEndPositions, found.ends]
+		] as const) {
+			for (const r of db
+				.select({ id: table.figureId })
+				.from(table)
+				.innerJoin(figures, eq(figures.id, table.figureId))
+				.where(and(eq(table.positionId, fromId), ownedBy(figures, wall)))
+				.all())
+				list.push(r.id);
+		}
+		found.spotPositionLinkIds = db
+			.select({ id: spotPositionLinks.id })
+			.from(spotPositionLinks)
+			.innerJoin(videoSpots, eq(videoSpots.id, spotPositionLinks.spotId))
+			.leftJoin(recordings, eq(recordings.id, videoSpots.recordingId))
+			.leftJoin(figures, eq(figures.id, recordings.figureId))
+			.leftJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
+			.leftJoin(lessons, eq(lessons.id, lessonVideos.lessonId))
+			.where(
+				and(
+					eq(spotPositionLinks.positionId, fromId),
+					or(ownedBy(figures, wall), ownedBy(lessons, wall))
+				)
+			)
+			.all()
+			.map((r) => r.id);
+	}
+
 	const hand =
 		kind === 'figure'
 			? { table: lessonFigures, col: lessonFigures.figureId, lesson: lessonFigures.lessonId }
@@ -186,7 +249,13 @@ function find(db: Db, wall: Wall, kind: CloneKind, from: Root): Found {
 							col: lessonExercises.exerciseId,
 							lesson: lessonExercises.lessonId
 						}
-					: null;
+					: kind === 'position'
+						? {
+								table: lessonPositions,
+								col: lessonPositions.positionId,
+								lesson: lessonPositions.lessonId
+							}
+						: null;
 	if (hand) {
 		found.lessonIds = db
 			.select({ id: hand.lesson })
@@ -272,6 +341,7 @@ function reportOf(db: Db, kind: CloneKind, found: Found, entries: boolean): Repo
 	const routineIds = [...new Set([...found.options, ...found.embeds].map((s) => s.routineId))];
 	const lessonIds = [...new Set(found.lessonIds)];
 	const practice = kind === 'song' ? found.songPicks.length : found.entries.length;
+	const figureIds = [...new Set([...found.starts, ...found.ends])];
 	return {
 		routines:
 			routineIds.length === 0
@@ -291,9 +361,20 @@ function reportOf(db: Db, kind: CloneKind, found: Found, entries: boolean): Repo
 						.where(inArray(lessons.id, lessonIds))
 						.all()
 						.sort((a, b) => a.title.localeCompare(b.title) || a.id - b.id),
-		sections: found.spotLinkIds.length,
+		sections: found.spotLinkIds.length + found.spotPositionLinkIds.length,
 		entries: entries ? practice : 0,
-		twins: found.twin ? 1 : 0
+		twins: found.twin ? 1 : 0,
+		figures:
+			figureIds.length === 0
+				? []
+				: db
+						.select({ id: figures.id, move: figureGroups.name, name: figures.name })
+						.from(figures)
+						.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+						.where(inArray(figures.id, figureIds))
+						.all()
+						.map((f) => ({ id: f.id, label: labelFor(f.move, f.name) }))
+						.sort((a, b) => a.label.localeCompare(b.label) || a.id - b.id)
 	};
 }
 
@@ -585,15 +666,51 @@ export function repoint(
 				if (db.select().from(lessonRoutines).where(of(toId)).get())
 					db.delete(lessonRoutines).where(of(fromId)).run();
 				else db.update(lessonRoutines).set({ routineId: toId }).where(of(fromId)).run();
-			} else {
+			} else if (kind === 'drill') {
 				const of = (id: number) =>
 					and(eq(lessonExercises.lessonId, lessonId), eq(lessonExercises.exerciseId, id));
 				if (db.select().from(lessonExercises).where(of(toId)).get())
 					db.delete(lessonExercises).where(of(fromId)).run();
 				else db.update(lessonExercises).set({ exerciseId: toId }).where(of(fromId)).run();
+			} else if (kind === 'position') {
+				const of = (id: number) =>
+					and(eq(lessonPositions.lessonId, lessonId), eq(lessonPositions.positionId, id));
+				if (db.select().from(lessonPositions).where(of(toId)).get())
+					db.delete(lessonPositions).where(of(fromId)).run();
+				else db.update(lessonPositions).set({ positionId: toId }).where(of(fromId)).run();
 			}
 		}
 
+		// A figure's tags: one row per figure and position, so a tag already on the target merges.
+		for (const [table, list] of [
+			[figureStartPositions, found.starts],
+			[figureEndPositions, found.ends]
+		] as const) {
+			for (const figureId of new Set(list)) {
+				const of = (id: number) => and(eq(table.figureId, figureId), eq(table.positionId, id));
+				if (db.select().from(table).where(of(toId)).get()) db.delete(table).where(of(fromId)).run();
+				else db.update(table).set({ positionId: toId }).where(of(fromId)).run();
+			}
+		}
+
+		for (const id of found.spotPositionLinkIds) {
+			const link = db.select().from(spotPositionLinks).where(eq(spotPositionLinks.id, id)).get()!;
+			const held = db
+				.select()
+				.from(spotPositionLinks)
+				.where(
+					and(eq(spotPositionLinks.spotId, link.spotId), eq(spotPositionLinks.positionId, toId))
+				)
+				.get();
+			if (held) db.delete(spotPositionLinks).where(eq(spotPositionLinks.id, id)).run();
+			else
+				db.update(spotPositionLinks)
+					.set({ positionId: toId })
+					.where(eq(spotPositionLinks.id, id))
+					.run();
+		}
+
+		// A figure's or a drill's only: `find` leaves `spotLinkIds` empty for the other kinds.
 		const spotCol = kind === 'figure' ? spotLinks.figureId : spotLinks.exerciseId;
 		for (const id of found.spotLinkIds) {
 			const link = db.select().from(spotLinks).where(eq(spotLinks.id, id)).get()!;
@@ -613,7 +730,7 @@ export function repoint(
 		if (opts.entries) {
 			for (const entry of found.entries) {
 				if (kind === 'drill') moveDrillPractice(db, wall, entry, from, to, now);
-				else {
+				else if (kind === 'figure' || kind === 'routine' || kind === 'lesson') {
 					const col =
 						kind === 'figure' ? 'figureId' : kind === 'routine' ? 'routineId' : 'lessonId';
 					moveEntry(db, wall, entry, col, to, now);

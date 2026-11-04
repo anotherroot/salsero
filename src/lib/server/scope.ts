@@ -31,6 +31,7 @@ import {
 	judgeFigure,
 	judgeLesson,
 	judgeMove,
+	judgePosition,
 	judgeRoutine,
 	songAccess,
 	type Judged,
@@ -40,15 +41,16 @@ import {
 	figureGroups,
 	figures,
 	lessons,
+	positions,
 	type Exercise,
 	type Figure,
 	type FigureGroup,
 	type Lesson,
+	type PositionRow,
 	type Routine,
 	type Song
 } from './db/schema';
 import { getExercise, getSet } from './exercises';
-import { getPosition } from './positions';
 import { getRoutine } from './routines';
 import { getSong } from './songs';
 import { getTeam, roleOf, type Team } from './teams';
@@ -67,8 +69,8 @@ import type { Role } from '$lib/types';
  * It also replaces the `params.dance as DanceSlug` cast, which was the thing
  * silencing the compiler about exactly this.
  *
- * Everything else goes through `wallOf`; only the positions page, whose list
- * is shared by everyone in a dance, needs the dance with no person.
+ * Routes go through `wallOf`, which calls this; nothing needs the dance with
+ * no person any more (positions are owned, like figures).
  */
 export function danceOf(params: { dance: string }): DanceSlug {
 	if (!isDanceSlug(params.dance)) throw error(404, 'No such dance');
@@ -210,21 +212,6 @@ export function requireSongInWall(db: Db, wall: Wall, id: number) {
 	const song = getSong(db, id);
 	if (!song || !inWall(song, wall)) throw error(404, 'Song not found');
 	return song;
-}
-
-/**
- * The position, or a 404.
- *
- * A position id in a form body is just a number, and the vocabulary page acts
- * on one from three different actions — so the dance rule lives here and is
- * called from each. An archived position is still a position: the page's own
- * list is what stops it being offered, and refusing it here would make renaming
- * one impossible.
- */
-export function requirePositionInDance(db: Db, dance: DanceSlug, id: number) {
-	const position = getPosition(db, id);
-	if (!position || position.dance !== dance) throw error(404, 'No such position');
-	return position;
 }
 
 type Need = 'read' | 'edit';
@@ -392,6 +379,36 @@ export function requireExerciseAccess(
 		'No such exercise'
 	);
 	return { exercise: g.row, space: g.space, access: g.access, reach: g.reach };
+}
+
+/**
+ * The position, or a 404, as `requireLessonAccess`: a person's own, or a
+ * group's that they edit or reach (ruling 12). An archived position is still
+ * its owner's, to look at and restore; archived is the page's question. A
+ * group's archived position reaches no member, so a member gets the 404.
+ */
+export function requirePositionAccess(
+	db: Db,
+	locals: App.Locals,
+	params: { dance: string },
+	id: number | string,
+	need: Need
+): { position: PositionRow; space: Space; access: Granted; reach: Reach | null } {
+	const position =
+		db
+			.select()
+			.from(positions)
+			.where(eq(positions.id, idOf(id)))
+			.get() ?? null;
+	const g = guarded(
+		params,
+		locals,
+		position,
+		(u, p) => judgePosition(db, u, p),
+		need,
+		'Position not found'
+	);
+	return { position: g.row, space: g.space, access: g.access, reach: g.reach };
 }
 
 /**

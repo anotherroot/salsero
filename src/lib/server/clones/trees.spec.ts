@@ -8,7 +8,15 @@ import { eq } from 'drizzle-orm';
 import type { Flat } from '$lib/types';
 import { fieldLabel } from '$lib/clones/flat';
 import { openDb, type Db } from '../db';
-import { exercises, figures, lessonExercises, recordings, songs, users } from '../db/schema';
+import {
+	exercises,
+	figures,
+	lessonExercises,
+	positions,
+	recordings,
+	songs,
+	users
+} from '../db/schema';
 import { createTeam } from '../teams';
 import {
 	addFigureExercise,
@@ -17,14 +25,23 @@ import {
 	createVariationIn,
 	moveVariation
 } from '../figures';
-import { addLessonVideo, createLesson, linkExercise, linkFigure, linkRoutine } from '../lessons';
+import {
+	addLessonVideo,
+	createLesson,
+	linkExercise,
+	linkFigure,
+	linkPosition,
+	linkRoutine
+} from '../lessons';
 import { addChildSlot, addFigureSlot, addOption, createRoutine, setSlotNote } from '../routines';
 import { createCustomExercise } from '../exercises';
 import { createSongFromUpload, setAnchors, setSampleStart, setTempoFactor } from '../songs';
 import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
+import { linkPositionInSpace } from '../position-links';
 import { addLinks } from '../links';
-import { listPositions, seedPositions } from '../positions';
+import { listPositions } from '../positions';
+import { insertFixturePositions } from '../test-positions';
 import { setFigureShape } from '../graph';
 import { T1_SALSA, U1_SALSA } from '../test-walls';
 import { stampGene } from './genes';
@@ -37,7 +54,7 @@ let db: Db;
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	insertFixturePositions(db);
 	db.insert(users)
 		.values({ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' })
 		.run();
@@ -66,15 +83,18 @@ describe('flatOf', () => {
 	it('a figure: fields, links, recordings with notes and sections', () => {
 		const made = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!;
 		const id = createVariationIn(db, made.group.id, { name: 'Doble', ...shape }, 'u1')!.id;
-		const [open, closed] = listPositions(db, 'salsa');
+		const [open, closed, gone] = listPositions(db, U1_SALSA);
 		expect(
 			setFigureShape(db, id, {
 				startIds: [closed.id, open.id],
-				endId: closed.id,
+				endIds: [closed.id, gone.id],
 				startCount: 5,
 				lengthCounts: 16
 			})
 		).toBe(true);
+		// Archived positions are invisible (ruling 4): the tag stays, the flat leaves it out.
+		db.update(positions).set({ archivedAt: T }).where(eq(positions.id, gone.id)).run();
+		const gc = stampGene(db, 'position', closed.id);
 		addLinks(db, { figureId: id }, ['https://example.com/doble'], null);
 
 		const bare = addRecording(db, {
@@ -109,6 +129,8 @@ describe('flatOf', () => {
 		const shines = drill();
 		linkInSpace(db, U1_SALSA, section.id, { figureId: made.figure.id });
 		linkInSpace(db, U1_SALSA, section.id, { exerciseId: shines });
+		linkPositionInSpace(db, U1_SALSA, section.id, closed.id);
+		linkPositionInSpace(db, U1_SALSA, point.id, open.id);
 		const basicGene = stampGene(db, 'figure', made.figure.id);
 
 		const f = flatOf(db, 'figure', id);
@@ -123,7 +145,9 @@ describe('flatOf', () => {
 				'partner',
 				'style',
 				'timing',
-				'positions',
+				`start:${gc}`,
+				`start:#${open.id}`,
+				`end:${gc}`,
 				'link:https://example.com/doble',
 				rec,
 				`${rec}:note`,
@@ -140,7 +164,12 @@ describe('flatOf', () => {
 			show: 'Starts on 5 · 16 counts',
 			label: 'Timing'
 		});
-		expect(f.positions.show).toBe(`${open.name}, ${closed.name} → ${closed.name}`);
+		expect(f[`start:${gc}`]).toMatchObject({
+			value: '1',
+			show: closed.name,
+			label: `Starts in · ${closed.name}`
+		});
+		expect(f[`end:${gc}`].label).toBe(`Ends in · ${closed.name}`);
 		expect(f.notes.value).toBe('');
 		expect(f[rec]).toMatchObject({
 			value: 'video/mp4|5',
@@ -151,9 +180,56 @@ describe('flatOf', () => {
 		expect(f[`rec:${g}`].show).toBe('lead early');
 		expect(f[`rec:${g}:note`]).toMatchObject({ value: 'lead early', label: 'Note · 3 Nov' });
 		expect(f[sec]).toMatchObject({ value: '1000|2000|Turn', label: 'Section · Turn' });
-		expect(f[`${sec}:links`].value).toBe(`drill:#${shines},fig:${basicGene}`);
-		expect(f[`${sec}:links`].show).toBe('Shines, Enchufla · Basic');
-		expect(f[`${pt}:links`].value).toBe('');
+		// A section's or point's positions are its links too, by family.
+		expect(f[`${sec}:links`].value).toBe(`drill:#${shines},fig:${basicGene},pos:${gc}`);
+		expect(f[`${sec}:links`].show).toBe(`Shines, Enchufla · Basic, ${closed.name}`);
+		expect(f[`${pt}:links`]).toMatchObject({ value: `pos:#${open.id}`, show: open.name });
+		// An archived position's link is invisible too.
+		db.update(positions).set({ archivedAt: T }).where(eq(positions.id, open.id)).run();
+		const later = flatOf(db, 'figure', id);
+		expect(later[`${pt}:links`].value).toBe('');
+		expect(later[`start:#${open.id}`]).toBeUndefined();
+	});
+
+	it('a position: name, type, the hold, notes', () => {
+		const [p] = listPositions(db, U1_SALSA);
+		const empty = flatOf(db, 'position', p.id);
+		wellFormed(empty);
+		expect(keys(empty)).toEqual(
+			['name', 'type', 'hands', 'crossed', 'facing', 'frame', 'notes'].sort()
+		);
+		expect(empty.crossed).toMatchObject({ value: '', show: '' });
+		db.update(positions)
+			.set({
+				styleTag: 'son',
+				hands: 'two',
+				crossed: true,
+				facing: 'face',
+				frame: 'closed',
+				notes: 'Right hand high'
+			})
+			.where(eq(positions.id, p.id))
+			.run();
+		const f = flatOf(db, 'position', p.id);
+		expect(f.type).toMatchObject({ value: 'son', show: 'Son', label: 'Type' });
+		expect(f.hands).toMatchObject({ value: 'two', show: 'Two hands', label: 'Hands' });
+		expect(f.crossed).toMatchObject({
+			value: '1',
+			show: 'Crossed, right on top',
+			label: 'Right hands on top'
+		});
+		expect(f.facing).toMatchObject({ value: 'face', show: 'Face to face' });
+		expect(f.frame).toMatchObject({ value: 'closed', show: 'Closed' });
+		expect(f.notes.value).toBe('Right hand high');
+		db.update(positions).set({ crossed: false }).where(eq(positions.id, p.id)).run();
+		expect(flatOf(db, 'position', p.id).crossed).toMatchObject({ value: '0', show: 'Not crossed' });
+		// What lives in one place only: the picture, the slug, archived.
+		db.update(positions)
+			.set({ pictureSpotId: 7, slug: 'other', archivedAt: T })
+			.where(eq(positions.id, p.id))
+			.run();
+		expect(flatOf(db, 'position', p.id).name).toEqual(f.name);
+		expect(Object.keys(flatOf(db, 'position', p.id))).toEqual(Object.keys(f));
 	});
 
 	it('a recording’s day is shown in the zone asked for; values do not change', () => {
@@ -328,6 +404,12 @@ describe('flatOf', () => {
 			'u1'
 		)!;
 		linkInSpace(db, T1_SALSA, spot.id, { figureId: made.figure.id });
+		insertFixturePositions(db, { teamId: 1 });
+		const [cerrada, sombra] = listPositions(db, T1_SALSA);
+		expect(linkPosition(db, id, cerrada.id, 'u1')).toBe(true);
+		expect(linkPosition(db, id, sombra.id, 'u1')).toBe(true);
+		db.update(positions).set({ archivedAt: T }).where(eq(positions.id, sombra.id)).run();
+		linkPositionInSpace(db, T1_SALSA, spot.id, cerrada.id);
 		const gr = stampGene(db, 'routine', routine);
 
 		const f = flatOf(db, 'lesson', id);
@@ -342,6 +424,7 @@ describe('flatOf', () => {
 				`fig:#${made.figure.id}`,
 				`routine:${gr}`,
 				`drill:#${shines}`,
+				`pos:#${cerrada.id}`,
 				`video:#${v1.id}`,
 				`video:${gv}`,
 				sec,
@@ -354,9 +437,13 @@ describe('flatOf', () => {
 			label: 'Figure · Enchufla · Doble'
 		});
 		expect(f[`video:${gv}`]).toMatchObject({ value: 'video/mp4|4', show: 'Video 2' });
+		expect(f[`pos:#${cerrada.id}`]).toMatchObject({
+			value: '1',
+			label: `Position · ${cerrada.name}`
+		});
 		expect(f[`${sec}:links`]).toMatchObject({
-			value: `fig:#${made.figure.id}`,
-			show: 'Enchufla · Doble'
+			value: `fig:#${made.figure.id},pos:#${cerrada.id}`,
+			show: `Enchufla · Doble, ${cerrada.name}`
 		});
 	});
 });

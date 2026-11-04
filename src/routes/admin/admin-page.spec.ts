@@ -175,7 +175,7 @@ describe('admin page: groups', () => {
 		expect(d.freeBytes).toBe(8 * GB);
 		expect(d.limitsTotalBytes).toBe(GB + 200 * 1024 ** 2);
 		expect(d.people.find((p) => p.email === 'p@example.com')).toMatchObject({
-			groupsMade: 1,
+			groupsMade: { salsa: 1, bachata: 0 },
 			groupLimit: 2
 		});
 	});

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { groupCookie, groupLabel, outsideGroupMode, returnPath, workInRows } from './mode';
+import {
+	groupCookie,
+	groupLabel,
+	minePath,
+	outsideGroupMode,
+	returnPath,
+	workInRows
+} from './mode';
 
 describe('group mode, pure', () => {
 	it('names the cookie per dance', () => expect(groupCookie('salsa')).toBe('group_salsa'));
@@ -34,5 +41,14 @@ describe('workInRows', () => {
 		expect(rows[1].meta).toBe('Owner · 14 people');
 		expect(rows[2].meta).toBe('Editor · 1 person');
 		expect(rows[0].name).toBe('Mine');
+	});
+	it('Mine stays on the tab: its list, or the tab’s first list from a page in it', () => {
+		expect(minePath('/salsa/lessons', 'salsa')).toBe('/salsa/lessons');
+		expect(minePath('/salsa/lessons/12', 'salsa')).toBe('/salsa/lessons');
+		expect(minePath('/salsa/routines', 'salsa')).toBe('/salsa/routines');
+		expect(minePath('/salsa/figures/4', 'salsa')).toBe('/salsa/figures');
+		expect(minePath('/bachata/songs/3', 'bachata')).toBe('/bachata/songs');
+		expect(minePath('/salsa/groups/2', 'salsa')).toBe('/salsa/groups');
+		expect(minePath('/settings', 'salsa')).toBe('/salsa');
 	});
 });

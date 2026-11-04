@@ -29,7 +29,8 @@ import {
 	extractRoutine
 } from './routines';
 import { archiveVariation, createFigure, createVariationFrom, figureLabels } from './figures';
-import { listPositions, seedPositions } from './positions';
+import { listPositions } from './positions';
+import { insertFixturePositions } from './test-positions';
 import { graphFor, setFigureShape } from './graph';
 import { flatten } from '$lib/routines/routines';
 import { exercises, routineStepOptions } from './db/schema';
@@ -195,26 +196,67 @@ describe('addOption and removeOption', () => {
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
 	});
 
-	it('refuses a figure that ends somewhere else', () => {
+	it('refuses a figure that ends somewhere else: the sets of ends must match', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		const pos = listPositions(db, 'salsa').find((p) => !p.neutral)!;
-		setFigureShape(db, b.id, { startIds: [], endId: pos.id, startCount: 1, lengthCounts: 8 });
+		const [pa, pb] = listPositions(db, U1_SALSA);
+		setFigureShape(db, a.id, {
+			startIds: [],
+			endIds: [pa.id, pb.id],
+			startCount: 1,
+			lengthCounts: 8
+		});
+		setFigureShape(db, b.id, { startIds: [], endIds: [pa.id], startCount: 1, lengthCounts: 8 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(false);
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
 	});
 
+	it('accepts one whose ends are the same set in another order', () => {
+		const db = openDb(':memory:');
+		insertFixturePositions(db);
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		const [pa, pb] = listPositions(db, U1_SALSA);
+		setFigureShape(db, a.id, {
+			startIds: [],
+			endIds: [pa.id, pb.id],
+			startCount: 1,
+			lengthCounts: 8
+		});
+		setFigureShape(db, b.id, {
+			startIds: [],
+			endIds: [pb.id, pa.id],
+			startCount: 1,
+			lengthCounts: 8
+		});
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(true);
+	});
+
+	it('refuses a tagged end beside an untagged one: [A] is not []', () => {
+		const db = openDb(':memory:');
+		insertFixturePositions(db);
+		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
+		const a = figure(db, 'A');
+		const b = figure(db, 'B');
+		const [pa] = listPositions(db, U1_SALSA);
+		setFigureShape(db, b.id, { startIds: [], endIds: [pa.id], startCount: 1, lengthCounts: 8 });
+		const step = addFigureSlot(db, routine.id, a.id)!;
+		expect(addOption(db, step, b.id)).toBe(false);
+	});
+
 	it('refuses an alternative that leaves the next figure on a different count', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A'); // 1 → 1
 		const b = figure(db, 'B');
-		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 1, lengthCounts: 4 }); // 1 → 5
+		setFigureShape(db, b.id, { startIds: [], endIds: [], startCount: 1, lengthCounts: 4 }); // 1 → 5
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(false);
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id]);
@@ -222,23 +264,21 @@ describe('addOption and removeOption', () => {
 
 	it('accepts one of a different length that lands on the same count', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A'); // 1 → 1, 8 counts
 		const b = figure(db, 'B');
-		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 1, lengthCounts: 16 }); // 1 → 1, 16 counts
+		setFigureShape(db, b.id, { startIds: [], endIds: [], startCount: 1, lengthCounts: 16 }); // 1 → 1, 16 counts
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(true);
 	});
 
-	it('counts an untagged figure as ending at the neutral position', () => {
+	it('accepts two untagged figures: both fit anywhere', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		const neutral = listPositions(db, 'salsa').find((p) => p.neutral)!;
-		setFigureShape(db, b.id, { startIds: [], endId: neutral.id, startCount: 1, lengthCounts: 8 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(true);
 	});
@@ -583,9 +623,9 @@ describe('the main figure', () => {
 describe('addOption: the start rule', () => {
 	const setup = () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
-		const [p1, p2] = listPositions(db, 'salsa').filter((p) => !p.neutral);
+		const [p1, p2] = listPositions(db, U1_SALSA);
 		return { db, routine, p1, p2 };
 	};
 
@@ -593,7 +633,7 @@ describe('addOption: the start rule', () => {
 		const { db, routine } = setup();
 		const a = figure(db, 'A'); // 1 → 1
 		const b = figure(db, 'B');
-		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 }); // 5 → 1
+		setFigureShape(db, b.id, { startIds: [], endIds: [], startCount: 5, lengthCounts: 4 }); // 5 → 1
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(false);
 	});
@@ -602,8 +642,8 @@ describe('addOption: the start rule', () => {
 		const { db, routine, p1, p2 } = setup();
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		setFigureShape(db, a.id, { startIds: [p1.id], endId: null, startCount: 1, lengthCounts: 8 });
-		setFigureShape(db, b.id, { startIds: [p2.id], endId: null, startCount: 1, lengthCounts: 8 });
+		setFigureShape(db, a.id, { startIds: [p1.id], endIds: [], startCount: 1, lengthCounts: 8 });
+		setFigureShape(db, b.id, { startIds: [p2.id], endIds: [], startCount: 1, lengthCounts: 8 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(false);
 	});
@@ -612,10 +652,10 @@ describe('addOption: the start rule', () => {
 		const { db, routine, p1, p2 } = setup();
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		setFigureShape(db, a.id, { startIds: [p1.id], endId: null, startCount: 1, lengthCounts: 8 });
+		setFigureShape(db, a.id, { startIds: [p1.id], endIds: [], startCount: 1, lengthCounts: 8 });
 		setFigureShape(db, b.id, {
 			startIds: [p1.id, p2.id],
-			endId: null,
+			endIds: [],
 			startCount: 1,
 			lengthCounts: 8
 		});
@@ -627,7 +667,7 @@ describe('addOption: the start rule', () => {
 		const { db, routine } = setup();
 		const a = figure(db, 'A');
 		const legacy = figure(db, 'Legacy');
-		setFigureShape(db, legacy.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 });
+		setFigureShape(db, legacy.id, { startIds: [], endIds: [], startCount: 5, lengthCounts: 4 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		// Written past `addOption`, the way a slot made before this rule looks.
 		db.insert(routineStepOptions).values({ stepId: step, figureId: legacy.id }).run();
@@ -643,7 +683,7 @@ describe('restoreOption', () => {
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 5, lengthCounts: 4 });
+		setFigureShape(db, b.id, { startIds: [], endIds: [], startCount: 5, lengthCounts: 4 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(restoreOption(db, step, b.id)).toBe(true);
 		expect(routineSlots(db, routine.id)[0].figureIds).toEqual([a.id, b.id]);
@@ -853,7 +893,7 @@ describe('extractRoutine', () => {
 describe('listPickRoutines', () => {
 	it('slots counts children as one; loops follows loops()', () => {
 		const db = openDb(':memory:');
-		seedPositions(db);
+		insertFixturePositions(db);
 		const empty = createRoutine(db, U1_SALSA, { name: 'Empty', notes: null }).routine;
 		const loopy = createRoutine(db, U1_SALSA, { name: 'Around', notes: null }).routine;
 		const open = createRoutine(db, U1_SALSA, { name: 'Open', notes: null }).routine;
@@ -864,7 +904,7 @@ describe('listPickRoutines', () => {
 
 		addFigureSlot(db, loopy.id, figure(db, 'A').id); // 1 → 1: runs back into itself
 		const b = figure(db, 'B');
-		setFigureShape(db, b.id, { startIds: [], endId: null, startCount: 1, lengthCounts: 4 }); // 1 → 5
+		setFigureShape(db, b.id, { startIds: [], endIds: [], startCount: 1, lengthCounts: 4 }); // 1 → 5
 		addFigureSlot(db, open.id, b.id);
 		addFigureSlot(db, parent.id, figure(db, 'C').id);
 		addChildSlot(db, parent.id, loopy.id); // a child with one slot is still one slot

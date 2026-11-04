@@ -102,6 +102,24 @@ export function longDayLabel(day: string): string {
 	return `${LONG_WEEKDAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${LONG_MONTHS[d.getUTCMonth()]}`;
 }
 
+/**
+ * `2026-10-13` → `Tuesday 13 October`: a class's day on a row, as the boards
+ * write it (no comma: that is Today's band, `longDayLabel`).
+ */
+export function weekdayDayMonth(day: string): string {
+	return longDayLabel(day).replace(',', '');
+}
+
+/**
+ * A month heading in a picker of lessons: `November`, with the year only when
+ * it is not `today`'s (`December 2025`), as `classDayLabel` does for a day.
+ */
+export function monthHeading(day: string, today: string): string {
+	const d = new Date(`${day}T12:00:00Z`);
+	const month = LONG_MONTHS[d.getUTCMonth()];
+	return day.slice(0, 4) === today.slice(0, 4) ? month : `${month} ${d.getUTCFullYear()}`;
+}
+
 /** `2026-10-26` → `26 Oct`. Built by hand, like `dayLabel`. */
 export function dayMonth(day: string): string {
 	const d = new Date(`${day}T12:00:00Z`);

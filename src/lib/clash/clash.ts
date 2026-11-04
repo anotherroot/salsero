@@ -126,7 +126,9 @@ const FIELD_LABELS: Record<string, string> = {
 	figureName: 'Move name',
 	partner: 'Partner',
 	style: 'Style',
-	startIds: 'Starts from',
+	startIds: 'Starts in',
+	endIds: 'Ends in',
+	// An older clash or History row's single end.
 	endId: 'Ends in',
 	startCount: 'Starts on count',
 	lengthCounts: 'Length',

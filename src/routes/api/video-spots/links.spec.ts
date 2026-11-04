@@ -4,7 +4,7 @@
  * `src/routes/[dance]/dance-wall.spec.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { U1_SALSA } from '$lib/server/test-walls';
+import { T1_SALSA, U1_BACHATA, U1_SALSA } from '$lib/server/test-walls';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
 
@@ -14,9 +14,22 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { lessonFigures } from '$lib/server/db/schema';
+import {
+	lessonFigures,
+	lessonPositions,
+	positions,
+	spotLinks,
+	spotPositionLinks,
+	users,
+	type PositionRow
+} from '$lib/server/db/schema';
 import { createFigure } from '$lib/server/figures';
-import { addLessonVideo, createLesson, linkFigure } from '$lib/server/lessons';
+import { addLessonVideo, createLesson, linkFigure, linkPosition } from '$lib/server/lessons';
+import { archivePosition, createPosition } from '$lib/server/positions';
+import { createTeam } from '$lib/server/teams';
+import { linkSpotToPosition } from '$lib/server/position-links';
+import { EMPTY_HOLD } from '$lib/positions/hold';
+import type { Space } from '$lib/server/scope';
 import { addSpot } from '$lib/server/spots';
 import { linkSpot } from '$lib/server/spot-links';
 import * as links from './[id]/links/+server';
@@ -79,14 +92,26 @@ const post = (id: string | number, body: unknown) =>
 			body: typeof body === 'string' ? body : JSON.stringify(body)
 		})
 	});
-const del = (id: number, linkId: number, alsoLesson = false) =>
-	run(one.DELETE, {
+const del = (id: number, linkId: number, alsoLesson = false, kind?: string) => {
+	const q = new URLSearchParams();
+	if (alsoLesson) q.set('alsoLesson', '1');
+	if (kind) q.set('kind', kind);
+	return run(one.DELETE, {
 		params: { id: String(id), linkId: String(linkId) },
 		locals: { user: USER },
-		url: new URL(
-			`http://localhost/api/video-spots/${id}/links/${linkId}${alsoLesson ? '?alsoLesson=1' : ''}`
-		)
+		url: new URL(`http://localhost/api/video-spots/${id}/links/${linkId}?${q}`)
 	});
+};
+
+const pos = (name: string, space: Space = U1_SALSA) =>
+	(
+		createPosition(
+			db,
+			space,
+			{ name, styleTag: null, hold: EMPTY_HOLD, notes: null, pictureSpotId: null },
+			1
+		) as PositionRow
+	).id;
 
 /** The HTTP status and message a handler answered or threw. */
 async function outcome(p: () => Promise<Response> | Response) {
@@ -111,8 +136,14 @@ describe('GET /api/video-spots/[id]/links', () => {
 		expect((await outcome(() => get(id))).status).toBe(404);
 	});
 
-	it('is a 404 for a point', async () => {
-		expect((await outcome(() => get(point))).status).toBe(404);
+	it("answers a point's options: positions only", async () => {
+		const cerrada = pos('Cerrada');
+		const res = await outcome(() => get(point));
+		expect(res.status).toBe(200);
+		expect(res.body!.spot.endMs).toBeNull();
+		expect(res.body!.figures).toEqual([]);
+		expect(res.body!.drills).toEqual([]);
+		expect(res.body!.positions.map((p) => p.target)).toEqual([{ positionId: cerrada }]);
 	});
 });
 
@@ -168,6 +199,68 @@ describe('POST /api/video-spots/[id]/links', () => {
 		});
 	});
 
+	it('links a position to a point, and refuses one of the other dance', async () => {
+		const cerrada = pos('Cerrada');
+		const res = await outcome(() => post(point, { target: { positionId: cerrada } }));
+		expect(res.status).toBe(200);
+		expect(res.body!.linked).toMatchObject([{ target: { positionId: cerrada }, label: 'Cerrada' }]);
+		const close = pos('Close', U1_BACHATA);
+		expect(await outcome(() => post(point, { target: { positionId: close } }))).toMatchObject({
+			status: 400,
+			message: 'No such position.'
+		});
+	});
+
+	it('a group position archived since: 410 "Archived by …" with Restore, nothing linked', async () => {
+		db.insert(users)
+			.values({ id: 'u1', email: 'u1@x.si', passwordHash: 'x', firstName: 'Ana' })
+			.run();
+		createTeam(db, 'u1', 'salsa', 'Tuesdays', 1);
+		const L = createLesson(db, T1_SALSA, { lessonDay: '2026-11-01', title: 'W', notes: null })
+			.lesson.id;
+		const v = addLessonVideo(
+			db,
+			{ lessonId: L, file: 'g.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		).id;
+		const gp = addSpot(
+			db,
+			{ lessonVideoId: v },
+			{ startMs: 0, endMs: null, label: null },
+			'u1'
+		)!.id;
+		const hammer = pos('Hammerlock', T1_SALSA);
+		archivePosition(db, hammer, 2, { actorId: 'u1' });
+		const res = await post(gp, { target: { positionId: hammer } });
+		expect(res.status).toBe(410);
+		expect(await res.json()).toEqual({
+			message: 'Archived by Ana',
+			archived: { by: 'Ana', restorable: true }
+		});
+		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
+	});
+
+	it('refuses a variation for a point', async () => {
+		expect((await outcome(() => post(point, { target: { figureId: basic } }))).status).toBe(400);
+	});
+
+	it('creates a position and links it; a taken name answers under Name and makes nothing', async () => {
+		const made = await outcome(() =>
+			post(point, { create: { kind: 'position', name: 'Cerrada', styleTag: 'salsa' } })
+		);
+		expect(made.status).toBe(200);
+		expect(made.body!.linked.map((l) => l.label)).toEqual(['Cerrada']);
+		const again = await outcome(() =>
+			post(section, { create: { kind: 'position', name: 'Cerrada', styleTag: null } })
+		);
+		expect(again).toMatchObject({
+			status: 400,
+			body: { message: 'You already have a position called Cerrada.', field: 'name' }
+		});
+		expect(db.select().from(positions).all()).toHaveLength(1);
+		expect(db.select().from(spotPositionLinks).all()).toHaveLength(1);
+	});
+
 	it.each([
 		{},
 		'not json',
@@ -195,5 +288,36 @@ describe('DELETE /api/video-spots/[id]/links/[linkId]', () => {
 	it("is a 404 for another spot's link", async () => {
 		const link = linkSpot(db, 'u1', other, { figureId: basic });
 		expect((await outcome(() => del(section, link))).status).toBe(404);
+	});
+
+	it('?kind=position unlinks the position link, never the figure link with the same id', async () => {
+		const cerrada = pos('Cerrada');
+		const figureLink = linkSpot(db, 'u1', section, { figureId: basic });
+		const positionLink = linkSpotToPosition(db, 'u1', section, cerrada);
+		expect(positionLink).toBe(figureLink);
+		const res = await outcome(() => del(section, positionLink, false, 'position'));
+		expect(res.status).toBe(200);
+		expect(res.body!.linked.map((l) => l.target)).toEqual([{ figureId: basic }]);
+		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
+		// And without the kind, the same number is the figure link.
+		expect((await outcome(() => del(section, figureLink))).status).toBe(200);
+		expect(db.select().from(spotLinks).all()).toEqual([]);
+	});
+
+	it("?kind=position: a 404 for another spot's position link; alsoLesson takes the hand link", async () => {
+		const cerrada = pos('Cerrada');
+		linkPosition(db, lessonId, cerrada);
+		const elsewhere = linkSpotToPosition(db, 'u1', other, cerrada);
+		expect((await outcome(() => del(point, elsewhere, false, 'position'))).status).toBe(404);
+		const here = linkSpotToPosition(db, 'u1', point, cerrada);
+		expect((await outcome(() => del(point, here, true, 'position'))).status).toBe(200);
+		expect(db.select().from(lessonPositions).all()).toEqual([]);
+		expect(db.select().from(spotPositionLinks).all()).toHaveLength(1);
+	});
+
+	it('is a 404 for an unknown kind', async () => {
+		const link = linkSpot(db, 'u1', section, { figureId: basic });
+		expect((await outcome(() => del(section, link, false, 'song'))).status).toBe(404);
+		expect(db.select().from(spotLinks).all()).toHaveLength(1);
 	});
 });

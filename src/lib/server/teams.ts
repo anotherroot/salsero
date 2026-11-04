@@ -32,14 +32,22 @@ function normaliseCode(raw: string): string {
 	return raw.toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
 }
 
-/** Groups the person owns that are not purged (a deleted one still counts). */
-export function teamsMade(db: Db, userId: string): number {
+/**
+ * Groups of this dance the person owns that are not purged (a deleted one still counts).
+ * The limit is per dance: salsa and bachata share nothing, groups included.
+ */
+export function teamsMade(db: Db, userId: string, dance: DanceSlug): number {
 	const row = db
 		.select({ n: sql<number>`count(*)` })
 		.from(teamMembers)
 		.innerJoin(teams, eq(teams.id, teamMembers.teamId))
 		.where(
-			and(eq(teamMembers.userId, userId), eq(teamMembers.role, 'owner'), isNull(teams.purgedAt))
+			and(
+				eq(teamMembers.userId, userId),
+				eq(teamMembers.role, 'owner'),
+				eq(teams.dance, dance),
+				isNull(teams.purgedAt)
+			)
 		)
 		.get();
 	return row?.n ?? 0;
@@ -86,7 +94,7 @@ export function createTeam(
 	const name = cleanName(rawName);
 	if (!name) return { ok: false, reason: 'name' };
 	return db.transaction((tx) => {
-		if (teamsMade(tx as unknown as Db, userId) >= teamLimit(tx as unknown as Db, userId))
+		if (teamsMade(tx as unknown as Db, userId, dance) >= teamLimit(tx as unknown as Db, userId))
 			return { ok: false, reason: 'limit' } as const;
 		if (nameTaken(tx as unknown as Db, userId, dance, name))
 			return { ok: false, reason: 'name' } as const;
@@ -216,7 +224,8 @@ export function handOver(
 ): 'ok' | 'not-member' | 'limit' {
 	return db.transaction((tx) => {
 		const t = tx as unknown as Db;
-		if (getTeam(t, teamId)?.deletedAt != null) return 'not-member';
+		const team = getTeam(t, teamId);
+		if (!team || team.deletedAt != null) return 'not-member';
 		if (!isOwner(t, teamId, fromId)) return 'not-member';
 		const to = t
 			.select({ role: teamMembers.role })
@@ -224,7 +233,7 @@ export function handOver(
 			.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, toId)))
 			.get();
 		if (!to || toId === fromId) return 'not-member';
-		if (teamsMade(t, toId) >= teamLimit(t, toId)) return 'limit';
+		if (teamsMade(t, toId, team.dance as DanceSlug) >= teamLimit(t, toId)) return 'limit';
 		t.update(teamMembers)
 			.set({ role: 'editor' })
 			.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, fromId)))

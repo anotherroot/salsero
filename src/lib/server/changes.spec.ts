@@ -5,7 +5,17 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { figures, songs, teamChanges, teamTrash, users } from './db/schema';
+import {
+	figures,
+	positions as positionsTable,
+	songs,
+	spotPositionLinks,
+	teamChanges,
+	teamTrash,
+	users,
+	videoSpots
+} from './db/schema';
+import { linkSpotToPosition, unlinkSpotFromPosition } from './position-links';
 import { restoreTrash } from './trash';
 import { actorOf, type Space } from './scope';
 import { NO_FILES, T1_SALSA, T2_SALSA, U1_SALSA } from './test-walls';
@@ -18,6 +28,7 @@ import {
 	lastEdit,
 	logChange,
 	restoreChange,
+	rootInTeam,
 	teamNames
 } from './changes';
 import {
@@ -28,11 +39,13 @@ import {
 	getLessonRow,
 	linkExercise,
 	linkFigure,
+	linkPosition,
 	linkRoutine,
 	publishLesson,
 	restoreLesson,
 	unlinkExercise,
 	unlinkFigure,
+	unlinkPosition,
 	unlinkRoutine,
 	updateLesson
 } from './lessons';
@@ -52,6 +65,15 @@ import {
 	updateVariation
 } from './figures';
 import { setFigureShape } from './graph';
+import {
+	addTemplates,
+	archivePosition,
+	createPosition,
+	restorePosition,
+	updatePosition
+} from './positions';
+import type { PositionRow } from './db/schema';
+import type { PositionInput } from '$lib/types';
 import {
 	addChildSlot,
 	addFigureSlot,
@@ -129,6 +151,14 @@ const variation = (name: string) => ({
 	notes: null
 });
 
+const newPosition = (name: string): PositionInput => ({
+	name,
+	styleTag: 'salsa',
+	hold: { hands: 'two', crossed: null, facing: 'face', frame: 'closed' },
+	notes: null,
+	pictureSpotId: null
+});
+
 /** A fake `CloneFiles`: nothing on disk. */
 const cloneFiles: CloneFiles = { link: async (_, file) => `copy-${file}`, unlink: async () => {} };
 /** A clone's result when it made a row, else null, so a refusal fails the case. */
@@ -179,6 +209,7 @@ function world(space: Space) {
 	)!.id;
 	const spotLink = linkInSpace(db, space, linked, { exerciseId: drill });
 	const link = addLinks(db, { lessonId: lesson }, ['https://example.org/a'], null, by)![0].id;
+	const position = createPosition(db, space, newPosition('Cerrada'), 1) as PositionRow;
 	const song = createSongFromUpload(db, space, {
 		file: 'song.mp3',
 		mime: 'audio/mpeg',
@@ -209,7 +240,8 @@ function world(space: Space) {
 		linked,
 		spotLink,
 		link,
-		song
+		song,
+		position: position.id
 	};
 }
 type World = ReturnType<typeof world>;
@@ -221,7 +253,7 @@ type World = ReturnType<typeof world>;
  */
 const MUTATIONS: {
 	name: string;
-	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song';
+	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'position';
 	verb: string;
 	rootId: (w: World) => number;
 	teamOnly?: boolean;
@@ -375,6 +407,49 @@ const MUTATIONS: {
 		rootId: (w) => w.lesson,
 		run: (w) => unlinkSpot(db, w.spotLink, { exerciseId: w.drill }, 5, w.by)
 	},
+	// position-links.ts
+	{
+		name: 'linkSpotToPosition',
+		root: 'lesson',
+		verb: 'add',
+		rootId: (w) => w.lesson,
+		run: (w) => linkSpotToPosition(db, w.by, w.section, w.position, 5)
+	},
+	{
+		name: 'linkSpotToPosition (recording point)',
+		root: 'figure',
+		verb: 'add',
+		rootId: (w) => w.G,
+		prep: (w) =>
+			addSpot(db, { recordingId: w.rec }, { startMs: 1, endMs: null, label: null }, w.by),
+		run: (w) => {
+			const p = db.select().from(videoSpots).where(eq(videoSpots.recordingId, w.rec)).get()!;
+			return linkSpotToPosition(db, w.by, p.id, w.position, 5);
+		}
+	},
+	{
+		name: 'unlinkSpotFromPosition',
+		root: 'lesson',
+		verb: 'remove',
+		rootId: (w) => w.lesson,
+		prep: (w) => linkSpotToPosition(db, w.by, w.section, w.position, 5),
+		run: (w) => unlinkSpotFromPosition(db, db.select().from(spotPositionLinks).get()!.id, 5, w.by)
+	},
+	{
+		name: 'linkPosition',
+		root: 'lesson',
+		verb: 'add',
+		rootId: (w) => w.lesson,
+		run: (w) => linkPosition(db, w.lesson, w.position, w.by)
+	},
+	{
+		name: 'unlinkPosition',
+		root: 'lesson',
+		verb: 'remove',
+		rootId: (w) => w.lesson,
+		prep: (w) => linkPosition(db, w.lesson, w.position, w.by),
+		run: (w) => unlinkPosition(db, w.lesson, w.position, true, 5, w.by)
+	},
 	{
 		name: 'unlinkFromSection',
 		root: 'lesson',
@@ -446,7 +521,7 @@ const MUTATIONS: {
 		verb: 'change',
 		rootId: (w) => w.G,
 		run: (w) =>
-			setFigureShape(db, w.V, { startIds: [], endId: null, startCount: 5, lengthCounts: 8 }, w.by)
+			setFigureShape(db, w.V, { startIds: [], endIds: [], startCount: 5, lengthCounts: 8 }, w.by)
 	},
 	{
 		name: 'renameFigure',
@@ -1021,6 +1096,43 @@ const MUTATIONS: {
 				100 * GB
 			);
 		}
+	},
+	// positions.ts
+	{
+		name: 'createPosition',
+		root: 'position',
+		verb: 'add',
+		rootId: () => 0,
+		run: (_, s) => createPosition(db, s, newPosition('Sombrero'), 5)
+	},
+	{
+		name: 'updatePosition',
+		root: 'position',
+		verb: 'change',
+		rootId: (w) => w.position,
+		run: (w) => updatePosition(db, w.position, newPosition('Cerrada 2'), { actorId: w.by, now: 5 })
+	},
+	{
+		name: 'archivePosition',
+		root: 'position',
+		verb: 'archive',
+		rootId: (w) => w.position,
+		run: (w) => archivePosition(db, w.position, 5, { actorId: w.by })
+	},
+	{
+		name: 'restorePosition',
+		root: 'position',
+		verb: 'restore',
+		rootId: (w) => w.position,
+		prep: (w) => archivePosition(db, w.position, 4, { actorId: w.by }),
+		run: (w) => restorePosition(db, w.position, 5, { actorId: w.by })
+	},
+	{
+		name: 'addTemplates',
+		root: 'position',
+		verb: 'add',
+		rootId: () => 0,
+		run: (_, s) => addTemplates(db, s, 'salsa', 'salsa', ['Abierta (dos manos)'], 5)
 	}
 ];
 
@@ -1232,5 +1344,105 @@ describe('archivedTarget', () => {
 		expect(archivedTarget(db, T1_SALSA, { routineId: live })).toBeNull();
 		// A person's own things keep their own refusal.
 		expect(archivedTarget(db, U1_SALSA, { exerciseId: drill })).toBeNull();
+		// A position: who archived it; a live one and a person's own name nobody.
+		const p = (createPosition(db, T1_SALSA, newPosition('Hammerlock'), 1) as PositionRow).id;
+		expect(archivedTarget(db, T1_SALSA, { positionId: p })).toBeNull();
+		archivePosition(db, p, 5, { actorId: 'u2' });
+		expect(archivedTarget(db, T1_SALSA, { positionId: p })).toEqual({
+			by: 'Luka',
+			message: 'Archived by Luka'
+		});
+		const own = (createPosition(db, U1_SALSA, newPosition('Own'), 1) as PositionRow).id;
+		archivePosition(db, own, 5);
+		expect(archivedTarget(db, U1_SALSA, { positionId: own })).toBeNull();
+	});
+});
+
+describe('a position’s History', () => {
+	it('belongs to its own group only', () => {
+		const mine = createPosition(db, T1_SALSA, newPosition('Cerrada'), 1) as PositionRow;
+		const own = createPosition(db, U1_SALSA, newPosition('Own'), 1) as PositionRow;
+		createTeam(db, 'u1', 'salsa', 'Other', 2);
+		const other = createPosition(db, T2_SALSA, newPosition('Other'), 1) as PositionRow;
+		expect(rootInTeam(db, 1, 'position', mine.id)).toBe(true);
+		expect(rootInTeam(db, 1, 'position', own.id)).toBe(false);
+		expect(rootInTeam(db, 1, 'position', other.id)).toBe(false);
+		expect(rootInTeam(db, 1, 'position', 9999)).toBe(false);
+		// An archived position still has its History (Recently deleted links to it).
+		archivePosition(db, mine.id, 5, { actorId: 'u1' });
+		expect(rootInTeam(db, 1, 'position', mine.id)).toBe(true);
+		// A lesson's id is not a position's.
+		expect(rootInTeam(db, 2, 'position', mine.id)).toBe(false);
+	});
+
+	it('puts a name or notes back, as the clash check allows, and logs a restore', () => {
+		const p = createPosition(db, T1_SALSA, newPosition('Cerrada'), 1) as PositionRow;
+		updatePosition(db, p.id, newPosition('Closed'), {
+			actorId: 'u2',
+			now: T + 100
+		});
+		const change = history(db, 1, 'position', p.id).find((r) => r.verb === 'change')!;
+		expect(change.subject).toBe('name');
+		expect(restoreChange(db, T1_SALSA, change.id, T + 200)).toEqual({ ok: true });
+		expect(db.select().from(positionsTable).where(eq(positionsTable.id, p.id)).get()!.name).toBe(
+			'Cerrada'
+		);
+		expect(history(db, 1, 'position', p.id)[0]).toMatchObject({ verb: 'restore', subject: 'name' });
+		// Changed since: a clash, nothing written.
+		updatePosition(db, p.id, newPosition('Third'), { actorId: 'u1', now: T + 300 });
+		const again = history(db, 1, 'position', p.id).find(
+			(r) => r.verb === 'change' && r.subject === 'name' && r.after?.name === 'Third'
+		)!;
+		updatePosition(db, p.id, newPosition('Fourth'), { actorId: 'u2', now: T + 400 });
+		expect(restoreChange(db, T1_SALSA, again.id, T + 500)).toMatchObject({
+			ok: false,
+			reason: 'clash'
+		});
+		expect(db.select().from(positionsTable).where(eq(positionsTable.id, p.id)).get()!.name).toBe(
+			'Fourth'
+		);
+	});
+
+	it('does not restore a hold change or another group’s position', () => {
+		const p = createPosition(db, T1_SALSA, newPosition('Cerrada'), 1) as PositionRow;
+		updatePosition(
+			db,
+			p.id,
+			{
+				...newPosition('Cerrada'),
+				hold: { hands: 'one', crossed: null, facing: 'face', frame: 'closed' }
+			},
+			{ actorId: 'u1', now: T + 100 }
+		);
+		const change = history(db, 1, 'position', p.id).find((r) => r.verb === 'change')!;
+		expect(change.subject).toBe('hands');
+		expect(restoreChange(db, T1_SALSA, change.id, T + 200)).toEqual({
+			ok: false,
+			reason: 'not-restorable'
+		});
+		expect(restoreChange(db, T2_SALSA, change.id, T + 200)).toEqual({
+			ok: false,
+			reason: 'not-found'
+		});
+	});
+});
+
+describe('a position link’s History', () => {
+	it('names a point as a point, a section as a section, and the position as the target', () => {
+		const w = world(T1_SALSA);
+		const point = addSpot(
+			db,
+			{ lessonVideoId: w.video },
+			{ startMs: 9000, endMs: null, label: null },
+			'u1'
+		)!.id;
+		linkSpotToPosition(db, 'u1', point, w.position, 5);
+		linkSpotToPosition(db, 'u1', w.section, w.position, 6);
+		const links = history(db, 1, 'lesson', w.lesson).filter(
+			(r) => r.subject === 'section-link' && r.verb === 'add'
+		);
+		const byTime = links.sort((a, b) => a.at - b.at);
+		expect(byTime[0].after).toMatchObject({ name: 'Cerrada', point: 1 });
+		expect(byTime[1].after?.point ?? null).toBeNull();
 	});
 });

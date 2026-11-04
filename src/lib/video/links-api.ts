@@ -4,7 +4,7 @@
  * `SpotsApiError` carrying the server's message.
  */
 import { ok } from './spots-api';
-import type { LinkCreate, LinkOptions, SectionTarget } from '$lib/types';
+import type { LinkCreate, LinkOptions, LinkTarget } from '$lib/types';
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 const base = (spotId: number) => `/api/video-spots/${spotId}/links`;
@@ -22,16 +22,24 @@ async function send(spotId: number, body: unknown): Promise<LinkOptions> {
 	return (await ok(res)).json();
 }
 
-export const addLink = (spotId: number, target: SectionTarget) => send(spotId, { target });
+export const addLink = (spotId: number, target: LinkTarget) => send(spotId, { target });
 
 export const createLink = (spotId: number, create: LinkCreate) => send(spotId, { create });
 
+/**
+ * Unlink. A position link's id is of its own table: `kind` 'position' says so
+ * (`unlinkKind`), and without it the id is a variation's or drill's link.
+ */
 export async function removeLink(
 	spotId: number,
 	linkId: number,
-	alsoLesson: boolean
+	alsoLesson: boolean,
+	kind?: 'position'
 ): Promise<LinkOptions> {
-	const q = alsoLesson ? '?alsoLesson=1' : '';
+	const params = new URLSearchParams();
+	if (alsoLesson) params.set('alsoLesson', '1');
+	if (kind) params.set('kind', kind);
+	const q = params.size > 0 ? `?${params}` : '';
 	const res = await fetch(`${base(spotId)}/${linkId}${q}`, { method: 'DELETE' });
 	return (await ok(res)).json();
 }

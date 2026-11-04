@@ -15,7 +15,6 @@ import { openDb, type Db } from '../db';
 import {
 	exercises,
 	figureGroups,
-	figureStartPositions,
 	figures,
 	lessonExercises,
 	lessonFigures,
@@ -23,6 +22,7 @@ import {
 	lessons,
 	lessonVideos,
 	links,
+	positions,
 	recordings,
 	routines,
 	routineSteps,
@@ -49,12 +49,15 @@ import { addSpot } from '../spots';
 import { linkInSpace } from '../spot-links';
 import { addLinks } from '../links';
 import { addLesson } from '../entries';
-import { seedPositions, listPositions } from '../positions';
-import { setFigureShape } from '../graph';
+import { listPositions } from '../positions';
+import { insertFixturePositions } from '../test-positions';
+import { figurePositions, setFigureShape } from '../graph';
 import { usedBytes } from '../storage';
 import { purgeTeams } from '../team-purge';
 import { cloneFilesIn, type CloneFiles } from './files';
 import { makeMine, makeMinePreview } from './edit';
+import { geneOf, memberIn } from './genes';
+import { crossRefs } from '../integrity';
 import { suffixed } from './names';
 import { T1_SALSA, U2_SALSA } from '../test-walls';
 
@@ -139,12 +142,12 @@ function world() {
 	linkInSpace(db, T1_SALSA, second.id, { exerciseId: drill });
 	// An option while the two share a shape; Doble's own timing comes after.
 	expect(addOption(db, step, doble, 'u1')).toBe(true);
-	const [open, closed] = listPositions(db, 'salsa');
+	const [open, closed] = listPositions(db, T1_SALSA);
 	expect(
 		setFigureShape(
 			db,
 			doble,
-			{ startIds: [open.id, closed.id], endId: closed.id, startCount: 5, lengthCounts: 16 },
+			{ startIds: [open.id, closed.id], endIds: [closed.id], startCount: 5, lengthCounts: 16 },
 			'u1'
 		)
 	).toBe(true);
@@ -192,7 +195,8 @@ function mineIn(figureName: string) {
 
 beforeEach(() => {
 	db = openDb(':memory:');
-	seedPositions(db);
+	// The group's own positions: a group's figure is tagged only with those.
+	insertFixturePositions(db, { teamId: 1 });
 	dir = mkdtempSync(join(tmpdir(), 'salsa-copy-'));
 	files = cloneFilesIn({ recording: dir, 'lesson-video': dir, audio: dir });
 	for (const [id, firstName] of [
@@ -267,18 +271,23 @@ describe('Make it mine on a lesson', () => {
 			notes: 'Turn twice.',
 			startCount: 5,
 			lengthCounts: 16,
-			endPositionId: w.closed.id,
 			styleTag: 'salsa'
 		});
-		expect(
-			db
-				.select({ p: figureStartPositions.positionId })
-				.from(figureStartPositions)
-				.where(eq(figureStartPositions.figureId, doble.id))
-				.all()
-				.map((r) => r.p)
-				.sort()
-		).toEqual([w.open.id, w.closed.id].sort());
+		// The copy is tagged with u2's own member of each family, copied with it.
+		const own = (groupsId: number) =>
+			memberIn(db, 'position', geneOf(db, 'position', groupsId)!, U2_SALSA)!.id;
+		const [open, closed] = [own(w.open.id), own(w.closed.id)];
+		expect(figurePositions(db, doble.id)).toEqual({
+			startIds: [open, closed].sort((a, b) => a - b),
+			endIds: [closed]
+		});
+		expect(db.select().from(positions).where(eq(positions.id, closed)).get()).toMatchObject({
+			userId: 'u2',
+			teamId: null,
+			name: w.closed.name,
+			clonedFrom: w.closed.id
+		});
+		expect(crossRefs(db)).toEqual([]);
 		expect(db.select().from(links).where(eq(links.figureId, doble.id)).all()).toMatchObject([
 			{ url: 'https://example.com/doble' }
 		]);

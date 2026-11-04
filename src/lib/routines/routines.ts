@@ -10,12 +10,12 @@
  * reason urgency is: a cached answer is a second source of truth that goes
  * stale the moment a tag is edited.
  *
- * Every position is read through `startsOf` and `endOf`, never off the figure
- * row, because those two are what make an untagged figure resolve to the
- * neutral position. A repertoire nobody has tagged is one big hub, and a
- * routine over it is all seams and no breaks — which is honest.
+ * An untagged side fits anything: a slot whose starts are `[]` can be entered
+ * from anywhere, and one whose ends are `[]` can be followed by anything. Every
+ * comparison of two sides goes through `meet` (`src/lib/graph/graph.ts`), so a
+ * repertoire nobody has tagged is all seams and no breaks — which is honest.
  */
-import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
+import { figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/graph';
 
 /** A slot filled by interchangeable figures — the alternatives. */
 export interface OptionsSlot {
@@ -91,6 +91,8 @@ export function slotAt(calledIndex: number | null, slotCount: number): number | 
 
 /**
  * Every position this slot can be entered from: the union of its options'.
+ * `[]` — anywhere — as soon as any option has no start, since that option can
+ * be entered from anywhere and so can the slot.
  *
  * Permissive on purpose. An option that does not work from where the hands are
  * is simply not picked at run time, rather than blocked while authoring.
@@ -100,29 +102,31 @@ export function slotStarts(g: Graph, slot: OptionsSlot): number[] {
 	for (const id of slot.figureIds) {
 		const f = figureById(g, id);
 		if (!f) continue;
-		for (const p of startsOf(g, f)) out.add(p);
+		if (f.starts.length === 0) return [];
+		for (const p of f.starts) out.add(p);
 	}
 	return [...out];
 }
 
 /**
- * The position every option leaves the hands at, or null when they disagree.
+ * The set of positions every option can leave the hands in, ascending, or null
+ * when they disagree (or nothing in the slot is danceable). `[]` when no option
+ * has an end: anything can follow.
  *
  * Disagreement is refused on write — that is what interchangeable means — but
  * pure code must not assume the write path was the only way rows arrived. A
- * hand-edited database should read as "end unknown" rather than pick a winner,
- * and the callers here all decline to guess.
+ * hand-edited database should read as "ends unknown" rather than pick a
+ * winner, and the callers here all decline to guess.
  */
-export function sharedEnd(g: Graph, slot: OptionsSlot): number | null {
-	let end: number | null = null;
+export function slotEnds(g: Graph, slot: OptionsSlot): number[] | null {
+	let ends: number[] | null = null;
 	for (const id of slot.figureIds) {
 		const f = figureById(g, id);
 		if (!f) continue;
-		const e = endOf(g, f);
-		if (end === null) end = e;
-		else if (end !== e) return null;
+		if (ends === null) ends = [...new Set(f.ends)].sort((a, b) => a - b);
+		else if (!sameSet(ends, f.ends)) return null;
 	}
-	return end;
+	return ends;
 }
 
 /**
@@ -141,7 +145,7 @@ export function slotStartCounts(g: Graph, slot: OptionsSlot): number[] {
 /**
  * The count every option leaves the next figure to begin on, or null when they
  * disagree. Disagreement is refused on write (`addOption`); pure code reads a
- * row that got past it as "unknown", exactly as `sharedEnd` does.
+ * row that got past it as "unknown", exactly as `slotEnds` does.
  */
 export function sharedNextCount(g: Graph, slot: OptionsSlot): number | null {
 	let next: number | null = null;
@@ -179,39 +183,49 @@ export function slotTiming(g: Graph, slot: Slot): SlotTiming {
  * Where one editor row begins and lands, in the hands and on the count: what
  * the picker filters against when building next to it, and what a seam
  * compares. An embedded routine borrows its first slot's starts and its last
- * slot's end, the way it does everywhere else. All empty / null when nothing in
- * the row is danceable — an archived-only slot has no edges to build from.
+ * slot's ends, the way it does everywhere else. All empty / null when nothing
+ * in the row is danceable — an archived-only slot has no edges to build from.
+ *
+ * `starts: []` alone does NOT mean undanceable: it is also "enters from
+ * anywhere". `startCounts` is the tell — every danceable row has one.
  */
 export interface RowEdges {
 	starts: number[];
 	startCounts: number[];
-	end: number | null;
+	/** `[]`: anything can follow. Null: unknown (options disagree, or nothing danceable). */
+	ends: number[] | null;
 	next: number | null;
 }
 
 export function rowEdges(g: Graph, slot: Slot): RowEdges {
 	const flat = flatten(g, { slots: [slot] });
-	if (flat.length === 0) return { starts: [], startCounts: [], end: null, next: null };
+	if (flat.length === 0) return { starts: [], startCounts: [], ends: null, next: null };
 	const first = flat[0];
 	const last = flat[flat.length - 1];
 	return {
 		starts: slotStarts(g, first),
 		startCounts: slotStartCounts(g, first),
-		end: sharedEnd(g, last),
+		ends: slotEnds(g, last),
 		next: sharedNextCount(g, last)
 	};
 }
 
-/** Where the routine can be started. Empty when it has no danceable slot. */
+/** Whether a row has anything danceable: every danceable row has a start count. */
+const danceable = (e: { startCounts: number[] }) => e.startCounts.length > 0;
+
+/** Where the routine can be started. Empty when it has no danceable slot, or starts anywhere. */
 export function routineStarts(g: Graph, shape: RoutineShape): number[] {
 	const flat = flatten(g, shape);
 	return flat.length === 0 ? [] : slotStarts(g, flat[0]);
 }
 
-/** Where it leaves the hands, or null if the last slot's options disagree. */
-export function routineEnd(g: Graph, shape: RoutineShape): number | null {
+/**
+ * Where it leaves the hands: `[]` anywhere, null when the last slot's options
+ * disagree or nothing is danceable.
+ */
+export function routineEnds(g: Graph, shape: RoutineShape): number[] | null {
 	const flat = flatten(g, shape);
-	return flat.length === 0 ? null : sharedEnd(g, flat[flat.length - 1]);
+	return flat.length === 0 ? null : slotEnds(g, flat[flat.length - 1]);
 }
 
 /**
@@ -219,16 +233,17 @@ export function routineEnd(g: Graph, shape: RoutineShape): number | null {
  *
  * Reported, never refused. This is a personal app and the dancer may know
  * something the graph does not — a tag that is simply missing, or a transition
- * their body makes anyway. A slot whose own end is unknown yields no break:
- * there is nothing to compare, and a warning nobody can act on is noise.
+ * their body makes anyway. A slot whose own ends are unknown yields no break:
+ * there is nothing to compare, and a warning nobody can act on is noise. A side
+ * with no position never breaks (`meet`).
  */
 export function breaks(g: Graph, shape: RoutineShape): number[] {
 	const flat = flatten(g, shape);
 	const out: number[] = [];
 	for (let i = 0; i + 1 < flat.length; i++) {
-		const end = sharedEnd(g, flat[i]);
-		if (end === null) continue;
-		if (!slotStarts(g, flat[i + 1]).includes(end)) out.push(i);
+		const ends = slotEnds(g, flat[i]);
+		if (ends === null) continue;
+		if (!meet(ends, slotStarts(g, flat[i + 1]))) out.push(i);
 	}
 	return out;
 }
@@ -292,11 +307,30 @@ export function positionSeams(g: Graph, shape: RoutineShape): PositionSeam[] {
 	const rows = shape.slots.map((s) => rowEdges(g, s));
 	const out: PositionSeam[] = [];
 	for (let i = 0; i < rows.length; i++) {
-		const end = rows[i].end;
-		if (end === null) continue;
-		const j = rows.findIndex((r, k) => k > i && r.starts.length > 0);
+		const ends = rows[i].ends;
+		if (ends === null) continue;
+		const j = rows.findIndex((r, k) => k > i && danceable(r));
 		if (j === -1) continue;
-		if (!rows[j].starts.includes(end)) out.push({ after: i, next: j });
+		if (!meet(ends, rows[j].starts)) out.push({ after: i, next: j });
+	}
+	return out;
+}
+
+/**
+ * The seams where the hands pass through one position, as editor rows
+ * `[after, next]`: row `after` names it among its ends and the next danceable
+ * row names it among its starts. A side with no position does not count — it
+ * fits there, but nothing says the hands are there. A seam inside an embedded
+ * routine is not a seam between rows, as with `positionSeams`.
+ */
+export function through(g: Graph, shape: RoutineShape, positionId: number): [number, number][] {
+	const rows = shape.slots.map((s) => rowEdges(g, s));
+	const out: [number, number][] = [];
+	for (let i = 0; i < rows.length; i++) {
+		if (!rows[i].ends?.includes(positionId)) continue;
+		const j = rows.findIndex((r, k) => k > i && danceable(r));
+		if (j === -1) continue;
+		if (rows[j].starts.includes(positionId)) out.push([i, j]);
 	}
 	return out;
 }
@@ -313,12 +347,12 @@ export function loops(g: Graph, shape: RoutineShape): boolean {
 	if (flat.length === 0) return false;
 	const first = flat[0];
 	const last = flat[flat.length - 1];
-	const end = sharedEnd(g, last);
+	const ends = slotEnds(g, last);
 	const next = sharedNextCount(g, last);
 	return (
-		end !== null &&
+		ends !== null &&
 		next !== null &&
-		slotStarts(g, first).includes(end) &&
+		meet(ends, slotStarts(g, first)) &&
 		slotStartCounts(g, first).includes(next)
 	);
 }

@@ -1,21 +1,29 @@
 /**
- * The Link popup's server side: what a section is linked to and could be, and
- * making a variation, figure or drill and linking it in one go. See
+ * The Link popup's server side: what a section or point is linked to and could
+ * be, and making a variation, figure, drill or position and linking it in one
+ * go. A section links variations, drills and positions; a point, positions only
+ * (ruling 10 of the positions plan). See
  * `docs/superpowers/specs/2026-10-29-section-link-popup-design.md`.
  */
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import {
 	exercises,
+	figureEndPositions,
 	figureGroups,
+	figureStartPositions,
 	figures,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessonVideos,
 	lessons,
+	positions,
 	recordings,
 	spotLinks,
-	videoSpots
+	spotPositionLinks,
+	videoSpots,
+	type PositionRow
 } from './db/schema';
 import {
 	createFigure,
@@ -29,7 +37,9 @@ import {
 } from './figures';
 import { createCustomExercise } from './exercises';
 import { actorOf, inSpace, isTeam, ownedBy, spaceOfRow, type Space } from './scope';
-import { teamRefs, usableDrills, usableOf, usableVersions } from './usable';
+import { teamRefs, usableDrills, usableOf, usablePositions, usableVersions } from './usable';
+import { createPosition, listPositions, positionSummary } from './positions';
+import { linkPositionInSpace } from './position-links';
 import { foldVersions } from './twins';
 import { linkInSpace, sectionSpace, SpotLinkError, videoOfSpot } from './spot-links';
 import { viaSections } from './lesson-links';
@@ -37,20 +47,56 @@ import { defaultStyle } from './default-styles';
 import { PARTNER, type Partner } from '$lib/labels';
 import { isStyleOf } from '$lib/dances/dances';
 import { isFrequency } from '$lib/frequency';
+import { EMPTY_HOLD } from '$lib/positions/hold';
 import type {
+	Hold,
 	LinkContext,
 	LinkCreate,
 	LinkedTarget,
 	LinkOption,
 	LinkOptions,
+	LinkTarget,
 	SectionTarget,
 	TeamRef
 } from '$lib/types';
 
-const key = (t: SectionTarget) => ('figureId' in t ? `f${t.figureId}` : `e${t.exerciseId}`);
+const key = (t: LinkTarget) =>
+	'figureId' in t ? `f${t.figureId}` : 'exerciseId' in t ? `e${t.exerciseId}` : `p${t.positionId}`;
 const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label);
-/** A target's row id, a variation's or a drill's. */
-const idOf = (t: SectionTarget) => ('figureId' in t ? t.figureId : t.exerciseId);
+/** A target's row id, a variation's, a drill's or a position's. */
+const idOf = (t: LinkTarget) =>
+	'figureId' in t ? t.figureId : 'exerciseId' in t ? t.exerciseId : t.positionId;
+
+/** A position as a row the popup offers or lists: its name, its hold for the second line. */
+const positionOption = (p: { id: number; name: string; hold: Hold }, linked: boolean) => ({
+	target: { positionId: p.id },
+	label: p.name,
+	drill: false,
+	figure: null,
+	name: p.name,
+	everyDays: null,
+	linked,
+	hold: p.hold
+});
+
+/** The spot's position links, archived ones marked, with the group a position is of. */
+function positionLinksOf(db: Db, spotId: number, space: Space) {
+	return db
+		.select({ linkId: spotPositionLinks.id, position: positions })
+		.from(spotPositionLinks)
+		.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+		.where(eq(spotPositionLinks.spotId, spotId))
+		.all()
+		.map(({ linkId, position: p }) => {
+			const s = positionSummary(p, space);
+			return {
+				linkId,
+				...positionOption(s, true),
+				archived: p.archivedAt !== null,
+				teamId: p.teamId
+			};
+		});
+}
 
 /** The section's links, labelled, archived ones marked, with the group a target is of. */
 function linksOf(db: Db, spotId: number) {
@@ -104,6 +150,21 @@ function linksOf(db: Db, spotId: number) {
 		);
 }
 
+/** The positions a variation is tagged with, at its start or its end. */
+function figureTags(db: Db, figureId: number): Set<number> {
+	const starts = db
+		.select({ id: figureStartPositions.positionId })
+		.from(figureStartPositions)
+		.where(eq(figureStartPositions.figureId, figureId))
+		.all();
+	const ends = db
+		.select({ id: figureEndPositions.positionId })
+		.from(figureEndPositions)
+		.where(eq(figureEndPositions.figureId, figureId))
+		.all();
+	return new Set([...starts, ...ends].map((r) => r.id));
+}
+
 /** What the section's lesson has: by hand, and everything on it. */
 function lessonSide(db: Db, lessonId: number) {
 	const via = viaSections(db, lessonId);
@@ -119,36 +180,52 @@ function lessonSide(db: Db, lessonId: number) {
 		.where(eq(lessonExercises.lessonId, lessonId))
 		.all()
 		.map((r) => r.id);
+	const handPositions = db
+		.select({ id: lessonPositions.positionId })
+		.from(lessonPositions)
+		.where(eq(lessonPositions.lessonId, lessonId))
+		.all()
+		.map((r) => r.id);
 	const byHand = new Set([
 		...handFigures.map((id) => key({ figureId: id })),
-		...handExercises.map((id) => key({ exerciseId: id }))
+		...handExercises.map((id) => key({ exerciseId: id })),
+		...handPositions.map((id) => key({ positionId: id }))
 	]);
 	const on = new Set([
 		...byHand,
 		...[...via.figures.keys()].map((id) => key({ figureId: id })),
-		...[...via.exercises.keys()].map((id) => key({ exerciseId: id }))
+		...[...via.exercises.keys()].map((id) => key({ exerciseId: id })),
+		...[...via.positions.keys()].map((id) => key({ positionId: id }))
 	]);
 	return { byHand, on };
 }
 
 /**
- * Everything the popup shows for one section. Null for a missing spot or a
- * point. `defaultStyle` is what New figure starts on (the user's, from
- * Settings — the route reads it).
+ * Everything the popup shows for one section or point. Null for a missing
+ * spot. A point is offered positions only (ruling 10): no variations, drills
+ * or figures to make. `defaultStyle` is what New figure starts on (the
+ * user's, from Settings — the route reads it).
  */
 export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkOptions | null {
 	const video = videoOfSpot(db, spotId);
-	if (!video || !video.isSection || (video.userId === null && video.teamId === null)) return null;
-	// The section's own space: everything offered is its owner's, of its dance.
-	// Only the owner is read here: no one acts. A person's section is also offered
-	// the group variations and drills they may use (`usableOf`), each tagged with
-	// its group; a group's section, its group's rows only.
+	if (!video || (video.userId === null && video.teamId === null)) return null;
+	const point = !video.isSection;
+	// The spot's own space: everything offered is its owner's, of its dance.
+	// Only the owner is read here: no one acts. A person's spot is also offered
+	// the group variations, drills and positions they may use (`usableOf`), each
+	// tagged with its group; a group's spot, its group's rows only.
 	const space = spaceOfRow(video, '');
 	const dance = space.dance;
 	const usable = isTeam(space) ? null : usableOf(db, space);
-	const versions = [
-		...listVersions(db, space),
-		...(usable && !isTeam(space) ? usableVersions(db, space, usable) : [])
+	const versions = point
+		? []
+		: [
+				...listVersions(db, space),
+				...(usable && !isTeam(space) ? usableVersions(db, space, usable) : [])
+			];
+	const offeredPositions: (PositionRow & { team?: TeamRef })[] = [
+		...listPositions(db, space),
+		...(usable && !isTeam(space) ? usablePositions(db, space, usable) : [])
 	];
 	const spot = db
 		.select({
@@ -165,6 +242,8 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	let nearTitle: string;
 	let byHand = new Set<string>();
 	let isNear: (o: LinkOption, groupId: number | null) => boolean;
+	/** The positions near: the lesson's (by hand or through a spot), or the recording's figure's tags. */
+	let nearPosition: (id: number) => boolean;
 	if ('lessonVideoId' in video.owner) {
 		const lesson = db
 			.select({ id: lessons.id, title: lessons.title })
@@ -182,9 +261,10 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		);
 		isNear = (o, groupId) =>
 			groupId !== null ? taughtGroups.has(groupId) : side.on.has(key(o.target));
+		nearPosition = (id) => side.on.has(key({ positionId: id }));
 	} else {
 		const own = db
-			.select({ groupId: figureGroups.id, figure: figureGroups.name })
+			.select({ groupId: figureGroups.id, figure: figureGroups.name, figureId: figures.id })
 			.from(recordings)
 			.innerJoin(figures, eq(figures.id, recordings.figureId))
 			.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
@@ -193,22 +273,21 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 		context = { kind: 'recording', groupId: own.groupId, figure: own.figure };
 		nearTitle = 'This figure';
 		isNear = (_o, groupId) => groupId === own.groupId;
+		const tags = figureTags(db, own.figureId);
+		nearPosition = (id) => tags.has(id);
 	}
 
 	// On a person's section, a link to a group's row shows while they may use it,
 	// tagged with its group, as `sectionsFor` lists it.
-	const links = linksOf(db, spotId);
+	const links = [...linksOf(db, spotId), ...positionLinksOf(db, spotId, space)];
 	const teams = teamRefs(
 		db,
 		usable ? links.flatMap((l) => (l.teamId === null ? [] : [l.teamId])) : []
 	);
+	const usableSet = (t: LinkTarget, u: NonNullable<typeof usable>) =>
+		'figureId' in t ? u.figures : 'exerciseId' in t ? u.drills : u.positions;
 	const linked: LinkedTarget[] = links
-		.filter(
-			(l) =>
-				!usable ||
-				l.teamId === null ||
-				(l.drill ? usable.drills : usable.figures).has(idOf(l.target))
-		)
+		.filter((l) => !usable || l.teamId === null || usableSet(l.target, usable).has(idOf(l.target)))
 		.map(({ teamId, ...l }) => {
 			const team = usable && teamId !== null ? teams.get(teamId) : undefined;
 			return { ...l, ...(team ? { team } : {}), alsoByHand: byHand.has(key(l.target)) };
@@ -238,17 +317,23 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			groups: ids.map((id) => groupOf.get(id) ?? null)
 		};
 	});
-	const ownDrills: { id: number; name: string; everyDays: number; team?: TeamRef }[] = db
-		.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
-		.from(exercises)
-		.where(
-			and(ownedBy(exercises, space), eq(exercises.source, 'custom'), isNull(exercises.archivedAt))
-		)
-		.orderBy(asc(exercises.name))
-		.all();
+	const ownDrills: { id: number; name: string; everyDays: number; team?: TeamRef }[] = point
+		? []
+		: db
+				.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
+				.from(exercises)
+				.where(
+					and(
+						ownedBy(exercises, space),
+						eq(exercises.source, 'custom'),
+						isNull(exercises.archivedAt)
+					)
+				)
+				.orderBy(asc(exercises.name))
+				.all();
 	const drills = [
 		...ownDrills,
-		...(usable && !isTeam(space) ? usableDrills(db, space, usable) : [])
+		...(usable && !isTeam(space) && !point ? usableDrills(db, space, usable) : [])
 	].map((d) => ({
 		option: {
 			target: { exerciseId: d.id },
@@ -277,22 +362,39 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 	const nearGroups = new Set(
 		variations.filter(near).flatMap((v) => v.groups.filter((g) => g !== null))
 	);
-	const figureChoices = listMoveTargets(db, space, null).map((g) => ({
+	const figureChoices = (point ? [] : listMoveTargets(db, space, null)).map((g) => ({
 		groupId: g.id,
 		name: g.name,
 		variations: g.variations,
 		near: nearGroups.has(g.id)
 	}));
 
+	// Positions in list order (ruling 7), own then the group's; not folded by twins.
+	const positionOptions = offeredPositions.map((p) => {
+		const s = positionSummary(p, space);
+		return {
+			option: {
+				...positionOption(s, taken.has(key({ positionId: p.id }))),
+				...(p.team ? { team: p.team } : {})
+			} as LinkOption,
+			near: nearPosition(p.id)
+		};
+	});
+
 	return {
 		dance,
-		spot: { ...spot, endMs: spot.endMs! },
+		spot,
 		context,
 		linked,
 		nearTitle,
-		near: [...nearOf(variations), ...nearOf(drills)],
+		near: [
+			...nearOf(variations),
+			...nearOf(drills),
+			...positionOptions.filter((p) => p.near).map((p) => p.option)
+		],
 		figures: restOf(variations),
 		drills: restOf(drills),
+		positions: positionOptions.filter((p) => !p.near).map((p) => p.option),
 		figureChoices: [
 			...figureChoices.filter((f) => f.near),
 			...figureChoices.filter((f) => !f.near)
@@ -302,10 +404,11 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 }
 
 /**
- * Make a variation, a figure or a drill in the section's space and link the
- * section to it — both or neither. `userId` is who asks: a section they may not
- * edit (another person's, a group's they only read) is refused as missing, so
- * nothing is made in a space they cannot change.
+ * Make a variation, a figure, a drill or a position in the spot's space and
+ * link the spot to it — both or neither. A point makes positions only.
+ * `userId` is who asks: a spot they may not edit (another person's, a group's
+ * they only read) is refused as missing, so nothing is made in a space they
+ * cannot change.
  */
 export function createAndLink(db: Db, userId: string, spotId: number, create: LinkCreate): number {
 	const space = sectionSpace(db, userId, spotId);
@@ -325,8 +428,27 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 		const video = videoOfSpot(tx, spotId);
 		if (!video || !inSpace(video, space)) throw new SpotLinkError('No such section.');
 		const dance = space.dance;
+		// A point links positions only (ruling 10): refused before anything is made.
+		if (!video.isSection && create.kind !== 'position') {
+			throw new SpotLinkError('A point links positions only.');
+		}
 		const name = create.name.trim();
 		if (!name) throw new SpotLinkError('Give it a name.', 400, 'name');
+
+		if (create.kind === 'position') {
+			if (create.styleTag !== null && !isStyleOf(dance, create.styleTag)) {
+				throw new SpotLinkError('That type does not belong to this dance.', 400, 'style');
+			}
+			const made = createPosition(
+				tx,
+				space,
+				{ name, styleTag: create.styleTag, hold: EMPTY_HOLD, notes: null, pictureSpotId: null },
+				Date.now()
+			);
+			// The refusal's own field: tsc flags it here if a refusal ever names one the popup lacks.
+			if ('field' in made) throw new SpotLinkError(made.message, 400, made.field);
+			return linkPositionInSpace(tx, space, spotId, made.id);
+		}
 
 		let target: SectionTarget;
 		if (create.kind === 'variation') {
@@ -400,13 +522,14 @@ const isText = (v: unknown): v is string => typeof v === 'string' && v.length <=
 /** A POST body: `{ target }` or `{ create }`, checked field by field. Null for anything else. */
 export function parseLinkBody(
 	body: unknown
-): { target: SectionTarget } | { create: LinkCreate } | null {
+): { target: LinkTarget } | { create: LinkCreate } | null {
 	if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
 	const b = body as Record<string, unknown>;
 	if (b.target && typeof b.target === 'object') {
 		const t = b.target as Record<string, unknown>;
 		if (isId(t.figureId)) return { target: { figureId: t.figureId } };
 		if (isId(t.exerciseId)) return { target: { exerciseId: t.exerciseId } };
+		if (isId(t.positionId)) return { target: { positionId: t.positionId } };
 		return null;
 	}
 	if (!b.create || typeof b.create !== 'object') return null;
@@ -433,6 +556,9 @@ export function parseLinkBody(
 	}
 	if (c.kind === 'drill' && typeof c.everyDays === 'number') {
 		return { create: { kind: 'drill', name: c.name, everyDays: c.everyDays } };
+	}
+	if (c.kind === 'position' && (c.styleTag === null || isText(c.styleTag))) {
+		return { create: { kind: 'position', name: c.name, styleTag: c.styleTag } };
 	}
 	return null;
 }

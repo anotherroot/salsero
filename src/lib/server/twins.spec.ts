@@ -8,7 +8,8 @@ import { openDb, type Db } from './db';
 import { routines, twins, users } from './db/schema';
 import { createTeam, joinTeam } from './teams';
 import { archiveVariation, createFigure } from './figures';
-import { createLesson, linkFigure, publishLesson, unlinkFigure } from './lessons';
+import { createLesson, linkFigure, linkPosition, publishLesson, unlinkFigure } from './lessons';
+import { archivePosition, createPosition } from './positions';
 import { createSongFromUpload } from './songs';
 import { markTwins, separate, twinSets, twinsOf } from './twins';
 import { T1_SALSA, U1_BACHATA, U2_SALSA } from './test-walls';
@@ -335,5 +336,68 @@ describe('Separate and the ticks act across the family', () => {
 		markTwins(db, U2_SALSA, 'figure', [a, b, c]);
 		expect(separateFamily(db, U2_SALSA, 'figure', a)).toBe(true);
 		expect(twinSets(db, U2_SALSA, 'figure')).toEqual([[b, c]]);
+	});
+});
+
+describe('Same as… for positions', () => {
+	const pos = (space: Space, name: string, dance: 'salsa' | 'bachata' = 'salsa') =>
+		(
+			createPosition(
+				db,
+				space,
+				{
+					name,
+					styleTag: dance === 'salsa' ? 'salsa' : 'sensual',
+					hold: { hands: 'two', crossed: true, facing: 'face', frame: 'closed' },
+					notes: null,
+					pictureSpotId: null
+				},
+				T
+			) as { id: number }
+		).id;
+
+	it('marks two as twins, separates them, and refuses an archived, another dance’s or unreadable one', () => {
+		const a = pos(U2_SALSA, 'Cerrada');
+		const b = pos(U2_SALSA, 'Closed');
+		expect(markTwins(db, U2_SALSA, 'position', [a, b])).toBe(true);
+		expect(twinSets(db, U2_SALSA, 'position')).toEqual([[a, b]]);
+		expect(twinsOf(db, 'u2', 'position', a)).toEqual([b]);
+		expect(separate(db, U2_SALSA, 'position', a)).toBe(true);
+		expect(twinSets(db, U2_SALSA, 'position')).toEqual([]);
+		const other = pos(U2_BACHATA, 'Cerrada');
+		expect(markTwins(db, U2_SALSA, 'position', [a, other])).toBe(false);
+		const draft = pos(T1_SALSA, 'Group only');
+		expect(markTwins(db, U2_SALSA, 'position', [a, draft])).toBe(false);
+		archivePosition(db, b, T);
+		expect(markTwins(db, U2_SALSA, 'position', [a, b])).toBe(false);
+	});
+
+	it('offers own live positions and the usable group ones, never the archived, other dances or itself', async () => {
+		const { twinCandidates, setTwins } = await import('./twins');
+		const { addLesson } = await import('./entries');
+		const mine = pos(U2_SALSA, 'Cerrada');
+		const second = pos(U2_SALSA, 'Abierta');
+		const gone = pos(U2_SALSA, 'Old');
+		archivePosition(db, gone, T);
+		pos(U2_BACHATA, 'Dominican hold');
+		const theirs = pos(T1_SALSA, 'Closed');
+		const notShared = pos(T1_SALSA, 'Not in a lesson');
+		linkPosition(db, lessonId, theirs, 'u1');
+		addLesson(db, 'u2', lessonId, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, T);
+		const list = twinCandidates(db, U2_SALSA, 'position', mine);
+		expect(list.map((c) => c.id).sort()).toEqual([second, theirs].sort());
+		expect(list.find((c) => c.id === theirs)).toMatchObject({
+			label: 'Closed',
+			place: { kind: 'team', teamId: 1, name: 'Class' },
+			ticked: false
+		});
+		expect(list.map((c) => c.id)).not.toContain(notShared);
+		expect(setTwins(db, U2_SALSA, 'position', mine, [theirs])).toBe(true);
+		expect(
+			twinCandidates(db, U2_SALSA, 'position', mine).find((c) => c.id === theirs)!.ticked
+		).toBe(true);
+		expect(setTwins(db, U2_SALSA, 'position', mine, [gone])).toBe(false);
+		expect(setTwins(db, U2_SALSA, 'position', mine, [])).toBe(true);
+		expect(twinSets(db, U2_SALSA, 'position')).toEqual([]);
 	});
 });

@@ -5,6 +5,7 @@
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { TABS, tabFor } from '$lib/nav/tabs';
+	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
 	import { intend, tabHref } from '$lib/nav/trail.svelte';
 
@@ -59,7 +60,8 @@
 					<!--
 						Mine: back icon and the word, accent text, no fill. A one-tap form to the
 						switch action (team=mine), never a plain link: leaving group mode is the
-						switch's, and a load never clears it (preload would).
+						switch's, and a load never clears it (preload would). It lands on the
+						same tab's own list (`minePath`): Lessons stays Lessons, now yours.
 					-->
 					<form
 						method="POST"
@@ -71,7 +73,7 @@
 						}}
 					>
 						<input type="hidden" name="team" value="mine" />
-						<input type="hidden" name="to" value="/{dance}" />
+						<input type="hidden" name="to" value={minePath(path, dance)} />
 						<button
 							type="submit"
 							class="flex h-11 w-full items-center justify-center gap-2 px-3 text-accent-text"

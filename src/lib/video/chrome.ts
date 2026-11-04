@@ -60,11 +60,15 @@ export type LinkEntry =
 	| { kind: 'show'; text: string }
 	| { kind: 'open'; text: string; label: string; invite: boolean };
 
-/** The link entry on a section's badge or in its editor: opens the Link popup when it may link. */
+/**
+ * The link entry on a section's badge or in its editor: opens the Link popup
+ * when it may link. A point (`point`) links positions only (ruling 10).
+ */
 export function linkEntry(
 	linkedTo: string[],
 	linking: boolean,
-	where: 'badge' | 'editor'
+	where: 'badge' | 'editor',
+	point = false
 ): LinkEntry {
 	const linked = linkedTo.length > 0;
 	if (!linking) {
@@ -75,14 +79,15 @@ export function linkEntry(
 		};
 	}
 	if (!linked) {
+		const what = point ? 'Link to a position' : 'Link to a figure, drill or position';
 		return where === 'badge'
-			? { kind: 'open', text: 'Link', label: 'Link this section', invite: true }
-			: {
+			? {
 					kind: 'open',
-					text: 'Link to a figure or drill',
-					label: 'Link to a figure or drill',
+					text: 'Link',
+					label: point ? 'Link this point' : 'Link this section',
 					invite: true
-				};
+				}
+			: { kind: 'open', text: what, label: what, invite: true };
 	}
 	return {
 		kind: 'open',

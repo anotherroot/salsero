@@ -11,7 +11,7 @@
 import { eq } from 'drizzle-orm';
 import type { CloneKind, DetachOffer, TwinKind } from '$lib/types';
 import type { Db } from '../db';
-import { exercises, figures, lessons, routines, songs } from '../db/schema';
+import { exercises, figures, lessons, positions, routines, songs } from '../db/schema';
 import { logChange } from '../changes';
 import type { DanceSlug } from '$lib/dances/dances';
 import { isTeam, spaceOfRow } from '../scope';
@@ -26,7 +26,8 @@ const TABLES = {
 	routine: routines,
 	drill: exercises,
 	song: songs,
-	lesson: lessons
+	lesson: lessons,
+	position: positions
 } as const;
 
 /** The live row the actor edits and that has a family, with its other live members; else null. */

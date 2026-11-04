@@ -94,7 +94,8 @@ groups, across both dances, and drops into some only now and then.
 - **Members:** see the published lessons and add them.
 - *(My call)* An owner who wants to leave hands the group over first, or
   deletes it.
-- *(My call)* A person can **make 2 groups**. The admin can raise that per
+- *(My call)* A person can **make 2 groups in each dance** (salsa and bachata share
+  nothing, the limit included; per dance since 2026-11-04). The admin can raise that per
   person on the admin page. There is no limit on groups joined.
 
 ### Joining with the group code
@@ -315,7 +316,7 @@ groups, across both dances, and drops into some only now and then.
 - A **Groups** section: each group's name, dance, owner, number of people,
   storage used and limit; tap to set its limit.
 - Group requests for more storage join the people's requests.
-- Each person's row gains how many groups they made and their group limit.
+- Each person's row gains how many groups they made in each dance and their group limit (per dance).
 - A line at the top: **"Limits add up to 14 GB · 22 GB free"**, the sum of
   every person's and group's limit (the admin's own unlimited one aside)
   next to the free disk, so the admin sees it coming before raising anyone.

@@ -1115,3 +1115,118 @@ describe("a person's own lesson and what their groups gave them", () => {
 		expect(listLinkableFigures(db, mine).map((f) => f.id)).not.toContain(F);
 	});
 });
+
+import { archivePosition, createPosition } from './positions';
+import { linkSpotToPosition } from './position-links';
+import { linkPosition, listLinkablePositions, unlinkPosition } from './lessons';
+import { lessonPositions, spotPositionLinks, type PositionRow } from './db/schema';
+import type { Space } from './scope';
+
+describe('linking positions', () => {
+	const pos = (space: Space, name: string) =>
+		(
+			createPosition(
+				db,
+				space,
+				{
+					name,
+					styleTag: 'son',
+					hold: { hands: null, crossed: null, facing: null, frame: null },
+					notes: null,
+					pictureSpotId: null
+				},
+				1
+			) as PositionRow
+		).id;
+
+	it('links a live position of the lesson’s space, once, and lists it', () => {
+		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
+		const P = pos(U1_SALSA, 'Cerrada');
+		expect(linkPosition(db, lesson.id, P)).toBe(true);
+		expect(linkPosition(db, lesson.id, P)).toBe(false);
+		expect(getLesson(db, lesson.id, 'u1')!.positions).toEqual([
+			{
+				id: P,
+				name: 'Cerrada',
+				styleTag: 'son',
+				byHand: true,
+				viaSections: [],
+				mineId: null,
+				teamId: null
+			}
+		]);
+		expect(listLinkablePositions(db, lesson.id).map((p) => [p.id, p.linked])).toEqual([[P, true]]);
+	});
+
+	it('refuses an archived position, another dance’s and another person’s', () => {
+		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
+		const archived = pos(U1_SALSA, 'Old');
+		archivePosition(db, archived, 2);
+		expect(linkPosition(db, lesson.id, archived)).toBe(false);
+		expect(linkPosition(db, lesson.id, pos(U1_BACHATA, 'Cerrada'))).toBe(false);
+		expect(linkPosition(db, lesson.id, pos({ userId: 'u2', dance: 'salsa' }, 'Cerrada'))).toBe(
+			false
+		);
+		expect(listLinkablePositions(db, lesson.id)).toEqual([]);
+	});
+
+	it('unlinks, and with alsoSections the links of this lesson’s spots go too', () => {
+		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
+		const other = createLesson(db, U1_SALSA, { ...lessonInput, title: 'Other' }).lesson;
+		const P = pos(U1_SALSA, 'Cerrada');
+		const spotOf = (lessonId: number) => {
+			const v = addLessonVideo(db, video(lessonId, `${lessonId}.mp4`, 1)).id;
+			return addSpot(db, { lessonVideoId: v }, { startMs: 0, endMs: null, label: null })!.id;
+		};
+		const here = spotOf(lesson.id);
+		const there = spotOf(other.id);
+		linkSpotToPosition(db, 'u1', here, P, 1);
+		linkSpotToPosition(db, 'u1', there, P, 1);
+		expect(linkPosition(db, lesson.id, P)).toBe(true);
+		expect(listLinkablePositions(db, other.id).map((p) => p.linked)).toEqual([true]);
+
+		expect(unlinkPosition(db, lesson.id, P)).toBe(true);
+		expect(
+			getLesson(db, lesson.id, 'u1')!.positions.map((p) => [p.byHand, p.viaSections.length])
+		).toEqual([[false, 1]]);
+		expect(unlinkPosition(db, lesson.id, P, true)).toBe(true);
+		expect(getLesson(db, lesson.id, 'u1')!.positions).toEqual([]);
+		expect(db.select({ s: spotPositionLinks.spotId }).from(spotPositionLinks).all()).toEqual([
+			{ s: there }
+		]);
+		expect(unlinkPosition(db, lesson.id, P, true)).toBe(false);
+	});
+
+	it('a person’s own lesson links a group position they may use; a group lesson refuses a person’s', () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		if (!made.ok) throw new Error('team expected');
+		const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', made.teamId, 1);
+		const H = pos(T, 'Hammerlock');
+		const Hidden = pos(T, 'Draft only');
+		const L = createLesson(db, T, { ...lessonInput, title: 'Week 1' }).lesson.id;
+		expect(linkPosition(db, L, H, 'u1')).toBe(true);
+		const draft = createLesson(db, T, { ...lessonInput, title: 'Draft' }).lesson.id;
+		expect(linkPosition(db, draft, Hidden, 'u1')).toBe(true);
+		expect(publishLesson(db, T, L, 2)).toBe(true);
+		const none = { lesson: false, routineIds: [], drillIds: [], figureIds: [] };
+		expect(addLesson(db, 'u2', L, none, 3)).toBe(true);
+
+		const mine = createLesson(db, U2_SALSA, { ...lessonInput, title: 'Mine' }).lesson.id;
+		const own = pos(U2_SALSA, 'Abierta');
+		expect(linkPosition(db, mine, Hidden, 'u2')).toBe(false);
+		expect(linkPosition(db, mine, H, 'u2')).toBe(true);
+		expect(linkPosition(db, L, own, 'u1')).toBe(false);
+		expect(
+			listLinkablePositions(db, mine).map((p) => [p.id, p.linked, p.teamId, p.team?.name ?? null])
+		).toEqual([
+			[own, false, null, null],
+			[H, true, made.teamId, 'Salsa Tuesdays']
+		]);
+		expect(getLesson(db, mine, 'u2')!.positions.map((p) => [p.id, p.teamId])).toEqual([
+			[H, made.teamId]
+		]);
+		expect(db.select().from(lessonPositions).all()).toHaveLength(3);
+		expect(crossRefs(db)).toEqual([]);
+	});
+});

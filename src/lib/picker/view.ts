@@ -11,14 +11,23 @@ export type Trail = 'add' | 'pending' | 'linked' | 'chosen' | 'none';
 export function rowTrail(
 	kind: PickKind,
 	row: PickRow,
-	chosen: string | null,
+	chosen: string | ReadonlySet<string> | null,
 	pending: ReadonlySet<string>
 ): Trail {
 	if (kind === 'link') {
 		if (row.linked) return 'linked';
 		return pending.has(row.key) ? 'pending' : 'add';
 	}
-	if (kind === 'field') return row.key === chosen ? 'chosen' : 'none';
+	if (kind === 'field') {
+		// A many-value field passes a Set: every member is ticked.
+		const on =
+			chosen === null
+				? false
+				: typeof chosen === 'string'
+					? row.key === chosen
+					: chosen.has(row.key);
+		return on ? 'chosen' : 'none';
+	}
 	return 'none';
 }
 
@@ -27,8 +36,9 @@ export function createLead(typed: string): string {
 	return typed ? `Not in the list? Create “${typed}” as` : 'Not in the list?';
 }
 
-export function doneLabel(n: number): string {
-	return `Done · ${n} linked`;
+/** Done's words: a link picker counts what + linked; a field picker, what it holds. */
+export function doneLabel(n: number, kind: 'link' | 'field' = 'link'): string {
+	return kind === 'field' ? `Done · ${n}` : `Done · ${n} linked`;
 }
 
 export function emptyText(typed: string, nothingLeft: string): string {

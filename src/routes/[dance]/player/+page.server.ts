@@ -56,8 +56,15 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	// A person's own routine may hold the group figures they may use: those are
 	// on their graph and have names (`usableOf`).
 	const usable = routine && !isTeam(space) ? usableOf(db, space) : undefined;
-	const graph = graphFor(db, space, usable);
-	if (reached) graph.figures = graph.figures.filter((f) => reached.has(f.id));
+	// The client gets plain data: the server's canonical-id map (`canon`) stays here.
+	const { canon: _canon, ...graph } = graphFor(db, space, usable);
+	void _canon;
+	if (reached) {
+		graph.figures = graph.figures.filter((f) => reached.has(f.id));
+		// …and only the positions those figures are tagged with: no draft's holds by name.
+		const tagged = new Set(graph.figures.flatMap((f) => [...f.starts, ...f.ends]));
+		graph.positions = graph.positions.filter((p) => tagged.has(p.id));
+	}
 	const shape = routine
 		? (routineShapes(db, space, { usable }).get(routine.id) ?? { slots: [] })
 		: null;

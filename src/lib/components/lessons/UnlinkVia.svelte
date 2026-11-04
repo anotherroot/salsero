@@ -4,13 +4,13 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { button } from '$lib/components/ui/styles';
-	import { unlinkViaBody } from '$lib/lessons/page';
+	import { unlinkViaBody, unlinkViaTitle } from '$lib/lessons/page';
 	import type { ViaSection } from '$lib/types';
 
 	/**
-	 * Unlink, from the lesson, a variation or drill that is there through a
-	 * section of its videos. Keeping the section link would keep it on the
-	 * lesson, so the only Unlink offered takes both — after asking.
+	 * Unlink, from the lesson, a variation, drill or position that is there
+	 * through a section or point of its videos. Keeping that link would keep it
+	 * on the lesson, so the only Unlink offered takes both — after asking.
 	 */
 	interface Props {
 		/** The form action: `?/unlinkFigure` or `?/unlinkExercise`. */
@@ -19,20 +19,22 @@
 		name: string;
 		id: number;
 		label: string;
+		/** Asked from outside the lesson (a position's page): the lesson's title, named in the question. */
+		lesson?: string;
 		via: ViaSection[];
 		onclose: () => void;
 		/** The unlink went through (the dialog is closing): the page moves focus off the row that is gone. */
 		onunlinked?: () => void;
 	}
 
-	let { action, name, id, label, via, onclose, onunlinked }: Props = $props();
+	let { action, name, id, label, lesson, via, onclose, onunlinked }: Props = $props();
 	let busy = $state(false);
 </script>
 
 <Dialog
 	open
-	title="Unlink {label}?"
-	body={unlinkViaBody(label, via)}
+	title={unlinkViaTitle(label, lesson)}
+	body={unlinkViaBody(label, via, lesson)}
 	icon="unlink"
 	tone="danger"
 	{onclose}

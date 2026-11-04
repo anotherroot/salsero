@@ -51,9 +51,18 @@ import {
 	getSong,
 	storeAnalysis
 } from '$lib/server/songs';
-import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
+import {
+	createLesson,
+	getLesson,
+	linkFigure,
+	listLessons,
+	publishLesson
+} from '$lib/server/lessons';
 import { figurePositions, setFigureShape } from '$lib/server/graph';
-import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
+import { listPositions } from '$lib/server/positions';
+import { addPosition, insertFixturePositions } from '$lib/server/test-positions';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { addLesson } from '$lib/server/entries';
 import {
 	addFigureSlot,
 	addOption,
@@ -63,7 +72,7 @@ import {
 	routineSlots
 } from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
-import { exercises, figures, lessons, links, sets } from '$lib/server/db/schema';
+import { exercises, figures, lessons, links, positions, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions, load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
@@ -73,7 +82,6 @@ import * as figurePage from './figures/[id]/+page.server';
 import { actions as figureListActions } from './figures/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
-import * as positionsPage from './positions/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
 import * as coveragePage from './coverage/+page.server';
 import * as gridEndpoint from './songs/[id]/grid/+server';
@@ -83,13 +91,18 @@ import type { PickerSong } from '$lib/types';
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
-function post(dance: string, fields: Record<string, string>, id = '') {
+function post(dance: string, fields: Record<string, string | string[]>, id = '') {
+	// A list posts its field once per value, as the form's hidden inputs do.
+	const body = new URLSearchParams();
+	for (const [key, v] of Object.entries(fields)) {
+		for (const one of Array.isArray(v) ? v : [v]) body.append(key, one);
+	}
 	return {
 		params: { dance, id },
 		request: new Request('http://localhost/', {
 			method: 'POST',
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
-			body: new URLSearchParams(fields)
+			body
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
@@ -155,7 +168,7 @@ let bachataRoutineId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
-	seedPositions(db);
+	insertFixturePositions(db);
 
 	const salsaFigure = createFigure(db, U1_SALSA, { ...figureInput, style: 'salsa' })!;
 	salsaExerciseId = addFigureExercise(db, 'u1', salsaFigure.figure.id)!.id;
@@ -327,6 +340,13 @@ describe("the player's song picker stays on its own side", () => {
 		});
 	});
 
+	it('hands the client the graph as plain data, without the server’s canonical-id map', () => {
+		const opened = openPlayer('salsa', '') as unknown as { graph: Record<string, unknown> };
+		expect(opened.graph).toHaveProperty('figures');
+		expect(opened.graph).toHaveProperty('positions');
+		expect(opened.graph).not.toHaveProperty('canon');
+	});
+
 	it("opens on the song the exercise was last practised with, never the other dance's", () => {
 		const salsaSong = ready('salsa', 'Salsa ready');
 		setPracticeSettings(db, salsaExerciseId, {
@@ -402,7 +422,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 	});
 
 	/** A complete, valid edit of a variation — each test overrides only what it is about. */
-	const edit = (fields: Record<string, string>) => ({
+	const edit = (fields: Record<string, string | string[]>) => ({
 		figureName: 'Dile que no',
 		name: 'Renamed',
 		partner: 'partner',
@@ -418,7 +438,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 		// A BACHATA position on a BACHATA variation: `setFigureShape`'s own
 		// per-position dance check would ACCEPT this payload, so the only thing
 		// that can refuse it is the route's `variationOf` guard.
-		const bachataClosed = listPositions(db, 'bachata').find((p) => p.slug === 'closed')!;
+		const bachataClosed = listPositions(db, U1_BACHATA).find((p) => p.slug === 'closed')!;
 		await refuses(
 			figurePage.actions.update,
 			post(
@@ -427,12 +447,12 @@ describe("the detail pages refuse the other dance's rows", () => {
 				String(bachataFigureId)
 			)
 		);
-		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endId: null });
+		expect(figurePositions(db, bachataFigureId)).toEqual({ startIds: [], endIds: [] });
 		expect(getFigure(db, bachataFigureId, 'u1')!.figure.name).toBe('Basic');
 	});
 
 	it('refuses a position from the other dance on a variation of this one — names included', async () => {
-		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
+		const bachataShadow = listPositions(db, U1_BACHATA).find((p) => p.slug === 'shadow')!;
 		await refuses(
 			figurePage.actions.update,
 			post(
@@ -489,13 +509,13 @@ describe("the detail pages refuse the other dance's rows", () => {
 
 		const doble = () => createVariationFrom(db, salsaFigureId, 'Doble')!;
 		const salsaPosition = (slug: string) =>
-			listPositions(db, 'salsa').find((p) => p.slug === slug)!;
+			listPositions(db, U1_SALSA).find((p) => p.slug === slug)!;
 
 		it('loads the variation, its figure, its siblings and where it can move', () => {
 			const v = doble();
 			setFigureShape(db, v.id, {
 				startIds: [salsaPosition('cross-hand').id, salsaPosition('closed').id],
-				endId: salsaPosition('caida').id,
+				endIds: [salsaPosition('caida').id],
 				startCount: 5,
 				lengthCounts: 4
 			});
@@ -507,7 +527,6 @@ describe("the detail pages refuse the other dance's rows", () => {
 				sizeBytes: 1,
 				note: null
 			});
-			const neutral = 'Abierta (dos manos)';
 			expect(loadWith('salsa', String(v.id))).toMatchObject({
 				figure: { id: groupOf(salsaFigureId), name: 'Dile que no' },
 				variation: { id: v.id, name: 'Doble', partner: 'partner', styleTag: 'salsa' },
@@ -516,14 +535,15 @@ describe("the detail pages refuse the other dance's rows", () => {
 					{
 						id: salsaFigureId,
 						name: 'Basic',
-						holds: `${neutral} → ${neutral}`,
+						// Untagged: no position, which fits anywhere.
+						holds: 'No position',
 						timing: 'Starts on 1 · 8 counts',
 						videos: 0
 					},
 					{
 						id: v.id,
 						name: 'Doble',
-						holds: 'Cerrada / Manos cruzadas → Caída',
+						holds: 'Cerrada or Manos cruzadas → Caída',
 						timing: 'Starts on 5 · 4 counts',
 						videos: 1
 					}
@@ -532,6 +552,120 @@ describe("the detail pages refuse the other dance's rows", () => {
 					{ id: groupOf(salsaFigureId2), name: 'Second salsa figure', variations: ['Basic'] }
 				]
 			});
+		});
+
+		it('Handholds: the figure’s own tags by their real ids, live ones only, a group’s it uses included', () => {
+			const T = 1_790_000_000_000;
+			const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
+			createTeam(db, 'u5', 'salsa', 'Rueda club', T);
+			joinTeam(db, 'u1', 1, T);
+			// u1's own Abierta and the group's are one family; the page links the group's real row.
+			addPosition(db, U1_SALSA, 'Abierta mía', { geneId: 'g-open' });
+			const theirOpen = addPosition(db, EVA, 'Abierta', { geneId: 'g-open' });
+			const F = createFigure(db, EVA, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(
+				db,
+				F,
+				{ startIds: [theirOpen], endIds: [], startCount: 1, lengthCounts: 8 },
+				'u5'
+			);
+			const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'W1', notes: null }).lesson
+				.id;
+			linkFigure(db, L, F, 'u5');
+			publishLesson(db, EVA, L, T);
+			addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+
+			const old = addPosition(db, U1_SALSA, 'Vieja');
+			const v = doble();
+			const closed = salsaPosition('closed').id;
+			const cross = salsaPosition('cross-hand').id;
+			expect(
+				setFigureShape(db, v.id, {
+					startIds: [cross, closed],
+					endIds: [theirOpen, old],
+					startCount: 1,
+					lengthCounts: 8
+				})
+			).toBe(true);
+			// An archived position is invisible but kept (ruling 4).
+			db.update(positions).set({ archivedAt: T }).where(eq(positions.id, old)).run();
+
+			const data = loadWith('salsa', String(v.id)) as {
+				handholds: { starts: { id: number; name: string }[]; ends: { id: number; name: string }[] };
+				siblings: { id: number; holds: string }[];
+			};
+			expect(data.handholds).toEqual({
+				starts: [
+					{ id: closed, name: 'Cerrada' },
+					{ id: cross, name: 'Manos cruzadas' }
+				],
+				ends: [{ id: theirOpen, name: 'Abierta' }]
+			});
+			expect(data.siblings.find((s) => s.id === v.id)?.holds).toBe(
+				'Cerrada or Manos cruzadas → Abierta'
+			);
+			// The untagged one: nothing on either side, which the page reads as "fits anywhere".
+			expect(
+				(
+					loadWith('salsa', String(salsaFigureId)) as {
+						handholds: { starts: unknown[]; ends: unknown[] };
+					}
+				).handholds
+			).toEqual({ starts: [], ends: [] });
+		});
+
+		it('Leads to and Follows from walk the viewer’s graph: a group’s position they use counts', () => {
+			const T = 1_790_000_000_000;
+			const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
+			createTeam(db, 'u5', 'salsa', 'Rueda club', T);
+			joinTeam(db, 'u1', 1, T);
+			// u1 has no member of the Abierta family: only the group's.
+			const theirOpen = addPosition(db, EVA, 'Abierta', { geneId: 'g-open' });
+			const F = createFigure(db, EVA, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(
+				db,
+				F,
+				{ startIds: [theirOpen], endIds: [], startCount: 1, lengthCounts: 8 },
+				'u5'
+			);
+			const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'W1', notes: null }).lesson
+				.id;
+			linkFigure(db, L, F, 'u5');
+			publishLesson(db, EVA, L, T);
+			addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+
+			const A = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'A', style: 'salsa' })!
+				.figure.id;
+			expect(
+				setFigureShape(db, A, {
+					startIds: [],
+					endIds: [theirOpen],
+					startCount: 1,
+					lengthCounts: 8
+				})
+			).toBe(true);
+			const B = createFigure(db, U1_SALSA, { ...figureInput, figureName: 'B', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(db, B, {
+				startIds: [salsaPosition('closed').id],
+				endIds: [],
+				startCount: 1,
+				lengthCounts: 8
+			});
+
+			type Linked = { leadsTo: { id: number; name: string }[]; followsFrom: { id: number }[] };
+			const a = loadWith('salsa', String(A)) as Linked;
+			const leads = a.leadsTo.map((x) => x.id);
+			// A ends in the group's Abierta: B (from Cerrada) cannot follow it…
+			expect(leads).not.toContain(B);
+			// …the group's figure starting there can, named; an untagged figure fits anywhere.
+			expect(a.leadsTo).toContainEqual({ id: F, name: 'Vacilala · Basic' });
+			expect(leads).toContain(salsaFigureId);
+			// The other way round: B's Follows from leaves A out.
+			const b = loadWith('salsa', String(B)) as Linked;
+			expect(b.followsFrom.map((x) => x.id)).not.toContain(A);
 		});
 
 		it('load lists the routines that use the variation', () => {
@@ -587,6 +721,148 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
 		});
 
+		const sorted = (ids: number[]) => [...ids].sort((x, y) => x - y);
+		type Choices = { title: string; entries: { value: number; label: string; meta?: string }[] }[];
+		const valuesIn = (groups: Choices) => groups.flatMap((g) => g.entries.map((e) => e.value));
+
+		it('update stores any number of starts and ends; none at all clears them', async () => {
+			const [a, b] = sorted([salsaPosition('closed').id, salsaPosition('caida').id]);
+			const c = salsaPosition('cross-hand').id;
+			const id = String(salsaFigureId);
+			expect(
+				await call(
+					figurePage.actions.update,
+					post('salsa', edit({ startIds: [String(c)], endIds: [String(b), String(a)] }), id)
+				)
+			).toEqual({ action: 'update', ok: true });
+			expect(figurePositions(db, salsaFigureId)).toEqual({ startIds: [c], endIds: [a, b] });
+			// The form shows every chosen one again.
+			expect(loadWith('salsa', id)).toMatchObject({ tags: { startIds: [c], endIds: [a, b] } });
+			// Two ends, one of them swapped: the other stays.
+			await call(
+				figurePage.actions.update,
+				post('salsa', edit({ startIds: [String(c)], endIds: [String(a), String(c)] }), id)
+			);
+			expect(figurePositions(db, salsaFigureId)).toEqual({
+				startIds: [c],
+				endIds: sorted([a, c])
+			});
+			// Nothing posted: no position on either side.
+			await call(figurePage.actions.update, post('salsa', edit({}), id));
+			expect(figurePositions(db, salsaFigureId)).toEqual({ startIds: [], endIds: [] });
+		});
+
+		it('a save keeps a tag to an archived position, which the picker never shows (ruling 4)', async () => {
+			const a = salsaPosition('closed').id;
+			const b = salsaPosition('caida').id;
+			const old = addPosition(db, U1_SALSA, 'Vieja');
+			const id = String(salsaFigureId);
+			setFigureShape(db, salsaFigureId, {
+				startIds: [old],
+				endIds: [a, old],
+				startCount: 1,
+				lengthCounts: 8
+			});
+			db.update(positions).set({ archivedAt: 5 }).where(eq(positions.id, old)).run();
+			const data = loadWith('salsa', id) as {
+				tags: { startIds: number[]; endIds: number[] };
+				positionChoices: Choices;
+			};
+			expect(data.tags).toEqual({ startIds: [], endIds: [a] });
+			expect(valuesIn(data.positionChoices)).not.toContain(old);
+			expect(valuesIn(data.positionChoices)).toContain(a);
+			await call(figurePage.actions.update, post('salsa', edit({ endIds: [String(b)] }), id));
+			expect(figurePositions(db, salsaFigureId)).toEqual({
+				startIds: [old],
+				endIds: sorted([b, old])
+			});
+		});
+
+		it('a person’s figure offers their positions by type, the figure’s first, then a group’s they may use', async () => {
+			const T = 1_790_000_000_000;
+			const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
+			createTeam(db, 'u5', 'salsa', 'Rueda club', T);
+			joinTeam(db, 'u1', 1, T);
+			// The group's Abierta is one family with u1's own: a copy of theirs hides it.
+			addPosition(db, U1_SALSA, 'Abierta mía', { geneId: 'g-open' });
+			const theirOpen = addPosition(db, EVA, 'Abierta', { geneId: 'g-open' });
+			const hammer = addPosition(db, EVA, 'Hammerlock');
+			db.update(positions).set({ styleTag: 'salsa' }).where(eq(positions.id, hammer)).run();
+			const closed = salsaPosition('closed').id;
+			db.update(positions)
+				.set({ styleTag: 'salsa', hands: 'two', frame: 'closed' })
+				.where(eq(positions.id, closed))
+				.run();
+			const F = createFigure(db, EVA, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(
+				db,
+				F,
+				{ startIds: [theirOpen], endIds: [hammer], startCount: 1, lengthCounts: 8 },
+				'u5'
+			);
+			const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'W1', notes: null }).lesson
+				.id;
+			linkFigure(db, L, F, 'u5');
+			publishLesson(db, EVA, L, T);
+			addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+
+			const id = String(salsaFigureId);
+			const before = (loadWith('salsa', id) as { positionChoices: Choices }).positionChoices;
+			expect(before.map((g) => g.title)).toEqual([
+				'Salsa · this figure’s type',
+				'Other',
+				'Rueda club’s'
+			]);
+			expect(before[0].entries).toEqual([
+				{ key: `position:${closed}`, value: closed, label: 'Cerrada', meta: 'Two hands · closed' }
+			]);
+			expect(before[2].entries).toEqual([
+				{
+					key: `position:${hammer}`,
+					value: hammer,
+					label: 'Hammerlock',
+					meta: 'Salsa · tag with it as it is'
+				}
+			]);
+			// Nobody else's, no group figure's own rows beyond what u1 may use.
+			expect(valuesIn(before)).not.toContain(theirOpen);
+
+			// Tagged with both of the group's: saved, and the chosen one is offered even though hidden.
+			expect(
+				await call(
+					figurePage.actions.update,
+					post('salsa', edit({ endIds: [String(theirOpen), String(hammer)] }), id)
+				)
+			).toEqual({ action: 'update', ok: true });
+			expect(figurePositions(db, salsaFigureId).endIds).toEqual(sorted([theirOpen, hammer]));
+			const after = loadWith('salsa', id) as { positionChoices: Choices; tags: unknown };
+			expect(after.tags).toEqual({ startIds: [], endIds: sorted([theirOpen, hammer]) });
+			expect(after.positionChoices.find((g) => g.title === 'Rueda club’s')!.entries).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ value: theirOpen, label: 'Abierta' }),
+					expect.objectContaining({ value: hammer })
+				])
+			);
+		});
+
+		it('a group’s figure offers only the group’s positions', () => {
+			const T = 1_790_000_000_000;
+			createTeam(db, 'u1', 'salsa', 'Rueda club', T);
+			const GROUP = { teamId: 1, actorId: 'u1', dance: 'salsa' } as const;
+			const theirs = addPosition(db, GROUP, 'Cerrada');
+			const F = createFigure(db, GROUP, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			const data = loadWith('salsa', String(F)) as { positionChoices: Choices; canEdit: boolean };
+			expect(data.canEdit).toBe(true);
+			expect(data.positionChoices).toEqual([
+				{
+					title: 'Other',
+					entries: [{ key: `position:${theirs}`, value: theirs, label: 'Cerrada' }]
+				}
+			]);
+		});
+
 		it('update refuses a taken figure name', async () => {
 			const result = await call(
 				figurePage.actions.update,
@@ -627,7 +903,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 			const caida = salsaPosition('caida').id;
 			setFigureShape(db, salsaFigureId, {
 				startIds: [cross],
-				endId: caida,
+				endIds: [caida],
 				startCount: 5,
 				lengthCounts: 4
 			});
@@ -639,13 +915,8 @@ describe("the detail pages refuse the other dance's rows", () => {
 			);
 			const [, made] = listGroupVariations(db, groupOf(salsaFigureId));
 			expect(thrown).toMatchObject({ status: 303, location: `/salsa/figures/${made.id}` });
-			expect([made.name, made.startCount, made.lengthCounts, made.endPositionId]).toEqual([
-				'Doble',
-				5,
-				4,
-				caida
-			]);
-			expect(figurePositions(db, made.id).startIds).toEqual([cross]);
+			expect([made.name, made.startCount, made.lengthCounts]).toEqual(['Doble', 5, 4]);
+			expect(figurePositions(db, made.id)).toEqual({ startIds: [cross], endIds: [caida] });
 		});
 
 		it('createVariation refuses a taken name', async () => {
@@ -876,8 +1147,8 @@ describe("the detail pages refuse the other dance's rows", () => {
 		it('newVariation links a blank variation to the lesson', async () => {
 			const basico = groupOf(bachataFigureId);
 			setFigureShape(db, bachataFigureId, {
-				startIds: [listPositions(db, 'bachata')[0].id],
-				endId: listPositions(db, 'bachata')[1].id,
+				startIds: [listPositions(db, U1_BACHATA)[0].id],
+				endIds: [listPositions(db, U1_BACHATA)[1].id],
 				startCount: 5,
 				lengthCounts: 4
 			});
@@ -894,10 +1165,9 @@ describe("the detail pages refuse the other dance's rows", () => {
 				styleTag: 'sensual',
 				notes: 'Spin',
 				startCount: 1,
-				lengthCounts: 8,
-				endPositionId: null
+				lengthCounts: 8
 			});
-			expect(figurePositions(db, made.id).startIds).toEqual([]);
+			expect(figurePositions(db, made.id)).toEqual({ startIds: [], endIds: [] });
 			expect(getLesson(db, bachataLessonId, 'u1')!.figures.map((f) => [f.id, f.name])).toEqual([
 				[made.id, 'Basico · Doble']
 			]);
@@ -1032,41 +1302,6 @@ describe("the detail pages refuse the other dance's rows", () => {
 	it('still retries from its own dance', async () => {
 		await call(songListActions.retry, post('bachata', { id: String(bachataSongId) }));
 		expect(getSong(db, bachataSongId)?.status).toBe('waiting_download');
-	});
-});
-
-describe("the positions page refuses the other dance's rows", () => {
-	it('will not rename a bachata position from a salsa URL', async () => {
-		const shadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
-		await refuses(
-			positionsPage.actions.rename,
-			post('salsa', { id: String(shadow.id), name: 'Hijacked' })
-		);
-		expect(getPosition(db, shadow.id)?.name).toBe('Shadow');
-	});
-
-	it('will not archive a bachata position from a salsa URL', async () => {
-		const shadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
-		await refuses(positionsPage.actions.archive, post('salsa', { id: String(shadow.id) }));
-		expect(getPosition(db, shadow.id)?.archivedAt).toBeNull();
-	});
-
-	// Same-dance, unlike the two tests above: this guard is `archivePosition`'s
-	// own refusal of the neutral row (src/lib/server/positions.ts), not the
-	// dance wall — so it returns a `fail(400)` rather than throwing a 404, and
-	// is asserted by calling the action directly, the way the "guard leaves the
-	// friendly failures alone" block below does for `archiveExercise`.
-	it('refuses to archive the neutral position, with the message that explains why', async () => {
-		const neutral = listPositions(db, 'salsa').find((p) => p.neutral)!;
-		const res = (await call(
-			positionsPage.actions.archive,
-			post('salsa', { id: String(neutral.id) })
-		)) as { status: number; data: { message: string } };
-		expect(res.status).toBe(400);
-		expect(res.data.message).toContain('The neutral position cannot be removed');
-		const row = getPosition(db, neutral.id);
-		expect(row?.archivedAt).toBeNull();
-		expect(row?.neutral).toBe(true);
 	});
 });
 

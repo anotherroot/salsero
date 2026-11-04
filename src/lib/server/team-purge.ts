@@ -23,11 +23,13 @@ import {
 	lessons,
 	lessonVideos,
 	links,
+	positions,
 	recordings,
 	routines,
 	songDrops,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	teamMembers,
 	teams,
 	teamTrash,
@@ -47,10 +49,10 @@ const dueToPurge = (now: number) =>
 
 /**
  * One group's rows, in one transaction with one `now`: the media rows go
- * (videos, recordings, their spots and section links, links and saves in
- * flight; songs, their drops, and every entry's pick of one, which falls back
- * to count-only); the group's lessons, figures, variations, routines and drills are
- * archived, and so is every live entry pointing at them; its trash is marked
+ * (videos, recordings, their spots, their section and position links, links
+ * and saves in flight; songs, their drops, and every entry's pick of one, which falls back
+ * to count-only); the group's lessons, figures, variations, routines, drills and positions
+ * are archived (their hand links and tags stay, as rows do), and so is every live entry pointing at them; its trash is marked
  * purged; `purged_at` is set; its members and the lessons people added go.
  * People's sets are never touched. Returns the files to delete, or null when
  * another run got there first or the group was restored since it was listed.
@@ -101,6 +103,11 @@ function purgeRows(db: Db, teamId: number, now: number): TrashFile[] | null {
 				or(inArray(videoSpots.lessonVideoId, videoIds), inArray(videoSpots.recordingId, recIds))
 			);
 		tx.delete(spotLinks).where(inArray(spotLinks.spotId, spotIds)).run();
+		tx.delete(spotPositionLinks).where(inArray(spotPositionLinks.spotId, spotIds)).run();
+		tx.update(positions)
+			.set({ pictureSpotId: null })
+			.where(inArray(positions.pictureSpotId, spotIds))
+			.run();
 		tx.delete(videoSpots)
 			.where(
 				or(inArray(videoSpots.lessonVideoId, videoIds), inArray(videoSpots.recordingId, recIds))
@@ -161,6 +168,7 @@ function purgeRows(db: Db, teamId: number, now: number): TrashFile[] | null {
 		tx.update(figures).set({ archivedAt: now }).where(live(figures)).run();
 		tx.update(routines).set({ archivedAt: now }).where(live(routines)).run();
 		tx.update(exercises).set({ archivedAt: now }).where(live(exercises)).run();
+		tx.update(positions).set({ archivedAt: now }).where(live(positions)).run();
 
 		const trashed = tx
 			.update(teamTrash)

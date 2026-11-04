@@ -1,14 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { usableOf } from './usable';
+import { usableBy, usableOf, usablePositions } from './usable';
 import { addRecording, createFigure } from './figures';
 import { createTeam, joinTeam } from './teams';
 import { archiveLesson, createLesson, linkFigure, linkRoutine, publishLesson } from './lessons';
 import { addLesson, removeLesson } from './entries';
 import { addChildSlot, addFigureSlot, createRoutine, createRoutineFromFigures } from './routines';
-import { T1_SALSA, U2_SALSA } from './test-walls';
+import { NO_FILES, T1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
-import { lessonFigures, spotLinks } from './db/schema';
+import {
+	figureEndPositions,
+	figureStartPositions,
+	lessonFigures,
+	lessonPositions,
+	positions,
+	spotLinks,
+	spotPositionLinks
+} from './db/schema';
+import { eq } from 'drizzle-orm';
+import { addPosition } from './test-positions';
+import { leaveTeam } from './membership';
 import { addSpot } from './spots';
 import { crossRefs } from './integrity';
 
@@ -125,5 +136,116 @@ describe('usableOf', () => {
 		// Written directly: linking a group's figure from one's own section is Task 14's.
 		db.insert(spotLinks).values({ spotId: spot.id, figureId: H }).run();
 		expect(usableOf(db, U2_SALSA).figures.has(H)).toBe(true);
+	});
+});
+
+describe('usable positions (ruling 12)', () => {
+	/**
+	 * Group positions: `onF` tags F (in L), `byHand` is linked from L by hand,
+	 * `onH` tags H (in L2, which u2 reads but never added), `onDraft` tags a
+	 * figure only a draft lesson holds.
+	 */
+	function withPositions() {
+		const s = setup();
+		const { db, F, H, L } = s;
+		const onF = addPosition(db, T1_SALSA, 'Abierta');
+		const byHand = addPosition(db, T1_SALSA, 'Sombra');
+		const onH = addPosition(db, T1_SALSA, 'Cerrada');
+		const onDraft = addPosition(db, T1_SALSA, 'Setenta');
+		const D = fig(db, T1_SALSA, 'Draft only');
+		db.insert(figureStartPositions)
+			.values([
+				{ figureId: F, positionId: onF },
+				{ figureId: H, positionId: onH },
+				{ figureId: D, positionId: onDraft }
+			])
+			.run();
+		db.insert(lessonPositions).values({ lessonId: L, positionId: byHand }).run();
+		return { ...s, onF, byHand, onH, onDraft, D };
+	}
+	const sorted = (ids: Iterable<number>) => [...ids].sort((a, b) => a - b);
+
+	it('holds the positions an added lesson reaches: its figures’ tags and its hand links', () => {
+		const { db, L, onF, byHand } = withPositions();
+		expect(addLesson(db, 'u2', L, NONE, T)).toBe(true);
+		expect(sorted(usableOf(db, U2_SALSA).positions)).toEqual(sorted([onF, byHand]));
+	});
+
+	it('holds nothing of a lesson the person did not add', () => {
+		const { db } = withPositions();
+		expect(usableOf(db, U2_SALSA).positions.size).toBe(0);
+	});
+
+	it('keeps a group position the person’s own figure already ends in, while they are a member', async () => {
+		const { db, onH } = withPositions();
+		const mine = fig(db, U2_SALSA, 'Mine');
+		// Written directly: u2 reads onH (L2 is published) but never added L2.
+		db.insert(figureEndPositions).values({ figureId: mine, positionId: onH }).run();
+		expect([...usableOf(db, U2_SALSA).positions]).toEqual([onH]);
+		expect(crossRefs(db)).toEqual([]);
+		expect(await leaveTeam(db, 1, 'u2', { mode: 'all' }, NO_FILES, T + 1)).toBe('left');
+		expect(usableOf(db, U2_SALSA).positions.has(onH)).toBe(false);
+	});
+
+	it('keeps what the person’s own lesson and section link by hand', () => {
+		const { db, onH, byHand } = withPositions();
+		const lesson = createLesson(db, U2_SALSA, {
+			lessonDay: '2026-11-03',
+			title: 'My notes',
+			notes: null
+		}).lesson.id;
+		db.insert(lessonPositions).values({ lessonId: lesson, positionId: byHand }).run();
+		const mine = fig(db, U2_SALSA, 'Mine');
+		const rec = addRecording(db, {
+			figureId: mine,
+			file: 'a.mp4',
+			mime: 'video/mp4',
+			kind: 'video',
+			sizeBytes: 1,
+			note: null
+		});
+		const spot = addSpot(db, { recordingId: rec.id }, { startMs: 0, endMs: 1000, label: null })!;
+		db.insert(spotPositionLinks).values({ spotId: spot.id, positionId: onH }).run();
+		expect(sorted(usableOf(db, U2_SALSA).positions)).toEqual(sorted([byHand, onH]));
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('never holds what the person does not read, even when their row points at it', () => {
+		const { db, onDraft } = withPositions();
+		const mine = fig(db, U2_SALSA, 'Mine');
+		db.insert(figureStartPositions).values({ figureId: mine, positionId: onDraft }).run();
+		expect(usableOf(db, U2_SALSA).positions.has(onDraft)).toBe(false);
+		expect(crossRefs(db)).toEqual([
+			`figures ${mine}: start position ${onDraft} is group 1's, which u2 does not read`
+		]);
+	});
+
+	it('holds the positions a figure the person’s routine uses is tagged with', () => {
+		const { db, H, L2, onH } = withPositions();
+		expect(addLesson(db, 'u2', L2, NONE, T)).toBe(true);
+		const R = createRoutine(db, U2_SALSA, { name: 'Mine', notes: null }).routine.id;
+		expect(addFigureSlot(db, R, H)).not.toBeNull();
+		expect(removeLesson(db, 'u2', L2, T + 1)).toBe(true);
+		// H stays usable through the slot, and so does what it is tagged with.
+		expect(usableOf(db, U2_SALSA).positions.has(onH)).toBe(true);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('usablePositions lists them live, with their group, by name', () => {
+		const { db, L, onF, byHand } = withPositions();
+		addLesson(db, 'u2', L, NONE, T);
+		const listed = usablePositions(db, U2_SALSA);
+		expect(listed.map((p) => p.id)).toEqual([onF, byHand]);
+		expect(listed[0]).toMatchObject({ name: 'Abierta', team: { id: 1, name: 'Salsa Tuesdays' } });
+		expect(usablePositions(db, { userId: 'u2', dance: 'bachata' })).toEqual([]);
+	});
+
+	it('usableBy answers for positions as for the other kinds', () => {
+		const { db, L, onF, onDraft } = withPositions();
+		addLesson(db, 'u2', L, NONE, T);
+		const row = (id: number) => db.select().from(positions).where(eq(positions.id, id)).get()!;
+		expect(usableBy(db, U2_SALSA, 'positions', row(onF))).toBe(true);
+		expect(usableBy(db, U2_SALSA, 'positions', row(onDraft))).toBe(false);
+		expect(usableBy(db, T1_SALSA, 'positions', row(onF))).toBe(false);
 	});
 });

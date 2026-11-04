@@ -42,7 +42,9 @@ describe('groups on the admin page', () => {
 				deleted: false
 			})
 		).toBe('Ana Kranjc · 3 people · 120 MB of 600 MB');
-		expect(groupsMadeLine(1, 2)).toBe('1 group made · limit 2');
+		expect(groupsMadeLine({ salsa: 2, bachata: 0 }, 2)).toBe(
+			'Groups made: Salsa 2, Bachata 0 · limit 2 per dance'
+		);
 		expect(requestTitle({ email: 'a@x.si', teamName: null })).toBe('a@x.si');
 		expect(requestTitle({ email: 'a@x.si', teamName: 'Class' })).toBe('Class · a@x.si');
 	});

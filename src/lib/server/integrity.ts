@@ -3,7 +3,15 @@ import type { Db } from './db';
 import { teamReader, type ReadKind } from './access';
 
 /** Root tables owned by exactly one of a person (`user_id`) or a team (`team_id`). */
-const ROOTS = ['figure_groups', 'figures', 'routines', 'exercises', 'lessons', 'songs'] as const;
+const ROOTS = [
+	'figure_groups',
+	'figures',
+	'routines',
+	'exercises',
+	'lessons',
+	'songs',
+	'positions'
+] as const;
 
 /**
  * What is wrong with who owns what, one line each. Empty when whole. Called at
@@ -105,11 +113,24 @@ const TARGET: Record<ReadKind, string> = {
 	figure: 'figures',
 	routine: 'routines',
 	drill: 'exercises',
-	lesson: 'lessons'
+	lesson: 'lessons',
+	position: 'positions'
 };
 
 const ROUTINE_OWNER = { oid: 'r.id', ou: 'r.user_id', oteam: 'r.team_id' };
 const LESSON_OWNER = { oid: 'l.id', ou: 'l.user_id', oteam: 'l.team_id' };
+const FIGURE_OWNER = { oid: 'f.id', ou: 'f.user_id', oteam: 'f.team_id' };
+
+/** A spot's owner is its video's: a recording's variation, or a lesson. */
+const SPOT_OWNER = {
+	ou: 'coalesce(rf.user_id, vl.user_id)',
+	oteam: 'coalesce(rf.team_id, vl.team_id)'
+};
+const spotFrom = (table: string) => `${table} x join video_spots v on v.id = x.spot_id
+	       left join recordings rec on rec.id = v.recording_id
+	       left join figures rf on rf.id = rec.figure_id
+	       left join lesson_videos lv on lv.id = v.lesson_video_id
+	       left join lessons vl on vl.id = lv.lesson_id`;
 
 const REFS: RefQuery[] = [
 	{
@@ -129,21 +150,47 @@ const REFS: RefQuery[] = [
 		from: 'routine_steps x join routines r on r.id = x.routine_id',
 		tid: 'x.child_routine_id'
 	},
-	// A section's owner is its video's: a recording's variation, or a lesson.
 	...(['figure', 'drill'] as const).map((tk): RefQuery => ({
 		ot: 'spot_links',
 		via: `linked ${tk}`,
 		tk,
 		oid: 'x.id',
-		ou: 'coalesce(rf.user_id, vl.user_id)',
-		oteam: 'coalesce(rf.team_id, vl.team_id)',
-		from: `spot_links x join video_spots v on v.id = x.spot_id
-			       left join recordings rec on rec.id = v.recording_id
-			       left join figures rf on rf.id = rec.figure_id
-			       left join lesson_videos lv on lv.id = v.lesson_video_id
-			       left join lessons vl on vl.id = lv.lesson_id`,
+		...SPOT_OWNER,
+		from: spotFrom('spot_links'),
 		tid: tk === 'figure' ? 'x.figure_id' : 'x.exercise_id'
 	})),
+	{
+		ot: 'spot_position_links',
+		via: 'linked position',
+		tk: 'position',
+		oid: 'x.id',
+		...SPOT_OWNER,
+		from: spotFrom('spot_position_links'),
+		tid: 'x.position_id'
+	},
+	// A figure's tags: a group's figure only with its group's positions, a
+	// person's with their own or the group positions they read (ruling 15).
+	...(
+		[
+			['start', 'figure_start_positions'],
+			['end', 'figure_end_positions']
+		] as const
+	).map(([side, table]): RefQuery => ({
+		ot: 'figures',
+		via: `${side} position`,
+		tk: 'position',
+		...FIGURE_OWNER,
+		from: `${table} x join figures f on f.id = x.figure_id`,
+		tid: 'x.position_id'
+	})),
+	{
+		ot: 'lessons',
+		via: 'linked position',
+		tk: 'position',
+		...LESSON_OWNER,
+		from: 'lesson_positions x join lessons l on l.id = x.lesson_id',
+		tid: 'x.position_id'
+	},
 	...(
 		[
 			['figure', 'lesson_figures', 'figure_id'],
@@ -195,10 +242,13 @@ type RefRow = {
  * logs it.
  *
  * - A group's row pointing outside its group (a slot option, an embed, a
- *   section link from a group's video, a group lesson's hand link):
+ *   section link from a group's video, a group lesson's hand link, a group
+ *   figure's start or end position, a position link of a group's lesson,
+ *   section or point):
  *   "routines 4: option figure 9 is outside group 2".
  * - A person's row (their routines' slots and embeds, the section links on
- *   their videos, their lessons' hand links, their live entries' targets)
+ *   their videos, their lessons' hand links, their live entries' targets,
+ *   their figures' positions and their position links)
  *   pointing at a group row they do not read:
  *   "routines 5: embedded routine 7 is group 2's, which u2 does not read";
  *   or at another person's row: "lessons 3: linked figure 8 is another person's".

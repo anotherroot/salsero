@@ -11,7 +11,7 @@
  * spec.
  */
 
-import { segmentOf, type MovesSegment } from '$lib/moves/segment';
+import { SEGMENT_ROUTE, segmentOf, type MovesSegment } from '$lib/moves/segment';
 
 export type Skeleton =
 	| { kind: 'today' }
@@ -21,7 +21,7 @@ export type Skeleton =
 	| { kind: 'figure' }
 	/** A routine's page: the band, the Practise hero, the facts, then the slot cards. */
 	| { kind: 'routine' }
-	/** Figures and Routines: the band with its segmented switch, then that segment's list. */
+	/** Figures, Routines and Positions: the band with its segmented switch, then that segment's list. */
 	| { kind: 'moves'; segment: MovesSegment };
 
 /**
@@ -34,7 +34,7 @@ const LISTS: Record<string, string> = {
 	'/[dance]/lessons': 'Lessons',
 	'/[dance]/songs': 'Music',
 	'/[dance]/coverage': 'Coverage',
-	'/[dance]/positions': 'Positions',
+	'/[dance]/positions/none': 'No position',
 	'/settings': 'Settings',
 	'/voice': 'My count'
 };
@@ -43,7 +43,9 @@ const DETAILS = new Set([
 	'/[dance]/lessons/[id]',
 	'/[dance]/songs/[id]',
 	'/[dance]/exercises/[id]',
-	'/[dance]/player'
+	'/[dance]/player',
+	'/[dance]/positions/[id]',
+	'/[dance]/positions/map'
 ]);
 
 /**
@@ -54,8 +56,9 @@ const DETAILS = new Set([
 export function skeletonFor(routeId: string | null | undefined): Skeleton | null {
 	if (!routeId) return null;
 	if (routeId === '/[dance]') return { kind: 'today' };
+	// Only a segment's own list draws the Moves band; the pages under Positions have their own.
 	const segment = segmentOf(routeId);
-	if (segment) return { kind: 'moves', segment };
+	if (segment && SEGMENT_ROUTE[segment] === routeId) return { kind: 'moves', segment };
 	const title = LISTS[routeId];
 	if (title) return { kind: 'list', title };
 	if (routeId === '/[dance]/figures/[id]') return { kind: 'figure' };

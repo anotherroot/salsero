@@ -179,7 +179,7 @@ figures
   style           'salsa' | 'son' | 'other'   default 'salsa'
   callable        boolean default true        -- VESTIGIAL: the random drill's pool, removed 2026-09-30
   call_text       text, nullable              -- VESTIGIAL: a spoken override, removed with the drill
-  end_position_id fk positions, nullable       -- phase 3a; null means the dance's neutral position
+  end_position_id fk positions, nullable       -- VESTIGIAL since positions (2026-11-04): ends are figure_end_positions
   eights          integer not null default 1  -- phase 3a; how many 8-counts the figure takes
   archived_at     timestamp, nullable
   created_at      timestamp
@@ -237,25 +237,41 @@ lesson_figures     (lesson_id, figure_id) pk, created_at      -- phase 4
 lesson_routines    (lesson_id, routine_id) pk, created_at     -- phase 4
 lesson_exercises   (lesson_id, exercise_id) pk, created_at    -- phase 4
 
-positions                                      -- phase 3a; the handhold vocabulary
+positions                                      -- phase 3a; owned since 2026-11-04 (positions spec)
   id              integer pk
   dance           text not null default 'salsa'
-  slug            text not null                -- stable seed identity; never shown
+  user_id, team_id                             -- exactly one set, as on every root table
+  gene_id, cloned_from                         -- families, as on figures (unique per owner)
+  slug            text not null                -- VESTIGIAL; new rows 'p-' + uuid, not unique
   name            text not null                -- shown; renameable
-  neutral         boolean not null default false  -- exactly one per dance
-  sort_order      integer not null default 0
+  style_tag       text, nullable               -- the type, one of the dance's styles
+  hands           'two' | 'one' | 'none', nullable  -- the hold, each part nullable
+  crossed         boolean, nullable
+  facing          'face' | 'side' | 'shadow' | 'back', nullable
+  frame           'open' | 'closed', nullable
+  notes           text, nullable
+  picture_spot_id integer, nullable            -- a linked point used as its picture
+  neutral         boolean not null default false  -- VESTIGIAL: the neutral position went
+  sort_order      integer not null default 0   -- VESTIGIAL: lists sort by type, then name
   archived_at     timestamp, nullable
   created_at      timestamp
-  unique (dance, slug)
-  -- names are unique per dance among LIVE rows, compared ignoring accents and
-  -- case (checked in the data function, not a constraint); Undo of a remove
-  -- refuses when another live position took the name
+  -- names are unique per OWNER among LIVE rows, compared ignoring accents and
+  -- case (checked in the data function, not a constraint); a restore refuses
+  -- when another live position took the name. Archived, never deleted
 
 figure_start_positions                         -- phase 3a; handholds a figure can START from
   figure_id       fk figures
   position_id     fk positions                 -- indexed
   created_at      timestamp
   primary key (figure_id, position_id)
+
+figure_end_positions                           -- positions; handholds a figure can END in
+  (figure_id, position_id) pk, created_at      -- any number; indexed by position
+
+lesson_positions   (lesson_id, position_id) pk, created_at    -- positions; a lesson's hand links
+spot_position_links                            -- positions; a section or point linked to a position
+  id pk, spot_id fk video_spots, position_id fk positions, created_at
+  unique (spot_id, position_id)                -- a hard delete on unlink; a group's to team_trash
 
 exercises
   + practice_json text, nullable                -- exercise types; the panel's remembered
@@ -351,13 +367,28 @@ The home page. One page serves both "exercises" and "today".
 
 ## Figures
 
-- **List:** figures under their move's heading (a move's page at `/[dance]/moves/[id]`); search box, filter chips (style, partner/solo, Not linked), tiles to
-  Positions and Coverage with their counts. Archived hidden. See the
+- **List:** figures under their move's heading (a move's page at `/[dance]/moves/[id]`); search box, filter chips (style, partner/solo, Not linked), a tile to
+  Coverage with its count. Archived hidden. See the
   [redesign](2026-10-31-redesign-design.md), Moves.
-- **Positions:** `/[dance]/positions` is the gap report. A position is renamed
-  and removed in a sheet (never the neutral); a remove toasts with Undo.
-  Position names are unique per dance among live positions, compared ignoring
-  accents and case.
+- **Positions:** Moves' third segment, `/[dance]/positions`: how many figures
+  have positions, Templates and How positions work, search, a chip per type
+  and Gaps, No position, the map, then Yours and each group's. Positions are
+  owned like figures (a person's or a group's, with copies, Make it mine and
+  twins); a name is unique among the space's live positions, ignoring accents
+  and case. See the [positions spec](2026-11-04-positions-design.md).
+- **Positions and the graph:** positions are **optional**. Nobody starts with
+  any, and a figure without one fits anywhere: no start positions, it can
+  follow anything; no end positions, anything can follow it (`meet` in
+  `src/lib/graph/graph.ts`, the one rule). There is no neutral position. A
+  figure starts in any number of positions and ends in any number; the next
+  figure fits when one of its starts is one of this one's ends, or either side
+  has none. A slot's alternatives share the same set of ends. The graph
+  compares positions by **family** (`gene_id`, else the row id), so a
+  person's figures and the group figures they use meet on the same hold
+  across owners, and a person's twinned positions (Same as…) are one hold in
+  their graph: fit, breaks, loops, coverage, the player's plan, Leads to /
+  Follows from, the gap report and the map all read them as one. The gap
+  report is dead ends, orphans and islands (cut off from the main part).
 - **New figure's style:** pre-selected from the user's pick in Settings
   ("New figures", one per dance, stored in `default_styles`), else the
   registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored
@@ -365,8 +396,9 @@ The home page. One page serves both "exercises" and "today".
   "New figure in a move" pre-selects it too; a copy keeps its source's.
   Songs still start on the dance's first style.
 - **Detail:** name, partner/solo, style, notes, recordings (inline video/audio
-  players), link to its exercise, "Log set" shortcut. Phase 3a: start/end
-  position tags, "Follows from" / "Leads to". In routines · N: the live routines that call this
+  players), link to its exercise, "Log set" shortcut. Starts in and Ends in
+  (any number each, links to the positions' pages; none reads "No position ·
+  fits anywhere"), "Follows from" / "Leads to". In routines · N: the live routines that call this
   figure, by slot (`routinesUsing`), each opening the routine.
 - **Coverage:** `/[dance]/coverage` lists every figure version by how many
   routines can call it, and makes a routine from a selection (Select; picks numbered in tap order). See
@@ -588,8 +620,8 @@ No DB, no DOM, no `Date.now()` inside — `now` is always an argument.
 | `src/lib/urgency/`       | `(exercises, sets, now, tz) → { doneToday[], due[], upcoming[], inactive[] }` with urgency and "last done" per row.                                                                               |
 | `src/lib/beatgrid/` (2)  | Beats + downbeats + corrections → count (1–8) and 8-count index at any song time; synthetic grid for count-only.                                                                       |
 | `src/lib/scheduler/` (2) | Plan + grid + toggles + time window → list of `{at, clip}` events. The only impure part is a thin `attach.ts` that owns the `AudioContext`.                                            |
-| `src/lib/graph/` (3a)    | Positions → which figures can follow which, and the gap report (`positionCounts`). See the routines design.                                                                      |
-| `src/lib/routines/` (3b) | Slot algebra (union starts, shared end, one-level embedding) and `routinePlan`: a routine → the same `PlanStep[]` `extendPlan` produces. See the routines design.                    |
+| `src/lib/graph/` (3a)    | Positions → which figures can follow which (`meet`: an empty side fits anything; positions by family), and the gap report (`positionCounts`). See the positions spec.                                                                      |
+| `src/lib/routines/` (3b) | Slot algebra (union starts, a shared set of ends, one-level embedding) and `routinePlan`: a routine → the same `PlanStep[]` `extendPlan` produces. See the routines design.                    |
 
 ## Unsaved changes
 

@@ -23,6 +23,23 @@
 > its field (`{ message, field }` from POST /api/video-spots/[id]/links) and
 > shows under it.
 >
+> **Updated 2026-11-04 (positions,
+> [`2026-11-04-positions-design.md`](2026-11-04-positions-design.md)):** a
+> section links figures, drills and positions ("Link a figure, drill or
+> position…", a Positions group after Drills, a Position create step: name and
+> type); a point links positions only ("Link a position…", Position its only
+> create). A position link is a row of `spot_position_links`, so its unlink
+> says so (`DELETE …/links/[linkId]?kind=position`): its id may equal a
+> variation link's. In the full-screen player a section's popup offers "Use
+> this moment as a point" on its bottom level: a point at the playhead, saved
+> through the spots API, and the popup moves onto it. The bottom level is the
+> links list, or the picker's top level when a section with no links opens
+> straight into the picker (otherwise an unlinked section could never reach
+> it); never on a point, and nowhere without a playhead (`momentAt` in
+> `src/lib/video/link-steps.ts`). The point it makes links positions only.
+> In a group, unlinking a position goes to Recently deleted (kind
+> `'position-link'`), as a section link's unlink does.
+>
 > Mockup: `.superpowers/brainstorm/3008515-1793306080/content/section-create-v3.html`
 > (local, not committed; open it in a browser). Rows A and B are the design.
 

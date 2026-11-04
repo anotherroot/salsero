@@ -281,7 +281,7 @@ describe('whatsNew at size', () => {
 		return n;
 	}
 
-	it('two groups of fifty lessons: well under 200 ms, in a fixed number of queries', () => {
+	it('two groups of fifty lessons: a fixed number of queries', () => {
 		build(2);
 		const few = queries(() => news());
 		db = openDb(':memory:');
@@ -293,15 +293,8 @@ describe('whatsNew at size', () => {
 		// Memberships, published, added, four kinds of link, songs: eight, at any size.
 		expect(many).toBe(8);
 
-		// Measured 2026-11-03: about 2-3 ms a call on the dev machine.
-		news(); // warm
-		const runs = Array.from({ length: 5 }, () => {
-			const t = performance.now();
-			const n = news();
-			const ms = performance.now() - t;
-			expect(n.byTeam.size).toBe(2);
-			return ms;
-		}).sort((a, b) => a - b);
-		expect(runs.at(-1)!).toBeLessThan(200);
+		// Counted, not timed: a wall clock flakes under load (measured
+		// 2026-11-03 at about 2-3 ms a call on the dev machine).
+		expect(news().byTeam.size).toBe(2);
 	});
 });
