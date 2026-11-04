@@ -44,13 +44,18 @@ export function diskSubtitle(bytes: number): string | undefined {
 	return bytes > 0 ? `Videos on disk: ${byteSize(bytes)}` : undefined;
 }
 
-/** A group's lessons in group mode: the editors' drafts apart, then the published ones. */
+/**
+ * A group's lessons in group mode: the editors' drafts apart, then the published ones.
+ * Only a group's lesson is ever a draft; a person's own has no publish (its
+ * `publishedAt` is null too), as a song's draft is a group song not yet shared.
+ */
 export function splitDrafts<T extends LessonItem & { publishedAt?: number | null }>(
 	lessons: T[]
 ): { drafts: T[]; published: T[] } {
+	const draft = (l: T) => l.team !== null && l.publishedAt === null;
 	return {
-		drafts: lessons.filter((l) => l.publishedAt === null),
-		published: lessons.filter((l) => l.publishedAt !== null)
+		drafts: lessons.filter(draft),
+		published: lessons.filter((l) => !draft(l))
 	};
 }
 
