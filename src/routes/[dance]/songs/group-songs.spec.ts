@@ -40,7 +40,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { users } from '$lib/server/db/schema';
 import { archiveSong, getSong } from '$lib/server/songs';
-import { ARCHIVED_COPY } from '$lib/server/copy-song';
+import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
 import { songSeen } from '$lib/server/clash';
 import { history } from '$lib/server/changes';
 import { groupCookie } from '$lib/teams/mode';
@@ -209,7 +209,7 @@ type SongPage = {
 	sharedAt: number | null;
 	users: number;
 	seen: unknown;
-	copy: { bytes: number } | null;
+	makeMine: { label: string; team: string; bytes: number } | null;
 	historyHref: string | null;
 };
 const songPageAs = (as: string, id: number) =>
@@ -315,8 +315,18 @@ describe('a group song’s page', () => {
 		expect(history(db, 1, 'song', c.draft)[0].verb).toBe('delete');
 	});
 
-	it('Make my own copy makes a personal song and opens it', async () => {
-		const done = (await act(songPage.actions.copy, ev('u3', c.shared))) as {
+	it('a member’s Edit offers Make it mine; an editor’s does not', () => {
+		expect(songPageAs('u3', c.shared).makeMine).toMatchObject({
+			label: 'Chan Chan',
+			team: 'Salsa Tuesdays',
+			bytes: 1000
+		});
+		expect(songPageAs('u2', c.shared).makeMine).toBeNull();
+		expect(songPage.actions).not.toHaveProperty('copy');
+	});
+
+	it('Make it mine makes a personal song and opens it', async () => {
+		const done = (await act(songPage.actions.makeMine, ev('u3', c.shared))) as {
 			status: number;
 			location: string;
 		};
@@ -327,20 +337,20 @@ describe('a group song’s page', () => {
 		expect(songPageAs('u3', id).canEdit).toBe(true);
 	});
 
-	it('Make my own copy of a song whose copy I archived says what to do', async () => {
-		const done = (await act(songPage.actions.copy, ev('u3', c.shared))) as { location: string };
+	it('Make it mine on a song whose copy I archived says what to do', async () => {
+		const done = (await act(songPage.actions.makeMine, ev('u3', c.shared))) as { location: string };
 		archiveSong(db, Number(done.location.split('/').pop()), 5);
-		expect(await act(songPage.actions.copy, ev('u3', c.shared))).toMatchObject({
+		expect(await act(songPage.actions.makeMine, ev('u3', c.shared))).toMatchObject({
 			status: 409,
-			data: { action: 'copy', askForMore: false, message: ARCHIVED_COPY }
+			data: { action: 'makeMine', askForMore: false, message: ARCHIVED_SONG_COPY }
 		});
 	});
 
-	it('Make my own copy is refused at the person’s limit, asking for more', async () => {
+	it('Make it mine is refused at the person’s limit, asking for more', async () => {
 		db.update(users).set({ storageLimitBytes: 10 }).where(eq(users.id, 'u3')).run();
-		expect(await act(songPage.actions.copy, ev('u3', c.shared))).toMatchObject({
+		expect(await act(songPage.actions.makeMine, ev('u3', c.shared))).toMatchObject({
 			status: 413,
-			data: { action: 'copy', askForMore: true }
+			data: { action: 'makeMine', askForMore: true }
 		});
 	});
 });

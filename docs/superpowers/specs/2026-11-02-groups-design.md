@@ -250,6 +250,11 @@ groups, across both dances, and drops into some only now and then.
 
 ### Make my own copy
 
+> **Superseded** by Make it mine (clones and twins spec, ruling 12): a
+> reader's Edit on a group lesson or song makes it theirs, and moves their
+> practice onto the copy; the menu item, the `copy` actions and
+> `copy-lesson.ts`/`copy-song.ts` are gone. What follows is how it was built.
+
 - A group lesson's menu offers **Make my own copy · uses 380 MB of your
   space**: the lesson, its videos, sections, notes, and the figures, routines
   and drills it holds become the person's own, to edit freely.

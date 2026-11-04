@@ -639,7 +639,12 @@ export function getLessonRow(db: Db, id: number): Lesson | null {
 	return db.select().from(lessons).where(eq(lessons.id, id)).get() ?? null;
 }
 
-export function getLesson(db: Db, id: number, userId: string) {
+/**
+ * A lesson with its videos and links, as its page shows it to `userId`. A
+ * group lesson's link cards carry the person's own copy (`mineId`), unless
+ * `copies` is false: in that group's own group mode the page is the group's.
+ */
+export function getLesson(db: Db, id: number, userId: string, opts: { copies?: boolean } = {}) {
 	const lesson = db.select().from(lessons).where(eq(lessons.id, id)).get();
 	if (!lesson) return null;
 
@@ -691,7 +696,7 @@ export function getLesson(db: Db, id: number, userId: string) {
 					.all();
 	// A group lesson's link cards open the person's own copy when they have one.
 	const copies = (kind: 'figure' | 'routine' | 'drill', ids: number[]) =>
-		lesson.teamId === null
+		lesson.teamId === null || opts.copies === false
 			? new Map<number, number>()
 			: mineIdsFor(db, { userId, dance: lesson.dance as Wall['dance'] }, kind, ids);
 	const mineFigure = copies(

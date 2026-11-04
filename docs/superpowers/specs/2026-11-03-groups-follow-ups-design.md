@@ -207,7 +207,8 @@ Members keep adding their own private songs as now.
   count is the teacher's; they cannot change it. A group song carries no
   member's own data.
 - **Make my own copy** on a group song puts a private copy in their songs
-  (the audio hard-linked as `copy-lesson.ts` does, charged to them), to
+  (the audio hard-linked under a new name, charged to them; since the clones
+  work it is Edit's Make it mine), to
   re-tap the count their way.
 - A newly shared song shows "New" and counts in the notifications until
   opened.

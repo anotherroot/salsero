@@ -687,15 +687,6 @@ export interface DeletedItem {
 	purgeOn: string | null;
 }
 
-/** What Make my own copy brings: the bytes it is charged, and how many of each thing. */
-export type CopySummary = {
-	bytes: number;
-	videos: number;
-	variations: number;
-	routines: number;
-	drills: number;
-};
-
 /** The group a person has switched the app into (group mode). */
 export type GroupMode = { teamId: number; name: string; role: 'owner' | 'editor' };
 
@@ -776,3 +767,30 @@ export type KeepChoice =
 	| { mode: 'all' }
 	| { mode: 'used' }
 	| { mode: 'chosen'; lessons: number[]; figures: number[]; routines: number[]; songs: number[] };
+
+/** What of a person's own moves onto another row (`repoint`'s report, as a screen reads it). */
+export type SwitchReport = {
+	routines: { id: number; name: string }[];
+	lessons: { id: number; title: string }[];
+	sections: number;
+	entries: number;
+};
+
+/**
+ * Edit on a class's thing the person only reads: what Make it mine would do
+ * (`makeMinePreview`), for its sheet. `existing` is the person's own copy
+ * already there (archived: it comes back).
+ */
+export type MakeMineOffer = {
+	kind: CloneKind;
+	/** "Setenta · Básico", a routine's or drill's name, a song's or lesson's title. */
+	label: string;
+	/** The group whose it is. */
+	team: string;
+	repoint: SwitchReport;
+	/** The person practises it (an entry, or a song pick), so their practice switches too. */
+	practised: boolean;
+	/** What the copy charges the person (a lesson's videos, a song's audio); 0 when reused. */
+	bytes: number;
+	existing: { id: number; archived: boolean } | null;
+};

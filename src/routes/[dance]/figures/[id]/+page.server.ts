@@ -64,6 +64,7 @@ import {
 } from '$lib/server/spot-links';
 import { seenRefusal, variationSeen } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
+import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -289,6 +290,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		fromLesson,
 		/** The reader's OWN routines that use it, over their own wall. */
 		myRoutines,
+		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
+		makeMine: canEdit ? null : makeMineOffer(db, wall, 'figure', id, groupTeam),
 		/** A group figure's History (the whole figure, every variation): its editors'. */
 		historyHref:
 			canEdit && group.teamId !== null
@@ -563,6 +566,15 @@ export const actions: Actions = {
 			});
 		}
 		return { action: 'practise', ok: true };
+	},
+
+	/**
+	 * Make it mine: a reader's own copy of this group figure, their routines and
+	 * practice moved onto it, and its page opens. See `clones/edit.ts`.
+	 */
+	makeMine: ({ params, locals }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return makeMineFrom(getDb(), wallOf(params, locals), 'figure', figure.id);
 	},
 
 	/** Quick log from the figure page, so practising after watching a recording is one tap. See `log-form.ts`. */

@@ -17,7 +17,7 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
-	import CopySheet from '$lib/components/teams/CopySheet.svelte';
+	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SongDetailsSheet from '$lib/components/songs/SongDetailsSheet.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
@@ -25,8 +25,6 @@
 	import { GROUP, PLAY_ROUND, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { act } from '$lib/act';
 	import {
-		SONG_COPY_ITEMS,
-		SONG_COPY_NOTE,
 		classSongNote,
 		deleteSongBody,
 		deleteSongTitle,
@@ -34,7 +32,6 @@
 		stopSharingBody,
 		stopSharingTitle
 	} from '$lib/songs/library';
-	import { copyLine } from '$lib/teams/view';
 	import { reportOpen } from '$lib/teams/opens-api';
 	import type { IconName } from '$lib/icons/icons';
 	import { sampleLabels, songSteps, songSubtitle, tapProblem } from '$lib/songs/song-page';
@@ -63,7 +60,8 @@
 	let menu = $state(false);
 	let unsharing = $state(false);
 	let deleting = $state(false);
-	let copying = $state(false);
+	/** A reader's Edit: the Make it mine sheet (ruling 12: once Make my own copy). */
+	let makingMine = $state(false);
 
 	/** What every edit of a group's song sends back, for the clash check; nothing for one's own. */
 	const seen = $derived(data.seen ? JSON.stringify(data.seen) : '');
@@ -71,7 +69,7 @@
 	const withSeen = (): { seen?: string } => (seen ? { seen } : {});
 	const group = $derived(data.group);
 	const canEdit = $derived(data.canEdit);
-	const hasMenu = $derived(group !== null && (data.copy || data.historyHref || canEdit));
+	const hasMenu = $derived(group !== null && (data.historyHref || canEdit));
 	/** A group's ready draft: its editor shares it from the pinned bar. */
 	const shareBar = $derived(
 		group !== null && canEdit && data.song.sharedAt === null && data.song.status === 'ready'
@@ -235,6 +233,8 @@
 		{/if}
 		{#if canEdit}
 			<BandButton icon="edit" label="Song details" onclick={() => (detailsOpen = true)} />
+		{:else if data.makeMine}
+			<BandButton icon="edit" label="Edit song" onclick={() => (makingMine = true)} />
 		{/if}
 	{/snippet}
 
@@ -545,12 +545,6 @@
 					<span class="text-[16px] font-bold text-ink">History</span>
 				</a>
 			{/if}
-			{#if data.copy}
-				{@render menuRow('copy', copyLine(data.copy.bytes), () => {
-					menu = false;
-					copying = true;
-				})}
-			{/if}
 			{#if canEdit && song.sharedAt !== null}
 				{@render menuRow('eye-off', 'Stop sharing', () => {
 					menu = false;
@@ -572,15 +566,8 @@
 	</Sheet>
 {/if}
 
-{#if data.copy}
-	<CopySheet
-		open={copying}
-		onclose={() => (copying = false)}
-		bytes={data.copy.bytes}
-		items={SONG_COPY_ITEMS}
-		note={SONG_COPY_NOTE}
-		action="?/copy"
-	/>
+{#if data.makeMine}
+	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}
 
 <Dialog

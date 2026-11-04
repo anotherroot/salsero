@@ -8,10 +8,10 @@ import { exercises, songs, teamChanges, teams, users } from './db/schema';
 import { openDb, type Db } from './db';
 import { createTeam } from './teams';
 import { leaveTeam } from './membership';
-import { AUDIO_FILE_RE, linkCopy } from './files';
 import { usedBytesOf } from './storage';
-import type { CopyFiles } from './copy-lesson';
-import { ARCHIVED_COPY, copySong } from './copy-song';
+import { cloneFilesIn, type CloneFiles } from './clones/files';
+import { makeMine } from './clones/edit';
+import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
 import { makeClass, SHARED_FILE, type Class } from './test-class';
 import { createCustomExercise, logSet } from './exercises';
 import {
@@ -650,15 +650,22 @@ describe("the picker lists the shared songs of the person's groups", () => {
 	});
 });
 
-describe('copySong', () => {
+describe('Make it mine on a class song', () => {
 	let c: Class;
 	let dir: string;
-	let files: CopyFiles;
+	let files: CloneFiles;
+	const U3 = { userId: 'u3', dance: 'salsa' } as const;
+	const ROOMY = 1024 ** 4;
+	/** u3's Make it mine: the copy's song row, or the refusal. */
+	const copySong = async (id: number, as = 'u3', now = T, free = ROOMY) => {
+		const res = await makeMine(db, { ...U3, userId: as }, 'song', id, files, now, free);
+		return res.ok ? { song: getSong(db, res.id)! } : res;
+	};
 	beforeEach(() => {
 		c = makeClass(db);
 		dir = mkdtempSync(join(tmpdir(), 'salsa-song-copy-'));
 		writeFileSync(join(dir, SHARED_FILE), 'bytes');
-		files = { dir, link: (d, f) => linkCopy(d, f, AUDIO_FILE_RE) };
+		files = cloneFilesIn({ recording: dir, 'lesson-video': dir, audio: dir });
 		setTempoFactor(db, c.shared, 2);
 		setAnchors(db, c.shared, [4, 12]);
 		setSampleStart(db, c.shared, 12);
@@ -666,7 +673,7 @@ describe('copySong', () => {
 	afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 	it("makes a personal song with the teacher's count and a new file, charged to the member", async () => {
-		const res = await copySong(db, 'u3', c.shared, T, files);
+		const res = await copySong(c.shared);
 		if (!('song' in res)) throw new Error('refused');
 		const from = getSong(db, c.shared)!;
 		const copy = res.song;
@@ -698,19 +705,23 @@ describe('copySong', () => {
 	});
 
 	it('copying a song twice reuses the first copy', async () => {
-		const first = await copySong(db, 'u3', c.shared, T, files);
+		const first = await copySong(c.shared);
 		if (!('song' in first)) throw new Error('refused');
-		const again = await copySong(db, 'u3', c.shared, T, files);
+		const again = await copySong(c.shared);
 		expect('song' in again && again.song.id).toBe(first.song.id);
 		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
 		expect(usedBytesOf(db, { userId: 'u3' })).toBe(1000);
 	});
 
 	it('an archived copy is refused with what to do: a person’s song has no restore', async () => {
-		const first = await copySong(db, 'u3', c.shared, T, files);
+		const first = await copySong(c.shared);
 		if (!('song' in first)) throw new Error('refused');
 		archiveSong(db, first.song.id, T + 1);
-		expect(await copySong(db, 'u3', c.shared, T + 2, files)).toEqual({ archived: ARCHIVED_COPY });
+		expect(await copySong(c.shared, 'u3', T + 2)).toEqual({
+			ok: false,
+			reason: 'archived',
+			message: ARCHIVED_SONG_COPY
+		});
 		expect(readdirSync(dir).sort()).toEqual([SHARED_FILE, first.song.audioFile].sort());
 		expect(db.select().from(songs).where(eq(songs.userId, 'u3')).all()).toHaveLength(1);
 	});
@@ -718,24 +729,27 @@ describe('copySong', () => {
 	it('refuses over the limit and under the disk floor, leaving no row and no file', async () => {
 		db.update(users).set({ storageLimitBytes: 999 }).where(eq(users.id, 'u3')).run();
 		const before = db.select().from(songs).all().length;
-		const res = await copySong(db, 'u3', c.shared, T, files);
-		expect(res).toMatchObject({ refused: { ok: false, limitBytes: 999 } });
+		const res = await copySong(c.shared);
+		expect(res).toMatchObject({ reason: 'room', room: { ok: false, limitBytes: 999 } });
 		db.update(users).set({ storageLimitBytes: null }).where(eq(users.id, 'u3')).run();
-		expect(await copySong(db, 'u3', c.shared, T, files, 0)).toMatchObject({
-			refused: { ok: false }
+		expect(await copySong(c.shared, 'u3', T, 0)).toMatchObject({
+			reason: 'room',
+			room: { ok: false }
 		});
 		expect(db.select().from(songs).all()).toHaveLength(before);
 		expect(readdirSync(dir)).toEqual([SHARED_FILE]);
 	});
 
-	it('a draft, a personal song or an outsider is a 404', async () => {
-		await expect(copySong(db, 'u3', c.draft, T, files)).rejects.toMatchObject({ status: 404 });
-		await expect(copySong(db, 'u4', c.shared, T, files)).rejects.toMatchObject({ status: 404 });
+	it('a draft, a personal song, an outsider and an editor are denied', async () => {
+		const denied = { ok: false, reason: 'denied' };
+		expect(await copySong(c.draft)).toEqual(denied);
+		expect(await copySong(c.shared, 'u4')).toEqual(denied);
+		expect(await copySong(c.shared, 'u2')).toEqual(denied);
 		const own = createSongFromUpload(
 			db,
 			{ userId: 'u3', dance: 'salsa' },
 			{ file: SHARED_FILE.replace('c1', 'd1'), mime: 'audio/mpeg', title: 'Own', style: 'salsa' }
 		);
-		await expect(copySong(db, 'u3', own.id, T, files)).rejects.toMatchObject({ status: 404 });
+		expect(await copySong(own.id)).toEqual(denied);
 	});
 });

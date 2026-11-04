@@ -32,8 +32,9 @@ import { createRoutine } from '$lib/server/routines';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
-import { lessonVideosDir, linkCopy } from '$lib/server/files';
-import { copyCost, copyLesson, copySummary } from '$lib/server/copy-lesson';
+import { lessonVideosDir } from '$lib/server/files';
+import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { readAdd } from '$lib/server/add-form';
@@ -51,6 +52,7 @@ import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { editedByLine } from '$lib/teams/history';
 import { agoText } from '$lib/format';
+import type { Cookies } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -72,11 +74,12 @@ function zone(locals: App.Locals): string {
 function lessonIn(
 	params: { dance: string; id: string },
 	locals: App.Locals,
-	need: 'read' | 'edit'
+	need: 'read' | 'edit',
+	opts: { copies?: boolean } = {}
 ) {
 	const db = getDb();
 	const { lesson, space, access, reach } = requireLessonAccess(db, locals, params, params.id, need);
-	const found = getLesson(db, lesson.id, wallOf(params, locals).userId);
+	const found = getLesson(db, lesson.id, wallOf(params, locals).userId, opts);
 	if (!found || found.lesson.archivedAt !== null) throw error(404, 'No such lesson');
 	return { ...found, space, access, reach };
 }
@@ -101,10 +104,26 @@ function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: numb
 	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
 }
 
-export const load: PageServerLoad = ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
-	const { space, access, reach: visible, ...found } = lessonIn(params, locals, 'read');
+	// In this group's own group mode the page is the group's: its link cards open
+	// the group's rows, never the person's copies. Read-only on the cookie: a load
+	// never sets or deletes it.
+	const mode = groupModeOf(db, wall.userId, wall.dance, {
+		get: (name: string) => cookies?.get(name),
+		delete: () => {}
+	} as unknown as Cookies);
+	const row = getLessonRow(db, Number(params.id));
+	const inGroupMode = row !== null && row.teamId !== null && mode?.teamId === row.teamId;
+	const {
+		space,
+		access,
+		reach: visible,
+		...found
+	} = lessonIn(params, locals, 'read', {
+		copies: !inGroupMode
+	});
 	const tz = zone(locals);
 	const canEdit = access === 'edit';
 	const team = isTeam(space) ? getTeam(db, space.teamId) : null;
@@ -121,7 +140,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
-		/** "Salsa nadaljevalna is being deleted on 2 Dec", with Make my own copy, while the group is deleted. */
+		/** "Salsa nadaljevalna is being deleted on 2 Dec", with Make it mine, while the group is deleted. */
 		notice: team ? lessonNotice(team, tz) : null,
 		/** "Edited by Ana · 10 min ago": the last change to the lesson or anything on it. */
 		edited: team ? editedLine(db, team.id, found.lesson.id) : null,
@@ -130,8 +149,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			team && canEdit ? `/${wall.dance}/groups/${team.id}/history/lesson/${found.lesson.id}` : null,
 		/** A group's lesson only its editors see yet. */
 		draft: team !== null && found.lesson.publishedAt === null,
-		/** Make my own copy, for anyone who reads a group's lesson: what it costs and brings. */
-		copy: team ? copySummary(db, wall.userId, found.lesson.id) : null,
+		/** A reader's Edit: Make it mine, what it costs and moves (ruling 12: Make my own copy). */
+		makeMine: canEdit ? null : makeMineOffer(db, wall, 'lesson', found.lesson.id, team),
 		// A published group lesson: Add, or once added "1 new drill · Add" and
 		// Remove from my lessons. Editors are offered Add like anyone else.
 		add:
@@ -252,26 +271,14 @@ export const actions: Actions = {
 	},
 
 	/**
-	 * Make my own copy: the group's lesson and what it holds become this
-	 * person's, charged to them, and the copy opens. Reading is enough. A
-	 * person's own lesson has nothing to copy: the missing one's 404. One that
-	 * does not fit says so, with Ask for more when their limit is the reason.
+	 * Make it mine: the group's lesson and what it holds become this reader's,
+	 * the videos charged to them, their practice moved, and the copy opens
+	 * (`clones/edit.ts`). One that does not fit says so (413), with Ask for more
+	 * when their limit is the reason.
 	 */
-	copy: async ({ params, locals }) => {
-		const { lesson, space } = lessonIn(params, locals, 'read');
-		if (!isTeam(space)) throw error(404, 'No such lesson');
-		const db = getDb();
-		const userId = wallOf(params, locals).userId;
-		const files = { dir: lessonVideosDir(), link: linkCopy };
-		const result = await copyLesson(db, userId, lesson.id, Date.now(), files, await freeDisk());
-		if (!result.ok) {
-			const room = result.room;
-			const overLimit =
-				room.limitBytes !== null &&
-				room.usedBytes + copyCost(db, userId, lesson.id) > room.limitBytes;
-			return fail(413, { action: 'copy' as const, message: room.message, askForMore: overLimit });
-		}
-		throw redirect(303, `/${params.dance}/lessons/${result.lessonId}`);
+	makeMine: ({ params, locals }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return makeMineFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id);
 	},
 
 	archive: async ({ params, locals }) => {

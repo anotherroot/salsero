@@ -225,9 +225,3 @@ export function deleteSongBody(users: number): string {
 	const lead = 'It goes to Recently deleted for 30 days.';
 	return users > 0 ? `${lead} ${songDeleteWarning(users)}` : lead;
 }
-
-/** What Make my own copy of a class song brings. */
-export const SONG_COPY_ITEMS = ['The song', 'The teacher’s count and sample'];
-
-export const SONG_COPY_NOTE =
-	'Yours to re-tap your way, and it stays if the group deletes the song.';

@@ -1,7 +1,5 @@
 /**
- * Names a copy takes where its own is taken. Shared by the clone engine and
- * Make my own copy (`copy-lesson.ts`), which must not import each other's
- * helpers: copy-lesson becomes a wrapper around `clone.ts`.
+ * Names a copy takes where its own is taken, for the clone engine.
  */
 import { NAME_MAX } from '../form';
 

@@ -11,11 +11,10 @@ import {
 	updateSongMeta
 } from '$lib/server/songs';
 import { deleteGroupSong, shareSong, songUsers, unshareSong } from '$lib/server/song-share';
-import { copySong } from '$lib/server/copy-song';
+import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { songSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
-import { AUDIO_FILE_RE, audioDir, linkCopy } from '$lib/server/files';
 import {
 	TAP_LATENCY_S,
 	addAnchor,
@@ -27,7 +26,7 @@ import {
 import { TEMPO_FACTORS, type TempoFactor } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { isTeam, requireSongAccess, wallOf } from '$lib/server/scope';
-import { freeDisk, ownerOfRow, roomForOwner } from '$lib/server/storage';
+import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
 
 /*
@@ -78,8 +77,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		users: team && canEdit ? songUsers(db, song.id) : 0,
 		/** What every edit of a group's song sends back, for the clash check. */
 		seen: team ? songSeen(song) : null,
-		/** Make my own copy, of a group's song that is ready. */
-		copy: team && song.status === 'ready' ? { bytes: song.sizeBytes ?? 0 } : null,
+		/** A reader's Edit: Make it mine, of a group's song that is ready (ruling 12). */
+		makeMine:
+			canEdit || song.status !== 'ready'
+				? null
+				: makeMineOffer(db, wallOf(params, locals), 'song', song.id, team),
 		/** History is its editors'. */
 		historyHref:
 			team && canEdit ? `/${params.dance}/groups/${team.id}/history/song/${song.id}` : null,
@@ -267,30 +269,14 @@ export const actions: Actions = {
 	},
 
 	/**
-	 * Make my own copy: a personal song with the teacher's count, the audio
-	 * linked and charged to the person, and it opens. Reading is enough. One
-	 * that does not fit says so, with Ask for more when their limit is why.
+	 * Make it mine: a reader's own song with the teacher's count, the audio
+	 * linked and charged to them, their practice moved onto it, and it opens
+	 * (`clones/edit.ts`). One that does not fit says so, with Ask for more when
+	 * their limit is why.
 	 */
-	copy: async ({ params, locals }) => {
+	makeMine: ({ params, locals }) => {
 		const db = getDb();
-		const { song, space } = requireSongAccess(db, locals, params, params.id, 'read');
-		if (!isTeam(space)) throw error(404, 'Song not found');
-		const userId = wallOf(params, locals).userId;
-		const files = {
-			dir: audioDir(),
-			link: (d: string, f: string) => linkCopy(d, f, AUDIO_FILE_RE)
-		};
-		const result = await copySong(db, userId, song.id, Date.now(), files, await freeDisk());
-		if ('archived' in result) {
-			return fail(409, { action: 'copy' as const, message: result.archived, askForMore: false });
-		}
-		if ('refused' in result) {
-			const room = result.refused;
-			if (room.ok) throw error(500, 'Copy refused without a reason');
-			const askForMore =
-				room.limitBytes !== null && room.usedBytes + (song.sizeBytes ?? 0) > room.limitBytes;
-			return fail(413, { action: 'copy' as const, message: room.message, askForMore });
-		}
-		throw redirect(303, `/${params.dance}/songs/${result.song.id}`);
+		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
+		return makeMineFrom(db, wallOf(params, locals), 'song', song.id);
 	}
 };

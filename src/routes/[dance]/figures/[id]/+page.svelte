@@ -40,6 +40,7 @@
 	import FieldError from '$lib/components/ui/FieldError.svelte';
 	import { fromLessonNote } from '$lib/clones/view';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import {
 		button,
 		CLIP,
@@ -130,6 +131,8 @@
 	const timing = $derived(timingLine(data.effective.startCount, data.effective.lengthCounts));
 	const archive = $derived(archiveCopy(figure.name, variation.name, last));
 	let practising = $state(false);
+	/** A reader's Edit: the Make it mine sheet (ruling 1). */
+	let makingMine = $state(false);
 	let uploading = $state(false);
 	const empty = $derived(variation.recordings.length === 0);
 	const today = $derived(localDay(Date.now(), timezone));
@@ -469,6 +472,7 @@
 				</p>
 			{:else if !data.exercise}
 				<form
+					id="practise-form"
 					method="POST"
 					action="?/practise"
 					use:enhance={() => {
@@ -861,10 +865,42 @@
 				<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
 			{/if}
 			<!-- The variation bar is pinned over the page's end; this lets the caption clear it. -->
-			<div aria-hidden="true" class="h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))]"></div>
+			<div
+				aria-hidden="true"
+				class={data.makeMine
+					? 'h-[calc(8.5rem+var(--pin-safe,var(--safe-bottom)))]'
+					: 'h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))]'}
+			></div>
 		{/if}
 	</div>
 </Screen>
+
+<!-- A reader's pinned row (board C1 p1): Edit makes the figure theirs; Practise logs or starts practising it. -->
+{#snippet readerActions()}
+	<button
+		type="button"
+		class={button('secondary', 'md', true)}
+		aria-haspopup="dialog"
+		onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />Edit</button
+	>
+	{#if data.popup}
+		<button
+			type="button"
+			class={button('primary', 'md', true)}
+			aria-haspopup="dialog"
+			onclick={() => (logging = true)}><Icon name="play" size={20} />Practise</button
+		>
+	{:else}
+		<!-- Practise on its own; a group's figure only from a lesson the person added (R8). -->
+		<button
+			type="submit"
+			form="practise-form"
+			class={button('primary', 'md', true)}
+			disabled={!data.practisable || practising}
+			aria-busy={practising}><Icon name="play" size={20} />Practise</button
+		>
+	{/if}
+{/snippet}
 
 {#if !editing}
 	<VariationBar
@@ -875,6 +911,7 @@
 		{slug}
 		failed={failed('createVariation')}
 		canEdit={data.canEdit}
+		actions={data.makeMine ? readerActions : undefined}
 	/>
 {/if}
 
@@ -972,6 +1009,10 @@
 		groups={data.linkable}
 		hidden={{}}
 	/>
+{/if}
+
+{#if data.makeMine}
+	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}
 
 {#if logging && data.popup}

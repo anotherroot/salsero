@@ -271,13 +271,17 @@ Variations, routines, drills, songs and lessons, plus the pieces inside them
   group, with no hidden link waiting to appear.
 - **A lesson** cloned into a place brings its links' targets the same way,
   and its videos and sections (files hard-linked under new names, as
-  `copy-lesson.ts` does, and charged to the place that receives them).
+  Make my own copy did, and charged to the place that receives them).
 - **Make my own copy** (built with groups) becomes "clone this lesson into
   my app", and its name matching (R22: trim and lowercase) is replaced by
   family matching. This changes built behaviour: copying the same lesson
   twice now reuses the first copy instead of making two. Copies made before
   this ships start as families of one and never show "From …"; that is
   accepted.
+  *(Built, Task 23:)* it is Edit's "Make it mine" (`clones/edit.ts`): the
+  menu item and the `copy` actions are gone, and the person's practice moves
+  onto the copy (the live practice wins); what a copy brings that they did
+  not practise starts paused.
 - **Your own lesson into a group** (the user's original ask) is Copy to… on
   a lesson.
 

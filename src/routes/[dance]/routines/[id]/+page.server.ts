@@ -44,6 +44,8 @@ import { entryFor } from '$lib/server/entries';
 import { MISSING_SEEN, routineSeen, seenRefusal } from '$lib/server/clash';
 import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
+import { getTeam } from '$lib/server/teams';
+import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import type { Routine } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -199,6 +201,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	return {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
 		canEdit,
+		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
+		makeMine:
+			canEdit || routine.teamId === null
+				? null
+				: makeMineOffer(db, wall, 'routine', routine.id, getTeam(db, routine.teamId)),
 		/** A group routine's History: its editors'. */
 		historyHref:
 			canEdit && routine.teamId !== null
@@ -330,6 +337,12 @@ export const actions: Actions = {
 		// Straight to the copy: you duplicated it in order to change it, and landing
 		// back on the original is how you end up editing the wrong one.
 		throw redirect(303, `/${params.dance}/routines/${copy.id}`);
+	},
+
+	/** Make it mine: a reader's own copy of this group routine, and its page opens (`clones/edit.ts`). */
+	makeMine: ({ params, locals }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return makeMineFrom(getDb(), wallOf(params, locals), 'routine', routine.id);
 	},
 
 	archive: async ({ params, locals }) => {

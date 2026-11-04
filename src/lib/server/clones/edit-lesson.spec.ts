@@ -1,5 +1,6 @@
 /**
- * Make my own copy: a group lesson becomes a member's own (a member of its
+ * Make it mine on a lesson (once Make my own copy, ruling 12): a group lesson
+ * becomes a reader's own (a member of its
  * family, through the clone engine), its figures filed under their moves by
  * name, each family copied once, its sections linked to the copies, its files
  * linked under new names and charged to them. Files live in a temp folder,
@@ -10,7 +11,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import { openDb, type Db } from './db';
+import { openDb, type Db } from '../db';
 import {
 	exercises,
 	figureGroups,
@@ -29,9 +30,9 @@ import {
 	teamMembers,
 	users,
 	videoSpots
-} from './db/schema';
-import { createTeam, deleteTeam, joinTeam } from './teams';
-import { setRole } from './membership';
+} from '../db/schema';
+import { createTeam, deleteTeam, joinTeam } from '../teams';
+import { setRole } from '../membership';
 import {
 	addLessonVideo,
 	archiveLesson,
@@ -40,34 +41,41 @@ import {
 	linkFigure,
 	linkRoutine,
 	publishLesson
-} from './lessons';
-import { addRecording, createFigure, createVariationIn } from './figures';
-import { addChildSlot, addFigureSlot, addOption, createRoutine, routineSlots } from './routines';
-import { createCustomExercise } from './exercises';
-import { addSpot } from './spots';
-import { linkInSpace } from './spot-links';
-import { addLinks } from './links';
-import { addLesson } from './entries';
-import { seedPositions, listPositions } from './positions';
-import { setFigureShape } from './graph';
-import { usedBytes } from './storage';
-import { purgeTeams } from './team-purge';
-import { linkCopy } from './files';
-import { copyCost, copyLesson, copySummary, type CopyFiles } from './copy-lesson';
-import { suffixed } from './clones/names';
-import { T1_SALSA, U2_SALSA } from './test-walls';
+} from '../lessons';
+import { addRecording, createFigure, createVariationIn } from '../figures';
+import { addChildSlot, addFigureSlot, addOption, createRoutine, routineSlots } from '../routines';
+import { createCustomExercise } from '../exercises';
+import { addSpot } from '../spots';
+import { linkInSpace } from '../spot-links';
+import { addLinks } from '../links';
+import { addLesson } from '../entries';
+import { seedPositions, listPositions } from '../positions';
+import { setFigureShape } from '../graph';
+import { usedBytes } from '../storage';
+import { purgeTeams } from '../team-purge';
+import { cloneFilesIn, type CloneFiles } from './files';
+import { makeMine, makeMinePreview } from './edit';
+import { suffixed } from './names';
+import { T1_SALSA, U2_SALSA } from '../test-walls';
 
 const DAY = 24 * 60 * 60 * 1000;
 const T = Date.UTC(2026, 10, 3, 20);
 const VIDEO = '0b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';
 const REC = '1b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';
 const SIZE = 5;
+const ROOMY = 1024 ** 4;
 const shape = { partner: 'partner' as const, style: 'salsa', notes: null };
 
 let db: Db;
 let dir: string;
-let files: CopyFiles;
+let files: CloneFiles;
 let w: ReturnType<typeof world>;
+
+/** Make it mine on a lesson, as `user`. */
+const copyLesson = (user: string, id: number, now = T, free = ROOMY) =>
+	makeMine(db, { userId: user, dance: 'salsa' }, 'lesson', id, files, now, free);
+const preview = (user: string, id: number) =>
+	makeMinePreview(db, { userId: user, dance: 'salsa' }, 'lesson', id);
 
 /** Group 1's lesson: a video with two sections, two variations, a routine embedding another, a drill. */
 function world() {
@@ -186,7 +194,7 @@ beforeEach(() => {
 	db = openDb(':memory:');
 	seedPositions(db);
 	dir = mkdtempSync(join(tmpdir(), 'salsa-copy-'));
-	files = { dir, link: linkCopy };
+	files = cloneFilesIn({ recording: dir, 'lesson-video': dir, audio: dir });
 	for (const [id, firstName] of [
 		['u1', 'Ana'],
 		['u2', 'Luka'],
@@ -205,11 +213,11 @@ afterEach(() => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-describe('copyLesson', () => {
+describe('Make it mine on a lesson', () => {
 	it('makes the lesson u2’s own, with its review exercise, notes, links and video', async () => {
-		const res = await copyLesson(db, 'u2', w.lesson, T, files);
+		const res = await copyLesson('u2', w.lesson, T);
 		expect(res.ok).toBe(true);
-		const id = (res as { lessonId: number }).lessonId;
+		const id = (res as { id: number }).id;
 		expect(id).not.toBe(w.lesson);
 		expect(db.select().from(lessons).where(eq(lessons.id, id)).get()).toMatchObject({
 			userId: 'u2',
@@ -251,7 +259,7 @@ describe('copyLesson', () => {
 	});
 
 	it('copies the variations into a new figure, with their timing, positions, notes and links', async () => {
-		await copyLesson(db, 'u2', w.lesson, T, files);
+		await copyLesson('u2', w.lesson, T);
 		const [basic, doble] = mineIn('Enchufla');
 		expect(basic).toMatchObject({ name: 'Basic', userId: 'u2', teamId: null, dance: 'salsa' });
 		expect(doble).toMatchObject({
@@ -283,13 +291,13 @@ describe('copyLesson', () => {
 
 	it('for u2, who owns a figure Enchufla, the copied Enchufla · Doble joins it', async () => {
 		createFigure(db, U2_SALSA, { figureName: 'enchufla ', name: 'Cross', ...shape });
-		await copyLesson(db, 'u2', w.lesson, T, files);
+		await copyLesson('u2', w.lesson, T);
 		expect(mineIn('enchufla ').map((v) => v.name)).toEqual(['Cross', 'Basic', 'Doble']);
 	});
 
 	it('when u2 already has Doble there, the copy is Doble (Salsa nadaljevalna), then … 2', async () => {
 		createFigure(db, U2_SALSA, { figureName: 'Enchufla', name: 'Doble', ...shape });
-		await copyLesson(db, 'u2', w.lesson, T, files);
+		await copyLesson('u2', w.lesson, T);
 		expect(mineIn('Enchufla').map((v) => v.name)).toEqual([
 			'Doble',
 			'Basic',
@@ -298,35 +306,37 @@ describe('copyLesson', () => {
 	});
 
 	it('copying a lesson twice reuses the first copy', async () => {
-		const first = await copyLesson(db, 'u2', w.lesson, T, files);
+		const first = await copyLesson('u2', w.lesson, T);
 		if (!first.ok) throw new Error('expected a copy');
 		const before = snapshot();
 		const filesBefore = readdirSync(dir).sort();
-		expect(await copyLesson(db, 'u2', w.lesson, T, files)).toEqual(first);
+		expect(await copyLesson('u2', w.lesson, T)).toEqual({ ...first, made: false });
 		expect(snapshot()).toEqual(before);
 		expect(readdirSync(dir).sort()).toEqual(filesBefore);
 		expect(db.select().from(lessons).where(eq(lessons.userId, 'u2')).all()).toHaveLength(1);
-		// Nothing more to bring: the summary says so.
-		expect(copySummary(db, 'u2', w.lesson)).toEqual({
+		// Nothing more to bring: the preview says so, and names the copy.
+		expect(preview('u2', w.lesson)).toMatchObject({
 			bytes: 0,
-			videos: 0,
-			variations: 0,
-			routines: 0,
-			drills: 0
+			existing: { id: first.id, archived: false }
 		});
 	});
 
 	it('copying again after archiving the copy brings that copy back', async () => {
-		const first = await copyLesson(db, 'u2', w.lesson, T, files);
+		const first = await copyLesson('u2', w.lesson, T);
 		if (!first.ok) throw new Error('expected a copy');
-		expect(archiveLesson(db, first.lessonId, T + 1)).toBe(true);
-		expect(await copyLesson(db, 'u2', w.lesson, T + 2, files)).toEqual(first);
-		expect(db.select().from(lessons).where(eq(lessons.id, first.lessonId)).get()).toMatchObject({
+		expect(archiveLesson(db, first.id, T + 1)).toBe(true);
+		expect(preview('u2', w.lesson)!.existing).toEqual({ id: first.id, archived: true });
+		expect(await copyLesson('u2', w.lesson, T + 2)).toEqual({
+			...first,
+			made: false,
+			archived: true
+		});
+		expect(db.select().from(lessons).where(eq(lessons.id, first.id)).get()).toMatchObject({
 			archivedAt: null
 		});
-		expect(
-			db.select().from(exercises).where(eq(exercises.lessonId, first.lessonId)).get()
-		).toMatchObject({ archivedAt: null });
+		expect(db.select().from(exercises).where(eq(exercises.lessonId, first.id)).get()).toMatchObject(
+			{ archivedAt: null }
+		);
 		expect(db.select().from(lessons).where(eq(lessons.userId, 'u2')).all()).toHaveLength(1);
 	});
 
@@ -338,8 +348,8 @@ describe('copyLesson', () => {
 		}).lesson.id;
 		linkFigure(db, other, w.doble, 'u1');
 		publishLesson(db, T1_SALSA, other, 3);
-		await copyLesson(db, 'u2', w.lesson, T, files);
-		const id = ((await copyLesson(db, 'u2', other, T, files)) as { lessonId: number }).lessonId;
+		await copyLesson('u2', w.lesson, T);
+		const id = ((await copyLesson('u2', other, T)) as { id: number }).id;
 		// One move "Enchufla", one Doble in it, and the second lesson links that Doble.
 		const [, doble] = mineIn('Enchufla');
 		expect(mineIn('Enchufla').map((v) => v.name)).toEqual(['Basic', 'Doble']);
@@ -350,7 +360,7 @@ describe('copyLesson', () => {
 	});
 
 	it('points the section links at the copies, not the group’s rows', async () => {
-		const id = ((await copyLesson(db, 'u2', w.lesson, T, files)) as { lessonId: number }).lessonId;
+		const id = ((await copyLesson('u2', w.lesson, T)) as { id: number }).id;
 		const video = db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, id)).get()!;
 		const linked = db
 			.select({
@@ -378,7 +388,7 @@ describe('copyLesson', () => {
 	});
 
 	it('copies the routines and the one they embed, slots remapped, and links the lesson’s', async () => {
-		const id = ((await copyLesson(db, 'u2', w.lesson, T, files)) as { lessonId: number }).lessonId;
+		const id = ((await copyLesson('u2', w.lesson, T)) as { id: number }).id;
 		const mine = db.select().from(routines).where(eq(routines.userId, 'u2')).all();
 		expect(mine.map((r) => r.name).sort()).toEqual(['Intro', 'Show']);
 		const show = mine.find((r) => r.name === 'Show')!;
@@ -415,7 +425,7 @@ describe('copyLesson', () => {
 	});
 
 	it('copies the drill with its practice settings and links, and no song', async () => {
-		await copyLesson(db, 'u2', w.lesson, T, files);
+		await copyLesson('u2', w.lesson, T);
 		const drill = db
 			.select()
 			.from(exercises)
@@ -437,21 +447,14 @@ describe('copyLesson', () => {
 	});
 
 	it('counts against u2, not the group', async () => {
-		expect(copyCost(db, 'u2', w.lesson)).toBe(SIZE);
-		expect(copySummary(db, 'u2', w.lesson)).toEqual({
-			bytes: SIZE,
-			videos: 1,
-			variations: 2,
-			routines: 2,
-			drills: 1
-		});
+		expect(preview('u2', w.lesson)!.bytes).toBe(SIZE);
 		expect(usedBytes(db, 'u2')).toBe(0);
-		await copyLesson(db, 'u2', w.lesson, T, files);
+		await copyLesson('u2', w.lesson, T);
 		expect(usedBytes(db, 'u2')).toBe(SIZE);
 	});
 
 	it('survives the group’s purge: the copy’s file is its own link', async () => {
-		const id = ((await copyLesson(db, 'u2', w.lesson, T, files)) as { lessonId: number }).lessonId;
+		const id = ((await copyLesson('u2', w.lesson, T)) as { id: number }).id;
 		const copy = db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, id)).get()!;
 		deleteTeam(db, 1, 'u1', T);
 		expect(
@@ -471,9 +474,10 @@ describe('copyLesson', () => {
 			.where(eq(users.id, 'u2'))
 			.run();
 		const before = snapshot();
-		const res = await copyLesson(db, 'u2', w.lesson, T, files);
+		const res = await copyLesson('u2', w.lesson, T);
 		expect(res).toMatchObject({
 			ok: false,
+			reason: 'room',
 			room: { ok: false, usedBytes: 0, limitBytes: SIZE - 1 }
 		});
 		expect(snapshot()).toEqual(before);
@@ -481,7 +485,7 @@ describe('copyLesson', () => {
 	});
 
 	it('refuses under the disk floor', async () => {
-		const res = await copyLesson(db, 'u2', w.lesson, T, files, 0);
+		const res = await copyLesson('u2', w.lesson, T, 0);
 		expect(res.ok).toBe(false);
 		expect(readdirSync(dir)).toHaveLength(2);
 	});
@@ -491,13 +495,13 @@ describe('copyLesson', () => {
 		vi.spyOn(db, 'transaction').mockImplementation(() => {
 			throw new Error('disk I/O error');
 		});
-		await expect(copyLesson(db, 'u2', w.lesson, T, files)).rejects.toThrow('disk I/O error');
+		await expect(copyLesson('u2', w.lesson, T)).rejects.toThrow('disk I/O error');
 		vi.restoreAllMocks();
 		expect(snapshot()).toEqual(before);
 		expect(readdirSync(dir).sort()).toEqual([VIDEO, REC].sort());
 	});
 
-	it('starts paused what the person already practises through an entry (R23)', async () => {
+	it('moves what the person practises onto the copies: the live practice wins', async () => {
 		addLesson(
 			db,
 			'u2',
@@ -505,7 +509,7 @@ describe('copyLesson', () => {
 			{ lesson: true, routineIds: [w.show], drillIds: [w.drill], figureIds: [] },
 			T
 		);
-		const id = ((await copyLesson(db, 'u2', w.lesson, T, files)) as { lessonId: number }).lessonId;
+		const id = ((await copyLesson('u2', w.lesson, T)) as { id: number }).id;
 		const active = (target: { lessonId: number } | { routineId: number }) =>
 			db
 				.select({ a: exercises.active })
@@ -525,31 +529,44 @@ describe('copyLesson', () => {
 				.from(routines)
 				.where(and(eq(routines.userId, 'u2'), eq(routines.name, name)))
 				.get()!.id;
-		expect(active({ lessonId: id })).toBe(false);
-		expect(active({ routineId: mine('Show') })).toBe(false);
-		// Intro was not picked: no entry, so its copy is on Today.
-		expect(active({ routineId: mine('Intro') })).toBe(true);
+		// What u2 practised switches to the copies, on Today as before.
+		expect(active({ lessonId: id })).toBe(true);
+		expect(active({ routineId: mine('Show') })).toBe(true);
+		// Intro was not picked: no practice, so its copy waits off Today.
+		expect(active({ routineId: mine('Intro') })).toBe(false);
 		const drill = db
 			.select()
 			.from(exercises)
 			.where(and(eq(exercises.userId, 'u2'), eq(exercises.source, 'custom')))
 			.get()!;
-		expect(drill).toMatchObject({ active: false, everyDays: 2 });
-		// The entries themselves are untouched.
+		// The person's schedule (their entry's), not the class's.
+		const entry = db
+			.select()
+			.from(exercises)
+			.where(and(eq(exercises.userId, 'u2'), eq(exercises.drillId, w.drill)))
+			.get()!;
+		expect(drill).toMatchObject({ active: true, everyDays: entry.everyDays, archivedAt: null });
+		// The entries on the group's rows went into the copies: one practice each, never two.
 		expect(
 			db
-				.select({ a: exercises.active })
+				.select()
 				.from(exercises)
-				.where(and(eq(exercises.userId, 'u2'), eq(exercises.source, 'added')))
-				.get()!.a
-		).toBe(true);
+				.where(
+					and(
+						eq(exercises.userId, 'u2'),
+						eq(exercises.source, 'added'),
+						isNull(exercises.archivedAt)
+					)
+				)
+				.all()
+		).toEqual([]);
 	});
 
-	it('starts everything active for a person with no entries', async () => {
-		await copyLesson(db, 'u2', w.lesson, T, files);
+	it('a person with no practice: what the copies bring waits off Today', async () => {
+		await copyLesson('u2', w.lesson, T);
 		const mine = db.select().from(exercises).where(eq(exercises.userId, 'u2')).all();
 		expect(mine.map((e) => e.source).sort()).toEqual(['custom', 'lesson', 'routine', 'routine']);
-		expect(mine.every((e) => e.active)).toBe(true);
+		expect(mine.every((e) => !e.active)).toBe(true);
 	});
 
 	it('cuts a suffixed name to fit the form, keeping the suffix whole', async () => {
@@ -558,30 +575,30 @@ describe('copyLesson', () => {
 		const long = 'D'.repeat(200);
 		db.update(figures).set({ name: long }).where(eq(figures.id, w.doble)).run();
 		createFigure(db, U2_SALSA, { figureName: 'Enchufla', name: long, ...shape });
-		await copyLesson(db, 'u2', w.lesson, T, files);
+		await copyLesson('u2', w.lesson, T);
 		const copied = mineIn('Enchufla').map((v) => v.name)[2];
 		expect(copied).toBe(`${'D'.repeat(200 - 21)} (Salsa nadaljevalna)`);
 		expect(copied).toHaveLength(200);
 	});
 
-	it('is the missing lesson’s 404 for someone who left, their add still there; an editor copies', async () => {
+	it('is denied to someone who left (their add still there) and to an editor (ruling 1)', async () => {
 		addLesson(db, 'u2', w.lesson, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, T);
 		// Out of the group the way people left before Keep: the row goes, the add stays.
 		db.delete(teamMembers)
 			.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
 			.run();
 		const before = snapshot();
-		await expect(copyLesson(db, 'u2', w.lesson, T, files)).rejects.toMatchObject({ status: 404 });
-		expect(() => copySummary(db, 'u2', w.lesson)).toThrow(expect.objectContaining({ status: 404 }));
+		expect(await copyLesson('u2', w.lesson, T)).toEqual({ ok: false, reason: 'denied' });
+		expect(preview('u2', w.lesson)).toBeNull();
+		// The owner's Edit edits the group's lesson; their own copy is Copy to….
+		expect(await copyLesson('u1', w.lesson, T)).toEqual({ ok: false, reason: 'denied' });
 		expect(snapshot()).toEqual(before);
-		expect((await copyLesson(db, 'u1', w.lesson, T, files)).ok).toBe(true);
-		expect(db.select().from(lessons).where(eq(lessons.userId, 'u1')).all()).toHaveLength(1);
 	});
 
 	it('works for a member of a deleted group who added the lesson, until the purge (ruling 4)', async () => {
 		addLesson(db, 'u2', w.lesson, { lesson: true, routineIds: [], drillIds: [], figureIds: [] }, T);
 		expect(deleteTeam(db, 1, 'u1', T)).toBe(true);
-		expect((await copyLesson(db, 'u2', w.lesson, T, files)).ok).toBe(true);
+		expect((await copyLesson('u2', w.lesson, T)).ok).toBe(true);
 	});
 
 	it('lets an editor copy their draft while the group is being deleted, but not a member (R25)', async () => {
@@ -590,18 +607,18 @@ describe('copyLesson', () => {
 		const draft = createLesson(db, T1_SALSA, { lessonDay: '2026-11-04', title: 'D', notes: null })
 			.lesson.id;
 		expect(deleteTeam(db, 1, 'u1', T)).toBe(true);
-		const res = await copyLesson(db, 'u3', draft, T, files);
+		const res = await copyLesson('u3', draft, T);
 		expect(res.ok).toBe(true);
 		const copy = db
 			.select()
 			.from(lessons)
-			.where(eq(lessons.id, (res as { lessonId: number }).lessonId))
+			.where(eq(lessons.id, (res as { id: number }).id))
 			.get()!;
 		expect(copy).toMatchObject({ userId: 'u3', teamId: null, title: 'D' });
-		await expect(copyLesson(db, 'u2', draft, T, files)).rejects.toMatchObject({ status: 404 });
+		expect(await copyLesson('u2', draft, T)).toEqual({ ok: false, reason: 'denied' });
 	});
 
-	it('is the missing lesson’s 404 for an outsider, a member’s draft, and a person’s own lesson', async () => {
+	it('is denied to an outsider, on a member’s draft, and on a person’s own lesson', async () => {
 		const draft = createLesson(db, T1_SALSA, { lessonDay: '2026-11-04', title: 'D', notes: null })
 			.lesson.id;
 		const own = createLesson(db, U2_SALSA, { lessonDay: '2026-11-04', title: 'O', notes: null })
@@ -612,8 +629,8 @@ describe('copyLesson', () => {
 			['u2', own],
 			['u2', 999]
 		] as const) {
-			await expect(copyLesson(db, user, id, T, files)).rejects.toMatchObject({ status: 404 });
-			expect(() => copyCost(db, user, id)).toThrow();
+			expect(await copyLesson(user, id, T)).toEqual({ ok: false, reason: 'denied' });
+			expect(preview(user, id)).toBeNull();
 		}
 		expect(readdirSync(dir)).toHaveLength(2);
 	});

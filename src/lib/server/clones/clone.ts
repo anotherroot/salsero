@@ -96,6 +96,13 @@ export type CloneOptions = {
 	fill?: boolean;
 	/** Collects every root this call copied (the request's and nested ones), once it lands. */
 	made?: ClonePair[];
+	/**
+	 * `cloneInto` only: run in the same transaction as the write, once it
+	 * answers ok (a new copy, or the member already there), so what follows
+	 * the copy (Make it mine's re-point) lands with it or not at all. A throw
+	 * rolls the copy back and unlinks its files.
+	 */
+	after?: (tx: Db, result: Extract<CloneResult, { ok: true }>) => void;
 };
 
 /** A root a clone call made: `from` (the source row) became `id` in `into`. */
@@ -399,7 +406,8 @@ function mayClone(db: Db, req: CloneRequest, sourceId: number, opts: CloneOption
  * any file is linked, unless `overLimitOk` (a clone with no files charges
  * nothing and is never refused for room). Files are linked, then the rows
  * written in one transaction; a refusal, a reuse found only then, or a throw
- * unlinks every name linked here (a throw is rethrown).
+ * unlinks every name linked here (a throw is rethrown). `after` runs inside that
+ * transaction (for a reuse, in one of its own).
  */
 export async function cloneInto(
 	db: Db,
@@ -411,7 +419,12 @@ export async function cloneInto(
 ): Promise<CloneResult> {
 	const plan = planClone(db, req, opts);
 	if (plan.sourceId === null || !mayClone(db, req, plan.sourceId, opts)) return DENIED;
-	if (plan.existing) return { ok: true, made: false, ...plan.existing };
+	if (plan.existing) {
+		const result = { ok: true as const, made: false, ...plan.existing };
+		const { after } = opts;
+		if (after) db.transaction((tx) => after(tx as unknown as Db, result));
+		return result;
+	}
 	if (plan.bytes > 0 && !req.overLimitOk) {
 		const room = roomForOwner(db, ownerOf(req.into), plan.bytes, freeDiskBytes);
 		if (!room.ok) return { ok: false, reason: 'room', room };
@@ -426,7 +439,14 @@ export async function cloneInto(
 			made.push([f.kind, name]);
 			linked.set(f.key, name);
 		}
-		const result = cloneTx(db, req, linked, now, opts);
+		const { after } = opts;
+		const result = after
+			? db.transaction((tx) => {
+					const r = cloneTx(tx as unknown as Db, req, linked, now, opts);
+					if (r.ok) after(tx as unknown as Db, r);
+					return r;
+				})
+			: cloneTx(db, req, linked, now, opts);
 		if (!result.ok || !result.made) await unlinkAll();
 		return result;
 	} catch (err) {
@@ -895,7 +915,7 @@ function mapped<K extends 'figureId' | 'exerciseId'>(
 /**
  * A drill: name, notes, frequency, practice settings and links; never a song.
  * Into a person's own app it starts paused when they practise the source
- * through a live entry (copy-lesson's rule, R23): Today must not double.
+ * through a live entry (Make my own copy's rule, R23): Today must not double.
  */
 function copyDrill(m: Mapper, sourceId: number, gene: string): Copied {
 	const { tx, into, now } = m;

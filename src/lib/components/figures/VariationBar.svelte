@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import { gotoWhenSettled, releaseClick } from '$lib/sheets/history.svelte';
@@ -31,9 +31,20 @@
 		failed: string | null;
 		/** New variation is an editor's: a reader only steps through the ones they can see. */
 		canEdit?: boolean;
+		/** A row pinned above the switcher: a reader's Edit and Practise (board C1 p1). */
+		actions?: Snippet;
 	}
 
-	let { figureName, moveId, siblings, currentId, slug, failed, canEdit = true }: Props = $props();
+	let {
+		figureName,
+		moveId,
+		siblings,
+		currentId,
+		slug,
+		failed,
+		canEdit = true,
+		actions
+	}: Props = $props();
 
 	let listing = $state(false);
 	let adding = $state(false);
@@ -140,6 +151,9 @@
 	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5"
 	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
 >
+	{#if actions}
+		<div class="mx-auto mb-2.5 grid max-w-[560px] grid-cols-2 gap-2">{@render actions()}</div>
+	{/if}
 	<div class="mx-auto flex max-w-[560px] items-center gap-2">
 		{@render step(prev, 'Previous figure', 'chevron-left')}
 		<button

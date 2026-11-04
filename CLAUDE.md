@@ -42,7 +42,7 @@ designed error pages) and accounts (one-time invites from the admin, a person's 
 `/g/<code>`; lessons are drafts until published; Add copies a published lesson's
 drills into a person's own practice, with per-person entries; a clash check on
 shared edits; History; Recently deleted for 30 days; the group's own storage;
-Make my own copy; names) and group follow-ups (group mode: a Mine / group switch that
+Make my own copy, since Make it mine; names) and group follow-ups (group mode: a Mine / group switch that
 shows only that side's Moves, Lessons and Music and makes new rows there, in the
 group's own navy look; notifications: a dot on Groups, "N new" pills and "New"
 markers, cleared by opening; class songs: a teacher shares a song with the group,
@@ -111,7 +111,7 @@ Groups have theirs,
 [`docs/superpowers/specs/2026-11-02-groups-design.md`](docs/superpowers/specs/2026-11-02-groups-design.md):
 the group as a wall beside the person, draft and publish, what a member
 reaches, Add and entries, the clash check, the safety net (History, Recently
-deleted), leaving and deleted groups, Make my own copy, the group's storage.
+deleted), leaving and deleted groups, Make my own copy (now Make it mine), the group's storage.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -261,7 +261,6 @@ src/routes/[dance]/group-mode  the switch: a page action (default) between Mine 
 src/routes/api/opens  POST: record that a lesson or song was opened (never in a load)
 src/lib/server/whats-new.ts  what is new to a person in their groups, against their opens
 src/lib/server/song-share.ts  share, stop sharing and restore a group song; `song_drops`
-src/lib/server/copy-song.ts  Make my own copy for a song
 src/lib/theme/tokens.ts  also `GROUP`, the group look's dance tokens; `layout.css` copies it
                      in `[data-dance][data-group]`
 src/lib/server/teams.ts  groups: make, code, join (`joinTeam`), rename, delete;
@@ -276,7 +275,10 @@ src/lib/server/changes.ts  `logChange`: History, one line per group mutation, in
 src/lib/server/clash.ts  the clash check: `seen` against the current row
 src/lib/server/trash.ts  `team_trash` (30 days, files kept) and `purgeTrash`;
                      `team-purge.ts` (`purgeTeams`) finishes deleted groups
-src/lib/server/copy-lesson.ts  Make my own copy: a lesson into a person's own space
+src/lib/server/clones/edit.ts  Make it mine: a reader's Edit on a group's figure, routine, drill,
+                     song or lesson copies it into their own app and moves their rows and practice
+                     onto it (`makeMine`, `makeMinePreview`); `make-mine-form.ts` is the pages' action.
+                     Editors' Edit edits the group's row. Replaces Make my own copy (ruling 12)
 src/lib/server/integrity.ts  `ownerIntegrity`: rows whose owner is not exactly one of person or group
 src/lib/teams/       PURE: the Groups pages' lines (view.ts), Add (add.ts), History
                      (history.ts), Recently deleted (deleted.ts, restore-api.ts). Client-safe

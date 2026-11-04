@@ -35,6 +35,7 @@
 	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
 	import { TYPES, typeOf } from '$lib/exercises/kinds';
 	import { frequencyLabel } from '$lib/frequency';
+	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
@@ -82,6 +83,8 @@
 
 	// --- Edit mode: the settings behind the band's pencil, one Save pinned.
 	let editing = $state(false);
+	/** A reader's Edit on a group drill: the Make it mine sheet (ruling 1). */
+	let makingMine = $state(false);
 	let saving = $state(false);
 	let settingsForm: HTMLFormElement | undefined = $state();
 	let everyDays = $state(0);
@@ -167,6 +170,8 @@
 		{/if}
 		{#if !editing && data.canEdit}
 			<BandButton icon="pencil" label="Edit settings" onclick={startEditing} />
+		{:else if !editing && data.makeMine}
+			<BandButton icon="pencil" label="Edit drill" onclick={() => (makingMine = true)} />
 		{/if}
 	{/snippet}
 
@@ -507,4 +512,8 @@
 		from="exercise"
 		onclose={() => (logging = false)}
 	/>
+{/if}
+
+{#if data.makeMine}
+	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}

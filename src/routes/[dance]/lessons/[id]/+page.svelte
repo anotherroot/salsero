@@ -70,8 +70,7 @@
 	import { lessonVideoCaption } from '$lib/video/caption';
 	import VideoProblem from '$lib/components/ui/VideoProblem.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
-	import CopySheet from '$lib/components/teams/CopySheet.svelte';
-	import { COPY_NOTE, copyItems, copyLine } from '$lib/teams/view';
+	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import { newLine } from '$lib/teams/add';
 	import { MAX_LESSON_VIDEO_BYTES } from '$lib/limits';
 	import type { MediaProblem } from '$lib/media';
@@ -138,8 +137,8 @@
 		if (data.add?.offer) adding = { offer: data.add.offer, fresh: data.add.added };
 	}
 	let lessonMenu = $state(false);
-	/** The Make my own copy sheet, from the menu or the banner. */
-	let copying = $state(false);
+	/** A reader's Edit, or the deleted group's banner: the Make it mine sheet (ruling 12). */
+	let makingMine = $state(false);
 	let removing = $state(false);
 	let removeBusy = $state(false);
 	let notNowBusy = $state(false);
@@ -552,10 +551,10 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
-		{#if !editing && (data.add?.added || data.historyHref || data.copy)}
+		{#if !editing && (data.add?.added || data.historyHref)}
 			<BandButton icon="more" label="Lesson menu" onclick={() => (lessonMenu = true)} />
 		{/if}
-		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader has no pencil. -->
+		<!-- While editing, the Save pinned at the bottom saves and closes edit mode. A reader's pencil makes it theirs. -->
 		{#if !editing && data.canEdit}
 			<BandButton
 				focusKey="start-editing"
@@ -563,6 +562,9 @@
 				label="Edit lesson"
 				onclick={startEditing}
 			/>
+		{:else if !editing && data.makeMine}
+			<!-- A reader's Edit makes the lesson theirs (ruling 12: once Make my own copy). -->
+			<BandButton icon="pencil" label="Edit lesson" onclick={() => (makingMine = true)} />
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3 {editing ? 'pb-28' : 'pb-4'}">
@@ -610,12 +612,14 @@
 				<Banner kind={notice.tone}>
 					{notice.text}
 					{#snippet action()}
-						<button
-							type="button"
-							class={button('tertiary', 'sm')}
-							aria-haspopup="dialog"
-							onclick={() => (copying = true)}>{notice.action}</button
-						>
+						{#if data.makeMine}
+							<button
+								type="button"
+								class={button('tertiary', 'sm')}
+								aria-haspopup="dialog"
+								onclick={() => (makingMine = true)}>{notice.action}</button
+							>
+						{/if}
 					{/snippet}
 				</Banner>
 			{/if}
@@ -1029,18 +1033,11 @@
 	/>
 {/if}
 
-{#if data.copy}
-	<CopySheet
-		open={copying}
-		onclose={() => (copying = false)}
-		bytes={data.copy.bytes}
-		items={copyItems(data.copy)}
-		note={COPY_NOTE}
-		action="?/copy"
-	/>
+{#if data.makeMine}
+	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
 {/if}
 
-{#if data.add?.added || data.historyHref || data.copy}
+{#if data.add?.added || data.historyHref}
 	<Sheet title={lesson.title} open={lessonMenu} onclose={() => (lessonMenu = false)}>
 		<div class={GROUP}>
 			{#if data.historyHref}
@@ -1056,20 +1053,6 @@
 					<span class="flex-none text-accent-text"><Icon name="clock" size={22} /></span>
 					<span class="text-[16px] font-bold text-ink">History</span>
 				</a>
-			{/if}
-			{#if data.copy}
-				<button
-					type="button"
-					class="flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left active:bg-step"
-					aria-haspopup="dialog"
-					onclick={() => {
-						lessonMenu = false;
-						copying = true;
-					}}
-				>
-					<span class="flex-none text-accent-text"><Icon name="copy" size={22} /></span>
-					<span class="text-[16px] font-bold text-ink">{copyLine(data.copy.bytes)}</span>
-				</button>
 			{/if}
 			{#if data.add?.added}
 				<button

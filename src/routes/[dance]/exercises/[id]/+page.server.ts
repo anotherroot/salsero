@@ -21,6 +21,7 @@ import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/serv
 import { isFrequency } from '$lib/frequency';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
+import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
@@ -88,6 +89,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			// never the entry's (risk 26). The Log popups follow the same rule.
 			canEditContent: popup.exercise.team === null,
 			canLog: true,
+			makeMine: null,
 			drill: null,
 			historyHref: null,
 			add: null
@@ -150,6 +152,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		seen: exerciseSeen(row),
 		canLog: popup !== null,
 		drill: { id: row.id, name: row.name, notes: row.notes },
+		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
+		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
 		add: route
 			? {
 					lessonId: route.lessonId,
@@ -179,6 +183,13 @@ export const actions: Actions = {
 			throw error(404, 'No such lesson');
 		}
 		return { action: 'add', ok: true };
+	},
+
+	/** Make it mine: a reader's own copy of this group drill, and its page opens (`clones/edit.ts`). */
+	makeMine: ({ params, locals }) => {
+		const db = getDb();
+		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
+		return makeMineFrom(db, wallOf(params, locals), 'drill', row.id);
 	},
 
 	/** Add on a group drill's page when a lesson the person added holds it: just this drill. */

@@ -55,6 +55,7 @@
 	} from '$lib/routines/page';
 	import { longDayLabel } from '$lib/format';
 	import type { IconName } from '$lib/icons/icons';
+	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -69,6 +70,8 @@
 	/** The slot tapped open, by id. One at a time. */
 	let expanded = $state<number | null>(null);
 	let selecting = $state(false);
+	/** A reader's Edit: the Make it mine sheet (ruling 1). */
+	let makingMine = $state(false);
 	/** Selected slot ids, in tap order. */
 	let selected = $state<number[]>([]);
 	let swiped = $state<Swiped>(null);
@@ -643,6 +646,11 @@
 	{/if}
 {/snippet}
 
+<!-- A reader's Edit makes the routine theirs (ruling 1). -->
+{#snippet readerActions()}
+	<BandButton icon="pencil" label="Edit routine" onclick={() => (makingMine = true)} />
+{/snippet}
+
 {#snippet practise()}
 	<!-- The player picks the song: count only, or any of this dance's ready ones. -->
 	<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
@@ -652,7 +660,13 @@
 	title={selecting ? selectionTitle(selected.length) : editing ? 'Edit routine' : routine.name}
 	compact={selecting || (!editing && bandCompact(routine.name))}
 	left={back}
-	right={selecting || editing || !data.canEdit ? undefined : actions}
+	right={selecting || editing
+		? undefined
+		: data.canEdit
+			? actions
+			: data.makeMine
+				? readerActions
+				: undefined}
 	hero={selecting || editing || !danceable ? undefined : practise}
 >
 	<div
@@ -1161,3 +1175,7 @@
 	}}
 	ondismiss={() => (toast = null)}
 />
+
+{#if data.makeMine}
+	<MakeMineSheet open={makingMine} onclose={() => (makingMine = false)} offer={data.makeMine} />
+{/if}

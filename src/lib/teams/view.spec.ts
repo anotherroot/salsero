@@ -1,13 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { MAKE_MINE } from '$lib/clones/view';
 import {
 	codeLink,
-	copyItems,
-	copyLine,
 	deletingLine,
 	joinQuestion,
 	lessonNotice,
 	limitLine,
-	MAKE_COPY,
 	groupsTabLabel,
 	classSongsHeading,
 	newPill,
@@ -33,9 +31,7 @@ describe('group wording', () => {
 		expect(noAccountLine('Tilen')).toBe(
 			'This code only adds people who already have an account. Ask Tilen for an invite.'
 		);
-		expect(deletingLine('Class', '3 Dec')).toBe(
-			'Class is being deleted on 3 Dec · Make my own copy'
-		);
+		expect(deletingLine('Class', '3 Dec')).toBe('Class is being deleted on 3 Dec · Make it mine');
 	});
 });
 
@@ -70,36 +66,18 @@ describe('a group lesson after leaving, or while its group is deleted', () => {
 		expect(purgeDay(deletedAt - DAY, 'UTC')).toBe('1 Dec');
 	});
 
-	it('says the group is being deleted, with Make my own copy, in the spec words', () => {
+	it('says the group is being deleted, with Make it mine (ruling 12)', () => {
 		const notice = lessonNotice({ name: 'Salsa nadaljevalna', deletedAt }, 'UTC')!;
 		expect(notice).toEqual({
 			tone: 'warning',
 			text: 'Salsa nadaljevalna is being deleted on 2 Dec',
-			action: MAKE_COPY
+			action: MAKE_MINE
 		});
 		expect(`${notice.text} · ${notice.action}`).toBe(deletingLine('Salsa nadaljevalna', '2 Dec'));
 	});
 
 	it('says nothing while the group lives: someone who left never reaches the lesson', () => {
 		expect(lessonNotice({ name: 'X', deletedAt: null }, 'UTC')).toBeNull();
-	});
-});
-
-describe('make my own copy', () => {
-	it('says what it costs in the spec words', () => {
-		expect(copyLine(380 * 1024 * 1024)).toBe('Make my own copy · uses 380 MB of your space');
-	});
-	it('lists what comes, leaving out what the lesson has none of', () => {
-		expect(copyItems({ bytes: 5, videos: 2, variations: 1, routines: 0, drills: 3 })).toEqual([
-			'The lesson, its notes and links',
-			'2 videos and their sections',
-			'1 figure',
-			'3 drills'
-		]);
-		expect(copyItems({ bytes: 0, videos: 0, variations: 0, routines: 1, drills: 0 })).toEqual([
-			'The lesson, its notes and links',
-			'1 routine'
-		]);
 	});
 });
 
