@@ -516,6 +516,25 @@ describe('positions (ruling 12)', () => {
 		expect(positionAccess(db, 'u2', row(tagStart))).toBeNull();
 	});
 
+	it('deleted, not purged: a member reaches them only through lessons they added; editors read, never edit', () => {
+		add('u2', P);
+		expect(deleteTeam(db, 1, 'u1', 5)).toBe(true);
+		for (const id of [tagStart, tagEnd, hand, spot]) {
+			expect(positionAccess(db, 'u2', row(id))).toBe('read');
+			// u5 is a member too, but added nothing.
+			expect(positionAccess(db, 'u5', row(id))).toBeNull();
+		}
+		for (const id of [draft, gone, loose]) expect(positionAccess(db, 'u2', row(id))).toBeNull();
+		for (const u of ['u1', 'u3']) {
+			for (const id of [tagStart, draft, gone, loose]) {
+				expect(positionAccess(db, u, row(id))).toBe('read');
+			}
+		}
+		expect(() => requirePositionAccess(...as('u3'), loose, 'edit')).toThrow(threw404);
+		expect(requirePositionAccess(...as('u3'), loose, 'read').access).toBe('read');
+		expect(positionAccess(db, 'u1', row(own))).toBe('edit');
+	});
+
 	it('unpublishing P takes its positions with it', () => {
 		db.update(lessons).set({ publishedAt: null }).where(eq(lessons.id, P)).run();
 		expect(reach(db, 'u2', 1).positions.size).toBe(0);

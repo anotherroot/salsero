@@ -233,6 +233,25 @@ describe('positionCounts', () => {
 		]);
 	});
 
+	it('chooses the main part by most figures, even when it has fewer positions', () => {
+		// {1, 2}: three figures over two positions; {3, 4, 5, 6}: two figures over four.
+		const graph = g([
+			fig(1, [1], [2]),
+			fig(2, [2], [1]),
+			fig(3, [1], [1]),
+			fig(4, [3, 4], [5]),
+			fig(5, [5], [6])
+		]);
+		expect(positionCounts(graph, [1, 2, 3, 4, 5, 6]).map((c) => c.island)).toEqual([
+			false,
+			false,
+			true,
+			true,
+			true,
+			true
+		]);
+	});
+
 	it('breaks a tie in figures by more positions, then by the lowest id', () => {
 		// One figure each: {1, 2} has two positions, {3, 4, 5} three.
 		const byPositions = g([fig(1, [1], [2]), fig(2, [3, 4], [5])]);

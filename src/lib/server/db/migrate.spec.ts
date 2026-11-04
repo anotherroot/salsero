@@ -319,5 +319,39 @@ it('widens four CHECKs to learn positions and keeps the rows written before (002
 			)
 			.run()
 	).toThrow(/CHECK/i);
+
+	// The rebuilt tables keep their indexes, on the same columns.
+	const columnsOf = (index: string) =>
+		(r.prepare(`pragma index_info(${index})`).all() as { name: string }[]).map((c) => c.name);
+	const named = (
+		r
+			.prepare(
+				`select name, tbl_name as tbl from sqlite_master
+				  where type = 'index' and name not like 'sqlite_autoindex%'
+				    and tbl_name in ('team_changes', 'twins', 'clone_pairs', 'team_trash')
+				  order by name`
+			)
+			.all() as { name: string; tbl: string }[]
+	).map((i) => [i.name, i.tbl, columnsOf(i.name)]);
+	expect(named).toEqual([
+		['team_changes_root_idx', 'team_changes', ['team_id', 'root_kind', 'root_id', 'at']],
+		['team_trash_team_idx', 'team_trash', ['team_id', 'deleted_at']],
+		['twins_set_idx', 'twins', ['user_id', 'set_id']]
+	]);
+	// …and their primary keys: one row per (user, kind, item) and per (kind, a, b).
+	expect(() =>
+		r
+			.prepare(
+				`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'position', 't', 2, 1)`
+			)
+			.run()
+	).toThrow(/UNIQUE|PRIMARY KEY/i);
+	expect(() =>
+		r
+			.prepare(
+				`insert into clone_pairs (kind, a_id, b_id, base_json, at) values ('position', 1, 2, '{}', 2)`
+			)
+			.run()
+	).toThrow(/UNIQUE|PRIMARY KEY/i);
 	raw(db).close();
 });

@@ -152,6 +152,19 @@ describe('nameTaken', () => {
 		expect(nameTaken(db, U1_BACHATA, 'Caída')).toBe(false);
 		expect(nameTaken(db, U2_SALSA, 'Caída')).toBe(false);
 	});
+
+	it('a person and a group in the same dance each hold the same name', () => {
+		const mine = made(createPosition(db, U1_SALSA, input('Cerrada'), 1));
+		const theirs = made(createPosition(db, T1_SALSA, input('Cerrada'), 1));
+		expect([mine.userId, mine.teamId, theirs.userId, theirs.teamId]).toEqual(['u1', null, null, 1]);
+		expect(nameTaken(db, T1_SALSA, 'cerrada')).toBe(true);
+		expect(nameTaken(db, U1_SALSA, 'cerrada')).toBe(true);
+		// Each is refused only inside its own space.
+		expect(createPosition(db, T1_SALSA, input('CERRADA'), 2)).toMatchObject({ field: 'name' });
+		expect(createPosition(db, U1_SALSA, input('CERRADA'), 2)).toMatchObject({ field: 'name' });
+		expect(listPositions(db, U1_SALSA).map((p) => p.id)).toEqual([mine.id]);
+		expect(listPositions(db, T1_SALSA).map((p) => p.id)).toEqual([theirs.id]);
+	});
 });
 
 describe('updatePosition', () => {
@@ -312,5 +325,43 @@ describe('positionSeen', () => {
 		archivePosition(db, a.id, 2);
 		expect(positionSeen(db, a.id)).toBeNull();
 		expect(positionSeen(db, 999)).toBeNull();
+	});
+
+	it('reads a populated hold and type: crossed as 1, every chip', () => {
+		const a = made(
+			createPosition(
+				db,
+				T1_SALSA,
+				input('Manos cruzadas', {
+					styleTag: 'son',
+					hold: { hands: 'two', crossed: true, facing: 'face', frame: 'closed' }
+				}),
+				1
+			)
+		);
+		expect(positionSeen(db, a.id)).toEqual({
+			name: 'Manos cruzadas',
+			styleTag: 'son',
+			hands: 'two',
+			crossed: 1,
+			facing: 'face',
+			frame: 'closed',
+			notes: null,
+			pictureSpotId: null
+		});
+		const b = made(
+			createPosition(
+				db,
+				U1_SALSA,
+				input('Abierta', { hold: { hands: 'one', crossed: false, facing: 'side', frame: 'open' } }),
+				1
+			)
+		);
+		expect(positionSeen(db, b.id)).toMatchObject({
+			hands: 'one',
+			crossed: 0,
+			facing: 'side',
+			frame: 'open'
+		});
 	});
 });

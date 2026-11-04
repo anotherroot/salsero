@@ -175,6 +175,21 @@ describe('movePositionsToOwners', () => {
 		expect(ownedBy({ userId: 'u2' })).toHaveLength(3);
 	});
 
+	it('a figure starting and ending in the same shared position gets one copy on both sides', () => {
+		const loop = figure(U2_SALSA);
+		db.insert(figureStartPositions).values({ figureId: loop, positionId: p2 }).run();
+		db.update(figures).set({ endPositionId: p2 }).where(eq(figures.id, loop)).run();
+
+		movePositionsToOwners(db, NOW);
+
+		const abiertas = ownedBy({ userId: 'u2' }).filter((p) => p.name === 'Abierta');
+		expect(abiertas).toHaveLength(1);
+		expect(startsOf(loop)).toEqual([abiertas[0].id]);
+		expect(endsOf(loop)).toEqual([abiertas[0].id]);
+		expect(familyIntegrity(db)).toEqual([]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
 	it('does not duplicate an end already in figure_end_positions', () => {
 		db.insert(figureEndPositions).values({ figureId: teamFig, positionId: p1, createdAt: T }).run();
 		movePositionsToOwners(db, NOW);

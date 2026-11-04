@@ -52,7 +52,7 @@ import { setTeamLimit, usedBytesOf } from '../storage';
 import { purgeTrash } from '../trash';
 import { ownerValues, type Space, type Wall } from '../scope';
 import { figurePositions } from '../graph';
-import { crossRefs } from '../integrity';
+import { crossRefs, familyIntegrity } from '../integrity';
 import { linkPositionInSpace } from '../position-links';
 import { T1_SALSA, T2_SALSA, U1_SALSA, U2_SALSA } from '../test-walls';
 import { TRASH_MS } from '$lib/limits';
@@ -1288,6 +1288,31 @@ describe('cloneInto: positions', () => {
 				[s2, 'add', 'position', 'u1']
 			])
 		);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('two rows of one family on one figure, copied into a place without it: one new position', async () => {
+		// u1's own Cerrada and the group's (one family) on one figure of u1's.
+		const mine = position(U1_SALSA, 'Cerrada', { geneId: 'g-cerrada' });
+		const theirs = position(T1_SALSA, 'Cerrada', { geneId: 'g-cerrada' });
+		const doble = figure(U1_SALSA, 'Enchufla', 'Doble').figure.id;
+		tag(doble, 'start', mine.id);
+		tag(doble, 'end', theirs.id);
+		expect(crossRefs(db)).toEqual([]);
+		const made = createTeam(db, 'u1', 'salsa', 'Rueda club', T);
+		if (!made.ok || made.teamId !== 2) throw new Error('a second group expected');
+
+		const r = await cloneInto(
+			db,
+			{ kind: 'figure', id: doble, into: T2_SALSA, recordings: true },
+			fakeFiles().files,
+			T
+		);
+		if (!r.ok) throw new Error('expected a clone');
+		const inT2 = db.select().from(positions).where(eq(positions.teamId, 2)).all();
+		expect(inT2.map((p) => [p.name, p.geneId])).toEqual([['Cerrada', 'g-cerrada']]);
+		expect(figurePositions(db, r.id)).toEqual({ startIds: [inT2[0].id], endIds: [inT2[0].id] });
+		expect(familyIntegrity(db)).toEqual([]);
 		expect(crossRefs(db)).toEqual([]);
 	});
 
