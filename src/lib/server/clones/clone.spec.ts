@@ -417,7 +417,7 @@ describe('cloneInto: figures', () => {
 			fakeFiles().files,
 			T,
 			undefined,
-			{ trusted: true }
+			{ trusted: true, archivedRoot: true }
 		);
 		expect(r).toMatchObject({ ok: true, made: true, archived: false });
 		expect(r.ok && figureRow(r.id).archivedAt).toBeNull();

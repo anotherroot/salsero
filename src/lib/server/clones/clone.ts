@@ -14,9 +14,11 @@
  * Every reference inside a copy (a routine's options and embedded routine, a
  * lesson's hand links, a section's links) becomes the receiving place's member
  * of that family: the row itself when it is there, the family's member there
- * (archived included), else a clone of it made in the same call when the
- * actor reads it (any, when `trusted`), with the same `recordings` flag. A
- * reference the actor cannot read is dropped.
+ * (archived included, linked as it is), else a clone of it made in the same
+ * call when it is live and the actor reads it (any live one, when
+ * `trusted`), with the same `recordings` flag. A reference to an archived
+ * row (or a figure under an archived move) or one the actor cannot read is
+ * dropped; only the root may be archived, and only with `archivedRoot`.
  *
  * At most one member of a family per place: copying again answers the member
  * already there (`made: false`, archived or not), and copying into the
@@ -61,7 +63,7 @@ import { insertLesson } from '../lessons';
 import { suffixed } from './names';
 import { entryFor, type EntryTarget } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
-import { hashValue, writePair } from './pairs';
+import { hashValue, pairBase, writePair } from './pairs';
 import { flatOf } from './trees';
 import type { CloneFileKind, CloneFiles } from './files';
 
@@ -82,9 +84,22 @@ export type CloneRequest = {
  * `CloneRequest` so no route can set it by spreading form data.
  */
 export type CloneOptions = {
-	/** Skip the read check and allow an archived source: the rescue and Keep only. */
+	/** Skip the read check (the root's and every reference's): the rescue and Keep only. */
 	trusted?: boolean;
+	/** Allow an archived root; a nested reference to an archived row still drops. */
+	archivedRoot?: boolean;
+	/**
+	 * Keep: when the family's member is already in `into`, add the source's
+	 * recordings (with `recordings`) and lesson videos it lacks, matched by gene
+	 * inside the parent, with their sections; no field of the member changes.
+	 */
+	fill?: boolean;
+	/** Collects every root this call copied (the request's and nested ones), once it lands. */
+	made?: ClonePair[];
 };
+
+/** A root a clone call made: `from` (the source row) became `id` in `into`. */
+export type ClonePair = { kind: CloneKind; from: number; id: number };
 
 export type CloneResult =
 	| { ok: true; id: number; made: boolean; archived: boolean }
@@ -183,8 +198,9 @@ type RefTo = { at: number } | { clone: RootRow } | null;
 /**
  * The reference rule, shared by the plan and the write: the chosen row (after
  * `use`) when it is in `into`, else its family's member there (archived
- * included), else the row to clone when it is of `into`'s dance and live and
- * readable to the actor (any, when `trusted`), else null: the reference drops.
+ * included), else the row to clone when it is of `into`'s dance, live (a
+ * figure's move too) and readable to the actor (any, when `trusted`), else
+ * null: the reference drops. `archivedRoot` never reaches a reference.
  */
 function refTarget(
 	db: Db,
@@ -198,11 +214,21 @@ function refTarget(
 	const found = existingIn(db, kind, row, req.into);
 	if (found) return { at: found.id };
 	if (row.dance !== req.into.dance) return null;
-	if (!opts.trusted) {
-		if (row.archivedAt !== null) return null;
-		if (accessTo(db, actorOf(req.into), kind, row.id) === null) return null;
-	}
+	if (row.archivedAt !== null) return null;
+	if (kind === 'figure' && underArchivedMove(db, row.id)) return null;
+	if (!opts.trusted && accessTo(db, actorOf(req.into), kind, row.id) === null) return null;
 	return { clone: row };
+}
+
+/** Whether a figure's move is archived (or missing). */
+function underArchivedMove(db: Db, figureId: number): boolean {
+	const move = db
+		.select({ archivedAt: figureGroups.archivedAt })
+		.from(figures)
+		.innerJoin(figureGroups, eq(figureGroups.id, figures.groupId))
+		.where(eq(figures.id, figureId))
+		.get();
+	return !move || move.archivedAt !== null;
 }
 
 /* ── Plan ───────────────────────────────────────────────────────────────── */
@@ -226,8 +252,10 @@ export function planClone(db: Db, req: CloneRequest, opts: CloneOptions = {}): C
 	if (!src) return plan;
 	plan.sourceId = src.id;
 	plan.existing = existingIn(db, req.kind, src, req.into);
-	if (plan.existing) return plan;
-	new Planner(db, req, opts, plan).visit(req.kind, src);
+	if (plan.existing) {
+		if (opts.fill && plan.existing.id !== src.id)
+			new Planner(db, req, opts, plan).fill(req.kind, src, plan.existing.id);
+	} else new Planner(db, req, opts, plan).visit(req.kind, src);
 	plan.bytes = plan.files.reduce((n, f) => n + f.bytes, 0);
 	return plan;
 }
@@ -254,18 +282,8 @@ class Planner {
 		const { db } = this;
 		switch (kind) {
 			case 'figure':
-				if (!this.req.recordings) return;
-				for (const r of recordingsOf(db, row.id)) {
-					this.plan.rows.push({ kind: 'recording', from: r.id });
-					this.file('recording', r.file, r.sizeBytes);
-					this.spots({ recordingId: r.id });
-				}
+				this.pieces(kind, row.id, null);
 				return;
-			case 'song': {
-				const s = db.select().from(songs).where(eq(songs.id, row.id)).get()!;
-				if (s.audioFile) this.file('audio', s.audioFile, s.sizeBytes ?? 0);
-				return;
-			}
 			case 'routine':
 				for (const slot of routineSlots(db, row.id)) {
 					if (slot.childId !== null) this.ref('routine', slot.childId);
@@ -277,15 +295,45 @@ class Planner {
 				for (const id of hand.figures) this.ref('figure', id);
 				for (const id of hand.routines) this.ref('routine', id);
 				for (const id of hand.exercises) this.ref('drill', id);
-				for (const v of videosOf(db, row.id)) {
-					this.plan.rows.push({ kind: 'video', from: v.id });
-					this.file('lesson-video', v.file, v.sizeBytes);
-					this.spots({ lessonVideoId: v.id });
-				}
+				this.pieces(kind, row.id, null);
+				return;
+			}
+			case 'song': {
+				const s = db.select().from(songs).where(eq(songs.id, row.id)).get()!;
+				if (s.audioFile) this.file('audio', s.audioFile, s.sizeBytes ?? 0);
 				return;
 			}
 			case 'drill':
 				return;
+		}
+	}
+
+	/** `fill`: the pieces the member already in `into` lacks, as a clone would bring them. */
+	fill(kind: CloneKind, row: RootRow, memberId: number): void {
+		this.seen.add(`${kind}:${row.id}`);
+		if (row.geneId !== null) this.seen.add(`${kind}:gene:${row.geneId}`);
+		this.pieces(kind, row.id, memberId);
+	}
+
+	/** A figure's recordings (when asked for) or a lesson's videos: all, or those `memberId` lacks. */
+	private pieces(kind: CloneKind, sourceId: number, memberId: number | null): void {
+		if (kind === 'figure' && this.req.recordings) {
+			for (const r of missing(recordingsOf(this.db, sourceId), memberId, (id) =>
+				recordingsOf(this.db, id)
+			)) {
+				this.plan.rows.push({ kind: 'recording', from: r.id });
+				this.file('recording', r.file, r.sizeBytes);
+				this.spots({ recordingId: r.id });
+			}
+		}
+		if (kind === 'lesson') {
+			for (const v of missing(videosOf(this.db, sourceId), memberId, (id) =>
+				videosOf(this.db, id)
+			)) {
+				this.plan.rows.push({ kind: 'video', from: v.id });
+				this.file('lesson-video', v.file, v.sizeBytes);
+				this.spots({ lessonVideoId: v.id });
+			}
 		}
 	}
 
@@ -326,10 +374,8 @@ function mayClone(db: Db, req: CloneRequest, sourceId: number, opts: CloneOption
 	const src = rootRow(db, req.kind, sourceId);
 	if (!src || src.dance !== req.into.dance) return false;
 	const actor = actorOf(req.into);
-	if (!opts.trusted) {
-		if (src.archivedAt !== null) return false;
-		if (accessTo(db, actor, req.kind, src.id) === null) return false;
-	}
+	if (!opts.archivedRoot && src.archivedAt !== null) return false;
+	if (!opts.trusted && accessTo(db, actor, req.kind, src.id) === null) return false;
 	if (req.kind === 'song') {
 		const song = db.select().from(songs).where(eq(songs.id, src.id)).get()!;
 		if (song.status !== 'ready' || !song.audioFile) return false;
@@ -398,6 +444,8 @@ export async function cloneInto(
  * name; a recording or lesson video whose file is not in it stays behind (in the pair's
  * `skip`, so Take can bring it). Checks nothing about who acts: `cloneInto`
  * does, and the rescue and Keep pass `trusted` sources they decided on.
+ * With `fill`, a member already there gets the source's pieces it lacks.
+ * `made` receives every root copied, once the savepoint has landed.
  */
 export function cloneTx(
 	tx: Db,
@@ -410,10 +458,17 @@ export function cloneTx(
 		return tx.transaction((inner) => {
 			const src = sourceOf(inner, req);
 			if (!src) throw new Refusal(DENIED);
+			const m = new Mapper(inner as unknown as Db, req, linked, now, opts);
 			const existing = existingIn(inner, req.kind, src, req.into);
-			if (existing) return { ok: true as const, made: false, ...existing };
-			const id = new Mapper(inner as unknown as Db, req, linked, now, opts).clone(req.kind, src.id);
-			return { ok: true as const, id, made: true, archived: false };
+			let result: CloneResult;
+			if (existing) {
+				if (opts.fill && existing.id !== src.id) m.fill(req.kind, src.id, existing.id);
+				result = { ok: true as const, made: false, ...existing };
+			} else {
+				result = { ok: true as const, id: m.clone(req.kind, src.id), made: true, archived: false };
+			}
+			opts.made?.push(...m.made);
+			return result;
 		});
 	} catch (err) {
 		if (err instanceof Refusal) return err.result;
@@ -434,6 +489,8 @@ type Copier = (m: Mapper, sourceId: number, gene: string) => Copied;
 class Mapper {
 	/** `${kind}:${sourceId}` → the row in `into` (null: dropped). */
 	private memo = new Map<string, number | null>();
+	/** Every root this call copied, in the order made. */
+	readonly made: ClonePair[] = [];
 
 	constructor(
 		readonly tx: Db,
@@ -472,7 +529,55 @@ class Mapper {
 		}
 		writePair(this.tx, kind, sourceId, made.id, base, this.now);
 		logChange(this.tx, this.into, made.log, this.now);
+		this.made.push({ kind, from: sourceId, id: made.id });
 		return made.id;
+	}
+
+	/**
+	 * `fill`: the source's recordings (with `recordings`) or lesson videos that
+	 * the member `memberId` lacks (matched by gene inside the parent), copied
+	 * onto it as a clone would, with their sections and section links. No
+	 * field of the member changes. Each piece added leaves the pair's `skip`
+	 * and enters its snapshot, so a compare reads it as in step.
+	 */
+	fill(kind: CloneKind, sourceId: number, memberId: number): void {
+		const { tx } = this;
+		this.started(kind, sourceId, memberId);
+		const added: string[] = [];
+		if (kind === 'figure' && this.req.recordings) {
+			for (const r of missing(recordingsOf(tx, sourceId), memberId, (id) => recordingsOf(tx, id))) {
+				const gene = stampGene(tx, 'recording', r.id);
+				const file = this.linked.get(fileKey('recording', r.file));
+				if (file === undefined) continue;
+				copyRecording(this, r, memberId, gene, file);
+				added.push(`rec:${gene}`);
+			}
+		}
+		if (kind === 'lesson') {
+			for (const v of missing(videosOf(tx, sourceId), memberId, (id) => videosOf(tx, id))) {
+				const gene = stampGene(tx, 'video', v.id);
+				const file = this.linked.get(fileKey('lesson-video', v.file));
+				if (file === undefined) continue;
+				copyVideo(this, v, memberId, gene, file);
+				added.push(`video:${gene}`);
+			}
+		}
+		if (added.length === 0) return;
+		const base = pairBase(tx, kind, sourceId, memberId);
+		// Never in step as a pair (a copy of a copy): no snapshot to claim.
+		if (!base) return;
+		const source = flatOf(tx, kind, sourceId);
+		const member = flatOf(tx, kind, memberId);
+		for (const piece of added) {
+			base.skip = base.skip.filter((k) => k !== piece);
+			for (const key of Object.keys(source)) {
+				if (key !== piece && !key.startsWith(`${piece}:`)) continue;
+				if (!key.endsWith(':links')) base.fields[key] = hashValue(source[key].value);
+				else if (Object.hasOwn(member, key)) base.fields[key] = hashValue(member[key].value);
+				else delete base.fields[key];
+			}
+		}
+		writePair(tx, kind, sourceId, memberId, base, this.now);
 	}
 
 	/** Record a root's copy as soon as it exists, so a reference back to it finds it. */
@@ -654,23 +759,7 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 			skip.push(`rec:${recGene}`);
 			continue;
 		}
-		const rec = tx
-			.insert(recordings)
-			.values({
-				figureId: copy.id,
-				file,
-				mime: r.mime,
-				kind: r.kind,
-				sizeBytes: r.sizeBytes,
-				note: r.note,
-				sourceUrl: r.sourceUrl,
-				createdAt: r.createdAt,
-				geneId: recGene,
-				clonedFrom: r.id
-			})
-			.returning({ id: recordings.id })
-			.get();
-		copySpots(m, { recordingId: r.id }, { recordingId: rec.id });
+		copyRecording(m, r, copy.id, recGene, file);
 	}
 
 	const log: ChangeEntry = newMove
@@ -691,6 +780,71 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 				after: { name }
 			};
 	return { id: copy.id, skip, log };
+}
+
+/** The rows of `pieces` (a source's) whose family has no member among `memberId`'s (all, for null). */
+function missing<P extends { geneId: string | null }>(
+	pieces: P[],
+	memberId: number | null,
+	of: (id: number) => { geneId: string | null }[]
+): P[] {
+	if (memberId === null) return pieces;
+	const have = new Set(of(memberId).map((p) => p.geneId));
+	return pieces.filter((p) => p.geneId === null || !have.has(p.geneId));
+}
+
+/** The bytes `fill` would bring a member: the files of the source's pieces it lacks. */
+export function missingBytes(db: Db, kind: CloneKind, sourceId: number, memberId: number): number {
+	if (sourceId === memberId) return 0;
+	const sum = (rows: { sizeBytes: number }[]) => rows.reduce((n, r) => n + r.sizeBytes, 0);
+	if (kind === 'figure')
+		return sum(missing(recordingsOf(db, sourceId), memberId, (id) => recordingsOf(db, id)));
+	if (kind === 'lesson')
+		return sum(missing(videosOf(db, sourceId), memberId, (id) => videosOf(db, id)));
+	return 0;
+}
+
+type RecordingRow = typeof recordings.$inferSelect;
+type VideoRow = typeof lessonVideos.$inferSelect;
+
+/** One recording onto a figure in `into`, under its new file name, with its sections. */
+function copyRecording(m: Mapper, r: RecordingRow, figureId: number, gene: string, file: string) {
+	const rec = m.tx
+		.insert(recordings)
+		.values({
+			figureId,
+			file,
+			mime: r.mime,
+			kind: r.kind,
+			sizeBytes: r.sizeBytes,
+			note: r.note,
+			sourceUrl: r.sourceUrl,
+			createdAt: r.createdAt,
+			geneId: gene,
+			clonedFrom: r.id
+		})
+		.returning({ id: recordings.id })
+		.get();
+	copySpots(m, { recordingId: r.id }, { recordingId: rec.id });
+}
+
+/** One lesson video onto a lesson in `into`, under its new file name, with its sections. */
+function copyVideo(m: Mapper, v: VideoRow, lessonId: number, gene: string, file: string) {
+	const video = m.tx
+		.insert(lessonVideos)
+		.values({
+			lessonId,
+			file,
+			mime: v.mime,
+			sizeBytes: v.sizeBytes,
+			sourceUrl: v.sourceUrl,
+			createdAt: v.createdAt,
+			geneId: gene,
+			clonedFrom: v.id
+		})
+		.returning({ id: lessonVideos.id })
+		.get();
+	copySpots(m, { lessonVideoId: v.id }, { lessonVideoId: video.id });
 }
 
 /**
@@ -995,21 +1149,7 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 			skip.push(`video:${videoGene}`);
 			continue;
 		}
-		const video = tx
-			.insert(lessonVideos)
-			.values({
-				lessonId: id,
-				file,
-				mime: v.mime,
-				sizeBytes: v.sizeBytes,
-				sourceUrl: v.sourceUrl,
-				createdAt: v.createdAt,
-				geneId: videoGene,
-				clonedFrom: v.id
-			})
-			.returning({ id: lessonVideos.id })
-			.get();
-		copySpots(m, { lessonVideoId: v.id }, { lessonVideoId: video.id });
+		copyVideo(m, v, id, videoGene, file);
 	}
 	return {
 		id,

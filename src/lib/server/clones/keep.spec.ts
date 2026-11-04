@@ -42,7 +42,8 @@ import { T1_SALSA, U2_SALSA } from '../test-walls';
 import { cloneInto } from './clone';
 import type { CloneFileKind, CloneFiles } from './files';
 import { geneOf } from './genes';
-import { keepFromTeam, keepPreview } from './keep';
+import { keepBytes, keepFromTeam, keepPreview } from './keep';
+import { pairBase } from './pairs';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const NOW = T + 1000;
@@ -215,13 +216,14 @@ const leave = () =>
 		.where(and(eq(teamMembers.teamId, 1), eq(teamMembers.userId, 'u2')))
 		.run();
 const addsOf = () => db.select().from(lessonAdds).where(eq(lessonAdds.userId, 'u2')).all();
+const figureRow = (id: number) => db.select().from(figures).where(eq(figures.id, id)).get()!;
 
 describe('keepFromTeam: Keep everything', () => {
 	it('copies the lesson, figures, routine, drill and song with their files; u2’s rows follow', async () => {
 		const s = story();
 		const f = fakeFiles();
 		const res = await keepFromTeam(db, 'u2', 1, { mode: 'all' }, f.files, NOW);
-		expect(res.kept).toBe(6); // L, R, F, G, D, S
+		expect(res).toEqual({ kept: 6, skipped: [] }); // L, R, F, G, D, S
 
 		// The lesson, with its video and its section (linked to u2's copy of F).
 		const [L] = copyOf('lesson', s.L)!;
@@ -381,8 +383,122 @@ describe('keepFromTeam: families and room', () => {
 		expect(db.select().from(exercises).where(eq(exercises.id, s.entryF.id)).get()!.figureId).toBe(
 			first.id
 		);
-		// Never overwritten: Keep brings no recording into a copy that had none.
-		expect(db.select().from(recordings).where(eq(recordings.figureId, first.id)).all()).toEqual([]);
+	});
+
+	it('a copy made without recordings gets the source’s on Keep, its own fields untouched', async () => {
+		const s = story();
+		const rec = db.select().from(recordings).where(eq(recordings.figureId, s.F)).get()!;
+		const spot = addSpot(
+			db,
+			{ recordingId: rec.id },
+			{ startMs: 0, endMs: 900, label: 'Turn' },
+			'u1'
+		)!;
+		linkInSpace(db, T1_SALSA, spot.id, { exerciseId: s.D });
+		const first = await cloneInto(
+			db,
+			{ kind: 'figure', id: s.F, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		if (!first.ok) throw new Error('expected a copy');
+		db.update(figures).set({ notes: 'Mine' }).where(eq(figures.id, first.id)).run();
+		const gene = geneOf(db, 'recording', rec.id)!;
+		expect(pairBase(db, 'figure', s.F, first.id)!.skip).toEqual([`rec:${gene}`]);
+		const before = storageOf(db, 'u2').usedBytes;
+
+		await keepFromTeam(db, 'u2', 1, { mode: 'all' }, fakeFiles().files, NOW);
+
+		const mine = figureRow(first.id);
+		expect(mine).toMatchObject({ notes: 'Mine', name: 'Doble' });
+		const recs = db.select().from(recordings).where(eq(recordings.figureId, first.id)).all();
+		expect(recs.map((r) => [r.file, r.geneId])).toEqual([['copy-f.mp4', gene]]);
+		// Its section, linked to u2's copy of the drill.
+		const spots = db.select().from(videoSpots).where(eq(videoSpots.recordingId, recs[0].id)).all();
+		expect(spots).toHaveLength(1);
+		const [D] = copyOf('drill', s.D)!;
+		expect(
+			db
+				.select()
+				.from(spotLinks)
+				.where(eq(spotLinks.spotId, spots[0].id))
+				.all()
+				.map((l) => l.exerciseId)
+		).toEqual([D.id]);
+		// The pair reads the recording as in step now.
+		const base = pairBase(db, 'figure', s.F, first.id)!;
+		expect(base.skip).toEqual([]);
+		expect(Object.keys(base.fields)).toContain(`rec:${gene}`);
+		expect(storageOf(db, 'u2').usedBytes - before).toBe(650);
+	});
+
+	it('Keep only what my routines use moves practice on what a kept routine brings', async () => {
+		const s = story();
+		const P2 = createRoutine(db, U2_SALSA, { name: 'Mine with R', notes: null }).routine.id;
+		db.insert(routineSteps).values({ routineId: P2, position: 0, childRoutineId: s.R }).run();
+		expect(crossRefs(db)).toEqual([]);
+
+		await keepFromTeam(db, 'u2', 1, { mode: 'used' }, fakeFiles().files, NOW);
+
+		const [F] = copyOf('figure', s.F)!;
+		const entry = db.select().from(exercises).where(eq(exercises.id, s.entryF.id)).get()!;
+		expect(entry).toMatchObject({ figureId: F.id, archivedAt: null });
+		expect(db.select().from(sets).where(eq(sets.exerciseId, entry.id)).all()).toHaveLength(1);
+		expect(db.select().from(sets).all()).toHaveLength(1);
+		leave();
+		expect(crossRefs(db).filter((l) => l.includes("entry's figure"))).toEqual([]);
+	});
+
+	it('an archived figure a kept lesson still links is not copied, nor its recording charged', async () => {
+		const s = story();
+		const A = figure(T1_SALSA, 'Vacila', 'Basic');
+		recording(A, 'a.mp4', 40);
+		linkFigure(db, s.L, A, 'u1');
+		const video = db.select().from(lessonVideos).where(eq(lessonVideos.lessonId, s.L)).get()!;
+		const spot = addSpot(
+			db,
+			{ lessonVideoId: video.id },
+			{ startMs: 1000, endMs: 1900, label: 'Vacila' },
+			'u1'
+		)!;
+		linkInSpace(db, T1_SALSA, spot.id, { figureId: A });
+		db.update(figures).set({ archivedAt: T }).where(eq(figures.id, A)).run();
+
+		expect(keepBytes(db, 'u2', 1, { mode: 'all' })).toBe(650);
+		const f = fakeFiles();
+		await keepFromTeam(db, 'u2', 1, { mode: 'all' }, f.files, NOW);
+		expect(geneOf(db, 'figure', A)).toBeNull();
+		expect(f.linked.map(([, n]) => n)).not.toContain('a.mp4');
+		expect(storageOf(db, 'u2').usedBytes).toBe(650);
+		const [L] = copyOf('lesson', s.L)!;
+		expect(
+			db.select().from(lessonFigures).where(eq(lessonFigures.lessonId, L.id)).all()
+		).toHaveLength(1);
+	});
+
+	it.each([
+		{ mode: 'all' } as const,
+		{ mode: 'used' } as const,
+		{ mode: 'chosen', lessons: [], figures: [], routines: [], songs: [] } as const
+	])('keepBytes ($mode) is what keepFromTeam charges', async (choice) => {
+		const s = story();
+		// u2 made a copy of F without recordings: Keep fills it in, and charges it.
+		await cloneInto(
+			db,
+			{ kind: 'figure', id: s.F, into: U2_SALSA, recordings: false },
+			fakeFiles().files,
+			T
+		);
+		const c =
+			choice.mode === 'chosen'
+				? { ...choice, lessons: [s.L], songs: [], figures: [], routines: [] }
+				: choice;
+		const bytes = keepBytes(db, 'u2', 1, c);
+		const before = storageOf(db, 'u2').usedBytes;
+		const res = await keepFromTeam(db, 'u2', 1, c, fakeFiles().files, NOW);
+		expect(res.skipped).toEqual([]);
+		expect(storageOf(db, 'u2').usedBytes - before).toBe(bytes);
+		expect(bytes).toBeGreaterThan(0);
 	});
 
 	it('an archived copy of u2’s comes back to hold the kept rows', async () => {
@@ -444,7 +560,20 @@ describe('keepPreview', () => {
 		expect(p.songs[0]).toMatchObject({ name: 'Chan Chan', bytes: 300 });
 	});
 
-	it('a thing u2 already has a copy of costs nothing', async () => {
+	it('a copy u2 has already lacks nothing, so it costs nothing', async () => {
+		const s = story();
+		await cloneInto(
+			db,
+			{ kind: 'figure', id: s.F, into: U2_SALSA, recordings: true },
+			fakeFiles().files,
+			T
+		);
+		const p = keepPreview(db, 'u2', 1);
+		expect(p.figures[0]).toMatchObject({ id: s.F, bytes: 0 });
+		expect(p.allBytes).toBe(550);
+	});
+
+	it('a copy u2 made without recordings costs what Keep fills in', async () => {
 		const s = story();
 		await cloneInto(
 			db,
@@ -453,7 +582,8 @@ describe('keepPreview', () => {
 			T
 		);
 		const p = keepPreview(db, 'u2', 1);
-		expect(p.figures[0]).toMatchObject({ id: s.F, bytes: 0 });
-		expect(p.allBytes).toBe(550);
+		expect(p.figures[0]).toMatchObject({ id: s.F, bytes: 100 });
+		expect(p.allBytes).toBe(650);
+		expect(p.allBytes).toBe(keepBytes(db, 'u2', 1, { mode: 'all' }));
 	});
 });

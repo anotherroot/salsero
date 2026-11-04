@@ -42,11 +42,19 @@ import { ownedBy, type Wall } from '../scope';
 import { storageOf } from '../storage';
 import { labelFor } from '../figures';
 import { restoreLesson } from '../lessons';
-import { cloneTx, planClone, type CloneRequest, type PlanFile } from './clone';
+import {
+	cloneTx,
+	missingBytes,
+	planClone,
+	type CloneOptions,
+	type ClonePair,
+	type CloneRequest,
+	type PlanFile
+} from './clone';
 import type { CloneFileKind, CloneFiles } from './files';
 import { geneOf, memberIn } from './genes';
 import { repoint } from './repoint';
-import { keepNestedEmbeds, revive, usesOf, type Use } from './rescue';
+import { ENTRY, keepNestedEmbeds, lastExercise, revive, usesOf, type Use } from './rescue';
 
 type Ids = Record<CloneKind, Set<number>>;
 type Item = { kind: CloneKind; id: number };
@@ -197,48 +205,54 @@ const requestOf = (wall: Wall, item: Item): CloneRequest => ({
 	recordings: true,
 	overLimitOk: true
 });
-const TRUSTED = { trusted: true } as const;
+
+/**
+ * Keep's clone options: no read check; an archived item is copied as its own
+ * root, but anything it references must be live (an archived figure a lesson
+ * still links drops, as in any clone). A member already in the person's app
+ * gets the recordings and videos it lacks (ruling 5: losing access keeps
+ * them). Members reached only by reference are linked as they are: not
+ * revived, not filled.
+ */
+const KEEP: CloneOptions = { trusted: true, archivedRoot: true, fill: true };
 
 /** The files keeping these items links, each once, and the bytes they charge. */
 function planOf(db: Db, wall: Wall, items: Item[]): { files: PlanFile[]; bytes: number } {
 	const files = new Map<string, PlanFile>();
 	for (const item of items) {
-		for (const f of planClone(db, requestOf(wall, item), TRUSTED).files) files.set(f.key, f);
+		for (const f of planClone(db, requestOf(wall, item), KEEP).files) files.set(f.key, f);
 	}
 	const list = [...files.values()];
 	return { files: list, bytes: list.reduce((n, f) => n + f.bytes, 0) };
 }
 
+/**
+ * What `keepFromTeam` with this choice charges the person: every file it
+ * links (nested copies and pieces filled into a member they have included),
+ * each once. What the preview shows and the Choose total use.
+ */
+export function keepBytes(db: Db, userId: string, teamId: number, choice: KeepChoice): number {
+	const scope = scopeOf(db, userId, teamId);
+	return planOf(db, scope.wall, itemsOf(scope, choice)).bytes;
+}
+
 /* ── Keep ───────────────────────────────────────────────────────────────── */
-
-/** The column a person's entry on a group row of the kind points through (songs: none). */
-const ENTRY = {
-	figure: exercises.figureId,
-	routine: exercises.routineId,
-	drill: exercises.drillId,
-	lesson: exercises.lessonId
-} as const;
-
-/** The newest exercise's id (0 for none): what a clone adds is above it. */
-const lastExercise = (tx: Db) =>
-	tx
-		.select({ id: sql<number>`coalesce(max(${exercises.id}), 0)` })
-		.from(exercises)
-		.get()!.id;
 
 /**
  * Keep copies of a group's things in the person's own app (see the module
  * comment for what each choice keeps). Every file is linked first; then, in
- * one transaction: each item is cloned with its recordings (`cloneTx`,
- * trusted, over the limit allowed), or the family's member already in the
- * person's app is reused as it is (never overwritten; an archived one comes
- * back, as the rescue's does); what the copies bring to practise starts
- * paused; `repoint` moves the person's rows and practice from each group row
+ * one transaction: each item is cloned with its recordings (`cloneTx`, `KEEP`,
+ * over the limit allowed), or the family's member already in the person's
+ * app is reused (its fields untouched; the recordings and videos it lacks
+ * added; an archived one comes back, as the rescue's does); what the copies
+ * bring to practise starts paused; `repoint` moves the person's rows and
+ * practice from every group row copied (the items and what they brought)
  * onto its copy (the live practice wins); the person's exercises on the
  * group's songs that were not kept drop to the count; their `lesson_adds` for
  * the group's lessons go. A throw unlinks every name linked here; after the
  * write, a name no row took (a reuse found only then) is unlinked too.
- * Returns how many items the person now has a copy of.
+ * `kept` is how many items the person now has a copy of; `skipped` names the
+ * items the engine refused (no free name in the move).
  */
 export async function keepFromTeam(
 	db: Db,
@@ -247,28 +261,31 @@ export async function keepFromTeam(
 	choice: KeepChoice,
 	files: CloneFiles,
 	now: number
-): Promise<{ kept: number }> {
+): Promise<{ kept: number; skipped: string[] }> {
 	const scope = scopeOf(db, userId, teamId);
 	const items = itemsOf(scope, choice);
 	const plan = planOf(db, scope.wall, items);
 
 	const made: [CloneFileKind, string][] = [];
 	const linked = new Map<string, string>();
-	let kept: number;
+	let result: { kept: number; skipped: string[] };
 	try {
 		for (const f of plan.files) {
 			const name = await files.link(f.kind, f.file);
 			made.push([f.kind, name]);
 			linked.set(f.key, name);
 		}
-		kept = db.transaction((tx) => keepTx(tx, scope, items, linked, now));
+		result = db.transaction((tx) => keepTx(tx, scope, items, linked, now));
 	} catch (err) {
 		await Promise.all(made.map(([kind, file]) => files.unlink(kind, file)));
 		throw err;
 	}
 	await unlinkUnused(db, files, made);
-	return { kept };
+	return result;
 }
+
+/** A group row and the person's row that now stands for it. */
+type Moved = { kind: CloneKind; from: number; id: number; archived: boolean };
 
 function keepTx(
 	tx: Db,
@@ -276,14 +293,33 @@ function keepTx(
 	items: Item[],
 	linked: Map<string, string>,
 	now: number
-): number {
+): { kept: number; skipped: string[] } {
 	const { wall, teamId } = scope;
 	const before = lastExercise(tx);
-	const copies: { item: Item; id: number; archived: boolean }[] = [];
+	const moves = new Map<string, Moved>();
+	const pairs: ClonePair[] = [];
+	const skipped: string[] = [];
+	let kept = 0;
 	for (const item of items) {
-		const res = cloneTx(tx, requestOf(wall, item), linked, now, TRUSTED);
-		// A clone the engine refuses (no free name) is skipped, as the rescue does.
-		if (res.ok) copies.push({ item, id: res.id, archived: res.archived });
+		const res = cloneTx(tx, requestOf(wall, item), linked, now, { ...KEEP, made: pairs });
+		if (!res.ok) {
+			// A clone the engine refuses (no free name) is skipped, as the rescue does.
+			skipped.push(describe(tx, item).name);
+			continue;
+		}
+		kept++;
+		moves.set(keyOf(item.kind, item.id), {
+			...item,
+			from: item.id,
+			id: res.id,
+			archived: res.archived
+		});
+	}
+	// What an item brought with it (a lesson's figures, a routine's) moves too:
+	// the person's practice on those group rows follows onto the copies.
+	for (const p of pairs) {
+		const key = keyOf(p.kind, p.from);
+		if (!moves.has(key)) moves.set(key, { ...p, archived: false });
 	}
 	// What the copies brought to practise (a drill, a routine's or lesson's own
 	// exercise) waits off Today: a live entry carries its schedule on (`repoint`).
@@ -292,25 +328,19 @@ function keepTx(
 		.where(and(gt(exercises.id, before), ownedBy(exercises, wall)))
 		.run();
 
-	for (const { item, id, archived } of copies) {
-		const practice = archived ? bringBack(tx, wall, item.kind, id, now) : true;
-		repoint(tx, wall.userId, wall.dance, item.kind, item.id, id, { entries: practice }, now);
-		if (item.kind !== 'song') {
+	for (const { kind, from, id, archived } of moves.values()) {
+		const practice = archived ? bringBack(tx, wall, kind, id, now) : true;
+		repoint(tx, wall.userId, wall.dance, kind, from, id, { entries: practice }, now);
+		if (kind !== 'song') {
 			// An entry merged into the copy's practice is archived at `now`; one
 			// instant earlier keeps a restore of the group's row (its own
 			// `archived_at`) from bringing back a second practice.
 			tx.update(exercises)
 				.set({ archivedAt: now - 1 })
-				.where(
-					and(
-						ownedBy(exercises, wall),
-						eq(ENTRY[item.kind], item.id),
-						eq(exercises.archivedAt, now)
-					)
-				)
+				.where(and(ownedBy(exercises, wall), eq(ENTRY[kind], from), eq(exercises.archivedAt, now)))
 				.run();
 		}
-		if (item.kind === 'routine') keepNestedEmbeds(tx, wall, item.id, id);
+		if (kind === 'routine') keepNestedEmbeds(tx, wall, from, id);
 	}
 
 	// The group's songs not kept: off every exercise of theirs, and no drop to
@@ -336,7 +366,7 @@ function keepTx(
 			)
 		)
 		.run();
-	return copies.length;
+	return { kept, skipped };
 }
 
 /**
@@ -475,7 +505,7 @@ export function keepPreview(db: Db, userId: string, teamId: number): KeepPreview
 	for (const item of all) {
 		const d = describe(db, item);
 		const gene = geneOf(db, item.kind, item.id);
-		const have = gene !== null && memberIn(db, item.kind, gene, scope.wall) !== null;
+		const member = gene === null ? null : memberIn(db, item.kind, gene, scope.wall);
 		const use = scope.uses.get(keyOf(item.kind, item.id)) ?? null;
 		let inLesson: number | null = null;
 		if (item.kind !== 'lesson' && item.kind !== 'song') {
@@ -493,7 +523,7 @@ export function keepPreview(db: Db, userId: string, teamId: number): KeepPreview
 			id: item.id,
 			name: d.name,
 			meta: d.meta,
-			bytes: have ? 0 : d.bytes,
+			bytes: member ? missingBytes(db, item.kind, item.id, member.id) : d.bytes,
 			used: use?.byName ?? null,
 			usedBy: use?.by ?? null,
 			inLesson

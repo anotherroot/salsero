@@ -129,14 +129,16 @@ function usedOf(tx: Db, teamId: number, userId?: string): Used[] {
 	return out;
 }
 
-const ENTRY = {
+/** The column a person's entry on a row of the kind points through. */
+export const ENTRY = {
 	figure: exercises.figureId,
 	routine: exercises.routineId,
-	drill: exercises.drillId
+	drill: exercises.drillId,
+	lesson: exercises.lessonId
 };
 
 /** The newest exercise's id (0 for none): what a clone adds is above it. */
-const lastExercise = (tx: Db) =>
+export const lastExercise = (tx: Db) =>
 	tx
 		.select({ id: sql<number>`coalesce(max(${exercises.id}), 0)` })
 		.from(exercises)
@@ -147,7 +149,8 @@ const lastExercise = (tx: Db) =>
  * (of `userId` only, when given): for each person and group row they no
  * longer read (`teamReader`'s answer, the one `crossRefs` checks), their
  * family's member in their own app when they have one (archived or not), else
- * a clone made now (`trusted`: an archived source is fine; no files), and
+ * a clone made now (`trusted`, `archivedRoot`: an archived source is fine, but
+ * an archived row it references drops; no files), and
  * `repoint` moves their rows onto it with their practice (ruling 6). A row
  * they still read is left alone. Returns how many roots it cloned (a
  * routine's copy counts once, with the figures it brings).
@@ -193,7 +196,7 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 				{ kind: u.kind, id: u.id, into: wall, recordings: false },
 				new Map(),
 				now,
-				{ trusted: true }
+				{ trusted: true, archivedRoot: true }
 			);
 			if (!made.ok) continue;
 			toId = made.id;
