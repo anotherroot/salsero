@@ -165,7 +165,7 @@
 	const many = $derived(kind === 'field' && multi);
 	const chosenCount = $derived(typeof chosen === 'object' && chosen ? chosen.size : 0);
 	const hasDone = $derived(many || (kind === 'link' && added > 0));
-	const showClear = $derived(many && !!clear && !typed);
+	const showClear = $derived(many && !!clear && !typed && shows === 'list');
 
 	/** Board "Loading" rows: the two bars' widths, in %. */
 	const SKELETON = [
@@ -210,7 +210,8 @@
 					? 'pr-3.5'
 					: ''}"
 				disabled={linked}
-				aria-current={isChosen ? 'true' : undefined}
+				aria-current={!many && isChosen ? 'true' : undefined}
+				aria-pressed={many ? isChosen : undefined}
 				onclick={() => onpick(r)}
 			>
 				<span
@@ -265,7 +266,7 @@
 				type="button"
 				data-pick
 				class="flex min-h-14 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0.5 rounded-xl py-[9px] text-left"
-				aria-current={none ? 'true' : undefined}
+				aria-pressed={none}
 				onclick={() => onclear?.()}
 			>
 				<span class="block max-w-full truncate text-[16px] leading-[1.3] font-bold text-ink"

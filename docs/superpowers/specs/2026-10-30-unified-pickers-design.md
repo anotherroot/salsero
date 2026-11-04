@@ -214,7 +214,8 @@ time range and its video's heading. ▶ previews the section looping, as now.
 ## Many-value field pickers
 
 A field that takes any number of values (a figure's "Starts in" and "Ends in")
-is a field picker with `multi` (`PickerMultiField`); rules 1–10 hold.
+is a field picker with `multi` (`PickerMultiField`); rules 1 and 4–10 hold; rules 2 and 3
+(a tap picks and closes) are replaced by the toggle behaviour below.
 
 - The opener shows the chosen labels as wrapping chips, or its empty words
   ("No position · fits anywhere"), then a chevron. It posts one hidden input
@@ -227,9 +228,11 @@ is a field picker with `multi` (`PickerMultiField`); rules 1–10 hold.
   the backdrop close too and keep the chosen values; the form is never
   cleared (rule 8).
 - The create step (rule 6) makes the row through `oncreate`, a Promise of the
-  new row or null on refusal. The new row is chosen and the sheet stays open
+  new row, `{ message }` when the server refuses (its words show), or null. The new row is chosen and the sheet stays open
   on the list. While it is pending the button is busy and ignores taps; it
-  re-enables when it settles, and a refusal shows as a banner in the sheet.
+  re-enables when it settles, and a refusal shows as a banner in the sheet
+  (the server's message, else "Try it again."). A result that lands after the
+  sheet closed is ignored. Toggle rows and the clear row expose `aria-pressed`.
 
 ## The Link popup
 

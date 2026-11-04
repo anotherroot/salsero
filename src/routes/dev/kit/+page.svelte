@@ -102,9 +102,10 @@
 		}
 	]);
 	// Every second create is refused, to see the button re-enable and the banner.
-	async function kitCreate(query: string): Promise<PickRow | null> {
+	async function kitCreate(query: string): Promise<PickRow | { message: string } | null> {
 		await new Promise((r) => setTimeout(r, 800));
-		if (++manyMade % 2 === 0) return null;
+		if (++manyMade % 2 === 0)
+			return { message: `You already have a position called ${query || 'Caída'}.` };
 		const row: PickRow = {
 			key: `position:${10 + manyMade}`,
 			value: 10 + manyMade,

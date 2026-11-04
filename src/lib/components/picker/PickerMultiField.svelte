@@ -39,7 +39,7 @@
 		values: number[];
 		/** The create button ("Position"); `key` is the picker's. Needs `oncreate`. */
 		create?: { label: string; key: string };
-		oncreate?: (query: string) => Promise<PickRow | null>;
+		oncreate?: (query: string) => Promise<PickRow | { message: string } | null>;
 		nothingLeft: string;
 		/** A refusal about this field, shown under it. */
 		error?: string | null;
@@ -69,7 +69,14 @@
 	/** Rows made here, until the caller's `groups` list them. */
 	let made = $state<PickRow[]>([]);
 	let creating = $state(false);
-	let createFailed = $state(false);
+	/** Why the last create was refused (the server's words, else a generic line); null: nothing to show. */
+	let createMessage = $state<string | null>(null);
+	/** Bumped when the sheet closes, so a create that lands after is ignored. */
+	let sheetEpoch = 0;
+
+	$effect(() => {
+		if (open) createMessage = null;
+	});
 
 	const rowOf = (v: number): PickRow | null => {
 		for (const g of groups) {
@@ -93,18 +100,23 @@
 			: [...values, row.value];
 	}
 
+	const GENERIC = 'Try it again.';
+
 	async function make(_key: string, query: string) {
 		if (creating || !oncreate) return;
 		creating = true;
-		createFailed = false;
+		createMessage = null;
+		const epoch = sheetEpoch;
 		try {
 			const row = await oncreate(query);
-			if (row) {
+			if (epoch !== sheetEpoch) return;
+			if (row && 'message' in row) createMessage = row.message;
+			else if (row) {
 				if (!made.some((r) => r.value === row.value)) made = [...made, row];
 				if (!values.includes(row.value)) values = [...values, row.value];
-			} else createFailed = true;
+			} else createMessage = GENERIC;
 		} catch {
-			createFailed = true;
+			if (epoch === sheetEpoch) createMessage = GENERIC;
 		} finally {
 			creating = false;
 		}
@@ -159,13 +171,14 @@
 	back
 	onpick={toggle}
 	onclose={() => {
-		createFailed = false;
+		sheetEpoch++;
+		createMessage = null;
 		open = false;
 	}}
 >
 	{#snippet top()}
-		{#if createFailed}
-			<Banner kind="error" title="That could not be created.">Try it again.</Banner>
+		{#if createMessage}
+			<Banner kind="error" title="That could not be created.">{createMessage}</Banner>
 		{/if}
 	{/snippet}
 </Picker>
