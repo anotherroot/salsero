@@ -228,3 +228,10 @@ export function handholds(starts: string[], ends: string[]): { from: string; to:
 	const join = (xs: string[]) => (xs.length === 0 ? 'No position' : xs.join(' or '));
 	return { from: join(starts), to: join(ends) };
 }
+
+/** A sibling's handholds on one line: "Cerrada or Manos cruzadas → Caída"; none at all, "No position". */
+export function holdsLine(starts: string[], ends: string[]): string {
+	if (starts.length === 0 && ends.length === 0) return 'No position';
+	const h = handholds(starts, ends);
+	return `${h.from} → ${h.to}`;
+}

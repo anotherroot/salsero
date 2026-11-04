@@ -2,7 +2,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
-import { addedReach } from '$lib/server/access';
+import { addedReach, positionAccess } from '$lib/server/access';
 import {
 	addFigureExercise,
 	archiveVariation,
@@ -27,8 +27,9 @@ import { buildGraph, figurePositions, graphFor, setFigureShape } from '$lib/serv
 import { teamRefs } from '$lib/server/usable';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
-import { lessonAdds } from '$lib/server/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { lessonAdds, positions as positionRows } from '$lib/server/db/schema';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { holdsLine } from '$lib/positions/view';
 import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
@@ -76,6 +77,39 @@ import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/vi
 import { realCloneFiles } from '$lib/server/clones/files';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * A figure's handholds as its page shows them: its own tags by their real ids
+ * (each links to that position's page), live ones only (ruling 4), and only
+ * those this person reads. Each side in id order, as `figurePositions` gives it.
+ * Empty on both sides reads "No position · fits anywhere".
+ */
+function handholdsOf(
+	db: Db,
+	userId: string,
+	figureIds: number[]
+): (figureId: number) => { starts: PositionRef[]; ends: PositionRef[] } {
+	const tags = new Map(figureIds.map((id) => [id, figurePositions(db, id)]));
+	const ids = [...new Set([...tags.values()].flatMap((t) => [...t.startIds, ...t.endIds]))];
+	const named = new Map<number, string>();
+	if (ids.length > 0) {
+		for (const row of db
+			.select()
+			.from(positionRows)
+			.where(and(inArray(positionRows.id, ids), isNull(positionRows.archivedAt)))
+			.all()) {
+			if (positionAccess(db, userId, row) !== null) named.set(row.id, row.name);
+		}
+	}
+	const refs = (side: number[]) =>
+		side.flatMap((id) => (named.has(id) ? [{ id, name: named.get(id)! }] : []));
+	return (figureId) => {
+		const t = tags.get(figureId) ?? { startIds: [], endIds: [] };
+		return { starts: refs(t.startIds), ends: refs(t.endIds) };
+	};
+}
+
+type PositionRef = { id: number; name: string };
 
 /** Who acts: History names them on a group's figure. */
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
@@ -184,31 +218,25 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	};
 
 	// Every live variation of the figure, this one included, as its sheet lists
-	// them: what each starts and ends on, and its timing. Names come from the
-	// graph; an untagged side shows nothing, both untagged "No position".
-	const positionName = new Map(graph.positions.map((p) => [p.id, p.name] as [number, string]));
-	const names = (ids: number[]) =>
-		[...ids]
-			.sort((a, b) => a - b)
-			.flatMap((p) => (positionName.has(p) ? [positionName.get(p)!] : []))
-			.join(' / ');
-	const siblings: SiblingSummary[] = listGroupVariations(db, group.id)
-		.filter((s) => seen(visible?.variations, s.id))
-		.map((s) => {
-			const n = figureById(graph, s.id);
-			const from = names(n?.starts ?? []);
-			const to = names(n?.ends ?? []);
-			return {
-				id: s.id,
-				name: s.name,
-				holds: from === '' && to === '' ? 'No position' : `${from} → ${to}`.trim(),
-				timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
-				videos:
-					s.id === id
-						? found.recordings.length
-						: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
-			};
-		});
+	// them: what each starts and ends on, and its timing. The handholds are each
+	// one's own live tags (`handholdsOf`); none at all reads "No position".
+	const shown = listGroupVariations(db, group.id).filter((s) => seen(visible?.variations, s.id));
+	const holdsOf = handholdsOf(db, wall.userId, [id, ...shown.map((s) => s.id)]);
+	const names = (refs: PositionRef[]) => refs.map((p) => p.name);
+	const siblings: SiblingSummary[] = shown.map((s) => {
+		const n = figureById(graph, s.id);
+		const h = holdsOf(s.id);
+		return {
+			id: s.id,
+			name: s.name,
+			holds: holdsLine(names(h.starts), names(h.ends)),
+			timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
+			videos:
+				s.id === id
+					? found.recordings.length
+					: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
+		};
+	});
 
 	// A group's figure: who owns it, which added lesson brought it, and the
 	// person's OWN routines that use it (their wall, their graph, their shapes).
@@ -371,10 +399,10 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		tags,
 		// What the edit form shows.
 		shape,
-		// What is actually danced: live positions only, by the graph's ids.
+		// The Handholds fact: the figure's own live tags by real id, each a link.
+		handholds: holdsOf(id),
+		// What is actually danced: the timing the graph reads.
 		effective: {
-			starts: node?.starts ?? [],
-			ends: node?.ends ?? [],
 			startCount: node?.start ?? shape.startCount,
 			lengthCounts: node?.length ?? shape.lengthCounts
 		},

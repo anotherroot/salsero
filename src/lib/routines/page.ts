@@ -13,6 +13,14 @@ export function bandCompact(name: string): boolean {
 }
 
 /**
+ * Whether the routine has anything to dance, so Practise is offered: a row
+ * with a start count. Never its positions: `starts: []` means "anywhere".
+ */
+export function danceable(edges: RowEdges[]): boolean {
+	return edges.some((e) => e.startCounts.length > 0);
+}
+
+/**
  * "Starts from Open or Closed, ends in Closed": the two halves. A side with no
  * position has no fact (null); with neither, there is nothing to say.
  */

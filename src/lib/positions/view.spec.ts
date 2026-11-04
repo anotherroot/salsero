@@ -232,4 +232,12 @@ describe('positions view', () => {
 		});
 		expect(v.handholds([], [])).toEqual({ from: 'No position', to: 'No position' });
 	});
+	it('holdsLine: a sibling’s handholds on one line', () => {
+		expect(v.holdsLine(['Cerrada', 'Manos cruzadas'], ['Caída'])).toBe(
+			'Cerrada or Manos cruzadas → Caída'
+		);
+		expect(v.holdsLine(['Cerrada'], [])).toBe('Cerrada → No position');
+		expect(v.holdsLine([], ['Caída'])).toBe('No position → Caída');
+		expect(v.holdsLine([], [])).toBe('No position');
+	});
 });

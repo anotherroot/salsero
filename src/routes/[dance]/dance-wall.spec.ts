@@ -51,10 +51,18 @@ import {
 	getSong,
 	storeAnalysis
 } from '$lib/server/songs';
-import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
+import {
+	createLesson,
+	getLesson,
+	linkFigure,
+	listLessons,
+	publishLesson
+} from '$lib/server/lessons';
 import { figurePositions, setFigureShape } from '$lib/server/graph';
 import { listPositions } from '$lib/server/positions';
-import { seedPositions } from '$lib/server/test-positions';
+import { addPosition, seedPositions } from '$lib/server/test-positions';
+import { createTeam, joinTeam } from '$lib/server/teams';
+import { addLesson } from '$lib/server/entries';
 import {
 	addFigureSlot,
 	addOption,
@@ -64,7 +72,7 @@ import {
 	routineSlots
 } from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
-import { exercises, figures, lessons, links, sets } from '$lib/server/db/schema';
+import { exercises, figures, lessons, links, positions, sets } from '$lib/server/db/schema';
 import { actions as todayActions } from './+page.server';
 import { actions as playerActions, load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
@@ -327,6 +335,13 @@ describe("the player's song picker stays on its own side", () => {
 		});
 	});
 
+	it('hands the client the graph as plain data, without the server’s canonical-id map', () => {
+		const opened = openPlayer('salsa', '') as unknown as { graph: Record<string, unknown> };
+		expect(opened.graph).toHaveProperty('figures');
+		expect(opened.graph).toHaveProperty('positions');
+		expect(opened.graph).not.toHaveProperty('canon');
+	});
+
 	it("opens on the song the exercise was last practised with, never the other dance's", () => {
 		const salsaSong = ready('salsa', 'Salsa ready');
 		setPracticeSettings(db, salsaExerciseId, {
@@ -523,7 +538,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 					{
 						id: v.id,
 						name: 'Doble',
-						holds: 'Cerrada / Manos cruzadas → Caída',
+						holds: 'Cerrada or Manos cruzadas → Caída',
 						timing: 'Starts on 5 · 4 counts',
 						videos: 1
 					}
@@ -532,6 +547,67 @@ describe("the detail pages refuse the other dance's rows", () => {
 					{ id: groupOf(salsaFigureId2), name: 'Second salsa figure', variations: ['Basic'] }
 				]
 			});
+		});
+
+		it('Handholds: the figure’s own tags by their real ids, live ones only, a group’s it uses included', () => {
+			const T = 1_790_000_000_000;
+			const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
+			createTeam(db, 'u5', 'salsa', 'Rueda club', T);
+			joinTeam(db, 'u1', 1, T);
+			// u1's own Abierta and the group's are one family; the page links the group's real row.
+			addPosition(db, U1_SALSA, 'Abierta mía', { geneId: 'g-open' });
+			const theirOpen = addPosition(db, EVA, 'Abierta', { geneId: 'g-open' });
+			const F = createFigure(db, EVA, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(
+				db,
+				F,
+				{ startIds: [theirOpen], endIds: [], startCount: 1, lengthCounts: 8 },
+				'u5'
+			);
+			const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'W1', notes: null }).lesson
+				.id;
+			linkFigure(db, L, F, 'u5');
+			publishLesson(db, EVA, L, T);
+			addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+
+			const old = addPosition(db, U1_SALSA, 'Vieja');
+			const v = doble();
+			const closed = salsaPosition('closed').id;
+			const cross = salsaPosition('cross-hand').id;
+			expect(
+				setFigureShape(db, v.id, {
+					startIds: [cross, closed],
+					endIds: [theirOpen, old],
+					startCount: 1,
+					lengthCounts: 8
+				})
+			).toBe(true);
+			// An archived position is invisible but kept (ruling 4).
+			db.update(positions).set({ archivedAt: T }).where(eq(positions.id, old)).run();
+
+			const data = loadWith('salsa', String(v.id)) as {
+				handholds: { starts: { id: number; name: string }[]; ends: { id: number; name: string }[] };
+				siblings: { id: number; holds: string }[];
+			};
+			expect(data.handholds).toEqual({
+				starts: [
+					{ id: closed, name: 'Cerrada' },
+					{ id: cross, name: 'Manos cruzadas' }
+				],
+				ends: [{ id: theirOpen, name: 'Abierta' }]
+			});
+			expect(data.siblings.find((s) => s.id === v.id)?.holds).toBe(
+				'Cerrada or Manos cruzadas → Abierta'
+			);
+			// The untagged one: nothing on either side, which the page reads as "fits anywhere".
+			expect(
+				(
+					loadWith('salsa', String(salsaFigureId)) as {
+						handholds: { starts: unknown[]; ends: unknown[] };
+					}
+				).handholds
+			).toEqual({ starts: [], ends: [] });
 		});
 
 		it('load lists the routines that use the variation', () => {
