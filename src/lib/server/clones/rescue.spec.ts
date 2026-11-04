@@ -264,6 +264,45 @@ describe('rescueUsed: the shrink paths', () => {
 		expect(crossRefs(db)).toEqual([]);
 	});
 
+	// Catches: practice on a figure the rescued routine brings left on the group's
+	// figure, archived with the reach, while u2's routine plays the copy.
+	it('archiveRoutine: practice on a figure inside it moves to the copy it brings, with the sets', () => {
+		const G = figure(T1_SALSA, 'Setenta');
+		const R = routine(T1_SALSA, 'Class routine');
+		slot(R, 1, [G]);
+		const L = published('Week 1', (id) => linkRoutine(db, id, R, 'u1'));
+		embed(routine(U2_SALSA, 'Embeds'), 1, R);
+		expect(addLesson(db, 'u2', L, { ...NONE, figureIds: [G] }, T)).toBe(true);
+		const entry = db
+			.select()
+			.from(exercises)
+			.where(and(eq(exercises.userId, 'u2'), eq(exercises.figureId, G)))
+			.get()!;
+		db.insert(sets).values({ exerciseId: entry.id, doneAt: T }).run();
+		expect(crossRefs(db)).toEqual([]);
+
+		expect(archiveRoutine(db, R, NOW, 'u1')).toBe(true);
+
+		const g = copyOf('figure', G);
+		const moved = exerciseRow(entry.id);
+		expect(moved.figureId).toBe(g.id);
+		expect(moved.archivedAt).toBeNull();
+		expect(db.select().from(sets).where(eq(sets.exerciseId, entry.id)).all()).toHaveLength(1);
+		const onFamily = db
+			.select({ id: exercises.id })
+			.from(exercises)
+			.where(
+				and(
+					eq(exercises.userId, 'u2'),
+					inArray(exercises.figureId, [G, g.id]),
+					isNull(exercises.archivedAt)
+				)
+			)
+			.all();
+		expect(onFamily.map((e) => e.id)).toEqual([entry.id]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
 	it('removeOption on a group routine that was the only way u2 reached F', () => {
 		const F = figure(T1_SALSA, 'Enchufla');
 		const H = figure(T1_SALSA, 'Sombrero');

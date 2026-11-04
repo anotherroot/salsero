@@ -24,7 +24,7 @@ import { restoreVariation } from '../figures';
 import { restoreRoutine } from '../routines';
 import { teamReaders } from '../access';
 import { ownedBy, type Wall } from '../scope';
-import { cloneTx } from './clone';
+import { cloneTx, type ClonePair } from './clone';
 import { geneOf, memberIn } from './genes';
 import { repoint } from './repoint';
 
@@ -157,10 +157,12 @@ export const lastExercise = (tx: Db) =>
  *
  * Practice continues: the person's entry on the target that this very change
  * archived (its `archived_at` is `now`: a transaction writes one `now`) is
- * live again on the copy. What a copy brings to practise (a drill is itself
- * one; a personal routine has its own exercise) starts paused, off Today,
- * unless their live entry carries its schedule onto it. A clone
- * the engine refuses (no free name) is skipped: the editor's change goes on.
+ * live again on the copy, and so is their practice on what the copy brings
+ * (the figures of a rescued routine, a routine nested in it). What a copy
+ * brings to practise (a drill is itself one; a personal routine has its own
+ * exercise) starts paused, off Today, unless their live entry carries its
+ * schedule onto it. A clone the engine refuses (no free name) is skipped:
+ * the editor's change goes on.
  */
 export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string): number {
 	const used = usedOf(tx, teamId, userId);
@@ -180,6 +182,9 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 		const member = gene === null ? null : memberIn(tx, u.kind, gene, wall);
 		let toId: number;
 		let practice = true;
+		// Every root the clone copies, the request's and what it brings (a
+		// routine's figures, a nested routine): practice on those follows too.
+		const pairs: ClonePair[] = [];
 		if (member) {
 			toId = member.id;
 			// An archived member of theirs holds the rows again: it comes back,
@@ -196,7 +201,7 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 				{ kind: u.kind, id: u.id, into: wall, recordings: false },
 				new Map(),
 				now,
-				{ trusted: true, archivedRoot: true }
+				{ trusted: true, archivedRoot: true, made: pairs }
 			);
 			if (!made.ok) continue;
 			toId = made.id;
@@ -211,18 +216,47 @@ export function rescueUsed(tx: Db, teamId: number, now: number, userId?: string)
 					.run();
 			}
 		}
-		repoint(tx, u.userId, u.dance, u.kind, u.id, toId, { entries: practice }, now);
-		// Every entry of theirs on the group's row archived at `now` was revived
-		// above, so one archived at `now` again was merged into the copy's. A
-		// restore of the group's row revives exactly its own `archived_at`: one
-		// instant earlier keeps it from bringing back a second practice.
-		tx.update(exercises)
-			.set({ archivedAt: now - 1 })
-			.where(and(ownedBy(exercises, wall), eq(ENTRY[u.kind], u.id), eq(exercises.archivedAt, now)))
-			.run();
-		if (u.kind === 'routine') keepNestedEmbeds(tx, wall, u.id, toId);
+		moveOnto(tx, wall, u.kind, u.id, toId, practice, now);
+		// What the copy brought moves too, as Keep does: the person's practice
+		// on a figure inside a rescued routine (or a routine nested in it)
+		// continues on the copy, rather than going off Today with the reach.
+		for (const p of pairs) {
+			if (p.kind === u.kind && p.from === u.id) continue;
+			if (p.kind !== 'figure' && p.kind !== 'routine' && p.kind !== 'drill') continue;
+			tx.update(exercises)
+				.set({ archivedAt: null })
+				.where(
+					and(ownedBy(exercises, wall), eq(ENTRY[p.kind], p.from), eq(exercises.archivedAt, now))
+				)
+				.run();
+			moveOnto(tx, wall, p.kind, p.from, p.id, true, now);
+		}
 	}
 	return cloned;
+}
+
+/**
+ * `repoint` one group row's uses and practice onto the person's row. Every
+ * entry of theirs on the group's row archived at `now` was revived first, so
+ * one archived at `now` again was merged into the copy's. A restore of the
+ * group's row revives exactly its own `archived_at`: one instant earlier
+ * keeps it from bringing back a second practice.
+ */
+function moveOnto(
+	tx: Db,
+	wall: Wall,
+	kind: Kind,
+	fromId: number,
+	toId: number,
+	practice: boolean,
+	now: number
+): void {
+	repoint(tx, wall.userId, wall.dance, kind, fromId, toId, { entries: practice }, now);
+	tx.update(exercises)
+		.set({ archivedAt: now - 1 })
+		.where(and(ownedBy(exercises, wall), eq(ENTRY[kind], fromId), eq(exercises.archivedAt, now)))
+		.run();
+	if (kind === 'routine') keepNestedEmbeds(tx, wall, fromId, toId);
 }
 
 /**
