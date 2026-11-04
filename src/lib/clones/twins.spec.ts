@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FigureRow, MoveRow, TeamRef } from '$lib/types';
-import { foldMoves, twinPickMeta, twinRows, twinUseMeta } from './twins';
+import { foldMoves, foldRows, foldSections, twinPickMeta, twinRows, twinUseMeta } from './twins';
 
 const fig = (id: number, name: string): FigureRow => ({
 	id,
@@ -147,5 +147,60 @@ describe('the twin meta', () => {
 				{ id: 3, figure: 'Setenta', name: 'Basic', team: null }
 			])
 		).toBe('Yours, twin of your Setenta · Basic · yours is used');
+	});
+});
+
+describe('foldRows and foldSections (routines, lessons, songs)', () => {
+	const row = (id: number, team?: TeamRef) => ({ id, team: team ?? null });
+
+	it('foldRows is the flat-list fold: yours is shown, the rest sit behind it', () => {
+		const rows = [row(11, TUE), row(1), row(21, RUEDA), row(5)];
+		const out = foldRows(rows, [[1, 11, 21]], new Set([1, 5]));
+		expect(out.map((r) => [r.id, r.twins])).toEqual([
+			[1, [11, 21]],
+			[5, []]
+		]);
+	});
+
+	it('foldRows with none of your own shows the first group by name', () => {
+		const out = foldRows([row(21, RUEDA), row(11, TUE)], [[11, 21]], new Set());
+		expect(out.map((r) => [r.id, r.twins])).toEqual([[21, [11]]]);
+	});
+
+	it('foldRows folds nothing for a set with one member in the list', () => {
+		const out = foldRows([row(1), row(2)], [[1, 99]], new Set([1, 2]));
+		expect(out.map((r) => r.twins)).toEqual([[], []]);
+	});
+
+	it('foldSections folds across your list and the groups, dropping a group left empty', () => {
+		const out = foldSections(
+			[row(1), row(2)],
+			[
+				{ team: TUE, rows: [row(11), row(12)] },
+				{ team: RUEDA, rows: [row(21)] }
+			],
+			[
+				[1, 11],
+				[21, 12]
+			]
+		);
+		expect(out.mine.map((r) => r.id)).toEqual([1, 2]);
+		// 21 and 12 are both groups' members: the first by group name (Rueda club) is shown.
+		expect(out.groups.map((g) => [g.team.name, g.rows.map((r) => r.id)])).toEqual([
+			['Rueda club', [21]]
+		]);
+		expect([...out.twinOf]).toEqual([
+			[1, [11]],
+			[21, [12]]
+		]);
+	});
+});
+
+describe('twinPickMeta for rows with no move above them', () => {
+	it('names a routine twin by its place and name alone', () => {
+		const note = { id: 11, figure: null, name: 'Warmup', team: TUE };
+		expect(twinPickMeta({ figure: null, team: null }, [note])).toBe(
+			'Yours, twin of Salsa Tuesdays’ Warmup · yours is used'
+		);
 	});
 });

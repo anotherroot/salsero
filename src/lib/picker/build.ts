@@ -82,7 +82,12 @@ export function routineRows(rs: (Omit<PickRoutine, 'linked'> & { linked?: boolea
 				key: `routine:${r.id}`,
 				value: r.id,
 				label: r.name,
-				meta: r.team ? usedAsIs(r.team.name) : routineMeta(r.slots, r.loops)
+				meta:
+					r.twins && r.twins.length > 0
+						? twinPickMeta({ figure: null, team: r.team }, r.twins)
+						: r.team
+							? usedAsIs(r.team.name)
+							: routineMeta(r.slots, r.loops)
 			},
 			r.linked
 		)

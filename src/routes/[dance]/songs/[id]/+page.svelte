@@ -259,6 +259,7 @@
 		drop={data.drop}
 		detach={data.detach}
 		copy={data.copyTo}
+		sameAs={data.sameAs}
 		taking={sourcePlace}
 	/>
 	{#if group && !canEdit}

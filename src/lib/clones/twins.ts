@@ -115,12 +115,12 @@ export function foldMoves(
 }
 
 /**
- * A picker's rows with the person's twin sets folded: one row per set, the
- * one used, in the rows' order. Used: their own (`mineIds`) if they have one,
+ * A flat list's rows (a picker's, the Lessons list's) with the person's twin
+ * sets folded: one row per set, the one used, in the rows' order. Used: their own (`mineIds`) if they have one,
  * else the first by group name (`team`). `twins` names the ids folded behind
  * it; [] for a row with none.
  */
-export function twinRows<T extends { id: number; team?: TeamRef | null }>(
+export function foldRows<T extends { id: number; team?: TeamRef | null }>(
 	rows: T[],
 	sets: number[][],
 	mineIds: Set<number>
@@ -136,6 +136,47 @@ export function twinRows<T extends { id: number; team?: TeamRef | null }>(
 	return rows
 		.filter((r) => !hidden.has(r.id))
 		.map((r) => ({ ...r, twins: behind.get(r.id) ?? [] }));
+}
+
+/** The picker name of `foldRows`. */
+export const twinRows = foldRows;
+
+/**
+ * A list of the person's own rows followed by a section per group (Routines,
+ * Music) with the twin sets folded: each set shows once, as the person's own
+ * if they have one, else the first by group name; a group left with no rows
+ * loses its section. `twinOf` maps a shown row to the twins hidden behind it
+ * (the chip). Group mode folds nothing: its callers never ask.
+ */
+export function foldSections<R extends { id: number }>(
+	mine: R[],
+	groups: { team: TeamRef; rows: R[] }[],
+	sets: number[][]
+): { mine: R[]; groups: { team: TeamRef; rows: R[] }[]; twinOf: Map<number, number[]> } {
+	// Where each row sits: -1 for the person's own, else its group's index.
+	const where = new Map<number, number>();
+	for (const r of mine) where.set(r.id, -1);
+	groups.forEach((g, gi) => {
+		for (const r of g.rows) if (!where.has(r.id)) where.set(r.id, gi);
+	});
+	const nameOf = (id: number) => {
+		const gi = where.get(id)!;
+		return gi === -1 ? null : groups[gi].team.name;
+	};
+	const twinOf = new Map<number, number[]>();
+	const hidden = new Set<number>();
+	for (const f of folds(sets, (id) => where.has(id), nameOf)) {
+		twinOf.set(f.shown, [...(twinOf.get(f.shown) ?? []), ...f.hidden]);
+		for (const h of f.hidden) hidden.add(h);
+	}
+	const keep = (r: R) => !hidden.has(r.id);
+	return {
+		mine: mine.filter(keep),
+		groups: groups
+			.map((g) => ({ team: g.team, rows: g.rows.filter(keep) }))
+			.filter((g) => g.rows.length > 0),
+		twinOf
+	};
 }
 
 /**
@@ -162,7 +203,9 @@ export function twinPickMeta(
 	twins: TwinNote[]
 ): string {
 	const names = twins.map((t) => {
-		const what = t.figure === row.figure ? t.name : `${t.figure} · ${t.name}`;
+		// Routines, lessons and songs have no move above them: just the name.
+		const what =
+			row.figure === null || t.figure === row.figure ? t.name : `${t.figure} · ${t.name}`;
 		return t.team ? `${possessive(t.team.name)} ${what}` : `your ${what}`;
 	});
 	return row.team ? twinUseMeta([row.team.name, ...names], false) : twinUseMeta(names, true);

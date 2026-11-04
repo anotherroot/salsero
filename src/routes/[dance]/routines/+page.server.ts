@@ -12,6 +12,8 @@ import { optionalText, text } from '$lib/server/form';
 import { wallOf } from '$lib/server/scope';
 import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import { publishedReach } from '$lib/server/access';
+import { storedTwinSets } from '$lib/server/twins';
+import { foldSections } from '$lib/clones/twins';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals, cookies }) => {
@@ -26,9 +28,21 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const shapes = routineShapes(db, space);
 	// Derived per request, never stored — the same rule urgency follows. A tag
 	// edited on a figure page changes these answers with no routine touched.
+	// Twins show as one (board C7): each set once, yours if you have one, else the
+	// first by group name. Group mode folds nothing: groups have no twins.
+	const added = mode ? [] : listAddedRoutines(db, wall);
+	const folded = mode
+		? null
+		: foldSections(
+				listRoutines(db, space),
+				added.map((g) => ({ team: g.team, rows: g.routines })),
+				storedTwinSets(db, wall.userId, 'routine')
+			);
 	return {
-		groups: mode ? [] : listAddedRoutines(db, wall),
-		routines: listRoutines(db, space).map((r) => {
+		groups: folded ? folded.groups.map((g) => ({ team: g.team, routines: g.rows })) : [],
+		/** The routines that stand for their twins: the "Twins" chip. */
+		twinned: folded ? [...folded.twinOf.keys()] : ([] as number[]),
+		routines: (folded ? folded.mine : listRoutines(db, space)).map((r) => {
 			const shape = shapes.get(r.id) ?? { slots: [] };
 			return {
 				...r,

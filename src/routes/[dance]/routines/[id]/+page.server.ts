@@ -3,7 +3,8 @@ import { getDb, type Db } from '$lib/server/db';
 import { figureLabels, listVersions } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
 import { usableOf, usableVersions } from '$lib/server/usable';
-import { foldVersions } from '$lib/server/twins';
+import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
+import { inGroupModeOn } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
 import { listPositions } from '$lib/server/positions';
 import {
@@ -47,7 +48,15 @@ import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import {
+	copyToFrom,
+	detachFrom,
+	dropFrom,
+	sameAsFrom,
+	sendFrom,
+	separateFrom,
+	takeFrom
+} from '$lib/server/take-form';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
@@ -121,11 +130,13 @@ function routineIn(
 	return requireRoutineAccess(getDb(), locals, params, params.id, need);
 }
 
-export const load: PageServerLoad = ({ params, locals, url }) => {
+export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
 	const { routine, space, access, reach: visible } = routineIn(params, locals, 'read');
 	const canEdit = access === 'edit';
+	// Group mode has no twins: no twin tab, no Same as….
+	const inGroupMode = inGroupModeOn(db, wall.userId, wall.dance, routine.teamId, cookies);
 	// A reader's lists hold only what the published lessons reach (risk 20).
 	// A person's routine may hold the group figures and routines they may use
 	// (`usableOf`): those are on the graph, named, and offered to embed.
@@ -190,33 +201,39 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 						}
 					];
 				}),
-				...embeddable(db, routine.id, usable).map((r): Candidate => {
-					// An embeddable routine embeds nothing, so its own slots are all options.
-					const own = (shapes.get(r.id)?.slots ?? []).filter(
-						(s): s is OptionsSlot => s.kind === 'options'
-					);
-					return {
-						kind: 'routine',
-						id: r.id,
-						groupId: null,
-						figure: null,
-						label: r.name,
-						...(r.team ? { team: r.team } : {}),
-						...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
-					};
-				})
+				// Twins show as one here too: a set is one routine to embed.
+				...foldNamed(db, space, 'routine', embeddable(db, routine.id, usable)).map(
+					(r): Candidate => {
+						// An embeddable routine embeds nothing, so its own slots are all options.
+						const own = (shapes.get(r.id)?.slots ?? []).filter(
+							(s): s is OptionsSlot => s.kind === 'options'
+						);
+						return {
+							kind: 'routine',
+							id: r.id,
+							groupId: null,
+							figure: null,
+							label: r.name,
+							...(r.team ? { team: r.team } : {}),
+							...(r.twins ? { twins: r.twins } : {}),
+							...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
+						};
+					}
+				)
 			];
 
 	return {
 		routine: { id: routine.id, name: routine.name, notes: routine.notes },
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
-		...pageSources(db, wall.userId, 'routine', routine.id, url),
+		...pageSources(db, wall.userId, 'routine', routine.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'routine', routine.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'routine', routine.id),
 		detach: detachOffer(db, wall.userId, 'routine', routine.id),
+		/** Same as… (board C7): the other routines in your app; none in a group's workspace. */
+		sameAs: sameAsOffer(db, wall, 'routine', routine.id, routine.name, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'routine', routine.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
@@ -385,6 +402,18 @@ export const actions: Actions = {
 	detach: ({ params, locals }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return detachFrom(getDb(), wallOf(params, locals).userId, 'routine', routine.id);
+	},
+
+	/** Same as… (board C7): the row's twins become exactly the ticked ones. */
+	sameAs: ({ params, locals, request }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return sameAsFrom(getDb(), wallOf(params, locals), 'routine', routine.id, request);
+	},
+
+	/** Not the same? Separate (board C7 p2): the row and the rest of its family leave their twins. */
+	separate: ({ params, locals }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return separateFrom(getDb(), wallOf(params, locals), 'routine', routine.id);
 	},
 
 	/** Copy to… (board C4): this row into your app or a group you own or edit. */

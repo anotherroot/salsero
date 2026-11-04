@@ -12,7 +12,17 @@ import {
 } from '$lib/server/songs';
 import { deleteGroupSong, shareSong, songUsers, unshareSong } from '$lib/server/song-share';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { copyToFrom, detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import {
+	copyToFrom,
+	detachFrom,
+	dropFrom,
+	sameAsFrom,
+	sendFrom,
+	separateFrom,
+	takeFrom
+} from '$lib/server/take-form';
+import { sameAsOffer } from '$lib/server/twins';
+import { inGroupModeOn } from '$lib/server/group-mode';
 import { copyOffer } from '$lib/server/clones/copy-to';
 import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
@@ -45,11 +55,19 @@ import type { Actions, PageServerLoad } from './$types';
 
 const parse = (json: string | null): number[] => (json ? (JSON.parse(json) as number[]) : []);
 
-export const load: PageServerLoad = ({ params, locals, url }) => {
+export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	const db = getDb();
 	const { song, access } = requireSongAccess(db, locals, params, params.id, 'read');
 	const canEdit = access === 'edit';
 	const team = song.teamId !== null ? getTeam(db, song.teamId) : null;
+	// Group mode has no twins: no twin tab, no Same as….
+	const inGroupMode = inGroupModeOn(
+		db,
+		wallOf(params, locals).userId,
+		wallOf(params, locals).dance,
+		song.teamId,
+		cookies
+	);
 	const anchors = parse(song.anchorsJson);
 	const grid =
 		song.status === 'ready'
@@ -78,12 +96,14 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		/** Taps, the count speed, the sample and the details: the owner's or an editor's. */
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
-		...pageSources(db, wallOf(params, locals).userId, 'song', song.id, url),
+		...pageSources(db, wallOf(params, locals).userId, 'song', song.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wallOf(params, locals).userId, 'song', song.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wallOf(params, locals), 'song', song.id),
 		detach: detachOffer(db, wallOf(params, locals).userId, 'song', song.id),
+		/** Same as… (board C7): the other songs in your Music; none in a group's workspace. */
+		sameAs: sameAsOffer(db, wallOf(params, locals), 'song', song.id, song.title, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wallOf(params, locals).userId, 'song', song.id),
 		/** A group's song: whose it is. */
@@ -323,6 +343,18 @@ export const actions: Actions = {
 	},
 
 	/** Copy to… (board C4): this song into your app or a group you own or edit. */
+	/** Same as… (board C7): the row's twins become exactly the ticked ones. */
+	sameAs: ({ params, locals, request }) => {
+		const { song } = requireSongAccess(getDb(), locals, params, params.id, 'read');
+		return sameAsFrom(getDb(), wallOf(params, locals), 'song', song.id, request);
+	},
+
+	/** Not the same? Separate (board C7 p2). */
+	separate: ({ params, locals }) => {
+		const { song } = requireSongAccess(getDb(), locals, params, params.id, 'read');
+		return separateFrom(getDb(), wallOf(params, locals), 'song', song.id);
+	},
+
 	copyTo: ({ params, locals, request }) => {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');

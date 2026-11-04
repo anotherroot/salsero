@@ -95,6 +95,8 @@
 	const uploadHere = $derived(upload.current?.dance === data.dance.slug);
 	/** Group mode: the group's songs, drafts and shared; otherwise the person's own. */
 	const team = $derived(data.groupMode?.teamId ?? null);
+	// The songs that stand for their twins (board C7): a "Twins" chip.
+	const twinned = $derived(new Set(data.twinned));
 	const view = $derived(
 		team !== null
 			? classLibraryView(data.songs, query, uploadHere)
@@ -154,6 +156,7 @@
 		sample={s.sample}
 		draft={team !== null && s.sharedAt === null}
 		{isNew}
+		twinned={twinned.has(s.id)}
 	/>
 {/snippet}
 

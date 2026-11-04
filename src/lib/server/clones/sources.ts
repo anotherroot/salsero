@@ -323,7 +323,14 @@ export async function takeRecording(
 }
 
 /** What a member page's load sends: its tabs, its subtitle's facts, and `vs` from its URL. */
-export function pageSources(db: Db, userId: string, kind: CloneKind, id: number, url: URL) {
-	const v = sourcesView(db, userId, kind, id, url.searchParams.get('vs'));
+export function pageSources(
+	db: Db,
+	userId: string,
+	kind: CloneKind,
+	id: number,
+	url: URL,
+	withTwins = true
+) {
+	const v = sourcesView(db, userId, kind, id, url.searchParams.get('vs'), withTwins);
 	return { sources: v.sources, cloneLine: v.line, mineId: v.mineId, vs: v.vs, compare: v.compare };
 }

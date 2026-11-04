@@ -14,6 +14,7 @@
 	import { plural } from '$lib/format';
 	import { groupHeading } from '$lib/moves/figures';
 	import { routineBadges, type RoutineBadge } from '$lib/moves/routines';
+	import { TWINS_CHIP } from '$lib/clones/twins';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
 	import type { ActionData, PageData } from './$types';
 
@@ -26,6 +27,8 @@
 		if (form?.message) creating = true;
 	});
 	let busy = $state(false);
+	// The routines that stand for their twins (board C7): a "Twins" chip.
+	const twinned = $derived(new Set(data.twinned));
 
 	const nameError = $derived(form?.field === 'name' ? form.message : null);
 	const notesError = $derived(form?.field === 'notes' ? form.message : null);
@@ -52,6 +55,8 @@
 				class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
 			>
 				<span>{plural(routine.slots, 'slot', 'slots')}</span>
+				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
+				{#if twinned.has(routine.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 				{#each badges as b (b.text)}
 					<Badge tone={b.tone}>{b.text}</Badge>
 				{/each}

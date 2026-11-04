@@ -757,4 +757,18 @@ describe('Same as… (board C7)', () => {
 		expect(v.SEPARATE).toBe('Not the same? Separate');
 		expect(v.SAME_AS).toBe('Same as…');
 	});
+
+	it('words the note, search and empty line for every kind', async () => {
+		const v = await import('./view');
+		expect(v.twinsNote('routine')).toBe(
+			'Twins show as one routine. They never sync, and only you see the grouping.'
+		);
+		expect(v.twinsNote('lesson')).toContain('one lesson.');
+		expect(v.twinsNote('song')).toContain('one song.');
+		expect(v.sameAsSearch('routine')).toBe('Search your routines');
+		expect(v.sameAsSearch('song')).toBe('Search your songs');
+		expect(v.sameAsEmpty('lesson')).toBe('No other lessons match.');
+		expect(v.SAME_AS_SEARCH).toBe('Search your figures');
+		expect(v.SAME_AS_EMPTY).toBe('No other figures match.');
+	});
 });

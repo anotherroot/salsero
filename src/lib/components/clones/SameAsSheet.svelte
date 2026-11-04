@@ -11,9 +11,9 @@
 	import {
 		CANCEL,
 		MARK_SAME,
-		SAME_AS_EMPTY,
+		sameAsEmpty,
 		SAME_AS_FAILED,
-		SAME_AS_SEARCH,
+		sameAsSearch,
 		sameAsTitle,
 		twinChoiceLabel,
 		twinsNote
@@ -21,8 +21,8 @@
 	import type { TwinOffer } from '$lib/types';
 
 	/**
-	 * Same as… (board C7 p1): the page's figure is the same move as some
-	 * others in your app. A folded search over them, each with its place as
+	 * Same as… (board C7 p1): the page's row (a figure, routine, lesson or song)
+	 * is the same as some others in your app. A folded search over them, each with its place as
 	 * meta and a box; the note says twins never sync and only you see them.
 	 * Mark as the same saves exactly the ticked set (unticking separates), and
 	 * waits until the ticks change.
@@ -66,10 +66,10 @@
 	<div class="flex flex-col gap-3">
 		{#if refused}<Banner kind="error">{refused}</Banner>{/if}
 		<form role="search" onsubmit={(e) => e.preventDefault()}>
-			<SearchField bind:value={query} placeholder={SAME_AS_SEARCH} />
+			<SearchField bind:value={query} placeholder={sameAsSearch(offer.kind)} />
 		</form>
 		{#if shown.length === 0}
-			<p class="py-4 text-center text-[14px] text-muted">{SAME_AS_EMPTY}</p>
+			<p class="py-4 text-center text-[14px] text-muted">{sameAsEmpty(offer.kind)}</p>
 		{:else}
 			<div class={GROUP}>
 				{#each shown as c (c.id)}

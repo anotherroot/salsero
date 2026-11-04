@@ -857,6 +857,17 @@ export function twinsNote(kind: TwinKind): string {
 export const TWINS_NOTE = twinsNote('figure');
 export const MARK_SAME = 'Mark as the same';
 export const SEPARATE = 'Not the same? Separate';
-export const SAME_AS_SEARCH = 'Search your figures';
-export const SAME_AS_EMPTY = 'No other figures match.';
+
+/** The sheet's search placeholder: "Search your routines". */
+export function sameAsSearch(kind: TwinKind): string {
+	return `Search your ${KIND_WORD[kind]}s`;
+}
+
+/** The sheet's empty line: "No other routines match." */
+export function sameAsEmpty(kind: TwinKind): string {
+	return `No other ${KIND_WORD[kind]}s match.`;
+}
+
+export const SAME_AS_SEARCH = sameAsSearch('figure');
+export const SAME_AS_EMPTY = sameAsEmpty('figure');
 export const SAME_AS_FAILED = 'That could not be saved. Try again.';

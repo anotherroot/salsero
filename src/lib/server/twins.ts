@@ -11,7 +11,15 @@
  * merge, and a set left with one row is gone.
  */
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import type { FigureVersion, PlaceRef, TwinCandidate, TwinKind, TwinNote } from '$lib/types';
+import type {
+	FigureVersion,
+	PlaceRef,
+	TeamRef,
+	TwinCandidate,
+	TwinKind,
+	TwinNote,
+	TwinOffer
+} from '$lib/types';
 import { twinRows } from '$lib/clones/twins';
 import type { Db } from './db';
 import { figures, lessons, routines, songs, twins } from './db/schema';
@@ -19,6 +27,9 @@ import { isTeam, type Space, type Wall } from './scope';
 import { accessTo, newGene, visibleMembers } from './clones/genes';
 import { listVersions } from './figures';
 import { usableVersions } from './usable';
+import { listAddedRoutines, listRoutines } from './routines';
+import { listMyLessons } from './lessons';
+import { listSharedSongs, listSongs } from './songs';
 
 const TABLES = { figure: figures, routine: routines, lesson: lessons, song: songs } as const;
 
@@ -157,23 +168,55 @@ export function twinSets(db: Db, wall: Wall, kind: TwinKind): number[][] {
  * own, and the usable rows of the groups they added, minus the ones their own
  * copy shadows) except the row itself and its family, which are shown together
  * already. `ticked` marks its current twins: those of any member of the
- * family the person sees, as the page's tabs show them. Figures only for now.
+ * family the person sees, as the page's tabs show them. Routines, lessons and
+ * songs offer what their lists show: the Routines list (their own and the
+ * routines of lessons they added), the Lessons list (their own and added
+ * ones) and Music (their own songs and their groups' class songs), the ones
+ * their own copies shadow already left out.
  */
 export function twinCandidates(db: Db, wall: Wall, kind: TwinKind, id: number): TwinCandidate[] {
-	if (kind !== 'figure') return [];
-	const family = new Set(visibleMembers(db, wall.userId, 'figure', id).map((m) => m.id));
+	const family = new Set(visibleMembers(db, wall.userId, kind, id).map((m) => m.id));
 	family.add(id);
 	// The page's tabs show the twins of every member of the family: so do the ticks.
-	const ticked = new Set([...family].flatMap((m) => twinsOf(db, wall.userId, 'figure', m)));
+	const ticked = new Set([...family].flatMap((m) => twinsOf(db, wall.userId, kind, m)));
 	const mine: PlaceRef = { kind: 'mine' };
-	const rows = [
-		...listVersions(db, wall).map((v) => ({ id: v.id, label: v.label, place: mine })),
-		...usableVersions(db, wall).map((v) => ({
-			id: v.id,
-			label: v.label,
-			place: { kind: 'team', teamId: v.team.id, name: v.team.name } as PlaceRef
-		}))
-	];
+	const placeOf = (t: TeamRef): PlaceRef => ({ kind: 'team', teamId: t.id, name: t.name });
+	let rows: { id: number; label: string; place: PlaceRef }[];
+	switch (kind) {
+		case 'figure':
+			rows = [
+				...listVersions(db, wall).map((v) => ({ id: v.id, label: v.label, place: mine })),
+				...usableVersions(db, wall).map((v) => ({
+					id: v.id,
+					label: v.label,
+					place: placeOf(v.team)
+				}))
+			];
+			break;
+		case 'routine':
+			rows = [
+				...listRoutines(db, wall).map((r) => ({ id: r.id, label: r.name, place: mine })),
+				...listAddedRoutines(db, wall).flatMap((g) =>
+					g.routines.map((r) => ({ id: r.id, label: r.name, place: placeOf(g.team) }))
+				)
+			];
+			break;
+		case 'lesson':
+			rows = listMyLessons(db, wall).map((l) => ({
+				id: l.id,
+				label: l.title,
+				place: l.team ? placeOf(l.team) : mine
+			}));
+			break;
+		case 'song':
+			rows = [
+				...listSongs(db, wall).map((s) => ({ id: s.id, label: s.title, place: mine })),
+				...listSharedSongs(db, wall.userId, wall.dance).flatMap((g) =>
+					g.songs.map((s) => ({ id: s.id, label: s.title, place: placeOf(g.team) }))
+				)
+			];
+			break;
+	}
 	return rows
 		.filter((r) => !family.has(r.id))
 		.map((r) => ({ ...r, ticked: ticked.has(r.id) }))
@@ -222,6 +265,49 @@ export function storedTwinSets(db: Db, userId: string, kind: TwinKind): number[]
 		bySet.set(r.setId, [...(bySet.get(r.setId) ?? []), r.itemId]);
 	}
 	return [...bySet.values()].filter((s) => s.length >= 2);
+}
+
+/**
+ * Same as… for a page: the sheet's offer, or null with nothing to tick (and
+ * in a group's workspace, which has no twins).
+ */
+export function sameAsOffer(
+	db: Db,
+	wall: Wall,
+	kind: TwinKind,
+	id: number,
+	title: string,
+	inGroupMode: boolean
+): TwinOffer | null {
+	if (inGroupMode) return null;
+	const candidates = twinCandidates(db, wall, kind, id);
+	return candidates.length === 0 ? null : { kind, title, candidates };
+}
+
+/**
+ * A person's picker rows of a kind named by `name` (routines) with their
+ * twins folded: one row per set, theirs if they have one, else the first by
+ * group name, carrying the twins behind it. A group's space folds nothing.
+ */
+export function foldNamed<T extends { id: number; name: string; team?: TeamRef | null }>(
+	db: Db,
+	space: Space,
+	kind: TwinKind,
+	rows: T[]
+): (T & { twins?: TwinNote[] })[] {
+	if (isTeam(space)) return rows;
+	const sets = storedTwinSets(db, space.userId, kind);
+	if (sets.length === 0) return rows;
+	const byId = new Map(rows.map((r) => [r.id, r]));
+	const mineIds = new Set(rows.filter((r) => !r.team).map((r) => r.id));
+	const note = (id: number): TwinNote => {
+		const t = byId.get(id)!;
+		return { id, figure: null, name: t.name, team: t.team ?? null };
+	};
+	return twinRows(rows, sets, mineIds).map(({ id, twins: behind }) => {
+		const r = byId.get(id)!;
+		return behind.length === 0 ? r : { ...r, twins: behind.map(note) };
+	});
 }
 
 /**

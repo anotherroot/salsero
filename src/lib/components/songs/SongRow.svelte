@@ -5,6 +5,7 @@
 	import { segments } from '$lib/picker/model';
 	import { sampling } from '$lib/songs/sample-player.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { TWINS_CHIP } from '$lib/clones/twins';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import SampleButton from './SampleButton.svelte';
 
@@ -21,6 +22,7 @@
 		sample = null,
 		draft = false,
 		isNew = false,
+		twinned = false,
 		trailing
 	}: {
 		href: string;
@@ -33,6 +35,8 @@
 		draft?: boolean;
 		/** A class song not opened since it was shared. */
 		isNew?: boolean;
+		/** Stands for its twins (board C7): the "Twins" chip. */
+		twinned?: boolean;
 		trailing?: Snippet;
 	} = $props();
 
@@ -52,6 +56,8 @@
 			>
 			{#if draft}<Badge tone="warn">Draft</Badge>{/if}
 			{#if isNew}<Badge tone="accent">New</Badge>{/if}
+			<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
+			{#if twinned}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
 		</span>
 		{#if sampled && sample}
 			<span class="truncate text-[13px] leading-[1.35] font-bold text-accent-text"

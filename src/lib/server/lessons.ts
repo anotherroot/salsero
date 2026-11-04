@@ -19,7 +19,7 @@ import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
 import { listPickRoutines, listUsableRoutines } from './routines';
 import { ownedOrUsable, usableBy, usableDrills, usableOf, usableVersions } from './usable';
-import { foldVersions } from './twins';
+import { foldNamed, foldVersions } from './twins';
 import { mineIdsFor, withoutShadowed } from './clones/shadow';
 import {
 	exercises,
@@ -1069,7 +1069,7 @@ export function listLinkableFigures(
 /**
  * Unarchived routines in the lesson's space, alphabetical; `linked` marks those already on it.
  * A person's own lesson also offers the group routines they may use, after
- * their own, each tagged with its group.
+ * their own, each tagged with its group; their twins show as one.
  */
 export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
 	const space = lessonSpace(db, lessonId);
@@ -1077,9 +1077,10 @@ export function listLinkableRoutines(db: Db, lessonId: number): PickRoutine[] {
 
 	const linked = new Set(linkedRoutineIds(db, lessonId));
 	const theirs = isTeam(space) ? [] : listUsableRoutines(db, space);
-	return [...listPickRoutines(db, space), ...theirs].map((r) => ({
+	// Twins show as one (board C7): a set is one row, linked when any of it is.
+	return foldNamed(db, space, 'routine', [...listPickRoutines(db, space), ...theirs]).map((r) => ({
 		...r,
-		linked: linked.has(r.id)
+		linked: [r.id, ...(r.twins ?? []).map((t) => t.id)].some((id) => linked.has(id))
 	}));
 }
 

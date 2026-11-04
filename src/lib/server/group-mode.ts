@@ -58,6 +58,26 @@ export function groupModeOf(
 	return { teamId: team.id, name: team.name, role };
 }
 
+/**
+ * Whether the request is in this group's own workspace (group mode on
+ * `teamId`): twins show nothing there. Read-only on the cookie: a load never
+ * sets or deletes it.
+ */
+export function inGroupModeOn(
+	db: Db,
+	userId: string,
+	dance: DanceSlug,
+	teamId: number | null,
+	cookies: Pick<Cookies, 'get'> | undefined
+): boolean {
+	if (teamId === null) return false;
+	const quiet = {
+		get: (name: string) => cookies?.get(name),
+		delete: () => {}
+	} as unknown as Cookies;
+	return groupModeOf(db, userId, dance, quiet)?.teamId === teamId;
+}
+
 /** Whose content this request stands in: the switched-into group, else the person. */
 export function spaceOf(
 	db: Db,

@@ -8,7 +8,7 @@
  * missing row's 404.
  */
 import { error, fail, redirect } from '@sveltejs/kit';
-import type { CloneKind, Picks } from '$lib/types';
+import type { CloneKind, Picks, TwinKind } from '$lib/types';
 import type { Db } from './db';
 import { freeDisk } from './storage';
 import { realCloneFiles } from './clones/files';
@@ -18,7 +18,9 @@ import { dropCopy, dropOptions } from './clones/drop';
 import { detach, detachOffer } from './clones/detach';
 import { chosenSource, copyTo, intoOf, restoreMember } from './clones/copy-to';
 import { moveLesson, movePreview } from './clones/move';
-import { MOVE_GONE } from '$lib/clones/view';
+import { MOVE_GONE, SAME_AS_FAILED } from '$lib/clones/view';
+import { ints } from './form';
+import { separateFamily, setTwins } from './twins';
 import { placeOfRow } from './clones/genes';
 import { itemHref } from './make-mine-form';
 import type { Wall } from './scope';
@@ -326,4 +328,18 @@ export async function moveToFrom(db: Db, wall: Wall, lessonId: number, request: 
 		case 'denied':
 			return fail(409, { action: 'move' as const, message: MOVE_GONE });
 	}
+}
+
+/** Same as… (board C7) on a routine, lesson or song page: the row's twins become exactly the ticked ones. */
+export async function sameAsFrom(db: Db, wall: Wall, kind: TwinKind, id: number, request: Request) {
+	const form = await request.formData();
+	if (!setTwins(db, wall, kind, id, ints(form, 'twin')))
+		return fail(400, { action: 'sameAs', message: SAME_AS_FAILED });
+	return { action: 'sameAs' };
+}
+
+/** Not the same? Separate (board C7 p2): the row and the rest of its family leave their twins. */
+export function separateFrom(db: Db, wall: Wall, kind: TwinKind, id: number) {
+	separateFamily(db, wall, kind, id);
+	return { action: 'separate' };
 }

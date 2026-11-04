@@ -155,6 +155,8 @@ export interface LessonItem {
 	team: { id: number; name: string } | null;
 	/** The group a person's own lesson was kept or copied from; null otherwise. */
 	copyOf: string | null;
+	/** Stands for its twins in the Lessons list (board C7): the "Twins" chip. */
+	twinned?: boolean;
 }
 
 /** A group's lesson as the group page lists it: a draft until an editor publishes it. */
@@ -301,6 +303,8 @@ export interface PickRoutine {
 	linked: boolean;
 	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
 	team?: TeamRef;
+	/** The person's twins of it that this row stands for in a picker (`clones/twins.ts`). */
+	twins?: TwinNote[];
 }
 
 /** One variation of a figure, as a picker offers it. */
@@ -321,7 +325,8 @@ export interface FigureVersion {
 }
 
 /** A twin folded behind a picker row: named by its place and its own name. */
-export type TwinNote = { id: number; figure: string; name: string; team: TeamRef | null };
+/** `figure` is null for kinds with no move above them (routines, lessons, songs). */
+export type TwinNote = { id: number; figure: string | null; name: string; team: TeamRef | null };
 
 /** A figure (a `figures` row) as the Figures list shows it, under its move. */
 export type FigureRow = {

@@ -39,7 +39,9 @@ import {
 	detachFrom,
 	dropFrom,
 	moveToFrom,
+	sameAsFrom,
 	sendFrom,
+	separateFrom,
 	takeFrom
 } from '$lib/server/take-form';
 import { moveOffer } from '$lib/server/clones/move';
@@ -67,6 +69,7 @@ import { editedByLine } from '$lib/teams/history';
 import { agoText } from '$lib/format';
 import type { Cookies } from '@sveltejs/kit';
 import { pageSources } from '$lib/server/clones/sources';
+import { sameAsOffer } from '$lib/server/twins';
 import type { Actions, PageServerLoad } from './$types';
 
 function zone(locals: App.Locals): string {
@@ -152,12 +155,14 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		exercises: shown(found.exercises, visible?.drills),
 		canEdit,
 		/** A tab per source, the subtitle's facts, and `?vs=` (`clones/sources.ts`). */
-		...pageSources(db, wall.userId, 'lesson', found.lesson.id, url),
+		...pageSources(db, wall.userId, 'lesson', found.lesson.id, url, !inGroupMode),
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'lesson', found.lesson.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'lesson', found.lesson.id),
 		detach: detachOffer(db, wall.userId, 'lesson', found.lesson.id),
+		/** Same as… (board C7): the other lessons in your app; none in a group's workspace. */
+		sameAs: sameAsOffer(db, wall, 'lesson', found.lesson.id, found.lesson.title, inGroupMode),
 		/** Copy to… (board C4): your app or a group you own or edit; null when there is none. */
 		copyTo: copyOffer(db, wall.userId, 'lesson', found.lesson.id),
 		/** Move to… (board C4 p3): your own lesson into a group you own or edit, as a draft. */
@@ -334,6 +339,18 @@ export const actions: Actions = {
 	copyTo: ({ params, locals, request }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		return copyToFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id, request);
+	},
+
+	/** Same as… (board C7): the row's twins become exactly the ticked ones. */
+	sameAs: ({ params, locals, request }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return sameAsFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id, request);
+	},
+
+	/** Not the same? Separate (board C7 p2). */
+	separate: ({ params, locals }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return separateFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id);
 	},
 
 	/** Move to… (board C4 p3): this lesson into a group as a draft; the group's lesson opens. */
