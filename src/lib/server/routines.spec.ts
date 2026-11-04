@@ -202,7 +202,7 @@ describe('addOption and removeOption', () => {
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		const [pa, pb] = listPositions(db, 'salsa');
+		const [pa, pb] = listPositions(db, U1_SALSA);
 		setFigureShape(db, a.id, {
 			startIds: [],
 			endIds: [pa.id, pb.id],
@@ -221,7 +221,7 @@ describe('addOption and removeOption', () => {
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		const [pa, pb] = listPositions(db, 'salsa');
+		const [pa, pb] = listPositions(db, U1_SALSA);
 		setFigureShape(db, a.id, {
 			startIds: [],
 			endIds: [pa.id, pb.id],
@@ -244,7 +244,7 @@ describe('addOption and removeOption', () => {
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'A', notes: null });
 		const a = figure(db, 'A');
 		const b = figure(db, 'B');
-		const [pa] = listPositions(db, 'salsa');
+		const [pa] = listPositions(db, U1_SALSA);
 		setFigureShape(db, b.id, { startIds: [], endIds: [pa.id], startCount: 1, lengthCounts: 8 });
 		const step = addFigureSlot(db, routine.id, a.id)!;
 		expect(addOption(db, step, b.id)).toBe(false);
@@ -625,7 +625,7 @@ describe('addOption: the start rule', () => {
 		const db = openDb(':memory:');
 		seedPositions(db);
 		const { routine } = createRoutine(db, U1_SALSA, { name: 'R', notes: null });
-		const [p1, p2] = listPositions(db, 'salsa');
+		const [p1, p2] = listPositions(db, U1_SALSA);
 		return { db, routine, p1, p2 };
 	};
 

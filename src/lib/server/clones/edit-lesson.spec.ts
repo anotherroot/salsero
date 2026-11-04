@@ -139,7 +139,7 @@ function world() {
 	linkInSpace(db, T1_SALSA, second.id, { exerciseId: drill });
 	// An option while the two share a shape; Doble's own timing comes after.
 	expect(addOption(db, step, doble, 'u1')).toBe(true);
-	const [open, closed] = listPositions(db, 'salsa');
+	const [open, closed] = listPositions(db, T1_SALSA);
 	expect(
 		setFigureShape(
 			db,

@@ -34,7 +34,7 @@ import {
 	moveVariation
 } from '$lib/server/figures';
 import { buildGraph, taggedFigures } from '$lib/server/graph';
-import { getPosition, listPositions } from '$lib/server/positions';
+import { listPositions } from '$lib/server/positions';
 import { seedPositions } from '$lib/server/test-positions';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { exercises, figureGroups, figures, recordings, routines } from '$lib/server/db/schema';
@@ -315,48 +315,18 @@ describe("the figures list and coverage show only the person's own", () => {
 	});
 });
 
-describe('positions are shared, and only the admin changes them', () => {
-	// The old page's rules until the positions rewrite (Task 8 rewrites this block).
-	const firstId = () => listPositions(db, 'salsa')[0].id;
+describe('positions belong to their owner', () => {
+	// Task 8 rewrites this block for owned positions.
 
-	it('the load is open to everyone and says who may change them', () => {
-		const theirs = loadAt(positionsPage.load, U2, 'salsa') as {
-			isAdmin: boolean;
-			positions: unknown[];
-			tagged: { total: number };
-		};
-		expect(theirs.isAdmin).toBe(false);
-		expect(theirs.positions.length).toBe(listPositions(db, 'salsa').length);
-		// The counts are of the person's own figures: u2 has none.
-		expect(theirs.tagged.total).toBe(0);
-		expect((loadAt(positionsPage.load, U1, 'salsa') as { isAdmin: boolean }).isAdmin).toBe(true);
-	});
-
-	const actions: [string, () => Record<string, string>][] = [
-		['create', () => ({ name: 'Brand new hold' })],
-		['rename', () => ({ id: String(firstId()), name: 'Renamed' })],
-		['archive', () => ({ id: String(listPositions(db, 'salsa')[1].id) })],
-		['restore', () => ({ id: String(firstId()) })]
-	];
-	for (const [name, fields] of actions) {
-		it(`${name} is a 404 for someone who is not the admin, and changes nothing`, async () => {
-			const before = JSON.stringify(listPositions(db, 'salsa'));
-			await refuses(
-				(positionsPage.actions as Record<string, unknown>)[name],
-				post(U2, 'salsa', fields())
-			);
-			expect(JSON.stringify(listPositions(db, 'salsa'))).toBe(before);
-			expect(getPosition(db, firstId())!.name).not.toBe('Renamed');
-		});
-	}
-
-	it('the admin still can', async () => {
-		await call(positionsPage.actions.create, post(U1, 'salsa', { name: 'Brand new hold' }));
-		expect(listPositions(db, 'salsa').map((p) => p.name)).toContain('Brand new hold');
+	it('the load lists only the space’s own positions', () => {
+		const theirs = loadAt(positionsPage.load, U2, 'salsa') as { positions: unknown[] };
+		expect(theirs.positions).toEqual([]);
+		const mine = loadAt(positionsPage.load, U1, 'salsa') as { positions: unknown[] };
+		expect(mine.positions.length).toBe(listPositions(db, U1_SALSA).length);
 	});
 
 	it("tagging a figure with positions stays the figure owner's action", async () => {
-		const id = listPositions(db, 'salsa')[1].id;
+		const id = listPositions(db, U1_SALSA)[1].id;
 		await refuses(
 			figurePage.actions.update,
 			post(

@@ -53,7 +53,7 @@ import {
 } from '$lib/server/songs';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { figurePositions, setFigureShape } from '$lib/server/graph';
-import { getPosition, listPositions } from '$lib/server/positions';
+import { listPositions } from '$lib/server/positions';
 import { seedPositions } from '$lib/server/test-positions';
 import {
 	addFigureSlot,
@@ -74,7 +74,6 @@ import * as figurePage from './figures/[id]/+page.server';
 import { actions as figureListActions } from './figures/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
-import * as positionsPage from './positions/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
 import * as coveragePage from './coverage/+page.server';
 import * as gridEndpoint from './songs/[id]/grid/+server';
@@ -419,7 +418,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 		// A BACHATA position on a BACHATA variation: `setFigureShape`'s own
 		// per-position dance check would ACCEPT this payload, so the only thing
 		// that can refuse it is the route's `variationOf` guard.
-		const bachataClosed = listPositions(db, 'bachata').find((p) => p.slug === 'closed')!;
+		const bachataClosed = listPositions(db, U1_BACHATA).find((p) => p.slug === 'closed')!;
 		await refuses(
 			figurePage.actions.update,
 			post(
@@ -433,7 +432,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 	});
 
 	it('refuses a position from the other dance on a variation of this one — names included', async () => {
-		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
+		const bachataShadow = listPositions(db, U1_BACHATA).find((p) => p.slug === 'shadow')!;
 		await refuses(
 			figurePage.actions.update,
 			post(
@@ -490,7 +489,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 
 		const doble = () => createVariationFrom(db, salsaFigureId, 'Doble')!;
 		const salsaPosition = (slug: string) =>
-			listPositions(db, 'salsa').find((p) => p.slug === slug)!;
+			listPositions(db, U1_SALSA).find((p) => p.slug === slug)!;
 
 		it('loads the variation, its figure, its siblings and where it can move', () => {
 			const v = doble();
@@ -898,8 +897,8 @@ describe("the detail pages refuse the other dance's rows", () => {
 		it('newVariation links a blank variation to the lesson', async () => {
 			const basico = groupOf(bachataFigureId);
 			setFigureShape(db, bachataFigureId, {
-				startIds: [listPositions(db, 'bachata')[0].id],
-				endIds: [listPositions(db, 'bachata')[1].id],
+				startIds: [listPositions(db, U1_BACHATA)[0].id],
+				endIds: [listPositions(db, U1_BACHATA)[1].id],
 				startCount: 5,
 				lengthCounts: 4
 			});
@@ -1053,34 +1052,6 @@ describe("the detail pages refuse the other dance's rows", () => {
 	it('still retries from its own dance', async () => {
 		await call(songListActions.retry, post('bachata', { id: String(bachataSongId) }));
 		expect(getSong(db, bachataSongId)?.status).toBe('waiting_download');
-	});
-});
-
-describe("the positions page refuses the other dance's rows", () => {
-	it('will not rename a bachata position from a salsa URL', async () => {
-		const shadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
-		await refuses(
-			positionsPage.actions.rename,
-			post('salsa', { id: String(shadow.id), name: 'Hijacked' })
-		);
-		expect(getPosition(db, shadow.id)?.name).toBe('Shadow');
-	});
-
-	it('will not archive a bachata position from a salsa URL', async () => {
-		const shadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
-		await refuses(positionsPage.actions.archive, post('salsa', { id: String(shadow.id) }));
-		expect(getPosition(db, shadow.id)?.archivedAt).toBeNull();
-	});
-
-	// Same-dance, unlike the two tests above. There is no neutral any more: an
-	// untagged side fits anywhere, so no position is special and any of them,
-	// the first one included, can be removed.
-	it('archives the first position too: none is the neutral', async () => {
-		const first = listPositions(db, 'salsa')[0];
-		expect(
-			await call(positionsPage.actions.archive, post('salsa', { id: String(first.id) }))
-		).toEqual({ action: 'archive', ok: true });
-		expect(getPosition(db, first.id)?.archivedAt).not.toBeNull();
 	});
 });
 

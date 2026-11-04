@@ -36,7 +36,7 @@ const figureInput = (name: string) => ({
 function setup(): { db: Db; pos: (slug: string) => number } {
 	const db = openDb(':memory:');
 	seedPositions(db);
-	const all = listPositions(db, 'salsa');
+	const all = listPositions(db, U1_SALSA);
 	return {
 		db,
 		pos: (slug) => {
@@ -243,7 +243,7 @@ describe('setFigureShape', () => {
 	it('refuses a position from the other dance, writing nothing', () => {
 		const { db, pos } = setup();
 		const made = createFigure(db, U1_SALSA, figureInput('sombrero'))!;
-		const bachataShadow = listPositions(db, 'bachata').find((p) => p.slug === 'shadow')!;
+		const bachataShadow = listPositions(db, U1_BACHATA).find((p) => p.slug === 'shadow')!;
 
 		expect(setFigureShape(db, made.figure.id, shape([bachataShadow.id], []))).toBe(false);
 		expect(

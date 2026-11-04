@@ -53,6 +53,15 @@ import {
 } from './figures';
 import { setFigureShape } from './graph';
 import {
+	addTemplates,
+	archivePosition,
+	createPosition,
+	restorePosition,
+	updatePosition
+} from './positions';
+import type { PositionRow } from './db/schema';
+import type { PositionInput } from '$lib/types';
+import {
 	addChildSlot,
 	addFigureSlot,
 	addOption,
@@ -129,6 +138,14 @@ const variation = (name: string) => ({
 	notes: null
 });
 
+const newPosition = (name: string): PositionInput => ({
+	name,
+	styleTag: 'salsa',
+	hold: { hands: 'two', crossed: null, facing: 'face', frame: 'closed' },
+	notes: null,
+	pictureSpotId: null
+});
+
 /** A fake `CloneFiles`: nothing on disk. */
 const cloneFiles: CloneFiles = { link: async (_, file) => `copy-${file}`, unlink: async () => {} };
 /** A clone's result when it made a row, else null, so a refusal fails the case. */
@@ -179,6 +196,7 @@ function world(space: Space) {
 	)!.id;
 	const spotLink = linkInSpace(db, space, linked, { exerciseId: drill });
 	const link = addLinks(db, { lessonId: lesson }, ['https://example.org/a'], null, by)![0].id;
+	const position = createPosition(db, space, newPosition('Cerrada'), 1) as PositionRow;
 	const song = createSongFromUpload(db, space, {
 		file: 'song.mp3',
 		mime: 'audio/mpeg',
@@ -209,7 +227,8 @@ function world(space: Space) {
 		linked,
 		spotLink,
 		link,
-		song
+		song,
+		position: position.id
 	};
 }
 type World = ReturnType<typeof world>;
@@ -221,7 +240,7 @@ type World = ReturnType<typeof world>;
  */
 const MUTATIONS: {
 	name: string;
-	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song';
+	root: 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'position';
 	verb: string;
 	rootId: (w: World) => number;
 	teamOnly?: boolean;
@@ -1021,6 +1040,43 @@ const MUTATIONS: {
 				100 * GB
 			);
 		}
+	},
+	// positions.ts
+	{
+		name: 'createPosition',
+		root: 'position',
+		verb: 'add',
+		rootId: () => 0,
+		run: (_, s) => createPosition(db, s, newPosition('Sombrero'), 5)
+	},
+	{
+		name: 'updatePosition',
+		root: 'position',
+		verb: 'change',
+		rootId: (w) => w.position,
+		run: (w) => updatePosition(db, w.position, newPosition('Cerrada 2'), { actorId: w.by, now: 5 })
+	},
+	{
+		name: 'archivePosition',
+		root: 'position',
+		verb: 'archive',
+		rootId: (w) => w.position,
+		run: (w) => archivePosition(db, w.position, 5, { actorId: w.by })
+	},
+	{
+		name: 'restorePosition',
+		root: 'position',
+		verb: 'restore',
+		rootId: (w) => w.position,
+		prep: (w) => archivePosition(db, w.position, 4, { actorId: w.by }),
+		run: (w) => restorePosition(db, w.position, 5, { actorId: w.by })
+	},
+	{
+		name: 'addTemplates',
+		root: 'position',
+		verb: 'add',
+		rootId: () => 0,
+		run: (_, s) => addTemplates(db, s, 'salsa', 'salsa', ['Abierta (dos manos)'], 5)
 	}
 ];
 

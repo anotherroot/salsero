@@ -1,221 +1,316 @@
-import { eq } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
-import { openDb } from './db';
-import { figureEndPositions, figures, figureStartPositions, positions } from './db/schema';
-import { figurePositions } from './graph';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { openDb, type Db } from './db';
+import { spotPositionLinks, users } from './db/schema';
+import type { PositionRow } from './db/schema';
 import {
+	addTemplates,
 	archivePosition,
 	createPosition,
 	getPosition,
 	listPositions,
-	liveNameTaken,
-	neutralPosition,
+	nameTaken,
+	positionSummary,
 	restorePosition,
 	updatePosition
 } from './positions';
-import { seedPositions } from './test-positions';
+import { positionSeen } from './clash';
+import { createTeam } from './teams';
+import { addLessonVideo, createLesson } from './lessons';
+import { addSpot } from './spots';
+import { T1_SALSA, U1_BACHATA, U1_SALSA, U2_SALSA } from './test-walls';
+import { TEMPLATES } from '$lib/positions/templates';
+import type { PositionInput } from '$lib/types';
 
-describe('positions schema', () => {
-	it('stores a position and a figure tagged with start and end', () => {
-		const db = openDb(':memory:');
-		const open = db
-			.insert(positions)
-			.values({ dance: 'salsa', slug: 'open-two', name: 'Open, two hands', neutral: true })
-			.returning()
-			.get();
-		expect(open.neutral).toBe(true);
-		expect(open.sortOrder).toBe(0);
+let db: Db;
 
-		const fig = db.insert(figures).values({ name: 'enchufla', dance: 'salsa' }).returning().get();
-		db.insert(figureStartPositions).values({ figureId: fig.id, positionId: open.id }).run();
-		db.insert(figureEndPositions).values({ figureId: fig.id, positionId: open.id }).run();
-		expect(figurePositions(db, fig.id)).toEqual({ startIds: [open.id], endIds: [open.id] });
-		// Defaults: every existing figure keeps behaving as it does today.
-		expect(fig.eights).toBe(1);
-	});
+beforeEach(() => {
+	db = openDb(':memory:');
+	db.insert(users)
+		.values([
+			{ id: 'u1', email: 'a@x.si', passwordHash: 'x', firstName: 'Ana', lastName: 'K' },
+			{ id: 'u2', email: 'b@x.si', passwordHash: 'x', firstName: 'Luka', lastName: 'N' }
+		])
+		.run();
+	createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
 });
+
+const input = (name: string, extra: Partial<PositionInput> = {}): PositionInput => ({
+	name,
+	styleTag: null,
+	hold: { hands: null, crossed: null, facing: null, frame: null },
+	notes: null,
+	pictureSpotId: null,
+	...extra
+});
+const made = (r: ReturnType<typeof createPosition>) => r as PositionRow;
 
 describe('createPosition', () => {
-	it('keeps exactly one neutral per dance', () => {
-		const db = openDb(':memory:');
-		const a = createPosition(db, 'salsa', {
-			slug: 'a',
-			name: 'A',
-			neutral: true,
-			sortOrder: 0
-		})!;
-		const b = createPosition(db, 'salsa', {
-			slug: 'b',
-			name: 'B',
-			neutral: true,
-			sortOrder: 1
-		})!;
-		expect(neutralPosition(db, 'salsa')!.id).toBe(b.id);
-		expect(listPositions(db, 'salsa').find((p) => p.id === a.id)!.neutral).toBe(false);
+	it('owns the row by the person, in the dance, with no team', () => {
+		const row = made(createPosition(db, U1_SALSA, input('Cerrada'), 5));
+		expect(row).toMatchObject({
+			dance: 'salsa',
+			userId: 'u1',
+			teamId: null,
+			name: 'Cerrada',
+			createdAt: 5
+		});
+		expect(row.slug).toMatch(/^p-/);
 	});
 
-	it('refuses a duplicate slug within a dance but allows it across dances', () => {
-		const db = openDb(':memory:');
-		const input = { slug: 'open-two', name: 'Open', neutral: false, sortOrder: 0 };
-		expect(createPosition(db, 'salsa', input)).not.toBeNull();
-		expect(createPosition(db, 'salsa', input)).toBeNull();
-		expect(createPosition(db, 'bachata', input)).not.toBeNull();
+	it('owns the row by the group, with no person', () => {
+		const row = made(createPosition(db, T1_SALSA, input('Cerrada'), 5));
+		expect(row).toMatchObject({ userId: null, teamId: 1 });
 	});
 
-	it('brings an archived position back when its name is added again', () => {
-		// Removing a position archives it, and the archived row keeps its slug —
-		// so adding "Cradle" again used to hit the clash and be refused for good.
-		const db = openDb(':memory:');
-		const first = createPosition(db, 'bachata', {
-			slug: 'cradle',
-			name: 'Cradle',
-			neutral: false,
-			sortOrder: 3
-		})!;
-		expect(archivePosition(db, first.id, 1000)).toBe(true);
+	it('keeps each space to its own list', () => {
+		createPosition(db, U1_SALSA, input('A'), 1);
+		createPosition(db, U2_SALSA, input('B'), 1);
+		createPosition(db, U1_BACHATA, input('C'), 1);
+		createPosition(db, T1_SALSA, input('D'), 1);
+		expect(listPositions(db, U1_SALSA).map((p) => p.name)).toEqual(['A']);
+		expect(listPositions(db, T1_SALSA).map((p) => p.name)).toEqual(['D']);
+	});
 
-		const again = createPosition(db, 'bachata', {
-			slug: 'cradle',
-			name: 'Cradle (wrap)',
-			neutral: false,
-			sortOrder: 7
+	it('refuses a name that differs only in case or accents, and not an archived one', () => {
+		const a = made(createPosition(db, U1_SALSA, input('Caída'), 1));
+		expect(createPosition(db, U1_SALSA, input('CAIDA'), 2)).toEqual({
+			field: 'name',
+			message: 'You already have a position called CAIDA.'
 		});
-		// The same row, live again, under the name just typed — so a figure still
-		// tagged with it keeps pointing at the position it always meant.
-		expect(again).toMatchObject({
-			id: first.id,
-			archivedAt: null,
-			name: 'Cradle (wrap)',
-			sortOrder: 7
+		expect(createPosition(db, U2_SALSA, input('caida'), 2)).toHaveProperty('id');
+		archivePosition(db, a.id, 3);
+		expect(createPosition(db, U1_SALSA, input('caída'), 4)).toHaveProperty('id');
+	});
+
+	it('names the group in its refusal', () => {
+		createPosition(db, T1_SALSA, input('Cerrada'), 1);
+		expect(createPosition(db, T1_SALSA, input('cerrada'), 2)).toEqual({
+			field: 'name',
+			message: 'Salsa nadaljevalna already has a position called cerrada.'
 		});
-		expect(listPositions(db, 'bachata').map((p) => p.id)).toContain(first.id);
+	});
+
+	it('refuses an empty name', () => {
+		expect(createPosition(db, U1_SALSA, input('  '), 1)).toEqual({
+			field: 'name',
+			message: 'Give it a name.'
+		});
+	});
+
+	it('keeps a style of the dance and drops one that is not', () => {
+		expect(made(createPosition(db, U1_SALSA, input('A', { styleTag: 'son' }), 1)).styleTag).toBe(
+			'son'
+		);
+		expect(
+			made(createPosition(db, U1_SALSA, input('B', { styleTag: 'sensual' }), 1)).styleTag
+		).toBeNull();
+	});
+
+	it('stores the hold', () => {
+		const row = made(
+			createPosition(
+				db,
+				U1_SALSA,
+				input('A', { hold: { hands: 'one', crossed: true, facing: 'side', frame: 'open' } }),
+				1
+			)
+		);
+		expect(row).toMatchObject({ hands: 'one', crossed: true, facing: 'side', frame: 'open' });
 	});
 });
 
-/**
- * The fixture with salsa's first position marked neutral: the vestigial flag
- * these data functions still keep until the positions rewrite drops them. The
- * graph reads nothing of it.
- */
-function seedWithNeutral(db: ReturnType<typeof openDb>) {
-	seedPositions(db);
-	const first = listPositions(db, 'salsa').find((p) => p.slug === 'open-two')!;
-	db.update(positions).set({ neutral: true }).where(eq(positions.id, first.id)).run();
-}
+describe('listPositions', () => {
+	it('sorts by the dance’s type order, untyped last, then folded name', () => {
+		createPosition(db, U1_SALSA, input('Zeta'), 1);
+		createPosition(db, U1_SALSA, input('Ángel', { styleTag: 'son' }), 1);
+		createPosition(db, U1_SALSA, input('beta', { styleTag: 'salsa' }), 1);
+		createPosition(db, U1_SALSA, input('Alfa', { styleTag: 'salsa' }), 1);
+		createPosition(db, U1_SALSA, input('Otra'), 1);
+		expect(listPositions(db, U1_SALSA).map((p) => p.name)).toEqual([
+			'Alfa',
+			'beta',
+			'Ángel',
+			'Otra',
+			'Zeta'
+		]);
+	});
+
+	it('lists archived ones on request, and live ones otherwise', () => {
+		const a = made(createPosition(db, U1_SALSA, input('A'), 1));
+		createPosition(db, U1_SALSA, input('B'), 1);
+		archivePosition(db, a.id, 2);
+		expect(listPositions(db, U1_SALSA).map((p) => p.name)).toEqual(['B']);
+		expect(listPositions(db, U1_SALSA, { archived: true }).map((p) => p.name)).toEqual(['A']);
+	});
+});
+
+describe('nameTaken', () => {
+	it('folds, and leaves the named row out', () => {
+		const a = made(createPosition(db, U1_SALSA, input('Caída'), 1));
+		expect(nameTaken(db, U1_SALSA, 'CAIDA')).toBe(true);
+		expect(nameTaken(db, U1_SALSA, 'caida', a.id)).toBe(false);
+		expect(nameTaken(db, U1_BACHATA, 'Caída')).toBe(false);
+		expect(nameTaken(db, U2_SALSA, 'Caída')).toBe(false);
+	});
+});
 
 describe('updatePosition', () => {
-	it('renames without disturbing the neutral', () => {
-		const db = openDb(':memory:');
-		seedWithNeutral(db);
-		const open = neutralPosition(db, 'salsa')!;
-		const row = updatePosition(db, open.id, {
-			slug: open.slug,
-			name: 'Open, both hands',
-			neutral: true,
-			sortOrder: open.sortOrder
+	it('writes the fields', () => {
+		const a = made(createPosition(db, U1_SALSA, input('A'), 1));
+		const row = updatePosition(
+			db,
+			a.id,
+			input('B', {
+				notes: 'n',
+				styleTag: 'son',
+				hold: { hands: 'two', crossed: null, facing: null, frame: 'closed' }
+			})
+		) as PositionRow;
+		expect(row).toMatchObject({
+			name: 'B',
+			notes: 'n',
+			styleTag: 'son',
+			hands: 'two',
+			frame: 'closed'
 		});
-		expect(row!.name).toBe('Open, both hands');
-		expect(neutralPosition(db, 'salsa')!.id).toBe(open.id);
 	});
 
-	it('moves the neutral, leaving exactly one', () => {
-		const db = openDb(':memory:');
-		seedWithNeutral(db);
-		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
-		updatePosition(db, closed.id, { ...closed, neutral: true });
-		expect(neutralPosition(db, 'salsa')!.id).toBe(closed.id);
-		expect(listPositions(db, 'salsa').filter((p) => p.neutral)).toHaveLength(1);
+	it('is null for a missing row, and refuses a taken name but not its own', () => {
+		expect(updatePosition(db, 999, input('X'))).toBeNull();
+		const a = made(createPosition(db, U1_SALSA, input('A'), 1));
+		createPosition(db, U1_SALSA, input('B'), 1);
+		expect(updatePosition(db, a.id, input('b'))).toMatchObject({ field: 'name' });
+		expect(updatePosition(db, a.id, input('a'))).toHaveProperty('id');
+		expect(updatePosition(db, a.id, input(' '))).toMatchObject({ message: 'Give it a name.' });
 	});
 
-	it('refuses to demote the last neutral, leaving the dance with one', () => {
-		const db = openDb(':memory:');
-		seedWithNeutral(db);
-		const open = neutralPosition(db, 'salsa')!;
-		// Nothing else is neutral, so clearing this one would leave none — and an
-		// untagged figure would have no position to resolve to.
-		expect(updatePosition(db, open.id, { ...open, neutral: false })).toBeNull();
-		expect(neutralPosition(db, 'salsa')!.id).toBe(open.id);
+	it('clears a picture spot that does not exist', () => {
+		const a = made(createPosition(db, U1_SALSA, input('A'), 1));
+		expect(updatePosition(db, a.id, input('A', { pictureSpotId: 42 }))).toMatchObject({
+			pictureSpotId: null
+		});
 	});
 
-	it('refuses to promote an archived position to neutral', () => {
-		const db = openDb(':memory:');
-		seedWithNeutral(db);
-		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
-		expect(archivePosition(db, closed.id, Date.now())).toBe(true);
-		// No route sends `neutral: true` for an archived row today, but the data
-		// layer must refuse it anyway: an archived row is hidden from the
-		// pickers and the gap report, so promoting one would make the dance's
-		// neutral point at a position nothing ever shows.
-		expect(updatePosition(db, closed.id, { ...closed, neutral: true })).toBeNull();
-		expect(neutralPosition(db, 'salsa')!.slug).toBe('open-two');
-	});
-});
-
-describe('archivePosition', () => {
-	it('archives a non-neutral position, dropping it from the list; a second archive fails', () => {
-		const db = openDb(':memory:');
-		seedPositions(db);
-		const closed = listPositions(db, 'salsa').find((p) => p.slug === 'closed')!;
-		expect(archivePosition(db, closed.id, Date.now())).toBe(true);
-		expect(listPositions(db, 'salsa').some((p) => p.id === closed.id)).toBe(false);
-		expect(archivePosition(db, closed.id, Date.now())).toBe(false);
-	});
-});
-
-describe('restorePosition', () => {
-	const setup = () => {
-		const db = openDb(':memory:');
-		seedPositions(db);
-		const row = listPositions(db, 'salsa').find((p) => !p.neutral)!;
-		return { db, row };
-	};
-
-	it('brings a removed position back with its name and its figures still tagged', () => {
-		const { db, row } = setup();
-		const fig = db.insert(figures).values({ name: 'enchufla', dance: 'salsa' }).returning().get();
-		db.insert(figureEndPositions).values({ figureId: fig.id, positionId: row.id }).run();
-		archivePosition(db, row.id, 5);
-		expect(restorePosition(db, row.id)).toBe(true);
-		const back = getPosition(db, row.id)!;
-		expect(back.archivedAt).toBeNull();
-		expect(back.name).toBe(row.name);
-		expect(listPositions(db, 'salsa').map((p) => p.id)).toContain(row.id);
-		expect(figurePositions(db, fig.id).endIds).toEqual([row.id]);
-	});
-
-	it('does nothing to a live position, or one that does not exist', () => {
-		const { db, row } = setup();
-		expect(restorePosition(db, row.id)).toBe(false);
-		expect(getPosition(db, row.id)).toEqual(row);
-		expect(restorePosition(db, 99999)).toBe(false);
-	});
-
-	it('after the name was added again, leaves exactly one live position', () => {
-		const { db, row } = setup();
-		archivePosition(db, row.id, 5);
-		createPosition(db, 'salsa', { slug: row.slug, name: row.name, neutral: false, sortOrder: 3 });
-		expect(restorePosition(db, row.id)).toBe(false);
-		expect(listPositions(db, 'salsa').filter((p) => p.slug === row.slug)).toHaveLength(1);
+	it('keeps a picture that is a point linked to the position, not a section or another’s', () => {
+		const a = made(createPosition(db, U1_SALSA, input('A'), 1));
+		const b = made(createPosition(db, U1_SALSA, input('B'), 1));
+		const lessonId = createLesson(db, U1_SALSA, {
+			lessonDay: '2026-11-01',
+			title: 'L',
+			notes: null
+		}).lesson.id;
+		const v = addLessonVideo(
+			db,
+			{ lessonId, file: 'a.mp4', mime: 'video/mp4', sizeBytes: 1 },
+			'u1'
+		);
+		const point = addSpot(
+			db,
+			{ lessonVideoId: v.id },
+			{ startMs: 1000, endMs: null, label: null },
+			'u1'
+		)!;
+		const section = addSpot(
+			db,
+			{ lessonVideoId: v.id },
+			{ startMs: 2000, endMs: 3000, label: null },
+			'u1'
+		)!;
+		db.insert(spotPositionLinks)
+			.values([
+				{ spotId: point.id, positionId: a.id },
+				{ spotId: section.id, positionId: a.id }
+			])
+			.run();
+		expect(updatePosition(db, a.id, input('A', { pictureSpotId: point.id }))).toMatchObject({
+			pictureSpotId: point.id
+		});
+		expect(updatePosition(db, b.id, input('B', { pictureSpotId: point.id }))).toMatchObject({
+			pictureSpotId: null
+		});
+		expect(updatePosition(db, a.id, input('A', { pictureSpotId: section.id }))).toMatchObject({
+			pictureSpotId: null
+		});
 	});
 });
 
-describe('liveNameTaken and restorePosition with a twin name', () => {
-	it('folds accents and case, and leaves the row itself out', () => {
-		const db = openDb(':memory:');
-		seedPositions(db);
-		const caida = listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
-		expect(liveNameTaken(db, 'salsa', 'CAIDA')).toBe(true);
-		expect(liveNameTaken(db, 'salsa', 'caida', caida.id)).toBe(false);
-		expect(liveNameTaken(db, 'bachata', 'Caída')).toBe(false);
+describe('archivePosition and restorePosition', () => {
+	it('archives, then restores', () => {
+		const a = made(createPosition(db, U1_SALSA, input('A'), 1));
+		expect(archivePosition(db, a.id, 5)).toBe(true);
+		expect(archivePosition(db, a.id, 6)).toBe(false);
+		expect(getPosition(db, a.id)!.archivedAt).toBe(5);
+		expect(restorePosition(db, a.id, 7)).toBe(true);
+		expect(getPosition(db, a.id)!.archivedAt).toBeNull();
+		expect(restorePosition(db, a.id, 8)).toBe(false);
+		expect(restorePosition(db, 999, 8)).toBe(false);
 	});
 
-	it('refuses to restore a row whose name a live position now has', () => {
-		const db = openDb(':memory:');
-		seedPositions(db);
-		const caida = listPositions(db, 'salsa').find((p) => p.slug === 'caida')!;
-		archivePosition(db, caida.id, 5);
-		createPosition(db, 'salsa', { slug: 'ca-da', name: 'Caída', neutral: false, sortOrder: 99 });
-		expect(restorePosition(db, caida.id)).toBe(false);
-		expect(getPosition(db, caida.id)!.archivedAt).toBe(5);
+	it('refuses to restore when the name was taken meanwhile', () => {
+		const a = made(createPosition(db, U1_SALSA, input('Caída'), 1));
+		archivePosition(db, a.id, 2);
+		createPosition(db, U1_SALSA, input('caida'), 3);
+		expect(restorePosition(db, a.id, 4)).toBe(false);
+		expect(getPosition(db, a.id)!.archivedAt).toBe(2);
+	});
+});
+
+describe('addTemplates', () => {
+	const names = TEMPLATES.salsa.salsa.map((t) => t.name);
+
+	it('adds each with the type, the description as notes and the hold', () => {
+		const rows = addTemplates(db, U1_SALSA, 'salsa', 'salsa', names.slice(0, 2), 5);
+		expect(rows).toHaveLength(2);
+		const t = TEMPLATES.salsa.salsa[0];
+		expect(rows[0]).toMatchObject({
+			name: t.name,
+			styleTag: 'salsa',
+			notes: t.description,
+			hands: t.hold.hands,
+			frame: t.hold.frame,
+			userId: 'u1'
+		});
+	});
+
+	it('skips names already taken (folded) and unknown names', () => {
+		createPosition(db, U1_SALSA, input(names[0].toUpperCase()), 1);
+		const rows = addTemplates(db, U1_SALSA, 'salsa', 'salsa', [names[0], names[1], 'Nope'], 5);
+		expect(rows.map((r) => r.name)).toEqual([names[1]]);
+	});
+});
+
+describe('positionSummary', () => {
+	it('is the viewer’s own with no team id, a group’s with its id', () => {
+		const mine = made(createPosition(db, U1_SALSA, input('A', { styleTag: 'son' }), 1));
+		const theirs = made(createPosition(db, T1_SALSA, input('B'), 1));
+		expect(positionSummary(mine, U1_SALSA)).toEqual({
+			id: mine.id,
+			name: 'A',
+			styleTag: 'son',
+			hold: { hands: null, crossed: null, facing: null, frame: null },
+			teamId: null,
+			archived: false
+		});
+		expect(positionSummary(theirs, U1_SALSA).teamId).toBe(1);
+		expect(positionSummary(theirs, T1_SALSA).teamId).toBeNull();
+	});
+});
+
+describe('positionSeen', () => {
+	it('reads the edit form’s fields, and is null when archived or gone', () => {
+		const a = made(createPosition(db, U1_SALSA, input('A', { notes: 'n' }), 1));
+		expect(positionSeen(db, a.id)).toEqual({
+			name: 'A',
+			styleTag: null,
+			hands: null,
+			crossed: null,
+			facing: null,
+			frame: null,
+			notes: 'n',
+			pictureSpotId: null
+		});
+		archivePosition(db, a.id, 2);
+		expect(positionSeen(db, a.id)).toBeNull();
+		expect(positionSeen(db, 999)).toBeNull();
 	});
 });

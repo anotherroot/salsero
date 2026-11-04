@@ -67,7 +67,7 @@ describe('flatOf', () => {
 	it('a figure: fields, links, recordings with notes and sections', () => {
 		const made = createFigure(db, U1_SALSA, { figureName: 'Enchufla', name: 'Basic', ...shape })!;
 		const id = createVariationIn(db, made.group.id, { name: 'Doble', ...shape }, 'u1')!.id;
-		const [open, closed] = listPositions(db, 'salsa');
+		const [open, closed] = listPositions(db, U1_SALSA);
 		expect(
 			setFigureShape(db, id, {
 				startIds: [closed.id, open.id],
