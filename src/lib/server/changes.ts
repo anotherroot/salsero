@@ -555,8 +555,9 @@ export function rootInTeam(
 	}
 }
 
-/** What a picker links: a variation, a routine or a drill. */
-export type LinkTarget = { figureId: number } | { routineId: number } | { exerciseId: number };
+/** What a picker links: a variation, a routine, a drill or a position. */
+export type LinkTarget =
+	{ figureId: number } | { routineId: number } | { exerciseId: number } | { positionId: number };
 
 /**
  * Who archived a group's thing a picker offered, when it is archived now:
