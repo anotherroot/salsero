@@ -133,9 +133,12 @@ export interface PositionCount {
  * Which part of the repertoire each position is in, and which part is the main
  * one. Positions are joined by figures, each start to each end, undirected. The
  * main part has the most figures through it; ties go to more positions, then
- * the lowest position id. Null when no figure names a position at all.
+ * the lowest position id. `size` is how many positions each part holds. Null
+ * when no figure names a position at all.
  */
-function parts(g: Graph): { partOf: Map<number, number>; main: number } | null {
+function parts(
+	g: Graph
+): { partOf: Map<number, number>; size: Map<number, number>; main: number } | null {
 	const parent = new Map<number, number>();
 	const find = (p: number): number => {
 		let r = p;
@@ -177,7 +180,13 @@ function parts(g: Graph): { partOf: Map<number, number>; main: number } | null {
 		)
 			main = root;
 	}
-	return { partOf, main: main! };
+	const size = new Map([...stats].map(([root, s]) => [root, s.positions]));
+	return { partOf, size, main: main! };
+}
+
+function isIsland(p: NonNullable<ReturnType<typeof parts>>, id: number): boolean {
+	const part = p.partOf.get(id);
+	return part !== undefined && part !== p.main && (p.size.get(part) ?? 0) >= 2;
 }
 
 /**
@@ -186,6 +195,10 @@ function parts(g: Graph): { partOf: Map<number, number>; main: number } | null {
  * This is the "what should I learn next" answer, which is why a dead end, an
  * orphan and an island are named separately — one is a corner you get stuck
  * in, one a corner you can never reach, one a corner cut off from the rest.
+ *
+ * An island is a position in a part of two or more positions that is not the
+ * main part. A part of ONE position is never an island: it already reads as a
+ * dead end, an orphan or unused, and a second word for it says nothing more.
  */
 export function positionCounts(g: Graph, positionIds: number[]): PositionCount[] {
 	const p = parts(g);
@@ -199,7 +212,7 @@ export function positionCounts(g: Graph, positionIds: number[]): PositionCount[]
 			outCount,
 			deadEnd: inCount > 0 && outCount === 0,
 			orphan: outCount > 0 && inCount === 0,
-			island: used && p !== null && p.partOf.get(id) !== p.main,
+			island: used && p !== null && isIsland(p, id),
 			unused: !used
 		};
 	});

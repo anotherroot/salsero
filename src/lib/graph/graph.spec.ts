@@ -218,13 +218,30 @@ describe('positionCounts', () => {
 		expect(positionCounts(graph, [CROSS])[0]).toMatchObject({ unused: true, island: false });
 	});
 
-	it('breaks a tie in figures by more positions, then by the lowest id', () => {
-		// One figure each: {1, 2} has two positions, {3} one.
-		const byPositions = g([fig(1, [1], [2]), fig(2, [3], [3])]);
-		expect(positionCounts(byPositions, [1, 2, 3]).map((c) => c.island)).toEqual([
+	it('never calls a lone position an island: a start-only figure’s start is an orphan', () => {
+		const graph = g([fig(1, [OPEN], [CROSS]), fig(2, [CROSS], [OPEN]), fig(3, [SHADOW])]);
+		expect(positionCounts(graph, [SHADOW])[0]).toMatchObject({ orphan: true, island: false });
+	});
+
+	it('calls two linked positions cut off from a bigger part islands', () => {
+		const graph = g([fig(1, [OPEN], [CROSS]), fig(2, [CROSS], [OPEN]), fig(3, [HAMMER], [SHADOW])]);
+		expect(positionCounts(graph, [OPEN, CROSS, HAMMER, SHADOW]).map((c) => c.island)).toEqual([
 			false,
 			false,
+			true,
 			true
+		]);
+	});
+
+	it('breaks a tie in figures by more positions, then by the lowest id', () => {
+		// One figure each: {1, 2} has two positions, {3, 4, 5} three.
+		const byPositions = g([fig(1, [1], [2]), fig(2, [3, 4], [5])]);
+		expect(positionCounts(byPositions, [1, 2, 3, 4, 5]).map((c) => c.island)).toEqual([
+			true,
+			true,
+			false,
+			false,
+			false
 		]);
 		// One figure and two positions each: the part holding the lowest id wins.
 		const byId = g([fig(1, [7], [8]), fig(2, [5], [6])]);
