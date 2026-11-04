@@ -23,13 +23,16 @@ import {
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
-import { buildGraph, figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
-import { teamRefs, usableOf } from '$lib/server/usable';
+import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
+import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
+import { listPositions, positionSummary } from '$lib/server/positions';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
-import { lessonAdds, positions as positionRows } from '$lib/server/db/schema';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { holdsLine } from '$lib/positions/view';
+import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { holdsLine, styleLabelOf } from '$lib/positions/view';
+import { positionGroups } from '$lib/picker/build';
+import type { PickGroup } from '$lib/picker/model';
 import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
@@ -51,7 +54,7 @@ import { plan } from '$lib/urgency/urgency';
 import { figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { inSpace, isTeam, requireFigureAccess, wallOf } from '$lib/server/scope';
+import { inSpace, isTeam, requireFigureAccess, wallOf, type Space } from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -75,7 +78,7 @@ import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/source
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
 import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
-import type { SiblingSummary } from '$lib/types';
+import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -210,12 +213,10 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			.filter((other) => other !== id && seen(visible?.variations, other))
 			.map((other) => ({ id: other, name: labels.get(other)! }));
 
-	// What the form offers: the figure's own owner's live positions, the only
-	// ones `setFigureShape` takes (ruling 15). A tag to an archived position is
-	// neither shown nor posted: `setFigureShape` keeps it (ruling 4). The owner's
-	// own graph, as the update action reads it (Task 19 revisits the form).
-	const offered = buildGraph(db, space).positions;
-	const tags = formTags(figurePositions(db, id), offered);
+	// Starts in / Ends in: what the form shows chosen and what its pickers offer.
+	const { tags, positionChoices } = canEdit
+		? positionForm(db, space, wall.userId, figure, usable)
+		: { tags: { startIds: [], endIds: [] }, positionChoices: [] };
 
 	const shape = {
 		startCount: figure.startCount ?? DEFAULT_START_COUNT,
@@ -400,8 +401,9 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 					)
 				)
 			: null,
-		positions: offered.map((p) => ({ id: p.id, name: p.name, archived: false })),
+		/** The edit form's Starts in / Ends in: the chosen tags it shows, and what the pickers offer. */
 		tags,
+		positionChoices,
 		// What the edit form shows.
 		shape,
 		// The Handholds fact: the figure's own live tags by real id, each a link.
@@ -423,39 +425,78 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 };
 
 /**
- * The figure's tags as the edit form shows them: the starts it offers, and ONE
- * end (the first it offers) for its single "Ends at" select.
+ * The edit form's Starts in / Ends in (ruling 15): a person's figure offers
+ * their own live positions and the group positions they may use
+ * (`usablePositions`); a group's figure only the group's own. `tags` are the
+ * chosen ones the form shows and posts back.
  *
- * Temporary until Task 19 gives the form `endIds`: `postedTags` keeps every
- * end the select does not show, so a figure with two ends keeps both.
+ * Every chosen live tag the person reads is offered, so it shows as a chip and
+ * can be taken off: a group's position their own copy hides from the list
+ * (`usablePositions` leaves shadowed ones out) included. A tag to an archived
+ * position, or to one they do not read, is neither shown nor posted:
+ * `writeFigureShape` keeps it (ruling 4).
  */
-function formTags(
-	tags: { startIds: number[]; endIds: number[] },
-	offered: { id: number }[]
-): { startIds: number[]; endId: number | null } {
-	const ids = new Set(offered.map((p) => p.id));
-	return {
-		startIds: tags.startIds.filter((p) => ids.has(p)),
-		endId: tags.endIds.find((p) => ids.has(p)) ?? null
+function positionForm(
+	db: Db,
+	space: Space,
+	userId: string,
+	figure: { id: number; styleTag: string | null },
+	usable: Usable | undefined
+): {
+	tags: { startIds: number[]; endIds: number[] };
+	positionChoices: PickGroup[];
+} {
+	const current = figurePositions(db, figure.id);
+	const own = listPositions(db, space).map((r) => positionSummary(r, space));
+	const byTeam = new Map<number, { team: TeamRef; rows: PositionSummary[] }>();
+	const add = (row: PositionRow, team: TeamRef) => {
+		const at = byTeam.get(team.id) ?? { team, rows: [] };
+		at.rows.push(positionSummary(row, space));
+		byTeam.set(team.id, at);
 	};
-}
+	if (!isTeam(space)) for (const r of usablePositions(db, space, usable)) add(r, r.team);
 
-/**
- * What a save of the old form writes: the posted starts, and the posted end
- * plus every current end the select did not show (temporary, Task 19). Tags
- * the form never offered (archived, another owner's) are left to
- * `setFigureShape`, which keeps them.
- */
-function postedTags(
-	current: { startIds: number[]; endIds: number[] },
-	offered: { id: number }[],
-	startIds: number[],
-	endId: number | null
-): { startIds: number[]; endIds: number[] } {
-	const shown = formTags(current, offered).endId;
-	const ids = new Set(offered.map((p) => p.id));
-	const hidden = current.endIds.filter((p) => p !== shown && ids.has(p));
-	return { startIds, endIds: [...new Set([...(endId === null ? [] : [endId]), ...hidden])] };
+	const offered = new Set([
+		...own.map((p) => p.id),
+		...[...byTeam.values()].flatMap((g) => g.rows.map((p) => p.id))
+	]);
+	const missing = [...new Set([...current.startIds, ...current.endIds])].filter(
+		(p) => !offered.has(p)
+	);
+	if (!isTeam(space) && missing.length > 0) {
+		const rows = db
+			.select()
+			.from(positionRows)
+			.where(
+				and(
+					inArray(positionRows.id, missing),
+					eq(positionRows.dance, space.dance),
+					isNotNull(positionRows.teamId),
+					isNull(positionRows.archivedAt)
+				)
+			)
+			.all();
+		const teams = teamRefs(
+			db,
+			rows.map((r) => r.teamId!)
+		);
+		for (const r of rows) {
+			const team = teams.get(r.teamId!);
+			if (!team || positionAccess(db, userId, r) === null) continue;
+			add(r, team);
+			offered.add(r.id);
+		}
+	}
+	const shown = (ids: number[]) => ids.filter((p) => offered.has(p));
+	return {
+		tags: { startIds: shown(current.startIds), endIds: shown(current.endIds) },
+		positionChoices: positionGroups(
+			own,
+			figure.styleTag,
+			styleLabelOf(DANCES[space.dance].styleLabel),
+			[...byTeam.values()]
+		)
+	};
 }
 
 export const actions: Actions = {
@@ -485,9 +526,9 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
 		const notes = optionalText(form, 'notes');
-		const postedStarts = ints(form, 'startIds');
-		const rawEnd = String(form.get('endId') ?? '');
-		const endId = rawEnd === '' ? null : Number(rawEnd);
+		// Starts in / Ends in post every chosen id, each side under its own name.
+		const startIds = ints(form, 'startIds');
+		const endIds = ints(form, 'endIds');
 		const startCount = int(form, 'startCount');
 		const lengthCounts = int(form, 'lengthCounts');
 
@@ -496,9 +537,6 @@ export const actions: Actions = {
 				action: 'update',
 				message: 'Give the move and the figure a name (up to 200 characters).'
 			});
-		}
-		if (endId !== null && !Number.isInteger(endId)) {
-			return fail(400, { action: 'update', message: 'Pick an end position.' });
 		}
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
 			return fail(400, {
@@ -526,17 +564,10 @@ export const actions: Actions = {
 		if (variationNameTaken(db, group.id, name, figure.id)) {
 			return fail(400, { action: 'update', message: taken(group.name, name) });
 		}
-		// The form still posts one `endId` (Task 19 replaces it with `endIds`):
-		// keep the ends it does not show, so a save never drops them.
-		const { startIds, endIds } = postedTags(
-			figurePositions(db, figure.id),
-			buildGraph(db, space).positions,
-			postedStarts,
-			endId
-		);
 		// A posted position id is just a number: `setFigureShape` rejects one from
 		// the other dance or another owner, and that is a 404 rather than a message,
-		// the same answer every other cross-dance id gets here.
+		// the same answer every other cross-dance id gets here. Tags the form never
+		// showed (archived, not read) are not posted and are kept (ruling 4).
 		if (!setFigureShape(db, figure.id, { startIds, endIds, startCount, lengthCounts }, by)) {
 			throw error(404, 'Figure not found');
 		}

@@ -9,7 +9,7 @@
 	 * Which count a variation begins on, and how many counts it takes. Both are
 	 * its own — a variation holds everything it is.
 	 *
-	 * Seeds its own state once, like `StartPositions`, so key it on the
+	 * Seeds its own state once, like `PositionTags`, so key it on the
 	 * variation's id wherever it is rendered.
 	 */
 	let {

@@ -375,7 +375,6 @@ describe.each([
 			partner: 'partner',
 			style: 'salsa',
 			notes: 'mine',
-			endId: '',
 			startCount: '1',
 			lengthCounts: '8'
 		};

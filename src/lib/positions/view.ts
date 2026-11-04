@@ -432,6 +432,38 @@ export const tagsEmpty = 'No position · fits anywhere';
 export const TAGS_HELP =
 	'Any number of each. In a routine, the next figure fits when it starts in any of these ends.';
 
+/** The picker's group of the figure's own type: "Salsa · this figure’s type". */
+export function figureTypeTitle(type: string): string {
+	return `${type} · this figure’s type`;
+}
+
+/** A group's position in a person's picker: "Salsa · tag with it as it is". */
+export function tagAsItIs(type: string): string {
+	return `${type} · tag with it as it is`;
+}
+
+/** The picker's clearing row. */
+export const TAGS_CLEAR = { label: 'No position', meta: 'Fits anywhere · the default' } as const;
+
+/** The two pickers' words; `sub` is "Enchufla · Doble · Salsa". */
+export const TAGS_PICKER = {
+	starts: 'Starts in',
+	ends: 'Ends in',
+	search: 'Search positions',
+	create: 'Position',
+	nothingLeft: 'No positions yet.'
+} as const;
+
+/** The create step's line under New position. */
+export const TAGS_NEW_SUB = 'Its type starts as this figure’s.';
+
+/** A create step that failed without the server saying why. */
+export const TAGS_CREATE_FAILED = 'That could not be created. Try it again.';
+
+export function tagsSub(figureLabel: string, type: string | null): string {
+	return type ? `${figureLabel} · ${type}` : figureLabel;
+}
+
 /** The figure page's handholds line: starts and ends joined " or "; none reads "No position". */
 export function handholds(starts: string[], ends: string[]): { from: string; to: string } {
 	const join = (xs: string[]) => (xs.length === 0 ? 'No position' : xs.join(' or '));

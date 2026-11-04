@@ -7,17 +7,20 @@
  */
 import { frequencyLabel } from '$lib/frequency';
 import { dateLabel } from '$lib/format';
-import { moveHeading, usedAsIs } from '$lib/clones/view';
+import { moveHeading, possessive, usedAsIs } from '$lib/clones/view';
 import { twinPickMeta } from '$lib/clones/twins';
 import { spotLabel } from '$lib/video/spots';
 import { holdLine } from '$lib/positions/hold';
+import { figureTypeTitle, tagAsItIs, type StyleLabel } from '$lib/positions/view';
 import type {
 	FigureVersion,
 	LinkOption,
 	LinkOptions,
 	PickExercise,
 	PickRoutine,
-	SectionGroup
+	PositionSummary,
+	SectionGroup,
+	TeamRef
 } from '$lib/types';
 import { isHeading, type PickEntry, type PickGroup, type PickHeading, type PickRow } from './model';
 
@@ -255,4 +258,82 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 		{ title: 'Positions', entries: positions(o.positions) }
 	];
 	return groups.filter((g) => g.entries.length > 0);
+}
+
+/** A position as a figure's Starts in / Ends in picker shows it: key `position:{id}`, meta its hold. */
+export function positionRow(p: PositionSummary): PickRow {
+	const meta = holdLine(p.hold);
+	return { key: `position:${p.id}`, value: p.id, label: p.name, ...(meta ? { meta } : {}) };
+}
+
+/** The title of the type group a position of `styleTag` sits in. */
+const typeTitle = (styleTag: string | null, figureStyle: string | null, styleLabel: StyleLabel) =>
+	figureStyle !== null && styleTag === figureStyle
+		? figureTypeTitle(styleLabel(styleTag))
+		: styleLabel(styleTag);
+
+/**
+ * A figure's Starts in / Ends in picker: the owner's own positions by type,
+ * the figure's type first ("Salsa · this figure’s type"), the other types in
+ * the order `rows` comes in (list order: the dance's style order, untyped
+ * "Other" last); then, on a person's figure, a section per group whose
+ * positions they may use ("Salsa Tuesdays’"), each row's meta its type and
+ * "tag with it as it is". An own row's meta is its hold. Empty groups are left out.
+ */
+export function positionGroups(
+	rows: PositionSummary[],
+	figureStyle: string | null,
+	styleLabel: StyleLabel,
+	groups: { team: TeamRef; rows: PositionSummary[] }[]
+): PickGroup[] {
+	const byType = new Map<string, PickGroup>();
+	for (const p of rows) {
+		const title = typeTitle(p.styleTag, figureStyle, styleLabel);
+		let g = byType.get(title);
+		if (!g) {
+			g = { title, entries: [] };
+			byType.set(title, g);
+		}
+		g.entries.push(positionRow(p));
+	}
+	const types = [...byType.values()];
+	const first = types.findIndex((g) => g.title === figureTypeTitle(styleLabel(figureStyle)));
+	if (figureStyle !== null && first > 0) types.unshift(...types.splice(first, 1));
+	const theirs: PickGroup[] = groups.map((g) => ({
+		title: possessive(g.team.name),
+		entries: g.rows.map((p) => ({
+			key: `position:${p.id}`,
+			value: p.id,
+			label: p.name,
+			meta: tagAsItIs(styleLabel(p.styleTag))
+		}))
+	}));
+	return [...types, ...theirs].filter((g) => g.entries.length > 0);
+}
+
+/**
+ * `groups` with a position just made from the picker added under its type,
+ * once. A type group not there yet is made: the figure's type first, any
+ * other right after it (before the groups' sections, which always come last).
+ * The input is not changed.
+ */
+export function withPositionRow(
+	groups: PickGroup[],
+	p: PositionSummary,
+	figureStyle: string | null,
+	styleLabel: StyleLabel
+): PickGroup[] {
+	const key = `position:${p.id}`;
+	if (groups.some((g) => g.entries.some((e) => !isHeading(e) && e.key === key))) return groups;
+	const title = typeTitle(p.styleTag, figureStyle, styleLabel);
+	const row = positionRow(p);
+	const at = groups.findIndex((g) => g.title === title);
+	if (at >= 0) {
+		return groups.map((g, i) => (i === at ? { ...g, entries: [...g.entries, row] } : g));
+	}
+	const made = { title, entries: [row] };
+	const figureFirst =
+		figureStyle !== null && groups[0]?.title === figureTypeTitle(styleLabel(figureStyle));
+	const where = title === figureTypeTitle(styleLabel(figureStyle)) ? 0 : figureFirst ? 1 : 0;
+	return [...groups.slice(0, where), made, ...groups.slice(where)];
 }
