@@ -98,11 +98,11 @@ describe('coverageGroups', () => {
 
 describe('routinesUsing', () => {
 	const g: Graph = {
-		neutral: 1,
+		positions: [],
 		figures: [
-			{ id: 7, starts: [], end: null, start: 1, length: 8 },
-			{ id: 8, starts: [1], end: 2, start: 1, length: 8 },
-			{ id: 9, starts: [], end: null, start: 1, length: 8 }
+			{ id: 7, starts: [], ends: [], start: 1, length: 8 },
+			{ id: 8, starts: [1], ends: [2], start: 1, length: 8 },
+			{ id: 9, starts: [], ends: [], start: 1, length: 8 }
 		]
 	};
 	const A = opts([9], [7, 9], [9], [9], [7]);

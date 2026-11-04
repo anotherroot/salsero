@@ -1,163 +1,210 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { buildGraph } from '$lib/server/graph';
-import { checkbox, int, text } from '$lib/server/form';
+import { canonicalOf, graphFor } from '$lib/server/graph';
+import { noPosition, positionCounts, taggedCount } from '$lib/graph/graph';
 import {
-	archivePosition,
+	addTemplates,
 	createPosition,
-	getPosition,
 	listPositions,
-	liveNameTaken,
-	restorePosition,
-	updatePosition
+	positionsFrom,
+	positionSummary
 } from '$lib/server/positions';
-import { taggedFigures } from '$lib/server/graph';
-import { positionCounts } from '$lib/graph/graph';
-import { danceOf, requireAdmin, requirePositionInDance } from '$lib/server/scope';
-import { spaceOf } from '$lib/server/group-mode';
+import { usableOf, usablePositions } from '$lib/server/usable';
+import { withoutShadowed } from '$lib/server/clones/shadow';
+import { storedTwinSets } from '$lib/server/twins';
+import { foldSections } from '$lib/clones/twins';
+import { defaultStyle } from '$lib/server/default-styles';
+import { optionalText } from '$lib/server/form';
+import { wallOf, type Space } from '$lib/server/scope';
+import { groupModeOf, spaceOf } from '$lib/server/group-mode';
+import { DANCES } from '$lib/dances/dances';
+import { fold } from '$lib/fold';
+import { parseHold } from '$lib/positions/hold';
+import { templateTypes } from '$lib/positions/templates';
+import { OTHER_TYPE, byGroupName, type PositionFilter } from '$lib/positions/view';
+import type { PositionListRow, TeamRef } from '$lib/types';
+import type { PositionRow } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
-/** A slug from a name: stable, lowercase, no spaces. */
-const slugify = (name: string) =>
-	name
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, '-')
-		.replace(/^-|-$/g, '') || 'position';
+const hasGap = (r: PositionListRow) => r.deadEnd || r.orphan || r.island;
 
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
+export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
+	if (!locals.user) throw error(401);
+	const wall = wallOf(params, locals);
+	const dance = wall.dance;
 	const db = getDb();
-	// The graph of whose figures: the switched-into group's, else the person's own.
-	const space = spaceOf(db, params, locals, cookies);
-	const dance = space.dance;
-	const inGroup = 'teamId' in space;
-	const rows = listPositions(db, dance);
-	const counts = positionCounts(
-		buildGraph(db, space),
-		rows.map((p) => p.id)
-	);
-	const byId = new Map(counts.map((c) => [c.id, c]));
+	const mode = groupModeOf(db, wall.userId, dance, cookies);
+	// In group mode the page reads the group's side; the person's own is not shown.
+	const space: Space = mode ? { dance, teamId: mode.teamId, actorId: wall.userId } : wall;
+	const styles = DANCES[dance].styles;
 
+	const q = url.searchParams.get('q')?.trim() ?? '';
+	const type = url.searchParams.get('type');
+	const filter: PositionFilter = {
+		q,
+		// Other is untyped rows too, so it is taken where the dance has no such type (bachata).
+		...(type && (styles.includes(type) || type === OTHER_TYPE) ? { type } : {}),
+		// Gaps are the person's own report: group mode has none.
+		...(!mode && url.searchParams.get('gaps') === '1' ? { gaps: '1' as const } : {})
+	};
+
+	// The graph is the viewer's (ruling 14): a person's own figures plus the group
+	// figures they may use; in group mode, the group's.
+	const usable = mode ? undefined : usableOf(db, wall);
+	const graph = graphFor(db, space, usable);
+	const own = listPositions(db, space);
+	// Each group's positions the person may use. Yours replaces theirs: a group
+	// position with your own copy shows as yours.
+	const theirs = mode
+		? []
+		: withoutShadowed(db, wall, 'position', usablePositions(db, wall, usable));
+	// Every row's counts in one pass: the parts of the graph are worked out once.
+	const counts = new Map(
+		positionCounts(graph, [
+			...new Set([...own, ...theirs].map((p) => canonicalOf(graph, p.id)))
+		]).map((c) => [c.id, c])
+	);
+	const row = (p: PositionRow, from: string | null): PositionListRow => {
+		const c = counts.get(canonicalOf(graph, p.id))!;
+		return {
+			...positionSummary(p, space),
+			inCount: c.inCount,
+			outCount: c.outCount,
+			// The gap report is hidden in group mode.
+			deadEnd: !mode && c.deadEnd,
+			orphan: !mode && c.orphan,
+			island: !mode && c.island,
+			unused: c.unused,
+			from,
+			twins: false
+		};
+	};
+
+	let mine = own.map((p) => row(p, null));
+	let groups: { team: TeamRef; rows: PositionListRow[] }[] = [];
+	if (!mode) {
+		// Each group's under its heading.
+		const byTeam = new Map<number, { team: TeamRef; rows: PositionRow[] }>();
+		for (const p of theirs) {
+			const g = byTeam.get(p.team.id) ?? { team: p.team, rows: [] };
+			g.rows.push(p);
+			byTeam.set(p.team.id, g);
+		}
+		// Sections by group name: the order twins fold in (`foldSections`) and the page shows.
+		const sections = [...byTeam.values()].sort(byGroupName).map((g) => {
+			const from = positionsFrom(
+				db,
+				wall.userId,
+				g.team.id,
+				g.rows.map((p) => p.id)
+			);
+			return { team: g.team, rows: g.rows.map((p) => row(p, from.get(p.id) ?? null)) };
+		});
+		// Twins show as one (Same as…): yours if you have one, else the first by group name.
+		const folded = foldSections(mine, sections, storedTwinSets(db, wall.userId, 'position'));
+		const twinned = (r: PositionListRow) => ({ ...r, twins: folded.twinOf.has(r.id) });
+		mine = folded.mine.map(twinned);
+		groups = folded.groups.map((g) => ({ team: g.team, rows: g.rows.map(twinned) }));
+	}
+
+	const matches = (r: PositionListRow) =>
+		(!filter.q || fold(r.name).includes(fold(filter.q))) &&
+		(!filter.type ||
+			r.styleTag === filter.type ||
+			(r.styleTag === null && filter.type === OTHER_TYPE)) &&
+		(!filter.gaps || hasGap(r));
+	const none = noPosition(graph);
+	const untyped = (r: PositionListRow) => r.styleTag === null;
 	return {
-		// Positions are shared by everyone: only the admin changes them.
-		isAdmin: locals.user?.isAdmin === true,
-		positions: rows.map((p) => ({
-			name: p.name,
-			neutral: p.neutral,
-			// `byId.get(p.id)` always carries this same row's `id` alongside its
-			// counts — `counts` was built from these rows' own ids above — so the
-			// spread is the only place `id` appears; listing it explicitly too
-			// would just be overwritten by the spread, which `tsc` refuses to do
-			// silently.
-			...byId.get(p.id)!,
-			// The gap report is hidden in group mode: nothing is flagged a dead end or orphan.
-			...(inGroup ? { deadEnd: false, orphan: false } : {})
-		})),
-		groupMode: inGroup,
-		// How much of the repertoire carries tags: the intro's first sentence.
-		tagged: taggedFigures(db, space)
+		rows: mine.filter(matches),
+		// Gaps are about the person's own: a group's rows step aside under the chip.
+		groups: filter.gaps
+			? []
+			: groups
+					.map((g) => ({ team: g.team, rows: g.rows.filter(matches) }))
+					.filter((g) => g.rows.length > 0),
+		none: {
+			none: none.none.length,
+			onlyStart: none.onlyStart.length,
+			onlyEnd: none.onlyEnd.length
+		},
+		tagged: taggedCount(graph),
+		// The Gaps chip's count, whatever the other chips.
+		gaps: mine.filter(hasGap).length,
+		/** Whether the space has positions of its own: the Gaps chip is about them. */
+		hasOwn: own.length > 0,
+		/** Whether any row, before filtering, has no type: Other's chip where the dance has no Other. */
+		untyped: mine.some(untyped) || groups.some((g) => g.rows.some(untyped)),
+		types: [...styles],
+		styleLabel: DANCES[dance].styleLabel,
+		// Settings' "New figures" type: where New position's type starts.
+		defaultStyle: defaultStyle(db, wall.userId, dance),
+		/** The space's own names, folded: Templates marks them "You have it". */
+		owned: own.map((p) => fold(p.name)),
+		/** In a group's own workspace (not `groupMode`: the layout's, which the shell reads). */
+		inGroupMode: mode !== null,
+		filter
 	};
 };
 
-/** A position id from this dance, or a 404 — the wall, for every action below. */
-function positionOf(params: { dance: string }, id: number | undefined) {
-	const dance = danceOf(params);
-	if (id === undefined) throw error(404, 'No such position');
-	return requirePositionInDance(getDb(), dance, id);
-}
-
 export const actions: Actions = {
-	create: async ({ params, request, locals }) => {
-		requireAdmin(locals);
-		const dance = danceOf(params);
+	create: async ({ params, request, locals, cookies }) => {
+		const db = getDb();
+		// The cookie is the client's: `spaceOf` re-checks it, so a member who
+		// is not an editor creates in their own space, never in the group.
+		const space = spaceOf(db, params, locals, cookies);
 		const form = await request.formData();
-		const name = text(form, 'name', 80);
-		if (!name)
-			return fail(400, { action: 'create', field: 'name', message: 'Give the position a name.' });
-		// The slug drops accents, so two names can differ in slug and still read the same.
-		const taken = {
-			action: 'create',
-			field: 'name',
-			message: 'That position already exists.',
-			name
+		const styleTag = String(form.get('styleTag') ?? '');
+		const typed = {
+			action: 'create' as const,
+			name: String(form.get('name') ?? ''),
+			notes: String(form.get('notes') ?? ''),
+			styleTag
 		};
-		if (liveNameTaken(getDb(), dance, name)) return fail(400, taken);
-		const made = createPosition(getDb(), dance, {
-			slug: slugify(name),
-			name,
-			neutral: false,
-			sortOrder: listPositions(getDb(), dance).length
-		});
-		if (!made) return fail(400, taken);
-		return { action: 'create', ok: true };
+		const notes = optionalText(form, 'notes');
+		if (notes === undefined) {
+			return fail(400, {
+				...typed,
+				field: 'notes' as const,
+				message: 'Notes are up to 2000 characters.'
+			});
+		}
+		if (typed.name.trim().length > 200) {
+			return fail(400, {
+				...typed,
+				field: 'name' as const,
+				message: 'A name is up to 200 characters.'
+			});
+		}
+		const made = createPosition(
+			db,
+			space,
+			{
+				name: typed.name,
+				styleTag: DANCES[space.dance].styles.includes(styleTag) ? styleTag : null,
+				hold: parseHold(form),
+				notes,
+				pictureSpotId: null
+			},
+			Date.now()
+		);
+		if ('field' in made) return fail(400, { ...typed, field: made.field, message: made.message });
+		throw redirect(303, `/${space.dance}/positions/${made.id}`);
 	},
 
-	rename: async ({ params, request, locals }) => {
-		requireAdmin(locals);
+	templates: async ({ params, request, locals, cookies }) => {
+		const db = getDb();
+		const space = spaceOf(db, params, locals, cookies);
 		const form = await request.formData();
-		const found = positionOf(params, int(form, 'id'));
-		const name = text(form, 'name', 80);
-		if (!name)
-			return fail(400, {
-				action: 'rename',
-				field: 'name',
-				message: 'Give the position a name.',
-				id: found.id,
-				name
-			});
-		if (liveNameTaken(getDb(), danceOf(params), name, found.id))
-			return fail(400, {
-				action: 'rename',
-				field: 'name',
-				message: 'That name is taken.',
-				id: found.id,
-				name
-			});
-		// The slug is left alone: it is the seed's identity, not the label.
-		const row = updatePosition(getDb(), found.id, {
-			slug: found.slug,
-			name,
-			neutral: checkbox(form, 'neutral') || found.neutral,
-			sortOrder: found.sortOrder
-		});
-		if (!row)
-			return fail(400, {
-				action: 'rename',
-				field: 'name',
-				message: 'That name is taken.',
-				id: found.id,
-				name
-			});
-		return { action: 'rename', ok: true };
-	},
-
-	archive: async ({ params, request, locals }) => {
-		requireAdmin(locals);
-		const found = positionOf(params, int(await request.formData(), 'id'));
-		// Already removed (a double tap, another tab): nothing to do, and not the neutral's refusal.
-		if (found.archivedAt !== null) return { action: 'archive', ok: true };
-		if (!archivePosition(getDb(), found.id, Date.now())) {
-			return fail(400, {
-				action: 'archive',
-				id: found.id,
-				message: 'The neutral position cannot be removed.'
-			});
+		const type = String(form.get('type') ?? '');
+		const names = form.getAll('names').map(String);
+		if (!templateTypes(space.dance).includes(type)) {
+			return fail(400, { action: 'templates' as const, message: 'Pick a type with templates.' });
 		}
-		return { action: 'archive', ok: true };
-	},
-
-	// Undo for a removal, inside the wall like every action here. A position that
-	// is already live is a replay and still a success; one whose name a live
-	// position has taken meanwhile is refused, so Undo never makes a duplicate.
-	restore: async ({ params, request, locals }) => {
-		requireAdmin(locals);
-		const found = positionOf(params, int(await request.formData(), 'id'));
-		if (!restorePosition(getDb(), found.id) && getPosition(getDb(), found.id)?.archivedAt != null) {
-			return fail(409, {
-				action: 'restore',
-				id: found.id,
-				message: `Can't undo — a position called ${found.name} exists again.`
-			});
+		if (names.length === 0) {
+			return fail(400, { action: 'templates' as const, message: 'Tick at least one position.' });
 		}
-		return { action: 'restore', ok: true };
+		const made = addTemplates(db, space, space.dance, type, names, Date.now());
+		return { action: 'templates' as const, added: made.length };
 	}
 };

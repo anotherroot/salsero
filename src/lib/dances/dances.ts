@@ -32,16 +32,6 @@ export interface Dance {
 	/** Whether the clave toggle exists. Salsa only. */
 	clave: boolean;
 	/**
-	 * The handhold vocabulary this dance starts with, seeded into `positions` at
-	 * boot when the dance has none. A starting point to edit, not a fixed list —
-	 * which is why the rows are the truth afterwards and this is only the seed.
-	 *
-	 * The FIRST entry is the neutral one: the position an untagged figure is
-	 * assumed to start and end at. It differs per dance on purpose — salsa
-	 * resolves to open, bachata to closed.
-	 */
-	seedPositions: readonly { slug: string; name: string }[];
-	/**
 	 * `--color-accent` in light mode, and the manifest's `theme_color`. Kept
 	 * IN SYNC BY HAND with the `[data-dance='…']` rules in
 	 * `src/routes/layout.css` — this registry is what the manifest route and
@@ -74,37 +64,12 @@ export const DANCES: Record<DanceSlug, Dance> = {
 	salsa: {
 		slug: 'salsa',
 		label: 'Salsa',
-		styles: ['salsa', 'son', 'other'],
-		styleLabel: { salsa: 'Salsa', son: 'Son', other: 'Other' },
+		styles: ['salsa', 'son', 'timba', 'other'],
+		styleLabel: { salsa: 'Salsa', son: 'Son', timba: 'Timba', other: 'Other' },
 		defaultStyle: 'salsa',
 		countPatterns: ['salsa', 'son', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: true,
-		// Casino (Cuban) terms: this is the dance being practised — the figures are
-		// dile que no, enchufla, setenta. The first seed used LA/linear names
-		// (hammerlock, cuddle, shadow) for the same physical holds, which is a
-		// different tradition's vocabulary.
-		//
-		// The SLUGS deliberately keep their original spelling. A slug is the seed's
-		// stable identity and is never shown, so a rename must not move it — that
-		// is the whole reason the name and the slug are separate columns.
-		//
-		// Positions are NOT split by style. Casino and linear share these physical
-		// holds under different names, so one node per shape is what lets a figure
-		// of one style follow a figure of another; two style-scoped lists would sever
-		// exactly that edge while the dancer's hands sat in the identical place.
-		seedPositions: [
-			{ slug: 'open-two', name: 'Abierta (dos manos)' },
-			{ slug: 'open-one', name: 'Abierta (una mano)' },
-			{ slug: 'closed', name: 'Cerrada' },
-			{ slug: 'cross-hand', name: 'Manos cruzadas' },
-			{ slug: 'caida', name: 'Caída' },
-			{ slug: 'hammerlock-r', name: 'Setenta, derecha' },
-			{ slug: 'hammerlock-l', name: 'Setenta, izquierda' },
-			{ slug: 'cuddle', name: 'Sombrero' },
-			{ slug: 'shadow', name: 'Sombra' },
-			{ slug: 'back-to-back', name: 'Espalda con espalda' }
-		],
 		accent: '#d2401e',
 		accentDark: '#ff6b47',
 		band: '#D2401E'
@@ -127,15 +92,6 @@ export const DANCES: Record<DanceSlug, Dance> = {
 		countPatterns: ['salsa', 'all', 'odd', 'ones', 'one', 'off'],
 		defaultCountPattern: 'salsa',
 		clave: false,
-		seedPositions: [
-			{ slug: 'closed', name: 'Closed' },
-			{ slug: 'open-two', name: 'Open, two hands' },
-			{ slug: 'open-one', name: 'Open, one hand' },
-			{ slug: 'cross-hand', name: 'Cross-hand' },
-			{ slug: 'hammerlock', name: 'Hammerlock' },
-			{ slug: 'shadow', name: 'Shadow' },
-			{ slug: 'side-by-side', name: 'Side by side' }
-		],
 		accent: '#8e2a66',
 		accentDark: '#f07aae',
 		band: '#6B1D4F'

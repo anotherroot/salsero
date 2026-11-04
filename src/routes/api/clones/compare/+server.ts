@@ -10,7 +10,7 @@ import type { RequestHandler } from './$types';
  * `/api/video-spots`: the rows' own walls decide, and anything the person
  * cannot read on either side, or two rows of different families, is a 404.
  */
-const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson'];
+const KINDS: readonly CloneKind[] = ['figure', 'routine', 'drill', 'song', 'lesson', 'position'];
 
 function id(raw: string | null): number {
 	const n = raw !== null && /^\d+$/.test(raw) ? Number(raw) : 0;

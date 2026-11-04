@@ -191,3 +191,87 @@ describe('a take’s fields, in plain words', () => {
 		);
 	});
 });
+
+describe('a position’s History', () => {
+	const pos = (over: Partial<HistoryRow>) => row({ rootKind: 'position', ...over });
+	it('words the hold fields', () => {
+		const one = (subject: string) =>
+			historyLine(pos({ subject, before: { [subject]: 'a' }, after: { [subject]: 'b' } }), names);
+		expect(one('styleTag')).toBe('Ana · changed the type');
+		expect(one('hands')).toBe('Ana · changed the hands');
+		expect(one('crossed')).toBe('Ana · changed the crossed');
+		expect(one('facing')).toBe('Ana · changed the facing');
+		expect(one('frame')).toBe('Ana · changed the frame');
+		expect(one('pictureSpotId')).toBe('Ana · changed the picture');
+		expect(one('notes')).toBe('Ana · changed the notes');
+		expect(one('name')).toBe('Ana · changed the name');
+	});
+	it('words made, several fields, archive and restore', () => {
+		const line = (over: Partial<HistoryRow>) => historyLine(pos(over), names);
+		expect(line({ verb: 'add', subject: 'position', after: { name: 'Cerrada' } })).toBe(
+			'Ana · made the position'
+		);
+		expect(line({ verb: 'change', subject: 'position', before: {}, after: {} })).toBe(
+			'Ana · changed the position'
+		);
+		expect(line({ verb: 'archive', subject: 'position' })).toBe('Ana · archived the position');
+		expect(line({ verb: 'restore', subject: 'position', after: { name: 'Cerrada' } })).toBe(
+			"Ana · restored the position 'Cerrada'"
+		);
+	});
+	it('offers Restore on a name or notes change only', () => {
+		expect(canRestore(pos({ subject: 'name', before: { name: 'a' }, after: { name: 'b' } }))).toBe(
+			true
+		);
+		expect(
+			canRestore(pos({ subject: 'hands', before: { hands: 'one' }, after: { hands: 'two' } }))
+		).toBe(false);
+	});
+});
+
+describe('a position link’s History', () => {
+	const link = (verb: 'add' | 'remove', vals: Record<string, string | number | null>) =>
+		row({
+			rootKind: 'lesson',
+			verb,
+			subject: 'section-link',
+			...(verb === 'add' ? { after: vals } : { before: vals })
+		});
+	it('says a point for a point, a section for a section, naming the position', () => {
+		expect(historyLine(link('add', { name: 'Cerrada', point: 1 }), names)).toBe(
+			"Ana · linked a point to 'Cerrada'"
+		);
+		expect(historyLine(link('remove', { name: 'Cerrada', point: 1 }), names)).toBe(
+			"Ana · unlinked a point from 'Cerrada'"
+		);
+		expect(historyLine(link('add', { name: 'Cerrada' }), names)).toBe(
+			"Ana · linked a section to 'Cerrada'"
+		);
+		expect(historyLine(link('remove', { name: 'Enchufla' }), names)).toBe(
+			"Ana · unlinked a section from 'Enchufla'"
+		);
+	});
+});
+
+describe('old rows with raw ids', () => {
+	it('shows startIds, endIds and endId values as they are, without crashing', () => {
+		const old = (subject: string, before: unknown, after: unknown) =>
+			historyLine(
+				row({
+					rootKind: 'figure',
+					subject,
+					before: { [subject]: before } as never,
+					after: { [subject]: after } as never
+				}),
+				names
+			);
+		expect(old('startIds', '3,4', '3')).toBe('Ana · changed the start positions');
+		expect(old('endIds', '[7]', '[7,9]')).toBe('Ana · changed the end positions');
+		expect(old('endId', 7, null)).toBe('Ana · changed the end position');
+		expect(
+			previousValue(
+				row({ subject: 'startIds', before: { startIds: '3,4' }, after: { startIds: '3' } })
+			)
+		).toBeNull();
+	});
+});

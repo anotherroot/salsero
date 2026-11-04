@@ -1,7 +1,7 @@
 /**
- * The clone engine: a figure, a drill, a song, a routine or a lesson copied
- * into another place — a person's own app or a group — as a member of the
- * same family.
+ * The clone engine: a figure, a drill, a song, a routine, a lesson or a
+ * position copied into another place — a person's own app or a group — as a
+ * member of the same family.
  *
  * A clone stamps the family's gene on the source (root and pieces) and writes
  * it on the copy, records `cloned_from`, writes the pair's snapshot (the
@@ -11,9 +11,9 @@
  * one side's delete or purge never takes the other's file, and are charged to
  * the receiving place. A refusal or a throw unlinks every name this call made.
  *
- * Every reference inside a copy (a routine's options and embedded routine, a
- * lesson's hand links, a section's links) becomes the receiving place's member
- * of that family: the row itself when it is there, the family's member there
+ * Every reference inside a copy (a figure's start and end positions, a
+ * routine's options and embedded routine, a lesson's hand links, a section's
+ * or point's links) becomes the receiving place's member of that family: the row itself when it is there, the family's member there
  * (archived included, linked as it is), else a clone of it made in the same
  * call when it is live and the actor reads it (any live one, when
  * `trusted`), with the same `recordings` flag. A reference to an archived
@@ -28,7 +28,7 @@
  * the write alone, for callers already inside a transaction (the rescue,
  * Keep), and runs in a savepoint so a refusal leaves nothing behind.
  */
-import { and, asc, eq, isNotNull, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 import type { CloneKind, PieceKind } from '$lib/types';
 import { initialBase } from '$lib/clones/diff';
 import { shortNames } from '$lib/names';
@@ -36,12 +36,15 @@ import type { Db } from '../db';
 import {
 	exercises,
 	figureGroups,
+	figureEndPositions,
 	figureStartPositions,
 	figures,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessonRoutines,
 	lessons,
+	positions,
 	lessonVideos,
 	links,
 	recordings,
@@ -50,6 +53,7 @@ import {
 	routineSteps,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	users,
 	videoSpots
 } from '../db/schema';
@@ -60,6 +64,7 @@ import { logChange, type ChangeEntry } from '../changes';
 import { figureNameTaken, moveFor, variationNameTaken } from '../figures';
 import { insertRoutine, routineSlots } from '../routines';
 import { insertLesson } from '../lessons';
+import { nameRefusal, nameTaken as positionNameTaken } from '../positions';
 import { suffixed } from './names';
 import { entryFor, type EntryTarget } from '../entries';
 import { accessTo, memberIn, stampGene } from './genes';
@@ -144,8 +149,8 @@ export type ClonePlan = {
 /** The key a linked file is found by in `cloneTx`'s `linked` map. */
 export const fileKey = (kind: CloneFileKind, file: string) => `${kind}:${file}`;
 
-/** A refusal raised inside the write, so the savepoint rolls back. */
-class Refusal extends Error {
+/** A refusal raised inside the write, so the savepoint rolls back (an apply maps a nested copy's: `applyInto`). */
+export class Refusal extends Error {
 	constructor(readonly result: Extract<CloneResult, { ok: false }>) {
 		super(result.reason);
 	}
@@ -183,6 +188,8 @@ function rootRow(db: Db, kind: CloneKind, id: number): RootRow | null {
 			return db.select().from(routines).where(eq(routines.id, id)).get() ?? null;
 		case 'lesson':
 			return db.select().from(lessons).where(eq(lessons.id, id)).get() ?? null;
+		case 'position':
+			return db.select().from(positions).where(eq(positions.id, id)).get() ?? null;
 	}
 }
 
@@ -305,6 +312,7 @@ class Planner {
 		const { db } = this;
 		switch (kind) {
 			case 'figure':
+				for (const id of tagsOf(db, row.id)) this.ref('position', id);
 				this.pieces(kind, row.id, null);
 				return;
 			case 'routine':
@@ -318,6 +326,7 @@ class Planner {
 				for (const id of hand.figures) this.ref('figure', id);
 				for (const id of hand.routines) this.ref('routine', id);
 				for (const id of hand.exercises) this.ref('drill', id);
+				for (const id of hand.positions) this.ref('position', id);
 				this.pieces(kind, row.id, null);
 				return;
 			}
@@ -327,6 +336,7 @@ class Planner {
 				return;
 			}
 			case 'drill':
+			case 'position':
 				return;
 		}
 	}
@@ -372,6 +382,7 @@ class Planner {
 				if (t.figureId !== null) this.ref('figure', t.figureId);
 				else this.ref('drill', t.exerciseId!);
 			}
+			for (const id of positionsOfSpot(this.db, s.id)) this.ref('position', id);
 		}
 	}
 
@@ -418,7 +429,7 @@ function mayClone(db: Db, req: CloneRequest, sourceId: number, opts: CloneOption
 /* ── The whole flow ─────────────────────────────────────────────────────── */
 
 /**
- * Clone a figure, drill, song, routine or lesson into `into` for its actor. `denied` unless
+ * Clone a figure, drill, song, routine, lesson or position into `into` for its actor. `denied` unless
  * they may (`mayClone`); the member already there is answered as it is; a
  * clone that does not fit `into`'s room (or the disk floor) is refused before
  * any file is linked, unless `overLimitOk` (a clone with no files charges
@@ -651,8 +662,9 @@ export class Mapper {
 
 /** Whether a root field of the kind holds references the engine maps (or drops). */
 function refKey(kind: CloneKind, key: string): boolean {
+	if (kind === 'figure') return /^(start|end):/.test(key);
 	if (kind === 'routine') return key === 'slots';
-	if (kind === 'lesson') return /^(fig|routine|drill):/.test(key);
+	if (kind === 'lesson') return /^(fig|routine|drill|pos):/.test(key);
 	return false;
 }
 
@@ -694,6 +706,45 @@ export const spotsOf = (db: Db, owner: SpotOwner) =>
 
 export const linksOfSpot = (db: Db, spotId: number) =>
 	db.select().from(spotLinks).where(eq(spotLinks.spotId, spotId)).orderBy(asc(spotLinks.id)).all();
+
+/*
+ * What travels of a row's positions: live ones only. An archived position is
+ * invisible (ruling 4): its tag or link stays on the source, and a copy never
+ * carries it, as `flatOf` never shows it.
+ */
+
+/** The live positions a section or point links (`spot_position_links`), in the order linked. */
+export const positionsOfSpot = (db: Db, spotId: number) =>
+	db
+		.select({ id: spotPositionLinks.positionId })
+		.from(spotPositionLinks)
+		.innerJoin(positions, eq(positions.id, spotPositionLinks.positionId))
+		.where(and(eq(spotPositionLinks.spotId, spotId), isNull(positions.archivedAt)))
+		.orderBy(asc(spotPositionLinks.id))
+		.all()
+		.map((r) => r.id);
+
+/** A figure's live positions on one side, by id. */
+function sideOf(
+	db: Db,
+	table: typeof figureStartPositions | typeof figureEndPositions,
+	figureId: number
+): number[] {
+	return db
+		.select({ id: table.positionId })
+		.from(table)
+		.innerJoin(positions, eq(positions.id, table.positionId))
+		.where(and(eq(table.figureId, figureId), isNull(positions.archivedAt)))
+		.orderBy(asc(table.positionId))
+		.all()
+		.map((r) => r.id);
+}
+
+/** A figure's live start positions, then its live end positions. */
+const tagsOf = (db: Db, figureId: number) => [
+	...sideOf(db, figureStartPositions, figureId),
+	...sideOf(db, figureEndPositions, figureId)
+];
 
 /** How a source's place is named in a suffix: its group's name, or its person's shown name. */
 function placeName(db: Db, row: { userId: string | null; teamId: number | null }): string {
@@ -744,9 +795,12 @@ function copyLinks(tx: Db, from: LinkOwner, to: LinkOwner, now: number): void {
 
 /**
  * A figure: under `into`'s live move of the source's move name (made when
- * missing), its name kept unless taken there; its shape, notes, positions and
- * links; its recordings, sections and section links when the request brings
- * them (else each recording is in `skip`). No exercise: practice is opt-in.
+ * missing), its name kept unless taken there; its shape, notes and links; its
+ * live start and end positions, each the place's member of that family
+ * (`Mapper.ref`: copied there when the place has none, dropped when the actor
+ * cannot read it); its recordings, sections and section links when the
+ * request brings them (else each recording is in `skip`). No exercise:
+ * practice is opt-in.
  */
 function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 	const { tx, into, now } = m;
@@ -767,7 +821,6 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 			notes: src.notes,
 			partner: src.partner,
 			styleTag: src.styleTag,
-			endPositionId: src.endPositionId,
 			startCount: src.startCount,
 			lengthCounts: src.lengthCounts,
 			createdAt: now,
@@ -778,15 +831,18 @@ function copyFigure(m: Mapper, sourceId: number, gene: string): Copied {
 		.get();
 	m.started('figure', src.id, copy.id);
 
-	const starts = tx
-		.select({ positionId: figureStartPositions.positionId })
-		.from(figureStartPositions)
-		.where(eq(figureStartPositions.figureId, src.id))
-		.all();
-	if (starts.length > 0) {
-		tx.insert(figureStartPositions)
-			.values(starts.map((s) => ({ figureId: copy.id, positionId: s.positionId })))
-			.run();
+	for (const table of [figureStartPositions, figureEndPositions]) {
+		// Two tags of one family (a group's Cerrada and the person's own copy) land as one.
+		const mappedIds = new Set<number>();
+		for (const id of sideOf(tx, table, src.id)) {
+			const to = m.ref('position', id);
+			if (to !== null) mappedIds.add(to);
+		}
+		if (mappedIds.size > 0) {
+			tx.insert(table)
+				.values([...mappedIds].map((positionId) => ({ figureId: copy.id, positionId })))
+				.run();
+		}
 	}
 	copyLinks(tx, { figureId: src.id }, { figureId: copy.id }, now);
 
@@ -928,22 +984,31 @@ export function copySpot(m: Mapper, s: SpotRow, to: SpotOwner): number {
 		.returning({ id: videoSpots.id })
 		.get();
 	for (const target of mappedLinks(m, s.id)) {
-		tx.insert(spotLinks)
-			.values({ spotId: spot.id, ...target, createdAt: now })
-			.onConflictDoNothing()
-			.run();
+		if ('positionId' in target)
+			tx.insert(spotPositionLinks)
+				.values({ spotId: spot.id, positionId: target.positionId, createdAt: now })
+				.onConflictDoNothing()
+				.run();
+		else
+			tx.insert(spotLinks)
+				.values({ spotId: spot.id, ...target, createdAt: now })
+				.onConflictDoNothing()
+				.run();
 	}
 	return spot.id;
 }
 
 export type SpotRow = typeof videoSpots.$inferSelect;
 
-/** A source section's links, each as the row in `into` it becomes (`Mapper.ref`); dropped ones left out. */
-export function mappedLinks(
-	m: Mapper,
-	spotId: number
-): ({ figureId: number } | { exerciseId: number })[] {
-	const out: ({ figureId: number } | { exerciseId: number })[] = [];
+/** Where a section's or point's link points: a figure, a drill (`spot_links`) or a position (`spot_position_links`). */
+export type SpotTarget = { figureId: number } | { exerciseId: number } | { positionId: number };
+
+/**
+ * A source section's or point's links, each as the row in `into` it becomes
+ * (`Mapper.ref`); dropped ones left out. Its live positions too.
+ */
+export function mappedLinks(m: Mapper, spotId: number): SpotTarget[] {
+	const out: SpotTarget[] = [];
 	for (const t of linksOfSpot(m.tx, spotId)) {
 		const target =
 			t.figureId !== null
@@ -951,10 +1016,14 @@ export function mappedLinks(
 				: mapped('exerciseId', m.ref('drill', t.exerciseId!));
 		if (target) out.push(target);
 	}
+	for (const id of positionsOfSpot(m.tx, spotId)) {
+		const target = mapped('positionId', m.ref('position', id));
+		if (target) out.push(target);
+	}
 	return out;
 }
 
-function mapped<K extends 'figureId' | 'exerciseId'>(
+function mapped<K extends 'figureId' | 'exerciseId' | 'positionId'>(
 	key: K,
 	id: number | null
 ): Record<K, number> | null {
@@ -1152,6 +1221,15 @@ function handLinks(db: Db, lessonId: number) {
 			.where(eq(lessonExercises.lessonId, lessonId))
 			.orderBy(asc(lessonExercises.createdAt), asc(lessonExercises.exerciseId))
 			.all()
+			.map((r) => r.id),
+		/** Live ones only: an archived position is invisible (ruling 4). */
+		positions: db
+			.select({ id: lessonPositions.positionId })
+			.from(lessonPositions)
+			.innerJoin(positions, eq(positions.id, lessonPositions.positionId))
+			.where(and(eq(lessonPositions.lessonId, lessonId), isNull(positions.archivedAt)))
+			.orderBy(asc(lessonPositions.createdAt), asc(lessonPositions.positionId))
+			.all()
 			.map((r) => r.id)
 	};
 }
@@ -1210,6 +1288,14 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 				.onConflictDoNothing()
 				.run();
 	}
+	for (const p of hand.positions) {
+		const to = m.ref('position', p);
+		if (to !== null)
+			tx.insert(lessonPositions)
+				.values({ lessonId: id, positionId: to, createdAt: now })
+				.onConflictDoNothing()
+				.run();
+	}
 
 	const skip: string[] = [];
 	for (const v of videosOf(tx, src.id)) {
@@ -1236,11 +1322,67 @@ function copyLesson(m: Mapper, sourceId: number, gene: string): Copied {
 	};
 }
 
+/* ── Positions ──────────────────────────────────────────────────────────── */
+
+/** A position's name in `into`: kept when free (folded), else "Cerrada (Ana)", then "(Ana 2)" …; a refusal once those are taken. */
+function freePositionName(tx: Db, into: Space, name: string, place: string): string {
+	if (!positionNameTaken(tx, into, name)) return name;
+	for (let n = 1; n <= SUFFIX_TRIES; n++) {
+		const candidate = suffixed(name, n === 1 ? ` (${place})` : ` (${place} ${n})`);
+		if (!positionNameTaken(tx, into, candidate)) return candidate;
+	}
+	throw new Refusal({ ok: false, reason: 'name', message: nameRefusal(tx, into, name).message });
+}
+
+/**
+ * A position: its name (kept unless a live one of `into` has it), type, hold
+ * and notes. Never its picture: a position's links to sections and points
+ * travel with the spot's video (a lesson or a recording copied), never with
+ * the position, so the copy has no point to picture it yet.
+ */
+function copyPosition(m: Mapper, sourceId: number, gene: string): Copied {
+	const { tx, into, now } = m;
+	const src = tx.select().from(positions).where(eq(positions.id, sourceId)).get()!;
+	const name = freePositionName(tx, into, src.name, placeName(tx, src));
+	const copy = tx
+		.insert(positions)
+		.values({
+			...ownerValues(into),
+			slug: `p-${crypto.randomUUID()}`,
+			name,
+			styleTag: src.styleTag,
+			hands: src.hands,
+			crossed: src.crossed,
+			facing: src.facing,
+			frame: src.frame,
+			notes: src.notes,
+			pictureSpotId: null,
+			createdAt: now,
+			geneId: gene,
+			clonedFrom: src.id
+		})
+		.returning({ id: positions.id })
+		.get();
+	m.started('position', src.id, copy.id);
+	return {
+		id: copy.id,
+		skip: [],
+		log: {
+			rootKind: 'position',
+			rootId: copy.id,
+			verb: 'add',
+			subject: 'position',
+			after: { name }
+		}
+	};
+}
+
 /** Each kind's copier. */
 const COPIERS: Record<CloneKind, Copier> = {
 	figure: copyFigure,
 	drill: copyDrill,
 	song: copySong,
 	routine: copyRoutine,
-	lesson: copyLesson
+	lesson: copyLesson,
+	position: copyPosition
 };

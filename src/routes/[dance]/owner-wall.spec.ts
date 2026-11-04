@@ -33,14 +33,16 @@ import {
 	listVersions,
 	moveVariation
 } from '$lib/server/figures';
-import { buildGraph, taggedFigures } from '$lib/server/graph';
-import { getPosition, listPositions, seedPositions } from '$lib/server/positions';
+import { buildGraph } from '$lib/server/graph';
+import { listPositions } from '$lib/server/positions';
+import { insertFixturePositions } from '$lib/server/test-positions';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { exercises, figureGroups, figures, recordings, routines } from '$lib/server/db/schema';
 import * as figurePage from './figures/[id]/+page.server';
 import * as figureList from './figures/+page.server';
 import * as coveragePage from './coverage/+page.server';
 import * as positionsPage from './positions/+page.server';
+import * as positionPage from './positions/[id]/+page.server';
 
 const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
@@ -119,7 +121,7 @@ let recordingId: number;
 beforeEach(() => {
 	db = openDb(':memory:');
 	handle.db = db;
-	seedPositions(db);
+	insertFixturePositions(db);
 	const made = createFigure(db, U1_SALSA, figureInput)!;
 	figureId = made.figure.id;
 	groupId = made.group.id;
@@ -144,7 +146,6 @@ describe('figures: the data functions stand behind a wall', () => {
 		expect(listMoveTargets(db, U2_SALSA, null)).toEqual([]);
 		expect(listFiguresForCall(db, U2_SALSA, [figureId])).toEqual([]);
 		expect(buildGraph(db, U2_SALSA).figures).toEqual([]);
-		expect(taggedFigures(db, U2_SALSA)).toEqual({ done: 0, total: 0 });
 		// …and none of the same person's other dance.
 		expect(listFigures(db, U1_BACHATA)).toEqual([]);
 	});
@@ -253,13 +254,16 @@ describe("the figures list and coverage show only the person's own", () => {
 		const mine = loadAt(figureList.load, U1, 'salsa') as { figures: unknown[] };
 		const theirs = loadAt(figureList.load, U2, 'salsa') as {
 			figures: unknown[];
-			tagged: { total: number };
 			unlinked: number;
 			unrouted: number;
 		};
 		expect(mine.figures).toHaveLength(1);
 		expect(theirs.figures).toEqual([]);
-		expect(theirs.tagged.total).toBe(0);
+		expect(theirs).not.toHaveProperty('tagged');
+		expect((loadAt(positionsPage.load, U2, 'salsa') as { tagged: unknown }).tagged).toEqual({
+			done: 0,
+			total: 0
+		});
 		expect(theirs.unrouted).toBe(0);
 	});
 
@@ -314,47 +318,94 @@ describe("the figures list and coverage show only the person's own", () => {
 	});
 });
 
-describe('positions are shared, and only the admin changes them', () => {
-	const neutralId = () => listPositions(db, 'salsa').find((p) => p.neutral)!.id;
+import { requirePositionAccess } from '$lib/server/scope';
+import { addPosition } from '$lib/server/test-positions';
+import { lessonPositions } from '$lib/server/db/schema';
+import { setRole } from '$lib/server/membership';
+import { publishLesson } from '$lib/server/lessons';
+import { crossRefs } from '$lib/server/integrity';
 
-	it('the load is open to everyone and says who may change them', () => {
-		const theirs = loadAt(positionsPage.load, U2, 'salsa') as {
-			isAdmin: boolean;
-			positions: unknown[];
-			tagged: { total: number };
-		};
-		expect(theirs.isAdmin).toBe(false);
-		expect(theirs.positions.length).toBe(listPositions(db, 'salsa').length);
-		// The counts are of the person's own figures: u2 has none.
-		expect(theirs.tagged.total).toBe(0);
-		expect((loadAt(positionsPage.load, U1, 'salsa') as { isAdmin: boolean }).isAdmin).toBe(true);
+describe('positions are each owner’s', () => {
+	const U3 = { id: 'u3', email: 'u3@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
+	const as = (user: User, dance = 'salsa') => [db, { user } as App.Locals, { dance }] as const;
+
+	it("u2 gets the missing one's 404 reading or editing u1's position", () => {
+		const id = listPositions(db, U1_SALSA)[0].id;
+		expect(requirePositionAccess(...as(U1), id, 'edit').position.id).toBe(id);
+		for (const target of [id, 9999]) {
+			for (const need of ['read', 'edit'] as const) {
+				expect(() => requirePositionAccess(...as(U2), target, need)).toThrow(threw404);
+			}
+		}
 	});
 
-	const actions: [string, () => Record<string, string>][] = [
-		['create', () => ({ name: 'Brand new hold' })],
-		['rename', () => ({ id: String(neutralId()), name: 'Renamed' })],
-		['archive', () => ({ id: String(listPositions(db, 'salsa').find((p) => !p.neutral)!.id) })],
-		['restore', () => ({ id: String(neutralId()) })]
-	];
-	for (const [name, fields] of actions) {
-		it(`${name} is a 404 for someone who is not the admin, and changes nothing`, async () => {
-			const before = JSON.stringify(listPositions(db, 'salsa'));
-			await refuses(
-				(positionsPage.actions as Record<string, unknown>)[name],
-				post(U2, 'salsa', fields())
-			);
-			expect(JSON.stringify(listPositions(db, 'salsa'))).toBe(before);
-			expect(getPosition(db, neutralId())!.name).not.toBe('Renamed');
-		});
-	}
+	it('another dance’s position is a 404, its owner included', () => {
+		const bachata = listPositions(db, U1_BACHATA)[0].id;
+		expect(() => requirePositionAccess(...as(U1), bachata, 'read')).toThrow(threw404);
+		const salsa = listPositions(db, U1_SALSA)[0].id;
+		expect(() => requirePositionAccess(...as(U1, 'bachata'), salsa, 'read')).toThrow(threw404);
+	});
 
-	it('the admin still can', async () => {
-		await call(positionsPage.actions.create, post(U1, 'salsa', { name: 'Brand new hold' }));
-		expect(listPositions(db, 'salsa').map((p) => p.name)).toContain('Brand new hold');
+	it('a member reads a group position a published lesson reaches, read-only; an editor edits it', () => {
+		const made = createTeam(db, 'u1', 'salsa', 'Salsa nadaljevalna', 1);
+		if (!made.ok) throw new Error('team expected');
+		const T = { dance: 'salsa' as const, teamId: made.teamId, actorId: 'u1' };
+		joinTeam(db, 'u2', T.teamId, 2);
+		joinTeam(db, 'u3', T.teamId, 2);
+		setRole(db, T.teamId, 'u3', 'editor');
+		const ours = addPosition(db, T, 'Cerrada');
+		const L = createLesson(db, T, { lessonDay: '2026-11-04', title: 'W1', notes: null }).lesson.id;
+		db.insert(lessonPositions).values({ lessonId: L, positionId: ours }).run();
+
+		// A draft reaches nobody.
+		expect(() => requirePositionAccess(...as(U2), ours, 'read')).toThrow(threw404);
+		expect(publishLesson(db, T, L, 3)).toBe(true);
+
+		expect(requirePositionAccess(...as(U2), ours, 'read')).toMatchObject({
+			access: 'read',
+			space: { teamId: T.teamId, dance: 'salsa', actorId: 'u2' }
+		});
+		expect(() => requirePositionAccess(...as(U2), ours, 'edit')).toThrow(threw404);
+		expect(requirePositionAccess(...as(U3), ours, 'edit')).toMatchObject({
+			access: 'edit',
+			reach: null,
+			space: { teamId: T.teamId, actorId: 'u3' }
+		});
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it("a position's page and its actions refuse another person's position", async () => {
+		const id = listPositions(db, U1_SALSA)[0].id;
+		expect(() => loadAt(positionPage.load, U2, 'salsa', String(id))).toThrow(threw404);
+		expect(() => loadAt(positionPage.load, U1, 'bachata', String(id))).toThrow(threw404);
+		for (const action of [
+			'update',
+			'archive',
+			'restore',
+			'makeMine',
+			'detach',
+			'linkSpot',
+			'unlinkSpot',
+			'linkLesson',
+			'unlinkLesson'
+		] as const) {
+			await refuses(positionPage.actions[action], post(U2, 'salsa', { name: 'Mine' }, String(id)));
+		}
+		expect(listPositions(db, U1_SALSA)[0]).toMatchObject({ id, archivedAt: null });
+		expect(
+			(loadAt(positionPage.load, U1, 'salsa', String(id)) as { canEdit: boolean }).canEdit
+		).toBe(true);
+	});
+
+	it('the load lists only the space’s own positions', () => {
+		const theirs = loadAt(positionsPage.load, U2, 'salsa') as { rows: unknown[] };
+		expect(theirs.rows).toEqual([]);
+		const mine = loadAt(positionsPage.load, U1, 'salsa') as { rows: unknown[] };
+		expect(mine.rows.length).toBe(listPositions(db, U1_SALSA).length);
 	});
 
 	it("tagging a figure with positions stays the figure owner's action", async () => {
-		const id = listPositions(db, 'salsa').find((p) => !p.neutral)!.id;
+		const id = listPositions(db, U1_SALSA)[1].id;
 		await refuses(
 			figurePage.actions.update,
 			post(
@@ -367,7 +418,7 @@ describe('positions are shared, and only the admin changes them', () => {
 					style: 'salsa',
 					startCount: '1',
 					lengthCounts: '8',
-					endId: String(id)
+					endIds: String(id)
 				},
 				String(figureId)
 			)
@@ -2068,7 +2119,6 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 				moves: { name: string; figures: { id: number; label: string }[] }[];
 			}[];
 			unrouted: number;
-			tagged: { total: number };
 		};
 		const moves = loadAt(figureList.load, U2, 'salsa') as Moves;
 		expect(moves.figures).toEqual([]);
@@ -2084,7 +2134,6 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 			}
 		]);
 		expect(moves.unrouted).toBe(0);
-		expect(moves.tagged.total).toBe(0);
 		// The editor added nothing: no group section, whatever they can edit.
 		expect((loadAt(figureList.load, U1, 'salsa') as Moves).groups).toEqual([]);
 	});

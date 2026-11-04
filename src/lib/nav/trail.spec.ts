@@ -102,11 +102,13 @@ describe('page classes', () => {
 			'/salsa',
 			'/salsa/figures',
 			'/salsa/routines',
+			'/salsa/positions',
 			'/salsa/lessons',
 			'/salsa/songs'
 		])
 			expect(isRoot(p)).toBe(true);
 		expect(isRoot('/salsa/figures/1')).toBe(false);
+		expect(isRoot('/salsa/positions/4')).toBe(false);
 		expect(isRoot('/settings')).toBe(false);
 	});
 });
@@ -291,6 +293,28 @@ describe('tabTarget', () => {
 		expect(tabTarget(t, 'moves', 'salsa', '/salsa/figures')).toEqual({ scrollTop: true });
 		expect(tabTarget(t, 'moves', 'salsa', '/salsa/figures/12')).toEqual({
 			href: '/salsa/figures?q=enc'
+		});
+	});
+	it('Moves returns to the last of its three lists, Positions included', () => {
+		let t = EMPTY_TRAIL;
+		t = arrive(t, A({ to: '/salsa/figures', title: 'Moves', kind: 'enter' }));
+		t = arrive(
+			t,
+			A({ to: '/salsa/positions', title: 'Moves', search: '?gaps=1', index: 1, kind: 'replace' })
+		);
+		t = arrive(
+			t,
+			A({ to: '/salsa/positions/4', title: 'Cerrada', from: '/salsa/positions', index: 2 })
+		);
+		expect(t.lastRoot['salsa:moves']).toBe('/salsa/positions');
+		// The lit tab on a position's page goes back to Positions, with its chips.
+		expect(tabTarget(t, 'moves', 'salsa', '/salsa/positions/4')).toEqual({
+			href: '/salsa/positions?gaps=1'
+		});
+		expect(tabTarget(t, 'moves', 'salsa', '/salsa/positions')).toEqual({ scrollTop: true });
+		t = arrive(t, A({ to: '/salsa/lessons', title: 'Lessons', index: 3, intent: 'tab' }));
+		expect(tabTarget(t, 'moves', 'salsa', '/salsa/lessons')).toEqual({
+			href: '/salsa/positions/4'
 		});
 	});
 	it('other tab: last page, else last root, else the first root', () => {

@@ -10,9 +10,11 @@ import {
 	fullDateLabel,
 	lastDoneLabel,
 	longDayLabel,
+	monthHeading,
 	monthLabel,
 	plural,
 	setSummary,
+	weekdayDayMonth,
 	weekdayShort
 } from './format';
 
@@ -85,6 +87,12 @@ describe('fullDateLabel, monthLabel, weekdayShort', () => {
 		expect(fullDateLabel('2026-10-28')).toBe('28 October 2026');
 		expect(monthLabel('2026-01-03')).toBe('January 2026');
 		expect(weekdayShort('2026-10-28')).toBe('Wed');
+	});
+	it('names a class day in full with no comma, and a month without this year', () => {
+		expect(weekdayDayMonth('2026-10-13')).toBe('Tuesday 13 October');
+		expect(weekdayDayMonth('2027-01-03')).toBe('Sunday 3 January');
+		expect(monthHeading('2026-11-03', '2026-11-04')).toBe('November');
+		expect(monthHeading('2025-12-30', '2026-11-04')).toBe('December 2025');
 	});
 });
 

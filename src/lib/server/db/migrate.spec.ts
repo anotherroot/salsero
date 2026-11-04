@@ -234,3 +234,124 @@ it('keeps live figure names unique per dance and base variation names unique per
 	).map((r) => r.name);
 	expect(inGroup).toEqual(['Basic (5)', 'Basic', 'original ']);
 });
+
+it('has owned positions, many ends and the position links (0028)', () => {
+	const db = openDb(':memory:');
+	const r = raw(db);
+	r.prepare(
+		`insert into positions (dance, slug, name, user_id, team_id, gene_id, style_tag, hands, crossed, facing, frame, notes, picture_spot_id, created_at)
+		 values ('salsa', 'p-1', 'Open', 'u1', null, 'g1', 'son', 'two', 1, 'face', 'open', 'n', null, 1)`
+	).run();
+	// two positions of one dance may share a slug
+	r.prepare(
+		`insert into positions (dance, slug, name, created_at) values ('salsa', 'p-1', 'Closed', 1)`
+	).run();
+	for (const t of ['figure_end_positions', 'spot_position_links', 'lesson_positions']) {
+		expect(
+			r.prepare(`select name from sqlite_master where type='table' and name=?`).get(t),
+			t
+		).toBeTruthy();
+	}
+	r.prepare(
+		`insert into lessons (id, lesson_day, title, dance, created_at) values (1, '2026-01-01', 'L', 'salsa', 1)`
+	).run();
+	r.prepare(
+		`insert into lesson_videos (id, lesson_id, file, mime, size_bytes, created_at) values (1, 1, 'f', 'video/mp4', 1, 1)`
+	).run();
+	r.prepare(
+		`insert into video_spots (id, lesson_video_id, start_ms, created_at) values (1, 1, 0, 1)`
+	).run();
+	r.prepare(
+		`insert into spot_position_links (spot_id, position_id, created_at) values (1, 1, 1)`
+	).run();
+	expect(() => r.prepare(`delete from video_spots where id = 1`).run()).toThrow(/FOREIGN KEY/i);
+	raw(db).close();
+});
+
+it('widens four CHECKs to learn positions and keeps the rows written before (0029)', () => {
+	const file = join(temp('salsa-db-'), 'old.db');
+	const old = oldDb(file);
+	migrate(drizzle(old), { migrationsFolder: migrationsThrough('0028_orange_doctor_faustus') });
+	old
+		.prepare(
+			`insert into team_changes (team_id, root_kind, root_id, actor_id, at, verb, subject) values (1, 'figure', 1, 'u', 1, 'add', 's')`
+		)
+		.run();
+	old
+		.prepare(
+			`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'figure', 's', 1, 1)`
+		)
+		.run();
+	old
+		.prepare(
+			`insert into clone_pairs (kind, a_id, b_id, base_json, at) values ('figure', 1, 2, '{}', 1)`
+		)
+		.run();
+	old
+		.prepare(
+			`insert into team_trash (team_id, kind, label, root_kind, root_id, rows_json, deleted_by, deleted_at) values (1, 'link', 'l', 'lesson', 1, '{}', 'u', 1)`
+		)
+		.run();
+	old.close();
+
+	const db = openDb(file);
+	const r = raw(db);
+	for (const t of ['team_changes', 'twins', 'clone_pairs', 'team_trash']) {
+		expect((r.prepare(`select count(*) n from ${t}`).get() as { n: number }).n, t).toBe(1);
+	}
+	r.prepare(
+		`insert into team_changes (team_id, root_kind, root_id, actor_id, at, verb, subject) values (1, 'position', 1, 'u', 1, 'add', 's')`
+	).run();
+	r.prepare(
+		`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'position', 's', 2, 1)`
+	).run();
+	r.prepare(
+		`insert into clone_pairs (kind, a_id, b_id, base_json, at) values ('position', 1, 2, '{}', 1)`
+	).run();
+	r.prepare(
+		`insert into team_trash (team_id, kind, label, root_kind, root_id, rows_json, deleted_by, deleted_at) values (1, 'position-link', 'l', 'lesson', 1, '{}', 'u', 1)`
+	).run();
+	// still refuses what it never knew
+	expect(() =>
+		r
+			.prepare(
+				`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'nope', 's', 3, 1)`
+			)
+			.run()
+	).toThrow(/CHECK/i);
+
+	// The rebuilt tables keep their indexes, on the same columns.
+	const columnsOf = (index: string) =>
+		(r.prepare(`pragma index_info(${index})`).all() as { name: string }[]).map((c) => c.name);
+	const named = (
+		r
+			.prepare(
+				`select name, tbl_name as tbl from sqlite_master
+				  where type = 'index' and name not like 'sqlite_autoindex%'
+				    and tbl_name in ('team_changes', 'twins', 'clone_pairs', 'team_trash')
+				  order by name`
+			)
+			.all() as { name: string; tbl: string }[]
+	).map((i) => [i.name, i.tbl, columnsOf(i.name)]);
+	expect(named).toEqual([
+		['team_changes_root_idx', 'team_changes', ['team_id', 'root_kind', 'root_id', 'at']],
+		['team_trash_team_idx', 'team_trash', ['team_id', 'deleted_at']],
+		['twins_set_idx', 'twins', ['user_id', 'set_id']]
+	]);
+	// …and their primary keys: one row per (user, kind, item) and per (kind, a, b).
+	expect(() =>
+		r
+			.prepare(
+				`insert into twins (user_id, kind, set_id, item_id, created_at) values ('u', 'position', 't', 2, 1)`
+			)
+			.run()
+	).toThrow(/UNIQUE|PRIMARY KEY/i);
+	expect(() =>
+		r
+			.prepare(
+				`insert into clone_pairs (kind, a_id, b_id, base_json, at) values ('position', 1, 2, '{}', 2)`
+			)
+			.run()
+	).toThrow(/UNIQUE|PRIMARY KEY/i);
+	raw(db).close();
+});

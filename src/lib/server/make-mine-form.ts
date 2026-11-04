@@ -17,7 +17,8 @@ const PAGE: Record<CloneKind, string> = {
 	routine: 'routines',
 	drill: 'exercises',
 	song: 'songs',
-	lesson: 'lessons'
+	lesson: 'lessons',
+	position: 'positions'
 };
 
 /** The page of a person's row of the kind. */
@@ -47,7 +48,8 @@ export function makeMineOffer(
 			routines: p.repoint.routines,
 			lessons: p.repoint.lessons,
 			sections: p.repoint.sections,
-			entries: p.repoint.entries
+			entries: p.repoint.entries,
+			figures: p.repoint.figures
 		},
 		practised: p.practised,
 		bytes: p.bytes,

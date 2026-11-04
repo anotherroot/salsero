@@ -13,7 +13,10 @@ vi.mock('$lib/server/db', async () => {
 });
 
 import { openDb, type Db } from '$lib/server/db';
-import { users, videoSpots } from '$lib/server/db/schema';
+import { positions, users, videoSpots } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import { addPosition } from '$lib/server/test-positions';
+import { archivePosition } from '$lib/server/positions';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
 import { addLessonVideo, createLesson } from '$lib/server/lessons';
@@ -122,5 +125,26 @@ describe('/api/archived', () => {
 		const done = await run(archived.POST, 'u2', { request: json('POST', body) });
 		expect(done.status).toBe(200);
 		expect(await status(() => run(archived.POST, 'u2', { request: json('POST', body) }))).toBe(404);
+	});
+
+	it('restores a group position archived since, for its editors only; a taken name is a 409', async () => {
+		const p = addPosition(db, T1_SALSA, 'Hammerlock');
+		archivePosition(db, p, Date.now(), { actorId: 'u1' });
+		const body = { positionId: p };
+		expect(await status(() => run(archived.POST, 'u3', { request: json('POST', body) }))).toBe(404);
+		const taken = addPosition(db, T1_SALSA, 'Hammerlock');
+		const refused = await run(archived.POST, 'u2', { request: json('POST', body) });
+		expect(refused.status).toBe(409);
+		archivePosition(db, taken, Date.now(), { actorId: 'u1' });
+		const done = await run(archived.POST, 'u2', { request: json('POST', body) });
+		expect(done.status).toBe(200);
+		expect(db.select().from(positions).where(eq(positions.id, p)).get()!.archivedAt).toBeNull();
+		expect(await status(() => run(archived.POST, 'u2', { request: json('POST', body) }))).toBe(404);
+		// A person's own archived position is not this route's.
+		const own = addPosition(db, { userId: 'u2', dance: 'salsa' }, 'Mine');
+		archivePosition(db, own, Date.now());
+		expect(
+			await status(() => run(archived.POST, 'u2', { request: json('POST', { positionId: own }) }))
+		).toBe(404);
 	});
 });

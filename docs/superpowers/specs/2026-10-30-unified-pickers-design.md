@@ -53,8 +53,7 @@ done. I linked it."
 
 ## Non-goals
 
-- The song picker (player setup, practice panel), start and end positions,
-  style, how often, and the voice page's bars. Short fixed lists; a
+- The song picker (player setup, practice panel), style, how often, and the voice page's bars. Short fixed lists; a
   `<select>` or chips are right there.
 - Android's "Add to a lesson" share page: five newest lessons per dance,
   already one tap. Only fix its comment in `share/+page.server.ts`, which says
@@ -211,6 +210,29 @@ video's sections go by start time. *(builder's call)* So the pure module
 handles three levels here: group → video heading → section, the same shape
 as group → figure heading → variation. Search matches a section's name, its
 time range and its video's heading. ▶ previews the section looping, as now.
+
+## Many-value field pickers
+
+A field that takes any number of values (a figure's "Starts in" and "Ends in")
+is a field picker with `multi` (`PickerMultiField`); rules 1 and 4–10 hold; rules 2 and 3
+(a tap picks and closes) are replaced by the toggle behaviour below.
+
+- The opener shows the chosen labels as wrapping chips, or its empty words
+  ("No position · fits anywhere"), then a chevron. It posts one hidden input
+  per value.
+- A tap toggles a row (✓ on every chosen row) and the sheet stays open.
+- An optional clearing row ("No position · Fits anywhere · the default") sits
+  above the groups: a tap clears every value and keeps the sheet open; it
+  carries the ✓ while nothing is chosen. It hides while a query is typed.
+- **Done · N** (N is the number chosen, 0 included) closes. Back, Escape and
+  the backdrop close too and keep the chosen values; the form is never
+  cleared (rule 8).
+- The create step (rule 6) makes the row through `oncreate`, a Promise of the
+  new row, `{ message }` when the server refuses (its words show), or null. The new row is chosen and the sheet stays open
+  on the list. While it is pending the button is busy and ignores taps; it
+  re-enables when it settles, and a refusal shows as a banner in the sheet
+  (the server's message, else "Try it again."). A result that lands after the
+  sheet closed is ignored. Toggle rows and the clear row expose `aria-pressed`.
 
 ## The Link popup
 

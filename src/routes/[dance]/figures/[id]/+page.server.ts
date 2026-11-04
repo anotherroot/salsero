@@ -2,7 +2,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb, type Db } from '$lib/server/db';
-import { addedReach } from '$lib/server/access';
+import { addedReach, positionAccess } from '$lib/server/access';
 import {
 	addFigureExercise,
 	archiveVariation,
@@ -23,12 +23,16 @@ import {
 } from '$lib/server/figures';
 import { recordingsDir } from '$lib/server/files';
 import { int, ints, oneOf, optionalText, refusalText, text } from '$lib/server/form';
-import { buildGraph, figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
-import { teamRefs } from '$lib/server/usable';
+import { figurePositions, graphFor, setFigureShape } from '$lib/server/graph';
+import { teamRefs, usableOf, usablePositions, type Usable } from '$lib/server/usable';
+import { listPositions, positionSummary } from '$lib/server/positions';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
-import { lessonAdds } from '$lib/server/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { holdsLine, styleLabelOf } from '$lib/positions/view';
+import { positionGroups } from '$lib/picker/build';
+import type { PickGroup } from '$lib/picker/model';
 import {
 	DEFAULT_LENGTH_COUNTS,
 	DEFAULT_START_COUNT,
@@ -37,7 +41,6 @@ import {
 	MAX_LENGTH_COUNTS
 } from '$lib/graph/timing';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
-import { getPosition, listPositions, neutralPosition } from '$lib/server/positions';
 import { addLinkFrom, deleteLinkFrom, retryVideoFrom, saveVideoFrom } from '$lib/server/link-form';
 import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
@@ -48,10 +51,10 @@ import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
 import { practiceLine } from '$lib/figures/page';
 import { plan } from '$lib/urgency/urgency';
-import { endOf, figureById, follows, precedes, startsOf } from '$lib/graph/graph';
+import { figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
-import { inSpace, requireFigureAccess, wallOf } from '$lib/server/scope';
+import { inSpace, isTeam, requireFigureAccess, wallOf, type Space } from '$lib/server/scope';
 import {
 	getSpotLink,
 	linkableSections,
@@ -75,8 +78,41 @@ import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/source
 import { separateFamily, setTwins, twinCandidates } from '$lib/server/twins';
 import { ALREADY_IN_YOURS, RECORDING_GONE, SAME_AS_FAILED } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
-import type { SiblingSummary } from '$lib/types';
+import type { PositionSummary, SiblingSummary, TeamRef } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * A figure's handholds as its page shows them: its own tags by their real ids
+ * (each links to that position's page), live ones only (ruling 4), and only
+ * those this person reads. Each side in id order, as `figurePositions` gives it.
+ * Empty on both sides reads "No position · fits anywhere".
+ */
+function handholdsOf(
+	db: Db,
+	userId: string,
+	figureIds: number[]
+): (figureId: number) => { starts: PositionRef[]; ends: PositionRef[] } {
+	const tags = new Map(figureIds.map((id) => [id, figurePositions(db, id)]));
+	const ids = [...new Set([...tags.values()].flatMap((t) => [...t.startIds, ...t.endIds]))];
+	const named = new Map<number, string>();
+	if (ids.length > 0) {
+		for (const row of db
+			.select()
+			.from(positionRows)
+			.where(and(inArray(positionRows.id, ids), isNull(positionRows.archivedAt)))
+			.all()) {
+			if (positionAccess(db, userId, row) !== null) named.set(row.id, row.name);
+		}
+	}
+	const refs = (side: number[]) =>
+		side.flatMap((id) => (named.has(id) ? [{ id, name: named.get(id)! }] : []));
+	return (figureId) => {
+		const t = tags.get(figureId) ?? { startIds: [], endIds: [] };
+		return { starts: refs(t.startIds), ends: refs(t.endIds) };
+	};
+}
+
+type PositionRef = { id: number; name: string };
 
 /** Who acts: History names them on a group's figure. */
 const me = (params: { dance: string }, locals: App.Locals) => wallOf(params, locals).userId;
@@ -164,29 +200,23 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	// a draft's variation, lesson, routine or section never reaches the page.
 	const seen = (ids: Set<number> | undefined, of: number) => !ids || ids.has(of);
 
-	const graph = buildGraph(db, space);
+	// The viewer's graph (ruling 14): a person's own figures plus the group figures
+	// and positions they may use, so a tag to a group's position counts in Leads to
+	// and Follows from; a group's figure reads the group's graph.
+	const usable = isTeam(space) ? undefined : usableOf(db, space);
+	const graph = graphFor(db, space, usable);
 	const node = figureById(graph, id);
-	const labels = figureLabels(db, space);
+	const labels = figureLabels(db, space, usable);
 	// The graph holds live variations of live figures only, never this one's self.
 	const link = (ids: number[]) =>
 		ids
 			.filter((other) => other !== id && seen(visible?.variations, other))
 			.map((other) => ({ id: other, name: labels.get(other)! }));
 
-	const tags = figurePositions(db, id);
-	const live = listPositions(db, dance);
-	const liveIds = new Set(live.map((p) => p.id));
-	// An archived position stays referenced by the variations tagged with it
-	// (the routines design doc's rule): if THIS one points at one, splice it back
-	// into the list the pickers render — after the live rows, flagged — so a
-	// Save that touches nothing else does not silently drop it.
-	// `setFigureShape` accepts an archived id back; this is what lets the page
-	// resubmit it.
-	const taggedIds = [...tags.startIds, ...(tags.endId === null ? [] : [tags.endId])];
-	const archivedTagged = [...new Set(taggedIds)]
-		.filter((p) => !liveIds.has(p))
-		.map((p) => getPosition(db, p))
-		.filter((p): p is NonNullable<typeof p> => p !== null && p.dance === dance);
+	// Starts in / Ends in: what the form shows chosen and what its pickers offer.
+	const { tags, positionChoices } = canEdit
+		? positionForm(db, space, figure, usable)
+		: { tags: { startIds: [], endIds: [] }, positionChoices: [] };
 
 	const shape = {
 		startCount: figure.startCount ?? DEFAULT_START_COUNT,
@@ -194,33 +224,25 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	};
 
 	// Every live variation of the figure, this one included, as its sheet lists
-	// them: what each starts and ends on, neutral named, and its timing.
-	const positionName = new Map(
-		[...live, ...archivedTagged].map((p) => [p.id, p.name] as [number, string])
-	);
-	const neutralName = neutralPosition(db, dance)?.name ?? 'the neutral hold';
-	const nameOf = (p: number) => {
-		if (p === graph.neutral) return neutralName;
-		if (!positionName.has(p)) positionName.set(p, getPosition(db, p)?.name ?? 'a removed hold');
-		return positionName.get(p)!;
-	};
-	const siblings: SiblingSummary[] = listGroupVariations(db, group.id)
-		.filter((s) => seen(visible?.variations, s.id))
-		.map((s) => {
-			const n = figureById(graph, s.id);
-			const starts = n ? [...startsOf(graph, n)].sort((a, b) => a - b) : [graph.neutral];
-			const end = n ? endOf(graph, n) : graph.neutral;
-			return {
-				id: s.id,
-				name: s.name,
-				holds: `${starts.map(nameOf).join(' / ')} → ${nameOf(end)}`,
-				timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
-				videos:
-					s.id === id
-						? found.recordings.length
-						: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
-			};
-		});
+	// them: what each starts and ends on, and its timing. The handholds are each
+	// one's own live tags (`handholdsOf`); none at all reads "No position".
+	const shown = listGroupVariations(db, group.id).filter((s) => seen(visible?.variations, s.id));
+	const holdsOf = handholdsOf(db, wall.userId, [id, ...shown.map((s) => s.id)]);
+	const names = (refs: PositionRef[]) => refs.map((p) => p.name);
+	const siblings: SiblingSummary[] = shown.map((s) => {
+		const n = figureById(graph, s.id);
+		const h = holdsOf(s.id);
+		return {
+			id: s.id,
+			name: s.name,
+			holds: holdsLine(names(h.starts), names(h.ends)),
+			timing: `Starts on ${n?.start ?? DEFAULT_START_COUNT} · ${n?.length ?? DEFAULT_LENGTH_COUNTS} counts`,
+			videos:
+				s.id === id
+					? found.recordings.length
+					: (getFigure(db, s.id, wall.userId)?.recordings.length ?? 0)
+		};
+	});
 
 	// A group's figure: who owns it, which added lesson brought it, and the
 	// person's OWN routines that use it (their wall, their graph, their shapes).
@@ -363,7 +385,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		routines: routinesUsing(
 			graph,
 			id,
-			routineShapes(db, space),
+			routineShapes(db, space, { usable }),
 			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
 		),
 		practice: popup
@@ -379,22 +401,15 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 					)
 				)
 			: null,
-		positions: [
-			...live.map((p) => ({ id: p.id, name: p.name, neutral: p.neutral, archived: false })),
-			...archivedTagged.map((p) => ({
-				id: p.id,
-				name: p.name,
-				neutral: p.neutral,
-				archived: true
-			}))
-		],
+		/** The edit form's Starts in / Ends in: the chosen tags it shows, and what the pickers offer. */
 		tags,
+		positionChoices,
 		// What the edit form shows.
 		shape,
-		// What is actually danced, with neutral resolved.
+		// The Handholds fact: the figure's own live tags by real id, each a link.
+		handholds: holdsOf(id),
+		// What is actually danced: the timing the graph reads.
 		effective: {
-			starts: node ? startsOf(graph, node) : [],
-			end: node ? endOf(graph, node) : null,
 			startCount: node?.start ?? shape.startCount,
 			lengthCounts: node?.length ?? shape.lengthCounts
 		},
@@ -408,6 +423,67 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		moveTargets: canEdit ? listMoveTargets(db, space, group.id) : []
 	};
 };
+
+/**
+ * The edit form's Starts in / Ends in (ruling 15): a person's figure offers
+ * their own live positions and the group positions they may use
+ * (`usablePositions`); a group's figure only the group's own. `tags` are the
+ * chosen ones the form shows and posts back.
+ *
+ * Every chosen live tag the person may use is offered, so it shows as a chip
+ * and can be taken off: a group's position their own copy hides from the list
+ * (`usablePositions` leaves shadowed ones out) included. A tag to an archived
+ * position, or to one they may not use, is neither shown nor posted:
+ * `writeFigureShape` keeps it (ruling 4).
+ */
+function positionForm(
+	db: Db,
+	space: Space,
+	figure: { id: number; styleTag: string | null },
+	usable: Usable | undefined
+): {
+	tags: { startIds: number[]; endIds: number[] };
+	positionChoices: PickGroup[];
+} {
+	const current = figurePositions(db, figure.id);
+	const own = listPositions(db, space).map((r) => positionSummary(r, space));
+	const byTeam = new Map<number, { team: TeamRef; rows: PositionSummary[] }>();
+	const add = (row: PositionRow, team: TeamRef) => {
+		const at = byTeam.get(team.id) ?? { team, rows: [] };
+		at.rows.push(positionSummary(row, space));
+		byTeam.set(team.id, at);
+	};
+	if (!isTeam(space)) for (const r of usablePositions(db, space, usable)) add(r, r.team);
+
+	const offered = new Set([
+		...own.map((p) => p.id),
+		...[...byTeam.values()].flatMap((g) => g.rows.map((p) => p.id))
+	]);
+	const missing = [...new Set([...current.startIds, ...current.endIds])].filter(
+		(p) => !offered.has(p)
+	);
+	// Exactly what `writeFigureShape` would replace: the group positions the
+	// person may use (`usableBy`), shadowed ones included, so offered and
+	// writable agree by construction.
+	if (!isTeam(space) && missing.length > 0) {
+		const wanted = new Set(missing);
+		for (const r of usablePositions(db, space, usable, 'keep')) {
+			if (!wanted.has(r.id) || offered.has(r.id)) continue;
+			add(r, r.team);
+			offered.add(r.id);
+		}
+	}
+	const shown = (ids: number[]) => ids.filter((p) => offered.has(p));
+	return {
+		tags: { startIds: shown(current.startIds), endIds: shown(current.endIds) },
+		positionChoices: positionGroups(
+			own,
+			figure.styleTag,
+			styleLabelOf(DANCES[space.dance].styleLabel),
+			[...byTeam.values()]
+		)
+	};
+}
 
 export const actions: Actions = {
 	/**
@@ -436,9 +512,9 @@ export const actions: Actions = {
 		const partner = oneOf(form, 'partner', PARTNER);
 		const style = oneOf(form, 'style', DANCES[space.dance].styles);
 		const notes = optionalText(form, 'notes');
+		// Starts in / Ends in post every chosen id, each side under its own name.
 		const startIds = ints(form, 'startIds');
-		const rawEnd = String(form.get('endId') ?? '');
-		const endId = rawEnd === '' ? null : Number(rawEnd);
+		const endIds = ints(form, 'endIds');
 		const startCount = int(form, 'startCount');
 		const lengthCounts = int(form, 'lengthCounts');
 
@@ -447,9 +523,6 @@ export const actions: Actions = {
 				action: 'update',
 				message: 'Give the move and the figure a name (up to 200 characters).'
 			});
-		}
-		if (endId !== null && !Number.isInteger(endId)) {
-			return fail(400, { action: 'update', message: 'Pick an end position.' });
 		}
 		if (!isStartCount(startCount) || !isLengthCounts(lengthCounts)) {
 			return fail(400, {
@@ -478,9 +551,10 @@ export const actions: Actions = {
 			return fail(400, { action: 'update', message: taken(group.name, name) });
 		}
 		// A posted position id is just a number: `setFigureShape` rejects one from
-		// the other dance, and that is a 404 rather than a message, the same answer
-		// every other cross-dance id gets here.
-		if (!setFigureShape(db, figure.id, { startIds, endId, startCount, lengthCounts }, by)) {
+		// the other dance or another owner, and that is a 404 rather than a message,
+		// the same answer every other cross-dance id gets here. Tags the form never
+		// showed (archived, not read) are not posted and are kept (ruling 4).
+		if (!setFigureShape(db, figure.id, { startIds, endIds, startCount, lengthCounts }, by)) {
 			throw error(404, 'Figure not found');
 		}
 		if (!updateVariation(db, figure.id, { name, partner, style, notes }, by)) {

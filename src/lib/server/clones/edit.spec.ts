@@ -188,7 +188,8 @@ describe('makeMine: a figure', () => {
 				lessons: [],
 				sections: 0,
 				entries: 1,
-				twins: 0
+				twins: 0,
+				figures: []
 			},
 			practised: true,
 			bytes: 0,

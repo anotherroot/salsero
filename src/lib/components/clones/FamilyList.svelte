@@ -55,6 +55,8 @@
 				return resolve('/[dance]/songs/[id]', p);
 			case 'lesson':
 				return resolve('/[dance]/lessons/[id]', p);
+			case 'position':
+				return resolve('/[dance]/positions', p); // positions: a page of their own comes later
 		}
 	}
 </script>

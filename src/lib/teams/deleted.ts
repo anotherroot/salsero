@@ -16,7 +16,9 @@ export const KIND_NAME: Record<DeletedKind, string> = {
 	variation: 'Figure',
 	routine: 'Routine',
 	drill: 'Drill',
-	song: 'Song'
+	song: 'Song',
+	position: 'Position',
+	'position-link': 'Position link'
 };
 
 /** The kinds kept in the trash for 30 days; the rest stay archived until restored. */
@@ -25,7 +27,8 @@ export const TRASH_KINDS = new Set<DeletedKind>([
 	'section',
 	'link',
 	'spot-link',
-	'recording'
+	'recording',
+	'position-link'
 ]);
 
 /** "Ana · 5 min ago". */
@@ -50,7 +53,8 @@ export type TrashRefusal =
 /** Where a trash kind lives, for "Restore the video first". */
 const PARENT: Partial<Record<DeletedKind, string>> = {
 	section: 'video',
-	'spot-link': 'section'
+	'spot-link': 'section',
+	'position-link': 'section or point'
 };
 
 /** Why a trash entry did not come back, in words. */
@@ -63,9 +67,9 @@ export function trashRefusalLine(kind: DeletedKind, reason: TrashRefusal): strin
 		case 'restored':
 			return 'This is back already.';
 		case 'exists':
-			return kind === 'spot-link'
-				? 'That section was linked to it again since.'
-				: 'This is back already.';
+			if (kind === 'spot-link') return 'That section was linked to it again since.';
+			if (kind === 'position-link') return 'It was linked to that position again since.';
+			return 'This is back already.';
 		case 'family':
 			return 'A copy of this is here already.';
 		case 'not-found':

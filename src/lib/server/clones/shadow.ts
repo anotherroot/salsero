@@ -7,7 +7,7 @@ import type { SQLiteColumn, SQLiteTable } from 'drizzle-orm/sqlite-core';
 import type { CloneKind } from '$lib/types';
 import { shadow, swapToMine } from '$lib/clones/shadow';
 import type { Db } from '../db';
-import { exercises, figures, lessons, routines, songs } from '../db/schema';
+import { exercises, figures, lessons, positions, routines, songs } from '../db/schema';
 import { ownedBy, type Wall } from '../scope';
 
 type T = {
@@ -20,7 +20,13 @@ type T = {
 	archivedAt: SQLiteColumn;
 };
 const cols = (
-	t: typeof figures | typeof routines | typeof exercises | typeof songs | typeof lessons
+	t:
+		| typeof figures
+		| typeof routines
+		| typeof exercises
+		| typeof songs
+		| typeof lessons
+		| typeof positions
 ) =>
 	({
 		table: t,
@@ -36,7 +42,8 @@ const tables: Record<CloneKind, T> = {
 	routine: cols(routines),
 	drill: cols(exercises),
 	song: cols(songs),
-	lesson: cols(lessons)
+	lesson: cols(lessons),
+	position: cols(positions)
 };
 
 /** Gene → the person's own LIVE member of that family (an archived one does not shadow). */

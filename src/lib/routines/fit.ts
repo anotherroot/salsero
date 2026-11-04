@@ -3,15 +3,17 @@
  * slot, grouped the way the sheet shows them.
  *
  * PURE and client-safe, like the rest of `src/lib/routines/`: the load hands
- * over candidates whose positions are already resolved (untagged reads as
- * neutral there, through `startsOf`/`endOf`), and nothing here knows dances
- * exist.
+ * over candidates with their positions, and nothing here knows dances exist.
+ * An untagged side fits anything: every comparison of hands goes through
+ * `meet` (`src/lib/graph/graph.ts`), and alternatives compare their ends with
+ * `sameSet`.
  *
  * Fitting is ONE-SIDED on purpose. Building down from a slot matches where it
  * lands; building up into one matches where it starts. A gap often takes more
  * than one figure to close, so filtering by both neighbours at once would hide
  * exactly the figure that starts the bridge.
  */
+import { meet, sameSet } from '$lib/graph/graph';
 import type { RowEdges } from './routines';
 import { fold } from '../fold';
 import type { TeamRef, TwinNote } from '$lib/types';
@@ -25,10 +27,11 @@ export interface Candidate {
 	figure: string | null;
 	/** "Enchufla · Doble" — a variation, never its bare name. */
 	label: string;
-	/** Resolved positions. Empty when nothing in it is danceable. */
+	/** Where it can start. Empty: anywhere. */
 	starts: number[];
 	startCounts: number[];
-	end: number | null;
+	/** Where it leaves the hands. Empty: anything can follow. */
+	ends: number[];
 	next: number | null;
 	/** A group's row a person may use: whose it is. */
 	team?: TeamRef;
@@ -36,7 +39,8 @@ export interface Candidate {
 	twins?: TwinNote[];
 }
 
-type After = { kind: 'after'; end: number | null; next: number | null };
+/** `ends`: `[]` anything can follow, null unknown (the row's options disagree). */
+type After = { kind: 'after'; ends: number[] | null; next: number | null };
 type Before = { kind: 'before'; starts: number[]; startCounts: number[] };
 
 export type Anchor =
@@ -56,7 +60,7 @@ export type Anchor =
 			kind: 'alternative';
 			starts: number[];
 			startCount: number;
-			end: number;
+			ends: number[];
 			next: number;
 			exclude: number[];
 	  };
@@ -97,7 +101,8 @@ export interface PickList {
 export { fold };
 
 function toggles(a: Anchor): { count: boolean; hold: boolean } {
-	if (a.kind === 'after') return { count: a.next !== null, hold: a.end !== null };
+	// The hold chip only means something when the anchor names a position on its side.
+	if (a.kind === 'after') return { count: a.next !== null, hold: (a.ends?.length ?? 0) > 0 };
 	if (a.kind === 'before') return { count: a.startCounts.length > 0, hold: a.starts.length > 0 };
 	if (a.kind === 'between') {
 		const x = toggles(a.after);
@@ -118,26 +123,24 @@ function fitsCount(c: Candidate, a: Anchor): boolean {
 
 function fitsHold(c: Candidate, a: Anchor): boolean {
 	if (a.kind === 'between') return fitsHold(c, a.after) && fitsHold(c, a.before);
-	if (a.kind === 'after') return a.end === null || c.starts.includes(a.end);
-	if (a.kind === 'before') {
-		return a.starts.length === 0 || (c.end !== null && a.starts.includes(c.end));
-	}
+	if (a.kind === 'after') return a.ends === null || meet(a.ends, c.starts);
+	if (a.kind === 'before') return meet(c.ends, a.starts);
 	return true;
 }
 
 /**
- * The server's rule for an alternative (`addOption`), mirrored: same landing,
- * same start count, at least one shared start. Not switchable — the server
- * would refuse anything else.
+ * The server's rule for an alternative (`addOption`), mirrored: the same set of
+ * ends, the same counts, and starts that meet the main figure's. Not
+ * switchable — the server would refuse anything else.
  */
 function standsIn(c: Candidate, a: Extract<Anchor, { kind: 'alternative' }>): boolean {
 	return (
 		c.kind === 'figure' &&
 		!a.exclude.includes(c.id) &&
-		c.end === a.end &&
+		sameSet(c.ends, a.ends) &&
 		c.next === a.next &&
 		c.startCounts.includes(a.startCount) &&
-		c.starts.some((p) => a.starts.includes(p))
+		meet(c.starts, a.starts)
 	);
 }
 
@@ -211,12 +214,12 @@ export function pickList(candidates: Candidate[], anchor: Anchor, filters: Filte
 
 /** Building down from a row. No anchor when the row has nothing danceable to build from. */
 export function anchorAfter(e: RowEdges): Anchor {
-	return e.end === null && e.next === null
+	return e.ends === null && e.next === null
 		? { kind: 'none' }
-		: { kind: 'after', end: e.end, next: e.next };
+		: { kind: 'after', ends: e.ends, next: e.next };
 }
 
-/** Building up into a row. */
+/** Building up into a row. `starts: []` with a start count is "enters from anywhere", not nothing. */
 export function anchorBefore(e: RowEdges): Anchor {
 	return e.starts.length === 0 && e.startCounts.length === 0
 		? { kind: 'none' }
@@ -244,15 +247,18 @@ export function canBridge(candidates: Candidate[], anchor: Anchor | null): boole
 	return l.figures.length > 0 || l.routines.length > 0;
 }
 
-/** Standing in for a main figure. Null when it is archived or gone: nothing to match. */
+/**
+ * Standing in for a main figure. Null when it is archived or gone: nothing to
+ * match. A main figure with no position has an anchor like any other: its
+ * alternatives must have no ends either, and may start anywhere.
+ */
 export function anchorAlternative(main: Candidate | undefined, exclude: number[]): Anchor | null {
-	if (!main || main.end === null || main.next === null || main.startCounts.length === 0)
-		return null;
+	if (!main || main.next === null || main.startCounts.length === 0) return null;
 	return {
 		kind: 'alternative',
 		starts: main.starts,
 		startCount: main.startCounts[0],
-		end: main.end,
+		ends: main.ends,
 		next: main.next,
 		exclude
 	};
@@ -265,9 +271,10 @@ const countBefore = (n: number) => (n === 1 ? 8 : n - 1);
 export function anchorText(a: Anchor, name: (id: number) => string): string | null {
 	const names = (ids: number[]) => ids.map(name).join(' or ');
 	if (a.kind === 'after') {
-		if (a.next !== null && a.end !== null) return `Starts on ${a.next} from ${name(a.end)}`;
+		const from = a.ends !== null && a.ends.length > 0 ? names(a.ends) : null;
+		if (a.next !== null && from !== null) return `Starts on ${a.next} from ${from}`;
 		if (a.next !== null) return `Starts on ${a.next}`;
-		if (a.end !== null) return `Starts from ${name(a.end)}`;
+		if (from !== null) return `Starts from ${from}`;
 		return null;
 	}
 	if (a.kind === 'before') {
@@ -284,7 +291,11 @@ export function anchorText(a: Anchor, name: (id: number) => string): string | nu
 		return from ?? to;
 	}
 	if (a.kind === 'alternative') {
-		return `${names(a.starts)} → ${name(a.end)}, ${a.startCount}→${a.next}`;
+		const counts = `${a.startCount}→${a.next}`;
+		if (a.starts.length === 0 && a.ends.length === 0) return counts;
+		const from = a.starts.length > 0 ? names(a.starts) : 'Anywhere';
+		const to = a.ends.length > 0 ? names(a.ends) : 'anywhere';
+		return `${from} → ${to}, ${counts}`;
 	}
 	return null;
 }

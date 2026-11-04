@@ -6,7 +6,6 @@ import { usableOf, usableVersions } from '$lib/server/usable';
 import { foldNamed, foldVersions, sameAsOffer } from '$lib/server/twins';
 import { inGroupModeOn } from '$lib/server/group-mode';
 import { routineTaughtIn } from '$lib/server/lessons';
-import { listPositions } from '$lib/server/positions';
 import {
 	addOption,
 	archiveRoutine,
@@ -28,16 +27,17 @@ import {
 } from '$lib/server/routines';
 import {
 	breaks,
+	flatten,
 	loops,
 	positionSeams,
-	routineEnd,
+	routineEnds,
 	routineStarts,
 	rowEdges,
 	timingBreaks,
 	timingSeams,
 	type OptionsSlot
 } from '$lib/routines/routines';
-import { endOf, figureById, nextCountOf, startsOf } from '$lib/graph/graph';
+import { figureById, nextCountOf, type Graph } from '$lib/graph/graph';
 import { int, ints, optionalText, text } from '$lib/server/form';
 import { parseSnapshots } from '$lib/routines/snapshot';
 import type { Candidate } from '$lib/routines/fit';
@@ -130,6 +130,20 @@ function routineIn(
 	return requireRoutineAccess(getDb(), locals, params, params.id, need);
 }
 
+/**
+ * A routine candidate's ends when its last slot's options disagree (`slotEnds`
+ * null; only legacy slots, since `addOption` forbids it now): the union of
+ * the options' ends, so the picker still offers it. Lenient on purpose: the
+ * editor shows the seam where one option breaks.
+ */
+function unionOfEnds(g: Graph, slots: OptionsSlot[]): number[] {
+	const flat = flatten(g, { slots });
+	const last = flat[flat.length - 1];
+	if (!last) return [];
+	const ends = last.figureIds.flatMap((id) => figureById(g, id)?.ends ?? []);
+	return [...new Set(ends)].sort((a, b) => a - b);
+}
+
 export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
@@ -145,7 +159,6 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	const shapes = routineShapes(db, space, { usable, extra: usable?.routines });
 	const shape = shapes.get(routine.id) ?? { slots: [] };
 	const slots = routineSlots(db, routine.id, usable);
-	const positions = listPositions(db, wall.dance);
 	// A reader is told the names this routine's own slots use, and no other: its
 	// slots (and its embedded routines') are in their reach by construction.
 	const named = new Set(
@@ -171,8 +184,8 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 	const flatBreaks = new Set(breaks(graph, shape));
 
 	// What the picker can offer, each with where it begins and lands — resolved
-	// here, through the graph, so an untagged figure is neutral on the client
-	// exactly as it is on the server. Archived figures are not candidates; a slot
+	// here, through the graph, so positions compare by family on the client
+	// exactly as on the server; an untagged side is [] (anywhere). Archived figures are not candidates; a slot
 	// still holding one names it through `labels`.
 	const candidates: Candidate[] = !canEdit
 		? []
@@ -192,9 +205,9 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 							groupId: v.groupId,
 							figure: v.figure,
 							label: v.label,
-							starts: startsOf(graph, node),
+							starts: node.starts,
 							startCounts: [node.start],
-							end: endOf(graph, node),
+							ends: node.ends,
 							next: nextCountOf(node),
 							...(v.team ? { team: v.team } : {}),
 							...(v.twins ? { twins: v.twins } : {})
@@ -208,6 +221,7 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 						const own = (shapes.get(r.id)?.slots ?? []).filter(
 							(s): s is OptionsSlot => s.kind === 'options'
 						);
+						const edges = rowEdges(graph, { kind: 'child', routineId: r.id, slots: own });
 						return {
 							kind: 'routine',
 							id: r.id,
@@ -216,7 +230,8 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 							label: r.name,
 							...(r.team ? { team: r.team } : {}),
 							...(r.twins ? { twins: r.twins } : {}),
-							...rowEdges(graph, { kind: 'child', routineId: r.id, slots: own })
+							...edges,
+							ends: edges.ends ?? unionOfEnds(graph, own)
 						};
 					}
 				)
@@ -265,9 +280,19 @@ export const load: PageServerLoad = ({ params, locals, url, cookies }) => {
 		// whose variation was archived still says what it was.
 		labels: Object.fromEntries(labels),
 		groupFigures,
-		positions: positions.map((p) => ({ id: p.id, name: p.name })),
+		// Names for the facts, the slots' meta and the seams. A reader is told only
+		// those this routine's own figures are tagged with, as with `labels`.
+		positions: graph.positions
+			.filter(
+				(p) =>
+					!visible ||
+					graph.figures.some(
+						(f) => named.has(f.id) && (f.starts.includes(p.id) || f.ends.includes(p.id))
+					)
+			)
+			.map((p) => ({ id: p.id, name: p.name })),
 		starts: routineStarts(graph, shape),
-		end: routineEnd(graph, shape),
+		ends: routineEnds(graph, shape) ?? [],
 		loops: loops(graph, shape),
 		// Flat indices, which line up with `slots` only while no slot holds a
 		// child. The page shows the count when they diverge rather than pointing

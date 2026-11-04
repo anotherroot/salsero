@@ -28,7 +28,7 @@ vi.mock('$lib/server/storage', async () => {
 import type { Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
-import { recordings, users } from '$lib/server/db/schema';
+import { positions, recordings, users } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
 import { addRecording, createFigure } from '$lib/server/figures';
@@ -594,5 +594,63 @@ describe('Same as… and Separate on the figure page', () => {
 
 		await run(figurePage.actions.separate, ev('u2', a));
 		expect((await run(figurePage.load, ev('u2', a))).sources).toEqual([]);
+	});
+});
+
+describe('positions through the clone routes', () => {
+	const as = (uid: string, url: string) => ({
+		url: new URL(`http://localhost${url}`),
+		locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+	});
+	const own = (uid: string, name: string) =>
+		db
+			.insert(positions)
+			.values({ dance: 'salsa', userId: uid, slug: `p-${name}`, name, hands: 'two' })
+			.returning()
+			.get().id;
+
+	it('Copy to… plans a position; Compare and Send see it; an outsider gets 404', async () => {
+		const P = own('u3', 'Cerrada');
+		const plan = await run(copyApi.GET, as('u3', `/api/clones/copy?kind=position&id=${P}&into=1`));
+		expect(await plan.json()).toEqual({
+			goes: 'Just the position',
+			bytes: 0,
+			already: [],
+			twins: []
+		});
+		expect(
+			await run(copyApi.GET, as('u2', `/api/clones/copy?kind=position&id=${P}&into=1`))
+		).toMatchObject({ status: 404 });
+
+		const r = await cloneInto(
+			db,
+			{
+				kind: 'position',
+				id: P,
+				into: { dance: 'salsa', teamId: 1, actorId: 'u3' },
+				recordings: true
+			},
+			NO_FILES,
+			T
+		);
+		if (!r.ok) throw new Error('copy refused');
+		db.update(positions).set({ hands: 'one' }).where(eq(positions.id, r.id)).run();
+		const c = await (
+			await run(
+				compareApi.GET,
+				as('u3', `/api/clones/compare?kind=position&mine=${P}&theirs=${r.id}`)
+			)
+		).json();
+		expect(c).toMatchObject({ picks: { hands: 'theirs' }, canTake: true, canSend: true });
+		const targets = await (
+			await run(sendApi.GET, as('u3', `/api/clones/send?kind=position&from=${P}`))
+		).json();
+		expect(targets.map((t: Answer) => t.target.id)).toEqual([r.id]);
+		expect(
+			await run(
+				compareApi.GET,
+				as('u4', `/api/clones/compare?kind=position&mine=${P}&theirs=${r.id}`)
+			)
+		).toMatchObject({ status: 404 });
 	});
 });

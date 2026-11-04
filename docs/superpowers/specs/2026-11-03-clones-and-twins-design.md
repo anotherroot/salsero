@@ -326,14 +326,30 @@ cleaner wall. CLAUDE.md's wall rule and `access.ts` change with it.
   Enchuflas is for its editors to tidy.
 - **Not twin-able across kinds.** A variation twins with variations, a
   routine with routines, a lesson with lessons (your notes from a class
-  beside the group's lesson), a song with songs.
+  beside the group's lesson), a song with songs, a position with positions.
 - **Merge** (take one twin, move your links and notes onto it, archive the
   other) is the one-way trip the other way. Not in this design.
 
 ## What it covers
 
 Variations, routines, drills, songs and lessons, plus the pieces inside them
-(recordings, sections, lesson videos).
+(recordings, sections, lesson videos). *Since 2026-11-04,* positions too.
+
+- **Positions** ([positions spec](2026-11-04-positions-design.md)) are a
+  root kind like figures: `gene_id` and `cloned_from`, one member per place,
+  Copy to…, Make it mine, Compare, Take, Send, Drop my copy, Detach, Move to…
+  a group, Same as… (twins), the rescue and Keep. Compare's fields are the
+  name, type, hold and notes; video links travel with their videos, never
+  with the position. A person's own rows that point at a position are their
+  figures' start and end tags, their lessons' hand links and their sections'
+  and points' links: Make it mine, Drop my copy and the rest move exactly
+  those (`repoint`). **The copy engine carries positions with figures:** a
+  figure copied into a place is tagged with that place's member of each
+  position's family, the position copied there when the place has none; the
+  rescue and Keep do the same. The graph compares positions by family, so a
+  person's routine that mixes their figures with a group's meets on the same
+  hold across owners, and — the one exception to "Twins are views" — a
+  person's twinned positions are one hold in their graph.
 
 - **A routine** cloned into a place points its slots at that place's member
   of each variation's family; a variation the place lacks is cloned with it.

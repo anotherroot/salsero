@@ -279,6 +279,22 @@ export interface LessonExerciseRow {
 	mineId: number | null;
 }
 
+/**
+ * A position on a lesson: linked by hand, or through a section or point of
+ * the lesson's videos (ruling 10: a point counts as "via section").
+ */
+export interface LessonPositionRow {
+	id: number;
+	name: string;
+	styleTag: string | null;
+	byHand: boolean;
+	viaSections: ViaSection[];
+	/** On a group's lesson: the person's own copy of it, which the card opens; else null. */
+	mineId: number | null;
+	/** On a person's own lesson, a group's position they may use: its group; else null. */
+	teamId: number | null;
+}
+
 /** An exercise as a picker offers it. */
 export interface PickExercise {
 	id: number;
@@ -364,7 +380,7 @@ export interface SiblingSummary {
 	id: number;
 	/** The variation's own name — "Doble". */
 	name: string;
-	/** "Cross-hand → Open two hands": starts joined with " / ", neutral named. */
+	/** "Cross-hand → Open two hands": each side joined with " / ", an untagged side empty; "No position" when both are. */
 	holds: string;
 	/** "Starts on 5 · 4 counts". */
 	timing: string;
@@ -417,7 +433,10 @@ export interface Spot {
 	startMs: number;
 	endMs: number | null;
 	label: string | null;
-	/** What this section is linked to, "Enchufla · Doble". Empty for a point. */
+	/**
+	 * What this section or point is linked to: variations and drills
+	 * ("Enchufla · Doble") and positions by name. A point links positions only.
+	 */
 	linkedTo: string[];
 }
 
@@ -427,9 +446,17 @@ export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
 /** What a section can be linked to: a figure version or a drill. */
 export type SectionTarget = { figureId: number } | { exerciseId: number };
 
-/** Something a section can be linked to, as the Link popup lists it. */
+/**
+ * What the Link popup links a spot to: a section links a variation, a drill
+ * or a position; a point, a position only (ruling 10). Position links live in
+ * their own table (`spot_position_links`), so a link id means nothing without
+ * its kind.
+ */
+export type LinkTarget = SectionTarget | { positionId: number };
+
+/** Something a section or point can be linked to, as the Link popup lists it. */
 export interface LinkOption {
-	target: SectionTarget;
+	target: LinkTarget;
 	/** "Enchufla · Doble", or a drill's name. */
 	label: string;
 	drill: boolean;
@@ -444,9 +471,11 @@ export interface LinkOption {
 	team?: TeamRef;
 	/** A variation's twins folded behind it (`clones/twins.ts`). */
 	twins?: TwinNote[];
+	/** A position's hold: its picker row's second line. Absent for a variation or a drill. */
+	hold?: Hold;
 }
 
-/** One of a section's links, in the Link popup. */
+/** One of a section's or point's links, in the Link popup. */
 export interface LinkedTarget extends LinkOption {
 	linkId: number;
 	archived: boolean;
@@ -467,20 +496,25 @@ export type LinkContext =
 	| { kind: 'lesson'; lessonId: number; title: string }
 	| { kind: 'recording'; groupId: number; figure: string };
 
-/** Everything the Link popup shows for one section. */
+/** Everything the Link popup shows for one section, or one point (`endMs` null: positions only). */
 export interface LinkOptions {
 	dance: DanceSlug;
-	spot: { id: number; startMs: number; endMs: number; label: string | null };
+	spot: { id: number; startMs: number; endMs: number | null; label: string | null };
 	context: LinkContext;
 	linked: LinkedTarget[];
 	/** 'In this lesson' or 'This figure'. */
 	nearTitle: string;
-	/** Variations then drills of this lesson, or the recording's own figure. */
+	/**
+	 * Variations, drills, then positions of this lesson, or the recording's own
+	 * figure and the positions it is tagged with. A point's: positions only.
+	 */
 	near: LinkOption[];
 	/** Every other live variation. */
 	figures: LinkOption[];
 	/** Every other live drill. */
 	drills: LinkOption[];
+	/** Every other live position (own first, then a group's a person may use). */
+	positions: LinkOption[];
 	figureChoices: LinkFigureChoice[];
 	/** What "New figure" starts on. */
 	defaults: { partner: Partner; style: string };
@@ -493,13 +527,18 @@ export type LinkCreateField = 'name' | 'figureName' | 'groupId' | 'style' | 'eve
 export type LinkCreate =
 	| { kind: 'variation'; groupId: number; name: string }
 	| { kind: 'figure'; figureName: string; name: string; partner: Partner; style: string }
-	| { kind: 'drill'; name: string; everyDays: number };
+	| { kind: 'drill'; name: string; everyDays: number }
+	/** `styleTag` null: no type. Refused for its type under 'style'. */
+	| { kind: 'position'; name: string; styleTag: string | null };
 
-/** A section of a lesson's video through which a variation or drill is on that lesson. */
+/**
+ * A section of a lesson's video through which a variation or drill is on that
+ * lesson; for a position, a point too (`endMs` null).
+ */
 export interface ViaSection {
 	spotId: number;
 	startMs: number;
-	endMs: number;
+	endMs: number | null;
 	label: string | null;
 }
 
@@ -535,6 +574,9 @@ export interface LinkedSection {
 	spot: Spot;
 	video: SectionVideo;
 }
+
+/** A section or a point linked to a position: one card. */
+export type LinkedSpot = LinkedSection & { point: boolean };
 
 /** A figure version or drill in the lesson page's Link… picker; `value` is `figure:<id>` or `exercise:<id>`. */
 export interface SectionOption {
@@ -644,7 +686,8 @@ export interface AddState {
 }
 
 /** What a group change is filed under: the thing whose History shows it. */
-export type ChangeRootKind = 'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'team';
+export type ChangeRootKind =
+	'lesson' | 'figure' | 'routine' | 'drill' | 'song' | 'team' | 'position';
 /**
  * What a change did. A group song's own: `share` and `unshare` (Share with the
  * class, Stop sharing), `delete` (to Recently deleted) and `edit` (its name,
@@ -683,9 +726,10 @@ export interface HistoryRow {
 }
 
 /** What a group's hard delete keeps for 30 days (`team_trash.kind`). */
-export type TrashKind = 'video' | 'section' | 'link' | 'spot-link' | 'recording';
+export type TrashKind = 'video' | 'section' | 'link' | 'spot-link' | 'recording' | 'position-link';
 /** What Recently deleted lists: the trash kinds, and the archived ones. */
-export type DeletedKind = TrashKind | 'lesson' | 'variation' | 'routine' | 'drill' | 'song';
+export type DeletedKind =
+	TrashKind | 'lesson' | 'variation' | 'routine' | 'drill' | 'song' | 'position';
 
 /** One row of a group's Recently deleted, newest first. */
 export interface DeletedItem {
@@ -708,8 +752,8 @@ export type GroupMode = { teamId: number; name: string; role: 'owner' | 'editor'
 export type GroupChoice = GroupMode & { people: number };
 
 // Clones and twins: the shapes every clone-engine task shares.
-export type CloneKind = 'figure' | 'routine' | 'drill' | 'song' | 'lesson'; // 'figure' = a `figures` row
-export type TwinKind = 'figure' | 'routine' | 'lesson' | 'song';
+export type CloneKind = 'figure' | 'routine' | 'drill' | 'song' | 'lesson' | 'position'; // 'figure' = a `figures` row
+export type TwinKind = 'figure' | 'routine' | 'lesson' | 'song' | 'position';
 export type PieceKind = 'recording' | 'video' | 'spot';
 export type PlaceRef = { kind: 'mine' } | { kind: 'team'; teamId: number; name: string };
 export type FlatField = {
@@ -918,6 +962,7 @@ export type KeepItem = {
 export type KeepPreview = {
 	lessons: KeepItem[];
 	figures: KeepItem[];
+	positions: KeepItem[];
 	routines: KeepItem[];
 	songs: KeepItem[];
 	drills: KeepItem[];
@@ -938,6 +983,8 @@ export type SwitchReport = {
 	lessons: { id: number; title: string }[];
 	sections: number;
 	entries: number;
+	/** A position's: the person's figures tagged with it (start or end), by label. */
+	figures: { id: number; label: string }[];
 };
 
 /**
@@ -995,3 +1042,44 @@ export type DropOptions = {
 /** Same as… on an item page: the sheet's title and what it offers (`twinCandidates`). */
 export type TwinCandidate = { id: number; label: string; place: PlaceRef; ticked: boolean };
 export type TwinOffer = { kind: TwinKind; title: string; candidates: TwinCandidate[] };
+
+export type Hands = 'two' | 'one' | 'none';
+export type Facing = 'face' | 'side' | 'shadow' | 'back';
+export type Frame = 'open' | 'closed';
+/** How two dancers hold each other at a position; every part may be unknown (null). */
+export interface Hold {
+	hands: Hands | null;
+	crossed: boolean | null;
+	facing: Facing | null;
+	frame: Frame | null;
+}
+
+/** A position as lists, pickers and pages see it. */
+export interface PositionSummary {
+	id: number;
+	name: string;
+	styleTag: string | null;
+	hold: Hold;
+	teamId: number | null; // null: the viewer's own (or the group's own in group mode)
+	archived: boolean;
+}
+
+/** One row of the Positions list. */
+export interface PositionListRow extends PositionSummary {
+	inCount: number;
+	outCount: number;
+	deadEnd: boolean;
+	orphan: boolean;
+	island: boolean;
+	unused: boolean;
+	from: string | null; // a group's: the lesson it came from ("from Week 6")
+	twins: boolean;
+}
+
+export interface PositionInput {
+	name: string;
+	styleTag: string | null;
+	hold: Hold;
+	notes: string | null;
+	pictureSpotId: number | null;
+}

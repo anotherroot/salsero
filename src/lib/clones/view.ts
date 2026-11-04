@@ -8,9 +8,10 @@ import { localDay } from '$lib/day/day';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
 import { sendPicks, unpicked } from './diff';
 
-/** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s". */
+/** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s"; "CLASS" → "CLASS’". Trimmed. */
 export function possessive(name: string): string {
-	return /s$/i.test(name) ? `${name}’` : `${name}’s`;
+	const n = name.trim();
+	return /s$/i.test(n) ? `${n}’` : `${n}’s`;
 }
 
 /** A group's row in a person's own list: "Salsa Tuesdays’ · used as it is". */
@@ -82,7 +83,9 @@ const GETS: Record<CloneKind, string> = {
 	drill: 'Its name, notes and practice, to change as you like.',
 	song: 'Its title, artist and count, to change as you like.',
 	lesson:
-		'Its title, notes, links, videos and sections, to change as you like. The videos count against your space.'
+		'Its title, notes, links, videos and sections, to change as you like. The videos count against your space.',
+	// Not its video links: those travel with their videos, and stay the group's.
+	position: 'Its name, type, hold and notes, to change as you like.'
 };
 
 /** What the copy gives the person, per kind. */
@@ -90,11 +93,20 @@ export function youGet(kind: CloneKind): string {
 	return GETS[kind];
 }
 
-/** What stays the group's: a figure's recordings (ruling 5: Edit brings none). Null for the rest. */
+/**
+ * What stays the group's: a figure's recordings (ruling 5: Edit brings none);
+ * a position's links from the group's lessons and videos. Null for the rest.
+ */
 export function staysTheirs(kind: CloneKind, team: string): { title: string; body: string } | null {
+	const title = `STAYS ${possessive(team).toUpperCase()}`;
+	if (kind === 'position')
+		return {
+			title,
+			body: `The lessons and videos it was linked from. You see them in ${possessive(team)} tab.`
+		};
 	if (kind !== 'figure') return null;
 	return {
-		title: `STAYS ${possessive(team).toUpperCase()}`,
+		title,
 		body: 'Its recordings and their sections. You still see them inside yours, and can take one (it then counts against your space).'
 	};
 }
@@ -109,10 +121,16 @@ function listed(names: string[]): string {
 /**
  * The note before Make it mine: which of the person's own rows move onto the
  * copy. "Your routine Week 4 loop and your practice of it switch to your
+ * copy."; a position's figures first: "Your Setenta · Con giro, tagged with
+ * it, switches to your copy.", "Your 3 figures tagged with it switch to your
  * copy." Null when nothing of theirs uses it.
  */
 export function switchNote(r: SwitchReport, practised: boolean): string | null {
 	const parts: { text: string; many: boolean }[] = [];
+	if (r.figures.length === 1)
+		parts.push({ text: `your ${r.figures[0].label}, tagged with it,`, many: false });
+	else if (r.figures.length > 1)
+		parts.push({ text: `your ${r.figures.length} figures tagged with it`, many: true });
 	const names = (one: string, many: string, list: string[]) => {
 		if (list.length > 0)
 			parts.push({
@@ -137,12 +155,15 @@ export function switchNote(r: SwitchReport, practised: boolean): string | null {
 
 	const texts = parts.map((p) => p.text);
 	const last = texts[texts.length - 1];
+	// A part ending in its own comma ("…, tagged with it,") is followed by a space alone.
+	const join = (list: string[], sep: string) =>
+		list.reduce((out, t, i) => (i === 0 ? t : `${out}${out.endsWith(',') ? ' ' : sep}${t}`), '');
 	let body: string;
 	if (texts.length === 1) body = last;
 	else if (texts.some((t) => t.includes(' and ')))
 		// "Your routines A and B, and your practice of it, switch…"
-		body = `${texts.slice(0, -1).join(', ')}, and ${last},`;
-	else body = `${texts.slice(0, -1).join(', ')} and ${last}`;
+		body = `${join(texts.slice(0, -1), ', ')}${texts.at(-2)!.endsWith(',') ? '' : ','} and ${last},`;
+	else body = `${join(texts.slice(0, -1), ', ')} and ${last}`;
 	const verb = parts.length === 1 && !parts[0].many ? 'switches' : 'switch';
 	return `${body[0].toUpperCase()}${body.slice(1)} ${verb} to your copy.`;
 }
@@ -154,7 +175,8 @@ const KIND_WORD: Record<CloneKind, string> = {
 	routine: 'routine',
 	drill: 'drill',
 	song: 'song',
-	lesson: 'lesson'
+	lesson: 'lesson',
+	position: 'position'
 };
 
 /**
@@ -195,10 +217,17 @@ const COUNTED: { of: (key: string) => string | null; one: string; many: string }
 	{ of: (k) => pieceCounted(k, 'rec'), one: 'recording', many: 'recordings' },
 	{ of: (k) => pieceCounted(k, 'video'), one: 'video', many: 'videos' },
 	{ of: (k) => pieceCounted(k, 'spot'), one: 'section', many: 'sections' },
+	{
+		of: (k) => (setPrefixOf(k) === 'start' ? k : null),
+		one: 'start position',
+		many: 'start positions'
+	},
+	{ of: (k) => (setPrefixOf(k) === 'end' ? k : null), one: 'end position', many: 'end positions' },
 	{ of: (k) => (setPrefixOf(k) === 'link' ? k : null), one: 'link', many: 'links' },
 	{ of: (k) => (setPrefixOf(k) === 'fig' ? k : null), one: 'figure', many: 'figures' },
 	{ of: (k) => (setPrefixOf(k) === 'routine' ? k : null), one: 'routine', many: 'routines' },
-	{ of: (k) => (setPrefixOf(k) === 'drill' ? k : null), one: 'drill', many: 'drills' }
+	{ of: (k) => (setPrefixOf(k) === 'drill' ? k : null), one: 'drill', many: 'drills' },
+	{ of: (k) => (setPrefixOf(k) === 'pos' ? k : null), one: 'position', many: 'positions' }
 ];
 
 /**
@@ -684,6 +713,7 @@ export const ALREADY_THERE = 'ALREADY THERE';
 export type GoesCounts = {
 	kind: CloneKind;
 	figures: number;
+	positions: number;
 	routines: number;
 	drills: number;
 	recordings: number;
@@ -706,6 +736,7 @@ export function whatGoes(g: GoesCounts): string {
 		if (n > 0) parts.push(plural(n, one, many));
 	};
 	count(g.figures, 'figure', 'figures');
+	count(g.positions, 'position', 'positions');
 	count(g.routines, 'routine', 'routines');
 	count(g.drills, 'drill', 'drills');
 	count(g.recordings, 'recording', 'recordings');

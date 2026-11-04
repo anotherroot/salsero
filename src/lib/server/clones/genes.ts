@@ -17,6 +17,7 @@ import {
 	figures,
 	lessons,
 	lessonVideos,
+	positions,
 	recordings,
 	routines,
 	songs,
@@ -24,7 +25,14 @@ import {
 } from '../db/schema';
 import { ownedBy, type Space } from '../scope';
 import { getTeam } from '../teams';
-import { drillAccess, figureAccess, lessonAccess, routineAccess, songAccess } from '../access';
+import {
+	drillAccess,
+	figureAccess,
+	lessonAccess,
+	positionAccess,
+	routineAccess,
+	songAccess
+} from '../access';
 
 type Cols = { table: SQLiteTable; id: SQLiteColumn; geneId: SQLiteColumn };
 type RootCols = Cols & {
@@ -36,7 +44,13 @@ type RootCols = Cols & {
 };
 
 const root = (
-	t: typeof figures | typeof routines | typeof exercises | typeof songs | typeof lessons
+	t:
+		| typeof figures
+		| typeof routines
+		| typeof exercises
+		| typeof songs
+		| typeof lessons
+		| typeof positions
 ) =>
 	({
 		table: t,
@@ -54,7 +68,8 @@ const ROOTS: Record<CloneKind, RootCols> = {
 	routine: root(routines),
 	drill: root(exercises),
 	song: root(songs),
-	lesson: root(lessons)
+	lesson: root(lessons),
+	position: root(positions)
 };
 
 const PIECES: Record<PieceKind, Cols> = {
@@ -175,6 +190,10 @@ export function accessTo(db: Db, userId: string, kind: CloneKind, id: number) {
 		case 'lesson': {
 			const row = db.select().from(lessons).where(eq(lessons.id, id)).get();
 			return row ? lessonAccess(db, userId, row) : null;
+		}
+		case 'position': {
+			const row = db.select().from(positions).where(eq(positions.id, id)).get();
+			return row ? positionAccess(db, userId, row) : null;
 		}
 	}
 }

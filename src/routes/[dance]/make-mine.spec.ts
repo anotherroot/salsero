@@ -129,7 +129,13 @@ describe('the figure page', () => {
 			kind: 'figure',
 			label: 'Setenta · Básico',
 			team: 'Salsa Tuesdays',
-			repoint: { routines: [{ id: P, name: 'Week 4 loop' }], lessons: [], sections: 0, entries: 0 },
+			repoint: {
+				routines: [{ id: P, name: 'Week 4 loop' }],
+				lessons: [],
+				sections: 0,
+				entries: 0,
+				figures: []
+			},
 			practised: false,
 			bytes: 0,
 			existing: null

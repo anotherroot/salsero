@@ -57,7 +57,7 @@ describe('the dance registry', () => {
 			expect(DANCES[slug].band).toBe(THEMES[slug].dark.band);
 		}
 		expect(salsa.clave).toBe(true);
-		expect(salsa.styles).toEqual(['salsa', 'son', 'other']);
+		expect(salsa.styles).toEqual(['salsa', 'son', 'timba', 'other']);
 	});
 
 	it('gives bachata no clave and no son pattern', () => {
@@ -130,5 +130,14 @@ describe('the dance registry', () => {
 				dance.accentDark.toLowerCase()
 			);
 		}
+	});
+});
+
+describe('timba', () => {
+	it('is a salsa style and not a bachata one', () => {
+		expect(isStyleOf('salsa', 'timba')).toBe(true);
+		expect(isStyleOf('bachata', 'timba')).toBe(false);
+		expect(DANCES.salsa.styleLabel.timba).toBe('Timba');
+		expect(DANCES.salsa.styles).toEqual(['salsa', 'son', 'timba', 'other']);
 	});
 });

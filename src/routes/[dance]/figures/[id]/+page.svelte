@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { focusKeyed, focusAfterRemoval } from '$lib/focus';
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
@@ -9,7 +9,7 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
-	import StartPositions from '$lib/components/figures/StartPositions.svelte';
+	import PositionTags from '$lib/components/figures/PositionTags.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
 	import VariationBar from '$lib/components/figures/VariationBar.svelte';
 	import MoveSheet from '$lib/components/figures/MoveSheet.svelte';
@@ -46,16 +46,14 @@
 		button,
 		CLIP,
 		DANGER_SHARED,
-		FIELD,
 		GROUP,
 		iconButton,
-		LABEL,
 		SECTION_LABEL
 	} from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
-	import { byteSize, longDayLabel, plural } from '$lib/format';
+	import { byteSize, plural, weekdayDayMonth } from '$lib/format';
 	import {
 		archiveCopy,
 		deleteRecordingBody,
@@ -64,6 +62,7 @@
 		routineUseMeta,
 		timingLine
 	} from '$lib/figures/page';
+	import { styleLabelOf, tagsEmpty } from '$lib/positions/view';
 	import { localDay } from '$lib/day/day';
 	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
@@ -75,9 +74,10 @@
 	// not on every refresh of `data` (an action, an upload, a closed player).
 	const variationId = $derived(data.variation.id);
 	// Stepping to another variation keeps this page: leave edit mode for it.
+	// `?edit=1` (a position's "+ Positions", ruling 8) opens in edit mode for an editor.
 	$effect(() => {
 		void variationId;
-		editing = false;
+		editing = untrack(() => data.canEdit && page.url.searchParams.get('edit') === '1');
 	});
 	let logging = $state(false);
 	let linkingSection = $state(false);
@@ -120,15 +120,12 @@
 	const styleLabel = $derived(
 		variation.styleTag ? data.dance.styleLabel[variation.styleTag] : undefined
 	);
-	const neutralName = $derived(data.positions.find((p) => p.neutral)?.name ?? 'the neutral hold');
-	const positionName = (id: number) =>
-		data.positions.find((p) => p.id === id)?.name ?? 'an untagged position';
-
-	/** "Open two hands / Cross-hand" → "Hammerlock", neutral already resolved by the graph. */
-	const handholds = $derived({
-		from: data.effective.starts.map(positionName).join(' / ') || neutralName,
-		to: data.effective.end === null ? neutralName : positionName(data.effective.end)
-	});
+	/** Handholds: the figure's own live tags; both sides empty, it fits anywhere. */
+	const holds = $derived(data.handholds);
+	const untagged = $derived(holds.starts.length === 0 && holds.ends.length === 0);
+	// A position's own page. Built from a path, not the route id: `/[dance]/positions/[id]`
+	// lands with the position page.
+	const positionHref = (id: number) => resolve(`/${slug}/positions/${id}`);
 	const timing = $derived(timingLine(data.effective.startCount, data.effective.lengthCounts));
 	const archive = $derived(archiveCopy(figure.name, variation.name, last));
 	let practising = $state(false);
@@ -350,7 +347,7 @@
 		{#if editing}
 			<!--
 			Keyed on the variation: `editing` survives a step to another one, and
-			StartPositions and FigureTiming seed their own state once — without the
+			PositionTags and FigureTiming seed their own state once — without the
 			key, one variation's unsaved positions and timing would be carried over
 			and saved onto the next.
 		-->
@@ -376,28 +373,16 @@
 						style={variation.styleTag ?? undefined}
 						notes={variation.notes}
 					/>
-					<StartPositions positions={data.positions} initial={data.tags.startIds} {neutralName} />
-					<div>
-						<label class={LABEL} for="edit-end">Ends at</label>
-						<div class="relative">
-							<select
-								id="edit-end"
-								name="endId"
-								class="own-arrow {FIELD} cursor-pointer appearance-none pr-10"
-							>
-								<option value="" selected={data.tags.endId === null}>{neutralName}</option>
-								{#each data.positions as position (position.id)}
-									<option value={position.id} selected={data.tags.endId === position.id}>
-										{position.name}{position.archived ? ' (archived)' : ''}
-									</option>
-								{/each}
-							</select>
-							<span
-								class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
-								aria-hidden="true"><Icon name="chevron-down" size={20} /></span
-							>
-						</div>
-					</div>
+					<PositionTags
+						dance={data.dance.slug}
+						startIds={data.tags.startIds}
+						endIds={data.tags.endIds}
+						groups={data.positionChoices}
+						figureLabel="{figure.name} · {variation.name}"
+						figureStyle={variation.styleTag}
+						styleLabel={styleLabelOf(data.dance.styleLabel)}
+						figureId={variation.id}
+					/>
 					<FigureTiming startCount={data.shape.startCount} lengthCounts={data.shape.lengthCounts} />
 					{#if refusal}
 						<!-- Keyed on the answer: each refusal is brought into view as it arrives. -->
@@ -468,10 +453,26 @@
 				<div class="-mx-4 h-px bg-hairline"></div>
 				<div class="flex flex-col gap-[3px]">
 					<span class="text-[13px] font-bold text-muted">Handholds</span>
-					<span class="text-[15px] leading-[1.35] font-bold text-ink"
-						>{handholds.from} <span class="font-semibold text-muted">→</span>
-						{handholds.to}</span
-					>
+					{#if untagged}
+						<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty}</span>
+					{:else}
+						<!-- Each position links to its page; an empty side reads "No position". -->
+						{#snippet side(refs: { id: number; name: string }[])}
+							{#if refs.length === 0}
+								<span class="font-semibold text-muted">No position</span>
+							{:else}
+								{#each refs as p, i (p.id)}{#if i > 0}<span class="mx-1 font-semibold text-muted"
+											>or</span
+										>{/if}<a href={positionHref(p.id)} class="underline-offset-2 hover:underline"
+										>{p.name}</a
+									>{/each}
+							{/if}
+						{/snippet}
+						<span class="text-[15px] leading-[1.35] font-bold text-ink"
+							>{@render side(holds.starts)}<span class="mx-1 font-semibold text-muted">→</span
+							>{@render side(holds.ends)}</span
+						>
+					{/if}
 				</div>
 				{#if variation.notes}
 					<div class="-mx-4 h-px bg-hairline"></div>
@@ -896,7 +897,7 @@
 							>
 								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 									<span class="text-[16px] leading-tight font-bold text-ink">{lesson.title}</span>
-									<span class="text-[13px] text-muted">{longDayLabel(lesson.lessonDay)}</span>
+									<span class="text-[13px] text-muted">{weekdayDayMonth(lesson.lessonDay)}</span>
 								</span>
 								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
 							</a>

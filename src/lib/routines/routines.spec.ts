@@ -7,34 +7,38 @@ import {
 	positionSeams,
 	rowEdges,
 	slotAt,
-	routineEnd,
+	routineEnds,
 	routineStarts,
-	sharedEnd,
+	slotEnds,
 	sharedNextCount,
 	slotStartCounts,
 	slotStarts,
 	slotTiming,
 	timingBreaks,
 	timingSeams,
+	through,
 	type RoutineShape,
 	type Slot
 } from './routines';
 
 /**
- * Positions 1 open (neutral), 2 closed, 3 hammerlock.
+ * Positions 1 open, 2 closed, 3 hammerlock. None of them is special.
  *
- * 10 untagged — both sides neutral, which is most of the repertoire.
+ * 10 no position on either side — fits anywhere, which is most of a repertoire
+ * nobody has tagged.
  * 11 open → closed. 12 closed → open. 13 open|closed → hammerlock, 2 eights.
- * 14 hammerlock → open.
+ * 14 hammerlock → open. 15 open → closed|hammerlock. 16 open → hammerlock|closed.
  */
 const g: Graph = {
-	neutral: 1,
+	positions: [],
 	figures: [
-		{ id: 10, starts: [], end: null, start: 1, length: 8 },
-		{ id: 11, starts: [1], end: 2, start: 1, length: 8 },
-		{ id: 12, starts: [2], end: 1, start: 1, length: 8 },
-		{ id: 13, starts: [1, 2], end: 3, start: 1, length: 16 },
-		{ id: 14, starts: [3], end: 1, start: 1, length: 8 }
+		{ id: 10, starts: [], ends: [], start: 1, length: 8 },
+		{ id: 11, starts: [1], ends: [2], start: 1, length: 8 },
+		{ id: 12, starts: [2], ends: [1], start: 1, length: 8 },
+		{ id: 13, starts: [1, 2], ends: [3], start: 1, length: 16 },
+		{ id: 14, starts: [3], ends: [1], start: 1, length: 8 },
+		{ id: 15, starts: [1], ends: [2, 3], start: 1, length: 8 },
+		{ id: 16, starts: [1], ends: [3, 2], start: 1, length: 8 }
 	]
 };
 
@@ -47,8 +51,9 @@ describe('slotStarts', () => {
 		expect(slotStarts(g, { kind: 'options', figureIds: [11, 13] })).toEqual([1, 2]);
 	});
 
-	it('resolves an untagged option to the neutral position', () => {
-		expect(slotStarts(g, { kind: 'options', figureIds: [10] })).toEqual([1]);
+	it('is anywhere ([]) when any option has no start', () => {
+		expect(slotStarts(g, { kind: 'options', figureIds: [11, 10] })).toEqual([]);
+		expect(slotStarts(g, { kind: 'options', figureIds: [10, 11] })).toEqual([]);
 	});
 
 	it('ignores an option the graph does not know', () => {
@@ -56,22 +61,28 @@ describe('slotStarts', () => {
 	});
 });
 
-describe('sharedEnd', () => {
-	it('is the end every option agrees on', () => {
-		expect(sharedEnd(g, { kind: 'options', figureIds: [12, 14] })).toBe(1);
+describe('slotEnds', () => {
+	it('is the ends every option agrees on', () => {
+		expect(slotEnds(g, { kind: 'options', figureIds: [12, 14] })).toEqual([1]);
 	});
 
-	it('counts an untagged option as ending at neutral, whichever order it comes in', () => {
-		// Both orders on purpose. With the untagged figure FIRST, `sharedEnd`'s
-		// `end === null` sentinel would absorb a raw unresolved `f.end` and the
-		// assertion would pass with the bug present; with it second, the same bug
-		// returns null. Only the pair has teeth.
-		expect(sharedEnd(g, { kind: 'options', figureIds: [10, 14] })).toBe(1);
-		expect(sharedEnd(g, { kind: 'options', figureIds: [14, 10] })).toBe(1);
+	it('compares the ends as a set, whatever their order', () => {
+		expect(slotEnds(g, { kind: 'options', figureIds: [15, 16] })).toEqual([2, 3]);
+		expect(slotEnds(g, { kind: 'options', figureIds: [16, 15] })).toEqual([2, 3]);
+	});
+
+	it('is null when one option has an end and another has none, whichever comes first', () => {
+		// Both orders: a sentinel for "nothing seen yet" must not swallow the empty set.
+		expect(slotEnds(g, { kind: 'options', figureIds: [12, 10] })).toBeNull();
+		expect(slotEnds(g, { kind: 'options', figureIds: [10, 12] })).toBeNull();
+	});
+
+	it('is [] when no option has an end', () => {
+		expect(slotEnds(g, { kind: 'options', figureIds: [10] })).toEqual([]);
 	});
 
 	it('is null when the options disagree', () => {
-		expect(sharedEnd(g, { kind: 'options', figureIds: [11, 12] })).toBeNull();
+		expect(slotEnds(g, { kind: 'options', figureIds: [11, 12] })).toBeNull();
 	});
 });
 
@@ -108,11 +119,11 @@ describe('flatten', () => {
 	});
 });
 
-describe('routineStarts and routineEnd', () => {
+describe('routineStarts and routineEnds', () => {
 	it('borrow the first and last slot', () => {
 		const shape = opts(13, 14);
 		expect(routineStarts(g, shape)).toEqual([1, 2]);
-		expect(routineEnd(g, shape)).toBe(1);
+		expect(routineEnds(g, shape)).toEqual([1]);
 	});
 
 	it('see through an embedded routine at either end', () => {
@@ -123,12 +134,12 @@ describe('routineStarts and routineEnd', () => {
 			]
 		};
 		expect(routineStarts(g, shape)).toEqual([1]);
-		expect(routineEnd(g, shape)).toBe(1);
+		expect(routineEnds(g, shape)).toEqual([1]);
 	});
 
 	it('are empty and null for a routine with nothing danceable', () => {
 		expect(routineStarts(g, { slots: [] })).toEqual([]);
-		expect(routineEnd(g, { slots: [] })).toBeNull();
+		expect(routineEnds(g, { slots: [] })).toBeNull();
 	});
 });
 
@@ -173,6 +184,17 @@ describe('breaks', () => {
 	it('is empty for a routine with nothing danceable', () => {
 		expect(breaks(g, { slots: [] })).toEqual([]);
 	});
+
+	it('never breaks next to a figure with no position', () => {
+		// 11 lands closed, 10 fits anywhere, 14 needs hammerlock — and 10 leaves the hands anywhere.
+		expect(breaks(g, opts(11, 10, 14))).toEqual([]);
+	});
+
+	it('crosses from a figure with two ends into one starting in either', () => {
+		expect(breaks(g, opts(15, 14))).toEqual([]);
+		expect(breaks(g, opts(15, 12))).toEqual([]);
+		expect(breaks(g, opts(15, 11))).toEqual([0]);
+	});
 });
 
 describe('loops', () => {
@@ -182,10 +204,6 @@ describe('loops', () => {
 
 	it('is false when it is not', () => {
 		expect(loops(g, opts(11, 13))).toBe(false);
-	});
-
-	it('is true for one untagged figure, which really does run into itself', () => {
-		expect(loops(g, opts(10))).toBe(true);
 	});
 
 	it('is false for a routine with nothing danceable', () => {
@@ -252,21 +270,41 @@ describe('slotAt', () => {
 });
 
 /**
- * Timing fixtures. Every figure is untagged (all positions neutral) so only the
- * count can break a seam.
+ * Timing fixtures. No figure has a position, so only the count can break a
+ * seam. It doubles as a repertoire nobody has tagged.
  *   20: 1 → 1 (8 counts)    21: 1 → 5 (4 counts)    22: 5 → 1 (4 counts)
  *   23: 5 → 5 (8 counts)    24: 1 → 1 (16 counts)
  */
 const t: Graph = {
-	neutral: 1,
+	positions: [],
 	figures: [
-		{ id: 20, starts: [], end: null, start: 1, length: 8 },
-		{ id: 21, starts: [], end: null, start: 1, length: 4 },
-		{ id: 22, starts: [], end: null, start: 5, length: 4 },
-		{ id: 23, starts: [], end: null, start: 5, length: 8 },
-		{ id: 24, starts: [], end: null, start: 1, length: 16 }
+		{ id: 20, starts: [], ends: [], start: 1, length: 8 },
+		{ id: 21, starts: [], ends: [], start: 1, length: 4 },
+		{ id: 22, starts: [], ends: [], start: 5, length: 4 },
+		{ id: 23, starts: [], ends: [], start: 5, length: 8 },
+		{ id: 24, starts: [], ends: [], start: 1, length: 16 }
 	]
 };
+
+describe('a repertoire with no positions', () => {
+	const shapes = [opts(20), opts(20, 24, 20), opts(21, 22), opts(21, 23, 22, 21), opts(20, 22)];
+
+	it('has no break anywhere', () => {
+		for (const s of shapes) expect(breaks(t, s)).toEqual([]);
+	});
+
+	it('has no position seam anywhere', () => {
+		for (const s of shapes) expect(positionSeams(t, s)).toEqual([]);
+	});
+
+	it('loops whenever the counts loop', () => {
+		expect(loops(t, opts(20))).toBe(true);
+		expect(loops(t, opts(20, 24, 20))).toBe(true);
+		expect(loops(t, opts(21, 22))).toBe(true);
+		// Only the count can stop it: 21 starts on 1 and leaves the next on 5.
+		expect(loops(t, opts(21))).toBe(false);
+	});
+});
 
 describe('slotStartCounts', () => {
 	it('is the union of its options’ start counts, ascending', () => {
@@ -405,7 +443,16 @@ describe('rowEdges', () => {
 		expect(rowEdges(g, { kind: 'options', figureIds: [11] })).toEqual({
 			starts: [1],
 			startCounts: [1],
-			end: 2,
+			ends: [2],
+			next: 1
+		});
+	});
+
+	it('is anywhere on both sides for a row with no position, yet danceable', () => {
+		expect(rowEdges(g, { kind: 'options', figureIds: [10] })).toEqual({
+			starts: [],
+			startCounts: [1],
+			ends: [],
 			next: 1
 		});
 	});
@@ -419,14 +466,14 @@ describe('rowEdges', () => {
 				{ kind: 'options', figureIds: [13] }
 			]
 		};
-		expect(rowEdges(g, child)).toMatchObject({ starts: [1], end: 3 });
+		expect(rowEdges(g, child)).toMatchObject({ starts: [1], ends: [3] });
 	});
 
 	it('is empty for a row with nothing danceable', () => {
 		expect(rowEdges(g, { kind: 'options', figureIds: [999] })).toEqual({
 			starts: [],
 			startCounts: [],
-			end: null,
+			ends: null,
 			next: null
 		});
 	});
@@ -472,5 +519,35 @@ describe('positionSeams', () => {
 			]
 		};
 		expect(positionSeams(g, shape)).toEqual([]);
+	});
+
+	it('is silent on both sides of a row with no position', () => {
+		expect(positionSeams(g, opts(11, 10, 14))).toEqual([]);
+	});
+
+	it('names the rows when none of the ends is a start of the next', () => {
+		// 15 ends closed or hammerlock; 11 starts only from open.
+		expect(positionSeams(g, opts(15, 11))).toEqual([{ after: 0, next: 1 }]);
+	});
+});
+
+describe('through', () => {
+	it('finds the seam where the hands pass through a position', () => {
+		// 13 ends in hammerlock (3); 14 starts there.
+		expect(through(g, opts(11, 12, 13, 14), 3)).toEqual([[2, 3]]);
+	});
+
+	it('finds only seams where both sides name it', () => {
+		// 12 → 13 passes through open (1); 14 ends in open but nothing follows it.
+		expect(through(g, opts(11, 12, 13, 14), 1)).toEqual([[1, 2]]);
+	});
+
+	it('does not count a side with no position', () => {
+		expect(through(g, opts(10, 10), 1)).toEqual([]);
+		expect(through(g, opts(12, 10), 1)).toEqual([]);
+	});
+
+	it('skips a row with nothing danceable', () => {
+		expect(through(g, opts(13, 999, 14), 3)).toEqual([[0, 2]]);
 	});
 });

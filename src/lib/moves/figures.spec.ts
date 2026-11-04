@@ -129,15 +129,9 @@ describe('showTiles', () => {
 });
 
 describe('tileMetas', () => {
-	it('gives the tiles their counts', () => {
-		expect(tileMetas({ done: 31, total: 41 }, 7)).toEqual({
-			positions: '31 / 41 tagged',
-			coverage: { text: '7 in no routine', status: true }
-		});
-		expect(tileMetas({ done: 0, total: 0 }, 0).coverage).toEqual({
-			text: 'All in a routine',
-			status: false
-		});
-		expect(tileMetas({ done: 1, total: 2 }, 1).coverage.text).toBe('1 in no routine');
+	it('gives the Coverage tile, the only one, its count', () => {
+		expect(tileMetas(7)).toEqual({ coverage: { text: '7 in no routine', status: true } });
+		expect(tileMetas(0).coverage).toEqual({ text: 'All in a routine', status: false });
+		expect(tileMetas(1).coverage.text).toBe('1 in no routine');
 	});
 });

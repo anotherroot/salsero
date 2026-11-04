@@ -2,7 +2,7 @@
  * A group's Recently deleted (risk 10).
  *
  * The hard-delete kinds (a video, a section, a link, a section link, a
- * recording) stay real deletes: no reader of those tables learns about a
+ * recording, a position link) stay real deletes: no reader of those tables learns about a
  * `deleted_at`. A group's delete first writes a snapshot of the rows it is
  * about to remove into `team_trash`, and the file stays on disk. For 30 days
  * (`TRASH_MS`) Restore re-inserts the rows with their own ids, parents first,
@@ -29,15 +29,18 @@ import {
 	figures,
 	lessonExercises,
 	lessonFigures,
+	lessonPositions,
 	lessons,
 	lessonVideos,
 	links,
+	positions,
 	opens,
 	recordings,
 	routines,
 	songDrops,
 	songs,
 	spotLinks,
+	spotPositionLinks,
 	teamChanges,
 	teamTrash,
 	videoSpots
@@ -50,6 +53,7 @@ import { labelFor, restoreVariation } from './figures';
 import { restoreRoutine } from './routines';
 import { restoreDrill } from './exercises';
 import { restoreSong } from './song-share';
+import { restorePositionIn } from './positions';
 import { purgeTeams } from './team-purge';
 import { realCloneFiles } from './clones/files';
 import { settleFormerMembers } from './clones/settle';
@@ -72,9 +76,11 @@ const TABLES = {
 	recordings,
 	video_spots: videoSpots,
 	spot_links: spotLinks,
+	spot_position_links: spotPositionLinks,
 	links,
 	lesson_figures: lessonFigures,
-	lesson_exercises: lessonExercises
+	lesson_exercises: lessonExercises,
+	lesson_positions: lessonPositions
 } as const;
 export type TrashTable = keyof typeof TABLES;
 export type TrashRows = Partial<Record<TrashTable, Record<string, unknown>[]>>;
@@ -85,13 +91,15 @@ const ORDER: TrashTable[] = [
 	'recordings',
 	'video_spots',
 	'spot_links',
+	'spot_position_links',
 	'links',
 	'lesson_figures',
-	'lesson_exercises'
+	'lesson_exercises',
+	'lesson_positions'
 ];
 
 /** A lesson's hand link made again since is no reason to refuse; it is left as it is. */
-const JOINS = new Set<TrashTable>(['lesson_figures', 'lesson_exercises']);
+const JOINS = new Set<TrashTable>(['lesson_figures', 'lesson_exercises', 'lesson_positions']);
 
 /** The row a kind is about: its History line names it. */
 const MAIN: Record<TrashKind, TrashTable> = {
@@ -99,13 +107,14 @@ const MAIN: Record<TrashKind, TrashTable> = {
 	recording: 'recordings',
 	section: 'video_spots',
 	link: 'links',
-	'spot-link': 'spot_links'
+	'spot-link': 'spot_links',
+	'position-link': 'spot_position_links'
 };
 
 /** The History subject a restore of each kind logs, as its delete did. */
 function subjectOf(kind: TrashKind, main: Record<string, unknown> | undefined): string {
 	if (kind === 'section') return main?.endMs === null ? 'point' : 'section';
-	return kind === 'spot-link' ? 'section-link' : kind;
+	return kind === 'spot-link' || kind === 'position-link' ? 'section-link' : kind;
 }
 
 /**
@@ -163,6 +172,11 @@ export function rootTitle(tx: Db, rootKind: ChangeRootKind, rootId: number): str
 			return (
 				tx.select({ t: exercises.name }).from(exercises).where(eq(exercises.id, rootId)).get()?.t ??
 				'Drill'
+			);
+		case 'position':
+			return (
+				tx.select({ t: positions.name }).from(positions).where(eq(positions.id, rootId)).get()?.t ??
+				'Position'
 			);
 		default:
 			return '';
@@ -443,6 +457,13 @@ export function listTrash(db: Db, teamId: number, timeZone = 'UTC'): DeletedItem
 		.all())
 		archived('song', s.id, s.title || 'Untitled song', s.at!);
 
+	for (const p of db
+		.select({ id: positions.id, name: positions.name, at: positions.archivedAt })
+		.from(positions)
+		.where(and(eq(positions.teamId, teamId), isNotNull(positions.archivedAt)))
+		.all())
+		archived('position', p.id, p.name, p.at!);
+
 	const actors = [...new Set(items.map((i) => i.actorId).filter((a): a is string => a !== null))];
 	const names = teamNames(db, teamId, actors);
 	return items
@@ -470,14 +491,17 @@ export function restoreDeleted(
 		kind === 'variation' ||
 		kind === 'routine' ||
 		kind === 'drill' ||
-		kind === 'song'
+		kind === 'song' ||
+		kind === 'position'
 	) {
+		// Positions have no entries, so there is nothing for `reviveEntries` to bring back.
 		const restore = {
 			lesson: restoreLesson,
 			variation: restoreVariation,
 			routine: restoreRoutine,
 			drill: restoreDrill,
-			song: restoreSong
+			song: restoreSong,
+			position: restorePositionIn
 		}[kind];
 		const done = restore(db, space, id, now);
 		if (done.ok) return done;

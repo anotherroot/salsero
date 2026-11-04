@@ -1,22 +1,37 @@
 /**
- * The Moves tab's two segments. Each is its own route — `/[dance]/figures`
- * and `/[dance]/routines` — drawn inside one `MovesScreen` whose band carries
- * the switch. PURE.
+ * The Moves tab's three segments. Each is its own route — `/[dance]/figures`,
+ * `/[dance]/routines` and `/[dance]/positions` — drawn inside one
+ * `MovesScreen` whose band carries the switch. PURE.
  */
 
-export type MovesSegment = 'figures' | 'routines';
+export type MovesSegment = 'figures' | 'routines' | 'positions';
 
 export const MOVES_SEGMENTS: readonly { value: MovesSegment; label: string }[] = [
 	{ value: 'figures', label: 'Figures' },
-	{ value: 'routines', label: 'Routines' }
+	{ value: 'routines', label: 'Routines' },
+	{ value: 'positions', label: 'Positions' }
 ];
 
 const ROUTES: Record<string, MovesSegment> = {
 	'/[dance]/figures': 'figures',
-	'/[dance]/routines': 'routines'
+	'/[dance]/routines': 'routines',
+	'/[dance]/positions': 'positions'
 };
 
-/** The segment a route id draws, or null for anything else (a figure's page, Coverage…). */
+/** The route id each segment's list is. */
+export const SEGMENT_ROUTE: Record<MovesSegment, string> = {
+	figures: '/[dance]/figures',
+	routines: '/[dance]/routines',
+	positions: '/[dance]/positions'
+};
+
+/**
+ * The segment a route id draws, or null for anything else (a figure's page,
+ * Coverage…). Positions stays lit under its own pages (a position, No
+ * position, the map): on a wide screen they sit beside its list.
+ */
 export function segmentOf(routeId: string | null): MovesSegment | null {
-	return (routeId && ROUTES[routeId]) || null;
+	if (!routeId) return null;
+	if (routeId.startsWith('/[dance]/positions/')) return 'positions';
+	return ROUTES[routeId] ?? null;
 }

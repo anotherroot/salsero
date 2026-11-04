@@ -212,7 +212,7 @@
 	let clash = $state<ClashAsk | null>(null);
 	type ToastAction = { label: string; run: () => void };
 	let toast = $state<{ text: string; tone: ToastTone; actions: ToastAction[] } | null>(null);
-	type LinkCreateStep = 'variation' | 'figure' | 'drill';
+	type LinkCreateStep = 'variation' | 'figure' | 'drill' | 'position';
 	/** The player's sheet for each of the Link popup's levels; every create step is 'link-new'. */
 	const LINK_SHEET: Record<LinkStep, SheetKind> = {
 		links: 'link',
@@ -220,12 +220,18 @@
 		variation: 'link-new',
 		figure: 'link-new',
 		drill: 'link-new',
+		position: 'link-new',
 		'variation-figure': 'link-figure',
 		unlink: 'link-unlink'
 	};
 	const LINK_SHEETS: readonly SheetKind[] = Object.values(LINK_SHEET);
-	/** The section the Link popup is on, and the create step its 'link-new' sheet stands for. */
+	/** The section or point the Link popup is on, and the create step its 'link-new' sheet stands for. */
 	let linkSpotId = $state<number | null>(null);
+	/** Whether that spot is a point, for the popup's words before its options come; unknown: undefined. */
+	const linkPoint = $derived.by(() => {
+		const s = spots.find((x) => x.id === linkSpotId);
+		return s ? s.endMs === null : undefined;
+	});
 	let linkCreate = $state<LinkCreateStep>('variation');
 	/** How many links the section had when the popup opened: the rename offer is for its first. */
 	let linkedBefore = 0;
@@ -391,10 +397,13 @@
 	async function mark() {
 		const spot = await save({ startMs: msOf(video.currentTime), endMs: null, label: null });
 		if (spot)
-			say(`Point saved at ${spotTime(spot.startMs)}`, 'saved', {
-				label: 'Edit',
-				run: () => toEdit(spot)
-			});
+			say(
+				`Point saved at ${spotTime(spot.startMs)}`,
+				'saved',
+				{ label: 'Edit', run: () => toEdit(spot) },
+				// A point links positions (ruling 10).
+				...(linking ? [{ label: 'Link', run: () => openLink(spot.id) }] : [])
+			);
 	}
 
 	/** Set while a section save is in flight, so a double tap cannot post it twice. */
@@ -699,7 +708,8 @@
 	}
 
 	function linkPush(step: LinkStep) {
-		if (step === 'variation' || step === 'figure' || step === 'drill') linkCreate = step;
+		if (step === 'variation' || step === 'figure' || step === 'drill' || step === 'position')
+			linkCreate = step;
 		nav.push({ kind: 'sheet', sheet: LINK_SHEET[step] });
 	}
 
@@ -715,6 +725,33 @@
 		sheetMessage = null;
 		renaming = spot && name ? { spotId: spot.id, name } : null;
 		nav.jump(renaming ? [...under, { kind: 'sheet', sheet: 'rename' }] : under);
+	}
+
+	/**
+	 * "Use this moment as a point" (a section's popup): a point at the playhead,
+	 * saved through the spots API, and the popup moves onto it, its own levels
+	 * from the bottom (a new point has no links: the picker, positions only).
+	 * A refusal or a failure is the popup's to show; nothing moves.
+	 */
+	async function useMoment(): Promise<string | null> {
+		let spot: Spot;
+		try {
+			spot = await postSpot(owner, { startMs: msOf(video.currentTime), endMs: null, label: null });
+		} catch (e) {
+			return e instanceof SpotsApiError && e.status < 500
+				? e.message
+				: 'Couldn’t save the point. Try it again.';
+		}
+		spots = [...spots, spot];
+		known.set(spot.id, spotSeen(spot));
+		const under = nav.stack.filter((s) => !(s.kind === 'sheet' && LINK_SHEETS.includes(s.sheet)));
+		linkSpotId = spot.id;
+		linkedBefore = 0;
+		nav.jump([
+			...under,
+			...openingSteps(0).map((step): Screen => ({ kind: 'sheet', sheet: LINK_SHEET[step] }))
+		]);
+		return null;
 	}
 
 	/** A linked row's tap: the player closes, then the app goes to the row's page. */
@@ -919,7 +956,7 @@
 		onloop={() => (loopPaused = !loopPaused)}
 		onrename={() => openSheet('rename')}
 		ondelete={() => openSheet('delete')}
-		onlink={linking && spot.endMs !== null ? () => openLink(spot.id) : undefined}
+		onlink={linking ? () => openLink(spot.id) : undefined}
 		ondone={done}
 		ontoggle={toggle}
 		ontenth={tenth}
@@ -1435,16 +1472,21 @@
 		{/if}
 
 		{#if linkOpen && linkSpotId !== null}
-			<LinkPopup
-				spotId={linkSpotId}
-				theme="dark"
-				steps={linkSteps}
-				onpush={linkPush}
-				onback={() => nav.up()}
-				onchange={linkedChanged}
-				onclose={closeLink}
-				onopen={openLinked}
-			/>
+			<!-- Keyed: "Use this moment as a point" moves the popup onto a new spot, which loads its own options. -->
+			{#key linkSpotId}
+				<LinkPopup
+					spotId={linkSpotId}
+					theme="dark"
+					steps={linkSteps}
+					onpush={linkPush}
+					onback={() => nav.up()}
+					onchange={linkedChanged}
+					onclose={closeLink}
+					onopen={openLinked}
+					onmoment={useMoment}
+					point={linkPoint}
+				/>
+			{/key}
 		{:else if sheet && sheet !== 'list'}
 			<PlayerSheet
 				kind={sheet}

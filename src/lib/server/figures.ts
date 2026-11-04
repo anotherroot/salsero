@@ -1,10 +1,11 @@
 import { and, asc, count, eq, inArray, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { assertUnlinked } from './spot-links';
+import { assertUnlinked, clearPictures } from './spot-links';
 import {
 	exercises,
 	figureGroups,
+	figureEndPositions,
 	figureStartPositions,
 	figures,
 	lessonFigures,
@@ -215,7 +216,7 @@ export function createFigure(
 
 /**
  * A blank variation in an existing figure — the shape `createFigure` gives a
- * first one (starts on 1, 8 counts, neutral start and end), nothing copied
+ * first one (starts on 1, 8 counts, no positions), nothing copied
  * from a sibling, and no exercise. Null when the figure is gone or archived,
  * the style is not of its dance, or the name is empty or taken.
  */
@@ -250,8 +251,8 @@ export function createVariationIn(
 }
 
 /**
- * Copy a variation within its figure: partner, style, notes, start positions,
- * end position, start count and length. Nothing that belongs to the source
+ * Copy a variation within its figure: partner, style, notes, start and end
+ * positions, start count and length. Nothing that belongs to the source
  * itself — recordings, links, lesson links, its exercise. Null when the source
  * is gone or archived, or the name is empty or taken.
  */
@@ -277,21 +278,27 @@ export function createVariationFrom(
 				teamId: src.teamId,
 				styleTag: src.styleTag,
 				groupId: src.groupId,
-				endPositionId: src.endPositionId,
 				startCount: src.startCount,
 				lengthCounts: src.lengthCounts
 			})
 			.returning()
 			.get();
-		const starts = tx
-			.select({ positionId: figureStartPositions.positionId })
-			.from(figureStartPositions)
-			.where(eq(figureStartPositions.figureId, fromId))
-			.all();
-		if (starts.length > 0) {
-			tx.insert(figureStartPositions)
-				.values(starts.map((s) => ({ figureId: copy.id, positionId: s.positionId })))
-				.run();
+		// Both sides' tags, archived ones too: the copy is danced as the source is.
+		// Raw ids are right here: the copy has the source's owner, so every tag
+		// the source may hold (its owner's, or a group's it may use) the copy may
+		// hold too. The clone engine, which copies across places, maps them
+		// (`copyFigure`, `Mapper.ref`).
+		for (const table of [figureStartPositions, figureEndPositions]) {
+			const tags = tx
+				.select({ positionId: table.positionId })
+				.from(table)
+				.where(eq(table.figureId, fromId))
+				.all();
+			if (tags.length > 0) {
+				tx.insert(table)
+					.values(tags.map((t) => ({ figureId: copy.id, positionId: t.positionId })))
+					.run();
+			}
 		}
 		logVariation(tx, actingIn(copy, by), copy, Date.now());
 		return copy;
@@ -859,8 +866,8 @@ function logRecording(
  * Delete a recording row and return it, with `trashId`, so the caller knows
  * whether to remove the file. Its spots go first, in the same transaction —
  * the foreign key would refuse the recording otherwise. Throws
- * `SpotLinkedError`, deleting nothing, while one of its sections is linked to
- * a figure or drill.
+ * `SpotLinkedError`, deleting nothing, while one of its sections or points is
+ * linked: to a figure, a drill or a position.
  *
  * A group's recording goes to Recently deleted first, with its sections and
  * its file: `trashId` is set and the caller leaves the file on disk (risk 19).
@@ -869,6 +876,10 @@ export function deleteRecording(db: Db, id: number, by?: string, now = Date.now(
 	return db.transaction((tx) => {
 		assertUnlinked(tx, { recordingId: id });
 		const spots = tx.select().from(videoSpots).where(eq(videoSpots.recordingId, id)).all();
+		clearPictures(
+			tx,
+			spots.map((s) => s.id)
+		);
 		tx.delete(videoSpots).where(eq(videoSpots.recordingId, id)).run();
 		const rec = tx.delete(recordings).where(eq(recordings.id, id)).returning().get() ?? null;
 		if (!rec) return null;

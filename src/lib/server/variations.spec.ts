@@ -5,7 +5,6 @@ import {
 	exercises,
 	figureGroups,
 	figures,
-	figureStartPositions,
 	lessonFigures,
 	links,
 	recordings,
@@ -35,8 +34,9 @@ import {
 import { addLessonVideo, archiveLesson, createLesson, linkFigure } from './lessons';
 import { addSpot } from './spots';
 import { linkSpot } from './spot-links';
-import { listPositions, seedPositions } from './positions';
-import { setFigureShape } from './graph';
+import { listPositions } from './positions';
+import { insertFixturePositions } from './test-positions';
+import { figurePositions, setFigureShape } from './graph';
 import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 
 let db: Db;
@@ -86,8 +86,8 @@ describe('createFigure', () => {
 
 describe('createVariationFrom', () => {
 	it('copies the shape and nothing else', () => {
-		seedPositions(db);
-		const pos = listPositions(db, 'salsa');
+		insertFixturePositions(db);
+		const pos = listPositions(db, U1_SALSA);
 		const src = fig().figure;
 		db.update(figures)
 			.set({ notes: 'Two turns', partner: 'solo' })
@@ -95,7 +95,7 @@ describe('createVariationFrom', () => {
 			.run();
 		setFigureShape(db, src.id, {
 			startIds: [pos[0].id],
-			endId: pos[1].id,
+			endIds: [pos[1].id, pos[2].id],
 			startCount: 3,
 			lengthCounts: 4
 		});
@@ -125,18 +125,14 @@ describe('createVariationFrom', () => {
 			partner: 'solo',
 			styleTag: before.styleTag,
 			notes: 'Two turns',
-			endPositionId: pos[1].id,
 			startCount: 3,
 			lengthCounts: 4
 		});
-		expect(
-			db
-				.select()
-				.from(figureStartPositions)
-				.where(eq(figureStartPositions.figureId, copy.id))
-				.all()
-				.map((r) => r.positionId)
-		).toEqual([pos[0].id]);
+		// Every end row travels, not only one.
+		expect(figurePositions(db, copy.id)).toEqual({
+			startIds: [pos[0].id],
+			endIds: [pos[1].id, pos[2].id].sort((a, b) => a - b)
+		});
 		expect(db.select().from(recordings).where(eq(recordings.figureId, copy.id)).all()).toEqual([]);
 		expect(db.select().from(links).where(eq(links.figureId, copy.id)).all()).toEqual([]);
 		expect(
@@ -153,12 +149,12 @@ describe('createVariationFrom', () => {
 
 describe('createVariationIn', () => {
 	it('makes a blank variation in an existing figure', () => {
-		seedPositions(db);
-		const pos = listPositions(db, 'salsa');
+		insertFixturePositions(db);
+		const pos = listPositions(db, U1_SALSA);
 		const { figure: sibling, group } = fig();
 		setFigureShape(db, sibling.id, {
 			startIds: [pos[0].id],
-			endId: pos[1].id,
+			endIds: [pos[1].id],
 			startCount: 3,
 			lengthCounts: 4
 		});
@@ -174,14 +170,11 @@ describe('createVariationIn', () => {
 			partner: 'solo',
 			styleTag: 'salsa',
 			notes: 'Two turns',
-			endPositionId: null,
 			startCount: 1,
 			lengthCounts: 8,
 			parentId: null
 		});
-		expect(
-			db.select().from(figureStartPositions).where(eq(figureStartPositions.figureId, made.id)).all()
-		).toEqual([]);
+		expect(figurePositions(db, made.id)).toEqual({ startIds: [], endIds: [] });
 		expect(db.select().from(exercises).where(eq(exercises.figureId, made.id)).all()).toEqual([]);
 		expect(figureLabels(db, U1_SALSA).get(made.id)).toBe('Enchufla · Doble');
 	});

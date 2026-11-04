@@ -75,6 +75,7 @@ import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 import type { Space } from './scope';
 import { TRASH_MS } from '$lib/limits';
 import { stampGene } from './clones/genes';
+import { archivePosition, createPosition } from './positions';
 
 const DAY = 24 * 60 * 60 * 1000;
 const MB = 1024 ** 2;
@@ -664,5 +665,51 @@ describe('purgeTrash: deleted group songs', () => {
 		expect(db.select().from(opens).all()).toEqual([]);
 		// Once only.
 		expect(await purgeTrash(db, T + TRASH_MS + DAY, dirs)).toBe(0);
+	});
+});
+
+describe('a group position in Recently deleted', () => {
+	const input = (name: string) => ({
+		name,
+		styleTag: 'salsa',
+		hold: {
+			hands: 'two' as const,
+			crossed: true,
+			facing: 'face' as const,
+			frame: 'closed' as const
+		},
+		notes: null,
+		pictureSpotId: null
+	});
+
+	it('lists an archived group position as Position, and restores it with a restore line', () => {
+		const id = (createPosition(db, T1_SALSA, input('Cerrada'), T) as { id: number }).id;
+		const own = (createPosition(db, U1_SALSA, input('Mine'), T) as { id: number }).id;
+		expect(archivePosition(db, id, T + 1, { actorId: 'u2' })).toBe(true);
+		archivePosition(db, own, T + 1);
+		const listed = listTrash(db, 1);
+		expect(listed).toEqual([
+			expect.objectContaining({ kind: 'position', id, label: 'Cerrada', at: T + 1, by: 'Luka' })
+		]);
+		expect(restoreDeleted(db, T1_SALSA, 'position', id, T + 2)).toEqual({ ok: true });
+		expect(listTrash(db, 1)).toEqual([]);
+		expect(history(db, 1, 'position', id)[0]).toMatchObject({
+			verb: 'restore',
+			subject: 'position'
+		});
+		// Restoring a live position, another group's or a person's own is "no such thing".
+		expect(restoreDeleted(db, T1_SALSA, 'position', id, T + 3)).toBeNull();
+		expect(restoreDeleted(db, T1_SALSA, 'position', own, T + 3)).toBeNull();
+		expect(restoreDeleted(db, T1_SALSA, 'position', 9999, T + 3)).toBeNull();
+	});
+
+	it('refuses with the taken-name words when a live position has the name', () => {
+		const id = (createPosition(db, T1_SALSA, input('Cerrada'), T) as { id: number }).id;
+		archivePosition(db, id, T + 1, { actorId: 'u1' });
+		createPosition(db, T1_SALSA, input('Cerrada'), T + 2);
+		const done = restoreDeleted(db, T1_SALSA, 'position', id, T + 3);
+		expect(done).toMatchObject({ ok: false });
+		expect((done as { message: string }).message).toMatch(/Cerrada/);
+		expect(listTrash(db, 1).map((i) => i.id)).toEqual([id]);
 	});
 });

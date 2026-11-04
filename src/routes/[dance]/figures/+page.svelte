@@ -29,12 +29,26 @@
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
 	import { TWINS_CHIP } from '$lib/clones/twins';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
+	import { presetLine, withoutPreset } from '$lib/positions/view';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	// `?new=1` (from the empty Today page) opens the sheet straight away.
+	// `?new=1` (from the empty Today page, or a position's New figure) opens the sheet straight away.
 	let creating = $state(page.url.searchParams.get('new') === '1');
+	// New figure from a position (`&start=` / `&end=`, ruling 8): the tag the new
+	// figure gets. Refused because the position went since, it is dropped.
+	const preset = $derived(form && 'presetGone' in form ? null : data.preset);
+	/**
+	 * New move closed: the URL's `?new=1&start=…` goes (a replace, once the
+	 * sheet's Back has landed), so the next + and a reload are untagged.
+	 */
+	function closeNew() {
+		creating = false;
+		const href = withoutPreset(page.url);
+		if (href) void gotoWhenSettled(href, { replaceState: true, keepFocus: true, noScroll: true });
+	}
 	// A failed create re-renders with the message; keep the sheet open to show it.
 	$effect(() => {
 		if (form?.message) creating = true;
@@ -52,8 +66,8 @@
 	const twinned = $derived(new Set(data.twinned));
 	const count = $derived(data.figures.length);
 	const figureCount = $derived(data.figures.reduce((n, m) => n + m.figures.length, 0));
-	// Group mode has no tags (null): its heading carries no "Yours".
-	const inGroup = $derived(data.tagged === null);
+	// Group mode has no coverage (null): its heading carries no "Yours".
+	const inGroup = $derived(data.unrouted === null);
 	const heading = $derived(
 		inGroup && !filter.unlinked
 			? movesHeading(
@@ -67,10 +81,8 @@
 	const chips = $derived(
 		filterChips(filter, data.dance.styles, data.dance.styleLabel, data.unlinked)
 	);
-	// Group mode has neither: tags and coverage are the person's own.
-	const tiles = $derived(
-		data.tagged && data.unrouted !== null ? tileMetas(data.tagged, data.unrouted) : null
-	);
+	// Group mode has no Coverage tile: coverage is the person's own.
+	const tiles = $derived(data.unrouted !== null ? tileMetas(data.unrouted) : null);
 	// What is typed; follows the URL when it changes under it.
 	let q = $derived(data.filter.q);
 
@@ -179,23 +191,15 @@
 			{/snippet}
 		</EmptyState>
 	{:else}
-		{#if showTiles(count, filter)}
+		{#if tiles && showTiles(count, filter)}
 			<div class="flex flex-none gap-2">
 				<NavTile
-					href={resolve('/[dance]/positions', { dance: data.dance.slug })}
-					icon="positions"
-					title="Positions"
-					meta={tiles ? tiles.positions : 'Shared by everyone'}
+					href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
+					icon="routine"
+					title="Coverage"
+					meta={tiles.coverage.text}
+					status={tiles.coverage.status}
 				/>
-				{#if tiles}
-					<NavTile
-						href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
-						icon="routine"
-						title="Coverage"
-						meta={tiles.coverage.text}
-						status={tiles.coverage.status}
-					/>
-				{/if}
 			</div>
 		{/if}
 
@@ -280,7 +284,7 @@
 </MovesScreen>
 
 {#if creating}
-	<Sheet title="New move" open={true} onclose={() => (creating = false)}>
+	<Sheet title="New move" open={true} onclose={closeNew}>
 		<form
 			id="new-figure"
 			method="POST"
@@ -300,6 +304,14 @@
 			}}
 		>
 			{#if otherError}<Banner kind="error">{otherError}</Banner>{/if}
+			{#if preset}
+				<input type="hidden" name={preset.side} value={preset.id} />
+				<p
+					class="flex items-center gap-2 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] font-bold text-accent-text"
+				>
+					<span class="flex-none"><Icon name="positions" size={18} /></span>{presetLine(preset)}
+				</p>
+			{/if}
 			<FigureFields
 				dance={data.dance}
 				figureName={form?.figureName}

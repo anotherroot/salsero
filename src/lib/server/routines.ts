@@ -32,7 +32,7 @@ import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
 import { actingIn, fieldChange, logChange, type ChangeEntry } from './changes';
 import { inSpace, isTeam, ownedBy, ownerValues, spaceOfRow, type Space, type Wall } from './scope';
-import { endOf, figureById, nextCountOf, startsOf, type Graph } from '$lib/graph/graph';
+import { figureById, meet, nextCountOf, sameSet, type Graph } from '$lib/graph/graph';
 import { loops, type OptionsSlot, type RoutineShape, type Slot } from '$lib/routines/routines';
 import type { SlotSnapshot } from '$lib/routines/snapshot';
 import type { PickRoutine, RoutineItem, SlotRow, TeamRef } from '$lib/types';
@@ -669,20 +669,19 @@ function optionsIn(tx: Tx, stepIds: number[]): Map<number, number[]> {
 
 /**
  * Where a figure — or a variation — begins and lands: its start positions and
- * start count, the position it leaves the hands at and the count it leaves the
- * next figure on. Read off the graph, which fills a variation's unset fields
- * from its figure and resolves untagged to neutral; reading the row directly
- * would see a variation's nulls. Null when the figure is not in this dance's
- * graph — another dance, archived, or gone.
+ * start count, the positions it leaves the hands in and the count it leaves
+ * the next figure on. Read off the graph, which resolves unset timing and maps
+ * each position to its family's canonical id; reading the rows directly would
+ * see a variation's nulls and another owner's copy of a hold as a different
+ * one. Empty starts or ends mean "anywhere". Null when the figure is not in
+ * this space's graph — another dance, archived, or gone.
  */
 function landingIn(
 	g: Graph,
 	figureId: number
-): { starts: number[]; start: number; end: number; next: number } | null {
+): { starts: number[]; start: number; ends: number[]; next: number } | null {
 	const f = figureById(g, figureId);
-	return f
-		? { starts: startsOf(g, f), start: f.start, end: endOf(g, f), next: nextCountOf(f) }
-		: null;
+	return f ? { starts: f.starts, start: f.start, ends: f.ends, next: nextCountOf(f) } : null;
 }
 
 /** What a new slot holds: one figure (its main figure), or one embedded routine. */
@@ -915,7 +914,8 @@ export function embeddable(
  *
  * False when the figure is the wrong dance, when the slot holds an embedded
  * routine instead, or when it would land somewhere the slot's other options do
- * not: options that land differently — in the hands or on the count — are not
+ * not: options that land differently — in another set of hands (compared by
+ * family, sorted; `[]` equals `[]`) or on another count — are not
  * alternatives to each other, they are different steps. …and, against the
  * slot's main figure, when it begins on another count or from no hold the
  * main figure begins from.
@@ -943,17 +943,16 @@ export function addOption(db: Db, stepId: number, figureId: number, by?: string)
 	if (existing.some((o) => o.figureId === figureId)) return true;
 	for (const o of existing) {
 		const other = landingIn(g, o.figureId);
-		if (other === null || other.end !== landing.end || other.next !== landing.next) return false;
+		if (other === null || !sameSet(other.ends, landing.ends) || other.next !== landing.next) {
+			return false;
+		}
 	}
 	// The start rule, judged against the MAIN figure only: an alternative that
 	// begins on another count, or from no hold the main figure begins from, can
-	// never be danced where the main one is. Older slots that predate this rule
+	// never be danced where the main one is. An untagged side meets anything (ruling 3). Older slots that predate this rule
 	// are left as they are — it governs adding, it is not a migration.
 	const main = existing.length > 0 ? landingIn(g, existing[0].figureId) : null;
-	if (
-		main &&
-		(main.start !== landing.start || !main.starts.some((p) => landing.starts.includes(p)))
-	) {
+	if (main && (main.start !== landing.start || !meet(main.starts, landing.starts))) {
 		return false;
 	}
 	db.transaction((tx) => {

@@ -20,6 +20,7 @@
 	import { exerciseGroups, figureRows, routineRows, variationEntries } from '$lib/picker/build';
 	import type { PickRow } from '$lib/picker/model';
 	import { linkSubmit as makeLinkSubmit } from '$lib/picker/link-submit';
+	import { styleLabelOf } from '$lib/positions/view';
 	import { restoreArchived, type ArchivedTarget } from '$lib/teams/restore-api';
 	import VideoSections from '$lib/components/lessons/VideoSections.svelte';
 	import UnlinkVia from '$lib/components/lessons/UnlinkVia.svelte';
@@ -63,6 +64,8 @@
 		figureMeta,
 		yoursMeta,
 		reviewMeta,
+		positionMeta,
+		positionPickGroups,
 		routineMeta,
 		sectionHeading,
 		viaBadge
@@ -157,13 +160,19 @@
 	/** The video the dialog asks about, with how many sections go with it. */
 	let deletingVideo = $state<{ id: number; sections: number } | null>(null);
 	let deleteBusy = $state(false);
-	function askDeleteVideo(id: number, sections: Parameters<typeof deleteBlock>[0]) {
-		const blocked = deleteBlock(sections);
+	function askDeleteVideo(
+		id: number,
+		sections: Parameters<typeof deleteBlock>[0],
+		positions: Parameters<typeof deleteBlock>[1]
+	) {
+		const blocked = deleteBlock(sections, positions);
 		videoRefused = blocked
 			? { ...videoRefused, [id]: blocked }
 			: Object.fromEntries(Object.entries(videoRefused).filter(([k]) => Number(k) !== id));
 		if (!blocked) deletingVideo = { id, sections: sections.length };
 	}
+
+	const styleLabel = $derived(styleLabelOf(data.dance.styleLabel));
 
 	let addingFigure = $state(false);
 	let addingExercise = $state(false);
@@ -175,7 +184,13 @@
 	/** The focus keys of a link list, in page order, and its add control. */
 	function listFocus(kind: LinkKind, id: number) {
 		const rows: { id: number }[] =
-			kind === 'figure' ? data.figures : kind === 'routine' ? data.routines : data.exercises;
+			kind === 'figure'
+				? data.figures
+				: kind === 'routine'
+					? data.routines
+					: kind === 'position'
+						? data.positions
+						: data.exercises;
 		return {
 			keys: rows.map((r) => `${kind}-${r.id}`),
 			gone: `${kind}-${id}`,
@@ -370,13 +385,14 @@
 	 * its row turns "✓ Linked" from the reloaded data. A refused link keeps the
 	 * picker open with the server's message, and the row stays as it was.
 	 */
-	type LinkKind = 'figure' | 'routine' | 'exercise';
+	type LinkKind = 'figure' | 'routine' | 'exercise' | 'position';
 	const LINK = {
 		figure: { action: '?/linkFigure', unlink: '?/unlinkFigure', field: 'figureId' },
 		routine: { action: '?/linkRoutine', unlink: '?/unlinkRoutine', field: 'routineId' },
-		exercise: { action: '?/linkExercise', unlink: '?/unlinkExercise', field: 'exerciseId' }
+		exercise: { action: '?/linkExercise', unlink: '?/unlinkExercise', field: 'exerciseId' },
+		position: { action: '?/linkPosition', unlink: '?/unlinkPosition', field: 'positionId' }
 	} as const;
-	const LINK_KINDS = ['figure', 'routine', 'exercise'] as const;
+	const LINK_KINDS = ['figure', 'routine', 'exercise', 'position'] as const;
 
 	/** The open link picker; one at a time. */
 	let picking = $state<LinkKind | null>(null);
@@ -750,7 +766,8 @@
 										aria-label="Delete video {i + 1}"
 										aria-haspopup="dialog"
 										class={iconButton('bare', 'danger')}
-										onclick={() => askDeleteVideo(video.id, videoSections)}
+										onclick={() =>
+											askDeleteVideo(video.id, videoSections, data.videoPositions[video.id] ?? [])}
 										><Icon name="trash" size={22} /></button
 									>{/if}
 							{/snippet}
@@ -971,6 +988,44 @@
 							data-focus="exercise-add"
 							label="Link an existing exercise…"
 							onclick={() => openPicker('exercise')}
+						/>
+					{/if}
+				</section>
+				<section class="flex flex-col gap-2">
+					{@render labelRow(sectionHeading('Positions', data.positions.length), 'position', null)}
+					{#if data.positions.length > 0}
+						<ul class={GROUP}>
+							{#each data.positions as position (position.id)}
+								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
+									<a
+										data-focus="position-{position.id}"
+										href={resolve('/[dance]/positions/[id]', {
+											dance: data.dance.slug,
+											id: String(position.mineId ?? position.id)
+										})}
+										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
+									>
+										{@render itemText(
+											position.name,
+											viaBadge(position.viaSections),
+											yoursMeta(positionMeta(position, styleLabel), position.mineId)
+										)}
+									</a>
+									{@render unlinkButton(
+										'position',
+										position.id,
+										position.name,
+										position.viaSections
+									)}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					{#if data.canEdit}
+						<PickerOpener
+							data-focus="position-add"
+							label="Link a position…"
+							onclick={() => openPicker('position')}
 						/>
 					{/if}
 				</section>
@@ -1205,10 +1260,10 @@
 	{/snippet}
 </Dialog>
 
-{#snippet labelRow(heading: string, what: LinkKind, onclick: () => void)}
+{#snippet labelRow(heading: string, what: LinkKind, onclick: (() => void) | null)}
 	<div class="flex items-center justify-between pr-1">
 		<h2 class={SECTION_LABEL}>{heading}</h2>
-		{#if data.canEdit}
+		{#if data.canEdit && onclick}
 			<button type="button" class={button('tertiary', 'sm')} aria-label="New {what}" {onclick}
 				><Icon name="plus" size={18} />New</button
 			>
@@ -1328,6 +1383,22 @@
 		onpick={(row) => link('exercise', row, false)}
 		onadd={(row) => link('exercise', row, true)}
 		oncreate={(key, query) => createFrom('exercise', key, query)}
+		ondone={closePicker}
+		onclose={closePicker}
+	/>
+
+	<Picker
+		open={picking === 'position'}
+		title="Link a position"
+		placeholder="Search positions"
+		kind="link"
+		pending={inFlight}
+		groups={positionPickGroups(data.linkablePositions, styleLabel)}
+		nothingLeft="There are no positions yet."
+		{added}
+		message={picking === 'position' ? pickMessage : null}
+		onpick={(row) => link('position', row, false)}
+		onadd={(row) => link('position', row, true)}
 		ondone={closePicker}
 		onclose={closePicker}
 	/>

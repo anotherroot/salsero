@@ -1,15 +1,17 @@
 /**
  * Edit makes it yours ("Make it mine"): a person who can only READ a group's
- * figure, routine, drill, song or lesson presses Edit, and gets their own
- * copy of it, a member of the same family, with everything of theirs that
- * used the group's row moved onto it. Editors keep editing the group's row
+ * figure, routine, drill, song, lesson or position presses Edit, and gets
+ * their own copy of it, a member of the same family, with everything of
+ * theirs that used the group's row moved onto it (for a position: their
+ * figures tagged with it, their lessons' hand links, their sections' links;
+ * its links on the group's videos stay the group's). Editors keep editing the group's row
  * (ruling 1); Make my own copy on a lesson or song is this same action
  * (ruling 12).
  *
  * The copy has no recordings (ruling 5): a figure's stay the group's, to take
  * one at a time. A lesson brings its videos and a song its audio, charged to
  * the person, so either may be refused for room. Nested things a routine or
- * lesson brings (its figures, routines, drills) are copied with it, or the
+ * lesson brings (its figures, routines, drills, positions) are copied with it, or the
  * person's member of their family is linked as it is (an archived one
  * included: only the root, the copy the person lands on, is brought back).
  *
@@ -24,11 +26,20 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { CloneKind } from '$lib/types';
 import { ARCHIVED_SONG_COPY } from '$lib/clones/view';
 import type { Db } from '../db';
-import { exercises, figureGroups, figures, lessons, routines, songs } from '../db/schema';
+import {
+	exercises,
+	figureGroups,
+	figures,
+	lessons,
+	positions,
+	routines,
+	songs
+} from '../db/schema';
 import { labelFor, restoreVariation } from '../figures';
 import { restoreRoutine } from '../routines';
 import { restoreDrill } from '../exercises';
 import { restoreLesson } from '../lessons';
+import { restorePositionIn } from '../positions';
 import { ownedBy, type Wall } from '../scope';
 import type { ArchiveRestore } from '../trash';
 import { cloneInto, planClone, type ClonePair, type CloneRequest, type CloneResult } from './clone';
@@ -64,7 +75,9 @@ export type Row = {
 
 /** The root row Make it mine works on, with its label, or null. A drill is a `custom` exercise. */
 export function rowOf(db: Db, kind: CloneKind, id: number): Row | null {
-	const base = (t: typeof routines | typeof exercises | typeof songs | typeof lessons) => ({
+	const base = (
+		t: typeof routines | typeof exercises | typeof songs | typeof lessons | typeof positions
+	) => ({
 		id: t.id,
 		dance: t.dance,
 		teamId: t.teamId,
@@ -119,6 +132,14 @@ export function rowOf(db: Db, kind: CloneKind, id: number): Row | null {
 					.where(eq(lessons.id, id))
 					.get() ?? null
 			);
+		case 'position':
+			return (
+				db
+					.select({ ...base(positions), title: positions.name })
+					.from(positions)
+					.where(eq(positions.id, id))
+					.get() ?? null
+			);
 	}
 }
 
@@ -141,18 +162,20 @@ const requestOf = (wall: Wall, kind: CloneKind, id: number): CloneRequest => ({
 	recordings: false
 });
 
-const ROOT_KINDS = new Set<string>(['figure', 'routine', 'drill', 'song', 'lesson']);
+const ROOT_KINDS = new Set<string>(['figure', 'routine', 'drill', 'song', 'lesson', 'position']);
 
 /** Two reports as one: rows by id, once; counts added. */
 function merged(a: RepointReport, b: RepointReport): RepointReport {
 	const routinesById = new Map([...a.routines, ...b.routines].map((r) => [r.id, r]));
 	const lessonsById = new Map([...a.lessons, ...b.lessons].map((l) => [l.id, l]));
+	const figuresById = new Map([...a.figures, ...b.figures].map((f) => [f.id, f]));
 	return {
 		routines: [...routinesById.values()].sort((x, y) => x.name.localeCompare(y.name)),
 		lessons: [...lessonsById.values()].sort((x, y) => x.title.localeCompare(y.title)),
 		sections: a.sections + b.sections,
 		entries: a.entries + b.entries,
-		twins: a.twins + b.twins
+		twins: a.twins + b.twins,
+		figures: [...figuresById.values()].sort((x, y) => x.label.localeCompare(y.label))
 	};
 }
 
@@ -208,6 +231,8 @@ function bringBack(tx: Db, wall: Wall, kind: CloneKind, id: number, now: number)
 			return restoreDrill(tx, wall, id, now);
 		case 'lesson':
 			return restoreLesson(tx, wall, id, now);
+		case 'position':
+			return restorePositionIn(tx, wall, id, now);
 		case 'song':
 			// A person's own song has no restore (Task 10's ruling).
 			return { ok: false, reason: 'gone' };
@@ -279,7 +304,7 @@ export async function makeMine(
 				for (const m of moves.values()) {
 					if (m.from === m.to) continue;
 					repoint(tx, wall.userId, wall.dance, m.kind, m.from, m.to, { entries: true }, now);
-					if (m.kind !== 'song') {
+					if (m.kind !== 'song' && m.kind !== 'position') {
 						// An entry merged into the copy's practice is archived at `now`;
 						// one instant earlier keeps a restore of the group's row (its own
 						// `archived_at`) from bringing back a second practice (rescue.ts).
