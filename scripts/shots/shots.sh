@@ -31,7 +31,8 @@ cleanup() {
   fi
   rm -rf "$TMP"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 cp "$DB" "$TMP/salsa.db"
 for ext in -wal -shm; do [ -f "$DB$ext" ] && cp "$DB$ext" "$TMP/salsa.db$ext"; done
@@ -43,10 +44,15 @@ for _ in $(seq 1 50); do
 done
 [ -n "$PORT" ] || { echo "no free port found" >&2; exit 1; }
 
+FAKETIME_LIB="$(nix build --no-link --print-out-paths nixpkgs#libfaketime)/lib/libfaketimeMT.so.1" || exit 1
+[ -f "$FAKETIME_LIB" ] || { echo "shots: libfaketime not found at $FAKETIME_LIB" >&2; exit 1; }
 cd "$ROOT"
-export SHOTS_TMP="$TMP" SHOTS_PORT="$PORT"
+export SHOTS_FAKETIME_LIB="$FAKETIME_LIB"
+export SHOTS_TMP="$TMP" SHOTS_PORT="$PORT" SHOTS_INSTANT="$(cat "$HERE/instant.txt")"
 setsid nix develop --command bash -c '
   export DATA_DIR="$SHOTS_TMP" DATABASE_PATH="$SHOTS_TMP/salsa.db"
+  # the server clock starts at the fixed instant (UTC) and runs on from there (faketime start-at form), so timers still work
+  export TZ=UTC LD_PRELOAD="$SHOTS_FAKETIME_LIB" FAKETIME="@$SHOTS_INSTANT" FAKETIME_DONT_FAKE_MONOTONIC=1 FAKETIME_NO_CACHE=1
   exec npx vite dev --port "$SHOTS_PORT" --strictPort --host 127.0.0.1
 ' >"$TMP/server.log" 2>&1 &
 SERVER_PID=$!

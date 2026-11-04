@@ -12,10 +12,14 @@ import re
 import sqlite3
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 DANCE = "salsa"
+# The one instant every run pretends it is (server via libfaketime, browser via page clock), so time-relative
+# content (due today, 2 days ago, yesterday) is the same whatever day a run happens. Kept in instant.txt (UTC),
+# which shots.sh reads too.
+INSTANT = datetime.strptime(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "instant.txt")).read().strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
 # Elements marked data-shots-mask (a clock, say) are hidden so a page is stable.
 # The rig also marks what depends on the machine, so no page source carries the attribute: the QR of /app
 # encodes the dev server's random port; the admin's limits line ends in the disk's free space.
@@ -41,7 +45,7 @@ def placeholders(db):
     if admin is None:
         sys.exit("shots: no admin user in the db")
     tz = first(db, "select timezone from users where id = ?", (admin,)) or "UTC"
-    yesterday = (datetime.now(ZoneInfo(tz)) - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday = (INSTANT.astimezone(ZoneInfo(tz)) - timedelta(days=1)).strftime("%Y-%m-%d")
     d = DANCE
     v = {
         "dance": d,
@@ -59,8 +63,9 @@ def placeholders(db):
     return admin, v
 
 
-def slug(path):
-    s = re.sub(r"[^A-Za-z0-9]+", "_", path).strip("_")
+def slug(line):
+    # from the template line, not the filled path: stable across days and across db copies
+    s = re.sub(r"[^A-Za-z0-9]+", "_", line.replace("{dance}", DANCE)).strip("_")
     return s or "root"
 
 
@@ -69,7 +74,7 @@ def shoot(a):
 
     db = sqlite3.connect(a.db)
     admin, v = placeholders(db)
-    now = int(time.time() * 1000)
+    now = max(int(time.time() * 1000), int(INSTANT.timestamp() * 1000))
     db.execute("delete from sessions where id = 'shots'")
     db.execute(
         "insert into sessions (id, user_id, expires_at, created_at) values ('shots', ?, ?, ?)",
@@ -82,6 +87,7 @@ def shoot(a):
     lines = [l.strip() for l in open(a.pages) if l.strip() and not l.startswith("#")]
     os.makedirs(a.out, exist_ok=True)
     bad = 0
+    wrote = 0
     with sync_playwright() as p:
         browser = p.chromium.launch()
         ctx = browser.new_context(
@@ -90,6 +96,7 @@ def shoot(a):
             device_scale_factor=1,
             timezone_id="Europe/Ljubljana",
         )
+        ctx.clock.set_fixed_time(INSTANT)
         ctx.add_cookies([{"name": "salsa_session", "value": "shots", "url": a.base}])
         for line in lines:
             names = re.findall(r"\{(\w+)\}", line)
@@ -107,8 +114,9 @@ def shoot(a):
                 page.wait_for_timeout(300)
                 status = resp.status if resp else 0
                 final = page.url.replace(a.base, "")
-                png = os.path.join(a.out, slug(path) + ".png")
+                png = os.path.join(a.out, slug(line) + ".png")
                 page.screenshot(path=png, full_page=True)
+                wrote += 1
                 expected_404 = "does-not-exist" in path
                 ok = (status == 404) if expected_404 else (status < 400 and final.split("?")[0] == path.split("?")[0])
                 if not ok:
@@ -123,6 +131,9 @@ def shoot(a):
     if bad:
         print(f"shots: {bad} page(s) not ok", file=sys.stderr)
         return 1
+    if wrote == 0 or wrote < len(lines):
+        print(f"shots: wrote {wrote} PNG(s) for {len(lines)} page line(s)", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -132,24 +143,36 @@ def diff(a):
     names_a = {f for f in os.listdir(a.a) if f.endswith(".png")}
     names_b = {f for f in os.listdir(a.b) if f.endswith(".png")}
     differs = False
+    compared = 0
     for f in sorted(names_a | names_b):
         s = f[:-4]
         if f not in names_a or f not in names_b:
             print(f"{s} missing-in-{'A' if f not in names_a else 'B'}")
             differs = True
             continue
-        ia = Image.open(os.path.join(a.a, f)).convert("RGBA")
-        ib = Image.open(os.path.join(a.b, f)).convert("RGBA")
+        ia = Image.open(os.path.join(a.a, f)).convert("RGB")
+        ib = Image.open(os.path.join(a.b, f)).convert("RGB")
         if ia.size != ib.size:
             print(f"{s} size {ia.size[0]}x{ia.size[1]} vs {ib.size[0]}x{ib.size[1]}")
             differs = True
             continue
         d = ImageChops.difference(ia, ib)
-        px = d.get_flattened_data() if hasattr(d, "get_flattened_data") else d.getdata()
-        n = sum(1 for p in px if any(p))
+        if d.getbbox() is None:
+            n = 0
+        else:
+            # a pixel is changed if any channel is: lighten the bands of a 0/255 mask, count the 255s
+            bands = [b.point(lambda v: 255 if v else 0) for b in d.split()]
+            mask = bands[0]
+            for b in bands[1:]:
+                mask = ImageChops.lighter(mask, b)
+            n = mask.histogram()[255]
+        compared += 1
         print(f"{s} {n}")
         if n:
             differs = True
+    if compared == 0:
+        print("shots: nothing was compared (no PNG in both directories)", file=sys.stderr)
+        return 1
     return 1 if differs else 0
 
 

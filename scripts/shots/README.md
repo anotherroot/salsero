@@ -16,11 +16,16 @@ answers it prints the server log and exits 1. It exits 1 too if any page is not 
 `{lesson}`, `{routine}`, `{group}`, `{position}`, `{exercise}` are the admin's first live row of that
 kind (a group: the first they are in). A placeholder with no row is a failure. The `does-not-exist` line
 must answer 404; every other page must answer < 400 on its own path. Output: `<out-dir>/<slug>.png`,
-full page, one per line. Media files are not in a db copy, so pages that show them show their missing
+full page, one per line; the slug comes from the template line (`salsa_day_yesterday`, `salsa_figures_figure`), so names do not depend on the day or the db. Media files are not in a db copy, so pages that show them show their missing
 state.
 
 `diff` prints `<slug> <changed-pixels>` per page (a size mismatch prints both sizes, a page in only one
 directory `missing-in-A/B`) and exits 1 if any page differs.
+
+Time is fixed: `instant.txt` (UTC, now 2026-11-05 12:00:00) is the one instant every run pretends it is.
+The dev server runs under libfaketime (`@` start-at form, `TZ=UTC`, monotonic clocks not faked, so vite is fine) and
+the browser context uses `clock.set_fixed_time`; `{yesterday}` is that instant's day minus one in the admin's zone.
+Change the file, and re-take every baseline.
 
 Unstable parts are hidden by `shots.py` (CSS `visibility:hidden` on `[data-shots-mask]`, set by the rig):
 the QR on `/app` (it encodes the random port) and the admin's "... GB free" line. Animations and the
