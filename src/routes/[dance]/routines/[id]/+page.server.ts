@@ -138,7 +138,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	// usable (`usableVersions`), so a figure they lost shows no group name.
 	const groupFigures: Record<number, { team: string; name: string }> = usable
 		? Object.fromEntries(
-				usableVersions(db, wall, usable)
+				usableVersions(db, wall, usable, 'keep')
 					.filter((v) => named.has(v.id))
 					.map((v) => [v.id, { team: v.team.name, name: v.figure }])
 			)

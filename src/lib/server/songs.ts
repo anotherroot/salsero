@@ -5,6 +5,7 @@ import { songGrid } from './grid';
 import { sampleStart } from '$lib/songs/sample';
 import { bpmOf, cleanBeats } from '$lib/beatgrid/beatgrid';
 import { isTeam, ownedBy, ownerValues, type Space, type Wall } from './scope';
+import { shadowedIds } from './clones/shadow';
 import { fieldChange, logChange } from './changes';
 import type { TempoFactor } from '$lib/labels';
 import type { ChangeValues, PickerSong, SampleSong, SongItem, TeamRef } from '$lib/types';
@@ -213,7 +214,15 @@ export function listSharedSongs(
 		.orderBy(teams.name, teams.id, songs.title, songs.id)
 		.all();
 	const out: { team: TeamRef; songs: SongItem[] }[] = [];
+	// Yours replaces theirs: a class song you made your own copy of shows in your list.
+	const hidden = shadowedIds(
+		db,
+		{ userId, dance },
+		'song',
+		rows.map((r) => r.song.id)
+	);
 	for (const r of rows) {
+		if (hidden.has(r.song.id)) continue;
 		let section = out.at(-1);
 		if (section?.team.id !== r.teamId) {
 			section = { team: { id: r.teamId, name: r.teamName }, songs: [] };

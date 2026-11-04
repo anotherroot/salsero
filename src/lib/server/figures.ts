@@ -24,6 +24,7 @@ import { takenLine } from '$lib/teams/deleted';
 import { addedReach, addedTeams, allows, figureAccess } from './access';
 import { actingIn, fieldChange, logChange, variationRoot } from './changes';
 import { ownedOrUsable, usableOf, type Usable } from './usable';
+import { shadowedIds } from './clones/shadow';
 import type { Partner } from '$lib/labels';
 import type {
 	CalledFigure,
@@ -753,7 +754,12 @@ export function listAddedFigures(
 		const only = addedReach(db, wall.userId, team.id).variations;
 		if (only.size === 0) continue;
 		const space = { dance: wall.dance, teamId: team.id, actorId: wall.userId };
-		const moves = listFigures(db, space, { ...filter, only });
+		// Yours replaces theirs: a figure you made your own copy of shows in your
+		// own list; a move left with none disappears from this section.
+		const hidden = shadowedIds(db, wall, 'figure', [...only]);
+		const moves = listFigures(db, space, { ...filter, only })
+			.map((m) => ({ ...m, figures: m.figures.filter((fig) => !hidden.has(fig.id)) }))
+			.filter((m) => m.figures.length > 0);
 		if (moves.length > 0) out.push({ team, moves });
 	}
 	return out;

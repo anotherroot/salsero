@@ -247,6 +247,8 @@ export interface LessonFigureRow {
 	exerciseId: number | null;
 	byHand: boolean;
 	viaSections: ViaSection[];
+	/** On a group's lesson: the person's own copy of it, which the card opens; else null. */
+	mineId: number | null;
 }
 
 /** A routine linked to a lesson, with the exercise that came with it. */
@@ -256,6 +258,8 @@ export interface LessonRoutineRow {
 	exerciseId: number | null;
 	/** How often its exercise comes up; null when it has none. */
 	everyDays: number | null;
+	/** On a group's lesson: the person's own copy of it, which the card opens; else null. */
+	mineId: number | null;
 }
 
 /**
@@ -269,6 +273,8 @@ export interface LessonExerciseRow {
 	byHand: boolean;
 	viaSections: ViaSection[];
 	everyDays: number;
+	/** On a group's lesson: the person's own copy of it, which the card opens; else null. */
+	mineId: number | null;
 }
 
 /** An exercise as a picker offers it. */

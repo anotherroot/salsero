@@ -23,6 +23,7 @@ import { exercises, figureGroups, figures, teamMembers } from './db/schema';
 import { addedReach, addedTeams, teamReader, type ReadKind } from './access';
 import { isTeam, ownedBy, type Space, type Wall } from './scope';
 import { getTeam } from './teams';
+import { withoutShadowed } from './clones/shadow';
 import type { FigureVersion, TeamRef } from '$lib/types';
 
 export type Usable = { figures: Set<number>; routines: Set<number>; drills: Set<number> };
@@ -243,12 +244,15 @@ export function teamRefs(db: Db, teamIds: Iterable<number>): Map<number, TeamRef
 /**
  * The group variations a person may use, live and in a live move, as a picker
  * offers them (`listVersions`' shape), each tagged with its group. By move
- * name, then id.
+ * name, then id. A picker hides the ones the person has their own copy of
+ * (`shadowed: 'hide'`, the default); `usableOf` itself keeps them, and so does
+ * a caller that names existing slots (`'keep'`).
  */
 export function usableVersions(
 	db: Db,
 	wall: Wall,
-	usable: Usable = usableOf(db, wall)
+	usable: Usable = usableOf(db, wall),
+	shadowed: 'hide' | 'keep' = 'hide'
 ): (FigureVersion & { team: TeamRef })[] {
 	const ids = [...usable.figures];
 	if (ids.length === 0) return [];
@@ -277,7 +281,8 @@ export function usableVersions(
 		db,
 		rows.map((r) => r.teamId!)
 	);
-	return rows.flatMap(({ teamId, ...r }) => {
+	const shown = shadowed === 'hide' ? withoutShadowed(db, wall, 'figure', rows) : rows;
+	return shown.flatMap(({ teamId, ...r }) => {
 		const team = teams.get(teamId!);
 		return team ? [{ ...r, label: `${r.figure} · ${r.name}`, team }] : [];
 	});
@@ -314,7 +319,7 @@ export function usableDrills(
 		db,
 		rows.map((r) => r.teamId!)
 	);
-	return rows.flatMap(({ teamId, ...r }) => {
+	return withoutShadowed(db, wall, 'drill', rows).flatMap(({ teamId, ...r }) => {
 		const team = teams.get(teamId!);
 		return team ? [{ ...r, team }] : [];
 	});

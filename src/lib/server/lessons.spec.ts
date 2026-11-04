@@ -551,7 +551,8 @@ describe('linking routines', () => {
 				id: routine.id,
 				name: 'Rueda combo',
 				exerciseId: exercise.id,
-				everyDays: exercise.everyDays
+				everyDays: exercise.everyDays,
+				mineId: null
 			}
 		]);
 	});

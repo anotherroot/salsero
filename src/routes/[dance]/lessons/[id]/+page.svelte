@@ -61,6 +61,7 @@
 		deleteVideoBody,
 		exerciseMeta,
 		figureMeta,
+		yoursMeta,
 		reviewMeta,
 		routineMeta,
 		sectionHeading,
@@ -836,14 +837,14 @@
 										data-focus="figure-{figure.id}"
 										href={resolve('/[dance]/figures/[id]', {
 											dance: data.dance.slug,
-											id: String(figure.id)
+											id: String(figure.mineId ?? figure.id)
 										})}
 										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 									>
 										{@render itemText(
 											figure.name,
 											viaBadge(figure.viaSections),
-											figureMeta(figure)
+											yoursMeta(figureMeta(figure), figure.mineId)
 										)}
 									</a>
 									{@render unlinkButton('figure', figure.id, figure.name, figure.viaSections)}
@@ -871,11 +872,15 @@
 										data-focus="routine-{routine.id}"
 										href={resolve('/[dance]/routines/[id]', {
 											dance: data.dance.slug,
-											id: String(routine.id)
+											id: String(routine.mineId ?? routine.id)
 										})}
 										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 									>
-										{@render itemText(routine.name, null, routineMeta(routine))}
+										{@render itemText(
+											routine.name,
+											null,
+											yoursMeta(routineMeta(routine), routine.mineId)
+										)}
 									</a>
 									<!-- A routine never reaches a lesson through a section. -->
 									{@render unlinkButton('routine', routine.id, routine.name, [])}
@@ -903,14 +908,14 @@
 										data-focus="exercise-{exercise.id}"
 										href={resolve('/[dance]/exercises/[id]', {
 											dance: data.dance.slug,
-											id: String(exercise.id)
+											id: String(exercise.mineId ?? exercise.id)
 										})}
 										class="flex min-w-0 flex-1 flex-col gap-0.5 py-2.5 pr-1"
 									>
 										{@render itemText(
 											exercise.name,
 											viaBadge(exercise.viaSections),
-											exerciseMeta(exercise)
+											yoursMeta(exerciseMeta(exercise), exercise.mineId)
 										)}
 									</a>
 									<!-- The "+" is an icon, so bare accent is allowed. A group's drill is

@@ -26,6 +26,7 @@ import {
 } from './db/schema';
 import { graphFor } from './graph';
 import { ownedOrUsable, teamRefs, usableOf, type Usable } from './usable';
+import { withoutShadowed } from './clones/shadow';
 import { addedReach, addedTeams } from './access';
 import { reconcileEntries, reviveEntries } from './entries';
 import type { ArchiveRestore } from './trash';
@@ -293,7 +294,8 @@ export function listAddedRoutines(
 			.groupBy(routines.id)
 			.orderBy(desc(routines.createdAt), desc(routines.id))
 			.all();
-		if (rows.length > 0) out.push({ team, routines: rows });
+		const shown = withoutShadowed(db, wall, 'routine', rows);
+		if (shown.length > 0) out.push({ team, routines: shown });
 	}
 	return out;
 }
@@ -354,7 +356,7 @@ export function listUsableRoutines(
 		db,
 		rows.map((r) => r.teamId!)
 	);
-	return rows
+	return withoutShadowed(db, wall, 'routine', rows)
 		.flatMap(({ teamId, ...r }) => {
 			const team = teams.get(teamId!);
 			const shape = shapes.get(r.id);

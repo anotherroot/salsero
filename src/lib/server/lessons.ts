@@ -18,6 +18,7 @@ import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
 import { listPickRoutines, listUsableRoutines } from './routines';
 import { ownedOrUsable, usableBy, usableDrills, usableOf, usableVersions } from './usable';
+import { mineIdsFor, withoutShadowed } from './clones/shadow';
 import {
 	exercises,
 	figureGroups,
@@ -589,7 +590,9 @@ export function listMyLessons(db: Db, wall: Wall): LessonItem[] {
 			if (ids.has(r.id)) theirs.push({ ...r, team });
 		}
 	}
-	return [...listLessons(db, wall), ...theirs].sort(
+	// Yours replaces theirs: a group lesson you made your own copy of shows once.
+	const shown = withoutShadowed(db, wall, 'lesson', theirs);
+	return [...listLessons(db, wall), ...shown].sort(
 		(a, b) => b.lessonDay.localeCompare(a.lessonDay) || b.id - a.id
 	);
 }
@@ -686,9 +689,19 @@ export function getLesson(db: Db, id: number, userId: string) {
 					.leftJoin(exercises, entryJoin(userId, eq(exercises.figureId, figures.id)))
 					.where(inArray(figures.id, sectionFigureIds))
 					.all();
+	// A group lesson's link cards open the person's own copy when they have one.
+	const copies = (kind: 'figure' | 'routine' | 'drill', ids: number[]) =>
+		lesson.teamId === null
+			? new Map<number, number>()
+			: mineIdsFor(db, { userId, dance: lesson.dance as Wall['dance'] }, kind, ids);
+	const mineFigure = copies(
+		'figure',
+		[...handFigures, ...sectionFigures].map((r) => r.id)
+	);
 	const linkedFigures: LessonFigureRow[] = [...handFigures, ...sectionFigures]
 		.map(({ figure, variation, ...r }) => ({
 			...r,
+			mineId: mineFigure.get(r.id) ?? null,
 			name: `${figure} · ${variation}`,
 			byHand: handFigureIds.has(r.id),
 			viaSections: via.figures.get(r.id) ?? []
@@ -707,7 +720,13 @@ export function getLesson(db: Db, id: number, userId: string) {
 		.leftJoin(exercises, entryJoin(userId, eq(exercises.routineId, routines.id)))
 		.where(eq(lessonRoutines.lessonId, id))
 		.orderBy(asc(routines.name))
-		.all();
+		.all()
+		.map((r) => ({ ...r, mineId: null as number | null }));
+	const mineRoutine = copies(
+		'routine',
+		linkedRoutines.map((r) => r.id)
+	);
+	for (const r of linkedRoutines) r.mineId = mineRoutine.get(r.id) ?? null;
 
 	const exerciseColumns = {
 		id: exercises.id,
@@ -731,9 +750,14 @@ export function getLesson(db: Db, id: number, userId: string) {
 					.from(exercises)
 					.where(and(inArray(exercises.id, sectionExerciseIds), isNull(exercises.archivedAt)))
 					.all();
+	const mineDrill = copies(
+		'drill',
+		[...handExercises, ...sectionExercises].map((r) => r.id)
+	);
 	const linkedExercises: LessonExerciseRow[] = [...handExercises, ...sectionExercises]
 		.map((r) => ({
 			...r,
+			mineId: mineDrill.get(r.id) ?? null,
 			byHand: handExerciseIds.has(r.id),
 			viaSections: via.exercises.get(r.id) ?? []
 		}))
