@@ -29,6 +29,7 @@ import { usableBy, usableOf, type Usable } from './usable';
 import { actingIn, logChange, spotRoot } from './changes';
 import { spotWords, trashRows, type TrashRows } from './trash';
 import {
+	clearPictureOf,
 	keepFor,
 	keepUsable,
 	labelled,
@@ -182,6 +183,7 @@ export function unlinkSpotFromPosition(
 		const root = spotRoot(tx, link.spotId);
 		const spot = tx.select().from(videoSpots).where(eq(videoSpots.id, link.spotId)).get();
 		tx.delete(spotPositionLinks).where(eq(spotPositionLinks.id, linkId)).run();
+		clearPictureOf(tx, link.positionId, [link.spotId]);
 		const rows: TrashRows = { spot_position_links: [link] };
 		if (opts.alsoLesson && spot?.lessonVideoId != null) {
 			const lesson = tx

@@ -47,7 +47,7 @@ import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_BACHATA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
-import { PRESET_GONE } from '$lib/positions/view';
+import { ARCHIVED_LINKS, PRESET_GONE } from '$lib/positions/view';
 import { actions, load } from './positions/[id]/+page.server';
 import { actions as figureList, load as figureLoad } from './figures/+page.server';
 
@@ -852,6 +852,47 @@ describe('Video and Lessons: links from the page', () => {
 			verb: 'add'
 		});
 		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('an archived position refuses every link change, writing nothing', async () => {
+		const o = own();
+		const t = taped(U2_SALSA, 'Week 6');
+		const link = linkSpotToPosition(db, 'u2', t.point, o.p);
+		db.insert(lessonPositions).values({ lessonId: t.lesson, positionId: o.p }).run();
+		db.update(positions).set({ archivedAt: 1 }).where(eq(positions.id, o.p)).run();
+		const refused = (action: Name) => ({
+			status: 400,
+			data: { action, message: ARCHIVED_LINKS }
+		});
+		expect(await act('linkSpot', 'u2', o.p, { spotId: String(t.section) })).toMatchObject(
+			refused('linkSpot')
+		);
+		expect(await act('unlinkSpot', 'u2', o.p, { linkId: String(link) })).toMatchObject(
+			refused('unlinkSpot')
+		);
+		const other = createLesson(db, U2_SALSA, {
+			lessonDay: '2026-11-04',
+			title: 'Week 7',
+			notes: null
+		}).lesson.id;
+		expect(await act('linkLesson', 'u2', o.p, { lessonId: String(other) })).toMatchObject(
+			refused('linkLesson')
+		);
+		const via = { lessonId: String(t.lesson), alsoSections: '1' };
+		expect(await act('unlinkLesson', 'u2', o.p, via)).toMatchObject(refused('unlinkLesson'));
+		expect(links().map((l) => [l.spotId, l.positionId])).toEqual([[t.point, o.p]]);
+		expect(handLinks()).toEqual([{ lessonId: t.lesson, positionId: o.p }]);
+	});
+
+	it('refuses to link an archived lesson, writing nothing', async () => {
+		const o = own();
+		const t = taped(U2_SALSA, 'Week 6');
+		db.update(lessons).set({ archivedAt: 1 }).where(eq(lessons.id, t.lesson)).run();
+		expect(await act('linkLesson', 'u2', o.p, { lessonId: String(t.lesson) })).toMatchObject({
+			status: 400,
+			data: { action: 'linkLesson', message: 'That lesson is archived.' }
+		});
+		expect(handLinks()).toEqual([]);
 	});
 
 	it('unlinks a lesson by hand, and one there through a point with its links', async () => {

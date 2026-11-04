@@ -13,7 +13,8 @@ import {
 	deleteLessonVideo,
 	getLesson,
 	linkPosition,
-	publishLesson
+	publishLesson,
+	unlinkPosition
 } from './lessons';
 import { addRecording, createFigure, deleteRecording } from './figures';
 import { addSpot, deleteSpot, listSpots } from './spots';
@@ -191,6 +192,38 @@ describe('a linked spot refuses to go', () => {
 		unlinkSpotFromPosition(db, link, T);
 		expect(deleteSpot(db, point)).not.toBeNull();
 		expect(picture()).toBeNull();
+	});
+
+	it('unlinking the picture point clears the picture; another link or position keeps its own', () => {
+		const abierta = position(U1_SALSA, 'Abierta');
+		const other = addSpot(
+			db,
+			{ lessonVideoId: video },
+			{ startMs: 90_000, endMs: null, label: null }
+		)!.id;
+		const link = linkSpotToPosition(db, 'u1', point, cerrada, T);
+		const otherLink = linkSpotToPosition(db, 'u1', other, cerrada, T);
+		const abiertaLink = linkSpotToPosition(db, 'u1', point, abierta, T);
+		db.update(positions).set({ pictureSpotId: point }).run();
+		const picture = (id: number) =>
+			db.select({ p: positions.pictureSpotId }).from(positions).where(eq(positions.id, id)).get()!
+				.p;
+		unlinkSpotFromPosition(db, otherLink, T);
+		expect(picture(cerrada)).toBe(point);
+		unlinkSpotFromPosition(db, link, T);
+		expect(picture(cerrada)).toBeNull();
+		expect(picture(abierta)).toBe(point);
+		unlinkSpotFromPosition(db, abiertaLink, T);
+		expect(picture(abierta)).toBeNull();
+	});
+
+	it('taking a position off a lesson with its sections clears a picture among them', () => {
+		linkPosition(db, lesson, cerrada);
+		linkSpotToPosition(db, 'u1', point, cerrada, T);
+		db.update(positions).set({ pictureSpotId: point }).where(eq(positions.id, cerrada)).run();
+		expect(unlinkPosition(db, lesson, cerrada, true, T)).toBe(true);
+		expect(db.select().from(spotPositionLinks).all()).toEqual([]);
+		expect(db.select().from(positions).get()!.pictureSpotId).toBeNull();
 	});
 
 	it('a video or recording delete clears the pictures of its points', () => {

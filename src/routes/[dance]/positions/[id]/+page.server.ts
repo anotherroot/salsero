@@ -57,7 +57,7 @@ import { dropOptions } from '$lib/server/clones/drop';
 import { sameAsOffer } from '$lib/server/twins';
 import { DANCES } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
-import { styleLabelOf } from '$lib/positions/view';
+import { ARCHIVED_LINKS, styleLabelOf } from '$lib/positions/view';
 import type { Actions, PageServerLoad } from './$types';
 
 /** The position this URL names, or a 404: another person's, another dance's, a draft's. */
@@ -66,6 +66,15 @@ const positionIn = (
 	locals: App.Locals,
 	need: 'read' | 'edit'
 ) => requirePositionAccess(getDb(), locals, params, params.id, need);
+
+/**
+ * An archived position's links stay as they are until Restore: every link and
+ * unlink from its page is refused before anything is read or written.
+ */
+const archivedRefusal = (
+	position: { archivedAt: number | null },
+	action: 'linkSpot' | 'unlinkSpot' | 'linkLesson' | 'unlinkLesson'
+) => (position.archivedAt === null ? null : fail(400, { action, message: ARCHIVED_LINKS }));
 
 export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 	const db = getDb();
@@ -404,6 +413,8 @@ export const actions: Actions = {
 	 */
 	linkSpot: async ({ params, request, locals }) => {
 		const { position } = positionIn(params, locals, 'read');
+		const archived = archivedRefusal(position, 'linkSpot');
+		if (archived) return archived;
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
 			return fail(400, { action: 'linkSpot' as const, message: 'Pick a section or point.' });
@@ -429,6 +440,8 @@ export const actions: Actions = {
 	unlinkSpot: async ({ params, request, locals }) => {
 		const db = getDb();
 		const { position } = positionIn(params, locals, 'read');
+		const archived = archivedRefusal(position, 'unlinkSpot');
+		if (archived) return archived;
 		const userId = wallOf(params, locals).userId;
 		const linkId = int(await request.formData(), 'linkId');
 		const link =
@@ -459,6 +472,8 @@ export const actions: Actions = {
 	linkLesson: async ({ params, request, locals }) => {
 		const db = getDb();
 		const { position } = positionIn(params, locals, 'read');
+		const archived = archivedRefusal(position, 'linkLesson');
+		if (archived) return archived;
 		const lessonId = int(await request.formData(), 'lessonId');
 		if (lessonId === undefined) {
 			return fail(400, { action: 'linkLesson' as const, message: 'Pick a lesson.' });
@@ -491,6 +506,8 @@ export const actions: Actions = {
 	unlinkLesson: async ({ params, request, locals }) => {
 		const db = getDb();
 		const { position } = positionIn(params, locals, 'read');
+		const archived = archivedRefusal(position, 'unlinkLesson');
+		if (archived) return archived;
 		const form = await request.formData();
 		const lessonId = int(form, 'lessonId');
 		if (lessonId === undefined) {

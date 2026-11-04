@@ -711,3 +711,6 @@ export function unusedChip(name: string): string {
 export function mapLitLine(name: string): string {
 	return `${name} · tap again to open`;
 }
+
+/** A link or unlink posted to an archived position's page (another tab, a replay). */
+export const ARCHIVED_LINKS = 'This position is archived. Restore it to change its links.';

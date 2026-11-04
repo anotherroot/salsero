@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/sqlite-core';
 import type { Db } from './db';
-import { assertUnlinked, clearPictures } from './spot-links';
+import { assertUnlinked, clearPictureOf, clearPictures } from './spot-links';
 import { lessonsReaching, viaSections } from './lesson-links';
 import { listVersions } from './figures';
 import { listPickRoutines, listUsableRoutines } from './routines';
@@ -1187,6 +1187,7 @@ export function unlinkPosition(
 						)
 					)
 					.run().changes;
+				clearPictureOf(tx, positionId, spots);
 			}
 		}
 		if (changes > 0) reconcileLesson(tx, lessonId, now);

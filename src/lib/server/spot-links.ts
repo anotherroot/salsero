@@ -590,6 +590,18 @@ export function clearPictures(tx: Db, spotIds: number[]): void {
 		.run();
 }
 
+/**
+ * A point unlinked from a position stops being that position's picture, in the
+ * unlink's transaction: a picture is always one of the position's own linked
+ * points (`validPicture` in positions.ts). Other positions' pictures stay.
+ */
+export function clearPictureOf(tx: Db, positionId: number, spotIds: number[]): void {
+	if (spotIds.length === 0) return;
+	tx.update(positions)
+		.set({ pictureSpotId: null })
+		.where(and(eq(positions.id, positionId), inArray(positions.pictureSpotId, spotIds)))
+		.run();
+}
 /* ── Reads: the cards, the link sheet, a video's list ──────────────────── */
 
 export type BareSpot = Omit<Spot, 'linkedTo'>;
