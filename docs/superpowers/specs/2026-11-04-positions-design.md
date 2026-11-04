@@ -110,10 +110,16 @@ the last slot's ends; it loops when the last slot's ends fit the first slot.
 A person's routine can mix their own figures with a group's (`usableOf`), each
 tagged with its own owner's positions. The graph compares positions by
 **family** (`gene_id`, falling back to the row id), not by row id: a group's
-Hammerlock and your copy of it are the same hold. *Open question for the user,
-do not build until answered:* should twins (Same as…) also count as the same
-position in the graph? The boards said so, but "Twins are views" (CLAUDE.md)
-says the graph reads rows as they are.
+Hammerlock and your copy of it are the same hold. **Decided by the user
+(2026-11-04):** twinned positions (Same as…) count as one in the graph and on
+the map, shown as one node marked as a twin, as lists mark twins. A deliberate
+exception to "Twins are views": only the graph (and so fit, breaks, the map)
+reads twin positions as one; everything else reads rows as they are.
+`buildGraph` merges the families of each of the person's twin sets into one
+canonical id (the person's own member, else the lowest id); a group's space
+has no twins. The map draws the node with a "Twins" line under its name (and
+under its dead end or orphan word), which the layout keeps clear, and names who
+it stands for in its tooltip: "Twins: your Cerrada, Salsa Tuesdays’ Closed".
 
 ### Types
 

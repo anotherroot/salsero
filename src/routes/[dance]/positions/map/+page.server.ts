@@ -1,15 +1,17 @@
 import { error } from '@sveltejs/kit';
+import { inArray } from 'drizzle-orm';
 import { getDb } from '$lib/server/db';
-import { canonicalOf, graphFor } from '$lib/server/graph';
-import { usableOf } from '$lib/server/usable';
-import { storedTwinSets } from '$lib/server/twins';
+import { positions as positionsTable } from '$lib/server/db/schema';
+import { graphFor } from '$lib/server/graph';
+import { teamRefs, usableOf } from '$lib/server/usable';
+import type { Db } from '$lib/server/db';
 import { wallOf, type Space } from '$lib/server/scope';
 import { groupModeOf } from '$lib/server/group-mode';
 import { noPosition, positionCounts } from '$lib/graph/graph';
 import { DANCES } from '$lib/dances/dances';
 import { layoutMap, mapInputOf, mapLabel } from '$lib/positions/map';
 import { legendTypes, styleTone } from '$lib/positions/map-view';
-import { mapLabelFor, mapNodeName, mapSummary } from '$lib/positions/view';
+import { mapLabelFor, mapNodeName, mapSummary, mapTwinsLine } from '$lib/positions/view';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ params, locals, cookies }) => {
@@ -24,16 +26,10 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 	const usable = mode ? undefined : usableOf(db, wall);
 	const graph = graphFor(db, space, usable);
 
-	// Twins (Same as…) are a person's own; Task 27 draws a set as one node, until
-	// then each member carries the mark.
-	const twinIds = new Set<number>(
-		mode
-			? []
-			: storedTwinSets(db, wall.userId, 'position')
-					.flat()
-					.map((id) => canonicalOf(graph, id))
-	);
-	const input = mapInputOf(graph, twinIds);
+	// Twins (Same as…) are a person's own, and the graph reads each set as one
+	// position (ruling 16): one node, marked, whose line names who it stands for.
+	const input = mapInputOf(graph);
+	const twinsLines = twinsLinesOf(db, graph.twinned);
 	if (mode) {
 		// The gap report is the person's own, as on the list: group mode marks no
 		// dead end or orphan. An island still goes to the tray: it cannot be drawn.
@@ -60,12 +56,13 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 			tone: styleTone(p.styleTag, styles),
 			ins: c.inCount,
 			outs: c.outCount,
+			twinsLine: twinsLines.get(p.id) ?? null,
 			ariaLabel: mapNodeName({
 				name: p.name,
 				ins: c.inCount,
 				outs: c.outCount,
 				mark: marks.get(p.id) ?? null,
-				twins: p.twins ?? false
+				twins: twinsLines.get(p.id) ?? null
 			})
 		};
 	});
@@ -101,3 +98,39 @@ export const load: PageServerLoad = ({ params, locals, cookies }) => {
 		groupMode: mode !== null
 	};
 };
+
+/**
+ * Each twinned node's line ("Twins: your Cerrada, Salsa Tuesdays’ Closed"):
+ * the node's own row first, then the others by id, each named by its place.
+ */
+function twinsLinesOf(db: Db, twinned: Map<number, number[]>): Map<number, string> {
+	const ids = [...twinned.values()].flat();
+	if (ids.length === 0) return new Map();
+	const rows = new Map(
+		db
+			.select({ id: positionsTable.id, name: positionsTable.name, teamId: positionsTable.teamId })
+			.from(positionsTable)
+			.where(inArray(positionsTable.id, ids))
+			.all()
+			.map((r) => [r.id, r])
+	);
+	const teams = teamRefs(
+		db,
+		[...rows.values()].flatMap((r) => (r.teamId === null ? [] : [r.teamId]))
+	);
+	const lines = new Map<number, string>();
+	for (const [canon, members] of twinned) {
+		const ordered = [...members].sort((a, b) => (a === canon ? -1 : b === canon ? 1 : a - b));
+		lines.set(
+			canon,
+			mapTwinsLine(
+				ordered.flatMap((id) => {
+					const r = rows.get(id);
+					if (!r) return [];
+					return [{ name: r.name, team: r.teamId === null ? null : (teams.get(r.teamId) ?? null) }];
+				})
+			)
+		);
+	}
+	return lines;
+}

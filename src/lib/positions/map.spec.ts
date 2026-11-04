@@ -12,6 +12,7 @@ import {
 	mapLabel,
 	mapSize,
 	nodeRadius,
+	twinsBox,
 	type MapInput,
 	type MapLayout,
 	type MapNode,
@@ -74,27 +75,31 @@ function circleHitsBox(n: MapNode, b: Box): boolean {
 
 function expectClean(input: MapInput, out: MapLayout) {
 	const boxes = out.nodes.map((n) => labelBox(nameOf(input, n.id), n.labelX, n.labelY));
-	// A dead end or orphan says so on a second line, under its name: a box of its own.
-	const marks = out.nodes.map((n) =>
-		n.mark === null ? null : markBox(n.mark, n.labelX, n.markY!)
-	);
+	// A dead end or orphan says so on a line under its name, and a twinned
+	// position says Twins on the line after that: each a box of its own.
+	const lines = out.nodes.map((n) => {
+		const own: Box[] = [];
+		if (n.mark === null) expect(n.markY).toBe(null);
+		else own.push(markBox(n.mark, n.labelX, n.markY!));
+		if (!n.twins) expect(n.twinsY).toBe(null);
+		else own.push(twinsBox(n.labelX, n.twinsY!));
+		return own;
+	});
 	for (let i = 0; i < out.nodes.length; i++) {
-		const m = marks[i];
-		if (!m) {
-			expect(out.nodes[i].markY).toBe(null);
-			continue;
-		}
-		expect(m.y0).toBeGreaterThanOrEqual(boxes[i].y1);
-		expect(m.x0).toBeGreaterThanOrEqual(0);
-		expect(m.y0).toBeGreaterThanOrEqual(0);
-		expect(m.x1).toBeLessThanOrEqual(out.width);
-		expect(m.y1).toBeLessThanOrEqual(out.height);
-		for (let j = 0; j < out.nodes.length; j++) {
-			expect(circleHitsBox(out.nodes[j], m)).toBe(false);
-			if (j === i) continue;
-			expect(boxesOverlap(m, boxes[j])).toBe(false);
-			const o = marks[j];
-			if (o) expect(boxesOverlap(m, o)).toBe(false);
+		let above = boxes[i];
+		for (const m of lines[i]) {
+			expect(m.y0).toBeGreaterThanOrEqual(above.y1);
+			above = m;
+			expect(m.x0).toBeGreaterThanOrEqual(0);
+			expect(m.y0).toBeGreaterThanOrEqual(0);
+			expect(m.x1).toBeLessThanOrEqual(out.width);
+			expect(m.y1).toBeLessThanOrEqual(out.height);
+			for (let j = 0; j < out.nodes.length; j++) {
+				expect(circleHitsBox(out.nodes[j], m)).toBe(false);
+				if (j === i) continue;
+				expect(boxesOverlap(m, boxes[j])).toBe(false);
+				for (const o of lines[j]) expect(boxesOverlap(m, o)).toBe(false);
+			}
 		}
 	}
 	for (let i = 0; i < out.nodes.length; i++) {
@@ -269,6 +274,37 @@ describe('layoutMap', () => {
 		expectClean(input, layoutMap(input, { steps: 0 }));
 	});
 
+	it('gives a twinned position room for its Twins line, under the mark when it has one', () => {
+		// The same crowd, every other one twinned, and the hub too.
+		const positions = [{ ...pos(1, 'Hub', 24), twins: true }];
+		const edges = [];
+		for (let i = 2; i <= 13; i++) {
+			positions.push({ ...pos(i, `D${i}`), twins: i % 2 === 0 });
+			edges.push(edge(1, i));
+		}
+		for (let i = 14; i <= 25; i++) {
+			positions.push({ ...pos(i, `O${i}`), twins: i % 2 === 0 });
+			edges.push(edge(i, 1));
+		}
+		const input = { positions, edges };
+		const out = layoutMap(input);
+		const hub = out.nodes.find((n) => n.id === 1)!;
+		// No mark: the Twins line is the second.
+		expect(hub).toMatchObject({ mark: null, markY: null, twins: true });
+		expect(hub.twinsY).toBe(hub.labelY + LABEL_HEIGHT);
+		// A dead end: the name, the mark, then Twins.
+		const d = out.nodes.find((n) => n.id === 2)!;
+		expect(d).toMatchObject({ mark: 'dead end', twins: true });
+		expect(d.twinsY).toBe(d.labelY + 2 * LABEL_HEIGHT);
+		expect(out.nodes.find((n) => n.id === 3)!.twinsY).toBe(null);
+		// Wider than a two-letter name: the box is the word's.
+		const word = twinsBox(0, 0);
+		expect(word.x1 - word.x0).toBeGreaterThan(labelBox('D2', 0, 0).x1 - labelBox('D2', 0, 0).x0);
+		expectClean(input, out);
+		expectClean(input, layoutMap(input, { steps: 0 }));
+		expectClean(input, layoutMap(input, { steps: 40 }));
+	});
+
 	it('puts islands and unused positions in the tray, by name, and draws only the main part', () => {
 		const out = layoutMap({
 			positions: [
@@ -335,9 +371,9 @@ describe('layoutMap', () => {
 			positions: [{ ...pos(1, 'a'), twins: true }, pos(2, 'b')],
 			edges: [edge(1, 2)]
 		});
-		expect(out.nodes.map((n) => [n.id, n.twins])).toEqual([
-			[1, true],
-			[2, false]
+		expect(out.nodes.map((n) => [n.id, n.twins, n.twinsY === null])).toEqual([
+			[1, true, false],
+			[2, false, true]
 		]);
 	});
 
@@ -422,13 +458,14 @@ describe('mapInputOf', () => {
 	it('counts figures through each position and between each pair, from the graph', () => {
 		const g: Graph = {
 			positions: [
-				{ id: 1, name: 'Closed', styleTag: 'la' },
-				{ id: 2, name: 'Open', styleTag: null },
-				{ id: 3, name: 'Unused', styleTag: null }
+				{ id: 1, name: 'Closed', styleTag: 'la', twins: false },
+				{ id: 2, name: 'Open', styleTag: null, twins: true },
+				{ id: 3, name: 'Unused', styleTag: null, twins: false }
 			],
 			figures: [fig(10, [1], [2]), fig(11, [1, 2], [2]), fig(12, [2], []), fig(13, [], [])]
 		};
-		expect(mapInputOf(g, new Set([2]))).toEqual({
+		// A node stands for twins when the graph's position does (ruling 16).
+		expect(mapInputOf(g)).toEqual({
 			positions: [
 				{
 					id: 1,
@@ -466,7 +503,12 @@ describe('mapInputOf', () => {
 		// figure 20 joins 1,2,3 through multi-tag sides; edges alone would
 		// over-count it. The main part must still be the gap report's.
 		const g: Graph = {
-			positions: [1, 2, 3, 4, 5].map((id) => ({ id, name: `p${id}`, styleTag: null })),
+			positions: [1, 2, 3, 4, 5].map((id) => ({
+				id,
+				name: `p${id}`,
+				styleTag: null,
+				twins: false
+			})),
 			figures: [fig(20, [1, 2], [3]), fig(21, [4], [5]), fig(22, [5], [4])]
 		};
 		const islands = positionCounts(g, [1, 2, 3, 4, 5])

@@ -9,8 +9,15 @@
  * Positions are compared by FAMILY, not by row: a group's Cerrada and a
  * person's copy of it (one `gene_id`) are the same hold, so a person's figure
  * ending in theirs is followed by the group's figure starting in the group's.
- * The graph carries one CANONICAL id per family (`canonicalId` below); every
+ * The graph carries one CANONICAL id per family (`canonicalIds` below); every
  * tag is mapped to it before the pure code sees it.
+ *
+ * A person's TWINNED positions (Same as…) are one hold too (ruling 16, the
+ * one exception to "twins are views"): after families, each of their twin
+ * sets merges the families of its members into one canonical id (`mergeTwins`).
+ * Only the graph reads them so, and with it what reads the graph (routines,
+ * fit, breaks, the map); everything else reads rows as they are. A group's
+ * space has no twins.
  */
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Db } from './db';
@@ -19,7 +26,8 @@ import {
 	figureGroups,
 	figures,
 	figureStartPositions,
-	positions
+	positions,
+	twins
 } from './db/schema';
 import { taggedCount, type Graph } from '$lib/graph/graph';
 import {
@@ -33,8 +41,12 @@ import { ownedOrUsable, usableBy, usableOf, type Usable } from './usable';
 import { actingIn, fieldChange, logChange } from './changes';
 import { reconcileEntries } from './entries';
 
-/** A graph as `buildGraph` makes it: plus each real position id's canonical id. */
-export type SpaceGraph = Graph & { canon: Map<number, number> };
+/**
+ * A graph as `buildGraph` makes it: plus each real position id's canonical id,
+ * and, for each canonical id that stands for twins, the twinned real ids it
+ * stands for (live and in reach), by id.
+ */
+export type SpaceGraph = Graph & { canon: Map<number, number>; twinned: Map<number, number[]> };
 
 /** What joins a space's own rows in its graph: figures and positions of others it may use. */
 export interface GraphExtra {
@@ -67,6 +79,72 @@ function canonicalIds(
 }
 
 /**
+ * A person's twin sets of positions merged into `canon`, in place: every
+ * family a set touches becomes one, under the person's own member (the lowest
+ * such id when the merged families hold several), else the lowest id. Sets
+ * that share a family merge whole. A twin out of reach (archived, another
+ * dance, not usable) is left out, so a set with one family left merges nothing.
+ *
+ * Returns each merged canonical id with the twinned real ids it stands for.
+ */
+function mergeTwins(
+	canon: Map<number, number>,
+	sets: number[][],
+	own: (id: number) => boolean
+): Map<number, number[]> {
+	const parent = new Map<number, number>();
+	const find = (id: number): number => {
+		let root = id;
+		while (parent.has(root) && parent.get(root) !== root) root = parent.get(root)!;
+		parent.set(id, root);
+		return root;
+	};
+	const merged: number[][] = [];
+	for (const set of sets) {
+		const inReach = set.filter((id) => canon.has(id));
+		const families = [...new Set(inReach.map((id) => canon.get(id)!))];
+		if (families.length < 2) continue;
+		merged.push(inReach);
+		for (const f of families.slice(1)) parent.set(find(f), find(families[0]));
+	}
+	if (merged.length === 0) return new Map();
+
+	// Each merged group's canonical id: the person's own lowest, else the lowest.
+	const best = new Map<number, number>();
+	for (const [id, family] of canon) {
+		if (!parent.has(family)) continue;
+		const root = find(family);
+		const was = best.get(root);
+		const better =
+			was === undefined || (own(id) && !own(was)) || (own(id) === own(was) && id < was);
+		if (better) best.set(root, id);
+	}
+	for (const [id, family] of canon) if (parent.has(family)) canon.set(id, best.get(find(family))!);
+
+	const twinned = new Map<number, number[]>();
+	for (const ids of merged)
+		for (const id of ids) {
+			const c = canon.get(id)!;
+			twinned.set(c, [...(twinned.get(c) ?? []), id]);
+		}
+	for (const ids of twinned.values()) ids.sort((a, b) => a - b);
+	return twinned;
+}
+
+/** A person's twin sets of positions, as stored (the graph drops what is out of its reach). */
+function positionTwinSets(db: Db, userId: string): number[][] {
+	const bySet = new Map<string, number[]>();
+	for (const r of db
+		.select({ setId: twins.setId, itemId: twins.itemId })
+		.from(twins)
+		.where(and(eq(twins.userId, userId), eq(twins.kind, 'position')))
+		.orderBy(asc(twins.itemId))
+		.all())
+		bySet.set(r.setId, [...(bySet.get(r.setId) ?? []), r.itemId]);
+	return [...bySet.values()];
+}
+
+/**
  * The live variations (of live figures) of one space as a graph.
  *
  * Starts come from `figure_start_positions`, ends from `figure_end_positions`,
@@ -81,7 +159,8 @@ function canonicalIds(
  *
  * `positions` holds one entry per canonical id, named from that row; `canon`
  * maps every live real id in reach to it, for pages that start from a real id
- * (`canonicalOf`).
+ * (`canonicalOf`). A person's twinned positions share one canonical id
+ * (`mergeTwins`), whose entry says `twins`; `twinned` lists who it stands for.
  */
 export function buildGraph(db: Db, space: Space, extra: GraphExtra = {}): SpaceGraph {
 	const whose = ownedOrUsable(figures, space, extra.figures);
@@ -112,6 +191,10 @@ export function buildGraph(db: Db, space: Space, extra: GraphExtra = {}): SpaceG
 		.orderBy(asc(positions.id))
 		.all();
 	const canon = canonicalIds(live, space);
+	const byId = new Map(live.map((p) => [p.id, p]));
+	const twinned = isTeam(space)
+		? new Map<number, number[]>()
+		: mergeTwins(canon, positionTwinSets(db, space.userId), (id) => inSpace(byId.get(id)!, space));
 
 	const ids = rows.map((r) => r.id);
 	const tagsOf = (table: typeof figureStartPositions | typeof figureEndPositions) => {
@@ -144,8 +227,9 @@ export function buildGraph(db: Db, space: Space, extra: GraphExtra = {}): SpaceG
 		})),
 		positions: live
 			.filter((p) => canon.get(p.id) === p.id)
-			.map((p) => ({ id: p.id, name: p.name, styleTag: p.styleTag })),
-		canon
+			.map((p) => ({ id: p.id, name: p.name, styleTag: p.styleTag, twins: twinned.has(p.id) })),
+		canon,
+		twinned
 	};
 }
 

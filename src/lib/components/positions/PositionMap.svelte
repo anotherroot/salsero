@@ -2,14 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { button } from '$lib/components/ui/styles';
 	import type { MapLayout } from '$lib/positions/map';
-	import {
-		edgeGeometry,
-		edgeKey,
-		litOf,
-		TONE_VAR,
-		twinsSpot,
-		type MapTone
-	} from '$lib/positions/map-view';
+	import { edgeGeometry, edgeKey, litOf, TONE_VAR, type MapTone } from '$lib/positions/map-view';
 	import { MAP, mapLitLine } from '$lib/positions/view';
 	import {
 		clampView,
@@ -37,6 +30,8 @@
 		label: string;
 		tone: MapTone;
 		ariaLabel: string;
+		/** "Twins: your Cerrada, Salsa Tuesdays’ Closed" when it stands for twins; its tooltip. */
+		twinsLine: string | null;
 	}
 
 	interface Props {
@@ -300,6 +295,10 @@
 						style:opacity={selected !== null && !lit.nodes.has(n.id) ? 0.28 : 1}
 						onclick={(e) => choose(e, n.id)}
 					>
+						{#if p?.twinsLine}
+							<!-- Who a twinned node stands for: the pointer's tooltip. -->
+							<title>{p.twinsLine}</title>
+						{/if}
 						{#if on}
 							<circle cx={n.x} cy={n.y} r={n.r + 9} style:fill={TONE_VAR[t]} fill-opacity="0.18" />
 						{/if}
@@ -359,14 +358,15 @@
 								style:stroke="var(--color-surface)">{n.mark}</text
 							>
 						{/if}
-						{#if n.twins}
-							{@const spot = twinsSpot(n)}
+						{#if n.twins && n.twinsY !== null}
+							<!-- Twins are one node (ruling 16): the line after the name's and the
+							     mark's, which the layout keeps clear (`twinsBox`). -->
 							<text
-								x={spot.x}
-								y={spot.y}
-								text-anchor={spot.anchor}
+								x={n.labelX}
+								y={n.twinsY}
+								text-anchor="middle"
 								dominant-baseline="central"
-								class="text-[10.5px] font-extrabold"
+								class="text-[10.5px] font-extrabold tracking-[0.04em] uppercase"
 								stroke-width="4"
 								paint-order="stroke"
 								style:fill="var(--color-muted)"

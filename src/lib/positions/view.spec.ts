@@ -437,12 +437,27 @@ describe('the map', () => {
 		);
 	});
 	it('mapNodeName: what a screen reader hears for a position', () => {
-		expect(v.mapNodeName({ name: 'Cerrada', ins: 6, outs: 8, mark: null, twins: false })).toBe(
+		expect(v.mapNodeName({ name: 'Cerrada', ins: 6, outs: 8, mark: null, twins: null })).toBe(
 			'Cerrada · 6 in · 8 out'
 		);
-		expect(v.mapNodeName({ name: 'Caída', ins: 2, outs: 0, mark: 'dead end', twins: true })).toBe(
-			'Caída · 2 in · 0 out · dead end · twins'
-		);
+		expect(
+			v.mapNodeName({
+				name: 'Caída',
+				ins: 2,
+				outs: 0,
+				mark: 'dead end',
+				twins: 'Twins: your Caída, Salsa Tuesdays’ Drop'
+			})
+		).toBe('Caída · 2 in · 0 out · dead end · Twins: your Caída, Salsa Tuesdays’ Drop');
+	});
+	it('mapTwinsLine: who a twinned node stands for, each by its place', () => {
+		expect(
+			v.mapTwinsLine([
+				{ name: 'Cerrada', team: null },
+				{ name: 'Closed', team: { id: 1, name: 'Salsa Tuesdays' } },
+				{ name: 'Closed', team: { id: 2, name: 'Rueda club' } }
+			])
+		).toBe('Twins: your Cerrada, Salsa Tuesdays’ Closed, Rueda club’s Closed');
 	});
 	it('the tray’s chips', () => {
 		expect(v.noPositionChip(10)).toBe('No position · 10 figures');

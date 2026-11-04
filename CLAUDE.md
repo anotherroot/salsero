@@ -666,7 +666,10 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   (`src/lib/clones/twins.ts`, `src/lib/server/twins.ts`); `repoint` keeps a
   person's sets on the row that replaces one. Nothing else learns of it:
   twins never sync, never travel, and plans, coverage, Today and the graph
-  read rows as they are. Groups have none.
+  read rows as they are. Groups have none. The one exception: twinned
+  POSITIONS are one hold in a person's graph (`buildGraph` merges them, see
+  the positions spec), so fit, breaks and the map read them as one; everything
+  else reads rows as they are.
 - **`figures.style` is vestigial; `style_tag` is real.** Read by nothing,
   backfilled into `style_tag` by migration 0005. Do not drop it or widen
   `figures_style_ck` — see the CHECK rule above for why a rebuild here can't

@@ -19,10 +19,13 @@
  * `onStats` says how many it took and whether it settled. Every node, circle
  * and label stays inside the frame: a label is at most `LABEL_MAX` characters
  * (280 px, the page cuts a longer name with `mapLabel`), and the smallest frame
- * is 360 px. A dead end's or orphan's label is two lines, its name and then its
- * word (`markBox` at `markY`), and the layout keeps both clear.
+ * is 360 px. A dead end's or orphan's label has a second line, its word
+ * (`markBox` at `markY`), and a twinned position's (ruling 16: twins are one
+ * node) a line after that, "Twins" (`twinsBox` at `twinsY`); the layout keeps
+ * every line clear.
  */
 import { fold } from '$lib/fold';
+import { TWINS_CHIP } from '$lib/clones/twins';
 import { positionCounts, type Graph, type GraphFigure } from '$lib/graph/graph';
 
 /** What the gap report says of a position (`positionCounts`). */
@@ -38,7 +41,7 @@ export interface MapPosition {
 	styleTag: string | null;
 	/** Figures through it: starting or ending here. 0 sends it to `tray.unused`. */
 	figures: number;
-	/** Twinned with another position (Same as…), drawn as one node. */
+	/** It stands for twinned positions (Same as…), drawn as one node with a Twins line. */
 	twins?: boolean;
 	/**
 	 * The gap report's verdict. `mapInputOf` fills it from the graph, and the
@@ -69,6 +72,11 @@ export interface MapNode {
 	 */
 	markY: number | null;
 	twins: boolean;
+	/**
+	 * The centre of the Twins line (`twinsBox`): under the name's, or under the
+	 * mark's when there is one. Null unless `twins`.
+	 */
+	twinsY: number | null;
 }
 
 export interface MapLayout {
@@ -150,6 +158,19 @@ export function labelBox(
 	return { x0: x - w / 2, y0: y - LABEL_HEIGHT / 2, x1: x + w / 2, y1: y + LABEL_HEIGHT / 2 };
 }
 
+/** The Twins line's width: the lists' word, at the mark's size (`MARK_CHAR` a character). */
+const TWINS_WIDTH = [...TWINS_CHIP].length * MARK_CHAR;
+
+/** The box the Twins line takes (`MapNode.twinsY`), centred on (x, y). */
+export function twinsBox(x: number, y: number): { x0: number; y0: number; x1: number; y1: number } {
+	return {
+		x0: x - TWINS_WIDTH / 2,
+		y0: y - LABEL_HEIGHT / 2,
+		x1: x + TWINS_WIDTH / 2,
+		y1: y + LABEL_HEIGHT / 2
+	};
+}
+
 /** The width a mark word takes: `MARK_CHAR` a character. */
 function markWidth(mark: 'dead end' | 'orphan' | null): number {
 	return mark ? mark.length * MARK_CHAR : 0;
@@ -186,10 +207,11 @@ function byName<T extends { id: number; name: string }>(list: readonly T[]): T[]
 
 /**
  * The map's input from the viewer's graph: every position of `g`, the figures
- * through it, the figures between each pair, and the gap report's verdict, so
- * the tray holds exactly what the gap report calls an island.
+ * through it, the figures between each pair, the gap report's verdict, so
+ * the tray holds exactly what the gap report calls an island, and whether it
+ * stands for twins (the graph merged them, ruling 16).
  */
-export function mapInputOf(g: Graph, twins: ReadonlySet<number> = new Set()): MapInput {
+export function mapInputOf(g: Graph): MapInput {
 	const ids = g.positions.map((p) => p.id).sort((a, b) => a - b);
 	const counts = new Map(positionCounts(g, ids).map((c) => [c.id, c]));
 	const pairs = new Map<string, { from: number; to: number; figures: number }>();
@@ -212,7 +234,7 @@ export function mapInputOf(g: Graph, twins: ReadonlySet<number> = new Set()): Ma
 				name: p.name,
 				styleTag: p.styleTag,
 				figures: figures.length,
-				twins: twins.has(p.id),
+				twins: p.twins,
 				gaps: { deadEnd: c.deadEnd, orphan: c.orphan, island: c.island }
 			};
 		});
@@ -253,9 +275,9 @@ interface Bodies {
 	x: Float64Array;
 	y: Float64Array;
 	r: Float64Array;
-	/** The label's width: the name's, or its mark word's when that is wider. */
+	/** The label's width: the widest of its lines. */
 	w: Float64Array;
-	/** The label's height: one line, or two for a dead end or orphan (the name, then the word). */
+	/** The label's height: the name's line, then a dead end's or orphan's word, then Twins. */
 	lh: Float64Array;
 	/** Half the outline's width: the circle or the label, whichever is wider. */
 	half: Float64Array;
@@ -336,13 +358,24 @@ function circleOnLabel(b: Bodies, c: number, l: number): boolean {
 	return ux * ux + uy * uy < reach * reach;
 }
 
+/**
+ * How far two outlines overlap top to bottom, when `i` is the upper one: an
+ * outline runs from its circle's top to its label's last line, so it is not
+ * centred on the circle, and two with labels of different heights reach
+ * different lengths below their centres.
+ */
+function overlapY(b: Bodies, i: number, j: number): number {
+	const [hi, lo] = b.y[i] <= b.y[j] ? [i, j] : [j, i];
+	return b.y[hi] - b.r[hi] + b.tall[hi] - (b.y[lo] - b.r[lo]);
+}
+
 /** Whether two bodies touch: two circles, two labels, or a circle on the other's label. */
 function touch(b: Bodies, i: number, j: number): boolean {
 	const ux = Math.abs(b.x[i] - b.x[j]);
 	const uy = Math.abs(b.y[i] - b.y[j]);
 	// outlines apart: nothing inside them can touch
 	if (ux >= b.half[i] + b.half[j] + TOUCH) return false;
-	if (uy >= (b.tall[i] + b.tall[j]) / 2 + TOUCH) return false;
+	if (overlapY(b, i, j) <= -TOUCH) return false;
 	const reach = b.r[i] + b.r[j] + TOUCH;
 	if (ux * ux + uy * uy < reach * reach) return true;
 	// labels: each below its circle, one line high or two
@@ -368,7 +401,7 @@ function pushApart(b: Bodies): MapStats {
 				if (!touch(b, i, j)) continue;
 				pushed = true;
 				const ox = b.half[i] + b.half[j] - Math.abs(x[i] - x[j]) + AIR;
-				const oy = (b.tall[i] + b.tall[j]) / 2 - Math.abs(y[i] - y[j]) + AIR;
+				const oy = overlapY(b, i, j) + AIR;
 				if (oy <= ox) {
 					const s = y[i] < y[j] || (y[i] === y[j] && i < j) ? -1 : 1;
 					y[i] += (s * oy) / 2;
@@ -426,8 +459,15 @@ export function layoutMap(
 		const g = gapsOf(p);
 		return g.deadEnd ? ('dead end' as const) : g.orphan ? ('orphan' as const) : null;
 	});
-	const w = Float64Array.from(drawn, (p, i) => Math.max(labelWidth(p.name), markWidth(marks[i])));
-	const lh = Float64Array.from(marks, (m) => (m ? 2 : 1) * LABEL_HEIGHT);
+	// A twinned one writes Twins on the line after that.
+	const twinned = drawn.map((p) => p.twins ?? false);
+	const w = Float64Array.from(drawn, (p, i) =>
+		Math.max(labelWidth(p.name), markWidth(marks[i]), twinned[i] ? TWINS_WIDTH : 0)
+	);
+	const lh = Float64Array.from(
+		marks,
+		(m, i) => (1 + (m ? 1 : 0) + (twinned[i] ? 1 : 0)) * LABEL_HEIGHT
+	);
 	const b: Bodies = {
 		n,
 		width,
@@ -469,6 +509,7 @@ export function layoutMap(
 
 	const nodes: MapNode[] = drawn.map((p, i) => {
 		const labelY = round(b.y[i] + r[i] + LABEL_GAP + LABEL_HEIGHT / 2);
+		const below = marks[i] ? 2 : 1;
 		return {
 			id: p.id,
 			x: round(b.x[i]),
@@ -478,7 +519,8 @@ export function layoutMap(
 			labelY,
 			mark: marks[i],
 			markY: marks[i] ? round(labelY + LABEL_HEIGHT) : null,
-			twins: p.twins ?? false
+			twins: twinned[i],
+			twinsY: twinned[i] ? round(labelY + below * LABEL_HEIGHT) : null
 		};
 	});
 	const drawnEdges = edges

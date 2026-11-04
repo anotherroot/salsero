@@ -8,7 +8,8 @@ import {
 	figures,
 	figureStartPositions,
 	lessonPositions,
-	positions
+	positions,
+	twins
 } from './db/schema';
 import { archiveVariation, createFigure, createVariationFrom } from './figures';
 import {
@@ -26,6 +27,9 @@ import { createTeam, joinTeam } from './teams';
 import { createLesson, linkFigure, publishLesson } from './lessons';
 import { addLesson } from './entries';
 import { crossRefs } from './integrity';
+import { markTwins, separate } from './twins';
+import { addFigureSlot, createRoutine, routineShapes } from './routines';
+import { breaks } from '$lib/routines/routines';
 
 const figureInput = (name: string) => ({
 	figureName: name,
@@ -96,7 +100,8 @@ describe('buildGraph', () => {
 		expect(g.positions.find((p) => p.id === pos('closed'))).toEqual({
 			id: pos('closed'),
 			name: 'Cerrada',
-			styleTag: null
+			styleTag: null,
+			twins: false
 		});
 	});
 
@@ -162,7 +167,7 @@ describe('positions compared by family', () => {
 		expect(g.figures.find((f) => f.id === F)!.starts).toEqual([mine]);
 		expect(canonicalOf(g, theirs)).toBe(mine);
 		expect(g.positions.filter((p) => p.id === mine || p.id === theirs)).toEqual([
-			{ id: mine, name: 'Cerrada', styleTag: null }
+			{ id: mine, name: 'Cerrada', styleTag: null, twins: false }
 		]);
 	});
 
@@ -173,6 +178,71 @@ describe('positions compared by family', () => {
 		expect(canonicalOf(g, theirs)).toBe(theirs);
 	});
 
+	it('two twinned positions of different families are one (ruling 16)', () => {
+		const { db, F, M, mine, theirs } = family(false);
+		expect(markTwins(db, U2_SALSA, 'position', [mine, theirs])).toBe(true);
+		const g = graphFor(db, U2_SALSA);
+		expect(follows(g, M)).toContain(F);
+		// The person's own member stands for the pair, though the group's id is lower.
+		expect(theirs).toBeLessThan(mine);
+		expect(canonicalOf(g, theirs)).toBe(mine);
+		expect(g.figures.find((f) => f.id === F)!.starts).toEqual([mine]);
+		expect(g.positions.filter((p) => p.id === mine || p.id === theirs)).toEqual([
+			{ id: mine, name: 'Cerrada', styleTag: null, twins: true }
+		]);
+		expect(g.twinned.get(mine)).toEqual([theirs, mine]);
+
+		// Separate: two positions again, and M no longer leads into F.
+		expect(separate(db, U2_SALSA, 'position', theirs)).toBe(true);
+		const apart = graphFor(db, U2_SALSA);
+		expect(follows(apart, M)).not.toContain(F);
+		expect(canonicalOf(apart, theirs)).toBe(theirs);
+		expect(apart.positions.every((p) => !p.twins)).toBe(true);
+		expect(apart.twinned.size).toBe(0);
+	});
+
+	it('a routine over twinned positions has no break; separating them brings it back', () => {
+		const { db, F, M, mine, theirs } = family(false);
+		const R = createRoutine(db, U2_SALSA, { name: 'Friday', notes: null }).routine.id;
+		expect(addFigureSlot(db, R, M)).not.toBeNull();
+		expect(addFigureSlot(db, R, F)).not.toBeNull();
+		const shape = () => routineShapes(db, U2_SALSA).get(R)!;
+		expect(breaks(graphFor(db, U2_SALSA), shape())).toEqual([0]);
+		expect(markTwins(db, U2_SALSA, 'position', [mine, theirs])).toBe(true);
+		expect(breaks(graphFor(db, U2_SALSA), shape())).toEqual([]);
+		expect(separate(db, U2_SALSA, 'position', mine)).toBe(true);
+		expect(breaks(graphFor(db, U2_SALSA), shape())).toEqual([0]);
+		expect(crossRefs(db)).toEqual([]);
+	});
+
+	it('twin sets sharing a family merge whole, under the lowest id without a member of its own', () => {
+		const db = openDb(':memory:');
+		const a = addPosition(db, U1_SALSA, 'A', { geneId: 'g' });
+		const b = addPosition(db, U1_SALSA, 'B');
+		const c = addPosition(db, U1_SALSA, 'C');
+		const a2 = addPosition(db, { userId: 'u3', dance: 'salsa' }, 'A too', { geneId: 'g' });
+		// u2 may use all four; a is b's twin, and a's family member a2 is c's.
+		twinRaw(db, 'u2', [b, a], 's1');
+		twinRaw(db, 'u2', [a2, c], 's2');
+		const g = buildGraph(db, U2_SALSA, { positions: new Set([a, b, c, a2]) });
+		expect([a, b, c, a2].map((id) => canonicalOf(g, id))).toEqual([a, a, a, a]);
+		expect(g.positions).toEqual([{ id: a, name: 'A', styleTag: null, twins: true }]);
+		// u1's own graph never reads u2's twins.
+		expect(buildGraph(db, U1_SALSA).positions.every((p) => !p.twins)).toBe(true);
+	});
+
+	it("a group's space ignores twins", () => {
+		const { db, mine, theirs } = family(false);
+		const open = addPosition(db, T1_SALSA, 'Open');
+		twinRaw(db, 'u1', [theirs, open], 's1');
+		expect(markTwins(db, U2_SALSA, 'position', [mine, theirs])).toBe(true);
+		const g = graphFor(db, T1_SALSA);
+		expect(canonicalOf(g, open)).toBe(open);
+		expect(canonicalOf(g, theirs)).toBe(theirs);
+		expect(g.positions.every((p) => !p.twins)).toBe(true);
+		expect(g.twinned.size).toBe(0);
+	});
+
 	it('without a member of its own, the lowest id of the family stands for it', () => {
 		const db = openDb(':memory:');
 		const a = addPosition(db, U1_SALSA, 'A', { geneId: 'g' });
@@ -181,6 +251,12 @@ describe('positions compared by family', () => {
 		expect(g.positions.map((p) => p.id)).toEqual([a]);
 	});
 });
+
+/** Twins written straight to the table: one of a person's sets of position ids. */
+function twinRaw(db: Db, userId: string, ids: number[], setId: string) {
+	for (const itemId of ids)
+		db.insert(twins).values({ userId, kind: 'position', setId, itemId }).run();
+}
 
 /** A shape with the default timing, so each test only states what it is about. */
 const shape = (

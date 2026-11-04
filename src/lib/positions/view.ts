@@ -2,7 +2,14 @@
 import { dayLabel, dayMonth, longDayLabel, monthLabel, plural } from '$lib/format';
 import { spotLabel } from '$lib/video/spots';
 import type { PickGroup, PickRow } from '$lib/picker/model';
-import type { PositionListRow, PositionSummary, SectionGroup, SectionVideo } from '$lib/types';
+import type {
+	PositionListRow,
+	PositionSummary,
+	SectionGroup,
+	SectionVideo,
+	TeamRef
+} from '$lib/types';
+import { TWINS_CHIP } from '$lib/clones/twins';
 
 export { holdChips } from './hold';
 
@@ -632,8 +639,8 @@ export const MAP = {
 	/** Positions, but no figure joins any of them. */
 	unjoined: 'Nothing joins your positions yet: tag a figure’s start and end.',
 	reset: 'Reset zoom',
-	/** Beside a position twinned with another (Same as…). */
-	twins: 'Twins'
+	/** Under a node that stands for twinned positions (Same as…): the lists' chip. */
+	twins: TWINS_CHIP
 } as const;
 
 /** The SVG's name for a screen reader. */
@@ -662,18 +669,32 @@ export function mapSummary(n: {
 	return parts.join(' · ');
 }
 
-/** A position's accessible name on the map: "Cerrada · 6 in · 8 out", then its mark and twins. */
+/**
+ * A position's accessible name on the map: "Cerrada · 6 in · 8 out", then its
+ * mark, then its twins line (`mapTwinsLine`) when it stands for twins.
+ */
 export function mapNodeName(n: {
 	name: string;
 	ins: number;
 	outs: number;
 	mark: 'dead end' | 'orphan' | null;
-	twins: boolean;
+	twins: string | null;
 }): string {
 	const parts = [n.name, `${n.ins} in`, `${n.outs} out`];
 	if (n.mark) parts.push(n.mark);
-	if (n.twins) parts.push('twins');
+	if (n.twins) parts.push(n.twins);
 	return parts.join(' · ');
+}
+
+/**
+ * Who a twinned node stands for (ruling 16), each by its place, in the order
+ * given: "Twins: your Cerrada, Salsa Tuesdays’ Closed". The node's tooltip.
+ */
+export function mapTwinsLine(members: { name: string; team: TeamRef | null }[]): string {
+	const each = members.map((m) =>
+		m.team ? `${possessive(m.team.name)} ${m.name}` : `your ${m.name}`
+	);
+	return `${TWINS_CHIP}: ${each.join(', ')}`;
 }
 
 /** The tray's way into No position. */

@@ -203,23 +203,65 @@ describe('the map', () => {
 		expect(d.positions.find((p: any) => p.id === b)).toMatchObject({ ins: 1, outs: 0 });
 	});
 
-	it('marks twinned positions', () => {
+	it('draws twinned positions as one node, marked (ruling 16)', () => {
 		const lock = addPosition(db, U2_SALSA, 'Lock');
 		const hammer = addPosition(db, U2_SALSA, 'Hammer');
 		const other = addPosition(db, U2_SALSA, 'Other');
 		between(U2_SALSA, lock, other);
 		between(U2_SALSA, other, hammer);
+		// Apart, Lock is an orphan and Hammer a dead end.
+		expect(loadOf('u2').layout.nodes.map((x: any) => [x.id, x.mark, x.twins])).toEqual([
+			[hammer, 'dead end', false],
+			[lock, 'orphan', false],
+			[other, null, false]
+		]);
 		for (const itemId of [lock, hammer])
 			db.insert(twins).values({ userId: 'u2', kind: 'position', setId: 's', itemId }).run();
 		const d = loadOf('u2');
-		expect(d.layout.nodes.map((x: any) => [x.id, x.twins])).toEqual([
-			[hammer, true],
-			[lock, true],
-			[other, false]
+		// One node for the pair, under the lowest id of the person's own: no gaps left.
+		expect(d.layout.nodes.map((x: any) => [x.id, x.mark, x.twins])).toEqual([
+			[lock, null, true],
+			[other, null, false]
 		]);
-		expect(d.positions.find((p: any) => p.id === lock).ariaLabel).toBe(
-			'Lock · 0 in · 1 out · orphan · twins'
+		expect(d.edges.map((e: any) => [e.from, e.to])).toEqual([
+			[lock, other],
+			[other, lock]
+		]);
+		const node = d.positions.find((p: any) => p.id === lock);
+		expect(node.twinsLine).toBe('Twins: your Lock, your Hammer');
+		expect(node.ariaLabel).toBe('Lock · 1 in · 1 out · Twins: your Lock, your Hammer');
+		expect(d.positions.find((p: any) => p.id === other).twinsLine).toBe(null);
+		expect(d.summary).toBe('2 positions · 2 figures between them');
+	});
+
+	it("names a group's twin by its group", () => {
+		const closed = addPosition(db, T1_SALSA, 'Closed');
+		const open = addPosition(db, T1_SALSA, 'Open');
+		const f = between(T1_SALSA, closed, open);
+		const lesson = createLesson(db, T1_SALSA, {
+			lessonDay: '2026-11-03',
+			title: 'Week 6',
+			notes: null
+		}).lesson.id;
+		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, lesson)).run();
+		db.insert(lessonFigures).values({ lessonId: lesson, figureId: f }).run();
+		db.insert(lessonAdds).values({ userId: 'u3', lessonId: lesson, addedAt: 1, seenAt: 1 }).run();
+		const cerrada = addPosition(db, { userId: 'u3', dance: 'salsa' }, 'Cerrada');
+		between({ userId: 'u3', dance: 'salsa' }, open, cerrada);
+		for (const itemId of [closed, cerrada])
+			db.insert(twins).values({ userId: 'u3', kind: 'position', setId: 's', itemId }).run();
+		const d = loadOf('u3');
+		// The person's own member stands for the pair, though the group's id is lower.
+		expect(d.layout.nodes.map((x: any) => [x.id, x.twins])).toEqual([
+			[cerrada, true],
+			[open, false]
+		]);
+		expect(d.positions.find((p: any) => p.id === cerrada).twinsLine).toBe(
+			'Twins: your Cerrada, Tuesdays’ Closed'
 		);
+		// The group's own map, in group mode, reads them apart.
+		const g = loadOf('u2', jar('1'));
+		expect(g.layout.nodes.every((x: any) => !x.twins)).toBe(true);
 	});
 
 	it('is empty with no positions, and keeps the No position count', () => {

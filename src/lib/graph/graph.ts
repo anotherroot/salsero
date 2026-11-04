@@ -18,7 +18,8 @@
  * in `routines/`, the picker and the player — goes through it.
  *
  * The ids are whatever the data layer hands over: one id per position family,
- * so a person's figures and a group's figures meet on the same hold.
+ * so a person's figures and a group's figures meet on the same hold, and one
+ * per set of a person's twinned positions (ruling 16).
  */
 import { nextCount } from './timing';
 
@@ -42,6 +43,8 @@ export interface GraphPosition {
 	id: number;
 	name: string;
 	styleTag: string | null;
+	/** It stands for twins (Same as…) of the person's, read as one hold (ruling 16). */
+	twins: boolean;
 }
 
 export interface Graph {
