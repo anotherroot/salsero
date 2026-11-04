@@ -10,8 +10,9 @@
 	 * Posts one `<input type="hidden" name={name}>` per value.
 	 *
 	 * `oncreate` makes the row for what was typed and resolves to it (the
-	 * caller adds it to `groups`), or to null when refused: the new row is then
-	 * chosen and the sheet stays open. While it is pending the create button is
+	 * caller adds it to `groups`), or to null when refused, or to undefined when
+	 * nothing was made and nothing needs saying: a new row is chosen and the
+	 * sheet stays open. While it is pending the create button is
 	 * busy; it re-enables when it settles, and a refusal shows in the sheet.
 	 */
 	import Picker from './Picker.svelte';
@@ -39,7 +40,8 @@
 		values: number[];
 		/** The create button ("Position"); `key` is the picker's. Needs `oncreate`. */
 		create?: { label: string; key: string };
-		oncreate?: (query: string) => Promise<PickRow | { message: string } | null>;
+		/** Undefined: nothing was made and there is nothing to say (a create step closed with Back). */
+		oncreate?: (query: string) => Promise<PickRow | { message: string } | null | undefined>;
 		nothingLeft: string;
 		/** A refusal about this field, shown under it. */
 		error?: string | null;
@@ -109,7 +111,7 @@
 		const epoch = sheetEpoch;
 		try {
 			const row = await oncreate(query);
-			if (epoch !== sheetEpoch) return;
+			if (epoch !== sheetEpoch || row === undefined) return;
 			if (row && 'message' in row) createMessage = row.message;
 			else if (row) {
 				if (!made.some((r) => r.value === row.value)) made = [...made, row];

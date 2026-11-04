@@ -91,13 +91,18 @@ import type { PickerSong } from '$lib/types';
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 
 /** The shape an action destructures, with nothing in it the actions do not read. */
-function post(dance: string, fields: Record<string, string>, id = '') {
+function post(dance: string, fields: Record<string, string | string[]>, id = '') {
+	// A list posts its field once per value, as the form's hidden inputs do.
+	const body = new URLSearchParams();
+	for (const [key, v] of Object.entries(fields)) {
+		for (const one of Array.isArray(v) ? v : [v]) body.append(key, one);
+	}
 	return {
 		params: { dance, id },
 		request: new Request('http://localhost/', {
 			method: 'POST',
 			headers: { 'content-type': 'application/x-www-form-urlencoded' },
-			body: new URLSearchParams(fields)
+			body
 		}),
 		cookies: { get: () => undefined, delete: () => {} },
 		locals: { user: USER }
@@ -417,7 +422,7 @@ describe("the detail pages refuse the other dance's rows", () => {
 	});
 
 	/** A complete, valid edit of a variation — each test overrides only what it is about. */
-	const edit = (fields: Record<string, string>) => ({
+	const edit = (fields: Record<string, string | string[]>) => ({
 		figureName: 'Dile que no',
 		name: 'Renamed',
 		partner: 'partner',
@@ -716,30 +721,146 @@ describe("the detail pages refuse the other dance's rows", () => {
 			expect(getGroup(db, row.groupId!)!.name).toBe('DILE QUE NO');
 		});
 
-		it('update with the one "Ends at" select keeps the ends it does not show (until Task 19)', async () => {
-			const [a, b] = [salsaPosition('closed').id, salsaPosition('caida').id].sort((x, y) => x - y);
+		const sorted = (ids: number[]) => [...ids].sort((x, y) => x - y);
+		type Choices = { title: string; entries: { value: number; label: string; meta?: string }[] }[];
+		const valuesIn = (groups: Choices) => groups.flatMap((g) => g.entries.map((e) => e.value));
+
+		it('update stores any number of starts and ends; none at all clears them', async () => {
+			const [a, b] = sorted([salsaPosition('closed').id, salsaPosition('caida').id]);
 			const c = salsaPosition('cross-hand').id;
 			const id = String(salsaFigureId);
-			const sorted = (ids: number[]) => [...ids].sort((x, y) => x - y);
+			expect(
+				await call(
+					figurePage.actions.update,
+					post('salsa', edit({ startIds: [String(c)], endIds: [String(b), String(a)] }), id)
+				)
+			).toEqual({ action: 'update', ok: true });
+			expect(figurePositions(db, salsaFigureId)).toEqual({ startIds: [c], endIds: [a, b] });
+			// The form shows every chosen one again.
+			expect(loadWith('salsa', id)).toMatchObject({ tags: { startIds: [c], endIds: [a, b] } });
+			// Two ends, one of them swapped: the other stays.
+			await call(
+				figurePage.actions.update,
+				post('salsa', edit({ startIds: [String(c)], endIds: [String(a), String(c)] }), id)
+			);
+			expect(figurePositions(db, salsaFigureId)).toEqual({
+				startIds: [c],
+				endIds: sorted([a, c])
+			});
+			// Nothing posted: no position on either side.
+			await call(figurePage.actions.update, post('salsa', edit({}), id));
+			expect(figurePositions(db, salsaFigureId)).toEqual({ startIds: [], endIds: [] });
+		});
+
+		it('a save keeps a tag to an archived position, which the picker never shows (ruling 4)', async () => {
+			const a = salsaPosition('closed').id;
+			const b = salsaPosition('caida').id;
+			const old = addPosition(db, U1_SALSA, 'Vieja');
+			const id = String(salsaFigureId);
 			setFigureShape(db, salsaFigureId, {
-				startIds: [],
-				endIds: [a, b],
+				startIds: [old],
+				endIds: [a, old],
 				startCount: 1,
 				lengthCounts: 8
 			});
-			// The select shows the first end.
-			expect(loadWith('salsa', id)).toMatchObject({ tags: { endId: a } });
-			// Saved as shown: both ends stay.
+			db.update(positions).set({ archivedAt: 5 }).where(eq(positions.id, old)).run();
+			const data = loadWith('salsa', id) as {
+				tags: { startIds: number[]; endIds: number[] };
+				positionChoices: Choices;
+			};
+			expect(data.tags).toEqual({ startIds: [], endIds: [a] });
+			expect(valuesIn(data.positionChoices)).not.toContain(old);
+			expect(valuesIn(data.positionChoices)).toContain(a);
+			await call(figurePage.actions.update, post('salsa', edit({ endIds: [String(b)] }), id));
+			expect(figurePositions(db, salsaFigureId)).toEqual({
+				startIds: [old],
+				endIds: sorted([b, old])
+			});
+		});
+
+		it('a person’s figure offers their positions by type, the figure’s first, then a group’s they may use', async () => {
+			const T = 1_790_000_000_000;
+			const EVA = { teamId: 1, actorId: 'u5', dance: 'salsa' } as const;
+			createTeam(db, 'u5', 'salsa', 'Rueda club', T);
+			joinTeam(db, 'u1', 1, T);
+			// The group's Abierta is one family with u1's own: a copy of theirs hides it.
+			addPosition(db, U1_SALSA, 'Abierta mía', { geneId: 'g-open' });
+			const theirOpen = addPosition(db, EVA, 'Abierta', { geneId: 'g-open' });
+			const hammer = addPosition(db, EVA, 'Hammerlock');
+			db.update(positions).set({ styleTag: 'salsa' }).where(eq(positions.id, hammer)).run();
+			const closed = salsaPosition('closed').id;
+			db.update(positions)
+				.set({ styleTag: 'salsa', hands: 'two', frame: 'closed' })
+				.where(eq(positions.id, closed))
+				.run();
+			const F = createFigure(db, EVA, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			setFigureShape(
+				db,
+				F,
+				{ startIds: [theirOpen], endIds: [hammer], startCount: 1, lengthCounts: 8 },
+				'u5'
+			);
+			const L = createLesson(db, EVA, { lessonDay: '2026-11-03', title: 'W1', notes: null }).lesson
+				.id;
+			linkFigure(db, L, F, 'u5');
+			publishLesson(db, EVA, L, T);
+			addLesson(db, 'u1', L, { lesson: false, routineIds: [], drillIds: [], figureIds: [] }, T);
+
+			const id = String(salsaFigureId);
+			const before = (loadWith('salsa', id) as { positionChoices: Choices }).positionChoices;
+			expect(before.map((g) => g.title)).toEqual([
+				'Salsa · this figure’s type',
+				'Other',
+				'Rueda club’s'
+			]);
+			expect(before[0].entries).toEqual([
+				{ key: `position:${closed}`, value: closed, label: 'Cerrada', meta: 'Two hands · closed' }
+			]);
+			expect(before[2].entries).toEqual([
+				{
+					key: `position:${hammer}`,
+					value: hammer,
+					label: 'Hammerlock',
+					meta: 'Salsa · tag with it as it is'
+				}
+			]);
+			// Nobody else's, no group figure's own rows beyond what u1 may use.
+			expect(valuesIn(before)).not.toContain(theirOpen);
+
+			// Tagged with both of the group's: saved, and the chosen one is offered even though hidden.
 			expect(
-				await call(figurePage.actions.update, post('salsa', edit({ endId: String(a) }), id))
+				await call(
+					figurePage.actions.update,
+					post('salsa', edit({ endIds: [String(theirOpen), String(hammer)] }), id)
+				)
 			).toEqual({ action: 'update', ok: true });
-			expect(figurePositions(db, salsaFigureId).endIds).toEqual([a, b]);
-			// Changed: only the shown end is replaced.
-			await call(figurePage.actions.update, post('salsa', edit({ endId: String(c) }), id));
-			expect(figurePositions(db, salsaFigureId).endIds).toEqual(sorted([c, b]));
-			// No position: the shown end (the lower id) goes, the hidden one stays.
-			await call(figurePage.actions.update, post('salsa', edit({ endId: '' }), id));
-			expect(figurePositions(db, salsaFigureId).endIds).toEqual([Math.max(c, b)]);
+			expect(figurePositions(db, salsaFigureId).endIds).toEqual(sorted([theirOpen, hammer]));
+			const after = loadWith('salsa', id) as { positionChoices: Choices; tags: unknown };
+			expect(after.tags).toEqual({ startIds: [], endIds: sorted([theirOpen, hammer]) });
+			expect(after.positionChoices.find((g) => g.title === 'Rueda club’s')!.entries).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ value: theirOpen, label: 'Abierta' }),
+					expect.objectContaining({ value: hammer })
+				])
+			);
+		});
+
+		it('a group’s figure offers only the group’s positions', () => {
+			const T = 1_790_000_000_000;
+			createTeam(db, 'u1', 'salsa', 'Rueda club', T);
+			const GROUP = { teamId: 1, actorId: 'u1', dance: 'salsa' } as const;
+			const theirs = addPosition(db, GROUP, 'Cerrada');
+			const F = createFigure(db, GROUP, { ...figureInput, figureName: 'Vacilala', style: 'salsa' })!
+				.figure.id;
+			const data = loadWith('salsa', String(F)) as { positionChoices: Choices; canEdit: boolean };
+			expect(data.canEdit).toBe(true);
+			expect(data.positionChoices).toEqual([
+				{
+					title: 'Other',
+					entries: [{ key: `position:${theirs}`, value: theirs, label: 'Cerrada' }]
+				}
+			]);
 		});
 
 		it('update refuses a taken figure name', async () => {

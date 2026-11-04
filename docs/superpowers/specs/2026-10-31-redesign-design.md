@@ -323,7 +323,7 @@ rules the boards follow that are not obvious from looking at them.
 - The figure switcher is pinned directly above the tab bar, on the tab-bar
   surface, and hidden while editing. Its sheet lists
   the move's figures with New figure in the footer, and links to the move's page.
-- Edit: start positions as removable chips, Ends at, a 1–8 "Starts on" grid,
+- Edit: Starts in and Ends in (any number of positions each, two pickers), a 1–8 "Starts on" grid,
   Counts with 4/8/16 shortcuts; a "Not saved" banner carries the server's
   message.
 - Upload in progress is a card ("Uploading… 42%"). In the app, Add video

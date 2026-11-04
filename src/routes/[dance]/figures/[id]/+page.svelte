@@ -9,7 +9,7 @@
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
 	import FigureFields from '$lib/components/figures/FigureFields.svelte';
-	import StartPositions from '$lib/components/figures/StartPositions.svelte';
+	import PositionTags from '$lib/components/figures/PositionTags.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
 	import VariationBar from '$lib/components/figures/VariationBar.svelte';
 	import MoveSheet from '$lib/components/figures/MoveSheet.svelte';
@@ -46,10 +46,8 @@
 		button,
 		CLIP,
 		DANGER_SHARED,
-		FIELD,
 		GROUP,
 		iconButton,
-		LABEL,
 		SECTION_LABEL
 	} from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
@@ -64,7 +62,7 @@
 		routineUseMeta,
 		timingLine
 	} from '$lib/figures/page';
-	import { tagsEmpty } from '$lib/positions/view';
+	import { styleLabelOf, tagsEmpty } from '$lib/positions/view';
 	import { localDay } from '$lib/day/day';
 	import type { MediaProblem } from '$lib/media';
 	import type { ActionData, PageData, SubmitFunction } from './$types';
@@ -349,7 +347,7 @@
 		{#if editing}
 			<!--
 			Keyed on the variation: `editing` survives a step to another one, and
-			StartPositions and FigureTiming seed their own state once — without the
+			PositionTags and FigureTiming seed their own state once — without the
 			key, one variation's unsaved positions and timing would be carried over
 			and saved onto the next.
 		-->
@@ -375,28 +373,16 @@
 						style={variation.styleTag ?? undefined}
 						notes={variation.notes}
 					/>
-					<StartPositions positions={data.positions} initial={data.tags.startIds} />
-					<div>
-						<label class={LABEL} for="edit-end">Ends at</label>
-						<div class="relative">
-							<select
-								id="edit-end"
-								name="endId"
-								class="own-arrow {FIELD} cursor-pointer appearance-none pr-10"
-							>
-								<option value="" selected={data.tags.endId === null}>No position</option>
-								{#each data.positions as position (position.id)}
-									<option value={position.id} selected={data.tags.endId === position.id}>
-										{position.name}{position.archived ? ' (archived)' : ''}
-									</option>
-								{/each}
-							</select>
-							<span
-								class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
-								aria-hidden="true"><Icon name="chevron-down" size={20} /></span
-							>
-						</div>
-					</div>
+					<PositionTags
+						dance={data.dance.slug}
+						startIds={data.tags.startIds}
+						endIds={data.tags.endIds}
+						groups={data.positionChoices}
+						figureLabel="{figure.name} · {variation.name}"
+						figureStyle={variation.styleTag}
+						styleLabel={styleLabelOf(data.dance.styleLabel)}
+						figureId={variation.id}
+					/>
 					<FigureTiming startCount={data.shape.startCount} lengthCounts={data.shape.lengthCounts} />
 					{#if refusal}
 						<!-- Keyed on the answer: each refusal is brought into view as it arrives. -->

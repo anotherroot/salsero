@@ -216,6 +216,12 @@ Report counts in the boot log, as the integrity checks do.
   line; a tap toggles ✓; No position clears; Not in the list? + Position (a New
   position step on top, type preset to the figure's, then chosen); Done · N.
   This is a new kind of field picker (many values): add it to the pickers spec.
+  The New position step posts JSON to `POST /api/positions`, which makes the
+  position in the figure's owner's space (a group's figure: the group's), not
+  to a page action: the picker sits inside the figure's form. A person's
+  figure offers their own positions and the group positions they may use
+  ("Salsa Tuesdays’", each "<type> · tag with it as it is"); a group's figure
+  only the group's. Every chosen live tag is offered, so it can be removed.
 - **Lessons:** a Positions group after Figures, Routines and Exercises (linked
   by hand or via a section). The Link popup offers positions with figures and
   drills, and Use this moment as a point.

@@ -419,7 +419,7 @@ describe('positions are each owner’s', () => {
 					style: 'salsa',
 					startCount: '1',
 					lengthCounts: '8',
-					endId: String(id)
+					endIds: String(id)
 				},
 				String(figureId)
 			)

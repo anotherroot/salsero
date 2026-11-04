@@ -120,7 +120,7 @@ describe('clashView', () => {
 		expect(v.fields).toEqual([
 			{ key: 'notes', label: 'Notes', kind: 'multiline', theirs: 'theirs', mine: 'mine' }
 		]);
-		expect(v.others).toEqual(['Starts from']);
+		expect(v.others).toEqual(['Starts in']);
 		expect(v.adopt).toEqual([]);
 	});
 
@@ -139,7 +139,7 @@ describe('clashView', () => {
 		// partner: untouched, so theirs goes back in; style: yours, kept and named;
 		// startIds: untouched but cannot be put back, so named.
 		expect(v.adopt).toEqual(['partner']);
-		expect(v.others).toEqual(['Style', 'Starts from']);
+		expect(v.others).toEqual(['Style', 'Starts in']);
 	});
 
 	it('starts your box with theirs on a field you did not touch', () => {
@@ -239,6 +239,6 @@ describe('field shapes', () => {
 			() => canPutBack({ tag: 'input', type: 'hidden' })
 		);
 		expect(v.adopt).toEqual([]);
-		expect(v.others).toEqual(['Starts from']);
+		expect(v.others).toEqual(['Starts in']);
 	});
 });
