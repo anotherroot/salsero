@@ -595,3 +595,35 @@ export const DROP_FAILED = 'That could not be dropped. Try again.';
 
 /** The version picked is no longer one the person can go back to. */
 export const DROP_GONE = 'That version can’t be used any more. Reload and pick again.';
+
+/* ── Detach, and reconnecting (board C8) ────────────────────────────────── */
+
+export const DETACH_BUTTON = 'Detach';
+
+/** The sheet's title: "Stop following Salsa Tuesdays?" */
+export function detachTitle(place: string): string {
+	return `Stop following ${place}?`;
+}
+
+/** What Detach does to your own copy. */
+export const DETACH_MINE =
+	'Your copy stays yours, as it is. It stays shown together with theirs, as twins.';
+
+/** What it ends. */
+export const DETACH_NO_MORE = 'No more “updated since”, and no Take theirs to hit by mistake.';
+
+/** Under the title: what Detach is in a group, in the kind's noun. */
+export function detachGroup(kind: CloneKind): string {
+	return `In a group, Detach just makes it an ordinary group ${kind}.`;
+}
+
+/** A detach that failed. */
+export const DETACH_FAILED = 'That could not be detached. Try again.';
+
+/**
+ * The banner when the person's copy was last in step with a group before
+ * their current membership began (board C8 p2).
+ */
+export function reconnectedLine(place: string, changes: number): string {
+	return `Reconnected with ${place}: ${plural(changes, 'change', 'changes')} while you were away`;
+}

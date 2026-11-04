@@ -586,6 +586,7 @@
 				compare={data.compare}
 				family={data.family}
 				drop={data.drop}
+				detach={data.detach}
 				taking={sourcePlace}
 			/>
 		{/if}

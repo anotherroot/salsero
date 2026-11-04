@@ -11,17 +11,17 @@
  * Reads only through `visibleMembers` and `twinsOf`: another person's own
  * member never shows, and a row the person cannot read gives no tabs at all.
  */
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { CloneKind, CompareOffer, Member, PlaceRef, Source, TwinKind } from '$lib/types';
 import { diff, standing } from '$lib/clones/diff';
 import { changedLabels } from '$lib/clones/view';
 import type { Db } from '../db';
-import { figures, recordings } from '../db/schema';
+import { figures, recordings, teamMembers } from '../db/schema';
 import type { Wall } from '../scope';
 import { roomForOwner } from '../storage';
 import { twinsOf } from '../twins';
 import { accessTo, geneOf, memberIn, placeOfRow, visibleMembers } from './genes';
-import { hashValue, pairBase } from './pairs';
+import { hashValue, pairAt, pairBase } from './pairs';
 import { flatOf } from './trees';
 import {
 	cloneTx,
@@ -114,6 +114,23 @@ function against(db: Db, kind: CloneKind, pageId: number, other: number) {
 }
 
 /**
+ * Whether the person's pair with this group's member is older than their
+ * current membership: they left (keeping their copy) and came back, and the
+ * two were last in step before that (board C8 p2).
+ */
+function rejoinedWith(db: Db, userId: string, kind: CloneKind, pageId: number, m: Member): boolean {
+	if (m.place.kind !== 'team') return false;
+	const at = pairAt(db, kind, pageId, m.id);
+	if (at === null) return false;
+	const joined = db
+		.select({ at: teamMembers.joinedAt })
+		.from(teamMembers)
+		.where(and(eq(teamMembers.teamId, m.place.teamId), eq(teamMembers.userId, userId)))
+		.get();
+	return joined !== undefined && at < joined.at;
+}
+
+/**
  * The page's tabs, its subtitle's facts, the person's own member and the
  * validated `vs` (the raw `?vs=` value).
  */
@@ -158,7 +175,8 @@ export function sourcesView(
 				label: named(m.place),
 				relation: 'clone',
 				access: m.access,
-				...against(db, kind, id, m.id)
+				...against(db, kind, id, m.id),
+				...(rejoinedWith(db, userId, kind, id, m) ? { rejoined: true } : {})
 			};
 		}),
 		...twins.map((t): Source => ({
@@ -182,7 +200,7 @@ export function sourcesView(
 	const source = origin ? sources.find((s) => s.id === origin.id) : undefined;
 	const compare =
 		origin && source && (source.status === 'newer' || source.status === 'differs')
-			? { ...origin, changed: source.changed }
+			? { ...origin, changed: source.changed, ...(source.rejoined ? { rejoined: true } : {}) }
 			: null;
 	return {
 		sources: sources.length < 2 ? [] : sources,

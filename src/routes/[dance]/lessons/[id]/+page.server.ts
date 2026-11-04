@@ -34,7 +34,8 @@ import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import { groupModeOf } from '$lib/server/group-mode';
@@ -147,6 +148,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		family: familyView(db, wall.userId, 'lesson', found.lesson.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'lesson', found.lesson.id),
+		detach: detachOffer(db, wall.userId, 'lesson', found.lesson.id),
 		// What the edit form saw, sent back with a save (the clash check).
 		seen: lessonSeen(found.lesson),
 		team: team ? { id: team.id, name: team.name } : null,
@@ -307,6 +309,12 @@ export const actions: Actions = {
 	drop: ({ params, locals, request }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		return dropFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id, request);
+	},
+
+	/** Detach (board C8): this copy stops following its source. */
+	detach: ({ params, locals }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return detachFrom(getDb(), wallOf(params, locals).userId, 'lesson', lesson.id);
 	},
 
 	archive: async ({ params, locals }) => {

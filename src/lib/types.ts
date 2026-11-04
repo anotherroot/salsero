@@ -772,7 +772,12 @@ export type CompareOffer = {
 	place: string;
 	/** What differs, as `changedLabels` says it. */
 	changed: string[];
+	/** The person's copy was last in step before their current membership began: "Reconnected with…". */
+	rejoined?: boolean;
 };
+
+/** Detach on a member page (`detachOffer`): the place it stops following, and whether the row is a group's. */
+export type DetachOffer = { place: string; group: boolean };
 
 /** One row of "Copies you can see" (board C3 p1): a member of the page's family. */
 export type FamilyEntry = {

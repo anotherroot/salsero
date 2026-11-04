@@ -12,7 +12,8 @@ import {
 } from '$lib/server/songs';
 import { deleteGroupSong, shareSong, songUsers, unshareSong } from '$lib/server/song-share';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import { songSeen, seenRefusal } from '$lib/server/clash';
@@ -81,6 +82,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		family: familyView(db, wallOf(params, locals).userId, 'song', song.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wallOf(params, locals), 'song', song.id),
+		detach: detachOffer(db, wallOf(params, locals).userId, 'song', song.id),
 		/** A group's song: whose it is. */
 		group: team ? { id: team.id, name: team.name } : null,
 		/** How many people's practice uses it: Stop sharing's and Delete's warning. */
@@ -309,5 +311,11 @@ export const actions: Actions = {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
 		return dropFrom(db, wallOf(params, locals), 'song', song.id, request);
+	},
+
+	/** Detach (board C8): this copy stops following its source. */
+	detach: ({ params, locals }) => {
+		const { song } = requireSongAccess(getDb(), locals, params, params.id, 'read');
+		return detachFrom(getDb(), wallOf(params, locals).userId, 'song', song.id);
 	}
 };

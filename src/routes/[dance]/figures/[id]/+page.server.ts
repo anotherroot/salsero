@@ -65,7 +65,8 @@ import {
 import { seenRefusal, variationSeen } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
@@ -306,6 +307,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		family: familyView(db, wall.userId, 'figure', id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'figure', id),
+		detach: detachOffer(db, wall.userId, 'figure', id),
 		/**
 		 * Opened from the person's copy: Take brings a recording into it (`into`),
 		 * and `held` marks the recordings already there.
@@ -627,6 +629,12 @@ export const actions: Actions = {
 	drop: ({ params, locals, request }) => {
 		const { figure } = variationOf(params, locals, 'read');
 		return dropFrom(getDb(), wallOf(params, locals), 'figure', figure.id, request);
+	},
+
+	/** Detach (board C8): this copy stops following its source. */
+	detach: ({ params, locals }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return detachFrom(getDb(), wallOf(params, locals).userId, 'figure', figure.id);
 	},
 
 	/**

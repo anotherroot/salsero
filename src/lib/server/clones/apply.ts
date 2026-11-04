@@ -728,7 +728,7 @@ const embeds = (tx: Db, routineId: number) =>
 const DENIED: SyncResult = { ok: false, reason: 'denied', message: 'Not found.' };
 
 /** How a kind's change is filed in History: its root, and the thing a change of several fields names. */
-function logRoot(
+export function logRoot(
 	kind: CloneKind,
 	row: { id: number; groupId?: number | null }
 ): Pick<ChangeEntry, 'rootKind' | 'rootId' | 'subjectId'> & { thing: string } {

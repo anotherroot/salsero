@@ -22,7 +22,8 @@ import { isFrequency } from '$lib/frequency';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import { localDay } from '$lib/day/day';
@@ -97,6 +98,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			...pageSources(db, wall.userId, 'drill', own.id, url),
 			family: familyView(db, wall.userId, 'drill', own.id),
 			drop: dropOptions(db, wall, 'drill', own.id),
+			detach: detachOffer(db, wall.userId, 'drill', own.id),
 			makeMine: null,
 			drill: null,
 			historyHref: null,
@@ -164,6 +166,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		/** Copies you can see, the differs banners and Send mine… (`clones/send.ts`). */
 		family: familyView(db, wall.userId, 'drill', row.id),
 		drop: null,
+		detach: detachOffer(db, wall.userId, 'drill', row.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
 		add: route
@@ -223,6 +226,12 @@ export const actions: Actions = {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
 		return dropFrom(db, wallOf(params, locals), 'drill', row.id, request);
+	},
+
+	/** Detach (board C8): this copy stops following its source. */
+	detach: ({ params, locals }) => {
+		const { exercise: row } = requireExerciseAccess(getDb(), locals, params, params.id, 'read');
+		return detachFrom(getDb(), wallOf(params, locals).userId, 'drill', row.id);
 	},
 
 	/** Add on a group drill's page when a lesson the person added holds it: just this drill. */

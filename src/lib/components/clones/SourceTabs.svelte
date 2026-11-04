@@ -7,19 +7,29 @@
 	import CompareSheet from './CompareSheet.svelte';
 	import FamilyList from './FamilyList.svelte';
 	import DropSheet from './DropSheet.svelte';
+	import DetachSheet from './DetachSheet.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import { dropped } from './dropped.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import {
 		COMPARE,
+		DETACH_BUTTON,
 		DROP_BUTTON,
 		VERSIONS,
 		changedLine,
 		differsBanner,
+		reconnectedLine,
 		sourceNote
 	} from '$lib/clones/view';
 	import type { DanceSlug } from '$lib/dances/dances';
-	import type { CloneKind, CompareOffer, DropOptions, FamilyView, Source } from '$lib/types';
+	import type {
+		CloneKind,
+		CompareOffer,
+		DetachOffer,
+		DropOptions,
+		FamilyView,
+		Source
+	} from '$lib/types';
 
 	/**
 	 * A tab per source at the top of a member page's body (board C2 p2):
@@ -43,7 +53,8 @@
 		taking = null,
 		compare = null,
 		family = null,
-		drop = null
+		drop = null,
+		detach = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -60,6 +71,8 @@
 		family?: FamilyView | null;
 		/** Drop my copy (board C5), on the person's own copy while another version is readable. */
 		drop?: DropOptions | null;
+		/** Detach (board C8), beside Drop my copy: the copy stops following its source. */
+		detach?: DetachOffer | null;
 	} = $props();
 
 	let comparing = $state(false);
@@ -67,6 +80,7 @@
 	let against = $state<CompareOffer | null>(null);
 	let againstOpen = $state(false);
 	let dropping = $state(false);
+	let detaching = $state(false);
 
 	/** "Back on Salsa Tuesdays’. Your copy is archived.": left by a drop for the page it opened. */
 	let toast = $state<{ id: number; message: string } | null>(null);
@@ -125,7 +139,11 @@
 		class="flex items-center gap-2.5 rounded-2xl bg-accent-soft py-2 pr-2 pl-4 text-[14px] leading-snug text-accent-text"
 	>
 		<span class="flex-none"><Icon name="refresh" size={18} /></span>
-		<span class="min-w-0 flex-1 py-1">{changedLine(compare.place, compare.changed)}</span>
+		<span class="min-w-0 flex-1 py-1"
+			>{compare.rejoined
+				? reconnectedLine(compare.place, compare.changed.length)
+				: changedLine(compare.place, compare.changed)}</span
+		>
 		<button type="button" class={button('tertiary', 'sm')} onclick={() => (comparing = true)}
 			>{COMPARE}</button
 		>
@@ -168,16 +186,31 @@
 	{/if}
 	<FamilyList {family} {kind} {dance} {current} />
 {/if}
-{#if drop}
-	<div class="flex justify-end">
-		<button
-			type="button"
-			class={button('danger-text', 'sm')}
-			aria-haspopup="dialog"
-			onclick={() => (dropping = true)}><Icon name="undo" size={20} />{DROP_BUTTON}</button
-		>
+{#if drop || detach}
+	<div class="flex flex-wrap justify-end gap-x-2">
+		{#if detach}
+			<button
+				type="button"
+				class={button('tertiary', 'sm')}
+				aria-haspopup="dialog"
+				onclick={() => (detaching = true)}><Icon name="unlink" size={20} />{DETACH_BUTTON}</button
+			>
+		{/if}
+		{#if drop}
+			<button
+				type="button"
+				class={button('danger-text', 'sm')}
+				aria-haspopup="dialog"
+				onclick={() => (dropping = true)}><Icon name="undo" size={20} />{DROP_BUTTON}</button
+			>
+		{/if}
 	</div>
+{/if}
+{#if drop}
 	<DropSheet open={dropping} onclose={() => (dropping = false)} {drop} fromId={current} />
+{/if}
+{#if detach}
+	<DetachSheet open={detaching} onclose={() => (detaching = false)} {kind} {detach} />
 {/if}
 
 <Toast

@@ -46,7 +46,8 @@ import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
-import { dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachFrom, dropFrom, sendFrom, takeFrom } from '$lib/server/take-form';
+import { detachOffer } from '$lib/server/clones/detach';
 import { familyView } from '$lib/server/clones/send';
 import { dropOptions } from '$lib/server/clones/drop';
 import type { Routine } from '$lib/server/db/schema';
@@ -211,6 +212,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		family: familyView(db, wall.userId, 'routine', routine.id),
 		/** Drop my copy (board C5): the person’s own copy, while another version is readable. */
 		drop: dropOptions(db, wall, 'routine', routine.id),
+		detach: detachOffer(db, wall.userId, 'routine', routine.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine:
 			canEdit || routine.teamId === null
@@ -371,6 +373,12 @@ export const actions: Actions = {
 	drop: ({ params, locals, request }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return dropFrom(getDb(), wallOf(params, locals), 'routine', routine.id, request);
+	},
+
+	/** Detach (board C8): this copy stops following its source. */
+	detach: ({ params, locals }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return detachFrom(getDb(), wallOf(params, locals).userId, 'routine', routine.id);
 	},
 
 	archive: async ({ params, locals }) => {

@@ -90,6 +90,7 @@ import { cloneInto, type CloneResult } from './clones/clone';
 import type { CloneFiles } from './clones/files';
 import { compareWith, takeTheirs } from './clones/compare';
 import { sendMine, sendPreview } from './clones/send';
+import { detach } from './clones/detach';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -938,6 +939,24 @@ const MUTATIONS: {
 				GB
 			);
 			return targets.length === 1 && res?.result.ok ? res : null;
+		}
+	},
+	// clones/detach.ts: a group's figure leaves its family (an ordinary edit: one change)
+	{
+		name: 'detach',
+		root: 'figure',
+		verb: 'change',
+		rootId: (w) => w.G,
+		teamOnly: true,
+		run: async (w) => {
+			const mine = await cloneInto(
+				db,
+				{ kind: 'figure', id: w.V, into: U1_SALSA, recordings: false },
+				cloneFiles,
+				T
+			);
+			if (!mine.ok) return null;
+			return detach(db, 'u1', 'figure', w.V, T) || null;
 		}
 	},
 	// video-downloads.ts, on completion

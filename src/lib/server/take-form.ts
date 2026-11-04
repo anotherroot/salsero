@@ -15,6 +15,7 @@ import { realCloneFiles } from './clones/files';
 import { takeTheirs } from './clones/compare';
 import { sendMine } from './clones/send';
 import { dropCopy, dropOptions } from './clones/drop';
+import { detach, detachOffer } from './clones/detach';
 import { itemHref } from './make-mine-form';
 import type { Wall } from './scope';
 
@@ -157,4 +158,16 @@ export async function dropFrom(db: Db, wall: Wall, kind: CloneKind, id: number, 
 	const res = dropCopy(db, wall, kind, id, to, { addLessonId }, Date.now());
 	if (!res.ok) return fail(409, { action: 'drop' as const, message: res.message });
 	throw redirect(303, itemHref(wall, kind, res.toId));
+}
+
+/**
+ * The `detach` action (board C8): the page's row leaves its family
+ * (`clones/detach.ts`). Answers `{ action: 'detach', detached: true }`; a row
+ * the person may not detach (not theirs to edit, or nothing to leave) is the
+ * missing row's 404.
+ */
+export function detachFrom(db: Db, userId: string, kind: CloneKind, id: number) {
+	if (!detachOffer(db, userId, kind, id) || !detach(db, userId, kind, id, Date.now()))
+		throw error(404, 'Not found');
+	return { action: 'detach' as const, detached: true };
 }

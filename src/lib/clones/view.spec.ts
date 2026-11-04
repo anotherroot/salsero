@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldDiff, SwitchReport } from '$lib/types';
 import {
+	DETACH_BUTTON,
+	DETACH_MINE,
+	DETACH_NO_MORE,
+	detachGroup,
+	detachTitle,
+	reconnectedLine,
 	DROP_BUTTON,
 	DROP_FAILED,
 	DROP_TITLE,
@@ -531,5 +537,31 @@ describe('Drop my copy (board C5)', () => {
 		expect(droppedToast('Salsa Tuesdays')).toBe('Back on Salsa Tuesdays’. Your copy is archived.');
 		expect(droppedToast('Rueda club')).toBe('Back on Rueda club’s. Your copy is archived.');
 		expect(DROP_FAILED).toBe('That could not be dropped. Try again.');
+	});
+});
+
+describe('Detach and reconnecting (board C8)', () => {
+	it('the sheet', () => {
+		expect(detachTitle('Salsa Tuesdays')).toBe('Stop following Salsa Tuesdays?');
+		expect(detachGroup('figure')).toBe(
+			'In a group, Detach just makes it an ordinary group figure.'
+		);
+		expect(detachGroup('routine')).toBe(
+			'In a group, Detach just makes it an ordinary group routine.'
+		);
+		expect(DETACH_MINE).toBe(
+			'Your copy stays yours, as it is. It stays shown together with theirs, as twins.'
+		);
+		expect(DETACH_NO_MORE).toBe('No more “updated since”, and no Take theirs to hit by mistake.');
+		expect(DETACH_BUTTON).toBe('Detach');
+	});
+
+	it('the rejoin banner', () => {
+		expect(reconnectedLine('Salsa Tuesdays', 3)).toBe(
+			'Reconnected with Salsa Tuesdays: 3 changes while you were away'
+		);
+		expect(reconnectedLine('Rueda club', 1)).toBe(
+			'Reconnected with Rueda club: 1 change while you were away'
+		);
 	});
 });

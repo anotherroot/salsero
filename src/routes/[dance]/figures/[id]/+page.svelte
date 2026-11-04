@@ -419,6 +419,7 @@
 				compare={data.compare}
 				family={data.family}
 				drop={data.drop}
+				detach={data.detach}
 				taking={data.taking ? sourcePlace : null}
 			/>
 			{#if readerTeam && data.fromLesson && !data.taking}
