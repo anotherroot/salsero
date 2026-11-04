@@ -3,9 +3,11 @@
 	import { resolve } from '$app/paths';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import { sourceNote } from '$lib/clones/view';
+	import CompareSheet from './CompareSheet.svelte';
+	import { button } from '$lib/components/ui/styles';
+	import { COMPARE, VERSIONS, changedLine, sourceNote } from '$lib/clones/view';
 	import type { DanceSlug } from '$lib/dances/dances';
-	import type { CloneKind, Source } from '$lib/types';
+	import type { CloneKind, CompareOffer, Source } from '$lib/types';
 
 	/**
 	 * A tab per source at the top of a member page's body (board C2 p2):
@@ -14,6 +16,8 @@
 	 * `?vs=<their member>`, so its page offers Take into it. The switch
 	 * replaces the history entry: one place in the trail, whichever tab.
 	 * Opened that way (`taking`), a source's page says so under the tabs.
+	 * On a row the person edits whose group source moved since they took it
+	 * (`compare`), a line says what, with Compare (board C2 p2).
 	 */
 	let {
 		sources,
@@ -21,7 +25,8 @@
 		dance,
 		current,
 		mineId,
-		taking = null
+		taking = null,
+		compare = null
 	}: {
 		sources: Source[];
 		kind: CloneKind;
@@ -32,7 +37,11 @@
 		mineId: number | null;
 		/** The page's place, when it was opened from the person's copy: "Salsa Tuesdays’ version, read-only…". */
 		taking?: string | null;
+		/** "Salsa Tuesdays changed it since you took it: timing · Compare". */
+		compare?: CompareOffer | null;
 	} = $props();
+
+	let comparing = $state(false);
 
 	// Follows the page; a tap moves it at once, before the next page lands.
 	let value = $derived(String(current));
@@ -65,7 +74,7 @@
 </script>
 
 {#if sources.length > 1}
-	<Segmented name="sources" label="Versions" {items} bind:value onchange={open} />
+	<Segmented name="sources" label={VERSIONS} {items} bind:value onchange={open} />
 {/if}
 {#if taking}
 	<p
@@ -74,4 +83,23 @@
 		<span class="mt-px flex-none"><Icon name="group" size={18} /></span>
 		<span>{sourceNote(taking)}</span>
 	</p>
+{/if}
+{#if compare}
+	<div
+		class="flex items-center gap-2.5 rounded-2xl bg-accent-soft py-2 pr-2 pl-4 text-[14px] leading-snug text-accent-text"
+	>
+		<span class="flex-none"><Icon name="refresh" size={18} /></span>
+		<span class="min-w-0 flex-1 py-1">{changedLine(compare.place, compare.changed)}</span>
+		<button type="button" class={button('tertiary', 'sm')} onclick={() => (comparing = true)}
+			>{COMPARE}</button
+		>
+	</div>
+	<CompareSheet
+		open={comparing}
+		onclose={() => (comparing = false)}
+		{kind}
+		mineId={current}
+		theirsId={compare.id}
+		place={compare.place}
+	/>
 {/if}

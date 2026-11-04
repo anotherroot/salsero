@@ -34,6 +34,7 @@ import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { lessonVideosDir } from '$lib/server/files';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { takeFrom } from '$lib/server/take-form';
 import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
@@ -282,6 +283,12 @@ export const actions: Actions = {
 	makeMine: ({ params, locals }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
 		return makeMineFrom(getDb(), wallOf(params, locals), 'lesson', lesson.id);
+	},
+
+	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
+	take: ({ params, locals, request }) => {
+		const { lesson } = lessonIn(params, locals, 'read');
+		return takeFrom(getDb(), locals.user!.id, 'lesson', lesson.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

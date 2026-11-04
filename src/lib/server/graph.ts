@@ -136,53 +136,64 @@ export interface FigureShape {
  * `by` is who, for History.
  */
 export function setFigureShape(db: Db, figureId: number, shape: FigureShape, by?: string): boolean {
-	const { startIds, endId, startCount, lengthCounts } = shape;
-	if (!isStartCount(startCount)) return false;
-	if (!isLengthCounts(lengthCounts)) return false;
-
 	return db.transaction((tx) => {
-		const figure = tx.select().from(figures).where(eq(figures.id, figureId)).get();
-		if (!figure) return false;
-		const before = shapeFields({
-			startIds: figurePositions(tx, figureId).startIds,
-			endId: figure.endPositionId,
-			startCount: figure.startCount ?? DEFAULT_START_COUNT,
-			lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
-		});
-
-		const wanted = [...new Set(endId === null ? startIds : [...startIds, endId])];
-		if (wanted.length > 0) {
-			const ours = tx
-				.select({ id: positions.id })
-				.from(positions)
-				.where(and(inArray(positions.id, wanted), eq(positions.dance, figure.dance)))
-				.all();
-			// Every id must exist AND be of this figure's dance. A count comparison
-			// covers both, since the ids were de-duplicated above.
-			if (ours.length !== wanted.length) return false;
-		}
-
-		tx.delete(figureStartPositions).where(eq(figureStartPositions.figureId, figureId)).run();
-		if (startIds.length > 0) {
-			tx.insert(figureStartPositions)
-				.values([...new Set(startIds)].map((positionId) => ({ figureId, positionId })))
-				.run();
-		}
-		tx.update(figures)
-			.set({ endPositionId: endId, startCount, lengthCounts })
-			.where(eq(figures.id, figureId))
-			.run();
-		const change = fieldChange(
-			before,
-			shapeFields({ startIds: [...new Set(startIds)], endId, startCount, lengthCounts }),
-			'variation'
-		);
+		const written = writeFigureShape(tx, figureId, shape);
+		if (!written) return false;
+		const { figure, before, after } = written;
+		const change = fieldChange(before, after, 'variation');
 		if (change && figure.groupId !== null) {
 			const root = { rootKind: 'figure' as const, rootId: figure.groupId, subjectId: figureId };
 			logChange(tx, actingIn(figure, by), { ...root, verb: 'change', ...change }, Date.now());
 		}
 		return true;
 	});
+}
+
+/**
+ * `setFigureShape`'s write, with no History line: a Take or Send writes the
+ * shape among other fields and logs once for all of them. Null, writing
+ * nothing, on the refusals `setFigureShape` names. `before` and `after` are
+ * the shape as History keeps it.
+ */
+export function writeFigureShape(tx: Db, figureId: number, shape: FigureShape) {
+	const { startIds, endId, startCount, lengthCounts } = shape;
+	if (!isStartCount(startCount)) return null;
+	if (!isLengthCounts(lengthCounts)) return null;
+
+	// Every refusal comes before the first write: the caller's transaction needs no savepoint.
+	const figure = tx.select().from(figures).where(eq(figures.id, figureId)).get();
+	if (!figure) return null;
+	const before = shapeFields({
+		startIds: figurePositions(tx, figureId).startIds,
+		endId: figure.endPositionId,
+		startCount: figure.startCount ?? DEFAULT_START_COUNT,
+		lengthCounts: figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
+	});
+
+	const wanted = [...new Set(endId === null ? startIds : [...startIds, endId])];
+	if (wanted.length > 0) {
+		const ours = tx
+			.select({ id: positions.id })
+			.from(positions)
+			.where(and(inArray(positions.id, wanted), eq(positions.dance, figure.dance)))
+			.all();
+		// Every id must exist AND be of this figure's dance. A count comparison
+		// covers both, since the ids were de-duplicated above.
+		if (ours.length !== wanted.length) return null;
+	}
+
+	tx.delete(figureStartPositions).where(eq(figureStartPositions.figureId, figureId)).run();
+	if (startIds.length > 0) {
+		tx.insert(figureStartPositions)
+			.values([...new Set(startIds)].map((positionId) => ({ figureId, positionId })))
+			.run();
+	}
+	tx.update(figures)
+		.set({ endPositionId: endId, startCount, lengthCounts })
+		.where(eq(figures.id, figureId))
+		.run();
+	const after = shapeFields({ startIds: [...new Set(startIds)], endId, startCount, lengthCounts });
+	return { figure, before, after };
 }
 
 /** A shape as History and the clash check keep it: the start positions sorted and joined. */

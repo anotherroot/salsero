@@ -12,6 +12,7 @@ import {
 } from '$lib/server/songs';
 import { deleteGroupSong, shareSong, songUsers, unshareSong } from '$lib/server/song-share';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { takeFrom } from '$lib/server/take-form';
 import { songSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
@@ -281,5 +282,12 @@ export const actions: Actions = {
 		const db = getDb();
 		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
 		return makeMineFrom(db, wallOf(params, locals), 'song', song.id);
+	},
+
+	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
+	take: ({ params, locals, request }) => {
+		const db = getDb();
+		const { song } = requireSongAccess(db, locals, params, params.id, 'read');
+		return takeFrom(db, locals.user!.id, 'song', song.id, request);
 	}
 };

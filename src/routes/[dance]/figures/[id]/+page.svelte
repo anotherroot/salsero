@@ -38,7 +38,7 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import { cloneSubtitle, fromLessonNote, recordingMeta, TAKE } from '$lib/clones/view';
+	import { cloneSubtitle, fromLessonNote, NOT_TAKEN, recordingMeta, TAKE } from '$lib/clones/view';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
@@ -416,6 +416,7 @@
 				dance={slug}
 				current={variation.id}
 				mineId={data.mineId}
+				compare={data.compare}
 				taking={data.taking ? sourcePlace : null}
 			/>
 			{#if readerTeam && data.fromLesson && !data.taking}
@@ -722,7 +723,7 @@
 							{/if}
 							{#if taken}
 								<div class="px-4 pb-3">
-									<Banner kind="error" title="Not taken">{taken}</Banner>
+									<Banner kind="error" title={NOT_TAKEN}>{taken}</Banner>
 								</div>
 							{/if}
 							<!-- Linking is done from the figure or drill a section shows; here a link

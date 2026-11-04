@@ -253,6 +253,24 @@ describe('diff: three members', () => {
 		expect(unpicked(diffs, defaultPicks(diffs, 'take'))).toEqual([]);
 		expect(defaultPicks(diffs, 'take')).toEqual({ name: 'mine' });
 	});
+
+	it('16: a name or title never travels by default, in either mode, whoever changed it', () => {
+		const base = initialBase(A0, [], hash);
+		const theirs = edit(A0, { name: 'Doble (Rueda club)' });
+		const renamed = diff(base, A0, theirs, hash);
+		expect(only(renamed)).toMatchObject({ key: 'name', side: 'theirs' });
+		// Take keeps mine; Send (theirs receives) keeps theirs.
+		expect(defaultPicks(renamed, 'take')).toEqual({ name: 'mine' });
+		expect(defaultPicks(diff(base, theirs, A0, hash), 'send')).toEqual({ name: 'theirs' });
+		// Both renamed: still the receiver's own, and nothing is left to pick.
+		const both = diff(base, edit(A0, { name: 'Mine' }), theirs, hash);
+		expect(defaultPicks(both, 'take')).toEqual({ name: 'mine' });
+		expect(unpicked(both, defaultPicks(both, 'take'))).toEqual([]);
+		const titles: FieldDiff[] = [
+			{ key: 'title', label: 'Title', mine: null, theirs: null, side: 'theirs', removal: false }
+		];
+		expect(defaultPicks(titles, 'send')).toEqual({ title: 'theirs' });
+	});
 });
 
 describe('diff: order and skip', () => {

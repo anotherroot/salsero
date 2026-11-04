@@ -197,6 +197,17 @@ Rules:
   in the family, but you never learn it exists. You can take from a member
   you can only read; you can send only to members you can edit.
 
+*(Built, Task 25:)* Compare and Take theirs (`clones/compare.ts`, the write in
+`clones/apply.ts`, shared with Send). A name or title never travels by
+default, in either direction: it is the receiver's until ticked. A reference
+taken in (a lesson's hand link, a section's link, a slot's option or
+embedded routine) becomes the receiving place's member of its family, copied
+there when missing, without recordings (they stay in the pair's skip, for
+Take). A take into a group logs one `change` (deletes keep their own
+`remove` lines, with Recently deleted); a person's deleted piece's file goes
+once the take has landed. The banner shows on a row you edit whose group
+source (the row it was copied from) is `newer` or `differs`.
+
 ## Leaving, and losing access *(user)*
 
 This replaces the groups spec's rule that a former member keeps reading the

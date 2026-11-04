@@ -82,7 +82,7 @@ function labelOf(tx: Db, figureId: number): string | null {
 }
 
 /** Rename the exercises of the variations matching `where` to their labels. */
-function syncExerciseNames(tx: Db, where: SQL | undefined) {
+export function syncExerciseNames(tx: Db, where: SQL | undefined) {
 	const rows = tx
 		.select({ figureId: figures.id, figure: figureGroups.name, name: figures.name })
 		.from(figures)

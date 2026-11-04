@@ -734,6 +734,46 @@ export type Source = {
 	rejoined?: boolean; // Task 28: last in step before the person's current membership began
 };
 
+/**
+ * Two members of a family side by side (`compareWith`): what differs since
+ * the pair was last in step, what Take preselects, the receiving member's
+ * digest the take must still match (`seen`), and whether the pair has a
+ * snapshot at all (`synced`).
+ */
+export type Comparison = {
+	diffs: FieldDiff[];
+	picks: Picks;
+	seen: string;
+	synced: boolean;
+	/** The person edits `mine`: Take theirs is offered. */
+	canTake: boolean;
+	/** The person edits `theirs`: Send mine is offered. */
+	canSend: boolean;
+};
+
+/** A Take or a Send into one member: written, or refused with words for the sheet. */
+export type SyncResult =
+	| { ok: true }
+	| {
+			ok: false;
+			reason: 'denied' | 'stale' | 'pick' | 'name' | 'linked' | 'room';
+			message: string;
+	  };
+
+/**
+ * The line over a member's page when the member it was copied from (a
+ * group's) changed since the two were last in step: "Salsa Tuesdays changed
+ * it since you took it: timing · Compare".
+ */
+export type CompareOffer = {
+	/** The source to compare with. */
+	id: number;
+	/** Its place's name. */
+	place: string;
+	/** What differs, as `changedLabels` says it. */
+	changed: string[];
+};
+
 /** One thing a person could keep of a group when they leave (Keep, `keepPreview`). */
 export type KeepItem = {
 	kind: CloneKind;

@@ -193,6 +193,7 @@
 				dance={data.dance.slug}
 				current={data.drill?.id ?? exercise.id}
 				mineId={data.mineId}
+				compare={data.compare}
 				taking={sourcePlace}
 			/>
 		{/if}

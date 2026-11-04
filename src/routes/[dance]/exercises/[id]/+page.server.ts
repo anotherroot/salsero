@@ -22,6 +22,7 @@ import { isFrequency } from '$lib/frequency';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { takeFrom } from '$lib/server/take-form';
 import { localDay } from '$lib/day/day';
 import type { ExerciseItem } from '$lib/types';
 import { pageSources } from '$lib/server/clones/sources';
@@ -194,6 +195,13 @@ export const actions: Actions = {
 		const db = getDb();
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
 		return makeMineFrom(db, wallOf(params, locals), 'drill', row.id);
+	},
+
+	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
+	take: ({ params, locals, request }) => {
+		const db = getDb();
+		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'read');
+		return takeFrom(db, locals.user!.id, 'drill', row.id, request);
 	},
 
 	/** Add on a group drill's page when a lesson the person added holds it: just this drill. */

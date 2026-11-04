@@ -2,7 +2,7 @@
  * The words of the clone and twin screens. PURE and client-safe: every
  * sentence a screen prints comes from here, so a spec can pin it.
  */
-import type { CloneKind, PlaceRef, SwitchReport } from '$lib/types';
+import type { CloneKind, FieldDiff, PlaceRef, SwitchReport } from '$lib/types';
 import { byteSize, plural } from '$lib/format';
 import { pieceParts, setPrefixOf } from './flat';
 
@@ -237,3 +237,88 @@ export const TAKE = 'Take';
 export function makeMineSize(bytes: number): string | null {
 	return bytes > 0 ? `Uses ${byteSize(bytes)} of your space` : null;
 }
+
+/** Take refused: the person's copy holds that recording already. */
+export const ALREADY_IN_YOURS = 'It is already in yours.';
+
+/** Take refused: the recording went while the page was open. */
+export const RECORDING_GONE = 'That recording is gone.';
+
+/** A refused Take's banner title, in the recording's card. */
+export const NOT_TAKEN = 'Not taken';
+
+/** The tab switcher's name, for screen readers. */
+export const VERSIONS = 'Versions';
+
+/* ── Compare and Take theirs ────────────────────────────────────────────── */
+
+/** The button on the banner that opens the comparison. */
+export const COMPARE = 'Compare';
+
+/**
+ * The banner over your copy when its source changed since you took it
+ * (board C2 p2): "Salsa Tuesdays changed it since you took it: timing, 1
+ * recording". Names the place, not the person (ruling 10).
+ */
+export function changedLine(place: string, changed: string[]): string {
+	return `${place} changed it since you took it: ${changed.map((c) => c.toLowerCase()).join(', ')}`;
+}
+
+/** The compare sheet's title: "Compare with Salsa Tuesdays’" ("Compare with yours" for your own). */
+export function compareTitle(place: string): string {
+	return place === 'Yours' ? 'Compare with yours' : `Compare with ${possessive(place)}`;
+}
+
+/** Under the title: since the pair's snapshot, or never in step (every difference a pick). */
+export function compareSub(synced: boolean): string {
+	return synced
+		? 'Since you last took from it. Pick where both of you changed something.'
+		: 'You were never in step with this one. Pick each difference.';
+}
+
+/** A difference's chip: who changed it since the two were in step, and how. */
+export function diffTag(d: FieldDiff): string {
+	if (d.side === 'both') return 'Both changed: pick';
+	if (d.side === 'mine') return 'Only yours changed';
+	if (d.mine === null) return 'New on theirs';
+	if (d.theirs === null) return 'Gone from theirs';
+	return 'Only theirs changed';
+}
+
+/** An option whose side lacks the thing (a recording only theirs has). */
+export function absentLine(side: 'mine' | 'theirs'): string {
+	return side === 'mine' ? 'Not in yours' : 'Not in theirs';
+}
+
+/** The compare sheet's button. */
+export const TAKE_BUTTON = 'Take what’s picked';
+
+/** A Take or Send refused: the receiving member changed since the sheet was opened. */
+export const STALE = 'Changed since you opened this. Compare again.';
+
+/** A Take or Send refused: a field both sides changed has no pick. */
+export const PICK_BOTH = 'Pick yours or theirs where both changed.';
+
+/** A name that would clash in the receiving move: "Doble is taken in Enchufla; rename one first." */
+export function nameTaken(name: string, move: string): string {
+	return `${name} is taken in ${move}; rename one first.`;
+}
+
+/** A compare card's two options. */
+export const YOURS = 'Yours';
+export const THEIRS = 'Theirs';
+
+/** What an option shows: the field's words, "(empty)" for nothing, or that its side lacks it. */
+export function optionShow(field: { show: string } | null, side: 'mine' | 'theirs'): string {
+	if (field === null) return absentLine(side);
+	return field.show === '' ? '(empty)' : field.show;
+}
+
+/** The compare sheet when the two are in step after all (someone took or sent meanwhile). */
+export const IN_STEP = 'Nothing differs any more.';
+
+/** The compare sheet when its data did not come. */
+export const COMPARE_FAILED = 'That comparison could not be loaded. Try again.';
+
+/** A Take that failed without a refusal's words. */
+export const TAKE_FAILED = 'That could not be taken. Try again.';

@@ -583,6 +583,7 @@
 				dance={data.dance.slug}
 				current={lesson.id}
 				mineId={data.mineId}
+				compare={data.compare}
 				taking={sourcePlace}
 			/>
 		{/if}

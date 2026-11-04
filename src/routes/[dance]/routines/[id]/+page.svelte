@@ -790,6 +790,7 @@
 					dance={data.dance.slug}
 					current={routine.id}
 					mineId={data.mineId}
+					compare={data.compare}
 					taking={sourcePlace}
 				/>
 				{#if bannerMessage}

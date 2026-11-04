@@ -97,14 +97,24 @@ export function diff(base: PairBase | null, mine: Flat, theirs: Flat, hash: Hash
 		.map(({ d }) => d);
 }
 
+/** The fields that name a member: they travel only when ticked. */
+const NAMES = new Set(['name', 'title']);
+
 /**
  * What a Take (`mine` receives) or a Send (`theirs` receives) preselects: the
  * changed side, except that a removal is never preselected. `'both'` gets no
- * pick.
+ * pick. A name or title keeps the receiver's own, whoever changed it: a copy
+ * suffixed on arrival ("Doble (Salsa Tuesdays)") must not be pushed back, and
+ * the source's name would clash in the receiving move. It travels only when
+ * ticked.
  */
 export function defaultPicks(diffs: FieldDiff[], mode: 'take' | 'send'): Picks {
 	const picks: Picks = {};
 	for (const d of diffs) {
+		if (NAMES.has(d.key)) {
+			picks[d.key] = mode === 'take' ? 'mine' : 'theirs';
+			continue;
+		}
 		if (d.side === 'both') continue;
 		if (d.removal && mode === 'take' && d.side === 'theirs') picks[d.key] = 'mine';
 		else if (d.removal && mode === 'send' && d.side === 'mine') picks[d.key] = 'theirs';

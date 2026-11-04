@@ -1,6 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import type { SwitchReport } from '$lib/types';
+import type { FieldDiff, SwitchReport } from '$lib/types';
 import {
+	ALREADY_IN_YOURS,
+	COMPARE_FAILED,
+	IN_STEP,
+	TAKE_FAILED,
+	THEIRS,
+	YOURS,
+	optionShow,
+	COMPARE,
+	NOT_TAKEN,
+	PICK_BOTH,
+	RECORDING_GONE,
+	STALE,
+	TAKE_BUTTON,
+	VERSIONS,
+	absentLine,
+	changedLine,
+	compareSub,
+	compareTitle,
+	diffTag,
+	nameTaken,
 	ARCHIVED_SONG_COPY,
 	MAKE_MINE,
 	MAKE_MINE_SUB,
@@ -204,5 +224,72 @@ describe('sources', () => {
 	it('makeMineSize: what the copy uses of the person’s space', () => {
 		expect(makeMineSize(380 * 1024 * 1024)).toBe('Uses 380 MB of your space');
 		expect(makeMineSize(0)).toBeNull();
+	});
+
+	it('changedLine: the banner over your copy, names lowered', () => {
+		expect(changedLine('Salsa Tuesdays', ['Timing', '1 recording'])).toBe(
+			'Salsa Tuesdays changed it since you took it: timing, 1 recording'
+		);
+		expect(changedLine('Rueda club', ['Notes'])).toBe(
+			'Rueda club changed it since you took it: notes'
+		);
+		expect(COMPARE).toBe('Compare');
+	});
+
+	it('the compare sheet: title, sub, button', () => {
+		expect(compareTitle('Salsa Tuesdays')).toBe('Compare with Salsa Tuesdays’');
+		expect(compareTitle('Rueda club')).toBe('Compare with Rueda club’s');
+		expect(compareTitle('Yours')).toBe('Compare with yours');
+		expect(compareSub(true)).toBe(
+			'Since you last took from it. Pick where both of you changed something.'
+		);
+		expect(compareSub(false)).toBe('You were never in step with this one. Pick each difference.');
+		expect(TAKE_BUTTON).toBe('Take what’s picked');
+	});
+
+	it('diffTag: who changed it, and what', () => {
+		const field = { key: 'k', label: 'L', value: 'v', show: 'v' };
+		const d = (side: FieldDiff['side'], mine: boolean, theirs: boolean): FieldDiff => ({
+			key: 'k',
+			label: 'L',
+			mine: mine ? field : null,
+			theirs: theirs ? field : null,
+			side,
+			removal: false
+		});
+		expect(diffTag(d('theirs', true, true))).toBe('Only theirs changed');
+		expect(diffTag(d('theirs', false, true))).toBe('New on theirs');
+		expect(diffTag(d('theirs', true, false))).toBe('Gone from theirs');
+		expect(diffTag(d('mine', true, true))).toBe('Only yours changed');
+		expect(diffTag(d('both', true, true))).toBe('Both changed: pick');
+		expect(diffTag(d('both', false, true))).toBe('Both changed: pick');
+	});
+
+	it('an option that is not there, and the refusals', () => {
+		expect(absentLine('mine')).toBe('Not in yours');
+		expect(absentLine('theirs')).toBe('Not in theirs');
+		expect(STALE).toBe('Changed since you opened this. Compare again.');
+		expect(PICK_BOTH).toBe('Pick yours or theirs where both changed.');
+		expect(nameTaken('Doble', 'Enchufla')).toBe('Doble is taken in Enchufla; rename one first.');
+	});
+
+	it('the source tab’s words: Take refused, the switcher', () => {
+		expect(ALREADY_IN_YOURS).toBe('It is already in yours.');
+		expect(RECORDING_GONE).toBe('That recording is gone.');
+		expect(NOT_TAKEN).toBe('Not taken');
+		expect(VERSIONS).toBe('Versions');
+	});
+});
+
+describe('the compare sheet’s options and states', () => {
+	it('shows a field’s words, (empty), or that its side lacks it', () => {
+		expect(optionShow({ show: '1 · 16 counts' }, 'mine')).toBe('1 · 16 counts');
+		expect(optionShow({ show: '' }, 'theirs')).toBe('(empty)');
+		expect(optionShow(null, 'mine')).toBe('Not in yours');
+		expect(optionShow(null, 'theirs')).toBe('Not in theirs');
+		expect([YOURS, THEIRS]).toEqual(['Yours', 'Theirs']);
+		expect(IN_STEP).toBe('Nothing differs any more.');
+		expect(COMPARE_FAILED).toBe('That comparison could not be loaded. Try again.');
+		expect(TAKE_FAILED).toBe('That could not be taken. Try again.');
 	});
 });

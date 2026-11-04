@@ -40,6 +40,8 @@ import { groupCookie } from '$lib/teams/mode';
 import type { Wall } from '$lib/server/scope';
 import * as figurePage from './figures/[id]/+page.server';
 import * as routinePage from './routines/[id]/+page.server';
+import * as compareApi from '../api/clones/compare/+server';
+import { figures } from '$lib/server/db/schema';
 
 const T = Date.UTC(2026, 10, 3, 20);
 const shape = { partner: 'partner' as const, style: 'salsa', notes: null };
@@ -195,6 +197,60 @@ describe('the figure page', () => {
 		]);
 		// u2's own copy is u2's: the editor never sees it.
 		expect(page.sources).toHaveLength(2);
+	});
+});
+
+describe('Compare and Take theirs', () => {
+	const compare = (uid: string, mine: number, theirs: number, kind = 'figure') =>
+		run(compareApi.GET, {
+			url: new URL(
+				`http://localhost/api/clones/compare?kind=${kind}&mine=${mine}&theirs=${theirs}`
+			),
+			locals: { user: { id: uid, isAdmin: false, timezone: 'UTC' } }
+		});
+
+	it('your copy’s page offers Compare once the group changed it; Take lands it and the offer goes', async () => {
+		const { F, C } = await setenta();
+		expect((await run(figurePage.load, ev('u2', C))).compare).toBeNull();
+		db.update(figures).set({ startCount: 3 }).where(eq(figures.id, F)).run();
+		const page = await run(figurePage.load, ev('u2', C));
+		expect(page.compare).toEqual({ id: F, place: 'Salsa Tuesdays', changed: ['Timing'] });
+
+		const c = await (await compare('u2', C, F)).json();
+		expect(c).toMatchObject({ picks: { timing: 'theirs' }, canTake: true, synced: true });
+		const form = { from: F, picks: JSON.stringify(c.picks), seen: c.seen };
+		expect(await run(figurePage.actions.take, ev('u2', C, { form }))).toEqual({
+			action: 'take',
+			taken: true
+		});
+		expect(db.select().from(figures).where(eq(figures.id, C)).get()!.startCount).toBe(3);
+		expect((await run(figurePage.load, ev('u2', C))).compare).toBeNull();
+		// The same sheet again: what it saw is gone.
+		db.update(figures).set({ notes: 'n' }).where(eq(figures.id, C)).run();
+		expect(await run(figurePage.actions.take, ev('u2', C, { form }))).toMatchObject({
+			status: 409,
+			data: { action: 'take', reason: 'stale' }
+		});
+	});
+
+	it('an outsider gets 404 from the comparison and the take; a reader cannot take into the group’s', async () => {
+		const { F, C } = await setenta();
+		expect(await compare('u4', C, F)).toMatchObject({ status: 404 });
+		expect(await compare('u2', C, F, 'nonsense')).toMatchObject({ status: 404 });
+		const c = await (await compare('u2', F, C)).json();
+		expect(c).toMatchObject({ canTake: false, canSend: true });
+		const form = { from: C, picks: '{}', seen: c.seen };
+		expect(await run(figurePage.actions.take, ev('u2', F, { form }))).toMatchObject({
+			status: 404
+		});
+	});
+
+	it('an editor’s tab of the group, opened from their copy, is no read-only source', async () => {
+		const { F } = await setenta();
+		const mine = await copyInto('figure', F, { userId: 'u3', dance: 'salsa' });
+		const page = await run(figurePage.load, ev('u3', F, { search: `?vs=${mine}` }));
+		expect(page.vs).toBeUndefined();
+		expect(page.taking).toBeNull();
 	});
 });
 

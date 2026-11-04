@@ -88,6 +88,7 @@ import { eq } from 'drizzle-orm';
 import { HISTORY_MERGE_MS } from '$lib/limits';
 import { cloneInto, type CloneResult } from './clones/clone';
 import type { CloneFiles } from './clones/files';
+import { compareWith, takeTheirs } from './clones/compare';
 
 let db: Db;
 const GB = 1024 ** 3;
@@ -870,6 +871,38 @@ const MUTATIONS: {
 					T
 				)
 			);
+		}
+	},
+	// clones/compare.ts: Take theirs into the group's figure from u1's own copy (syncFrom: Send too)
+	{
+		name: 'takeTheirs',
+		root: 'figure',
+		verb: 'change',
+		rootId: (w) => w.G,
+		teamOnly: true,
+		run: async (w) => {
+			const mine = await cloneInto(
+				db,
+				{ kind: 'figure', id: w.V, into: U1_SALSA, recordings: false },
+				cloneFiles,
+				T
+			);
+			if (!mine.ok) return null;
+			updateVariation(db, mine.id, { ...variation('Basic'), notes: 'Taken' });
+			const c = compareWith(db, 'u1', 'figure', w.V, mine.id)!;
+			const r = await takeTheirs(
+				db,
+				'u1',
+				'figure',
+				w.V,
+				mine.id,
+				c.picks,
+				c.seen,
+				cloneFiles,
+				T,
+				GB
+			);
+			return r.ok ? r : null;
 		}
 	},
 	// video-downloads.ts, on completion

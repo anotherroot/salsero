@@ -12,7 +12,7 @@
  * member never shows, and a row the person cannot read gives no tabs at all.
  */
 import { eq } from 'drizzle-orm';
-import type { CloneKind, Member, PlaceRef, Source, TwinKind } from '$lib/types';
+import type { CloneKind, CompareOffer, Member, PlaceRef, Source, TwinKind } from '$lib/types';
 import { diff, standing } from '$lib/clones/diff';
 import { changedLabels } from '$lib/clones/view';
 import type { Db } from '../db';
@@ -52,10 +52,17 @@ export type SourcesView = {
 	mineId: number | null;
 	/**
 	 * The page was opened from the person's copy (`?vs=<its id>`) and is
-	 * another place's: Take brings into `vs`. Null otherwise, or when the id
-	 * is not their own member of this family.
+	 * another place's that they only read: Take brings into `vs`. Null
+	 * otherwise (an editor's tab of the group is no read-only source), or
+	 * when the id is not their own member of this family.
 	 */
 	vs: number | null;
+	/**
+	 * The banner over a row the person edits, when the group's member it was
+	 * copied from changed since the two were last in step (its tab `newer` or
+	 * `differs`): "Salsa Tuesdays changed it since you took it · Compare".
+	 */
+	compare: CompareOffer | null;
 };
 
 type Twin = { id: number; place: PlaceRef; access: 'edit' | 'read' };
@@ -123,7 +130,8 @@ export function sourcesView(
 			sources: [],
 			line: { kind, self: { kind: 'mine' }, clonedFrom: null, groups: 0, twins: 0 },
 			mineId: null,
-			vs: null
+			vs: null,
+			compare: null
 		};
 	}
 	const { all, page, members, twins } = fam;
@@ -166,6 +174,16 @@ export function sourcesView(
 	const from = page.clonedFrom === null ? null : all.find((m) => m.id === page.clonedFrom);
 	const mineId = members.find((m) => m.place.kind === 'mine')?.id ?? null;
 	const asked = vs !== null && /^\d+$/.test(vs) ? Number(vs) : null;
+	// The banner: a row the person edits, copied from a group's member they still read.
+	const origin =
+		from && from.place.kind === 'team' && !from.archived && page.access === 'edit'
+			? { id: from.id, place: from.place.name }
+			: null;
+	const source = origin ? sources.find((s) => s.id === origin.id) : undefined;
+	const compare =
+		origin && source && (source.status === 'newer' || source.status === 'differs')
+			? { ...origin, changed: source.changed }
+			: null;
 	return {
 		sources: sources.length < 2 ? [] : sources,
 		line: {
@@ -176,7 +194,11 @@ export function sourcesView(
 			twins: twins.length
 		},
 		mineId,
-		vs: page.place.kind !== 'mine' && asked !== null && asked === mineId ? asked : null
+		vs:
+			page.place.kind !== 'mine' && page.access === 'read' && asked !== null && asked === mineId
+				? asked
+				: null,
+		compare
 	};
 }
 
@@ -282,5 +304,5 @@ export async function takeRecording(
 /** What a member page's load sends: its tabs, its subtitle's facts, and `vs` from its URL. */
 export function pageSources(db: Db, userId: string, kind: CloneKind, id: number, url: URL) {
 	const v = sourcesView(db, userId, kind, id, url.searchParams.get('vs'));
-	return { sources: v.sources, cloneLine: v.line, mineId: v.mineId, vs: v.vs };
+	return { sources: v.sources, cloneLine: v.line, mineId: v.mineId, vs: v.vs, compare: v.compare };
 }

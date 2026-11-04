@@ -254,6 +254,7 @@
 		dance={data.dance.slug}
 		current={song.id}
 		mineId={data.mineId}
+		compare={data.compare}
 		taking={sourcePlace}
 	/>
 	{#if group && !canEdit}

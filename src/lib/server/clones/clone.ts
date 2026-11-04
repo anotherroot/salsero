@@ -513,7 +513,7 @@ type Copier = (m: Mapper, sourceId: number, gene: string) => Copied;
  * (a section's link, a routine's slots, a lesson's hand links) points at the
  * place's member of that family.
  */
-class Mapper {
+export class Mapper {
 	/** `${kind}:${sourceId}` → the row in `into` (null: dropped). */
 	private memo = new Map<string, number | null>();
 	/** Every root this call copied, in the order made. */
@@ -658,7 +658,7 @@ const pause = (tx: Db, exerciseId: number) =>
 
 /* ── Figures ────────────────────────────────────────────────────────────── */
 
-const recordingsOf = (db: Db, figureId: number) =>
+export const recordingsOf = (db: Db, figureId: number) =>
 	db
 		.select()
 		.from(recordings)
@@ -667,9 +667,9 @@ const recordingsOf = (db: Db, figureId: number) =>
 		.all();
 
 /** What a spot sits on: a figure's recording or a lesson's video. */
-type SpotOwner = { recordingId: number } | { lessonVideoId: number };
+export type SpotOwner = { recordingId: number } | { lessonVideoId: number };
 
-const spotsOf = (db: Db, owner: SpotOwner) =>
+export const spotsOf = (db: Db, owner: SpotOwner) =>
 	db
 		.select()
 		.from(videoSpots)
@@ -681,7 +681,7 @@ const spotsOf = (db: Db, owner: SpotOwner) =>
 		.orderBy(asc(videoSpots.id))
 		.all();
 
-const linksOfSpot = (db: Db, spotId: number) =>
+export const linksOfSpot = (db: Db, spotId: number) =>
 	db.select().from(spotLinks).where(eq(spotLinks.spotId, spotId)).orderBy(asc(spotLinks.id)).all();
 
 /** How a source's place is named in a suffix: its group's name, or its person's shown name. */
@@ -841,11 +841,17 @@ export function missingBytes(db: Db, kind: CloneKind, sourceId: number, memberId
 	return 0;
 }
 
-type RecordingRow = typeof recordings.$inferSelect;
-type VideoRow = typeof lessonVideos.$inferSelect;
+export type RecordingRow = typeof recordings.$inferSelect;
+export type VideoRow = typeof lessonVideos.$inferSelect;
 
 /** One recording onto a figure in `into`, under its new file name, with its sections. */
-function copyRecording(m: Mapper, r: RecordingRow, figureId: number, gene: string, file: string) {
+export function copyRecording(
+	m: Mapper,
+	r: RecordingRow,
+	figureId: number,
+	gene: string,
+	file: string
+) {
 	const rec = m.tx
 		.insert(recordings)
 		.values({
@@ -866,7 +872,7 @@ function copyRecording(m: Mapper, r: RecordingRow, figureId: number, gene: strin
 }
 
 /** One lesson video onto a lesson in `into`, under its new file name, with its sections. */
-function copyVideo(m: Mapper, v: VideoRow, lessonId: number, gene: string, file: string) {
+export function copyVideo(m: Mapper, v: VideoRow, lessonId: number, gene: string, file: string) {
 	const video = m.tx
 		.insert(lessonVideos)
 		.values({
@@ -890,34 +896,51 @@ function copyVideo(m: Mapper, v: VideoRow, lessonId: number, gene: string, file:
  * place's member of the target, or a clone of it, or dropped.
  */
 function copySpots(m: Mapper, from: SpotOwner, to: SpotOwner): void {
+	for (const s of spotsOf(m.tx, from)) copySpot(m, s, to);
+}
+
+/** One spot onto a recording or lesson video in `into`, of the same family, with its links mapped. */
+export function copySpot(m: Mapper, s: SpotRow, to: SpotOwner): number {
 	const { tx, now } = m;
-	for (const s of spotsOf(tx, from)) {
-		const spotGene = stampGene(tx, 'spot', s.id);
-		const spot = tx
-			.insert(videoSpots)
-			.values({
-				...to,
-				startMs: s.startMs,
-				endMs: s.endMs,
-				label: s.label,
-				createdAt: s.createdAt,
-				geneId: spotGene,
-				clonedFrom: s.id
-			})
-			.returning({ id: videoSpots.id })
-			.get();
-		for (const t of linksOfSpot(tx, s.id)) {
-			const target =
-				t.figureId !== null
-					? mapped('figureId', m.ref('figure', t.figureId))
-					: mapped('exerciseId', m.ref('drill', t.exerciseId!));
-			if (target)
-				tx.insert(spotLinks)
-					.values({ spotId: spot.id, ...target, createdAt: now })
-					.onConflictDoNothing()
-					.run();
-		}
+	const spotGene = stampGene(tx, 'spot', s.id);
+	const spot = tx
+		.insert(videoSpots)
+		.values({
+			...to,
+			startMs: s.startMs,
+			endMs: s.endMs,
+			label: s.label,
+			createdAt: s.createdAt,
+			geneId: spotGene,
+			clonedFrom: s.id
+		})
+		.returning({ id: videoSpots.id })
+		.get();
+	for (const target of mappedLinks(m, s.id)) {
+		tx.insert(spotLinks)
+			.values({ spotId: spot.id, ...target, createdAt: now })
+			.onConflictDoNothing()
+			.run();
 	}
+	return spot.id;
+}
+
+export type SpotRow = typeof videoSpots.$inferSelect;
+
+/** A source section's links, each as the row in `into` it becomes (`Mapper.ref`); dropped ones left out. */
+export function mappedLinks(
+	m: Mapper,
+	spotId: number
+): ({ figureId: number } | { exerciseId: number })[] {
+	const out: ({ figureId: number } | { exerciseId: number })[] = [];
+	for (const t of linksOfSpot(m.tx, spotId)) {
+		const target =
+			t.figureId !== null
+				? mapped('figureId', m.ref('figure', t.figureId))
+				: mapped('exerciseId', m.ref('drill', t.exerciseId!));
+		if (target) out.push(target);
+	}
+	return out;
 }
 
 function mapped<K extends 'figureId' | 'exerciseId'>(
@@ -1122,7 +1145,7 @@ function handLinks(db: Db, lessonId: number) {
 	};
 }
 
-const videosOf = (db: Db, lessonId: number) =>
+export const videosOf = (db: Db, lessonId: number) =>
 	db
 		.select()
 		.from(lessonVideos)

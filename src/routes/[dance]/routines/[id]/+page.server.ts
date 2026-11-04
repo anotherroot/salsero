@@ -46,6 +46,7 @@ import { goneTitle, routineFingerprint, staleRoutine } from '$lib/clash/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
 import { getTeam } from '$lib/server/teams';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { takeFrom } from '$lib/server/take-form';
 import type { Routine } from '$lib/server/db/schema';
 import { pageSources } from '$lib/server/clones/sources';
 import type { Actions, PageServerLoad } from './$types';
@@ -346,6 +347,12 @@ export const actions: Actions = {
 	makeMine: ({ params, locals }) => {
 		const { routine } = routineIn(params, locals, 'read');
 		return makeMineFrom(getDb(), wallOf(params, locals), 'routine', routine.id);
+	},
+
+	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
+	take: ({ params, locals, request }) => {
+		const { routine } = routineIn(params, locals, 'read');
+		return takeFrom(getDb(), locals.user!.id, 'routine', routine.id, request);
 	},
 
 	archive: async ({ params, locals }) => {

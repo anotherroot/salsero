@@ -65,7 +65,9 @@ import {
 import { seenRefusal, variationSeen } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
+import { takeFrom } from '$lib/server/take-form';
 import { genesHeld, sourcesView, takeRecording } from '$lib/server/clones/sources';
+import { ALREADY_IN_YOURS, RECORDING_GONE } from '$lib/clones/view';
 import { realCloneFiles } from '$lib/server/clones/files';
 import type { SiblingSummary } from '$lib/types';
 import type { Actions, PageServerLoad } from './$types';
@@ -296,6 +298,8 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		/** What the band's subtitle says of where this row comes from (`cloneSubtitle`). */
 		cloneLine: versions.line,
 		mineId: versions.mineId,
+		/** The banner over your copy when its group's source moved: "… changed it since you took it · Compare". */
+		compare: versions.compare,
 		/**
 		 * Opened from the person's copy: Take brings a recording into it (`into`),
 		 * and `held` marks the recordings already there.
@@ -601,6 +605,12 @@ export const actions: Actions = {
 		return makeMineFrom(getDb(), wallOf(params, locals), 'figure', figure.id);
 	},
 
+	/** Take theirs: the compare sheet's picks from another member of the family, in place (`clones/compare.ts`). */
+	take: ({ params, locals, request }) => {
+		const { figure } = variationOf(params, locals, 'read');
+		return takeFrom(getDb(), locals.user!.id, 'figure', figure.id, request);
+	},
+
 	/**
 	 * Take one of this figure's recordings into the person's own copy of it
 	 * (`into`), with its sections; charged to them. See `clones/sources.ts`.
@@ -611,7 +621,7 @@ export const actions: Actions = {
 		const recordingId = int(form, 'recordingId');
 		const into = int(form, 'into');
 		if (recordingId === undefined || !found.recordings.some((r) => r.id === recordingId)) {
-			return fail(404, { action: 'takeRecording', message: 'That recording is gone.' });
+			return fail(404, { action: 'takeRecording', message: RECORDING_GONE });
 		}
 		if (into === undefined) throw error(404, 'Figure not found');
 		const size = found.recordings.find((r) => r.id === recordingId)!.sizeBytes;
@@ -641,7 +651,7 @@ export const actions: Actions = {
 				return fail(409, {
 					action: 'takeRecording',
 					recordingId,
-					message: 'It is already in yours.',
+					message: ALREADY_IN_YOURS,
 					askForMore: false
 				});
 			default:
