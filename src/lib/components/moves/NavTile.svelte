@@ -3,8 +3,8 @@
 	import type { IconName } from '$lib/icons/icons';
 
 	/**
-	 * A half-width link card: a tonal icon disc, a title, one meta line. Two
-	 * sit side by side at the top of the Figures list (Positions, Coverage).
+	 * A link card: a tonal icon disc, a title, one meta line. Coverage sits
+	 * at the top of the Figures list; cards placed in one row share it.
 	 * `status` makes the meta a status word (what still needs doing).
 	 */
 	let {

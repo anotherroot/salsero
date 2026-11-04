@@ -351,13 +351,15 @@ The home page. One page serves both "exercises" and "today".
 
 ## Figures
 
-- **List:** figures under their move's heading (a move's page at `/[dance]/moves/[id]`); search box, filter chips (style, partner/solo, Not linked), tiles to
-  Positions and Coverage with their counts. Archived hidden. See the
+- **List:** figures under their move's heading (a move's page at `/[dance]/moves/[id]`); search box, filter chips (style, partner/solo, Not linked), a tile to
+  Coverage with its count. Archived hidden. See the
   [redesign](2026-10-31-redesign-design.md), Moves.
-- **Positions:** `/[dance]/positions` is the gap report. A position is renamed
-  and removed in a sheet (never the neutral); a remove toasts with Undo.
-  Position names are unique per dance among live positions, compared ignoring
-  accents and case.
+- **Positions:** Moves' third segment, `/[dance]/positions`: how many figures
+  have positions, Templates and How positions work, search, a chip per type
+  and Gaps, No position, the map, then Yours and each group's. Positions are
+  owned like figures (a person's or a group's); a name is unique among the
+  space's live positions, ignoring accents and case. See the
+  [positions spec](2026-11-04-positions-design.md).
 - **New figure's style:** pre-selected from the user's pick in Settings
   ("New figures", one per dance, stored in `default_styles`), else the
   registry's `defaultStyle` — salsa for salsa, sensual for bachata. A stored

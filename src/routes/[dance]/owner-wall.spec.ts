@@ -254,13 +254,16 @@ describe("the figures list and coverage show only the person's own", () => {
 		const mine = loadAt(figureList.load, U1, 'salsa') as { figures: unknown[] };
 		const theirs = loadAt(figureList.load, U2, 'salsa') as {
 			figures: unknown[];
-			tagged: { total: number };
 			unlinked: number;
 			unrouted: number;
 		};
 		expect(mine.figures).toHaveLength(1);
 		expect(theirs.figures).toEqual([]);
-		expect(theirs.tagged.total).toBe(0);
+		expect(theirs).not.toHaveProperty('tagged');
+		expect((loadAt(positionsPage.load, U2, 'salsa') as { tagged: unknown }).tagged).toEqual({
+			done: 0,
+			total: 0
+		});
 		expect(theirs.unrouted).toBe(0);
 	});
 
@@ -372,10 +375,10 @@ describe('positions are each owner’s', () => {
 	});
 
 	it('the load lists only the space’s own positions', () => {
-		const theirs = loadAt(positionsPage.load, U2, 'salsa') as { positions: unknown[] };
-		expect(theirs.positions).toEqual([]);
-		const mine = loadAt(positionsPage.load, U1, 'salsa') as { positions: unknown[] };
-		expect(mine.positions.length).toBe(listPositions(db, U1_SALSA).length);
+		const theirs = loadAt(positionsPage.load, U2, 'salsa') as { rows: unknown[] };
+		expect(theirs.rows).toEqual([]);
+		const mine = loadAt(positionsPage.load, U1, 'salsa') as { rows: unknown[] };
+		expect(mine.rows.length).toBe(listPositions(db, U1_SALSA).length);
 	});
 
 	it("tagging a figure with positions stays the figure owner's action", async () => {
@@ -2093,7 +2096,6 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 				moves: { name: string; figures: { id: number; label: string }[] }[];
 			}[];
 			unrouted: number;
-			tagged: { total: number };
 		};
 		const moves = loadAt(figureList.load, U2, 'salsa') as Moves;
 		expect(moves.figures).toEqual([]);
@@ -2109,7 +2111,6 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 			}
 		]);
 		expect(moves.unrouted).toBe(0);
-		expect(moves.tagged.total).toBe(0);
 		// The editor added nothing: no group section, whatever they can edit.
 		expect((loadAt(figureList.load, U1, 'salsa') as Moves).groups).toEqual([]);
 	});

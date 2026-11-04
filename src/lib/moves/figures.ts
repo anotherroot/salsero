@@ -99,7 +99,7 @@ export function figuresEmpty(
 	return narrowed ? 'no-match' : 'none';
 }
 
-/** The Positions and Coverage tiles step aside while a search runs, and on an empty list. */
+/** The Coverage tile steps aside while a search runs, and on an empty list. */
 export function showTiles(count: number, filter: FigureFilter): boolean {
 	return count > 0 && !filter.q;
 }
@@ -109,13 +109,9 @@ export function groupHeading(name: string, count: number): string {
 	return `${name} · ${count}`;
 }
 
-/** The meta lines of the Positions and Coverage tiles. */
-export function tileMetas(
-	tagged: { done: number; total: number },
-	unrouted: number
-): { positions: string; coverage: { text: string; status: boolean } } {
+/** The Coverage tile's meta line (Positions is a Moves segment now, not a tile). */
+export function tileMetas(unrouted: number): { coverage: { text: string; status: boolean } } {
 	return {
-		positions: `${tagged.done} / ${tagged.total} tagged`,
 		coverage:
 			unrouted > 0
 				? { text: `${unrouted} in no routine`, status: true }

@@ -4,7 +4,6 @@ import { defaultStyle } from '$lib/server/default-styles';
 import { createFigure, listAddedFigures, listFigures, listVersions } from '$lib/server/figures';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { coverage } from '$lib/routines/coverage';
-import { taggedFigures } from '$lib/server/graph';
 import { oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, type Partner } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -40,7 +39,7 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 	const mode = groupModeOf(db, wall.userId, dance, cookies);
 	if (mode) {
 		// Group mode: the group's figures only, each marked with whether members
-		// reach it. Coverage and tags are the person's own; positions are shared.
+		// reach it. Coverage is the person's own.
 		const space = { dance, teamId: mode.teamId, actorId: wall.userId };
 		const reach = publishedReach(db, mode.teamId);
 		return {
@@ -54,7 +53,6 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 			twinned: [] as number[],
 			filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
 			unlinked: figureCount(listFigures(db, space, { unlinked: true })),
-			tagged: null,
 			unrouted: null,
 			defaultStyle: defaultStyle(db, locals.user.id, dance)
 		};
@@ -78,10 +76,6 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		// Figures with no section or no lesson, whatever the filter: the header's
 		// way into the "Not linked" filter, as `unrouted` is into coverage.
 		unlinked: figureCount(listFigures(db, wall, { unlinked: true })),
-		// How much of the repertoire carries handhold tags. An untagged figure
-		// fits anywhere, which is right for most of casino but worth surfacing:
-		// the graph is only as good as this fraction.
-		tagged: taggedFigures(db, wall),
 		// Versions no routine can call: the Figures header's way into coverage.
 		unrouted: coverage(
 			listVersions(db, wall),

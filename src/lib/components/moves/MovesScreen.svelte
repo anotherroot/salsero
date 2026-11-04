@@ -11,9 +11,9 @@
 	import type { DanceSlug } from '$lib/dances/dances';
 
 	/**
-	 * The Moves tab: Figures and Routines are two routes drawn inside this one
-	 * band. The switch replaces the history entry — it is a view inside one
-	 * tab, so Back leaves Moves rather than flipping between the two.
+	 * The Moves tab: Figures, Routines and Positions are three routes drawn
+	 * inside this one band. The switch replaces the history entry — it is a
+	 * view inside one tab, so Back leaves Moves rather than flipping between them.
 	 */
 	let {
 		segment,
@@ -29,7 +29,9 @@
 		const href =
 			to === 'figures'
 				? resolve('/[dance]/figures', { dance })
-				: resolve('/[dance]/routines', { dance });
+				: to === 'routines'
+					? resolve('/[dance]/routines', { dance })
+					: resolve('/[dance]/positions', { dance });
 		// Each list comes back with the chips and search it was left with.
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- `href` is resolved; the trail adds its search
 		goto(rememberedHref(href), { replaceState: true, keepFocus: true });
@@ -41,7 +43,11 @@
 		<GroupModeButton />
 		<BandButton
 			icon="plus"
-			label={segment === 'figures' ? 'New move' : 'New routine'}
+			label={segment === 'figures'
+				? 'New move'
+				: segment === 'routines'
+					? 'New routine'
+					: 'New position'}
 			onclick={onnew}
 		/>
 	{/snippet}

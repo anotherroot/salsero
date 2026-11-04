@@ -60,7 +60,11 @@ describe('TABS', () => {
 
 describe('rootsOf', () => {
 	it('names the main lists of a tab', () => {
-		expect(rootsOf('moves', 'bachata')).toEqual(['/bachata/figures', '/bachata/routines']);
+		expect(rootsOf('moves', 'bachata')).toEqual([
+			'/bachata/figures',
+			'/bachata/routines',
+			'/bachata/positions'
+		]);
 		expect(rootsOf('today', 'salsa')).toEqual(['/salsa']);
 		expect(rootsOf('lessons', 'salsa')).toEqual(['/salsa/lessons']);
 		expect(rootsOf('groups', 'salsa')).toEqual(['/salsa/groups']);

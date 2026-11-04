@@ -181,10 +181,11 @@ Every component exists in the states on the design system board (sections
   chevron on the band and the bar too (an edit's Save bar or a selection bar
   takes the bottom and the tab bar steps aside). See
   [pages keep their place](2026-11-01-pages-keep-state-design.md).
-- **Moves** = Figures | Routines, switched by the segmented control on the
-  band. Positions and Coverage are two half-width tiles at the top of the
-  Figures list (with their counts: "31 / 41 tagged", "7 in no routine"); each
-  opens a pushed screen that goes back to Moves.
+- **Moves** = Figures | Routines | Positions, switched by the segmented
+  control on the band (Positions since 2026-11-04, see the
+  [positions spec](2026-11-04-positions-design.md)). Coverage is a tile at the
+  top of the Figures list ("7 in no routine"); it opens a pushed screen that
+  goes back to Moves.
 - **Music** = the song library (today's Songs).
 - **Practice** (today's Player) is a pushed screen, reached from Music, a song,
   a routine, an exercise.
