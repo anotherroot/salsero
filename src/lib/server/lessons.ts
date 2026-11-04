@@ -1347,7 +1347,9 @@ export function listLinkablePositions(
 		...viaSections(db, lessonId).positions.keys()
 	]);
 	const own = listPositions(db, space).map((p) => ({ ...p, team: null as TeamRef | null }));
-	const theirs = isTeam(space) ? [] : usablePositions(db, space);
+	// A shadowed group position (the person has their own copy) is hidden unless the
+	// lesson still links it: a linked row never vanishes from the picker.
+	const theirs = isTeam(space) ? [] : positionsToOffer(db, space, linked);
 	return [...own, ...theirs].map((p) => ({
 		...positionSummary(p, space),
 		linked: linked.has(p.id),
@@ -1476,4 +1478,12 @@ export function ownEntryIds(db: Db, space: Space, target: EntryTarget): number[]
 	if (isTeam(space)) return [];
 	const entry = entryFor(db, space.userId, target);
 	return entry ? [entry.id] : [];
+}
+
+/** The group positions a person may use, minus the shadowed ones the lesson does not link. */
+function positionsToOffer(db: Db, wall: Wall, linked: Set<number>) {
+	const shown = new Set(usablePositions(db, wall).map((p) => p.id));
+	return usablePositions(db, wall, undefined, 'keep').filter(
+		(p) => shown.has(p.id) || linked.has(p.id)
+	);
 }
