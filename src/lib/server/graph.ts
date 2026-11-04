@@ -292,29 +292,41 @@ export interface FigureShape {
  * `by` is who, for History.
  */
 export function setFigureShape(db: Db, figureId: number, shape: FigureShape, by?: string): boolean {
-	return db.transaction((tx) => {
-		const written = writeFigureShape(tx, figureId, shape);
-		if (!written) return false;
-		const { figure, before, after } = written;
-		const change = fieldChange(before, after, 'variation');
-		const now = Date.now();
-		if (change && figure.groupId !== null) {
-			const root = { rootKind: 'figure' as const, rootId: figure.groupId, subjectId: figureId };
-			logChange(tx, actingIn(figure, by), { ...root, verb: 'change', ...change }, now);
-		}
-		// A tag off a group's figure can take its position out of members' reach:
-		// what their own rows use of it is rescued, after the write.
-		const dropped = (was: string, is: string) => {
-			const kept = new Set(is.split(','));
-			return was !== '' && was.split(',').some((id) => !kept.has(id));
-		};
-		if (
-			figure.teamId !== null &&
-			(dropped(before.startIds, after.startIds) || dropped(before.endIds, after.endIds))
-		)
-			reconcileEntries(tx, figure.teamId, now);
-		return true;
-	});
+	return db.transaction((tx) => setFigureShapeIn(tx, figureId, shape, by));
+}
+
+/**
+ * `setFigureShape` inside the caller's transaction: the write, its History
+ * line and the rescue. The figures list's New move from a position calls it
+ * with the new figure, so History shows the position it starts or ends in.
+ */
+export function setFigureShapeIn(
+	tx: Db,
+	figureId: number,
+	shape: FigureShape,
+	by?: string
+): boolean {
+	const written = writeFigureShape(tx, figureId, shape);
+	if (!written) return false;
+	const { figure, before, after } = written;
+	const change = fieldChange(before, after, 'variation');
+	const now = Date.now();
+	if (change && figure.groupId !== null) {
+		const root = { rootKind: 'figure' as const, rootId: figure.groupId, subjectId: figureId };
+		logChange(tx, actingIn(figure, by), { ...root, verb: 'change', ...change }, now);
+	}
+	// A tag off a group's figure can take its position out of members' reach:
+	// what their own rows use of it is rescued, after the write.
+	const dropped = (was: string, is: string) => {
+		const kept = new Set(is.split(','));
+		return was !== '' && was.split(',').some((id) => !kept.has(id));
+	};
+	if (
+		figure.teamId !== null &&
+		(dropped(before.startIds, after.startIds) || dropped(before.endIds, after.endIds))
+	)
+		reconcileEntries(tx, figure.teamId, now);
+	return true;
 }
 
 /**

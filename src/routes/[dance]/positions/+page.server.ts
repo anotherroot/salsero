@@ -51,8 +51,20 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 	// figures they may use; in group mode, the group's.
 	const usable = mode ? undefined : usableOf(db, wall);
 	const graph = graphFor(db, space, usable);
+	const own = listPositions(db, space);
+	// Each group's positions the person may use. Yours replaces theirs: a group
+	// position with your own copy shows as yours.
+	const theirs = mode
+		? []
+		: withoutShadowed(db, wall, 'position', usablePositions(db, wall, usable));
+	// Every row's counts in one pass: the parts of the graph are worked out once.
+	const counts = new Map(
+		positionCounts(graph, [
+			...new Set([...own, ...theirs].map((p) => canonicalOf(graph, p.id)))
+		]).map((c) => [c.id, c])
+	);
 	const row = (p: PositionRow, from: string | null): PositionListRow => {
-		const [c] = positionCounts(graph, [canonicalOf(graph, p.id)]);
+		const c = counts.get(canonicalOf(graph, p.id))!;
 		return {
 			...positionSummary(p, space),
 			inCount: c.inCount,
@@ -67,14 +79,12 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		};
 	};
 
-	const own = listPositions(db, space);
 	let mine = own.map((p) => row(p, null));
 	let groups: { team: TeamRef; rows: PositionListRow[] }[] = [];
 	if (!mode) {
-		// Each group's positions the person may use, under its heading. Yours
-		// replaces theirs: a group position with your own copy shows as yours.
+		// Each group's under its heading.
 		const byTeam = new Map<number, { team: TeamRef; rows: PositionRow[] }>();
-		for (const p of withoutShadowed(db, wall, 'position', usablePositions(db, wall, usable))) {
+		for (const p of theirs) {
 			const g = byTeam.get(p.team.id) ?? { team: p.team, rows: [] };
 			g.rows.push(p);
 			byTeam.set(p.team.id, g);

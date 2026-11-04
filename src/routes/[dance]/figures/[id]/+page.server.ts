@@ -29,7 +29,7 @@ import { listPositions, positionSummary } from '$lib/server/positions';
 import { groupModeOf } from '$lib/server/group-mode';
 import type { Cookies } from '@sveltejs/kit';
 import { lessonAdds, positions as positionRows, type PositionRow } from '$lib/server/db/schema';
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { holdsLine, styleLabelOf } from '$lib/positions/view';
 import { positionGroups } from '$lib/picker/build';
 import type { PickGroup } from '$lib/picker/model';
@@ -215,7 +215,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 
 	// Starts in / Ends in: what the form shows chosen and what its pickers offer.
 	const { tags, positionChoices } = canEdit
-		? positionForm(db, space, wall.userId, figure, usable)
+		? positionForm(db, space, figure, usable)
 		: { tags: { startIds: [], endIds: [] }, positionChoices: [] };
 
 	const shape = {
@@ -430,16 +430,15 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
  * (`usablePositions`); a group's figure only the group's own. `tags` are the
  * chosen ones the form shows and posts back.
  *
- * Every chosen live tag the person reads is offered, so it shows as a chip and
- * can be taken off: a group's position their own copy hides from the list
+ * Every chosen live tag the person may use is offered, so it shows as a chip
+ * and can be taken off: a group's position their own copy hides from the list
  * (`usablePositions` leaves shadowed ones out) included. A tag to an archived
- * position, or to one they do not read, is neither shown nor posted:
+ * position, or to one they may not use, is neither shown nor posted:
  * `writeFigureShape` keeps it (ruling 4).
  */
 function positionForm(
 	db: Db,
 	space: Space,
-	userId: string,
 	figure: { id: number; styleTag: string | null },
 	usable: Usable | undefined
 ): {
@@ -463,27 +462,14 @@ function positionForm(
 	const missing = [...new Set([...current.startIds, ...current.endIds])].filter(
 		(p) => !offered.has(p)
 	);
+	// Exactly what `writeFigureShape` would replace: the group positions the
+	// person may use (`usableBy`), shadowed ones included, so offered and
+	// writable agree by construction.
 	if (!isTeam(space) && missing.length > 0) {
-		const rows = db
-			.select()
-			.from(positionRows)
-			.where(
-				and(
-					inArray(positionRows.id, missing),
-					eq(positionRows.dance, space.dance),
-					isNotNull(positionRows.teamId),
-					isNull(positionRows.archivedAt)
-				)
-			)
-			.all();
-		const teams = teamRefs(
-			db,
-			rows.map((r) => r.teamId!)
-		);
-		for (const r of rows) {
-			const team = teams.get(r.teamId!);
-			if (!team || positionAccess(db, userId, r) === null) continue;
-			add(r, team);
+		const wanted = new Set(missing);
+		for (const r of usablePositions(db, space, usable, 'keep')) {
+			if (!wanted.has(r.id) || offered.has(r.id)) continue;
+			add(r, r.team);
 			offered.add(r.id);
 		}
 	}

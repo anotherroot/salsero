@@ -445,7 +445,8 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 				{ name, styleTag: create.styleTag, hold: EMPTY_HOLD, notes: null, pictureSpotId: null },
 				Date.now()
 			);
-			if ('field' in made) throw new SpotLinkError(made.message, 400, 'name');
+			// The refusal's own field: tsc flags it here if a refusal ever names one the popup lacks.
+			if ('field' in made) throw new SpotLinkError(made.message, 400, made.field);
 			return linkPositionInSpace(tx, space, spotId, made.id);
 		}
 

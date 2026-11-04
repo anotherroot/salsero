@@ -17,6 +17,12 @@ vi.mock('$lib/server/db', async () => {
 	return { ...actual, getDb: () => handle.db };
 });
 
+// The list's counts are read once for every row, not once per row (`counts` below).
+vi.mock('$lib/graph/graph', async () => {
+	const actual = await vi.importActual<typeof import('$lib/graph/graph')>('$lib/graph/graph');
+	return { ...actual, positionCounts: vi.fn(actual.positionCounts) };
+});
+
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import {
@@ -41,6 +47,7 @@ import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
 import { actions, load } from './positions/+page.server';
 import { load as noneLoadFn } from './positions/none/+page.server';
+import { positionCounts } from '$lib/graph/graph';
 
 let db: Db;
 
@@ -290,8 +297,12 @@ describe('the list', () => {
 		db.insert(lessonPositions).values({ lessonId: lesson, positionId: hammer }).run();
 		db.insert(lessonAdds).values({ userId: 'u2', lessonId: lesson, addedAt: 1, seenAt: 1 }).run();
 
+		vi.mocked(positionCounts).mockClear();
 		const d = loadOf('u2');
 		expect(d.rows.map((r: any) => r.name)).toEqual(['Caída', 'Cerrada', 'Sombra']);
+		// One pass over the graph for all four rows (three own, one group's).
+		expect(vi.mocked(positionCounts)).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(positionCounts).mock.calls[0][1]).toHaveLength(4);
 		const byName = (n: string) => d.rows.find((r: any) => r.name === n);
 		expect(byName('Cerrada')).toMatchObject({ outCount: 1, inCount: 0, orphan: true });
 		expect(byName('Caída')).toMatchObject({ inCount: 1, deadEnd: true, styleTag: 'timba' });

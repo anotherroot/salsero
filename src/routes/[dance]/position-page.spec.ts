@@ -581,6 +581,18 @@ describe('New move from a position (ruling 8)', () => {
 			db.select().from(figureStartPositions).where(eq(figureStartPositions.figureId, f.id)).all()
 		).toMatchObject([{ figureId: f.id, positionId: g.hammer }]);
 		expect(crossRefs(db)).toEqual([]);
+		// History shows the starting position, in the editor's name, after the add.
+		const lines = db
+			.select()
+			.from(teamChanges)
+			.all()
+			.filter((c) => c.rootKind === 'figure' && c.rootId === f.groupId);
+		expect(lines.map((c) => [c.verb, c.subject, c.actorId])).toEqual([
+			['add', expect.any(String), 'u2'],
+			['change', 'startIds', 'u2']
+		]);
+		expect(JSON.parse(lines[1].afterJson!)).toMatchObject({ startIds: String(g.hammer) });
+		expect(JSON.parse(lines[1].beforeJson!)).toMatchObject({ startIds: '' });
 	});
 });
 

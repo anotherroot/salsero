@@ -3,7 +3,7 @@ import { getDb } from '$lib/server/db';
 import { defaultStyle } from '$lib/server/default-styles';
 import { createFigure, listAddedFigures, listFigures, listVersions } from '$lib/server/figures';
 import { getPosition } from '$lib/server/positions';
-import { writeFigureShape } from '$lib/server/graph';
+import { setFigureShapeIn } from '$lib/server/graph';
 import { usableBy } from '$lib/server/usable';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { coverage } from '$lib/routines/coverage';
@@ -11,7 +11,7 @@ import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { PARTNER, type Partner } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
-import { inSpace, wallOf, type Space } from '$lib/server/scope';
+import { actorOf, inSpace, wallOf, type Space } from '$lib/server/scope';
 import { groupModeOf, spaceOf } from '$lib/server/group-mode';
 import { publishedReach } from '$lib/server/access';
 import { storedTwinSets } from '$lib/server/twins';
@@ -164,7 +164,7 @@ export const actions: Actions = {
 		const endId = int(form, 'end');
 		const preset = startId !== undefined || endId !== undefined;
 		// With every field valid, a taken figure name is the one thing
-		// `createFigure` still refuses; then the tag, which `writeFigureShape`
+		// `createFigure` still refuses; then the tag, which `setFigureShapeIn`
 		// refuses for a position the figure may not have (another person's,
 		// archived since). Either refusal leaves nothing written.
 		const db = getDb();
@@ -180,7 +180,8 @@ export const actions: Actions = {
 					startCount: m.figure.startCount ?? DEFAULT_START_COUNT,
 					lengthCounts: m.figure.lengthCounts ?? DEFAULT_LENGTH_COUNTS
 				};
-				if (writeFigureShape(tx, m.figure.id, shape)) return m;
+				// Logged like an edit of the new figure, so a group's History shows the tag.
+				if (setFigureShapeIn(tx, m.figure.id, shape, actorOf(space))) return m;
 				// Thrown, so the figure goes back out with the transaction.
 				throw refused;
 			});
