@@ -572,13 +572,16 @@ const timer = globalThis as { __salsaTrashPurge?: ReturnType<typeof setInterval>
 
 /**
  * Purge now and every hour after, once per process: the dev server's module
- * reloads must not start a second timer. At boot, before the first purge,
- * the people who left a group before Keep shipped get their copies
- * (`settleFormerMembers`). Then the trash, then the groups deleted 30 days
- * ago (`purgeTeams`). A failure is logged and never reaches a request or
- * stops the boot.
+ * reloads must not start a second timer (nor run `afterSettle` again). At
+ * boot, before the first purge, the people who left a group before Keep
+ * shipped get their copies (`settleFormerMembers`), then `afterSettle` runs
+ * (the integrity checks, which would otherwise report what the settling is
+ * about to fix). Then the trash, then the groups deleted 30 days ago
+ * (`purgeTeams`). A failure is logged and never reaches a request or stops
+ * the boot: a failed settling still runs `afterSettle`, and a throwing
+ * `afterSettle` still purges.
  */
-export function startTrashPurge(db: () => Db): void {
+export function startTrashPurge(db: () => Db, afterSettle: () => void = () => {}): void {
 	if (timer.__salsaTrashPurge) return;
 	const run = () => {
 		const now = Date.now();
@@ -593,6 +596,8 @@ export function startTrashPurge(db: () => Db): void {
 	};
 	void settle()
 		.catch((err) => console.warn('[clones] settling former members failed', err))
+		.then(afterSettle)
+		.catch((err) => console.warn('[integrity] checks failed', err))
 		.then(run);
 	timer.__salsaTrashPurge = setInterval(run, HOUR);
 	timer.__salsaTrashPurge.unref?.();
