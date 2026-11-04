@@ -157,6 +157,27 @@ async function inRuedaClub(F1: number) {
 }
 
 describe('dropOptions', () => {
+	it('a copy with no practice to carry offers no lesson to add', async () => {
+		const F1 = figure(T1_SALSA, 'Setenta');
+		published(T1_SALSA, 'Week 4', (id) => linkFigure(db, id, F1, 'u1'));
+		// u2 reads Week 4 without adding it, and never practised the figure.
+		const C = (await mine('figure', F1)).id;
+		const o = dropOptions(db, U2_SALSA, 'figure', C)!;
+		expect(o.choices).toMatchObject([{ id: F1, practiceFollows: true, addLesson: null }]);
+		expect(dropCopy(db, U2_SALSA, 'figure', C, F1, {}, LATER)).toEqual({ ok: true, toId: F1 });
+		expect(addsOf('u2')).toEqual([]);
+	});
+
+	it('a drill copy always has practice: it is its own exercise', async () => {
+		const D = createCustomExercise(db, T1_SALSA, { name: 'Shines', everyDays: 3, notes: null }).id;
+		const L = published(T1_SALSA, 'Week 6', (id) => linkExercise(db, id, D, 'u1'));
+		const copy = (await mine('drill', D)).id;
+		const o = dropOptions(db, U2_SALSA, 'drill', copy)!;
+		expect(o.choices).toMatchObject([
+			{ id: D, practiceFollows: false, addLesson: { id: L, title: 'Week 6' } }
+		]);
+	});
+
 	it('one choice: the class’s version, and what only yours has', async () => {
 		const { F1, C } = await copied();
 		const o = dropOptions(db, U2_SALSA, 'figure', C)!;

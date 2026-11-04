@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -116,7 +117,7 @@
 			</p>
 			{#if !choice.practiceFollows}
 				<div class={GROUP}>
-					<p class="px-4 pt-3 pb-1 text-[13px] text-muted">{cantFollow(null)}</p>
+					<p class="px-4 pt-3 pb-1 text-[13px] text-muted">{cantFollow(null, drop.kind)}</p>
 					{@render addBox(choice)}
 				</div>
 			{/if}
@@ -125,7 +126,7 @@
 				<legend id="{uid}-use" class={SECTION_LABEL}>{USE_INSTEAD}</legend>
 				<div class={GROUP}>
 					{#each drop.choices as c (c.id)}
-						{@const meta = dropChoiceMeta(c, c.id === picked && c.addLesson !== null)}
+						{@const meta = dropChoiceMeta(c, c.id === picked && c.addLesson !== null, drop.kind)}
 						<div>
 							<label class="flex min-h-[64px] cursor-pointer items-center gap-3 px-4 py-2">
 								<span class="flex min-w-0 flex-1 flex-col">
@@ -176,10 +177,16 @@
 					return async ({ result, update }) => {
 						try {
 							if (result.type === 'redirect') {
-								// The copy is archived: its page gives way to the version's.
+								// The copy is archived: its page gives way to the version's, whose
+								// page shows the toast (only that page: `dropped`).
+								dropped.set(droppedToast(place), result.location, page.url.pathname);
 								close();
-								await gotoWhenSettled(result.location, { replaceState: true });
-								dropped.set(droppedToast(place));
+								try {
+									await gotoWhenSettled(result.location, { replaceState: true });
+								} catch (err) {
+									dropped.clear();
+									throw err;
+								}
 							} else if (result.type === 'failure') {
 								const data = result.data as { message?: unknown } | undefined;
 								refused = typeof data?.message === 'string' ? data.message : DROP_FAILED;

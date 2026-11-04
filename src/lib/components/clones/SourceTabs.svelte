@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -70,9 +71,11 @@
 	/** "Back on Salsa Tuesdays’. Your copy is archived.": left by a drop for the page it opened. */
 	let toast = $state<{ id: number; message: string } | null>(null);
 	let toastSeq = 0;
+	// Only on the version's own page (`dropped.take`): a landing that failed never shows it later.
 	$effect(() => {
-		if (dropped.message === null) return;
-		const message = dropped.take();
+		const path = page.url.pathname;
+		if (dropped.pending === null) return;
+		const message = dropped.take(path);
 		if (message) toast = { id: ++toastSeq, message };
 	});
 

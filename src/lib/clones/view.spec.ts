@@ -515,6 +515,17 @@ describe('Drop my copy (board C5)', () => {
 		expect(dropChoiceMeta({ ...from, clonedFrom: false }, false)).toBeNull();
 	});
 
+	it('a lesson or a song can only miss practice as a draft: no lesson to add', () => {
+		const line = 'Not published yet: your practice stays with your copy.';
+		expect(cantFollow(null, 'lesson')).toBe(line);
+		expect(cantFollow('Week 2', 'song')).toBe(line);
+		expect(cantFollow(null, 'routine')).toBe(
+			'Not in a lesson you added: your practice can’t follow'
+		);
+		const draft = { clonedFrom: true, practiceFollows: false, addLesson: null };
+		expect(dropChoiceMeta(draft, false, 'lesson')).toBe(`You copied it from here · ${line}`);
+	});
+
 	it('the buttons and the toast', () => {
 		expect([DROP_BUTTON, SEND_FIRST]).toEqual(['Drop my copy', 'Send mine first']);
 		expect(droppedToast('Salsa Tuesdays')).toBe('Back on Salsa Tuesdays’. Your copy is archived.');

@@ -549,8 +549,14 @@ export const USE_INSTEAD = 'Use instead';
 /** The version the person's copy was made from. */
 export const copiedHere = 'You copied it from here';
 
-/** A version no lesson the person added holds (R8), with the lesson Drop can add. */
-export function cantFollow(lesson: string | null): string {
+/**
+ * A version the practice cannot follow onto: for a figure, routine or drill,
+ * no lesson the person added holds it (R8), with the lesson Drop can add; for
+ * a lesson or a song, it is a draft, which nothing can add.
+ */
+export function cantFollow(lesson: string | null, kind: CloneKind = 'figure'): string {
+	if (kind === 'lesson' || kind === 'song')
+		return 'Not published yet: your practice stays with your copy.';
 	const line = 'Not in a lesson you added: your practice can’t follow';
 	return lesson === null ? line : `${line} · ${addToo(lesson)}`;
 }
@@ -566,11 +572,13 @@ export function addToo(lesson: string): string {
  */
 export function dropChoiceMeta(
 	c: { clonedFrom: boolean; practiceFollows: boolean; addLesson: { title: string } | null },
-	boxShown: boolean
+	boxShown: boolean,
+	kind: CloneKind = 'figure'
 ): string | null {
 	const parts: string[] = [];
 	if (c.clonedFrom) parts.push(copiedHere);
-	if (!c.practiceFollows) parts.push(cantFollow(boxShown ? null : (c.addLesson?.title ?? null)));
+	if (!c.practiceFollows)
+		parts.push(cantFollow(boxShown ? null : (c.addLesson?.title ?? null), kind));
 	return parts.length === 0 ? null : parts.join(' · ');
 }
 

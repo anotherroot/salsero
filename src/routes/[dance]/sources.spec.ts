@@ -345,9 +345,9 @@ describe('Drop my copy', () => {
 					id: F,
 					label: 'Setenta · Básico',
 					clonedFrom: true,
-					// u2 never added Week 4: practice could follow only by adding it.
-					practiceFollows: false,
-					addLesson: { title: 'Week 4' }
+					// u2 has no practice on the copy: nothing needs Week 4 added.
+					practiceFollows: true,
+					addLesson: null
 				}
 			]
 		});

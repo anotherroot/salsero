@@ -14,6 +14,7 @@
  * it ("Add Week 2 too"). A group's lesson is added by the drop itself
  * (`repoint`'s `addLesson`), so a published one always takes the practice;
  * a group's song takes the person's picks while they may practise to it.
+ * A copy with no live practice has nothing to carry, so no lesson is offered.
  *
  * A song is the person's own: Drop archives it as the song page's Archive
  * does (`archiveSong`). A person's song has no restore, so Edit on the
@@ -110,6 +111,23 @@ function practiceMayFollow(
 }
 
 /**
+ * Whether the person's copy has live practice to carry: an entry on it (a
+ * figure's, routine's or lesson's), a song picked by a live exercise. A drill
+ * always has: it is its own exercise.
+ */
+function hasPractice(db: Db, wall: Wall, kind: CloneKind, id: number): boolean {
+	if (kind === 'drill') return true;
+	const col = kind === 'song' ? exercises.songId : ENTRY[kind];
+	return (
+		db
+			.select({ id: exercises.id })
+			.from(exercises)
+			.where(and(ownedBy(exercises, wall), eq(col, id), isNull(exercises.archivedAt)))
+			.get() !== undefined
+	);
+}
+
+/**
  * The versions the person's live own row `id` can drop to: the other live
  * members of its family they read, in a group that is not deleted (one about
  * to be purged is no place to go back to). The one it was copied from first,
@@ -129,12 +147,14 @@ function choicesOf(
 	const members = visibleMembers(db, wall.userId, kind, id);
 	const self = members.find((m) => m.id === id);
 	if (!self || self.place.kind !== 'mine' || self.access !== 'edit') return null;
+	const practised = hasPractice(db, wall, kind, id);
 	const choices: DropChoice[] = [];
 	for (const m of members) {
 		if (m.id === id || m.archived || m.place.kind !== 'team') continue;
 		const teamId = m.place.teamId;
 		if (getTeam(db, teamId)?.deletedAt !== null) continue;
-		const practiceFollows = practiceMayFollow(db, wall.userId, kind, teamId, m.id);
+		// Nothing to carry: nothing for a lesson to be added for.
+		const practiceFollows = !practised || practiceMayFollow(db, wall.userId, kind, teamId, m.id);
 		const onlyInMine = withDiffs
 			? changedLabels(
 					(compareWith(db, wall.userId, kind, id, m.id)?.diffs ?? []).filter(
