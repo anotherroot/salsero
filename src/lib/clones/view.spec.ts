@@ -120,6 +120,9 @@ describe('clone words', () => {
 	it('possessive: a final s takes only the apostrophe', () => {
 		expect(possessive('Salsa Tuesdays')).toBe('Salsa Tuesdays’');
 		expect(possessive('Rueda club')).toBe('Rueda club’s');
+		expect(possessive('CLASS')).toBe('CLASS’');
+		expect(possessive('  Rueda club ')).toBe('Rueda club’s');
+		expect(possessive('Salsa Tuesdays ')).toBe('Salsa Tuesdays’');
 	});
 	it('usedAsIs', () => {
 		expect(usedAsIs('Salsa Tuesdays')).toBe('Salsa Tuesdays’ · used as it is');

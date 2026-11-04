@@ -65,7 +65,13 @@ import { dropOptions } from '$lib/server/clones/drop';
 import { sameAsOffer } from '$lib/server/twins';
 import { DANCES } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
-import { styleLabelOf, videoKey, type VideoPlace } from '$lib/positions/view';
+import {
+	LINK_REFUSED,
+	notLinked,
+	styleLabelOf,
+	videoKey,
+	type VideoPlace
+} from '$lib/positions/view';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -461,7 +467,7 @@ export const actions: Actions = {
 		const { position } = positionIn(params, locals, 'read');
 		const spotId = int(await request.formData(), 'spotId');
 		if (spotId === undefined) {
-			return fail(400, { action: 'linkSpot' as const, message: 'Pick a section or point.' });
+			return fail(400, { action: 'linkSpot' as const, message: LINK_REFUSED.pickSpot });
 		}
 		try {
 			linkSpotToPosition(getDb(), wallOf(params, locals).userId, spotId, position.id);
@@ -498,7 +504,7 @@ export const actions: Actions = {
 		) {
 			return fail(404, {
 				action: 'unlinkSpot' as const,
-				message: 'That link was already removed.'
+				message: LINK_REFUSED.linkGone
 			});
 		}
 		return { action: 'unlinkSpot' as const, ok: true };
@@ -516,12 +522,12 @@ export const actions: Actions = {
 		const { position } = positionIn(params, locals, 'read');
 		const lessonId = int(await request.formData(), 'lessonId');
 		if (lessonId === undefined) {
-			return fail(400, { action: 'linkLesson' as const, message: 'Pick a lesson.' });
+			return fail(400, { action: 'linkLesson' as const, message: LINK_REFUSED.pickLesson });
 		}
 		const { lesson, space } = requireLessonAccess(db, locals, params, lessonId, 'edit');
 		const refuse = (status: number, message: string) =>
 			fail(status, { action: 'linkLesson' as const, message });
-		if (lesson.archivedAt !== null) return refuse(400, 'That lesson is archived.');
+		if (lesson.archivedAt !== null) return refuse(400, LINK_REFUSED.lessonArchived);
 		if (
 			db
 				.select({ id: lessonPositions.lessonId })
@@ -531,10 +537,10 @@ export const actions: Actions = {
 				)
 				.get()
 		) {
-			return refuse(409, 'Already linked.');
+			return refuse(409, LINK_REFUSED.already);
 		}
 		if (!linkPosition(db, lesson.id, position.id, actorOf(space))) {
-			return refuse(400, `${lesson.title} could not be linked.`);
+			return refuse(400, notLinked(lesson.title));
 		}
 		return { action: 'linkLesson' as const, ok: true };
 	},
@@ -549,14 +555,14 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const lessonId = int(form, 'lessonId');
 		if (lessonId === undefined) {
-			return fail(400, { action: 'unlinkLesson' as const, message: 'Pick a lesson.' });
+			return fail(400, { action: 'unlinkLesson' as const, message: LINK_REFUSED.pickLesson });
 		}
 		const { lesson, space } = requireLessonAccess(db, locals, params, lessonId, 'edit');
 		const alsoSections = form.get('alsoSections') === '1';
 		if (!unlinkPosition(db, lesson.id, position.id, alsoSections, Date.now(), actorOf(space))) {
 			return fail(400, {
 				action: 'unlinkLesson' as const,
-				message: 'That lesson was already unlinked.'
+				message: LINK_REFUSED.lessonGone
 			});
 		}
 		return { action: 'unlinkLesson' as const, ok: true };

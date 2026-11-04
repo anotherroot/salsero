@@ -123,6 +123,13 @@ describe('positions view', () => {
 		expect(v.positionSubtitle(p, { teamName: 'Club', ins: 1, outs: 1 })).toBe(
 			'Club’s position · 1 in · 1 out'
 		);
+		// A capital S and stray spaces are still a final s.
+		expect(v.positionSubtitle(p, { teamName: 'CLASS ', ins: 1, outs: 1 })).toBe(
+			'CLASS’ position · 1 in · 1 out'
+		);
+		expect(v.positionFromLessonNote('Week 6', ' SALSA TUESDAYS ')).toBe(
+			'From Week 6. Tag your figures with it as it is; it stays SALSA TUESDAYS’.'
+		);
 	});
 	it('holdChips is re-exported', () => {
 		expect(v.holdChips({ hands: 'two', crossed: true, facing: 'face', frame: 'open' })).toEqual([
@@ -362,6 +369,54 @@ describe('the list’s heading, rows and chips', () => {
 		expect(v.positionQuery(f, chips.at(-1)!.change)).toBe('q=ca&type=son');
 		expect(v.positionQuery({ q: '' }, { q: 'Cerrada ab' })).toBe('q=Cerrada%20ab');
 		expect(v.positionQuery({ q: '' }, {})).toBe('');
+	});
+});
+
+describe('words that were in the screens', () => {
+	it('names the fields and their hints', () => {
+		expect(v.FIELDS).toEqual({
+			name: 'Name',
+			namePlaceholder: 'e.g. Cerrada, Manos cruzadas',
+			type: 'Type',
+			hands: 'Hands',
+			crossed: 'Crossed',
+			facing: 'Facing',
+			frame: 'Frame',
+			notes: 'Notes',
+			notesPlaceholder: 'How the hands meet, where the weight is…'
+		});
+	});
+	it('says what failed, and what is busy, for a screen reader', () => {
+		expect(v.SHEET_FAILED).toEqual({
+			save: 'That did not save. Try again.',
+			archive: 'That did not archive. Try again.',
+			templates: 'Those were not added. Try again.'
+		});
+		expect(v.BUSY).toEqual({
+			adding: 'Adding position',
+			addingMany: 'Adding positions',
+			saving: 'Saving',
+			archiving: 'Archiving position'
+		});
+		expect(v.TEMPLATE_PICK).toBe('Template');
+		expect(v.PAUSE).toBe('Pause');
+	});
+	it('names what an Unlink takes from where', () => {
+		expect(v.unlinkLabel('Point at 1:12', 'Manos cruzadas')).toBe(
+			'Unlink Point at 1:12 from Manos cruzadas'
+		);
+		expect(v.unlinkLabel('Manos cruzadas', 'Week 6')).toBe('Unlink Manos cruzadas from Week 6');
+	});
+	it('words the page’s link refusals', () => {
+		expect(v.LINK_REFUSED).toEqual({
+			pickSpot: 'Pick a section or point.',
+			pickLesson: 'Pick a lesson.',
+			linkGone: 'That link was already removed.',
+			lessonArchived: 'That lesson is archived.',
+			already: 'Already linked.',
+			lessonGone: 'That lesson was already unlinked.'
+		});
+		expect(v.notLinked('Week 6')).toBe('Week 6 could not be linked.');
 	});
 });
 

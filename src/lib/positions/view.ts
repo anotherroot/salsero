@@ -10,6 +10,7 @@ import type {
 	TeamRef
 } from '$lib/types';
 import { TWINS_CHIP } from '$lib/clones/twins';
+import { possessive } from '$lib/clones/view';
 
 export { holdChips } from './hold';
 
@@ -50,7 +51,7 @@ export function rowMeta(
 	styleLabel: StyleLabel
 ): {
 	text: string;
-	word: 'dead end' | 'orphan' | 'island' | 'unused' | null;
+	word: 'dead end' | 'orphan' | 'island' | null;
 	tone: 'danger' | null;
 } {
 	const parts = [styleLabel(r.styleTag)];
@@ -263,6 +264,60 @@ export const SHEET = {
 	pictureLegend: 'Its points'
 } as const;
 
+/** A position's fields (New, Edit, the picker's create step): labels and hints. */
+export const FIELDS = {
+	name: 'Name',
+	namePlaceholder: 'e.g. Cerrada, Manos cruzadas',
+	type: 'Type',
+	hands: 'Hands',
+	crossed: 'Crossed',
+	facing: 'Facing',
+	frame: 'Frame',
+	notes: 'Notes',
+	notesPlaceholder: 'How the hands meet, where the weight is…'
+} as const;
+
+/** A sheet's request that failed without the server saying why. */
+export const SHEET_FAILED = {
+	save: 'That did not save. Try again.',
+	archive: 'That did not archive. Try again.',
+	templates: 'Those were not added. Try again.'
+} as const;
+
+/** A busy button's name, for a screen reader, while its spinner shows. */
+export const BUSY = {
+	adding: 'Adding position',
+	addingMany: 'Adding positions',
+	saving: 'Saving',
+	archiving: 'Archiving position'
+} as const;
+
+/** Templates' type switch, for a screen reader. */
+export const TEMPLATE_PICK = 'Template';
+
+/** A playing point card's button, for a screen reader. */
+export const PAUSE = 'Pause';
+
+/** An Unlink button's name: "Unlink Point at 1:12 from Manos cruzadas". */
+export function unlinkLabel(what: string, from: string): string {
+	return `Unlink ${what} from ${from}`;
+}
+
+/** A position page's link and unlink refusals. */
+export const LINK_REFUSED = {
+	pickSpot: 'Pick a section or point.',
+	pickLesson: 'Pick a lesson.',
+	linkGone: 'That link was already removed.',
+	lessonArchived: 'That lesson is archived.',
+	already: 'Already linked.',
+	lessonGone: 'That lesson was already unlinked.'
+} as const;
+
+/** A lesson the owner rule refused to link. */
+export function notLinked(lesson: string): string {
+	return `${lesson} could not be linked.`;
+}
+
 export function editTitle(name: string): string {
 	return `Edit ${name}`;
 }
@@ -296,15 +351,9 @@ export function positionSubtitle(
 	_p: PositionSummary,
 	opts: { teamName?: string; lead?: string; ins: number; outs: number; styleLabel?: StyleLabel }
 ): string {
-	const lead =
-		opts.lead ??
-		(opts.teamName
-			? `${opts.teamName}${opts.teamName.endsWith('s') ? '’' : '’s'} position`
-			: 'Position');
+	const lead = opts.lead ?? (opts.teamName ? `${possessive(opts.teamName)} position` : 'Position');
 	return `${lead} · ${opts.ins} in · ${opts.outs} out`;
 }
-
-const possessive = (team: string) => (team.endsWith('s') ? `${team}’` : `${team}’s`);
 
 /**
  * "Son → ends in Abierta (dos manos), Salsa": `ends` are the positions as named

@@ -38,6 +38,7 @@
 		lessonPickTitle,
 		lessonsTitle,
 		unlinkFocus,
+		unlinkLabel,
 		linkSpotsSub,
 		linkSpotsTitle,
 		pointLabel,
@@ -439,7 +440,7 @@
 									<button
 										type="button"
 										aria-haspopup="dialog"
-										aria-label="Unlink {l.title}"
+										aria-label={unlinkLabel(position.name, l.title)}
 										class="{iconButton('bare', 'muted')} mr-1.5"
 										onclick={() => askUnlinkVia(l)}><Icon name="unlink" size={22} /></button
 									>
@@ -453,7 +454,7 @@
 										<input type="hidden" name="lessonId" value={l.id} />
 										<button
 											type="submit"
-											aria-label="Unlink {l.title}"
+											aria-label={unlinkLabel(position.name, l.title)}
 											aria-describedby={refusal('unlinkLesson') ? 'unlink-lesson-error' : undefined}
 											class={iconButton('bare', 'muted')}><Icon name="unlink" size={22} /></button
 										>
@@ -514,9 +515,10 @@
 		<input type="hidden" name="linkId" value={s.linkId} />
 		<button
 			type="submit"
-			aria-label="Unlink {s.point
-				? pointLabel(s.spot.startMs)
-				: spotLabel(s.spot)} from {position.name}"
+			aria-label={unlinkLabel(
+				s.point ? pointLabel(s.spot.startMs) : spotLabel(s.spot),
+				position.name
+			)}
 			aria-describedby={refusal('unlinkSpot') ? 'unlink-spot-error' : undefined}
 			class={iconButton('bare', 'muted')}><Icon name="unlink" size={22} /></button
 		>

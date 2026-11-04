@@ -8,6 +8,7 @@
 	import { button } from '$lib/components/ui/styles';
 	import { positionRow, withPositionRow } from '$lib/picker/build';
 	import {
+		BUSY,
 		SHEET,
 		TAGS_CLEAR,
 		TAGS_CREATE_FAILED,
@@ -231,7 +232,7 @@
 				form={formId}
 				class={button('primary', 'md', true)}
 				aria-busy={busy}
-				aria-label={busy ? 'Adding position' : undefined}
+				aria-label={busy ? BUSY.adding : undefined}
 			>
 				{#if busy}<Spinner />{:else}{SHEET.add}{/if}
 			</button>

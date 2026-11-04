@@ -8,9 +8,10 @@ import { localDay } from '$lib/day/day';
 import { pieceParts, ROOT_KEYS, setPrefixOf } from './flat';
 import { sendPicks, unpicked } from './diff';
 
-/** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s". */
+/** "Salsa Tuesdays" → "Salsa Tuesdays’"; "Rueda club" → "Rueda club’s"; "CLASS" → "CLASS’". Trimmed. */
 export function possessive(name: string): string {
-	return /s$/i.test(name) ? `${name}’` : `${name}’s`;
+	const n = name.trim();
+	return /s$/i.test(n) ? `${n}’` : `${n}’s`;
 }
 
 /** A group's row in a person's own list: "Salsa Tuesdays’ · used as it is". */

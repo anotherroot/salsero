@@ -10,7 +10,15 @@
 	import { DANCES, type DanceSlug } from '$lib/dances/dances';
 	import { fold } from '$lib/fold';
 	import { TEMPLATES, firstTemplateType, templateTypes } from '$lib/positions/templates';
-	import { TEMPLATES_TITLE, YOU_HAVE_IT, addLabel, templatesNote } from '$lib/positions/view';
+	import {
+		BUSY,
+		SHEET_FAILED,
+		TEMPLATE_PICK,
+		TEMPLATES_TITLE,
+		YOU_HAVE_IT,
+		addLabel,
+		templatesNote
+	} from '$lib/positions/view';
 
 	/**
 	 * Start from a template: a type at a time, its rough positions ticked,
@@ -75,9 +83,9 @@
 						await refreshWhenSettled();
 					} else if (result.type === 'failure') {
 						const m = (result.data as { message?: unknown } | undefined)?.message;
-						refused = typeof m === 'string' ? m : 'Those were not added. Try again.';
+						refused = typeof m === 'string' ? m : SHEET_FAILED.templates;
 					} else {
-						refused = 'Those were not added. Try again.';
+						refused = SHEET_FAILED.templates;
 					}
 				} finally {
 					busy = false;
@@ -89,7 +97,7 @@
 		{#if types.length > 1}
 			<Segmented
 				name="type"
-				label="Template"
+				label={TEMPLATE_PICK}
 				items={types.map((t) => ({ value: t, label: labels[t] ?? t }))}
 				bind:value={type}
 			/>
@@ -136,7 +144,7 @@
 			class={button('primary', 'md', true)}
 			disabled={picked.length === 0}
 			aria-busy={busy}
-			aria-label={busy ? 'Adding positions' : undefined}
+			aria-label={busy ? BUSY.addingMany : undefined}
 		>
 			{#if busy}<Spinner />{:else}{addLabel(picked.length)}{/if}
 		</button>

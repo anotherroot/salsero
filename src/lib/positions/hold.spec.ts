@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { EMPTY_HOLD, FACING, FRAME, HANDS, holdChips, holdLine, parseHold } from './hold';
+import {
+	EMPTY_HOLD,
+	FACING,
+	FRAME,
+	HANDS,
+	HANDS_SHORT,
+	holdChips,
+	holdLine,
+	parseHold
+} from './hold';
 
 const full = { hands: 'two', crossed: true, facing: 'face', frame: 'open' } as const;
 
@@ -19,6 +28,9 @@ describe('hold words', () => {
 		expect(HANDS).toEqual(['two', 'one', 'none']);
 		expect(FACING).toEqual(['face', 'side', 'shadow', 'back']);
 		expect(FRAME).toEqual(['open', 'closed']);
+	});
+	it('names the form’s Hands choices short: the field says Hands', () => {
+		expect(HANDS.map((h) => HANDS_SHORT[h])).toEqual(['Two', 'One', 'None']);
 	});
 });
 
