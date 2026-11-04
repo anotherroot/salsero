@@ -10,6 +10,8 @@ export const HANDS_LABEL: Record<Hands, string> = {
 	one: 'One hand',
 	none: 'No hands'
 };
+/** The form's Hands choices: short, under a field that says Hands. */
+export const HANDS_SHORT: Record<Hands, string> = { two: 'Two', one: 'One', none: 'None' };
 export const FACING_LABEL: Record<Facing, string> = {
 	face: 'Face to face',
 	side: 'Side by side',

@@ -73,17 +73,27 @@ export function handsLine(starts: number[], ends: number[], name: (id: number) =
 	return from === '' && to === '' ? '' : [from, '→', to].filter((p) => p !== '').join(' ');
 }
 
+/** A slot whose options disagree on their ends, where its hold's end would show. */
+export const ENDS_DIFFER = 'ends differ';
+
 /**
  * A slot card's second line: "1→1 · Open → Closed", led by "Routine · 3 slots"
- * for a routine. A side with no position shows nothing ("1→1 · Open →"), and
- * so do ends the options disagree on: never a "?" for a hold.
+ * for a routine. A side with no position shows nothing ("1→1 · Open →"): it
+ * fits anywhere. Ends the options disagree on (`ends` null) say so ("Open →
+ * ends differ"), so they never read as "anything follows"; never a "?" for a hold.
  */
 export function slotMeta(
 	e: RowEdges,
 	name: (id: number) => string,
 	childSlots: number | null
 ): string {
-	const hands = handsLine(e.starts, e.ends ?? [], name);
+	const from = handsLine(e.starts, [], name);
+	const hands =
+		e.ends !== null
+			? handsLine(e.starts, e.ends, name)
+			: from === ''
+				? ENDS_DIFFER
+				: `${from} ${ENDS_DIFFER}`;
 	const core =
 		e.startCounts.length === 0
 			? ''

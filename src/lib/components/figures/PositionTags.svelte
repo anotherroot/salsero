@@ -8,6 +8,7 @@
 	import { button } from '$lib/components/ui/styles';
 	import { positionRow, withPositionRow } from '$lib/picker/build';
 	import {
+		BUSY,
 		SHEET,
 		TAGS_CLEAR,
 		TAGS_CREATE_FAILED,
@@ -68,8 +69,16 @@
 	);
 	const sub = $derived(tagsSub(figureLabel, figureStyle ? styleLabel(figureStyle) : null));
 
-	/** The create step, while open: what was typed, and the picker waiting for it. */
-	let level = $state<{ name: string; done: (row: PickRow | undefined) => void } | null>(null);
+	/**
+	 * The create step, while open: what was typed, the picker waiting for it,
+	 * and its opening's number (`seq`), which a request carries so an answer
+	 * for a level that closed (or another opening) is not taken as this one's.
+	 */
+	type Level = { seq: number; name: string; done: (row: PickRow | undefined) => void };
+	let level = $state<Level | null>(null);
+	/** The last level opened: its fields stay drawn while the sheet closes. */
+	let shown = $state<Level | null>(null);
+	let seq = 0;
 	/** True once the level sits outside the figure's form: only then may it open. */
 	let placed = $state(false);
 	let busy = $state(false);
@@ -81,7 +90,11 @@
 	function oncreate(query: string): Promise<PickRow | undefined> {
 		errors = {};
 		refused = null;
-		return new Promise((done) => (level = { name: query.trim(), done }));
+		busy = false;
+		return new Promise((done) => {
+			level = { seq: ++seq, name: query.trim(), done };
+			shown = level;
+		});
 	}
 
 	/** Close the level; the picker hears what was made, or nothing. */
@@ -112,6 +125,9 @@
 		e.preventDefault();
 		// One create per tap: a second tap while the first is out is dropped.
 		if (busy || !level) return;
+		const sent = level.seq;
+		/** Still the level that sent it: not closed, not opened again since. */
+		const current = () => level?.seq === sent;
 		const fd = new FormData(e.currentTarget as HTMLFormElement);
 		busy = true;
 		errors = {};
@@ -133,8 +149,11 @@
 			});
 			const body = (await res.json().catch(() => null)) as
 				(PositionSummary & { message?: unknown; field?: unknown }) | null;
+			// Made, whichever level asked: it exists now, so both pickers offer it.
+			if (res.status === 201 && body) made = [...made, body];
+			// A level that closed, or was opened again, since: its answer is not this one's.
+			if (!current()) return;
 			if (res.status === 201 && body) {
-				made = [...made, body];
 				finish(positionRow(body));
 			} else if (
 				typeof body?.message === 'string' &&
@@ -145,9 +164,10 @@
 				refused = typeof body?.message === 'string' ? body.message : TAGS_CREATE_FAILED;
 			}
 		} catch {
-			refused = TAGS_CREATE_FAILED;
+			if (current()) refused = TAGS_CREATE_FAILED;
 		} finally {
-			busy = false;
+			// Another opening reset `busy` itself; this one's answer leaves it alone.
+			if (current() || level === null) busy = false;
 		}
 	}
 </script>
@@ -184,31 +204,38 @@
 	<p class="-mt-1.5 pl-1 text-[13px] leading-[1.4] text-muted">{TAGS_HELP}</p>
 </div>
 
-{#if level}
-	<div use:afterForm>
-		<Sheet
-			title={SHEET.newTitle}
-			sub={TAGS_NEW_SUB}
-			open={placed}
-			back
-			onclose={() => finish(undefined)}
-		>
-			<!-- A fetch form, not use:guarded: it posts JSON, and keeps what was typed until it closes. -->
-			<form id={formId} novalidate onsubmit={create} class="flex flex-col gap-3.5">
-				{#if refused}<Banner kind="error">{refused}</Banner>{/if}
-				<PositionFields {dance} name={level.name} styleTag={figureStyle} {errors} autofocus />
-			</form>
-			{#snippet footer()}
-				<button
-					type="submit"
-					form={formId}
-					class={button('primary', 'md', true)}
-					aria-busy={busy}
-					aria-label={busy ? 'Adding position' : undefined}
-				>
-					{#if busy}<Spinner />{:else}{SHEET.add}{/if}
-				</button>
-			{/snippet}
-		</Sheet>
-	</div>
-{/if}
+<!--
+	Always mounted, `open` driven: a native dialog's close hands focus back to
+	what had it (the picker's create button), which an unmounted one cannot.
+	The fields are keyed on the opening, so each starts from what was typed.
+-->
+<div use:afterForm>
+	<Sheet
+		title={SHEET.newTitle}
+		sub={TAGS_NEW_SUB}
+		open={placed && level !== null}
+		back
+		onclose={() => finish(undefined)}
+	>
+		<!-- A fetch form, not use:guarded: it posts JSON, and keeps what was typed until it closes. -->
+		<form id={formId} novalidate onsubmit={create} class="flex flex-col gap-3.5">
+			{#if refused}<Banner kind="error">{refused}</Banner>{/if}
+			{#key shown?.seq}
+				{#if shown}
+					<PositionFields {dance} name={shown.name} styleTag={figureStyle} {errors} autofocus />
+				{/if}
+			{/key}
+		</form>
+		{#snippet footer()}
+			<button
+				type="submit"
+				form={formId}
+				class={button('primary', 'md', true)}
+				aria-busy={busy}
+				aria-label={busy ? BUSY.adding : undefined}
+			>
+				{#if busy}<Spinner />{:else}{SHEET.add}{/if}
+			</button>
+		{/snippet}
+	</Sheet>
+</div>

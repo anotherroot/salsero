@@ -1,5 +1,5 @@
 /** Every positions screen's words: PURE, client-safe. Strings come from the design boards. */
-import { dayLabel, dayMonth, longDayLabel, monthLabel, plural } from '$lib/format';
+import { classDayLabel, dayMonth, monthHeading, plural, weekdayDayMonth } from '$lib/format';
 import { spotLabel } from '$lib/video/spots';
 import type { PickGroup, PickRow } from '$lib/picker/model';
 import type {
@@ -10,6 +10,7 @@ import type {
 	TeamRef
 } from '$lib/types';
 import { TWINS_CHIP } from '$lib/clones/twins';
+import { possessive } from '$lib/clones/view';
 
 export { holdChips } from './hold';
 
@@ -50,7 +51,7 @@ export function rowMeta(
 	styleLabel: StyleLabel
 ): {
 	text: string;
-	word: 'dead end' | 'orphan' | 'island' | 'unused' | null;
+	word: 'dead end' | 'orphan' | 'island' | null;
 	tone: 'danger' | null;
 } {
 	const parts = [styleLabel(r.styleTag)];
@@ -182,18 +183,35 @@ export function positionQuery(filter: PositionFilter, change: Partial<PositionFi
 		.join('&');
 }
 
+/** What the chip row is built from. */
+export interface PositionChipsOf {
+	/** The dance's types, in its order. */
+	types: readonly string[];
+	typeLabel: Record<string, string>;
+	/** The Gaps chip's count. */
+	gaps: number;
+	groupMode: boolean;
+	/** Whether the space has positions of its own (not only a group's). */
+	hasOwn: boolean;
+	/** Whether any row shown (own or a group's) has no type. */
+	untyped: boolean;
+}
+
+/** The filter's key for untyped rows, where the dance has no type of that name. */
+export const OTHER_TYPE = 'other';
+
 /**
- * The chip row: All · a chip per type · Gaps N (the person's own report: not
- * in group mode). A type is single-valued: the on one clears, another
- * replaces. All clears both; no chip drops the search.
+ * The chip row: All · a chip per type · Other (untyped rows, where the dance
+ * has no Other type: bachata) · Gaps N (the person's own report: not in
+ * group mode, and not without positions of their own). A chip that is on
+ * always shows, so it can be turned off. A type is single-valued: the on one
+ * clears, another replaces. All clears both; no chip drops the search.
  */
-export function positionChips(
-	filter: PositionFilter,
-	types: readonly string[],
-	typeLabel: Record<string, string>,
-	gaps: number,
-	groupMode: boolean
-): PositionChip[] {
+export function positionChips(filter: PositionFilter, o: PositionChipsOf): PositionChip[] {
+	const types =
+		!o.types.includes(OTHER_TYPE) && (o.untyped || filter.type === OTHER_TYPE)
+			? [...o.types, OTHER_TYPE]
+			: o.types;
 	const chips: PositionChip[] = [
 		{
 			key: 'all',
@@ -203,12 +221,13 @@ export function positionChips(
 		},
 		...types.map((t) => ({
 			key: `type:${t}`,
-			label: typeLabel[t] ?? t,
+			label: o.typeLabel[t] ?? (t === OTHER_TYPE ? 'Other' : t),
 			on: filter.type === t,
 			change: { type: filter.type === t ? undefined : t }
 		}))
 	];
-	if (!groupMode) {
+	const { gaps, groupMode } = o;
+	if (!groupMode && (o.hasOwn || filter.gaps)) {
 		chips.push({
 			key: 'gaps',
 			label: 'Gaps',
@@ -218,6 +237,14 @@ export function positionChips(
 		});
 	}
 	return chips;
+}
+
+/** The order of the list's group sections: by group name, then by id. A `sort` comparator. */
+export function byGroupName(
+	a: { team: { id: number; name: string } },
+	b: { team: { id: number; name: string } }
+): number {
+	return a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id;
 }
 
 // ---- New position / Edit ----
@@ -236,6 +263,60 @@ export const SHEET = {
 	change: 'Change',
 	pictureLegend: 'Its points'
 } as const;
+
+/** A position's fields (New, Edit, the picker's create step): labels and hints. */
+export const FIELDS = {
+	name: 'Name',
+	namePlaceholder: 'e.g. Cerrada, Manos cruzadas',
+	type: 'Type',
+	hands: 'Hands',
+	crossed: 'Crossed',
+	facing: 'Facing',
+	frame: 'Frame',
+	notes: 'Notes',
+	notesPlaceholder: 'How the hands meet, where the weight is…'
+} as const;
+
+/** A sheet's request that failed without the server saying why. */
+export const SHEET_FAILED = {
+	save: 'That did not save. Try again.',
+	archive: 'That did not archive. Try again.',
+	templates: 'Those were not added. Try again.'
+} as const;
+
+/** A busy button's name, for a screen reader, while its spinner shows. */
+export const BUSY = {
+	adding: 'Adding position',
+	addingMany: 'Adding positions',
+	saving: 'Saving',
+	archiving: 'Archiving position'
+} as const;
+
+/** Templates' type switch, for a screen reader. */
+export const TEMPLATE_PICK = 'Template';
+
+/** A playing point card's button, for a screen reader. */
+export const PAUSE = 'Pause';
+
+/** An Unlink button's name: "Unlink Point at 1:12 from Manos cruzadas". */
+export function unlinkLabel(what: string, from: string): string {
+	return `Unlink ${what} from ${from}`;
+}
+
+/** A position page's link and unlink refusals. */
+export const LINK_REFUSED = {
+	pickSpot: 'Pick a section or point.',
+	pickLesson: 'Pick a lesson.',
+	linkGone: 'That link was already removed.',
+	lessonArchived: 'That lesson is archived.',
+	already: 'Already linked.',
+	lessonGone: 'That lesson was already unlinked.'
+} as const;
+
+/** A lesson the owner rule refused to link. */
+export function notLinked(lesson: string): string {
+	return `${lesson} could not be linked.`;
+}
 
 export function editTitle(name: string): string {
 	return `Edit ${name}`;
@@ -270,15 +351,9 @@ export function positionSubtitle(
 	_p: PositionSummary,
 	opts: { teamName?: string; lead?: string; ins: number; outs: number; styleLabel?: StyleLabel }
 ): string {
-	const lead =
-		opts.lead ??
-		(opts.teamName
-			? `${opts.teamName}${opts.teamName.endsWith('s') ? '’' : '’s'} position`
-			: 'Position');
+	const lead = opts.lead ?? (opts.teamName ? `${possessive(opts.teamName)} position` : 'Position');
 	return `${lead} · ${opts.ins} in · ${opts.outs} out`;
 }
-
-const possessive = (team: string) => (team.endsWith('s') ? `${team}’` : `${team}’s`);
 
 /**
  * "Son → ends in Abierta (dos manos), Salsa": `ends` are the positions as named
@@ -338,6 +413,22 @@ export function presetLine(p: { side: 'start' | 'end'; name: string }): string {
 	return `${p.side === 'start' ? 'Starts in' : 'Ends in'} ${p.name}`;
 }
 
+/** The figures list's params that open New move and preset its tag (ruling 8). */
+const PRESET_PARAMS = ['new', 'start', 'end'];
+
+/**
+ * The figures list's URL once New move closes: `?new=1&start=…` / `&end=…`
+ * gone, so the next + (or a reload) is not tagged; the filter stays. Null
+ * when there is nothing to strip.
+ */
+export function withoutPreset(url: URL): string | null {
+	if (!PRESET_PARAMS.some((k) => url.searchParams.has(k))) return null;
+	const next = new URLSearchParams(url.searchParams);
+	for (const k of PRESET_PARAMS) next.delete(k);
+	const qs = next.toString();
+	return qs ? `${url.pathname}?${qs}` : url.pathname;
+}
+
 /** New move from a position whose position is gone (or no longer theirs) since the link was opened. */
 export const PRESET_GONE =
 	'That position can no longer tag a figure here. Add the move without it.';
@@ -391,6 +482,24 @@ export const lessonsTitle = (n: number) => `Lessons · ${n}`;
 export const LINK_SPOT = 'Link a section or point…';
 export const LINK_LESSON = 'Link a lesson…';
 
+/**
+ * Where focus goes after an Unlink on the page when no row of that list is left
+ * to take it, in order: the list's Link… opener (an editor's), Edit (while the
+ * position is live and theirs to edit), the list's heading, then Figures from
+ * here (always drawn): a reader who unlinked their own has neither of the first two.
+ */
+export function unlinkFocus(
+	list: 'spot' | 'lesson',
+	o: { canLink: boolean; canEditPosition: boolean }
+): string[] {
+	return [
+		...(o.canLink ? [list === 'spot' ? 'link-spot' : 'link-lesson'] : []),
+		...(o.canEditPosition ? ['edit-position'] : []),
+		list === 'spot' ? 'video-heading' : 'lessons-heading',
+		'from-heading'
+	];
+}
+
 /** "Link to Manos cruzadas": the picker over the owner's sections and points. */
 export function linkSpotsTitle(name: string): string {
 	return `Link to ${name}`;
@@ -408,15 +517,43 @@ export const LINK_SPOTS = {
 } as const;
 
 /**
- * The spot picker's groups: one per video (its lesson, or "Recording · <figure>"),
- * its spots in the order the server gives. A section reads "The cross on 7 /
- * Section · 1:12.0–1:31.0" (an unnamed one is its range, "Section, no name")
- * and previews looping; a point reads "Point at 1:12 / Point" (a named one,
+ * Where a video sits, for the spot picker's titles: a lesson video's number
+ * among its lesson's videos (1-based), or the day a recording was made (in
+ * the person's zone, `YYYY-MM-DD`).
+ */
+export type VideoPlace = { n: number } | { day: string };
+
+/** A video's key in a `VideoPlace` map: `v<lessonVideoId>` or `r<recordingId>`. */
+export function videoKey(owner: SectionVideo['owner']): string {
+	return 'lessonVideoId' in owner ? `v${owner.lessonVideoId}` : `r${owner.recordingId}`;
+}
+
+/**
+ * A spot picker group's title (the board): "Week 6 · Setenta into Sombrero ·
+ * video 1", "Kentucky · Doble · recording 26 Oct". Without its place, the
+ * picture line's words ("Week 6", "Recording · Kentucky · Doble").
+ */
+export function spotGroupTitle(v: SectionVideo, place: VideoPlace | undefined): string {
+	if (v.from.kind === 'lesson')
+		return place && 'n' in place ? `${v.from.title} · video ${place.n}` : v.from.title;
+	return place && 'day' in place
+		? `${v.from.figure} · recording ${dayMonth(place.day)}`
+		: spotVideoLabel(v);
+}
+
+/**
+ * The spot picker's groups: one per video (`spotGroupTitle`), its spots in
+ * the order the server gives. A section reads "The cross on 7 / Section ·
+ * 1:12.0–1:31.0" (an unnamed one is its range, "Section, no name") and
+ * previews looping; a point reads "Point at 1:12 / Point" (a named one,
  * "Hands meet / Point at 0:15"). The search also matches the time and the video.
  */
-export function spotPickGroups(groups: SectionGroup[]): PickGroup[] {
+export function spotPickGroups(
+	groups: SectionGroup[],
+	places: Record<string, VideoPlace> = {}
+): PickGroup[] {
 	return groups.map((g) => {
-		const title = spotVideoLabel(g.video);
+		const title = spotGroupTitle(g.video, places[videoKey(g.video.owner)]);
 		return {
 			title,
 			entries: g.sections.map((s): PickRow => {
@@ -443,9 +580,12 @@ export function spotPickGroups(groups: SectionGroup[]): PickGroup[] {
 	});
 }
 
-/** A lesson row's line on the page: "Salsa Tuesdays · 3 Nov" for a group's, the full day for a person's. */
+/**
+ * A lesson row's line on the page: "Salsa Tuesdays · 3 Nov" for a group's, the
+ * full day for a person's ("Tuesday 13 October", the board's, no comma).
+ */
 export function lessonMeta(l: { teamName: string | null; lessonDay: string }): string {
-	return l.teamName ? `${l.teamName} · ${dayMonth(l.lessonDay)}` : longDayLabel(l.lessonDay);
+	return l.teamName ? `${l.teamName} · ${dayMonth(l.lessonDay)}` : weekdayDayMonth(l.lessonDay);
 }
 
 /** "Lessons with Manos cruzadas": the picker over the owner's lessons. */
@@ -472,22 +612,24 @@ export interface LessonPick {
 }
 
 /**
- * The lesson picker's month groups, newest first as given. A row's meta is its
- * group, its day, then "through a section" for one that reaches the position
- * through its videos (and so shows linked), else "2 videos" when it has more than one.
+ * The lesson picker's month groups, newest first as given: "November", with
+ * the year only when it is not `today`'s. A row's meta is its group, its day
+ * ("Tue 3 Nov", its year when not this one), then "through a section" for one
+ * that reaches the position through its videos (and so shows linked), else
+ * "2 videos" when it has more than one.
  */
-export function lessonPickGroups(lessons: LessonPick[]): PickGroup[] {
+export function lessonPickGroups(lessons: LessonPick[], today: string): PickGroup[] {
 	const groups: PickGroup[] = [];
 	let month = '';
 	for (const l of lessons) {
 		const key = l.lessonDay.slice(0, 7);
 		if (key !== month || groups.length === 0) {
 			month = key;
-			groups.push({ title: monthLabel(l.lessonDay), entries: [] });
+			groups.push({ title: monthHeading(l.lessonDay, today), entries: [] });
 		}
 		const meta = [
 			l.team,
-			dayLabel(l.lessonDay),
+			classDayLabel(l.lessonDay, today),
 			l.via ? 'through a section' : l.videos > 1 ? plural(l.videos, 'video', 'videos') : null
 		]
 			.filter(Boolean)

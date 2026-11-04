@@ -12,6 +12,7 @@ import {
 	routineMeta,
 	sectionHeading,
 	unlinkViaBody,
+	unlinkViaTitle,
 	viaBadge,
 	viaRanges
 } from './page';
@@ -33,6 +34,26 @@ describe('lesson page lines', () => {
 		expect(viaBadge([two[0]])).toBe('via section');
 		expect(viaBadge(two)).toBe('via 2 sections');
 		expect(viaRanges(two)).toBe('1:12.0–1:30.4, 3:05.0–3:22.8');
+	});
+	it('a point is said as a point', () => {
+		const point = (startMs: number): ViaSection => ({
+			spotId: startMs,
+			startMs,
+			endMs: null,
+			label: null
+		});
+		expect(viaBadge([point(72_000)])).toBe('via point');
+		expect(viaBadge([point(72_000), point(15_000)])).toBe('via 2 points');
+		expect(viaBadge([point(72_000), two[0]])).toBe('via a section and a point');
+		expect(viaBadge([point(72_000), ...two])).toBe('via 2 sections and a point');
+		expect(unlinkViaTitle('Manos cruzadas', 'Week 6')).toBe('Unlink Manos cruzadas from Week 6?');
+		expect(unlinkViaTitle('Enchufla · Doble')).toBe('Unlink Enchufla · Doble?');
+		expect(unlinkViaBody('Manos cruzadas', [point(72_000)], 'Week 6')).toBe(
+			'Manos cruzadas is on Week 6 through point 1:12.0. Unlink it from the lesson and the point?'
+		);
+		expect(unlinkViaBody('Manos cruzadas', [two[0], point(15_000)], 'Week 6')).toBe(
+			'Manos cruzadas is on Week 6 through section and point 1:12.0–1:30.4, 0:15.0. Unlink it from the lesson and the section and point?'
+		);
 	});
 
 	it('meta lines', () => {

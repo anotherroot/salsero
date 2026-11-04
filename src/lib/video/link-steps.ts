@@ -79,12 +79,15 @@ const CREATE_ROW: { key: CreateStep; label: string }[] = [
 /**
  * The popup's words for what it links: a section links figures, drills and
  * positions; a point, positions only (ruling 10), and makes nothing else.
+ * `null`: not known yet (its options are on their way), neutral words that
+ * promise nothing, so a point never flashes a section's.
  */
-export function linkWords(point: boolean): {
+export function linkWords(point: boolean | null): {
 	opener: string;
 	placeholder: string;
 	create: { key: CreateStep; label: string }[];
 } {
+	if (point === null) return { opener: 'Link…', placeholder: 'Search', create: [] };
 	return point
 		? {
 				opener: 'Link a position…',
@@ -96,6 +99,26 @@ export function linkWords(point: boolean): {
 				placeholder: 'Search figures, drills and positions',
 				create: CREATE_ROW
 			};
+}
+
+/**
+ * The links level's and the picker's titles: by the range once the heading is
+ * known ("Link 1:12", "Link 1:12 to…"), else by what the spot is, or neither
+ * while that is not known either.
+ */
+export function linkTitles(
+	heading: { range: string } | null,
+	point: boolean | null
+): { links: string; pick: string } {
+	if (heading) return { links: `Link ${heading.range}`, pick: `Link ${heading.range} to…` };
+	const what = point === null ? '' : point ? ' a point' : ' a section';
+	return { links: `Link${what}`, pick: `Link${what} to…` };
+}
+
+/** The popup's words when its options did not load: a section's, a point's, or just "these". */
+export function loadFailed(point: boolean | null): { title: string; body: string } {
+	const whose = point === null ? 'these' : point ? 'this point’s' : 'this section’s';
+	return { title: `Couldn’t load ${whose} links.`, body: 'Close and tap the link button again.' };
 }
 
 /** A target's picker key: `figure:3`, `exercise:3`, `position:3` (the builders' keys). */

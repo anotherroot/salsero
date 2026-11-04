@@ -93,9 +93,15 @@ describe('routine page derivations', () => {
 		expect(slotMeta({ starts: [], startCounts: [1], ends: [2], next: 1 }, name, null)).toBe(
 			'1→1 · → Closed'
 		);
-		// Options that disagree on their ends: unknown, shown as nothing.
+		// Options that disagree on their ends: said so, never read as "anything follows".
 		expect(slotMeta({ starts: [1], startCounts: [1], ends: null, next: 1 }, name, null)).toBe(
-			'1→1 · Open →'
+			'1→1 · Open → ends differ'
+		);
+		expect(slotMeta({ starts: [], startCounts: [1], ends: null, next: 1 }, name, null)).toBe(
+			'1→1 · ends differ'
+		);
+		expect(slotMeta({ starts: [1, 2], startCounts: [1], ends: null, next: 1 }, name, 2)).toBe(
+			'Routine · 2 slots · 1→1 · Open or Closed → ends differ'
 		);
 	});
 	it('words a seam', () => {

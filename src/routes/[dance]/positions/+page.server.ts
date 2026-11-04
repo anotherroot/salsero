@@ -21,7 +21,7 @@ import { DANCES } from '$lib/dances/dances';
 import { fold } from '$lib/fold';
 import { parseHold } from '$lib/positions/hold';
 import { templateTypes } from '$lib/positions/templates';
-import type { PositionFilter } from '$lib/positions/view';
+import { OTHER_TYPE, byGroupName, type PositionFilter } from '$lib/positions/view';
 import type { PositionListRow, TeamRef } from '$lib/types';
 import type { PositionRow } from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
@@ -42,7 +42,8 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 	const type = url.searchParams.get('type');
 	const filter: PositionFilter = {
 		q,
-		...(type && styles.includes(type) ? { type } : {}),
+		// Other is untyped rows too, so it is taken where the dance has no such type (bachata).
+		...(type && (styles.includes(type) || type === OTHER_TYPE) ? { type } : {}),
 		// Gaps are the person's own report: group mode has none.
 		...(!mode && url.searchParams.get('gaps') === '1' ? { gaps: '1' as const } : {})
 	};
@@ -89,7 +90,8 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 			g.rows.push(p);
 			byTeam.set(p.team.id, g);
 		}
-		const sections = [...byTeam.values()].map((g) => {
+		// Sections by group name: the order twins fold in (`foldSections`) and the page shows.
+		const sections = [...byTeam.values()].sort(byGroupName).map((g) => {
 			const from = positionsFrom(
 				db,
 				wall.userId,
@@ -109,9 +111,10 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		(!filter.q || fold(r.name).includes(fold(filter.q))) &&
 		(!filter.type ||
 			r.styleTag === filter.type ||
-			(r.styleTag === null && filter.type === 'other')) &&
+			(r.styleTag === null && filter.type === OTHER_TYPE)) &&
 		(!filter.gaps || hasGap(r));
 	const none = noPosition(graph);
+	const untyped = (r: PositionListRow) => r.styleTag === null;
 	return {
 		rows: mine.filter(matches),
 		// Gaps are about the person's own: a group's rows step aside under the chip.
@@ -128,6 +131,10 @@ export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 		tagged: taggedCount(graph),
 		// The Gaps chip's count, whatever the other chips.
 		gaps: mine.filter(hasGap).length,
+		/** Whether the space has positions of its own: the Gaps chip is about them. */
+		hasOwn: own.length > 0,
+		/** Whether any row, before filtering, has no type: Other's chip where the dance has no Other. */
+		untyped: mine.some(untyped) || groups.some((g) => g.rows.some(untyped)),
 		types: [...styles],
 		styleLabel: DANCES[dance].styleLabel,
 		// Settings' "New figures" type: where New position's type starts.

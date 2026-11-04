@@ -4,8 +4,16 @@
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { CHIP, FIELD, LABEL, TEXTAREA } from '$lib/components/ui/styles';
-	import { EMPTY_HOLD, FACING, FACING_LABEL, FRAME, FRAME_LABEL } from '$lib/positions/hold';
-	import { SHEET } from '$lib/positions/view';
+	import {
+		EMPTY_HOLD,
+		FACING,
+		FACING_LABEL,
+		FRAME,
+		FRAME_LABEL,
+		HANDS,
+		HANDS_SHORT
+	} from '$lib/positions/hold';
+	import { FIELDS, SHEET } from '$lib/positions/view';
 	import type { Facing, Frame, Hands, Hold } from '$lib/types';
 
 	/**
@@ -48,11 +56,7 @@
 	// svelte-ignore state_referenced_locally
 	let frame = $state<Frame | null>(hold.frame);
 
-	const HANDS_ITEMS: { value: Hands; label: string }[] = [
-		{ value: 'two', label: 'Two' },
-		{ value: 'one', label: 'One' },
-		{ value: 'none', label: 'None' }
-	];
+	const HANDS_ITEMS = HANDS.map((h) => ({ value: h, label: HANDS_SHORT[h] }));
 	const FACING_ITEMS = FACING.map((f) => ({ value: f, label: FACING_LABEL[f] }));
 	const FRAME_ITEMS = FRAME.map((f) => ({ value: f, label: FRAME_LABEL[f] }));
 
@@ -63,7 +67,7 @@
 </script>
 
 <div>
-	<label class={LABEL} for="{uid}-name">Name</label>
+	<label class={LABEL} for="{uid}-name">{FIELDS.name}</label>
 	<!-- svelte-ignore a11y_autofocus -->
 	<input
 		id="{uid}-name"
@@ -71,7 +75,7 @@
 		required
 		{autofocus}
 		maxlength="200"
-		placeholder="e.g. Cerrada, Manos cruzadas"
+		placeholder={FIELDS.namePlaceholder}
 		value={name}
 		class={FIELD}
 		aria-invalid={invalid('name')}
@@ -80,9 +84,10 @@
 	{#if errors.name}<FieldError id="{uid}-name-error" message={errors.name} />{/if}
 </div>
 
-<fieldset>
-	<legend class={LABEL}>Type</legend>
-	<div class="flex flex-wrap gap-2" aria-describedby="{uid}-type-help">
+<!-- The help describes the whole choice: on the fieldset, read with its legend. -->
+<fieldset aria-describedby="{uid}-type-help">
+	<legend class={LABEL}>{FIELDS.type}</legend>
+	<div class="flex flex-wrap gap-2">
 		{#each d.styles as s (s)}
 			<label class={CHIP}>
 				<input type="radio" name="styleTag" value={s} checked={styleTag === s} class="sr-only" />
@@ -94,38 +99,44 @@
 </fieldset>
 
 <div>
-	<span class={LABEL}>Hands</span>
-	<Segmented name="hands" label="Hands" items={HANDS_ITEMS} bind:value={hands} clearable />
+	<span class={LABEL}>{FIELDS.hands}</span>
+	<Segmented name="hands" label={FIELDS.hands} items={HANDS_ITEMS} bind:value={hands} clearable />
 </div>
 
 <div class="flex min-h-[52px] items-center gap-3">
 	<span class="flex flex-1 flex-col gap-px">
-		<span class="text-[16px] font-bold text-ink">Crossed</span>
+		<span class="text-[16px] font-bold text-ink">{FIELDS.crossed}</span>
 		<span class="text-[13px] text-muted">{SHEET.crossed}</span>
 	</span>
 	<!-- The Switch posts nothing itself: `crossed` is '1' when on, absent (unknown) when off. -->
-	<Switch label="Crossed" bind:checked={crossed} />
+	<Switch label={FIELDS.crossed} bind:checked={crossed} />
 	{#if crossed}<input type="hidden" name="crossed" value="1" />{/if}
 </div>
 
 <div>
-	<span class={LABEL}>Facing</span>
-	<Segmented name="facing" label="Facing" items={FACING_ITEMS} bind:value={facing} clearable />
+	<span class={LABEL}>{FIELDS.facing}</span>
+	<Segmented
+		name="facing"
+		label={FIELDS.facing}
+		items={FACING_ITEMS}
+		bind:value={facing}
+		clearable
+	/>
 </div>
 
 <div>
-	<span class={LABEL}>Frame</span>
-	<Segmented name="frame" label="Frame" items={FRAME_ITEMS} bind:value={frame} clearable />
+	<span class={LABEL}>{FIELDS.frame}</span>
+	<Segmented name="frame" label={FIELDS.frame} items={FRAME_ITEMS} bind:value={frame} clearable />
 </div>
 
 <div>
-	<label class={LABEL} for="{uid}-notes">Notes</label>
+	<label class={LABEL} for="{uid}-notes">{FIELDS.notes}</label>
 	<textarea
 		id="{uid}-notes"
 		name="notes"
 		rows="3"
 		maxlength="2000"
-		placeholder="How the hands meet, where the weight is…"
+		placeholder={FIELDS.notesPlaceholder}
 		class={TEXTAREA}
 		aria-invalid={invalid('notes')}
 		aria-describedby={describe('notes')}>{notes ?? ''}</textarea

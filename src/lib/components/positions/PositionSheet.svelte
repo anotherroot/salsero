@@ -9,7 +9,14 @@
 	import ChoiceSheet from '$lib/components/system/ChoiceSheet.svelte';
 	import PositionFields from './PositionFields.svelte';
 	import { LABEL, button } from '$lib/components/ui/styles';
-	import { SHEET, editTitle, pictureLine, spotVideoLabel } from '$lib/positions/view';
+	import {
+		BUSY,
+		SHEET,
+		SHEET_FAILED,
+		editTitle,
+		pictureLine,
+		spotVideoLabel
+	} from '$lib/positions/view';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { LinkedSpot, PositionSummary } from '$lib/types';
 
@@ -71,7 +78,7 @@
 		const d = data as { field?: unknown; message?: unknown; clash?: unknown } | undefined;
 		// A clash opens its own sheet (`guarded`); nothing to show here.
 		if (d?.clash) return;
-		const message = typeof d?.message === 'string' ? d.message : 'That did not save. Try again.';
+		const message = typeof d?.message === 'string' ? d.message : SHEET_FAILED.save;
 		if (d?.field === 'name' || d?.field === 'notes') errors = { [d.field]: message };
 		else refused = message;
 	}
@@ -105,7 +112,7 @@
 						} else if (result.type === 'failure') {
 							refuse(result.data);
 						} else if (result.type === 'error') {
-							refused = 'That did not save. Try again.';
+							refused = SHEET_FAILED.save;
 						} else {
 							onclose();
 							await refreshWhenSettled();
@@ -166,7 +173,7 @@
 									result.type === 'failure' &&
 									typeof (result.data as { message?: unknown })?.message === 'string'
 										? (result.data as { message: string }).message
-										: 'That did not archive. Try again.';
+										: SHEET_FAILED.archive;
 							} else {
 								onclose();
 								await refreshWhenSettled();
@@ -181,7 +188,7 @@
 					type="submit"
 					class={button('danger-text', 'md')}
 					aria-busy={archiving}
-					aria-label={archiving ? 'Archiving position' : undefined}
+					aria-label={archiving ? BUSY.archiving : undefined}
 				>
 					{#if archiving}<Spinner />{:else}<Icon name="trash" size={20} />{SHEET.archive}{/if}
 				</button>
@@ -196,7 +203,7 @@
 			form={formId}
 			class={button('primary', 'md', true)}
 			aria-busy={busy}
-			aria-label={busy ? (mode === 'new' ? 'Adding position' : 'Saving') : undefined}
+			aria-label={busy ? (mode === 'new' ? BUSY.adding : BUSY.saving) : undefined}
 		>
 			{#if busy}<Spinner />{:else}{mode === 'new' ? SHEET.add : SHEET.save}{/if}
 		</button>

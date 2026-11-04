@@ -5,6 +5,7 @@
 	import { CLIP } from '$lib/components/ui/styles';
 	import { watchMedia, type MediaProblem } from '$lib/media';
 	import {
+		PAUSE,
 		POINT_PROBLEM,
 		playFrom,
 		pointLabel,
@@ -76,7 +77,7 @@
 			<button
 				type="button"
 				data-focus={focusKey}
-				aria-label={paused ? playFrom(spot.spot.startMs) : 'Pause'}
+				aria-label={paused ? playFrom(spot.spot.startMs) : PAUSE}
 				onclick={toggle}
 				class="theme-media absolute inset-0 grid cursor-pointer place-items-center"
 			>

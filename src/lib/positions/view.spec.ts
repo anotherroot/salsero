@@ -123,6 +123,13 @@ describe('positions view', () => {
 		expect(v.positionSubtitle(p, { teamName: 'Club', ins: 1, outs: 1 })).toBe(
 			'Club’s position · 1 in · 1 out'
 		);
+		// A capital S and stray spaces are still a final s.
+		expect(v.positionSubtitle(p, { teamName: 'CLASS ', ins: 1, outs: 1 })).toBe(
+			'CLASS’ position · 1 in · 1 out'
+		);
+		expect(v.positionFromLessonNote('Week 6', ' SALSA TUESDAYS ')).toBe(
+			'From Week 6. Tag your figures with it as it is; it stays SALSA TUESDAYS’.'
+		);
 	});
 	it('holdChips is re-exported', () => {
 		expect(v.holdChips({ hands: 'two', crossed: true, facing: 'face', frame: 'open' })).toEqual([
@@ -275,8 +282,17 @@ describe('the list’s heading, rows and chips', () => {
 
 	const types = ['salsa', 'son', 'other'];
 	const labels: Record<string, string> = { salsa: 'Salsa', son: 'Son', other: 'Other' };
+	const opts = (o: Partial<v.PositionChipsOf> = {}): v.PositionChipsOf => ({
+		types,
+		typeLabel: labels,
+		gaps: 4,
+		groupMode: false,
+		hasOwn: true,
+		untyped: false,
+		...o
+	});
 	it('is All, a chip per type, then Gaps with its count', () => {
-		const chips = v.positionChips({ q: '' }, types, labels, 4, false);
+		const chips = v.positionChips({ q: '' }, opts());
 		expect(chips.map((c) => [c.label, c.count, c.on])).toEqual([
 			['All', undefined, true],
 			['Salsa', undefined, false],
@@ -286,16 +302,65 @@ describe('the list’s heading, rows and chips', () => {
 		]);
 	});
 	it('has no Gaps in group mode', () => {
-		expect(v.positionChips({ q: '' }, types, labels, 0, true).map((c) => c.label)).toEqual([
-			'All',
-			'Salsa',
-			'Son',
-			'Other'
+		expect(
+			v.positionChips({ q: '' }, opts({ gaps: 0, groupMode: true })).map((c) => c.label)
+		).toEqual(['All', 'Salsa', 'Son', 'Other']);
+	});
+	it('has no Gaps without positions of your own (only a group’s), unless it is on', () => {
+		expect(
+			v.positionChips({ q: '' }, opts({ gaps: 0, hasOwn: false })).map((c) => c.label)
+		).toEqual(['All', 'Salsa', 'Son', 'Other']);
+		expect(
+			v
+				.positionChips({ q: '', gaps: '1' }, opts({ gaps: 0, hasOwn: false }))
+				.map((c) => [c.label, c.on])
+		).toEqual([
+			['All', false],
+			['Salsa', false],
+			['Son', false],
+			['Other', false],
+			['Gaps', true]
 		]);
+	});
+	it('adds Other for untyped rows when the dance has no such type (bachata)', () => {
+		const bachata = {
+			types: ['dominican', 'sensual'],
+			typeLabel: { dominican: 'Dominican', sensual: 'Sensual' }
+		};
+		expect(v.positionChips({ q: '' }, opts(bachata)).map((c) => c.label)).toEqual([
+			'All',
+			'Dominican',
+			'Sensual',
+			'Gaps'
+		]);
+		const chips = v.positionChips({ q: '' }, opts({ ...bachata, untyped: true }));
+		expect(chips.map((c) => [c.key, c.label])).toEqual([
+			['all', 'All'],
+			['type:dominican', 'Dominican'],
+			['type:sensual', 'Sensual'],
+			['type:other', 'Other'],
+			['gaps', 'Gaps']
+		]);
+		expect(v.positionQuery({ q: '' }, chips[3].change)).toBe('type=other');
+		// On, it stays even when nothing untyped is left to show.
+		const on = v.positionChips({ q: '', type: 'other' }, opts(bachata));
+		expect(on.find((c) => c.key === 'type:other')?.on).toBe(true);
+		// Salsa has a type of its own called Other: never a second chip.
+		expect(
+			v.positionChips({ q: '' }, opts({ untyped: true })).filter((c) => c.label === 'Other')
+		).toHaveLength(1);
+	});
+	it('orders group sections by group name, then id', () => {
+		const g = (id: number, name: string) => ({ team: { id, name }, rows: [] });
+		expect(
+			[g(3, 'Rueda club'), g(1, 'Salsa Tuesdays'), g(2, 'Cubana'), g(0, 'Rueda club')]
+				.sort(v.byGroupName)
+				.map((x) => x.team.id)
+		).toEqual([2, 0, 3, 1]);
 	});
 	it('lights the type on, toggles it off, and keeps the search', () => {
 		const f = { q: 'ca', type: 'son', gaps: '1' as const };
-		const chips = v.positionChips(f, types, labels, 2, false);
+		const chips = v.positionChips(f, opts({ gaps: 2 }));
 		const son = chips.find((c) => c.label === 'Son')!;
 		expect([son.on, chips[0].on, chips.at(-1)!.on]).toEqual([true, false, true]);
 		expect(v.positionQuery(f, son.change)).toBe('q=ca&gaps=1');
@@ -304,6 +369,54 @@ describe('the list’s heading, rows and chips', () => {
 		expect(v.positionQuery(f, chips.at(-1)!.change)).toBe('q=ca&type=son');
 		expect(v.positionQuery({ q: '' }, { q: 'Cerrada ab' })).toBe('q=Cerrada%20ab');
 		expect(v.positionQuery({ q: '' }, {})).toBe('');
+	});
+});
+
+describe('words that were in the screens', () => {
+	it('names the fields and their hints', () => {
+		expect(v.FIELDS).toEqual({
+			name: 'Name',
+			namePlaceholder: 'e.g. Cerrada, Manos cruzadas',
+			type: 'Type',
+			hands: 'Hands',
+			crossed: 'Crossed',
+			facing: 'Facing',
+			frame: 'Frame',
+			notes: 'Notes',
+			notesPlaceholder: 'How the hands meet, where the weight is…'
+		});
+	});
+	it('says what failed, and what is busy, for a screen reader', () => {
+		expect(v.SHEET_FAILED).toEqual({
+			save: 'That did not save. Try again.',
+			archive: 'That did not archive. Try again.',
+			templates: 'Those were not added. Try again.'
+		});
+		expect(v.BUSY).toEqual({
+			adding: 'Adding position',
+			addingMany: 'Adding positions',
+			saving: 'Saving',
+			archiving: 'Archiving position'
+		});
+		expect(v.TEMPLATE_PICK).toBe('Template');
+		expect(v.PAUSE).toBe('Pause');
+	});
+	it('names what an Unlink takes from where', () => {
+		expect(v.unlinkLabel('Point at 1:12', 'Manos cruzadas')).toBe(
+			'Unlink Point at 1:12 from Manos cruzadas'
+		);
+		expect(v.unlinkLabel('Manos cruzadas', 'Week 6')).toBe('Unlink Manos cruzadas from Week 6');
+	});
+	it('words the page’s link refusals', () => {
+		expect(v.LINK_REFUSED).toEqual({
+			pickSpot: 'Pick a section or point.',
+			pickLesson: 'Pick a lesson.',
+			linkGone: 'That link was already removed.',
+			lessonArchived: 'That lesson is archived.',
+			already: 'Already linked.',
+			lessonGone: 'That lesson was already unlinked.'
+		});
+		expect(v.notLinked('Week 6')).toBe('Week 6 could not be linked.');
 	});
 });
 
@@ -524,28 +637,53 @@ describe("a position's Video and Lessons", () => {
 		expect(v.LESSON_PICK.search).toBe('Search lessons');
 	});
 
+	it('videoKey: a lesson video and a recording apart', () => {
+		expect(v.videoKey(lessonVideo.owner)).toBe('v3');
+		expect(v.videoKey(recording.owner)).toBe('r4');
+	});
+
+	it('spotGroupTitle: a lesson video by its number, a recording by its day (the board)', () => {
+		expect(v.spotGroupTitle(lessonVideo, { n: 2 })).toBe('Week 6 · video 2');
+		expect(v.spotGroupTitle(recording, { day: '2026-10-26' })).toBe(
+			'Kentucky · Doble · recording 26 Oct'
+		);
+		// Without its place: the picture line's words.
+		expect(v.spotGroupTitle(lessonVideo, undefined)).toBe('Week 6');
+		expect(v.spotGroupTitle(recording, undefined)).toBe('Recording · Kentucky · Doble');
+	});
+
 	it('spotPickGroups: a group per video, sections and points worded apart', () => {
-		const groups = v.spotPickGroups([
-			{
-				video: lessonVideo,
-				taughtHere: true,
-				sections: [
-					{ ...spot(1, 72_000, 91_000, 'The cross on 7'), linked: true },
-					spot(2, 72_000, null, null),
-					spot(3, 42_000, 65_500, null),
-					spot(4, 15_000, null, 'Hands meet')
-				]
-			},
-			{ video: recording, taughtHere: false, sections: [spot(5, 8_000, 20_000, 'Into the cross')] }
+		const groups = v.spotPickGroups(
+			[
+				{
+					video: lessonVideo,
+					taughtHere: true,
+					sections: [
+						{ ...spot(1, 72_000, 91_000, 'The cross on 7'), linked: true },
+						spot(2, 72_000, null, null),
+						spot(3, 42_000, 65_500, null),
+						spot(4, 15_000, null, 'Hands meet')
+					]
+				},
+				{
+					video: recording,
+					taughtHere: false,
+					sections: [spot(5, 8_000, 20_000, 'Into the cross')]
+				}
+			],
+			{ v3: { n: 1 }, r4: { day: '2026-10-26' } }
+		);
+		expect(groups.map((g) => g.title)).toEqual([
+			'Week 6 · video 1',
+			'Kentucky · Doble · recording 26 Oct'
 		]);
-		expect(groups.map((g) => g.title)).toEqual(['Week 6', 'Recording · Kentucky · Doble']);
 		expect(groups[0].entries).toEqual([
 			{
 				key: 'spot:1',
 				value: 1,
 				label: 'The cross on 7',
 				meta: 'Section · 1:12.0–1:31.0',
-				keywords: '1:12.0–1:31.0 Week 6',
+				keywords: '1:12.0–1:31.0 Week 6 · video 1',
 				linked: true,
 				preview: true
 			},
@@ -554,7 +692,7 @@ describe("a position's Video and Lessons", () => {
 				value: 2,
 				label: 'Point at 1:12',
 				meta: 'Point',
-				keywords: '1:12.0 Week 6',
+				keywords: '1:12.0 Week 6 · video 1',
 				linked: false,
 				preview: false
 			},
@@ -563,7 +701,7 @@ describe("a position's Video and Lessons", () => {
 				value: 3,
 				label: '0:42.0–1:05.5',
 				meta: 'Section, no name',
-				keywords: '0:42.0–1:05.5 Week 6',
+				keywords: '0:42.0–1:05.5 Week 6 · video 1',
 				linked: false,
 				preview: true
 			},
@@ -572,7 +710,7 @@ describe("a position's Video and Lessons", () => {
 				value: 4,
 				label: 'Hands meet',
 				meta: 'Point at 0:15',
-				keywords: '0:15.0 Week 6',
+				keywords: '0:15.0 Week 6 · video 1',
 				linked: false,
 				preview: false
 			}
@@ -581,7 +719,7 @@ describe("a position's Video and Lessons", () => {
 			{
 				key: 'spot:5',
 				label: 'Into the cross',
-				keywords: '0:08.0–0:20.0 Recording · Kentucky · Doble'
+				keywords: '0:08.0–0:20.0 Kentucky · Doble · recording 26 Oct'
 			}
 		]);
 	});
@@ -590,49 +728,63 @@ describe("a position's Video and Lessons", () => {
 		expect(v.lessonMeta({ teamName: 'Salsa Tuesdays', lessonDay: '2026-11-03' })).toBe(
 			'Salsa Tuesdays · 3 Nov'
 		);
-		expect(v.lessonMeta({ teamName: null, lessonDay: '2026-10-13' })).toBe('Tuesday, 13 October');
+		expect(v.lessonMeta({ teamName: null, lessonDay: '2026-10-13' })).toBe('Tuesday 13 October');
 	});
 
 	it('lessonPickGroups: month groups, a reaching lesson linked and said so', () => {
-		const groups = v.lessonPickGroups([
-			{
-				id: 1,
-				title: 'Week 6 · Setenta into Sombrero',
-				lessonDay: '2026-11-03',
-				videos: 1,
-				team: 'Salsa Tuesdays',
-				linked: true,
-				via: true
-			},
-			{
-				id: 2,
-				title: 'Week 3 · Enchufla',
-				lessonDay: '2026-11-04',
-				videos: 0,
-				team: null,
-				linked: false,
-				via: false
-			},
-			{
-				id: 3,
-				title: 'Wednesday class',
-				lessonDay: '2026-10-28',
-				videos: 2,
-				team: null,
-				linked: false,
-				via: false
-			},
-			{
-				id: 4,
-				title: 'Cubana class',
-				lessonDay: '2026-10-13',
-				videos: 1,
-				team: null,
-				linked: true,
-				via: false
-			}
-		]);
-		expect(groups.map((g) => g.title)).toEqual(['November 2026', 'October 2026']);
+		const groups = v.lessonPickGroups(
+			[
+				{
+					id: 1,
+					title: 'Week 6 · Setenta into Sombrero',
+					lessonDay: '2026-11-03',
+					videos: 1,
+					team: 'Salsa Tuesdays',
+					linked: true,
+					via: true
+				},
+				{
+					id: 2,
+					title: 'Week 3 · Enchufla',
+					lessonDay: '2026-11-04',
+					videos: 0,
+					team: null,
+					linked: false,
+					via: false
+				},
+				{
+					id: 3,
+					title: 'Wednesday class',
+					lessonDay: '2026-10-28',
+					videos: 2,
+					team: null,
+					linked: false,
+					via: false
+				},
+				{
+					id: 4,
+					title: 'Cubana class',
+					lessonDay: '2026-10-13',
+					videos: 1,
+					team: null,
+					linked: true,
+					via: false
+				},
+				{
+					id: 5,
+					title: 'Last winter',
+					lessonDay: '2025-12-02',
+					videos: 1,
+					team: null,
+					linked: false,
+					via: false
+				}
+			],
+			'2026-11-04'
+		);
+		expect(groups.map((g) => g.title)).toEqual(['November', 'October', 'December 2025']);
+		// Another year's lesson says its year, as Today's class days do.
+		expect(groups[2].entries).toMatchObject([{ key: 'lesson:5', meta: 'Tue 2 Dec 2025' }]);
 		expect(groups[0].entries).toEqual([
 			{
 				key: 'lesson:1',
@@ -652,6 +804,37 @@ describe("a position's Video and Lessons", () => {
 				linked: false
 			},
 			{ key: 'lesson:4', value: 4, label: 'Cubana class', meta: 'Tue 13 Oct', linked: true }
+		]);
+	});
+
+	it('withoutPreset: the figures list with New move’s params gone, the filter kept', () => {
+		const at = (s: string) => new URL(`http://x/salsa/figures${s}`);
+		expect(v.withoutPreset(at('?new=1&start=4'))).toBe('/salsa/figures');
+		expect(v.withoutPreset(at('?q=en&new=1&end=4&style=son'))).toBe(
+			'/salsa/figures?q=en&style=son'
+		);
+		expect(v.withoutPreset(at('?new=1'))).toBe('/salsa/figures');
+		// Nothing to strip: no navigation at all.
+		expect(v.withoutPreset(at('?q=en'))).toBeNull();
+		expect(v.withoutPreset(at(''))).toBeNull();
+	});
+
+	it('unlinkFocus: where focus goes when the list has no row left to take it', () => {
+		// An editor: the list's own opener, then Edit.
+		expect(v.unlinkFocus('spot', { canLink: true, canEditPosition: true })).toEqual([
+			'link-spot',
+			'edit-position',
+			'video-heading',
+			'from-heading'
+		]);
+		// A reader unlinking their own: no opener, no Edit; the list's heading, else the page's first.
+		expect(v.unlinkFocus('lesson', { canLink: false, canEditPosition: false })).toEqual([
+			'lessons-heading',
+			'from-heading'
+		]);
+		expect(v.unlinkFocus('spot', { canLink: false, canEditPosition: false })).toEqual([
+			'video-heading',
+			'from-heading'
 		]);
 	});
 

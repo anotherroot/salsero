@@ -53,7 +53,7 @@
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
 	import { frequencyLabel } from '$lib/frequency';
-	import { byteSize, longDayLabel, plural } from '$lib/format';
+	import { byteSize, plural, weekdayDayMonth } from '$lib/format';
 	import {
 		archiveCopy,
 		deleteRecordingBody,
@@ -897,7 +897,7 @@
 							>
 								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 									<span class="text-[16px] leading-tight font-bold text-ink">{lesson.title}</span>
-									<span class="text-[13px] text-muted">{longDayLabel(lesson.lessonDay)}</span>
+									<span class="text-[13px] text-muted">{weekdayDayMonth(lesson.lessonDay)}</span>
 								</span>
 								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
 							</a>

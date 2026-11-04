@@ -37,6 +37,8 @@
 		lessonPickGroups,
 		lessonPickTitle,
 		lessonsTitle,
+		unlinkFocus,
+		unlinkLabel,
 		linkSpotsSub,
 		linkSpotsTitle,
 		pointLabel,
@@ -142,7 +144,8 @@
 		form && 'action' in form && form.action === action && 'message' in form
 			? String(form.message)
 			: null;
-	// One-tap unlinks: once one lands, focus goes to the next row, else the list's opener.
+	// One-tap unlinks: once one lands, focus goes to the next row, else the list's
+	// opener, Edit, or (a reader's own) the list's heading (`unlinkFocus`).
 	const unlinkSpot =
 		(linkId: number): SubmitFunction =>
 		() => {
@@ -150,11 +153,15 @@
 			return async ({ update, result }) => {
 				await update();
 				if (result.type === 'success')
-					await focusAfterRemoval(keys, `spot-${linkId}`, canLink ? 'link-spot' : 'edit-position');
+					await focusAfterRemoval(
+						keys,
+						`spot-${linkId}`,
+						unlinkFocus('spot', { canLink, canEditPosition: canLink })
+					);
 			};
 		};
 	const lessonKeys = () => data.lessons.map((x) => `lesson-${x.id}`);
-	const lessonFallback = () => (canLink ? 'link-lesson' : 'edit-position');
+	const lessonFallback = () => unlinkFocus('lesson', { canLink, canEditPosition: canLink });
 	const unlinkLesson =
 		(id: number): SubmitFunction =>
 		() => {
@@ -324,7 +331,9 @@
 		{/if}
 
 		<div class="flex min-h-11 items-center justify-between pt-1.5 pr-1">
-			<h2 class={SECTION_LABEL}>{fromTitle(data.from.length)}</h2>
+			<h2 class={SECTION_LABEL} tabindex="-1" data-focus="from-heading">
+				{fromTitle(data.from.length)}
+			</h2>
 			<!-- A reader of a group's position gets no New here (the boards show none). -->
 			{#if data.canTag && data.canEdit}
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- built from resolve() -->
@@ -356,7 +365,9 @@
 
 		<!-- Video: sections loop full screen (SectionCard), points play inline from their moment (PointCard). -->
 		{#if data.spots.length > 0 || canLink}
-			<h2 class="{SECTION_LABEL} pt-2.5">{videoTitle(data.spots.length)}</h2>
+			<h2 class="{SECTION_LABEL} pt-2.5" tabindex="-1" data-focus="video-heading">
+				{videoTitle(data.spots.length)}
+			</h2>
 			{#if data.spots.length > 0}
 				<ul class="flex flex-col gap-2">
 					{#each data.spots as s (s.linkId)}
@@ -373,11 +384,11 @@
 								<SectionCard
 									section={s}
 									focusKey="spot-{s.linkId}"
-									canEdit={data.canEdit}
+									canEdit={s.canEdit}
 									unlink={unlinkThis}
 								/>
 							{:else}
-								<SectionCard section={s} focusKey="spot-{s.linkId}" canEdit={data.canEdit} />
+								<SectionCard section={s} focusKey="spot-{s.linkId}" canEdit={s.canEdit} />
 							{/if}
 						</li>
 					{/each}
@@ -393,7 +404,9 @@
 
 		<!-- Lessons: linked by hand, or there through a section or point of their videos. -->
 		{#if data.lessons.length > 0 || canLink}
-			<h2 class="{SECTION_LABEL} pt-2.5">{lessonsTitle(data.lessons.length)}</h2>
+			<h2 class="{SECTION_LABEL} pt-2.5" tabindex="-1" data-focus="lessons-heading">
+				{lessonsTitle(data.lessons.length)}
+			</h2>
 			{#if data.lessons.length > 0}
 				<ul class={GROUP}>
 					{#each data.lessons as l (l.id)}
@@ -427,7 +440,7 @@
 									<button
 										type="button"
 										aria-haspopup="dialog"
-										aria-label="Unlink {l.title}"
+										aria-label={unlinkLabel(position.name, l.title)}
 										class="{iconButton('bare', 'muted')} mr-1.5"
 										onclick={() => askUnlinkVia(l)}><Icon name="unlink" size={22} /></button
 									>
@@ -441,7 +454,7 @@
 										<input type="hidden" name="lessonId" value={l.id} />
 										<button
 											type="submit"
-											aria-label="Unlink {l.title}"
+											aria-label={unlinkLabel(position.name, l.title)}
 											aria-describedby={refusal('unlinkLesson') ? 'unlink-lesson-error' : undefined}
 											class={iconButton('bare', 'muted')}><Icon name="unlink" size={22} /></button
 										>
@@ -502,9 +515,10 @@
 		<input type="hidden" name="linkId" value={s.linkId} />
 		<button
 			type="submit"
-			aria-label="Unlink {s.point
-				? pointLabel(s.spot.startMs)
-				: spotLabel(s.spot)} from {position.name}"
+			aria-label={unlinkLabel(
+				s.point ? pointLabel(s.spot.startMs) : spotLabel(s.spot),
+				position.name
+			)}
 			aria-describedby={refusal('unlinkSpot') ? 'unlink-spot-error' : undefined}
 			class={iconButton('bare', 'muted')}><Icon name="unlink" size={22} /></button
 		>
@@ -547,7 +561,7 @@
 		title={linkSpotsTitle(position.name)}
 		sub={linkSpotsSub(data.team?.name ?? null)}
 		placeholder={LINK_SPOTS.search}
-		groups={spotPickGroups(data.linkable)}
+		groups={spotPickGroups(data.linkable, data.videoPlaces)}
 		nothingLeft={LINK_SPOTS.none}
 		emptyIcon="bookmark"
 		action="?/linkSpot"
@@ -564,7 +578,7 @@
 		title={lessonPickTitle(position.name)}
 		sub={LESSON_PICK.sub}
 		placeholder={LESSON_PICK.search}
-		groups={lessonPickGroups(data.linkableLessons)}
+		groups={lessonPickGroups(data.linkableLessons, data.today)}
 		nothingLeft={LESSON_PICK.none}
 		emptyIcon="lessons"
 		action="?/linkLesson"
@@ -588,6 +602,7 @@
 		name="lessonId"
 		id={unlinkingVia.id}
 		label={position.name}
+		lesson={unlinkingVia.title}
 		via={unlinkingVia.via}
 		onclose={() => (unlinkingVia = null)}
 		onunlinked={() => void focusAfterRemoval(viaKeys, viaGone, lessonFallback())}

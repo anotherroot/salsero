@@ -21,10 +21,30 @@ export function sectionHeading(label: string, n: number): string {
 	return n === 0 ? label : `${label} · ${n}`;
 }
 
-/** The badge on a row that is on the lesson through sections. */
+/** How many sections and points a via list holds (a point has no end). */
+function viaCounts(via: ViaSection[]): { sections: number; points: number } {
+	const points = via.filter((v) => v.endMs === null).length;
+	return { sections: via.length - points, points };
+}
+
+/** The badge on a row that is on the lesson through sections or points. */
 export function viaBadge(via: ViaSection[]): string | null {
 	if (via.length === 0) return null;
-	return via.length === 1 ? 'via section' : `via ${via.length} sections`;
+	const { sections, points } = viaCounts(via);
+	const one = (n: number, word: string) => (n === 1 ? `a ${word}` : `${n} ${word}s`);
+	if (points === 0) return sections === 1 ? 'via section' : `via ${sections} sections`;
+	if (sections === 0) return points === 1 ? 'via point' : `via ${points} points`;
+	return `via ${one(sections, 'section')} and ${one(points, 'point')}`;
+}
+
+/** The bare noun for a via list: "section", "points", "section and point". */
+function viaNoun(via: ViaSection[]): string {
+	const { sections, points } = viaCounts(via);
+	const s = sections === 1 ? 'section' : 'sections';
+	const p = points === 1 ? 'point' : 'points';
+	if (points === 0) return s;
+	if (sections === 0) return p;
+	return `${s} and ${p}`;
 }
 
 /** `1:12.0–1:30.4, 3:05.0–3:22.8`; a point is its moment alone, `1:12.0`. */
@@ -80,9 +100,19 @@ export function reviewMeta(e: {
 	return parts;
 }
 
-export function unlinkViaBody(label: string, via: ViaSection[]): string {
-	const noun = via.length === 1 ? 'section' : 'sections';
-	return `${label} is on this lesson through ${noun} ${viaRanges(via)}. Unlink it from the lesson and the ${noun}?`;
+/**
+ * The "Unlink …?" question's title. Asked from the lesson's own page it names
+ * what goes; asked from elsewhere (a position's page) `lesson` names the
+ * lesson it goes from too.
+ */
+export function unlinkViaTitle(label: string, lesson?: string): string {
+	return lesson ? `Unlink ${label} from ${lesson}?` : `Unlink ${label}?`;
+}
+
+/** Its body: the sections and points that bring it, which go too. `lesson` as in the title. */
+export function unlinkViaBody(label: string, via: ViaSection[], lesson?: string): string {
+	const noun = viaNoun(via);
+	return `${label} is on ${lesson ?? 'this lesson'} through ${noun} ${viaRanges(via)}. Unlink it from the lesson and the ${noun}?`;
 }
 
 export function deleteVideoBody(sections: number): string {

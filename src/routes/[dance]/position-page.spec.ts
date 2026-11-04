@@ -29,10 +29,12 @@ import {
 	lessonPositions,
 	lessons,
 	positions,
+	recordings,
 	spotPositionLinks,
 	teamChanges,
 	teamTrash,
-	users
+	users,
+	videoSpots
 } from '$lib/server/db/schema';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { setRole } from '$lib/server/membership';
@@ -708,6 +710,36 @@ describe('Video and Lessons: links from the page', () => {
 		]);
 	});
 
+	it("names the picker's videos by their place: a lesson's video by number, a recording by its day", () => {
+		const o = own();
+		const week6 = taped(U2_SALSA, 'Week 6');
+		const second = pointOn(week6.lesson);
+		const kentucky = figure(U2_SALSA, 'Rumba', 'Uno');
+		// 23:30 UTC on 25 Oct is 00:30 on 26 Oct in Ljubljana: the person's day.
+		const rec = db
+			.insert(recordings)
+			.values({
+				figureId: kentucky,
+				file: 'k.mp4',
+				mime: 'video/mp4',
+				kind: 'video',
+				sizeBytes: 1,
+				createdAt: Date.UTC(2026, 9, 25, 23, 30)
+			})
+			.returning()
+			.get().id;
+		db.insert(videoSpots).values({ recordingId: rec, startMs: 8_000, endMs: 20_000 }).run();
+		const d = loadOf('u2', o.p);
+		const secondVideo = d.linkable.find((g: any) => g.sections.some((s: any) => s.id === second))
+			.video.owner.lessonVideoId;
+		expect(d.videoPlaces).toEqual({
+			[`v${week6.video}`]: { n: 1 },
+			[`v${secondVideo}`]: { n: 2 },
+			[`r${rec}`]: { day: '2026-10-26' }
+		});
+		expect(d.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+	});
+
 	it("offers a reader of a group's position nothing to link and nothing to unlink", () => {
 		const g = group();
 		const point = pointOn(g.lesson);
@@ -724,6 +756,23 @@ describe('Video and Lessons: links from the page', () => {
 		expect(loadOf('u2', g.hammer).linkableLessons).toMatchObject([
 			{ id: g.lesson, team: 'Tuesdays', linked: true, via: true }
 		]);
+	});
+
+	it("lets a reader edit their own spot on a group's position, not the group's", () => {
+		const g = group();
+		const point = pointOn(g.lesson);
+		linkSpotToPosition(db, 'u1', point, g.hammer);
+		const mine = taped(U3, 'My notes');
+		linkSpotToPosition(db, 'u3', mine.section, g.hammer);
+		const d = loadOf('u3', g.hammer);
+		expect(d.canEdit).toBe(false);
+		expect(d.spots.map((s: any) => [s.spot.id, s.canEdit, s.canUnlink])).toEqual(
+			expect.arrayContaining([
+				[point, false, false],
+				[mine.section, true, true]
+			])
+		);
+		expect(d.spots).toHaveLength(2);
 	});
 
 	it('links a point and a section; refuses a duplicate and a spot of another owner', async () => {

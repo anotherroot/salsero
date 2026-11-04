@@ -9,8 +9,16 @@
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import { DANCES, type DanceSlug } from '$lib/dances/dances';
 	import { fold } from '$lib/fold';
-	import { TEMPLATES, templateTypes } from '$lib/positions/templates';
-	import { TEMPLATES_TITLE, YOU_HAVE_IT, addLabel, templatesNote } from '$lib/positions/view';
+	import { TEMPLATES, firstTemplateType, templateTypes } from '$lib/positions/templates';
+	import {
+		BUSY,
+		SHEET_FAILED,
+		TEMPLATE_PICK,
+		TEMPLATES_TITLE,
+		YOU_HAVE_IT,
+		addLabel,
+		templatesNote
+	} from '$lib/positions/view';
 
 	/**
 	 * Start from a template: a type at a time, its rough positions ticked,
@@ -21,20 +29,23 @@
 		open,
 		onclose,
 		dance,
-		owned
+		owned,
+		defaultStyle = null
 	}: {
 		open: boolean;
 		onclose: () => void;
 		dance: DanceSlug;
 		/** The space's own position names, folded. */
 		owned: string[];
+		/** Settings' "New figures" type: the type it opens on, when that type has templates. */
+		defaultStyle?: string | null;
 	} = $props();
 
 	const formId = $props.id();
 	const types = $derived(templateTypes(dance));
 	const labels = $derived(DANCES[dance].styleLabel);
 	// svelte-ignore state_referenced_locally
-	let type = $state<string | null>(templateTypes(dance)[0] ?? null);
+	let type = $state<string | null>(firstTemplateType(dance, defaultStyle));
 	const have = $derived(new Set(owned));
 	const rows = $derived(
 		(type ? (TEMPLATES[dance][type] ?? []) : []).map((t) => ({ ...t, had: have.has(fold(t.name)) }))
@@ -72,9 +83,9 @@
 						await refreshWhenSettled();
 					} else if (result.type === 'failure') {
 						const m = (result.data as { message?: unknown } | undefined)?.message;
-						refused = typeof m === 'string' ? m : 'Those were not added. Try again.';
+						refused = typeof m === 'string' ? m : SHEET_FAILED.templates;
 					} else {
-						refused = 'Those were not added. Try again.';
+						refused = SHEET_FAILED.templates;
 					}
 				} finally {
 					busy = false;
@@ -86,7 +97,7 @@
 		{#if types.length > 1}
 			<Segmented
 				name="type"
-				label="Template"
+				label={TEMPLATE_PICK}
 				items={types.map((t) => ({ value: t, label: labels[t] ?? t }))}
 				bind:value={type}
 			/>
@@ -133,7 +144,7 @@
 			class={button('primary', 'md', true)}
 			disabled={picked.length === 0}
 			aria-busy={busy}
-			aria-label={busy ? 'Adding positions' : undefined}
+			aria-label={busy ? BUSY.addingMany : undefined}
 		>
 			{#if busy}<Spinner />{:else}{addLabel(picked.length)}{/if}
 		</button>

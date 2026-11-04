@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { fold } from '$lib/fold';
 import { DANCE_SLUGS, DANCES } from '$lib/dances/dances';
-import { TEMPLATES, templateTypes } from './templates';
+import { TEMPLATES, firstTemplateType, templateTypes } from './templates';
 
 describe('templates', () => {
 	it('knows the types of each dance', () => {
 		expect(templateTypes('salsa')).toEqual(['salsa', 'son', 'timba']);
 		expect(templateTypes('bachata')).toEqual(['dominican', 'sensual', 'traditional']);
+	});
+	it('opens on the person’s “New figures” type when it has templates, else the first', () => {
+		expect(firstTemplateType('salsa', 'son')).toBe('son');
+		expect(firstTemplateType('salsa', 'timba')).toBe('timba');
+		expect(firstTemplateType('salsa', 'other')).toBe('salsa');
+		expect(firstTemplateType('bachata', 'sensual')).toBe('sensual');
+		expect(firstTemplateType('bachata', 'salsa')).toBe('dominican');
 	});
 	it('has the salsa board set verbatim', () => {
 		expect(TEMPLATES.salsa.salsa.map((t) => [t.name, t.description])).toEqual([
