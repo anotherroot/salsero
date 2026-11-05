@@ -20,20 +20,15 @@
 	let openId = $state<number | null>(null);
 
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
-	const rows = $derived([
-		...data.list.plan.doneToday,
-		...data.list.plan.due,
-		...data.list.plan.upcoming,
-		...data.list.plan.inactive
-	]);
-	const open = $derived(rows.find((r) => r.exercise.id === openId)?.exercise ?? null);
+	// Every live exercise, paused ones too: a forgotten set can go on any of them.
+	const open = $derived(data.list.exercises.find((e) => e.id === openId) ?? null);
 	const openSets = $derived(data.past?.daySets.filter((s) => s.exerciseId === openId) ?? []);
 	const Log = $derived(open ? logFor(typeOf(open.source)) : null);
 
 	/** Each exercise's type and partner, for a past day's tiles; archived ones are absent. */
 	const kinds = $derived(
 		Object.fromEntries(
-			rows.map((r) => [r.exercise.id, { source: r.exercise.source, partner: r.exercise.partner }])
+			data.list.exercises.map((e) => [e.id, { source: e.source, partner: e.partner }])
 		)
 	);
 

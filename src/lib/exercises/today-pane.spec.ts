@@ -1,33 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import type { DaySet } from '$lib/types';
 import { defaultOpen, dayTotals, sessionLine } from './today-pane';
-import { todayBands, teamOfRow } from './today';
 
-type R = { exercise: { id: number; team: { id: number; name: string } | null } };
-const own = (id: number): R => ({ exercise: { id, team: null } });
-const grp = (id: number): R => ({ exercise: { id, team: { id: 1, name: 'G' } } });
-const bands = (o: Partial<Record<'due' | 'upcoming' | 'doneToday' | 'inactive', R[]>>) =>
-	todayBands<R>(
-		{ due: [], upcoming: [], doneToday: [], inactive: [], ...o },
-		(r) => teamOfRow(r) as never
-	);
+type Kind = 'done' | 'todo' | 'picked';
+const r = (id: number, kind: Kind) => ({ exercise: { id }, kind });
+const day = (...rows: ReturnType<typeof r>[]) => ({ rows });
 
 describe('defaultOpen', () => {
-	it('prefers a due row to a not yet due one', () => {
-		expect(defaultOpen(bands({ due: [own(3)], upcoming: [own(9)] }))).toBe(3);
+	it('opens the first to-do row', () => {
+		expect(defaultOpen(day(r(1, 'done'), r(3, 'todo'), r(4, 'todo'), r(9, 'picked')))).toBe(3);
 	});
-	it('opens the first due, own before a group', () => {
-		expect(defaultOpen(bands({ due: [grp(7), own(3), own(4)] }))).toBe(3);
+	it('falls to the first picked row', () => {
+		expect(defaultOpen(day(r(1, 'done'), r(9, 'picked'), r(8, 'picked')))).toBe(9);
 	});
-	it('falls to not yet due', () => {
-		expect(defaultOpen(bands({ upcoming: [own(9)] }))).toBe(9);
-	});
-	it('opens a group row when it is all there is', () => {
-		expect(defaultOpen(bands({ due: [grp(7)] }))).toBe(7);
-	});
-	it('opens nothing from done today or inactive', () => {
-		expect(defaultOpen(bands({ doneToday: [own(1)], inactive: [own(2)] }))).toBeNull();
-		expect(defaultOpen(bands({}))).toBeNull();
+	it('opens nothing when everything is done', () => {
+		expect(defaultOpen(day(r(1, 'done')))).toBeNull();
+		expect(defaultOpen(day())).toBeNull();
 	});
 });
 

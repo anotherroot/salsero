@@ -1,14 +1,15 @@
 import { error } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { lastSets, listExercises, listSetTimes, listSetsBetween } from '$lib/server/exercises';
+import { listSetsBetween } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { lessonDays } from '$lib/server/lessons';
 import { wallOf } from '$lib/server/scope';
 import { scheduleStates } from '$lib/server/schedule';
 import { songChoices } from '$lib/server/songs';
+import { dayInputOf } from '$lib/server/today-picks';
 import { localDay, noonOf, shiftDay } from '$lib/day/day';
 import { PHRASE_PATTERNS } from '$lib/labels';
-import { plan } from '$lib/urgency/urgency';
+import { dayList } from '$lib/schedule/today-list';
 import type { LayoutServerLoad } from './$types';
 
 const DAY_MS = 86_400_000;
@@ -30,7 +31,7 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 	const today = localDay(now, tz);
 
 	const db = getDb();
-	const exercises = listExercises(db, wall);
+	const input = dayInputOf(db, wall, tz, now);
 
 	// Widen the window by a day each side, then let localDay decide membership:
 	// the day boundary is decided in ONE place, in the user's zone.
@@ -43,14 +44,15 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 		list: {
 			today,
 			yesterday: shiftDay(today, -1),
-			plan: plan(exercises, listSetTimes(db, wall), now, tz),
+			// The day's rows: done, to do, picked (`src/lib/schedule/today-list.ts`).
+			day: dayList(input),
+			// Every live exercise, paused ones too: opening one by id, a tile's type.
+			exercises: input.exercises,
+			// The daily number: what "+ Next 5" says.
+			daily: input.daily,
 			todaySets,
-			// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.
+			// The day of each class, for "New · from class Tue 3 Nov" on a lesson's row.
 			lessonDays: lessonDays(db, wall),
-			// The latest set's rating per exercise, for the dots on each row.
-			lastRatings: Object.fromEntries(
-				[...lastSets(db, wall)].map(([id, s]) => [id, s.rating] as [number, number | null])
-			),
 			// Each live exercise's schedule as of the START of today (sets before today
 			// only): what the log popup's faces preview, the same on a second log today.
 			schedulesAtStart: Object.fromEntries(scheduleStates(db, wall, tz, today)),

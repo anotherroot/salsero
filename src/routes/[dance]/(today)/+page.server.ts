@@ -4,7 +4,8 @@ import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/s
 import { int, optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
-import { PickRefused, addPicks, removePick } from '$lib/server/today-picks';
+import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
+import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
 import type { Actions, PageServerLoad } from './$types';
@@ -89,6 +90,32 @@ export const actions: Actions = {
 		if (pickId === undefined) return fail(400, { action: 'unpick', message: 'No such pick.' });
 		removePick(getDb(), wall, pickId);
 		return { action: 'unpick', ok: true };
+	},
+
+	/**
+	 * "+ Next 5": the next daily-number exercises in line, picked for today. The
+	 * line is worked out here from what is stored, as the list does, so a second
+	 * tap takes the ones after the first tap's (never the same again).
+	 */
+	next: async ({ params, locals }) => {
+		const wall = wallOf(params, locals);
+		const now = Date.now();
+		const tz = zone(locals);
+		const db = getDb();
+		const input = dayInputOf(db, wall, tz, now);
+		const ids = inLine(input)
+			.slice(0, input.daily)
+			.map((e) => e.id);
+		if (ids.length === 0) {
+			return fail(400, { action: 'next', message: 'Nothing left to add today.' });
+		}
+		try {
+			const pickIds = addPicks(db, wall, ids, localDay(now, tz), 'next', now);
+			return { action: 'next', pickIds };
+		} catch (e) {
+			if (e instanceof PickRefused) return fail(400, { action: 'next', message: e.message });
+			throw e;
+		}
 	},
 
 	createExercise: async ({ params, request, locals }) => {

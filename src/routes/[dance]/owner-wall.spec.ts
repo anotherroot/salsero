@@ -576,9 +576,9 @@ describe("Today, the exercise page and the player refuse another person's exerci
 		// The list is the (today) layout's; a past day's picker is the page's.
 		type List = {
 			list: {
-				plan: { due: unknown[]; upcoming: unknown[]; doneToday: unknown[] };
+				day: { rows: unknown[] };
+				exercises: unknown[];
 				todaySets: unknown[];
-				lastRatings: Record<string, unknown>;
 			};
 		};
 		type Past = { past: { exercises: unknown[]; daySets: unknown[] } };
@@ -594,11 +594,12 @@ describe("Today, the exercise page and the player refuse another person's exerci
 		const data = (await loadAt(todayLayout.load, U2, 'salsa')) as List;
 		expect(pastOf(U2).past.exercises).toEqual([]);
 		expect(data.list.todaySets).toEqual([]);
-		expect(data.list.plan.due).toEqual([]);
-		expect(Object.keys(data.list.lastRatings)).toEqual([]);
+		expect(data.list.day.rows).toEqual([]);
+		expect(data.list.exercises).toEqual([]);
 		const own = (await loadAt(todayLayout.load, U1, 'salsa')) as List;
 		expect(pastOf(U1).past.exercises).toHaveLength(1);
 		expect(own.list.todaySets).toHaveLength(1);
+		expect(own.list.exercises).toHaveLength(1);
 	});
 
 	it('creating an exercise on Today carries the person', async () => {
@@ -2142,21 +2143,18 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		// Today: the review, the routine and the drill, each under the group, P's day known.
 		type TodayData = {
 			list: {
-				plan: Record<string, { exercise: { name: string; team: unknown } }[]>;
+				exercises: { name: string; team: unknown }[];
 				lessonDays: Record<number, string>;
 			};
 		};
 		const today = (loadAt(todayLayout.load, U2, 'salsa') as TodayData).list;
-		const rows = Object.values(today.plan).flat();
-		expect(rows.map((r) => r.exercise.name).sort()).toEqual(
+		const rows = today.exercises;
+		expect(rows.map((r) => r.name).sort()).toEqual(
 			['Published routine', 'Review: Published lesson', 'Shines'].sort()
 		);
-		for (const r of rows)
-			expect(r.exercise.team).toEqual({ id: T.teamId, name: 'Salsa nadaljevalna' });
+		for (const r of rows) expect(r.team).toEqual({ id: T.teamId, name: 'Salsa nadaljevalna' });
 		expect(today.lessonDays[P]).toBe('2026-11-01');
-		expect(
-			Object.values((loadAt(todayLayout.load, U1, 'salsa') as TodayData).list.plan).flat()
-		).toEqual([]);
+		expect((loadAt(todayLayout.load, U1, 'salsa') as TodayData).list.exercises).toEqual([]);
 
 		// Moves: the group's figure only under the group, only the variation P reaches.
 		type Moves = {

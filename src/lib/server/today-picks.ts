@@ -7,6 +7,11 @@ import type { Db } from './db';
 import { exercises, todayPicks, users } from './db/schema';
 import { inWall, type Wall } from './scope';
 import type { DayPick, PickKind } from '$lib/schedule/picks';
+import type { DayInput } from '$lib/schedule/today-list';
+import { localDay } from '$lib/day/day';
+import type { ExerciseItem } from '$lib/types';
+import { listExercises } from './exercises';
+import { listScheduleSets } from './schedule';
 
 export const DAILY_DEFAULT = 5;
 export const DAILY_MIN = 1;
@@ -117,4 +122,26 @@ export function removePick(db: Db, wall: Wall, id: number): boolean {
 	if (!row || row.userId !== wall.userId || !inWall(row.exercise, wall)) return false;
 	db.delete(todayPicks).where(eq(todayPicks.id, id)).run();
 	return true;
+}
+
+/**
+ * What `dayList` and `inLine` need for this wall's Today at `now`: its live
+ * exercises, every set, today's picks and the daily number. The Today layout
+ * and its `next` action read the same, so Next N takes exactly the ones after
+ * what the list shows.
+ */
+export function dayInputOf(
+	db: Db,
+	wall: Wall,
+	timeZone: string,
+	now: number
+): DayInput<ExerciseItem> {
+	return {
+		exercises: listExercises(db, wall),
+		sets: listScheduleSets(db, wall),
+		picks: picksFor(db, wall, localDay(now, timeZone)),
+		daily: dailyCountOf(db, wall.userId),
+		now,
+		timeZone
+	};
 }

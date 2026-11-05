@@ -1,21 +1,20 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { PlanRow } from '$lib/urgency/urgency';
+	import type { DayRow } from '$lib/schedule/today-list';
 	import type { ExerciseItem } from '$lib/types';
 	import type { DanceSlug } from '$lib/dances/dances';
-	import { rowMeta, tileTone, type BandKey } from '$lib/exercises/today';
+	import { rowMeta, tileTone } from '$lib/exercises/today';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import { iconButton } from '$lib/components/ui/styles';
 
 	interface Props {
-		row: PlanRow<ExerciseItem>;
-		band: BandKey;
+		row: DayRow<ExerciseItem>;
 		dance: DanceSlug;
-		/** The latest set's rating, or null when it was unrated or there is none. */
-		lastRating: number | null;
-		/** A lesson's class day as shown ("Wed 28 Oct"); null for every other type. */
+		/** Today, for the due words. */
+		today: string;
+		/** A lesson's class day as shown ("Tue 3 Nov"); null for every other type. */
 		lessonDay: string | null;
 		/** The session's next row: tinted, with an "Up next" badge and an accent tile. */
 		upNext: boolean;
@@ -27,13 +26,14 @@
 		onlog: () => void;
 	}
 
-	let { row, band, dance, lastRating, lessonDay, upNext, current, search, onlog }: Props = $props();
+	let { row, dance, today, lessonDay, upNext, current, search, onlog }: Props = $props();
 
 	const ex = $derived(row.exercise);
-	const meta = $derived(rowMeta(row, band, lessonDay));
+	const done = $derived(row.kind === 'done');
+	const meta = $derived(rowMeta(row, today, lessonDay));
 	const TONE = { status: 'font-bold text-status', done: 'font-bold text-done' } as const;
 	// The "+" is an icon, so bare accent is allowed.
-	const plus = $derived(iconButton('bare', band === 'doneToday' ? 'done' : 'accent'));
+	const plus = $derived(iconButton('bare', done ? 'done' : 'accent'));
 	// The Up next tint, or the open row's: both take the tinted tile and the darker meta.
 	const tinted = $derived(upNext || current);
 	const href = $derived(
@@ -54,10 +54,11 @@
 	-->
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; search is the query -->
 	<a {href} aria-current={lit} class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1">
-		<TypeTile exercise={ex} tone={tileTone(band, upNext)} onTint={tinted} />
+		<TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} />
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<!-- A done row's name is quieter (board "Today"); muted is under 4.5:1 on a tint. -->
 			<span
-				class="text-[16px] leading-[1.3] font-bold break-words {band === 'inactive'
+				class="text-[16px] leading-[1.3] font-bold break-words {done && !tinted
 					? 'text-muted'
 					: 'text-ink'}"
 				>{ex.name}{#if upNext}<span class="ml-1 inline-block align-[2px]"
@@ -68,16 +69,7 @@
 			<span class="text-[13px] leading-[1.35] {tinted ? 'text-ink-2' : 'text-muted'}">
 				{#each meta as part, i (i)}{i > 0 ? ' · ' : ''}<span
 						class={part.tone ? TONE[part.tone] : ''}>{part.text}</span
-					>{/each}{#if lastRating !== null}<span
-						class="relative -top-px ml-1.5 inline-flex gap-[3px] align-middle"
-						role="img"
-						aria-label="Last rated {lastRating} of 5"
-					>
-						{#each [1, 2, 3, 4, 5] as n (n)}
-							<span class="size-1.5 rounded-full {n <= lastRating ? 'bg-accent' : 'bg-field-line'}"
-							></span>
-						{/each}
-					</span>{/if}
+					>{/each}
 			</span>
 		</span>
 	</a>
