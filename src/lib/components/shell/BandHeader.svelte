@@ -28,9 +28,10 @@
 	 * item page draws the phone's own band). `deskSubtitle`: the desktop's subtitle
 	 * in place of `subtitle` (two spans, one per width); without it, one span.
 	 *
-	 * Landmarks: the title is the page's one h1, except in a `deskOnly` band (a
-	 * list's band row beside an open item), where the item's name in the pane is
-	 * the h1. In a pane this header sits inside the pane's `<main>`: not a banner.
+	 * Landmarks: the header is the banner and its title the page's one h1, except a
+	 * `deskOnly` band (a list's band row beside an open item): a plain box with a
+	 * plain title, since the item's own header (in the pane on the desktop, the
+	 * page itself on the phone) is the banner and its name the h1.
 	 */
 	let {
 		title,
@@ -119,7 +120,8 @@
 	const ring = $derived(variant === 'pane' ? '' : '--focus-ring: var(--color-band-ink); ');
 </script>
 
-<header
+<svelte:element
+	this={deskOnly ? 'div' : 'header'}
 	class="relative {deskOnly ? 'hidden' : 'flex'} flex-col gap-[6px] bg-band px-5 {compact
 		? 'pt-[calc(22px+var(--safe-top))]'
 		: 'pt-[calc(30px+var(--safe-top))]'} {hero
@@ -197,4 +199,4 @@
 	{#if below && variant === 'pane'}
 		<div class="hidden desk:block desk:basis-full" data-below>{@render below()}</div>
 	{/if}
-</header>
+</svelte:element>

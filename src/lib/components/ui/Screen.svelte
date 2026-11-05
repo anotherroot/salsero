@@ -65,11 +65,12 @@
 	 */
 	const pane = inPane();
 	/*
-	 * The page's one main: this sheet, unless it is in a pane (the pane is the main,
-	 * `Pane.svelte`) or an item's list beside it (its sheet holds the list column and
-	 * that pane).
+	 * The page's one main: this sheet, a pane's included (on an item route the item's
+	 * own sheet is the main at both widths, and its header the banner), except the
+	 * sheet of an item's list beside it, which holds the list column and that pane.
+	 * That list's band row is no landmark either (`BandHeader`'s `deskOnly`).
 	 */
-	const main = $derived(!pane && split !== 'item');
+	const main = $derived(split !== 'item');
 
 	/* The sheet's desktop classes: the page's own, a card's column, a pane's content, a list beside its pane. */
 	const SHEET_DESK = $derived(

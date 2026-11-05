@@ -41,7 +41,7 @@
 </script>
 
 <nav
-	aria-label="Figures of {moveName}"
+	aria-label="{moveName}: figures"
 	class="hidden flex-wrap items-center gap-2 desk:-mt-2.5 desk:mb-3.5 desk:flex"
 >
 	{#each siblings as s (s.id)}

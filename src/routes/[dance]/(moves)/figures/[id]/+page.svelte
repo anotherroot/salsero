@@ -410,7 +410,7 @@
 			<div
 				aria-hidden="true"
 				class={data.makeMine
-					? 'h-[calc(8.5rem+var(--pin-safe,var(--safe-bottom)))]'
+					? 'h-[calc(8.5rem+var(--pin-safe,var(--safe-bottom)))] desk:h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))]'
 					: 'h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))] desk:hidden'}
 			></div>
 		{/if}
