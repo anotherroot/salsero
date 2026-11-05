@@ -40,6 +40,8 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 cp "$DB" "$TMP/salsa.db"
+# files beside the db copy (<db>.data/: recordings/, audio/ ...) join the data dir, so a seeded db can have real media
+[ -d "$DB.data" ] && cp -r "$DB.data/." "$TMP/"
 for ext in -wal -shm; do [ -f "$DB$ext" ] && cp "$DB$ext" "$TMP/salsa.db$ext"; done
 
 PORT=""
