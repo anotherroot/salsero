@@ -16,6 +16,7 @@ describe('tabFor', () => {
 		expect(tabFor('/salsa/songs/9', 'salsa')).toBe('music');
 		expect(tabFor('/salsa/player', 'salsa')).toBe('music');
 		expect(tabFor('/salsa/exercises/4', 'salsa')).toBe('today');
+		expect(tabFor('/salsa/coming-up', 'salsa')).toBe('today');
 	});
 
 	it('lights nothing outside the dance', () => {
@@ -40,6 +41,7 @@ describe('showsTabs', () => {
 			'/[dance]/groups/[id]',
 			'/[dance]/songs/[id]',
 			'/[dance]/(today)/exercises/[id]',
+			'/[dance]/(today)/coming-up',
 			'/[dance]/(moves)/positions',
 			'/[dance]/(moves)/coverage'
 		])

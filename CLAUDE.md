@@ -56,7 +56,11 @@ and positions as their own things (owned like figures, with copies and twins;
 optional: nobody starts with any and a figure without one fits anywhere; any
 number of starts and ends; a type and a hold; a page, Templates, How positions
 work, Gaps and a map; links from sections, points and lessons; see
-[`docs/superpowers/specs/2026-11-04-positions-design.md`](docs/superpowers/specs/2026-11-04-positions-design.md)).
+[`docs/superpowers/specs/2026-11-04-positions-design.md`](docs/superpowers/specs/2026-11-04-positions-design.md))
+and Today as a number a day (four faces on every logged set, an Anki-style gap
+replayed from the sets, "Exercises a day", Next N, Coming up, Not today with Undo;
+see
+[`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md)).
 
 The design lives in
 [`docs/superpowers/specs/2026-09-22-salsa-app-design.md`](docs/superpowers/specs/2026-09-22-salsa-app-design.md) —
@@ -141,6 +145,11 @@ The desktop has its own (built: the frame and the area pages),
 from 1024 px, one short band row and a band-coloured side with the tabs, a
 list and the opened item side by side, two-column figure and lesson pages, and
 every bottom sheet as a centred dialog.
+Today as a number a day has its own,
+[`docs/superpowers/specs/2026-11-05-today-scheduling-design.md`](docs/superpowers/specs/2026-11-05-today-scheduling-design.md):
+the four faces, the replayed gap and its numbers, the day's list from the start
+of the day, Next N, Not today and Undo, Coming up, the reminder, and what was
+decided while building.
 
 Toolchain comes from the nix flake — `nix develop`, or `direnv allow` once.
 Sister project with the same conventions: `~/Projects/muscle_model`.
@@ -149,8 +158,14 @@ Sister project with the same conventions: `~/Projects/muscle_model`.
 
 ```
 src/lib/day/         PURE calendar-day maths in the user's zone. `now` is an argument
-src/lib/urgency/     PURE "what next": (exercises, sets, now, tz) →
-                     doneToday/due/upcoming/inactive
+src/lib/schedule/    PURE, client-safe: the Anki-style schedule (schedule.ts: `replay` an
+                     exercise's sets into a gap and a due day, one review per local day,
+                     `preview` what each face would set; feel.ts: the four faces and how
+                     `sets.rating` reads), Today's list (today-list.ts: `dayList`, `inLine`,
+                     `workOf` — rows from the START of the day, Next N, the nothing-left
+                     state), the day's picks (picks.ts), Coming up (coming-up.ts: Waiting,
+                     dated groups, Paused) and the words (words.ts). `now` and `tz` are
+                     arguments
 src/lib/beatgrid/    PURE beats → the dance count: gap filling, anchors, tempo factor
 src/lib/scheduler/   PURE cues: grid + plan + toggles + window → what sounds when
 src/lib/dances/      PURE registry: one entry per dance (styles, count patterns,
@@ -163,6 +178,13 @@ src/lib/positions/   PURE: the hold's words and chips (hold.ts), the templates p
                      (view.ts), the map's layout (map.ts: a force layout from a fixed
                      start, the label pass, the tray) and how the page draws it
                      (map-view.ts: type colours, what a tap lights, the arrows). Client-safe
+src/lib/server/schedule.ts  the schedule from the database: `listScheduleSets`, `scheduleStates`
+                     (every live exercise, optionally as of the start of a day), `scheduleStateOf`,
+                     `scheduleForShown` (the person's own entry wins). Nothing stored
+src/lib/server/today-picks.ts  the daily number (`users.daily_count`, 1–30, default 5) and
+                     the day's picks (`today_picks`: next, add, skip): `addPicks`, `removePick`,
+                     `dayInputOf` — what `dayList`, `inLine` and Coming up need. The Today
+                     layout, its `next` action and the reminder (`dueByDance`) read the same
 src/lib/server/positions.ts  owned positions: list (by type, then name), create, edit,
                      archive, restore, Templates (`addTemplates`), "from Week 6" (`positionsFrom`)
 src/lib/server/positions-move.ts  the one-time boot move: the old shared positions become
@@ -552,13 +574,15 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
 
 ## Hard rules
 
-- **Urgency is never stored.** No "last done" column, no cron. It is a pure
-  function of the sets, recomputed per request (`src/lib/urgency/`). Priority IS
-  frequency (`every_days`).
+- **What is due is never stored.** No "last done" or "due" column, no cron. It is
+  a pure function of the sets' days and faces (`sets.rating`), replayed per
+  request (`src/lib/schedule/`); `today_picks` keeps only the person's choices
+  for one day (Next N, add, skip), never what is due. There is no frequency
+  to set: the gap is earned from the faces.
 - **Elapsed time sorts; calendar days speak.** Anything a user reads as a day
   ("yesterday", "done today", which day a set belongs to) goes through
-  `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for the
-  urgency ratio. Never `Date.now()` inside `src/lib/day` or `src/lib/urgency`.
+  `localDay`/`daysBetween` in the user's zone. Elapsed ms is only for
+  sorting. Never `Date.now()` inside `src/lib/day` or `src/lib/schedule`.
 - **Every instant is an integer of epoch ms** in the database, never a Date.
 - **Archive, don't delete.** Figures and exercises get `archived_at`; songs
   (a person's own, only from Settings → What uses space, `deleteSong`: refused
@@ -569,8 +593,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   (`spot_position_links`, deleted on unlink, and with their video when a
   group is purged) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes of content;
-  `twins` rows (Separate) and `clone_pairs` (Detach) are bookkeeping, deleted
-  too. Drop my copy and Move to… archive the copy, never delete it. A
+  `twins` rows (Separate), `clone_pairs` (Detach) and `today_picks` (Undo of a
+  pick, and an add or next taking the day's skip away) are bookkeeping,
+  deleted too. Drop my copy and Move to… archive the copy, never delete it. A
   figure's exercise is opt-in (`addFigureExercise`); when one exists it is
   renamed and archived WITH its figure, in one transaction
   (`src/lib/server/figures.ts`). A linked spot (to a figure, a drill or a
@@ -693,7 +718,7 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   `lessons` and `positions` carry `dance`; `sets`, `recordings`, the lesson join tables,
   a figure's position tags and `video_spots` derive it through their parent (a
   figure, a recording or a lesson video), and `count_takes` is shared by both dances on purpose. Scoping
-  happens in the data-access layer — `src/lib/urgency/` and `src/lib/day/`
+  happens in the data-access layer — `src/lib/schedule/` and `src/lib/day/`
   never learn that dances exist. `video_spots`' own API is flat
   (`/api/video-spots`), like the media servers.
 - **A person or a group is the wall inside the dance.** The root tables —
@@ -844,6 +869,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   move (`figures.ts`). Show a figure with `figureLabels`
   ("Enchufla · Doble"), always. `figures.parent_id` is vestigial, read by
   nothing, not dropped.
+- **`exercises.every_days` is vestigial as a setting.** Nobody sets it any more; it is
+  read only as an exercise's FIRST gap (and by old rows), then the faces take over.
+  Not dropped, for the same reason as `style`.
 - **`figures.callable` and `figures.call_text` are vestigial.** They were the
   random drill's pool and a spoken override for the name; the drill was
   removed and both are read by nothing. Only a routine calls figures, and the

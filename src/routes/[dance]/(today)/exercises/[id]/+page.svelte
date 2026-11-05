@@ -2,11 +2,11 @@
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tick, untrack } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
-	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import SetList from '$lib/components/exercises/SetList.svelte';
 	import { restoreSet } from '$lib/components/exercises/restore-set';
 	import { contentFor, logFor } from '$lib/components/exercises/kinds';
@@ -17,6 +17,7 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Face from '$lib/components/exercises/Face.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -38,7 +39,6 @@
 	} from '$lib/components/ui/styles';
 	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
 	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
-	import { frequencyLabel } from '$lib/frequency';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
@@ -76,6 +76,20 @@
 		today?.pagePopup(logging && data.canLog);
 		return () => today?.pagePopup(false);
 	});
+	/** Not today applies while the exercise is a to-do or picked row on Today (not done today). */
+	const canSkip = $derived(data.canLog && !!today?.canSkip(data.exercise.id));
+	let skipping = $state(false);
+	async function notToday() {
+		if (skipping || !today) return;
+		skipping = true;
+		try {
+			// The row is gone from Today now: back to the list (on the desktop it opens the next).
+			if (await today.notToday(data.exercise.id))
+				await goto(resolve('/[dance]/(today)', { dance: data.dance.slug }));
+		} finally {
+			skipping = false;
+		}
+	}
 	/**
 	 * A drill is the only type this page may rename or archive: the others
 	 * belong to their owner. A person's entry on a group's drill (`'added'`) is
@@ -128,13 +142,11 @@
 	let makingMine = $state(false);
 	let saving = $state(false);
 	let settingsForm: HTMLFormElement | undefined = $state();
-	let everyDays = $state(0);
 	let active = $state(true);
 	/** The last `update` refusal, until the next save or the next time editing starts. */
 	let updateError = $state<string | null>(null);
 
 	function startEditing() {
-		everyDays = exercise.everyDays;
 		active = exercise.active;
 		updateError = null;
 		editing = true;
@@ -196,7 +208,7 @@
 	 * Another exercise opened in this page (a row beside it, on the desktop):
 	 * SvelteKit keeps the page, so what was the last one's goes with it. An edit
 	 * left open would otherwise show the new exercise with the old one's
-	 * frequency, and save it there.
+	 * settings, and save it there.
 	 */
 	let shownId = untrack(() => page.params.id);
 	$effect.pre(() => {
@@ -241,10 +253,16 @@
 				message={failure('log')}
 				initial={data.practice}
 				from="exercise"
+				schedule={data.scheduleAtStart ?? undefined}
+				today={data.today}
 				contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks }}
 				session={today?.session ?? null}
 				follow={today?.follow ?? null}
-				onlogged={today?.logged}
+				onlogged={(d, setId) => {
+					today?.logged(d);
+					today?.undoable(data.exercise.id, setId);
+				}}
+				belowLog={notTodayPane}
 				onclose={() => {}}
 			/>
 		{/key}
@@ -331,7 +349,6 @@
 						</label>
 					{/if}
 					{#if !drill}
-						<FrequencyField name="everyDays" bind:value={everyDays} tone="field" />
 						<div class="flex min-h-[52px] items-center gap-3">
 							<span class="flex min-w-0 flex-1 flex-col gap-px">
 								<span class="text-[16px] font-bold text-ink">Active</span>
@@ -452,8 +469,10 @@
 						{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"></span>{/if}
 						<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
 							<span
-								class="flex items-center gap-1 font-display text-[24px] leading-[1.05] font-extrabold text-ink"
-								>{tile.value}{#if tile.star}<Icon name="star" size={20} filled />{/if}</span
+								class="flex items-center gap-1.5 font-display leading-[1.05] font-extrabold text-ink {tile.feel
+									? 'text-[17px]'
+									: 'text-[24px]'}"
+								>{#if tile.feel}<Face feel={tile.feel} size={22} />{/if}{tile.value}</span
 							>
 							<span class="text-[12px] font-bold text-muted">{tile.label}</span>
 						</div>
@@ -474,12 +493,6 @@
 				<h2 class={SECTION_LABEL}>Settings</h2>
 				<dl class={GROUP}>
 					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-						<dt class="flex-1 text-[16px] font-bold text-ink">How often</dt>
-						<dd class="text-right text-[15px] font-semibold text-muted">
-							{frequencyLabel(exercise.everyDays)}
-						</dd>
-					</div>
-					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
 						<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
 						<dd class="text-right text-[15px] font-semibold text-muted">
 							{exercise.active ? 'Yes' : "No — not on Today's list"}
@@ -498,7 +511,31 @@
 					{/if}
 				</dl>
 			</section>
+			<!-- The very end of the phone's page (the desktop has it under Log set). -->
+			{#if canSkip}
+				<div class="flex flex-col items-center gap-0.5 pt-1 desk:hidden">
+					{@render notTodayButton()}
+				</div>
+			{/if}
 		{/if}
+	{/if}
+{/snippet}
+
+<!-- Not today: quiet text, with what it does under it. -->
+{#snippet notTodayButton()}
+	<button
+		type="button"
+		class={button('tertiary', 'md')}
+		aria-busy={skipping}
+		disabled={skipping}
+		onclick={notToday}>Not today</button
+	>
+	<p class="text-[13px] text-muted">It comes back tomorrow</p>
+{/snippet}
+
+{#snippet notTodayPane()}
+	{#if canSkip}
+		<div class="flex flex-col items-center gap-0.5">{@render notTodayButton()}</div>
 	{/if}
 {/snippet}
 
@@ -700,6 +737,10 @@
 		message={failure('log')}
 		initial={data.practice}
 		from="exercise"
+		schedule={data.scheduleAtStart ?? undefined}
+		today={data.today}
+		onlogged={(_, setId) => today?.undoable(data.exercise.id, setId)}
+		outer={today ? { toast: today.toast, ondismiss: today.dismissToast } : null}
 		onclose={() => (logging = false)}
 	/>
 {/if}

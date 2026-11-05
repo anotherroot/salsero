@@ -51,6 +51,10 @@ export async function logSetFrom({ params, request, locals }: LogEvent) {
 	const exercise = requireExerciseInWall(getDb(), wall, exerciseId);
 	const has = (f: Parameters<typeof hasField>[1]) => hasField(exercise.source, f);
 
+	if (has('rating') && rating === null) {
+		return fail(400, { action: 'log', message: 'Pick how it went' });
+	}
+
 	const now = Date.now();
 	const backfill = isValidDay(day) && day < localDay(now, tz);
 	// Exact seconds come from the practice panel; typing into Minutes clears

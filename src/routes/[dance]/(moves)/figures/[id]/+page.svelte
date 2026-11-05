@@ -54,7 +54,6 @@
 	} from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import { PARTNER_LABEL } from '$lib/labels';
-	import { frequencyLabel } from '$lib/frequency';
 	import { byteSize, plural, weekdayDayMonth } from '$lib/format';
 	import {
 		archiveCopy,
@@ -552,18 +551,13 @@
 			<ul class={GROUP}>
 				<li class="flex min-h-[60px] items-center gap-2.5 py-2 pr-1.5 pl-4">
 					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-						<span class="text-[16px] leading-tight font-bold text-ink"
-							>{data.practice?.title ?? frequencyLabel(data.exercise.everyDays)}</span
+						<span
+							class="text-[16px] leading-tight font-bold {data.practice?.tone === 'status'
+								? 'text-status'
+								: data.practice?.tone === 'done'
+									? 'text-done'
+									: 'text-ink'}">{data.practice?.text ?? 'Practice'}</span
 						>
-						{#if data.practice}
-							<span
-								class="text-[13px] {data.practice.meta.tone === 'status'
-									? 'font-bold text-status'
-									: data.practice.meta.tone === 'done'
-										? 'font-bold text-done'
-										: 'text-muted'}">{data.practice.meta.text}</span
-							>
-						{/if}
 					</span>
 					<button
 						type="button"
@@ -1180,6 +1174,8 @@
 		takes={data.popup.takes}
 		backfillDay={null}
 		{timezone}
+		schedule={data.scheduleAtStart ?? undefined}
+		today={data.today}
 		message={failed('log')}
 		onclose={() => (logging = false)}
 	/>

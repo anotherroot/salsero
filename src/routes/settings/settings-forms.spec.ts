@@ -21,6 +21,7 @@ import {
 	userForDeviceToken
 } from '$lib/server/devices';
 import { defaultStylesFor } from '$lib/server/default-styles';
+import { dailyCountOf } from '$lib/server/today-picks';
 import { actions, load } from './+page.server';
 
 const USER = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana' };
@@ -104,6 +105,20 @@ describe('videoSize', () => {
 		expect(await call(actions.videoSize, post({ shortSide: '500' }))).toMatchObject({
 			status: 400
 		});
+	});
+});
+
+describe('dailyCount', () => {
+	it('stores a number in range and refuses the rest', async () => {
+		expect(await call(actions.dailyCount, post({ count: '8' }))).toEqual({ ok: true });
+		expect(dailyCountOf(db, 'u1')).toBe(8);
+		const data = (await (load as (e: unknown) => unknown)(post({}))) as { dailyCount: number };
+		expect(data.dailyCount).toBe(8);
+		for (const count of ['0', '31', 'abc', '', '2.5']) {
+			expect(await call(actions.dailyCount, post({ count }))).toMatchObject({ status: 400 });
+		}
+		expect(dailyCountOf(db, 'u1')).toBe(8);
+		expect(dailyCountOf(db, 'u2')).toBe(5);
 	});
 });
 

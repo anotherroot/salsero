@@ -23,6 +23,7 @@ import { int, optionalText, text } from '$lib/server/form';
 import { isDanceSlug, isStyleOf } from '$lib/dances/dances';
 import { deviceMeta } from '$lib/settings/view';
 import { ownVoiceSummary } from '$lib/voice/grid';
+import { DAILY_MAX, DAILY_MIN, dailyCountOf, setDailyCount } from '$lib/server/today-picks';
 import { isVideoShortSide } from '$lib/video-sizes';
 import { THEME_COOKIE, isThemeChoice } from '$lib/theme/scheme';
 import type { Actions, PageServerLoad } from './$types';
@@ -50,6 +51,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		name: { firstName: locals.user.firstName ?? '', lastName: locals.user.lastName ?? '' },
 		defaultStyle: defaultStyle(db, locals.user.id, dance),
 		device: deviceSettings(db, locals.user.id),
+		dailyCount: dailyCountOf(db, locals.user.id),
 		devices: listDevices(db, locals.user.id).map((d) => ({
 			id: d.id,
 			label: d.label,
@@ -149,6 +151,16 @@ export const actions: Actions = {
 		const side = int(await request.formData(), 'shortSide');
 		if (!isVideoShortSide(side)) return fail(400, { message: 'Pick one of the sizes.' });
 		setVideoShortSide(getDb(), locals.user.id, side);
+		return { ok: true };
+	},
+
+	dailyCount: async ({ locals, request }) => {
+		if (!locals.user) throw error(401);
+		const count = int(await request.formData(), 'count');
+		if (count === undefined || count < DAILY_MIN || count > DAILY_MAX) {
+			return fail(400, { message: `Pick a number from ${DAILY_MIN} to ${DAILY_MAX}.` });
+		}
+		setDailyCount(getDb(), locals.user.id, count);
 		return { ok: true };
 	},
 

@@ -10,7 +10,6 @@ import {
 	exerciseSummary,
 	getExercise,
 	lastSet,
-	lastSets,
 	listExercises,
 	listSetTimes,
 	listSetsBetween,
@@ -477,16 +476,11 @@ describe('history', () => {
 		expect(exerciseSummary(db, e.id)).toEqual({ sets: 0, totalS: 0, recentRating: null });
 	});
 
-	it('finds the latest set per exercise, within one dance', () => {
+	it("finds an exercise's latest set", () => {
 		const a = createCustomExercise(db, U1_SALSA, { name: 'A', everyDays: 1, notes: null });
-		const b = createCustomExercise(db, U1_BACHATA, { name: 'B', everyDays: 1, notes: null });
 		set(a.id, 1000, { rating: 2 });
 		set(a.id, 3000, { rating: 5, note: 'clean' });
-		set(b.id, 2000, { rating: 1 });
-		const last = lastSets(db, U1_SALSA);
-		expect([...last.keys()]).toEqual([a.id]);
-		expect(last.get(a.id)).toMatchObject({ doneAt: 3000, rating: 5, note: 'clean' });
-		expect(lastSet(db, a.id)?.doneAt).toBe(3000);
+		expect(lastSet(db, a.id)).toMatchObject({ doneAt: 3000, rating: 5, note: 'clean' });
 		expect(
 			lastSet(db, createCustomExercise(db, U1_SALSA, { name: 'C', everyDays: 1, notes: null }).id)
 		).toBeNull();

@@ -7,7 +7,8 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { GROUP, LABEL, ROW, TEXTAREA, button } from '$lib/components/ui/styles';
-	import { nextRating } from '$lib/exercises/log-view';
+	import FaceRating from '$lib/components/exercises/FaceRating.svelte';
+	import { feelOf, type Feel } from '$lib/schedule/feel';
 	import { exerciseGroups } from '$lib/picker/build';
 	import type { PickExercise } from '$lib/types';
 
@@ -39,7 +40,7 @@
 	// Seeded once from a failed save (a page reloaded without JS). While the
 	// sheet stays mounted `fail` only echoes what these already hold, and
 	// following it would undo a change made after the refusal.
-	let rating = $state<number | null>(untrack(() => fail?.rating ?? null));
+	let feel = $state<Feel | null>(untrack(() => feelOf(fail?.rating ?? null)));
 	let busy = $state(false);
 	let exerciseId = $state<number | null>(untrack(() => fail?.exerciseId ?? null));
 	const formId = $props.id();
@@ -103,24 +104,7 @@
 			/>
 		{/if}
 
-		<fieldset>
-			<legend class={LABEL}>How did it go?</legend>
-			<input type="hidden" name="rating" value={rating ?? ''} />
-			<div class="flex gap-2">
-				{#each [1, 2, 3, 4, 5] as n (n)}
-					<button
-						type="button"
-						aria-label="{n} of 5"
-						aria-pressed={rating === n}
-						onclick={() => (rating = nextRating(rating, n))}
-						class="h-12 flex-1 cursor-pointer rounded-[14px] text-[17px] font-extrabold {rating !==
-							null && n <= rating
-							? 'bg-accent text-on-accent'
-							: 'bg-surface text-ink-2 ring-1 ring-field-line ring-inset'}">{n}</button
-					>
-				{/each}
-			</div>
-		</fieldset>
+		<FaceRating question="How did it go?" value={feel} onchange={(f) => (feel = f)} />
 
 		<label class="block">
 			<span class={LABEL}>Note <span class="font-normal text-muted">(optional)</span></span>
@@ -145,7 +129,7 @@
 				<button
 					type="submit"
 					form={formId}
-					disabled={busy || (!exercise && exerciseId === null)}
+					disabled={busy || feel === null || (!exercise && exerciseId === null)}
 					aria-busy={busy}
 					class={button('primary', 'md', true)}
 				>

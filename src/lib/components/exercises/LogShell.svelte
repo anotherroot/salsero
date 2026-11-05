@@ -48,7 +48,7 @@
 		initial?: PracticePayload | null;
 		session?: SessionControls | null;
 		/** A set was saved. `durationS` is what it logged, for the session's tally. */
-		onlogged?: (durationS: number | null) => void;
+		onlogged?: (durationS: number | null, setId: number | null) => void;
 		onclose: () => void;
 		/** Where this popup was opened, so a Practice opened from it can go back there. */
 		from?: 'today' | 'exercise';
@@ -64,10 +64,23 @@
 		 * (desktop spec, "Today"): no sheet, the form with Log set pinned under it.
 		 */
 		frame?: 'sheet' | 'pane';
+		/** The pane only: a quiet extra under Log set (the exercise page's Not today). */
+		belowLog?: Snippet;
+		/**
+		 * The popup only: the Today layout's toast (a set's "back in …" Undo), drawn inside
+		 * the sheet, since a modal dialog covers the page's own.
+		 */
+		outer?: { toast: ToastState | null; ondismiss: () => void } | null;
 		/** Outside a session: where Next goes after a log (the next due exercise). */
 		follow?: { name: string; onnext: () => void } | null;
 		/** What the type's `Content` gets on the page (spread after the wrapper's own `canEdit`). */
 		contentProps?: Pick<ContentProps, 'onPage' | 'canEdit' | 'editLinks'>;
+		/**
+		 * The exercise's schedule as of the START of today (sets before today only),
+		 * and today's day: what each face would set. Without them the faces show no times.
+		 */
+		schedule?: ScheduleState;
+		today?: string;
 	}
 </script>
 
@@ -81,9 +94,13 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import type { ToastState } from '$lib/act-toast';
 	import SetList from './SetList.svelte';
 	import LastTime from './LastTime.svelte';
-	import RatingStars from './RatingStars.svelte';
+	import FaceRating from './FaceRating.svelte';
+	import { preview as previewOf, type ScheduleState } from '$lib/schedule/schedule';
+	import { earlyLine } from '$lib/schedule/words';
+	import type { Feel } from '$lib/schedule/feel';
 	import { fetchPractice } from './fetch-practice';
 	import { restoreSet } from './restore-set';
 	import {
@@ -129,7 +146,11 @@
 		onclose,
 		action = '?/log',
 		frame = 'sheet',
+		belowLog,
+		outer = null,
 		follow = null,
+		schedule,
+		today,
 		run,
 		playing,
 		reference,
@@ -160,7 +181,11 @@
 	let loadError = $state<string | null>(null);
 	let busy = $state(false);
 	let justLogged = $state(false);
-	let rating = $state<number | null>(null);
+	let feel = $state<Feel | null>(null);
+	/** What each face would set; none on a back-filled day or without a schedule. */
+	const faces = $derived(
+		schedule && today && backfillDay === null ? previewOf(schedule, today) : null
+	);
 	let minutes = $state('');
 	let reps = $state('');
 	/** Exact seconds from the panel. Typing into Minutes clears it, so a hand-entered value wins. */
@@ -184,7 +209,8 @@
 			busy,
 			playing,
 			backfill: backfillDay !== null,
-			follow: follow?.name ?? null
+			follow: follow?.name ?? null,
+			rated: !has('rating') || feel !== null
 		})
 	);
 	/** Next goes on through the session, else to the exercise `follow` names. */
@@ -321,7 +347,7 @@
 						refusal = typeof m === 'string' ? m : 'It did not save.';
 					}
 					if (result.type !== 'success') return;
-					rating = null;
+					feel = null;
 					minutes = '';
 					reps = '';
 					minutesBad = false;
@@ -331,7 +357,7 @@
 					// In a session, or with a `follow`, "Logged" stays until Next, Skip or
 					// Finish — the Next button hangs off it. Otherwise it fades back to "Log set".
 					if (!session && !follow) setTimeout(() => (justLogged = false), 2500);
-					onlogged?.(logged);
+					onlogged?.(logged, (result.data as { setId?: number } | undefined)?.setId ?? null);
 					load();
 				};
 			}
@@ -416,7 +442,13 @@
 		{/if}
 
 		{#if has('rating')}
-			<RatingStars question={info.ratingQuestion} value={rating} onchange={(r) => (rating = r)} />
+			<FaceRating
+				question={info.ratingQuestion}
+				value={feel}
+				onchange={(f) => (feel = f)}
+				preview={faces?.faces ?? null}
+				early={faces?.early && today ? earlyLine(faces.early, today) : null}
+			/>
 		{/if}
 
 		{#if has('note')}
@@ -550,6 +582,7 @@
 				{@render finishButton(true)}
 			</div>
 			{@render hint()}
+			{#if belowLog}{@render belowLog()}{/if}
 		</div>
 	</section>
 {:else}
@@ -654,9 +687,13 @@
 			<Toast
 				contained
 				bottom="0"
-				toast={notice}
-				onaction={undo}
+				toast={notice ?? outer?.toast ?? null}
+				onaction={notice ? undo : () => outer?.toast?.undo?.()}
 				ondismiss={() => {
+					if (!notice) {
+						outer?.ondismiss();
+						return;
+					}
 					notice = null;
 					undoSnapshot = null;
 				}}

@@ -301,8 +301,10 @@ for the data model, the popups and the panel in full.
 
 **Rules**
 
-- **Urgency is never stored.** It is a pure function of `(exercises, sets,
-now)`, computed per request. No cron, no cached "last done" column.
+- **What is due is never stored.** It is a pure function of the sets' days and
+  faces, replayed per request (since 2026-11-05, see
+  [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md); the urgency ratio is gone). No cron, no cached
+  "last done" or "due" column.
 - **Nothing is hard-deleted** except a set (a mistaken log), a recording, a
   lesson video and a link. Figures, lessons, positions and exercises are
   archived; sets keep pointing at them and history stays intact.
@@ -329,6 +331,8 @@ now)`, computed per request. No cron, no cached "last done" column.
   active list, dimmed, still loggable. Archived means gone from all lists.
 
 ## Today / Exercises page
+
+> **Replaced 2026-11-05** by [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md): Today is a number a day (default 5) taken in due-day order, not four bands; every set carries one of four faces and the gap is replayed from them; Next N brings more; Not today and Undo; Coming up lists the rest. The urgency ratio, the frequency presets and the Due / Not yet due / Inactive bands below describe the old Today and are kept for history. Past days are unchanged.
 
 The home page. One page serves both "exercises" and "today".
 
@@ -617,8 +621,8 @@ No DB, no DOM, no `Date.now()` inside — `now` is always an argument.
 
 | Module                   | Responsibility                                                                                                                                                                         |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/day/`           | `localDay(instant, tz)`, `daysBetween(dayA, dayB)`. Anything a user reads as a day goes through here; elapsed milliseconds are only for urgency ratios. (Same rule as muscle_model.) |
-| `src/lib/urgency/`       | `(exercises, sets, now, tz) → { doneToday[], due[], upcoming[], inactive[] }` with urgency and "last done" per row.                                                                               |
+| `src/lib/day/`           | `localDay(instant, tz)`, `daysBetween(dayA, dayB)`. Anything a user reads as a day goes through here; elapsed milliseconds are only for sorting. (Same rule as muscle_model.) |
+| `src/lib/schedule/`      | The Anki-style schedule: `replay` (gap and due day from the sets, one review per local day), `preview` (what each face sets), `dayList` (Today's rows), Coming up and the words. Replaced `src/lib/urgency/` 2026-11-05. |
 | `src/lib/beatgrid/` (2)  | Beats + downbeats + corrections → count (1–8) and 8-count index at any song time; synthetic grid for count-only.                                                                       |
 | `src/lib/scheduler/` (2) | Plan + grid + toggles + time window → list of `{at, clip}` events. The only impure part is a thin `attach.ts` that owns the `AudioContext`.                                            |
 | `src/lib/graph/` (3a)    | Positions → which figures can follow which (`meet`: an empty side fits anything; positions by family), and the gap report (`positionCounts`). See the positions spec.                                                                      |

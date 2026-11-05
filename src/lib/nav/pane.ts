@@ -8,12 +8,13 @@ import type { DanceSlug } from '$lib/dances/dances';
 
 /** The lists that sit beside their item. */
 export type ListId =
-	'today' | 'songs' | 'figures' | 'routines' | 'positions' | 'lessons' | 'groups';
+	'today' | 'coming' | 'songs' | 'figures' | 'routines' | 'positions' | 'lessons' | 'groups';
 
 /** Route id → its list, whether that route opens an item beside it, and whether it is a page under an item. */
 const ROUTES: Record<string, { list: ListId; open: boolean; under?: true }> = {
 	'/[dance]/(today)': { list: 'today', open: false },
 	'/[dance]/(today)/exercises/[id]': { list: 'today', open: true },
+	'/[dance]/(today)/coming-up': { list: 'coming', open: false },
 	'/[dance]/songs': { list: 'songs', open: false },
 	'/[dance]/songs/[id]': { list: 'songs', open: true },
 	'/[dance]/(moves)/figures': { list: 'figures', open: false },
@@ -43,6 +44,7 @@ const ROUTES: Record<string, { list: ListId; open: boolean; under?: true }> = {
  */
 export const LIST_HOME: Record<ListId, { root: string; items: string[] }> = {
 	today: { root: '', items: ['/exercises'] },
+	coming: { root: '/coming-up', items: ['/coming-up'] },
 	songs: { root: '/songs', items: ['/songs'] },
 	figures: { root: '/figures', items: ['/figures', '/moves', '/coverage'] },
 	routines: { root: '/routines', items: ['/routines'] },

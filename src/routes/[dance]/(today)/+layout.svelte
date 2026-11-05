@@ -2,6 +2,8 @@
 	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { afterNavigate, goto, invalidate, onNavigate } from '$app/navigation';
+	import { actAt } from '$lib/act';
+	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { page } from '$app/state';
 	import { listOf } from '$lib/nav/pane';
@@ -12,19 +14,26 @@
 	import PastDay from '$lib/components/today/PastDay.svelte';
 	import TodayPaneSkeleton from '$lib/components/today/TodayPaneSkeleton.svelte';
 	import TodayList from '$lib/components/today/TodayList.svelte';
+	import ComingUpList from '$lib/components/today/ComingUpList.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
+	import { besideToday } from '$lib/nav/today-pane';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
-	import HeroCard from '$lib/components/ui/HeroCard.svelte';
-	import { heroFor, shownRows, teamOfRow, todayBands } from '$lib/exercises/today';
+	import Toast from '$lib/components/ui/Toast.svelte';
+	import TodayBar from '$lib/components/today/TodayBar.svelte';
+	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
+	import type { ExerciseItem } from '$lib/types';
+	import { todayHero, undoLogMessage } from '$lib/exercises/today';
+	import { undoAddSteps, type PickReply } from '$lib/schedule/picks';
 	import { dayTotals, defaultOpen, sessionLine } from '$lib/exercises/today-pane';
 	import { setTodayPane } from '$lib/components/today/today-context';
-	import { dropOpener } from '$lib/nav/trail.svelte';
+	import { dropOpener, listOpener } from '$lib/nav/trail.svelte';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { passNext } from '$lib/unsaved/guard.svelte';
 	import type { Unsaved } from '$lib/unsaved/pending';
 	import { longDayLabel } from '$lib/format';
 	import { typeOf } from '$lib/exercises/kinds';
-	import { nextInSession, sessionSummary } from '$lib/exercises/session';
+	import { nextInSession, sessionSummary, sessionWalk } from '$lib/exercises/session';
 
 	/*
 	 * Today: the list and the exercise beside it (desktop spec, "Today: the list
@@ -43,18 +52,25 @@
 	const l = $derived(listOf(page.route.id));
 	const isList = $derived(l?.open === false);
 	// Valid by now: the page's load sends any other `day` back to Today.
-	const past = $derived(isList && page.url.searchParams.has('day'));
+	// Coming up is a list route of its own (`besideToday`); a `day` in its URL means nothing.
+	const onComing = $derived(page.route.id === '/[dance]/(today)/coming-up');
+	// The list column shows Coming up: its page, or an exercise opened from it.
+	const comingColumn = $derived(
+		besideToday(page.route.id, page.url.pathname, listOpener(page.url.pathname)) === 'coming'
+	);
+	const past = $derived(isList && !onComing && page.url.searchParams.has('day'));
 	const dance = $derived(data.dance.slug);
 	const currentId = $derived(isList ? null : Number(page.params.id));
 
 	let openId = $state<number | null>(null);
 	let creating = $state(false);
-	// The list's Inactive fold: the layout's, so a fresh visit closes it (`afterNavigate`).
-	let showInactive = $state(false);
+	// The layout's toast: a refused Next, and what later tasks add (Undo).
+	let toast = $state<ToastState | null>(null);
+	let toastSeq = 0;
 
-	// A session walks Today's due/upcoming bands one popup at a time. It lives
-	// entirely in the URL flag plus this layout's own state — nothing is stored,
-	// so a reload recomputes "next" from the (now-refreshed) bands.
+	// A session walks Today's to-do rows, then the picked ones, one popup at a
+	// time. It lives entirely in the URL flag plus this layout's own state —
+	// nothing is stored, so a reload recomputes "next" from the refreshed rows.
 	const sessionOn = $derived(page.url.searchParams.get('session') === '1');
 	let skipped = $state(new Set<number>());
 	let tally = $state({ count: 0, seconds: 0 });
@@ -68,18 +84,18 @@
 	// remounting, but here `openId` does not change, so this bumps the key by
 	// itself: same exercise, fresh popup, old panel torn down by its onDestroy.
 	let bumpKey = $state(0);
-	// Each band holds the person's own rows, then each group's: the session
-	// walks them in that order, as they are shown.
-	const bands = $derived(todayBands(data.list.plan, teamOfRow));
-	const walkDue = $derived(shownRows(bands, 'due'));
-	const walkUpcoming = $derived(shownRows(bands, 'upcoming'));
+	const day = $derived(data.list.day);
+	// No live exercise at all: the first run's page.
+	const empty = $derived(data.list.exercises.length === 0);
+	// What the session walks: the to-do rows, then the picked ones, as shown.
+	const walkRows = $derived(sessionWalk(day.rows));
 	/**
 	 * The exercise the session and Next are about: the phone's popup, the
 	 * desktop's pane (the URL's). The phone popup never shows on the desktop.
 	 */
 	const current = $derived(desk.current ? currentId : openId);
-	const firstUp = $derived(nextInSession(walkDue, walkUpcoming, skipped, null));
-	const nextUp = $derived(nextInSession(walkDue, walkUpcoming, skipped, current));
+	const firstUp = $derived(nextInSession(walkRows, skipped, null));
+	const nextUp = $derived(nextInSession(walkRows, skipped, current));
 
 	const at = (id: number, search = '') =>
 		resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(id) }) + search;
@@ -184,7 +200,7 @@
 
 	/*
 	 * One always open (desktop): the list route opens an exercise by itself, the
-	 * first due, else the first not yet due (`defaultOpen`); in a session, the
+	 * first to-do row, else the first picked (`defaultOpen`); in a session, the
 	 * session's first. It goes to the exercise's own URL with a replace (no
 	 * history entry), so every form in the pane posts to its own route, and a
 	 * Back from it goes where /{dance} would have. With nothing to open, the pane
@@ -195,12 +211,12 @@
 	 * entry has gone (`gotoWhenSettled`).
 	 */
 	const swapTo = $derived.by(() => {
-		if (past || creating) return null;
+		if (past || creating || onComing) return null;
 		if (openId !== null)
 			return openId === currentId ? null : at(openId, sessionOn ? '?session=1' : '');
 		if (!isList) return null;
 		if (sessionOn) return firstUp ? at(firstUp.exercise.id, '?session=1') : null;
-		const id = defaultOpen(bands);
+		const id = defaultOpen(day);
 		return id === null ? null : at(id);
 	});
 
@@ -249,7 +265,7 @@
 
 	/*
 	 * On the phone, arriving at the list from another path is a fresh visit, as
-	 * the page's own mount was: the tally, the skips and Inactive start over and a
+	 * the page's own mount was: the tally and the skips start over and a
 	 * session picks up at its current first row (after the move, so the URL's
 	 * session flag is the new one). The desktop keeps them across exercises (the
 	 * session walks the pane: Task 6). Back from one of Today's own exercises the
@@ -261,7 +277,6 @@
 		if (listOf(to.route.id)?.open !== false) return;
 		if (desk.current) return;
 		clearSession();
-		showInactive = false;
 		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
 		if (listOf(from.route.id)?.list === 'today') void invalidate('today:list');
 	});
@@ -294,6 +309,88 @@
 			: null
 	);
 
+	const say = (message: string) => (toast = { id: ++toastSeq, message });
+
+	/**
+	 * "Not today": the exercise leaves Today until tomorrow (a skip pick). The toast
+	 * and its Undo come only once the server has said yes; a refusal says why and
+	 * leaves the row where it was. True when it was skipped.
+	 */
+	async function notToday(exerciseId: number): Promise<boolean> {
+		const row = day.rows.find((r) => r.exercise.id === exerciseId);
+		if (!row || row.kind === 'done') return false;
+		const keys = day.rows.map((r) => `today-row-${r.exercise.id}`);
+		const result = await actAt(`/${dance}`, 'pick', { exerciseId, kind: 'skip' });
+		const refused = refusalMessage(result, 'Could not skip it. Try again.');
+		if (refused) {
+			say(refused);
+			return false;
+		}
+		const pickId = (result as { data?: { pickIds?: number[] } }).data?.pickIds?.[0];
+		toast =
+			pickId === undefined
+				? { id: ++toastSeq, message: `${row.exercise.name} · Not today` }
+				: undoToast(
+						++toastSeq,
+						`${row.exercise.name} · Not today`,
+						() => (toast = null),
+						async () => {
+							const undone = await actAt(`/${dance}`, 'unpick', { pickId });
+							const m = refusalMessage(undone, 'Could not put it back. Try again.');
+							if (m) say(m);
+						}
+					);
+		// Else Next N, else the list's add control (Custom exercise, the phone's or the band's).
+		void focusAfterRemoval(keys, `today-row-${exerciseId}`, ['today-next', 'today-custom']);
+		return true;
+	}
+
+	/**
+	 * A set was logged today (any popup or pane, or the player's redirect): the
+	 * toast "<name> · back in <gap>" with Undo, which deletes that very set. The
+	 * gap is the reloaded list's (the log's own `update` has run by now).
+	 */
+	function undoable(exerciseId: number, setId: number | null) {
+		if (setId === null) return;
+		const row = day.rows.find((r) => r.exercise.id === exerciseId);
+		if (!row) return;
+		toast = undoToast(
+			++toastSeq,
+			undoLogMessage(row.exercise.name, row.state.gap),
+			() => (toast = null),
+			async () => {
+				const result = await actAt(`/${dance}`, 'deleteSet', { setId });
+				const m = refusalMessage(result, 'Could not undo that set. Try again.');
+				if (m) say(m);
+			}
+		);
+	}
+
+	/*
+	 * The player's Save set lands here with `?logged=<setId>`: the same toast, and
+	 * the param is dropped so a reload does not show it again. The router cannot
+	 * rewrite the URL until the first navigation has settled, so the id is taken
+	 * (and the URL cleaned) in `afterNavigate`, and the toast follows from it.
+	 */
+	let loggedParam = $state<string | null>(null);
+	afterNavigate(() => {
+		const id = page.url.searchParams.get('logged');
+		if (id === null) return;
+		loggedParam = id;
+		const clean = new URL(page.url);
+		clean.searchParams.delete('logged');
+		// `replaceState` throws on the first load (the router is not up yet); `goto` waits for it.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the same page, one param fewer
+		void goto(clean, { replaceState: true, keepFocus: true, noScroll: true });
+	});
+	$effect(() => {
+		const id = loggedParam;
+		if (id === null) return;
+		loggedParam = null;
+		const set = data.list.todaySets.find((s) => String(s.id) === id);
+		if (set) untrack(() => undoable(set.exerciseId, set.id));
+	});
+
 	/** A set was logged, in the popup or the pane: the session's tally and walk. */
 	function logged(durationS: number | null) {
 		if (!sessionOn) return;
@@ -303,11 +400,11 @@
 
 	/*
 	 * The pane (desktop): the session as above, its line, and outside a session
-	 * Next after a log, to the first due one (a push, as a row's click).
+	 * Next after a log, to the first of the walk (a push, as a row's click).
 	 */
 	const follow = $derived.by(() => {
 		if (sessionOn || past) return null;
-		const n = nextInSession(walkDue, [], new Set(), current);
+		const n = nextInSession(walkRows, new Set(), current);
 		if (!n) return null;
 		const href = at(n.exercise.id);
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- `at` resolves it
@@ -317,7 +414,7 @@
 		sessionOn && !past && current !== null
 			? sessionLine(
 					walked,
-					[...walkDue, ...walkUpcoming].map((r) => r.exercise.id),
+					walkRows.map((r) => r.exercise.id),
 					current,
 					tally.count
 				)
@@ -337,41 +434,70 @@
 			return `${current}:${bumpKey}`;
 		},
 		logged,
+		undoable,
+		canSkip: (id) => day.rows.some((r) => r.exercise.id === id && r.kind !== 'done'),
+		notToday,
+		get toast() {
+			return toast;
+		},
+		dismissToast: () => (toast = null),
 		pagePopup(on) {
 			pageLogging = on;
 		}
 	});
 
-	// The hero drives the session: Start, Resume (with the next name), a disabled
-	// Start when everything is parked, or a quiet All done card.
-	const hero = $derived(
-		heroFor(data.list.plan, {
-			on: sessionOn,
-			next: firstUp?.exercise.name ?? null,
-			logged: tally.count
-		})
-	);
-	// Only a Resume names a next row, so only then is one tinted "Up next".
-	const upNextId = $derived(hero?.kind === 'resume' ? (firstUp?.exercise.id ?? null) : null);
+	// The bar card: how many are left, done of all; its play starts the session,
+	// or resumes it at its next row while one is on.
+	const hero = $derived(todayHero(day));
+	const resuming = $derived(sessionOn && firstUp !== null);
+	function play() {
+		if (resuming && firstUp) openRow(firstUp.exercise.id, 'replace');
+		else startSession();
+	}
+	// A session on names its next row: tinted "Up next".
+	const upNextId = $derived(resuming ? (firstUp?.exercise.id ?? null) : null);
 
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
-	// Every band, so opening a row by id works wherever it sits.
-	const rows = $derived([
-		...data.list.plan.doneToday,
-		...data.list.plan.due,
-		...data.list.plan.upcoming,
-		...data.list.plan.inactive
-	]);
-	const open = $derived(rows.find((r) => r.exercise.id === openId)?.exercise ?? null);
+	// Every live exercise, so opening one by id works wherever it sits.
+	const open = $derived(data.list.exercises.find((e) => e.id === openId) ?? null);
 	const openSets = $derived(data.list.todaySets.filter((s) => s.exerciseId === openId));
 	const Log = $derived(open ? logFor(typeOf(open.source)) : null);
 
 	/** Each exercise's type and partner, for the day so far's tiles; archived ones are absent. */
 	const kinds = $derived(
 		Object.fromEntries(
-			rows.map((r) => [r.exercise.id, { source: r.exercise.source, partner: r.exercise.partner }])
+			data.list.exercises.map((e) => [e.id, { source: e.source, partner: e.partner }])
 		)
 	);
+
+	/**
+	 * Coming up's + worked: "<name> is on Today · Undo". Undo puts back what the +
+	 * changed (`undoAddSteps`: skips again a row it un-skipped, removes the pick it
+	 * made); when it changed nothing, the toast has no Undo.
+	 */
+	function added(exercise: ExerciseItem, reply: PickReply) {
+		const steps = undoAddSteps(exercise.id, reply);
+		const message = `${exercise.name} is on Today`;
+		if (steps.length === 0) {
+			toast = { id: ++toastSeq, message };
+			return;
+		}
+		toast = undoToast(
+			++toastSeq,
+			message,
+			() => (toast = null),
+			async () => {
+				for (const step of steps) {
+					const result = await actAt(`/${dance}`, step.action, step.fields);
+					const refused = refusalMessage(result, 'Could not undo that. Try again.');
+					if (refused) {
+						toast = { id: ++toastSeq, message: refused };
+						return;
+					}
+				}
+			}
+		);
+	}
 
 	const failure = (action: string) => {
 		const form = page.form;
@@ -382,57 +508,83 @@
 </script>
 
 <svelte:head>
-	{#if isList && !past}<title>Today · {data.dance.label}</title>{/if}
+	{#if onComing}<title>Coming up · {data.dance.label}</title>{:else if isList && !past}<title
+			>Today · {data.dance.label}</title
+		>{/if}
 </svelte:head>
 
 {#snippet heroCard()}
-	{#if hero}
-		<HeroCard
-			title={hero.title}
-			meta={hero.meta}
-			state={hero.kind === 'idle' ? 'disabled' : hero.kind === 'done' ? 'done' : 'default'}
-			onclick={hero.kind === 'start'
-				? startSession
-				: hero.kind === 'resume'
-					? () => {
-							if (firstUp) openRow(firstUp.exercise.id, sessionOn ? 'replace' : 'push');
-							else openId = null;
-						}
-					: undefined}
-		/>
-	{/if}
+	<TodayBar {hero} playLabel={resuming ? 'Resume session' : 'Start session'} onplay={play} />
 {/snippet}
 
 {#snippet bandRight()}
-	<BandButton
-		icon="chevron-left"
-		label="Previous day"
-		href={resolve(`/${dance}?day=${data.list.yesterday}`)}
-	/>
-	<!-- The phone's Settings; the desktop has it in the side, and Custom exercise here. -->
+	{#if !comingColumn}
+		<BandButton
+			icon="chevron-left"
+			label="Previous day"
+			href={resolve(`/${dance}?day=${data.list.yesterday}`)}
+		/>
+		<!-- Coming up: beside Settings on the phone, in the band row on the desktop. -->
+		<BandButton
+			icon="calendar"
+			label="Coming up"
+			href={resolve('/[dance]/(today)/coming-up', { dance })}
+		/>
+		<!-- The phone's Settings; the desktop has it in the side, and Custom exercise here. -->
+		<span class="contents desk:hidden"
+			><BandButton icon="settings" label="Settings" href={resolve('/settings')} /></span
+		>
+		<span class="hidden desk:contents"
+			><BandButton
+				icon="plus"
+				label="Custom exercise"
+				focusKey="today-custom"
+				onclick={() => (creating = true)}
+			/></span
+		>
+	{/if}
+{/snippet}
+
+{#snippet comingBack()}
+	<!-- The phone's ‹ (the desktop has Today's column to go back to). -->
 	<span class="contents desk:hidden"
-		><BandButton icon="settings" label="Settings" href={resolve('/settings')} /></span
-	>
-	<span class="hidden desk:contents"
-		><BandButton icon="plus" label="Custom exercise" onclick={() => (creating = true)} /></span
+		><BackButton
+			fallback={{ href: resolve('/[dance]/(today)', { dance }), label: 'Today' }}
+		/></span
 	>
 {/snippet}
 
+{#snippet comingPane()}
+	<p class="px-10 pt-10 text-[15px] text-muted">Pick an exercise to open it.</p>
+{/snippet}
+
 {#snippet list()}
-	<TodayList
-		{bands}
-		{dance}
-		lastRatings={data.list.lastRatings}
-		lessonDays={data.list.lessonDays}
-		today={data.list.today}
-		{upNextId}
-		{currentId}
-		rowSearch={sessionOn && desk.current ? '?session=1' : ''}
-		bind:showInactive
-		appUpdate={data.appUpdate}
-		onlog={(id) => (openId = id)}
-		oncreate={() => (creating = true)}
-	/>
+	{#if comingColumn}
+		<ComingUpList
+			groups={data.list.coming}
+			{dance}
+			today={data.list.today}
+			{currentId}
+			onadded={added}
+			onrefused={(message) => (toast = { id: ++toastSeq, message })}
+		/>
+	{:else}
+		<TodayList
+			{day}
+			{empty}
+			daily={data.list.daily}
+			{dance}
+			lessonDays={data.list.lessonDays}
+			{upNextId}
+			{currentId}
+			rowSearch={sessionOn && desk.current ? '?session=1' : ''}
+			appUpdate={data.appUpdate}
+			onlog={(id) => (openId = id)}
+			oncreate={() => (creating = true)}
+			onrefused={say}
+			onskip={(id) => void notToday(id)}
+		/>
+	{/if}
 {/snippet}
 
 <!--
@@ -456,14 +608,15 @@
 {:else}
 	<ListPane
 		{list}
-		hero={hero ? heroCard : undefined}
+		hero={empty || comingColumn ? undefined : heroCard}
 		{isList}
 		width={400}
-		solo={isList && bands.length === 0}
-		title="Today"
-		subtitle={longDayLabel(data.list.today)}
+		solo={isList && empty && !comingColumn}
+		title={comingColumn ? 'Coming up' : 'Today'}
+		subtitle={comingColumn ? undefined : longDayLabel(data.list.today)}
+		left={onComing ? comingBack : undefined}
 		right={bandRight}
-		empty={swapTo === null ? daySoFar : paneSkeleton}
+		empty={onComing ? comingPane : swapTo === null ? daySoFar : paneSkeleton}
 		emptyBare
 	>
 		{@render children()}
@@ -482,12 +635,20 @@
 				{timezone}
 				message={failure('log')}
 				action="/{dance}?/log"
+				schedule={data.list.schedulesAtStart[open.id]}
+				today={data.list.today}
 				{session}
-				onlogged={logged}
+				outer={{ toast, ondismiss: () => (toast = null) }}
+				onlogged={(d, setId) => {
+					logged(d);
+					undoable(open.id, setId);
+				}}
 				onclose={() => (openId = null)}
 			/>
 		{/key}
 	{/if}
+
+	<Toast {toast} onaction={() => toast?.undo?.()} ondismiss={() => (toast = null)} />
 {/if}
 
 {#if creating}

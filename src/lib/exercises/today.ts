@@ -1,156 +1,141 @@
 /**
- * What Today shows. PURE, client-safe: the bands in order, each row's meta
- * line, the tile's tone, the hero's state and a past day's groups.
- *
- * Done today sits after Not yet due (it used to come first): what the session
- * walks comes first, and what is already finished is the quietest news.
+ * What Today shows. PURE, client-safe: each row's meta line and tile, the bar
+ * card's words and a past day's groups. The rows themselves, and their order,
+ * are `dayList`'s (`src/lib/schedule/today-list.ts`).
  */
-import { frequencyLabel } from '$lib/frequency';
-import { lastDoneLabel, plural } from '$lib/format';
-import type { DaySet, ExerciseItem, TeamRef } from '$lib/types';
-import type { Plan, PlanRow } from '$lib/urgency/urgency';
-
-export type BandKey = 'due' | 'upcoming' | 'doneToday' | 'inactive';
-
-const BAND_LABEL: Record<BandKey, string> = {
-	due: 'Due',
-	upcoming: 'Not yet due',
-	doneToday: 'Done today',
-	inactive: 'Inactive'
-};
-const ORDER: BandKey[] = ['due', 'upcoming', 'doneToday', 'inactive'];
-
-/** A group's rows within a band, under a small heading: "Salsa nadaljevalna · 3". */
-export type TeamPart<R> = { team: TeamRef; label: string; rows: R[] };
-
-export type Band<R> = {
-	key: BandKey;
-	label: string;
-	/** Every row in the order shown: the person's own, then each group's. */
-	rows: R[];
-	own: R[];
-	teams: TeamPart<R>[];
-};
-
-/**
- * The bands in order, each with the person's own rows first and then a part
- * per group (by the group of the entry's target), groups by name. Within each
- * part the plan's order stands. `rows` is that order flattened, which is the
- * order a session walks.
- */
-export function todayBands<R>(
-	plan: Record<BandKey, R[]>,
-	teamOf: (row: R) => TeamRef | null = () => null
-): Band<R>[] {
-	return ORDER.filter((key) => plan[key].length > 0).map((key) => {
-		const own: R[] = [];
-		const parts = new Map<number, TeamPart<R>>();
-		for (const row of plan[key]) {
-			const team = teamOf(row);
-			if (team === null) {
-				own.push(row);
-				continue;
-			}
-			let part = parts.get(team.id);
-			if (!part) parts.set(team.id, (part = { team, label: '', rows: [] }));
-			part.rows.push(row);
-		}
-		const teams = [...parts.values()]
-			.sort((a, b) => a.team.name.localeCompare(b.team.name) || a.team.id - b.team.id)
-			.map((t) => ({ ...t, label: `${t.team.name} · ${t.rows.length}` }));
-		return {
-			key,
-			label: `${BAND_LABEL[key]} · ${plan[key].length}`,
-			rows: [...own, ...teams.flatMap((t) => t.rows)],
-			own,
-			teams
-		};
-	});
-}
-
-/** The rows of one band as shown, or none: what the session walks. */
-export function shownRows<R>(bands: Band<R>[], key: BandKey): R[] {
-	return bands.find((b) => b.key === key)?.rows ?? [];
-}
-
-/** An exercise row's group, for `todayBands`. */
-export const teamOfRow = (row: { exercise: { team: TeamRef | null } }): TeamRef | null =>
-	row.exercise.team;
+import { backWords, dayWords, dueWords } from '$lib/schedule/words';
+import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
+import type { DaySet, ExerciseItem } from '$lib/types';
 
 export type MetaPart = { text: string; tone: 'status' | 'done' | null };
 
+/** "Due Sunday" → "due Sunday", for after "Ahead ·" and "Added ·". */
+const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
+/**
+ * A Today row's meta: "Done · Back in a week", "New · from class Tue 3 Nov",
+ * "2 days late", "Due today", "Ahead · due Sunday" (Next, before its day),
+ * "Added · due tomorrow" (Coming up's +). `lessonDay`: a lesson's class day as
+ * shown ("Tue 3 Nov"), null for every other type.
+ */
 export function rowMeta(
-	row: PlanRow<ExerciseItem>,
-	band: BandKey,
+	row: DayRow<ExerciseItem>,
+	today: string,
 	lessonDay: string | null
 ): MetaPart[] {
-	if (band === 'doneToday') {
-		const n = row.setsToday;
+	if (row.kind === 'done') {
 		return [
-			{ text: `${n} ${n === 1 ? 'set' : 'sets'} today`, tone: 'done' },
-			{
-				text: lessonDay ? `${lessonDay} class` : frequencyLabel(row.exercise.everyDays),
-				tone: null
-			}
+			{ text: 'Done', tone: 'done' },
+			{ text: backWords(row.state.gap), tone: null }
 		];
 	}
-	const last: MetaPart = {
-		text: lastDoneLabel(row.lastDoneDaysAgo),
-		tone: band === 'due' ? 'status' : null
-	};
-	if (lessonDay) return [{ text: `${lessonDay} class`, tone: null }, last];
-	return [last, { text: frequencyLabel(row.exercise.everyDays), tone: null }];
+	const due = dueWords(row.start, today, row.neverDone);
+	const ahead = !row.neverDone && row.start.dueDay > today;
+	if (row.kind === 'picked' && row.pick?.kind === 'add') {
+		const [first, ...rest] = due;
+		const said = first.tone === 'status' ? first : { ...first, text: lower(first.text) };
+		return [{ text: 'Added', tone: null }, said, ...rest];
+	}
+	if (row.kind === 'picked' && ahead) {
+		return [{ text: 'Ahead', tone: null }, ...due.map((p) => ({ ...p, text: lower(p.text) }))];
+	}
+	if (row.neverDone && lessonDay) return [...due, { text: `from class ${lessonDay}`, tone: null }];
+	return due;
 }
 
 export type TileTone = 'accent' | 'quiet' | 'done';
 
-export function tileTone(band: BandKey, upNext: boolean): TileTone {
-	if (band === 'doneToday') return 'done';
-	return band === 'due' || upNext ? 'accent' : 'quiet';
+/** A done row's tile is ticked; a to-do or picked one is the accent tile. */
+export function tileTone(kind: RowKind): TileTone {
+	return kind === 'done' ? 'done' : 'accent';
 }
 
-export type Hero = {
-	kind: 'start' | 'resume' | 'idle' | 'done';
+export type TodayHero = {
 	title: string;
 	meta: string;
-} | null;
+	/** The bar's fill, 0 to 1. */
+	progress: number;
+	/** Whether the bar shows: not with nothing on Today, nor once nothing is left. */
+	bar: boolean;
+	/** todo: the play button; done: no play; nothing: a tick in its place. */
+	state: 'todo' | 'done' | 'nothing';
+};
 
-export function heroFor(
-	plan: Plan<ExerciseItem>,
-	session: { on: boolean; next: string | null; logged: number }
-): Hero {
-	const due = plan.due.length;
-	const upcoming = plan.upcoming.length;
-	const done = plan.doneToday.length;
-	const inactive = plan.inactive.length;
-	if (due + upcoming + done + inactive === 0) return null;
-
-	if (session.on && session.next !== null) {
+/**
+ * The bar card over Today's list: "3 left for today" · "2 of 5 done"; "All 5
+ * done" · "That's today's practice" once the day's rows are done (Next brings
+ * more); "You've done everything" once nothing is left to pull at all.
+ */
+export function todayHero(day: DayList<unknown>): TodayHero {
+	if (day.left > 0) {
 		return {
-			kind: 'resume',
-			title: 'Resume session',
-			meta: `Next: ${session.next}${session.logged > 0 ? ` · ${session.logged} logged` : ''}`
+			title: `${day.left} left for today`,
+			meta: `${day.done} of ${day.total} done`,
+			progress: day.total > 0 ? day.done / day.total : 0,
+			bar: true,
+			state: 'todo'
 		};
 	}
-	if (due + upcoming > 0) {
-		const parts: string[] = [];
-		if (due > 0) parts.push(`${due} due`);
-		if (upcoming > 0) parts.push(`${upcoming} not yet due`);
-		return { kind: 'start', title: 'Start session', meta: parts.join(' · ') };
+	if (day.nothingLeft) {
+		const when = dayWords(day.nothingLeft.day, day.today);
+		// Nothing done (everything skipped): it must not say done.
+		return day.done > 0
+			? {
+					title: "You've done everything",
+					meta: `Every exercise is done until ${when}`,
+					progress: 1,
+					bar: false,
+					state: 'nothing'
+				}
+			: {
+					title: 'Nothing left for today',
+					meta: `The rest comes back ${when}`,
+					progress: 0,
+					bar: false,
+					state: 'nothing'
+				};
 	}
-	if (done > 0) {
-		const sets = plan.doneToday.reduce((n, r) => n + r.setsToday, 0);
+	if (day.total > 0) {
 		return {
-			kind: 'done',
-			title: 'All done for today',
-			meta: `${plural(done, 'exercise', 'exercises')} · ${plural(sets, 'set', 'sets')}`
+			title: `All ${day.total} done`,
+			meta: "That's today's practice",
+			progress: 1,
+			bar: true,
+			state: 'done'
 		};
 	}
-	return {
-		kind: 'idle',
-		title: 'Start session',
-		meta: `No active exercises · ${inactive} inactive`
-	};
+	return day.showNext
+		? {
+				title: 'Nothing due today',
+				meta: 'You can practise ahead below',
+				progress: 0,
+				bar: false,
+				state: 'done'
+			}
+		: {
+				title: 'Nothing on Today',
+				meta: 'Every exercise is paused',
+				progress: 0,
+				bar: false,
+				state: 'done'
+			};
+}
+
+/** The list's label: "Today · 5"; "Done today · 14" once nothing is left (board "Nothing left"). */
+export function listLabel(day: Pick<DayList<unknown>, 'total' | 'nothingLeft'>): string {
+	return `${day.nothingLeft ? 'Done today' : 'Today'} · ${day.total}`;
+}
+
+/** What comes back first, once nothing is left: "Tomorrow · and 3 more", "Sunday". */
+export function nothingLeftMeta(next: { day: string; more: number }, today: string): string {
+	const when = dayWords(next.day, today);
+	const day = when.charAt(0).toUpperCase() + when.slice(1);
+	return next.more > 0 ? `${day} · and ${next.more} more` : day;
+}
+
+/** The toast after a set, worded as the row: "Setenta · back in a week", "Setenta · back tomorrow". */
+export function undoLogMessage(name: string, gap: number): string {
+	return `${name} · ${lower(backWords(gap))}`;
 }
 
 /** A past day's sets, grouped by exercise in the order they were first done. */

@@ -44,7 +44,6 @@
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import FieldError from '$lib/components/ui/FieldError.svelte';
-	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import {
 		CLIP,
 		FIELD,
@@ -57,7 +56,6 @@
 		iconButton
 	} from '$lib/components/ui/styles';
 	import { logFor } from '$lib/components/exercises/kinds';
-	import { DEFAULT_EVERY_DAYS } from '$lib/frequency';
 	import { byteSize, fullDateLabel } from '$lib/format';
 	import {
 		deleteBlock,
@@ -233,6 +231,9 @@
 	});
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const LessonLog = logFor('lesson');
+	/** An exercise's schedule (its due words), when it is this person's own. */
+	const scheduleOf = (exerciseId: number | null) =>
+		exerciseId === null ? undefined : data.schedule[exerciseId];
 	const failure = (action: string) => (form?.action === action ? form.message : null);
 	/**
 	 * What the columns' top row shows besides the edit form, each read from here only
@@ -277,8 +278,6 @@
 		const r = refusalOf(action);
 		return r && !r.field ? r.message : null;
 	};
-	let routineEvery = $state(DEFAULT_EVERY_DAYS);
-	let exerciseEvery = $state(DEFAULT_EVERY_DAYS);
 
 	/** A create sheet's submit: one post per tap, its footer spinning while it is out. */
 	function createSubmit(
@@ -518,13 +517,11 @@
 		if (kind === 'routine') {
 			seen = form;
 			typed = { figureName: '', name: query, notes: '' };
-			routineEvery = DEFAULT_EVERY_DAYS;
 			addingRoutine = true;
 		}
 		if (kind === 'exercise') {
 			seen = form;
 			typed = { figureName: '', name: query, notes: '' };
-			exerciseEvery = DEFAULT_EVERY_DAYS;
 			addingExercise = true;
 		}
 	}
@@ -766,9 +763,10 @@
 										>Go over this lesson</span
 									>
 									<span class="text-[13px] leading-[1.35] text-muted"
-										>{#each reviewMeta(review) as part, i (i)}{i > 0 ? ' · ' : ''}<span
-												class:font-bold={part.strong}>{part.text}</span
-											>{/each}</span
+										>{#each reviewMeta(review, scheduleOf(review.id), data.today) as part, i (i)}{i >
+											0
+												? ' · '
+												: ''}<span class:font-bold={part.strong}>{part.text}</span>{/each}</span
 									>
 								</span>
 							</a>
@@ -968,7 +966,10 @@
 										{@render itemText(
 											routine.name,
 											null,
-											yoursMeta(routineMeta(routine), routine.mineId)
+											yoursMeta(
+												routineMeta(scheduleOf(routine.exerciseId), data.today),
+												routine.mineId
+											)
 										)}
 									</a>
 									<!-- A routine never reaches a lesson through a section. -->
@@ -1004,7 +1005,10 @@
 										{@render itemText(
 											exercise.name,
 											viaBadge(exercise.viaSections),
-											yoursMeta(exerciseMeta(exercise), exercise.mineId)
+											yoursMeta(
+												exerciseMeta(exercise, scheduleOf(exercise.id), data.today),
+												exercise.mineId
+											)
 										)}
 									</a>
 									<!-- The "+" is an icon, so bare accent is allowed. A group's drill is
@@ -1469,6 +1473,8 @@
 		takes={data.popup.takes}
 		backfillDay={null}
 		{timezone}
+		schedule={data.scheduleAtStart ?? undefined}
+		today={data.today}
 		message={form && 'action' in form && form.action === 'log' && 'message' in form
 			? String(form.message)
 			: null}
@@ -1604,7 +1610,7 @@
 	</Sheet>
 {/if}
 
-<!-- The routine and exercise sheets' form: Name, How often, Notes. A success of
+<!-- The routine and exercise sheets' form: Name, Notes. A success of
      the routine's redirects to its page, where its slots are built. -->
 {#snippet createFields(
 	id: string,
@@ -1636,11 +1642,6 @@
 			/>
 			{#if errors.name}<FieldError id="{id}-name-error" message={errors.name} />{/if}
 		</div>
-		{#if kind === 'newRoutine'}
-			<FrequencyField name="everyDays" label="How often" bind:value={routineEvery} />
-		{:else}
-			<FrequencyField name="everyDays" label="How often" bind:value={exerciseEvery} />
-		{/if}
 		<div>
 			<label class={LABEL} for="{id}-notes"
 				>Notes<span class="font-medium text-muted">&nbsp;(optional)</span></label

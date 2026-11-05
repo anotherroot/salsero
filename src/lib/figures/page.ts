@@ -1,13 +1,13 @@
 /**
  * What a figure's page derives for display. PURE and client-safe.
  */
-import { frequencyLabel } from '$lib/frequency';
-import { longDayLabel, plural } from '$lib/format';
+import { longDayLabel } from '$lib/format';
 import { possessive } from '$lib/clones/view';
 import type { MetaPart } from '$lib/exercises/today';
 import { isLengthCounts, MAX_LENGTH_COUNTS } from '$lib/graph/timing';
 import type { RoutineUse } from '$lib/routines/coverage';
-import type { Plan, PlanExercise } from '$lib/urgency/urgency';
+import type { ScheduleState } from '$lib/schedule/schedule';
+import { dueWords } from '$lib/schedule/words';
 
 /** "Slot 3 of 6", "Slots 2 and 5 of 8", "Slots 1, 4 and 6 of 9". */
 export function routineUseMeta(u: Pick<RoutineUse, 'slots' | 'slotCount'>): string {
@@ -18,40 +18,20 @@ export function routineUseMeta(u: Pick<RoutineUse, 'slots' | 'slotCount'>): stri
 }
 
 /**
- * The one line the figure page shows for its exercise: the frequency and where
- * it stands today. Derived from a Plan, never stored.
+ * The one line the figure page shows for its exercise: where it stands in its
+ * schedule ("New", "Done today", "Due Sunday", "2 days late"). Derived from the
+ * sets, never stored. A paused exercise is not due at all: it says so.
  */
-export function practiceLine(p: Plan<PlanExercise>): { title: string; meta: MetaPart } | null {
-	const done = p.doneToday[0];
-	if (done) {
-		return {
-			title: frequencyLabel(done.exercise.everyDays),
-			meta: { text: 'Done today', tone: 'done' }
-		};
-	}
-	const parked = p.inactive[0];
-	if (parked) {
-		return {
-			title: frequencyLabel(parked.exercise.everyDays),
-			meta: { text: "Inactive · not on Today's list", tone: null }
-		};
-	}
-	const due = p.due[0];
-	if (due) {
-		const title = frequencyLabel(due.exercise.everyDays);
-		if (due.lastDoneDaysAgo === null)
-			return { title, meta: { text: 'Never done', tone: 'status' } };
-		const over = due.lastDoneDaysAgo - due.exercise.everyDays;
-		const text = over >= 1 ? `${plural(over, 'day', 'days')} overdue` : 'Due today';
-		return { title, meta: { text, tone: 'status' } };
-	}
-	const next = p.upcoming[0];
-	if (next) {
-		const n = next.lastDoneDaysAgo ?? 0;
-		const text = n === 0 ? 'Done today' : n === 1 ? 'Done yesterday' : `Done ${n} days ago`;
-		return { title: frequencyLabel(next.exercise.everyDays), meta: { text, tone: null } };
-	}
-	return null;
+export function practiceLine(
+	state: ScheduleState | null,
+	today: string,
+	neverDone: boolean,
+	active = true
+): MetaPart | null {
+	if (!state) return null;
+	if (!neverDone && state.lastDay === today) return { text: 'Done today', tone: 'done' };
+	if (!active) return { text: "Paused · not on Today's list", tone: null };
+	return dueWords(state, today, neverDone)[0];
 }
 
 /**

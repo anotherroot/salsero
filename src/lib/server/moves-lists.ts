@@ -80,7 +80,7 @@ export function routinesList(db: Db, wall: Wall, mode: GroupMode | null): Routin
 	// A person's routines may hold group figures they may use (`graphFor`).
 	const graph = graphFor(db, space);
 	const shapes = routineShapes(db, space);
-	// Derived per request, never stored — the same rule urgency follows. A tag
+	// Derived per request, never stored — the same rule the schedule follows. A tag
 	// edited on a figure page changes these answers with no routine touched.
 	// Twins show as one (board C7): each set once, yours if you have one, else the
 	// first by group name. Group mode folds nothing: groups have no twins.

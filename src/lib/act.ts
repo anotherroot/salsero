@@ -26,7 +26,23 @@ let resetting = false;
  */
 export const resettingFocus = () => resetting;
 
-export async function act(name: string, fields: Record<string, Field>): Promise<ActionResult> {
+export function act(name: string, fields: Record<string, Field>): Promise<ActionResult> {
+	return post(`?/${name}`, fields);
+}
+
+/**
+ * `act` against an explicit route (`/${dance}`) for a component that does not
+ * live on the page whose action it posts to (Today's layout files).
+ */
+export function actAt(
+	path: string,
+	name: string,
+	fields: Record<string, Field>
+): Promise<ActionResult> {
+	return post(`${path}?/${name}`, fields);
+}
+
+async function post(url: string, fields: Record<string, Field>): Promise<ActionResult> {
 	const body = new FormData();
 	for (const [key, value] of Object.entries(fields)) {
 		if (Array.isArray(value)) for (const v of value) body.append(key, String(v));
@@ -36,7 +52,7 @@ export async function act(name: string, fields: Record<string, Field>): Promise<
 	let result: ActionResult;
 	let stale = false;
 	try {
-		const res = await fetch(`?/${name}`, {
+		const res = await fetch(url, {
 			method: 'POST',
 			body,
 			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' }

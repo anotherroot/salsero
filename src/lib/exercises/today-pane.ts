@@ -5,14 +5,13 @@
 import { plural } from '$lib/format';
 import type { DaySet } from '$lib/types';
 import { practisedLabel } from './exercise-page';
-import { shownRows, type Band } from './today';
+import { sessionWalk } from './session';
 
-/** The row the right pane opens on: the first due, else the first not yet due, else none. */
-export function defaultOpen<R extends { exercise: { id: number } }>(
-	bands: Band<R>[]
-): number | null {
-	const first = shownRows(bands, 'due')[0] ?? shownRows(bands, 'upcoming')[0];
-	return first ? first.exercise.id : null;
+/** The row the right pane opens on: the first to-do, else the first picked, else none. */
+export function defaultOpen(day: {
+	rows: readonly { exercise: { id: number }; kind: 'done' | 'todo' | 'picked' }[];
+}): number | null {
+	return sessionWalk(day.rows)[0]?.exercise.id ?? null;
 }
 
 /**

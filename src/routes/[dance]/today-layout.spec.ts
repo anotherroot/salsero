@@ -46,8 +46,8 @@ describe("Today's layout load", () => {
 				}
 			}
 		);
-		const data = (load as unknown as (e: unknown) => { list: { plan: { due: unknown[] } } })(event);
-		expect(data.list.plan.due).toHaveLength(1);
+		const data = (load as unknown as (e: unknown) => { list: { day: { rows: unknown[] } } })(event);
+		expect(data.list.day.rows).toHaveLength(1);
 		expect(read).not.toContain('url');
 		expect(read).not.toContain('route');
 	});
@@ -64,5 +64,55 @@ describe("Today's layout load", () => {
 		expect(readFileSync('src/routes/[dance]/(today)/+layout.svelte', 'utf8')).toContain(
 			"invalidate('today:list')"
 		);
+	});
+});
+
+describe("Today's day", () => {
+	const loadAs = () =>
+		(
+			load as unknown as (e: unknown) => {
+				list: { day: { rows: { kind: string }[]; total: number; left: number; showNext: boolean } };
+			}
+		)({ params: { dance: 'salsa' }, locals: { user: USER }, depends: () => {} });
+
+	it('shows the daily number of the due ones: 5 rows for 7 due', () => {
+		for (let i = 1; i <= 7; i++)
+			createCustomExercise(handle.db as never, U1_SALSA, {
+				name: `E${i}`,
+				everyDays: 3,
+				notes: null
+			});
+		const { day } = loadAs().list;
+		expect(day.rows).toHaveLength(5);
+		expect(day.rows.every((r) => r.kind === 'todo')).toBe(true);
+		expect(day.total).toBe(5);
+		expect(day.left).toBe(5);
+		expect(day.showNext).toBe(false);
+	});
+});
+
+describe('Coming up (the layout load)', () => {
+	const loadComing = () =>
+		(
+			load as unknown as (e: unknown) => {
+				list: { coming: { key: string; rows: { exercise: { name: string }; state: string }[] }[] };
+			}
+		)({ params: { dance: 'salsa' }, locals: { user: USER }, depends: () => {} });
+
+	it('puts what is due past the daily number in Waiting', () => {
+		for (let i = 1; i <= 7; i++)
+			createCustomExercise(handle.db as never, U1_SALSA, {
+				name: `E${i}`,
+				everyDays: 3,
+				notes: null
+			});
+		const { coming } = loadComing().list;
+		expect(coming[0].key).toBe('waiting');
+		expect(coming[0].rows).toHaveLength(2);
+		expect(coming[0].rows.every((r) => r.state === 'add')).toBe(true);
+	});
+
+	it('is empty with no exercise', () => {
+		expect(loadComing().list.coming).toEqual([]);
 	});
 });

@@ -131,7 +131,6 @@ describe('linkOptions', () => {
 				drill: true,
 				figure: null,
 				name: 'Clave',
-				everyDays: 3,
 				linked: false
 			}
 		]);
@@ -156,7 +155,6 @@ describe('linkOptions', () => {
 				drill: false,
 				figure: 'Enchufla',
 				name: 'Doble',
-				everyDays: null,
 				linked: true,
 				archived: false,
 				alsoByHand: false
@@ -276,9 +274,9 @@ describe('createAndLink', () => {
 	});
 
 	it('makes a drill, and links it', () => {
-		createAndLink(db, 'u1', section, { kind: 'drill', name: 'Arm styling', everyDays: 7 });
+		createAndLink(db, 'u1', section, { kind: 'drill', name: 'Arm styling' });
 		const made = db.select().from(exercises).where(eq(exercises.name, 'Arm styling')).get()!;
-		expect(made).toMatchObject({ source: 'custom', everyDays: 7, dance: 'salsa' });
+		expect(made).toMatchObject({ source: 'custom', everyDays: 3, dance: 'salsa' });
 		expect(labels(linkOptions(db, section, 'salsa')!.linked)).toEqual(['Arm styling']);
 	});
 
@@ -304,8 +302,7 @@ describe('createAndLink', () => {
 			},
 			'That style does not belong to this dance.'
 		],
-		[{ kind: 'drill', name: 'Arm', everyDays: 5 }, 'Pick how often.'],
-		[{ kind: 'drill', name: '  ', everyDays: 3 }, 'Give it a name.']
+		[{ kind: 'drill', name: '  ' }, 'Give it a name.']
 	] as const)('refuses %o', (create, message) => {
 		const c = create.kind === 'variation' ? { ...create, groupId: enchufla } : create;
 		expect(() => createAndLink(db, 'u1', section, c)).toThrow(
@@ -339,8 +336,7 @@ describe('createAndLink', () => {
 			},
 			'style'
 		],
-		[{ kind: 'drill', name: 'Arm', everyDays: 5 }, 'everyDays'],
-		[{ kind: 'drill', name: '', everyDays: 3 }, 'name']
+		[{ kind: 'drill', name: '' }, 'name']
 	] as const)('names the field of a refusal of %o', (create, field) => {
 		// groupId 0 is Enchufla; -1 is Paseo, a figure of the other dance.
 		const paseo = db.select().from(figureGroups).where(eq(figureGroups.name, 'Paseo')).get()!;
@@ -354,7 +350,7 @@ describe('createAndLink', () => {
 	it('names no field when the section is the problem', () => {
 		const thrown = (() => {
 			try {
-				createAndLink(db, 'u1', point, { kind: 'drill', name: 'Arm', everyDays: 3 });
+				createAndLink(db, 'u1', point, { kind: 'drill', name: 'Arm' });
 			} catch (e) {
 				return e;
 			}
@@ -377,9 +373,9 @@ describe('createAndLink', () => {
 		).toThrow(SpotLinkError);
 		expect(db.select().from(figures).all()).toHaveLength(figuresBefore);
 		expect(db.select().from(figureGroups).all()).toHaveLength(groupsBefore);
-		expect(() =>
-			createAndLink(db, 'u1', point, { kind: 'drill', name: 'Arm', everyDays: 3 })
-		).toThrow(SpotLinkError);
+		expect(() => createAndLink(db, 'u1', point, { kind: 'drill', name: 'Arm' })).toThrow(
+			SpotLinkError
+		);
 		expect(db.select().from(exercises).where(eq(exercises.name, 'Arm')).all()).toEqual([]);
 	});
 
@@ -469,7 +465,7 @@ describe('in a group', () => {
 			partner: 'partner',
 			style: 'salsa'
 		});
-		createAndLinkIn(db, T1_SALSA, s, { kind: 'drill', name: 'Clave', everyDays: 3 });
+		createAndLinkIn(db, T1_SALSA, s, { kind: 'drill', name: 'Clave' });
 		const made = db.select().from(figureGroups).where(eq(figureGroups.teamId, 1)).all();
 		expect(made.map((g) => g.name)).toEqual(['Enchufla']);
 		expect(db.select().from(exercises).where(eq(exercises.teamId, 1)).get()).toMatchObject({
@@ -481,9 +477,9 @@ describe('in a group', () => {
 			createAndLinkIn(db, T1_SALSA, s, { kind: 'variation', groupId: enchufla, name: 'Triple' })
 		).toThrow('No such move.');
 		// A person reaching a group's section by id is answered as missing.
-		expect(() =>
-			createAndLink(db, 'u1', s, { kind: 'drill', name: 'Other', everyDays: 3 })
-		).toThrow('No such section.');
+		expect(() => createAndLink(db, 'u1', s, { kind: 'drill', name: 'Other' })).toThrow(
+			'No such section.'
+		);
 	});
 });
 
@@ -618,7 +614,6 @@ describe('positions in the Link popup (ruling 10)', () => {
 				drill: false,
 				figure: null,
 				name: 'Cerrada',
-				everyDays: null,
 				linked: false,
 				hold: { hands: 'two', crossed: true, facing: 'face', frame: null }
 			},
@@ -671,7 +666,6 @@ describe('positions in the Link popup (ruling 10)', () => {
 				drill: false,
 				figure: null,
 				name: 'Cerrada',
-				everyDays: null,
 				linked: true,
 				hold: { hands: 'two', crossed: true, facing: 'face', frame: null },
 				archived: false,
@@ -728,9 +722,9 @@ describe('positions in the Link popup (ruling 10)', () => {
 	it('refuses to make a figure, move or drill for a point, before writing anything', () => {
 		const before = db.select().from(figures).all().length;
 		const drillsBefore = db.select().from(exercises).all().length;
-		expect(() =>
-			createAndLink(db, 'u1', point, { kind: 'drill', name: 'Clave 2', everyDays: 3 })
-		).toThrow('A point links positions only.');
+		expect(() => createAndLink(db, 'u1', point, { kind: 'drill', name: 'Clave 2' })).toThrow(
+			'A point links positions only.'
+		);
 		expect(() =>
 			createAndLink(db, 'u1', point, {
 				kind: 'figure',

@@ -96,19 +96,28 @@ describe('logSetFrom', () => {
 	});
 
 	it('keeps reps on a drill, and minutes when no exact seconds came', async () => {
-		await logSetFrom(post('salsa', { exerciseId: String(drillId), durationMin: '5', reps: '30' }));
+		await logSetFrom(
+			post('salsa', { exerciseId: String(drillId), durationMin: '5', reps: '30', rating: '2' })
+		);
 		expect(only()).toMatchObject({ durationS: 300, reps: 30 });
 	});
 
 	it('back-fills a past day at noon, without a player run', async () => {
 		await logSetFrom(
-			post('salsa', { exerciseId: String(drillId), day: '2020-01-01', run: '{"source":"count"}' })
+			post('salsa', {
+				exerciseId: String(drillId),
+				day: '2020-01-01',
+				rating: '1',
+				run: '{"source":"count"}'
+			})
 		);
 		expect(only()).toMatchObject({ doneAt: noonOf('2020-01-01', TZ), playerJson: null });
 	});
 
 	it('drops an overlong run rather than failing the set', async () => {
-		await logSetFrom(post('salsa', { exerciseId: String(drillId), run: 'x'.repeat(4001) }));
+		await logSetFrom(
+			post('salsa', { exerciseId: String(drillId), rating: '4', run: 'x'.repeat(4001) })
+		);
 		expect(only().playerJson).toBeNull();
 	});
 
@@ -118,6 +127,21 @@ describe('logSetFrom', () => {
 		};
 		expect(res.status).toBe(400);
 		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+
+	it('refuses a set without a face, storing nothing', async () => {
+		const res = (await logSetFrom(post('salsa', { exerciseId: String(drillId) }))) as {
+			status: number;
+			data: { message: string };
+		};
+		expect(res.status).toBe(400);
+		expect(res.data.message).toBe('Pick how it went');
+		expect(db.select().from(sets).all()).toHaveLength(0);
+	});
+
+	it('stores the rating a face writes', async () => {
+		await logSetFrom(post('salsa', { exerciseId: String(drillId), rating: '5' }));
+		expect(only().rating).toBe(5);
 	});
 
 	it('refuses an exercise of the other dance with a 404, storing nothing', async () => {

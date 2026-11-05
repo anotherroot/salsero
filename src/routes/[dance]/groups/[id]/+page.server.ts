@@ -66,8 +66,7 @@ export const actions: Actions = {
 		if (team.deletedAt !== null) throw error(404, 'No such group');
 		const read = readNewLesson(
 			await request.formData(),
-			localDay(Date.now(), locals.user!.timezone),
-			false
+			localDay(Date.now(), locals.user!.timezone)
 		);
 		if ('refused' in read) return read.refused;
 		const { lesson } = createLesson(db, space, read.input);

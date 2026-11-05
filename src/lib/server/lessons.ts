@@ -743,8 +743,7 @@ export function getLesson(db: Db, id: number, userId: string, opts: { copies?: b
 		.select({
 			id: routines.id,
 			name: routines.name,
-			exerciseId: exercises.id,
-			everyDays: exercises.everyDays
+			exerciseId: exercises.id
 		})
 		.from(lessonRoutines)
 		.innerJoin(routines, eq(routines.id, lessonRoutines.routineId))
@@ -762,8 +761,7 @@ export function getLesson(db: Db, id: number, userId: string, opts: { copies?: b
 	const exerciseColumns = {
 		id: exercises.id,
 		name: exercises.name,
-		source: exercises.source,
-		everyDays: exercises.everyDays
+		source: exercises.source
 	};
 	const handExercises = db
 		.select(exerciseColumns)
@@ -1279,7 +1277,6 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 			id: exercises.id,
 			name: exercises.name,
 			source: exercises.source,
-			everyDays: exercises.everyDays,
 			figure: figureGroups.name,
 			variation: figures.name,
 			owner: {
@@ -1303,11 +1300,10 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 			const target = ownerRowOf(db, r.owner);
 			return target !== null && inSpace(target, space);
 		})
-		.map(({ id, name, source, everyDays, figure, variation }) => ({
+		.map(({ id, name, source, figure, variation }) => ({
 			id,
 			name,
 			source,
-			everyDays,
 			figure,
 			variation,
 			linked: alreadyLinked.has(id)
@@ -1316,12 +1312,14 @@ export function listLinkableExercises(db: Db, lessonId: number): PickExercise[] 
 	// each tagged with its group (ruling 2). Never an entry (filtered above).
 	const theirs: PickExercise[] = isTeam(space)
 		? []
-		: usableDrills(db, space).map((d) => ({
-				...d,
+		: usableDrills(db, space).map(({ id, name, team }) => ({
+				id,
+				name,
+				team,
 				source: 'custom',
 				figure: null,
 				variation: null,
-				linked: alreadyLinked.has(d.id)
+				linked: alreadyLinked.has(id)
 			}));
 	return [...own, ...theirs];
 }

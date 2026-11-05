@@ -61,22 +61,28 @@ describe('lesson page lines', () => {
 			'1:12.0–1:30.4, 3:05.0–3:22.8'
 		);
 		expect(figureMeta({ partner: 'solo', viaSections: [] })).toBe('Solo');
-		expect(routineMeta({ everyDays: 3 })).toBe('Every 3 days');
-		expect(routineMeta({ everyDays: null })).toBeNull();
-		expect(exerciseMeta({ viaSections: [], everyDays: 1 })).toBe('Daily');
-		expect(exerciseMeta({ viaSections: two, everyDays: 1 })).toBe('1:12.0–1:30.4, 3:05.0–3:22.8');
+		const today = '2026-10-31'; // a Saturday
+		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-11-02' };
+		expect(routineMeta(state, today)).toBe('Due Monday');
+		expect(routineMeta(undefined, today)).toBeNull();
+		expect(exerciseMeta({ viaSections: [] }, state, today)).toBe('Due Monday');
+		expect(exerciseMeta({ viaSections: [] }, { ...state, dueDay: '2026-10-29' }, today)).toBe(
+			'2 days late'
+		);
+		expect(exerciseMeta({ viaSections: [] }, { ...state, lastDay: null }, today)).toBe('New');
+		expect(exerciseMeta({ viaSections: two }, state, today)).toBe('1:12.0–1:30.4, 3:05.0–3:22.8');
 		const label = (t: string | null) => (t === 'son' ? 'Son' : 'Salsa');
 		expect(positionMeta({ styleTag: 'son', viaSections: [via(72000, 91000)] }, label)).toBe(
 			'1:12.0–1:31.0 · Son'
 		);
 		expect(positionMeta({ styleTag: 'son', viaSections: [] }, label)).toBe('Son');
 		expect(positionMeta({ styleTag: null, viaSections: [] }, label)).toBeNull();
-		expect(reviewMeta({ everyDays: 3, active: true })).toEqual([
-			{ text: 'Every 3 days', strong: false },
+		expect(reviewMeta({ active: true }, state, today)).toEqual([
+			{ text: 'Due Monday', strong: false },
 			{ text: 'review exercise', strong: false }
 		]);
-		expect(reviewMeta({ everyDays: 7, active: false })).toEqual([
-			{ text: 'Weekly', strong: false },
+		expect(reviewMeta({ active: false }, { ...state, lastDay: null }, today)).toEqual([
+			{ text: 'New', strong: false },
 			{ text: 'inactive', strong: true },
 			{ text: 'review exercise', strong: false }
 		]);

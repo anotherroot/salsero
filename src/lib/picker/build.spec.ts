@@ -9,7 +9,6 @@ import {
 	variationEntries,
 	withPositionRow
 } from './build';
-import { frequencyLabel } from '$lib/frequency';
 import { isHeading, shown, type PickGroup, type PickHeading, type PickRow } from './model';
 import type {
 	FigureVersion,
@@ -30,7 +29,6 @@ const version = (id: number, groupId: number, figure: string, name: string): Fig
 
 const exercise = (over: Partial<PickExercise> & { id: number; name: string }): PickExercise => ({
 	source: 'custom',
-	everyDays: 3,
 	figure: null,
 	variation: null,
 	linked: false,
@@ -155,13 +153,11 @@ describe('exerciseGroups', () => {
 		expect(setenta?.kind === 'row' && setenta.row.key).toBe('exercise:4');
 	});
 
-	it('exerciseGroups: meta is frequencyLabel(everyDays)', () => {
-		const [drills] = exerciseGroups([
-			exercise({ id: 2, name: 'Spot turns', everyDays: 3, linked: true })
-		]);
+	it('exerciseGroups: no frequency in the meta', () => {
+		const [drills] = exerciseGroups([exercise({ id: 2, name: 'Spot turns', linked: true })]);
 		const row = drills.entries[0];
 		expect(isHeading(row)).toBe(false);
-		expect((row as PickRow).meta).toBe('Every 3 days');
+		expect((row as PickRow).meta).toBeUndefined();
 		expect((row as PickRow).linked).toBe(true);
 	});
 });
@@ -234,14 +230,13 @@ const lopt = (o: Partial<LinkOption> & { label: string }): LinkOption => ({
 	drill: false,
 	figure: null,
 	name: o.label,
-	everyDays: null,
 	linked: false,
 	...o
 });
 const variation = (id: number, figure: string, name: string, linked = false): LinkOption =>
 	lopt({ target: { figureId: id }, label: `${figure} · ${name}`, figure, name, linked });
-const drillOpt = (id: number, name: string, everyDays = 3): LinkOption =>
-	lopt({ target: { exerciseId: id }, label: name, drill: true, name, everyDays });
+const drillOpt = (id: number, name: string): LinkOption =>
+	lopt({ target: { exerciseId: id }, label: name, drill: true, name });
 const positionOpt = (id: number, name: string, over: Partial<LinkOption> = {}): LinkOption =>
 	lopt({
 		target: { positionId: id },
@@ -320,16 +315,16 @@ describe('linkOptionGroups', () => {
 		expect((groups[1].entries[0] as PickHeading).rows[0].key).toBe('figure:3');
 	});
 
-	it('linkOptionGroups: a drill row carries how often', () => {
-		const groups = linkOptionGroups(linkOpts({ drills: [drillOpt(8, 'Pasos', 7)] }));
+	it('linkOptionGroups: a drill row has no frequency line', () => {
+		const groups = linkOptionGroups(linkOpts({ drills: [drillOpt(8, 'Pasos')] }));
 		expect(groups).toHaveLength(1);
 		expect(groups[0].entries[0]).toMatchObject({
 			key: 'exercise:8',
 			value: 8,
 			label: 'Pasos',
-			meta: frequencyLabel(7),
 			linked: false
 		});
+		expect((groups[0].entries[0] as PickRow).meta).toBeUndefined();
 	});
 
 	it("linkOptionGroups: a group's move of the same name is its own heading, not merged into yours", () => {
@@ -366,7 +361,6 @@ describe('linkOptionGroups', () => {
 				id: 5,
 				name: 'Pasos',
 				source: 'custom',
-				everyDays: 7,
 				figure: null,
 				variation: null,
 				linked: false,
@@ -409,7 +403,6 @@ describe('twins in pickers', () => {
 					drill: false,
 					figure: 'Enchufla',
 					name: 'Doble',
-					everyDays: null,
 					linked: false,
 					team: TUE,
 					twins: [{ id: 21, figure: 'Enchufla', name: 'Doble', team: RUEDA }]

@@ -1285,6 +1285,21 @@ describe("the detail pages refuse the other dance's rows", () => {
 		expect(() => loadAt(lessonPage.load, 'salsa', String(bachataLessonId))).toThrow(threw404);
 	});
 
+	it('gives the lesson and figure Log the start-of-today schedule and the day', () => {
+		const lesson = loadAt(lessonPage.load, 'bachata', String(bachataLessonId)) as {
+			scheduleAtStart: { gap: number } | null;
+			today: string;
+		};
+		expect(lesson.scheduleAtStart).toMatchObject({ gap: expect.any(Number) });
+		expect(lesson.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+		const figure = loadAt(figurePage.load, 'bachata', String(bachataFigureId)) as {
+			scheduleAtStart: { gap: number } | null;
+			today: string;
+		};
+		expect(figure.scheduleAtStart).toMatchObject({ gap: expect.any(Number) });
+		expect(figure.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+	});
+
 	it('will not archive a bachata lesson from a salsa URL', async () => {
 		await refuses(lessonPage.actions.archive, post('salsa', {}, String(bachataLessonId)));
 		expect(getLesson(db, bachataLessonId, 'u1')?.lesson.archivedAt).toBeNull();

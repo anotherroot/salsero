@@ -120,7 +120,7 @@ export function listPickExercises(db: Db, wall: Wall): PickExercise[] {
 }
 
 /**
- * The (exercise, time) pairs urgency is computed from, for ONE dance. The join
+ * The (exercise, time) pairs the schedule is replayed from, for ONE dance. The join
  * is how a set knows its dance: `sets` carries no `dance` column on purpose —
  * it would be a second copy of a fact that can drift.
  */
@@ -140,7 +140,12 @@ export function getExercise(db: Db, id: number) {
 /** What the exercise page's settings form edits. Practice choices are the panel's, not these. */
 export interface SettingsInput {
 	name: string;
-	everyDays: number;
+	/**
+	 * No form sets it any more (the schedule is the sets'; `every_days` is only the
+	 * first gap). Left out, a create takes the column default and an update keeps
+	 * the row's; a restore passes the row's own value through.
+	 */
+	everyDays?: number;
 	active: boolean;
 	notes: string | null;
 }
@@ -176,7 +181,7 @@ const ofDrill = (id: number) => ({ rootKind: 'drill' as const, rootId: id, subje
  * ignored rather than letting the two drift apart. A drill's rename reaches
  * every entry that practises it (`drill_id`), the way a figure's does. In a
  * group, `by` is who, for History (`verb` is `restore` for its Restore); a
- * group drill's frequency and Active are no one's, so only name and notes count.
+ * group drill's Active is no one's, so only name and notes count.
  */
 export function updateExercise(
 	db: Db,
@@ -445,24 +450,6 @@ export function exerciseSummary(db: Db, id: number): ExerciseSummary {
 		totalS: Number(totals?.totalS ?? 0),
 		recentRating: mean === null ? null : Math.round(mean * 10) / 10
 	};
-}
-
-/**
- * The latest set of every exercise in one dance — for the rating dots on
- * Today's rows. One grouped query rather than one per row.
- *
- * Relies on SQLite's documented bare-column rule: in a query with exactly one
- * `max()` aggregate, the other selected columns come from the row holding that
- * maximum. Two sets at the same millisecond pick either, which is fine.
- */
-export function lastSets(db: Db, wall: Wall): Map<number, HistorySet> {
-	const rows = db.all<HistorySet & { exerciseId: number }>(sql`
-		select s.exercise_id as exerciseId, s.id as id, max(s.done_at) as doneAt,
-		       s.duration_s as durationS, s.reps as reps, s.rating as rating, s.note as note
-		from sets s join exercises e on e.id = s.exercise_id
-		where e.dance = ${wall.dance} and e.user_id = ${wall.userId}
-		group by s.exercise_id`);
-	return new Map(rows.map(({ exerciseId, ...set }) => [exerciseId, set]));
 }
 
 export function lastSet(db: Db, exerciseId: number): HistorySet | null {

@@ -219,21 +219,6 @@ describe('a figure exercise never shows up in both places', () => {
 	});
 });
 
-describe('frequencies on the lesson page', () => {
-	it('lists a linked routine and a linked drill with their frequencies', () => {
-		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
-		const { routine } = createRoutine(db, U1_SALSA, { name: 'Rueda combo', notes: null });
-		db.update(exercises).set({ everyDays: 7 }).where(eq(exercises.routineId, routine.id)).run();
-		const custom = createCustomExercise(db, U1_SALSA, { name: 'Drill', everyDays: 1, notes: null });
-		linkRoutine(db, lesson.id, routine.id);
-		linkExercise(db, lesson.id, custom.id);
-
-		const got = getLesson(db, lesson.id, 'u1')!;
-		expect(got.routines[0].everyDays).toBe(7);
-		expect(got.exercises[0].everyDays).toBe(1);
-	});
-});
-
 describe('linking exercises', () => {
 	it('links a custom exercise and unlinks it again', () => {
 		const { lesson } = createLesson(db, U1_SALSA, lessonInput);
@@ -325,7 +310,7 @@ describe('the link pickers', () => {
 		const free = createCustomExercise(db, U1_SALSA, { name: 'Free', everyDays: 3, notes: null });
 		linkExercise(db, lesson.id, linked.id);
 		expect(listLinkableExercises(db, lesson.id)).toEqual([
-			expect.objectContaining({ id: free.id, linked: false, everyDays: 3, source: 'custom' }),
+			expect.objectContaining({ id: free.id, linked: false, source: 'custom' }),
 			expect.objectContaining({ id: linked.id, linked: true })
 		]);
 	});
@@ -551,7 +536,6 @@ describe('linking routines', () => {
 				id: routine.id,
 				name: 'Rueda combo',
 				exerciseId: exercise.id,
-				everyDays: exercise.everyDays,
 				mineId: null
 			}
 		]);

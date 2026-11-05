@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { LastSet } from '$lib/types';
-import { footerFor, lastTimeParts, nextRating, rangeError } from './log-view';
+import { footerFor, lastTimeParts, rangeError } from './log-view';
 
-const base = { session: null, justLogged: false, busy: false, playing: false, backfill: false };
+const base = {
+	session: null,
+	justLogged: false,
+	busy: false,
+	playing: false,
+	backfill: false,
+	rated: true
+};
 const ses = (next: string | null, ended = false) => ({ next, ended });
 const last = (o: { daysAgo: number; rating: number | null; note: string | null }): LastSet => ({
 	id: 1,
@@ -110,11 +117,24 @@ describe('rangeError', () => {
 	});
 });
 
-describe('nextRating', () => {
-	it('clears on a second tap', () => {
-		expect(nextRating(4, 4)).toBeNull();
-		expect(nextRating(null, 3)).toBe(3);
-		expect(nextRating(2, 5)).toBe(5);
+describe('footerFor, a face is required', () => {
+	it('disables Log set with a hint until a face is picked', () => {
+		const v = footerFor({ ...base, rated: false });
+		expect(v.main).toEqual({ state: 'disabled', label: 'Log set' });
+		expect(v.hint).toBe('Pick how it went');
+	});
+	it('keeps the back-fill wording while disabled', () => {
+		expect(footerFor({ ...base, rated: false, backfill: true }).main).toEqual({
+			state: 'disabled',
+			label: 'Add set to this day'
+		});
+	});
+	it('offers Log set once a face is picked', () => {
+		expect(footerFor(base).main?.state).toBe('log');
+		expect(footerFor(base).hint).toBeNull();
+	});
+	it('shows Logged after a log although the face reset', () => {
+		expect(footerFor({ ...base, rated: false, justLogged: true }).main?.state).toBe('logged');
 	});
 });
 

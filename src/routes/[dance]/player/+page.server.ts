@@ -2,6 +2,8 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { getDb } from '$lib/server/db';
 import { listPickExercises, logSet } from '$lib/server/exercises';
+import { scheduleStateOf } from '$lib/server/schedule';
+import { localDay } from '$lib/day/day';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { listFiguresForCall } from '$lib/server/figures';
 import { graphFor } from '$lib/server/graph';
@@ -118,6 +120,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// Client-safe: `Graph` is plain data from a pure module.
 		graph,
 		exercise,
+		// Its due words in the Save sheet: the schedule, from the sets.
+		schedule:
+			exercise && locals.user ? scheduleStateOf(db, exercise.id, locals.user.timezone) : null,
+		today: localDay(Date.now(), locals.user?.timezone ?? 'UTC'),
 		exercises: listPickExercises(db, wall),
 		// Every pattern's takes: which one the run uses is a client-side choice
 		// made at Play, and there are only ever a few dozen rows.
@@ -145,6 +151,7 @@ export const actions: Actions = {
 		if (exerciseId === undefined || durationS === undefined || rating === undefined) {
 			return fail(400, { message: 'Could not save that run.', ...entered });
 		}
+		if (rating === null) return fail(400, { message: 'Pick how it went', ...entered });
 		if (note === undefined) {
 			return fail(400, {
 				message: 'That note is too long — keep it under 2000 characters.',
@@ -155,8 +162,9 @@ export const actions: Actions = {
 		// sheet only ever offers this dance's exercises, and a posted id must not
 		// be able to reach past that.
 		requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
+		let setId: number;
 		try {
-			logSet(getDb(), {
+			setId = logSet(getDb(), {
 				exerciseId,
 				doneAt: Date.now(),
 				durationS,
@@ -168,10 +176,11 @@ export const actions: Actions = {
 				// dropped rather than costing the user the whole session — and it
 				// must never be reported as a problem with their note.
 				playerJson: run ?? null
-			});
+			}).id;
 		} catch {
 			return fail(400, { message: 'That exercise no longer exists.', ...entered });
 		}
-		throw redirect(303, `/${params.dance}`);
+		// Today shows the "back in …" toast with Undo for this set, then drops the param.
+		throw redirect(303, `/${params.dance}?logged=${setId}`);
 	}
 };

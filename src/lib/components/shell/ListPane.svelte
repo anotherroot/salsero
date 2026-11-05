@@ -44,6 +44,7 @@
 		subtitle,
 		deskSubtitle,
 		extra,
+		left,
 		right,
 		empty,
 		emptyBare = false,
@@ -62,6 +63,8 @@
 		/** The desktop's band row subtitle in place of `subtitle`. */
 		deskSubtitle?: string;
 		extra?: Snippet;
+		/** The band's left (a ‹ on a list reached from another page). */
+		left?: Snippet;
 		right?: Snippet;
 		/** What the pane shows with nothing open (desktop only). */
 		empty: Snippet;
@@ -85,6 +88,7 @@
 	{subtitle}
 	{deskSubtitle}
 	{extra}
+	{left}
 	{right}
 	split={alone ? undefined : isList ? 'list' : 'item'}
 	width={soloWidth}

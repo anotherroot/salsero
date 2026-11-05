@@ -14,8 +14,9 @@ when half of it has faded.
 
 A **lesson** holds a day, a title, notes, its videos, the figures and routines it
 taught, and exercises attached by hand. Creating one creates its own review exercise, so the
-lesson appears on Today by itself; its frequency is lowered, or it is
-deactivated, as the memory settles.
+lesson appears on Today by itself; since 2026-11-05 there is no frequency (no
+"Go over it again" field): its gap grows from the faces the person gives it
+(see [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md)), or it is deactivated, as the memory settles.
 
 Deliberately NOT included, asked and declined: teacher, school, style, and a
 caption per video. Each is one column if it is ever wanted.

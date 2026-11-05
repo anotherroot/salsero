@@ -3,9 +3,7 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import { button, FIELD, FIELD_ERROR, LABEL, TEXTAREA } from '$lib/components/ui/styles';
-	import { DEFAULT_EVERY_DAYS } from '$lib/frequency';
 	import type { DanceSlug } from '$lib/dances/dances';
 
 	/*
@@ -28,7 +26,6 @@
 	// The last submit's refusal, from its result: shown when the page form has none.
 	let refused = $state<string | null>(null);
 	const error = $derived(message ?? refused);
-	let everyDays = $state(DEFAULT_EVERY_DAYS);
 </script>
 
 <Sheet title="New exercise" open={true} {onclose}>
@@ -77,7 +74,6 @@
 				</p>
 			{/if}
 		</div>
-		<FrequencyField name="everyDays" bind:value={everyDays} />
 		<label class="block">
 			<span class={LABEL}>Notes<span class="font-normal text-muted">&nbsp;(optional)</span></span>
 			<textarea name="notes" rows="3" maxlength="2000" class={TEXTAREA}

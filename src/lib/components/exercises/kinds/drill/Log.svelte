@@ -17,10 +17,10 @@
 	{...props}
 	{run}
 	{playing}
-	onlogged={(d) => {
+	onlogged={(d, s) => {
 		logged += 1;
 		run = null;
-		props.onlogged?.(d);
+		props.onlogged?.(d, s);
 	}}
 >
 	{#snippet reference(payload)}

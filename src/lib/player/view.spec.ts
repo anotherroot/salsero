@@ -128,8 +128,16 @@ describe('what the Practice page derives', () => {
 		expect(voiceKind(takes, 'salsa', null)).toBe('Built-in');
 	});
 	it('describes the exercise a run logs to', () => {
-		expect(exerciseLine({ source: 'routine', everyDays: 3 })).toBe('Routine · Every 3 days');
-		expect(exerciseLine({ source: 'figure', everyDays: 7 })).toBe('Figure practice · Weekly');
+		const today = '2026-10-31';
+		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-10-31' };
+		expect(exerciseLine({ source: 'routine', state, today })).toBe('Routine · Due today');
+		expect(
+			exerciseLine({ source: 'figure', state: { ...state, dueDay: '2026-10-29' }, today })
+		).toBe('Figure practice · 2 days late');
+		expect(exerciseLine({ source: 'figure', state: { ...state, lastDay: null }, today })).toBe(
+			'Figure practice · New'
+		);
+		expect(exerciseLine({ source: 'figure', state: null, today })).toBe('Figure practice');
 	});
 	it('shows no number for a count run without a tempo', () => {
 		expect(

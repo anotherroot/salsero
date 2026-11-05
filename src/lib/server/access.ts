@@ -5,7 +5,7 @@
  * A person's own row is theirs to edit and nobody else's to see. A group's row
  * is editable by its editors and owner while the group lives; readable when it
  * is in the person's reach; otherwise it is not there at all (the routes answer
- * a missing row's 404). Reach is computed per call, never stored: like urgency,
+ * a missing row's 404). Reach is computed per call, never stored: like the schedule,
  * it is a function of the rows.
  *
  * Imports only the schema, `teams.ts` and `lesson-links.ts`, so `scope.ts` and

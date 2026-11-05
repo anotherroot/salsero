@@ -254,14 +254,13 @@ describe('archive cascades', () => {
 });
 
 describe('getLesson rows through other joins', () => {
-	// Catches: dropping entryJoin on the routine rows duplicates the routine or shows u1's everyDays.
-	it('holds one routine row, with the viewer’s exerciseId and everyDays', () => {
+	// Catches: dropping entryJoin on the routine rows duplicates the routine.
+	it('holds one routine row, with the viewer’s exerciseId', () => {
 		linkRoutine(db, lessonId, routineId, 'u1');
 		const rows = getLesson(db, lessonId, 'u2')!.routines;
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({
-			exerciseId: entryFor(db, 'u2', { routineId })!.id,
-			everyDays: 5
+			exerciseId: entryFor(db, 'u2', { routineId })!.id
 		});
 		expect(getLesson(db, lessonId, 'u3')!.routines[0].exerciseId).toBeNull();
 	});

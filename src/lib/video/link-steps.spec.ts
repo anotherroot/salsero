@@ -67,12 +67,12 @@ describe('the popup’s view rules', () => {
 		expect(refusalAt('variation', 'groupId')).toBe('groupId');
 		expect(refusalAt('figure', 'figureName')).toBe('figureName');
 		expect(refusalAt('figure', 'style')).toBe('style');
-		expect(refusalAt('drill', 'everyDays')).toBe('everyDays');
+		expect(refusalAt('drill', 'name')).toBe('name');
 		expect(refusalAt('drill', 'figureName')).toBe('banner');
 		expect(refusalAt('figure', undefined)).toBe('banner');
 		expect(refusalAt('position', 'name')).toBe('name');
 		expect(refusalAt('position', 'style')).toBe('style');
-		expect(refusalAt('position', 'everyDays')).toBe('banner');
+		expect(refusalAt('position', 'figureName')).toBe('banner');
 	});
 });
 

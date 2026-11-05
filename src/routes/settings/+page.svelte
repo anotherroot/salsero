@@ -4,6 +4,7 @@
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
+	import Stepper from '$lib/components/ui/Stepper.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import { focusAfterRemoval } from '$lib/focus';
 	import Toast from '$lib/components/ui/Toast.svelte';
@@ -83,6 +84,19 @@
 		const result = await act(name, fields);
 		if (failed(result)) {
 			if (result.type === 'failure' && result.status === 0) reseed();
+			return;
+		}
+		toast = { id: ++seq, message: 'Saved', icon: 'check', tone: 'done' };
+	}
+
+	let daily = $state(data.dailyCount);
+
+	/** Saves on change; a refusal puts the stored number back. */
+	async function saveDaily(count: number) {
+		const before = data.dailyCount;
+		const result = await act('dailyCount', { count });
+		if (failed(result)) {
+			daily = before;
 			return;
 		}
 		toast = { id: ++seq, message: 'Saved', icon: 'check', tone: 'done' };
@@ -177,6 +191,17 @@
 
 	<span class="{SECTION_LABEL} mt-[14px]">Practice</span>
 	<div class={GROUP}>
+		<div class="min-h-[58px] py-2 pr-3.5 pl-4">
+			<Stepper
+				bind:value={daily}
+				min={1}
+				max={30}
+				label="Exercises a day"
+				minusLabel="Fewer"
+				plusLabel="More"
+				onchange={(count) => void saveDaily(count)}
+			/>
+		</div>
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->
 		<a href="/voice" class={ROW_TALL}>
 			<LeadTile icon="mic" />
@@ -197,6 +222,9 @@
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</button>
 	</div>
+	<p class="px-4 pt-0.5 text-[13px] text-muted">
+		Today shows this many. When they're done, Next {daily} brings more.
+	</p>
 
 	<span class="{SECTION_LABEL} mt-[14px]">Appearance</span>
 	<div class={GROUP}>

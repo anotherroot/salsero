@@ -24,6 +24,7 @@ export const TABS: readonly {
 /** First segment after the dance -> the tab it belongs to. */
 const SECTION: Record<string, TabId> = {
 	exercises: 'today',
+	'coming-up': 'today',
 	figures: 'moves',
 	routines: 'moves',
 	moves: 'moves',

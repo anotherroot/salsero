@@ -4,8 +4,9 @@ import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/s
 import { int, optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
+import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
+import { inLine } from '$lib/schedule/today-list';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
-import { isFrequency } from '$lib/frequency';
 import type { Actions, PageServerLoad } from './$types';
 
 const DAY_MS = 86_400_000;
@@ -62,21 +63,77 @@ export const actions: Actions = {
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
 
+	/** Put an exercise on today's list by hand (`add`) or take it off for today (`skip`). */
+	pick: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const form = await request.formData();
+		const exerciseId = int(form, 'exerciseId');
+		const kind = form.get('kind');
+		if (exerciseId === undefined || (kind !== 'add' && kind !== 'skip')) {
+			return fail(400, { action: 'pick', message: 'Pick an exercise to add or skip.' });
+		}
+		const now = Date.now();
+		try {
+			const day = localDay(now, zone(locals));
+			const { created, unskipped } = addPicks(getDb(), wall, [exerciseId], day, kind, now);
+			// `unskipped`: an add took the day's skip away; its Undo skips again (`undoAddSteps`).
+			return { action: 'pick', pickIds: created, unskipped };
+		} catch (e) {
+			if (e instanceof PickRefused) return fail(400, { action: 'pick', message: e.message });
+			throw e;
+		}
+	},
+
+	/** Undo a pick. */
+	unpick: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const pickId = int(await request.formData(), 'pickId');
+		if (pickId === undefined) return fail(400, { action: 'unpick', message: 'No such pick.' });
+		removePick(getDb(), wall, pickId);
+		return { action: 'unpick', ok: true };
+	},
+
+	/**
+	 * "+ Next 5": the next daily-number exercises in line, picked for today. The
+	 * line is worked out here from what is stored, as the list does, so a second
+	 * tap takes the ones after the first tap's (never the same again).
+	 */
+	next: async ({ params, locals }) => {
+		const wall = wallOf(params, locals);
+		const now = Date.now();
+		const tz = zone(locals);
+		const db = getDb();
+		const input = dayInputOf(db, wall, tz, now);
+		const ids = inLine(input)
+			.slice(0, input.daily)
+			.map((e) => e.id);
+		if (ids.length === 0) {
+			return fail(400, { action: 'next', message: 'Nothing left to add today.' });
+		}
+		try {
+			const pickIds = addPicks(db, wall, ids, localDay(now, tz), 'next', now).created;
+			// The rows' ids too: the page focuses the first of them.
+			return { action: 'next', pickIds, exerciseIds: ids };
+		} catch (e) {
+			if (e instanceof PickRefused) return fail(400, { action: 'next', message: e.message });
+			throw e;
+		}
+	},
+
 	createExercise: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
 		const form = await request.formData();
 		const name = text(form, 'name');
-		const everyDays = int(form, 'everyDays');
 		const notes = optionalText(form, 'notes');
-		if (!name || everyDays === undefined || !isFrequency(everyDays) || notes === undefined) {
+		if (!name || notes === undefined) {
 			return fail(400, {
 				action: 'createExercise',
-				message: 'Give it a name (up to 200 characters) and a frequency.',
+				message: 'Give it a name (up to 200 characters).',
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), wall, { name, everyDays, notes });
+		createCustomExercise(getDb(), wall, { name, notes });
 		return { action: 'createExercise', ok: true };
 	}
 };

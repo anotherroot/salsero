@@ -1,224 +1,219 @@
 import { describe, expect, it } from 'vitest';
-import type { Plan, PlanRow } from '$lib/urgency/urgency';
+import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
+import type { DayPick } from '$lib/schedule/picks';
+import type { ScheduleState } from '$lib/schedule/schedule';
 import type { DaySet, ExerciseItem } from '$lib/types';
 import {
 	deletedGroupName,
-	heroFor,
+	listLabel,
+	nothingLeftMeta,
 	pastGroups,
 	rowMeta,
-	shownRows,
-	teamOfRow,
 	tileTone,
-	todayBands
+	todayHero,
+	undoLogMessage
 } from './today';
-import { nextInSession } from './session';
 
-function row(
-	id: number,
-	name: string,
-	o: Partial<PlanRow<ExerciseItem>> & { everyDays?: number; source?: ExerciseItem['source'] } = {}
-): PlanRow<ExerciseItem> {
-	const { everyDays = 3, source = 'custom', ...rest } = o;
+const TODAY = '2026-11-05'; // a Thursday
+
+function ex(id: number, name = `E${id}`): ExerciseItem {
 	return {
-		exercise: {
-			id,
-			name,
-			source,
-			figureId: null,
-			lessonId: null,
-			routineId: null,
-			partner: null,
-			practiceMode: 'none',
-			songId: null,
-			countBpm: null,
-			practiceJson: null,
-			everyDays,
-			active: true,
-			archived: false,
-			notes: null,
-			createdAt: 0,
-			team: null
-		} as ExerciseItem,
-		urgency: null,
-		overdue: false,
-		lastDoneAt: null,
-		lastDoneDaysAgo: null,
-		setsToday: 0,
-		...rest
+		id,
+		name,
+		source: 'custom',
+		figureId: null,
+		lessonId: null,
+		routineId: null,
+		partner: null,
+		practiceMode: 'none',
+		songId: null,
+		countBpm: null,
+		practiceJson: null,
+		everyDays: 3,
+		active: true,
+		archived: false,
+		notes: null,
+		createdAt: 0,
+		team: null
 	};
 }
 
-const many = (n: number, o: Parameters<typeof row>[2] = {}) =>
-	Array.from({ length: n }, (_, i) => row(i + 1, `E${i + 1}`, o));
-
-function p(o: {
-	due?: number;
-	upcoming?: number;
-	inactive?: number;
-	done?: number[];
-}): Plan<ExerciseItem> {
-	return {
-		due: many(o.due ?? 0),
-		upcoming: many(o.upcoming ?? 0),
-		inactive: many(o.inactive ?? 0),
-		doneToday: (o.done ?? []).map((n, i) => row(i + 1, `D${i + 1}`, { setsToday: n }))
-	};
-}
-
-describe('todayBands', () => {
-	it('orders Due, Not yet due, Done today, Inactive and drops empty bands', () => {
-		const [a, d1, d2, i1] = many(4);
-		const b = todayBands({ doneToday: [d1, d2], due: [a], upcoming: [], inactive: [i1] });
-		expect(b.map((x) => x.key)).toEqual(['due', 'doneToday', 'inactive']);
-		expect(b.map((x) => x.label)).toEqual(['Due · 1', 'Done today · 2', 'Inactive · 1']);
-	});
-	it('puts Not yet due before Done today', () => {
-		const [a, b] = many(2);
-		const r = todayBands({ doneToday: [a], due: [], upcoming: [b], inactive: [] });
-		expect(r.map((x) => x.label)).toEqual(['Not yet due · 1', 'Done today · 1']);
-	});
-
-	describe('with group rows', () => {
-		const salsa = { id: 2, name: 'Salsa nadaljevalna' };
-		const bachata = { id: 1, name: 'Bachata team' };
-		const inTeam = (r: ReturnType<typeof row>, team: typeof salsa) => ({
-			...r,
-			exercise: { ...r.exercise, team }
-		});
-		// The plan's own order mixes them; urgency knows nothing of groups.
-		const g1 = inTeam(row(1, 'Group drill'), salsa);
-		const own1 = row(2, 'Mine');
-		const g2 = inTeam(row(3, 'Other group'), bachata);
-		const g3 = inTeam(row(4, 'Group routine'), salsa);
-		const own2 = row(5, 'Also mine');
-		const due = [g1, own1, g2, g3, own2];
-
-		// Catches: group rows mixed in with the person's own, or groups in id order.
-		it('gives each band its own rows first, then a part per group by name', () => {
-			const [b] = todayBands({ due, upcoming: [], doneToday: [], inactive: [] }, teamOfRow);
-			expect(b.label).toBe('Due · 5');
-			expect(b.own.map((r) => r.exercise.id)).toEqual([2, 5]);
-			expect(b.teams.map((t) => t.label)).toEqual(['Bachata team · 1', 'Salsa nadaljevalna · 2']);
-			expect(b.teams[1].rows.map((r) => r.exercise.id)).toEqual([1, 4]);
-			expect(b.rows.map((r) => r.exercise.id)).toEqual([2, 5, 3, 1, 4]);
-		});
-
-		// Catches: the session walking the plan's order instead of what is on screen.
-		it('lets the session walk the rows in the order shown', () => {
-			const bands = todayBands(
-				{ due, upcoming: [row(6, 'Later')], doneToday: [], inactive: [] },
-				teamOfRow
-			);
-			const walk: number[] = [];
-			let current: number | null = null;
-			const skipped = new Set<number>();
-			for (;;) {
-				const next: PlanRow<ExerciseItem> | null = nextInSession(
-					shownRows(bands, 'due'),
-					shownRows(bands, 'upcoming'),
-					skipped,
-					current
-				);
-				if (!next) break;
-				walk.push(next.exercise.id);
-				skipped.add(next.exercise.id);
-				current = next.exercise.id;
-			}
-			expect(walk).toEqual([2, 5, 3, 1, 4, 6]);
-		});
-	});
+const st = (dueDay: string, gap = 3, lastDay: string | null = '2026-11-01'): ScheduleState => ({
+	gap,
+	lastDay,
+	dueDay
 });
 
+function row(
+	kind: RowKind,
+	o: {
+		start?: ScheduleState;
+		state?: ScheduleState;
+		neverDone?: boolean;
+		pick?: DayPick['kind'];
+	} = {}
+): DayRow<ExerciseItem> {
+	const start = o.start ?? st(TODAY);
+	return {
+		exercise: ex(1, 'Basic step on 1'),
+		kind,
+		start,
+		state: o.state ?? start,
+		neverDone: o.neverDone ?? false,
+		pick: o.pick ? { id: 9, exerciseId: 1, kind: o.pick, createdAt: 0 } : null
+	};
+}
+
+const words = (m: { text: string }[]) => m.map((p) => p.text).join(' · ');
+
 describe('rowMeta', () => {
-	it('never done, due', () => {
-		expect(rowMeta(row(1, 'a'), 'due', null)).toEqual([
-			{ text: 'Never done', tone: 'status' },
-			{ text: 'Every 3 days', tone: null }
+	it('done: Done, then when it comes back', () => {
+		const m = rowMeta(row('done', { state: st('2026-11-12', 7, TODAY) }), TODAY, null);
+		expect(m).toEqual([
+			{ text: 'Done', tone: 'done' },
+			{ text: 'Back in a week', tone: null }
 		]);
 	});
-	it('upcoming', () => {
-		expect(rowMeta(row(1, 'a', { lastDoneDaysAgo: 1, everyDays: 7 }), 'upcoming', null)).toEqual([
-			{ text: 'Yesterday', tone: null },
-			{ text: 'Weekly', tone: null }
+	it('never done: New, and the class it came from', () => {
+		const r = row('todo', { neverDone: true, start: st(TODAY, 3, null) });
+		expect(rowMeta(r, TODAY, 'Tue 3 Nov')).toEqual([
+			{ text: 'New', tone: 'status' },
+			{ text: 'from class Tue 3 Nov', tone: null }
 		]);
+		expect(rowMeta(r, TODAY, null)).toEqual([{ text: 'New', tone: 'status' }]);
 	});
-	it('done today', () => {
-		expect(rowMeta(row(1, 'a', { setsToday: 1, everyDays: 1 }), 'doneToday', null)).toEqual([
-			{ text: '1 set today', tone: 'done' },
-			{ text: 'Daily', tone: null }
+	it('late and due today', () => {
+		expect(rowMeta(row('todo', { start: st('2026-11-03') }), TODAY, null)).toEqual([
+			{ text: '2 days late', tone: 'status' }
 		]);
-		expect(rowMeta(row(1, 'a', { setsToday: 2 }), 'doneToday', null)[0].text).toBe('2 sets today');
+		expect(words(rowMeta(row('todo', { start: st(TODAY) }), TODAY, null))).toBe('Due today');
 	});
-	it('lessons show their class day', () => {
+	it('picked by Next before its day: Ahead · due Sunday', () => {
+		const r = row('picked', { pick: 'next', start: st('2026-11-08') });
+		expect(rowMeta(r, TODAY, null)).toEqual([
+			{ text: 'Ahead', tone: null },
+			{ text: 'due Sunday', tone: null }
+		]);
 		expect(
-			rowMeta(row(1, 'a', { source: 'lesson', lastDoneDaysAgo: 1 }), 'upcoming', 'Wed 28 Oct')
-		).toEqual([
-			{ text: 'Wed 28 Oct class', tone: null },
-			{ text: 'Yesterday', tone: null }
-		]);
-		expect(
-			rowMeta(row(1, 'a', { source: 'lesson', setsToday: 1 }), 'doneToday', 'Tue 27 Oct')
-		).toEqual([
-			{ text: '1 set today', tone: 'done' },
-			{ text: 'Tue 27 Oct class', tone: null }
+			words(rowMeta(row('picked', { pick: 'next', start: st('2026-11-14') }), TODAY, null))
+		).toBe('Ahead · due 14 Nov');
+	});
+	it('picked by Next when already due: the due words', () => {
+		expect(words(rowMeta(row('picked', { pick: 'next', start: st(TODAY) }), TODAY, null))).toBe(
+			'Due today'
+		);
+		expect(rowMeta(row('picked', { pick: 'next', start: st('2026-11-01') }), TODAY, null)).toEqual([
+			{ text: '4 days late', tone: 'status' }
 		]);
 	});
-	it('inactive', () => {
-		expect(rowMeta(row(1, 'a', { lastDoneDaysAgo: 12 }), 'inactive', null)[0]).toEqual({
-			text: '12 days ago',
-			tone: null
-		});
+	it('added from Coming up: Added · due tomorrow', () => {
+		expect(
+			words(rowMeta(row('picked', { pick: 'add', start: st('2026-11-06') }), TODAY, null))
+		).toBe('Added · due tomorrow');
+		expect(
+			words(rowMeta(row('picked', { pick: 'add', start: st('2026-11-04') }), TODAY, null))
+		).toBe('Added · 1 day late');
 	});
 });
 
 describe('tileTone', () => {
-	it('follows the band, and the up-next row is accent', () => {
-		expect(tileTone('due', false)).toBe('accent');
-		expect(tileTone('upcoming', false)).toBe('quiet');
-		expect(tileTone('inactive', false)).toBe('quiet');
-		expect(tileTone('doneToday', false)).toBe('done');
-		expect(tileTone('upcoming', true)).toBe('accent');
+	it('done rows take the done tile, the rest the accent one', () => {
+		expect(tileTone('done')).toBe('done');
+		expect(tileTone('todo')).toBe('accent');
+		expect(tileTone('picked')).toBe('accent');
 	});
 });
 
-describe('heroFor', () => {
-	const off = { on: false, next: null, logged: 0 };
-	it('start', () => {
-		expect(heroFor(p({ due: 3, upcoming: 4 }), off)).toEqual({
-			kind: 'start',
-			title: 'Start session',
-			meta: '3 due · 4 not yet due'
+function list(o: Partial<DayList<ExerciseItem>>): DayList<ExerciseItem> {
+	return {
+		today: TODAY,
+		rows: [],
+		done: 0,
+		total: 0,
+		left: 0,
+		showNext: false,
+		nothingLeft: null,
+		...o
+	};
+}
+
+describe('todayHero', () => {
+	it('to do: how many are left, and done of all', () => {
+		expect(todayHero(list({ done: 2, total: 5, left: 3 }))).toEqual({
+			title: '3 left for today',
+			meta: '2 of 5 done',
+			progress: 0.4,
+			bar: true,
+			state: 'todo'
 		});
-		expect(heroFor(p({ upcoming: 4 }), off)?.meta).toBe('4 not yet due');
+		expect(todayHero(list({ done: 4, total: 5, left: 1 })).title).toBe('1 left for today');
 	});
-	it('resume', () => {
-		expect(heroFor(p({ due: 2 }), { on: true, next: 'Enchufla · Doble', logged: 2 })).toEqual({
-			kind: 'resume',
-			title: 'Resume session',
-			meta: 'Next: Enchufla · Doble · 2 logged'
+	it('all done, more in line', () => {
+		expect(todayHero(list({ done: 5, total: 5, left: 0, showNext: true }))).toEqual({
+			title: 'All 5 done',
+			meta: "That's today's practice",
+			progress: 1,
+			bar: true,
+			state: 'done'
 		});
-		expect(heroFor(p({ due: 2 }), { on: true, next: 'Enchufla · Doble', logged: 0 })?.meta).toBe(
-			'Next: Enchufla · Doble'
+	});
+	it('nothing left at all', () => {
+		const h = todayHero(
+			list({
+				done: 14,
+				total: 14,
+				nothingLeft: { next: ex(2), day: '2026-11-06', more: 3 }
+			})
+		);
+		expect(h).toEqual({
+			title: "You've done everything",
+			meta: 'Every exercise is done until tomorrow',
+			progress: 1,
+			bar: false,
+			state: 'nothing'
+		});
+		expect(
+			todayHero(
+				list({ done: 3, total: 3, nothingLeft: { next: ex(2), day: '2026-11-08', more: 0 } })
+			).meta
+		).toBe('Every exercise is done until Sunday');
+	});
+	it('nothing left, nothing done (all skipped): it never says done', () => {
+		const h = todayHero(list({ nothingLeft: { next: ex(2), day: '2026-11-06', more: 0 } }));
+		expect(h).toEqual({
+			title: 'Nothing left for today',
+			meta: 'The rest comes back tomorrow',
+			progress: 0,
+			bar: false,
+			state: 'nothing'
+		});
+		expect(h.title + h.meta).not.toMatch(/done/i);
+	});
+	it('nothing due today but more ahead: no bar', () => {
+		expect(todayHero(list({ showNext: true }))).toEqual({
+			title: 'Nothing due today',
+			meta: 'You can practise ahead below',
+			progress: 0,
+			bar: false,
+			state: 'done'
+		});
+	});
+});
+
+describe('listLabel', () => {
+	it('Today · N, or Done today · N once nothing is left', () => {
+		expect(listLabel({ total: 5, nothingLeft: null })).toBe('Today · 5');
+		expect(listLabel({ total: 14, nothingLeft: { next: ex(2), day: '2026-11-06', more: 0 } })).toBe(
+			'Done today · 14'
 		);
 	});
-	it('a session with nothing next starts again', () => {
-		expect(heroFor(p({ upcoming: 1 }), { on: true, next: null, logged: 3 })?.kind).toBe('start');
-	});
-	it('done', () => {
-		expect(heroFor(p({ done: [2, 1, 2, 1, 1] }), { on: true, next: null, logged: 5 })).toEqual({
-			kind: 'done',
-			title: 'All done for today',
-			meta: '5 exercises · 7 sets'
-		});
-		expect(heroFor(p({ done: [1] }), off)?.meta).toBe('1 exercise · 1 set');
-	});
-	it('idle and empty', () => {
-		expect(heroFor(p({ inactive: 3 }), off)).toEqual({
-			kind: 'idle',
-			title: 'Start session',
-			meta: 'No active exercises · 3 inactive'
-		});
-		expect(heroFor(p({}), off)).toBeNull();
+});
+
+describe('nothingLeftMeta', () => {
+	it('names the day, and how many more come then', () => {
+		expect(nothingLeftMeta({ day: '2026-11-06', more: 3 }, TODAY)).toBe('Tomorrow · and 3 more');
+		expect(nothingLeftMeta({ day: '2026-11-08', more: 0 }, TODAY)).toBe('Sunday');
+		expect(nothingLeftMeta({ day: '2026-11-20', more: 1 }, TODAY)).toBe('20 Nov · and 1 more');
 	});
 });
 
@@ -246,5 +241,19 @@ describe('deletedGroupName', () => {
 		expect(deletedGroupName('Tue 3 Nov', 'Salsa nadaljevalna')).toBe(
 			'Tue 3 Nov · Salsa nadaljevalna (deleted)'
 		);
+	});
+});
+describe('undoLogMessage', () => {
+	it('names the exercise and when it comes back', () => {
+		expect(undoLogMessage('Basic step on 1', 5)).toBe('Basic step on 1 · back in 5 days');
+		expect(undoLogMessage('Basic step on 1', 21)).toBe('Basic step on 1 · back in 3 weeks');
+		expect(undoLogMessage('Basic step on 1', 75)).toBe('Basic step on 1 · back in 3 months');
+		// As the row says it ("Done · Back in a week").
+		expect(undoLogMessage('Setenta', 7)).toBe('Setenta · back in a week');
+		expect(undoLogMessage('Setenta', 365)).toBe('Setenta · back in a year');
+	});
+
+	it('says tomorrow for a gap of one day', () => {
+		expect(undoLogMessage('Setenta', 1)).toBe('Setenta · back tomorrow');
 	});
 });

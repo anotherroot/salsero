@@ -1,7 +1,7 @@
 /**
  * When "today" rolls over — as a pure function.
  *
- * The clock is an ARGUMENT, exactly as it is in `src/lib/urgency/`. That is what
+ * The clock is an ARGUMENT, exactly as it is in `src/lib/schedule/`. That is what
  * makes a day boundary testable across a DST transition without waiting for
  * October, and it is why this lives here rather than being computed in SQL with
  * `AT TIME ZONE`: a user-supplied zone string never has to reach the database at
@@ -16,6 +16,20 @@
 /** What a new user gets. Also the backfill value in migration 0002. */
 export const DEFAULT_TIMEZONE = 'Europe/Ljubljana';
 
+const DAY_PARTS: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' };
+const TIME_PARTS: Intl.DateTimeFormatOptions = {
+	hour: '2-digit',
+	minute: '2-digit',
+	hourCycle: 'h23'
+};
+
+/**
+ * One formatter per zone and options, built once: a constructor costs tens of
+ * microseconds and Today calls `localDay` several times per set on every load.
+ * Keyed by the options OBJECT (the two constants above), so no key is built per call.
+ */
+const formatters = new Map<Intl.DateTimeFormatOptions, Map<string, Intl.DateTimeFormat>>();
+
 /**
  * `Intl` is the only IANA database in the runtime, and it is authoritative:
  * it knows every historical DST rule, which hand-rolled offset arithmetic does
@@ -24,15 +38,20 @@ export const DEFAULT_TIMEZONE = 'Europe/Ljubljana';
 function partsIn(
 	timeZone: string,
 	at: Date,
-	options: Intl.DateTimeFormatOptions = { year: 'numeric', month: '2-digit', day: '2-digit' }
+	options: Intl.DateTimeFormatOptions = DAY_PARTS
 ): Record<string, string> {
-	let formatter: Intl.DateTimeFormat;
-	try {
-		formatter = new Intl.DateTimeFormat('en-US', { timeZone, ...options });
-	} catch {
-		// Named, rather than letting an opaque ICU RangeError surface as a 500.
-		// The only way to get here is a hand-edited `users.timezone`.
-		throw new Error(`Unknown IANA time zone: ${JSON.stringify(timeZone)}`);
+	let byZone = formatters.get(options);
+	if (!byZone) formatters.set(options, (byZone = new Map()));
+	let formatter = byZone.get(timeZone);
+	if (!formatter) {
+		try {
+			formatter = new Intl.DateTimeFormat('en-US', { timeZone, ...options });
+		} catch {
+			// Named, rather than letting an opaque ICU RangeError surface as a 500.
+			// The only way to get here is a hand-edited `users.timezone`.
+			throw new Error(`Unknown IANA time zone: ${JSON.stringify(timeZone)}`);
+		}
+		byZone.set(timeZone, formatter);
 	}
 
 	const out: Record<string, string> = {};
@@ -75,11 +94,7 @@ export function localDay(now: number, timeZone: string, dayStartHour = 0): strin
 export function timeOfDay(at: number, timeZone: string): string {
 	if (!Number.isFinite(at)) throw new TypeError(`timeOfDay needs a finite epoch, got ${at}`);
 
-	const { hour, minute } = partsIn(timeZone, new Date(at), {
-		hour: '2-digit',
-		minute: '2-digit',
-		hourCycle: 'h23'
-	});
+	const { hour, minute } = partsIn(timeZone, new Date(at), TIME_PARTS);
 	return `${hour}:${minute}`;
 }
 

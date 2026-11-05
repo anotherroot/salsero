@@ -1,4 +1,5 @@
 import { listOf, type ListId } from './pane';
+import { besideToday } from './today-pane';
 
 /**
  * Which Moves list sits beside an item, and which of its rows is lit. PURE.
@@ -79,5 +80,10 @@ export function columnOf(
 	path: string,
 	opener: string | null
 ): ListId | null {
-	return besideOf(routeId, path, opener)?.list ?? listOf(routeId)?.list ?? null;
+	return (
+		besideOf(routeId, path, opener)?.list ??
+		besideToday(routeId, path, opener) ??
+		listOf(routeId)?.list ??
+		null
+	);
 }
