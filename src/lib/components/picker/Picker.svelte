@@ -47,6 +47,8 @@
 		sub?: string;
 		/** A level stacked on another (a field's picker, the picker over the links level): Back, no ×. */
 		back?: boolean;
+		/** Desktop only: drawn 480 tall, as a Link popup level (a stacked level covers it). */
+		level?: boolean;
 		/** Search placeholder: "Search figures". */
 		placeholder: string;
 		groups: PickGroup[];
@@ -107,6 +109,7 @@
 		title,
 		sub,
 		back,
+		level,
 		placeholder,
 		groups,
 		kind,
@@ -428,6 +431,7 @@
 			{back}
 			{z}
 			{tall}
+			{level}
 			footer={hasCreate || hasDone ? footer : undefined}
 			{onclose}
 		>
@@ -442,6 +446,7 @@
 		{back}
 		{sub}
 		{tall}
+		{level}
 		footer={hasCreate || hasDone ? footer : undefined}
 	>
 		{@render body()}

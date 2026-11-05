@@ -14,7 +14,8 @@
 	 * - `band`: the band row (desktop spec, "The band row"): fixed, 88 px, a
 	 *   three-column grid from the side's edge to the window's right edge — the
 	 *   title block (reaching back over the side to x 30, or 18 for a Back:
-	 *   `--band-x`), `extra` centred over the sheet, `right` 30 px from the edge.
+	 *   `--band-x`, from `--band-left`; 30 again when the Back is hidden on the
+	 *   desktop: mark its wrapper `data-desk-hidden`), `extra` centred over the sheet, `right` 30 px from the edge.
 	 * - `card`: the title above a card page's 480 px column (`CardFrame`).
 	 * - `pane`: the header of an item open beside its list, on the ground: the
 	 *   name in `display_s` ink, the subtitle under it, `left` (a Stop editing ×
@@ -74,13 +75,13 @@
 		variant === 'band'
 			? {
 					header:
-						'desk:fixed desk:inset-x-0 desk:top-0 desk:z-30 desk:grid desk:h-[var(--band-row-h)] desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] desk:items-center desk:gap-x-6 desk:py-0 desk:pr-10 desk:pl-[max(var(--side-w),var(--band-x))]',
+						'desk:fixed desk:inset-x-0 desk:top-0 desk:z-30 desk:grid desk:h-[var(--band-row-h)] desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] desk:items-center desk:gap-x-6 desk:py-0 desk:pr-10 desk:pl-[max(var(--side-w),var(--band-x))] desk:[--band-x:var(--band-left)] desk:has-[[data-desk-hidden]]:[--band-x:30px]',
 					edge: 'desk:fixed desk:top-0',
 					row: 'desk:contents',
 					block:
 						'desk:col-start-1 desk:row-start-1 desk:ml-[calc(var(--band-x)-max(var(--side-w),var(--band-x)))] desk:grid desk:min-w-0 desk:grid-cols-[max-content_minmax(0,max-content)_minmax(0,1fr)] desk:items-center desk:justify-start',
 					groupLine: 'desk:col-start-2 desk:col-end-4 desk:row-start-1 desk:mb-1 desk:min-w-0',
-					left: 'desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[14px] desk:ml-0',
+					left: 'desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[14px] desk:ml-0 desk:has-[[data-desk-hidden]]:hidden',
 					h1: 'desk:col-start-2 desk:row-start-2 desk:self-baseline',
 					name: 'desk:block desk:truncate',
 					sub: 'desk:order-none desk:col-start-3 desk:row-start-2 desk:ml-[14px] desk:min-w-0 desk:self-baseline desk:truncate desk:pl-0',
@@ -132,7 +133,7 @@
 			? 'pb-[50px]'
 			: 'pb-[52px]'} {D.header}"
 	inert={slim}
-	style="{ring}--band-x: {left ? 18 : 30}px"
+	style="{ring}--band-left: {left ? 18 : 30}px"
 >
 	{#if group}
 		<!-- A thin striped edge from the band's own ink, never a colour of its own. -->

@@ -721,3 +721,60 @@ What the user settled on the boards, newest last:
   takes its own width, so Next keeps the rest for the name.
 - **Today's loading draws the list and the pane's skeleton**
   (`TodayPaneSkeleton`), keyed by the column beside.
+
+### Plan 4 — Lessons and Groups
+
+- **Lessons' desk subtitle in group mode** is the group's storage ("Group videos:
+  X of Y", `groupVideosSubtitle`); on Mine it is the person's own disk line.
+  The phone keeps its line.
+- **No lessons, no list column; no groups, no list column.** The page is the
+  solo empty state alone (one empty state and one New button, not two).
+- **New lesson and New group** read their refusal from the enhance result and
+  show it in the sheet; the layout, which holds the list, navigates to a
+  created lesson with `gotoWhenSettled`. The New lesson sheet starts fresh at
+  each opening (the "Go over it again" choice no longer carries over, on the
+  group page's sheet too).
+- **Copy to… / Same as… / Move to… stay SourceTabs' right-aligned row** above
+  the columns, as on the figure and position pages, not left under the
+  subtitle as the boards draw. The "N new · Not now · Add" offer, Edited by and
+  the being-deleted banner stay at the top under the source tabs, across both
+  columns.
+- **A lesson's left column** keeps the built app's order (Figures, Routines,
+  Exercises, Positions); the spec's list puts Positions before Exercises. The
+  × Stop editing stays before the title in the pane header.
+- **A group page is two columns, 7:5** (`PaneColumns` `'7:5'`); its `lead`
+  (the group's space, which the phone shows before the lessons) heads the right
+  column. Groups pages draw no loading skeleton on the desktop (the phone has
+  none).
+- **The group code dialog** has "Copy link" on the desktop (Share on the
+  phone), selects the link, and when the copy fails shows "Could not copy. The
+  link above is selected: copy it from there."; the line is gone when the
+  dialog is opened again.
+- **Leaving a group refreshes the list** (`gotoWhenSettled` with
+  `invalidateAll`), so the group's row goes from the list column at once.
+- **Long group names wrap** in the list column on the desktop.
+- **A list route's own `+page` renders through the layout's `children()`** so
+  the document title (`<svelte:head>`) exists; the trail's back label reads it.
+- **Archiving or removing a lesson** leaves for the list after the work has
+  happened (plan 2's ordering).
+- **Inline videos need no 70 % cap here**: a lesson's videos are 16:9 at column
+  width, well under 70 % of any window that gets the desktop.
+
+### Plan 5 — Practice, Settings and the rest
+
+- Running keeps the title the app already built (the running song's title, else
+  "Practice", with the run's subtitle under it), not the board's.
+- The running sheet's heading reads "Routine · slot N of M".
+- Settings' back chevron is hidden on the desktop: `BandHeader` hides a header
+  holding a `data-desk-hidden` marker, and Settings sets it.
+- `PAGE_WIDTH` (`src/lib/nav/frame.ts`) is the one table of page column widths:
+  one 720, two 1140, song 640, narrow 560.
+- The ReloadBar sits above a run on the desktop (z 32, over the run column's
+  31), so "This page is out of date" still shows during a run.
+- In a short window the stage is held under the band row, never drawn into it.
+- The Link popup's levels are all 480 tall on the desktop, its picker included:
+  `Sheet`, `PlayerLayer` and `Picker` take a `level` prop, set only by the Link
+  popup.
+- `PlayerLayer` takes `size="small"` for the player's own dialogs.
+- Inline videos (recording, lesson video, YouTube card) are capped at 70 % of
+  the window's height on the desktop.

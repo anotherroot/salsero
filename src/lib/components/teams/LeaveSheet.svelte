@@ -183,7 +183,8 @@
 				if (result.type === 'redirect') {
 					const to = result.location;
 					close();
-					await gotoWhenSettled(to);
+					// The Groups list is the layout's: it reloads, so the group leaves it at once.
+					await gotoWhenSettled(to, { invalidateAll: true });
 				} else if (result.type === 'failure') {
 					const d = result.data as { message?: unknown } | undefined;
 					refused = typeof d?.message === 'string' ? d.message : 'Could not leave. Try again.';

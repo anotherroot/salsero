@@ -7,7 +7,7 @@
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
 	import NavTile from './NavTile.svelte';
-	import { revealLit } from './moves-context';
+	import { revealLit } from '$lib/components/shell/reveal';
 	import { desk } from '$lib/nav/desk.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';

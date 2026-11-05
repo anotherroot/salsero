@@ -1,0 +1,10 @@
+# plan 4 (Lessons and Groups): the pages whose phone look must not change
+/{dance}/lessons
+/{dance}/lessons/{lesson}
+/{dance}/lessons/{grouplesson}
+/{dance}/groups
+/{dance}/groups/{owngroup}
+/{dance}/groups/{owngroup}/people
+/{dance}/groups/{owngroup}/storage
+/{dance}/groups/{owngroup}/deleted
+/{dance}/groups/{owngroup}/history/lesson/{grouplesson}

@@ -42,7 +42,7 @@ import {
 	load as routineLoad,
 	actions as routineActions
 } from './(moves)/routines/[id]/+page.server';
-import { load as lessonsLoad } from './lessons/+page.server';
+import { load as lessonsLoad } from './lessons/+layout.server';
 import { load as lessonLoad } from './lessons/[id]/+page.server';
 import { load as songsLoad } from './songs/+layout.server';
 import { load as songLoad } from './songs/[id]/+page.server';
@@ -211,6 +211,8 @@ describe('Lessons', () => {
 		]);
 		// Dated by the newest member's day.
 		expect(rows[0].lessonDay).toBe('2026-11-03');
+		// The folded row remembers its other member, so the open lesson can light it.
+		expect(rows[0].twinIds).toEqual([l.theirs]);
 		expect(data.lessons.find((x: Loose) => x.id === l.other).twinned).toBeUndefined();
 	});
 

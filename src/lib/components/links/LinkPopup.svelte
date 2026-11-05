@@ -776,6 +776,7 @@
 {/if}
 
 <Picker
+	level
 	open={picking}
 	{theme}
 	kind="link"

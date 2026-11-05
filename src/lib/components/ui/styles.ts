@@ -178,6 +178,17 @@ export const ROW_TALL = swap(ROW, 'min-h-14', 'min-h-16');
 export const DANGER_SHARED = swap(button('danger', 'md', true), 'px-6', 'px-3');
 
 /**
+ * The action on a lesson's band strip (Publish, Add): the strip's secondary button
+ * on the phone; on the desktop the strip is a soft bar in the pane, and its action
+ * the primary on it.
+ */
+export const STRIP_ACTION = swap(
+	button('secondary', 'sm'),
+	'bg-accent-soft text-accent-text',
+	'bg-accent-soft text-accent-text desk:bg-accent desk:text-on-accent'
+);
+
+/**
  * A pane header's padding and title size, shared by `BandHeader`'s `pane`
  * variant (the `_DESK` forms, behind `desk:`) and `PaneHeading` (the plain
  * forms), so the two cannot drift. A spec checks each pair agrees.

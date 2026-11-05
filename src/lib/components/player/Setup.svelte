@@ -280,7 +280,7 @@
 	</a>
 {/snippet}
 
-<Screen title="Practice" subtitle={setupSubtitle(routine)}>
+<Screen width="song" title="Practice" subtitle={setupSubtitle(routine)}>
 	{#snippet left()}
 		<BackButton fallback={back} />
 	{/snippet}
@@ -395,7 +395,7 @@
 	</div>
 </Screen>
 
-<BottomBar fade>
+<BottomBar fade width="song">
 	{#if ps.why}
 		<p class="mb-2 text-center text-[13px] font-bold text-muted">{ps.why}</p>
 	{/if}

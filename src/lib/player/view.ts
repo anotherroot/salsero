@@ -43,6 +43,29 @@ export function stageDots(
 	});
 }
 
+/**
+ * A routine row on the desktop's run: the slot called now, the ones danced
+ * before it (muted), the ones to come. A looping routine back at its first
+ * slot has nothing past.
+ */
+export function slotTone(i: number, active: number | null): 'now' | 'past' | 'next' {
+	if (i === active) return 'now';
+	if (active !== null && i < active) return 'past';
+	return 'next';
+}
+
+/** The desktop's heading over the whole routine: where the run is, or how long it is. */
+export function routineHeading(active: number | null, total: number): string {
+	return active === null
+		? `Routine · ${plural(total, 'slot', 'slots')}`
+		: `Routine · slot ${active + 1} of ${total}`;
+}
+
+/** The running band's title steps down (46 → 30 on desk) past 18 characters or with a word over 10. */
+export function runTitleCompact(title: string): boolean {
+	return title.length > 18 || title.split(/\s+/).some((w) => w.length > 10);
+}
+
 export function setupSubtitle(
 	routine: { name: string; figureIds: number[] } | null
 ): string | undefined {

@@ -19,6 +19,7 @@
 		draft = false,
 		group,
 		isNew = false,
+		current = false,
 		aside
 	}: {
 		lesson: LessonItem;
@@ -26,6 +27,8 @@
 		draft?: boolean;
 		group?: string;
 		isNew?: boolean;
+		/** The lesson open beside the list (desktop): tinted, its badges solid. */
+		current?: boolean;
 		aside?: Snippet;
 	} = $props();
 
@@ -34,10 +37,11 @@
 	const pad = $derived(aside ? 'pr-2' : 'pr-3');
 </script>
 
-<li class="flex items-center">
+<li class="flex items-center" class:bg-accent-soft={current}>
 	<!-- eslint-disable svelte/no-navigation-without-resolve -- the caller resolves it -->
 	<a
 		{href}
+		aria-current={current ? 'page' : undefined}
 		class="flex min-h-[84px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 active:bg-step {pad}"
 	>
 		<span
@@ -55,8 +59,8 @@
 				<span class="text-[16px] leading-[1.3] font-bold text-ink"
 					><span class="sr-only">{tile.label}, </span>{lesson.title}</span
 				>
-				{#if draft}<Badge tone="warn">Draft</Badge>{/if}
-				{#if isNew}<Badge tone="accent">New</Badge>{/if}
+				{#if draft}<Badge tone="warn" solid={current}>Draft</Badge>{/if}
+				{#if isNew}<Badge tone="accent" solid={current}>New</Badge>{/if}
 				{#if lesson.copyOf}<Badge>{COPY_CHIP}</Badge>{/if}
 				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
 				{#if lesson.twinned}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}

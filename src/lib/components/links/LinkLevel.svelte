@@ -41,11 +41,11 @@
 </script>
 
 {#if theme === 'dark'}
-	<PlayerLayer {title} {sub} {back} {z} {footer} onclose={close}>
+	<PlayerLayer level {title} {sub} {back} {z} {footer} onclose={close}>
 		{@render children()}
 	</PlayerLayer>
 {:else}
-	<Sheet open {title} {sub} {back} {footer} onclose={close}>
+	<Sheet open level {title} {sub} {back} {footer} onclose={close}>
 		{@render children()}
 	</Sheet>
 {/if}

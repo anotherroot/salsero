@@ -36,7 +36,7 @@ describe('Sheet on desktop', () => {
 describe('PlayerLayer on desktop', () => {
 	it('gets the dialog geometry in the media palette', () => {
 		const panel = layer.split('\n').find((l) => l.includes('sheet-panel'))!;
-		expect(panel).toContain('desk:w-[560px]');
+		expect(layer).toContain("'desk:w-[560px]'");
 		expect(panel).toContain('desk:max-h-[min(780px,calc(100%-64px))]');
 		expect(layer).toContain('desk:hidden');
 		expect(layer).toContain('0 24px 70px rgb(0 0 0 / 0.32)');

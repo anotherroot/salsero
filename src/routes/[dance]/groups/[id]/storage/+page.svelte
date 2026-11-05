@@ -150,7 +150,7 @@
 </Screen>
 
 {#if data.role === 'owner'}
-	<Sheet title="Ask for more" open={askOpen} onclose={() => (askOpen = false)}>
+	<Sheet title="Ask for more" open={askOpen} onclose={() => (askOpen = false)} size="small">
 		<form
 			id="ask-more"
 			method="POST"

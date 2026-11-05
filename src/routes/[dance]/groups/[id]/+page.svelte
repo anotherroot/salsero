@@ -3,6 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
+	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -69,7 +70,12 @@
 
 <svelte:head><title>{data.team.name} · Groups</title></svelte:head>
 
-<Screen title={data.team.name} subtitle="{peopleLine(data.people)} · {youLine(data.role)}" compact>
+<Screen
+	title={data.team.name}
+	subtitle="{peopleLine(data.people)} · {youLine(data.role)}"
+	compact
+	width="two"
+>
 	{#snippet left()}
 		<BackButton
 			fallback={{
@@ -99,92 +105,113 @@
 		{/if}
 	{:else}
 		{#if form?.action === 'leave' && form.message}<Banner kind="error">{form.message}</Banner>{/if}
-		{#if data.storage}
-			<a
-				href={resolve('/[dance]/groups/[id]/storage', {
-					dance: data.dance.slug,
-					id: String(data.team.id)
-				})}
-				class="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3 active:bg-step"
-			>
-				<span class="text-[15px] font-semibold text-ink"
-					>{groupUsesLine(data.storage.usedBytes, data.storage.limitBytes)}</span
-				>
-				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-			</a>
-		{/if}
-		<section class="flex flex-col gap-2">
-			<div class="flex items-center justify-between pr-1">
-				<h2 class={SECTION_LABEL}>Lessons</h2>
-				{#if data.canEdit}
-					<button type="button" class={button('tertiary', 'sm')} onclick={openNewLesson}
-						><Icon name="plus" size={18} />New lesson</button
-					>
-				{/if}
-			</div>
-			{#if data.lessons.length === 0}
-				<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">No lessons yet</div>
-			{:else}
-				<ul class={GROUP} aria-label="Lessons">
-					{#each data.lessons as lesson (lesson.id)}
-						<LessonRow
-							{lesson}
-							draft={lesson.publishedAt === null}
-							isNew={lesson.isNew}
-							href={resolve('/[dance]/lessons/[id]', {
-								dance: data.dance.slug,
-								id: String(lesson.id)
-							})}
-							aside={lesson.add ? addAside : undefined}
-						/>
-						{#snippet addAside()}
-							{#if lesson.add?.added}
-								<span class="flex items-center gap-1 px-1 text-[14px] font-bold text-done"
-									>Added<Icon name="check" size={18} /></span
-								>
-							{:else if lesson.add?.offer}
-								<button
-									type="button"
-									class={button('secondary', 'sm')}
-									aria-label="Add {lesson.title}"
-									aria-haspopup="dialog"
-									onclick={() =>
-										(adding = lesson.add?.offer
-											? { id: lesson.id, title: lesson.title, offer: lesson.add.offer }
-											: null)}>Add</button
-								>
-							{/if}
-						{/snippet}
-					{/each}
-				</ul>
-			{/if}
-		</section>
-		<!-- The class playlist: the shared songs, and for its editors the drafts too. -->
-		{#if data.songs.length > 0}
-			<section class="flex flex-col gap-2">
-				<h2 class={SECTION_LABEL}>{classSongsHeading(data.songs.length)}</h2>
-				<ul class={GROUP} aria-label="Class songs">
-					{#each data.songs as s (s.id)}
-						<SongRow
-							href={resolve('/[dance]/songs/[id]', {
-								dance: data.dance.slug,
-								id: String(s.id)
-							})}
-							name={songName(s)}
-							meta={s.status === 'ready'
-								? readyMeta(s, data.dance.styleLabel)
-								: songState(s, data.dance.styleLabel).meta}
-							tone={s.status === 'failed' ? 'danger' : null}
-							sample={s.sample}
-							draft={s.draft}
-							isNew={s.isNew}
-						/>
-					{/each}
-				</ul>
-			</section>
-		{/if}
+		<!--
+			The group in its pane (desktop spec, "Two columns"): from a 780 px pane two
+			columns, 7 : 5 — the lessons on the left, the group's space and Class songs
+			on the right; one column below that and on the phone, in the phone's order.
+		-->
+		<PaneColumns
+			ratio="7:5"
+			class="gap-2"
+			lead={data.storage ? space : undefined}
+			left={lessons}
+			right={songs}
+		/>
 	{/if}
 </Screen>
+
+{#snippet space()}
+	{#if data.storage}
+		<a
+			href={resolve('/[dance]/groups/[id]/storage', {
+				dance: data.dance.slug,
+				id: String(data.team.id)
+			})}
+			class="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-3 active:bg-step"
+		>
+			<span class="text-[15px] font-semibold text-ink"
+				>{groupUsesLine(data.storage.usedBytes, data.storage.limitBytes)}</span
+			>
+			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+		</a>
+	{/if}
+{/snippet}
+
+{#snippet lessons()}
+	<section class="flex flex-col gap-2">
+		<div class="flex items-center justify-between pr-1">
+			<h2 class={SECTION_LABEL}>Lessons</h2>
+			{#if data.canEdit}
+				<button type="button" class={button('tertiary', 'sm')} onclick={openNewLesson}
+					><Icon name="plus" size={18} />New lesson</button
+				>
+			{/if}
+		</div>
+		{#if data.lessons.length === 0}
+			<div class="rounded-2xl bg-surface px-4 py-5 text-[15px] text-muted">No lessons yet</div>
+		{:else}
+			<ul class={GROUP} aria-label="Lessons">
+				{#each data.lessons as lesson (lesson.id)}
+					<LessonRow
+						{lesson}
+						draft={lesson.publishedAt === null}
+						isNew={lesson.isNew}
+						href={resolve('/[dance]/lessons/[id]', {
+							dance: data.dance.slug,
+							id: String(lesson.id)
+						})}
+						aside={lesson.add ? addAside : undefined}
+					/>
+					{#snippet addAside()}
+						{#if lesson.add?.added}
+							<span class="flex items-center gap-1 px-1 text-[14px] font-bold text-done"
+								>Added<Icon name="check" size={18} /></span
+							>
+						{:else if lesson.add?.offer}
+							<button
+								type="button"
+								class={button('secondary', 'sm')}
+								aria-label="Add {lesson.title}"
+								aria-haspopup="dialog"
+								onclick={() =>
+									(adding = lesson.add?.offer
+										? { id: lesson.id, title: lesson.title, offer: lesson.add.offer }
+										: null)}>Add</button
+							>
+						{/if}
+					{/snippet}
+				{/each}
+			</ul>
+		{/if}
+	</section>
+{/snippet}
+
+{#snippet songs()}
+	<!-- The class playlist: the shared songs, and for its editors the drafts too. -->
+	{#if data.songs.length > 0}
+		<section class="flex flex-col gap-2">
+			<h2 class={SECTION_LABEL}>{classSongsHeading(data.songs.length)}</h2>
+			<ul class={GROUP} aria-label="Class songs">
+				{#each data.songs as s (s.id)}
+					<SongRow
+						href={resolve('/[dance]/songs/[id]', {
+							dance: data.dance.slug,
+							id: String(s.id)
+						})}
+						name={songName(s)}
+						meta={s.status === 'ready'
+							? readyMeta(s, data.dance.styleLabel)
+							: songState(s, data.dance.styleLabel).meta}
+						tone={s.status === 'failed' ? 'danger' : null}
+						sample={s.sample}
+						draft={s.draft}
+						isNew={s.isNew}
+					/>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+{/snippet}
 
 {#snippet row(icon: IconName, label: string, onclick: () => void, danger = false)}
 	<button
@@ -273,7 +300,7 @@
 	/>
 {/if}
 
-<Sheet title="Rename group" open={renaming} onclose={() => (renaming = false)}>
+<Sheet title="Rename group" open={renaming} onclose={() => (renaming = false)} size="small">
 	<form
 		id="rename-group"
 		method="POST"

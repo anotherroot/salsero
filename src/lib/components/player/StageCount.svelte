@@ -54,7 +54,7 @@
 	The 1 is what you look for across a room, so it flips to a cream disc
 	with the number in the band's colour.
 -->
-<div class="flex flex-col items-center gap-3" aria-live="off">
+<div class="flex flex-col items-center gap-3 desk:gap-[26px]" aria-live="off">
 	<span
 		role="img"
 		aria-label={digit.text === '–' ? 'Count not started' : `Count ${digit.text}`}
@@ -69,10 +69,12 @@
 					: 'text-band-ink'}">{digit.text}</span
 		>
 	</span>
-	<span class="flex h-4 items-center gap-2.5" aria-hidden="true">
+	<span class="flex h-4 items-center gap-2.5 desk:h-[22px] desk:gap-4" aria-hidden="true">
 		{#each dots as d (d.n)}
 			<span
-				class="flex-none rounded-full {d.size === 16 ? 'size-4' : 'size-2.5'} {DOT_TONE[d.tone]}"
+				class="flex-none rounded-full {d.size === 16
+					? 'size-4 desk:size-[22px]'
+					: 'size-2.5 desk:size-3.5'} {DOT_TONE[d.tone]}"
 			></span>
 		{/each}
 	</span>
@@ -86,9 +88,15 @@
 		font-size: calc(var(--stage) * 0.82);
 	}
 	/* A landscape phone has the whole left half, but little height. */
-	@media (orientation: landscape) and (max-height: 520px) {
+	@media (orientation: landscape) and (max-height: 520px) and (width < 1024px) {
 		.stage {
 			--stage: min(var(--size), 46dvh);
+		}
+	}
+	/* The desktop's stage has the whole left side: up to 240, whatever `size` says. */
+	@media (width >= 1024px) {
+		.stage {
+			--stage: min(240px, 34dvh);
 		}
 	}
 </style>

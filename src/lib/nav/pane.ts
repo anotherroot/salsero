@@ -6,14 +6,12 @@ import type { DanceSlug } from '$lib/dances/dances';
  * starts with a back.
  */
 
-/** The lists that sit beside their item. Later plans add Lessons and Groups. */
-export type ListId = 'today' | 'songs' | 'figures' | 'routines' | 'positions';
+/** The lists that sit beside their item. */
+export type ListId =
+	'today' | 'songs' | 'figures' | 'routines' | 'positions' | 'lessons' | 'groups';
 
-/**
- * Route id → its list, and whether that route opens an item beside it.
- * No `under` field yet (listOf's return type has it): plan 4 adds `under: true` here for group sub-pages.
- */
-const ROUTES: Record<string, { list: ListId; open: boolean }> = {
+/** Route id → its list, whether that route opens an item beside it, and whether it is a page under an item. */
+const ROUTES: Record<string, { list: ListId; open: boolean; under?: true }> = {
 	'/[dance]/(today)': { list: 'today', open: false },
 	'/[dance]/(today)/exercises/[id]': { list: 'today', open: true },
 	'/[dance]/songs': { list: 'songs', open: false },
@@ -27,7 +25,15 @@ const ROUTES: Record<string, { list: ListId; open: boolean }> = {
 	'/[dance]/(moves)/positions': { list: 'positions', open: false },
 	'/[dance]/(moves)/positions/[id]': { list: 'positions', open: true },
 	'/[dance]/(moves)/positions/none': { list: 'positions', open: true },
-	'/[dance]/(moves)/positions/map': { list: 'positions', open: true }
+	'/[dance]/(moves)/positions/map': { list: 'positions', open: true },
+	'/[dance]/lessons': { list: 'lessons', open: false },
+	'/[dance]/lessons/[id]': { list: 'lessons', open: true },
+	'/[dance]/groups': { list: 'groups', open: false },
+	'/[dance]/groups/[id]': { list: 'groups', open: true },
+	'/[dance]/groups/[id]/people': { list: 'groups', open: true, under: true },
+	'/[dance]/groups/[id]/storage': { list: 'groups', open: true, under: true },
+	'/[dance]/groups/[id]/deleted': { list: 'groups', open: true, under: true },
+	'/[dance]/groups/[id]/history/[kind]/[rootId]': { list: 'groups', open: true, under: true }
 };
 
 /**
@@ -40,7 +46,9 @@ export const LIST_HOME: Record<ListId, { root: string; items: string[] }> = {
 	songs: { root: '/songs', items: ['/songs'] },
 	figures: { root: '/figures', items: ['/figures', '/moves', '/coverage'] },
 	routines: { root: '/routines', items: ['/routines'] },
-	positions: { root: '/positions', items: ['/positions'] }
+	positions: { root: '/positions', items: ['/positions'] },
+	lessons: { root: '/lessons', items: ['/lessons'] },
+	groups: { root: '/groups', items: ['/groups'] }
 };
 
 /**
@@ -85,4 +93,19 @@ export function paneBack(
 	under = false
 ): boolean {
 	return under || (opener !== null && !inList(opener, list, dance));
+}
+
+/**
+ * The id of the row a path keeps lit in its list: `/salsa/lessons/5` is 5,
+ * `/salsa/groups/3/people` is 3. The list root, a non-number, or another
+ * list's path is null.
+ */
+export function openIdOf(path: string, list: ListId, dance: DanceSlug): number | null {
+	for (const item of LIST_HOME[list].items) {
+		const prefix = `/${dance}${item}/`;
+		if (!path.startsWith(prefix)) continue;
+		const seg = path.slice(prefix.length).split('/')[0];
+		return /^\d+$/.test(seg) ? Number(seg) : null;
+	}
+	return null;
 }

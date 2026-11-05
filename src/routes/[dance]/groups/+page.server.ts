@@ -1,23 +1,11 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
-import { createTeam, listMyTeams, teamLimit } from '$lib/server/teams';
-import { whatsNew } from '$lib/server/whats-new';
+import { createTeam, teamLimit } from '$lib/server/teams';
 import { limitLine, NAME_REFUSAL } from '$lib/teams/view';
-import type { Actions, PageServerLoad } from './$types';
+import type { Actions } from './$types';
 
-export const load: PageServerLoad = ({ params, locals }) => {
-	const wall = wallOf(params, locals);
-	const db = getDb();
-	const fresh = whatsNew(db, wall.userId, wall.dance).byTeam;
-	return {
-		teams: listMyTeams(db, wall.userId, wall.dance).map((t) => ({
-			...t,
-			newCount: fresh.get(t.id) ?? 0
-		}))
-	};
-};
-
+// The list is the layout's load (`+layout.server.ts`); New group posts here by name from any Groups page.
 export const actions: Actions = {
 	create: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inHome, inList, listOf, paneBack } from './pane';
+import { inHome, inList, listOf, openIdOf, paneBack } from './pane';
 
 describe('listOf', () => {
 	it('names the list a route belongs to, and whether an item is open', () => {
@@ -9,7 +9,6 @@ describe('listOf', () => {
 
 	it('has no list for a page of its own, or a list not yet in a pane', () => {
 		expect(listOf('/[dance]/songs/[id]/grid')).toBeNull();
-		expect(listOf('/[dance]/lessons')).toBeNull();
 		expect(listOf(null)).toBeNull();
 	});
 });
@@ -109,5 +108,43 @@ describe('Today', () => {
 	it('gives a back to an exercise opened from a figure or a lesson', () => {
 		expect(paneBack('/salsa/figures/3', 'today', 'salsa')).toBe(true);
 		expect(paneBack('/salsa/lessons/2', 'today', 'salsa')).toBe(true);
+	});
+});
+
+describe('Lessons and Groups', () => {
+	it('listOf names their routes; sub-pages of a group are under', () => {
+		expect(listOf('/[dance]/lessons')).toEqual({ list: 'lessons', open: false });
+		expect(listOf('/[dance]/lessons/[id]')).toEqual({ list: 'lessons', open: true });
+		expect(listOf('/[dance]/groups')).toEqual({ list: 'groups', open: false });
+		expect(listOf('/[dance]/groups/[id]')).toEqual({ list: 'groups', open: true });
+		for (const r of ['people', 'storage', 'deleted', 'history/[kind]/[rootId]']) {
+			expect(listOf(`/[dance]/groups/[id]/${r}`)).toEqual({
+				list: 'groups',
+				open: true,
+				under: true
+			});
+		}
+	});
+
+	it('paneBack follows the list the opener is in', () => {
+		expect(paneBack('/salsa/lessons', 'lessons', 'salsa')).toBe(false);
+		expect(paneBack('/salsa/lessons/4', 'lessons', 'salsa')).toBe(false);
+		expect(paneBack('/salsa/groups/3', 'lessons', 'salsa')).toBe(true);
+		expect(paneBack('/salsa/groups/3', 'groups', 'salsa', true)).toBe(true);
+		expect(paneBack(null, 'groups', 'salsa', true)).toBe(true);
+		expect(paneBack('/salsa/groups/3/people', 'groups', 'salsa')).toBe(false);
+		expect(paneBack('/salsa/lessonsx', 'lessons', 'salsa')).toBe(true);
+	});
+
+	it('openIdOf is the row a path keeps lit', () => {
+		expect(openIdOf('/salsa/lessons/5', 'lessons', 'salsa')).toBe(5);
+		expect(openIdOf('/salsa/groups/3/people', 'groups', 'salsa')).toBe(3);
+		expect(openIdOf('/salsa/groups/3/history/lesson/9', 'groups', 'salsa')).toBe(3);
+		expect(openIdOf('/salsa/lessons', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/salsa/lessons/x', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/salsa/groups/3', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/salsa/lessons/5x', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/salsa/lessonsx/5', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/bachata/lessons/5', 'lessons', 'salsa')).toBeNull();
 	});
 });

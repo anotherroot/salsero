@@ -136,7 +136,7 @@ family (and twins as one in the graph), the hold, templates, the links, the
 screens and the map, the one-time move at boot, and what was decided while
 planning and building. It replaces the routines spec's neutral position and
 single end.
-The desktop has its own (the frame is built; the area pages follow),
+The desktop has its own (built: the frame and the area pages),
 [`docs/superpowers/specs/2026-11-03-desktop-design.md`](docs/superpowers/specs/2026-11-03-desktop-design.md):
 from 1024 px, one short band row and a band-coloured side with the tabs, a
 list and the opened item side by side, two-column figure and lesson pages, and
@@ -298,6 +298,9 @@ src/app.html         a script before the first paint: the theme choice → `data
                      `env()` (class-rules.spec.ts): the app draws the page under its bars.
                      It also wraps `fetch`: every same-origin request carries the page
                      epoch (`src/lib/page-epoch.ts`), and a stale answer fires `salsa:stale`
+scripts/shots/      the screenshot rig (README.md there): shots.sh/shots.py shoot pages.txt;
+                     scenes.py runs a scene (a page after some clicks), ext_*.py hold each
+                     plan's scenes (ext_practice.py: Practice, the player's popups)
 src/routes/dev/kit/  the kit gallery: every shared component in every state, to
                      compare with the design board. Dev only (404 in a build)
 docs/superpowers/design-kit/  the design board source (kit.py) the redesign was ported from
@@ -460,8 +463,18 @@ src/routes/[dance]/(today)/  one route group, one layout: the list (Start sessio
                      log form posts to its own route's `?/log`); `TypeInfo.paneContent` in `kinds.ts`
                      is which column the type's reference sits in. `rowButton(kind)` in `ui/styles.ts`
                      is the pinned bar's two equal buttons
-src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
-                     people, storage, History and Recently deleted
+src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list
+                     (`components/teams/GroupList.svelte`, in a 360 column on desk; no groups,
+                     no column) beside the open group; make and join, a group's page (two
+                     columns, `PaneColumns` `'7:5'` with `lead`: the group's space), its people,
+                     storage, History and Recently deleted. `teams/view.ts` also has `PICK_GROUP`
+                     and `codeAction` (Copy link on desk, Share on the phone; `COPY_FAILED`)
+src/routes/[dance]/lessons/  the same for Lessons: `+layout.svelte` and `+layout.server.ts` hold
+                     `components/lessons/LessonList.svelte` beside the open lesson (a lesson
+                     page is two columns; no lessons, no column; `lessons/list.ts` has
+                     `PICK_LESSON`, `isOpenLesson`, `groupVideosSubtitle`). The New lesson sheet
+                     stays mounted in the layout. `components/shell/reveal.ts`: `revealLit` and
+                     `revealPicked`, scroll the lit or the new row into view in a list column
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
 src/routes/welcome/  asks once for a name: a person whose account was made before names
                      (hooks.server.ts sends anyone signed in without one here)

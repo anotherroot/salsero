@@ -4,7 +4,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
-	import { getMoves, revealLit, revealPicked } from './moves-context';
+	import { getMoves } from './moves-context';
+	import { revealLit, revealPicked } from '$lib/components/shell/reveal';
 	import { desk } from '$lib/nav/desk.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';

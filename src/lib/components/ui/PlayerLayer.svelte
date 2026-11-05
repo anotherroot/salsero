@@ -28,6 +28,10 @@
 		back?: boolean;
 		/** Sheet: fixed at 88 % of the player, the body ending in a fade. */
 		tall?: boolean;
+		/** Desktop only: a 480 px dialog (a menu, a small form) in place of 560. Below 1024 px it changes nothing. */
+		size?: 'small';
+		/** Desktop only: drawn 480 tall (a Link popup level), so a stacked level covers the one below. */
+		level?: boolean;
 		/** The overlay's z-index class; a layer stacked on another goes higher. */
 		z?: string;
 		/** Dialog: the disc above the title. */
@@ -47,6 +51,8 @@
 		sub,
 		back,
 		tall,
+		size,
+		level,
 		z = 'z-40',
 		icon,
 		tone = 'default',
@@ -146,9 +152,16 @@
 			aria-modal="true"
 			aria-label={title}
 			tabindex="-1"
-			class="panel sheet-panel mx-auto flex max-h-[88%] w-full max-w-[560px] flex-col overflow-clip rounded-t-[28px] bg-sheet pt-2 pb-[max(var(--safe-bottom),16px)] text-ink sm:my-auto sm:rounded-[28px] desk:max-h-[min(780px,calc(100%-64px))] desk:w-[560px] desk:max-w-[calc(100%-32px)] desk:pt-5 {tall
-				? 'h-[88%] desk:h-[min(780px,calc(100%-64px))]'
-				: ''}"
+			class="panel sheet-panel mx-auto flex max-h-[88%] w-full max-w-[560px] flex-col overflow-clip rounded-t-[28px] bg-sheet pt-2 pb-[max(var(--safe-bottom),16px)] text-ink sm:my-auto sm:rounded-[28px] desk:max-h-[min(780px,calc(100%-64px))] {size ===
+			'small'
+				? 'desk:w-[480px]'
+				: 'desk:w-[560px]'} desk:max-w-[calc(100%-32px)] desk:pt-5 {tall
+				? level
+					? 'h-[88%] desk:h-[480px]'
+					: 'h-[88%] desk:h-[min(780px,calc(100%-64px))]'
+				: level
+					? 'desk:h-[480px]'
+					: ''}"
 		>
 			<div
 				class="mx-auto mb-0.5 h-[5px] w-10 flex-none rounded-[3px] bg-field-line desk:hidden"
