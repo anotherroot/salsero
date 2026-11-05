@@ -12,10 +12,12 @@ export interface VideoPrefs {
 	rate: VideoRate;
 	/** Portrait: the controls folded to a slim bar. */
 	hidden: boolean;
+	/** The simple player: loop the whole video. */
+	repeat: boolean;
 }
 
 const KEY = 'video.prefs';
-const DEFAULTS: VideoPrefs = { mirror: false, rate: 1, hidden: false };
+const DEFAULTS: VideoPrefs = { mirror: false, rate: 1, hidden: false, repeat: false };
 
 export function parseVideoPrefs(raw: string | null): VideoPrefs {
 	try {
@@ -25,7 +27,8 @@ export function parseVideoPrefs(raw: string | null): VideoPrefs {
 		return {
 			mirror: o.mirror === true,
 			rate: (VIDEO_RATES as readonly unknown[]).includes(o.rate) ? (o.rate as VideoRate) : 1,
-			hidden: o.hidden === true
+			hidden: o.hidden === true,
+			repeat: o.repeat === true
 		};
 	} catch {
 		return DEFAULTS;

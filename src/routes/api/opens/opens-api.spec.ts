@@ -55,6 +55,18 @@ describe('POST /api/opens', () => {
 		expect(rows()[0]).toMatchObject({ userId: 'u2', kind: 'lesson', itemId: id });
 	});
 
+	it('the comments of a lesson are recorded as kind comments, behind the same wall', async () => {
+		const id = createLesson(db, T1_SALSA, input).lesson.id;
+		expect(await post('u2', { kind: 'comments', id })).toBe(404); // a draft
+		publish(id);
+		expect(await post('u3', { kind: 'comments', id })).toBe(404);
+		expect(await post('u2', { kind: 'comments', id })).toBe(204);
+		expect(rows()).toHaveLength(1);
+		expect(rows()[0]).toMatchObject({ userId: 'u2', kind: 'comments', itemId: id });
+		const own = createLesson(db, U2_SALSA, input).lesson.id;
+		expect(await post('u2', { kind: 'comments', id: own })).toBe(404);
+	});
+
 	it('a draft as a member is 404 and records nothing', async () => {
 		const id = createLesson(db, T1_SALSA, input).lesson.id;
 		expect(await post('u2', { kind: 'lesson', id })).toBe(404);
