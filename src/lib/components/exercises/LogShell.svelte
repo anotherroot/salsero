@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	import type { Dance } from '$lib/dances/dances';
 	import type { ContentProps } from './kinds';
+	import type { Unsaved } from '$lib/unsaved/pending';
 	import type {
 		CountTakeRow,
 		ExerciseItem,
@@ -21,7 +22,12 @@
 		 */
 		ended: boolean;
 		onnext: () => void;
-		onskip: () => void;
+		/**
+		 * Skip, once its question is answered. `answered`: what the user agreed to
+		 * lose when the Skip navigates (the desktop pane; `leavePageOrAsk`), so that
+		 * navigation does not ask about it again (`passNext`).
+		 */
+		onskip: (answered?: Unsaved[]) => void;
 		onfinish: () => void;
 	}
 
@@ -69,7 +75,7 @@
 	import { untrack, type Snippet } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
+	import { guarded, leaveOrAsk, leavePageOrAsk } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -226,6 +232,17 @@
 	function away(then: () => void, verb: string) {
 		if (logForm) leaveOrAsk(logForm, then, verb);
 		else then();
+	}
+
+	/**
+	 * The pane's Skip. With a next one it navigates, so it asks about all the page
+	 * would lose (the log form and an open settings edit, in one question) and
+	 * hands that answer on; the last one's Skip stays on the page, so only the log
+	 * form is asked about.
+	 */
+	function skipPane(s: SessionControls) {
+		if (s.next) leavePageOrAsk((answered) => s.onskip(answered), 'Skip');
+		else away(() => s.onskip(), 'Skip');
 	}
 
 	/* ── Undo of a deleted set ─────────────────────────────────────────── */
@@ -524,10 +541,8 @@
 		>
 			<div class="flex items-center gap-2.5">
 				{#if session && view.skip}
-					<button
-						type="button"
-						class={button('secondary', 'md')}
-						onclick={() => away(session.onskip, 'Skip')}>Skip</button
+					<button type="button" class={button('secondary', 'md')} onclick={() => skipPane(session)}
+						>Skip</button
 					>
 				{/if}
 				{@render mainButton(true)}
@@ -553,7 +568,7 @@
 				<button
 					type="button"
 					class="flex h-11 flex-none cursor-pointer items-center gap-0.5 px-2.5 text-[15px] font-extrabold text-accent-text"
-					onclick={() => away(session.onskip, 'Skip')}
+					onclick={() => away(() => session.onskip(), 'Skip')}
 				>
 					Skip<Icon name="chevron-right" size={18} />
 				</button>

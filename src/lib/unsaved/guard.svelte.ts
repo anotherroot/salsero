@@ -18,7 +18,14 @@ import {
 	type Seen
 } from '$lib/clash/clash';
 import { fingerprint } from './fingerprint';
-import { pending, sendingCount, type SaveOutcome, type Unsaved } from './pending';
+import {
+	pending,
+	sendingCount,
+	stillToAsk,
+	type Pass,
+	type SaveOutcome,
+	type Unsaved
+} from './pending';
 
 /*
  * The live list of what leaving would lose, and the one question the app asks
@@ -69,19 +76,31 @@ export function leaveOrAsk(scope: Node | null, onleave: () => void, verb = 'Leav
 	else prompt.ask = { entries: list, scoped: scope !== null, verb, onleave };
 }
 
+/**
+ * `leaveOrAsk` for a move that will navigate away from the page: ask about
+ * everything the page would lose, and hand `onleave` what the user agreed to
+ * lose (empty when nothing was asked), for `passNext`. A desktop session's
+ * Skip: the log form and an open settings edit are in one question.
+ */
+export function leavePageOrAsk(onleave: (answered: Unsaved[]) => void, verb = 'Leave'): void {
+	const list = unsaved(null);
+	if (list.length === 0) onleave([]);
+	else prompt.ask = { entries: list, scoped: false, verb, onleave: () => onleave(list) };
+}
+
 let passing = false;
-/** The one navigation already answered for (`passNext`), by path and search. */
-let passTo: string | null = null;
+/** The one navigation already answered for (`passNext`). */
+let pass: Pass | null = null;
 
 /**
- * Let the next navigation through unasked when it goes to `href` (path and
- * search, as resolved): a move whose question the user has just answered under
- * another verb. A desktop session's Skip asks "Skip?" about the pane's form and
- * then goes to the next exercise; that navigation must not ask "Leave?" again.
- * Any other navigation drops the pass and is asked about as usual.
+ * The next navigation, when it goes to `href` (path and search, as resolved),
+ * does not ask again about `answered`: the entries whose loss the user has just
+ * agreed to under another verb (`leavePageOrAsk`). Anything else unsaved is
+ * still asked about. Any other navigation drops the pass. Set it just before
+ * the navigation (`gotoWhenSettled`'s `before`), so it cannot linger.
  */
-export function passNext(href: string): void {
-	passTo = href;
+export function passNext(href: string, answered: Unsaved[]): void {
+	pass = answered.length > 0 ? { href, answered } : null;
 }
 
 /**
@@ -140,12 +159,15 @@ export function guardNavigation(): void {
 			passing = false;
 			return;
 		}
-		const pass = passTo;
-		passTo = null;
-		if (pass !== null && nav.to && nav.to.url.pathname + nav.to.url.search === pass) return;
+		const answered = pass;
+		pass = null;
 		const unload = nav.type === 'leave';
 		if (unload && performance.now() - postedAt < 1000) return;
-		const list = unsaved(null, unload);
+		const list = stillToAsk(
+			unsaved(null, unload),
+			answered,
+			nav.to ? nav.to.url.pathname + nav.to.url.search : null
+		);
 		if (list.length === 0) return;
 		nav.cancel();
 		const to = nav.to?.url;

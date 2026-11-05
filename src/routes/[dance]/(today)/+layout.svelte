@@ -21,6 +21,7 @@
 	import { dropOpener } from '$lib/nav/trail.svelte';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { passNext } from '$lib/unsaved/guard.svelte';
+	import type { Unsaved } from '$lib/unsaved/pending';
 	import { longDayLabel } from '$lib/format';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
@@ -88,18 +89,18 @@
 	 * URL with the session's flag, beside the list. Start pushes (Back leaves the
 	 * session); Next, Skip and a Resume inside the session replace, so the session
 	 * holds one entry, as the phone's popup walk holds none of its own. `answered`:
-	 * the user has just said Skip to the pane's unsaved form (LogShell's `away`),
-	 * so the navigation that follows does not ask again (`passNext`).
+	 * what the user has just agreed to lose at the pane's Skip question (LogShell's
+	 * `skipPane`), so the navigation that follows does not ask about it again
+	 * (`passNext`, set as the navigation starts, never before the wait).
 	 */
-	function openRow(id: number, how: 'push' | 'replace', answered = false) {
+	function openRow(id: number, how: 'push' | 'replace', answered: Unsaved[] = []) {
 		if (!desk.current) {
 			openId = id;
 			return;
 		}
 		const href = at(id, '?session=1');
 		if (page.url.pathname + page.url.search === href) return;
-		if (answered) passNext(href);
-		void gotoWhenSettled(href, { replaceState: how === 'replace' });
+		void gotoWhenSettled(href, { replaceState: how === 'replace' }, () => passNext(href, answered));
 	}
 
 	/** The session's own state, gone when it ends or starts over. */
@@ -275,14 +276,14 @@
 						if (nextUp) openRow(nextUp.exercise.id, 'replace');
 						else if (!desk.current) openId = null;
 					},
-					onskip: () => {
+					onskip: (answered = []) => {
 						if (current !== null) {
 							skipped = new Set([...skipped, current]);
 							walk(current);
 						}
 						// Nothing left: stay on this popup and show the summary + Finish
 						// instead of closing behind the user's back (finding 3).
-						if (nextUp) openRow(nextUp.exercise.id, 'replace', true);
+						if (nextUp) openRow(nextUp.exercise.id, 'replace', answered);
 						else {
 							sessionEnded = true;
 							bumpKey += 1;

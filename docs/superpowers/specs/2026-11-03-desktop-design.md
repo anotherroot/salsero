@@ -695,10 +695,14 @@ What the user settled on the boards, newest last:
   unsaved-changes question keeps the Session done card's count.
 - **Resume inside a session replaces** (the session stays one history entry);
   Start pushes.
-- **Skip asks once.** With unsaved input in the pane, Skip asks; its answer lets
-  the navigation to the next exercise through (`passNext` in
-  `$lib/unsaved/guard.svelte.ts`), so no second Leave question. Stay keeps the
-  exercise open and unskipped.
+- **Skip asks once, about everything it would lose.** When Skip goes on to a
+  next exercise, it asks one question about all the page would lose: the log
+  form and an open settings edit together (`leavePageOrAsk` in
+  `$lib/unsaved/guard.svelte.ts`). Skip without saving lets that navigation
+  through for exactly those entries (`passNext`, set as the navigation starts),
+  so no second Leave question; anything else unsaved is still asked about. Stay
+  keeps the exercise open, unskipped and its edits kept. Skipping the last one
+  stays on the page, so it asks about the log form only.
 - **Opening another exercise resets the exercise page's state** (an open edit
   closes and the form starts from the new exercise's values), so one
   exercise's frequency is never saved onto another.

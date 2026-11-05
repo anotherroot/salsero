@@ -53,3 +53,20 @@ export function sendingCount(entries: Iterable<Unsaved>): number {
 	for (const e of entries) if (e.sending?.()) n++;
 	return n;
 }
+
+/** A navigation whose question was already answered (`passNext`): where it goes, and what was agreed to lose. */
+export interface Pass {
+	/** Path and search, as resolved. */
+	href: string;
+	/** The entries the user chose to lose; anything else unsaved is still asked about. */
+	answered: Unsaved[];
+}
+
+/**
+ * What a navigation to `to` must still ask about: everything unsaved, less what
+ * the pass's question already covered when the pass is for this very move.
+ */
+export function stillToAsk(list: Unsaved[], pass: Pass | null, to: string | null): Unsaved[] {
+	if (!pass || to !== pass.href) return list;
+	return list.filter((e) => !pass.answered.includes(e));
+}

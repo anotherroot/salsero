@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pending, sendingCount, type Unsaved } from './pending';
+import { pending, sendingCount, stillToAsk, type Unsaved } from './pending';
 
 /** A stand-in DOM node: `contains` is the only thing `pending` asks of one. */
 const node = (...kids: object[]) =>
@@ -43,5 +43,35 @@ describe('sendingCount', () => {
 		const plain = entry();
 		expect(sendingCount([out, idle, plain])).toBe(1);
 		expect(sendingCount([idle, plain])).toBe(0);
+	});
+});
+
+describe('stillToAsk', () => {
+	const log = entry({ label: 'Practice log' });
+	const settings = entry({ label: 'Exercise settings' });
+	const pass = { href: '/salsa/exercises/2?session=1', answered: [log] };
+
+	it('without a pass, asks about everything', () => {
+		expect(stillToAsk([log, settings], null, '/salsa/exercises/2?session=1')).toEqual([
+			log,
+			settings
+		]);
+	});
+
+	it('for the answered move, asks about only what the question did not cover', () => {
+		expect(stillToAsk([log, settings], pass, '/salsa/exercises/2?session=1')).toEqual([settings]);
+		expect(stillToAsk([log], pass, '/salsa/exercises/2?session=1')).toEqual([]);
+	});
+
+	it('for another move, the pass covers nothing', () => {
+		expect(stillToAsk([log, settings], pass, '/salsa/exercises/3?session=1')).toEqual([
+			log,
+			settings
+		]);
+		expect(stillToAsk([log], pass, null)).toEqual([log]);
+	});
+
+	it('a pass that answered nothing covers nothing', () => {
+		expect(stillToAsk([settings], { ...pass, answered: [] }, pass.href)).toEqual([settings]);
 	});
 });

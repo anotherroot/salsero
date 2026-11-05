@@ -987,3 +987,65 @@ def _back_refetch(page):
 SCENES.update({
     "today-back-refetch": Scene("/{dance}", _back_refetch),
 })
+
+
+# ---- re-review: Skip never drops an open settings edit ----
+
+def _dirty_settings(page):
+    _edit(page)
+    page.locator('#exercise-settings textarea[name="notes"]').fill("shots: edited, not saved")
+
+
+def _question_labels(page):
+    return page.locator('dialog[open][aria-labelledby="unsaved-title"] p').first.inner_text().strip()
+
+
+def _skip_settings(page, log_too):
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    n = _want_line(page, 1, where="after Start")
+    at = _path(page)
+    _dirty_settings(page)
+    if log_too:
+        _type_unsaved(page)
+    skip = _pinned(page).get_by_role("button", name="Skip", exact=True)
+    want = ["Exercise settings"] + (["Practice log"] if log_too else [])
+    # Stay: nothing moves, nothing is skipped, the edit is kept.
+    skip.click()
+    page.wait_for_timeout(400)
+    if not _asking(page):
+        raise RuntimeError("Skip with an open settings edit did not ask")
+    said = _question_labels(page)
+    for label in want:
+        if label not in said:
+            raise RuntimeError(f"the Skip question ({said!r}) does not name {label}")
+    page.locator('dialog[open][aria-labelledby="unsaved-title"]').get_by_role("button", name="Stay").click()
+    page.wait_for_timeout(1000)
+    if _path(page) != at:
+        raise RuntimeError(f"Stay moved to {_path(page)}")
+    _want_line(page, 1, n, where="after Stay")
+    if page.locator('#exercise-settings textarea[name="notes"]').input_value() != "shots: edited, not saved":
+        raise RuntimeError("Stay lost the settings edit")
+    # Skip without saving: that one question covered it all, no second one.
+    skip.click()
+    page.wait_for_timeout(400)
+    if not _asking(page):
+        raise RuntimeError("the second Skip did not ask")
+    page.locator('dialog[open][aria-labelledby="unsaved-title"]').get_by_role(
+        "button", name="Skip without saving"
+    ).click()
+    page.wait_for_url(lambda u: not u.endswith(at), timeout=8000)
+    _settle(page, 800)
+    if _asking(page):
+        raise RuntimeError(f"asked again after Skip without saving: {_question_labels(page)!r}")
+    _want_line(page, 2, n, where="after Skip without saving")
+    _one_form_no_popup(page, "after Skip without saving")
+
+
+SCENES.update({
+    "pane-session-skip-settings": Scene("/{dance}", lambda p: _skip_settings(p, False), desk=True),
+    "pane-session-skip-both": Scene("/{dance}", lambda p: _skip_settings(p, True), desk=True),
+})
