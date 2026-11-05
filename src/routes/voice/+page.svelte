@@ -308,13 +308,16 @@
 	<BandButton icon="back" label="Back to My count" onclick={leaveStage} />
 {/snippet}
 {#snippet patterns()}
-	<Segmented
-		onBand
-		name="pattern"
-		label="Count pattern"
-		items={PHRASE_PATTERNS.map((p) => ({ value: p, label: COUNT_PATTERN_LABEL[p] }))}
-		bind:value={pattern}
-	/>
+	<!-- The band row's toggle on the desktop: 480 wide, as the board draws it. -->
+	<div class="desk:w-[480px]">
+		<Segmented
+			onBand
+			name="pattern"
+			label="Count pattern"
+			items={PHRASE_PATTERNS.map((p) => ({ value: p, label: COUNT_PATTERN_LABEL[p] }))}
+			bind:value={pattern}
+		/>
+	</div>
 {/snippet}
 
 <Screen

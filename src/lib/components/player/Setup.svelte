@@ -286,13 +286,16 @@
 	{/snippet}
 	{#snippet extra()}
 		{#if songs.length > 0}
-			<Segmented
-				onBand
-				name="player-source"
-				label="Source"
-				items={RUN_SOURCES}
-				bind:value={() => source, (v) => (source = v === 'song' ? 'song' : 'count')}
-			/>
+			<!-- The band row's toggle on the desktop: 340 wide, as the board draws it. -->
+			<div class="desk:w-[340px]">
+				<Segmented
+					onBand
+					name="player-source"
+					label="Source"
+					items={RUN_SOURCES}
+					bind:value={() => source, (v) => (source = v === 'song' ? 'song' : 'count')}
+				/>
+			</div>
 		{/if}
 	{/snippet}
 

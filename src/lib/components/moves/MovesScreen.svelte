@@ -52,14 +52,17 @@
 		/>
 	{/snippet}
 	{#snippet extra()}
-		<Segmented
-			onBand
-			name="moves"
-			label="Moves"
-			items={MOVES_SEGMENTS}
-			bind:value
-			onchange={open}
-		/>
+		<!-- The band row's toggle on the desktop: 420 wide, as the board draws it. -->
+		<div class="desk:w-[420px]">
+			<Segmented
+				onBand
+				name="moves"
+				label="Moves"
+				items={MOVES_SEGMENTS}
+				bind:value
+				onchange={open}
+			/>
+		</div>
 	{/snippet}
 	{@render children()}
 </Screen>

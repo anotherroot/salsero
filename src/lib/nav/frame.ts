@@ -27,3 +27,11 @@ export function sideLit(path: string, dance: DanceSlug): TabId | 'settings' | nu
 	if (SHARED_SIDE.has(path)) return 'settings';
 	return tabFor(path, dance);
 }
+
+/**
+ * How wide page content grows on the desktop before it stops, centred in the
+ * sheet or pane (desktop spec, "The sheet"): two columns, one column, a song (a
+ * lesson being edited, Practice's setup), and errors and share. Padding is extra.
+ */
+export const PAGE_WIDTH = { one: 720, two: 1140, song: 640, narrow: 560 } as const;
+export type PageWidth = keyof typeof PAGE_WIDTH;

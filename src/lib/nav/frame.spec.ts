@@ -1,6 +1,6 @@
 import { globSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { frameOf, sideLit } from './frame';
+import { frameOf, PAGE_WIDTH, sideLit } from './frame';
 
 describe('frameOf', () => {
 	it('gives each kind of route its frame', () => {
@@ -39,5 +39,11 @@ describe('sideLit', () => {
 		expect(sideLit('/voice', 'salsa')).toBe('settings');
 		expect(sideLit('/admin', 'salsa')).toBe('settings');
 		expect(sideLit('/bachata', 'salsa')).toBeNull();
+	});
+});
+
+describe('PAGE_WIDTH', () => {
+	it("is the spec's content widths", () => {
+		expect(PAGE_WIDTH).toEqual({ one: 720, two: 1140, song: 640, narrow: 560 });
 	});
 });

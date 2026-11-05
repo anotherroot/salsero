@@ -3,7 +3,7 @@
 Shoots every page in `pages.txt` from a throwaway copy of a database, so a change can be compared
 with a baseline (the phone must not change) or with a design board.
 
-    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID]
+    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport]
     scripts/shots/shots.py diff <dirA> <dirB>      # run under the Playwright command below
 
 `shots.sh` copies the db to a `mktemp -d` (never `.data`), runs `npx vite dev` on a free port inside
@@ -13,6 +13,9 @@ process group and is killed by that group on exit; the temp dir is deleted. If `
 answers it prints the server log and exits 1. It exits 1 too if any page is not `ok`.
 `--group ID` also sets the group-mode cookie (`group_salsa=ID`), so the pages show that group's side
 (navy, Mine for Today); the admin must own or edit the group, else the app drops the cookie.
+`--viewport` shoots the window only, not the full page: on the desktop the band row and the side are fixed and
+a full-page shot draws them once at the top, so desktop pages are compared with their boards (1440×900) this way.
+Phone baselines stay full-page.
 
 `pages.txt`: one path per line. `{dance}` is salsa; `{yesterday}`, `{figure}`, `{move}`, `{song}`,
 `{lesson}`, `{routine}`, `{group}`, `{position}`, `{exercise}` are the admin's first live row of that

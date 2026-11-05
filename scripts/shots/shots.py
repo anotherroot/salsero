@@ -1,6 +1,6 @@
 """Screenshot rig, the Python side.
 
-  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID]
+  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID] [--viewport]
   shots.py diff DIR_A DIR_B
 
 `shoot` fills the placeholders in the pages file from the db, inserts a session row,
@@ -118,7 +118,7 @@ def shoot(a):
                 status = resp.status if resp else 0
                 final = page.url.replace(a.base, "")
                 png = os.path.join(a.out, slug(line) + ".png")
-                page.screenshot(path=png, full_page=True)
+                page.screenshot(path=png, full_page=not a.viewport)
                 wrote += 1
                 expected_404 = "does-not-exist" in path
                 ok = (status == 404) if expected_404 else (status < 400 and final.split("?")[0] == path.split("?")[0])
@@ -190,6 +190,7 @@ def main():
     s.add_argument("--theme", default="light", choices=["light", "dark"])
     s.add_argument("--pages", required=True)
     s.add_argument("--group", type=int, help="a group id of the dance: shoot in its group mode")
+    s.add_argument("--viewport", action="store_true", help="shoot the window only (desktop: the band row and side are fixed)")
     d = sub.add_parser("diff")
     d.add_argument("a")
     d.add_argument("b")
