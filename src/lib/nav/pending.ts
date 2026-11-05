@@ -48,7 +48,12 @@ const LISTS: Record<string, string> = {
 };
 
 /** The band row's title over a list and its pane. */
-const PANE_TITLE: Record<ListId, string> = { songs: 'Music' };
+const PANE_TITLE: Record<ListId, string> = {
+	songs: 'Music',
+	figures: 'Moves',
+	routines: 'Moves',
+	positions: 'Moves'
+};
 
 const DETAILS = new Set([
 	'/[dance]/lessons/[id]',

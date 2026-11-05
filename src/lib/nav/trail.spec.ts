@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	enteredAfter,
 	arrivalKind,
 	arrive,
 	backMove,
@@ -677,5 +678,26 @@ describe('the kept filter', () => {
 	it('an empty filter is no filter', () => {
 		const t = keepFilter(keepFilter(EMPTY_TRAIL, '/salsa/songs', 'mambo'), '/salsa/songs', '');
 		expect(keptFilter(t, '/salsa/songs')).toBe('');
+	});
+});
+
+describe('enteredAfter', () => {
+	const A = '/s/figures/12';
+	const B = '/s/figures/13';
+	it('an enter starts over with the page', () => {
+		expect(enteredAfter([A], { kind: 'enter', from: null, to: B })).toEqual([B]);
+	});
+	it('a replace from an entered page adds the target', () => {
+		expect(enteredAfter([A], { kind: 'replace', from: A, to: B })).toEqual([A, B]);
+	});
+	it('a replace from any other page leaves it', () => {
+		expect(enteredAfter([A], { kind: 'replace', from: '/s/x', to: B })).toEqual([A]);
+		expect(enteredAfter([A], { kind: 'replace', from: null, to: B })).toEqual([A]);
+	});
+	it('a push empties it', () => {
+		expect(enteredAfter([A], { kind: 'push', from: A, to: B })).toEqual([]);
+	});
+	it('a pop leaves it', () => {
+		expect(enteredAfter([A], { kind: 'pop', from: B, to: A })).toEqual([A]);
 	});
 });

@@ -10,6 +10,7 @@ import {
 	backMove,
 	backTarget,
 	carryRemoved,
+	enteredAfter,
 	EMPTY_TRAIL,
 	forget,
 	goneHref,
@@ -88,6 +89,25 @@ function set(t: Trail): void {
 	} catch {
 		// Blocked or full: the trail still works until the page goes.
 	}
+}
+
+/*
+ * The pages entered fresh this page-load (see `enteredAfter`). Module state,
+ * not sessionStorage: a reload starts it over, which is the point.
+ */
+class EnteredState {
+	value = $state.raw<readonly PageKey[]>([]);
+}
+const entered = new EnteredState();
+
+/**
+ * The trail's opener for `path`, or null while `path` was entered fresh (the
+ * page the app was loaded on, and the figure steps replaced into it): a list
+ * beside it is then the route's own, not the opener's.
+ */
+export function listOpener(path: PageKey): PageKey | null {
+	if (entered.value.includes(path)) return null;
+	return trail.value.pages[path]?.opener ?? null;
 }
 
 let intent: Intent = null;
@@ -212,6 +232,11 @@ export function syncTrail(): void {
 		intent = null;
 		if (!to) return;
 		const kind = arrivalKind(nav.type, index, prevIndex);
+		entered.value = enteredAfter(entered.value, {
+			kind,
+			from: nav.from?.url.pathname ?? null,
+			to: to.pathname
+		});
 		// A page outside a dance (Settings, My count) is no place for a band back
 		// to step into: its slot leaves the trail's history.
 		if (!isTrailPage(to.pathname)) {

@@ -61,6 +61,17 @@ describe('skeletonFor', () => {
 	});
 });
 
+describe('the Moves lists and their panes', () => {
+	it('are lists with a pane, titled Moves', () => {
+		expect(skeletonFor('/[dance]/(moves)/figures/[id]')!.pane).toBe(true);
+		expect(skeletonFor('/[dance]/(moves)/routines')).toMatchObject({ pane: true, open: false });
+		expect(skeletonFor('/[dance]/(moves)/positions/map')).toMatchObject({
+			pane: true,
+			deskTitle: 'Moves'
+		});
+	});
+});
+
 describe('a list and its pane', () => {
 	it('says whether the target is a list and pane, and whether an item opens in it', () => {
 		expect(skeletonFor('/[dance]/songs/[id]')).toMatchObject({
@@ -76,7 +87,8 @@ describe('a list and its pane', () => {
 
 	it('names the band row title of a list and pane', () => {
 		expect(skeletonFor('/[dance]/songs/[id]')!.deskTitle).toBe('Music');
-		expect(skeletonFor('/[dance]/(moves)/figures/[id]')!.deskTitle).toBeNull();
+		expect(skeletonFor('/[dance]/(moves)/figures/[id]')!.deskTitle).toBe('Moves');
+		expect(skeletonFor('/[dance]/lessons/[id]')!.deskTitle).toBeNull();
 	});
 });
 

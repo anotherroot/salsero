@@ -231,6 +231,22 @@ export function keepFilter(t: Trail, listPath: PageKey, value: string): Trail {
 	return { ...t, filters };
 }
 
+/**
+ * The pages entered "fresh" this page-load: the one the app was (re)loaded on,
+ * and the pages replaced into it from it (the figure steps). Their opener is
+ * not where the user came from, so a list beside them is the route's own.
+ */
+export function enteredAfter(
+	entered: readonly PageKey[],
+	a: Pick<Arrival, 'kind' | 'from' | 'to'>
+): PageKey[] {
+	if (a.kind === 'enter') return [a.to];
+	if (a.kind === 'push') return [];
+	if (a.kind === 'replace' && a.from !== null && entered.includes(a.from))
+		return entered.includes(a.to) ? [...entered] : [...entered, a.to];
+	return [...entered];
+}
+
 /** A page that no longer exists: out of the trail, its children reattached. */
 export function forget(t: Trail, key: PageKey): Trail {
 	const gone = t.pages[key];
