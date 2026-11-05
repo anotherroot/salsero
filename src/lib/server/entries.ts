@@ -249,6 +249,26 @@ export function addOffer(db: Db, userId: string, lessonId: number): AddOffer | n
 	};
 }
 
+/** The picks of the ticked items: what Add makes when nobody unticks anything. */
+export function tickedPicks(items: AddItem[]): AddPicks {
+	const ids = (kind: AddItem['kind']) =>
+		items.filter((i) => i.kind === kind && i.ticked).map((i) => i.id);
+	return {
+		lesson: items.some((i) => i.kind === 'lesson' && i.ticked),
+		routineIds: ids('routine'),
+		drillIds: ids('drill'),
+		figureIds: ids('figure')
+	};
+}
+
+/**
+ * The Add sheet's default: the lesson, its routines and drills (ticked by
+ * `addOffer`), not its figures. What auto-add and the one-tap Add make.
+ */
+export function defaultPicks(offer: AddOffer): AddPicks {
+	return tickedPicks(offer.items);
+}
+
 type EntryValues = Omit<typeof exercises.$inferInsert, 'userId'>;
 
 /**

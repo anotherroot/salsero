@@ -62,6 +62,7 @@ import { getTeam, roleOf } from './teams';
 import { addedLessonIds, addedTeams } from './access';
 import { entryFor, entryJoin, reconcileEntries, reviveEntries, type EntryTarget } from './entries';
 import { actingIn, fieldChange, logChange } from './changes';
+import { autoAddOnPublish, autoAddPending } from './auto-add';
 import { rootTitle, trashRows, type ArchiveRestore } from './trash';
 import type {
 	LessonExerciseRow,
@@ -433,7 +434,11 @@ export function publishLesson(db: Db, space: TeamSpace, id: number, now: number)
 					)
 				)
 				.run().changes > 0;
-		if (moved) logChange(tx, space, { ...ofLesson(id), verb: 'publish', subject: 'lesson' }, now);
+		if (moved) {
+			logChange(tx, space, { ...ofLesson(id), verb: 'publish', subject: 'lesson' }, now);
+			// Its members with auto-add on find it on Today (levels spec, "Auto-add").
+			autoAddOnPublish(tx, id, now);
+		}
 		return moved;
 	});
 }
@@ -978,7 +983,9 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number, by?: st
 				)
 				.run();
 		}
-		logLinked(tx, space, lessonId, 'add', { routineId }, linkedName(tx, { routineId }), Date.now());
+		const now = Date.now();
+		logLinked(tx, space, lessonId, 'add', { routineId }, linkedName(tx, { routineId }), now);
+		if (isTeam(space)) autoAddPending(tx, space.teamId, now);
 		return true;
 	});
 }
@@ -1074,8 +1081,10 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number, by?: 
 			tx.insert(lessonExercises).values({ lessonId, exerciseId }).onConflictDoNothing().run()
 				.changes > 0;
 		if (added) {
+			const now = Date.now();
 			const name = linkedName(tx, { exerciseId });
-			logLinked(tx, space, lessonId, 'add', { exerciseId }, name, Date.now());
+			logLinked(tx, space, lessonId, 'add', { exerciseId }, name, now);
+			if (isTeam(space)) autoAddPending(tx, space.teamId, now);
 		}
 		return added;
 	});
