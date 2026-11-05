@@ -194,12 +194,19 @@ def _wav_clips(tmp):
     clips = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "static", "clips")
     ffmpeg = [shutil.which("ffmpeg")] if shutil.which("ffmpeg") else ["nix", "run", "nixpkgs#ffmpeg", "--"]
     out = {}
-    for f in sorted(os.listdir(clips)):
-        if not f.endswith(".m4a"):
-            continue
-        wav = os.path.join(tmp, f[:-4] + ".wav")
-        subprocess.run(ffmpeg + ["-v", "error", "-y", "-i", os.path.join(clips, f), wav], check=True, timeout=120)
-        out[f] = open(wav, "rb").read()
+    try:
+        for f in sorted(os.listdir(clips)):
+            if not f.endswith(".m4a"):
+                continue
+            wav = os.path.join(tmp, f[:-4] + ".wav")
+            subprocess.run(ffmpeg + ["-v", "error", "-y", "-i", os.path.join(clips, f), wav], check=True, timeout=120)
+            with open(wav, "rb") as fh:
+                out[f] = fh.read()
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"shots: warning: no WAV clips ({e}); scenes that play will fail to start", file=sys.stderr)
+        return {}
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     return out
 
 
