@@ -138,7 +138,9 @@ describe('linkOptions', () => {
 			groupId: enchufla,
 			name: 'Enchufla',
 			variations: ['Basic', 'Doble'],
-			near: true
+			near: true,
+			partner: 'solo',
+			style: 'son'
 		});
 		expect(o.figureChoices.map((f) => f.name)).toEqual(['Enchufla', 'Setenta']);
 		expect(o.defaults).toEqual({ partner: 'partner', style: 'salsa' });
@@ -240,6 +242,31 @@ describe('linkOptions', () => {
 });
 
 describe('createAndLink', () => {
+	it('makes a variation danced and styled as asked', () => {
+		createAndLink(db, 'u1', section, {
+			kind: 'variation',
+			groupId: enchufla,
+			name: 'Triple',
+			partner: 'partner',
+			style: 'salsa'
+		});
+		const made = db.select().from(figures).where(eq(figures.name, 'Triple')).get()!;
+		expect(made).toMatchObject({ groupId: enchufla, partner: 'partner', styleTag: 'salsa' });
+	});
+
+	it("refuses a variation's style from another dance, under Style, making nothing", () => {
+		expect(() =>
+			createAndLink(db, 'u1', section, {
+				kind: 'variation',
+				groupId: enchufla,
+				name: 'Triple',
+				partner: 'partner',
+				style: 'sensual'
+			})
+		).toThrow(expect.objectContaining({ field: 'style' }));
+		expect(db.select().from(figures).where(eq(figures.name, 'Triple')).get()).toBeUndefined();
+	});
+
 	it('makes a variation in the figure, copying partner and style from its first, and links it', () => {
 		const linkId = createAndLink(db, 'u1', section, {
 			kind: 'variation',
@@ -836,7 +863,22 @@ describe('parseLinkBody', () => {
 			parseLinkBody({ create: { kind: 'position', name: 'Cerrada', styleTag: null } })
 		).toEqual({ create: { kind: 'position', name: 'Cerrada', styleTag: null } });
 	});
+	it('reads a variation create, with or without Danced and Style', () => {
+		expect(parseLinkBody({ create: { kind: 'variation', groupId: 3, name: 'Triple' } })).toEqual({
+			create: { kind: 'variation', groupId: 3, name: 'Triple' }
+		});
+		expect(
+			parseLinkBody({
+				create: { kind: 'variation', groupId: 3, name: 'Triple', partner: 'solo', style: 'son' }
+			})
+		).toEqual({
+			create: { kind: 'variation', groupId: 3, name: 'Triple', partner: 'solo', style: 'son' }
+		});
+	});
 	it.each([
+		{ create: { kind: 'variation', groupId: 3, name: 'T', partner: 'duo', style: 'son' } },
+		{ create: { kind: 'variation', groupId: 3, name: 'T', partner: 'solo', style: 4 } },
+		{ create: { kind: 'variation', groupId: 3, name: 'T', partner: 'solo' } },
 		{ target: { positionId: 0 } },
 		{ target: { positionId: 'x' } },
 		{ create: { kind: 'position', name: 5, styleTag: null } },

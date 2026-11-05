@@ -489,6 +489,9 @@ export interface LinkFigureChoice {
 	variations: string[];
 	/** This lesson's, or the recording's own: offered first. */
 	near: boolean;
+	/** What a new figure in this move starts on: its first figure's Danced and Style. */
+	partner: Partner;
+	style: string | null;
 }
 
 export type LinkContext =
@@ -524,7 +527,14 @@ export type LinkCreateField = 'name' | 'figureName' | 'groupId' | 'style';
 
 /** What the Link popup's create steps send. */
 export type LinkCreate =
-	| { kind: 'variation'; groupId: number; name: string }
+	/** Danced and Style both or neither; neither (an older page): the move's first figure's. */
+	| {
+			kind: 'variation';
+			groupId: number;
+			name: string;
+			partner?: Partner;
+			style?: string;
+	  }
 	| { kind: 'figure'; figureName: string; name: string; partner: Partner; style: string }
 	| { kind: 'drill'; name: string }
 	/** `styleTag` null: no type. Refused for its type under 'style'. */

@@ -7,7 +7,7 @@
 	/**
 	 * The full-screen player opened straight on a section's view, looping it —
 	 * for anything that shows a section without its own inline video. Mounted on
-	 * a tap, so the stored mirror and speed can be read at once: there is no
+	 * a tap, so the stored mirror, speed and mute can be read at once: there is no
 	 * server render of it to match.
 	 */
 	let {
@@ -43,11 +43,12 @@
 	{canEdit}
 	mirror={prefs.mirror}
 	rate={prefs.rate}
+	muted={prefs.muted}
 	title={from ? (from.kind === 'lesson' ? from.title : from.figure) : 'Video'}
 	subtitle={from ? (from.kind === 'lesson' ? 'Lesson video' : 'Recording') : ''}
 	onchoose={(next) => {
-		prefs = { ...prefs, mirror: next.mirror ?? prefs.mirror, rate: next.rate ?? prefs.rate };
-		saveVideoPrefs({ mirror: prefs.mirror, rate: prefs.rate });
+		prefs = { ...prefs, ...next };
+		saveVideoPrefs(next);
 	}}
 	{onclose}
 />

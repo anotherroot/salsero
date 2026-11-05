@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	linkSummary,
 	edgeViewTime,
+	hearAt,
+	editOpening,
 	END_PARK_MS,
 	TENTH_MS,
 	lengthText,
@@ -129,6 +131,36 @@ describe('edgeViewTime', () => {
 	});
 	it('is the start for a point', () => {
 		expect(edgeViewTime({ startMs: 4000, endMs: null }, 'end')).toBe(4);
+	});
+});
+
+describe('hearAt', () => {
+	const sec = { startMs: 4000, endMs: 11_200 };
+	it('playing: plays the change, from the start or the 2 s up to the end', () => {
+		expect(hearAt(sec, 'start', false)).toEqual({ atS: 4, play: true });
+		expect(hearAt(sec, 'end', false)).toEqual({ atS: 9.2, play: true });
+	});
+	it('playing: a section shorter than 2 s plays from its start', () => {
+		expect(hearAt({ startMs: 4000, endMs: 5000 }, 'end', false)).toEqual({ atS: 4, play: true });
+	});
+	it('paused: stays paused where the edge shows', () => {
+		expect(hearAt(sec, 'start', true)).toEqual({ atS: 4, play: false });
+		const end = hearAt(sec, 'end', true);
+		expect(end.play).toBe(false);
+		expect(end.atS).toBeCloseTo(11.19, 6);
+	});
+	it('a point is its start either way', () => {
+		expect(hearAt({ startMs: 4000, endMs: null }, 'end', false)).toEqual({ atS: 4, play: true });
+	});
+});
+
+describe('editOpening', () => {
+	it('a section plays on from its start only if the video was playing', () => {
+		expect(editOpening({ startMs: 4000, endMs: 8000 }, false)).toEqual({ atS: 4, play: true });
+		expect(editOpening({ startMs: 4000, endMs: 8000 }, true)).toEqual({ atS: 4, play: false });
+	});
+	it('a point never plays', () => {
+		expect(editOpening({ startMs: 4000, endMs: null }, false)).toEqual({ atS: 4, play: false });
 	});
 });
 
