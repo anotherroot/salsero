@@ -408,7 +408,13 @@ describe.each([
 	let form: Record<string, string>;
 	beforeEach(() => {
 		id = createCustomExercise(db, space(), { name: 'Shines', everyDays: 3, notes: 'first' }).id;
-		form = { name: 'Shines', everyDays: '3', active: 'on', notes: 'mine' };
+		form = { name: 'Shines', active: 'on', notes: 'mine' };
+	});
+
+	it('sees no frequency, and a save keeps the exercise’s own', async () => {
+		expect(JSON.parse(seenOf(load(exercisePage, id)))).not.toHaveProperty('everyDays');
+		await call(exercisePage.actions.update, post({ ...form, everyDays: '14' }, id));
+		expect(db.select().from(exercises).where(eq(exercises.id, id)).get()!.everyDays).toBe(3);
 	});
 
 	it('refuses a save that saw an older name, and takes a fresh one', async () => {

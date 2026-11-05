@@ -19,7 +19,6 @@ import { getTeam } from '$lib/server/teams';
 import { scheduleStates } from '$lib/server/schedule';
 import { requireExerciseAccess, requireExerciseInWall, wallOf } from '$lib/server/scope';
 import { linkableSections, linkSpot, SpotLinkError, unlinkSpot } from '$lib/server/spot-links';
-import { isFrequency } from '$lib/frequency';
 import { exerciseSeen, seenRefusal } from '$lib/server/clash';
 import { editedBy } from '$lib/server/changes';
 import { makeMineFrom, makeMineOffer } from '$lib/server/make-mine-form';
@@ -277,13 +276,12 @@ export const actions: Actions = {
 		const { exercise: row } = requireExerciseAccess(db, locals, params, params.id, 'edit');
 		const form = await request.formData();
 		const name = text(form, 'name') ?? '';
-		// A group's drill is practised through each member's own entry, so how
-		// often and whether it is on Today are theirs: its own stay as they are.
+		// A group's drill is practised through each member's own entry, so
+		// whether it is on Today is theirs: its own stays as it is.
 		const team = row.teamId !== null;
-		const everyDays = team ? row.everyDays : int(form, 'everyDays');
 		const active = team ? row.active : checkbox(form, 'active');
 		const notes = optionalText(form, 'notes');
-		if (everyDays === undefined || !isFrequency(everyDays) || notes === undefined) {
+		if (notes === undefined) {
 			return fail(400, { action: 'update', message: 'Check the values and try again.' });
 		}
 		const stored = getExercise(db, row.id);
@@ -296,7 +294,7 @@ export const actions: Actions = {
 			() => editedBy(db, row.teamId, 'drill', row.id)
 		);
 		if (clash) return clash;
-		if (!updateExercise(db, row.id, { name, everyDays, notes, active }, me(params, locals))) {
+		if (!updateExercise(db, row.id, { name, notes, active }, me(params, locals))) {
 			throw error(404, 'No such exercise');
 		}
 		return { action: 'update', ok: true };

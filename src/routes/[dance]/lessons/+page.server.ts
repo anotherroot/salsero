@@ -17,16 +17,10 @@ export const actions: Actions = {
 		const space = spaceOf(db, params, locals, cookies);
 		const today = localDay(Date.now(), zone(locals));
 		const form = await request.formData();
-		if ('teamId' in space) {
-			// A draft of the group's: no drill, no frequency.
-			const read = readNewLesson(form, today, false);
-			if ('refused' in read) return read.refused;
-			const { lesson } = createLesson(db, space, read.input);
-			throw redirect(303, `/${space.dance}/lessons/${lesson.id}`);
-		}
-		const read = readNewLesson(form, today, true);
+		const read = readNewLesson(form, today);
 		if ('refused' in read) return read.refused;
-		const { lesson } = createLesson(db, space, read.input, read.everyDays);
+		// A group's draft gets no drill; a person's lesson gets its review exercise.
+		const { lesson } = createLesson(db, space, read.input);
 		throw redirect(303, `/${space.dance}/lessons/${lesson.id}`);
 	}
 };

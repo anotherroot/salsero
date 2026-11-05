@@ -1,11 +1,11 @@
 /** PURE, client-safe: what a lesson's page shows. */
-import { frequencyLabel } from '$lib/frequency';
+import type { ScheduleState } from '$lib/schedule/schedule';
+import { dueWords } from '$lib/schedule/words';
 import { PARTNER_LABEL } from '$lib/labels';
 import type {
 	LessonExerciseRow,
 	LessonFigureRow,
 	LessonPositionRow,
-	LessonRoutineRow,
 	PositionSummary,
 	TeamRef,
 	ViaSection,
@@ -81,20 +81,31 @@ export function yoursMeta(meta: string | null, mineId: number | null): string | 
 	return meta === null || meta === '' ? 'Yours' : `Yours · ${meta}`;
 }
 
-export function routineMeta(r: Pick<LessonRoutineRow, 'everyDays'>): string | null {
-	return r.everyDays === null ? null : frequencyLabel(r.everyDays);
+/** An exercise's due words ("Due Sunday", "New"), or null with no schedule to read. */
+function dueText(state: ScheduleState | undefined, today: string): string | null {
+	return state ? dueWords(state, today, state.lastDay === null)[0].text : null;
 }
 
-export function exerciseMeta(e: Pick<LessonExerciseRow, 'viaSections' | 'everyDays'>): string {
-	return e.viaSections.length > 0 ? viaRanges(e.viaSections) : frequencyLabel(e.everyDays);
+export function routineMeta(state: ScheduleState | undefined, today: string): string | null {
+	return dueText(state, today);
+}
+
+export function exerciseMeta(
+	e: Pick<LessonExerciseRow, 'viaSections'>,
+	state: ScheduleState | undefined,
+	today: string
+): string | null {
+	return e.viaSections.length > 0 ? viaRanges(e.viaSections) : dueText(state, today);
 }
 
 /** The review exercise's line, with `inactive` picked out. */
-export function reviewMeta(e: {
-	everyDays: number;
-	active: boolean;
-}): { text: string; strong: boolean }[] {
-	const parts = [{ text: frequencyLabel(e.everyDays), strong: false }];
+export function reviewMeta(
+	e: { active: boolean },
+	state: ScheduleState | undefined,
+	today: string
+): { text: string; strong: boolean }[] {
+	const due = dueText(state, today);
+	const parts = due === null ? [] : [{ text: due, strong: false }];
 	if (!e.active) parts.push({ text: 'inactive', strong: true });
 	parts.push({ text: 'review exercise', strong: false });
 	return parts;

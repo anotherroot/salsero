@@ -468,8 +468,6 @@ export interface LinkOption {
 	/** A variation's figure and own name, for headings; null for a drill. */
 	figure: string | null;
 	name: string;
-	/** A drill's; null for a variation. */
-	everyDays: number | null;
 	/** Already linked to this section. */
 	linked: boolean;
 	/** A group's row a person may use (`usableOf`), offered in their own lists: whose it is. */
@@ -526,13 +524,13 @@ export interface LinkOptions {
 }
 
 /** A create step's field a refusal of `createAndLink` names, so the popup shows it there. */
-export type LinkCreateField = 'name' | 'figureName' | 'groupId' | 'style' | 'everyDays';
+export type LinkCreateField = 'name' | 'figureName' | 'groupId' | 'style';
 
 /** What the Link popup's create steps send. */
 export type LinkCreate =
 	| { kind: 'variation'; groupId: number; name: string }
 	| { kind: 'figure'; figureName: string; name: string; partner: Partner; style: string }
-	| { kind: 'drill'; name: string; everyDays: number }
+	| { kind: 'drill'; name: string }
 	/** `styleTag` null: no type. Refused for its type under 'style'. */
 	| { kind: 'position'; name: string; styleTag: string | null };
 

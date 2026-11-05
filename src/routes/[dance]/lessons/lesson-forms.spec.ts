@@ -17,6 +17,8 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { createLesson, getLesson, listLessons } from '$lib/server/lessons';
 import { createFigure } from '$lib/server/figures';
+import { eq } from 'drizzle-orm';
+import { exercises } from '$lib/server/db/schema';
 import { localDay } from '$lib/day/day';
 import { actions as listActions } from './+page.server';
 import { actions as lessonActions } from './[id]/+page.server';
@@ -110,15 +112,25 @@ describe('New lesson', () => {
 		});
 	});
 
-	it('refuses a frequency that is not offered without naming a field', async () => {
-		const result = (await call(
+	it('asks no frequency: a post without everyDays creates the lesson with the default', async () => {
+		await call(
 			listActions.create,
-			post('salsa', { title: 'Rueda', notes: '', everyDays: '5', lessonDay: '2026-01-05' })
-		)) as { status: number; data: Record<string, unknown> };
-		expect(result.status).toBe(400);
-		expect(result.data.message).toBe('Pick how often to go over it.');
-		expect(result.data).not.toHaveProperty('field');
-		expect(result.data).toMatchObject({ title: 'Rueda', lessonDay: '2026-01-05' });
+			post('salsa', { title: 'Rueda', notes: '', lessonDay: '2026-01-05' })
+		).catch(() => {});
+		expect(listLessons(db, U1_SALSA)).toHaveLength(1);
+		expect(db.select().from(exercises).where(eq(exercises.source, 'lesson')).get()).toMatchObject({
+			everyDays: 3
+		});
+	});
+
+	it('ignores a posted everyDays: the first gap is the default either way', async () => {
+		await call(
+			listActions.create,
+			post('salsa', { title: 'Rueda', notes: '', everyDays: '14', lessonDay: '2026-01-05' })
+		).catch(() => {});
+		expect(db.select().from(exercises).where(eq(exercises.source, 'lesson')).get()).toMatchObject({
+			everyDays: 3
+		});
 	});
 
 	it('creates the lesson and goes to its page', async () => {
@@ -373,15 +385,15 @@ describe('From this lesson', () => {
 		});
 	});
 
-	it('refuses an exercise frequency that is not offered without naming a field', async () => {
-		const result = (await call(
+	it('makes an exercise without asking how often, with the default first gap', async () => {
+		const result = await call(
 			lessonActions.newExercise,
-			post('salsa', { name: 'Spins', everyDays: '5', notes: '' }, lesson())
-		)) as { status: number; data: Record<string, unknown> };
-		expect(result.status).toBe(400);
-		expect(result.data.message).toBe('Pick how often to do it.');
-		expect(result.data).not.toHaveProperty('field');
-		expect(result.data).toMatchObject({ name: 'Spins' });
+			post('salsa', { name: 'Spins', notes: '' }, lesson())
+		);
+		expect(result).toMatchObject({ action: 'newExercise', ok: true });
+		expect(db.select().from(exercises).where(eq(exercises.name, 'Spins')).get()).toMatchObject({
+			everyDays: 3
+		});
 	});
 
 	it('puts a blank routine name under Name', async () => {

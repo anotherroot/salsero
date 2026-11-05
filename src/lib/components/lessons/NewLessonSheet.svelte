@@ -5,9 +5,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import LessonFields from './LessonFields.svelte';
-	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import { button } from '$lib/components/ui/styles';
-	import { DEFAULT_EVERY_DAYS } from '$lib/frequency';
 
 	/** A refused create, as the action returns it: what was typed and why it was refused. */
 	interface Refusal {
@@ -18,18 +16,13 @@
 		lessonDay?: string;
 	}
 
-	/**
-	 * The New lesson sheet: the Lessons tab's and a group page's. A person's
-	 * lesson asks how often to go over it (its review on Today); a group's does
-	 * not — `frequency` off — since each member's Add makes their own.
-	 */
+	/** The New lesson sheet: the Lessons tab's and a group page's. */
 	let {
 		open,
 		onclose,
 		action,
 		refusal,
 		today,
-		frequency = true,
 		handle
 	}: {
 		open: boolean;
@@ -40,7 +33,6 @@
 		refusal: Refusal | null;
 		/** The newest day a class can have been, `YYYY-MM-DD`. */
 		today: string;
-		frequency?: boolean;
 		/**
 		 * A page whose form is not on the action's own route (the Lessons layout's list)
 		 * takes the result itself: a refusal never reaches `page.form` there. It runs
@@ -50,13 +42,6 @@
 	} = $props();
 
 	let busy = $state(false);
-	let everyDays = $state(DEFAULT_EVERY_DAYS);
-
-	// The sheet outlives its page (the Lessons layout's): each opening starts fresh, as a
-	// remounted page's did. The form's fields unmount with the closed Sheet; this is the rest.
-	$effect(() => {
-		if (open) everyDays = DEFAULT_EVERY_DAYS;
-	});
 
 	// A refusal that is about no one field goes at the top of the sheet.
 	const otherError = $derived(refusal?.message && !refusal.field ? refusal.message : null);
@@ -102,15 +87,6 @@
 			max={today}
 			{errors}
 		/>
-
-		{#if frequency}
-			<div class="flex flex-col gap-1.5">
-				<FrequencyField name="everyDays" label="Go over it again" bind:value={everyDays} />
-				<p class="pl-1 text-[13px] text-muted">
-					Puts “Review: …” on Today; lower it as it settles.
-				</p>
-			</div>
-		{/if}
 	</form>
 
 	{#snippet footer()}

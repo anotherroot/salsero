@@ -51,3 +51,34 @@ export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): S
 		.all();
 	return replay(row.everyDays, row.createdAt, rows, timeZone);
 }
+
+/**
+ * The person's schedule for each exercise a page shows a due word for, keyed by
+ * the SHOWN id. The person's own row wins: a copy (`mineId`), else their entry
+ * on a group drill (`drillId`), else the row itself when it is theirs. A row
+ * they have nothing of gets no key, so no due word.
+ */
+export function scheduleForShown(
+	db: Db,
+	wall: Wall,
+	timeZone: string,
+	rows: { id: number | null | undefined; mineId?: number | null }[]
+): Record<number, ScheduleState> {
+	const states = scheduleStates(db, wall, timeZone);
+	const entries = new Map(
+		db
+			.select({ id: exercises.id, drillId: exercises.drillId })
+			.from(exercises)
+			.where(and(isNull(exercises.archivedAt), ownedBy(exercises, wall)))
+			.all()
+			.filter((e) => e.drillId !== null)
+			.map((e) => [e.drillId as number, e.id])
+	);
+	const out: Record<number, ScheduleState> = {};
+	for (const r of rows) {
+		if (r.id == null) continue;
+		const own = [r.mineId, entries.get(r.id), r.id].find((x) => x != null && states.has(x));
+		if (own != null) out[r.id] = states.get(own)!;
+	}
+	return out;
+}

@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDb, type Db } from './db';
-import { users } from './db/schema';
+import { exercises, users } from './db/schema';
+import { eq } from 'drizzle-orm';
+import { createTeam } from './teams';
 import { archiveExercise, createCustomExercise, logSet } from './exercises';
-import { listScheduleSets, scheduleStateOf, scheduleStates } from './schedule';
-import { U1_SALSA, U2_SALSA } from './test-walls';
+import { listScheduleSets, scheduleForShown, scheduleStateOf, scheduleStates } from './schedule';
+import { T1_SALSA, U1_SALSA, U2_SALSA } from './test-walls';
 
 let db: Db;
 const TZ = 'Europe/Ljubljana';
@@ -66,5 +68,41 @@ describe('scheduleStateOf and listScheduleSets', () => {
 		expect(scheduleStateOf(db, a.id, TZ).gap).toBe(25);
 		expect(listScheduleSets(db, U1_SALSA)).toHaveLength(2);
 		expect(listScheduleSets(db, U2_SALSA)).toEqual([]);
+	});
+});
+
+describe('scheduleForShown', () => {
+	function groupDrill() {
+		createTeam(db, 'u1', 'salsa', 'Salsa Tuesdays', 1);
+		return createCustomExercise(db, T1_SALSA, { name: 'Group drill', notes: null });
+	}
+
+	it("reads a member's own entry on a group drill, keyed by the group drill's id", () => {
+		const g = groupDrill();
+		const entry = drill(U1_SALSA, 'Entry');
+		db.update(exercises).set({ drillId: g.id }).where(eq(exercises.id, entry.id)).run();
+		set(entry.id, at('2026-10-01'), null);
+		const shown = scheduleForShown(db, U1_SALSA, TZ, [{ id: g.id }]);
+		expect(shown[g.id]).toMatchObject({ lastDay: '2026-10-01' });
+	});
+
+	it('gives a group drill nobody added no schedule', () => {
+		const g = groupDrill();
+		expect(scheduleForShown(db, U1_SALSA, TZ, [{ id: g.id }])).toEqual({});
+		expect(scheduleForShown(db, U2_SALSA, TZ, [{ id: g.id }])).toEqual({});
+	});
+
+	it("prefers the person's copy (mineId), and reads a plain own row as itself", () => {
+		const g = groupDrill();
+		const copy = drill(U1_SALSA, 'Copy');
+		const own = drill(U1_SALSA, 'Own');
+		set(copy.id, at('2026-10-02'), null);
+		set(own.id, at('2026-10-03'), null);
+		const shown = scheduleForShown(db, U1_SALSA, TZ, [
+			{ id: g.id, mineId: copy.id },
+			{ id: own.id }
+		]);
+		expect(shown[g.id].lastDay).toBe('2026-10-02');
+		expect(shown[own.id].lastDay).toBe('2026-10-03');
 	});
 });

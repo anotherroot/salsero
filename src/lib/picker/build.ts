@@ -5,7 +5,6 @@
  * is picked: the same keys, labels and second lines (rule 10 of the unified
  * pickers spec).
  */
-import { frequencyLabel } from '$lib/frequency';
 import { dateLabel } from '$lib/format';
 import { moveHeading, possessive, usedAsIs } from '$lib/clones/view';
 import { twinPickMeta } from '$lib/clones/twins';
@@ -101,7 +100,7 @@ export function routineRows(rs: (Omit<PickRoutine, 'linked'> & { linked?: boolea
 /**
  * Figures (headings by figure, short = variation), Routines, Drills (source
  * 'custom', and 'added': an entry on a group's drill, named as the drill),
- * Lessons (source 'lesson'); meta frequencyLabel. Headings and
+ * Lessons (source 'lesson'); meta only for a group's row. Headings and
  * rows alphabetical; a figure's exercises in id order under it.
  */
 export function exerciseGroups(es: PickExercise[]): PickGroup[] {
@@ -110,7 +109,7 @@ export function exerciseGroups(es: PickExercise[]): PickGroup[] {
 		value: e.id,
 		label,
 		...(short === undefined ? {} : { short }),
-		meta: e.team ? usedAsIs(e.team.name) : frequencyLabel(e.everyDays),
+		...(e.team ? { meta: usedAsIs(e.team.name) } : {}),
 		linked: e.linked
 	});
 	const flat = (...sources: PickExercise['source'][]): PickRow[] =>
@@ -231,7 +230,7 @@ export function linkOptionGroups(o: LinkOptions): PickGroup[] {
 				key: `exercise:${(x.target as { exerciseId: number }).exerciseId}`,
 				value: (x.target as { exerciseId: number }).exerciseId,
 				label: x.label,
-				meta: x.team ? usedAsIs(x.team.name) : frequencyLabel(x.everyDays ?? 0),
+				...(x.team ? { meta: usedAsIs(x.team.name) } : {}),
 				linked: x.linked
 			}));
 	const positions = (os: LinkOption[]): PickRow[] =>

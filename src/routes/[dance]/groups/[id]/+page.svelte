@@ -274,7 +274,6 @@
 		action="?/createLesson"
 		refusal={fresh?.action === 'create' ? fresh : null}
 		today={data.today}
-		frequency={false}
 	/>
 {/if}
 

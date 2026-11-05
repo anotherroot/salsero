@@ -372,7 +372,11 @@
 		exercise={data.exercise && {
 			id: data.exercise.id,
 			name: data.exercise.name,
-			line: exerciseLine(data.exercise)
+			line: exerciseLine({
+				source: data.exercise.source,
+				state: data.schedule,
+				today: data.today
+			})
 		}}
 		exercises={data.exercises}
 		summary={runSummary(

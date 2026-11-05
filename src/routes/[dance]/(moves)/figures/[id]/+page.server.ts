@@ -46,11 +46,11 @@ import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
 import { popupData } from '$lib/server/popup';
-import { exerciseHistory } from '$lib/server/exercises';
+import { scheduleStateOf } from '$lib/server/schedule';
+import { localDay } from '$lib/day/day';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
 import { practiceLine } from '$lib/figures/page';
-import { plan } from '$lib/urgency/urgency';
 import { figureById, follows, precedes } from '$lib/graph/graph';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
@@ -126,6 +126,12 @@ function variationId(raw: string): number {
 function zoneOf(locals: App.Locals): string {
 	if (!locals.user) throw error(401);
 	return locals.user.timezone;
+}
+
+/** The exercise's line on the page: its due words, from its schedule. */
+function practiceFor(db: Db, exerciseId: number, zone: string, now: number) {
+	const state = scheduleStateOf(db, exerciseId, zone);
+	return practiceLine(state, localDay(now, zone), state.lastDay === null);
 }
 
 /**
@@ -388,19 +394,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			routineShapes(db, space, { usable }),
 			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
 		),
-		practice: popup
-			? practiceLine(
-					plan(
-						[popup.exercise],
-						exerciseHistory(db, popup.exercise.id, 50).map((s) => ({
-							exerciseId: popup.exercise.id,
-							doneAt: s.doneAt
-						})),
-						now,
-						zone
-					)
-				)
-			: null,
+		practice: popup ? practiceFor(db, popup.exercise.id, zone, now) : null,
 		/** The edit form's Starts in / Ends in: the chosen tags it shows, and what the pickers offer. */
 		tags,
 		positionChoices,

@@ -64,7 +64,7 @@ export type CreateSpot = LinkCreateField | 'banner';
 const SHOWN: Record<CreateStep, CreateSpot[]> = {
 	variation: ['groupId', 'name'],
 	figure: ['figureName', 'name', 'style'],
-	drill: ['name', 'everyDays'],
+	drill: ['name'],
 	position: ['name', 'style']
 };
 
