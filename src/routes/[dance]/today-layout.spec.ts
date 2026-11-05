@@ -7,6 +7,7 @@
  * Like `dance-wall.spec.ts`, `getDb()` is mocked: each test gets its own
  * `openDb(':memory:')` and nothing ever opens the real database.
  */
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const handle = vi.hoisted(() => ({ db: undefined as unknown }));
@@ -49,5 +50,19 @@ describe("Today's layout load", () => {
 		expect(data.list.plan.due).toHaveLength(1);
 		expect(read).not.toContain('url');
 		expect(read).not.toContain('route');
+	});
+
+	it("names what reloads it, and the phone's fresh visit reloads that", () => {
+		const names: string[] = [];
+		(load as unknown as (e: unknown) => unknown)({
+			params: { dance: 'salsa' },
+			locals: { user: USER },
+			depends: (...ids: string[]) => names.push(...ids)
+		});
+		expect(names).toEqual(['today:list']);
+		// Back from an exercise on the phone: the list page's own load used to run.
+		expect(readFileSync('src/routes/[dance]/(today)/+layout.svelte', 'utf8')).toContain(
+			"invalidate('today:list')"
+		);
 	});
 });

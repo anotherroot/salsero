@@ -71,6 +71,11 @@
 	const today = todayPane();
 	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
 	let logging = $state(page.url.searchParams.get('log') === '1');
+	// Told to the layout: narrowing in a session must not open its popup over this one.
+	$effect(() => {
+		today?.pagePopup(logging && data.canLog);
+		return () => today?.pagePopup(false);
+	});
 	/**
 	 * A drill is the only type this page may rename or archive: the others
 	 * belong to their owner. A person's entry on a group's drill (`'added'`) is

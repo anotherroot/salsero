@@ -218,7 +218,9 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      meta lines, hero states, past-day groups) and the type
                      tile's icon and name (tile.ts), what the log popup shows
                      (log-view.ts: the footer's states, range errors, the rating
-                     toggle), the exercise page (exercise-page.ts) and the desktop Today pane (today-pane.ts: what opens by default, the session line, the day so far's totals).
+                     toggle), the exercise page (exercise-page.ts) and the desktop
+                     Today pane (today-pane.ts: what opens by default, the session
+                     line, the day so far's totals).
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
 src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,

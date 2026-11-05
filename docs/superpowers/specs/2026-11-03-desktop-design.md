@@ -672,13 +672,17 @@ What the user settled on the boards, newest last:
   `/[dance]`. The pane's log form posts to its own exercise's route
   (`/[dance]/exercises/[id]?/log`: each log form posts to its own route), so
   the URL has to name the exercise. Tapping a lit Today tab with the default
-  open opens the default again.
+  open opens the default again, as a push like any tab tap: history then holds
+  two identical entries [X, X] (accepted, Task 5's deferred minor in the plan 2
+  ledger).
 - **The day so far is a heading plus a padded body**, not a second `Screen`:
   on the list route a second one would add a second main, banner and h1.
 - **The phone's Today is a fresh visit on arrival.** Arriving on the list route
   from another path resets the tally, the skipped rows and Show inactive, and
   runs the session pick-up as before; the log popup closes on leaving Today
-  (Details ›), so it never stays open over the exercise page.
+  (Details ›), so it never stays open over the exercise page. Back from one of
+  Today's exercises reloads the list (`today:list`), as the list page's own
+  load did, so a set logged there or a new day shows.
 - **The session pick-up on reload is the phone's only.** A desktop reload of
   `?session=1` does not open the popup; the desktop session walks the pane
   instead. On the phone, a desk-made `/[dance]/exercises/X?session=1` link
@@ -686,7 +690,15 @@ What the user settled on the boards, newest last:
 - **Next after a log outside a session** goes to the first due exercise (the
   pinned button reads Next: <name>); in a session it walks the session's line.
 - **Finish replaces the URL** on the desktop, so one Back after Finish leaves
-  the session instead of re-entering it. The phone's Finish is unchanged.
+  the session instead of re-entering it. The phone's Finish is unchanged. The
+  desktop's session state goes once the URL has lost its flag, so a Stay at an
+  unsaved-changes question keeps the Session done card's count.
+- **Resume inside a session replaces** (the session stays one history entry);
+  Start pushes.
+- **Skip asks once.** With unsaved input in the pane, Skip asks; its answer lets
+  the navigation to the next exercise through (`passNext` in
+  `$lib/unsaved/guard.svelte.ts`), so no second Leave question. Stay keeps the
+  exercise open and unskipped.
 - **Opening another exercise resets the exercise page's state** (an open edit
   closes and the form starts from the new exercise's values), so one
   exercise's frequency is never saved onto another.
@@ -701,6 +713,7 @@ What the user settled on the boards, newest last:
   other, so what was typed and not logged is lost. The URL and the open
   exercise stay.
 - **A pinned bar's two buttons** (Skip and Log set, Finish) are two equal
-  halves from the `rowButton` builder in `ui/styles.ts`.
+  halves from the `rowButton` builder in `ui/styles.ts`. Logged beside Next
+  takes its own width, so Next keeps the rest for the name.
 - **Today's loading draws the list and the pane's skeleton**
   (`TodayPaneSkeleton`), keyed by the column beside.

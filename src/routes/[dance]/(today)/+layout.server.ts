@@ -19,7 +19,9 @@ const DAY_MS = 86_400_000;
  * Namespaced under `list`, so it never collides with an exercise page's own
  * data keys (`today`, `songs`, `takes`).
  */
-export const load: LayoutServerLoad = ({ params, locals }) => {
+export const load: LayoutServerLoad = ({ params, locals, depends }) => {
+	// The phone's fresh visit to the list (back from an exercise) reloads it.
+	depends('today:list');
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
 	const tz = locals.user.timezone;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { afterNavigate, goto, onNavigate } from '$app/navigation';
+	import { afterNavigate, goto, invalidate, onNavigate } from '$app/navigation';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { page } from '$app/state';
 	import { listOf } from '$lib/nav/pane';
@@ -20,6 +20,7 @@
 	import { setTodayPane } from '$lib/components/today/today-context';
 	import { dropOpener } from '$lib/nav/trail.svelte';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
+	import { passNext } from '$lib/unsaved/guard.svelte';
 	import { longDayLabel } from '$lib/format';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
@@ -84,17 +85,20 @@
 
 	/**
 	 * The session opens a row: the phone's popup, or on the desktop the row's own
-	 * URL with the session's flag, beside the list. Start and Resume push (Back
-	 * leaves the session); Next and Skip replace, so the session holds one entry,
-	 * as the phone's popup walk holds none of its own.
+	 * URL with the session's flag, beside the list. Start pushes (Back leaves the
+	 * session); Next, Skip and a Resume inside the session replace, so the session
+	 * holds one entry, as the phone's popup walk holds none of its own. `answered`:
+	 * the user has just said Skip to the pane's unsaved form (LogShell's `away`),
+	 * so the navigation that follows does not ask again (`passNext`).
 	 */
-	function openRow(id: number, how: 'push' | 'replace') {
+	function openRow(id: number, how: 'push' | 'replace', answered = false) {
 		if (!desk.current) {
 			openId = id;
 			return;
 		}
 		const href = at(id, '?session=1');
 		if (page.url.pathname + page.url.search === href) return;
+		if (answered) passNext(href);
 		void gotoWhenSettled(href, { replaceState: how === 'replace' });
 	}
 
@@ -125,8 +129,10 @@
 		openId = null;
 		// Clear skipped/tally here too, not just on start: otherwise a stale
 		// `skipped` starves `firstUp` after the session ends, hiding "Start
-		// session" for a row that is still due.
-		clearSession();
+		// session" for a row that is still due. The desktop's goes once the URL
+		// has lost its flag (the effect below): an unsaved form's Stay keeps the
+		// session, and its Session done card keeps its count.
+		if (!desk.current) clearSession();
 		// The desktop's session is one history entry: Finish takes its place, so
 		// Back from Today goes where it went before the session.
 		void goto(resolve('/[dance]/(today)', { dance }), {
@@ -162,13 +168,16 @@
 	 * other way, the popup goes and the pane takes its exercise (`swapTo`).
 	 */
 	let wasDesk = untrack(() => desk.current);
+	// The exercise page's own popup is open (its Log a set): narrowing leaves it the one.
+	let pageLogging = false;
 	$effect(() => {
 		const d = desk.current;
 		if (d === wasDesk) return;
 		wasDesk = d;
 		if (!d)
 			untrack(() => {
-				if (sessionOn && !isList && openId === null && currentId !== null) openId = currentId;
+				if (sessionOn && !isList && openId === null && currentId !== null && !pageLogging)
+					openId = currentId;
 			});
 	});
 
@@ -242,7 +251,9 @@
 	 * the page's own mount was: the tally, the skips and Inactive start over and a
 	 * session picks up at its current first row (after the move, so the URL's
 	 * session flag is the new one). The desktop keeps them across exercises (the
-	 * session walks the pane: Task 6).
+	 * session walks the pane: Task 6). Back from one of Today's own exercises the
+	 * list loads again, as the page's own load did: a set logged there, or a new
+	 * day, shows (from elsewhere the layout's load has just run).
 	 */
 	afterNavigate(({ from, to }) => {
 		if (!from || !to || from.url.pathname === to.url.pathname) return;
@@ -251,6 +262,7 @@
 		clearSession();
 		showInactive = false;
 		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
+		if (listOf(from.route.id)?.list === 'today') void invalidate('today:list');
 	});
 
 	const session = $derived<SessionControls | null>(
@@ -270,7 +282,7 @@
 						}
 						// Nothing left: stay on this popup and show the summary + Finish
 						// instead of closing behind the user's back (finding 3).
-						if (nextUp) openRow(nextUp.exercise.id, 'replace');
+						if (nextUp) openRow(nextUp.exercise.id, 'replace', true);
 						else {
 							sessionEnded = true;
 							bumpKey += 1;
@@ -323,7 +335,10 @@
 		get key() {
 			return `${current}:${bumpKey}`;
 		},
-		logged
+		logged,
+		pagePopup(on) {
+			pageLogging = on;
+		}
 	});
 
 	// The hero drives the session: Start, Resume (with the next name), a disabled
@@ -379,7 +394,7 @@
 				? startSession
 				: hero.kind === 'resume'
 					? () => {
-							if (firstUp) openRow(firstUp.exercise.id, 'push');
+							if (firstUp) openRow(firstUp.exercise.id, sessionOn ? 'replace' : 'push');
 							else openId = null;
 						}
 					: undefined}

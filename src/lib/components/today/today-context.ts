@@ -18,6 +18,12 @@ export interface TodayPane {
 	readonly key: string;
 	/** A set was logged in the pane: the session's tally and walk. */
 	logged(durationS: number | null): void;
+	/**
+	 * The page's own log popup (the phone's Log a set) is open or not: a window
+	 * narrowing in a session then leaves it the only popup, never two forms with
+	 * one id.
+	 */
+	pagePopup(on: boolean): void;
 }
 
 const KEY = Symbol('today-pane');

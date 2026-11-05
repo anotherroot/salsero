@@ -134,9 +134,16 @@
 	const has = (f: 'minutes' | 'reps' | 'rating' | 'note') => info.fields.includes(f);
 	// The pane's form has its own id, so a popup and a pane never share one.
 	const formId = $derived(frame === 'pane' ? `log-pane-${exercise.id}` : `log-${exercise.id}`);
-	/** The main button just after a log: done colours, primary's size and shape. */
-	const LOGGED =
-		'inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done';
+	/**
+	 * The main button just after a log: done colours, primary's size and shape. Full
+	 * width in the popup; in the pane's pinned row its own width beside Next, so Next
+	 * keeps the rest for the name, and the row's width alone.
+	 */
+	const LOGGED_BASE =
+		'inline-flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done';
+	const LOGGED = `${LOGGED_BASE} w-full`;
+	const LOGGED_BESIDE = `${LOGGED_BASE} flex-none px-6`;
+	const LOGGED_ROW = `${LOGGED_BASE} min-w-0 flex-1 px-6`;
 	const detailsHref = $derived(
 		resolve('/[dance]/(today)/exercises/[id]', { dance: dance.slug, id: String(exercise.id) })
 	);
@@ -430,7 +437,11 @@
 			type="submit"
 			form={formId}
 			class={view.main.state === 'logged'
-				? `${LOGGED}${row ? ' min-w-0 flex-1 px-6' : ''}`
+				? row
+					? view.next && onnext
+						? LOGGED_BESIDE
+						: LOGGED_ROW
+					: LOGGED
 				: row
 					? rowButton('primary')
 					: button('primary', 'md', true)}

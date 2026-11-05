@@ -780,3 +780,210 @@ def _session_logged(page):
 SCENES.update({
     "pane-session-logged": Scene("/{dance}", _session_logged, desk=True),
 })
+
+
+# ---- final fix wave: Skip with unsaved input, Finish's Stay, Resume, two popups, Next's room ----
+
+def _asking(page):
+    """The unsaved-changes question is on screen."""
+    return page.locator('dialog[open][aria-labelledby="unsaved-title"]').count() > 0
+
+
+def _type_unsaved(page):
+    form = page.locator('form[id^="log-pane-"]')
+    field = form.get_by_label("Minutes") if form.get_by_label("Minutes").count() else form.get_by_label("Note")
+    field.first.fill("7")
+
+
+def _skip_unsaved(page):
+    """Desk session, a value typed: Skip asks once; Stay keeps the exercise open and unskipped;
+    Skip without saving opens the next one with no second question, and the line reads 2 of n."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    n = _want_line(page, 1, where="after Start")
+    at = _path(page)
+    length = page.evaluate("history.length")
+    _type_unsaved(page)
+    skip = _pinned(page).get_by_role("button", name="Skip", exact=True)
+    # Stay: nothing moves, nothing is skipped.
+    skip.click()
+    page.wait_for_timeout(400)
+    if not _asking(page):
+        raise RuntimeError("Skip with a typed value did not ask")
+    page.locator('dialog[open][aria-labelledby="unsaved-title"]').get_by_role("button", name="Stay").click()
+    page.wait_for_timeout(1200)
+    if _asking(page):
+        raise RuntimeError("Stay left a question open")
+    if _path(page) != at:
+        raise RuntimeError(f"Stay moved to {_path(page)}")
+    _want_line(page, 1, n, where="after Stay")
+    lit = page.locator('[data-list-column] a[aria-current="page"]')
+    if lit.count() != 1 or "Up next" not in lit.first.inner_text():
+        raise RuntimeError("after Stay the open row is no longer Up next (skipped)")
+    # Skip without saving: one question in all.
+    skip.click()
+    page.wait_for_timeout(400)
+    if not _asking(page):
+        raise RuntimeError("the second Skip did not ask")
+    page.locator('dialog[open][aria-labelledby="unsaved-title"]').get_by_role(
+        "button", name="Skip without saving"
+    ).click()
+    page.wait_for_url(lambda u: not u.endswith(at), timeout=8000)
+    _settle(page, 800)
+    if _asking(page):
+        raise RuntimeError("asked a second time (Leave) after Skip without saving")
+    if page.evaluate("history.length") != length:
+        raise RuntimeError("Skip added a history entry")
+    _want_line(page, 2, n, where="after Skip without saving")
+    _one_form_no_popup(page, "after Skip without saving")
+
+
+def _finish_stay(page):
+    """At Session done, a value typed: Finish asks (Leave); Stay keeps the session and the done card's
+    count (1 set), and Finish then leaves it."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    _to_last(page)
+    _log_pane(page)
+    card = page.locator('section[aria-label="Log a set"] [role="status"]', has_text="Session done")
+    summary = card.inner_text().strip()
+    if "1" not in summary:
+        raise RuntimeError(f"the done card reads {summary!r}")
+    at = _path(page)
+    _type_unsaved(page)
+    _pinned(page).get_by_role("button", name="Finish", exact=True).click()
+    page.wait_for_timeout(600)
+    if not _asking(page):
+        raise RuntimeError("Finish with a typed value did not ask")
+    page.locator('dialog[open][aria-labelledby="unsaved-title"]').get_by_role("button", name="Stay").click()
+    page.wait_for_timeout(1000)
+    if _path(page) != at:
+        raise RuntimeError(f"Stay moved to {_path(page)}")
+    if card.count() != 1 or card.inner_text().strip() != summary:
+        raise RuntimeError(f"after Stay the done card reads {card.inner_text().strip()!r}, not {summary!r}")
+    if _line(page) is None:
+        raise RuntimeError("after Stay the session line is gone")
+
+
+def _resume_replaces(page):
+    """In a session, the hero's Resume replaces: the session stays one history entry."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    length = page.evaluate("history.length")
+    # Open another row of the list (a push, like any row), then Resume.
+    rows = page.locator('[data-list-column] a[href*="/exercises/"]:not([aria-current]):visible')
+    rows.nth(1).click()
+    page.wait_for_timeout(300)
+    _settle(page)
+    length = page.evaluate("history.length")
+    page.locator("[data-list-column] button:visible", has_text="Resume session").first.click()
+    page.wait_for_timeout(300)
+    _settle(page)
+    if not page.url.endswith("?session=1"):
+        raise RuntimeError(f"Resume went to {page.url}")
+    if page.evaluate("history.length") != length:
+        raise RuntimeError("Resume inside a session pushed an entry")
+    _one_form_no_popup(page, "after Resume")
+
+
+def _narrow_twice(page):
+    """Phone-made session page: close the layout's popup, Log a set (the page's popup), widen,
+    narrow: one log form, never two with one id."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    page.set_viewport_size({"width": 800, "height": 900})
+    page.wait_for_timeout(800)
+    popup = page.locator("dialog[open]")
+    if popup.count() != 1:
+        raise RuntimeError("narrowed: no session popup")
+    popup.get_by_role("button", name=re.compile(r"^Close")).first.click()
+    page.wait_for_timeout(800)
+    _no_popup(page, "after closing the session popup")
+    page.get_by_role("button", name=re.compile(r"^Log a set")).first.click()
+    page.wait_for_timeout(800)
+    if _forms(page) != 1:
+        raise RuntimeError(f"the page's popup: {_forms(page)} log forms")
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.wait_for_timeout(1000)
+    page.set_viewport_size({"width": 800, "height": 900})
+    page.wait_for_timeout(1000)
+    ids = page.evaluate("[...document.querySelectorAll('form[id^=\"log-\"]')].map(f => f.id)")
+    if len(ids) != 1:
+        raise RuntimeError(f"narrowed again: log forms {ids}")
+
+
+def _next_room(page):
+    """Logged beside Next takes its own width and Next the rest (no equal halves): more room for
+    the name, which a long one may still fill."""
+    _settle(page)
+    _log_pane(page)
+    nxt = _pinned(page).get_by_role("button", name=re.compile(r"^Next: "))
+    nxt.wait_for(timeout=8000)
+    logged = _pinned(page).get_by_role("button", name="Logged").bounding_box()
+    nb = nxt.bounding_box()
+    if not (logged["width"] < 0.75 * nb["width"]):
+        raise RuntimeError(f"Logged {logged['width']:.0f}px beside Next {nb['width']:.0f}px: not its own width")
+
+
+SCENES.update({
+    "pane-session-skip-unsaved": Scene("/{dance}", _skip_unsaved, desk=True),
+    "pane-session-finish-stay": Scene("/{dance}", _finish_stay, desk=True),
+    "pane-session-resume": Scene("/{dance}", _resume_replaces, desk=True),
+    "pane-session-narrow-twice": Scene("/{dance}", _narrow_twice, desk=True),
+    "pane-next-room": Scene("/{dance}/exercises/{drillex}", _next_room, desk=True),
+})
+
+
+def _add_set_elsewhere(exercise_id):
+    """A set logged behind the app's back (another device), at the rig's instant less a minute,
+    written straight into the rig's temp copy of the db."""
+    import sqlite3
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "instant.txt")) as fh:
+        now = datetime.strptime(fh.read().strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    at = int(now.timestamp() * 1000) - 60_000
+    db = sqlite3.connect(f"{os.environ['SHOTS_TMP']}/salsa.db")
+    try:
+        db.execute(
+            "insert into sets (exercise_id, done_at, duration_s, created_at) values (?, ?, 300, ?)",
+            (exercise_id, at, at),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def _back_refetch(page):
+    """Phone: open the first due row's page, a set of it logged elsewhere meanwhile, Back: the list
+    loads again and shows the row under Done today (the list page's own load used to)."""
+    href = _first_due_href(page)
+    if href is None:
+        raise RuntimeError("no row to open")
+    page.locator(f'[data-list-column] a[href="{href}"]').first.click()
+    page.wait_for_url(re.compile(re.escape(href) + "$"), timeout=8000)
+    _settle(page)
+    _add_set_elsewhere(int(href.rsplit("/", 1)[1]))
+    page.go_back()
+    page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
+    _settle(page, 800)
+    done = page.locator(
+        f'[data-list-column] section[aria-labelledby]:has(h2:text-matches("^Done today")) a[href="{href}"]'
+    )
+    if not done.count():
+        raise RuntimeError(f"after Back the row {href}, logged elsewhere, is not under Done today")
+
+
+SCENES.update({
+    "today-back-refetch": Scene("/{dance}", _back_refetch),
+})

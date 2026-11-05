@@ -70,6 +70,19 @@ export function leaveOrAsk(scope: Node | null, onleave: () => void, verb = 'Leav
 }
 
 let passing = false;
+/** The one navigation already answered for (`passNext`), by path and search. */
+let passTo: string | null = null;
+
+/**
+ * Let the next navigation through unasked when it goes to `href` (path and
+ * search, as resolved): a move whose question the user has just answered under
+ * another verb. A desktop session's Skip asks "Skip?" about the pane's form and
+ * then goes to the next exercise; that navigation must not ask "Leave?" again.
+ * Any other navigation drops the pass and is asked about as usual.
+ */
+export function passNext(href: string): void {
+	passTo = href;
+}
 
 /**
  * Reload the page, asking first about anything a reload would lose — an
@@ -127,6 +140,9 @@ export function guardNavigation(): void {
 			passing = false;
 			return;
 		}
+		const pass = passTo;
+		passTo = null;
+		if (pass !== null && nav.to && nav.to.url.pathname + nav.to.url.search === pass) return;
 		const unload = nav.type === 'leave';
 		if (unload && performance.now() - postedAt < 1000) return;
 		const list = unsaved(null, unload);
