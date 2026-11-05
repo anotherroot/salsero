@@ -108,7 +108,7 @@
 						if (result.type === 'redirect') {
 							// New: the position's page opens once the sheet's Back has landed.
 							onclose();
-							await gotoWhenSettled(result.location);
+							await gotoWhenSettled(result.location, { invalidateAll: true });
 						} else if (result.type === 'failure') {
 							refuse(result.data);
 						} else if (result.type === 'error') {
@@ -167,7 +167,7 @@
 						try {
 							if (result.type === 'redirect') {
 								onclose();
-								await gotoWhenSettled(result.location, { replaceState: true });
+								await gotoWhenSettled(result.location, { replaceState: true, invalidateAll: true });
 							} else if (result.type === 'failure' || result.type === 'error') {
 								refused =
 									result.type === 'failure' &&

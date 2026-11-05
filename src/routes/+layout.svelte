@@ -23,7 +23,8 @@
 		unsaved
 	} from '$lib/unsaved/guard.svelte';
 	import { entryState, syncSheets } from '$lib/sheets/history.svelte';
-	import { syncTrail } from '$lib/nav/trail.svelte';
+	import { listOpener, openerAhead, syncTrail } from '$lib/nav/trail.svelte';
+	import { columnOf } from '$lib/nav/moves-pane';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
@@ -64,6 +65,23 @@
 	// it waits for Reload, so no tab, skeleton or progress bar says otherwise.
 	let stuck = $state(false);
 	const ahead = $derived(stuck ? null : navigating.to);
+	/*
+	 * The list column beside the page now and beside the one loading: the desktop
+	 * skeleton covers only the pane when it stays (a figure opened from a routine
+	 * keeps the Routines column), the whole frame when it changes.
+	 */
+	const columnNow = $derived(
+		columnOf(page.route.id, page.url.pathname, listOpener(page.url.pathname))
+	);
+	const columnAhead = $derived(
+		ahead
+			? columnOf(
+					ahead.route.id,
+					ahead.url.pathname,
+					openerAhead(ahead.url.pathname, page.url.pathname, navigating.type)
+				)
+			: null
+	);
 	const shownPath = $derived(ahead?.url.pathname ?? page.url.pathname);
 	const shownDance = $derived(danceOf(shownPath));
 	const leaving = $derived(ahead != null && leavesPage(page.url.pathname, ahead.url.pathname));
@@ -422,7 +440,7 @@
 			<PageSkeleton
 				{skeleton}
 				{tabs}
-				desk={deskSkeletonMode(ahead?.route.id, page.route.id)}
+				desk={deskSkeletonMode(ahead?.route.id, page.route.id, columnAhead, columnNow)}
 				{frame}
 			/>
 		{/if}

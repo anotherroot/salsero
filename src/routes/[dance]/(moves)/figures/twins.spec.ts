@@ -44,7 +44,8 @@ const listAs = (id: string, mode?: string): Loose => {
 		params: { dance: 'salsa' },
 		url: new URL('http://localhost/salsa/figures'),
 		locals: { user: user(id) },
-		cookies: cookies(mode)
+		cookies: cookies(mode),
+		depends: () => {}
 	}).lists.figures;
 	return { ...l, ...figuresView(l, { q: '' }) };
 };

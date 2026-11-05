@@ -119,15 +119,24 @@ export function leavesPage(from: string, to: string): boolean {
  * list column is live and stays: only the pane is covered ('pane'), and going to
  * the empty pane has nothing to cover ('none'). From anywhere else the whole
  * frame is drawn ('frame'). The phone draws the same skeleton whatever this says.
+ *
+ * "Same list" is the column actually beside each end (`toColumn`, `fromColumn`:
+ * `columnOf`), which in Moves is not always the route's own: a figure opened
+ * from routine 5 keeps the Routines column. Without them, each route's own list.
  */
 export type DeskSkeleton = 'frame' | 'pane' | 'none';
 
 export function deskSkeletonMode(
 	toRouteId: string | null | undefined,
-	fromRouteId: string | null | undefined
+	fromRouteId: string | null | undefined,
+	toColumn?: ListId | null,
+	fromColumn?: ListId | null
 ): DeskSkeleton {
 	const to = listOf(toRouteId ?? null);
 	const from = listOf(fromRouteId ?? null);
-	if (!to || !from || to.list !== from.list) return 'frame';
+	if (!to || !from) return 'frame';
+	const a = toColumn === undefined ? to.list : toColumn;
+	const b = fromColumn === undefined ? from.list : fromColumn;
+	if (a === null || a !== b) return 'frame';
 	return to.open ? 'pane' : 'none';
 }

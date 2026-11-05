@@ -23,7 +23,10 @@ import { load as layoutLoad } from '../+layout.server';
 
 /** The Routines list is the layout's. */
 const load = (e: never) =>
-	(layoutLoad as unknown as (e: never) => { lists: { routines: never } })(e).lists.routines;
+	(layoutLoad as unknown as (e: unknown) => { lists: { routines: never } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.routines;
 
 describe('Routines page', () => {
 	it('shows a routine from an added lesson under its group', async () => {

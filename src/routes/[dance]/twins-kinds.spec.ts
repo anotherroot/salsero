@@ -34,7 +34,10 @@ import { load as layoutLoad } from './(moves)/+layout.server';
 
 /** The Routines list is the layout's. */
 const routinesLoad = (e: unknown) =>
-	(layoutLoad as unknown as (e: unknown) => { lists: { routines: unknown } })(e).lists.routines;
+	(layoutLoad as unknown as (e: unknown) => { lists: { routines: unknown } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.routines;
 import {
 	load as routineLoad,
 	actions as routineActions

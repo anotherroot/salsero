@@ -1,11 +1,12 @@
 import { tick } from 'svelte';
-import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+import { afterNavigate, beforeNavigate, goto, onNavigate } from '$app/navigation';
 import { page } from '$app/state';
 import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 import type { DanceSlug } from '$lib/dances/dances';
 import type { TabId } from './tabs';
 import {
 	arrivalKind,
+	arrivalOpener,
 	arrive,
 	backMove,
 	backTarget,
@@ -100,6 +101,17 @@ class EnteredState {
 }
 const entered = new EnteredState();
 
+/*
+ * The arrival under way: the page renders before `afterNavigate` stores it, so
+ * for that moment its opener is known here (`onNavigate`, once history has
+ * moved) and not yet in the trail. Without it the Moves column would draw the
+ * route's own list for a tick and then the opener's, rebuilding both.
+ */
+class ArrivingState {
+	value = $state.raw<{ to: PageKey; opener: PageKey | null } | null>(null);
+}
+const arriving = new ArrivingState();
+
 /**
  * The trail's opener for `path`, or null while `path` was entered fresh (the
  * page the app was loaded on, and the figure steps replaced into it): a list
@@ -107,7 +119,23 @@ const entered = new EnteredState();
  */
 export function listOpener(path: PageKey): PageKey | null {
 	if (entered.value.includes(path)) return null;
+	const a = arriving.value;
+	if (a?.to === path) return a.opener;
 	return trail.value.pages[path]?.opener ?? null;
+}
+
+/**
+ * `listOpener` for a navigation still loading (the skeleton's column): history
+ * has not moved yet, so a push is assumed for anything but a popstate.
+ */
+export function openerAhead(
+	to: PageKey,
+	from: PageKey | null,
+	type: string | null
+): PageKey | null {
+	const kind = type === 'popstate' ? 'pop' : 'push';
+	if (enteredAfter(entered.value, { kind, from, to }).includes(to)) return null;
+	return arrivalOpener(trail.value, { to, from, kind, intent });
 }
 
 let intent: Intent = null;
@@ -146,10 +174,14 @@ export function keptFilter(listPath: string): string {
 	return keptFilterIn(trail.value, listPath);
 }
 
-/** Keep the list column's filter ('' drops it). */
-export function keepFilter(listPath: string, value: string): void {
+/**
+ * Keep the list column's filter ('' drops it), and `search` as the list page's
+ * own kept search (`rememberedHref`), in one write. The search is kept only for
+ * a list page this session has seen.
+ */
+export function keepFilter(listPath: string, value: string, search = ''): void {
 	load();
-	set(keepFilterIn(trail.value, listPath, value));
+	set(searched(keepFilterIn(trail.value, listPath, value), listPath, search));
 }
 
 /** Where the band's back goes from `current`, and its label. */
@@ -222,6 +254,18 @@ export function syncTrail(): void {
 		if (from && isTrailPage(from)) set(leave(trail.value, from, window.scrollY));
 	});
 
+	// History has moved and the page is about to render: what `afterNavigate` will
+	// store is known, so `listOpener` answers with it from the first render.
+	onNavigate((nav) => {
+		const to = nav.to?.url.pathname;
+		arriving.value = null;
+		if (!to || !isTrailPage(to)) return;
+		const from = nav.from?.url.pathname ?? null;
+		const kind = arrivalKind(nav.type, historyIndex(), before);
+		entered.value = enteredAfter(entered.value, { kind, from, to });
+		arriving.value = { to, opener: arrivalOpener(trail.value, { to, from, kind, intent }) };
+	});
+
 	afterNavigate(async (nav) => {
 		load();
 		const to = nav.to?.url;
@@ -230,7 +274,10 @@ export function syncTrail(): void {
 		before = null;
 		const it = intent;
 		intent = null;
-		if (!to) return;
+		if (!to) {
+			arriving.value = null;
+			return;
+		}
 		const kind = arrivalKind(nav.type, index, prevIndex);
 		entered.value = enteredAfter(entered.value, {
 			kind,
@@ -240,6 +287,7 @@ export function syncTrail(): void {
 		// A page outside a dance (Settings, My count) is no place for a band back
 		// to step into: its slot leaves the trail's history.
 		if (!isTrailPage(to.pathname)) {
+			arriving.value = null;
 			set(vacate(trail.value, index, kind));
 			return;
 		}
@@ -254,6 +302,7 @@ export function syncTrail(): void {
 		 * next try.
 		 */
 		if (page.status >= 400) {
+			arriving.value = null;
 			const gone = isGone(page.status, navigator.onLine);
 			set(vacate(gone ? forget(trail.value, path) : trail.value, index, kind));
 			if (gone && (it === 'tab' || it === 'back'))
@@ -275,6 +324,7 @@ export function syncTrail(): void {
 			intent: it
 		};
 		set(arrive(trail.value, a));
+		arriving.value = null;
 		const y = scrollFor(trail.value, a);
 		if (y !== null && !to.hash) window.scrollTo(0, y);
 	});

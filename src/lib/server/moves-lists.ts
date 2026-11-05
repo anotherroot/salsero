@@ -24,6 +24,7 @@ import { fold } from '$lib/fold';
 import { byGroupName } from '$lib/positions/view';
 import type { FiguresLists } from '$lib/moves/filter';
 import type { PositionsLists } from '$lib/positions/filter';
+import type { RoutinesLists } from '$lib/moves/routines';
 import type { PositionListRow, TeamRef } from '$lib/types';
 import type { PositionRow } from './db/schema';
 
@@ -72,7 +73,7 @@ export function figuresLists(db: Db, wall: Wall, mode: GroupMode | null): Figure
 	};
 }
 
-export function routinesList(db: Db, wall: Wall, mode: GroupMode | null) {
+export function routinesList(db: Db, wall: Wall, mode: GroupMode | null): RoutinesLists {
 	// In group mode the page reads the group's side; the person's own is not shown.
 	const space = mode ? { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId } : wall;
 	const reach = mode ? publishedReach(db, mode.teamId) : null;

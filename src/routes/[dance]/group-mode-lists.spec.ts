@@ -86,7 +86,8 @@ const loadOf = (fn: unknown, user: string, cookies: Cookies) =>
 		params: { dance: 'salsa' },
 		locals: locals(user),
 		cookies,
-		url: new URL('http://x/salsa')
+		url: new URL('http://x/salsa'),
+		depends: () => {}
 	}) as never as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // The lists as the pages show them: the layout's unfiltered data through the pure view.

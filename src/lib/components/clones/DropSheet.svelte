@@ -182,7 +182,10 @@
 								dropped.set(droppedToast(place), result.location, page.url.pathname);
 								close();
 								try {
-									await gotoWhenSettled(result.location, { replaceState: true });
+									await gotoWhenSettled(result.location, {
+										replaceState: true,
+										invalidateAll: true
+									});
 								} catch (err) {
 									dropped.clear();
 									throw err;

@@ -107,11 +107,9 @@
 	const searchOf = (q: string) => (q ? `?${new URLSearchParams({ q })}` : '');
 	/** `leaving`: a navigation is under way, so the URL is not this page's to change. */
 	function keepQuery(q: string, leaving = false) {
-		if (keptFilter(list) !== q) keepFilter(list, q);
-		if (!isList || leaving) {
-			keepSearch(list, searchOf(q));
-			return;
-		}
+		// The column's filter and the list page's kept search, in one write.
+		keepFilter(list, q, searchOf(q));
+		if (!isList || leaving) return;
 		const url = new URL(location.href);
 		if ((url.searchParams.get('q') ?? '') === q) return;
 		// A sheet's own entry is not the page's: wait until it has closed.

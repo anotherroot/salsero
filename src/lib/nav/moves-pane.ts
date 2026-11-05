@@ -1,4 +1,4 @@
-import type { ListId } from './pane';
+import { listOf, type ListId } from './pane';
 
 /**
  * Which Moves list sits beside an item, and which of its rows is lit. PURE.
@@ -67,4 +67,17 @@ export function besideOf(
 		default:
 			return null;
 	}
+}
+
+/**
+ * The list in the column beside a route: the Moves column `besideOf` chooses,
+ * else the route's own list (`listOf`); null for a page with no list beside it.
+ * The skeleton keys on it, so an item opened inside the same column covers only the pane.
+ */
+export function columnOf(
+	routeId: string | null,
+	path: string,
+	opener: string | null
+): ListId | null {
+	return besideOf(routeId, path, opener)?.list ?? listOf(routeId)?.list ?? null;
 }

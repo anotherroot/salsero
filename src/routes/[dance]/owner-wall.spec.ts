@@ -46,17 +46,24 @@ import { positionsView, type PositionsLists } from '$lib/positions/filter';
 
 /** The Figures list as the page shows it: the layout's unfiltered lists through the pure view. */
 const figuresListLoad = (e: unknown) => {
-	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })(e).lists
-		.figures;
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.figures;
 	return { ...l, ...figuresView(l, { q: '' }) };
 };
 const positionsListLoad = (e: unknown) => {
-	const l = (layoutLoad as unknown as (e: unknown) => { lists: { positions: PositionsLists } })(e)
-		.lists.positions;
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { positions: PositionsLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.positions;
 	return { ...l, ...positionsView(l, { q: '' }) };
 };
 const routinesListLoad = (e: unknown) =>
-	(layoutLoad as unknown as (e: unknown) => { lists: { routines: unknown } })(e).lists.routines;
+	(layoutLoad as unknown as (e: unknown) => { lists: { routines: unknown } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.routines;
 const figureList = { load: figuresListLoad, actions: figureListActions.actions };
 import * as coveragePage from './(moves)/coverage/+page.server';
 import * as positionPage from './(moves)/positions/[id]/+page.server';

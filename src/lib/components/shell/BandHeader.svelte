@@ -23,11 +23,13 @@
 	 * the actions; the subtitle) are one wrapping flex row: the title block is
 	 * `display: contents` there and only becomes a box on the desktop, where it is
 	 * a small grid. `deskOnly`: not on the phone at all (a list's band row while an
-	 * item page draws the phone's own band).
+	 * item page draws the phone's own band). `deskSubtitle`: the desktop's subtitle
+	 * in place of `subtitle` (two spans, one per width); without it, one span.
 	 */
 	let {
 		title,
 		subtitle,
+		deskSubtitle,
 		compact = false,
 		hero = false,
 		slim = false,
@@ -40,6 +42,8 @@
 	}: {
 		title: string;
 		subtitle?: string;
+		/** The desktop's subtitle in place of `subtitle`; the phone keeps `subtitle`. */
+		deskSubtitle?: string;
 		compact?: boolean;
 		/** The page has a hero card over the band's foot: a deeper band. */
 		hero?: boolean;
@@ -156,7 +160,18 @@
 			>
 				<span class="line-clamp-2 min-w-0 break-words {D.name}">{title}</span>
 			</h1>
-			{#if subtitle}
+			{#if deskSubtitle !== undefined}
+				{#if subtitle}
+					<span
+						class="order-last basis-full text-[15px] font-semibold text-band-small desk:hidden"
+						class:pl-[38px]={!!left}>{subtitle}</span
+					>
+				{/if}
+				<span
+					class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
+					>{deskSubtitle}</span
+				>
+			{:else if subtitle}
 				<span
 					class="order-last basis-full text-[15px] font-semibold text-band-small {D.sub}"
 					class:pl-[38px]={!!left}>{subtitle}</span

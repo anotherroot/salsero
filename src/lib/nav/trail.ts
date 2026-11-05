@@ -162,21 +162,32 @@ export function vacate(t: Trail, index: number, kind: Arrival['kind']): Trail {
 	return { ...t, entries: slotted(t.entries, index, null, kind) };
 }
 
+/**
+ * The opener `arrive` records for `a.to`. Known as soon as history has moved, so
+ * a page can read it while it renders, before the arrival is stored (`listOpener`).
+ */
+export function arrivalOpener(
+	t: Trail,
+	a: Pick<Arrival, 'to' | 'from' | 'kind' | 'intent'>
+): PageKey | null {
+	const existing = t.pages[a.to];
+	if (isRoot(a.to)) return null;
+	if (a.kind === 'enter') return existing?.opener ?? null;
+	if (a.kind === 'pop' || a.intent === 'tab' || a.intent === 'back')
+		return existing?.opener ?? null;
+	if (a.kind === 'replace') {
+		// A variation step or a refilter: the page is the same place in the trail.
+		return a.from === null || a.from === a.to
+			? (existing?.opener ?? null)
+			: carriedOpener(t, a.to, t.pages[a.from]?.opener ?? null);
+	}
+	return openerFor(t, a.to, a.from);
+}
+
 export function arrive(t: Trail, a: Arrival): Trail {
 	if (!isTrailPage(a.to)) return t;
 	const existing = t.pages[a.to];
-	let opener: PageKey | null;
-	if (isRoot(a.to)) opener = null;
-	else if (a.kind === 'enter') opener = existing?.opener ?? null;
-	else if (a.kind === 'pop' || a.intent === 'tab' || a.intent === 'back')
-		opener = existing?.opener ?? null;
-	else if (a.kind === 'replace') {
-		// A variation step or a refilter: the page is the same place in the trail.
-		opener =
-			a.from === null || a.from === a.to
-				? (existing?.opener ?? null)
-				: carriedOpener(t, a.to, t.pages[a.from]?.opener ?? null);
-	} else opener = openerFor(t, a.to, a.from);
+	const opener = arrivalOpener(t, a);
 
 	const pages = {
 		...t.pages,

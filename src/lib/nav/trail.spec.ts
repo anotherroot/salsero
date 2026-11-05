@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	enteredAfter,
 	arrivalKind,
+	arrivalOpener,
 	arrive,
 	backMove,
 	backTarget,
@@ -367,6 +368,48 @@ describe('leave and hrefOf', () => {
 		const s = searched(t, '/salsa/lessons/5', '?q=son&add=1');
 		expect(hrefOf(s, '/salsa/lessons/5')).toBe('/salsa/lessons/5?q=son');
 		expect(searched(t, '/salsa/nowhere', '?q=son')).toEqual(t);
+	});
+});
+
+describe('a list column kept beside an item', () => {
+	it('gives the list page back with the filter its column keeps', () => {
+		let t = arrive(EMPTY_TRAIL, A({ to: '/salsa/figures', kind: 'enter', index: 1 }));
+		t = searched(
+			keepFilter(t, '/salsa/figures', 'q=enc&style=On1'),
+			'/salsa/figures',
+			'?q=enc&style=On1'
+		);
+		expect(hrefOf(t, '/salsa/figures')).toBe('/salsa/figures?q=enc&style=On1');
+		expect(keptFilter(t, '/salsa/figures')).toBe('q=enc&style=On1');
+		// The bare query string the lists store is the same search.
+		expect(searched(t, '/salsa/figures', 'q=enc').pages['/salsa/figures'].search).toBe('?q=enc');
+	});
+});
+
+describe('arrivalOpener', () => {
+	// The opener `arrive` records, known before the page renders (the list column reads it).
+	it('is the opener arrive records, for every kind of arrival', () => {
+		const t = opening();
+		const cases: Partial<Arrival>[] = [
+			{ to: '/salsa/figures/12', from: '/salsa/routines/9', kind: 'push' },
+			{ to: '/salsa/figures/13', from: '/salsa/figures/12', kind: 'replace' },
+			{ to: '/salsa/figures/12', from: '/salsa/lessons/5', kind: 'pop' },
+			{ to: '/salsa/figures/12', from: '/salsa/lessons/5', kind: 'push', intent: 'back' },
+			{ to: '/salsa/figures/12', from: null, kind: 'enter' },
+			{ to: '/salsa/routines', from: '/salsa/figures/12', kind: 'push' },
+			{ to: '/salsa/routines/3', from: '/salsa/lessons/5', kind: 'push' }
+		];
+		for (const c of cases) {
+			const a = A(c);
+			expect(arrivalOpener(t, a), JSON.stringify(c)).toBe(arrive(t, a).pages[a.to].opener);
+		}
+		expect(arrivalOpener(t, A({ to: '/salsa/figures/12', from: '/salsa/routines/9' }))).toBe(
+			'/salsa/routines/9'
+		);
+		// A step carries the opener of the variation it stands in for.
+		expect(
+			arrivalOpener(t, A({ to: '/salsa/figures/13', from: '/salsa/figures/12', kind: 'replace' }))
+		).toBe('/salsa/routines/3');
 	});
 });
 

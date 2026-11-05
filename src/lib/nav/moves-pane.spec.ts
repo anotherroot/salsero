@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { besideOf } from './moves-pane';
+import { besideOf, columnOf } from './moves-pane';
 
 const R = (s: string) => `/[dance]/(moves)/${s}`;
 
@@ -75,5 +75,15 @@ describe('besideOf', () => {
 		expect(besideOf('/[dance]/lessons/[id]', '/salsa/lessons/1', null)).toBeNull();
 		expect(besideOf('/[dance]/songs', '/salsa/songs', null)).toBeNull();
 		expect(besideOf(null, '/salsa/figures', null)).toBeNull();
+	});
+});
+
+describe('columnOf', () => {
+	it('is the list beside the route: besideOf for Moves, the route’s own list otherwise', () => {
+		expect(columnOf(R('figures/[id]'), '/salsa/figures/12', '/salsa/routines/5')).toBe('routines');
+		expect(columnOf(R('figures/[id]'), '/salsa/figures/12', null)).toBe('figures');
+		expect(columnOf('/[dance]/songs/[id]', '/salsa/songs/3', null)).toBe('songs');
+		expect(columnOf('/[dance]/lessons/[id]', '/salsa/lessons/1', null)).toBeNull();
+		expect(columnOf(null, '/salsa', null)).toBeNull();
 	});
 });

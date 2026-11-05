@@ -5,7 +5,7 @@
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 	import { listOf, paneBack } from '$lib/nav/pane';
-	import { trail } from '$lib/nav/trail.svelte';
+	import { listOpener } from '$lib/nav/trail.svelte';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
 	import { inPane } from '$lib/components/shell/pane-context';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -13,6 +13,7 @@
 	let {
 		title,
 		subtitle,
+		deskSubtitle,
 		compact = false,
 		width = 'one',
 		card = false,
@@ -25,6 +26,8 @@
 	}: {
 		title: string;
 		subtitle?: string;
+		/** The band row's subtitle on the desktop, in place of `subtitle` (`BandHeader`). */
+		deskSubtitle?: string;
 		compact?: boolean;
 		/** How wide the content grows on the desktop (`PAGE_WIDTH`); the phone ignores it. */
 		width?: PageWidth;
@@ -56,14 +59,15 @@
 	 * Inside a list's item pane (desktop spec, "A list and the item beside it"), the
 	 * desktop draws no band row here: the header is the pane's header, the sheet the
 	 * pane's content. Its ‹ shows only for an item opened from outside its list
-	 * (`paneBack`, by the trail's opener). The phone is unchanged.
+	 * (`paneBack`, by `listOpener`: the opener the list column also goes by, so a
+	 * page entered fresh has neither the opener's list nor a ‹). The phone is unchanged.
 	 */
 	const pane = inPane();
 	const back = $derived.by(() => {
 		if (!pane) return true;
 		const l = listOf(page.route.id);
 		if (!l) return true;
-		const opener = trail.value.pages[page.url.pathname]?.opener ?? null;
+		const opener = listOpener(page.url.pathname);
 		return paneBack(opener, l.list, page.params.dance as DanceSlug);
 	});
 
@@ -133,6 +137,7 @@
 <BandHeader
 	{title}
 	{subtitle}
+	{deskSubtitle}
 	{compact}
 	hero={!!hero}
 	{slim}

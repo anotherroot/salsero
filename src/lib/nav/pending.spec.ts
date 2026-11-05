@@ -107,6 +107,21 @@ describe('deskSkeletonMode', () => {
 	it('draws nothing on the desktop going from an item to its empty pane', () => {
 		expect(deskSkeletonMode('/[dance]/songs', '/[dance]/songs/[id]')).toBe('none');
 	});
+
+	// Moves: the column beside an item is not always the route's own (`besideOf`).
+	it('keys on the list beside each end, not the route’s own list', () => {
+		const F = '/[dance]/(moves)/figures/[id]';
+		const R = '/[dance]/(moves)/routines/[id]';
+		// Routine 5 → figure 12: the Routines column stays, only the pane is covered.
+		expect(deskSkeletonMode(F, R, 'routines', 'routines')).toBe('pane');
+		expect(deskSkeletonMode(F, R)).toBe('frame');
+		// Figure 12 (Routines beside it) → the Routines list: nothing to cover.
+		expect(deskSkeletonMode('/[dance]/(moves)/routines', F, 'routines', 'routines')).toBe('none');
+		// Figure 12 with Routines beside → a position with Figures beside: a new column.
+		expect(deskSkeletonMode('/[dance]/(moves)/positions/[id]', F, 'figures', 'routines')).toBe(
+			'frame'
+		);
+	});
 });
 
 describe('leavesPage', () => {

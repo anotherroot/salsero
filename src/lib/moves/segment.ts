@@ -1,7 +1,7 @@
 /**
  * The Moves tab's three segments. Each is its own route — `/[dance]/(moves)/figures`,
- * `/[dance]/(moves)/routines` and `/[dance]/(moves)/positions` — drawn inside one
- * `MovesScreen` whose band carries the switch. PURE.
+ * `/[dance]/(moves)/routines` and `/[dance]/(moves)/positions` — under one band, the (moves)
+ * layout's, whose switch picks between them. PURE.
  */
 
 export type MovesSegment = 'figures' | 'routines' | 'positions';

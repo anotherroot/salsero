@@ -1,0 +1,233 @@
+<script lang="ts">
+	import { afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { guarded } from '$lib/unsaved/guard.svelte';
+	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
+	import Sheet from '$lib/components/ui/Sheet.svelte';
+	import Badge from '$lib/components/ui/Badge.svelte';
+	import Banner from '$lib/components/ui/Banner.svelte';
+	import EmptyState from '$lib/components/ui/EmptyState.svelte';
+	import FieldError from '$lib/components/ui/FieldError.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { FIELD, GROUP, LABEL, SECTION_LABEL, TEXTAREA, button } from '$lib/components/ui/styles';
+	import { plural } from '$lib/format';
+	import { groupHeading } from '$lib/moves/figures';
+	import { routineBadges, type RoutineBadge, type RoutinesLists } from '$lib/moves/routines';
+	import { TWINS_CHIP } from '$lib/clones/twins';
+	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
+	import type { Dance } from '$lib/dances/dances';
+	import type { OpenRow } from '$lib/nav/moves-pane';
+
+	/**
+	 * The Routines list: the space's routines, then each group's. The (moves)
+	 * layout renders it once (`ListPane`): the phone's list page, and on the
+	 * desktop the column beside an open routine (or a figure opened from one).
+	 * New routine posts to the list route's action by name, and its refusal is
+	 * read from the submit's result, never from `form`.
+	 */
+	let {
+		lists,
+		dance,
+		open,
+		isList,
+		creating = $bindable(false)
+	}: {
+		lists: RoutinesLists;
+		dance: Dance;
+		/** What is open beside the list: its row is lit. */
+		open: OpenRow;
+		/** The list route; otherwise an item is open. */
+		isList: boolean;
+		/** The New routine sheet; the band's + and the empty pane open it too. */
+		creating?: boolean;
+	} = $props();
+
+	type Refusal = { field?: 'name' | 'notes'; message?: string; name?: string; notes?: string };
+
+	// `?new=1` opens the sheet on arrival, as it does on Figures.
+	afterNavigate(() => {
+		if (isList && page.url.searchParams.get('new') === '1') creating = true;
+	});
+	let busy = $state(false);
+	// The last create's refusal, shown in the sheet until it closes.
+	let refusal = $state<Refusal | null>(null);
+	let formEl = $state<HTMLFormElement>();
+	// The routines that stand for their twins (board C7): a "Twins" chip.
+	const twinned = $derived(new Set(lists.twinned));
+
+	const nameError = $derived(refusal?.field === 'name' ? refusal.message : null);
+	const notesError = $derived(refusal?.field === 'notes' ? refusal.message : null);
+	// A refusal that is about no one field goes at the top of the sheet.
+	const otherError = $derived(refusal?.message && !refusal.field ? refusal.message : null);
+
+	function close() {
+		creating = false;
+		refusal = null;
+	}
+</script>
+
+{#snippet routineRow(
+	routine: { id: number; name: string; slots: number; membersSee?: boolean },
+	badges: RoutineBadge[]
+)}
+	{@const lit = open?.kind === 'routine' && open.id === routine.id}
+	<a
+		class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
+		class:bg-accent-soft={lit}
+		aria-current={lit ? 'page' : undefined}
+		href={resolve('/[dance]/(moves)/routines/[id]', {
+			dance: dance.slug,
+			id: String(routine.id)
+		})}
+	>
+		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{routine.name}</span>
+			<span
+				class="flex flex-wrap items-center gap-1.5 pt-0.5 text-[13px] leading-[1.35] text-muted"
+			>
+				<span>{plural(routine.slots, 'slot', 'slots')}</span>
+				<!-- The twin icon is the kit's `link`: the kit has none of its own. -->
+				{#if twinned.has(routine.id)}<Badge><Icon name="link" size={14} />{TWINS_CHIP}</Badge>{/if}
+				{#each badges as b (b.text)}
+					<Badge tone={b.tone}>{b.text}</Badge>
+				{/each}
+				{#if routine.membersSee === false}
+					<span class="flex items-center gap-1 whitespace-nowrap"
+						><Icon name="eye-off" size={16} />{HIDDEN_FROM_MEMBERS}</span
+					>
+				{/if}
+			</span>
+		</span>
+		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+	</a>
+{/snippet}
+
+{#if lists.routines.length === 0 && lists.groups.length === 0}
+	<div class="h-10 flex-none"></div>
+	<EmptyState
+		icon="routine"
+		title="No routines yet"
+		body="String some figures together into one you can call as a single set."
+	>
+		{#snippet action()}
+			<button type="button" class={button('primary')} onclick={() => (creating = true)}>
+				<Icon name="plus" size={20} /> New routine
+			</button>
+		{/snippet}
+	</EmptyState>
+{:else}
+	{#if lists.routines.length > 0}
+		{#if anyHidden(lists.routines)}
+			<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
+				{MEMBERS_NOTE}
+			</p>
+		{/if}
+		<h2 class="{SECTION_LABEL} pt-1">{plural(lists.routines.length, 'routine', 'routines')}</h2>
+		<div class={GROUP}>
+			{#each lists.routines as routine (routine.id)}
+				{@render routineRow(routine, routineBadges(routine))}
+			{/each}
+		</div>
+	{/if}
+
+	<!-- Each group's routines from the lessons the person added: opened, not edited, under a slight heading. -->
+	{#each lists.groups as g (g.team.id)}
+		<section aria-label={g.team.name} class="flex flex-col gap-2">
+			<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
+				<Icon name="people" size={16} />{groupHeading(g.team.name, g.routines.length)}
+			</h2>
+			<div class={GROUP}>
+				{#each g.routines as routine (routine.id)}
+					{@render routineRow(routine, [])}
+				{/each}
+			</div>
+		</section>
+	{/each}
+{/if}
+
+<Sheet title="New routine" open={creating} onclose={close}>
+	<form
+		id="new-routine"
+		method="POST"
+		action={`/${dance.slug}/routines?/create`}
+		class="flex flex-col gap-3.5"
+		bind:this={formEl}
+		use:guarded={{
+			label: 'New routine',
+			submit: ({ cancel }) => {
+				// One routine per tap: a second tap while the first is out is dropped.
+				if (busy) return cancel();
+				busy = true;
+				return async ({ result, update }) => {
+					try {
+						if (result.type === 'failure') {
+							refusal = (result.data ?? {}) as Refusal;
+						} else if (result.type === 'redirect') {
+							// The list stays (the layout's): the sheet closes, then the new
+							// routine opens once its Back has landed, with every load fresh.
+							close();
+							await gotoWhenSettled(result.location, { invalidateAll: true });
+							// The sheet is kept, closed: the next New routine starts empty.
+							formEl?.reset();
+						} else {
+							await update();
+						}
+					} finally {
+						busy = false;
+					}
+				};
+			}
+		}}
+	>
+		{#if otherError}<Banner kind="error">{otherError}</Banner>{/if}
+
+		<div>
+			<label class={LABEL} for="routine-name">Name</label>
+			<!-- The sheet exists to type this one thing. -->
+			<!-- svelte-ignore a11y_autofocus -->
+			<input
+				id="routine-name"
+				name="name"
+				required
+				autofocus
+				maxlength="200"
+				value={refusal?.name ?? ''}
+				placeholder="Basic combo"
+				class={FIELD}
+				aria-invalid={nameError ? 'true' : undefined}
+				aria-describedby={nameError ? 'routine-name-error' : undefined}
+			/>
+			{#if nameError}<FieldError id="routine-name-error" message={nameError} />{/if}
+		</div>
+
+		<div>
+			<label class={LABEL} for="routine-notes">Notes</label>
+			<textarea
+				id="routine-notes"
+				name="notes"
+				rows="4"
+				maxlength="2000"
+				placeholder="What this is for, when to reach for it…"
+				class={TEXTAREA}
+				aria-invalid={notesError ? 'true' : undefined}
+				aria-describedby={notesError ? 'routine-notes-error' : undefined}
+				>{refusal?.notes ?? ''}</textarea
+			>
+			{#if notesError}<FieldError id="routine-notes-error" message={notesError} />{/if}
+		</div>
+	</form>
+
+	{#snippet footer()}
+		<button
+			type="submit"
+			form="new-routine"
+			class={button('primary', 'md', true)}
+			aria-busy={busy}
+			aria-label={busy ? 'Creating routine' : undefined}
+		>
+			{#if busy}<Spinner />{:else}Create routine{/if}
+		</button>
+	{/snippet}
+</Sheet>

@@ -12,9 +12,13 @@ import type { LayoutServerLoad } from './$types';
  * reads `params`, `locals` and `cookies` and never `url`: a search or opening
  * an item does not rerun it. Namespaced under `lists`, so it never collides with
  * an item page's own data keys.
+ *
+ * Forms rerun it (`invalidateAll`); a change made without one (a position made
+ * from a figure's picker) reruns this load alone: `invalidate('app:moves')`.
  */
-export const load: LayoutServerLoad = ({ params, locals, cookies }) => {
+export const load: LayoutServerLoad = ({ params, locals, cookies, depends }) => {
 	if (!locals.user) throw error(401);
+	depends('app:moves');
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);

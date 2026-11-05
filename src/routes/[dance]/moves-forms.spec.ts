@@ -26,8 +26,10 @@ import { figuresView, type FiguresLists } from '$lib/moves/filter';
 
 /** The Figures list as the page shows it: the layout's unfiltered lists through the pure view. */
 const figureListLoad = (e: unknown) => {
-	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })(e).lists
-		.figures;
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.figures;
 	return { ...l, ...figuresView(l, { q: '' }) };
 };
 import { actions as coverageActions } from './(moves)/coverage/+page.server';

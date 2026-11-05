@@ -79,13 +79,18 @@ import { figuresView, type FiguresLists } from '$lib/moves/filter';
 
 /** The Figures and Routines lists are the layout's; Figures through the pure view. */
 const figuresLoad = (e: never) => {
-	const l = (layoutLoad as unknown as (e: never) => { lists: { figures: FiguresLists } })(e).lists
-		.figures;
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.figures;
 	return { ...l, ...figuresView(l, { q: '' }) };
 };
 import { load as routineLoad } from '../(moves)/routines/[id]/+page.server';
 const routinesLoad = (e: never) =>
-	(layoutLoad as unknown as (e: never) => { lists: { routines: never } })(e).lists.routines;
+	(layoutLoad as unknown as (e: unknown) => { lists: { routines: never } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.routines;
 import { load as playerLoad } from '../player/+page.server';
 import { load as todayLoad } from '../+page.server';
 import { GET as getRecording } from '../../recordings/[file]/+server';

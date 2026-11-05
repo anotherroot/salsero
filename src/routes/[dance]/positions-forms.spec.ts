@@ -54,8 +54,10 @@ import { parsePositionFilter, positionsView, type PositionsLists } from '$lib/po
  * through the pure parse and view, with the URL's filter.
  */
 const load = (e: { url: URL }) => {
-	const l = (layoutLoad as unknown as (e: unknown) => { lists: { positions: PositionsLists } })(e)
-		.lists.positions;
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { positions: PositionsLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.positions;
 	const filter = parsePositionFilter(e.url.searchParams, l.types, l.inGroupMode);
 	return { ...l, ...positionsView(l, filter), filter };
 };

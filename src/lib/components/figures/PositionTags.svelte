@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { invalidate } from '$app/navigation';
 	import PickerMultiField from '$lib/components/picker/PickerMultiField.svelte';
 	import PositionFields from '$lib/components/positions/PositionFields.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -149,8 +150,12 @@
 			});
 			const body = (await res.json().catch(() => null)) as
 				(PositionSummary & { message?: unknown; field?: unknown }) | null;
-			// Made, whichever level asked: it exists now, so both pickers offer it.
-			if (res.status === 201 && body) made = [...made, body];
+			// Made, whichever level asked: it exists now, so both pickers offer it,
+			// and so does the Positions list (the (moves) layout's), saved or not.
+			if (res.status === 201 && body) {
+				made = [...made, body];
+				void invalidate('app:moves');
+			}
 			// A level that closed, or was opened again, since: its answer is not this one's.
 			if (!current()) return;
 			if (res.status === 201 && body) {

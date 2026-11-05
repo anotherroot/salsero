@@ -23,15 +23,19 @@
 	/**
 	 * Start from a template: a type at a time, its rough positions ticked,
 	 * the ones the space already has by name marked "You have it" and left
-	 * out. Posts `?/templates`; a picker's Add, so `use:enhance`.
+	 * out. Posts `action` (`?/templates` by default; the Positions list names its
+	 * route's, since it sits beside an item too); a picker's Add, so `use:enhance`.
 	 */
 	let {
+		action = '?/templates',
 		open,
 		onclose,
 		dance,
 		owned,
 		defaultStyle = null
 	}: {
+		/** Where the form posts. */
+		action?: string;
 		open: boolean;
 		onclose: () => void;
 		dance: DanceSlug;
@@ -69,7 +73,7 @@
 	<form
 		id={formId}
 		method="POST"
-		action="?/templates"
+		{action}
 		class="flex flex-col gap-3.5"
 		use:enhance={({ cancel }) => {
 			// One add per tap: a second tap while the first is out is dropped.
