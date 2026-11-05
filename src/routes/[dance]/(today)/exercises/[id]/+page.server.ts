@@ -84,7 +84,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	/** "Comments on the class": the card for the exercise's group lesson, or null (`classLessonOf`). */
 	const commentsFor = (exercise: Parameters<typeof classLessonOf>[2], from: FromClass) => {
 		const lessonId = classLessonOf(db, wall.userId, exercise, from);
-		return lessonId === null ? null : commentsOn(db, wall.userId, lessonId);
+		return lessonId === null ? null : commentsOn(db, wall.userId, lessonId, now);
 	};
 
 	if (row.teamId === null) {

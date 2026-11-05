@@ -5,6 +5,7 @@ import {
 	cardWords,
 	commentKey,
 	COMMENT_MAX,
+	composerShown,
 	heartToggled,
 	initialOf,
 	repliesLabel,
@@ -158,6 +159,16 @@ describe('the list as it changes in the sheet', () => {
 			[1, []]
 		]);
 		expect(ids(withoutComment(withoutComment(withoutComment(l, 2), 3), 4))).toEqual([[1, []]]);
+	});
+
+	it('shows the composer only in an open sheet with an open, loaded list', () => {
+		const l = listOf([]);
+		expect(composerShown(true, l, null)).toBe(true);
+		// Closed: the composer (and its unsaved text) goes, so nothing can post it later.
+		expect(composerShown(false, l, null)).toBe(false);
+		expect(composerShown(true, null, null)).toBe(false);
+		expect(composerShown(true, { ...l, open: false }, null)).toBe(false);
+		expect(composerShown(true, l, 'That did not work. Try again.')).toBe(false);
 	});
 
 	it('lists the comments on screen in order, replies only of open threads', () => {

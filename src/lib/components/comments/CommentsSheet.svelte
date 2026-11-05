@@ -21,6 +21,7 @@
 	} from '$lib/comments/api';
 	import {
 		commentKey,
+		composerShown,
 		DELETED_WORDS,
 		HIDE_REPLIES,
 		heartToggled,
@@ -169,7 +170,7 @@
 	{open}
 	{onclose}
 	tall
-	footer={list?.open ? composerFooter : undefined}
+	footer={composerShown(open, list, loadError) ? composerFooter : undefined}
 >
 	{#if loadError}
 		<div class="flex flex-col items-center gap-3 py-10 text-center">

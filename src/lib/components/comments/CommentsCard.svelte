@@ -46,7 +46,7 @@
 				<span class="font-extrabold text-accent-text">{TEACHER_TAG}</span>{/if}
 		</span>
 		<span class="line-clamp-2 text-[15px] leading-[1.4] break-words text-ink-2">{newest.text}</span>
-		<span class="text-[13px] text-muted">{agoText(newest.at, Date.now())}</span>
+		<span class="text-[13px] text-muted">{agoText(newest.at, comments.now)}</span>
 	{:else}
 		<span class="text-[15px] text-muted">{words.empty}</span>
 	{/if}

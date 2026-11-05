@@ -32,7 +32,6 @@ export function repliesLabel(n: number): string {
 
 export const HIDE_REPLIES = 'Hide replies';
 export const DELETED_WORDS = 'Comment deleted';
-export const DELETED_TOAST = 'Comment deleted · Undo';
 export const COMPOSER_PLACEHOLDER = 'Write a comment…';
 export const TEACHER_TAG = 'Teacher';
 
@@ -134,6 +133,19 @@ export function withoutComment(list: CommentList, id: number): CommentList {
 		threads.push(replies.length === t.replies.length ? t : { ...t, replies });
 	}
 	return { ...list, threads };
+}
+
+/**
+ * Whether the sheet draws its composer. Only while the sheet is open: Sheet
+ * draws a footer even when closed, and a composer left there would keep text
+ * the person threw away as "unsaved", for a later Save to post.
+ */
+export function composerShown(
+	sheetOpen: boolean,
+	list: CommentList | null,
+	loadError: string | null
+): boolean {
+	return sheetOpen && loadError === null && list !== null && list.open;
 }
 
 /** The comments on screen, top to bottom: every top comment, and the replies of open threads. */

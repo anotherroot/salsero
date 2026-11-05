@@ -246,15 +246,17 @@ describe('counts and the card', () => {
 describe('the card on a page', () => {
 	it('carries the lesson’s title and group, only for a group lesson the person reads', () => {
 		ok(post('u1', 'hello', null, 100));
-		expect(commentsOn(db, 'u2', lesson)).toEqual({
+		expect(commentsOn(db, 'u2', lesson, 500)).toEqual({
 			lessonId: lesson,
 			lessonTitle: 'Tue 3 Nov',
 			groupName: 'Salsa Tuesdays',
-			card: commentCard(db, 'u2', lesson)
+			card: commentCard(db, 'u2', lesson),
+			// The server's clock, so the card's "2 days ago" is the same in SSR and hydration.
+			now: 500
 		});
-		expect(commentsOn(db, 'u2', own)).toBeNull();
-		expect(commentsOn(db, 'u4', lesson)).toBeNull();
-		expect(commentsOn(db, 'u2', draft)).toBeNull();
+		expect(commentsOn(db, 'u2', own, 500)).toBeNull();
+		expect(commentsOn(db, 'u4', lesson, 500)).toBeNull();
+		expect(commentsOn(db, 'u2', draft, 500)).toBeNull();
 	});
 });
 
@@ -304,10 +306,14 @@ describe('the lesson of an exercise page’s card', () => {
 			style: 'salsa',
 			notes: null
 		})!.figure.id;
-		linkFigure(db, lesson, fig, 'u1');
+		const later = lessonOn('2026-11-10');
+		const latest = lessonOn('2026-11-17');
+		for (const l of [lesson, later, latest]) linkFigure(db, l, fig, 'u1');
 		addLesson(db, 'u2', lesson, { ...none, figureIds: [fig] }, 10);
 		const entry = entryFor(db, 'u2', { figureId: fig })!;
 		expect(classLessonOf(db, 'u2', exerciseRow(entry.id))).toBe(lesson);
+		addLesson(db, 'u2', later, { ...none, figureIds: [fig] }, 11);
+		expect(classLessonOf(db, 'u2', exerciseRow(entry.id))).toBe(later);
 	});
 
 	it('a person’s own exercise or routine has none', () => {

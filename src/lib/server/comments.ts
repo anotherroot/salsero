@@ -294,12 +294,17 @@ export function commentCard(db: Db, userId: string, lessonId: number): CommentCa
 }
 
 /** The card and what its sheet needs (the lesson's title, the group's name), or null: no card. */
-export function commentsOn(db: Db, userId: string, lessonId: number): CommentsOn | null {
+export function commentsOn(
+	db: Db,
+	userId: string,
+	lessonId: number,
+	now: number
+): CommentsOn | null {
 	const card = commentCard(db, userId, lessonId);
 	if (!card) return null;
 	const lesson = db.select().from(lessons).where(eq(lessons.id, lessonId)).get()!;
 	const team = db.select().from(teams).where(eq(teams.id, lesson.teamId!)).get()!;
-	return { lessonId, lessonTitle: lesson.title, groupName: team.name, card };
+	return { lessonId, lessonTitle: lesson.title, groupName: team.name, card, now };
 }
 
 /**

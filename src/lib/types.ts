@@ -1127,4 +1127,6 @@ export type CommentsOn = {
 	lessonTitle: string;
 	groupName: string;
 	card: CommentCard;
+	/** The load's clock: the card's "2 days ago" reads it, so SSR and hydration agree. */
+	now: number;
 };

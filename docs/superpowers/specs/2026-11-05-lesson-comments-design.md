@@ -200,4 +200,6 @@ in `src/lib/server/comments.ts` and take `db` first.
 - Top comments newest first; replies oldest first.
 - 1000 characters at most.
 - The exercise page's card for a routine or figure entry uses the newest
-  added lesson that links it.
+  added lesson that links it. "Links it" is the lesson's reach (`reachFrom`),
+  the same reading Add uses: a figure inside one of the lesson's routines, or
+  on one of its sections, counts.
