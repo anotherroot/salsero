@@ -57,3 +57,20 @@ describe('the player layer as a dialog', () => {
 		expect(s).toMatch(/size="small"\s+title="Rename"/);
 	});
 });
+
+describe('the Link popup picker is a level', () => {
+	it('LinkPopup opens its Picker as a level and Picker forwards it to both branches', () => {
+		expect(readFileSync(`${ROOT}/links/LinkPopup.svelte`, 'utf8')).toMatch(/<Picker\s+level\s/);
+		const p = readFileSync(`${ROOT}/picker/Picker.svelte`, 'utf8');
+		expect(p).toContain('level?: boolean');
+		expect(p.match(/^\s*\{level\}$/gm)?.length).toBe(2);
+	});
+	it('a level wins over tall on desk, in the layer and in the sheet', () => {
+		const layer = readFileSync(`${ROOT}/ui/PlayerLayer.svelte`, 'utf8');
+		expect(layer).toContain("'h-[88%] desk:h-[480px]'");
+		const sheet = readFileSync(`${ROOT}/ui/Sheet.svelte`, 'utf8');
+		expect(sheet.indexOf('dialog.level {')).toBeGreaterThan(
+			sheet.indexOf('dialog.tall {\n\t\t\theight: min')
+		);
+	});
+});

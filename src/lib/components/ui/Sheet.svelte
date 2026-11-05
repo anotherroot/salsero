@@ -324,12 +324,12 @@
 			width: 480px;
 		}
 
-		dialog.level {
-			height: 480px;
-		}
-
 		dialog.tall {
 			height: min(780px, 100dvh - 64px);
+		}
+
+		dialog.level {
+			height: 480px;
 		}
 
 		dialog:global([data-under]) {

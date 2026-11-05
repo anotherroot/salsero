@@ -156,7 +156,9 @@
 			'small'
 				? 'desk:w-[480px]'
 				: 'desk:w-[560px]'} desk:max-w-[calc(100%-32px)] desk:pt-5 {tall
-				? 'h-[88%] desk:h-[min(780px,calc(100%-64px))]'
+				? level
+					? 'h-[88%] desk:h-[480px]'
+					: 'h-[88%] desk:h-[min(780px,calc(100%-64px))]'
 				: level
 					? 'desk:h-[480px]'
 					: ''}"
