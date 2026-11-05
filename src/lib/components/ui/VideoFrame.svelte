@@ -36,6 +36,8 @@
 		linking?: boolean;
 		/** Marking and editing spots in the full-screen player: off for a reader of a group's video. */
 		canEdit?: boolean;
+		/** The simple look: no section bands on the bar, and the simple full-screen player. */
+		simple?: boolean;
 		/** A title and a line under the picture; Full screen then sits beside it. */
 		caption?: { title: string; meta?: string };
 		/** At the right of the caption row in place of Full screen (which then joins the control row). */
@@ -54,6 +56,7 @@
 		onclosed,
 		linking = false,
 		canEdit = true,
+		simple = false,
 		caption,
 		action,
 		sections
@@ -65,14 +68,16 @@
 	// server sent.
 	let mirror = $state(false);
 	let rate = $state<VideoRate>(1);
+	let repeat = $state(false);
 	onMount(() => {
-		({ mirror, rate } = loadVideoPrefs());
+		({ mirror, rate, repeat } = loadVideoPrefs());
 	});
 
-	function choose(next: { mirror?: boolean; rate?: VideoRate }) {
+	function choose(next: { mirror?: boolean; rate?: VideoRate; repeat?: boolean }) {
 		mirror = next.mirror ?? mirror;
 		rate = next.rate ?? rate;
-		saveVideoPrefs({ mirror, rate });
+		repeat = next.repeat ?? repeat;
+		saveVideoPrefs({ mirror, rate, repeat });
 	}
 
 	/** A slowed teacher should sound slowed, not like a cartoon. */
@@ -95,7 +100,7 @@
 
 	/** The sections as bands. Fetched on the first play, so a page scrolled past asks nothing; a failure leaves the bar bare. */
 	function loadSpots() {
-		if (!owner) return;
+		if (!owner || simple) return;
 		fetchSpots(owner)
 			.then((s) => (spots = s))
 			.catch(() => {});
@@ -279,9 +284,11 @@
 		{title}
 		{linking}
 		{canEdit}
+		{simple}
 		subtitle={'recordingId' in owner ? 'Recording' : 'Lesson video'}
 		{mirror}
 		{rate}
+		{repeat}
 		onchoose={choose}
 		onclose={(at) => {
 			if (inline) inline.currentTime = at;
