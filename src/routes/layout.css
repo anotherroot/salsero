@@ -367,6 +367,68 @@ body {
 }
 
 /*
+ * Pointer and hover (desktop spec): only where the device can hover and the
+ * desktop layout is on, so the phone never shows a stuck hover. Written once
+ * on the classes that already mean "pressable":
+ * - the pressed overlay `active:bg-step` (rows, bare icon buttons) and the
+ *   button builders' `active:brightness`/`active:opacity` get a lighter hover:
+ *   ink 4 % in light, white 5 % in dark; cream 10 % on the band
+ *   (`active:bg-band-ink`, unless the element has its own `hover:bg-band-ink`,
+ *   as the side's items do); a chip's pill (`before:bg-chip`) gets it too.
+ * - the overlay is a background-image gradient, so it lies over whatever fill
+ *   the control has without competing with its `bg-*` colour.
+ * - every link, button and control that can be pressed gets a pointer
+ *   (Tailwind 4's preflight gives buttons `cursor: default`).
+ * Inside `@layer base` so a disabled or busy control's own `cursor-default`
+ * utility still wins. The overlay has no transition, so reduced motion has
+ * nothing to respect.
+ */
+@layer base {
+	@media (hover: hover) and (width >= 1024px) {
+		:root {
+			--hover-overlay: color-mix(in srgb, var(--color-ink) 4%, transparent);
+			--hover-overlay-band: color-mix(in srgb, var(--color-band-ink) 10%, transparent);
+		}
+		:root[data-theme='dark'] {
+			--hover-overlay: color-mix(in srgb, white 5%, transparent);
+		}
+
+		:is(
+			a[href],
+			button,
+			summary,
+			select,
+			label,
+			[role='button'],
+			[role='tab'],
+			[role='menuitem'],
+			[role='option']
+		):not(:disabled, [aria-disabled='true'], [aria-busy='true'], :has(> input:disabled)) {
+			cursor: pointer;
+		}
+
+		:is([class*='active:bg-step'], [class*='active:brightness'], [class*='active:opacity']):not(
+				:disabled,
+				[aria-disabled='true'],
+				[aria-busy='true']
+			):hover {
+			background-image: linear-gradient(var(--hover-overlay), var(--hover-overlay));
+		}
+
+		[class*='active:bg-band-ink']:not([class*='hover:bg-band-ink']):not(
+				:disabled,
+				[aria-disabled='true']
+			):hover {
+			background-image: linear-gradient(var(--hover-overlay-band), var(--hover-overlay-band));
+		}
+
+		[class*='before:bg-chip']:hover::before {
+			background-image: linear-gradient(var(--hover-overlay), var(--hover-overlay));
+		}
+	}
+}
+
+/*
  * A frame without the side (Practice and share; the card pages; no frame at all):
  * nothing is offset by it. `--pane-left` is set again, not inherited from :root,
  * where it was computed from the side's width.
