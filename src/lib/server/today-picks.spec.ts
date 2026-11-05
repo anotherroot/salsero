@@ -88,16 +88,23 @@ describe('addPicks', () => {
 		expect(() => addPicks(db, U1_SALSA, [999], DAY, 'add', NOW)).toThrow(PickRefused);
 	});
 
-	it('skip and add replace each other', () => {
+	it('a skip keeps the add/next pick; an add/next takes the skip away', () => {
 		const a = make();
 		addPicks(db, U1_SALSA, [a], DAY, 'add', NOW);
 		addPicks(db, U1_SALSA, [a], DAY, 'skip', NOW);
-		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['skip']);
+		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['add', 'skip']);
 		addPicks(db, U1_SALSA, [a], DAY, 'next', NOW);
-		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['next']);
-		addPicks(db, U1_SALSA, [a], DAY, 'skip', NOW);
+		// Already picked as add: ignored; the skip stays until the pick is removed or re-added.
+		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['add', 'skip']);
+		const b = make(U1_SALSA, 'B');
+		addPicks(db, U1_SALSA, [b], DAY, 'skip', NOW);
+		addPicks(db, U1_SALSA, [b], DAY, 'next', NOW);
+		expect(
+			picksFor(db, U1_SALSA, DAY)
+				.filter((p) => p.exerciseId === b)
+				.map((p) => p.kind)
+		).toEqual(['next']);
 		expect(addPicks(db, U1_SALSA, [a], DAY, 'skip', NOW)).toEqual([]);
-		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['skip']);
 	});
 
 	it('picks several at once and each exactly once', () => {
