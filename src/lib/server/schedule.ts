@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import type { Db } from './db';
 import { exercises, sets } from './db/schema';
-import type { Wall } from './scope';
+import { ownedBy, type Wall } from './scope';
 import { replay, type ScheduleSet, type ScheduleState } from '$lib/schedule/schedule';
 
 /** Every set of the wall's exercises (archived ones too), with its exercise. */
@@ -10,7 +10,7 @@ export function listScheduleSets(db: Db, wall: Wall): (ScheduleSet & { exerciseI
 		.select({ exerciseId: sets.exerciseId, doneAt: sets.doneAt, rating: sets.rating })
 		.from(sets)
 		.innerJoin(exercises, eq(exercises.id, sets.exerciseId))
-		.where(and(eq(exercises.dance, wall.dance), eq(exercises.userId, wall.userId)))
+		.where(ownedBy(exercises, wall))
 		.all();
 }
 
@@ -24,13 +24,7 @@ export function scheduleStates(
 	const rows = db
 		.select({ id: exercises.id, everyDays: exercises.everyDays, createdAt: exercises.createdAt })
 		.from(exercises)
-		.where(
-			and(
-				isNull(exercises.archivedAt),
-				eq(exercises.dance, wall.dance),
-				eq(exercises.userId, wall.userId)
-			)
-		)
+		.where(and(isNull(exercises.archivedAt), ownedBy(exercises, wall)))
 		.all();
 	const byExercise = new Map<number, ScheduleSet[]>();
 	for (const s of listScheduleSets(db, wall)) {
