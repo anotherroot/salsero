@@ -236,7 +236,43 @@ def _resize(page):
         raise RuntimeError(f"the URL changed to {page.url}")
 
 
+def _how_often(page):
+    return page.locator("dt", has_text="How often").locator("xpath=following-sibling::dd").inner_text().strip()
+
+
+def _edit_then_open_another(page):
+    """Editing A's settings, open B from the list: the edit closes, and B's form starts from B's value."""
+    a_value = _how_often(page)
+    _edit(page)
+    shown = page.locator("#everyDays-value").inner_text().strip()
+    if shown != a_value:
+        raise RuntimeError(f"A's form shows {shown!r}, its settings say {a_value!r}")
+    rows = page.locator('[data-list-column] a[href*="/exercises/"]:not([aria-current])')
+    target = None
+    for i in range(rows.count()):
+        row = rows.nth(i)
+        meta = row.inner_text()
+        if ("Every" in meta or "Daily" in meta or "Weekly" in meta) and a_value not in meta:
+            target = row
+            break
+    if target is None:
+        raise RuntimeError(f"no row with a frequency other than {a_value!r}")
+    href = target.get_attribute("href")
+    target.click()
+    page.wait_for_url(re.compile(re.escape(href.split("?")[0]) + r"$"))
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(500)
+    if page.locator("#exercise-settings").count():
+        raise RuntimeError("A's edit is still open on B")
+    b_value = _how_often(page)
+    _edit(page)
+    shown = page.locator("#everyDays-value").inner_text().strip()
+    if shown != b_value or shown == a_value:
+        raise RuntimeError(f"B's form shows {shown!r}; B's settings say {b_value!r}, A's {a_value!r}")
+
+
 SCENES.update({
+    "pane-edit-then-other": Scene("/{dance}/exercises/{drillex}", _edit_then_open_another, desk=True),
     "pane-logged-lit": Scene("/{dance}/exercises/{drillex}", _logged_lit, desk=True),
     "pane-archive": Scene("/{dance}/exercises/{drillex}", _archive_from_pane, desk=True),
     "pane-resize": Scene("/{dance}/exercises/{figex}", _resize, desk=True),

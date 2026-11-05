@@ -59,13 +59,14 @@ describe('The log form', () => {
 		);
 	});
 
-	it("the exercise page's popup and pane post to the exercise", () => {
+	it("the exercise page's popup and pane post to the page's own route", () => {
+		// A group drill's page shows the person's entry: its id is not the URL's, so an
+		// absolute exercise URL would post across routes (no page.form, no focus reset).
 		const src = readFileSync(EXERCISE, 'utf8');
-		expect(src).toContain(
-			'const logAction = $derived(`/${data.dance.slug}/exercises/${exercise.id}?/log`);'
-		);
-		expect(src.match(/<Log\b[^>]*>/g)?.length).toBe(2);
-		expect(src.match(/action=\{logAction\}/g)?.length).toBe(2);
+		const logs = src.match(/<Log\b[\s\S]*?\/>/g) ?? [];
+		expect(logs.length).toBe(2);
+		for (const log of logs) expect(log).not.toMatch(/\baction=/);
+		expect(src).not.toMatch(/exercises\/\$\{[^}]*\}\?\/log/);
 	});
 
 	it('LogShell shows a refusal from the submit result', () => {

@@ -47,10 +47,10 @@
 		/** Where this popup was opened, so a Practice opened from it can go back there. */
 		from?: 'today' | 'exercise';
 		/**
-		 * The URL the form posts to: the route that owns `log` where it is rendered
-		 * (Today's `/{dance}?/log`, an exercise's `/{dance}/exercises/{id}?/log`), so a
-		 * form drawn by a layout never posts to the page beside it. Default: its own
-		 * page's `?/log` (the figure and lesson pages).
+		 * The URL the form posts to. A form drawn by a layout names its own route
+		 * (Today's `/{dance}?/log`), so it never posts to the page beside it. Default:
+		 * the page's own `?/log`, for a form drawn by its page (the exercise page's
+		 * popup and pane, the figure and lesson pages).
 		 */
 		action?: string;
 		/**

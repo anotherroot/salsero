@@ -59,8 +59,13 @@
 	 * links and sections, a figure's reference), rather than beside the history.
 	 */
 	const contentLeft = $derived(data.canLog && typeInfo(exercise.source).paneContent === 'left');
-	/** The log form posts to this exercise's own route, wherever it is drawn. */
-	const logAction = $derived(`/${data.dance.slug}/exercises/${exercise.id}?/log`);
+	/**
+	 * The exercise in the URL. A group drill's page shows the person's entry
+	 * (`data.exercise`, another id), which an Add can swap in place: what belongs
+	 * to the page goes by the URL's id. The log form, popup or pane, posts to this
+	 * page's own `?/log` (LogShell's default), never to the entry's URL.
+	 */
+	const pageId = $derived(page.params.id);
 	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
 	let logging = $state(page.url.searchParams.get('log') === '1');
 	/**
@@ -185,9 +190,9 @@
 	 * left open would otherwise show the new exercise with the old one's
 	 * frequency, and save it there.
 	 */
-	let shownId = untrack(() => data.exercise.id);
+	let shownId = untrack(() => page.params.id);
 	$effect.pre(() => {
-		const id = exercise.id;
+		const id = pageId;
 		if (id === shownId) return;
 		shownId = id;
 		untrack(() => {
@@ -215,7 +220,7 @@
 -->
 {#snippet logColumn()}
 	{#if desk.current}
-		{#key exercise.id}
+		{#key pageId}
 			<Log
 				frame="pane"
 				dance={data.dance}
@@ -228,7 +233,6 @@
 				message={failure('log')}
 				initial={data.practice}
 				from="exercise"
-				action={logAction}
 				contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks }}
 				onclose={() => {}}
 			/>
@@ -683,7 +687,6 @@
 		message={failure('log')}
 		initial={data.practice}
 		from="exercise"
-		action={logAction}
 		onclose={() => (logging = false)}
 	/>
 {/if}
