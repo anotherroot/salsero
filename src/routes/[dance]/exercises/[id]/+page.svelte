@@ -80,9 +80,9 @@
 	const ownerHref = $derived.by(() => {
 		if (!owner) return null;
 		const params = { dance: data.dance.slug, id: String(owner.id) };
-		if (owner.kind === 'figure') return resolve('/[dance]/figures/[id]', params);
+		if (owner.kind === 'figure') return resolve('/[dance]/(moves)/figures/[id]', params);
 		if (owner.kind === 'lesson') return resolve('/[dance]/lessons/[id]', params);
-		return resolve('/[dance]/routines/[id]', params);
+		return resolve('/[dance]/(moves)/routines/[id]', params);
 	});
 	const tiles = $derived(summaryTiles(data.summary));
 	const days = $derived(historyDays(data.history, timezone, data.today));

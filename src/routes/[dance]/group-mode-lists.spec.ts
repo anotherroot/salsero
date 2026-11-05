@@ -31,11 +31,11 @@ import { createRoutine } from '$lib/server/routines';
 import { createFigure, createVariationIn } from '$lib/server/figures';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
-import { actions as figureActions, load as figuresLoad } from './figures/+page.server';
-import { actions as routineActions, load as routinesLoad } from './routines/+page.server';
+import { actions as figureActions, load as figuresLoad } from './(moves)/figures/+page.server';
+import { actions as routineActions, load as routinesLoad } from './(moves)/routines/+page.server';
 import { actions as lessonActions, load as lessonsLoad } from './lessons/+page.server';
-import { load as coverageLoad } from './coverage/+page.server';
-import { load as positionsLoad } from './positions/+page.server';
+import { load as coverageLoad } from './(moves)/coverage/+page.server';
+import { load as positionsLoad } from './(moves)/positions/+page.server';
 import { addPosition } from '$lib/server/test-positions';
 
 let db: Db;

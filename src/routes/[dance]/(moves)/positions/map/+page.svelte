@@ -11,11 +11,12 @@
 	let { data }: { data: PageData } = $props();
 
 	const dance = $derived(data.dance.slug);
-	const list = $derived(resolve('/[dance]/positions', { dance }));
+	const list = $derived(resolve('/[dance]/(moves)/positions', { dance }));
 	const byId = $derived(new Map(data.positions.map((p) => [p.id, p])));
 	const islands = $derived(data.layout.tray.islands.map((id) => byId.get(id)!));
 	const unused = $derived(data.layout.tray.unused.map((id) => byId.get(id)!));
-	const hrefOf = (id: number) => resolve('/[dance]/positions/[id]', { dance, id: String(id) });
+	const hrefOf = (id: number) =>
+		resolve('/[dance]/(moves)/positions/[id]', { dance, id: String(id) });
 
 	const TRAY_CHIP =
 		'inline-flex min-h-9 items-center gap-2 rounded-full border-[1.6px] px-3.5 text-[13px] font-extrabold text-ink-2 active:bg-step';
@@ -33,7 +34,7 @@
 				{#if data.noPosition > 0}
 					<a
 						class="{TRAY_CHIP} border-dashed border-field-line"
-						href={resolve('/[dance]/positions/none', { dance })}
+						href={resolve('/[dance]/(moves)/positions/none', { dance })}
 						>{noPositionChip(data.noPosition)}</a
 					>
 				{/if}

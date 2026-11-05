@@ -45,8 +45,8 @@ import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
-import { actions, load } from './positions/+page.server';
-import { load as noneLoadFn } from './positions/none/+page.server';
+import { actions, load } from './(moves)/positions/+page.server';
+import { load as noneLoadFn } from './(moves)/positions/none/+page.server';
 import { positionCounts } from '$lib/graph/graph';
 
 let db: Db;

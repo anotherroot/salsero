@@ -57,7 +57,7 @@
 	const noneCount = $derived(data.none.none + data.none.onlyStart + data.none.onlyEnd);
 	// Nobody has any: no positions of the space's own or of a group, and nothing narrows the list.
 	const nothing = $derived(!filtered && data.rows.length === 0 && data.groups.length === 0);
-	const list = $derived(resolve('/[dance]/positions', { dance }));
+	const list = $derived(resolve('/[dance]/(moves)/positions', { dance }));
 	// The pages under Positions come with their own tasks: their paths are built on the list's.
 	const positionHref = (id: number) => `${list}/${id}`;
 

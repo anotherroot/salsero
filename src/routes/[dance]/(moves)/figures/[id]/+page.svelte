@@ -136,9 +136,9 @@
 	const today = $derived(localDay(Date.now(), timezone));
 
 	const figureHref = (id: number) =>
-		resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
+		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
 	const routineHref = (id: number) =>
-		resolve('/[dance]/routines/[id]', { dance: slug, id: String(id) });
+		resolve('/[dance]/(moves)/routines/[id]', { dance: slug, id: String(id) });
 
 	const linkFailure = $derived(failed('addLink') ?? failed('saveVideo') ?? failed('retryVideo'));
 	const linkEntered = $derived(form && 'urls' in form ? String(form.urls) : '');
@@ -329,7 +329,10 @@
 			<BandButton focusKey="stop-editing" icon="close" label="Stop editing" onclick={stopEditing} />
 		{:else}
 			<BackButton
-				fallback={{ href: resolve('/[dance]/figures', { dance: slug }), label: 'Back to Moves' }}
+				fallback={{
+					href: resolve('/[dance]/(moves)/figures', { dance: slug }),
+					label: 'Back to Moves'
+				}}
 			/>
 		{/if}
 	{/snippet}

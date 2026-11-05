@@ -58,10 +58,10 @@
 		};
 
 	const figureHref = (id: number) =>
-		resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
+		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
 	const usedHref = (u: PageData['usedIn'][number]) =>
 		u.kind === 'routine'
-			? resolve('/[dance]/routines/[id]', { dance: slug, id: String(u.id) })
+			? resolve('/[dance]/(moves)/routines/[id]', { dance: slug, id: String(u.id) })
 			: resolve('/[dance]/lessons/[id]', { dance: slug, id: String(u.id) });
 	const title = $derived(
 		view === 'rename' ? 'Rename move' : view === 'new' ? 'New figure' : data.move.name
@@ -73,7 +73,10 @@
 <Screen title={data.move.name} subtitle={moveSubtitle(data.figures.length)}>
 	{#snippet left()}
 		<BackButton
-			fallback={{ href: resolve('/[dance]/figures', { dance: slug }), label: 'Back to Moves' }}
+			fallback={{
+				href: resolve('/[dance]/(moves)/figures', { dance: slug }),
+				label: 'Back to Moves'
+			}}
 		/>
 	{/snippet}
 	{#snippet right()}

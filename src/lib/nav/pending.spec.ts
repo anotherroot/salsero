@@ -7,25 +7,34 @@ describe('skeletonFor', () => {
 	});
 
 	it('gives the three Moves lists the Moves shape, with the destination segment', () => {
-		expect(skeletonFor('/[dance]/figures')).toMatchObject({ kind: 'moves', segment: 'figures' });
-		expect(skeletonFor('/[dance]/routines')).toMatchObject({ kind: 'moves', segment: 'routines' });
-		expect(skeletonFor('/[dance]/positions')).toMatchObject({
+		expect(skeletonFor('/[dance]/(moves)/figures')).toMatchObject({
+			kind: 'moves',
+			segment: 'figures'
+		});
+		expect(skeletonFor('/[dance]/(moves)/routines')).toMatchObject({
+			kind: 'moves',
+			segment: 'routines'
+		});
+		expect(skeletonFor('/[dance]/(moves)/positions')).toMatchObject({
 			kind: 'moves',
 			segment: 'positions'
 		});
 	});
 
 	it('gives the pages under Positions their own shapes, not the Moves band', () => {
-		expect(skeletonFor('/[dance]/positions/[id]')).toMatchObject({ kind: 'detail' });
-		expect(skeletonFor('/[dance]/positions/none')).toMatchObject({
+		expect(skeletonFor('/[dance]/(moves)/positions/[id]')).toMatchObject({ kind: 'detail' });
+		expect(skeletonFor('/[dance]/(moves)/positions/none')).toMatchObject({
 			kind: 'list',
 			title: 'No position'
 		});
-		expect(skeletonFor('/[dance]/positions/map')).toMatchObject({ kind: 'detail' });
+		expect(skeletonFor('/[dance]/(moves)/positions/map')).toMatchObject({ kind: 'detail' });
 	});
 
 	it('titles a list with the name its page will show', () => {
-		expect(skeletonFor('/[dance]/coverage')).toMatchObject({ kind: 'list', title: 'Coverage' });
+		expect(skeletonFor('/[dance]/(moves)/coverage')).toMatchObject({
+			kind: 'list',
+			title: 'Coverage'
+		});
 		expect(skeletonFor('/settings')).toMatchObject({ kind: 'list', title: 'Settings' });
 		expect(skeletonFor('/voice')).toMatchObject({ kind: 'list', title: 'My count' });
 	});
@@ -38,11 +47,11 @@ describe('skeletonFor', () => {
 	});
 
 	it('gives a figure its own shape', () => {
-		expect(skeletonFor('/[dance]/figures/[id]')).toMatchObject({ kind: 'figure' });
+		expect(skeletonFor('/[dance]/(moves)/figures/[id]')).toMatchObject({ kind: 'figure' });
 	});
 
 	it('gives a routine its own shape', () => {
-		expect(skeletonFor('/[dance]/routines/[id]')).toMatchObject({ kind: 'routine' });
+		expect(skeletonFor('/[dance]/(moves)/routines/[id]')).toMatchObject({ kind: 'routine' });
 	});
 
 	it('leaves pages outside the shell, the redirect and unknown routes to the bar alone', () => {
@@ -67,7 +76,7 @@ describe('a list and its pane', () => {
 
 	it('names the band row title of a list and pane', () => {
 		expect(skeletonFor('/[dance]/songs/[id]')!.deskTitle).toBe('Music');
-		expect(skeletonFor('/[dance]/figures/[id]')!.deskTitle).toBeNull();
+		expect(skeletonFor('/[dance]/(moves)/figures/[id]')!.deskTitle).toBeNull();
 	});
 });
 

@@ -88,13 +88,13 @@
 	);
 
 	// New figure from it (ruling 8): the figures list's New move, tagged with it.
-	const figuresHref = $derived(resolve('/[dance]/figures', { dance: slug }));
+	const figuresHref = $derived(resolve('/[dance]/(moves)/figures', { dance: slug }));
 	const newFrom = $derived(`${figuresHref}?new=1&start=${position.id}`);
 	const newInto = $derived(`${figuresHref}?new=1&end=${position.id}`);
 	const figureHref = (id: number) =>
-		resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
+		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
 	const routineHref = (id: number) =>
-		resolve('/[dance]/routines/[id]', { dance: slug, id: String(id) });
+		resolve('/[dance]/(moves)/routines/[id]', { dance: slug, id: String(id) });
 
 	// A dead end or an orphan is the person's own report (not the group's workspace), and only
 	// says so where they could add the figure that mends it.
@@ -202,7 +202,7 @@
 	{#snippet left()}
 		<BackButton
 			fallback={{
-				href: resolve('/[dance]/positions', { dance: slug }),
+				href: resolve('/[dance]/(moves)/positions', { dance: slug }),
 				label: 'Back to Positions'
 			}}
 		/>

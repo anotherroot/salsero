@@ -28,10 +28,10 @@
 	function open(to: MovesSegment) {
 		const href =
 			to === 'figures'
-				? resolve('/[dance]/figures', { dance })
+				? resolve('/[dance]/(moves)/figures', { dance })
 				: to === 'routines'
-					? resolve('/[dance]/routines', { dance })
-					: resolve('/[dance]/positions', { dance });
+					? resolve('/[dance]/(moves)/routines', { dance })
+					: resolve('/[dance]/(moves)/positions', { dance });
 		// Each list comes back with the chips and search it was left with.
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- `href` is resolved; the trail adds its search
 		goto(rememberedHref(href), { replaceState: true, keepFocus: true });

@@ -36,7 +36,7 @@ import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import type { Space } from '$lib/server/scope';
-import { load } from './positions/map/+page.server';
+import { load } from './(moves)/positions/map/+page.server';
 
 let db: Db;
 

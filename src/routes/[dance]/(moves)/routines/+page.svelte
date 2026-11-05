@@ -44,7 +44,7 @@
 )}
 	<a
 		class="flex min-h-[68px] items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
-		href={resolve('/[dance]/routines/[id]', {
+		href={resolve('/[dance]/(moves)/routines/[id]', {
 			dance: data.dance.slug,
 			id: String(routine.id)
 		})}

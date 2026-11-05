@@ -38,11 +38,11 @@ import { listPositions } from '$lib/server/positions';
 import { insertFixturePositions } from '$lib/server/test-positions';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { exercises, figureGroups, figures, recordings, routines } from '$lib/server/db/schema';
-import * as figurePage from './figures/[id]/+page.server';
-import * as figureList from './figures/+page.server';
-import * as coveragePage from './coverage/+page.server';
-import * as positionsPage from './positions/+page.server';
-import * as positionPage from './positions/[id]/+page.server';
+import * as figurePage from './(moves)/figures/[id]/+page.server';
+import * as figureList from './(moves)/figures/+page.server';
+import * as coveragePage from './(moves)/coverage/+page.server';
+import * as positionsPage from './(moves)/positions/+page.server';
+import * as positionPage from './(moves)/positions/[id]/+page.server';
 
 const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
@@ -888,8 +888,8 @@ import {
 	routineSlots
 } from '$lib/server/routines';
 import { requireRoutineAccess } from '$lib/server/scope';
-import * as routinePage from './routines/[id]/+page.server';
-import * as routineList from './routines/+page.server';
+import * as routinePage from './(moves)/routines/[id]/+page.server';
+import * as routineList from './(moves)/routines/+page.server';
 
 describe('routines: the data functions stand behind a wall', () => {
 	let mine: number;

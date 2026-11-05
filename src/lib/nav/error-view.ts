@@ -75,5 +75,7 @@ export function errorView(
 /** Where Back goes: the tab the failed path belongs to, else Today. */
 export function errorBack(path: string, dance: DanceSlug): { href: string; label: string } {
 	const tab = TABS.find((t) => t.id === tabFor(path, dance)) ?? TABS[0];
-	return { href: tab.path.replace('[dance]', dance), label: `Back to ${tab.label}` };
+	// A route id names its groups (`/[dance]/(moves)/figures`); the URL does not.
+	const href = tab.path.replace(/\/\([^)]*\)/g, '').replace('[dance]', dance);
+	return { href, label: `Back to ${tab.label}` };
 }

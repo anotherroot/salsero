@@ -73,10 +73,10 @@ import { actions as groupActions, load as groupLoad } from './[id]/+page.server'
 import { actions as peopleActions } from './[id]/people/+page.server';
 import { load as lessonLoad } from '../lessons/[id]/+page.server';
 import { load as lessonsLoad } from '../lessons/+page.server';
-import { load as figureLoad } from '../figures/[id]/+page.server';
-import { load as figuresLoad } from '../figures/+page.server';
-import { load as routineLoad } from '../routines/[id]/+page.server';
-import { load as routinesLoad } from '../routines/+page.server';
+import { load as figureLoad } from '../(moves)/figures/[id]/+page.server';
+import { load as figuresLoad } from '../(moves)/figures/+page.server';
+import { load as routineLoad } from '../(moves)/routines/[id]/+page.server';
+import { load as routinesLoad } from '../(moves)/routines/+page.server';
 import { load as playerLoad } from '../player/+page.server';
 import { load as todayLoad } from '../+page.server';
 import { GET as getRecording } from '../../recordings/[file]/+server';

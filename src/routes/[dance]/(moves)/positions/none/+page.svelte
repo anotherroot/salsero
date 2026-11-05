@@ -11,7 +11,7 @@
 
 	const slug = $derived(data.dance.slug);
 	const figureHref = (id: number) =>
-		resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
+		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
 	// "Positions" opens the figure page in edit mode (ruling 8).
 	const editHref = (id: number) => `${figureHref(id)}?edit=1`;
 </script>
@@ -22,7 +22,7 @@
 	{#snippet left()}
 		<BackButton
 			fallback={{
-				href: resolve('/[dance]/positions', { dance: slug }),
+				href: resolve('/[dance]/(moves)/positions', { dance: slug }),
 				label: 'Back to Positions'
 			}}
 		/>

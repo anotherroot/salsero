@@ -105,7 +105,7 @@
 	/** Swap the filter in place: no history entry, and the search keeps its focus. */
 	function refilter(change: Partial<FigureFilter>, noScroll = false) {
 		const qs = filterQuery(filter, change);
-		const href = resolve('/[dance]/figures', { dance: data.dance.slug });
+		const href = resolve('/[dance]/(moves)/figures', { dance: data.dance.slug });
 		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the path is resolved; only the query is added
 		goto(qs ? `${href}?${qs}` : href, { keepFocus: true, replaceState: true, noScroll });
 	}
@@ -127,7 +127,7 @@
 {#snippet figureRow(f: (typeof data.figures)[number]['figures'][number], showLacks: boolean)}
 	<a
 		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
-		href={resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
+		href={resolve('/[dance]/(moves)/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
 	>
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -162,7 +162,7 @@
 		<div class="flex flex-col">
 			<a
 				class="flex items-center gap-1 self-start rounded-lg py-1 text-[17px] leading-[1.3] font-bold text-ink focus-visible:outline-2 focus-visible:outline-accent"
-				href={resolve('/[dance]/moves/[id]', { dance: data.dance.slug, id: String(m.id) })}
+				href={resolve('/[dance]/(moves)/moves/[id]', { dance: data.dance.slug, id: String(m.id) })}
 			>
 				{m.name}<span class="flex text-chevron"><Icon name="chevron-right" size={20} /></span>
 			</a>
@@ -194,7 +194,7 @@
 		{#if tiles && showTiles(count, filter)}
 			<div class="flex flex-none gap-2">
 				<NavTile
-					href={resolve('/[dance]/coverage', { dance: data.dance.slug })}
+					href={resolve('/[dance]/(moves)/coverage', { dance: data.dance.slug })}
 					icon="routine"
 					title="Coverage"
 					meta={tiles.coverage.text}

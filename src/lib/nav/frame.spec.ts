@@ -4,7 +4,7 @@ import { frameNow, frameOf, frameOfError, PAGE_WIDTH, sideLit } from './frame';
 
 describe('frameOf', () => {
 	it('gives each kind of route its frame', () => {
-		expect(frameOf('/[dance]/figures/[id]', true)).toBe('side');
+		expect(frameOf('/[dance]/(moves)/figures/[id]', true)).toBe('side');
 		expect(frameOf('/[dance]', true)).toBe('side');
 		expect(frameOf('/[dance]/player', true)).toBe('bare');
 		expect(frameOf('/[dance]/share', true)).toBe('bare');
@@ -52,7 +52,11 @@ describe('frameOfError', () => {
 });
 
 describe('frameNow', () => {
-	const figure = { routeId: '/[dance]/figures/[id]', path: '/salsa/figures/3', error: false };
+	const figure = {
+		routeId: '/[dance]/(moves)/figures/[id]',
+		path: '/salsa/figures/3',
+		error: false
+	};
 	const missing = { routeId: null, path: '/salsa/does-not-exist', error: true };
 
 	it("is the page's own frame while nothing is under way", () => {

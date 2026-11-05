@@ -214,9 +214,9 @@
 	);
 
 	const figureHref = (id: number) =>
-		resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(id) });
+		resolve('/[dance]/(moves)/figures/[id]', { dance: data.dance.slug, id: String(id) });
 	const routineHref = (id: number) =>
-		resolve('/[dance]/routines/[id]', { dance: data.dance.slug, id: String(id) });
+		resolve('/[dance]/(moves)/routines/[id]', { dance: data.dance.slug, id: String(id) });
 
 	/** The group a figure belongs to, when it is a group's and the person may still use it. */
 	/** Opened from the person's copy (`?vs=`): the place this page is, for the note under the tabs. */
@@ -634,7 +634,7 @@
 	{:else}
 		<BackButton
 			fallback={{
-				href: resolve('/[dance]/routines', { dance: data.dance.slug }),
+				href: resolve('/[dance]/(moves)/routines', { dance: data.dance.slug }),
 				label: 'Back to Moves'
 			}}
 		/>

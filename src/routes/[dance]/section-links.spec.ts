@@ -30,7 +30,7 @@ import { addLessonVideo, createLesson, getLesson, linkFigure } from '$lib/server
 import { addSpot } from '$lib/server/spots';
 import { linkSpot } from '$lib/server/spot-links';
 import * as lessonPage from './lessons/[id]/+page.server';
-import * as figurePage from './figures/[id]/+page.server';
+import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as exercisePage from './exercises/[id]/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana' };

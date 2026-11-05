@@ -881,7 +881,7 @@
 								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 									<a
 										data-focus="figure-{figure.id}"
-										href={resolve('/[dance]/figures/[id]', {
+										href={resolve('/[dance]/(moves)/figures/[id]', {
 											dance: data.dance.slug,
 											id: String(figure.mineId ?? figure.id)
 										})}
@@ -916,7 +916,7 @@
 								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 									<a
 										data-focus="routine-{routine.id}"
-										href={resolve('/[dance]/routines/[id]', {
+										href={resolve('/[dance]/(moves)/routines/[id]', {
 											dance: data.dance.slug,
 											id: String(routine.mineId ?? routine.id)
 										})}
@@ -999,7 +999,7 @@
 								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 									<a
 										data-focus="position-{position.id}"
-										href={resolve('/[dance]/positions/[id]', {
+										href={resolve('/[dance]/(moves)/positions/[id]', {
 											dance: data.dance.slug,
 											id: String(position.mineId ?? position.id)
 										})}

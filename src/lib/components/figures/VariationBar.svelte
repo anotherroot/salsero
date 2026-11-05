@@ -92,8 +92,11 @@
 	const prev = $derived(byId(nav.prev));
 	const next = $derived(byId(nav.next));
 
-	const moveHref = $derived(resolve('/[dance]/moves/[id]', { dance: slug, id: String(moveId) }));
-	const href = (id: number) => resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
+	const moveHref = $derived(
+		resolve('/[dance]/(moves)/moves/[id]', { dance: slug, id: String(moveId) })
+	);
+	const href = (id: number) =>
+		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
 	const recordings = (n: number) =>
 		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
 

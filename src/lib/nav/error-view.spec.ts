@@ -60,6 +60,11 @@ describe('errorBack', () => {
 			href: '/salsa/figures',
 			label: 'Back to Moves'
 		});
+		// Moves' route id is in a route group, `/[dance]/(moves)/figures`; its URL is not.
+		expect(errorBack('/salsa/figures/3', 'salsa')).toEqual({
+			href: '/salsa/figures',
+			label: 'Back to Moves'
+		});
 		expect(errorBack('/bachata/lessons/4', 'bachata')).toEqual({
 			href: '/bachata/lessons',
 			label: 'Back to Lessons'

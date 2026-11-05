@@ -41,8 +41,8 @@ export const SKELETON_DELAY_MS = 100;
 const LISTS: Record<string, string> = {
 	'/[dance]/lessons': 'Lessons',
 	'/[dance]/songs': 'Music',
-	'/[dance]/coverage': 'Coverage',
-	'/[dance]/positions/none': 'No position',
+	'/[dance]/(moves)/coverage': 'Coverage',
+	'/[dance]/(moves)/positions/none': 'No position',
 	'/settings': 'Settings',
 	'/voice': 'My count'
 };
@@ -55,8 +55,8 @@ const DETAILS = new Set([
 	'/[dance]/songs/[id]',
 	'/[dance]/exercises/[id]',
 	'/[dance]/player',
-	'/[dance]/positions/[id]',
-	'/[dance]/positions/map'
+	'/[dance]/(moves)/positions/[id]',
+	'/[dance]/(moves)/positions/map'
 ]);
 
 /**
@@ -92,8 +92,8 @@ function shapeFor(routeId: string | null | undefined): Shape | null {
 	if (segment && SEGMENT_ROUTE[segment] === routeId) return { kind: 'moves', segment };
 	const title = LISTS[routeId];
 	if (title) return { kind: 'list', title };
-	if (routeId === '/[dance]/figures/[id]') return { kind: 'figure' };
-	if (routeId === '/[dance]/routines/[id]') return { kind: 'routine' };
+	if (routeId === '/[dance]/(moves)/figures/[id]') return { kind: 'figure' };
+	if (routeId === '/[dance]/(moves)/routines/[id]') return { kind: 'routine' };
 	if (DETAILS.has(routeId)) return { kind: 'detail' };
 	return null;
 }

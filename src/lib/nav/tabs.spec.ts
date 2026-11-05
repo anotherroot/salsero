@@ -29,19 +29,19 @@ describe('showsTabs', () => {
 	it('shows the bar on the top-level and the pushed screens inside a dance', () => {
 		for (const id of [
 			'/[dance]',
-			'/[dance]/figures',
-			'/[dance]/routines',
+			'/[dance]/(moves)/figures',
+			'/[dance]/(moves)/routines',
 			'/[dance]/lessons',
 			'/[dance]/songs',
-			'/[dance]/figures/[id]',
-			'/[dance]/routines/[id]',
+			'/[dance]/(moves)/figures/[id]',
+			'/[dance]/(moves)/routines/[id]',
 			'/[dance]/lessons/[id]',
 			'/[dance]/groups',
 			'/[dance]/groups/[id]',
 			'/[dance]/songs/[id]',
 			'/[dance]/exercises/[id]',
-			'/[dance]/positions',
-			'/[dance]/coverage'
+			'/[dance]/(moves)/positions',
+			'/[dance]/(moves)/coverage'
 		])
 			expect(showsTabs(id)).toBe(true);
 	});
@@ -55,6 +55,10 @@ describe('showsTabs', () => {
 describe('TABS', () => {
 	it('has four, in order', () => {
 		expect(TABS.map((t) => t.label)).toEqual(['Today', 'Moves', 'Lessons', 'Groups', 'Music']);
+	});
+
+	it('opens Moves on Figures, by its route id in the (moves) group', () => {
+		expect(TABS.find((t) => t.id === 'moves')!.path).toBe('/[dance]/(moves)/figures');
 	});
 });
 

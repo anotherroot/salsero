@@ -70,7 +70,8 @@
 		selected === null ? MAP.hint : mapLitLine(byId.get(selected)?.name ?? '')
 	);
 
-	const hrefOf = (id: number) => resolve('/[dance]/positions/[id]', { dance, id: String(id) });
+	const hrefOf = (id: number) =>
+		resolve('/[dance]/(moves)/positions/[id]', { dance, id: String(id) });
 
 	function choose(e: MouseEvent, id: number) {
 		// A new tab or window opens the position as any link would.

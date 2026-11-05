@@ -73,7 +73,7 @@
 	}
 
 	const href = (id: number) =>
-		resolve('/[dance]/figures/[id]', { dance: data.dance.slug, id: String(id) });
+		resolve('/[dance]/(moves)/figures/[id]', { dance: data.dance.slug, id: String(id) });
 </script>
 
 <svelte:head><title>Coverage · {data.dance.label}</title></svelte:head>
@@ -82,7 +82,7 @@
 	{#snippet left()}
 		<BackButton
 			fallback={{
-				href: resolve('/[dance]/figures', { dance: data.dance.slug }),
+				href: resolve('/[dance]/(moves)/figures', { dance: data.dance.slug }),
 				label: 'Back to Moves'
 			}}
 		/>

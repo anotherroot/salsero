@@ -9,7 +9,7 @@ describe('listOf', () => {
 
 	it('has no list for a page of its own, or a list not yet in a pane', () => {
 		expect(listOf('/[dance]/songs/[id]/grid')).toBeNull();
-		expect(listOf('/[dance]/figures')).toBeNull();
+		expect(listOf('/[dance]/(moves)/figures')).toBeNull();
 		expect(listOf(null)).toBeNull();
 	});
 });

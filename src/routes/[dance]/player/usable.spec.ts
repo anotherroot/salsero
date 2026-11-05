@@ -27,7 +27,7 @@ import {
 	createRoutineFromFigures
 } from '$lib/server/routines';
 import * as playerPage from './+page.server';
-import * as routinePage from '../routines/[id]/+page.server';
+import * as routinePage from '../(moves)/routines/[id]/+page.server';
 
 type RoutineData = {
 	slots: { childId: number | null; childName: string | null }[];

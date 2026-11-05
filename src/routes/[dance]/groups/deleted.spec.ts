@@ -29,7 +29,7 @@ import { T1_SALSA, U1_SALSA } from '$lib/server/test-walls';
 import type { Space } from '$lib/server/scope';
 import { actions, load } from './[id]/deleted/+page.server';
 import { actions as lessonActions } from '../lessons/[id]/+page.server';
-import { actions as figureActions } from '../figures/[id]/+page.server';
+import { actions as figureActions } from '../(moves)/figures/[id]/+page.server';
 
 let db: Db;
 const FILE = '0b9e8c3a-1d2f-4a5b-8c7d-6e5f4a3b2c1d.mp4';

@@ -130,9 +130,9 @@
 		const p = { dance, id: String(id) };
 		switch (kind) {
 			case 'figure':
-				return resolve('/[dance]/figures/[id]', p);
+				return resolve('/[dance]/(moves)/figures/[id]', p);
 			case 'routine':
-				return resolve('/[dance]/routines/[id]', p);
+				return resolve('/[dance]/(moves)/routines/[id]', p);
 			case 'drill':
 				return resolve('/[dance]/exercises/[id]', p);
 			case 'song':
@@ -140,7 +140,7 @@
 			case 'lesson':
 				return resolve('/[dance]/lessons/[id]', p);
 			case 'position':
-				return resolve('/[dance]/positions', p); // positions: a page of their own comes later
+				return resolve('/[dance]/(moves)/positions', p); // positions: a page of their own comes later
 		}
 	}
 

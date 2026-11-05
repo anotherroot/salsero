@@ -3,22 +3,22 @@ import { MOVES_SEGMENTS, segmentOf } from './segment';
 
 describe('segmentOf', () => {
 	it('names the segment of the three Moves lists', () => {
-		expect(segmentOf('/[dance]/figures')).toBe('figures');
-		expect(segmentOf('/[dance]/routines')).toBe('routines');
-		expect(segmentOf('/[dance]/positions')).toBe('positions');
+		expect(segmentOf('/[dance]/(moves)/figures')).toBe('figures');
+		expect(segmentOf('/[dance]/(moves)/routines')).toBe('routines');
+		expect(segmentOf('/[dance]/(moves)/positions')).toBe('positions');
 	});
 
 	it('keeps Positions lit under its own pages', () => {
-		expect(segmentOf('/[dance]/positions/[id]')).toBe('positions');
-		expect(segmentOf('/[dance]/positions/none')).toBe('positions');
-		expect(segmentOf('/[dance]/positions/map')).toBe('positions');
+		expect(segmentOf('/[dance]/(moves)/positions/[id]')).toBe('positions');
+		expect(segmentOf('/[dance]/(moves)/positions/none')).toBe('positions');
+		expect(segmentOf('/[dance]/(moves)/positions/map')).toBe('positions');
 	});
 
 	it('is null for anything else, the pushed figure and routine screens included', () => {
-		expect(segmentOf('/[dance]/figures/[id]')).toBeNull();
-		expect(segmentOf('/[dance]/routines/[id]')).toBeNull();
-		expect(segmentOf('/[dance]/coverage')).toBeNull();
-		expect(segmentOf('/[dance]/positionsx')).toBeNull();
+		expect(segmentOf('/[dance]/(moves)/figures/[id]')).toBeNull();
+		expect(segmentOf('/[dance]/(moves)/routines/[id]')).toBeNull();
+		expect(segmentOf('/[dance]/(moves)/coverage')).toBeNull();
+		expect(segmentOf('/[dance]/(moves)/positionsx')).toBeNull();
 		expect(segmentOf(null)).toBeNull();
 	});
 });
