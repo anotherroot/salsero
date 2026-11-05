@@ -67,3 +67,16 @@ export function showsTabs(routeId: string | null): boolean {
 	if (routeId !== '/[dance]' && !routeId.startsWith('/[dance]/')) return false;
 	return !BARE.has(routeId);
 }
+
+/**
+ * What a click on a tab does: a modified or non-primary click is the browser's
+ * (a new tab, a download), a plain one goes to the tab, or, on the lit tab's own
+ * list (no href of its own, `tabHref`), scrolls the list to the top.
+ */
+export function tapKind(
+	e: Pick<MouseEvent, 'button' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+	scrollTop: boolean
+): 'pass' | 'tab' | 'top' {
+	if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return 'pass';
+	return scrollTop ? 'top' : 'tab';
+}

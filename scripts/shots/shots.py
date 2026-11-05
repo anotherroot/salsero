@@ -1,6 +1,6 @@
 """Screenshot rig, the Python side.
 
-  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE
+  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID]
   shots.py diff DIR_A DIR_B
 
 `shoot` fills the placeholders in the pages file from the db, inserts a session row,
@@ -98,6 +98,9 @@ def shoot(a):
         )
         ctx.clock.set_fixed_time(INSTANT)
         ctx.add_cookies([{"name": "salsa_session", "value": "shots", "url": a.base}])
+        if a.group is not None:
+            # group mode (src/lib/teams/mode.ts `groupCookie`): the admin must own or edit the group
+            ctx.add_cookies([{"name": f"group_{DANCE}", "value": str(a.group), "url": a.base}])
         for line in lines:
             names = re.findall(r"\{(\w+)\}", line)
             missing = [n for n in names if v.get(n) is None]
@@ -186,6 +189,7 @@ def main():
     s.add_argument("--size", required=True)
     s.add_argument("--theme", default="light", choices=["light", "dark"])
     s.add_argument("--pages", required=True)
+    s.add_argument("--group", type=int, help="a group id of the dance: shoot in its group mode")
     d = sub.add_parser("diff")
     d.add_argument("a")
     d.add_argument("b")

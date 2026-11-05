@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # Screenshot rig: see README.md.
-# usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE]
+# usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID]
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 DB="${1:-}"; OUT="${2:-}"; SIZE="${3:-}"
 if [ -z "$DB" ] || [ -z "$OUT" ] || [ -z "$SIZE" ]; then
-  echo "usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE]" >&2; exit 2
+  echo "usage: shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID]" >&2; exit 2
 fi
 shift 3
-THEME=light; PAGES="$HERE/pages.txt"
+THEME=light; PAGES="$HERE/pages.txt"; GROUP=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --theme) THEME="${2:-}"; shift 2 ;;
     --pages) PAGES="${2:-}"; shift 2 ;;
+    --group) GROUP="${2:-}"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -75,5 +76,5 @@ PLAYWRIGHT_BROWSERS_PATH="$(nix build --no-link --print-out-paths nixpkgs#playwr
 export PLAYWRIGHT_BROWSERS_PATH
 timeout 900 nix shell --impure --expr 'with (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux; python3.withPackages (p: [p.playwright p.pillow])' \
   -c python3 -I "$HERE/shots.py" shoot --db "$TMP/salsa.db" --base "http://127.0.0.1:$PORT" \
-  --out "$OUT" --size "$SIZE" --theme "$THEME" --pages "$PAGES"
+  --out "$OUT" --size "$SIZE" --theme "$THEME" --pages "$PAGES" ${GROUP:+--group "$GROUP"}
 exit $?

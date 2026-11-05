@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rootsOf, showsTabs, tabFor, TABS } from './tabs';
+import { rootsOf, showsTabs, tabFor, tapKind, TABS } from './tabs';
 
 describe('tabFor', () => {
 	it('lights the tab a path belongs to', () => {
@@ -69,5 +69,22 @@ describe('rootsOf', () => {
 		expect(rootsOf('lessons', 'salsa')).toEqual(['/salsa/lessons']);
 		expect(rootsOf('groups', 'salsa')).toEqual(['/salsa/groups']);
 		expect(rootsOf('music', 'salsa')).toEqual(['/salsa/songs']);
+	});
+});
+
+describe('tapKind', () => {
+	const click = { button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false };
+
+	it('lets a modified or non-primary click be the browser’s', () => {
+		expect(tapKind({ ...click, metaKey: true }, false)).toBe('pass');
+		expect(tapKind({ ...click, ctrlKey: true }, true)).toBe('pass');
+		expect(tapKind({ ...click, shiftKey: true }, false)).toBe('pass');
+		expect(tapKind({ ...click, altKey: true }, true)).toBe('pass');
+		expect(tapKind({ ...click, button: 1 }, true)).toBe('pass');
+	});
+
+	it('goes to the tab, or scrolls the lit list to the top', () => {
+		expect(tapKind(click, false)).toBe('tab');
+		expect(tapKind(click, true)).toBe('top');
 	});
 });

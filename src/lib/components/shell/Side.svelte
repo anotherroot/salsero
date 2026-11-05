@@ -1,0 +1,104 @@
+<script lang="ts">
+	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import type { DanceSlug } from '$lib/dances/dances';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { TABS } from '$lib/nav/tabs';
+	import { sideLit } from '$lib/nav/frame';
+	import { minePath } from '$lib/teams/mode';
+	import { groupsTabLabel } from '$lib/teams/view';
+	import { intend } from '$lib/nav/trail.svelte';
+	import { tabTargets, tapTab } from '$lib/nav/tab-links.svelte';
+
+	/**
+	 * The desktop's main nav (desktop spec, "The side"): the five tabs at the top,
+	 * Settings at the bottom, on the band down the left of the window. It is the
+	 * phone's tab bar at desk width (`BottomNav`, hidden there): which tab is lit
+	 * and where a tap goes are the same (`$lib/nav/tab-links.svelte.ts`). `path`
+	 * is where the app is going, as for the tab bar.
+	 */
+	let { dance, path }: { dance: DanceSlug; path: string } = $props();
+
+	// In group mode Today is not a tab: Mine, back to the personal side.
+	const inGroup = $derived(!!page.data.groupMode);
+	const lit = $derived(sideLit(path, dance));
+	const targets = $derived(tabTargets(dance, path));
+
+	const ITEM =
+		'flex h-12 items-center gap-3 rounded-[24px] pr-[18px] pl-[14px] text-[16px] whitespace-nowrap';
+	const OFF = `${ITEM} font-bold text-band-small hover:bg-band-ink/10`;
+	const ON = `${ITEM} bg-band-ink font-extrabold text-on-cream`;
+</script>
+
+<!--
+	Hidden below 1024, where the tab bar is the nav: only one "Main" is ever shown.
+	`--icon-knockout`: a lit tab's filled icon cuts its details out in the pill's cream.
+	`--focus-ring`: the accent is the band's own colour here and would not show.
+-->
+<nav
+	class="fixed top-[var(--band-row-h)] bottom-0 left-0 z-30 hidden w-[var(--side-w)] flex-col justify-between bg-band px-[22px] pt-[6px] pb-[20px] desk:flex"
+	style="--icon-knockout: var(--color-band-ink); --focus-ring: var(--color-band-ink)"
+	aria-label="Main"
+	data-side
+>
+	<ul class="flex flex-col gap-1">
+		{#each TABS as tab, i (tab.id)}
+			{@const here = tab.id === lit}
+			{@const to = targets[i]}
+			{@const fresh = tab.id === 'groups' && !!page.data.groupsNew}
+			<li>
+				{#if inGroup && tab.id === 'today'}
+					<!-- Mine: the tab bar's one-tap form to the switch (`BottomNav` says why), never lit. -->
+					<form
+						method="POST"
+						action="/{dance}/group-mode"
+						use:enhance={() => {
+							intend('tab');
+							return async ({ update }) => update({ reset: false });
+						}}
+					>
+						<input type="hidden" name="team" value="mine" />
+						<input type="hidden" name="to" value={minePath(path, dance)} />
+						<button
+							type="submit"
+							class="{ITEM} w-full font-extrabold text-band-small hover:bg-band-ink/10"
+						>
+							<Icon name="back" size={24} />
+							Mine
+						</button>
+					</form>
+				{:else}
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- a trail href, built from resolved paths -->
+					<a
+						href={to ?? resolve(tab.path, { dance })}
+						onclick={(e) => tapTab(e, to === null)}
+						aria-current={here ? 'page' : undefined}
+						aria-label={fresh ? groupsTabLabel(true) : undefined}
+						class={here ? ON : OFF}
+					>
+						<Icon name={tab.icon} size={24} filled={here} />
+						{tab.label}
+						{#if fresh}
+							<span
+								class="mt-3 -ml-1 h-[9px] w-[9px] self-start rounded-full {here
+									? 'bg-band'
+									: 'bg-band-ink'}"
+								aria-hidden="true"
+							></span>
+						{/if}
+					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				{/if}
+			</li>
+		{/each}
+	</ul>
+	<a
+		href={resolve('/settings')}
+		aria-current={lit === 'settings' ? 'page' : undefined}
+		class={lit === 'settings' ? ON : OFF}
+	>
+		<Icon name="settings" size={24} filled={lit === 'settings'} />
+		Settings
+	</a>
+</nav>

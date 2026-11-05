@@ -7,7 +7,8 @@
 	import { TABS, tabFor } from '$lib/nav/tabs';
 	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
-	import { intend, tabHref } from '$lib/nav/trail.svelte';
+	import { intend } from '$lib/nav/trail.svelte';
+	import { tabTargets, tapTab } from '$lib/nav/tab-links.svelte';
 
 	/**
 	 * `path` is where the app is GOING while a navigation is in flight, so the
@@ -20,28 +21,16 @@
 	const inGroup = $derived(!!page.data.groupMode);
 	const lit = $derived(tabFor(path, dance));
 
-	/*
-	 * A tab reopens the last page seen in it (`$lib/nav/trail.ts`). The lit tab
-	 * on its own main list has nowhere to go: its link keeps the list's href
-	 * (long-press, new tab) and a tap scrolls the list to the top.
-	 */
-	const targets = $derived(TABS.map((t) => tabHref(t.id, dance, path)));
-
-	function tap(e: MouseEvent, scrollTop: boolean) {
-		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-		if (!scrollTop) {
-			intend('tab');
-			return;
-		}
-		e.preventDefault();
-		const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-		window.scrollTo({ top: 0, behavior: reduce ? 'instant' : 'smooth' });
-	}
+	// Where each tab leads, and a tap on the lit list's own tab (`$lib/nav/tab-links.svelte.ts`).
+	const targets = $derived(tabTargets(dance, path));
 </script>
 
-<!-- `--icon-knockout`: filled icons cut their details out in the bar's colour. -->
+<!--
+	`--icon-knockout`: filled icons cut their details out in the bar's colour.
+	On the desktop the side (`Side.svelte`) is the main nav and this bar is gone.
+-->
 <nav
-	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg"
+	class="fixed inset-x-0 bottom-0 z-30 border-t border-tab-line bg-tab-bg desk:hidden"
 	style="height: calc(var(--tab-bar-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); --icon-knockout: var(--color-tab-bg)"
 	aria-label="Main"
 	data-tab-bar
@@ -86,7 +75,7 @@
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- a trail href, built from resolved paths -->
 					<a
 						href={to ?? resolve(tab.path, { dance })}
-						onclick={(e) => tap(e, to === null)}
+						onclick={(e) => tapTab(e, to === null)}
 						aria-current={here ? 'page' : undefined}
 						aria-label={tab.id === 'groups' && page.data.groupsNew
 							? groupsTabLabel(true)

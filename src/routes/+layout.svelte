@@ -7,6 +7,9 @@
 	import { showsTabs } from '$lib/nav/tabs';
 	import { bottom } from '$lib/nav/chrome.svelte';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
+	import Side from '$lib/components/shell/Side.svelte';
+	import SheetCorner from '$lib/components/shell/SheetCorner.svelte';
+	import { frameOf } from '$lib/nav/frame';
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
@@ -100,6 +103,18 @@
 	const navDance = $derived(shownDance ?? dance ?? DANCES[seen ?? data.lastDance]);
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
+	/*
+	 * What surrounds the page on the desktop (`$lib/nav/frame.ts`), judged like the
+	 * tabs on where the app is going. Below 1024 none of it shows: every class it
+	 * adds is `desk:`, and the frame's variables are 0 there.
+	 */
+	const frame = $derived(frameOf((ahead ?? page).route.id, nav));
+	const SHEET = {
+		side: 'desk:ml-[var(--side-w)] desk:pt-[var(--band-row-h)] desk:max-w-none desk:bg-ground',
+		bare: 'desk:pt-[var(--band-row-h)] desk:max-w-none desk:bg-ground',
+		card: '',
+		none: ''
+	} as const;
 
 	/*
 	 * Update needed replaces the whole tree, so it never lands on a page mid-edit
@@ -374,26 +389,46 @@
 		the content div, inside this wrapper), the loading skeleton and the
 		unsaved-changes dialog.
 		`display: contents` keeps the wrapper out of layout entirely.
+		`data-frame` is the desktop frame: layout.css lets its band through body and
+		zeroes the side's width where there is no side.
 	-->
 	<div
 		data-dance={navDance.slug}
 		data-group={page.data.groupMode ? '' : undefined}
+		data-frame={frame}
 		style:display="contents"
-		style:--pin-bottom={tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0px'}
+		style:--pin-bottom={tabs ? 'var(--tab-bar-space)' : '0px'}
 		style:--pin-safe={tabs ? '0px' : 'var(--safe-bottom)'}
 	>
+		<!-- The sheet: the phone's 560 column, or on the desktop the window past the frame. -->
 		<div
 			class="mx-auto min-h-dvh max-w-[560px] {tabs
-				? 'pb-[calc(var(--tab-bar-h)+12px+var(--safe-bottom))]'
-				: ''}"
+				? 'pb-[calc(var(--tab-bar-h)+12px+var(--safe-bottom))] desk:pb-0'
+				: ''} {SHEET[frame]}"
 		>
 			{@render children()}
 		</div>
 		{#if skeleton}
 			<PageSkeleton {skeleton} {tabs} />
 		{/if}
+		{#if frame === 'side' || frame === 'bare'}
+			<!--
+				The window around the sheet, in this dance's (or group's) band: behind
+				everything, the sheet's ground paints over it (layout.css says why not body).
+			-->
+			<div
+				aria-hidden="true"
+				class="pointer-events-none fixed inset-0 -z-10 hidden bg-band desk:block"
+				data-frame-band
+			></div>
+			<SheetCorner {frame} />
+		{/if}
 		{#if tabs}
 			<BottomNav dance={navDance.slug} path={shownPath} />
+		{/if}
+		<!-- After the content, in the tab bar's place (desktop spec, "Keyboard and focus"). -->
+		{#if frame === 'side'}
+			<Side dance={navDance.slug} path={shownPath} />
 		{/if}
 		{#if staleBar}
 			<ReloadBar stale />
@@ -405,7 +440,10 @@
 		<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
 	</div>
 {:else}
-	{@render children()}
+	<!-- Signed out (sign in, Join): never the side, so no band around a sheet either. -->
+	<div data-frame={frame === 'card' ? 'card' : 'none'} style:display="contents">
+		{@render children()}
+	</div>
 	<UnsavedDialog />
 	<ClashSheet ask={clashPrompt.ask} onclose={() => (clashPrompt.ask = null)} />
 {/if}

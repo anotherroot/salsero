@@ -3,7 +3,7 @@
 Shoots every page in `pages.txt` from a throwaway copy of a database, so a change can be compared
 with a baseline (the phone must not change) or with a design board.
 
-    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE]
+    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID]
     scripts/shots/shots.py diff <dirA> <dirB>      # run under the Playwright command below
 
 `shots.sh` copies the db to a `mktemp -d` (never `.data`), runs `npx vite dev` on a free port inside
@@ -11,6 +11,8 @@ with a baseline (the phone must not change) or with a design board.
 (`shots`, the first admin) and shoots with the cookie `salsa_session=shots`. The server runs in its own
 process group and is killed by that group on exit; the temp dir is deleted. If `/health` never
 answers it prints the server log and exits 1. It exits 1 too if any page is not `ok`.
+`--group ID` also sets the group-mode cookie (`group_salsa=ID`), so the pages show that group's side
+(navy, Mine for Today); the admin must own or edit the group, else the app drops the cookie.
 
 `pages.txt`: one path per line. `{dance}` is salsa; `{yesterday}`, `{figure}`, `{move}`, `{song}`,
 `{lesson}`, `{routine}`, `{group}`, `{position}`, `{exercise}` are the admin's first live row of that
