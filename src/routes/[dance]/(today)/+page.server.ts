@@ -74,8 +74,10 @@ export const actions: Actions = {
 		}
 		const now = Date.now();
 		try {
-			const pickIds = addPicks(getDb(), wall, [exerciseId], localDay(now, zone(locals)), kind, now);
-			return { action: 'pick', pickIds };
+			const day = localDay(now, zone(locals));
+			const { created, unskipped } = addPicks(getDb(), wall, [exerciseId], day, kind, now);
+			// `unskipped`: an add took the day's skip away; its Undo skips again (`undoAddSteps`).
+			return { action: 'pick', pickIds: created, unskipped };
 		} catch (e) {
 			if (e instanceof PickRefused) return fail(400, { action: 'pick', message: e.message });
 			throw e;
@@ -109,7 +111,7 @@ export const actions: Actions = {
 			return fail(400, { action: 'next', message: 'Nothing left to add today.' });
 		}
 		try {
-			const pickIds = addPicks(db, wall, ids, localDay(now, tz), 'next', now);
+			const pickIds = addPicks(db, wall, ids, localDay(now, tz), 'next', now).created;
 			// The rows' ids too: the page focuses the first of them.
 			return { action: 'next', pickIds, exerciseIds: ids };
 		} catch (e) {

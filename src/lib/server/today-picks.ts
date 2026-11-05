@@ -57,12 +57,20 @@ export function picksFor(db: Db, wall: Wall, day: string): DayPick[] {
 		.all();
 }
 
+/** What `addPicks` wrote: the picks it made, and the exercises whose skip for the day it took away. */
+export interface Picked {
+	created: number[];
+	unskipped: number[];
+}
+
 /**
  * Pick exercises for a day. Refuses (`PickRefused`, nothing written) one outside
  * the wall, archived, or (for add/next) paused. One already picked as add/next
- * today is ignored, so a double tap makes no second row. An add/next takes the
- * exercise's skip away; a skip keeps the add/next (the skip already hides the
- * exercise, and its Undo brings the pick back). Returns the ids created.
+ * today gets no second pick, so a double tap makes no second row. An add/next
+ * always takes the exercise's skip for the day away (also when a pick was
+ * there already: Coming up's + on a skipped row brings it back); `unskipped`
+ * names those. A skip keeps the add/next (the skip already hides the exercise,
+ * and its Undo brings the pick back).
  */
 export function addPicks(
 	db: Db,
@@ -71,7 +79,7 @@ export function addPicks(
 	day: string,
 	kind: PickKind,
 	now: number
-): number[] {
+): Picked {
 	return db.transaction((tx) => {
 		const ids = [...new Set(exerciseIds)];
 		const found = ids.length
@@ -84,6 +92,7 @@ export function addPicks(
 			if (kind !== 'skip' && !e.active) throw new PickRefused('That exercise is paused.');
 		}
 		const created: number[] = [];
+		const unskipped: number[] = [];
 		for (const id of ids) {
 			const existing = tx
 				.select()
@@ -96,13 +105,15 @@ export function addPicks(
 					)
 				)
 				.all();
+			if (kind !== 'skip') {
+				const skips = existing.filter((p) => p.kind === 'skip');
+				for (const p of skips) tx.delete(todayPicks).where(eq(todayPicks.id, p.id)).run();
+				if (skips.length) unskipped.push(id);
+			}
 			const same = existing.some((p) =>
 				kind === 'skip' ? p.kind === 'skip' : p.kind === 'add' || p.kind === 'next'
 			);
 			if (same) continue;
-			// A skip keeps the day's add/next (it already hides the exercise; Undo brings the pick back).
-			if (kind !== 'skip')
-				for (const p of existing) tx.delete(todayPicks).where(eq(todayPicks.id, p.id)).run();
 			const row = tx
 				.insert(todayPicks)
 				.values({ userId: wall.userId, exerciseId: id, day, kind, createdAt: now })
@@ -110,7 +121,7 @@ export function addPicks(
 				.get();
 			created.push(row.id);
 		}
-		return created;
+		return { created, unskipped };
 	});
 }
 

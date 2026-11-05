@@ -9,6 +9,7 @@
 	import { GROUP, SECTION_LABEL, iconButton } from '$lib/components/ui/styles';
 	import { comingHeading } from '$lib/schedule/coming-view';
 	import type { ComingGroup } from '$lib/schedule/coming-up';
+	import type { PickReply } from '$lib/schedule/picks';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { ExerciseItem } from '$lib/types';
 
@@ -31,8 +32,8 @@
 		today: string;
 		/** The exercise open beside the list (desktop). */
 		currentId: number | null;
-		/** Added: the layout's "<name> is on Today · Undo" toast. */
-		onadded: (exercise: ExerciseItem, pickId: number | undefined) => void;
+		/** Added: the layout's "<name> is on Today · Undo" toast, from the action's reply. */
+		onadded: (exercise: ExerciseItem, reply: PickReply) => void;
 		onrefused: (message: string) => void;
 	} = $props();
 
@@ -47,8 +48,7 @@
 			const message = refusalMessage(result, 'Could not add it to Today. Try again.');
 			if (message) onrefused(message);
 			else {
-				const ids = (result as { data?: { pickIds?: number[] } }).data?.pickIds;
-				onadded(exercise, ids?.[0]);
+				onadded(exercise, (result as { data?: PickReply }).data ?? {});
 			}
 		} finally {
 			busy = new Set([...busy].filter((id) => id !== exercise.id));

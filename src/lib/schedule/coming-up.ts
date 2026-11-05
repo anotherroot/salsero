@@ -38,14 +38,15 @@ export function comingUp<E extends DayExercise>(input: DayInput<E>): ComingGroup
 			const dueDay = x.state.dueDay;
 			if (dueDay > w.today)
 				put(dueDay, { e: x.e, state: row.kind === 'done' ? 'doneToday' : 'onToday', dueDay });
-		} else if (x.start.dueDay <= w.today) {
-			waiting.push({
+		} else {
+			// Skipped today (Not today): "Not today", and its + takes the skip away.
+			const item: Item<E> = {
 				e: x.e,
 				state: w.skipped.has(x.e.id) ? 'skipped' : 'add',
 				dueDay: x.start.dueDay
-			});
-		} else {
-			put(x.start.dueDay, { e: x.e, state: 'add', dueDay: x.start.dueDay });
+			};
+			if (x.start.dueDay <= w.today) waiting.push(item);
+			else put(x.start.dueDay, item);
 		}
 	}
 

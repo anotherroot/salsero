@@ -49,8 +49,9 @@ describe('the daily number', () => {
 describe('addPicks', () => {
 	it('stores a pick the wall can read back', () => {
 		const a = make();
-		const ids = addPicks(db, U1_SALSA, [a], DAY, 'add', NOW);
+		const { created: ids, unskipped } = addPicks(db, U1_SALSA, [a], DAY, 'add', NOW);
 		expect(ids).toHaveLength(1);
+		expect(unskipped).toEqual([]);
 		expect(picksFor(db, U1_SALSA, DAY)).toEqual([
 			{ id: ids[0], exerciseId: a, kind: 'add', createdAt: NOW }
 		]);
@@ -61,8 +62,9 @@ describe('addPicks', () => {
 	it('ignores an exercise already picked today', () => {
 		const a = make();
 		addPicks(db, U1_SALSA, [a], DAY, 'add', NOW);
-		expect(addPicks(db, U1_SALSA, [a], DAY, 'add', NOW)).toEqual([]);
-		expect(addPicks(db, U1_SALSA, [a], DAY, 'next', NOW)).toEqual([]);
+		const none = { created: [], unskipped: [] };
+		expect(addPicks(db, U1_SALSA, [a], DAY, 'add', NOW)).toEqual(none);
+		expect(addPicks(db, U1_SALSA, [a], DAY, 'next', NOW)).toEqual(none);
 		expect(picksFor(db, U1_SALSA, DAY)).toHaveLength(1);
 	});
 
@@ -77,7 +79,7 @@ describe('addPicks', () => {
 		expect(() => addPicks(db, U1_SALSA, [archived], DAY, 'skip', NOW)).toThrow(PickRefused);
 		expect(picksFor(db, U1_SALSA, DAY)).toEqual([]);
 		// a paused exercise may still be skipped
-		expect(addPicks(db, U1_SALSA, [paused], DAY, 'skip', NOW)).toHaveLength(1);
+		expect(addPicks(db, U1_SALSA, [paused], DAY, 'skip', NOW).created).toHaveLength(1);
 	});
 
 	it("refuses another person's or the other dance's exercise", () => {
@@ -93,31 +95,40 @@ describe('addPicks', () => {
 		addPicks(db, U1_SALSA, [a], DAY, 'add', NOW);
 		addPicks(db, U1_SALSA, [a], DAY, 'skip', NOW);
 		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['add', 'skip']);
-		addPicks(db, U1_SALSA, [a], DAY, 'next', NOW);
-		// Already picked as add: ignored; the skip stays until the pick is removed or re-added.
-		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['add', 'skip']);
+		expect(addPicks(db, U1_SALSA, [a], DAY, 'skip', NOW).created).toEqual([]);
 		const b = make(U1_SALSA, 'B');
 		addPicks(db, U1_SALSA, [b], DAY, 'skip', NOW);
-		addPicks(db, U1_SALSA, [b], DAY, 'next', NOW);
+		expect(addPicks(db, U1_SALSA, [b], DAY, 'next', NOW)).toEqual({
+			created: [expect.any(Number)],
+			unskipped: [b]
+		});
 		expect(
 			picksFor(db, U1_SALSA, DAY)
 				.filter((p) => p.exerciseId === b)
 				.map((p) => p.kind)
 		).toEqual(['next']);
-		expect(addPicks(db, U1_SALSA, [a], DAY, 'skip', NOW)).toEqual([]);
+	});
+
+	it('an add/next on one already picked still takes its skip away, and says so', () => {
+		const a = make();
+		addPicks(db, U1_SALSA, [a], DAY, 'next', NOW);
+		addPicks(db, U1_SALSA, [a], DAY, 'skip', NOW);
+		// No second pick (the next one stays); the skip goes.
+		expect(addPicks(db, U1_SALSA, [a], DAY, 'add', NOW)).toEqual({ created: [], unskipped: [a] });
+		expect(picksFor(db, U1_SALSA, DAY).map((p) => p.kind)).toEqual(['next']);
 	});
 
 	it('picks several at once and each exactly once', () => {
 		const a = make(U1_SALSA, 'A');
 		const b = make(U1_SALSA, 'B');
-		expect(addPicks(db, U1_SALSA, [a, b, a], DAY, 'next', NOW)).toHaveLength(2);
+		expect(addPicks(db, U1_SALSA, [a, b, a], DAY, 'next', NOW).created).toHaveLength(2);
 	});
 });
 
 describe('removePick', () => {
 	it('removes within the wall only', () => {
 		const a = make();
-		const [id] = addPicks(db, U1_SALSA, [a], DAY, 'add', NOW);
+		const [id] = addPicks(db, U1_SALSA, [a], DAY, 'add', NOW).created;
 		expect(removePick(db, U2_SALSA, id)).toBe(false);
 		expect(removePick(db, U1_BACHATA, id)).toBe(false);
 		expect(picksFor(db, U1_SALSA, DAY)).toHaveLength(1);

@@ -22,6 +22,7 @@ import { exercises, todayPicks, users } from '$lib/server/db/schema';
 import { createCustomExercise } from '$lib/server/exercises';
 import { dayInputOf, setDailyCount } from '$lib/server/today-picks';
 import { dayList } from '$lib/schedule/today-list';
+import { undoAddSteps } from '$lib/schedule/picks';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { actions } from './(today)/+page.server';
 
@@ -46,6 +47,7 @@ type Result = {
 	status?: number;
 	data?: { message?: string };
 	pickIds?: number[];
+	unskipped?: number[];
 	exerciseIds?: number[];
 	action?: string;
 };
@@ -69,7 +71,7 @@ describe('pick', () => {
 	it('adds and skips', async () => {
 		const a = make('a');
 		const r = await call('pick', U1, { exerciseId: String(a), kind: 'add' });
-		expect(r).toEqual({ action: 'pick', pickIds: [expect.any(Number)] });
+		expect(r).toEqual({ action: 'pick', pickIds: [expect.any(Number)], unskipped: [] });
 		expect(allPicks().map((p) => [p.exerciseId, p.kind])).toEqual([[a, 'add']]);
 		await call('pick', U1, { exerciseId: String(a), kind: 'skip' });
 		expect(allPicks().map((p) => [p.exerciseId, p.kind])).toEqual([
@@ -218,5 +220,90 @@ describe('Not today and its Undo, end to end', () => {
 		await call('unpick', U1, { pickId: String(skip.pickIds![0]) });
 		expect(kinds()).toEqual(['add']);
 		expect(rows()).toEqual(before);
+	});
+});
+
+describe("Coming up's + on a skipped row, and its Undo", () => {
+	const rows = () =>
+		dayList(dayInputOf(db, U1_SALSA, 'Europe/Ljubljana', Date.now())).rows.map(
+			(r) => `${r.exercise.name}:${r.kind}`
+		);
+	const kinds = () => allPicks().map((p) => `${p.exerciseId}:${p.kind}`);
+	/** Undo as the layout runs it: each step through the actions, in order. */
+	const undo = async (exerciseId: number, reply: Result) => {
+		for (const step of undoAddSteps(exerciseId, reply))
+			await call(
+				step.action,
+				U1,
+				Object.fromEntries(Object.entries(step.fields).map(([k, v]) => [k, String(v)]))
+			);
+	};
+
+	it('+ after skipping a next-picked row brings it back', async () => {
+		setDailyCount(db, 'u1', 1);
+		make('a');
+		const b = make('b');
+		await call('next', U1);
+		const before = rows();
+		expect(before).toEqual(['a:todo', 'b:picked']);
+		await call('pick', U1, { exerciseId: String(b), kind: 'skip' });
+		expect(rows()).toEqual(['a:todo']);
+		const plus = await call('pick', U1, { exerciseId: String(b), kind: 'add' });
+		expect(plus.unskipped).toEqual([b]);
+		expect(rows()).toEqual(before);
+	});
+
+	it('+ after skipping an add-picked row brings it back', async () => {
+		const a = make('a');
+		await call('pick', U1, { exerciseId: String(a), kind: 'add' });
+		const before = rows();
+		await call('pick', U1, { exerciseId: String(a), kind: 'skip' });
+		expect(rows()).toEqual([]);
+		const plus = await call('pick', U1, { exerciseId: String(a), kind: 'add' });
+		expect(plus).toEqual({ action: 'pick', pickIds: [], unskipped: [a] });
+		expect(rows()).toEqual(before);
+	});
+
+	it('Undo of + on a skipped row skips it again', async () => {
+		setDailyCount(db, 'u1', 1);
+		const a = make('a');
+		make('b');
+		const c = make('c');
+		// A queue row skipped: + makes an add pick and takes the skip; Undo restores exactly.
+		await call('pick', U1, { exerciseId: String(a), kind: 'skip' });
+		const skippedRows = rows();
+		const skippedPicks = kinds();
+		const plus = await call('pick', U1, { exerciseId: String(a), kind: 'add' });
+		expect(rows()).toContain('a:todo');
+		await undo(a, plus);
+		expect(rows()).toEqual(skippedRows);
+		expect(kinds()).toEqual([`${a}:skip`]);
+		expect(skippedPicks).toEqual([`${a}:skip`]);
+		// A next-picked row skipped: + only takes the skip; Undo skips it again.
+		await call('next', U1);
+		await call('pick', U1, { exerciseId: String(c), kind: 'skip' });
+		const hidden = rows();
+		expect(hidden).toEqual(['b:todo']);
+		const again = await call('pick', U1, { exerciseId: String(c), kind: 'add' });
+		expect(again).toEqual({ action: 'pick', pickIds: [], unskipped: [c] });
+		expect(rows()).toEqual(['b:todo', 'c:picked']);
+		await undo(c, again);
+		expect(rows()).toEqual(hidden);
+		// The next pick stayed through it all; the skip is back.
+		expect(kinds().filter((k) => k.startsWith(`${c}:`))).toEqual([`${c}:next`, `${c}:skip`]);
+	});
+
+	it('+ on a row that was not skipped: Undo takes the pick away', async () => {
+		setDailyCount(db, 'u1', 1);
+		make('a');
+		const b = make('b');
+		const plus = await call('pick', U1, { exerciseId: String(b), kind: 'add' });
+		expect(rows()).toEqual(['a:todo', 'b:picked']);
+		expect(undoAddSteps(b, plus)).toEqual([
+			{ action: 'unpick', fields: { pickId: plus.pickIds![0] } }
+		]);
+		await undo(b, plus);
+		expect(allPicks()).toEqual([]);
+		expect(rows()).toEqual(['a:todo']);
 	});
 });

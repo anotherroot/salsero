@@ -24,6 +24,7 @@
 	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import type { ExerciseItem } from '$lib/types';
 	import { todayHero, undoLogMessage } from '$lib/exercises/today';
+	import { undoAddSteps, type PickReply } from '$lib/schedule/picks';
 	import { dayTotals, defaultOpen, sessionLine } from '$lib/exercises/today-pane';
 	import { setTodayPane } from '$lib/components/today/today-context';
 	import { dropOpener, listOpener } from '$lib/nav/trail.svelte';
@@ -468,17 +469,31 @@
 		)
 	);
 
-	/** Coming up's + worked: "<name> is on Today · Undo" (Undo removes that pick). */
-	function added(exercise: ExerciseItem, pickId: number | undefined) {
+	/**
+	 * Coming up's + worked: "<name> is on Today · Undo". Undo puts back what the +
+	 * changed (`undoAddSteps`: skips again a row it un-skipped, removes the pick it
+	 * made); when it changed nothing, the toast has no Undo.
+	 */
+	function added(exercise: ExerciseItem, reply: PickReply) {
+		const steps = undoAddSteps(exercise.id, reply);
+		const message = `${exercise.name} is on Today`;
+		if (steps.length === 0) {
+			toast = { id: ++toastSeq, message };
+			return;
+		}
 		toast = undoToast(
 			++toastSeq,
-			`${exercise.name} is on Today`,
+			message,
 			() => (toast = null),
 			async () => {
-				if (pickId === undefined) return;
-				const result = await actAt(`/${dance}`, 'unpick', { pickId });
-				const message = refusalMessage(result, 'Could not undo that. Try again.');
-				if (message) toast = { id: ++toastSeq, message };
+				for (const step of steps) {
+					const result = await actAt(`/${dance}`, step.action, step.fields);
+					const refused = refusalMessage(result, 'Could not undo that. Try again.');
+					if (refused) {
+						toast = { id: ++toastSeq, message: refused };
+						return;
+					}
+				}
 			}
 		);
 	}

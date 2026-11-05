@@ -258,8 +258,10 @@ Board: "Coming up", "Today after adding".
   (saved for today, a toast "Setenta is on Today · Undo"); then a green "On
   Today" instead of the +. Done today: "Done today", no +. The row itself opens
   the exercise.
-- **Skipped today** (Not today) shows in Waiting, meta "Not today"; its + puts
-  it back on Today (deleting the skip). *My call.*
+- **Skipped today** (Not today) shows in Waiting (or under the day it comes
+  back, when a picked one was not due yet), meta "Not today"; its + puts it
+  back on Today (deleting the skip, also when it was picked already). Its
+  toast's Undo skips it again. *My call.*
 - **Paused rows have no +:** "Paused" on the right; the row opens the exercise,
   where Active turns it back on. Adding never writes `exercises.active`.
   *My call.*
@@ -380,7 +382,8 @@ in them:
 - Desktop: Not today under Log set in the pane; no swipe.
 - Old star ratings are read as faces (1 hard, 2 getting there, 3–4 got it, 5 easy).
 - The reminder counts what is left on Today and goes silent when it is done.
-- A skipped exercise shows in Coming up's Waiting, and its + undoes the skip.
+- A skipped exercise shows in Coming up (Waiting, or its day when ahead), and
+  its + undoes the skip; that toast's Undo skips it again.
 - Paused exercises have no + on Coming up; adding never un-pauses.
 - The figure page, the player and the lesson page show due-day words where
   they showed a frequency.

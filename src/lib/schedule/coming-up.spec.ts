@@ -97,6 +97,14 @@ describe('comingUp', () => {
 		expect(shape(comingUp(input([p, a])))).toEqual([['paused', null, ['p:paused']]]);
 	});
 
+	it('skipped not-yet-due picked row shows skipped in its date group', () => {
+		const a = ex('a', day(-1));
+		const ahead = ex('ahead', day(2));
+		const gs = comingUp(input([a, ahead], { picks: [pick(ahead, 'next'), pick(ahead, 'skip')] }));
+		// Not on Today (skipped), comes back in 2 days: under that day, marked skipped (its + re-adds).
+		expect(shape(gs)).toEqual([[day(2), 'in 2 days', ['ahead:skipped']]]);
+	});
+
 	it('is empty with no exercises', () => {
 		expect(comingUp(input([]))).toEqual([]);
 	});
