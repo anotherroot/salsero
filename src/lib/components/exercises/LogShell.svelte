@@ -81,6 +81,11 @@
 		 */
 		schedule?: ScheduleState;
 		today?: string;
+		/**
+		 * The simple popup (Follow my class, Practise and keep my own): the four faces
+		 * and "Done" alone, no minutes, reps or note; the content in the simple player.
+		 */
+		simple?: boolean;
 	}
 </script>
 
@@ -115,7 +120,7 @@
 	} from '$lib/components/ui/styles';
 	import { typeInfo } from '$lib/exercises/kinds';
 	import { minutesFrom } from '$lib/exercises/practice';
-	import { footerFor, rangeError } from '$lib/exercises/log-view';
+	import { fieldsShown, footerFor, rangeError } from '$lib/exercises/log-view';
 	import { clock, longDayLabel } from '$lib/format';
 
 	interface Props extends LogProps {
@@ -151,6 +156,7 @@
 		follow = null,
 		schedule,
 		today,
+		simple = false,
 		run,
 		playing,
 		reference,
@@ -158,7 +164,9 @@
 	}: Props = $props();
 
 	const info = $derived(typeInfo(exercise.source));
-	const has = (f: 'minutes' | 'reps' | 'rating' | 'note') => info.fields.includes(f);
+	// The simple popup draws the faces alone (`fieldsShown`).
+	const shownFields = $derived(fieldsShown(simple, info.fields));
+	const has = (f: 'minutes' | 'reps' | 'rating' | 'note') => shownFields.includes(f);
 	// The pane's form has its own id, so a popup and a pane never share one.
 	const formId = $derived(frame === 'pane' ? `log-pane-${exercise.id}` : `log-${exercise.id}`);
 	/**
@@ -210,7 +218,8 @@
 			playing,
 			backfill: backfillDay !== null,
 			follow: follow?.name ?? null,
-			rated: !has('rating') || feel !== null
+			rated: !has('rating') || feel !== null,
+			simple
 		})
 	);
 	/** Next goes on through the session, else to the exercise `follow` names. */
@@ -365,7 +374,10 @@
 	>
 		<input type="hidden" name="exerciseId" value={exercise.id} />
 		{#if backfillDay}<input type="hidden" name="day" value={backfillDay} />{/if}
-		<input type="hidden" name="durationS" value={exactS ?? ''} />
+		<!-- The simple popup posts only what it has: the faces, and a practice run's time. -->
+		{#if !simple || exactS !== null}
+			<input type="hidden" name="durationS" value={exactS ?? ''} />
+		{/if}
 		{#if liveRun && !backfillDay}<input type="hidden" name="run" value={liveRun.playerJson} />{/if}
 
 		{#if has('minutes') || has('reps')}
@@ -558,9 +570,9 @@
 		under it. The title, "Last time", the sets and the toast are the page's own
 		(its header and History), so none of them is here.
 	-->
-	<section aria-label="Log a set" class="flex flex-col gap-3">
+	<section aria-label={simple ? 'I practised this' : 'Log a set'} class="flex flex-col gap-3">
 		{@render doneCard()}
-		<h2 class={SECTION_LABEL}>Log a set</h2>
+		<h2 class={SECTION_LABEL}>{simple ? 'I practised this' : 'Log a set'}</h2>
 		{#if payload}
 			{#if panel}{@render panel(payload)}{/if}
 		{:else if loadError}
@@ -659,7 +671,7 @@
 
 			{@render theForm()}
 
-			{#if sets.length > 0}
+			{#if sets.length > 0 && !simple}
 				<div class="flex flex-col gap-2 pt-1">
 					<h3 class={SECTION_LABEL}>{backfillDay ? 'Sets that day' : 'Sets today'}</h3>
 					<SetList

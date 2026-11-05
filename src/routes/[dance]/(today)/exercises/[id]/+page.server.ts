@@ -13,6 +13,7 @@ import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form'
 import { popupData } from '$lib/server/popup';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
 import { addLesson, addOffer, drillAddRoute, entryFor } from '$lib/server/entries';
+import { fromClassOf } from '$lib/server/from-class';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
@@ -110,7 +111,9 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			makeMine: null,
 			drill: null,
 			historyHref: null,
-			add: null
+			add: null,
+			// A lesson review's own class (the simple page's "From class …").
+			fromClass: fromClassOf(db, wall.userId, own)
 		};
 	}
 
@@ -180,6 +183,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		copyTo: copyOffer(db, wall.userId, 'drill', row.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
+		// A group drill reached through a lesson: that lesson's class, entry or not.
+		fromClass: fromClassOf(db, wall.userId, {
+			id: row.id,
+			teamId: row.teamId,
+			lessonId: null,
+			drillId: null
+		}),
 		add: route
 			? {
 					lessonId: route.lessonId,

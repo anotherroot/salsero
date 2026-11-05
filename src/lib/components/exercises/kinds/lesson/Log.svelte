@@ -13,6 +13,7 @@
 			content={payload.content}
 			timezone={props.timezone}
 			canEdit={props.exercise.team === null}
+			simple={props.simple}
 			{...props.contentProps}
 		/>
 	{/snippet}

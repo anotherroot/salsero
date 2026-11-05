@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { levelShown, simple } from '$lib/levels/levels';
 	import { logFor } from '$lib/components/exercises/kinds';
 	import PastDay from '$lib/components/today/PastDay.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
@@ -93,6 +95,7 @@
 				songs={data.list.songs}
 				takes={data.list.takes}
 				backfillDay={past.day}
+				simple={simple(levelShown(page.data.user?.level))}
 				{timezone}
 				message={failure('log')}
 				action="/{data.dance.slug}?/log"
