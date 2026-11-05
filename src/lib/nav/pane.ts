@@ -9,7 +9,10 @@ import type { DanceSlug } from '$lib/dances/dances';
 /** The lists that sit beside their item. Later plans add Today, Moves, Lessons and Groups. */
 export type ListId = 'songs' | 'figures' | 'routines' | 'positions';
 
-/** Route id → its list, and whether that route opens an item beside it. */
+/**
+ * Route id → its list, and whether that route opens an item beside it.
+ * No `under` field yet (listOf's return type has it): plan 4 adds `under: true` here for group sub-pages.
+ */
 const ROUTES: Record<string, { list: ListId; open: boolean }> = {
 	'/[dance]/songs': { list: 'songs', open: false },
 	'/[dance]/songs/[id]': { list: 'songs', open: true },
@@ -51,7 +54,15 @@ export function listOf(
 
 /** `path` is the list's root, or a page under it (by whole segments: `/salsa/songsx` is not). */
 export function inList(path: string, list: ListId, dance: DanceSlug): boolean {
-	const home = LIST_HOME[list];
+	return inHome(path, LIST_HOME[list], dance);
+}
+
+/** `inList` for a given home entry (pure, so a spec can try a home that is not in the table). */
+export function inHome(
+	path: string,
+	home: { root: string; items: string[] },
+	dance: DanceSlug
+): boolean {
 	return (
 		path === `/${dance}${home.root}` ||
 		home.items.some((i) => path === `/${dance}${i}` || path.startsWith(`/${dance}${i}/`))

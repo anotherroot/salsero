@@ -653,7 +653,8 @@ What the user settled on the boards, newest last:
   settled board draws, not two equal halves; a group's routine pins Edit and
   Practise in its pane.
 - **The Map row stays in the Positions list and is lit** while the map is open;
-  the map's route draws no ‹.
+  the map's route draws no ‹ when it was opened from inside Positions (the list
+  beside it); opened from anywhere else it has one, like any item.
 - **A position's edit mode is fixed at its start** (`PositionForm`'s `mode`), so a
   save that changes the data does not flip the form in place.
 - **`PaneColumns`' `two:` variant** is on its `cols` container, not on the pane.

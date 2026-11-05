@@ -163,3 +163,16 @@ describe('bandButton', () => {
 		expect(bandButton('band')).not.toContain('desk:');
 	});
 });
+
+describe('the pane header classes', () => {
+	it('PaneHeading and BandHeader share one set: the desk forms are the plain ones behind desk:', async () => {
+		const s = await import('./styles');
+		const desk = (c: string) =>
+			c
+				.split(' ')
+				.map((x) => `desk:${x}`)
+				.join(' ');
+		expect(s.PANE_PAD_DESK).toBe(desk(s.PANE_PAD));
+		expect(s.PANE_TITLE_DESK).toBe(desk(s.PANE_TITLE));
+	});
+});

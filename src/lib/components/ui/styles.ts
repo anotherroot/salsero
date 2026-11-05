@@ -166,3 +166,13 @@ export const ROW_TALL = swap(ROW, 'min-h-14', 'min-h-16');
 
 /** A full-width danger button sharing its row: less side padding, so the label fits. */
 export const DANGER_SHARED = swap(button('danger', 'md', true), 'px-6', 'px-3');
+
+/**
+ * A pane header's padding and title size, shared by `BandHeader`'s `pane`
+ * variant (the `_DESK` forms, behind `desk:`) and `PaneHeading` (the plain
+ * forms), so the two cannot drift. A spec checks each pair agrees.
+ */
+export const PANE_PAD = 'px-10 pt-6 pb-1';
+export const PANE_PAD_DESK = 'desk:px-10 desk:pt-6 desk:pb-1';
+export const PANE_TITLE = 'text-[30px] leading-[1.05] tracking-[-0.015em]';
+export const PANE_TITLE_DESK = 'desk:text-[30px] desk:leading-[1.05] desk:tracking-[-0.015em]';

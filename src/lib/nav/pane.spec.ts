@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inList, listOf, LIST_HOME, paneBack } from './pane';
+import { inHome, inList, listOf, paneBack } from './pane';
 
 describe('listOf', () => {
 	it('names the list a route belongs to, and whether an item is open', () => {
@@ -66,18 +66,14 @@ describe('the Moves lists', () => {
 		expect(inList('/salsa/figuresx', 'figures', 'salsa')).toBe(false);
 	});
 
-	// Plan 2: Today's root is the dance itself; a whole-dance prefix is not "under" it.
-	it('a list whose root is the dance does not own the whole dance', () => {
-		const home = LIST_HOME as Record<string, { root: string; items: string[] }>;
-		home.today = { root: '', items: ['/exercises'] };
-		try {
-			expect(inList('/salsa', 'today' as never, 'salsa')).toBe(true);
-			expect(inList('/salsa/exercises/4', 'today' as never, 'salsa')).toBe(true);
-			expect(inList('/salsa/figures/4', 'today' as never, 'salsa')).toBe(false);
-			expect(inList('/salsa/exercisesx', 'today' as never, 'salsa')).toBe(false);
-		} finally {
-			delete home.today;
-		}
+	// Today's root is the dance itself; a whole-dance prefix is not "under" it.
+	// plan 2: test today's real LIST_HOME entry here too.
+	it('a home whose root is the dance does not own the whole dance', () => {
+		const today = { root: '', items: ['/exercises'] };
+		expect(inHome('/salsa', today, 'salsa')).toBe(true);
+		expect(inHome('/salsa/exercises/4', today, 'salsa')).toBe(true);
+		expect(inHome('/salsa/figures/4', today, 'salsa')).toBe(false);
+		expect(inHome('/salsa/exercisesx', today, 'salsa')).toBe(false);
 	});
 });
 

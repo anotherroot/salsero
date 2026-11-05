@@ -756,6 +756,11 @@ describe('enteredAfter', () => {
 	});
 	it('a pop leaves it', () => {
 		expect(enteredAfter([A], { kind: 'pop', from: B, to: A })).toEqual([A]);
+		expect(enteredAfter([A, B], { kind: 'pop', from: B, to: A })).toEqual([A, B]);
+	});
+	it('a replace into an entered page keeps it entered, once', () => {
+		expect(enteredAfter([A, B], { kind: 'replace', from: A, to: B })).toEqual([A, B]);
+		expect(enteredAfter([A, B], { kind: 'replace', from: B, to: A })).toEqual([A, B]);
 	});
 });
 

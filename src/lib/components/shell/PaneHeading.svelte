@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PANE_PAD, PANE_TITLE } from '$lib/components/ui/styles';
 	/**
 	 * The heading of a list route's pane (desktop only: the phone's list route
 	 * draws no pane), drawn as an item's pane header looks (`BandHeader`'s
@@ -8,10 +9,8 @@
 	let { title, subtitle }: { title: string; subtitle?: string } = $props();
 </script>
 
-<div class="flex flex-col px-10 pt-6 pb-1">
-	<h2
-		class="font-display text-[30px] leading-[1.05] font-extrabold tracking-[-0.015em] break-words text-ink"
-	>
+<div class="flex flex-col {PANE_PAD}">
+	<h2 class="font-display font-extrabold break-words text-ink {PANE_TITLE}">
 		{title}
 	</h2>
 	{#if subtitle}
