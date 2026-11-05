@@ -2,6 +2,7 @@
 	import { leaveRemoved } from '$lib/nav/trail.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { tick, untrack } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
@@ -75,6 +76,20 @@
 		today?.pagePopup(logging && data.canLog);
 		return () => today?.pagePopup(false);
 	});
+	/** Not today applies while the exercise is a to-do or picked row on Today (not done today). */
+	const canSkip = $derived(data.canLog && !!today?.canSkip(data.exercise.id));
+	let skipping = $state(false);
+	async function notToday() {
+		if (skipping || !today) return;
+		skipping = true;
+		try {
+			// The row is gone from Today now: back to the list (on the desktop it opens the next).
+			if (await today.notToday(data.exercise.id))
+				await goto(resolve('/[dance]/(today)', { dance: data.dance.slug }));
+		} finally {
+			skipping = false;
+		}
+	}
 	/**
 	 * A drill is the only type this page may rename or archive: the others
 	 * belong to their owner. A person's entry on a group's drill (`'added'`) is
@@ -243,7 +258,11 @@
 				contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks }}
 				session={today?.session ?? null}
 				follow={today?.follow ?? null}
-				onlogged={today?.logged}
+				onlogged={(d, setId) => {
+					today?.logged(d);
+					today?.undoable(data.exercise.id, setId);
+				}}
+				belowLog={notTodayPane}
 				onclose={() => {}}
 			/>
 		{/key}
@@ -492,7 +511,31 @@
 					{/if}
 				</dl>
 			</section>
+			<!-- The very end of the phone's page (the desktop has it under Log set). -->
+			{#if canSkip}
+				<div class="flex flex-col items-center gap-0.5 pt-1 desk:hidden">
+					{@render notTodayButton()}
+				</div>
+			{/if}
 		{/if}
+	{/if}
+{/snippet}
+
+<!-- Not today: quiet text, with what it does under it. -->
+{#snippet notTodayButton()}
+	<button
+		type="button"
+		class={button('tertiary', 'md')}
+		aria-busy={skipping}
+		disabled={skipping}
+		onclick={notToday}>Not today</button
+	>
+	<p class="text-[13px] text-muted">It comes back tomorrow</p>
+{/snippet}
+
+{#snippet notTodayPane()}
+	{#if canSkip}
+		<div class="flex flex-col items-center gap-0.5">{@render notTodayButton()}</div>
 	{/if}
 {/snippet}
 
@@ -696,6 +739,8 @@
 		from="exercise"
 		schedule={data.scheduleAtStart ?? undefined}
 		today={data.today}
+		onlogged={(_, setId) => today?.undoable(data.exercise.id, setId)}
+		outer={today ? { toast: today.toast, ondismiss: today.dismissToast } : null}
 		onclose={() => (logging = false)}
 	/>
 {/if}

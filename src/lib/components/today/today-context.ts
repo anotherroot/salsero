@@ -1,5 +1,6 @@
 import { getContext, setContext } from 'svelte';
 import type { SessionControls } from '$lib/components/exercises/LogShell.svelte';
+import type { ToastState } from '$lib/act-toast';
 
 /**
  * What the (today) layout shares with the exercise page it holds (desktop spec,
@@ -18,6 +19,15 @@ export interface TodayPane {
 	readonly key: string;
 	/** A set was logged in the pane: the session's tally and walk. */
 	logged(durationS: number | null): void;
+	/** A set was saved (its id): the layout's "back in …" toast with Undo. */
+	undoable(exerciseId: number, setId: number | null): void;
+	/** Whether Not today applies: the exercise is a to-do or picked row on Today. */
+	canSkip(exerciseId: number): boolean;
+	/** Not today: posts the skip, toasts Undo; false when it was refused. */
+	notToday(exerciseId: number): Promise<boolean>;
+	/** The layout's toast, for a popup that covers it (LogShell's `outer`). */
+	readonly toast: ToastState | null;
+	dismissToast(): void;
 	/**
 	 * The page's own log popup (the phone's Log a set) is open or not: a window
 	 * narrowing in a session then leaves it the only popup, never two forms with

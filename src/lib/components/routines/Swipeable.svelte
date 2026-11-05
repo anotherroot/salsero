@@ -31,6 +31,8 @@
 		rounded?: string;
 		/** The button's width: how far an open card rests from home. */
 		reveal?: number;
+		/** The button's colour: danger (Delete, the default) or warn (Not today). */
+		tone?: 'danger' | 'warn';
 		children: Snippet;
 	}
 
@@ -42,8 +44,16 @@
 		disabled = false,
 		rounded = 'rounded-xl',
 		reveal = 84,
+		tone = 'danger',
 		children
 	}: Props = $props();
+
+	// Whole class names, so Tailwind sees them. The focus ring follows the label colour.
+	const UNDERLAY = { danger: 'bg-danger', warn: 'bg-warn-soft' } as const;
+	const LABEL_TONE = {
+		danger: 'text-on-danger [--focus-ring:var(--color-on-danger)]',
+		warn: 'text-warn [--focus-ring:var(--color-warn)]'
+	} as const;
 
 	const gesture = swipe({
 		// A getter, so the gesture reads the prop when it needs it.
@@ -69,10 +79,12 @@
 			the red would look cut off behind the curve. The container's own
 			rounding clips it to the card's shape.
 		-->
-		<div class="absolute inset-0 bg-danger" aria-hidden="true"></div>
+		<div class="absolute inset-0 {UNDERLAY[tone]}" aria-hidden="true"></div>
 		<button
 			type="button"
-			class="absolute inset-y-0 right-0 flex cursor-pointer flex-col items-center justify-center gap-1 text-[14px] font-extrabold text-on-danger [--focus-ring:var(--color-on-danger)]"
+			class="absolute inset-y-0 right-0 flex cursor-pointer flex-col items-center justify-center gap-1 text-[14px] font-extrabold {LABEL_TONE[
+				tone
+			]}"
 			style="width: {reveal}px"
 			onclick={() => {
 				onchange(null);

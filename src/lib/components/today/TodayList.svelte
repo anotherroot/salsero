@@ -13,6 +13,7 @@
 	import type { AppUpdate } from '$lib/app-update/view';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { ExerciseItem } from '$lib/types';
+	import type { Side } from '$lib/gestures/swipe';
 
 	/**
 	 * Today's list: one "Today · N" card (done, to do, picked: `dayList`'s order),
@@ -35,7 +36,8 @@
 		appUpdate,
 		onlog,
 		oncreate,
-		onrefused
+		onrefused,
+		onskip
 	}: {
 		day: DayList<ExerciseItem>;
 		/** No live exercise at all: the first run. */
@@ -58,7 +60,12 @@
 		oncreate: () => void;
 		/** Next was refused: the layout's toast says why. */
 		onrefused: (message: string) => void;
+		/** Not today, from a row's swipe: the layout posts it and shows the toast. */
+		onskip: (exerciseId: number) => void;
 	} = $props();
+
+	/** The row whose "Not today" is showing (one at a time); a tap anywhere else closes it. */
+	let swiped = $state<{ key: string; side: Side } | null>(null);
 
 	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
 	const lessonDayOf = (e: { lessonId: number | null }) => {
@@ -66,6 +73,12 @@
 		return d ? classDayLabel(d, day.today) : null;
 	};
 </script>
+
+<svelte:window
+	onpointerdown={(e) => {
+		if (swiped && !(e.target as Element).closest?.(`[data-swipe="${swiped.key}"]`)) swiped = null;
+	}}
+/>
 
 {#if appUpdate?.state === 'available'}
 	<div class="pt-3"><AppUpdateBar update={appUpdate} /></div>
@@ -112,6 +125,9 @@
 						current={row.exercise.id === currentId}
 						search={rowSearch}
 						onlog={() => onlog(row.exercise.id)}
+						onskip={row.kind === 'done' ? undefined : () => onskip(row.exercise.id)}
+						swiped={swiped?.key === `today:${row.exercise.id}` ? swiped.side : null}
+						onswipe={(side) => (swiped = side ? { key: `today:${row.exercise.id}`, side } : null)}
 					/>
 				{/each}
 				{#if day.showNext}<NextRow {dance} {daily} {onrefused} />{/if}

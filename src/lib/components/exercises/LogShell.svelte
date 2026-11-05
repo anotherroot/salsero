@@ -48,7 +48,7 @@
 		initial?: PracticePayload | null;
 		session?: SessionControls | null;
 		/** A set was saved. `durationS` is what it logged, for the session's tally. */
-		onlogged?: (durationS: number | null) => void;
+		onlogged?: (durationS: number | null, setId: number | null) => void;
 		onclose: () => void;
 		/** Where this popup was opened, so a Practice opened from it can go back there. */
 		from?: 'today' | 'exercise';
@@ -64,6 +64,13 @@
 		 * (desktop spec, "Today"): no sheet, the form with Log set pinned under it.
 		 */
 		frame?: 'sheet' | 'pane';
+		/** The pane only: a quiet extra under Log set (the exercise page's Not today). */
+		belowLog?: Snippet;
+		/**
+		 * The popup only: the Today layout's toast (a set's "back in …" Undo), drawn inside
+		 * the sheet, since a modal dialog covers the page's own.
+		 */
+		outer?: { toast: ToastState | null; ondismiss: () => void } | null;
 		/** Outside a session: where Next goes after a log (the next due exercise). */
 		follow?: { name: string; onnext: () => void } | null;
 		/** What the type's `Content` gets on the page (spread after the wrapper's own `canEdit`). */
@@ -87,6 +94,7 @@
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import type { ToastState } from '$lib/act-toast';
 	import SetList from './SetList.svelte';
 	import LastTime from './LastTime.svelte';
 	import FaceRating from './FaceRating.svelte';
@@ -138,6 +146,8 @@
 		onclose,
 		action = '?/log',
 		frame = 'sheet',
+		belowLog,
+		outer = null,
 		follow = null,
 		schedule,
 		today,
@@ -347,7 +357,7 @@
 					// In a session, or with a `follow`, "Logged" stays until Next, Skip or
 					// Finish — the Next button hangs off it. Otherwise it fades back to "Log set".
 					if (!session && !follow) setTimeout(() => (justLogged = false), 2500);
-					onlogged?.(logged);
+					onlogged?.(logged, (result.data as { setId?: number } | undefined)?.setId ?? null);
 					load();
 				};
 			}
@@ -572,6 +582,7 @@
 				{@render finishButton(true)}
 			</div>
 			{@render hint()}
+			{#if belowLog}{@render belowLog()}{/if}
 		</div>
 	</section>
 {:else}
@@ -676,9 +687,13 @@
 			<Toast
 				contained
 				bottom="0"
-				toast={notice}
-				onaction={undo}
+				toast={notice ?? outer?.toast ?? null}
+				onaction={notice ? undo : () => outer?.toast?.undo?.()}
 				ondismiss={() => {
+					if (!notice) {
+						outer?.ondismiss();
+						return;
+					}
 					notice = null;
 					undoSnapshot = null;
 				}}
