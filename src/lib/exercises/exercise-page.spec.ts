@@ -57,18 +57,18 @@ describe('practisedLabel', () => {
 describe('summaryTiles', () => {
 	it('gives three tiles', () => {
 		expect(summaryTiles({ sets: 23, totalS: 15000, recentRating: 3.8 })).toEqual([
-			{ value: '23', label: 'sets', star: false },
-			{ value: '4 h 10', label: 'practised', star: false },
-			{ value: '3.8', label: 'recent rating', star: true }
+			{ value: '23', label: 'sets', feel: null },
+			{ value: '4 h 10', label: 'practised', feel: null },
+			{ value: "I've got it", label: 'recently', feel: 'gotit' }
 		]);
 		expect(
 			summaryTiles({ sets: 1, totalS: 0, recentRating: null }).map((t) => [t.value, t.label])
 		).toEqual([
 			['1', 'set'],
 			['0 min', 'practised'],
-			['–', 'recent rating']
+			['–', 'recently']
 		]);
-		expect(summaryTiles({ sets: 2, totalS: 60, recentRating: 4 })[2].value).toBe('4.0');
+		expect(summaryTiles({ sets: 2, totalS: 60, recentRating: 4.6 })[2].value).toBe('Easy');
 	});
 });
 

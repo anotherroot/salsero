@@ -1,4 +1,5 @@
 /** Display strings shared by several screens. Client-safe, pure. */
+import { FEEL_WORD, feelOf } from '$lib/schedule/feel';
 
 export function lastDoneLabel(daysAgo: number | null): string {
 	if (daysAgo === null) return 'Never done';
@@ -20,7 +21,8 @@ export function setSummary(s: {
 		parts.push(`${min} min`);
 	}
 	if (s.reps !== null) parts.push(`${s.reps} reps`);
-	if (s.rating !== null) parts.push(`${'★'.repeat(s.rating)}`);
+	const feel = feelOf(s.rating);
+	if (feel !== null) parts.push(FEEL_WORD[feel]);
 	return parts.join(' · ');
 }
 

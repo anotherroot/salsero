@@ -68,6 +68,12 @@
 		follow?: { name: string; onnext: () => void } | null;
 		/** What the type's `Content` gets on the page (spread after the wrapper's own `canEdit`). */
 		contentProps?: Pick<ContentProps, 'onPage' | 'canEdit' | 'editLinks'>;
+		/**
+		 * The exercise's schedule as of the START of today (sets before today only),
+		 * and today's day: what each face would set. Without them the faces show no times.
+		 */
+		schedule?: ScheduleState;
+		today?: string;
 	}
 </script>
 
@@ -83,7 +89,10 @@
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import SetList from './SetList.svelte';
 	import LastTime from './LastTime.svelte';
-	import RatingStars from './RatingStars.svelte';
+	import FaceRating from './FaceRating.svelte';
+	import { preview as previewOf, type ScheduleState } from '$lib/schedule/schedule';
+	import { earlyLine } from '$lib/schedule/words';
+	import type { Feel } from '$lib/schedule/feel';
 	import { fetchPractice } from './fetch-practice';
 	import { restoreSet } from './restore-set';
 	import {
@@ -130,6 +139,8 @@
 		action = '?/log',
 		frame = 'sheet',
 		follow = null,
+		schedule,
+		today,
 		run,
 		playing,
 		reference,
@@ -160,7 +171,11 @@
 	let loadError = $state<string | null>(null);
 	let busy = $state(false);
 	let justLogged = $state(false);
-	let rating = $state<number | null>(null);
+	let feel = $state<Feel | null>(null);
+	/** What each face would set; none on a back-filled day or without a schedule. */
+	const faces = $derived(
+		schedule && today && backfillDay === null ? previewOf(schedule, today) : null
+	);
 	let minutes = $state('');
 	let reps = $state('');
 	/** Exact seconds from the panel. Typing into Minutes clears it, so a hand-entered value wins. */
@@ -184,7 +199,8 @@
 			busy,
 			playing,
 			backfill: backfillDay !== null,
-			follow: follow?.name ?? null
+			follow: follow?.name ?? null,
+			rated: !has('rating') || feel !== null
 		})
 	);
 	/** Next goes on through the session, else to the exercise `follow` names. */
@@ -321,7 +337,7 @@
 						refusal = typeof m === 'string' ? m : 'It did not save.';
 					}
 					if (result.type !== 'success') return;
-					rating = null;
+					feel = null;
 					minutes = '';
 					reps = '';
 					minutesBad = false;
@@ -416,7 +432,13 @@
 		{/if}
 
 		{#if has('rating')}
-			<RatingStars question={info.ratingQuestion} value={rating} onchange={(r) => (rating = r)} />
+			<FaceRating
+				question={info.ratingQuestion}
+				value={feel}
+				onchange={(f) => (feel = f)}
+				preview={faces?.faces ?? null}
+				early={faces?.early && today ? earlyLine(faces.early, today) : null}
+			/>
 		{/if}
 
 		{#if has('note')}

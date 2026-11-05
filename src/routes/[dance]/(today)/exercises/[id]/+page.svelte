@@ -17,6 +17,7 @@
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import Face from '$lib/components/exercises/Face.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -241,6 +242,8 @@
 				message={failure('log')}
 				initial={data.practice}
 				from="exercise"
+				schedule={data.scheduleAtStart ?? undefined}
+				today={data.today}
 				contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks }}
 				session={today?.session ?? null}
 				follow={today?.follow ?? null}
@@ -452,8 +455,10 @@
 						{#if i > 0}<span aria-hidden="true" class="my-3 w-px flex-none bg-hairline"></span>{/if}
 						<div class="flex min-w-0 flex-1 flex-col gap-0.5 px-3.5 py-3">
 							<span
-								class="flex items-center gap-1 font-display text-[24px] leading-[1.05] font-extrabold text-ink"
-								>{tile.value}{#if tile.star}<Icon name="star" size={20} filled />{/if}</span
+								class="flex items-center gap-1.5 font-display leading-[1.05] font-extrabold text-ink {tile.feel
+									? 'text-[17px]'
+									: 'text-[24px]'}"
+								>{#if tile.feel}<Face feel={tile.feel} size={22} />{/if}{tile.value}</span
 							>
 							<span class="text-[12px] font-bold text-muted">{tile.label}</span>
 						</div>
@@ -700,6 +705,8 @@
 		message={failure('log')}
 		initial={data.practice}
 		from="exercise"
+		schedule={data.scheduleAtStart ?? undefined}
+		today={data.today}
 		onclose={() => (logging = false)}
 	/>
 {/if}

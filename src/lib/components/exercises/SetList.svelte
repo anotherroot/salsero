@@ -4,7 +4,8 @@
 	import { staleFailure } from '$lib/page-epoch';
 	import { focusAfterRemoval } from '$lib/focus';
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import Stars from '$lib/components/ui/Stars.svelte';
+	import Face from './Face.svelte';
+	import { FEEL_WORD, feelOf } from '$lib/schedule/feel';
 	import { GROUP, iconButton } from '$lib/components/ui/styles';
 	import { setMeta, setTitle } from '$lib/exercises/exercise-page';
 	import { timeOfDay } from '$lib/day/day';
@@ -33,10 +34,12 @@
 		<li class="flex min-h-[60px] items-center gap-3 pr-1.5 pl-4">
 			<div class="flex min-w-0 flex-1 flex-col gap-0.5 py-2">
 				<span class="text-[16px] leading-tight font-bold text-ink"
-					>{title.text}{#if title.rating !== null}{title.text ? ' · ' : ''}<Stars
-							rating={title.rating}
-							size={14}
-						/>{/if}</span
+					>{title.text}{#if title.rating !== null}{title.text ? ' · ' : ''}<span
+							class="inline-flex items-center gap-1 align-[-3px]"
+							><Face feel={feelOf(title.rating) ?? 'gotit'} size={16} label />{FEEL_WORD[
+								feelOf(title.rating) ?? 'gotit'
+							]}</span
+						>{/if}</span
 				>
 				<span class="truncate text-[13px] text-muted">{setMeta(s, timezone)}</span>
 			</div>

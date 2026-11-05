@@ -17,7 +17,9 @@
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
-	import Stars from '$lib/components/ui/Stars.svelte';
+	import Face from '$lib/components/exercises/Face.svelte';
+	import FaceRating from '$lib/components/exercises/FaceRating.svelte';
+	import { FEELS, type Feel } from '$lib/schedule/feel';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
@@ -59,6 +61,7 @@
 	let sheetToastMsg = $state<{ id: number; message: string; action?: string } | null>(null);
 	let tallOpen = $state(false);
 	let tallToast = $state<{ id: number; message: string; action?: string } | null>(null);
+	let kitFeel = $state<Feel | null>(null);
 	let bpm = $state(180);
 	let bpmMin = $state(60);
 	let vol = $state(0.8);
@@ -486,8 +489,20 @@
 					<Slider bind:value={vol} label="Volume" />
 				</div>
 				<div class="flex flex-col gap-1 text-ink">
-					{#each [1, 2, 3, 4, 5] as r (r)}<Stars rating={r} />{/each}
+					{#each FEELS as f (f)}<Face feel={f} label />{/each}
 				</div>
+				<FaceRating
+					question="How did it go?"
+					value={kitFeel}
+					onchange={(f) => (kitFeel = f)}
+					preview={[
+						{ feel: 'hard', gap: 1 },
+						{ feel: 'getting', gap: 3 },
+						{ feel: 'gotit', gap: 21 },
+						{ feel: 'easy', gap: 70 }
+					]}
+					early="Done early: you last did it yesterday, it was due on Saturday 14 Nov."
+				/>
 				<div>
 					<button
 						type="button"
@@ -610,7 +625,7 @@
 	>
 		{#snippet subtitle()}
 			<span class="flex items-center gap-1.5 text-[14px] text-muted"
-				>Last time: 3 days ago · <Stars rating={3} /></span
+				>Last time: 3 days ago · <Face feel="gotit" size={16} label /></span
 			>
 		{/snippet}
 		{#snippet actions()}

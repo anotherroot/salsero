@@ -4,6 +4,7 @@ import { lastSets, listExercises, listSetTimes, listSetsBetween } from '$lib/ser
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { lessonDays } from '$lib/server/lessons';
 import { wallOf } from '$lib/server/scope';
+import { scheduleStates } from '$lib/server/schedule';
 import { songChoices } from '$lib/server/songs';
 import { localDay, noonOf, shiftDay } from '$lib/day/day';
 import { PHRASE_PATTERNS } from '$lib/labels';
@@ -50,6 +51,9 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			lastRatings: Object.fromEntries(
 				[...lastSets(db, wall)].map(([id, s]) => [id, s.rating] as [number, number | null])
 			),
+			// Each live exercise's schedule as of the START of today (sets before today
+			// only): what the log popup's faces preview, the same on a second log today.
+			schedulesAtStart: Object.fromEntries(scheduleStates(db, wall, tz, today)),
 			// For the practice panel's song picker.
 			songs: songChoices(db, wall),
 			// The practice panel's voice: the user's recorded count, a few dozen rows.

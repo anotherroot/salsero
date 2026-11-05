@@ -482,6 +482,8 @@
 				{timezone}
 				message={failure('log')}
 				action="/{dance}?/log"
+				schedule={data.list.schedulesAtStart[open.id]}
+				today={data.list.today}
 				{session}
 				onlogged={logged}
 				onclose={() => (openId = null)}

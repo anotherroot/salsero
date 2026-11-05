@@ -1,6 +1,7 @@
 /** What the exercise page shows: summary tiles, history by day, the owner row. PURE, client-safe. */
 import { daysBetween, localDay, timeOfDay } from '$lib/day/day';
 import { dateLabel, longDayLabel, setSummary } from '$lib/format';
+import { FEEL_WORD, feelOf, type Feel } from '$lib/schedule/feel';
 import type { IconName } from '$lib/icons/icons';
 import type { ExerciseSummary, HistorySet, PracticeContent } from '$lib/types';
 
@@ -12,15 +13,13 @@ export function practisedLabel(totalS: number): string {
 
 export function summaryTiles(
 	s: ExerciseSummary
-): { value: string; label: string; star: boolean }[] {
+): { value: string; label: string; feel: Feel | null }[] {
+	// The recent ratings' mean, read as the face it is closest to.
+	const feel = s.recentRating === null ? null : feelOf(Math.round(s.recentRating));
 	return [
-		{ value: String(s.sets), label: s.sets === 1 ? 'set' : 'sets', star: false },
-		{ value: practisedLabel(s.totalS), label: 'practised', star: false },
-		{
-			value: s.recentRating === null ? '–' : s.recentRating.toFixed(1),
-			label: 'recent rating',
-			star: s.recentRating !== null
-		}
+		{ value: String(s.sets), label: s.sets === 1 ? 'set' : 'sets', feel: null },
+		{ value: practisedLabel(s.totalS), label: 'practised', feel: null },
+		{ value: feel === null ? '–' : FEEL_WORD[feel], label: 'recently', feel }
 	];
 }
 
