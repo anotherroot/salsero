@@ -1,9 +1,8 @@
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getDb, type Db } from '$lib/server/db';
-import { scheduleStates } from '$lib/server/schedule';
-import type { ScheduleState } from '$lib/schedule/schedule';
+import { getDb } from '$lib/server/db';
+import { scheduleForShown } from '$lib/server/schedule';
 import { defaultStyle } from '$lib/server/default-styles';
 import {
 	archiveLesson,
@@ -65,14 +64,7 @@ import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
 import { lessonNotice } from '$lib/teams/view';
-import {
-	actorOf,
-	inSpace,
-	isTeam,
-	requireLessonAccess,
-	wallOf,
-	type Wall
-} from '$lib/server/scope';
+import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
 import { SpotLinkedError, blockingPositionsByVideo, videoSections } from '$lib/server/spot-links';
 import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
@@ -130,22 +122,6 @@ function linkOwner(
 function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: number): string | null {
 	const { by, at } = editedBy(db, teamId, 'lesson', lessonId);
 	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
-}
-
-/** The wall's schedule states for just these exercises, by id. */
-function scheduleOn(
-	db: Db,
-	wall: Wall,
-	tz: string,
-	ids: (number | null | undefined)[]
-): Record<number, ScheduleState> {
-	const states = scheduleStates(db, wall, tz);
-	const out: Record<number, ScheduleState> = {};
-	for (const id of ids) {
-		const state = id == null ? undefined : states.get(id);
-		if (id != null && state) out[id] = state;
-	}
-	return out;
 }
 
 export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
@@ -238,10 +214,10 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), tz),
 		/** The schedule of each exercise the page shows a due word for: the person's own. */
-		schedule: scheduleOn(db, wall, tz, [
-			found.exercise?.id,
-			...shown(found.routines, visible?.routines).map((r) => r.exerciseId),
-			...shown(found.exercises, visible?.drills).map((e) => e.id)
+		schedule: scheduleForShown(db, wall, tz, [
+			{ id: found.exercise?.id },
+			...shown(found.routines, visible?.routines).map((r) => ({ id: r.exerciseId })),
+			...shown(found.exercises, visible?.drills).map((e) => ({ id: e.id, mineId: e.mineId }))
 		]),
 		// What "Add figure" pre-selects. Settings picks it.
 		defaultStyle: defaultStyle(db, wall.userId, wall.dance),

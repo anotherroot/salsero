@@ -63,8 +63,8 @@ describe('lesson page lines', () => {
 		expect(figureMeta({ partner: 'solo', viaSections: [] })).toBe('Solo');
 		const today = '2026-10-31'; // a Saturday
 		const state = { gap: 3, lastDay: '2026-10-28', dueDay: '2026-11-02' };
-		expect(routineMeta({ exerciseId: 4 }, state, today)).toBe('Due Monday');
-		expect(routineMeta({ exerciseId: null }, undefined, today)).toBeNull();
+		expect(routineMeta(state, today)).toBe('Due Monday');
+		expect(routineMeta(undefined, today)).toBeNull();
 		expect(exerciseMeta({ viaSections: [] }, state, today)).toBe('Due Monday');
 		expect(exerciseMeta({ viaSections: [] }, { ...state, dueDay: '2026-10-29' }, today)).toBe(
 			'2 days late'

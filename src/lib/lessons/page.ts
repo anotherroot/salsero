@@ -6,7 +6,6 @@ import type {
 	LessonExerciseRow,
 	LessonFigureRow,
 	LessonPositionRow,
-	LessonRoutineRow,
 	PositionSummary,
 	TeamRef,
 	ViaSection,
@@ -87,11 +86,7 @@ function dueText(state: ScheduleState | undefined, today: string): string | null
 	return state ? dueWords(state, today, state.lastDay === null)[0].text : null;
 }
 
-export function routineMeta(
-	_r: Pick<LessonRoutineRow, 'exerciseId'>,
-	state: ScheduleState | undefined,
-	today: string
-): string | null {
+export function routineMeta(state: ScheduleState | undefined, today: string): string | null {
 	return dueText(state, today);
 }
 

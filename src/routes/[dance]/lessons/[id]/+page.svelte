@@ -967,7 +967,7 @@
 											routine.name,
 											null,
 											yoursMeta(
-												routineMeta(routine, scheduleOf(routine.exerciseId), data.today),
+												routineMeta(scheduleOf(routine.exerciseId), data.today),
 												routine.mineId
 											)
 										)}
