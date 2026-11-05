@@ -30,11 +30,11 @@ const ROUTES: Record<string, { list: ListId; open: boolean }> = {
  * the prefix its items live under (by whole segment). Today's root is the
  * dance itself, so only its items prefix counts as "in" it.
  */
-export const LIST_HOME: Record<ListId, { root: string; items: string }> = {
-	songs: { root: '/songs', items: '/songs' },
-	figures: { root: '/figures', items: '/figures' },
-	routines: { root: '/routines', items: '/routines' },
-	positions: { root: '/positions', items: '/positions' }
+export const LIST_HOME: Record<ListId, { root: string; items: string[] }> = {
+	songs: { root: '/songs', items: ['/songs'] },
+	figures: { root: '/figures', items: ['/figures', '/moves', '/coverage'] },
+	routines: { root: '/routines', items: ['/routines'] },
+	positions: { root: '/positions', items: ['/positions'] }
 };
 
 /**
@@ -52,7 +52,10 @@ export function listOf(
 /** `path` is the list's root, or a page under it (by whole segments: `/salsa/songsx` is not). */
 export function inList(path: string, list: ListId, dance: DanceSlug): boolean {
 	const home = LIST_HOME[list];
-	return path === `/${dance}${home.root}` || path.startsWith(`/${dance}${home.items}/`);
+	return (
+		path === `/${dance}${home.root}` ||
+		home.items.some((i) => path === `/${dance}${i}` || path.startsWith(`/${dance}${i}/`))
+	);
 }
 
 /**

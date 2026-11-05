@@ -68,8 +68,8 @@ describe('the Moves lists', () => {
 
 	// Plan 2: Today's root is the dance itself; a whole-dance prefix is not "under" it.
 	it('a list whose root is the dance does not own the whole dance', () => {
-		const home = LIST_HOME as Record<string, { root: string; items: string }>;
-		home.today = { root: '', items: '/exercises' };
+		const home = LIST_HOME as Record<string, { root: string; items: string[] }>;
+		home.today = { root: '', items: ['/exercises'] };
 		try {
 			expect(inList('/salsa', 'today' as never, 'salsa')).toBe(true);
 			expect(inList('/salsa/exercises/4', 'today' as never, 'salsa')).toBe(true);
@@ -78,5 +78,14 @@ describe('the Moves lists', () => {
 		} finally {
 			delete home.today;
 		}
+	});
+});
+
+describe('the figures list owns the move and Coverage pages', () => {
+	it('gives no back from them', () => {
+		expect(paneBack('/salsa/moves/3', 'figures', 'salsa')).toBe(false);
+		expect(paneBack('/salsa/coverage', 'figures', 'salsa')).toBe(false);
+		expect(paneBack('/salsa/routines/5', 'figures', 'salsa')).toBe(true);
+		expect(paneBack('/salsa/movesx/3', 'figures', 'salsa')).toBe(true);
 	});
 });

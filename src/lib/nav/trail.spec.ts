@@ -694,10 +694,26 @@ describe('enteredAfter', () => {
 		expect(enteredAfter([A], { kind: 'replace', from: '/s/x', to: B })).toEqual([A]);
 		expect(enteredAfter([A], { kind: 'replace', from: null, to: B })).toEqual([A]);
 	});
-	it('a push empties it', () => {
-		expect(enteredAfter([A], { kind: 'push', from: A, to: B })).toEqual([]);
+	it('a push forgets only its target', () => {
+		expect(enteredAfter([A], { kind: 'push', from: A, to: B })).toEqual([A]);
+		expect(enteredAfter([A, B], { kind: 'push', from: '/s/x', to: A })).toEqual([B]);
 	});
 	it('a pop leaves it', () => {
 		expect(enteredAfter([A], { kind: 'pop', from: B, to: A })).toEqual([A]);
+	});
+});
+
+describe('enteredAfter: reload, push, back', () => {
+	it('a page entered by reload stays fresh through a push elsewhere and the back', () => {
+		const F = '/s/figures/12';
+		const P = '/s/positions/7';
+		let e = enteredAfter([], { kind: 'enter', from: null, to: F });
+		e = enteredAfter(e, { kind: 'push', from: F, to: P });
+		e = enteredAfter(e, { kind: 'pop', from: P, to: F });
+		expect(e).toContain(F);
+	});
+	it('a fresh push to an entered page makes it ordinary again', () => {
+		const F = '/s/figures/12';
+		expect(enteredAfter([F], { kind: 'push', from: '/s/routines/5', to: F })).toEqual([]);
 	});
 });

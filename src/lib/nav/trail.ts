@@ -241,7 +241,7 @@ export function enteredAfter(
 	a: Pick<Arrival, 'kind' | 'from' | 'to'>
 ): PageKey[] {
 	if (a.kind === 'enter') return [a.to];
-	if (a.kind === 'push') return [];
+	if (a.kind === 'push') return entered.filter((k) => k !== a.to);
 	if (a.kind === 'replace' && a.from !== null && entered.includes(a.from))
 		return entered.includes(a.to) ? [...entered] : [...entered, a.to];
 	return [...entered];
