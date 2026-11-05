@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { MAKE_MINE } from '$lib/clones/view';
 import {
+	codeAction,
+	COPY_FAILED,
 	codeLink,
 	deletingLine,
 	joinQuestion,
@@ -110,5 +112,25 @@ describe('PICK_GROUP', () => {
 			title: 'Pick a group',
 			body: 'Its lessons, class songs and people open here.'
 		});
+	});
+});
+
+describe('codeAction', () => {
+	it('says Copy link on the desktop and copies, whether or not the browser can share', () => {
+		expect(codeAction(true, true, false)).toEqual({ label: 'Copy link', icon: 'copy', copy: true });
+		expect(codeAction(true, false, false)).toEqual({
+			label: 'Copy link',
+			icon: 'copy',
+			copy: true
+		});
+		expect(codeAction(true, false, true).label).toBe('Copied');
+	});
+	it('shares on the phone, and copies only where it cannot share', () => {
+		expect(codeAction(false, true, false)).toEqual({ label: 'Share', icon: 'share', copy: false });
+		expect(codeAction(false, false, false).copy).toBe(true);
+		expect(codeAction(false, false, true)).toEqual({ label: 'Copied', icon: 'share', copy: true });
+	});
+	it('says what to do when the copy fails', () => {
+		expect(COPY_FAILED).toBe('Could not copy. The link above is selected: copy it from there.');
 	});
 });

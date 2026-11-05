@@ -64,7 +64,12 @@
 	</ul>
 </Screen>
 
-<Sheet title={acting?.name ?? ''} open={acting !== null} onclose={() => (acting = null)}>
+<Sheet
+	title={acting?.name ?? ''}
+	open={acting !== null}
+	onclose={() => (acting = null)}
+	size="small"
+>
 	{#if acting}
 		<div class={GROUP}>
 			<form

@@ -90,3 +90,20 @@ export const PICK_GROUP = {
 	title: 'Pick a group',
 	body: 'Its lessons, class songs and people open here.'
 };
+
+/**
+ * The group code dialog's button. The desktop copies the link and says so (a
+ * desktop browser's share sheet is not what Copy link says); the phone shares,
+ * and copies where it cannot share.
+ */
+export function codeAction(
+	desk: boolean,
+	canShare: boolean,
+	copied: boolean
+): { label: string; icon: 'share' | 'copy'; copy: boolean } {
+	if (desk) return { label: copied ? 'Copied' : 'Copy link', icon: 'copy', copy: true };
+	return { label: copied ? 'Copied' : 'Share', icon: 'share', copy: !canShare };
+}
+
+/** Under the code dialog's button when the desktop's copy fails: the link is selected instead. */
+export const COPY_FAILED = 'Could not copy. The link above is selected: copy it from there.';
