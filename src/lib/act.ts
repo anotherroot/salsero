@@ -37,12 +37,23 @@ export function act(name: string, fields: Record<string, Field>): Promise<Action
 export function actAt(
 	path: string,
 	name: string,
-	fields: Record<string, Field>
+	fields: Record<string, Field>,
+	opts: { stay?: boolean } = {}
 ): Promise<ActionResult> {
-	return post(`${path}?/${name}`, fields);
+	return post(`${path}?/${name}`, fields, opts.stay ?? false);
 }
 
-async function post(url: string, fields: Record<string, Field>): Promise<ActionResult> {
+/**
+ * `stay`: an action that ends in a redirect (the lesson page's Remove goes to
+ * Lessons) is posted from another page, which stays where it is. Its redirect
+ * counts as done, the load re-runs, and nothing is applied: no navigation, no
+ * error page; the caller reads the result.
+ */
+async function post(
+	url: string,
+	fields: Record<string, Field>,
+	stay = false
+): Promise<ActionResult> {
 	const body = new FormData();
 	for (const [key, value] of Object.entries(fields)) {
 		if (Array.isArray(value)) for (const v of value) body.append(key, String(v));
@@ -61,6 +72,12 @@ async function post(url: string, fields: Record<string, Field>): Promise<ActionR
 		result = deserialize(await res.text());
 	} catch {
 		result = { type: 'failure', status: 0, data: { message: 'Could not reach the server.' } };
+	}
+	if (stay) {
+		if (result.type === 'redirect') result = { type: 'success', status: 200 };
+		if (!stale && (result.type === 'success' || (result.type === 'failure' && result.status !== 0)))
+			await invalidateAll();
+		return result;
 	}
 	// The load re-runs BEFORE `form` is set: re-running it after would lose the
 	// message, and setting it to a success is what clears an earlier refusal

@@ -19,11 +19,20 @@
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import Switch from '$lib/components/ui/Switch.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
-	import { act } from '$lib/act';
-	import { refusalMessage } from '$lib/act-toast';
+	import MyClass from '$lib/components/teams/MyClass.svelte';
+	import { act, actAt } from '$lib/act';
+	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import type { IconName } from '$lib/icons/icons';
 	import { FIELD, GROUP, LABEL, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
-	import { classSongsHeading, groupUsesLine, peopleLine, youLine } from '$lib/teams/view';
+	import {
+		ADDED_TO_TODAY,
+		MY_CLASS,
+		classSongsHeading,
+		groupMenu,
+		groupUsesLine,
+		peopleLine,
+		youLine
+	} from '$lib/teams/view';
 	import { readyMeta, songName, songState } from '$lib/songs/library';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
@@ -46,7 +55,7 @@
 	 */
 	let adding = $state<{ id: number; title: string; offer: AddOffer } | null>(null);
 
-	let toast = $state<{ id: number; message: string } | null>(null);
+	let toast = $state<ToastState | null>(null);
 	let seq = 0;
 	/** Shows a refusal's message; true when the action was refused. */
 	function refused(result: Awaited<ReturnType<typeof act>>, fallback: string): boolean {
@@ -64,17 +73,39 @@
 		}
 	}
 
-	/** Below Everything, Add is one tap: the lesson's default picks, no sheet. */
+	/**
+	 * Below Everything, Add is one tap: the lesson's default picks, no sheet. In
+	 * My class it says so, "Added to Today · Undo", once the add has landed; Undo
+	 * is the lesson page's own Remove, posted from here (`stay`: its redirect to
+	 * Lessons is not followed).
+	 */
 	let addingNow = $state<number | null>(null);
 	async function addNow(lessonId: number) {
 		if (addingNow !== null) return;
 		addingNow = lessonId;
 		try {
-			refused(await act('addNow', { lessonId }), 'Could not add.');
+			if (refused(await act('addNow', { lessonId }), 'Could not add.')) return;
+			if (!data.simple) return;
+			const lesson = resolve('/[dance]/lessons/[id]', {
+				dance: data.dance.slug,
+				id: String(lessonId)
+			});
+			toast = undoToast(
+				++seq,
+				ADDED_TO_TODAY,
+				() => (toast = null),
+				async () => refused(await actAt(lesson, 'remove', {}, { stay: true }), 'Could not undo.')
+			);
 		} finally {
 			addingNow = null;
 		}
 	}
+
+	// My class: the Class menu, and the class page as the tab's own page in one class (no ‹).
+	const menuItems = $derived(groupMenu(data.role, data.simple));
+	const backShown = $derived(
+		!data.simple || data.teams.filter((t) => t.deletedAt === null).length > 1
+	);
 
 	let seen: unknown = $state(null);
 	$effect(() => {
@@ -102,25 +133,33 @@
 	}
 </script>
 
-<svelte:head><title>{data.team.name} · Groups</title></svelte:head>
+<svelte:head
+	><title>{data.team.name} · {data.simple ? MY_CLASS.title : 'Groups'}</title></svelte:head
+>
 
 <Screen
 	title={data.team.name}
-	subtitle="{peopleLine(data.people)} · {youLine(data.role)}"
+	subtitle={data.simple ? undefined : `${peopleLine(data.people)} · ${youLine(data.role)}`}
 	compact
 	width="two"
 >
 	{#snippet left()}
-		<BackButton
-			fallback={{
-				href: resolve('/[dance]/groups', { dance: data.dance.slug }),
-				label: 'Back to Groups'
-			}}
-		/>
+		{#if backShown}
+			<BackButton
+				fallback={{
+					href: resolve('/[dance]/groups', { dance: data.dance.slug }),
+					label: data.simple ? `Back to ${MY_CLASS.title}` : 'Back to Groups'
+				}}
+			/>
+		{/if}
 	{/snippet}
 	{#snippet right()}
 		{#if !deleted}
-			<BandButton icon="more" label="Group menu" onclick={() => (menu = true)} />
+			<BandButton
+				icon="more"
+				label={data.simple ? MY_CLASS.menu : 'Group menu'}
+				onclick={() => (menu = true)}
+			/>
 		{/if}
 	{/snippet}
 
@@ -139,6 +178,18 @@
 		{/if}
 	{:else}
 		{#if form?.action === 'leave' && form.message}<Banner kind="error">{form.message}</Banner>{/if}
+	{/if}
+	{#if data.simple}
+		<!-- My class: the latest class, the earlier ones and the class songs (levels spec). -->
+		<MyClass
+			dance={data.dance.slug}
+			styleLabel={data.dance.styleLabel}
+			lessons={data.lessons}
+			songs={data.songs}
+			{addingNow}
+			onadd={addNow}
+		/>
+	{:else if !deleted}
 		<!--
 			The group in its pane (desktop spec, "Two columns"): from a 780 px pane two
 			columns, 7 : 5 — the lessons on the left, the group's space and Class songs
@@ -294,7 +345,7 @@
 			<span class="flex-none text-accent-text"><Icon name="group" size={22} /></span>
 			<span class="text-[16px] font-bold text-ink">People</span>
 		</a>
-		{#if data.canEdit}
+		{#if menuItems.includes('deleted')}
 			<a
 				href={resolve('/[dance]/groups/[id]/deleted', {
 					dance: data.dance.slug,
@@ -306,15 +357,17 @@
 				<span class="text-[16px] font-bold text-ink">Recently deleted</span>
 			</a>
 		{/if}
-		{#if data.code}{@render row('link', 'Show code', () => pick(() => (code = true)))}{/if}
-		{#if owner}{@render row('edit', 'Rename', openRename)}{/if}
-		{#if !owner}{@render row(
+		{#if menuItems.includes('code') && data.code}{@render row('link', 'Show code', () =>
+				pick(() => (code = true))
+			)}{/if}
+		{#if menuItems.includes('rename')}{@render row('edit', 'Rename', openRename)}{/if}
+		{#if menuItems.includes('leave')}{@render row(
 				'logout',
-				'Leave group',
+				data.simple ? 'Leave class' : 'Leave group',
 				() => pick(() => (leaving = true)),
 				true
 			)}{/if}
-		{#if owner}{@render row(
+		{#if menuItems.includes('delete')}{@render row(
 				'trash',
 				'Delete group',
 				() => pick(() => (deleting = true)),
@@ -426,4 +479,4 @@
 	{/snippet}
 </Dialog>
 
-<Toast {toast} ondismiss={() => (toast = null)} />
+<Toast {toast} onaction={() => toast?.undo?.()} ondismiss={() => (toast = null)} />

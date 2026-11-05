@@ -240,6 +240,15 @@ extra. The simple lesson page of a class not added has the same Add as a band
 under its title ("Not in your practice yet · Add"). No other Add buttons, no code, no Rename, no Recently
 deleted, no storage. A lesson row opens the simple lesson page.
 
+As built (Task 6): "4 to practise" is what Add puts on Today (the lesson, its
+routines and drills: `addOffer`'s ticked items), a zero part left out. In one
+class the page has no ‹ (it is the tab's own page); with two or more it goes
+back to the list. **A teacher at Follow my class** (an editor or the owner of
+the group) keeps the full group page (drafts, New lesson, the code), as their
+lessons stay full (`simpleClass(level, role)`); the tab's landing and the list
+of classes are the same for them. Undo posts the lesson page's own Remove
+(`actAt(…, { stay: true })`: its redirect to Lessons is not followed).
+
 At Practise and keep my own and Everything, Groups is the standard Groups tab.
 A group's page gains one row for every member: **"Add new lessons to Today
 automatically"**, a switch, writing `team_members.auto_add`. At Practise and

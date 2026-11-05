@@ -33,8 +33,17 @@ describe('list routes keep their document title', () => {
 		it(`${name}: the layout mounts the list page and the page sets the title`, () => {
 			expect(read(layout)).toMatch(mounts);
 			expect(read(page)).toMatch(
-				new RegExp(`<svelte:head><title>${name} · \\{data\\.dance\\.label\\}</title></svelte:head>`)
+				new RegExp(
+					`<svelte:head><title>(?:${name}|\\{title\\}) · \\{data\\.dance\\.label\\}</title></svelte:head>`
+				)
 			);
 		});
 	}
+
+	// At Follow my class the Groups tab is My class, and so is its title.
+	it('Groups: the title is My class at Follow my class', () => {
+		expect(read('./groups/+page.svelte')).toContain(
+			"const title = $derived(data.myClass ? MY_CLASS.title : 'Groups');"
+		);
+	});
 });

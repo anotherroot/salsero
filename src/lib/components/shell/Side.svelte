@@ -83,7 +83,7 @@
 						{tab.label}
 						{#if fresh}
 							<span
-								class="mt-3 -ml-1 h-[9px] w-[9px] self-start rounded-full {here
+								class="mt-3 -ml-1 h-[9px] w-[9px] flex-none self-start rounded-full {here
 									? 'bg-band'
 									: 'bg-band-ink'}"
 								aria-hidden="true"

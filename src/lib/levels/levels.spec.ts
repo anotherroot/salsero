@@ -11,6 +11,7 @@ import {
 	levelShown,
 	parseLevel,
 	simple,
+	simpleClass,
 	simpleLesson,
 	tabsFor
 } from './levels';
@@ -79,6 +80,15 @@ describe('simple and simpleLesson', () => {
 		for (const [level, access, group, want] of table) {
 			expect(simpleLesson(level, access, group), `${level} ${access} ${group}`).toBe(want);
 		}
+	});
+
+	it('draws a class as My class for a member at Follow my class only', () => {
+		expect(simpleClass('follow', 'member')).toBe(true);
+		expect(simpleClass('own', 'member')).toBe(false);
+		expect(simpleClass('all', 'member')).toBe(false);
+		// A teacher keeps the full group page at every level: drafts, New lesson, the code.
+		expect(simpleClass('follow', 'editor')).toBe(false);
+		expect(simpleClass('follow', 'owner')).toBe(false);
 	});
 });
 

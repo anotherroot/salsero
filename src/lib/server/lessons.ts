@@ -7,6 +7,7 @@ import {
 	inArray,
 	isNotNull,
 	isNull,
+	max,
 	ne,
 	notInArray,
 	or,
@@ -474,6 +475,30 @@ export function listTeamLessons(
 		.filter((r) => editor || r.publishedAt !== null)
 		.map((r) => ({ ...r, team: { id: team.id, name: team.name } }));
 	return [...rows.filter((r) => r.publishedAt === null), ...rows.filter((r) => r.publishedAt)];
+}
+
+/**
+ * The day each group's newest published, live lesson was held, by group id
+ * (My class's list of classes: "Last class Tue 3 Nov"). A group with none is
+ * left out.
+ */
+export function latestClassDays(db: Db, teamIds: number[]): Map<number, string> {
+	if (teamIds.length === 0) return new Map();
+	const rows = db
+		.select({ teamId: lessons.teamId, day: max(lessons.lessonDay) })
+		.from(lessons)
+		.where(
+			and(
+				inArray(lessons.teamId, teamIds),
+				isNotNull(lessons.publishedAt),
+				isNull(lessons.archivedAt)
+			)
+		)
+		.groupBy(lessons.teamId)
+		.all();
+	return new Map(
+		rows.flatMap((r) => (r.teamId !== null && r.day !== null ? [[r.teamId, r.day] as const] : []))
+	);
 }
 
 /**

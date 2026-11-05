@@ -74,6 +74,15 @@ export function simpleLesson(
 }
 
 /**
+ * Whether a group's page is drawn as My class's simple class page: a member at
+ * Follow my class. An editor or the owner keeps the full page at every level
+ * (drafts, New lesson, the code), as `simpleLesson` keeps their lessons full.
+ */
+export function simpleClass(level: Level, role: 'owner' | 'editor' | 'member'): boolean {
+	return level === 'follow' && role === 'member';
+}
+
+/**
  * Whether new class lessons reach Today by themselves in one group:
  * `team_members.auto_add`, null = the level's default (on below Everything,
  * off at it). At Follow my class it is always on and a stored 0 is kept,

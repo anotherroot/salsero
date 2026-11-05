@@ -5,9 +5,23 @@ import { CODE_REFUSALS } from '$lib/levels/first-run';
 import { joinWithCode } from '$lib/server/join-code';
 import { createTeam, teamLimit } from '$lib/server/teams';
 import { limitLine, NAME_REFUSAL } from '$lib/teams/view';
-import type { Actions } from './$types';
+import { levelShown } from '$lib/levels/levels';
+import type { Actions, PageServerLoad } from './$types';
 
-// The list is the layout's load (`+layout.server.ts`); New group posts here by name from any Groups page.
+/**
+ * The list is the layout's load (`+layout.server.ts`). At Follow my class the
+ * tab is My class, and in one class it opens that class's page (levels spec,
+ * "My class"): the tab's landing, not a wall, so every group page still opens
+ * by its URL at every level.
+ */
+export const load: PageServerLoad = async ({ parent, params, locals }) => {
+	if (levelShown(locals.user!.level) !== 'follow') return {};
+	const live = (await parent()).teams.filter((t) => t.deletedAt === null);
+	if (live.length === 1) throw redirect(303, `/${params.dance}/groups/${live[0].id}`);
+	return {};
+};
+
+// New group posts here by name from any Groups page.
 export const actions: Actions = {
 	create: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);

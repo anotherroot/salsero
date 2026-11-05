@@ -14,8 +14,9 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ClassCodeField from '$lib/components/teams/ClassCodeField.svelte';
 	import GroupList from '$lib/components/teams/GroupList.svelte';
+	import ClassList from '$lib/components/teams/ClassList.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
-	import { PICK_GROUP } from '$lib/teams/view';
+	import { MY_CLASS, PICK_GROUP } from '$lib/teams/view';
 	import { canMakeGroup, levelShown, type Level } from '$lib/levels/levels';
 
 	/*
@@ -39,6 +40,17 @@
 	// Join with a code sits beside New group at the other levels; Follow my class has its empty state's field.
 	const joining = $derived(level !== 'follow');
 	const joinAction = $derived(`/${data.dance.slug}/groups?/joinCode`);
+	// My class (Follow my class): in one class its page alone, no list column (the
+	// index opens it); in two or more the list of classes beside it; in none, Join your class.
+	const myClass = $derived(data.myClass);
+	const classCount = $derived(data.teams.filter((t) => t.deletedAt === null).length);
+	const oneClass = $derived(myClass !== null && classCount === 1 && !isList);
+	const empty = $derived(myClass ? classCount === 0 : data.teams.length === 0);
+	const title = $derived(myClass ? MY_CLASS.title : 'Groups');
+	const subtitle = $derived.by(() => {
+		if (!myClass) return 'Share lessons with a class';
+		return classCount > 1 ? MY_CLASS.classes : undefined;
+	});
 
 	// The lit row stays in view in the column (desktop: the column scrolls on its own).
 	$effect(() => {
@@ -73,29 +85,42 @@
 {/snippet}
 
 {#snippet list()}
-	<GroupList
-		teams={data.teams}
-		dance={data.dance.slug}
-		{openId}
-		{workingIn}
-		onnew={making ? openSheet : undefined}
-		onjoin={joining ? () => (codeOpen = true) : undefined}
-		{joinAction}
-	/>
+	{#if myClass}
+		<ClassList
+			teams={data.teams}
+			dance={data.dance.slug}
+			{openId}
+			lastDays={myClass.lastDays}
+			today={myClass.today}
+			other={myClass.other}
+			{joinAction}
+		/>
+	{:else}
+		<GroupList
+			teams={data.teams}
+			dance={data.dance.slug}
+			{openId}
+			{workingIn}
+			onnew={making ? openSheet : undefined}
+			onjoin={joining ? () => (codeOpen = true) : undefined}
+			{joinAction}
+		/>
+	{/if}
 {/snippet}
 
 {#snippet pick()}
 	<!-- The list page: only its <title>, which would never mount if ListPane did not render it. -->
 	{@render children()}
-	<EmptyState icon="group" title={PICK_GROUP.title} body={PICK_GROUP.body} />
+	{@const words = myClass ? MY_CLASS.pick : PICK_GROUP}
+	<EmptyState icon="group" title={words.title} body={words.body} />
 {/snippet}
 
-{#if l}
+{#if l && !oneClass}
 	<ListPane
-		title="Groups"
-		subtitle="Share lessons with a class"
+		{title}
+		{subtitle}
 		{isList}
-		solo={isList && data.teams.length === 0}
+		solo={isList && empty}
 		soloWidth="narrow"
 		{list}
 		right={making ? right : undefined}
