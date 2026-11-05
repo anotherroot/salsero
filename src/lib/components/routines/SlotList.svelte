@@ -62,7 +62,7 @@
 
 	/** The vertical gap between cards: the list's `gap-2`. */
 	const GAP = 8;
-	const items: HTMLElement[] = [];
+	const items = $state<HTMLElement[]>([]);
 	let drag = $state<{ id: number; from: number; to: number; dy: number; step: number } | null>(
 		null
 	);

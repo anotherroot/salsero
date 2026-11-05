@@ -177,3 +177,13 @@ export const STRIP_ACTION = swap(
 	'bg-accent-soft text-accent-text',
 	'bg-accent-soft text-accent-text desk:bg-accent desk:text-on-accent'
 );
+
+/**
+ * A pane header's padding and title size, shared by `BandHeader`'s `pane`
+ * variant (the `_DESK` forms, behind `desk:`) and `PaneHeading` (the plain
+ * forms), so the two cannot drift. A spec checks each pair agrees.
+ */
+export const PANE_PAD = 'px-10 pt-6 pb-1';
+export const PANE_PAD_DESK = 'desk:px-10 desk:pt-6 desk:pb-1';
+export const PANE_TITLE = 'text-[30px] leading-[1.05] tracking-[-0.015em]';
+export const PANE_TITLE_DESK = 'desk:text-[30px] desk:leading-[1.05] desk:tracking-[-0.015em]';

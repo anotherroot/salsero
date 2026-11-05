@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { groupLabel } from '$lib/teams/mode';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { PANE_PAD_DESK, PANE_TITLE_DESK } from '$lib/components/ui/styles';
 	import type { GroupMode } from '$lib/types';
 
 	/**
@@ -103,14 +104,15 @@
 					}
 				: {
 						header:
-							'[--focus-ring:var(--color-band-ink)] desk:flex-row desk:flex-wrap desk:items-start desk:justify-between desk:gap-x-4 desk:gap-y-3 desk:bg-transparent desk:px-10 desk:pt-6 desk:pb-1 desk:[--focus-ring:var(--color-accent)]',
+							'[--focus-ring:var(--color-band-ink)] desk:flex-row desk:flex-wrap desk:items-start desk:justify-between desk:gap-x-4 desk:gap-y-3 desk:bg-transparent desk:[--focus-ring:var(--color-accent)] ' +
+							PANE_PAD_DESK,
 						edge: 'desk:hidden',
 						row: 'desk:contents',
 						block:
 							'desk:grid desk:min-w-0 desk:flex-1 desk:grid-cols-[auto_minmax(0,1fr)] desk:items-center',
 						groupLine: 'desk:hidden',
 						left: 'desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[6px]',
-						h1: 'desk:col-start-2 desk:row-start-1 desk:text-[30px] desk:leading-[1.05] desk:tracking-[-0.015em] desk:text-ink',
+						h1: 'desk:col-start-2 desk:row-start-1 desk:text-ink ' + PANE_TITLE_DESK,
 						name: 'desk:block desk:truncate',
 						sub: 'desk:order-none desk:col-start-2 desk:row-start-2 desk:mt-1 desk:min-w-0 desk:truncate desk:pl-0 desk:leading-[1.3] desk:text-muted',
 						right: 'desk:mr-0 desk:ml-0 desk:flex-none desk:gap-2',
@@ -170,7 +172,7 @@
 			>
 				<span class="line-clamp-2 min-w-0 break-words {D.name}">{title}</span>
 			</svelte:element>
-			{#if deskSubtitle !== undefined}
+			{#if deskSubtitle}
 				{#if subtitle}
 					<span
 						class="order-last basis-full text-[15px] font-semibold text-band-small desk:hidden"
@@ -179,7 +181,7 @@
 				{/if}
 				<span
 					class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
-					>{deskSubtitle}</span
+					class:pl-[38px]={!!left}>{deskSubtitle}</span
 				>
 			{:else if subtitle}
 				<span

@@ -61,7 +61,15 @@ export function listOf(
 
 /** `path` is the list's root, or a page under it (by whole segments: `/salsa/songsx` is not). */
 export function inList(path: string, list: ListId, dance: DanceSlug): boolean {
-	const home = LIST_HOME[list];
+	return inHome(path, LIST_HOME[list], dance);
+}
+
+/** `inList` for a given home entry (pure, so a spec can try a home that is not in the table). */
+export function inHome(
+	path: string,
+	home: { root: string; items: string[] },
+	dance: DanceSlug
+): boolean {
 	return (
 		path === `/${dance}${home.root}` ||
 		home.items.some((i) => path === `/${dance}${i}` || path.startsWith(`/${dance}${i}/`))

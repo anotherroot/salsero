@@ -11,7 +11,7 @@ with a baseline (the phone must not change) or with a design board.
 (`shots`, the first admin) and shoots with the cookie `salsa_session=shots`. The server runs in its own
 process group and is killed by that group on exit; the temp dir is deleted. If `/health` never
 answers it prints the server log and exits 1. It exits 1 too if any page is not `ok`.
-`--group ID` also sets the group-mode cookie (`group_salsa=ID`), so the pages show that group's side
+`--group ID` also sets the group-mode cookie (`group_<dance>=ID`), so the pages show that group's side
 (navy, Mine for Today); the admin must own or edit the group, else the app drops the cookie.
 `--viewport` shoots the window only, not the full page: on the desktop the band row and the side are fixed and
 a full-page shot draws them once at the top, so desktop pages are compared with their boards (1440×900) this way.

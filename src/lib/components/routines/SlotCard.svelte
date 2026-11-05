@@ -235,7 +235,11 @@
 				<!-- The desktop's swipe-to-delete (desktop spec, "Pointer and hover"): on the
 				     card's hover and on keyboard focus inside it. It is the swipe's Delete, so
 				     the Undo toast and where focus goes after are the swipe's too. -->
-				<span class="hidden shrink-0 desk:group-focus-within/slot:grid desk:group-hover/slot:grid">
+				<!-- Zero wide until the card is hovered or has focus, not display:none, so Shift+Tab
+				     from the next card still reaches it (and the card does not shift at rest). -->
+				<span
+					class="hidden shrink-0 desk:pointer-events-none desk:grid desk:w-0 desk:opacity-0 desk:group-focus-within/slot:pointer-events-auto desk:group-focus-within/slot:w-auto desk:group-focus-within/slot:opacity-100 desk:group-hover/slot:pointer-events-auto desk:group-hover/slot:w-auto desk:group-hover/slot:opacity-100"
+				>
 					<button
 						type="button"
 						class={iconButton('bare', 'danger')}

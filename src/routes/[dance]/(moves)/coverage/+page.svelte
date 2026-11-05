@@ -3,6 +3,8 @@
 	import { resolve } from '$app/paths';
 	import Screen from '$lib/components/ui/Screen.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
+	import BandButton from '$lib/components/ui/BandButton.svelte';
+	import { desk } from '$lib/nav/desk.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -79,14 +81,28 @@
 
 <svelte:head><title>Coverage · {data.dance.label}</title></svelte:head>
 
-<Screen title="Coverage" subtitle="Versions by how many routines use them">
+<!-- On the desktop the selecting header reads "N selected" with a ×, as a routine's does; the phone keeps its title and Back. -->
+<Screen
+	title={selecting && desk.current ? `${picked.length} selected` : 'Coverage'}
+	subtitle="Versions by how many routines use them"
+	deskSubtitle={selecting ? 'Coverage' : 'Versions by how many routines use them'}
+>
 	{#snippet left()}
-		<BackButton
-			fallback={{
-				href: resolve('/[dance]/(moves)/figures', { dance: data.dance.slug }),
-				label: 'Back to Moves'
-			}}
-		/>
+		{#if selecting && desk.current}
+			<BandButton
+				focusKey="stop-selecting"
+				icon="close"
+				label="Stop selecting"
+				onclick={stopSelecting}
+			/>
+		{:else}
+			<BackButton
+				fallback={{
+					href: resolve('/[dance]/(moves)/figures', { dance: data.dance.slug }),
+					label: 'Back to Moves'
+				}}
+			/>
+		{/if}
 	{/snippet}
 	{#snippet right()}
 		{#if !selecting && hasRows}
@@ -110,7 +126,9 @@
 		style={selecting ? 'padding-bottom: calc(5.5rem + var(--safe-bottom))' : undefined}
 	>
 		{#if selecting}
-			<p class="px-4 text-[13px] text-muted">Tap in the order the routine should call them.</p>
+			<p class="px-4 text-[13px] text-muted desk:hidden">
+				Tap in the order the routine should call them.
+			</p>
 		{/if}
 		{#if !hasRows}
 			<EmptyState icon="moves" title="No figures yet" />
@@ -180,8 +198,11 @@
 	>
 		<!-- On the desk the content is centred in the pane, as wide as the page. -->
 		<div class="mx-auto flex items-center gap-1 desk:max-w-(--bar-w)">
-			<span role="status" class="flex-1 text-[16px] font-bold text-ink"
+			<span role="status" class="flex-1 text-[16px] font-bold text-ink desk:sr-only"
 				>{picked.length} selected</span
+			>
+			<span class="hidden flex-1 text-[13px] text-muted desk:inline"
+				>Tap in the order the routine should call them.</span
 			>
 			<button type="button" class={button('tertiary', 'sm')} onclick={stopSelecting}>Cancel</button>
 			<button
