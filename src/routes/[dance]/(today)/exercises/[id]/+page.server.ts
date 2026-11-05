@@ -57,6 +57,12 @@ function linkableOf(params: { dance: string; id: string }, locals: App.Locals) {
 	return exercise;
 }
 
+/** The class a lesson is from, for the simple page's "From class Tue 3 Nov ›" (null: none). */
+function classOf(db: ReturnType<typeof getDb>, lessonId: number | null) {
+	const lesson = lessonId === null ? null : getLessonRow(db, lessonId);
+	return lesson ? { lessonId: lesson.id, day: lesson.lessonDay } : null;
+}
+
 export const load: PageServerLoad = ({ params, locals, url }) => {
 	if (!locals.user) throw error(401);
 	const db = getDb();
@@ -110,7 +116,9 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			makeMine: null,
 			drill: null,
 			historyHref: null,
-			add: null
+			add: null,
+			// A lesson review's own class (the simple page's "From class …").
+			fromClass: classOf(db, own.lessonId)
 		};
 	}
 
@@ -180,6 +188,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		copyTo: copyOffer(db, wall.userId, 'drill', row.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
+		// A group drill reached through a lesson: that lesson's class.
+		fromClass: classOf(db, route?.lessonId ?? null),
 		add: route
 			? {
 					lessonId: route.lessonId,
