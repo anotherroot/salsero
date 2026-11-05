@@ -17,42 +17,53 @@
 	 *   desktop: mark its wrapper `data-desk-hidden`), `extra` centred over the sheet, `right` 30 px from the edge.
 	 * - `card`: the title above a card page's 480 px column (`CardFrame`).
 	 * - `pane`: the header of an item open beside its list, on the ground: the
-	 *   name in `display_s` ink, the subtitle under it, `left` (‹) only when `back`,
-	 *   `right` (tonal buttons, BandButton's pane tone) at the pane's right edge.
+	 *   name in `display_s` ink, the subtitle under it, `left` (a Stop editing ×
+	 *   always; a ‹ only when `BackButton`'s own pane gate lets it show), `right`
+	 *   (tonal buttons, BandButton's pane tone) at the pane's right edge, then
+	 *   `extra` and `below` as full-width rows, 12 px apart.
 	 *
 	 * One DOM for both widths. The phone's rows (the group line; Back, the title and
 	 * the actions; the subtitle) are one wrapping flex row: the title block is
 	 * `display: contents` there and only becomes a box on the desktop, where it is
 	 * a small grid. `deskOnly`: not on the phone at all (a list's band row while an
-	 * item page draws the phone's own band).
+	 * item page draws the phone's own band). `deskSubtitle`: the desktop's subtitle
+	 * in place of `subtitle` (two spans, one per width); without it, one span.
+	 *
+	 * Landmarks: the header is the banner and its title the page's one h1, except a
+	 * `deskOnly` band (a list's band row beside an open item): a plain box with a
+	 * plain title, since the item's own header (in the pane on the desktop, the
+	 * page itself on the phone) is the banner and its name the h1.
 	 */
 	let {
 		title,
 		subtitle,
+		deskSubtitle,
 		compact = false,
 		hero = false,
 		slim = false,
 		variant = 'band',
-		back = true,
 		deskOnly = false,
 		left,
 		right,
-		extra
+		extra,
+		below
 	}: {
 		title: string;
 		subtitle?: string;
+		/** The desktop's subtitle in place of `subtitle`; the phone keeps `subtitle`. */
+		deskSubtitle?: string;
 		compact?: boolean;
 		/** The page has a hero card over the band's foot: a deeper band. */
 		hero?: boolean;
 		/** The slim band is showing: this one is inert (only one Back may take focus). */
 		slim?: boolean;
 		variant?: 'band' | 'card' | 'pane';
-		/** In a pane on the desktop: whether `left` (the ‹) shows (`paneBack`). */
-		back?: boolean;
 		deskOnly?: boolean;
 		left?: Snippet;
 		right?: Snippet;
 		extra?: Snippet;
+		/** The pane's desk-only row under the title and `extra`; never on the phone. */
+		below?: Snippet;
 	} = $props();
 
 	/** In group mode the band says whose space this is. */
@@ -98,7 +109,7 @@
 						block:
 							'desk:grid desk:min-w-0 desk:flex-1 desk:grid-cols-[auto_minmax(0,1fr)] desk:items-center',
 						groupLine: 'desk:hidden',
-						left: `desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[6px]${back ? '' : ' desk:hidden'}`,
+						left: 'desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[6px]',
 						h1: 'desk:col-start-2 desk:row-start-1 desk:text-[30px] desk:leading-[1.05] desk:tracking-[-0.015em] desk:text-ink',
 						name: 'desk:block desk:truncate',
 						sub: 'desk:order-none desk:col-start-2 desk:row-start-2 desk:mt-1 desk:min-w-0 desk:truncate desk:pl-0 desk:leading-[1.3] desk:text-muted',
@@ -110,7 +121,8 @@
 	const ring = $derived(variant === 'pane' ? '' : '--focus-ring: var(--color-band-ink); ');
 </script>
 
-<header
+<svelte:element
+	this={deskOnly ? 'div' : 'header'}
 	class="relative {deskOnly ? 'hidden' : 'flex'} flex-col gap-[6px] bg-band px-5 {compact
 		? 'pt-[calc(22px+var(--safe-top))]'
 		: 'pt-[calc(30px+var(--safe-top))]'} {hero
@@ -150,14 +162,26 @@
 				The h1 takes the line's free space; the title inside it keeps its own
 				width, so the clamp clips the glyphs at the text's edge as it always has.
 			-->
-			<h1
+			<svelte:element
+				this={deskOnly ? 'p' : 'h1'}
 				class="flex min-w-0 grow basis-0 font-display font-extrabold text-band-ink {D.h1} {compact
 					? 'text-[30px] leading-[1.1] tracking-[-0.015em]'
 					: 'text-[46px] leading-[1.05] tracking-[-0.02em]'}"
 			>
 				<span class="line-clamp-2 min-w-0 break-words {D.name}">{title}</span>
-			</h1>
-			{#if subtitle}
+			</svelte:element>
+			{#if deskSubtitle !== undefined}
+				{#if subtitle}
+					<span
+						class="order-last basis-full text-[15px] font-semibold text-band-small desk:hidden"
+						class:pl-[38px]={!!left}>{subtitle}</span
+					>
+				{/if}
+				<span
+					class="order-last hidden basis-full text-[15px] font-semibold text-band-small desk:block {D.sub}"
+					>{deskSubtitle}</span
+				>
+			{:else if subtitle}
 				<span
 					class="order-last basis-full text-[15px] font-semibold text-band-small {D.sub}"
 					class:pl-[38px]={!!left}>{subtitle}</span
@@ -173,4 +197,7 @@
 	{#if extra}
 		<div class="mt-4 {D.extra}">{@render extra()}</div>
 	{/if}
-</header>
+	{#if below && variant === 'pane'}
+		<div class="hidden desk:block desk:basis-full" data-below>{@render below()}</div>
+	{/if}
+</svelte:element>

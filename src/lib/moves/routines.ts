@@ -1,4 +1,15 @@
 import { plural } from '$lib/format';
+import type { RoutineItem, TeamRef } from '$lib/types';
+
+/** The Routines list as the (moves) layout loads it. */
+export interface RoutinesLists {
+	/** The space's own, with what the graph says of each. */
+	routines: (RoutineItem & { loops: boolean; breaks: number })[];
+	/** Each group's routines from the lessons the person added (none in group mode). */
+	groups: { team: TeamRef; routines: RoutineItem[] }[];
+	/** The routines that stand for their twins: the "Twins" chip. */
+	twinned: number[];
+}
 
 export type RoutineBadge = { tone: 'danger' | 'warn'; text: string };
 

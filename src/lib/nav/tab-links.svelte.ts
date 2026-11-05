@@ -17,7 +17,7 @@ export function tabTargets(dance: DanceSlug, path: string): (string | null)[] {
 	return TABS.map((t) => tabHref(t.id, dance, path));
 }
 
-/** A click on a tab's link; `scrollTop` when its target is null (above). */
+/** A click on a tab's link; `scrollTop` when its target is null (above): the window and a list column. */
 export function tapTab(e: MouseEvent, scrollTop: boolean): void {
 	const kind = tapKind(e, scrollTop);
 	if (kind === 'pass') return;
@@ -27,5 +27,9 @@ export function tapTab(e: MouseEvent, scrollTop: boolean): void {
 	}
 	e.preventDefault();
 	const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	window.scrollTo({ top: 0, behavior: reduce ? 'instant' : 'smooth' });
+	const to: ScrollToOptions = { top: 0, behavior: reduce ? 'instant' : 'smooth' };
+	window.scrollTo(to);
+	// On the desktop a list and pane's list column scrolls on its own (`ListPane`);
+	// on the phone it is `display: contents` and has nothing to scroll.
+	document.querySelector('[data-list-column]')?.scrollTo(to);
 }

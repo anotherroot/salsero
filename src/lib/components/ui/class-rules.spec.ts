@@ -72,4 +72,44 @@ describe('class rules', () => {
 		);
 		expect(bad).toEqual([]);
 	});
+	it('every bar pinned to the bottom starts at the pane on the desk', () => {
+		// A `fixed inset-x-0` element set to the bottom (a class or a style) would run
+		// under the side on the desk: it starts at `--pane-left` (desktop spec, "Pinned
+		// bars"), unless it shows on the phone only. Top bars and overlays (`top-0`) aside.
+		const bars = files
+			.filter(({ f }) => f.endsWith('.svelte'))
+			.flatMap(({ f, lines }) => openingTags(lines.join('\n')).map((tag) => ({ f, tag })))
+			.filter(({ tag }) => /(?<![\w:-])fixed(?![\w-])/.test(tag))
+			.filter(({ tag }) => /(?<![\w:-])inset-x-0(?![\w-])/.test(tag))
+			.filter(({ tag }) => /(?<![\w:-])bottom-|style:bottom|bottom:/.test(tag))
+			.filter(({ tag }) => !/(?<![\w:-])top-0(?![\w-])/.test(tag));
+		// BottomBar, Toast, ReloadBar, VariationBar, BottomNav, SelectionBar, Coverage's bar.
+		expect(bars.length).toBeGreaterThanOrEqual(7);
+		const bad = bars
+			.filter(({ tag }) => !/desk:left-\(--pane-left\)|desk:hidden/.test(tag))
+			.map(({ f, tag }) => `${f}: ${tag.slice(0, 120)}`);
+		expect(bad).toEqual([]);
+	});
 });
+
+/** Every opening tag in a component's markup, attributes and `{…}` expressions whole. */
+function openingTags(src: string): string[] {
+	const out: string[] = [];
+	for (let at = src.indexOf('<'); at >= 0; at = src.indexOf('<', at + 1)) {
+		if (!/[a-zA-Z]/.test(src[at + 1] ?? '')) continue;
+		let depth = 0;
+		let quote = '';
+		let i = at + 1;
+		for (; i < src.length; i++) {
+			const c = src[i];
+			if (quote) {
+				if (c === quote) quote = '';
+			} else if (c === '"' || c === "'" || c === '`') quote = c;
+			else if (c === '{') depth++;
+			else if (c === '}') depth--;
+			else if (c === '>' && depth === 0) break;
+		}
+		out.push(src.slice(at, i + 1));
+	}
+	return out;
+}

@@ -2,12 +2,14 @@
 /{dance}?day={yesterday}
 /{dance}/exercises/{exercise}
 /{dance}/figures
+/{dance}/figures?q=adi&style=salsa
 /{dance}/figures/{figure}
 /{dance}/moves/{move}
 /{dance}/coverage
 /{dance}/routines
 /{dance}/routines/{routine}
 /{dance}/positions
+/{dance}/positions?gaps=1
 /{dance}/positions/{position}
 /{dance}/positions/map
 /{dance}/lessons

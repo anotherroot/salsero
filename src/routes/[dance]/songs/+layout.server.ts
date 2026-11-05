@@ -17,10 +17,12 @@ import type { LayoutServerLoad } from './$types';
  * with each shared one. Otherwise the person's own songs, then a section per
  * group with its shared songs, each marked when it is new to them.
  */
-export const load: LayoutServerLoad = ({ params, locals, cookies, url }) => {
+export const load: LayoutServerLoad = ({ params, locals, cookies, url, depends }) => {
 	// Every navigation reads the list afresh, as the list page's own load did: a
 	// song opened since is no longer new, a song added or archived shows.
 	void url.pathname;
+	// The list's poll while a song waits (`MusicList`) reruns this load alone.
+	depends('app:songs');
 	const db = getDb();
 	const wall = wallOf(params, locals);
 	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { button } from '$lib/components/ui/styles';
 	import type { MapLayout } from '$lib/positions/map';
@@ -23,6 +24,10 @@
 	 * on empty space clears. Two fingers zoom (1×–4×, `video/zoom.ts`), one finger
 	 * moves a zoomed map, a double tap on empty space goes back to 1×, Ctrl+wheel
 	 * is a trackpad's pinch. Each position is a link: Tab reaches it, Enter is a tap.
+	 *
+	 * `selected` is bindable, so the page around it can show the pick (the
+	 * Positions list lights its row); `initial`, when given, is the pick it
+	 * arrives with (`?pick=`), read once.
 	 */
 	interface MapPosition {
 		id: number;
@@ -40,15 +45,29 @@
 		positions: MapPosition[];
 		edges: { from: number; to: number; width: number; figures: number }[];
 		label: string;
+		/** The picked position: lit, its figures in and out lit, the rest faded. */
+		selected?: number | null;
+		/** The pick the map arrives with, read once. */
+		initial?: number | null;
 	}
 
-	let { dance, layout, positions, edges, label }: Props = $props();
+	let {
+		dance,
+		layout,
+		positions,
+		edges,
+		label,
+		selected = $bindable(null),
+		initial
+	}: Props = $props();
+	untrack(() => {
+		if (initial !== undefined) selected = initial;
+	});
 
 	const TONES: MapTone[] = ['accent', 'done', 'warn', 'muted'];
 	const DOUBLE_TAP_MS = 300;
 	const TAP_SLOP_PX = 10;
 
-	let selected = $state<number | null>(null);
 	const byId = $derived(new Map(positions.map((p) => [p.id, p])));
 	const nodeById = $derived(new Map(layout.nodes.map((n) => [n.id, n])));
 	const lit = $derived(litOf(edges, selected));
@@ -70,7 +89,8 @@
 		selected === null ? MAP.hint : mapLitLine(byId.get(selected)?.name ?? '')
 	);
 
-	const hrefOf = (id: number) => resolve('/[dance]/positions/[id]', { dance, id: String(id) });
+	const hrefOf = (id: number) =>
+		resolve('/[dance]/(moves)/positions/[id]', { dance, id: String(id) });
 
 	function choose(e: MouseEvent, id: number) {
 		// A new tab or window opens the position as any link would.
@@ -210,16 +230,23 @@
 
 <svelte:window
 	onkeydown={(e) => {
-		if (e.key === 'Escape' && selected !== null) selected = null;
+		// An open dialog (a sheet from the list beside the map) takes its own Escape first.
+		if (e.key !== 'Escape' || selected === null || e.defaultPrevented) return;
+		if (document.querySelector('dialog[open]')) return;
+		selected = null;
 	}}
 />
 
 <div class="flex flex-col gap-2">
 	<!-- Pointer and click handlers only route gestures; every position inside is a link, and Escape clears. -->
+	<!--
+		The desktop: no taller than leaves the tray in view under it in the window (the
+		board's 500 at 900), never under 360; the square drawing then sits centred in it.
+	-->
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
 		bind:this={el}
-		class="focus-inset relative overflow-hidden rounded-2xl bg-surface select-none"
+		class="focus-inset relative overflow-hidden rounded-2xl bg-surface select-none desk:max-h-[max(360px,calc(100dvh-400px))]"
 		style:aspect-ratio="{layout.width} / {layout.height}"
 		style:touch-action={view.scale > 1 ? 'none' : 'pan-y'}
 		onpointerdown={down}

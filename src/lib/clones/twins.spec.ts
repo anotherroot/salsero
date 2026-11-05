@@ -18,7 +18,9 @@ const fig = (id: number, name: string): FigureRow => ({
 	lengthCounts: null,
 	recordings: 0,
 	hasSection: true,
-	hasLesson: true
+	hasLesson: true,
+	partner: 'partner',
+	style: null
 });
 const move = (id: number, name: string, figures: FigureRow[]): MoveRow => ({ id, name, figures });
 const TUE: TeamRef = { id: 1, name: 'Salsa Tuesdays' };

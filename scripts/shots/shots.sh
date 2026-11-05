@@ -89,6 +89,7 @@ else
   [ -n "$GROUP" ] && CMD+=(--group "$GROUP")
   [ -n "$VIEWPORT" ] && CMD+=(--viewport)
   [ -n "$NOSESSION" ] && CMD+=(--no-session)
+  [ -n "$DELAY_FROM" ] && CMD+=(--delay-from "$DELAY_FROM")
   [ -n "$UNNAMED" ] && CMD+=(--unnamed)
 fi
 timeout 900 nix shell --impure --expr 'with (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux; python3.withPackages (p: [p.playwright p.pillow])' \

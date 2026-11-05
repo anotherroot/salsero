@@ -120,7 +120,7 @@
 						if (result.type === 'redirect') {
 							// The copy opens over this page, once the sheet's Back has landed.
 							close();
-							await gotoWhenSettled(result.location);
+							await gotoWhenSettled(result.location, { invalidateAll: true });
 						} else if (result.type === 'failure') {
 							const data = result.data as { message?: unknown; askForMore?: unknown } | undefined;
 							refused = {

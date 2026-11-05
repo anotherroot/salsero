@@ -32,8 +32,8 @@ import { addSpot } from '$lib/server/spots';
 import { insertFixturePositions } from '$lib/server/test-positions';
 import type { Space } from '$lib/server/scope';
 import * as lessonPage from './lessons/[id]/+page.server';
-import * as figurePage from './figures/[id]/+page.server';
-import * as routinePage from './routines/[id]/+page.server';
+import * as figurePage from './(moves)/figures/[id]/+page.server';
+import * as routinePage from './(moves)/routines/[id]/+page.server';
 import * as exercisePage from './exercises/[id]/+page.server';
 import * as spotEndpoint from '../api/video-spots/[id]/+server';
 

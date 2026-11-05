@@ -18,6 +18,12 @@
 	 * Every step is a link, so a variation is a URL of its own; it replaces the
 	 * history entry, as the figure is one page in the trail. Shown with a
 	 * single variation too — that is where "New variation" lives.
+	 *
+	 * On the desktop the move's figures are tabs in the pane header
+	 * (`FigureTabs`), so the switcher row is hidden, and the whole bar unless it
+	 * holds `actions` (a reader's Edit and Practise stay pinned at the pane's
+	 * foot). Its New figure sheet is the one for both: the tabs' "+ Figure" opens
+	 * it through `adding`.
 	 */
 	interface Props {
 		figureName: string;
@@ -33,6 +39,8 @@
 		canEdit?: boolean;
 		/** A row pinned above the switcher: a reader's Edit and Practise (board C1 p1). */
 		actions?: Snippet;
+		/** The New figure sheet is open (bindable: the desktop's tabs open it). */
+		adding?: boolean;
 	}
 
 	let {
@@ -43,11 +51,11 @@
 		slug,
 		failed,
 		canEdit = true,
-		actions
+		actions,
+		adding = $bindable(false)
 	}: Props = $props();
 
 	let listing = $state(false);
-	let adding = $state(false);
 	let busy = $state(false);
 	// By value, so a refresh of the page data does not re-run the effect below.
 	const stepId = $derived(currentId);
@@ -92,8 +100,11 @@
 	const prev = $derived(byId(nav.prev));
 	const next = $derived(byId(nav.next));
 
-	const moveHref = $derived(resolve('/[dance]/moves/[id]', { dance: slug, id: String(moveId) }));
-	const href = (id: number) => resolve('/[dance]/figures/[id]', { dance: slug, id: String(id) });
+	const moveHref = $derived(
+		resolve('/[dance]/(moves)/moves/[id]', { dance: slug, id: String(moveId) })
+	);
+	const href = (id: number) =>
+		resolve('/[dance]/(moves)/figures/[id]', { dance: slug, id: String(id) });
 	const recordings = (n: number) =>
 		n === 0 ? 'no recordings' : plural(n, 'recording', 'recordings');
 
@@ -148,13 +159,17 @@
 -->
 <nav
 	aria-label="Figures of {figureName}"
-	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 desk:left-(--pane-left)"
+	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 desk:left-(--pane-left) {actions
+		? ''
+		: 'desk:hidden'}"
 	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
 >
 	{#if actions}
-		<div class="mx-auto mb-2.5 grid max-w-[560px] grid-cols-2 gap-2">{@render actions()}</div>
+		<div class="mx-auto mb-2.5 grid max-w-[560px] grid-cols-2 gap-2 desk:mb-0">
+			{@render actions()}
+		</div>
 	{/if}
-	<div class="mx-auto flex max-w-[560px] items-center gap-2">
+	<div class="mx-auto flex max-w-[560px] items-center gap-2 desk:hidden">
 		{@render step(prev, 'Previous figure', 'chevron-left')}
 		<button
 			type="button"
@@ -223,7 +238,14 @@
 	</ul>
 </Sheet>
 
-<Sheet title="New figure" sub="of {figureName}" back open={adding} onclose={() => (adding = false)}>
+<!-- Over the list it steps back to it (‹); opened alone (the desktop's "+ Figure" tab) it closes (×). -->
+<Sheet
+	title="New figure"
+	sub="of {figureName}"
+	back={listing}
+	open={adding}
+	onclose={() => (adding = false)}
+>
 	<!-- A success closes the sheets, then replaces this entry with the new variation (below). -->
 	<form
 		id="new-variation"

@@ -11,6 +11,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
+	import { iconButton } from '$lib/components/ui/styles';
 	import { resettingFocus } from '$lib/act';
 	import { track } from '$lib/unsaved/guard.svelte';
 	import type { RowView, Swiped } from './types';
@@ -100,7 +101,7 @@
 	<!-- Lifted, the card is `raised`; its shadow, scale and tilt are on the `<li>`
 	     (SlotList), outside the swipe layer's clip. -->
 	<div
-		class="rounded-2xl py-2 pr-1.5 pl-0.5 {selected
+		class="group/slot rounded-2xl py-2 pr-1.5 pl-0.5 {selected
 			? 'bg-accent-soft'
 			: lifted
 				? 'bg-raised'
@@ -228,6 +229,21 @@
 					class="flex h-11 shrink-0 items-center gap-0.5 pr-1.5 pl-2.5 text-[15px] font-extrabold text-accent-text"
 					>Open<Icon name="chevron-right" size={18} /></a
 				>
+			{/if}
+
+			{#if !selecting && !lifted}
+				<!-- The desktop's swipe-to-delete (desktop spec, "Pointer and hover"): on the
+				     card's hover and on keyboard focus inside it. It is the swipe's Delete, so
+				     the Undo toast and where focus goes after are the swipe's too. -->
+				<span class="hidden shrink-0 desk:group-focus-within/slot:grid desk:group-hover/slot:grid">
+					<button
+						type="button"
+						class={iconButton('bare', 'danger')}
+						aria-label="Delete slot {index + 1}"
+						title="Delete"
+						onclick={ondelete}><Icon name="trash" size={20} /></button
+					>
+				</span>
 			{/if}
 		</div>
 

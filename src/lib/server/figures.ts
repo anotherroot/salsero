@@ -27,6 +27,8 @@ import { actingIn, fieldChange, logChange, variationRoot } from './changes';
 import { ownedOrUsable, usableOf, type Usable } from './usable';
 import { shadowedIds } from './clones/shadow';
 import type { Partner } from '$lib/labels';
+import { figureMatches } from '$lib/moves/filter';
+import type { FigureFilter as FigureFilterIn } from '$lib/moves/figures';
 import type {
 	CalledFigure,
 	FigureRow,
@@ -711,27 +713,26 @@ export function listFigures(db: Db, space: Space, filter: FigureFilter = {}): Mo
 		.orderBy(asc(figures.id))
 		.all();
 	const linked = linkedVariations(db, space);
-	const q = filter.q ? filter.q.trim().toLowerCase() : '';
+	const f: FigureFilterIn = {
+		q: filter.q ?? '',
+		style: filter.style,
+		partner: filter.partner,
+		unlinked: filter.unlinked ? '1' : undefined
+	};
 	const items: MoveRow[] = [];
 	for (const g of groups) {
 		const vs = rows.filter((r) => r.groupId === g.id && (!filter.only || filter.only.has(r.id)));
-		const moveMatches = !q || g.name.toLowerCase().includes(q);
 		const listed: FigureRow[] = [];
 		for (const v of vs) {
-			if (
-				!(moveMatches || v.name.toLowerCase().includes(q)) ||
-				(filter.style && v.style !== filter.style) ||
-				(filter.partner && v.partner !== filter.partner)
-			) {
-				continue;
-			}
 			const hasSection = linked.section.has(v.id);
 			const hasLesson = linked.lesson.has(v.id);
-			if (filter.unlinked && hasSection && hasLesson) continue;
+			if (!figureMatches(g.name, { ...v, hasSection, hasLesson }, f)) continue;
 			listed.push({
 				id: v.id,
 				name: v.name,
 				label: labelFor(g.name, v.name),
+				partner: v.partner,
+				style: v.style,
 				startCount: v.startCount,
 				lengthCounts: v.lengthCounts,
 				recordings: v.recordings,

@@ -21,7 +21,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-DANCE = "salsa"
+DANCE = os.environ.get("SHOTS_DANCE", "salsa")
 # The one instant every run pretends it is (server via libfaketime, browser via page clock), so time-relative
 # content (due today, 2 days ago, yesterday) is the same whatever day a run happens. Kept in instant.txt (UTC),
 # which shots.sh reads too.
@@ -34,6 +34,18 @@ MASK_JS = """() => {
   document.querySelectorAll('p, div, span').forEach(e => {
     if (e.children.length === 0 && / GB free$/.test(e.textContent || '')) e.setAttribute('data-shots-mask', '');
   });
+}"""
+# While a page loads: is each link of the side (`[data-side]`, desktop) what a click at its centre hits?
+# "live" if all are, else what covers the first that is not; "" when no side shows.
+SIDE_JS = """() => {
+  const links = [...document.querySelectorAll('[data-side] a')].filter(a => a.getClientRects().length);
+  if (!links.length) return '';
+  for (const a of links) {
+    const r = a.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    if (!hit || !a.contains(hit)) return 'BLOCKED by ' + (hit ? hit.tagName.toLowerCase() + '.' + String(hit.className).slice(0, 60) : 'nothing');
+  }
+  return 'live';
 }"""
 STYLE = (
     "[data-shots-mask]{visibility:hidden!important}"
@@ -158,6 +170,27 @@ def shoot(a):
             path = re.sub(r"\{(\w+)\}", lambda m: str(v[m.group(1)]), line)
             page = ctx.new_page()
             try:
+                if a.delay_from:
+                    # a loading shot: open the start page, then follow a link to this page with its data delayed
+                    start = re.sub(r"\{(\w+)\}", lambda m: str(v[m.group(1)]), a.delay_from)
+                    page.goto(a.base + start, wait_until="networkidle", timeout=60000)
+                    held = []
+                    page.route("**/__data.json*", lambda r: held.append(r))  # held, never answered: the page stays loading
+                    page.evaluate("p => { const l = document.createElement('a'); l.href = p; document.body.append(l); l.click(); }", path)
+                    page.wait_for_timeout(1200)
+                    page.add_style_tag(content=STYLE)
+                    page.evaluate(MASK_JS)
+                    png = os.path.join(a.out, slug(line) + ".png")
+                    page.screenshot(path=png, full_page=not a.viewport)
+                    wrote += 1
+                    # the side (desktop) must stay live under the skeleton: what is at each side link's centre
+                    side = page.evaluate(SIDE_JS)
+                    for r in held:
+                        r.abort()
+                    blocked = side.startswith("BLOCKED")
+                    bad += blocked
+                    print(f"{'BAD' if blocked else 'ok '} loading {path}" + (f" SIDE {side}" if side else ""))
+                    continue
                 resp = page.goto(a.base + path, wait_until="networkidle", timeout=60000)
                 page.add_style_tag(content=STYLE)
                 page.evaluate(MASK_JS)
@@ -172,7 +205,8 @@ def shoot(a):
                 ok = (status == 404) if expected_404 else (status < 400 and final.split("?")[0] == want)
                 if not ok:
                     bad += 1
-                print(f"{'ok ' if ok else 'BAD'} {status} {path}" + (f" -> {final}" if final != path else ""))
+                over = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
+                print(f"{'ok ' if ok else 'BAD'} {status} {path}" + (f" -> {final}" if final != path else "") + (f" OVERFLOW {over}px" if over > 0 else ""))
             except Exception as e:  # a page that cannot be shot is a failure, not a skip
                 bad += 1
                 print(f"BAD err {path}: {e}")
@@ -328,6 +362,7 @@ def main():
     s.add_argument("--pages", required=True)
     s.add_argument("--group", type=int, help="a group id of the dance: shoot in its group mode")
     s.add_argument("--viewport", action="store_true", help="shoot the window only (desktop: the band row and side are fixed)")
+    s.add_argument("--delay-from", help="shoot each page while loading: open this page first, then follow a link to it with its __data.json held")
     s.add_argument("--no-session", action="store_true", help="no session cookie: the signed-out pages")
     s.add_argument("--unnamed", action="store_true", help="the admin has no name in the copy, so pages send them to /welcome")
     c = sub.add_parser("scene")

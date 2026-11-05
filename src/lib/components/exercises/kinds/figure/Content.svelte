@@ -54,7 +54,7 @@
 		{/if}
 		{#if onPage}
 			<a
-				href={resolve('/[dance]/figures/[id]', {
+				href={resolve('/[dance]/(moves)/figures/[id]', {
 					dance: dance.slug,
 					id: String(content.figure.id)
 				})}

@@ -11,9 +11,10 @@
  * spec.
  */
 
+import { listOf, type ListId } from '$lib/nav/pane';
 import { SEGMENT_ROUTE, segmentOf, type MovesSegment } from '$lib/moves/segment';
 
-export type Skeleton =
+type Shape =
 	| { kind: 'today' }
 	| { kind: 'list'; title: string }
 	| { kind: 'detail' }
@@ -25,6 +26,13 @@ export type Skeleton =
 	| { kind: 'moves'; segment: MovesSegment };
 
 /**
+ * What a destination draws: its shape, and what the desktop adds. `pane`: it is a
+ * list with its item beside it (`listOf`), `open` an item opens in it. `deskTitle`:
+ * the band row's title when the list names it; null draws a bone. Plans add fields.
+ */
+export type Skeleton = Shape & { pane: boolean; open: boolean; deskTitle: string | null };
+
+/**
  * Long enough that a preloaded page (the load starts on touchstart) lands
  * without a grey flash, short enough that a slow one never looks frozen.
  */
@@ -33,10 +41,18 @@ export const SKELETON_DELAY_MS = 100;
 const LISTS: Record<string, string> = {
 	'/[dance]/lessons': 'Lessons',
 	'/[dance]/songs': 'Music',
-	'/[dance]/coverage': 'Coverage',
-	'/[dance]/positions/none': 'No position',
+	'/[dance]/(moves)/coverage': 'Coverage',
+	'/[dance]/(moves)/positions/none': 'No position',
 	'/settings': 'Settings',
 	'/voice': 'My count'
+};
+
+/** The band row's title over a list and its pane. */
+const PANE_TITLE: Record<ListId, string> = {
+	songs: 'Music',
+	figures: 'Moves',
+	routines: 'Moves',
+	positions: 'Moves'
 };
 
 const DETAILS = new Set([
@@ -44,8 +60,8 @@ const DETAILS = new Set([
 	'/[dance]/songs/[id]',
 	'/[dance]/exercises/[id]',
 	'/[dance]/player',
-	'/[dance]/positions/[id]',
-	'/[dance]/positions/map'
+	'/[dance]/(moves)/positions/[id]',
+	'/[dance]/(moves)/positions/map'
 ]);
 
 /**
@@ -54,6 +70,26 @@ const DETAILS = new Set([
  * redirect), and for an unknown route — those get the bar alone.
  */
 export function skeletonFor(routeId: string | null | undefined): Skeleton | null {
+	const shape = shapeFor(routeId);
+	if (!shape) return null;
+	const l = listOf(routeId ?? null);
+	return {
+		...shape,
+		pane: l !== null,
+		open: l?.open ?? false,
+		deskTitle: l
+			? PANE_TITLE[l.list]
+			: shape.kind === 'today'
+				? 'Today'
+				: shape.kind === 'moves'
+					? 'Moves'
+					: shape.kind === 'list'
+						? shape.title
+						: null
+	};
+}
+
+function shapeFor(routeId: string | null | undefined): Shape | null {
 	if (!routeId) return null;
 	if (routeId === '/[dance]') return { kind: 'today' };
 	// Only a segment's own list draws the Moves band; the pages under Positions have their own.
@@ -61,8 +97,8 @@ export function skeletonFor(routeId: string | null | undefined): Skeleton | null
 	if (segment && SEGMENT_ROUTE[segment] === routeId) return { kind: 'moves', segment };
 	const title = LISTS[routeId];
 	if (title) return { kind: 'list', title };
-	if (routeId === '/[dance]/figures/[id]') return { kind: 'figure' };
-	if (routeId === '/[dance]/routines/[id]') return { kind: 'routine' };
+	if (routeId === '/[dance]/(moves)/figures/[id]') return { kind: 'figure' };
+	if (routeId === '/[dance]/(moves)/routines/[id]') return { kind: 'routine' };
 	if (DETAILS.has(routeId)) return { kind: 'detail' };
 	return null;
 }
@@ -75,4 +111,32 @@ export function skeletonFor(routeId: string | null | undefined): Skeleton | null
  */
 export function leavesPage(from: string, to: string): boolean {
 	return from !== to;
+}
+
+/**
+ * What the desktop draws for a skeleton, by where the navigation comes from.
+ * Inside a list and pane, from one item to another (or back to the list), the
+ * list column is live and stays: only the pane is covered ('pane'), and going to
+ * the empty pane has nothing to cover ('none'). From anywhere else the whole
+ * frame is drawn ('frame'). The phone draws the same skeleton whatever this says.
+ *
+ * "Same list" is the column actually beside each end (`toColumn`, `fromColumn`:
+ * `columnOf`), which in Moves is not always the route's own: a figure opened
+ * from routine 5 keeps the Routines column. Without them, each route's own list.
+ */
+export type DeskSkeleton = 'frame' | 'pane' | 'none';
+
+export function deskSkeletonMode(
+	toRouteId: string | null | undefined,
+	fromRouteId: string | null | undefined,
+	toColumn?: ListId | null,
+	fromColumn?: ListId | null
+): DeskSkeleton {
+	const to = listOf(toRouteId ?? null);
+	const from = listOf(fromRouteId ?? null);
+	if (!to || !from) return 'frame';
+	const a = toColumn === undefined ? to.list : toColumn;
+	const b = fromColumn === undefined ? from.list : fromColumn;
+	if (a === null || a !== b) return 'frame';
+	return to.open ? 'pane' : 'none';
 }

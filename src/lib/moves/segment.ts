@@ -1,7 +1,7 @@
 /**
- * The Moves tab's three segments. Each is its own route — `/[dance]/figures`,
- * `/[dance]/routines` and `/[dance]/positions` — drawn inside one
- * `MovesScreen` whose band carries the switch. PURE.
+ * The Moves tab's three segments. Each is its own route — `/[dance]/(moves)/figures`,
+ * `/[dance]/(moves)/routines` and `/[dance]/(moves)/positions` — under one band, the (moves)
+ * layout's, whose switch picks between them. PURE.
  */
 
 export type MovesSegment = 'figures' | 'routines' | 'positions';
@@ -13,16 +13,16 @@ export const MOVES_SEGMENTS: readonly { value: MovesSegment; label: string }[] =
 ];
 
 const ROUTES: Record<string, MovesSegment> = {
-	'/[dance]/figures': 'figures',
-	'/[dance]/routines': 'routines',
-	'/[dance]/positions': 'positions'
+	'/[dance]/(moves)/figures': 'figures',
+	'/[dance]/(moves)/routines': 'routines',
+	'/[dance]/(moves)/positions': 'positions'
 };
 
 /** The route id each segment's list is. */
 export const SEGMENT_ROUTE: Record<MovesSegment, string> = {
-	figures: '/[dance]/figures',
-	routines: '/[dance]/routines',
-	positions: '/[dance]/positions'
+	figures: '/[dance]/(moves)/figures',
+	routines: '/[dance]/(moves)/routines',
+	positions: '/[dance]/(moves)/positions'
 };
 
 /**
@@ -32,6 +32,6 @@ export const SEGMENT_ROUTE: Record<MovesSegment, string> = {
  */
 export function segmentOf(routeId: string | null): MovesSegment | null {
 	if (!routeId) return null;
-	if (routeId.startsWith('/[dance]/positions/')) return 'positions';
+	if (routeId.startsWith('/[dance]/(moves)/positions/')) return 'positions';
 	return ROUTES[routeId] ?? null;
 }

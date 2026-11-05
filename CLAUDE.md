@@ -136,7 +136,7 @@ family (and twins as one in the graph), the hold, templates, the links, the
 screens and the map, the one-time move at boot, and what was decided while
 planning and building. It replaces the routines spec's neutral position and
 single end.
-The desktop has its own (agreed, not built yet),
+The desktop has its own (the frame is built; the area pages follow),
 [`docs/superpowers/specs/2026-11-03-desktop-design.md`](docs/superpowers/specs/2026-11-03-desktop-design.md):
 from 1024 px, one short band row and a band-coloured side with the tabs, a
 list and the opened item side by side, two-column figure and lesson pages, and
@@ -171,15 +171,32 @@ src/lib/server/positions-move.ts  the one-time boot move: the old shared positio
 src/lib/server/position-links.ts  sections and points linked to positions
                      (`spot_position_links`): link, unlink (a group's to Recently deleted),
                      and what a position's page lists (its spots, linkable spots, its lessons)
-src/routes/[dance]/positions/  the list (Moves' third segment); [id] a position's page;
-                     none the figures with no position; map the map.
+src/routes/[dance]/(moves)/positions/  the list (Moves' third segment); [id] a position's page;
+                     none the figures with no position; map the map (all under the `(moves)` group,
+                     below)
                      src/routes/api/positions is the figure picker's New position (JSON)
 src/lib/components/positions/  the New / Edit position sheet and its fields, Templates,
-                     How positions work, a list row, a point's still and card, the map,
-                     a position page's link picker
+                     How positions work (`HowBody`: the sheet's and the first-run pane's body),
+                     a list row, a point's still and card, the map and its pane (`MapPane`),
+                     a position page's link picker. `PositionForm` is one form, drawn in the
+                     sheet or in place on the desktop, its edit mode fixed at its start
+                     (`mode`, not derived)
 src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
                      chips, empty states, meta words, gaps, pick order; a move's page lines
                      (move-page.ts). Client-safe
+                     filter.ts is the Figures list's filter (chips, search, the entered set).
+                     segment.ts the three segments, pane.ts the empty pane's words and keeping
+                     the lit row in view, routines.ts the Routines list's shape. PURE
+src/lib/positions/filter.ts  PURE: the Positions list's search, chips and gaps, from the
+                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe
+src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf`) and which row
+                     is lit (`OpenRow`: figure, move, routine, position, Coverage, No position,
+                     the Map row), from the route, the path and the opener. The Figures
+                     list owns a move's page and Coverage
+src/lib/server/moves-lists.ts  the three Moves lists, loaded UNFILTERED by the `(moves)` layout
+                     (namespaced; `depends('app:moves')`, so a change not made by a form calls
+                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`)
+src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
@@ -219,7 +236,8 @@ src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
                      components/figures/PositionTags.svelte is a figure's Starts in / Ends in
 src/lib/components/ui/PlayerLayer.svelte  a Sheet or Dialog as an overlay inside the
                      full-screen player (`.theme-media`), not a second top-layer dialog
-src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
+src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts. edges.ts is
+                     where a drag's auto-scroll zones are (band row and tab bar aware)
                      Client-safe
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
@@ -255,6 +273,22 @@ src/lib/nav/         tabs.ts: the five tabs, which one a path lights, where the 
                      chrome.svelte.ts: `claimBottom`, an edit or selection bar takes the bottom and the
                      tab bar steps aside. The tab bar shows on every screen of a dance but Practice/share;
                      pinned bars sit at `--pin-bottom` / `--pin-safe` (set by the root layout)
+src/lib/nav/frame.ts  PURE: the frame of a path (`frameOf`: side, bare, card, none), an error's frame
+                     (`frameOfError`, by the path asked for), the frame drawn right now (`frameNow`:
+                     the page's own until the skeleton covers it, then the destination's) and
+                     `PAGE_WIDTH` (the content max widths). pane.ts: PURE,
+                     `listOf` (which list column a path belongs to) and `paneBack` (whether an
+                     item's ‹ shows). desk.svelte.ts: the `desk` media query (from 1024 px)
+src/lib/components/shell/  Side.svelte (the band-coloured side with the tabs), SheetCorner (the
+                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions),
+                     ListPane (a list column with its band) and Pane (the item beside it;
+                     `pane-context.ts` tells a page it is in one), CardFrame (the centred 480 px
+                     card on the band colour: sign in, Join, Welcome, Get the app, Pair, `/g/<code>`
+                     and errors outside a dance)
+src/lib/components/songs/MusicList.svelte  the Music list; `src/routes/[dance]/songs/+layout.*`
+                     holds its load and the list/item split
+scripts/shots/       the screenshot rig: a throwaway copy of a db, a frozen clock, every page of
+                     `pages.txt`, `--viewport` for desktop; `diff` against a baseline (README.md)
 src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's
@@ -403,7 +437,15 @@ src/lib/server/storage.ts  what a person uses (computed from size columns, never
 src/lib/server/invites.ts  one-time invites and joining with one
 src/routes/admin/    the admin page: people, limits, invites, requests for more space
 src/routes/join/     Join: a person creates their account from an invite link (public)
-src/routes/[dance]/moves/[id]  a move's page: its figures, rename, New figure
+src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figures / Routines /
+                     Positions switch, the three lists in a 360 column beside the open item,
+                     `(moves)/+layout.svelte` and `+layout.server.ts`; routes figures, moves/[id]
+                     (a move's page: its figures, rename, New figure), coverage, routines and
+                     positions (above) live in it. `components/ui/PaneColumns.svelte` is a
+                     pane's two columns (`two:` on its `cols` container, not on the pane),
+                     `components/figures/FigureTabs.svelte` the figure's tabs on desk, `components/shell/PaneHeading.svelte`
+                     a pane's heading row; there is
+                     no MovesScreen (the layout and the lists replace it)
 src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
                      people, storage, History and Recently deleted
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
@@ -430,7 +472,7 @@ src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dat
                      message and the "removed · Undo" toast Settings and My count share.
                      focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
-                     exercises/ links/ routines/ moves/ (the Moves band and its tiles) system/
+                     exercises/ links/ routines/ moves/ (the three Moves lists, `moves-context.ts`, the tiles) system/
                      (error, offline, choice sheet, status block, lead tile) clones/ (the source
                      tabs and the clone and twin sheets) teams/ (Add, the code, Leave).
                      ui/styles.ts holds the class builders: `button(kind, size, full)`,
@@ -595,6 +637,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   component's script, so its dev guard would never see a token gone from the
   builder. Variants live in `ui/styles.ts`, `video/styles.ts` and
   `player/styles.ts`, each imported by a spec (also enforced by `class-rules.spec.ts`).
+- **Forms in a list column post to the list route's explicit action URL**
+  (`action="/{dance}/songs?/addUrl"`), never a bare `?/x`: on desktop the column sits
+  beside an item route, and a bare action would post to the item.
 - **A card that clips uses `GROUP` or `CLIP`.** Rows draw their focus ring inside
   it, since the card's `overflow-hidden` would cut an outside one
   (`focus-clip.spec.ts`).

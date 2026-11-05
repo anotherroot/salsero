@@ -45,8 +45,23 @@ import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
-import { actions, load } from './positions/+page.server';
-import { load as noneLoadFn } from './positions/none/+page.server';
+import { actions } from './(moves)/positions/+page.server';
+import { load as layoutLoad } from './(moves)/+layout.server';
+import { parsePositionFilter, positionsView, type PositionsLists } from '$lib/positions/filter';
+
+/**
+ * The Positions list as the page shows it: the layout's unfiltered lists
+ * through the pure parse and view, with the URL's filter.
+ */
+const load = (e: { url: URL }) => {
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { positions: PositionsLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.positions;
+	const filter = parsePositionFilter(e.url.searchParams, l.types, l.inGroupMode);
+	return { ...l, ...positionsView(l, filter), filter };
+};
+import { load as noneLoadFn } from './(moves)/positions/none/+page.server';
 import { positionCounts } from '$lib/graph/graph';
 
 let db: Db;
@@ -99,7 +114,7 @@ async function act(
 }
 
 const loadOf = (user: string, cookies: Cookies = jar().cookies, search = '') =>
-	(load as (e: unknown) => unknown)({
+	(load as (e: any) => unknown)({
 		params: { dance: 'salsa' },
 		locals: locals(user),
 		cookies,
@@ -505,7 +520,7 @@ describe('the list’s chips and group order', () => {
 		const typed = addPosition(db, bachata, 'Open');
 		db.update(positions).set({ styleTag: 'sensual' }).where(eq(positions.id, typed)).run();
 		const loadBachata = (search: string) =>
-			(load as (e: unknown) => unknown)({
+			(load as (e: any) => unknown)({
 				params: { dance: 'bachata' },
 				locals: locals('u2'),
 				cookies: jar().cookies,

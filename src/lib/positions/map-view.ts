@@ -4,6 +4,8 @@
  * client-safe.
  */
 
+import type { MapLayout } from './map';
+
 /**
  * A type's colour on the map: a fixed theme token per style index, so the four
  * themes (and group mode's navy accent) carry it. No type, or a type the dance
@@ -122,4 +124,40 @@ export function edgeGeometry(
 		labelX: r1(0.25 * s.x + 0.5 * c.x + 0.25 * e.x),
 		labelY: r1(0.25 * s.y + 0.5 * c.y + 0.25 * e.y)
 	};
+}
+
+/** One position as the map draws it (`mapData`). */
+export interface MapDataPosition {
+	id: number;
+	name: string;
+	/** The name as the node's label (`mapLabel`). */
+	label: string;
+	styleTag: string | null;
+	tone: MapTone;
+	ins: number;
+	outs: number;
+	/** "Twins: your Cerrada, Salsa Tuesdays’ Closed" when it stands for twins. */
+	twinsLine: string | null;
+	ariaLabel: string;
+}
+
+/**
+ * The map, as `mapData` (server) loads it for the map route and for the
+ * Positions list's pane: the layout, its nodes and arrows, the tray, the
+ * summary and the legend.
+ */
+export interface MapData {
+	/** No positions at all. */
+	empty: boolean;
+	layout: MapLayout;
+	positions: MapDataPosition[];
+	edges: { from: number; to: number; width: number; figures: number }[];
+	/** Figures the map draws no arrow for: the tray's No position chip. */
+	noPosition: number;
+	summary: string;
+	types: { key: string; label: string; tone: MapTone }[];
+	/** The SVG's name for a screen reader. */
+	mapLabel: string;
+	/** In a group's own workspace: no gap marks in the legend. */
+	inGroupMode: boolean;
 }

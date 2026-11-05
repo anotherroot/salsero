@@ -604,6 +604,60 @@ What the user settled on the boards, newest last:
 
 ## Decided while building
 
+### Plan 1 — the frame
+
+- **The band-row toggle** is centred as the boards draw it: from the side's edge
+  to 40 px before the window's right edge, about 20 px left of the sheet's true
+  centre.
+- **The band-row toggles get the boards' desk widths at their callers**:
+  Moves 420, Practice 340, My count 480. The band row's middle column sizes to
+  its content, so the width is the caller's, not the toggle's.
+- **The subtitle** sits on the title's baseline (as "The frame" says), not 4 px
+  higher as the boards draw it.
+- **Small dialogs are 480 px wide**, the measure above, not the board's 420.
+- **The Link popup's levels** are 560 wide and drawn 480 tall (the earlier line
+  that said 480 wide was a transcription error).
+- **An old `/g/<code>`** shows the built app's error words ("Not found", the
+  generic body, Back to Today) inside the card, not the board's "Join a group"
+  copy: the built app wins on wording, and the board's copy would change the
+  phone too.
+- **Any error outside a dance, or signed out,** uses the card frame.
+- **A playing sample stops when a song opens beside the list** (the root
+  layout's `stopSample` on navigation, as on the phone). The list keeps its
+  scroll, search and chips; it does not keep a sample playing.
+
+### Plan 3 — Moves and Positions
+
+- **Landmarks.** A pane is a `<div>`; the sheet (`Screen`) is the `<main>`
+  whenever it is not an item route's own sheet, so a list pane's content is the
+  main, and on an item route the item's sheet is. The band header is a
+  non-landmark `<div>` on the desktop (it is hidden below 1024), so the page
+  has one banner (the pane's header), one main and one h1. The phone's item
+  routes keep their banner.
+- **The lists refresh on `app:moves`.** The three Moves lists load once, unfiltered,
+  in the `(moves)` layout and refresh only when something invalidates them
+  (`invalidateAll`, or `invalidate('app:moves')` after a change not made by a form,
+  such as a position created from a figure's picker). Search and chips filter in
+  the client.
+- **What a Back goes to, and who owns a page.** A push forgets only its own
+  target in the entered set, so a reload shows Figures and Back never flips the
+  column. The Figures list owns a move's page and Coverage: a figure opened from
+  either shows no ‹, because the Figures list is beside it.
+- **The figure's tabs show on a reader's figure and on your own copy** too, as
+  the desk form of the phone's switcher; the boards leave them out there.
+- **The map is capped at `max(360px, 100dvh − 400px)`** tall (500 px at 900) and
+  centred in its box, so the tray stays in the window.
+- **A first-run Positions pane** keeps "Optional: read once, then decide" as its
+  subtitle; it is on the settled board, desk-only, and replaces no built wording.
+- **Pinned widths.** A reader's routine pins Edit narrow and Practise wide, as the
+  settled board draws, not two equal halves; a group's routine pins Edit and
+  Practise in its pane.
+- **The Map row stays in the Positions list and is lit** while the map is open;
+  the map's route draws no ‹.
+- **A position's edit mode is fixed at its start** (`PositionForm`'s `mode`), so a
+  save that changes the data does not flip the form in place.
+- **`PaneColumns`' `two:` variant** is on its `cols` container, not on the pane.
+
 ### Plan 5 — Practice, Settings and the rest
 
 - Running keeps the title the app already built (the running song's title, else

@@ -14,6 +14,7 @@
 	import type { LongPress } from '$lib/longpress';
 	import type { Side } from '$lib/gestures/swipe';
 	import { autoScroll, dropIndex, gapTop, shiftFor } from '$lib/gestures/drag';
+	import { dragEdges } from '$lib/gestures/edges';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SlotCard from './SlotCard.svelte';
 	import Seam from './Seam.svelte';
@@ -100,12 +101,16 @@
 		}
 
 		// The auto-scroll zones start where the list is actually visible: below
-		// the fixed slim band (a pushed screen has no other header), down to the
-		// tab bar's top when it shows, else the viewport's bottom (the selection
-		// bar never shows during a drag).
-		const top = document.querySelector('[data-slim-band]')?.getBoundingClientRect().bottom ?? 0;
-		const bottom =
-			document.querySelector('[data-tab-bar]')?.getBoundingClientRect().top ?? window.innerHeight;
+		// the fixed slim band (a pushed screen has no other header), or the
+		// desktop's band row, down to the tab bar's top when it shows, else the
+		// viewport's bottom (the selection bar never shows during a drag). On the
+		// desktop both bars are `display: none`: all-zero rects, absent here.
+		const { top, bottom } = dragEdges(
+			document.querySelector('[data-slim-band]')?.getBoundingClientRect() ?? null,
+			document.querySelector('[data-tab-bar]')?.getBoundingClientRect() ?? null,
+			parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--band-row-h')) || 0,
+			window.innerHeight
+		);
 		let y = e.clientY;
 		let frame = 0;
 		const update = () => {
@@ -199,7 +204,7 @@
 </script>
 
 {#if rows.length === 0}
-	<button type="button" class={addEnd} onclick={() => onadd(0, null)}
+	<button type="button" class={addEnd} data-focus="add-slot" onclick={() => onadd(0, null)}
 		><Icon name="plus" size={20} />Add a figure</button
 	>
 {:else}
@@ -286,6 +291,7 @@
 		<button
 			type="button"
 			class={addEnd}
+			data-focus="add-slot"
 			disabled={selecting}
 			aria-label="Add a slot after slot {rows.length}"
 			onclick={() => onadd(rows.length, { row: rows.length - 1, side: 'after' })}

@@ -7,10 +7,15 @@ export const TABS: readonly {
 	id: TabId;
 	label: string;
 	icon: IconName;
-	path: '/[dance]' | '/[dance]/figures' | '/[dance]/lessons' | '/[dance]/groups' | '/[dance]/songs';
+	path:
+		| '/[dance]'
+		| '/[dance]/(moves)/figures'
+		| '/[dance]/lessons'
+		| '/[dance]/groups'
+		| '/[dance]/songs';
 }[] = [
 	{ id: 'today', label: 'Today', icon: 'today', path: '/[dance]' },
-	{ id: 'moves', label: 'Moves', icon: 'moves', path: '/[dance]/figures' },
+	{ id: 'moves', label: 'Moves', icon: 'moves', path: '/[dance]/(moves)/figures' },
 	{ id: 'lessons', label: 'Lessons', icon: 'lessons', path: '/[dance]/lessons' },
 	{ id: 'groups', label: 'Groups', icon: 'group', path: '/[dance]/groups' },
 	{ id: 'music', label: 'Music', icon: 'music', path: '/[dance]/songs' }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	enteredAfter,
 	arrivalKind,
+	arrivalOpener,
 	arrive,
 	backMove,
 	backTarget,
@@ -12,6 +14,7 @@ import {
 	isGone,
 	isRoot,
 	isTrailPage,
+	keepColumn,
 	keepFilter,
 	keptFilter,
 	keptSearch,
@@ -369,6 +372,60 @@ describe('leave and hrefOf', () => {
 	});
 });
 
+describe('keepColumn', () => {
+	const seen = () => arrive(EMPTY_TRAIL, A({ to: '/salsa/figures', kind: 'enter', index: 1 }));
+
+	it('keeps the column’s filter and the list page’s search in one', () => {
+		const t = keepColumn(seen(), '/salsa/figures', 'q=enc', 'q=enc');
+		expect(hrefOf(t, '/salsa/figures')).toBe('/salsa/figures?q=enc');
+		expect(keptFilter(t, '/salsa/figures')).toBe('q=enc');
+	});
+
+	it('clears both with an empty filter', () => {
+		const t = keepColumn(
+			keepColumn(seen(), '/salsa/figures', 'q=enc', 'q=enc'),
+			'/salsa/figures',
+			'',
+			''
+		);
+		expect(hrefOf(t, '/salsa/figures')).toBe('/salsa/figures');
+		expect(keptFilter(t, '/salsa/figures')).toBe('');
+	});
+
+	it('keeps the filter but makes no page for a list the trail has not seen', () => {
+		const t = keepColumn(EMPTY_TRAIL, '/salsa/figures', 'q=enc', 'q=enc');
+		expect(keptFilter(t, '/salsa/figures')).toBe('q=enc');
+		expect(t.pages['/salsa/figures']).toBeUndefined();
+	});
+});
+
+describe('arrivalOpener', () => {
+	// The opener `arrive` records, known before the page renders (the list column reads it).
+	it('is the opener arrive records, for every kind of arrival', () => {
+		const t = opening();
+		const cases: Partial<Arrival>[] = [
+			{ to: '/salsa/figures/12', from: '/salsa/routines/9', kind: 'push' },
+			{ to: '/salsa/figures/13', from: '/salsa/figures/12', kind: 'replace' },
+			{ to: '/salsa/figures/12', from: '/salsa/lessons/5', kind: 'pop' },
+			{ to: '/salsa/figures/12', from: '/salsa/lessons/5', kind: 'push', intent: 'back' },
+			{ to: '/salsa/figures/12', from: null, kind: 'enter' },
+			{ to: '/salsa/routines', from: '/salsa/figures/12', kind: 'push' },
+			{ to: '/salsa/routines/3', from: '/salsa/lessons/5', kind: 'push' }
+		];
+		for (const c of cases) {
+			const a = A(c);
+			expect(arrivalOpener(t, a), JSON.stringify(c)).toBe(arrive(t, a).pages[a.to].opener);
+		}
+		expect(arrivalOpener(t, A({ to: '/salsa/figures/12', from: '/salsa/routines/9' }))).toBe(
+			'/salsa/routines/9'
+		);
+		// A step carries the opener of the variation it stands in for.
+		expect(
+			arrivalOpener(t, A({ to: '/salsa/figures/13', from: '/salsa/figures/12', kind: 'replace' }))
+		).toBe('/salsa/routines/3');
+	});
+});
+
 describe('forget', () => {
 	it("reattaches children to the removed page's opener and clears tab memory", () => {
 		let t = opening();
@@ -677,5 +734,42 @@ describe('the kept filter', () => {
 	it('an empty filter is no filter', () => {
 		const t = keepFilter(keepFilter(EMPTY_TRAIL, '/salsa/songs', 'mambo'), '/salsa/songs', '');
 		expect(keptFilter(t, '/salsa/songs')).toBe('');
+	});
+});
+
+describe('enteredAfter', () => {
+	const A = '/s/figures/12';
+	const B = '/s/figures/13';
+	it('an enter starts over with the page', () => {
+		expect(enteredAfter([A], { kind: 'enter', from: null, to: B })).toEqual([B]);
+	});
+	it('a replace from an entered page adds the target', () => {
+		expect(enteredAfter([A], { kind: 'replace', from: A, to: B })).toEqual([A, B]);
+	});
+	it('a replace from any other page leaves it', () => {
+		expect(enteredAfter([A], { kind: 'replace', from: '/s/x', to: B })).toEqual([A]);
+		expect(enteredAfter([A], { kind: 'replace', from: null, to: B })).toEqual([A]);
+	});
+	it('a push forgets only its target', () => {
+		expect(enteredAfter([A], { kind: 'push', from: A, to: B })).toEqual([A]);
+		expect(enteredAfter([A, B], { kind: 'push', from: '/s/x', to: A })).toEqual([B]);
+	});
+	it('a pop leaves it', () => {
+		expect(enteredAfter([A], { kind: 'pop', from: B, to: A })).toEqual([A]);
+	});
+});
+
+describe('enteredAfter: reload, push, back', () => {
+	it('a page entered by reload stays fresh through a push elsewhere and the back', () => {
+		const F = '/s/figures/12';
+		const P = '/s/positions/7';
+		let e = enteredAfter([], { kind: 'enter', from: null, to: F });
+		e = enteredAfter(e, { kind: 'push', from: F, to: P });
+		e = enteredAfter(e, { kind: 'pop', from: P, to: F });
+		expect(e).toContain(F);
+	});
+	it('a fresh push to an entered page makes it ordinary again', () => {
+		const F = '/s/figures/12';
+		expect(enteredAfter([F], { kind: 'push', from: '/s/routines/5', to: F })).toEqual([]);
 	});
 });

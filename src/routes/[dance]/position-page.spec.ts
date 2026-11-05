@@ -50,8 +50,8 @@ import { T1_SALSA, U1_BACHATA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { crossRefs } from '$lib/server/integrity';
 import { ARCHIVED_LINKS, PRESET_GONE } from '$lib/positions/view';
-import { actions, load } from './positions/[id]/+page.server';
-import { actions as figureList, load as figureLoad } from './figures/+page.server';
+import { actions, load } from './(moves)/positions/[id]/+page.server';
+import { actions as figureList, load as figureLoad } from './(moves)/figures/+page.server';
 
 let db: Db;
 

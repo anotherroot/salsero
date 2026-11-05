@@ -19,9 +19,20 @@ vi.mock('$lib/server/db', async () => {
 import { openDb, type Db } from '$lib/server/db';
 import { listRoutines } from '$lib/server/routines';
 import { createFigure, createVariationIn } from '$lib/server/figures';
-import { actions as routineListActions } from './routines/+page.server';
-import { actions as figureListActions, load as figureListLoad } from './figures/+page.server';
-import { actions as coverageActions } from './coverage/+page.server';
+import { actions as routineListActions } from './(moves)/routines/+page.server';
+import { actions as figureListActions } from './(moves)/figures/+page.server';
+import { load as layoutLoad } from './(moves)/+layout.server';
+import { figuresView, type FiguresLists } from '$lib/moves/filter';
+
+/** The Figures list as the page shows it: the layout's unfiltered lists through the pure view. */
+const figureListLoad = (e: unknown) => {
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.figures;
+	return { ...l, ...figuresView(l, { q: '' }) };
+};
+import { actions as coverageActions } from './(moves)/coverage/+page.server';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
-	import type { Skeleton } from '$lib/nav/pending';
+	import type { DeskSkeleton, Skeleton } from '$lib/nav/pending';
+	import { PAGE_WIDTH, type Frame } from '$lib/nav/frame';
 
 	/**
 	 * The destination's shape, shown while its data is on the way. It COVERS
@@ -13,7 +14,31 @@
 	 * tab that just lit stays in view, and runs to the bottom when it does not.
 	 * It sits above the bars pinned over a page's end (z-30).
 	 */
-	let { skeleton, tabs }: { skeleton: Skeleton; tabs: boolean } = $props();
+	let {
+		skeleton,
+		tabs,
+		desk = 'frame',
+		frame = 'side'
+	}: {
+		skeleton: Skeleton;
+		tabs: boolean;
+		/** The desktop: the whole frame, the pane alone (the list column stays live), or nothing. */
+		desk?: DeskSkeleton;
+		/** The desktop frame it draws inside: with the side, or without it (Practice). */
+		frame?: Frame;
+	} = $props();
+	const side = $derived(frame === 'side');
+
+	/*
+	 * How the overlay sits on the desktop; the phone's is the classes before it.
+	 * The whole frame's overlay is clear over the side and lets clicks through
+	 * there, as the phone's tab bar stays live: only its band row and sheet take them.
+	 */
+	const DESK = {
+		frame: 'desk:pointer-events-none desk:inset-0 desk:bg-transparent',
+		pane: 'desk:top-[var(--band-row-h)] desk:bottom-0 desk:left-[calc(var(--side-w)+361px)]',
+		none: 'desk:hidden'
+	} as const;
 
 	const WIDTHS = [
 		[62, 40],
@@ -45,12 +70,81 @@
 	</div>
 {/snippet}
 
+{#snippet bar(w: string, h: number, r = 6)}
+	<span class="bone block flex-none" style="width: {w}; height: {h}px; border-radius: {r}px"></span>
+{/snippet}
+
+{#snippet deskList()}
+	<!-- The list column's rows: the search pill, filter chips, a label, then the rows. -->
+	<div class="flex flex-col gap-2.5" aria-hidden="true">
+		{@render bar('100%', 44, 22)}
+		<div class="flex flex-wrap gap-2">
+			{#each [52, 102, 64, 52, 104, 60] as w, i (i)}
+				{@render bar(`${w}px`, 34, 17)}
+			{/each}
+		</div>
+		<div class="mx-1 mt-2">{@render bar('80px', 11)}</div>
+		{@render rows(7, false)}
+	</div>
+{/snippet}
+
+{#snippet deskPane()}
+	<!-- The item beside the list: its title and actions, then two columns of cards. -->
+	<div class="flex flex-col gap-3.5 px-10 pt-[26px] pb-1" aria-hidden="true">
+		{@render bar('220px', 30, 8)}
+		<div class="flex gap-2">
+			{@render bar('70px', 36, 18)}
+			{@render bar('80px', 36, 18)}
+			{@render bar('110px', 36, 18)}
+		</div>
+	</div>
+	<div class="px-10 pt-[18px] pb-10" aria-hidden="true">
+		<div
+			class="mx-auto grid items-start gap-8"
+			style="max-width: {PAGE_WIDTH.two}px; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr)"
+		>
+			<div class="flex min-w-0 flex-col gap-2">
+				{@render card(4)}
+				{@render rows(2, false)}
+				{@render card(3)}
+			</div>
+			<div class="flex min-w-0 flex-col gap-2">
+				{@render rows(5, false)}
+				{@render card(3)}
+			</div>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet card(n: number)}
+	<div class="flex flex-col gap-3 rounded-2xl bg-surface p-4">
+		{@render bar('40%', 14)}
+		{#each { length: n - 1 }, i (i)}
+			{@render bar(['85%', '70%', '55%'][i % 3], 12)}
+		{/each}
+	</div>
+{/snippet}
+
+{#snippet deskSheet()}
+	<!-- One page that is not a list and pane: a single sheet of rows, centred. -->
+	<div
+		class="mx-auto px-10 pt-6 pb-10"
+		style="max-width: {PAGE_WIDTH.one + 80}px"
+		aria-hidden="true"
+	>
+		{@render rows(7, skeleton.kind === 'today')}
+	</div>
+{/snippet}
+
 <div
-	class="fixed inset-x-0 top-0 z-[35] overflow-hidden bg-ground"
-	style="bottom: {tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0'}"
+	class="fixed inset-x-0 top-0 bottom-[var(--sk-bottom)] z-[35] overflow-hidden bg-ground {DESK[
+		desk
+	]}"
+	style="--sk-bottom: {tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0px'}"
 	aria-busy="true"
 >
-	<div class="mx-auto max-w-[560px]">
+	<!-- The phone's skeleton, as ever; the desktop draws its own below. -->
+	<div class="mx-auto max-w-[560px] desk:hidden">
 		<p class="sr-only" role="status">Loading…</p>
 
 		<header
@@ -265,6 +359,60 @@
 			</div>
 		{/if}
 	</div>
+	{#if desk === 'frame'}
+		<!--
+			The desktop frame: the band row with the destination's title (covering the old
+			page's), the side left to the layout (already lit for the destination), and the
+			sheet with its rounded corner: a list column of rows beside a pane of cards, or
+			one sheet of rows.
+		-->
+		<div class="hidden desk:block">
+			<p class="sr-only" role="status">Loading…</p>
+			<div
+				class="pointer-events-auto fixed inset-x-0 top-0 flex h-[var(--band-row-h)] items-center bg-band pr-10 pl-[30px]"
+				aria-hidden="true"
+			>
+				{#if skeleton.deskTitle}
+					<span
+						class="truncate font-display text-[46px] leading-none font-extrabold tracking-[-0.02em] text-band-ink"
+						>{skeleton.deskTitle}</span
+					>
+				{:else}
+					<span class="h-8 w-56 rounded-lg bg-band-ink opacity-30"></span>
+				{/if}
+			</div>
+			<div
+				class="pointer-events-auto fixed top-[var(--band-row-h)] right-0 bottom-0 bg-band {side
+					? 'left-[var(--side-w)]'
+					: 'left-0'}"
+			>
+				<div
+					class="flex h-full overflow-hidden bg-ground {side
+						? 'rounded-tl-[28px]'
+						: 'rounded-t-[28px]'}"
+				>
+					{#if skeleton.pane}
+						<div
+							class="flex h-full w-[361px] flex-none flex-col gap-2.5 overflow-hidden border-r border-hairline pt-6 pr-5 pl-6"
+						>
+							{@render deskList()}
+						</div>
+						<div class="min-w-0 flex-1 overflow-hidden">
+							{#if skeleton.open}{@render deskPane()}{/if}
+						</div>
+					{:else}
+						<div class="min-w-0 flex-1 overflow-hidden">{@render deskSheet()}</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{:else if desk === 'pane'}
+		<!-- Only the pane: the list column beside it is live. -->
+		<div class="hidden desk:block">
+			<p class="sr-only" role="status">Loading…</p>
+			{@render deskPane()}
+		</div>
+	{/if}
 </div>
 
 <style>

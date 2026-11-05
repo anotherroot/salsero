@@ -5,24 +5,38 @@
 	/**
 	 * A link card: a tonal icon disc, a title, one meta line. Coverage sits
 	 * at the top of the Figures list; cards placed in one row share it.
-	 * `status` makes the meta a status word (what still needs doing).
+	 * `status` makes the meta a status word (what still needs doing). `current`:
+	 * open in the pane beside the list (desktop), tinted and ringed as the board draws it.
 	 */
 	let {
 		href,
 		icon,
 		title,
 		meta,
-		status = false
-	}: { href: string; icon: IconName; title: string; meta: string; status?: boolean } = $props();
+		status = false,
+		current = false
+	}: {
+		href: string;
+		icon: IconName;
+		title: string;
+		meta: string;
+		status?: boolean;
+		current?: boolean;
+	} = $props();
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 <a
 	{href}
-	class="flex min-h-16 min-w-0 flex-1 items-center gap-2.5 rounded-2xl bg-surface p-3 text-ink active:bg-step"
+	aria-current={current ? 'page' : undefined}
+	class="flex min-h-16 min-w-0 flex-1 items-center gap-2.5 rounded-2xl p-3 text-ink active:bg-step {current
+		? 'bg-accent-soft shadow-[inset_0_0_0_2px_var(--color-accent)]'
+		: 'bg-surface'}"
 >
 	<span
-		class="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
+		class="flex h-[38px] w-[38px] flex-none items-center justify-center rounded-full {current
+			? 'bg-accent text-on-accent'
+			: 'bg-accent-soft text-accent-text'}"
 	>
 		<Icon name={icon} size={22} />
 	</span>

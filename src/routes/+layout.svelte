@@ -3,13 +3,13 @@
 	import { untrack } from 'svelte';
 	import { navigating, page, updated } from '$app/state';
 	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
-	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
+	import { deskSkeletonMode, leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
 	import { bottom } from '$lib/nav/chrome.svelte';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
 	import Side from '$lib/components/shell/Side.svelte';
 	import SheetCorner from '$lib/components/shell/SheetCorner.svelte';
-	import { frameOf, frameOfError } from '$lib/nav/frame';
+	import { frameNow } from '$lib/nav/frame';
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
@@ -23,7 +23,8 @@
 		unsaved
 	} from '$lib/unsaved/guard.svelte';
 	import { entryState, syncSheets } from '$lib/sheets/history.svelte';
-	import { syncTrail } from '$lib/nav/trail.svelte';
+	import { listOpener, openerAhead, syncTrail } from '$lib/nav/trail.svelte';
+	import { columnOf } from '$lib/nav/moves-pane';
 	import { stopSample } from '$lib/songs/sample-player.svelte';
 	import { afterNavigate, beforeNavigate, goto, invalidate } from '$app/navigation';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
@@ -64,6 +65,23 @@
 	// it waits for Reload, so no tab, skeleton or progress bar says otherwise.
 	let stuck = $state(false);
 	const ahead = $derived(stuck ? null : navigating.to);
+	/*
+	 * The list column beside the page now and beside the one loading: the desktop
+	 * skeleton covers only the pane when it stays (a figure opened from a routine
+	 * keeps the Routines column), the whole frame when it changes.
+	 */
+	const columnNow = $derived(
+		columnOf(page.route.id, page.url.pathname, listOpener(page.url.pathname))
+	);
+	const columnAhead = $derived(
+		ahead
+			? columnOf(
+					ahead.route.id,
+					ahead.url.pathname,
+					openerAhead(ahead.url.pathname, page.url.pathname, navigating.type)
+				)
+			: null
+	);
 	const shownPath = $derived(ahead?.url.pathname ?? page.url.pathname);
 	const shownDance = $derived(danceOf(shownPath));
 	const leaving = $derived(ahead != null && leavesPage(page.url.pathname, ahead.url.pathname));
@@ -104,17 +122,19 @@
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 	/*
-	 * What surrounds the page on the desktop (`$lib/nav/frame.ts`), judged like the
-	 * tabs on where the app is going. Below 1024 none of it shows: every class it
+	 * What surrounds the page on the desktop (`$lib/nav/frame.ts`): the page's own
+	 * until the skeleton covers it, then the destination's (`frameNow`), so the old
+	 * page never reflows under a tap. Below 1024 none of it shows: every class it
 	 * adds is `desk:`, and the frame's variables are 0 there. An error page's frame
 	 * comes from the path that was asked for (`frameOfError`): a 404 has no route.
 	 */
 	const frame = $derived(
-		ahead
-			? frameOf(ahead.route.id, nav)
-			: page.error
-				? frameOfError(page.url.pathname, nav)
-				: frameOf(page.route.id, nav)
+		frameNow(
+			{ routeId: page.route.id, path: page.url.pathname, error: Boolean(page.error) },
+			ahead ? ahead.route.id : undefined,
+			skeleton !== null,
+			nav
+		)
 	);
 	const SHEET = {
 		side: 'desk:ml-[var(--side-w)] desk:pt-[var(--band-row-h)] desk:max-w-none desk:bg-ground',
@@ -417,7 +437,12 @@
 			{@render children()}
 		</div>
 		{#if skeleton}
-			<PageSkeleton {skeleton} {tabs} />
+			<PageSkeleton
+				{skeleton}
+				{tabs}
+				desk={deskSkeletonMode(ahead?.route.id, page.route.id, columnAhead, columnNow)}
+				{frame}
+			/>
 		{/if}
 		{#if frame === 'side' || frame === 'bare'}
 			<!--

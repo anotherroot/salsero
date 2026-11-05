@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- a load's answer is loosely typed here */
 /**
- * The map's load: the viewer's graph (ruling 14) laid out, what each node is
+ * The map (`mapData`): the viewer's graph (ruling 14) laid out, what each node is
  * called and coloured, the arrows' figure counts, the tray, and the summary.
  *
- * Like `dance-wall.spec.ts`, the route reaches the database through `getDb()`,
- * which is mocked: each test gets its own `openDb(':memory:')`.
+ * The two loads that serve it (the map route and the Positions list, whose pane
+ * on the desktop is the map) reach the database through `getDb()`, which is
+ * mocked as in `dance-wall.spec.ts`: each test gets its own `openDb(':memory:')`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
@@ -36,7 +37,10 @@ import { addPosition } from '$lib/server/test-positions';
 import { T1_SALSA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import type { Space } from '$lib/server/scope';
-import { load } from './positions/map/+page.server';
+import { groupModeOf } from '$lib/server/group-mode';
+import { mapData } from '$lib/server/positions-map';
+import { load } from './(moves)/positions/map/+page.server';
+import { load as listLoad } from './(moves)/positions/+page.server';
 
 let db: Db;
 
@@ -51,11 +55,15 @@ const locals = (id: string) =>
 	({ user: { id, timezone: 'Europe/Ljubljana', role: 'user' } }) as unknown as App.Locals;
 
 const loadOf = (user: string, cookies: Cookies = jar()) =>
-	(load as (e: unknown) => unknown)({
+	mapData(db, { userId: user, dance: 'salsa' }, groupModeOf(db, user, 'salsa', cookies)) as any;
+
+/** A route's load, as SvelteKit calls it. */
+const routeLoad = (fn: unknown, user: string | null, cookies: Cookies = jar()) =>
+	(fn as (e: unknown) => unknown)({
 		params: { dance: 'salsa' },
-		locals: locals(user),
+		locals: user === null ? {} : locals(user),
 		cookies,
-		url: new URL('http://x/salsa/positions/map')
+		url: new URL('http://x/salsa/positions')
 	}) as any;
 
 const FIGURE = { name: 'Basic', partner: 'partner', style: 'salsa' };
@@ -117,7 +125,7 @@ describe('the map', () => {
 
 		const d = loadOf('u2');
 		expect(d.empty).toBe(false);
-		expect(d.groupMode).toBe(false);
+		expect(d.inGroupMode).toBe(false);
 		expect(d.layout.nodes.map((x: any) => x.id)).toEqual([abierta, caida, cerrada]);
 		expect(d.layout.tray).toEqual({ islands: [ruedaA, ruedaB], unused: [sombra] });
 		const node = (id: number) => d.layout.nodes.find((x: any) => x.id === id);
@@ -171,7 +179,7 @@ describe('the map', () => {
 		between(U2_SALSA, mine, mine);
 
 		const d = loadOf('u2', jar('1'));
-		expect(d.groupMode).toBe(true);
+		expect(d.inGroupMode).toBe(true);
 		expect(d.layout.nodes.map((x: any) => [x.id, x.mark])).toEqual([
 			[open, null],
 			[end, null]
@@ -273,14 +281,21 @@ describe('the map', () => {
 		expect(d.noPosition).toBe(1);
 	});
 
+	it('is what the map route and the Positions list both load, in group mode too', () => {
+		const a = addPosition(db, U2_SALSA, 'Cerrada');
+		between(U2_SALSA, a, a);
+		const g = addPosition(db, T1_SALSA, 'Abierta');
+		between(T1_SALSA, g, g);
+		for (const cookies of [jar(), jar('1')]) {
+			const map = loadOf('u2', cookies);
+			expect(map.positions.length).toBe(1);
+			expect(routeLoad(load, 'u2', cookies)).toEqual({ map });
+			expect(routeLoad(listLoad, 'u2', cookies)).toEqual({ map });
+		}
+	});
+
 	it('refuses without a user', () => {
-		expect(() =>
-			(load as (e: unknown) => unknown)({
-				params: { dance: 'salsa' },
-				locals: {},
-				cookies: jar(),
-				url: new URL('http://x/salsa/positions/map')
-			})
-		).toThrow();
+		expect(() => routeLoad(load, null)).toThrow();
+		expect(() => routeLoad(listLoad, null)).toThrow();
 	});
 });

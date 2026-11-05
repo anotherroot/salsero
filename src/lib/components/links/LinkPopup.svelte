@@ -234,11 +234,11 @@
 	/** A linked row's page: the variation's figure page, the drill's exercise page, or the position's. */
 	const targetHref = (dance: string, t: LinkTarget) =>
 		'figureId' in t
-			? resolve('/[dance]/figures/[id]', { dance, id: String(t.figureId) })
+			? resolve('/[dance]/(moves)/figures/[id]', { dance, id: String(t.figureId) })
 			: 'exerciseId' in t
 				? resolve('/[dance]/exercises/[id]', { dance, id: String(t.exerciseId) })
 				: // A position's page, /[dance]/positions/[id] (built beside this, ruling 10).
-					`${resolve('/[dance]/positions', { dance })}/${t.positionId}`;
+					`${resolve('/[dance]/(moves)/positions', { dance })}/${t.positionId}`;
 
 	const rowTarget = (r: PickRow): LinkTarget =>
 		r.key.startsWith('figure:')

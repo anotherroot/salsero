@@ -162,21 +162,32 @@ export function vacate(t: Trail, index: number, kind: Arrival['kind']): Trail {
 	return { ...t, entries: slotted(t.entries, index, null, kind) };
 }
 
+/**
+ * The opener `arrive` records for `a.to`. Known as soon as history has moved, so
+ * a page can read it while it renders, before the arrival is stored (`listOpener`).
+ */
+export function arrivalOpener(
+	t: Trail,
+	a: Pick<Arrival, 'to' | 'from' | 'kind' | 'intent'>
+): PageKey | null {
+	const existing = t.pages[a.to];
+	if (isRoot(a.to)) return null;
+	if (a.kind === 'enter') return existing?.opener ?? null;
+	if (a.kind === 'pop' || a.intent === 'tab' || a.intent === 'back')
+		return existing?.opener ?? null;
+	if (a.kind === 'replace') {
+		// A variation step or a refilter: the page is the same place in the trail.
+		return a.from === null || a.from === a.to
+			? (existing?.opener ?? null)
+			: carriedOpener(t, a.to, t.pages[a.from]?.opener ?? null);
+	}
+	return openerFor(t, a.to, a.from);
+}
+
 export function arrive(t: Trail, a: Arrival): Trail {
 	if (!isTrailPage(a.to)) return t;
 	const existing = t.pages[a.to];
-	let opener: PageKey | null;
-	if (isRoot(a.to)) opener = null;
-	else if (a.kind === 'enter') opener = existing?.opener ?? null;
-	else if (a.kind === 'pop' || a.intent === 'tab' || a.intent === 'back')
-		opener = existing?.opener ?? null;
-	else if (a.kind === 'replace') {
-		// A variation step or a refilter: the page is the same place in the trail.
-		opener =
-			a.from === null || a.from === a.to
-				? (existing?.opener ?? null)
-				: carriedOpener(t, a.to, t.pages[a.from]?.opener ?? null);
-	} else opener = openerFor(t, a.to, a.from);
+	const opener = arrivalOpener(t, a);
 
 	const pages = {
 		...t.pages,
@@ -229,6 +240,31 @@ export function keepFilter(t: Trail, listPath: PageKey, value: string): Trail {
 	if (value) filters[listPath] = value;
 	else delete filters[listPath];
 	return { ...t, filters };
+}
+
+/**
+ * A list column's filter beside an open item (`keepFilter`), and `search` as
+ * the list page's own kept search (`searched`: only for a list page the trail
+ * has), in one: so the list page comes back (`hrefOf`) with what the column shows.
+ */
+export function keepColumn(t: Trail, listPath: PageKey, value: string, search: string): Trail {
+	return searched(keepFilter(t, listPath, value), listPath, search);
+}
+
+/**
+ * The pages entered "fresh" this page-load: the one the app was (re)loaded on,
+ * and the pages replaced into it from it (the figure steps). Their opener is
+ * not where the user came from, so a list beside them is the route's own.
+ */
+export function enteredAfter(
+	entered: readonly PageKey[],
+	a: Pick<Arrival, 'kind' | 'from' | 'to'>
+): PageKey[] {
+	if (a.kind === 'enter') return [a.to];
+	if (a.kind === 'push') return entered.filter((k) => k !== a.to);
+	if (a.kind === 'replace' && a.from !== null && entered.includes(a.from))
+		return entered.includes(a.to) ? [...entered] : [...entered, a.to];
+	return [...entered];
 }
 
 /** A page that no longer exists: out of the trail, its children reattached. */

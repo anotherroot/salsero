@@ -30,8 +30,18 @@ import { markTwins, twinCandidates } from '$lib/server/twins';
 import { U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { eq } from 'drizzle-orm';
-import { load as routinesLoad } from './routines/+page.server';
-import { load as routineLoad, actions as routineActions } from './routines/[id]/+page.server';
+import { load as layoutLoad } from './(moves)/+layout.server';
+
+/** The Routines list is the layout's. */
+const routinesLoad = (e: unknown) =>
+	(layoutLoad as unknown as (e: unknown) => { lists: { routines: unknown } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.routines;
+import {
+	load as routineLoad,
+	actions as routineActions
+} from './(moves)/routines/[id]/+page.server';
 import { load as lessonsLoad } from './lessons/+page.server';
 import { load as lessonLoad } from './lessons/[id]/+page.server';
 import { load as songsLoad } from './songs/+layout.server';
@@ -54,6 +64,7 @@ const run = (fn: any, id: string, extra: Loose = {}, mode?: string): Loose =>
 		url: new URL('http://localhost/'),
 		locals: { user: user(id) },
 		cookies: cookies(mode),
+		depends: () => {},
 		...(extra.request ? { request: extra.request } : {})
 	});
 

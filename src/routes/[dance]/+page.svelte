@@ -213,7 +213,7 @@
 					{#snippet action()}
 						<div class="flex w-[260px] flex-col gap-2">
 							<a
-								href={resolve('/[dance]/routines', { dance: data.dance.slug })}
+								href={resolve('/[dance]/(moves)/routines', { dance: data.dance.slug })}
 								class={button('primary', 'md', true)}
 								><Icon name="route" size={20} />Build a routine</a
 							>

@@ -16,9 +16,19 @@ answers it prints the server log and exits 1. It exits 1 too if any page is not 
 `--viewport` shoots the window only, not the full page: on the desktop the band row and the side are fixed and
 a full-page shot draws them once at the top, so desktop pages are compared with their boards (1440×900) this way.
 Phone baselines stay full-page.
+`SHOTS_DANCE=bachata` (an environment variable) shoots the other dance: `{dance}` and the placeholders use it.
 `--no-session` shoots without the cookie (the signed-out pages: `pages-signed-out.txt`); `--unnamed` clears the
 admin's name in the copy, so pages send them to `/welcome` (`pages-welcome.txt`). `pages-card.txt` is the
 other card pages and the error pages, signed in.
+
+Each page's line ends in `OVERFLOW <n>px` when the page scrolls sideways (`scrollWidth` past the
+window): the phone must have none, and a desktop page none from 1024.
+
+`DELAY_FROM=<path>` (an environment variable, a template line like those in `pages.txt`) shoots each
+page while it loads: it opens `<path>`, follows a link to the page with its `__data.json` held unanswered,
+and shoots 1.2 s later, skeleton up. Its line then says `SIDE live` when every link of the desktop's
+side is what a click at its centre hits, and `SIDE BLOCKED by <element>` (a failure) when the
+skeleton covers it; no `SIDE` where no side shows (the phone).
 
 `pages.txt`: one path per line. `{dance}` is salsa; `{yesterday}`, `{figure}`, `{move}`, `{song}`,
 `{lesson}`, `{routine}`, `{group}`, `{position}`, `{exercise}` are the admin's first live row of that

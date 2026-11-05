@@ -51,7 +51,10 @@
 				{#each content.figures as f (f.id)}
 					<li>
 						<a
-							href={resolve('/[dance]/figures/[id]', { dance: dance.slug, id: String(f.id) })}
+							href={resolve('/[dance]/(moves)/figures/[id]', {
+								dance: dance.slug,
+								id: String(f.id)
+							})}
 							class="inline-flex h-9 items-center gap-1 rounded-full bg-chip px-3.5 text-[14px] font-semibold text-chip-ink"
 							>{f.name}<span class="text-muted"><Icon name="chevron-right" size={16} /></span></a
 						>

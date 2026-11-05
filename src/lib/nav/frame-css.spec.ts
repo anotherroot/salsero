@@ -57,4 +57,15 @@ describe('the frame in layout.css', () => {
 			/body:has\(\[data-frame='side'\], \[data-frame='bare'\]\)\s*\{\s*background:\s*transparent/
 		);
 	});
+
+	it('mixes the hover overlay on the hovered element, never on :root', () => {
+		// A variable holding var(--color-ink) resolves where it is declared: on :root
+		// it would carry the light dance's ink into group mode and the media palette.
+		const root = [...css.matchAll(/:root[^{,]*\{([^}]*)\}/g)].map((m) => m[1]).join('');
+		expect(root).not.toMatch(/color-mix\([^;]*var\(--color-(ink|band-ink)\)/);
+		const hovers = [...css.matchAll(/:hover(?:::before)?\s*\{([^}]*)\}/g)].map((m) => m[1]);
+		expect(hovers).toHaveLength(3);
+		for (const body of hovers)
+			expect(body).toMatch(/--hover-overlay(-band)?:\s*color-mix\(\s*in srgb,\s*var\(--/);
+	});
 });

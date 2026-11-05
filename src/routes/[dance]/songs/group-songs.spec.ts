@@ -225,7 +225,8 @@ const musicAs = (as: string, group?: number) =>
 		params: { dance: 'salsa' },
 		url: new URL('http://localhost/salsa/songs'),
 		locals: { user: user(as) },
-		cookies: cookiesFor(group)
+		cookies: cookiesFor(group),
+		depends: () => {}
 	});
 
 describe('a group song’s page', () => {

@@ -38,11 +38,35 @@ import { listPositions } from '$lib/server/positions';
 import { insertFixturePositions } from '$lib/server/test-positions';
 import { createRoutineFromFigures } from '$lib/server/routines';
 import { exercises, figureGroups, figures, recordings, routines } from '$lib/server/db/schema';
-import * as figurePage from './figures/[id]/+page.server';
-import * as figureList from './figures/+page.server';
-import * as coveragePage from './coverage/+page.server';
-import * as positionsPage from './positions/+page.server';
-import * as positionPage from './positions/[id]/+page.server';
+import * as figurePage from './(moves)/figures/[id]/+page.server';
+import * as figureListActions from './(moves)/figures/+page.server';
+import { load as layoutLoad } from './(moves)/+layout.server';
+import { figuresView, type FiguresLists } from '$lib/moves/filter';
+import { positionsView, type PositionsLists } from '$lib/positions/filter';
+
+/** The Figures list as the page shows it: the layout's unfiltered lists through the pure view. */
+const figuresListLoad = (e: unknown) => {
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.figures;
+	return { ...l, ...figuresView(l, { q: '' }) };
+};
+const positionsListLoad = (e: unknown) => {
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { positions: PositionsLists } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.positions;
+	return { ...l, ...positionsView(l, { q: '' }) };
+};
+const routinesListLoad = (e: unknown) =>
+	(layoutLoad as unknown as (e: unknown) => { lists: { routines: unknown } })({
+		...(e as object),
+		depends: () => {}
+	}).lists.routines;
+const figureList = { load: figuresListLoad, actions: figureListActions.actions };
+import * as coveragePage from './(moves)/coverage/+page.server';
+import * as positionPage from './(moves)/positions/[id]/+page.server';
 
 const U1 = { id: 'u1', email: 'u1@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
 const U2 = { id: 'u2', email: 'u2@example.com', timezone: 'Europe/Ljubljana', isAdmin: false };
@@ -70,13 +94,16 @@ type Load = (e: {
 	url: URL;
 	locals: unknown;
 	cookies?: unknown;
+	depends?: (...deps: string[]) => void;
 }) => unknown;
 const loadAt = (load: unknown, user: User, dance: string, id = '') =>
 	(load as Load)({
 		params: { dance, id },
 		url: new URL('http://localhost/'),
 		cookies: { get: () => undefined, delete: () => {} },
-		locals: { user }
+		locals: { user },
+		// A layout load names what invalidates it (the songs list: `app:songs`).
+		depends: () => {}
 	});
 
 const threw404 = expect.objectContaining({ status: 404 });
@@ -260,7 +287,7 @@ describe("the figures list and coverage show only the person's own", () => {
 		expect(mine.figures).toHaveLength(1);
 		expect(theirs.figures).toEqual([]);
 		expect(theirs).not.toHaveProperty('tagged');
-		expect((loadAt(positionsPage.load, U2, 'salsa') as { tagged: unknown }).tagged).toEqual({
+		expect((loadAt(positionsListLoad, U2, 'salsa') as { tagged: unknown }).tagged).toEqual({
 			done: 0,
 			total: 0
 		});
@@ -398,9 +425,9 @@ describe('positions are each owner’s', () => {
 	});
 
 	it('the load lists only the space’s own positions', () => {
-		const theirs = loadAt(positionsPage.load, U2, 'salsa') as { rows: unknown[] };
+		const theirs = loadAt(positionsListLoad, U2, 'salsa') as { rows: unknown[] };
 		expect(theirs.rows).toEqual([]);
-		const mine = loadAt(positionsPage.load, U1, 'salsa') as { rows: unknown[] };
+		const mine = loadAt(positionsListLoad, U1, 'salsa') as { rows: unknown[] };
 		expect(mine.rows.length).toBe(listPositions(db, U1_SALSA).length);
 	});
 
@@ -885,8 +912,8 @@ import {
 	routineSlots
 } from '$lib/server/routines';
 import { requireRoutineAccess } from '$lib/server/scope';
-import * as routinePage from './routines/[id]/+page.server';
-import * as routineList from './routines/+page.server';
+import * as routinePage from './(moves)/routines/[id]/+page.server';
+import * as routineList from './(moves)/routines/+page.server';
 
 describe('routines: the data functions stand behind a wall', () => {
 	let mine: number;
@@ -1080,9 +1107,9 @@ describe("the routine pages refuse another person's routine", () => {
 	});
 
 	it('the library lists none of u1’s routines for u2', async () => {
-		const data = (await loadAt(routineList.load, U2, 'salsa')) as { routines: { id: number }[] };
+		const data = (await loadAt(routinesListLoad, U2, 'salsa')) as { routines: { id: number }[] };
 		expect(data.routines.map((r) => r.id)).toEqual([theirs]);
-		const own = (await loadAt(routineList.load, U1, 'salsa')) as { routines: { id: number }[] };
+		const own = (await loadAt(routinesListLoad, U1, 'salsa')) as { routines: { id: number }[] };
 		expect(own.routines.map((r) => r.id)).toEqual([mine]);
 	});
 
