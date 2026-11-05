@@ -13,6 +13,7 @@ import {
 	simple,
 	simpleClass,
 	simpleLesson,
+	litAt,
 	tabsFor
 } from './levels';
 
@@ -38,6 +39,23 @@ describe('tabsFor', () => {
 		// Same route and icon: only the word changes.
 		expect(tabsFor('follow')[1].path).toBe('/[dance]/groups');
 		expect(tabsFor('follow')[1].icon).toBe('group');
+	});
+});
+
+describe('litAt', () => {
+	it('lights My class for a class’s lesson at Follow my class, a person’s own lights none', () => {
+		expect(litAt('lessons', 'follow', true)).toBe('groups');
+		expect(litAt('lessons', 'follow', false)).toBe('lessons');
+		expect(tabsFor('follow').some((t) => t.id === 'lessons')).toBe(false);
+	});
+
+	it('leaves every other tab and level as the path says', () => {
+		expect(litAt('lessons', 'own', true)).toBe('lessons');
+		expect(litAt('lessons', 'all', true)).toBe('lessons');
+		expect(litAt('today', 'follow', true)).toBe('today');
+		expect(litAt('groups', 'follow', true)).toBe('groups');
+		expect(litAt('settings', 'follow', true)).toBe('settings');
+		expect(litAt(null, 'follow', true)).toBeNull();
 	});
 });
 

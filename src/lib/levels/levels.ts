@@ -55,6 +55,21 @@ export function tabsFor(level: Level): readonly Tab[] {
 	);
 }
 
+/**
+ * The tab to light, given the one the path maps to (`tabFor`). At Follow my
+ * class the Lessons tab is hidden, so a class's (group's) lesson lights My
+ * class, the tab every route to it comes from (ruling R13); a person's own
+ * lesson lights none.
+ */
+export function litAt(
+	lit: Tab['id'] | 'settings' | null,
+	level: Level,
+	groupLesson: boolean
+): Tab['id'] | 'settings' | null {
+	if (level === 'follow' && lit === 'lessons' && groupLesson) return 'groups';
+	return lit;
+}
+
 /** The simple screens: the lesson page, the video player, the exercise page and log popup. */
 export function simple(level: Level): boolean {
 	return level !== 'all';

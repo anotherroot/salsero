@@ -5,7 +5,7 @@
 	import type { DanceSlug } from '$lib/dances/dances';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { tabFor } from '$lib/nav/tabs';
-	import { levelShown, tabsFor } from '$lib/levels/levels';
+	import { levelShown, litAt, tabsFor } from '$lib/levels/levels';
 	import { minePath } from '$lib/teams/mode';
 	import { groupsTabLabel } from '$lib/teams/view';
 	import { intend } from '$lib/nav/trail.svelte';
@@ -20,7 +20,14 @@
 
 	// In group mode Today is not a tab: a plain Mine button back to the personal side.
 	const inGroup = $derived(!!page.data.groupMode);
-	const lit = $derived(tabFor(path, dance));
+	// A class's lesson lights My class at Follow my class (`litAt`).
+	const lit = $derived(
+		litAt(
+			tabFor(path, dance),
+			levelShown(page.data.user?.level),
+			(page.data.lesson?.teamId ?? null) !== null
+		)
+	);
 	// The person's level's tabs. A page whose tab is not among them lights none.
 	const tabs = $derived(tabsFor(levelShown(page.data.user?.level)));
 

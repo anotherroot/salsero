@@ -187,7 +187,7 @@ src/lib/schedule/    PURE, client-safe: the Anki-style schedule (schedule.ts: `r
                      arguments
 src/lib/levels/      PURE, client-safe: levels.ts is the level (`'follow' | 'own' | 'all'`), its
                      words, `levelShown` (null, not chosen yet, draws as `all`), `tabsFor`,
-                     `simple`, `simpleLesson` (a lesson the person edits stays full),
+                     `simple`, `simpleLesson` (a group's lesson the person edits stays full; their own lesson is simple),
                      `simpleClass`, `autoAddOn` and the other "is this drawn" questions.
                      Components ask it, never compare level strings. first-run.ts: the
                      first run's words, refusals and where it ends (`afterJoin`, `afterSkip`)
@@ -773,7 +773,7 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   landing on the one class, are the exceptions). Components ask
   `src/lib/levels/levels.ts`, never compare level strings, and read the level
   through `levelShown` (null draws as Everything). A lesson or group the person
-  edits stays the full page at every level.
+  edits stays the full page at every level (a group's lesson or group; a person's own lesson is read-only at Follow my class).
 - **A dance is the wall through the content.** `figures`, `songs`, `exercises`,
   `lessons` and `positions` carry `dance`; `sets`, `recordings`, the lesson join tables,
   a figure's position tags and `video_spots` derive it through their parent (a

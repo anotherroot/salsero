@@ -3,10 +3,12 @@
  * lesson it is exactly `addLesson` with `addOffer`'s default picks (the
  * lesson, its routines and drills; not its figures), in the transaction of
  * what triggered it, and only for a member whose `autoAddOn` is true in that
- * group. It never runs for a lesson the person already has a `lesson_adds`
- * row for, so a lesson they removed (`removeLesson`) is never added again:
- * publishing happens once per lesson (there is no unpublish), and joining
- * adds only the newest.
+ * group. It only ever acts on a lesson the person has a `lesson_adds` row for:
+ * `removeLesson` deletes that row, publishing runs once per lesson (there is no
+ * unpublish) and growth (`autoAddPending`) only touches lessons with a row, so
+ * a removed lesson is not added again by either. Joining adds only the newest
+ * lesson, and leaving and joining again is a new join, so it adds the newest
+ * even if the person had removed it before.
  *
  * Every function here takes `tx` and runs inside the caller's transaction.
  */

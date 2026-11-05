@@ -8,7 +8,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
-import { exercises, lessonAdds, lessonExercises, teamMembers, users } from './db/schema';
+import {
+	exercises,
+	lessonAdds,
+	lessonExercises,
+	spotLinks,
+	teamMembers,
+	teamTrash,
+	users
+} from './db/schema';
 import { createTeam } from './teams';
 import { addLesson, addOffer, defaultPicks, entryFor, removeLesson } from './entries';
 import { createFigure } from './figures';
@@ -23,7 +31,8 @@ import {
 } from './lessons';
 import { createRoutine } from './routines';
 import { addSpot } from './spots';
-import { linkInSpace } from './spot-links';
+import { linkInSpace, unlinkSpot } from './spot-links';
+import { restoreTrash } from './trash';
 import { createAndLinkIn } from './link-popup';
 import { setAutoAdd, setLevel } from './levels';
 import { crossRefs } from './integrity';
@@ -385,7 +394,8 @@ export const GROWTH: readonly string[] = [
 	'linkExercise',
 	'linkInSpace',
 	'createAndLinkIn',
-	'syncFrom'
+	'syncFrom',
+	'restoreTrash'
 ];
 
 type Grown = { routineId: number } | { drillId: number };
@@ -428,6 +438,17 @@ const RUNS: Record<string, () => Promise<Grown> | Grown> = {
 			.where(and(eq(exercises.teamId, 1), eq(exercises.name, 'Footwork')))
 			.get()!;
 		return { drillId: made.id };
+	},
+	// A drill's section link taken out and put back from Recently deleted. The link is
+	// inserted straight (no auto-add ran), so the restore is what grows the lesson.
+	restoreTrash: () => {
+		const spot = section();
+		const D2 = newDrill();
+		const link = db.insert(spotLinks).values({ spotId: spot, exerciseId: D2 }).returning().get();
+		expect(unlinkSpot(db, link.id, { exerciseId: D2 }, Date.now(), 'u1')).toBe(true);
+		const trash = db.select().from(teamTrash).get()!;
+		expect(restoreTrash(db, T1_SALSA, trash.id, Date.now())).toEqual({ ok: true });
+		return { drillId: D2 };
 	},
 	// Take into the class lesson from the teacher's own copy, which links a
 	// copy of the class's drill D2: the class lesson gains D2 itself.

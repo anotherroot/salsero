@@ -1272,7 +1272,7 @@ export const opens = sqliteTable(
 	'opens',
 	{
 		userId: text('user_id').notNull(),
-		/** 'lesson' | 'song'. */
+		/** 'lesson' | 'song' | 'comments' (a lesson's comments, opened separately). */
 		kind: text('kind').notNull(),
 		itemId: integer('item_id').notNull(),
 		openedAt: integer('opened_at').notNull()

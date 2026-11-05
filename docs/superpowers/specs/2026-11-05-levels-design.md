@@ -146,7 +146,9 @@ the label "My class". Everything that reads `TABS` reads `tabsFor(level)`
 instead: `BottomNav`, `Side`, `tabTargets`, `error-view.ts`'s fallback. The
 Groups dot (`groupsNew`) shows on My class.
 
-A page whose tab is hidden lights no tab. Pages reachable at a lower level
+A page whose tab is hidden lights no tab, except a class's (group's) lesson at
+Follow my class, which lights My class (`litAt`, ruling R13); a person's own
+lesson lights none. Pages reachable at a lower level
 that are not part of it (a figure page, a routine, Music's song page at
 Follow my class) still open; the simple screens below simply do not link to
 them.
@@ -416,8 +418,9 @@ as built.
    slot or embed edits never feed it. `autoAddPending` runs only for the
    lessons that grew. A member who turns the switch on gets that lesson's
    earlier unseen items the next time it grows (`newInLesson` reads since
-   `seen_at`). Restoring a trashed link adds nothing: `reviveEntries` already
-   brings back the entries archived with it.
+   `seen_at`). Restoring a trashed drill link on a class lesson's section runs
+   `autoAddPending` for that lesson (`restoreTrash`), as `linkInSpace` does;
+   `reviveEntries` also brings back the entries archived with it.
 6. **My class's landing is the tab's, not a wall** (ruling R3): at Follow my
    class with one class the groups index redirects to it; every group page
    still opens by URL at every level.
@@ -453,3 +456,11 @@ as built.
     (`portraitBody`'s `spot`), so the full player's Hide is unchanged.
 16. **The desktop** is as in "Desktop" above: a class's lesson beside My
     class's list, and no sizes or counts in the Lessons rows below Everything.
+17. **Rejoining re-adds the newest lesson** even if the person had removed it
+    (`removeLesson`): leaving and joining again is a new join (item 4), and a
+    join adds the newest published lesson. Publish and growth never re-add a
+    removed lesson, since both only touch lessons with a `lesson_adds` row.
+18. **A class's lesson lights My class at Follow my class** (ruling R13,
+    `litAt`): every route to it comes from My class or Today, and on the
+    desktop it sits beside My class's list. A person's own lesson still lights
+    none.

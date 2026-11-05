@@ -3,7 +3,7 @@ import { getDb } from '$lib/server/db';
 import { CLOSED_MESSAGE, commentState, restoreComment } from '$lib/server/comments';
 import type { RequestHandler } from './$types';
 
-/** Undo of a delete, by whoever may delete the comment. */
+/** Undo of a delete: the deleter, or a teacher of the lesson's group (an author cannot undo a teacher's delete). */
 export const POST: RequestHandler = ({ params, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in');
 	const db = getDb();
