@@ -66,8 +66,9 @@
 	const sections = $derived(songSections(songs));
 	const countText = $derived(pickerCount(searching ? hits.length : songs.length, searching));
 
-	// Focus the search only with a mouse: on a phone the keyboard would cover
-	// the list, which is what the popup was opened to see and sample.
+	// Focus the search on the desktop or with a mouse, never on a touch phone:
+	// there the keyboard would cover the list, which is what the popup was
+	// opened to see and sample.
 	$effect(() => {
 		if (search && (desk.current || matchMedia('(pointer: fine)').matches)) search.focus();
 	});

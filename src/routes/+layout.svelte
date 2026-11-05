@@ -9,7 +9,7 @@
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
 	import Side from '$lib/components/shell/Side.svelte';
 	import SheetCorner from '$lib/components/shell/SheetCorner.svelte';
-	import { frameOf, frameOfError } from '$lib/nav/frame';
+	import { frameNow } from '$lib/nav/frame';
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
@@ -104,17 +104,19 @@
 	const tabs = $derived(showsTabs((ahead ?? page).route.id) && !bottom.claimed);
 	const nav = $derived(Boolean(data.user) && page.url.pathname !== '/login');
 	/*
-	 * What surrounds the page on the desktop (`$lib/nav/frame.ts`), judged like the
-	 * tabs on where the app is going. Below 1024 none of it shows: every class it
+	 * What surrounds the page on the desktop (`$lib/nav/frame.ts`): the page's own
+	 * until the skeleton covers it, then the destination's (`frameNow`), so the old
+	 * page never reflows under a tap. Below 1024 none of it shows: every class it
 	 * adds is `desk:`, and the frame's variables are 0 there. An error page's frame
 	 * comes from the path that was asked for (`frameOfError`): a 404 has no route.
 	 */
 	const frame = $derived(
-		ahead
-			? frameOf(ahead.route.id, nav)
-			: page.error
-				? frameOfError(page.url.pathname, nav)
-				: frameOf(page.route.id, nav)
+		frameNow(
+			{ routeId: page.route.id, path: page.url.pathname, error: Boolean(page.error) },
+			ahead ? ahead.route.id : undefined,
+			skeleton !== null,
+			nav
+		)
 	);
 	const SHEET = {
 		side: 'desk:ml-[var(--side-w)] desk:pt-[var(--band-row-h)] desk:max-w-none desk:bg-ground',

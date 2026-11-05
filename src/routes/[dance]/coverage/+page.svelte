@@ -167,7 +167,7 @@
 
 {#if selecting}
 	<div
-		class="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[560px] items-center gap-1 border-t border-tab-line bg-tab-bg pt-3 pr-4 pl-5"
+		class="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-[560px] items-center gap-1 border-t border-tab-line bg-tab-bg pt-3 pr-4 pl-5 desk:left-(--pane-left)"
 		style="padding-bottom: calc(12px + var(--safe-bottom))"
 	>
 		<span role="status" class="flex-1 text-[16px] font-bold text-ink">{picked.length} selected</span

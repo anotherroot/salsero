@@ -395,12 +395,15 @@ body {
  */
 @layer base {
 	@media (hover: hover) and (width >= 1024px) {
-		:root {
-			--hover-overlay: color-mix(in srgb, var(--color-ink) 4%, transparent);
-			--hover-overlay-band: color-mix(in srgb, var(--color-band-ink) 10%, transparent);
-		}
+		/*
+		 * The mix is written in each rule, not on :root: a variable holding it would
+		 * resolve once, at :root, with the light dance's ink and band ink, so group
+		 * mode's navy band and the media palette would get the wrong overlay.
+		 * Dark sets only what to mix.
+		 */
 		:root[data-theme='dark'] {
-			--hover-overlay: color-mix(in srgb, white 5%, transparent);
+			--hover-ink: white;
+			--hover-mix: 5%;
 		}
 
 		:is(
@@ -422,6 +425,11 @@ body {
 				[aria-disabled='true'],
 				[aria-busy='true']
 			):hover {
+			--hover-overlay: color-mix(
+				in srgb,
+				var(--hover-ink, var(--color-ink)) var(--hover-mix, 4%),
+				transparent
+			);
 			background-image: linear-gradient(var(--hover-overlay), var(--hover-overlay));
 		}
 
@@ -429,10 +437,16 @@ body {
 				:disabled,
 				[aria-disabled='true']
 			):hover {
+			--hover-overlay-band: color-mix(in srgb, var(--color-band-ink) 10%, transparent);
 			background-image: linear-gradient(var(--hover-overlay-band), var(--hover-overlay-band));
 		}
 
 		[class*='before:bg-chip']:hover::before {
+			--hover-overlay: color-mix(
+				in srgb,
+				var(--hover-ink, var(--color-ink)) var(--hover-mix, 4%),
+				transparent
+			);
 			background-image: linear-gradient(var(--hover-overlay), var(--hover-overlay));
 		}
 	}

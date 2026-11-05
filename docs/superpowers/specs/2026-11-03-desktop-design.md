@@ -609,6 +609,9 @@ What the user settled on the boards, newest last:
 - **The band-row toggle** is centred as the boards draw it: from the side's edge
   to 40 px before the window's right edge, about 20 px left of the sheet's true
   centre.
+- **The band-row toggles get the boards' desk widths at their callers**:
+  Moves 420, Practice 340, My count 480. The band row's middle column sizes to
+  its content, so the width is the caller's, not the toggle's.
 - **The subtitle** sits on the title's baseline (as "The frame" says), not 4 px
   higher as the boards draw it.
 - **Small dialogs are 480 px wide**, the measure above, not the board's 420.

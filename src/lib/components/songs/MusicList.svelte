@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
-	import { afterNavigate, beforeNavigate, invalidateAll, replaceState } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, invalidate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { keepFilter, keepSearch, keptFilter } from '$lib/nav/trail.svelte';
@@ -156,11 +156,13 @@
 	 * The worker runs at home once a minute, so a waiting song changes state on
 	 * its own. Poll only while something is waiting — searching or not — and the
 	 * list is on screen: the list route, or beside a song on the desktop.
+	 * Only the list's load reruns (`app:songs`, the layout's): `invalidateAll`
+	 * would rerun the open song's load too, and its fields would snap back mid-edit.
 	 */
 	const waiting = $derived(data.songs.some((s) => s.status.startsWith('waiting_')));
 	$effect(() => {
 		if (!waiting || !(isList || desk.current)) return;
-		const t = setInterval(() => invalidateAll(), 10_000);
+		const t = setInterval(() => invalidate('app:songs'), 10_000);
 		return () => clearInterval(t);
 	});
 

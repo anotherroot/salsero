@@ -29,9 +29,13 @@
 	} = $props();
 	const side = $derived(frame === 'side');
 
-	/* How the overlay sits on the desktop; the phone's is the classes before it. */
+	/*
+	 * How the overlay sits on the desktop; the phone's is the classes before it.
+	 * The whole frame's overlay is clear over the side and lets clicks through
+	 * there, as the phone's tab bar stays live: only its band row and sheet take them.
+	 */
 	const DESK = {
-		frame: 'desk:inset-0 desk:bg-transparent',
+		frame: 'desk:pointer-events-none desk:inset-0 desk:bg-transparent',
 		pane: 'desk:top-[var(--band-row-h)] desk:bottom-0 desk:left-[calc(var(--side-w)+361px)]',
 		none: 'desk:hidden'
 	} as const;
@@ -365,7 +369,7 @@
 		<div class="hidden desk:block">
 			<p class="sr-only" role="status">Loading…</p>
 			<div
-				class="fixed inset-x-0 top-0 flex h-[var(--band-row-h)] items-center bg-band pr-10 pl-[30px]"
+				class="pointer-events-auto fixed inset-x-0 top-0 flex h-[var(--band-row-h)] items-center bg-band pr-10 pl-[30px]"
 				aria-hidden="true"
 			>
 				{#if skeleton.deskTitle}
@@ -378,7 +382,7 @@
 				{/if}
 			</div>
 			<div
-				class="fixed top-[var(--band-row-h)] right-0 bottom-0 bg-band {side
+				class="pointer-events-auto fixed top-[var(--band-row-h)] right-0 bottom-0 bg-band {side
 					? 'left-[var(--side-w)]'
 					: 'left-0'}"
 			>

@@ -54,6 +54,7 @@ const run = (fn: any, id: string, extra: Loose = {}, mode?: string): Loose =>
 		url: new URL('http://localhost/'),
 		locals: { user: user(id) },
 		cookies: cookies(mode),
+		depends: () => {},
 		...(extra.request ? { request: extra.request } : {})
 	});
 

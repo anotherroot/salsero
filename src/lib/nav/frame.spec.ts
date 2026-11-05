@@ -1,6 +1,6 @@
 import { globSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { frameOf, frameOfError, PAGE_WIDTH, sideLit } from './frame';
+import { frameNow, frameOf, frameOfError, PAGE_WIDTH, sideLit } from './frame';
 
 describe('frameOf', () => {
 	it('gives each kind of route its frame', () => {
@@ -48,6 +48,36 @@ describe('frameOfError', () => {
 		expect(frameOfError('/salsaxyz', true)).toBe('card');
 		expect(frameOfError('/join', false)).toBe('card');
 		expect(frameOfError('/salsa/figures/1', false)).toBe('card');
+	});
+});
+
+describe('frameNow', () => {
+	const figure = { routeId: '/[dance]/figures/[id]', path: '/salsa/figures/3', error: false };
+	const missing = { routeId: null, path: '/salsa/does-not-exist', error: true };
+
+	it("is the page's own frame while nothing is under way", () => {
+		expect(frameNow(figure, undefined, false, true)).toBe('side');
+		const login = { routeId: '/login', path: '/login', error: false };
+		expect(frameNow(login, undefined, false, false)).toBe('card');
+	});
+
+	it("keeps the page's frame while a navigation waits without the skeleton", () => {
+		// Practice, a card page, a path with no route: the old page must not reflow under them.
+		expect(frameNow(figure, '/[dance]/player', false, true)).toBe('side');
+		expect(frameNow(figure, '/app', false, true)).toBe('side');
+		expect(frameNow(figure, null, false, true)).toBe('side');
+	});
+
+	it("takes the destination's frame once the skeleton covers the page", () => {
+		expect(frameNow(figure, '/[dance]/player', true, true)).toBe('bare');
+		expect(frameNow(figure, '/app', true, true)).toBe('card');
+	});
+
+	it('judges an error page by the path asked for, until the skeleton covers it', () => {
+		expect(frameNow(missing, undefined, false, true)).toBe('side');
+		expect(frameNow(missing, '/[dance]/player', false, true)).toBe('side');
+		expect(frameNow({ ...missing, path: '/nope' }, undefined, false, true)).toBe('card');
+		expect(frameNow(missing, '/[dance]/player', true, true)).toBe('bare');
 	});
 });
 

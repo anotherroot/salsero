@@ -30,6 +30,18 @@ MASK_JS = """() => {
     if (e.children.length === 0 && / GB free$/.test(e.textContent || '')) e.setAttribute('data-shots-mask', '');
   });
 }"""
+# While a page loads: is each link of the side (`[data-side]`, desktop) what a click at its centre hits?
+# "live" if all are, else what covers the first that is not; "" when no side shows.
+SIDE_JS = """() => {
+  const links = [...document.querySelectorAll('[data-side] a')].filter(a => a.getClientRects().length);
+  if (!links.length) return '';
+  for (const a of links) {
+    const r = a.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    if (!hit || !a.contains(hit)) return 'BLOCKED by ' + (hit ? hit.tagName.toLowerCase() + '.' + String(hit.className).slice(0, 60) : 'nothing');
+  }
+  return 'live';
+}"""
 STYLE = (
     "[data-shots-mask]{visibility:hidden!important}"
     "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
@@ -144,9 +156,13 @@ def shoot(a):
                     png = os.path.join(a.out, slug(line) + ".png")
                     page.screenshot(path=png, full_page=not a.viewport)
                     wrote += 1
+                    # the side (desktop) must stay live under the skeleton: what is at each side link's centre
+                    side = page.evaluate(SIDE_JS)
                     for r in held:
                         r.abort()
-                    print(f"ok loading {path}")
+                    blocked = side.startswith("BLOCKED")
+                    bad += blocked
+                    print(f"{'BAD' if blocked else 'ok '} loading {path}" + (f" SIDE {side}" if side else ""))
                     continue
                 resp = page.goto(a.base + path, wait_until="networkidle", timeout=60000)
                 page.add_style_tag(content=STYLE)

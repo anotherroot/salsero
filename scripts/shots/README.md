@@ -20,6 +20,15 @@ Phone baselines stay full-page.
 admin's name in the copy, so pages send them to `/welcome` (`pages-welcome.txt`). `pages-card.txt` is the
 other card pages and the error pages, signed in.
 
+Each page's line ends in `OVERFLOW <n>px` when the page scrolls sideways (`scrollWidth` past the
+window): the phone must have none, and a desktop page none from 1024.
+
+`DELAY_FROM=<path>` (an environment variable, a template line like those in `pages.txt`) shoots each
+page while it loads: it opens `<path>`, follows a link to the page with its `__data.json` held unanswered,
+and shoots 1.2 s later, skeleton up. Its line then says `SIDE live` when every link of the desktop's
+side is what a click at its centre hits, and `SIDE BLOCKED by <element>` (a failure) when the
+skeleton covers it; no `SIDE` where no side shows (the phone).
+
 `pages.txt`: one path per line. `{dance}` is salsa; `{yesterday}`, `{figure}`, `{move}`, `{song}`,
 `{lesson}`, `{routine}`, `{group}`, `{position}`, `{exercise}` are the admin's first live row of that
 kind (a group: the first they are in). `{joincode}` is the code of a live group the admin is not in;

@@ -75,7 +75,7 @@
 	role="toolbar"
 	aria-label="Selected slots"
 	bind:offsetHeight={height}
-	class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg px-2 pt-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] [--icon-knockout:var(--color-tab-bg)]"
+	class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg px-2 pt-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] [--icon-knockout:var(--color-tab-bg)] desk:left-(--pane-left)"
 	style="padding-bottom: calc(8px + var(--safe-bottom))"
 >
 	{#if hint}

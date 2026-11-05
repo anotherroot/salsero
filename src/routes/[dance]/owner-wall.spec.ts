@@ -70,13 +70,16 @@ type Load = (e: {
 	url: URL;
 	locals: unknown;
 	cookies?: unknown;
+	depends?: (...deps: string[]) => void;
 }) => unknown;
 const loadAt = (load: unknown, user: User, dance: string, id = '') =>
 	(load as Load)({
 		params: { dance, id },
 		url: new URL('http://localhost/'),
 		cookies: { get: () => undefined, delete: () => {} },
-		locals: { user }
+		locals: { user },
+		// A layout load names what invalidates it (the songs list: `app:songs`).
+		depends: () => {}
 	});
 
 const threw404 = expect.objectContaining({ status: 404 });

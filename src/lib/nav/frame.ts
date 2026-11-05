@@ -34,6 +34,25 @@ export function frameOfError(path: string, signedIn: boolean): Frame {
 	return 'card';
 }
 
+/**
+ * The frame drawn right now. The page's own (an error's by the path asked for)
+ * until the skeleton covers it; only then the destination's (`to`: its route
+ * id, null for a path no route matches, undefined when nothing is under way).
+ * Followed any earlier, the old page would reflow under the tap: lose or gain
+ * the side, re-centre, swap its corners, for the skeleton's wait or, where no
+ * skeleton comes (a card page, an unknown path), for the whole load.
+ */
+export function frameNow(
+	now: { routeId: string | null; path: string; error: boolean },
+	to: string | null | undefined,
+	skeleton: boolean,
+	signedIn: boolean
+): Frame {
+	if (to !== undefined && skeleton) return frameOf(to, signedIn);
+	if (now.error) return frameOfError(now.path, signedIn);
+	return frameOf(now.routeId, signedIn);
+}
+
 /** Which side entry is lit: a tab inside the dance, Settings for the shared pages. */
 export function sideLit(path: string, dance: DanceSlug): TabId | 'settings' | null {
 	if (SHARED_SIDE.has(path)) return 'settings';

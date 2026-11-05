@@ -255,8 +255,10 @@ src/lib/nav/         tabs.ts: the five tabs, which one a path lights, where the 
                      chrome.svelte.ts: `claimBottom`, an edit or selection bar takes the bottom and the
                      tab bar steps aside. The tab bar shows on every screen of a dance but Practice/share;
                      pinned bars sit at `--pin-bottom` / `--pin-safe` (set by the root layout)
-src/lib/nav/frame.ts  PURE: the frame of a path (`frameOf`: dance, card, bare), `PAGE_WIDTH` (the
-                     content max widths) and `frameOfError` (an error's frame). pane.ts: PURE,
+src/lib/nav/frame.ts  PURE: the frame of a path (`frameOf`: side, bare, card, none), an error's frame
+                     (`frameOfError`, by the path asked for), the frame drawn right now (`frameNow`:
+                     the page's own until the skeleton covers it, then the destination's) and
+                     `PAGE_WIDTH` (the content max widths). pane.ts: PURE,
                      `listOf` (which list column a path belongs to) and `paneBack` (whether an
                      item's ‹ shows). desk.svelte.ts: the `desk` media query (from 1024 px)
 src/lib/components/shell/  Side.svelte (the band-coloured side with the tabs), SheetCorner (the
