@@ -248,6 +248,9 @@ describe('undoLogMessage', () => {
 		expect(undoLogMessage('Basic step on 1', 5)).toBe('Basic step on 1 · back in 5 days');
 		expect(undoLogMessage('Basic step on 1', 21)).toBe('Basic step on 1 · back in 3 weeks');
 		expect(undoLogMessage('Basic step on 1', 75)).toBe('Basic step on 1 · back in 3 months');
+		// As the row says it ("Done · Back in a week").
+		expect(undoLogMessage('Setenta', 7)).toBe('Setenta · back in a week');
+		expect(undoLogMessage('Setenta', 365)).toBe('Setenta · back in a year');
 	});
 
 	it('says tomorrow for a gap of one day', () => {

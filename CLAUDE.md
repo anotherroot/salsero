@@ -593,8 +593,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   (`spot_position_links`, deleted on unlink, and with their video when a
   group is purged) and saves in flight (`video_downloads`, deleted with their
   link, or when the link becomes a video) are the only hard deletes of content;
-  `twins` rows (Separate) and `clone_pairs` (Detach) are bookkeeping, deleted
-  too. Drop my copy and Move to… archive the copy, never delete it. A
+  `twins` rows (Separate), `clone_pairs` (Detach) and `today_picks` (Undo of a
+  pick, and an add or next taking the day's skip away) are bookkeeping,
+  deleted too. Drop my copy and Move to… archive the copy, never delete it. A
   figure's exercise is opt-in (`addFigureExercise`); when one exists it is
   renamed and archived WITH its figure, in one transaction
   (`src/lib/server/figures.ts`). A linked spot (to a figure, a drill or a

@@ -43,6 +43,7 @@ import {
 	songs,
 	spotLinks,
 	spotPositionLinks,
+	todayPicks,
 	twins,
 	videoSpots
 } from '../db/schema';
@@ -402,7 +403,7 @@ export function repointPreview(
 }
 
 /**
- * Practice carried from one exercise onto another: the sets move. When `from`
+ * Practice carried from one exercise onto another: the sets and the day's picks move. When `from`
  * is live (not archived) and `into` is archived, or `into` is paused while
  * `from` is active (a copy starts paused while its source is practised, R23),
  * `revive` gives `into` `from`'s schedule, practice settings and active state,
@@ -417,6 +418,11 @@ function carry(
 	now: number
 ): void {
 	tx.update(sets).set({ exerciseId: into.id }).where(eq(sets.exerciseId, from.id)).run();
+	// The day's picks go with the sets, so Today keeps the row (and a skip stays a skip).
+	tx.update(todayPicks)
+		.set({ exerciseId: into.id })
+		.where(eq(todayPicks.exerciseId, from.id))
+		.run();
 	const patch: Partial<Exercise> = opts.name === null ? {} : { name: opts.name };
 	const wins =
 		from.archivedAt === null && (into.archivedAt !== null || (!into.active && from.active));

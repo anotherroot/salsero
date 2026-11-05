@@ -138,6 +138,7 @@
 	<!-- The desktop's Custom exercise is the band's +. -->
 	<button
 		type="button"
+		data-focus="today-custom"
 		class="mt-3.5 {button('secondary', 'md', true)} desk:hidden"
 		onclick={oncreate}><Icon name="plus" size={20} />Custom exercise</button
 	>

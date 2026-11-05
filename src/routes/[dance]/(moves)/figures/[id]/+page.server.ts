@@ -128,10 +128,10 @@ function zoneOf(locals: App.Locals): string {
 	return locals.user.timezone;
 }
 
-/** The exercise's line on the page: its due words, from its schedule. */
-function practiceFor(db: Db, exerciseId: number, zone: string, now: number) {
-	const state = scheduleStateOf(db, exerciseId, zone);
-	return practiceLine(state, localDay(now, zone), state.lastDay === null);
+/** The exercise's line on the page: its due words, from its schedule (or Paused). */
+function practiceFor(db: Db, exercise: { id: number; active: boolean }, zone: string, now: number) {
+	const state = scheduleStateOf(db, exercise.id, zone);
+	return practiceLine(state, localDay(now, zone), state.lastDay === null, exercise.active);
 }
 
 /**
@@ -399,7 +399,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			routineShapes(db, space, { usable }),
 			listRoutines(db, space).filter((r) => seen(visible?.routines, r.id))
 		),
-		practice: popup ? practiceFor(db, popup.exercise.id, zone, now) : null,
+		practice: popup ? practiceFor(db, popup.exercise, zone, now) : null,
 		/** The edit form's Starts in / Ends in: the chosen tags it shows, and what the pickers offer. */
 		tags,
 		positionChoices,

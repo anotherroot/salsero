@@ -14,6 +14,7 @@ import {
 	sets,
 	songDrops,
 	spotLinks,
+	todayPicks,
 	twins,
 	users,
 	videoSpots
@@ -246,6 +247,26 @@ describe('repoint: a figure', () => {
 		expect(exerciseOf(onG).archivedAt).toBe(NOW);
 		expect(exerciseOf(onP).archivedAt).toBeNull();
 		expect(report.entries).toBe(1);
+	});
+
+	it("moves the day's picks with the sets, so Today keeps the row", () => {
+		const g = figure(T1_SALSA, 'Enchufla', 'Doble');
+		const p = figure(U2_SALSA, 'Enchufla', 'Mine');
+		const onG = entry('u2', { source: 'figure', figureId: g });
+		const onP = entry('u2', { source: 'figure', figureId: p });
+		const pickOf = (exerciseId: number, kind: 'next' | 'add' | 'skip') =>
+			db
+				.insert(todayPicks)
+				.values({ userId: 'u2', exerciseId, day: '2026-11-03', kind, createdAt: T })
+				.run();
+		pickOf(onG, 'next');
+		pickOf(onG, 'skip');
+		repoint(db, 'u2', 'salsa', 'figure', g, p, ALL, NOW);
+		const picks = db.select().from(todayPicks).all();
+		expect(picks.map((r) => [r.exerciseId, r.kind])).toEqual([
+			[onP, 'next'],
+			[onP, 'skip']
+		]);
 	});
 
 	it('a live entry merged into an archived one brings that one back', () => {

@@ -223,7 +223,7 @@
 		</button>
 	</div>
 	<p class="px-4 pt-0.5 text-[13px] text-muted">
-		Today shows this many. When they're done, Next 5 brings more.
+		Today shows this many. When they're done, Next {daily} brings more.
 	</p>
 
 	<span class="{SECTION_LABEL} mt-[14px]">Appearance</span>

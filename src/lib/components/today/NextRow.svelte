@@ -52,6 +52,7 @@
 		class="flex min-h-14 w-full cursor-pointer items-center justify-center gap-1.5 px-4 text-[15px] font-extrabold text-accent-text disabled:cursor-default"
 		disabled={busy}
 		aria-busy={busy}
+		data-focus="today-next"
 		onclick={next}
 	>
 		{#if busy}<Spinner size={20} />{:else}<Icon name="plus" size={20} />{/if}Next {daily}

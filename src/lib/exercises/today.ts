@@ -3,7 +3,7 @@
  * card's words and a past day's groups. The rows themselves, and their order,
  * are `dayList`'s (`src/lib/schedule/today-list.ts`).
  */
-import { backWords, dayWords, dueWords, gapWords } from '$lib/schedule/words';
+import { backWords, dayWords, dueWords } from '$lib/schedule/words';
 import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
 import type { DaySet, ExerciseItem } from '$lib/types';
 
@@ -133,10 +133,9 @@ export function nothingLeftMeta(next: { day: string; more: number }, today: stri
 	return next.more > 0 ? `${day} · and ${next.more} more` : day;
 }
 
-/** The toast after a set: "Basic step on 1 · back in 3 months", "Setenta · back tomorrow". */
+/** The toast after a set, worded as the row: "Setenta · back in a week", "Setenta · back tomorrow". */
 export function undoLogMessage(name: string, gap: number): string {
-	const when = gap <= 1 ? 'back tomorrow' : `back in ${gapWords(gap).toLowerCase()}`;
-	return `${name} · ${when}`;
+	return `${name} · ${lower(backWords(gap))}`;
 }
 
 /** A past day's sets, grouped by exercise in the order they were first done. */

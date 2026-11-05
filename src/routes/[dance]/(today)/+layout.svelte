@@ -340,7 +340,8 @@
 							if (m) say(m);
 						}
 					);
-		void focusAfterRemoval(keys, `today-row-${exerciseId}`, 'today-row-none');
+		// Else Next N, else the list's add control (Custom exercise, the phone's or the band's).
+		void focusAfterRemoval(keys, `today-row-${exerciseId}`, ['today-next', 'today-custom']);
 		return true;
 	}
 
@@ -534,7 +535,12 @@
 			><BandButton icon="settings" label="Settings" href={resolve('/settings')} /></span
 		>
 		<span class="hidden desk:contents"
-			><BandButton icon="plus" label="Custom exercise" onclick={() => (creating = true)} /></span
+			><BandButton
+				icon="plus"
+				label="Custom exercise"
+				focusKey="today-custom"
+				onclick={() => (creating = true)}
+			/></span
 		>
 	{/if}
 {/snippet}

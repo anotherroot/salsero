@@ -44,6 +44,13 @@ describe('practiceLine', () => {
 			tone: 'status'
 		}));
 	it('no state says nothing', () => expect(practiceLine(null, TODAY, false)).toBeNull());
+	it('a paused exercise says so, not when it is due', () =>
+		expect(practiceLine(st('2026-10-29', '2026-10-26'), TODAY, false, false)).toEqual({
+			text: "Paused · not on Today's list",
+			tone: null
+		}));
+	it('paused but done today is still Done today', () =>
+		expect(practiceLine(st('2026-11-03', TODAY), TODAY, false, false)?.text).toBe('Done today'));
 });
 
 describe('timingLine', () => {

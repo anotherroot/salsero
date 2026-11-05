@@ -20,15 +20,17 @@ export function routineUseMeta(u: Pick<RoutineUse, 'slots' | 'slotCount'>): stri
 /**
  * The one line the figure page shows for its exercise: where it stands in its
  * schedule ("New", "Done today", "Due Sunday", "2 days late"). Derived from the
- * sets, never stored.
+ * sets, never stored. A paused exercise is not due at all: it says so.
  */
 export function practiceLine(
 	state: ScheduleState | null,
 	today: string,
-	neverDone: boolean
+	neverDone: boolean,
+	active = true
 ): MetaPart | null {
 	if (!state) return null;
 	if (!neverDone && state.lastDay === today) return { text: 'Done today', tone: 'done' };
+	if (!active) return { text: "Paused · not on Today's list", tone: null };
 	return dueWords(state, today, neverDone)[0];
 }
 
