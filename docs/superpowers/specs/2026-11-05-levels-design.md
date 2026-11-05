@@ -207,16 +207,19 @@ part 1's order. Nothing here forces a new lesson onto today's list.
 
 ### Which lessons on join
 
-**Open, the user's call.** When someone joins a class that already has
-published lessons, which go to Today: all of them, only the newest, or none
-(only lessons published from now on)?
+**Only the newest** published lesson of the class is added (the user's
+answer). Older ones are not added, but each can be added by hand with one tap
+(below), at every level.
 
 ## My class (Follow my class)
 
 The Groups route drawn in a simple mode. One set of data, two looks.
 
 - **In one class:** the tab opens that class's page directly.
-- **In two or more:** **open, the user's call** (see "Open questions").
+- **In two or more** (in this dance): a short list of your classes, each with
+  its name, the latest class's date and the New dot; a tap opens that class's
+  simple page. On desktop the list is the list column beside the class (the
+  user's answer).
 - **In none:** "Join your class" with the code field (as in the first run).
 
 A class's simple page, top to bottom:
@@ -230,7 +233,11 @@ A class's simple page, top to bottom:
   that plays its sample (the existing sample player), and tapping the row
   opens the song page.
 
-No Add buttons (it is all on Today already), no code, no Rename, no Recently
+A class the person has not added (an older one, from before they joined)
+shows a small **Add** on its row: one tap adds the default picks at once, with
+"Added to Today · Undo" (Undo is `removeLesson`). An added class shows nothing
+extra. The simple lesson page of a class not added has the same Add as a band
+under its title ("Not in your practice yet · Add"). No other Add buttons, no code, no Rename, no Recently
 deleted, no storage. A lesson row opens the simple lesson page.
 
 At Practise and keep my own and Everything, Groups is the standard Groups tab.
@@ -256,8 +263,8 @@ The same route and load as the lesson page, drawn differently when
   "On Today next week"). A row opens the exercise page.
 - The Comments card (part 3), for a group's lesson.
 
-Hidden: SourceTabs, Make it mine, Edit (for a group's lesson), the Add band
-and "N new" banner at Follow my class, VideoSections, the link groups
+Hidden: SourceTabs, Make it mine, Edit (for a group's lesson), the Add sheet,
+the "N new" banner at Follow my class (auto-add covers it), VideoSections, the link groups
 (Figures, Routines, Exercises, Positions), file sizes, upload buttons, the
 Link popup, "Go over this lesson" with its + (the practice list replaces it).
 
@@ -327,7 +334,7 @@ Everything above applies from 1024 px with the desktop frame:
 
 - The Side draws `tabsFor(level)`.
 - My class with one class: the class page with no list column. With several:
-  per the open question.
+  the list of classes as the list column beside the open class.
 - The simple lesson page uses the existing two columns: notes and the practice
   list in one, videos in the other. The simple player's desktop layout is the
   real desktop layout with the same simple chrome.
@@ -347,12 +354,8 @@ Everything above applies from 1024 px with the desktop frame:
   normalised like `teamByCode`.
 - Levels hide links, never routes.
 
-## Open questions (the user's)
+## Decided by the user (2026-11-05)
 
-1. **Two classes at Follow my class.** My suggestion: with one class, My class
-   opens it directly; with two or more, My class is a short list of your
-   classes (name, latest class date, the New dot), and a tap opens that
-   class's simple page. The alternative is one page with the classes as
-   chips at the top.
-2. **Which lessons on join.** All published lessons, only the newest, or none
-   (from the next publish on)?
+1. **Two classes at Follow my class:** a list of classes, then the class.
+2. **On joining:** only the newest lesson goes to Today; the older ones can be
+   added by hand.
