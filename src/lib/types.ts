@@ -353,6 +353,9 @@ export type FigureRow = {
 	name: string;
 	/** "Enchufla · Doble". */
 	label: string;
+	/** How it is danced and its style: the list's filters read them. */
+	partner: Partner;
+	style: string | null;
 	startCount: number | null;
 	lengthCounts: number | null;
 	/** Recordings of this figure. */

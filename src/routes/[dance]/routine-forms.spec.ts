@@ -24,7 +24,13 @@ import {
 	routineSlots
 } from '$lib/server/routines';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
-import * as routinesList from './(moves)/routines/+page.server';
+import { load as listsLoad } from './(moves)/+layout.server';
+
+/** The Routines list is the layout's. */
+const routinesList = {
+	load: (e: unknown) =>
+		(listsLoad as unknown as (e: unknown) => { lists: { routines: unknown } })(e).lists.routines
+};
 import * as playerPage from './player/+page.server';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { createLesson, linkFigure, linkRoutine, publishLesson } from '$lib/server/lessons';

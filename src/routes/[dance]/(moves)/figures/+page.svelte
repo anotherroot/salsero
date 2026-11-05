@@ -26,6 +26,7 @@
 		type FigureChip,
 		type FigureFilter
 	} from '$lib/moves/figures';
+	import { figuresView, parseFigureFilter } from '$lib/moves/filter';
 	import { figureRowParts, moveMeta, movesHeading } from '$lib/moves/list';
 	import { TWINS_CHIP } from '$lib/clones/twins';
 	import { HIDDEN_FROM_MEMBERS, MEMBERS_NOTE, anyHidden } from '$lib/moves/members';
@@ -61,13 +62,16 @@
 		field && form?.message ? { [field as string]: form.message } : {}
 	);
 
-	const filter = $derived<FigureFilter>(data.filter);
+	const filter = $derived<FigureFilter>(
+		parseFigureFilter(page.url.searchParams, data.dance.styles)
+	);
+	const view = $derived(figuresView(data.lists.figures, filter));
 	// The figures that stand for their twins (board C7 p3): a "Twins" chip.
-	const twinned = $derived(new Set(data.twinned));
-	const count = $derived(data.figures.length);
-	const figureCount = $derived(data.figures.reduce((n, m) => n + m.figures.length, 0));
+	const twinned = $derived(new Set(view.twinned));
+	const count = $derived(view.figures.length);
+	const figureCount = $derived(view.figures.reduce((n, m) => n + m.figures.length, 0));
 	// Group mode has no coverage (null): its heading carries no "Yours".
-	const inGroup = $derived(data.unrouted === null);
+	const inGroup = $derived(data.lists.figures.unrouted === null);
 	const heading = $derived(
 		inGroup && !filter.unlinked
 			? movesHeading(
@@ -79,12 +83,14 @@
 	);
 	const empty = $derived(figuresEmpty(count, filter));
 	const chips = $derived(
-		filterChips(filter, data.dance.styles, data.dance.styleLabel, data.unlinked)
+		filterChips(filter, data.dance.styles, data.dance.styleLabel, data.lists.figures.unlinked)
 	);
 	// Group mode has no Coverage tile: coverage is the person's own.
-	const tiles = $derived(data.unrouted !== null ? tileMetas(data.unrouted) : null);
+	const tiles = $derived(
+		data.lists.figures.unrouted !== null ? tileMetas(data.lists.figures.unrouted) : null
+	);
 	// What is typed; follows the URL when it changes under it.
-	let q = $derived(data.filter.q);
+	let q = $derived(filter.q);
 
 	let chipRow = $state<HTMLElement>();
 
@@ -124,7 +130,7 @@
 
 <svelte:head><title>Figures · {data.dance.label}</title></svelte:head>
 
-{#snippet figureRow(f: (typeof data.figures)[number]['figures'][number], showLacks: boolean)}
+{#snippet figureRow(f: (typeof view.figures)[number]['figures'][number], showLacks: boolean)}
 	<a
 		class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
 		href={resolve('/[dance]/(moves)/figures/[id]', { dance: data.dance.slug, id: String(f.id) })}
@@ -157,7 +163,7 @@
 
 <!-- A move's name over its figures: the heading opens the move's page. A move
      that groups' twins folded into says where else it is (board C7 p3). -->
-{#snippet moveSection(m: (typeof data.figures)[number], showLacks: boolean)}
+{#snippet moveSection(m: (typeof view.figures)[number], showLacks: boolean)}
 	<section aria-label={m.name} class="flex flex-col gap-1.5">
 		<div class="flex flex-col">
 			<a
@@ -181,7 +187,7 @@
 {/snippet}
 
 <MovesScreen segment="figures" dance={data.dance.slug} onnew={() => (creating = true)}>
-	{#if empty === 'none' && data.groups.length === 0}
+	{#if empty === 'none' && view.groups.length === 0}
 		<div class="h-10 flex-none"></div>
 		<EmptyState icon="moves" title="No figures yet" body="Add the first one you learned.">
 			{#snippet action()}
@@ -203,7 +209,7 @@
 			</div>
 		{/if}
 
-		{#if anyHidden(data.figures.flatMap((m) => m.figures))}
+		{#if anyHidden(view.figures.flatMap((m) => m.figures))}
 			<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
 				{MEMBERS_NOTE}
 			</p>
@@ -253,7 +259,7 @@
 				body="Every figure has a section and a lesson."
 			/>
 		{:else if empty === 'no-match'}
-			{#if data.groups.length === 0}<EmptyState icon="search" title="No figures match" />{/if}
+			{#if view.groups.length === 0}<EmptyState icon="search" title="No figures match" />{/if}
 		{:else if empty === 'none'}
 			<!-- Only a group's figures so far: the person's own list starts here. -->
 			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
@@ -261,13 +267,13 @@
 			</p>
 		{:else}
 			<h2 class="{SECTION_LABEL} pt-0.5">{heading}</h2>
-			{#each data.figures as m (m.id)}
+			{#each view.figures as m (m.id)}
 				{@render moveSection(m, true)}
 			{/each}
 		{/if}
 
 		<!-- Each group's moves from the lessons the person added: viewed and practised, under a slight heading. -->
-		{#each data.groups as g (g.team.id)}
+		{#each view.groups as g (g.team.id)}
 			<section aria-label={g.team.name} class="flex flex-col gap-2">
 				<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
 					<Icon name="people" size={16} />{groupHeading(
@@ -317,7 +323,7 @@
 				figureName={form?.figureName}
 				autofocus
 				name={form?.name}
-				style={data.defaultStyle}
+				style={data.lists.figures.defaultStyle}
 				notes={form?.notes}
 				errors={fieldErrors}
 			/>

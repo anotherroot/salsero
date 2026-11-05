@@ -23,7 +23,8 @@ import { markTwins } from '$lib/server/twins';
 import { U2_SALSA } from '$lib/server/test-walls';
 import { cloneSubtitle } from '$lib/clones/view';
 import { groupCookie } from '$lib/teams/mode';
-import { load as figuresLoad } from './+page.server';
+import { load as layoutLoad } from '../+layout.server';
+import { figuresView, type FiguresLists } from '$lib/moves/filter';
 import { load as figureLoad } from './[id]/+page.server';
 
 const T = 1_790_000_000_000;
@@ -37,13 +38,16 @@ const cookies = (mode?: string) => ({
 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Loose = Record<string, any>;
-const listAs = (id: string, mode?: string) =>
-	(figuresLoad as unknown as (e: unknown) => Loose)({
+/** The Figures list as the page shows it: the layout's unfiltered list through the pure view. */
+const listAs = (id: string, mode?: string): Loose => {
+	const l = (layoutLoad as unknown as (e: unknown) => { lists: { figures: FiguresLists } })({
 		params: { dance: 'salsa' },
 		url: new URL('http://localhost/salsa/figures'),
 		locals: { user: user(id) },
 		cookies: cookies(mode)
-	});
+	}).lists.figures;
+	return { ...l, ...figuresView(l, { q: '' }) };
+};
 const pageAs = (id: string, figure: number, mode?: string) =>
 	(figureLoad as unknown as (e: unknown) => Loose)({
 		params: { dance: 'salsa', id: String(figure) },

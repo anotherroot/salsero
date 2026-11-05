@@ -1,21 +1,15 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { defaultStyle } from '$lib/server/default-styles';
-import { createFigure, listAddedFigures, listFigures, listVersions } from '$lib/server/figures';
+import { createFigure } from '$lib/server/figures';
 import { getPosition } from '$lib/server/positions';
 import { setFigureShapeIn } from '$lib/server/graph';
 import { usableBy } from '$lib/server/usable';
-import { listRoutines, routineShapes } from '$lib/server/routines';
-import { coverage } from '$lib/routines/coverage';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
-import { PARTNER, type Partner } from '$lib/labels';
+import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { DEFAULT_LENGTH_COUNTS, DEFAULT_START_COUNT } from '$lib/graph/timing';
 import { actorOf, inSpace, wallOf, type Space } from '$lib/server/scope';
 import { groupModeOf, spaceOf } from '$lib/server/group-mode';
-import { publishedReach } from '$lib/server/access';
-import { storedTwinSets } from '$lib/server/twins';
-import { foldMoves } from '$lib/clones/twins';
 import { PRESET_GONE } from '$lib/positions/view';
 import type { Db } from '$lib/server/db';
 import type { Actions, PageServerLoad } from './$types';
@@ -43,80 +37,14 @@ function presetOf(
 	return null;
 }
 
-/** The Not linked chip counts figures, as the heading does, not the moves holding them. */
-const figureCount = (moves: { figures: unknown[] }[]) =>
-	moves.reduce((n, m) => n + m.figures.length, 0);
-
 export const load: PageServerLoad = ({ url, params, locals, cookies }) => {
 	if (!locals.user) throw error(401);
 	const wall = wallOf(params, locals);
-	const dance = wall.dance;
-	const q = url.searchParams.get('q')?.trim() ?? '';
-	const style = url.searchParams.get('style');
-	const partner = url.searchParams.get('partner');
-	const filter = {
-		q: q || undefined,
-		style: (DANCES[dance].styles as readonly string[]).includes(style ?? '')
-			? (style as string)
-			: undefined,
-		partner: (PARTNER as readonly string[]).includes(partner ?? '')
-			? (partner as Partner)
-			: undefined
-	};
-	const unlinked = url.searchParams.get('unlinked') === '1';
 	const db = getDb();
-	const mode = groupModeOf(db, wall.userId, dance, cookies);
-	if (mode) {
-		// Group mode: the group's figures only, each marked with whether members
-		// reach it. Coverage is the person's own.
-		const space = { dance, teamId: mode.teamId, actorId: wall.userId };
-		const reach = publishedReach(db, mode.teamId);
-		return {
-			// Groups have no twins: nothing folds, no move says "also in".
-			figures: listFigures(db, space, { ...filter, unlinked }).map((m) => ({
-				...m,
-				figures: m.figures.map((f) => ({ ...f, membersSee: reach.variations.has(f.id) })),
-				also: [] as string[]
-			})),
-			groups: [],
-			twinned: [] as number[],
-			filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
-			unlinked: figureCount(listFigures(db, space, { unlinked: true })),
-			unrouted: null,
-			defaultStyle: defaultStyle(db, locals.user.id, dance),
-			preset: presetOf(db, space, url)
-		};
-	}
-	// Twins show as one (board C7 p3): each set once, a group's move left
-	// empty folds into the move that shows it ("also in Salsa Tuesdays").
-	const folded = foldMoves(
-		listFigures(db, wall, { ...filter, unlinked }),
-		// Each group's figures from the lessons the person added, after their own.
-		// Not linked is about their own figures only.
-		unlinked ? [] : listAddedFigures(db, wall, filter),
-		storedTwinSets(db, wall.userId, 'figure')
-	);
-	return {
-		figures: folded.mine,
-		groups: folded.groups,
-		/** The figures that stand for their twins: the "Twins" chip. */
-		twinned: [...folded.twinOf.keys()],
-		// The page rebuilds its URL from these strings; `unlinked` rides as '1'.
-		filter: { ...filter, q, unlinked: unlinked ? ('1' as const) : undefined },
-		// Figures with no section or no lesson, whatever the filter: the header's
-		// way into the "Not linked" filter, as `unrouted` is into coverage.
-		unlinked: figureCount(listFigures(db, wall, { unlinked: true })),
-		// Versions no routine can call: the Figures header's way into coverage.
-		unrouted: coverage(
-			listVersions(db, wall),
-			routineShapes(db, wall),
-			listRoutines(db, wall)
-		).filter((r) => r.routines.length === 0).length,
-		// What the new-figure form pre-selects. Settings picks it.
-		defaultStyle: defaultStyle(db, locals.user.id, dance),
-		/** New move from a position: the tag the new figure gets (ruling 8). */
-		preset: presetOf(db, wall, url)
-	};
+	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
+	const space = mode ? { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId } : wall;
+	/** New move from a position: the tag the new figure gets (ruling 8). */
+	return { preset: presetOf(db, space, url) };
 };
 
 export const actions: Actions = {

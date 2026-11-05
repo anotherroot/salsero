@@ -13,6 +13,7 @@
 	import HowSheet from '$lib/components/positions/HowSheet.svelte';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { groupHeading } from '$lib/moves/figures';
+	import { parsePositionFilter, positionsView } from '$lib/positions/filter';
 	import {
 		EMPTY,
 		EMPTY_ACTIONS,
@@ -41,28 +42,32 @@
 	let explaining = $state(false);
 
 	const dance = $derived(data.dance.slug);
-	const filter = $derived<PositionFilter>(data.filter);
+	const l = $derived(data.lists.positions);
+	const filter = $derived<PositionFilter>(
+		parsePositionFilter(page.url.searchParams, l.types, l.inGroupMode)
+	);
+	const view = $derived(positionsView(l, filter));
 	const filtered = $derived(!!(filter.q || filter.type || filter.gaps));
-	const styleLabel = $derived(styleLabelOf(data.styleLabel));
+	const styleLabel = $derived(styleLabelOf(l.styleLabel));
 	const chips = $derived(
 		positionChips(filter, {
-			types: data.types,
-			typeLabel: data.styleLabel,
-			gaps: data.gaps,
-			groupMode: data.inGroupMode,
-			hasOwn: data.hasOwn,
-			untyped: data.untyped
+			types: l.types,
+			typeLabel: l.styleLabel,
+			gaps: l.gaps,
+			groupMode: l.inGroupMode,
+			hasOwn: l.hasOwn,
+			untyped: l.untyped
 		})
 	);
-	const noneCount = $derived(data.none.none + data.none.onlyStart + data.none.onlyEnd);
+	const noneCount = $derived(l.none.none + l.none.onlyStart + l.none.onlyEnd);
 	// Nobody has any: no positions of the space's own or of a group, and nothing narrows the list.
-	const nothing = $derived(!filtered && data.rows.length === 0 && data.groups.length === 0);
+	const nothing = $derived(!filtered && view.rows.length === 0 && view.groups.length === 0);
 	const list = $derived(resolve('/[dance]/(moves)/positions', { dance }));
 	// The pages under Positions come with their own tasks: their paths are built on the list's.
 	const positionHref = (id: number) => `${list}/${id}`;
 
 	// What is typed; follows the URL when it changes under it.
-	let q = $derived(data.filter.q);
+	let q = $derived(filter.q);
 	let chipRow = $state<HTMLElement>();
 
 	// A chip that is on but off to the right scrolls into view on arrival.
@@ -114,15 +119,15 @@
 				</div>
 			{/snippet}
 		</EmptyState>
-		{#if data.inGroupMode}
+		{#if l.inGroupMode}
 			<p class="px-1 text-center text-[14px] leading-[1.45] text-muted">{GROUP_NOTE}</p>
 		{/if}
 	{:else}
 		<p class="px-1 text-[14px] leading-[1.45] text-ink-2">
-			{#if data.inGroupMode}
+			{#if l.inGroupMode}
 				{GROUP_NOTE}
 			{:else}
-				<b class="text-ink">{taggedLine(data.tagged)}</b>
+				<b class="text-ink">{taggedLine(l.tagged)}</b>
 				{OPTIONAL_LINE}
 			{/if}
 		</p>
@@ -172,9 +177,9 @@
 			{/each}
 		</div>
 
-		{#if !filtered && (noneCount > 0 || data.rows.length + data.groups.length > 0)}
+		{#if !filtered && (noneCount > 0 || view.rows.length + view.groups.length > 0)}
 			<div class={GROUP}>
-				{#if !data.inGroupMode && noneCount > 0}
+				{#if !l.inGroupMode && noneCount > 0}
 					{@const r = noPositionRow(noneCount)}
 					<a
 						class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
@@ -191,7 +196,7 @@
 						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 					</a>
 				{/if}
-				{#if data.rows.length + data.groups.length > 0}
+				{#if view.rows.length + view.groups.length > 0}
 					<a
 						class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
 						href="{list}/map"
@@ -209,22 +214,22 @@
 			</div>
 		{/if}
 
-		{#if data.rows.length > 0}
-			<h2 class="{SECTION_LABEL} pt-1">{listHeading(data.rows.length, data.inGroupMode)}</h2>
+		{#if view.rows.length > 0}
+			<h2 class="{SECTION_LABEL} pt-1">{listHeading(view.rows.length, l.inGroupMode)}</h2>
 			<div class={GROUP}>
-				{#each data.rows as r (r.id)}
+				{#each view.rows as r (r.id)}
 					<PositionRow row={r} href={positionHref(r.id)} {styleLabel} />
 				{/each}
 			</div>
 		{:else if filtered}
-			{#if data.groups.length === 0}<EmptyState icon="search" title={NO_MATCH} />{/if}
+			{#if view.groups.length === 0}<EmptyState icon="search" title={NO_MATCH} />{/if}
 		{:else}
 			<!-- Only a group's positions so far: the person's own list starts here. -->
 			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">{NONE_OWN}</p>
 		{/if}
 
 		<!-- Each group's positions the person may use, under a slight heading. -->
-		{#each data.groups as g (g.team.id)}
+		{#each view.groups as g (g.team.id)}
 			<section aria-label={g.team.name} class="flex flex-col gap-2">
 				<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
 					<Icon name="people" size={16} />{groupHeading(g.team.name, g.rows.length)}
@@ -246,7 +251,7 @@
 		mode="new"
 		action="?/create"
 		{dance}
-		defaultStyle={data.defaultStyle}
+		defaultStyle={l.defaultStyle}
 	/>
 {/if}
 
@@ -255,8 +260,8 @@
 		open={true}
 		onclose={() => (templating = false)}
 		{dance}
-		owned={data.owned}
-		defaultStyle={data.defaultStyle}
+		owned={l.owned}
+		defaultStyle={l.defaultStyle}
 	/>
 {/if}
 

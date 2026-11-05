@@ -28,7 +28,8 @@
 	});
 	let busy = $state(false);
 	// The routines that stand for their twins (board C7): a "Twins" chip.
-	const twinned = $derived(new Set(data.twinned));
+	const list = $derived(data.lists.routines);
+	const twinned = $derived(new Set(list.twinned));
 
 	const nameError = $derived(form?.field === 'name' ? form.message : null);
 	const notesError = $derived(form?.field === 'notes' ? form.message : null);
@@ -72,7 +73,7 @@
 {/snippet}
 
 <MovesScreen segment="routines" dance={data.dance.slug} onnew={() => (creating = true)}>
-	{#if data.routines.length === 0 && data.groups.length === 0}
+	{#if list.routines.length === 0 && list.groups.length === 0}
 		<div class="h-10 flex-none"></div>
 		<EmptyState
 			icon="routine"
@@ -86,22 +87,22 @@
 			{/snippet}
 		</EmptyState>
 	{:else}
-		{#if data.routines.length > 0}
-			{#if anyHidden(data.routines)}
+		{#if list.routines.length > 0}
+			{#if anyHidden(list.routines)}
 				<p class="rounded-2xl bg-surface px-4 py-3 text-[13px] leading-[1.4] text-muted">
 					{MEMBERS_NOTE}
 				</p>
 			{/if}
-			<h2 class="{SECTION_LABEL} pt-1">{plural(data.routines.length, 'routine', 'routines')}</h2>
+			<h2 class="{SECTION_LABEL} pt-1">{plural(list.routines.length, 'routine', 'routines')}</h2>
 			<div class={GROUP}>
-				{#each data.routines as routine (routine.id)}
+				{#each list.routines as routine (routine.id)}
 					{@render routineRow(routine, routineBadges(routine))}
 				{/each}
 			</div>
 		{/if}
 
 		<!-- Each group's routines from the lessons the person added: opened, not edited, under a slight heading. -->
-		{#each data.groups as g (g.team.id)}
+		{#each list.groups as g (g.team.id)}
 			<section aria-label={g.team.name} class="flex flex-col gap-2">
 				<h2 class="flex items-center gap-1.5 {SECTION_LABEL} pt-1.5">
 					<Icon name="people" size={16} />{groupHeading(g.team.name, g.routines.length)}

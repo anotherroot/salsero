@@ -30,7 +30,11 @@ import { markTwins, twinCandidates } from '$lib/server/twins';
 import { U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
 import { eq } from 'drizzle-orm';
-import { load as routinesLoad } from './(moves)/routines/+page.server';
+import { load as layoutLoad } from './(moves)/+layout.server';
+
+/** The Routines list is the layout's. */
+const routinesLoad = (e: unknown) =>
+	(layoutLoad as unknown as (e: unknown) => { lists: { routines: unknown } })(e).lists.routines;
 import {
 	load as routineLoad,
 	actions as routineActions

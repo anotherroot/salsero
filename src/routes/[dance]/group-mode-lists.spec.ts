@@ -31,11 +31,13 @@ import { createRoutine } from '$lib/server/routines';
 import { createFigure, createVariationIn } from '$lib/server/figures';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import { groupCookie } from '$lib/teams/mode';
-import { actions as figureActions, load as figuresLoad } from './(moves)/figures/+page.server';
-import { actions as routineActions, load as routinesLoad } from './(moves)/routines/+page.server';
+import { actions as figureActions } from './(moves)/figures/+page.server';
+import { actions as routineActions } from './(moves)/routines/+page.server';
 import { actions as lessonActions, load as lessonsLoad } from './lessons/+page.server';
 import { load as coverageLoad } from './(moves)/coverage/+page.server';
-import { load as positionsLoad } from './(moves)/positions/+page.server';
+import { load as movesListsLoad } from './(moves)/+layout.server';
+import { figuresView } from '$lib/moves/filter';
+import { positionsView } from '$lib/positions/filter';
 import { addPosition } from '$lib/server/test-positions';
 
 let db: Db;
@@ -86,6 +88,17 @@ const loadOf = (fn: unknown, user: string, cookies: Cookies) =>
 		cookies,
 		url: new URL('http://x/salsa')
 	}) as never as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+
+// The lists as the pages show them: the layout's unfiltered data through the pure view.
+type Loose = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+const figuresData = (d: Loose) => ({
+	...d.lists.figures,
+	...figuresView(d.lists.figures, { q: '' })
+});
+const positionsData = (d: Loose) => ({
+	...d.lists.positions,
+	...positionsView(d.lists.positions, { q: '' })
+});
 
 beforeEach(() => {
 	db = openDb(':memory:');
@@ -156,7 +169,7 @@ describe('listing in group mode', () => {
 			.lesson.id;
 		linkRoutine(db, P, R, 'u1');
 		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, P)).run();
-		const data = loadOf(routinesLoad, 'u2', jar('1').cookies);
+		const data = loadOf(movesListsLoad, 'u2', jar('1').cookies).lists.routines;
 		const seen = Object.fromEntries(data.routines.map((r: any) => [r.name, r.membersSee])); // eslint-disable-line @typescript-eslint/no-explicit-any
 		expect(seen).toEqual({ R: true, U: false });
 		expect(data.groups).toEqual([]);
@@ -176,7 +189,7 @@ describe('listing in group mode', () => {
 			.lesson.id;
 		linkFigure(db, P, a.figure.id, 'u1');
 		db.update(lessons).set({ publishedAt: 1 }).where(eq(lessons.id, P)).run();
-		const data = loadOf(figuresLoad, 'u2', jar('1').cookies);
+		const data = figuresData(loadOf(movesListsLoad, 'u2', jar('1').cookies));
 		const seen = Object.fromEntries(
 			data.figures.map((m: { name: string; figures: { membersSee: boolean }[] }) => [
 				m.name,
@@ -212,11 +225,11 @@ describe('listing in group mode', () => {
 		db.insert(figureEndPositions).values({ figureId: g.figure.id, positionId: ours }).run();
 		db.insert(figureEndPositions).values({ figureId: own.figure.id, positionId: yours }).run();
 		const row = (d: Record<string, any>, id: number) => d.rows.find((p: any) => p.id === id); // eslint-disable-line
-		const inGroup = loadOf(positionsLoad, 'u2', jar('1').cookies);
+		const inGroup = positionsData(loadOf(movesListsLoad, 'u2', jar('1').cookies));
 		expect(inGroup.inGroupMode).toBe(true);
 		expect(row(inGroup, ours)).toMatchObject({ inCount: 1, deadEnd: false, orphan: false });
 		expect(inGroup.tagged.total).toBe(1);
-		const mine = loadOf(positionsLoad, 'u2', jar().cookies);
+		const mine = positionsData(loadOf(movesListsLoad, 'u2', jar().cookies));
 		expect(mine.inGroupMode).toBe(false);
 		expect(row(mine, yours)).toMatchObject({ inCount: 1, deadEnd: true });
 	});

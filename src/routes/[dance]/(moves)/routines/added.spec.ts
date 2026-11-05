@@ -19,7 +19,11 @@ import { createLesson, linkRoutine } from '$lib/server/lessons';
 import { createRoutine } from '$lib/server/routines';
 import { createTeam, joinTeam } from '$lib/server/teams';
 import { T1_SALSA } from '$lib/server/test-walls';
-import { load } from './+page.server';
+import { load as layoutLoad } from '../+layout.server';
+
+/** The Routines list is the layout's. */
+const load = (e: never) =>
+	(layoutLoad as unknown as (e: never) => { lists: { routines: never } })(e).lists.routines;
 
 describe('Routines page', () => {
 	it('shows a routine from an added lesson under its group', async () => {
