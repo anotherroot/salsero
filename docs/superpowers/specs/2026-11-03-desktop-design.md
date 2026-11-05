@@ -409,7 +409,8 @@ Boards: every "· a dialog" board; "New exercise · How often (stacked level)",
   detach, same as, leave, Add, Make it mine, clash sheets, the group menu and
   the code. (The log popup is not one: on Today it is the pane.)
 - **The dialog:** 560 px wide (480 for a menu and a small form such as the
-  group menu, the Link popup's levels and a rename), in the sheet colour
+  group menu and a rename; the Link popup's levels are 560 wide and drawn
+  480 tall, so a stacked level covers the one below), in the sheet colour
   (`sheet_bg`), radius 28 on all corners, a large soft shadow (0 24 70 at
   32 % black). As tall as its content, at most 780 px and never closer than
   32 px to the window's top and bottom; past that its body scrolls. No
