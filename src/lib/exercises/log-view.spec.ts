@@ -13,6 +13,14 @@ const last = (o: { daysAgo: number; rating: number | null; note: string | null }
 });
 
 describe('footerFor follow', () => {
+	it('does not fall to follow when a session has no next or has ended', () => {
+		expect(
+			footerFor({ ...base, session: ses(null), justLogged: true, follow: 'B' }).next
+		).toBeNull();
+		expect(
+			footerFor({ ...base, session: ses('A', true), justLogged: true, follow: 'B' }).next
+		).toBeNull();
+	});
 	it('names where Next goes outside a session, once logged', () => {
 		const v = footerFor({ ...base, justLogged: true, follow: 'Clave clapping' });
 		expect(v.next).toBe('Next: Clave clapping');

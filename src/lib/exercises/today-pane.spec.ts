@@ -13,6 +13,9 @@ const bands = (o: Partial<Record<'due' | 'upcoming' | 'doneToday' | 'inactive', 
 	);
 
 describe('defaultOpen', () => {
+	it('prefers a due row to a not yet due one', () => {
+		expect(defaultOpen(bands({ due: [own(3)], upcoming: [own(9)] }))).toBe(3);
+	});
 	it('opens the first due, own before a group', () => {
 		expect(defaultOpen(bands({ due: [grp(7), own(3), own(4)] }))).toBe(3);
 	});
@@ -29,6 +32,10 @@ describe('defaultOpen', () => {
 });
 
 describe('sessionLine', () => {
+	it('opens the first walked item as 1, and a walked id also still due as its walked place', () => {
+		expect(sessionLine([1, 2], [3], 1, 2)).toBe('Session · 1 of 3 · 2 logged so far');
+		expect(sessionLine([4], [4, 5], 4, 0)).toBe('Session · 1 of 2');
+	});
 	it('counts the walked and the rest', () => {
 		expect(sessionLine([1], [2, 3, 4, 5], 2, 1)).toBe('Session · 2 of 5 · 1 logged so far');
 		expect(sessionLine([1, 2], [3, 4, 5], 2, 2)).toBe('Session · 2 of 5 · 2 logged so far');
