@@ -8,13 +8,13 @@ export const TABS: readonly {
 	label: string;
 	icon: IconName;
 	path:
-		| '/[dance]'
+		| '/[dance]/(today)'
 		| '/[dance]/(moves)/figures'
 		| '/[dance]/lessons'
 		| '/[dance]/groups'
 		| '/[dance]/songs';
 }[] = [
-	{ id: 'today', label: 'Today', icon: 'today', path: '/[dance]' },
+	{ id: 'today', label: 'Today', icon: 'today', path: '/[dance]/(today)' },
 	{ id: 'moves', label: 'Moves', icon: 'moves', path: '/[dance]/(moves)/figures' },
 	{ id: 'lessons', label: 'Lessons', icon: 'lessons', path: '/[dance]/lessons' },
 	{ id: 'groups', label: 'Groups', icon: 'group', path: '/[dance]/groups' },
@@ -69,7 +69,7 @@ const BARE = new Set(['/[dance]/player', '/[dance]/share']);
  */
 export function showsTabs(routeId: string | null): boolean {
 	if (routeId == null) return false;
-	if (routeId !== '/[dance]' && !routeId.startsWith('/[dance]/')) return false;
+	if (!routeId.startsWith('/[dance]/')) return false;
 	return !BARE.has(routeId);
 }
 

@@ -236,7 +236,7 @@
 		'figureId' in t
 			? resolve('/[dance]/(moves)/figures/[id]', { dance, id: String(t.figureId) })
 			: 'exerciseId' in t
-				? resolve('/[dance]/exercises/[id]', { dance, id: String(t.exerciseId) })
+				? resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(t.exerciseId) })
 				: // A position's page, /[dance]/positions/[id] (built beside this, ruling 10).
 					`${resolve('/[dance]/(moves)/positions', { dance })}/${t.positionId}`;
 

@@ -22,6 +22,12 @@
 	 * page of its own. `deskSubtitle`: the band row's subtitle on the desktop, in
 	 * place of `subtitle`.
 	 *
+	 * `hero` (Today's session card): on the phone's list route the `Screen`'s hero,
+	 * straddling the band's foot; on the desktop the list column's first card, on
+	 * both routes (it stays while an item is open). The snippet is in the DOM
+	 * twice, at most one of them displayed: it is stateless markup, and the hidden
+	 * copy is `display: none`, so it is never focused or read. Not with `solo`.
+	 *
 	 * Phone: the list route is the list page as ever (`Screen` around `list`; the
 	 * empty pane is not drawn). An item route is the item page alone: the list
 	 * column is in the DOM but `display: none`, so nothing in it is focused or read.
@@ -43,6 +49,7 @@
 		emptyBare = false,
 		solo = false,
 		soloWidth = 'one',
+		hero,
 		children
 	}: {
 		list: Snippet;
@@ -64,6 +71,8 @@
 		solo?: boolean;
 		/** `solo`'s width (`PAGE_WIDTH`). */
 		soloWidth?: 'one' | 'narrow';
+		/** A card over the list: the phone's straddling hero, the desktop column's first card. */
+		hero?: Snippet;
 		children: Snippet;
 	} = $props();
 
@@ -79,6 +88,7 @@
 	{right}
 	split={alone ? undefined : isList ? 'list' : 'item'}
 	width={soloWidth}
+	hero={isList ? hero : undefined}
 >
 	<!--
 		On the phone's list route `contents`: the list's rows are the sheet's own, as ever. On
@@ -93,6 +103,7 @@
 			: `${isList ? 'contents' : 'hidden'} desk:sticky desk:top-[var(--band-row-h)] desk:flex desk:h-[calc(100dvh-var(--band-row-h))] desk:w-[calc(var(--list-w)+1px)] desk:flex-none desk:flex-col desk:gap-2.5 desk:overflow-y-auto desk:overscroll-contain desk:border-r desk:border-hairline desk:pt-6 desk:pr-5 desk:pb-6 desk:pl-6 desk:*:shrink-0`}
 		style="--list-w: {width}px"
 	>
+		{#if hero && !alone}<div class="hidden desk:block">{@render hero()}</div>{/if}
 		{@render list()}
 	</div>
 	<!--

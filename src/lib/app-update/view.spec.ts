@@ -50,13 +50,13 @@ describe('parseBridge', () => {
 
 describe('showsUpdateNeeded', () => {
 	it('shows when required, except where interrupting costs work', () => {
-		expect(showsUpdateNeeded(update('required'), '/[dance]')).toBe(true);
+		expect(showsUpdateNeeded(update('required'), '/[dance]/(today)')).toBe(true);
 		expect(showsUpdateNeeded(update('required'), '/[dance]/player')).toBe(false);
 		expect(showsUpdateNeeded(update('required'), '/voice')).toBe(false);
 	});
 	it('not otherwise', () => {
-		expect(showsUpdateNeeded(update('available'), '/[dance]')).toBe(false);
-		expect(showsUpdateNeeded(null, '/[dance]')).toBe(false);
+		expect(showsUpdateNeeded(update('available'), '/[dance]/(today)')).toBe(false);
+		expect(showsUpdateNeeded(null, '/[dance]/(today)')).toBe(false);
 	});
 });
 
@@ -68,7 +68,7 @@ describe('updateNeededNow', () => {
 		more: Partial<Parameters<typeof updateNeededNow>[1]> = {}
 	) =>
 		updateNeededNow(state ? update(state) : null, {
-			routeId: '/[dance]',
+			routeId: '/[dance]/(today)',
 			shown: false,
 			at: when,
 			...quiet,

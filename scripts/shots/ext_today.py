@@ -48,6 +48,14 @@ def _skip(page):
     page.get_by_role("button", name=re.compile(r"^Skip")).first.click()
 
 
+def _new_refused(page):
+    """New exercise from the band's + beside an open exercise, a blank name: the refusal in the dialog."""
+    _new(page)
+    page.locator("#new-exercise-name").fill("   ")
+    page.get_by_role("button", name="Add exercise").click()
+    page.locator("#new-exercise-error").wait_for()
+
+
 def _session_then(act):
     def go(page):
         _start_session(page)
@@ -69,4 +77,7 @@ SCENES = {
     "pane-logged": Scene("/{dance}/exercises/{drillex}", _logged, desk=True),
     "pane-session": Scene("/{dance}", _start_session, desk=True),
     "pane-skip": Scene("/{dance}", _skip, desk=True),
+    # desk only (Task 3): the band's + beside an open exercise, and its refusal there
+    "list-new": Scene("/{dance}/exercises/{drillex}", _new, desk=True),
+    "list-new-refused": Scene("/{dance}/exercises/{drillex}", _new_refused, desk=True),
 }

@@ -3,7 +3,9 @@ import { deskSkeletonMode, leavesPage, skeletonFor } from './pending';
 
 describe('skeletonFor', () => {
 	it('gives Today its own shape', () => {
-		expect(skeletonFor('/[dance]')).toMatchObject({ kind: 'today' });
+		expect(skeletonFor('/[dance]/(today)')).toMatchObject({ kind: 'today', deskTitle: 'Today' });
+		// Today's page is in the (today) group: the bare dance is no route id.
+		expect(skeletonFor('/[dance]')).toBeNull();
 	});
 
 	it('gives the three Moves lists the Moves shape, with the destination segment', () => {
@@ -40,7 +42,7 @@ describe('skeletonFor', () => {
 	});
 
 	it('gives every page behind an id the detail shape', () => {
-		for (const id of ['lessons', 'songs', 'exercises']) {
+		for (const id of ['lessons', 'songs', '(today)/exercises']) {
 			expect(skeletonFor(`/[dance]/${id}/[id]`)).toMatchObject({ kind: 'detail' });
 		}
 		expect(skeletonFor('/[dance]/player')).toMatchObject({ kind: 'detail' });
@@ -81,7 +83,13 @@ describe('a list and its pane', () => {
 		});
 		expect(skeletonFor('/[dance]/songs')).toMatchObject({ kind: 'list', pane: true, open: false });
 		expect(skeletonFor('/settings')!.pane).toBe(false);
-		expect(skeletonFor('/[dance]')!.pane).toBe(false);
+		expect(skeletonFor('/[dance]/(today)')).toMatchObject({ pane: true, open: false });
+		expect(skeletonFor('/[dance]/(today)/exercises/[id]')).toMatchObject({
+			kind: 'detail',
+			pane: true,
+			open: true,
+			deskTitle: 'Today'
+		});
 		expect(skeletonFor('/[dance]/lessons/[id]')!.pane).toBe(false);
 	});
 
@@ -94,7 +102,7 @@ describe('a list and its pane', () => {
 
 describe('deskSkeletonMode', () => {
 	it('draws the whole frame coming from outside a list and pane', () => {
-		expect(deskSkeletonMode('/[dance]/songs/[id]', '/[dance]')).toBe('frame');
+		expect(deskSkeletonMode('/[dance]/songs/[id]', '/[dance]/(today)')).toBe('frame');
 		expect(deskSkeletonMode('/[dance]/songs', null)).toBe('frame');
 		expect(deskSkeletonMode('/settings', '/[dance]/songs')).toBe('frame');
 	});

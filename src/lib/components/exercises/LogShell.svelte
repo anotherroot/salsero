@@ -113,7 +113,7 @@
 	const LOGGED =
 		'inline-flex h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-done-soft text-[16px] font-extrabold text-done';
 	const detailsHref = $derived(
-		resolve('/[dance]/exercises/[id]', { dance: dance.slug, id: String(exercise.id) })
+		resolve('/[dance]/(today)/exercises/[id]', { dance: dance.slug, id: String(exercise.id) })
 	);
 
 	// A seed, read once: the popup is keyed by exercise (Today's `{#key}`), and

@@ -167,7 +167,8 @@
 	class:pt-5={!hero}
 	style="--page-w: {PAGE_WIDTH[width]}px"
 >
-	{#if hero}<div class="-mt-[42px] mb-[10px] desk:mt-0{heroDesk ? '' : ' desk:hidden'}">
+	<!-- A list's hero (`split`): on the desktop it is its column's first card (`ListPane`). -->
+	{#if hero}<div class="-mt-[42px] mb-[10px] desk:mt-0{heroDesk && !split ? '' : ' desk:hidden'}">
 			{@render hero()}
 		</div>{/if}
 	{@render children()}

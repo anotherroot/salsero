@@ -67,13 +67,18 @@ describe('the Moves lists', () => {
 	});
 
 	// Today's root is the dance itself; a whole-dance prefix is not "under" it.
-	// plan 2: test today's real LIST_HOME entry here too.
 	it('a home whose root is the dance does not own the whole dance', () => {
 		const today = { root: '', items: ['/exercises'] };
 		expect(inHome('/salsa', today, 'salsa')).toBe(true);
 		expect(inHome('/salsa/exercises/4', today, 'salsa')).toBe(true);
 		expect(inHome('/salsa/figures/4', today, 'salsa')).toBe(false);
 		expect(inHome('/salsa/exercisesx', today, 'salsa')).toBe(false);
+		// The real entry: Today's list.
+		expect(inList('/salsa', 'today', 'salsa')).toBe(true);
+		expect(inList('/salsa/exercises/4', 'today', 'salsa')).toBe(true);
+		expect(inList('/salsa/figures/4', 'today', 'salsa')).toBe(false);
+		expect(inList('/salsa/exercisesx', 'today', 'salsa')).toBe(false);
+		expect(inList('/bachata', 'today', 'salsa')).toBe(false);
 	});
 });
 
@@ -83,5 +88,26 @@ describe('the figures list owns the move and Coverage pages', () => {
 		expect(paneBack('/salsa/coverage', 'figures', 'salsa')).toBe(false);
 		expect(paneBack('/salsa/routines/5', 'figures', 'salsa')).toBe(true);
 		expect(paneBack('/salsa/movesx/3', 'figures', 'salsa')).toBe(true);
+	});
+});
+
+describe('Today', () => {
+	it('is a list with the open exercise beside it', () => {
+		expect(listOf('/[dance]/(today)')).toEqual({ list: 'today', open: false });
+		expect(listOf('/[dance]/(today)/exercises/[id]')).toEqual({ list: 'today', open: true });
+		// No longer a route id: Today's page is in the (today) group.
+		expect(listOf('/[dance]')).toBeNull();
+	});
+
+	it('gives no back to an exercise opened from Today', () => {
+		expect(paneBack('/salsa', 'today', 'salsa')).toBe(false);
+		// another exercise was open beside the list
+		expect(paneBack('/salsa/exercises/4', 'today', 'salsa')).toBe(false);
+		expect(paneBack(null, 'today', 'salsa')).toBe(false);
+	});
+
+	it('gives a back to an exercise opened from a figure or a lesson', () => {
+		expect(paneBack('/salsa/figures/3', 'today', 'salsa')).toBe(true);
+		expect(paneBack('/salsa/lessons/2', 'today', 'salsa')).toBe(true);
 	});
 });

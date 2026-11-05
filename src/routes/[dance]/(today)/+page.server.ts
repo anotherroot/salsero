@@ -1,23 +1,11 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import {
-	createCustomExercise,
-	lastSets,
-	listExercises,
-	listPickExercises,
-	listSetTimes,
-	listSetsBetween
-} from '$lib/server/exercises';
-import { listCountTakesFor } from '$lib/server/countTakes';
+import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
 import { int, optionalText, text } from '$lib/server/form';
-import { lessonDays } from '$lib/server/lessons';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
-import { songChoices } from '$lib/server/songs';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
-import { PHRASE_PATTERNS } from '$lib/labels';
-import { plan } from '$lib/urgency/urgency';
 import type { Actions, PageServerLoad } from './$types';
 
 const DAY_MS = 86_400_000;
@@ -27,12 +15,16 @@ function zone(locals: App.Locals): string {
 	return locals.user.timezone;
 }
 
+/**
+ * Today's list is the layout's (`list`). This page adds a past day (`?day=`):
+ * its sets and the exercises a forgotten set can be logged against. Today itself
+ * has nothing of its own: `past` is null.
+ */
 export const load: PageServerLoad = ({ url, params, locals }) => {
 	const wall = wallOf(params, locals);
 	const dance = wall.dance;
 	const tz = zone(locals);
-	const now = Date.now();
-	const today = localDay(now, tz);
+	const today = localDay(Date.now(), tz);
 
 	const requested = url.searchParams.get('day');
 	if (requested !== null && (!isValidDay(requested) || requested >= today)) {
@@ -41,11 +33,10 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 		// cookie to the same page and lose the correction.
 		throw redirect(303, `/${dance}`);
 	}
-	const day = requested ?? today;
+	if (requested === null) return { past: null };
+	const day = requested;
 
 	const db = getDb();
-	const exercises = listExercises(db, wall);
-
 	// Widen the window by a day each side, then let localDay decide membership:
 	// the day boundary is decided in ONE place, in the user's zone.
 	const noon = noonOf(day, tz);
@@ -54,25 +45,14 @@ export const load: PageServerLoad = ({ url, params, locals }) => {
 	);
 
 	return {
-		day,
-		today,
-		prevDay: shiftDay(day, -1),
-		nextDay: day === today ? null : shiftDay(day, 1),
-		isToday: day === today,
-		plan: plan(exercises, listSetTimes(db, wall), now, tz),
-		daySets,
-		// For the past-day "add a forgotten set" picker.
-		exercises: listPickExercises(db, wall),
-		// For the practice panel's song picker.
-		songs: songChoices(db, wall),
-		// The day of each class, for "Lesson · Wed 28 Oct" on a lesson's row.
-		lessonDays: lessonDays(db, wall),
-		// The latest set's rating per exercise, for the dots on each row.
-		lastRatings: Object.fromEntries(
-			[...lastSets(db, wall)].map(([id, s]) => [id, s.rating] as [number, number | null])
-		),
-		// The practice panel's voice: the user's recorded count, a few dozen rows.
-		takes: PHRASE_PATTERNS.flatMap((p) => listCountTakesFor(db, wall.userId, p))
+		past: {
+			day,
+			prevDay: shiftDay(day, -1),
+			nextDay: shiftDay(day, 1),
+			daySets,
+			// For the past-day "add a forgotten set" picker.
+			exercises: listPickExercises(db, wall)
+		}
 	};
 };
 

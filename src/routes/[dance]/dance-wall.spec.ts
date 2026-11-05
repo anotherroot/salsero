@@ -73,11 +73,11 @@ import {
 } from '$lib/server/routines';
 import { eq } from 'drizzle-orm';
 import { exercises, figures, lessons, links, positions, sets } from '$lib/server/db/schema';
-import { actions as todayActions } from './+page.server';
+import { actions as todayActions } from './(today)/+page.server';
 import { actions as playerActions, load as playerLoad } from './player/+page.server';
 import { actions as songListActions } from './songs/+page.server';
 import { actions as lessonListActions } from './lessons/+page.server';
-import * as exercisePage from './exercises/[id]/+page.server';
+import * as exercisePage from './(today)/exercises/[id]/+page.server';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
 import { actions as figureListActions } from './(moves)/figures/+page.server';
 import * as songPage from './songs/[id]/+page.server';
@@ -85,7 +85,7 @@ import * as lessonPage from './lessons/[id]/+page.server';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
 import * as coveragePage from './(moves)/coverage/+page.server';
 import * as gridEndpoint from './songs/[id]/grid/+server';
-import * as practiceEndpoint from './exercises/[id]/practice/+server';
+import * as practiceEndpoint from './(today)/exercises/[id]/practice/+server';
 import type { PickerSong } from '$lib/types';
 
 const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };

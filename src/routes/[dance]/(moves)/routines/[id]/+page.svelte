@@ -967,7 +967,7 @@
 				<ul class={GROUP}>
 					{#if data.exerciseId !== null}
 						{@render moreRow(
-							resolve('/[dance]/exercises/[id]', {
+							resolve('/[dance]/(today)/exercises/[id]', {
 								dance: data.dance.slug,
 								id: String(data.exerciseId)
 							}),

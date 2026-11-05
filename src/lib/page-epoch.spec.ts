@@ -87,7 +87,13 @@ describe('staleAnswer', () => {
 const QUIET = { playerOpen: false, sheetsOpen: false, unsaved: 0, held: 0 };
 
 describe('staleMove', () => {
-	const here = { routeId: '/[dance]', navigating: false, stuck: false, sending: 0, ...QUIET };
+	const here = {
+		routeId: '/[dance]/(today)',
+		navigating: false,
+		stuck: false,
+		sending: 0,
+		...QUIET
+	};
 
 	it('reloads a quiet page', () => {
 		expect(staleMove(here)).toBe('reload');

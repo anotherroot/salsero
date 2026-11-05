@@ -5,7 +5,8 @@ import { frameNow, frameOf, frameOfError, PAGE_WIDTH, sideLit } from './frame';
 describe('frameOf', () => {
 	it('gives each kind of route its frame', () => {
 		expect(frameOf('/[dance]/(moves)/figures/[id]', true)).toBe('side');
-		expect(frameOf('/[dance]', true)).toBe('side');
+		expect(frameOf('/[dance]/(today)', true)).toBe('side');
+		expect(frameOf('/[dance]/(today)/exercises/[id]', true)).toBe('side');
 		expect(frameOf('/[dance]/player', true)).toBe('bare');
 		expect(frameOf('/[dance]/share', true)).toBe('bare');
 		expect(frameOf('/login', false)).toBe('card');

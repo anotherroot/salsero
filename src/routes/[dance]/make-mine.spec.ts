@@ -55,7 +55,7 @@ import { groupCookie } from '$lib/teams/mode';
 import type { Space } from '$lib/server/scope';
 import * as figurePage from './(moves)/figures/[id]/+page.server';
 import * as routinePage from './(moves)/routines/[id]/+page.server';
-import * as exercisePage from './exercises/[id]/+page.server';
+import * as exercisePage from './(today)/exercises/[id]/+page.server';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as songPage from './songs/[id]/+page.server';
 

@@ -50,7 +50,7 @@
 			case 'routine':
 				return resolve('/[dance]/(moves)/routines/[id]', p);
 			case 'drill':
-				return resolve('/[dance]/exercises/[id]', p);
+				return resolve('/[dance]/(today)/exercises/[id]', p);
 			case 'song':
 				return resolve('/[dance]/songs/[id]', p);
 			case 'lesson':

@@ -575,7 +575,7 @@
 				</li>
 				<li>
 					<a
-						href={resolve('/[dance]/exercises/[id]', {
+						href={resolve('/[dance]/(today)/exercises/[id]', {
 							dance: slug,
 							id: String(data.exercise.id)
 						})}
@@ -1024,7 +1024,10 @@
 	{:else if data.exercise}
 		<!-- Practised already, without a log here: its exercise page has the rest. -->
 		<a
-			href={resolve('/[dance]/exercises/[id]', { dance: slug, id: String(data.exercise.id) })}
+			href={resolve('/[dance]/(today)/exercises/[id]', {
+				dance: slug,
+				id: String(data.exercise.id)
+			})}
 			class={button('primary', 'md', true)}><Icon name="play" size={20} />Practise</a
 		>
 	{:else}

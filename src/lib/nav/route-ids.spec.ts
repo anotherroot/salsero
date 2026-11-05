@@ -22,7 +22,8 @@ const LITERAL = /(['"])(\/\[dance\][^'"]*)\1/g;
 
 describe('route ids', () => {
 	it('finds the routes', () => {
-		expect(IDS).toContain('/[dance]');
+		expect(IDS).toContain('/[dance]/(today)');
+		expect(IDS).toContain('/[dance]/(today)/exercises/[id]');
 		expect(IDS).toContain('/[dance]/songs/[id]');
 	});
 

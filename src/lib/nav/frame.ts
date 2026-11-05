@@ -16,7 +16,7 @@ const CARD = new Set(['/login', '/join', '/welcome', '/app', '/device/pair', '/g
 export function frameOf(routeId: string | null, _signedIn: boolean): Frame {
 	if (routeId === null) return 'none';
 	if (BARE.has(routeId)) return 'bare';
-	if (routeId === '/[dance]' || routeId.startsWith('/[dance]/')) return 'side';
+	if (routeId.startsWith('/[dance]/')) return 'side';
 	if (SHARED_SIDE.has(routeId)) return 'side';
 	if (CARD.has(routeId)) return 'card';
 	return 'none';

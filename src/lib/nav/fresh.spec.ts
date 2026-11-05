@@ -56,7 +56,7 @@ describe('fullLoadFor', () => {
 });
 
 describe('mayReloadNow', () => {
-	const clear = { routeId: '/[dance]', ...QUIET };
+	const clear = { routeId: '/[dance]/(today)', ...QUIET };
 
 	it('reloads a quiet page', () => {
 		expect(mayReloadNow(clear)).toBe(true);

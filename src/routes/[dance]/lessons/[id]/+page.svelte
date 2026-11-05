@@ -717,7 +717,7 @@
 				<div class={GROUP}>
 					<div class="flex min-h-16 items-center pr-1.5 pl-4">
 						<a
-							href={resolve('/[dance]/exercises/[id]', {
+							href={resolve('/[dance]/(today)/exercises/[id]', {
 								dance: data.dance.slug,
 								id: String(review.id)
 							})}
@@ -952,7 +952,7 @@
 								<li class="flex min-h-16 items-center gap-0.5 pr-1.5 pl-4">
 									<a
 										data-focus="exercise-{exercise.id}"
-										href={resolve('/[dance]/exercises/[id]', {
+										href={resolve('/[dance]/(today)/exercises/[id]', {
 											dance: data.dance.slug,
 											id: String(exercise.mineId ?? exercise.id)
 										})}

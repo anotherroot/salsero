@@ -92,7 +92,7 @@ const routinesLoad = (e: never) =>
 		depends: () => {}
 	}).lists.routines;
 import { load as playerLoad } from '../player/+page.server';
-import { load as todayLoad } from '../+page.server';
+import { load as todayLoad } from '../(today)/+page.server';
 import { GET as getRecording } from '../../recordings/[file]/+server';
 import { GET as getLessonVideo } from '../../lesson-videos/[file]/+server';
 import { GET as getAudio } from '../../audio/[file]/+server';
@@ -510,7 +510,10 @@ describe('a deleted group', () => {
 		vi.setSystemTime(T + 31 * DAY);
 		const today = (await todayLoad(
 			ev('u2', {}, { url: new URL('http://localhost/salsa?day=2026-11-03') })
-		)) as { daySets: Parameters<typeof pastGroups>[0] };
-		expect(pastGroups(today.daySets).map((g) => g.name)).toEqual(['Review: Tue 3 Nov', 'Drill']);
+		)) as { past: { daySets: Parameters<typeof pastGroups>[0] } };
+		expect(pastGroups(today.past.daySets).map((g) => g.name)).toEqual([
+			'Review: Tue 3 Nov',
+			'Drill'
+		]);
 	});
 });

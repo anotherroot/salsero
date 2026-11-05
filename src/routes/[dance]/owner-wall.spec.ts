@@ -17,6 +17,7 @@ vi.mock('$lib/server/db', async () => {
 
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
+import { localDay, shiftDay } from '$lib/day/day';
 import { U1_BACHATA, U1_SALSA, U2_SALSA } from '$lib/server/test-walls';
 import {
 	addFigureExercise,
@@ -472,9 +473,10 @@ import { createSongFromUpload } from '$lib/server/songs';
 import { dueByDance } from '$lib/server/devices';
 import { requireExerciseInWall, requireSetInWall } from '$lib/server/scope';
 import { sets as setsTable, songs } from '$lib/server/db/schema';
-import * as todayPage from './+page.server';
-import * as exercisePage from './exercises/[id]/+page.server';
-import * as practiceEndpoint from './exercises/[id]/practice/+server';
+import * as todayPage from './(today)/+page.server';
+import * as todayLayout from './(today)/+layout.server';
+import * as exercisePage from './(today)/exercises/[id]/+page.server';
+import * as practiceEndpoint from './(today)/exercises/[id]/practice/+server';
 import * as playerPage from './player/+page.server';
 
 describe('exercises: the data functions stand behind a wall', () => {
@@ -571,18 +573,32 @@ describe("Today, the exercise page and the player refuse another person's exerci
 	};
 
 	it('Today shows none of the other person’s exercises or sets', async () => {
-		const data = (await loadAt(todayPage.load, U2, 'salsa')) as {
-			plan: { due: unknown[]; upcoming: unknown[]; doneToday: unknown[] };
-			daySets: unknown[];
-			exercises: unknown[];
-			lastRatings: Record<string, unknown>;
+		// The list is the (today) layout's; a past day's picker is the page's.
+		type List = {
+			list: {
+				plan: { due: unknown[]; upcoming: unknown[]; doneToday: unknown[] };
+				todaySets: unknown[];
+				lastRatings: Record<string, unknown>;
+			};
 		};
-		expect(data.exercises).toEqual([]);
-		expect(data.daySets).toEqual([]);
-		expect(data.plan.due).toEqual([]);
-		expect(Object.keys(data.lastRatings)).toEqual([]);
-		const own = (await loadAt(todayPage.load, U1, 'salsa')) as typeof data;
-		expect(own.exercises).toHaveLength(1);
+		type Past = { past: { exercises: unknown[]; daySets: unknown[] } };
+		const yesterday = shiftDay(localDay(Date.now(), U1.timezone), -1);
+		const pastOf = (user: User) =>
+			(todayPage.load as unknown as Load)({
+				params: { dance: 'salsa', id: '' },
+				url: new URL(`http://localhost/salsa?day=${yesterday}`),
+				cookies: { get: () => undefined, delete: () => {} },
+				locals: { user },
+				depends: () => {}
+			}) as Past;
+		const data = (await loadAt(todayLayout.load, U2, 'salsa')) as List;
+		expect(pastOf(U2).past.exercises).toEqual([]);
+		expect(data.list.todaySets).toEqual([]);
+		expect(data.list.plan.due).toEqual([]);
+		expect(Object.keys(data.list.lastRatings)).toEqual([]);
+		const own = (await loadAt(todayLayout.load, U1, 'salsa')) as List;
+		expect(pastOf(U1).past.exercises).toHaveLength(1);
+		expect(own.list.todaySets).toHaveLength(1);
 	});
 
 	it('creating an exercise on Today carries the person', async () => {
@@ -1360,10 +1376,10 @@ describe('lessons, sections and their links stand behind a wall', () => {
 			locals: { user: U2 }
 		})) as { lessons: unknown[] };
 		expect(share.lessons).toEqual([]);
-		const today = (await loadAt(todayPage.load, U2, 'salsa')) as {
-			lessonDays: Record<string, string>;
+		const today = (await loadAt(todayLayout.load, U2, 'salsa')) as {
+			list: { lessonDays: Record<string, string> };
 		};
-		expect(today.lessonDays).toEqual({});
+		expect(today.list.lessonDays).toEqual({});
 	});
 
 	it('a lesson made from the list belongs to whoever made it', async () => {
@@ -2124,10 +2140,12 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 
 		// Today: the review, the routine and the drill, each under the group, P's day known.
 		type TodayData = {
-			plan: Record<string, { exercise: { name: string; team: unknown } }[]>;
-			lessonDays: Record<number, string>;
+			list: {
+				plan: Record<string, { exercise: { name: string; team: unknown } }[]>;
+				lessonDays: Record<number, string>;
+			};
 		};
-		const today = loadAt(todayPage.load, U2, 'salsa') as TodayData;
+		const today = (loadAt(todayLayout.load, U2, 'salsa') as TodayData).list;
 		const rows = Object.values(today.plan).flat();
 		expect(rows.map((r) => r.exercise.name).sort()).toEqual(
 			['Published routine', 'Review: Published lesson', 'Shines'].sort()
@@ -2135,9 +2153,9 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		for (const r of rows)
 			expect(r.exercise.team).toEqual({ id: T.teamId, name: 'Salsa nadaljevalna' });
 		expect(today.lessonDays[P]).toBe('2026-11-01');
-		expect(Object.values((loadAt(todayPage.load, U1, 'salsa') as TodayData).plan).flat()).toEqual(
-			[]
-		);
+		expect(
+			Object.values((loadAt(todayLayout.load, U1, 'salsa') as TodayData).list.plan).flat()
+		).toEqual([]);
 
 		// Moves: the group's figure only under the group, only the variation P reaches.
 		type Moves = {

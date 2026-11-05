@@ -6,14 +6,16 @@ import type { DanceSlug } from '$lib/dances/dances';
  * starts with a back.
  */
 
-/** The lists that sit beside their item. Later plans add Today, Moves, Lessons and Groups. */
-export type ListId = 'songs' | 'figures' | 'routines' | 'positions';
+/** The lists that sit beside their item. Later plans add Lessons and Groups. */
+export type ListId = 'today' | 'songs' | 'figures' | 'routines' | 'positions';
 
 /**
  * Route id → its list, and whether that route opens an item beside it.
  * No `under` field yet (listOf's return type has it): plan 4 adds `under: true` here for group sub-pages.
  */
 const ROUTES: Record<string, { list: ListId; open: boolean }> = {
+	'/[dance]/(today)': { list: 'today', open: false },
+	'/[dance]/(today)/exercises/[id]': { list: 'today', open: true },
 	'/[dance]/songs': { list: 'songs', open: false },
 	'/[dance]/songs/[id]': { list: 'songs', open: true },
 	'/[dance]/(moves)/figures': { list: 'figures', open: false },
@@ -34,6 +36,7 @@ const ROUTES: Record<string, { list: ListId; open: boolean }> = {
  * dance itself, so only its items prefix counts as "in" it.
  */
 export const LIST_HOME: Record<ListId, { root: string; items: string[] }> = {
+	today: { root: '', items: ['/exercises'] },
 	songs: { root: '/songs', items: ['/songs'] },
 	figures: { root: '/figures', items: ['/figures', '/moves', '/coverage'] },
 	routines: { root: '/routines', items: ['/routines'] },

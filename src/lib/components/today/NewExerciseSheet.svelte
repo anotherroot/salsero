@@ -6,16 +6,28 @@
 	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import { button, FIELD, FIELD_ERROR, LABEL, TEXTAREA } from '$lib/components/ui/styles';
 	import { DEFAULT_EVERY_DAYS } from '$lib/frequency';
+	import type { DanceSlug } from '$lib/dances/dances';
 
+	/*
+	 * Rendered by the (today) layout, so it is on the page beside an open exercise
+	 * too: it posts to Today's action by name (a bare `?/createExercise` would post
+	 * to the exercise), and a refusal is read from the submit's result, since
+	 * beside an exercise SvelteKit applies no `form` from another route.
+	 */
 	interface Props {
+		dance: DanceSlug;
+		/** The page form's refusal, on Today's own route. */
 		message: string | null;
 		/** What was typed, handed back by a failed action. */
 		values: { name?: string; notes?: string } | null;
 		onclose: () => void;
 	}
 
-	let { message, values, onclose }: Props = $props();
+	let { dance, message, values, onclose }: Props = $props();
 	let busy = $state(false);
+	// The last submit's refusal, from its result: shown when the page form has none.
+	let refused = $state<string | null>(null);
+	const error = $derived(message ?? refused);
 	let everyDays = $state(DEFAULT_EVERY_DAYS);
 </script>
 
@@ -23,16 +35,24 @@
 	<form
 		id="new-exercise"
 		method="POST"
-		action="?/createExercise"
+		action="/{dance}?/createExercise"
 		class="flex flex-col gap-3.5"
 		use:guarded={{
 			label: 'New exercise',
 			submit: () => {
 				busy = true;
+				refused = null;
 				return async ({ update, result }) => {
-					await update();
-					busy = false;
-					if (result.type === 'success') onclose();
+					try {
+						if (result.type === 'failure') {
+							const m = (result.data as { message?: unknown } | undefined)?.message;
+							refused = typeof m === 'string' ? m : 'Could not add the exercise.';
+						}
+						await update();
+						if (result.type === 'success') onclose();
+					} finally {
+						busy = false;
+					}
 				};
 			}
 		}}
@@ -47,13 +67,13 @@
 				placeholder="e.g. Son basic, clave clapping"
 				value={values?.name ?? ''}
 				class={FIELD}
-				aria-invalid={message ? 'true' : undefined}
-				aria-describedby={message ? 'new-exercise-error' : undefined}
+				aria-invalid={error ? 'true' : undefined}
+				aria-describedby={error ? 'new-exercise-error' : undefined}
 			/>
-			{#if message}
+			{#if error}
 				<p id="new-exercise-error" class={FIELD_ERROR} role="alert">
 					<Icon name="warning" size={16} />
-					<span>{message}</span>
+					<span>{error}</span>
 				</p>
 			{/if}
 		</div>

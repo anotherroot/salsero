@@ -170,7 +170,10 @@
 			<BandButton icon="close" label="Stop editing" onclick={stopEditing} />
 		{:else}
 			<BackButton
-				fallback={{ href: resolve('/[dance]', { dance: data.dance.slug }), label: 'Back to Today' }}
+				fallback={{
+					href: resolve('/[dance]/(today)', { dance: data.dance.slug }),
+					label: 'Back to Today'
+				}}
 			/>
 		{/if}
 	{/snippet}

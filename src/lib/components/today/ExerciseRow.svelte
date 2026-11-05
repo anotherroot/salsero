@@ -19,26 +19,42 @@
 		lessonDay: string | null;
 		/** The session's next row: tinted, with an "Up next" badge and an accent tile. */
 		upNext: boolean;
+		/** The exercise open beside the list (desktop): tinted, an accent bar at its left edge. */
+		current: boolean;
+		/** Appended to the row's link (a session's flag, on the desktop). */
+		search: string;
 		/** Open this exercise's log popup. */
 		onlog: () => void;
 	}
 
-	let { row, band, dance, lastRating, lessonDay, upNext, onlog }: Props = $props();
+	let { row, band, dance, lastRating, lessonDay, upNext, current, search, onlog }: Props = $props();
 
 	const ex = $derived(row.exercise);
 	const meta = $derived(rowMeta(row, band, lessonDay));
 	const TONE = { status: 'font-bold text-status', done: 'font-bold text-done' } as const;
 	// The "+" is an icon, so bare accent is allowed.
 	const plus = $derived(iconButton('bare', band === 'doneToday' ? 'done' : 'accent'));
+	// The Up next tint, or the open row's: both take the tinted tile and the darker meta.
+	const tinted = $derived(upNext || current);
+	const href = $derived(
+		resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(ex.id) }) + search
+	);
+	const lit = $derived(current ? ('page' as const) : undefined);
 </script>
 
-<li class="flex min-h-[66px] items-center pr-1.5 pl-4" class:bg-accent-soft={upNext}>
-	<!-- The row opens the exercise; the + logs. Logging is the thing done most, so it gets its own target. -->
-	<a
-		href={resolve('/[dance]/exercises/[id]', { dance, id: String(ex.id) })}
-		class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
-	>
-		<TypeTile exercise={ex} tone={tileTone(band, upNext)} onTint={upNext} />
+<li
+	class="flex min-h-[66px] items-center pr-1.5 pl-4 {current
+		? 'shadow-[inset_4px_0_0_var(--color-accent)]'
+		: ''}"
+	class:bg-accent-soft={tinted}
+>
+	<!--
+		The row opens the exercise; the + logs. Logging is the thing done most, so it gets its own
+		target. On the desktop the open exercise's form is beside the list: no +.
+	-->
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; search is the query -->
+	<a {href} aria-current={lit} class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1">
+		<TypeTile exercise={ex} tone={tileTone(band, upNext)} onTint={tinted} />
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<span
 				class="text-[16px] leading-[1.3] font-bold break-words {band === 'inactive'
@@ -49,7 +65,7 @@
 					>{/if}</span
 			>
 			<!-- muted is under 4.5:1 on the Up next tint; ink-2 clears it in every theme. -->
-			<span class="text-[13px] leading-[1.35] {upNext ? 'text-ink-2' : 'text-muted'}">
+			<span class="text-[13px] leading-[1.35] {tinted ? 'text-ink-2' : 'text-muted'}">
 				{#each meta as part, i (i)}{i > 0 ? ' · ' : ''}<span
 						class={part.tone ? TONE[part.tone] : ''}>{part.text}</span
 					>{/each}{#if lastRating !== null}<span
@@ -66,7 +82,12 @@
 		</span>
 	</a>
 
-	<button type="button" onclick={onlog} aria-label="Log a set of {ex.name}" class={plus}>
+	<button
+		type="button"
+		onclick={onlog}
+		aria-label="Log a set of {ex.name}"
+		class="{plus} desk:hidden"
+	>
 		<Icon name="plus" />
 	</button>
 </li>

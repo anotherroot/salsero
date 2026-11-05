@@ -49,6 +49,7 @@ const LISTS: Record<string, string> = {
 
 /** The band row's title over a list and its pane. */
 const PANE_TITLE: Record<ListId, string> = {
+	today: 'Today',
 	songs: 'Music',
 	figures: 'Moves',
 	routines: 'Moves',
@@ -58,7 +59,7 @@ const PANE_TITLE: Record<ListId, string> = {
 const DETAILS = new Set([
 	'/[dance]/lessons/[id]',
 	'/[dance]/songs/[id]',
-	'/[dance]/exercises/[id]',
+	'/[dance]/(today)/exercises/[id]',
 	'/[dance]/player',
 	'/[dance]/(moves)/positions/[id]',
 	'/[dance]/(moves)/positions/map'
@@ -91,7 +92,7 @@ export function skeletonFor(routeId: string | null | undefined): Skeleton | null
 
 function shapeFor(routeId: string | null | undefined): Shape | null {
 	if (!routeId) return null;
-	if (routeId === '/[dance]') return { kind: 'today' };
+	if (routeId === '/[dance]/(today)') return { kind: 'today' };
 	// Only a segment's own list draws the Moves band; the pages under Positions have their own.
 	const segment = segmentOf(routeId);
 	if (segment && SEGMENT_ROUTE[segment] === routeId) return { kind: 'moves', segment };

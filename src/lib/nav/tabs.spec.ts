@@ -28,7 +28,7 @@ describe('tabFor', () => {
 describe('showsTabs', () => {
 	it('shows the bar on the top-level and the pushed screens inside a dance', () => {
 		for (const id of [
-			'/[dance]',
+			'/[dance]/(today)',
 			'/[dance]/(moves)/figures',
 			'/[dance]/(moves)/routines',
 			'/[dance]/lessons',
@@ -39,7 +39,7 @@ describe('showsTabs', () => {
 			'/[dance]/groups',
 			'/[dance]/groups/[id]',
 			'/[dance]/songs/[id]',
-			'/[dance]/exercises/[id]',
+			'/[dance]/(today)/exercises/[id]',
 			'/[dance]/(moves)/positions',
 			'/[dance]/(moves)/coverage'
 		])
