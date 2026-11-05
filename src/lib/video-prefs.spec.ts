@@ -9,19 +9,23 @@ import {
 
 describe('parseVideoPrefs', () => {
 	it('reads back what was saved', () => {
-		expect(parseVideoPrefs('{"mirror":true,"rate":0.25,"hidden":true}')).toEqual({
+		expect(parseVideoPrefs('{"mirror":true,"rate":0.25,"hidden":true,"muted":true}')).toEqual({
 			mirror: true,
 			rate: 0.25,
-			hidden: true
+			hidden: true,
+			muted: true
 		});
+	});
+	it('reads an older save without muted as sound on', () => {
+		expect(parseVideoPrefs('{"mirror":true,"rate":0.25}').muted).toBe(false);
 	});
 	it('reads an older save without hidden as shown', () => {
 		expect(parseVideoPrefs('{"mirror":true,"rate":0.25}').hidden).toBe(false);
 	});
-	it.each([null, '', 'junk', '{"mirror":"yes","rate":3,"hidden":"yes"}'])(
+	it.each([null, '', 'junk', '{"mirror":"yes","rate":3,"hidden":"yes","muted":1}'])(
 		'falls back for %s',
 		(raw) => {
-			expect(parseVideoPrefs(raw)).toEqual({ mirror: false, rate: 1, hidden: false });
+			expect(parseVideoPrefs(raw)).toEqual({ mirror: false, rate: 1, hidden: false, muted: false });
 		}
 	);
 });
@@ -41,12 +45,17 @@ describe('saveVideoPrefs', () => {
 	it('merges what it is given over what is stored, so mirror never wipes Hide', () => {
 		fakeStorage('{"mirror":false,"rate":1,"hidden":true}');
 		saveVideoPrefs({ mirror: true });
-		expect(loadVideoPrefs()).toEqual({ mirror: true, rate: 1, hidden: true });
+		expect(loadVideoPrefs()).toEqual({ mirror: true, rate: 1, hidden: true, muted: false });
 	});
 	it('saves Hide alone', () => {
 		fakeStorage('{"mirror":true,"rate":0.5}');
 		saveVideoPrefs({ hidden: true });
-		expect(loadVideoPrefs()).toEqual({ mirror: true, rate: 0.5, hidden: true });
+		expect(loadVideoPrefs()).toEqual({ mirror: true, rate: 0.5, hidden: true, muted: false });
+	});
+	it('saves mute alone, keeping the rest', () => {
+		fakeStorage('{"mirror":true,"rate":0.5,"hidden":true}');
+		saveVideoPrefs({ muted: true });
+		expect(loadVideoPrefs()).toEqual({ mirror: true, rate: 0.5, hidden: true, muted: true });
 	});
 });
 

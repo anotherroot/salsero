@@ -6,6 +6,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { longDayLabel } from '$lib/format';
 	import type { MediaProblem } from '$lib/media';
 	import { lessonVideoCaption } from '$lib/video/caption';
@@ -75,6 +76,8 @@
 					<VideoFrame
 						src="/lesson-videos/{video.file}"
 						{canEdit}
+						linking={canEdit}
+						onclosed={() => void refreshWhenSettled()}
 						sourceUrl={video.sourceUrl}
 						owner={{ lessonVideoId: video.id }}
 						caption={lessonVideoCaption(i, video)}

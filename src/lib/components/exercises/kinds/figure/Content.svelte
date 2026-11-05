@@ -5,6 +5,7 @@
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import LinkedText from '$lib/components/ui/LinkedText.svelte';
 	import VideoFrame from '$lib/components/ui/VideoFrame.svelte';
+	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import SectionCard from '$lib/components/ui/SectionCard.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { recordingCaption } from '$lib/video/caption';
@@ -34,6 +35,8 @@
 					<VideoFrame
 						src="/recordings/{rec.file}"
 						{canEdit}
+						linking={canEdit}
+						onclosed={() => void refreshWhenSettled()}
 						sourceUrl={rec.sourceUrl}
 						kind={rec.kind}
 						owner={{ recordingId: rec.id }}

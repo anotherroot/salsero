@@ -65,6 +65,7 @@ describe('the popup’s view rules', () => {
 	it('puts a refusal under the field it names, if the step shows it', () => {
 		expect(refusalAt('variation', 'name')).toBe('name');
 		expect(refusalAt('variation', 'groupId')).toBe('groupId');
+		expect(refusalAt('variation', 'style')).toBe('style');
 		expect(refusalAt('figure', 'figureName')).toBe('figureName');
 		expect(refusalAt('figure', 'style')).toBe('style');
 		expect(refusalAt('drill', 'name')).toBe('name');

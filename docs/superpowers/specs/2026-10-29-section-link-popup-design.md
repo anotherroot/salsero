@@ -124,6 +124,11 @@ Mine, shown in the mockup and approved with it:
   variation (lowest id), and is otherwise blank, as `createVariationIn`
   makes it. This differs from the lesson sheet's "Variation of a figure",
   which asks for partner and style. That form stays as it is.
+  *Since 2026-11-05* the popup asks too: the variation step shows **Danced**
+  and **Style**, filled from the chosen move's first figure
+  (`LinkFigureChoice.partner` / `.style`) and refilled when another move is
+  picked. The body carries both or neither; neither (a page opened before)
+  keeps the copy. A style of another dance is refused under Style.
 - Drills behave like variations: created from the popup, and shown on the
   lesson through a section (see "Lessons" below).
 - A lesson figure row that is there **through a section** carries a "via
@@ -182,7 +187,8 @@ subtitle says where it goes: "Linked to 0:42–0:55 and to Cubana class", or
 - **New variation:** *Figure*, a field that opens the shared picker (the same one Move to… uses).
   From a lesson video, the figures that this lesson's variations belong to
   come first. From a recording, the recording's own figure comes first.
-  Then *Variation name*. **Create and link.** It is refused, with the message
+  Then *Variation name*, *Danced* and *Style* (2026-11-05: filled from the
+  figure's first variation). **Create and link.** It is refused, with the message
   in the popup, when the name is taken in that figure ("Enchufla already has
   a Doble.").
 - **New figure:** *Figure name*, *Variation name* (starts "Basic"),
