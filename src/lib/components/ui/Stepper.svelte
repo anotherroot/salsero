@@ -12,6 +12,8 @@
 		unit?: string;
 		minusLabel?: string;
 		plusLabel?: string;
+		/** Fired with the new value after a typed entry, − or +. */
+		onchange?: (value: number) => void;
 	}
 
 	let {
@@ -22,15 +24,25 @@
 		label,
 		unit,
 		minusLabel = 'Slower',
-		plusLabel = 'Faster'
+		plusLabel = 'Faster',
+		onchange
 	}: Props = $props();
 
 	const clamp = (n: number) => Math.min(max, Math.max(min, n));
 
+	function bump(by: number) {
+		value = clamp(value + by);
+		onchange?.(value);
+	}
+
 	function commit(e: Event & { currentTarget: HTMLInputElement }) {
 		const n = Number(e.currentTarget.value);
 		if (Number.isFinite(n) && e.currentTarget.value.trim() !== '') {
-			value = clamp(Math.round(n));
+			const next = clamp(Math.round(n));
+			if (next !== value) {
+				value = next;
+				onchange?.(value);
+			}
 		}
 		// Show the settled value even when it did not change (a rejected entry snaps back).
 		e.currentTarget.value = String(value);
@@ -53,7 +65,7 @@
 		class={iconButton('step')}
 		aria-label={minusLabel}
 		disabled={value <= min}
-		onclick={() => (value = clamp(value - step))}
+		onclick={() => bump(-step)}
 	>
 		<Icon name="minus" size={20} />
 	</button>
@@ -62,7 +74,7 @@
 		class={iconButton('step')}
 		aria-label={plusLabel}
 		disabled={value >= max}
-		onclick={() => (value = clamp(value + step))}
+		onclick={() => bump(step)}
 	>
 		<Icon name="plus" size={20} />
 	</button>

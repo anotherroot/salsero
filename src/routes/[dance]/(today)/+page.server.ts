@@ -4,6 +4,7 @@ import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/s
 import { int, optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
+import { PickRefused, addPicks, removePick } from '$lib/server/today-picks';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
 import { isFrequency } from '$lib/frequency';
 import type { Actions, PageServerLoad } from './$types';
@@ -61,6 +62,34 @@ export const actions: Actions = {
 	log: (event) => logSetFrom(event),
 	deleteSet: (event) => deleteSetFrom(event),
 	restoreSet: (event) => restoreSetFrom(event),
+
+	/** Put an exercise on today's list by hand (`add`) or take it off for today (`skip`). */
+	pick: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const form = await request.formData();
+		const exerciseId = int(form, 'exerciseId');
+		const kind = form.get('kind');
+		if (exerciseId === undefined || (kind !== 'add' && kind !== 'skip')) {
+			return fail(400, { action: 'pick', message: 'Pick an exercise to add or skip.' });
+		}
+		const now = Date.now();
+		try {
+			const pickIds = addPicks(getDb(), wall, [exerciseId], localDay(now, zone(locals)), kind, now);
+			return { action: 'pick', pickIds };
+		} catch (e) {
+			if (e instanceof PickRefused) return fail(400, { action: 'pick', message: e.message });
+			throw e;
+		}
+	},
+
+	/** Undo a pick. */
+	unpick: async ({ params, request, locals }) => {
+		const wall = wallOf(params, locals);
+		const pickId = int(await request.formData(), 'pickId');
+		if (pickId === undefined) return fail(400, { action: 'unpick', message: 'No such pick.' });
+		removePick(getDb(), wall, pickId);
+		return { action: 'unpick', ok: true };
+	},
 
 	createExercise: async ({ params, request, locals }) => {
 		const wall = wallOf(params, locals);
