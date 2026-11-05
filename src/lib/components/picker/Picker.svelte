@@ -19,6 +19,7 @@
 	 * player's <dialog>, which carries the media palette. Token classes only.
 	 */
 	import { untrack, type Snippet } from 'svelte';
+	import { desk } from '$lib/nav/desk.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import PlayerLayer from '$lib/components/ui/PlayerLayer.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -144,10 +145,11 @@
 		if (open) query = '';
 	});
 
-	// Focus the search only with a mouse: on a phone the keyboard would cover
-	// the list, which is what the picker was opened to see.
+	// Focus the search on desktop (no on-screen keyboard) or with a mouse: on a
+	// phone the keyboard would cover the list, which is what the picker was opened to see.
 	$effect(() => {
-		if (search && !loading && !failed && matchMedia('(pointer: fine)').matches) search.focus();
+		if (search && !loading && !failed && (desk.current || matchMedia('(pointer: fine)').matches))
+			search.focus();
 	});
 
 	const lines = $derived(shown(groups, prefiltered ? '' : query));

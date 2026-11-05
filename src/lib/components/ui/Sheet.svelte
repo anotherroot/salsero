@@ -1,3 +1,31 @@
+<script lang="ts" module>
+	/**
+	 * The open sheets' dialogs, lowest first. On desktop a stacked level sits at
+	 * the same place and size as the one below, so the top one draws no scrim of
+	 * its own (`data-stacked`) and the one below no shadow (`data-under`): one
+	 * scrim, one shadow. Only CSS under 1024 px's line reads the attributes.
+	 */
+	const openDialogs: HTMLDialogElement[] = [];
+
+	function mark(): void {
+		openDialogs.forEach((d, i) => {
+			d.toggleAttribute('data-under', i < openDialogs.length - 1);
+			d.toggleAttribute('data-stacked', i > 0 && i === openDialogs.length - 1);
+		});
+	}
+
+	function track(d: HTMLDialogElement, on: boolean): void {
+		const i = openDialogs.indexOf(d);
+		if (on && i < 0) openDialogs.push(d);
+		if (!on && i >= 0) {
+			openDialogs.splice(i, 1);
+			d.removeAttribute('data-under');
+			d.removeAttribute('data-stacked');
+		}
+		mark();
+	}
+</script>
+
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { leaveOrAsk } from '$lib/unsaved/guard.svelte';
@@ -24,16 +52,32 @@
 		actions?: Snippet;
 		/** Fixed at 88dvh, so the footer sits at the bottom however short the body; the body ends in a fade. */
 		tall?: boolean;
+		/** Desktop only: a 480 px dialog (a menu, a small form) in place of 560. Below 1024 px it changes nothing. */
+		size?: 'small';
 	}
 
-	let { title, open, onclose, children, back, footer, sub, toast, subtitle, actions, tall }: Props =
-		$props();
+	let {
+		title,
+		open,
+		onclose,
+		children,
+		back,
+		footer,
+		sub,
+		toast,
+		subtitle,
+		actions,
+		tall,
+		size
+	}: Props = $props();
 	/** The footer's height, so the toast can sit just above it. */
 	let footerH = $state(0);
 	let dialog: HTMLDialogElement | undefined = $state();
 	let header: HTMLElement | undefined = $state();
 	/** This sheet's place in the stack while it is open. Not state: nothing renders from it. */
 	let key: number | null = null;
+	/** The element `track`ed, kept apart from `dialog` so an unmount can still untrack it. */
+	let tracked: HTMLDialogElement | null = null;
 
 	/*
 	 * A native <dialog> opened with showModal(): focus is trapped, Escape closes,
@@ -48,6 +92,8 @@
 		if (open && !dialog.open) {
 			dialog.showModal();
 			const d = dialog;
+			track(d, true);
+			tracked = d;
 			// showModal focuses the first control, which may be a header action (the
 			// log popup's Skip): a stray Enter would act on it. Start on × (or Back)
 			// instead, unless the content asked for focus itself (`autofocus`).
@@ -71,6 +117,8 @@
 
 	/** Closed by its owner, or unmounted while open: its entry goes too. */
 	function release() {
+		if (tracked) track(tracked, false);
+		tracked = null;
 		if (key === null) return;
 		const k = key;
 		key = null;
@@ -93,6 +141,7 @@
 <dialog
 	bind:this={dialog}
 	class:tall
+	class:small={size === 'small'}
 	aria-label={title}
 	onclose={() => {
 		// Closed by the browser itself (a close request it would not let us cancel).
@@ -114,9 +163,9 @@
 		<div class="grabber" aria-hidden="true"></div>
 		<header
 			bind:this={header}
-			class="flex min-h-11 gap-1 pr-4 pb-1 {back ? 'pl-2' : 'pl-4'} {subtitle
-				? 'items-start'
-				: 'items-center'}"
+			class="flex min-h-11 gap-1 pr-4 pb-1 desk:pr-7 {back
+				? 'pl-2 desk:pl-5'
+				: 'pl-4 desk:pl-6'} {subtitle ? 'items-start' : 'items-center'}"
 		>
 			{#if back}
 				<button
@@ -157,7 +206,7 @@
 				</button>
 			{/if}
 		</header>
-		<div class="body px-4 pt-3 pb-2">
+		<div class="body px-4 pt-3 pb-2 desk:px-7">
 			<!-- Grows to fill a tall body, so the fade lands at the body's bottom, not on the last line. -->
 			<div class="flex-[1_0_auto]">
 				{#if open}{@render children()}{/if}
@@ -166,7 +215,7 @@
 		</div>
 		{#if footer}
 			<div
-				class="flex flex-col gap-2 border-t border-hairline px-4 pt-3"
+				class="flex flex-col gap-2 border-t border-hairline px-4 pt-3 desk:px-7"
 				bind:clientHeight={footerH}
 			>
 				{@render footer()}
@@ -252,6 +301,59 @@
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
+	}
+
+	/*
+	 * Desktop (from 1024 px, the same line as the `desk:` variant in
+	 * routes/layout.css; a component's style cannot use that variant): a centred
+	 * dialog. The side padding (28) is the `desk:px-7` classes above.
+	 */
+	@media (width >= 1024px) {
+		dialog {
+			width: 560px;
+			max-width: calc(100vw - 32px);
+			max-height: min(780px, 100dvh - 64px);
+			box-shadow: 0 24px 70px rgb(0 0 0 / 0.32);
+		}
+
+		dialog.small {
+			width: 480px;
+		}
+
+		dialog.tall {
+			height: min(780px, 100dvh - 64px);
+		}
+
+		dialog:global([data-under]) {
+			box-shadow: none;
+		}
+
+		dialog:global([data-stacked])::backdrop {
+			background: transparent;
+		}
+
+		dialog[open] {
+			animation-name: pop;
+		}
+
+		.grabber {
+			display: none;
+		}
+
+		.inner {
+			padding-top: 20px;
+		}
+
+		.fade {
+			margin: -28px -28px 0;
+		}
+	}
+
+	@keyframes pop {
+		from {
+			transform: scale(0.97);
+			opacity: 0;
+		}
 	}
 
 	@keyframes rise {

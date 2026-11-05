@@ -139,22 +139,26 @@
 	}}
 >
 	{#if shape === 'sheet'}
-		<!-- Keep these classes in step with Sheet.svelte's dialog, header, body, fade and footer. -->
+		<!-- Keep these classes (and its desk: dialog geometry) in step with Sheet.svelte's dialog, header, body, fade and footer. -->
 		<div
 			bind:this={panel}
 			role="dialog"
 			aria-modal="true"
 			aria-label={title}
 			tabindex="-1"
-			class="panel sheet-panel mx-auto flex max-h-[88%] w-full max-w-[560px] flex-col overflow-clip rounded-t-[28px] bg-sheet pt-2 pb-[max(var(--safe-bottom),16px)] text-ink sm:my-auto sm:rounded-[28px] {tall
-				? 'h-[88%]'
+			class="panel sheet-panel mx-auto flex max-h-[88%] w-full max-w-[560px] flex-col overflow-clip rounded-t-[28px] bg-sheet pt-2 pb-[max(var(--safe-bottom),16px)] text-ink sm:my-auto sm:rounded-[28px] desk:max-h-[min(780px,calc(100%-64px))] desk:w-[560px] desk:max-w-[calc(100%-32px)] desk:pt-5 {tall
+				? 'h-[88%] desk:h-[min(780px,calc(100%-64px))]'
 				: ''}"
 		>
 			<div
-				class="mx-auto mb-0.5 h-[5px] w-10 flex-none rounded-[3px] bg-field-line"
+				class="mx-auto mb-0.5 h-[5px] w-10 flex-none rounded-[3px] bg-field-line desk:hidden"
 				aria-hidden="true"
 			></div>
-			<header class="flex min-h-11 items-center gap-1 pr-4 pb-1 {back ? 'pl-2' : 'pl-4'}">
+			<header
+				class="flex min-h-11 items-center gap-1 pr-4 pb-1 desk:pr-7 {back
+					? 'pl-2 desk:pl-5'
+					: 'pl-4 desk:pl-6'}"
+			>
 				{#if back}
 					<button type="button" class={iconButton('bare')} aria-label="Back" onclick={onclose}>
 						<Icon name="back" />
@@ -175,19 +179,19 @@
 					</button>
 				{/if}
 			</header>
-			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-2">
+			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-3 pb-2 desk:px-7">
 				<div class="flex-[1_0_auto]">
 					{#if children}{@render children()}{/if}
 				</div>
 				{#if tall}
 					<div
-						class="pointer-events-none sticky -bottom-2 -mx-4 -mt-7 h-7 bg-linear-to-b from-transparent to-sheet"
+						class="pointer-events-none sticky -bottom-2 -mx-4 -mt-7 h-7 bg-linear-to-b from-transparent to-sheet desk:-mx-7"
 						aria-hidden="true"
 					></div>
 				{/if}
 			</div>
 			{#if footer}
-				<div class="flex flex-col gap-2 border-t border-hairline px-4 pt-3">
+				<div class="flex flex-col gap-2 border-t border-hairline px-4 pt-3 desk:px-7">
 					{@render footer()}
 				</div>
 			{/if}
@@ -246,6 +250,13 @@
 
 	.sheet-panel {
 		box-shadow: 0 -8px 30px rgb(0 0 0 / 0.18);
+	}
+
+	/* Desktop dialog look: the same 1024 px line as Sheet.svelte and the `desk:` variant. */
+	@media (width >= 1024px) {
+		.sheet-panel {
+			box-shadow: 0 24px 70px rgb(0 0 0 / 0.32);
+		}
 	}
 
 	.dialog-panel {

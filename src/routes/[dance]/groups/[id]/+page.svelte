@@ -199,7 +199,7 @@
 	</button>
 {/snippet}
 
-<Sheet title={data.team.name} open={menu} onclose={() => (menu = false)}>
+<Sheet title={data.team.name} open={menu} onclose={() => (menu = false)} size="small">
 	<div class={GROUP}>
 		<a
 			href={resolve('/[dance]/groups/[id]/people', {

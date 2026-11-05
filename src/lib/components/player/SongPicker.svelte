@@ -11,6 +11,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { desk } from '$lib/nav/desk.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import SampleButton from '$lib/components/songs/SampleButton.svelte';
 	import SearchField from '$lib/components/ui/SearchField.svelte';
@@ -68,7 +69,7 @@
 	// Focus the search only with a mouse: on a phone the keyboard would cover
 	// the list, which is what the popup was opened to see and sample.
 	$effect(() => {
-		if (search && matchMedia('(pointer: fine)').matches) search.focus();
+		if (search && (desk.current || matchMedia('(pointer: fine)').matches)) search.focus();
 	});
 
 	// A sample keeps playing while typing only while its row is still listed:
