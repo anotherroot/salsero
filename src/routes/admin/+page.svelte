@@ -67,7 +67,7 @@
 
 <svelte:head><title>Admin</title></svelte:head>
 
-<Screen title="Admin">
+<Screen title="Admin" width="two">
 	{#snippet left()}
 		<BandButton icon="back" label="Back to Settings" href="/settings" />
 	{/snippet}
@@ -76,146 +76,158 @@
 		{limitsLine(data.limitsTotalBytes, data.freeBytes)}
 	</p>
 
-	{#if data.requests.length > 0}
-		<span class={SECTION_LABEL}>Waiting</span>
-		{#each data.requests as r (r.id)}
-			<div class="{GROUP} flex flex-col gap-3 p-4">
-				<div class="flex flex-col">
-					<span class="text-[16px] font-bold break-all text-ink">{requestTitle(r)}</span>
-					<span class="text-[13px] text-muted">{requestUsesLine(r.usedBytes, r.limitBytes)}</span>
-					{#if r.note}<p class="mt-1 text-[14px] break-words whitespace-pre-wrap text-ink-2">
-							{r.note}
-						</p>{/if}
-				</div>
-				<form
-					method="POST"
-					action="?/grant"
-					class="flex flex-col gap-3"
-					use:guarded={{
-						label: 'Give more',
-						submit: ({ cancel }) => {
-							if (sending) return cancel();
-							sending = true;
-							requestErrors[r.id] = '';
-							return async ({ result, update }) => {
-								if (result.type === 'failure')
-									requestErrors[r.id] = String(result.data?.message ?? 'It did not save.');
-								try {
-									await update();
-								} finally {
-									sending = false;
+	<div class="contents desk:grid desk:grid-cols-2 desk:items-start desk:gap-8">
+		<div class="contents desk:flex desk:flex-col desk:gap-2">
+			{#if data.requests.length > 0}
+				<span class={SECTION_LABEL}>Waiting</span>
+				{#each data.requests as r (r.id)}
+					<div class="{GROUP} flex flex-col gap-3 p-4">
+						<div class="flex flex-col">
+							<span class="text-[16px] font-bold break-all text-ink">{requestTitle(r)}</span>
+							<span class="text-[13px] text-muted"
+								>{requestUsesLine(r.usedBytes, r.limitBytes)}</span
+							>
+							{#if r.note}<p class="mt-1 text-[14px] break-words whitespace-pre-wrap text-ink-2">
+									{r.note}
+								</p>{/if}
+						</div>
+						<form
+							method="POST"
+							action="?/grant"
+							class="flex flex-col gap-3"
+							use:guarded={{
+								label: 'Give more',
+								submit: ({ cancel }) => {
+									if (sending) return cancel();
+									sending = true;
+									requestErrors[r.id] = '';
+									return async ({ result, update }) => {
+										if (result.type === 'failure')
+											requestErrors[r.id] = String(result.data?.message ?? 'It did not save.');
+										try {
+											await update();
+										} finally {
+											sending = false;
+										}
+									};
 								}
-							};
-						}
-					}}
-				>
-					<input type="hidden" name="id" value={r.id} />
-					{@render limitFields()}
-					<button type="submit" class={button('primary', 'md', true)} aria-busy={sending}>
-						Give more
-					</button>
-				</form>
-				<form
-					method="POST"
-					action="?/decline"
-					use:enhance={({ cancel }) => {
-						if (sending) return cancel();
-						sending = true;
-						requestErrors[r.id] = '';
-						return async ({ result, update }) => {
-							if (result.type === 'failure')
-								requestErrors[r.id] = String(result.data?.message ?? 'It did not save.');
-							try {
-								await update();
-							} finally {
-								sending = false;
-							}
-						};
-					}}
-				>
-					<input type="hidden" name="id" value={r.id} />
-					<button type="submit" class={button('tertiary', 'md', true)}>Decline</button>
-				</form>
-				{#if requestErrors[r.id]}<Banner kind="error" title={requestErrors[r.id]} />{/if}
-			</div>
-		{/each}
-	{/if}
+							}}
+						>
+							<input type="hidden" name="id" value={r.id} />
+							{@render limitFields()}
+							<button type="submit" class={button('primary', 'md', true)} aria-busy={sending}>
+								Give more
+							</button>
+						</form>
+						<form
+							method="POST"
+							action="?/decline"
+							use:enhance={({ cancel }) => {
+								if (sending) return cancel();
+								sending = true;
+								requestErrors[r.id] = '';
+								return async ({ result, update }) => {
+									if (result.type === 'failure')
+										requestErrors[r.id] = String(result.data?.message ?? 'It did not save.');
+									try {
+										await update();
+									} finally {
+										sending = false;
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="id" value={r.id} />
+							<button type="submit" class={button('tertiary', 'md', true)}>Decline</button>
+						</form>
+						{#if requestErrors[r.id]}<Banner kind="error" title={requestErrors[r.id]} />{/if}
+					</div>
+				{/each}
+			{/if}
 
-	<span class={SECTION_LABEL}>Invite someone</span>
-	<form
-		method="POST"
-		action="?/invite"
-		class={GROUP}
-		use:enhance={({ cancel }) => {
-			if (busy) return cancel();
-			busy = true;
-			error = '';
-			return async ({ result }) => {
-				busy = false;
-				if (result.type === 'success' && result.data) {
-					invite = result.data as NonNullable<typeof invite>;
-					copied = false;
-				} else error = 'Could not make an invite.';
-			};
-		}}
-	>
-		<button class="{ROW_TALL} w-full text-left" aria-busy={busy}>
-			<LeadTile icon="plus" />
-			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-[16px] font-bold text-ink">Invite someone</span>
-				<span class="text-[13px] text-muted">One link, works once, for 24 hours</span>
-			</span>
-			{#if busy}<Spinner size={20} />{/if}
-		</button>
-	</form>
-	{#if error}<Banner kind="error" title={error} />{/if}
-
-	<span class="{SECTION_LABEL} mt-[14px]">Groups</span>
-	{#if data.groups.length === 0}
-		<p class="px-4 text-[14px] text-muted">No groups yet.</p>
-	{:else}
-		<div class={GROUP}>
-			{#each data.groups as g (g.id)}
-				<button
-					type="button"
-					class="{ROW_TALL} w-full text-left"
-					onclick={() => {
-						formError = '';
-						group = g;
-					}}
-				>
-					<span class="flex min-w-0 flex-1 flex-col">
-						<span class="text-[16px] font-bold break-words text-ink">{g.name}</span>
-						<span class="text-[13px] text-muted">{g.dance} · {groupMeta(g)}</span>
-					</span>
-					<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-				</button>
-			{/each}
-		</div>
-	{/if}
-
-	<span class="{SECTION_LABEL} mt-[14px]">People</span>
-	<div class={GROUP}>
-		{#each data.people as p (p.id)}
-			<button
-				type="button"
-				class="{ROW_TALL} w-full text-left"
-				onclick={() => {
-					formError = '';
-					person = p;
+			<span class={SECTION_LABEL}>Invite someone</span>
+			<form
+				method="POST"
+				action="?/invite"
+				class={GROUP}
+				use:enhance={({ cancel }) => {
+					if (busy) return cancel();
+					busy = true;
+					error = '';
+					return async ({ result }) => {
+						busy = false;
+						if (result.type === 'success' && result.data) {
+							invite = result.data as NonNullable<typeof invite>;
+							copied = false;
+						} else error = 'Could not make an invite.';
+					};
 				}}
 			>
-				<span class="flex min-w-0 flex-1 flex-col">
-					<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
-					<span class="text-[13px] text-muted">{personMeta(p)}</span>
-					<span class="text-[13px] text-muted">{groupsMadeLine(p.groupsMade, p.groupLimit)}</span>
-					{#each p.apps as line (line)}
-						<span class="text-[13px] text-muted">{line}</span>
+				<button class="{ROW_TALL} w-full text-left" aria-busy={busy}>
+					<LeadTile icon="plus" />
+					<span class="flex min-w-0 flex-1 flex-col">
+						<span class="text-[16px] font-bold text-ink">Invite someone</span>
+						<span class="text-[13px] text-muted">One link, works once, for 24 hours</span>
+					</span>
+					{#if busy}<Spinner size={20} />{/if}
+				</button>
+			</form>
+			{#if error}<Banner kind="error" title={error} />{/if}
+		</div>
+
+		<div class="contents desk:flex desk:flex-col desk:gap-2">
+			<span class="{SECTION_LABEL} mt-[14px] desk:mt-0">Groups</span>
+			{#if data.groups.length === 0}
+				<p class="px-4 text-[14px] text-muted">No groups yet.</p>
+			{:else}
+				<div class={GROUP}>
+					{#each data.groups as g (g.id)}
+						<button
+							type="button"
+							class="{ROW_TALL} w-full text-left"
+							onclick={() => {
+								formError = '';
+								group = g;
+							}}
+						>
+							<span class="flex min-w-0 flex-1 flex-col">
+								<span class="text-[16px] font-bold break-words text-ink">{g.name}</span>
+								<span class="text-[13px] text-muted">{g.dance} · {groupMeta(g)}</span>
+							</span>
+							<span class="flex flex-none text-chevron"
+								><Icon name="chevron-right" size={20} /></span
+							>
+						</button>
 					{/each}
-				</span>
-				<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
-			</button>
-		{/each}
+				</div>
+			{/if}
+
+			<span class="{SECTION_LABEL} mt-[14px]">People</span>
+			<div class={GROUP}>
+				{#each data.people as p (p.id)}
+					<button
+						type="button"
+						class="{ROW_TALL} w-full text-left"
+						onclick={() => {
+							formError = '';
+							person = p;
+						}}
+					>
+						<span class="flex min-w-0 flex-1 flex-col">
+							<span class="text-[16px] font-bold break-all text-ink">{p.email}</span>
+							<span class="text-[13px] text-muted">{personMeta(p)}</span>
+							<span class="text-[13px] text-muted"
+								>{groupsMadeLine(p.groupsMade, p.groupLimit)}</span
+							>
+							{#each p.apps as line (line)}
+								<span class="text-[13px] text-muted">{line}</span>
+							{/each}
+						</span>
+						<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</button>
+				{/each}
+			</div>
+		</div>
 	</div>
 </Screen>
 
