@@ -1,8 +1,7 @@
 # Today: a number a day, four faces, and Anki-style scheduling
 
-Status: designed with the user 2026-11-05. Not built. Built on the
-`desktop-view` branch (the desktop frame and Today pane it assumes are there,
-not yet on master); it merges after desktop does. Part 1 of three from the
+Status: designed with the user 2026-11-05. Not built. Builds on master with
+the desktop layout (merged 2026-11-05). Part 1 of three from the
 "app for people who just follow their class" brainstorm; parts 2 (the levels
 and the simple screens) and 3 (comments on lessons) get their own specs.
 
