@@ -171,15 +171,32 @@ src/lib/server/positions-move.ts  the one-time boot move: the old shared positio
 src/lib/server/position-links.ts  sections and points linked to positions
                      (`spot_position_links`): link, unlink (a group's to Recently deleted),
                      and what a position's page lists (its spots, linkable spots, its lessons)
-src/routes/[dance]/positions/  the list (Moves' third segment); [id] a position's page;
-                     none the figures with no position; map the map.
+src/routes/[dance]/(moves)/positions/  the list (Moves' third segment); [id] a position's page;
+                     none the figures with no position; map the map (all under the `(moves)` group,
+                     below)
                      src/routes/api/positions is the figure picker's New position (JSON)
 src/lib/components/positions/  the New / Edit position sheet and its fields, Templates,
-                     How positions work, a list row, a point's still and card, the map,
-                     a position page's link picker
+                     How positions work (`HowBody`: the sheet's and the first-run pane's body),
+                     a list row, a point's still and card, the map and its pane (`MapPane`),
+                     a position page's link picker. `PositionForm` is one form, drawn in the
+                     sheet or in place on the desktop, its edit mode fixed at its start
+                     (`mode`, not derived)
 src/lib/moves/       PURE: what the Moves lists show — figures under their move's heading, filter
                      chips, empty states, meta words, gaps, pick order; a move's page lines
                      (move-page.ts). Client-safe
+                     filter.ts is the Figures list's filter (chips, search, the entered set).
+                     segment.ts the three segments, pane.ts the empty pane's words and keeping
+                     the lit row in view, routines.ts the Routines list's shape. PURE
+src/lib/positions/filter.ts  PURE: the Positions list's search, chips and gaps, from the
+                     unfiltered rows. pick.ts: the map's first pick from `?pick=`. Client-safe
+src/lib/nav/moves-pane.ts  PURE: which Moves list sits beside an item (`besideOf`) and which row
+                     is lit (`OpenRow`: figure, move, routine, position, Coverage, No position,
+                     the Map row), from the route, the path and the opener. The Figures
+                     list owns a move's page and Coverage
+src/lib/server/moves-lists.ts  the three Moves lists, loaded UNFILTERED by the `(moves)` layout
+                     (namespaced; `depends('app:moves')`, so a change not made by a form calls
+                     `invalidate('app:moves')`); filtering happens in the client (`filter.ts`)
+src/lib/server/positions-map.ts  the map's data: layout, tray, legend, per space
 src/lib/routines/    PURE routine algebra: slots, variants, breaks, whether it
                      loops, the routine as the player's plan, coverage
                      (which routines can call each version), which routines use a
@@ -219,7 +236,8 @@ src/lib/components/picker/  Picker.svelte (the sheet, light or dark) and
                      components/figures/PositionTags.svelte is a figure's Starts in / Ends in
 src/lib/components/ui/PlayerLayer.svelte  a Sheet or Dialog as an overlay inside the
                      full-screen player (`.theme-media`), not a second top-layer dialog
-src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts.
+src/lib/gestures/    PURE drag and swipe arithmetic, DOM-free like longpress.ts. edges.ts is
+                     where a drag's auto-scroll zones are (band row and tab bar aware)
                      Client-safe
 src/lib/unsaved/     what leaving would lose: fingerprint.ts and pending.ts are PURE;
                      guard.svelte.ts is the live list, `use:guarded`, and the
@@ -416,7 +434,15 @@ src/lib/server/storage.ts  what a person uses (computed from size columns, never
 src/lib/server/invites.ts  one-time invites and joining with one
 src/routes/admin/    the admin page: people, limits, invites, requests for more space
 src/routes/join/     Join: a person creates their account from an invite link (public)
-src/routes/[dance]/moves/[id]  a move's page: its figures, rename, New figure
+src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figures / Routines /
+                     Positions switch, the three lists in a 360 column beside the open item,
+                     `(moves)/+layout.svelte` and `+layout.server.ts`; routes figures, moves/[id]
+                     (a move's page: its figures, rename, New figure), coverage, routines and
+                     positions (above) live in it. `components/ui/PaneColumns.svelte` is a
+                     pane's two columns (`two:` on its `cols` container, not on the pane),
+                     `components/figures/FigureTabs.svelte` the figure's tabs on desk, `components/shell/PaneHeading.svelte`
+                     a pane's heading row; there is
+                     no MovesScreen (the layout and the lists replace it)
 src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
                      people, storage, History and Recently deleted
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
@@ -443,7 +469,7 @@ src/lib/*.ts         client-safe: labels, frequency presets, limits, format (dat
                      message and the "removed · Undo" toast Settings and My count share.
                      focus.ts: where focus goes after a one-tap removal (`focusAfterRemoval`)
 src/lib/components/  ui/ shell/ today/ figures/ lessons/ songs/ player/
-                     exercises/ links/ routines/ moves/ (the Moves band and its tiles) system/
+                     exercises/ links/ routines/ moves/ (the three Moves lists, `moves-context.ts`, the tiles) system/
                      (error, offline, choice sheet, status block, lead tile) clones/ (the source
                      tabs and the clone and twin sheets) teams/ (Add, the code, Leave).
                      ui/styles.ts holds the class builders: `button(kind, size, full)`,

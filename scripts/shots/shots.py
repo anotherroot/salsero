@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-DANCE = "salsa"
+DANCE = os.environ.get("SHOTS_DANCE", "salsa")
 # The one instant every run pretends it is (server via libfaketime, browser via page clock), so time-relative
 # content (due today, 2 days ago, yesterday) is the same whatever day a run happens. Kept in instant.txt (UTC),
 # which shots.sh reads too.

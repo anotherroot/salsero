@@ -16,6 +16,7 @@ answers it prints the server log and exits 1. It exits 1 too if any page is not 
 `--viewport` shoots the window only, not the full page: on the desktop the band row and the side are fixed and
 a full-page shot draws them once at the top, so desktop pages are compared with their boards (1440×900) this way.
 Phone baselines stay full-page.
+`SHOTS_DANCE=bachata` (an environment variable) shoots the other dance: `{dance}` and the placeholders use it.
 `--no-session` shoots without the cookie (the signed-out pages: `pages-signed-out.txt`); `--unnamed` clears the
 admin's name in the copy, so pages send them to `/welcome` (`pages-welcome.txt`). `pages-card.txt` is the
 other card pages and the error pages, signed in.
