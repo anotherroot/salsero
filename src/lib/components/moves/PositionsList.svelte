@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { keepFilter, keptFilter } from '$lib/nav/trail.svelte';
-	import { revealLit } from './moves-context';
+	import { getMoves, revealLit, revealPicked } from './moves-context';
 	import { desk } from '$lib/nav/desk.svelte';
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
@@ -15,7 +15,12 @@
 	import HowSheet from '$lib/components/positions/HowSheet.svelte';
 	import { CHIP, GROUP, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { groupHeading } from '$lib/moves/figures';
-	import { parsePositionFilter, positionsView, type PositionsLists } from '$lib/positions/filter';
+	import {
+		nothingAt,
+		parsePositionFilter,
+		positionsView,
+		type PositionsLists
+	} from '$lib/positions/filter';
 	import {
 		EMPTY,
 		EMPTY_ACTIONS,
@@ -111,7 +116,7 @@
 	);
 	const noneCount = $derived(l.none.none + l.none.onlyStart + l.none.onlyEnd);
 	// Nobody has any: no positions of the space's own or of a group, and nothing narrows the list.
-	const nothing = $derived(!filtered && view.rows.length === 0 && view.groups.length === 0);
+	const nothing = $derived(nothingAt(l, filter));
 
 	// What is typed; follows the filter when it changes under it.
 	let q = $derived(filter.q);
@@ -154,6 +159,15 @@
 
 	const isOpen = (id: number) => open?.kind === 'position' && open.id === id;
 	const noneOpen = $derived(open?.kind === 'no-position');
+	const mapOpen = $derived(open?.kind === 'map');
+
+	// The map shows beside the list (desktop): its picked position's row is lit and in view.
+	const moves = getMoves();
+	const picked = $derived(isList || mapOpen ? moves.pick.value : null);
+	$effect(() => {
+		if (picked === null || !desk.current) return;
+		void tick().then(revealPicked);
+	});
 </script>
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- the hrefs below are built on the resolved list path -->
@@ -258,6 +272,8 @@
 			{#if view.rows.length + view.groups.length > 0}
 				<a
 					class="flex min-h-16 items-center gap-3 py-[9px] pr-3.5 pl-4 active:bg-step"
+					class:bg-accent-soft={mapOpen}
+					aria-current={mapOpen ? 'page' : undefined}
 					href="{list}/map"
 				>
 					<span
@@ -275,7 +291,13 @@
 		<h2 class="{SECTION_LABEL} pt-1">{listHeading(view.rows.length, l.inGroupMode)}</h2>
 		<div class={GROUP}>
 			{#each view.rows as r (r.id)}
-				<PositionRow row={r} href={positionHref(r.id)} {styleLabel} current={isOpen(r.id)} />
+				<PositionRow
+					row={r}
+					href={positionHref(r.id)}
+					{styleLabel}
+					current={isOpen(r.id)}
+					picked={picked === r.id}
+				/>
 			{/each}
 		</div>
 	{:else if filtered}
@@ -299,6 +321,7 @@
 						{styleLabel}
 						group
 						current={isOpen(r.id)}
+						picked={picked === r.id}
 					/>
 				{/each}
 			</div>

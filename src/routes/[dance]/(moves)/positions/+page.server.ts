@@ -1,12 +1,25 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { addTemplates, createPosition } from '$lib/server/positions';
 import { optionalText } from '$lib/server/form';
-import { spaceOf } from '$lib/server/group-mode';
+import { groupModeOf, spaceOf } from '$lib/server/group-mode';
+import { wallOf } from '$lib/server/scope';
+import { mapData } from '$lib/server/positions-map';
 import { DANCES } from '$lib/dances/dances';
 import { parseHold } from '$lib/positions/hold';
 import { templateTypes } from '$lib/positions/templates';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * The map: on the desktop the pane beside the list with nothing open (the
+ * phone's list page does not draw it). Its own key, as on the map route.
+ */
+export const load: PageServerLoad = ({ params, locals, cookies }) => {
+	if (!locals.user) throw error(401);
+	const wall = wallOf(params, locals);
+	const db = getDb();
+	return { map: mapData(db, wall, groupModeOf(db, wall.userId, wall.dance, cookies)) };
+};
 
 export const actions: Actions = {
 	create: async ({ params, request, locals, cookies }) => {

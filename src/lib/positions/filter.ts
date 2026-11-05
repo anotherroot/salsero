@@ -67,3 +67,13 @@ export function positionsView(
 					.filter((g) => g.rows.length > 0)
 	};
 }
+
+/**
+ * Nothing at all: no positions of the space's own or of a group, and nothing
+ * narrows the list. The list's first run (the empty state's three buttons), and
+ * on the desktop How positions work in the pane where the map would be.
+ */
+export function nothingAt(l: PositionsLists, f: PositionFilter): boolean {
+	const view = positionsView(l, f);
+	return !(f.q || f.type || f.gaps) && view.rows.length === 0 && view.groups.length === 0;
+}

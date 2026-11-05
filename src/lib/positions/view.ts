@@ -699,6 +699,9 @@ export const HOW: {
 /** The example strip, for a screen reader. */
 export const HOW_EXAMPLE_LABEL = 'A position, a figure, the next position';
 
+/** Under How positions work where it fills the pane beside an empty list (desktop). */
+export const HOW_PANE_SUBTITLE = 'Optional: read once, then decide';
+
 // ---- templates ----
 
 export function templatesNote(typeLabel: string): string {

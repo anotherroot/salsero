@@ -7,7 +7,8 @@ const NO_BAND: Record<string, string> = {
 	'src/routes/dev/kit/+page.svelte': 'dev gallery',
 	'src/routes/[dance]/(moves)/figures/+page.svelte': 'the (moves) layout draws the band',
 	'src/routes/[dance]/(moves)/routines/+page.svelte': 'the (moves) layout draws the band',
-	'src/routes/[dance]/(moves)/positions/+page.svelte': 'the (moves) layout draws the band',
+	'src/routes/[dance]/(moves)/positions/+page.svelte':
+		'the (moves) layout draws the band (ListPane); this is the pane: the map, or How positions work',
 	'src/routes/[dance]/player/+page.svelte': 'Setup draws the band, Running draws the stage',
 	'src/routes/[dance]/songs/+page.svelte':
 		'the songs layout draws the band (ListPane); this is the empty pane'

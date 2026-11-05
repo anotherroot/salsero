@@ -3,12 +3,12 @@ import { revealTop } from '$lib/moves/pane';
 
 /**
  * What the (moves) layout shares with the pages it holds: its New sheet (the
- * band's +, the empty pane's button) and the position picked on the map (Task 7).
+ * band's +, the empty pane's button) and the position picked on the map.
  */
 export interface MovesContext {
 	/** Open the New sheet of the list beside the pane. */
 	openNew(): void;
-	/** The map's picked position. */
+	/** The map's picked position; the layout clears it when the map leaves the pane. */
 	pick: { value: number | null };
 }
 
@@ -29,7 +29,16 @@ export function getMoves(): MovesContext {
  * scrolling the column only: `scrollIntoView` would scroll the window too.
  */
 export function revealLit(): void {
-	const row = document.querySelector<HTMLElement>('[data-list-column] [aria-current="page"]');
+	reveal('[aria-current="page"]');
+}
+
+/** The same for the row of the position picked on the map (`aria-current="true"`). */
+export function revealPicked(): void {
+	reveal('[aria-current="true"]');
+}
+
+function reveal(lit: string): void {
+	const row = document.querySelector<HTMLElement>(`[data-list-column] ${lit}`);
 	const column = row?.closest<HTMLElement>('[data-list-column]');
 	if (!row || !column) return;
 	const top = revealTop(

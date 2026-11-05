@@ -40,6 +40,14 @@
 	const pick = $state<{ value: number | null }>({ value: null });
 	setMoves({ openNew: () => (creating = true), pick });
 
+	// The map is Positions' pane with nothing open, and the map route's. Its pick
+	// goes when it leaves: a position opened from it is not picked on the way back.
+	const positionsBare = $derived(beside?.list === 'positions' && isList);
+	const mapShown = $derived(positionsBare || beside?.open?.kind === 'map');
+	$effect(() => {
+		if (!mapShown) pick.value = null;
+	});
+
 	// Follows the column; a tap moves it at once, before the next page lands.
 	let segment = $derived<MovesList>(beside?.list ?? 'figures');
 
@@ -121,7 +129,15 @@
 {/snippet}
 
 {#if l}
-	<ListPane title="Moves" {isList} {list} {right} {extra} empty={children}>
+	<ListPane
+		title="Moves"
+		{isList}
+		{list}
+		{right}
+		{extra}
+		empty={children}
+		emptyBare={positionsBare}
+	>
 		{@render children()}
 	</ListPane>
 {:else}

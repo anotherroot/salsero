@@ -9,20 +9,23 @@
 	 * One row of the Positions list: the name (and the Twins chip), then the
 	 * type and counts with the one gap word that matters, or, for a group's
 	 * row, the type and the lesson it came from. `current`: open in the pane
-	 * beside the list (desktop), lit.
+	 * beside the list (desktop), lit. `picked`: picked on the map beside the list,
+	 * lit too (the current item of the list, not the page).
 	 */
 	let {
 		row,
 		href,
 		styleLabel,
 		group = false,
-		current = false
+		current = false,
+		picked = false
 	}: {
 		row: PositionListRow;
 		href: string;
 		styleLabel: StyleLabel;
 		group?: boolean;
 		current?: boolean;
+		picked?: boolean;
 	} = $props();
 
 	const meta = $derived(group ? null : rowMeta(row, styleLabel));
@@ -35,8 +38,8 @@
 <!-- eslint-disable svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
 <a
 	class="flex min-h-16 items-center gap-2.5 py-[9px] pr-3.5 pl-4 active:bg-step"
-	class:bg-accent-soft={current}
-	aria-current={current ? 'page' : undefined}
+	class:bg-accent-soft={current || picked}
+	aria-current={current ? 'page' : picked ? 'true' : undefined}
 	{href}
 >
 	<span class="flex min-w-0 flex-1 flex-col gap-0.5">

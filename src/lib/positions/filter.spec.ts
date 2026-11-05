@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parsePositionFilter, positionMatches, positionsView, type PositionsLists } from './filter';
+import {
+	nothingAt,
+	parsePositionFilter,
+	positionMatches,
+	positionsView,
+	type PositionsLists
+} from './filter';
 import { OTHER_TYPE } from './view';
 import { EMPTY_HOLD } from './hold';
 import type { PositionListRow } from '$lib/types';
@@ -67,6 +73,17 @@ describe('positionsView', () => {
 		const v = positionsView(l, { q: '', gaps: '1' });
 		expect(v.rows.map((r) => r.id)).toEqual([1]);
 		expect(v.groups).toEqual([]);
+	});
+	it('nothing at all: no rows of its own or of a group, and no filter', () => {
+		const none = { ...l, rows: [], groups: [] };
+		expect(nothingAt(none, { q: '' })).toBe(true);
+		// A filter that leaves nothing is the list's "No positions match", not the first run.
+		expect(nothingAt(none, { q: 'x' })).toBe(false);
+		expect(nothingAt(none, { q: '', type: OTHER_TYPE })).toBe(false);
+		expect(nothingAt(none, { q: '', gaps: '1' })).toBe(false);
+		expect(nothingAt(l, { q: '' })).toBe(false);
+		expect(nothingAt({ ...l, rows: [] }, { q: '' })).toBe(false);
+		expect(nothingAt({ ...l, groups: [] }, { q: '' })).toBe(false);
 	});
 });
 
