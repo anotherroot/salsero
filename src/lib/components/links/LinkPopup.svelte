@@ -24,7 +24,6 @@
 	import { button, FIELD, iconButton, LABEL, SECTION_LABEL } from '$lib/components/ui/styles';
 	import LinkLevel from './LinkLevel.svelte';
 	import { DANCES } from '$lib/dances/dances';
-	import { DEFAULT_EVERY_DAYS, FREQUENCIES } from '$lib/frequency';
 	import { PARTNER, PARTNER_LABEL, type Partner } from '$lib/labels';
 	import { figureRows, linkOptionGroups } from '$lib/picker/build';
 	import { isHeading, type PickGroup, type PickRow } from '$lib/picker/model';
@@ -157,7 +156,6 @@
 	let partner = $state<Partner>('partner');
 	let style = $state('');
 	let drillName = $state('');
-	let everyDays = $state<number>(DEFAULT_EVERY_DAYS);
 	let positionName = $state('');
 	/** The new position's type; null: none. Starts on the user's style. */
 	let positionStyle = $state<string | null>(null);
@@ -456,7 +454,7 @@
 		} else if (step === 'position') {
 			body = { kind: 'position', name: positionName, styleTag: positionStyle };
 		} else {
-			body = { kind: 'drill', name: drillName, everyDays };
+			body = { kind: 'drill', name: drillName };
 		}
 		refusal = null;
 		void run(
@@ -703,27 +701,6 @@
 					aria-describedby={errorAt('name') ? `${uid}-name-error` : undefined}
 				/>
 				{@render fieldError('name')}
-			</div>
-			<div>
-				<label for="{uid}-everyDays" class={LABEL}>How often</label>
-				<span class="relative block">
-					<select
-						id="{uid}-everyDays"
-						bind:value={everyDays}
-						class="own-arrow {FIELD} cursor-pointer appearance-none pr-10"
-						aria-invalid={errorAt('everyDays') ? 'true' : undefined}
-						aria-describedby={errorAt('everyDays') ? `${uid}-everyDays-error` : undefined}
-					>
-						{#each FREQUENCIES as f (f.days)}
-							<option value={f.days}>{f.label}</option>
-						{/each}
-					</select>
-					<span
-						class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted"
-						aria-hidden="true"><Icon name="chevron-down" size={20} /></span
-					>
-				</span>
-				{@render fieldError('everyDays')}
 			</div>
 		{/if}
 	</form>

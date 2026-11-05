@@ -140,7 +140,12 @@ export function getExercise(db: Db, id: number) {
 /** What the exercise page's settings form edits. Practice choices are the panel's, not these. */
 export interface SettingsInput {
 	name: string;
-	everyDays: number;
+	/**
+	 * No form sets it any more (the schedule is the sets'; `every_days` is only the
+	 * first gap). Left out, a create takes the column default and an update keeps
+	 * the row's; a restore passes the row's own value through.
+	 */
+	everyDays?: number;
 	active: boolean;
 	notes: string | null;
 }
@@ -176,7 +181,7 @@ const ofDrill = (id: number) => ({ rootKind: 'drill' as const, rootId: id, subje
  * ignored rather than letting the two drift apart. A drill's rename reaches
  * every entry that practises it (`drill_id`), the way a figure's does. In a
  * group, `by` is who, for History (`verb` is `restore` for its Restore); a
- * group drill's frequency and Active are no one's, so only name and notes count.
+ * group drill's Active is no one's, so only name and notes count.
  */
 export function updateExercise(
 	db: Db,

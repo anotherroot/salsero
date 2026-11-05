@@ -266,7 +266,7 @@ describe('POST /api/video-spots/[id]/links', () => {
 		'not json',
 		{ target: { figureId: 'x' } },
 		{ create: { kind: 'song', name: 'x' } },
-		{ create: { kind: 'drill', name: 5, everyDays: 3 } }
+		{ create: { kind: 'drill', name: 5 } }
 	])('is a 400 for %o', async (body) => {
 		expect((await outcome(() => post(section, body))).status).toBe(400);
 	});

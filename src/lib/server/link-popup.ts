@@ -46,7 +46,6 @@ import { viaSections } from './lesson-links';
 import { defaultStyle } from './default-styles';
 import { PARTNER, type Partner } from '$lib/labels';
 import { isStyleOf } from '$lib/dances/dances';
-import { isFrequency } from '$lib/frequency';
 import { EMPTY_HOLD } from '$lib/positions/hold';
 import type {
 	Hold,
@@ -74,7 +73,6 @@ const positionOption = (p: { id: number; name: string; hold: Hold }, linked: boo
 	drill: false,
 	figure: null,
 	name: p.name,
-	everyDays: null,
 	linked,
 	hold: p.hold
 });
@@ -111,7 +109,6 @@ function linksOf(db: Db, spotId: number) {
 			groupArchived: figureGroups.archivedAt,
 			figureTeam: figures.teamId,
 			drill: exercises.name,
-			everyDays: exercises.everyDays,
 			drillArchived: exercises.archivedAt,
 			drillTeam: exercises.teamId
 		})
@@ -130,7 +127,6 @@ function linksOf(db: Db, spotId: number) {
 						drill: false,
 						figure: r.figure,
 						name: r.variation!,
-						everyDays: null,
 						linked: true,
 						archived: r.figureArchived !== null || r.groupArchived !== null,
 						teamId: r.figureTeam
@@ -142,7 +138,6 @@ function linksOf(db: Db, spotId: number) {
 						drill: true,
 						figure: null,
 						name: r.drill!,
-						everyDays: r.everyDays,
 						linked: true,
 						archived: r.drillArchived !== null,
 						teamId: r.drillTeam
@@ -308,7 +303,6 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 				drill: false,
 				figure: v.figure,
 				name: v.name,
-				everyDays: null,
 				linked: ids.some((id) => taken.has(key({ figureId: id }))),
 				...(v.team ? { team: v.team } : {}),
 				...(behind.length > 0 ? { twins: behind } : {})
@@ -317,10 +311,10 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			groups: ids.map((id) => groupOf.get(id) ?? null)
 		};
 	});
-	const ownDrills: { id: number; name: string; everyDays: number; team?: TeamRef }[] = point
+	const ownDrills: { id: number; name: string; team?: TeamRef }[] = point
 		? []
 		: db
-				.select({ id: exercises.id, name: exercises.name, everyDays: exercises.everyDays })
+				.select({ id: exercises.id, name: exercises.name })
 				.from(exercises)
 				.where(
 					and(
@@ -341,7 +335,6 @@ export function linkOptions(db: Db, spotId: number, defaultStyle: string): LinkO
 			drill: true,
 			figure: null,
 			name: d.name,
-			everyDays: d.everyDays,
 			linked: taken.has(key({ exerciseId: d.id })),
 			...(d.team ? { team: d.team } : {})
 		} as LinkOption,
@@ -492,11 +485,8 @@ export function createAndLinkIn(db: Db, space: Space, spotId: number, create: Li
 			if (!made) throw new SpotLinkError('That move could not be made.');
 			target = { figureId: made.figure.id };
 		} else {
-			if (!isFrequency(create.everyDays))
-				throw new SpotLinkError('Pick how often.', 400, 'everyDays');
 			const made = createCustomExercise(tx, space, {
 				name,
-				everyDays: create.everyDays,
 				notes: null
 			});
 			target = { exerciseId: made.id };
@@ -554,8 +544,8 @@ export function parseLinkBody(
 			}
 		};
 	}
-	if (c.kind === 'drill' && typeof c.everyDays === 'number') {
-		return { create: { kind: 'drill', name: c.name, everyDays: c.everyDays } };
+	if (c.kind === 'drill') {
+		return { create: { kind: 'drill', name: c.name } };
 	}
 	if (c.kind === 'position' && (c.styleTag === null || isText(c.styleTag))) {
 		return { create: { kind: 'position', name: c.name, styleTag: c.styleTag } };

@@ -132,7 +132,6 @@ const FIELD_LABELS: Record<string, string> = {
 	endId: 'Ends in',
 	startCount: 'Starts on count',
 	lengthCounts: 'Length',
-	everyDays: 'How often',
 	active: 'Active',
 	label: 'Name',
 	startMs: 'Start',

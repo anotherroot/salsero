@@ -122,6 +122,5 @@
 	action={`/${data.dance.slug}/lessons?/create`}
 	{refusal}
 	today={data.today}
-	frequency={!data.groupMode}
 	{handle}
 />

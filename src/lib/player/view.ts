@@ -5,7 +5,8 @@
  * Back goes.
  */
 import type { Dance, DanceSlug } from '$lib/dances/dances';
-import { frequencyLabel } from '$lib/frequency';
+import type { ScheduleState } from '$lib/schedule/schedule';
+import { dueWords } from '$lib/schedule/words';
 import { typeInfo } from '$lib/exercises/kinds';
 import { clock, plural } from '$lib/format';
 import type { ClavePattern, CountPattern, Source, Speed } from '$lib/labels';
@@ -142,8 +143,15 @@ export function voiceKind(
 		: 'Yours';
 }
 
-export function exerciseLine(e: { source: Source; everyDays: number }): string {
-	return `${typeInfo(e.source).label} · ${frequencyLabel(e.everyDays)}`;
+/** "Figure practice · Due today"; just the type when the schedule is not known. */
+export function exerciseLine(e: {
+	source: Source;
+	state: ScheduleState | null;
+	today: string;
+}): string {
+	const label = typeInfo(e.source).label;
+	if (!e.state) return label;
+	return `${label} · ${dueWords(e.state, e.today, e.state.lastDay === null)[0].text}`;
 }
 
 /**

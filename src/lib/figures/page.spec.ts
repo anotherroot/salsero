@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plan, type PlanExercise } from '$lib/urgency/urgency';
+import type { ScheduleState } from '$lib/schedule/schedule';
 import {
 	archiveCopy,
 	deleteRecordingBody,
@@ -13,19 +13,12 @@ import {
 	variationNav
 } from './page';
 
-const TZ = 'Europe/Ljubljana';
-const DAY = 86_400_000;
-const now = Date.UTC(2026, 9, 31, 10, 0); // 11:00 CET
-const ex = (everyDays: number, active = true): PlanExercise => ({
-	id: 1,
-	name: 'Drill',
-	everyDays,
-	active,
-	archived: false,
-	createdAt: 0
+const TODAY = '2026-10-31'; // a Saturday
+const st = (dueDay: string, lastDay: string | null): ScheduleState => ({
+	gap: 3,
+	lastDay,
+	dueDay
 });
-const line = (e: PlanExercise, ago: number | null, at = now) =>
-	practiceLine(plan([e], ago === null ? [] : [{ exerciseId: 1, doneAt: at - ago }], at, TZ));
 
 describe('routineUseMeta', () => {
 	it('names the slots', () => {
@@ -36,35 +29,21 @@ describe('routineUseMeta', () => {
 });
 
 describe('practiceLine', () => {
+	it('never done is New', () =>
+		expect(practiceLine(st(TODAY, null), TODAY, true)).toEqual({ text: 'New', tone: 'status' }));
 	it('a set today', () =>
-		expect(line(ex(3), 1000)).toEqual({
-			title: 'Every 3 days',
-			meta: { text: 'Done today', tone: 'done' }
+		expect(practiceLine(st('2026-11-03', TODAY), TODAY, false)).toEqual({
+			text: 'Done today',
+			tone: 'done'
 		}));
-	it('never done', () =>
-		expect(line(ex(3), null)?.meta).toEqual({ text: 'Never done', tone: 'status' }));
-	it('overdue by calendar days', () =>
-		expect(line(ex(3), 5 * DAY)?.meta).toEqual({ text: '2 days overdue', tone: 'status' }));
-	it('one day overdue', () => expect(line(ex(3), 4 * DAY)?.meta.text).toBe('1 day overdue'));
-	it('due, not yet a whole day over', () =>
-		expect(line(ex(7), 7 * DAY)?.meta).toEqual({ text: 'Due today', tone: 'status' }));
-	it('daily, done 23:30 yesterday, read at 07:00', () => {
-		const at = Date.UTC(2026, 9, 31, 6, 0); // 07:00 CET... 31 Oct is CET (+1)
-		const doneAt = Date.UTC(2026, 9, 30, 22, 30); // 23:30 local
-		expect(practiceLine(plan([ex(1)], [{ exerciseId: 1, doneAt }], at, TZ))).toEqual({
-			title: 'Daily',
-			meta: { text: 'Done yesterday', tone: null }
-		});
-	});
-	it('not due yet', () =>
-		expect(line(ex(7), 2 * DAY)?.meta).toEqual({ text: 'Done 2 days ago', tone: null }));
-	it('parked', () =>
-		expect(line(ex(7, false), null)?.meta).toEqual({
-			text: "Inactive · not on Today's list",
-			tone: null
+	it('due this week names the day', () =>
+		expect(practiceLine(st('2026-11-02', '2026-10-28'), TODAY, false)?.text).toBe('Due Monday'));
+	it('late counts calendar days', () =>
+		expect(practiceLine(st('2026-10-29', '2026-10-26'), TODAY, false)).toEqual({
+			text: '2 days late',
+			tone: 'status'
 		}));
-	it('nothing to say', () =>
-		expect(practiceLine({ doneToday: [], due: [], upcoming: [], inactive: [] })).toBeNull());
+	it('no state says nothing', () => expect(practiceLine(null, TODAY, false)).toBeNull());
 });
 
 describe('timingLine', () => {

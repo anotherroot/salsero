@@ -6,7 +6,6 @@
 	import { tick, untrack } from 'svelte';
 	import { guarded, leaveOrAsk } from '$lib/unsaved/guard.svelte';
 	import { isClash } from '$lib/clash/clash';
-	import FrequencyField from '$lib/components/exercises/FrequencyField.svelte';
 	import SetList from '$lib/components/exercises/SetList.svelte';
 	import { restoreSet } from '$lib/components/exercises/restore-set';
 	import { contentFor, logFor } from '$lib/components/exercises/kinds';
@@ -38,7 +37,6 @@
 	} from '$lib/components/ui/styles';
 	import { archiveBody, historyDays, ownerOf, summaryTiles } from '$lib/exercises/exercise-page';
 	import { TYPES, typeInfo, typeOf } from '$lib/exercises/kinds';
-	import { frequencyLabel } from '$lib/frequency';
 	import MakeMineSheet from '$lib/components/clones/MakeMineSheet.svelte';
 	import SourceTabs from '$lib/components/clones/SourceTabs.svelte';
 	import { cloneSubtitle } from '$lib/clones/view';
@@ -128,13 +126,11 @@
 	let makingMine = $state(false);
 	let saving = $state(false);
 	let settingsForm: HTMLFormElement | undefined = $state();
-	let everyDays = $state(0);
 	let active = $state(true);
 	/** The last `update` refusal, until the next save or the next time editing starts. */
 	let updateError = $state<string | null>(null);
 
 	function startEditing() {
-		everyDays = exercise.everyDays;
 		active = exercise.active;
 		updateError = null;
 		editing = true;
@@ -196,7 +192,7 @@
 	 * Another exercise opened in this page (a row beside it, on the desktop):
 	 * SvelteKit keeps the page, so what was the last one's goes with it. An edit
 	 * left open would otherwise show the new exercise with the old one's
-	 * frequency, and save it there.
+	 * settings, and save it there.
 	 */
 	let shownId = untrack(() => page.params.id);
 	$effect.pre(() => {
@@ -331,7 +327,6 @@
 						</label>
 					{/if}
 					{#if !drill}
-						<FrequencyField name="everyDays" bind:value={everyDays} tone="field" />
 						<div class="flex min-h-[52px] items-center gap-3">
 							<span class="flex min-w-0 flex-1 flex-col gap-px">
 								<span class="text-[16px] font-bold text-ink">Active</span>
@@ -473,12 +468,6 @@
 			<section class="flex flex-col gap-2 desk:min-w-0">
 				<h2 class={SECTION_LABEL}>Settings</h2>
 				<dl class={GROUP}>
-					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
-						<dt class="flex-1 text-[16px] font-bold text-ink">How often</dt>
-						<dd class="text-right text-[15px] font-semibold text-muted">
-							{frequencyLabel(exercise.everyDays)}
-						</dd>
-					</div>
 					<div class="flex min-h-14 items-center gap-3 px-4 py-2">
 						<dt class="flex-1 text-[16px] font-bold text-ink">Active</dt>
 						<dd class="text-right text-[15px] font-semibold text-muted">

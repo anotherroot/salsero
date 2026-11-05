@@ -1,11 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
-import { int, optionalText, text } from '$lib/server/form';
+import { optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
 import { isValidDay, localDay, noonOf, shiftDay } from '$lib/day/day';
-import { isFrequency } from '$lib/frequency';
 import type { Actions, PageServerLoad } from './$types';
 
 const DAY_MS = 86_400_000;
@@ -66,17 +65,16 @@ export const actions: Actions = {
 		const wall = wallOf(params, locals);
 		const form = await request.formData();
 		const name = text(form, 'name');
-		const everyDays = int(form, 'everyDays');
 		const notes = optionalText(form, 'notes');
-		if (!name || everyDays === undefined || !isFrequency(everyDays) || notes === undefined) {
+		if (!name || notes === undefined) {
 			return fail(400, {
 				action: 'createExercise',
-				message: 'Give it a name (up to 200 characters) and a frequency.',
+				message: 'Give it a name (up to 200 characters).',
 				name: String(form.get('name') ?? ''),
 				notes: String(form.get('notes') ?? '')
 			});
 		}
-		createCustomExercise(getDb(), wall, { name, everyDays, notes });
+		createCustomExercise(getDb(), wall, { name, notes });
 		return { action: 'createExercise', ok: true };
 	}
 };

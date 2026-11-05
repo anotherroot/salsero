@@ -125,22 +125,19 @@ export function routineSeen(routine: { name: string; notes: string | null }): Se
 /**
  * An exercise's settings form. Only a drill (`custom`) names itself; the
  * others take their name from their owner, so a rename there is no clash
- * here. A group's drill has no frequency or Active of its own: each member's
+ * here. A group's drill has no Active of its own: each member's
  * entry holds theirs.
  */
 export function exerciseSeen(row: {
 	source: string;
 	name: string;
 	notes: string | null;
-	everyDays: number;
 	active: boolean;
 	teamId: number | null;
 }): Seen {
 	const content: Seen = { notes: row.notes };
 	if (row.source === 'custom') content.name = row.name;
-	return row.teamId !== null
-		? content
-		: { ...content, everyDays: row.everyDays, active: row.active ? 'on' : '' };
+	return row.teamId !== null ? content : { ...content, active: row.active ? 'on' : '' };
 }
 
 /**

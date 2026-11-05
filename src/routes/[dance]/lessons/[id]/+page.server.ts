@@ -1,7 +1,9 @@
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
+import { getDb, type Db } from '$lib/server/db';
+import { scheduleStates } from '$lib/server/schedule';
+import type { ScheduleState } from '$lib/schedule/schedule';
 import { defaultStyle } from '$lib/server/default-styles';
 import {
 	archiveLesson,
@@ -59,12 +61,18 @@ import { readAdd } from '$lib/server/add-form';
 import { addLesson, addState, markSeen, removeLesson } from '$lib/server/entries';
 import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
-import { DEFAULT_EVERY_DAYS, isFrequency } from '$lib/frequency';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
 import { lessonNotice } from '$lib/teams/view';
-import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
+import {
+	actorOf,
+	inSpace,
+	isTeam,
+	requireLessonAccess,
+	wallOf,
+	type Wall
+} from '$lib/server/scope';
 import { SpotLinkedError, blockingPositionsByVideo, videoSections } from '$lib/server/spot-links';
 import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
@@ -122,6 +130,22 @@ function linkOwner(
 function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: number): string | null {
 	const { by, at } = editedBy(db, teamId, 'lesson', lessonId);
 	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
+}
+
+/** The wall's schedule states for just these exercises, by id. */
+function scheduleOn(
+	db: Db,
+	wall: Wall,
+	tz: string,
+	ids: (number | null | undefined)[]
+): Record<number, ScheduleState> {
+	const states = scheduleStates(db, wall, tz);
+	const out: Record<number, ScheduleState> = {};
+	for (const id of ids) {
+		const state = id == null ? undefined : states.get(id);
+		if (id != null && state) out[id] = state;
+	}
+	return out;
 }
 
 export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
@@ -213,6 +237,12 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		linkablePositions: canEdit ? listLinkablePositions(db, found.lesson.id) : [],
 		links: listLinks(db, { lessonId: found.lesson.id }),
 		today: localDay(Date.now(), tz),
+		/** The schedule of each exercise the page shows a due word for: the person's own. */
+		schedule: scheduleOn(db, wall, tz, [
+			found.exercise?.id,
+			...shown(found.routines, visible?.routines).map((r) => r.exerciseId),
+			...shown(found.exercises, visible?.drills).map((e) => e.id)
+		]),
 		// What "Add figure" pre-selects. Settings picks it.
 		defaultStyle: defaultStyle(db, wall.userId, wall.dance),
 		// This person's own entry for the lesson, never a group's row (risk 22).
@@ -488,7 +518,6 @@ export const actions: Actions = {
 		const id = lesson.id;
 		const form = await request.formData();
 		const name = text(form, 'name');
-		const everyDays = int(form, 'everyDays');
 		const notes = optionalText(form, 'notes');
 		const typed = {
 			name: String(form.get('name') ?? ''),
@@ -499,12 +528,9 @@ export const actions: Actions = {
 
 		if (!name) return refuse('Give it a name (up to 200 characters).', 'name');
 		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
-		if (everyDays === undefined || !isFrequency(everyDays)) {
-			return refuse('Pick how often to do it.');
-		}
 
 		const db = getDb();
-		const exercise = createCustomExercise(db, space, { name, everyDays, notes });
+		const exercise = createCustomExercise(db, space, { name, notes });
 		linkExercise(db, id, exercise.id, actorOf(space));
 		return { action: 'newExercise', ok: true };
 	},
@@ -552,7 +578,6 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const name = text(form, 'name');
 		const notes = optionalText(form, 'notes');
-		const everyDays = int(form, 'everyDays') ?? DEFAULT_EVERY_DAYS;
 
 		const typed = {
 			name: String(form.get('name') ?? ''),
@@ -563,10 +588,9 @@ export const actions: Actions = {
 
 		if (!name) return refuse('Give the routine a name (up to 200 characters).', 'name');
 		if (notes === undefined) return refuse('Notes are up to 2000 characters.', 'notes');
-		if (!isFrequency(everyDays)) return refuse('Pick how often to do it.');
 
 		const db = getDb();
-		const { routine } = createRoutine(db, space, { name, notes }, everyDays);
+		const { routine } = createRoutine(db, space, { name, notes });
 		linkRoutine(db, id, routine.id, actorOf(space));
 		throw redirect(303, `/${dance}/routines/${routine.id}`);
 	},
