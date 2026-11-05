@@ -15,7 +15,8 @@
 	import FiguresList from '$lib/components/moves/FiguresList.svelte';
 	import RoutinesList from '$lib/components/moves/RoutinesList.svelte';
 	import PositionsList from '$lib/components/moves/PositionsList.svelte';
-	import { revealLit, setMoves } from '$lib/components/moves/moves-context';
+	import { setMoves } from '$lib/components/moves/moves-context';
+	import { revealLit } from '$lib/components/shell/reveal';
 
 	/*
 	 * Moves: Figures, Routines or Positions, and the item beside it (desktop spec,

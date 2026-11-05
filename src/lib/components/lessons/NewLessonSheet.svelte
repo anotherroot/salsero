@@ -50,8 +50,13 @@
 	} = $props();
 
 	let busy = $state(false);
-	let formEl = $state<HTMLFormElement>();
 	let everyDays = $state(DEFAULT_EVERY_DAYS);
+
+	// The sheet outlives its page (the Lessons layout's): each opening starts fresh, as a
+	// remounted page's did. The form's fields unmount with the closed Sheet; this is the rest.
+	$effect(() => {
+		if (open) everyDays = DEFAULT_EVERY_DAYS;
+	});
 
 	// A refusal that is about no one field goes at the top of the sheet.
 	const otherError = $derived(refusal?.message && !refusal.field ? refusal.message : null);
@@ -67,7 +72,6 @@
 		id="new-lesson"
 		method="POST"
 		{action}
-		bind:this={formEl}
 		novalidate
 		class="flex flex-col gap-3.5"
 		use:guarded={{
@@ -80,8 +84,6 @@
 					try {
 						if (handle) {
 							await handle(result, () => update());
-							// A sent form starts empty the next time (the sheet is kept, closed).
-							if (result.type === 'redirect') formEl?.reset();
 						} else await update();
 					} finally {
 						busy = false;

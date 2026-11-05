@@ -2,7 +2,7 @@
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { desk } from '$lib/nav/desk.svelte';
-	import { revealLit } from '$lib/components/moves/moves-context';
+	import { revealLit } from '$lib/components/shell/reveal';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { listOf, openIdOf } from '$lib/nav/pane';
 	import ListPane from '$lib/components/shell/ListPane.svelte';
