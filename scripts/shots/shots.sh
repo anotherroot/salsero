@@ -89,13 +89,9 @@ else
   [ -n "$GROUP" ] && CMD+=(--group "$GROUP")
   [ -n "$VIEWPORT" ] && CMD+=(--viewport)
   [ -n "$NOSESSION" ] && CMD+=(--no-session)
+  [ -n "$DELAY_FROM" ] && CMD+=(--delay-from "$DELAY_FROM")
   [ -n "$UNNAMED" ] && CMD+=(--unnamed)
 fi
 timeout 900 nix shell --impure --expr 'with (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux; python3.withPackages (p: [p.playwright p.pillow])' \
-<<<<<<< HEAD
-  -c python3 -I "$HERE/shots.py" shoot --db "$TMP/salsa.db" --base "http://127.0.0.1:$PORT" \
-  --out "$OUT" --size "$SIZE" --theme "$THEME" --pages "$PAGES" ${GROUP:+--group "$GROUP"} ${VIEWPORT:+--viewport} ${NOSESSION:+--no-session} ${DELAY_FROM:+--delay-from "$DELAY_FROM"} ${UNNAMED:+--unnamed}
-=======
   -c python3 -I "$HERE/shots.py" "${CMD[@]}"
->>>>>>> b7be82b (chore(desktop): the rig shoots scenes)
 exit $?
