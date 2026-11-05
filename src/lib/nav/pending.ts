@@ -30,7 +30,13 @@ type Shape =
  * list with its item beside it (`listOf`), `open` an item opens in it. `deskTitle`:
  * the band row's title when the list names it; null draws a bone. Plans add fields.
  */
-export type Skeleton = Shape & { pane: boolean; open: boolean; deskTitle: string | null };
+export type Skeleton = Shape & {
+	pane: boolean;
+	open: boolean;
+	deskTitle: string | null;
+	/** The list beside the pane (`listOf`), or null where the page is one column. */
+	list: ListId | null;
+};
 
 /**
  * Long enough that a preloaded page (the load starts on touchstart) lands
@@ -69,15 +75,24 @@ const DETAILS = new Set([
  * The skeleton for a destination, by its route id (`navigating.to.route.id`).
  * Null for pages outside the shell (login, pairing, share), for `/` (a
  * redirect), and for an unknown route — those get the bar alone.
+ *
+ * `search` is the destination's query string: Today with `day=` in it is a past
+ * day, one column with no list beside it. Optional, so a call without it reads as
+ * today.
  */
-export function skeletonFor(routeId: string | null | undefined): Skeleton | null {
+export function skeletonFor(
+	routeId: string | null | undefined,
+	search: string = ''
+): Skeleton | null {
 	const shape = shapeFor(routeId);
 	if (!shape) return null;
-	const l = listOf(routeId ?? null);
+	const pastDay = routeId === '/[dance]/(today)' && new URLSearchParams(search).has('day');
+	const l = pastDay ? null : listOf(routeId ?? null);
 	return {
 		...shape,
 		pane: l !== null,
 		open: l?.open ?? false,
+		list: l?.list ?? null,
 		deskTitle: l
 			? PANE_TITLE[l.list]
 			: shape.kind === 'today'

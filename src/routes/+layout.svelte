@@ -100,7 +100,7 @@
 		const timer = setTimeout(() => (late = true), SKELETON_DELAY_MS);
 		return () => clearTimeout(timer);
 	});
-	const skeleton = $derived(late && ahead ? skeletonFor(ahead.route.id) : null);
+	const skeleton = $derived(late && ahead ? skeletonFor(ahead.route.id, ahead.url.search) : null);
 	/*
 	 * The tabs show inside a dance except Practice and share (`showsTabs`), judged
 	 * on where the app is going so the bar comes or goes with the tap, and step

@@ -74,6 +74,24 @@ describe('the Moves lists and their panes', () => {
 	});
 });
 
+describe('Today and its list', () => {
+	it('is the today list with its pane; a past day is one column', () => {
+		expect(skeletonFor('/[dance]/(today)')).toMatchObject({
+			kind: 'today',
+			pane: true,
+			list: 'today'
+		});
+		expect(skeletonFor('/[dance]/(today)', '?day=2026-11-01')).toMatchObject({
+			pane: false,
+			list: null
+		});
+		expect(skeletonFor('/[dance]/(today)', '?other=1')!.pane).toBe(true);
+		expect(skeletonFor('/[dance]/(today)/exercises/[id]')!.list).toBe('today');
+		expect(skeletonFor('/[dance]/songs')!.list).toBe('songs');
+		expect(skeletonFor('/settings')!.list).toBeNull();
+	});
+});
+
 describe('a list and its pane', () => {
 	it('says whether the target is a list and pane, and whether an item opens in it', () => {
 		expect(skeletonFor('/[dance]/songs/[id]')).toMatchObject({

@@ -2,6 +2,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { DeskSkeleton, Skeleton } from '$lib/nav/pending';
 	import { PAGE_WIDTH, type Frame } from '$lib/nav/frame';
+	import TodayPaneSkeleton from '$lib/components/today/TodayPaneSkeleton.svelte';
 
 	/**
 	 * The destination's shape, shown while its data is on the way. It COVERS
@@ -37,8 +38,11 @@
 	const DESK = {
 		frame: 'desk:pointer-events-none desk:inset-0 desk:bg-transparent',
 		pane: 'desk:top-[var(--band-row-h)] desk:bottom-0 desk:left-[calc(var(--side-w)+361px)]',
+		/** Today's list column is 400 wide, not 360. */
+		paneToday: 'desk:top-[var(--band-row-h)] desk:bottom-0 desk:left-[calc(var(--side-w)+401px)]',
 		none: 'desk:hidden'
 	} as const;
+	const today = $derived(skeleton.list === 'today');
 
 	const WIDTHS = [
 		[62, 40],
@@ -85,6 +89,25 @@
 		</div>
 		<div class="mx-1 mt-2">{@render bar('80px', 11)}</div>
 		{@render rows(7, false)}
+	</div>
+{/snippet}
+
+{#snippet todayList()}
+	<!-- Today's list column (board today--a-loading): the hero, a label, four rows, a label, three rows. -->
+	<div class="flex flex-col gap-2" aria-hidden="true">
+		<div
+			class="flex min-h-[84px] flex-none items-center gap-[14px] rounded-[22px] bg-surface py-[14px] pr-[14px] pl-5 shadow-[0_4px_16px_rgb(0_0_0/0.12)]"
+		>
+			<span class="flex flex-1 flex-col gap-[10px]">
+				<span class="bone h-[18px] rounded-[9px]" style="width: 52%"></span>
+				<span class="bone h-[11px] rounded-[5px]" style="width: 34%"></span>
+			</span>
+			<span class="bone size-[54px] flex-none rounded-full"></span>
+		</div>
+		<span class="block px-4 pt-3">{@render bar('64px', 10, 5)}</span>
+		{@render rows(4, true)}
+		<span class="block px-4 pt-3.5">{@render bar('84px', 10, 5)}</span>
+		{@render rows(3, true)}
 	</div>
 {/snippet}
 
@@ -138,7 +161,7 @@
 
 <div
 	class="fixed inset-x-0 top-0 bottom-[var(--sk-bottom)] z-[35] overflow-hidden bg-ground {DESK[
-		desk
+		desk === 'pane' && today ? 'paneToday' : desk
 	]}"
 	style="--sk-bottom: {tabs ? 'calc(var(--tab-bar-h) + var(--safe-bottom))' : '0px'}"
 	aria-busy="true"
@@ -380,6 +403,19 @@
 				{:else}
 					<span class="h-8 w-56 rounded-lg bg-band-ink opacity-30"></span>
 				{/if}
+				{#if today}
+					<!-- Today's band row: a line under the title's place, ‹ and + drawn disabled. -->
+					<span class="ml-4 h-[14px] w-[170px] rounded-[7px] bg-band-ink opacity-[0.28]"></span>
+					<span class="flex-1"></span>
+					<span class="flex text-band-ink opacity-45">
+						<span class="flex size-11 items-center justify-center"
+							><Icon name="chevron-left" size={24} /></span
+						>
+						<span class="flex size-11 items-center justify-center"
+							><Icon name="plus" size={24} /></span
+						>
+					</span>
+				{/if}
 			</div>
 			<div
 				class="pointer-events-auto fixed top-[var(--band-row-h)] right-0 bottom-0 bg-band {side
@@ -393,12 +429,14 @@
 				>
 					{#if skeleton.pane}
 						<div
-							class="flex h-full w-[361px] flex-none flex-col gap-2.5 overflow-hidden border-r border-hairline pt-6 pr-5 pl-6"
+							class="flex h-full flex-none flex-col gap-2.5 overflow-hidden border-r border-hairline pt-6 pr-5 pl-6 {today
+								? 'w-[401px]'
+								: 'w-[361px]'}"
 						>
-							{@render deskList()}
+							{#if today}{@render todayList()}{:else}{@render deskList()}{/if}
 						</div>
 						<div class="min-w-0 flex-1 overflow-hidden">
-							{#if skeleton.open}{@render deskPane()}{/if}
+							{#if today}<TodayPaneSkeleton />{:else if skeleton.open}{@render deskPane()}{/if}
 						</div>
 					{:else}
 						<div class="min-w-0 flex-1 overflow-hidden">{@render deskSheet()}</div>
@@ -410,7 +448,7 @@
 		<!-- Only the pane: the list column beside it is live. -->
 		<div class="hidden desk:block">
 			<p class="sr-only" role="status">Loading…</p>
-			{@render deskPane()}
+			{#if today}<TodayPaneSkeleton />{:else}{@render deskPane()}{/if}
 		</div>
 	{/if}
 </div>
