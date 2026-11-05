@@ -34,7 +34,7 @@ import { load as playerLoad } from '../player/+page.server';
 import * as songPage from './[id]/+page.server';
 import { load as musicLoad } from './+layout.server';
 import { load as groupLoad } from '../groups/[id]/+page.server';
-import { load as groupsLoad } from '../groups/+page.server';
+import { load as groupsLoad } from '../groups/+layout.server';
 import { POST as postOpen } from '../../api/opens/+server';
 import type { Cookies } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';

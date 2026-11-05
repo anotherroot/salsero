@@ -84,3 +84,9 @@ export function groupUsesLine(used: number, limit: number): string {
 export function classSongsHeading(n: number): string {
 	return n > 0 ? `Class songs · ${n}` : 'Class songs';
 }
+
+/** The desktop's empty pane beside the Groups list, with no group open. */
+export const PICK_GROUP = {
+	title: 'Pick a group',
+	body: 'Its lessons, class songs and people open here.'
+};

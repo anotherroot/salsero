@@ -11,6 +11,7 @@ import {
 	newPill,
 	noAccountLine,
 	peopleLine,
+	PICK_GROUP,
 	purgeDay,
 	roleLabel,
 	youLine
@@ -100,5 +101,14 @@ describe('classSongsHeading', () => {
 	it('counts the songs the group page lists', () => {
 		expect(classSongsHeading(0)).toBe('Class songs');
 		expect(classSongsHeading(3)).toBe('Class songs · 3');
+	});
+});
+
+describe('PICK_GROUP', () => {
+	it('is the empty pane’s words', () => {
+		expect(PICK_GROUP).toEqual({
+			title: 'Pick a group',
+			body: 'Its lessons, class songs and people open here.'
+		});
 	});
 });

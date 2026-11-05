@@ -15,7 +15,7 @@ import { createTeam, joinTeam } from '$lib/server/teams';
 import { createLesson } from '$lib/server/lessons';
 import { T1_SALSA } from '$lib/server/test-walls';
 import { load as layoutLoad } from '../+layout.server';
-import { load as listLoad } from './+page.server';
+import { load as listLoad } from './+layout.server';
 import { load as pageLoad } from './[id]/+page.server';
 
 let db: Db;
