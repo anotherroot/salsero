@@ -28,6 +28,7 @@ import {
 	searched,
 	tabTarget,
 	vacate,
+	withoutOpener,
 	type Arrival,
 	type Intent,
 	type PageKey,
@@ -143,6 +144,16 @@ let intent: Intent = null;
 /** The next navigation is a tab tap / a back. Cleared when it lands, or by the next link click. */
 export function intend(i: Exclude<Intent, null>): void {
 	intent = i;
+}
+
+/**
+ * Clear `path`'s opener (`withoutOpener`) before a navigation that lands on it
+ * from the list beside it: Today opening one by itself on the desktop, whose
+ * pane then shows no ‹. `listOpener` reads an opener; this clears one.
+ */
+export function dropOpener(path: PageKey): void {
+	load();
+	set(withoutOpener(trail.value, path));
 }
 
 /** Where a tab leads from `current`; null means "scroll the lit list to the top". */

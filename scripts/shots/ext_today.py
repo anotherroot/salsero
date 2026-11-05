@@ -210,6 +210,10 @@ def _archive_from_pane(page):
         page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
     except Exception:
         raise RuntimeError(f"archiving left the page at {page.url}, not Today")
+    # ...which opens the next one by itself (Task 5)
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    if page.url.endswith(f"/exercises/{target}"):
+        raise RuntimeError("Today opened the archived drill again")
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(600)
     _no_popup(page, "after archiving (an unsaved-changes question?)")
@@ -276,4 +280,137 @@ SCENES.update({
     "pane-logged-lit": Scene("/{dance}/exercises/{drillex}", _logged_lit, desk=True),
     "pane-archive": Scene("/{dance}/exercises/{drillex}", _archive_from_pane, desk=True),
     "pane-resize": Scene("/{dance}/exercises/{figex}", _resize, desk=True),
+})
+
+
+# ---- desk checks (Task 5): one always open ----
+
+def _side_today(page):
+    page.locator("nav[data-side] a", has_text="Today").first.click()
+
+
+def _first_due_href(page):
+    """The list's first row under Due (else under Not yet due): the one Today opens by itself."""
+    for band in ("Due", "Not yet due"):
+        rows = page.locator(
+            f'[data-list-column] section[aria-labelledby]:has(h2:text-matches("^{band}")) a[href*="/exercises/"]'
+        )
+        if rows.count():
+            return rows.first.get_attribute("href").split("?")[0]
+    return None
+
+
+def _swapped(page, where):
+    """Landed on an exercise's URL with no ‹ in its pane, its row lit."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(500)
+    want = _first_due_href(page)
+    got = "/" + page.url.split("://", 1)[1].split("/", 1)[1]
+    if want is None or got != want:
+        raise RuntimeError(f"{where}: landed on {got}, the first due is {want}")
+    backs = page.locator('a[aria-label^="Back"]:visible')
+    if backs.count():
+        raise RuntimeError(f"{where}: a ‹ in the pane ({backs.first.get_attribute('aria-label')!r})")
+    lit = page.locator('[data-list-column] a[aria-current="page"]')
+    if lit.count() != 1 or lit.first.get_attribute("href").split("?")[0] != want:
+        raise RuntimeError(f"{where}: the open row is not the one lit")
+    return got
+
+
+def _default_open(page):
+    """From Moves, the side's Today: one entry pushed (Today's own), replaced by the first due
+    exercise; Back returns to Moves and stays there; a reload keeps the exercise."""
+    start = page.url
+    before = page.evaluate("history.length")
+    _side_today(page)
+    got = _swapped(page, "the side's Today")
+    after = page.evaluate("history.length")
+    if after != before + 1:
+        raise RuntimeError(f"history grew by {after - before}, not 1 (the swap must replace)")
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(500)
+    if not page.url.endswith(got):
+        raise RuntimeError(f"a reload moved the page to {page.url}")
+    page.go_back()
+    page.wait_for_url(start, timeout=8000)
+    page.wait_for_timeout(1200)
+    if page.url != start:
+        raise RuntimeError(f"Back from the swapped page went on to {page.url}")
+    page.go_forward()
+    page.wait_for_url(re.compile(re.escape(got) + "$"), timeout=8000)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(300)
+
+
+def _today_again(page):
+    """An exercise open, Today lit: its tap goes to /{dance}, which opens the default again."""
+    before = page.evaluate("history.length")
+    _side_today(page)
+    _swapped(page, "Today tapped while lit")
+    after = page.evaluate("history.length")
+    if after != before + 1:
+        raise RuntimeError(f"history grew by {after - before}, not 1")
+
+
+def _day_so_far(page):
+    """Nothing due, nothing not yet due: /{dance} stays, the pane holds the day so far."""
+    page.wait_for_timeout(1200)
+    if re.search(r"/exercises/", page.url):
+        raise RuntimeError(f"swapped to {page.url} with nothing to open")
+    if not page.get_by_role("heading", name="Today so far").count():
+        raise RuntimeError("no Today so far heading in the pane")
+
+
+SCENES.update({
+    "today-open": Scene("/{dance}/figures", _default_open, desk=True),
+    "today-again": Scene("/{dance}/exercises/{drillex}", _today_again, desk=True),
+    "today-day-so-far": Scene("/{dance}", _day_so_far, desk=True),
+})
+
+
+def _pane_loading(page):
+    """The side's Today with the swapped exercise's data held: the list beside Today's pane skeleton
+    (board today--a-loading's pane). The root's pending overlay is hidden: until plan 2 Task 7 it draws
+    the generic pane skeleton over it after 100 ms."""
+    held = []
+    page.route(re.compile(r"/exercises/\d+/__data\.json"), lambda r: held.append(r))
+    _side_today(page)
+    page.wait_for_url(re.compile(r"/(salsa|bachata)$"), timeout=8000)
+    page.wait_for_timeout(800)
+    page.add_style_tag(content="body > div > div[aria-busy='true'].fixed, div.fixed[aria-busy='true'] { display: none !important }")
+    if not page.locator('section[aria-label="Loading"][aria-busy="true"]:visible').count():
+        raise RuntimeError("no pane skeleton while the exercise loads")
+
+
+SCENES.update({
+    "today-pane-loading": Scene("/{dance}/figures", _pane_loading, desk=True),
+})
+
+
+def _open_from_elsewhere(page):
+    """The default exercise opened earlier from Moves (a ‹ back to Moves), then the side's Today:
+    the swap lands on it with no ‹ (its opener dropped)."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    ex = "/" + page.url.split("://", 1)[1].split("/", 1)[1]
+    page.locator("nav[data-side] a", has_text="Moves").first.click()
+    page.wait_for_url(re.compile(r"/figures$"), timeout=8000)
+    page.wait_for_load_state("networkidle")
+    page.evaluate(
+        """(href) => { const a = document.createElement('a'); a.href = href; a.id = 'shots-ex';
+        a.textContent = 'exercise'; document.body.append(a); a.click(); }""",
+        ex,
+    )
+    page.wait_for_url(re.compile(re.escape(ex) + "$"), timeout=8000)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(500)
+    if not page.locator('a[aria-label^="Back"]:visible').count():
+        raise RuntimeError("opened from Moves, the exercise shows no ‹ (the check below would prove nothing)")
+    _side_today(page)
+    page.wait_for_timeout(300)
+    _swapped(page, "Today after the exercise was opened from Moves")
+
+
+SCENES.update({
+    "today-open-dropped": Scene("/{dance}", _open_from_elsewhere, desk=True),
 })

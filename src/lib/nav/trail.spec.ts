@@ -29,6 +29,7 @@ import {
 	slotted,
 	tabTarget,
 	vacate,
+	withoutOpener,
 	type Arrival,
 	type Trail
 } from './trail';
@@ -776,5 +777,43 @@ describe('enteredAfter: reload, push, back', () => {
 	it('a fresh push to an entered page makes it ordinary again', () => {
 		const F = '/s/figures/12';
 		expect(enteredAfter([F], { kind: 'push', from: '/s/routines/5', to: F })).toEqual([]);
+	});
+});
+
+describe('withoutOpener: Today opens one by itself (desktop)', () => {
+	// Exercise 12 was opened from a figure earlier this session; Today's swap
+	// lands on it from the list, which is beside it: no ‹ (no opener).
+	function earlier(): Trail {
+		let t = EMPTY_TRAIL;
+		t = arrive(t, A({ to: '/salsa/figures/3', title: 'Enchufla', kind: 'enter', index: 1 }));
+		t = arrive(
+			t,
+			A({ to: '/salsa/exercises/12', title: 'Enchufla', from: '/salsa/figures/3', index: 2 })
+		);
+		t = arrive(t, A({ to: '/salsa', title: 'Today', from: '/salsa/exercises/12', index: 3 }));
+		return t;
+	}
+	it("clears the page's opener", () => {
+		const t = earlier();
+		expect(t.pages['/salsa/exercises/12'].opener).toBe('/salsa/figures/3');
+		expect(withoutOpener(t, '/salsa/exercises/12').pages['/salsa/exercises/12'].opener).toBeNull();
+	});
+	it('the replace from Today keeps it cleared', () => {
+		const t = arrive(
+			withoutOpener(earlier(), '/salsa/exercises/12'),
+			A({
+				to: '/salsa/exercises/12',
+				title: 'Enchufla',
+				from: '/salsa',
+				index: 3,
+				prevIndex: 3,
+				kind: 'replace'
+			})
+		);
+		expect(t.pages['/salsa/exercises/12'].opener).toBeNull();
+	});
+	it('a page not in the trail is the same trail', () => {
+		const t = earlier();
+		expect(withoutOpener(t, '/salsa/exercises/99')).toBe(t);
 	});
 });

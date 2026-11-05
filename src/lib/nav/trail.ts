@@ -316,6 +316,17 @@ export function carryRemoved(t: Trail, gone: PageKey, to: PageKey): Trail {
 	return next;
 }
 
+/**
+ * The page's opener cleared: it will be landed on from a list beside it (Today
+ * opening one by itself on the desktop), so it has no back. Called before the
+ * replace that lands on it, which then keeps the null. Creates no record.
+ */
+export function withoutOpener(t: Trail, key: PageKey): Trail {
+	const v = t.pages[key];
+	if (!v || v.opener === null) return t;
+	return { ...t, pages: { ...t.pages, [key]: { ...v, opener: null } } };
+}
+
 /** The key with its kept search. */
 export function hrefOf(t: Trail, key: PageKey): string {
 	return key + (t.pages[key]?.search ?? '');

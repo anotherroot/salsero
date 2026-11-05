@@ -202,7 +202,11 @@ def shoot(a):
                 wrote += 1
                 expected_404 = "does-not-exist" in path
                 want = (lands or path).split("?")[0]
-                ok = (status == 404) if expected_404 else (status < 400 and final.split("?")[0] == want)
+                landed = final.split("?")[0]
+                # Today on the desktop opens an exercise by itself: its URL replaces /{dance} (that line only)
+                if line == "/{dance}" and w >= 1024 and re.fullmatch(rf"/{DANCE}/exercises/\d+", landed):
+                    landed = want
+                ok = (status == 404) if expected_404 else (status < 400 and landed == want)
                 if not ok:
                     bad += 1
                 over = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")

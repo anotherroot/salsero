@@ -10,12 +10,14 @@
 	import ListPane from '$lib/components/shell/ListPane.svelte';
 	import PaneHeading from '$lib/components/shell/PaneHeading.svelte';
 	import PastDay from '$lib/components/today/PastDay.svelte';
+	import TodayPaneSkeleton from '$lib/components/today/TodayPaneSkeleton.svelte';
 	import TodayList from '$lib/components/today/TodayList.svelte';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
 	import { heroFor, shownRows, teamOfRow, todayBands } from '$lib/exercises/today';
-	import { dayTotals } from '$lib/exercises/today-pane';
+	import { dayTotals, defaultOpen } from '$lib/exercises/today-pane';
+	import { dropOpener } from '$lib/nav/trail.svelte';
 	import { longDayLabel } from '$lib/format';
 	import { typeOf } from '$lib/exercises/kinds';
 	import { nextInSession, sessionSummary } from '$lib/exercises/session';
@@ -24,7 +26,8 @@
 	 * Today: the list and the exercise beside it (desktop spec, "Today: the list
 	 * and the open exercise (Option A)"). The band, the hero and the list render
 	 * here once, so opening an exercise keeps the list's scroll and the session's
-	 * state; with nothing open the pane holds the day so far. With no exercise at
+	 * state; the list route opens one by itself (below), and with nothing to open
+	 * the pane holds the day so far. With no exercise at
 	 * all (the first run) the list is a page of its own. A past day (`?day=`) is
 	 * no list: its page is one column.
 	 *
@@ -86,9 +89,55 @@
 		void goto(resolve('/[dance]/(today)', { dance }), { keepFocus: true, noScroll: true });
 	}
 
-	// A reload keeps the flag; pick up at the current first row.
+	// A reload keeps the flag; pick up at the current first row (the phone's
+	// popup; the desktop opens it in the pane, below).
 	onMount(() => {
-		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
+		if (!desk.current && sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
+	});
+
+	/*
+	 * One always open (desktop): the list route opens an exercise by itself, the
+	 * first due, else the first not yet due (`defaultOpen`); in a session, the
+	 * session's first. It goes to the exercise's own URL with a replace (no
+	 * history entry), so every form in the pane posts to its own route, and a
+	 * Back from it goes where /{dance} would have. With nothing to open, the pane
+	 * holds the day so far. The phone never swaps: /{dance} is its list page.
+	 */
+	const target = $derived(isList && !past && !sessionOn ? defaultOpen(bands) : null);
+	const swapTo = $derived.by(() => {
+		if (!isList || past || openId !== null) return null;
+		if (sessionOn) {
+			if (!firstUp) return null;
+			const id = String(firstUp.exercise.id);
+			return resolve('/[dance]/(today)/exercises/[id]', { dance, id }) + '?session=1';
+		}
+		if (target === null) return null;
+		return resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(target) });
+	});
+
+	/*
+	 * The swap waits for the router to settle: a `goto` while SvelteKit is still
+	 * finishing a navigation (the first mount, its afterNavigate callbacks) aborts
+	 * that navigation, and the trail never hears of the arrival. `swapping` keeps
+	 * the effect from going twice while its own navigation loads.
+	 */
+	let settled = $state(false);
+	let swapping = false;
+	onNavigate(() => {
+		settled = false;
+	});
+	afterNavigate(() => {
+		settled = true;
+		swapping = false;
+	});
+	$effect(() => {
+		const href = swapTo;
+		if (!settled || !desk.current || href === null || swapping) return;
+		swapping = true;
+		// The list is beside it: no ‹, whatever opened it before.
+		dropOpener(href.split('?')[0]);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above
+		goto(href, { replaceState: true, keepFocus: true }).catch(() => (swapping = false));
 	});
 
 	/*
@@ -248,6 +297,11 @@
 	</div>
 {/snippet}
 
+<!-- The pane while the exercise Today opens by itself is on the way (desktop). -->
+{#snippet paneSkeleton()}
+	<TodayPaneSkeleton />
+{/snippet}
+
 {#if past}
 	{@render children()}
 {:else}
@@ -260,7 +314,7 @@
 		title="Today"
 		subtitle={longDayLabel(data.list.today)}
 		right={bandRight}
-		empty={daySoFar}
+		empty={swapTo === null ? daySoFar : paneSkeleton}
 		emptyBare
 	>
 		{@render children()}
