@@ -40,7 +40,7 @@
 
 <svelte:head><title>Add to a lesson</title></svelte:head>
 
-<Screen title="Add to a lesson" subtitle="Compressed and uploaded in the background">
+<Screen width="narrow" title="Add to a lesson" subtitle="Compressed and uploaded in the background">
 	{#if data.lessons.length === 0 && data.groups.length === 0}
 		<EmptyState
 			icon="lessons"

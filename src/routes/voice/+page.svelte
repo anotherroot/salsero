@@ -438,7 +438,7 @@
 	{:else if stage === 'recording'}
 		<div class="flex flex-col gap-2 pb-24">
 			<div
-				class="flex flex-col items-center gap-[18px] rounded-[22px] bg-surface px-[18px] pt-[22px] pb-6"
+				class="flex flex-col items-center gap-[18px] rounded-[22px] bg-surface px-[18px] pt-[22px] pb-6 desk:mt-12 desk:gap-6 desk:px-8 desk:py-10"
 			>
 				<span
 					class="inline-flex h-[30px] items-center gap-2 rounded-full bg-danger-soft px-3 text-[13px] font-extrabold text-danger"
@@ -447,19 +447,21 @@
 				<p class="text-center">
 					<span
 						aria-live="polite"
-						class="block font-display text-[40px] leading-tight font-extrabold text-ink"
+						class="block font-display text-[40px] leading-tight font-extrabold text-ink desk:text-[56px]"
 						>{view.heading}</span
 					>
 					{#if view.say || view.line}
-						<span class="mt-1.5 block text-[15px] font-semibold text-muted">
+						<span
+							class="mt-1.5 block text-[15px] font-semibold text-muted desk:mt-2.5 desk:text-[18px]"
+						>
 							{#if view.say}Say <strong class="text-ink">{view.say}</strong> now{:else}{view.line}{/if}
 						</span>
 					{/if}
 				</p>
-				<div aria-hidden="true" class="flex justify-center gap-[9px]">
+				<div aria-hidden="true" class="flex justify-center gap-[9px] desk:gap-3.5">
 					{#each view.dots as dot, i (i)}
 						<span
-							class="flex size-[34px] items-center justify-center rounded-full text-[15px] font-extrabold tabular-nums {dotLook[
+							class="flex size-[34px] items-center justify-center rounded-full text-[15px] font-extrabold tabular-nums desk:size-11 desk:text-[18px] {dotLook[
 								dot
 							]}">{i + 1}</span
 						>
@@ -471,7 +473,7 @@
 					aria-valuemin={0}
 					aria-valuemax={BARS}
 					aria-valuenow={view.barsDone}
-					class="flex w-full gap-1.5"
+					class="flex w-full gap-1.5 desk:max-w-[480px]"
 				>
 					{#each Array.from({ length: BARS }, (_, i) => i) as i (i)}
 						<span

@@ -123,7 +123,9 @@
 
 <Screen title="Settings">
 	{#snippet left()}
-		<BandButton icon="back" label="Back to Today" href={`/${data.dance}`} />
+		<span class="contents desk:hidden" data-desk-hidden>
+			<BandButton icon="back" label="Back to Today" href={`/${data.dance}`} />
+		</span>
 	{/snippet}
 
 	<span class={SECTION_LABEL}>Storage</span>
