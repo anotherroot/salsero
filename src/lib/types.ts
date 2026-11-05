@@ -1090,7 +1090,8 @@ export type CommentRow = {
 	id: number;
 	/** A top comment's own thread is null; a reply's is its top comment. */
 	threadId: number | null;
-	authorName: string;
+	/** Null for a deleted comment: its author is not shown. */
+	authorName: string | null;
 	/** The author is the group's owner or an editor right now. */
 	teacher: boolean;
 	mine: boolean;

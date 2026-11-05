@@ -152,6 +152,23 @@ describe('delete and restore', () => {
 		expect(restoreComment(db, 'u2', c.id)).toBe(false); // nothing to restore
 	});
 
+	it('a member cannot restore their own comment after a teacher deleted it; the teacher can', () => {
+		const c = ok(post('u2', 'rude'));
+		deleteComment(db, 'u3', c.id, 200);
+		expect(restoreComment(db, 'u2', c.id)).toBe(false);
+		expect(list('u2')!.threads).toEqual([]);
+		expect(restoreComment(db, 'u1', c.id)).toBe(true);
+		expect(list('u2')!.threads[0].top.body).toBe('rude');
+	});
+
+	it('a deleted comment sends no author name', () => {
+		const top = ok(post('u2', 'Q'));
+		ok(post('u1', 'A', top.id, 110));
+		deleteComment(db, 'u2', top.id, 200);
+		expect(list('u1')!.threads[0].top).toMatchObject({ body: null, authorName: null });
+		expect(list('u1')!.threads[0].replies[0].authorName).toBe('Teo');
+	});
+
 	it('a member cannot restore what an editor deleted of someone else’s', () => {
 		const c = ok(post('u3', 'editor'));
 		deleteComment(db, 'u1', c.id, 200);

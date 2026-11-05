@@ -763,7 +763,7 @@ describe("a group's videos, uploads and room on the flat routes", () => {
 
 import { readdir } from 'node:fs/promises';
 import { usedBytes } from '$lib/server/storage';
-import { users } from '$lib/server/db/schema';
+import { lessonComments, users } from '$lib/server/db/schema';
 import { publishLesson } from '$lib/server/lessons';
 import { postComment } from '$lib/server/comments';
 import { GET as getComments, POST as postCommentApi } from './lessons/[id]/comments/+server';
@@ -813,9 +813,20 @@ describe("comments stand behind the lesson's group", () => {
 	});
 
 	it('hearting, deleting and restoring are a 404 for a stranger and change nothing', async () => {
+		// u2's own comment, deleted by the owner: only the wall keeps u2 from delete/restore
+		// (as an author u2 could delete it, and restore it were u2 inside the group).
+		const theirs = { id: 'u2' };
+		db.update(lessonComments)
+			.set({ authorId: theirs.id })
+			.where(eq(lessonComments.id, commentId))
+			.run();
 		expect(await status(call(heartApi, commentId, U2))).toBe(404);
 		expect(await status(call(deleteCommentApi, commentId, U2))).toBe(404);
+		expect(db.select().from(lessonComments).get()!.deletedAt).toBeNull();
+		db.update(lessonComments).set({ deletedAt: 20, deletedBy: 'u2' }).run();
 		expect(await status(call(restoreApi, commentId, U2))).toBe(404);
+		expect(db.select().from(lessonComments).get()!.deletedAt).toBe(20);
+		db.update(lessonComments).set({ deletedAt: null, deletedBy: null }).run();
 		expect(await status(call(heartApi, 9999, U1))).toBe(404);
 		expect(await status(call(heartApi, commentId, U1))).toBe(200);
 		expect(await status(call(deleteCommentApi, commentId, U1))).toBe(200);

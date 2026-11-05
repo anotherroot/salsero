@@ -122,7 +122,7 @@ export function listComments(db: Db, userId: string, lessonId: number): CommentL
 		return {
 			id: c.id,
 			threadId: c.threadId,
-			authorName: names.get(c.authorId) ?? 'Someone',
+			authorName: live ? (names.get(c.authorId) ?? 'Someone') : null,
 			teacher: isTeacher(roles.get(c.authorId) ?? null),
 			mine: c.authorId === userId,
 			body: live ? c.body : null,
@@ -241,7 +241,10 @@ export function deleteComment(db: Db, userId: string, commentId: number, now: nu
 export function restoreComment(db: Db, userId: string, commentId: number): boolean {
 	const found = commentCtx(db, userId, commentId);
 	if (!found || !found.ctx.open || found.comment.deletedAt === null) return false;
-	if (!mayRemove(db, userId, found.comment, found.ctx)) return false;
+	// Undo is the deleter's; a teacher may always bring a comment back, an author may not undo a teacher.
+	const undoes =
+		found.comment.deletedBy === userId || isTeacher(roleIn(db, userId, found.ctx.teamId));
+	if (!undoes) return false;
 	db.update(lessonComments)
 		.set({ deletedAt: null, deletedBy: null })
 		.where(eq(lessonComments.id, commentId))
