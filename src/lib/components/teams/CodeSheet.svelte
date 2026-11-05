@@ -38,7 +38,10 @@
 	/* Read when the sheet opens: it is closed at SSR, so `navigator` is there by then. */
 	let canShare = $state(false);
 	$effect(() => {
-		if (open) canShare = typeof navigator.share === 'function';
+		if (open) {
+			canShare = typeof navigator.share === 'function';
+			failed = false;
+		}
 	});
 	const action = $derived(codeAction(desk.current, canShare, copied));
 
@@ -80,7 +83,7 @@
 			<Icon name={action.icon} size={20} />
 			{action.label}
 		</button>
-		{#if failed}
+		{#if failed && desk.current}
 			<p role="alert" class="text-center text-[13px] text-danger">{COPY_FAILED}</p>
 		{/if}
 		<p class="text-center text-[13px] text-muted">
