@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { getDb } from '$lib/server/db';
+import { getDb, type Db } from '$lib/server/db';
 import { inviteQr } from '$lib/server/invites';
 import { createLesson, getLessonRow, listTeamLessons } from '$lib/server/lessons';
 import { readNewLesson } from '$lib/server/lesson-form';
@@ -7,7 +7,13 @@ import { readAdd } from '$lib/server/add-form';
 import { addLesson, addOffer, addState, defaultPicks } from '$lib/server/entries';
 import { autoAddStored, setAutoAdd } from '$lib/server/levels';
 import { int } from '$lib/server/form';
-import { addsAtOnce, autoAddOn, autoAddSwitchShown, levelShown } from '$lib/levels/levels';
+import {
+	addsAtOnce,
+	autoAddOn,
+	autoAddSwitchShown,
+	levelShown,
+	simpleClass
+} from '$lib/levels/levels';
 import { localDay } from '$lib/day/day';
 import { whatsNew } from '$lib/server/whats-new';
 import { listSongs } from '$lib/server/songs';
@@ -20,6 +26,11 @@ import { realCloneFiles } from '$lib/server/clones/files';
 import { codeLink, NAME_REFUSAL } from '$lib/teams/view';
 import type { Actions, PageServerLoad } from './$types';
 
+/** How many things a class puts on Today: `addOffer`'s ticked items (the default picks). */
+function practiseCount(db: Db, userId: string, lessonId: number): number {
+	return addOffer(db, userId, lessonId)?.items.filter((i) => i.ticked).length ?? 0;
+}
+
 export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 	const { team, role, space } = requireTeam(db, locals, params, 'member');
@@ -29,7 +40,10 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 	// The code is for those who may hand it out; a deleted group shows nothing but Restore.
 	const link = !deleted && role !== 'member' ? codeLink(url.origin, team.code) : null;
 	const level = levelShown(locals.user!.level);
+	// My class: a member at Follow my class sees the class page, simple (`MyClass`).
+	const simple = !deleted && simpleClass(level, role);
 	return {
+		simple,
 		// "Add new lessons to Today automatically": the member's own switch, at the two upper levels.
 		autoAdd:
 			!deleted && autoAddSwitchShown(level)
@@ -48,7 +62,9 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 					...l,
 					isNew: fresh.has(l.id),
 					// "Added ✓", or Add and its sheet; nothing on a draft.
-					add: l.publishedAt === null ? null : addState(db, space.actorId, l.id)
+					add: l.publishedAt === null ? null : addState(db, space.actorId, l.id),
+					// My class's "4 to practise": what Add puts on Today (the lesson, its routines and drills).
+					practise: simple ? practiseCount(db, space.actorId, l.id) : 0
 				})),
 		// Class songs: the shared ones; an editor's list starts with the drafts.
 		songs: deleted

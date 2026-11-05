@@ -16,7 +16,14 @@ import {
 	PICK_GROUP,
 	purgeDay,
 	roleLabel,
-	youLine
+	youLine,
+	classMeta,
+	latestAndEarlier,
+	groupMenu,
+	otherClassLine,
+	lastClassLine,
+	MY_CLASS,
+	ADDED_TO_TODAY
 } from './view';
 
 describe('group wording', () => {
@@ -136,5 +143,74 @@ describe('codeAction', () => {
 	});
 	it('says what to do when the copy fails', () => {
 		expect(COPY_FAILED).toBe('Could not copy. The link above is selected: copy it from there.');
+	});
+});
+
+describe('My class', () => {
+	const lesson = (id: number, lessonDay: string, publishedAt: number | null = 1) => ({
+		id,
+		lessonDay,
+		publishedAt
+	});
+
+	it('puts the newest published class first and the rest under Earlier classes, newest first', () => {
+		const { latest, earlier } = latestAndEarlier([
+			lesson(1, '2026-10-20'),
+			lesson(4, '2026-11-03'),
+			lesson(2, '2026-10-27'),
+			lesson(3, '2026-10-27'),
+			lesson(5, '2026-11-10', null) // a draft is not a class yet
+		]);
+		expect(latest?.id).toBe(4);
+		// Two classes on one day: the later made first.
+		expect(earlier.map((l) => l.id)).toEqual([3, 2, 1]);
+	});
+
+	it('has no latest and nothing earlier with no published class', () => {
+		expect(latestAndEarlier([lesson(1, '2026-11-03', null)])).toEqual({
+			latest: null,
+			earlier: []
+		});
+		expect(latestAndEarlier([])).toEqual({ latest: null, earlier: [] });
+	});
+
+	it('says how many videos and how much to practise, leaving out a zero', () => {
+		expect(classMeta(2, 4)).toBe('2 videos · 4 to practise');
+		expect(classMeta(1, 1)).toBe('1 video · 1 to practise');
+		expect(classMeta(0, 3)).toBe('3 to practise');
+		expect(classMeta(2, 0)).toBe('2 videos');
+		expect(classMeta(0, 0)).toBeNull();
+	});
+
+	it('gives the class menu People and Leave only', () => {
+		expect(groupMenu('member', true)).toEqual(['people', 'leave']);
+	});
+
+	it('keeps the full group menu off My class', () => {
+		expect(groupMenu('member', false)).toEqual(['people', 'leave']);
+		expect(groupMenu('editor', false)).toEqual(['people', 'deleted', 'code', 'leave']);
+		expect(groupMenu('owner', false)).toEqual(['people', 'deleted', 'code', 'rename', 'delete']);
+	});
+
+	it('points to a class in the other dance', () => {
+		expect(otherClassLine('Bachata')).toBe('Your bachata class');
+		expect(otherClassLine('Salsa')).toBe('Your salsa class');
+	});
+
+	it('says when a class last met, in the list of classes', () => {
+		expect(lastClassLine('2026-11-03', '2026-11-05')).toBe('Last class Tue 3 Nov');
+		expect(lastClassLine('2025-12-02', '2026-11-05')).toBe('Last class Tue 2 Dec 2025');
+		expect(lastClassLine(null, '2026-11-05')).toBe('No classes yet');
+	});
+
+	it('has the words of the class page and its toast', () => {
+		expect(MY_CLASS).toEqual({
+			title: 'My class',
+			classes: 'Your classes',
+			earlier: 'Earlier classes',
+			menu: 'Class menu',
+			pick: { title: 'Pick a class', body: 'Its classes and songs open here.' }
+		});
+		expect(ADDED_TO_TODAY).toBe('Added to Today');
 	});
 });
