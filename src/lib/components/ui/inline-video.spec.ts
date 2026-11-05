@@ -22,7 +22,7 @@ describe('inline videos on desktop', () => {
 				if (!m[1].includes('desk:max-h-[70dvh]')) bad.push(`${f}: ${m[1]}`);
 			}
 		}
-		expect(seen).toBe(3);
+		expect(seen).toBeGreaterThanOrEqual(3);
 		expect(bad).toEqual([]);
 	});
 

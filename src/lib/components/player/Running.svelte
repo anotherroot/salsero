@@ -439,7 +439,7 @@
 		/* The whole routine; a long one shrinks the list, which scrolls itself, never the Voice card away. */
 		.slots {
 			flex: 0 1 auto;
-			min-height: 0;
+			min-height: 48px;
 			max-height: none;
 			-webkit-mask-image: none;
 			mask-image: none;
