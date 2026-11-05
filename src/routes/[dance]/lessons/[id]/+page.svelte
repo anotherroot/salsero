@@ -234,14 +234,19 @@
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const LessonLog = logFor('lesson');
 	const failure = (action: string) => (form?.action === action ? form.message : null);
-	/** Whether the columns' first row has anything: an empty one would still take a gap. */
-	const hasTop = $derived(
-		editing ||
-			!!failure('publish') ||
-			!!data.notice ||
-			!!data.edited ||
-			!!(data.add?.added && data.add.offer)
-	);
+	/**
+	 * What the columns' top row shows besides the edit form, each read from here only
+	 * (outside editing `colsTop` renders these and nothing else; a spec checks it), so
+	 * `hasTop` cannot miss one.
+	 */
+	const top = $derived({
+		publish: failure('publish'),
+		notice: data.notice,
+		edited: data.edited,
+		offer: data.add?.added ? data.add.offer : null
+	});
+	/** Whether the top row has anything: an empty one would still take a gap. */
+	const hasTop = $derived(editing || Object.values(top).some(Boolean));
 
 	/** The "+ New figure" sheet's switch: a move of its own, or a figure of one. */
 	const FIGURE_MODES = [
@@ -633,7 +638,7 @@
 			its size container.
 		-->
 		{#snippet colsTop()}
-			{#if failure('publish')}<Banner kind="error">{failure('publish')}</Banner>{/if}
+			{#if top.publish}<Banner kind="error">{top.publish}</Banner>{/if}
 			{#if editing}
 				{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}
 				<!-- `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
@@ -671,8 +676,8 @@
 					>
 				</div>
 			{:else}
-				{#if data.notice}
-					{@const notice = data.notice}
+				{#if top.notice}
+					{@const notice = top.notice}
 					<!-- The group is being deleted: read-only until the purge, with a way to keep it. -->
 					<Banner kind={notice.tone}>
 						{notice.text}
@@ -688,14 +693,14 @@
 						{/snippet}
 					</Banner>
 				{/if}
-				{#if data.edited}<p class="text-[13px] font-semibold text-muted">{data.edited}</p>{/if}
-				{#if data.add?.added && data.add.offer}
+				{#if top.edited}<p class="text-[13px] font-semibold text-muted">{top.edited}</p>{/if}
+				{#if top.offer}
 					<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
 					<div
 						class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-accent-soft py-2 pr-2 pl-4"
 					>
 						<span class="min-w-0 flex-1 text-[15px] font-bold text-accent-text"
-							>{newLine(data.add.offer.items)}</span
+							>{newLine(top.offer.items)}</span
 						>
 						<form
 							method="POST"
@@ -1216,8 +1221,10 @@
 					removeBusy = true;
 					return async ({ update, result }) => {
 						if (result.type === 'redirect') {
+							// The dialog closes with the move already under way: `leaveRemoved`
+							// drops the refresh its close would owe for the form sent in it,
+							// which would bring this lesson back in place of where it leads.
 							removing = false;
-							await tick();
 							await leaveRemoved(result.location);
 							removeBusy = false;
 							return;
@@ -1274,10 +1281,13 @@
 					}
 					if (result.type === 'redirect') {
 						// Archived: the edit form goes first, so leaving for Lessons is not
-						// asked about as unsaved changes.
+						// asked about as unsaved changes. Then the dialog, with the move
+						// already under way: `leaveRemoved` drops the refresh its close
+						// would owe for the form sent in it, which would reload this
+						// lesson, gone now, as a 404 in place of Lessons.
 						editing = false;
-						archiving = false;
 						await tick();
+						archiving = false;
 						await leaveRemoved(result.location);
 						archiveBusy = false;
 						return;

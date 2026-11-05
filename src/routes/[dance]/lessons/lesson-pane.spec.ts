@@ -33,6 +33,18 @@ describe('the lesson page in its pane', () => {
 		expect(page).toContain('leftEnd={editing ? undefined : linked}');
 	});
 
+	it('shows in the top row only what hasTop counts', () => {
+		const start = page.indexOf('{#snippet colsTop()}');
+		const block = page.slice(start, page.indexOf('{#snippet about()}', start));
+		const conditions = [...block.matchAll(/\{#if ([^}]+)\}/g)].map((m) => m[1]);
+		// The edit form's own banners show only while editing (hasTop is true then); the
+		// notice's Make it mine sits inside the notice.
+		const inside = ['editing', 'archiveError', 'refusal && !refusal.field', 'data.makeMine'];
+		const rest = conditions.filter((c) => !inside.includes(c));
+		expect(rest).toEqual(['top.publish', 'top.notice', 'top.edited', 'top.offer']);
+		expect(page).toContain('const hasTop = $derived(editing || Object.values(top).some(Boolean));');
+	});
+
 	it('opens the lesson menu as the small dialog, and no other sheet', () => {
 		expect(page).toMatch(/<Sheet title=\{lesson\.title\} size="small"/);
 		expect(page.match(/size="small"/g)).toHaveLength(1);
