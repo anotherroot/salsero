@@ -6,3 +6,4 @@
 /{dance}/does-not-exist
 /{dance}/figures/does-not-exist
 /settings/does-not-exist
+/welcome/start?step=join

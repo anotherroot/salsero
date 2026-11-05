@@ -1,6 +1,7 @@
 # Comments on a class's lessons
 
-Status: designed 2026-11-05, not built. Part 3 of three from the "app for
+Status: built 2026-11-05 (the tables are in migration 0031, with part 2); see
+"Decided while building" at the end. Part 3 of three from the "app for
 people who just follow their class" brainstorm (part 1:
 [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md),
 part 2: [`2026-11-05-levels-design.md`](2026-11-05-levels-design.md)).
@@ -203,3 +204,43 @@ in `src/lib/server/comments.ts` and take `db` first.
   added lesson that links it. "Links it" is the lesson's reach (`reachFrom`),
   the same reading Add uses: a figure inside one of the lesson's routines, or
   on one of its sections, counts.
+
+## Decided while building
+
+The plan's rulings and the builders' calls, kept here so the text above reads
+as built.
+
+1. **The composer registers with `track()`, not `use:guarded`** (ruling R11).
+   It posts JSON to the API with `fetch`, and `guarded`'s Save only resends a
+   page form action. Its `track` entry (label "Comment", dirty while there is
+   text, save is the real send) behaves the same: closing with text asks
+   "Unsaved changes", and that dialog's Save posts the comment. The composer
+   is drawn only while the sheet is open (`composerShown`), so text thrown
+   away with the sheet can never be asked about again or posted.
+2. **The keyboard fix is in `Sheet`, through `visualViewport`**
+   (`sheets/keyboard.ts`: `keyboardInsets`, `followKeyboard`), not
+   `interactive-widget=resizes-content`, which would reflow every page (the
+   tab bar, pinned bars) when a keyboard opens. Only an open sheet moves; with
+   no keyboard it is as before, and in the Android app (whose WebView already
+   shrinks) and under pinch zoom it does nothing. It covers every sheet, the
+   small rename sheet in the notes too. Checked by emulating a 300 px
+   keyboard in Chromium, not yet on a phone.
+3. **A deleted group answers 403** on post, heart, delete and restore (its
+   comments read-only, the sheet with no composer, Reply or ⋯); a stranger and
+   a missing id get the lesson's 404, and a refused body or reply a 400.
+4. **Restore is the deleter's or a teacher's.** A member cannot bring back
+   their own comment a teacher deleted (`deleted_by` must be them, or they are
+   an editor or the owner).
+5. **A deleted comment carries no author name** (`authorName` null): "Comment
+   deleted" stands alone above its replies.
+6. **"@Name" only on a reply to a reply** (`replyToName` is set only then).
+7. **The card's newest** is the newest live comment, top or reply. Its ago
+   text is read against the load's `now`, so the server and the page agree.
+8. **Hearts change at once** and roll back with a toast when refused; one
+   heart request per comment is in flight at a time. "Comment deleted · Undo"
+   shows only once the delete has landed.
+9. **Where the card sits.** The full lesson page and the simple one (part 2's
+   `SimpleLesson`) end with it, for a group's lesson and not while editing;
+   the exercise page draws it, titled "Comments on the class", in its
+   `classCard` place after the content, at every level.
+10. **Not yet:** an editor can still comment on an archived lesson they reach.

@@ -1,6 +1,7 @@
 # Levels: how much app a person sees, and the simple screens
 
-Status: designed 2026-11-05, not built. Part 2 of three from the "app for
+Status: built 2026-11-05 (migration 0031, shared with part 3); see "Decided
+while building" at the end. Part 2 of three from the "app for
 people who just follow their class" brainstorm. Part 1 (Today as a number a
 day, the four faces, Coming up) is built:
 [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md).
@@ -187,13 +188,20 @@ It runs:
   for the person, if auto-add is on for them in that group: see "Which
   lessons on join" below.
 - **When a published lesson gains something to practise**: anything that makes
-  `newInLesson` non-empty for a member (a hand link, a section link, the Link
-  popup's create-and-link, a routine the lesson holds gaining a drill). For
-  each member who has the lesson added and auto-add on, the new items are
-  added as Add would. One function, `autoAddPending(tx, teamId, now)`, run at
-  the end of every group mutation that can grow a published lesson's reach,
-  in its transaction; a spec lists those mutations (like `MUTATIONS` in
-  `changes.spec.ts`) so a new one cannot forget it. **(My call.)**
+  `newInLesson` non-empty for a member. `newInLesson` returns only a lesson's
+  own routines and drills, so that is a routine linked to the lesson
+  (`linkRoutine`), a drill linked by hand (`linkExercise`), a drill linked to a
+  section of one of its videos (`linkInSpace`, which the Link popup's
+  create-and-link also goes through), and a lesson Take or Send into the
+  group's lesson (`syncFrom`). Figure links and routine edits are not growth:
+  Add never adds a figure, and a routine holds no drills. For each member who
+  has the lesson added and auto-add on, the new items are added as Add would.
+  One function, `autoAddPending(tx, teamId, lessonIds, now)`, run for the
+  lessons that grew at the end of each of those mutations, in its
+  transaction; `GROWTH` in `auto-add.spec.ts` lists them (like `MUTATIONS` in
+  `changes.spec.ts`), and its scan of the insert sites into `lesson_routines`,
+  `lesson_exercises` and `spot_links` fails when a new one is not placed.
+  **(My call.)**
 
 Turning the toggle on, or moving to a lower level, adds nothing by itself: it
 applies from the next publish on.
@@ -247,7 +255,8 @@ back to the list. **A teacher at Follow my class** (an editor or the owner of
 the group) keeps the full group page (drafts, New lesson, the code), as their
 lessons stay full (`simpleClass(level, role)`); the tab's landing and the list
 of classes are the same for them. Undo posts the lesson page's own Remove
-(`actAt(…, { stay: true })`: its redirect to Lessons is not followed).
+with `stay=1`, which answers instead of redirecting to Lessons (the simple
+lesson page's Undo posts the same).
 
 At Practise and keep my own and Everything, Groups is the standard Groups tab.
 A group's page gains one row for every member: **"Add new lessons to Today
@@ -334,8 +343,9 @@ component as the first run, the current one ticked). Saving writes
 `users.level` and goes back to Settings; the tabs change at once.
 
 At Follow my class, Settings shows only: How much app?, Exercises a day, the
-daily reminder, theme, name, paired phones, sign out. (Storage and the count
-voice are not drawn.)
+daily reminder, theme, name, paired phones, sign out, and for the admin the
+Admin row (their only way to `/admin`, kept at every level). (Storage, the
+count voice, Get the app and the app's version row are not drawn.)
 
 ## Desktop
 
@@ -347,6 +357,16 @@ Everything above applies from 1024 px with the desktop frame:
 - The simple lesson page uses the existing two columns: notes and the practice
   list in one, videos in the other. The simple player's desktop layout is the
   real desktop layout with the same simple chrome.
+- A class's lesson at Follow my class sits where its class does: beside the
+  list of classes (its class lit) with two or more, alone with one. It is the
+  Lessons route, so the Lessons layout draws My class's list there
+  (`server/my-class.ts`, shared with the Groups layout), never the Lessons list
+  with New lesson and sizes. Beside a list column the pane is narrower than
+  the two-column breakpoint, so the lesson is one column there, as every
+  lesson beside a list is.
+- At Practise and keep my own the Lessons list column stays; its rows show the
+  date, the title, the group and "2 videos", without the size or the section,
+  routine and figure counts, and the band has no "Videos on disk" line.
 - The welcome pages are `CardFrame`, as on the phone.
 
 ## Calls made (mine, check them)
@@ -368,3 +388,68 @@ Everything above applies from 1024 px with the desktop frame:
 1. **Two classes at Follow my class:** a list of classes, then the class.
 2. **On joining:** only the newest lesson goes to Today; the older ones can be
    added by hand.
+
+## Decided while building
+
+The plan's rulings and the builders' calls, kept here so the text above reads
+as built.
+
+1. **Null is drawn as Everything.** `levelShown(null)` is `'all'`: a person who
+   has not chosen yet (only ever seen by the first-run gate) and a page with no
+   user draw today's app, so no component writes `?? 'all'` itself.
+2. **Group mode is dropped below Everything.** `groupModeOf` refuses and
+   deletes the group-mode cookie at Follow my class and Practise and keep my
+   own, so someone who moves down while in group mode does not keep writing new
+   lessons and songs into the group. Callers that have `locals.user.level`
+   (the dance layout, `spaceOf`) pass it in; the rest read it.
+3. **Settings at Follow my class** also leaves out Get the app and the app's
+   version row (Today's "Update available" and the full-screen Update needed
+   still cover updates). The Admin row stays for the admin at every level: it
+   is their only way to `/admin`.
+4. **Joining a class is `joinClass`** (`server/auto-add.ts`): `joinTeam` and,
+   on a new join, auto-add's newest lesson, in one transaction. The code field
+   (`joinWithCode`), the first run's join and `/g/<code>` all go through it.
+   Leaving and joining again is a new join, so it runs again.
+5. **Growth is what `newInLesson` can return** (ruling R7): `linkRoutine`,
+   `linkExercise`, `linkInSpace` (a drill linked to a section of a lesson
+   video) and `syncFrom` (a lesson Take or Send). Figure links and routine
+   slot or embed edits never feed it. `autoAddPending` runs only for the
+   lessons that grew. A member who turns the switch on gets that lesson's
+   earlier unseen items the next time it grows (`newInLesson` reads since
+   `seen_at`). Restoring a trashed link adds nothing: `reviveEntries` already
+   brings back the entries archived with it.
+6. **My class's landing is the tab's, not a wall** (ruling R3): at Follow my
+   class with one class the groups index redirects to it; every group page
+   still opens by URL at every level.
+7. **A teacher keeps full pages.** `simpleLesson` is false for a lesson the
+   person edits, and `simpleClass(level, role)` false for an editor or the
+   owner: a teacher at Follow my class keeps the full group page (drafts, New
+   lesson, the code); the tab's landing and the list of classes are the same
+   for them. Whoever is in one class at Follow my class, whatever their role,
+   gets no ‹ on its page (its fallback, the tab, would open it again).
+8. **An own lesson is read-only at Follow my class** (it creates nothing): no
+   Edit, upload or links, and no lesson menu.
+9. **Undo stays on the page.** The lesson page's Remove takes an optional
+   `stay=1` and then answers instead of redirecting to Lessons; the simple
+   lesson page's and My class's "Added to Today · Undo" both post it. Older
+   pages never send it.
+10. **When it is next on Today**, beyond the ruled words: one day is "On Today
+    tomorrow", two to six "On Today on Sunday", seven to thirteen "On Today next
+    week", later "On Today on 19 Nov" (with the year when it differs), and a
+    paused entry "Paused". An empty practice list draws no section.
+11. **"4 to practise"** is what Add puts on Today (`addOffer`'s ticked items:
+    the lesson, its routines and drills), a zero part left out. The Class menu
+    says "Leave class".
+12. **Add below Everything is one tap** (`addsAtOnce`, follow and own). At
+    Practise and keep my own the group page's Add flips the row to "Added ✓"
+    without a toast, and the lesson's "N new" banner adds at once (no sheet).
+13. **The first run.** A join with a plain `next` lands on `next`, not the
+    class's dance (step 4's order). The swipe reuses `gestures/swipe.ts`.
+14. **The simple exercise page.** "From class" is `fromClassOf`: a lesson
+    review's lesson, an added drill entry's or a group drill's add-route
+    lesson. Each type keeps its own practice panel; the popup keeps Details.
+15. **The simple player.** In a section the repeat is lit and locked. The
+    portrait body falls back as it always did when no section is open
+    (`portraitBody`'s `spot`), so the full player's Hide is unchanged.
+16. **The desktop** is as in "Desktop" above: a class's lesson beside My
+    class's list, and no sizes or counts in the Lessons rows below Everything.
