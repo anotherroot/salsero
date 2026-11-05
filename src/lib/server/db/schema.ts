@@ -53,8 +53,35 @@ export const users = sqliteTable('users', {
 	/** Bytes of recordings, videos, songs and takes the account may keep; null = no limit. */
 	storageLimitBytes: integer('storage_limit_bytes'),
 	/** How many groups the person may make; null = `TEAMS_MADE_DEFAULT`. */
-	groupLimit: integer('group_limit')
+	groupLimit: integer('group_limit'),
+	/** How many exercises Today shows a day, for both dances; null = `DAILY_DEFAULT`. Range-checked in `setDailyCount`. */
+	dailyCount: integer('daily_count')
 });
+
+/**
+ * What a person chose for one day on Today: an exercise put there by hand
+ * (`add`), pulled in by Next N (`next`), or skipped for the day (`skip`).
+ * `day` is a local day in the person's zone. See `src/lib/server/today-picks.ts`.
+ */
+export const todayPicks = sqliteTable(
+	'today_picks',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		exerciseId: integer('exercise_id')
+			.notNull()
+			.references(() => exercises.id),
+		day: text('day').notNull(),
+		kind: text('kind', { enum: ['next', 'add', 'skip'] }).notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [
+		index('today_picks_user_day_idx').on(t.userId, t.day),
+		check('today_picks_kind_ck', sql`${t.kind} in ('next', 'add', 'skip')`)
+	]
+);
 
 /**
  * The style a new figure starts on, per user and dance, as picked in Settings.
