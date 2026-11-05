@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { desk } from '$lib/nav/desk.svelte';
 	import { page } from '$app/state';
 	import { listOf } from '$lib/nav/pane';
 	import { logFor } from '$lib/components/exercises/kinds';
@@ -41,6 +42,8 @@
 
 	let openId = $state<number | null>(null);
 	let creating = $state(false);
+	// The list's Inactive fold: the layout's, so a fresh visit closes it (`afterNavigate`).
+	let showInactive = $state(false);
 
 	// A session walks Today's due/upcoming bands one popup at a time. It lives
 	// entirely in the URL flag plus this layout's own state — nothing is stored,
@@ -85,6 +88,32 @@
 
 	// A reload keeps the flag; pick up at the current first row.
 	onMount(() => {
+		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
+	});
+
+	/*
+	 * The layout outlives a move between Today and an exercise, where the page it
+	 * replaces used to unmount. So, by hand: leaving for another path (Details ›,
+	 * a row) closes the phone popup, as its unmount did (the sheet's entry is
+	 * behind the new page by then: `navigated`, so it goes without a Back). Going
+	 * to the list keeps it: Start session from an exercise's page (desktop) opens
+	 * it on the way. On the phone, arriving at the list from another path is a
+	 * fresh visit, as the page's own mount was: the tally, the skips and Inactive
+	 * start over and a session picks up at its current first row. The desktop
+	 * keeps them across exercises (the session walks the pane: Task 6).
+	 */
+	afterNavigate(({ from, to }) => {
+		if (!from || !to || from.url.pathname === to.url.pathname) return;
+		const toList = listOf(to.route.id)?.open === false;
+		if (!toList) {
+			openId = null;
+			return;
+		}
+		if (desk.current) return;
+		skipped = new Set();
+		tally = { count: 0, seconds: 0 };
+		sessionEnded = false;
+		showInactive = false;
 		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
 	});
 
@@ -193,6 +222,7 @@
 		{upNextId}
 		{currentId}
 		rowSearch=""
+		bind:showInactive
 		appUpdate={data.appUpdate}
 		onlog={(id) => (openId = id)}
 		oncreate={() => (creating = true)}

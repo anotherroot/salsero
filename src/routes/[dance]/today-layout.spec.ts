@@ -1,0 +1,53 @@
+/**
+ * Today's list is the (today) layout's load, and it must never read `url`:
+ * SvelteKit reruns a load that read it on every change of the URL, so opening
+ * an exercise, a session's flag or a past day would reload the whole list
+ * beside it. The page's load is the one that reads `?day=`.
+ *
+ * Like `dance-wall.spec.ts`, `getDb()` is mocked: each test gets its own
+ * `openDb(':memory:')` and nothing ever opens the real database.
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const handle = vi.hoisted(() => ({ db: undefined as unknown }));
+
+vi.mock('$lib/server/db', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/db')>('$lib/server/db');
+	return { ...actual, getDb: () => handle.db };
+});
+
+import { openDb } from '$lib/server/db';
+import { createCustomExercise } from '$lib/server/exercises';
+import { U1_SALSA } from '$lib/server/test-walls';
+import { load } from './(today)/+layout.server';
+
+const USER = { id: 'u1', email: 'u@example.com', timezone: 'Europe/Ljubljana', isAdmin: true };
+
+beforeEach(() => {
+	handle.db = openDb(':memory:');
+});
+
+describe("Today's layout load", () => {
+	it('loads the list without reading the URL', () => {
+		createCustomExercise(handle.db as never, U1_SALSA, {
+			name: 'Clave',
+			everyDays: 2,
+			notes: null
+		});
+		const read: string[] = [];
+		const event = new Proxy(
+			{ params: { dance: 'salsa' }, locals: { user: USER }, depends: () => {} },
+			{
+				get(target, key) {
+					read.push(String(key));
+					if (key === 'url') throw new Error('the layout load read url');
+					return Reflect.get(target, key);
+				}
+			}
+		);
+		const data = (load as unknown as (e: unknown) => { list: { plan: { due: unknown[] } } })(event);
+		expect(data.list.plan.due).toHaveLength(1);
+		expect(read).not.toContain('url');
+		expect(read).not.toContain('route');
+	});
+});

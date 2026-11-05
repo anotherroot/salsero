@@ -30,6 +30,7 @@
 		currentId,
 		rowSearch,
 		appUpdate,
+		showInactive = $bindable(false),
 		onlog,
 		oncreate
 	}: {
@@ -47,13 +48,13 @@
 		/** Appended to each row's link. */
 		rowSearch: string;
 		appUpdate: AppUpdate | null;
+		/** Inactive unfolded; the layout's, which folds it again on a fresh visit. */
+		showInactive?: boolean;
 		/** A row's +: its log popup (the phone). */
 		onlog: (exerciseId: number) => void;
 		/** Custom exercise: the New exercise sheet. */
 		oncreate: () => void;
 	} = $props();
-
-	let showInactive = $state(false);
 
 	/** "Wed 28 Oct" for a lesson's row, null for any other type. */
 	const lessonDayOf = (e: { lessonId: number | null }) => {
