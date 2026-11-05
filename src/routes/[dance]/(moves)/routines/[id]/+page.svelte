@@ -394,6 +394,18 @@
 		}
 	}
 
+	/**
+	 * One slot's Delete: the swipe's, or the desktop's trash button. The slot
+	 * leaves at once (`gone`), so a keyboard user's focus goes to the next slot,
+	 * else the one before, else Add a slot.
+	 */
+	async function removeSlot(id: number) {
+		const keys = rows.map((r) => `slot-${r.id}`);
+		const done = remove([id]);
+		await focusAfterRemoval(keys, `slot-${id}`, 'add-slot');
+		await done;
+	}
+
 	async function removeAlternative(stepId: number, figureId: number, label: string) {
 		const keys = (data.slots.find((s) => s.id === stepId)?.figureIds ?? [])
 			.slice(1)
@@ -656,14 +668,23 @@
 	{/if}
 {/snippet}
 
-<!-- A reader's Edit makes the routine theirs (ruling 1). -->
+<!-- A reader's Edit makes the routine theirs (ruling 1). On the desktop it is pinned at the pane's foot instead. -->
 {#snippet readerActions()}
-	<BandButton icon="pencil" label="Edit routine" onclick={() => (makingMine = true)} />
+	<span class="contents desk:hidden"
+		><BandButton icon="pencil" label="Edit routine" onclick={() => (makingMine = true)} /></span
+	>
 {/snippet}
 
 {#snippet practise()}
-	<!-- The player picks the song: count only, or any of this dance's ready ones. -->
-	<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
+	<!-- The player picks the song: count only, or any of this dance's ready ones. A reader's
+	     Practise is pinned at the pane's foot on the desktop, beside Edit. -->
+	{#if data.makeMine}
+		<span class="contents desk:hidden"
+			><HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} /></span
+		>
+	{:else}
+		<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
+	{/if}
 {/snippet}
 
 <Screen
@@ -683,7 +704,7 @@
 	<div
 		class={editing
 			? 'flex flex-col gap-3.5 pt-1 pb-28'
-			: `flex flex-col gap-2 ${selecting ? 'pb-36' : 'pb-4'}`}
+			: `flex flex-col gap-2 ${selecting ? 'pb-36' : data.makeMine ? 'pb-4 desk:pb-28' : 'pb-4'}`}
 	>
 		{#if editing}
 			{#if bannerMessage}
@@ -936,7 +957,7 @@
 						}}
 						ondragend={() => (dragging = false)}
 						onreorder={reorder}
-						ondelete={(id) => remove([id])}
+						ondelete={removeSlot}
 						onremoveAlt={removeAlternative}
 						onaddAlt={openAlternative}
 						onnote={(id, note) => send('note', { stepId: id, note })}
@@ -1004,6 +1025,28 @@
 	}}
 	onclose={() => (menuOpen = false)}
 />
+
+{#if data.makeMine}
+	<!-- A reader's Edit and Practise, pinned at the pane's foot on the desktop (as a group's
+	     figure pins them); the phone has the band's pencil and the Practise hero. -->
+	<div class="hidden desk:contents">
+		<BottomBar>
+			<div class="grid gap-2 {danceable ? 'grid-cols-2' : ''}">
+				<button
+					type="button"
+					class={button('secondary', 'md', true)}
+					aria-haspopup="dialog"
+					onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />Edit</button
+				>
+				{#if danceable}
+					<a href={practiseHref} class={button('primary', 'md', true)}
+						><Icon name="play" size={20} />Practise</a
+					>
+				{/if}
+			</div>
+		</BottomBar>
+	</div>
+{/if}
 
 {#if editing}
 	<BottomBar mode>

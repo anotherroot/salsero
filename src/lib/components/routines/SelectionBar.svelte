@@ -6,6 +6,7 @@
 	 */
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { claimBottom } from '$lib/nav/chrome.svelte';
+	import { PAGE_WIDTH } from '$lib/nav/frame';
 	import type { IconName } from '$lib/icons/icons';
 	import type { SelectionAction } from '$lib/routines/selection';
 
@@ -75,22 +76,25 @@
 	role="toolbar"
 	aria-label="Selected slots"
 	bind:offsetHeight={height}
-	class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg px-2 pt-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] [--icon-knockout:var(--color-tab-bg)] desk:left-(--pane-left)"
-	style="padding-bottom: calc(8px + var(--safe-bottom))"
+	class="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[560px] border-t border-tab-line bg-tab-bg px-2 pt-2 shadow-[0_-8px_24px_rgb(0_0_0/0.08)] [--icon-knockout:var(--color-tab-bg)] desk:left-(--pane-left) desk:max-w-none"
+	style="padding-bottom: calc(8px + var(--safe-bottom)); --bar-w: {PAGE_WIDTH.one}px"
 >
-	{#if hint}
-		<p
-			class="mx-1 mb-1.5 flex items-start gap-2 rounded-xl bg-warn-soft px-3 py-2.5 text-[13px] leading-[1.4] font-semibold text-ink"
-			role="status"
-		>
-			<span class="mt-px flex-none text-warn"><Icon name="info" size={16} /></span>{hint}
-		</p>
-	{/if}
-	<div class="grid grid-cols-5 gap-0.5">
-		{@render item('Add above', 'add-above', blocks.above, onabove)}
-		{@render item('Add below', 'add-below', blocks.below, onbelow)}
-		{@render item('Duplicate', 'copy', blocks.duplicate, onduplicate)}
-		{@render item('Make routine', 'route', blocks.extract, onextract)}
-		{@render item('Delete', 'trash', blocks.delete, ondelete, true)}
+	<!-- On the desk the actions are centred in the pane, as wide as the page (as Coverage's bar). -->
+	<div class="mx-auto desk:max-w-(--bar-w)">
+		{#if hint}
+			<p
+				class="mx-1 mb-1.5 flex items-start gap-2 rounded-xl bg-warn-soft px-3 py-2.5 text-[13px] leading-[1.4] font-semibold text-ink"
+				role="status"
+			>
+				<span class="mt-px flex-none text-warn"><Icon name="info" size={16} /></span>{hint}
+			</p>
+		{/if}
+		<div class="grid grid-cols-5 gap-0.5">
+			{@render item('Add above', 'add-above', blocks.above, onabove)}
+			{@render item('Add below', 'add-below', blocks.below, onbelow)}
+			{@render item('Duplicate', 'copy', blocks.duplicate, onduplicate)}
+			{@render item('Make routine', 'route', blocks.extract, onextract)}
+			{@render item('Delete', 'trash', blocks.delete, ondelete, true)}
+		</div>
 	</div>
 </div>
