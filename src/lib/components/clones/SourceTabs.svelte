@@ -4,6 +4,7 @@
 	import { refreshWhenSettled } from '$lib/sheets/history.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { memberRoute } from '$lib/clones/pages';
 	import Segmented from '$lib/components/ui/Segmented.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import CompareSheet from './CompareSheet.svelte';
@@ -127,21 +128,7 @@
 	const items = $derived(sources.map((s) => ({ value: String(s.id), label: s.label })));
 
 	function pageOf(id: number): string {
-		const p = { dance, id: String(id) };
-		switch (kind) {
-			case 'figure':
-				return resolve('/[dance]/(moves)/figures/[id]', p);
-			case 'routine':
-				return resolve('/[dance]/(moves)/routines/[id]', p);
-			case 'drill':
-				return resolve('/[dance]/(today)/exercises/[id]', p);
-			case 'song':
-				return resolve('/[dance]/songs/[id]', p);
-			case 'lesson':
-				return resolve('/[dance]/lessons/[id]', p);
-			case 'position':
-				return resolve('/[dance]/(moves)/positions', p); // positions: a page of their own comes later
-		}
+		return resolve(memberRoute(kind), { dance, id: String(id) });
 	}
 
 	function open(to: string) {

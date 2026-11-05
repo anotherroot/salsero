@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { memberRoute } from '$lib/clones/pages';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import SendSheet from './SendSheet.svelte';
@@ -43,21 +44,7 @@
 	const pageWord = $derived(self?.member.place.kind === 'mine' ? 'yours' : 'this one');
 
 	function pageOf(id: number): string {
-		const p = { dance, id: String(id) };
-		switch (kind) {
-			case 'figure':
-				return resolve('/[dance]/(moves)/figures/[id]', p);
-			case 'routine':
-				return resolve('/[dance]/(moves)/routines/[id]', p);
-			case 'drill':
-				return resolve('/[dance]/(today)/exercises/[id]', p);
-			case 'song':
-				return resolve('/[dance]/songs/[id]', p);
-			case 'lesson':
-				return resolve('/[dance]/lessons/[id]', p);
-			case 'position':
-				return resolve('/[dance]/(moves)/positions', p); // positions: a page of their own comes later
-		}
+		return resolve(memberRoute(kind), { dance, id: String(id) });
 	}
 </script>
 
