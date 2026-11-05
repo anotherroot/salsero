@@ -1,7 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { createCustomExercise, listPickExercises, listSetsBetween } from '$lib/server/exercises';
-import { optionalText, text } from '$lib/server/form';
+import { int, optionalText, text } from '$lib/server/form';
 import { logSetFrom, deleteSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { wallOf } from '$lib/server/scope';
 import { PickRefused, addPicks, dayInputOf, removePick } from '$lib/server/today-picks';
