@@ -25,6 +25,7 @@
 	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import LastTime from '$lib/components/exercises/LastTime.svelte';
 	import { desk } from '$lib/nav/desk.svelte';
+	import { todayPane } from '$lib/components/today/today-context';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
 	import {
 		FIELD_ERROR,
@@ -66,6 +67,8 @@
 	 * page's own `?/log` (LogShell's default), never to the entry's URL.
 	 */
 	const pageId = $derived(page.params.id);
+	/** Today's list beside the pane (desktop): its session, Next after a log, the session's line. */
+	const today = todayPane();
 	// `?log=1` (a lesson's linked-exercise +) opens the popup straight away.
 	let logging = $state(page.url.searchParams.get('log') === '1');
 	/**
@@ -220,7 +223,7 @@
 -->
 {#snippet logColumn()}
 	{#if desk.current}
-		{#key pageId}
+		{#key today?.key ?? pageId}
 			<Log
 				frame="pane"
 				dance={data.dance}
@@ -234,6 +237,9 @@
 				initial={data.practice}
 				from="exercise"
 				contentProps={{ onPage: true, canEdit: data.canEditContent, editLinks }}
+				session={today?.session ?? null}
+				follow={today?.follow ?? null}
+				onlogged={today?.logged}
 				onclose={() => {}}
 			/>
 		{/key}
@@ -501,6 +507,8 @@
 {/snippet}
 
 {#snippet lastTime()}
+	<!-- A session's place, above Last time (desktop: the pane's header). -->
+	{#if today?.line}<p class="text-[13px] font-extrabold text-accent-text">{today.line}</p>{/if}
 	<LastTime last={data.practice.last} />
 {/snippet}
 

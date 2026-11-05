@@ -14,6 +14,7 @@ import {
 	iconButton,
 	LABEL,
 	ROW,
+	rowButton,
 	SECTION_LABEL,
 	SELECT,
 	SWITCH_TRACK,
@@ -38,6 +39,13 @@ describe('button', () => {
 	it('danger is solid danger', () => expect(button('danger')).toContain('bg-danger'));
 	it('tertiary has no background', () => expect(button('tertiary')).not.toContain('bg-'));
 	it('full width', () => expect(button('primary', 'lg', true)).toContain('w-full'));
+	it('a row button grows with the others, never flex-none (the pane log bar)', () => {
+		for (const k of ['primary', 'secondary'] as const) {
+			const t = tokens(rowButton(k));
+			expect(t.has('flex-1') && t.has('min-w-0') && t.has('w-full')).toBe(true);
+			expect(t.has('flex-none')).toBe(false);
+		}
+	});
 	it('every builder styles disabled', () => {
 		for (const k of ['primary', 'secondary', 'tertiary', 'danger', 'danger-text'] as const)
 			expect(button(k)).toContain('disabled:');

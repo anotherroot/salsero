@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { afterNavigate, goto, onNavigate } from '$app/navigation';
 	import { desk } from '$lib/nav/desk.svelte';
@@ -16,7 +16,8 @@
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import HeroCard from '$lib/components/ui/HeroCard.svelte';
 	import { heroFor, shownRows, teamOfRow, todayBands } from '$lib/exercises/today';
-	import { dayTotals, defaultOpen } from '$lib/exercises/today-pane';
+	import { dayTotals, defaultOpen, sessionLine } from '$lib/exercises/today-pane';
+	import { setTodayPane } from '$lib/components/today/today-context';
 	import { dropOpener } from '$lib/nav/trail.svelte';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { longDayLabel } from '$lib/format';
@@ -55,6 +56,8 @@
 	const sessionOn = $derived(page.url.searchParams.get('session') === '1');
 	let skipped = $state(new Set<number>());
 	let tally = $state({ count: 0, seconds: 0 });
+	// The ids logged or skipped this session, in order: the pane's "Session · 2 of 5".
+	let walked = $state<number[]>([]);
 	// Skip ran out the list, not a log: the popup shows the summary in place
 	// rather than closing itself (finding 3) — Finish is still what ends it.
 	let sessionEnded = $state(false);
@@ -68,13 +71,52 @@
 	const bands = $derived(todayBands(data.list.plan, teamOfRow));
 	const walkDue = $derived(shownRows(bands, 'due'));
 	const walkUpcoming = $derived(shownRows(bands, 'upcoming'));
+	/**
+	 * The exercise the session and Next are about: the phone's popup, the
+	 * desktop's pane (the URL's). The phone popup never shows on the desktop.
+	 */
+	const current = $derived(desk.current ? currentId : openId);
 	const firstUp = $derived(nextInSession(walkDue, walkUpcoming, skipped, null));
-	const nextUp = $derived(nextInSession(walkDue, walkUpcoming, skipped, openId));
+	const nextUp = $derived(nextInSession(walkDue, walkUpcoming, skipped, current));
 
-	function startSession() {
+	const at = (id: number, search = '') =>
+		resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(id) }) + search;
+
+	/**
+	 * The session opens a row: the phone's popup, or on the desktop the row's own
+	 * URL with the session's flag, beside the list. Start and Resume push (Back
+	 * leaves the session); Next and Skip replace, so the session holds one entry,
+	 * as the phone's popup walk holds none of its own.
+	 */
+	function openRow(id: number, how: 'push' | 'replace') {
+		if (!desk.current) {
+			openId = id;
+			return;
+		}
+		const href = at(id, '?session=1');
+		if (page.url.pathname + page.url.search === href) return;
+		void gotoWhenSettled(href, { replaceState: how === 'replace' });
+	}
+
+	/** The session's own state, gone when it ends or starts over. */
+	function clearSession() {
 		skipped = new Set();
 		tally = { count: 0, seconds: 0 };
+		walked = [];
 		sessionEnded = false;
+	}
+
+	/** Logged or skipped in the session: walked, once. */
+	function walk(id: number) {
+		if (!walked.includes(id)) walked = [...walked, id];
+	}
+
+	function startSession() {
+		clearSession();
+		if (desk.current) {
+			if (firstUp) openRow(firstUp.exercise.id, 'push');
+			return;
+		}
 		void goto(resolve(`/${dance}?session=1`), { keepFocus: true, noScroll: true });
 		openId = firstUp?.exercise.id ?? null;
 	}
@@ -84,16 +126,50 @@
 		// Clear skipped/tally here too, not just on start: otherwise a stale
 		// `skipped` starves `firstUp` after the session ends, hiding "Start
 		// session" for a row that is still due.
-		skipped = new Set();
-		tally = { count: 0, seconds: 0 };
-		sessionEnded = false;
-		void goto(resolve('/[dance]/(today)', { dance }), { keepFocus: true, noScroll: true });
+		clearSession();
+		// The desktop's session is one history entry: Finish takes its place, so
+		// Back from Today goes where it went before the session.
+		void goto(resolve('/[dance]/(today)', { dance }), {
+			keepFocus: true,
+			noScroll: true,
+			replaceState: desk.current
+		});
 	}
 
-	// A reload keeps the flag; pick up at the current first row (the phone's
-	// popup; the desktop opens it in the pane, below).
+	// A reload keeps the flag; pick up at the current first row, or the open
+	// exercise beside it (the phone's popup; the desktop opens it in the pane).
 	onMount(() => {
-		if (!desk.current && sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
+		if (!desk.current && sessionOn && openId === null)
+			openId = isList ? (firstUp?.exercise.id ?? null) : currentId;
+	});
+
+	/*
+	 * The desktop's session ends however its URL goes (Back, a tab): its state
+	 * goes with it, as Finish clears it. The phone's is cleared by its own ways
+	 * (Finish, a fresh visit).
+	 */
+	let wasOn = untrack(() => sessionOn);
+	$effect(() => {
+		const on = sessionOn;
+		if (on === wasOn) return;
+		wasOn = on;
+		if (!on && untrack(() => desk.current)) untrack(clearSession);
+	});
+
+	/*
+	 * The window narrows in a desktop session: the phone's popup takes the open
+	 * exercise, Skip and Next with it (the pane's form goes with the width). The
+	 * other way, the popup goes and the pane takes its exercise (`swapTo`).
+	 */
+	let wasDesk = untrack(() => desk.current);
+	$effect(() => {
+		const d = desk.current;
+		if (d === wasDesk) return;
+		wasDesk = d;
+		if (!d)
+			untrack(() => {
+				if (sessionOn && !isList && openId === null && currentId !== null) openId = currentId;
+			});
 	});
 
 	/*
@@ -103,13 +179,16 @@
 	 * history entry), so every form in the pane posts to its own route, and a
 	 * Back from it goes where /{dance} would have. With nothing to open, the pane
 	 * holds the day so far. The phone never swaps: /{dance} is its list page.
-	 * Not while a sheet of the list's is open (the popup, New exercise): its
-	 * entry is on top of history, and the replace would take its place.
+	 * Not while New exercise is open: its entry is on top of history, and the
+	 * replace would take its place. The phone's popup is never drawn here: one
+	 * left open as the window widened is the exercise the pane takes, once its
+	 * entry has gone (`gotoWhenSettled`).
 	 */
 	const swapTo = $derived.by(() => {
-		if (!isList || past || openId !== null || creating) return null;
-		const at = (id: number, search = '') =>
-			resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(id) }) + search;
+		if (past || creating) return null;
+		if (openId !== null)
+			return openId === currentId ? null : at(openId, sessionOn ? '?session=1' : '');
+		if (!isList) return null;
 		if (sessionOn) return firstUp ? at(firstUp.exercise.id, '?session=1') : null;
 		const id = defaultOpen(bands);
 		return id === null ? null : at(id);
@@ -169,9 +248,7 @@
 		if (!from || !to || from.url.pathname === to.url.pathname) return;
 		if (listOf(to.route.id)?.open !== false) return;
 		if (desk.current) return;
-		skipped = new Set();
-		tally = { count: 0, seconds: 0 };
-		sessionEnded = false;
+		clearSession();
 		showInactive = false;
 		if (sessionOn && openId === null) openId = firstUp?.exercise.id ?? null;
 	});
@@ -182,12 +259,18 @@
 					next: nextUp ? { name: nextUp.exercise.name } : null,
 					summary: sessionSummary(tally.count, tally.seconds),
 					ended: sessionEnded,
-					onnext: () => (openId = nextUp?.exercise.id ?? null),
+					onnext: () => {
+						if (nextUp) openRow(nextUp.exercise.id, 'replace');
+						else if (!desk.current) openId = null;
+					},
 					onskip: () => {
-						if (openId !== null) skipped = new Set([...skipped, openId]);
+						if (current !== null) {
+							skipped = new Set([...skipped, current]);
+							walk(current);
+						}
 						// Nothing left: stay on this popup and show the summary + Finish
 						// instead of closing behind the user's back (finding 3).
-						if (nextUp) openId = nextUp.exercise.id;
+						if (nextUp) openRow(nextUp.exercise.id, 'replace');
 						else {
 							sessionEnded = true;
 							bumpKey += 1;
@@ -197,6 +280,51 @@
 				}
 			: null
 	);
+
+	/** A set was logged, in the popup or the pane: the session's tally and walk. */
+	function logged(durationS: number | null) {
+		if (!sessionOn) return;
+		tally = { count: tally.count + 1, seconds: tally.seconds + (durationS ?? 0) };
+		if (current !== null) walk(current);
+	}
+
+	/*
+	 * The pane (desktop): the session as above, its line, and outside a session
+	 * Next after a log, to the first due one (a push, as a row's click).
+	 */
+	const follow = $derived.by(() => {
+		if (sessionOn || past) return null;
+		const n = nextInSession(walkDue, [], new Set(), current);
+		if (!n) return null;
+		const href = at(n.exercise.id);
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- `at` resolves it
+		return { name: n.exercise.name, onnext: () => void goto(href) };
+	});
+	const line = $derived(
+		sessionOn && !past && current !== null
+			? sessionLine(
+					walked,
+					[...walkDue, ...walkUpcoming].map((r) => r.exercise.id),
+					current,
+					tally.count
+				)
+			: null
+	);
+	setTodayPane({
+		get session() {
+			return session;
+		},
+		get follow() {
+			return follow;
+		},
+		get line() {
+			return line;
+		},
+		get key() {
+			return `${current}:${bumpKey}`;
+		},
+		logged
+	});
 
 	// The hero drives the session: Start, Resume (with the next name), a disabled
 	// Start when everything is parked, or a quiet All done card.
@@ -250,7 +378,10 @@
 			onclick={hero.kind === 'start'
 				? startSession
 				: hero.kind === 'resume'
-					? () => (openId = firstUp?.exercise.id ?? null)
+					? () => {
+							if (firstUp) openRow(firstUp.exercise.id, 'push');
+							else openId = null;
+						}
 					: undefined}
 		/>
 	{/if}
@@ -280,7 +411,7 @@
 		today={data.list.today}
 		{upNextId}
 		{currentId}
-		rowSearch=""
+		rowSearch={sessionOn && desk.current ? '?session=1' : ''}
 		bind:showInactive
 		appUpdate={data.appUpdate}
 		onlog={(id) => (openId = id)}
@@ -322,7 +453,8 @@
 		{@render children()}
 	</ListPane>
 
-	{#if open && Log}
+	<!-- The phone's popup; on the desktop the pane holds the log form (never both). -->
+	{#if open && Log && !desk.current}
 		{#key `${open.id}:${bumpKey}`}
 			<Log
 				dance={data.dance}
@@ -335,9 +467,7 @@
 				message={failure('log')}
 				action="/{dance}?/log"
 				{session}
-				onlogged={(d) => {
-					if (sessionOn) tally = { count: tally.count + 1, seconds: tally.seconds + (d ?? 0) };
-				}}
+				onlogged={logged}
 				onclose={() => (openId = null)}
 			/>
 		{/key}

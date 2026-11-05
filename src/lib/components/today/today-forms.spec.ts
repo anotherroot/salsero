@@ -76,3 +76,16 @@ describe('The log form', () => {
 		expect(src).toContain('title={shown}');
 	});
 });
+
+/*
+ * Never two log forms (Review Focus 5): on the desktop the pane's form is the
+ * open exercise's, so Today's popup is the phone's alone, whatever opened it
+ * (Start session, Resume, a window that widened with it open).
+ */
+describe("Today's popup", () => {
+	it('is never drawn on the desktop', () => {
+		const src = readFileSync('src/routes/[dance]/(today)/+layout.svelte', 'utf8');
+		const popup = src.match(/\{#if ([^}]*)\}\s*\{#key `\$\{open\.id\}/);
+		expect(popup?.[1]).toMatch(/!desk\.current\b/);
+	});
+});

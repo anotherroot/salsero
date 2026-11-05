@@ -489,3 +489,294 @@ SCENES.update({
     # Run it last or alone: it adds an exercise to the copy.
     "today-create-open": Scene("/{dance}/figures#quiet{quietday}", _create_from_day_so_far, desk=True),
 })
+
+
+# ---- desk checks (Task 6): the session walks the pane, Next after a log ----
+
+def _path(page):
+    return "/" + page.url.split("://", 1)[1].split("/", 1)[1]
+
+
+def _settle(page, ms=500):
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(ms)
+
+
+def _forms(page):
+    return page.locator('form[id^="log-"]').count()
+
+
+def _one_form_no_popup(page, where):
+    n = _forms(page)
+    if n != 1:
+        raise RuntimeError(f"{where}: {n} log forms, not 1")
+    _no_popup(page, where)
+
+
+def _line(page):
+    """The pane header's session line ("Session · 2 of 5 · 1 logged so far"), or None."""
+    loc = page.locator("[data-below] p", has_text=re.compile(r"^Session · "))
+    return loc.first.inner_text().strip() if loc.count() else None
+
+
+def _want_line(page, i, n=None, logged=0, where=""):
+    got = _line(page)
+    m = re.match(r"^Session · (\d+) of (\d+)( · (\d+) logged so far)?$", got or "")
+    if not m or int(m.group(1)) != i or (n is not None and int(m.group(2)) != n) or int(m.group(4) or 0) != logged:
+        raise RuntimeError(f"{where}: the session line reads {got!r}, want {i} of {n or 'n'}, {logged} logged")
+    return int(m.group(2))
+
+
+def _sets(page):
+    """Rows in the copy's sets table (the rig's temp db), read-only."""
+    import sqlite3
+    db = sqlite3.connect(f"file:{os.environ['SHOTS_TMP']}/salsa.db?mode=ro", uri=True)
+    try:
+        return db.execute("select count(*) from sets").fetchone()[0]
+    finally:
+        db.close()
+
+
+def _desk_start(page):
+    page.get_by_role("button", name=re.compile(r"Start session")).first.click()
+
+
+def _pinned(page):
+    return page.locator('section[aria-label="Log a set"] div.sticky')
+
+
+def _skip_pane(page):
+    before = _path(page)
+    _pinned(page).get_by_role("button", name="Skip", exact=True).click()
+    page.wait_for_url(lambda u: not u.endswith(before), timeout=8000)
+    _settle(page)
+
+
+def _log_pane(page):
+    sets = _sets(page)
+    form = page.locator('form[id^="log-pane-"]')
+    if form.get_by_label("Minutes").count():
+        form.get_by_label("Minutes").fill("5")
+    _pinned(page).get_by_role("button", name="Log set", exact=True).click()
+    # Logged, or at the session's last one the Session done card in its place
+    _pinned(page).get_by_role("button", name="Logged").or_(
+        page.locator('[role="status"]', has_text="Session done")
+    ).first.wait_for(timeout=8000)
+    _settle(page)
+    if _sets(page) != sets + 1:
+        raise RuntimeError(f"one Log set made {_sets(page) - sets} sets")
+
+
+def _session_walk(page):
+    """Start (a push) opens the first due one with ?session=1 in the pane, its row lit and Up next;
+    Skip and Next replace; Log set says Logged + Next: and the line counts it; one Back leaves the
+    session for the page before it, and stays there."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    start = _path(page)
+    first = _first_due_href(page)
+    length = page.evaluate("history.length")
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"/exercises/\d+\?session=1$"), timeout=8000)
+    _settle(page)
+    if _path(page) != f"{first}?session=1":
+        raise RuntimeError(f"Start opened {_path(page)}, the first due is {first}")
+    if page.evaluate("history.length") != length + 1:
+        raise RuntimeError("Start session did not add one history entry")
+    _one_form_no_popup(page, "after Start")
+    n = _want_line(page, 1, where="after Start")
+    lit = page.locator('[data-list-column] a[aria-current="page"]')
+    if lit.count() != 1 or "Up next" not in lit.first.inner_text():
+        raise RuntimeError("the open row is not the Up next one")
+    pinned = _pinned(page)
+    for name in ("Skip", "Log set"):
+        if not pinned.get_by_role("button", name=name, exact=True).count():
+            raise RuntimeError(f"no {name} pinned under the form")
+    _skip_pane(page)
+    if page.evaluate("history.length") != length + 1:
+        raise RuntimeError("Skip added a history entry")
+    if not page.url.endswith("?session=1"):
+        raise RuntimeError(f"Skip left the session: {page.url}")
+    _one_form_no_popup(page, "after Skip")
+    _want_line(page, 2, n, where="after Skip")
+    _log_pane(page)
+    nxt = pinned.get_by_role("button", name=re.compile(r"^Next: "))
+    if not nxt.count():
+        raise RuntimeError("no Next: after Log set in the session")
+    _want_line(page, 2, n, logged=1, where="after Log set")
+    at = _path(page)
+    nxt.click()
+    page.wait_for_url(lambda u: not u.endswith(at), timeout=8000)
+    _settle(page)
+    if page.evaluate("history.length") != length + 1:
+        raise RuntimeError("Next added a history entry")
+    _want_line(page, 3, n, logged=1, where="after Next")
+    _one_form_no_popup(page, "after Next")
+    page.go_back()
+    page.wait_for_url(re.compile(re.escape(start) + "$"), timeout=8000)
+    page.wait_for_timeout(1200)
+    if _path(page) != start:
+        raise RuntimeError(f"one Back from the session went on to {_path(page)}, not {start}")
+    if _line(page) is not None:
+        raise RuntimeError("the session line is still shown after Back")
+
+
+def _to_last(page):
+    """Skip until the open one is the session's last (its line reads n of n)."""
+    for _ in range(60):
+        line = _line(page) or ""
+        m = re.match(r"^Session · (\d+) of (\d+)", line)
+        if not m:
+            raise RuntimeError(f"no session line ({line!r}) at {page.url}")
+        if m.group(1) == m.group(2):
+            return
+        _skip_pane(page)
+    raise RuntimeError("never reached the last one")
+
+
+def _session_done(page):
+    """The last one logged: the Session done card at the top of the form, Finish pinned."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    _to_last(page)
+    _log_pane(page)
+    section = page.locator('section[aria-label="Log a set"]')
+    if section.locator('[role="status"]', has_text="Session done").count() != 1:
+        raise RuntimeError("no Session done card in the form's column")
+    if not _pinned(page).get_by_role("button", name="Finish", exact=True).count():
+        raise RuntimeError("no Finish pinned")
+    _one_form_no_popup(page, "at Session done")
+
+
+def _session_finish(page):
+    """Finish lands on Today, which opens the next one (or the day so far); one Back leaves Today."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    before = _path(page)
+    _session_done(page)
+    _pinned(page).get_by_role("button", name="Finish", exact=True).click()
+    page.wait_for_url(lambda u: "session=1" not in u, timeout=8000)
+    page.wait_for_timeout(1500)
+    _settle(page)
+    if _line(page) is not None:
+        raise RuntimeError("the session line is still shown after Finish")
+    _no_popup(page, "after Finish")
+    page.go_back()
+    page.wait_for_timeout(1500)
+    if _path(page) != before:
+        raise RuntimeError(f"one Back after Finish went to {_path(page)}, not {before}")
+
+
+def _session_reload(page):
+    """Review Focus 2: log one, Next, reload: Resume in the hero, Session · 1 of {remaining}, Skip
+    and Log set still work, one set per Log set."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    sets = _sets(page)
+    n = _want_line(page, 1, where="after Start")
+    _log_pane(page)
+    at = _path(page)
+    _pinned(page).get_by_role("button", name=re.compile(r"^Next: ")).click()
+    page.wait_for_url(lambda u: not u.endswith(at), timeout=8000)
+    _settle(page)
+    at = _path(page)
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(800)
+    if _path(page) != at:
+        raise RuntimeError(f"the reload moved to {_path(page)}")
+    if not page.locator('[data-list-column] button:visible', has_text="Resume session").count():
+        raise RuntimeError("no Resume session in the hero after the reload")
+    _want_line(page, 1, n - 1, where="after the reload")
+    _one_form_no_popup(page, "after the reload")
+    _skip_pane(page)
+    _want_line(page, 2, n - 1, where="Skip after the reload")
+    _log_pane(page)
+    _want_line(page, 2, n - 1, logged=1, where="Log set after the reload")
+    if _sets(page) != sets + 2:
+        raise RuntimeError(f"two Log sets made {_sets(page) - sets} sets")
+
+
+def _session_narrow(page):
+    """Never two log forms: a desk session has the pane's alone; narrowed, the phone's popup takes
+    the open exercise (Skip with it); widened again, the pane, at the same URL."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    at = _path(page)
+    _one_form_no_popup(page, "a desk session")
+    page.set_viewport_size({"width": 800, "height": 900})
+    page.wait_for_timeout(800)
+    if _forms(page) != 1:
+        raise RuntimeError(f"narrowed: {_forms(page)} log forms, not 1")
+    popup = page.locator("dialog[open]")
+    if popup.count() != 1 or not popup.locator('form[id^="log-"]').count():
+        raise RuntimeError("narrowed: the log form is not the phone's popup")
+    if not popup.get_by_role("button", name=re.compile(r"^Skip")).count():
+        raise RuntimeError("narrowed: the popup has no Skip")
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.wait_for_timeout(1200)
+    _one_form_no_popup(page, "widened again")
+    if _path(page) != at:
+        raise RuntimeError(f"widened: the URL is {_path(page)}, not {at}")
+
+
+def _next_push(page):
+    """Outside a session: Log set, then Logged stays with Next: <first due> beside it; Next is a push
+    to it (Back returns)."""
+    _settle(page)
+    at = _path(page)
+    _log_pane(page)
+    pinned = _pinned(page)
+    page.wait_for_timeout(3000)  # Logged would have faded by now without a Next
+    if not pinned.get_by_role("button", name="Logged").count():
+        raise RuntimeError("Logged did not stay")
+    nxt = pinned.get_by_role("button", name=re.compile(r"^Next: "))
+    if not nxt.count():
+        raise RuntimeError("no Next: after Log set")
+    name = nxt.inner_text().strip()[len("Next: "):]
+    want = _first_due_href(page)
+    length = page.evaluate("history.length")
+    nxt.click()
+    page.wait_for_url(re.compile(re.escape(want) + "$"), timeout=8000)
+    _settle(page)
+    if page.evaluate("history.length") != length + 1:
+        raise RuntimeError("Next was not a push")
+    if not page.get_by_role("heading", name=name).count():
+        raise RuntimeError(f"Next named {name!r}, the pane shows another")
+    page.go_back()
+    page.wait_for_url(re.compile(re.escape(at) + "$"), timeout=8000)
+    _settle(page)
+
+
+SCENES.update({
+    "pane-session-walk": Scene("/{dance}", _session_walk, desk=True),
+    "pane-session-done": Scene("/{dance}", _session_done, desk=True),
+    "pane-session-finish": Scene("/{dance}", _session_finish, desk=True),
+    "pane-session-reload": Scene("/{dance}", _session_reload, desk=True),
+    "pane-session-narrow": Scene("/{dance}", _session_narrow, desk=True),
+    "pane-next": Scene("/{dance}/exercises/{drillex}", _next_push, desk=True),
+})
+
+
+def _session_logged(page):
+    """Board today--a-logged: a session, the first one logged (Logged + Next:, the line counts it)."""
+    page.wait_for_url(re.compile(r"/exercises/\d+$"), timeout=8000)
+    _settle(page)
+    _desk_start(page)
+    page.wait_for_url(re.compile(r"\?session=1$"), timeout=8000)
+    _settle(page)
+    _log_pane(page)
+    _want_line(page, 1, logged=1, where="after Log set")
+
+
+SCENES.update({
+    "pane-session-logged": Scene("/{dance}", _session_logged, desk=True),
+})

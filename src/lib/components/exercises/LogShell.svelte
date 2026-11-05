@@ -86,6 +86,7 @@
 		FIELD_ERROR,
 		FIELD_INVALID,
 		LABEL,
+		rowButton,
 		SECTION_LABEL,
 		TEXTAREA
 	} from '$lib/components/ui/styles';
@@ -415,7 +416,8 @@
 	</form>
 {/snippet}
 
-{#snippet mainButton(extra: string)}
+<!-- `row`: the pane's pinned bar, where the buttons share one row and grow alike. -->
+{#snippet mainButton(row: boolean)}
 	{#if view.main}
 		<!--
 			One element in every state: "Logged" fading back to "Log set" 2.5 s later
@@ -427,7 +429,11 @@
 			data-focus="sets-add"
 			type="submit"
 			form={formId}
-			class="{view.main.state === 'logged' ? LOGGED : button('primary', 'md', true)}{extra}"
+			class={view.main.state === 'logged'
+				? `${LOGGED}${row ? ' min-w-0 flex-1 px-6' : ''}`
+				: row
+					? rowButton('primary')
+					: button('primary', 'md', true)}
 			disabled={view.main.state !== 'log' && view.main.state !== 'logged'}
 			aria-busy={view.main.state === 'saving' ? 'true' : undefined}
 		>
@@ -448,9 +454,9 @@
 	{/if}
 {/snippet}
 
-{#snippet nextButton(kind: 'primary' | 'secondary', extra: string)}
+{#snippet nextButton(kind: 'primary' | 'secondary', row: boolean)}
 	{#if view.next && onnext}
-		<button type="button" class="{button(kind, 'md', true)}{extra}" onclick={onnext}>
+		<button type="button" class={row ? rowButton(kind) : button(kind, 'md', true)} onclick={onnext}>
 			<span class="min-w-0 truncate">{view.next}</span><Icon name="chevron-right" size={20} />
 		</button>
 	{/if}
@@ -471,12 +477,14 @@
 	{/if}
 {/snippet}
 
-{#snippet finishButton(extra: string)}
+{#snippet finishButton(row: boolean)}
 	{#if session && view.done}
 		<!-- Secondary while Log set is still offered (Skip ran out the list): one primary per footer. -->
 		<button
 			type="button"
-			class="{button(view.main ? 'secondary' : 'primary', 'md', true)}{extra}"
+			class={row
+				? rowButton(view.main ? 'secondary' : 'primary')
+				: button(view.main ? 'secondary' : 'primary', 'md', true)}
 			onclick={session.onfinish}
 		>
 			Finish
@@ -511,9 +519,9 @@
 						onclick={() => away(session.onskip, 'Skip')}>Skip</button
 					>
 				{/if}
-				{@render mainButton(' min-w-0 flex-1')}
-				{@render nextButton('primary', ' min-w-0 flex-1')}
-				{@render finishButton(' min-w-0 flex-1')}
+				{@render mainButton(true)}
+				{@render nextButton('primary', true)}
+				{@render finishButton(true)}
 			</div>
 			{@render hint()}
 		</div>
@@ -609,11 +617,11 @@
 		</div>
 
 		{#snippet footer()}
-			{@render mainButton('')}
+			{@render mainButton(false)}
 			{@render hint()}
-			{@render nextButton('secondary', '')}
+			{@render nextButton('secondary', false)}
 			{@render doneCard()}
-			{@render finishButton('')}
+			{@render finishButton(false)}
 		{/snippet}
 
 		{#snippet toast()}

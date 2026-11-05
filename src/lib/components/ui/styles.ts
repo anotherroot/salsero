@@ -50,6 +50,16 @@ export function button(kind: ButtonKind, size: ButtonSize = 'md', full = false):
 	return `${BUTTON_BASE} ${BUTTON_KIND[kind]} ${size_}${full ? ' w-full' : ''}`;
 }
 
+/**
+ * A full pill that shares a row with others (the pane's pinned log bar: Skip,
+ * Log set, Next, Finish): it grows with them. The builder's `flex-none` would
+ * keep its full width and push the row past its column; an appended `flex-1`
+ * loses to it (Tailwind orders by property).
+ */
+export function rowButton(kind: ButtonKind): string {
+	return swap(button(kind, 'md', true), 'flex-none', 'min-w-0 flex-1');
+}
+
 const ICON_BUTTON: Record<IconButtonVariant, string> = {
 	bare: 'active:bg-step disabled:text-disabled-ink',
 	tonal: 'bg-accent-soft text-accent-text disabled:bg-disabled-bg disabled:text-disabled-ink',
