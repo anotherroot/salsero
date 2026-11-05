@@ -8,7 +8,7 @@ import { noteAppSeen } from '$lib/server/app-seen';
 import { SESSION_COOKIE, validateSession } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { bootstrap } from '$lib/server/db/bootstrap';
-import { needsName } from '$lib/names';
+import { needsLevel, needsName } from '$lib/names';
 import { parseLevel } from '$lib/levels/levels';
 import { currentRelease } from '$lib/server/releases';
 import { isPublicPath } from '$lib/server/public-paths';
@@ -95,6 +95,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Accounts made before names are asked for one before anything else.
 	if (needsName(path, event.locals.user)) {
 		throw redirect(303, `/welcome?next=${encodeURIComponent(path + event.url.search)}`);
+	}
+
+	// A new account has not chosen how much app yet: the first run asks.
+	if (needsLevel(path, event.locals.user)) {
+		throw redirect(303, `/welcome/start?next=${encodeURIComponent(path + event.url.search)}`);
 	}
 
 	// Light or dark, as chosen in Settings, and the page epoch: written into

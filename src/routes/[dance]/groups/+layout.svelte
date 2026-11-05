@@ -12,10 +12,11 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import ClassCodeField from '$lib/components/teams/ClassCodeField.svelte';
 	import GroupList from '$lib/components/teams/GroupList.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
 	import { PICK_GROUP } from '$lib/teams/view';
-	import { canMakeGroup, levelShown } from '$lib/levels/levels';
+	import { canMakeGroup, levelShown, type Level } from '$lib/levels/levels';
 
 	/*
 	 * Groups: the list and the group beside it (desktop spec, "A list and the
@@ -33,7 +34,11 @@
 	// Opening a group does not switch group mode: Working in marks the mode's group only.
 	const workingIn = $derived(data.groupMode?.teamId ?? null);
 	// New group is drawn only at Everything (levels hide the entry, not the route).
-	const making = $derived(canMakeGroup(levelShown(page.data.user?.level)));
+	const level = $derived<Level>(levelShown(page.data.user?.level));
+	const making = $derived(canMakeGroup(level));
+	// Join with a code sits beside New group at the other levels; Follow my class has its empty state's field.
+	const joining = $derived(level !== 'follow');
+	const joinAction = $derived(`/${data.dance.slug}/groups?/joinCode`);
 
 	// The lit row stays in view in the column (desktop: the column scrolls on its own).
 	$effect(() => {
@@ -43,6 +48,12 @@
 
 	// The New group sheet: the band's + and the empty list's button open it.
 	let creating = $state(false);
+	// The Join with a code sheet. A joined class opens beside the list, which closes it.
+	let codeOpen = $state(false);
+	$effect(() => {
+		void page.url.pathname;
+		codeOpen = false;
+	});
 	let busy = $state(false);
 	// The last create's refusal, shown in the sheet until it closes or opens again.
 	let refusal = $state<{ message?: string; name?: string } | null>(null);
@@ -68,6 +79,8 @@
 		{openId}
 		{workingIn}
 		onnew={making ? openSheet : undefined}
+		onjoin={joining ? () => (codeOpen = true) : undefined}
+		{joinAction}
 	/>
 {/snippet}
 
@@ -93,6 +106,10 @@
 {:else}
 	{@render children()}
 {/if}
+
+<Sheet title="Join with a code" size="small" open={codeOpen} onclose={() => (codeOpen = false)}>
+	<ClassCodeField action={joinAction} />
+</Sheet>
 
 <Sheet title="New group" size="small" open={creating} onclose={close}>
 	<form
