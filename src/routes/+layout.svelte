@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import { navigating, page, updated } from '$app/state';
 	import { DANCES, danceInPath, type DanceSlug } from '$lib/dances/dances';
-	import { leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
+	import { deskSkeletonMode, leavesPage, SKELETON_DELAY_MS, skeletonFor } from '$lib/nav/pending';
 	import { showsTabs } from '$lib/nav/tabs';
 	import { bottom } from '$lib/nav/chrome.svelte';
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
@@ -417,7 +417,12 @@
 			{@render children()}
 		</div>
 		{#if skeleton}
-			<PageSkeleton {skeleton} {tabs} />
+			<PageSkeleton
+				{skeleton}
+				{tabs}
+				desk={deskSkeletonMode(ahead?.route.id, page.route.id)}
+				{frame}
+			/>
 		{/if}
 		{#if frame === 'side' || frame === 'bare'}
 			<!--

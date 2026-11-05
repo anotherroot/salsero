@@ -131,6 +131,23 @@ def shoot(a):
             path = re.sub(r"\{(\w+)\}", lambda m: str(v[m.group(1)]), line)
             page = ctx.new_page()
             try:
+                if a.delay_from:
+                    # a loading shot: open the start page, then follow a link to this page with its data delayed
+                    start = re.sub(r"\{(\w+)\}", lambda m: str(v[m.group(1)]), a.delay_from)
+                    page.goto(a.base + start, wait_until="networkidle", timeout=60000)
+                    held = []
+                    page.route("**/__data.json*", lambda r: held.append(r))  # held, never answered: the page stays loading
+                    page.evaluate("p => { const l = document.createElement('a'); l.href = p; document.body.append(l); l.click(); }", path)
+                    page.wait_for_timeout(1200)
+                    page.add_style_tag(content=STYLE)
+                    page.evaluate(MASK_JS)
+                    png = os.path.join(a.out, slug(line) + ".png")
+                    page.screenshot(path=png, full_page=not a.viewport)
+                    wrote += 1
+                    for r in held:
+                        r.abort()
+                    print(f"ok loading {path}")
+                    continue
                 resp = page.goto(a.base + path, wait_until="networkidle", timeout=60000)
                 page.add_style_tag(content=STYLE)
                 page.evaluate(MASK_JS)
@@ -212,6 +229,7 @@ def main():
     s.add_argument("--pages", required=True)
     s.add_argument("--group", type=int, help="a group id of the dance: shoot in its group mode")
     s.add_argument("--viewport", action="store_true", help="shoot the window only (desktop: the band row and side are fixed)")
+    s.add_argument("--delay-from", help="shoot each page while loading: open this page first, then follow a link to it with its __data.json held")
     s.add_argument("--no-session", action="store_true", help="no session cookie: the signed-out pages")
     s.add_argument("--unnamed", action="store_true", help="the admin has no name in the copy, so pages send them to /welcome")
     d = sub.add_parser("diff")

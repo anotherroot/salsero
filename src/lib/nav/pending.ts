@@ -11,9 +11,10 @@
  * spec.
  */
 
+import { listOf, type ListId } from '$lib/nav/pane';
 import { SEGMENT_ROUTE, segmentOf, type MovesSegment } from '$lib/moves/segment';
 
-export type Skeleton =
+type Shape =
 	| { kind: 'today' }
 	| { kind: 'list'; title: string }
 	| { kind: 'detail' }
@@ -23,6 +24,13 @@ export type Skeleton =
 	| { kind: 'routine' }
 	/** Figures, Routines and Positions: the band with its segmented switch, then that segment's list. */
 	| { kind: 'moves'; segment: MovesSegment };
+
+/**
+ * What a destination draws: its shape, and what the desktop adds. `pane`: it is a
+ * list with its item beside it (`listOf`), `open` an item opens in it. `deskTitle`:
+ * the band row's title when the list names it; null draws a bone. Plans add fields.
+ */
+export type Skeleton = Shape & { pane: boolean; open: boolean; deskTitle: string | null };
 
 /**
  * Long enough that a preloaded page (the load starts on touchstart) lands
@@ -39,6 +47,9 @@ const LISTS: Record<string, string> = {
 	'/voice': 'My count'
 };
 
+/** The band row's title over a list and its pane. */
+const PANE_TITLE: Record<ListId, string> = { songs: 'Music' };
+
 const DETAILS = new Set([
 	'/[dance]/lessons/[id]',
 	'/[dance]/songs/[id]',
@@ -54,6 +65,26 @@ const DETAILS = new Set([
  * redirect), and for an unknown route — those get the bar alone.
  */
 export function skeletonFor(routeId: string | null | undefined): Skeleton | null {
+	const shape = shapeFor(routeId);
+	if (!shape) return null;
+	const l = listOf(routeId ?? null);
+	return {
+		...shape,
+		pane: l !== null,
+		open: l?.open ?? false,
+		deskTitle: l
+			? PANE_TITLE[l.list]
+			: shape.kind === 'today'
+				? 'Today'
+				: shape.kind === 'moves'
+					? 'Moves'
+					: shape.kind === 'list'
+						? shape.title
+						: null
+	};
+}
+
+function shapeFor(routeId: string | null | undefined): Shape | null {
 	if (!routeId) return null;
 	if (routeId === '/[dance]') return { kind: 'today' };
 	// Only a segment's own list draws the Moves band; the pages under Positions have their own.
@@ -75,4 +106,23 @@ export function skeletonFor(routeId: string | null | undefined): Skeleton | null
  */
 export function leavesPage(from: string, to: string): boolean {
 	return from !== to;
+}
+
+/**
+ * What the desktop draws for a skeleton, by where the navigation comes from.
+ * Inside a list and pane, from one item to another (or back to the list), the
+ * list column is live and stays: only the pane is covered ('pane'), and going to
+ * the empty pane has nothing to cover ('none'). From anywhere else the whole
+ * frame is drawn ('frame'). The phone draws the same skeleton whatever this says.
+ */
+export type DeskSkeleton = 'frame' | 'pane' | 'none';
+
+export function deskSkeletonMode(
+	toRouteId: string | null | undefined,
+	fromRouteId: string | null | undefined
+): DeskSkeleton {
+	const to = listOf(toRouteId ?? null);
+	const from = listOf(fromRouteId ?? null);
+	if (!to || !from || to.list !== from.list) return 'frame';
+	return to.open ? 'pane' : 'none';
 }

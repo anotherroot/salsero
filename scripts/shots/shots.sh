@@ -79,5 +79,5 @@ PLAYWRIGHT_BROWSERS_PATH="$(nix build --no-link --print-out-paths nixpkgs#playwr
 export PLAYWRIGHT_BROWSERS_PATH
 timeout 900 nix shell --impure --expr 'with (builtins.getFlake "nixpkgs").legacyPackages.x86_64-linux; python3.withPackages (p: [p.playwright p.pillow])' \
   -c python3 -I "$HERE/shots.py" shoot --db "$TMP/salsa.db" --base "http://127.0.0.1:$PORT" \
-  --out "$OUT" --size "$SIZE" --theme "$THEME" --pages "$PAGES" ${GROUP:+--group "$GROUP"} ${VIEWPORT:+--viewport} ${NOSESSION:+--no-session} ${UNNAMED:+--unnamed}
+  --out "$OUT" --size "$SIZE" --theme "$THEME" --pages "$PAGES" ${GROUP:+--group "$GROUP"} ${VIEWPORT:+--viewport} ${NOSESSION:+--no-session} ${DELAY_FROM:+--delay-from "$DELAY_FROM"} ${UNNAMED:+--unnamed}
 exit $?
