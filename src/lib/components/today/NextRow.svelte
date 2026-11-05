@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { actAt } from '$lib/act';
+	import { focusKeyed, focusWasLost } from '$lib/focus';
 	import { refusalMessage } from '$lib/act-toast';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -31,6 +33,13 @@
 			const result = await actAt(`/${dance}`, 'next', {});
 			const message = refusalMessage(result, 'Could not add more. Try again.');
 			if (message) onrefused(message);
+			else if (result.type === 'success') {
+				// This row is gone once the list reloads (more than one left): focus
+				// would fall to <body>. It goes to the first newly picked row instead.
+				const first = (result.data as { exerciseIds?: number[] } | undefined)?.exerciseIds?.[0];
+				await tick();
+				if (first !== undefined && focusWasLost()) focusKeyed(`today-row-${first}`);
+			}
 		} finally {
 			busy = false;
 		}

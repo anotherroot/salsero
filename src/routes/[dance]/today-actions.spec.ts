@@ -41,7 +41,13 @@ function post(user: User, fields: Record<string, string>) {
 		locals: { user }
 	};
 }
-type Result = { status?: number; data?: { message?: string }; pickIds?: number[]; action?: string };
+type Result = {
+	status?: number;
+	data?: { message?: string };
+	pickIds?: number[];
+	exerciseIds?: number[];
+	action?: string;
+};
 const call = (name: keyof typeof actions, user: User, fields: Record<string, string> = {}) =>
 	(actions[name] as unknown as (e: unknown) => Promise<Result>)(post(user, fields));
 
@@ -122,6 +128,8 @@ describe('next', () => {
 		const r = await call('next', U1);
 		expect(r.action).toBe('next');
 		expect(r.pickIds).toHaveLength(5);
+		// What the page focuses: the first of the rows it adds.
+		expect(r.exerciseIds).toEqual(ids.slice(5, 10));
 		// The day's rows are the first five; Next takes the five after them.
 		expect(allPicks().map((p) => p.exerciseId)).toEqual(ids.slice(5, 10));
 		expect(allPicks().every((p) => p.kind === 'next')).toBe(true);

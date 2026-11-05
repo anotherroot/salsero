@@ -461,7 +461,6 @@ import {
 	createCustomExercise,
 	exerciseHistory,
 	getExercise,
-	lastSets,
 	listExercises,
 	listPickExercises,
 	listSetsBetween,
@@ -510,7 +509,6 @@ describe('exercises: the data functions stand behind a wall', () => {
 		expect(listSetTimes(db, U1_SALSA)).toHaveLength(1);
 		expect(listSetTimes(db, U2_SALSA)).toEqual([]);
 		expect(listSetsBetween(db, 0, 10_000, U2_SALSA)).toEqual([]);
-		expect(lastSets(db, U2_SALSA).size).toBe(0);
 		expect(dueByDance(db, 'u2', 10 * 86_400_000, 'UTC')).toEqual({
 			salsa: { due: [] },
 			bachata: { due: [] }
@@ -2143,18 +2141,23 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		// Today: the review, the routine and the drill, each under the group, P's day known.
 		type TodayData = {
 			list: {
+				day: { rows: { exercise: { name: string; team: unknown } }[] };
 				exercises: { name: string; team: unknown }[];
 				lessonDays: Record<number, string>;
 			};
 		};
 		const today = (loadAt(todayLayout.load, U2, 'salsa') as TodayData).list;
-		const rows = today.exercises;
+		// On Today itself, as the day's rows, not only among the exercises.
+		const rows = today.day.rows.map((r) => r.exercise);
+		expect(today.exercises.map((e) => e.name).sort()).toEqual(rows.map((r) => r.name).sort());
 		expect(rows.map((r) => r.name).sort()).toEqual(
 			['Published routine', 'Review: Published lesson', 'Shines'].sort()
 		);
 		for (const r of rows) expect(r.team).toEqual({ id: T.teamId, name: 'Salsa nadaljevalna' });
 		expect(today.lessonDays[P]).toBe('2026-11-01');
-		expect((loadAt(todayLayout.load, U1, 'salsa') as TodayData).list.exercises).toEqual([]);
+		const theirs = (loadAt(todayLayout.load, U1, 'salsa') as TodayData).list;
+		expect(theirs.day.rows).toEqual([]);
+		expect(theirs.exercises).toEqual([]);
 
 		// Moves: the group's figure only under the group, only the variation P reaches.
 		type Moves = {

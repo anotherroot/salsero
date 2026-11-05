@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { awayWords, backWords, dueWords, earlyLine, gapWords } from './words';
+import { awayWords, backWords, dayWords, dueWords, earlyLine, gapWords } from './words';
 
 const TODAY = '2026-11-05'; // a Thursday
 const state = (dueDay: string) => ({ gap: 5, lastDay: '2026-11-01', dueDay });
@@ -38,6 +38,17 @@ describe('awayWords', () => {
 		['2026-11-19', 'in 2 weeks'],
 		['2027-03-05', 'in 4 months']
 	])('%s -> %s', (d, w) => expect(awayWords(TODAY, d)).toBe(w));
+});
+describe('dayWords', () => {
+	it('today, tomorrow, weekday, date, with the year when not this one', () => {
+		expect(dayWords(TODAY, TODAY)).toBe('today');
+		expect(dayWords('2026-11-03', TODAY)).toBe('today');
+		expect(dayWords('2026-11-06', TODAY)).toBe('tomorrow');
+		expect(dayWords('2026-11-08', TODAY)).toBe('Sunday');
+		expect(dayWords('2026-11-11', TODAY)).toBe('Wednesday');
+		expect(dayWords('2026-11-12', TODAY)).toBe('12 Nov');
+		expect(dayWords('2027-01-14', TODAY)).toBe('14 Jan 2027');
+	});
 });
 describe('dueWords', () => {
 	it('New', () =>

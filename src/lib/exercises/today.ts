@@ -3,7 +3,7 @@
  * card's words and a past day's groups. The rows themselves, and their order,
  * are `dayList`'s (`src/lib/schedule/today-list.ts`).
  */
-import { backWords, dueWords } from '$lib/schedule/words';
+import { backWords, dayWords, dueWords } from '$lib/schedule/words';
 import type { DayList, DayRow, RowKind } from '$lib/schedule/today-list';
 import type { DaySet, ExerciseItem } from '$lib/types';
 
@@ -11,12 +11,6 @@ export type MetaPart = { text: string; tone: 'status' | 'done' | null };
 
 /** "Due Sunday" → "due Sunday", for after "Ahead ·" and "Added ·". */
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
-
-/** "tomorrow", "Sunday", "14 Nov": a day ahead as the due words name it. */
-function dayWords(day: string, today: string): string {
-	const text = dueWords({ gap: 1, lastDay: today, dueDay: day }, today, false)[0].text;
-	return text.replace(/^Due /, '');
-}
 
 /**
  * A Today row's meta: "Done · Back in a week", "New · from class Tue 3 Nov",
@@ -61,7 +55,9 @@ export type TodayHero = {
 	meta: string;
 	/** The bar's fill, 0 to 1. */
 	progress: number;
-	/** todo: the play button; done: the bar, no play; nothing: a tick, no bar. */
+	/** Whether the bar shows: not with nothing on Today, nor once nothing is left. */
+	bar: boolean;
+	/** todo: the play button; done: no play; nothing: a tick in its place. */
 	state: 'todo' | 'done' | 'nothing';
 };
 
@@ -76,22 +72,35 @@ export function todayHero(day: DayList<unknown>): TodayHero {
 			title: `${day.left} left for today`,
 			meta: `${day.done} of ${day.total} done`,
 			progress: day.total > 0 ? day.done / day.total : 0,
+			bar: true,
 			state: 'todo'
 		};
 	}
 	if (day.nothingLeft) {
-		return {
-			title: day.done > 0 ? "You've done everything" : 'Nothing left for today',
-			meta: `Every exercise is done until ${dayWords(day.nothingLeft.day, day.today)}`,
-			progress: 1,
-			state: 'nothing'
-		};
+		const when = dayWords(day.nothingLeft.day, day.today);
+		// Nothing done (everything skipped): it must not say done.
+		return day.done > 0
+			? {
+					title: "You've done everything",
+					meta: `Every exercise is done until ${when}`,
+					progress: 1,
+					bar: false,
+					state: 'nothing'
+				}
+			: {
+					title: 'Nothing left for today',
+					meta: `The rest comes back ${when}`,
+					progress: 0,
+					bar: false,
+					state: 'nothing'
+				};
 	}
 	if (day.total > 0) {
 		return {
 			title: `All ${day.total} done`,
 			meta: "That's today's practice",
 			progress: 1,
+			bar: true,
 			state: 'done'
 		};
 	}
@@ -100,9 +109,21 @@ export function todayHero(day: DayList<unknown>): TodayHero {
 				title: 'Nothing due today',
 				meta: 'You can practise ahead below',
 				progress: 0,
+				bar: false,
 				state: 'done'
 			}
-		: { title: 'Nothing on Today', meta: 'Every exercise is paused', progress: 0, state: 'done' };
+		: {
+				title: 'Nothing on Today',
+				meta: 'Every exercise is paused',
+				progress: 0,
+				bar: false,
+				state: 'done'
+			};
+}
+
+/** The list's label: "Today · 5"; "Done today · 14" once nothing is left (board "Nothing left"). */
+export function listLabel(day: Pick<DayList<unknown>, 'total' | 'nothingLeft'>): string {
+	return `${day.nothingLeft ? 'Done today' : 'Today'} · ${day.total}`;
 }
 
 /** What comes back first, once nothing is left: "Tomorrow · and 3 more", "Sunday". */

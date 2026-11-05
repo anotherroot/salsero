@@ -8,6 +8,7 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { button, GROUP, SECTION_LABEL } from '$lib/components/ui/styles';
 	import type { DayList } from '$lib/schedule/today-list';
+	import { listLabel } from '$lib/exercises/today';
 	import { classDayLabel } from '$lib/format';
 	import type { AppUpdate } from '$lib/app-update/view';
 	import type { DanceSlug } from '$lib/dances/dances';
@@ -97,7 +98,9 @@
 
 	{#if day.rows.length > 0 || day.showNext}
 		<section aria-labelledby="today-list-h" class="flex flex-col gap-2">
-			<h2 id="today-list-h" class={SECTION_LABEL}>Today · {day.total}</h2>
+			<h2 id="today-list-h" class={SECTION_LABEL}>
+				{listLabel(day)}
+			</h2>
 			<ul class={GROUP}>
 				{#each day.rows as row (row.exercise.id)}
 					<ExerciseRow

@@ -452,24 +452,6 @@ export function exerciseSummary(db: Db, id: number): ExerciseSummary {
 	};
 }
 
-/**
- * The latest set of every exercise in one dance — for the rating dots on
- * Today's rows. One grouped query rather than one per row.
- *
- * Relies on SQLite's documented bare-column rule: in a query with exactly one
- * `max()` aggregate, the other selected columns come from the row holding that
- * maximum. Two sets at the same millisecond pick either, which is fine.
- */
-export function lastSets(db: Db, wall: Wall): Map<number, HistorySet> {
-	const rows = db.all<HistorySet & { exerciseId: number }>(sql`
-		select s.exercise_id as exerciseId, s.id as id, max(s.done_at) as doneAt,
-		       s.duration_s as durationS, s.reps as reps, s.rating as rating, s.note as note
-		from sets s join exercises e on e.id = s.exercise_id
-		where e.dance = ${wall.dance} and e.user_id = ${wall.userId}
-		group by s.exercise_id`);
-	return new Map(rows.map(({ exerciseId, ...set }) => [exerciseId, set]));
-}
-
 export function lastSet(db: Db, exerciseId: number): HistorySet | null {
 	return exerciseHistory(db, exerciseId, 1)[0] ?? null;
 }

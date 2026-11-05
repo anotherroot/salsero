@@ -5,6 +5,7 @@ import type { ScheduleState } from '$lib/schedule/schedule';
 import type { DaySet, ExerciseItem } from '$lib/types';
 import {
 	deletedGroupName,
+	listLabel,
 	nothingLeftMeta,
 	pastGroups,
 	rowMeta,
@@ -141,6 +142,7 @@ describe('todayHero', () => {
 			title: '3 left for today',
 			meta: '2 of 5 done',
 			progress: 0.4,
+			bar: true,
 			state: 'todo'
 		});
 		expect(todayHero(list({ done: 4, total: 5, left: 1 })).title).toBe('1 left for today');
@@ -150,6 +152,7 @@ describe('todayHero', () => {
 			title: 'All 5 done',
 			meta: "That's today's practice",
 			progress: 1,
+			bar: true,
 			state: 'done'
 		});
 	});
@@ -165,6 +168,7 @@ describe('todayHero', () => {
 			title: "You've done everything",
 			meta: 'Every exercise is done until tomorrow',
 			progress: 1,
+			bar: false,
 			state: 'nothing'
 		});
 		expect(
@@ -173,12 +177,34 @@ describe('todayHero', () => {
 			).meta
 		).toBe('Every exercise is done until Sunday');
 	});
-	it('nothing due today but more ahead', () => {
-		expect(todayHero(list({ showNext: true }))).toMatchObject({
-			title: 'Nothing due today',
-			state: 'done',
-			progress: 0
+	it('nothing left, nothing done (all skipped): it never says done', () => {
+		const h = todayHero(list({ nothingLeft: { next: ex(2), day: '2026-11-06', more: 0 } }));
+		expect(h).toEqual({
+			title: 'Nothing left for today',
+			meta: 'The rest comes back tomorrow',
+			progress: 0,
+			bar: false,
+			state: 'nothing'
 		});
+		expect(h.title + h.meta).not.toMatch(/done/i);
+	});
+	it('nothing due today but more ahead: no bar', () => {
+		expect(todayHero(list({ showNext: true }))).toEqual({
+			title: 'Nothing due today',
+			meta: 'You can practise ahead below',
+			progress: 0,
+			bar: false,
+			state: 'done'
+		});
+	});
+});
+
+describe('listLabel', () => {
+	it('Today · N, or Done today · N once nothing is left', () => {
+		expect(listLabel({ total: 5, nothingLeft: null })).toBe('Today · 5');
+		expect(listLabel({ total: 14, nothingLeft: { next: ex(2), day: '2026-11-06', more: 0 } })).toBe(
+			'Done today · 14'
+		);
 	});
 });
 

@@ -110,7 +110,8 @@ export const actions: Actions = {
 		}
 		try {
 			const pickIds = addPicks(db, wall, ids, localDay(now, tz), 'next', now);
-			return { action: 'next', pickIds };
+			// The rows' ids too: the page focuses the first of them.
+			return { action: 'next', pickIds, exerciseIds: ids };
 		} catch (e) {
 			if (e instanceof PickRefused) return fail(400, { action: 'next', message: e.message });
 			throw e;

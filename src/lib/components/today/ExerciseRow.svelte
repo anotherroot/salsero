@@ -40,6 +40,8 @@
 		resolve('/[dance]/(today)/exercises/[id]', { dance, id: String(ex.id) }) + search
 	);
 	const lit = $derived(current ? ('page' as const) : undefined);
+	// `data-focus`: Next focuses the first row it adds (`NextRow`).
+	const LINK = 'flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1';
 </script>
 
 <li
@@ -53,7 +55,7 @@
 		target. On the desktop the open exercise's form is beside the list: no +.
 	-->
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above; search is the query -->
-	<a {href} aria-current={lit} class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1">
+	<a {href} aria-current={lit} data-focus="today-row-{ex.id}" class={LINK}>
 		<TypeTile exercise={ex} tone={tileTone(row.kind)} onTint={tinted} />
 		<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 			<!-- A done row's name is quieter (board "Today"); muted is under 4.5:1 on a tint. -->

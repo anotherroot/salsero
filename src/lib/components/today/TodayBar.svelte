@@ -28,7 +28,7 @@
 		<span class="font-display text-[25px] leading-[1.1] font-extrabold tracking-[-0.01em] text-ink"
 			>{hero.title}</span
 		>
-		{#if hero.state !== 'nothing'}
+		{#if hero.bar}
 			<!-- The words under it say the same: the bar is for the eye. -->
 			<span class="block h-2 w-full overflow-hidden rounded-full bg-field-line" aria-hidden="true">
 				<span
