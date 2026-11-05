@@ -1082,3 +1082,40 @@ export interface PositionInput {
 	notes: string | null;
 	pictureSpotId: number | null;
 }
+
+/* ── Comments on a group's lessons ─────────────────────────────────────── */
+
+/** One comment as a person sees it. `body` is null when it was deleted. */
+export type CommentRow = {
+	id: number;
+	/** A top comment's own thread is null; a reply's is its top comment. */
+	threadId: number | null;
+	/** Null for a deleted comment: its author is not shown. */
+	authorName: string | null;
+	/** The author is the group's owner or an editor right now. */
+	teacher: boolean;
+	mine: boolean;
+	body: string | null;
+	at: number;
+	hearts: number;
+	hearted: boolean;
+	canDelete: boolean;
+	/** Set only for a reply to another reply: drawn as "@Maja". */
+	replyToName: string | null;
+};
+
+export type CommentThread = { top: CommentRow; replies: CommentRow[] };
+
+export type CommentList = {
+	threads: CommentThread[];
+	/** Posting, hearting and deleting are allowed (false in a deleted group). */
+	open: boolean;
+	groupName: string;
+};
+
+/** The card at the end of a lesson page. */
+export type CommentCard = {
+	count: number;
+	newCount: number;
+	newest: { name: string; teacher: boolean; text: string; at: number } | null;
+};

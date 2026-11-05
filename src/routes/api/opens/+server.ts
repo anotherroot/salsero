@@ -19,7 +19,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = (await request.json().catch(() => null)) as { kind?: unknown; id?: unknown } | null;
 	const id = body && typeof body.id === 'number' && Number.isInteger(body.id) ? body.id : 0;
 	const kind = body?.kind;
-	if ((kind !== 'lesson' && kind !== 'song') || id <= 0) throw error(400, 'Bad request');
+	if ((kind !== 'lesson' && kind !== 'song' && kind !== 'comments') || id <= 0)
+		throw error(400, 'Bad request');
 	const db = getDb();
 	if (kind === 'song') {
 		const song = getSong(db, id);
@@ -38,6 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!lesson || lesson.teamId === null || lessonAccess(db, user.id, lesson) === null) {
 		throw error(404, 'No such lesson');
 	}
-	recordOpen(db, user.id, 'lesson', lesson.id, Date.now());
+	// 'comments' is the lesson's comments (item = the lesson): the same wall, the same 404.
+	recordOpen(db, user.id, kind, lesson.id, Date.now());
 	return new Response(null, { status: 204 });
 };
