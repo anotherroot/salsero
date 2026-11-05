@@ -136,7 +136,7 @@ family (and twins as one in the graph), the hold, templates, the links, the
 screens and the map, the one-time move at boot, and what was decided while
 planning and building. It replaces the routines spec's neutral position and
 single end.
-The desktop has its own (the frame is built; the area pages follow),
+The desktop has its own (built: the frame and the area pages),
 [`docs/superpowers/specs/2026-11-03-desktop-design.md`](docs/superpowers/specs/2026-11-03-desktop-design.md):
 from 1024 px, one short band row and a band-coloured side with the tabs, a
 list and the opened item side by side, two-column figure and lesson pages, and
@@ -446,8 +446,18 @@ src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figu
                      `components/figures/FigureTabs.svelte` the figure's tabs on desk, `components/shell/PaneHeading.svelte`
                      a pane's heading row; there is
                      no MovesScreen (the layout and the lists replace it)
-src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
-                     people, storage, History and Recently deleted
+src/routes/[dance]/groups/**  the Groups tab: `+layout.svelte` and `+layout.server.ts` hold the list
+                     (`components/teams/GroupList.svelte`, in a 360 column on desk; no groups,
+                     no column) beside the open group; make and join, a group's page (two
+                     columns, `PaneColumns` `'7:5'` with `lead`: the group's space), its people,
+                     storage, History and Recently deleted. `teams/view.ts` also has `PICK_GROUP`
+                     and `codeAction` (Copy link on desk, Share on the phone; `COPY_FAILED`)
+src/routes/[dance]/lessons/  the same for Lessons: `+layout.svelte` and `+layout.server.ts` hold
+                     `components/lessons/LessonList.svelte` beside the open lesson (a lesson
+                     page is two columns; no lessons, no column; `lessons/list.ts` has
+                     `PICK_LESSON`, `isOpenLesson`, `groupVideosSubtitle`). The New lesson sheet
+                     stays mounted in the layout. `components/shell/reveal.ts`: `revealLit` and
+                     `revealPicked`, scroll the lit or the new row into view in a list column
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)
 src/routes/welcome/  asks once for a name: a person whose account was made before names
                      (hooks.server.ts sends anyone signed in without one here)
