@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { isDanceSlug } from '$lib/dances/dances';
-	import Screen from '$lib/components/ui/Screen.svelte';
+	import CardFrame from '$lib/components/shell/CardFrame.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import StatusBlock from '$lib/components/system/StatusBlock.svelte';
@@ -26,15 +26,16 @@
 <svelte:head><title>Pair the app</title></svelte:head>
 
 <div data-dance={dance} style:display="contents">
-	<Screen title="Pair the app">
+	<CardFrame title="Pair the app">
 		{#if form?.link}
 			<StatusBlock
 				icon="check"
 				tone="done"
 				title="Paired"
 				body="Opening the app now. If it does not open by itself, tap the button."
+				class="desk:pt-3"
 			/>
-			<BottomBar>
+			<BottomBar card>
 				<!-- eslint-disable svelte/no-navigation-without-resolve -- an app link, not a route -->
 				<a href={form.link} rel="external" class={button('primary', 'lg', true)}>Open the app</a>
 				<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -45,8 +46,9 @@
 				tone="accent"
 				title="Pair this phone"
 				body="Lets the app upload videos in the background and remind you what is due. You can remove it again in Settings."
+				class="desk:pt-3"
 			/>
-			<BottomBar>
+			<BottomBar card>
 				<form
 					method="POST"
 					use:enhance={({ cancel }) => {
@@ -64,5 +66,5 @@
 				</form>
 			</BottomBar>
 		{/if}
-	</Screen>
+	</CardFrame>
 </div>

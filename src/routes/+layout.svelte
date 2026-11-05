@@ -9,7 +9,7 @@
 	import BottomNav from '$lib/components/shell/BottomNav.svelte';
 	import Side from '$lib/components/shell/Side.svelte';
 	import SheetCorner from '$lib/components/shell/SheetCorner.svelte';
-	import { frameOf } from '$lib/nav/frame';
+	import { frameOf, frameOfError } from '$lib/nav/frame';
 	import NavProgress from '$lib/components/shell/NavProgress.svelte';
 	import PageSkeleton from '$lib/components/shell/PageSkeleton.svelte';
 	import UnsavedDialog from '$lib/components/ui/UnsavedDialog.svelte';
@@ -106,13 +106,21 @@
 	/*
 	 * What surrounds the page on the desktop (`$lib/nav/frame.ts`), judged like the
 	 * tabs on where the app is going. Below 1024 none of it shows: every class it
-	 * adds is `desk:`, and the frame's variables are 0 there.
+	 * adds is `desk:`, and the frame's variables are 0 there. An error page's frame
+	 * comes from the path that was asked for (`frameOfError`): a 404 has no route.
 	 */
-	const frame = $derived(frameOf((ahead ?? page).route.id, nav));
+	const frame = $derived(
+		ahead
+			? frameOf(ahead.route.id, nav)
+			: page.error
+				? frameOfError(page.url.pathname, nav)
+				: frameOf(page.route.id, nav)
+	);
 	const SHEET = {
 		side: 'desk:ml-[var(--side-w)] desk:pt-[var(--band-row-h)] desk:max-w-none desk:bg-ground',
 		bare: 'desk:pt-[var(--band-row-h)] desk:max-w-none desk:bg-ground',
-		card: '',
+		// The card pages' own column (`CardFrame`) is the band-coloured window.
+		card: 'desk:max-w-none',
 		none: ''
 	} as const;
 
@@ -449,17 +457,25 @@
 {/if}
 
 {#if offline}
+	<!--
+		On the desktop it covers the whole window, side included: a band row across
+		the top, and under it a sheet rounded at both top corners (a bare frame, so
+		no side offsets the band row's title), the message centred at 560.
+	-->
 	<dialog
 		bind:this={layer}
 		data-dance={navDance.slug}
+		data-frame="bare"
 		aria-label="Offline"
-		class="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto border-0 bg-ground p-0 text-ink backdrop:bg-transparent"
+		class="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto border-0 bg-ground p-0 text-ink backdrop:bg-transparent desk:bg-band"
 		oncancel={(e) => {
 			e.preventDefault();
 			offline = null;
 		}}
 	>
-		<div class="mx-auto max-w-[560px]">
+		<div
+			class="mx-auto max-w-[560px] desk:mt-[var(--band-row-h)] desk:min-h-[calc(100dvh-var(--band-row-h))] desk:max-w-none desk:rounded-t-[28px] desk:bg-ground"
+		>
 			<ErrorScreen
 				view={errorView(0, undefined, true)}
 				back={{

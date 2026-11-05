@@ -1,6 +1,6 @@
 import { globSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { frameOf, PAGE_WIDTH, sideLit } from './frame';
+import { frameOf, frameOfError, PAGE_WIDTH, sideLit } from './frame';
 
 describe('frameOf', () => {
 	it('gives each kind of route its frame', () => {
@@ -28,6 +28,26 @@ describe('frameOf', () => {
 			if (id === '/dev/kit') continue;
 			expect(frameOf(id === '/' ? '/' : id, true), id).not.toBe('none');
 		}
+	});
+});
+
+describe('frameOfError', () => {
+	it('keeps the side for an error inside a dance, by the path asked for (a 404 has no route)', () => {
+		expect(frameOfError('/salsa/does-not-exist', true)).toBe('side');
+		expect(frameOfError('/salsa/figures/999', true)).toBe('side');
+		expect(frameOfError('/bachata', true)).toBe('side');
+		// Practice and share have no side, but their errors keep the frame (desktop spec).
+		expect(frameOfError('/salsa/player', true)).toBe('side');
+		expect(frameOfError('/settings/storage', true)).toBe('side');
+	});
+
+	it('puts every other error in the card: outside a dance, or signed out', () => {
+		expect(frameOfError('/g/OLDCODE', true)).toBe('card');
+		expect(frameOfError('/settings/nope', true)).toBe('card');
+		expect(frameOfError('/nope', true)).toBe('card');
+		expect(frameOfError('/salsaxyz', true)).toBe('card');
+		expect(frameOfError('/join', false)).toBe('card');
+		expect(frameOfError('/salsa/figures/1', false)).toBe('card');
 	});
 });
 

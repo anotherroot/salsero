@@ -1,12 +1,13 @@
 """Screenshot rig, the Python side.
 
-  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID] [--viewport]
+  shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID] [--viewport] [--no-session] [--unnamed]
   shots.py diff DIR_A DIR_B
 
 `shoot` fills the placeholders in the pages file from the db, inserts a session row,
 and shoots every page. `diff` prints `<slug> <changed-pixels>` per page, exit 1 if any differ.
 """
 import argparse
+import hashlib
 import os
 import re
 import sqlite3
@@ -59,8 +60,15 @@ def placeholders(db):
         "position": first(db, "select id from positions where user_id=? and dance=? and archived_at is null order by id limit 1", (admin, d))
         or first(db, "select id from positions where dance=? and archived_at is null order by id limit 1", (d,)),
         "exercise": first(db, "select id from exercises where user_id=? and dance=? and archived_at is null order by id limit 1", (admin, d)),
+        # a live group code the admin is not in, of either dance (/g/<code> asks Join?)
+        "joincode": first(db, "select code from teams where deleted_at is null and id not in (select team_id from team_members where user_id=?) order by id limit 1", (admin,)),
+        # the invite the rig inserts into the copy (shoot), so /join shows its form
+        "invite": INVITE,
     }
     return admin, v
+
+
+INVITE = "shots-invite"
 
 
 def slug(line):
@@ -80,6 +88,15 @@ def shoot(a):
         "insert into sessions (id, user_id, expires_at, created_at) values ('shots', ?, ?, ?)",
         (admin, now + 86_400_000, now),
     )
+    # an unused invite with a known code (only its sha256 is kept, src/lib/server/invites.ts)
+    db.execute("delete from invites where id = 'shots'")
+    db.execute(
+        "insert into invites (id, code_hash, created_by, created_at, expires_at) values ('shots', ?, ?, ?, ?)",
+        (hashlib.sha256(INVITE.encode()).hexdigest(), admin, now, now + 86_400_000),
+    )
+    if a.unnamed:
+        # a person made before names: every page sends them to /welcome
+        db.execute("update users set first_name = null, last_name = null where id = ?", (admin,))
     db.commit()
     db.close()
 
@@ -97,11 +114,14 @@ def shoot(a):
             timezone_id="Europe/Ljubljana",
         )
         ctx.clock.set_fixed_time(INSTANT)
-        ctx.add_cookies([{"name": "salsa_session", "value": "shots", "url": a.base}])
+        if not a.no_session:
+            ctx.add_cookies([{"name": "salsa_session", "value": "shots", "url": a.base}])
         if a.group is not None:
             # group mode (src/lib/teams/mode.ts `groupCookie`): the admin must own or edit the group
             ctx.add_cookies([{"name": f"group_{DANCE}", "value": str(a.group), "url": a.base}])
-        for line in lines:
+        for entry in lines:
+            # "<path> -> <path>": the page is expected to land elsewhere (signed out, say)
+            line, _, lands = (x.strip() for x in entry.partition("->"))
             names = re.findall(r"\{(\w+)\}", line)
             missing = [n for n in names if v.get(n) is None]
             if missing:
@@ -121,7 +141,8 @@ def shoot(a):
                 page.screenshot(path=png, full_page=not a.viewport)
                 wrote += 1
                 expected_404 = "does-not-exist" in path
-                ok = (status == 404) if expected_404 else (status < 400 and final.split("?")[0] == path.split("?")[0])
+                want = (lands or path).split("?")[0]
+                ok = (status == 404) if expected_404 else (status < 400 and final.split("?")[0] == want)
                 if not ok:
                     bad += 1
                 print(f"{'ok ' if ok else 'BAD'} {status} {path}" + (f" -> {final}" if final != path else ""))
@@ -191,6 +212,8 @@ def main():
     s.add_argument("--pages", required=True)
     s.add_argument("--group", type=int, help="a group id of the dance: shoot in its group mode")
     s.add_argument("--viewport", action="store_true", help="shoot the window only (desktop: the band row and side are fixed)")
+    s.add_argument("--no-session", action="store_true", help="no session cookie: the signed-out pages")
+    s.add_argument("--unnamed", action="store_true", help="the admin has no name in the copy, so pages send them to /welcome")
     d = sub.add_parser("diff")
     d.add_argument("a")
     d.add_argument("b")

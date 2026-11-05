@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Screen from '$lib/components/ui/Screen.svelte';
+	import CardFrame from '$lib/components/shell/CardFrame.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import NameFields from '$lib/components/system/NameFields.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
@@ -18,7 +18,13 @@
 <svelte:head><title>Join</title></svelte:head>
 
 <div data-dance={data.dance} style:display="contents">
-	<Screen title="Join" subtitle={live ? 'You were invited' : undefined}>
+	<CardFrame
+		title="Join"
+		subtitle={live ? 'You were invited' : undefined}
+		note={live
+			? 'At least 12 characters, mixing three of lower, upper, digit and symbol.'
+			: undefined}
+	>
 		{#if live}
 			<form
 				method="POST"
@@ -84,14 +90,10 @@
 					{/if}
 				</button>
 			</form>
-
-			<p class="mt-1.5 text-center text-[13px] text-muted">
-				At least 12 characters, mixing three of lower, upper, digit and symbol.
-			</p>
 		{:else}
 			<div class="rounded-[22px] bg-surface px-4 py-5">
 				<Banner kind="error" title="This invite no longer works. Ask for a new one." />
 			</div>
 		{/if}
-	</Screen>
+	</CardFrame>
 </div>

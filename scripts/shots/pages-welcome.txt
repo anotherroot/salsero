@@ -1,0 +1,2 @@
+# shots.sh --unnamed: a person without a name is sent here
+/welcome

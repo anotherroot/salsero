@@ -3,7 +3,7 @@
 Shoots every page in `pages.txt` from a throwaway copy of a database, so a change can be compared
 with a baseline (the phone must not change) or with a design board.
 
-    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport]
+    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed]
     scripts/shots/shots.py diff <dirA> <dirB>      # run under the Playwright command below
 
 `shots.sh` copies the db to a `mktemp -d` (never `.data`), runs `npx vite dev` on a free port inside
@@ -16,11 +16,16 @@ answers it prints the server log and exits 1. It exits 1 too if any page is not 
 `--viewport` shoots the window only, not the full page: on the desktop the band row and the side are fixed and
 a full-page shot draws them once at the top, so desktop pages are compared with their boards (1440×900) this way.
 Phone baselines stay full-page.
+`--no-session` shoots without the cookie (the signed-out pages: `pages-signed-out.txt`); `--unnamed` clears the
+admin's name in the copy, so pages send them to `/welcome` (`pages-welcome.txt`). `pages-card.txt` is the
+other card pages and the error pages, signed in.
 
 `pages.txt`: one path per line. `{dance}` is salsa; `{yesterday}`, `{figure}`, `{move}`, `{song}`,
 `{lesson}`, `{routine}`, `{group}`, `{position}`, `{exercise}` are the admin's first live row of that
-kind (a group: the first they are in). A placeholder with no row is a failure. The `does-not-exist` line
-must answer 404; every other page must answer < 400 on its own path. Output: `<out-dir>/<slug>.png`,
+kind (a group: the first they are in). `{joincode}` is the code of a live group the admin is not in;
+`{invite}` the code of an unused invite the rig adds to the copy. A placeholder with no row is a failure. The `does-not-exist` line
+must answer 404; every other page must answer < 400 on its own path, or on the one after `->` when the
+line names where it lands (`/g/{joincode} -> /login`, signed out). Output: `<out-dir>/<slug>.png`,
 full page, one per line; the slug comes from the template line (`salsa_day_yesterday`, `salsa_figures_figure`), so names do not depend on the day or the db. Media files are not in a db copy, so pages that show them show their missing
 state.
 

@@ -9,7 +9,8 @@
 		title,
 		body,
 		code,
-		actions
+		actions,
+		class: extra = ''
 	}: {
 		icon: IconName;
 		tone: 'accent' | 'warn' | 'danger' | 'done';
@@ -17,6 +18,8 @@
 		body: string;
 		code?: string;
 		actions?: Snippet;
+		/** Extra classes for the block (desktop placement only; its look is its own). */
+		class?: string;
 	} = $props();
 
 	// Written out, since Tailwind only generates classes it can see literally.
@@ -29,7 +32,7 @@
 </script>
 
 <!-- A centred full-page message: an icon in a soft circle, a title, a body, actions. -->
-<div class="flex flex-none flex-col items-center gap-2.5 px-5 pt-10 text-center">
+<div class="flex flex-none flex-col items-center gap-2.5 px-5 pt-10 text-center {extra}">
 	<span class="mb-1.5 flex size-20 items-center justify-center rounded-full {LOOK[tone]}">
 		<Icon name={icon} size={36} />
 	</span>

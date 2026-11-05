@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Screen from '$lib/components/ui/Screen.svelte';
+	import CardFrame from '$lib/components/shell/CardFrame.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { FIELD, LABEL, button } from '$lib/components/ui/styles';
@@ -13,7 +13,11 @@
 <svelte:head><title>Sign in</title></svelte:head>
 
 <div data-dance={data.dance} style:display="contents">
-	<Screen title="Sign in" subtitle="Welcome back. Sign in to practise.">
+	<CardFrame
+		title="Sign in"
+		subtitle="Welcome back. Sign in to practise."
+		note="Got an invite? Open its link, or scan its code with your camera."
+	>
 		<form
 			method="POST"
 			class="flex flex-col gap-4 rounded-[22px] bg-surface px-4 pt-5 pb-4"
@@ -71,9 +75,5 @@
 				{/if}
 			</button>
 		</form>
-
-		<p class="mt-1.5 text-center text-[13px] text-muted">
-			Got an invite? Open its link, or scan its code with your camera.
-		</p>
-	</Screen>
+	</CardFrame>
 </div>

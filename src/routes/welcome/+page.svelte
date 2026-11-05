@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Screen from '$lib/components/ui/Screen.svelte';
+	import CardFrame from '$lib/components/shell/CardFrame.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import NameFields from '$lib/components/system/NameFields.svelte';
 	import { button } from '$lib/components/ui/styles';
@@ -13,7 +13,11 @@
 <svelte:head><title>Welcome</title></svelte:head>
 
 <div data-dance={data.dance} style:display="contents">
-	<Screen title="Welcome" subtitle="What should we call you?">
+	<CardFrame
+		title="Welcome"
+		subtitle="What should we call you?"
+		note="Friends in a group see this instead of your email."
+	>
 		<form
 			method="POST"
 			class="flex flex-col gap-4 rounded-[22px] bg-surface px-4 pt-5 pb-4"
@@ -47,8 +51,5 @@
 				{/if}
 			</button>
 		</form>
-		<p class="mt-1.5 text-center text-[13px] text-muted">
-			Friends in a group see this instead of your email.
-		</p>
-	</Screen>
+	</CardFrame>
 </div>

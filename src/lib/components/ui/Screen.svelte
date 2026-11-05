@@ -13,6 +13,7 @@
 		subtitle,
 		compact = false,
 		width = 'one',
+		card = false,
 		left,
 		right,
 		extra,
@@ -24,6 +25,12 @@
 		compact?: boolean;
 		/** How wide the content grows on the desktop (`PAGE_WIDTH`); the phone ignores it. */
 		width?: PageWidth;
+		/**
+		 * A card page (`CardFrame`, which sets it): on the desktop the band is not the
+		 * fixed band row but the title above a 480 px column, and the sheet is that
+		 * column. The phone ignores it.
+		 */
+		card?: boolean;
 		left?: Snippet;
 		right?: Snippet;
 		extra?: Snippet;
@@ -36,6 +43,23 @@
 	const slim = $derived(mode === 'slim');
 	/** In group mode the band says whose space this is. */
 	const group = $derived((page.data.groupMode ?? null) as GroupMode | null);
+
+	/*
+	 * The desktop's own classes, kept apart so a card page can leave them out: there
+	 * the band and the sheet keep the phone's arrangement, moved into the card's
+	 * 480 px column (`CardFrame` centres it on the band-coloured window).
+	 */
+	const desk_ = (classes: string) => (card ? '' : classes);
+	const HEADER_DESK = $derived(
+		card
+			? 'desk:w-[480px] desk:max-w-full desk:p-0 desk:pl-2'
+			: 'desk:fixed desk:inset-x-0 desk:top-0 desk:z-30 desk:grid desk:h-[var(--band-row-h)] desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] desk:items-center desk:gap-x-6 desk:py-0 desk:pr-10 desk:pl-[max(var(--side-w),var(--band-x))]'
+	);
+	const SHEET_DESK = $derived(
+		card
+			? 'desk:mt-0 desk:min-h-0 desk:w-[480px] desk:max-w-full desk:gap-[22px] desk:rounded-none desk:bg-transparent desk:p-0'
+			: 'desk:mx-auto desk:mt-0 desk:min-h-[calc(100dvh-var(--band-row-h))] desk:w-full desk:max-w-[calc(var(--page-w)+80px)] desk:rounded-none desk:px-10 desk:pt-7 desk:pb-10'
+	);
 </script>
 
 <svelte:window bind:scrollY />
@@ -101,7 +125,7 @@
 		? 'pb-[92px]'
 		: extra
 			? 'pb-[50px]'
-			: 'pb-[52px]'} desk:fixed desk:inset-x-0 desk:top-0 desk:z-30 desk:grid desk:h-[var(--band-row-h)] desk:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] desk:items-center desk:gap-x-6 desk:py-0 desk:pr-10 desk:pl-[max(var(--side-w),var(--band-x))]"
+			: 'pb-[52px]'} {HEADER_DESK}"
 	inert={slim}
 	style="--focus-ring: var(--color-band-ink); --band-x: {left ? 18 : 30}px"
 >
@@ -114,9 +138,11 @@
 			style="background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--color-band-ink) 35%, transparent) 0 6px, transparent 6px 12px)"
 		></div>
 	{/if}
-	<div class="flex flex-wrap items-center gap-x-1 gap-y-[6px] desk:contents">
+	<div class="flex flex-wrap items-center gap-x-1 gap-y-[6px] {desk_('desk:contents')}">
 		<div
-			class="contents desk:col-start-1 desk:row-start-1 desk:ml-[calc(var(--band-x)-max(var(--side-w),var(--band-x)))] desk:grid desk:min-w-0 desk:grid-cols-[max-content_minmax(0,max-content)_minmax(0,1fr)] desk:items-center desk:justify-start"
+			class="contents {desk_(
+				'desk:col-start-1 desk:row-start-1 desk:ml-[calc(var(--band-x)-max(var(--side-w),var(--band-x)))] desk:grid desk:min-w-0 desk:grid-cols-[max-content_minmax(0,max-content)_minmax(0,1fr)] desk:items-center desk:justify-start'
+			)}"
 			data-band-title
 		>
 			{#if group}
@@ -130,7 +156,9 @@
 			{/if}
 			{#if left}
 				<div
-					class="-ml-[10px] flex desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[14px] desk:ml-0"
+					class="-ml-[10px] flex {desk_(
+						'desk:col-start-1 desk:row-span-2 desk:row-start-1 desk:mr-[14px] desk:ml-0'
+					)}"
 				>
 					{@render left()}
 				</div>
@@ -144,11 +172,15 @@
 					? 'text-[30px] leading-[1.1] tracking-[-0.015em]'
 					: 'text-[46px] leading-[1.05] tracking-[-0.02em]'}"
 			>
-				<span class="line-clamp-2 min-w-0 break-words desk:block desk:truncate">{title}</span>
+				<span class="line-clamp-2 min-w-0 break-words {desk_('desk:block desk:truncate')}"
+					>{title}</span
+				>
 			</h1>
 			{#if subtitle}
 				<span
-					class="order-last basis-full text-[15px] font-semibold text-band-small desk:order-none desk:col-start-3 desk:row-start-2 desk:ml-[14px] desk:min-w-0 desk:self-baseline desk:truncate desk:pl-0"
+					class="order-last basis-full text-[15px] font-semibold text-band-small {desk_(
+						'desk:order-none desk:col-start-3 desk:row-start-2 desk:ml-[14px] desk:min-w-0 desk:self-baseline desk:truncate desk:pl-0'
+					)}"
 					class:pl-[38px]={!!left}>{subtitle}</span
 				>
 			{/if}
@@ -166,9 +198,12 @@
 	{/if}
 </header>
 
-<!-- The sheet. On the desktop the content stops at its width, centred, under the band row. -->
+<!--
+	The sheet. On the desktop the content stops at its width, centred, under the band
+	row; on a card page it is the card's column (the card itself is `CardFrame`'s).
+-->
 <div
-	class="relative -mt-7 flex min-h-[60vh] flex-col gap-2 rounded-t-[28px] bg-ground px-4 pb-6 desk:mx-auto desk:mt-0 desk:min-h-[calc(100dvh-var(--band-row-h))] desk:w-full desk:max-w-[calc(var(--page-w)+80px)] desk:rounded-none desk:px-10 desk:pt-7 desk:pb-10"
+	class="relative -mt-7 flex min-h-[60vh] flex-col gap-2 rounded-t-[28px] bg-ground px-4 pb-6 {SHEET_DESK}"
 	class:pt-5={!hero}
 	style="--page-w: {PAGE_WIDTH[width]}px"
 >

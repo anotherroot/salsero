@@ -184,7 +184,8 @@ Music", "Group mode: the group's positions"):
   `ground`, radius 28. *My call.* Get the app on a computer says to open the
   page on the phone, with the QR of its URL (as built). A group code that no
   longer works shows its message in the same card rather than the bare error
-  page (board "Join · an old code").
+  page (board "Join · an old code"). So does any other error outside a dance,
+  or signed out: there is no side to keep. *My call while building.*
 - **Error pages** inside a dance (404, server error) keep the frame and the
   side; the error sits in the sheet, centred, 560 px wide. The side lights the
   tab of the page that was asked for. The Offline layer covers the whole

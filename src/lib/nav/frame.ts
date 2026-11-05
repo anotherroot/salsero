@@ -1,4 +1,4 @@
-import type { DanceSlug } from '$lib/dances/dances';
+import { danceInPath, type DanceSlug } from '$lib/dances/dances';
 import { tabFor, type TabId } from './tabs';
 
 /**
@@ -20,6 +20,18 @@ export function frameOf(routeId: string | null, _signedIn: boolean): Frame {
 	if (SHARED_SIDE.has(routeId)) return 'side';
 	if (CARD.has(routeId)) return 'card';
 	return 'none';
+}
+
+/**
+ * The frame of an error page, judged by the path that was asked for: a 404 has
+ * no route to judge by. Inside a dance (and on the shared pages that have the
+ * side) the error keeps the frame and the side, which lights the asked tab
+ * (`sideLit`); anywhere else, and signed out, its message sits in the card
+ * (desktop spec, "Pages without the side"; an old group code's board).
+ */
+export function frameOfError(path: string, signedIn: boolean): Frame {
+	if (signedIn && (danceInPath(path) !== null || SHARED_SIDE.has(path))) return 'side';
+	return 'card';
 }
 
 /** Which side entry is lit: a tab inside the dance, Settings for the shared pages. */

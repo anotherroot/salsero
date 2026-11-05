@@ -1,0 +1,8 @@
+# the card pages and the error pages, signed in
+/app
+/device/pair
+/g/{joincode}
+/g/does-not-exist
+/{dance}/does-not-exist
+/{dance}/figures/does-not-exist
+/settings/does-not-exist

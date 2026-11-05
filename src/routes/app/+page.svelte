@@ -1,6 +1,6 @@
 <script lang="ts">
 	import InviteQr from '$lib/components/admin/InviteQr.svelte';
-	import Screen from '$lib/components/ui/Screen.svelte';
+	import CardFrame from '$lib/components/shell/CardFrame.svelte';
 	import { GROUP, button } from '$lib/components/ui/styles';
 	import type { PageData } from './$types';
 
@@ -9,7 +9,7 @@
 
 <svelte:head><title>Get the app</title></svelte:head>
 
-<Screen title="Get the app">
+<CardFrame title="Get the app">
 	<p class="text-[16px] text-ink-2">Practise from your phone's home screen.</p>
 
 	{#if data.device === 'other'}
@@ -79,4 +79,4 @@
 
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the dance chooser -->
 	<a href="/" class={button('tertiary', 'md')}> Skip, use it in the browser </a>
-</Screen>
+</CardFrame>

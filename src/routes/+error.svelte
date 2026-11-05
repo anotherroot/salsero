@@ -5,8 +5,11 @@
 	import { danceInPath } from '$lib/dances/dances';
 	import ErrorScreen from '$lib/components/system/ErrorScreen.svelte';
 	import { errorBack, errorView } from '$lib/nav/error-view';
+	import { frameOfError } from '$lib/nav/frame';
 
 	const dance = $derived(danceInPath(page.url.pathname) ?? page.data.lastDance ?? 'salsa');
+	// The root layout draws the same frame around it (`frameOfError` there too).
+	const card = $derived(frameOfError(page.url.pathname, Boolean(page.data.user)) === 'card');
 </script>
 
 <div data-dance={dance} style:display="contents">
@@ -14,6 +17,7 @@
 		view={errorView(page.status, page.error?.message, browser && !navigator.onLine)}
 		back={errorBack(page.url.pathname, dance)}
 		todayHref={`/${dance}`}
+		{card}
 		/* eslint-disable-next-line svelte/no-navigation-without-resolve -- the current URL */
 		onretry={() => goto(page.url, { invalidateAll: true, replaceState: true })}
 	/>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Screen from '$lib/components/ui/Screen.svelte';
+	import CardFrame from '$lib/components/shell/CardFrame.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { button } from '$lib/components/ui/styles';
@@ -14,7 +14,10 @@
 <svelte:head><title>Join {data.name}</title></svelte:head>
 
 <div data-dance={data.dance} style:display="contents">
-	<Screen title={joinQuestion(data.name)} subtitle="{data.danceLabel} · {peopleLine(data.people)}">
+	<CardFrame
+		title={joinQuestion(data.name)}
+		subtitle="{data.danceLabel} · {peopleLine(data.people)}"
+	>
 		<form
 			method="POST"
 			action="?/join"
@@ -36,5 +39,5 @@
 				{#if submitting}<Spinner size={24} /> Joining…{:else}Join{/if}
 			</button>
 		</form>
-	</Screen>
+	</CardFrame>
 </div>

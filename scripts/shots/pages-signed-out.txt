@@ -1,0 +1,5 @@
+# signed out (shots.sh --no-session): sign in, Join (a dead invite, a live one), a group code
+/login
+/join
+/join?code={invite}
+/g/{joincode} -> /login
