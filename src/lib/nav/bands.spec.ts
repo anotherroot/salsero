@@ -5,6 +5,8 @@ import { frameOf } from './frame';
 // Pages that draw no band of their own, each with its reason.
 const NO_BAND: Record<string, string> = {
 	'src/routes/dev/kit/+page.svelte': 'dev gallery',
+	'src/routes/[dance]/(today)/coming-up/+page.svelte':
+		'the (today) layout draws the band (ListPane); Coming up is its list',
 	'src/routes/[dance]/(moves)/figures/+page.svelte': 'the (moves) layout draws the band',
 	'src/routes/[dance]/(moves)/routines/+page.svelte': 'the (moves) layout draws the band',
 	'src/routes/[dance]/(moves)/positions/+page.svelte':

@@ -90,3 +90,29 @@ describe("Today's day", () => {
 		expect(day.showNext).toBe(false);
 	});
 });
+
+describe('Coming up (the layout load)', () => {
+	const loadComing = () =>
+		(
+			load as unknown as (e: unknown) => {
+				list: { coming: { key: string; rows: { exercise: { name: string }; state: string }[] }[] };
+			}
+		)({ params: { dance: 'salsa' }, locals: { user: USER }, depends: () => {} });
+
+	it('puts what is due past the daily number in Waiting', () => {
+		for (let i = 1; i <= 7; i++)
+			createCustomExercise(handle.db as never, U1_SALSA, {
+				name: `E${i}`,
+				everyDays: 3,
+				notes: null
+			});
+		const { coming } = loadComing().list;
+		expect(coming[0].key).toBe('waiting');
+		expect(coming[0].rows).toHaveLength(2);
+		expect(coming[0].rows.every((r) => r.state === 'add')).toBe(true);
+	});
+
+	it('is empty with no exercise', () => {
+		expect(loadComing().list.coming).toEqual([]);
+	});
+});

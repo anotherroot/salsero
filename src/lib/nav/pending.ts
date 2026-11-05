@@ -45,6 +45,7 @@ export type Skeleton = Shape & {
 export const SKELETON_DELAY_MS = 100;
 
 const LISTS: Record<string, string> = {
+	'/[dance]/(today)/coming-up': 'Coming up',
 	'/[dance]/lessons': 'Lessons',
 	'/[dance]/songs': 'Music',
 	'/[dance]/(moves)/coverage': 'Coverage',
@@ -56,6 +57,7 @@ const LISTS: Record<string, string> = {
 /** The band row's title over a list and its pane. */
 const PANE_TITLE: Record<ListId, string> = {
 	today: 'Today',
+	coming: 'Coming up',
 	songs: 'Music',
 	figures: 'Moves',
 	routines: 'Moves',

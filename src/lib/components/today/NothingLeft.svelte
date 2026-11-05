@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
-	import { CLIP } from '$lib/components/ui/styles';
+	import Icon from '$lib/components/ui/Icon.svelte';
+	import { CLIP, button } from '$lib/components/ui/styles';
 	import { nothingLeftMeta } from '$lib/exercises/today';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import type { ExerciseItem } from '$lib/types';
@@ -34,4 +35,10 @@
 			<span class="text-[13px] leading-[1.35] text-muted">{nothingLeftMeta(next, today)}</span>
 		</span>
 	</a>
+	<div class="px-4 pb-3">
+		<a
+			href={resolve('/[dance]/(today)/coming-up', { dance })}
+			class={button('secondary', 'md', true)}><Icon name="calendar" size={20} />See what's coming</a
+		>
+	</div>
 </section>

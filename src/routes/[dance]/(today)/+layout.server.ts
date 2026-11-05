@@ -10,6 +10,7 @@ import { dayInputOf } from '$lib/server/today-picks';
 import { localDay, noonOf, shiftDay } from '$lib/day/day';
 import { PHRASE_PATTERNS } from '$lib/labels';
 import { dayList } from '$lib/schedule/today-list';
+import { comingUp } from '$lib/schedule/coming-up';
 import type { LayoutServerLoad } from './$types';
 
 const DAY_MS = 86_400_000;
@@ -46,6 +47,8 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			yesterday: shiftDay(today, -1),
 			// The day's rows: done, to do, picked (`src/lib/schedule/today-list.ts`).
 			day: dayList(input),
+			// Every exercise by the day it comes back: the Coming up page.
+			coming: comingUp(input),
 			// Every live exercise, paused ones too: opening one by id, a tile's type.
 			exercises: input.exercises,
 			// The daily number: what "+ Next 5" says.
