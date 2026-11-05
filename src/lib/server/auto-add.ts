@@ -10,20 +10,10 @@
  *
  * Every function here takes `tx` and runs inside the caller's transaction.
  */
-import { and, desc, eq, isNotNull, isNull, max } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { autoAddOn, levelShown, parseLevel } from '$lib/levels/levels';
 import type { Db } from './db';
-import {
-	lessonAdds,
-	lessonExercises,
-	lessonRoutines,
-	lessons,
-	lessonVideos,
-	spotLinks,
-	teamMembers,
-	users,
-	videoSpots
-} from './db/schema';
+import { lessonAdds, lessons, teamMembers, users } from './db/schema';
 import { addLesson, addOffer, defaultPicks, newInLesson, tickedPicks } from './entries';
 import { joinTeam } from './teams';
 
@@ -119,46 +109,23 @@ export function joinClass(
 }
 
 /**
- * When the lesson last gained something it holds (a hand-linked routine or
- * drill, a section link): nothing in it can be new to a person who saw it
- * after that. A cheap bound before `newInLesson`'s full look.
+ * When published lessons gain something to practise: for each of these
+ * lessons (the ones the mutation grew, of `teamId`) and each member with
+ * auto-add on who has it added, what came in since they last saw it
+ * (`newInLesson`: its routines and drills) is added as Add on one pick would,
+ * leaving `seen_at` alone (`touch: false`). Only the lessons that grew, so
+ * growth in one lesson never adds another lesson's backlog, and the cost is
+ * members × the grown lessons. Run at the end of every group mutation that
+ * can grow a published lesson's reach (`GROWTH` in `auto-add.spec.ts`), in
+ * its transaction. A lesson someone removed has no `lesson_adds` row of
+ * theirs and is left out.
  */
-function lastGain(tx: Db, lessonId: number): number {
-	const routine = tx
-		.select({ at: max(lessonRoutines.createdAt) })
-		.from(lessonRoutines)
-		.where(eq(lessonRoutines.lessonId, lessonId))
-		.get()?.at;
-	const drill = tx
-		.select({ at: max(lessonExercises.createdAt) })
-		.from(lessonExercises)
-		.where(eq(lessonExercises.lessonId, lessonId))
-		.get()?.at;
-	const section = tx
-		.select({ at: max(spotLinks.createdAt) })
-		.from(spotLinks)
-		.innerJoin(videoSpots, eq(videoSpots.id, spotLinks.spotId))
-		.innerJoin(lessonVideos, eq(lessonVideos.id, videoSpots.lessonVideoId))
-		.where(eq(lessonVideos.lessonId, lessonId))
-		.get()?.at;
-	return Math.max(routine ?? 0, drill ?? 0, section ?? 0);
-}
-
-/**
- * When a published lesson gains something to practise: for each member with
- * auto-add on and each of the group's published lessons they have added,
- * what came in since they last saw it (`newInLesson`: its routines and
- * drills) is added as Add on one pick would, leaving `seen_at` alone
- * (`touch: false`). Run at the end of every group mutation that can grow a
- * published lesson's reach (`GROWTH` in `auto-add.spec.ts`), in its
- * transaction. A lesson they removed has no `lesson_adds` row and is left out.
- */
-export function autoAddPending(tx: Db, teamId: number, now: number): void {
+export function autoAddPending(tx: Db, teamId: number, lessonIds: number[], now: number): void {
+	if (lessonIds.length === 0) return;
 	const adds = tx
 		.select({
 			userId: lessonAdds.userId,
 			lessonId: lessonAdds.lessonId,
-			seenAt: lessonAdds.seenAt,
 			autoAdd: teamMembers.autoAdd,
 			level: users.level
 		})
@@ -170,15 +137,16 @@ export function autoAddPending(tx: Db, teamId: number, now: number): void {
 		)
 		.leftJoin(users, eq(users.id, lessonAdds.userId))
 		.where(
-			and(eq(lessons.teamId, teamId), isNotNull(lessons.publishedAt), isNull(lessons.archivedAt))
+			and(
+				inArray(lessons.id, [...new Set(lessonIds)]),
+				eq(lessons.teamId, teamId),
+				isNotNull(lessons.publishedAt),
+				isNull(lessons.archivedAt)
+			)
 		)
 		.all()
 		.filter(isOn);
-	if (adds.length === 0) return;
-	const gained = new Map<number, number>();
-	for (const id of new Set(adds.map((a) => a.lessonId))) gained.set(id, lastGain(tx, id));
 	for (const a of adds) {
-		if (gained.get(a.lessonId)! <= a.seenAt) continue;
 		const fresh = newInLesson(tx, a.userId, a.lessonId);
 		if (fresh.length === 0) continue;
 		addLesson(tx, a.userId, a.lessonId, { ...tickedPicks(fresh), lesson: false }, now, {

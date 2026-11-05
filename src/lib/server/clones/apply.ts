@@ -1102,8 +1102,9 @@ export async function syncFrom(
 				const change = fieldChange(applied.before, applied.after, thing) ?? { subject: thing };
 				logChange(tx, space, { ...root, verb: 'change', ...change }, now);
 				if (applied.removals) reconcileEntries(tx, space.teamId, now);
-				// A class lesson that took in a routine or drill: auto-add brings it to Today.
-				autoAddPending(tx, space.teamId, now);
+				// A class lesson that took in a routine or drill: auto-add brings it to Today. Only a
+				// lesson's Take changes what a lesson holds.
+				if (kind === 'lesson') autoAddPending(tx, space.teamId, [intoId], now);
 			}
 			return applied;
 		});

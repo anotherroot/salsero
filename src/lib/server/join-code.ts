@@ -7,7 +7,8 @@ import { eq } from 'drizzle-orm';
 import { isDanceSlug, type DanceSlug } from '$lib/dances/dances';
 import type { Db } from './db';
 import { teams } from './db/schema';
-import { joinTeam, listMyTeams, normaliseCode } from './teams';
+import { listMyTeams, normaliseCode } from './teams';
+import { joinClass } from './auto-add';
 
 export type JoinResult =
 	{ ok: true; teamId: number; dance: DanceSlug } | { ok: false; reason: 'unknown' | 'refused' };
@@ -21,7 +22,8 @@ export function joinWithCode(db: Db, userId: string, code: string, now: number):
 	const team = normal ? db.select().from(teams).where(eq(teams.code, normal)).get() : undefined;
 	if (!team || !isDanceSlug(team.dance)) return { ok: false, reason: 'unknown' };
 	if (team.deletedAt !== null || team.purgedAt !== null) return { ok: false, reason: 'refused' };
-	if (joinTeam(db, userId, team.id, now) === 'refused') return { ok: false, reason: 'refused' };
+	// joinClass: a first join auto-adds the class's newest lesson when auto-add is on.
+	if (joinClass(db, userId, team.id, now) === 'refused') return { ok: false, reason: 'refused' };
 	return { ok: true, teamId: team.id, dance: team.dance };
 }
 

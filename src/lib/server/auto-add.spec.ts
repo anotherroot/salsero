@@ -4,6 +4,7 @@
  * they have gains something to practise — exactly as Add with the default
  * picks would, never twice, and never a lesson they removed.
  */
+import { readdirSync, readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { openDb, type Db } from './db';
@@ -296,7 +297,7 @@ describe('autoAddPending', () => {
 		db.insert(lessonExercises)
 			.values({ lessonId: L, exerciseId: D2, createdAt: T + 10 })
 			.run();
-		autoAddPending(db, 1, T + 20);
+		autoAddPending(db, 1, [L], T + 20);
 		expect(entryFor(db, 'u2', { drillId: D2 })).toMatchObject({ archivedAt: null });
 		expect(entryFor(db, 'u4', { drillId: D2 })).toBeNull();
 		// Added as Add on one pick: what the person saw stays as it was.
@@ -308,7 +309,7 @@ describe('autoAddPending', () => {
 				.get()
 		).toEqual({ seenAt: T });
 		// Run twice: still one entry.
-		autoAddPending(db, 1, T + 30);
+		autoAddPending(db, 1, [L], T + 30);
 		expect(
 			db
 				.select()
@@ -328,8 +329,41 @@ describe('autoAddPending', () => {
 		db.insert(lessonExercises)
 			.values({ lessonId: L, exerciseId: D2, createdAt: T - 1 })
 			.run();
-		autoAddPending(db, 1, T + 20);
+		autoAddPending(db, 1, [L], T + 20);
 		expect(entryFor(db, 'u2', { drillId: D2 })).toBeNull();
+	});
+
+	it('only touches the lessons it is given', () => {
+		const D2 = newDrill();
+		db.insert(lessonExercises)
+			.values({ lessonId: L, exerciseId: D2, createdAt: T + 10 })
+			.run();
+		autoAddPending(db, 1, [], T + 20);
+		autoAddPending(db, 1, [L + 100], T + 20);
+		expect(entryFor(db, 'u2', { drillId: D2 })).toBeNull();
+	});
+
+	// The spec: turning the toggle on "applies from the next publish on". Growth in
+	// lesson B must not bring lesson A's backlog with it.
+	it('turning the toggle on, then growth in lesson B, does not add lesson A’s backlog', () => {
+		const A = L;
+		// u6 (Practise, toggle off) adds A by hand; then A gains X, which waits as "1 new".
+		expect(addLesson(db, 'u6', A, defaultPicks(addOffer(db, 'u6', A)!), T)).toBe(true);
+		const X = newDrill('X');
+		expect(linkExercise(db, A, X, 'u1')).toBe(true);
+		expect(entryFor(db, 'u6', { drillId: X })).toBeNull();
+		// Lesson B, published while the toggle was off, added by hand too.
+		const B = createLesson(db, T1_SALSA, { lessonDay: '2026-11-10', title: 'B', notes: null })
+			.lesson.id;
+		expect(publishLesson(db, T1_SALSA, B, T)).toBe(true);
+		expect(addLesson(db, 'u6', B, defaultPicks(addOffer(db, 'u6', B)!), T)).toBe(true);
+		// The toggle goes on; then B gains Y.
+		setAutoAdd(db, 'u6', 1, true);
+		const Y = newDrill('Y');
+		expect(linkExercise(db, B, Y, 'u1')).toBe(true);
+		expect(entryFor(db, 'u6', { drillId: Y })).toMatchObject({ archivedAt: null });
+		expect(entryFor(db, 'u6', { drillId: X })).toBeNull();
+		expect(crossRefs(db)).toEqual([]);
 	});
 });
 
@@ -448,5 +482,37 @@ describe('every growth mutation adds what is new for a follow member', () => {
 		expect(entryFor(db, 'u3', grown), 'own').toMatchObject({ archivedAt: null });
 		expect(entryFor(db, 'u4', grown), 'all, no toggle').toBeNull();
 		expect(crossRefs(db)).toEqual([]);
+	});
+});
+
+/**
+ * What a lesson holds (`heldBy`) comes only from rows in `lesson_routines`,
+ * `lesson_exercises` and `spot_links`. Every place that inserts one is
+ * counted here per file: in a GROWTH function, or on this list with why it
+ * cannot grow a published class lesson. A new insert fails this until it is
+ * placed (and, if it can grow one, calls `autoAddPending`).
+ */
+const INSERT_SITES: Record<string, { count: number; why: string }> = {
+	'lessons.ts': { count: 2, why: 'linkRoutine, linkExercise (GROWTH)' },
+	'spot-links.ts': { count: 1, why: 'linkInSpace (GROWTH)' },
+	'clones/apply.ts': { count: 3, why: 'applyInto, only through syncFrom (GROWTH)' },
+	'clones/clone.ts': { count: 3, why: 'a brand-new copy: a draft or a person’s own lesson' },
+	'clones/move.ts': { count: 3, why: 'restoreLinks: back onto the person’s own lesson' }
+};
+
+describe('every insert of what a lesson holds is placed', () => {
+	it('matches INSERT_SITES', () => {
+		const root = 'src/lib/server';
+		const found: Record<string, number> = {};
+		for (const file of readdirSync(root, { recursive: true }) as string[]) {
+			if (!file.endsWith('.ts') || file.endsWith('.spec.ts')) continue;
+			const hits = readFileSync(`${root}/${file}`, 'utf8').match(
+				/insert\((lessonRoutines|lessonExercises|spotLinks)\)/g
+			);
+			if (hits) found[file] = hits.length;
+		}
+		expect(found).toEqual(
+			Object.fromEntries(Object.entries(INSERT_SITES).map(([f, s]) => [f, s.count]))
+		);
 	});
 });

@@ -985,7 +985,7 @@ export function linkRoutine(db: Db, lessonId: number, routineId: number, by?: st
 		}
 		const now = Date.now();
 		logLinked(tx, space, lessonId, 'add', { routineId }, linkedName(tx, { routineId }), now);
-		if (isTeam(space)) autoAddPending(tx, space.teamId, now);
+		if (isTeam(space)) autoAddPending(tx, space.teamId, [lessonId], now);
 		return true;
 	});
 }
@@ -1084,7 +1084,7 @@ export function linkExercise(db: Db, lessonId: number, exerciseId: number, by?: 
 			const now = Date.now();
 			const name = linkedName(tx, { exerciseId });
 			logLinked(tx, space, lessonId, 'add', { exerciseId }, name, now);
-			if (isTeam(space)) autoAddPending(tx, space.teamId, now);
+			if (isTeam(space)) autoAddPending(tx, space.teamId, [lessonId], now);
 		}
 		return added;
 	});
