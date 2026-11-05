@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { claimBottom } from '$lib/nav/chrome.svelte';
+	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
 
 	/**
 	 * Pinned to the bottom of a page. `fade`: no border, the page scrolls under a fade. Callers add `pb-28` to their scroll content.
@@ -13,20 +14,28 @@
 		children,
 		fade = false,
 		mode = false,
+		width = 'one',
 		class: extra = ''
-	}: { children: Snippet; fade?: boolean; mode?: boolean; class?: string } = $props();
+	}: {
+		children: Snippet;
+		fade?: boolean;
+		mode?: boolean;
+		width?: PageWidth;
+		class?: string;
+	} = $props();
 
 	claimBottom(() => mode);
 </script>
 
 <div
-	class="{extra} fixed inset-x-0 z-20 px-4 {fade
+	class="{extra} fixed inset-x-0 z-20 px-4 desk:left-(--pane-left) {fade
 		? 'bg-linear-to-b from-ground/0 to-ground to-[34%] pt-7'
 		: 'border-t border-hairline bg-ground pt-3'}"
+	style:--bar-w="{PAGE_WIDTH[width]}px"
 	style:bottom={mode ? '0px' : 'var(--pin-bottom, 0px)'}
 	style:padding-bottom="calc(12px + {mode
 		? 'var(--safe-bottom)'
 		: 'var(--pin-safe, var(--safe-bottom))'})"
 >
-	<div class="mx-auto max-w-[560px]">{@render children()}</div>
+	<div class="mx-auto max-w-[560px] desk:max-w-(--bar-w)">{@render children()}</div>
 </div>

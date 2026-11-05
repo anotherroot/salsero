@@ -78,9 +78,9 @@
 </script>
 
 <div
-	class="inset-x-0 z-40 mx-auto max-w-[560px] px-4 {contained ? 'absolute' : 'fixed'} {toast
-		? ''
-		: 'pointer-events-none'}"
+	class="inset-x-0 z-40 mx-auto max-w-[560px] px-4 {contained
+		? 'absolute'
+		: 'fixed desk:left-(--pane-left)'} {toast ? '' : 'pointer-events-none'}"
 	style:bottom={offset}
 	role="status"
 	bind:this={region}

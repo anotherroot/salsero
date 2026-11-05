@@ -11,6 +11,8 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Dialog from '$lib/components/ui/Dialog.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import ReloadBar from '$lib/components/shell/ReloadBar.svelte';
+	import { onMount } from 'svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import TypeTile from '$lib/components/ui/TypeTile.svelte';
 	import Stepper from '$lib/components/ui/Stepper.svelte';
@@ -61,6 +63,14 @@
 	let bpmMin = $state(60);
 	let vol = $state(0.8);
 	let showBar = $state(false);
+	let showReload = $state(false);
+	// `?bars` opens the pinned bars and a toast, for the desktop screenshot check.
+	onMount(() => {
+		if (!location.search.includes('bars')) return;
+		showBar = true;
+		showReload = true;
+		toast = { id: ++toastId, message: 'Slot 4 deleted', action: 'Undo' };
+	});
 
 	const kitSection = (label: string | null): LinkedSection => ({
 		linkId: 1,
@@ -484,6 +494,11 @@
 						class={button('secondary', 'sm')}
 						onclick={() => (showBar = !showBar)}>Bottom bar</button
 					>
+					<button
+						type="button"
+						class={button('secondary', 'sm')}
+						onclick={() => (showReload = !showReload)}>Reload bar</button
+					>
 				</div>
 			</section>
 
@@ -662,9 +677,16 @@
 		{/snippet}
 	</Dialog>
 
+	{#if showReload}<ReloadBar />{/if}
+
 	{#if showBar}<BottomBar
 			><button type="button" class={button('primary', 'md', true)}>Log set</button></BottomBar
 		>{/if}
 
-	<Toast {toast} onaction={() => (toast = null)} ondismiss={() => (toast = null)} bottom="1rem" />
+	<Toast
+		{toast}
+		onaction={() => (toast = null)}
+		ondismiss={() => (toast = null)}
+		bottom={showBar || showReload ? '5rem' : '1rem'}
+	/>
 </div>

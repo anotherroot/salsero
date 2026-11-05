@@ -18,11 +18,11 @@
 
 <div
 	role="status"
-	class="fixed inset-x-0 z-30 border-t border-hairline bg-ground px-4 pt-2"
+	class="fixed inset-x-0 z-30 border-t border-hairline bg-ground px-4 pt-2 desk:left-(--pane-left)"
 	style:bottom="var(--pin-bottom, 0px)"
 	style:padding-bottom="calc(8px + var(--pin-safe, var(--safe-bottom)))"
 >
-	<div class="mx-auto flex max-w-[560px] items-center gap-3">
+	<div class="mx-auto flex max-w-[560px] items-center gap-3 desk:max-w-[720px]">
 		<span class="flex-none text-accent-text"><Icon name="info" size={20} /></span>
 		{#if stale}
 			<span class="min-w-0 flex-1 text-[15px] leading-snug font-extrabold text-ink"

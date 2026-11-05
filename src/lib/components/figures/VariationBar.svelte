@@ -148,7 +148,7 @@
 -->
 <nav
 	aria-label="Figures of {figureName}"
-	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5"
+	class="fixed inset-x-0 z-30 border-t border-tab-line bg-tab-bg px-3 pt-2.5 desk:left-(--pane-left)"
 	style="bottom: var(--pin-bottom, 0px); padding-bottom: calc(10px + var(--pin-safe, var(--safe-bottom)))"
 >
 	{#if actions}
