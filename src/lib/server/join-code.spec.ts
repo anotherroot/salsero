@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { openDb } from './db';
-import { teamMembers, teams, users } from './db/schema';
+import { lessonAdds, teamMembers, teams, users } from './db/schema';
 import { createTeam, deleteTeam } from './teams';
+import { createLesson, publishLesson } from './lessons';
+import { entryFor } from './entries';
+import { setLevel } from './levels';
 import { danceWithClass, joinWithCode } from './join-code';
+
+const addedBy = (db: ReturnType<typeof openDb>, userId: string) =>
+	db
+		.select({ id: lessonAdds.lessonId })
+		.from(lessonAdds)
+		.where(eq(lessonAdds.userId, userId))
+		.all()
+		.map((r) => r.id);
 
 function setup() {
 	const db = openDb(':memory:');
@@ -64,6 +75,38 @@ describe('joinWithCode', () => {
 		expect(joinWithCode(db, 'ana', code, 5).ok).toBe(true);
 		expect(joinWithCode(db, 'ana', code, 6).ok).toBe(true);
 		expect(members(db, id, 'ana')).toBe(1);
+	});
+
+	it('a typed code auto-adds the class’s newest lesson, once, when auto-add is on', () => {
+		const db = setup();
+		const { id, code } = make(db, 'Tuesdays');
+		const space = { teamId: id, actorId: 'teacher', dance: 'salsa' as const };
+		const lesson = (day: string) => {
+			const l = createLesson(db, space, { lessonDay: day, title: day, notes: null }).lesson.id;
+			expect(publishLesson(db, space, l, 10)).toBe(true);
+			return l;
+		};
+		lesson('2026-10-27');
+		const newest = lesson('2026-11-03');
+		setLevel(db, 'ana', 'follow');
+		expect(joinWithCode(db, 'ana', code, 20).ok).toBe(true);
+		expect(addedBy(db, 'ana')).toEqual([newest]);
+		expect(entryFor(db, 'ana', { lessonId: newest })).not.toBeNull();
+		// Again (already a member): nothing more.
+		expect(joinWithCode(db, 'ana', code, 21).ok).toBe(true);
+		expect(addedBy(db, 'ana')).toEqual([newest]);
+	});
+
+	it('adds nothing for an Everything person with no toggle', () => {
+		const db = setup();
+		const { id, code } = make(db, 'Tuesdays');
+		const space = { teamId: id, actorId: 'teacher', dance: 'salsa' as const };
+		const l = createLesson(db, space, { lessonDay: '2026-11-03', title: 'C', notes: null }).lesson
+			.id;
+		publishLesson(db, space, l, 10);
+		setLevel(db, 'ana', 'all');
+		expect(joinWithCode(db, 'ana', code, 20).ok).toBe(true);
+		expect(addedBy(db, 'ana')).toEqual([]);
 	});
 });
 

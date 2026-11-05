@@ -85,6 +85,19 @@ export function autoAddOn(level: Level, stored: number | null): boolean {
 	return stored !== 0;
 }
 
+/**
+ * A group's page draws "Add new lessons to Today automatically" at the two
+ * upper levels; at Follow my class auto-add is always on and there is no switch.
+ */
+export function autoAddSwitchShown(level: Level): boolean {
+	return level !== 'follow';
+}
+
+/** Below Everything, a lesson's Add adds the default picks at once, without the Add sheet. */
+export function addsAtOnce(level: Level): boolean {
+	return level !== 'all';
+}
+
 /** The Mine / group switch is drawn only at Everything. */
 export function groupModeShown(level: Level): boolean {
 	return level === 'all';

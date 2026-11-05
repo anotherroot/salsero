@@ -17,8 +17,12 @@
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import LeaveSheet from '$lib/components/teams/LeaveSheet.svelte';
 	import AddSheet from '$lib/components/teams/AddSheet.svelte';
+	import Switch from '$lib/components/ui/Switch.svelte';
+	import Toast from '$lib/components/ui/Toast.svelte';
+	import { act } from '$lib/act';
+	import { refusalMessage } from '$lib/act-toast';
 	import type { IconName } from '$lib/icons/icons';
-	import { FIELD, GROUP, LABEL, SECTION_LABEL, button } from '$lib/components/ui/styles';
+	import { FIELD, GROUP, LABEL, ROW, SECTION_LABEL, button } from '$lib/components/ui/styles';
 	import { classSongsHeading, groupUsesLine, peopleLine, youLine } from '$lib/teams/view';
 	import { readyMeta, songName, songState } from '$lib/songs/library';
 	import type { AddOffer } from '$lib/types';
@@ -41,6 +45,36 @@
 	 * row's offer is gone, and the sheet closes itself rather than vanishing.
 	 */
 	let adding = $state<{ id: number; title: string; offer: AddOffer } | null>(null);
+
+	let toast = $state<{ id: number; message: string } | null>(null);
+	let seq = 0;
+	/** Shows a refusal's message; true when the action was refused. */
+	function refused(result: Awaited<ReturnType<typeof act>>, fallback: string): boolean {
+		const message = refusalMessage(result, fallback);
+		if (message !== null) toast = { id: ++seq, message };
+		return message !== null;
+	}
+
+	/** The switch as drawn: the stored choice, or the tap waiting for the server. */
+	let autoOn = $derived(data.autoAdd?.on ?? false);
+	async function saveAutoAdd(on: boolean) {
+		autoOn = on;
+		if (refused(await act('autoAdd', { on: on ? 1 : 0 }), 'Could not save.')) {
+			autoOn = data.autoAdd?.on ?? false;
+		}
+	}
+
+	/** Below Everything, Add is one tap: the lesson's default picks, no sheet. */
+	let addingNow = $state<number | null>(null);
+	async function addNow(lessonId: number) {
+		if (addingNow !== null) return;
+		addingNow = lessonId;
+		try {
+			refused(await act('addNow', { lessonId }), 'Could not add.');
+		} finally {
+			addingNow = null;
+		}
+	}
 
 	let seen: unknown = $state(null);
 	$effect(() => {
@@ -113,7 +147,7 @@
 		<PaneColumns
 			ratio="7:5"
 			class="gap-2"
-			lead={data.storage ? space : undefined}
+			lead={data.storage || data.autoAdd ? space : undefined}
 			left={lessons}
 			right={songs}
 		/>
@@ -134,6 +168,18 @@
 			>
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>
 		</a>
+	{/if}
+	{#if data.autoAdd}
+		<div class="{ROW} rounded-2xl bg-surface pr-1.5">
+			<span class="min-w-0 flex-1 text-[15px] font-semibold text-ink"
+				>Add new lessons to Today automatically</span
+			>
+			<Switch
+				label="Add new lessons to Today automatically"
+				checked={autoOn}
+				onchange={saveAutoAdd}
+			/>
+		</div>
 	{/if}
 {/snippet}
 
@@ -166,6 +212,16 @@
 						{#if lesson.add?.added}
 							<span class="flex items-center gap-1 px-1 text-[14px] font-bold text-done"
 								>Added<Icon name="check" size={18} /></span
+							>
+						{:else if lesson.add?.offer && data.addAtOnce}
+							<button
+								type="button"
+								class={button('secondary', 'sm')}
+								aria-label="Add {lesson.title}"
+								aria-busy={addingNow === lesson.id}
+								disabled={addingNow !== null}
+								onclick={() => addNow(lesson.id)}
+								>{#if addingNow === lesson.id}<Spinner />{:else}Add{/if}</button
 							>
 						{:else if lesson.add?.offer}
 							<button
@@ -369,3 +425,5 @@
 		</form>
 	{/snippet}
 </Dialog>
+
+<Toast {toast} ondismiss={() => (toast = null)} />

@@ -18,9 +18,11 @@ describe('the group page in its pane', () => {
 	it('is two columns, 7 : 5: the space heading the right column over Class songs', () => {
 		expect(page).toMatch(/<Screen[^>]*\bwidth="two"/);
 		expect(page).toMatch(
-			/<PaneColumns\s+ratio="7:5"\s+class="gap-2"\s+lead=\{data\.storage \? space : undefined\}\s+left=\{lessons\}\s+right=\{songs\}\s*\/>/
+			/<PaneColumns\s+ratio="7:5"\s+class="gap-2"\s+lead=\{data\.storage \|\| data\.autoAdd \? space : undefined\}\s+left=\{lessons\}\s+right=\{songs\}\s*\/>/
 		);
 		expect(snippet('space')).toContain('/[dance]/groups/[id]/storage');
+		// The member's own auto-add switch sits in the group's space too.
+		expect(snippet('space')).toContain('Add new lessons to Today automatically');
 		expect(snippet('lessons')).toContain('aria-label="Lessons"');
 		expect(snippet('songs')).toContain('aria-label="Class songs"');
 	});

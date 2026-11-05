@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	LEVELS,
 	LEVEL_WORDS,
+	addsAtOnce,
 	autoAddOn,
+	autoAddSwitchShown,
 	canMakeGroup,
 	fewSettings,
 	groupModeShown,
@@ -91,6 +93,13 @@ describe('autoAddOn', () => {
 		expect(autoAddOn('all', null)).toBe(false);
 		expect(autoAddOn('all', 0)).toBe(false);
 		expect(autoAddOn('all', 1)).toBe(true);
+	});
+});
+
+describe('a group page’s auto-add switch and Add', () => {
+	it('draws the switch at the two upper levels; Add is one tap below Everything', () => {
+		expect(LEVELS.filter(autoAddSwitchShown)).toEqual(['own', 'all']);
+		expect(LEVELS.filter(addsAtOnce)).toEqual(['follow', 'own']);
 	});
 });
 

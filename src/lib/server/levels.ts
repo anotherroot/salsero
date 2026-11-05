@@ -28,3 +28,14 @@ export function setAutoAdd(db: Db, userId: string, teamId: number, on: boolean):
 		.run();
 	return res.changes > 0;
 }
+
+/** The member's stored auto-add choice in one group (null = the level's default, or not a member). */
+export function autoAddStored(db: Db, userId: string, teamId: number): number | null {
+	return (
+		db
+			.select({ autoAdd: teamMembers.autoAdd })
+			.from(teamMembers)
+			.where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+			.get()?.autoAdd ?? null
+	);
+}
