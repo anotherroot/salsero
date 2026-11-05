@@ -4,6 +4,7 @@ import { byteSize, classDayLabel, dayMonth, plural } from '$lib/format';
 import { TEAM_PURGE_MS } from '$lib/limits';
 import type { Role } from '$lib/types';
 import { MAKE_MINE } from '$lib/clones/view';
+import type { Level } from '$lib/levels/levels';
 
 export function roleLabel(role: Role): string {
 	return role === 'owner' ? 'Owner' : role === 'editor' ? 'Editor' : 'Member';
@@ -146,6 +147,22 @@ export function groupMenu(role: Role, simple: boolean): GroupMenuItem[] {
 		owner && 'delete'
 	];
 	return items.filter((i) => i !== false);
+}
+
+/**
+ * At Follow my class, whether `teamId` is the person's one live class in this
+ * dance: then it is the tab's own page, whatever their role (no ‹, whose
+ * fallback, the tab, would open it again), and a lesson of theirs opens with no
+ * list column beside it.
+ */
+export function onlyClass(
+	level: Level,
+	teams: { id: number; deletedAt: number | null }[],
+	teamId: number | null
+): boolean {
+	if (level !== 'follow') return false;
+	const live = teams.filter((t) => t.deletedAt === null);
+	return live.length === 1 && live[0].id === teamId;
 }
 
 /** My class with no class here but one in the other dance: "Your bachata class". */

@@ -23,7 +23,8 @@ import {
 	otherClassLine,
 	lastClassLine,
 	MY_CLASS,
-	ADDED_TO_TODAY
+	ADDED_TO_TODAY,
+	onlyClass
 } from './view';
 
 describe('group wording', () => {
@@ -190,6 +191,18 @@ describe('My class', () => {
 		expect(groupMenu('member', false)).toEqual(['people', 'leave']);
 		expect(groupMenu('editor', false)).toEqual(['people', 'deleted', 'code', 'leave']);
 		expect(groupMenu('owner', false)).toEqual(['people', 'deleted', 'code', 'rename', 'delete']);
+	});
+
+	it('knows the one class at Follow my class, whatever the role', () => {
+		const t = (id: number, deletedAt: number | null = null) => ({ id, deletedAt });
+		expect(onlyClass('follow', [t(1)], 1)).toBe(true);
+		// A deleted group does not count as a class.
+		expect(onlyClass('follow', [t(1), t(2, 5)], 1)).toBe(true);
+		expect(onlyClass('follow', [t(1), t(2, 5)], 2)).toBe(false);
+		expect(onlyClass('follow', [t(1), t(2)], 1)).toBe(false);
+		expect(onlyClass('follow', [], null)).toBe(false);
+		expect(onlyClass('own', [t(1)], 1)).toBe(false);
+		expect(onlyClass('all', [t(1)], 1)).toBe(false);
 	});
 
 	it('points to a class in the other dance', () => {

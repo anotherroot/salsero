@@ -361,7 +361,7 @@
 		</ul>
 	{/if}
 
-	{#if data.isAdmin && !few}
+	{#if data.isAdmin}
 		<span class="{SECTION_LABEL} mt-[14px]">Admin</span>
 		<div class={GROUP}>
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- a flat shared route -->

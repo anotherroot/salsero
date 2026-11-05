@@ -72,16 +72,18 @@ export type PortraitBody = 'list' | 'editor' | 'slim' | 'section' | 'full';
 /**
  * What the portrait player draws under the video. The simple player is the slim bar
  * and nothing else: no list, no editor, no section view, no Show / Hide.
+ * `spot`: a section or point is open. Without one the edit and section levels
+ * have nothing to draw and fall through to Hide's slim bar or the full bar.
  */
 export function portraitBody(
 	level: LevelKind,
-	o: { listOpen: boolean; hidden: boolean; simple?: boolean }
+	o: { listOpen: boolean; hidden: boolean; spot: boolean; simple?: boolean }
 ): PortraitBody {
 	if (o.simple) return 'slim';
 	if (o.listOpen) return 'list';
-	if (level === 'edit') return 'editor';
+	if (level === 'edit' && o.spot) return 'editor';
 	if (o.hidden) return 'slim';
-	return level === 'section' ? 'section' : 'full';
+	return level === 'section' && o.spot ? 'section' : 'full';
 }
 
 /** The corner badge: speed and mirror, as the player has always worded them. */

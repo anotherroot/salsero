@@ -160,12 +160,20 @@ describe('chrome', () => {
 		for (const level of ['full', 'section', 'edit'] as const)
 			for (const listOpen of [false, true])
 				for (const hidden of [false, true])
-					expect(portraitBody(level, { listOpen, hidden, simple: true })).toBe('slim');
-		expect(portraitBody('full', { listOpen: false, hidden: false })).toBe('full');
-		expect(portraitBody('full', { listOpen: false, hidden: true })).toBe('slim');
-		expect(portraitBody('section', { listOpen: false, hidden: false })).toBe('section');
-		expect(portraitBody('edit', { listOpen: false, hidden: true })).toBe('editor');
-		expect(portraitBody('full', { listOpen: true, hidden: true })).toBe('list');
+					expect(portraitBody(level, { listOpen, hidden, spot: true, simple: true })).toBe('slim');
+		expect(portraitBody('full', { listOpen: false, hidden: false, spot: false })).toBe('full');
+		expect(portraitBody('full', { listOpen: false, hidden: true, spot: false })).toBe('slim');
+		expect(portraitBody('section', { listOpen: false, hidden: false, spot: true })).toBe('section');
+		expect(portraitBody('edit', { listOpen: false, hidden: true, spot: true })).toBe('editor');
+		expect(portraitBody('full', { listOpen: true, hidden: true, spot: false })).toBe('list');
+	});
+	it('without an open spot, the section and edit levels fall back as they always did', () => {
+		// Hide on: the slim bar, as before the simple player (not the full bar).
+		expect(portraitBody('edit', { listOpen: false, hidden: true, spot: false })).toBe('slim');
+		expect(portraitBody('section', { listOpen: false, hidden: true, spot: false })).toBe('slim');
+		// Hide off: the full bar.
+		expect(portraitBody('edit', { listOpen: false, hidden: false, spot: false })).toBe('full');
+		expect(portraitBody('section', { listOpen: false, hidden: false, spot: false })).toBe('full');
 	});
 	it('says speed and mirror on the corner badge', () => {
 		expect(cornerBadge(0.5, true)).toBe('0.5× · Mirrored');

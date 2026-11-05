@@ -1,13 +1,7 @@
 import { getDb } from '$lib/server/db';
 import { wallOf } from '$lib/server/scope';
-import { listMyTeams } from '$lib/server/teams';
-import { latestClassDays } from '$lib/server/lessons';
-import { danceWithClass } from '$lib/server/join-code';
-import { whatsNew } from '$lib/server/whats-new';
-import { DANCE_SLUGS, getDance } from '$lib/dances/dances';
-import { localDay } from '$lib/day/day';
+import { myClassOf, teamsWithNew } from '$lib/server/my-class';
 import { levelShown } from '$lib/levels/levels';
-import { otherClassLine } from '$lib/teams/view';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -25,32 +19,7 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = ({ params, locals }) => {
 	const wall = wallOf(params, locals);
 	const db = getDb();
-	const fresh = whatsNew(db, wall.userId, wall.dance).byTeam;
-	const teams = listMyTeams(db, wall.userId, wall.dance).map((t) => ({
-		...t,
-		newCount: fresh.get(t.id) ?? 0
-	}));
+	const teams = teamsWithNew(db, wall);
 	if (levelShown(locals.user!.level) !== 'follow') return { teams, myClass: null };
-
-	const live = teams.filter((t) => t.deletedAt === null);
-	const days = latestClassDays(
-		db,
-		live.map((t) => t.id)
-	);
-	const elsewhere =
-		live.length === 0 ? danceWithClass(db, wall.userId, wall.dance, DANCE_SLUGS) : wall.dance;
-	return {
-		teams,
-		myClass: {
-			lastDays: Object.fromEntries(days),
-			today: localDay(Date.now(), locals.user!.timezone),
-			other:
-				elsewhere === wall.dance
-					? null
-					: {
-							dance: elsewhere,
-							line: otherClassLine(getDance(elsewhere).label)
-						}
-		}
-	};
+	return { teams, myClass: myClassOf(db, wall, teams, locals.user!.timezone, Date.now()) };
 };

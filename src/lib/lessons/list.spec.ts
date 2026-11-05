@@ -51,6 +51,11 @@ describe('videoMeta', () => {
 		expect(videoMeta({ videos: 1, videoBytes: 410 * 1024 ** 2 })).toBe('1 video · 410 MB');
 		expect(videoMeta({ videos: 0, videoBytes: 0 })).toBeNull();
 	});
+	it('leaves the size out for a simple person (Follow my class, Practise and keep my own)', () => {
+		expect(videoMeta({ videos: 3, videoBytes: 1.2 * 1024 ** 3 }, false)).toBe('3 videos');
+		expect(videoMeta({ videos: 1, videoBytes: 410 * 1024 ** 2 }, false)).toBe('1 video');
+		expect(videoMeta({ videos: 0, videoBytes: 0 }, false)).toBeNull();
+	});
 });
 
 describe('lessonCounts', () => {

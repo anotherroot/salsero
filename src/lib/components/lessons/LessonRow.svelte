@@ -11,7 +11,9 @@
 	 * One lesson in a list: its date tile, title, videos and the three counts.
 	 * The Lessons tab's rows and a group page's; `draft` marks a group's lesson
 	 * only its editors see yet, `group` names the group of one the person added.
-	 * `aside` sits beside the link, outside it (the group page's Add).
+	 * `aside` sits beside the link, outside it (the group page's Add). `simple`
+	 * (a person below Everything): no size and no counts, as simple screens show
+	 * none.
 	 */
 	let {
 		lesson,
@@ -20,6 +22,7 @@
 		group,
 		isNew = false,
 		current = false,
+		simple = false,
 		aside
 	}: {
 		lesson: LessonItem;
@@ -29,11 +32,12 @@
 		isNew?: boolean;
 		/** The lesson open beside the list (desktop): tinted, its badges solid. */
 		current?: boolean;
+		simple?: boolean;
 		aside?: Snippet;
 	} = $props();
 
 	const tile = $derived(dateTile(lesson.lessonDay));
-	const meta = $derived(videoMeta(lesson));
+	const meta = $derived(videoMeta(lesson, !simple));
 	const pad = $derived(aside ? 'pr-2' : 'pr-3');
 </script>
 
@@ -73,14 +77,16 @@
 			{#if lesson.copyOf}<span class="text-[13px] text-muted">{copyMeta(lesson.copyOf)}</span>{/if}
 			{#if meta}<span class="text-[13px] text-muted">{meta}</span>{/if}
 			<!-- Always all three, in the same place: a zero is muted rather than vanishing, so a lesson still missing something shows it. -->
-			<span class="mt-[5px] flex flex-wrap gap-x-3 text-[13px]">
-				{#each lessonCounts(lesson) as c (c.word)}
-					<span class={c.n === 0 ? 'text-muted' : 'text-ink-2'}
-						><span class="font-extrabold tabular-nums {c.n === 0 ? '' : 'text-ink'}">{c.n}</span>
-						{c.word}</span
-					>
-				{/each}
-			</span>
+			{#if !simple}
+				<span class="mt-[5px] flex flex-wrap gap-x-3 text-[13px]">
+					{#each lessonCounts(lesson) as c (c.word)}
+						<span class={c.n === 0 ? 'text-muted' : 'text-ink-2'}
+							><span class="font-extrabold tabular-nums {c.n === 0 ? '' : 'text-ink'}">{c.n}</span>
+							{c.word}</span
+						>
+					{/each}
+				</span>
+			{/if}
 		</span>
 		{#if !aside}
 			<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>

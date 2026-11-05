@@ -114,7 +114,8 @@ export function groupModeShown(level: Level): boolean {
 
 /**
  * Settings at Follow my class draws only How much app?, Exercises a day, the
- * daily reminder, theme, name, paired phones and sign out.
+ * daily reminder, theme, name, paired phones and sign out. The admin's Admin
+ * row (their only way to /admin) is kept at every level.
  */
 export function fewSettings(level: Level): boolean {
 	return level === 'follow';

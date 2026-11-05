@@ -70,6 +70,15 @@ describe('groupModeOf', () => {
 		setLevel(db, 'u1', 'all');
 		expect(groupModeOf(db, 'u1', 'salsa', jar('1').cookies)?.role).toBe('owner');
 	});
+	it('takes the level from the caller when it has it (locals), over the stored one', () => {
+		const db = setup();
+		setLevel(db, 'u1', 'all');
+		const j = jar('1');
+		expect(groupModeOf(db, 'u1', 'salsa', j.cookies, 'own')).toBeNull();
+		expect(j.calls.deleted).toBe(1);
+		setLevel(db, 'u1', 'follow');
+		expect(groupModeOf(db, 'u1', 'salsa', jar('1').cookies, 'all')?.role).toBe('owner');
+	});
 	it('refuses another dance', () => {
 		const db = setup();
 		createTeam(db, 'u1', 'bachata', 'Bach', 1); // 2

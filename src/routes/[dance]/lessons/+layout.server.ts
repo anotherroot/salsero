@@ -7,6 +7,8 @@ import { storedTwinSets } from '$lib/server/twins';
 import { foldRows } from '$lib/clones/twins';
 import { groupModeOf } from '$lib/server/group-mode';
 import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
+import { myClassOf, teamsWithNew } from '$lib/server/my-class';
+import { levelShown } from '$lib/levels/levels';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -55,7 +57,9 @@ export const load: LayoutServerLoad = ({ params, locals, cookies }) => {
 				usedBytes: usedBytesOf(db, { teamId: mode.teamId }),
 				limitBytes: teamLimitBytes(db, mode.teamId)
 			},
-			today: localDay(Date.now(), zone(locals))
+			today: localDay(Date.now(), zone(locals)),
+			// Group mode is Everything's only.
+			classes: null
 		};
 	}
 	return {
@@ -63,6 +67,22 @@ export const load: LayoutServerLoad = ({ params, locals, cookies }) => {
 		lessons: foldedLessons(db, wall),
 		storageBytes: lessonVideoBytes(db, wall.userId),
 		groupStorage: null,
-		today: localDay(Date.now(), zone(locals))
+		today: localDay(Date.now(), zone(locals)),
+		classes: classesOf(db, wall, locals)
 	};
 };
+
+/**
+ * At Follow my class a lesson sits beside My class's list of classes, not the
+ * Lessons list (levels spec, "Desktop"): the same rows as the Groups layout's.
+ * Null at the other levels.
+ */
+function classesOf(
+	db: ReturnType<typeof getDb>,
+	wall: ReturnType<typeof wallOf>,
+	locals: App.Locals
+) {
+	if (levelShown(locals.user!.level) !== 'follow') return null;
+	const teams = teamsWithNew(db, wall);
+	return { teams, myClass: myClassOf(db, wall, teams, zone(locals), Date.now()) };
+}

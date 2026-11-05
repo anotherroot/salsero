@@ -23,6 +23,7 @@ import { load as layoutLoad } from './+layout.server';
 import { load as indexLoad } from './+page.server';
 import { actions, load as pageLoad } from './[id]/+page.server';
 import { actions as lessonActions } from '../lessons/[id]/+page.server';
+import { load as lessonsLayoutLoad } from '../lessons/+layout.server';
 
 let db: Db;
 let c: Class;
@@ -126,6 +127,28 @@ describe('the My class tab', () => {
 	});
 });
 
+describe('a lesson at Follow my class', () => {
+	type Lessons = { classes: Layout | null };
+	const lessonsAs = (id: string, level: Level | null) =>
+		(lessonsLayoutLoad as unknown as (e: unknown) => Lessons)({
+			...event(id, level, { dance: 'salsa' }),
+			cookies: { get: () => undefined, delete: () => {} }
+		});
+
+	it('sits beside My class’s list, the same as the Groups layout’s', () => {
+		joinTeam(db, 'u3', 2, 3);
+		const { classes } = lessonsAs('u3', 'follow');
+		const groups = layoutAs('u3', 'follow');
+		expect(classes?.teams.map((t) => t.id)).toEqual(groups.teams.map((t) => t.id));
+		expect(classes?.myClass).toEqual(groups.myClass);
+	});
+
+	it('has no list of classes at the other levels', () => {
+		expect(lessonsAs('u3', 'own').classes).toBeNull();
+		expect(lessonsAs('u3', 'all').classes).toBeNull();
+	});
+});
+
 describe('the class page', () => {
 	it('is simple for a member at Follow my class only', () => {
 		expect(pageAs('u3', 'follow').simple).toBe(true);
@@ -171,13 +194,30 @@ describe('Add and Undo on an older class', () => {
 		});
 		expect(addState(db, 'u3', older)?.added).toBe(true);
 
+		// Undo posts `stay=1`: the action answers instead of redirecting to Lessons.
+		const stay = new FormData();
+		stay.append('stay', '1');
 		const undo = await post(
+			lessonActions.remove,
+			'u3',
+			{ dance: 'salsa', id: String(older) },
+			stay
+		);
+		expect(undo).toEqual({ action: 'remove', ok: true });
+		expect(addState(db, 'u3', older)?.added).toBe(false);
+	});
+
+	it('the lesson’s Remove without stay still goes to Lessons', async () => {
+		const add = new FormData();
+		add.append('lessonId', String(older));
+		await post(actions.addNow, 'u3', { dance: 'salsa', id: '1' }, add);
+		const removed = await post(
 			lessonActions.remove,
 			'u3',
 			{ dance: 'salsa', id: String(older) },
 			new FormData()
 		);
-		expect(undo).toMatchObject({ status: 303 });
+		expect(removed).toMatchObject({ status: 303 });
 		expect(addState(db, 'u3', older)?.added).toBe(false);
 	});
 });

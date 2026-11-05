@@ -10,8 +10,10 @@
 	import EmptyState from '$lib/components/ui/EmptyState.svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import GroupModeButton from '$lib/components/shell/GroupModeButton.svelte';
-	import { groupModeShown, levelShown } from '$lib/levels/levels';
+	import { groupModeShown, levelShown, simple, type Level } from '$lib/levels/levels';
 	import LessonList from '$lib/components/lessons/LessonList.svelte';
+	import ClassList from '$lib/components/teams/ClassList.svelte';
+	import { MY_CLASS } from '$lib/teams/view';
 	import NewLessonSheet from '$lib/components/lessons/NewLessonSheet.svelte';
 	import { button } from '$lib/components/ui/styles';
 	import { diskSubtitle, groupVideosSubtitle, PICK_LESSON } from '$lib/lessons/list';
@@ -22,12 +24,23 @@
 	 * scroll; the list page is the pane with nothing open, a lesson page the
 	 * lesson. With no lessons the list is the page alone (`solo`). On the phone
 	 * the list page looks as it always has and a lesson page is the lesson alone.
+	 *
+	 * Levels (levels spec, "Desktop"): at Follow my class a lesson sits beside My
+	 * class's list of classes, its class lit, or alone in one class (or none), as
+	 * the class page does; nothing creates there, so no New lesson. Below
+	 * Everything the rows show no sizes or counts.
 	 */
 	let { data, children } = $props();
 
 	const l = $derived(listOf(page.route.id));
 	const isList = $derived(l?.open === false);
 	const openId = $derived(openIdOf(page.url.pathname, 'lessons', data.dance.slug));
+	const level = $derived<Level>(levelShown(page.data.user?.level));
+	const making = $derived(level !== 'follow');
+	// Follow my class, a lesson open: My class's list beside it, from two classes.
+	const classes = $derived(isList ? null : data.classes);
+	const liveClasses = $derived(classes?.teams.filter((t) => t.deletedAt === null).length ?? 0);
+	const openClass = $derived<number | null>(page.data.team?.id ?? null);
 
 	// The lit row stays in view in the column (desktop: the column scrolls on its own).
 	$effect(() => {
@@ -71,8 +84,8 @@
 </script>
 
 {#snippet right()}
-	{#if groupModeShown(levelShown(page.data.user?.level))}<GroupModeButton />{/if}
-	<BandButton icon="plus" label="New lesson" onclick={openSheet} />
+	{#if groupModeShown(level)}<GroupModeButton />{/if}
+	{#if making}<BandButton icon="plus" label="New lesson" onclick={openSheet} />{/if}
 {/snippet}
 
 {#snippet list()}
@@ -81,26 +94,60 @@
 		dance={data.dance.slug}
 		{openId}
 		groupMode={data.groupMode !== null}
-		onnew={openSheet}
+		simple={simple(level)}
+		onnew={making ? openSheet : undefined}
 	/>
+{/snippet}
+
+{#snippet newLesson()}
+	<button type="button" class={button('secondary')} onclick={openSheet}>
+		<Icon name="plus" size={20} /> New lesson
+	</button>
 {/snippet}
 
 {#snippet pick()}
 	<!-- The list page: only its <title>, which would never mount if ListPane did not render it. -->
 	{@render children()}
-	<EmptyState icon="lessons" title={PICK_LESSON.title} body={PICK_LESSON.body}>
-		{#snippet action()}
-			<button type="button" class={button('secondary')} onclick={openSheet}>
-				<Icon name="plus" size={20} /> New lesson
-			</button>
-		{/snippet}
-	</EmptyState>
+	<EmptyState
+		icon="lessons"
+		title={PICK_LESSON.title}
+		body={PICK_LESSON.body}
+		action={making ? newLesson : undefined}
+	/>
 {/snippet}
 
-{#if l}
+{#snippet classList()}
+	{#if classes?.myClass}
+		<ClassList
+			teams={classes.teams}
+			dance={data.dance.slug}
+			openId={openClass}
+			lastDays={classes.myClass.lastDays}
+			today={classes.myClass.today}
+			other={classes.myClass.other}
+			joinAction={`/${data.dance.slug}/groups?/joinCode`}
+		/>
+	{/if}
+{/snippet}
+
+{#if l && classes}
+	{#if liveClasses > 1}
+		<ListPane
+			title={MY_CLASS.title}
+			subtitle={MY_CLASS.classes}
+			isList={false}
+			list={classList}
+			empty={pick}
+		>
+			{@render children()}
+		</ListPane>
+	{:else}
+		{@render children()}
+	{/if}
+{:else if l}
 	<ListPane
 		title="Lessons"
-		subtitle={diskSubtitle(data.storageBytes)}
+		subtitle={simple(level) ? undefined : diskSubtitle(data.storageBytes)}
 		deskSubtitle={data.groupStorage
 			? groupVideosSubtitle(data.groupStorage.usedBytes, data.groupStorage.limitBytes)
 			: undefined}

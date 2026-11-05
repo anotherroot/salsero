@@ -13,19 +13,23 @@
 	 * the empty state with New lesson. The Lessons layout renders it once, so it
 	 * is the phone's list page and the desktop's column beside an open lesson
 	 * (`openId`: its row, or the row standing for it as a twin, is lit).
+	 * `simple`: the rows without sizes and counts (below Everything). Without
+	 * `onnew` (Follow my class creates nothing) the empty state has no New lesson.
 	 */
 	let {
 		lessons,
 		dance,
 		openId,
 		groupMode,
+		simple = false,
 		onnew
 	}: {
 		lessons: LessonItem[];
 		dance: DanceSlug;
 		openId: number | null;
 		groupMode: boolean;
-		onnew: () => void;
+		simple?: boolean;
+		onnew?: () => void;
 	} = $props();
 
 	// In group mode the editors' drafts sit apart, above the published months.
@@ -36,13 +40,17 @@
 
 {#if lessons.length === 0}
 	<div class="h-[52px] flex-none"></div>
-	<EmptyState icon="lessons" title="No lessons yet" body={emptyLessonsBody(groupMode)}>
-		{#snippet action()}
-			<button type="button" class={button('primary')} onclick={onnew}>
-				<Icon name="plus" size={20} /> New lesson
-			</button>
-		{/snippet}
-	</EmptyState>
+	<EmptyState
+		icon="lessons"
+		title="No lessons yet"
+		body={emptyLessonsBody(groupMode)}
+		action={onnew ? newLesson : undefined}
+	/>
+	{#snippet newLesson()}
+		<button type="button" class={button('primary')} onclick={onnew}>
+			<Icon name="plus" size={20} /> New lesson
+		</button>
+	{/snippet}
 {:else}
 	<div class="flex flex-col gap-3.5">
 		{#if split.drafts.length > 0}
@@ -54,6 +62,7 @@
 							{lesson}
 							draft
 							current={isOpenLesson(lesson, openId)}
+							{simple}
 							href={hrefOf(lesson)}
 						/>
 					{/each}
@@ -69,6 +78,7 @@
 							{lesson}
 							group={lesson.team?.name}
 							current={isOpenLesson(lesson, openId)}
+							{simple}
 							href={hrefOf(lesson)}
 						/>
 					{/each}

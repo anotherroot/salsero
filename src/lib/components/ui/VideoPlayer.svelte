@@ -912,7 +912,12 @@
 	/** A phone, either way up: a section view carries ‹ Full video and Edit in its top bar. */
 	const phone = $derived(mode === 'portrait' || mode === 'overlay');
 	const portraitPart = $derived(
-		portraitBody(chromeLevel, { listOpen: sheet === 'list', hidden, simple })
+		portraitBody(chromeLevel, {
+			listOpen: sheet === 'list',
+			hidden,
+			spot: openSpot !== null,
+			simple
+		})
 	);
 
 	/* Floating controls fade after 3 s of playing; a tap brings them back. */

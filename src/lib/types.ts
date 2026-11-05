@@ -651,6 +651,17 @@ export interface TeamItem {
 	deletedAt: number | null;
 }
 
+/**
+ * My class's list of classes (Follow my class): each class's last class day by
+ * group id (a class with none left out), today, and the other dance's My class
+ * when the person has no class here but one there.
+ */
+export interface MyClassInfo {
+	lastDays: Record<number, string>;
+	today: string;
+	other: { dance: DanceSlug; line: string } | null;
+}
+
 /** What a person ticks in a group lesson's Add sheet: what goes on their Today. */
 export type AddPicks = {
 	lesson: boolean;

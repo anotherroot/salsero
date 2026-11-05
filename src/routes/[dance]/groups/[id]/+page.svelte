@@ -30,9 +30,11 @@
 		classSongsHeading,
 		groupMenu,
 		groupUsesLine,
+		onlyClass,
 		peopleLine,
 		youLine
 	} from '$lib/teams/view';
+	import { levelShown } from '$lib/levels/levels';
 	import { readyMeta, songName, songState } from '$lib/songs/library';
 	import type { AddOffer } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
@@ -76,8 +78,8 @@
 	/**
 	 * Below Everything, Add is one tap: the lesson's default picks, no sheet. In
 	 * My class it says so, "Added to Today · Undo", once the add has landed; Undo
-	 * is the lesson page's own Remove, posted from here (`stay`: its redirect to
-	 * Lessons is not followed).
+	 * is the lesson page's own Remove, posted from here with `stay=1` (it answers
+	 * instead of redirecting to Lessons), as the simple lesson page's Undo does.
 	 */
 	let addingNow = $state<number | null>(null);
 	async function addNow(lessonId: number) {
@@ -94,18 +96,17 @@
 				++seq,
 				ADDED_TO_TODAY,
 				() => (toast = null),
-				async () => refused(await actAt(lesson, 'remove', {}, { stay: true }), 'Could not undo.')
+				async () => refused(await actAt(lesson, 'remove', { stay: 1 }), 'Could not undo.')
 			);
 		} finally {
 			addingNow = null;
 		}
 	}
 
-	// My class: the Class menu, and the class page as the tab's own page in one class (no ‹).
+	// My class: the Class menu, and at Follow my class the person's only class is
+	// the tab's own page (no ‹), a teacher's too: its fallback, the tab, opens it again.
 	const menuItems = $derived(groupMenu(data.role, data.simple));
-	const backShown = $derived(
-		!data.simple || data.teams.filter((t) => t.deletedAt === null).length > 1
-	);
+	const backShown = $derived(!onlyClass(levelShown(data.user?.level), data.teams, data.team.id));
 
 	let seen: unknown = $state(null);
 	$effect(() => {
@@ -137,22 +138,23 @@
 	><title>{data.team.name} · {data.simple ? MY_CLASS.title : 'Groups'}</title></svelte:head
 >
 
+<!-- Passed only when drawn: an empty `left` would still hold the ‹'s place in the band. -->
+{#snippet back()}
+	<BackButton
+		fallback={{
+			href: resolve('/[dance]/groups', { dance: data.dance.slug }),
+			label: data.simple ? `Back to ${MY_CLASS.title}` : 'Back to Groups'
+		}}
+	/>
+{/snippet}
+
 <Screen
 	title={data.team.name}
 	subtitle={data.simple ? undefined : `${peopleLine(data.people)} · ${youLine(data.role)}`}
 	compact
 	width="two"
+	left={backShown ? back : undefined}
 >
-	{#snippet left()}
-		{#if backShown}
-			<BackButton
-				fallback={{
-					href: resolve('/[dance]/groups', { dance: data.dance.slug }),
-					label: data.simple ? `Back to ${MY_CLASS.title}` : 'Back to Groups'
-				}}
-			/>
-		{/if}
-	{/snippet}
 	{#snippet right()}
 		{#if !deleted}
 			<BandButton
