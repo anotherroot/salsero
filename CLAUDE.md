@@ -218,7 +218,7 @@ src/lib/exercises/   PURE: the type registry (kinds.ts), practice config and
                      meta lines, hero states, past-day groups) and the type
                      tile's icon and name (tile.ts), what the log popup shows
                      (log-view.ts: the footer's states, range errors, the rating
-                     toggle) and the exercise page (exercise-page.ts).
+                     toggle), the exercise page (exercise-page.ts) and the desktop Today pane (today-pane.ts: what opens by default, the session line, the day so far's totals).
                      practice-api.ts is the fetch side of remembering a practice.
                      Client-safe
 src/lib/player/      PURE view.ts: what the Practice page shows — the stage's size and dots,
@@ -443,6 +443,21 @@ src/routes/[dance]/(moves)/  one route group, one layout: the band with the Figu
                      `components/figures/FigureTabs.svelte` the figure's tabs on desk, `components/shell/PaneHeading.svelte`
                      a pane's heading row; there is
                      no MovesScreen (the layout and the lists replace it)
+src/routes/[dance]/(today)/  one route group, one layout: the list (Start session, Due, Done today,
+                     Not yet due, Inactive; `components/today/TodayList.svelte`) beside the open
+                     exercise, `(today)/+layout.svelte` and `+layout.server.ts` (list data under a
+                     namespace); the list route `+page.*` and `exercises/[id]` (+ `practice`) live in
+                     it. On desk, arriving at Today `replaceState`s to the first due exercise's URL
+                     (R11); the phone keeps the list, the log popup (layout state, closed on
+                     leaving) and the exercise page. `components/today/today-context.ts` shares the
+                     layout's pane state with its pages (`setTodayPane`/`todayPane`),
+                     `components/today/TodayPaneSkeleton.svelte` is the pane while data is on the
+                     way. `lib/exercises/today-pane.ts` is PURE: what opens by default (`defaultOpen`),
+                     the session's line (`sessionLine`: walked beats follow) and the day's totals.
+                     `LogShell`'s `frame` ('sheet' | 'pane') is the popup or the pane's form (each
+                     log form posts to its own route's `?/log`); `TypeInfo.paneContent` in `kinds.ts`
+                     is which column the type's reference sits in. `rowButton(kind)` in `ui/styles.ts`
+                     is the pinned bar's two equal buttons
 src/routes/[dance]/groups/**  the Groups tab: the list, make and join, a group's page, its
                      people, storage, History and Recently deleted
 src/routes/g/[code]  a group code's link: Join `<name>`? (needs an account already)

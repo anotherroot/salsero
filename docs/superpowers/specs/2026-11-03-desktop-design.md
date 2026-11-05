@@ -296,9 +296,11 @@ run". Settled round 4 (Option A).
   the form**; **right the reference**: the figure or routine or lesson it
   practises (`contentFor`), the history (sets by day) and the settings (How
   often, Active, notes, Archive).
-- **One is always open.** Arriving at Today opens the first due exercise in
-  the pane (the first of Not yet due when nothing is due) without changing
-  the URL. Clicking a row navigates to that exercise's URL
+- **One is always open.** On the desktop, arriving at Today replaces the URL
+  with the first due exercise's (`/[dance]/exercises/[id]`, `replaceState`:
+  no history entry, no ‹ in the pane; the first of Not yet due when nothing is
+  due, the day so far when there is nothing to open). Clicking a row navigates
+  to that exercise's URL
   (`/[dance]/exercises/[id]`), which on desktop is Today with that one open
   (Today lit in the side). An exercise opened from elsewhere (a figure, a
   lesson) lands the same way, with ‹ in the pane back to where it came from.
@@ -578,8 +580,9 @@ What the user settled on the boards, newest last:
   filtered on the client on desktop.
 - **A figure opened from a routine** knows it by the trail's opener, so a
   reload shows the Figures list.
-- **Today's first open exercise** is shown without changing the URL; a click
-  goes to the exercise's URL.
+- **Today's first open exercise** replaces the URL with its own on the
+  desktop (`replaceState`, no history entry, no ‹); a click goes to the
+  exercise's URL.
 - **Today all done** shows the day so far.
 - **Sign in, Join, Welcome, Get the app, Pair and `/g/<code>`** sit in a
   centred 480 px card on the band colour; an old group code shows in the card.
@@ -661,3 +664,43 @@ What the user settled on the boards, newest last:
 - **A pane's one-column content sits left under its header**, and the pinned
   bars stay centred in the pane, as the boards draw. This replaces the earlier
   "centred in the pane" and "One column in a pane (centred at 720)" prose.
+
+### Plan 2 — Today
+
+- **The default open replaces the URL** (`/[dance]/exercises/<first due>`,
+  `replaceState`, no history entry, no ‹) rather than showing an exercise under
+  `/[dance]`. The pane's log form posts to its own exercise's route
+  (`/[dance]/exercises/[id]?/log`: each log form posts to its own route), so
+  the URL has to name the exercise. Tapping a lit Today tab with the default
+  open opens the default again.
+- **The day so far is a heading plus a padded body**, not a second `Screen`:
+  on the list route a second one would add a second main, banner and h1.
+- **The phone's Today is a fresh visit on arrival.** Arriving on the list route
+  from another path resets the tally, the skipped rows and Show inactive, and
+  runs the session pick-up as before; the log popup closes on leaving Today
+  (Details ›), so it never stays open over the exercise page.
+- **The session pick-up on reload is the phone's only.** A desktop reload of
+  `?session=1` does not open the popup; the desktop session walks the pane
+  instead. On the phone, a desk-made `/[dance]/exercises/X?session=1` link
+  opens that exercise.
+- **Next after a log outside a session** goes to the first due exercise (the
+  pinned button reads Next: <name>); in a session it walks the session's line.
+- **Finish replaces the URL** on the desktop, so one Back after Finish leaves
+  the session instead of re-entering it. The phone's Finish is unchanged.
+- **Opening another exercise resets the exercise page's state** (an open edit
+  closes and the form starts from the new exercise's values), so one
+  exercise's frequency is never saved onto another.
+- **The content's side per type** is the type's own (`paneContent` in
+  `kinds.ts`): a drill's and a figure's reference sits left under the form, a
+  routine's and a lesson's right.
+- **The form's section label reads `Log a set`** in the pane (a labelled section, not
+  the boards' "Log set"); the pinned button itself stays Log set.
+- **The boards' asides are not built** (their margin notes and annotations).
+- **Crossing 1024 drops unlogged typed fields.** The phone's popup and the
+  desktop pane are two forms of one exercise; narrowing or widening mounts the
+  other, so what was typed and not logged is lost. The URL and the open
+  exercise stay.
+- **A pinned bar's two buttons** (Skip and Log set, Finish) are two equal
+  halves from the `rowButton` builder in `ui/styles.ts`.
+- **Today's loading draws the list and the pane's skeleton**
+  (`TodayPaneSkeleton`), keyed by the column beside.
