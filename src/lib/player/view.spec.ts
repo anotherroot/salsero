@@ -6,9 +6,12 @@ import {
 	exerciseLine,
 	playState,
 	practiceBack,
+	routineHeading,
 	runSubtitle,
 	runSummary,
+	runTitleCompact,
 	setupSubtitle,
+	slotTone,
 	stageDigit,
 	stageDots,
 	stageSize,
@@ -176,5 +179,29 @@ describe('what the Practice page derives', () => {
 			label: 'Back to Music'
 		});
 		expect(practiceBack({ ...p, from: '//evil.example' }).href.startsWith('/bachata')).toBe(true);
+	});
+});
+
+describe('the run on desk', () => {
+	it('tones a routine row: the one called now, the danced ones, the ones to come', () => {
+		expect(slotTone(1, 1)).toBe('now');
+		expect(slotTone(0, 1)).toBe('past');
+		expect(slotTone(2, 1)).toBe('next');
+		expect(slotTone(0, null)).toBe('next');
+		expect(slotTone(0, 0)).toBe('now'); // a looping routine back at its first slot: nothing is past
+	});
+
+	it('heads the routine with the slot it is on', () => {
+		expect(routineHeading(1, 6)).toBe('Routine · slot 2 of 6');
+		expect(routineHeading(null, 6)).toBe('Routine · 6 slots');
+		expect(routineHeading(null, 1)).toBe('Routine · 1 slot');
+	});
+
+	it('makes the band title compact past 18 characters or with a word over 10', () => {
+		expect(runTitleCompact('Practice')).toBe(false);
+		expect(runTitleCompact('Vivir mi vida')).toBe(false); // 13
+		expect(runTitleCompact('Valió la pena ahora')).toBe(true); // 19
+		expect(runTitleCompact('Desesperadamente')).toBe(true); // one word of 16
+		expect(runTitleCompact('Ritmo, ritmo y más')).toBe(false); // exactly 18
 	});
 });

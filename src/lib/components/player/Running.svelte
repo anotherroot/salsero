@@ -5,7 +5,8 @@
 	import type { Dance } from '$lib/dances/dances';
 	import type { PlayerHandle } from '$lib/scheduler/attach';
 	import type { CalledFigure } from '$lib/types';
-	import { stageSize } from '$lib/player/view';
+	import { desk } from '$lib/nav/desk.svelte';
+	import { routineHeading, runTitleCompact, slotTone, stageSize } from '$lib/player/view';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
@@ -147,30 +148,47 @@
 	The column's transform makes the BottomBar's `fixed` relative to the
 	column, which is what keeps it as wide as the column. Nothing here scrolls
 	the page, so there is no slim band: the stage never scrolls away.
+
+	On the desktop (desktop spec, "Practice"): the column is the whole window on
+	the band, its transform still there (so the BottomBar is placed in window
+	coordinates). The header is the band row, the ‹ and the title where Setup's
+	band row has them; the stage is the band under it, left of a 520 px sheet
+	that holds the seek bar, the whole routine and the Voice card, Stop and
+	Pause pinned at its foot. It sits over the frame's sheet corners
+	(`SheetCorner`, z-30): the sheet's top-right corner is square.
 -->
 <div
-	class="run-col fixed inset-y-0 left-1/2 z-10 flex w-full max-w-[560px] -translate-x-1/2 flex-col"
+	class="run-col fixed inset-y-0 left-1/2 z-10 flex w-full max-w-[560px] -translate-x-1/2 flex-col desk:left-0 desk:z-[31] desk:max-w-none desk:translate-x-0 desk:bg-band"
 >
 	<header
-		class="run-head flex flex-none flex-col gap-1.5 bg-band"
-		style="padding: calc(22px + var(--safe-top)) 20px 50px; --focus-ring: var(--color-band-ink)"
+		class="run-head flex flex-none flex-col gap-1.5 bg-band desk:grid desk:h-(--band-row-h) desk:grid-cols-[max-content_minmax(0,max-content)_minmax(0,1fr)] desk:content-center desk:items-center desk:gap-0"
+		style="--focus-ring: var(--color-band-ink)"
 	>
-		<div class="-ml-[10px] flex min-w-0 items-center gap-1">
+		<div class="-ml-[10px] flex min-w-0 items-center gap-1 desk:contents">
 			<!-- Its name is the action; where it ends up is the hover hint. -->
-			<span class="flex-none" title={backLabel}>
+			<span class="flex-none desk:mr-[14px]" title={backLabel}>
 				<BandButton icon="back" label="Stop and go back" onclick={onback} />
 			</span>
 			<h1
-				class="min-w-0 truncate font-display text-[30px] leading-[1.1] font-extrabold tracking-[-0.015em] text-band-ink"
+				class="min-w-0 truncate font-display text-[30px] leading-[1.1] font-extrabold tracking-[-0.015em] text-band-ink desk:self-baseline {runTitleCompact(
+					title
+				)
+					? 'desk:text-[30px]'
+					: 'desk:text-[46px] desk:leading-[1.05] desk:tracking-[-0.02em]'}"
 			>
 				{title}
 			</h1>
 		</div>
 		{#if subtitle}
-			<span class="truncate pl-[38px] text-[15px] font-semibold text-band-small">{subtitle}</span>
+			<span
+				class="truncate pl-[38px] text-[15px] font-semibold text-band-small desk:ml-[14px] desk:min-w-0 desk:self-baseline desk:pl-0"
+				>{subtitle}</span
+			>
 		{/if}
 
-		<div class="run-stage mt-2 flex flex-col items-center gap-2.5">
+		<div
+			class="run-stage mt-2 flex flex-col items-center gap-2.5 desk:absolute desk:top-(--band-row-h) desk:right-[520px] desk:bottom-0 desk:left-0 desk:mt-0 desk:justify-center desk:gap-[22px] desk:px-8 desk:pb-10"
+		>
 			<StageCount
 				time={() => player.songTime()}
 				{beats}
@@ -183,19 +201,20 @@
 				     ("Dile que no con vuelta · Doble con mano") stays two whole lines at 360. -->
 				<p
 					aria-live="polite"
-					class="run-call line-clamp-2 min-h-9 text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink"
+					class="run-call line-clamp-2 min-h-9 text-center font-display text-[min(32px,8.2vw)] leading-[1.1] font-extrabold tracking-[-0.01em] text-balance text-band-ink desk:min-h-[52px] desk:text-[44px] desk:leading-[1.15]"
 				>
 					{calledName ?? ''}
 				</p>
 			{/if}
 			{#if paused}
 				<span
-					class="inline-flex h-[30px] items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small tabular-nums ring-[1.5px] ring-band-ink ring-inset"
+					class="inline-flex h-[30px] items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-extrabold text-band-small tabular-nums ring-[1.5px] ring-band-ink ring-inset desk:h-9 desk:gap-2 desk:pr-4 desk:pl-3 desk:text-[16px] desk:[&_svg]:size-[18px]"
 				>
 					<Icon name="pause" size={16} filled />Paused · {clock(elapsed)}
 				</span>
 			{:else}
-				<span class="flex h-[30px] items-center text-[16px] font-bold text-band-small tabular-nums"
+				<span
+					class="flex h-[30px] items-center text-[16px] font-bold text-band-small tabular-nums desk:h-9 desk:text-[20px]"
 					>{clock(elapsed)}</span
 				>
 			{/if}
@@ -208,7 +227,7 @@
 		curve, so an overflowing sheet showed a square top corner.
 	-->
 	<div
-		class="run-sheet -mt-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[28px] bg-ground"
+		class="run-sheet -mt-7 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-[28px] bg-ground desk:fixed desk:top-(--band-row-h) desk:right-0 desk:bottom-0 desk:mt-0 desk:w-[520px] desk:rounded-tl-[28px] desk:rounded-tr-none"
 	>
 		<div class="run-scroll flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pt-4 pb-[112px]">
 			{#if song}
@@ -223,19 +242,25 @@
 				of its own scroller: the figure being called is already on the band in
 				large type, so what this adds is what comes NEXT and how far through you are.
 			-->
+				<!-- The desktop lists the whole routine, so it says where in it the run is. -->
+				<h2 class="{SECTION_LABEL} hidden desk:block">
+					{routineHeading(activeSlot, slots.length)}
+				</h2>
 				<ol
 					bind:this={slotList}
 					aria-label="Routine"
 					class="slots relative max-h-[130px] flex-none overflow-y-auto rounded-2xl bg-surface"
 				>
 					{#each slots as slot, i (i)}
-						{@const on = i === activeSlot}
+						{@const tone = slotTone(i, activeSlot)}
+						{@const on = tone === 'now'}
 						<li
 							bind:this={slotEls[i]}
 							aria-current={on ? 'step' : undefined}
-							class="flex min-h-12 items-center gap-3 border-b border-hairline py-1.5 pr-3.5 pl-3.5 {on
-								? 'bg-accent-soft'
-								: ''}"
+							class="flex min-h-12 items-center gap-3 border-b border-hairline py-1.5 pr-3.5 pl-3.5 {i ===
+							slots.length - 1
+								? 'desk:border-b-0'
+								: ''} {on ? 'bg-accent-soft' : ''}"
 						>
 							<span
 								class="w-[18px] flex-none text-[13px] font-extrabold tabular-nums {on
@@ -245,7 +270,9 @@
 							<span
 								class="min-w-0 flex-1 text-[15px] leading-[1.3] {on
 									? 'font-extrabold text-accent-text'
-									: 'font-semibold text-ink-2'}"
+									: tone === 'past'
+										? 'font-semibold text-ink-2 desk:text-muted'
+										: 'font-semibold text-ink-2'}"
 							>
 								{slot.figureIds.map(nameOf).join('  /  ')}
 								{#if slot.note}
@@ -277,14 +304,14 @@
 			<section class="flex flex-none flex-col gap-2" aria-labelledby="run-voice">
 				<h2 id="run-voice" class={SECTION_LABEL}>Voice</h2>
 				<div class="{CLIP} rounded-2xl bg-surface">
-					<div class="py-1.5 pl-3">
+					<div class="py-1.5 pl-3 desk:pr-3">
 						<CountChips
 							patterns={dance.countPatterns}
 							value={count}
 							onchange={oncount}
 							name="runCount"
 							label="Voice count"
-							scroll={!!song || slots.length > 0}
+							scroll={(!!song || slots.length > 0) && !desk.current}
 						/>
 					</div>
 					<div class="border-t border-hairline px-4 py-1">
@@ -323,6 +350,11 @@
 </div>
 
 <style>
+	/* The phone's band padding, here rather than inline so the desktop's band row can replace it. */
+	.run-head {
+		padding: calc(22px + var(--safe-top)) 20px 50px;
+	}
+
 	.slots {
 		-webkit-mask-image: linear-gradient(#000 70%, transparent);
 		mask-image: linear-gradient(#000 70%, transparent);
@@ -348,10 +380,10 @@
 	/*
 	 * A landscape phone: two halves. The stage is the left, the sheet the right
 	 * (overlapping the band from the side as it does from below in portrait),
-	 * the transport at the foot of the right half. A desktop keeps the portrait
-	 * 560 px column.
+	 * the transport at the foot of the right half. Never on the desktop, which
+	 * has its own split (below); no phone is 1024 wide.
 	 */
-	@media (orientation: landscape) and (max-height: 520px) {
+	@media (orientation: landscape) and (max-height: 520px) and (width < 1024px) {
 		.run-col {
 			max-width: 900px;
 			flex-direction: row;
@@ -383,6 +415,41 @@
 		.run-col :global(.run-bar) {
 			left: 50%;
 			padding-right: max(16px, var(--safe-right));
+		}
+	}
+
+	/*
+	 * The desktop: the band row (the ‹ at x 18, as Setup's), the stage under it
+	 * on the band, the sheet a 520 px column on the right. Last, so it outranks
+	 * the short-phone block on a short window.
+	 */
+	@media (width >= 1024px) {
+		/* The run bar spans the sheet: its `left` is this (`BottomBar`), the column its containing block. */
+		.run-col {
+			--pane-left: calc(100% - 520px);
+		}
+		.run-head {
+			padding: 0 40px 0 18px;
+		}
+		/* 124 at the foot: 20 of the sheet's own, and the run bar (28 fade + a 64 button + 12). */
+		.run-scroll {
+			padding: 24px 28px 124px;
+			gap: 8px;
+		}
+		/* The whole routine; a long one shrinks the list, which scrolls itself, never the Voice card away. */
+		.slots {
+			flex: 0 1 auto;
+			min-height: 0;
+			max-height: none;
+			-webkit-mask-image: none;
+			mask-image: none;
+		}
+		.slots-pad {
+			display: none;
+		}
+		/* Stop and Pause line up with the sheet's 28 px sides. */
+		.run-col :global(.run-bar) {
+			padding-inline: 28px;
 		}
 	}
 </style>
