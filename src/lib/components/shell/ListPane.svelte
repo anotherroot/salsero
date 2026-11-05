@@ -28,7 +28,9 @@
 	 * `solo`, `soloWidth` and `deskSubtitle` change nothing on the phone.
 	 *
 	 * One DOM for both routes and both widths: only classes change with `isList`
-	 * and `solo`, never the elements, so the list is not rebuilt when an item opens.
+	 * and `solo`, never the list's elements, so the list is not rebuilt when an item
+	 * opens. (The pane's own element is the page's `<main>` on an item route; its
+	 * content changes then anyway.)
 	 */
 	let {
 		list,
@@ -104,6 +106,7 @@
 			? 'hidden'
 			: `${isList ? 'hidden' : 'contents'} desk:block desk:min-w-0 desk:flex-1 desk:[--pane-left:calc(var(--side-w)+var(--list-w)+1px)]`}
 		style="--list-w: {width}px"
+		main={!isList}
 	>
 		{#if isList}
 			{#if emptyBare}

@@ -1,14 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { page } from '$app/state';
 	import { bandMode } from '$lib/nav/band';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { PAGE_WIDTH, type PageWidth } from '$lib/nav/frame';
-	import { listOf, paneBack } from '$lib/nav/pane';
-	import { listOpener } from '$lib/nav/trail.svelte';
 	import BandHeader from '$lib/components/shell/BandHeader.svelte';
 	import { inPane } from '$lib/components/shell/pane-context';
-	import type { DanceSlug } from '$lib/dances/dances';
 
 	let {
 		title,
@@ -21,6 +17,7 @@
 		left,
 		right,
 		extra,
+		below,
 		hero,
 		children
 	}: {
@@ -47,6 +44,11 @@
 		left?: Snippet;
 		right?: Snippet;
 		extra?: Snippet;
+		/**
+		 * In a pane on the desktop, a row under the title (and `extra`, which joins
+		 * it there): desk-only content, never on the phone (`BandHeader`).
+		 */
+		below?: Snippet;
 		hero?: Snippet;
 		children: Snippet;
 	} = $props();
@@ -58,18 +60,16 @@
 	/*
 	 * Inside a list's item pane (desktop spec, "A list and the item beside it"), the
 	 * desktop draws no band row here: the header is the pane's header, the sheet the
-	 * pane's content. Its ‹ shows only for an item opened from outside its list
-	 * (`paneBack`, by `listOpener`: the opener the list column also goes by, so a
-	 * page entered fresh has neither the opener's list nor a ‹). The phone is unchanged.
+	 * pane's content. Whether its ‹ shows is `BackButton`'s own gate. The phone is
+	 * unchanged.
 	 */
 	const pane = inPane();
-	const back = $derived.by(() => {
-		if (!pane) return true;
-		const l = listOf(page.route.id);
-		if (!l) return true;
-		const opener = listOpener(page.url.pathname);
-		return paneBack(opener, l.list, page.params.dance as DanceSlug);
-	});
+	/*
+	 * The page's one main: this sheet, unless it is in a pane (the pane is the main,
+	 * `Pane.svelte`) or an item's list beside it (its sheet holds the list column and
+	 * that pane).
+	 */
+	const main = $derived(!pane && split !== 'item');
 
 	/* The sheet's desktop classes: the page's own, a card's column, a pane's content, a list beside its pane. */
 	const SHEET_DESK = $derived(
@@ -142,11 +142,11 @@
 	hero={!!hero}
 	{slim}
 	variant={card ? 'card' : pane && !split ? 'pane' : 'band'}
-	{back}
 	deskOnly={split === 'item'}
 	{left}
 	{right}
 	{extra}
+	{below}
 />
 
 <!--
@@ -154,7 +154,12 @@
 	row; on a card page it is the card's column (the card itself is `CardFrame`'s); in
 	a pane, the pane's content, from its left; a list's, the list column and its pane.
 -->
-<div class="{SHEET} {SHEET_DESK}" class:pt-5={!hero} style="--page-w: {PAGE_WIDTH[width]}px">
+<svelte:element
+	this={main ? 'main' : 'div'}
+	class="{SHEET} {SHEET_DESK}"
+	class:pt-5={!hero}
+	style="--page-w: {PAGE_WIDTH[width]}px"
+>
 	{#if hero}<div class="-mt-[42px] mb-[10px] desk:mt-0">{@render hero()}</div>{/if}
 	{@render children()}
-</div>
+</svelte:element>

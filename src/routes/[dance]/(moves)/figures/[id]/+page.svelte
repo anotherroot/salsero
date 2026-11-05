@@ -12,6 +12,8 @@
 	import PositionTags from '$lib/components/figures/PositionTags.svelte';
 	import FigureTiming from '$lib/components/figures/FigureTiming.svelte';
 	import VariationBar from '$lib/components/figures/VariationBar.svelte';
+	import FigureTabs from '$lib/components/figures/FigureTabs.svelte';
+	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import MoveSheet from '$lib/components/figures/MoveSheet.svelte';
 	import RemoveWarning from '$lib/components/figures/RemoveWarning.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
@@ -259,6 +261,16 @@
 		(data.cloneLine.self.kind === 'mine' ? cloneSubtitle(data.cloneLine) : null) ??
 			figureSubtitle(data.effective, readerTeam?.name)
 	);
+	/** A group's figure read from a lesson the person added: the note above the columns. */
+	const fromLesson = $derived(
+		readerTeam && data.fromLesson && !data.taking
+			? fromLessonNote(data.fromLesson, readerTeam.name)
+			: null
+	);
+	/** The desktop tabs' "+ Figure": VariationBar's New figure sheet, the one for both. */
+	let addingFigure = $state(false);
+	/** A half of the edit form: no box below `two:`, a column of the form's own gap from it. */
+	const EDIT_HALF = 'contents two:flex two:min-w-0 two:flex-col two:gap-3.5';
 
 	/** Archive lands on a sibling (the same route, so the sheet would stay) or the figures list. */
 	let archiveBusy = $state(false);
@@ -321,6 +333,7 @@
 
 <Screen
 	compact
+	width="two"
 	title="{figure.name} · {variation.name}"
 	subtitle={editing ? `Editing ${variation.name}` : subtitle}
 >
@@ -346,25 +359,84 @@
 		{/if}
 	{/snippet}
 
+	<!--
+		The figure in its pane (desktop spec, "Two columns"): the move's figures as tabs
+		and the source tabs under the header, then two columns from a 780 px pane, 5 : 7
+		(about it on the left, what is watched on the right). One column below that and
+		on the phone, in the phone's order. The tabs and SourceTabs (whose toast is
+		`fixed`) sit outside PaneColumns: nothing pinned lives in its size container.
+	-->
 	<div class="flex flex-col gap-2 {editing ? 'pb-28' : 'pb-4'}">
-		{#if editing}
-			<!--
+		{#if !editing}
+			<FigureTabs
+				moveName={figure.name}
+				moveId={figure.id}
+				siblings={data.siblings}
+				currentId={variation.id}
+				{slug}
+				canEdit={data.canEdit}
+				onnew={() => (addingFigure = true)}
+			/>
+			<SourceTabs
+				sources={data.sources}
+				kind="figure"
+				dance={slug}
+				current={variation.id}
+				mineId={data.mineId}
+				compare={data.compare}
+				family={data.family}
+				drop={data.drop}
+				detach={data.detach}
+				copy={data.copyTo}
+				sameAs={data.sameAs}
+				taking={data.taking ? sourcePlace : null}
+			/>
+		{/if}
+		<!--
+			Editing: the form across the top, its own two halves from `two:`, and the
+			recordings and sections (still `right`, so an upload in flight is never
+			remounted) under its right half: the columns turn 1 : 1.
+		-->
+		<PaneColumns
+			ratio={editing ? '1:1' : '5:7'}
+			class="gap-2"
+			top={editing || fromLesson ? colsTop : undefined}
+			left={about}
+			right={watched}
+			leftEnd={editing ? undefined : aboutEnd}
+		/>
+		{#if !editing}
+			<!-- The variation bar is pinned over the page's end; this lets the caption clear it. On the desktop only a reader's bar is pinned. -->
+			<div
+				aria-hidden="true"
+				class={data.makeMine
+					? 'h-[calc(8.5rem+var(--pin-safe,var(--safe-bottom)))]'
+					: 'h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))] desk:hidden'}
+			></div>
+		{/if}
+	</div>
+</Screen>
+
+{#snippet colsTop()}
+	{#if editing}
+		<!--
 			Keyed on the variation: `editing` survives a step to another one, and
 			PositionTags and FigureTiming seed their own state once — without the
 			key, one variation's unsaved positions and timing would be carried over
 			and saved onto the next.
 		-->
-			{#key variation.id}
-				<form
-					id="edit-form"
-					method="POST"
-					action="?/update"
-					class="flex flex-col gap-3.5 pt-1.5"
-					bind:this={editForm}
-					use:guarded={{ label: `${variation.name} edits`, submit: closeOnSuccess }}
-				>
-					<!-- What this form saw: a save that saw another version is refused (the clash check). -->
-					<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
+		{#key variation.id}
+			<form
+				id="edit-form"
+				method="POST"
+				action="?/update"
+				class="flex flex-col gap-3.5 pt-1.5 two:grid two:grid-cols-[1fr_1fr] two:items-start two:gap-x-8"
+				bind:this={editForm}
+				use:guarded={{ label: `${variation.name} edits`, submit: closeOnSuccess }}
+			>
+				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
+				<div class={EDIT_HALF}>
 					<FigureFields
 						dance={data.dance}
 						figureName={figure.name}
@@ -376,6 +448,8 @@
 						style={variation.styleTag ?? undefined}
 						notes={variation.notes}
 					/>
+				</div>
+				<div class={EDIT_HALF}>
 					<PositionTags
 						dance={data.dance.slug}
 						startIds={data.tags.startIds}
@@ -395,562 +469,542 @@
 							</div>
 						{/key}
 					{/if}
-				</form>
-			{/key}
-		{:else}
-			<SourceTabs
-				sources={data.sources}
-				kind="figure"
-				dance={slug}
-				current={variation.id}
-				mineId={data.mineId}
-				compare={data.compare}
-				family={data.family}
-				drop={data.drop}
-				detach={data.detach}
-				copy={data.copyTo}
-				sameAs={data.sameAs}
-				taking={data.taking ? sourcePlace : null}
-			/>
-			{#if readerTeam && data.fromLesson && !data.taking}
-				<p
-					class="flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
+				</div>
+			</form>
+		{/key}
+	{:else if fromLesson}
+		<p
+			class="flex items-start gap-2.5 rounded-2xl bg-accent-soft px-4 py-3 text-[14px] leading-snug text-accent-text"
+		>
+			<span class="mt-px flex-none"><Icon name="group" size={18} /></span>
+			<span>{fromLesson}</span>
+		</p>
+	{/if}
+{/snippet}
+
+{#snippet about()}
+	{#if !editing}
+		<!-- The variation's own facts: style and partner, timing, handholds, notes. -->
+		<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label="Facts">
+			<div class="flex flex-wrap gap-1.5">
+				{#if styleLabel}<Badge tone="accent">{styleLabel}</Badge>{/if}
+				<Badge tone="neutral"
+					><Icon
+						name={variation.partner === 'partner' ? 'people' : 'solo'}
+						size={14}
+					/>{PARTNER_LABEL[variation.partner]}</Badge
 				>
-					<span class="mt-px flex-none"><Icon name="group" size={18} /></span>
-					<span>{fromLessonNote(data.fromLesson, readerTeam.name)}</span>
+			</div>
+			<div class="flex flex-col gap-2">
+				<div class="flex items-baseline justify-between gap-3">
+					<span class="text-[13px] font-bold text-muted">Timing</span>
+					<span class="text-right text-[15px] font-bold text-ink"
+						>{timing.main}<span class="font-medium text-muted">{timing.extra}</span></span
+					>
+				</div>
+				<div role="img" aria-label="Starts on count {data.effective.startCount}" class="flex gap-1">
+					{#each [1, 2, 3, 4, 5, 6, 7, 8] as count (count)}
+						<span
+							class="flex h-[30px] flex-1 items-center justify-center rounded-lg text-[14px] font-extrabold tabular-nums {count ===
+							data.effective.startCount
+								? 'bg-accent text-on-accent'
+								: 'bg-chip text-ink-2'}">{count}</span
+						>
+					{/each}
+				</div>
+			</div>
+			<div class="-mx-4 h-px bg-hairline"></div>
+			<div class="flex flex-col gap-[3px]">
+				<span class="text-[13px] font-bold text-muted">Handholds</span>
+				{#if untagged}
+					<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty}</span>
+				{:else}
+					<!-- Each position links to its page; an empty side reads "No position". -->
+					{#snippet side(refs: { id: number; name: string }[])}
+						{#if refs.length === 0}
+							<span class="font-semibold text-muted">No position</span>
+						{:else}
+							{#each refs as p, i (p.id)}{#if i > 0}<span class="mx-1 font-semibold text-muted"
+										>or</span
+									>{/if}<a href={positionHref(p.id)} class="underline-offset-2 hover:underline"
+									>{p.name}</a
+								>{/each}
+						{/if}
+					{/snippet}
+					<span class="text-[15px] leading-[1.35] font-bold text-ink"
+						>{@render side(holds.starts)}<span class="mx-1 font-semibold text-muted">→</span
+						>{@render side(holds.ends)}</span
+					>
+				{/if}
+			</div>
+			{#if variation.notes}
+				<div class="-mx-4 h-px bg-hairline"></div>
+				<LinkedText
+					text={variation.notes}
+					class="text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2"
+				/>
+			{/if}
+		</section>
+
+		<h2 class="{SECTION_LABEL} pt-2">Practice</h2>
+		{#if data.exercise && data.popup}
+			{@const popup = data.popup}
+			<ul class={GROUP}>
+				<li class="flex min-h-[60px] items-center gap-2.5 py-2 pr-1.5 pl-4">
+					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span class="text-[16px] leading-tight font-bold text-ink"
+							>{data.practice?.title ?? frequencyLabel(data.exercise.everyDays)}</span
+						>
+						{#if data.practice}
+							<span
+								class="text-[13px] {data.practice.meta.tone === 'status'
+									? 'font-bold text-status'
+									: data.practice.meta.tone === 'done'
+										? 'font-bold text-done'
+										: 'text-muted'}">{data.practice.meta.text}</span
+							>
+						{/if}
+					</span>
+					<button
+						type="button"
+						class={iconButton('bare', 'accent')}
+						aria-label="Log {popup.exercise.name}"
+						aria-haspopup="dialog"
+						onclick={() => (logging = true)}><Icon name="plus" size={24} /></button
+					>
+				</li>
+				<li>
+					<a
+						href={resolve('/[dance]/exercises/[id]', {
+							dance: slug,
+							id: String(data.exercise.id)
+						})}
+						class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
+					>
+						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+							<span class="text-[16px] leading-tight font-bold text-ink">Its exercise</span>
+							<span class="text-[13px] text-muted">History, how often, active</span>
+						</span>
+						<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+					</a>
+				</li>
+			</ul>
+		{:else if !data.exercise && !data.practisable}
+			<!-- A group's variation is practised from a lesson the person added (R8). -->
+			<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
+				Add a lesson with this figure to practise it.
+			</p>
+		{:else if !data.exercise}
+			<form
+				id="practise-form"
+				method="POST"
+				action="?/practise"
+				use:enhance={() => {
+					practising = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							practising = false;
+						}
+					};
+				}}
+				class={GROUP}
+			>
+				<div class="flex min-h-[60px] items-center gap-2.5 py-2 pr-1.5 pl-4">
+					<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+						<span class="text-[16px] leading-tight font-bold text-ink">Via routines</span>
+						<span class="text-[13px] text-muted">No exercise of its own</span>
+					</span>
+					<button
+						type="submit"
+						class={button('secondary', 'sm')}
+						aria-busy={practising}
+						disabled={practising}
+						aria-describedby={failed('practise') ? 'practise-error' : undefined}
+					>
+						<!-- Both in one cell: the label keeps the width while the spinner shows. -->
+						<span class="grid place-items-center">
+							<span class="col-start-1 row-start-1" class:invisible={practising}
+								>Practise on its own</span
+							>
+							{#if practising}<span class="col-start-1 row-start-1"><Spinner /></span>{/if}
+						</span>
+					</button>
+				</div>
+			</form>
+			{#if failed('practise')}
+				<FieldError id="practise-error" message={failed('practise') ?? ''} />
+			{/if}
+		{/if}
+
+		{#if !(readerTeam && data.routines.length === 0)}
+			<h2 class="{SECTION_LABEL} pt-2">
+				{data.routines.length > 0 ? `In routines · ${data.routines.length}` : 'In routines'}
+			</h2>
+		{/if}
+		{#if data.routines.length === 0}
+			{#if !readerTeam}
+				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] font-bold text-status">
+					Not in a routine yet
 				</p>
 			{/if}
-			<!-- The variation's own facts: style and partner, timing, handholds, notes. -->
-			<section class="flex flex-col gap-3.5 rounded-2xl bg-surface p-4" aria-label="Facts">
-				<div class="flex flex-wrap gap-1.5">
-					{#if styleLabel}<Badge tone="accent">{styleLabel}</Badge>{/if}
-					<Badge tone="neutral"
-						><Icon
-							name={variation.partner === 'partner' ? 'people' : 'solo'}
-							size={14}
-						/>{PARTNER_LABEL[variation.partner]}</Badge
-					>
-				</div>
-				<div class="flex flex-col gap-2">
-					<div class="flex items-baseline justify-between gap-3">
-						<span class="text-[13px] font-bold text-muted">Timing</span>
-						<span class="text-right text-[15px] font-bold text-ink"
-							>{timing.main}<span class="font-medium text-muted">{timing.extra}</span></span
-						>
-					</div>
-					<div
-						role="img"
-						aria-label="Starts on count {data.effective.startCount}"
-						class="flex gap-1"
-					>
-						{#each [1, 2, 3, 4, 5, 6, 7, 8] as count (count)}
-							<span
-								class="flex h-[30px] flex-1 items-center justify-center rounded-lg text-[14px] font-extrabold tabular-nums {count ===
-								data.effective.startCount
-									? 'bg-accent text-on-accent'
-									: 'bg-chip text-ink-2'}">{count}</span
-							>
-						{/each}
-					</div>
-				</div>
-				<div class="-mx-4 h-px bg-hairline"></div>
-				<div class="flex flex-col gap-[3px]">
-					<span class="text-[13px] font-bold text-muted">Handholds</span>
-					{#if untagged}
-						<span class="text-[15px] leading-[1.35] font-bold text-ink">{tagsEmpty}</span>
-					{:else}
-						<!-- Each position links to its page; an empty side reads "No position". -->
-						{#snippet side(refs: { id: number; name: string }[])}
-							{#if refs.length === 0}
-								<span class="font-semibold text-muted">No position</span>
-							{:else}
-								{#each refs as p, i (p.id)}{#if i > 0}<span class="mx-1 font-semibold text-muted"
-											>or</span
-										>{/if}<a href={positionHref(p.id)} class="underline-offset-2 hover:underline"
-										>{p.name}</a
-									>{/each}
-							{/if}
-						{/snippet}
-						<span class="text-[15px] leading-[1.35] font-bold text-ink"
-							>{@render side(holds.starts)}<span class="mx-1 font-semibold text-muted">→</span
-							>{@render side(holds.ends)}</span
-						>
-					{/if}
-				</div>
-				{#if variation.notes}
-					<div class="-mx-4 h-px bg-hairline"></div>
-					<LinkedText
-						text={variation.notes}
-						class="text-[15px] leading-[1.45] font-medium whitespace-pre-line text-ink-2"
-					/>
-				{/if}
-			</section>
-
-			<h2 class="{SECTION_LABEL} pt-2">Practice</h2>
-			{#if data.exercise && data.popup}
-				{@const popup = data.popup}
-				<ul class={GROUP}>
-					<li class="flex min-h-[60px] items-center gap-2.5 py-2 pr-1.5 pl-4">
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-tight font-bold text-ink"
-								>{data.practice?.title ?? frequencyLabel(data.exercise.everyDays)}</span
-							>
-							{#if data.practice}
-								<span
-									class="text-[13px] {data.practice.meta.tone === 'status'
-										? 'font-bold text-status'
-										: data.practice.meta.tone === 'done'
-											? 'font-bold text-done'
-											: 'text-muted'}">{data.practice.meta.text}</span
-								>
-							{/if}
-						</span>
-						<button
-							type="button"
-							class={iconButton('bare', 'accent')}
-							aria-label="Log {popup.exercise.name}"
-							aria-haspopup="dialog"
-							onclick={() => (logging = true)}><Icon name="plus" size={24} /></button
-						>
-					</li>
+		{:else}
+			<ul class={GROUP}>
+				{#each data.routines as use (use.id)}
 					<li>
 						<a
-							href={resolve('/[dance]/exercises/[id]', {
-								dance: slug,
-								id: String(data.exercise.id)
-							})}
+							href={routineHref(use.id)}
 							class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
 						>
 							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[16px] leading-tight font-bold text-ink">Its exercise</span>
-								<span class="text-[13px] text-muted">History, how often, active</span>
+								<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
+								<span class="text-[13px] text-muted"
+									>{routineUseMeta(use)}{use.loops ? ' · ' : ''}{#if use.loops}
+										<span class="font-bold text-done">loops</span>{/if}</span
+								>
 							</span>
 							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
 						</a>
 					</li>
-				</ul>
-			{:else if !data.exercise && !data.practisable}
-				<!-- A group's variation is practised from a lesson the person added (R8). -->
-				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] text-muted">
-					Add a lesson with this figure to practise it.
-				</p>
-			{:else if !data.exercise}
-				<form
-					id="practise-form"
-					method="POST"
-					action="?/practise"
-					use:enhance={() => {
-						practising = true;
-						return async ({ update }) => {
-							try {
-								await update();
-							} finally {
-								practising = false;
-							}
-						};
-					}}
-					class={GROUP}
-				>
-					<div class="flex min-h-[60px] items-center gap-2.5 py-2 pr-1.5 pl-4">
-						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-tight font-bold text-ink">Via routines</span>
-							<span class="text-[13px] text-muted">No exercise of its own</span>
-						</span>
-						<button
-							type="submit"
-							class={button('secondary', 'sm')}
-							aria-busy={practising}
-							disabled={practising}
-							aria-describedby={failed('practise') ? 'practise-error' : undefined}
-						>
-							<!-- Both in one cell: the label keeps the width while the spinner shows. -->
-							<span class="grid place-items-center">
-								<span class="col-start-1 row-start-1" class:invisible={practising}
-									>Practise on its own</span
-								>
-								{#if practising}<span class="col-start-1 row-start-1"><Spinner /></span>{/if}
-							</span>
-						</button>
-					</div>
-				</form>
-				{#if failed('practise')}
-					<FieldError id="practise-error" message={failed('practise') ?? ''} />
-				{/if}
-			{/if}
+				{/each}
+			</ul>
+		{/if}
 
-			{#if !(readerTeam && data.routines.length === 0)}
-				<h2 class="{SECTION_LABEL} pt-2">
-					{data.routines.length > 0 ? `In routines · ${data.routines.length}` : 'In routines'}
-				</h2>
-			{/if}
-			{#if data.routines.length === 0}
-				{#if !readerTeam}
-					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[15px] font-bold text-status">
-						Not in a routine yet
-					</p>
-				{/if}
+		{#if data.myRoutines.length > 0}
+			<h2 class="{SECTION_LABEL} pt-2">In your routines · {data.myRoutines.length}</h2>
+			<ul class={GROUP}>
+				{#each data.myRoutines as use (use.id)}
+					<li>
+						<a
+							href={routineHref(use.id)}
+							class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
+						>
+							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+								<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
+								<span class="text-[13px] text-muted"
+									>{routineUseMeta(use)}{use.loops ? ' · ' : ''}{#if use.loops}
+										<span class="font-bold text-done">loops</span>{/if}</span
+								>
+							</span>
+							<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		{#each [{ title: 'Follows from', items: data.followsFrom }, { title: 'Leads to', items: data.leadsTo }] as list, i (list.title)}
+			<h2 class="{SECTION_LABEL} {i === 0 ? 'pt-2' : 'pt-1.5'}">{list.title}</h2>
+			{#if list.items.length === 0}
+				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">Nothing yet</p>
 			{:else}
 				<ul class={GROUP}>
-					{#each data.routines as use (use.id)}
+					{#each list.items as item (item.id)}
 						<li>
 							<a
-								href={routineHref(use.id)}
-								class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
+								href={figureHref(item.id)}
+								class="flex min-h-12 items-center gap-2.5 py-2 pr-3.5 pl-4"
 							>
-								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-									<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
-									<span class="text-[13px] text-muted"
-										>{routineUseMeta(use)}{use.loops ? ' · ' : ''}{#if use.loops}
-											<span class="font-bold text-done">loops</span>{/if}</span
-									>
-								</span>
-								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-
-			{#if data.myRoutines.length > 0}
-				<h2 class="{SECTION_LABEL} pt-2">In your routines · {data.myRoutines.length}</h2>
-				<ul class={GROUP}>
-					{#each data.myRoutines as use (use.id)}
-						<li>
-							<a
-								href={routineHref(use.id)}
-								class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
-							>
-								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-									<span class="text-[16px] leading-tight font-bold text-ink">{use.name}</span>
-									<span class="text-[13px] text-muted"
-										>{routineUseMeta(use)}{use.loops ? ' · ' : ''}{#if use.loops}
-											<span class="font-bold text-done">loops</span>{/if}</span
-									>
-								</span>
-								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-
-			{#each [{ title: 'Follows from', items: data.followsFrom }, { title: 'Leads to', items: data.leadsTo }] as list, i (list.title)}
-				<h2 class="{SECTION_LABEL} {i === 0 ? 'pt-2' : 'pt-1.5'}">{list.title}</h2>
-				{#if list.items.length === 0}
-					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">Nothing yet</p>
-				{:else}
-					<ul class={GROUP}>
-						{#each list.items as item (item.id)}
-							<li>
-								<a
-									href={figureHref(item.id)}
-									class="flex min-h-12 items-center gap-2.5 py-2 pr-3.5 pl-4"
+								<span class="min-w-0 flex-1 text-[16px] leading-tight font-bold text-ink"
+									>{item.name}</span
 								>
-									<span class="min-w-0 flex-1 text-[16px] leading-tight font-bold text-ink"
-										>{item.name}</span
-									>
-									<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-								</a>
+								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{/each}
+	{/if}
+{/snippet}
+
+{#snippet watched()}
+	<!-- While editing: the recordings with their delete, and the linked sections with Unlink. -->
+	<!-- At the right column's top from `two:`, level with the facts card. -->
+	<section
+		class="flex flex-col gap-3 pt-3.5 {editing ? '' : 'two:pt-0'}"
+		class:hidden={editing && empty && !uploading}
+	>
+		{#if !editing || !empty}
+			<h2 class="{SECTION_LABEL} -mb-1.5">
+				{!empty ? `Recordings · ${variation.recordings.length}` : 'Recordings'}
+			</h2>
+		{/if}
+		{#if variation.recordings.length > 0}
+			<ul class="flex flex-col gap-3">
+				{#each variation.recordings as rec (rec.id)}
+					{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
+					{@const refused = deleteRefusal(rec.id)}
+					{@const held = data.taking?.held[rec.id] ?? false}
+					{@const taken = takeRefusal(rec.id)}
+					{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
+					{#snippet recTake()}{@render takeButton(rec)}{/snippet}
+					<li class="{CLIP} rounded-2xl bg-surface">
+						{#if broken[rec.id] === 'missing'}
+							<VideoProblem
+								title="This file is missing"
+								body="The server has no file for this recording."
+								meta="{day} · {byteSize(rec.sizeBytes)}"
+							>
+								{#snippet action()}
+									{#if editing}{@render trash(rec, day)}{/if}
+								{/snippet}
+							</VideoProblem>
+						{:else if broken[rec.id] === 'unplayable'}
+							<VideoProblem
+								title="Can’t play here"
+								body="This browser can’t play this file. Download it or open it on your phone."
+								meta="{day} · {byteSize(rec.sizeBytes)}"
+							>
+								{#snippet action()}
+									{#if editing}
+										{@render trash(rec, day)}
+									{:else}
+										<a
+											href={resolve('/recordings/[file]', { file: rec.file })}
+											download
+											class={button('tertiary', 'sm')}><Icon name="download" size={18} />Download</a
+										>
+									{/if}
+								{/snippet}
+							</VideoProblem>
+						{:else}
+							<VideoFrame
+								src="/recordings/{rec.file}"
+								sourceUrl={rec.sourceUrl}
+								kind={rec.kind}
+								owner={{ recordingId: rec.id }}
+								title="{figure.name} · {variation.name}"
+								caption={{
+									title: day,
+									meta: data.taking
+										? recordingMeta(held, byteSize(rec.sizeBytes))
+										: byteSize(rec.sizeBytes)
+								}}
+								onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
+								onclosed={() => void refreshWhenSettled()}
+								linking={data.canEdit}
+								canEdit={data.canEdit}
+								action={editing ? recTrash : data.taking && !held ? recTake : undefined}
+								sections={variation.recordingSections[rec.id]}
+							/>
+						{/if}
+						{#if refused}
+							<div class="px-4 pb-3">
+								<Banner kind="error" title="Not deleted">{refused}</Banner>
+							</div>
+						{/if}
+						{#if taken}
+							<div class="px-4 pb-3">
+								<Banner kind="error" title={NOT_TAKEN}>{taken}</Banner>
+							</div>
+						{/if}
+						<!-- Linking is done from the figure or drill a section shows; here a link
+					     can be undone, archived target or not, so the recording can go. -->
+						{#if (variation.recordingSections[rec.id] ?? []).length > 0}
+							<VideoSections
+								sections={variation.recordingSections[rec.id]}
+								src="/recordings/{rec.file}"
+								owner={{ recordingId: rec.id }}
+								linking={data.canEdit}
+								canEdit={data.canEdit}
+								unlink={editing}
+							/>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		<!-- Keyed: the buttons hold upload state, and a step to another variation must not carry it over.
+			     One tree whether or not it sits in the empty card (or is hidden while editing), so a
+			     started upload is not remounted. While a file goes up its own card stands alone. -->
+		{#if !data.canEdit}
+			{#if empty}
+				<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">No recordings yet</p>
+			{/if}
+		{:else}{#key variation.id}
+				<div
+					class={empty && !uploading
+						? 'flex flex-col gap-3 rounded-2xl bg-surface p-4'
+						: 'flex flex-col'}
+					class:hidden={editing && !uploading}
+				>
+					{#if empty && !uploading}
+						<div class="flex items-center gap-3">
+							<span
+								class="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
+								><Icon name="video" size={22} /></span
+							>
+							<span class="flex flex-col gap-0.5">
+								<span class="text-[16px] font-bold">No recordings yet</span>
+								<span class="text-[13px] text-muted">Film it after class, or add a voice note</span>
+							</span>
+						</div>
+					{/if}
+					{#if data.app}
+						<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
+						<AppUploadLink
+							href={uploadLink(
+								{ figure: variation.id },
+								{
+									back: page.url.pathname + page.url.search,
+									name: `${figure.name} · ${variation.name}`
+								}
+							)}
+							label="Add video"
+							kind={empty ? 'primary' : 'secondary'}
+						/>
+						<div class="mt-3">
+							<UploadButton
+								url="/api/figures/{variation.id}/recordings"
+								accept="audio/*"
+								icon="mic"
+								label="Add audio"
+								noun="recording"
+								bind:busy={uploading}
+							/>
+						</div>
+					{:else}
+						<UploadButton
+							url="/api/figures/{variation.id}/recordings"
+							accept="video/*,audio/*"
+							label="Add video or audio"
+							noun="recording"
+							kind={empty ? 'primary' : 'secondary'}
+							size={empty ? 'sm' : 'md'}
+							bind:busy={uploading}
+						/>
+					{/if}
+				</div>
+			{/key}{/if}
+	</section>
+
+	{#if !editing || variation.sections.length > 0}
+		<section class="pt-4">
+			<div class="flex min-h-11 items-center justify-between pr-1.5">
+				<h2 class={SECTION_LABEL}>
+					{variation.sections.length > 0 ? `Sections · ${variation.sections.length}` : 'Sections'}
+				</h2>
+			</div>
+			<div class="mt-1">
+				{#if variation.sections.length === 0}
+					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
+						{data.canEdit ? 'Point at the part of a lesson video that shows this.' : 'None yet.'}
+					</p>
+				{:else}
+					<ul class="flex flex-col gap-2">
+						{#each variation.sections as s (s.linkId)}
+							<li>
+								<SectionCard section={s} focusKey="section-{s.linkId}" canEdit={data.canEdit}>
+									{#snippet unlink()}
+										<!-- Unlinking is an edit, like deleting a recording. -->
+										{#if editing}
+											<form
+												method="POST"
+												action="?/unlinkSection"
+												use:enhance={unlinkSection(s.linkId)}
+											>
+												<input type="hidden" name="linkId" value={s.linkId} />
+												<button
+													type="submit"
+													class={button('tertiary', 'sm')}
+													aria-label="Unlink {spotLabel(
+														s.spot
+													)} from {figure.name} · {variation.name}"
+													aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
+													>Unlink</button
+												>
+											</form>
+										{/if}
+									{/snippet}
+								</SectionCard>
 							</li>
 						{/each}
 					</ul>
 				{/if}
-			{/each}
-		{/if}
-
-		<!-- While editing: the recordings with their delete, and the linked sections with Unlink. -->
-		<section class="flex flex-col gap-3 pt-3.5" class:hidden={editing && empty && !uploading}>
-			{#if !editing || !empty}
-				<h2 class="{SECTION_LABEL} -mb-1.5">
-					{!empty ? `Recordings · ${variation.recordings.length}` : 'Recordings'}
-				</h2>
-			{/if}
-			{#if variation.recordings.length > 0}
-				<ul class="flex flex-col gap-3">
-					{#each variation.recordings as rec (rec.id)}
-						{@const day = recordingDay(localDay(rec.createdAt, timezone), today)}
-						{@const refused = deleteRefusal(rec.id)}
-						{@const held = data.taking?.held[rec.id] ?? false}
-						{@const taken = takeRefusal(rec.id)}
-						{#snippet recTrash()}{@render trash(rec, day)}{/snippet}
-						{#snippet recTake()}{@render takeButton(rec)}{/snippet}
-						<li class="{CLIP} rounded-2xl bg-surface">
-							{#if broken[rec.id] === 'missing'}
-								<VideoProblem
-									title="This file is missing"
-									body="The server has no file for this recording."
-									meta="{day} · {byteSize(rec.sizeBytes)}"
-								>
-									{#snippet action()}
-										{#if editing}{@render trash(rec, day)}{/if}
-									{/snippet}
-								</VideoProblem>
-							{:else if broken[rec.id] === 'unplayable'}
-								<VideoProblem
-									title="Can’t play here"
-									body="This browser can’t play this file. Download it or open it on your phone."
-									meta="{day} · {byteSize(rec.sizeBytes)}"
-								>
-									{#snippet action()}
-										{#if editing}
-											{@render trash(rec, day)}
-										{:else}
-											<a
-												href={resolve('/recordings/[file]', { file: rec.file })}
-												download
-												class={button('tertiary', 'sm')}
-												><Icon name="download" size={18} />Download</a
-											>
-										{/if}
-									{/snippet}
-								</VideoProblem>
-							{:else}
-								<VideoFrame
-									src="/recordings/{rec.file}"
-									sourceUrl={rec.sourceUrl}
-									kind={rec.kind}
-									owner={{ recordingId: rec.id }}
-									title="{figure.name} · {variation.name}"
-									caption={{
-										title: day,
-										meta: data.taking
-											? recordingMeta(held, byteSize(rec.sizeBytes))
-											: byteSize(rec.sizeBytes)
-									}}
-									onproblem={(p) => (broken = { ...broken, [rec.id]: p })}
-									onclosed={() => void refreshWhenSettled()}
-									linking={data.canEdit}
-									canEdit={data.canEdit}
-									action={editing ? recTrash : data.taking && !held ? recTake : undefined}
-									sections={variation.recordingSections[rec.id]}
-								/>
-							{/if}
-							{#if refused}
-								<div class="px-4 pb-3">
-									<Banner kind="error" title="Not deleted">{refused}</Banner>
-								</div>
-							{/if}
-							{#if taken}
-								<div class="px-4 pb-3">
-									<Banner kind="error" title={NOT_TAKEN}>{taken}</Banner>
-								</div>
-							{/if}
-							<!-- Linking is done from the figure or drill a section shows; here a link
-					     can be undone, archived target or not, so the recording can go. -->
-							{#if (variation.recordingSections[rec.id] ?? []).length > 0}
-								<VideoSections
-									sections={variation.recordingSections[rec.id]}
-									src="/recordings/{rec.file}"
-									owner={{ recordingId: rec.id }}
-									linking={data.canEdit}
-									canEdit={data.canEdit}
-									unlink={editing}
-								/>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			<!-- Keyed: the buttons hold upload state, and a step to another variation must not carry it over.
-			     One tree whether or not it sits in the empty card (or is hidden while editing), so a
-			     started upload is not remounted. While a file goes up its own card stands alone. -->
-			{#if !data.canEdit}
-				{#if empty}
-					<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">No recordings yet</p>
+				{#if failed('unlinkSection')}
+					<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
 				{/if}
-			{:else}{#key variation.id}
-					<div
-						class={empty && !uploading
-							? 'flex flex-col gap-3 rounded-2xl bg-surface p-4'
-							: 'flex flex-col'}
-						class:hidden={editing && !uploading}
-					>
-						{#if empty && !uploading}
-							<div class="flex items-center gap-3">
-								<span
-									class="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent-soft text-accent-text"
-									><Icon name="video" size={22} /></span
-								>
-								<span class="flex flex-col gap-0.5">
-									<span class="text-[16px] font-bold">No recordings yet</span>
-									<span class="text-[13px] text-muted"
-										>Film it after class, or add a voice note</span
-									>
-								</span>
-							</div>
-						{/if}
-						{#if data.app}
-							<!-- Video goes to the app to compress; audio is small and stays a page upload. -->
-							<AppUploadLink
-								href={uploadLink(
-									{ figure: variation.id },
-									{
-										back: page.url.pathname + page.url.search,
-										name: `${figure.name} · ${variation.name}`
-									}
-								)}
-								label="Add video"
-								kind={empty ? 'primary' : 'secondary'}
-							/>
-							<div class="mt-3">
-								<UploadButton
-									url="/api/figures/{variation.id}/recordings"
-									accept="audio/*"
-									icon="mic"
-									label="Add audio"
-									noun="recording"
-									bind:busy={uploading}
-								/>
-							</div>
-						{:else}
-							<UploadButton
-								url="/api/figures/{variation.id}/recordings"
-								accept="video/*,audio/*"
-								label="Add video or audio"
-								noun="recording"
-								kind={empty ? 'primary' : 'secondary'}
-								size={empty ? 'sm' : 'md'}
-								bind:busy={uploading}
-							/>
-						{/if}
+				<!-- Links are added while reading; editing only takes them away. -->
+				{#if !editing && data.canEdit}
+					<div class="mt-2">
+						<PickerOpener label="Link a section…" onclick={() => (linkingSection = true)} />
 					</div>
-				{/key}{/if}
+				{/if}
+			</div>
 		</section>
+	{/if}
 
-		{#if !editing || variation.sections.length > 0}
-			<section class="pt-4">
-				<div class="flex min-h-11 items-center justify-between pr-1.5">
-					<h2 class={SECTION_LABEL}>
-						{variation.sections.length > 0 ? `Sections · ${variation.sections.length}` : 'Sections'}
-					</h2>
-				</div>
-				<div class="mt-1">
-					{#if variation.sections.length === 0}
-						<p class="rounded-2xl bg-surface px-4 py-3.5 text-[14px] text-muted">
-							{data.canEdit ? 'Point at the part of a lesson video that shows this.' : 'None yet.'}
-						</p>
-					{:else}
-						<ul class="flex flex-col gap-2">
-							{#each variation.sections as s (s.linkId)}
-								<li>
-									<SectionCard section={s} focusKey="section-{s.linkId}" canEdit={data.canEdit}>
-										{#snippet unlink()}
-											<!-- Unlinking is an edit, like deleting a recording. -->
-											{#if editing}
-												<form
-													method="POST"
-													action="?/unlinkSection"
-													use:enhance={unlinkSection(s.linkId)}
-												>
-													<input type="hidden" name="linkId" value={s.linkId} />
-													<button
-														type="submit"
-														class={button('tertiary', 'sm')}
-														aria-label="Unlink {spotLabel(
-															s.spot
-														)} from {figure.name} · {variation.name}"
-														aria-describedby={failed('unlinkSection') ? 'unlink-error' : undefined}
-														>Unlink</button
-													>
-												</form>
-											{/if}
-										{/snippet}
-									</SectionCard>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-					{#if failed('unlinkSection')}
-						<FieldError id="unlink-error" message={failed('unlinkSection') ?? ''} />
-					{/if}
-					<!-- Links are added while reading; editing only takes them away. -->
-					{#if !editing && data.canEdit}
-						<div class="mt-2">
-							<PickerOpener label="Link a section…" onclick={() => (linkingSection = true)} />
-						</div>
-					{/if}
-				</div>
-			</section>
-		{/if}
+	{#if !editing}
+		<section class="pt-4">
+			<h2 class={SECTION_LABEL}>
+				{data.links.length > 0 ? `Links · ${data.links.length}` : 'Links'}
+			</h2>
+			<div class="mt-1">
+				{#if data.canEdit}
+					<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
+				{:else}
+					<LinkList links={data.links} />
+				{/if}
+			</div>
+		</section>
+	{/if}
+{/snippet}
 
-		{#if !editing}
-			<section class="pt-4">
-				<h2 class={SECTION_LABEL}>
-					{data.links.length > 0 ? `Links · ${data.links.length}` : 'Links'}
-				</h2>
-				<div class="mt-1">
-					{#if data.canEdit}
-						<LinksEditor links={data.links} canSave message={linkFailure} entered={linkEntered} />
-					{:else}
-						<LinkList links={data.links} />
-					{/if}
-				</div>
-			</section>
-		{/if}
-
-		{#if !editing}
-			{#if data.taughtIn.length > 0}
-				<h2 class="{SECTION_LABEL} pt-3.5">Taught in · {data.taughtIn.length}</h2>
-				<ul class={GROUP}>
-					{#each data.taughtIn as lesson (lesson.id)}
-						<li>
-							<a
-								href={resolve('/[dance]/lessons/[id]', { dance: slug, id: String(lesson.id) })}
-								class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
-							>
-								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-									<span class="text-[16px] leading-tight font-bold text-ink">{lesson.title}</span>
-									<span class="text-[13px] text-muted">{weekdayDayMonth(lesson.lessonDay)}</span>
-								</span>
-								<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-							</a>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-
-			<!-- What changes where the variation lives, kept at the end, out of the way. An editor's only. -->
-			{#if data.canEdit}
-				<div class="mt-[18px] mb-[10px] h-px bg-hairline"></div>
-				<div class={GROUP}>
-					<button
-						type="button"
-						aria-haspopup="dialog"
-						onclick={() => (moving = true)}
-						class="flex min-h-16 w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+{#snippet aboutEnd()}
+	{#if data.taughtIn.length > 0}
+		<h2 class="{SECTION_LABEL} pt-3.5">Taught in · {data.taughtIn.length}</h2>
+		<ul class={GROUP}>
+			{#each data.taughtIn as lesson (lesson.id)}
+				<li>
+					<a
+						href={resolve('/[dance]/lessons/[id]', { dance: slug, id: String(lesson.id) })}
+						class="flex min-h-[60px] items-center gap-2.5 py-2 pr-3.5 pl-4"
 					>
-						<span
-							class="flex size-10 flex-none items-center justify-center rounded-full bg-chip text-ink-2"
-							><Icon name="move-to" size={22} /></span
-						>
 						<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-							<span class="text-[16px] leading-tight font-bold text-ink"
-								>Move {variation.name} to…</span
-							>
-							<span class="text-[13px] text-muted">A new move of its own, or another move</span>
+							<span class="text-[16px] leading-tight font-bold text-ink">{lesson.title}</span>
+							<span class="text-[13px] text-muted">{weekdayDayMonth(lesson.lessonDay)}</span>
 						</span>
 						<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
-					</button>
-				</div>
-				<button
-					type="button"
-					aria-haspopup="dialog"
-					onclick={() => (archiving = true)}
-					class={button('danger-text', 'md', true)}
-					><Icon name="trash" size={20} />Archive {variation.name}</button
+					</a>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+
+	<!-- What changes where the variation lives, kept at the end, out of the way. An editor's only. -->
+	{#if data.canEdit}
+		<div class="mt-[18px] mb-[10px] h-px bg-hairline"></div>
+		<div class={GROUP}>
+			<button
+				type="button"
+				aria-haspopup="dialog"
+				onclick={() => (moving = true)}
+				class="flex min-h-16 w-full cursor-pointer items-center gap-3 py-2 pr-3.5 pl-4 text-left"
+			>
+				<span
+					class="flex size-10 flex-none items-center justify-center rounded-full bg-chip text-ink-2"
+					><Icon name="move-to" size={22} /></span
 				>
-				<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
-			{/if}
-			<!-- The variation bar is pinned over the page's end; this lets the caption clear it. -->
-			<div
-				aria-hidden="true"
-				class={data.makeMine
-					? 'h-[calc(8.5rem+var(--pin-safe,var(--safe-bottom)))]'
-					: 'h-[calc(4.5rem+var(--pin-safe,var(--safe-bottom)))]'}
-			></div>
-		{/if}
-	</div>
-</Screen>
+				<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="text-[16px] leading-tight font-bold text-ink">Move {variation.name} to…</span
+					>
+					<span class="text-[13px] text-muted">A new move of its own, or another move</span>
+				</span>
+				<span class="text-chevron"><Icon name="chevron-right" size={20} /></span>
+			</button>
+		</div>
+		<button
+			type="button"
+			aria-haspopup="dialog"
+			onclick={() => (archiving = true)}
+			class={button('danger-text', 'md', true)}
+			><Icon name="trash" size={20} />Archive {variation.name}</button
+		>
+		<p class="px-4 text-center text-[13px] text-muted">{archive.caption}</p>
+	{/if}
+{/snippet}
 
 <!-- A reader's pinned row (board C1 p1): Edit makes the figure theirs; Practise logs or starts practising it. -->
 {#snippet readerActions()}
@@ -1010,6 +1064,7 @@
 		failed={failed('createVariation')}
 		canEdit={data.canEdit}
 		actions={data.makeMine ? readerActions : undefined}
+		bind:adding={addingFigure}
 	/>
 {/if}
 
