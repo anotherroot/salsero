@@ -677,14 +677,8 @@
 
 {#snippet practise()}
 	<!-- The player picks the song: count only, or any of this dance's ready ones. A reader's
-	     Practise is pinned at the pane's foot on the desktop, beside Edit. -->
-	{#if data.makeMine}
-		<span class="contents desk:hidden"
-			><HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} /></span
-		>
-	{:else}
-		<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
-	{/if}
+	     Practise is pinned at the pane's foot on the desktop, beside Edit (`heroDesk`). -->
+	<HeroCard title="Practise" meta="Count only or with a song" href={practiseHref} />
 {/snippet}
 
 <Screen
@@ -700,6 +694,7 @@
 				? readerActions
 				: undefined}
 	hero={selecting || editing || !danceable ? undefined : practise}
+	heroDesk={!data.makeMine}
 >
 	<div
 		class={editing
@@ -1031,17 +1026,20 @@
 	     figure pins them); the phone has the band's pencil and the Practise hero. -->
 	<div class="hidden desk:contents">
 		<BottomBar>
-			<div class="grid gap-2 {danceable ? 'grid-cols-2' : ''}">
+			<!-- Edit as wide as its words, Practise the rest (board "A group's routine"). -->
+			<div class="flex gap-2">
 				<button
 					type="button"
-					class={button('secondary', 'md', true)}
+					class={button('secondary', 'md', !danceable)}
 					aria-haspopup="dialog"
 					onclick={() => (makingMine = true)}><Icon name="pencil" size={20} />Edit</button
 				>
 				{#if danceable}
-					<a href={practiseHref} class={button('primary', 'md', true)}
-						><Icon name="play" size={20} />Practise</a
-					>
+					<div class="min-w-0 flex-1">
+						<a href={practiseHref} class={button('primary', 'md', true)}
+							><Icon name="play" size={20} />Practise</a
+						>
+					</div>
 				{/if}
 			</div>
 		</BottomBar>

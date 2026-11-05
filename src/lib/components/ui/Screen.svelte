@@ -19,6 +19,7 @@
 		extra,
 		below,
 		hero,
+		heroDesk = true,
 		children
 	}: {
 		title: string;
@@ -50,6 +51,11 @@
 		 */
 		below?: Snippet;
 		hero?: Snippet;
+		/**
+		 * false: the hero is the phone's only (the desktop pins its action elsewhere, as a
+		 * group routine's Practise), so its wrapper is not drawn there either.
+		 */
+		heroDesk?: boolean;
 		children: Snippet;
 	} = $props();
 
@@ -161,6 +167,8 @@
 	class:pt-5={!hero}
 	style="--page-w: {PAGE_WIDTH[width]}px"
 >
-	{#if hero}<div class="-mt-[42px] mb-[10px] desk:mt-0">{@render hero()}</div>{/if}
+	{#if hero}<div class="-mt-[42px] mb-[10px] desk:mt-0{heroDesk ? '' : ' desk:hidden'}">
+			{@render hero()}
+		</div>{/if}
 	{@render children()}
 </svelte:element>
