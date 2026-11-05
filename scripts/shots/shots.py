@@ -1,6 +1,7 @@
 """Screenshot rig, the Python side.
 
   shots.py shoot --db DB --base URL --out DIR --size WxH [--theme light|dark] --pages FILE [--group ID] [--viewport] [--no-session] [--unnamed]
+  shots.py scene --db DB --base URL --out DIR --size WxH [--theme light|dark] [--group ID] [--viewport] --scenes NAMES|all
   shots.py diff DIR_A DIR_B
 
 `shoot` fills the placeholders in the pages file from the db, inserts a session row,
@@ -8,10 +9,14 @@ and shoots every page. `diff` prints `<slug> <changed-pixels>` per page, exit 1 
 """
 import argparse
 import hashlib
+import importlib.util
 import os
 import re
+import shutil
 import sqlite3
+import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -34,6 +39,17 @@ STYLE = (
     "[data-shots-mask]{visibility:hidden!important}"
     "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
 )
+
+
+def _scenes_mod():
+    # python3 -I has no script directory on sys.path: load scenes.py by path, once
+    if "scenes" in sys.modules:
+        return sys.modules["scenes"]
+    spec = importlib.util.spec_from_file_location("scenes", os.path.join(os.path.dirname(os.path.abspath(__file__)), "scenes.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["scenes"] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def first(db, sql, args=()):
@@ -65,6 +81,11 @@ def placeholders(db):
         # the invite the rig inserts into the copy (shoot), so /join shows its form
         "invite": INVITE,
     }
+    for fn in _scenes_mod().load_ext()[1]:
+        for k, val in fn(db, admin, d).items():
+            if k in v:
+                sys.exit(f"shots: placeholder {k} is defined twice")
+            v[k] = val
     return admin, v
 
 
@@ -77,9 +98,8 @@ def slug(line):
     return s or "root"
 
 
-def shoot(a):
-    from playwright.sync_api import sync_playwright
-
+def prepare(a):
+    """Insert the session and the invite into the db copy (and unname the admin if asked); return the placeholders."""
     db = sqlite3.connect(a.db)
     admin, v = placeholders(db)
     now = max(int(time.time() * 1000), int(INSTANT.timestamp() * 1000))
@@ -94,11 +114,18 @@ def shoot(a):
         "insert into invites (id, code_hash, created_by, created_at, expires_at) values ('shots', ?, ?, ?, ?)",
         (hashlib.sha256(INVITE.encode()).hexdigest(), admin, now, now + 86_400_000),
     )
-    if a.unnamed:
+    if getattr(a, "unnamed", False):
         # a person made before names: every page sends them to /welcome
         db.execute("update users set first_name = null, last_name = null where id = ?", (admin,))
     db.commit()
     db.close()
+    return v
+
+
+def shoot(a):
+    from playwright.sync_api import sync_playwright
+
+    v = prepare(a)
 
     w, h = (int(x) for x in a.size.split("x"))
     lines = [l.strip() for l in open(a.pages) if l.strip() and not l.startswith("#")]
@@ -161,6 +188,88 @@ def shoot(a):
     return 0
 
 
+def _wav_clips(tmp):
+    """The count clips are AAC (.m4a), which Playwright's Chromium cannot decode: convert them once to WAV and
+    serve those in their place (the rig only; the app is untouched). Returns {name.m4a: wav bytes}."""
+    clips = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "static", "clips")
+    ffmpeg = [shutil.which("ffmpeg")] if shutil.which("ffmpeg") else ["nix", "run", "nixpkgs#ffmpeg", "--"]
+    out = {}
+    for f in sorted(os.listdir(clips)):
+        if not f.endswith(".m4a"):
+            continue
+        wav = os.path.join(tmp, f[:-4] + ".wav")
+        subprocess.run(ffmpeg + ["-v", "error", "-y", "-i", os.path.join(clips, f), wav], check=True, timeout=120)
+        out[f] = open(wav, "rb").read()
+    return out
+
+
+def scene(a):
+    from playwright.sync_api import sync_playwright
+
+    v = prepare(a)
+    all_scenes, _ = _scenes_mod().load_ext()
+    w, h = (int(x) for x in a.size.split("x"))
+    if a.scenes == "all":
+        names = [n for n, sc in all_scenes.items() if not (sc.desk and w < 1024)]
+    else:
+        names = [n.strip() for n in a.scenes.split(",") if n.strip()]
+        unknown = [n for n in names if n not in all_scenes]
+        if unknown:
+            print(f"shots: unknown scene(s): {', '.join(unknown)}", file=sys.stderr)
+            return 1
+    os.makedirs(a.out, exist_ok=True)
+    bad = 0
+    clipdir = tempfile.mkdtemp(prefix="shots-clips-")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=[
+            "--use-fake-device-for-media-stream",
+            "--use-fake-ui-for-media-stream",
+            "--autoplay-policy=no-user-gesture-required",
+        ])
+        ctx = browser.new_context(
+            viewport={"width": w, "height": h},
+            color_scheme=a.theme,
+            device_scale_factor=1,
+            timezone_id="Europe/Ljubljana",
+            permissions=["microphone"],
+        )
+        ctx.clock.set_fixed_time(INSTANT)
+        ctx.add_cookies([{"name": "salsa_session", "value": "shots", "url": a.base}])
+        if a.group is not None:
+            ctx.add_cookies([{"name": f"group_{DANCE}", "value": str(a.group), "url": a.base}])
+        wavs = _wav_clips(clipdir)
+        ctx.route(re.compile(r"/clips/[^/]+\.m4a$"), lambda r: r.fulfill(
+            body=wavs[r.request.url.rsplit("/", 1)[1]], content_type="audio/wav") if r.request.url.rsplit("/", 1)[1] in wavs else r.continue_())
+        for name in names:
+            sc = all_scenes[name]
+            missing = [n for n in re.findall(r"\{(\w+)\}", sc.path) if v.get(n) is None]
+            if missing:
+                print(f"skip {name} (no {', '.join(missing)} in the db)")
+                continue
+            path = re.sub(r"\{(\w+)\}", lambda m: str(v[m.group(1)]), sc.path)
+            page = ctx.new_page()
+            try:
+                page.goto(a.base + path, wait_until="networkidle", timeout=60000)
+                sc.act(page)
+                page.wait_for_load_state("networkidle")
+                page.wait_for_timeout(300)
+                page.add_style_tag(content=STYLE)
+                page.evaluate(MASK_JS)
+                page.screenshot(path=os.path.join(a.out, f"scene-{name}.png"), full_page=not a.viewport, mask=sc.masks(page))
+                print(f"ok  {name} {path}")
+            except Exception as e:  # an act that fails is a failure, not a skip
+                bad += 1
+                print(f"BAD {name} {path}: {e}")
+            finally:
+                page.close()
+        browser.close()
+    shutil.rmtree(clipdir, ignore_errors=True)
+    if bad:
+        print(f"shots: {bad} scene(s) not ok", file=sys.stderr)
+        return 1
+    return 0
+
+
 def diff(a):
     from PIL import Image, ImageChops
 
@@ -214,11 +323,20 @@ def main():
     s.add_argument("--viewport", action="store_true", help="shoot the window only (desktop: the band row and side are fixed)")
     s.add_argument("--no-session", action="store_true", help="no session cookie: the signed-out pages")
     s.add_argument("--unnamed", action="store_true", help="the admin has no name in the copy, so pages send them to /welcome")
+    c = sub.add_parser("scene")
+    c.add_argument("--db", required=True)
+    c.add_argument("--base", required=True)
+    c.add_argument("--out", required=True)
+    c.add_argument("--size", required=True)
+    c.add_argument("--theme", default="light", choices=["light", "dark"])
+    c.add_argument("--group", type=int)
+    c.add_argument("--viewport", action="store_true")
+    c.add_argument("--scenes", required=True, help="comma list of scene names, or all")
     d = sub.add_parser("diff")
     d.add_argument("a")
     d.add_argument("b")
     a = ap.parse_args()
-    sys.exit(shoot(a) if a.cmd == "shoot" else diff(a))
+    sys.exit({"shoot": shoot, "scene": scene, "diff": diff}[a.cmd](a))
 
 
 if __name__ == "__main__":

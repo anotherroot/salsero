@@ -3,7 +3,7 @@
 Shoots every page in `pages.txt` from a throwaway copy of a database, so a change can be compared
 with a baseline (the phone must not change) or with a design board.
 
-    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed]
+    scripts/shots/shots.sh <db-copy> <out-dir> <width>x<height> [--theme light|dark] [--pages FILE] [--group ID] [--viewport] [--no-session] [--unnamed] [--scenes NAMES]
     scripts/shots/shots.py diff <dirA> <dirB>      # run under the Playwright command below
 
 `shots.sh` copies the db to a `mktemp -d` (never `.data`), runs `npx vite dev` on a free port inside
@@ -40,6 +40,16 @@ Change the file, and re-take every baseline.
 Unstable parts are hidden by `shots.py` (CSS `visibility:hidden` on `[data-shots-mask]`, set by the rig):
 the QR on `/app` (it encodes the random port) and the admin's "... GB free" line. Animations and the
 caret are off. Add new machine-dependent bits to `MASK_JS`.
+
+## Scenes
+
+A scene is a page after some clicks (Running, a popup, a dialog). `shots.sh ... --scenes NAMES` (a comma list, or
+`all`) runs `shots.py scene` in place of `shoot`, passing `--group` and `--viewport` on; output is
+`<out>/scene-<name>.png`. Scenes live in `ext_*.py` files (`SCENES: dict[str, Scene]`, `Scene` in `scenes.py`:
+path, `act(page)`, `masks(page)` returning Playwright locators hidden in the shot, `desk` for scenes shot
+only at widths of 1024 or more) with optional `placeholders(db, admin, dance)` that page lines can use too.
+A scene whose placeholder has no row prints `skip <name>`; an `act` that throws is a failure.
+Chromium gets a fake microphone and may autoplay; the AAC count clips, which its Chromium cannot decode, are served as WAV (converted with ffmpeg at the start). Each plan keeps its own `ext_<name>.py`.
 
 ## Playwright
 
