@@ -53,4 +53,10 @@ describe('player save', () => {
 		await expect(save({ rating: '4' })).rejects.toMatchObject({ status: 303 });
 		expect(db.select().from(sets).all()).toMatchObject([{ rating: 4 }]);
 	});
+
+	it('redirects to Today with the new set in ?logged, for the Undo toast', async () => {
+		const err = await save({ rating: '4' }).catch((e) => e);
+		const [row] = db.select().from(sets).all();
+		expect(err).toMatchObject({ status: 303, location: `/salsa?logged=${row.id}` });
+	});
 });

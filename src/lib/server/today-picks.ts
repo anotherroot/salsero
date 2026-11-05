@@ -61,7 +61,8 @@ export function picksFor(db: Db, wall: Wall, day: string): DayPick[] {
  * Pick exercises for a day. Refuses (`PickRefused`, nothing written) one outside
  * the wall, archived, or (for add/next) paused. One already picked as add/next
  * today is ignored, so a double tap makes no second row. An add/next takes the
- * exercise's skip away, a skip its add/next. Returns the ids created.
+ * exercise's skip away; a skip keeps the add/next (the skip already hides the
+ * exercise, and its Undo brings the pick back). Returns the ids created.
  */
 export function addPicks(
 	db: Db,
@@ -99,7 +100,9 @@ export function addPicks(
 				kind === 'skip' ? p.kind === 'skip' : p.kind === 'add' || p.kind === 'next'
 			);
 			if (same) continue;
-			for (const p of existing) tx.delete(todayPicks).where(eq(todayPicks.id, p.id)).run();
+			// A skip keeps the day's add/next (it already hides the exercise; Undo brings the pick back).
+			if (kind !== 'skip')
+				for (const p of existing) tx.delete(todayPicks).where(eq(todayPicks.id, p.id)).run();
 			const row = tx
 				.insert(todayPicks)
 				.values({ userId: wall.userId, exerciseId: id, day, kind, createdAt: now })

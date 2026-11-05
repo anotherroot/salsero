@@ -162,8 +162,9 @@ export const actions: Actions = {
 		// sheet only ever offers this dance's exercises, and a posted id must not
 		// be able to reach past that.
 		requireExerciseInWall(getDb(), wallOf(params, locals), exerciseId);
+		let setId: number;
 		try {
-			logSet(getDb(), {
+			setId = logSet(getDb(), {
 				exerciseId,
 				doneAt: Date.now(),
 				durationS,
@@ -175,10 +176,11 @@ export const actions: Actions = {
 				// dropped rather than costing the user the whole session — and it
 				// must never be reported as a problem with their note.
 				playerJson: run ?? null
-			});
+			}).id;
 		} catch {
 			return fail(400, { message: 'That exercise no longer exists.', ...entered });
 		}
-		throw redirect(303, `/${params.dance}`);
+		// Today shows the "back in …" toast with Undo for this set, then drops the param.
+		throw redirect(303, `/${params.dance}?logged=${setId}`);
 	}
 };

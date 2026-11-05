@@ -10,7 +10,8 @@ import {
 	pastGroups,
 	rowMeta,
 	tileTone,
-	todayHero
+	todayHero,
+	undoLogMessage
 } from './today';
 
 const TODAY = '2026-11-05'; // a Thursday
@@ -240,5 +241,16 @@ describe('deletedGroupName', () => {
 		expect(deletedGroupName('Tue 3 Nov', 'Salsa nadaljevalna')).toBe(
 			'Tue 3 Nov · Salsa nadaljevalna (deleted)'
 		);
+	});
+});
+describe('undoLogMessage', () => {
+	it('names the exercise and when it comes back', () => {
+		expect(undoLogMessage('Basic step on 1', 5)).toBe('Basic step on 1 · back in 5 days');
+		expect(undoLogMessage('Basic step on 1', 21)).toBe('Basic step on 1 · back in 3 weeks');
+		expect(undoLogMessage('Basic step on 1', 75)).toBe('Basic step on 1 · back in 3 months');
+	});
+
+	it('says tomorrow for a gap of one day', () => {
+		expect(undoLogMessage('Setenta', 1)).toBe('Setenta · back tomorrow');
 	});
 });

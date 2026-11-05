@@ -2,6 +2,8 @@
 	import { onMount, untrack } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { afterNavigate, goto, invalidate, onNavigate } from '$app/navigation';
+	import { actAt } from '$lib/act';
+	import { focusAfterRemoval } from '$lib/focus';
 	import { desk } from '$lib/nav/desk.svelte';
 	import { page } from '$app/state';
 	import { listOf } from '$lib/nav/pane';
@@ -19,10 +21,9 @@
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import TodayBar from '$lib/components/today/TodayBar.svelte';
-	import { actAt } from '$lib/act';
 	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
 	import type { ExerciseItem } from '$lib/types';
-	import { todayHero } from '$lib/exercises/today';
+	import { todayHero, undoLogMessage } from '$lib/exercises/today';
 	import { dayTotals, defaultOpen, sessionLine } from '$lib/exercises/today-pane';
 	import { setTodayPane } from '$lib/components/today/today-context';
 	import { dropOpener, listOpener } from '$lib/nav/trail.svelte';
@@ -307,6 +308,87 @@
 			: null
 	);
 
+	const say = (message: string) => (toast = { id: ++toastSeq, message });
+
+	/**
+	 * "Not today": the exercise leaves Today until tomorrow (a skip pick). The toast
+	 * and its Undo come only once the server has said yes; a refusal says why and
+	 * leaves the row where it was. True when it was skipped.
+	 */
+	async function notToday(exerciseId: number): Promise<boolean> {
+		const row = day.rows.find((r) => r.exercise.id === exerciseId);
+		if (!row || row.kind === 'done') return false;
+		const keys = day.rows.map((r) => `today-row-${r.exercise.id}`);
+		const result = await actAt(`/${dance}`, 'pick', { exerciseId, kind: 'skip' });
+		const refused = refusalMessage(result, 'Could not skip it. Try again.');
+		if (refused) {
+			say(refused);
+			return false;
+		}
+		const pickId = (result as { data?: { pickIds?: number[] } }).data?.pickIds?.[0];
+		toast =
+			pickId === undefined
+				? { id: ++toastSeq, message: `${row.exercise.name} · Not today` }
+				: undoToast(
+						++toastSeq,
+						`${row.exercise.name} · Not today`,
+						() => (toast = null),
+						async () => {
+							const undone = await actAt(`/${dance}`, 'unpick', { pickId });
+							const m = refusalMessage(undone, 'Could not put it back. Try again.');
+							if (m) say(m);
+						}
+					);
+		void focusAfterRemoval(keys, `today-row-${exerciseId}`, 'today-row-none');
+		return true;
+	}
+
+	/**
+	 * A set was logged today (any popup or pane, or the player's redirect): the
+	 * toast "<name> · back in <gap>" with Undo, which deletes that very set. The
+	 * gap is the reloaded list's (the log's own `update` has run by now).
+	 */
+	function undoable(exerciseId: number, setId: number | null) {
+		if (setId === null) return;
+		const row = day.rows.find((r) => r.exercise.id === exerciseId);
+		if (!row) return;
+		toast = undoToast(
+			++toastSeq,
+			undoLogMessage(row.exercise.name, row.state.gap),
+			() => (toast = null),
+			async () => {
+				const result = await actAt(`/${dance}`, 'deleteSet', { setId });
+				const m = refusalMessage(result, 'Could not undo that set. Try again.');
+				if (m) say(m);
+			}
+		);
+	}
+
+	/*
+	 * The player's Save set lands here with `?logged=<setId>`: the same toast, and
+	 * the param is dropped so a reload does not show it again. The router cannot
+	 * rewrite the URL until the first navigation has settled, so the id is taken
+	 * (and the URL cleaned) in `afterNavigate`, and the toast follows from it.
+	 */
+	let loggedParam = $state<string | null>(null);
+	afterNavigate(() => {
+		const id = page.url.searchParams.get('logged');
+		if (id === null) return;
+		loggedParam = id;
+		const clean = new URL(page.url);
+		clean.searchParams.delete('logged');
+		// `replaceState` throws on the first load (the router is not up yet); `goto` waits for it.
+		// eslint-disable-next-line svelte/no-navigation-without-resolve -- the same page, one param fewer
+		void goto(clean, { replaceState: true, keepFocus: true, noScroll: true });
+	});
+	$effect(() => {
+		const id = loggedParam;
+		if (id === null) return;
+		loggedParam = null;
+		const set = data.list.todaySets.find((s) => String(s.id) === id);
+		if (set) untrack(() => undoable(set.exerciseId, set.id));
+	});
+
 	/** A set was logged, in the popup or the pane: the session's tally and walk. */
 	function logged(durationS: number | null) {
 		if (!sessionOn) return;
@@ -350,6 +432,13 @@
 			return `${current}:${bumpKey}`;
 		},
 		logged,
+		undoable,
+		canSkip: (id) => day.rows.some((r) => r.exercise.id === id && r.kind !== 'done'),
+		notToday,
+		get toast() {
+			return toast;
+		},
+		dismissToast: () => (toast = null),
 		pagePopup(on) {
 			pageLogging = on;
 		}
@@ -471,7 +560,8 @@
 			appUpdate={data.appUpdate}
 			onlog={(id) => (openId = id)}
 			oncreate={() => (creating = true)}
-			onrefused={(message) => (toast = { id: ++toastSeq, message })}
+			onrefused={say}
+			onskip={(id) => void notToday(id)}
 		/>
 	{/if}
 {/snippet}
@@ -527,7 +617,11 @@
 				schedule={data.list.schedulesAtStart[open.id]}
 				today={data.list.today}
 				{session}
-				onlogged={logged}
+				outer={{ toast, ondismiss: () => (toast = null) }}
+				onlogged={(d, setId) => {
+					logged(d);
+					undoable(open.id, setId);
+				}}
 				onclose={() => (openId = null)}
 			/>
 		{/key}

@@ -20,7 +20,8 @@ import { eq } from 'drizzle-orm';
 import { openDb, type Db } from '$lib/server/db';
 import { exercises, todayPicks, users } from '$lib/server/db/schema';
 import { createCustomExercise } from '$lib/server/exercises';
-import { setDailyCount } from '$lib/server/today-picks';
+import { dayInputOf, setDailyCount } from '$lib/server/today-picks';
+import { dayList } from '$lib/schedule/today-list';
 import { U1_SALSA } from '$lib/server/test-walls';
 import { actions } from './(today)/+page.server';
 
@@ -71,7 +72,10 @@ describe('pick', () => {
 		expect(r).toEqual({ action: 'pick', pickIds: [expect.any(Number)] });
 		expect(allPicks().map((p) => [p.exerciseId, p.kind])).toEqual([[a, 'add']]);
 		await call('pick', U1, { exerciseId: String(a), kind: 'skip' });
-		expect(allPicks().map((p) => [p.exerciseId, p.kind])).toEqual([[a, 'skip']]);
+		expect(allPicks().map((p) => [p.exerciseId, p.kind])).toEqual([
+			[a, 'add'],
+			[a, 'skip']
+		]);
 	});
 
 	it('refuses kind next and an unknown kind with a 400, writing nothing', async () => {
@@ -165,5 +169,54 @@ describe('next', () => {
 		const r = await call('next', U2);
 		expect(r.status).toBe(400);
 		expect(allPicks()).toEqual([]);
+	});
+});
+
+describe('Not today and its Undo, end to end', () => {
+	const rows = () =>
+		dayList(dayInputOf(db, U1_SALSA, 'Europe/Ljubljana', Date.now())).rows.map(
+			(r) => `${r.exercise.name}:${r.kind}`
+		);
+	const kinds = () => allPicks().map((p) => p.kind);
+
+	it('skipping a queue row moves the next up; Undo puts it back', async () => {
+		setDailyCount(db, 'u1', 1);
+		const a = make('a');
+		make('b');
+		const before = rows();
+		expect(before).toEqual(['a:todo']);
+		const skip = await call('pick', U1, { exerciseId: String(a), kind: 'skip' });
+		expect(skip.pickIds).toHaveLength(1);
+		expect(rows()).toEqual(['b:todo']);
+		await call('unpick', U1, { pickId: String(skip.pickIds![0]) });
+		expect(rows()).toEqual(before);
+	});
+
+	it('skipping a next-picked row hides it; Undo brings it back picked, pick intact', async () => {
+		setDailyCount(db, 'u1', 1);
+		make('a');
+		const b = make('b');
+		await call('next', U1);
+		const before = rows();
+		expect(before).toEqual(['a:todo', 'b:picked']);
+		const pickKinds = kinds();
+		const skip = await call('pick', U1, { exerciseId: String(b), kind: 'skip' });
+		expect(rows()).toEqual(['a:todo']);
+		expect(kinds()).toHaveLength(pickKinds.length + 1);
+		await call('unpick', U1, { pickId: String(skip.pickIds![0]) });
+		expect(kinds()).toEqual(pickKinds);
+		expect(rows()).toEqual(before);
+	});
+
+	it('skipping an add-picked row hides it; Undo brings it back picked', async () => {
+		const a = make('a');
+		await call('pick', U1, { exerciseId: String(a), kind: 'add' });
+		const before = rows();
+		const skip = await call('pick', U1, { exerciseId: String(a), kind: 'skip' });
+		expect(kinds().sort()).toEqual(['add', 'skip']);
+		expect(rows()).toEqual([]);
+		await call('unpick', U1, { pickId: String(skip.pickIds![0]) });
+		expect(kinds()).toEqual(['add']);
+		expect(rows()).toEqual(before);
 	});
 });
