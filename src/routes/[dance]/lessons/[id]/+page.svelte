@@ -33,6 +33,7 @@
 	import LinksEditor from '$lib/components/links/LinksEditor.svelte';
 	import LinkList from '$lib/components/links/LinkList.svelte';
 	import Screen from '$lib/components/ui/Screen.svelte';
+	import PaneColumns from '$lib/components/ui/PaneColumns.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import BackButton from '$lib/components/shell/BackButton.svelte';
 	import BottomBar from '$lib/components/ui/BottomBar.svelte';
@@ -50,6 +51,7 @@
 		GROUP,
 		LABEL,
 		SECTION_LABEL,
+		STRIP_ACTION,
 		TEXTAREA,
 		button,
 		iconButton
@@ -232,6 +234,14 @@
 	const timezone = $derived(data.user?.timezone ?? 'Europe/Ljubljana');
 	const LessonLog = logFor('lesson');
 	const failure = (action: string) => (form?.action === action ? form.message : null);
+	/** Whether the columns' first row has anything: an empty one would still take a gap. */
+	const hasTop = $derived(
+		editing ||
+			!!failure('publish') ||
+			!!data.notice ||
+			!!data.edited ||
+			!!(data.add?.added && data.add.offer)
+	);
 
 	/** The "+ New figure" sheet's switch: a move of its own, or a figure of one. */
 	const FIGURE_MODES = [
@@ -518,34 +528,39 @@
 <svelte:head><title>{lesson.title} · {data.dance.label}</title></svelte:head>
 
 {#snippet draftBand()}
-	<!-- A group's draft: only its editors see it, until one of them publishes it. -->
-	<div class="flex items-center gap-3">
+	<!-- A group's draft: only its editors see it, until one of them publishes it. On the desktop a soft warn bar under the pane's title. -->
+	<div
+		class="flex items-center gap-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-warn-soft desk:py-1.5 desk:pr-2 desk:pl-4"
+	>
 		<Badge tone="warn" solid>Draft</Badge>
-		<span class="min-w-0 flex-1 text-[13px] font-semibold text-band-small"
+		<span
+			class="min-w-0 flex-1 text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-ink-2"
 			>Only the group's editors see it</span
 		>
 		{#if data.canEdit}
 			<form method="POST" action="?/publish" use:enhance>
-				<button type="submit" class={button('secondary', 'sm')}>Publish</button>
+				<button type="submit" class={STRIP_ACTION}>Publish</button>
 			</form>
 		{/if}
 	</div>
 {/snippet}
 
 {#snippet addBand()}
-	<!-- A published group lesson not yet in the person's own Lessons. -->
-	<div class="flex items-center gap-3">
-		<span class="min-w-0 flex-1 text-[13px] font-semibold text-band-small"
+	<!-- A published group lesson not yet in the person's own Lessons. On the desktop a soft accent bar under the pane's title. -->
+	<div
+		class="flex items-center gap-3 desk:min-h-[52px] desk:rounded-2xl desk:bg-accent-soft desk:py-1.5 desk:pr-2 desk:pl-4"
+	>
+		<span
+			class="min-w-0 flex-1 text-[13px] font-semibold text-band-small desk:text-[15px] desk:font-bold desk:text-accent-text"
 			>Not in your lessons yet</span
 		>
-		<button type="button" class={button('secondary', 'sm')} aria-haspopup="dialog" onclick={openAdd}
-			>Add</button
-		>
+		<button type="button" class={STRIP_ACTION} aria-haspopup="dialog" onclick={openAdd}>Add</button>
 	</div>
 {/snippet}
 
 <Screen
 	compact
+	width={editing ? 'song' : 'two'}
 	title={lesson.title}
 	subtitle={editing
 		? 'Editing'
@@ -609,266 +624,289 @@
 				taking={sourcePlace}
 			/>
 		{/if}
-		{#if failure('publish')}<Banner kind="error">{failure('publish')}</Banner>{/if}
-		{#if editing}
-			{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}
-			<!-- `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
-			<form
-				id="edit-form"
-				method="POST"
-				action="?/update"
-				novalidate
-				bind:this={editForm}
-				class="flex flex-col gap-3.5"
-				use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
-			>
-				<!-- What this form saw: a save that saw another version is refused (the clash check). -->
-				<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
-				{#if refusal && !refusal.field}<Banner kind="error">{refusal.message}</Banner>{/if}
-				<LessonFields
-					lessonDay={refusal?.entered?.lessonDay ?? lesson.lessonDay}
-					title={refusal?.entered?.title ?? lesson.title}
-					notes={refusal?.entered ? refusal.entered.notes : lesson.notes}
-					max={data.today}
-					errors={editErrors}
-					notesRows={7}
-					notesHelp="Links in notes open when tapped."
-				/>
-			</form>
-			<div class="flex justify-center pt-1">
-				<button
-					type="button"
-					class={button('danger-text', 'sm')}
-					aria-haspopup="dialog"
-					onclick={() => {
-						archiveError = null;
-						archiving = true;
-					}}>Archive lesson</button
+		<!--
+			The lesson in its pane (desktop spec, "Two columns"): from a 780 px pane two
+			columns, 5 : 7 — the notes and what it teaches on the left, its videos and
+			links on the right; one column below that and on the phone, in the phone's
+			order. While editing everything is in `top`, one 640 px column. SourceTabs
+			(whose toast is `fixed`) sits outside PaneColumns: nothing pinned lives in
+			its size container.
+		-->
+		{#snippet colsTop()}
+			{#if failure('publish')}<Banner kind="error">{failure('publish')}</Banner>{/if}
+			{#if editing}
+				{#if archiveError}<Banner kind="error">{archiveError}</Banner>{/if}
+				<!-- `novalidate`: the server's refusal shows under the field it is about, not the browser's bubble. -->
+				<form
+					id="edit-form"
+					method="POST"
+					action="?/update"
+					novalidate
+					bind:this={editForm}
+					class="flex flex-col gap-3.5"
+					use:guarded={{ label: 'Lesson edits', submit: saveEdit }}
 				>
-			</div>
-		{:else}
-			{#if data.notice}
-				{@const notice = data.notice}
-				<!-- The group is being deleted: read-only until the purge, with a way to keep it. -->
-				<Banner kind={notice.tone}>
-					{notice.text}
-					{#snippet action()}
-						{#if data.makeMine}
-							<button
-								type="button"
-								class={button('tertiary', 'sm')}
-								aria-haspopup="dialog"
-								onclick={() => (makingMine = true)}>{notice.action}</button
-							>
-						{/if}
-					{/snippet}
-				</Banner>
-			{/if}
-			{#if data.edited}<p class="text-[13px] font-semibold text-muted">{data.edited}</p>{/if}
-			{#if data.add?.added && data.add.offer}
-				<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
-				<div
-					class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-accent-soft py-2 pr-2 pl-4"
-				>
-					<span class="min-w-0 flex-1 text-[15px] font-bold text-accent-text"
-						>{newLine(data.add.offer.items)}</span
-					>
-					<form
-						method="POST"
-						action="?/notNow"
-						use:enhance={() => {
-							notNowBusy = true;
-							return async ({ update }) => {
-								try {
-									await update();
-								} finally {
-									notNowBusy = false;
-								}
-							};
-						}}
-					>
-						<button
-							type="submit"
-							class={button('tertiary', 'sm')}
-							aria-busy={notNowBusy}
-							disabled={notNowBusy}>Not now</button
-						>
-					</form>
+					<!-- What this form saw: a save that saw another version is refused (the clash check). -->
+					<input type="hidden" name="seen" value={JSON.stringify(data.seen)} />
+					{#if refusal && !refusal.field}<Banner kind="error">{refusal.message}</Banner>{/if}
+					<LessonFields
+						lessonDay={refusal?.entered?.lessonDay ?? lesson.lessonDay}
+						title={refusal?.entered?.title ?? lesson.title}
+						notes={refusal?.entered ? refusal.entered.notes : lesson.notes}
+						max={data.today}
+						errors={editErrors}
+						notesRows={7}
+						notesHelp="Links in notes open when tapped."
+					/>
+				</form>
+				<div class="flex justify-center pt-1">
 					<button
 						type="button"
-						class={button('primary', 'sm')}
+						class={button('danger-text', 'sm')}
 						aria-haspopup="dialog"
-						onclick={openAdd}>Add</button
+						onclick={() => {
+							archiveError = null;
+							archiving = true;
+						}}>Archive lesson</button
 					>
 				</div>
-			{/if}
-			{#if lesson.notes}
-				<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
-					<h2 class="text-[13px] font-bold text-muted">Notes</h2>
-					<LinkedText
-						text={lesson.notes}
-						class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink"
-					/>
-				</section>
-			{/if}
-
-			{#if data.exercise && data.popup}
-				{@const review = data.exercise}
-				<div class={GROUP}>
-					<div class="flex min-h-16 items-center pr-1.5 pl-4">
-						<a
-							href={resolve('/[dance]/exercises/[id]', {
-								dance: data.dance.slug,
-								id: String(review.id)
-							})}
-							class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
+			{:else}
+				{#if data.notice}
+					{@const notice = data.notice}
+					<!-- The group is being deleted: read-only until the purge, with a way to keep it. -->
+					<Banner kind={notice.tone}>
+						{notice.text}
+						{#snippet action()}
+							{#if data.makeMine}
+								<button
+									type="button"
+									class={button('tertiary', 'sm')}
+									aria-haspopup="dialog"
+									onclick={() => (makingMine = true)}>{notice.action}</button
+								>
+							{/if}
+						{/snippet}
+					</Banner>
+				{/if}
+				{#if data.edited}<p class="text-[13px] font-semibold text-muted">{data.edited}</p>{/if}
+				{#if data.add?.added && data.add.offer}
+					<!-- What came into the lesson since the person added it: Add, or Not now until something else does. -->
+					<div
+						class="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl bg-accent-soft py-2 pr-2 pl-4"
+					>
+						<span class="min-w-0 flex-1 text-[15px] font-bold text-accent-text"
+							>{newLine(data.add.offer.items)}</span
 						>
-							<span
-								class="grid size-10 flex-none place-items-center rounded-full bg-accent-soft text-accent-text"
+						<form
+							method="POST"
+							action="?/notNow"
+							use:enhance={() => {
+								notNowBusy = true;
+								return async ({ update }) => {
+									try {
+										await update();
+									} finally {
+										notNowBusy = false;
+									}
+								};
+							}}
+						>
+							<button
+								type="submit"
+								class={button('tertiary', 'sm')}
+								aria-busy={notNowBusy}
+								disabled={notNowBusy}>Not now</button
 							>
-								<Icon name="repeat" size={20} />
-							</span>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="text-[16px] leading-[1.3] font-bold text-ink">Go over this lesson</span
-								>
-								<span class="text-[13px] leading-[1.35] text-muted"
-									>{#each reviewMeta(review) as part, i (i)}{i > 0 ? ' · ' : ''}<span
-											class:font-bold={part.strong}>{part.text}</span
-										>{/each}</span
-								>
-							</span>
-						</a>
-						<!-- The "+" is an icon, so bare accent is allowed. -->
+						</form>
 						<button
 							type="button"
-							class={iconButton('bare', 'accent')}
-							aria-label="Log a set of {review.name}"
-							onclick={() => (logging = true)}
+							class={button('primary', 'sm')}
+							aria-haspopup="dialog"
+							onclick={openAdd}>Add</button
 						>
-							<Icon name="plus" size={24} />
-						</button>
 					</div>
-				</div>
+				{/if}
 			{/if}
+		{/snippet}
+		{#snippet about()}
+			{#if !editing}
+				{#if lesson.notes}
+					<section class="flex flex-col gap-1.5 rounded-2xl bg-surface px-4 pt-3.5 pb-4">
+						<h2 class="text-[13px] font-bold text-muted">Notes</h2>
+						<LinkedText
+							text={lesson.notes}
+							class="text-[16px] leading-[1.45] font-medium whitespace-pre-line text-ink"
+						/>
+					</section>
+				{/if}
 
-			<section class="flex flex-col gap-2 pt-2.5">
-				<h2 class={SECTION_LABEL} tabindex="-1" data-focus="videos-heading">
-					{sectionHeading('Videos', data.videos.length)}
-				</h2>
-				{#if data.videos.length}
-					<ul class="flex flex-col gap-3">
-						{#each data.videos as video, i (video.id)}
-							{@const videoSections = data.sections[video.id] ?? []}
-							{#snippet videoTrash()}
-								{#if data.canEdit}<button
-										data-focus="video-{video.id}"
-										type="button"
-										aria-label="Delete video {i + 1}"
-										aria-haspopup="dialog"
-										class={iconButton('bare', 'danger')}
-										onclick={() =>
-											askDeleteVideo(video.id, videoSections, data.videoPositions[video.id] ?? [])}
-										><Icon name="trash" size={22} /></button
-									>{/if}
-							{/snippet}
-							<li class="{CLIP} rounded-[22px] bg-surface">
-								{#if broken[video.id] === 'missing'}
-									<VideoProblem
-										title="This file is missing"
-										body="The server has no file for this video."
-										meta={byteSize(video.sizeBytes)}
+				{#if data.exercise && data.popup}
+					{@const review = data.exercise}
+					<div class={GROUP}>
+						<div class="flex min-h-16 items-center pr-1.5 pl-4">
+							<a
+								href={resolve('/[dance]/exercises/[id]', {
+									dance: data.dance.slug,
+									id: String(review.id)
+								})}
+								class="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-1"
+							>
+								<span
+									class="grid size-10 flex-none place-items-center rounded-full bg-accent-soft text-accent-text"
+								>
+									<Icon name="repeat" size={20} />
+								</span>
+								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+									<span class="text-[16px] leading-[1.3] font-bold text-ink"
+										>Go over this lesson</span
 									>
-										{#snippet action()}{@render videoTrash()}{/snippet}
-									</VideoProblem>
-								{:else if broken[video.id] === 'unplayable'}
-									<VideoProblem
-										title="Can’t play here"
-										body="This browser can’t play this file. Download it or open it on your phone."
-										meta={byteSize(video.sizeBytes)}
+									<span class="text-[13px] leading-[1.35] text-muted"
+										>{#each reviewMeta(review) as part, i (i)}{i > 0 ? ' · ' : ''}<span
+												class:font-bold={part.strong}>{part.text}</span
+											>{/each}</span
 									>
-										{#snippet action()}
-											<span class="flex items-center gap-1">
-												<a
-													href={resolve('/lesson-videos/[file]', { file: video.file })}
-													download
-													class={button('tertiary', 'sm')}
-													><Icon name="download" size={18} />Download</a
-												>
-												{@render videoTrash()}
-											</span>
-										{/snippet}
-									</VideoProblem>
-								{:else}
-									<VideoFrame
+								</span>
+							</a>
+							<!-- The "+" is an icon, so bare accent is allowed. -->
+							<button
+								type="button"
+								class={iconButton('bare', 'accent')}
+								aria-label="Log a set of {review.name}"
+								onclick={() => (logging = true)}
+							>
+								<Icon name="plus" size={24} />
+							</button>
+						</div>
+					</div>
+				{/if}
+			{/if}
+		{/snippet}
+		{#snippet watched()}
+			{#if !editing}
+				<section class="flex flex-col gap-2 pt-2.5 two:pt-0">
+					<h2 class={SECTION_LABEL} tabindex="-1" data-focus="videos-heading">
+						{sectionHeading('Videos', data.videos.length)}
+					</h2>
+					{#if data.videos.length}
+						<ul class="flex flex-col gap-3">
+							{#each data.videos as video, i (video.id)}
+								{@const videoSections = data.sections[video.id] ?? []}
+								{#snippet videoTrash()}
+									{#if data.canEdit}<button
+											data-focus="video-{video.id}"
+											type="button"
+											aria-label="Delete video {i + 1}"
+											aria-haspopup="dialog"
+											class={iconButton('bare', 'danger')}
+											onclick={() =>
+												askDeleteVideo(
+													video.id,
+													videoSections,
+													data.videoPositions[video.id] ?? []
+												)}><Icon name="trash" size={22} /></button
+										>{/if}
+								{/snippet}
+								<li class="{CLIP} rounded-[22px] bg-surface">
+									{#if broken[video.id] === 'missing'}
+										<VideoProblem
+											title="This file is missing"
+											body="The server has no file for this video."
+											meta={byteSize(video.sizeBytes)}
+										>
+											{#snippet action()}{@render videoTrash()}{/snippet}
+										</VideoProblem>
+									{:else if broken[video.id] === 'unplayable'}
+										<VideoProblem
+											title="Can’t play here"
+											body="This browser can’t play this file. Download it or open it on your phone."
+											meta={byteSize(video.sizeBytes)}
+										>
+											{#snippet action()}
+												<span class="flex items-center gap-1">
+													<a
+														href={resolve('/lesson-videos/[file]', { file: video.file })}
+														download
+														class={button('tertiary', 'sm')}
+														><Icon name="download" size={18} />Download</a
+													>
+													{@render videoTrash()}
+												</span>
+											{/snippet}
+										</VideoProblem>
+									{:else}
+										<VideoFrame
+											src="/lesson-videos/{video.file}"
+											sourceUrl={video.sourceUrl}
+											owner={{ lessonVideoId: video.id }}
+											title={lesson.title}
+											caption={lessonVideoCaption(i, video)}
+											onproblem={(p) => (broken = { ...broken, [video.id]: p })}
+											onclosed={() => void refreshWhenSettled()}
+											linking={data.canEdit}
+											canEdit={data.canEdit}
+											action={data.canEdit ? videoTrash : undefined}
+											sections={videoSections}
+										/>
+									{/if}
+									{#if videoRefused[video.id]}
+										<div class="px-3 pb-2.5">
+											<Banner kind="error" title="Can’t delete this video"
+												>{videoRefused[video.id]}</Banner
+											>
+										</div>
+									{/if}
+									<VideoSections
+										sections={videoSections}
 										src="/lesson-videos/{video.file}"
-										sourceUrl={video.sourceUrl}
 										owner={{ lessonVideoId: video.id }}
-										title={lesson.title}
-										caption={lessonVideoCaption(i, video)}
-										onproblem={(p) => (broken = { ...broken, [video.id]: p })}
-										onclosed={() => void refreshWhenSettled()}
 										linking={data.canEdit}
 										canEdit={data.canEdit}
-										action={data.canEdit ? videoTrash : undefined}
-										sections={videoSections}
 									/>
-								{/if}
-								{#if videoRefused[video.id]}
-									<div class="px-3 pb-2.5">
-										<Banner kind="error" title="Can’t delete this video"
-											>{videoRefused[video.id]}</Banner
-										>
-									</div>
-								{/if}
-								<VideoSections
-									sections={videoSections}
-									src="/lesson-videos/{video.file}"
-									owner={{ lessonVideoId: video.id }}
-									linking={data.canEdit}
-									canEdit={data.canEdit}
-								/>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-				{#if !data.canEdit}
-					{#if data.videos.length === 0}
-						<p class="px-1 text-[15px] text-muted">No videos yet.</p>
+								</li>
+							{/each}
+						</ul>
 					{/if}
-				{:else}<div class={data.videos.length ? 'mt-3' : ''}>
-						{#if data.app}
-							<AppUploadLink
-								kind="dashed"
-								href={uploadLink(
-									{ lesson: lesson.id },
-									{ back: page.url.pathname, name: lesson.title }
-								)}
-								label="Add videos"
-							/>
-						{:else}
-							<ChunkedUploadButton
-								uploadUrl="/api/lessons/{lesson.id}/videos"
-								accept="video/*"
-								label="Add videos"
-								maxBytes={MAX_LESSON_VIDEO_BYTES}
-							/>
+					{#if !data.canEdit}
+						{#if data.videos.length === 0}
+							<p class="px-1 text-[15px] text-muted">No videos yet.</p>
 						{/if}
-					</div>{/if}
-			</section>
-			<section class="flex flex-col gap-2 pt-2.5">
-				<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
-				{#if data.canEdit}
-					<LinksEditor
-						compact
-						links={data.links}
-						canSave
-						message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
-						entered={form && 'urls' in form ? String(form.urls) : ''}
-					/>
-				{:else}
-					<LinkList compact links={data.links} />
-				{/if}
-			</section>
+					{:else}<div class={data.videos.length ? 'mt-3' : ''}>
+							{#if data.app}
+								<AppUploadLink
+									kind="dashed"
+									href={uploadLink(
+										{ lesson: lesson.id },
+										{ back: page.url.pathname, name: lesson.title }
+									)}
+									label="Add videos"
+								/>
+							{:else}
+								<ChunkedUploadButton
+									uploadUrl="/api/lessons/{lesson.id}/videos"
+									accept="video/*"
+									label="Add videos"
+									maxBytes={MAX_LESSON_VIDEO_BYTES}
+								/>
+							{/if}
+						</div>{/if}
+				</section>
+				<section class="flex flex-col gap-2 pt-2.5">
+					<h2 class={SECTION_LABEL}>{sectionHeading('Links', data.links.length)}</h2>
+					{#if data.canEdit}
+						<LinksEditor
+							compact
+							links={data.links}
+							canSave
+							message={failure('addLink') ?? failure('saveVideo') ?? failure('retryVideo') ?? null}
+							entered={form && 'urls' in form ? String(form.urls) : ''}
+						/>
+					{:else}
+						<LinkList compact links={data.links} />
+					{/if}
+				</section>
+			{/if}
+		{/snippet}
+		{#snippet linked()}
 			<!-- What the lesson teaches: by hand, or through a section of its videos ("via section"). -->
 			<div class="flex flex-col gap-2.5 pt-2.5">
 				<section class="flex flex-col gap-2">
@@ -1030,12 +1068,20 @@
 					{/if}
 				</section>
 			</div>
-		{/if}
+		{/snippet}
+		<PaneColumns
+			ratio="5:7"
+			class="gap-3"
+			top={hasTop ? colsTop : undefined}
+			left={about}
+			right={watched}
+			leftEnd={editing ? undefined : linked}
+		/>
 	</div>
 </Screen>
 
 {#if editing}
-	<BottomBar mode>
+	<BottomBar mode width="song">
 		<button
 			type="submit"
 			form="edit-form"
@@ -1118,7 +1164,7 @@
 {/if}
 
 {#if data.add?.added || data.historyHref}
-	<Sheet title={lesson.title} open={lessonMenu} onclose={() => (lessonMenu = false)}>
+	<Sheet title={lesson.title} size="small" open={lessonMenu} onclose={() => (lessonMenu = false)}>
 		<div class={GROUP}>
 			{#if data.historyHref}
 				<a

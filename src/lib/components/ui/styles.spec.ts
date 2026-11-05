@@ -23,6 +23,7 @@ import {
 	PLAY_ROUND,
 	ROW_TALL,
 	SELECT_ON_CARD,
+	STRIP_ACTION,
 	TEXTAREA_ON_CARD
 } from './styles';
 
@@ -143,6 +144,22 @@ describe('swap() variants', () => {
 		expect(tokens(DANGER_SHARED).has('bg-danger')).toBe(true);
 		expect(tokens(DANGER_SHARED).has('px-3')).toBe(true);
 		expect(tokens(DANGER_SHARED).has('px-6')).toBe(false);
+	});
+});
+
+describe('STRIP_ACTION', () => {
+	/** The tokens that apply below 1024: everything without the `desk:` variant. */
+	const phone = (cls: string) => [...tokens(cls)].filter((c) => !c.startsWith('desk:')).sort();
+
+	it("is the band strip's secondary button on the phone, primary on the soft bar on the desktop", () => {
+		expect(phone(STRIP_ACTION)).toEqual([...tokens(button('secondary', 'sm'))].sort());
+		for (const c of ['bg-accent-soft', 'text-accent-text', 'desk:bg-accent', 'desk:text-on-accent'])
+			expect(tokens(STRIP_ACTION).has(c)).toBe(true);
+	});
+	it('leaves the secondary button as it is', () => {
+		expect(button('secondary', 'sm')).not.toContain('desk:');
+		expect(tokens(button('secondary', 'sm')).has('bg-accent-soft')).toBe(true);
+		expect(tokens(button('secondary', 'sm')).has('text-accent-text')).toBe(true);
 	});
 });
 
