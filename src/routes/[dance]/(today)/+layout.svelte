@@ -12,15 +12,20 @@
 	import PastDay from '$lib/components/today/PastDay.svelte';
 	import TodayPaneSkeleton from '$lib/components/today/TodayPaneSkeleton.svelte';
 	import TodayList from '$lib/components/today/TodayList.svelte';
+	import ComingUpList from '$lib/components/today/ComingUpList.svelte';
+	import BackButton from '$lib/components/shell/BackButton.svelte';
+	import { besideToday } from '$lib/nav/today-pane';
 	import NewExerciseSheet from '$lib/components/today/NewExerciseSheet.svelte';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import Toast from '$lib/components/ui/Toast.svelte';
 	import TodayBar from '$lib/components/today/TodayBar.svelte';
-	import type { ToastState } from '$lib/act-toast';
+	import { actAt } from '$lib/act';
+	import { refusalMessage, undoToast, type ToastState } from '$lib/act-toast';
+	import type { ExerciseItem } from '$lib/types';
 	import { todayHero } from '$lib/exercises/today';
 	import { dayTotals, defaultOpen, sessionLine } from '$lib/exercises/today-pane';
 	import { setTodayPane } from '$lib/components/today/today-context';
-	import { dropOpener } from '$lib/nav/trail.svelte';
+	import { dropOpener, listOpener } from '$lib/nav/trail.svelte';
 	import { gotoWhenSettled } from '$lib/sheets/history.svelte';
 	import { passNext } from '$lib/unsaved/guard.svelte';
 	import type { Unsaved } from '$lib/unsaved/pending';
@@ -45,7 +50,13 @@
 	const l = $derived(listOf(page.route.id));
 	const isList = $derived(l?.open === false);
 	// Valid by now: the page's load sends any other `day` back to Today.
-	const past = $derived(isList && page.url.searchParams.has('day'));
+	// Coming up is a list route of its own (`besideToday`); a `day` in its URL means nothing.
+	const onComing = $derived(page.route.id === '/[dance]/(today)/coming-up');
+	// The list column shows Coming up: its page, or an exercise opened from it.
+	const comingColumn = $derived(
+		besideToday(page.route.id, page.url.pathname, listOpener(page.url.pathname)) === 'coming'
+	);
+	const past = $derived(isList && !onComing && page.url.searchParams.has('day'));
 	const dance = $derived(data.dance.slug);
 	const currentId = $derived(isList ? null : Number(page.params.id));
 
@@ -198,7 +209,7 @@
 	 * entry has gone (`gotoWhenSettled`).
 	 */
 	const swapTo = $derived.by(() => {
-		if (past || creating) return null;
+		if (past || creating || onComing) return null;
 		if (openId !== null)
 			return openId === currentId ? null : at(openId, sessionOn ? '?session=1' : '');
 		if (!isList) return null;
@@ -368,6 +379,21 @@
 		)
 	);
 
+	/** Coming up's + worked: "<name> is on Today · Undo" (Undo removes that pick). */
+	function added(exercise: ExerciseItem, pickId: number | undefined) {
+		toast = undoToast(
+			++toastSeq,
+			`${exercise.name} is on Today`,
+			() => (toast = null),
+			async () => {
+				if (pickId === undefined) return;
+				const result = await actAt(`/${dance}`, 'unpick', { pickId });
+				const message = refusalMessage(result, 'Could not undo that. Try again.');
+				if (message) toast = { id: ++toastSeq, message };
+			}
+		);
+	}
+
 	const failure = (action: string) => {
 		const form = page.form;
 		return form && 'action' in form && form.action === action && 'message' in form
@@ -377,7 +403,9 @@
 </script>
 
 <svelte:head>
-	{#if isList && !past}<title>Today · {data.dance.label}</title>{/if}
+	{#if onComing}<title>Coming up · {data.dance.label}</title>{:else if isList && !past}<title
+			>Today · {data.dance.label}</title
+		>{/if}
 </svelte:head>
 
 {#snippet heroCard()}
@@ -385,35 +413,67 @@
 {/snippet}
 
 {#snippet bandRight()}
-	<BandButton
-		icon="chevron-left"
-		label="Previous day"
-		href={resolve(`/${dance}?day=${data.list.yesterday}`)}
-	/>
-	<!-- The phone's Settings; the desktop has it in the side, and Custom exercise here. -->
+	{#if !comingColumn}
+		<BandButton
+			icon="chevron-left"
+			label="Previous day"
+			href={resolve(`/${dance}?day=${data.list.yesterday}`)}
+		/>
+		<!-- Coming up: beside Settings on the phone, in the band row on the desktop. -->
+		<BandButton
+			icon="calendar"
+			label="Coming up"
+			href={resolve('/[dance]/(today)/coming-up', { dance })}
+		/>
+		<!-- The phone's Settings; the desktop has it in the side, and Custom exercise here. -->
+		<span class="contents desk:hidden"
+			><BandButton icon="settings" label="Settings" href={resolve('/settings')} /></span
+		>
+		<span class="hidden desk:contents"
+			><BandButton icon="plus" label="Custom exercise" onclick={() => (creating = true)} /></span
+		>
+	{/if}
+{/snippet}
+
+{#snippet comingBack()}
+	<!-- The phone's ‹ (the desktop has Today's column to go back to). -->
 	<span class="contents desk:hidden"
-		><BandButton icon="settings" label="Settings" href={resolve('/settings')} /></span
-	>
-	<span class="hidden desk:contents"
-		><BandButton icon="plus" label="Custom exercise" onclick={() => (creating = true)} /></span
+		><BackButton
+			fallback={{ href: resolve('/[dance]/(today)', { dance }), label: 'Today' }}
+		/></span
 	>
 {/snippet}
 
+{#snippet comingPane()}
+	<p class="px-10 pt-10 text-[15px] text-muted">Pick an exercise to open it.</p>
+{/snippet}
+
 {#snippet list()}
-	<TodayList
-		{day}
-		{empty}
-		daily={data.list.daily}
-		{dance}
-		lessonDays={data.list.lessonDays}
-		{upNextId}
-		{currentId}
-		rowSearch={sessionOn && desk.current ? '?session=1' : ''}
-		appUpdate={data.appUpdate}
-		onlog={(id) => (openId = id)}
-		oncreate={() => (creating = true)}
-		onrefused={(message) => (toast = { id: ++toastSeq, message })}
-	/>
+	{#if comingColumn}
+		<ComingUpList
+			groups={data.list.coming}
+			{dance}
+			today={data.list.today}
+			{currentId}
+			onadded={added}
+			onrefused={(message) => (toast = { id: ++toastSeq, message })}
+		/>
+	{:else}
+		<TodayList
+			{day}
+			{empty}
+			daily={data.list.daily}
+			{dance}
+			lessonDays={data.list.lessonDays}
+			{upNextId}
+			{currentId}
+			rowSearch={sessionOn && desk.current ? '?session=1' : ''}
+			appUpdate={data.appUpdate}
+			onlog={(id) => (openId = id)}
+			oncreate={() => (creating = true)}
+			onrefused={(message) => (toast = { id: ++toastSeq, message })}
+		/>
+	{/if}
 {/snippet}
 
 <!--
@@ -437,14 +497,15 @@
 {:else}
 	<ListPane
 		{list}
-		hero={empty ? undefined : heroCard}
+		hero={empty || comingColumn ? undefined : heroCard}
 		{isList}
 		width={400}
-		solo={isList && empty}
-		title="Today"
-		subtitle={longDayLabel(data.list.today)}
+		solo={isList && empty && !comingColumn}
+		title={comingColumn ? 'Coming up' : 'Today'}
+		subtitle={comingColumn ? undefined : longDayLabel(data.list.today)}
+		left={onComing ? comingBack : undefined}
 		right={bandRight}
-		empty={swapTo === null ? daySoFar : paneSkeleton}
+		empty={onComing ? comingPane : swapTo === null ? daySoFar : paneSkeleton}
 		emptyBare
 	>
 		{@render children()}

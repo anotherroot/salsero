@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import { listOf, paneBack } from '$lib/nav/pane';
+	import { besideToday } from '$lib/nav/today-pane';
 	import { backByHistory, backFor, intend, listOpener } from '$lib/nav/trail.svelte';
 	import type { DanceSlug } from '$lib/dances/dances';
 	import { inPane } from './pane-context';
@@ -32,7 +33,9 @@
 		const l = listOf(page.route.id);
 		if (!l) return false;
 		const opener = listOpener(page.url.pathname);
-		return !paneBack(opener, l.list, page.params.dance as DanceSlug, l.under ?? false);
+		// An exercise opened from Coming up has Coming up beside it.
+		const list = besideToday(page.route.id, page.url.pathname, opener) ?? l.list;
+		return !paneBack(opener, list, page.params.dance as DanceSlug, l.under ?? false);
 	});
 
 	function onclick(e: MouseEvent) {
