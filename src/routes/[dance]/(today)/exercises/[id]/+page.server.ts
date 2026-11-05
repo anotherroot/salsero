@@ -13,6 +13,7 @@ import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form'
 import { popupData } from '$lib/server/popup';
 import { drillPayload, practicePayload } from '$lib/server/practice-content';
 import { addLesson, addOffer, drillAddRoute, entryFor } from '$lib/server/entries';
+import { fromClassOf } from '$lib/server/from-class';
 import { readAdd } from '$lib/server/add-form';
 import { getLessonRow } from '$lib/server/lessons';
 import { getTeam } from '$lib/server/teams';
@@ -55,12 +56,6 @@ function linkableOf(params: { dance: string; id: string }, locals: App.Locals) {
 	const exercise = exerciseOf(params, locals);
 	if (exercise.source === 'added') throw error(404, 'No such exercise');
 	return exercise;
-}
-
-/** The class a lesson is from, for the simple page's "From class Tue 3 Nov ›" (null: none). */
-function classOf(db: ReturnType<typeof getDb>, lessonId: number | null) {
-	const lesson = lessonId === null ? null : getLessonRow(db, lessonId);
-	return lesson ? { lessonId: lesson.id, day: lesson.lessonDay } : null;
 }
 
 export const load: PageServerLoad = ({ params, locals, url }) => {
@@ -118,7 +113,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 			historyHref: null,
 			add: null,
 			// A lesson review's own class (the simple page's "From class …").
-			fromClass: classOf(db, own.lessonId)
+			fromClass: fromClassOf(db, wall.userId, own)
 		};
 	}
 
@@ -188,8 +183,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 		copyTo: copyOffer(db, wall.userId, 'drill', row.id),
 		/** A reader's Edit: Make it mine (ruling 1: an editor's Edit edits the group's). */
 		makeMine: canEdit ? null : makeMineOffer(db, wall, 'drill', row.id, shown.team),
-		// A group drill reached through a lesson: that lesson's class.
-		fromClass: classOf(db, route?.lessonId ?? null),
+		// A group drill reached through a lesson: that lesson's class, entry or not.
+		fromClass: fromClassOf(db, wall.userId, {
+			id: row.id,
+			teamId: row.teamId,
+			lessonId: null,
+			drillId: null
+		}),
 		add: route
 			? {
 					lessonId: route.lessonId,
