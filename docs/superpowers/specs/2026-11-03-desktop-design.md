@@ -606,8 +606,8 @@ What the user settled on the boards, newest last:
 
 ### Plan 5 — Practice, Settings and the rest
 
-- Running keeps the title the app already built (the figure or routine the run
-  is of), not the board's.
+- Running keeps the title the app already built (the running song's title, else
+  "Practice", with the run's subtitle under it), not the board's.
 - The running sheet's heading reads "Routine · slot N of M".
 - Settings' back chevron is hidden on the desktop: `BandHeader` hides a header
   holding a `data-desk-hidden` marker, and Settings sets it.
