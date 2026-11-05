@@ -167,7 +167,11 @@ export function inLine<E extends DayExercise>(input: DayInput<E>): E[] {
 }
 
 export function dayList<E extends DayExercise>(input: DayInput<E>): DayList<E> {
-	const w = workOf(input);
+	return dayListOf(workOf(input));
+}
+
+/** `dayList` of a day already worked out (the Today load shares one with Coming up). */
+export function dayListOf<E extends DayExercise>(w: Worked<E>): DayList<E> {
 	const done = w.rows.filter((r) => r.kind === 'done').length;
 	const total = w.rows.length;
 	const left = total - done;

@@ -75,6 +75,19 @@ describe('guards', () => {
 		expect(() => localDay(0, 'Mars/Olympus_Mons')).toThrow(/Unknown IANA time zone/);
 	});
 
+	it('keeps zones and parts apart once their formatters are reused', () => {
+		const at = Date.UTC(2026, 7, 23, 23, 30);
+		for (let i = 0; i < 3; i++) {
+			expect(localDay(at, LJ)).toBe('2026-08-24');
+			expect(localDay(at, 'UTC')).toBe('2026-08-23');
+			expect(timeOfDay(at, LJ)).toBe('01:30');
+			expect(timeOfDay(at, 'UTC')).toBe('23:30');
+		}
+		// An unknown zone is refused every time, not only the first.
+		expect(() => localDay(0, 'Mars/Olympus_Mons')).toThrow(/Unknown IANA time zone/);
+		expect(() => localDay(0, 'Mars/Olympus_Mons')).toThrow(/Unknown IANA time zone/);
+	});
+
 	it('refuses a non-finite clock', () => {
 		expect(() => localDay(Number.NaN, LJ)).toThrow(/finite epoch/);
 	});

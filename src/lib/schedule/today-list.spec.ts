@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { shiftDay } from '$lib/day/day';
 import { RATING_OF } from './feel';
-import { dayList, inLine, type DayExercise, type DayInput, type DayPick } from './today-list';
+import {
+	dayList,
+	dayListOf,
+	inLine,
+	workOf,
+	type DayExercise,
+	type DayInput,
+	type DayPick
+} from './today-list';
+import { comingUp, comingUpOf } from './coming-up';
 
 const TZ = 'Europe/Ljubljana';
 const TODAY = '2026-11-05';
@@ -242,5 +251,20 @@ describe('inLine', () => {
 			})
 		);
 		expect(l.map((e) => e.name)).toEqual(['f', 'g', 'free']);
+	});
+});
+
+describe('one worked day for the list and Coming up', () => {
+	it('dayListOf and comingUpOf of one workOf equal dayList and comingUp', () => {
+		const all = seven();
+		const later = ex('later', day(4));
+		const x = input([...all, later], {
+			daily: 3,
+			sets: [set(all[0], TODAY, 10)],
+			picks: [pick(all[5], 'skip'), pick(later, 'add')]
+		});
+		const w = workOf(x);
+		expect(dayListOf(w)).toEqual(dayList(x));
+		expect(comingUpOf(w)).toEqual(comingUp(x));
 	});
 });

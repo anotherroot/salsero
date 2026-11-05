@@ -1,6 +1,6 @@
 /** Coming up: every exercise by the day it comes back. PURE. */
 import { awayWords } from './words';
-import { workOf, type DayExercise, type DayInput } from './today-list';
+import { workOf, type DayExercise, type DayInput, type Worked } from './today-list';
 
 export type ComingRowState = 'add' | 'onToday' | 'doneToday' | 'skipped' | 'paused';
 
@@ -19,7 +19,11 @@ interface Item<E> {
 }
 
 export function comingUp<E extends DayExercise>(input: DayInput<E>): ComingGroup<E>[] {
-	const w = workOf(input);
+	return comingUpOf(workOf(input));
+}
+
+/** `comingUp` of a day already worked out (the Today load shares one with the list). */
+export function comingUpOf<E extends DayExercise>(w: Worked<E>): ComingGroup<E>[] {
 	const onToday = new Map(w.rows.map((r) => [r.exercise.id, r]));
 	const waiting: Item<E>[] = [];
 	const paused: Item<E>[] = [];

@@ -4,13 +4,12 @@ import { listSetsBetween } from '$lib/server/exercises';
 import { listCountTakesFor } from '$lib/server/countTakes';
 import { lessonDays } from '$lib/server/lessons';
 import { wallOf } from '$lib/server/scope';
-import { scheduleStates } from '$lib/server/schedule';
 import { songChoices } from '$lib/server/songs';
 import { dayInputOf } from '$lib/server/today-picks';
 import { localDay, noonOf, shiftDay } from '$lib/day/day';
 import { PHRASE_PATTERNS } from '$lib/labels';
-import { dayList } from '$lib/schedule/today-list';
-import { comingUp } from '$lib/schedule/coming-up';
+import { dayListOf, workOf } from '$lib/schedule/today-list';
+import { comingUpOf } from '$lib/schedule/coming-up';
 import type { LayoutServerLoad } from './$types';
 
 const DAY_MS = 86_400_000;
@@ -33,6 +32,8 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 
 	const db = getDb();
 	const input = dayInputOf(db, wall, tz, now);
+	// The day worked out once, for the list and Coming up alike.
+	const worked = workOf(input);
 
 	// Widen the window by a day each side, then let localDay decide membership:
 	// the day boundary is decided in ONE place, in the user's zone.
@@ -46,9 +47,9 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			today,
 			yesterday: shiftDay(today, -1),
 			// The day's rows: done, to do, picked (`src/lib/schedule/today-list.ts`).
-			day: dayList(input),
+			day: dayListOf(worked),
 			// Every exercise by the day it comes back: the Coming up page.
-			coming: comingUp(input),
+			coming: comingUpOf(worked),
 			// Every live exercise, paused ones too: opening one by id, a tile's type.
 			exercises: input.exercises,
 			// The daily number: what "+ Next 5" says.
@@ -58,7 +59,9 @@ export const load: LayoutServerLoad = ({ params, locals, depends }) => {
 			lessonDays: lessonDays(db, wall),
 			// Each live exercise's schedule as of the START of today (sets before today
 			// only): what the log popup's faces preview, the same on a second log today.
-			schedulesAtStart: Object.fromEntries(scheduleStates(db, wall, tz, today)),
+			schedulesAtStart: Object.fromEntries(
+				[...worked.entry.values()].map((x) => [x.e.id, x.start])
+			),
 			// For the practice panel's song picker.
 			songs: songChoices(db, wall),
 			// The practice panel's voice: the user's recorded count, a few dozen rows.
