@@ -360,6 +360,7 @@ route: an exercise of the other dance is a 404.
   open-in-new-tab work).
 - **The + opens the type's popup.** It no longer logs a bare set: the popup is
   where a set gets its minutes and rating, and one extra tap is the price.
+- **Rating is four faces since 2026-11-05** (Still hard, Getting there, I've got it, Easy; see [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md)). The log popup requires one and shows the time each would set; old star ratings read as faces. The row's dots described below are gone from Today.
 - **The last set's rating** shows on the row as five small dots (filled up to
   the rating), after the "last done" text — weak spots stand out without
   opening anything. Nothing for an unrated last set. Attached to each row by

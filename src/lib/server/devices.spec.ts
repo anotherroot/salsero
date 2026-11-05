@@ -139,7 +139,8 @@ describe('dueByDance', () => {
 		const urgent = ex('salsa', 'Urgent');
 		done(mild.id, T0 - 3 * DAY);
 		done(urgent.id, T0 - 10 * DAY);
-		ex('bachata', 'Basics');
+		// Rows are created now (after T0), so give it a set to be due at T0.
+		done(ex('bachata', 'Basics').id, T0 - 5 * DAY);
 		expect(dueByDance(db, 'u1', T0, 'Europe/Ljubljana')).toEqual({
 			salsa: { due: ['Urgent', 'Mild'] },
 			bachata: { due: ['Basics'] }
@@ -155,6 +156,36 @@ describe('dueByDance', () => {
 		archiveExercise(db, gone.id, T0);
 		const weekly = ex('salsa', 'Weekly', 7);
 		done(weekly.id, T0 - 2 * DAY);
+		expect(dueByDance(db, 'u1', T0, 'Europe/Ljubljana').salsa.due).toEqual([]);
+	});
+});
+
+describe('dueByDance counts Today, not everything due', () => {
+	const DAY = 86_400_000;
+	const log = (exerciseId: number, doneAt: number) =>
+		logSet(db, {
+			exerciseId,
+			doneAt,
+			durationS: null,
+			reps: null,
+			rating: null,
+			note: null,
+			playerJson: null
+		});
+	it('7 due, daily 5 gives 5 names; once they are all done, none', () => {
+		const ids: number[] = [];
+		for (let i = 0; i < 7; i++) {
+			const e = createCustomExercise(
+				db,
+				{ userId: 'u1', dance: 'salsa' },
+				{ name: `E${i}`, everyDays: 1, notes: null }
+			);
+			ids.push(e.id);
+			log(e.id, T0 - (10 + i) * DAY);
+		}
+		const names = dueByDance(db, 'u1', T0, 'Europe/Ljubljana').salsa.due;
+		expect(names).toHaveLength(5);
+		for (const name of names) log(ids[Number(name.slice(1))], T0 - 60_000);
 		expect(dueByDance(db, 'u1', T0, 'Europe/Ljubljana').salsa.due).toEqual([]);
 	});
 });

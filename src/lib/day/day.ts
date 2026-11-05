@@ -1,7 +1,7 @@
 /**
  * When "today" rolls over — as a pure function.
  *
- * The clock is an ARGUMENT, exactly as it is in `src/lib/urgency/`. That is what
+ * The clock is an ARGUMENT, exactly as it is in `src/lib/schedule/`. That is what
  * makes a day boundary testable across a DST transition without waiting for
  * October, and it is why this lives here rather than being computed in SQL with
  * `AT TIME ZONE`: a user-supplied zone string never has to reach the database at

@@ -7,7 +7,7 @@
  *
  * Nothing here is stored. Where a routine starts, where it ends, where it
  * breaks and whether it loops are all recomputed per request, for the same
- * reason urgency is: a cached answer is a second source of truth that goes
+ * reason the schedule is: a cached answer is a second source of truth that goes
  * stale the moment a tag is edited.
  *
  * An untagged side fits anything: a slot whose starts are `[]` can be entered

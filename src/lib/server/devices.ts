@@ -2,9 +2,9 @@ import { createHash, randomBytes } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import type { Db } from './db';
 import { deviceTokens, users } from './db/schema';
-import { listExercises, listSetTimes } from './exercises';
+import { dayInputOf } from './today-picks';
 import { DANCE_SLUGS, type DanceSlug } from '$lib/dances/dances';
-import { plan } from '$lib/urgency/urgency';
+import { dayList } from '$lib/schedule/today-list';
 import { isVideoShortSide, type VideoShortSide } from '$lib/video-sizes';
 import type { DeviceRow } from '$lib/types';
 
@@ -153,9 +153,10 @@ export function bearerToken(header: string | null): string | null {
 }
 
 /**
- * What Today's "due" band holds right now, per dance — the reminder's list.
- * Computed by the same `plan()` Today uses, at request time: urgency is never
- * stored, so a set logged at lunch empties the evening's reminder.
+ * What is left on Today right now, per dance — the reminder's list: the names
+ * of the to-do and picked rows not done yet (`dayList`, the list Today
+ * shows), empty once they are all done. Derived at request time, never stored,
+ * so a set logged at lunch empties the evening's reminder.
  */
 export function dueByDance(
 	db: Db,
@@ -165,13 +166,10 @@ export function dueByDance(
 ): Record<DanceSlug, { due: string[] }> {
 	const out = {} as Record<DanceSlug, { due: string[] }>;
 	for (const dance of DANCE_SLUGS) {
-		const today = plan(
-			listExercises(db, { userId, dance }),
-			listSetTimes(db, { userId, dance }),
-			now,
-			timeZone
-		);
-		out[dance] = { due: today.due.map((row) => row.exercise.name) };
+		const list = dayList(dayInputOf(db, { userId, dance }, timeZone, now));
+		out[dance] = {
+			due: list.rows.filter((row) => row.kind !== 'done').map((row) => row.exercise.name)
+		};
 	}
 	return out;
 }

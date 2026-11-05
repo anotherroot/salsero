@@ -417,14 +417,13 @@ export function usableDrills(
 	db: Db,
 	wall: Wall,
 	usable: Usable = usableOf(db, wall)
-): { id: number; name: string; everyDays: number; team: TeamRef }[] {
+): { id: number; name: string; team: TeamRef }[] {
 	const ids = [...usable.drills];
 	if (ids.length === 0) return [];
 	const rows = db
 		.select({
 			id: exercises.id,
 			name: exercises.name,
-			everyDays: exercises.everyDays,
 			teamId: exercises.teamId
 		})
 		.from(exercises)

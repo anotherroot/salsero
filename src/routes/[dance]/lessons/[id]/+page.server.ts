@@ -2,7 +2,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
-import { scheduleForShown } from '$lib/server/schedule';
+import { scheduleForShown, scheduleStates } from '$lib/server/schedule';
 import { defaultStyle } from '$lib/server/default-styles';
 import {
 	archiveLesson,
@@ -222,7 +222,11 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		// What "Add figure" pre-selects. Settings picks it.
 		defaultStyle: defaultStyle(db, wall.userId, wall.dance),
 		// This person's own entry for the lesson, never a group's row (risk 22).
-		popup: found.exercise ? popupData(db, wall, found.exercise.id, tz, Date.now()) : null
+		popup: found.exercise ? popupData(db, wall, found.exercise.id, tz, Date.now()) : null,
+		// The face times: the schedule at the START of today for the person's own exercise.
+		scheduleAtStart: found.exercise
+			? (scheduleStates(db, wall, tz, localDay(Date.now(), tz)).get(found.exercise.id) ?? null)
+			: null
 	};
 };
 

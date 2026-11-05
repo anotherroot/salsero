@@ -1,6 +1,6 @@
 # Today: a number a day, four faces, and Anki-style scheduling
 
-Status: designed with the user 2026-11-05. Not built. Builds on master with
+Status: built 2026-11-05 (see "Decided while building" at the end). Built on master with
 the desktop layout (merged 2026-11-05). Part 1 of three from the
 "app for people who just follow their class" brainstorm; parts 2 (the levels
 and the simple screens) and 3 (comments on lessons) get their own specs.
@@ -75,7 +75,7 @@ order. It is never stored.
 ### Replaying
 
 Start with `gap = exercise.every_days` (the old frequency, default 3). For each
-set in time order, with `e` = calendar days since the previous set (`daysBetween`
+set in time order (one review per local day, below), with `e` = calendar days since the previous set (`daysBetween`
 of the two local days; 0 for two sets on one day; for the first set, `e = 0`):
 
 | Feeling | New gap |
@@ -339,8 +339,8 @@ in them:
 - The schedule (replay, due day, the preview for each face, the early line),
   Today's list (done, queue, picks, the Next 5 row's state, the nothing-left
   state) and Coming up's groups are pure, client-safe, `now` and `tz` as
-  arguments, never `Date.now()` — in `src/lib/urgency/` beside `plan` (which
-  they replace) or a new folder; the builder's choice.
+  arguments, never `Date.now()` — in `src/lib/schedule/` (built; `src/lib/urgency/`
+  and its `plan` are deleted).
 - The words ("Back in a week", "in 4 months", "Ahead · due Sunday") in a pure
   view module, like `today.ts` now.
 - Server: the picks (add, next, skip, undo) as page actions or `/api/` calls;
@@ -366,7 +366,7 @@ in them:
   to-do rows is the expectation.
 - The dark-theme pair for Easy's blue (contrast-checked like the rest of
   `tokens.ts`).
-- Whether the schedule lives in `src/lib/urgency/` or a new folder.
+- Whether the schedule lives in `src/lib/urgency/` or a new folder: settled, `src/lib/schedule/`.
 
 ## Calls made while writing this (check these)
 
@@ -384,3 +384,34 @@ in them:
 - Paused exercises have no + on Coming up; adding never un-pauses.
 - The figure page, the player and the lesson page show due-day words where
   they showed a frequency.
+
+## Decided while building
+
+- **One review per local day.** `replay` groups a day's sets; the day's **last
+  rated** set's face (else none) is applied once, with `e` from the previous
+  reviewed day. Two sets on one day, or a set logged again after Undo, never
+  shrink or inflate a gap. This replaces "for each set in time order" in
+  Replaying above: where that reads "set", read "reviewed day".
+- **The reminder rule.** `dueByDance` returns, per dance, the names of Today's
+  to-do and picked rows that are not done (`dayList` over `dayInputOf`, the
+  list Today shows), and `[]` once they are all done, so the Android reminder
+  stays silent. 7 due with a daily number of 5 gives 5 names. The
+  `{ due: string[] }` shape is unchanged: no app release.
+- **Nothing left.** The nothing-left card (the next exercise and its day) stays
+  ABOVE the list, so many done rows never bury it; the list's label reads
+  "Done today · N" in that state. Its meta is "Tomorrow · and 3 more" (the
+  count on the same day), not the board's "then 3 more on Sunday".
+- **Copy added during the build:** "Nothing left for today" (the top card in that
+  state), "Nothing due today · You can practise ahead below" (no due rows but
+  exercises to take), "Nothing on Today · Every exercise is paused" (nothing
+  active at all), and the nothing-left meta above.
+- **Group headings are gone from Today's rows:** Today is the one list the spec
+  describes, in due-day order.
+- **Face times reach every Log.** The log popup previews from the schedule at the
+  START of today (`scheduleStates(db, wall, tz, today)`), passed as `schedule`
+  and `today` from the Today layout, the exercise page, the lesson page and the
+  figure page, so a second log the same day previews from the same base.
+- **Dead data dropped:** `everyDays` is no longer sent with a lesson's routines,
+  exercises or the pickers' exercises; the column stays, read only as the
+  first gap.
+- Coming up, Not today and Undo are built to the sections above.

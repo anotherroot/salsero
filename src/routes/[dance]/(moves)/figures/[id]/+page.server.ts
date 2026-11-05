@@ -46,7 +46,7 @@ import { freeDisk } from '$lib/server/storage';
 import { listLinks } from '$lib/server/links';
 import { taughtIn } from '$lib/server/lessons';
 import { popupData } from '$lib/server/popup';
-import { scheduleStateOf } from '$lib/server/schedule';
+import { scheduleStateOf, scheduleStates } from '$lib/server/schedule';
 import { localDay } from '$lib/day/day';
 import { listRoutines, routineShapes } from '$lib/server/routines';
 import { routinesUsing } from '$lib/routines/coverage';
@@ -387,7 +387,12 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 		// Practise on its own: a group's variation only from a lesson the person added.
 		practisable: practisable(db, wall.userId, figure),
 		popup,
-		// Derived per request, never stored — the same rule urgency follows.
+		// The face times: the schedule at the START of today for the person's own exercise.
+		scheduleAtStart: popup
+			? (scheduleStates(db, wall, zone, localDay(now, zone)).get(popup.exercise.id) ?? null)
+			: null,
+		today: localDay(now, zone),
+		// Derived per request, never stored — the same rule the schedule follows.
 		routines: routinesUsing(
 			graph,
 			id,
@@ -407,7 +412,7 @@ export const load: PageServerLoad = ({ params, url, locals, cookies }) => {
 			startCount: node?.start ?? shape.startCount,
 			lengthCounts: node?.length ?? shape.lengthCounts
 		},
-		// Derived per request, never stored — the same rule urgency follows.
+		// Derived per request, never stored — the same rule the schedule follows.
 		leadsTo: link(follows(graph, id)),
 		followsFrom: link(precedes(graph, id)),
 		links: listLinks(db, { figureId: id }),

@@ -29,7 +29,6 @@ const version = (id: number, groupId: number, figure: string, name: string): Fig
 
 const exercise = (over: Partial<PickExercise> & { id: number; name: string }): PickExercise => ({
 	source: 'custom',
-	everyDays: 3,
 	figure: null,
 	variation: null,
 	linked: false,
@@ -155,9 +154,7 @@ describe('exerciseGroups', () => {
 	});
 
 	it('exerciseGroups: no frequency in the meta', () => {
-		const [drills] = exerciseGroups([
-			exercise({ id: 2, name: 'Spot turns', everyDays: 3, linked: true })
-		]);
+		const [drills] = exerciseGroups([exercise({ id: 2, name: 'Spot turns', linked: true })]);
 		const row = drills.entries[0];
 		expect(isHeading(row)).toBe(false);
 		expect((row as PickRow).meta).toBeUndefined();
@@ -364,7 +361,6 @@ describe('linkOptionGroups', () => {
 				id: 5,
 				name: 'Pasos',
 				source: 'custom',
-				everyDays: 7,
 				figure: null,
 				variation: null,
 				linked: false,

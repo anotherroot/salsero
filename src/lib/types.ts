@@ -260,8 +260,6 @@ export interface LessonRoutineRow {
 	id: number;
 	name: string;
 	exerciseId: number | null;
-	/** How often its exercise comes up; null when it has none. */
-	everyDays: number | null;
 	/** On a group's lesson: the person's own copy of it, which the card opens; else null. */
 	mineId: number | null;
 }
@@ -276,7 +274,6 @@ export interface LessonExerciseRow {
 	source: ExerciseSource;
 	byHand: boolean;
 	viaSections: ViaSection[];
-	everyDays: number;
 	/** On a group's lesson: the person's own copy of it, which the card opens; else null. */
 	mineId: number | null;
 }
@@ -302,7 +299,6 @@ export interface PickExercise {
 	id: number;
 	name: string;
 	source: ExerciseSource;
-	everyDays: number;
 	/** A figure exercise's figure and variation names; null otherwise. */
 	figure: string | null;
 	variation: string | null;

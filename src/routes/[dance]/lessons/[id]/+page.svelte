@@ -1473,6 +1473,8 @@
 		takes={data.popup.takes}
 		backfillDay={null}
 		{timezone}
+		schedule={data.scheduleAtStart ?? undefined}
+		today={data.today}
 		message={form && 'action' in form && form.action === 'log' && 'message' in form
 			? String(form.message)
 			: null}

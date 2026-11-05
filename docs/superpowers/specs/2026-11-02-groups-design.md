@@ -169,7 +169,7 @@ groups, across both dances, and drops into some only now and then.
 - The lesson then shows in the member's own **Lessons** list, marked with the
   group. Before Add it shows only on the group page (decided).
 - Adding **copies nothing.** The member gets their own **practice entries**
-  (how often, paused or not, their song and tempo, their logs) that point at
+  (how often, paused or not (since 2026-11-05 a drill has no How often: the gap is earned from the faces, see [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md)), their song and tempo, their logs) that point at
   the group's lesson, routine and drills. When an editor fixes a section or
   renames a drill, the member sees the fix.
 - Adding **costs no storage.** The files are the group's and count against

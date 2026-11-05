@@ -21,7 +21,7 @@ import {
 
 /*
  * Every instant is an INTEGER of epoch milliseconds, never a Date or a string.
- * The pure modules (`day`, `urgency`) take numbers, so rows go in and out of
+ * The pure modules (`day`, `schedule`) take numbers, so rows go in and out of
  * them without conversion, and "which day was this" is always decided by
  * `localDay` in the user's zone — never by SQLite's UTC date functions.
  */
@@ -657,8 +657,8 @@ export const songDrops = sqliteTable(
  * Anything practised and logged. `source` says where it came from; a figure's
  * exercise follows its figure's name and archive state.
  *
- * There is deliberately NO "last done" or "urgency" column. Both are pure
- * functions of the sets — see `src/lib/urgency/`.
+ * There is deliberately NO "last done" or "due" column. Both are pure
+ * functions of the sets — see `src/lib/schedule/`.
  */
 export const exercises = sqliteTable(
 	'exercises',

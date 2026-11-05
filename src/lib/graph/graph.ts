@@ -3,11 +3,11 @@
  * each one starts and ends in.
  *
  * PURE and client-safe. No database, no DOM, no `Date.now()`, and — like
- * `day/` and `urgency/` — no idea that dances exist: the data-access layer
+ * `day/` and `schedule/` — no idea that dances exist: the data-access layer
  * scopes to one dance before building a `Graph`.
  *
  * Nothing here is stored. "What follows this figure" is recomputed per request
- * for the same reason urgency is: a cached answer is a second source of truth
+ * for the same reason the schedule is: a cached answer is a second source of truth
  * that goes stale the moment a tag is edited.
  *
  * An UNTAGGED SIDE FITS ANYTHING. Positions are optional: a figure with no

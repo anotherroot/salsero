@@ -1174,6 +1174,8 @@
 		takes={data.popup.takes}
 		backfillDay={null}
 		{timezone}
+		schedule={data.scheduleAtStart ?? undefined}
+		today={data.today}
 		message={failed('log')}
 		onclose={() => (logging = false)}
 	/>

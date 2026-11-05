@@ -120,7 +120,7 @@ export function listPickExercises(db: Db, wall: Wall): PickExercise[] {
 }
 
 /**
- * The (exercise, time) pairs urgency is computed from, for ONE dance. The join
+ * The (exercise, time) pairs the schedule is replayed from, for ONE dance. The join
  * is how a set knows its dance: `sets` carries no `dance` column on purpose —
  * it would be a second copy of a fact that can drift.
  */

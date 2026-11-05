@@ -280,6 +280,8 @@ nothing open", "Music · the library, nothing open", "Groups · nothing open".
 
 ## Today: the list and the open exercise (Option A)
 
+> **Changed 2026-11-05** by [`2026-11-05-today-scheduling-design.md`](2026-11-05-today-scheduling-design.md): the list is the day's rows under the top bar card ("3 left for today") with a **Next N** row after the last one, **Coming up** is a second view of the list (a band icon switches), and **Not today** sits in the open pane under Log set (no swipe on the desktop). The log form's faces replace the old rating, and the pane's settings lose How often. Start session, Due and Not yet due below describe the old list.
+
 Boards: "Today · the list and the open exercise", "a session running",
 "logged, Next", "session done", "all done", "a not-yet-due routine open", "a
 group lesson to review", "editing an exercise's settings", "loading", "first
