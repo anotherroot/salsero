@@ -187,7 +187,7 @@
 		{/if}
 
 		<div
-			class="run-stage mt-2 flex flex-col items-center gap-2.5 desk:absolute desk:top-(--band-row-h) desk:right-[520px] desk:bottom-0 desk:left-0 desk:mt-0 desk:justify-center desk:gap-[22px] desk:px-8 desk:pb-10"
+			class="run-stage mt-2 flex flex-col items-center gap-2.5 desk:absolute desk:top-(--band-row-h) desk:right-[520px] desk:bottom-0 desk:left-0 desk:mt-0 desk:justify-center-safe desk:gap-[22px] desk:px-8 desk:pb-10 desk:*:shrink-0"
 		>
 			<StageCount
 				time={() => player.songTime()}

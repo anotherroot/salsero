@@ -12,13 +12,16 @@
 	 *
 	 * `stale`: the server has refused this page (`$lib/page-epoch.ts`), so
 	 * nothing more it sends will save; the wording says so, and may take two lines.
+	 *
+	 * On the desktop it sits over Practice's run column too (`Running`, z-31, above
+	 * the frame's sheet corners), as it sits over the run on the phone.
 	 */
 	let { stale = false }: { stale?: boolean } = $props();
 </script>
 
 <div
 	role="status"
-	class="fixed inset-x-0 z-30 border-t border-hairline bg-ground px-4 pt-2 desk:left-(--pane-left)"
+	class="fixed inset-x-0 z-30 border-t border-hairline bg-ground px-4 pt-2 desk:left-(--pane-left) desk:z-[32]"
 	style:bottom="var(--pin-bottom, 0px)"
 	style:padding-bottom="calc(8px + var(--pin-safe, var(--safe-bottom)))"
 >
