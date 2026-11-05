@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import BandButton from '$lib/components/ui/BandButton.svelte';
 	import { backByHistory, backFor, intend } from '$lib/nav/trail.svelte';
+	import { inPane } from './pane-context';
 
 	/**
 	 * The band's back: to the page this one was opened from (`$lib/nav/trail.ts`),
@@ -14,6 +15,8 @@
 		$props();
 
 	const target = $derived(backFor(page.url.pathname, fallback));
+	// In a pane on the desktop the header is on the ground: a bare ink ‹.
+	const tone = inPane() ? 'pane-back' : 'band';
 
 	function onclick(e: MouseEvent) {
 		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -22,4 +25,4 @@
 	}
 </script>
 
-<BandButton icon="back" label={target.label} href={target.href} {focusKey} {onclick} />
+<BandButton icon="back" label={target.label} href={target.href} {focusKey} {onclick} {tone} />

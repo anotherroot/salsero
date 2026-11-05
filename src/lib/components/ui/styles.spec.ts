@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	bandButton,
 	button,
 	CHIP,
 	DASHED_ADD,
@@ -142,5 +143,23 @@ describe('swap() variants', () => {
 		expect(tokens(DANGER_SHARED).has('bg-danger')).toBe(true);
 		expect(tokens(DANGER_SHARED).has('px-3')).toBe(true);
 		expect(tokens(DANGER_SHARED).has('px-6')).toBe(false);
+	});
+});
+
+describe('bandButton', () => {
+	/** The tokens that apply below 1024: everything without the `desk:` variant. */
+	const phone = (cls: string) => [...tokens(cls)].filter((c) => !c.startsWith('desk:')).sort();
+
+	it('is the same band button on the phone, whatever its tone', () => {
+		expect(phone(bandButton('pane'))).toEqual(phone(bandButton('band')));
+		expect(phone(bandButton('pane-back'))).toEqual(phone(bandButton('band')));
+		expect(tokens(bandButton())).toContain('text-band-ink');
+	});
+
+	it('is tonal in a pane on the desktop, its back a bare ink icon', () => {
+		expect(tokens(bandButton('pane'))).toContain('desk:bg-accent-soft');
+		expect(tokens(bandButton('pane'))).toContain('desk:text-accent-text');
+		expect(tokens(bandButton('pane-back'))).toContain('desk:text-ink');
+		expect(bandButton('band')).not.toContain('desk:');
 	});
 });

@@ -34,7 +34,7 @@ import { load as routinesLoad } from './routines/+page.server';
 import { load as routineLoad, actions as routineActions } from './routines/[id]/+page.server';
 import { load as lessonsLoad } from './lessons/+page.server';
 import { load as lessonLoad } from './lessons/[id]/+page.server';
-import { load as songsLoad } from './songs/+page.server';
+import { load as songsLoad } from './songs/+layout.server';
 import { load as songLoad } from './songs/[id]/+page.server';
 
 const T = 1_790_000_000_000;

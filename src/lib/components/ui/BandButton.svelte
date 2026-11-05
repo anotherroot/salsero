@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { bandButton, type BandTone } from './styles';
+	import { inPane } from '$lib/components/shell/pane-context';
 	import type { IconName } from '$lib/icons/icons';
 
 	let {
@@ -7,18 +9,22 @@
 		label,
 		href,
 		onclick,
-		focusKey
+		focusKey,
+		tone
 	}: {
 		icon: IconName;
 		label: string;
 		href?: string;
 		onclick?: (e: MouseEvent) => void;
 		focusKey?: string;
+		/** Default: `pane` inside a list's item pane (its header's actions), else `band`. */
+		tone?: BandTone;
 	} = $props();
 
-	// A bare cream icon on the band; the 44 px square is the hit area.
-	const cls =
-		'flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15';
+	// A bare cream icon on the band; the 44 px square is the hit area. In a pane on
+	// the desktop, a tonal icon button on the ground (`bandButton`).
+	const pane = inPane();
+	const cls = $derived(bandButton(tone ?? (pane ? 'pane' : 'band')));
 </script>
 
 {#if href}

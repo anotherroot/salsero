@@ -6,6 +6,14 @@
 @custom-variant desk (@media (width >= 1024px));
 
 /*
+ * `two:` is the one two-column switch inside a pane: 700 px of content (a 780 px
+ * pane less its 2 × 40 px padding). The `cols` container goes on a columns
+ * wrapper only, never on the pane: a size container is the containing block of
+ * its `position: fixed` descendants, and the pinned bars live in the pane.
+ */
+@custom-variant two (@container cols (width >= 700px));
+
+/*
  * Design tokens (the redesign). The values are `src/lib/theme/tokens.ts`
  * written out, and a spec (`stylesheet.spec.ts`) checks every one is here: a
  * stylesheet cannot import TypeScript. The `@theme` block is salsa in light
@@ -374,7 +382,9 @@ body {
  *   button builders' `active:brightness`/`active:opacity` get a lighter hover:
  *   ink 4 % in light, white 5 % in dark; cream 10 % on the band
  *   (`active:bg-band-ink`, unless the element has its own `hover:bg-band-ink`,
- *   as the side's items do); a chip's pill (`before:bg-chip`) gets it too.
+ *   as the side's items do, or its own `desk:active:` look: a band button in a
+ *   pane is on the ground there, `bandButton`'s pane tones); a chip's pill
+ *   (`before:bg-chip`) gets it too.
  * - the overlay is a background-image gradient, so it lies over whatever fill
  *   the control has without competing with its `bg-*` colour.
  * - every link, button and control that can be pressed gets a pointer
@@ -415,7 +425,7 @@ body {
 			background-image: linear-gradient(var(--hover-overlay), var(--hover-overlay));
 		}
 
-		[class*='active:bg-band-ink']:not([class*='hover:bg-band-ink']):not(
+		[class*='active:bg-band-ink']:not([class*='hover:bg-band-ink'], [class*='desk:active:']):not(
 				:disabled,
 				[aria-disabled='true']
 			):hover {

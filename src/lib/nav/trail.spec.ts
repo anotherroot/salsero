@@ -12,6 +12,8 @@ import {
 	isGone,
 	isRoot,
 	isTrailPage,
+	keepFilter,
+	keptFilter,
 	keptSearch,
 	leave,
 	openerFor,
@@ -653,5 +655,27 @@ describe('slots', () => {
 		expect(t.entries).toEqual({ 1: '/salsa/routines', 2: '/salsa/routines/3' });
 		expect(backMove(t.entries, 4, '/salsa/figures/12')).toBe('goto');
 		expect(t.pages['/salsa/figures/12']).toBeDefined();
+	});
+});
+
+describe('the kept filter', () => {
+	it("keeps a list's filter for its list path only", () => {
+		const t = keepFilter(EMPTY_TRAIL, '/salsa/songs', 'mambo');
+		expect(keptFilter(t, '/salsa/songs')).toBe('mambo');
+		expect(keptFilter(t, '/bachata/songs')).toBe('');
+		expect(keptFilter(EMPTY_TRAIL, '/salsa/songs')).toBe('');
+	});
+
+	it('survives arrivals, a forgotten page and the round trip through storage', () => {
+		let t = keepFilter(opening(), '/salsa/songs', 'mambo');
+		t = arrive(t, A({ to: '/salsa/songs/4', title: 'Mambo', from: '/salsa/songs', index: 5 }));
+		t = forget(t, '/salsa/lessons/5');
+		expect(keptFilter(t, '/salsa/songs')).toBe('mambo');
+		expect(keptFilter(parseTrail(JSON.stringify(t)), '/salsa/songs')).toBe('mambo');
+	});
+
+	it('an empty filter is no filter', () => {
+		const t = keepFilter(keepFilter(EMPTY_TRAIL, '/salsa/songs', 'mambo'), '/salsa/songs', '');
+		expect(keptFilter(t, '/salsa/songs')).toBe('');
 	});
 });

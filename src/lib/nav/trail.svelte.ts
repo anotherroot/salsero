@@ -16,6 +16,8 @@ import {
 	hrefOf,
 	isGone,
 	isTrailPage,
+	keepFilter as keepFilterIn,
+	keptFilter as keptFilterIn,
 	leave,
 	pageTitle,
 	parseTrail,
@@ -110,9 +112,24 @@ export function rememberedHref(path: string): string {
  * The current page changed its search with a shallow `replaceState` (no
  * navigation, so the router never told the trail): keep what the URL now says.
  */
-export function keepSearch(): void {
+export function keepSearch(path = location.pathname, search = location.search): void {
 	load();
-	set(searched(trail.value, location.pathname, location.search));
+	set(searched(trail.value, path, search));
+}
+
+/**
+ * The filter a list column keeps beside an open item (sessionStorage, with the
+ * trail): seeded from here when the list is rebuilt on an item page.
+ */
+export function keptFilter(listPath: string): string {
+	load();
+	return keptFilterIn(trail.value, listPath);
+}
+
+/** Keep the list column's filter ('' drops it). */
+export function keepFilter(listPath: string, value: string): void {
+	load();
+	set(keepFilterIn(trail.value, listPath, value));
 }
 
 /** Where the band's back goes from `current`, and its label. */

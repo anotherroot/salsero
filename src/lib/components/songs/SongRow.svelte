@@ -23,6 +23,7 @@
 		draft = false,
 		isNew = false,
 		twinned = false,
+		current = false,
 		trailing
 	}: {
 		href: string;
@@ -37,17 +38,24 @@
 		isNew?: boolean;
 		/** Stands for its twins (board C7): the "Twins" chip. */
 		twinned?: boolean;
+		/** The song open beside the list (desktop): tinted, and the link says so. */
+		current?: boolean;
 		trailing?: Snippet;
 	} = $props();
 
 	// Every word the search matched, marked as in every picker.
 	const segs = $derived(segments(name, query));
 	const sampled = $derived(sample !== null && sampling.id === sample.id);
+	/** `aria-current` on the link of the song open beside the list. */
+	const lit = $derived(current ? ('page' as const) : undefined);
 </script>
 
-<li class="flex min-h-16 items-center gap-1 pl-4 {sample ? 'pr-1' : 'pr-3.5'}">
+<li
+	class="flex min-h-16 items-center gap-1 pl-4 {sample ? 'pr-1' : 'pr-3.5'}"
+	class:bg-accent-soft={current}
+>
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- the caller passes a resolved href -->
-	<a {href} class="flex min-w-0 flex-1 flex-col gap-0.5 py-[9px]">
+	<a {href} aria-current={lit} class="flex min-w-0 flex-1 flex-col gap-0.5 py-[9px]">
 		<span class="flex min-w-0 items-center gap-2">
 			<span class="truncate text-[16px] leading-[1.3] font-bold text-ink"
 				>{#each segs as seg, i (i)}{#if seg.hit}<mark
@@ -72,7 +80,7 @@
 		{/if}
 	</a>
 	{#if sample}
-		<SampleButton song={sample} {name} />
+		<SampleButton song={sample} {name} tinted={current} />
 	{:else}
 		{#if trailing}{@render trailing()}{/if}
 		<span class="flex flex-none text-chevron"><Icon name="chevron-right" size={20} /></span>

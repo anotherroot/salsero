@@ -671,6 +671,7 @@ import {
 } from '$lib/server/countTakes';
 import { countTakes } from '$lib/server/db/schema';
 import * as songList from './songs/+page.server';
+import * as songListLayout from './songs/+layout.server';
 import * as songPage from './songs/[id]/+page.server';
 import * as songGrid from './songs/[id]/grid/+server';
 import * as voicePage from '../voice/+page.server';
@@ -748,9 +749,9 @@ describe("the songs pages refuse another person's song", () => {
 	});
 
 	it('the list shows none of them, and adding by URL makes the person’s own', async () => {
-		const data = (await loadAt(songList.load, U2, 'salsa')) as { songs: unknown[] };
+		const data = (await loadAt(songListLayout.load, U2, 'salsa')) as { songs: unknown[] };
 		expect(data.songs).toEqual([]);
-		const own = (await loadAt(songList.load, U1, 'salsa')) as { songs: unknown[] };
+		const own = (await loadAt(songListLayout.load, U1, 'salsa')) as { songs: unknown[] };
 		expect(own.songs).toHaveLength(2);
 		await call(
 			songList.actions.addUrl,

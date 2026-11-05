@@ -27,6 +27,13 @@ export interface Trail {
 	 * holds it, popup flags and all, since that is what a history step restores.
 	 */
 	entries: Record<number, string>;
+	/**
+	 * A list's path → the filter its list column keeps while an item is open
+	 * beside it (desktop, "The list's search and chips survive opening an
+	 * item"). Opaque to the trail: each list writes and reads its own. Absent
+	 * until a list keeps one.
+	 */
+	filters?: Record<PageKey, string>;
 }
 
 /** An entry's page: its href without the search. */
@@ -191,7 +198,7 @@ export function arrive(t: Trail, a: Arrival): Trail {
 		if (remembered(a.to)) last = { ...last, [key]: a.to };
 		if (isRoot(a.to)) lastRoot = { ...lastRoot, [key]: a.to };
 	}
-	return { pages, last, lastRoot, entries };
+	return { ...t, pages, last, lastRoot, entries };
 }
 
 /** Store where the page was scrolled to as it is left. Creates no record. */
@@ -211,6 +218,19 @@ export function searched(t: Trail, key: PageKey, search: string): Trail {
 	return { ...t, pages: { ...t.pages, [key]: { ...v, search: keptSearch(search) } } };
 }
 
+/** The filter the list at `listPath` keeps beside an open item; '' for none. */
+export function keptFilter(t: Trail, listPath: PageKey): string {
+	return t.filters?.[listPath] ?? '';
+}
+
+/** Keep `value` as the list's filter ('' drops it). Creates no page record. */
+export function keepFilter(t: Trail, listPath: PageKey, value: string): Trail {
+	const filters = { ...t.filters };
+	if (value) filters[listPath] = value;
+	else delete filters[listPath];
+	return { ...t, filters };
+}
+
 /** A page that no longer exists: out of the trail, its children reattached. */
 export function forget(t: Trail, key: PageKey): Trail {
 	const gone = t.pages[key];
@@ -222,6 +242,7 @@ export function forget(t: Trail, key: PageKey): Trail {
 	const without = (r: Record<string, PageKey>) =>
 		Object.fromEntries(Object.entries(r).filter(([, v]) => v !== key));
 	return {
+		...t,
 		pages,
 		last: without(t.last),
 		lastRoot: without(t.lastRoot),
@@ -383,11 +404,13 @@ export function parseTrail(raw: string | null): Trail {
 				pages[k] = { search: p.search, scrollY: p.scrollY, opener: p.opener, title: p.title };
 		}
 	}
+	const filters = strings(v.filters);
 	return {
 		pages,
 		last: strings(v.last),
 		lastRoot: strings(v.lastRoot),
-		entries: strings(v.entries) as Record<number, string>
+		entries: strings(v.entries) as Record<number, string>,
+		...(Object.keys(filters).length ? { filters } : {})
 	};
 }
 

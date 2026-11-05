@@ -1,57 +1,14 @@
 import { fail } from '@sveltejs/kit';
 import { getDb } from '$lib/server/db';
 import { oneOf, optionalText } from '$lib/server/form';
-import { createSongFromUrl, listSharedSongs, listSongs, retrySong } from '$lib/server/songs';
-import { songUsers } from '$lib/server/song-share';
-import { whatsNew } from '$lib/server/whats-new';
-import { storedTwinSets } from '$lib/server/twins';
-import { foldSongs } from '$lib/clones/twins';
+import { createSongFromUrl, retrySong } from '$lib/server/songs';
 import { ownerOfRow, roomForOwner } from '$lib/server/storage';
 import { DANCES } from '$lib/dances/dances';
-import { ownerValues, requireSongAccess, wallOf, type Space } from '$lib/server/scope';
-import { groupModeOf, spaceOf } from '$lib/server/group-mode';
-import type { Actions, PageServerLoad } from './$types';
+import { ownerValues, requireSongAccess, type Space } from '$lib/server/scope';
+import { spaceOf } from '$lib/server/group-mode';
+import type { Actions } from './$types';
 
-/**
- * Group mode: the group's songs, drafts first, and how many people practise
- * with each shared one. Otherwise the person's own songs, then a section per
- * group with its shared songs, each marked when it is new to them.
- */
-export const load: PageServerLoad = ({ params, locals, cookies }) => {
-	const db = getDb();
-	const wall = wallOf(params, locals);
-	const mode = groupModeOf(db, wall.userId, wall.dance, cookies);
-	if (mode) {
-		const list = listSongs(db, { dance: wall.dance, teamId: mode.teamId, actorId: wall.userId });
-		return {
-			songs: list,
-			groups: [],
-			twinned: [] as number[],
-			users: Object.fromEntries(
-				list.filter((s) => s.sharedAt !== null).map((s) => [s.id, songUsers(db, s.id)])
-			) as Record<number, number>
-		};
-	}
-	const fresh = whatsNew(db, wall.userId, wall.dance).songs;
-	// Twins show as one (board C7): each set once, yours if you have one, else the
-	// first group by name; only ready songs fold, so one being added never hides a
-	// ready twin. Group mode (above) folds nothing.
-	const folded = foldSongs(
-		listSongs(db, wall),
-		listSharedSongs(db, wall.userId, wall.dance).map((g) => ({ team: g.team, rows: g.songs })),
-		storedTwinSets(db, wall.userId, 'song')
-	);
-	return {
-		songs: folded.mine,
-		groups: folded.groups.map((g) => ({
-			team: g.team,
-			songs: g.rows.map((s) => ({ ...s, isNew: fresh.has(s.id) }))
-		})),
-		/** The songs that stand for their twins: the "Twins" chip. */
-		twinned: [...folded.twinOf.keys()],
-		users: {} as Record<number, number>
-	};
-};
+// The list itself loads in the layout (+layout.server.ts): it sits beside a song too.
 
 /**
  * Room for a download into this space, charged to its owner (the person, or

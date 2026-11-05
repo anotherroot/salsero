@@ -228,7 +228,7 @@
 
 <svelte:head><title>{song.title || 'Song'} · {data.dance.label}</title></svelte:head>
 
-<Screen compact title={name} {subtitle}>
+<Screen compact width="song" title={name} {subtitle}>
 	{#snippet left()}
 		<BackButton
 			fallback={{
@@ -526,7 +526,7 @@
 </Screen>
 
 {#if shareBar}
-	<BottomBar>
+	<BottomBar width="song">
 		<form method="POST" action="?/share" use:enhance class="flex flex-col gap-2">
 			<p class="flex items-center justify-center gap-2 text-[13px] text-muted">
 				<Badge tone="warn">Draft</Badge>Only the group's editors see it

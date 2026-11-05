@@ -24,25 +24,29 @@
 		open,
 		onclose,
 		dance,
-		form: given,
+		action = '?/addUrl',
 		team = null
 	}: {
 		open: boolean;
 		onclose: () => void;
 		dance: Dance;
-		form: AddForm | null | undefined;
+		/**
+		 * Where Add song posts. The Music list sits beside an open song too, so it names
+		 * the list route's action: a bare `?/addUrl` would post to the song's page.
+		 */
+		action?: string;
 		/** Group mode's group: an upload names it, as the flat endpoint has no cookie to read. */
 		team?: number | null;
 	} = $props();
 
 	let busy = $state(false);
 	/**
-	 * The result the sheet was last closed on. Closing throws a refusal away
-	 * ("Close without saving"), so reopening must not bring it back. Raw: a
-	 * proxied copy would never be `===` the prop.
+	 * The refusal Add song came back with, read from the submit's result: the
+	 * page's `form` is not this sheet's (beside a song, SvelteKit does not apply a
+	 * result posted to another path). Closing throws it away ("Close without
+	 * saving"), so reopening does not bring it back.
 	 */
-	let closedOn = $state.raw<AddForm | null | undefined>(undefined);
-	const form = $derived(given === closedOn ? null : given);
+	let form = $state.raw<AddForm | null>(null);
 
 	/*
 	 * The picked chip, shared with the upload; a refusal brings back the one
@@ -65,7 +69,7 @@
 
 	function close() {
 		fileProblem = null;
-		closedOn = given;
+		form = null;
 		// The fields come back empty on reopen; so does the pick.
 		style = first;
 		onclose();
@@ -91,7 +95,7 @@
 		<form
 			id="add-song"
 			method="POST"
-			action="?/addUrl"
+			{action}
 			novalidate
 			class="flex flex-col gap-3.5"
 			use:guarded={{
@@ -103,7 +107,8 @@
 					return async ({ result, update }) => {
 						await update();
 						busy = false;
-						if (result.type === 'success') close();
+						if (result.type === 'failure') form = (result.data ?? null) as AddForm | null;
+						else if (result.type === 'success') close();
 					};
 				}
 			}}

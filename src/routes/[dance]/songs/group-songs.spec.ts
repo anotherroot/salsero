@@ -32,7 +32,7 @@ import { GET as getAudio } from '../../audio/[file]/+server';
 import { GET as getGrid } from './[id]/grid/+server';
 import { load as playerLoad } from '../player/+page.server';
 import * as songPage from './[id]/+page.server';
-import { load as musicLoad } from './+page.server';
+import { load as musicLoad } from './+layout.server';
 import { load as groupLoad } from '../groups/[id]/+page.server';
 import { load as groupsLoad } from '../groups/+page.server';
 import { POST as postOpen } from '../../api/opens/+server';
@@ -223,6 +223,7 @@ type Music = {
 const musicAs = (as: string, group?: number) =>
 	(musicLoad as unknown as (e: unknown) => Music)({
 		params: { dance: 'salsa' },
+		url: new URL('http://localhost/salsa/songs'),
 		locals: { user: user(as) },
 		cookies: cookiesFor(group)
 	});

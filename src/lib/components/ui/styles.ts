@@ -82,6 +82,30 @@ export function iconButton(variant: IconButtonVariant, tone: IconTone = 'ink'): 
 	return `flex h-11 w-11 flex-none cursor-pointer items-center justify-center rounded-full transition-colors disabled:cursor-default ${ICON_BUTTON[variant]}${colour}`;
 }
 
+/**
+ * Where a band button sits. `band`: a bare cream icon on the band. In a pane on
+ * the desktop (`inPane()`), the item's header is on the ground, not the band:
+ * `pane` is an action there, the tonal icon button (desktop spec, "the item's
+ * actions as tonal icon buttons"), `pane-back` its ‹, a bare ink icon. The phone
+ * draws all three as `band`: the same element is the phone's band button.
+ */
+export type BandTone = 'band' | 'pane' | 'pane-back';
+
+const BAND_BUTTON =
+	'flex h-11 w-11 flex-none items-center justify-center rounded-full text-band-ink active:bg-band-ink/15';
+
+/** Desk only, written out so Tailwind sees every class. `desk:active:` also turns the band's hover off (layout.css). */
+const BAND_TONE: Record<BandTone, string> = {
+	band: '',
+	pane: ' desk:bg-accent-soft desk:text-accent-text desk:active:bg-accent-soft desk:active:brightness-90',
+	'pane-back': ' desk:text-ink desk:active:bg-step'
+};
+
+/** A band's 44 px icon button (BandButton); give it an aria-label. */
+export function bandButton(tone: BandTone = 'band'): string {
+	return BAND_BUTTON + BAND_TONE[tone];
+}
+
 export const FIELD =
 	'h-[52px] w-full rounded-[14px] border border-field-line bg-surface px-3.5 font-sans text-[16px] font-semibold text-ink placeholder:font-medium placeholder:text-muted aria-invalid:border-danger aria-invalid:shadow-[inset_0_0_0_1px_var(--color-danger)] disabled:border-transparent disabled:bg-disabled-bg disabled:text-disabled-ink';
 /** A multi-line field: FIELD's look, grows with its rows. */
