@@ -57,14 +57,32 @@ import { groupModeOf } from '$lib/server/group-mode';
 import { int, oneOf, optionalText, text } from '$lib/server/form';
 import { deleteSetFrom, logSetFrom, restoreSetFrom } from '$lib/server/log-form';
 import { readAdd } from '$lib/server/add-form';
-import { addLesson, addState, markSeen, removeLesson } from '$lib/server/entries';
+import {
+	addLesson,
+	addState,
+	entryFor,
+	markSeen,
+	removeLesson,
+	type EntryTarget
+} from '$lib/server/entries';
+import { inArray } from 'drizzle-orm';
+import { exercises } from '$lib/server/db/schema';
+import { levelShown, simpleLesson } from '$lib/levels/levels';
+import { practiceRows, type PracticeEntry } from '$lib/lessons/page';
 import { popupData } from '$lib/server/popup';
 import { isValidDay, localDay } from '$lib/day/day';
 import { PARTNER } from '$lib/labels';
 import { DANCES } from '$lib/dances/dances';
 import { getTeam } from '$lib/server/teams';
 import { lessonNotice } from '$lib/teams/view';
-import { actorOf, inSpace, isTeam, requireLessonAccess, wallOf } from '$lib/server/scope';
+import {
+	actorOf,
+	inSpace,
+	isTeam,
+	requireLessonAccess,
+	wallOf,
+	type Wall
+} from '$lib/server/scope';
 import { SpotLinkedError, blockingPositionsByVideo, videoSections } from '$lib/server/spot-links';
 import { lessonSeen, seenRefusal } from '$lib/server/clash';
 import { archivedRefusal, editedBy } from '$lib/server/changes';
@@ -124,6 +142,63 @@ function editedLine(db: ReturnType<typeof getDb>, teamId: number, lessonId: numb
 	return by === null || at === null ? null : editedByLine(by, agoText(at, Date.now()));
 }
 
+/**
+ * The simple page's "What you're practising": this person's own live entries
+ * from the lesson (the lesson's own, its routines', its drills'), each with
+ * when it is next on Today. A row the person has a copy of counts as that copy
+ * (`mineId`); a drill of their own lesson is its own entry. Anything that is
+ * not theirs and live has no schedule, so `practiceRows` leaves it out.
+ */
+function practising(
+	db: ReturnType<typeof getDb>,
+	wall: Wall,
+	timeZone: string,
+	today: string,
+	lessonId: number,
+	routines: { id: number; mineId: number | null }[],
+	drills: { id: number; mineId: number | null }[]
+) {
+	const live = (target: EntryTarget) => {
+		const row = entryFor(db, wall.userId, target);
+		return row && row.archivedAt === null ? row.id : null;
+	};
+	const picked: { id: number | null; kind: PracticeEntry['kind'] }[] = [
+		{ id: live({ lessonId }), kind: 'lesson' },
+		...routines.map((r) => ({
+			id: live({ routineId: r.mineId ?? r.id }),
+			kind: 'routine' as const
+		})),
+		...drills.map((d) => ({
+			id: d.mineId ?? live({ drillId: d.id }) ?? d.id,
+			kind: 'drill' as const
+		}))
+	];
+	// One row each: a drill held twice (by hand and through a section) is one entry.
+	const kinds = new Map<number, PracticeEntry['kind']>();
+	for (const p of picked) if (p.id !== null && !kinds.has(p.id)) kinds.set(p.id, p.kind);
+	if (kinds.size === 0) return [];
+	const rows = new Map(
+		db
+			.select({ id: exercises.id, name: exercises.name, active: exercises.active })
+			.from(exercises)
+			.where(inArray(exercises.id, [...kinds.keys()]))
+			.all()
+			.map((r) => [r.id, r])
+	);
+	const entries: PracticeEntry[] = [...kinds].flatMap(([id, kind]) => {
+		const row = rows.get(id);
+		return row ? [{ id, name: row.name, kind, active: row.active }] : [];
+	});
+	// Keyed by the person's own ids, so each finds its own schedule (or none).
+	const states = scheduleForShown(
+		db,
+		wall,
+		timeZone,
+		entries.map((e) => ({ id: e.id }))
+	);
+	return practiceRows(entries, states, today);
+}
+
 export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 	const db = getDb();
 	const wall = wallOf(params, locals);
@@ -151,7 +226,24 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 	// editor's and a person's are the whole space.
 	const shown = <T extends { id: number }>(rows: T[], ids: Set<number> | undefined) =>
 		ids ? rows.filter((r) => ids.has(r.id)) : rows;
+	const today = localDay(Date.now(), tz);
+	// The simple page (levels spec): below Everything, except a group's lesson the
+	// person edits, which a teacher at any level gets in full.
+	const simple = simpleLesson(levelShown(locals.user?.level), access, team !== null);
 	return {
+		simple,
+		/** The simple page's "What you're practising"; only drawn there. */
+		practising: simple
+			? practising(
+					db,
+					wall,
+					tz,
+					today,
+					found.lesson.id,
+					shown(found.routines, visible?.routines),
+					shown(found.exercises, visible?.drills)
+				)
+			: [],
 		...found,
 		figures: shown(found.figures, visible?.variations),
 		routines: shown(found.routines, visible?.routines),
@@ -212,7 +304,7 @@ export const load: PageServerLoad = ({ params, locals, cookies, url }) => {
 		linkableExercises: canEdit ? listLinkableExercises(db, found.lesson.id) : [],
 		linkablePositions: canEdit ? listLinkablePositions(db, found.lesson.id) : [],
 		links: listLinks(db, { lessonId: found.lesson.id }),
-		today: localDay(Date.now(), tz),
+		today,
 		/** The schedule of each exercise the page shows a due word for: the person's own. */
 		schedule: scheduleForShown(db, wall, tz, [
 			{ id: found.exercise?.id },
@@ -314,11 +406,15 @@ export const actions: Actions = {
 	 * Remove from my lessons: off the Lessons list and its entries off Today,
 	 * logs kept, except what another added lesson still holds.
 	 */
-	remove: ({ params, locals }) => {
+	remove: async ({ params, locals, request }) => {
 		const { lesson } = lessonIn(params, locals, 'read');
+		// The simple page's "Added to Today · Undo" stays on the lesson (`stay`).
+		const stay = (await request.formData()).get('stay') === '1';
 		if (!removeLesson(getDb(), wallOf(params, locals).userId, lesson.id, Date.now())) {
+			if (stay) return fail(404, { action: 'remove', message: 'Could not undo.' });
 			throw error(404, 'No such lesson');
 		}
+		if (stay) return { action: 'remove', ok: true };
 		throw redirect(303, `/${params.dance}/lessons`);
 	},
 
