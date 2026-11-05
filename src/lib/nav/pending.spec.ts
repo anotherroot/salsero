@@ -136,6 +136,7 @@ describe('skeletonFor Lessons and Groups', () => {
 	it('draws a pane for Lessons, none for a group page', () => {
 		expect(skeletonFor('/[dance]/lessons/[id]')?.pane).toBe(true);
 		expect(skeletonFor('/[dance]/lessons')?.pane).toBe(true);
+		expect(skeletonFor('/[dance]/lessons')).toMatchObject({ deskTitle: 'Lessons' });
 		expect(skeletonFor('/[dance]/groups/[id]')).toBeNull();
 	});
 });

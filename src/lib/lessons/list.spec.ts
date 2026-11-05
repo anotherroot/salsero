@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { LessonItem } from '$lib/types';
-import { dateTile, diskSubtitle, lessonCounts, monthGroups, splitDrafts, videoMeta } from './list';
+import {
+	PICK_LESSON,
+	dateTile,
+	diskSubtitle,
+	groupVideosSubtitle,
+	isOpenLesson,
+	lessonCounts,
+	monthGroups,
+	splitDrafts,
+	videoMeta
+} from './list';
+import { byteSize } from '$lib/format';
 
 const lesson = (lessonDay: string, over: Partial<LessonItem> = {}): LessonItem => ({
 	id: 1,
@@ -89,5 +100,34 @@ describe('emptyLessonsBody', () => {
 		const { emptyLessonsBody } = await import('./list');
 		expect(emptyLessonsBody(false)).toContain('Today');
 		expect(emptyLessonsBody(true)).not.toContain('Today');
+	});
+});
+
+describe('isOpenLesson', () => {
+	it('is the open lesson, or a row standing for it as a twin', () => {
+		expect(isOpenLesson({ id: 5 }, 5)).toBe(true);
+		expect(isOpenLesson({ id: 5, twinIds: [9] }, 9)).toBe(true);
+		expect(isOpenLesson({ id: 5 }, null)).toBe(false);
+		expect(isOpenLesson({ id: 5, twinIds: [9] }, 7)).toBe(false);
+	});
+});
+
+describe('groupVideosSubtitle', () => {
+	it('says what the group has used of its limit', () => {
+		expect(groupVideosSubtitle(1.6e9, 3e9)).toBe(
+			`Group videos: ${byteSize(1.6e9)} of ${byteSize(3e9)}`
+		);
+		expect(groupVideosSubtitle(1.6 * 1024 ** 3, 3 * 1024 ** 3)).toBe(
+			'Group videos: 1.6 GB of 3.0 GB'
+		);
+	});
+});
+
+describe('PICK_LESSON', () => {
+	it('is the empty pane’s words', () => {
+		expect(PICK_LESSON).toEqual({
+			title: 'Pick a lesson',
+			body: 'Its notes, videos and what it teaches open here, beside the list.'
+		});
 	});
 });

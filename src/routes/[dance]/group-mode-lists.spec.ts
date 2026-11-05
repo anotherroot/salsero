@@ -30,10 +30,12 @@ import { createLesson, linkRoutine, linkFigure } from '$lib/server/lessons';
 import { createRoutine } from '$lib/server/routines';
 import { createFigure, createVariationIn } from '$lib/server/figures';
 import { T1_SALSA, U2_SALSA } from '$lib/server/test-walls';
+import { teamLimitBytes, usedBytesOf } from '$lib/server/storage';
 import { groupCookie } from '$lib/teams/mode';
 import { actions as figureActions } from './(moves)/figures/+page.server';
 import { actions as routineActions } from './(moves)/routines/+page.server';
-import { actions as lessonActions, load as lessonsLoad } from './lessons/+page.server';
+import { actions as lessonActions } from './lessons/+page.server';
+import { load as lessonsLoad } from './lessons/+layout.server';
 import { load as coverageLoad } from './(moves)/coverage/+page.server';
 import { load as movesListsLoad } from './(moves)/+layout.server';
 import { figuresView } from '$lib/moves/filter';
@@ -206,6 +208,15 @@ describe('listing in group mode', () => {
 		createLesson(db, T1_SALSA, { lessonDay: '2026-11-03', title: 'Draft', notes: null });
 		const data = loadOf(lessonsLoad, 'u2', jar('1').cookies);
 		expect(data.lessons.map((l: any) => l.title)).toEqual(['Draft']); // eslint-disable-line @typescript-eslint/no-explicit-any
+	});
+	it("carries the group's storage in group mode, and none outside it", async () => {
+		const inGroup = loadOf(lessonsLoad, 'u2', jar('1').cookies);
+		expect(inGroup.groupStorage).toEqual({
+			usedBytes: usedBytesOf(db, { teamId: 1 }),
+			limitBytes: teamLimitBytes(db, 1)
+		});
+		expect(inGroup.groupStorage.limitBytes).toBeGreaterThan(0);
+		expect(loadOf(lessonsLoad, 'u2', jar().cookies).groupStorage).toBeNull();
 	});
 	it('sends coverage back to figures in group mode', async () => {
 		let thrown: any; // eslint-disable-line @typescript-eslint/no-explicit-any

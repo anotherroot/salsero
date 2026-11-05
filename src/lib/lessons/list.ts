@@ -65,3 +65,19 @@ export function emptyLessonsBody(inGroup: boolean): string {
 		? 'Add one after your next class — the videos and the notes. Members see it once you publish it.'
 		: 'Add one after your next class — the videos, the notes, and something on Today to make you go back over it.';
 }
+
+/** Whether a row is the lesson open beside the list: itself, or a twin it stands for. */
+export function isOpenLesson(row: { id: number; twinIds?: number[] }, openId: number | null) {
+	return openId !== null && (row.id === openId || (row.twinIds ?? []).includes(openId));
+}
+
+/** The pane's words with no lesson open (desktop only). */
+export const PICK_LESSON = {
+	title: 'Pick a lesson',
+	body: 'Its notes, videos and what it teaches open here, beside the list.'
+};
+
+/** A group's storage as the band's subtitle on the desktop (group mode). */
+export function groupVideosSubtitle(usedBytes: number, limitBytes: number): string {
+	return `Group videos: ${byteSize(usedBytes)} of ${byteSize(limitBytes)}`;
+}

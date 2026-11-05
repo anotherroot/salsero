@@ -157,6 +157,8 @@ export interface LessonItem {
 	copyOf: string | null;
 	/** Stands for its twins in the Lessons list (board C7): the "Twins" chip. */
 	twinned?: boolean;
+	/** With `twinned`: the other members of the set, so the open lesson can light the row. */
+	twinIds?: number[];
 }
 
 /** A group's lesson as the group page lists it: a draft until an editor publishes it. */

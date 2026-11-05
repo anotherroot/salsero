@@ -1198,6 +1198,7 @@ import {
 } from '$lib/server/db/schema';
 import * as lessonPage from './lessons/[id]/+page.server';
 import * as lessonList from './lessons/+page.server';
+import { load as lessonListLoad } from './lessons/+layout.server';
 import * as sharePage from './share/+page.server';
 
 describe('lessons, sections and their links stand behind a wall', () => {
@@ -1348,7 +1349,7 @@ describe('lessons, sections and their links stand behind a wall', () => {
 	});
 
 	it('the lesson list, Today and the share sheet show u2 none of u1’s lessons', async () => {
-		const list = (await loadAt(lessonList.load, U2, 'salsa')) as {
+		const list = (await loadAt(lessonListLoad, U2, 'salsa')) as {
 			lessons: unknown[];
 			storageBytes: number;
 		};
@@ -2083,7 +2084,7 @@ describe('a group lesson: its draft, its publish, and what each person may open'
 		expect(editor.find((l) => l.id === D)!.add).toBeNull();
 		expect(editor.find((l) => l.id === P)!.add?.added).toBe(false);
 		const lessonsOf = (user: User) =>
-			(loadAt(lessonList.load, user, 'salsa') as { lessons: { id: number; team: unknown }[] })
+			(loadAt(lessonListLoad, user, 'salsa') as { lessons: { id: number; team: unknown }[] })
 				.lessons;
 		expect(lessonsOf(U2).map((l) => l.id)).toEqual([]);
 

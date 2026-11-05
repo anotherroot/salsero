@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ActionResult } from '@sveltejs/kit';
 	import { guarded } from '$lib/unsaved/guard.svelte';
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Banner from '$lib/components/ui/Banner.svelte';
@@ -28,7 +29,8 @@
 		action,
 		refusal,
 		today,
-		frequency = true
+		frequency = true,
+		handle
 	}: {
 		open: boolean;
 		onclose: () => void;
@@ -39,9 +41,16 @@
 		/** The newest day a class can have been, `YYYY-MM-DD`. */
 		today: string;
 		frequency?: boolean;
+		/**
+		 * A page whose form is not on the action's own route (the Lessons layout's list)
+		 * takes the result itself: a refusal never reaches `page.form` there. It runs
+		 * `update()` for what it does not handle. Without it, the sheet just updates.
+		 */
+		handle?: (result: ActionResult, update: () => Promise<void>) => Promise<void>;
 	} = $props();
 
 	let busy = $state(false);
+	let formEl = $state<HTMLFormElement>();
 	let everyDays = $state(DEFAULT_EVERY_DAYS);
 
 	// A refusal that is about no one field goes at the top of the sheet.
@@ -58,6 +67,7 @@
 		id="new-lesson"
 		method="POST"
 		{action}
+		bind:this={formEl}
 		novalidate
 		class="flex flex-col gap-3.5"
 		use:guarded={{
@@ -66,9 +76,13 @@
 				// One lesson per tap: a second tap while the first is out is dropped.
 				if (busy) return cancel();
 				busy = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
 					try {
-						await update();
+						if (handle) {
+							await handle(result, () => update());
+							// A sent form starts empty the next time (the sheet is kept, closed).
+							if (result.type === 'redirect') formEl?.reset();
+						} else await update();
 					} finally {
 						busy = false;
 					}

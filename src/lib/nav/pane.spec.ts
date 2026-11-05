@@ -121,5 +121,8 @@ describe('Lessons and Groups', () => {
 		expect(openIdOf('/salsa/lessons', 'lessons', 'salsa')).toBeNull();
 		expect(openIdOf('/salsa/lessons/x', 'lessons', 'salsa')).toBeNull();
 		expect(openIdOf('/salsa/groups/3', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/salsa/lessons/5x', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/salsa/lessonsx/5', 'lessons', 'salsa')).toBeNull();
+		expect(openIdOf('/bachata/lessons/5', 'lessons', 'salsa')).toBeNull();
 	});
 });
