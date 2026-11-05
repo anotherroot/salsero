@@ -103,7 +103,10 @@
 						<span
 							class="contents desk:flex desk:flex-wrap desk:items-center desk:gap-x-2 desk:gap-y-1"
 						>
-							<span class="truncate text-[16px] leading-[1.3] font-bold text-ink">{team.name}</span>
+							<span
+								class="truncate text-[16px] leading-[1.3] font-bold text-ink desk:whitespace-normal"
+								>{team.name}</span
+							>
 							<span class="hidden desk:inline-flex desk:gap-2">{@render badges()}</span>
 						</span>
 						<span class="text-[13px] text-muted"

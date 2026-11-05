@@ -85,6 +85,8 @@
 {/snippet}
 
 {#snippet pick()}
+	<!-- The list page: only its <title>, which would never mount if ListPane did not render it. -->
+	{@render children()}
 	<EmptyState icon="lessons" title={PICK_LESSON.title} body={PICK_LESSON.body}>
 		{#snippet action()}
 			<button type="button" class={button('secondary')} onclick={openSheet}>

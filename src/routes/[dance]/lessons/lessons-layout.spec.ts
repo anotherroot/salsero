@@ -19,3 +19,13 @@ describe('the Lessons layout', () => {
 		}
 	});
 });
+
+// ListPane draws `empty` on the list route, never `children`: the list page (only its <title>)
+// mounts inside the empty pane, or the tab has no title and Back reads "Back to ".
+describe('the Lessons list page', () => {
+	it('renders inside the empty pane', () => {
+		expect(layout).toMatch(
+			/\{#snippet pick\(\)\}((?!\{\/snippet\})[\s\S])*\{@render children\(\)\}/
+		);
+	});
+});
