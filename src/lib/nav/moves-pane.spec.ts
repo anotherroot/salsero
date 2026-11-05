@@ -83,7 +83,7 @@ describe('columnOf', () => {
 		expect(columnOf(R('figures/[id]'), '/salsa/figures/12', '/salsa/routines/5')).toBe('routines');
 		expect(columnOf(R('figures/[id]'), '/salsa/figures/12', null)).toBe('figures');
 		expect(columnOf('/[dance]/songs/[id]', '/salsa/songs/3', null)).toBe('songs');
-		expect(columnOf('/[dance]/lessons/[id]', '/salsa/lessons/1', null)).toBeNull();
+		expect(columnOf('/[dance]/player', '/salsa/player', null)).toBeNull();
 		expect(columnOf(null, '/salsa', null)).toBeNull();
 	});
 });

@@ -82,13 +82,13 @@ describe('a list and its pane', () => {
 		expect(skeletonFor('/[dance]/songs')).toMatchObject({ kind: 'list', pane: true, open: false });
 		expect(skeletonFor('/settings')!.pane).toBe(false);
 		expect(skeletonFor('/[dance]')!.pane).toBe(false);
-		expect(skeletonFor('/[dance]/lessons/[id]')!.pane).toBe(false);
+		expect(skeletonFor('/[dance]/player')!.pane).toBe(false);
 	});
 
 	it('names the band row title of a list and pane', () => {
 		expect(skeletonFor('/[dance]/songs/[id]')!.deskTitle).toBe('Music');
 		expect(skeletonFor('/[dance]/(moves)/figures/[id]')!.deskTitle).toBe('Moves');
-		expect(skeletonFor('/[dance]/lessons/[id]')!.deskTitle).toBeNull();
+		expect(skeletonFor('/[dance]/player')!.deskTitle).toBeNull();
 	});
 });
 
@@ -129,5 +129,13 @@ describe('leavesPage', () => {
 		expect(leavesPage('/salsa/figures', '/salsa/figures/12')).toBe(true);
 		expect(leavesPage('/salsa', '/bachata')).toBe(true);
 		expect(leavesPage('/salsa/figures', '/salsa/figures')).toBe(false);
+	});
+});
+
+describe('skeletonFor Lessons and Groups', () => {
+	it('draws a pane for Lessons, none for a group page', () => {
+		expect(skeletonFor('/[dance]/lessons/[id]')?.pane).toBe(true);
+		expect(skeletonFor('/[dance]/lessons')?.pane).toBe(true);
+		expect(skeletonFor('/[dance]/groups/[id]')).toBeNull();
 	});
 });

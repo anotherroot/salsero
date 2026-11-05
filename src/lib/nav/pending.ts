@@ -52,7 +52,9 @@ const PANE_TITLE: Record<ListId, string> = {
 	songs: 'Music',
 	figures: 'Moves',
 	routines: 'Moves',
-	positions: 'Moves'
+	positions: 'Moves',
+	lessons: 'Lessons',
+	groups: 'Groups'
 };
 
 const DETAILS = new Set([
