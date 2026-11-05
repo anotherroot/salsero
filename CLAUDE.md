@@ -136,7 +136,7 @@ family (and twins as one in the graph), the hold, templates, the links, the
 screens and the map, the one-time move at boot, and what was decided while
 planning and building. It replaces the routines spec's neutral position and
 single end.
-The desktop has its own (agreed, not built yet),
+The desktop has its own (the frame is built; the area pages follow),
 [`docs/superpowers/specs/2026-11-03-desktop-design.md`](docs/superpowers/specs/2026-11-03-desktop-design.md):
 from 1024 px, one short band row and a band-coloured side with the tabs, a
 list and the opened item side by side, two-column figure and lesson pages, and
@@ -255,6 +255,20 @@ src/lib/nav/         tabs.ts: the five tabs, which one a path lights, where the 
                      chrome.svelte.ts: `claimBottom`, an edit or selection bar takes the bottom and the
                      tab bar steps aside. The tab bar shows on every screen of a dance but Practice/share;
                      pinned bars sit at `--pin-bottom` / `--pin-safe` (set by the root layout)
+src/lib/nav/frame.ts  PURE: the frame of a path (`frameOf`: dance, card, bare), `PAGE_WIDTH` (the
+                     content max widths) and `frameOfError` (an error's frame). pane.ts: PURE,
+                     `listOf` (which list column a path belongs to) and `paneBack` (whether an
+                     item's ‹ shows). desk.svelte.ts: the `desk` media query (from 1024 px)
+src/lib/components/shell/  Side.svelte (the band-coloured side with the tabs), SheetCorner (the
+                     sheet's rounded corner), BandHeader (the band row's title, subtitle, actions),
+                     ListPane (a list column with its band) and Pane (the item beside it;
+                     `pane-context.ts` tells a page it is in one), CardFrame (the centred 480 px
+                     card on the band colour: sign in, Join, Welcome, Get the app, Pair, `/g/<code>`
+                     and errors outside a dance)
+src/lib/components/songs/MusicList.svelte  the Music list; `src/routes/[dance]/songs/+layout.*`
+                     holds its load and the list/item split
+scripts/shots/       the screenshot rig: a throwaway copy of a db, a frozen clock, every page of
+                     `pages.txt`, `--viewport` for desktop; `diff` against a baseline (README.md)
 src/lib/settings/    view.ts: PURE, the reminder rule and the paired-phone device lines
 src/app.html         a script before the first paint: the theme choice → `data-theme`
                      (light/dark, told to the Android shell), and the Android app's
@@ -592,6 +606,9 @@ scripts/make-icons.sh  one-off: librsvg rasterises static/icon-salsa.svg and
   component's script, so its dev guard would never see a token gone from the
   builder. Variants live in `ui/styles.ts`, `video/styles.ts` and
   `player/styles.ts`, each imported by a spec (also enforced by `class-rules.spec.ts`).
+- **Forms in a list column post to the list route's explicit action URL**
+  (`action="/{dance}/songs?/addUrl"`), never a bare `?/x`: on desktop the column sits
+  beside an item route, and a bare action would post to the item.
 - **A card that clips uses `GROUP` or `CLIP`.** Rows draw their focus ring inside
   it, since the card's `overflow-hidden` would cut an outside one
   (`focus-clip.spec.ts`).

@@ -162,7 +162,8 @@ def shoot(a):
                 ok = (status == 404) if expected_404 else (status < 400 and final.split("?")[0] == want)
                 if not ok:
                     bad += 1
-                print(f"{'ok ' if ok else 'BAD'} {status} {path}" + (f" -> {final}" if final != path else ""))
+                over = page.evaluate("() => document.documentElement.scrollWidth - window.innerWidth")
+                print(f"{'ok ' if ok else 'BAD'} {status} {path}" + (f" -> {final}" if final != path else "") + (f" OVERFLOW {over}px" if over > 0 else ""))
             except Exception as e:  # a page that cannot be shot is a failure, not a skip
                 bad += 1
                 print(f"BAD err {path}: {e}")

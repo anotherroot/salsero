@@ -601,3 +601,24 @@ What the user settled on the boards, newest last:
 - [Main spec](2026-09-22-salsa-app-design.md): Practice's "a desktop keeps the
   560 px column" now points here.
 - `CLAUDE.md` lists this spec with the others.
+
+## Decided while building
+
+### Plan 1 — the frame
+
+- **The band-row toggle** is centred as the boards draw it: from the side's edge
+  to 40 px before the window's right edge, about 20 px left of the sheet's true
+  centre.
+- **The subtitle** sits on the title's baseline (as "The frame" says), not 4 px
+  higher as the boards draw it.
+- **Small dialogs are 480 px wide**, the measure above, not the board's 420.
+- **The Link popup's levels** are 560 wide and drawn 480 tall (the earlier line
+  that said 480 wide was a transcription error).
+- **An old `/g/<code>`** shows the built app's error words ("Not found", the
+  generic body, Back to Today) inside the card, not the board's "Join a group"
+  copy: the built app wins on wording, and the board's copy would change the
+  phone too.
+- **Any error outside a dance, or signed out,** uses the card frame.
+- **A playing sample stops when a song opens beside the list** (the root
+  layout's `stopSample` on navigation, as on the phone). The list keeps its
+  scroll, search and chips; it does not keep a sample playing.
