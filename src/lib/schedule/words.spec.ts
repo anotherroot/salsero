@@ -12,7 +12,12 @@ describe('gapWords', () => {
 		[10, '10 days'],
 		[21, '3 weeks'],
 		[60, '2 months'],
-		[365, '1 year']
+		[344, '11 months'],
+		[345, '1 year'],
+		[364, '1 year'],
+		[365, '1 year'],
+		[0, 'Tomorrow'],
+		[-3, 'Tomorrow']
 	])('%s -> %s', (d, w) => expect(gapWords(d)).toBe(w));
 });
 describe('backWords', () => {

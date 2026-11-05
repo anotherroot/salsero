@@ -48,19 +48,25 @@ describe('replay', () => {
 		expect(replay(10, at(D0), later, TZ)).toEqual({ gap: 25, lastDay: day(11), dueDay: day(36) });
 	});
 	it('counts calendar days across midnight and DST', () => {
-		// 23:30 and 00:30 next day are one day apart.
-		const s = replay(
-			1,
+		// 10-11 Oct 2026 is CEST (+02:00): 23:30 on the 10th and 00:30 on the 11th are two days.
+		const getting = (iso: string) => ({ doneAt: Date.parse(iso), rating: RATING_OF.getting });
+		const across = replay(
+			10,
 			0,
-			[
-				{ doneAt: at('2026-10-10', 23, 30), rating: RATING_OF.easy },
-				{ doneAt: at('2026-10-11', 0, 30), rating: RATING_OF.gotit }
-			],
+			[getting('2026-10-10T23:30:00+02:00'), getting('2026-10-11T00:30:00+02:00')],
 			TZ
 		);
-		// easy first: max(21,0,1.3)=21; then e=1: gotit max(7,2.5,21)=21
-		expect(s.gap).toBe(21);
-		expect(s.lastDay).toBe('2026-10-11');
+		// day 10: e=0, early -> 5; day 11: e=1, early -> max(3, 2.5) = 3
+		expect(across.gap).toBe(3);
+		expect(across.lastDay).toBe('2026-10-11');
+		// Two sets an hour apart on one local day are one review: gap 5.
+		const same = replay(
+			10,
+			0,
+			[getting('2026-10-10T22:30:00+02:00'), getting('2026-10-10T23:30:00+02:00')],
+			TZ
+		);
+		expect(same.gap).toBe(5);
 		// A gap across the 25 Oct 2026 DST end: 23 Oct noon to 27 Oct noon is 4 days.
 		const t = replay(
 			10,
@@ -79,6 +85,18 @@ describe('replay', () => {
 		const s = replay(75, 0, [gotit(day(0)), { doneAt: at(day(0), 15), rating: 4 }], TZ);
 		expect(s.gap).toBe(75);
 		expect(s.dueDay).toBe(day(75));
+	});
+	it('a day is one review', () => {
+		const r = (n: number | null, h: number) => ({ doneAt: at(day(0), h), rating: n });
+		const once = (n: number) => replay(30, 0, [r(n, 10)], TZ);
+		expect(replay(30, 0, [r(2, 10), r(2, 11)], TZ)).toEqual(once(2));
+		expect(replay(30, 0, [r(5, 10), r(5, 11)], TZ)).toEqual(once(5));
+		expect(replay(30, 0, [r(4, 10), r(1, 11)], TZ)).toEqual(once(1));
+		expect(replay(30, 0, [r(1, 10), r(4, 11)], TZ)).toEqual(once(4));
+		expect(replay(30, 0, [r(2, 10), r(null, 11)], TZ)).toEqual(once(2));
+		const none = replay(30, 0, [r(null, 10)], TZ);
+		expect(none.gap).toBe(30);
+		expect(none.lastDay).toBe(day(0));
 	});
 	it('beforeDay ignores today and later sets', () => {
 		const sets = [gotit(day(0)), gotit(day(5))];
@@ -100,6 +118,11 @@ describe('preview', () => {
 		const p = preview(state, day(1));
 		expect(p.faces.map((f) => f.gap)).toEqual([1, 5, 10, 21]);
 		expect(p.early).toEqual({ lastDay: day(0), dueDay: day(10) });
+	});
+	it('is computed from the state before today', () => {
+		const sets = [gotit(day(0)), { doneAt: at(day(3)), rating: RATING_OF.hard }];
+		const before = replay(10, 0, sets, TZ, day(3));
+		expect(preview(before, day(3)).faces.map((f) => f.gap)).toEqual([1, 5, 10, 21]);
 	});
 	it('matches replay with that set added', () => {
 		const state = replay(10, 0, [gotit(day(0))], TZ);

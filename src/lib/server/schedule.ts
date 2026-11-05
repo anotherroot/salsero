@@ -46,7 +46,7 @@ export function scheduleStates(
 	);
 }
 
-/** One exercise's schedule, archived or not. */
+/** One exercise's schedule, archived or not. Not owner-scoped: callers must check access first. */
 export function scheduleStateOf(db: Db, exerciseId: number, timeZone: string): ScheduleState {
 	const row = db.select().from(exercises).where(eq(exercises.id, exerciseId)).get();
 	if (!row) throw new Error(`No exercise ${exerciseId}`);

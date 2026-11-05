@@ -7,9 +7,10 @@ import type { ScheduleState } from './schedule';
 type Span = { n: number; unit: 'day' | 'week' | 'month' | 'year' };
 
 function span(days: number): Span {
+	if (days < 1) days = 1;
 	if (days < 14) return days === 7 ? { n: 1, unit: 'week' } : { n: days, unit: 'day' };
 	if (days < 56) return { n: Math.round(days / 7), unit: 'week' };
-	if (days < 365) return { n: Math.round(days / 30), unit: 'month' };
+	if (days < 345) return { n: Math.round(days / 30), unit: 'month' };
 	return { n: 1, unit: 'year' };
 }
 
@@ -18,12 +19,12 @@ const inWords = (s: Span) => (s.n === 1 && s.unit !== 'day' ? `a ${s.unit}` : co
 
 /** "Tomorrow", "3 days", "1 week", "3 weeks", "2 months", "1 year". */
 export function gapWords(days: number): string {
-	return days === 1 ? 'Tomorrow' : count(span(days));
+	return days <= 1 ? 'Tomorrow' : count(span(days));
 }
 
 /** "Back tomorrow", "Back in 3 days", "Back in a week". */
 export function backWords(days: number): string {
-	return days === 1 ? 'Back tomorrow' : `Back in ${inWords(span(days))}`;
+	return days <= 1 ? 'Back tomorrow' : `Back in ${inWords(span(days))}`;
 }
 
 /** "today", "tomorrow", "in 3 days", "in a week", "in 4 months". */

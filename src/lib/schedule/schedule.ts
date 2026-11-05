@@ -48,8 +48,11 @@ export function nextGap(gap: number, e: number, feel: Feel | null): number {
 }
 
 /**
- * Walk the sets in time order. `beforeDay` ignores sets on or after that local
- * day (the day's rows come from the start of the day).
+ * Walk the sets in time order, one review per local day: all sets of a day are
+ * ONE review, felt as the day's last rated set (none if no set that day is
+ * rated), `e` counted from the previous day that had sets. So logging twice, or
+ * again after an Undo, never shrinks or inflates the gap. `beforeDay` ignores
+ * sets on or after that local day (the day's rows come from the start of the day).
  */
 export function replay(
 	startGap: number,
@@ -58,14 +61,19 @@ export function replay(
 	timeZone: string,
 	beforeDay?: string
 ): ScheduleState {
-	let gap = startGap;
-	let lastDay: string | null = null;
+	const byDay = new Map<string, Feel | null>();
 	const ordered = [...sets].sort((a, b) => a.doneAt - b.doneAt);
 	for (const s of ordered) {
 		const day = localDay(s.doneAt, timeZone);
 		if (beforeDay !== undefined && day >= beforeDay) continue;
+		const feel = feelOf(s.rating);
+		byDay.set(day, feel ?? byDay.get(day) ?? null);
+	}
+	let gap = startGap;
+	let lastDay: string | null = null;
+	for (const day of [...byDay.keys()].sort()) {
 		const e = lastDay === null ? 0 : daysBetween(lastDay, day);
-		gap = nextGap(gap, e, feelOf(s.rating));
+		gap = nextGap(gap, e, byDay.get(day)!);
 		lastDay = day;
 	}
 	return {
@@ -80,7 +88,11 @@ export interface FacePreview {
 	gap: number;
 }
 
-/** What each face would set if it were logged today. */
+/**
+ * What each face would set if it were logged today. `state` must be the
+ * start-of-day state: callers pass `replay(..., today)` (`beforeDay: today`),
+ * so today's own sets are not counted twice.
+ */
 export function preview(
 	state: ScheduleState,
 	today: string
