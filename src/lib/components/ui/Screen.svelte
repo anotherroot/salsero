@@ -116,7 +116,7 @@
 	{/if}
 	<div class="flex flex-wrap items-center gap-x-1 gap-y-[6px] desk:contents">
 		<div
-			class="contents desk:col-start-1 desk:row-start-1 desk:ml-[calc(var(--band-x)-max(var(--side-w),var(--band-x)))] desk:grid desk:min-w-0 desk:grid-cols-[max-content_minmax(0,max-content)_max-content] desk:items-center desk:justify-start"
+			class="contents desk:col-start-1 desk:row-start-1 desk:ml-[calc(var(--band-x)-max(var(--side-w),var(--band-x)))] desk:grid desk:min-w-0 desk:grid-cols-[max-content_minmax(0,max-content)_minmax(0,1fr)] desk:items-center desk:justify-start"
 			data-band-title
 		>
 			{#if group}
@@ -148,7 +148,7 @@
 			</h1>
 			{#if subtitle}
 				<span
-					class="order-last basis-full text-[15px] font-semibold text-band-small desk:order-none desk:col-start-3 desk:row-start-2 desk:ml-[14px] desk:self-baseline desk:pl-0 desk:whitespace-nowrap"
+					class="order-last basis-full text-[15px] font-semibold text-band-small desk:order-none desk:col-start-3 desk:row-start-2 desk:ml-[14px] desk:min-w-0 desk:self-baseline desk:truncate desk:pl-0"
 					class:pl-[38px]={!!left}>{subtitle}</span
 				>
 			{/if}
