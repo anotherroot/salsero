@@ -28,7 +28,7 @@ export function newTeamCode(): string {
 }
 
 /** What a person typed, as stored: uppercase, I and L read as 1, O as 0, separators dropped. */
-function normaliseCode(raw: string): string {
+export function normaliseCode(raw: string): string {
 	return raw.toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
 }
 
