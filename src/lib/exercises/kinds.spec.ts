@@ -31,4 +31,11 @@ describe('exercise types', () => {
 		expect(TYPES.figure.ratingQuestion).toBe('How did it go?');
 		expect(TYPES.drill.ratingQuestion).toBe('How did it go?');
 	});
+
+	it('puts a figure and a drill content left, a routine and a lesson right', () => {
+		expect(TYPES.figure.paneContent).toBe('left');
+		expect(TYPES.drill.paneContent).toBe('left');
+		expect(TYPES.routine.paneContent).toBe('right');
+		expect(TYPES.lesson.paneContent).toBe('right');
+	});
 });

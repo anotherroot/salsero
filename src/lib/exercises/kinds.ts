@@ -24,6 +24,8 @@ export interface TypeInfo {
 	/** The fields the log form shows AND the log action stores. Anything else posted is dropped. */
 	fields: readonly LogField[];
 	ratingQuestion: string;
+	/** Where the desktop pane puts the content: by the form (practised along with) or beside the history (walked, reviewed). */
+	paneContent: 'left' | 'right';
 }
 
 const BY_SOURCE: Record<Source, ExerciseType> = {
@@ -41,13 +43,15 @@ export const TYPES: Record<ExerciseType, TypeInfo> = {
 		type: 'lesson',
 		label: 'Lesson review',
 		fields: ['minutes', 'rating', 'note'],
-		ratingQuestion: 'How well do you remember it?'
+		ratingQuestion: 'How well do you remember it?',
+		paneContent: 'right'
 	},
 	figure: {
 		type: 'figure',
 		label: 'Figure practice',
 		fields: ['minutes', 'rating', 'note'],
-		ratingQuestion: 'How did it go?'
+		ratingQuestion: 'How did it go?',
+		paneContent: 'left'
 	},
 	// Reps stay here because a drill is where they mean something: clave
 	// clapping, a hundred basics. A figure is danced, not counted.
@@ -55,13 +59,15 @@ export const TYPES: Record<ExerciseType, TypeInfo> = {
 		type: 'drill',
 		label: 'Drill',
 		fields: ['minutes', 'reps', 'rating', 'note'],
-		ratingQuestion: 'How did it go?'
+		ratingQuestion: 'How did it go?',
+		paneContent: 'left'
 	},
 	routine: {
 		type: 'routine',
 		label: 'Routine',
 		fields: ['minutes', 'rating', 'note'],
-		ratingQuestion: 'How did it go?'
+		ratingQuestion: 'How did it go?',
+		paneContent: 'right'
 	}
 };
 

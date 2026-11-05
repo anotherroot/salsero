@@ -11,6 +11,8 @@ export type FooterInput = {
 	busy: boolean;
 	playing: boolean;
 	backfill: boolean;
+	/** Outside a session: the name Next goes to after a log. */
+	follow?: string | null;
 };
 export type MainState = 'log' | 'saving' | 'disabled' | 'logged';
 export interface FooterView {
@@ -37,7 +39,13 @@ export function footerFor(i: FooterInput): FooterView {
 		skip: s !== null && !i.justLogged && !s.ended,
 		main,
 		hint,
-		next: s && i.justLogged && !s.ended && s.next !== null ? `Next: ${s.next}` : null,
+		next: s
+			? i.justLogged && !s.ended && s.next !== null
+				? `Next: ${s.next}`
+				: null
+			: i.justLogged && i.follow
+				? `Next: ${i.follow}`
+				: null,
 		done
 	};
 }

@@ -12,6 +12,21 @@ const last = (o: { daysAgo: number; rating: number | null; note: string | null }
 	...o
 });
 
+describe('footerFor follow', () => {
+	it('names where Next goes outside a session, once logged', () => {
+		const v = footerFor({ ...base, justLogged: true, follow: 'Clave clapping' });
+		expect(v.next).toBe('Next: Clave clapping');
+		expect(v.main?.state).toBe('logged');
+		expect(footerFor({ ...base, follow: 'Clave clapping' }).next).toBeNull();
+		expect(footerFor({ ...base, justLogged: true, follow: null }).next).toBeNull();
+	});
+	it('lets the session win', () => {
+		expect(footerFor({ ...base, session: ses('A'), justLogged: true, follow: 'B' }).next).toBe(
+			'Next: A'
+		);
+	});
+});
+
 describe('footerFor', () => {
 	it('offers Log set by default', () => {
 		expect(footerFor(base)).toEqual({
